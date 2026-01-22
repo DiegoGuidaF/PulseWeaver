@@ -1,0 +1,31 @@
+# --- Build Artifacts ---
+# Binaries
+/bin/
+/dist/
+
+# SQLite Database files
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+
+# Environment variables (Secrets)
+.env
+.env.*
+
+# --- IDEs & Editors ---
+# JetBrains (IntelliJ, GoLand, etc.)
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# Vim/Emacs
+*.swp
+*.swo
+*~
+
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
