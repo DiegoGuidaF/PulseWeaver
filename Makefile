@@ -13,10 +13,10 @@ help:
 	@echo "  make docker-run   - Run Docker container"
 
 build:
-	go build -o bin/server cmd/server/main.go
+	go build -o bin/server cmd/api/main.go
 
 run:
-	go run cmd/server/main.go
+	go run cmd/api/main.go
 
 test:
 	go test -v ./...
@@ -32,11 +32,11 @@ lint:
 	golangci-lint run ./...
 
 migrate-up:
-	migrate -path migrations -database "sqlite3://./data.db" up
+	migrate -path internal/database/migrations -database "sqlite3://./data.db" up
 
 migrate-down:
-	migrate -path migrations -database "sqlite3://./data.db" down 1
+	migrate -path internal/database/migrations -database "sqlite3://./data.db" down 1
 
 migrate-create:
 	@read -p "Migration name: " name; \
-	migrate create -ext sql -dir migrations -seq $$name
+	migrate create -ext sql -dir internal/database/migrations -seq $$name

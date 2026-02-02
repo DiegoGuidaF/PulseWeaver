@@ -2,12 +2,20 @@ package database
 
 import (
 	"context"
+	"embed"
+	"errors"
 	"fmt"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite3"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
+
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
 )
+
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
 type SQLite struct {
 	db *sqlx.DB
@@ -41,4 +49,28 @@ func (s *SQLite) DB() *sqlx.DB {
 
 func (s *SQLite) Close() error {
 	return s.db.Close()
+}
+
+func (s *SQLite) Migrate() error {
+	// Create sqlite3 driver instance
+	driver, err := sqlite3.WithInstance(s.db.DB, &sqlite3.Config{})
+	if err != nil {
+		return fmt.Errorf("create driver: %w", err)
+	}
+
+	source, err := iofs.New(migrationsFS, "migrations")
+	if err != nil {
+		return fmt.Errorf("load migrations: %w", err)
+	}
+
+	m, err := migrate.NewWithInstance("iofs", source, "sqlite3", driver)
+	if err != nil {
+		return fmt.Errorf("create migrator: %w", err)
+	}
+	// Run migrations
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("run migrations: %w", err)
+	}
+
+	return nil
 }

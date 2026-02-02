@@ -34,6 +34,9 @@ func run(ctx context.Context) error {
 	}
 	defer db.Close()
 
+	if err := db.Migrate(); err != nil {
+		return fmt.Errorf("migration error: %w", err)
+	}
 	log.Println("Database initialized and connected successfully")
 
 	deviceRepo := device.NewRepository(db)
