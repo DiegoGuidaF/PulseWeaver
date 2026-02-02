@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"strconv"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
@@ -43,9 +44,10 @@ func main() {
 	// Routes
 	r.Get("/health", handler.Health)
 	r.Get("/api/v1/devices", deviceHandler.GetDevices)
+	r.Post("/api/v1/devices", deviceHandler.CreateDevice)
 
 	// Start server
-	err = http.ListenAndServe(":8080", r)
+	err = http.ListenAndServe(":"+strconv.Itoa(conf.Server.Port), r)
 	if err != nil {
 		log.Fatalf("Failed to run server: %v", err)
 	}

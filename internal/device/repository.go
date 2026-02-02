@@ -21,17 +21,16 @@ func (r *Repository) CreateDevice(ctx context.Context, name string) (*Device, er
 	device := Device{
 		ID:        uuid.New().String(),
 		Name:      name,
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
+		CreatedAt: database.Time{Time: time.Now().UTC()},
 	}
 
 	query := `
-		INSERT INTO devices (id, name, created_at, updated_at)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO devices (id, name, created_at)
+		VALUES (?, ?, ?)
 	`
 
 	_, err := r.db.DB().ExecContext(ctx, query,
-		device.ID, device.Name, device.CreatedAt, device.UpdatedAt)
+		device.ID, device.Name, device.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("insert device: %w", err)
 	}
@@ -43,7 +42,7 @@ func (r *Repository) GetDevices(ctx context.Context) ([]Device, error) {
 	var devices []Device
 
 	query := `
-		SELECT id, name, created_at, updated_at
+		SELECT id, name, created_at
 		FROM devices
 		ORDER BY created_at DESC
 	`

@@ -2,12 +2,14 @@
 # Binaries
 /bin/
 /dist/
+/tmp/
 
 # SQLite Database files
 *.db
 *.db-journal
 *.db-wal
 *.sqlite
+*.db-shm
 
 # Environment variables (Secrets)
 .env

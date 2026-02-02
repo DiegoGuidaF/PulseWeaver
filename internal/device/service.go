@@ -21,3 +21,12 @@ func (s *Service) GetDevices(ctx context.Context) ([]Device, error) {
 
 	return devices, nil
 }
+
+func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, error) {
+	device, err := s.repo.CreateDevice(ctx, name)
+	if err != nil {
+		return nil, fmt.Errorf("create device: %w", err)
+	}
+
+	return device, nil
+}

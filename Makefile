@@ -32,10 +32,10 @@ lint:
 	golangci-lint run ./...
 
 migrate-up:
-	migrate -path migrations -database "sqlite3://device.db" up
+	migrate -path migrations -database "sqlite3://./data.db" up
 
 migrate-down:
-	migrate -path migrations -database "sqlite3://device.db" down 1
+	migrate -path migrations -database "sqlite3://./data.db" down 1
 
 migrate-create:
 	@read -p "Migration name: " name; \
