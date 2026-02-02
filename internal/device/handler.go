@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpserver"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
 )
 
 type Handler struct {
@@ -21,27 +21,27 @@ func (h *Handler) GetDevices(w http.ResponseWriter, r *http.Request) {
 	devices, err := h.service.GetDevices(ctx)
 	if err != nil {
 		log.Printf("Error fetching devices: %v", err)
-		httpserver.EncodeError(w, http.StatusInternalServerError, "Failed to fetch devices")
+		api.EncodeError(w, http.StatusInternalServerError, "Failed to fetch devices")
 		return
 	}
 
-	httpserver.EncodeJSON(w, http.StatusOK, devices)
+	api.EncodeJSON(w, http.StatusOK, devices)
 }
 
 func (h *Handler) CreateDevice(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// 1. Decode the JSON request body
-	req, err := httpserver.DecodeJSON[CreateDeviceRequest](r)
+	req, err := api.DecodeJSON[CreateDeviceRequest](r)
 	if err != nil {
 		log.Printf("Decode error: %v", err)
-		httpserver.EncodeError(w, http.StatusBadRequest, "Invalid request body")
+		api.EncodeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	// Validate
 	if err := req.Validate(); err != nil {
-		httpserver.EncodeError(w, http.StatusBadRequest, err.Error())
+		api.EncodeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -49,9 +49,9 @@ func (h *Handler) CreateDevice(w http.ResponseWriter, r *http.Request) {
 	device, err := h.service.CreateDevice(ctx, req.Name)
 	if err != nil {
 		log.Printf("Create error: %v", err)
-		httpserver.EncodeError(w, http.StatusInternalServerError, "Failed to create device")
+		api.EncodeError(w, http.StatusInternalServerError, "Failed to create device")
 		return
 	}
 
-	httpserver.EncodeJSON(w, http.StatusCreated, device)
+	api.EncodeJSON(w, http.StatusCreated, device)
 }

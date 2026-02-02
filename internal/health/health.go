@@ -1,4 +1,4 @@
-package handler
+package health
 
 import (
 	"encoding/json"
@@ -6,13 +6,13 @@ import (
 	"time"
 )
 
-type HealthResponse struct {
+type Response struct {
 	Status    string `json:"status"`
 	Timestamp string `json:"timestamp"`
 }
 
-func Health(w http.ResponseWriter, r *http.Request) {
-	response := HealthResponse{
+func Handler(w http.ResponseWriter, r *http.Request) {
+	response := Response{
 		Status:    "ok",
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	}
