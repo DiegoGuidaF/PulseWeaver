@@ -1,49 +1,46 @@
 package config
 
 import (
+	"fmt"
 	"log"
-	"time"
 
 	"github.com/caarlos0/env/v11"
+	"github.com/joho/godotenv"
 )
 
 type Conf struct {
-	TZ     string `env:"TZ,required"`
+	TZ     string `env:"TZ" envDefault:"UTC"`
 	Server ConfServer
 	DB     ConfDB
 }
 
 type ConfServer struct {
-	Port         int           `env:"SERVER_PORT,required"`
-	TimeoutRead  time.Duration `env:"SERVER_TIMEOUT_READ,required"`
-	TimeoutWrite time.Duration `env:"SERVER_TIMEOUT_WRITE,required"`
-	TimeoutIdle  time.Duration `env:"SERVER_TIMEOUT_IDLE,required"`
-	Debug        bool          `env:"SERVER_DEBUG,required"`
+	Port  int  `env:"SERVER_PORT" envDefault:"8080"`
+	Debug bool `env:"SERVER_DEBUG" envDefault:"false"`
 }
 
 type ConfDB struct {
-	Host     string `env:"DB_HOST,required"`
-	Port     int    `env:"DB_PORT,required"`
-	Username string `env:"DB_USER,required"`
-	Password string `env:"DB_PASS,required"`
-	DBName   string `env:"DB_NAME,required"`
-	Debug    bool   `env:"DB_DEBUG,required"`
+	File  string `env:"DB_FILE" envDefault:"data.db"`
+	Debug bool   `env:"DB_DEBUG" envDefault:"false"`
 }
 
-func New() *Conf {
+func Load() (*Conf, error) {
 	var c Conf
-	if err := env.Parse(&c); err != nil {
-		log.Fatalf("Failed to decode: %s", err)
+
+	// Load .env file if present
+	if err := godotenv.Load(); err != nil {
+		log.Println("Warning: .env file not found, using system environment variables")
 	}
 
-	return &c
-}
-
-func NewDB() *ConfDB {
-	var c ConfDB
+	// Create config struct from env variables
 	if err := env.Parse(&c); err != nil {
-		log.Fatalf("Failed to decode: %s", err)
+		return nil, fmt.Errorf("parse config: %w", err)
 	}
 
-	return &c
+	// Validate after parsing
+	if c.Server.Port < 1 || c.Server.Port > 65535 {
+		return nil, fmt.Errorf("invalid port: %d", c.Server.Port)
+	}
+
+	return &c, nil
 }

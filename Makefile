@@ -1,4 +1,4 @@
-.PHONY: help build run test clean fmt lint docker-build docker-run
+.PHONY: help build run test clean fmt lint docker-build docker-run migrate-up migrate-down migrate-create
 
 help:
 	@echo "Available commands:"
@@ -30,3 +30,13 @@ fmt:
 
 lint:
 	golangci-lint run ./...
+
+migrate-up:
+	migrate -path migrations -database "sqlite3://device.db" up
+
+migrate-down:
+	migrate -path migrations -database "sqlite3://device.db" down 1
+
+migrate-create:
+	@read -p "Migration name: " name; \
+	migrate create -ext sql -dir migrations -seq $$name

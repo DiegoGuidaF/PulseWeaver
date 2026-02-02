@@ -1,91 +1,49 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
-	"time"
 
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/handler"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"gorm.io/driver/sqlite" // Sqlite driver based on CGO
-	"gorm.io/gorm"
 )
-
-var (
-	db *gorm.DB
-)
-
-func InitDB() (*gorm.DB, error) {
-	// 1. Define the database file name
-	// GORM will create database in the current directory if it doesn't exist
-	dsn := "data.db"
-
-	// 2. Open the connection
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
-	if err != nil {
-		return nil, err
-	}
-
-	// 3. AutoMigrate: Creates the "devices" table if missing
-	// This ensures your schema is ready before you start handling requests
-	err = db.AutoMigrate(&Device{})
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
-}
-
-type Device struct {
-	ID        uint `gorm:"primarykey"`
-	Name      string
-	CreatedAt time.Time
-}
-
-func getDevices(w http.ResponseWriter, r *http.Request, db *gorm.DB) {
-	var devices []Device
-	if result := db.Find(&devices); result.Error != nil {
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-
-	if err := json.NewEncoder(w).Encode(devices); err != nil {
-		// Note: If encoding fails after writing header, you can't change status code
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
-}
 
 func main() {
-	db, err := InitDB()
+	conf, err := config.Load()
+	if err != nil {
+		log.Fatalf("config error: %v", err)
+	}
+	log.Printf("starting server. Port: %v, debug: %v, db_file: %v",
+		conf.Server.Port,
+		conf.Server.Debug,
+		conf.DB.File,
+	)
+
+	db, err := database.NewSQLite(&conf.DB)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
+	defer db.Close()
 
 	log.Println("Database initialized and connected successfully")
+
+	deviceRepo := device.NewRepository(db)
+	deviceService := device.NewService(deviceRepo)
+	deviceHandler := device.NewHandler(deviceService)
 
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, err := fmt.Fprintf(w, `{"status":"ok","timestamp":"%s"}`, time.Now().UTC().Format(time.RFC3339))
-		if err != nil {
-			log.Fatalf("Failed to run server: %v", err)
-		}
-	})
-
 	// Routes
-	r.Get("/api/v1/devices", func(w http.ResponseWriter, r *http.Request) {
-		// This works because 'db' is captured from main() scope
-		getDevices(w, r, db)
-	})
+	r.Get("/health", handler.Health)
+	r.Get("/api/v1/devices", deviceHandler.GetDevices)
+
 	// Start server
 	err = http.ListenAndServe(":8080", r)
 	if err != nil {
