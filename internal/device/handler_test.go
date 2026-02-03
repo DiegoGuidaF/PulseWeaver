@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -40,11 +42,13 @@ func setupTestServer(t *testing.T) http.Handler {
 	}
 
 	// Wire up layers
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
 	deviceRepo := device.NewRepository(db)
 	deviceService := device.NewService(deviceRepo)
-	deviceHandler := device.NewHandler(deviceService)
+	deviceHandler := device.NewHandler(deviceService, logger)
 
-	return httpserver.NewServer(deviceHandler)
+	return httpserver.NewServer(deviceHandler, logger)
 }
 
 func TestCreateDevice(t *testing.T) {

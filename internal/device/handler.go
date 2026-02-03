@@ -1,7 +1,7 @@
 package device
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -11,145 +11,185 @@ import (
 
 type Handler struct {
 	service *Service
+	logger  *slog.Logger
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service *Service, logger *slog.Logger) *Handler {
+	return &Handler{service: service, logger: logger}
+}
+
+func (h *Handler) respondJSON(w http.ResponseWriter, status int, data any) {
+	if err := api.EncodeJSON(w, status, data); err != nil {
+		// This only logs if json.Encode itself fails (rare: broken pipe, cyclic reference)
+		// The middleware already logged the request, so we just log the encoding issue
+		h.logger.Error("failed to encode json response",
+			slog.Int("status", status),
+			slog.Any("error", err),
+		)
+	}
+}
+
+// respondError safely encodes error response and logs any encoding errors
+func (h *Handler) respondError(w http.ResponseWriter, status int, message string) {
+	if err := api.EncodeError(w, status, message); err != nil {
+		h.logger.Error("failed to encode error response",
+			slog.Int("status", status),
+			slog.String("message", message),
+			slog.Any("error", err),
+		)
+	}
 }
 
 func (h *Handler) GetDevices(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	devices, err := h.service.GetDevices(ctx)
+	devices, err := h.service.GetDevices(r.Context())
 	if err != nil {
-		log.Printf("Error fetching devices: %v", err)
-		api.EncodeError(w, http.StatusInternalServerError, "Failed to fetch devices")
+		h.logger.Error("Error fetching devices", slog.Any("error", err))
+		h.respondError(w, http.StatusInternalServerError, "Failed to fetch devices")
 		return
 	}
 
-	api.EncodeJSON(w, http.StatusOK, devices)
+	h.respondJSON(w, http.StatusOK, devices)
 }
 
 func (h *Handler) CreateDevice(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// 1. Decode the JSON request body
 	req, err := api.DecodeJSON[CreateDeviceRequest](r)
 	if err != nil {
-		log.Printf("Decode error: %v", err)
-		api.EncodeError(w, http.StatusBadRequest, "Invalid request body")
+		h.logger.Warn("invalid json body", slog.Any("error", err))
+		h.respondError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
-	// Validate
 	if err := req.Validate(); err != nil {
-		api.EncodeError(w, http.StatusBadRequest, err.Error())
+		h.respondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// Create
-	device, err := h.service.CreateDevice(ctx, req.Name)
+	device, err := h.service.CreateDevice(r.Context(), req.Name)
 	if err != nil {
-		log.Printf("Create error: %v", err)
-		api.EncodeError(w, http.StatusInternalServerError, "Failed to create device")
+		h.logger.Error("failed to create device",
+			slog.String("name", req.Name),
+			slog.Any("error", err),
+		)
+		h.respondError(w, http.StatusInternalServerError, "Failed to create device")
 		return
 	}
 
-	api.EncodeJSON(w, http.StatusCreated, device)
+	h.logger.Info("device created", slog.String("device_id", device.ID))
+	h.respondJSON(w, http.StatusCreated, device)
 }
 
 func (h *Handler) AssignIP(w http.ResponseWriter, r *http.Request) {
 	deviceID := chi.URLParam(r, "id")
 	if deviceID == "" {
-		log.Printf("Device ID is required")
-		api.EncodeError(w, http.StatusBadRequest, "device ID is required")
+		h.respondError(w, http.StatusBadRequest, "device ID is required")
 		return
 	}
 
-	var req AssignIPRequest
 	req, err := api.DecodeJSON[AssignIPRequest](r)
 	if err != nil {
-		log.Printf("Cannot parse body: %v", err)
-		api.EncodeError(w, http.StatusBadRequest, "Failed to decode request body")
+		h.logger.Warn("invalid json body",
+			slog.String("device_id", deviceID),
+			slog.Any("error", err),
+		)
+		h.respondError(w, http.StatusBadRequest, "Failed to decode request body")
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		log.Printf("Invalid IP: %v", err)
-		api.EncodeError(w, http.StatusBadRequest, "Invalid IP")
+		h.respondError(w, http.StatusBadRequest, "Invalid IP")
 		return
 	}
 
 	ip, err := h.service.AssignIP(r.Context(), deviceID, req.IPAddress)
 	if err != nil {
-		log.Printf("Cannot create IP: %v", err)
 		if strings.Contains(err.Error(), "not found") {
-			api.EncodeError(w, http.StatusNotFound, err.Error())
+			h.respondError(w, http.StatusNotFound, err.Error())
 			return
 		}
+
 		if strings.Contains(err.Error(), "invalid IP") || strings.Contains(err.Error(), "only IPv4") {
-			api.EncodeError(w, http.StatusBadRequest, err.Error())
+			h.respondError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		api.EncodeError(w, http.StatusInternalServerError, "failed to assign IP")
+
+		h.logger.Error("failed to assign ip",
+			slog.String("device_id", deviceID),
+			slog.String("ip", req.IPAddress),
+			slog.Any("error", err),
+		)
+		h.respondError(w, http.StatusInternalServerError, "failed to assign IP")
 		return
 	}
 
-	api.EncodeJSON(w, http.StatusCreated, ip)
+	h.logger.Info("ip assigned",
+		slog.String("device_id", deviceID),
+		slog.String("ip", ip.IPAddress),
+	)
+	h.respondJSON(w, http.StatusCreated, ip)
 }
 
 func (h *Handler) ListDeviceIPs(w http.ResponseWriter, r *http.Request) {
 	deviceID := chi.URLParam(r, "id")
 	if deviceID == "" {
-		api.EncodeError(w, http.StatusBadRequest, "device ID is required")
+		h.respondError(w, http.StatusBadRequest, "device ID is required")
 		return
 	}
 
 	ips, err := h.service.ListDeviceIPs(r.Context(), deviceID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			api.EncodeError(w, http.StatusNotFound, err.Error())
+			h.respondError(w, http.StatusNotFound, err.Error())
 			return
 		}
-		api.EncodeError(w, http.StatusInternalServerError, "failed to list device IPs")
+
+		h.logger.Error("failed to list device ips",
+			slog.String("device_id", deviceID),
+			slog.Any("error", err),
+		)
+		h.respondError(w, http.StatusInternalServerError, "failed to list device IPs")
 		return
 	}
 
-	api.EncodeJSON(w, http.StatusOK, ips)
+	h.respondJSON(w, http.StatusOK, ips)
 }
 
 func (h *Handler) DisableDeviceIP(w http.ResponseWriter, r *http.Request) {
 	deviceID := chi.URLParam(r, "id")
 	if deviceID == "" {
-		api.EncodeError(w, http.StatusBadRequest, "device ID is required")
+		h.respondError(w, http.StatusBadRequest, "device ID is required")
 		return
 	}
 
 	ipIDStr := chi.URLParam(r, "ip_id")
 	if ipIDStr == "" {
-		api.EncodeError(w, http.StatusBadRequest, "ip ID is required")
+		h.respondError(w, http.StatusBadRequest, "ip ID is required")
 		return
 	}
-
-	//ipID, err := strconv.ParseInt(ipIDStr, 10, 64)
-	//if err != nil {
-	//	api.EncodeError(w, http.StatusBadRequest, "invalid ip ID format")
-	//	return
-	//}
 
 	err := h.service.DisableDeviceIP(r.Context(), deviceID, ipIDStr)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "does not belong") {
-			api.EncodeError(w, http.StatusNotFound, err.Error())
+			h.respondError(w, http.StatusNotFound, err.Error())
 			return
 		}
+
 		if strings.Contains(err.Error(), "already disabled") {
-			api.EncodeError(w, http.StatusConflict, err.Error())
+			h.respondError(w, http.StatusConflict, err.Error())
 			return
 		}
-		api.EncodeError(w, http.StatusInternalServerError, "failed to disable device IP")
+
+		h.logger.Error("failed to disable device ip",
+			slog.String("device_id", deviceID),
+			slog.String("ip_id", ipIDStr),
+			slog.Any("error", err),
+		)
+		h.respondError(w, http.StatusInternalServerError, "failed to disable device IP")
 		return
 	}
 
+	h.logger.Info("device ip disabled",
+		slog.String("device_id", deviceID),
+		slog.String("ip_id", ipIDStr),
+	)
 	w.WriteHeader(http.StatusNoContent)
 }

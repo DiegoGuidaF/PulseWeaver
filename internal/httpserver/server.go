@@ -1,22 +1,29 @@
 package httpserver
 
 import (
+	"log/slog"
 	"net/http"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/health"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	slogchi "github.com/samber/slog-chi"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
 )
 
 func NewServer(
 	deviceHandler *device.Handler,
+	logger *slog.Logger,
 ) http.Handler {
 	r := chi.NewRouter()
 
-	// global middleware
-	r.Use(middleware.Logger)
+	config := slogchi.Config{
+		WithSpanID:  true,
+		WithTraceID: true,
+	}
+
+	r.Use(slogchi.NewWithConfig(logger, config))
 	r.Use(middleware.Recoverer)
 
 	addRoutes(r, deviceHandler)

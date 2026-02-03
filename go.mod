@@ -9,9 +9,13 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
+	github.com/matryer/is v1.4.1
+	github.com/samber/slog-chi v1.18.0
 )
 
 require (
-	github.com/matryer/is v1.4.1 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.33 // indirect
+	go.opentelemetry.io/otel v1.40.0 // indirect
+	go.opentelemetry.io/otel/trace v1.40.0 // indirect
 )
