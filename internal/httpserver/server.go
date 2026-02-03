@@ -29,6 +29,13 @@ func addRoutes(
 	deviceHandler *device.Handler,
 ) {
 	r.Get("/health", health.Handler)
+
+	// Devices
 	r.Get("/api/v1/devices", deviceHandler.GetDevices)
 	r.Post("/api/v1/devices", deviceHandler.CreateDevice)
+
+	// IP routes
+	r.Post("/api/v1/devices/{id}/ips", deviceHandler.AssignIP)
+	r.Get("/api/v1/devices/{id}/ips", deviceHandler.ListDeviceIPs)
+	r.Delete("/api/v1/devices/{id}/ips/{ip_id}", deviceHandler.DisableDeviceIP)
 }

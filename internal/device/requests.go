@@ -1,6 +1,7 @@
 package device
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -22,6 +23,17 @@ func (r *CreateDeviceRequest) Validate() error {
 	}
 	if len(name) > 255 {
 		return fmt.Errorf("name must be at most 255 characters")
+	}
+	return nil
+}
+
+type AssignIPRequest struct {
+	IPAddress string `json:"ip_address"`
+}
+
+func (r *AssignIPRequest) Validate() error {
+	if r.IPAddress == "" {
+		return errors.New("ip_address is required")
 	}
 	return nil
 }
