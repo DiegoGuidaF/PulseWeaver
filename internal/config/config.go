@@ -9,14 +9,14 @@ import (
 )
 
 type Conf struct {
-	TZ     string `env:"TZ" envDefault:"UTC"`
-	Server ConfServer
-	DB     ConfDB
+	Server      ConfServer
+	DB          ConfDB
+	Environment string `env:"ENVIRONMENT" envDefault:"development"`
+	TZ          string `env:"TZ" envDefault:"UTC"`
 }
 
 type ConfServer struct {
-	Port  int  `env:"SERVER_PORT" envDefault:"8080"`
-	Debug bool `env:"SERVER_DEBUG" envDefault:"false"`
+	Port int `env:"SERVER_PORT" envDefault:"8080"`
 }
 
 type ConfDB struct {

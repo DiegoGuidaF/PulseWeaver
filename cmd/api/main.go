@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog" // Import slog
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,37 +15,48 @@ import (
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpserver"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 )
 
-func run(ctx context.Context) error {
+func run(ctx context.Context) (*slog.Logger, error) {
 	conf, err := config.Load()
 	if err != nil {
-		log.Fatalf("config error: %v", err)
+		return nil, fmt.Errorf("config load error: %w", err)
 	}
-	log.Printf("starting server. Port: %v, debug: %v, db_file: %v",
-		conf.Server.Port,
-		conf.Server.Debug,
-		conf.DB.File,
+
+	// 1. Initialize Logger
+	logger := logging.New(conf.Environment)
+
+	// Set as default logger for dependencies
+	slog.SetDefault(logger)
+
+	// Log startup configuration
+	logger.Info("starting server",
+		slog.Int("port", conf.Server.Port),
+		slog.String("environment", conf.Environment),
+		slog.String("db_file", conf.DB.File),
 	)
 
+	// 2. Database Connection
 	db, err := database.NewSQLite(&conf.DB)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		return logger, fmt.Errorf("failed to connect to database: %w", err)
 	}
 	defer db.Close()
 
 	if err := db.Migrate(); err != nil {
-		return fmt.Errorf("migration error: %w", err)
+		return logger, fmt.Errorf("migration error: %w", err)
 	}
-	log.Println("Database initialized and connected successfully")
+	logger.Info("database initialized and connected successfully")
 
+	// 3. Dependency Injection
 	deviceRepo := device.NewRepository(db)
 	deviceService := device.NewService(deviceRepo)
 	deviceHandler := device.NewHandler(deviceService)
 
 	handler := httpserver.NewServer(deviceHandler)
 
-	// 5. Setup HTTP Server
+	// 4. Setup HTTP Server
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", conf.Server.Port),
 		Handler:      handler,
@@ -54,41 +65,47 @@ func run(ctx context.Context) error {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// 6. Start Server in Goroutine
+	// 5. Start Server in Goroutine
 	serverErrors := make(chan error, 1)
 	go func() {
-		log.Printf("Server listening on %s", srv.Addr)
+		logger.Info("server listening", slog.String("addr", srv.Addr))
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serverErrors <- err
 		}
 	}()
 
-	// 7. Graceful Shutdown
+	// 6. Graceful Shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
 	select {
 	case err := <-serverErrors:
-		return fmt.Errorf("server error: %w", err)
-	case <-quit:
-		log.Println("Shutting down server...")
+		return logger, fmt.Errorf("server startup error: %w", err)
+	case sig := <-quit:
+		logger.Info("shutting down server", slog.String("signal", sig.String()))
 
 		// Give outstanding requests 5 seconds to complete
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 
 		if err := srv.Shutdown(ctx); err != nil {
-			return fmt.Errorf("shutdown error: %w", err)
+			return logger, fmt.Errorf("graceful shutdown failed: %w", err)
 		}
 	}
 
-	log.Println("Server stopped")
-	return nil
+	logger.Info("server stopped")
+	return logger, nil
 }
 
 func main() {
 	ctx := context.Background()
-	if err := run(ctx); err != nil {
-		log.Fatalf("%s\n", err)
+	logger, err := run(ctx)
+	if err != nil {
+		// If logger hasn't been instantiated do it now
+		if logger == nil {
+			logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
+		}
+		logger.Error("application exited with error", slog.Any("error", err))
+		os.Exit(1)
 	}
 }
