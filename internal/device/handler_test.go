@@ -432,8 +432,8 @@ func TestDisableDeviceIP(t *testing.T) {
 	deviceID := createDeviceAndGetID(t, srv, "test-device")
 	ipID := assignIPAndGetID(t, srv, deviceID, "192.168.1.100")
 
-	url := fmt.Sprintf("/api/v1/devices/%s/ips/%d", deviceID, ipID)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
+	url := fmt.Sprintf("/api/v1/devices/%s/ips/%d/disable", deviceID, ipID)
+	req := httptest.NewRequest(http.MethodPatch, url, nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 
@@ -462,8 +462,8 @@ func TestDisableDeviceIP_AlreadyDisabled(t *testing.T) {
 	disableIP(t, srv, deviceID, ipID)
 
 	// Try to disable again
-	url := fmt.Sprintf("/api/v1/devices/%s/ips/%d", deviceID, ipID)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
+	url := fmt.Sprintf("/api/v1/devices/%s/ips/%d/disable", deviceID, ipID)
+	req := httptest.NewRequest(http.MethodPatch, url, nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 
@@ -481,8 +481,8 @@ func TestDisableDeviceIP_IPNotFound(t *testing.T) {
 	srv := setupTestServer(t)
 	deviceID := createDeviceAndGetID(t, srv, "test-device")
 
-	url := fmt.Sprintf("/api/v1/devices/%s/ips/99999", deviceID)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
+	url := fmt.Sprintf("/api/v1/devices/%s/ips/99999/disable", deviceID)
+	req := httptest.NewRequest(http.MethodPatch, url, nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 
@@ -506,8 +506,8 @@ func TestDisableDeviceIP_WrongDevice(t *testing.T) {
 	ipID := assignIPAndGetID(t, srv, device2ID, "10.0.0.1")
 
 	// Try to disable device 2's IP using device 1's ID
-	url := fmt.Sprintf("/api/v1/devices/%s/ips/%d", device1ID, ipID)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
+	url := fmt.Sprintf("/api/v1/devices/%s/ips/%d/disable", device1ID, ipID)
+	req := httptest.NewRequest(http.MethodPatch, url, nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 
@@ -578,8 +578,8 @@ func assignIPAndGetID(t *testing.T, srv http.Handler, deviceID, ipAddress string
 
 func disableIP(t *testing.T, srv http.Handler, deviceID string, ipID int64) {
 	t.Helper()
-	url := fmt.Sprintf("/api/v1/devices/%s/ips/%d", deviceID, ipID)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
+	url := fmt.Sprintf("/api/v1/devices/%s/ips/%d/disable", deviceID, ipID)
+	req := httptest.NewRequest(http.MethodPatch, url, nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 	if w.Code != http.StatusNoContent {

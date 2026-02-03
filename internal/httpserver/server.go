@@ -42,7 +42,7 @@ func addRoutes(
 	r.Post("/api/v1/devices", deviceHandler.CreateDevice)
 
 	// IP routes
-	r.Post("/api/v1/devices/{id}/ips", deviceHandler.AssignIP)
 	r.Get("/api/v1/devices/{id}/ips", deviceHandler.ListDeviceIPs)
-	r.Delete("/api/v1/devices/{id}/ips/{ip_id}", deviceHandler.DisableDeviceIP)
+	r.Post("/api/v1/devices/{id}/ips", deviceHandler.AssignIP)
+	r.Patch("/api/v1/devices/{id}/ips/{ip_id}/disable", deviceHandler.DisableDeviceIP)
 }
