@@ -11,7 +11,7 @@ type Response struct {
 	Timestamp string `json:"timestamp"`
 }
 
-func Handler(w http.ResponseWriter, r *http.Request) {
+func Handler(w http.ResponseWriter, _ *http.Request) {
 	response := Response{
 		Status:    "ok",
 		Timestamp: time.Now().UTC().Format(time.RFC3339),

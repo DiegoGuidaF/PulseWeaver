@@ -46,9 +46,9 @@ func TestCreateDevice(t *testing.T) {
 
 	device, err := repo.CreateDevice(ctx, "test-device")
 	is.NoErr(err)
-	is.True(device.ID != "")                 // ID should be set
-	is.Equal(device.Name, "test-device")     // Name matches
-	is.True(!device.CreatedAt.Time.IsZero()) // Timestamp is set
+	is.True(device.ID != "")             // ID should be set
+	is.Equal(device.Name, "test-device") // Name matches
+	is.True(!device.CreatedAt.IsZero())  // Timestamp is set
 }
 
 func TestGetDevices_Empty(t *testing.T) {

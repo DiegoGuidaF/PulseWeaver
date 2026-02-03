@@ -38,7 +38,10 @@ func NewSQLite(dbConf *config.ConfDB) (*SQLite, error) {
 
 	// Verify connection
 	if err := db.PingContext(context.Background()); err != nil {
-		db.Close()
+		err := db.Close()
+		if err != nil {
+			return nil, err
+		}
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 

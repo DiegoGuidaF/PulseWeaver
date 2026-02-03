@@ -1,0 +1,29 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - sloglint
+    - errorlint
+    - errcheck
+    - govet
+    - staticcheck
+
+  settings:
+    sloglint:
+      attr-only: true
+      no-mixed-args: true
+      # Enforce snake_case keys (e.g., "device_id", not "deviceID")
+      key-naming-case: snake
+
+formatters:
+  enable:
+    - goimports # checks if the code and import statements are formatted according to the 'goimports' command
+    - golines # checks if code is formatted, and fixes long lines
+    - gofmt # checks if the code is formatted according to 'gofmt' command
+
+  settings:
+    golines:
+      # Target maximum line length.
+      # Default: 100
+      max-len: 120

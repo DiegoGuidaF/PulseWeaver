@@ -23,6 +23,10 @@ func EncodeJSON[T any](w http.ResponseWriter, status int, v T) error {
 	return nil
 }
 
-func EncodeError(w http.ResponseWriter, status int, message string) {
-	EncodeJSON(w, status, map[string]string{"error": message})
+func EncodeError(w http.ResponseWriter, status int, message string) error {
+	err := EncodeJSON(w, status, map[string]string{"error": message})
+	if err != nil {
+		return fmt.Errorf("encode error: %w", err)
+	}
+	return nil
 }

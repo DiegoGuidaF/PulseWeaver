@@ -34,8 +34,8 @@ func (t *Time) Scan(value interface{}) error {
 
 // Value implements driver.Valuer for writing to DB
 func (t Time) Value() (driver.Value, error) {
-	if t.Time.IsZero() {
+	if t.IsZero() {
 		return nil, nil
 	}
-	return t.Time.Format(time.RFC3339), nil
+	return t.Format(time.RFC3339), nil
 }
