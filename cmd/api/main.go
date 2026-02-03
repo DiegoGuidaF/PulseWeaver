@@ -24,10 +24,9 @@ func run(ctx context.Context) (*slog.Logger, error) {
 		return nil, fmt.Errorf("config load error: %w", err)
 	}
 
-	// 1. Initialize Logger
 	logger := logging.New(conf.Environment)
 
-	// Set as default logger for dependencies
+	// Set logger for dependencies
 	slog.SetDefault(logger)
 
 	// Log startup configuration

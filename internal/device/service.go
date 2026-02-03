@@ -2,7 +2,6 @@ package device
 
 import (
 	"context"
-	"fmt"
 	"net"
 )
 
@@ -15,21 +14,11 @@ func NewService(repo *Repository) *Service {
 }
 
 func (s *Service) GetDevices(ctx context.Context) ([]Device, error) {
-	devices, err := s.repo.GetDevices(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("get devices: %w", err)
-	}
-
-	return devices, nil
+	return s.repo.GetDevices(ctx)
 }
 
 func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, error) {
-	device, err := s.repo.CreateDevice(ctx, name)
-	if err != nil {
-		return nil, fmt.Errorf("create device: %w", err)
-	}
-
-	return device, nil
+	return s.repo.CreateDevice(ctx, name)
 }
 
 func (s *Service) AssignIP(ctx context.Context, deviceID string, ipAddress string) (*DeviceIP, error) {
@@ -41,7 +30,7 @@ func (s *Service) AssignIP(ctx context.Context, deviceID string, ipAddress strin
 	// Check device exists
 	_, err := s.repo.GetDeviceByID(ctx, deviceID)
 	if err != nil {
-		return nil, fmt.Errorf("device not found: %w", err)
+		return nil, err
 	}
 
 	return s.repo.CreateDeviceIP(ctx, deviceID, ipAddress)
@@ -51,25 +40,25 @@ func (s *Service) ListDeviceIPs(ctx context.Context, deviceID string) ([]DeviceI
 	// Check device exists
 	_, err := s.repo.GetDeviceByID(ctx, deviceID)
 	if err != nil {
-		return nil, fmt.Errorf("device not found: %w", err)
+		return nil, err
 	}
 
 	return s.repo.ListActiveDeviceIPs(ctx, deviceID)
 }
 
 func (s *Service) DisableDeviceIP(ctx context.Context, deviceID string, deviceIpId string) error {
-	// Get IP to verify it belongs to the device and is active
+	// Verify device exists
 	ip, err := s.repo.GetDeviceIPByID(ctx, deviceIpId)
 	if err != nil {
-		return fmt.Errorf("device IP not found: %w", err)
+		return err
 	}
 
 	if ip.DeviceID != deviceID {
-		return fmt.Errorf("device IP does not belong to device")
+		return ErrDeviceIPWrongDevice
 	}
 
 	if ip.DisabledAt != nil {
-		return fmt.Errorf("device IP already disabled")
+		return ErrDeviceIPDisabled
 	}
 
 	return s.repo.DisableDeviceIP(ctx, deviceIpId)
@@ -78,12 +67,12 @@ func (s *Service) DisableDeviceIP(ctx context.Context, deviceID string, deviceIp
 func validateIPv4(ipAddress string) error {
 	ip := net.ParseIP(ipAddress)
 	if ip == nil {
-		return fmt.Errorf("invalid IP address format")
+		return ErrInvalidIPFormat
 	}
 
 	// Check it's IPv4 (net.ParseIP accepts both IPv4 and IPv6)
 	if ip.To4() == nil {
-		return fmt.Errorf("only IPv4 addresses are supported")
+		return ErrIPv6NotSupported
 	}
 
 	return nil

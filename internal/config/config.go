@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
@@ -30,7 +29,6 @@ func Load() (*Conf, error) {
 
 	// Load .env file if present
 	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: .env file not found, using system environment variables")
 	}
 
 	// Create config struct from env variables

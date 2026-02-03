@@ -1,9 +1,9 @@
 package device
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
 	"github.com/go-chi/chi/v5"
@@ -96,29 +96,25 @@ func (h *Handler) AssignIP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := req.Validate(); err != nil {
-		h.respondError(w, http.StatusBadRequest, "Invalid IP")
+		h.respondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	ip, err := h.service.AssignIP(r.Context(), deviceID, req.IPAddress)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		switch {
+		case errors.Is(err, ErrDeviceNotFound):
 			h.respondError(w, http.StatusNotFound, err.Error())
-			return
-		}
-
-		if strings.Contains(err.Error(), "invalid IP") || strings.Contains(err.Error(), "only IPv4") {
+		case errors.Is(err, ErrInvalidIPFormat), errors.Is(err, ErrIPv6NotSupported):
 			h.respondError(w, http.StatusBadRequest, err.Error())
-			return
+		default:
+			h.logger.Error("failed to assign ip",
+				slog.String("device_id", deviceID),
+				slog.String("ip", req.IPAddress),
+				slog.Any("error", err),
+			)
+			h.respondError(w, http.StatusInternalServerError, "failed to assign IP")
 		}
-
-		h.logger.Error("failed to assign ip",
-			slog.String("device_id", deviceID),
-			slog.String("ip", req.IPAddress),
-			slog.Any("error", err),
-		)
-		h.respondError(w, http.StatusInternalServerError, "failed to assign IP")
-		return
 	}
 
 	h.logger.Info("ip assigned",
@@ -137,7 +133,7 @@ func (h *Handler) ListDeviceIPs(w http.ResponseWriter, r *http.Request) {
 
 	ips, err := h.service.ListDeviceIPs(r.Context(), deviceID)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, ErrDeviceNotFound) {
 			h.respondError(w, http.StatusNotFound, err.Error())
 			return
 		}
@@ -168,23 +164,21 @@ func (h *Handler) DisableDeviceIP(w http.ResponseWriter, r *http.Request) {
 
 	err := h.service.DisableDeviceIP(r.Context(), deviceID, ipIDStr)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "does not belong") {
+		switch {
+		case errors.Is(err, ErrDeviceNotFound):
 			h.respondError(w, http.StatusNotFound, err.Error())
-			return
-		}
-
-		if strings.Contains(err.Error(), "already disabled") {
+		case errors.Is(err, ErrDeviceIPWrongDevice):
+			h.respondError(w, http.StatusNotFound, err.Error())
+		case errors.Is(err, ErrDeviceIPDisabled):
 			h.respondError(w, http.StatusConflict, err.Error())
-			return
+		default:
+			h.logger.Error("failed to disable device ip",
+				slog.String("device_id", deviceID),
+				slog.String("ip_id", ipIDStr),
+				slog.Any("error", err),
+			)
+			h.respondError(w, http.StatusInternalServerError, "failed to disable device IP")
 		}
-
-		h.logger.Error("failed to disable device ip",
-			slog.String("device_id", deviceID),
-			slog.String("ip_id", ipIDStr),
-			slog.Any("error", err),
-		)
-		h.respondError(w, http.StatusInternalServerError, "failed to disable device IP")
-		return
 	}
 
 	h.logger.Info("device ip disabled",

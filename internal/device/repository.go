@@ -30,7 +30,7 @@ func (r *Repository) GetDeviceByID(ctx context.Context, id string) (*Device, err
 	err := r.db.DB().GetContext(ctx, &device, query, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("device IP not found")
+			return nil, ErrDeviceNotFound
 		}
 		return nil, fmt.Errorf("failed to get device IP: %w", err)
 	}
@@ -108,7 +108,7 @@ func (r *Repository) GetDeviceIPByID(ctx context.Context, id string) (*DeviceIP,
 	err := r.db.DB().GetContext(ctx, &ip, query, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("device IP not found")
+			return nil, ErrDeviceIPNotFound
 		}
 		return nil, fmt.Errorf("failed to get device IP: %w", err)
 	}
@@ -142,7 +142,17 @@ func (r *Repository) DisableDeviceIP(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
 	if rows == 0 {
-		return fmt.Errorf("device IP not found or already disabled")
+		// Could be: IP doesn't exist OR already disabled
+		// We need to check which case it is
+		_, err := r.GetDeviceIPByID(ctx, id)
+		if err != nil {
+			if errors.Is(err, ErrDeviceIPNotFound) {
+				return ErrDeviceIPNotFound
+			}
+			return err
+		}
+		// IP exists but was already disabled
+		return ErrDeviceIPDisabled
 	}
 
 	return nil
