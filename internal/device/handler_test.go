@@ -48,6 +48,7 @@ func setupTestServer(t *testing.T) http.Handler {
 }
 
 func TestCreateDevice(t *testing.T) {
+	t.Parallel()
 	srv := setupTestServer(t)
 
 	tests := []struct {
@@ -82,6 +83,7 @@ func TestCreateDevice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			is := is.New(t)
 			// Marshal request body
 			body, _ := json.Marshal(tt.body)
@@ -117,6 +119,7 @@ func TestCreateDevice(t *testing.T) {
 }
 
 func TestGetDevices(t *testing.T) {
+	t.Parallel()
 	is := is.New(t)
 
 	srv := setupTestServer(t)
