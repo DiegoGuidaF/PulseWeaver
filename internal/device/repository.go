@@ -32,7 +32,7 @@ func (r *Repository) GetDeviceByID(ctx context.Context, id string) (*Device, err
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrDeviceNotFound
 		}
-		return nil, fmt.Errorf("failed to get device IP: %w", err)
+		return nil, fmt.Errorf("failed to get device: %w", err)
 	}
 	return &device, nil
 }
@@ -41,7 +41,7 @@ func (r *Repository) CreateDevice(ctx context.Context, name string) (*Device, er
 	device := Device{
 		ID:        uuid.New().String(),
 		Name:      name,
-		CreatedAt: database.Time{Time: time.Now().UTC()},
+		CreatedAt: time.Now().UTC(),
 	}
 
 	query := `
@@ -82,7 +82,7 @@ func (r *Repository) CreateDeviceIP(ctx context.Context, deviceID string, ipAddr
 	deviceIP := DeviceIP{
 		DeviceID:  deviceID,
 		IPAddress: ipAddress,
-		CreatedAt: database.Time{Time: time.Now().UTC()},
+		CreatedAt: time.Now().UTC(),
 	}
 
 	query := `

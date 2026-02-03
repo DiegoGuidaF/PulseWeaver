@@ -85,7 +85,7 @@ func (h *Handler) AssignIP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req, err := api.DecodeJSON[AssignIPRequest](r)
+	req, err := api.DecodeJSON[AssignDeviceIPRequest](r)
 	if err != nil {
 		h.logger.Warn("invalid json body",
 			slog.String("device_id", deviceID),
@@ -165,7 +165,7 @@ func (h *Handler) DisableDeviceIP(w http.ResponseWriter, r *http.Request) {
 	err := h.service.DisableDeviceIP(r.Context(), deviceID, ipIDStr)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrDeviceNotFound):
+		case errors.Is(err, ErrDeviceIPNotFound):
 			h.respondError(w, http.StatusNotFound, err.Error())
 		case errors.Is(err, ErrDeviceIPWrongDevice):
 			h.respondError(w, http.StatusNotFound, err.Error())

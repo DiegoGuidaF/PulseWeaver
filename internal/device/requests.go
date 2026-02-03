@@ -27,11 +27,11 @@ func (r *CreateDeviceRequest) Validate() error {
 	return nil
 }
 
-type AssignIPRequest struct {
+type AssignDeviceIPRequest struct {
 	IPAddress string `json:"ip_address"`
 }
 
-func (r *AssignIPRequest) Validate() error {
+func (r *AssignDeviceIPRequest) Validate() error {
 	if r.IPAddress == "" {
 		return errors.New("ip_address is required")
 	}

@@ -1,10 +1,10 @@
 CREATE TABLE device_ips
 (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    device_id   TEXT      NOT NULL,
-    ip_address  TEXT      NOT NULL,
-    created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    disabled_at TEXT,
+    device_id   TEXT     NOT NULL,
+    ip_address  TEXT     NOT NULL,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    disabled_at DATETIME,
     FOREIGN KEY (device_id) REFERENCES devices (id) ON DELETE CASCADE
 );
 

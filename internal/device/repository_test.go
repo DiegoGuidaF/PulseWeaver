@@ -15,7 +15,7 @@ func setupTestDB(t *testing.T) *Repository {
 
 	// ✅ Use unique in-memory database per test
 	conf := &config.ConfDB{
-		Dsn:   fmt.Sprintf("file:%s?mode=memory", t.Name()),
+		Dsn:   fmt.Sprintf("file:%s?mode=memory&_loc=auto", t.Name()),
 		Debug: false,
 	}
 

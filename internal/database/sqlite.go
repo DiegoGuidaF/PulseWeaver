@@ -1,7 +1,6 @@
 package database
 
 import (
-	"context"
 	"embed"
 	"errors"
 	"fmt"
@@ -28,26 +27,34 @@ func NewSQLite(dbConf *config.ConfDB) (*SQLite, error) {
 	if dbConf.Dsn != "" {
 		dsn = dbConf.Dsn
 	} else {
-		dsn = fmt.Sprintf("file:%s?cache=shared&mode=rwc&_journal_mode=WAL", dbConf.File)
+		dsn = fmt.Sprintf("file:%s?cache=shared&mode=rwc&_loc=auto", dbConf.File)
 	}
 
-	db, err := sqlx.Open("sqlite3", dsn)
+	db, err := sqlx.Connect("sqlite3", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	// Verify connection
-	if err := db.PingContext(context.Background()); err != nil {
-		err := db.Close()
-		if err != nil {
-			return nil, err
-		}
-		return nil, fmt.Errorf("ping database: %w", err)
+	// Connection pool settings (SQLite handles 1 writer at a time)
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(0) // Reuse connections indefinitely (SQLite is file-based)
+
+	// SQLite-specific pragmas
+	pragmas := []string{
+		"PRAGMA foreign_keys = ON",
+		"PRAGMA journal_mode = WAL",
+		"PRAGMA synchronous = NORMAL",
+		"PRAGMA busy_timeout = 5000",
+		"PRAGMA cache_size = -64000",
 	}
 
-	// Connection pool settings (SQLite handles 1 writer at a time)
-	db.SetMaxOpenConns(1) // SQLite limitation
-	db.SetMaxIdleConns(1)
+	for _, pragma := range pragmas {
+		if _, err := db.Exec(pragma); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("exec %q: %w", pragma, err)
+		}
+	}
 
 	return &SQLite{db: db}, nil
 }
