@@ -127,6 +127,11 @@ func (r *Repository) ListActiveDeviceIPs(ctx context.Context, deviceID string) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to list device IPs: %w", err)
 	}
+
+	if ips == nil {
+		return []DeviceIP{}, nil
+	}
+
 	return ips, nil
 }
 

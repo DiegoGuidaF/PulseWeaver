@@ -20,8 +20,6 @@ func NewHandler(service *Service, logger *slog.Logger) *Handler {
 
 func (h *Handler) respondJSON(w http.ResponseWriter, status int, data any) {
 	if err := api.EncodeJSON(w, status, data); err != nil {
-		// This only logs if json.Encode itself fails (rare: broken pipe, cyclic reference)
-		// The middleware already logged the request, so we just log the encoding issue
 		h.logger.Error("failed to encode json response",
 			slog.Int("status", status),
 			slog.Any("error", err),
@@ -29,7 +27,6 @@ func (h *Handler) respondJSON(w http.ResponseWriter, status int, data any) {
 	}
 }
 
-// respondError safely encodes error response and logs any encoding errors
 func (h *Handler) respondError(w http.ResponseWriter, status int, message string) {
 	if err := api.EncodeError(w, status, message); err != nil {
 		h.logger.Error("failed to encode error response",
@@ -40,6 +37,15 @@ func (h *Handler) respondError(w http.ResponseWriter, status int, message string
 	}
 }
 
+// GetDevices godoc
+//
+//	@Summary		List all devices
+//	@Description	Get all devices in the system
+//	@Tags			devices
+//	@Produce		json
+//	@Success		200	{array}		Device
+//	@Failure		500	{object}	api.ErrorResponse
+//	@Router			/devices [get]
 func (h *Handler) GetDevices(w http.ResponseWriter, r *http.Request) {
 	devices, err := h.service.GetDevices(r.Context())
 	if err != nil {
@@ -51,6 +57,18 @@ func (h *Handler) GetDevices(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, devices)
 }
 
+// CreateDevice godoc
+//
+//	@Summary		Create a device
+//	@Description	Create a new device with a name
+//	@Tags			devices
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		CreateDeviceRequest	true	"Device creation request"
+//	@Success		201		{object}	Device
+//	@Failure		400		{object}	api.ErrorResponse
+//	@Failure		500		{object}	api.ErrorResponse
+//	@Router			/devices [post]
 func (h *Handler) CreateDevice(w http.ResponseWriter, r *http.Request) {
 	req, err := api.DecodeJSON[CreateDeviceRequest](r)
 	if err != nil {
@@ -78,6 +96,57 @@ func (h *Handler) CreateDevice(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusCreated, device)
 }
 
+// ListDeviceIPs godoc
+//
+//	@Summary		List device IPs
+//	@Description	Get all enabled IPs for a specific device
+//	@Tags			device-ips
+//	@Produce		json
+//	@Param			id	path		string	true	"Device ID (UUID)"
+//	@Success		200	{array}		DeviceIP
+//	@Failure		400	{object}	api.ErrorResponse
+//	@Failure		404	{object}	api.ErrorResponse
+//	@Failure		500	{object}	api.ErrorResponse
+//	@Router			/devices/{id}/ips [get]
+func (h *Handler) ListDeviceIPs(w http.ResponseWriter, r *http.Request) {
+	deviceID := chi.URLParam(r, "id")
+	if deviceID == "" {
+		h.respondError(w, http.StatusBadRequest, "device ID is required")
+		return
+	}
+
+	ips, err := h.service.ListDeviceIPs(r.Context(), deviceID)
+	if err != nil {
+		if errors.Is(err, ErrDeviceNotFound) {
+			h.respondError(w, http.StatusNotFound, err.Error())
+			return
+		}
+
+		h.logger.Error("failed to list device ips",
+			slog.String("device_id", deviceID),
+			slog.Any("error", err),
+		)
+		h.respondError(w, http.StatusInternalServerError, "failed to list device IPs")
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, ips)
+}
+
+// AssignIP godoc
+//
+//	@Summary		Assign IP to device
+//	@Description	Add a new IPv4 address to a device
+//	@Tags			device-ips
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		string					true	"Device ID (UUID)"
+//	@Param			request	body		AssignDeviceIPRequest	true	"IP assignment request"
+//	@Success		201		{object}	DeviceIP
+//	@Failure		400		{object}	api.ErrorResponse	"Invalid IP format or IPv6 not supported"
+//	@Failure		404		{object}	api.ErrorResponse	"Device not found"
+//	@Failure		500		{object}	api.ErrorResponse
+//	@Router			/devices/{id}/ips [post]
 func (h *Handler) AssignIP(w http.ResponseWriter, r *http.Request) {
 	deviceID := chi.URLParam(r, "id")
 	if deviceID == "" {
@@ -115,6 +184,7 @@ func (h *Handler) AssignIP(w http.ResponseWriter, r *http.Request) {
 			)
 			h.respondError(w, http.StatusInternalServerError, "failed to assign IP")
 		}
+		return
 	}
 
 	h.logger.Info("ip assigned",
@@ -124,31 +194,19 @@ func (h *Handler) AssignIP(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusCreated, ip)
 }
 
-func (h *Handler) ListDeviceIPs(w http.ResponseWriter, r *http.Request) {
-	deviceID := chi.URLParam(r, "id")
-	if deviceID == "" {
-		h.respondError(w, http.StatusBadRequest, "device ID is required")
-		return
-	}
-
-	ips, err := h.service.ListDeviceIPs(r.Context(), deviceID)
-	if err != nil {
-		if errors.Is(err, ErrDeviceNotFound) {
-			h.respondError(w, http.StatusNotFound, err.Error())
-			return
-		}
-
-		h.logger.Error("failed to list device ips",
-			slog.String("device_id", deviceID),
-			slog.Any("error", err),
-		)
-		h.respondError(w, http.StatusInternalServerError, "failed to list device IPs")
-		return
-	}
-
-	h.respondJSON(w, http.StatusOK, ips)
-}
-
+// DisableDeviceIP godoc
+//
+//	@Summary		Disable device IP
+//	@Description	Mark an IP address as disabled for a device
+//	@Tags			device-ips
+//	@Param			id		path	string	true	"Device ID (UUID)"
+//	@Param			ip_id	path	int		true	"Device IP ID"
+//	@Success		204		"IP successfully disabled"
+//	@Failure		400		{object}	api.ErrorResponse	"Missing device or IP ID"
+//	@Failure		404		{object}	api.ErrorResponse	"Device IP not found or wrong device"
+//	@Failure		409		{object}	api.ErrorResponse	"Device IP already disabled"
+//	@Failure		500		{object}	api.ErrorResponse
+//	@Router			/devices/{id}/ips/{ip_id} [patch]
 func (h *Handler) DisableDeviceIP(w http.ResponseWriter, r *http.Request) {
 	deviceID := chi.URLParam(r, "id")
 	if deviceID == "" {
@@ -179,6 +237,7 @@ func (h *Handler) DisableDeviceIP(w http.ResponseWriter, r *http.Request) {
 			)
 			h.respondError(w, http.StatusInternalServerError, "failed to disable device IP")
 		}
+		return
 	}
 
 	h.logger.Info("device ip disabled",

@@ -20,7 +20,7 @@ type SQLite struct {
 	db *sqlx.DB
 }
 
-func NewSQLite(dbConf *config.ConfDB) (*SQLite, error) {
+func NewSQLite(dbConf config.ConfDB) (*SQLite, error) {
 	var dsn string
 
 	// This allows to easily override dsn for tests

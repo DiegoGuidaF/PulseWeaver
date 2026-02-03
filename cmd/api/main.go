@@ -37,7 +37,7 @@ func run(ctx context.Context) (*slog.Logger, error) {
 	)
 
 	// 2. Database Connection
-	db, err := database.NewSQLite(&conf.DB)
+	db, err := database.NewSQLite(conf.DB)
 	if err != nil {
 		return logger, fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -53,7 +53,7 @@ func run(ctx context.Context) (*slog.Logger, error) {
 	deviceService := device.NewService(deviceRepo)
 	deviceHandler := device.NewHandler(deviceService, logger)
 
-	handler := httpserver.NewServer(deviceHandler, logger)
+	handler := httpserver.NewServer(deviceHandler, logger, conf.Server)
 
 	// 4. Setup HTTP Server
 	srv := &http.Server{

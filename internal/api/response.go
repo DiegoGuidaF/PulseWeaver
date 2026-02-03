@@ -6,6 +6,10 @@ import (
 	"net/http"
 )
 
+type ErrorResponse struct {
+	Error string `json:"error" example:"device not found"`
+}
+
 func DecodeJSON[T any](r *http.Request) (T, error) {
 	var v T
 	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
@@ -24,7 +28,7 @@ func EncodeJSON[T any](w http.ResponseWriter, status int, v T) error {
 }
 
 func EncodeError(w http.ResponseWriter, status int, message string) error {
-	err := EncodeJSON(w, status, map[string]string{"error": message})
+	err := EncodeJSON(w, status, ErrorResponse{Error: message})
 	if err != nil {
 		return fmt.Errorf("encode error: %w", err)
 	}

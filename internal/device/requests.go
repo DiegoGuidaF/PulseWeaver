@@ -8,7 +8,7 @@ import (
 
 // CreateDeviceRequest represents the JSON payload for creating a device
 type CreateDeviceRequest struct {
-	Name string `json:"name"`
+	Name string `json:"name" example:"Personal phone" binding:"required"`
 }
 
 // Validate checks if the request is valid
@@ -28,7 +28,7 @@ func (r *CreateDeviceRequest) Validate() error {
 }
 
 type AssignDeviceIPRequest struct {
-	IPAddress string `json:"ip_address"`
+	IPAddress string `json:"ip_address" example:"192.168.1.132" binding:"required"`
 }
 
 func (r *AssignDeviceIPRequest) Validate() error {

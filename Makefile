@@ -1,4 +1,4 @@
-.PHONY: help build run test clean fmt lint docker-build docker-run migrate-up migrate-down migrate-create
+.PHONY: help build run test clean fmt lint docker-build docker-run migrate-up migrate-down migrate-create dev
 
 help:
 	@echo "Available commands:"
@@ -40,3 +40,6 @@ migrate-down:
 migrate-create:
 	@read -p "Migration name: " name; \
 	migrate create -ext sql -dir internal/database/migrations -seq $$name
+
+dev:
+	air

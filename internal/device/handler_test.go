@@ -20,12 +20,17 @@ import (
 func setupTestServer(t *testing.T) http.Handler {
 	t.Helper()
 
-	conf := &config.ConfDB{
-		Dsn:   fmt.Sprintf("file:%s?mode=memory&_loc=auto", t.Name()),
-		Debug: false,
+	conf := config.Conf{
+		Server: config.ConfServer{
+			Port: 2000,
+		},
+		DB: config.ConfDB{
+			Dsn:   fmt.Sprintf("file:%s?mode=memory&_loc=auto", t.Name()),
+			Debug: false,
+		},
 	}
 
-	db, err := database.NewSQLite(conf)
+	db, err := database.NewSQLite(conf.DB)
 	if err != nil {
 		t.Fatalf("setup db: %v", err)
 	}
@@ -46,7 +51,7 @@ func setupTestServer(t *testing.T) http.Handler {
 	deviceService := device.NewService(deviceRepo)
 	deviceHandler := device.NewHandler(deviceService, logger)
 
-	return httpserver.NewServer(deviceHandler, logger)
+	return httpserver.NewServer(deviceHandler, logger, conf.Server)
 }
 
 func TestCreateDevice(t *testing.T) {
