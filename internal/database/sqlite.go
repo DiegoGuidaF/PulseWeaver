@@ -22,8 +22,14 @@ type SQLite struct {
 }
 
 func NewSQLite(dbConf *config.ConfDB) (*SQLite, error) {
-	// Open with WAL mode for better concurrency
-	dsn := fmt.Sprintf("file:%s?cache=shared&mode=rwc&_journal_mode=WAL", dbConf.File)
+	var dsn string
+
+	// This allows to easily override dsn for tests
+	if dbConf.Dsn != "" {
+		dsn = dbConf.Dsn
+	} else {
+		dsn = fmt.Sprintf("file:%s?cache=shared&mode=rwc&_journal_mode=WAL", dbConf.File)
+	}
 
 	db, err := sqlx.Open("sqlite3", dsn)
 	if err != nil {

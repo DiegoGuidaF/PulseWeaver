@@ -22,6 +22,7 @@ type ConfServer struct {
 type ConfDB struct {
 	File  string `env:"DB_FILE" envDefault:"data.db"`
 	Debug bool   `env:"DB_DEBUG" envDefault:"false"`
+	Dsn   string
 }
 
 func Load() (*Conf, error) {
