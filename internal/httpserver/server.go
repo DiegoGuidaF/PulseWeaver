@@ -1,39 +1,22 @@
 package httpserver
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
-	_ "forgejo.wally.mywire.org/diego/WallyDic.git/docs"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/health"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	slogchi "github.com/samber/slog-chi"
+	"github.com/oapi-codegen/nethttp-middleware"
+	"github.com/samber/slog-chi"
+	httpSwagger "github.com/swaggo/http-swagger"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
 )
 
-//	@title			WallyDic Device Management API
-//	@version		1.0
-//	@description	Device and IP address management system
-//	@termsOfService	http://swagger.io/terms/
-
-//	@contact.name	API Support
-//	@contact.email	support@wallydic.com
-
-//	@license.name	MIT
-//	@license.url	https://opensource.org/licenses/MIT
-
-//	@BasePath	/api/v1
-
-//	@schemes	http https
-
-func NewServer(
-	deviceHandler *device.Handler,
-	logger *slog.Logger,
-	config config.ConfServer,
-) http.Handler {
+func NewServer(openApiHandler *device.OpenApiHandler, logger *slog.Logger) http.Handler {
 	r := chi.NewRouter()
 
 	loggerConfig := slogchi.Config{
@@ -44,23 +27,38 @@ func NewServer(
 	r.Use(slogchi.NewWithConfig(logger, loggerConfig))
 	r.Use(middleware.Recoverer)
 
-	addRoutes(r, deviceHandler, config)
+	addRoutes(r, openApiHandler)
 
 	return r
 }
 
-// TODO: Continue here. I need to understand how the DeviceHandler type struct can implement the types of the openapi server interface
-func addRoutes(r *chi.Mux, deviceHandler *device.Handler, config config.ConfServer) {
+func addRoutes(r *chi.Mux, openApiHandler *device.OpenApiHandler) {
 	r.Get("/health", health.Handler)
 
-	//r.Mount("/", api.Handler(&deviceHandler))
+	r.Get("/swagger.json", func(w http.ResponseWriter, r *http.Request) {
+		swagger, _ := api.GetSwagger()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(swagger)
+	})
 
-	// Devices
-	r.Get("/api/v1/devices", deviceHandler.GetDevices)
-	r.Post("/api/v1/devices", deviceHandler.CreateDevice)
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger.json"),
+	))
 
-	// IP routes
-	r.Get("/api/v1/devices/{id}/ips", deviceHandler.ListDeviceIPs)
-	r.Post("/api/v1/devices/{id}/ips", deviceHandler.AssignIP)
-	r.Patch("/api/v1/devices/{id}/ips/{ip_id}/disable", deviceHandler.DisableDeviceIP)
+	r.Route("/api/v1", func(r chi.Router) {
+		swagger, _ := api.GetSwagger()
+		r.Use(nethttpmiddleware.OapiRequestValidator(swagger))
+
+		strictHandler := api.NewStrictHandler(openApiHandler, nil)
+		api.HandlerFromMux(strictHandler, r)
+	})
+
+	//// Devices
+	//r.Get("/api/v1/devices", deviceHandler.GetDevices)
+	//r.Post("/api/v1/devices", deviceHandler.CreateDevice)
+
+	//// IP routes
+	//r.Get("/api/v1/devices/{id}/ips", deviceHandler.ListDeviceIPs)
+	//r.Post("/api/v1/devices/{id}/ips", deviceHandler.AssignIP)
+	//r.Patch("/api/v1/devices/{id}/ips/{ip_id}/disable", deviceHandler.DisableDeviceIP)
 }

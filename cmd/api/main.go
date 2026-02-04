@@ -51,9 +51,9 @@ func run(ctx context.Context) (*slog.Logger, error) {
 	// 3. Dependency Injection
 	deviceRepo := device.NewRepository(db)
 	deviceService := device.NewService(deviceRepo)
-	deviceHandler := device.NewHandler(deviceService, logger)
+	openApiHandler := device.NewOpenApiHandler(deviceService, logger)
 
-	handler := httpserver.NewServer(deviceHandler, logger, conf.Server)
+	handler := httpserver.NewServer(openApiHandler, logger)
 
 	// 4. Setup HTTP Server
 	srv := &http.Server{

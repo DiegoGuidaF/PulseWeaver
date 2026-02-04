@@ -51,7 +51,7 @@ func setupTestServer(t *testing.T) http.Handler {
 	deviceService := device.NewService(deviceRepo)
 	deviceHandler := device.NewHandler(deviceService, logger)
 
-	return httpserver.NewServer(deviceHandler, logger, conf.Server)
+	return httpserver.NewServer(nil, logger)
 }
 
 func TestHandler_CreateDevice(t *testing.T) {
