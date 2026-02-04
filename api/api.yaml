@@ -8,7 +8,7 @@ servers:
 paths:
   /devices:
     get:
-      operationId: listDevices
+      operationId: getDevices
       tags:
         - devices
       summary: List all devices
@@ -22,6 +22,38 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Device'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createDevice
+      tags:
+        - devices
+      summary: Create a device
+      description: Create a new device with the given name
+      requestBody:
+        description: Device creation request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeviceRequest'
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Internal Server Error
           content:

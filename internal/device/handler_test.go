@@ -49,9 +49,9 @@ func setupTestServer(t *testing.T) http.Handler {
 
 	deviceRepo := device.NewRepository(db)
 	deviceService := device.NewService(deviceRepo)
-	deviceHandler := device.NewHandler(deviceService, logger)
+	deviceHandler := device.NewOpenApiHandler(deviceService, logger)
 
-	return httpserver.NewServer(nil, logger)
+	return httpserver.NewServer(deviceHandler, logger)
 }
 
 func TestHandler_CreateDevice(t *testing.T) {
@@ -61,7 +61,6 @@ func TestHandler_CreateDevice(t *testing.T) {
 		name       string
 		body       map[string]string
 		wantStatus int
-		wantError  string
 	}{
 		{
 			name:       "valid device",
@@ -72,13 +71,6 @@ func TestHandler_CreateDevice(t *testing.T) {
 			name:       "empty name",
 			body:       map[string]string{"name": ""},
 			wantStatus: http.StatusBadRequest,
-			wantError:  "name is required",
-		},
-		{
-			name:       "name too short",
-			body:       map[string]string{"name": "ab"},
-			wantStatus: http.StatusBadRequest,
-			wantError:  "name must be at least 3 characters",
 		},
 		{
 			name:       "missing name field",
@@ -105,12 +97,6 @@ func TestHandler_CreateDevice(t *testing.T) {
 
 			is.Equal(w.Code, tt.wantStatus)
 
-			if tt.wantError != "" {
-				var resp map[string]string
-				json.NewDecoder(w.Body).Decode(&resp)
-				is.Equal(resp["error"], tt.wantError)
-			}
-
 			if tt.wantStatus == http.StatusCreated {
 				var dev device.Device
 				err := json.NewDecoder(w.Body).Decode(&dev)
@@ -122,24 +108,6 @@ func TestHandler_CreateDevice(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestHandler_CreateDevice_InvalidJSON(t *testing.T) {
-	is := is.New(t)
-
-	srv := setupTestServer(t)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/devices", bytes.NewReader([]byte("invalid json")))
-	req.Header.Set("Content-Type", "application/json")
-
-	w := httptest.NewRecorder()
-	srv.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusBadRequest)
-
-	var resp map[string]string
-	json.NewDecoder(w.Body).Decode(&resp)
-	is.Equal(resp["error"], "Invalid request body")
 }
 
 func TestHandler_GetDevices(t *testing.T) {

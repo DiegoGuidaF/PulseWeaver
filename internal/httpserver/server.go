@@ -47,18 +47,32 @@ func addRoutes(r *chi.Mux, openApiHandler *device.OpenApiHandler) {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		swagger, _ := api.GetSwagger()
-		r.Use(nethttpmiddleware.OapiRequestValidator(swagger))
+		validatorOptions := &nethttpmiddleware.Options{
+			ErrorHandler: validationErrorHandler,
+		}
+		r.Use(nethttpmiddleware.OapiRequestValidatorWithOptions(swagger, validatorOptions))
 
 		strictHandler := api.NewStrictHandler(openApiHandler, nil)
 		api.HandlerFromMux(strictHandler, r)
 	})
 
 	//// Devices
-	//r.Get("/api/v1/devices", deviceHandler.GetDevices)
-	//r.Post("/api/v1/devices", deviceHandler.CreateDevice)
+	//r.Get("/api/v1/devices", deviceHandler.GetDevicesv1)
+	//r.Post("/api/v1/devices", deviceHandler.CreateDevicev1)
 
 	//// IP routes
-	//r.Get("/api/v1/devices/{id}/ips", deviceHandler.ListDeviceIPs)
+	//r.Get("/api/v1/devices/{id}/ips", deviceHandler.ListDeviceIPsv1)
 	//r.Post("/api/v1/devices/{id}/ips", deviceHandler.AssignIP)
 	//r.Patch("/api/v1/devices/{id}/ips/{ip_id}/disable", deviceHandler.DisableDeviceIP)
+}
+
+// validationErrorHandler OpenApi validation errors match rest of app JSON with "error" key
+func validationErrorHandler(w http.ResponseWriter, msg string, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+
+	response := api.ErrorResponse{
+		Error: &msg,
+	}
+	json.NewEncoder(w).Encode(response)
 }

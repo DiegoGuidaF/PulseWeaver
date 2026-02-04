@@ -37,7 +37,7 @@ func (h *Handler) respondError(w http.ResponseWriter, status int, message string
 	}
 }
 
-// GetDevices godoc
+// GetDevicesv1 godoc
 //
 //	@Summary		List all devices
 //	@Description	Get all devices in the system
@@ -46,7 +46,7 @@ func (h *Handler) respondError(w http.ResponseWriter, status int, message string
 //	@Success		200	{array}		Device
 //	@Failure		500	{object}	tooling.ErrorResponse
 //	@Router			/devices [get]
-func (h *Handler) GetDevices(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetDevicesv1(w http.ResponseWriter, r *http.Request) {
 	devices, err := h.service.GetDevices(r.Context())
 	if err != nil {
 		h.logger.Error("Error fetching devices", slog.Any("error", err))
@@ -57,7 +57,7 @@ func (h *Handler) GetDevices(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, devices)
 }
 
-// CreateDevice godoc
+// CreateDevicev1 godoc
 //
 //	@Summary		Create a device
 //	@Description	Create a new device with a name
@@ -69,7 +69,7 @@ func (h *Handler) GetDevices(w http.ResponseWriter, r *http.Request) {
 //	@Failure		400		{object}	tooling.ErrorResponse
 //	@Failure		500		{object}	tooling.ErrorResponse
 //	@Router			/devices [post]
-func (h *Handler) CreateDevice(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateDevicev1(w http.ResponseWriter, r *http.Request) {
 	req, err := tooling.DecodeJSON[CreateDeviceRequest](r)
 	if err != nil {
 		h.logger.Warn("invalid json body", slog.Any("error", err))
@@ -96,7 +96,7 @@ func (h *Handler) CreateDevice(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusCreated, device)
 }
 
-// ListDeviceIPs godoc
+// ListDeviceIPsv1 godoc
 //
 //	@Summary		List device IPs
 //	@Description	Get all enabled IPs for a specific device
@@ -108,7 +108,7 @@ func (h *Handler) CreateDevice(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404	{object}	tooling.ErrorResponse
 //	@Failure		500	{object}	tooling.ErrorResponse
 //	@Router			/devices/{id}/ips [get]
-func (h *Handler) ListDeviceIPs(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ListDeviceIPsv1(w http.ResponseWriter, r *http.Request) {
 	deviceIdString := chi.URLParam(r, "id")
 	if deviceIdString == "" {
 		h.respondError(w, http.StatusBadRequest, "device ID is required")

@@ -1,0 +1,269 @@
+openapi: 3.0.1
+info:
+  title: WallyDic Device Management API
+  description: Device and IP address management system
+  version: "1.0"
+servers:
+  - url: /api/v1
+paths:
+  /devices:
+    get:
+      operationId: listDevices
+      tags:
+        - devices
+      summary: List all devices
+      description: Get all devices in the system
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/device.Device'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ErrorResponse'
+    post:
+      operationId: createDevice
+      tags:
+        - devices
+      summary: Create a device
+      description: Create a new device with the given name
+      requestBody:
+        description: Device creation request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/device.CreateDeviceRequest'
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/device.Device'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ErrorResponse'
+      #x-codegen-request-body-name: request
+  /devices/{id}/ips:
+    get:
+      operationId: listDeviceIps
+      tags:
+        - device-ips
+      summary: List device IPs
+      description: Get all enabled IPs for a specific device
+      parameters:
+        - name: id
+          in: path
+          description: Device ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/device.DeviceIP'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ErrorResponse'
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ErrorResponse'
+    post:
+      operationId: addDeviceIp
+      tags:
+        - device-ips
+      summary: Assign IP to device
+      description: Add a new IPv4 address to a device
+      parameters:
+        - name: id
+          in: path
+          description: Device ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: IP assignment request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/device.AssignDeviceIPRequest'
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/device.DeviceIP'
+        "400":
+          description: Invalid IP format or IPv6 not supported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ErrorResponse'
+        "404":
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ErrorResponse'
+  /devices/{id}/ips/{ip_id}/disable:
+    patch:
+      operationId: disableDeviceIp
+      tags:
+        - device-ips
+      summary: Disable device IP
+      description: Mark an IP address as disabled for a device
+      parameters:
+        - name: id
+          in: path
+          description: Device ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: ip_id
+          in: path
+          description: Device IP ID
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: IP successfully disabled
+        "400":
+          description: Missing device or IP ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ErrorResponse'
+        "404":
+          description: Device IP not found or wrong device
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ErrorResponse'
+        "409":
+          description: Device IP already disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ErrorResponse'
+components:
+  schemas:
+    #################
+    # Requests
+    #################
+    device.AssignDeviceIPRequest:
+      required:
+        - ip_address
+      type: object
+      properties:
+        ip_address:
+          type: string
+          format: ipv4
+          example: 192.168.1.132
+    device.CreateDeviceRequest:
+      required:
+        - name
+      type: object
+      properties:
+        name:
+          type: string
+          example: Personal phone
+          minLength: 3
+          maxLength: 50
+    #################
+    # Responses
+    #################
+    api.ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: device not found
+    #################
+    # Entities
+    #################
+    device.Device:
+      type: object
+      properties:
+        created_at:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    device.DeviceIP:
+      type: object
+      required:
+        - id
+        - device_id
+        - ip_address
+        - created_at
+      properties:
+        id:
+          type: integer
+        device_id:
+          type: string
+          format: uuid
+        ip_address:
+          type: string
+          format: ipv4
+        disabled_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
