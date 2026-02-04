@@ -13,7 +13,6 @@ import (
 func setupTestDB(t *testing.T) *Repository {
 	t.Helper()
 
-	// ✅ Use unique in-memory database per test
 	conf := config.ConfDB{
 		Dsn:   fmt.Sprintf("file:%s?mode=memory&_loc=auto", t.Name()),
 		Debug: false,
@@ -24,12 +23,10 @@ func setupTestDB(t *testing.T) *Repository {
 		t.Fatalf("setup db: %v", err)
 	}
 
-	// ✅ Clean up after test
 	t.Cleanup(func() {
 		db.Close()
 	})
 
-	// ✅ Run migrations
 	if err := db.Migrate(); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
@@ -37,8 +34,7 @@ func setupTestDB(t *testing.T) *Repository {
 	return NewRepository(db)
 }
 
-func TestCreateDevice(t *testing.T) {
-	t.Parallel()
+func TestRepository_CreateDevice(t *testing.T) {
 	is := is.New(t)
 
 	repo := setupTestDB(t)
@@ -46,13 +42,11 @@ func TestCreateDevice(t *testing.T) {
 
 	device, err := repo.CreateDevice(ctx, "test-device")
 	is.NoErr(err)
-	is.True(device.ID != "")             // ID should be set
-	is.Equal(device.Name, "test-device") // Name matches
-	is.True(!device.CreatedAt.IsZero())  // Timestamp is set
+	is.Equal(device.Name, "test-device")
+	is.True(!device.CreatedAt.IsZero())
 }
 
-func TestGetDevices_Empty(t *testing.T) {
-	t.Parallel()
+func TestRepository_GetDevices_Empty(t *testing.T) {
 	is := is.New(t)
 
 	repo := setupTestDB(t)
@@ -63,8 +57,7 @@ func TestGetDevices_Empty(t *testing.T) {
 	is.Equal(len(devices), 0) // Should be empty
 }
 
-func TestGetDevices_Multiple(t *testing.T) {
-	t.Parallel()
+func TestRepository_GetDevices_Multiple(t *testing.T) {
 	is := is.New(t)
 
 	repo := setupTestDB(t)
@@ -82,8 +75,7 @@ func TestGetDevices_Multiple(t *testing.T) {
 	is.Equal(len(devices), 2) // Should have 2 devices
 }
 
-func TestCreateDevice_DuplicateName(t *testing.T) {
-	t.Parallel()
+func TestRepository_CreateDevice_DuplicateName(t *testing.T) {
 	is := is.New(t)
 
 	repo := setupTestDB(t)
@@ -98,12 +90,10 @@ func TestCreateDevice_DuplicateName(t *testing.T) {
 	is.True(err != nil) // Should error (UNIQUE constraint)
 }
 
-func TestDatabaseIsolation(t *testing.T) {
-	t.Parallel()
+func TestRepository_DatabaseIsolation(t *testing.T) {
 
 	// Test 1: Create 1 device
 	t.Run("test1", func(t *testing.T) {
-		t.Parallel()
 		is := is.New(t)
 
 		repo := setupTestDB(t)
@@ -118,7 +108,6 @@ func TestDatabaseIsolation(t *testing.T) {
 
 	// Test 2: Should have 0 devices (fresh DB)
 	t.Run("test2", func(t *testing.T) {
-		t.Parallel()
 		is := is.New(t)
 
 		repo := setupTestDB(t)

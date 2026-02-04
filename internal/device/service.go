@@ -21,7 +21,7 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, error
 	return s.repo.CreateDevice(ctx, name)
 }
 
-func (s *Service) AssignIP(ctx context.Context, deviceID string, ipAddress string) (*DeviceIP, error) {
+func (s *Service) AssignIP(ctx context.Context, deviceID DeviceID, ipAddress string) (*DeviceIP, error) {
 	// Validate IPv4 format
 	if err := validateIPv4(ipAddress); err != nil {
 		return nil, err
@@ -36,7 +36,7 @@ func (s *Service) AssignIP(ctx context.Context, deviceID string, ipAddress strin
 	return s.repo.CreateDeviceIP(ctx, deviceID, ipAddress)
 }
 
-func (s *Service) ListDeviceIPs(ctx context.Context, deviceID string) ([]DeviceIP, error) {
+func (s *Service) ListDeviceIPs(ctx context.Context, deviceID DeviceID) ([]DeviceIP, error) {
 	// Check device exists
 	_, err := s.repo.GetDeviceByID(ctx, deviceID)
 	if err != nil {
@@ -46,7 +46,7 @@ func (s *Service) ListDeviceIPs(ctx context.Context, deviceID string) ([]DeviceI
 	return s.repo.ListActiveDeviceIPs(ctx, deviceID)
 }
 
-func (s *Service) DisableDeviceIP(ctx context.Context, deviceID string, deviceIpId string) error {
+func (s *Service) DisableDeviceIP(ctx context.Context, deviceID DeviceID, deviceIpId DeviceIpID) error {
 	// Verify device exists
 	ip, err := s.repo.GetDeviceIPByID(ctx, deviceIpId)
 	if err != nil {

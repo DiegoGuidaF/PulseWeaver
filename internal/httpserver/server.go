@@ -1,7 +1,6 @@
 package httpserver
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	slogchi "github.com/samber/slog-chi"
-	httpSwagger "github.com/swaggo/http-swagger"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
 )
@@ -51,15 +49,11 @@ func NewServer(
 	return r
 }
 
+// TODO: Continue here. I need to understand how the DeviceHandler type struct can implement the types of the openapi server interface
 func addRoutes(r *chi.Mux, deviceHandler *device.Handler, config config.ConfServer) {
 	r.Get("/health", health.Handler)
 
-	// Dynamic Swagger URL based on actual port
-	swaggerURL := fmt.Sprintf("http://localhost:%d/swagger/doc.json", config.Port)
-
-	r.Get("/swagger/*", httpSwagger.Handler(
-		httpSwagger.URL(swaggerURL),
-	))
+	//r.Mount("/", api.Handler(&deviceHandler))
 
 	// Devices
 	r.Get("/api/v1/devices", deviceHandler.GetDevices)

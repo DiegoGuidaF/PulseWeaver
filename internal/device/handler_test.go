@@ -54,8 +54,7 @@ func setupTestServer(t *testing.T) http.Handler {
 	return httpserver.NewServer(deviceHandler, logger, conf.Server)
 }
 
-func TestCreateDevice(t *testing.T) {
-	t.Parallel()
+func TestHandler_CreateDevice(t *testing.T) {
 	srv := setupTestServer(t)
 
 	tests := []struct {
@@ -95,7 +94,6 @@ func TestCreateDevice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			is := is.New(t)
 
 			body, _ := json.Marshal(tt.body)
@@ -118,7 +116,7 @@ func TestCreateDevice(t *testing.T) {
 				err := json.NewDecoder(w.Body).Decode(&dev)
 				is.NoErr(err)
 
-				is.True(dev.ID != "")
+				is.True(dev.ID.String() != "")
 				is.Equal(dev.Name, tt.body["name"])
 				is.True(!dev.CreatedAt.IsZero())
 			}
@@ -126,8 +124,7 @@ func TestCreateDevice(t *testing.T) {
 	}
 }
 
-func TestCreateDevice_InvalidJSON(t *testing.T) {
-	t.Parallel()
+func TestHandler_CreateDevice_InvalidJSON(t *testing.T) {
 	is := is.New(t)
 
 	srv := setupTestServer(t)
@@ -145,8 +142,7 @@ func TestCreateDevice_InvalidJSON(t *testing.T) {
 	is.Equal(resp["error"], "Invalid request body")
 }
 
-func TestGetDevices(t *testing.T) {
-	t.Parallel()
+func TestHandler_GetDevices(t *testing.T) {
 	is := is.New(t)
 
 	srv := setupTestServer(t)
@@ -168,8 +164,7 @@ func TestGetDevices(t *testing.T) {
 	is.Equal(len(devices), 2)
 }
 
-func TestGetDevices_EmptyList(t *testing.T) {
-	t.Parallel()
+func TestHandler_GetDevices_EmptyList(t *testing.T) {
 	is := is.New(t)
 
 	srv := setupTestServer(t)
@@ -187,15 +182,15 @@ func TestGetDevices_EmptyList(t *testing.T) {
 	is.Equal(len(devices), 0)
 }
 
-func TestAssignIP(t *testing.T) {
-	t.Parallel()
+func TestHandler_AssignIP(t *testing.T) {
 	srv := setupTestServer(t)
 
 	deviceID := createDeviceAndGetID(t, srv, "test-device")
+	nonExistentDeviceId := device.DeviceID(123544)
 
 	tests := []struct {
 		name       string
-		deviceID   string
+		deviceID   device.DeviceID
 		body       map[string]string
 		wantStatus int
 		wantError  string
@@ -241,7 +236,7 @@ func TestAssignIP(t *testing.T) {
 		},
 		{
 			name:       "device not found",
-			deviceID:   "nonexistent-device-id",
+			deviceID:   nonExistentDeviceId,
 			body:       map[string]string{"ip_address": "192.168.1.1"},
 			wantStatus: http.StatusNotFound,
 			wantError:  "device not found",
@@ -250,7 +245,6 @@ func TestAssignIP(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			is := is.New(t)
 
 			body, _ := json.Marshal(tt.body)
@@ -284,8 +278,7 @@ func TestAssignIP(t *testing.T) {
 	}
 }
 
-func TestAssignIP_InvalidJSON(t *testing.T) {
-	t.Parallel()
+func TestHandler_AssignIP_InvalidJSON(t *testing.T) {
 	is := is.New(t)
 
 	srv := setupTestServer(t)
@@ -305,8 +298,7 @@ func TestAssignIP_InvalidJSON(t *testing.T) {
 	is.Equal(resp["error"], "Failed to decode request body")
 }
 
-func TestAssignIP_SameIPToMultipleDevices(t *testing.T) {
-	t.Parallel()
+func TestHandler_AssignIP_SameIPToMultipleDevices(t *testing.T) {
 	is := is.New(t)
 
 	srv := setupTestServer(t)
@@ -329,8 +321,7 @@ func TestAssignIP_SameIPToMultipleDevices(t *testing.T) {
 	is.Equal(w.Code, http.StatusCreated)
 }
 
-func TestListDeviceIPs(t *testing.T) {
-	t.Parallel()
+func TestHandler_ListDeviceIPs(t *testing.T) {
 	is := is.New(t)
 
 	srv := setupTestServer(t)
@@ -360,8 +351,7 @@ func TestListDeviceIPs(t *testing.T) {
 	}
 }
 
-func TestListDeviceIPs_EmptyList(t *testing.T) {
-	t.Parallel()
+func TestHandler_ListDeviceIPs_EmptyList(t *testing.T) {
 	is := is.New(t)
 
 	srv := setupTestServer(t)
@@ -381,13 +371,12 @@ func TestListDeviceIPs_EmptyList(t *testing.T) {
 	is.Equal(len(ips), 0)
 }
 
-func TestListDeviceIPs_DeviceNotFound(t *testing.T) {
-	t.Parallel()
+func TestHandler_ListDeviceIPs_DeviceNotFound(t *testing.T) {
 	is := is.New(t)
 
 	srv := setupTestServer(t)
 
-	url := "/api/v1/devices/nonexistent-device/ips"
+	url := "/api/v1/devices/12346/ips"
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
@@ -399,8 +388,7 @@ func TestListDeviceIPs_DeviceNotFound(t *testing.T) {
 	is.Equal(resp["error"], "device not found")
 }
 
-func TestListDeviceIPs_OnlyActiveIPsReturned(t *testing.T) {
-	t.Parallel()
+func TestHandler_ListDeviceIPs_OnlyActiveIPsReturned(t *testing.T) {
 	is := is.New(t)
 
 	srv := setupTestServer(t)
@@ -429,8 +417,7 @@ func TestListDeviceIPs_OnlyActiveIPsReturned(t *testing.T) {
 	is.Equal(ips[0].IPAddress, "192.168.1.2")
 }
 
-func TestDisableDeviceIP(t *testing.T) {
-	t.Parallel()
+func TestHandler_DisableDeviceIP(t *testing.T) {
 	is := is.New(t)
 
 	srv := setupTestServer(t)
@@ -455,8 +442,7 @@ func TestDisableDeviceIP(t *testing.T) {
 	is.Equal(len(ips), 0)
 }
 
-func TestDisableDeviceIP_AlreadyDisabled(t *testing.T) {
-	t.Parallel()
+func TestHandler_DisableDeviceIP_AlreadyDisabled(t *testing.T) {
 	is := is.New(t)
 
 	srv := setupTestServer(t)
@@ -479,8 +465,7 @@ func TestDisableDeviceIP_AlreadyDisabled(t *testing.T) {
 	is.Equal(resp["error"], "device IP already disabled")
 }
 
-func TestDisableDeviceIP_IPNotFound(t *testing.T) {
-	t.Parallel()
+func TestHandler_DisableDeviceIP_IPNotFound(t *testing.T) {
 	is := is.New(t)
 
 	srv := setupTestServer(t)
@@ -498,8 +483,7 @@ func TestDisableDeviceIP_IPNotFound(t *testing.T) {
 	is.Equal(resp["error"], "device IP not found")
 }
 
-func TestDisableDeviceIP_WrongDevice(t *testing.T) {
-	t.Parallel()
+func TestHandler_DisableDeviceIP_WrongDevice(t *testing.T) {
 	is := is.New(t)
 
 	srv := setupTestServer(t)
@@ -535,7 +519,7 @@ func createDevice(t *testing.T, srv http.Handler, name string) {
 	}
 }
 
-func createDeviceAndGetID(t *testing.T, srv http.Handler, name string) string {
+func createDeviceAndGetID(t *testing.T, srv http.Handler, name string) device.DeviceID {
 	t.Helper()
 	body, _ := json.Marshal(map[string]string{"name": name})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/devices", bytes.NewReader(body))
@@ -551,7 +535,7 @@ func createDeviceAndGetID(t *testing.T, srv http.Handler, name string) string {
 	return dev.ID
 }
 
-func assignIP(t *testing.T, srv http.Handler, deviceID, ipAddress string) {
+func assignIP(t *testing.T, srv http.Handler, deviceID device.DeviceID, ipAddress string) {
 	t.Helper()
 	body, _ := json.Marshal(map[string]string{"ip_address": ipAddress})
 	url := fmt.Sprintf("/api/v1/devices/%s/ips", deviceID)
@@ -564,7 +548,7 @@ func assignIP(t *testing.T, srv http.Handler, deviceID, ipAddress string) {
 	}
 }
 
-func assignIPAndGetID(t *testing.T, srv http.Handler, deviceID, ipAddress string) int64 {
+func assignIPAndGetID(t *testing.T, srv http.Handler, deviceID device.DeviceID, ipAddress string) device.DeviceIpID {
 	t.Helper()
 	body, _ := json.Marshal(map[string]string{"ip_address": ipAddress})
 	url := fmt.Sprintf("/api/v1/devices/%s/ips", deviceID)
@@ -581,9 +565,9 @@ func assignIPAndGetID(t *testing.T, srv http.Handler, deviceID, ipAddress string
 	return ip.ID
 }
 
-func disableIP(t *testing.T, srv http.Handler, deviceID string, ipID int64) {
+func disableIP(t *testing.T, srv http.Handler, deviceID device.DeviceID, deviceIpID device.DeviceIpID) {
 	t.Helper()
-	url := fmt.Sprintf("/api/v1/devices/%s/ips/%d/disable", deviceID, ipID)
+	url := fmt.Sprintf("/api/v1/devices/%s/ips/%d/disable", deviceID, deviceIpID)
 	req := httptest.NewRequest(http.MethodPatch, url, nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)

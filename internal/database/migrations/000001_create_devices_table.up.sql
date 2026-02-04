@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS devices
 (
-    id         TEXT PRIMARY KEY,
+    id         INTEGER PRIMARY KEY,
     name       TEXT NOT NULL UNIQUE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

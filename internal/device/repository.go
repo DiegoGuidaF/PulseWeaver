@@ -5,11 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
-	"github.com/google/uuid"
 )
 
 type Repository struct {
@@ -20,7 +18,7 @@ func NewRepository(db *database.SQLite) *Repository {
 	return &Repository{db: db}
 }
 
-func (r *Repository) GetDeviceByID(ctx context.Context, id string) (*Device, error) {
+func (r *Repository) GetDeviceByID(ctx context.Context, id DeviceID) (*Device, error) {
 	var device Device
 	query := `
 		SELECT id, name, created_at
@@ -39,22 +37,26 @@ func (r *Repository) GetDeviceByID(ctx context.Context, id string) (*Device, err
 
 func (r *Repository) CreateDevice(ctx context.Context, name string) (*Device, error) {
 	device := Device{
-		ID:        uuid.New().String(),
 		Name:      name,
 		CreatedAt: time.Now().UTC(),
 	}
 
 	query := `
-		INSERT INTO devices (id, name, created_at)
-		VALUES (?, ?, ?)
+		INSERT INTO devices (name, created_at)
+		VALUES (?, ?)
 	`
 
-	_, err := r.db.DB().ExecContext(ctx, query, device.ID, device.Name, device.CreatedAt)
+	result, err := r.db.DB().ExecContext(ctx, query, device.Name, device.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("insert device: %w", err)
 	}
 
-	return &device, nil
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get last insert ID: %w", err)
+	}
+
+	return r.GetDeviceByID(ctx, DeviceID(id))
 }
 
 func (r *Repository) GetDevices(ctx context.Context) ([]Device, error) {
@@ -66,7 +68,6 @@ func (r *Repository) GetDevices(ctx context.Context) ([]Device, error) {
 		ORDER BY created_at DESC
 	`
 
-	// sqlx's Select scans directly into the struct slice
 	if err := r.db.DB().SelectContext(ctx, &devices, query); err != nil {
 		return nil, fmt.Errorf("select devices: %w", err)
 	}
@@ -78,7 +79,7 @@ func (r *Repository) GetDevices(ctx context.Context) ([]Device, error) {
 	return devices, nil
 }
 
-func (r *Repository) CreateDeviceIP(ctx context.Context, deviceID string, ipAddress string) (*DeviceIP, error) {
+func (r *Repository) CreateDeviceIP(ctx context.Context, deviceID DeviceID, ipAddress string) (*DeviceIP, error) {
 	deviceIP := DeviceIP{
 		DeviceID:  deviceID,
 		IPAddress: ipAddress,
@@ -99,10 +100,10 @@ func (r *Repository) CreateDeviceIP(ctx context.Context, deviceID string, ipAddr
 		return nil, fmt.Errorf("failed to get last insert ID: %w", err)
 	}
 
-	return r.GetDeviceIPByID(ctx, strconv.FormatInt(id, 10))
+	return r.GetDeviceIPByID(ctx, DeviceIpID(id))
 }
 
-func (r *Repository) GetDeviceIPByID(ctx context.Context, id string) (*DeviceIP, error) {
+func (r *Repository) GetDeviceIPByID(ctx context.Context, id DeviceIpID) (*DeviceIP, error) {
 	var ip DeviceIP
 	query := `SELECT id, device_id, ip_address, created_at, disabled_at FROM device_ips WHERE id = ?`
 	err := r.db.DB().GetContext(ctx, &ip, query, id)
@@ -115,7 +116,7 @@ func (r *Repository) GetDeviceIPByID(ctx context.Context, id string) (*DeviceIP,
 	return &ip, nil
 }
 
-func (r *Repository) ListActiveDeviceIPs(ctx context.Context, deviceID string) ([]DeviceIP, error) {
+func (r *Repository) ListActiveDeviceIPs(ctx context.Context, deviceID DeviceID) ([]DeviceIP, error) {
 	var ips []DeviceIP
 	query := `
 		SELECT id, device_id, ip_address, created_at, disabled_at 
@@ -135,7 +136,7 @@ func (r *Repository) ListActiveDeviceIPs(ctx context.Context, deviceID string) (
 	return ips, nil
 }
 
-func (r *Repository) DisableDeviceIP(ctx context.Context, id string) error {
+func (r *Repository) DisableDeviceIP(ctx context.Context, id DeviceIpID) error {
 	query := `UPDATE device_ips SET disabled_at = CURRENT_TIMESTAMP WHERE id = ? AND disabled_at IS NULL`
 	result, err := r.db.DB().ExecContext(ctx, query, id)
 	if err != nil {

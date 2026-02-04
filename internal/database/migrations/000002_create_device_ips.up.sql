@@ -1,7 +1,7 @@
 CREATE TABLE device_ips
 (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    device_id   TEXT     NOT NULL,
+    id          INTEGER PRIMARY KEY,
+    device_id   INTEGER  NOT NULL,
     ip_address  TEXT     NOT NULL,
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     disabled_at DATETIME,
