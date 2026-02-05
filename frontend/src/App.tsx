@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { DeviceList } from "./features/devices/DeviceList";
 import { CreateDeviceForm } from "./features/devices/CreateDeviceForm";
+import {Toaster} from "sonner";
 
 function Dashboard() {
     return (
@@ -38,6 +39,7 @@ function App() {
                 {/* Catch-all route for 404s */}
                 <Route path="*" element={<NotFound />} />
             </Routes>
+            <Toaster />
         </BrowserRouter>
     );
 }

@@ -17,6 +17,7 @@ import {Input} from "@/components/ui/input";
 import {Badge} from "@/components/ui/badge";
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from "@/components/ui/form";
 import {format} from "date-fns";
+import {toast} from "sonner";
 
 const ipSchema = z.object({
     ip_address: z.ipv4()
@@ -59,8 +60,12 @@ export function DeviceIPsDialog({deviceId, deviceName}: DeviceIPsDialogProps) {
             queryClient.invalidateQueries({queryKey: ["device-ips", deviceId]});
             form.reset();
             setError(null);
+            toast.success("IP added")
         },
-        onError: (err) => setError(err.message),
+        onError: (err) => {
+            toast.error(err.message)
+            setError(err.message)
+        },
     });
 
     // Disable IP mutation
@@ -72,6 +77,7 @@ export function DeviceIPsDialog({deviceId, deviceName}: DeviceIPsDialogProps) {
             if (error) throw new Error(toErrorMessage(error));
         },
         onSuccess: () => {
+            toast.success("IP disabled")
             queryClient.invalidateQueries({queryKey: ["device-ips", deviceId]});
         },
     });

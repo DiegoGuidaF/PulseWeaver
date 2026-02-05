@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useState } from "react";
+import { toast } from "sonner"; // Direct import
+
 
 const formSchema = z.object({
     name: z.string().min(3, "Name must be at least 3 characters").max(50),
@@ -14,7 +16,7 @@ const formSchema = z.object({
 
 export function CreateDeviceForm() {
     const queryClient = useQueryClient();
-    const [error, setError] = useState<string | null>(null);
+    const [error, _] = useState<string | null>(null);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -32,9 +34,16 @@ export function CreateDeviceForm() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["devices"] });
             form.reset();
-            setError(null);
+
+            toast.success("Device created", {
+                description: "The new device has been added successfully.",
+            });
         },
-        onError: (err) => setError(err.message),
+        onError: (err) => {
+            toast.error("Error creating device", {
+                description: err.message,
+            });
+        },
     });
 
     function onSubmit(values: z.infer<typeof formSchema>) {
