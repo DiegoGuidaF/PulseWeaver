@@ -2,7 +2,6 @@ package device
 
 import (
 	"context"
-	"net"
 )
 
 type Service struct {
@@ -22,11 +21,6 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, error
 }
 
 func (s *Service) AssignIP(ctx context.Context, deviceID DeviceID, ipAddress string) (*DeviceIP, error) {
-	// Validate IPv4 format
-	if err := validateIPv4(ipAddress); err != nil {
-		return nil, err
-	}
-
 	// Check device exists
 	_, err := s.repo.GetDeviceByID(ctx, deviceID)
 	if err != nil {
@@ -46,34 +40,20 @@ func (s *Service) ListDeviceIPs(ctx context.Context, deviceID DeviceID) ([]Devic
 	return s.repo.ListActiveDeviceIPs(ctx, deviceID)
 }
 
-func (s *Service) DisableDeviceIP(ctx context.Context, deviceID DeviceID, deviceIpId DeviceIpID) error {
+func (s *Service) DisableDeviceIP(ctx context.Context, deviceID DeviceID, deviceIpId DeviceIpID) (*DeviceIP, error) {
 	// Verify device exists
 	ip, err := s.repo.GetDeviceIPByID(ctx, deviceIpId)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if ip.DeviceID != deviceID {
-		return ErrDeviceIPWrongDevice
+		return nil, ErrDeviceIPWrongDevice
 	}
 
 	if ip.DisabledAt != nil {
-		return ErrDeviceIPDisabled
+		return nil, ErrDeviceIPDisabled
 	}
 
 	return s.repo.DisableDeviceIP(ctx, deviceIpId)
-}
-
-func validateIPv4(ipAddress string) error {
-	ip := net.ParseIP(ipAddress)
-	if ip == nil {
-		return ErrInvalidIPFormat
-	}
-
-	// Check it's IPv4 (net.ParseIP accepts both IPv4 and IPv6)
-	if ip.To4() == nil {
-		return ErrIPv6NotSupported
-	}
-
-	return nil
 }

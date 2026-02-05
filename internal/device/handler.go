@@ -138,7 +138,7 @@ func (h *Handler) ListDeviceIPsv1(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, ips)
 }
 
-// AssignIP godoc
+// AssignIPv1 godoc
 //
 //	@Summary		Assign IP to device
 //	@Description	Add a new IPv4 address to a device
@@ -152,7 +152,7 @@ func (h *Handler) ListDeviceIPsv1(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404		{object}	tooling.ErrorResponse	"Device not found"
 //	@Failure		500		{object}	tooling.ErrorResponse
 //	@Router			/devices/{id}/ips [post]
-func (h *Handler) AssignIP(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) AssignIPv1(w http.ResponseWriter, r *http.Request) {
 	deviceIDString := chi.URLParam(r, "id")
 	if deviceIDString == "" {
 		h.respondError(w, http.StatusBadRequest, "device ID is required")
@@ -200,7 +200,7 @@ func (h *Handler) AssignIP(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusCreated, ip)
 }
 
-// DisableDeviceIP godoc
+// DisableDeviceIPv1 godoc
 //
 //	@Summary		Disable device IP
 //	@Description	Mark an IP address as disabled for a device
@@ -213,7 +213,7 @@ func (h *Handler) AssignIP(w http.ResponseWriter, r *http.Request) {
 //	@Failure		409		{object}	tooling.ErrorResponse	"Device IP already disabled"
 //	@Failure		500		{object}	tooling.ErrorResponse
 //	@Router			/devices/{id}/ips/{ip_id} [patch]
-func (h *Handler) DisableDeviceIP(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DisableDeviceIPv1(w http.ResponseWriter, r *http.Request) {
 	deviceIdString := chi.URLParam(r, "id")
 	if deviceIdString == "" {
 		h.respondError(w, http.StatusBadRequest, "device ID is required")
@@ -228,7 +228,7 @@ func (h *Handler) DisableDeviceIP(w http.ResponseWriter, r *http.Request) {
 	}
 	deviceIpId, err := NewDeviceIPID(deviceIpIdString)
 
-	err = h.service.DisableDeviceIP(r.Context(), deviceId, deviceIpId)
+	_, err = h.service.DisableDeviceIP(r.Context(), deviceId, deviceIpId)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrDeviceIPNotFound):

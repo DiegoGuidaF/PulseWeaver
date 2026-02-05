@@ -18,8 +18,14 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
+	"github.com/oapi-codegen/runtime"
 	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
 )
+
+// AddDeviceIPRequest defines model for AddDeviceIPRequest.
+type AddDeviceIPRequest struct {
+	IpAddress string `json:"ip_address" validate:"ipv4"`
+}
 
 // CreateDeviceRequest defines model for CreateDeviceRequest.
 type CreateDeviceRequest struct {
@@ -33,6 +39,15 @@ type Device struct {
 	Name      string    `json:"name"`
 }
 
+// DeviceIP defines model for DeviceIP.
+type DeviceIP struct {
+	CreatedAt  time.Time  `json:"created_at"`
+	DeviceId   int64      `json:"device_id"`
+	DisabledAt *time.Time `json:"disabled_at"`
+	Id         int64      `json:"id"`
+	IpAddress  string     `json:"ip_address"`
+}
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Error *string `json:"error,omitempty"`
@@ -40,6 +55,9 @@ type ErrorResponse struct {
 
 // CreateDeviceJSONRequestBody defines body for CreateDevice for application/json ContentType.
 type CreateDeviceJSONRequestBody = CreateDeviceRequest
+
+// AddDeviceIpJSONRequestBody defines body for AddDeviceIp for application/json ContentType.
+type AddDeviceIpJSONRequestBody = AddDeviceIPRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -49,6 +67,15 @@ type ServerInterface interface {
 	// Create a device
 	// (POST /devices)
 	CreateDevice(w http.ResponseWriter, r *http.Request)
+	// Get IPs for a device
+	// (GET /devices/{id}/ips)
+	GetDeviceIps(w http.ResponseWriter, r *http.Request, id int64)
+	// Assign IP to device
+	// (POST /devices/{id}/ips)
+	AddDeviceIp(w http.ResponseWriter, r *http.Request, id int64)
+	// Disable device IP
+	// (PATCH /devices/{id}/ips/{ip_id}/disable)
+	DisableDeviceIp(w http.ResponseWriter, r *http.Request, id int64, ipId int64)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -64,6 +91,24 @@ func (_ Unimplemented) GetDevices(w http.ResponseWriter, r *http.Request) {
 // Create a device
 // (POST /devices)
 func (_ Unimplemented) CreateDevice(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get IPs for a device
+// (GET /devices/{id}/ips)
+func (_ Unimplemented) GetDeviceIps(w http.ResponseWriter, r *http.Request, id int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Assign IP to device
+// (POST /devices/{id}/ips)
+func (_ Unimplemented) AddDeviceIp(w http.ResponseWriter, r *http.Request, id int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Disable device IP
+// (PATCH /devices/{id}/ips/{ip_id}/disable)
+func (_ Unimplemented) DisableDeviceIp(w http.ResponseWriter, r *http.Request, id int64, ipId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -95,6 +140,90 @@ func (siw *ServerInterfaceWrapper) CreateDevice(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateDevice(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDeviceIps operation middleware
+func (siw *ServerInterfaceWrapper) GetDeviceIps(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDeviceIps(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddDeviceIp operation middleware
+func (siw *ServerInterfaceWrapper) AddDeviceIp(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddDeviceIp(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DisableDeviceIp operation middleware
+func (siw *ServerInterfaceWrapper) DisableDeviceIp(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "ip_id" -------------
+	var ipId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ip_id", chi.URLParam(r, "ip_id"), &ipId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ip_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DisableDeviceIp(w, r, id, ipId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -223,6 +352,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/devices", wrapper.CreateDevice)
 	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/devices/{id}/ips", wrapper.GetDeviceIps)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/devices/{id}/ips", wrapper.AddDeviceIp)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/devices/{id}/ips/{ip_id}/disable", wrapper.DisableDeviceIp)
+	})
 
 	return r
 }
@@ -287,6 +425,149 @@ func (response CreateDevice500JSONResponse) VisitCreateDeviceResponse(w http.Res
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetDeviceIpsRequestObject struct {
+	Id int64 `json:"id"`
+}
+
+type GetDeviceIpsResponseObject interface {
+	VisitGetDeviceIpsResponse(w http.ResponseWriter) error
+}
+
+type GetDeviceIps200JSONResponse []DeviceIP
+
+func (response GetDeviceIps200JSONResponse) VisitGetDeviceIpsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDeviceIps400JSONResponse ErrorResponse
+
+func (response GetDeviceIps400JSONResponse) VisitGetDeviceIpsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDeviceIps404JSONResponse ErrorResponse
+
+func (response GetDeviceIps404JSONResponse) VisitGetDeviceIpsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDeviceIps500JSONResponse ErrorResponse
+
+func (response GetDeviceIps500JSONResponse) VisitGetDeviceIpsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AddDeviceIpRequestObject struct {
+	Id   int64 `json:"id"`
+	Body *AddDeviceIpJSONRequestBody
+}
+
+type AddDeviceIpResponseObject interface {
+	VisitAddDeviceIpResponse(w http.ResponseWriter) error
+}
+
+type AddDeviceIp201JSONResponse DeviceIP
+
+func (response AddDeviceIp201JSONResponse) VisitAddDeviceIpResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AddDeviceIp400JSONResponse ErrorResponse
+
+func (response AddDeviceIp400JSONResponse) VisitAddDeviceIpResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AddDeviceIp404JSONResponse ErrorResponse
+
+func (response AddDeviceIp404JSONResponse) VisitAddDeviceIpResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AddDeviceIp500JSONResponse ErrorResponse
+
+func (response AddDeviceIp500JSONResponse) VisitAddDeviceIpResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DisableDeviceIpRequestObject struct {
+	Id   int64 `json:"id"`
+	IpId int64 `json:"ip_id"`
+}
+
+type DisableDeviceIpResponseObject interface {
+	VisitDisableDeviceIpResponse(w http.ResponseWriter) error
+}
+
+type DisableDeviceIp204JSONResponse DeviceIP
+
+func (response DisableDeviceIp204JSONResponse) VisitDisableDeviceIpResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(204)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DisableDeviceIp400JSONResponse ErrorResponse
+
+func (response DisableDeviceIp400JSONResponse) VisitDisableDeviceIpResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DisableDeviceIp404JSONResponse ErrorResponse
+
+func (response DisableDeviceIp404JSONResponse) VisitDisableDeviceIpResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DisableDeviceIp409JSONResponse ErrorResponse
+
+func (response DisableDeviceIp409JSONResponse) VisitDisableDeviceIpResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DisableDeviceIp500JSONResponse ErrorResponse
+
+func (response DisableDeviceIp500JSONResponse) VisitDisableDeviceIpResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// List all devices
@@ -295,6 +576,15 @@ type StrictServerInterface interface {
 	// Create a device
 	// (POST /devices)
 	CreateDevice(ctx context.Context, request CreateDeviceRequestObject) (CreateDeviceResponseObject, error)
+	// Get IPs for a device
+	// (GET /devices/{id}/ips)
+	GetDeviceIps(ctx context.Context, request GetDeviceIpsRequestObject) (GetDeviceIpsResponseObject, error)
+	// Assign IP to device
+	// (POST /devices/{id}/ips)
+	AddDeviceIp(ctx context.Context, request AddDeviceIpRequestObject) (AddDeviceIpResponseObject, error)
+	// Disable device IP
+	// (PATCH /devices/{id}/ips/{ip_id}/disable)
+	DisableDeviceIp(ctx context.Context, request DisableDeviceIpRequestObject) (DisableDeviceIpResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -381,20 +671,113 @@ func (sh *strictHandler) CreateDevice(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetDeviceIps operation middleware
+func (sh *strictHandler) GetDeviceIps(w http.ResponseWriter, r *http.Request, id int64) {
+	var request GetDeviceIpsRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDeviceIps(ctx, request.(GetDeviceIpsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDeviceIps")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDeviceIpsResponseObject); ok {
+		if err := validResponse.VisitGetDeviceIpsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AddDeviceIp operation middleware
+func (sh *strictHandler) AddDeviceIp(w http.ResponseWriter, r *http.Request, id int64) {
+	var request AddDeviceIpRequestObject
+
+	request.Id = id
+
+	var body AddDeviceIpJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AddDeviceIp(ctx, request.(AddDeviceIpRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddDeviceIp")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AddDeviceIpResponseObject); ok {
+		if err := validResponse.VisitAddDeviceIpResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DisableDeviceIp operation middleware
+func (sh *strictHandler) DisableDeviceIp(w http.ResponseWriter, r *http.Request, id int64, ipId int64) {
+	var request DisableDeviceIpRequestObject
+
+	request.Id = id
+	request.IpId = ipId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DisableDeviceIp(ctx, request.(DisableDeviceIpRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DisableDeviceIp")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DisableDeviceIpResponseObject); ok {
+		if err := validResponse.VisitDisableDeviceIpResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/8xUQW/bPAz9KwK/7+jVydru4Nu6DkOwDiu6ww5DMXAW46iwKFVi0gaF//sg2Wnqxigw",
-	"oBh2iiI/ko+Pj3qA2lnvmFgiVA8Q6xVZzMcPgVDonDampiu6XVOUdO2D8xTEUAYxWkq/dI/WtwQVXFKI",
-	"jrFVfuWYoACL9xfEjaygOp0VYA3v/h4XIFufgqIEww10XQGBbtcmkIbqR5/9+hHlft1QLdAV0LM6pFNn",
-	"zvonZqpLF2w6gUahN2JsovOsYgFGj7CG5d3JHmdYqKGQgLteX+ZsNAzQ4imdqS4+huDCFUXvOE40Q+nz",
-	"WFyd+1bsRC3dmjVMKfisTroyvHQpk6ZYB+PFOIZqUFEha7W4VKh1oBiVRcaGLLGouI1CNhUxkut/x7bd",
-	"nptaDaFf9tj3lwsoYEMh9snnR7PUo/PE6A1UcHw0O5pDAR5llfsr+27yuSE55PeJRGHbqgGnDCtZ0Z5V",
-	"EgsTdqF79PmQME2kVzUnfzubZXM4FuJcB71vTZ1jy5uYiu2sn05GyObA/wMtoYL/yv2SlMOGlIMF93pj",
-	"CLjt5R638fVzQp3+IYmXao+NM1FywUIhLeE3ChsKKgdkc8S1tRi2UMGFiSN505ixicnDu5vrrgDv4sRo",
-	"+sdBoWK6GxKoOyOrPKDGbIjVsAPjIT19VKBfHIpy5vT21cSZercmJBocnFfUOFYDFXi6zRLW1B2Yaf5q",
-	"VHceOmTXN6GTcU7+pnHOUKtH0f5B0z76Tu8sdOjZHJFTpA8PsA4tVFCiN+VmDt119zsAAP//n5rOlPUG",
-	"AAA=",
+	"H4sIAAAAAAAC/8xXTW/jNhD9K8S0R/kr8QZd3bJNWwjdoML20MMiMGbFsc2tRHJJyokR6L8XpCTLiuVk",
+	"i6aOb7I8nHnz8d6Ij5CpQitJ0lmIH8FmayowPF5zfkMbkVGSfqJvJVnn32qjNBknKNgIvUDODdnwix6w",
+	"0DlBDLP3F+PZ1U/j2Xh2eQERLJUp0EEMQm/mEIHbam9mnRFyBRE8jBRqMcoUpxXJET04gyOHq+B2g7ng",
+	"6Kg9XlVVBIa+lcIQh/jzPoq7nW/15StlDqoIfjaEjupcjmYisaB+DikZqyTmTK+VJIigwIePJFduDfG7",
+	"aQSFkO3Py6cZPUUYvA9hq1EdwskCZr7AAHVXPl+GkRMFHdSwikDwnq2Q7mqv1kI6WpHxhm2uz2MWHBrT",
+	"aB/O8SyS9HXy4MHb4rvT4cLil/z5ILLMc28EsTMl/Zfi9Uf++cEeLGmXXs/Zi0X+xRhlPpHVStqBiSH/",
+	"d3+C60hMKseWqpR8EN+TOP6VkEvlPXGymRHaCSUhbprMUHKWpKyBzQqUuKKCpGN2ax0VPohwIf5fmOfb",
+	"G5Gx5uhtZ3udJhDBhoytnc/GU5+j0iRRC4jhcjwdzyACjW4d8pvU2YTnFblDfL+RY5jnrLFjQjK3pg6V",
+	"LxZ624TX1jeNQ9+juqrB+cV0GiZXSUcyxEGtc5GFs5Ov1gdrhTJooKMiHPzR0BJi+GHSSeqk0dNJw/Ou",
+	"3mgMbuty99P443dv9e5fgngudn9wBkIm0pHxSvcnmQ0ZFg6E4bBlUaDZQgwfhe2V17c56PNnaN/cVRFo",
+	"ZQdaUyswQybpvnHA7oVbhwatxIYka4Sm36R95YaaSmTdB8W3r1acoeUwUKJmggNFhZKsgQL7/PbKUh0M",
+	"0+zVoLYzdIiuToL7wZmfcnA+IGe7op3h0O7mjrcjdDizVbSTlsmj4NVE6Jc1hmTYOCxJLVsqw5BZTZlY",
+	"iqwLdURvEm2DrBksyJHxaI4obXLjN4R/4UWwXcZxvUX6YxftVfXFHVbdnU7xkvT7Ne8tR3c+nZ8udtNf",
+	"wcNq/jWs5nOkj5/2bsKPcGjk+XJc+q85b3Q/STfz3WeDU/se+1TpLh76LJjy+ktn4Go11KKUobViJcMX",
+	"09ttHM/h89k5iQz3Qf8NWvePKeNn6yqQyZZaK7PDdXpSdx/b58jo6zBPvnZOvUDoob04eRR64Z+bK1e4",
+	"haDL1oe8v0XzN0O5f1VAy9qr2lNJ6QvATW11LiIQHQuYHo+pF//Dlp6fhNhJymyZZWTtsszz7a5nJ2f6",
+	"rbBWyFV7YQg09xV/I2YnaUduD+beqB24GtP7t8CEuSHk/Tadne40jG5bmaRHVccfC35qppcmhxgmqMVk",
+	"M4PqrvonAAD//yXvLeCxFAAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

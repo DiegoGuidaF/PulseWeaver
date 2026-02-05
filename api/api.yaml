@@ -60,6 +60,147 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /devices/{id}/ips:
+    get:
+      operationId: getDeviceIps
+      tags:
+        - device-ips
+      summary: Get IPs for a device
+      description: Get all enabled IPs for a specific device
+      parameters:
+        - name: id
+          in: path
+          description: Device ID
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceIP'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Device id not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: addDeviceIp
+      tags:
+        - device-ips
+      summary: Assign IP to device
+      description: Add a new IPv4 address to a device
+      parameters:
+        - name: id
+          in: path
+          description: Device ID
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        description: IP assignment request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddDeviceIPRequest'
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceIP'
+        "400":
+          description: Invalid IP format or IPv6 not supported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /devices/{id}/ips/{ip_id}/disable:
+    patch:
+      operationId: disableDeviceIp
+      tags:
+        - device-ips
+      summary: Disable device IP
+      description: Mark an IP address as disabled for a device
+      parameters:
+        - name: id
+          in: path
+          description: Device ID
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: ip_id
+          in: path
+          description: Device IP ID
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "204":
+          description: IP successfully disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceIP'
+        "400":
+          description: Missing device or IP ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Device IP not found or wrong device
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: Device IP already disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
     #################
@@ -75,6 +216,17 @@ components:
           example: Personal phone
           minLength: 3
           maxLength: 50
+    AddDeviceIPRequest:
+      required:
+        - ip_address
+      type: object
+      properties:
+        ip_address:
+          type: string
+          format: ipv4
+          example: 192.168.1.132
+          x-oapi-codegen-extra-tags:
+            validate: ipv4
     #################
     # Responses
     #################

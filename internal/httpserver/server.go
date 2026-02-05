@@ -47,23 +47,16 @@ func addRoutes(r *chi.Mux, openApiHandler *device.OpenApiHandler) {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		swagger, _ := api.GetSwagger()
+
 		validatorOptions := &nethttpmiddleware.Options{
 			ErrorHandler: validationErrorHandler,
 		}
+
 		r.Use(nethttpmiddleware.OapiRequestValidatorWithOptions(swagger, validatorOptions))
 
 		strictHandler := api.NewStrictHandler(openApiHandler, nil)
 		api.HandlerFromMux(strictHandler, r)
 	})
-
-	//// Devices
-	//r.Get("/api/v1/devices", deviceHandler.GetDevicesv1)
-	//r.Post("/api/v1/devices", deviceHandler.CreateDevicev1)
-
-	//// IP routes
-	//r.Get("/api/v1/devices/{id}/ips", deviceHandler.ListDeviceIPsv1)
-	//r.Post("/api/v1/devices/{id}/ips", deviceHandler.AssignIP)
-	//r.Patch("/api/v1/devices/{id}/ips/{ip_id}/disable", deviceHandler.DisableDeviceIP)
 }
 
 // validationErrorHandler OpenApi validation errors match rest of app JSON with "error" key

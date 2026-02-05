@@ -136,16 +136,16 @@ func (r *Repository) ListActiveDeviceIPs(ctx context.Context, deviceID DeviceID)
 	return ips, nil
 }
 
-func (r *Repository) DisableDeviceIP(ctx context.Context, id DeviceIpID) error {
+func (r *Repository) DisableDeviceIP(ctx context.Context, id DeviceIpID) (*DeviceIP, error) {
 	query := `UPDATE device_ips SET disabled_at = CURRENT_TIMESTAMP WHERE id = ? AND disabled_at IS NULL`
 	result, err := r.db.DB().ExecContext(ctx, query, id)
 	if err != nil {
-		return fmt.Errorf("failed to disable device IP: %w", err)
+		return nil, fmt.Errorf("failed to disable device IP: %w", err)
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		return nil, fmt.Errorf("failed to get rows affected: %w", err)
 	}
 	if rows == 0 {
 		// Could be: IP doesn't exist OR already disabled
@@ -153,13 +153,13 @@ func (r *Repository) DisableDeviceIP(ctx context.Context, id DeviceIpID) error {
 		_, err := r.GetDeviceIPByID(ctx, id)
 		if err != nil {
 			if errors.Is(err, ErrDeviceIPNotFound) {
-				return ErrDeviceIPNotFound
+				return nil, ErrDeviceIPNotFound
 			}
-			return err
+			return nil, err
 		}
 		// IP exists but was already disabled
-		return ErrDeviceIPDisabled
+		return nil, ErrDeviceIPDisabled
 	}
 
-	return nil
+	return r.GetDeviceIPByID(ctx, id)
 }
