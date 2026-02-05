@@ -363,7 +363,7 @@ func TestHandler_DisableDeviceIP(t *testing.T) {
 	w := httptest.NewRecorder()
 	testServer.httpServer.ServeHTTP(w, req)
 
-	is.Equal(w.Code, http.StatusNoContent)
+	is.Equal(w.Code, http.StatusOK)
 
 	var deviceIp api.DeviceIP
 	json.NewDecoder(w.Body).Decode(&deviceIp)

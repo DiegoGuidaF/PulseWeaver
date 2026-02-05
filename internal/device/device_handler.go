@@ -129,7 +129,7 @@ func (h *OpenApiHandler) DisableDeviceIp(ctx context.Context, request api.Disabl
 		slog.Int64("device_id", deviceId.Int64()),
 		slog.Int64("ip_id", deviceIpId.Int64()),
 	)
-	return api.DisableDeviceIp204JSONResponse(deviceIp.toResponse()), nil
+	return api.DisableDeviceIp200JSONResponse(deviceIp.toResponse()), nil
 }
 
 func errorMsgResponse(errorMsg string) api.ErrorResponse {

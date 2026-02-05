@@ -171,7 +171,7 @@ paths:
             type: integer
             format: int64
       responses:
-        "204":
+        "200":
           description: IP successfully disabled
           content:
             application/json:
