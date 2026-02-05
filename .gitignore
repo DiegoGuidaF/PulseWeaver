@@ -3,6 +3,7 @@
 /bin/
 /dist/
 /tmp/
+/internal/ui/dist
 
 # SQLite Database files
 *.db

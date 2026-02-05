@@ -8,6 +8,7 @@ import (
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/health"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/ui"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/oapi-codegen/nethttp-middleware"
@@ -61,6 +62,9 @@ func addRoutes(r *chi.Mux, openApiHandler *device.OpenApiHandler) {
 		strictHandler := api.NewStrictHandler(openApiHandler, nil)
 		api.HandlerFromMux(strictHandler, r)
 	})
+
+	// Any other path would go to the UI
+	r.Handle("/*", ui.Handler())
 }
 
 // validationErrorHandler OpenApi validation errors match rest of app JSON with "error" key
