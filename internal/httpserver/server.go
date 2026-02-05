@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/health"
@@ -20,12 +21,15 @@ func NewServer(openApiHandler *device.OpenApiHandler, logger *slog.Logger) http.
 	r := chi.NewRouter()
 
 	loggerConfig := slogchi.Config{
-		WithSpanID:  true,
-		WithTraceID: true,
+		WithRequestID: true,
 	}
-
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP) // Get real IP when behind proxy
 	r.Use(slogchi.NewWithConfig(logger, loggerConfig))
 	r.Use(middleware.Recoverer)
+	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(middleware.SetHeader("X-Content-Type-Options", "nosniff"))
+	r.Use(middleware.SetHeader("X-Frame-Options", "DENY"))
 
 	addRoutes(r, openApiHandler)
 
