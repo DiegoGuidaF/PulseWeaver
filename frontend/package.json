@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "generate:api": "openapi-typescript ../docs/swagger.json -o ./src/lib/api-types.ts"
+    "generate:api": "openapi-typescript ../api/api.yaml -o src/lib/api/schema.d.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
@@ -17,6 +17,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.563.0",
+    "openapi-fetch": "^0.15.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwind-merge": "^3.4.0",
