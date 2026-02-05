@@ -41,19 +41,5 @@ func (s *Service) ListDeviceIPs(ctx context.Context, deviceID DeviceID) ([]Devic
 }
 
 func (s *Service) DisableDeviceIP(ctx context.Context, deviceID DeviceID, deviceIpId DeviceIpID) (*DeviceIP, error) {
-	// Verify device exists
-	ip, err := s.repo.GetDeviceIPByID(ctx, deviceIpId)
-	if err != nil {
-		return nil, err
-	}
-
-	if ip.DeviceID != deviceID {
-		return nil, ErrDeviceIPWrongDevice
-	}
-
-	if ip.DisabledAt != nil {
-		return nil, ErrDeviceIPDisabled
-	}
-
-	return s.repo.DisableDeviceIP(ctx, deviceIpId)
+	return s.repo.DisableDeviceIP(ctx, deviceID, deviceIpId)
 }

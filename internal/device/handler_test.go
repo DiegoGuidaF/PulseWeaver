@@ -386,7 +386,7 @@ func TestHandler_DisableDeviceIP_AlreadyDisabled(t *testing.T) {
 	w := httptest.NewRecorder()
 	testServer.httpServer.ServeHTTP(w, req)
 
-	is.Equal(w.Code, http.StatusConflict)
+	is.Equal(w.Code, http.StatusNotFound)
 }
 
 func TestHandler_DisableDeviceIP_IPNotFound(t *testing.T) {

@@ -114,21 +114,15 @@ func (h *OpenApiHandler) DisableDeviceIp(ctx context.Context, request api.Disabl
 
 	deviceIp, err := h.service.DisableDeviceIP(ctx, deviceId, deviceIpId)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrDeviceIPNotFound):
-			return api.DisableDeviceIp404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceId))), nil
-		case errors.Is(err, ErrDeviceIPWrongDevice):
-			return api.DisableDeviceIp404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceId))), nil
-		case errors.Is(err, ErrDeviceIPDisabled):
-			return api.DisableDeviceIp409JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s is already disabled", deviceId))), nil
-		default:
-			h.logger.Error("failed to disable device ip",
-				slog.Int64("device_id", deviceId.Int64()),
-				slog.Int64("ip_id", deviceIpId.Int64()),
-				slog.Any("error", err),
-			)
-			return api.DisableDeviceIp500JSONResponse(errorMsgResponse("Failed to disable device IP")), nil
+		if errors.Is(err, ErrDeviceIPNotFound) {
+			return api.DisableDeviceIp404JSONResponse(errorMsgResponse(fmt.Sprintf("DeviceIp %s for device id %s not found or already disabled", deviceIpId, deviceId))), nil
 		}
+		h.logger.Error("failed to disable device ip",
+			slog.Int64("device_id", deviceId.Int64()),
+			slog.Int64("ip_id", deviceIpId.Int64()),
+			slog.Any("error", err),
+		)
+		return api.DisableDeviceIp500JSONResponse(errorMsgResponse("Failed to disable device IP")), nil
 	}
 
 	h.logger.Info("device ip disabled",

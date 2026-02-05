@@ -136,30 +136,19 @@ func (r *Repository) ListActiveDeviceIPs(ctx context.Context, deviceID DeviceID)
 	return ips, nil
 }
 
-func (r *Repository) DisableDeviceIP(ctx context.Context, id DeviceIpID) (*DeviceIP, error) {
-	query := `UPDATE device_ips SET disabled_at = CURRENT_TIMESTAMP WHERE id = ? AND disabled_at IS NULL`
-	result, err := r.db.DB().ExecContext(ctx, query, id)
-	if err != nil {
-		return nil, fmt.Errorf("failed to disable device IP: %w", err)
+func (r *Repository) DisableDeviceIP(ctx context.Context, deviceID DeviceID, deviceIpId DeviceIpID) (*DeviceIP, error) {
+	query := `UPDATE device_ips SET disabled_at = CURRENT_TIMESTAMP 
+        		WHERE id = ? AND device_id = ? AND disabled_at IS NULL 
+        		RETURNING id, device_id, ip_address, created_at, disabled_at`
+	var deviceIp DeviceIP
+	err := r.db.DB().GetContext(ctx, &deviceIp, query, deviceIpId, deviceID)
+	if err == nil {
+		return &deviceIp, nil
 	}
 
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get rows affected: %w", err)
-	}
-	if rows == 0 {
-		// Could be: IP doesn't exist OR already disabled
-		// We need to check which case it is
-		_, err := r.GetDeviceIPByID(ctx, id)
-		if err != nil {
-			if errors.Is(err, ErrDeviceIPNotFound) {
-				return nil, ErrDeviceIPNotFound
-			}
-			return nil, err
-		}
-		// IP exists but was already disabled
-		return nil, ErrDeviceIPDisabled
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrDeviceIPNotFound
 	}
 
-	return r.GetDeviceIPByID(ctx, id)
+	return nil, fmt.Errorf("unexpected state during disable operation: %w", err)
 }
