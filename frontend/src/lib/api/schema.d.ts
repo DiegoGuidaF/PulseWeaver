@@ -311,7 +311,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description IP successfully disabled */
-            204: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
