@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -59,7 +60,17 @@ func addRoutes(r *chi.Mux, openApiHandler *device.OpenApiHandler) {
 
 		r.Use(nethttpmiddleware.OapiRequestValidatorWithOptions(swagger, validatorOptions))
 
-		strictHandler := api.NewStrictHandler(openApiHandler, nil)
+		// Middleware to extract client IP and add to context
+		clientIPMiddleware := func(next api.StrictHandlerFunc, operationName string) api.StrictHandlerFunc {
+			return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+				// Extract client IP from request (RealIP middleware sets RemoteAddr)
+				clientIP := r.RemoteAddr
+				ctx = context.WithValue(ctx, "client_ip", clientIP)
+				return next(ctx, w, r, request)
+			}
+		}
+
+		strictHandler := api.NewStrictHandler(openApiHandler, []api.StrictMiddlewareFunc{clientIPMiddleware})
 		api.HandlerFromMux(strictHandler, r)
 	})
 

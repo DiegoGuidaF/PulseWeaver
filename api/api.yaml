@@ -148,6 +148,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /devices/{device_id}/addresses/ping:
+    get:
+      operationId: pingAddress
+      tags:
+        - addresses
+      summary: Ping endpoint to register/update device IP
+      description: Extracts the client IP from the request and upserts it for the device. If IP exists and is enabled, returns existing. If disabled, re-enables it. If new, creates it.
+      parameters:
+        - name: device_id
+          in: path
+          description: Device Id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Address already exists and is enabled, or was successfully re-enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        "201":
+          description: New address created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        "400":
+          description: Invalid IP address format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /devices/{device_id}/addresses/{address_id}:
     delete:
       operationId: disableAddress

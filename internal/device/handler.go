@@ -6,9 +6,13 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strings"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
 )
+
+// clientIPKey is the context key for storing client IP address
+const clientIPKey = "client_ip"
 
 type OpenApiHandler struct {
 	service *Service
@@ -129,6 +133,58 @@ func (h *OpenApiHandler) DisableAddress(ctx context.Context, request api.Disable
 		slog.Int64("address_id", addressId.Int64()),
 	)
 	return api.DisableAddress200JSONResponse(deviceIp.toResponse()), nil
+}
+
+func (h *OpenApiHandler) PingAddress(ctx context.Context, request api.PingAddressRequestObject) (api.PingAddressResponseObject, error) {
+	deviceId := DeviceId(request.DeviceId)
+
+	// Extract client IP from context (set by middleware)
+	clientIP, ok := ctx.Value(clientIPKey).(string)
+	if !ok || clientIP == "" {
+		h.logger.Error("failed to extract client IP from request")
+		return api.PingAddress400JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
+	}
+
+	// Remove port if present (RemoteAddr format is "ip:port")
+	ip := clientIP
+	if idx := strings.LastIndex(clientIP, ":"); idx != -1 {
+		ip = clientIP[:idx]
+	}
+
+	// Validate IPv4 format
+	if err := validateIPv4(ip); err != nil {
+		return api.PingAddress400JSONResponse(errorMsgResponse(fmt.Sprintf("Received address %s is not a valid ipv4", ip))), nil
+	}
+
+	// Call service to upsert the address
+	address, isNew, err := h.service.PingAddress(ctx, deviceId, ip)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrDeviceNotFound):
+			return api.PingAddress404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceId))), nil
+		default:
+			h.logger.Error("failed to ping address",
+				slog.Int64("device_id", deviceId.Int64()),
+				slog.String("ip", ip),
+				slog.Any("error", err),
+			)
+			return api.PingAddress500JSONResponse(errorMsgResponse("Failed to ping address")), nil
+		}
+	}
+
+	if isNew {
+		h.logger.Info("new address created via ping",
+			slog.Int64("device_id", deviceId.Int64()),
+			slog.String("ip", ip),
+		)
+		return api.PingAddress201JSONResponse(address.toResponse()), nil
+	}
+
+	h.logger.Info("address updated via ping",
+		slog.Int64("device_id", deviceId.Int64()),
+		slog.String("ip", ip),
+	)
+	return api.PingAddress200JSONResponse(address.toResponse()), nil
 }
 
 func errorMsgResponse(errorMsg string) api.ErrorResponse {

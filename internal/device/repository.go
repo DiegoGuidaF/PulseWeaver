@@ -94,6 +94,11 @@ func (r *Repository) GetAddressByDeviceAndIP(ctx context.Context, deviceId Devic
 }
 
 func (r *Repository) CreateAddress(ctx context.Context, deviceId DeviceId, ipAddress string) (*Address, error) {
+	address, _, err := r.CreateAddressWithNew(ctx, deviceId, ipAddress)
+	return address, err
+}
+
+func (r *Repository) CreateAddressWithNew(ctx context.Context, deviceId DeviceId, ipAddress string) (*Address, bool, error) {
 	// Try to insert first
 	deviceIP := Address{
 		DeviceId:  deviceId,
@@ -113,33 +118,35 @@ func (r *Repository) CreateAddress(ctx context.Context, deviceId DeviceId, ipAdd
 			// Address already exists, handle upsert logic
 			existing, findErr := r.GetAddressByDeviceAndIP(ctx, deviceId, ipAddress)
 			if findErr != nil {
-				return nil, fmt.Errorf("failed to find existing address: %w", findErr)
+				return nil, false, fmt.Errorf("failed to find existing address: %w", findErr)
 			}
 
-			// If address exists and is enabled, return it
+			// If address exists and is enabled, return it (not new)
 			if existing.DisabledAt == nil {
-				return existing, nil
+				return existing, false, nil
 			}
 
-			// If address exists and is disabled, re-enable it
+			// If address exists and is disabled, re-enable it (not new)
 			updateQuery := `UPDATE addresses SET disabled_at = NULL WHERE id = ?`
 			_, updateErr := r.db.DB().ExecContext(ctx, updateQuery, existing.ID)
 			if updateErr != nil {
-				return nil, fmt.Errorf("failed to re-enable address: %w", updateErr)
+				return nil, false, fmt.Errorf("failed to re-enable address: %w", updateErr)
 			}
 
-			// Return the updated address
-			return r.GetAddressByID(ctx, existing.ID)
+			// Return the updated address (not new)
+			updated, err := r.GetAddressByID(ctx, existing.ID)
+			return updated, false, err
 		}
-		return nil, fmt.Errorf("failed to create device address: %w", err)
+		return nil, false, fmt.Errorf("failed to create device address: %w", err)
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get last insert id: %w", err)
+		return nil, false, fmt.Errorf("failed to get last insert id: %w", err)
 	}
 
-	return r.GetAddressByID(ctx, AddressId(id))
+	address, err := r.GetAddressByID(ctx, AddressId(id))
+	return address, true, err
 }
 
 func (r *Repository) GetAddressByID(ctx context.Context, id AddressId) (*Address, error) {

@@ -43,3 +43,13 @@ func (s *Service) GetAddressesForDevice(ctx context.Context, deviceID DeviceId) 
 func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceId, addressID AddressId) (*Address, error) {
 	return s.repo.DisableAddress(ctx, deviceID, addressID)
 }
+
+func (s *Service) PingAddress(ctx context.Context, deviceID DeviceId, ipAddress string) (*Address, bool, error) {
+	// Check device exists
+	_, err := s.repo.GetDeviceByID(ctx, deviceID)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return s.repo.CreateAddressWithNew(ctx, deviceID, ipAddress)
+}

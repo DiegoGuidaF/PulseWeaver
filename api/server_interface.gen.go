@@ -73,6 +73,9 @@ type ServerInterface interface {
 	// Assign address to device
 	// (POST /devices/{device_id}/addresses)
 	AddAddress(w http.ResponseWriter, r *http.Request, deviceId int64)
+	// Ping endpoint to register/update device IP
+	// (GET /devices/{device_id}/addresses/ping)
+	PingAddress(w http.ResponseWriter, r *http.Request, deviceId int64)
 	// Disable address
 	// (DELETE /devices/{device_id}/addresses/{address_id})
 	DisableAddress(w http.ResponseWriter, r *http.Request, deviceId int64, addressId int64)
@@ -103,6 +106,12 @@ func (_ Unimplemented) GetDeviceAddresses(w http.ResponseWriter, r *http.Request
 // Assign address to device
 // (POST /devices/{device_id}/addresses)
 func (_ Unimplemented) AddAddress(w http.ResponseWriter, r *http.Request, deviceId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Ping endpoint to register/update device IP
+// (GET /devices/{device_id}/addresses/ping)
+func (_ Unimplemented) PingAddress(w http.ResponseWriter, r *http.Request, deviceId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -190,6 +199,31 @@ func (siw *ServerInterfaceWrapper) AddAddress(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AddAddress(w, r, deviceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PingAddress operation middleware
+func (siw *ServerInterfaceWrapper) PingAddress(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "device_id" -------------
+	var deviceId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "device_id", chi.URLParam(r, "device_id"), &deviceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "device_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PingAddress(w, r, deviceId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -359,6 +393,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/devices/{device_id}/addresses", wrapper.AddAddress)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/devices/{device_id}/addresses/ping", wrapper.PingAddress)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/devices/{device_id}/addresses/{address_id}", wrapper.DisableAddress)
 	})
 
@@ -514,6 +551,59 @@ func (response AddAddress500JSONResponse) VisitAddAddressResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
+type PingAddressRequestObject struct {
+	DeviceId int64 `json:"device_id"`
+}
+
+type PingAddressResponseObject interface {
+	VisitPingAddressResponse(w http.ResponseWriter) error
+}
+
+type PingAddress200JSONResponse Address
+
+func (response PingAddress200JSONResponse) VisitPingAddressResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PingAddress201JSONResponse Address
+
+func (response PingAddress201JSONResponse) VisitPingAddressResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PingAddress400JSONResponse ErrorResponse
+
+func (response PingAddress400JSONResponse) VisitPingAddressResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PingAddress404JSONResponse ErrorResponse
+
+func (response PingAddress404JSONResponse) VisitPingAddressResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PingAddress500JSONResponse ErrorResponse
+
+func (response PingAddress500JSONResponse) VisitPingAddressResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type DisableAddressRequestObject struct {
 	DeviceId  int64 `json:"device_id"`
 	AddressId int64 `json:"address_id"`
@@ -582,6 +672,9 @@ type StrictServerInterface interface {
 	// Assign address to device
 	// (POST /devices/{device_id}/addresses)
 	AddAddress(ctx context.Context, request AddAddressRequestObject) (AddAddressResponseObject, error)
+	// Ping endpoint to register/update device IP
+	// (GET /devices/{device_id}/addresses/ping)
+	PingAddress(ctx context.Context, request PingAddressRequestObject) (PingAddressResponseObject, error)
 	// Disable address
 	// (DELETE /devices/{device_id}/addresses/{address_id})
 	DisableAddress(ctx context.Context, request DisableAddressRequestObject) (DisableAddressResponseObject, error)
@@ -730,6 +823,32 @@ func (sh *strictHandler) AddAddress(w http.ResponseWriter, r *http.Request, devi
 	}
 }
 
+// PingAddress operation middleware
+func (sh *strictHandler) PingAddress(w http.ResponseWriter, r *http.Request, deviceId int64) {
+	var request PingAddressRequestObject
+
+	request.DeviceId = deviceId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PingAddress(ctx, request.(PingAddressRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PingAddress")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PingAddressResponseObject); ok {
+		if err := validResponse.VisitPingAddressResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // DisableAddress operation middleware
 func (sh *strictHandler) DisableAddress(w http.ResponseWriter, r *http.Request, deviceId int64, addressId int64) {
 	var request DisableAddressRequestObject
@@ -760,24 +879,26 @@ func (sh *strictHandler) DisableAddress(w http.ResponseWriter, r *http.Request, 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/8xXXW/bNhT9K8TdHhXLTtJg1Zs7b4OxBjO6hz0MQcGK1zI7iWRJyolh6L8PpL4jOU6D",
-	"1PFLoMj3i/eecy61h1hmSgoU1kC0BxNvMKP+cc7YnDGNxnzCbzka614qLRVqy9GbcOX+4gPNVIoQwez9",
-	"5WR288tkNpldXUIAa6kzaiECrrbXEIDdKWdmrOYigaIIQOO3nGtkEP3rot01NvLLV4wtFAFURQyzxxqp",
-	"RfaZ+sqaXIxavLA8w2HCABhueYyfOeu5cGFvOvVxYTFB7e25oV/Sp5OIPE2dEURW5ziS9HnZAni4SOSF",
-	"oJl7u1x4T9X3HGvjI7/VsK8Mugf3UYNu98a6/qv/eeG9Ds6/zNlFwAq1kYKmRG2kcM3J6MNHFIndQPRu",
-	"GkDGRf3v1TE8+OhjtZVVvQ4gXj6b+vBHQO0a7k2Ptvw3raX+hEZJYUZOh+7nfrfLoRIhLVnLXLBRij3K",
-	"415xsZYuEkMTa64slwKiqq2ECkaWK0JL2pGMCppghsISszMWM5eEW5//H5qmuwWPSeV629rOV0sIYIva",
-	"lMFnk6k7o1QoqOIQwdVkOplBAIrajT9fWJ7GPydoh/X9gZbQNCWVHeGC2A22VblmUWe7ZKX1ogroJlJ2",
-	"1Qe/nE49WqSwKHweqlTKY+8bfjUuWa2EXuUsZt7xZ41riOCnsNXMsBLMsMJk22+qNd2V7e4f468/ndW7",
-	"7yziqdx94IykXAqL2rHyb9Rb1MQ7eHCYPMuo3kEEH7nptdeNmSbGYbh+c1cEoKQZGU2pFoQSgfdVAHLP",
-	"7cYPKOFbFKTiQH9IXZWBkjho7AfJdq/WnDEhG2lRhWBPUS4FqUqBLpudvBcDMM1erdQaQ8PqykMwB5zr",
-	"UwLnA2WkadoZgrbBHashNMRsETTSEu6bNViElcA9Q3BQ+DsAaTzIWmpCiVEY8zWP2+wHJGjepHJ6p2mG",
-	"FrUr84AEL/2Wdi+cOtYLJOot8T4sg07Xj15rirtTKGJ9b3u2JL4lsq+n16fLXU2ZM7+5f/eb+xzZ5fH/",
-	"CPMDorU0Orwe5oxVu6G+VVjZjdWnTfvh8Uy68FPQ5fU30/ADa2ROlQWhxvBE+KvVW6ymhszns5uWYktT",
-	"3qgyKedIpCbL1fbGU8vkSkndFHd6irc383Pk99xjqsvJJ9l9dJGG++rRvS5VIEWLQz24pfo/QtvM1JD6",
-	"Q/uxzPSlYVFafZ88/OhtGuwPcPaQLrVdeuM9/kLG1+czeRyjMes8TXfNAE+uA7fcGC6S+rODMycBtB3B",
-	"qalfd6fhvqvnXsumxLKi96eviKYaKeuP6uxEqaJ4PcFDWuR8fJCS+LlOIYKQKh5uZ1DcFf8HAAD//yaR",
-	"SyjZFAAA",
+	"H4sIAAAAAAAC/+xX32/bNhD+Vwhuj4plt2mx6s1dukFYsxndwx6GoGDFs8xOIlmScmIE/t8HHvUzkpM0",
+	"CBwP2EvgUEfe8e77vjve0kyVWkmQztLkltpsAyXDn0vOl5wbsPYTfKvAOr+ojdJgnAA0Edr/hRtW6gJo",
+	"QhfvXs0Wb3+aLWaL169oRNfKlMzRhAq9PacRdTvtzawzQuZ0v4+ogW+VMMBp8rc/7aq1UV++QuboPqJ1",
+	"EGPvmQHmgH9mGFnrizMHZ06UMHYYUQ5bkcFnwQdbhHRve/EJ6SAHg/bCsi/F/U5kVRTeiCbOVDDh9HHe",
+	"InpzlqszyUq/ml7gTj3cOZXGO/tW47xy2r84nhr1szeV9Z/x8wXuOlj/4LOPgBUYqyQriN4o6ZNTspuP",
+	"IHO3ocmbeURLIZt/Xz+EBzx9KrYQ1fMA4um1aS7/AKh9wtH0wZR/MEaZT2C1knbiduA/D7MdikqkcmSt",
+	"KsknKXbHj18Scq38SRxsZoR2Qkma1GklTHKSrggLtCMlkyyHEqQjdmcdlN6JcOj/L1YUuwuRkXrrZWe7",
+	"XKU0olswNhy+mM39HZUGybSgCX09m88WNKKauQ3eLw63wd85uHF8v4IjrChIbUeEJG4DXVQ+WczbpjxY",
+	"X9QH+oqErOLhr+ZzRIuSDiT6YVoXIsO98VfrnTVKiCrnoMSNPxpY04T+EHeaGdeCGdeY7PLNjGG7kO7h",
+	"Nf74zVu9+c4g7vM9BM6Ey1Q6MJ6Vf4LZgiG4AcFhq7JkZkcT+lHYQXp9mVluPYablat9RLWyE6UJakEY",
+	"kXBdH0CuhdtggXKxBUlqDgyL1FcZGogD1r1XfPdsyZkSsokU1QhGigolSR0K7bPZy/t+BKbFs4XaYGgc",
+	"XbgE98A5PyZw3jNO2qSdIGhb3PEGQmPM7qNWWuLbtg3u41rgHiE4IHEGIO0OslaGMGI1ZGItss77AQla",
+	"tq683hlWggPjwzwgwSl2ab/g1bFpIMmgiQ9hGfWy/uBYs786hiI2c9ujJfElkX0+Pz+e77rKgmPn/gU7",
+	"9ymyC/F/B/MjonU0OtwelpzXvaGZKpzqnzWkTffweCRdxDHo8vydafzAmqhTbUGYtSKXOFq9RGtqyXw6",
+	"vSmVW1aIVpVJqCNRhqSr7Vuklq20VqYN7vgU7ybzU+T3EjHV5+S97H6wkcbavzkOddMPN86wzFmcCbNC",
+	"eCinK7I2qsSlGtb4/qi0BeMsEQ5lx38ODmckXftdcCOss2grbNOgI2LAVUba8FnIHM2bN7z/fBZM/cn4",
+	"TcJ1FIa+sDYSo5WQ+fep0ak37yfSvBWiwgDju0MVUIZcM0tslWVg7boqil2XdqTBkWTp9163yV5YonrP",
+	"6bq+/+vRhB55rhGQXCshnZcjA7mwDkxcae7n/Pplma6erFC39U+/HCSqAAdjsbpk5h/COm1ktpWRu4PQ",
+	"UC8ugtVpSUZ0e4DMhyanLkv/bbEayFBTwKPLwKWw1kObt3O/R1BXgmOLQZOdVg1QtY1qQwwRvTt+RE1z",
+	"6Zfq5GSqpnhTwUNa5PfgIYH4lSloQmOmRbxd0P3V/t8AAAD//8rdU3d7GQAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
