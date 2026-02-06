@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, Server, Shield, LayoutDashboard, Settings, LogOut } from "lucide-react";
+import { Menu, Server, Shield, Settings, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -13,7 +13,6 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
 
 // Navigation items
 const sidebarItems = [
-    { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Devices", href: "/devices", icon: Server },
     // Placeholder for future features
     { name: "Security Rules", href: "/rules", icon: Shield },

@@ -21,7 +21,6 @@ func NewOpenApiHandler(service *Service, logger *slog.Logger) *OpenApiHandler {
 
 func (h *OpenApiHandler) GetDevices(ctx context.Context, _ api.GetDevicesRequestObject) (api.GetDevicesResponseObject, error) {
 	devices, err := h.service.GetDevices(ctx)
-	h.logger.Info("Running Query!")
 	if err != nil {
 		h.logger.Error("Error fetching devices", slog.Any("error", err))
 		return api.GetDevices500JSONResponse(errorMsgResponse("Error fetching devices")), nil
@@ -51,85 +50,85 @@ func (h *OpenApiHandler) CreateDevice(ctx context.Context, request api.CreateDev
 	return api.CreateDevice201JSONResponse(device.toResponse()), nil
 }
 
-func (h *OpenApiHandler) GetDeviceIps(ctx context.Context, request api.GetDeviceIpsRequestObject) (api.GetDeviceIpsResponseObject, error) {
+func (h *OpenApiHandler) GetDeviceAddresses(ctx context.Context, request api.GetDeviceAddressesRequestObject) (api.GetDeviceAddressesResponseObject, error) {
 
-	deviceId := DeviceID(request.Id)
+	deviceId := DeviceId(request.DeviceId)
 
-	deviceIps, err := h.service.ListDeviceIPs(ctx, deviceId)
+	addresses, err := h.service.GetAddressesForDevice(ctx, deviceId)
 	if err != nil {
 		if errors.Is(err, ErrDeviceNotFound) {
-			return api.GetDeviceIps404JSONResponse(
+			return api.GetDeviceAddresses404JSONResponse(
 				errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceId)),
 			), nil
 		}
 
-		h.logger.Error("failed to list device deviceIps",
+		h.logger.Error("failed to list device addresses",
 			slog.Int64("device_id", deviceId.Int64()),
 			slog.Any("error", err),
 		)
-		return api.GetDeviceIps500JSONResponse(errorMsgResponse("Failed to list device IPs")), nil
+		return api.GetDeviceAddresses500JSONResponse(errorMsgResponse("Failed to list device IPs")), nil
 	}
 
-	deviceIpsResponse := make([]api.DeviceIP, len(deviceIps))
-	for i := range deviceIps {
-		deviceIpsResponse[i] = deviceIps[i].toResponse()
+	addressesResponse := make([]api.Address, len(addresses))
+	for i := range addresses {
+		addressesResponse[i] = addresses[i].toResponse()
 	}
 
-	return api.GetDeviceIps200JSONResponse(deviceIpsResponse), nil
+	return api.GetDeviceAddresses200JSONResponse(addressesResponse), nil
 }
 
-func (h *OpenApiHandler) AddDeviceIp(ctx context.Context, request api.AddDeviceIpRequestObject) (api.AddDeviceIpResponseObject, error) {
-	deviceId := DeviceID(request.Id)
-	ipAddress := request.Body.IpAddress
+func (h *OpenApiHandler) AddAddress(ctx context.Context, request api.AddAddressRequestObject) (api.AddAddressResponseObject, error) {
+	deviceId := DeviceId(request.DeviceId)
+	ipAddress := request.Body.Ip
 
 	// Validate IPv4 format
 	if err := validateIPv4(ipAddress); err != nil {
-		return api.AddDeviceIp400JSONResponse(errorMsgResponse(fmt.Sprintf("Received IP %s is not a valid ipv4", ipAddress))), nil
+		return api.AddAddress400JSONResponse(errorMsgResponse(fmt.Sprintf("Received address %s is not a valid ipv4", ipAddress))), nil
 	}
 
-	deviceIp, err := h.service.AssignIP(ctx, deviceId, ipAddress)
+	deviceIp, err := h.service.AssignAddress(ctx, deviceId, ipAddress)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrDeviceNotFound):
-			return api.AddDeviceIp404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceId))), nil
+			return api.AddAddress404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceId))), nil
 		default:
-			h.logger.Error("failed to assign deviceIp",
+			h.logger.Error("failed to assign address",
 				slog.Int64("device_id", deviceId.Int64()),
-				slog.String("deviceIp", ipAddress),
+				slog.String("ip", ipAddress),
 				slog.Any("error", err),
 			)
-			return api.AddDeviceIp500JSONResponse(errorMsgResponse("Failed to assign IP")), nil
+			return api.AddAddress500JSONResponse(errorMsgResponse("Failed to assign address")), nil
 		}
 	}
 
 	h.logger.Info("deviceIp assigned",
 		slog.Int64("device_id", deviceId.Int64()),
-		slog.String("deviceIp", deviceIp.IPAddress),
+		slog.String("deviceIp", deviceIp.IP),
 	)
-	return api.AddDeviceIp201JSONResponse(deviceIp.toResponse()), nil
+	return api.AddAddress201JSONResponse(deviceIp.toResponse()), nil
 }
-func (h *OpenApiHandler) DisableDeviceIp(ctx context.Context, request api.DisableDeviceIpRequestObject) (api.DisableDeviceIpResponseObject, error) {
-	deviceId := DeviceID(request.Id)
-	deviceIpId := DeviceIpID(request.IpId)
+func (h *OpenApiHandler) DisableAddress(ctx context.Context, request api.DisableAddressRequestObject) (api.DisableAddressResponseObject, error) {
+	deviceId := DeviceId(request.DeviceId)
+	addressId := AddressId(request.AddressId)
 
-	deviceIp, err := h.service.DisableDeviceIP(ctx, deviceId, deviceIpId)
+	deviceIp, err := h.service.DisableAddress(ctx, deviceId, addressId)
 	if err != nil {
-		if errors.Is(err, ErrDeviceIPNotFound) {
-			return api.DisableDeviceIp404JSONResponse(errorMsgResponse(fmt.Sprintf("DeviceIp %s for device id %s not found or already disabled", deviceIpId, deviceId))), nil
+		if errors.Is(err, ErrAddressNotFound) {
+			return api.DisableAddress404JSONResponse(errorMsgResponse(fmt.Sprintf("Address id %s for device id %s not found or already disabled", addressId, deviceId))), nil
 		}
-		h.logger.Error("failed to disable device ip",
+		h.logger.Error("failed to disable address",
 			slog.Int64("device_id", deviceId.Int64()),
-			slog.Int64("ip_id", deviceIpId.Int64()),
+			slog.Int64("address_id", addressId.Int64()),
 			slog.Any("error", err),
 		)
-		return api.DisableDeviceIp500JSONResponse(errorMsgResponse("Failed to disable device IP")), nil
+		return api.DisableAddress500JSONResponse(errorMsgResponse("Failed to disable address")), nil
 	}
 
-	h.logger.Info("device ip disabled",
+	h.logger.Info("address disabled",
 		slog.Int64("device_id", deviceId.Int64()),
-		slog.Int64("ip_id", deviceIpId.Int64()),
+		slog.Int64("address_id", addressId.Int64()),
 	)
-	return api.DisableDeviceIp200JSONResponse(deviceIp.toResponse()), nil
+	return api.DisableAddress200JSONResponse(deviceIp.toResponse()), nil
 }
 
 func errorMsgResponse(errorMsg string) api.ErrorResponse {

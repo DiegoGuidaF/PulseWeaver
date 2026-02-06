@@ -22,7 +22,9 @@
 *.iml
 
 # VS Code
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 
 # Vim/Emacs
 *.swp

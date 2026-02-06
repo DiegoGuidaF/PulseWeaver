@@ -60,17 +60,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /devices/{id}/ips:
+  /devices/{device_id}/addresses:
     get:
-      operationId: getDeviceIps
+      operationId: getDeviceAddresses
       tags:
-        - device-ips
-      summary: Get IPs for a device
-      description: Get all enabled IPs for a specific device
+        - addresses
+      summary: Get addresses for a device
+      description: Get all enabled addresses for a specific device
       parameters:
-        - name: id
+        - name: device_id
           in: path
-          description: Device ID
+          description: Device Id
           required: true
           schema:
             type: integer
@@ -83,7 +83,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/DeviceIP'
+                  $ref: '#/components/schemas/Address'
         "400":
           description: Bad Request
           content:
@@ -103,25 +103,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     post:
-      operationId: addDeviceIp
+      operationId: addAddress
       tags:
-        - device-ips
-      summary: Assign IP to device
-      description: Add a new IPv4 address to a device
+        - addresses
+      summary: Assign address to device
+      description: Add a new address to a device
       parameters:
-        - name: id
+        - name: device_id
           in: path
-          description: Device ID
+          description: Device id
           required: true
           schema:
             type: integer
             format: int64
       requestBody:
-        description: IP assignment request
+        description: Address assignment request
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AddDeviceIPRequest'
+              $ref: '#/components/schemas/AddAddressRequest'
         required: true
       responses:
         "201":
@@ -129,9 +129,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DeviceIP'
+                $ref: '#/components/schemas/Address'
         "400":
-          description: Invalid IP format or IPv6 not supported
+          description: Invalid address format or IPv6 not supported
           content:
             application/json:
               schema:
@@ -148,49 +148,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /devices/{id}/ips/{ip_id}/disable:
-    patch:
-      operationId: disableDeviceIp
+  /devices/{device_id}/addresses/{address_id}:
+    delete:
+      operationId: disableAddress
       tags:
-        - device-ips
-      summary: Disable device IP
-      description: Mark an IP address as disabled for a device
+        - addresses
+      summary: Disable address
+      description: Mark an address as disabled for a device
       parameters:
-        - name: id
+        - name: device_id
           in: path
-          description: Device ID
+          description: Device Id
           required: true
           schema:
             type: integer
             format: int64
-        - name: ip_id
+        - name: address_id
           in: path
-          description: Device IP ID
+          description: Address id
           required: true
           schema:
             type: integer
             format: int64
       responses:
         "200":
-          description: IP successfully disabled
+          description: Address successfully disabled
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DeviceIP'
+                $ref: '#/components/schemas/Address'
         "400":
-          description: Missing device or IP ID
+          description: Missing device id or address id
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         "404":
-          description: Device IP not found or wrong device
+          description: Address not found or wrong device
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         "409":
-          description: Device IP already disabled
+          description: Address already disabled
           content:
             application/json:
               schema:
@@ -216,17 +216,15 @@ components:
           example: Personal phone
           minLength: 3
           maxLength: 50
-    AddDeviceIPRequest:
+    AddAddressRequest:
       required:
-        - ip_address
+        - ip
       type: object
       properties:
-        ip_address:
+        ip:
           type: string
           format: ipv4
           example: 192.168.1.132
-          x-oapi-codegen-extra-tags:
-            validate: ipv4
     #################
     # Responses
     #################
@@ -252,25 +250,28 @@ components:
         id:
           type: integer
           format: int64
+          x-go-name: "ID"  # Generator uses camel-case while convention is upper
         name:
           type: string
-    DeviceIP:
+    Address:
       type: object
       required:
         - id
         - device_id
-        - ip_address
+        - ip
         - created_at
       properties:
         id:
           type: integer
           format: int64
+          x-go-name: "ID"  # Generator uses camel-case while convention is upper
         device_id:
           type: integer
           format: int64
-        ip_address:
+        ip:
           type: string
           format: ipv4
+          x-go-name: "IP"  # Generator uses camel-case while convention is upper
         disabled_at:
           type: string
           format: date-time

@@ -20,26 +20,26 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, error
 	return s.repo.CreateDevice(ctx, name)
 }
 
-func (s *Service) AssignIP(ctx context.Context, deviceID DeviceID, ipAddress string) (*DeviceIP, error) {
+func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceId, ipAddress string) (*Address, error) {
 	// Check device exists
 	_, err := s.repo.GetDeviceByID(ctx, deviceID)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.repo.CreateDeviceIP(ctx, deviceID, ipAddress)
+	return s.repo.CreateAddress(ctx, deviceID, ipAddress)
 }
 
-func (s *Service) ListDeviceIPs(ctx context.Context, deviceID DeviceID) ([]DeviceIP, error) {
+func (s *Service) GetAddressesForDevice(ctx context.Context, deviceID DeviceId) ([]Address, error) {
 	// Check device exists
 	_, err := s.repo.GetDeviceByID(ctx, deviceID)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.repo.ListActiveDeviceIPs(ctx, deviceID)
+	return s.repo.ListActiveAddresses(ctx, deviceID)
 }
 
-func (s *Service) DisableDeviceIP(ctx context.Context, deviceID DeviceID, deviceIpId DeviceIpID) (*DeviceIP, error) {
-	return s.repo.DisableDeviceIP(ctx, deviceID, deviceIpId)
+func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceId, addressID AddressId) (*Address, error) {
+	return s.repo.DisableAddress(ctx, deviceID, addressID)
 }
