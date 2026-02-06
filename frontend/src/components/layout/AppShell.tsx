@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import {ModeToggle} from "@/components/mode-toggle.tsx";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
     className?: string;
@@ -62,36 +63,49 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="flex min-h-screen flex-col bg-background">
-            {/* Mobile Header */}
-            <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:hidden">
-                <div className="flex h-14 items-center px-4">
-                    <Sheet open={open} onOpenChange={setOpen}>
-                        <SheetTrigger asChild>
-                            <Button variant="ghost" size="icon" className="mr-2">
-                                <Menu className="h-5 w-5" />
-                                <span className="sr-only">Toggle Menu</span>
-                            </Button>
-                        </SheetTrigger>
-                        <SheetContent side="left" className="pr-0">
-                            <Sidebar className="px-2" />
-                        </SheetContent>
-                    </Sheet>
-                    <span className="font-bold">WallyDic Manager</span>
-                </div>
+            {/* 1. Mobile Header (Visible < md) */}
+            <header className="sticky top-0 z-50 flex h-14 items-center gap-4 border-b bg-background px-4 md:hidden">
+                <Sheet open={open} onOpenChange={setOpen}>
+                    <SheetTrigger asChild>
+                        <Button variant="ghost" size="icon" className="mr-2">
+                            <Menu className="h-5 w-5" />
+                            <span className="sr-only">Toggle Menu</span>
+                        </Button>
+                    </SheetTrigger>
+                    <SheetContent side="left" className="pr-0">
+                        <Sidebar className="px-2" />
+                    </SheetContent>
+                </Sheet>
+                <span className="font-bold flex-1">WallyDic</span>
+
+                {/* Mobile Theme Toggle */}
+                <ModeToggle />
             </header>
 
             <div className="flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] lg:grid-cols-[240px_minmax(0,1fr)]">
-                {/* Desktop Sidebar */}
+                {/* 2. Desktop Sidebar */}
                 <aside className="fixed top-0 z-30 hidden h-screen w-full shrink-0 border-r md:sticky md:block">
-                    <div className="h-full py-6 pl-2 pr-6">
-                        <Sidebar />
+                    <div className="h-full py-6 pl-2 pr-6 flex flex-col">
+                        <Sidebar className="flex-1" />
+
+                        {/* Optional: Put theme toggle at bottom of sidebar on desktop?
+                            Or keep it in a top bar. Let's do a top bar for content area.
+                        */}
                     </div>
                 </aside>
 
-                {/* Main Content */}
-                <main className="flex w-full flex-col overflow-hidden p-4 md:p-8">
-                    {children}
-                </main>
+                {/* 3. Main Content Area */}
+                <div className="flex flex-col min-h-screen">
+                    {/* Desktop Header (Visible >= md) */}
+                    <header className="hidden md:flex h-14 items-center gap-4 border-b bg-background px-6 justify-end">
+                        {/* This header sits above the main content but to the right of sidebar */}
+                        <ModeToggle />
+                    </header>
+
+                    <main className="flex-1 w-full p-4 md:p-8">
+                        {children}
+                    </main>
+                </div>
             </div>
         </div>
     );

@@ -3,6 +3,7 @@ import {DeviceList} from "./features/devices/DeviceList";
 import {CreateDeviceForm} from "./features/devices/CreateDeviceForm";
 import {Toaster} from "sonner";
 import {AppShell} from "./components/layout/AppShell";
+import { ThemeProvider } from "./components/theme-provider";
 
 function Dashboard() {
     return (
@@ -31,20 +32,22 @@ function NotFound() {
 
 function App() {
     return (
-        <BrowserRouter>
-            <AppShell>
-                <Routes>
-                    <Route path="/" element={<Dashboard/>}/>
-                    {/* Redirect /devices to home for now, or make it a separate page */}
-                    <Route path="/devices" element={<Dashboard/>}/>
-                    <Route path="/rules" element={<div className="p-8">Rules Feature Coming Soon</div>}/>
-                    <Route path="/settings" element={<div className="p-8">Settings Feature Coming Soon</div>}/>
-                    {/* Catch-all route for 404s */}
-                    <Route path="*" element={<NotFound/>}/>
-                </Routes>
-            </AppShell>
-            <Toaster/>
-        </BrowserRouter>
+        <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+            <BrowserRouter>
+                <AppShell>
+                    <Routes>
+                        <Route path="/" element={<Dashboard/>}/>
+                        {/* Redirect /devices to home for now, or make it a separate page */}
+                        <Route path="/devices" element={<Dashboard/>}/>
+                        <Route path="/rules" element={<div className="p-8">Rules Feature Coming Soon</div>}/>
+                        <Route path="/settings" element={<div className="p-8">Settings Feature Coming Soon</div>}/>
+                        {/* Catch-all route for 404s */}
+                        <Route path="*" element={<NotFound/>}/>
+                    </Routes>
+                </AppShell>
+                <Toaster/>
+            </BrowserRouter>
+        </ThemeProvider>
     );
 }
 
