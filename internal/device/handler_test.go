@@ -181,6 +181,12 @@ func TestHandler_AssignIP(t *testing.T) {
 			wantStatus: http.StatusCreated,
 		},
 		{
+			name:       "valid IPv6",
+			deviceID:   deviceId,
+			body:       map[string]string{"ip": "2001:db8::68"},
+			wantStatus: http.StatusCreated,
+		},
+		{
 			name:       "invalid IP format",
 			deviceID:   deviceId,
 			body:       map[string]string{"ip": "not-an-ip"},
@@ -422,4 +428,127 @@ func TestHandler_DisableDeviceIP_WrongDevice(t *testing.T) {
 	testServer.httpServer.ServeHTTP(w, req)
 
 	is.Equal(w.Code, http.StatusNotFound)
+}
+
+func TestHandler_CheckinDevice_NewAddress(t *testing.T) {
+	is := is.New(t)
+
+	testServer := setupTestServer(t)
+
+	dev, _ := testServer.deviceService.CreateDevice(t.Context(), "checkin-device")
+
+	url := fmt.Sprintf("/api/v1/devices/%d/checkin", dev.ID)
+	req := httptest.NewRequest(http.MethodPost, url, nil)
+	req.RemoteAddr = "192.168.1.50:12345"
+
+	w := httptest.NewRecorder()
+	testServer.httpServer.ServeHTTP(w, req)
+
+	is.Equal(w.Code, http.StatusCreated)
+
+	var address api.Address
+	err := json.NewDecoder(w.Body).Decode(&address)
+	is.NoErr(err)
+
+	is.True(address.ID != 0)
+	is.Equal(address.DeviceId, dev.ID.Int64())
+	is.Equal(address.IP, "192.168.1.50")
+	is.True(address.DisabledAt == nil)
+	is.True(!address.CreatedAt.IsZero())
+}
+
+func TestHandler_CheckinDevice_ExistingAddress(t *testing.T) {
+	is := is.New(t)
+
+	testServer := setupTestServer(t)
+
+	dev, _ := testServer.deviceService.CreateDevice(t.Context(), "checkin-device")
+
+	// First assign creates the address
+	testServer.deviceService.AssignAddress(t.Context(), dev.ID, "10.0.0.5")
+
+	// Checkin with same IP should return 200
+	url := fmt.Sprintf("/api/v1/devices/%d/checkin", dev.ID)
+	req := httptest.NewRequest(http.MethodPost, url, nil)
+	req.RemoteAddr = "10.0.0.5:9999"
+
+	w := httptest.NewRecorder()
+	testServer.httpServer.ServeHTTP(w, req)
+
+	is.Equal(w.Code, http.StatusOK)
+
+	var address api.Address
+	err := json.NewDecoder(w.Body).Decode(&address)
+	is.NoErr(err)
+
+	is.Equal(address.IP, "10.0.0.5")
+	is.True(address.DisabledAt == nil)
+}
+
+func TestHandler_CheckinDevice_ReEnableDisabledAddress(t *testing.T) {
+	is := is.New(t)
+
+	testServer := setupTestServer(t)
+
+	dev, _ := testServer.deviceService.CreateDevice(t.Context(), "checkin-device")
+
+	// Create and then disable an address
+	addr, _ := testServer.deviceService.AssignAddress(t.Context(), dev.ID, "10.0.0.10")
+	testServer.deviceService.DisableAddress(t.Context(), dev.ID, addr.ID)
+
+	// Checkin with the same IP should re-enable it (200)
+	url := fmt.Sprintf("/api/v1/devices/%d/checkin", dev.ID)
+	req := httptest.NewRequest(http.MethodPost, url, nil)
+	req.RemoteAddr = "10.0.0.10:8080"
+
+	w := httptest.NewRecorder()
+	testServer.httpServer.ServeHTTP(w, req)
+
+	is.Equal(w.Code, http.StatusOK)
+
+	var address api.Address
+	err := json.NewDecoder(w.Body).Decode(&address)
+	is.NoErr(err)
+
+	is.Equal(address.IP, "10.0.0.10")
+	is.True(address.DisabledAt == nil)
+}
+
+func TestHandler_CheckinDevice_DeviceNotFound(t *testing.T) {
+	is := is.New(t)
+
+	testServer := setupTestServer(t)
+
+	url := "/api/v1/devices/99999/checkin"
+	req := httptest.NewRequest(http.MethodPost, url, nil)
+	req.RemoteAddr = "192.168.1.1:5555"
+
+	w := httptest.NewRecorder()
+	testServer.httpServer.ServeHTTP(w, req)
+
+	is.Equal(w.Code, http.StatusNotFound)
+}
+
+func TestHandler_CheckinDevice_IPv6Accepted(t *testing.T) {
+	is := is.New(t)
+
+	testServer := setupTestServer(t)
+
+	dev, _ := testServer.deviceService.CreateDevice(t.Context(), "checkin-device")
+
+	url := fmt.Sprintf("/api/v1/devices/%d/checkin", dev.ID)
+	req := httptest.NewRequest(http.MethodPost, url, nil)
+	req.RemoteAddr = "[2001:db8::1]:12345"
+
+	w := httptest.NewRecorder()
+	testServer.httpServer.ServeHTTP(w, req)
+
+	is.Equal(w.Code, http.StatusCreated)
+
+	var address api.Address
+	err := json.NewDecoder(w.Body).Decode(&address)
+	is.NoErr(err)
+
+	is.Equal(address.IP, "2001:db8::1")
+	is.True(address.DisabledAt == nil)
 }

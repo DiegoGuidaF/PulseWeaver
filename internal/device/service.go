@@ -2,13 +2,25 @@ package device
 
 import (
 	"context"
+	"net/netip"
 )
 
-type Service struct {
-	repo *Repository
+// DeviceRepository defines the persistence operations for devices and addresses.
+type DeviceRepository interface {
+	GetDeviceByID(ctx context.Context, id DeviceId) (*Device, error)
+	CreateDevice(ctx context.Context, name string) (*Device, error)
+	GetDevices(ctx context.Context) ([]Device, error)
+	CreateAddress(ctx context.Context, deviceId DeviceId, ipAddress string) (*Address, error)
+	CreateAddressWithNew(ctx context.Context, deviceId DeviceId, ipAddress string) (*Address, bool, error)
+	ListActiveAddresses(ctx context.Context, deviceId DeviceId) ([]Address, error)
+	DisableAddress(ctx context.Context, deviceId DeviceId, addressId AddressId) (*Address, error)
 }
 
-func NewService(repo *Repository) *Service {
+type Service struct {
+	repo DeviceRepository
+}
+
+func NewService(repo DeviceRepository) *Service {
 	return &Service{repo: repo}
 }
 
@@ -21,6 +33,10 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, error
 }
 
 func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceId, ipAddress string) (*Address, error) {
+	if err := parseAndValidateIP(ipAddress); err != nil {
+		return nil, err
+	}
+
 	// Check device exists
 	_, err := s.repo.GetDeviceByID(ctx, deviceID)
 	if err != nil {
@@ -44,7 +60,11 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceId, address
 	return s.repo.DisableAddress(ctx, deviceID, addressID)
 }
 
-func (s *Service) PingAddress(ctx context.Context, deviceID DeviceId, ipAddress string) (*Address, bool, error) {
+func (s *Service) Heartbeat(ctx context.Context, deviceID DeviceId, ipAddress string) (*Address, bool, error) {
+	if err := parseAndValidateIP(ipAddress); err != nil {
+		return nil, false, err
+	}
+
 	// Check device exists
 	_, err := s.repo.GetDeviceByID(ctx, deviceID)
 	if err != nil {
@@ -52,4 +72,13 @@ func (s *Service) PingAddress(ctx context.Context, deviceID DeviceId, ipAddress 
 	}
 
 	return s.repo.CreateAddressWithNew(ctx, deviceID, ipAddress)
+}
+
+// parseAndValidateIP parses and validates that the given string is a valid IPv4 or IPv6 address.
+func parseAndValidateIP(ipAddress string) error {
+	_, err := netip.ParseAddr(ipAddress)
+	if err != nil {
+		return ErrInvalidIPFormat
+	}
+	return nil
 }

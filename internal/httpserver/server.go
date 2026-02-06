@@ -12,8 +12,8 @@ import (
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/ui"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/oapi-codegen/nethttp-middleware"
-	"github.com/samber/slog-chi"
+	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
+	slogchi "github.com/samber/slog-chi"
 	httpSwagger "github.com/swaggo/http-swagger"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
@@ -65,7 +65,7 @@ func addRoutes(r *chi.Mux, openApiHandler *device.OpenApiHandler) {
 			return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 				// Extract client IP from request (RealIP middleware sets RemoteAddr)
 				clientIP := r.RemoteAddr
-				ctx = context.WithValue(ctx, "client_ip", clientIP)
+				ctx = device.WithClientIP(ctx, clientIP)
 				return next(ctx, w, r, request)
 			}
 		}

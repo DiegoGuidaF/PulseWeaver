@@ -24,6 +24,7 @@ import (
 
 // AddAddressRequest defines model for AddAddressRequest.
 type AddAddressRequest struct {
+	// Ip IPv4 or IPv6 address
 	Ip string `json:"ip"`
 }
 
@@ -33,7 +34,9 @@ type Address struct {
 	DeviceId   int64      `json:"device_id"`
 	DisabledAt *time.Time `json:"disabled_at"`
 	ID         int64      `json:"id"`
-	IP         string     `json:"ip"`
+
+	// IP IPv4 or IPv6 address
+	IP string `json:"ip"`
 }
 
 // CreateDeviceRequest defines model for CreateDeviceRequest.
@@ -73,12 +76,12 @@ type ServerInterface interface {
 	// Assign address to device
 	// (POST /devices/{device_id}/addresses)
 	AddAddress(w http.ResponseWriter, r *http.Request, deviceId int64)
-	// Ping endpoint to register/update device IP
-	// (GET /devices/{device_id}/addresses/ping)
-	PingAddress(w http.ResponseWriter, r *http.Request, deviceId int64)
 	// Disable address
 	// (DELETE /devices/{device_id}/addresses/{address_id})
 	DisableAddress(w http.ResponseWriter, r *http.Request, deviceId int64, addressId int64)
+	// Device heartbeat endpoint
+	// (POST /devices/{device_id}/heartbeat)
+	DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId int64)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -109,15 +112,15 @@ func (_ Unimplemented) AddAddress(w http.ResponseWriter, r *http.Request, device
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Ping endpoint to register/update device IP
-// (GET /devices/{device_id}/addresses/ping)
-func (_ Unimplemented) PingAddress(w http.ResponseWriter, r *http.Request, deviceId int64) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // Disable address
 // (DELETE /devices/{device_id}/addresses/{address_id})
 func (_ Unimplemented) DisableAddress(w http.ResponseWriter, r *http.Request, deviceId int64, addressId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Device heartbeat endpoint
+// (POST /devices/{device_id}/heartbeat)
+func (_ Unimplemented) DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -208,31 +211,6 @@ func (siw *ServerInterfaceWrapper) AddAddress(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
-// PingAddress operation middleware
-func (siw *ServerInterfaceWrapper) PingAddress(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "device_id" -------------
-	var deviceId int64
-
-	err = runtime.BindStyledParameterWithOptions("simple", "device_id", chi.URLParam(r, "device_id"), &deviceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "device_id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PingAddress(w, r, deviceId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // DisableAddress operation middleware
 func (siw *ServerInterfaceWrapper) DisableAddress(w http.ResponseWriter, r *http.Request) {
 
@@ -258,6 +236,31 @@ func (siw *ServerInterfaceWrapper) DisableAddress(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DisableAddress(w, r, deviceId, addressId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeviceHeartbeat operation middleware
+func (siw *ServerInterfaceWrapper) DeviceHeartbeat(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "device_id" -------------
+	var deviceId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "device_id", chi.URLParam(r, "device_id"), &deviceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "device_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeviceHeartbeat(w, r, deviceId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -393,10 +396,10 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/devices/{device_id}/addresses", wrapper.AddAddress)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/devices/{device_id}/addresses/ping", wrapper.PingAddress)
+		r.Delete(options.BaseURL+"/devices/{device_id}/addresses/{address_id}", wrapper.DisableAddress)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/devices/{device_id}/addresses/{address_id}", wrapper.DisableAddress)
+		r.Post(options.BaseURL+"/devices/{device_id}/heartbeat", wrapper.DeviceHeartbeat)
 	})
 
 	return r
@@ -551,59 +554,6 @@ func (response AddAddress500JSONResponse) VisitAddAddressResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type PingAddressRequestObject struct {
-	DeviceId int64 `json:"device_id"`
-}
-
-type PingAddressResponseObject interface {
-	VisitPingAddressResponse(w http.ResponseWriter) error
-}
-
-type PingAddress200JSONResponse Address
-
-func (response PingAddress200JSONResponse) VisitPingAddressResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type PingAddress201JSONResponse Address
-
-func (response PingAddress201JSONResponse) VisitPingAddressResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type PingAddress400JSONResponse ErrorResponse
-
-func (response PingAddress400JSONResponse) VisitPingAddressResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type PingAddress404JSONResponse ErrorResponse
-
-func (response PingAddress404JSONResponse) VisitPingAddressResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type PingAddress500JSONResponse ErrorResponse
-
-func (response PingAddress500JSONResponse) VisitPingAddressResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type DisableAddressRequestObject struct {
 	DeviceId  int64 `json:"device_id"`
 	AddressId int64 `json:"address_id"`
@@ -658,6 +608,59 @@ func (response DisableAddress500JSONResponse) VisitDisableAddressResponse(w http
 	return json.NewEncoder(w).Encode(response)
 }
 
+type DeviceHeartbeatRequestObject struct {
+	DeviceId int64 `json:"device_id"`
+}
+
+type DeviceHeartbeatResponseObject interface {
+	VisitDeviceHeartbeatResponse(w http.ResponseWriter) error
+}
+
+type DeviceHeartbeat200JSONResponse Address
+
+func (response DeviceHeartbeat200JSONResponse) VisitDeviceHeartbeatResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeviceHeartbeat201JSONResponse Address
+
+func (response DeviceHeartbeat201JSONResponse) VisitDeviceHeartbeatResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeviceHeartbeat400JSONResponse ErrorResponse
+
+func (response DeviceHeartbeat400JSONResponse) VisitDeviceHeartbeatResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeviceHeartbeat404JSONResponse ErrorResponse
+
+func (response DeviceHeartbeat404JSONResponse) VisitDeviceHeartbeatResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeviceHeartbeat500JSONResponse ErrorResponse
+
+func (response DeviceHeartbeat500JSONResponse) VisitDeviceHeartbeatResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// List all devices
@@ -672,12 +675,12 @@ type StrictServerInterface interface {
 	// Assign address to device
 	// (POST /devices/{device_id}/addresses)
 	AddAddress(ctx context.Context, request AddAddressRequestObject) (AddAddressResponseObject, error)
-	// Ping endpoint to register/update device IP
-	// (GET /devices/{device_id}/addresses/ping)
-	PingAddress(ctx context.Context, request PingAddressRequestObject) (PingAddressResponseObject, error)
 	// Disable address
 	// (DELETE /devices/{device_id}/addresses/{address_id})
 	DisableAddress(ctx context.Context, request DisableAddressRequestObject) (DisableAddressResponseObject, error)
+	// Device heartbeat endpoint
+	// (POST /devices/{device_id}/heartbeat)
+	DeviceHeartbeat(ctx context.Context, request DeviceHeartbeatRequestObject) (DeviceHeartbeatResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -823,32 +826,6 @@ func (sh *strictHandler) AddAddress(w http.ResponseWriter, r *http.Request, devi
 	}
 }
 
-// PingAddress operation middleware
-func (sh *strictHandler) PingAddress(w http.ResponseWriter, r *http.Request, deviceId int64) {
-	var request PingAddressRequestObject
-
-	request.DeviceId = deviceId
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.PingAddress(ctx, request.(PingAddressRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PingAddress")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(PingAddressResponseObject); ok {
-		if err := validResponse.VisitPingAddressResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // DisableAddress operation middleware
 func (sh *strictHandler) DisableAddress(w http.ResponseWriter, r *http.Request, deviceId int64, addressId int64) {
 	var request DisableAddressRequestObject
@@ -876,29 +853,56 @@ func (sh *strictHandler) DisableAddress(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
+// DeviceHeartbeat operation middleware
+func (sh *strictHandler) DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId int64) {
+	var request DeviceHeartbeatRequestObject
+
+	request.DeviceId = deviceId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeviceHeartbeat(ctx, request.(DeviceHeartbeatRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeviceHeartbeat")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeviceHeartbeatResponseObject); ok {
+		if err := validResponse.VisitDeviceHeartbeatResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"xondGQAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

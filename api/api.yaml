@@ -131,7 +131,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Address'
         "400":
-          description: Invalid address format or IPv6 not supported
+          description: Invalid address format (must be valid IPv4 or IPv6)
           content:
             application/json:
               schema:
@@ -148,13 +148,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /devices/{device_id}/addresses/ping:
-    get:
-      operationId: pingAddress
+  /devices/{device_id}/heartbeat:
+    post:
+      operationId: deviceHeartbeat
       tags:
-        - addresses
-      summary: Ping endpoint to register/update device IP
-      description: Extracts the client IP from the request and upserts it for the device. If IP exists and is enabled, returns existing. If disabled, re-enables it. If new, creates it.
+        - devices
+      summary: Device heartbeat endpoint
+      description: Device reports its current IP address. Extracts the client IP from the request and upserts it for the device. If IP exists and is enabled, returns existing. If disabled, re-enables it. If new, creates it.
       parameters:
         - name: device_id
           in: path
@@ -177,7 +177,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Address'
         "400":
-          description: Invalid IP address format
+          description: Invalid IP address format (must be valid IPv4 or IPv6)
           content:
             application/json:
               schema:
@@ -269,7 +269,7 @@ components:
       properties:
         ip:
           type: string
-          format: ipv4
+          description: IPv4 or IPv6 address
           example: 192.168.1.132
     #################
     # Responses
@@ -316,7 +316,7 @@ components:
           format: int64
         ip:
           type: string
-          format: ipv4
+          description: IPv4 or IPv6 address
           x-go-name: "IP"  # Generator uses camel-case while convention is upper
         disabled_at:
           type: string

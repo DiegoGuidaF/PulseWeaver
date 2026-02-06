@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
+	"github.com/mattn/go-sqlite3"
 )
 
 type Repository struct {
@@ -113,8 +113,8 @@ func (r *Repository) CreateAddressWithNew(ctx context.Context, deviceId DeviceId
 	result, err := r.db.DB().ExecContext(ctx, query, deviceIP.DeviceId, deviceIP.IP, deviceIP.CreatedAt)
 	if err != nil {
 		// Check if it's a unique constraint violation
-		errStr := err.Error()
-		if strings.Contains(errStr, "UNIQUE constraint failed") || strings.Contains(errStr, "UNIQUE constraint") {
+		var sqliteErr sqlite3.Error
+		if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
 			// Address already exists, handle upsert logic
 			existing, findErr := r.GetAddressByDeviceAndIP(ctx, deviceId, ipAddress)
 			if findErr != nil {

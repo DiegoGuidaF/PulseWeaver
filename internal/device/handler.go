@@ -5,14 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
-	"strings"
+	"net/netip"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
 )
-
-// clientIPKey is the context key for storing client IP address
-const clientIPKey = "client_ip"
 
 type OpenApiHandler struct {
 	service *Service
@@ -32,7 +28,7 @@ func (h *OpenApiHandler) GetDevices(ctx context.Context, _ api.GetDevicesRequest
 
 	apiDevices := make([]api.Device, len(devices))
 	for i := range devices {
-		apiDevices[i] = devices[i].toResponse()
+		apiDevices[i] = toDeviceResponse(&devices[i])
 	}
 
 	return api.GetDevices200JSONResponse(apiDevices), nil
@@ -50,8 +46,7 @@ func (h *OpenApiHandler) CreateDevice(ctx context.Context, request api.CreateDev
 		return api.CreateDevice500JSONResponse(errorMsgResponse("Failed to create device")), nil
 	}
 
-	h.logger.Info("device created", slog.Int64("device_id", device.ID.Int64()))
-	return api.CreateDevice201JSONResponse(device.toResponse()), nil
+	return api.CreateDevice201JSONResponse(toDeviceResponse(device)), nil
 }
 
 func (h *OpenApiHandler) GetDeviceAddresses(ctx context.Context, request api.GetDeviceAddressesRequestObject) (api.GetDeviceAddressesResponseObject, error) {
@@ -75,7 +70,7 @@ func (h *OpenApiHandler) GetDeviceAddresses(ctx context.Context, request api.Get
 
 	addressesResponse := make([]api.Address, len(addresses))
 	for i := range addresses {
-		addressesResponse[i] = addresses[i].toResponse()
+		addressesResponse[i] = toAddressResponse(&addresses[i])
 	}
 
 	return api.GetDeviceAddresses200JSONResponse(addressesResponse), nil
@@ -85,14 +80,11 @@ func (h *OpenApiHandler) AddAddress(ctx context.Context, request api.AddAddressR
 	deviceId := DeviceId(request.DeviceId)
 	ipAddress := request.Body.Ip
 
-	// Validate IPv4 format
-	if err := validateIPv4(ipAddress); err != nil {
-		return api.AddAddress400JSONResponse(errorMsgResponse(fmt.Sprintf("Received address %s is not a valid ipv4", ipAddress))), nil
-	}
-
 	deviceIp, err := h.service.AssignAddress(ctx, deviceId, ipAddress)
 	if err != nil {
 		switch {
+		case errors.Is(err, ErrInvalidIPFormat):
+			return api.AddAddress400JSONResponse(errorMsgResponse(fmt.Sprintf("Received address %s is not a valid IPv4 or IPv6 address", ipAddress))), nil
 		case errors.Is(err, ErrDeviceNotFound):
 			return api.AddAddress404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceId))), nil
 		default:
@@ -105,11 +97,7 @@ func (h *OpenApiHandler) AddAddress(ctx context.Context, request api.AddAddressR
 		}
 	}
 
-	h.logger.Info("deviceIp assigned",
-		slog.Int64("device_id", deviceId.Int64()),
-		slog.String("deviceIp", deviceIp.IP),
-	)
-	return api.AddAddress201JSONResponse(deviceIp.toResponse()), nil
+	return api.AddAddress201JSONResponse(toAddressResponse(deviceIp)), nil
 }
 func (h *OpenApiHandler) DisableAddress(ctx context.Context, request api.DisableAddressRequestObject) (api.DisableAddressResponseObject, error) {
 	deviceId := DeviceId(request.DeviceId)
@@ -128,79 +116,76 @@ func (h *OpenApiHandler) DisableAddress(ctx context.Context, request api.Disable
 		return api.DisableAddress500JSONResponse(errorMsgResponse("Failed to disable address")), nil
 	}
 
-	h.logger.Info("address disabled",
-		slog.Int64("device_id", deviceId.Int64()),
-		slog.Int64("address_id", addressId.Int64()),
-	)
-	return api.DisableAddress200JSONResponse(deviceIp.toResponse()), nil
+	return api.DisableAddress200JSONResponse(toAddressResponse(deviceIp)), nil
 }
 
-func (h *OpenApiHandler) PingAddress(ctx context.Context, request api.PingAddressRequestObject) (api.PingAddressResponseObject, error) {
+func (h *OpenApiHandler) CheckinDevice(ctx context.Context, request api.DeviceHeartbeatRequestObject) (api.DeviceHeartbeatResponseObject, error) {
 	deviceId := DeviceId(request.DeviceId)
 
 	// Extract client IP from context (set by middleware)
-	clientIP, ok := ctx.Value(clientIPKey).(string)
-	if !ok || clientIP == "" {
+	clientIP, ok := ClientIPFromContext(ctx)
+	if !ok {
 		h.logger.Error("failed to extract client IP from request")
-		return api.PingAddress400JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
+		return api.DeviceHeartbeat400JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
 	}
 
-	// Remove port if present (RemoteAddr format is "ip:port")
-	ip := clientIP
-	if idx := strings.LastIndex(clientIP, ":"); idx != -1 {
-		ip = clientIP[:idx]
+	// Parse IP address, removing port if present
+	// RemoteAddr format is "ip:port" for IPv4 or "[ipv6]:port" for IPv6
+	addrPort, err := netip.ParseAddrPort(clientIP)
+	if err != nil {
+		// Try parsing as address without port
+		addr, err2 := netip.ParseAddr(clientIP)
+		if err2 != nil {
+			h.logger.Error("failed to parse client IP from request", slog.String("remote_addr", clientIP))
+			return api.DeviceHeartbeat400JSONResponse(errorMsgResponse("Failed to parse client IP address")), nil
+		}
+		addrPort = netip.AddrPortFrom(addr, 0)
 	}
+	ip := addrPort.Addr().String()
 
-	// Validate IPv4 format
-	if err := validateIPv4(ip); err != nil {
-		return api.PingAddress400JSONResponse(errorMsgResponse(fmt.Sprintf("Received address %s is not a valid ipv4", ip))), nil
-	}
-
-	// Call service to upsert the address
-	address, isNew, err := h.service.PingAddress(ctx, deviceId, ip)
+	// Call service to checkin the device
+	address, isNew, err := h.service.Heartbeat(ctx, deviceId, ip)
 	if err != nil {
 		switch {
+		case errors.Is(err, ErrInvalidIPFormat):
+			return api.DeviceHeartbeat400JSONResponse(errorMsgResponse(fmt.Sprintf("Received address %s is not a valid IPv4 or IPv6 address", ip))), nil
 		case errors.Is(err, ErrDeviceNotFound):
-			return api.PingAddress404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceId))), nil
+			return api.DeviceHeartbeat404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceId))), nil
 		default:
-			h.logger.Error("failed to ping address",
+			h.logger.Error("failed to checkin device",
 				slog.Int64("device_id", deviceId.Int64()),
 				slog.String("ip", ip),
 				slog.Any("error", err),
 			)
-			return api.PingAddress500JSONResponse(errorMsgResponse("Failed to ping address")), nil
+			return api.DeviceHeartbeat500JSONResponse(errorMsgResponse("Failed to checkin device")), nil
 		}
 	}
 
 	if isNew {
-		h.logger.Info("new address created via ping",
-			slog.Int64("device_id", deviceId.Int64()),
-			slog.String("ip", ip),
-		)
-		return api.PingAddress201JSONResponse(address.toResponse()), nil
+		return api.DeviceHeartbeat201JSONResponse(toAddressResponse(address)), nil
 	}
 
-	h.logger.Info("address updated via ping",
-		slog.Int64("device_id", deviceId.Int64()),
-		slog.String("ip", ip),
-	)
-	return api.PingAddress200JSONResponse(address.toResponse()), nil
+	return api.DeviceHeartbeat200JSONResponse(toAddressResponse(address)), nil
+}
+
+func toDeviceResponse(d *Device) api.Device {
+	return api.Device{
+		ID:        d.ID.Int64(),
+		Name:      d.Name,
+		CreatedAt: d.CreatedAt,
+	}
+}
+
+func toAddressResponse(a *Address) api.Address {
+	return api.Address{
+		ID:         a.ID.Int64(),
+		DeviceId:   a.DeviceId.Int64(),
+		IP:         a.IP,
+		DisabledAt: a.DisabledAt,
+		CreatedAt:  a.CreatedAt,
+	}
 }
 
 func errorMsgResponse(errorMsg string) api.ErrorResponse {
 	return api.ErrorResponse{Error: &errorMsg}
-}
-
-func validateIPv4(ipAddress string) error {
-	ip := net.ParseIP(ipAddress)
-	if ip == nil {
-		return ErrInvalidIPFormat
-	}
-
-	// Check it's IPv4 (net.ParseIP accepts both IPv4 and IPv6)
-	if ip.To4() == nil {
-		return ErrIPv6NotSupported
-	}
-
-	return nil
 }

@@ -5,6 +5,9 @@
 /tmp/
 /internal/ui/dist
 
+# Scratch/test files
+scratch_test.go
+
 # SQLite Database files
 *.db
 *.db-journal
@@ -25,6 +28,8 @@
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 
 # Vim/Emacs
 *.swp
