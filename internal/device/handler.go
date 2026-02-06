@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/netip"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
 )
@@ -119,7 +118,7 @@ func (h *OpenApiHandler) DisableAddress(ctx context.Context, request api.Disable
 	return api.DisableAddress200JSONResponse(toAddressResponse(deviceIp)), nil
 }
 
-func (h *OpenApiHandler) CheckinDevice(ctx context.Context, request api.DeviceHeartbeatRequestObject) (api.DeviceHeartbeatResponseObject, error) {
+func (h *OpenApiHandler) DeviceHeartbeat(ctx context.Context, request api.DeviceHeartbeatRequestObject) (api.DeviceHeartbeatResponseObject, error) {
 	deviceId := DeviceId(request.DeviceId)
 
 	// Extract client IP from context (set by middleware)
@@ -129,32 +128,18 @@ func (h *OpenApiHandler) CheckinDevice(ctx context.Context, request api.DeviceHe
 		return api.DeviceHeartbeat400JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
 	}
 
-	// Parse IP address, removing port if present
-	// RemoteAddr format is "ip:port" for IPv4 or "[ipv6]:port" for IPv6
-	addrPort, err := netip.ParseAddrPort(clientIP)
-	if err != nil {
-		// Try parsing as address without port
-		addr, err2 := netip.ParseAddr(clientIP)
-		if err2 != nil {
-			h.logger.Error("failed to parse client IP from request", slog.String("remote_addr", clientIP))
-			return api.DeviceHeartbeat400JSONResponse(errorMsgResponse("Failed to parse client IP address")), nil
-		}
-		addrPort = netip.AddrPortFrom(addr, 0)
-	}
-	ip := addrPort.Addr().String()
-
 	// Call service to checkin the device
-	address, isNew, err := h.service.Heartbeat(ctx, deviceId, ip)
+	address, isNew, err := h.service.Heartbeat(ctx, deviceId, clientIP)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
-			return api.DeviceHeartbeat400JSONResponse(errorMsgResponse(fmt.Sprintf("Received address %s is not a valid IPv4 or IPv6 address", ip))), nil
+			return api.DeviceHeartbeat400JSONResponse(errorMsgResponse(fmt.Sprintf("Received address %s is not a valid IPv4 or IPv6 address", clientIP))), nil
 		case errors.Is(err, ErrDeviceNotFound):
 			return api.DeviceHeartbeat404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceId))), nil
 		default:
 			h.logger.Error("failed to checkin device",
 				slog.Int64("device_id", deviceId.Int64()),
-				slog.String("ip", ip),
+				slog.String("ip", clientIP),
 				slog.Any("error", err),
 			)
 			return api.DeviceHeartbeat500JSONResponse(errorMsgResponse("Failed to checkin device")), nil

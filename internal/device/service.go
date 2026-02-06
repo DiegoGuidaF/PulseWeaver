@@ -32,13 +32,13 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, error
 	return s.repo.CreateDevice(ctx, name)
 }
 
-func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceId, ipAddress string) (*Address, error) {
-	if err := parseAndValidateIP(ipAddress); err != nil {
+func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceId, ipInput string) (*Address, error) {
+	ipAddress, err := parseAndValidateIP(ipInput); if err != nil {
 		return nil, err
 	}
 
 	// Check device exists
-	_, err := s.repo.GetDeviceByID(ctx, deviceID)
+	_, err = s.repo.GetDeviceByID(ctx, deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -60,13 +60,13 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceId, address
 	return s.repo.DisableAddress(ctx, deviceID, addressID)
 }
 
-func (s *Service) Heartbeat(ctx context.Context, deviceID DeviceId, ipAddress string) (*Address, bool, error) {
-	if err := parseAndValidateIP(ipAddress); err != nil {
+func (s *Service) Heartbeat(ctx context.Context, deviceID DeviceId, ipInput string) (*Address, bool, error) {
+	ipAddress, err := parseAndValidateIP(ipInput); if err != nil {
 		return nil, false, err
 	}
 
 	// Check device exists
-	_, err := s.repo.GetDeviceByID(ctx, deviceID)
+	_, err = s.repo.GetDeviceByID(ctx, deviceID)
 	if err != nil {
 		return nil, false, err
 	}
@@ -75,10 +75,20 @@ func (s *Service) Heartbeat(ctx context.Context, deviceID DeviceId, ipAddress st
 }
 
 // parseAndValidateIP parses and validates that the given string is a valid IPv4 or IPv6 address.
-func parseAndValidateIP(ipAddress string) error {
-	_, err := netip.ParseAddr(ipAddress)
-	if err != nil {
-		return ErrInvalidIPFormat
+// It ignores the port if present and only cares about the IP component.
+func parseAndValidateIP(ipInput string) (string, error) {
+	// Try to parse as IP without port
+	if ip, err := netip.ParseAddr(ipInput); err == nil {
+		ipStr := ip.String()
+		return ipStr, nil
 	}
-	return nil
+
+	// If that fails, try to parse as IP with port
+	if ap, err := netip.ParseAddrPort(ipInput); err == nil {
+		ipStr := ap.Addr().String()
+		return ipStr, nil
+	}
+
+	// If both fail, return error
+	return "", ErrInvalidIPFormat
 }
