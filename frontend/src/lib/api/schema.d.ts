@@ -28,7 +28,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/devices/{id}/ips": {
+    "/devices/{device_id}/addresses": {
         parameters: {
             query?: never;
             header?: never;
@@ -36,23 +36,43 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get IPs for a device
-         * @description Get all enabled IPs for a specific device
+         * Get addresses for a device
+         * @description Get all enabled addresses for a specific device
          */
-        get: operations["getDeviceIps"];
+        get: operations["getDeviceAddresses"];
         put?: never;
         /**
-         * Assign IP to device
-         * @description Add a new IPv4 address to a device
+         * Assign address to device
+         * @description Add a new address to a device
          */
-        post: operations["addDeviceIp"];
+        post: operations["addAddress"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/devices/{id}/ips/{ip_id}/disable": {
+    "/devices/{device_id}/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Device heartbeat
+         * @description Device reports its current IP address. Extracts the client IP from the request and upserts it for the device. If IP exists and is enabled, returns existing. If disabled, re-enables it. If new, creates it.
+         */
+        post: operations["deviceHeartbeat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/devices/{device_id}/addresses/{address_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -62,14 +82,14 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Disable address
+         * @description Mark an address as disabled for a device
+         */
+        delete: operations["disableAddress"];
         options?: never;
         head?: never;
-        /**
-         * Disable device IP
-         * @description Mark an IP address as disabled for a device
-         */
-        patch: operations["disableDeviceIp"];
+        patch?: never;
         trace?: never;
     };
 }
@@ -80,12 +100,12 @@ export interface components {
             /** @example Personal phone */
             name: string;
         };
-        AddDeviceIPRequest: {
+        AddAddressRequest: {
             /**
-             * Format: ipv4
+             * @description IPv4 or IPv6 address
              * @example 192.168.1.132
              */
-            ip_address: string;
+            ip: string;
         };
         ErrorResponse: {
             /** @example device not found */
@@ -98,17 +118,22 @@ export interface components {
             id: number;
             name: string;
         };
-        DeviceIP: {
+        Address: {
             /** Format: int64 */
             id: number;
             /** Format: int64 */
             device_id: number;
-            /** Format: ipv4 */
-            ip_address: string;
-            /** Format: date-time */
-            disabled_at?: string | null;
+            /** @description IPv4 or IPv6 address */
+            ip: string;
+            /** @description The latest state of this address, enabled or disabled */
+            status: boolean;
             /** Format: date-time */
             created_at: string;
+            /**
+             * Format: date-time
+             * @description Last time it was enabled or disabled
+             */
+            updated_at: string;
         };
     };
     responses: never;
@@ -191,13 +216,13 @@ export interface operations {
             };
         };
     };
-    getDeviceIps: {
+    getDeviceAddresses: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Device ID */
-                id: number;
+                /** @description Device Id */
+                device_id: number;
             };
             cookie?: never;
         };
@@ -209,7 +234,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DeviceIP"][];
+                    "application/json": components["schemas"]["Address"][];
                 };
             };
             /** @description Bad Request */
@@ -241,33 +266,42 @@ export interface operations {
             };
         };
     };
-    addDeviceIp: {
+    addAddress: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Device ID */
-                id: number;
+                /** @description Device id */
+                device_id: number;
             };
             cookie?: never;
         };
-        /** @description IP assignment request */
+        /** @description Address assignment request */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AddDeviceIPRequest"];
+                "application/json": components["schemas"]["AddAddressRequest"];
             };
         };
         responses: {
+            /** @description Address already existed, enabled status set */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Address"];
+                };
+            };
             /** @description Created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DeviceIP"];
+                    "application/json": components["schemas"]["Address"];
                 };
             };
-            /** @description Invalid IP format or IPv6 not supported */
+            /** @description Invalid address format (must be valid IPv4 or IPv6) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -296,30 +330,37 @@ export interface operations {
             };
         };
     };
-    disableDeviceIp: {
+    deviceHeartbeat: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Device ID */
-                id: number;
-                /** @description Device IP ID */
-                ip_id: number;
+                /** @description Device Id */
+                device_id: number;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description IP successfully disabled */
+            /** @description Address already exists and is enabled, or was successfully re-enabled */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DeviceIP"];
+                    "application/json": components["schemas"]["Address"];
                 };
             };
-            /** @description Missing device or IP ID */
+            /** @description New address created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Address"];
+                };
+            };
+            /** @description Invalid IP address format (must be valid IPv4 or IPv6) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -328,7 +369,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Device IP not found or wrong device */
+            /** @description Device not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -337,8 +378,51 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Device IP already disabled */
-            409: {
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    disableAddress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Device Id */
+                device_id: number;
+                /** @description Address id */
+                address_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Address successfully disabled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Address"];
+                };
+            };
+            /** @description Missing device id or address id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Address not found or wrong device */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
