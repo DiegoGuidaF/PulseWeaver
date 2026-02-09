@@ -15,9 +15,10 @@ type DeviceRepository interface {
 	CreateAddress(ctx context.Context, deviceId DeviceID, ipAddress string) (*Address, error)
 	FindAddressForDeviceByIp(ctx context.Context, deviceId DeviceID, ip string) (*Address, error)
 	ListAddresses(ctx context.Context, deviceId DeviceID) ([]AddressWithStatus, error)
-	DisableAddress(ctx context.Context, deviceId DeviceID, addressId AddressID) (*AddressWithStatus, error)
+	DisableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error)
 	EnableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error)
 	GetAddressWithStatus(ctx context.Context, addressId AddressID) (*AddressWithStatus, error)
+	CheckAddressOwnership(ctx context.Context, deviceId DeviceID, addressId AddressID) error
 	RunInTx(ctx context.Context, fn func(DeviceRepository) error) error
 }
 
@@ -47,17 +48,30 @@ func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, ipInput 
 }
 
 func (s *Service) GetAddressesForDevice(ctx context.Context, deviceID DeviceID) ([]AddressWithStatus, error) {
-	// Check device exists
-	_, err := s.repo.GetDeviceByID(ctx, deviceID)
-	if err != nil {
-		return nil, err
-	}
-
 	return s.repo.ListAddresses(ctx, deviceID)
 }
 
 func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, addressID AddressID) (*AddressWithStatus, error) {
-	return s.repo.DisableAddress(ctx, deviceID, addressID)
+	var disabledAddress *AddressWithStatus
+
+	err := s.repo.RunInTx(ctx, func(tx DeviceRepository) error {
+		err := tx.CheckAddressOwnership(ctx, deviceID, addressID)
+		if err != nil {
+			return err
+		}
+
+		disabledAddress, err = tx.DisableAddress(ctx, addressID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return disabledAddress, nil
 }
 
 func (s *Service) Heartbeat(ctx context.Context, deviceID DeviceID, ipInput string) (*AddressWithStatus, bool, error) {
@@ -111,6 +125,7 @@ func parseAndValidateIP(ipInput string) (string, error) {
 	// If both fail, return error
 	return "", ErrInvalidIPFormat
 }
+
 func (s *Service) getOrCreateAddress(ctx context.Context, deviceID DeviceID, ipAddress string) (*AddressWithStatus, bool, error) {
 	return s.getOrCreateAddressWithTx(ctx, s.repo, deviceID, ipAddress)
 }

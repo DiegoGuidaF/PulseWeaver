@@ -105,7 +105,7 @@ func (h *OpenApiHandler) DisableAddress(ctx context.Context, request api.Disable
 
 	address, err := h.service.DisableAddress(ctx, deviceId, addressId)
 	if err != nil {
-		if errors.Is(err, ErrAddressNotFound) {
+		if errors.Is(err, ErrAddressNotFound) || errors.Is(err, ErrAddressNotOwnedByDevice) {
 			return api.DisableAddress404JSONResponse(errorMsgResponse(fmt.Sprintf("Address id %s for device id %s not found or already disabled", addressId, deviceId))), nil
 		}
 		h.logger.Error("failed to disable address",
@@ -116,7 +116,6 @@ func (h *OpenApiHandler) DisableAddress(ctx context.Context, request api.Disable
 		return api.DisableAddress500JSONResponse(errorMsgResponse("Failed to disable address")), nil
 	}
 
-	// TODO: Fix return!
 	return api.DisableAddress200JSONResponse(toAddressResponse(address)), nil
 }
 

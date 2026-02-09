@@ -53,7 +53,7 @@ func setupTestServer(t *testing.T) TestServer {
 		Level: slog.LevelDebug,
 	}))
 
-	deviceRepo := device.NewRepository(db)
+	deviceRepo := device.NewRepository(db.DB())
 	deviceService := device.NewService(deviceRepo)
 	deviceHandler := device.NewOpenApiHandler(deviceService, logger)
 

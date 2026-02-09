@@ -305,7 +305,9 @@ components:
         - id
         - device_id
         - ip
+        - status
         - created_at
+        - updated_at
       properties:
         id:
           type: integer
@@ -318,6 +320,13 @@ components:
           type: string
           description: IPv4 or IPv6 address
           x-go-name: "IP"  # Generator uses camel-case while convention is upper
+        status:
+          type: boolean
+          description: The latest state of this address, enabled or disabled
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+          description: Last time it was enabled or disabled

@@ -31,7 +31,7 @@ func setupTestDB(t *testing.T) *Repository {
 		t.Fatalf("migrate: %v", err)
 	}
 
-	return NewRepository(db)
+	return NewRepository(db.DB())
 }
 
 func TestRepository_CreateDevice(t *testing.T) {

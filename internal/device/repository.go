@@ -154,7 +154,8 @@ func (r *Repository) ListAddresses(ctx context.Context, deviceId DeviceID) ([]Ad
 	return addresses, nil
 }
 
-func (r *Repository) DisableAddress(ctx context.Context, deviceId DeviceID, addressId AddressID) (*AddressWithStatus, error) {
+func (r *Repository) DisableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
+	// Validate that the address belongs to the device
 	return r.setAddressStatus(ctx, addressId, false)
 }
 
@@ -174,9 +175,24 @@ func (r *Repository) setAddressStatus(ctx context.Context, addressId AddressID, 
 	return r.GetAddressWithStatus(ctx, addressId)
 }
 
+func (r *Repository) CheckAddressOwnership(ctx context.Context, deviceId DeviceID, addressId AddressID) error {
+	var dummy int
+
+	query := `SELECT 1 FROM addresses WHERE id = ? AND device_id = ?`
+
+	err := r.db.GetContext(ctx, &dummy, query, addressId, deviceId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrAddressNotOwnedByDevice
+		}
+		return fmt.Errorf("failed to check address ownership: %w", err)
+	}
+	return nil
+}
+
 func (r *Repository) GetAddressWithStatus(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
 	var addresswStatus AddressWithStatus
-	query := `SELECT address_id, device_id, address_id, ip, created_at, updated_at, status
+	query := `SELECT address_id, device_id, ip, created_at, updated_at, status
 				FROM address_with_status WHERE address_id = ?`
 	err := r.db.GetContext(ctx, &addresswStatus, query, addressId)
 	if err != nil {
@@ -207,7 +223,7 @@ func (r *Repository) RunInTx(ctx context.Context, fn func(DeviceRepository) erro
 	defer tx.Rollback()
 
 	// Create a COPY of the repository
-	// We replace 'dbtmp' with the transaction 'tx'
+	// We replace 'db' with the transaction 'tx' and set the rootDB to nil so that it is not reused
 	txRepo := &Repository{
 		rootDB: nil, // Prevent nested transactions
 		db:     tx,  // All queries using txRepo.dbtmp will now use this transaction
