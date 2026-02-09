@@ -49,7 +49,7 @@ func run(ctx context.Context) (*slog.Logger, error) {
 	logger.Info("database initialized and connected successfully")
 
 	// 3. Dependency Injection
-	deviceRepo := device.NewRepository(db)
+	deviceRepo := device.NewRepository(db.DB())
 	deviceService := device.NewService(deviceRepo)
 	openApiHandler := device.NewOpenApiHandler(deviceService, logger)
 

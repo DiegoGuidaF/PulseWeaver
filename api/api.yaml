@@ -318,10 +318,6 @@ components:
           type: string
           description: IPv4 or IPv6 address
           x-go-name: "IP"  # Generator uses camel-case while convention is upper
-        disabled_at:
-          type: string
-          format: date-time
-          nullable: true
         created_at:
           type: string
           format: date-time

@@ -7,26 +7,36 @@ import (
 	"fmt"
 	"time"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
-	"github.com/mattn/go-sqlite3"
+	"github.com/jmoiron/sqlx"
 )
 
 type Repository struct {
-	db *database.SQLite
+	db     DBInterface
+	rootDB *sqlx.DB
 }
 
-func NewRepository(db *database.SQLite) *Repository {
-	return &Repository{db: db}
+type DBInterface interface {
+	sqlx.ExtContext
+	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
-func (r *Repository) GetDeviceByID(ctx context.Context, id DeviceId) (*Device, error) {
+func NewRepository(db *sqlx.DB) *Repository {
+	return &Repository{
+		rootDB: db,
+		db:     db,
+	}
+}
+
+func (r *Repository) GetDeviceByID(ctx context.Context, id DeviceID) (*Device, error) {
 	var device Device
 	query := `
 		SELECT id, name, created_at
 		FROM devices
 		WHERE id = ?
 	`
-	err := r.db.DB().GetContext(ctx, &device, query, id)
+	err := r.db.GetContext(ctx, &device, query, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrDeviceNotFound
@@ -47,7 +57,7 @@ func (r *Repository) CreateDevice(ctx context.Context, name string) (*Device, er
 		VALUES (?, ?)
 	`
 
-	result, err := r.db.DB().ExecContext(ctx, query, device.Name, device.CreatedAt)
+	result, err := r.db.ExecContext(ctx, query, device.Name, device.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("insert device: %w", err)
 	}
@@ -57,7 +67,7 @@ func (r *Repository) CreateDevice(ctx context.Context, name string) (*Device, er
 		return nil, fmt.Errorf("failed to get last insert ID: %w", err)
 	}
 
-	return r.GetDeviceByID(ctx, DeviceId(id))
+	return r.GetDeviceByID(ctx, DeviceID(id))
 }
 
 func (r *Repository) GetDevices(ctx context.Context) ([]Device, error) {
@@ -69,7 +79,7 @@ func (r *Repository) GetDevices(ctx context.Context) ([]Device, error) {
 		ORDER BY created_at DESC
 	`
 
-	if err := r.db.DB().SelectContext(ctx, &devices, query); err != nil {
+	if err := r.db.SelectContext(ctx, &devices, query); err != nil {
 		return nil, fmt.Errorf("select devices: %w", err)
 	}
 
@@ -80,27 +90,9 @@ func (r *Repository) GetDevices(ctx context.Context) ([]Device, error) {
 	return devices, nil
 }
 
-func (r *Repository) GetAddressByDeviceAndIP(ctx context.Context, deviceId DeviceId, ipAddress string) (*Address, error) {
-	var address Address
-	query := `SELECT id, device_id, ip, created_at, disabled_at FROM addresses WHERE device_id = ? AND ip = ?`
-	err := r.db.DB().GetContext(ctx, &address, query, deviceId, ipAddress)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrAddressNotFound
-		}
-		return nil, fmt.Errorf("failed to get device address: %w", err)
-	}
-	return &address, nil
-}
-
-func (r *Repository) CreateAddress(ctx context.Context, deviceId DeviceId, ipAddress string) (*Address, error) {
-	address, _, err := r.CreateAddressWithNew(ctx, deviceId, ipAddress)
-	return address, err
-}
-
-func (r *Repository) CreateAddressWithNew(ctx context.Context, deviceId DeviceId, ipAddress string) (*Address, bool, error) {
+func (r *Repository) CreateAddress(ctx context.Context, deviceId DeviceID, ipAddress string) (*Address, error) {
 	// Try to insert first
-	deviceIP := Address{
+	address := Address{
 		DeviceId:  deviceId,
 		IP:        ipAddress,
 		CreatedAt: time.Now().UTC(),
@@ -108,51 +100,21 @@ func (r *Repository) CreateAddressWithNew(ctx context.Context, deviceId DeviceId
 
 	query := `
 		INSERT INTO addresses (device_id, ip, created_at)
-		VALUES (?, ?, ?)
+		VALUES (?, ?, ?) returning id, device_id, ip, created_at
 	`
-	result, err := r.db.DB().ExecContext(ctx, query, deviceIP.DeviceId, deviceIP.IP, deviceIP.CreatedAt)
+	var createdAddress Address
+	err := r.db.GetContext(ctx, &createdAddress, query, address.DeviceId, address.IP, address.CreatedAt)
 	if err != nil {
-		// Check if it's a unique constraint violation
-		var sqliteErr sqlite3.Error
-		if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
-			// Address already exists, handle upsert logic
-			existing, findErr := r.GetAddressByDeviceAndIP(ctx, deviceId, ipAddress)
-			if findErr != nil {
-				return nil, false, fmt.Errorf("failed to find existing address: %w", findErr)
-			}
-
-			// If address exists and is enabled, return it (not new)
-			if existing.DisabledAt == nil {
-				return existing, false, nil
-			}
-
-			// If address exists and is disabled, re-enable it (not new)
-			updateQuery := `UPDATE addresses SET disabled_at = NULL WHERE id = ?`
-			_, updateErr := r.db.DB().ExecContext(ctx, updateQuery, existing.ID)
-			if updateErr != nil {
-				return nil, false, fmt.Errorf("failed to re-enable address: %w", updateErr)
-			}
-
-			// Return the updated address (not new)
-			updated, err := r.GetAddressByID(ctx, existing.ID)
-			return updated, false, err
-		}
-		return nil, false, fmt.Errorf("failed to create device address: %w", err)
+		return nil, fmt.Errorf("insert address: %w", err)
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to get last insert id: %w", err)
-	}
-
-	address, err := r.GetAddressByID(ctx, AddressId(id))
-	return address, true, err
+	return &createdAddress, nil
 }
 
-func (r *Repository) GetAddressByID(ctx context.Context, id AddressId) (*Address, error) {
+func (r *Repository) GetAddressByID(ctx context.Context, id AddressID) (*Address, error) {
 	var address Address
-	query := `SELECT id, device_id, ip, created_at, disabled_at FROM addresses WHERE id = ?`
-	err := r.db.DB().GetContext(ctx, &address, query, id)
+	query := `SELECT id, device_id, ip, created_at FROM addresses WHERE id = ?`
+	err := r.db.GetContext(ctx, &address, query, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrAddressNotFound
@@ -162,39 +124,100 @@ func (r *Repository) GetAddressByID(ctx context.Context, id AddressId) (*Address
 	return &address, nil
 }
 
-func (r *Repository) ListActiveAddresses(ctx context.Context, deviceId DeviceId) ([]Address, error) {
-	var addresses []Address
-	query := `
-		SELECT id, device_id, ip, created_at, disabled_at 
-		FROM addresses 
-		WHERE device_id = ? AND disabled_at IS NULL
-		ORDER BY created_at DESC
-	`
-	err := r.db.DB().SelectContext(ctx, &addresses, query, deviceId)
+func (r *Repository) FindAddressForDeviceByIp(ctx context.Context, deviceId DeviceID, ip string) (*Address, error) {
+	var address Address
+	query := `SELECT id, device_id, ip, created_at FROM addresses WHERE device_id = ? and ip = ?`
+	err := r.db.GetContext(ctx, &address, query, deviceId, ip)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrAddressNotFound
+		}
+		return nil, fmt.Errorf("failed to get device address: %w", err)
+	}
+	return &address, nil
+}
+
+func (r *Repository) ListAddresses(ctx context.Context, deviceId DeviceID) ([]AddressWithStatus, error) {
+	var addresses []AddressWithStatus
+	query := `SELECT address_id, device_id, ip, created_at, updated_at, status
+			FROM address_with_status WHERE device_id = ? ORDER BY updated_at DESC`
+
+	err := r.db.SelectContext(ctx, &addresses, query, deviceId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list device addresses: %w", err)
 	}
 
 	if addresses == nil {
-		return []Address{}, nil
+		return []AddressWithStatus{}, nil
 	}
 
 	return addresses, nil
 }
 
-func (r *Repository) DisableAddress(ctx context.Context, deviceId DeviceId, addressId AddressId) (*Address, error) {
-	query := `UPDATE addresses SET disabled_at = CURRENT_TIMESTAMP 
-        		WHERE id = ? AND device_id = ? AND disabled_at IS NULL 
-        		RETURNING id, device_id, ip, created_at, disabled_at`
-	var address Address
-	err := r.db.DB().GetContext(ctx, &address, query, addressId, deviceId)
-	if err == nil {
-		return &address, nil
+func (r *Repository) DisableAddress(ctx context.Context, deviceId DeviceID, addressId AddressID) (*AddressWithStatus, error) {
+	return r.setAddressStatus(ctx, addressId, false)
+}
+
+func (r *Repository) EnableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
+	return r.setAddressStatus(ctx, addressId, true)
+}
+
+func (r *Repository) setAddressStatus(ctx context.Context, addressId AddressID, isEnabled bool) (*AddressWithStatus, error) {
+	query := `
+		INSERT INTO address_status (address_id, status, created_at)
+		VALUES (?, ?, ?)
+	`
+	_, err := r.db.ExecContext(ctx, query, addressId, isEnabled, time.Now().UTC())
+	if err != nil {
+		return nil, fmt.Errorf("failed to record status: %w", err)
+	}
+	return r.GetAddressWithStatus(ctx, addressId)
+}
+
+func (r *Repository) GetAddressWithStatus(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
+	var addresswStatus AddressWithStatus
+	query := `SELECT address_id, device_id, address_id, ip, created_at, updated_at, status
+				FROM address_with_status WHERE address_id = ?`
+	err := r.db.GetContext(ctx, &addresswStatus, query, addressId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrAddressNotFound
+		}
+		return nil, fmt.Errorf("failed to get device address with status: %w", err)
+	}
+	return &addresswStatus, nil
+
+}
+
+// RunInTx runs the callback function inside a transaction.
+// If already running in a transaction context, do not create a new one and reuse it
+func (r *Repository) RunInTx(ctx context.Context, fn func(DeviceRepository) error) error {
+	if r.rootDB == nil {
+		// We are already in a transaction. Do not nest it.
+		return fn(r)
 	}
 
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrAddressNotFound
+	// Start the transaction
+	tx, err := r.rootDB.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
 	}
 
-	return nil, fmt.Errorf("unexpected state during disable operation: %w", err)
+	// Defer rollback (standard practice)
+	defer tx.Rollback()
+
+	// Create a COPY of the repository
+	// We replace 'dbtmp' with the transaction 'tx'
+	txRepo := &Repository{
+		rootDB: nil, // Prevent nested transactions
+		db:     tx,  // All queries using txRepo.dbtmp will now use this transaction
+	}
+
+	// Run the business logic with the transactional repo
+	if err := fn(txRepo); err != nil {
+		return err
+	}
+
+	// Commit if successful
+	return tx.Commit()
 }

@@ -33,6 +33,8 @@ migrate-up:
 migrate-down:
 	migrate -path internal/database/migrations -database "sqlite3://./data.db" down 1
 
+migrate-reapply-latest: migrate-down migrate-up
+
 migrate-create:
 	@read -p "Migration name: " name; \
 	migrate create -ext sql -dir internal/database/migrations -seq $$name

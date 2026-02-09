@@ -27,7 +27,7 @@ func NewSQLite(dbConf config.ConfDB) (*SQLite, error) {
 	if dbConf.Dsn != "" {
 		dsn = dbConf.Dsn
 	} else {
-		dsn = fmt.Sprintf("file:%s?cache=shared&mode=rwc&_loc=auto", dbConf.File)
+		dsn = fmt.Sprintf("file:%s?cache=shared&mode=rwc&_loc=auto&parseTime=true", dbConf.File)
 	}
 
 	db, err := sqlx.Connect("sqlite3", dsn)

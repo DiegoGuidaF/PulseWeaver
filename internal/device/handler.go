@@ -50,7 +50,7 @@ func (h *OpenApiHandler) CreateDevice(ctx context.Context, request api.CreateDev
 
 func (h *OpenApiHandler) GetDeviceAddresses(ctx context.Context, request api.GetDeviceAddressesRequestObject) (api.GetDeviceAddressesResponseObject, error) {
 
-	deviceId := DeviceId(request.DeviceId)
+	deviceId := DeviceID(request.DeviceId)
 
 	addresses, err := h.service.GetAddressesForDevice(ctx, deviceId)
 	if err != nil {
@@ -76,10 +76,10 @@ func (h *OpenApiHandler) GetDeviceAddresses(ctx context.Context, request api.Get
 }
 
 func (h *OpenApiHandler) AddAddress(ctx context.Context, request api.AddAddressRequestObject) (api.AddAddressResponseObject, error) {
-	deviceId := DeviceId(request.DeviceId)
+	deviceId := DeviceID(request.DeviceId)
 	ipAddress := request.Body.Ip
 
-	deviceIp, err := h.service.AssignAddress(ctx, deviceId, ipAddress)
+	deviceIp, _, err := h.service.AssignAddress(ctx, deviceId, ipAddress)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
@@ -96,13 +96,14 @@ func (h *OpenApiHandler) AddAddress(ctx context.Context, request api.AddAddressR
 		}
 	}
 
+	//TODO: Return 200 if not created
 	return api.AddAddress201JSONResponse(toAddressResponse(deviceIp)), nil
 }
 func (h *OpenApiHandler) DisableAddress(ctx context.Context, request api.DisableAddressRequestObject) (api.DisableAddressResponseObject, error) {
-	deviceId := DeviceId(request.DeviceId)
-	addressId := AddressId(request.AddressId)
+	deviceId := DeviceID(request.DeviceId)
+	addressId := AddressID(request.AddressId)
 
-	deviceIp, err := h.service.DisableAddress(ctx, deviceId, addressId)
+	address, err := h.service.DisableAddress(ctx, deviceId, addressId)
 	if err != nil {
 		if errors.Is(err, ErrAddressNotFound) {
 			return api.DisableAddress404JSONResponse(errorMsgResponse(fmt.Sprintf("Address id %s for device id %s not found or already disabled", addressId, deviceId))), nil
@@ -115,11 +116,12 @@ func (h *OpenApiHandler) DisableAddress(ctx context.Context, request api.Disable
 		return api.DisableAddress500JSONResponse(errorMsgResponse("Failed to disable address")), nil
 	}
 
-	return api.DisableAddress200JSONResponse(toAddressResponse(deviceIp)), nil
+	// TODO: Fix return!
+	return api.DisableAddress200JSONResponse(toAddressResponse(address)), nil
 }
 
 func (h *OpenApiHandler) DeviceHeartbeat(ctx context.Context, request api.DeviceHeartbeatRequestObject) (api.DeviceHeartbeatResponseObject, error) {
-	deviceId := DeviceId(request.DeviceId)
+	deviceId := DeviceID(request.DeviceId)
 
 	// Extract client IP from context (set by middleware)
 	clientIP, ok := ClientIPFromContext(ctx)
@@ -127,6 +129,7 @@ func (h *OpenApiHandler) DeviceHeartbeat(ctx context.Context, request api.Device
 		h.logger.Error("failed to extract client IP from request")
 		return api.DeviceHeartbeat400JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
 	}
+	h.logger.Debug("Received heartbeat request", slog.String("client_ip", clientIP))
 
 	// Call service to checkin the device
 	address, isNew, err := h.service.Heartbeat(ctx, deviceId, clientIP)
@@ -161,13 +164,12 @@ func toDeviceResponse(d *Device) api.Device {
 	}
 }
 
-func toAddressResponse(a *Address) api.Address {
+func toAddressResponse(a *AddressWithStatus) api.Address {
 	return api.Address{
-		ID:         a.ID.Int64(),
-		DeviceId:   a.DeviceId.Int64(),
-		IP:         a.IP,
-		DisabledAt: a.DisabledAt,
-		CreatedAt:  a.CreatedAt,
+		ID:        a.AddressId.Int64(),
+		DeviceId:  a.DeviceId.Int64(),
+		IP:        a.IP,
+		CreatedAt: a.CreatedAt,
 	}
 }
 

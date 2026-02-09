@@ -165,11 +165,11 @@ func TestHandler_AssignIP(t *testing.T) {
 
 	device1, _ := testServer.deviceService.CreateDevice(t.Context(), "device1-1")
 	deviceId := device1.ID
-	nonExistentDeviceId := device.DeviceId(123544)
+	nonExistentDeviceId := device.DeviceID(123544)
 
 	tests := []struct {
 		name       string
-		deviceID   device.DeviceId
+		deviceID   device.DeviceID
 		body       map[string]string
 		wantStatus int
 		wantError  string
