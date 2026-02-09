@@ -124,6 +124,12 @@ paths:
               $ref: '#/components/schemas/AddAddressRequest'
         required: true
       responses:
+        "200":
+          description: Address already existed, enabled status set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
         "201":
           description: Created
           content:
@@ -153,7 +159,7 @@ paths:
       operationId: deviceHeartbeat
       tags:
         - devices
-      summary: Device heartbeat endpoint
+      summary: Device heartbeat
       description: Device reports its current IP address. Extracts the client IP from the request and upserts it for the device. If IP exists and is enabled, returns existing. If disabled, re-enables it. If new, creates it.
       parameters:
         - name: device_id
@@ -231,12 +237,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Address not found or wrong device
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        "409":
-          description: Address already disabled
           content:
             application/json:
               schema:

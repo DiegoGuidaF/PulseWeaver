@@ -49,7 +49,6 @@ func (h *OpenApiHandler) CreateDevice(ctx context.Context, request api.CreateDev
 }
 
 func (h *OpenApiHandler) GetDeviceAddresses(ctx context.Context, request api.GetDeviceAddressesRequestObject) (api.GetDeviceAddressesResponseObject, error) {
-
 	deviceId := DeviceID(request.DeviceId)
 
 	addresses, err := h.service.GetAddressesForDevice(ctx, deviceId)
@@ -79,7 +78,7 @@ func (h *OpenApiHandler) AddAddress(ctx context.Context, request api.AddAddressR
 	deviceId := DeviceID(request.DeviceId)
 	ipAddress := request.Body.Ip
 
-	deviceIp, _, err := h.service.AssignAddress(ctx, deviceId, ipAddress)
+	addresswIp, wasCreated, err := h.service.AssignAddress(ctx, deviceId, ipAddress)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
@@ -95,9 +94,11 @@ func (h *OpenApiHandler) AddAddress(ctx context.Context, request api.AddAddressR
 			return api.AddAddress500JSONResponse(errorMsgResponse("Failed to assign address")), nil
 		}
 	}
+	if wasCreated {
+		return api.AddAddress201JSONResponse(toAddressResponse(addresswIp)), nil
+	}
 
-	//TODO: Return 200 if not created
-	return api.AddAddress201JSONResponse(toAddressResponse(deviceIp)), nil
+	return api.AddAddress200JSONResponse(toAddressResponse(addresswIp)), nil
 }
 
 func (h *OpenApiHandler) DisableAddress(ctx context.Context, request api.DisableAddressRequestObject) (api.DisableAddressResponseObject, error) {

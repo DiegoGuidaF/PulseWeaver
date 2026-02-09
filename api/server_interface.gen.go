@@ -84,7 +84,7 @@ type ServerInterface interface {
 	// Disable address
 	// (DELETE /devices/{device_id}/addresses/{address_id})
 	DisableAddress(w http.ResponseWriter, r *http.Request, deviceId int64, addressId int64)
-	// Device heartbeat endpoint
+	// Device heartbeat
 	// (POST /devices/{device_id}/heartbeat)
 	DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId int64)
 }
@@ -123,7 +123,7 @@ func (_ Unimplemented) DisableAddress(w http.ResponseWriter, r *http.Request, de
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Device heartbeat endpoint
+// Device heartbeat
 // (POST /devices/{device_id}/heartbeat)
 func (_ Unimplemented) DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -523,6 +523,15 @@ type AddAddressResponseObject interface {
 	VisitAddAddressResponse(w http.ResponseWriter) error
 }
 
+type AddAddress200JSONResponse Address
+
+func (response AddAddress200JSONResponse) VisitAddAddressResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type AddAddress201JSONResponse Address
 
 func (response AddAddress201JSONResponse) VisitAddAddressResponse(w http.ResponseWriter) error {
@@ -591,15 +600,6 @@ type DisableAddress404JSONResponse ErrorResponse
 func (response DisableAddress404JSONResponse) VisitDisableAddressResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type DisableAddress409JSONResponse ErrorResponse
-
-func (response DisableAddress409JSONResponse) VisitDisableAddressResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -683,7 +683,7 @@ type StrictServerInterface interface {
 	// Disable address
 	// (DELETE /devices/{device_id}/addresses/{address_id})
 	DisableAddress(ctx context.Context, request DisableAddressRequestObject) (DisableAddressResponseObject, error)
-	// Device heartbeat endpoint
+	// Device heartbeat
 	// (POST /devices/{device_id}/heartbeat)
 	DeviceHeartbeat(ctx context.Context, request DeviceHeartbeatRequestObject) (DeviceHeartbeatResponseObject, error)
 }
@@ -887,27 +887,28 @@ func (sh *strictHandler) DeviceHeartbeat(w http.ResponseWriter, r *http.Request,
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"BH0aAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
