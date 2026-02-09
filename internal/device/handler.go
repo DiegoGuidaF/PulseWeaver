@@ -99,6 +99,7 @@ func (h *OpenApiHandler) AddAddress(ctx context.Context, request api.AddAddressR
 	//TODO: Return 200 if not created
 	return api.AddAddress201JSONResponse(toAddressResponse(deviceIp)), nil
 }
+
 func (h *OpenApiHandler) DisableAddress(ctx context.Context, request api.DisableAddressRequestObject) (api.DisableAddressResponseObject, error) {
 	deviceId := DeviceID(request.DeviceId)
 	addressId := AddressID(request.AddressId)
@@ -128,7 +129,7 @@ func (h *OpenApiHandler) DeviceHeartbeat(ctx context.Context, request api.Device
 		h.logger.Error("failed to extract client IP from request")
 		return api.DeviceHeartbeat400JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
 	}
-	h.logger.Debug("Received heartbeat request", slog.String("client_ip", clientIP))
+	h.logger.Debug("Received heartbeat request", slog.String("client_ip", clientIP), slog.Int64("device", deviceId.Int64()))
 
 	// Call service to checkin the device
 	address, isNew, err := h.service.Heartbeat(ctx, deviceId, clientIP)
@@ -168,7 +169,9 @@ func toAddressResponse(a *AddressWithStatus) api.Address {
 		ID:        a.AddressId.Int64(),
 		DeviceId:  a.DeviceId.Int64(),
 		IP:        a.IP,
+		Status:    a.Status,
 		CreatedAt: a.CreatedAt,
+		UpdatedAt: a.UpdatedAt.Time,
 	}
 }
 

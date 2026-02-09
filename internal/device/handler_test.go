@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
@@ -234,7 +235,7 @@ func TestHandler_AssignIP(t *testing.T) {
 				is.True(address.ID != 0)
 				is.Equal(address.DeviceId, tt.deviceID.Int64())
 				is.Equal(address.IP, tt.body["ip"])
-				is.True(address.DisabledAt == nil)
+				is.True(address.Status) // Address should be enabled when created
 				is.True(!address.CreatedAt.IsZero())
 			}
 		})
@@ -290,7 +291,7 @@ func TestHandler_ListDeviceIPs(t *testing.T) {
 
 	// Verify all addresses are active
 	for _, addr := range addresses {
-		is.True(addr.DisabledAt == nil)
+		is.True(addr.Status) // All addresses should be enabled
 	}
 }
 
@@ -328,21 +329,21 @@ func TestHandler_ListDeviceIPs_DeviceNotFound(t *testing.T) {
 	is.Equal(w.Code, http.StatusNotFound)
 }
 
-func TestHandler_ListDeviceIPs_OnlyActiveIPsReturned(t *testing.T) {
+func TestHandler_ListDeviceIPs_AllAddressesReturned(t *testing.T) {
 	is := is.New(t)
 
 	testServer := setupTestServer(t)
 	device1, _ := testServer.deviceService.CreateDevice(t.Context(), "device-1")
 
 	// Assign IPs
-	deviceIp1, _ := testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.1")
+	deviceIp1, _, _ := testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.1")
 	testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.2")
 
 	// Disable one IP
-	testServer.deviceService.DisableAddress(t.Context(), device1.ID, deviceIp1.ID)
+	testServer.deviceService.DisableAddress(t.Context(), device1.ID, deviceIp1.AddressId)
 
-	// List should only return active address
-	url := fmt.Sprintf("/api/v1/devices/%s/addresses", device1.ID)
+	// List should return all addresses (enabled and disabled)
+	url := fmt.Sprintf("/api/v1/devices/%d/addresses", device1.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	w := httptest.NewRecorder()
 	testServer.httpServer.ServeHTTP(w, req)
@@ -353,8 +354,21 @@ func TestHandler_ListDeviceIPs_OnlyActiveIPsReturned(t *testing.T) {
 	err := json.NewDecoder(w.Body).Decode(&addresses)
 	is.NoErr(err)
 
-	is.Equal(len(addresses), 1)
-	is.Equal(addresses[0].IP, "10.0.0.2")
+	is.Equal(len(addresses), 2) // Both addresses should be returned
+
+	// Verify status of addresses
+	var disabledAddr, enabledAddr *api.Address
+	for i := range addresses {
+		if addresses[i].IP == "10.0.0.1" {
+			disabledAddr = &addresses[i]
+		} else if addresses[i].IP == "10.0.0.2" {
+			enabledAddr = &addresses[i]
+		}
+	}
+	is.True(disabledAddr != nil)
+	is.True(enabledAddr != nil)
+	is.True(!disabledAddr.Status) // First address should be disabled
+	is.True(enabledAddr.Status)   // Second address should be enabled
 }
 
 func TestHandler_DisableDeviceIP(t *testing.T) {
@@ -362,9 +376,9 @@ func TestHandler_DisableDeviceIP(t *testing.T) {
 
 	testServer := setupTestServer(t)
 	device1, _ := testServer.deviceService.CreateDevice(t.Context(), "device-1")
-	deviceIp1, _ := testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.1")
+	deviceIp1, _, _ := testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.1")
 
-	url := fmt.Sprintf("/api/v1/devices/%s/addresses/%d", device1.ID, deviceIp1.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", device1.ID, deviceIp1.AddressId)
 	req := httptest.NewRequest(http.MethodDelete, url, nil)
 	w := httptest.NewRecorder()
 	testServer.httpServer.ServeHTTP(w, req)
@@ -372,27 +386,28 @@ func TestHandler_DisableDeviceIP(t *testing.T) {
 	is.Equal(w.Code, http.StatusOK)
 
 	var address api.Address
-	json.NewDecoder(w.Body).Decode(&address)
-	is.True(address.DisabledAt != nil)
+	err := json.NewDecoder(w.Body).Decode(&address)
+	is.NoErr(err)
+	is.True(!address.Status) // Address should be disabled
 }
 
-func TestHandler_DisableDeviceIP_AlreadyDisabled(t *testing.T) {
+func TestHandler_DisableDeviceIP_AlreadyDisabled_IsOk(t *testing.T) {
 	is := is.New(t)
 
 	testServer := setupTestServer(t)
 	device1, _ := testServer.deviceService.CreateDevice(t.Context(), "device-1")
-	deviceIp1, _ := testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.1")
+	deviceIp1, _, _ := testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.1")
 
 	// Disable once
-	testServer.deviceService.DisableAddress(t.Context(), device1.ID, deviceIp1.ID)
+	testServer.deviceService.DisableAddress(t.Context(), device1.ID, deviceIp1.AddressId)
 
 	// Try to disable again
-	url := fmt.Sprintf("/api/v1/devices/%s/addresses/%d", device1.ID, deviceIp1.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", device1.ID, deviceIp1.AddressId)
 	req := httptest.NewRequest(http.MethodDelete, url, nil)
 	w := httptest.NewRecorder()
 	testServer.httpServer.ServeHTTP(w, req)
 
-	is.Equal(w.Code, http.StatusNotFound)
+	is.Equal(w.Code, http.StatusOK)
 }
 
 func TestHandler_DisableDeviceIP_IPNotFound(t *testing.T) {
@@ -419,10 +434,10 @@ func TestHandler_DisableDeviceIP_WrongDevice(t *testing.T) {
 	device2, _ := testServer.deviceService.CreateDevice(t.Context(), "device-2")
 
 	// Assign IP to device 2
-	deviceIp2, _ := testServer.deviceService.AssignAddress(t.Context(), device2.ID, "10.0.0.1")
+	deviceIp2, _, _ := testServer.deviceService.AssignAddress(t.Context(), device2.ID, "10.0.0.1")
 
 	// Try to disable device 2's address using device 1's ID
-	url := fmt.Sprintf("/api/v1/devices/%s/addresses/%d", device1.ID, deviceIp2.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", device1.ID, deviceIp2.AddressId)
 	req := httptest.NewRequest(http.MethodDelete, url, nil)
 	w := httptest.NewRecorder()
 	testServer.httpServer.ServeHTTP(w, req)
@@ -437,7 +452,7 @@ func TestHandler_CheckinDevice_NewAddress(t *testing.T) {
 
 	dev, _ := testServer.deviceService.CreateDevice(t.Context(), "checkin-device")
 
-	url := fmt.Sprintf("/api/v1/devices/%d/checkin", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/heartbeat", dev.ID)
 	req := httptest.NewRequest(http.MethodPost, url, nil)
 	req.RemoteAddr = "192.168.1.50:12345"
 
@@ -453,7 +468,7 @@ func TestHandler_CheckinDevice_NewAddress(t *testing.T) {
 	is.True(address.ID != 0)
 	is.Equal(address.DeviceId, dev.ID.Int64())
 	is.Equal(address.IP, "192.168.1.50")
-	is.True(address.DisabledAt == nil)
+	is.True(address.Status) // Address should be enabled
 	is.True(!address.CreatedAt.IsZero())
 }
 
@@ -465,10 +480,10 @@ func TestHandler_CheckinDevice_ExistingAddress(t *testing.T) {
 	dev, _ := testServer.deviceService.CreateDevice(t.Context(), "checkin-device")
 
 	// First assign creates the address
-	testServer.deviceService.AssignAddress(t.Context(), dev.ID, "10.0.0.5")
+	_, _, _ = testServer.deviceService.AssignAddress(t.Context(), dev.ID, "10.0.0.5")
 
 	// Checkin with same IP should return 200
-	url := fmt.Sprintf("/api/v1/devices/%d/checkin", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/heartbeat", dev.ID)
 	req := httptest.NewRequest(http.MethodPost, url, nil)
 	req.RemoteAddr = "10.0.0.5:9999"
 
@@ -482,7 +497,7 @@ func TestHandler_CheckinDevice_ExistingAddress(t *testing.T) {
 	is.NoErr(err)
 
 	is.Equal(address.IP, "10.0.0.5")
-	is.True(address.DisabledAt == nil)
+	is.True(address.Status) // Address should be enabled
 }
 
 func TestHandler_CheckinDevice_ReEnableDisabledAddress(t *testing.T) {
@@ -493,11 +508,13 @@ func TestHandler_CheckinDevice_ReEnableDisabledAddress(t *testing.T) {
 	dev, _ := testServer.deviceService.CreateDevice(t.Context(), "checkin-device")
 
 	// Create and then disable an address
-	addr, _ := testServer.deviceService.AssignAddress(t.Context(), dev.ID, "10.0.0.10")
-	testServer.deviceService.DisableAddress(t.Context(), dev.ID, addr.ID)
+	addr, _, _ := testServer.deviceService.AssignAddress(t.Context(), dev.ID, "10.0.0.10")
+	testServer.deviceService.DisableAddress(t.Context(), dev.ID, addr.AddressId)
+
+	time.Sleep(2 * time.Millisecond) // Wait for SQLite resolution
 
 	// Checkin with the same IP should re-enable it (200)
-	url := fmt.Sprintf("/api/v1/devices/%d/checkin", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/heartbeat", dev.ID)
 	req := httptest.NewRequest(http.MethodPost, url, nil)
 	req.RemoteAddr = "10.0.0.10:8080"
 
@@ -511,7 +528,7 @@ func TestHandler_CheckinDevice_ReEnableDisabledAddress(t *testing.T) {
 	is.NoErr(err)
 
 	is.Equal(address.IP, "10.0.0.10")
-	is.True(address.DisabledAt == nil)
+	is.True(address.Status) // Address should be re-enabled
 }
 
 func TestHandler_CheckinDevice_DeviceNotFound(t *testing.T) {
@@ -519,7 +536,7 @@ func TestHandler_CheckinDevice_DeviceNotFound(t *testing.T) {
 
 	testServer := setupTestServer(t)
 
-	url := "/api/v1/devices/99999/checkin"
+	url := "/api/v1/devices/99999/heartbeat"
 	req := httptest.NewRequest(http.MethodPost, url, nil)
 	req.RemoteAddr = "192.168.1.1:5555"
 
@@ -536,7 +553,7 @@ func TestHandler_CheckinDevice_IPv6Accepted(t *testing.T) {
 
 	dev, _ := testServer.deviceService.CreateDevice(t.Context(), "checkin-device")
 
-	url := fmt.Sprintf("/api/v1/devices/%d/checkin", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/heartbeat", dev.ID)
 	req := httptest.NewRequest(http.MethodPost, url, nil)
 	req.RemoteAddr = "[2001:db8::1]:12345"
 
@@ -550,5 +567,30 @@ func TestHandler_CheckinDevice_IPv6Accepted(t *testing.T) {
 	is.NoErr(err)
 
 	is.Equal(address.IP, "2001:db8::1")
-	is.True(address.DisabledAt == nil)
+	is.True(address.Status) // Address should be enabled
+}
+
+func TestHandler_CheckinDevice_ClientIPExtractionFails(t *testing.T) {
+	is := is.New(t)
+
+	testServer := setupTestServer(t)
+
+	dev, _ := testServer.deviceService.CreateDevice(t.Context(), "checkin-device")
+
+	// Create request with empty RemoteAddr - middleware will set empty string in context
+	url := fmt.Sprintf("/api/v1/devices/%d/heartbeat", dev.ID)
+	req := httptest.NewRequest(http.MethodPost, url, nil)
+	req.RemoteAddr = "" // Empty RemoteAddr should cause IP extraction to fail
+
+	w := httptest.NewRecorder()
+	testServer.httpServer.ServeHTTP(w, req)
+
+	// Handler should return 400 when IP extraction fails
+	is.Equal(w.Code, http.StatusBadRequest)
+
+	var errorResp api.ErrorResponse
+	err := json.NewDecoder(w.Body).Decode(&errorResp)
+	is.NoErr(err)
+	is.True(errorResp.Error != nil)
+	is.True(*errorResp.Error != "")
 }

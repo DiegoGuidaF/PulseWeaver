@@ -2,7 +2,6 @@ package device
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"net/netip"
 )
@@ -13,7 +12,7 @@ type DeviceRepository interface {
 	CreateDevice(ctx context.Context, name string) (*Device, error)
 	GetDevices(ctx context.Context) ([]Device, error)
 	CreateAddress(ctx context.Context, deviceId DeviceID, ipAddress string) (*Address, error)
-	FindAddressForDeviceByIp(ctx context.Context, deviceId DeviceID, ip string) (*Address, error)
+	GetAddressForDeviceByIp(ctx context.Context, deviceId DeviceID, ip string) (*AddressWithStatus, error)
 	ListAddresses(ctx context.Context, deviceId DeviceID) ([]AddressWithStatus, error)
 	DisableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error)
 	EnableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error)
@@ -48,7 +47,27 @@ func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, ipInput 
 }
 
 func (s *Service) GetAddressesForDevice(ctx context.Context, deviceID DeviceID) ([]AddressWithStatus, error) {
-	return s.repo.ListAddresses(ctx, deviceID)
+	var addresses []AddressWithStatus
+
+	err := s.repo.RunInTx(ctx, func(tx DeviceRepository) error {
+		// Verify device exists before trying to create an address
+		_, err := tx.GetDeviceByID(ctx, deviceID)
+		if err != nil {
+			return err
+		}
+
+		addresses, err = tx.ListAddresses(ctx, deviceID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return addresses, nil
 }
 
 func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, addressID AddressID) (*AddressWithStatus, error) {
@@ -90,14 +109,19 @@ func (s *Service) Heartbeat(ctx context.Context, deviceID DeviceID, ipInput stri
 			return err
 		}
 
-		// This would run a nested transaction right now...
-		addr, created, err := s.getOrCreateAddressWithTx(ctx, tx, deviceID, ipAddress)
+		resultAddr, wasCreated, err = s.getOrCreateAddressWithTx(ctx, tx, deviceID, ipAddress)
 		if err != nil {
 			return err
 		}
 
-		resultAddr = addr
-		wasCreated = created
+		// If it was not created, add an enabled record
+		if !wasCreated {
+			resultAddr, err = tx.EnableAddress(ctx, resultAddr.AddressId)
+			if err != nil {
+				return err
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -135,17 +159,23 @@ func (s *Service) getOrCreateAddressWithTx(ctx context.Context, repo DeviceRepos
 	var wasCreated bool
 
 	err := repo.RunInTx(ctx, func(tx DeviceRepository) error {
-		addr, err := tx.FindAddressForDeviceByIp(ctx, deviceID, ipAddress)
+		// Verify device exists before trying to create an address
+		_, err := tx.GetDeviceByID(ctx, deviceID)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+
+		resultAddr, err = tx.GetAddressForDeviceByIp(ctx, deviceID, ipAddress)
+		if err != nil {
+			if errors.Is(err, ErrAddressNotFound) {
 				// If not found create address
-				addr, err = tx.CreateAddress(ctx, deviceID, ipAddress)
+				addr, err := tx.CreateAddress(ctx, deviceID, ipAddress)
 				if err != nil {
 					return err
 				}
 
 				// And enable it
-				_, err := tx.EnableAddress(ctx, addr.ID)
+				resultAddr, err = tx.EnableAddress(ctx, addr.ID)
 				if err != nil {
 					return err
 				}
@@ -156,10 +186,6 @@ func (s *Service) getOrCreateAddressWithTx(ctx context.Context, repo DeviceRepos
 			}
 		} else {
 			wasCreated = false
-		}
-		resultAddr, err = tx.GetAddressWithStatus(ctx, addr.ID)
-		if err != nil {
-			return err
 		}
 
 		return nil

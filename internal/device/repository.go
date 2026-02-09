@@ -91,7 +91,6 @@ func (r *Repository) GetDevices(ctx context.Context) ([]Device, error) {
 }
 
 func (r *Repository) CreateAddress(ctx context.Context, deviceId DeviceID, ipAddress string) (*Address, error) {
-	// Try to insert first
 	address := Address{
 		DeviceId:  deviceId,
 		IP:        ipAddress,
@@ -124,7 +123,7 @@ func (r *Repository) GetAddressByID(ctx context.Context, id AddressID) (*Address
 	return &address, nil
 }
 
-func (r *Repository) FindAddressForDeviceByIp(ctx context.Context, deviceId DeviceID, ip string) (*Address, error) {
+func (r *Repository) GetAddressForDeviceByIp(ctx context.Context, deviceId DeviceID, ip string) (*AddressWithStatus, error) {
 	var address Address
 	query := `SELECT id, device_id, ip, created_at FROM addresses WHERE device_id = ? and ip = ?`
 	err := r.db.GetContext(ctx, &address, query, deviceId, ip)
@@ -134,7 +133,7 @@ func (r *Repository) FindAddressForDeviceByIp(ctx context.Context, deviceId Devi
 		}
 		return nil, fmt.Errorf("failed to get device address: %w", err)
 	}
-	return &address, nil
+	return r.GetAddressWithStatus(ctx, address.ID)
 }
 
 func (r *Repository) ListAddresses(ctx context.Context, deviceId DeviceID) ([]AddressWithStatus, error) {
