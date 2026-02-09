@@ -37,13 +37,61 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, error
 	return s.repo.CreateDevice(ctx, name)
 }
 
-func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, ipInput string) (*AddressWithStatus, bool, error) {
-	ipAddress, err := parseAndValidateIP(ipInput)
+func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIp string) (*AddressWithStatus, bool, error) {
+	var resultAddr *AddressWithStatus
+	var wasCreated bool
+
+	ipAddress, err := parseAndValidateIP(inputIp)
 	if err != nil {
 		return nil, false, err
 	}
 
-	return s.getOrCreateAddress(ctx, deviceID, ipAddress)
+	err = s.repo.RunInTx(ctx, func(tx DeviceRepository) error {
+		// Verify device exists before trying to create an address
+		_, err := tx.GetDeviceByID(ctx, deviceID)
+		if err != nil {
+			return err
+		}
+
+		resultAddr, err = tx.GetAddressForDeviceByIp(ctx, deviceID, ipAddress)
+		if err != nil {
+			if errors.Is(err, ErrAddressNotFound) {
+				// If not found create address
+				addr, err := tx.CreateAddress(ctx, deviceID, ipAddress)
+				if err != nil {
+					return err
+				}
+
+				// And enable it
+				resultAddr, err = tx.EnableAddress(ctx, addr.ID)
+				if err != nil {
+					return err
+				}
+
+				wasCreated = true
+			} else {
+				return err
+			}
+		} else {
+			wasCreated = false
+		}
+
+		// If it was not created, add an enabled record
+		if !wasCreated {
+			resultAddr, err = tx.EnableAddress(ctx, resultAddr.AddressId)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, false, err
+	}
+
+	return resultAddr, wasCreated, nil
 }
 
 func (s *Service) GetAddressesForDevice(ctx context.Context, deviceID DeviceID) ([]AddressWithStatus, error) {
@@ -93,44 +141,6 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, address
 	return disabledAddress, nil
 }
 
-func (s *Service) Heartbeat(ctx context.Context, deviceID DeviceID, ipInput string) (*AddressWithStatus, bool, error) {
-	var resultAddr *AddressWithStatus
-	var wasCreated bool
-
-	ipAddress, err := parseAndValidateIP(ipInput)
-	if err != nil {
-		return nil, false, err
-	}
-
-	err = s.repo.RunInTx(ctx, func(tx DeviceRepository) error {
-		// Check device exists
-		_, err = tx.GetDeviceByID(ctx, deviceID)
-		if err != nil {
-			return err
-		}
-
-		resultAddr, wasCreated, err = s.getOrCreateAddressWithTx(ctx, tx, deviceID, ipAddress)
-		if err != nil {
-			return err
-		}
-
-		// If it was not created, add an enabled record
-		if !wasCreated {
-			resultAddr, err = tx.EnableAddress(ctx, resultAddr.AddressId)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, false, err
-	}
-
-	return resultAddr, wasCreated, nil
-}
-
 // parseAndValidateIP parses and validates that the given string is a valid IPv4 or IPv6 address.
 // It ignores the port if present and only cares about the IP component.
 func parseAndValidateIP(ipInput string) (string, error) {
@@ -148,52 +158,4 @@ func parseAndValidateIP(ipInput string) (string, error) {
 
 	// If both fail, return error
 	return "", ErrInvalidIPFormat
-}
-
-func (s *Service) getOrCreateAddress(ctx context.Context, deviceID DeviceID, ipAddress string) (*AddressWithStatus, bool, error) {
-	return s.getOrCreateAddressWithTx(ctx, s.repo, deviceID, ipAddress)
-}
-
-func (s *Service) getOrCreateAddressWithTx(ctx context.Context, repo DeviceRepository, deviceID DeviceID, ipAddress string) (*AddressWithStatus, bool, error) {
-	var resultAddr *AddressWithStatus
-	var wasCreated bool
-
-	err := repo.RunInTx(ctx, func(tx DeviceRepository) error {
-		// Verify device exists before trying to create an address
-		_, err := tx.GetDeviceByID(ctx, deviceID)
-		if err != nil {
-			return err
-		}
-
-		resultAddr, err = tx.GetAddressForDeviceByIp(ctx, deviceID, ipAddress)
-		if err != nil {
-			if errors.Is(err, ErrAddressNotFound) {
-				// If not found create address
-				addr, err := tx.CreateAddress(ctx, deviceID, ipAddress)
-				if err != nil {
-					return err
-				}
-
-				// And enable it
-				resultAddr, err = tx.EnableAddress(ctx, addr.ID)
-				if err != nil {
-					return err
-				}
-
-				wasCreated = true
-			} else {
-				return err
-			}
-		} else {
-			wasCreated = false
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return nil, false, err
-	}
-
-	return resultAddr, wasCreated, nil
 }

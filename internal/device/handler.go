@@ -130,10 +130,13 @@ func (h *OpenApiHandler) DeviceHeartbeat(ctx context.Context, request api.Device
 		h.logger.Error("failed to extract client IP from request")
 		return api.DeviceHeartbeat400JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
 	}
-	h.logger.Debug("Received heartbeat request", slog.String("client_ip", clientIP), slog.Int64("device", deviceId.Int64()))
+	h.logger.Debug(
+		"Received heartbeat request",
+		slog.Int64("device", deviceId.Int64()),
+		slog.String("client_ip", clientIP))
 
 	// Call service to checkin the device
-	address, isNew, err := h.service.Heartbeat(ctx, deviceId, clientIP)
+	address, isNew, err := h.service.AssignAddress(ctx, deviceId, clientIP)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
