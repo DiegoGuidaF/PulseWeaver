@@ -62,8 +62,9 @@ func (r *repository) GetUserByEmail(ctx context.Context, email string) (*User, e
 
 	err := r.db.GetContext(ctx, &user, query, email)
 	if err != nil {
+		//TODO: Return more specific error, handler would not propagate that one to user but a generic one instead
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrInvalidCredentials // Generic error to prevent user enumeration
+			return nil, ErrInvalidCredentials
 		}
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -96,6 +97,23 @@ func (r *repository) CreateSession(ctx context.Context, userId UserID, tokenHash
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session: %w", err)
+	}
+
+	return &session, nil
+}
+
+func (r *repository) GetSessionByRawToken(ctx context.Context, tokenHash string) (*Session, error) {
+	var session Session
+
+	query := `SELECT id, user_id, token_hash, created_at, expires_at, last_used_at, revoked_at FROM sessions
+				WHERE  token_hash = ?`
+
+	err := r.db.GetContext(ctx, &session, query, tokenHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrInvalidCredentials
+		}
+		return nil, fmt.Errorf("failed to get session: %w", err)
 	}
 
 	return &session, nil

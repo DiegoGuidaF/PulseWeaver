@@ -370,7 +370,7 @@ components:
     cookieAuth:
       type: apiKey
       in: cookie
-      name: wdc_session # The name of your session cookie
+      name: __Host-wdc_session
     bearerAuth:
       type: http
       scheme: bearer

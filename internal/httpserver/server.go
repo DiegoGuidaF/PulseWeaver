@@ -1,7 +1,6 @@
 package httpserver
 
 import (
-	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -11,6 +10,7 @@ import (
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/health"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/ui"
+	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
@@ -20,7 +20,6 @@ import (
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
 )
 
-// Aliases to use different type namins and avoid clashing
 type DeviceHandler = device.HTTPHandler
 type AuthHandler = auth.HTTPHandler
 
@@ -68,21 +67,19 @@ func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandle
 
 		validatorOptions := &nethttpmiddleware.Options{
 			ErrorHandler: validationErrorHandler,
+			Options: openapi3filter.Options{
+				AuthenticationFunc: auth.AuthenticationFunc(authHandler.Authenticator()),
+			},
 		}
 
+		// OpenApi request input validators
 		r.Use(nethttpmiddleware.OapiRequestValidatorWithOptions(swagger, validatorOptions))
+		// Inject auth token into context if present
+		r.Use(auth.PrincipalContextMiddleware(authHandler.Authenticator()))
+		// Inject request client IP into context
+		r.Use(device.ClientIPContextMiddleware())
 
-		// Middleware to extract client IP and add to context
-		clientIPMiddleware := func(next api.StrictHandlerFunc, operationName string) api.StrictHandlerFunc {
-			return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-				// Extract client IP from request (RealIP middleware sets RemoteAddr)
-				clientIP := r.RemoteAddr
-				ctx = device.WithClientIP(ctx, clientIP)
-				return next(ctx, w, r, request)
-			}
-		}
-
-		strictHandler := api.NewStrictHandler(routeHandler, []api.StrictMiddlewareFunc{clientIPMiddleware})
+		strictHandler := api.NewStrictHandler(routeHandler, nil)
 		api.HandlerFromMux(strictHandler, r)
 	})
 

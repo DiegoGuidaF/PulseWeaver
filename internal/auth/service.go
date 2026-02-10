@@ -14,6 +14,7 @@ type Repository interface {
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	CreateSession(ctx context.Context, userId UserID, tokenHash string) (*Session, error)
 	CreateUser(ctx context.Context, name string, email string, passwordHash []byte) (*User, error)
+	GetSessionByRawToken(ctx context.Context, tokenHash string) (*Session, error)
 }
 
 type Service struct {
@@ -67,6 +68,22 @@ func (s *Service) SignUp(ctx context.Context, name string, email string, passwor
 	return s.Login(ctx, user.Email, password)
 }
 
+func (s *Service) Authenticate(ctx context.Context, rawToken string) (*Principal, error) {
+	tokenHash := hashRawToken(rawToken)
+	session, err := s.repo.GetSessionByRawToken(ctx, tokenHash)
+	if err != nil {
+		return nil, err
+	}
+
+	principal := &Principal{
+		UserID:    session.UserId,
+		DeviceID:  nil,
+		SessionID: &session.ID,
+	}
+
+	return principal, nil
+}
+
 // GenerateToken Returns the rawToken (send to user), tokenHash (store in DB), error
 func (s *Service) GenerateToken() (string, string, error) {
 	b := make([]byte, 32)
@@ -78,10 +95,14 @@ func (s *Service) GenerateToken() (string, string, error) {
 	rawToken := base64.RawURLEncoding.EncodeToString(b)
 
 	// Hash immediately for storage
-	hash := sha256.Sum256([]byte(rawToken))
-	tokenHash := base64.RawURLEncoding.EncodeToString(hash[:])
+	tokenHash := hashRawToken(rawToken)
 
 	return rawToken, tokenHash, nil
+}
+
+func hashRawToken(rawToken string) string {
+	hash := sha256.Sum256([]byte(rawToken))
+	return base64.RawURLEncoding.EncodeToString(hash[:])
 }
 
 func (s *Service) hashPassword(password string) ([]byte, error) {

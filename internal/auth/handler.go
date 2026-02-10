@@ -20,7 +20,7 @@ func (h *HTTPHandler) Login(ctx context.Context, request api.LoginRequestObject)
 		return api.Login401JSONResponse(errorMsgResponse("Error authenticating")), nil
 	}
 	cookie := http.Cookie{
-		Name:     "wdc_session",
+		Name:     SessionCookieName,
 		Value:    rawToken,
 		HttpOnly: true,
 		Secure:   true,
@@ -51,7 +51,7 @@ func (h *HTTPHandler) Signup(ctx context.Context, request api.SignupRequestObjec
 	}
 
 	cookie := http.Cookie{
-		Name:     "wdc_session",
+		Name:     SessionCookieName,
 		Value:    rawToken,
 		HttpOnly: true,
 		Secure:   true,
@@ -67,6 +67,10 @@ func (h *HTTPHandler) Signup(ctx context.Context, request api.SignupRequestObjec
 
 func NewHandler(service *Service, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{service: service, logger: logger}
+}
+
+func (h *HTTPHandler) Authenticator() Authenticator {
+	return h.service
 }
 
 func toUserResponse(d *User) api.User {
