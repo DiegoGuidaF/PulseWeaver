@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/health"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/ui"
 	"github.com/go-chi/chi/v5"
@@ -19,7 +20,16 @@ import (
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
 )
 
-func NewServer(openApiHandler *device.OpenApiHandler, logger *slog.Logger) http.Handler {
+// Aliases to use different type namins and avoid clashing
+type DeviceHandler = device.HTTPHandler
+type AuthHandler = auth.HTTPHandler
+
+type CompositeHandler struct {
+	*DeviceHandler
+	*AuthHandler
+}
+
+func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, logger *slog.Logger) http.Handler {
 	r := chi.NewRouter()
 
 	loggerConfig := slogchi.Config{
@@ -33,12 +43,14 @@ func NewServer(openApiHandler *device.OpenApiHandler, logger *slog.Logger) http.
 	r.Use(middleware.SetHeader("X-Content-Type-Options", "nosniff"))
 	r.Use(middleware.SetHeader("X-Frame-Options", "DENY"))
 
-	addRoutes(r, openApiHandler)
+	addRoutes(r, deviceHandler, authHandler)
 
 	return r
 }
 
-func addRoutes(r *chi.Mux, openApiHandler *device.OpenApiHandler) {
+func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler) {
+	routeHandler := &CompositeHandler{DeviceHandler: deviceHandler, AuthHandler: authHandler}
+
 	r.Get("/health", health.Handler)
 
 	r.Get("/swagger.json", func(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +82,7 @@ func addRoutes(r *chi.Mux, openApiHandler *device.OpenApiHandler) {
 			}
 		}
 
-		strictHandler := api.NewStrictHandler(openApiHandler, []api.StrictMiddlewareFunc{clientIPMiddleware})
+		strictHandler := api.NewStrictHandler(routeHandler, []api.StrictMiddlewareFunc{clientIPMiddleware})
 		api.HandlerFromMux(strictHandler, r)
 	})
 

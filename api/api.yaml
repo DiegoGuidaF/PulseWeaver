@@ -5,14 +5,124 @@ info:
   version: "1.0"
 servers:
   - url: /api/v1
+
+# 1. Global security requirement (denies access by default)
+security:
+  - cookieAuth: []
+  - bearerAuth: []
+
 paths:
+  # --------------------
+  # Auth Endpoints
+  # --------------------
+  /auth/signup:
+    post:
+      operationId: signup
+      tags:
+        - auth
+      summary: Register a new user
+      description: Creates a new user account.
+      security: [] # Public endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        "201":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      operationId: login
+      tags:
+        - auth
+      summary: Login user
+      description: Authenticates user and sets a strict HTTP-only session cookie.
+      security: [] # Public endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        "200":
+          description: Logged in successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags:
+        - auth
+      summary: Logout user
+      description: Invalidates the session cookie.
+      responses:
+        "204":
+          description: Logged out successfully
+
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags:
+        - auth
+      summary: Get current user
+      description: Returns the currently authenticated user's details.
+      responses:
+        "200":
+          description: Current user details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # --------------------
+  # Device Endpoints
+  # --------------------
   /devices:
     get:
       operationId: getDevices
       tags:
         - devices
       summary: List all devices
-      description: Get all devices in the system
+      description: Get all devices belonging to the authenticated user.
       responses:
         "200":
           description: OK
@@ -33,7 +143,7 @@ paths:
       tags:
         - devices
       summary: Create a device
-      description: Create a new device with the given name
+      description: Create a new device for the authenticated user.
       requestBody:
         description: Device creation request
         content:
@@ -60,13 +170,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
   /devices/{device_id}/addresses:
     get:
       operationId: getDeviceAddresses
       tags:
         - addresses
       summary: Get addresses for a device
-      description: Get all enabled addresses for a specific device
+      description: Get all enabled addresses for a specific device.
       parameters:
         - name: device_id
           in: path
@@ -107,7 +218,7 @@ paths:
       tags:
         - addresses
       summary: Assign address to device
-      description: Add a new address to a device
+      description: Add a new address to a device.
       parameters:
         - name: device_id
           in: path
@@ -137,7 +248,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Address'
         "400":
-          description: Invalid address format (must be valid IPv4 or IPv6)
+          description: Invalid address format
           content:
             application/json:
               schema:
@@ -154,13 +265,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
   /devices/{device_id}/heartbeat:
     post:
       operationId: deviceHeartbeat
       tags:
         - devices
       summary: Device heartbeat
-      description: Device reports its current IP address. Extracts the client IP from the request and upserts it for the device. If IP exists and is enabled, returns existing. If disabled, re-enables it. If new, creates it.
+      description: Device reports its current IP address. Extracts the client IP from the request and ensures it is enabled. Requires API Token or Session.
       parameters:
         - name: device_id
           in: path
@@ -171,19 +283,19 @@ paths:
             format: int64
       responses:
         "200":
-          description: Address already exists and is enabled, or was successfully re-enabled
+          description: Address enabled
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Address'
         "201":
-          description: New address created
+          description: New address created and enabled
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Address'
         "400":
-          description: Invalid IP address format (must be valid IPv4 or IPv6)
+          description: Invalid IP address format
           content:
             application/json:
               schema:
@@ -200,13 +312,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
   /devices/{device_id}/addresses/{address_id}:
     delete:
       operationId: disableAddress
       tags:
         - addresses
       summary: Disable address
-      description: Mark an address as disabled for a device
+      description: Disables the address for the device.
       parameters:
         - name: device_id
           in: path
@@ -236,7 +349,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         "404":
-          description: Address not found or wrong device
+          description: Address or device not found.
           content:
             application/json:
               schema:
@@ -247,10 +360,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
 components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: wdc_session # The name of your session cookie
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Opaque # Indicates it's not a JWT
+
   schemas:
     #################
-    # Requests
+    # Auth Requests
+    #################
+    AuthRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: "securePassword123"
+
+    #################
+    # Device Requests
     #################
     CreateDeviceRequest:
       required:
@@ -271,6 +414,7 @@ components:
           type: string
           description: IPv4 or IPv6 address
           example: 192.168.1.132
+
     #################
     # Responses
     #################
@@ -280,9 +424,28 @@ components:
         error:
           type: string
           example: device not found
+
     #################
     # Domain Entities
     #################
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          x-go-name: "ID"
+        email:
+          type: string
+          format: email
+        created_at:
+          type: string
+          format: date-time
+
     Device:
       type: object
       required:
@@ -296,9 +459,10 @@ components:
         id:
           type: integer
           format: int64
-          x-go-name: "ID"  # Generator uses camel-case while convention is upper
+          x-go-name: "ID"
         name:
           type: string
+
     Address:
       type: object
       required:
@@ -312,14 +476,14 @@ components:
         id:
           type: integer
           format: int64
-          x-go-name: "ID"  # Generator uses camel-case while convention is upper
+          x-go-name: "ID"
         device_id:
           type: integer
           format: int64
         ip:
           type: string
           description: IPv4 or IPv6 address
-          x-go-name: "IP"  # Generator uses camel-case while convention is upper
+          x-go-name: "IP"
         status:
           type: boolean
           description: The latest state of this address, enabled or disabled

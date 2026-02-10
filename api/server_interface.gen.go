@@ -20,6 +20,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
 	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
+	openapi_types "github.com/oapi-codegen/runtime/types"
+)
+
+const (
+	BearerAuthScopes = "bearerAuth.Scopes"
+	CookieAuthScopes = "cookieAuth.Scopes"
 )
 
 // AddAddressRequest defines model for AddAddressRequest.
@@ -44,6 +50,12 @@ type Address struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// AuthRequest defines model for AuthRequest.
+type AuthRequest struct {
+	Email    openapi_types.Email `json:"email"`
+	Password string              `json:"password"`
+}
+
 // CreateDeviceRequest defines model for CreateDeviceRequest.
 type CreateDeviceRequest struct {
 	Name string `json:"name"`
@@ -61,6 +73,19 @@ type ErrorResponse struct {
 	Error *string `json:"error,omitempty"`
 }
 
+// User defines model for User.
+type User struct {
+	CreatedAt time.Time           `json:"created_at"`
+	Email     openapi_types.Email `json:"email"`
+	ID        int64               `json:"id"`
+}
+
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = AuthRequest
+
+// SignupJSONRequestBody defines body for Signup for application/json ContentType.
+type SignupJSONRequestBody = AuthRequest
+
 // CreateDeviceJSONRequestBody defines body for CreateDevice for application/json ContentType.
 type CreateDeviceJSONRequestBody = CreateDeviceRequest
 
@@ -69,6 +94,18 @@ type AddAddressJSONRequestBody = AddAddressRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Login user
+	// (POST /auth/login)
+	Login(w http.ResponseWriter, r *http.Request)
+	// Logout user
+	// (POST /auth/logout)
+	Logout(w http.ResponseWriter, r *http.Request)
+	// Get current user
+	// (GET /auth/me)
+	GetCurrentUser(w http.ResponseWriter, r *http.Request)
+	// Register a new user
+	// (POST /auth/signup)
+	Signup(w http.ResponseWriter, r *http.Request)
 	// List all devices
 	// (GET /devices)
 	GetDevices(w http.ResponseWriter, r *http.Request)
@@ -92,6 +129,30 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// Login user
+// (POST /auth/login)
+func (_ Unimplemented) Login(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Logout user
+// (POST /auth/logout)
+func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get current user
+// (GET /auth/me)
+func (_ Unimplemented) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Register a new user
+// (POST /auth/signup)
+func (_ Unimplemented) Signup(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // List all devices
 // (GET /devices)
@@ -138,8 +199,88 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
+// Login operation middleware
+func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Login(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Logout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCurrentUser operation middleware
+func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCurrentUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Signup operation middleware
+func (siw *ServerInterfaceWrapper) Signup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Signup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetDevices operation middleware
 func (siw *ServerInterfaceWrapper) GetDevices(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDevices(w, r)
@@ -154,6 +295,14 @@ func (siw *ServerInterfaceWrapper) GetDevices(w http.ResponseWriter, r *http.Req
 
 // CreateDevice operation middleware
 func (siw *ServerInterfaceWrapper) CreateDevice(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateDevice(w, r)
@@ -180,6 +329,14 @@ func (siw *ServerInterfaceWrapper) GetDeviceAddresses(w http.ResponseWriter, r *
 		return
 	}
 
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDeviceAddresses(w, r, deviceId)
 	}))
@@ -204,6 +361,14 @@ func (siw *ServerInterfaceWrapper) AddAddress(w http.ResponseWriter, r *http.Req
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "device_id", Err: err})
 		return
 	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AddAddress(w, r, deviceId)
@@ -239,6 +404,14 @@ func (siw *ServerInterfaceWrapper) DisableAddress(w http.ResponseWriter, r *http
 		return
 	}
 
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DisableAddress(w, r, deviceId, addressId)
 	}))
@@ -263,6 +436,14 @@ func (siw *ServerInterfaceWrapper) DeviceHeartbeat(w http.ResponseWriter, r *htt
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "device_id", Err: err})
 		return
 	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeviceHeartbeat(w, r, deviceId)
@@ -389,6 +570,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/login", wrapper.Login)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/logout", wrapper.Logout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/me", wrapper.GetCurrentUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/signup", wrapper.Signup)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/devices", wrapper.GetDevices)
 	})
 	r.Group(func(r chi.Router) {
@@ -408,6 +601,115 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 
 	return r
+}
+
+type LoginRequestObject struct {
+	Body *LoginJSONRequestBody
+}
+
+type LoginResponseObject interface {
+	VisitLoginResponse(w http.ResponseWriter) error
+}
+
+type Login200ResponseHeaders struct {
+	SetCookie string
+}
+
+type Login200JSONResponse struct {
+	Body    User
+	Headers Login200ResponseHeaders
+}
+
+func (response Login200JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type Login401JSONResponse ErrorResponse
+
+func (response Login401JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LogoutRequestObject struct {
+}
+
+type LogoutResponseObject interface {
+	VisitLogoutResponse(w http.ResponseWriter) error
+}
+
+type Logout204Response struct {
+}
+
+func (response Logout204Response) VisitLogoutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type GetCurrentUserRequestObject struct {
+}
+
+type GetCurrentUserResponseObject interface {
+	VisitGetCurrentUserResponse(w http.ResponseWriter) error
+}
+
+type GetCurrentUser200JSONResponse User
+
+func (response GetCurrentUser200JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetCurrentUser401JSONResponse ErrorResponse
+
+func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SignupRequestObject struct {
+	Body *SignupJSONRequestBody
+}
+
+type SignupResponseObject interface {
+	VisitSignupResponse(w http.ResponseWriter) error
+}
+
+type Signup201JSONResponse User
+
+func (response Signup201JSONResponse) VisitSignupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type Signup409JSONResponse ErrorResponse
+
+func (response Signup409JSONResponse) VisitSignupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type Signup500JSONResponse ErrorResponse
+
+func (response Signup500JSONResponse) VisitSignupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
 }
 
 type GetDevicesRequestObject struct {
@@ -668,6 +970,18 @@ func (response DeviceHeartbeat500JSONResponse) VisitDeviceHeartbeatResponse(w ht
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Login user
+	// (POST /auth/login)
+	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
+	// Logout user
+	// (POST /auth/logout)
+	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
+	// Get current user
+	// (GET /auth/me)
+	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
+	// Register a new user
+	// (POST /auth/signup)
+	Signup(ctx context.Context, request SignupRequestObject) (SignupResponseObject, error)
 	// List all devices
 	// (GET /devices)
 	GetDevices(ctx context.Context, request GetDevicesRequestObject) (GetDevicesResponseObject, error)
@@ -715,6 +1029,116 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// Login operation middleware
+func (sh *strictHandler) Login(w http.ResponseWriter, r *http.Request) {
+	var request LoginRequestObject
+
+	var body LoginJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Login(ctx, request.(LoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Login")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LoginResponseObject); ok {
+		if err := validResponse.VisitLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Logout operation middleware
+func (sh *strictHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	var request LogoutRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Logout(ctx, request.(LogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Logout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LogoutResponseObject); ok {
+		if err := validResponse.VisitLogoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCurrentUser operation middleware
+func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+	var request GetCurrentUserRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCurrentUser(ctx, request.(GetCurrentUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCurrentUser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCurrentUserResponseObject); ok {
+		if err := validResponse.VisitGetCurrentUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Signup operation middleware
+func (sh *strictHandler) Signup(w http.ResponseWriter, r *http.Request) {
+	var request SignupRequestObject
+
+	var body SignupJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Signup(ctx, request.(SignupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Signup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SignupResponseObject); ok {
+		if err := validResponse.VisitSignupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // GetDevices operation middleware
@@ -887,28 +1311,34 @@ func (sh *strictHandler) DeviceHeartbeat(w http.ResponseWriter, r *http.Request,
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+xYTW8bNxP+KwO+76EF1vpInKDVTanTVmjSCmmBHgojoJcjiekuuSFnZQuC/ntBcj+1",
-	"K1tOVdkoehFW5HBmOPPMMyS3LNZpphUqsmyyZTZeYcr951SIqRAGrf2An3O05AYzozM0JNGLyMz9CrSx",
-	"kRlJrdiEzebrS9AGZvP1a+BBAYsY3vE0S5BN2PjbF4Px628G48H45QsWMdpkbtiSkWrJdruIGfycS4OC",
-	"Tf5wJq4rGX3zCWNiu4gVnnVdig1yQvGRe3cX2qTuiwlOeEEyxa7BiAlcyxg/StFaIhW9vqzFpSJconHy",
-	"xwlG7O5iqS8UT93o7MqvPD5gbS/3lM2dMkuccttV+NsKIeGElsCJIOgF0EraUnkEqPhNgsJZFdL679ri",
-	"jdYJcuUs5JloBLNt5R23BC6iIAluuT2g9JgM7Kfcratz4qNW7TZqZrjlYR9MvvOyV17XQRSHoG4bEJ2j",
-	"sVrxBLKVVs7hlN+9Q7WkFZu8GkUslar8+/Kh3Xjtfb4Fr06D4C9HZLn5I1LiRVvx79vWW2O0+YA208r2",
-	"7A7ddDvaIdWgNMFC50r0AmTPjhuSaqG7uAxhBa4EzOYl5CHlii8xRUVgN5YwdUYkefu/8yTZXMkYiqXv",
-	"a9npfMYitkZjg/LxYOT2qDNUPJNswl4ORoMxi1jGaeX3Nwy78d9L7KmbH5CAJwkUciAV0Aprr1ywuJOd",
-	"iSB9VSh0GQlR9cpfjEYeLVoRKm+HZ1kiY792+Mk6YyWfe64mTP3C/xtcsAn737Bm/mFB+8MCk3W8uTF8",
-	"E8Ld3sYvPzmpV4904j7bbeD0mJwpQuOq8lc0azTgF3hw2DxNudk4VpK2FV6XZr60DsPlyPUuYpm2PakJ",
-	"bAEcFN4WCuBW0sonaCnXqKCogXaSmizDQuGgpTdabE4WnD4i6wlRgWBfolIrKFxhzWomk+OuA6bxyVwt",
-	"MdT1LmxCOOBcnhM4b7iAKmjPELQV7kQJoS5md1FFLcNt1Rx3w4LgjiCcsj9XK2ChDXCwGcZyIePa+gEK",
-	"mlamHN8ZniKhcW4eoOCZ791uwLFj2UAmrdbehmXUiPqD57Dd9TkYsTxoHk2JT4nsy9Hl+WwXWZbCd+7v",
-	"fed+jtXl8b+H+U6h1WV0uD1MhSh6Q3mqIN3U1S6b+vp0ZLnIc5TL6TtT95rYk6dCAri1cqn80er41jQ6",
-	"pa+hmO/xMDHIxQbwTlpCUd+Vwv0DLPpKO2XDvMerp+qYM7Xmiax6BQR0wVdpbgluEMJs8+b69VPxT31t",
-	"eI7kM/WAbxLGvdTzYJcfbotPNxwoKkHCLlm95+ZP4LVlbqtb+T4HtnnrKkg9jrv+6VYfbQ+U6yHSrKP0",
-	"xIeMv0lHNo9jtHaRJ8mmflY5Nx28l9ZKtSzvRNI/8vA6Becu/TI6Ve07f26Nrlx8llxQVFbzje8RFLBC",
-	"bugGw6tQ/wGlKEaDmTZkQZKFODfGddv6KWQAb+/I8Jisv9bGiSzmF0anfqjozP4JJc8sBl2eNdx08GkA",
-	"s4Vb5fuk9bKyegOMwCDlRtkwLdXSi5f4ddMXQdRp9nMKb6Nwbw1jXV7yZn+sovDvuIOc8rTSzYKrCr5H",
-	"IlXoxRnPMT83Ds3xE59pGq+C/x1rvpTKgpOrRjX2PFm4JV5HKNDcJGzChjyTw/WY7a53fwUAAP//cyMO",
-	"BH0aAAA=",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

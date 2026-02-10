@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
@@ -53,7 +54,11 @@ func run(ctx context.Context) (*slog.Logger, error) {
 	deviceService := device.NewService(deviceRepo)
 	openApiHandler := device.NewOpenApiHandler(deviceService, logger)
 
-	handler := httpserver.NewServer(openApiHandler, logger)
+	authRepo := auth.NewRepository(db.DB())
+	authService := auth.NewService(authRepo)
+	authHandler := auth.NewHandler(authService, logger)
+
+	handler := httpserver.NewServer(openApiHandler, authHandler, logger)
 
 	// 4. Setup HTTP Server
 	srv := &http.Server{

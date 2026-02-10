@@ -585,7 +585,7 @@ func TestHandler_CheckinDevice_ClientIPExtractionFails(t *testing.T) {
 	w := httptest.NewRecorder()
 	testServer.httpServer.ServeHTTP(w, req)
 
-	// Handler should return 400 when IP extraction fails
+	// HTTPHandler should return 400 when IP extraction fails
 	is.Equal(w.Code, http.StatusBadRequest)
 
 	var errorResp api.ErrorResponse

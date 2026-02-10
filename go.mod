@@ -14,6 +14,7 @@ require (
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/samber/slog-chi v1.18.0
 	github.com/swaggo/http-swagger v1.3.4
+	golang.org/x/crypto v0.45.0
 )
 
 require (

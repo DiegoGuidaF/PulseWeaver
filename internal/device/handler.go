@@ -9,16 +9,16 @@ import (
 	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
 )
 
-type OpenApiHandler struct {
+type HTTPHandler struct {
 	service *Service
 	logger  *slog.Logger
 }
 
-func NewOpenApiHandler(service *Service, logger *slog.Logger) *OpenApiHandler {
-	return &OpenApiHandler{service: service, logger: logger}
+func NewOpenApiHandler(service *Service, logger *slog.Logger) *HTTPHandler {
+	return &HTTPHandler{service: service, logger: logger}
 }
 
-func (h *OpenApiHandler) GetDevices(ctx context.Context, _ api.GetDevicesRequestObject) (api.GetDevicesResponseObject, error) {
+func (h *HTTPHandler) GetDevices(ctx context.Context, _ api.GetDevicesRequestObject) (api.GetDevicesResponseObject, error) {
 	devices, err := h.service.GetDevices(ctx)
 	if err != nil {
 		h.logger.Error("Error fetching devices", slog.Any("error", err))
@@ -33,7 +33,7 @@ func (h *OpenApiHandler) GetDevices(ctx context.Context, _ api.GetDevicesRequest
 	return api.GetDevices200JSONResponse(apiDevices), nil
 }
 
-func (h *OpenApiHandler) CreateDevice(ctx context.Context, request api.CreateDeviceRequestObject) (api.CreateDeviceResponseObject, error) {
+func (h *HTTPHandler) CreateDevice(ctx context.Context, request api.CreateDeviceRequestObject) (api.CreateDeviceResponseObject, error) {
 	deviceName := request.Body.Name
 
 	device, err := h.service.CreateDevice(ctx, deviceName)
@@ -48,7 +48,7 @@ func (h *OpenApiHandler) CreateDevice(ctx context.Context, request api.CreateDev
 	return api.CreateDevice201JSONResponse(toDeviceResponse(device)), nil
 }
 
-func (h *OpenApiHandler) GetDeviceAddresses(ctx context.Context, request api.GetDeviceAddressesRequestObject) (api.GetDeviceAddressesResponseObject, error) {
+func (h *HTTPHandler) GetDeviceAddresses(ctx context.Context, request api.GetDeviceAddressesRequestObject) (api.GetDeviceAddressesResponseObject, error) {
 	deviceId := DeviceID(request.DeviceId)
 
 	addresses, err := h.service.GetAddressesForDevice(ctx, deviceId)
@@ -74,7 +74,7 @@ func (h *OpenApiHandler) GetDeviceAddresses(ctx context.Context, request api.Get
 	return api.GetDeviceAddresses200JSONResponse(addressesResponse), nil
 }
 
-func (h *OpenApiHandler) AddAddress(ctx context.Context, request api.AddAddressRequestObject) (api.AddAddressResponseObject, error) {
+func (h *HTTPHandler) AddAddress(ctx context.Context, request api.AddAddressRequestObject) (api.AddAddressResponseObject, error) {
 	deviceId := DeviceID(request.DeviceId)
 	ipAddress := request.Body.Ip
 
@@ -101,7 +101,7 @@ func (h *OpenApiHandler) AddAddress(ctx context.Context, request api.AddAddressR
 	return api.AddAddress200JSONResponse(toAddressResponse(addresswIp)), nil
 }
 
-func (h *OpenApiHandler) DisableAddress(ctx context.Context, request api.DisableAddressRequestObject) (api.DisableAddressResponseObject, error) {
+func (h *HTTPHandler) DisableAddress(ctx context.Context, request api.DisableAddressRequestObject) (api.DisableAddressResponseObject, error) {
 	deviceId := DeviceID(request.DeviceId)
 	addressId := AddressID(request.AddressId)
 
@@ -121,7 +121,7 @@ func (h *OpenApiHandler) DisableAddress(ctx context.Context, request api.Disable
 	return api.DisableAddress200JSONResponse(toAddressResponse(address)), nil
 }
 
-func (h *OpenApiHandler) DeviceHeartbeat(ctx context.Context, request api.DeviceHeartbeatRequestObject) (api.DeviceHeartbeatResponseObject, error) {
+func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request api.DeviceHeartbeatRequestObject) (api.DeviceHeartbeatResponseObject, error) {
 	deviceId := DeviceID(request.DeviceId)
 
 	// Extract client IP from context (set by middleware)
