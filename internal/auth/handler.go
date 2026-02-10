@@ -45,8 +45,24 @@ func (h *HTTPHandler) GetCurrentUser(ctx context.Context, request api.GetCurrent
 }
 
 func (h *HTTPHandler) Signup(ctx context.Context, request api.SignupRequestObject) (api.SignupResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
+	rawToken, user, err := h.service.SignUp(ctx, request.Body.Name, string(request.Body.Email), request.Body.Password)
+	if err != nil {
+		return api.Signup409JSONResponse(errorMsgResponse("Error signing up")), nil
+	}
+
+	cookie := http.Cookie{
+		Name:     "wdc_session",
+		Value:    rawToken,
+		HttpOnly: true,
+		Secure:   true,
+		Path:     "/",
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   3600 * 24 * 30,
+	}
+	headers := api.Signup201ResponseHeaders{SetCookie: cookie.String()}
+
+	return api.Signup201JSONResponse{Body: toUserResponse(user), Headers: headers}, nil
+
 }
 
 func NewHandler(service *Service, logger *slog.Logger) *HTTPHandler {

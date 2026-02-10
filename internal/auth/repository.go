@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -12,11 +13,6 @@ import (
 type repository struct {
 	db     DBInterface
 	rootDB *sqlx.DB
-}
-
-type Repository interface {
-	GetUserByEmail(ctx context.Context, email string) (*User, error)
-	CreateSession(ctx context.Context, userId UserID, tokenHash string) (*Session, error)
 }
 
 type DBInterface interface {
@@ -31,6 +27,32 @@ func NewRepository(db *sqlx.DB) Repository {
 		rootDB: db,
 		db:     db,
 	}
+}
+
+func (r *repository) CreateUser(ctx context.Context, name string, email string, passwordHash []byte) (*User, error) {
+	user := User{
+		Name:         name,
+		Email:        email,
+		PasswordHash: passwordHash,
+		CreatedAt:    time.Now().UTC(),
+	}
+
+	query := `
+        INSERT INTO users (name, email, password_hash, created_at)
+        VALUES (?, ?, ?, ?) RETURNING id, name, email, password_hash, created_at
+    `
+
+	err := r.db.GetContext(ctx, &user, query,
+		user.Name,
+		user.Email,
+		user.PasswordHash,
+		user.CreatedAt,
+	)
+	if err != nil {
+		//TODO: Can return here emailAlreadyExists error if UNIQUE constraint fails
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+	return &user, nil
 }
 
 func (r *repository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
@@ -50,11 +72,19 @@ func (r *repository) GetUserByEmail(ctx context.Context, email string) (*User, e
 }
 
 func (r *repository) CreateSession(ctx context.Context, userId UserID, tokenHash string) (*Session, error) {
-	var session Session
+	tokenDuration := time.Hour * 24 * 7
+	session := Session{
+		UserId:     userId,
+		TokenHash:  tokenHash,
+		CreatedAt:  time.Now().UTC(),
+		ExpiresAt:  time.Now().UTC().Add(tokenDuration),
+		LastUsedAt: nil,
+		RevokedAt:  nil,
+	}
 
 	query := `
 		INSERT INTO sessions (user_id, token_hash, created_at, expires_at)
-		VALUES (?, ?, ?, ?)
+		VALUES (?, ?, ?, ?) RETURNING id, user_id, token_hash, created_at, expires_at, last_used_at, revoked_at
 	`
 
 	err := r.db.GetContext(ctx, &session, query,
@@ -70,21 +100,3 @@ func (r *repository) CreateSession(ctx context.Context, userId UserID, tokenHash
 
 	return &session, nil
 }
-
-//func (r *Repository) GetSessionByHash(ctx context.Context, passwd_hash string) (*User, error) {
-//	var user User
-//	query := `
-//		SELECT id, name, email, password_hash, created_at
-//		FROM users
-//		WHERE password_hash = ?
-//	`
-//	err := r.db.GetContext(ctx, &user, query, passwd_hash)
-//	if err != nil {
-//		if errors.Is(err, sql.ErrNoRows) {
-//			return nil, ErrUserNotFound
-//		}
-//		return nil, fmt.Errorf("failed to get user: %w", err)
-//	}
-//	return &user, nil
-//
-//}

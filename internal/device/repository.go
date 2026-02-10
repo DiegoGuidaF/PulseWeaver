@@ -54,20 +54,15 @@ func (r *Repository) CreateDevice(ctx context.Context, name string) (*Device, er
 
 	query := `
 		INSERT INTO devices (name, created_at)
-		VALUES (?, ?)
+		VALUES (?, ?) returning id, name, created_at
 	`
 
-	result, err := r.db.ExecContext(ctx, query, device.Name, device.CreatedAt)
+	err := r.db.GetContext(ctx, &device, query, device.Name, device.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("insert device: %w", err)
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get last insert ID: %w", err)
-	}
-
-	return r.GetDeviceByID(ctx, DeviceID(id))
+	return &device, nil
 }
 
 func (r *Repository) GetDevices(ctx context.Context) ([]Device, error) {
