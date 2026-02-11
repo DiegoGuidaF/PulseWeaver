@@ -95,6 +95,10 @@ paths:
       responses:
         "204":
           description: Logged out successfully
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
 
   /auth/me:
     get:

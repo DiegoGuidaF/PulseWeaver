@@ -102,11 +102,15 @@ func (r *repository) CreateSession(ctx context.Context, userId UserID, tokenHash
 	return &session, nil
 }
 
-func (r *repository) GetSessionByRawToken(ctx context.Context, tokenHash string) (*Session, error) {
+// GetSessionByTokenHash Finds and retrieves non-expired or revoked sessions for a given token hash
+func (r *repository) GetSessionByTokenHash(ctx context.Context, tokenHash string) (*Session, error) {
 	var session Session
 
 	query := `SELECT id, user_id, token_hash, created_at, expires_at, last_used_at, revoked_at FROM sessions
-				WHERE  token_hash = ?`
+				WHERE  token_hash = ?
+          		AND revoked_at IS NULL
+          		AND expires_at > CURRENT_TIMESTAMP
+	`
 
 	err := r.db.GetContext(ctx, &session, query, tokenHash)
 	if err != nil {
@@ -117,4 +121,15 @@ func (r *repository) GetSessionByRawToken(ctx context.Context, tokenHash string)
 	}
 
 	return &session, nil
+}
+
+func (r *repository) RevokeSessionById(ctx context.Context, id SessionID) error {
+	query := `UPDATE sessions SET revoked_at = CURRENT_TIMESTAMP WHERE id = ?`
+
+	_, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to get session: %w", err)
+	}
+
+	return nil
 }

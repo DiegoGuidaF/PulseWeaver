@@ -14,7 +14,8 @@ type Repository interface {
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	CreateSession(ctx context.Context, userId UserID, tokenHash string) (*Session, error)
 	CreateUser(ctx context.Context, name string, email string, passwordHash []byte) (*User, error)
-	GetSessionByRawToken(ctx context.Context, tokenHash string) (*Session, error)
+	GetSessionByTokenHash(ctx context.Context, tokenHash string) (*Session, error)
+	RevokeSessionById(ctx context.Context, id SessionID) error
 }
 
 type Service struct {
@@ -53,6 +54,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (string, *U
 	return rawToken, user, nil
 }
 
+func (s *Service) RevokeSession(ctx context.Context, sessionId SessionID) error {
+	return s.repo.RevokeSessionById(ctx, sessionId)
+}
+
 func (s *Service) SignUp(ctx context.Context, name string, email string, password string) (string, *User, error) {
 	passwordHash, err := s.hashPassword(password)
 	if err != nil {
@@ -70,15 +75,15 @@ func (s *Service) SignUp(ctx context.Context, name string, email string, passwor
 
 func (s *Service) Authenticate(ctx context.Context, rawToken string) (*Principal, error) {
 	tokenHash := hashRawToken(rawToken)
-	session, err := s.repo.GetSessionByRawToken(ctx, tokenHash)
+	session, err := s.repo.GetSessionByTokenHash(ctx, tokenHash)
 	if err != nil {
 		return nil, err
 	}
 
 	principal := &Principal{
 		UserID:    session.UserId,
+		SessionID: session.ID,
 		DeviceID:  nil,
-		SessionID: &session.ID,
 	}
 
 	return principal, nil
