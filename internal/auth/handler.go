@@ -16,13 +16,14 @@ type HTTPHandler struct {
 }
 
 func (h *HTTPHandler) Login(ctx context.Context, request api.LoginRequestObject) (api.LoginResponseObject, error) {
-	rawToken, user, err := h.service.Login(ctx, string(request.Body.Email), request.Body.Password)
+	rawToken, user, err := h.service.Login(ctx, request.Body.Username, request.Body.Password)
 	if err != nil {
-		if errors.Is(err, ErrInvalidCredentials) {
+		if errors.Is(err, ErrInvalidCredentials) || errors.Is(err, ErrUsernameTaken) {
 			return api.Login401JSONResponse(errorMsgResponse("Invalid credentials")), nil
 		}
 		return api.Login500JSONResponse(errorMsgResponse("Login failure")), nil
 	}
+
 	cookie := NewSessionCookie(rawToken, h.cookieConfig)
 
 	headers := api.Login200ResponseHeaders{SetCookie: cookie.String()}
@@ -58,10 +59,22 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request api.CreateUserRequ
 		return api.CreateUser403Response{}, nil
 	}
 
-	user, err := h.service.CreateUserByAdmin(ctx, request.Body.Name, string(request.Body.Email), request.Body.Password, &principal)
+	// Email is inside an openapi validator, we need to turn it into a valid string or nil
+	var email *string
+	if request.Body.Email != nil {
+		s := string(*request.Body.Email)
+		email = &s
+	}
+	user, err := h.service.CreateUserByAdmin(ctx, request.Body.Username, request.Body.DisplayName, email, request.Body.Password, &principal)
 
 	if err != nil {
-		return api.CreateUser409JSONResponse(errorMsgResponse("Error creating user")), nil
+		if errors.Is(err, ErrUsernameTaken) {
+			return api.CreateUser409JSONResponse(errorMsgResponse("User with that username already exists")), nil
+		}
+		if errors.Is(err, ErrInvalidDisplayName) || errors.Is(err, ErrInvalidUsername) {
+			return api.CreateUser400JSONResponse(errorMsgResponse("Invalid input")), nil
+		}
+		return api.CreateUser500JSONResponse(errorMsgResponse("Failed to create user")), nil
 	}
 
 	return api.CreateUser201JSONResponse(toUserResponse(user)), nil
@@ -83,10 +96,19 @@ func (h *HTTPHandler) Authenticator() Authenticator {
 }
 
 func toUserResponse(d *User) api.User {
+	var email *openapi_types.Email
+
+	if d.Email != nil { // Check if email exists
+		e := openapi_types.Email(*d.Email)
+		email = &e
+	}
+
 	return api.User{
-		ID:        d.ID.Int64(),
-		Email:     openapi_types.Email(d.Email),
-		CreatedAt: d.CreatedAt,
+		Id:          d.ID.Int64(),
+		Username:    d.Username,
+		DisplayName: d.DisplayName,
+		Email:       email,
+		CreatedAt:   d.CreatedAt,
 	}
 }
 

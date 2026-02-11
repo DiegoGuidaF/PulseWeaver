@@ -5,14 +5,27 @@ import (
 	"time"
 )
 
+const tokenDuration = time.Hour * 24 * 7
+
 type Session struct {
-	ID         SessionID  `db:"id" json:"id"`
-	UserId     UserID     `db:"user_id" json:"user_id"`
-	TokenHash  string     `db:"token_hash" json:"-"`
-	CreatedAt  time.Time  `db:"created_at" json:"created_at"`
-	ExpiresAt  time.Time  `db:"expires_at" json:"expires_at"`
-	LastUsedAt *time.Time `db:"last_used_at" json:"last_used_at,omitempty"`
-	RevokedAt  *time.Time `db:"revoked_at" json:"revoked_at,omitempty"`
+	ID         SessionID  `db:"id" `
+	UserId     UserID     `db:"user_id" `
+	TokenHash  string     `db:"token_hash" `
+	CreatedAt  time.Time  `db:"created_at" `
+	ExpiresAt  time.Time  `db:"expires_at" `
+	LastUsedAt *time.Time `db:"last_used_at" `
+	RevokedAt  *time.Time `db:"revoked_at" `
+}
+
+func NewSession(userId UserID, tokenHash string) *Session {
+	return &Session{
+		UserId:     userId,
+		TokenHash:  tokenHash,
+		CreatedAt:  time.Now().UTC(),
+		ExpiresAt:  time.Now().UTC().Add(tokenDuration),
+		LastUsedAt: nil,
+		RevokedAt:  nil,
+	}
 }
 
 type SessionWithUser struct {

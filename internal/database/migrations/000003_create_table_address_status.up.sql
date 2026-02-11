@@ -3,10 +3,9 @@
 CREATE TABLE address_status
 (
     id         INTEGER PRIMARY KEY,
-    address_id INTEGER  NOT NULL,
+    address_id INTEGER  NOT NULL REFERENCES addresses(id) ON DELETE CASCADE ,
     status     BOOLEAN  NOT NULL CHECK (status IN (0, 1)),
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (address_id) REFERENCES addresses (id) ON DELETE CASCADE
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Composite index for efficiently querying latest status per address

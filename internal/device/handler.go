@@ -162,7 +162,7 @@ func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request api.DeviceHea
 
 func toDeviceResponse(d *Device) api.Device {
 	return api.Device{
-		ID:        d.ID.Int64(),
+		Id:        d.ID.Int64(),
 		Name:      d.Name,
 		CreatedAt: d.CreatedAt,
 	}
@@ -170,9 +170,9 @@ func toDeviceResponse(d *Device) api.Device {
 
 func toAddressResponse(a *AddressWithStatus) api.Address {
 	return api.Address{
-		ID:        a.AddressId.Int64(),
+		Id:        a.Id.Int64(),
 		DeviceId:  a.DeviceId.Int64(),
-		IP:        a.IP,
+		Ip:        a.IP,
 		Status:    a.Status,
 		CreatedAt: a.CreatedAt,
 		UpdatedAt: a.UpdatedAt.Time,

@@ -8,7 +8,7 @@ import (
 
 // AddressWithStatus combines address with its latest status via a DB View
 type AddressWithStatus struct {
-	AddressId AddressID       `db:"address_id"`
+	Id        AddressID       `db:"id"`
 	DeviceId  DeviceID        `db:"device_id"`
 	IP        string          `db:"ip"`
 	Status    bool            `db:"status"`

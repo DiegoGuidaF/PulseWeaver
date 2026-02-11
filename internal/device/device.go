@@ -6,9 +6,16 @@ import (
 )
 
 type Device struct {
-	ID        DeviceID  `db:"id" json:"id"`
-	Name      string    `db:"name" json:"name"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	ID        DeviceID  `db:"id" `
+	Name      string    `db:"name" `
+	CreatedAt time.Time `db:"created_at" `
+}
+
+func NewDevice(name string) *Device {
+	return &Device{
+		Name:      name,
+		CreatedAt: time.Now().UTC(),
+	}
 }
 
 type DeviceID int64

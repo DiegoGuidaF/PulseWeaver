@@ -3,15 +3,14 @@ package device
 import (
 	"context"
 	"errors"
-	"net/netip"
 )
 
 // DeviceRepository defines the persistence operations for devices and addresses.
 type DeviceRepository interface {
 	GetDeviceByID(ctx context.Context, id DeviceID) (*Device, error)
-	CreateDevice(ctx context.Context, name string) (*Device, error)
+	CreateDevice(ctx context.Context, device *Device) (*Device, error)
 	GetDevices(ctx context.Context) ([]Device, error)
-	CreateAddress(ctx context.Context, deviceId DeviceID, ipAddress string) (*Address, error)
+	CreateAddress(ctx context.Context, address *Address) (*Address, error)
 	GetAddressForDeviceByIp(ctx context.Context, deviceId DeviceID, ip string) (*AddressWithStatus, error)
 	ListAddresses(ctx context.Context, deviceId DeviceID) ([]AddressWithStatus, error)
 	DisableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error)
@@ -34,14 +33,15 @@ func (s *Service) GetDevices(ctx context.Context) ([]Device, error) {
 }
 
 func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, error) {
-	return s.repo.CreateDevice(ctx, name)
+	device := NewDevice(name)
+	return s.repo.CreateDevice(ctx, device)
 }
 
 func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIp string) (*AddressWithStatus, bool, error) {
 	var resultAddr *AddressWithStatus
 	var wasCreated bool
 
-	ipAddress, err := parseAndValidateIP(inputIp)
+	newAddress, err := NewAddress(deviceID, inputIp)
 	if err != nil {
 		return nil, false, err
 	}
@@ -53,11 +53,10 @@ func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIp 
 			return err
 		}
 
-		resultAddr, err = tx.GetAddressForDeviceByIp(ctx, deviceID, ipAddress)
+		resultAddr, err = tx.GetAddressForDeviceByIp(ctx, deviceID, newAddress.IP)
 		if err != nil {
 			if errors.Is(err, ErrAddressNotFound) {
-				// If not found create address
-				addr, err := tx.CreateAddress(ctx, deviceID, ipAddress)
+				addr, err := tx.CreateAddress(ctx, newAddress)
 				if err != nil {
 					return err
 				}
@@ -78,7 +77,7 @@ func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIp 
 
 		// If it was not created, add an enabled record
 		if !wasCreated {
-			resultAddr, err = tx.EnableAddress(ctx, resultAddr.AddressId)
+			resultAddr, err = tx.EnableAddress(ctx, resultAddr.Id)
 			if err != nil {
 				return err
 			}
@@ -139,23 +138,4 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, address
 	}
 
 	return disabledAddress, nil
-}
-
-// parseAndValidateIP parses and validates that the given string is a valid IPv4 or IPv6 address.
-// It ignores the port if present and only cares about the IP component.
-func parseAndValidateIP(ipInput string) (string, error) {
-	// Try to parse as IP without port
-	if ip, err := netip.ParseAddr(ipInput); err == nil {
-		ipStr := ip.String()
-		return ipStr, nil
-	}
-
-	// If that fails, try to parse as IP with port
-	if ap, err := netip.ParseAddrPort(ipInput); err == nil {
-		ipStr := ap.Addr().String()
-		return ipStr, nil
-	}
-
-	// If both fail, return error
-	return "", ErrInvalidIPFormat
 }

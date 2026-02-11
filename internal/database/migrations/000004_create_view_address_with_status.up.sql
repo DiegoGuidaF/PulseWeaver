@@ -1,5 +1,5 @@
 CREATE VIEW address_with_status AS
-SELECT a.id                                        as address_id,
+SELECT a.id,
        a.device_id,
        a.ip,
        a.created_at,

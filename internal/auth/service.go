@@ -15,13 +15,12 @@ import (
 
 type Repository interface {
 	CountUsers(ctx context.Context) (int, error)
-	GetUserByEmail(ctx context.Context, email string) (*User, error)
-	CreateSession(ctx context.Context, userId UserID, tokenHash string) (*Session, error)
-	CreateUser(ctx context.Context, name string, email string, passwordHash []byte, createdById *UserID, role Role) (*User, error)
+	GetUserByUsername(ctx context.Context, username string) (*User, error)
+	CreateSession(ctx context.Context, session *Session) (*Session, error)
+	CreateUser(ctx context.Context, user *User) (*User, error)
 	GetSessionWithRoleByTokenHash(ctx context.Context, tokenHash string) (*SessionWithUser, error)
 	RevokeSessionById(ctx context.Context, id SessionID) error
 }
-
 type Service struct {
 	repo   Repository
 	logger *slog.Logger
@@ -31,31 +30,28 @@ func NewService(repo Repository, logger *slog.Logger) *Service {
 	return &Service{repo: repo, logger: logger}
 }
 
-func (s *Service) Login(ctx context.Context, email, password string) (string, *User, error) {
-	// Ensure user exists and get info
-	user, err := s.repo.GetUserByEmail(ctx, email)
+func (s *Service) Login(ctx context.Context, username string, password string) (string, *User, error) {
+	user, err := s.repo.GetUserByUsername(ctx, username)
 	if err != nil {
 		return "", nil, err
 	}
 
-	// Check password
 	if !s.checkPassword(user.PasswordHash, password) {
 		return "", nil, ErrInvalidCredentials
 	}
 
-	// Create session token
 	rawToken, tokenHash, err := s.generateToken()
 	if err != nil {
 		return "", nil, err
 	}
 
-	// Create session
-	_, err = s.repo.CreateSession(ctx, user.ID, tokenHash)
+	session := NewSession(user.ID, tokenHash)
+
+	_, err = s.repo.CreateSession(ctx, session)
 	if err != nil {
 		return "", nil, err
 	}
 
-	// 5. Return Raw Token (for Cookie) and User (for JSON response)
 	return rawToken, user, nil
 }
 
@@ -63,12 +59,13 @@ func (s *Service) RevokeSession(ctx context.Context, sessionId SessionID) error 
 	return s.repo.RevokeSessionById(ctx, sessionId)
 }
 
-func (s *Service) CreateUserByAdmin(ctx context.Context, name string, email string, password string, principal *Principal) (*User, error) {
+func (s *Service) CreateUserByAdmin(ctx context.Context, username string, displayName string, email *string, password string, principal *Principal) (*User, error) {
+
 	if !principal.isAdmin() {
 		return nil, ErrAdminCredentialsRequired
 	}
 
-	return s.createUser(ctx, name, email, password, &principal.UserID, UserRole)
+	return s.createUser(ctx, username, displayName, email, password, &principal.UserID, UserRole)
 }
 
 func (s *Service) Authenticate(ctx context.Context, rawToken string) (*Principal, error) {
@@ -93,7 +90,8 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 	}
 
 	generated := false
-	email := "admin@example.com"
+	username := "admin"
+	displayName := "Admin"
 	password := conf.AdminPassword
 
 	if password == "" {
@@ -105,19 +103,18 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 		generated = true
 	}
 
-	user, err := s.createUser(ctx, "Admin", "adminemail@example.com", password, nil, AdminRole)
+	user, err := s.createUser(ctx, username, displayName, nil, password, nil, AdminRole)
 	if err != nil {
 		return fmt.Errorf("failed to bootstrap admin: %w", err)
 	}
 
 	if generated {
 		s.logger.Warn("🚨 GENERATED ADMIN PASSWORD 🚨 - Store this securely and change it immediately",
-			"name", user.Name,
-			"email", email,
+			"username", user.Username,
 			"password", password,
 		)
 	} else {
-		s.logger.Info("bootstrap admin created from config", "email", email, "user_id", user.ID)
+		s.logger.Info("bootstrap admin created using password from ADMIN_PASSWORD env variable", "username", user.Username)
 	}
 	return nil
 }
@@ -143,22 +140,25 @@ func hashRawToken(rawToken string) string {
 	return base64.RawURLEncoding.EncodeToString(hash[:])
 }
 
-func (s *Service) hashPassword(password string) ([]byte, error) {
-	return bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-}
-
 func (s *Service) checkPassword(hash []byte, password string) bool {
 	err := bcrypt.CompareHashAndPassword(hash, []byte(password))
 	return err == nil
 }
 
-func (s *Service) createUser(ctx context.Context, name string, email string, password string, createdBy *UserID, role Role) (*User, error) {
-	passwordHash, err := s.hashPassword(password)
+func (s *Service) createUser(ctx context.Context, username string, displayName string, email *string, password string, createdBy *UserID, role Role) (*User, error) {
+	newUser, err := NewUser(
+		username,
+		displayName,
+		email,
+		password,
+		role,
+		createdBy,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("hashing failed: %w", err)
+		return nil, err
 	}
 
-	user, err := s.repo.CreateUser(ctx, name, email, passwordHash, createdBy, role)
+	user, err := s.repo.CreateUser(ctx, newUser)
 	if err != nil {
 		return nil, err
 	}

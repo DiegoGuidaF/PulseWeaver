@@ -1,10 +1,9 @@
 CREATE TABLE addresses
 (
     id         INTEGER PRIMARY KEY,
-    device_id  INTEGER  NOT NULL,
+    device_id  INTEGER  NOT NULL REFERENCES devices (id) ON DELETE CASCADE,
     ip         TEXT     NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (device_id) REFERENCES devices (id) ON DELETE CASCADE
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_address_device_id ON addresses (device_id);

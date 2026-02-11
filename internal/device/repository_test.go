@@ -201,7 +201,7 @@ func TestRepository_FindAddressForDeviceByIp(t *testing.T) {
 	// Find the address
 	address, err := repo.GetAddressForDeviceByIp(ctx, device.ID, "192.168.1.100")
 	is.NoErr(err)
-	is.Equal(address.AddressId, createdAddr.ID)
+	is.Equal(address.Id, createdAddr.ID)
 	is.Equal(address.DeviceId, device.ID)
 	is.Equal(address.IP, "192.168.1.100")
 }
@@ -315,7 +315,7 @@ func TestRepository_DisableAddress(t *testing.T) {
 	// Disable address
 	disabledAddr, err := repo.DisableAddress(ctx, addr.ID)
 	is.NoErr(err)
-	is.Equal(disabledAddr.AddressId, addr.ID)
+	is.Equal(disabledAddr.Id, addr.ID)
 	is.True(!disabledAddr.Status) // Should be disabled
 }
 
@@ -334,7 +334,7 @@ func TestRepository_EnableAddress(t *testing.T) {
 	// Enable address
 	enabledAddr, err := repo.EnableAddress(ctx, addr.ID)
 	is.NoErr(err)
-	is.Equal(enabledAddr.AddressId, addr.ID)
+	is.Equal(enabledAddr.Id, addr.ID)
 	is.True(enabledAddr.Status) // Should be enabled
 }
 
@@ -361,7 +361,7 @@ func TestRepository_EnableAddress_ReEnable(t *testing.T) {
 	// Re-enable address
 	enabledAddr, err := repo.EnableAddress(ctx, addr.ID)
 	is.NoErr(err)
-	is.Equal(enabledAddr.AddressId, addr.ID)
+	is.Equal(enabledAddr.Id, addr.ID)
 	is.True(enabledAddr.Status) // Should be enabled again
 }
 
@@ -384,7 +384,7 @@ func TestRepository_GetAddressWithStatus(t *testing.T) {
 	// Get address with status
 	addrWithStatus, err := repo.GetAddressWithStatus(ctx, addr.ID)
 	is.NoErr(err)
-	is.Equal(addrWithStatus.AddressId, addr.ID)
+	is.Equal(addrWithStatus.Id, addr.ID)
 	is.Equal(addrWithStatus.DeviceId, device.ID)
 	is.Equal(addrWithStatus.IP, "192.168.1.100")
 	is.True(addrWithStatus.Status) // Should be enabled

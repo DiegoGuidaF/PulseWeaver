@@ -8,8 +8,8 @@ servers:
 
 # 1. Global security requirement (denies access by default)
 security:
-  - cookieAuth: []
-  - bearerAuth: []
+  - cookieAuth: [ ]
+  - bearerAuth: [ ]
 
 paths:
   # --------------------
@@ -43,6 +43,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Internal Server Error
           content:
@@ -57,7 +63,7 @@ paths:
         - auth
       summary: Login user
       description: Authenticates user and sets a strict HTTP-only session cookie.
-      security: [] # Public endpoint
+      security: [ ] # Public endpoint
       requestBody:
         required: true
         content:
@@ -390,66 +396,55 @@ components:
     CreateUserRequest:
       type: object
       required:
-        - name
-        - email
+        - username
+        - display_name
         - password
       properties:
-        name:
-          type: string
-          minLength: 3
-          maxLength: 50
-          example: "John Doe"
+        username:
+          $ref: '#/components/schemas/Username'
+        display_name:
+          $ref: '#/components/schemas/DisplayName'
         email:
           type: string
           format: email
           example: "user@example.com"
         password:
-          type: string
-          format: password
-          minLength: 8
-          example: "securePassword123"
+          $ref: '#/components/schemas/Password'
     #################
     # Auth Requests
     #################
     AuthRequest:
       type: object
       required:
-        - email
+        - username
         - password
       properties:
-        email:
-          type: string
-          format: email
-          example: "user@example.com"
+        username:
+          $ref: '#/components/schemas/Username'
         password:
-          type: string
-          format: password
-          minLength: 8
-          example: "securePassword123"
+          $ref: '#/components/schemas/Password'
 
     #################
     # Device Requests
     #################
     CreateDeviceRequest:
+      type: object
       required:
         - name
-      type: object
       properties:
         name:
           type: string
           example: Personal phone
-          minLength: 3
+          minLength: 1
           maxLength: 50
+          description: "User-friendly name for the device"
     AddAddressRequest:
       required:
         - ip
       type: object
       properties:
         ip:
-          type: string
-          description: IPv4 or IPv6 address
-          example: 192.168.1.132
-
+          $ref: '#/components/schemas/IPAddress'
     #################
     # Responses
     #################
@@ -467,20 +462,22 @@ components:
       type: object
       required:
         - id
-        - email
+        - username
+        - display_name
         - created_at
       properties:
         id:
-          type: integer
-          format: int64
-          x-go-name: "ID"
+          $ref: '#/components/schemas/ID'
+        username:
+          $ref: '#/components/schemas/Username'
+        display_name:
+          $ref: '#/components/schemas/DisplayName'
         email:
           type: string
           format: email
         created_at:
           type: string
           format: date-time
-
     Device:
       type: object
       required:
@@ -492,12 +489,12 @@ components:
           type: string
           format: date-time
         id:
-          type: integer
-          format: int64
-          x-go-name: "ID"
+          $ref: '#/components/schemas/ID'
         name:
+          description: "User-friendly name for the device"
           type: string
-
+          minLength: 1
+          maxLength: 50
     Address:
       type: object
       required:
@@ -509,16 +506,11 @@ components:
         - updated_at
       properties:
         id:
-          type: integer
-          format: int64
-          x-go-name: "ID"
+          $ref: '#/components/schemas/ID'
         device_id:
-          type: integer
-          format: int64
+          $ref: '#/components/schemas/ID'
         ip:
-          type: string
-          description: IPv4 or IPv6 address
-          x-go-name: "IP"
+          $ref: '#/components/schemas/IPAddress'
         status:
           type: boolean
           description: The latest state of this address, enabled or disabled
@@ -529,3 +521,36 @@ components:
           type: string
           format: date-time
           description: Last time it was enabled or disabled
+
+    #################
+    # Reused types
+    #################
+    Username:
+      type: string
+      description: "Unique username. Alphanumeric, underscores, and hyphens only."
+      minLength: 3
+      maxLength: 32
+      pattern: '^[a-z0-9_-]+$'
+      example: "john_doe"
+    DisplayName:
+      type: string
+      description: "User's public name. Unicode allowed."
+      minLength: 1
+      maxLength: 50
+      example: "John Doe"
+    Password:
+      type: string
+      format: password
+      minLength: 8
+      maxLength: 50
+      example: "123ASecretPassword"
+    IPAddress:
+      type: string
+      description: "IPv4 or IPv6 address"
+      anyOf:
+        - format: ipv4
+        - format: ipv6
+      example: "192.168.1.132"
+    ID:
+      type: integer
+      format: int64

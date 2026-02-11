@@ -340,7 +340,7 @@ func TestHandler_ListDeviceIPs_AllAddressesReturned(t *testing.T) {
 	testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.2")
 
 	// Disable one IP
-	testServer.deviceService.DisableAddress(t.Context(), device1.ID, deviceIp1.AddressId)
+	testServer.deviceService.DisableAddress(t.Context(), device1.ID, deviceIp1.Id)
 
 	// List should return all addresses (enabled and disabled)
 	url := fmt.Sprintf("/api/v1/devices/%d/addresses", device1.ID)
@@ -378,7 +378,7 @@ func TestHandler_DisableDeviceIP(t *testing.T) {
 	device1, _ := testServer.deviceService.CreateDevice(t.Context(), "device-1")
 	deviceIp1, _, _ := testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.1")
 
-	url := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", device1.ID, deviceIp1.AddressId)
+	url := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", device1.ID, deviceIp1.Id)
 	req := httptest.NewRequest(http.MethodDelete, url, nil)
 	w := httptest.NewRecorder()
 	testServer.httpServer.ServeHTTP(w, req)
@@ -399,10 +399,10 @@ func TestHandler_DisableDeviceIP_AlreadyDisabled_IsOk(t *testing.T) {
 	deviceIp1, _, _ := testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.1")
 
 	// Disable once
-	testServer.deviceService.DisableAddress(t.Context(), device1.ID, deviceIp1.AddressId)
+	testServer.deviceService.DisableAddress(t.Context(), device1.ID, deviceIp1.Id)
 
 	// Try to disable again
-	url := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", device1.ID, deviceIp1.AddressId)
+	url := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", device1.ID, deviceIp1.Id)
 	req := httptest.NewRequest(http.MethodDelete, url, nil)
 	w := httptest.NewRecorder()
 	testServer.httpServer.ServeHTTP(w, req)
@@ -437,7 +437,7 @@ func TestHandler_DisableDeviceIP_WrongDevice(t *testing.T) {
 	deviceIp2, _, _ := testServer.deviceService.AssignAddress(t.Context(), device2.ID, "10.0.0.1")
 
 	// Try to disable device 2's address using device 1's ID
-	url := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", device1.ID, deviceIp2.AddressId)
+	url := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", device1.ID, deviceIp2.Id)
 	req := httptest.NewRequest(http.MethodDelete, url, nil)
 	w := httptest.NewRecorder()
 	testServer.httpServer.ServeHTTP(w, req)
@@ -509,7 +509,7 @@ func TestHandler_CheckinDevice_ReEnableDisabledAddress(t *testing.T) {
 
 	// Create and then disable an address
 	addr, _, _ := testServer.deviceService.AssignAddress(t.Context(), dev.ID, "10.0.0.10")
-	testServer.deviceService.DisableAddress(t.Context(), dev.ID, addr.AddressId)
+	testServer.deviceService.DisableAddress(t.Context(), dev.ID, addr.Id)
 
 	time.Sleep(2 * time.Millisecond) // Wait for SQLite resolution
 

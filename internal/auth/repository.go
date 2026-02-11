@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/mattn/go-sqlite3"
 )
 
 type repository struct {
@@ -29,30 +29,15 @@ func NewRepository(db *sqlx.DB) Repository {
 	}
 }
 
-func (r *repository) CreateUser(
-	ctx context.Context,
-	name string,
-	email string,
-	passwordHash []byte,
-	createdBy *UserID,
-	role Role,
-) (*User, error) {
-	user := User{
-		Name:         name,
-		Email:        email,
-		PasswordHash: passwordHash,
-		Role:         role,
-		CreatedBy:    createdBy,
-		CreatedAt:    time.Now().UTC(),
-	}
-
+func (r *repository) CreateUser(ctx context.Context, user *User) (*User, error) {
 	query := `
-        INSERT INTO users (name, email, password_hash, role, created_by, created_at)
-        VALUES (?, ?, ?, ?,?, ?) RETURNING *
+        INSERT INTO users (username, display_name, email, password_hash, role, created_by, created_at)
+        VALUES (?, ?, ?, ?, ?,?, ?) RETURNING *
     `
 
-	err := r.db.GetContext(ctx, &user, query,
-		user.Name,
+	err := r.db.GetContext(ctx, user, query,
+		user.Username,
+		user.DisplayName,
 		user.Email,
 		user.PasswordHash,
 		user.Role,
@@ -60,27 +45,29 @@ func (r *repository) CreateUser(
 		user.CreatedAt,
 	)
 	if err != nil {
-		//TODO: Can return here emailAlreadyExists error if UNIQUE constraint fails
+		if isUniqueConstraintError(err) {
+			return nil, ErrUsernameTaken
+		}
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
-	return &user, nil
+
+	return user, nil
 }
 
-func (r *repository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
-	var user User
+func (r *repository) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+	user := &User{}
 
-	query := `SELECT * FROM users WHERE email = ?`
+	query := `SELECT * FROM users WHERE username = ?`
 
-	err := r.db.GetContext(ctx, &user, query, email)
+	err := r.db.GetContext(ctx, user, query, username)
 	if err != nil {
-		//TODO: Return more specific error, handler would not propagate that one to user but a generic one instead
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrInvalidCredentials
+			return nil, ErrUsernameNotFound
 		}
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	return &user, nil
+	return user, nil
 }
 
 func (r *repository) CountUsers(ctx context.Context) (int, error) {
@@ -96,23 +83,13 @@ func (r *repository) CountUsers(ctx context.Context) (int, error) {
 	return userCount, nil
 }
 
-func (r *repository) CreateSession(ctx context.Context, userId UserID, tokenHash string) (*Session, error) {
-	tokenDuration := time.Hour * 24 * 7
-	session := Session{
-		UserId:     userId,
-		TokenHash:  tokenHash,
-		CreatedAt:  time.Now().UTC(),
-		ExpiresAt:  time.Now().UTC().Add(tokenDuration),
-		LastUsedAt: nil,
-		RevokedAt:  nil,
-	}
-
+func (r *repository) CreateSession(ctx context.Context, session *Session) (*Session, error) {
 	query := `
 		INSERT INTO sessions (user_id, token_hash, created_at, expires_at)
 		VALUES (?, ?, ?, ?) RETURNING *
 	`
 
-	err := r.db.GetContext(ctx, &session, query,
+	err := r.db.GetContext(ctx, session, query,
 		session.UserId,
 		session.TokenHash,
 		session.CreatedAt,
@@ -123,13 +100,13 @@ func (r *repository) CreateSession(ctx context.Context, userId UserID, tokenHash
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
 
-	return &session, nil
+	return session, nil
 }
 
 // GetSessionWithRoleByTokenHash Finds and retrieves valid session(non-expired or revoked) given a tokenHash.
 // Also returns the user_role
 func (r *repository) GetSessionWithRoleByTokenHash(ctx context.Context, tokenHash string) (*SessionWithUser, error) {
-	var session SessionWithUser
+	session := &SessionWithUser{}
 
 	query := `SELECT s.*, u.role as user_role FROM sessions s
           	  JOIN users u ON s.user_id = u.id
@@ -138,7 +115,7 @@ func (r *repository) GetSessionWithRoleByTokenHash(ctx context.Context, tokenHas
           		AND expires_at > CURRENT_TIMESTAMP
 	`
 
-	err := r.db.GetContext(ctx, &session, query, tokenHash)
+	err := r.db.GetContext(ctx, session, query, tokenHash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrInvalidCredentials
@@ -146,7 +123,7 @@ func (r *repository) GetSessionWithRoleByTokenHash(ctx context.Context, tokenHas
 		return nil, fmt.Errorf("failed to get session: %w", err)
 	}
 
-	return &session, nil
+	return session, nil
 }
 
 func (r *repository) RevokeSessionById(ctx context.Context, id SessionID) error {
@@ -158,4 +135,14 @@ func (r *repository) RevokeSessionById(ctx context.Context, id SessionID) error 
 	}
 
 	return nil
+}
+
+func isUniqueConstraintError(err error) bool {
+	var sqliteErr sqlite3.Error
+	if errors.As(err, &sqliteErr) {
+		if errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
+			return true
+		}
+	}
+	return false
 }

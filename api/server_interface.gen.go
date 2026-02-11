@@ -31,17 +31,17 @@ const (
 // AddAddressRequest defines model for AddAddressRequest.
 type AddAddressRequest struct {
 	// Ip IPv4 or IPv6 address
-	Ip string `json:"ip"`
+	Ip IPAddress `json:"ip"`
 }
 
 // Address defines model for Address.
 type Address struct {
 	CreatedAt time.Time `json:"created_at"`
-	DeviceId  int64     `json:"device_id"`
-	ID        int64     `json:"id"`
+	DeviceId  ID        `json:"device_id"`
+	Id        ID        `json:"id"`
 
-	// IP IPv4 or IPv6 address
-	IP string `json:"ip"`
+	// Ip IPv4 or IPv6 address
+	Ip IPAddress `json:"ip"`
 
 	// Status The latest state of this address, enabled or disabled
 	Status bool `json:"status"`
@@ -52,40 +52,70 @@ type Address struct {
 
 // AuthRequest defines model for AuthRequest.
 type AuthRequest struct {
-	Email    openapi_types.Email `json:"email"`
-	Password string              `json:"password"`
+	Password Password `json:"password"`
+
+	// Username Unique username. Alphanumeric, underscores, and hyphens only.
+	Username Username `json:"username"`
 }
 
 // CreateDeviceRequest defines model for CreateDeviceRequest.
 type CreateDeviceRequest struct {
+	// Name User-friendly name for the device
 	Name string `json:"name"`
 }
 
 // CreateUserRequest defines model for CreateUserRequest.
 type CreateUserRequest struct {
-	Email    openapi_types.Email `json:"email"`
-	Name     string              `json:"name"`
-	Password string              `json:"password"`
+	// DisplayName User's public name. Unicode allowed.
+	DisplayName DisplayName          `json:"display_name"`
+	Email       *openapi_types.Email `json:"email,omitempty"`
+	Password    Password             `json:"password"`
+
+	// Username Unique username. Alphanumeric, underscores, and hyphens only.
+	Username Username `json:"username"`
 }
 
 // Device defines model for Device.
 type Device struct {
 	CreatedAt time.Time `json:"created_at"`
-	ID        int64     `json:"id"`
-	Name      string    `json:"name"`
+	Id        ID        `json:"id"`
+
+	// Name User-friendly name for the device
+	Name string `json:"name"`
 }
+
+// DisplayName User's public name. Unicode allowed.
+type DisplayName = string
 
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Error *string `json:"error,omitempty"`
 }
 
+// ID defines model for ID.
+type ID = int64
+
+// IPAddress IPv4 or IPv6 address
+type IPAddress = string
+
+// Password defines model for Password.
+type Password = string
+
 // User defines model for User.
 type User struct {
-	CreatedAt time.Time           `json:"created_at"`
-	Email     openapi_types.Email `json:"email"`
-	ID        int64               `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// DisplayName User's public name. Unicode allowed.
+	DisplayName DisplayName          `json:"display_name"`
+	Email       *openapi_types.Email `json:"email,omitempty"`
+	Id          ID                   `json:"id"`
+
+	// Username Unique username. Alphanumeric, underscores, and hyphens only.
+	Username Username `json:"username"`
 }
+
+// Username Unique username. Alphanumeric, underscores, and hyphens only.
+type Username = string
 
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = CreateUserRequest
@@ -631,6 +661,15 @@ type CreateUser201JSONResponse User
 func (response CreateUser201JSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateUser400JSONResponse ErrorResponse
+
+func (response CreateUser400JSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -1349,36 +1388,39 @@ func (sh *strictHandler) DeviceHeartbeat(w http.ResponseWriter, r *http.Request,
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"uxrQ1XT1ZwAAAP//kxJPzocmAAA=",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

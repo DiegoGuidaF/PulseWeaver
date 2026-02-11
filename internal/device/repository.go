@@ -30,35 +30,33 @@ func NewRepository(db *sqlx.DB) *Repository {
 }
 
 func (r *Repository) GetDeviceByID(ctx context.Context, id DeviceID) (*Device, error) {
-	var device Device
+	device := &Device{}
+
 	query := `SELECT * FROM devices WHERE id = ?`
-	err := r.db.GetContext(ctx, &device, query, id)
+
+	err := r.db.GetContext(ctx, device, query, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrDeviceNotFound
 		}
 		return nil, fmt.Errorf("failed to get device: %w", err)
 	}
-	return &device, nil
+
+	return device, nil
 }
 
-func (r *Repository) CreateDevice(ctx context.Context, name string) (*Device, error) {
-	device := Device{
-		Name:      name,
-		CreatedAt: time.Now().UTC(),
-	}
-
+func (r *Repository) CreateDevice(ctx context.Context, device *Device) (*Device, error) {
 	query := `
 		INSERT INTO devices (name, created_at)
 		VALUES (?, ?) returning *
 	`
 
-	err := r.db.GetContext(ctx, &device, query, device.Name, device.CreatedAt)
+	err := r.db.GetContext(ctx, device, query, device.Name, device.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("insert device: %w", err)
 	}
 
-	return &device, nil
+	return device, nil
 }
 
 func (r *Repository) GetDevices(ctx context.Context) ([]Device, error) {
@@ -77,54 +75,55 @@ func (r *Repository) GetDevices(ctx context.Context) ([]Device, error) {
 	return devices, nil
 }
 
-func (r *Repository) CreateAddress(ctx context.Context, deviceId DeviceID, ipAddress string) (*Address, error) {
-	address := Address{
-		DeviceId:  deviceId,
-		IP:        ipAddress,
-		CreatedAt: time.Now().UTC(),
-	}
-
+func (r *Repository) CreateAddress(ctx context.Context, address *Address) (*Address, error) {
 	query := `
 		INSERT INTO addresses (device_id, ip, created_at)
 		VALUES (?, ?, ?) returning *
 	`
-	var createdAddress Address
-	err := r.db.GetContext(ctx, &createdAddress, query, address.DeviceId, address.IP, address.CreatedAt)
+
+	err := r.db.GetContext(ctx, address, query, address.DeviceId, address.IP, address.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("insert address: %w", err)
 	}
 
-	return &createdAddress, nil
+	return address, nil
 }
 
 func (r *Repository) GetAddressByID(ctx context.Context, id AddressID) (*Address, error) {
-	var address Address
+	address := &Address{}
+
 	query := `SELECT * FROM addresses WHERE id = ?`
-	err := r.db.GetContext(ctx, &address, query, id)
+
+	err := r.db.GetContext(ctx, address, query, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrAddressNotFound
 		}
 		return nil, fmt.Errorf("failed to get device address: %w", err)
 	}
-	return &address, nil
+
+	return address, nil
 }
 
 func (r *Repository) GetAddressForDeviceByIp(ctx context.Context, deviceId DeviceID, ip string) (*AddressWithStatus, error) {
-	var address Address
+	address := &Address{}
+
 	query := `SELECT * FROM addresses WHERE device_id = ? and ip = ?`
-	err := r.db.GetContext(ctx, &address, query, deviceId, ip)
+
+	err := r.db.GetContext(ctx, address, query, deviceId, ip)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrAddressNotFound
 		}
 		return nil, fmt.Errorf("failed to get device address: %w", err)
 	}
+
 	return r.GetAddressWithStatus(ctx, address.ID)
 }
 
 func (r *Repository) ListAddresses(ctx context.Context, deviceId DeviceID) ([]AddressWithStatus, error) {
 	var addresses []AddressWithStatus
+
 	query := `SELECT * FROM address_with_status WHERE device_id = ? ORDER BY updated_at DESC`
 
 	err := r.db.SelectContext(ctx, &addresses, query, deviceId)
@@ -175,17 +174,20 @@ func (r *Repository) CheckAddressOwnership(ctx context.Context, deviceId DeviceI
 	return nil
 }
 
-func (r *Repository) GetAddressWithStatus(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
-	var addresswStatus AddressWithStatus
-	query := `SELECT * FROM address_with_status WHERE address_id = ?`
-	err := r.db.GetContext(ctx, &addresswStatus, query, addressId)
+func (r *Repository) GetAddressWithStatus(ctx context.Context, id AddressID) (*AddressWithStatus, error) {
+	addresswStatus := &AddressWithStatus{}
+
+	query := `SELECT * FROM address_with_status WHERE id = ?`
+
+	err := r.db.GetContext(ctx, addresswStatus, query, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrAddressNotFound
 		}
 		return nil, fmt.Errorf("failed to get device address with status: %w", err)
 	}
-	return &addresswStatus, nil
+
+	return addresswStatus, nil
 
 }
 
