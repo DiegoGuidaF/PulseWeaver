@@ -61,6 +61,13 @@ type CreateDeviceRequest struct {
 	Name string `json:"name"`
 }
 
+// CreateUserRequest defines model for CreateUserRequest.
+type CreateUserRequest struct {
+	Email    openapi_types.Email `json:"email"`
+	Name     string              `json:"name"`
+	Password string              `json:"password"`
+}
+
 // Device defines model for Device.
 type Device struct {
 	CreatedAt time.Time `json:"created_at"`
@@ -73,13 +80,6 @@ type ErrorResponse struct {
 	Error *string `json:"error,omitempty"`
 }
 
-// SignupRequest defines model for SignupRequest.
-type SignupRequest struct {
-	Email    openapi_types.Email `json:"email"`
-	Name     string              `json:"name"`
-	Password string              `json:"password"`
-}
-
 // User defines model for User.
 type User struct {
 	CreatedAt time.Time           `json:"created_at"`
@@ -87,11 +87,11 @@ type User struct {
 	ID        int64               `json:"id"`
 }
 
+// CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
+type CreateUserJSONRequestBody = CreateUserRequest
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = AuthRequest
-
-// SignupJSONRequestBody defines body for Signup for application/json ContentType.
-type SignupJSONRequestBody = SignupRequest
 
 // CreateDeviceJSONRequestBody defines body for CreateDevice for application/json ContentType.
 type CreateDeviceJSONRequestBody = CreateDeviceRequest
@@ -101,6 +101,9 @@ type AddAddressJSONRequestBody = AddAddressRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Register a new user (Admin only)
+	// (POST /admin/users)
+	CreateUser(w http.ResponseWriter, r *http.Request)
 	// Login user
 	// (POST /auth/login)
 	Login(w http.ResponseWriter, r *http.Request)
@@ -110,9 +113,6 @@ type ServerInterface interface {
 	// Get current user
 	// (GET /auth/me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request)
-	// Register a new user
-	// (POST /auth/signup)
-	Signup(w http.ResponseWriter, r *http.Request)
 	// List all devices
 	// (GET /devices)
 	GetDevices(w http.ResponseWriter, r *http.Request)
@@ -137,6 +137,12 @@ type ServerInterface interface {
 
 type Unimplemented struct{}
 
+// Register a new user (Admin only)
+// (POST /admin/users)
+func (_ Unimplemented) CreateUser(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Login user
 // (POST /auth/login)
 func (_ Unimplemented) Login(w http.ResponseWriter, r *http.Request) {
@@ -152,12 +158,6 @@ func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request) {
 // Get current user
 // (GET /auth/me)
 func (_ Unimplemented) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Register a new user
-// (POST /auth/signup)
-func (_ Unimplemented) Signup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -205,6 +205,28 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// CreateUser operation middleware
+func (siw *ServerInterfaceWrapper) CreateUser(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // Login operation middleware
 func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
@@ -255,20 +277,6 @@ func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCurrentUser(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// Signup operation middleware
-func (siw *ServerInterfaceWrapper) Signup(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.Signup(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -577,6 +585,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/admin/users", wrapper.CreateUser)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/login", wrapper.Login)
 	})
 	r.Group(func(r chi.Router) {
@@ -584,9 +595,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/auth/me", wrapper.GetCurrentUser)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/auth/signup", wrapper.Signup)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/devices", wrapper.GetDevices)
@@ -608,6 +616,49 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 
 	return r
+}
+
+type CreateUserRequestObject struct {
+	Body *CreateUserJSONRequestBody
+}
+
+type CreateUserResponseObject interface {
+	VisitCreateUserResponse(w http.ResponseWriter) error
+}
+
+type CreateUser201JSONResponse User
+
+func (response CreateUser201JSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateUser403Response struct {
+}
+
+func (response CreateUser403Response) VisitCreateUserResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type CreateUser409JSONResponse ErrorResponse
+
+func (response CreateUser409JSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateUser500JSONResponse ErrorResponse
+
+func (response CreateUser500JSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
 }
 
 type LoginRequestObject struct {
@@ -640,6 +691,15 @@ type Login401JSONResponse ErrorResponse
 func (response Login401JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type Login500JSONResponse ErrorResponse
+
+func (response Login500JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -686,49 +746,6 @@ type GetCurrentUser401JSONResponse ErrorResponse
 func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type SignupRequestObject struct {
-	Body *SignupJSONRequestBody
-}
-
-type SignupResponseObject interface {
-	VisitSignupResponse(w http.ResponseWriter) error
-}
-
-type Signup201ResponseHeaders struct {
-	SetCookie string
-}
-
-type Signup201JSONResponse struct {
-	Body    User
-	Headers Signup201ResponseHeaders
-}
-
-func (response Signup201JSONResponse) VisitSignupResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type Signup409JSONResponse ErrorResponse
-
-func (response Signup409JSONResponse) VisitSignupResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type Signup500JSONResponse ErrorResponse
-
-func (response Signup500JSONResponse) VisitSignupResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -991,6 +1008,9 @@ func (response DeviceHeartbeat500JSONResponse) VisitDeviceHeartbeatResponse(w ht
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Register a new user (Admin only)
+	// (POST /admin/users)
+	CreateUser(ctx context.Context, request CreateUserRequestObject) (CreateUserResponseObject, error)
 	// Login user
 	// (POST /auth/login)
 	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
@@ -1000,9 +1020,6 @@ type StrictServerInterface interface {
 	// Get current user
 	// (GET /auth/me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
-	// Register a new user
-	// (POST /auth/signup)
-	Signup(ctx context.Context, request SignupRequestObject) (SignupResponseObject, error)
 	// List all devices
 	// (GET /devices)
 	GetDevices(ctx context.Context, request GetDevicesRequestObject) (GetDevicesResponseObject, error)
@@ -1050,6 +1067,37 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// CreateUser operation middleware
+func (sh *strictHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	var request CreateUserRequestObject
+
+	var body CreateUserJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateUser(ctx, request.(CreateUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateUser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateUserResponseObject); ok {
+		if err := validResponse.VisitCreateUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // Login operation middleware
@@ -1124,37 +1172,6 @@ func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCurrentUserResponseObject); ok {
 		if err := validResponse.VisitGetCurrentUserResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// Signup operation middleware
-func (sh *strictHandler) Signup(w http.ResponseWriter, r *http.Request) {
-	var request SignupRequestObject
-
-	var body SignupJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.Signup(ctx, request.(SignupRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "Signup")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(SignupResponseObject); ok {
-		if err := validResponse.VisitSignupResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -1332,35 +1349,36 @@ func (sh *strictHandler) DeviceHeartbeat(w http.ResponseWriter, r *http.Request,
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"H4sIAAAAAAAC/+xa608bOxb/VyzvSrsrhTyAVm0+bVr6yJa2EbC6H1CEzPgkcTtjT20PEKH871fH9ryY",
+	"SUhbCOjqfqkGxz7P33n4uLc0UkmqJEhr6PCWmmgBCXOfI85HnGsw5gR+ZGAsLqZapaCtALdFpPgvBxNp",
+	"kVqhJB3S8eTqkChNxpOrl4R5ArRD4YYlaQx0SAev97uDl6+6g+7gYJ92qF2muGysFnJOV6sO1fAjExo4",
+	"HZ4ji2mxR11+g8jSVYcGyZoiRRqYBX7BnLgzpRP8opxZ2LMigSbDDuVwJSK4ELx2REj78rDcLqSFOWjc",
+	"v93GDr3Zm6s9yRJcHR+5k9sbrC7lHWITJGYss5lpEjxbAImZBWMJbgGiZsQuhMmJdwhIdhkDR65cGPdd",
+	"crxUKgYmkUOW8oox61yOmbEELUqEJdfMrCG6jQfuuhzPlT5xViu07VQ9XJOwFSaZXaxFLyRMxO6jwGZm",
+	"QP83/NmNVFJVwG9vgU/KjLlWmtdJGYgyDZPw22D/oEqrONKhiZDHIOd2QYev7rNMLkJxvE3nt84+R85+",
+	"a3X3QKrKOwFtlGQxSRdKopMSdpML9qJfk/PgPjkd9fWy/d+AfnSvNDX8n1pIcqR+VrddOtgJ3dnOz97D",
+	"D5MBfz2j5WbeIqSDchX52tR6p7XSJ2BSJU2LdoA/1x3hUwWRypKZyiRvTTANPgjChzFegdj7Qfmrdm4z",
+	"Z85koz2xTCBOhV2eYmn3Wl4C06AxOZZ/vc+F+pqyHxkq6noBVxHchlLOhbUpahMp9V1ATkZgVfBLubOH",
+	"9OLiozJ275pHFwaMwdJRkGGp+ARLukIhhZypZo3xECdMcjKe5OWLJEyyOSQgLTFLYwHzgRXWYeEPFsfL",
+	"IxGRcPRzuXc0GdMOvQJtPPFBt49KqBQkSwUd0oNuvztwUWcXzkw9xhMhe5h+fKehTEsh9DnNEEYkXBPc",
+	"TFgUqUzaLnXkNcOdY17sddDzHgVj3yi+dNBT0oJ0DFiaxiJyx3rfDHLJOzP8+qeGGR3Sf/TK1q0X+rZe",
+	"M8Gu6uCxOgO34APM6bXfHzyYAE43x7NuJVwnAarEZFEExsyyOF6iDw77B027vlf6UnAOkuyRrzJeEucN",
+	"QyImAyHiPeMIvH4wDeoJqEWVdxh4hMUaGF8SDXNhLKBxVx36ot/fnSBjaUFjyT4FfQWauAM+5rMkYXpJ",
+	"h/QkiFeF579HaEmiZLz8D8YOmxvMKs6+dIrneyyzi16s5kKuBz4GPkiLyoEJwJecGLAYDJj0Iks+np1N",
+	"9pATCfFPfIpoxsax4/Y4YVHtA7cKiP6jB8Sxms+BEyHr0dChC2A8JJxTsHtvfUat8btb3lYuBAa7RN4V",
+	"iwXHOOQIARab54T+UPHo8HxajQWHMAfUKuqxfNVBrzK7HvVBdYd5u4BtYI30Ggg7bLlSeUiozD4IJlZ3",
+	"dEe69yjve7k5tOh9AjbT0uscZVqDtJiTKzmAO+r/MoSDZSI2TVt8APvWHy1K4I6jLrD32SrISXcdPV+U",
+	"rRvuTs7+ADY38QaH+bbXrHUYUmFxTMI+cgmxknMh58Qq58Wm71o9dhT4/Ka3hIXE3Ge6cKcp+3WmNVu2",
+	"2fDrp2dZbo+FqVm94rp8ZYo3yg2dZKjU4VYzU3prZ1Vv/o/aX9aHCy2mCt23a9MwOQZR6C470RxLLUnA",
+	"t6E+7ncIoDeMk8JozxC8Bf54DqEmdiuZp3dbDOlWvXA52yIf5XPC4oTDOCMmhUjMRBS4b8hFo4IXXtY0",
+	"S8C64ni+5v44dkNE6cYydlFeTqszxjouOxWz3zsQXk13kRrziffWufEpoX3o25vd8A5eFtyNgN67EdBz",
+	"DC8XAHdA34i0Mo7W14kR56FI5CMRqwpazbgpH3K2jBexi3h5hEte48GqxVFhB2HGiLl0g6Hti1P/IWX1",
+	"0bxBwjBggBu8wPPy1ca/hOA9G2H+kCVzg1RPVTPzm2aO9ICuJ8ox5Yz5OSaYkcN0NSlsTC/3lvLebfjE",
+	"ZZ+GYrDQMqf1733+cljxlPt7XVoKh34uNT12Ke/cronGdTmxtNATNxG/mW2qA4fy/XbX0f5ZGIM3VF6U",
+	"dKySpQt2Hfa5dZQmd1+Zus8yBYSgqv4/gp+I/AUwbS+BbRh/hTjUkCptDRHWFKOK8ommS97dWM0iG8ZF",
+	"sQi/z7RK3FKouW5gDNJkGpAWEcV/I+i6dlLg+mgyJmfqO0h0w6kft7WkEyfYx0KDv8bV4DejOhhzh33C",
+	"l0pXmj/3eCc/TUbJ+4fK++HfLcSG/OGFXFTCqGUGUJ+x39Yegs+nWESrL8znUwwD45j6UMx0TIe0x1LR",
+	"uxrQ1XT1ZwAAAP//kxJPzocmAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

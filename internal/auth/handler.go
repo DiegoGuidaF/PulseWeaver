@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
@@ -17,7 +18,10 @@ type HTTPHandler struct {
 func (h *HTTPHandler) Login(ctx context.Context, request api.LoginRequestObject) (api.LoginResponseObject, error) {
 	rawToken, user, err := h.service.Login(ctx, string(request.Body.Email), request.Body.Password)
 	if err != nil {
-		return api.Login401JSONResponse(errorMsgResponse("Error authenticating")), nil
+		if errors.Is(err, ErrInvalidCredentials) {
+			return api.Login401JSONResponse(errorMsgResponse("Invalid credentials")), nil
+		}
+		return api.Login500JSONResponse(errorMsgResponse("Login failure")), nil
 	}
 	cookie := NewSessionCookie(rawToken, h.cookieConfig)
 
@@ -47,17 +51,20 @@ func (h *HTTPHandler) GetCurrentUser(ctx context.Context, request api.GetCurrent
 	panic("implement me")
 }
 
-func (h *HTTPHandler) Signup(ctx context.Context, request api.SignupRequestObject) (api.SignupResponseObject, error) {
-	rawToken, user, err := h.service.SignUp(ctx, request.Body.Name, string(request.Body.Email), request.Body.Password)
-
-	if err != nil {
-		return api.Signup409JSONResponse(errorMsgResponse("Error signing up")), nil
+func (h *HTTPHandler) CreateUser(ctx context.Context, request api.CreateUserRequestObject) (api.CreateUserResponseObject, error) {
+	principal, ok := PrincipalFromContext(ctx)
+	if !ok {
+		h.logger.Error("failed to extract principal from request")
+		return api.CreateUser403Response{}, nil
 	}
 
-	cookie := NewSessionCookie(rawToken, h.cookieConfig)
-	headers := api.Signup201ResponseHeaders{SetCookie: cookie.String()}
+	user, err := h.service.CreateUserByAdmin(ctx, request.Body.Name, string(request.Body.Email), request.Body.Password, &principal)
 
-	return api.Signup201JSONResponse{Body: toUserResponse(user), Headers: headers}, nil
+	if err != nil {
+		return api.CreateUser409JSONResponse(errorMsgResponse("Error creating user")), nil
+	}
+
+	return api.CreateUser201JSONResponse(toUserResponse(user)), nil
 
 }
 

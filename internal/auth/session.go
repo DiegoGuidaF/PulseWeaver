@@ -15,6 +15,11 @@ type Session struct {
 	RevokedAt  *time.Time `db:"revoked_at" json:"revoked_at,omitempty"`
 }
 
+type SessionWithUser struct {
+	Session
+	UserRole Role `db:"user_role"` // Alias in SQL Join
+}
+
 type SessionID int64
 
 func (id SessionID) Int64() int64 {

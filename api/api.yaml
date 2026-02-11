@@ -15,20 +15,19 @@ paths:
   # --------------------
   # Auth Endpoints
   # --------------------
-  /auth/signup:
+  /admin/users:
     post:
-      operationId: signup
+      operationId: createUser
       tags:
-        - auth
-      summary: Register a new user
+        - admin
+      summary: Register a new user (Admin only)
       description: Creates a new user account.
-      security: [] # Public endpoint
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SignupRequest'
+              $ref: '#/components/schemas/CreateUserRequest'
       responses:
         "201":
           description: User created successfully
@@ -36,10 +35,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
-          headers:
-            Set-Cookie:
-              schema:
-                type: string
+        "403":
+          description: Forbidden - Only admins can create users
         "409":
           description: Email already registered
           content:
@@ -80,6 +77,12 @@ paths:
                 type: string
         "401":
           description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
           content:
             application/json:
               schema:
@@ -382,24 +385,9 @@ components:
 
   schemas:
     #################
-    # Auth Requests
+    # Admin Requests
     #################
-    AuthRequest:
-      type: object
-      required:
-        - email
-        - password
-      properties:
-        email:
-          type: string
-          format: email
-          example: "user@example.com"
-        password:
-          type: string
-          format: password
-          minLength: 8
-          example: "securePassword123"
-    SignupRequest:
+    CreateUserRequest:
       type: object
       required:
         - name
@@ -411,6 +399,24 @@ components:
           minLength: 3
           maxLength: 50
           example: "John Doe"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: "securePassword123"
+    #################
+    # Auth Requests
+    #################
+    AuthRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
         email:
           type: string
           format: email

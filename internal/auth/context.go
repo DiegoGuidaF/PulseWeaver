@@ -2,7 +2,6 @@ package auth
 
 import "context"
 
-// type ctxKey struct{}
 type contextKey string
 
 const principalContextKey contextKey = "principal"

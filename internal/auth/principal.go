@@ -2,6 +2,22 @@ package auth
 
 type Principal struct {
 	UserID    UserID
-	SessionID SessionID // device token id, for audit
-	DeviceID  *string   // nil for browser session
+	SessionID SessionID
+	Role      Role
+}
+
+func NewPrincipal(userID UserID, sessionID SessionID, role Role) *Principal {
+	return &Principal{
+		UserID:    userID,
+		SessionID: sessionID,
+		Role:      role,
+	}
+}
+
+func PrincipalFromSession(session *SessionWithUser) *Principal {
+	return NewPrincipal(session.UserId, session.ID, session.UserRole)
+}
+
+func (principal Principal) isAdmin() bool {
+	return principal.Role == AdminRole
 }

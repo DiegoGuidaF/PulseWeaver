@@ -6,24 +6,29 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"io"
+	"log/slog"
 
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Repository interface {
+	CountUsers(ctx context.Context) (int, error)
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	CreateSession(ctx context.Context, userId UserID, tokenHash string) (*Session, error)
-	CreateUser(ctx context.Context, name string, email string, passwordHash []byte) (*User, error)
-	GetSessionByTokenHash(ctx context.Context, tokenHash string) (*Session, error)
+	CreateUser(ctx context.Context, name string, email string, passwordHash []byte, createdById *UserID, role Role) (*User, error)
+	GetSessionWithRoleByTokenHash(ctx context.Context, tokenHash string) (*SessionWithUser, error)
 	RevokeSessionById(ctx context.Context, id SessionID) error
 }
 
 type Service struct {
-	repo Repository
+	repo   Repository
+	logger *slog.Logger
 }
 
-func NewService(repo Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo Repository, logger *slog.Logger) *Service {
+	return &Service{repo: repo, logger: logger}
 }
 
 func (s *Service) Login(ctx context.Context, email, password string) (string, *User, error) {
@@ -39,7 +44,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (string, *U
 	}
 
 	// Create session token
-	rawToken, tokenHash, err := s.GenerateToken()
+	rawToken, tokenHash, err := s.generateToken()
 	if err != nil {
 		return "", nil, err
 	}
@@ -58,39 +63,67 @@ func (s *Service) RevokeSession(ctx context.Context, sessionId SessionID) error 
 	return s.repo.RevokeSessionById(ctx, sessionId)
 }
 
-func (s *Service) SignUp(ctx context.Context, name string, email string, password string) (string, *User, error) {
-	passwordHash, err := s.hashPassword(password)
-	if err != nil {
-		return "", nil, fmt.Errorf("hashing failed: %w", err)
+func (s *Service) CreateUserByAdmin(ctx context.Context, name string, email string, password string, principal *Principal) (*User, error) {
+	if !principal.isAdmin() {
+		return nil, ErrAdminCredentialsRequired
 	}
 
-	user, err := s.repo.CreateUser(ctx, name, email, passwordHash)
-	if err != nil {
-		return "", nil, err
-	}
-
-	// Auto-login after signup
-	return s.Login(ctx, user.Email, password)
+	return s.createUser(ctx, name, email, password, &principal.UserID, UserRole)
 }
 
 func (s *Service) Authenticate(ctx context.Context, rawToken string) (*Principal, error) {
 	tokenHash := hashRawToken(rawToken)
-	session, err := s.repo.GetSessionByTokenHash(ctx, tokenHash)
+	sessionWithUser, err := s.repo.GetSessionWithRoleByTokenHash(ctx, tokenHash)
 	if err != nil {
 		return nil, err
 	}
 
-	principal := &Principal{
-		UserID:    session.UserId,
-		SessionID: session.ID,
-		DeviceID:  nil,
-	}
+	principal := PrincipalFromSession(sessionWithUser)
 
 	return principal, nil
 }
 
-// GenerateToken Returns the rawToken (send to user), tokenHash (store in DB), error
-func (s *Service) GenerateToken() (string, string, error) {
+func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) error {
+	count, err := s.repo.CountUsers(ctx)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+
+	generated := false
+	email := "admin@example.com"
+	password := conf.AdminPassword
+
+	if password == "" {
+		var err error
+		password, err = generateSecurePassword(16)
+		if err != nil {
+			return fmt.Errorf("generate admin password: %w", err)
+		}
+		generated = true
+	}
+
+	user, err := s.createUser(ctx, "Admin", "adminemail@example.com", password, nil, AdminRole)
+	if err != nil {
+		return fmt.Errorf("failed to bootstrap admin: %w", err)
+	}
+
+	if generated {
+		s.logger.Warn("🚨 GENERATED ADMIN PASSWORD 🚨 - Store this securely and change it immediately",
+			"name", user.Name,
+			"email", email,
+			"password", password,
+		)
+	} else {
+		s.logger.Info("bootstrap admin created from config", "email", email, "user_id", user.ID)
+	}
+	return nil
+}
+
+// generateToken Returns the rawToken (send to user), tokenHash (store in DB), error
+func (s *Service) generateToken() (string, string, error) {
 	b := make([]byte, 32)
 	_, err := rand.Read(b)
 	if err != nil {
@@ -117,4 +150,31 @@ func (s *Service) hashPassword(password string) ([]byte, error) {
 func (s *Service) checkPassword(hash []byte, password string) bool {
 	err := bcrypt.CompareHashAndPassword(hash, []byte(password))
 	return err == nil
+}
+
+func (s *Service) createUser(ctx context.Context, name string, email string, password string, createdBy *UserID, role Role) (*User, error) {
+	passwordHash, err := s.hashPassword(password)
+	if err != nil {
+		return nil, fmt.Errorf("hashing failed: %w", err)
+	}
+
+	user, err := s.repo.CreateUser(ctx, name, email, passwordHash, createdBy, role)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, err
+}
+
+func generateSecurePassword(length int) (string, error) {
+	// Round up to multiple of 3 bytes for base64
+	byteLen := (length*4+2)/3 + 1
+	b := make([]byte, byteLen)
+
+	if _, err := io.ReadFull(rand.Reader, b); err != nil {
+		return "", err
+	}
+
+	// base64url (no padding) is safe for passwords, URLs, and filenames
+	return base64.RawURLEncoding.EncodeToString(b)[:length], nil
 }

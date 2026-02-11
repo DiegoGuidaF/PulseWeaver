@@ -55,8 +55,13 @@ func run(ctx context.Context) (*slog.Logger, error) {
 	openApiHandler := device.NewOpenApiHandler(deviceService, logger)
 
 	authRepo := auth.NewRepository(db.DB())
-	authService := auth.NewService(authRepo)
+	authService := auth.NewService(authRepo, logger)
 	authHandler := auth.NewHandler(authService, logger)
+
+	err = authService.BootstrapAdmin(ctx, conf.Server)
+	if err != nil {
+		return logger, fmt.Errorf("failed to bootstrap admin: %w", err)
+	}
 
 	handler := httpserver.NewServer(openApiHandler, authHandler, logger)
 

@@ -29,23 +29,34 @@ func NewRepository(db *sqlx.DB) Repository {
 	}
 }
 
-func (r *repository) CreateUser(ctx context.Context, name string, email string, passwordHash []byte) (*User, error) {
+func (r *repository) CreateUser(
+	ctx context.Context,
+	name string,
+	email string,
+	passwordHash []byte,
+	createdBy *UserID,
+	role Role,
+) (*User, error) {
 	user := User{
 		Name:         name,
 		Email:        email,
 		PasswordHash: passwordHash,
+		Role:         role,
+		CreatedBy:    createdBy,
 		CreatedAt:    time.Now().UTC(),
 	}
 
 	query := `
-        INSERT INTO users (name, email, password_hash, created_at)
-        VALUES (?, ?, ?, ?) RETURNING id, name, email, password_hash, created_at
+        INSERT INTO users (name, email, password_hash, role, created_by, created_at)
+        VALUES (?, ?, ?, ?,?, ?) RETURNING *
     `
 
 	err := r.db.GetContext(ctx, &user, query,
 		user.Name,
 		user.Email,
 		user.PasswordHash,
+		user.Role,
+		user.CreatedBy,
 		user.CreatedAt,
 	)
 	if err != nil {
@@ -58,7 +69,7 @@ func (r *repository) CreateUser(ctx context.Context, name string, email string, 
 func (r *repository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	var user User
 
-	query := `SELECT id, name, email, password_hash, created_at FROM users WHERE email = ?`
+	query := `SELECT * FROM users WHERE email = ?`
 
 	err := r.db.GetContext(ctx, &user, query, email)
 	if err != nil {
@@ -70,6 +81,19 @@ func (r *repository) GetUserByEmail(ctx context.Context, email string) (*User, e
 	}
 
 	return &user, nil
+}
+
+func (r *repository) CountUsers(ctx context.Context) (int, error) {
+	var userCount int
+
+	query := `SELECT count(*) FROM users`
+
+	err := r.db.GetContext(ctx, &userCount, query)
+	if err != nil {
+		return -1, fmt.Errorf("failed to get user count: %w", err)
+	}
+
+	return userCount, nil
 }
 
 func (r *repository) CreateSession(ctx context.Context, userId UserID, tokenHash string) (*Session, error) {
@@ -85,7 +109,7 @@ func (r *repository) CreateSession(ctx context.Context, userId UserID, tokenHash
 
 	query := `
 		INSERT INTO sessions (user_id, token_hash, created_at, expires_at)
-		VALUES (?, ?, ?, ?) RETURNING id, user_id, token_hash, created_at, expires_at, last_used_at, revoked_at
+		VALUES (?, ?, ?, ?) RETURNING *
 	`
 
 	err := r.db.GetContext(ctx, &session, query,
@@ -102,12 +126,14 @@ func (r *repository) CreateSession(ctx context.Context, userId UserID, tokenHash
 	return &session, nil
 }
 
-// GetSessionByTokenHash Finds and retrieves non-expired or revoked sessions for a given token hash
-func (r *repository) GetSessionByTokenHash(ctx context.Context, tokenHash string) (*Session, error) {
-	var session Session
+// GetSessionWithRoleByTokenHash Finds and retrieves valid session(non-expired or revoked) given a tokenHash.
+// Also returns the user_role
+func (r *repository) GetSessionWithRoleByTokenHash(ctx context.Context, tokenHash string) (*SessionWithUser, error) {
+	var session SessionWithUser
 
-	query := `SELECT id, user_id, token_hash, created_at, expires_at, last_used_at, revoked_at FROM sessions
-				WHERE  token_hash = ?
+	query := `SELECT s.*, u.role as user_role FROM sessions s
+          	  JOIN users u ON s.user_id = u.id
+			  WHERE  token_hash = ?
           		AND revoked_at IS NULL
           		AND expires_at > CURRENT_TIMESTAMP
 	`

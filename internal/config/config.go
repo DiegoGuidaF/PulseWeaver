@@ -15,7 +15,8 @@ type Conf struct {
 }
 
 type ConfServer struct {
-	Port int `env:"SERVER_PORT" envDefault:"8080"`
+	AdminPassword string `env:"ADMIN_PASSWORD"`
+	Port          int    `env:"SERVER_PORT" envDefault:"8080"`
 }
 
 type ConfDB struct {
