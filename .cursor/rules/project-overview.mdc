@@ -28,7 +28,7 @@ Your goal is to build a low-maintenance, production-ready device management syst
 - **Migrations:** `internal/database/migrations/`
 - **Generated Types:** 
   - Backend: `api/server_interface.gen.go` (via `oapi-codegen`)
-  - Frontend: `frontend/src/lib/api/schema.d.ts` (via `openapi-typescript`)
+  - Frontend: `frontend/src/lib/api/` (via `@hey-api/openapi-ts`) — `index.ts`, `sdk.gen.ts`, `types.gen.ts`, `zod.gen.ts`, etc. Do not modify; directory is fully generated.
 
 ## Documentation References
 

@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "generate:api": "openapi-typescript ../api/api.yaml -o src/lib/api/schema.d.ts"
+    "generate:api": "openapi-ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -31,7 +31,6 @@
     "date-fns": "^4.1.0",
     "lucide-react": "^0.563.0",
     "next-themes": "^0.4.6",
-    "openapi-fetch": "^0.15.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-error-boundary": "^6.1.0",
@@ -43,6 +42,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@hey-api/openapi-ts": "^0.92.3",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
@@ -52,7 +52,6 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
-    "openapi-typescript": "^7.10.1",
     "postcss": "^8.5.6",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",

@@ -1,14 +1,21 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, toApiError } from "@/lib/api/client";
+import { logout } from "@/lib/api";
 import { toast } from "sonner";
+import { toApiError, toErrorMessage } from "@/lib/api-client";
 
 export function useLogout() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
-      const { error } = await api.POST("/auth/logout");
-      if (error) throw toApiError(error);
+      try {
+        const response = await logout({ throwOnError: false });
+        if (response.error) {
+          throw toApiError(response.error);
+        }
+      } catch (err) {
+        throw toApiError(err);
+      }
     },
     onSuccess: () => {
       // Clear all queries to reset app state
@@ -22,7 +29,7 @@ export function useLogout() {
     },
     onError: (err) => {
       toast.error("Logout failed", {
-        description: err.message,
+        description: toErrorMessage(err),
       });
     },
   });

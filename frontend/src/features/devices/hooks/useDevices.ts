@@ -1,15 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
-import { api, toErrorMessage } from "@/lib/api/client";
-import { queryKeys } from "@/lib/api/queryKeys";
-import type { Device } from "@/lib/api/types";
+import { getDevices } from "@/lib/api";
+import { queryKeys, toApiError, toErrorMessage } from "@/lib/api-client";
+import type { Device } from "@/lib/api";
 
 export function useDevices() {
   return useQuery<Device[]>({
     queryKey: queryKeys.devices.all,
     queryFn: async () => {
-      const { data, error } = await api.GET("/devices");
-      if (error) throw new Error(toErrorMessage(error));
-      return data ?? [];
+      try {
+        const response = await getDevices({ throwOnError: false });
+        if (response.error) {
+          throw toApiError(response.error);
+        }
+        return response.data ?? [];
+      } catch (err) {
+        throw toApiError(err);
+      }
     },
   });
 }

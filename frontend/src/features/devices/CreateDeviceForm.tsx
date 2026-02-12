@@ -1,6 +1,5 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,10 +11,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useCreateDevice } from "@/features/devices/hooks/useCreateDevice";
+import { zCreateDeviceRequest } from "@/lib/api/zod.gen";
+import type { z } from "zod";
 
-const formSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters").max(50),
-});
+const formSchema = zCreateDeviceRequest;
 
 export function CreateDeviceForm() {
   const form = useForm<z.infer<typeof formSchema>>({

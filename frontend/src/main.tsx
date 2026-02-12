@@ -8,7 +8,8 @@ import {
 } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import App from "./App";
-import { queryKeys } from "./lib/api/queryKeys";
+import { queryKeys } from "@/lib/api-client";
+import "./lib/api-client/config"; // Initialize API client configuration
 import "./index.css";
 
 // Helper to check if error is 401 and handle redirect

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import {
   Dialog,
   DialogContent,
@@ -25,10 +24,10 @@ import { format } from "date-fns";
 import { useDeviceAddresses } from "@/features/devices/hooks/useDeviceAddresses";
 import { useAddDeviceAddress } from "@/features/devices/hooks/useAddDeviceAddress";
 import { useDisableDeviceAddress } from "@/features/devices/hooks/useDisableDeviceAddress";
+import { zAddAddressRequest } from "@/lib/api/zod.gen";
+import type { z } from "zod";
 
-const addressSchema = z.object({
-  ip: z.ipv4({ message: "Must be a valid IPv4 address" }),
-});
+const addressSchema = zAddAddressRequest;
 
 type DeviceAddressesDialogProps = {
   deviceId: number;

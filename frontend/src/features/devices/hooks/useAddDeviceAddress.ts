@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, toErrorMessage } from "@/lib/api/client";
-import { queryKeys } from "@/lib/api/queryKeys";
+import { addAddress } from "@/lib/api";
+import { queryKeys, toApiError, toErrorMessage } from "@/lib/api-client";
 import { toast } from "sonner";
-import type { Address } from "@/lib/api/types";
+import type { Address } from "@/lib/api";
 
 export function useAddDeviceAddress(
   deviceId: number,
@@ -12,12 +12,19 @@ export function useAddDeviceAddress(
 
   return useMutation<Address, Error, string>({
     mutationFn: async (ip: string) => {
-      const { data, error } = await api.POST("/devices/{device_id}/addresses", {
-        params: { path: { device_id: deviceId } },
-        body: { ip },
-      });
-      if (error) throw new Error(toErrorMessage(error));
-      return data;
+      try {
+        const response = await addAddress({
+          path: { device_id: deviceId },
+          body: { ip },
+          throwOnError: false,
+        });
+        if (response.error) {
+          throw toApiError(response.error);
+        }
+        return response.data;
+      } catch (err) {
+        throw toApiError(err);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -27,7 +34,9 @@ export function useAddDeviceAddress(
       options?.onSuccess?.();
     },
     onError: (err) => {
-      toast.error("Error adding address", { description: err.message });
+      toast.error("Error adding address", {
+        description: toErrorMessage(err),
+      });
     },
   });
 }

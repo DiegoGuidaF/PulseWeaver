@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { api, toApiError } from "@/lib/api/client";
-import { queryKeys } from "@/lib/api/queryKeys";
+import { login } from "@/lib/api";
+import { queryKeys, toApiError, toErrorMessage } from "@/lib/api-client";
 import { toast } from "sonner";
-import type { AuthRequest, User } from "@/lib/api/types";
+import type { AuthRequest, User } from "@/lib/api";
 
 export function useLogin() {
   const queryClient = useQueryClient();
@@ -11,11 +11,18 @@ export function useLogin() {
 
   return useMutation<User, Error, AuthRequest>({
     mutationFn: async (values: AuthRequest) => {
-      const { data, error } = await api.POST("/auth/login", {
-        body: values,
-      });
-      if (error) throw toApiError(error);
-      return data;
+      try {
+        const response = await login({
+          body: values,
+          throwOnError: false,
+        });
+        if (response.error) {
+          throw toApiError(response.error);
+        }
+        return response.data;
+      } catch (err) {
+        throw toApiError(err);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.currentUser });
@@ -29,7 +36,7 @@ export function useLogin() {
     },
     onError: (err) => {
       toast.error("Login failed", {
-        description: err.message,
+        description: toErrorMessage(err),
       });
     },
   });

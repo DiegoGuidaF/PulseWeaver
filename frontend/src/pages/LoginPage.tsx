@@ -1,6 +1,5 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,11 +13,10 @@ import {
 } from "@/components/ui/form";
 import { useLogin } from "@/features/auth/hooks/useLogin";
 import { useAuth } from "@/contexts/AuthContext";
+import { zAuthRequest } from "@/lib/api/zod.gen";
+import type { z } from "zod";
 
-const loginSchema = z.object({
-  username: z.string().min(3, "Username is required"),
-  password: z.string().min(8, "Password is required"),
-});
+const loginSchema = zAuthRequest;
 
 export function LoginPage() {
   const { isAuthenticated, isLoading } = useAuth();

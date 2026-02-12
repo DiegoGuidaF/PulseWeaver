@@ -1,17 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
-import { api, toErrorMessage } from "@/lib/api/client";
-import { queryKeys } from "@/lib/api/queryKeys";
-import type { Address } from "@/lib/api/types";
+import { getDeviceAddresses } from "@/lib/api";
+import { queryKeys, toApiError } from "@/lib/api-client";
+import type { Address } from "@/lib/api";
 
 export function useDeviceAddresses(deviceId: number, enabled: boolean) {
   return useQuery<Address[]>({
     queryKey: queryKeys.devices.addresses(deviceId),
     queryFn: async () => {
-      const { data, error } = await api.GET("/devices/{device_id}/addresses", {
-        params: { path: { device_id: deviceId } },
-      });
-      if (error) throw new Error(toErrorMessage(error));
-      return data ?? [];
+      try {
+        const response = await getDeviceAddresses({
+          path: { device_id: deviceId },
+          throwOnError: false,
+        });
+        if (response.error) {
+          throw toApiError(response.error);
+        }
+        return response.data ?? [];
+      } catch (err) {
+        throw toApiError(err);
+      }
     },
     enabled,
   });

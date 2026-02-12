@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
-import type { User } from "@/lib/api/types";
+import type { User } from "@/lib/api";
 
 interface AuthContextValue {
   user: User | null;
