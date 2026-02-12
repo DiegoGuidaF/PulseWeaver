@@ -4,6 +4,86 @@
  */
 
 export interface paths {
+    "/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register a new user (Admin only)
+         * @description Creates a new user account.
+         */
+        post: operations["createUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login user
+         * @description Authenticates user and sets a strict HTTP-only session cookie.
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout user
+         * @description Invalidates the session cookie.
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current user
+         * @description Returns the currently authenticated user's details.
+         */
+        get: operations["getCurrentUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/devices": {
         parameters: {
             query?: never;
@@ -13,13 +93,13 @@ export interface paths {
         };
         /**
          * List all devices
-         * @description Get all devices in the system
+         * @description Get all devices belonging to the authenticated user.
          */
         get: operations["getDevices"];
         put?: never;
         /**
          * Create a device
-         * @description Create a new device with the given name
+         * @description Create a new device for the authenticated user.
          */
         post: operations["createDevice"];
         delete?: never;
@@ -37,13 +117,13 @@ export interface paths {
         };
         /**
          * Get addresses for a device
-         * @description Get all enabled addresses for a specific device
+         * @description Get all enabled addresses for a specific device.
          */
         get: operations["getDeviceAddresses"];
         put?: never;
         /**
          * Assign address to device
-         * @description Add a new address to a device
+         * @description Add a new address to a device.
          */
         post: operations["addAddress"];
         delete?: never;
@@ -63,7 +143,7 @@ export interface paths {
         put?: never;
         /**
          * Device heartbeat
-         * @description Device reports its current IP address. Extracts the client IP from the request and upserts it for the device. If IP exists and is enabled, returns existing. If disabled, re-enables it. If new, creates it.
+         * @description Device reports its current IP address. Extracts the client IP from the request and ensures it is enabled. Requires API Token or Session.
          */
         post: operations["deviceHeartbeat"];
         delete?: never;
@@ -84,7 +164,7 @@ export interface paths {
         post?: never;
         /**
          * Disable address
-         * @description Mark an address as disabled for a device
+         * @description Disables the address for the device.
          */
         delete: operations["disableAddress"];
         options?: never;
@@ -96,35 +176,54 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CreateUserRequest: {
+            username: components["schemas"]["Username"];
+            display_name: components["schemas"]["DisplayName"];
+            /**
+             * Format: email
+             * @example user@example.com
+             */
+            email?: string;
+            password: components["schemas"]["Password"];
+        };
+        AuthRequest: {
+            username: components["schemas"]["Username"];
+            password: components["schemas"]["Password"];
+        };
         CreateDeviceRequest: {
-            /** @example Personal phone */
+            /**
+             * @description User-friendly name for the device
+             * @example Personal phone
+             */
             name: string;
         };
         AddAddressRequest: {
-            /**
-             * @description IPv4 or IPv6 address
-             * @example 192.168.1.132
-             */
-            ip: string;
+            ip: components["schemas"]["IPAddress"];
         };
         ErrorResponse: {
             /** @example device not found */
             error?: string;
         };
+        User: {
+            id: components["schemas"]["ID"];
+            username: components["schemas"]["Username"];
+            display_name: components["schemas"]["DisplayName"];
+            /** Format: email */
+            email?: string;
+            /** Format: date-time */
+            created_at: string;
+        };
         Device: {
             /** Format: date-time */
             created_at: string;
-            /** Format: int64 */
-            id: number;
+            id: components["schemas"]["ID"];
+            /** @description User-friendly name for the device */
             name: string;
         };
         Address: {
-            /** Format: int64 */
-            id: number;
-            /** Format: int64 */
-            device_id: number;
-            /** @description IPv4 or IPv6 address */
-            ip: string;
+            id: components["schemas"]["ID"];
+            device_id: components["schemas"]["ID"];
+            ip: components["schemas"]["IPAddress"];
             /** @description The latest state of this address, enabled or disabled */
             status: boolean;
             /** Format: date-time */
@@ -135,6 +234,28 @@ export interface components {
              */
             updated_at: string;
         };
+        /**
+         * @description Unique username. Alphanumeric, underscores, and hyphens only.
+         * @example john_doe
+         */
+        Username: string;
+        /**
+         * @description User's public name. Unicode allowed.
+         * @example John Doe
+         */
+        DisplayName: string;
+        /**
+         * Format: password
+         * @example 123ASecretPassword
+         */
+        Password: string;
+        /**
+         * @description IPv4 or IPv6 address
+         * @example 192.168.1.132
+         */
+        IPAddress: string | unknown | unknown;
+        /** Format: int64 */
+        ID: number;
     };
     responses: never;
     parameters: never;
@@ -144,6 +265,155 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    createUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUserRequest"];
+            };
+        };
+        responses: {
+            /** @description User created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden - Only admins can create users */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Username or email already registered */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthRequest"];
+            };
+        };
+        responses: {
+            /** @description Logged in successfully */
+            200: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logged out successfully */
+            204: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getCurrentUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current user details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     getDevices: {
         parameters: {
             query?: never;
@@ -301,7 +571,7 @@ export interface operations {
                     "application/json": components["schemas"]["Address"];
                 };
             };
-            /** @description Invalid address format (must be valid IPv4 or IPv6) */
+            /** @description Invalid address format */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -342,7 +612,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Address already exists and is enabled, or was successfully re-enabled */
+            /** @description Address enabled */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -351,7 +621,7 @@ export interface operations {
                     "application/json": components["schemas"]["Address"];
                 };
             };
-            /** @description New address created */
+            /** @description New address created and enabled */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -360,7 +630,7 @@ export interface operations {
                     "application/json": components["schemas"]["Address"];
                 };
             };
-            /** @description Invalid IP address format (must be valid IPv4 or IPv6) */
+            /** @description Invalid IP address format */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -421,7 +691,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Address not found or wrong device */
+            /** @description Address or device not found. */
             404: {
                 headers: {
                     [name: string]: unknown;
