@@ -2,13 +2,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, toErrorMessage } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { toast } from "sonner";
+import type { Address } from "@/lib/api/types";
 
 export function useDisableDeviceAddress(deviceId: number) {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useMutation<Address, Error, number>({
     mutationFn: async (addressId: number) => {
-      const { error } = await api.DELETE(
+      const { data, error } = await api.DELETE(
         "/devices/{device_id}/addresses/{address_id}",
         {
           params: {
@@ -17,6 +18,7 @@ export function useDisableDeviceAddress(deviceId: number) {
         },
       );
       if (error) throw new Error(toErrorMessage(error));
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({

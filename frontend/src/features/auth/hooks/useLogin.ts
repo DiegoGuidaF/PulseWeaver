@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { api, toApiError } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { toast } from "sonner";
+import type { AuthRequest, User } from "@/lib/api/types";
 
 export function useLogin() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  return useMutation({
-    mutationFn: async (values: { username: string; password: string }) => {
+  return useMutation<User, Error, AuthRequest>({
+    mutationFn: async (values: AuthRequest) => {
       const { data, error } = await api.POST("/auth/login", {
         body: values,
       });

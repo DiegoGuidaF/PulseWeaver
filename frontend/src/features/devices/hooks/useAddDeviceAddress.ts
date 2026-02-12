@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, toErrorMessage } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { toast } from "sonner";
+import type { Address } from "@/lib/api/types";
 
 export function useAddDeviceAddress(
   deviceId: number,
@@ -9,7 +10,7 @@ export function useAddDeviceAddress(
 ) {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useMutation<Address, Error, string>({
     mutationFn: async (ip: string) => {
       const { data, error } = await api.POST("/devices/{device_id}/addresses", {
         params: { path: { device_id: deviceId } },

@@ -2,12 +2,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, toErrorMessage } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { toast } from "sonner";
+import type { CreateDeviceRequest, Device } from "@/lib/api/types";
 
 export function useCreateDevice(options?: { onSuccess?: () => void }) {
   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: async (values: { name: string }) => {
+  return useMutation<Device, Error, CreateDeviceRequest>({
+    mutationFn: async (values: CreateDeviceRequest) => {
       const { data, error } = await api.POST("/devices", {
         body: values,
       });

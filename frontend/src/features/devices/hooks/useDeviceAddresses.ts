@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, toErrorMessage } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/queryKeys";
+import type { Address } from "@/lib/api/types";
 
 export function useDeviceAddresses(deviceId: number, enabled: boolean) {
-  return useQuery({
+  return useQuery<Address[]>({
     queryKey: queryKeys.devices.addresses(deviceId),
     queryFn: async () => {
       const { data, error } = await api.GET("/devices/{device_id}/addresses", {
