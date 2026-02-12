@@ -18,7 +18,7 @@ type HTTPHandler struct {
 func (h *HTTPHandler) Login(ctx context.Context, request api.LoginRequestObject) (api.LoginResponseObject, error) {
 	rawToken, user, err := h.service.Login(ctx, request.Body.Username, request.Body.Password)
 	if err != nil {
-		if errors.Is(err, ErrInvalidCredentials) || errors.Is(err, ErrUsernameNotFound) {
+		if errors.Is(err, ErrInvalidCredentials) || errors.Is(err, ErrUserNotFound) {
 			return api.Login401JSONResponse(errorMsgResponse("Invalid credentials")), nil
 		}
 		return api.Login500JSONResponse(errorMsgResponse("Login failure")), nil
@@ -47,9 +47,23 @@ func (h *HTTPHandler) Logout(ctx context.Context, _ api.LogoutRequestObject) (ap
 	return api.Logout204Response{Headers: headers}, nil
 }
 
-func (h *HTTPHandler) GetCurrentUser(ctx context.Context, request api.GetCurrentUserRequestObject) (api.GetCurrentUserResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
+func (h *HTTPHandler) GetCurrentUser(ctx context.Context, _ api.GetCurrentUserRequestObject) (api.GetCurrentUserResponseObject, error) {
+	principal, ok := PrincipalFromContext(ctx)
+	if !ok {
+		return api.GetCurrentUser500JSONResponse(errorMsgResponse("Couldn't retrieve current principal from context")), nil
+	}
+	user, err := h.service.GetUserFromPrincipal(ctx, principal)
+	if err != nil {
+		var errorMsg string
+		if errors.Is(err, ErrUserNotFound) {
+			errorMsg = "User not found"
+		} else {
+			errorMsg = "Failed to retrieve current user"
+		}
+		return api.GetCurrentUser500JSONResponse(errorMsgResponse(errorMsg)), nil
+	}
+
+	return api.GetCurrentUser200JSONResponse(toUserResponse(user)), nil
 }
 
 func (h *HTTPHandler) CreateUser(ctx context.Context, request api.CreateUserRequestObject) (api.CreateUserResponseObject, error) {
@@ -65,7 +79,14 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request api.CreateUserRequ
 		s := string(*request.Body.Email)
 		email = &s
 	}
-	user, err := h.service.CreateUserByAdmin(ctx, request.Body.Username, request.Body.DisplayName, email, request.Body.Password, &principal)
+	user, err := h.service.CreateUserByAdmin(
+		ctx,
+		request.Body.Username,
+		request.Body.DisplayName,
+		email,
+		request.Body.Password,
+		principal,
+	)
 
 	if err != nil {
 		if errors.Is(err, ErrUsernameTaken) {

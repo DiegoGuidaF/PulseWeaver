@@ -16,6 +16,7 @@ import (
 type UserRepository interface {
 	CountUsers(ctx context.Context) (int, error)
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
+	GetUserByID(ctx context.Context, userId UserID) (*User, error)
 	CreateSession(ctx context.Context, session *Session) (*Session, error)
 	CreateUser(ctx context.Context, user *User) (*User, error)
 	GetSessionWithRoleByTokenHash(ctx context.Context, tokenHash string) (*SessionWithUser, error)
@@ -65,6 +66,10 @@ func (s *Service) Login(ctx context.Context, username string, password string) (
 	}
 
 	return rawToken, user, nil
+}
+
+func (s *Service) GetUserFromPrincipal(ctx context.Context, principal *Principal) (*User, error) {
+	return s.repo.GetUserByID(ctx, principal.UserID)
 }
 
 func (s *Service) RevokeSession(ctx context.Context, sessionId SessionID) error {

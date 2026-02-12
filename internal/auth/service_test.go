@@ -38,13 +38,13 @@ func TestService_Login_InvalidUsername(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockUserRepository()
-	mockRepo.getUserByUsernameErr = ErrUsernameNotFound
+	mockRepo.getUserByUsernameErr = ErrUserNotFound
 	logger := newTestLogger()
 	service := NewService(mockRepo, logger)
 
 	token, user, err := service.Login(ctx, "nonexistent", "Password123")
 	is.True(err != nil)
-	is.Equal(err, ErrUsernameNotFound)
+	is.Equal(err, ErrUserNotFound)
 	is.Equal(token, "")
 	is.True(user == nil)
 }
@@ -86,6 +86,46 @@ func TestService_Login_RepositoryError(t *testing.T) {
 	is.Equal(err, testErr)
 	is.Equal(token, "")
 	is.True(user == nil)
+}
+
+func TestService_GetUserById_Success(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockUserRepository()
+	logger := newTestLogger()
+	service := NewService(mockRepo, logger)
+
+	// Create admin user
+	admin, err := NewUser("admin", "Admin", nil, "AdminPass123!", AdminRole, nil)
+	is.NoErr(err)
+	mockRepo.users[admin.ID] = admin
+	mockRepo.usersByUsername[admin.Username] = admin
+	mockRepo.userCount = 1
+
+	principal := NewPrincipal(admin.ID, SessionID(1), AdminRole)
+
+	currentUser, err := service.GetUserFromPrincipal(ctx, principal)
+	is.NoErr(err)
+	is.Equal(currentUser, admin)
+}
+
+func TestService_GetUserById_RepositoryError(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockUserRepository()
+	testErr := errors.New("database error")
+	mockRepo.getUserByIdErr = testErr
+	logger := newTestLogger()
+	service := NewService(mockRepo, logger)
+
+	principal := NewPrincipal(UserID(1), SessionID(1), AdminRole)
+
+	currentUser, err := service.GetUserFromPrincipal(ctx, principal)
+	is.True(err != nil)
+	is.Equal(err, testErr)
+	is.True(currentUser == nil)
 }
 
 func TestService_CreateUserByAdmin_Success(t *testing.T) {
@@ -275,6 +315,7 @@ type mockUserRepository struct {
 	sessionsByToken      map[string]*SessionWithUser // tokenHash -> session
 	userCount            int
 	getUserByUsernameErr error
+	getUserByIdErr       error
 	createUserErr        error
 	createSessionErr     error
 	getSessionErr        error
@@ -301,7 +342,18 @@ func (m *mockUserRepository) GetUserByUsername(ctx context.Context, username str
 	}
 	user, ok := m.usersByUsername[username]
 	if !ok {
-		return nil, ErrUsernameNotFound
+		return nil, ErrUserNotFound
+	}
+	return user, nil
+}
+
+func (m *mockUserRepository) GetUserByID(ctx context.Context, userId UserID) (*User, error) {
+	if m.getUserByIdErr != nil {
+		return nil, m.getUserByIdErr
+	}
+	user, ok := m.users[userId]
+	if !ok {
+		return nil, ErrUserNotFound
 	}
 	return user, nil
 }

@@ -63,7 +63,22 @@ func (r *repository) GetUserByUsername(ctx context.Context, username string) (*U
 	err := r.db.GetContext(ctx, user, query, username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrUsernameNotFound
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return user, nil
+}
+func (r *repository) GetUserByID(ctx context.Context, userId UserID) (*User, error) {
+	user := &User{}
+
+	query := `SELECT * FROM users WHERE id = ?`
+
+	err := r.db.GetContext(ctx, user, query, userId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
