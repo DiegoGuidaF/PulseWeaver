@@ -5,31 +5,15 @@ import (
 	"fmt"
 	"testing"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/testdb"
 	"github.com/matryer/is"
 )
 
 func setupTestDB(t *testing.T) DeviceRepository {
 	t.Helper()
 
-	conf := config.ConfDB{
-		Dsn:   fmt.Sprintf("file:%s?mode=memory&_loc=auto", t.Name()),
-		Debug: false,
-	}
-
-	db, err := database.NewSQLite(conf)
-	if err != nil {
-		t.Fatalf("setup db: %v", err)
-	}
-
-	t.Cleanup(func() {
-		db.Close()
-	})
-
-	if err := db.Migrate(); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
+	db, cleanup := testdb.Setup(t)
+	t.Cleanup(cleanup)
 
 	return NewRepository(db.DB())
 }
@@ -418,10 +402,14 @@ func TestRepository_GetAddressByID(t *testing.T) {
 	device := createTestDevice(t, repo, ctx, "test-device")
 	createdAddr := createTestAddress(t, repo, ctx, device.ID, "192.168.1.100")
 
-	// Get address by ID
-	address, err := repo.GetAddressByID(ctx, createdAddr.ID)
+	// Enable address to create status record
+	_, err := repo.EnableAddress(ctx, createdAddr.ID)
 	is.NoErr(err)
-	is.Equal(address.ID, createdAddr.ID)
+
+	// Get address with status by ID
+	address, err := repo.GetAddressWithStatus(ctx, createdAddr.ID)
+	is.NoErr(err)
+	is.Equal(address.Id, createdAddr.ID)
 	is.Equal(address.DeviceId, device.ID)
 	is.Equal(address.IP, "192.168.1.100")
 	is.True(!address.CreatedAt.IsZero())
@@ -434,7 +422,7 @@ func TestRepository_GetAddressByID_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	// Try to get non-existent address
-	_, err := repo.GetAddressByID(ctx, AddressID(99999))
+	_, err := repo.GetAddressWithStatus(ctx, AddressID(99999))
 	is.True(err != nil)
 	is.Equal(err, ErrAddressNotFound)
 }

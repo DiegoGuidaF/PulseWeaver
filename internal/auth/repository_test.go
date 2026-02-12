@@ -2,34 +2,17 @@ package auth
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/testdb"
 	"github.com/matryer/is"
 )
 
 func setupAuthTestDB(t *testing.T) UserRepository {
 	t.Helper()
 
-	conf := config.ConfDB{
-		Dsn:   fmt.Sprintf("file:%s?mode=memory&_loc=auto", t.Name()),
-		Debug: false,
-	}
-
-	db, err := database.NewSQLite(conf)
-	if err != nil {
-		t.Fatalf("setup db: %v", err)
-	}
-
-	t.Cleanup(func() {
-		db.Close()
-	})
-
-	if err := db.Migrate(); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
+	db, cleanup := testdb.Setup(t)
+	t.Cleanup(cleanup)
 
 	return NewRepository(db.DB())
 }

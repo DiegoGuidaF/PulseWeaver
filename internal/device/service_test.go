@@ -1,0 +1,402 @@
+package device
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/matryer/is"
+)
+
+func TestService_AssignAddress_NewAddress(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockDeviceRepository()
+	device := &Device{ID: DeviceID(1), Name: "test-device"}
+	mockRepo.devices[device.ID] = device
+
+	service := NewService(mockRepo)
+
+	addr, wasCreated, err := service.AssignAddress(ctx, device.ID, "192.168.1.100")
+	is.NoErr(err)
+	is.True(wasCreated)
+	is.True(addr != nil)
+	is.Equal(addr.IP, "192.168.1.100")
+	is.True(addr.Status)
+}
+
+func TestService_AssignAddress_ExistingAddress(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockDeviceRepository()
+	device := &Device{ID: DeviceID(1), Name: "test-device"}
+	mockRepo.devices[device.ID] = device
+
+	existingAddr := &AddressWithStatus{
+		Id:       AddressID(1),
+		DeviceId: device.ID,
+		IP:       "192.168.1.100",
+		Status:   false,
+	}
+	key := device.ID.String() + ":192.168.1.100"
+	mockRepo.deviceByIP[key] = existingAddr
+	mockRepo.addressesWithStatus[existingAddr.Id] = existingAddr
+
+	service := NewService(mockRepo)
+
+	addr, wasCreated, err := service.AssignAddress(ctx, device.ID, "192.168.1.100")
+	is.NoErr(err)
+	is.True(!wasCreated) // Should not be created, just enabled
+	is.True(addr != nil)
+	is.Equal(addr.IP, "192.168.1.100")
+	is.True(addr.Status) // Should be enabled
+}
+
+func TestService_AssignAddress_DeviceNotFound(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockDeviceRepository()
+	mockRepo.getDeviceByIDErr = ErrDeviceNotFound
+
+	service := NewService(mockRepo)
+
+	addr, wasCreated, err := service.AssignAddress(ctx, DeviceID(999), "192.168.1.100")
+	is.True(err != nil)
+	is.Equal(err, ErrDeviceNotFound)
+	is.True(addr == nil)
+	is.True(!wasCreated)
+}
+
+func TestService_AssignAddress_TransactionRollback(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockDeviceRepository()
+	device := &Device{ID: DeviceID(1), Name: "test-device"}
+	mockRepo.devices[device.ID] = device
+
+	// Simulate transaction failure
+	testErr := errors.New("transaction error")
+	mockRepo.runInTxFn = func(repo DeviceRepository) error {
+		// Try to create address
+		addr, _ := NewAddress(device.ID, "192.168.1.100")
+		_, err := repo.CreateAddress(ctx, addr)
+		if err != nil {
+			return err
+		}
+		// Return error to trigger rollback
+		return testErr
+	}
+
+	service := NewService(mockRepo)
+
+	addr, wasCreated, err := service.AssignAddress(ctx, device.ID, "192.168.1.100")
+	is.True(err != nil)
+	is.Equal(err, testErr)
+	is.True(addr == nil)
+	is.True(!wasCreated)
+}
+
+func TestService_DisableAddress_Success(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockDeviceRepository()
+	device := &Device{ID: DeviceID(1), Name: "test-device"}
+	mockRepo.devices[device.ID] = device
+
+	address := &Address{ID: AddressID(1), DeviceId: device.ID, IP: "192.168.1.100"}
+	mockRepo.addresses[address.ID] = address
+
+	addressWithStatus := &AddressWithStatus{
+		Id:       address.ID,
+		DeviceId: device.ID,
+		IP:       "192.168.1.100",
+		Status:   true,
+	}
+	mockRepo.addressesWithStatus[address.ID] = addressWithStatus
+
+	service := NewService(mockRepo)
+
+	disabledAddr, err := service.DisableAddress(ctx, device.ID, address.ID)
+	is.NoErr(err)
+	is.True(disabledAddr != nil)
+	is.True(!disabledAddr.Status)
+}
+
+func TestService_DisableAddress_OwnershipValidation(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockDeviceRepository()
+	device1 := &Device{ID: DeviceID(1), Name: "device-1"}
+	device2 := &Device{ID: DeviceID(2), Name: "device-2"}
+	mockRepo.devices[device1.ID] = device1
+	mockRepo.devices[device2.ID] = device2
+
+	address := &Address{ID: AddressID(1), DeviceId: device1.ID, IP: "192.168.1.100"}
+	mockRepo.addresses[address.ID] = address
+
+	addressWithStatus := &AddressWithStatus{
+		Id:       address.ID,
+		DeviceId: device1.ID,
+		IP:       "192.168.1.100",
+		Status:   true,
+	}
+	mockRepo.addressesWithStatus[address.ID] = addressWithStatus
+
+	service := NewService(mockRepo)
+
+	// Try to disable address using wrong device ID
+	disabledAddr, err := service.DisableAddress(ctx, device2.ID, address.ID)
+	is.True(err != nil)
+	is.Equal(err, ErrAddressNotOwnedByDevice)
+	is.True(disabledAddr == nil)
+}
+
+func TestService_DisableAddress_AddressNotFound(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockDeviceRepository()
+	device := &Device{ID: DeviceID(1), Name: "test-device"}
+	mockRepo.devices[device.ID] = device
+	mockRepo.checkOwnershipErr = ErrAddressNotOwnedByDevice
+
+	service := NewService(mockRepo)
+
+	disabledAddr, err := service.DisableAddress(ctx, device.ID, AddressID(999))
+	is.True(err != nil)
+	is.Equal(err, ErrAddressNotOwnedByDevice)
+	is.True(disabledAddr == nil)
+}
+
+func TestService_GetAddressesForDevice_Success(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockDeviceRepository()
+	device := &Device{ID: DeviceID(1), Name: "test-device"}
+	mockRepo.devices[device.ID] = device
+
+	addr1 := &AddressWithStatus{
+		Id:       AddressID(1),
+		DeviceId: device.ID,
+		IP:       "192.168.1.1",
+		Status:   true,
+	}
+	addr2 := &AddressWithStatus{
+		Id:       AddressID(2),
+		DeviceId: device.ID,
+		IP:       "192.168.1.2",
+		Status:   false,
+	}
+	mockRepo.addressesWithStatus[addr1.Id] = addr1
+	mockRepo.addressesWithStatus[addr2.Id] = addr2
+
+	service := NewService(mockRepo)
+
+	addresses, err := service.GetAddressesForDevice(ctx, device.ID)
+	is.NoErr(err)
+	is.Equal(len(addresses), 2)
+}
+
+func TestService_GetAddressesForDevice_DeviceNotFound(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockDeviceRepository()
+	mockRepo.getDeviceByIDErr = ErrDeviceNotFound
+
+	service := NewService(mockRepo)
+
+	addresses, err := service.GetAddressesForDevice(ctx, DeviceID(999))
+	is.True(err != nil)
+	is.Equal(err, ErrDeviceNotFound)
+	is.True(addresses == nil)
+}
+
+func TestService_GetAddressesForDevice_Empty(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockDeviceRepository()
+	device := &Device{ID: DeviceID(1), Name: "test-device"}
+	mockRepo.devices[device.ID] = device
+
+	service := NewService(mockRepo)
+
+	addresses, err := service.GetAddressesForDevice(ctx, device.ID)
+	is.NoErr(err)
+	is.Equal(len(addresses), 0)
+}
+
+// mockDeviceRepository is a hand-rolled mock implementation of DeviceRepository
+type mockDeviceRepository struct {
+	devices             map[DeviceID]*Device
+	addresses           map[AddressID]*Address
+	addressesWithStatus map[AddressID]*AddressWithStatus
+	deviceByIP          map[string]*AddressWithStatus // key: "deviceID:ip"
+	getDeviceByIDErr    error
+	createAddressErr    error
+	getAddressByIPErr   error
+	enableAddressErr    error
+	disableAddressErr   error
+	listAddressesErr    error
+	checkOwnershipErr   error
+	runInTxFn           func(DeviceRepository) error
+}
+
+// Ensure mockDeviceRepository implements DeviceRepository interface
+var _ DeviceRepository = (*mockDeviceRepository)(nil)
+
+func newMockDeviceRepository() *mockDeviceRepository {
+	return &mockDeviceRepository{
+		devices:             make(map[DeviceID]*Device),
+		addresses:           make(map[AddressID]*Address),
+		addressesWithStatus: make(map[AddressID]*AddressWithStatus),
+		deviceByIP:          make(map[string]*AddressWithStatus),
+	}
+}
+
+func (m *mockDeviceRepository) GetDeviceByID(ctx context.Context, id DeviceID) (*Device, error) {
+	if m.getDeviceByIDErr != nil {
+		return nil, m.getDeviceByIDErr
+	}
+	device, ok := m.devices[id]
+	if !ok {
+		return nil, ErrDeviceNotFound
+	}
+	return device, nil
+}
+
+func (m *mockDeviceRepository) CreateDevice(ctx context.Context, device *Device) (*Device, error) {
+	device.ID = DeviceID(len(m.devices) + 1)
+	m.devices[device.ID] = device
+	return device, nil
+}
+
+func (m *mockDeviceRepository) GetDevices(ctx context.Context) ([]Device, error) {
+	devices := make([]Device, 0, len(m.devices))
+	for _, d := range m.devices {
+		devices = append(devices, *d)
+	}
+	return devices, nil
+}
+
+func (m *mockDeviceRepository) CreateAddress(ctx context.Context, address *Address) (*Address, error) {
+	if m.createAddressErr != nil {
+		return nil, m.createAddressErr
+	}
+	address.ID = AddressID(len(m.addresses) + 1)
+	m.addresses[address.ID] = address
+	return address, nil
+}
+
+func (m *mockDeviceRepository) GetAddressForDeviceByIp(ctx context.Context, deviceId DeviceID, ip string) (*AddressWithStatus, error) {
+	if m.getAddressByIPErr != nil {
+		return nil, m.getAddressByIPErr
+	}
+	key := deviceId.String() + ":" + ip
+	addr, ok := m.deviceByIP[key]
+	if !ok {
+		return nil, ErrAddressNotFound
+	}
+	return addr, nil
+}
+
+func (m *mockDeviceRepository) ListAddresses(ctx context.Context, deviceId DeviceID) ([]AddressWithStatus, error) {
+	if m.listAddressesErr != nil {
+		return nil, m.listAddressesErr
+	}
+	addresses := make([]AddressWithStatus, 0)
+	for _, addr := range m.addressesWithStatus {
+		if addr.DeviceId == deviceId {
+			addresses = append(addresses, *addr)
+		}
+	}
+	return addresses, nil
+}
+
+func (m *mockDeviceRepository) DisableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
+	if m.disableAddressErr != nil {
+		return nil, m.disableAddressErr
+	}
+	addr, ok := m.addressesWithStatus[addressId]
+	if !ok {
+		return nil, ErrAddressNotFound
+	}
+	addr.Status = false
+	return addr, nil
+}
+
+func (m *mockDeviceRepository) EnableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
+	if m.enableAddressErr != nil {
+		return nil, m.enableAddressErr
+	}
+	addr, ok := m.addressesWithStatus[addressId]
+	if !ok {
+		// Create new address with status if it doesn't exist
+		baseAddr, ok := m.addresses[addressId]
+		if !ok {
+			return nil, ErrAddressNotFound
+		}
+		addr = &AddressWithStatus{
+			Id:       baseAddr.ID,
+			DeviceId: baseAddr.DeviceId,
+			IP:       baseAddr.IP,
+			Status:   true,
+		}
+		m.addressesWithStatus[addressId] = addr
+	} else {
+		addr.Status = true
+	}
+	return addr, nil
+}
+
+func (m *mockDeviceRepository) GetAddressWithStatus(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
+	addr, ok := m.addressesWithStatus[addressId]
+	if !ok {
+		return nil, ErrAddressNotFound
+	}
+	return addr, nil
+}
+
+func (m *mockDeviceRepository) GetAddressByID(ctx context.Context, id AddressID) (*Address, error) {
+	addr, ok := m.addresses[id]
+	if !ok {
+		return nil, ErrAddressNotFound
+	}
+	return addr, nil
+}
+
+func (m *mockDeviceRepository) CheckAddressOwnership(ctx context.Context, deviceId DeviceID, addressId AddressID) error {
+	if m.checkOwnershipErr != nil {
+		return m.checkOwnershipErr
+	}
+	addr, ok := m.addressesWithStatus[addressId]
+	if !ok {
+		addr2, ok2 := m.addresses[addressId]
+		if !ok2 {
+			return ErrAddressNotOwnedByDevice
+		}
+		if addr2.DeviceId != deviceId {
+			return ErrAddressNotOwnedByDevice
+		}
+		return nil
+	}
+	if addr.DeviceId != deviceId {
+		return ErrAddressNotOwnedByDevice
+	}
+	return nil
+}
+
+func (m *mockDeviceRepository) RunInTx(ctx context.Context, fn func(DeviceRepository) error) error {
+	if m.runInTxFn != nil {
+		return m.runInTxFn(m)
+	}
+	return fn(m)
+}
