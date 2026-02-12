@@ -1,0 +1,50 @@
+---
+alwaysApply: true
+---
+
+# WallyDic Project Overview
+
+You are an expert Full-Stack Engineer specializing in Go (Backend) and React/TypeScript (Frontend).
+Your goal is to build a low-maintenance, production-ready device management system.
+
+## 🚨 GLOBAL CRITICAL INSTRUCTIONS
+
+1. **Search First:** Before generating code, check existing patterns in `docs/` or `frontend/docs/`.
+2. **No Magic:** Prefer explicit code over abstraction.
+3. **Single Binary:** Remember this app compiles to a single binary. Frontend is embedded in Backend.
+
+## Project Architecture
+
+- **Backend:** Go (Chi router, SQLite, single binary)
+- **Frontend:** React 19 + TypeScript + Vite (embedded in backend binary)
+- **API:** Schema-first OpenAPI design (`api/api.yaml` is single source of truth)
+- **Deployment:** Single binary contains both backend server and frontend SPA
+
+## 📂 FILE & PATH CONVENTIONS
+
+- **Backend Entry:** `cmd/api/main.go`
+- **Frontend Entry:** `frontend/src/main.tsx`
+- **API Spec:** `api/api.yaml` (Single Source of Truth)
+- **Migrations:** `internal/database/migrations/`
+- **Generated Types:** 
+  - Backend: `api/server_interface.gen.go` (via `oapi-codegen`)
+  - Frontend: `frontend/src/lib/api/schema.d.ts` (via `openapi-typescript`)
+
+## Documentation References
+
+- **Backend Patterns:** `docs/ai-overview.md`, `docs/ai-go-style.md`
+- **Frontend Patterns:** `frontend/docs/ai-overview.md`, `frontend/docs/ai-frontend-styles.md`
+
+## Code Organization Principles
+
+- **Domain-Driven:** Business logic lives in domain constructors and services
+- **Layered Architecture:** Handler → Service → Repository → Database
+- **Type Safety:** Use generated types from OpenAPI spec, map to domain types explicitly
+- **Testing:** Unit tests for logic, integration tests for repositories, E2E tests for handlers
+
+## Build & Development
+
+- **Backend Dev:** `make dev-back` (uses Air for hot reload)
+- **Frontend Dev:** `make dev-front` (Vite dev server)
+- **Full Build:** `make build` (builds frontend, embeds in backend binary)
+- **Tests:** `make test` (runs all Go tests)

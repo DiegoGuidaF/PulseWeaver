@@ -1,0 +1,166 @@
+---
+globs:
+  - "api/**/*.yaml"
+  - "**/schema.d.ts"
+  - "**/server_interface.gen.go"
+---
+
+# API Contracts & Type Generation Rules
+
+## Schema-First API Design
+
+- **Single Source of Truth:** `api/api.yaml` (OpenAPI 3.0.1)
+- **No Manual Types:** All API types are generated from the OpenAPI spec
+- **Backend Types:** Generated via `oapi-codegen` → `api/server_interface.gen.go`
+- **Frontend Types:** Generated via `openapi-typescript` → `frontend/src/lib/api/schema.d.ts`
+
+## OpenAPI Specification Rules
+
+### Structure
+- Use OpenAPI 3.0.1
+- Define all endpoints, request/response schemas, and error responses
+- Use `$ref` for reusable schema components
+- Include proper security definitions (cookieAuth, bearerAuth)
+
+### Schema Components
+- Define reusable schemas in `components/schemas/`
+- Use descriptive names (e.g., `CreateUserRequest`, `Device`, `ErrorResponse`)
+- Include validation rules in schema (minLength, maxLength, pattern, etc.)
+
+### Endpoint Definition
+- Use `operationId` for each endpoint (used for code generation)
+- Include proper tags for grouping
+- Document all possible response codes (200, 400, 401, 403, 404, 409, 500)
+- Include request/response examples where helpful
+
+## Type Generation Workflow
+
+### Backend Generation (Go)
+- **Tool:** `oapi-codegen`
+- **Config:** `openapi-cfg.yaml`
+- **Output:** `api/server_interface.gen.go`
+- **Command:** Run `go generate ./api` or use Makefile target
+- **Pattern:** Generate server interface, then implement handlers
+
+### Frontend Generation (TypeScript)
+- **Tool:** `openapi-typescript`
+- **Output:** `frontend/src/lib/api/schema.d.ts`
+- **Command:** `npm run generate:api` (in frontend directory)
+- **Usage:** Import types from `@/lib/api/schema`
+
+## Type Mapping Patterns
+
+### Backend Handler Pattern
+```go
+// Generated type from OpenAPI
+type CreateDeviceRequest struct {
+    Name string `json:"name"`
+}
+
+// Handler extracts values and maps to domain
+func (h *Handler) CreateDevice(w http.ResponseWriter, r *http.Request) {
+    var req api.CreateDeviceRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        // handle error
+    }
+    
+    // Map to domain model (extract primitives)
+    device, err := h.service.CreateDevice(r.Context(), req.Name)
+    // ...
+}
+```
+
+### Frontend Client Pattern
+```typescript
+import { api } from '@/lib/api/client';
+import type { paths } from '@/lib/api/schema';
+
+// Types are inferred from schema
+const { data, error } = await api.POST('/devices', {
+  body: {
+    name: 'Device Name', // TypeScript validates this matches schema
+  },
+});
+
+// data is typed as paths['/devices']['post']['responses']['201']['content']['application/json']
+```
+
+## API Client Implementation
+
+### Backend
+- Use generated server interface from `oapi-codegen`
+- Implement handlers matching the interface
+- Use `kin-openapi` middleware for request validation
+- Map OpenAPI types to domain types in handlers
+
+### Frontend
+- Use `openapi-fetch` for lightweight, typed requests
+- Wrap in `@/lib/api/client.ts` for consistent error handling
+- All API calls go through the typed client
+- Never write manual fetch calls
+
+## Synchronization Rules
+
+### When to Regenerate
+1. **After API changes:** Always regenerate types after modifying `api/api.yaml`
+2. **Before backend changes:** Regenerate to ensure handlers match spec
+3. **Before frontend changes:** Regenerate to get latest types
+
+### Regeneration Commands
+- **Backend:** `go generate ./api` or check Makefile
+- **Frontend:** `cd frontend && npm run generate:api`
+
+### Validation
+- Backend: Use `kin-openapi` middleware to validate requests match spec
+- Frontend: TypeScript compiler validates types at build time
+- Both: Ensure generated types are committed to version control
+
+## Error Response Patterns
+
+### Standard Error Schema
+```yaml
+ErrorResponse:
+  type: object
+  properties:
+    error:
+      type: string
+      description: Human-readable error message
+    code:
+      type: string
+      description: Machine-readable error code
+```
+
+### HTTP Status Codes
+- `200`: Success
+- `201`: Created
+- `400`: Bad Request (validation errors)
+- `401`: Unauthorized (authentication required)
+- `403`: Forbidden (insufficient permissions)
+- `404`: Not Found
+- `409`: Conflict (e.g., duplicate username)
+- `500`: Internal Server Error
+
+## Security Definitions
+
+### Cookie Authentication
+- Used for session-based auth
+- HTTP-only, secure cookies
+- Defined in OpenAPI security schemes
+
+### Bearer Authentication
+- Used for token-based auth (if needed)
+- Defined in OpenAPI security schemes
+
+### Security Application
+- Global security requirement denies access by default
+- Public endpoints explicitly set `security: []`
+- Protected endpoints inherit global security
+
+## Best Practices
+
+1. **Keep Spec Updated:** Update `api/api.yaml` first, then regenerate types
+2. **Version Control:** Commit generated types to ensure consistency
+3. **Documentation:** Include descriptions in OpenAPI spec for better IDE hints
+4. **Validation:** Use schema validation in both backend and frontend
+5. **Breaking Changes:** Update version number in OpenAPI info when making breaking changes
+6. **Examples:** Include request/response examples in spec for documentation

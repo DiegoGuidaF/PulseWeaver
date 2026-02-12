@@ -1,0 +1,220 @@
+---
+globs:
+  - "frontend/**/*.{ts,tsx}"
+  - "frontend/**/*.css"
+---
+
+# React Frontend Rules
+
+**References:** `frontend/docs/ai-overview.md`, `frontend/docs/ai-frontend-styles.md`
+
+## Tech Stack Constraints
+
+- **Framework:** React 19+ with TypeScript (Strict mode)
+- **Build Tool:** Vite
+- **Styling:** Tailwind CSS v4 (use `index.css` variables). NO custom CSS files.
+- **UI Library:** shadcn/ui. Do not invent primitives; use `npx shadcn@latest add ...`
+- **State Management:**
+  - Server State: TanStack Query v5
+  - Client State: URL params / React State (no Redux/Zustand unless absolutely necessary)
+- **Routing:** React Router
+- **Icons:** Lucide React
+- **Forms:** react-hook-form + zod v4
+
+## API Interaction Rules
+
+### ❌ NEVER
+- Write manual `fetch` calls
+- Use untyped API calls
+- Hardcode API endpoints
+
+### ✅ ALWAYS
+- Use the typed client: `@/lib/api/client`
+- Types must strictly match `api/api.yaml` (auto-generated)
+- Run `npm run generate:api` after backend API changes
+
+### API Client Pattern
+```typescript
+import { api } from '@/lib/api/client';
+
+const { data, error } = await api.GET('/devices');
+if (error) throw new Error(toErrorMessage(error));
+return data;
+```
+
+## TanStack Query Patterns
+
+### Query Keys Factory Pattern
+- **Location:** `@/lib/api/queryKeys.ts`
+- **Structure:** Group by feature domain, use factory functions for parameterized keys
+- **Example:**
+  ```typescript
+  export const queryKeys = {
+    devices: {
+      all: ["devices"] as const,
+      detail: (id: number) => ["devices", id] as const,
+      addresses: (deviceId: number) => ["device-addresses", deviceId] as const,
+    },
+  };
+  ```
+- **Benefits:** Type safety, refactoring safety, consistent key structure, easy invalidation
+
+### Query Hooks Pattern
+```typescript
+const { data, isLoading, isError } = useQuery({
+  queryKey: queryKeys.devices.all,
+  queryFn: async () => {
+    const { data, error } = await api.GET('/devices');
+    if (error) throw new Error(toErrorMessage(error));
+    return data;
+  },
+});
+```
+
+### Mutations & Cache Invalidation
+- Use `useMutation` with `onSuccess` to invalidate related queries
+- Always show Sonner toast for errors (`onError`)
+- Show success toast for user actions
+- **Example:**
+  ```typescript
+  export function useCreateDevice(options?: { onSuccess?: () => void }) {
+    const queryClient = useQueryClient();
+    
+    return useMutation({
+      mutationFn: async (values: { name: string }) => {
+        const { data, error } = await api.POST("/devices", { body: values });
+        if (error) throw new Error(toErrorMessage(error));
+        return data;
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.devices.all });
+        toast.success("Device created");
+        options?.onSuccess?.();
+      },
+      onError: (err) => {
+        toast.error("Error creating device", { description: err.message });
+      },
+    });
+  }
+  ```
+
+### Invalidation Strategy
+- Invalidate the most specific query key that needs refreshing
+- For list mutations: invalidate the list key
+- For detail mutations: invalidate both detail and list keys if needed
+
+## Component Patterns
+
+### Functional Components
+- Always use `function ComponentName() {}` (avoid `const ComponentName = () => {}`)
+- Named exports: `export function MyComponent`
+- Destructure props immediately in function signature
+
+### Props Definition
+- Use `interface` for props (e.g., `DeviceListProps`)
+- Prefix with component name
+
+### Colocation
+- Keep related sub-components in the same file if small and private
+- Features go in `src/features/{featureName}/`
+- Shared UI goes in `src/components/ui/`
+
+## Forms & Validation
+
+### react-hook-form + zod v4
+- Define schema outside the component
+- Infer types from Zod schema: `type FormValues = z.infer<typeof formSchema>`
+- Use shadcn/ui Form components (wraps react-hook-form)
+
+### Example:
+```typescript
+const formSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
+export function CreateDeviceForm() {
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+  });
+  // ...
+}
+```
+
+## Styling Conventions
+
+### Tailwind Utilities
+- Utility-first: use Tailwind classes for layout, spacing, colors
+- Use `cn()` helper for conditional classes (from `@/lib/utils`)
+- **Bad:** `` className={`p-4 ${isActive ? 'bg-blue-500' : ''}`} ``
+- **Good:** `className={cn("p-4", isActive && "bg-blue-500")}`
+
+### Spacing & Colors
+- Use standard Tailwind spacing steps (4, 8, 16, etc.)
+- Use CSS variables from shadcn (`bg-primary`, `text-muted-foreground`) for dark mode support
+- Reference `index.css` for theme variables
+
+### Dark Mode
+- Automatically supported via shadcn CSS variables
+- Use `mode-toggle` component for user preference
+
+## State Management
+
+### Server State
+- Use `useQuery` for fetching
+- Handle `isLoading` (show Skeletons) and `isError` (show Sonner Toasts) explicitly
+
+### Form State
+- Use `react-hook-form` for all forms
+- Local `useState` for UI interaction (modals, inputs)
+
+### Global State
+- Avoid global context for data
+- Use context only for app-wide configuration (Theme, AuthUser)
+- URL search params for shareable state (filters, pagination)
+
+## TypeScript Rules
+
+### Strict Typing
+- No `any`. Use `unknown` if necessary and narrow types
+- Inferred return types preferred (let TS infer unless complex)
+- No enums: use `const` assertions (`as const`) or string unions
+
+### Type Generation
+- API types are auto-generated from `api/api.yaml`
+- Never manually write API types
+- Regenerate after backend changes: `npm run generate:api`
+
+## UX Patterns
+
+### Loading States
+- Always show Skeletons during `isLoading`
+- Use shadcn/ui `Skeleton` component
+
+### Error Handling
+- Always show Sonner toast for `isError` in queries
+- Show error toasts in mutation `onError` callbacks
+- Use ErrorBoundary for component tree errors
+
+### Success Feedback
+- Show success toast for user actions (mutations)
+- Provide clear, actionable error messages
+
+## Directory Structure
+
+```
+src/
+├── components/        # Shared UI components
+│   ├── ui/            # shadcn/ui primitives
+│   ├── layout/        # Layout shells (Sidebar, Header)
+│   └── ...
+├── features/          # Feature-based vertical slices
+│   ├── devices/       # Device domain (List, Form, Dialogs)
+│   └── settings/      # Settings domain
+├── lib/               # Utilities & Config
+│   ├── api/           # Generated types & API client wrapper
+│   └── utils.ts       # Tailwind helpers (cn)
+├── hooks/             # Shared custom hooks
+└── App.tsx            # Routes & Providers
+```
