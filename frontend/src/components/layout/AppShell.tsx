@@ -6,6 +6,8 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { ModeToggle } from "@/components/mode-toggle.tsx";
+import { useLogout } from "@/features/auth/hooks/useLogout";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
@@ -18,6 +20,8 @@ const sidebarItems = [
 
 function Sidebar({ className }: SidebarProps) {
   const location = useLocation();
+  const logoutMutation = useLogout();
+  const { user } = useAuth();
 
   return (
     <div className={cn("pb-12", className)}>
@@ -47,13 +51,22 @@ function Sidebar({ className }: SidebarProps) {
           </div>
         </div>
         <Separator />
+        {user && (
+          <div className="px-3 py-2">
+            <div className="mb-2 px-4 text-sm text-muted-foreground">
+              {user.display_name || user.username}
+            </div>
+          </div>
+        )}
         <div className="px-3 py-2">
           <Button
             variant="ghost"
             className="w-full justify-start text-red-500 hover:bg-red-500/10 hover:text-red-600"
+            onClick={() => logoutMutation.mutate()}
+            disabled={logoutMutation.isPending}
           >
             <LogOut className="mr-2 h-4 w-4" />
-            Logout
+            {logoutMutation.isPending ? "Logging out..." : "Logout"}
           </Button>
         </div>
       </div>

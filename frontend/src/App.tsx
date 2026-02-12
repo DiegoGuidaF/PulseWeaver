@@ -3,23 +3,39 @@ import { Toaster } from "sonner";
 import { AppShell } from "./components/layout/AppShell";
 import { ThemeProvider } from "./components/theme-provider";
 import { AppErrorBoundary } from "./components/ErrorBoundary";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import { DashboardPage } from "./pages/DashboardPage";
+import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 
 function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <BrowserRouter>
-        <AppShell>
+        <AuthProvider>
           <AppErrorBoundary>
             <Routes>
-              <Route path="/" element={<Navigate to="/devices" replace />} />
-              <Route path="/devices" element={<DashboardPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route
+                path="/"
+                element={<Navigate to="/devices" replace />}
+              />
+              <Route
+                path="/devices"
+                element={
+                  <ProtectedRoute>
+                    <AppShell>
+                      <DashboardPage />
+                    </AppShell>
+                  </ProtectedRoute>
+                }
+              />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </AppErrorBoundary>
-        </AppShell>
-        <Toaster />
+          <Toaster />
+        </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>
   );
