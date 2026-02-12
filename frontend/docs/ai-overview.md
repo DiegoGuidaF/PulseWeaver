@@ -1,0 +1,56 @@
+# Frontend Architecture & Stack Overview
+
+## System Context
+
+- **Backend:** Go (Chi, SQLite) embedded binary.
+- **Frontend Deployment:** SPA embedded into the Go binary (`dist` folder).
+- **API Strategy:** Schema-first. We do not manually write API types; we generate them from `./api/api.yaml` via openapi
+  generators.
+
+## Core Tech Stack
+
+| Component        | Technology               | Decision Reasoning                                   |
+|:-----------------|:-------------------------|:-----------------------------------------------------|
+| **Framework**    | React 18+                | Standard, robust ecosystem.                          |
+| **Build Tool**   | Vite                     | Fast HMR, simple configuration.                      |
+| **Language**     | TypeScript (Strict)      | Critical for low maintenance and refactoring safety. |
+| **Styling**      | Tailwind CSS v4          | Utility-first, standard in modern React.             |
+| **Components**   | shadcn/ui                | Copy-paste ownership, accessible, based on Radix UI. |
+| **State/Data**   | TanStack Query v5        | Handles server state (caching, loading, errors).     |
+| **Client State** | URL Params / React State | No Redux/Zustand unless absolutely necessary.        |
+| **Routing**      | React Router             | Standard SPA routing.                                |
+| **Icons**        | Lucide React             | Consistent, clean icon set.                          |
+
+## Data Flow Architecture
+
+1. **Server State:** Managed exclusively by `TanStack Query`.
+    - **Query Keys:** Use the factory pattern from `@/lib/api/queryKeys.ts` for type-safe, consistent keys.
+      - Factory functions return `as const` arrays for type safety.
+      - Group keys by feature domain (e.g., `queryKeys.devices.all`, `queryKeys.devices.detail(id)`).
+      - Example: `queryKeys.devices.addresses(deviceId)` instead of manual `['device-addresses', deviceId]`.
+    - **Mutations:** Use `useMutation` with `onSuccess` to invalidate relevant query keys via `queryClient.invalidateQueries()`.
+    - **Error Handling:** Always use Sonner toasts for mutation errors (`onError` callback).
+2. **API Layer:**
+    - Located in `@/lib/api/client.ts`.
+    - Uses `openapi-fetch` for lightweight, typed requests.
+    - Types are auto-generated via `openapi-typescript` from `./api/api.yaml`.
+3. **Component State:**
+    - Local `useState` for UI interaction (modals, inputs).
+    - URL search params for shareable state (filters, pagination).
+
+## Directory Structure
+
+```text
+src/
+├── components/        # Shared UI components
+│   ├── ui/            # shadcn/ui primitives (Button, Input)
+│   ├── layout/        # Layout shells (Sidebar, Header)
+│   └── ...
+├── features/          # Feature-based vertical slices
+│   ├── devices/       # Device domain (List, Form, Dialogs)
+│   └── settings/      # Settings domain
+├── lib/               # Utilities & Config
+│   ├── api/           # Generated types & API client wrapper
+│   └── utils.ts       # Tailwind helpers (cn)
+├── hooks/             # Shared custom hooks (use-toast, etc)
+└── App.tsx            # Routes & Providers
