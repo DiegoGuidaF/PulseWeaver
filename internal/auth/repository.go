@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/mattn/go-sqlite3"
@@ -45,8 +46,8 @@ func (r *repository) CreateUser(ctx context.Context, user *User) (*User, error) 
 		user.CreatedAt,
 	)
 	if err != nil {
-		if isUniqueConstraintError(err) {
-			return nil, ErrUsernameTaken
+		if conflictErr, ok := mapUserCreationUniqueConstraintError(err); ok {
+			return nil, conflictErr
 		}
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
@@ -137,12 +138,49 @@ func (r *repository) RevokeSessionById(ctx context.Context, id SessionID) error 
 	return nil
 }
 
-func isUniqueConstraintError(err error) bool {
+// RunInTx runs the callback function inside a transaction.
+// If already running in a transaction context, do not create a new one and reuse it
+func (r *repository) RunInTx(ctx context.Context, fn func(Repository) error) error {
+	if r.rootDB == nil {
+		// We are already in a transaction. Do not nest it.
+		return fn(r)
+	}
+
+	// Start the transaction
+	tx, err := r.rootDB.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Copy of the repository without rootDB so we can't do nested transactions
+	txRepo := &repository{
+		rootDB: nil,
+		db:     tx,
+	}
+
+	// Run function
+	if err := fn(txRepo); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func mapUserCreationUniqueConstraintError(err error) (error, bool) {
 	var sqliteErr sqlite3.Error
 	if errors.As(err, &sqliteErr) {
 		if errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
-			return true
+			message := strings.ToLower(sqliteErr.Error())
+			switch {
+			case strings.Contains(message, "users.username"):
+				return ErrUsernameTaken, true
+			case strings.Contains(message, "users.email"):
+				return ErrEmailTaken, true
+			default:
+				return ErrUsernameTaken, true
+			}
 		}
 	}
-	return false
+	return nil, false
 }

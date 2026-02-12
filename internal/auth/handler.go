@@ -18,7 +18,7 @@ type HTTPHandler struct {
 func (h *HTTPHandler) Login(ctx context.Context, request api.LoginRequestObject) (api.LoginResponseObject, error) {
 	rawToken, user, err := h.service.Login(ctx, request.Body.Username, request.Body.Password)
 	if err != nil {
-		if errors.Is(err, ErrInvalidCredentials) || errors.Is(err, ErrUsernameTaken) {
+		if errors.Is(err, ErrInvalidCredentials) || errors.Is(err, ErrUsernameNotFound) {
 			return api.Login401JSONResponse(errorMsgResponse("Invalid credentials")), nil
 		}
 		return api.Login500JSONResponse(errorMsgResponse("Login failure")), nil
@@ -71,8 +71,14 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request api.CreateUserRequ
 		if errors.Is(err, ErrUsernameTaken) {
 			return api.CreateUser409JSONResponse(errorMsgResponse("User with that username already exists")), nil
 		}
-		if errors.Is(err, ErrInvalidDisplayName) || errors.Is(err, ErrInvalidUsername) {
+		if errors.Is(err, ErrEmailTaken) {
+			return api.CreateUser409JSONResponse(errorMsgResponse("User with that email already exists")), nil
+		}
+		if errors.Is(err, ErrInvalidDisplayName) || errors.Is(err, ErrInvalidUsername) || errors.Is(err, ErrInvalidPassword) {
 			return api.CreateUser400JSONResponse(errorMsgResponse("Invalid input")), nil
+		}
+		if errors.Is(err, ErrAdminCredentialsRequired) {
+			return api.CreateUser403Response{}, nil
 		}
 		return api.CreateUser500JSONResponse(errorMsgResponse("Failed to create user")), nil
 	}

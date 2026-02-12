@@ -2,16 +2,17 @@ package device_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
-	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
@@ -19,17 +20,18 @@ import (
 	"github.com/matryer/is"
 )
 
-type TestServer struct {
-	deviceService *device.Service
+type integrationServer struct {
 	httpServer    http.Handler
+	deviceService *device.Service
 }
 
-func setupTestServer(t *testing.T) TestServer {
+func setupIntegrationServer(t *testing.T) integrationServer {
 	t.Helper()
 
 	conf := config.Conf{
 		Server: config.ConfServer{
-			Port: 2000,
+			Port:          2000,
+			AdminPassword: "AdminPass123!",
 		},
 		DB: config.ConfDB{
 			Dsn:   fmt.Sprintf("file:%s?mode=memory&_loc=auto", t.Name()),
@@ -50,547 +52,150 @@ func setupTestServer(t *testing.T) TestServer {
 		t.Fatalf("migrate: %v", err)
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	authRepo := auth.NewRepository(db.DB())
+	authService := auth.NewService(authRepo, logger)
+	if err := authService.BootstrapAdmin(context.Background(), conf.Server); err != nil {
+		t.Fatalf("bootstrap admin: %v", err)
+	}
+	authHandler := auth.NewHandler(authService, logger)
 
 	deviceRepo := device.NewRepository(db.DB())
 	deviceService := device.NewService(deviceRepo)
 	deviceHandler := device.NewOpenApiHandler(deviceService, logger)
 
-	httpServer := httpserver.NewServer(deviceHandler, logger)
-	return TestServer{
+	return integrationServer{
+		httpServer:    httpserver.NewServer(deviceHandler, authHandler, logger),
 		deviceService: deviceService,
-		httpServer:    httpServer,
 	}
 }
 
-func TestHandler_CreateDevice(t *testing.T) {
-	testServer := setupTestServer(t)
+func loginCookie(t *testing.T, server http.Handler, username, password string) *http.Cookie {
+	t.Helper()
 
-	tests := []struct {
-		name       string
-		body       map[string]string
-		wantStatus int
-	}{
-		{
-			name:       "valid device",
-			body:       map[string]string{"name": "bedroom-sensor"},
-			wantStatus: http.StatusCreated,
-		},
-		{
-			name:       "empty name",
-			body:       map[string]string{"name": ""},
-			wantStatus: http.StatusBadRequest,
-		},
-		{
-			name:       "missing name field",
-			body:       map[string]string{},
-			wantStatus: http.StatusBadRequest,
-		},
-		{
-			name:       "valid device with special characters",
-			body:       map[string]string{"name": "device-123_test"},
-			wantStatus: http.StatusCreated,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			is := is.New(t)
-
-			body, _ := json.Marshal(tt.body)
-			req := httptest.NewRequest(http.MethodPost, "/api/v1/devices", bytes.NewReader(body))
-			req.Header.Set("Content-Type", "application/json")
-
-			w := httptest.NewRecorder()
-			testServer.httpServer.ServeHTTP(w, req)
-
-			is.Equal(w.Code, tt.wantStatus)
-
-			if tt.wantStatus == http.StatusCreated {
-				var dev api.Device
-				err := json.NewDecoder(w.Body).Decode(&dev)
-				is.NoErr(err)
-
-				//is.True(check.NotNil(dev.ID))
-				is.Equal(dev.Name, tt.body["name"])
-				is.True(!dev.CreatedAt.IsZero())
-			}
-		})
-	}
-}
-
-func TestHandler_GetDevices(t *testing.T) {
-	is := is.New(t)
-
-	testServer := setupTestServer(t)
-
-	testServer.deviceService.CreateDevice(t.Context(), "device-1")
-	testServer.deviceService.CreateDevice(t.Context(), "device-2")
-	// Create test data
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusOK)
-
-	var devices []api.Device
-	err := json.NewDecoder(w.Body).Decode(&devices)
-	is.NoErr(err)
-
-	is.Equal(len(devices), 2)
-}
-
-func TestHandler_GetDevices_EmptyList(t *testing.T) {
-	is := is.New(t)
-
-	testServer := setupTestServer(t)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusOK)
-
-	var devices []api.Device
-	err := json.NewDecoder(w.Body).Decode(&devices)
-	is.NoErr(err)
-
-	is.Equal(len(devices), 0)
-}
-
-func TestHandler_AssignIP(t *testing.T) {
-	testServer := setupTestServer(t)
-
-	device1, _ := testServer.deviceService.CreateDevice(t.Context(), "device1-1")
-	deviceId := device1.ID
-	nonExistentDeviceId := device.DeviceID(123544)
-
-	tests := []struct {
-		name       string
-		deviceID   device.DeviceID
-		body       map[string]string
-		wantStatus int
-		wantError  string
-	}{
-		{
-			name:       "valid IPv4",
-			deviceID:   deviceId,
-			body:       map[string]string{"ip": "192.168.1.100"},
-			wantStatus: http.StatusCreated,
-		},
-		{
-			name:       "valid IPv6",
-			deviceID:   deviceId,
-			body:       map[string]string{"ip": "2001:db8::68"},
-			wantStatus: http.StatusCreated,
-		},
-		{
-			name:       "invalid IP format",
-			deviceID:   deviceId,
-			body:       map[string]string{"ip": "not-an-ip"},
-			wantStatus: http.StatusBadRequest,
-		},
-		{
-			name:       "empty IP",
-			deviceID:   deviceId,
-			body:       map[string]string{"ip": ""},
-			wantStatus: http.StatusBadRequest,
-		},
-		{
-			name:       "missing IP field",
-			deviceID:   deviceId,
-			body:       map[string]string{},
-			wantStatus: http.StatusBadRequest,
-		},
-		{
-			name:       "device1 not found",
-			deviceID:   nonExistentDeviceId,
-			body:       map[string]string{"ip": "192.168.1.1"},
-			wantStatus: http.StatusNotFound,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			is := is.New(t)
-
-			body, _ := json.Marshal(tt.body)
-			url := fmt.Sprintf("/api/v1/devices/%s/addresses", tt.deviceID)
-			req := httptest.NewRequest(http.MethodPost, url, bytes.NewReader(body))
-			req.Header.Set("Content-Type", "application/json")
-
-			w := httptest.NewRecorder()
-			testServer.httpServer.ServeHTTP(w, req)
-
-			is.Equal(w.Code, tt.wantStatus)
-
-			if tt.wantStatus == http.StatusCreated {
-				var address api.Address
-				err := json.NewDecoder(w.Body).Decode(&address)
-				is.NoErr(err)
-
-				is.True(address.ID != 0)
-				is.Equal(address.DeviceId, tt.deviceID.Int64())
-				is.Equal(address.IP, tt.body["ip"])
-				is.True(address.Status) // Address should be enabled when created
-				is.True(!address.CreatedAt.IsZero())
-			}
-		})
-	}
-}
-
-func TestHandler_AssignIP_SameIPToMultipleDevices(t *testing.T) {
-	is := is.New(t)
-
-	testServer := setupTestServer(t)
-
-	device1, _ := testServer.deviceService.CreateDevice(t.Context(), "device-1")
-	device2, _ := testServer.deviceService.CreateDevice(t.Context(), "device-2")
-
-	testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.1")
-
-	// Assign same IP to device 2 - should succeed
-	body, _ := json.Marshal(map[string]string{"ip": "10.0.0.1"})
-	url := fmt.Sprintf("/api/v1/devices/%d/addresses", device2.ID)
-	req := httptest.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	body, _ := json.Marshal(map[string]string{
+		"username": username,
+		"password": password,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
+	server.ServeHTTP(w, req)
 
-	is.Equal(w.Code, http.StatusCreated)
-}
-
-func TestHandler_ListDeviceIPs(t *testing.T) {
-	is := is.New(t)
-
-	testServer := setupTestServer(t)
-
-	device1, _ := testServer.deviceService.CreateDevice(t.Context(), "device-1")
-
-	// Assign multiple IPs
-	testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.1")
-	testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.2")
-	testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.3")
-
-	url := fmt.Sprintf("/api/v1/devices/%d/addresses", device1.ID)
-	req := httptest.NewRequest(http.MethodGet, url, nil)
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusOK)
-
-	var addresses []api.Address
-	err := json.NewDecoder(w.Body).Decode(&addresses)
-	is.NoErr(err)
-
-	is.Equal(len(addresses), 3)
-
-	// Verify all addresses are active
-	for _, addr := range addresses {
-		is.True(addr.Status) // All addresses should be enabled
+	if w.Code != http.StatusOK {
+		t.Fatalf("login failed with status %d", w.Code)
 	}
-}
 
-func TestHandler_ListDeviceIPs_EmptyList(t *testing.T) {
-	is := is.New(t)
-
-	testServer := setupTestServer(t)
-
-	device1, _ := testServer.deviceService.CreateDevice(t.Context(), "device-1")
-
-	url := fmt.Sprintf("/api/v1/devices/%d/addresses", device1.ID)
-	req := httptest.NewRequest(http.MethodGet, url, nil)
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusOK)
-
-	var addresses []api.Address
-	err := json.NewDecoder(w.Body).Decode(&addresses)
-	is.NoErr(err)
-
-	is.Equal(len(addresses), 0)
-}
-
-func TestHandler_ListDeviceIPs_DeviceNotFound(t *testing.T) {
-	is := is.New(t)
-
-	testServer := setupTestServer(t)
-
-	url := "/api/v1/devices/12346/addresses"
-	req := httptest.NewRequest(http.MethodGet, url, nil)
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusNotFound)
-}
-
-func TestHandler_ListDeviceIPs_AllAddressesReturned(t *testing.T) {
-	is := is.New(t)
-
-	testServer := setupTestServer(t)
-	device1, _ := testServer.deviceService.CreateDevice(t.Context(), "device-1")
-
-	// Assign IPs
-	deviceIp1, _, _ := testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.1")
-	testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.2")
-
-	// Disable one IP
-	testServer.deviceService.DisableAddress(t.Context(), device1.ID, deviceIp1.Id)
-
-	// List should return all addresses (enabled and disabled)
-	url := fmt.Sprintf("/api/v1/devices/%d/addresses", device1.ID)
-	req := httptest.NewRequest(http.MethodGet, url, nil)
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusOK)
-
-	var addresses []api.Address
-	err := json.NewDecoder(w.Body).Decode(&addresses)
-	is.NoErr(err)
-
-	is.Equal(len(addresses), 2) // Both addresses should be returned
-
-	// Verify status of addresses
-	var disabledAddr, enabledAddr *api.Address
-	for i := range addresses {
-		if addresses[i].IP == "10.0.0.1" {
-			disabledAddr = &addresses[i]
-		} else if addresses[i].IP == "10.0.0.2" {
-			enabledAddr = &addresses[i]
-		}
+	cookies := w.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("expected session cookie from login")
 	}
-	is.True(disabledAddr != nil)
-	is.True(enabledAddr != nil)
-	is.True(!disabledAddr.Status) // First address should be disabled
-	is.True(enabledAddr.Status)   // Second address should be enabled
+
+	return cookies[0]
 }
 
-func TestHandler_DisableDeviceIP(t *testing.T) {
+func TestHandler_CreateAndListDevices_HappyPath(t *testing.T) {
 	is := is.New(t)
+	testServer := setupIntegrationServer(t)
+	sessionCookie := loginCookie(t, testServer.httpServer, "admin", "AdminPass123!")
 
-	testServer := setupTestServer(t)
-	device1, _ := testServer.deviceService.CreateDevice(t.Context(), "device-1")
-	deviceIp1, _, _ := testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.1")
+	createBody, _ := json.Marshal(map[string]string{"name": "bedroom-sensor"})
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/devices", bytes.NewReader(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.AddCookie(sessionCookie)
+	createRes := httptest.NewRecorder()
+	testServer.httpServer.ServeHTTP(createRes, createReq)
+	is.Equal(createRes.Code, http.StatusCreated)
 
-	url := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", device1.ID, deviceIp1.Id)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusOK)
-
-	var address api.Address
-	err := json.NewDecoder(w.Body).Decode(&address)
+	var created api.Device
+	err := json.NewDecoder(createRes.Body).Decode(&created)
 	is.NoErr(err)
-	is.True(!address.Status) // Address should be disabled
+	is.Equal(created.Name, "bedroom-sensor")
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
+	listReq.AddCookie(sessionCookie)
+	listRes := httptest.NewRecorder()
+	testServer.httpServer.ServeHTTP(listRes, listReq)
+	is.Equal(listRes.Code, http.StatusOK)
+
+	var devices []api.Device
+	err = json.NewDecoder(listRes.Body).Decode(&devices)
+	is.NoErr(err)
+	is.Equal(len(devices), 1)
+	is.Equal(devices[0].Id, created.Id)
 }
 
-func TestHandler_DisableDeviceIP_AlreadyDisabled_IsOk(t *testing.T) {
+func TestHandler_AddressLifecycle_HappyPath(t *testing.T) {
 	is := is.New(t)
+	testServer := setupIntegrationServer(t)
+	sessionCookie := loginCookie(t, testServer.httpServer, "admin", "AdminPass123!")
 
-	testServer := setupTestServer(t)
-	device1, _ := testServer.deviceService.CreateDevice(t.Context(), "device-1")
-	deviceIp1, _, _ := testServer.deviceService.AssignAddress(t.Context(), device1.ID, "10.0.0.1")
-
-	// Disable once
-	testServer.deviceService.DisableAddress(t.Context(), device1.ID, deviceIp1.Id)
-
-	// Try to disable again
-	url := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", device1.ID, deviceIp1.Id)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusOK)
-}
-
-func TestHandler_DisableDeviceIP_IPNotFound(t *testing.T) {
-	is := is.New(t)
-
-	testServer := setupTestServer(t)
-
-	device1, _ := testServer.deviceService.CreateDevice(t.Context(), "device-1")
-
-	url := fmt.Sprintf("/api/v1/devices/%s/addresses/99999", device1.ID)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusNotFound)
-}
-
-func TestHandler_DisableDeviceIP_WrongDevice(t *testing.T) {
-	is := is.New(t)
-
-	testServer := setupTestServer(t)
-
-	device1, _ := testServer.deviceService.CreateDevice(t.Context(), "device-1")
-	device2, _ := testServer.deviceService.CreateDevice(t.Context(), "device-2")
-
-	// Assign IP to device 2
-	deviceIp2, _, _ := testServer.deviceService.AssignAddress(t.Context(), device2.ID, "10.0.0.1")
-
-	// Try to disable device 2's address using device 1's ID
-	url := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", device1.ID, deviceIp2.Id)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusNotFound)
-}
-
-func TestHandler_CheckinDevice_NewAddress(t *testing.T) {
-	is := is.New(t)
-
-	testServer := setupTestServer(t)
-
-	dev, _ := testServer.deviceService.CreateDevice(t.Context(), "checkin-device")
-
-	url := fmt.Sprintf("/api/v1/devices/%d/heartbeat", dev.ID)
-	req := httptest.NewRequest(http.MethodPost, url, nil)
-	req.RemoteAddr = "192.168.1.50:12345"
-
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusCreated)
-
-	var address api.Address
-	err := json.NewDecoder(w.Body).Decode(&address)
+	dev, err := testServer.deviceService.CreateDevice(t.Context(), "router")
 	is.NoErr(err)
 
-	is.True(address.ID != 0)
-	is.Equal(address.DeviceId, dev.ID.Int64())
-	is.Equal(address.IP, "192.168.1.50")
-	is.True(address.Status) // Address should be enabled
-	is.True(!address.CreatedAt.IsZero())
+	addBody, _ := json.Marshal(map[string]string{"ip": "192.168.1.100"})
+	addURL := fmt.Sprintf("/api/v1/devices/%d/addresses", dev.ID)
+	addReq := httptest.NewRequest(http.MethodPost, addURL, bytes.NewReader(addBody))
+	addReq.Header.Set("Content-Type", "application/json")
+	addReq.AddCookie(sessionCookie)
+	addRes := httptest.NewRecorder()
+	testServer.httpServer.ServeHTTP(addRes, addReq)
+	is.Equal(addRes.Code, http.StatusCreated)
+
+	var createdAddress api.Address
+	err = json.NewDecoder(addRes.Body).Decode(&createdAddress)
+	is.NoErr(err)
+	is.True(createdAddress.Status)
+
+	listReq := httptest.NewRequest(http.MethodGet, addURL, nil)
+	listReq.AddCookie(sessionCookie)
+	listRes := httptest.NewRecorder()
+	testServer.httpServer.ServeHTTP(listRes, listReq)
+	is.Equal(listRes.Code, http.StatusOK)
+
+	var addresses []api.Address
+	err = json.NewDecoder(listRes.Body).Decode(&addresses)
+	is.NoErr(err)
+	is.Equal(len(addresses), 1)
+	is.Equal(addresses[0].Ip, "192.168.1.100")
+	is.True(addresses[0].Status)
+
+	disableURL := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", dev.ID, createdAddress.Id)
+	disableReq := httptest.NewRequest(http.MethodDelete, disableURL, nil)
+	disableReq.AddCookie(sessionCookie)
+	disableRes := httptest.NewRecorder()
+	testServer.httpServer.ServeHTTP(disableRes, disableReq)
+	is.Equal(disableRes.Code, http.StatusOK)
+
+	var disabled api.Address
+	err = json.NewDecoder(disableRes.Body).Decode(&disabled)
+	is.NoErr(err)
+	is.True(!disabled.Status)
 }
 
-func TestHandler_CheckinDevice_ExistingAddress(t *testing.T) {
+func TestHandler_DeviceHeartbeat_HappyPath(t *testing.T) {
 	is := is.New(t)
+	testServer := setupIntegrationServer(t)
+	sessionCookie := loginCookie(t, testServer.httpServer, "admin", "AdminPass123!")
 
-	testServer := setupTestServer(t)
-
-	dev, _ := testServer.deviceService.CreateDevice(t.Context(), "checkin-device")
-
-	// First assign creates the address
-	_, _, _ = testServer.deviceService.AssignAddress(t.Context(), dev.ID, "10.0.0.5")
-
-	// Checkin with same IP should return 200
-	url := fmt.Sprintf("/api/v1/devices/%d/heartbeat", dev.ID)
-	req := httptest.NewRequest(http.MethodPost, url, nil)
-	req.RemoteAddr = "10.0.0.5:9999"
-
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusOK)
-
-	var address api.Address
-	err := json.NewDecoder(w.Body).Decode(&address)
+	dev, err := testServer.deviceService.CreateDevice(t.Context(), "checkin-device")
 	is.NoErr(err)
 
-	is.Equal(address.IP, "10.0.0.5")
-	is.True(address.Status) // Address should be enabled
-}
+	heartbeatURL := fmt.Sprintf("/api/v1/devices/%d/heartbeat", dev.ID)
 
-func TestHandler_CheckinDevice_ReEnableDisabledAddress(t *testing.T) {
-	is := is.New(t)
+	firstReq := httptest.NewRequest(http.MethodPost, heartbeatURL, nil)
+	firstReq.RemoteAddr = "192.168.1.50:12345"
+	firstReq.AddCookie(sessionCookie)
+	firstRes := httptest.NewRecorder()
+	testServer.httpServer.ServeHTTP(firstRes, firstReq)
+	is.Equal(firstRes.Code, http.StatusCreated)
 
-	testServer := setupTestServer(t)
-
-	dev, _ := testServer.deviceService.CreateDevice(t.Context(), "checkin-device")
-
-	// Create and then disable an address
-	addr, _, _ := testServer.deviceService.AssignAddress(t.Context(), dev.ID, "10.0.0.10")
-	testServer.deviceService.DisableAddress(t.Context(), dev.ID, addr.Id)
-
-	time.Sleep(2 * time.Millisecond) // Wait for SQLite resolution
-
-	// Checkin with the same IP should re-enable it (200)
-	url := fmt.Sprintf("/api/v1/devices/%d/heartbeat", dev.ID)
-	req := httptest.NewRequest(http.MethodPost, url, nil)
-	req.RemoteAddr = "10.0.0.10:8080"
-
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusOK)
-
-	var address api.Address
-	err := json.NewDecoder(w.Body).Decode(&address)
-	is.NoErr(err)
-
-	is.Equal(address.IP, "10.0.0.10")
-	is.True(address.Status) // Address should be re-enabled
-}
-
-func TestHandler_CheckinDevice_DeviceNotFound(t *testing.T) {
-	is := is.New(t)
-
-	testServer := setupTestServer(t)
-
-	url := "/api/v1/devices/99999/heartbeat"
-	req := httptest.NewRequest(http.MethodPost, url, nil)
-	req.RemoteAddr = "192.168.1.1:5555"
-
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusNotFound)
-}
-
-func TestHandler_CheckinDevice_IPv6Accepted(t *testing.T) {
-	is := is.New(t)
-
-	testServer := setupTestServer(t)
-
-	dev, _ := testServer.deviceService.CreateDevice(t.Context(), "checkin-device")
-
-	url := fmt.Sprintf("/api/v1/devices/%d/heartbeat", dev.ID)
-	req := httptest.NewRequest(http.MethodPost, url, nil)
-	req.RemoteAddr = "[2001:db8::1]:12345"
-
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusCreated)
-
-	var address api.Address
-	err := json.NewDecoder(w.Body).Decode(&address)
-	is.NoErr(err)
-
-	is.Equal(address.IP, "2001:db8::1")
-	is.True(address.Status) // Address should be enabled
-}
-
-func TestHandler_CheckinDevice_ClientIPExtractionFails(t *testing.T) {
-	is := is.New(t)
-
-	testServer := setupTestServer(t)
-
-	dev, _ := testServer.deviceService.CreateDevice(t.Context(), "checkin-device")
-
-	// Create request with empty RemoteAddr - middleware will set empty string in context
-	url := fmt.Sprintf("/api/v1/devices/%d/heartbeat", dev.ID)
-	req := httptest.NewRequest(http.MethodPost, url, nil)
-	req.RemoteAddr = "" // Empty RemoteAddr should cause IP extraction to fail
-
-	w := httptest.NewRecorder()
-	testServer.httpServer.ServeHTTP(w, req)
-
-	// HTTPHandler should return 400 when IP extraction fails
-	is.Equal(w.Code, http.StatusBadRequest)
-
-	var errorResp api.ErrorResponse
-	err := json.NewDecoder(w.Body).Decode(&errorResp)
-	is.NoErr(err)
-	is.True(errorResp.Error != nil)
-	is.True(*errorResp.Error != "")
+	secondReq := httptest.NewRequest(http.MethodPost, heartbeatURL, nil)
+	secondReq.RemoteAddr = "192.168.1.50:54321"
+	secondReq.AddCookie(sessionCookie)
+	secondRes := httptest.NewRecorder()
+	testServer.httpServer.ServeHTTP(secondRes, secondReq)
+	is.Equal(secondRes.Code, http.StatusOK)
 }

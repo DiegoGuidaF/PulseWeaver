@@ -38,7 +38,7 @@ paths:
         "403":
           description: Forbidden - Only admins can create users
         "409":
-          description: Email already registered
+          description: Username or email already registered
           content:
             application/json:
               schema:

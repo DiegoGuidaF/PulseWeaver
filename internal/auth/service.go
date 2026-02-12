@@ -20,6 +20,7 @@ type Repository interface {
 	CreateUser(ctx context.Context, user *User) (*User, error)
 	GetSessionWithRoleByTokenHash(ctx context.Context, tokenHash string) (*SessionWithUser, error)
 	RevokeSessionById(ctx context.Context, id SessionID) error
+	RunInTx(ctx context.Context, fn func(Repository) error) error
 }
 type Service struct {
 	repo   Repository
@@ -31,23 +32,34 @@ func NewService(repo Repository, logger *slog.Logger) *Service {
 }
 
 func (s *Service) Login(ctx context.Context, username string, password string) (string, *User, error) {
-	user, err := s.repo.GetUserByUsername(ctx, username)
-	if err != nil {
-		return "", nil, err
-	}
+	var rawToken string
+	var user *User
 
-	if !s.checkPassword(user.PasswordHash, password) {
-		return "", nil, ErrInvalidCredentials
-	}
+	err := s.repo.RunInTx(ctx, func(tx Repository) error {
+		var err error
+		user, err = tx.GetUserByUsername(ctx, username)
+		if err != nil {
+			return err
+		}
 
-	rawToken, tokenHash, err := s.generateToken()
-	if err != nil {
-		return "", nil, err
-	}
+		if !checkPassword(user.PasswordHash, password) {
+			return ErrInvalidCredentials
+		}
 
-	session := NewSession(user.ID, tokenHash)
+		var tokenHash string
+		rawToken, tokenHash, err = generateToken()
+		if err != nil {
+			return err
+		}
 
-	_, err = s.repo.CreateSession(ctx, session)
+		session := NewSession(user.ID, tokenHash)
+		_, err = tx.CreateSession(ctx, session)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
 		return "", nil, err
 	}
@@ -60,12 +72,11 @@ func (s *Service) RevokeSession(ctx context.Context, sessionId SessionID) error 
 }
 
 func (s *Service) CreateUserByAdmin(ctx context.Context, username string, displayName string, email *string, password string, principal *Principal) (*User, error) {
-
 	if !principal.isAdmin() {
 		return nil, ErrAdminCredentialsRequired
 	}
 
-	return s.createUser(ctx, username, displayName, email, password, &principal.UserID, UserRole)
+	return s.createUser(s.repo, ctx, username, displayName, email, password, &principal.UserID, UserRole)
 }
 
 func (s *Service) Authenticate(ctx context.Context, rawToken string) (*Principal, error) {
@@ -81,71 +92,53 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (*Principal
 }
 
 func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) error {
-	count, err := s.repo.CountUsers(ctx)
-	if err != nil {
-		return err
-	}
-	if count > 0 {
-		return nil
-	}
-
+	var user *User
 	generated := false
 	username := "admin"
 	displayName := "Admin"
 	password := conf.AdminPassword
 
-	if password == "" {
-		var err error
-		password, err = generateSecurePassword(16)
+	err := s.repo.RunInTx(ctx, func(tx Repository) error {
+		count, err := tx.CountUsers(ctx)
 		if err != nil {
-			return fmt.Errorf("generate admin password: %w", err)
+			return err
 		}
-		generated = true
-	}
+		if count > 0 {
+			return nil
+		}
 
-	user, err := s.createUser(ctx, username, displayName, nil, password, nil, AdminRole)
+		if password == "" {
+			password, err = generateSecurePassword(16)
+			if err != nil {
+				return fmt.Errorf("generate admin password: %w", err)
+			}
+			generated = true
+		}
+
+		user, err = s.createUser(tx, ctx, username, displayName, nil, password, nil, AdminRole)
+		if err != nil {
+			return fmt.Errorf("failed to bootstrap admin: %w", err)
+		}
+
+		if generated {
+			s.logger.Warn("🚨 GENERATED ADMIN PASSWORD 🚨 - Store this securely and change it immediately",
+				"username", user.Username,
+				"password", password,
+			)
+		} else {
+			s.logger.Info("bootstrap admin created using password from ADMIN_PASSWORD env variable", "username", user.Username)
+		}
+
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("failed to bootstrap admin: %w", err)
+		return err
 	}
 
-	if generated {
-		s.logger.Warn("🚨 GENERATED ADMIN PASSWORD 🚨 - Store this securely and change it immediately",
-			"username", user.Username,
-			"password", password,
-		)
-	} else {
-		s.logger.Info("bootstrap admin created using password from ADMIN_PASSWORD env variable", "username", user.Username)
-	}
 	return nil
 }
 
-// generateToken Returns the rawToken (send to user), tokenHash (store in DB), error
-func (s *Service) generateToken() (string, string, error) {
-	b := make([]byte, 32)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", "", err
-	}
-	// URL-safe base64, no padding
-	rawToken := base64.RawURLEncoding.EncodeToString(b)
-
-	// Hash immediately for storage
-	tokenHash := hashRawToken(rawToken)
-
-	return rawToken, tokenHash, nil
-}
-
-func hashRawToken(rawToken string) string {
-	hash := sha256.Sum256([]byte(rawToken))
-	return base64.RawURLEncoding.EncodeToString(hash[:])
-}
-
-func (s *Service) checkPassword(hash []byte, password string) bool {
-	err := bcrypt.CompareHashAndPassword(hash, []byte(password))
-	return err == nil
-}
-
-func (s *Service) createUser(ctx context.Context, username string, displayName string, email *string, password string, createdBy *UserID, role Role) (*User, error) {
+func (s *Service) createUser(tx Repository, ctx context.Context, username string, displayName string, email *string, password string, createdBy *UserID, role Role) (*User, error) {
 	newUser, err := NewUser(
 		username,
 		displayName,
@@ -158,12 +151,12 @@ func (s *Service) createUser(ctx context.Context, username string, displayName s
 		return nil, err
 	}
 
-	user, err := s.repo.CreateUser(ctx, newUser)
+	user, err := tx.CreateUser(ctx, newUser)
 	if err != nil {
 		return nil, err
 	}
 
-	return user, err
+	return user, nil
 }
 
 func generateSecurePassword(length int) (string, error) {
@@ -177,4 +170,30 @@ func generateSecurePassword(length int) (string, error) {
 
 	// base64url (no padding) is safe for passwords, URLs, and filenames
 	return base64.RawURLEncoding.EncodeToString(b)[:length], nil
+}
+
+func hashRawToken(rawToken string) string {
+	hash := sha256.Sum256([]byte(rawToken))
+	return base64.RawURLEncoding.EncodeToString(hash[:])
+}
+
+func checkPassword(hash []byte, password string) bool {
+	err := bcrypt.CompareHashAndPassword(hash, []byte(password))
+	return err == nil
+}
+
+// generateToken Returns the rawToken (send to user), tokenHash (store in DB), error
+func generateToken() (string, string, error) {
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", "", err
+	}
+	// URL-safe base64, no padding
+	rawToken := base64.RawURLEncoding.EncodeToString(b)
+
+	// Hash immediately for storage
+	tokenHash := hashRawToken(rawToken)
+
+	return rawToken, tokenHash, nil
 }
