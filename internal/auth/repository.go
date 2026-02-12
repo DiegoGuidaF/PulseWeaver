@@ -23,7 +23,7 @@ type DBInterface interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
-func NewRepository(db *sqlx.DB) Repository {
+func NewRepository(db *sqlx.DB) UserRepository {
 	return &repository{
 		rootDB: db,
 		db:     db,
@@ -140,7 +140,7 @@ func (r *repository) RevokeSessionById(ctx context.Context, id SessionID) error 
 
 // RunInTx runs the callback function inside a transaction.
 // If already running in a transaction context, do not create a new one and reuse it
-func (r *repository) RunInTx(ctx context.Context, fn func(Repository) error) error {
+func (r *repository) RunInTx(ctx context.Context, fn func(UserRepository) error) error {
 	if r.rootDB == nil {
 		// We are already in a transaction. Do not nest it.
 		return fn(r)

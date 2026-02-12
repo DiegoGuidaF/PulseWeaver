@@ -10,7 +10,7 @@ import (
 	"github.com/matryer/is"
 )
 
-func setupAuthTestDB(t *testing.T) Repository {
+func setupAuthTestDB(t *testing.T) UserRepository {
 	t.Helper()
 
 	conf := config.ConfDB{

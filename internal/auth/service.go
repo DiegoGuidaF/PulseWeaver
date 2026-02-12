@@ -13,21 +13,21 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type Repository interface {
+type UserRepository interface {
 	CountUsers(ctx context.Context) (int, error)
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
 	CreateSession(ctx context.Context, session *Session) (*Session, error)
 	CreateUser(ctx context.Context, user *User) (*User, error)
 	GetSessionWithRoleByTokenHash(ctx context.Context, tokenHash string) (*SessionWithUser, error)
 	RevokeSessionById(ctx context.Context, id SessionID) error
-	RunInTx(ctx context.Context, fn func(Repository) error) error
+	RunInTx(ctx context.Context, fn func(UserRepository) error) error
 }
 type Service struct {
-	repo   Repository
+	repo   UserRepository
 	logger *slog.Logger
 }
 
-func NewService(repo Repository, logger *slog.Logger) *Service {
+func NewService(repo UserRepository, logger *slog.Logger) *Service {
 	return &Service{repo: repo, logger: logger}
 }
 
@@ -35,7 +35,7 @@ func (s *Service) Login(ctx context.Context, username string, password string) (
 	var rawToken string
 	var user *User
 
-	err := s.repo.RunInTx(ctx, func(tx Repository) error {
+	err := s.repo.RunInTx(ctx, func(tx UserRepository) error {
 		var err error
 		user, err = tx.GetUserByUsername(ctx, username)
 		if err != nil {
@@ -98,7 +98,7 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 	displayName := "Admin"
 	password := conf.AdminPassword
 
-	err := s.repo.RunInTx(ctx, func(tx Repository) error {
+	err := s.repo.RunInTx(ctx, func(tx UserRepository) error {
 		count, err := tx.CountUsers(ctx)
 		if err != nil {
 			return err
@@ -138,7 +138,7 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 	return nil
 }
 
-func (s *Service) createUser(tx Repository, ctx context.Context, username string, displayName string, email *string, password string, createdBy *UserID, role Role) (*User, error) {
+func (s *Service) createUser(tx UserRepository, ctx context.Context, username string, displayName string, email *string, password string, createdBy *UserID, role Role) (*User, error) {
 	newUser, err := NewUser(
 		username,
 		displayName,

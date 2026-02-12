@@ -10,7 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type Repository struct {
+type repository struct {
 	db     DBInterface
 	rootDB *sqlx.DB
 }
@@ -22,14 +22,14 @@ type DBInterface interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
-func NewRepository(db *sqlx.DB) *Repository {
-	return &Repository{
+func NewRepository(db *sqlx.DB) DeviceRepository {
+	return &repository{
 		rootDB: db,
 		db:     db,
 	}
 }
 
-func (r *Repository) GetDeviceByID(ctx context.Context, id DeviceID) (*Device, error) {
+func (r *repository) GetDeviceByID(ctx context.Context, id DeviceID) (*Device, error) {
 	device := &Device{}
 
 	query := `SELECT * FROM devices WHERE id = ?`
@@ -45,7 +45,7 @@ func (r *Repository) GetDeviceByID(ctx context.Context, id DeviceID) (*Device, e
 	return device, nil
 }
 
-func (r *Repository) CreateDevice(ctx context.Context, device *Device) (*Device, error) {
+func (r *repository) CreateDevice(ctx context.Context, device *Device) (*Device, error) {
 	query := `
 		INSERT INTO devices (name, created_at)
 		VALUES (?, ?) returning *
@@ -59,7 +59,7 @@ func (r *Repository) CreateDevice(ctx context.Context, device *Device) (*Device,
 	return device, nil
 }
 
-func (r *Repository) GetDevices(ctx context.Context) ([]Device, error) {
+func (r *repository) GetDevices(ctx context.Context) ([]Device, error) {
 	var devices []Device
 
 	query := `SELECT * FROM devices	ORDER BY created_at DESC`
@@ -75,7 +75,7 @@ func (r *Repository) GetDevices(ctx context.Context) ([]Device, error) {
 	return devices, nil
 }
 
-func (r *Repository) CreateAddress(ctx context.Context, address *Address) (*Address, error) {
+func (r *repository) CreateAddress(ctx context.Context, address *Address) (*Address, error) {
 	query := `
 		INSERT INTO addresses (device_id, ip, created_at)
 		VALUES (?, ?, ?) returning *
@@ -89,7 +89,7 @@ func (r *Repository) CreateAddress(ctx context.Context, address *Address) (*Addr
 	return address, nil
 }
 
-func (r *Repository) GetAddressByID(ctx context.Context, id AddressID) (*Address, error) {
+func (r *repository) GetAddressByID(ctx context.Context, id AddressID) (*Address, error) {
 	address := &Address{}
 
 	query := `SELECT * FROM addresses WHERE id = ?`
@@ -105,7 +105,7 @@ func (r *Repository) GetAddressByID(ctx context.Context, id AddressID) (*Address
 	return address, nil
 }
 
-func (r *Repository) GetAddressForDeviceByIp(ctx context.Context, deviceId DeviceID, ip string) (*AddressWithStatus, error) {
+func (r *repository) GetAddressForDeviceByIp(ctx context.Context, deviceId DeviceID, ip string) (*AddressWithStatus, error) {
 	address := &Address{}
 
 	query := `SELECT * FROM addresses WHERE device_id = ? and ip = ?`
@@ -121,7 +121,7 @@ func (r *Repository) GetAddressForDeviceByIp(ctx context.Context, deviceId Devic
 	return r.GetAddressWithStatus(ctx, address.ID)
 }
 
-func (r *Repository) ListAddresses(ctx context.Context, deviceId DeviceID) ([]AddressWithStatus, error) {
+func (r *repository) ListAddresses(ctx context.Context, deviceId DeviceID) ([]AddressWithStatus, error) {
 	var addresses []AddressWithStatus
 
 	query := `SELECT * FROM address_with_status WHERE device_id = ? ORDER BY updated_at DESC`
@@ -138,16 +138,16 @@ func (r *Repository) ListAddresses(ctx context.Context, deviceId DeviceID) ([]Ad
 	return addresses, nil
 }
 
-func (r *Repository) DisableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
+func (r *repository) DisableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
 	// Validate that the address belongs to the device
 	return r.setAddressStatus(ctx, addressId, false)
 }
 
-func (r *Repository) EnableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
+func (r *repository) EnableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
 	return r.setAddressStatus(ctx, addressId, true)
 }
 
-func (r *Repository) setAddressStatus(ctx context.Context, addressId AddressID, isEnabled bool) (*AddressWithStatus, error) {
+func (r *repository) setAddressStatus(ctx context.Context, addressId AddressID, isEnabled bool) (*AddressWithStatus, error) {
 	query := `
 		INSERT INTO address_status (address_id, status, created_at)
 		VALUES (?, ?, ?)
@@ -159,7 +159,7 @@ func (r *Repository) setAddressStatus(ctx context.Context, addressId AddressID, 
 	return r.GetAddressWithStatus(ctx, addressId)
 }
 
-func (r *Repository) CheckAddressOwnership(ctx context.Context, deviceId DeviceID, addressId AddressID) error {
+func (r *repository) CheckAddressOwnership(ctx context.Context, deviceId DeviceID, addressId AddressID) error {
 	var dummy int
 
 	query := `SELECT 1 FROM addresses WHERE id = ? AND device_id = ?`
@@ -174,7 +174,7 @@ func (r *Repository) CheckAddressOwnership(ctx context.Context, deviceId DeviceI
 	return nil
 }
 
-func (r *Repository) GetAddressWithStatus(ctx context.Context, id AddressID) (*AddressWithStatus, error) {
+func (r *repository) GetAddressWithStatus(ctx context.Context, id AddressID) (*AddressWithStatus, error) {
 	addresswStatus := &AddressWithStatus{}
 
 	query := `SELECT * FROM address_with_status WHERE id = ?`
@@ -193,7 +193,7 @@ func (r *Repository) GetAddressWithStatus(ctx context.Context, id AddressID) (*A
 
 // RunInTx runs the callback function inside a transaction.
 // If already running in a transaction context, do not create a new one and reuse it
-func (r *Repository) RunInTx(ctx context.Context, fn func(DeviceRepository) error) error {
+func (r *repository) RunInTx(ctx context.Context, fn func(DeviceRepository) error) error {
 	if r.rootDB == nil {
 		// We are already in a transaction. Do not nest it.
 		return fn(r)
@@ -210,7 +210,7 @@ func (r *Repository) RunInTx(ctx context.Context, fn func(DeviceRepository) erro
 
 	// Create a COPY of the repository
 	// We replace 'db' with the transaction 'tx' and set the rootDB to nil so that it is not reused
-	txRepo := &Repository{
+	txRepo := &repository{
 		rootDB: nil, // Prevent nested transactions
 		db:     tx,  // All queries using txRepo.dbtmp will now use this transaction
 	}

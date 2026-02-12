@@ -10,7 +10,7 @@ import (
 	"github.com/matryer/is"
 )
 
-func setupTestDB(t *testing.T) *Repository {
+func setupTestDB(t *testing.T) DeviceRepository {
 	t.Helper()
 
 	conf := config.ConfDB{
@@ -34,7 +34,7 @@ func setupTestDB(t *testing.T) *Repository {
 	return NewRepository(db.DB())
 }
 
-func createTestDevice(t *testing.T, repo *Repository, ctx context.Context, name string) *Device {
+func createTestDevice(t *testing.T, repo DeviceRepository, ctx context.Context, name string) *Device {
 	t.Helper()
 
 	device, err := repo.CreateDevice(ctx, NewDevice(name))
