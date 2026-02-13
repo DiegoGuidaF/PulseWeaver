@@ -23,6 +23,12 @@ export function useCurrentUser() {
       }
     },
     retry: false,
+    // Session validation: refetch when user returns to tab
+    refetchOnWindowFocus: true,
+    // Consider session valid for 5 minutes
+    staleTime: 5 * 60 * 1000,
+    // Always check on mount (explicit, though it's default)
+    refetchOnMount: true,
   });
 
   return {

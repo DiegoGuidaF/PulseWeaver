@@ -1,7 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import {
-  MutationCache,
   QueryCache,
   QueryClient,
   QueryClientProvider,
@@ -33,18 +32,14 @@ const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
       // Don't redirect for /auth/me queries - 401 is expected when not logged in
+      // Let useCurrentUser handle 401 gracefully (returns null)
+      // ProtectedRoute will handle redirect based on isAuthenticated
       const currentUserKey = getCurrentUserQueryKey();
       const isAuthMeQuery =
         Array.isArray(query.queryKey) &&
         JSON.stringify(query.queryKey) === JSON.stringify(currentUserKey);
+      // Only handle 401 for non-auth queries
       handle401Error(error, isAuthMeQuery);
-    },
-  }),
-  mutationCache: new MutationCache({
-    onError: (error) => {
-      // Handle 401 errors from mutations (but not logout/login mutations)
-      // We check the mutation key if available, but for now handle all 401s
-      handle401Error(error, false);
     },
   }),
 });

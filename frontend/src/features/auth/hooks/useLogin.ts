@@ -13,8 +13,10 @@ export function useLogin() {
 
   return useMutation({
     ...loginMutation(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getCurrentUserQueryKey() });
+    onSuccess: async () => {
+      // Invalidate and wait for auth state to update before navigating
+      // This ensures ProtectedRoute sees the updated auth state immediately
+      await queryClient.invalidateQueries({ queryKey: getCurrentUserQueryKey() });
       const params = new URLSearchParams(window.location.search);
       const returnTo = params.get("returnTo") || "/devices";
       navigate(returnTo);
