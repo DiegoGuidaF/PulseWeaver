@@ -51,10 +51,13 @@ export function DeviceAddressesDialog({
     onSuccess: () => form.reset(),
   });
 
-  const disableAddressMutation = useDisableDeviceAddress(deviceId);
+  const disableAddressMutation = useDisableDeviceAddress();
 
   function onSubmit(values: z.infer<typeof addressSchema>) {
-    addAddressMutation.mutate(values.ip);
+    addAddressMutation.mutate({
+      path: { device_id: deviceId },
+      body: { ip: values.ip },
+    });
   }
 
   return (
@@ -129,7 +132,12 @@ export function DeviceAddressesDialog({
                         variant="destructive"
                         size="sm"
                         onClick={() =>
-                          disableAddressMutation.mutate(address.id)
+                          disableAddressMutation.mutate({
+                            path: {
+                              device_id: deviceId,
+                              address_id: address.id,
+                            },
+                          })
                         }
                         disabled={disableAddressMutation.isPending}
                       >

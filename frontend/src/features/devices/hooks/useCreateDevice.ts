@@ -1,29 +1,18 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createDevice } from "@/lib/api";
-import { queryKeys, toApiError, toErrorMessage } from "@/lib/api-client";
+import {
+  createDeviceMutation,
+  getDevicesQueryKey,
+} from "@/lib/api/@tanstack/react-query.gen";
+import { toErrorMessage } from "@/lib/api-client";
 import { toast } from "sonner";
-import type { CreateDeviceRequest, Device } from "@/lib/api";
 
 export function useCreateDevice(options?: { onSuccess?: () => void }) {
   const queryClient = useQueryClient();
 
-  return useMutation<Device, Error, CreateDeviceRequest>({
-    mutationFn: async (values: CreateDeviceRequest) => {
-      try {
-        const response = await createDevice({
-          body: values,
-          throwOnError: false,
-        });
-        if (response.error) {
-          throw toApiError(response.error);
-        }
-        return response.data;
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
+  return useMutation({
+    ...createDeviceMutation(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.devices.all });
+      queryClient.invalidateQueries({ queryKey: getDevicesQueryKey() });
       toast.success("Device created", {
         description: "The new device has been added successfully.",
       });

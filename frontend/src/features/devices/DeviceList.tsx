@@ -11,12 +11,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { DeviceAddressesDialog } from "@/features/devices/DeviceAddressesDialog";
 import { useDevices } from "@/features/devices/hooks/useDevices";
+import { toErrorMessage } from "@/lib/api-client";
 
 export function DeviceList() {
   const { data: devices, isLoading, error } = useDevices();
 
   if (error)
-    return <div className="p-4 text-red-500">Error: {error.message}</div>;
+    return (
+      <div className="p-4 text-red-500">Error: {toErrorMessage(error)}</div>
+    );
 
   if (isLoading) {
     return (

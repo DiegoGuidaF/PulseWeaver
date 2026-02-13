@@ -31,7 +31,7 @@ export function LoginPage() {
   });
 
   function onSubmit(values: z.infer<typeof loginSchema>) {
-    loginMutation.mutate(values);
+    loginMutation.mutate({ body: values });
   }
 
   if (isLoading) {

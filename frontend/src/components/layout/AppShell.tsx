@@ -62,7 +62,7 @@ function Sidebar({ className }: SidebarProps) {
           <Button
             variant="ghost"
             className="w-full justify-start text-red-500 hover:bg-red-500/10 hover:text-red-600"
-            onClick={() => logoutMutation.mutate()}
+            onClick={() => logoutMutation.mutate({})}
             disabled={logoutMutation.isPending}
           >
             <LogOut className="mr-2 h-4 w-4" />

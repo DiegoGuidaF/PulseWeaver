@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import App from "./App";
-import { queryKeys } from "@/lib/api-client";
+import { getCurrentUserQueryKey } from "@/lib/api/@tanstack/react-query.gen";
 import "./lib/api-client/config"; // Initialize API client configuration
 import "./index.css";
 
@@ -33,9 +33,10 @@ const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
       // Don't redirect for /auth/me queries - 401 is expected when not logged in
+      const currentUserKey = getCurrentUserQueryKey();
       const isAuthMeQuery =
-        query.queryKey[0] === queryKeys.auth.currentUser[0] &&
-        query.queryKey[1] === queryKeys.auth.currentUser[1];
+        Array.isArray(query.queryKey) &&
+        JSON.stringify(query.queryKey) === JSON.stringify(currentUserKey);
       handle401Error(error, isAuthMeQuery);
     },
   }),

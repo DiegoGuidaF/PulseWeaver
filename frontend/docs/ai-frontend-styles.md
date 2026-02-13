@@ -40,72 +40,50 @@
 ## API Interaction
 
 - **Generation:** Run `npm run generate:api` after backend changes.
+- **heyapi + React Query:** Query and mutation options and query keys are generated in `@/lib/api/@tanstack/react-query.gen`. Use `useQuery(getXxxOptions(...))` and `useMutation({ ...xxxMutation(), onSuccess, onError })`; pass full options to `mutate()` (e.g. `mutate({ body: values })`).
 - **Usage:**
   ```typescript
-  // Good
-  const { data } = useQuery({
-      queryKey: ['devices'],
-      queryFn: async () => {
-          const { data, error } = await api.GET('/devices');
-          if (error) throw new Error(toErrorMessage(error));
-          return data;
-      }
-  });
+  // Good: use generated options
+  import { getDevicesOptions } from '@/lib/api/@tanstack/react-query.gen';
+
+  const { data } = useQuery(getDevicesOptions());
   ```
 
-## Query Keys Pattern
+## Query Keys & Invalidation
 
-- **Factory Pattern:** Use a centralized `queryKeys` object with factory functions for type-safe, consistent query keys.
-- **Location:** `@/lib/api/queryKeys.ts`
-- **Structure:** Group by feature domain, use factory functions for parameterized keys.
+- **Generated keys:** For OpenAPI-defined endpoints, use query keys from `@/lib/api/@tanstack/react-query.gen`: `getDevicesQueryKey()`, `getDeviceAddressesQueryKey({ path: { device_id } })`, `getCurrentUserQueryKey()`, etc.
+- **Custom keys:** Only in `@/lib/api-client/queryKeys.ts` for endpoints not yet in the generated React Query layer.
 - **Example:**
   ```typescript
-  export const queryKeys = {
-    devices: {
-      all: ["devices"] as const,
-      detail: (id: number) => ["devices", id] as const,
-      addresses: (deviceId: number) => ["device-addresses", deviceId] as const,
-    },
-  };
-  
-  // Usage in hooks
-  const { data } = useQuery({
-    queryKey: queryKeys.devices.all,
-    queryFn: async () => { /* ... */ }
-  });
+  import { getDevicesQueryKey } from '@/lib/api/@tanstack/react-query.gen';
+
+  queryClient.invalidateQueries({ queryKey: getDevicesQueryKey() });
   ```
-- **Benefits:** Type safety, refactoring safety, consistent key structure, easy invalidation.
 
 ## Mutations & Cache Invalidation
 
-- **Pattern:** Use `useMutation` with `onSuccess` to invalidate related queries.
-- **Error Handling:** Always show Sonner toast for errors (`onError`).
+- **Pattern:** Use generated mutation options: `useMutation({ ...createDeviceMutation(), onSuccess, onError })`. Do not define custom `mutationFn` for HTTP.
+- **Error Handling:** Always show Sonner toast for errors (`onError` with `toErrorMessage(err)`).
 - **Success Feedback:** Show success toast for user actions.
 - **Example:**
   ```typescript
+  import { createDeviceMutation, getDevicesQueryKey } from '@/lib/api/@tanstack/react-query.gen';
+  import { toErrorMessage } from '@/lib/api-client';
+
   export function useCreateDevice(options?: { onSuccess?: () => void }) {
     const queryClient = useQueryClient();
-    
     return useMutation({
-      mutationFn: async (values: { name: string }) => {
-        const { data, error } = await api.POST("/devices", { body: values });
-        if (error) throw new Error(toErrorMessage(error));
-        return data;
-      },
+      ...createDeviceMutation(),
       onSuccess: () => {
-        // Invalidate the list query to refetch
-        queryClient.invalidateQueries({ queryKey: queryKeys.devices.all });
-        toast.success("Device created", {
-          description: "The new device has been added successfully.",
-        });
+        queryClient.invalidateQueries({ queryKey: getDevicesQueryKey() });
+        toast.success("Device created", { description: "The new device has been added successfully." });
         options?.onSuccess?.();
       },
       onError: (err) => {
-        toast.error("Error creating device", {
-          description: err.message,
-        });
+        toast.error("Error creating device", { description: toErrorMessage(err) });
       },
     });
   }
+  // Call site: mutation.mutate({ body: values });
   ```
-- **Invalidation Strategy:** Invalidate the most specific query key that needs refreshing. For list mutations, invalidate the list key. For detail mutations, invalidate both detail and list keys if needed.
+- **Invalidation Strategy:** Invalidate the most specific query key that needs refreshing (use generated keys). For list mutations, invalidate the list key. For detail mutations, invalidate both detail and list keys if needed.

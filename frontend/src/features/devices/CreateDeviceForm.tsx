@@ -27,7 +27,7 @@ export function CreateDeviceForm() {
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    mutation.mutate(values);
+    mutation.mutate({ body: values });
   }
 
   return (
