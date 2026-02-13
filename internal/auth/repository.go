@@ -183,8 +183,7 @@ func (r *repository) RunInTx(ctx context.Context, fn func(UserRepository) error)
 }
 
 func mapUserCreationUniqueConstraintError(err error) (error, bool) {
-	var sqliteErr sqlite3.Error
-	if errors.As(err, &sqliteErr) {
+	if sqliteErr, ok := errors.AsType[sqlite3.Error](err); ok {
 		if errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
 			message := strings.ToLower(sqliteErr.Error())
 			switch {

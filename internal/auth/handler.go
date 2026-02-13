@@ -76,8 +76,7 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request api.CreateUserRequ
 	// Email is inside an openapi validator, we need to turn it into a valid string or nil
 	var email *string
 	if request.Body.Email != nil {
-		s := string(*request.Body.Email)
-		email = &s
+		email = new(string(*request.Body.Email))
 	}
 	user, err := h.service.CreateUserByAdmin(
 		ctx,
@@ -126,8 +125,7 @@ func toUserResponse(d *User) api.User {
 	var email *openapi_types.Email
 
 	if d.Email != nil { // Check if email exists
-		e := openapi_types.Email(*d.Email)
-		email = &e
+		email = new(openapi_types.Email(*d.Email))
 	}
 
 	return api.User{
