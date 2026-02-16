@@ -18,6 +18,11 @@ func NewDevice(name string) *Device {
 	}
 }
 
+type DeviceWithApiKeyPrefix struct {
+	Device
+	KeyPrefix string `db:"key_prefix"`
+}
+
 type DeviceID int64
 
 func (id DeviceID) Int64() int64 {

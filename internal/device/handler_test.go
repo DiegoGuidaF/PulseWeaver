@@ -26,10 +26,12 @@ func TestHandler_CreateAndListDevices_HappyPath(t *testing.T) {
 	testServer.HTTPServer.ServeHTTP(createRes, createReq)
 	is.Equal(createRes.Code, http.StatusCreated)
 
-	var created api.Device
-	err := json.NewDecoder(createRes.Body).Decode(&created)
+	var createResp api.CreateDeviceResponse
+	err := json.NewDecoder(createRes.Body).Decode(&createResp)
 	is.NoErr(err)
-	is.Equal(created.Name, "bedroom-sensor")
+	is.Equal(createResp.Device.Name, "bedroom-sensor")
+	is.True(createResp.ApiKey != "")
+	is.True(len(createResp.ApiKey) > 4) // wdk_...
 
 	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
 	listReq.AddCookie(sessionCookie)
@@ -41,7 +43,8 @@ func TestHandler_CreateAndListDevices_HappyPath(t *testing.T) {
 	err = json.NewDecoder(listRes.Body).Decode(&devices)
 	is.NoErr(err)
 	is.Equal(len(devices), 1)
-	is.Equal(devices[0].Id, created.Id)
+	is.Equal(devices[0].Id, createResp.Device.Id)
+	is.True(devices[0].ApiKeyPrefix != "")
 }
 
 func TestHandler_AddressLifecycle_HappyPath(t *testing.T) {
@@ -49,7 +52,7 @@ func TestHandler_AddressLifecycle_HappyPath(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, err := testServer.DeviceService.CreateDevice(t.Context(), "router")
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "router")
 	is.NoErr(err)
 
 	addBody, _ := json.Marshal(map[string]string{"ip": "192.168.1.100"})
@@ -97,7 +100,7 @@ func TestHandler_DeviceHeartbeat_HappyPath(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, err := testServer.DeviceService.CreateDevice(t.Context(), "checkin-device")
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "checkin-device")
 	is.NoErr(err)
 
 	heartbeatURL := fmt.Sprintf("/api/v1/devices/%d/heartbeat", dev.ID)
@@ -115,4 +118,119 @@ func TestHandler_DeviceHeartbeat_HappyPath(t *testing.T) {
 	secondRes := httptest.NewRecorder()
 	testServer.HTTPServer.ServeHTTP(secondRes, secondReq)
 	is.Equal(secondRes.Code, http.StatusOK)
+}
+
+func TestHandler_CreateDevice_ReturnsCreateDeviceResponse(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	createBody, _ := json.Marshal(map[string]string{"name": "sensor-1"})
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/devices", bytes.NewReader(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.AddCookie(sessionCookie)
+	createRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(createRes, createReq)
+	is.Equal(createRes.Code, http.StatusCreated)
+
+	var resp api.CreateDeviceResponse
+	err := json.NewDecoder(createRes.Body).Decode(&resp)
+	is.NoErr(err)
+	is.Equal(resp.Device.Name, "sensor-1")
+	is.True(resp.Device.Id != 0)
+	is.True(resp.ApiKey != "")
+}
+
+func TestHandler_GetDevices_ReturnsApiKeyPrefix(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	_, _, err := testServer.DeviceService.CreateDevice(t.Context(), "listed-device")
+	is.NoErr(err)
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
+	listReq.AddCookie(sessionCookie)
+	listRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(listRes, listReq)
+	is.Equal(listRes.Code, http.StatusOK)
+
+	var devices []api.Device
+	err = json.NewDecoder(listRes.Body).Decode(&devices)
+	is.NoErr(err)
+	is.Equal(len(devices), 1)
+	is.True(devices[0].ApiKeyPrefix != "")
+}
+
+func TestHandler_DeviceHeartbeatByApiKey_HappyPath(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	// Create device via HTTP to get api_key in response
+	createBody, _ := json.Marshal(map[string]string{"name": "apikey-heartbeat-device"})
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/devices", bytes.NewReader(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.AddCookie(sessionCookie)
+	createRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(createRes, createReq)
+	is.Equal(createRes.Code, http.StatusCreated)
+
+	var createResp api.CreateDeviceResponse
+	err := json.NewDecoder(createRes.Body).Decode(&createResp)
+	is.NoErr(err)
+	is.True(createResp.ApiKey != "")
+
+	// POST /heartbeat with X-API-Key (no session cookie needed)
+	heartbeatReq := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", nil)
+	heartbeatReq.RemoteAddr = "192.168.1.99:0"
+	heartbeatReq.Header.Set("X-API-Key", createResp.ApiKey)
+	heartbeatRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(heartbeatRes, heartbeatReq)
+	is.Equal(heartbeatRes.Code, http.StatusCreated)
+
+	var addr api.Address
+	err = json.NewDecoder(heartbeatRes.Body).Decode(&addr)
+	is.NoErr(err)
+	is.Equal(addr.Ip, "192.168.1.99")
+	is.True(addr.Status)
+}
+
+func TestHandler_DeviceHeartbeatByApiKey_401_NoKey(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+
+	heartbeatReq := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", nil)
+	heartbeatReq.RemoteAddr = "192.168.1.1:0"
+	// No X-API-Key header
+	heartbeatRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(heartbeatRes, heartbeatReq)
+	is.Equal(heartbeatRes.Code, http.StatusUnauthorized)
+}
+
+func TestHandler_DeviceHeartbeatByApiKey_401_InvalidKey(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+
+	heartbeatReq := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", nil)
+	heartbeatReq.RemoteAddr = "192.168.1.1:0"
+	heartbeatReq.Header.Set("X-API-Key", "wdk_invalid_key_that_does_not_exist_in_db")
+	heartbeatRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(heartbeatRes, heartbeatReq)
+	is.Equal(heartbeatRes.Code, http.StatusUnauthorized)
+}
+
+func TestHandler_DeviceHeartbeat_404_DeviceNotFound(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	// Heartbeat for non-existent device_id (session auth)
+	heartbeatURL := fmt.Sprintf("/api/v1/devices/%d/heartbeat", 99999)
+	heartbeatReq := httptest.NewRequest(http.MethodPost, heartbeatURL, nil)
+	heartbeatReq.RemoteAddr = "192.168.1.1:0"
+	heartbeatReq.AddCookie(sessionCookie)
+	heartbeatRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(heartbeatRes, heartbeatReq)
+	is.Equal(heartbeatRes.Code, http.StatusNotFound)
 }

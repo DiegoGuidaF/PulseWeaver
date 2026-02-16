@@ -29,6 +29,25 @@ func createTestDevice(t *testing.T, repo DeviceRepository, ctx context.Context, 
 	return device
 }
 
+// createTestDeviceWithApiKey creates a device and its API key so it appears in GetDevices (which JOINs device_api_keys).
+func createTestDeviceWithApiKey(t *testing.T, repo DeviceRepository, ctx context.Context, name string) *Device {
+	t.Helper()
+
+	device, err := repo.CreateDevice(ctx, NewDevice(name))
+	if err != nil {
+		t.Fatalf("create device %q: %v", name, err)
+	}
+	apiKey, _, err := NewApiKey(device.ID)
+	if err != nil {
+		t.Fatalf("create api key: %v", err)
+	}
+	_, err = repo.CreateDeviceApiKey(ctx, apiKey)
+	if err != nil {
+		t.Fatalf("create device api key: %v", err)
+	}
+	return device
+}
+
 func createTestAddress(t *testing.T, repo DeviceRepository, ctx context.Context, deviceID DeviceID, ip string) *Address {
 	t.Helper()
 
@@ -74,16 +93,16 @@ func TestRepository_GetDevices_Multiple(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create test data
-	_, err := repo.CreateDevice(ctx, NewDevice("device-1"))
-	is.NoErr(err)
-	_, err = repo.CreateDevice(ctx, NewDevice("device-2"))
-	is.NoErr(err)
+	// Create test data (with API keys so they appear in GetDevices JOIN)
+	createTestDeviceWithApiKey(t, repo, ctx, "device-1")
+	createTestDeviceWithApiKey(t, repo, ctx, "device-2")
 
 	// Get all devices
 	devices, err := repo.GetDevices(ctx)
 	is.NoErr(err)
 	is.Equal(len(devices), 2) // Should have 2 devices
+	is.Equal(devices[0].KeyPrefix != "", true)
+	is.Equal(devices[1].KeyPrefix != "", true)
 }
 
 func TestRepository_CreateDevice_DuplicateName(t *testing.T) {
@@ -103,14 +122,14 @@ func TestRepository_CreateDevice_DuplicateName(t *testing.T) {
 
 func TestRepository_DatabaseIsolation(t *testing.T) {
 
-	// Test 1: Create 1 device
+	// Test 1: Create 1 device with API key
 	t.Run("test1", func(t *testing.T) {
 		is := is.New(t)
 
 		repo := setupTestDB(t)
 		ctx := context.Background()
 
-		repo.CreateDevice(ctx, NewDevice("device-1"))
+		createTestDeviceWithApiKey(t, repo, ctx, "device-1")
 
 		devices, err := repo.GetDevices(ctx)
 		is.NoErr(err)
@@ -156,6 +175,56 @@ func TestRepository_GetDeviceByID_NotFound(t *testing.T) {
 
 	// Try to get non-existent device
 	_, err := repo.GetDeviceByID(ctx, DeviceID(99999))
+	is.True(err != nil)
+	is.Equal(err, ErrDeviceNotFound)
+}
+
+func TestRepository_CreateDevice_WithApiKey(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	device := createTestDeviceWithApiKey(t, repo, ctx, "device-with-key")
+	is.True(device.ID != 0)
+
+	devices, err := repo.GetDevices(ctx)
+	is.NoErr(err)
+	is.Equal(len(devices), 1)
+	is.Equal(devices[0].ID, device.ID)
+	is.Equal(devices[0].Name, "device-with-key")
+	is.True(devices[0].KeyPrefix != "")
+	is.Equal(devices[0].KeyPrefix[:len(ApiKeyPrefix)], ApiKeyPrefix)
+}
+
+func TestRepository_GetDeviceByApiKeyHash_Success(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	// Create device and one API key (one key per device in DB)
+	device := createTestDevice(t, repo, ctx, "lookup-device")
+	apiKey, rawKey, err := NewApiKey(device.ID)
+	is.NoErr(err)
+	_, err = repo.CreateDeviceApiKey(ctx, apiKey)
+	is.NoErr(err)
+
+	keyHash := hashApiKey(rawKey)
+	found, err := repo.GetDeviceByApiKeyHash(ctx, keyHash)
+	is.NoErr(err)
+	is.True(found != nil)
+	is.Equal(found.ID, device.ID)
+	is.Equal(found.Name, "lookup-device")
+}
+
+func TestRepository_GetDeviceByApiKeyHash_NotFound(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	_, err := repo.GetDeviceByApiKeyHash(ctx, "nonexistent-hash")
 	is.True(err != nil)
 	is.Equal(err, ErrDeviceNotFound)
 }

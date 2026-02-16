@@ -18,7 +18,7 @@ const SessionCookieName = auth.SessionCookieName
 const ApiKeyHeaderName = device.ApiKeyHeaderName
 
 // AuthenticationFunc is called by the OapiRequestValidator to verify security schemes
-func AuthenticationFunc(auth UserAuthenticator, apiKeyValidator ApiKeyAuthenticator) func(context.Context, *openapi3filter.AuthenticationInput) error {
+func AuthenticationFunc(auth UserAuthenticator, apiKeyAuthenticator ApiKeyAuthenticator) func(context.Context, *openapi3filter.AuthenticationInput) error {
 	return func(ctx context.Context, input *openapi3filter.AuthenticationInput) error {
 		switch input.SecuritySchemeName {
 		case "cookieAuth":
@@ -47,10 +47,10 @@ func AuthenticationFunc(auth UserAuthenticator, apiKeyValidator ApiKeyAuthentica
 			}
 
 			// Validate the API key
-			if apiKeyValidator == nil {
+			if apiKeyAuthenticator == nil {
 				return errors.New("API key validator not configured")
 			}
-			_, err := apiKeyValidator.Authenticate(ctx, apiKey)
+			_, err := apiKeyAuthenticator.Authenticate(ctx, apiKey)
 			if err != nil {
 				return errors.New("invalid API key")
 			}

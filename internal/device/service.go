@@ -9,7 +9,7 @@ import (
 type DeviceRepository interface {
 	GetDeviceByID(ctx context.Context, id DeviceID) (*Device, error)
 	CreateDevice(ctx context.Context, device *Device) (*Device, error)
-	GetDevices(ctx context.Context) ([]Device, error)
+	GetDevices(ctx context.Context) ([]DeviceWithApiKeyPrefix, error)
 	CreateAddress(ctx context.Context, address *Address) (*Address, error)
 	GetAddressForDeviceByIp(ctx context.Context, deviceId DeviceID, ip string) (*AddressWithStatus, error)
 	ListAddresses(ctx context.Context, deviceId DeviceID) ([]AddressWithStatus, error)
@@ -30,41 +30,45 @@ func NewService(repo DeviceRepository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) GetDevices(ctx context.Context) ([]Device, error) {
+func (s *Service) GetDevices(ctx context.Context) ([]DeviceWithApiKeyPrefix, error) {
 	return s.repo.GetDevices(ctx)
 }
 
-func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, string, error) {
-	var device *Device
-	var rawApiKey string
+func (s *Service) CreateDevice(ctx context.Context, name string) (*DeviceWithApiKeyPrefix, string, error) {
+	var deviceWithApiKeyPrefix *DeviceWithApiKeyPrefix
+	var rawKey string
 
 	err := s.repo.RunInTx(ctx, func(tx DeviceRepository) error {
-		var err error
-		device = NewDevice(name)
-		device, err = tx.CreateDevice(ctx, device)
+		device := NewDevice(name)
+		device, err := tx.CreateDevice(ctx, device)
 		if err != nil {
 			return err
 		}
 
-		apiKey, rawKey, err := NewApiKey(device.ID)
+		var apiKey *ApiKey
+
+		apiKey, rawKey, err = NewApiKey(device.ID)
 		if err != nil {
 			return err
 		}
 
-		_, err = tx.CreateDeviceApiKey(ctx, apiKey)
+		apiKey, err = tx.CreateDeviceApiKey(ctx, apiKey)
 		if err != nil {
 			return err
 		}
 
-		rawApiKey = rawKey
+		deviceWithApiKeyPrefix = &DeviceWithApiKeyPrefix{
+			Device:    *device,
+			KeyPrefix: apiKey.KeyPrefix,
+		}
+
 		return nil
 	})
-
 	if err != nil {
 		return nil, "", err
 	}
 
-	return device, rawApiKey, nil
+	return deviceWithApiKeyPrefix, rawKey, nil
 }
 
 func (s *Service) Authenticate(ctx context.Context, rawKey string) (*Principal, error) {

@@ -234,12 +234,96 @@ func TestService_GetAddressesForDevice_Empty(t *testing.T) {
 	is.Equal(len(addresses), 0)
 }
 
+func TestService_CreateDevice_ReturnsDeviceAndRawKey(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockDeviceRepository()
+	service := NewService(mockRepo)
+
+	deviceWithPrefix, rawKey, err := service.CreateDevice(ctx, "my-device")
+	is.NoErr(err)
+	is.True(deviceWithPrefix != nil)
+	is.Equal(deviceWithPrefix.Name, "my-device")
+	is.True(deviceWithPrefix.ID != 0)
+	is.True(deviceWithPrefix.KeyPrefix != "")
+	is.True(len(rawKey) > len(ApiKeyPrefix))
+	is.Equal(rawKey[:len(ApiKeyPrefix)], ApiKeyPrefix)
+}
+
+func TestService_Authenticate_Success(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockDeviceRepository()
+	service := NewService(mockRepo)
+
+	// Create device via service so API key is stored in mock
+	deviceWithPrefix, rawKey, err := service.CreateDevice(ctx, "auth-device")
+	is.NoErr(err)
+	is.True(rawKey != "")
+
+	principal, err := service.Authenticate(ctx, rawKey)
+	is.NoErr(err)
+	is.True(principal != nil)
+	is.Equal(principal.DeviceID, deviceWithPrefix.ID)
+}
+
+func TestService_Authenticate_InvalidKeyFormat(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockDeviceRepository()
+	service := NewService(mockRepo)
+
+	_, err := service.Authenticate(ctx, "invalid-no-prefix")
+	is.True(err != nil)
+	is.Equal(err, ErrInvalidApiKey)
+
+	_, err = service.Authenticate(ctx, "wdk") // too short
+	is.True(err != nil)
+	is.Equal(err, ErrInvalidApiKey)
+}
+
+func TestService_Authenticate_NotFound(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockDeviceRepository()
+	// No devices/keys in mock; valid format but unknown key
+	rawKey := ApiKeyPrefix + "unknownkey123456789012345678901234"
+	service := NewService(mockRepo)
+
+	_, err := service.Authenticate(ctx, rawKey)
+	is.True(err != nil)
+	is.Equal(err, ErrDeviceNotFound)
+}
+
+func TestService_GetDevices_ReturnsListWithPrefix(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockDeviceRepository()
+	mockRepo.devices[DeviceID(1)] = &Device{ID: DeviceID(1), Name: "d1"}
+	mockRepo.devices[DeviceID(2)] = &Device{ID: DeviceID(2), Name: "d2"}
+	service := NewService(mockRepo)
+
+	list, err := service.GetDevices(ctx)
+	is.NoErr(err)
+	is.Equal(len(list), 2)
+	for i := range list {
+		is.True(list[i].KeyPrefix != "")
+		is.Equal(list[i].KeyPrefix, "wdk_xxxxxxxx")
+	}
+}
+
 // mockDeviceRepository is a hand-rolled mock implementation of DeviceRepository
 type mockDeviceRepository struct {
 	devices             map[DeviceID]*Device
 	addresses           map[AddressID]*Address
 	addressesWithStatus map[AddressID]*AddressWithStatus
 	deviceByIP          map[string]*AddressWithStatus // key: "deviceID:ip"
+	apiKeysByHash       map[string]*Device            // keyHash -> device (for GetDeviceByApiKeyHash)
 	getDeviceByIDErr    error
 	createAddressErr    error
 	getAddressByIPErr   error
@@ -259,6 +343,7 @@ func newMockDeviceRepository() *mockDeviceRepository {
 		addresses:           make(map[AddressID]*Address),
 		addressesWithStatus: make(map[AddressID]*AddressWithStatus),
 		deviceByIP:          make(map[string]*AddressWithStatus),
+		apiKeysByHash:       make(map[string]*Device),
 	}
 }
 
@@ -279,12 +364,29 @@ func (m *mockDeviceRepository) CreateDevice(ctx context.Context, device *Device)
 	return device, nil
 }
 
-func (m *mockDeviceRepository) GetDevices(ctx context.Context) ([]Device, error) {
-	devices := make([]Device, 0, len(m.devices))
+func (m *mockDeviceRepository) GetDevices(ctx context.Context) ([]DeviceWithApiKeyPrefix, error) {
+	devices := make([]DeviceWithApiKeyPrefix, 0, len(m.devices))
 	for _, d := range m.devices {
-		devices = append(devices, *d)
+		devices = append(devices, DeviceWithApiKeyPrefix{Device: *d, KeyPrefix: "wdk_xxxxxxxx"})
 	}
 	return devices, nil
+}
+
+func (m *mockDeviceRepository) CreateDeviceApiKey(ctx context.Context, apiKey *ApiKey) (*ApiKey, error) {
+	device, ok := m.devices[apiKey.DeviceID]
+	if !ok {
+		return nil, ErrDeviceNotFound
+	}
+	m.apiKeysByHash[apiKey.KeyHash] = device
+	return apiKey, nil
+}
+
+func (m *mockDeviceRepository) GetDeviceByApiKeyHash(ctx context.Context, keyHash string) (*Device, error) {
+	device, ok := m.apiKeysByHash[keyHash]
+	if !ok {
+		return nil, ErrDeviceNotFound
+	}
+	return device, nil
 }
 
 func (m *mockDeviceRepository) CreateAddress(ctx context.Context, address *Address) (*Address, error) {

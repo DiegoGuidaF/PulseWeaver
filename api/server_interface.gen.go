@@ -24,6 +24,7 @@ import (
 )
 
 const (
+	ApiKeyAuthScopes = "apiKeyAuth.Scopes"
 	BearerAuthScopes = "bearerAuth.Scopes"
 	CookieAuthScopes = "cookieAuth.Scopes"
 )
@@ -64,6 +65,13 @@ type CreateDeviceRequest struct {
 	Name string `json:"name"`
 }
 
+// CreateDeviceResponse defines model for CreateDeviceResponse.
+type CreateDeviceResponse struct {
+	// ApiKey Secret key for the device; only returned on creation.
+	ApiKey string `json:"api_key"`
+	Device Device `json:"device"`
+}
+
 // CreateUserRequest defines model for CreateUserRequest.
 type CreateUserRequest struct {
 	// DisplayName User's public name. Unicode allowed.
@@ -77,8 +85,10 @@ type CreateUserRequest struct {
 
 // Device defines model for Device.
 type Device struct {
-	CreatedAt time.Time `json:"created_at"`
-	Id        ID        `json:"id"`
+	// ApiKeyPrefix Prefix of the device API key (for display only).
+	ApiKeyPrefix string    `json:"api_key_prefix"`
+	CreatedAt    time.Time `json:"created_at"`
+	Id           ID        `json:"id"`
 
 	// Name User-friendly name for the device
 	Name string `json:"name"`
@@ -163,7 +173,7 @@ type ServerInterface interface {
 	DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId int64)
 	// Performs a heartbeat with the given api key header
 	// (POST /heartbeat)
-	ApikeyHeartbeat(w http.ResponseWriter, r *http.Request)
+	DeviceHeartbeatByApiKey(w http.ResponseWriter, r *http.Request)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -232,7 +242,7 @@ func (_ Unimplemented) DeviceHeartbeat(w http.ResponseWriter, r *http.Request, d
 
 // Performs a heartbeat with the given api key header
 // (POST /heartbeat)
-func (_ Unimplemented) ApikeyHeartbeat(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) DeviceHeartbeatByApiKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -510,19 +520,17 @@ func (siw *ServerInterfaceWrapper) DeviceHeartbeat(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
-// ApikeyHeartbeat operation middleware
-func (siw *ServerInterfaceWrapper) ApikeyHeartbeat(w http.ResponseWriter, r *http.Request) {
+// DeviceHeartbeatByApiKey operation middleware
+func (siw *ServerInterfaceWrapper) DeviceHeartbeatByApiKey(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
-
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+	ctx = context.WithValue(ctx, ApiKeyAuthScopes, []string{})
 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ApikeyHeartbeat(w, r)
+		siw.Handler.DeviceHeartbeatByApiKey(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -676,7 +684,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/devices/{device_id}/heartbeat", wrapper.DeviceHeartbeat)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/heartbeat", wrapper.ApikeyHeartbeat)
+		r.Post(options.BaseURL+"/heartbeat", wrapper.DeviceHeartbeatByApiKey)
 	})
 
 	return r
@@ -865,7 +873,7 @@ type CreateDeviceResponseObject interface {
 	VisitCreateDeviceResponse(w http.ResponseWriter) error
 }
 
-type CreateDevice201JSONResponse Device
+type CreateDevice201JSONResponse CreateDeviceResponse
 
 func (response CreateDevice201JSONResponse) VisitCreateDeviceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -1088,52 +1096,52 @@ func (response DeviceHeartbeat500JSONResponse) VisitDeviceHeartbeatResponse(w ht
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ApikeyHeartbeatRequestObject struct {
+type DeviceHeartbeatByApiKeyRequestObject struct {
 }
 
-type ApikeyHeartbeatResponseObject interface {
-	VisitApikeyHeartbeatResponse(w http.ResponseWriter) error
+type DeviceHeartbeatByApiKeyResponseObject interface {
+	VisitDeviceHeartbeatByApiKeyResponse(w http.ResponseWriter) error
 }
 
-type ApikeyHeartbeat200JSONResponse Address
+type DeviceHeartbeatByApiKey200JSONResponse Address
 
-func (response ApikeyHeartbeat200JSONResponse) VisitApikeyHeartbeatResponse(w http.ResponseWriter) error {
+func (response DeviceHeartbeatByApiKey200JSONResponse) VisitDeviceHeartbeatByApiKeyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ApikeyHeartbeat201JSONResponse Address
+type DeviceHeartbeatByApiKey201JSONResponse Address
 
-func (response ApikeyHeartbeat201JSONResponse) VisitApikeyHeartbeatResponse(w http.ResponseWriter) error {
+func (response DeviceHeartbeatByApiKey201JSONResponse) VisitDeviceHeartbeatByApiKeyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ApikeyHeartbeat400JSONResponse ErrorResponse
+type DeviceHeartbeatByApiKey400JSONResponse ErrorResponse
 
-func (response ApikeyHeartbeat400JSONResponse) VisitApikeyHeartbeatResponse(w http.ResponseWriter) error {
+func (response DeviceHeartbeatByApiKey400JSONResponse) VisitDeviceHeartbeatByApiKeyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ApikeyHeartbeat404JSONResponse ErrorResponse
+type DeviceHeartbeatByApiKey404JSONResponse ErrorResponse
 
-func (response ApikeyHeartbeat404JSONResponse) VisitApikeyHeartbeatResponse(w http.ResponseWriter) error {
+func (response DeviceHeartbeatByApiKey404JSONResponse) VisitDeviceHeartbeatByApiKeyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ApikeyHeartbeat500JSONResponse ErrorResponse
+type DeviceHeartbeatByApiKey500JSONResponse ErrorResponse
 
-func (response ApikeyHeartbeat500JSONResponse) VisitApikeyHeartbeatResponse(w http.ResponseWriter) error {
+func (response DeviceHeartbeatByApiKey500JSONResponse) VisitDeviceHeartbeatByApiKeyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -1174,7 +1182,7 @@ type StrictServerInterface interface {
 	DeviceHeartbeat(ctx context.Context, request DeviceHeartbeatRequestObject) (DeviceHeartbeatResponseObject, error)
 	// Performs a heartbeat with the given api key header
 	// (POST /heartbeat)
-	ApikeyHeartbeat(ctx context.Context, request ApikeyHeartbeatRequestObject) (ApikeyHeartbeatResponseObject, error)
+	DeviceHeartbeatByApiKey(ctx context.Context, request DeviceHeartbeatByApiKeyRequestObject) (DeviceHeartbeatByApiKeyResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -1483,23 +1491,23 @@ func (sh *strictHandler) DeviceHeartbeat(w http.ResponseWriter, r *http.Request,
 	}
 }
 
-// ApikeyHeartbeat operation middleware
-func (sh *strictHandler) ApikeyHeartbeat(w http.ResponseWriter, r *http.Request) {
-	var request ApikeyHeartbeatRequestObject
+// DeviceHeartbeatByApiKey operation middleware
+func (sh *strictHandler) DeviceHeartbeatByApiKey(w http.ResponseWriter, r *http.Request) {
+	var request DeviceHeartbeatByApiKeyRequestObject
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ApikeyHeartbeat(ctx, request.(ApikeyHeartbeatRequestObject))
+		return sh.ssi.DeviceHeartbeatByApiKey(ctx, request.(DeviceHeartbeatByApiKeyRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ApikeyHeartbeat")
+		handler = middleware(handler, "DeviceHeartbeatByApiKey")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ApikeyHeartbeatResponseObject); ok {
-		if err := validResponse.VisitApikeyHeartbeatResponse(w); err != nil {
+	} else if validResponse, ok := response.(DeviceHeartbeatByApiKeyResponseObject); ok {
+		if err := validResponse.VisitDeviceHeartbeatByApiKeyResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -1510,41 +1518,42 @@ func (sh *strictHandler) ApikeyHeartbeat(w http.ResponseWriter, r *http.Request)
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"2/rjDi4AAA==",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

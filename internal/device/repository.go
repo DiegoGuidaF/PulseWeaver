@@ -59,17 +59,22 @@ func (r *repository) CreateDevice(ctx context.Context, device *Device) (*Device,
 	return device, nil
 }
 
-func (r *repository) GetDevices(ctx context.Context) ([]Device, error) {
-	var devices []Device
+func (r *repository) GetDevices(ctx context.Context) ([]DeviceWithApiKeyPrefix, error) {
+	var devices []DeviceWithApiKeyPrefix
 
-	query := `SELECT * FROM devices	ORDER BY created_at DESC`
+	query := `
+		SELECT d.id, d.name, d.created_at, k.key_prefix
+		FROM devices d
+		INNER JOIN device_api_keys k ON d.id = k.device_id
+		ORDER BY d.created_at DESC
+	`
 
 	if err := r.db.SelectContext(ctx, &devices, query); err != nil {
 		return nil, fmt.Errorf("select devices: %w", err)
 	}
 
 	if devices == nil {
-		return []Device{}, nil
+		return []DeviceWithApiKeyPrefix{}, nil
 	}
 
 	return devices, nil

@@ -180,7 +180,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Device'
+                $ref: '#/components/schemas/CreateDeviceResponse'
         "400":
           description: Bad Request
           content:
@@ -337,9 +337,11 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
   /heartbeat:
     post:
-      operationId: apikeyHeartbeat
+      operationId: deviceHeartbeatByApiKey
       tags:
         - devices
+      security:
+        - apiKeyAuth: []
       summary: Performs a heartbeat with the given api key header
       description: Same as /devices/{device_id}/heartbeat but authentication is provided via api-key for the device to update
       responses:
@@ -428,10 +430,11 @@ components:
       type: apiKey
       in: cookie
       name: __Host-wdc_session
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: Opaque # Indicates it's not a JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for device authentication (e.g. heartbeat)
 
   schemas:
     #################
@@ -492,6 +495,17 @@ components:
     #################
     # Responses
     #################
+    CreateDeviceResponse:
+      type: object
+      required:
+        - device
+        - api_key
+      properties:
+        device:
+          $ref: '#/components/schemas/Device'
+        api_key:
+          type: string
+          description: Secret key for the device; only returned on creation.
     ErrorResponse:
       type: object
       properties:
@@ -528,6 +542,7 @@ components:
         - id
         - name
         - created_at
+        - api_key_prefix
       properties:
         created_at:
           type: string
@@ -539,6 +554,9 @@ components:
           type: string
           minLength: 1
           maxLength: 50
+        api_key_prefix:
+          type: string
+          description: Prefix of the device API key (for display only).
     Address:
       type: object
       required:
