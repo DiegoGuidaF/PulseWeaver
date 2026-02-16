@@ -191,6 +191,40 @@ func (r *repository) GetAddressWithStatus(ctx context.Context, id AddressID) (*A
 
 }
 
+func (r *repository) CreateDeviceApiKey(ctx context.Context, apiKey *ApiKey) (*ApiKey, error) {
+	query := `
+		INSERT INTO device_api_keys (device_id, key_prefix, key_hash, created_at)
+		VALUES (?, ?, ?, ?) returning *
+	`
+
+	err := r.db.GetContext(ctx, apiKey, query, apiKey.DeviceID, apiKey.KeyPrefix, apiKey.KeyHash, apiKey.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("insert api key: %w", err)
+	}
+
+	return apiKey, nil
+}
+
+func (r *repository) GetDeviceByApiKeyHash(ctx context.Context, keyHash string) (*Device, error) {
+	device := &Device{}
+
+	query := `
+		SELECT d.* FROM devices d
+		INNER JOIN device_api_keys k ON d.id = k.device_id
+		WHERE k.key_hash = ?
+	`
+
+	err := r.db.GetContext(ctx, device, query, keyHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrDeviceNotFound
+		}
+		return nil, fmt.Errorf("failed to get device by api key hash: %w", err)
+	}
+
+	return device, nil
+}
+
 // RunInTx runs the callback function inside a transaction.
 // If already running in a transaction context, do not create a new one and reuse it
 func (r *repository) RunInTx(ctx context.Context, fn func(DeviceRepository) error) error {

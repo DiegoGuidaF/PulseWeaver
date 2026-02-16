@@ -161,6 +161,9 @@ type ServerInterface interface {
 	// Device heartbeat
 	// (POST /devices/{device_id}/heartbeat)
 	DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId int64)
+	// Performs a heartbeat with the given api key header
+	// (POST /heartbeat)
+	ApikeyHeartbeat(w http.ResponseWriter, r *http.Request)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -224,6 +227,12 @@ func (_ Unimplemented) DisableAddress(w http.ResponseWriter, r *http.Request, de
 // Device heartbeat
 // (POST /devices/{device_id}/heartbeat)
 func (_ Unimplemented) DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Performs a heartbeat with the given api key header
+// (POST /heartbeat)
+func (_ Unimplemented) ApikeyHeartbeat(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -501,6 +510,28 @@ func (siw *ServerInterfaceWrapper) DeviceHeartbeat(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// ApikeyHeartbeat operation middleware
+func (siw *ServerInterfaceWrapper) ApikeyHeartbeat(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApikeyHeartbeat(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -643,6 +674,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/devices/{device_id}/heartbeat", wrapper.DeviceHeartbeat)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/heartbeat", wrapper.ApikeyHeartbeat)
 	})
 
 	return r
@@ -1054,6 +1088,58 @@ func (response DeviceHeartbeat500JSONResponse) VisitDeviceHeartbeatResponse(w ht
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ApikeyHeartbeatRequestObject struct {
+}
+
+type ApikeyHeartbeatResponseObject interface {
+	VisitApikeyHeartbeatResponse(w http.ResponseWriter) error
+}
+
+type ApikeyHeartbeat200JSONResponse Address
+
+func (response ApikeyHeartbeat200JSONResponse) VisitApikeyHeartbeatResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApikeyHeartbeat201JSONResponse Address
+
+func (response ApikeyHeartbeat201JSONResponse) VisitApikeyHeartbeatResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApikeyHeartbeat400JSONResponse ErrorResponse
+
+func (response ApikeyHeartbeat400JSONResponse) VisitApikeyHeartbeatResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApikeyHeartbeat404JSONResponse ErrorResponse
+
+func (response ApikeyHeartbeat404JSONResponse) VisitApikeyHeartbeatResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApikeyHeartbeat500JSONResponse ErrorResponse
+
+func (response ApikeyHeartbeat500JSONResponse) VisitApikeyHeartbeatResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Register a new user (Admin only)
@@ -1086,6 +1172,9 @@ type StrictServerInterface interface {
 	// Device heartbeat
 	// (POST /devices/{device_id}/heartbeat)
 	DeviceHeartbeat(ctx context.Context, request DeviceHeartbeatRequestObject) (DeviceHeartbeatResponseObject, error)
+	// Performs a heartbeat with the given api key header
+	// (POST /heartbeat)
+	ApikeyHeartbeat(ctx context.Context, request ApikeyHeartbeatRequestObject) (ApikeyHeartbeatResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -1394,42 +1483,68 @@ func (sh *strictHandler) DeviceHeartbeat(w http.ResponseWriter, r *http.Request,
 	}
 }
 
+// ApikeyHeartbeat operation middleware
+func (sh *strictHandler) ApikeyHeartbeat(w http.ResponseWriter, r *http.Request) {
+	var request ApikeyHeartbeatRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApikeyHeartbeat(ctx, request.(ApikeyHeartbeatRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApikeyHeartbeat")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApikeyHeartbeatResponseObject); ok {
+		if err := validResponse.VisitApikeyHeartbeatResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+xaa28budX+KwTfBfYtOtbF9gYbfao23mzU9SZCnKAfDNWgh0caZmfICcmxoxr678Uh",
-	"OTdpZCm1LRtFvwTOmJdzeZ7nkIe+o7HKciVBWkNHd9TECWTM/TjmfMy5BmM+wtcCjMWPuVY5aCvADRE5",
-	"/vuDhjkd0f/r10v1wzr9yTSsQVeriGr4WggNnI4uce4sonaZAx1Rdf0FYktXES2Hb+wVa2AW+BVzdsyV",
-	"zvAnypmFIysyoNVixmohF7gYhxsRw5XgO808w+F7j/setyNqLLOF84GDibXIrVCSjuinBEjKLBhLcAgQ",
-	"NSc2EYYwPzciINl1CpwoTbgw7ufazWulUmASdyhy3ohNe5dzZizBABFhyS0zWxbdJ6DrGcR5dYhdXCpv",
-	"o2bCWhZ2Zr2wyVaU5cyYW6V3JmdajsOIGNCSZbBrzudy3Lpz1QJRvX+X5W+cl2cuCls9KC1pZwb3Pppr",
-	"AZKnS4JjyFxpYhMgPqo0ovCNZXmKW05BGyVZSvJESfxVxr6dg1zYhI5+GkQ0E7L873BX5pw9271Bw7b6",
-	"woXJU7a82ie6Z37sexfgiELGRIpzaq8wzH8L/+3FKmsi0Q/voPVzA6IVgh348Mh4HDnbV5/+c7g9AFNO",
-	"AUJEGs51xqQBi04zfzQkL65TETsze+SzFLHiQFiaqlvgvRYx/q4SSc7U95of0V+1VvojmFxJ05EhwF+3",
-	"0erjRKSyZK4KyTslcsPdyVkrxULaV6f1TCEtLEC7gdNG9WNy+WFOR5fNmfnNaQcu2iNebY6YRWsxnkxv",
-	"TlH/J9ObV2W1acV0+Pq4N3z1c2/YG54cd0Fx2qBgY9rxyfgCYg22+n2Dz3n9bXuifu7YDCHxSAeCRxCv",
-	"3fq0L08frEmOc9uFaQcNPze2X+OgFF8LIOXKPTJO84TJIgMt4ogUkoM2sdJgIsIkJ8kyT0AaomS6bJPz",
-	"i0rkFV8n58lxK+cnqKHWgsa9/3nJjv41OHp9dTT76w+dBDMQF1rY5QWGx2PhGpgGjaeI+n9vyzx9yNnX",
-	"Ai1w8XRHJzegXjyxNseIxEr9KaBcRqA5/lMpbSN6dfVOGXt0y+MrA8ZgvKplWC5+hyVdoZFCztVmYH01",
-	"cDGbTEvmkYxJtoAMpCVmaSxgFbTCugD+g6Xp8kzEJEz9ox47nk5oRG9AG7/4sDdAJ1QOkuWCjuhJb9Ab",
-	"ugJlExemPuOZkH3Mqz9ZKdNxYvSHAEMYkXDrQEBYHKtCWswtUpDhyAmvxjqCemiCsb8ovnQEVdKCdBuw",
-	"PE9F7Kb1vxjcpbxq7ML+5olk1WaB1QW4D17HnV/Hg+GjGeB8c3tu1ikSGEZMEcdgzLxI0yXm4HQweDQD",
-	"2mWqw5JfGCdVcHDvk82cvlX6WnAOkhyRDzJdEocEQ2ImgxPEo8It8PpwxpcihOXICSphqQbGl0TDQhgL",
-	"mORVRH86ZEQnEsWIpeQC9A1o4iZ47SmyjOklHdGPwbwmTf5/jFF1MvgX5DBbGJRpF2s6w/l9Vtikn6qF",
-	"kNsJiAIE0qJzYAIBJScGLJISlTC25N2nT9Mj3IkEHSJeqjY5eu52exp6Ni9uexFz8OTEPFeLBXAiZJuV",
-	"EU2A8SB8F2CP3nhlb+23XmxWjg7DQyLvhqWCIyc5QoCl5iWhP1ReOrqcNbngEOaA2kQ9ltE26FVht6M+",
-	"uO4wj5eSPWCN620g7LSjB+IhoQr7KJhYrfmO6+5w3p+yFtDh90ewhZbe57jQGqRFfW5oAHer/2gIB8tE",
-	"ajZj8RvYN35qVYoPzLqwvVerYCc9NHveK9sO3IusHL+BLRN9D2z8XdNshQ2uwtI03N0NuYZUyYWQC2KV",
-	"w9Imgjpxcxb2eSBmhIXM7LxS+T5DfUlmWrNlVxw//P4iU3cuTCvqjdSVX2ar6N5zdTgvhFZC2YHZJ1nN",
-	"VuOTnrbb3cyOUIW7iDs4okQHU+ghz+UlljqkyB/Kn/sc/uLAW+GvavdtYrehPP27qre/6oer6h56VD4v",
-	"VDMcxhkxOcRiLuKw+z1aNK72wqurZhlYV6Ivt9ymJ+7tQboOk03qq3rzaaKNy6gR9p19udXsENLYeC/a",
-	"Txuf94p5eri9Q5YFd33Xt67v+lLL+jroN5hW82h7nRhzHopE2SCyqlprkzf1O+2efBGH4MsTXDU33qM7",
-	"EhVGEGaMWEjXJtu/OA0e09bw6L3dwtDmgG/CWOD1Y69/QMXbPsL8MUvmPVY9V80s77sl0gO6nklj6oed",
-	"lygwY4fppijcKy87S3n/LvyIn70MpWA7ngPO/J8J+CtqI1ONt8NNWQqTvk+anrqUR3db2LhNE+sIPfMh",
-	"4oFq02x71H/2cWi2/yGMwRsqr0o6Vsk6BYemfRkdpcn6027vRUpAIFXjzfZ7mJ8A0/Ya2D1NuMBDDbnS",
-	"1hBhTdWqqB+seuTXb1az2IamVSrC7+daZe5TqLmubQ3SFBpwLSKqvz7queOkwO/j6YR8Un+CxDRc+KZf",
-	"h5w4w95VHvx3XA0eyOoQzAOeE943TqXl45dP8vMoSnl+aLym/u8IcY9+eCOTBo06egDtTv9d61n8coZF",
-	"tPnefjlDGhi3qadioVM6on2Wi/7NkK5mq38HAAD//5DbnwFmKgAA",
+	"H4sIAAAAAAAC/+xa32/bOBL+VwjeAnuHk+04yRZbP5232W59m22NpsU9BL6AEccWW4lUScqpL/D/fhiS",
+	"siRbjt1L4uQWfQkciT+GM9/3zZDULY1VlisJ0ho6uKUmTiBj7ueQ8yHnGox5D18KMBYf5lrloK0A10Tk",
+	"+PcHDVM6oH/pVUP1wji90TiMQZfLiGr4UggNnA4use8konaRAx1Qdf0JYkuXES2bb8wVa2AW+BVzdkyV",
+	"zvAX5cxCx4oM6GowY7WQMxyMw1zEcCX4TjPPsPne7b5l2RE1ltnCrYGDibXIrVCSDuiHBEjKLBhLsAkQ",
+	"NSU2EYYw3zciINl1CpwoTbgw7ne1zGulUmASZyhyXvNNc5ZzZixBBxFhyQ0zWwbdx6HrEcR+lYudX1ar",
+	"jeoBa1jYGvXCJltRljNjbpTeGZxx2Q49YkBLlsGuPh/LduuLWw0QVfO3Wf7KrfLMeWHrCkpLmpHBuTtT",
+	"LUDydEGwDZkqTWwCxHuVRhS+sixPccoxaKMkS0meKImvMvb1HOTMJnTw01FEMyHLf/u7Iufs2b4aNGzr",
+	"WrgwecoWV/t498y3fescHFHImEixT7UqdPM/wr/dWGV1JPrmLbR+akA0XLADHx4ZDyNn++rT/w63e2DK",
+	"KUDwSG1xrT6pwaLVzB8NyYvrVMTOzC75KEWsOBCWpuoGeLdBjH+qRJIz9a3mR/RXrZV+DyZX0rRECPB1",
+	"E63eT0QqS6aqkLxVIjeWOzprhFhI++K06imkhRlo13Bcy35MLt5N6eCy3jOfn7bgotnixWaLSbTm49F4",
+	"for6PxrPX5TZpuHT/svjbv/Fz91+t39y3AbFcY2CtW7HJ8MLiDXY1fsan/Pq2fZA/dwyGULigQqCBxCv",
+	"3fq0L0/vrUmOc9uFaQcNP9amX+OgFF8KIOXIXTJM84TJIgMt4ogUkoM2sdJgIsIkJ8kiT0AaomS6aJLz",
+	"k0rkFV8n58lxI+YnqKHWgsa5/33JOv856ry86kz+/kMrwQzEhRZ2cYHu8Vi4BqZBYxVR/fe6jNO7nH0p",
+	"0ALnT1c6uQbV4Im1OXokVuqzgHIYgeb4R6W0DejV1RtlbOeGx1cGjEF/rYZhufgdFnSJRgo5VZuO9dnA",
+	"+Ww0LplHMibZDDKQlpiFsYBZ0ArrHPgvlqaLMxGT0PWPqu1wPKIRnYM2fvB+9wgXoXKQLBd0QE+6R92+",
+	"S1A2cW7qMZ4J2cO4+spKmZaK0RcBhjAi4caBgLA4VoW0GFukIMOWI75q6wjqoQnG/qL4whFUSQvSTcDy",
+	"PBWx69b7ZHCWcquxC/ubFcmyyQKrC3APvI67dR0f9R/MALc2N+dmniKBYcQUcQzGTIs0XWAMTo+OHsyA",
+	"ZppqseQXxsnKOTj3yWZMXyt9LTgHSTrknUwXxCHBkJjJsAjiUeEGeHk440sRwnTkBJWwVAPjC6JhJowF",
+	"DPIyoj8d0qMjiWLEUnIBeg6auA5ee4osY3pBB/R9MK9Ok78O0atOBv+GHGYzgzLtfE0n2L/HCpv0UjUT",
+	"cjsBUYBAWlwcmEBAyYkBi6REJYwtefPhw7iDM5GgQ8RL1SZHz91sj0PP+sZtL2IePToxz9VsBpwI2WRl",
+	"RBNgPAjfBdjOK6/sjfnWk83S0aF/SOTNWSo4cpIjBFhqnhP6Q+alg8tJnQsOYQ6oddRjGm2CXhV2O+rD",
+	"0h3mcVOyB6xxvA2EnbacgXhIqMI+CCaWa2vHcXcs3ldZM2hZ93uwhZZ+zXGhNUiL+lzTAO5G/9EQDpaJ",
+	"1Gz64jewr3zXVSo+MOvC9F6tgp300Ox5q2zTcc8yc/wGtgz0HbDxe02zFTY4CkvTsHc35BpSJWdCzohV",
+	"DkubCGrFzVmY556YERYys3NL5c8Zqk0y05ot2vz47vdnGbpzYRper4WufDJZRnfW1aFeCEcJ5QnMPsGq",
+	"HzU+arXdPM1scVXYi7jCESU6mEIPWZeXWGqRIl+UP3Ud/uzAu8Lf6rhvE7s15endrs72l72wVd1Dj8rr",
+	"hVUPh3FGTA6xmIo4zH6HFg1Xc+HWVbMMrEvRl1t20yN39yDdCZNNqq16/Wqiicuo5vad53LLySGksXZf",
+	"tJ82Pu0W8/Rwc4coC+7OXV+7c9fnmtbXQb/BtIpH2/PEkPOQJMoDIqtWY23yprqn3ZMv4hB8eYSt5sZ9",
+	"dEugQgvCjBEz6Y7J9k9ORw9pa7j03m5hOOaAr8JY4NVlr79Axd0+wvwhU+YdVj1Vziz3uyXSA7qeSGOq",
+	"i53nKDBDh+m6KNwpLztTee82/MTHXoZSsC3XAWf+MwG/Ra1FqnZ3uClLodO3SdNjp/Lodgsbt2li5aEn",
+	"LiLuqTb1Y4/qs49Ds/0PYQzuUPkqpWOWrEJwaNqX3lGarF/tdp+lBARS1e5sv4X5CTBtr4HdcQgXeKgh",
+	"V9oaIqxZHVVUF1Zd8utXq1lsw6FVKsL7qVaZexRyrju2BmkKDTgWEauvj7qunBT4fDgekQ/qM0gMw4U/",
+	"9GuRE2fYm9UK/hxbg3uyOjjzgHXC21pVWl5++SA/jaKU9UPtNvV7CXGHfngjkxqN2s8A9pCKC5YBYYbc",
+	"LTXkumicyQolUQZyreaCAydzwQjLReczLNZKCixw/GeDm1ueXHyGRV0MvrPwOwv/b1g4Bo3uMYRVTCQ3",
+	"wiYO/TMxB4mcIMgJf0HVztPmjdxt4/OVywkWu/XvYi4nmK6MM8unzEKndEB7LBe9eZ8uJ8v/BgAA///h",
+	"2/rjDi4AAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

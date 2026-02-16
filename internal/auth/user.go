@@ -12,6 +12,7 @@ import (
 
 const AdminRole Role = "admin"
 const UserRole Role = "user"
+const DeviceRole Role = "device"
 
 var (
 	usernameRegex = regexp.MustCompile(`^[a-z0-9_-]+$`)

@@ -36,7 +36,8 @@ func (h *HTTPHandler) GetDevices(ctx context.Context, _ api.GetDevicesRequestObj
 func (h *HTTPHandler) CreateDevice(ctx context.Context, request api.CreateDeviceRequestObject) (api.CreateDeviceResponseObject, error) {
 	deviceName := request.Body.Name
 
-	device, err := h.service.CreateDevice(ctx, deviceName)
+	//TODO: Handle token return
+	device, _, err := h.service.CreateDevice(ctx, deviceName)
 	if err != nil {
 		h.logger.Error("failed to create device",
 			slog.String("name", deviceName),
@@ -124,29 +125,29 @@ func (h *HTTPHandler) DisableAddress(ctx context.Context, request api.DisableAdd
 func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request api.DeviceHeartbeatRequestObject) (api.DeviceHeartbeatResponseObject, error) {
 	deviceId := DeviceID(request.DeviceId)
 
-	// Extract client IP from context (set by middleware)
-	clientIP, ok := ClientIPFromContext(ctx)
+	clientIp, ok := ClientIPFromContext(ctx)
 	if !ok {
 		h.logger.Error("failed to extract client IP from request")
-		return api.DeviceHeartbeat400JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
+		return api.DeviceHeartbeat500JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
 	}
+
 	h.logger.Debug(
-		"Received heartbeat request",
+		"Received user authenticated heartbeat request",
 		slog.Int64("device", deviceId.Int64()),
-		slog.String("client_ip", clientIP))
+		slog.String("client_ip", clientIp))
 
 	// Call service to checkin the device
-	address, isNew, err := h.service.AssignAddress(ctx, deviceId, clientIP)
+	address, isNew, err := h.service.AssignAddress(ctx, deviceId, clientIp)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
-			return api.DeviceHeartbeat400JSONResponse(errorMsgResponse(fmt.Sprintf("Received address %s is not a valid IPv4 or IPv6 address", clientIP))), nil
+			return api.DeviceHeartbeat400JSONResponse(errorMsgResponse(fmt.Sprintf("Received address %s is not a valid IPv4 or IPv6 address", clientIp))), nil
 		case errors.Is(err, ErrDeviceNotFound):
 			return api.DeviceHeartbeat404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceId))), nil
 		default:
 			h.logger.Error("failed to checkin device",
 				slog.Int64("device_id", deviceId.Int64()),
-				slog.String("ip", clientIP),
+				slog.String("ip", clientIp),
 				slog.Any("error", err),
 			)
 			return api.DeviceHeartbeat500JSONResponse(errorMsgResponse("Failed to checkin device")), nil
@@ -160,6 +161,54 @@ func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request api.DeviceHea
 	return api.DeviceHeartbeat200JSONResponse(toAddressResponse(address)), nil
 }
 
+func (h *HTTPHandler) ApikeyHeartbeat(ctx context.Context, _ api.ApikeyHeartbeatRequestObject) (api.ApikeyHeartbeatResponseObject, error) {
+	// Extract deviceId from context
+	principal, ok := PrincipalFromContext(ctx)
+	if !ok {
+		h.logger.Error("failed to extract device api key from context")
+		return api.ApikeyHeartbeat500JSONResponse(errorMsgResponse("Failed to extract device api key")), nil
+	}
+	deviceId := principal.DeviceID
+
+	// Extract clientIp from context
+	clientIp, ok := ClientIPFromContext(ctx)
+	if !ok {
+		h.logger.Error("failed to extract client IP from request")
+		return api.ApikeyHeartbeat500JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
+	}
+	h.logger.Debug(
+		"Received device authenticated heartbeat request",
+		slog.Int64("device", deviceId.Int64()),
+		slog.String("client_ip", clientIp))
+
+	// Call service to checkin the device
+	address, isNew, err := h.service.AssignAddress(ctx, deviceId, clientIp)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrInvalidIPFormat):
+			return api.ApikeyHeartbeat400JSONResponse(errorMsgResponse(fmt.Sprintf("Received address %s is not a valid IPv4 or IPv6 address", clientIp))), nil
+		case errors.Is(err, ErrDeviceNotFound):
+			return api.ApikeyHeartbeat404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceId))), nil
+		default:
+			h.logger.Error("failed to checkin device",
+				slog.Int64("device_id", deviceId.Int64()),
+				slog.String("ip", clientIp),
+				slog.Any("error", err),
+			)
+			return api.ApikeyHeartbeat500JSONResponse(errorMsgResponse("Failed to checkin device")), nil
+		}
+	}
+
+	if isNew {
+		return api.ApikeyHeartbeat201JSONResponse(toAddressResponse(address)), nil
+	}
+
+	return api.ApikeyHeartbeat200JSONResponse(toAddressResponse(address)), nil
+}
+
+func (h *HTTPHandler) ApiKeyAuthenticator() ApiKeyAuthenticator {
+	return h.service
+}
 func toDeviceResponse(d *Device) api.Device {
 	return api.Device{
 		Id:        d.ID.Int64(),

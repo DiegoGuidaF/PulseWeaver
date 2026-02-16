@@ -117,7 +117,7 @@ func NewHandler(service *Service, logger *slog.Logger) *HTTPHandler {
 	}
 }
 
-func (h *HTTPHandler) Authenticator() Authenticator {
+func (h *HTTPHandler) UserAuthenticator() UserAuthenticator {
 	return h.service
 }
 

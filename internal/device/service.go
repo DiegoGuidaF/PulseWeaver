@@ -17,6 +17,8 @@ type DeviceRepository interface {
 	EnableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error)
 	GetAddressWithStatus(ctx context.Context, addressId AddressID) (*AddressWithStatus, error)
 	CheckAddressOwnership(ctx context.Context, deviceId DeviceID, addressId AddressID) error
+	CreateDeviceApiKey(ctx context.Context, apiKey *ApiKey) (*ApiKey, error)
+	GetDeviceByApiKeyHash(ctx context.Context, keyHash string) (*Device, error)
 	RunInTx(ctx context.Context, fn func(DeviceRepository) error) error
 }
 
@@ -32,9 +34,55 @@ func (s *Service) GetDevices(ctx context.Context) ([]Device, error) {
 	return s.repo.GetDevices(ctx)
 }
 
-func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, error) {
-	device := NewDevice(name)
-	return s.repo.CreateDevice(ctx, device)
+func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, string, error) {
+	var device *Device
+	var rawApiKey string
+
+	err := s.repo.RunInTx(ctx, func(tx DeviceRepository) error {
+		var err error
+		device = NewDevice(name)
+		device, err = tx.CreateDevice(ctx, device)
+		if err != nil {
+			return err
+		}
+
+		apiKey, rawKey, err := NewApiKey(device.ID)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.CreateDeviceApiKey(ctx, apiKey)
+		if err != nil {
+			return err
+		}
+
+		rawApiKey = rawKey
+		return nil
+	})
+
+	if err != nil {
+		return nil, "", err
+	}
+
+	return device, rawApiKey, nil
+}
+
+func (s *Service) Authenticate(ctx context.Context, rawKey string) (*Principal, error) {
+	// Validate key format (must start with prefix)
+	if len(rawKey) < len(ApiKeyPrefix) || rawKey[:len(ApiKeyPrefix)] != ApiKeyPrefix {
+		return nil, ErrInvalidApiKey
+	}
+
+	// Hash the key
+	keyHash := hashApiKey(rawKey)
+
+	// Look up device by key hash
+	device, err := s.repo.GetDeviceByApiKeyHash(ctx, keyHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return PrincipalFromDevice(device), nil
 }
 
 func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIp string) (*AddressWithStatus, bool, error) {

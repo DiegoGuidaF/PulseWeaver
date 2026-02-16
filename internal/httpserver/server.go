@@ -68,14 +68,16 @@ func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandle
 		validatorOptions := &nethttpmiddleware.Options{
 			ErrorHandler: validationErrorHandler,
 			Options: openapi3filter.Options{
-				AuthenticationFunc: auth.AuthenticationFunc(authHandler.Authenticator()),
+				AuthenticationFunc: AuthenticationFunc(authHandler.UserAuthenticator(), deviceHandler.ApiKeyAuthenticator()),
 			},
 		}
 
 		// OpenApi request input validators
 		r.Use(nethttpmiddleware.OapiRequestValidatorWithOptions(swagger, validatorOptions))
 		// Inject auth token into context if present
-		r.Use(auth.PrincipalContextMiddleware(authHandler.Authenticator()))
+		r.Use(auth.PrincipalUserContextMiddleware(authHandler.UserAuthenticator()))
+		// Inject auth token into context if present
+		r.Use(device.PrincipalDeviceContextMiddleware(deviceHandler.ApiKeyAuthenticator()))
 		// Inject request client IP into context
 		r.Use(device.ClientIPContextMiddleware())
 

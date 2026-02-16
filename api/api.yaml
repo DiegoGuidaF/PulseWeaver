@@ -335,6 +335,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /heartbeat:
+    post:
+      operationId: apikeyHeartbeat
+      tags:
+        - devices
+      summary: Performs a heartbeat with the given api key header
+      description: Same as /devices/{device_id}/heartbeat but authentication is provided via api-key for the device to update
+      responses:
+        "200":
+          description: Address enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        "201":
+          description: New address created and enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        "400":
+          description: Invalid IP address format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /devices/{device_id}/addresses/{address_id}:
     delete:
