@@ -34,6 +34,7 @@ Your goal is to build a low-maintenance, production-ready device management syst
 
 - **Backend Patterns:** `docs/ai-overview.md`, `docs/ai-go-style.md`
 - **Frontend Patterns:** `frontend/docs/ai-overview.md`, `frontend/docs/ai-frontend-styles.md`
+- **Testing Requirements:** `.cursor/rules/testing.mdc` - **ALWAYS verify tests pass after code changes**
 
 ## Code Organization Principles
 

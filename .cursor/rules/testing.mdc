@@ -1,0 +1,202 @@
+---
+alwaysApply: true
+---
+
+# Testing Requirements
+
+## 🚨 CRITICAL: Tests Must Pass
+
+**ALWAYS verify tests pass after making code changes.**
+
+### After Any Code Change:
+
+1. **Frontend Changes:**
+   - Run `cd frontend && npm test` to verify all frontend tests pass
+   - Fix any failing tests before considering the change complete
+   - If tests fail, investigate and fix the root cause
+
+2. **Backend Changes:**
+   - Run `make test` or `go test ./...` to verify all backend tests pass
+   - Fix any failing tests before considering the change complete
+   - If tests fail, investigate and fix the root cause
+
+3. **Full Stack Changes:**
+   - Run both frontend and backend tests
+   - Ensure integration points are properly tested
+
+### Test Execution Commands:
+
+- **Frontend:** `cd frontend && npm test`
+- **Backend:** `make test` or `go test ./...`
+- **All Tests:** Run both frontend and backend test suites
+
+### When Tests Fail:
+
+1. **DO NOT** proceed with other changes until tests pass
+2. **DO** investigate the failure thoroughly
+3. **DO** fix the root cause, not just the symptoms
+4. **DO** verify the fix by running tests again
+
+### Test Quality Standards:
+
+- Tests should be reliable and deterministic
+- Tests should cover the changed functionality
+- Tests should follow existing patterns in the codebase
+- Test failures should provide clear error messages
+
+### Exception Cases:
+
+- If a test is flaky or needs to be updated due to intentional behavior changes, update the test accordingly
+- Document any intentional test changes in commit messages
+- Never disable or skip tests without a clear justification
+
+## Test Patterns
+
+### Frontend Testing:
+- Use `@testing-library/react` for component tests
+- Use MSW handlers for API mocking
+- Use `renderWithProviders` utility for consistent test setup
+- Use `userEvent.setup()` for user interactions
+- Use `TEST_TIMEOUTS` constants for async operations
+
+### Backend Testing:
+- Use Go's standard `testing` package
+- Use table-driven tests where appropriate
+- Mock external dependencies
+- Test handlers, services, and repositories separately
+
+## MSW Handler Pattern
+
+The project uses a standardized pattern for creating MSW (Mock Service Worker) handlers to mock API responses in tests. This pattern provides type safety, consistency, and flexibility.
+
+### Core Abstraction: `createHttpHandler`
+
+The `createHttpHandler` factory function (`frontend/src/test/mocks/handlers.ts`) is the core abstraction for creating MSW handlers. It provides:
+
+- **Type-safe handler creation** with TypeScript overloads
+- **Default data factories** for consistent mock responses
+- **Flexible override mechanisms** for test-specific scenarios
+- **Custom resolver support** for complex test cases
+
+### Type Safety with Overloads
+
+`createHttpHandler` uses TypeScript function overloads to provide proper types:
+
+- **Array types**: `dataOverride?: T` (full replacement)
+- **Object types**: `dataOverride?: Partial<T>` (merge behavior)
+
+This ensures type safety without requiring `@ts-ignore` comments.
+
+### Standardized Responses: `responses` Helper
+
+The `responses` helper object provides standardized HTTP response creators:
+
+- `responses.ok(data)` - 200 OK
+- `responses.created(data)` - 201 Created
+- `responses.noContent()` - 204 No Content
+- `responses.badRequest(data?)` - 400 Bad Request
+- `responses.unauthorized(data?)` - 401 Unauthorized
+- `responses.forbidden(data?)` - 403 Forbidden
+- `responses.notFound(data?)` - 404 Not Found
+- `responses.serverError(data?)` - 500 Internal Server Error
+- `responses.custom(data, status)` - Custom status code
+
+### Usage Scenarios
+
+#### 1. Happy Path (Default Behavior)
+
+Use the handler without arguments to return default mock data:
+
+```typescript
+server.use(
+    handlers.devices.createDeviceHandler()
+);
+```
+
+#### 2. Data Override
+
+Override specific fields for test scenarios:
+
+**For Objects (merge behavior):**
+```typescript
+server.use(
+    handlers.devices.createDeviceHandler({ name: 'Custom Device' })
+);
+```
+
+**For Arrays (full replacement):**
+```typescript
+server.use(
+    handlers.devices.getDeviceListHandler([
+        createMockDevice({ id: 1, name: 'Device 1' }),
+        createMockDevice({ id: 2, name: 'Device 2' })
+    ])
+);
+```
+
+#### 3. Custom Resolver
+
+Provide a custom resolver for complex scenarios (loading states, errors, etc.):
+
+```typescript
+server.use(
+    handlers.devices.createDeviceHandler(undefined, async () => {
+        await delay('infinite');
+        return responses.created(createMockDevice());
+    })
+);
+```
+
+**⚠️ CRITICAL:** Custom resolvers MUST return a response. Always include a `return` statement, even when using `delay('infinite')` for loading state tests.
+
+### Array vs Object Behavior
+
+- **Arrays**: `dataOverride` replaces the entire array (full replacement)
+- **Objects**: `dataOverride` merges with default data (partial update)
+
+This distinction is handled automatically by the type system and runtime checks.
+
+### Explicit Path Parameters
+
+Path parameters (e.g., `:deviceId`, `:addressId`) are handled automatically by MSW. The handler factory accepts the path template, and MSW extracts parameters from the actual request URL.
+
+### Best Practices
+
+1. **Always return responses in custom resolvers** - Even when testing loading states with `delay('infinite')`, ensure the resolver returns a response
+2. **Use `responses` helper** - Prefer `responses.ok()`, `responses.created()`, etc. over manual `HttpResponse.json()` calls
+3. **Leverage type safety** - Let TypeScript guide you on whether to use full replacement (arrays) or partial override (objects)
+4. **Keep handlers focused** - Each handler should mock a single endpoint
+5. **Use mock data factories** - Import and use `createMockDevice()`, `createMockUser()`, etc. from `@/test/mocks/data.ts` for consistent mock data
+
+### Example: Complete Test Pattern
+
+```typescript
+import {handlers, responses} from "@/test/mocks/handlers.ts";
+import {createMockDevice} from "@/test/mocks/data.ts";
+import {delay} from 'msw';
+
+// Happy path
+server.use(handlers.devices.getDeviceListHandler());
+
+// Override data
+server.use(
+    handlers.devices.getDeviceListHandler([
+        createMockDevice({ id: 1, name: 'Test Device' })
+    ])
+);
+
+// Custom resolver (loading state)
+server.use(
+    handlers.devices.getDeviceListHandler(undefined, async () => {
+        await delay('infinite');
+        return responses.ok([]); // Always return a response!
+    })
+);
+
+// Custom resolver (error state)
+server.use(
+    handlers.devices.getDeviceListHandler(undefined, () => {
+        return responses.serverError();
+    })
+);
+```

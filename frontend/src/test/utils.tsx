@@ -1,7 +1,8 @@
-import { ReactElement } from 'react';
-import { render, RenderOptions } from '@testing-library/react';
+import type {ReactElement} from 'react';
+import { render, type RenderOptions } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, MemoryRouterProps } from 'react-router-dom';
+import { MemoryRouter, type MemoryRouterProps } from 'react-router-dom';
+import { Toaster } from 'sonner';
 
 /**
  * Creates a test-friendly QueryClient with retry disabled for faster test failures.
@@ -45,7 +46,10 @@ export function renderWithProviders(
   function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
+        <MemoryRouter initialEntries={initialEntries}>
+          {children}
+          <Toaster />
+        </MemoryRouter>
       </QueryClientProvider>
     );
   }

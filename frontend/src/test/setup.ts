@@ -1,10 +1,9 @@
 import '@testing-library/jest-dom';
 import { beforeAll, afterEach, afterAll } from 'vitest';
 import { setupServer } from 'msw/node';
-import { handlers } from './mocks/handlers';
 
 // Setup MSW server
-export const server = setupServer(...handlers);
+export const server = setupServer();
 
 // Start server before all tests
 beforeAll(() => {

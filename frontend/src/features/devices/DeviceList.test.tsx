@@ -1,19 +1,19 @@
 import {describe, expect, it} from 'vitest';
 import {screen, waitFor} from '@testing-library/react';
-import {delay, http, HttpResponse} from 'msw';
+import {delay} from 'msw';
 import {server} from '@/test/setup';
 import {renderWithProviders} from '@/test/utils';
 import {DeviceList} from './DeviceList';
 import {createMockDevice} from '@/test/mocks/data';
+import {handlers, responses} from "@/test/mocks/handlers.ts";
 
 describe('DeviceList', () => {
 
     it('shows loading skeleton initially', async () => {
-        // Override handler to delay response indefinitely
         server.use(
-            http.get('/api/v1/devices', async () => {
+            handlers.devices.getDeviceListHandler(undefined, async () => {
                 await delay('infinite');
-                return HttpResponse.json([])
+                return responses.ok([]);
             })
         );
 
@@ -34,9 +34,7 @@ describe('DeviceList', () => {
         ];
 
         server.use(
-            http.get('/api/v1/devices', () => {
-                return HttpResponse.json(mockDevices);
-            })
+            handlers.devices.getDeviceListHandler(mockDevices)
         );
 
         renderWithProviders(<DeviceList/>);
@@ -53,9 +51,7 @@ describe('DeviceList', () => {
 
     it('shows empty state when no devices are found', async () => {
         server.use(
-            http.get('/api/v1/devices', () => {
-                return HttpResponse.json([]);
-            })
+            handlers.devices.getDeviceListHandler([])
         );
 
         renderWithProviders(<DeviceList/>);
@@ -71,11 +67,8 @@ describe('DeviceList', () => {
 
     it('shows error message on API error', async () => {
         server.use(
-            http.get('/api/v1/devices', () => {
-                return HttpResponse.json(
-                    {error: 'Failed to fetch devices'},
-                    {status: 500}
-                );
+            handlers.devices.getDeviceListHandler(undefined, async () => {
+                return responses.serverError()
             })
         );
 
