@@ -33,6 +33,7 @@ func SetupIntegrationServer(t *testing.T) IntegrationServer {
 		Server: config.ConfServer{
 			Port:          2000,
 			AdminPassword: "AdminPass123!",
+			TrustedProxy:  "127.0.0.1",
 		},
 		DB: config.ConfDB{
 			Dsn:   fmt.Sprintf("file:%s?mode=memory&_loc=auto", t.Name()),
@@ -66,8 +67,12 @@ func SetupIntegrationServer(t *testing.T) IntegrationServer {
 	deviceService := device.NewService(deviceRepo)
 	deviceHandler := device.NewOpenApiHandler(deviceService, logger)
 
+	trustedProxy, err := httpserver.ParseTrustedProxy(conf.Server.TrustedProxy)
+	if err != nil {
+		t.Fatalf("parse trusted proxy: %v", err)
+	}
 	return IntegrationServer{
-		HTTPServer:    httpserver.NewServer(deviceHandler, authHandler, logger),
+		HTTPServer:    httpserver.NewServer(deviceHandler, authHandler, logger, trustedProxy),
 		DeviceService: deviceService,
 		AuthService:   authService,
 	}

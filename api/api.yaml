@@ -604,7 +604,7 @@ components:
       type: string
       format: password
       minLength: 8
-      maxLength: 50
+      maxLength: 32
       example: "123ASecretPassword"
     IPAddress:
       type: string

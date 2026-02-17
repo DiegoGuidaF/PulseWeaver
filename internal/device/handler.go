@@ -128,7 +128,7 @@ func (h *HTTPHandler) DisableAddress(ctx context.Context, request api.DisableAdd
 func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request api.DeviceHeartbeatRequestObject) (api.DeviceHeartbeatResponseObject, error) {
 	deviceId := DeviceID(request.DeviceId)
 
-	clientIp, ok := ClientIPFromContext(ctx)
+	clientIp, ok := api.ClientIPFromContext(ctx)
 	if !ok {
 		h.logger.Error("failed to extract client IP from request")
 		return api.DeviceHeartbeat500JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
@@ -174,7 +174,7 @@ func (h *HTTPHandler) DeviceHeartbeatByApiKey(ctx context.Context, _ api.DeviceH
 	deviceId := principal.DeviceID
 
 	// Extract clientIp from context
-	clientIp, ok := ClientIPFromContext(ctx)
+	clientIp, ok := api.ClientIPFromContext(ctx)
 	if !ok {
 		h.logger.Error("failed to extract client IP from request")
 		return api.DeviceHeartbeatByApiKey500JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil

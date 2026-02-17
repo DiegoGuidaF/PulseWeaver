@@ -4,13 +4,11 @@ package auth
 import (
 	"net/http"
 	"time"
+
+	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
 )
 
-// Default settings
-const (
-	CookieName     = "__Host-wdc_session"
-	CookieDuration = 30 * 24 * time.Hour
-)
+const CookieDuration = 7 * 24 * time.Hour
 
 // CookieConfig holds environment-specific cookie settings
 type CookieConfig struct {
@@ -23,7 +21,7 @@ type CookieConfig struct {
 
 // Default production config
 var DefaultCookieConfig = CookieConfig{
-	Name:     CookieName,
+	Name:     api.SessionCookieName,
 	Secure:   true, // Must be true for __Host- prefix
 	HTTPOnly: true,
 	SameSite: http.SameSiteLaxMode,

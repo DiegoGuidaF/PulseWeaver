@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"log/slog"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
@@ -97,8 +96,6 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (*Principal
 }
 
 func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) error {
-	var user *User
-	generated := false
 	username := "admin"
 	displayName := "Admin"
 	password := conf.AdminPassword
@@ -112,28 +109,12 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 			return nil
 		}
 
-		if password == "" {
-			password, err = generateSecurePassword(16)
-			if err != nil {
-				return fmt.Errorf("generate admin password: %w", err)
-			}
-			generated = true
-		}
-
-		user, err = s.createUser(tx, ctx, username, displayName, nil, password, nil, AdminRole)
+		user, err := s.createUser(tx, ctx, username, displayName, nil, password, nil, AdminRole)
 		if err != nil {
 			return fmt.Errorf("failed to bootstrap admin: %w", err)
 		}
 
-		if generated {
-			s.logger.Warn("🚨 GENERATED ADMIN PASSWORD 🚨 - Store this securely and change it immediately",
-				"username", user.Username,
-				"password", password,
-			)
-		} else {
-			s.logger.Info("bootstrap admin created using password from ADMIN_PASSWORD env variable", "username", user.Username)
-		}
-
+		s.logger.Info("bootstrap admin created", "username", user.Username)
 		return nil
 	})
 	if err != nil {
@@ -162,19 +143,6 @@ func (s *Service) createUser(tx UserRepository, ctx context.Context, username st
 	}
 
 	return user, nil
-}
-
-func generateSecurePassword(length int) (string, error) {
-	// Round up to multiple of 3 bytes for base64
-	byteLen := (length*4+2)/3 + 1
-	b := make([]byte, byteLen)
-
-	if _, err := io.ReadFull(rand.Reader, b); err != nil {
-		return "", err
-	}
-
-	// base64url (no padding) is safe for passwords, URLs, and filenames
-	return base64.RawURLEncoding.EncodeToString(b)[:length], nil
 }
 
 func hashRawToken(rawToken string) string {

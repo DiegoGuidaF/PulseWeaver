@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"net/http"
-)
 
-const SessionCookieName = "__Host-wdc_session"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
+)
 
 // UserAuthenticator defines the interface for authenticating user sessions.
 // This interface is defined in the auth package to avoid import cycles.
@@ -34,7 +34,7 @@ func PrincipalUserContextMiddleware(auth UserAuthenticator) func(http.Handler) h
 }
 
 func TokenFromRequest(r *http.Request) (string, error) {
-	if cookie, err := r.Cookie(SessionCookieName); err == nil && cookie.Value != "" {
+	if cookie, err := r.Cookie(api.SessionCookieName); err == nil && cookie.Value != "" {
 		return cookie.Value, nil
 	}
 

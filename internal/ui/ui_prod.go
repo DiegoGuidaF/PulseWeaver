@@ -39,13 +39,16 @@ func Handler() http.Handler {
 			// Ensure we don't serve directory listings
 			stat, _ := f.Stat()
 			if !stat.IsDir() {
+				if strings.HasPrefix(path, "/assets/") {
+					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				}
 				fileServer.ServeHTTP(w, r)
 				return
 			}
 		}
 
 		// Fallback to index.html for SPA routing
-		// We re-use fileServer to serve index.html properly with headers
+		w.Header().Set("Cache-Control", "no-cache")
 		r.URL.Path = "/"
 		fileServer.ServeHTTP(w, r)
 	})

@@ -13,7 +13,7 @@ import (
 	"github.com/matryer/is"
 )
 
-func TestHandler_CreateAndListDevices_HappyPath(t *testing.T) {
+func TestHandler_CreateAndListDevices(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
@@ -47,7 +47,7 @@ func TestHandler_CreateAndListDevices_HappyPath(t *testing.T) {
 	is.True(devices[0].ApiKeyPrefix != "")
 }
 
-func TestHandler_AddressLifecycle_HappyPath(t *testing.T) {
+func TestHandler_AddressLifecycle(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
@@ -95,7 +95,7 @@ func TestHandler_AddressLifecycle_HappyPath(t *testing.T) {
 	is.True(!disabled.Status)
 }
 
-func TestHandler_DeviceHeartbeat_HappyPath(t *testing.T) {
+func TestHandler_DeviceHeartbeat(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
@@ -120,7 +120,7 @@ func TestHandler_DeviceHeartbeat_HappyPath(t *testing.T) {
 	is.Equal(secondRes.Code, http.StatusOK)
 }
 
-func TestHandler_CreateDevice_ReturnsCreateDeviceResponse(t *testing.T) {
+func TestHandler_CreateDevice(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")

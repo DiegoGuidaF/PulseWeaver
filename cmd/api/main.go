@@ -63,15 +63,21 @@ func run(ctx context.Context) (*slog.Logger, error) {
 		return logger, fmt.Errorf("failed to bootstrap admin: %w", err)
 	}
 
-	handler := httpserver.NewServer(openApiHandler, authHandler, logger)
+	trustedProxy, err := httpserver.ParseTrustedProxy(conf.Server.TrustedProxy)
+	if err != nil {
+		return logger, fmt.Errorf("invalid TRUSTED_PROXY: %w", err)
+	}
+	handler := httpserver.NewServer(openApiHandler, authHandler, logger, trustedProxy)
 
 	// 4. Setup HTTP Server
 	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", conf.Server.Port),
-		Handler:      handler,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:              fmt.Sprintf(":%d", conf.Server.Port),
+		Handler:           handler,
+		ReadTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 16, // 64KB
 	}
 
 	// 5. Start Server in Goroutine

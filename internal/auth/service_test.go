@@ -256,29 +256,6 @@ func TestService_BootstrapAdmin_SkipsWhenUsersExist(t *testing.T) {
 	is.True(!ok)
 }
 
-func TestService_BootstrapAdmin_GeneratesPasswordWhenNotProvided(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	mockRepo := newMockUserRepository()
-	mockRepo.userCount = 0
-	logger := newTestLogger()
-	service := NewService(mockRepo, logger)
-
-	conf := config.ConfServer{
-		AdminPassword: "", // Empty password
-	}
-
-	err := service.BootstrapAdmin(ctx, conf)
-	is.NoErr(err)
-	is.Equal(mockRepo.userCount, 1)
-
-	// Verify admin was created
-	admin, ok := mockRepo.usersByUsername["admin"]
-	is.True(ok)
-	is.Equal(admin.Role, AdminRole)
-}
-
 func TestService_BootstrapAdmin_UsesProvidedPassword(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
