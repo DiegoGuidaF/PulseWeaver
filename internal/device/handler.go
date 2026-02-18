@@ -164,7 +164,7 @@ func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request api.DeviceHea
 	return api.DeviceHeartbeat200JSONResponse(toAddressResponse(address)), nil
 }
 
-func (h *HTTPHandler) DeviceHeartbeatByApiKey(ctx context.Context, _ api.DeviceHeartbeatByApiKeyRequestObject) (api.DeviceHeartbeatByApiKeyResponseObject, error) {
+func (h *HTTPHandler) DeviceHeartbeatByApiKey(ctx context.Context, request api.DeviceHeartbeatByApiKeyRequestObject) (api.DeviceHeartbeatByApiKeyResponseObject, error) {
 	// Extract deviceId from context
 	principal, ok := PrincipalFromContext(ctx)
 	if !ok {
@@ -173,29 +173,37 @@ func (h *HTTPHandler) DeviceHeartbeatByApiKey(ctx context.Context, _ api.DeviceH
 	}
 	deviceId := principal.DeviceID
 
-	// Extract clientIp from context
-	clientIp, ok := api.ClientIPFromContext(ctx)
-	if !ok {
-		h.logger.Error("failed to extract client IP from request")
-		return api.DeviceHeartbeatByApiKey500JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
+	// Determine IP to use: prefer body IP, fallback to context IP if not provided
+	var ipToUse string
+	requestBody := request.Body
+	if requestBody != nil && requestBody.Ip != nil && *requestBody.Ip != "" {
+		ipToUse = *requestBody.Ip
+	} else {
+		var ok bool
+		ipToUse, ok = api.ClientIPFromContext(ctx)
+		if !ok {
+			h.logger.Error("failed to extract client IP from request and no IP provided in body")
+			return api.DeviceHeartbeatByApiKey500JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
+		}
 	}
+
 	h.logger.Debug(
 		"Received device authenticated heartbeat request",
 		slog.Int64("device", deviceId.Int64()),
-		slog.String("client_ip", clientIp))
+		slog.String("client_ip", ipToUse))
 
 	// Call service to checkin the device
-	address, isNew, err := h.service.AssignAddress(ctx, deviceId, clientIp)
+	address, isNew, err := h.service.AssignAddress(ctx, deviceId, ipToUse)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
-			return api.DeviceHeartbeatByApiKey400JSONResponse(errorMsgResponse(fmt.Sprintf("Received address %s is not a valid IPv4 or IPv6 address", clientIp))), nil
+			return api.DeviceHeartbeatByApiKey400JSONResponse(errorMsgResponse(fmt.Sprintf("Received address %s is not a valid IPv4 or IPv6 address", ipToUse))), nil
 		case errors.Is(err, ErrDeviceNotFound):
 			return api.DeviceHeartbeatByApiKey404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceId))), nil
 		default:
 			h.logger.Error("failed to checkin device",
 				slog.Int64("device_id", deviceId.Int64()),
-				slog.String("ip", clientIp),
+				slog.String("ip", ipToUse),
 				slog.Any("error", err),
 			)
 			return api.DeviceHeartbeatByApiKey500JSONResponse(errorMsgResponse("Failed to checkin device")), nil

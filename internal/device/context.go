@@ -4,7 +4,6 @@ import "context"
 
 type contextKey string
 
-const clientIPCtxKey contextKey = "client_ip"
 const principalContextKey contextKey = "devicePrincipal"
 
 func WithPrincipal(ctx context.Context, principal Principal) context.Context {

@@ -344,6 +344,12 @@ paths:
         - apiKeyAuth: []
       summary: Performs a heartbeat with the given api key header
       description: Same as /devices/{device_id}/heartbeat but authentication is provided via api-key for the device to update
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceHeartbeatByApiKeyRequest'
       responses:
         "200":
           description: Address enabled
@@ -488,6 +494,11 @@ components:
     AddAddressRequest:
       required:
         - ip
+      type: object
+      properties:
+        ip:
+          $ref: '#/components/schemas/IPAddress'
+    DeviceHeartbeatByApiKeyRequest:
       type: object
       properties:
         ip:

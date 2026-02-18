@@ -162,7 +162,7 @@ func TestHandler_GetDevices_ReturnsApiKeyPrefix(t *testing.T) {
 	is.True(devices[0].ApiKeyPrefix != "")
 }
 
-func TestHandler_DeviceHeartbeatByApiKey_HappyPath(t *testing.T) {
+func TestHandler_DeviceHeartbeatByApiKey_NoBody(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
@@ -182,8 +182,11 @@ func TestHandler_DeviceHeartbeatByApiKey_HappyPath(t *testing.T) {
 	is.True(createResp.ApiKey != "")
 
 	// POST /heartbeat with X-API-Key (no session cookie needed)
-	heartbeatReq := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", nil)
-	heartbeatReq.RemoteAddr = "192.168.1.99:0"
+	// Send empty JSON body, should use client ip from request context
+	emptyBody, _ := json.Marshal(map[string]interface{}{})
+	heartbeatReq := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", bytes.NewReader(emptyBody))
+	heartbeatReq.Header.Set("Content-Type", "application/json")
+	heartbeatReq.RemoteAddr = "192.168.1.99:12345"
 	heartbeatReq.Header.Set("X-API-Key", createResp.ApiKey)
 	heartbeatRes := httptest.NewRecorder()
 	testServer.HTTPServer.ServeHTTP(heartbeatRes, heartbeatReq)
@@ -194,6 +197,76 @@ func TestHandler_DeviceHeartbeatByApiKey_HappyPath(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(addr.Ip, "192.168.1.99")
 	is.True(addr.Status)
+}
+
+func TestHandler_DeviceHeartbeatByApiKey_WithBodyIP(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	// Create device via HTTP to get api_key in response
+	createBody, _ := json.Marshal(map[string]string{"name": "apikey-heartbeat-with-body-ip"})
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/devices", bytes.NewReader(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.AddCookie(sessionCookie)
+	createRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(createRes, createReq)
+	is.Equal(createRes.Code, http.StatusCreated)
+
+	var createResp api.CreateDeviceResponse
+	err := json.NewDecoder(createRes.Body).Decode(&createResp)
+	is.NoErr(err)
+	is.True(createResp.ApiKey != "")
+
+	// POST /heartbeat with X-API-Key and IP in request body
+	// The IP in body should be used instead of RemoteAddr
+	heartbeatBody, _ := json.Marshal(map[string]string{"ip": "10.0.0.42"})
+	heartbeatReq := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", bytes.NewReader(heartbeatBody))
+	heartbeatReq.Header.Set("Content-Type", "application/json")
+	heartbeatReq.RemoteAddr = "192.168.1.99:12345" // This should be ignored when body IP is provided
+	heartbeatReq.Header.Set("X-API-Key", createResp.ApiKey)
+	heartbeatRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(heartbeatRes, heartbeatReq)
+	is.Equal(heartbeatRes.Code, http.StatusCreated)
+
+	var addr api.Address
+	err = json.NewDecoder(heartbeatRes.Body).Decode(&addr)
+	is.NoErr(err)
+	// Verify the IP from body is used, not RemoteAddr
+	is.Equal(addr.Ip, "10.0.0.42")
+	is.True(addr.Status)
+
+	// Test case: Second heartbeat with same body IP should return 200 (address already exists)
+	heartbeatBody2, _ := json.Marshal(map[string]string{"ip": "10.0.0.42"})
+	heartbeatReq2 := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", bytes.NewReader(heartbeatBody2))
+	heartbeatReq2.Header.Set("Content-Type", "application/json")
+	heartbeatReq2.RemoteAddr = "192.168.1.99:0" // This should be ignored
+	heartbeatReq2.Header.Set("X-API-Key", createResp.ApiKey)
+	heartbeatRes2 := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(heartbeatRes2, heartbeatReq2)
+	is.Equal(heartbeatRes2.Code, http.StatusOK) // Should return 200 since address already exists
+
+	var addr2 api.Address
+	err = json.NewDecoder(heartbeatRes2.Body).Decode(&addr2)
+	is.NoErr(err)
+	is.Equal(addr2.Ip, "10.0.0.42") // Should use the same IP from body
+	is.True(addr2.Status)
+
+	// Test case: Third heartbeat with different body IP should create a new address (201)
+	heartbeatBody3, _ := json.Marshal(map[string]string{"ip": "10.0.0.43"})
+	heartbeatReq3 := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", bytes.NewReader(heartbeatBody3))
+	heartbeatReq3.Header.Set("Content-Type", "application/json")
+	heartbeatReq3.RemoteAddr = "192.168.1.99:0" // This should be ignored
+	heartbeatReq3.Header.Set("X-API-Key", createResp.ApiKey)
+	heartbeatRes3 := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(heartbeatRes3, heartbeatReq3)
+	is.Equal(heartbeatRes3.Code, http.StatusCreated) // Should return 201 since it's a new IP address
+
+	var addr3 api.Address
+	err = json.NewDecoder(heartbeatRes3.Body).Decode(&addr3)
+	is.NoErr(err)
+	is.Equal(addr3.Ip, "10.0.0.43") // Should use the new IP from body
+	is.True(addr3.Status)
 }
 
 func TestHandler_DeviceHeartbeatByApiKey_401_NoKey(t *testing.T) {
