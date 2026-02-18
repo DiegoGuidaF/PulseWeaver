@@ -9,7 +9,6 @@ servers:
 # 1. Global security requirement (denies access by default)
 security:
   - cookieAuth: [ ]
-  - bearerAuth: [ ]
 
 paths:
   # --------------------
