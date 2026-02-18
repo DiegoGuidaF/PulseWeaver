@@ -21,7 +21,7 @@ func TestClientIpFromRequest_ExtractsFromRemoteAddr(t *testing.T) {
 
 	// Create a handler that captures client IP from context
 	var capturedIP string
-	handler := httpserver.ClientIpFromRequest()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpserver.ClientIpFromRequestMiddleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip, ok := api.ClientIPFromContext(r.Context())
 		if ok {
 			capturedIP = ip
@@ -46,7 +46,7 @@ func TestClientIpFromRequest_HandlesPlainAddress(t *testing.T) {
 	is := is.New(t)
 
 	var capturedIP string
-	handler := httpserver.ClientIpFromRequest()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpserver.ClientIpFromRequestMiddleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip, ok := api.ClientIPFromContext(r.Context())
 		if ok {
 			capturedIP = ip
@@ -73,7 +73,7 @@ func TestClientIPFromXFFHeader_TrustedProxyExtractsClientIP(t *testing.T) {
 
 	// Create a handler that captures client IP from context
 	var capturedIP string
-	handler := httpserver.ClientIPFromXFFHeader(trustedProxy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpserver.ClientIPFromXFFHeaderMiddleware(trustedProxy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip, ok := api.ClientIPFromContext(r.Context())
 		if ok {
 			capturedIP = ip
@@ -102,7 +102,7 @@ func TestClientIPFromXFFHeader_UntrustedProxyIgnoresXFF(t *testing.T) {
 
 	// Create a handler that captures client IP from context
 	var capturedIP string
-	handler := httpserver.ClientIPFromXFFHeader(trustedProxy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpserver.ClientIPFromXFFHeaderMiddleware(trustedProxy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip, ok := api.ClientIPFromContext(r.Context())
 		if ok {
 			capturedIP = ip
@@ -129,7 +129,7 @@ func TestClientIPFromXFFHeader_InvalidEntriesIgnored(t *testing.T) {
 	trustedProxy := netip.MustParseAddr("127.0.0.1")
 
 	var capturedIP string
-	handler := httpserver.ClientIPFromXFFHeader(trustedProxy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpserver.ClientIPFromXFFHeaderMiddleware(trustedProxy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip, ok := api.ClientIPFromContext(r.Context())
 		if ok {
 			capturedIP = ip
@@ -210,7 +210,7 @@ func TestClientIPFromXFFHeader_NoHeaderUsesPeerIP(t *testing.T) {
 	trustedProxy := netip.MustParseAddr("127.0.0.1")
 
 	var capturedIP string
-	handler := httpserver.ClientIPFromXFFHeader(trustedProxy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpserver.ClientIPFromXFFHeaderMiddleware(trustedProxy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip, ok := api.ClientIPFromContext(r.Context())
 		if ok {
 			capturedIP = ip
@@ -236,7 +236,7 @@ func TestClientIPFromXFFHeader_InvalidPeerIPFallback(t *testing.T) {
 	trustedProxy := netip.MustParseAddr("127.0.0.1")
 
 	var capturedIP string
-	handler := httpserver.ClientIPFromXFFHeader(trustedProxy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpserver.ClientIPFromXFFHeaderMiddleware(trustedProxy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip, ok := api.ClientIPFromContext(r.Context())
 		if ok {
 			capturedIP = ip

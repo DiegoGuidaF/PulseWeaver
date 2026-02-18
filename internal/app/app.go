@@ -71,7 +71,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Dependency Injection
 	deviceRepo := device.NewRepository(db.DB())
-	deviceService := device.NewService(deviceRepo)
+	deviceService := device.NewService(deviceRepo, logger)
 	openApiHandler := device.NewOpenApiHandler(deviceService, logger)
 
 	authRepo := auth.NewRepository(db.DB())

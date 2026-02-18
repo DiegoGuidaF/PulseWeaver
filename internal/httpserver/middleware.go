@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/netip"
@@ -9,6 +10,8 @@ import (
 	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
 )
 
@@ -59,8 +62,8 @@ func LoginRateLimitMiddleware(requests int, window time.Duration) func(http.Hand
 	}
 }
 
-// MaxBodySize limits request body size to prevent large payloads from exhausting memory.
-func MaxBodySize(maxBytes int64) func(http.Handler) http.Handler {
+// MaxBodySizeMiddleware limits request body size to prevent large payloads from exhausting memory.
+func MaxBodySizeMiddleware(maxBytes int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
@@ -69,9 +72,9 @@ func MaxBodySize(maxBytes int64) func(http.Handler) http.Handler {
 	}
 }
 
-// ClientIpFromRequest is middleware that extracts the client IP from r.RemoteAddr
+// ClientIpFromRequestMiddleware is middleware that extracts the client IP from r.RemoteAddr
 // and sets it in the request context. It ignores any X-Forwarded-For headers.
-func ClientIpFromRequest() func(http.Handler) http.Handler {
+func ClientIpFromRequestMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			clientIP := extractIPFromRemoteAddr(r)
@@ -81,7 +84,7 @@ func ClientIpFromRequest() func(http.Handler) http.Handler {
 	}
 }
 
-// ClientIPFromXFFHeader is middleware that extracts the client IP from X-Forwarded-For headers
+// ClientIPFromXFFHeaderMiddleware is middleware that extracts the client IP from X-Forwarded-For headers
 // only when the direct connection is from a trusted proxy (the given IP address).
 // Otherwise forwarded headers are ignored to prevent spoofing.
 //
@@ -90,9 +93,9 @@ func ClientIpFromRequest() func(http.Handler) http.Handler {
 // 2. Selects the rightmost IP from XFF headers (more secure - prevents spoofing)
 // 3. Stores client IP in context (does NOT modify r.RemoteAddr to avoid port issues)
 //
-// Note: This middleware assumes trustedProxy.IsValid() is true. Use ClientIpFromRequest()
+// Note: This middleware assumes trustedProxy.IsValid() is true. Use ClientIpFromRequestMiddleware()
 // when trusted proxy is not configured.
-func ClientIPFromXFFHeader(trustedProxy netip.Addr) func(http.Handler) http.Handler {
+func ClientIPFromXFFHeaderMiddleware(trustedProxy netip.Addr) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Extract direct peer IP (the proxy we're connected to)
@@ -135,6 +138,21 @@ func ClientIPFromXFFHeader(trustedProxy netip.Addr) func(http.Handler) http.Hand
 	}
 }
 
+// RequestLoggerMiddleware creates a middleware that initializes the logger with request attributes
+// (request_id) and injects it into context.
+func RequestLoggerMiddleware(base *slog.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			reqID := middleware.GetReqID(r.Context())
+			l := base.With(
+				slog.String("request_id", reqID),
+			)
+			ctx := logging.ToCtx(r.Context(), l)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
 // extractIPFromRemoteAddr extracts the IP address from r.RemoteAddr.
 // Handles both "host:port" and plain address formats.
 func extractIPFromRemoteAddr(r *http.Request) string {
@@ -148,6 +166,9 @@ func extractIPFromRemoteAddr(r *http.Request) string {
 // setClientIPInContext sets the client IP in the request context.
 func setClientIPInContext(r *http.Request, ip string) *http.Request {
 	ctx := api.WithClientIP(r.Context(), ip)
+	ctx, _ = logging.Enrich(ctx,
+		slog.String("client_ip", ip),
+	)
 	return r.WithContext(ctx)
 }
 

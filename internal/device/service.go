@@ -3,6 +3,9 @@ package device
 import (
 	"context"
 	"errors"
+	"log/slog"
+
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 )
 
 // DeviceRepository defines the persistence operations for devices and addresses.
@@ -23,18 +26,30 @@ type DeviceRepository interface {
 }
 
 type Service struct {
-	repo DeviceRepository
+	repo   DeviceRepository
+	logger *slog.Logger
 }
 
-func NewService(repo DeviceRepository) *Service {
-	return &Service{repo: repo}
+func NewService(repo DeviceRepository, logger *slog.Logger) *Service {
+	return &Service{repo: repo, logger: logger}
 }
 
 func (s *Service) GetDevices(ctx context.Context) ([]DeviceWithApiKeyPrefix, error) {
-	return s.repo.GetDevices(ctx)
+	logger := logging.FromCtx(ctx)
+	logger.Debug("listing devices")
+
+	devices, err := s.repo.GetDevices(ctx)
+	if err != nil {
+		logger.Error("database error listing devices", slog.Any(AttrKeyError, err))
+		return nil, err
+	}
+	return devices, nil
 }
 
 func (s *Service) CreateDevice(ctx context.Context, name string) (*DeviceWithApiKeyPrefix, string, error) {
+	logger := logging.FromCtx(ctx)
+	logger.Debug("creating device")
+
 	var deviceWithApiKeyPrefix *DeviceWithApiKeyPrefix
 	var rawKey string
 
@@ -42,6 +57,7 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*DeviceWithApi
 		device := NewDevice(name)
 		device, err := tx.CreateDevice(ctx, device)
 		if err != nil {
+			logger.Error("database error creating device", slog.Any(AttrKeyError, err))
 			return err
 		}
 
@@ -54,6 +70,7 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*DeviceWithApi
 
 		apiKey, err = tx.CreateDeviceApiKey(ctx, apiKey)
 		if err != nil {
+			logger.Error("database error creating device API key", slog.Any(AttrKeyError, err))
 			return err
 		}
 
@@ -62,6 +79,7 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*DeviceWithApi
 			KeyPrefix: apiKey.KeyPrefix,
 		}
 
+		logger.Info("device created", slog.Int64(AttrKeyDeviceID, device.ID.Int64()))
 		return nil
 	})
 	if err != nil {
@@ -90,47 +108,64 @@ func (s *Service) Authenticate(ctx context.Context, rawKey string) (*Principal, 
 }
 
 func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIp string) (*AddressWithStatus, bool, error) {
-	var resultAddr *AddressWithStatus
-	var wasCreated bool
+	logger := logging.FromCtx(ctx)
+
+	logger.Debug("assigning address")
 
 	newAddress, err := NewAddress(deviceID, inputIp)
 	if err != nil {
+		logger.Warn("invalid IP format")
 		return nil, false, err
 	}
 
+	var resultAddr *AddressWithStatus
+	var wasCreated bool
+
 	err = s.repo.RunInTx(ctx, func(tx DeviceRepository) error {
-		// Verify device exists before trying to create an address
 		_, err := tx.GetDeviceByID(ctx, deviceID)
 		if err != nil {
+			if errors.Is(err, ErrDeviceNotFound) {
+				logger.Warn("device not found")
+				return err
+			}
+			logger.Error("database error fetching device", slog.Any(AttrKeyError, err))
 			return err
 		}
 
 		resultAddr, err = tx.GetAddressForDeviceByIp(ctx, deviceID, newAddress.IP)
 		if err != nil {
 			if errors.Is(err, ErrAddressNotFound) {
+				logger.Debug("address not found, creating new address")
 				addr, err := tx.CreateAddress(ctx, newAddress)
 				if err != nil {
+					logger.Error("database error creating address", slog.Any(AttrKeyError, err))
 					return err
 				}
 
-				// And enable it
 				resultAddr, err = tx.EnableAddress(ctx, addr.ID)
 				if err != nil {
+					logger.Error("database error enabling address", slog.Any(AttrKeyError, err))
 					return err
 				}
+
+				logger.Info("address created", slog.Int64(AttrKeyAddressID, addr.ID.Int64()))
 
 				wasCreated = true
 			} else {
+				logger.Error("database error checking address", slog.Any(AttrKeyError, err))
 				return err
 			}
 		} else {
+			logger.Debug("address already exists", slog.Int64(AttrKeyAddressID, resultAddr.Id.Int64()))
 			wasCreated = false
 		}
 
-		// If it was not created, add an enabled record
+		// If it was not created, enable it
 		if !wasCreated {
+			logger.Info("address exists add status enabled", slog.Int64(AttrKeyAddressID, resultAddr.Id.Int64()))
 			resultAddr, err = tx.EnableAddress(ctx, resultAddr.Id)
 			if err != nil {
+				logger.Error("database error enabling existing address", slog.Any(AttrKeyError, err))
 				return err
 			}
 		}
@@ -141,22 +176,34 @@ func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIp 
 	if err != nil {
 		return nil, false, err
 	}
-
+	logger.Info("address assigned",
+		slog.String(AttrKeyAddressIP, resultAddr.IP),
+		slog.Int64(AttrKeyAddressID, resultAddr.Id.Int64()),
+		slog.Bool(AttrKeyCreated, wasCreated),
+	)
 	return resultAddr, wasCreated, nil
 }
 
 func (s *Service) GetAddressesForDevice(ctx context.Context, deviceID DeviceID) ([]AddressWithStatus, error) {
+	logger := logging.FromCtx(ctx)
+	logger.Debug("listing addresses for device")
+
 	var addresses []AddressWithStatus
 
 	err := s.repo.RunInTx(ctx, func(tx DeviceRepository) error {
-		// Verify device exists before trying to create an address
 		_, err := tx.GetDeviceByID(ctx, deviceID)
 		if err != nil {
+			if errors.Is(err, ErrDeviceNotFound) {
+				logger.Warn("device not found")
+				return err
+			}
+			logger.Error("database error fetching device", slog.Any(AttrKeyError, err))
 			return err
 		}
 
 		addresses, err = tx.ListAddresses(ctx, deviceID)
 		if err != nil {
+			logger.Error("database error listing addresses", slog.Any(AttrKeyError, err))
 			return err
 		}
 
@@ -170,16 +217,25 @@ func (s *Service) GetAddressesForDevice(ctx context.Context, deviceID DeviceID) 
 }
 
 func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, addressID AddressID) (*AddressWithStatus, error) {
+	logger := logging.FromCtx(ctx)
+	logger.Debug("disabling address")
+
 	var disabledAddress *AddressWithStatus
 
 	err := s.repo.RunInTx(ctx, func(tx DeviceRepository) error {
 		err := tx.CheckAddressOwnership(ctx, deviceID, addressID)
 		if err != nil {
+			if errors.Is(err, ErrAddressNotFound) || errors.Is(err, ErrAddressNotOwnedByDevice) {
+				logger.Warn("address not found or not owned by device")
+				return err
+			}
+			logger.Error("database error checking address ownership", slog.Any(AttrKeyError, err))
 			return err
 		}
 
 		disabledAddress, err = tx.DisableAddress(ctx, addressID)
 		if err != nil {
+			logger.Error("database error disabling address", slog.Any(AttrKeyError, err))
 			return err
 		}
 
@@ -188,6 +244,10 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, address
 	if err != nil {
 		return nil, err
 	}
+	logger.Info("address disabled",
+		slog.String(AttrKeyAddressIP, disabledAddress.IP),
+		slog.Int64(AttrKeyAddressID, disabledAddress.Id.Int64()),
+	)
 
 	return disabledAddress, nil
 }

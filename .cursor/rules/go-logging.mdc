@@ -1,0 +1,332 @@
+---
+globs:
+  - "**/*.go"
+---
+
+# Go Logging Rules
+
+**References:** `internal/logging/logging.go`, `internal/logging/ctx.go`, `internal/httpserver/server.go`
+
+## Logger Bootstrap & Environment Config
+
+### Logger Initialization
+
+- Use `internal/logging.New(env)` to create loggers based on environment
+- **Development:** Text handler with debug level (`slog.LevelDebug`)
+- **Production:** JSON handler with info level (`slog.LevelInfo`) for log aggregation
+- Pass logger explicitly into constructors - **NO GLOBAL LOGGERS** (except `slog.SetDefault` during app initialization)
+
+```go
+// ✅ CORRECT: Explicit logger passing at construction
+logger := logging.New(conf.Environment)
+slog.SetDefault(logger)
+service := device.NewService(repo, logger)
+
+// ❌ WRONG: Global logger access at runtime
+slog.Info("message") // Only OK during app initialization
+```
+
+## Logger-in-Context Pattern
+
+### Overview
+
+The application uses a logger-in-context pattern with three layers of responsibility:
+
+1. **Middleware** initializes the logger with request attributes and stores it in context
+2. **Handlers** progressively enrich the logger via `logging.Enrich()` as information becomes available, then pass the enriched context to services
+3. **Services** read the logger via `logging.FromCtx()` and use it directly — Services generally use logging.FromCtx(ctx). If a service needs to pass attributes (like invoice_id) to downstream components (repos/other services), it MAY use Enrich before calling them. Otherwise, it logs attributes inline. This is to make service logging simple by default.
+
+### Context Helpers (`internal/logging/ctx.go`)
+
+Three exported functions with distinct roles:
+
+```go
+// ToCtx — used by middleware for initial injection
+func ToCtx(ctx context.Context, l *slog.Logger) context.Context
+
+// FromCtx — used by services and error handlers to read the logger
+// Returns slog.Default() if no logger in context (safe: app sets slog.Default on startup)
+func FromCtx(ctx context.Context) *slog.Logger
+
+// Enrich — used by handlers to add attributes and store the enriched logger back
+// Combines FromCtx + With() + ToCtx in one call
+func Enrich(ctx context.Context, attrs ...any) (context.Context, *slog.Logger)
+```
+
+### Middleware Layer
+
+Middleware initializes the context logger with request-scoped attributes. This runs once per request and all downstream code inherits these attributes automatically.
+
+**Middleware ordering (CRITICAL):**
+1. `middleware.RequestID` — generates request ID
+2. ClientIP middleware — extracts client IP and enriches logger with `client_ip`
+3. `RequestLoggerMiddleware` — enriches logger with `request_id`
+4. `slog-chi` — logs HTTP request/response automatically
+
+```go
+func RequestLoggerMiddleware(base *slog.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			reqID := middleware.GetReqID(r.Context())
+			l := base.With(
+				slog.String("request_id", reqID),
+			)
+			ctx := logging.ToCtx(r.Context(), l)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+```
+
+### Handler Layer — The Enrichment Owner
+
+Handlers are the **only layer that enriches** the logger context. They use `logging.Enrich()` to progressively add attributes as information becomes available during the handler's execution.
+
+**Rules:**
+- Use `logging.Enrich(ctx, ...)` to add attributes — always reassign both `ctx` and `logger`
+- Set `operation` to the **handler method name** (e.g. `DeviceHeartbeat`, `GetDevices`, `CreateDevice`). Enrich `operation` only in the handler — never in middleware or services.
+- Enrich progressively: add attributes as soon as they are known
+- Pass the enriched `ctx` to service calls so services inherit all attributes
+- Log business outcomes (success events, error classification)
+- Use `Warn` for 4xx (client errors), `Error` for 5xx (server errors)
+- Do NOT log HTTP status codes or request lifecycle (slog-chi handles this)
+
+```go
+func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request api.DeviceHeartbeatRequestObject) (api.DeviceHeartbeatResponseObject, error) {
+	deviceId := DeviceID(request.DeviceId)
+
+	// Enrich as soon as we know the operation (handler method name) and device
+	ctx, logger := logging.Enrich(ctx,
+		slog.String("operation", "DeviceHeartbeat"),
+		slog.Int64("device_id", deviceId.Int64()),
+	)
+
+	clientIp, ok := api.ClientIPFromContext(ctx)
+	if !ok {
+		logger.Error("client IP not in context")
+		return api.DeviceHeartbeat500JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
+	}
+	// Enrich again when we learn the client IP
+	ctx, logger = logging.Enrich(ctx, slog.String("client_ip", clientIp))
+
+	// Pass enriched ctx to service — service inherits all attributes
+	address, isNew, err := h.service.AssignAddress(ctx, deviceId, clientIp)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrInvalidIPFormat):
+			logger.Warn("invalid request body")
+			return api.DeviceHeartbeat400JSONResponse(...), nil
+		case errors.Is(err, ErrDeviceNotFound):
+			logger.Warn("device not found")
+			return api.DeviceHeartbeat404JSONResponse(...), nil
+		default:
+			logger.Error("heartbeat request failed", slog.Any("error", err))
+			return api.DeviceHeartbeat500JSONResponse(...), nil
+		}
+	}
+
+	// Log success with result-specific attributes inline
+	logger.Info("device heartbeat successful",
+		slog.Int64("address_id", address.Id.Int64()),
+		slog.String("address_ip", address.IP),
+	)
+
+	if isNew {
+		return api.DeviceHeartbeat201JSONResponse(toAddressResponse(address)), nil
+	}
+	return api.DeviceHeartbeat200JSONResponse(toAddressResponse(address)), nil
+}
+```
+
+### Service Layer — Simple Logging, No Enrichment
+Services generally use logging.FromCtx(ctx). If a service needs to pass attributes (like invoice_id) to downstream components (repos/other services), it MAY use Enrich before calling them. Otherwise, it logs attributes inline.
+
+The logger already carries all handler-enriched attributes (operation, device_id, client_ip, etc.) so services get full context for free.
+
+**Rules:**
+- Use `logging.FromCtx(ctx)` to get the logger
+- Do NOT enrich `operation` — it is set only by the handler (to the handler method name).
+- Only call logging.Enrich for complex flows that call other services (and never add `operation`).
+- Add per-call attributes inline (e.g., `slog.Int64("address_id", ...)`)
+- Log domain-level events: database errors, state transitions, creation/update outcomes
+- Use `Debug` for intermediate steps, `Info` for outcomes, `Warn` for expected failures, `Error` for unexpected failures
+- Use `slog.Any("error", err)` for error attributes
+
+```go
+func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIp string) (*AddressWithStatus, bool, error) {
+	// Just read the logger — it already has request_id, client_ip, operation, device_id from handler
+	logger := logging.FromCtx(ctx)
+
+	logger.Debug("assigning address")
+
+	newAddress, err := NewAddress(deviceID, inputIp)
+	if err != nil {
+		logger.Warn("invalid IP format")
+		return nil, false, err
+	}
+
+	var resultAddr *AddressWithStatus
+	var wasCreated bool
+
+	err = s.repo.RunInTx(ctx, func(tx DeviceRepository) error {
+		_, err := tx.GetDeviceByID(ctx, deviceID)
+		if err != nil {
+			if errors.Is(err, ErrDeviceNotFound) {
+				logger.Warn("device not found")
+				return err
+			}
+			logger.Error("database error fetching device", slog.Any("error", err))
+			return err
+		}
+
+		// ... transaction logic ...
+
+		if wasCreated {
+			logger.Info("address created", slog.Int64("address_id", addr.ID.Int64()))
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, false, err
+	}
+
+	return resultAddr, wasCreated, nil
+}
+```
+
+### Separation of Concerns
+
+| Layer | Responsibility | Logging API |
+|-------|---------------|-------------|
+| **Middleware** | Request attributes (request_id, client_ip) | `logging.ToCtx` / `logging.Enrich` |
+| **Handler** | Progressive enrichment, error classification, success events | `logging.Enrich` |
+| **Service** | Domain operations, database errors, state transitions | `logging.FromCtx` |
+| **Repository** | No logging — errors bubble up to service | — |
+
+### Error Handler Pattern
+
+Error handlers for request/response decoding use `FromCtx` since they don't pass context downstream:
+
+```go
+func createRequestErrorHandler() func(http.ResponseWriter, *http.Request, error) {
+	return func(w http.ResponseWriter, r *http.Request, err error) {
+		logger := logging.FromCtx(r.Context())
+		logger.Warn("request decode error",
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+			slog.Any("error", err),
+		)
+		// ... JSON response
+	}
+}
+```
+
+## Message Strings
+
+### Static Messages Only
+
+- **Always use static message strings** — no `fmt.Sprintf` in log messages
+- Put dynamic data in attributes, not in the message
+
+```go
+// ✅ CORRECT: Static message, data in attributes
+logger.Error("failed to create device",
+	slog.String("device_name", deviceName),
+	slog.Any("error", err),
+)
+
+// ❌ WRONG: Dynamic message
+logger.Error(fmt.Sprintf("failed to create device %s", deviceName))
+```
+
+### Message Conventions
+
+- **Keep messages readable** — natural language: `"device heartbeat successful"`, `"address created"`
+- Be descriptive but concise: `"database error fetching device"` not `"error"`
+- Use past tense for completed events: `"address created"`, `"heartbeat request failed"`
+
+## Key Naming
+
+### Domain-Defined Constants
+
+**Always use domain-defined constants as slog keys** — never string literals. Each domain (e.g. `internal/device`) defines its keys in a `logging.go` (or similar) file and uses them for all `slog.String`, `slog.Int64`, `slog.Int`, `slog.Bool`, `slog.Any`, etc. in that domain. This keeps keys consistent, typo-safe, and easy to change.
+
+- Define key constants in the domain package (e.g. `internal/device/logging.go` with `AttrKeyDeviceID`, `AttrKeyAddressIP`, `AttrKeyError`, etc.).
+- Use those constants everywhere that domain logs: handlers, services, and any code in that package.
+- Keys shared across domains (e.g. request-scoped keys like `request_id`, `client_ip`) may live in a shared package (e.g. `internal/logging` or the layer that sets them) and be reused by domains that need them.
+
+```go
+// ✅ CORRECT: Use domain constants
+logger.Info("device created", slog.Int64(AttrKeyDeviceID, device.ID.Int64()))
+logger.Error("failed to create device", slog.Any(AttrKeyError, err))
+ctx, logger = logging.Enrich(ctx, slog.String(AttrKeyOperation, "CreateDevice"), slog.String(AttrKeyDeviceName, name))
+
+// ❌ WRONG: String literals as keys
+logger.Info("device created", slog.Int64("device_id", device.ID.Int64()))
+logger.Error("failed", slog.Any("error", err))
+```
+
+### Snake Case Convention
+
+All log key **values** (the constant definitions) must use `snake_case`:
+
+```go
+// ✅ CORRECT — constant value is snake_case
+const AttrKeyDeviceID = "device_id"
+slog.Int64(AttrKeyDeviceID, id)
+
+// ❌ WRONG
+const AttrKeyDeviceID = "deviceId"
+```
+
+### Reserved Keys
+
+Avoid these keys (collide with built-in handler output):
+- `time`, `level`, `msg`, `source`
+
+## Error Logging
+
+### Error Attribute Pattern
+
+Always use `slog.Any(AttrKeyError, err)` (or the domain’s error key constant) to preserve the error chain:
+
+```go
+// ✅ CORRECT
+logger.Error("database error creating address", slog.Any(AttrKeyError, err))
+
+// ❌ WRONG: Loses error chain
+logger.Error("database error", slog.String(AttrKeyError, err.Error()))
+
+// ❌ WRONG: Error in message
+logger.Error(fmt.Sprintf("database error: %v", err))
+```
+
+## Log Levels
+
+### Level Guidelines
+
+- **Debug:** Intermediate steps, state checks (`"assigning address"`, `"address not found, creating new address"`)
+- **Info:** Successful business outcomes (`"address created"`, `"device heartbeat successful"`, `"address status enabled"`)
+- **Warn:** Expected/client errors (`"invalid IP format"`, `"device not found"`, `"invalid request body"`)
+- **Error:** Unexpected failures (`"database error fetching device"`, `"heartbeat request failed"`, `"client IP not in context"`)
+
+## Quick Reference
+
+1. **Handlers do enrichment** — Handlers call `logging.Enrich(ctx, ...)` and add any important information pertaining that flow. Always set `operation` to the handler method name; only handlers set `operation`.
+2. **Service logging simple by default** — call `logging.FromCtx(ctx)` and add per-call attributes inline. Only enrich if there are sub-flows or nested service calls.
+3. **Enrich progressively** — add attributes as soon as they are known, not all at once.
+4. **Pass enriched ctx to services** — so they inherit all handler attributes for free.
+5. **slog-chi owns HTTP logging** — handlers do not log status codes or request lifecycle.
+6. **Static messages, data in attributes** — no `fmt.Sprintf` in log messages.
+7. **`slog.Any("error", err)`** — never `slog.String("error", err.Error())`.
+8. **All keys `snake_case`** — enforced by `sloglint` in `.golangci.yml`.
+9. **Use domain-defined constants for keys** — no string literals; define keys in the domain (e.g. `internal/device/logging.go`) and use them everywhere that domain logs.
+
+## References
+
+- `internal/logging/logging.go` — Logger initialization
+- `internal/logging/ctx.go` — Context helpers (`ToCtx`, `FromCtx`, `Enrich`)
+- `internal/httpserver/server.go` — HTTP middleware setup, error handlers
+- `internal/httpserver/middleware.go` — `RequestLoggerMiddleware`, ClientIP middleware
+- `.golangci.yml` — `sloglint` configuration

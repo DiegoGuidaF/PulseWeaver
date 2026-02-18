@@ -12,10 +12,20 @@ linters:
 
   settings:
     sloglint:
+      # Enforce attributes-only (no key-value pairs in message)
       attr-only: true
+      # Prevent mixing structured args with key-value pairs
       no-mixed-args: true
+      # Enforce static message strings (no fmt.Sprintf in messages)
+      static-msg: true
       # Enforce snake_case keys (e.g., "device_id", not "deviceID")
       key-naming-case: snake
+      # Forbid reserved keys that collide with built-in handler output
+      forbidden-keys:
+        - time
+        - level
+        - msg
+        - source
 
 formatters:
   enable:
