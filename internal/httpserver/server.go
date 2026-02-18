@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -9,6 +10,7 @@ import (
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/health"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/ui"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -26,6 +28,15 @@ type AuthHandler = auth.HTTPHandler
 type CompositeHandler struct {
 	*DeviceHandler
 	*AuthHandler
+}
+
+func NewServerFromConfig(deviceHandler *DeviceHandler, authHandler *AuthHandler, logger *slog.Logger, conf config.ConfServer) (http.Handler, error) {
+	trustedProxy, err := ParseTrustedProxy(conf.TrustedProxy)
+	if err != nil {
+		return nil, fmt.Errorf("parse trusted proxy: %w", err)
+	}
+
+	return NewServer(deviceHandler, authHandler, logger, trustedProxy), nil
 }
 
 func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, logger *slog.Logger, trustedProxy netip.Addr) http.Handler {

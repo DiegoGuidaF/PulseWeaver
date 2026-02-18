@@ -7,29 +7,18 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net/http"
 	"testing"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/app"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpserver"
 )
-
-// IntegrationServer holds the HTTP server and services for integration testing.
-type IntegrationServer struct {
-	HTTPServer    http.Handler
-	DeviceService *device.Service
-	AuthService   *auth.Service
-}
 
 // SetupIntegrationServer creates a complete integration test server with database,
 // services, and handlers configured.
-func SetupIntegrationServer(t *testing.T) IntegrationServer {
+func SetupIntegrationServer(t *testing.T) *app.App {
 	t.Helper()
 
-	conf := config.Conf{
+	conf := &config.Conf{
 		Server: config.ConfServer{
 			Port:          2000,
 			AdminPassword: "AdminPass123!",
@@ -39,41 +28,21 @@ func SetupIntegrationServer(t *testing.T) IntegrationServer {
 			Dsn:   fmt.Sprintf("file:%s?mode=memory&_loc=auto", t.Name()),
 			Debug: false,
 		},
-	}
-
-	db, err := database.NewSQLite(conf.DB)
-	if err != nil {
-		t.Fatalf("setup db: %v", err)
-	}
-
-	t.Cleanup(func() {
-		db.Close()
-	})
-
-	if err := db.Migrate(); err != nil {
-		t.Fatalf("migrate: %v", err)
+		Environment: "test",
 	}
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	authRepo := auth.NewRepository(db.DB())
-	authService := auth.NewService(authRepo, logger)
-	if err := authService.BootstrapAdmin(context.Background(), conf.Server); err != nil {
-		t.Fatalf("bootstrap admin: %v", err)
-	}
-	authHandler := auth.NewHandler(authService, logger)
-
-	deviceRepo := device.NewRepository(db.DB())
-	deviceService := device.NewService(deviceRepo)
-	deviceHandler := device.NewOpenApiHandler(deviceService, logger)
-
-	trustedProxy, err := httpserver.ParseTrustedProxy(conf.Server.TrustedProxy)
+	application, err := app.NewWithConfigAndLogger(context.Background(), conf, logger)
 	if err != nil {
-		t.Fatalf("parse trusted proxy: %v", err)
+		t.Fatalf("setup app: %v", err)
 	}
-	return IntegrationServer{
-		HTTPServer:    httpserver.NewServer(deviceHandler, authHandler, logger, trustedProxy),
-		DeviceService: deviceService,
-		AuthService:   authService,
-	}
+
+	t.Cleanup(func() {
+		if err := application.Close(); err != nil {
+			t.Logf("error closing app: %v", err)
+		}
+	})
+
+	return application
 }

@@ -2,114 +2,27 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"log/slog" // Import slog
-	"net/http"
+	"log/slog"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/app"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpserver"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 )
 
 func run(ctx context.Context) (*slog.Logger, error) {
-	conf, err := config.Load()
+	// Initialize application
+	application, err := app.New(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("config load error: %w", err)
+		return nil, err
+	}
+	defer application.Close()
+
+	serverConfig := httpserver.DefaultServerConfigFromConf(application.Config.Server.Port)
+	if err := httpserver.StartAndWait(ctx, application.HTTPServer, serverConfig, application.Logger); err != nil {
+		return application.Logger, err
 	}
 
-	logger := logging.New(conf.Environment)
-
-	// Set logger for dependencies
-	slog.SetDefault(logger)
-
-	// Log startup configuration
-	logger.Info("starting server",
-		slog.Int("port", conf.Server.Port),
-		slog.String("environment", conf.Environment),
-		slog.String("db_file", conf.DB.File),
-	)
-
-	// 2. Database Connection
-	db, err := database.NewSQLite(conf.DB)
-	if err != nil {
-		return logger, fmt.Errorf("failed to connect to database: %w", err)
-	}
-	defer db.Close()
-
-	if err := db.Migrate(); err != nil {
-		return logger, fmt.Errorf("migration error: %w", err)
-	}
-	logger.Info("database initialized and connected successfully")
-
-	// 3. Dependency Injection
-	deviceRepo := device.NewRepository(db.DB())
-	deviceService := device.NewService(deviceRepo)
-	openApiHandler := device.NewOpenApiHandler(deviceService, logger)
-
-	authRepo := auth.NewRepository(db.DB())
-	authService := auth.NewService(authRepo, logger)
-	authHandler := auth.NewHandler(authService, logger)
-
-	err = authService.BootstrapAdmin(ctx, conf.Server)
-	if err != nil {
-		return logger, fmt.Errorf("failed to bootstrap admin: %w", err)
-	}
-
-	trustedProxy, err := httpserver.ParseTrustedProxy(conf.Server.TrustedProxy)
-	if err != nil {
-		return logger, fmt.Errorf("invalid TRUSTED_PROXY: %w", err)
-	}
-	handler := httpserver.NewServer(openApiHandler, authHandler, logger, trustedProxy)
-
-	// 4. Setup HTTP Server
-	srv := &http.Server{
-		Addr:              fmt.Sprintf(":%d", conf.Server.Port),
-		Handler:           handler,
-		ReadTimeout:       10 * time.Second,
-		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      10 * time.Second,
-		IdleTimeout:       60 * time.Second,
-		MaxHeaderBytes:    1 << 16, // 64KB
-	}
-
-	// 5. Start Server in Goroutine
-	serverErrors := make(chan error, 1)
-	go func() {
-		logger.Info("server listening", slog.String("addr", srv.Addr))
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serverErrors <- err
-		}
-	}()
-
-	// 6. Graceful Shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-
-	select {
-	case err := <-serverErrors:
-		return logger, fmt.Errorf("server startup error: %w", err)
-	case sig := <-quit:
-		logger.Info("shutting down server", slog.String("signal", sig.String()))
-
-		// Give outstanding requests 5 seconds to complete
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-
-		if err := srv.Shutdown(ctx); err != nil {
-			return logger, fmt.Errorf("graceful shutdown failed: %w", err)
-		}
-	}
-
-	logger.Info("server stopped")
-	return logger, nil
+	return application.Logger, nil
 }
 
 func main() {

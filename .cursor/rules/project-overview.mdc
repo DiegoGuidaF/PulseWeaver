@@ -49,3 +49,7 @@ Your goal is to build a low-maintenance, production-ready device management syst
 - **Frontend Dev:** `make dev-front` (Vite dev server)
 - **Full Build:** `make build` (builds frontend, embeds in backend binary)
 - **Tests:** `make test` (runs all Go tests)
+
+## Backwards Compatibility
+
+- This app has not been released yet, prioritize code quality over maintaining backwards compatibility.
