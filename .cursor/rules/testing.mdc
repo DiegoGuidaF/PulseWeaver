@@ -64,6 +64,25 @@ alwaysApply: true
 - Use table-driven tests where appropriate
 - Mock external dependencies
 - Test handlers, services, and repositories separately
+- **Handler Test Setup Pattern (CRITICAL):**
+  - **Given (Setup):** Use direct service calls for test data setup, NOT HTTP calls
+  - **When/Then (Test):** Use HTTP calls only for the actual test assertions
+  - **Rationale:** Setup via services is faster and focuses HTTP tests on verifying the HTTP layer
+  - **Example:**
+    ```go
+    // ✅ CORRECT: Setup via service
+    device, apiKey, err := testServer.DeviceService.CreateDevice(ctx, "test-device")
+    is.NoErr(err)
+    
+    // Then test HTTP endpoint
+    req := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", nil)
+    req.Header.Set("X-API-Key", apiKey)
+    // ... make HTTP call and assert
+    
+    // ❌ WRONG: Don't use HTTP for setup
+    // createReq := httptest.NewRequest(http.MethodPost, "/api/v1/devices", ...)
+    ```
+  - **Exception:** If testing the CREATE endpoint itself, HTTP call is the "Then" part, not setup
 
 ## MSW Handler Pattern
 

@@ -107,9 +107,29 @@ Handler (HTTP) → Service (Business Logic) → Repository (Data Access) → Dat
 - **Dependencies:** `httptest.NewServer` or `httptest.NewRecorder`, real service + in-memory DB
 - **Coverage:** Happy paths + critical error paths (401, 403, 400)
 - **Note:** Since we use `StrictServer`, assert against structured response (parse JSON into generated Go types)
+- **Setup Pattern (CRITICAL):**
+  - **Given (Setup):** Use direct service calls for test data setup, NOT HTTP calls
+  - **When/Then (Test):** Use HTTP calls only for the actual test assertions
+  - **Rationale:** Setup via services is faster and focuses HTTP tests on verifying the HTTP layer
+  - **Example:**
+    ```go
+    // ✅ CORRECT: Setup via service
+    device, apiKey, err := testServer.DeviceService.CreateDevice(ctx, "test-device")
+    is.NoErr(err)
+    
+    // Then test HTTP endpoint
+    req := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", nil)
+    req.Header.Set("X-API-Key", apiKey)
+    // ... make HTTP call and assert
+    
+    // ❌ WRONG: Don't use HTTP for setup
+    // createReq := httptest.NewRequest(http.MethodPost, "/api/v1/devices", ...)
+    ```
+  - **Exception:** If testing the CREATE endpoint itself, HTTP call is the "Then" part, not setup
 
 ### Test Design Principles
 - **No Logic in Setup:** Test setup should be flat and declarative
+- **Handler Test Setup:** Always use service calls for setup (Given), HTTP calls only for assertions (Then)
 - **Helpers:** Use test builders (e.g., `createAuthenticatedUser(t, db)`) but keep them simple
 - **Assertions:** Use `stretchr/testify/assert` or `require`
 - **State Isolation:** Every test runs in clean state, no shared global DB state

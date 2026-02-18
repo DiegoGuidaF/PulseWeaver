@@ -12,7 +12,7 @@ import (
 	"github.com/matryer/is"
 )
 
-func TestHandler_Login_HappyPath(t *testing.T) {
+func TestHandler_Login(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	server := testServer.HTTPServer
@@ -36,7 +36,7 @@ func TestHandler_Login_HappyPath(t *testing.T) {
 	is.Equal(user.Username, "admin")
 }
 
-func TestHandler_CreateUser_HappyPaths(t *testing.T) {
+func TestHandler_CreateUser(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	server := testServer.HTTPServer

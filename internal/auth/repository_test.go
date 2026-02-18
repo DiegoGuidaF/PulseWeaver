@@ -90,7 +90,7 @@ func TestRepository_GetUserByUsername_CaseInsensitiveLookup(t *testing.T) {
 	is.Equal(user.Username, "alice_user")
 }
 
-func TestRepository_SessionCreateAndRead_HappyPath(t *testing.T) {
+func TestRepository_SessionCreateAndRead(t *testing.T) {
 	is := is.New(t)
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
