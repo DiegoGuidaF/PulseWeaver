@@ -17,7 +17,7 @@ type Conf struct {
 type ConfServer struct {
 	AdminPassword string `env:"ADMIN_PASSWORD,required"`
 	Port          int    `env:"SERVER_PORT" envDefault:"8080"`
-	TrustedProxy  string `env:"TRUSTED_PROXY,required"`
+	TrustedProxy  string `env:"TRUSTED_PROXY"`
 }
 
 type ConfDB struct {

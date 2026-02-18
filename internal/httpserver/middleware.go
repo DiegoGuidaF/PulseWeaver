@@ -69,6 +69,18 @@ func MaxBodySize(maxBytes int64) func(http.Handler) http.Handler {
 	}
 }
 
+// ClientIpFromRequest is middleware that extracts the client IP from r.RemoteAddr
+// and sets it in the request context. It ignores any X-Forwarded-For headers.
+func ClientIpFromRequest() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			clientIP := extractIPFromRemoteAddr(r)
+			r = setClientIPInContext(r, clientIP)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // ClientIPFromXFFHeader is middleware that extracts the client IP from X-Forwarded-For headers
 // only when the direct connection is from a trusted proxy (the given IP address).
 // Otherwise forwarded headers are ignored to prevent spoofing.
@@ -78,29 +90,28 @@ func MaxBodySize(maxBytes int64) func(http.Handler) http.Handler {
 // 2. Selects the rightmost IP from XFF headers (more secure - prevents spoofing)
 // 3. Stores client IP in context (does NOT modify r.RemoteAddr to avoid port issues)
 //
-// Uses netip for stricter IP parsing and defensively handles invalid XFF entries.
+// Note: This middleware assumes trustedProxy.IsValid() is true. Use ClientIpFromRequest()
+// when trusted proxy is not configured.
 func ClientIPFromXFFHeader(trustedProxy netip.Addr) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Parse direct peer IP (the proxy we're connected to)
-			clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
-			if err != nil {
-				clientIP = r.RemoteAddr
-			}
+			// Extract direct peer IP (the proxy we're connected to)
+			clientIP := extractIPFromRemoteAddr(r)
+
 			peerAddr, err := netip.ParseAddr(clientIP)
 			if err != nil {
 				// Invalid peer IP, don't trust forwarded headers
 				// Store original RemoteAddr IP in context as fallback
-				ctx := api.WithClientIP(r.Context(), clientIP)
-				next.ServeHTTP(w, r.WithContext(ctx))
+				r = setClientIPInContext(r, clientIP)
+				next.ServeHTTP(w, r)
 				return
 			}
 
 			// Check if direct peer equals the trusted proxy IP
 			if peerAddr != trustedProxy {
 				// Peer is not trusted, use original RemoteAddr IP
-				ctx := api.WithClientIP(r.Context(), peerAddr.String())
-				next.ServeHTTP(w, r.WithContext(ctx))
+				r = setClientIPInContext(r, peerAddr.String())
+				next.ServeHTTP(w, r)
 				return
 			}
 
@@ -109,8 +120,8 @@ func ClientIPFromXFFHeader(trustedProxy netip.Addr) func(http.Handler) http.Hand
 			xffIPs := collectXFFIPs(r)
 			if len(xffIPs) == 0 {
 				// No XFF headers, use peer IP
-				ctx := api.WithClientIP(r.Context(), peerAddr.String())
-				next.ServeHTTP(w, r.WithContext(ctx))
+				r = setClientIPInContext(r, peerAddr.String())
+				next.ServeHTTP(w, r)
 				return
 			}
 
@@ -118,10 +129,26 @@ func ClientIPFromXFFHeader(trustedProxy netip.Addr) func(http.Handler) http.Hand
 			selectedIP := xffIPs[len(xffIPs)-1]
 
 			// Store selected client IP in context
-			ctx := api.WithClientIP(r.Context(), selectedIP.String())
-			next.ServeHTTP(w, r.WithContext(ctx))
+			r = setClientIPInContext(r, selectedIP.String())
+			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// extractIPFromRemoteAddr extracts the IP address from r.RemoteAddr.
+// Handles both "host:port" and plain address formats.
+func extractIPFromRemoteAddr(r *http.Request) string {
+	clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return clientIP
+}
+
+// setClientIPInContext sets the client IP in the request context.
+func setClientIPInContext(r *http.Request, ip string) *http.Request {
+	ctx := api.WithClientIP(r.Context(), ip)
+	return r.WithContext(ctx)
 }
 
 // collectXFFIPs collects all IP addresses from all X-Forwarded-For headers.

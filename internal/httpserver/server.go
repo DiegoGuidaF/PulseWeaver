@@ -47,10 +47,15 @@ func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, logger *s
 	}
 	r.Use(middleware.RequestID)
 
-	// Retrieve ClientApi from X-Forwarded-For header if remoteAddr is a trusted proxy
+	// Retrieve ClientIP from X-Forwarded-For header if remoteAddr is a trusted proxy,
+	// otherwise extract directly from RemoteAddr.
 	// This is critical for retrieving the ClientIP automatically via the request IP itself instead of having to
 	// rely on the IP sent as part of the body
-	r.Use(ClientIPFromXFFHeader(trustedProxy))
+	if trustedProxy.IsValid() {
+		r.Use(ClientIPFromXFFHeader(trustedProxy))
+	} else {
+		r.Use(ClientIpFromRequest())
+	}
 
 	r.Use(slogchi.NewWithConfig(logger, loggerConfig))
 	r.Use(middleware.Recoverer)

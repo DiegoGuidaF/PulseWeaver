@@ -16,6 +16,55 @@ import (
 	"github.com/matryer/is"
 )
 
+func TestClientIpFromRequest_ExtractsFromRemoteAddr(t *testing.T) {
+	is := is.New(t)
+
+	// Create a handler that captures client IP from context
+	var capturedIP string
+	handler := httpserver.ClientIpFromRequest()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip, ok := api.ClientIPFromContext(r.Context())
+		if ok {
+			capturedIP = ip
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Request with X-Forwarded-For header (should be ignored)
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.RemoteAddr = "127.0.0.1:12345"
+	req.Header.Set(api.XForwardedFor, "192.0.2.100")
+	res := httptest.NewRecorder()
+
+	handler.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusOK)
+	// Context should contain the client IP from RemoteAddr, ignoring XFF header
+	is.Equal(capturedIP, "127.0.0.1")
+}
+
+func TestClientIpFromRequest_HandlesPlainAddress(t *testing.T) {
+	is := is.New(t)
+
+	var capturedIP string
+	handler := httpserver.ClientIpFromRequest()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip, ok := api.ClientIPFromContext(r.Context())
+		if ok {
+			capturedIP = ip
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Request with plain address format (no port)
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.RemoteAddr = "192.0.2.200"
+	res := httptest.NewRecorder()
+
+	handler.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusOK)
+	is.Equal(capturedIP, "192.0.2.200")
+}
+
 func TestClientIPFromXFFHeader_TrustedProxyExtractsClientIP(t *testing.T) {
 	is := is.New(t)
 

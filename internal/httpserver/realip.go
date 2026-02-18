@@ -10,6 +10,9 @@ import (
 // Returns an error if the IP is invalid, contains CIDR notation, or contains commas.
 func ParseTrustedProxy(s string) (netip.Addr, error) {
 	s = strings.TrimSpace(s)
+	if s == "" {
+		return netip.Addr{}, nil
+	}
 
 	addr, err := netip.ParseAddr(s)
 	if err != nil {
