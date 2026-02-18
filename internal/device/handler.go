@@ -15,7 +15,7 @@ type HTTPHandler struct {
 	logger  *slog.Logger
 }
 
-func NewOpenApiHandler(service *Service, logger *slog.Logger) *HTTPHandler {
+func NewHandler(service *Service, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{service: service, logger: logger}
 }
 

@@ -9,7 +9,7 @@ import (
 	"github.com/matryer/is"
 )
 
-func setupTestDB(t *testing.T) DeviceRepository {
+func setupTestDB(t *testing.T) Repository {
 	t.Helper()
 
 	db, cleanup := testdb.Setup(t)
@@ -18,7 +18,7 @@ func setupTestDB(t *testing.T) DeviceRepository {
 	return NewRepository(db.DB())
 }
 
-func createTestDevice(t *testing.T, repo DeviceRepository, ctx context.Context, name string) *Device {
+func createTestDevice(t *testing.T, repo Repository, ctx context.Context, name string) *Device {
 	t.Helper()
 
 	device, err := repo.CreateDevice(ctx, NewDevice(name))
@@ -30,7 +30,7 @@ func createTestDevice(t *testing.T, repo DeviceRepository, ctx context.Context, 
 }
 
 // createTestDeviceWithApiKey creates a device and its API key so it appears in GetDevices (which JOINs device_api_keys).
-func createTestDeviceWithApiKey(t *testing.T, repo DeviceRepository, ctx context.Context, name string) *Device {
+func createTestDeviceWithApiKey(t *testing.T, repo Repository, ctx context.Context, name string) *Device {
 	t.Helper()
 
 	device, err := repo.CreateDevice(ctx, NewDevice(name))
@@ -48,7 +48,7 @@ func createTestDeviceWithApiKey(t *testing.T, repo DeviceRepository, ctx context
 	return device
 }
 
-func createTestAddress(t *testing.T, repo DeviceRepository, ctx context.Context, deviceID DeviceID, ip string) *Address {
+func createTestAddress(t *testing.T, repo Repository, ctx context.Context, deviceID DeviceID, ip string) *Address {
 	t.Helper()
 
 	address, err := NewAddress(deviceID, ip)
@@ -555,7 +555,7 @@ func TestRepository_RunInTx(t *testing.T) {
 	device := createTestDevice(t, repo, ctx, "test-device")
 
 	// Run operations in transaction
-	err := repo.RunInTx(ctx, func(tx DeviceRepository) error {
+	err := repo.RunInTx(ctx, func(tx Repository) error {
 		// Create address in transaction
 		addr := createTestAddress(t, tx, ctx, device.ID, "192.168.1.100")
 
@@ -586,7 +586,7 @@ func TestRepository_RunInTx_Rollback(t *testing.T) {
 
 	// Run operations in transaction that will fail
 	testError := fmt.Errorf("test error")
-	err := repo.RunInTx(ctx, func(tx DeviceRepository) error {
+	err := repo.RunInTx(ctx, func(tx Repository) error {
 		// Create address in transaction
 		createTestAddress(t, tx, ctx, device.ID, "192.168.1.100")
 

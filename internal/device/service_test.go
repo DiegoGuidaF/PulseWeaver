@@ -81,7 +81,7 @@ func TestService_AssignAddress_TransactionRollback(t *testing.T) {
 
 	// Simulate transaction failure
 	testErr := errors.New("transaction error")
-	mockRepo.runInTxFn = func(repo DeviceRepository) error {
+	mockRepo.runInTxFn = func(repo Repository) error {
 		// Try to create address
 		addr, _ := NewAddress(device.ID, "192.168.1.100")
 		_, err := repo.CreateAddress(ctx, addr)
@@ -332,11 +332,11 @@ type mockDeviceRepository struct {
 	disableAddressErr   error
 	listAddressesErr    error
 	checkOwnershipErr   error
-	runInTxFn           func(DeviceRepository) error
+	runInTxFn           func(Repository) error
 }
 
 // Ensure mockDeviceRepository implements DeviceRepository interface
-var _ DeviceRepository = (*mockDeviceRepository)(nil)
+var _ Repository = (*mockDeviceRepository)(nil)
 
 func newMockDeviceRepository() *mockDeviceRepository {
 	return &mockDeviceRepository{
@@ -497,7 +497,7 @@ func (m *mockDeviceRepository) CheckAddressOwnership(ctx context.Context, device
 	return nil
 }
 
-func (m *mockDeviceRepository) RunInTx(ctx context.Context, fn func(DeviceRepository) error) error {
+func (m *mockDeviceRepository) RunInTx(ctx context.Context, fn func(Repository) error) error {
 	if m.runInTxFn != nil {
 		return m.runInTxFn(m)
 	}

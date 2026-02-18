@@ -22,7 +22,7 @@ type DBInterface interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
-func NewRepository(db *sqlx.DB) DeviceRepository {
+func NewRepository(db *sqlx.DB) Repository {
 	return &repository{
 		rootDB: db,
 		db:     db,
@@ -232,7 +232,7 @@ func (r *repository) GetDeviceByApiKeyHash(ctx context.Context, keyHash string) 
 
 // RunInTx runs the callback function inside a transaction.
 // If already running in a transaction context, do not create a new one and reuse it
-func (r *repository) RunInTx(ctx context.Context, fn func(DeviceRepository) error) error {
+func (r *repository) RunInTx(ctx context.Context, fn func(Repository) error) error {
 	if r.rootDB == nil {
 		// We are already in a transaction. Do not nest it.
 		return fn(r)
