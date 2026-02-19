@@ -2,6 +2,7 @@ package whitelist
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"log/slog"
 	"os"
@@ -77,7 +78,43 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 }
 
+// generateContent generates the file content as bytes from a list of IP addresses.
+// Each IP is written on its own line with a trailing newline, matching the format written to disk.
+func generateContent(ips []string) []byte {
+	var content []byte
+	for _, ip := range ips {
+		content = append(content, []byte(ip)...)
+		content = append(content, '\n')
+	}
+	return content
+}
+
+// hashFileContent computes the SHA256 hash of file content.
+func hashFileContent(content []byte) [32]byte {
+	return sha256.Sum256(content)
+}
+
+// hashExistingFile reads the existing whitelist file and returns its SHA256 hash.
+// If the file does not exist, returns a zero hash.
+// If there's an error reading the file, logs the error and returns the error.
+func (s *Service) hashExistingFile() ([32]byte, error) {
+	var zeroHash [32]byte
+
+	content, err := os.ReadFile(s.filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// File doesn't exist - return zero hash (will never match real content hash)
+			return zeroHash, nil
+		}
+		// Other read errors - return error so caller can decide how to handle
+		return zeroHash, fmt.Errorf("read existing file: %w", err)
+	}
+
+	return hashFileContent(content), nil
+}
+
 // Regenerate queries enabled IPs from the provider and writes them to the whitelist file.
+// Uses hash-based comparison to skip writes when content hasn't changed.
 // Uses atomic file write pattern: temp file -> fsync -> rename.
 // Each IP is written on its own line with a trailing newline.
 func (s *Service) Regenerate(ctx context.Context) error {
@@ -88,6 +125,27 @@ func (s *Service) Regenerate(ctx context.Context) error {
 	if err != nil {
 		logger.Error("failed to query enabled IPs", slog.Any(AttrKeyError, err))
 		return fmt.Errorf("query enabled IPs: %w", err)
+	}
+
+	// Generate new content and hash
+	newContent := generateContent(ips)
+	newHash := hashFileContent(newContent)
+
+	// Get hash of existing file
+	existingHash, err := s.hashExistingFile()
+	if err != nil {
+		// Log error but proceed with write (safer to regenerate than skip)
+		logger.Warn("failed to read existing file for comparison, proceeding with write",
+			slog.String(AttrKeyWhitelistFile, s.filePath),
+			slog.Any(AttrKeyError, err),
+		)
+	} else if newHash == existingHash {
+		// Content unchanged - skip write
+		logger.Info("whitelist unchanged, skipping write",
+			slog.String(AttrKeyWhitelistFile, s.filePath),
+			slog.Int(AttrKeyIPCount, len(ips)),
+		)
+		return nil
 	}
 
 	// Prepare temp file path
@@ -108,12 +166,10 @@ func (s *Service) Regenerate(ctx context.Context) error {
 	}
 	defer file.Close()
 
-	// Write IPs, one per line with trailing newline
-	for _, ip := range ips {
-		if _, err := fmt.Fprintf(file, "%s\n", ip); err != nil {
-			logger.Error("failed to write IP to temp file", slog.String(AttrKeyWhitelistFile, tempPath), slog.Any(AttrKeyError, err))
-			return fmt.Errorf("write IP: %w", err)
-		}
+	// Write content to temp file
+	if _, err := file.Write(newContent); err != nil {
+		logger.Error("failed to write content to temp file", slog.String(AttrKeyWhitelistFile, tempPath), slog.Any(AttrKeyError, err))
+		return fmt.Errorf("write content: %w", err)
 	}
 
 	// Sync to disk
