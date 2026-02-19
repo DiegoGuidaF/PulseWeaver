@@ -3,15 +3,17 @@ package config
 import (
 	"fmt"
 
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
 )
 
 type Conf struct {
-	Server      ConfServer
-	DB          ConfDB
-	Environment string `env:"ENVIRONMENT" envDefault:"development"`
-	TZ          string `env:"TZ" envDefault:"UTC"`
+	Server    ConfServer
+	DB        ConfDB
+	LogLevel  string         `env:"LOG_LEVEL" envDefault:"info"`
+	LogFormat logging.Format `env:"LOG_FORMAT" envDefault:"text"` // "json" or "text" (tint)
+	TZ        string         `env:"TZ" envDefault:"UTC"`
 }
 
 type ConfServer struct {

@@ -28,7 +28,6 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 			Dsn:   fmt.Sprintf("file:%s?mode=memory&_loc=auto", t.Name()),
 			Debug: false,
 		},
-		Environment: "test",
 	}
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))

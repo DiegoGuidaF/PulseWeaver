@@ -3,23 +3,93 @@ package logging
 import (
 	"log/slog"
 	"os"
+	"strings"
+
+	"github.com/lmittmann/tint"
+	"github.com/mattn/go-isatty"
 )
 
-func New(env string) *slog.Logger {
-	var handler slog.Handler
+// Tint 8-bit color codes (high intensity 8-15): 9 red, 12 blue, 13 magenta, 14 cyan.
+const (
+	tintColorOperation = 13 // bright magenta
+	tintColorClientIP  = 14 // bright cyan
+	tintColorRequestID = 12 // bright blue
+	tintColorError     = 9  // bright red
+)
 
-	opts := &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+// tintReplaceAttr customized selected attribute keys color (tint handler only).
+func tintReplaceAttr(groups []string, a slog.Attr) slog.Attr {
+	if len(groups) != 0 {
+		return a
+	}
+	switch a.Key {
+	case "operation":
+		return tint.Attr(tintColorOperation, a)
+	case "client_ip":
+		return tint.Attr(tintColorClientIP, a)
+	case "request_id":
+		return tint.Attr(tintColorRequestID, a)
+	case "error":
+		return tint.Attr(tintColorError, a)
+	}
+	// Color any attribute whose value is an error (e.g. key might vary)
+	if a.Value.Kind() == slog.KindAny {
+		if _, ok := a.Value.Any().(error); ok {
+			return tint.Attr(tintColorError, a)
+		}
+	}
+	return a
+}
+
+// ParseLevel converts a string (e.g. "debug", "info", "warn", "error") to slog.Level.
+// Invalid or empty values default to slog.LevelInfo.
+func ParseLevel(s string) slog.Level {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "debug":
+		return slog.LevelDebug
+	case "info", "":
+		return slog.LevelInfo
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
+type Format string
+
+const JSONFormat Format = "json"
+
+// Options configures logger creation.
+// use Level (e.g. info) and Format (e.g. json).
+type Options struct {
+	Level  slog.Level
+	Format Format
+}
+
+// New creates a slog.Logger from the given options.
+// Format "json" uses slog.JSONHandler; otherwise tint is used with ReplaceAttr for colored keys.
+// When using tint, NoColor is set from terminal detection (color only if stdout is a TTY).
+func New(opts Options) *slog.Logger {
+	level := opts.Level
+	if level == 0 {
+		level = slog.LevelInfo
 	}
 
-	// Development: human-readable text
-	// Production: JSON for log aggregation (e.g., ELK, Loki)
-	if env == "development" {
-		opts.Level = slog.LevelDebug
-		handler = slog.NewTextHandler(os.Stdout, opts)
-	} else {
-		handler = slog.NewJSONHandler(os.Stdout, opts)
+	if opts.Format == JSONFormat {
+		handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: level,
+		})
+		return slog.New(handler)
 	}
 
+	w := os.Stdout
+	handler := tint.NewHandler(w, &tint.Options{
+		Level:       level,
+		NoColor:     !isatty.IsTerminal(w.Fd()),
+		ReplaceAttr: tintReplaceAttr,
+	})
 	return slog.New(handler)
 }

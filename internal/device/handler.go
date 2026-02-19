@@ -51,8 +51,6 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request api.CreateDevice
 		return api.CreateDevice500JSONResponse(errorMsgResponse("Failed to create device")), nil
 	}
 
-	logger.Info("device created")
-
 	apiDevice := toDeviceResponse(device)
 	return api.CreateDevice201JSONResponse(api.CreateDeviceResponse{
 		Device: apiDevice,
@@ -141,8 +139,6 @@ func (h *HTTPHandler) DisableAddress(ctx context.Context, request api.DisableAdd
 		logger.Error("failed to disable address", slog.Any(AttrKeyError, err))
 		return api.DisableAddress500JSONResponse(errorMsgResponse("Failed to disable address")), nil
 	}
-
-	logger.Info("address disabled")
 
 	return api.DisableAddress200JSONResponse(toAddressResponse(address)), nil
 }

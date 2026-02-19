@@ -41,10 +41,13 @@ func NewWithConfig(ctx context.Context, conf *config.Conf) (*App, error) {
 }
 
 // NewWithConfigAndLogger initializes the application with the provided configuration and logger.
-// If logger is nil, a default logger will be created based on the configured environment.
+// If logger is nil, a default logger is created from LOG_LEVEL and LOG_FORMAT.
 func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog.Logger) (*App, error) {
 	if logger == nil {
-		logger = logging.New(conf.Environment)
+		logger = logging.New(logging.Options{
+			Level:  logging.ParseLevel(conf.LogLevel),
+			Format: conf.LogFormat,
+		})
 	}
 
 	// Set logger for dependencies
@@ -53,7 +56,6 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Log startup configuration
 	logger.Info("initializing app",
 		slog.Int("port", conf.Server.Port),
-		slog.String("environment", conf.Environment),
 		slog.String("db_file", conf.DB.File),
 	)
 

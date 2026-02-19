@@ -3,6 +3,8 @@ package device
 // Slog attribute key names for the device domain. Use these constants when
 // logging so keys are consistent and typo-safe across handlers and services.
 const (
+	AttrKeyOperation  = "operation"
+	AttrKeyError      = "error"
 	AttrKeyAddressID  = "address_id"
 	AttrKeyAddressIP  = "address_ip"
 	AttrKeyClientIP   = "client_ip"
@@ -10,6 +12,4 @@ const (
 	AttrKeyCreated    = "created"
 	AttrKeyDeviceID   = "device_id"
 	AttrKeyDeviceName = "device_name"
-	AttrKeyError      = "error"
-	AttrKeyOperation  = "operation"
 )

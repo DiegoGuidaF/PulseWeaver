@@ -7,18 +7,21 @@ globs:
 
 **References:** `internal/logging/logging.go`, `internal/logging/ctx.go`, `internal/httpserver/server.go`
 
-## Logger Bootstrap & Environment Config
+## Logger Bootstrap & Config
 
 ### Logger Initialization
 
-- Use `internal/logging.New(env)` to create loggers based on environment
-- **Development:** Text handler with debug level (`slog.LevelDebug`)
-- **Production:** JSON handler with info level (`slog.LevelInfo`) for log aggregation
+- Use `internal/logging.New(logging.Options{...})` with:
+  - **Level:** from `logging.ParseLevel(conf.LogLevel)` — **LOG_LEVEL** env var (e.g. `debug`, `info`, `warn`, `error`)
+  - **Format:** from `conf.LogFormat` — **LOG_FORMAT** env var: `"json"` → JSON handler; any other value → tint (human-readable). When tint is used, color is enabled only if stdout is a TTY (auto-detected via go-isatty)
 - Pass logger explicitly into constructors - **NO GLOBAL LOGGERS** (except `slog.SetDefault` during app initialization)
 
 ```go
 // ✅ CORRECT: Explicit logger passing at construction
-logger := logging.New(conf.Environment)
+logger := logging.New(logging.Options{
+	Level:  logging.ParseLevel(conf.LogLevel),
+	Format: conf.LogFormat,
+})
 slog.SetDefault(logger)
 service := device.NewService(repo, logger)
 
@@ -325,8 +328,9 @@ logger.Error(fmt.Sprintf("database error: %v", err))
 
 ## References
 
-- `internal/logging/logging.go` — Logger initialization
+- `internal/logging/logging.go` — Logger initialization (LOG_FORMAT: json vs tint; `ParseLevel`, `Options`, `New`; tint uses isatty for color)
 - `internal/logging/ctx.go` — Context helpers (`ToCtx`, `FromCtx`, `Enrich`)
+- `internal/config/config.go` — `LOG_LEVEL`, `LOG_FORMAT` env vars
 - `internal/httpserver/server.go` — HTTP middleware setup, error handlers
 - `internal/httpserver/middleware.go` — `RequestLoggerMiddleware`, ClientIP middleware
 - `.golangci.yml` — `sloglint` configuration
