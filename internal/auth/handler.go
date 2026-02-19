@@ -142,12 +142,11 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request api.CreateUserRequ
 	return api.CreateUser201JSONResponse(toUserResponse(user)), nil
 }
 
-func NewHandler(service *Service, logger *slog.Logger) *HTTPHandler {
+func NewHandler(service *Service) *HTTPHandler {
 	cfg := DefaultCookieConfig
 
 	return &HTTPHandler{
 		service:      service,
-		logger:       logger,
 		cookieConfig: cfg,
 	}
 }

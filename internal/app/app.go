@@ -12,16 +12,18 @@ import (
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpserver"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/whitelist"
 )
 
 // App holds all initialized application components.
 type App struct {
-	Config        *config.Conf
-	Logger        *slog.Logger
-	Database      *database.SQLite
-	HTTPServer    http.Handler
-	DeviceService *device.Service
-	AuthService   *auth.Service
+	Config           *config.Conf
+	Logger           *slog.Logger
+	Database         *database.SQLite
+	HTTPServer       http.Handler
+	DeviceService    *device.Service
+	AuthService      *auth.Service
+	WhitelistService *whitelist.Service
 }
 
 // New initializes the application with configuration loaded from environment variables.
@@ -71,14 +73,23 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	}
 	logger.Info("database initialized and connected successfully")
 
-	// Dependency Injection
-	deviceRepo := device.NewRepository(db.DB())
-	deviceService := device.NewService(deviceRepo, logger)
-	openApiHandler := device.NewHandler(deviceService, logger)
-
+	// ---- Dependency Initialization
+	// Authentication
 	authRepo := auth.NewRepository(db.DB())
-	authService := auth.NewService(authRepo, logger)
-	authHandler := auth.NewHandler(authService, logger)
+	authService := auth.NewService(authRepo)
+	authHandler := auth.NewHandler(authService)
+
+	// Device & addresses management
+	deviceRepo := device.NewRepository(db.DB())
+	deviceService := device.NewService(deviceRepo)
+	deviceHandler := device.NewHandler(deviceService)
+
+	// Whitelist generation
+	whitelistService := whitelist.NewService(deviceRepo, conf.Whitelist)
+	updatesChan := whitelistService.Updates()
+
+	// Allow address updates to trigger whitelist regeneration
+	deviceService.WithStatusChangeChannel(updatesChan)
 
 	err = authService.BootstrapAdmin(ctx, conf.Server)
 	if err != nil {
@@ -86,19 +97,28 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		return nil, fmt.Errorf("failed to bootstrap admin: %w", err)
 	}
 
-	handler, err := httpserver.NewServerFromConfig(openApiHandler, authHandler, logger, conf.Server)
+	// Initial whitelist generation
+	if err := whitelistService.Regenerate(ctx); err != nil {
+		logger.Warn("failed to generate whitelist on startup", slog.Any("error", err))
+	}
+
+	// Start whitelist service listener
+	go whitelistService.Run(ctx)
+
+	handler, err := httpserver.NewServerFromConfig(deviceHandler, authHandler, logger, conf.Server)
 	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("create http server: %w", err)
 	}
 
 	return &App{
-		Config:        conf,
-		Logger:        logger,
-		Database:      db,
-		HTTPServer:    handler,
-		DeviceService: deviceService,
-		AuthService:   authService,
+		Config:           conf,
+		Logger:           logger,
+		Database:         db,
+		HTTPServer:       handler,
+		DeviceService:    deviceService,
+		AuthService:      authService,
+		WhitelistService: whitelistService,
 	}, nil
 }
 

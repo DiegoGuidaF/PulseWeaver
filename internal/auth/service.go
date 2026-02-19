@@ -25,12 +25,11 @@ type repository interface {
 	RunInTx(ctx context.Context, fn func(repository) error) error
 }
 type Service struct {
-	repo   repository
-	logger *slog.Logger
+	repo repository
 }
 
-func NewService(repo repository, logger *slog.Logger) *Service {
-	return &Service{repo: repo, logger: logger}
+func NewService(repo repository) *Service {
+	return &Service{repo: repo}
 }
 
 func (s *Service) Login(ctx context.Context, username string, password string) (string, *User, error) {

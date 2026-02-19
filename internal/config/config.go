@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 	"github.com/caarlos0/env/v11"
@@ -11,6 +12,7 @@ import (
 type Conf struct {
 	Server    ConfServer
 	DB        ConfDB
+	Whitelist ConfWhitelist
 	LogLevel  string         `env:"LOG_LEVEL" envDefault:"info"`
 	LogFormat logging.Format `env:"LOG_FORMAT" envDefault:"text"` // "json" or "text" (tint)
 	TZ        string         `env:"TZ" envDefault:"UTC"`
@@ -26,6 +28,11 @@ type ConfDB struct {
 	File  string `env:"DB_FILE" envDefault:"data.db"`
 	Debug bool   `env:"DB_DEBUG" envDefault:"false"`
 	Dsn   string
+}
+
+type ConfWhitelist struct {
+	FilePath      string        `env:"WHITELIST_FILE_PATH" envDefault:"./whitelist.txt"`
+	DebounceDelay time.Duration `env:"WHITELIST_DEBOUNCE_DELAY" envDefault:"5s"`
 }
 
 func Load() (*Conf, error) {

@@ -3,8 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"log/slog"
-	"os"
 	"testing"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
@@ -16,8 +14,7 @@ func TestService_Login_Success(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	logger := newTestLogger()
-	service := NewService(mockRepo, logger)
+	service := NewService(mockRepo)
 
 	// Create a test user
 	user, err := NewUser("testuser", "Test User", nil, "Password123", UserRole, nil)
@@ -39,8 +36,7 @@ func TestService_Login_InvalidUsername(t *testing.T) {
 
 	mockRepo := newMockRepository()
 	mockRepo.getUserByUsernameErr = ErrUserNotFound
-	logger := newTestLogger()
-	service := NewService(mockRepo, logger)
+	service := NewService(mockRepo)
 
 	token, user, err := service.Login(ctx, "nonexistent", "Password123")
 	is.True(err != nil)
@@ -54,8 +50,7 @@ func TestService_Login_InvalidPassword(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	logger := newTestLogger()
-	service := NewService(mockRepo, logger)
+	service := NewService(mockRepo)
 
 	// Create a test user
 	user, err := NewUser("testuser", "Test User", nil, "Password123", UserRole, nil)
@@ -78,8 +73,7 @@ func TestService_Login_RepositoryError(t *testing.T) {
 	mockRepo := newMockRepository()
 	testErr := errors.New("database error")
 	mockRepo.getUserByUsernameErr = testErr
-	logger := newTestLogger()
-	service := NewService(mockRepo, logger)
+	service := NewService(mockRepo)
 
 	token, user, err := service.Login(ctx, "testuser", "Password123")
 	is.True(err != nil)
@@ -93,8 +87,7 @@ func TestService_GetUserById_Success(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	logger := newTestLogger()
-	service := NewService(mockRepo, logger)
+	service := NewService(mockRepo)
 
 	// Create admin user
 	admin, err := NewUser("admin", "Admin", nil, "AdminPass123!", AdminRole, nil)
@@ -117,8 +110,7 @@ func TestService_GetUserById_RepositoryError(t *testing.T) {
 	mockRepo := newMockRepository()
 	testErr := errors.New("database error")
 	mockRepo.getUserByIdErr = testErr
-	logger := newTestLogger()
-	service := NewService(mockRepo, logger)
+	service := NewService(mockRepo)
 
 	principal := NewPrincipal(UserID(1), SessionID(1), AdminRole)
 
@@ -133,8 +125,7 @@ func TestService_CreateUserByAdmin_Success(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	logger := newTestLogger()
-	service := NewService(mockRepo, logger)
+	service := NewService(mockRepo)
 
 	// Create admin user
 	admin, err := NewUser("admin", "Admin", nil, "AdminPass123!", AdminRole, nil)
@@ -158,8 +149,7 @@ func TestService_CreateUserByAdmin_NonAdmin(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	logger := newTestLogger()
-	service := NewService(mockRepo, logger)
+	service := NewService(mockRepo)
 
 	// Create regular user
 	regularUser, err := NewUser("regular", "Regular User", nil, "Password123", UserRole, nil)
@@ -180,8 +170,7 @@ func TestService_CreateUserByAdmin_DuplicateUsername(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	logger := newTestLogger()
-	service := NewService(mockRepo, logger)
+	service := NewService(mockRepo)
 
 	// Create admin user
 	admin, err := NewUser("admin", "Admin", nil, "AdminPass123!", AdminRole, nil)
@@ -210,8 +199,7 @@ func TestService_BootstrapAdmin_CreatesAdminWhenNoUsers(t *testing.T) {
 
 	mockRepo := newMockRepository()
 	mockRepo.userCount = 0
-	logger := newTestLogger()
-	service := NewService(mockRepo, logger)
+	service := NewService(mockRepo)
 
 	conf := config.ConfServer{
 		AdminPassword: "AdminPass123!",
@@ -233,8 +221,7 @@ func TestService_BootstrapAdmin_SkipsWhenUsersExist(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	logger := newTestLogger()
-	service := NewService(mockRepo, logger)
+	service := NewService(mockRepo)
 
 	// Create existing user
 	existingUser, err := NewUser("existing", "Existing User", nil, "Password123", UserRole, nil)
@@ -262,8 +249,7 @@ func TestService_BootstrapAdmin_UsesProvidedPassword(t *testing.T) {
 
 	mockRepo := newMockRepository()
 	mockRepo.userCount = 0
-	logger := newTestLogger()
-	service := NewService(mockRepo, logger)
+	service := NewService(mockRepo)
 
 	conf := config.ConfServer{
 		AdminPassword: "CustomAdminPass123!",
@@ -393,8 +379,4 @@ func (m *mockRepository) RunInTx(ctx context.Context, fn func(repository) error)
 		return m.runInTxFn(m)
 	}
 	return fn(m)
-}
-
-func newTestLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 }

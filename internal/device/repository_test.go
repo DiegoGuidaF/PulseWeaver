@@ -601,3 +601,94 @@ func TestRepository_RunInTx_Rollback(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(len(addresses), 0) // Should be empty due to rollback
 }
+
+func TestRepository_GetEnabledUniqueIPs_Empty(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	// Get enabled IPs when none exist
+	ips, err := repo.GetEnabledUniqueIPs(ctx)
+	is.NoErr(err)
+	is.Equal(len(ips), 0) // Should be empty
+}
+
+func TestRepository_GetEnabledUniqueIPs(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	// Create device
+	device := createTestDevice(t, repo, ctx, "test-device")
+
+	// Create addresses
+	addr1 := createTestAddress(t, repo, ctx, device.ID, "192.168.1.1")
+	addr2 := createTestAddress(t, repo, ctx, device.ID, "192.168.1.2")
+	addr3 := createTestAddress(t, repo, ctx, device.ID, "192.168.1.3")
+
+	// Enable addr1 and addr3
+	_, err := repo.EnableAddress(ctx, addr1.ID)
+	is.NoErr(err)
+	_, err = repo.EnableAddress(ctx, addr3.ID)
+	is.NoErr(err)
+
+	// Enable then disable addr2
+	_, err = repo.EnableAddress(ctx, addr2.ID)
+	is.NoErr(err)
+	_, err = repo.DisableAddress(ctx, addr2.ID)
+	is.NoErr(err)
+
+	// Get enabled IPs
+	ips, err := repo.GetEnabledUniqueIPs(ctx)
+	is.NoErr(err)
+	is.Equal(len(ips), 2) // Should have 2 enabled IPs
+
+	// Verify correct IPs are returned
+	ipMap := make(map[string]bool)
+	for _, ip := range ips {
+		ipMap[ip] = true
+	}
+	is.True(ipMap["192.168.1.1"])
+	is.True(ipMap["192.168.1.3"])
+	is.True(!ipMap["192.168.1.2"]) // Disabled address should not be included
+}
+
+func TestRepository_GetEnabledUniqueIPs_Deduplicates(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	// Create multiple devices
+	device1 := createTestDevice(t, repo, ctx, "device-1")
+	device2 := createTestDevice(t, repo, ctx, "device-2")
+	device3 := createTestDevice(t, repo, ctx, "device-3")
+
+	// Create addresses with duplicate IPs across different devices
+	addr1 := createTestAddress(t, repo, ctx, device1.ID, "192.168.1.100")
+	addr2 := createTestAddress(t, repo, ctx, device2.ID, "192.168.1.100") // Same IP as addr1
+	addr3 := createTestAddress(t, repo, ctx, device3.ID, "192.168.1.200")
+
+	// Enable all addresses
+	_, err := repo.EnableAddress(ctx, addr1.ID)
+	is.NoErr(err)
+	_, err = repo.EnableAddress(ctx, addr2.ID)
+	is.NoErr(err)
+	_, err = repo.EnableAddress(ctx, addr3.ID)
+	is.NoErr(err)
+
+	// Get enabled IPs
+	ips, err := repo.GetEnabledUniqueIPs(ctx)
+	is.NoErr(err)
+	is.Equal(len(ips), 2) // Should deduplicate: 192.168.1.100 appears only once
+
+	// Verify correct IPs are returned (deduplicated)
+	ipMap := make(map[string]bool)
+	for _, ip := range ips {
+		ipMap[ip] = true
+	}
+	is.True(ipMap["192.168.1.100"])
+	is.True(ipMap["192.168.1.200"])
+}

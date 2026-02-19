@@ -25,12 +25,19 @@ type repository interface {
 }
 
 type Service struct {
-	repo   repository
-	logger *slog.Logger
+	repo             repository
+	statusChangeChan chan<- struct{}
 }
 
-func NewService(repo repository, logger *slog.Logger) *Service {
-	return &Service{repo: repo, logger: logger}
+func (s *Service) WithStatusChangeChannel(ch chan<- struct{}) {
+	s.statusChangeChan = ch
+}
+
+func NewService(repo repository) *Service {
+	s := &Service{
+		repo: repo,
+	}
+	return s
 }
 
 func (s *Service) GetDevices(ctx context.Context) ([]DeviceWithApiKeyPrefix, error) {
@@ -180,6 +187,13 @@ func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIp 
 		slog.Int64(AttrKeyAddressID, resultAddr.Id.Int64()),
 		slog.Bool(AttrKeyCreated, wasCreated),
 	)
+	// Notify whitelist service of status change (non-blocking)
+	if s.statusChangeChan != nil {
+		select {
+		case s.statusChangeChan <- struct{}{}:
+		default:
+		}
+	}
 	return resultAddr, wasCreated, nil
 }
 
@@ -247,6 +261,12 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, address
 		slog.String(AttrKeyAddressIP, disabledAddress.IP),
 		slog.Int64(AttrKeyAddressID, disabledAddress.Id.Int64()),
 	)
-
+	// Notify whitelist service of status change (non-blocking)
+	if s.statusChangeChan != nil {
+		select {
+		case s.statusChangeChan <- struct{}{}:
+		default:
+		}
+	}
 	return disabledAddress, nil
 }

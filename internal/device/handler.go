@@ -12,11 +12,10 @@ import (
 
 type HTTPHandler struct {
 	service *Service
-	logger  *slog.Logger
 }
 
-func NewHandler(service *Service, logger *slog.Logger) *HTTPHandler {
-	return &HTTPHandler{service: service, logger: logger}
+func NewHandler(service *Service) *HTTPHandler {
+	return &HTTPHandler{service: service}
 }
 
 func (h *HTTPHandler) GetDevices(ctx context.Context, _ api.GetDevicesRequestObject) (api.GetDevicesResponseObject, error) {

@@ -230,6 +230,23 @@ func (r *Repository) GetDeviceByApiKeyHash(ctx context.Context, keyHash string) 
 	return device, nil
 }
 
+func (r *Repository) GetEnabledUniqueIPs(ctx context.Context) ([]string, error) {
+	var ips []string
+
+	query := `SELECT DISTINCT ip FROM address_with_status WHERE status = 1`
+
+	err := r.db.SelectContext(ctx, &ips, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get enabled unique IPs: %w", err)
+	}
+
+	if ips == nil {
+		return []string{}, nil
+	}
+
+	return ips, nil
+}
+
 // RunInTx runs the callback function inside a transaction.
 // If already running in a transaction context, do not create a new one and reuse it
 func (r *Repository) RunInTx(ctx context.Context, fn func(repository) error) error {

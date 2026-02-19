@@ -6,18 +6,13 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
-	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/health"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/ui"
-	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 	slogchi "github.com/samber/slog-chi"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
@@ -25,11 +20,6 @@ import (
 
 type DeviceHandler = device.HTTPHandler
 type AuthHandler = auth.HTTPHandler
-
-type CompositeHandler struct {
-	*DeviceHandler
-	*AuthHandler
-}
 
 func NewServerFromConfig(deviceHandler *DeviceHandler, authHandler *AuthHandler, logger *slog.Logger, conf config.ConfServer) (http.Handler, error) {
 	trustedProxy, err := ParseTrustedProxy(conf.TrustedProxy)
@@ -74,46 +64,6 @@ func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, logger *s
 	addRoutes(r, deviceHandler, authHandler)
 
 	return r
-}
-
-func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler) {
-	routeHandler := &CompositeHandler{DeviceHandler: deviceHandler, AuthHandler: authHandler}
-
-	r.Get("/health", health.Handler)
-
-	r.Route("/api/v1", func(r chi.Router) {
-
-		swagger, _ := api.GetSwagger()
-
-		validatorOptions := &nethttpmiddleware.Options{
-			ErrorHandler: validationErrorHandler,
-			Options: openapi3filter.Options{
-				AuthenticationFunc: AuthenticationFunc(authHandler.UserAuthenticator(), deviceHandler.ApiKeyAuthenticator()),
-			},
-		}
-
-		// Rate limit login: 5 requests per minute per IP; other endpoints not limited
-		r.Use(LoginRateLimitMiddleware(5, time.Minute))
-
-		// OpenApi request input validators
-		r.Use(nethttpmiddleware.OapiRequestValidatorWithOptions(swagger, validatorOptions))
-		// Inject auth token into context if present
-		r.Use(auth.PrincipalUserContextMiddleware(authHandler.UserAuthenticator()))
-		// Inject auth token into context if present
-		r.Use(device.PrincipalDeviceContextMiddleware(deviceHandler.ApiKeyAuthenticator()))
-
-		// Create custom error handlers with logging
-		errorOptions := api.StrictHTTPServerOptions{
-			RequestErrorHandlerFunc:  createRequestErrorHandler(),
-			ResponseErrorHandlerFunc: createResponseErrorHandler(),
-		}
-
-		strictHandler := api.NewStrictHandlerWithOptions(routeHandler, nil, errorOptions)
-		api.HandlerFromMux(strictHandler, r)
-	})
-
-	// Any other path would go to the UI
-	r.Handle("/*", ui.Handler())
 }
 
 // validationErrorHandler OpenApi validation errors match rest of app JSON with "error" key
