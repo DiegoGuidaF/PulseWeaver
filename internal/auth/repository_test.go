@@ -8,7 +8,7 @@ import (
 	"github.com/matryer/is"
 )
 
-func setupAuthTestDB(t *testing.T) UserRepository {
+func setupAuthTestDB(t *testing.T) *Repository {
 	t.Helper()
 
 	db, cleanup := testdb.Setup(t)

@@ -15,7 +15,7 @@ func TestService_Login_Success(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	mockRepo := newMockUserRepository()
+	mockRepo := newMockRepository()
 	logger := newTestLogger()
 	service := NewService(mockRepo, logger)
 
@@ -37,7 +37,7 @@ func TestService_Login_InvalidUsername(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	mockRepo := newMockUserRepository()
+	mockRepo := newMockRepository()
 	mockRepo.getUserByUsernameErr = ErrUserNotFound
 	logger := newTestLogger()
 	service := NewService(mockRepo, logger)
@@ -53,7 +53,7 @@ func TestService_Login_InvalidPassword(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	mockRepo := newMockUserRepository()
+	mockRepo := newMockRepository()
 	logger := newTestLogger()
 	service := NewService(mockRepo, logger)
 
@@ -75,7 +75,7 @@ func TestService_Login_RepositoryError(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	mockRepo := newMockUserRepository()
+	mockRepo := newMockRepository()
 	testErr := errors.New("database error")
 	mockRepo.getUserByUsernameErr = testErr
 	logger := newTestLogger()
@@ -92,7 +92,7 @@ func TestService_GetUserById_Success(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	mockRepo := newMockUserRepository()
+	mockRepo := newMockRepository()
 	logger := newTestLogger()
 	service := NewService(mockRepo, logger)
 
@@ -114,7 +114,7 @@ func TestService_GetUserById_RepositoryError(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	mockRepo := newMockUserRepository()
+	mockRepo := newMockRepository()
 	testErr := errors.New("database error")
 	mockRepo.getUserByIdErr = testErr
 	logger := newTestLogger()
@@ -132,7 +132,7 @@ func TestService_CreateUserByAdmin_Success(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	mockRepo := newMockUserRepository()
+	mockRepo := newMockRepository()
 	logger := newTestLogger()
 	service := NewService(mockRepo, logger)
 
@@ -157,7 +157,7 @@ func TestService_CreateUserByAdmin_NonAdmin(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	mockRepo := newMockUserRepository()
+	mockRepo := newMockRepository()
 	logger := newTestLogger()
 	service := NewService(mockRepo, logger)
 
@@ -179,7 +179,7 @@ func TestService_CreateUserByAdmin_DuplicateUsername(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	mockRepo := newMockUserRepository()
+	mockRepo := newMockRepository()
 	logger := newTestLogger()
 	service := NewService(mockRepo, logger)
 
@@ -208,7 +208,7 @@ func TestService_BootstrapAdmin_CreatesAdminWhenNoUsers(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	mockRepo := newMockUserRepository()
+	mockRepo := newMockRepository()
 	mockRepo.userCount = 0
 	logger := newTestLogger()
 	service := NewService(mockRepo, logger)
@@ -232,7 +232,7 @@ func TestService_BootstrapAdmin_SkipsWhenUsersExist(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	mockRepo := newMockUserRepository()
+	mockRepo := newMockRepository()
 	logger := newTestLogger()
 	service := NewService(mockRepo, logger)
 
@@ -260,7 +260,7 @@ func TestService_BootstrapAdmin_UsesProvidedPassword(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	mockRepo := newMockUserRepository()
+	mockRepo := newMockRepository()
 	mockRepo.userCount = 0
 	logger := newTestLogger()
 	service := NewService(mockRepo, logger)
@@ -284,8 +284,8 @@ func TestService_BootstrapAdmin_UsesProvidedPassword(t *testing.T) {
 	is.True(token != "")
 }
 
-// mockUserRepository is a hand-rolled mock implementation of UserRepository
-type mockUserRepository struct {
+// mockRepository is a hand-rolled mock implementation of UserRepository
+type mockRepository struct {
 	users                map[UserID]*User
 	usersByUsername      map[string]*User // lowercase username -> user
 	sessions             map[SessionID]*SessionWithUser
@@ -297,14 +297,14 @@ type mockUserRepository struct {
 	createSessionErr     error
 	getSessionErr        error
 	countUsersErr        error
-	runInTxFn            func(UserRepository) error
+	runInTxFn            func(repository) error
 }
 
-// Ensure mockUserRepository implements UserRepository interface
-var _ UserRepository = (*mockUserRepository)(nil)
+// Ensure mockRepository implements UserRepository interface
+var _ repository = (*mockRepository)(nil)
 
-func newMockUserRepository() *mockUserRepository {
-	return &mockUserRepository{
+func newMockRepository() *mockRepository {
+	return &mockRepository{
 		users:           make(map[UserID]*User),
 		usersByUsername: make(map[string]*User),
 		sessions:        make(map[SessionID]*SessionWithUser),
@@ -313,7 +313,7 @@ func newMockUserRepository() *mockUserRepository {
 	}
 }
 
-func (m *mockUserRepository) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+func (m *mockRepository) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	if m.getUserByUsernameErr != nil {
 		return nil, m.getUserByUsernameErr
 	}
@@ -324,7 +324,7 @@ func (m *mockUserRepository) GetUserByUsername(ctx context.Context, username str
 	return user, nil
 }
 
-func (m *mockUserRepository) GetUserByID(ctx context.Context, userId UserID) (*User, error) {
+func (m *mockRepository) GetUserByID(ctx context.Context, userId UserID) (*User, error) {
 	if m.getUserByIdErr != nil {
 		return nil, m.getUserByIdErr
 	}
@@ -335,7 +335,7 @@ func (m *mockUserRepository) GetUserByID(ctx context.Context, userId UserID) (*U
 	return user, nil
 }
 
-func (m *mockUserRepository) CreateUser(ctx context.Context, user *User) (*User, error) {
+func (m *mockRepository) CreateUser(ctx context.Context, user *User) (*User, error) {
 	if m.createUserErr != nil {
 		return nil, m.createUserErr
 	}
@@ -346,7 +346,7 @@ func (m *mockUserRepository) CreateUser(ctx context.Context, user *User) (*User,
 	return user, nil
 }
 
-func (m *mockUserRepository) CreateSession(ctx context.Context, session *Session) (*Session, error) {
+func (m *mockRepository) CreateSession(ctx context.Context, session *Session) (*Session, error) {
 	if m.createSessionErr != nil {
 		return nil, m.createSessionErr
 	}
@@ -360,7 +360,7 @@ func (m *mockUserRepository) CreateSession(ctx context.Context, session *Session
 	return session, nil
 }
 
-func (m *mockUserRepository) GetSessionWithRoleByTokenHash(ctx context.Context, tokenHash string) (*SessionWithUser, error) {
+func (m *mockRepository) GetSessionWithRoleByTokenHash(ctx context.Context, tokenHash string) (*SessionWithUser, error) {
 	if m.getSessionErr != nil {
 		return nil, m.getSessionErr
 	}
@@ -371,14 +371,14 @@ func (m *mockUserRepository) GetSessionWithRoleByTokenHash(ctx context.Context, 
 	return session, nil
 }
 
-func (m *mockUserRepository) CountUsers(ctx context.Context) (int, error) {
+func (m *mockRepository) CountUsers(ctx context.Context) (int, error) {
 	if m.countUsersErr != nil {
 		return 0, m.countUsersErr
 	}
 	return m.userCount, nil
 }
 
-func (m *mockUserRepository) RevokeSessionById(ctx context.Context, id SessionID) error {
+func (m *mockRepository) RevokeSessionById(ctx context.Context, id SessionID) error {
 	session, ok := m.sessions[id]
 	if !ok {
 		return errors.New("session not found")
@@ -388,7 +388,7 @@ func (m *mockUserRepository) RevokeSessionById(ctx context.Context, id SessionID
 	return nil
 }
 
-func (m *mockUserRepository) RunInTx(ctx context.Context, fn func(UserRepository) error) error {
+func (m *mockRepository) RunInTx(ctx context.Context, fn func(repository) error) error {
 	if m.runInTxFn != nil {
 		return m.runInTxFn(m)
 	}

@@ -8,8 +8,7 @@ import (
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 )
 
-// Repository defines the persistence operations for devices and addresses.
-type Repository interface {
+type repository interface {
 	GetDeviceByID(ctx context.Context, id DeviceID) (*Device, error)
 	CreateDevice(ctx context.Context, device *Device) (*Device, error)
 	GetDevices(ctx context.Context) ([]DeviceWithApiKeyPrefix, error)
@@ -22,15 +21,15 @@ type Repository interface {
 	CheckAddressOwnership(ctx context.Context, deviceId DeviceID, addressId AddressID) error
 	CreateDeviceApiKey(ctx context.Context, apiKey *ApiKey) (*ApiKey, error)
 	GetDeviceByApiKeyHash(ctx context.Context, keyHash string) (*Device, error)
-	RunInTx(ctx context.Context, fn func(Repository) error) error
+	RunInTx(ctx context.Context, fn func(repository) error) error
 }
 
 type Service struct {
-	repo   Repository
+	repo   repository
 	logger *slog.Logger
 }
 
-func NewService(repo Repository, logger *slog.Logger) *Service {
+func NewService(repo repository, logger *slog.Logger) *Service {
 	return &Service{repo: repo, logger: logger}
 }
 
@@ -53,7 +52,7 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*DeviceWithApi
 	var deviceWithApiKeyPrefix *DeviceWithApiKeyPrefix
 	var rawKey string
 
-	err := s.repo.RunInTx(ctx, func(tx Repository) error {
+	err := s.repo.RunInTx(ctx, func(tx repository) error {
 		device := NewDevice(name)
 		device, err := tx.CreateDevice(ctx, device)
 		if err != nil {
@@ -121,7 +120,7 @@ func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIp 
 	var resultAddr *AddressWithStatus
 	var wasCreated bool
 
-	err = s.repo.RunInTx(ctx, func(tx Repository) error {
+	err = s.repo.RunInTx(ctx, func(tx repository) error {
 		_, err := tx.GetDeviceByID(ctx, deviceID)
 		if err != nil {
 			if errors.Is(err, ErrDeviceNotFound) {
@@ -190,7 +189,7 @@ func (s *Service) GetAddressesForDevice(ctx context.Context, deviceID DeviceID) 
 
 	var addresses []AddressWithStatus
 
-	err := s.repo.RunInTx(ctx, func(tx Repository) error {
+	err := s.repo.RunInTx(ctx, func(tx repository) error {
 		_, err := tx.GetDeviceByID(ctx, deviceID)
 		if err != nil {
 			if errors.Is(err, ErrDeviceNotFound) {
@@ -222,7 +221,7 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, address
 
 	var disabledAddress *AddressWithStatus
 
-	err := s.repo.RunInTx(ctx, func(tx Repository) error {
+	err := s.repo.RunInTx(ctx, func(tx repository) error {
 		err := tx.CheckAddressOwnership(ctx, deviceID, addressID)
 		if err != nil {
 			if errors.Is(err, ErrAddressNotFound) || errors.Is(err, ErrAddressNotOwnedByDevice) {

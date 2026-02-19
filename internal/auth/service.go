@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type UserRepository interface {
+type repository interface {
 	CountUsers(ctx context.Context) (int, error)
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
 	GetUserByID(ctx context.Context, userId UserID) (*User, error)
@@ -22,14 +22,14 @@ type UserRepository interface {
 	CreateUser(ctx context.Context, user *User) (*User, error)
 	GetSessionWithRoleByTokenHash(ctx context.Context, tokenHash string) (*SessionWithUser, error)
 	RevokeSessionById(ctx context.Context, id SessionID) error
-	RunInTx(ctx context.Context, fn func(UserRepository) error) error
+	RunInTx(ctx context.Context, fn func(repository) error) error
 }
 type Service struct {
-	repo   UserRepository
+	repo   repository
 	logger *slog.Logger
 }
 
-func NewService(repo UserRepository, logger *slog.Logger) *Service {
+func NewService(repo repository, logger *slog.Logger) *Service {
 	return &Service{repo: repo, logger: logger}
 }
 
@@ -40,7 +40,7 @@ func (s *Service) Login(ctx context.Context, username string, password string) (
 	var rawToken string
 	var user *User
 
-	err := s.repo.RunInTx(ctx, func(tx UserRepository) error {
+	err := s.repo.RunInTx(ctx, func(tx repository) error {
 		var err error
 		user, err = tx.GetUserByUsername(ctx, username)
 		if err != nil {
@@ -145,7 +145,7 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 	displayName := "Admin"
 	password := conf.AdminPassword
 
-	err := s.repo.RunInTx(ctx, func(tx UserRepository) error {
+	err := s.repo.RunInTx(ctx, func(tx repository) error {
 		count, err := tx.CountUsers(ctx)
 		if err != nil {
 			logger.Error("database error counting users", slog.Any(AttrKeyError, err))
@@ -170,7 +170,7 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 	return nil
 }
 
-func (s *Service) createUser(tx UserRepository, ctx context.Context, username string, displayName string, email *string, password string, createdBy *UserID, role Role) (*User, error) {
+func (s *Service) createUser(tx repository, ctx context.Context, username string, displayName string, email *string, password string, createdBy *UserID, role Role) (*User, error) {
 	logger := logging.FromCtx(ctx)
 
 	newUser, err := NewUser(

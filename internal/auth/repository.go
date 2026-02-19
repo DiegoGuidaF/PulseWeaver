@@ -11,26 +11,26 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
-type repository struct {
-	db     DBInterface
+type Repository struct {
+	db     dBInterface
 	rootDB *sqlx.DB
 }
 
-type DBInterface interface {
+type dBInterface interface {
 	sqlx.ExtContext
 	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
-func NewRepository(db *sqlx.DB) UserRepository {
-	return &repository{
+func NewRepository(db *sqlx.DB) *Repository {
+	return &Repository{
 		rootDB: db,
 		db:     db,
 	}
 }
 
-func (r *repository) CreateUser(ctx context.Context, user *User) (*User, error) {
+func (r *Repository) CreateUser(ctx context.Context, user *User) (*User, error) {
 	query := `
         INSERT INTO users (username, display_name, email, password_hash, role, created_by, created_at)
         VALUES (?, ?, ?, ?, ?,?, ?) RETURNING *
@@ -55,7 +55,7 @@ func (r *repository) CreateUser(ctx context.Context, user *User) (*User, error) 
 	return user, nil
 }
 
-func (r *repository) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+func (r *Repository) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	user := &User{}
 
 	query := `SELECT * FROM users WHERE username = ?`
@@ -70,7 +70,7 @@ func (r *repository) GetUserByUsername(ctx context.Context, username string) (*U
 
 	return user, nil
 }
-func (r *repository) GetUserByID(ctx context.Context, userId UserID) (*User, error) {
+func (r *Repository) GetUserByID(ctx context.Context, userId UserID) (*User, error) {
 	user := &User{}
 
 	query := `SELECT * FROM users WHERE id = ?`
@@ -86,7 +86,7 @@ func (r *repository) GetUserByID(ctx context.Context, userId UserID) (*User, err
 	return user, nil
 }
 
-func (r *repository) CountUsers(ctx context.Context) (int, error) {
+func (r *Repository) CountUsers(ctx context.Context) (int, error) {
 	var userCount int
 
 	query := `SELECT count(*) FROM users`
@@ -99,7 +99,7 @@ func (r *repository) CountUsers(ctx context.Context) (int, error) {
 	return userCount, nil
 }
 
-func (r *repository) CreateSession(ctx context.Context, session *Session) (*Session, error) {
+func (r *Repository) CreateSession(ctx context.Context, session *Session) (*Session, error) {
 	query := `
 		INSERT INTO sessions (user_id, token_hash, created_at, expires_at)
 		VALUES (?, ?, ?, ?) RETURNING *
@@ -121,7 +121,7 @@ func (r *repository) CreateSession(ctx context.Context, session *Session) (*Sess
 
 // GetSessionWithRoleByTokenHash Finds and retrieves valid session(non-expired or revoked) given a tokenHash.
 // Also returns the user_role
-func (r *repository) GetSessionWithRoleByTokenHash(ctx context.Context, tokenHash string) (*SessionWithUser, error) {
+func (r *Repository) GetSessionWithRoleByTokenHash(ctx context.Context, tokenHash string) (*SessionWithUser, error) {
 	session := &SessionWithUser{}
 
 	query := `SELECT s.*, u.role as user_role FROM sessions s
@@ -142,7 +142,7 @@ func (r *repository) GetSessionWithRoleByTokenHash(ctx context.Context, tokenHas
 	return session, nil
 }
 
-func (r *repository) RevokeSessionById(ctx context.Context, id SessionID) error {
+func (r *Repository) RevokeSessionById(ctx context.Context, id SessionID) error {
 	query := `UPDATE sessions SET revoked_at = CURRENT_TIMESTAMP WHERE id = ?`
 
 	_, err := r.db.ExecContext(ctx, query, id)
@@ -155,7 +155,7 @@ func (r *repository) RevokeSessionById(ctx context.Context, id SessionID) error 
 
 // RunInTx runs the callback function inside a transaction.
 // If already running in a transaction context, do not create a new one and reuse it
-func (r *repository) RunInTx(ctx context.Context, fn func(UserRepository) error) error {
+func (r *Repository) RunInTx(ctx context.Context, fn func(repository) error) error {
 	if r.rootDB == nil {
 		// We are already in a transaction. Do not nest it.
 		return fn(r)
@@ -169,7 +169,7 @@ func (r *repository) RunInTx(ctx context.Context, fn func(UserRepository) error)
 	defer tx.Rollback()
 
 	// Copy of the repository without rootDB so we can't do nested transactions
-	txRepo := &repository{
+	txRepo := &Repository{
 		rootDB: nil,
 		db:     tx,
 	}
