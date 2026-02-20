@@ -1,0 +1,24 @@
+services:
+  wallydic:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wallydic
+    ports:
+      - "8080:8080"
+    environment:
+      # Required
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+      # Optional (with defaults from Dockerfile)
+      - SERVER_PORT=8080
+      - DB_FILE=/app/data/wallydic.db
+      - WHITELIST_FILE_PATH=/app/data/whitelist.txt
+      - LOG_LEVEL=debug
+      - LOG_FORMAT=text
+      #- TZ=
+      #- TRUSTED_PROXY=${TRUSTED_PROXY:-}
+      #- WHITELIST_DEBOUNCE_DELAY=${WHITELIST_DEBOUNCE_DELAY:-5s}
+      #- DB_DEBUG=${DB_DEBUG:-false}
+    volumes:
+      - ./docker-data/:/app/data
+    restart: unless-stopped

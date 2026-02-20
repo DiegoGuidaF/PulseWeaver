@@ -1,0 +1,43 @@
+# VCS metadata
+.git/
+.gitignore
+
+# Dependencies installed during build
+frontend/node_modules/
+vendor/
+
+# Build outputs (rebuilt in Docker)
+bin/
+frontend/dist/
+internal/ui/dist/
+tmp/
+
+# Local runtime data
+docker-data/
+*.db
+*.db-wal
+*.db-shm
+logs/
+
+# Secrets and environment files
+.env
+.env.*
+
+# IDE and editor files
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build tools and configs (not needed in image)
+.air.toml
+Makefile
+docker-compose.yml
+
+# Documentation (optional - reduces noise)
+docs/
+*.md
+LICENSE
