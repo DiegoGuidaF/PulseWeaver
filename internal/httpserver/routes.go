@@ -3,10 +3,10 @@ package httpserver
 import (
 	"time"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/health"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/ui"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
@@ -25,12 +25,12 @@ func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandle
 
 	r.Route("/api/v1", func(r chi.Router) {
 
-		swagger, _ := api.GetSwagger()
+		swagger, _ := httpapi.GetSwagger()
 
 		validatorOptions := &nethttpmiddleware.Options{
 			ErrorHandler: validationErrorHandler,
 			Options: openapi3filter.Options{
-				AuthenticationFunc: AuthenticationFunc(authHandler.UserAuthenticator(), deviceHandler.ApiKeyAuthenticator()),
+				AuthenticationFunc: AuthenticationFunc(authHandler.UserAuthenticator(), deviceHandler.APIKeyAuthenticator()),
 			},
 		}
 
@@ -42,16 +42,16 @@ func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandle
 		// Inject auth token into context if present
 		r.Use(auth.PrincipalUserContextMiddleware(authHandler.UserAuthenticator()))
 		// Inject auth token into context if present
-		r.Use(device.PrincipalDeviceContextMiddleware(deviceHandler.ApiKeyAuthenticator()))
+		r.Use(device.PrincipalDeviceContextMiddleware(deviceHandler.APIKeyAuthenticator()))
 
 		// Create custom error handlers with logging
-		errorOptions := api.StrictHTTPServerOptions{
+		errorOptions := httpapi.StrictHTTPServerOptions{
 			RequestErrorHandlerFunc:  createRequestErrorHandler(),
 			ResponseErrorHandlerFunc: createResponseErrorHandler(),
 		}
 
-		strictHandler := api.NewStrictHandlerWithOptions(routeHandler, nil, errorOptions)
-		api.HandlerFromMux(strictHandler, r)
+		strictHandler := httpapi.NewStrictHandlerWithOptions(routeHandler, nil, errorOptions)
+		httpapi.HandlerFromMux(strictHandler, r)
 	})
 
 	// Any other path would go to the UI

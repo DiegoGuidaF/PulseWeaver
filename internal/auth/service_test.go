@@ -109,7 +109,7 @@ func TestService_GetUserById_RepositoryError(t *testing.T) {
 
 	mockRepo := newMockRepository()
 	testErr := errors.New("database error")
-	mockRepo.getUserByIdErr = testErr
+	mockRepo.getUserByIDErr = testErr
 	service := NewService(mockRepo)
 
 	principal := NewPrincipal(UserID(1), SessionID(1), AdminRole)
@@ -278,7 +278,7 @@ type mockRepository struct {
 	sessionsByToken      map[string]*SessionWithUser // tokenHash -> session
 	userCount            int
 	getUserByUsernameErr error
-	getUserByIdErr       error
+	getUserByIDErr       error
 	createUserErr        error
 	createSessionErr     error
 	getSessionErr        error
@@ -310,11 +310,11 @@ func (m *mockRepository) GetUserByUsername(ctx context.Context, username string)
 	return user, nil
 }
 
-func (m *mockRepository) GetUserByID(ctx context.Context, userId UserID) (*User, error) {
-	if m.getUserByIdErr != nil {
-		return nil, m.getUserByIdErr
+func (m *mockRepository) GetUserByID(ctx context.Context, userID UserID) (*User, error) {
+	if m.getUserByIDErr != nil {
+		return nil, m.getUserByIDErr
 	}
-	user, ok := m.users[userId]
+	user, ok := m.users[userID]
 	if !ok {
 		return nil, ErrUserNotFound
 	}
@@ -339,7 +339,7 @@ func (m *mockRepository) CreateSession(ctx context.Context, session *Session) (*
 	session.ID = SessionID(len(m.sessions) + 1)
 	sessionWithUser := &SessionWithUser{
 		Session:  *session,
-		UserRole: m.users[session.UserId].Role,
+		UserRole: m.users[session.UserID].Role,
 	}
 	m.sessions[session.ID] = sessionWithUser
 	m.sessionsByToken[session.TokenHash] = sessionWithUser
@@ -364,7 +364,7 @@ func (m *mockRepository) CountUsers(ctx context.Context) (int, error) {
 	return m.userCount, nil
 }
 
-func (m *mockRepository) RevokeSessionById(ctx context.Context, id SessionID) error {
+func (m *mockRepository) RevokeSessionByID(ctx context.Context, id SessionID) error {
 	session, ok := m.sessions[id]
 	if !ok {
 		return errors.New("session not found")

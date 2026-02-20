@@ -55,7 +55,7 @@ func NewSQLite(dbConf config.ConfDB) (*SQLite, error) {
 
 	for _, pragma := range pragmas {
 		if _, err := db.Exec(pragma); err != nil {
-			db.Close()
+			_ = db.Close()
 			return nil, fmt.Errorf("exec %q: %w", pragma, err)
 		}
 	}

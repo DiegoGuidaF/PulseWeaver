@@ -336,7 +336,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
   /heartbeat:
     post:
-      operationId: deviceHeartbeatByApiKey
+      operationId: deviceHeartbeatByAPIKey
       tags:
         - devices
       security:

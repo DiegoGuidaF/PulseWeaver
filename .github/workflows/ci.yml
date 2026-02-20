@@ -38,10 +38,6 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          # Use the version defined in go.mod (tools.go)
-          version: patch
-          skip-pkg-cache: true
-          skip-build-cache: true
 
       - name: Run backend tests
         run: make test

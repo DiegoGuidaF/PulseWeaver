@@ -81,7 +81,13 @@ func (s *Service) Run(ctx context.Context) error {
 // generateContent generates the file content as bytes from a list of IP addresses.
 // Each IP is written on its own line with a trailing newline, matching the format written to disk.
 func generateContent(ips []string) []byte {
-	var content []byte
+	if len(ips) == 0 {
+		return nil
+	}
+	// Preallocate capacity: estimate average IP length + newline per IP
+	// Using a conservative estimate of 15 chars per IP (IPv4) + 1 for newline
+	estimatedCapacity := (15 + 1) * len(ips)
+	content := make([]byte, 0, estimatedCapacity)
 	for _, ip := range ips {
 		content = append(content, []byte(ip)...)
 		content = append(content, '\n')
@@ -164,7 +170,11 @@ func (s *Service) Regenerate(ctx context.Context) error {
 		logger.Error("failed to create temp file", slog.String(AttrKeyWhitelistFile, tempPath), slog.Any(AttrKeyError, err))
 		return fmt.Errorf("create temp file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			logger.Error("failed to close temp file", slog.String(AttrKeyWhitelistFile, tempPath), slog.Any(AttrKeyError, err))
+		}
+	}()
 
 	// Write content to temp file
 	if _, err := file.Write(newContent); err != nil {

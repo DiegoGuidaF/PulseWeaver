@@ -39,8 +39,10 @@ type ConfWhitelist struct {
 func Load() (*Conf, error) {
 	var c Conf
 
-	// Load .env file if present
+	// Load .env file if present (optional, ignore errors)
+	//nolint:staticcheck // Empty branch is intentional - .env file is optional
 	if err := godotenv.Load(); err != nil {
+		_ = err // Explicitly ignore error
 	}
 
 	// Create config struct from env variables

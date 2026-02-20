@@ -177,7 +177,7 @@ This distinction is handled automatically by the type system and runtime checks.
 
 ### Explicit Path Parameters
 
-Path parameters (e.g., `:deviceId`, `:addressId`) are handled automatically by MSW. The handler factory accepts the path template, and MSW extracts parameters from the actual request URL.
+Path parameters (e.g., `:deviceId`, `:addressID`) are handled automatically by MSW. The handler factory accepts the path template, and MSW extracts parameters from the actual request URL.
 
 ### Best Practices
 

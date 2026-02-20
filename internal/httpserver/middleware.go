@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
@@ -19,8 +19,9 @@ import (
 // Other endpoints are not affected. Uses a custom key function that reads from context.
 func LoginRateLimitMiddleware(requests int, window time.Duration) func(http.Handler) http.Handler {
 	// Custom key function that reads client IP from context
+	//nolint:unparam // Error return is required by httprate API signature
 	keyFunc := func(r *http.Request) (string, error) {
-		ip, ok := api.ClientIPFromContext(r.Context())
+		ip, ok := httpapi.ClientIPFromContext(r.Context())
 		if !ok || ip == "" {
 			// Fallback to RemoteAddr if context doesn't have IP
 			clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -38,13 +39,13 @@ func LoginRateLimitMiddleware(requests int, window time.Duration) func(http.Hand
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusTooManyRequests)
 			msg := "Too many login attempts. Try again later."
-			_ = json.NewEncoder(w).Encode(api.ErrorResponse{Error: &msg})
+			_ = json.NewEncoder(w).Encode(httpapi.ErrorResponse{Error: &msg})
 		}),
 	)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Only rate limit login endpoint
-			if r.URL.Path == api.LoginEndpoint && r.Method == http.MethodPost {
+			if r.URL.Path == httpapi.LoginEndpoint && r.Method == http.MethodPost {
 				// Extract key using the custom key function
 				key, err := keyFunc(r)
 				if err != nil {
@@ -72,9 +73,9 @@ func MaxBodySizeMiddleware(maxBytes int64) func(http.Handler) http.Handler {
 	}
 }
 
-// ClientIpFromRequestMiddleware is middleware that extracts the client IP from r.RemoteAddr
+// ClientIPFromRequestMiddleware is middleware that extracts the client IP from r.RemoteAddr
 // and sets it in the request context. It ignores any X-Forwarded-For headers.
-func ClientIpFromRequestMiddleware() func(http.Handler) http.Handler {
+func ClientIPFromRequestMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			clientIP := extractIPFromRemoteAddr(r)
@@ -93,7 +94,7 @@ func ClientIpFromRequestMiddleware() func(http.Handler) http.Handler {
 // 2. Selects the rightmost IP from XFF headers (more secure - prevents spoofing)
 // 3. Stores client IP in context (does NOT modify r.RemoteAddr to avoid port issues)
 //
-// Note: This middleware assumes trustedProxy.IsValid() is true. Use ClientIpFromRequestMiddleware()
+// Note: This middleware assumes trustedProxy.IsValid() is true. Use ClientIPFromRequestMiddleware()
 // when trusted proxy is not configured.
 func ClientIPFromXFFHeaderMiddleware(trustedProxy netip.Addr) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -165,7 +166,7 @@ func extractIPFromRemoteAddr(r *http.Request) string {
 
 // setClientIPInContext sets the client IP in the request context.
 func setClientIPInContext(r *http.Request, ip string) *http.Request {
-	ctx := api.WithClientIP(r.Context(), ip)
+	ctx := httpapi.WithClientIP(r.Context(), ip)
 	ctx, _ = logging.Enrich(ctx,
 		slog.String("client_ip", ip),
 	)
@@ -177,7 +178,7 @@ func setClientIPInContext(r *http.Request, ip string) *http.Request {
 func collectXFFIPs(r *http.Request) []netip.Addr {
 	var ips []netip.Addr
 	// Use Values() to get all X-Forwarded-For headers (not just the first one)
-	for _, headerValue := range r.Header.Values(api.XForwardedFor) {
+	for _, headerValue := range r.Header.Values(httpapi.XForwardedFor) {
 		// Split comma-separated values in each header
 		parts := strings.Split(headerValue, ",")
 		for _, part := range parts {

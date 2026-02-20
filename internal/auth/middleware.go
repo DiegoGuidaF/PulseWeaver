@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
 )
 
 // UserAuthenticator defines the interface for authenticating user sessions.
@@ -34,7 +34,7 @@ func PrincipalUserContextMiddleware(auth UserAuthenticator) func(http.Handler) h
 }
 
 func TokenFromRequest(r *http.Request) (string, error) {
-	if cookie, err := r.Cookie(api.SessionCookieName); err == nil && cookie.Value != "" {
+	if cookie, err := r.Cookie(httpapi.SessionCookieName); err == nil && cookie.Value != "" {
 		return cookie.Value, nil
 	}
 

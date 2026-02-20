@@ -4,25 +4,25 @@ import (
 	"context"
 	"errors"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
 	"github.com/getkin/kin-openapi/openapi3filter"
 )
 
 type UserAuthenticator = auth.UserAuthenticator
-type ApiKeyAuthenticator = device.ApiKeyAuthenticator
+type APIKeyAuthenticator = device.APIKeyAuthenticator
 
 // AuthenticationFunc is called by the OapiRequestValidator to verify security schemes
-func AuthenticationFunc(auth UserAuthenticator, apiKeyAuthenticator ApiKeyAuthenticator) func(context.Context, *openapi3filter.AuthenticationInput) error {
+func AuthenticationFunc(auth UserAuthenticator, apiKeyAuthenticator APIKeyAuthenticator) func(context.Context, *openapi3filter.AuthenticationInput) error {
 	return func(ctx context.Context, input *openapi3filter.AuthenticationInput) error {
 		switch input.SecuritySchemeName {
-		case api.CookieAuthScope:
+		case httpapi.CookieAuthScope:
 			// Extract from Cookie
 			if input.RequestValidationInput == nil || input.RequestValidationInput.Request == nil {
 				return errors.New("no request context")
 			}
-			cookie, err := input.RequestValidationInput.Request.Cookie(api.SessionCookieName)
+			cookie, err := input.RequestValidationInput.Request.Cookie(httpapi.SessionCookieName)
 			if err != nil {
 				return errors.New("missing session cookie")
 			}
@@ -32,12 +32,12 @@ func AuthenticationFunc(auth UserAuthenticator, apiKeyAuthenticator ApiKeyAuthen
 				return errors.New("invalid credentials")
 			}
 
-		case api.ApiKeyAuthScope:
+		case httpapi.APIKeyAuthScope:
 			// Extract from X-API-Key header
 			if input.RequestValidationInput == nil || input.RequestValidationInput.Request == nil {
 				return errors.New("no request context")
 			}
-			apiKey := input.RequestValidationInput.Request.Header.Get(api.ApiKeyHeaderName)
+			apiKey := input.RequestValidationInput.Request.Header.Get(httpapi.APIKeyHeaderName)
 			if apiKey == "" {
 				return errors.New("missing API key")
 			}

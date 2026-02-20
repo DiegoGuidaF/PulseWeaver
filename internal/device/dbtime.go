@@ -48,7 +48,7 @@ func (t *DBTime) Scan(value any) error {
 func (t DBTime) Value() (driver.Value, error) {
 	// Only needed if you ever write this back to DB.
 	// Use RFC3339Nano for stability.
-	if t.Time.IsZero() {
+	if t.IsZero() {
 		return nil, nil
 	}
 	return t.Time.UTC().Format(time.RFC3339Nano), nil

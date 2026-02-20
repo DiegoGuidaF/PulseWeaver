@@ -11,16 +11,16 @@ import (
 type repository interface {
 	GetDeviceByID(ctx context.Context, id DeviceID) (*Device, error)
 	CreateDevice(ctx context.Context, device *Device) (*Device, error)
-	GetDevices(ctx context.Context) ([]DeviceWithApiKeyPrefix, error)
+	GetDevices(ctx context.Context) ([]DeviceWithAPIKeyPrefix, error)
 	CreateAddress(ctx context.Context, address *Address) (*Address, error)
-	GetAddressForDeviceByIp(ctx context.Context, deviceId DeviceID, ip string) (*AddressWithStatus, error)
-	ListAddresses(ctx context.Context, deviceId DeviceID) ([]AddressWithStatus, error)
-	DisableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error)
-	EnableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error)
-	GetAddressWithStatus(ctx context.Context, addressId AddressID) (*AddressWithStatus, error)
-	CheckAddressOwnership(ctx context.Context, deviceId DeviceID, addressId AddressID) error
-	CreateDeviceApiKey(ctx context.Context, apiKey *ApiKey) (*ApiKey, error)
-	GetDeviceByApiKeyHash(ctx context.Context, keyHash string) (*Device, error)
+	GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip string) (*AddressWithStatus, error)
+	ListAddresses(ctx context.Context, deviceID DeviceID) ([]AddressWithStatus, error)
+	DisableAddress(ctx context.Context, addressID AddressID) (*AddressWithStatus, error)
+	EnableAddress(ctx context.Context, addressID AddressID) (*AddressWithStatus, error)
+	GetAddressWithStatus(ctx context.Context, addressID AddressID) (*AddressWithStatus, error)
+	CheckAddressOwnership(ctx context.Context, deviceID DeviceID, addressID AddressID) error
+	CreateDeviceAPIKey(ctx context.Context, apiKey *APIKey) (*APIKey, error)
+	GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) (*Device, error)
 	RunInTx(ctx context.Context, fn func(repository) error) error
 }
 
@@ -40,7 +40,7 @@ func NewService(repo repository) *Service {
 	return s
 }
 
-func (s *Service) GetDevices(ctx context.Context) ([]DeviceWithApiKeyPrefix, error) {
+func (s *Service) GetDevices(ctx context.Context) ([]DeviceWithAPIKeyPrefix, error) {
 	logger := logging.FromCtx(ctx)
 	logger.Debug("listing devices")
 
@@ -52,11 +52,11 @@ func (s *Service) GetDevices(ctx context.Context) ([]DeviceWithApiKeyPrefix, err
 	return devices, nil
 }
 
-func (s *Service) CreateDevice(ctx context.Context, name string) (*DeviceWithApiKeyPrefix, string, error) {
+func (s *Service) CreateDevice(ctx context.Context, name string) (*DeviceWithAPIKeyPrefix, string, error) {
 	logger := logging.FromCtx(ctx)
 	logger.Debug("creating device")
 
-	var deviceWithApiKeyPrefix *DeviceWithApiKeyPrefix
+	var deviceWithAPIKeyPrefix *DeviceWithAPIKeyPrefix
 	var rawKey string
 
 	err := s.repo.RunInTx(ctx, func(tx repository) error {
@@ -67,20 +67,20 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*DeviceWithApi
 			return err
 		}
 
-		var apiKey *ApiKey
+		var apiKey *APIKey
 
-		apiKey, rawKey, err = NewApiKey(device.ID)
+		apiKey, rawKey, err = NewAPIKey(device.ID)
 		if err != nil {
 			return err
 		}
 
-		apiKey, err = tx.CreateDeviceApiKey(ctx, apiKey)
+		apiKey, err = tx.CreateDeviceAPIKey(ctx, apiKey)
 		if err != nil {
 			logger.Error("database error creating device API key", slog.Any(AttrKeyError, err))
 			return err
 		}
 
-		deviceWithApiKeyPrefix = &DeviceWithApiKeyPrefix{
+		deviceWithAPIKeyPrefix = &DeviceWithAPIKeyPrefix{
 			Device:    *device,
 			KeyPrefix: apiKey.KeyPrefix,
 		}
@@ -92,20 +92,20 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*DeviceWithApi
 		return nil, "", err
 	}
 
-	return deviceWithApiKeyPrefix, rawKey, nil
+	return deviceWithAPIKeyPrefix, rawKey, nil
 }
 
 func (s *Service) Authenticate(ctx context.Context, rawKey string) (*Principal, error) {
 	// Validate key format (must start with prefix)
-	if len(rawKey) < len(ApiKeyPrefix) || rawKey[:len(ApiKeyPrefix)] != ApiKeyPrefix {
-		return nil, ErrInvalidApiKey
+	if len(rawKey) < len(APIKeyPrefix) || rawKey[:len(APIKeyPrefix)] != APIKeyPrefix {
+		return nil, ErrInvalidAPIKey
 	}
 
 	// Hash the key
-	keyHash := hashApiKey(rawKey)
+	keyHash := hashAPIKey(rawKey)
 
 	// Look up device by key hash
-	device, err := s.repo.GetDeviceByApiKeyHash(ctx, keyHash)
+	device, err := s.repo.GetDeviceByAPIKeyHash(ctx, keyHash)
 	if err != nil {
 		return nil, err
 	}
@@ -113,12 +113,12 @@ func (s *Service) Authenticate(ctx context.Context, rawKey string) (*Principal, 
 	return PrincipalFromDevice(device), nil
 }
 
-func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIp string) (*AddressWithStatus, bool, error) {
+func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIP string) (*AddressWithStatus, bool, error) {
 	logger := logging.FromCtx(ctx)
 
 	logger.Debug("assigning address")
 
-	newAddress, err := NewAddress(deviceID, inputIp)
+	newAddress, err := NewAddress(deviceID, inputIP)
 	if err != nil {
 		logger.Warn("invalid IP format")
 		return nil, false, err
@@ -138,7 +138,7 @@ func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIp 
 			return err
 		}
 
-		resultAddr, err = tx.GetAddressForDeviceByIp(ctx, deviceID, newAddress.IP)
+		resultAddr, err = tx.GetAddressForDeviceByIP(ctx, deviceID, newAddress.IP)
 		if err != nil {
 			if errors.Is(err, ErrAddressNotFound) {
 				logger.Debug("address not found, creating new address")
@@ -162,14 +162,14 @@ func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIp 
 				return err
 			}
 		} else {
-			logger.Debug("address already exists", slog.Int64(AttrKeyAddressID, resultAddr.Id.Int64()))
+			logger.Debug("address already exists", slog.Int64(AttrKeyAddressID, resultAddr.ID.Int64()))
 			wasCreated = false
 		}
 
 		// If it was not created, enable it
 		if !wasCreated {
-			logger.Info("address exists add status enabled", slog.Int64(AttrKeyAddressID, resultAddr.Id.Int64()))
-			resultAddr, err = tx.EnableAddress(ctx, resultAddr.Id)
+			logger.Info("address exists add status enabled", slog.Int64(AttrKeyAddressID, resultAddr.ID.Int64()))
+			resultAddr, err = tx.EnableAddress(ctx, resultAddr.ID)
 			if err != nil {
 				logger.Error("database error enabling existing address", slog.Any(AttrKeyError, err))
 				return err
@@ -184,7 +184,7 @@ func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIp 
 	}
 	logger.Info("address assigned",
 		slog.String(AttrKeyAddressIP, resultAddr.IP),
-		slog.Int64(AttrKeyAddressID, resultAddr.Id.Int64()),
+		slog.Int64(AttrKeyAddressID, resultAddr.ID.Int64()),
 		slog.Bool(AttrKeyCreated, wasCreated),
 	)
 	// Notify whitelist service of status change (non-blocking)
@@ -259,7 +259,7 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, address
 	}
 	logger.Info("address disabled",
 		slog.String(AttrKeyAddressIP, disabledAddress.IP),
-		slog.Int64(AttrKeyAddressID, disabledAddress.Id.Int64()),
+		slog.Int64(AttrKeyAddressID, disabledAddress.ID.Int64()),
 	)
 	// Notify whitelist service of status change (non-blocking)
 	if s.statusChangeChan != nil {

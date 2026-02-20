@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"net/netip"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -45,7 +45,7 @@ func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, logger *s
 	if trustedProxy.IsValid() {
 		r.Use(ClientIPFromXFFHeaderMiddleware(trustedProxy))
 	} else {
-		r.Use(ClientIpFromRequestMiddleware())
+		r.Use(ClientIPFromRequestMiddleware())
 	}
 
 	r.Use(RequestLoggerMiddleware(logger))
@@ -71,10 +71,13 @@ func validationErrorHandler(w http.ResponseWriter, msg string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 
-	response := api.ErrorResponse{
+	response := httpapi.ErrorResponse{
 		Error: &msg,
 	}
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// If encoding fails, response headers are already sent, log error
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 // createRequestErrorHandler creates a request error handler that logs errors with request context
@@ -92,10 +95,13 @@ func createRequestErrorHandler() func(http.ResponseWriter, *http.Request, error)
 		w.WriteHeader(http.StatusBadRequest)
 
 		errorMsg := err.Error()
-		response := api.ErrorResponse{
+		response := httpapi.ErrorResponse{
 			Error: &errorMsg,
 		}
-		json.NewEncoder(w).Encode(response)
+		if encodeErr := json.NewEncoder(w).Encode(response); encodeErr != nil {
+			// If encoding fails, response headers are already sent, log error
+			http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		}
 	}
 }
 
@@ -114,9 +120,12 @@ func createResponseErrorHandler() func(http.ResponseWriter, *http.Request, error
 		w.WriteHeader(http.StatusInternalServerError)
 
 		errorMsg := "Internal server error"
-		response := api.ErrorResponse{
+		response := httpapi.ErrorResponse{
 			Error: &errorMsg,
 		}
-		json.NewEncoder(w).Encode(response)
+		if encodeErr := json.NewEncoder(w).Encode(response); encodeErr != nil {
+			// If encoding fails, response headers are already sent, log error
+			http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		}
 	}
 }

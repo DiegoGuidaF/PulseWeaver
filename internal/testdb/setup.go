@@ -27,11 +27,11 @@ func Setup(t *testing.T) (*database.SQLite, func()) {
 	}
 
 	if err := db.Migrate(); err != nil {
-		db.Close()
+		_ = db.Close()
 		t.Fatalf("migrate: %v", err)
 	}
 
 	return db, func() {
-		db.Close()
+		_ = db.Close()
 	}
 }

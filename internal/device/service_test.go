@@ -35,14 +35,14 @@ func TestService_AssignAddress_ExistingAddress(t *testing.T) {
 	mockRepo.devices[device.ID] = device
 
 	existingAddr := &AddressWithStatus{
-		Id:       AddressID(1),
-		DeviceId: device.ID,
+		ID:       AddressID(1),
+		DeviceID: device.ID,
 		IP:       "192.168.1.100",
 		Status:   false,
 	}
 	key := device.ID.String() + ":192.168.1.100"
 	mockRepo.deviceByIP[key] = existingAddr
-	mockRepo.addressesWithStatus[existingAddr.Id] = existingAddr
+	mockRepo.addressesWithStatus[existingAddr.ID] = existingAddr
 
 	service := NewService(mockRepo)
 
@@ -108,12 +108,12 @@ func TestService_DisableAddress_Success(t *testing.T) {
 	device := &Device{ID: DeviceID(1), Name: "test-device"}
 	mockRepo.devices[device.ID] = device
 
-	address := &Address{ID: AddressID(1), DeviceId: device.ID, IP: "192.168.1.100"}
+	address := &Address{ID: AddressID(1), DeviceID: device.ID, IP: "192.168.1.100"}
 	mockRepo.addresses[address.ID] = address
 
 	addressWithStatus := &AddressWithStatus{
-		Id:       address.ID,
-		DeviceId: device.ID,
+		ID:       address.ID,
+		DeviceID: device.ID,
 		IP:       "192.168.1.100",
 		Status:   true,
 	}
@@ -137,12 +137,12 @@ func TestService_DisableAddress_OwnershipValidation(t *testing.T) {
 	mockRepo.devices[device1.ID] = device1
 	mockRepo.devices[device2.ID] = device2
 
-	address := &Address{ID: AddressID(1), DeviceId: device1.ID, IP: "192.168.1.100"}
+	address := &Address{ID: AddressID(1), DeviceID: device1.ID, IP: "192.168.1.100"}
 	mockRepo.addresses[address.ID] = address
 
 	addressWithStatus := &AddressWithStatus{
-		Id:       address.ID,
-		DeviceId: device1.ID,
+		ID:       address.ID,
+		DeviceID: device1.ID,
 		IP:       "192.168.1.100",
 		Status:   true,
 	}
@@ -183,19 +183,19 @@ func TestService_GetAddressesForDevice_Success(t *testing.T) {
 	mockRepo.devices[device.ID] = device
 
 	addr1 := &AddressWithStatus{
-		Id:       AddressID(1),
-		DeviceId: device.ID,
+		ID:       AddressID(1),
+		DeviceID: device.ID,
 		IP:       "192.168.1.1",
 		Status:   true,
 	}
 	addr2 := &AddressWithStatus{
-		Id:       AddressID(2),
-		DeviceId: device.ID,
+		ID:       AddressID(2),
+		DeviceID: device.ID,
 		IP:       "192.168.1.2",
 		Status:   false,
 	}
-	mockRepo.addressesWithStatus[addr1.Id] = addr1
-	mockRepo.addressesWithStatus[addr2.Id] = addr2
+	mockRepo.addressesWithStatus[addr1.ID] = addr1
+	mockRepo.addressesWithStatus[addr2.ID] = addr2
 
 	service := NewService(mockRepo)
 
@@ -247,8 +247,8 @@ func TestService_CreateDevice_ReturnsDeviceAndRawKey(t *testing.T) {
 	is.Equal(deviceWithPrefix.Name, "my-device")
 	is.True(deviceWithPrefix.ID != 0)
 	is.True(deviceWithPrefix.KeyPrefix != "")
-	is.True(len(rawKey) > len(ApiKeyPrefix))
-	is.Equal(rawKey[:len(ApiKeyPrefix)], ApiKeyPrefix)
+	is.True(len(rawKey) > len(APIKeyPrefix))
+	is.Equal(rawKey[:len(APIKeyPrefix)], APIKeyPrefix)
 }
 
 func TestService_Authenticate_Success(t *testing.T) {
@@ -278,11 +278,11 @@ func TestService_Authenticate_InvalidKeyFormat(t *testing.T) {
 
 	_, err := service.Authenticate(ctx, "invalid-no-prefix")
 	is.True(err != nil)
-	is.Equal(err, ErrInvalidApiKey)
+	is.Equal(err, ErrInvalidAPIKey)
 
 	_, err = service.Authenticate(ctx, "wdk") // too short
 	is.True(err != nil)
-	is.Equal(err, ErrInvalidApiKey)
+	is.Equal(err, ErrInvalidAPIKey)
 }
 
 func TestService_Authenticate_NotFound(t *testing.T) {
@@ -291,7 +291,7 @@ func TestService_Authenticate_NotFound(t *testing.T) {
 
 	mockRepo := newMockRepository()
 	// No devices/keys in mock; valid format but unknown key
-	rawKey := ApiKeyPrefix + "unknownkey123456789012345678901234"
+	rawKey := APIKeyPrefix + "unknownkey123456789012345678901234"
 	service := NewService(mockRepo)
 
 	_, err := service.Authenticate(ctx, rawKey)
@@ -323,7 +323,7 @@ type mockRepository struct {
 	addresses           map[AddressID]*Address
 	addressesWithStatus map[AddressID]*AddressWithStatus
 	deviceByIP          map[string]*AddressWithStatus // key: "deviceID:ip"
-	apiKeysByHash       map[string]*Device            // keyHash -> device (for GetDeviceByApiKeyHash)
+	apiKeysByHash       map[string]*Device            // keyHash -> device (for GetDeviceByAPIKeyHash)
 	getDeviceByIDErr    error
 	createAddressErr    error
 	getAddressByIPErr   error
@@ -365,15 +365,15 @@ func (m *mockRepository) CreateDevice(ctx context.Context, device *Device) (*Dev
 	return device, nil
 }
 
-func (m *mockRepository) GetDevices(ctx context.Context) ([]DeviceWithApiKeyPrefix, error) {
-	devices := make([]DeviceWithApiKeyPrefix, 0, len(m.devices))
+func (m *mockRepository) GetDevices(ctx context.Context) ([]DeviceWithAPIKeyPrefix, error) {
+	devices := make([]DeviceWithAPIKeyPrefix, 0, len(m.devices))
 	for _, d := range m.devices {
-		devices = append(devices, DeviceWithApiKeyPrefix{Device: *d, KeyPrefix: "wdk_xxxxxxxx"})
+		devices = append(devices, DeviceWithAPIKeyPrefix{Device: *d, KeyPrefix: "wdk_xxxxxxxx"})
 	}
 	return devices, nil
 }
 
-func (m *mockRepository) CreateDeviceApiKey(ctx context.Context, apiKey *ApiKey) (*ApiKey, error) {
+func (m *mockRepository) CreateDeviceAPIKey(ctx context.Context, apiKey *APIKey) (*APIKey, error) {
 	device, ok := m.devices[apiKey.DeviceID]
 	if !ok {
 		return nil, ErrDeviceNotFound
@@ -382,7 +382,7 @@ func (m *mockRepository) CreateDeviceApiKey(ctx context.Context, apiKey *ApiKey)
 	return apiKey, nil
 }
 
-func (m *mockRepository) GetDeviceByApiKeyHash(ctx context.Context, keyHash string) (*Device, error) {
+func (m *mockRepository) GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) (*Device, error) {
 	device, ok := m.apiKeysByHash[keyHash]
 	if !ok {
 		return nil, ErrDeviceNotFound
@@ -399,11 +399,11 @@ func (m *mockRepository) CreateAddress(ctx context.Context, address *Address) (*
 	return address, nil
 }
 
-func (m *mockRepository) GetAddressForDeviceByIp(ctx context.Context, deviceId DeviceID, ip string) (*AddressWithStatus, error) {
+func (m *mockRepository) GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip string) (*AddressWithStatus, error) {
 	if m.getAddressByIPErr != nil {
 		return nil, m.getAddressByIPErr
 	}
-	key := deviceId.String() + ":" + ip
+	key := deviceID.String() + ":" + ip
 	addr, ok := m.deviceByIP[key]
 	if !ok {
 		return nil, ErrAddressNotFound
@@ -411,24 +411,24 @@ func (m *mockRepository) GetAddressForDeviceByIp(ctx context.Context, deviceId D
 	return addr, nil
 }
 
-func (m *mockRepository) ListAddresses(ctx context.Context, deviceId DeviceID) ([]AddressWithStatus, error) {
+func (m *mockRepository) ListAddresses(ctx context.Context, deviceID DeviceID) ([]AddressWithStatus, error) {
 	if m.listAddressesErr != nil {
 		return nil, m.listAddressesErr
 	}
 	addresses := make([]AddressWithStatus, 0)
 	for _, addr := range m.addressesWithStatus {
-		if addr.DeviceId == deviceId {
+		if addr.DeviceID == deviceID {
 			addresses = append(addresses, *addr)
 		}
 	}
 	return addresses, nil
 }
 
-func (m *mockRepository) DisableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
+func (m *mockRepository) DisableAddress(ctx context.Context, addressID AddressID) (*AddressWithStatus, error) {
 	if m.disableAddressErr != nil {
 		return nil, m.disableAddressErr
 	}
-	addr, ok := m.addressesWithStatus[addressId]
+	addr, ok := m.addressesWithStatus[addressID]
 	if !ok {
 		return nil, ErrAddressNotFound
 	}
@@ -436,32 +436,32 @@ func (m *mockRepository) DisableAddress(ctx context.Context, addressId AddressID
 	return addr, nil
 }
 
-func (m *mockRepository) EnableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
+func (m *mockRepository) EnableAddress(ctx context.Context, addressID AddressID) (*AddressWithStatus, error) {
 	if m.enableAddressErr != nil {
 		return nil, m.enableAddressErr
 	}
-	addr, ok := m.addressesWithStatus[addressId]
+	addr, ok := m.addressesWithStatus[addressID]
 	if !ok {
 		// Create new address with status if it doesn't exist
-		baseAddr, ok := m.addresses[addressId]
+		baseAddr, ok := m.addresses[addressID]
 		if !ok {
 			return nil, ErrAddressNotFound
 		}
 		addr = &AddressWithStatus{
-			Id:       baseAddr.ID,
-			DeviceId: baseAddr.DeviceId,
+			ID:       baseAddr.ID,
+			DeviceID: baseAddr.DeviceID,
 			IP:       baseAddr.IP,
 			Status:   true,
 		}
-		m.addressesWithStatus[addressId] = addr
+		m.addressesWithStatus[addressID] = addr
 	} else {
 		addr.Status = true
 	}
 	return addr, nil
 }
 
-func (m *mockRepository) GetAddressWithStatus(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
-	addr, ok := m.addressesWithStatus[addressId]
+func (m *mockRepository) GetAddressWithStatus(ctx context.Context, addressID AddressID) (*AddressWithStatus, error) {
+	addr, ok := m.addressesWithStatus[addressID]
 	if !ok {
 		return nil, ErrAddressNotFound
 	}
@@ -476,22 +476,22 @@ func (m *mockRepository) GetAddressByID(ctx context.Context, id AddressID) (*Add
 	return addr, nil
 }
 
-func (m *mockRepository) CheckAddressOwnership(ctx context.Context, deviceId DeviceID, addressId AddressID) error {
+func (m *mockRepository) CheckAddressOwnership(ctx context.Context, deviceID DeviceID, addressID AddressID) error {
 	if m.checkOwnershipErr != nil {
 		return m.checkOwnershipErr
 	}
-	addr, ok := m.addressesWithStatus[addressId]
+	addr, ok := m.addressesWithStatus[addressID]
 	if !ok {
-		addr2, ok2 := m.addresses[addressId]
+		addr2, ok2 := m.addresses[addressID]
 		if !ok2 {
 			return ErrAddressNotOwnedByDevice
 		}
-		if addr2.DeviceId != deviceId {
+		if addr2.DeviceID != deviceID {
 			return ErrAddressNotOwnedByDevice
 		}
 		return nil
 	}
-	if addr.DeviceId != deviceId {
+	if addr.DeviceID != deviceID {
 		return ErrAddressNotOwnedByDevice
 	}
 	return nil

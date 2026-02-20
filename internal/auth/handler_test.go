@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/testutils"
 	"github.com/matryer/is"
 )
@@ -30,7 +30,7 @@ func TestHandler_Login(t *testing.T) {
 	is.Equal(res.Code, http.StatusOK)
 	is.True(len(res.Result().Cookies()) > 0)
 
-	var user api.User
+	var user httpapi.User
 	err := json.NewDecoder(res.Body).Decode(&user)
 	is.NoErr(err)
 	is.Equal(user.Username, "admin")

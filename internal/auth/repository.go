@@ -69,12 +69,12 @@ func (r *Repository) GetUserByUsername(ctx context.Context, username string) (*U
 
 	return user, nil
 }
-func (r *Repository) GetUserByID(ctx context.Context, userId UserID) (*User, error) {
+func (r *Repository) GetUserByID(ctx context.Context, userID UserID) (*User, error) {
 	user := &User{}
 
 	query := `SELECT * FROM users WHERE id = ?`
 
-	err := r.db.GetContext(ctx, user, query, userId)
+	err := r.db.GetContext(ctx, user, query, userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
@@ -105,7 +105,7 @@ func (r *Repository) CreateSession(ctx context.Context, session *Session) (*Sess
 	`
 
 	err := r.db.GetContext(ctx, session, query,
-		session.UserId,
+		session.UserID,
 		session.TokenHash,
 		session.CreatedAt,
 		session.ExpiresAt,
@@ -141,7 +141,7 @@ func (r *Repository) GetSessionWithRoleByTokenHash(ctx context.Context, tokenHas
 	return session, nil
 }
 
-func (r *Repository) RevokeSessionById(ctx context.Context, id SessionID) error {
+func (r *Repository) RevokeSessionByID(ctx context.Context, id SessionID) error {
 	query := `UPDATE sessions SET revoked_at = CURRENT_TIMESTAMP WHERE id = ?`
 
 	_, err := r.db.ExecContext(ctx, query, id)
@@ -165,7 +165,12 @@ func (r *Repository) RunInTx(ctx context.Context, fn func(repository) error) err
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		//nolint:staticcheck // Empty branch is intentional - ErrTxDone is expected after commit
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+			// Rollback error is only significant if transaction wasn't already committed/rolled back
+		}
+	}()
 
 	// Copy of the repository without rootDB so we can't do nested transactions
 	txRepo := &Repository{

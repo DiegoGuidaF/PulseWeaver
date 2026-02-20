@@ -15,7 +15,7 @@ func NewPrincipal(userID UserID, sessionID SessionID, role Role) *Principal {
 }
 
 func PrincipalFromSession(session *SessionWithUser) *Principal {
-	return NewPrincipal(session.UserId, session.ID, session.UserRole)
+	return NewPrincipal(session.UserID, session.ID, session.UserRole)
 }
 
 func (principal Principal) isAdmin() bool {

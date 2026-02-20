@@ -37,7 +37,7 @@ func NewUser(
 	email *string,
 	password string,
 	role Role,
-	createdById *UserID,
+	createdByID *UserID,
 ) (*User, error) {
 	err := validatePassword(password)
 	if err != nil {
@@ -65,7 +65,7 @@ func NewUser(
 		Email:        email,
 		PasswordHash: passwordHash,
 		Role:         role,
-		CreatedBy:    createdById,
+		CreatedBy:    createdByID,
 		CreatedAt:    time.Now().UTC(),
 	}, nil
 }

@@ -1,14 +1,5 @@
 import {defineConfig} from '@hey-api/openapi-ts';
 
-//export default defineConfig({
-//  input: '../api/api.yaml',
-//  output: './src/lib/api',
-//  plugins: ['typescript', 'zod', '@hey-api/sdk'],
-//  client: {
-//    name: '@hey-api/client-fetch',
-//  },
-//});
-
 export default defineConfig({
     input: '../api/openapi.yaml',
     output: {

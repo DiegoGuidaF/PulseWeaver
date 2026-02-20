@@ -5,18 +5,17 @@ import (
 	"errors"
 	"log/slog"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 type HTTPHandler struct {
 	service      *Service
-	logger       *slog.Logger
 	cookieConfig CookieConfig
 }
 
-func (h *HTTPHandler) Login(ctx context.Context, request api.LoginRequestObject) (api.LoginResponseObject, error) {
+func (h *HTTPHandler) Login(ctx context.Context, request httpapi.LoginRequestObject) (httpapi.LoginResponseObject, error) {
 	username := request.Body.Username
 	ctx, logger := logging.Enrich(ctx,
 		slog.String(AttrKeyOperation, "Login"),
@@ -27,27 +26,27 @@ func (h *HTTPHandler) Login(ctx context.Context, request api.LoginRequestObject)
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) || errors.Is(err, ErrUserNotFound) {
 			logger.Warn("invalid credentials")
-			return api.Login401JSONResponse(errorMsgResponse("Invalid credentials")), nil
+			return httpapi.Login401JSONResponse(errorMsgResponse("Invalid credentials")), nil
 		}
 		logger.Error("login failed", slog.Any(AttrKeyError, err))
-		return api.Login500JSONResponse(errorMsgResponse("Login failure")), nil
+		return httpapi.Login500JSONResponse(errorMsgResponse("Login failure")), nil
 	}
 
 	logger.Info("login successful")
 
 	cookie := NewSessionCookie(rawToken, h.cookieConfig)
 
-	headers := api.Login200ResponseHeaders{SetCookie: cookie.String()}
+	headers := httpapi.Login200ResponseHeaders{SetCookie: cookie.String()}
 
-	return api.Login200JSONResponse{Body: toUserResponse(user), Headers: headers}, nil
+	return httpapi.Login200JSONResponse{Body: toUserResponse(user), Headers: headers}, nil
 }
 
-func (h *HTTPHandler) Logout(ctx context.Context, _ api.LogoutRequestObject) (api.LogoutResponseObject, error) {
-	ctx, logger := logging.Enrich(ctx, slog.String(AttrKeyOperation, "Logout"))
+func (h *HTTPHandler) Logout(ctx context.Context, _ httpapi.LogoutRequestObject) (httpapi.LogoutResponseObject, error) {
+	ctx, _ = logging.Enrich(ctx, slog.String(AttrKeyOperation, "Logout"))
 
 	principal, ok := PrincipalFromContext(ctx)
 	if ok {
-		ctx, logger = logging.Enrich(ctx, slog.Int64(AttrKeySessionID, principal.SessionID.Int64()))
+		ctx, logger := logging.Enrich(ctx, slog.Int64(AttrKeySessionID, principal.SessionID.Int64()))
 		err := h.service.RevokeSession(ctx, principal.SessionID)
 		if err != nil {
 			logger.Error("failed to revoke session", slog.Any(AttrKeyError, err))
@@ -58,18 +57,18 @@ func (h *HTTPHandler) Logout(ctx context.Context, _ api.LogoutRequestObject) (ap
 
 	cookie := ExpireSessionCookie(h.cookieConfig)
 
-	headers := api.Logout204ResponseHeaders{SetCookie: cookie.String()}
+	headers := httpapi.Logout204ResponseHeaders{SetCookie: cookie.String()}
 
-	return api.Logout204Response{Headers: headers}, nil
+	return httpapi.Logout204Response{Headers: headers}, nil
 }
 
-func (h *HTTPHandler) GetCurrentUser(ctx context.Context, _ api.GetCurrentUserRequestObject) (api.GetCurrentUserResponseObject, error) {
+func (h *HTTPHandler) GetCurrentUser(ctx context.Context, _ httpapi.GetCurrentUserRequestObject) (httpapi.GetCurrentUserResponseObject, error) {
 	ctx, logger := logging.Enrich(ctx, slog.String(AttrKeyOperation, "GetCurrentUser"))
 
 	principal, ok := PrincipalFromContext(ctx)
 	if !ok {
 		logger.Error("principal not in context")
-		return api.GetCurrentUser500JSONResponse(errorMsgResponse("Couldn't retrieve current principal from context")), nil
+		return httpapi.GetCurrentUser500JSONResponse(errorMsgResponse("Couldn't retrieve current principal from context")), nil
 	}
 	ctx, logger = logging.Enrich(ctx, slog.Int64(AttrKeyUserID, principal.UserID.Int64()))
 
@@ -77,18 +76,18 @@ func (h *HTTPHandler) GetCurrentUser(ctx context.Context, _ api.GetCurrentUserRe
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
 			logger.Warn("user not found")
-			return api.GetCurrentUser500JSONResponse(errorMsgResponse("User not found")), nil
+			return httpapi.GetCurrentUser500JSONResponse(errorMsgResponse("User not found")), nil
 		}
 		logger.Error("failed to retrieve current user", slog.Any(AttrKeyError, err))
-		return api.GetCurrentUser500JSONResponse(errorMsgResponse("Failed to retrieve current user")), nil
+		return httpapi.GetCurrentUser500JSONResponse(errorMsgResponse("Failed to retrieve current user")), nil
 	}
 
 	logger.Info("current user retrieved", slog.String(AttrKeyUsername, user.Username))
 
-	return api.GetCurrentUser200JSONResponse(toUserResponse(user)), nil
+	return httpapi.GetCurrentUser200JSONResponse(toUserResponse(user)), nil
 }
 
-func (h *HTTPHandler) CreateUser(ctx context.Context, request api.CreateUserRequestObject) (api.CreateUserResponseObject, error) {
+func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUserRequestObject) (httpapi.CreateUserResponseObject, error) {
 	username := request.Body.Username
 	ctx, logger := logging.Enrich(ctx,
 		slog.String(AttrKeyOperation, "CreateUser"),
@@ -99,7 +98,7 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request api.CreateUserRequ
 	principal, ok := PrincipalFromContext(ctx)
 	if !ok {
 		logger.Error("principal not in context")
-		return api.CreateUser403Response{}, nil
+		return httpapi.CreateUser403Response{}, nil
 	}
 
 	// Email is inside an openapi validator, we need to turn it into a valid string or nil
@@ -119,27 +118,27 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request api.CreateUserRequ
 	if err != nil {
 		if errors.Is(err, ErrUsernameTaken) {
 			logger.Warn("username already taken")
-			return api.CreateUser409JSONResponse(errorMsgResponse("User with that username already exists")), nil
+			return httpapi.CreateUser409JSONResponse(errorMsgResponse("User with that username already exists")), nil
 		}
 		if errors.Is(err, ErrEmailTaken) {
 			logger.Warn("email already taken")
-			return api.CreateUser409JSONResponse(errorMsgResponse("User with that email already exists")), nil
+			return httpapi.CreateUser409JSONResponse(errorMsgResponse("User with that email already exists")), nil
 		}
 		if errors.Is(err, ErrInvalidDisplayName) || errors.Is(err, ErrInvalidUsername) || errors.Is(err, ErrInvalidPassword) {
 			logger.Warn("invalid input")
-			return api.CreateUser400JSONResponse(errorMsgResponse("Invalid input")), nil
+			return httpapi.CreateUser400JSONResponse(errorMsgResponse("Invalid input")), nil
 		}
 		if errors.Is(err, ErrAdminCredentialsRequired) {
 			logger.Warn("admin credentials required")
-			return api.CreateUser403Response{}, nil
+			return httpapi.CreateUser403Response{}, nil
 		}
 		logger.Error("failed to create user", slog.Any(AttrKeyError, err))
-		return api.CreateUser500JSONResponse(errorMsgResponse("Failed to create user")), nil
+		return httpapi.CreateUser500JSONResponse(errorMsgResponse("Failed to create user")), nil
 	}
 
 	logger.Info("user created", slog.Int64(AttrKeyUserID, user.ID.Int64()))
 
-	return api.CreateUser201JSONResponse(toUserResponse(user)), nil
+	return httpapi.CreateUser201JSONResponse(toUserResponse(user)), nil
 }
 
 func NewHandler(service *Service) *HTTPHandler {
@@ -155,14 +154,14 @@ func (h *HTTPHandler) UserAuthenticator() UserAuthenticator {
 	return h.service
 }
 
-func toUserResponse(d *User) api.User {
+func toUserResponse(d *User) httpapi.User {
 	var email *openapi_types.Email
 
 	if d.Email != nil { // Check if email exists
 		email = new(openapi_types.Email(*d.Email))
 	}
 
-	return api.User{
+	return httpapi.User{
 		Id:          d.ID.Int64(),
 		Username:    d.Username,
 		DisplayName: d.DisplayName,
@@ -171,6 +170,6 @@ func toUserResponse(d *User) api.User {
 	}
 }
 
-func errorMsgResponse(errorMsg string) api.ErrorResponse {
-	return api.ErrorResponse{Error: &errorMsg}
+func errorMsgResponse(errorMsg string) httpapi.ErrorResponse {
+	return httpapi.ErrorResponse{Error: &errorMsg}
 }

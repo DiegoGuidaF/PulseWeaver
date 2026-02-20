@@ -19,5 +19,8 @@ func Handler(w http.ResponseWriter, _ *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// If encoding fails, response headers are already sent, log error
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
 }

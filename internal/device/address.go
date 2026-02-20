@@ -8,20 +8,20 @@ import (
 
 type Address struct {
 	ID        AddressID `db:"id"`
-	DeviceId  DeviceID  `db:"device_id"`
+	DeviceID  DeviceID  `db:"device_id"`
 	IP        string    `db:"ip"`
 	CreatedAt time.Time `db:"created_at"`
 }
 
-func NewAddress(deviceId DeviceID, ipAddress string) (*Address, error) {
-	parsedIp, err := parseAndValidateIP(ipAddress)
+func NewAddress(deviceID DeviceID, ipAddress string) (*Address, error) {
+	parsedIP, err := parseAndValidateIP(ipAddress)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Address{
-		DeviceId:  deviceId,
-		IP:        parsedIp,
+		DeviceID:  deviceID,
+		IP:        parsedIP,
 		CreatedAt: time.Now().UTC(),
 	}, nil
 }

@@ -5,7 +5,6 @@ package testutils
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"testing"
 
@@ -30,7 +29,7 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 		},
 	}
 
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 
 	application, err := app.NewWithConfigAndLogger(context.Background(), conf, logger)
 	if err != nil {

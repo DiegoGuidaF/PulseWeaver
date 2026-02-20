@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
 )
 
 const CookieDuration = 7 * 24 * time.Hour
@@ -21,7 +21,7 @@ type CookieConfig struct {
 
 // Default production config
 var DefaultCookieConfig = CookieConfig{
-	Name:     api.SessionCookieName,
+	Name:     httpapi.SessionCookieName,
 	Secure:   true, // Must be true for __Host- prefix
 	HTTPOnly: true,
 	SameSite: http.SameSiteLaxMode,

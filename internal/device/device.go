@@ -18,7 +18,7 @@ func NewDevice(name string) *Device {
 	}
 }
 
-type DeviceWithApiKeyPrefix struct {
+type DeviceWithAPIKeyPrefix struct {
 	Device
 	KeyPrefix string `db:"key_prefix"`
 }

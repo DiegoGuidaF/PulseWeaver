@@ -5,17 +5,17 @@ import (
 	"errors"
 	"net/http"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
 )
 
-// ApiKeyAuthenticator defines the interface for authenticating device API keys.
-type ApiKeyAuthenticator interface {
+// APIKeyAuthenticator defines the interface for authenticating device API keys.
+type APIKeyAuthenticator interface {
 	Authenticate(ctx context.Context, rawKey string) (*Principal, error)
 }
 
 // apiKeyFromRequest extracts the API key from the X-API-Key header.
 func apiKeyFromRequest(r *http.Request) (string, error) {
-	apiKey := r.Header.Get(api.ApiKeyHeaderName)
+	apiKey := r.Header.Get(httpapi.APIKeyHeaderName)
 	if apiKey == "" {
 		return "", errors.New("missing API key")
 	}
@@ -23,7 +23,7 @@ func apiKeyFromRequest(r *http.Request) (string, error) {
 }
 
 // PrincipalDeviceContextMiddleware resolves the api key into a Device Principal and injects it into the context.
-func PrincipalDeviceContextMiddleware(apiKeyAuthenticator ApiKeyAuthenticator) func(http.Handler) http.Handler {
+func PrincipalDeviceContextMiddleware(apiKeyAuthenticator APIKeyAuthenticator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			apiKey, err := apiKeyFromRequest(r)

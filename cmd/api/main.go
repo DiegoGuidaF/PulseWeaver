@@ -15,7 +15,14 @@ func run(ctx context.Context) (*slog.Logger, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer application.Close()
+	defer func() {
+		if err := application.Close(); err != nil {
+			// Log error if logger is available, otherwise ignore
+			if logger := application.Logger; logger != nil {
+				logger.Error("failed to close application", slog.Any("error", err))
+			}
+		}
+	}()
 
 	serverConfig := httpserver.DefaultServerConfigFromConf(application.Config.Server.Port)
 	if err := httpserver.StartAndWait(ctx, application.HTTPServer, serverConfig, application.Logger); err != nil {

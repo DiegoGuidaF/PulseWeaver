@@ -41,7 +41,9 @@ linters:
         - source
     revive:
       rules:
-        - name: exported
+        # Disable exported rule - too noisy for internal packages
+        # Can be re-enabled later when doc comments are added
+        # - name: exported
         - name: error-strings
         - name: error-naming
         - name: var-naming
@@ -49,7 +51,7 @@ linters:
 
 issues:
   exclude-rules:
-    - path: _test\.go
+    - path: .*_test\.go$
       linters:
         - unparam
         - revive

@@ -59,8 +59,8 @@ func (r *Repository) CreateDevice(ctx context.Context, device *Device) (*Device,
 	return device, nil
 }
 
-func (r *Repository) GetDevices(ctx context.Context) ([]DeviceWithApiKeyPrefix, error) {
-	var devices []DeviceWithApiKeyPrefix
+func (r *Repository) GetDevices(ctx context.Context) ([]DeviceWithAPIKeyPrefix, error) {
+	var devices []DeviceWithAPIKeyPrefix
 
 	query := `
 		SELECT d.id, d.name, d.created_at, k.key_prefix
@@ -74,7 +74,7 @@ func (r *Repository) GetDevices(ctx context.Context) ([]DeviceWithApiKeyPrefix, 
 	}
 
 	if devices == nil {
-		return []DeviceWithApiKeyPrefix{}, nil
+		return []DeviceWithAPIKeyPrefix{}, nil
 	}
 
 	return devices, nil
@@ -86,7 +86,7 @@ func (r *Repository) CreateAddress(ctx context.Context, address *Address) (*Addr
 		VALUES (?, ?, ?) returning *
 	`
 
-	err := r.db.GetContext(ctx, address, query, address.DeviceId, address.IP, address.CreatedAt)
+	err := r.db.GetContext(ctx, address, query, address.DeviceID, address.IP, address.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("insert address: %w", err)
 	}
@@ -110,12 +110,12 @@ func (r *Repository) GetAddressByID(ctx context.Context, id AddressID) (*Address
 	return address, nil
 }
 
-func (r *Repository) GetAddressForDeviceByIp(ctx context.Context, deviceId DeviceID, ip string) (*AddressWithStatus, error) {
+func (r *Repository) GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip string) (*AddressWithStatus, error) {
 	address := &Address{}
 
 	query := `SELECT * FROM addresses WHERE device_id = ? and ip = ?`
 
-	err := r.db.GetContext(ctx, address, query, deviceId, ip)
+	err := r.db.GetContext(ctx, address, query, deviceID, ip)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrAddressNotFound
@@ -126,12 +126,12 @@ func (r *Repository) GetAddressForDeviceByIp(ctx context.Context, deviceId Devic
 	return r.GetAddressWithStatus(ctx, address.ID)
 }
 
-func (r *Repository) ListAddresses(ctx context.Context, deviceId DeviceID) ([]AddressWithStatus, error) {
+func (r *Repository) ListAddresses(ctx context.Context, deviceID DeviceID) ([]AddressWithStatus, error) {
 	var addresses []AddressWithStatus
 
 	query := `SELECT * FROM address_with_status WHERE device_id = ? ORDER BY updated_at DESC`
 
-	err := r.db.SelectContext(ctx, &addresses, query, deviceId)
+	err := r.db.SelectContext(ctx, &addresses, query, deviceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list device addresses: %w", err)
 	}
@@ -143,33 +143,33 @@ func (r *Repository) ListAddresses(ctx context.Context, deviceId DeviceID) ([]Ad
 	return addresses, nil
 }
 
-func (r *Repository) DisableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
+func (r *Repository) DisableAddress(ctx context.Context, addressID AddressID) (*AddressWithStatus, error) {
 	// Validate that the address belongs to the device
-	return r.setAddressStatus(ctx, addressId, false)
+	return r.setAddressStatus(ctx, addressID, false)
 }
 
-func (r *Repository) EnableAddress(ctx context.Context, addressId AddressID) (*AddressWithStatus, error) {
-	return r.setAddressStatus(ctx, addressId, true)
+func (r *Repository) EnableAddress(ctx context.Context, addressID AddressID) (*AddressWithStatus, error) {
+	return r.setAddressStatus(ctx, addressID, true)
 }
 
-func (r *Repository) setAddressStatus(ctx context.Context, addressId AddressID, isEnabled bool) (*AddressWithStatus, error) {
+func (r *Repository) setAddressStatus(ctx context.Context, addressID AddressID, isEnabled bool) (*AddressWithStatus, error) {
 	query := `
 		INSERT INTO address_status (address_id, status, created_at)
 		VALUES (?, ?, ?)
 	`
-	_, err := r.db.ExecContext(ctx, query, addressId, isEnabled, time.Now().UTC())
+	_, err := r.db.ExecContext(ctx, query, addressID, isEnabled, time.Now().UTC())
 	if err != nil {
 		return nil, fmt.Errorf("failed to record status: %w", err)
 	}
-	return r.GetAddressWithStatus(ctx, addressId)
+	return r.GetAddressWithStatus(ctx, addressID)
 }
 
-func (r *Repository) CheckAddressOwnership(ctx context.Context, deviceId DeviceID, addressId AddressID) error {
+func (r *Repository) CheckAddressOwnership(ctx context.Context, deviceID DeviceID, addressID AddressID) error {
 	var dummy int
 
 	query := `SELECT 1 FROM addresses WHERE id = ? AND device_id = ?`
 
-	err := r.db.GetContext(ctx, &dummy, query, addressId, deviceId)
+	err := r.db.GetContext(ctx, &dummy, query, addressID, deviceID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrAddressNotOwnedByDevice
@@ -196,7 +196,7 @@ func (r *Repository) GetAddressWithStatus(ctx context.Context, id AddressID) (*A
 
 }
 
-func (r *Repository) CreateDeviceApiKey(ctx context.Context, apiKey *ApiKey) (*ApiKey, error) {
+func (r *Repository) CreateDeviceAPIKey(ctx context.Context, apiKey *APIKey) (*APIKey, error) {
 	query := `
 		INSERT INTO device_api_keys (device_id, key_prefix, key_hash, created_at)
 		VALUES (?, ?, ?, ?) returning *
@@ -210,7 +210,7 @@ func (r *Repository) CreateDeviceApiKey(ctx context.Context, apiKey *ApiKey) (*A
 	return apiKey, nil
 }
 
-func (r *Repository) GetDeviceByApiKeyHash(ctx context.Context, keyHash string) (*Device, error) {
+func (r *Repository) GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) (*Device, error) {
 	device := &Device{}
 
 	query := `
@@ -262,7 +262,12 @@ func (r *Repository) RunInTx(ctx context.Context, fn func(repository) error) err
 	}
 
 	// Defer rollback (standard practice)
-	defer tx.Rollback()
+	defer func() {
+		//nolint:staticcheck // Empty branch is intentional - ErrTxDone is expected after commit
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+			// Rollback error is only significant if transaction wasn't already committed/rolled back
+		}
+	}()
 
 	// Create a COPY of the repository
 	// We replace 'db' with the transaction 'tx' and set the rootDB to nil so that it is not reused

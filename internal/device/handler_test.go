@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/testutils"
 	"github.com/matryer/is"
 )
@@ -27,7 +27,7 @@ func TestHandler_CreateAndListDevices(t *testing.T) {
 	testServer.HTTPServer.ServeHTTP(listRes, listReq)
 	is.Equal(listRes.Code, http.StatusOK)
 
-	var devices []api.Device
+	var devices []httpapi.Device
 	err = json.NewDecoder(listRes.Body).Decode(&devices)
 	is.NoErr(err)
 	is.Equal(len(devices), 1)
@@ -52,7 +52,7 @@ func TestHandler_AddressLifecycle(t *testing.T) {
 	testServer.HTTPServer.ServeHTTP(addRes, addReq)
 	is.Equal(addRes.Code, http.StatusCreated)
 
-	var createdAddress api.Address
+	var createdAddress httpapi.Address
 	err = json.NewDecoder(addRes.Body).Decode(&createdAddress)
 	is.NoErr(err)
 	is.True(createdAddress.Status)
@@ -63,7 +63,7 @@ func TestHandler_AddressLifecycle(t *testing.T) {
 	testServer.HTTPServer.ServeHTTP(listRes, listReq)
 	is.Equal(listRes.Code, http.StatusOK)
 
-	var addresses []api.Address
+	var addresses []httpapi.Address
 	err = json.NewDecoder(listRes.Body).Decode(&addresses)
 	is.NoErr(err)
 	is.Equal(len(addresses), 1)
@@ -77,7 +77,7 @@ func TestHandler_AddressLifecycle(t *testing.T) {
 	testServer.HTTPServer.ServeHTTP(disableRes, disableReq)
 	is.Equal(disableRes.Code, http.StatusOK)
 
-	var disabled api.Address
+	var disabled httpapi.Address
 	err = json.NewDecoder(disableRes.Body).Decode(&disabled)
 	is.NoErr(err)
 	is.True(!disabled.Status)
@@ -121,7 +121,7 @@ func TestHandler_CreateDevice(t *testing.T) {
 	testServer.HTTPServer.ServeHTTP(createRes, createReq)
 	is.Equal(createRes.Code, http.StatusCreated)
 
-	var resp api.CreateDeviceResponse
+	var resp httpapi.CreateDeviceResponse
 	err := json.NewDecoder(createRes.Body).Decode(&resp)
 	is.NoErr(err)
 	is.Equal(resp.Device.Name, "sensor-1")
@@ -129,7 +129,7 @@ func TestHandler_CreateDevice(t *testing.T) {
 	is.True(resp.ApiKey != "")
 }
 
-func TestHandler_GetDevices_ReturnsApiKeyPrefix(t *testing.T) {
+func TestHandler_GetDevices_ReturnsAPIKeyPrefix(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
@@ -143,7 +143,7 @@ func TestHandler_GetDevices_ReturnsApiKeyPrefix(t *testing.T) {
 	testServer.HTTPServer.ServeHTTP(listRes, listReq)
 	is.Equal(listRes.Code, http.StatusOK)
 
-	var devices []api.Device
+	var devices []httpapi.Device
 	err = json.NewDecoder(listRes.Body).Decode(&devices)
 	is.NoErr(err)
 	is.Equal(len(devices), 1)
@@ -168,7 +168,7 @@ func TestHandler_DeviceHeartbeatByApiKey_NoBody(t *testing.T) {
 	testServer.HTTPServer.ServeHTTP(heartbeatRes, heartbeatReq)
 	is.Equal(heartbeatRes.Code, http.StatusCreated)
 
-	var addr api.Address
+	var addr httpapi.Address
 	err = json.NewDecoder(heartbeatRes.Body).Decode(&addr)
 	is.NoErr(err)
 	is.Equal(addr.Ip, "192.168.1.99")
@@ -193,7 +193,7 @@ func TestHandler_DeviceHeartbeatByApiKey_WithBodyIP(t *testing.T) {
 	testServer.HTTPServer.ServeHTTP(heartbeatRes, heartbeatReq)
 	is.Equal(heartbeatRes.Code, http.StatusCreated)
 
-	var addr api.Address
+	var addr httpapi.Address
 	err = json.NewDecoder(heartbeatRes.Body).Decode(&addr)
 	is.NoErr(err)
 	// Verify the IP from body is used, not RemoteAddr

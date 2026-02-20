@@ -98,7 +98,7 @@ Handlers are the **only layer that enriches** the logger context. They use `logg
 
 ```go
 func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request api.DeviceHeartbeatRequestObject) (api.DeviceHeartbeatResponseObject, error) {
-	deviceId := DeviceID(request.DeviceId)
+	deviceId := DeviceID(request.DeviceID)
 
 	// Enrich as soon as we know the operation (handler method name) and device
 	ctx, logger := logging.Enrich(ctx,

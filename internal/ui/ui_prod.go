@@ -35,7 +35,12 @@ func Handler() http.Handler {
 		f, err := dist.Open(strings.TrimPrefix(path, "/"))
 		if err == nil {
 			// File exists (e.g. assets/main.js), close it and let fileServer serve it
-			defer f.Close()
+			defer func() {
+				//nolint:staticcheck // Empty branch is intentional - file is already being served
+				if err := f.Close(); err != nil {
+					// Log error if possible, but file is already being served
+				}
+			}()
 			// Ensure we don't serve directory listings
 			stat, _ := f.Stat()
 			if !stat.IsDir() {

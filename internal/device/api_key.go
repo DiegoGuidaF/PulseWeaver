@@ -10,29 +10,29 @@ import (
 	"time"
 )
 
-const ApiKeyPrefix = "wdk_"
+const APIKeyPrefix = "wdk_"
 
-type ApiKey struct {
-	ID        ApiKeyID  `db:"id"`
+type APIKey struct {
+	ID        APIKeyID  `db:"id"`
 	DeviceID  DeviceID  `db:"device_id"`
 	KeyPrefix string    `db:"key_prefix"`
 	KeyHash   string    `db:"key_hash"`
 	CreatedAt time.Time `db:"created_at"`
 }
 
-type ApiKeyID int64
+type APIKeyID int64
 
-func (id ApiKeyID) Int64() int64 {
+func (id APIKeyID) Int64() int64 {
 	return int64(id)
 }
 
-func (id ApiKeyID) String() string {
+func (id APIKeyID) String() string {
 	return strconv.FormatInt(int64(id), 10)
 }
 
-// generateApiKey generates a new API key and returns the raw key (to send to user),
+// generateAPIKey generates a new API key and returns the raw key (to send to user),
 // the key hash (to store in DB), and the key prefix (for display).
-func generateApiKey() (rawKey string, keyHash string, keyPrefix string, error error) {
+func generateAPIKey() (rawKey string, keyHash string, keyPrefix string, error error) {
 	// Generate 32 random bytes (same as auth tokens)
 	b := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {
@@ -43,32 +43,32 @@ func generateApiKey() (rawKey string, keyHash string, keyPrefix string, error er
 	rawKey = base64.RawURLEncoding.EncodeToString(b)
 
 	// Add prefix for easy identification
-	prefixedKey := ApiKeyPrefix + rawKey
+	prefixedKey := APIKeyPrefix + rawKey
 
 	// Hash for storage (SHA-256, same pattern as auth tokens)
-	keyHash = hashApiKey(prefixedKey)
+	keyHash = hashAPIKey(prefixedKey)
 
 	// Extract prefix for display (first 8 chars after prefix)
-	keyPrefix = prefixedKey[:len(ApiKeyPrefix)+8]
+	keyPrefix = prefixedKey[:len(APIKeyPrefix)+8]
 
 	return prefixedKey, keyHash, keyPrefix, nil
 }
 
-// hashApiKey hashes the API key using SHA-256 and returns base64url encoded hash.
+// hashAPIKey hashes the API key using SHA-256 and returns base64url encoded hash.
 // This mirrors the pattern used in auth.hashRawToken.
-func hashApiKey(rawKey string) string {
+func hashAPIKey(rawKey string) string {
 	hash := sha256.Sum256([]byte(rawKey))
 	return base64.RawURLEncoding.EncodeToString(hash[:])
 }
 
-// NewApiKey creates a new ApiKey domain entity for a device.
-func NewApiKey(deviceID DeviceID) (*ApiKey, string, error) {
-	rawKey, keyHash, keyPrefix, err := generateApiKey()
+// NewAPIKey creates a new APIKey domain entity for a device.
+func NewAPIKey(deviceID DeviceID) (*APIKey, string, error) {
+	rawKey, keyHash, keyPrefix, err := generateAPIKey()
 	if err != nil {
 		return nil, "", err
 	}
 
-	return &ApiKey{
+	return &APIKey{
 		DeviceID:  deviceID,
 		KeyPrefix: keyPrefix,
 		KeyHash:   keyHash,

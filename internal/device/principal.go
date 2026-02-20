@@ -4,9 +4,9 @@ type Principal struct {
 	DeviceID DeviceID
 }
 
-func NewPrincipal(deviceId DeviceID) *Principal {
+func NewPrincipal(deviceID DeviceID) *Principal {
 	return &Principal{
-		DeviceID: deviceId,
+		DeviceID: deviceID,
 	}
 }
 

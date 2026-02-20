@@ -64,7 +64,7 @@ func TestNewAddress_ValidIPv4(t *testing.T) {
 			}
 			is.NoErr(err)
 			is.True(address != nil)
-			is.Equal(address.DeviceId, tt.deviceID)
+			is.Equal(address.DeviceID, tt.deviceID)
 			is.Equal(address.IP, tt.wantIP)
 			is.True(!address.CreatedAt.IsZero())
 		})
@@ -119,7 +119,7 @@ func TestNewAddress_ValidIPv6(t *testing.T) {
 			}
 			is.NoErr(err)
 			is.True(address != nil)
-			is.Equal(address.DeviceId, tt.deviceID)
+			is.Equal(address.DeviceID, tt.deviceID)
 			is.Equal(address.IP, tt.wantIP)
 			is.True(!address.CreatedAt.IsZero())
 		})

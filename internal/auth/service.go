@@ -17,11 +17,11 @@ import (
 type repository interface {
 	CountUsers(ctx context.Context) (int, error)
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
-	GetUserByID(ctx context.Context, userId UserID) (*User, error)
+	GetUserByID(ctx context.Context, userID UserID) (*User, error)
 	CreateSession(ctx context.Context, session *Session) (*Session, error)
 	CreateUser(ctx context.Context, user *User) (*User, error)
 	GetSessionWithRoleByTokenHash(ctx context.Context, tokenHash string) (*SessionWithUser, error)
-	RevokeSessionById(ctx context.Context, id SessionID) error
+	RevokeSessionByID(ctx context.Context, id SessionID) error
 	RunInTx(ctx context.Context, fn func(repository) error) error
 }
 type Service struct {
@@ -96,16 +96,16 @@ func (s *Service) GetUserFromPrincipal(ctx context.Context, principal *Principal
 	return user, nil
 }
 
-func (s *Service) RevokeSession(ctx context.Context, sessionId SessionID) error {
+func (s *Service) RevokeSession(ctx context.Context, sessionID SessionID) error {
 	logger := logging.FromCtx(ctx)
 	logger.Debug("revoking session")
 
-	err := s.repo.RevokeSessionById(ctx, sessionId)
+	err := s.repo.RevokeSessionByID(ctx, sessionID)
 	if err != nil {
 		logger.Error("database error revoking session", slog.Any(AttrKeyError, err))
 		return err
 	}
-	logger.Info("session revoked", slog.Int64(AttrKeySessionID, sessionId.Int64()))
+	logger.Info("session revoked", slog.Int64(AttrKeySessionID, sessionID.Int64()))
 	return nil
 }
 

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/testdb"
@@ -17,6 +18,7 @@ func setupAuthTestDB(t *testing.T) *Repository {
 	return NewRepository(db.DB())
 }
 
+//nolint:unparam // role parameter kept for API clarity even though currently always UserRole
 func mustNewUser(t *testing.T, username, displayName string, email *string, role Role) *User {
 	t.Helper()
 
@@ -60,7 +62,7 @@ func TestRepository_CreateUser_DuplicateUsernameCaseVariant(t *testing.T) {
 
 	_, err = repo.CreateUser(ctx, mustNewUser(t, "JOHN_DOE", "Johnny", nil, UserRole))
 	is.True(err != nil)
-	is.True(err == ErrUsernameTaken)
+	is.True(errors.Is(err, ErrUsernameTaken))
 }
 
 func TestRepository_CreateUser_DuplicateEmail(t *testing.T) {
@@ -74,7 +76,7 @@ func TestRepository_CreateUser_DuplicateEmail(t *testing.T) {
 
 	_, err = repo.CreateUser(ctx, mustNewUser(t, "user_b", "User B", &email, UserRole))
 	is.True(err != nil)
-	is.True(err == ErrEmailTaken)
+	is.True(errors.Is(err, ErrEmailTaken))
 }
 
 func TestRepository_GetUserByUsername_CaseInsensitiveLookup(t *testing.T) {
@@ -101,11 +103,11 @@ func TestRepository_SessionCreateAndRead(t *testing.T) {
 	session := NewSession(user.ID, "token-hash-1")
 	createdSession, err := repo.CreateSession(ctx, session)
 	is.NoErr(err)
-	is.Equal(createdSession.UserId, user.ID)
+	is.Equal(createdSession.UserID, user.ID)
 
 	foundSession, err := repo.GetSessionWithRoleByTokenHash(ctx, "token-hash-1")
 	is.NoErr(err)
 	is.Equal(foundSession.ID, createdSession.ID)
-	is.Equal(foundSession.UserId, user.ID)
+	is.Equal(foundSession.UserID, user.ID)
 	is.Equal(foundSession.UserRole, UserRole)
 }

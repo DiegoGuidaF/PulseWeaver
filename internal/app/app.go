@@ -69,7 +69,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	}
 
 	if err := db.Migrate(); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("migration error: %w", err)
 	}
 	logger.Info("database initialized and connected successfully")
@@ -94,7 +94,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	err = authService.BootstrapAdmin(ctx, conf.Server)
 	if err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("failed to bootstrap admin: %w", err)
 	}
 
@@ -104,11 +104,15 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	}
 
 	// Start whitelist service listener
-	go whitelistService.Run(ctx)
+	go func() {
+		if err := whitelistService.Run(ctx); err != nil {
+			logger.Error("whitelist service exited with error", slog.Any("error", err))
+		}
+	}()
 
 	handler, err := httpserver.NewServerFromConfig(deviceHandler, authHandler, logger, conf.Server)
 	if err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("create http server: %w", err)
 	}
 

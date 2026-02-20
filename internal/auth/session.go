@@ -9,7 +9,7 @@ const tokenDuration = time.Hour * 24 * 7
 
 type Session struct {
 	ID         SessionID  `db:"id" `
-	UserId     UserID     `db:"user_id" `
+	UserID     UserID     `db:"user_id" `
 	TokenHash  string     `db:"token_hash" `
 	CreatedAt  time.Time  `db:"created_at" `
 	ExpiresAt  time.Time  `db:"expires_at" `
@@ -17,9 +17,9 @@ type Session struct {
 	RevokedAt  *time.Time `db:"revoked_at" `
 }
 
-func NewSession(userId UserID, tokenHash string) *Session {
+func NewSession(userID UserID, tokenHash string) *Session {
 	return &Session{
-		UserId:     userId,
+		UserID:     userID,
 		TokenHash:  tokenHash,
 		CreatedAt:  time.Now().UTC(),
 		ExpiresAt:  time.Now().UTC().Add(tokenDuration),

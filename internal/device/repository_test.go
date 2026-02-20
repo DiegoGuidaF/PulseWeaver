@@ -29,19 +29,19 @@ func createTestDevice(t *testing.T, repo repository, ctx context.Context, name s
 	return device
 }
 
-// createTestDeviceWithApiKey creates a device and its API key so it appears in GetDevices (which JOINs device_api_keys).
-func createTestDeviceWithApiKey(t *testing.T, repo repository, ctx context.Context, name string) *Device {
+// createTestDeviceWithAPIKey creates a device and its API key so it appears in GetDevices (which JOINs device_api_keys).
+func createTestDeviceWithAPIKey(t *testing.T, repo repository, ctx context.Context, name string) *Device {
 	t.Helper()
 
 	device, err := repo.CreateDevice(ctx, NewDevice(name))
 	if err != nil {
 		t.Fatalf("create device %q: %v", name, err)
 	}
-	apiKey, _, err := NewApiKey(device.ID)
+	apiKey, _, err := NewAPIKey(device.ID)
 	if err != nil {
 		t.Fatalf("create api key: %v", err)
 	}
-	_, err = repo.CreateDeviceApiKey(ctx, apiKey)
+	_, err = repo.CreateDeviceAPIKey(ctx, apiKey)
 	if err != nil {
 		t.Fatalf("create device api key: %v", err)
 	}
@@ -94,8 +94,8 @@ func TestRepository_GetDevices_Multiple(t *testing.T) {
 	ctx := context.Background()
 
 	// Create test data (with API keys so they appear in GetDevices JOIN)
-	createTestDeviceWithApiKey(t, repo, ctx, "device-1")
-	createTestDeviceWithApiKey(t, repo, ctx, "device-2")
+	createTestDeviceWithAPIKey(t, repo, ctx, "device-1")
+	createTestDeviceWithAPIKey(t, repo, ctx, "device-2")
 
 	// Get all devices
 	devices, err := repo.GetDevices(ctx)
@@ -129,7 +129,7 @@ func TestRepository_DatabaseIsolation(t *testing.T) {
 		repo := setupTestDB(t)
 		ctx := context.Background()
 
-		createTestDeviceWithApiKey(t, repo, ctx, "device-1")
+		createTestDeviceWithAPIKey(t, repo, ctx, "device-1")
 
 		devices, err := repo.GetDevices(ctx)
 		is.NoErr(err)
@@ -185,7 +185,7 @@ func TestRepository_CreateDevice_WithApiKey(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	device := createTestDeviceWithApiKey(t, repo, ctx, "device-with-key")
+	device := createTestDeviceWithAPIKey(t, repo, ctx, "device-with-key")
 	is.True(device.ID != 0)
 
 	devices, err := repo.GetDevices(ctx)
@@ -194,10 +194,10 @@ func TestRepository_CreateDevice_WithApiKey(t *testing.T) {
 	is.Equal(devices[0].ID, device.ID)
 	is.Equal(devices[0].Name, "device-with-key")
 	is.True(devices[0].KeyPrefix != "")
-	is.Equal(devices[0].KeyPrefix[:len(ApiKeyPrefix)], ApiKeyPrefix)
+	is.Equal(devices[0].KeyPrefix[:len(APIKeyPrefix)], APIKeyPrefix)
 }
 
-func TestRepository_GetDeviceByApiKeyHash_Success(t *testing.T) {
+func TestRepository_GetDeviceByAPIKeyHash_Success(t *testing.T) {
 	is := is.New(t)
 
 	repo := setupTestDB(t)
@@ -205,26 +205,26 @@ func TestRepository_GetDeviceByApiKeyHash_Success(t *testing.T) {
 
 	// Create device and one API key (one key per device in DB)
 	device := createTestDevice(t, repo, ctx, "lookup-device")
-	apiKey, rawKey, err := NewApiKey(device.ID)
+	apiKey, rawKey, err := NewAPIKey(device.ID)
 	is.NoErr(err)
-	_, err = repo.CreateDeviceApiKey(ctx, apiKey)
+	_, err = repo.CreateDeviceAPIKey(ctx, apiKey)
 	is.NoErr(err)
 
-	keyHash := hashApiKey(rawKey)
-	found, err := repo.GetDeviceByApiKeyHash(ctx, keyHash)
+	keyHash := hashAPIKey(rawKey)
+	found, err := repo.GetDeviceByAPIKeyHash(ctx, keyHash)
 	is.NoErr(err)
 	is.True(found != nil)
 	is.Equal(found.ID, device.ID)
 	is.Equal(found.Name, "lookup-device")
 }
 
-func TestRepository_GetDeviceByApiKeyHash_NotFound(t *testing.T) {
+func TestRepository_GetDeviceByAPIKeyHash_NotFound(t *testing.T) {
 	is := is.New(t)
 
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	_, err := repo.GetDeviceByApiKeyHash(ctx, "nonexistent-hash")
+	_, err := repo.GetDeviceByAPIKeyHash(ctx, "nonexistent-hash")
 	is.True(err != nil)
 	is.Equal(err, ErrDeviceNotFound)
 }
@@ -240,7 +240,7 @@ func TestRepository_CreateAddress(t *testing.T) {
 
 	// Create an address
 	address := createTestAddress(t, repo, ctx, device.ID, "192.168.1.100")
-	is.Equal(address.DeviceId, device.ID)
+	is.Equal(address.DeviceID, device.ID)
 	is.Equal(address.IP, "192.168.1.100")
 	is.True(!address.CreatedAt.IsZero())
 	is.True(address.ID != 0)
@@ -257,7 +257,7 @@ func TestRepository_CreateAddress_IPv6(t *testing.T) {
 
 	// Create an IPv6 address
 	address := createTestAddress(t, repo, ctx, device.ID, "2001:db8::1")
-	is.Equal(address.DeviceId, device.ID)
+	is.Equal(address.DeviceID, device.ID)
 	is.Equal(address.IP, "2001:db8::1")
 	is.True(!address.CreatedAt.IsZero())
 }
@@ -273,10 +273,10 @@ func TestRepository_FindAddressForDeviceByIp(t *testing.T) {
 	createdAddr := createTestAddress(t, repo, ctx, device.ID, "192.168.1.100")
 
 	// Find the address
-	address, err := repo.GetAddressForDeviceByIp(ctx, device.ID, "192.168.1.100")
+	address, err := repo.GetAddressForDeviceByIP(ctx, device.ID, "192.168.1.100")
 	is.NoErr(err)
-	is.Equal(address.Id, createdAddr.ID)
-	is.Equal(address.DeviceId, device.ID)
+	is.Equal(address.ID, createdAddr.ID)
+	is.Equal(address.DeviceID, device.ID)
 	is.Equal(address.IP, "192.168.1.100")
 }
 
@@ -290,7 +290,7 @@ func TestRepository_FindAddressForDeviceByIp_NotFound(t *testing.T) {
 	device := createTestDevice(t, repo, ctx, "test-device")
 
 	// Try to find non-existent address
-	_, err := repo.GetAddressForDeviceByIp(ctx, device.ID, "192.168.1.999")
+	_, err := repo.GetAddressForDeviceByIP(ctx, device.ID, "192.168.1.999")
 	is.True(err != nil)
 	is.Equal(err, ErrAddressNotFound)
 }
@@ -309,7 +309,7 @@ func TestRepository_FindAddressForDeviceByIp_WrongDevice(t *testing.T) {
 	createTestAddress(t, repo, ctx, device1.ID, "192.168.1.100")
 
 	// Try to find address for device2 (should not find it)
-	_, err := repo.GetAddressForDeviceByIp(ctx, device2.ID, "192.168.1.100")
+	_, err := repo.GetAddressForDeviceByIP(ctx, device2.ID, "192.168.1.100")
 	is.True(err != nil)
 	is.Equal(err, ErrAddressNotFound)
 }
@@ -379,7 +379,7 @@ func TestRepository_DisableAddress(t *testing.T) {
 	// Disable address
 	disabledAddr, err := repo.DisableAddress(ctx, addr.ID)
 	is.NoErr(err)
-	is.Equal(disabledAddr.Id, addr.ID)
+	is.Equal(disabledAddr.ID, addr.ID)
 	is.True(!disabledAddr.Status) // Should be disabled
 }
 
@@ -396,7 +396,7 @@ func TestRepository_EnableAddress(t *testing.T) {
 	// Enable address
 	enabledAddr, err := repo.EnableAddress(ctx, addr.ID)
 	is.NoErr(err)
-	is.Equal(enabledAddr.Id, addr.ID)
+	is.Equal(enabledAddr.ID, addr.ID)
 	is.True(enabledAddr.Status) // Should be enabled
 }
 
@@ -421,7 +421,7 @@ func TestRepository_EnableAddress_ReEnable(t *testing.T) {
 	// Re-enable address
 	enabledAddr, err := repo.EnableAddress(ctx, addr.ID)
 	is.NoErr(err)
-	is.Equal(enabledAddr.Id, addr.ID)
+	is.Equal(enabledAddr.ID, addr.ID)
 	is.True(enabledAddr.Status) // Should be enabled again
 }
 
@@ -442,8 +442,8 @@ func TestRepository_GetAddressWithStatus(t *testing.T) {
 	// Get address with status
 	addrWithStatus, err := repo.GetAddressWithStatus(ctx, addr.ID)
 	is.NoErr(err)
-	is.Equal(addrWithStatus.Id, addr.ID)
-	is.Equal(addrWithStatus.DeviceId, device.ID)
+	is.Equal(addrWithStatus.ID, addr.ID)
+	is.Equal(addrWithStatus.DeviceID, device.ID)
 	is.Equal(addrWithStatus.IP, "192.168.1.100")
 	is.True(addrWithStatus.Status) // Should be enabled
 	is.True(!addrWithStatus.CreatedAt.IsZero())
@@ -478,8 +478,8 @@ func TestRepository_GetAddressByID(t *testing.T) {
 	// Get address with status by ID
 	address, err := repo.GetAddressWithStatus(ctx, createdAddr.ID)
 	is.NoErr(err)
-	is.Equal(address.Id, createdAddr.ID)
-	is.Equal(address.DeviceId, device.ID)
+	is.Equal(address.ID, createdAddr.ID)
+	is.Equal(address.DeviceID, device.ID)
 	is.Equal(address.IP, "192.168.1.100")
 	is.True(!address.CreatedAt.IsZero())
 }
