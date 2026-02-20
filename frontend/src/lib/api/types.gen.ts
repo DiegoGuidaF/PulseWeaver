@@ -27,6 +27,18 @@ export type AddAddressRequest = {
   ip: IpAddress;
 };
 
+export type DeviceHeartbeatByApiKeyRequest = {
+  ip?: IpAddress;
+};
+
+export type CreateDeviceResponse = {
+  device: Device;
+  /**
+   * Secret key for the device; only returned on creation.
+   */
+  api_key: string;
+};
+
 export type ErrorResponse = {
   error?: string;
 };
@@ -46,6 +58,10 @@ export type Device = {
    * User-friendly name for the device
    */
   name: string;
+  /**
+   * Prefix of the device API key (for display only).
+   */
+  api_key_prefix: string;
 };
 
 export type Address = {
@@ -247,10 +263,10 @@ export type CreateDeviceResponses = {
   /**
    * Created
    */
-  201: Device;
+  201: CreateDeviceResponse;
 };
 
-export type CreateDeviceResponse =
+export type CreateDeviceResponse2 =
   CreateDeviceResponses[keyof CreateDeviceResponses];
 
 export type GetDeviceAddressesData = {
@@ -381,6 +397,45 @@ export type DeviceHeartbeatResponses = {
 
 export type DeviceHeartbeatResponse =
   DeviceHeartbeatResponses[keyof DeviceHeartbeatResponses];
+
+export type DeviceHeartbeatByApiKeyData = {
+  body?: DeviceHeartbeatByApiKeyRequest;
+  path?: never;
+  query?: never;
+  url: "/heartbeat";
+};
+
+export type DeviceHeartbeatByApiKeyErrors = {
+  /**
+   * Invalid IP address format
+   */
+  400: ErrorResponse;
+  /**
+   * Device not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type DeviceHeartbeatByApiKeyError =
+  DeviceHeartbeatByApiKeyErrors[keyof DeviceHeartbeatByApiKeyErrors];
+
+export type DeviceHeartbeatByApiKeyResponses = {
+  /**
+   * Address enabled
+   */
+  200: Address;
+  /**
+   * New address created and enabled
+   */
+  201: Address;
+};
+
+export type DeviceHeartbeatByApiKeyResponse =
+  DeviceHeartbeatByApiKeyResponses[keyof DeviceHeartbeatByApiKeyResponses];
 
 export type DisableAddressData = {
   body?: never;

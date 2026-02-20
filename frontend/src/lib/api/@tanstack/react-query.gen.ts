@@ -12,6 +12,7 @@ import {
   createDevice,
   createUser,
   deviceHeartbeat,
+  deviceHeartbeatByApiKey,
   disableAddress,
   getCurrentUser,
   getDeviceAddresses,
@@ -26,10 +27,13 @@ import type {
   AddAddressResponse,
   CreateDeviceData,
   CreateDeviceError,
-  CreateDeviceResponse,
+  CreateDeviceResponse2,
   CreateUserData,
   CreateUserError,
   CreateUserResponse,
+  DeviceHeartbeatByApiKeyData,
+  DeviceHeartbeatByApiKeyError,
+  DeviceHeartbeatByApiKeyResponse,
   DeviceHeartbeatData,
   DeviceHeartbeatError,
   DeviceHeartbeatResponse,
@@ -233,12 +237,12 @@ export const getDevicesOptions = (options?: Options<GetDevicesData>) =>
 export const createDeviceMutation = (
   options?: Partial<Options<CreateDeviceData>>,
 ): UseMutationOptions<
-  CreateDeviceResponse,
+  CreateDeviceResponse2,
   CreateDeviceError,
   Options<CreateDeviceData>
 > => {
   const mutationOptions: UseMutationOptions<
-    CreateDeviceResponse,
+    CreateDeviceResponse2,
     CreateDeviceError,
     Options<CreateDeviceData>
   > = {
@@ -332,6 +336,35 @@ export const deviceHeartbeatMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await deviceHeartbeat({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Performs a heartbeat with the given api key header
+ *
+ * Same as /devices/{device_id}/heartbeat but authentication is provided via api-key for the device to update
+ */
+export const deviceHeartbeatByApiKeyMutation = (
+  options?: Partial<Options<DeviceHeartbeatByApiKeyData>>,
+): UseMutationOptions<
+  DeviceHeartbeatByApiKeyResponse,
+  DeviceHeartbeatByApiKeyError,
+  Options<DeviceHeartbeatByApiKeyData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    DeviceHeartbeatByApiKeyResponse,
+    DeviceHeartbeatByApiKeyError,
+    Options<DeviceHeartbeatByApiKeyData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await deviceHeartbeatByApiKey({
         ...options,
         ...fnOptions,
         throwOnError: true,

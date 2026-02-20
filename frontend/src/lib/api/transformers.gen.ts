@@ -2,8 +2,9 @@
 
 import type {
   AddAddressResponse,
-  CreateDeviceResponse,
+  CreateDeviceResponse2,
   CreateUserResponse,
+  DeviceHeartbeatByApiKeyResponse,
   DeviceHeartbeatResponse,
   DisableAddressResponse,
   GetCurrentUserResponse,
@@ -50,10 +51,15 @@ export const getDevicesResponseTransformer = async (
   return data;
 };
 
+const createDeviceResponseSchemaResponseTransformer = (data: any) => {
+  data.device = deviceSchemaResponseTransformer(data.device);
+  return data;
+};
+
 export const createDeviceResponseTransformer = async (
   data: any,
-): Promise<CreateDeviceResponse> => {
-  data = deviceSchemaResponseTransformer(data);
+): Promise<CreateDeviceResponse2> => {
+  data = createDeviceResponseSchemaResponseTransformer(data);
   return data;
 };
 
@@ -80,6 +86,13 @@ export const addAddressResponseTransformer = async (
 export const deviceHeartbeatResponseTransformer = async (
   data: any,
 ): Promise<DeviceHeartbeatResponse> => {
+  data = addressSchemaResponseTransformer(data);
+  return data;
+};
+
+export const deviceHeartbeatByApiKeyResponseTransformer = async (
+  data: any,
+): Promise<DeviceHeartbeatByApiKeyResponse> => {
   data = addressSchemaResponseTransformer(data);
   return data;
 };

@@ -6,6 +6,7 @@ import {
   addAddressResponseTransformer,
   createDeviceResponseTransformer,
   createUserResponseTransformer,
+  deviceHeartbeatByApiKeyResponseTransformer,
   deviceHeartbeatResponseTransformer,
   disableAddressResponseTransformer,
   getCurrentUserResponseTransformer,
@@ -23,6 +24,9 @@ import type {
   CreateUserData,
   CreateUserErrors,
   CreateUserResponses,
+  DeviceHeartbeatByApiKeyData,
+  DeviceHeartbeatByApiKeyErrors,
+  DeviceHeartbeatByApiKeyResponses,
   DeviceHeartbeatData,
   DeviceHeartbeatErrors,
   DeviceHeartbeatResponses,
@@ -48,9 +52,11 @@ import {
   zAddAddressData,
   zAddAddressResponse,
   zCreateDeviceData,
-  zCreateDeviceResponse,
+  zCreateDeviceResponse2,
   zCreateUserData,
   zCreateUserResponse,
+  zDeviceHeartbeatByApiKeyData,
+  zDeviceHeartbeatByApiKeyResponse,
   zDeviceHeartbeatData,
   zDeviceHeartbeatResponse,
   zDisableAddressData,
@@ -107,7 +113,6 @@ export const createUser = <ThrowOnError extends boolean = false>(
         name: "__Host-wdc_session",
         type: "apiKey",
       },
-      { scheme: "bearer", type: "http" },
     ],
     url: "/admin/users",
     ...options,
@@ -154,7 +159,6 @@ export const logout = <ThrowOnError extends boolean = false>(
         name: "__Host-wdc_session",
         type: "apiKey",
       },
-      { scheme: "bearer", type: "http" },
     ],
     url: "/auth/logout",
     ...options,
@@ -184,7 +188,6 @@ export const getCurrentUser = <ThrowOnError extends boolean = false>(
         name: "__Host-wdc_session",
         type: "apiKey",
       },
-      { scheme: "bearer", type: "http" },
     ],
     url: "/auth/me",
     ...options,
@@ -213,7 +216,6 @@ export const getDevices = <ThrowOnError extends boolean = false>(
         name: "__Host-wdc_session",
         type: "apiKey",
       },
-      { scheme: "bearer", type: "http" },
     ],
     url: "/devices",
     ...options,
@@ -235,14 +237,13 @@ export const createDevice = <ThrowOnError extends boolean = false>(
     requestValidator: async (data) => await zCreateDeviceData.parseAsync(data),
     responseTransformer: createDeviceResponseTransformer,
     responseValidator: async (data) =>
-      await zCreateDeviceResponse.parseAsync(data),
+      await zCreateDeviceResponse2.parseAsync(data),
     security: [
       {
         in: "cookie",
         name: "__Host-wdc_session",
         type: "apiKey",
       },
-      { scheme: "bearer", type: "http" },
     ],
     url: "/devices",
     ...options,
@@ -276,7 +277,6 @@ export const getDeviceAddresses = <ThrowOnError extends boolean = false>(
         name: "__Host-wdc_session",
         type: "apiKey",
       },
-      { scheme: "bearer", type: "http" },
     ],
     url: "/devices/{device_id}/addresses",
     ...options,
@@ -305,7 +305,6 @@ export const addAddress = <ThrowOnError extends boolean = false>(
         name: "__Host-wdc_session",
         type: "apiKey",
       },
-      { scheme: "bearer", type: "http" },
     ],
     url: "/devices/{device_id}/addresses",
     ...options,
@@ -339,10 +338,36 @@ export const deviceHeartbeat = <ThrowOnError extends boolean = false>(
         name: "__Host-wdc_session",
         type: "apiKey",
       },
-      { scheme: "bearer", type: "http" },
     ],
     url: "/devices/{device_id}/heartbeat",
     ...options,
+  });
+
+/**
+ * Performs a heartbeat with the given api key header
+ *
+ * Same as /devices/{device_id}/heartbeat but authentication is provided via api-key for the device to update
+ */
+export const deviceHeartbeatByApiKey = <ThrowOnError extends boolean = false>(
+  options?: Options<DeviceHeartbeatByApiKeyData, ThrowOnError>,
+) =>
+  (options?.client ?? client).post<
+    DeviceHeartbeatByApiKeyResponses,
+    DeviceHeartbeatByApiKeyErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await zDeviceHeartbeatByApiKeyData.parseAsync(data),
+    responseTransformer: deviceHeartbeatByApiKeyResponseTransformer,
+    responseValidator: async (data) =>
+      await zDeviceHeartbeatByApiKeyResponse.parseAsync(data),
+    security: [{ name: "X-API-Key", type: "apiKey" }],
+    url: "/heartbeat",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options?.headers,
+    },
   });
 
 /**
@@ -369,7 +394,6 @@ export const disableAddress = <ThrowOnError extends boolean = false>(
         name: "__Host-wdc_session",
         type: "apiKey",
       },
-      { scheme: "bearer", type: "http" },
     ],
     url: "/devices/{device_id}/addresses/{address_id}",
     ...options,

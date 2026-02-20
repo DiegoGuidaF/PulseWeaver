@@ -24,7 +24,7 @@ export const zUsername = z
  */
 export const zDisplayName = z.string().min(1).max(50);
 
-export const zPassword = z.string().min(8).max(50);
+export const zPassword = z.string().min(8).max(32);
 
 export const zCreateUserRequest = z.object({
   username: zUsername,
@@ -45,6 +45,10 @@ export const zIpAddress = z.union([z.ipv4(), z.ipv6()]);
 
 export const zAddAddressRequest = z.object({
   ip: zIpAddress,
+});
+
+export const zDeviceHeartbeatByApiKeyRequest = z.object({
+  ip: z.optional(zIpAddress),
 });
 
 export const zId = z.coerce
@@ -68,6 +72,12 @@ export const zDevice = z.object({
   created_at: z.iso.datetime({ offset: true, local: true }),
   id: zId,
   name: z.string().min(1).max(50),
+  api_key_prefix: z.string(),
+});
+
+export const zCreateDeviceResponse = z.object({
+  device: zDevice,
+  api_key: z.string(),
 });
 
 export const zAddress = z.object({
@@ -143,7 +153,7 @@ export const zCreateDeviceData = z.object({
 /**
  * Created
  */
-export const zCreateDeviceResponse = zDevice;
+export const zCreateDeviceResponse2 = zCreateDeviceResponse;
 
 export const zGetDeviceAddressesData = z.object({
   body: z.optional(z.never()),
@@ -204,6 +214,17 @@ export const zDeviceHeartbeatData = z.object({
  * Address enabled
  */
 export const zDeviceHeartbeatResponse = zAddress;
+
+export const zDeviceHeartbeatByApiKeyData = z.object({
+  body: z.optional(zDeviceHeartbeatByApiKeyRequest),
+  path: z.optional(z.never()),
+  query: z.optional(z.never()),
+});
+
+/**
+ * Address enabled
+ */
+export const zDeviceHeartbeatByApiKeyResponse = zAddress;
 
 export const zDisableAddressData = z.object({
   body: z.optional(z.never()),

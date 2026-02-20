@@ -58,6 +58,29 @@ export const AddAddressRequestSchema = {
   },
 } as const;
 
+export const DeviceHeartbeatByApiKeyRequestSchema = {
+  type: "object",
+  properties: {
+    ip: {
+      $ref: "#/components/schemas/IPAddress",
+    },
+  },
+} as const;
+
+export const CreateDeviceResponseSchema = {
+  type: "object",
+  required: ["device", "api_key"],
+  properties: {
+    device: {
+      $ref: "#/components/schemas/Device",
+    },
+    api_key: {
+      type: "string",
+      description: "Secret key for the device; only returned on creation.",
+    },
+  },
+} as const;
+
 export const ErrorResponseSchema = {
   type: "object",
   properties: {
@@ -94,7 +117,7 @@ export const UserSchema = {
 
 export const DeviceSchema = {
   type: "object",
-  required: ["id", "name", "created_at"],
+  required: ["id", "name", "created_at", "api_key_prefix"],
   properties: {
     created_at: {
       type: "string",
@@ -108,6 +131,10 @@ export const DeviceSchema = {
       type: "string",
       minLength: 1,
       maxLength: 50,
+    },
+    api_key_prefix: {
+      type: "string",
+      description: "Prefix of the device API key (for display only).",
     },
   },
 } as const;
@@ -162,7 +189,7 @@ export const PasswordSchema = {
   type: "string",
   format: "password",
   minLength: 8,
-  maxLength: 50,
+  maxLength: 32,
   example: "123ASecretPassword",
 } as const;
 
