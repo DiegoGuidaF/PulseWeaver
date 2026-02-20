@@ -39,7 +39,7 @@ jobs:
         run: npm ci
 
       - name: golangci-lint
-        run: make lint-on-pipeline
+        run: make lint
 
       - name: Run backend tests
         run: make test
