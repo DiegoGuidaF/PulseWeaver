@@ -64,8 +64,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Lowercase repository name
-        run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
+      - name: Set env variables for docker build
+        run: |
+          echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
       - name: Log in to GitHub Container Registry
         if: github.ref == 'refs/heads/main'
@@ -80,6 +82,7 @@ jobs:
         with:
           context: .
           push: ${{ github.ref == 'refs/heads/main' }}
-          tags: ${{ github.ref == 'refs/heads/main' && format('ghcr.io/{0}:dev', env.REPO_LC) || 'wallydic:test' }}
+          # If main, push image to both dev and sha-{commit} tags
+          tags: ${{ github.ref == 'refs/heads/main' && format('ghcr.io/{0}:dev,ghcr.io/{0}:sha-{1}', env.REPO_LC, env.SHORT_SHA) || 'wallydic:test' }}
           cache-from: type=gha
           cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max' || '' }}
