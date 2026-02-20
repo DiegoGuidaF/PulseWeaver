@@ -12,7 +12,6 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/lmittmann/tint v1.1.3
 	github.com/matryer/is v1.4.1
-	github.com/mattn/go-isatty v0.0.20
 	github.com/oapi-codegen/nethttp-middleware v1.1.2
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/samber/slog-chi v1.18.0
@@ -32,6 +31,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/mailru/easyjson v0.9.1 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/oapi-codegen/oapi-codegen/v2 v2.5.1 // indirect

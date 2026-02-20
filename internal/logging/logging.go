@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/lmittmann/tint"
-	"github.com/mattn/go-isatty"
 )
 
 // Tint 8-bit color codes (high intensity 8-15): 9 red, 12 blue, 13 magenta, 14 cyan.
@@ -67,11 +66,12 @@ const JSONFormat Format = "json"
 type Options struct {
 	Level  slog.Level
 	Format Format
+	Color  bool // Enable colored output for tint format (ignored for JSON format)
 }
 
 // New creates a slog.Logger from the given options.
 // Format "json" uses slog.JSONHandler; otherwise tint is used with ReplaceAttr for colored keys.
-// When using tint, NoColor is set from terminal detection (color only if stdout is a TTY).
+// When using tint, color is controlled by the Color option (set via LOG_COLOR env var).
 func New(opts Options) *slog.Logger {
 	level := opts.Level
 	if level == 0 {
@@ -88,7 +88,7 @@ func New(opts Options) *slog.Logger {
 	w := os.Stdout
 	handler := tint.NewHandler(w, &tint.Options{
 		Level:       level,
-		NoColor:     !isatty.IsTerminal(w.Fd()),
+		NoColor:     !opts.Color,
 		ReplaceAttr: tintReplaceAttr,
 	})
 	return slog.New(handler)

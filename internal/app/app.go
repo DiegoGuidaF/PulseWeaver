@@ -49,6 +49,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		logger = logging.New(logging.Options{
 			Level:  logging.ParseLevel(conf.LogLevel),
 			Format: conf.LogFormat,
+			Color:  conf.LogColor,
 		})
 	}
 

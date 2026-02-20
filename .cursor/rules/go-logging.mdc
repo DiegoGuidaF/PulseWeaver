@@ -13,7 +13,8 @@ globs:
 
 - Use `internal/logging.New(logging.Options{...})` with:
   - **Level:** from `logging.ParseLevel(conf.LogLevel)` — **LOG_LEVEL** env var (e.g. `debug`, `info`, `warn`, `error`)
-  - **Format:** from `conf.LogFormat` — **LOG_FORMAT** env var: `"json"` → JSON handler; any other value → tint (human-readable). When tint is used, color is enabled only if stdout is a TTY (auto-detected via go-isatty)
+  - **Format:** from `conf.LogFormat` — **LOG_FORMAT** env var: `"json"` → JSON handler; any other value → tint (human-readable)
+  - **Color:** from `conf.LogColor` — **LOG_COLOR** env var (boolean): enables colored output for tint format (ignored for JSON format)
 - Pass logger explicitly into constructors - **NO GLOBAL LOGGERS** (except `slog.SetDefault` during app initialization)
 
 ```go
@@ -21,6 +22,7 @@ globs:
 logger := logging.New(logging.Options{
 	Level:  logging.ParseLevel(conf.LogLevel),
 	Format: conf.LogFormat,
+	Color:  conf.LogColor,
 })
 slog.SetDefault(logger)
 service := device.NewService(repo, logger)
@@ -328,7 +330,7 @@ logger.Error(fmt.Sprintf("database error: %v", err))
 
 ## References
 
-- `internal/logging/logging.go` — Logger initialization (LOG_FORMAT: json vs tint; `ParseLevel`, `Options`, `New`; tint uses isatty for color)
+- `internal/logging/logging.go` — Logger initialization (LOG_FORMAT: json vs tint; `ParseLevel`, `Options`, `New`; LOG_COLOR env var controls color for tint format)
 - `internal/logging/ctx.go` — Context helpers (`ToCtx`, `FromCtx`, `Enrich`)
 - `internal/config/config.go` — `LOG_LEVEL`, `LOG_FORMAT` env vars
 - `internal/httpserver/server.go` — HTTP middleware setup, error handlers
