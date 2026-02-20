@@ -5,7 +5,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )

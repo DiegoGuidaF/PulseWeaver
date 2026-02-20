@@ -1,17 +1,17 @@
 ---
 globs:
-  - "api/**/*.yaml"
+  - "api/openapi.yaml"
   - "frontend/src/lib/api/**"
-  - "**/server_interface.gen.go"
+  - "**/server.gen.go"
 ---
 
 # API Contracts & Type Generation Rules
 
 ## Schema-First API Design
 
-- **Single Source of Truth:** `api/api.yaml` (OpenAPI 3.0.1)
+- **Single Source of Truth:** `api/openapi.yaml` (OpenAPI 3.0.1)
 - **No Manual Types:** All API types are generated from the OpenAPI spec
-- **Backend Types:** Generated via `oapi-codegen` → `api/server_interface.gen.go`
+- **Backend Types:** Generated via `oapi-codegen` → `internal/api/server.gen.go`
 - **Frontend Types:** Generated via `@hey-api/openapi-ts` → `frontend/src/lib/api/` (multiple files: `index.ts`, `sdk.gen.ts`, `types.gen.ts`, `zod.gen.ts`, etc.)
 
 ## ⚠️ Generated API Directory — Do Not Modify
@@ -44,9 +44,9 @@ globs:
 
 ### Backend Generation (Go)
 - **Tool:** `oapi-codegen`
-- **Config:** `openapi-cfg.yaml`
-- **Output:** `api/server_interface.gen.go`
-- **Command:** Run `go generate ./api` or use Makefile target
+- **Config:** `internal/api/oapi-codegen.yaml`
+- **Output:** `internal/api/server.gen.go`
+- **Command:** Run `go generate ./internal/api` or use Makefile target
 - **Pattern:** Generate server interface, then implement handlers
 
 ### Frontend Generation (TypeScript)
@@ -113,12 +113,12 @@ const devices = listResponse.data ?? [];
 ## Synchronization Rules
 
 ### When to Regenerate
-1. **After API changes:** Always regenerate types after modifying `api/api.yaml`
+1. **After API changes:** Always regenerate types after modifying `api/openapi.yaml`
 2. **Before backend changes:** Regenerate to ensure handlers match spec
 3. **Before frontend changes:** Regenerate to get latest types
 
 ### Regeneration Commands
-- **Backend:** `go generate ./api` or check Makefile
+- **Backend:** `go generate ./internal/api` or check Makefile
 - **Frontend:** `cd frontend && npm run generate:api`
 
 ### Validation
@@ -169,7 +169,7 @@ ErrorResponse:
 
 ## Best Practices
 
-1. **Keep Spec Updated:** Update `api/api.yaml` first, then regenerate types
+1. **Keep Spec Updated:** Update `api/openapi.yaml` first, then regenerate types
 2. **Version Control:** Commit generated types to ensure consistency
 3. **Documentation:** Include descriptions in OpenAPI spec for better IDE hints
 4. **Validation:** Use schema validation in both backend and frontend

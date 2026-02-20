@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
 )
 
 const CookieDuration = 7 * 24 * time.Hour

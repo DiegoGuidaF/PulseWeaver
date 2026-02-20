@@ -24,7 +24,10 @@ const devicesHandlers = {
     createDeviceHandler: createHttpHandler(
         'post',
         apiEndpoints.devices,
-        () => createMockDevice(),
+        () => ({
+            device: createMockDevice(),
+            api_key: 'test_api_key_12345678901234567890123456789012'
+        }),
         201 // Created
     ),
     // GET /devices

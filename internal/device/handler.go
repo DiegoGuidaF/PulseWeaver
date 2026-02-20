@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 )
 

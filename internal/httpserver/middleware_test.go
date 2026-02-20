@@ -10,7 +10,7 @@ import (
 	"net/netip"
 	"testing"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpserver"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/testutils"
 	"github.com/matryer/is"

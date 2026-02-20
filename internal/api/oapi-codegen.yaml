@@ -5,4 +5,4 @@ generate:
   chi-server: true
   models: true
   embedded-spec: true
-output: server_interface.gen.go
+output: server.gen.go

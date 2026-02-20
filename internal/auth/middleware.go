@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
 )
 
 // UserAuthenticator defines the interface for authenticating user sessions.

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
 )
 
 // ApiKeyAuthenticator defines the interface for authenticating device API keys.

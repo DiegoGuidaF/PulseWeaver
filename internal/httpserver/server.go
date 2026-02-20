@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/netip"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"

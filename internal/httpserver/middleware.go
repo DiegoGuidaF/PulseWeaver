@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/api"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/api"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"

@@ -9,6 +9,7 @@ export function createMockDevice(overrides?: Partial<Device>): Device {
   return {
     id: 1,
     name: 'Test Device',
+    api_key_prefix: 'test_',
     created_at: new Date('2024-01-01T00:00:00Z'),
     ...overrides,
   };
