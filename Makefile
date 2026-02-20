@@ -1,6 +1,5 @@
-# golangci-lint version (keep in sync with .github/workflows/ci.yml)
-GOLANGCI_LINT_VERSION := v2.9.0
-GOLANGCI_LINT_RUN := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+# Tools are isolated in tools/go.mod to avoid polluting main module dependencies.
+# Tools are run with -modfile=tools/go.mod to use the separate module.
 
 .PHONY: dev run test clean fix lint migrate-up migrate-down migrate-create
 
@@ -27,9 +26,14 @@ clean:
 test:
 	go test -tags=test -v ./...
 
+# Run the linter (prints issues). Uses version from tools/go.mod.
 lint:
 	go fmt ./...
-	$(GOLANGCI_LINT_RUN) run ./...
+	go tool -modfile=tools/go.mod golangci-lint run ./...
+
+# Run the linter and automatically fix what it can (gofmt, goimports, etc.).
+fix:
+	go tool -modfile=tools/go.mod golangci-lint run --fix ./...
 
 migrate-up:
 	migrate -path internal/database/migrations -database "sqlite://./data.db" up
