@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ['main']
+    branches: [ 'main' ]
   pull_request:
-    branches: ['**']
+    branches: [ '**' ]
 
 jobs:
   test:
@@ -20,6 +20,7 @@ jobs:
         with:
           go-version: '1.26'
           cache-dependency-path: go.sum
+          cache: true
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -29,15 +30,16 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Go dependencies
-        run: go mod download
+        run: |
+          go mod download
+          go mod download -modfile=tools/go.mod
 
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
+        run: make lint-on-pipeline
 
       - name: Run backend tests
         run: make test
@@ -65,4 +67,5 @@ jobs:
           push: false
           tags: wallydic:test
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Only write to the cache if we are on the main branch
+          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max' || '' }}
