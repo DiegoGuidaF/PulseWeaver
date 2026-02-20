@@ -1,13 +1,26 @@
 version: "2"
 
+# Build with "test" tag so packages that use test-only code (e.g. internal/testutils, internal/testdb) load correctly.
+run:
+  build-tags:
+    - test
+
 linters:
   default: standard
   enable:
-    - sloglint
-    - errorlint
     - errcheck
+    - errorlint
     - govet
     - staticcheck
+    - sloglint
+    - bodyclose
+    - noctx
+    - unparam
+    - prealloc
+    - revive
+  disable:
+    # exhaustruct requires all struct fields to be set — too noisy for
+    # third-party structs (http.Server, slog.HandlerOptions, etc.)
     - exhaustruct
 
   settings:
@@ -26,15 +39,27 @@ linters:
         - level
         - msg
         - source
+    revive:
+      rules:
+        - name: exported
+        - name: error-strings
+        - name: error-naming
+        - name: var-naming
+        - name: indent-error-flow
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - unparam
+        - revive
+    - path: \.gen\.go
+      linters:
+        - revive
+        - errcheck
+        - staticcheck
 
 formatters:
   enable:
     - goimports # checks if the code and import statements are formatted according to the 'goimports' command
-    - golines # checks if code is formatted, and fixes long lines
     - gofmt # checks if the code is formatted according to 'gofmt' command
-
-  settings:
-    golines:
-      # Target maximum line length.
-      # Default: 100
-      max-len: 120

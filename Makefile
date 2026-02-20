@@ -1,4 +1,8 @@
-.PHONY: dev run test clean fix migrate-up migrate-down migrate-create
+# golangci-lint version (keep in sync with .github/workflows/ci.yml)
+GOLANGCI_LINT_VERSION := v2.9.0
+GOLANGCI_LINT_RUN := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+
+.PHONY: dev run test clean fix lint migrate-up migrate-down migrate-create
 
 dev-back:
 	air
@@ -23,9 +27,9 @@ clean:
 test:
 	go test -tags=test -v ./...
 
-fix:
+lint:
 	go fmt ./...
-	golangci-lint run ./...
+	$(GOLANGCI_LINT_RUN) run ./...
 
 migrate-up:
 	migrate -path internal/database/migrations -database "sqlite://./data.db" up
