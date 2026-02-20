@@ -4,6 +4,7 @@ version: "2"
 run:
   build-tags:
     - test
+    - lint
 
 linters:
   default: standard
