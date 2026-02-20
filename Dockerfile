@@ -38,6 +38,7 @@ COPY --from=frontend-builder /build/dist ./internal/ui/dist
 # Note: GOOS/GOARCH are auto-detected by Go from Docker's build platform
 RUN CGO_ENABLED=0 go build \
     -ldflags="-s -w" \
+    -tags=prod \
     -o /app/wallydic \
     ./cmd/api \
     && mkdir -p /app/data

@@ -1,4 +1,4 @@
-//go:build !dev && !lint
+//go:build prod
 
 package ui
 

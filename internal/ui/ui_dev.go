@@ -1,4 +1,4 @@
-//go:build dev
+//go:build !prod
 
 // Stub file so that backend can be run without frontend (dist)
 

@@ -10,7 +10,7 @@ bin = "./tmp/main"
 #pre_cmd = ["swag init -g internal/httpserver/server.go --output docs", "swag fmt"]
 pre_cmd = ["go generate ./..."]
 # The "dev" tag ensures we don't need the frontend
-cmd = "go build  -tags dev -o ./tmp/main ./cmd/api/main.go"
+cmd = "go build -o ./tmp/main ./cmd/api/main.go"
 delay = 1000
 exclude_dir = ["assets", "tmp", "vendor", "testdata", "bin", "docs", "frontend"]
 exclude_file = []

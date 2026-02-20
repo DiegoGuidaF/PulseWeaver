@@ -56,4 +56,4 @@ build-frontend:
 
 build-backend:
 	@echo "🔨 Building Go binary..."
-	go build -o bin/wallydic ./cmd/api
+	go build -tags=prod -o bin/wallydic ./cmd/api
