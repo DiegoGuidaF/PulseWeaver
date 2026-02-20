@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/mattn/go-sqlite3"
 )
 
 type Repository struct {
@@ -183,17 +182,17 @@ func (r *Repository) RunInTx(ctx context.Context, fn func(repository) error) err
 }
 
 func mapUserCreationUniqueConstraintError(err error) (error, bool) {
-	if sqliteErr, ok := errors.AsType[sqlite3.Error](err); ok {
-		if errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
-			message := strings.ToLower(sqliteErr.Error())
-			switch {
-			case strings.Contains(message, "users.username"):
-				return ErrUsernameTaken, true
-			case strings.Contains(message, "users.email"):
-				return ErrEmailTaken, true
-			default:
-				return ErrUsernameTaken, true
-			}
+	// Check if error is a unique constraint violation
+	// modernc.org/sqlite returns errors with "UNIQUE constraint failed" in the message
+	message := strings.ToLower(err.Error())
+	if strings.Contains(message, "unique constraint failed") {
+		switch {
+		case strings.Contains(message, "users.username"):
+			return ErrUsernameTaken, true
+		case strings.Contains(message, "users.email"):
+			return ErrEmailTaken, true
+		default:
+			return ErrUsernameTaken, true
 		}
 	}
 	return nil, false

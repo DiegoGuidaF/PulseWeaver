@@ -7,8 +7,9 @@ import (
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/sqlite3"
+	"github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	_ "modernc.org/sqlite"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -27,10 +28,13 @@ func NewSQLite(dbConf config.ConfDB) (*SQLite, error) {
 	if dbConf.Dsn != "" {
 		dsn = dbConf.Dsn
 	} else {
-		dsn = fmt.Sprintf("file:%s?cache=shared&mode=rwc&_loc=auto&parseTime=true", dbConf.File)
+		// _time_format=sqlite: Writes time.Time as YYYY-MM-DD HH:MM:SS[+-]HH:MM (SQLite format 4)
+		// _texttotime=1: Makes the driver report time.Time for columns declared as DATE, DATETIME, TIME, or TIMESTAMP
+		// _loc=auto: Automatically handle timezone conversions
+		dsn = fmt.Sprintf("file:%s?_loc=auto&_time_format=sqlite&_texttotime=1", dbConf.File)
 	}
 
-	db, err := sqlx.Connect("sqlite3", dsn)
+	db, err := sqlx.Connect("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
@@ -68,8 +72,8 @@ func (s *SQLite) Close() error {
 }
 
 func (s *SQLite) Migrate() error {
-	// Create sqlite3 driver instance
-	driver, err := sqlite3.WithInstance(s.db.DB, &sqlite3.Config{})
+	// Create sqlite driver instance
+	driver, err := sqlite.WithInstance(s.db.DB, &sqlite.Config{})
 	if err != nil {
 		return fmt.Errorf("create driver: %w", err)
 	}
@@ -79,7 +83,7 @@ func (s *SQLite) Migrate() error {
 		return fmt.Errorf("load migrations: %w", err)
 	}
 
-	m, err := migrate.NewWithInstance("iofs", source, "sqlite3", driver)
+	m, err := migrate.NewWithInstance("iofs", source, "sqlite", driver)
 	if err != nil {
 		return fmt.Errorf("create migrator: %w", err)
 	}
