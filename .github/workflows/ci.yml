@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ '**' ]
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   test:
     name: Run Tests
@@ -52,7 +56,7 @@ jobs:
     name: Verify Docker Build
     runs-on: ubuntu-latest
     needs: test
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -60,12 +64,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Log in to GitHub Container Registry
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: false
-          tags: wallydic:test
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ github.ref == 'refs/heads/main' && format('ghcr.io/{0}:dev', github.repository) || 'wallydic:test' }}
           cache-from: type=gha
-          # Only write to the cache if we are on the main branch
           cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max' || '' }}
