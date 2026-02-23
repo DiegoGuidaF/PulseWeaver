@@ -96,7 +96,11 @@ export function CreateDeviceForm() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent
+          showCloseButton={false}
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Device created — save your API key</DialogTitle>
             <DialogDescription>

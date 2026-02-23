@@ -1,4 +1,4 @@
-import {describe, expect, it} from 'vitest';
+import {describe, expect, it, vi} from 'vitest';
 import {screen, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {delay} from 'msw';
@@ -60,9 +60,11 @@ describe('CreateDeviceForm', () => {
     it('successfully creates device, shows API key dialog, and resets form', async () => {
         const user = userEvent.setup();
 
-        server.use(
-            handlers.devices.createDeviceHandler()
-        );
+        const clipboardSpy = vi
+            .spyOn(navigator.clipboard, 'writeText')
+            .mockResolvedValue(undefined);
+
+        server.use(handlers.devices.createDeviceHandler());
 
         renderWithProviders(<CreateDeviceForm/>);
 
@@ -72,28 +74,46 @@ describe('CreateDeviceForm', () => {
         await user.type(input, 'New Device');
         await user.click(submitButton);
 
-        // Dialog should open with the API key that is only returned on creation
-        const dialog = await screen.findByRole('dialog', {
-            name: /device created — save your api key/i,
-        });
-        expect(dialog).toBeInTheDocument();
+        expect(
+            screen.getByRole('dialog', {
+                name: /device created — save your api key/i,
+            }),
+        ).toBeInTheDocument();
+
         expect(
             screen.getByDisplayValue(
                 'test_api_key_12345678901234567890123456789012',
             ),
         ).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /copy/i })).toBeInTheDocument();
 
-        // Close the dialog
+        const copyButton = screen.getByRole('button', {name: /copy/i});
+        await user.click(copyButton);
+        expect(clipboardSpy).toHaveBeenCalledWith(
+            'test_api_key_12345678901234567890123456789012',
+        );
+
+        // Pressing escape doesn't close the dialog
+        await user.keyboard('{Escape}');
+        expect(
+            screen.getByRole('dialog', {
+                name: /device created — save your api key/i,
+            }),
+        ).toBeInTheDocument();
+
         const closeButton = screen.getByRole('button', {name: /i've saved it/i});
         await user.click(closeButton);
 
-        // After closing, the form should be visible and reset
         await waitFor(() => {
-            expect(screen.getByLabelText('New Device Name')).toHaveValue('');
-        }, {timeout: TEST_TIMEOUTS.MEDIUM});
+            expect(
+                screen.queryByRole('dialog', {
+                    name: /device created — save your api key/i,
+                }),
+            ).not.toBeInTheDocument();
+        });
 
+        expect(screen.getByLabelText('New Device Name')).toHaveValue('');
         expect(screen.getByRole('button', {name: /add device/i})).toBeInTheDocument();
+        clipboardSpy.mockRestore();
     });
 
     it('shows error toast on API error', async () => {
