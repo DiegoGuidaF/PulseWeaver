@@ -37,6 +37,9 @@ func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, logger *s
 		WithRequestID: true,
 	}
 	r.Use(middleware.RequestID)
+	r.Use(RequestLoggerMiddleware(logger))
+	r.Use(slogchi.NewWithConfig(logger, loggerConfig))
+	r.Use(middleware.Recoverer)
 
 	// Retrieve ClientIP from X-Forwarded-For header if remoteAddr is a trusted proxy,
 	// otherwise extract directly from RemoteAddr.
@@ -47,10 +50,6 @@ func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, logger *s
 	} else {
 		r.Use(ClientIPFromRequestMiddleware())
 	}
-
-	r.Use(RequestLoggerMiddleware(logger))
-	r.Use(slogchi.NewWithConfig(logger, loggerConfig))
-	r.Use(middleware.Recoverer)
 
 	// Set security policies
 	r.Use(middleware.SetHeader("X-Content-Type-Options", "nosniff"))

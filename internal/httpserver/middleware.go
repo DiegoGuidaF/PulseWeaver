@@ -176,9 +176,17 @@ func setClientIPInContext(r *http.Request, ip string) *http.Request {
 // collectXFFIPs collects all IP addresses from all X-Forwarded-For headers.
 // Handles multiple headers to prevent header injection attacks.
 func collectXFFIPs(r *http.Request) []netip.Addr {
+	// Get all X-Forwarded-For headers
+	xFFFHeaders := r.Header.Values(httpapi.XForwardedFor)
+
+	//TODO:  Find way to only retrieve this logger if it is debug?
+	logger := logging.FromCtx(r.Context())
+	logger.Debug("Received XFF headers",
+		slog.String("x_forwarded_for", strings.Join(xFFFHeaders, ",")),
+	)
+
 	var ips []netip.Addr
-	// Use Values() to get all X-Forwarded-For headers (not just the first one)
-	for _, headerValue := range r.Header.Values(httpapi.XForwardedFor) {
+	for _, headerValue := range xFFFHeaders {
 		// Split comma-separated values in each header
 		parts := strings.Split(headerValue, ",")
 		for _, part := range parts {
