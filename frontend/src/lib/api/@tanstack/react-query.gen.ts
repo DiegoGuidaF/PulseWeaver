@@ -11,6 +11,7 @@ import {
   addAddress,
   createDevice,
   createUser,
+  deleteDevice,
   deviceHeartbeat,
   deviceHeartbeatByApiKey,
   disableAddress,
@@ -31,6 +32,9 @@ import type {
   CreateUserData,
   CreateUserError,
   CreateUserResponse,
+  DeleteDeviceData,
+  DeleteDeviceError,
+  DeleteDeviceResponse,
   DeviceHeartbeatByApiKeyData,
   DeviceHeartbeatByApiKeyError,
   DeviceHeartbeatByApiKeyResponse,
@@ -248,6 +252,35 @@ export const createDeviceMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await createDevice({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Delete a device
+ *
+ * Soft-deletes a device. The device is hidden from lists and cannot receive addresses.
+ */
+export const deleteDeviceMutation = (
+  options?: Partial<Options<DeleteDeviceData>>,
+): UseMutationOptions<
+  DeleteDeviceResponse,
+  DeleteDeviceError,
+  Options<DeleteDeviceData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    DeleteDeviceResponse,
+    DeleteDeviceError,
+    Options<DeleteDeviceData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await deleteDevice({
         ...options,
         ...fnOptions,
         throwOnError: true,

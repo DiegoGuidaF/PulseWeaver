@@ -24,6 +24,9 @@ import type {
   CreateUserData,
   CreateUserErrors,
   CreateUserResponses,
+  DeleteDeviceData,
+  DeleteDeviceErrors,
+  DeleteDeviceResponses,
   DeviceHeartbeatByApiKeyData,
   DeviceHeartbeatByApiKeyErrors,
   DeviceHeartbeatByApiKeyResponses,
@@ -55,6 +58,8 @@ import {
   zCreateDeviceResponse2,
   zCreateUserData,
   zCreateUserResponse,
+  zDeleteDeviceData,
+  zDeleteDeviceResponse,
   zDeviceHeartbeatByApiKeyData,
   zDeviceHeartbeatByApiKeyResponse,
   zDeviceHeartbeatData,
@@ -251,6 +256,33 @@ export const createDevice = <ThrowOnError extends boolean = false>(
       "Content-Type": "application/json",
       ...options.headers,
     },
+  });
+
+/**
+ * Delete a device
+ *
+ * Soft-deletes a device. The device is hidden from lists and cannot receive addresses.
+ */
+export const deleteDevice = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteDeviceData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    DeleteDeviceResponses,
+    DeleteDeviceErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) => await zDeleteDeviceData.parseAsync(data),
+    responseValidator: async (data) =>
+      await zDeleteDeviceResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/devices/{device_id}",
+    ...options,
   });
 
 /**

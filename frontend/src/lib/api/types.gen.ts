@@ -252,6 +252,10 @@ export type CreateDeviceErrors = {
    */
   400: ErrorResponse;
   /**
+   * Conflict - Device name already in use
+   */
+  409: ErrorResponse;
+  /**
    * Internal Server Error
    */
   500: ErrorResponse;
@@ -268,6 +272,41 @@ export type CreateDeviceResponses = {
 
 export type CreateDeviceResponse2 =
   CreateDeviceResponses[keyof CreateDeviceResponses];
+
+export type DeleteDeviceData = {
+  body?: never;
+  path: {
+    /**
+     * Device id
+     */
+    device_id: number;
+  };
+  query?: never;
+  url: "/devices/{device_id}";
+};
+
+export type DeleteDeviceErrors = {
+  /**
+   * Device not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type DeleteDeviceError = DeleteDeviceErrors[keyof DeleteDeviceErrors];
+
+export type DeleteDeviceResponses = {
+  /**
+   * No Content - Device deleted successfully
+   */
+  204: void;
+};
+
+export type DeleteDeviceResponse =
+  DeleteDeviceResponses[keyof DeleteDeviceResponses];
 
 export type GetDeviceAddressesData = {
   body?: never;

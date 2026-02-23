@@ -155,6 +155,26 @@ export const zCreateDeviceData = z.object({
  */
 export const zCreateDeviceResponse2 = zCreateDeviceResponse;
 
+export const zDeleteDeviceData = z.object({
+  body: z.optional(z.never()),
+  path: z.object({
+    device_id: z.coerce
+      .bigint()
+      .min(BigInt("-9223372036854775808"), {
+        error: "Invalid value: Expected int64 to be >= -9223372036854775808",
+      })
+      .max(BigInt("9223372036854775807"), {
+        error: "Invalid value: Expected int64 to be <= 9223372036854775807",
+      }),
+  }),
+  query: z.optional(z.never()),
+});
+
+/**
+ * No Content - Device deleted successfully
+ */
+export const zDeleteDeviceResponse = z.void();
+
 export const zGetDeviceAddressesData = z.object({
   body: z.optional(z.never()),
   path: z.object({

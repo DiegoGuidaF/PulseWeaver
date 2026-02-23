@@ -141,4 +141,39 @@ describe('CreateDeviceForm', () => {
         // Form should not be reset on error
         expect((input as HTMLInputElement).value).toBe('Test Device');
     });
+
+    it('shows error message when device name is already in use (409)', async () => {
+        const user = userEvent.setup();
+
+        server.use(
+            handlers.devices.createDeviceHandler(undefined, () => {
+                return responses.custom(
+                    {error: 'Device name already in use'},
+                    409
+                );
+            })
+        );
+
+        renderWithProviders(<CreateDeviceForm/>);
+
+        const input = screen.getByLabelText('New Device Name');
+        const submitButton = screen.getByRole('button', {name: /add device/i});
+
+        await user.type(input, 'Duplicate Name');
+        await user.click(submitButton);
+
+        await waitFor(
+            () => {
+                expect(
+                    screen.getByText(/error creating device/i)
+                ).toBeInTheDocument();
+                expect(
+                    screen.getByText(/device name already in use/i)
+                ).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.MEDIUM}
+        );
+
+        expect((input as HTMLInputElement).value).toBe('Duplicate Name');
+    });
 });

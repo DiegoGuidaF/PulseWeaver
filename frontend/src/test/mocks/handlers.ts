@@ -12,9 +12,9 @@ const BASE_URL = '/api/v1';
 
 const apiEndpoints = {
     devices: `${BASE_URL}/devices`,
+    deviceById: `${BASE_URL}/devices/:deviceId`,
     deviceAddresses: `${BASE_URL}/devices/:deviceId/addresses`,
     deleteDeviceAddresses: `${BASE_URL}/devices/:deviceId/addresses/:addressId`,
-    //deviceAddress: (deviceId: number, addressId: number) => `${BASE_URL}/devices/${deviceId}/addresses/${addressId}`,
     authMe: `${BASE_URL}/auth/me`,
     authLogin: `${BASE_URL}/auth/login`,
 } as const;
@@ -36,6 +36,13 @@ const devicesHandlers = {
         apiEndpoints.devices,
         () => [createMockDevice()]
     ),
+    // DELETE /devices/:deviceId (custom resolver always used; factory unused)
+    deleteDeviceHandler: createHttpHandler(
+        'delete',
+        apiEndpoints.deviceById,
+        () => ({}),
+        204
+    )(undefined, () => responses.noContent()),
 }
 
 const addressHandlers = {

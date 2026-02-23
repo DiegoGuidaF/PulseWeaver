@@ -4,7 +4,7 @@ import {
   getDevicesQueryKey,
 } from "@/lib/api/@tanstack/react-query.gen";
 import type { CreateDeviceResponse } from "@/lib/api";
-import { toErrorMessage } from "@/lib/api-client";
+import { toApiError, toErrorMessage } from "@/lib/api-client";
 import { toast } from "sonner";
 
 export function useCreateDevice(options?: {
@@ -22,8 +22,13 @@ export function useCreateDevice(options?: {
       options?.onSuccess?.(data);
     },
     onError: (err) => {
+      const apiErr = toApiError(err);
+      const description =
+        apiErr.status === 409
+          ? "A device with this name already exists."
+          : toErrorMessage(err);
       toast.error("Error creating device", {
-        description: toErrorMessage(err),
+        description,
       });
     },
   });

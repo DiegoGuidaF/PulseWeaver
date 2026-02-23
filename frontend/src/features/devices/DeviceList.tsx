@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -8,13 +9,39 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { format } from "date-fns";
+import { Trash2 } from "lucide-react";
+import type { Device } from "@/lib/api";
 import { DeviceAddressesDialog } from "@/features/devices/DeviceAddressesDialog";
 import { useDevices } from "@/features/devices/hooks/useDevices";
+import { useDeleteDevice } from "@/features/devices/hooks/useDeleteDevice";
 import { toErrorMessage } from "@/lib/api-client";
 
 export function DeviceList() {
   const { data: devices, isLoading, error } = useDevices();
+  const deleteDevice = useDeleteDevice();
+  const [deviceToDelete, setDeviceToDelete] = useState<Device | null>(null);
+
+  function handleConfirmDelete() {
+    if (!deviceToDelete) return;
+    deleteDevice.mutate(
+      { path: { device_id: deviceToDelete.id } },
+      {
+        onSettled: () => {
+          setDeviceToDelete(null);
+        },
+      }
+    );
+  }
 
   if (error)
     return (
@@ -90,10 +117,22 @@ export function DeviceList() {
                     {format(new Date(device.created_at), "PP p")}
                   </TableCell>
                   <TableCell className="text-right">
-                    <DeviceAddressesDialog
-                      deviceId={device.id}
-                      deviceName={device.name}
-                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <DeviceAddressesDialog
+                        deviceId={device.id}
+                        deviceName={device.name}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Delete device ${device.name}`}
+                        onClick={() => setDeviceToDelete(device)}
+                        disabled={deleteDevice.isPending}
+                      >
+                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -101,6 +140,39 @@ export function DeviceList() {
           </TableBody>
         </Table>
       </CardContent>
+      <Dialog
+        open={deviceToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeviceToDelete(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete device</DialogTitle>
+            <DialogDescription>
+              Delete device &quot;{deviceToDelete?.name}&quot;? It will be
+              hidden from the list and cannot receive addresses.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeviceToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={deleteDevice.isPending}
+            >
+              {deleteDevice.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

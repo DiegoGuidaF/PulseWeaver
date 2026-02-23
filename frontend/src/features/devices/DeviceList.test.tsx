@@ -1,13 +1,101 @@
 import {describe, expect, it} from 'vitest';
 import {screen, waitFor} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import {delay} from 'msw';
 import {server} from '@/test/setup';
 import {renderWithProviders} from '@/test/utils';
 import {DeviceList} from './DeviceList';
 import {createMockDevice} from '@/test/mocks/data';
 import {handlers, responses} from "@/test/mocks/handlers.ts";
+import {TEST_TIMEOUTS} from '@/test/constants';
 
 describe('DeviceList', () => {
+
+    it('shows delete button for each device', async () => {
+        const mockDevices = [
+            createMockDevice({id: 1, name: 'Device One'}),
+        ];
+        server.use(handlers.devices.getDeviceListHandler(mockDevices));
+
+        renderWithProviders(<DeviceList/>);
+
+        await waitFor(() => {
+            expect(screen.getByText('Device One')).toBeInTheDocument();
+        });
+        expect(
+            screen.getByRole('button', {name: /delete device device one/i})
+        ).toBeInTheDocument();
+    });
+
+    it('opens confirm dialog when delete is clicked', async () => {
+        const user = userEvent.setup();
+        const mockDevices = [
+            createMockDevice({id: 1, name: 'To Delete'}),
+        ];
+        server.use(handlers.devices.getDeviceListHandler(mockDevices));
+
+        renderWithProviders(<DeviceList/>);
+
+        await waitFor(() => {
+            expect(screen.getByText('To Delete')).toBeInTheDocument();
+        });
+
+        await user.click(
+            screen.getByRole('button', {name: /delete device to delete/i})
+        );
+
+        expect(screen.getByRole('dialog', {name: /delete device/i})).toBeInTheDocument();
+        expect(
+            screen.getByText(/delete device "to delete"\?/i)
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText(/hidden from the list and cannot receive addresses/i)
+        ).toBeInTheDocument();
+    });
+
+    it('calls delete and removes device from list on confirm', async () => {
+        const user = userEvent.setup();
+        let listCallCount = 0;
+        server.use(
+            handlers.devices.getDeviceListHandler(undefined, async () => {
+                listCallCount++;
+                if (listCallCount === 1) {
+                    return responses.ok([
+                        createMockDevice({id: 1, name: 'To Delete'}),
+                    ]);
+                }
+                return responses.ok([]);
+            }),
+            handlers.devices.deleteDeviceHandler
+        );
+
+        renderWithProviders(<DeviceList/>);
+
+        await waitFor(() => {
+            expect(screen.getByText('To Delete')).toBeInTheDocument();
+        });
+
+        await user.click(
+            screen.getByRole('button', {name: /delete device to delete/i})
+        );
+        await user.click(
+            screen.getByRole('button', {name: /^delete$/i})
+        );
+
+        await waitFor(
+            () => {
+                expect(screen.getByText(/device deleted/i)).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.MEDIUM}
+        );
+
+        await waitFor(
+            () => {
+                expect(screen.getByText('No devices found.')).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.MEDIUM}
+        );
+    });
 
     it('shows loading skeleton initially', async () => {
         server.use(
