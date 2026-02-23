@@ -32,6 +32,7 @@ export function DeviceList() {
             <div className="flex justify-between border-b py-2">
               <Skeleton className="h-4 w-[100px]" />
               <Skeleton className="h-4 w-[100px]" />
+              <Skeleton className="h-4 w-[80px]" />
               <Skeleton className="h-4 w-[150px]" />
             </div>
             {Array.from({ length: 5 }).map((_, i) => (
@@ -58,6 +59,7 @@ export function DeviceList() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>ID</TableHead>
+              <TableHead>Key prefix</TableHead>
               <TableHead>Created At</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -65,7 +67,7 @@ export function DeviceList() {
           <TableBody>
             {devices?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-32 text-center">
+                <TableCell colSpan={5} className="h-32 text-center">
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <p className="text-muted-foreground">No devices found.</p>
                     <p className="text-sm text-gray-400">
@@ -80,6 +82,9 @@ export function DeviceList() {
                   <TableCell className="font-medium">{device.name}</TableCell>
                   <TableCell className="font-mono text-xs">
                     {device.id}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {device.api_key_prefix}
                   </TableCell>
                   <TableCell>
                     {format(new Date(device.created_at), "PP p")}

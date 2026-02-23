@@ -57,7 +57,7 @@ describe('CreateDeviceForm', () => {
         expect(screen.getByRole('button', {name: /creating/i})).toBeDisabled();
     });
 
-    it('successfully creates device and resets form', async () => {
+    it('successfully creates device, shows API key dialog, and resets form', async () => {
         const user = userEvent.setup();
 
         server.use(
@@ -72,12 +72,27 @@ describe('CreateDeviceForm', () => {
         await user.type(input, 'New Device');
         await user.click(submitButton);
 
-        // Wait for form to reset
+        // Dialog should open with the API key that is only returned on creation
+        const dialog = await screen.findByRole('dialog', {
+            name: /device created — save your api key/i,
+        });
+        expect(dialog).toBeInTheDocument();
+        expect(
+            screen.getByDisplayValue(
+                'test_api_key_12345678901234567890123456789012',
+            ),
+        ).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /copy/i })).toBeInTheDocument();
+
+        // Close the dialog
+        const closeButton = screen.getByRole('button', {name: /i've saved it/i});
+        await user.click(closeButton);
+
+        // After closing, the form should be visible and reset
         await waitFor(() => {
-            expect(input).toHaveValue('');
+            expect(screen.getByLabelText('New Device Name')).toHaveValue('');
         }, {timeout: TEST_TIMEOUTS.MEDIUM});
 
-        // Button should be back to normal state
         expect(screen.getByRole('button', {name: /add device/i})).toBeInTheDocument();
     });
 
