@@ -32,8 +32,8 @@ type ConfDB struct {
 }
 
 type ConfWhitelist struct {
-	FilePath      string        `env:"WHITELIST_FILE_PATH" envDefault:"./whitelist.txt"`
-	DebounceDelay time.Duration `env:"WHITELIST_DEBOUNCE_DELAY" envDefault:"5s"`
+	FilePath  string        `env:"WHITELIST_FILE_PATH" envDefault:"./whitelist.txt"`
+	RateLimit time.Duration `env:"WHITELIST_RATE_LIMIT" envDefault:"5s"`
 }
 
 func Load() (*Conf, error) {

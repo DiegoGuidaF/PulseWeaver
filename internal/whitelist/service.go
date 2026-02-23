@@ -19,20 +19,20 @@ type EnabledIPsProvider interface {
 }
 
 type Service struct {
-	provider      EnabledIPsProvider
-	filePath      string
-	debounceDelay time.Duration
-	eventChan     chan struct{} // buffered, size 1
+	provider  EnabledIPsProvider
+	filePath  string
+	rateLimit time.Duration
+	eventChan chan struct{} // buffered, size 1
 }
 
 // NewService creates a new whitelist service.
 // Receives the whole ConfWhitelist struct since it is domain-specific.
 func NewService(provider EnabledIPsProvider, conf config.ConfWhitelist) *Service {
 	return &Service{
-		provider:      provider,
-		filePath:      conf.FilePath,
-		debounceDelay: conf.DebounceDelay,
-		eventChan:     make(chan struct{}, 1), // buffer size 1 for debounce
+		provider:  provider,
+		filePath:  conf.FilePath,
+		rateLimit: conf.RateLimit,
+		eventChan: make(chan struct{}, 1), // buffer size 1 for rate limiting
 	}
 }
 
@@ -43,33 +43,51 @@ func (s *Service) Updates() chan<- struct{} {
 }
 
 // Run is the main event loop goroutine.
-// Uses channel-based timer with select for debouncing.
+// First signal (or signal after cooldown) runs Regenerate immediately.
+// Signals within rateLimit of last execution are deferred to a single run at lastExecution+rateLimit.
 // Runs until context is cancelled.
 func (s *Service) Run(ctx context.Context) error {
 	var timer *time.Timer
 	var timerC <-chan time.Time
-	logging.Enrich(ctx, slog.String(AttrKeyComponent, "whitelist"))
+	var lastExecution time.Time
+	ctx, _ = logging.Enrich(ctx, slog.String(AttrKeyComponent, "whitelist"))
+	logger := logging.FromCtx(ctx)
 
 	for {
 		select {
 		case <-s.eventChan:
-			// Stop existing timer if any
-			if timer != nil {
-				timer.Stop()
+			if lastExecution.IsZero() || time.Since(lastExecution) >= s.rateLimit {
+				// Outside cooldown: run immediately
+				if timer != nil {
+					timer.Stop()
+					timer = nil
+					timerC = nil
+				}
+				lastExecution = time.Now()
+
+				if err := s.Regenerate(ctx); err != nil {
+					logger.Error("whitelist regeneration failed", slog.Any(AttrKeyError, err))
+				}
+			} else {
+				// Inside cooldown: ensure single timer at lastExecution+rateLimit
+				if timer == nil {
+					fireAt := lastExecution.Add(s.rateLimit)
+					d := time.Until(fireAt)
+					if d <= 0 {
+						d = time.Millisecond
+					}
+					timer = time.NewTimer(d)
+					timerC = timer.C
+				}
 			}
-			// Reset timer for debounce delay
-			timer = time.NewTimer(s.debounceDelay)
-			timerC = timer.C
 		case <-timerC:
-			// Timer fired, regenerate whitelist
+			timer = nil
 			timerC = nil
-			logger := logging.FromCtx(ctx)
 			if err := s.Regenerate(ctx); err != nil {
-				// Error is logged inside Regenerate, continue listening
 				logger.Error("whitelist regeneration failed", slog.Any(AttrKeyError, err))
 			}
+			lastExecution = time.Now()
 		case <-ctx.Done():
-			// Clean shutdown: stop timer and exit
 			if timer != nil {
 				timer.Stop()
 			}
@@ -80,9 +98,10 @@ func (s *Service) Run(ctx context.Context) error {
 
 // generateContent generates the file content as bytes from a list of IP addresses.
 // Each IP is written on its own line with a trailing newline, matching the format written to disk.
+// Returns empty slice (not nil) when ips is empty.
 func generateContent(ips []string) []byte {
 	if len(ips) == 0 {
-		return nil
+		return []byte{}
 	}
 	// Preallocate capacity: estimate average IP length + newline per IP
 	// Using a conservative estimate of 15 chars per IP (IPv4) + 1 for newline
@@ -121,32 +140,28 @@ func (s *Service) hashExistingFile() ([32]byte, error) {
 
 // Regenerate queries enabled IPs from the provider and writes them to the whitelist file.
 // Uses hash-based comparison to skip writes when content hasn't changed.
-// Uses atomic file write pattern: temp file -> fsync -> rename.
-// Each IP is written on its own line with a trailing newline.
 func (s *Service) Regenerate(ctx context.Context) error {
 	logger := logging.FromCtx(ctx)
 
-	// Query enabled IPs from provider
 	ips, err := s.provider.GetEnabledUniqueIPs(ctx)
 	if err != nil {
 		logger.Error("failed to query enabled IPs", slog.Any(AttrKeyError, err))
 		return fmt.Errorf("query enabled IPs: %w", err)
 	}
 
-	// Generate new content and hash
 	newContent := generateContent(ips)
-	newHash := hashFileContent(newContent)
+	if len(newContent) == 0 {
+		logger.Warn("no enabled IPs found, writing empty whitelist")
+	}
 
-	// Get hash of existing file
+	newHash := hashFileContent(newContent)
 	existingHash, err := s.hashExistingFile()
 	if err != nil {
-		// Log error but proceed with write (safer to regenerate than skip)
 		logger.Warn("failed to read existing file for comparison, proceeding with write",
 			slog.String(AttrKeyWhitelistFile, s.filePath),
 			slog.Any(AttrKeyError, err),
 		)
 	} else if newHash == existingHash {
-		// Content unchanged - skip write
 		logger.Info("whitelist unchanged, skipping write",
 			slog.String(AttrKeyWhitelistFile, s.filePath),
 			slog.Int(AttrKeyIPCount, len(ips)),
@@ -154,57 +169,57 @@ func (s *Service) Regenerate(ctx context.Context) error {
 		return nil
 	}
 
-	// Prepare temp file path
+	if err := s.atomicWrite(ctx, newContent); err != nil {
+		return err
+	}
+
+	logger.Info("whitelist regenerated",
+		slog.String(AttrKeyWhitelistFile, s.filePath),
+		slog.Int(AttrKeyIPCount, len(ips)),
+	)
+	return nil
+}
+
+// atomicWrite writes content to the whitelist file using a temp file, fsync, and atomic rename.
+func (s *Service) atomicWrite(ctx context.Context, content []byte) error {
+	logger := logging.FromCtx(ctx)
 	tempPath := s.filePath + ".tmp"
 
-	// Create directory if it doesn't exist
 	dir := filepath.Dir(s.filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		logger.Error("failed to create directory", slog.String(AttrKeyWhitelistFile, dir), slog.Any(AttrKeyError, err))
 		return fmt.Errorf("create directory: %w", err)
 	}
 
-	// Open temp file for writing
 	file, err := os.Create(tempPath)
 	if err != nil {
 		logger.Error("failed to create temp file", slog.String(AttrKeyWhitelistFile, tempPath), slog.Any(AttrKeyError, err))
 		return fmt.Errorf("create temp file: %w", err)
 	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			logger.Error("failed to close temp file", slog.String(AttrKeyWhitelistFile, tempPath), slog.Any(AttrKeyError, err))
-		}
-	}()
 
-	// Write content to temp file
-	if _, err := file.Write(newContent); err != nil {
+	if _, err := file.Write(content); err != nil {
+		file.Close()
+		_ = os.Remove(tempPath)
 		logger.Error("failed to write content to temp file", slog.String(AttrKeyWhitelistFile, tempPath), slog.Any(AttrKeyError, err))
 		return fmt.Errorf("write content: %w", err)
 	}
 
-	// Sync to disk
 	if err := file.Sync(); err != nil {
+		file.Close()
+		_ = os.Remove(tempPath)
 		logger.Error("failed to sync temp file", slog.String(AttrKeyWhitelistFile, tempPath), slog.Any(AttrKeyError, err))
 		return fmt.Errorf("sync temp file: %w", err)
 	}
 
-	// Close file before rename
 	if err := file.Close(); err != nil {
 		logger.Error("failed to close temp file", slog.String(AttrKeyWhitelistFile, tempPath), slog.Any(AttrKeyError, err))
 		return fmt.Errorf("close temp file: %w", err)
 	}
 
-	// Atomic rename: temp file -> final file
 	if err := os.Rename(tempPath, s.filePath); err != nil {
 		logger.Error("failed to rename temp file", slog.String(AttrKeyWhitelistFile, s.filePath), slog.Any(AttrKeyError, err))
 		return fmt.Errorf("rename temp file: %w", err)
 	}
-
-	// Log success with IP count
-	logger.Info("whitelist regenerated",
-		slog.String(AttrKeyWhitelistFile, s.filePath),
-		slog.Int(AttrKeyIPCount, len(ips)),
-	)
 
 	return nil
 }
