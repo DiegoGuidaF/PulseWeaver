@@ -12,6 +12,7 @@ type repository interface {
 	GetDeviceByID(ctx context.Context, id DeviceID) (*Device, error)
 	CreateDevice(ctx context.Context, device *Device) (*Device, error)
 	GetDevices(ctx context.Context) ([]DeviceWithAPIKeyPrefix, error)
+	DeleteDevice(ctx context.Context, id DeviceID) error
 	CreateAddress(ctx context.Context, address *Address) (*Address, error)
 	GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip string) (*AddressWithStatus, error)
 	ListAddresses(ctx context.Context, deviceID DeviceID) ([]AddressWithStatus, error)
@@ -52,6 +53,23 @@ func (s *Service) GetDevices(ctx context.Context) ([]DeviceWithAPIKeyPrefix, err
 	return devices, nil
 }
 
+func (s *Service) DeleteDevice(ctx context.Context, deviceID DeviceID) error {
+	logger := logging.FromCtx(ctx)
+	logger.Debug("deleting device")
+
+	err := s.repo.DeleteDevice(ctx, deviceID)
+	if err != nil {
+		if errors.Is(err, ErrDeviceNotFound) {
+			logger.Warn("device not found")
+			return err
+		}
+		logger.Error("database error deleting device", slog.Any(AttrKeyError, err))
+		return err
+	}
+	logger.Info("device deleted", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
+	return nil
+}
+
 func (s *Service) CreateDevice(ctx context.Context, name string) (*DeviceWithAPIKeyPrefix, string, error) {
 	logger := logging.FromCtx(ctx)
 	logger.Debug("creating device")
@@ -63,6 +81,9 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*DeviceWithAPI
 		device := NewDevice(name)
 		device, err := tx.CreateDevice(ctx, device)
 		if err != nil {
+			if errors.Is(err, ErrDuplicateDeviceName) {
+				return err
+			}
 			logger.Error("database error creating device", slog.Any(AttrKeyError, err))
 			return err
 		}
@@ -236,7 +257,17 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, address
 	var disabledAddress *AddressWithStatus
 
 	err := s.repo.RunInTx(ctx, func(tx repository) error {
-		err := tx.CheckAddressOwnership(ctx, deviceID, addressID)
+		_, err := tx.GetDeviceByID(ctx, deviceID)
+		if err != nil {
+			if errors.Is(err, ErrDeviceNotFound) {
+				logger.Warn("device not found")
+				return err
+			}
+			logger.Error("database error fetching device", slog.Any(AttrKeyError, err))
+			return err
+		}
+
+		err = tx.CheckAddressOwnership(ctx, deviceID, addressID)
 		if err != nil {
 			if errors.Is(err, ErrAddressNotFound) || errors.Is(err, ErrAddressNotOwnedByDevice) {
 				logger.Warn("address not found or not owned by device")

@@ -7,15 +7,6 @@ import (
 	"github.com/matryer/is"
 )
 
-func TestNewDevice(t *testing.T) {
-	is := is.New(t)
-
-	device := NewDevice("test-device")
-	is.True(device != nil)
-	is.Equal(device.Name, "test-device")
-	is.True(!device.CreatedAt.IsZero())
-}
-
 func TestNewAddress_ValidIPv4(t *testing.T) {
 	tests := []struct {
 		name      string

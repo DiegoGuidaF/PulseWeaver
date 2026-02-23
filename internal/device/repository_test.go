@@ -2,6 +2,7 @@ package device
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -115,9 +116,136 @@ func TestRepository_CreateDevice_DuplicateName(t *testing.T) {
 	_, err := repo.CreateDevice(ctx, NewDevice("duplicate-name"))
 	is.NoErr(err)
 
-	// Try to create device with same name
+	// Try to create device with same name (active unique index)
 	_, err = repo.CreateDevice(ctx, NewDevice("duplicate-name"))
-	is.True(err != nil) // Should error (UNIQUE constraint)
+	is.True(err != nil)
+	is.True(errors.Is(err, ErrDuplicateDeviceName))
+}
+
+func TestRepository_CreateDevice_SameNameAfterSoftDelete(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	// Create device and give it an API key so it appears in GetDevices
+	device := createTestDeviceWithAPIKey(t, repo, ctx, "reused-name")
+	// Soft-delete it
+	err := repo.DeleteDevice(ctx, device.ID)
+	is.NoErr(err)
+
+	// Same name is allowed again (partial unique index only applies to deleted_at IS NULL)
+	second, err := repo.CreateDevice(ctx, NewDevice("reused-name"))
+	is.NoErr(err)
+	is.True(second.ID != device.ID)
+	is.Equal(second.Name, "reused-name")
+}
+
+func TestRepository_DeleteDevice_Success(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	device := createTestDevice(t, repo, ctx, "to-delete")
+	err := repo.DeleteDevice(ctx, device.ID)
+	is.NoErr(err)
+
+	// Deleted device is hidden from GetDeviceByID
+	_, err = repo.GetDeviceByID(ctx, device.ID)
+	is.True(err != nil)
+	is.Equal(err, ErrDeviceNotFound)
+}
+
+func TestRepository_DeleteDevice_NotFound(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	err := repo.DeleteDevice(ctx, DeviceID(99999))
+	is.True(err != nil)
+	is.Equal(err, ErrDeviceNotFound)
+}
+
+func TestRepository_DeleteDevice_AlreadyDeleted(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	device := createTestDevice(t, repo, ctx, "deleted-once")
+	err := repo.DeleteDevice(ctx, device.ID)
+	is.NoErr(err)
+
+	// Second delete returns not found (idempotent 404)
+	err = repo.DeleteDevice(ctx, device.ID)
+	is.True(err != nil)
+	is.Equal(err, ErrDeviceNotFound)
+}
+
+func TestRepository_GetDeviceByID_HidesDeleted(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	device := createTestDevice(t, repo, ctx, "hidden-after-delete")
+	_, err := repo.GetDeviceByID(ctx, device.ID)
+	is.NoErr(err)
+
+	err = repo.DeleteDevice(ctx, device.ID)
+	is.NoErr(err)
+
+	_, err = repo.GetDeviceByID(ctx, device.ID)
+	is.True(err != nil)
+	is.Equal(err, ErrDeviceNotFound)
+}
+
+func TestRepository_GetDevices_HidesDeleted(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	createTestDeviceWithAPIKey(t, repo, ctx, "device-1")
+	device2 := createTestDeviceWithAPIKey(t, repo, ctx, "device-2")
+
+	devices, err := repo.GetDevices(ctx)
+	is.NoErr(err)
+	is.Equal(len(devices), 2)
+
+	err = repo.DeleteDevice(ctx, device2.ID)
+	is.NoErr(err)
+
+	devices, err = repo.GetDevices(ctx)
+	is.NoErr(err)
+	is.Equal(len(devices), 1)
+	is.Equal(devices[0].Name, "device-1")
+}
+
+func TestRepository_GetDeviceByAPIKeyHash_HidesDeleted(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	device := createTestDevice(t, repo, ctx, "apikey-device")
+	apiKey, rawKey, err := NewAPIKey(device.ID)
+	is.NoErr(err)
+	_, err = repo.CreateDeviceAPIKey(ctx, apiKey)
+	is.NoErr(err)
+
+	keyHash := hashAPIKey(rawKey)
+	_, err = repo.GetDeviceByAPIKeyHash(ctx, keyHash)
+	is.NoErr(err)
+
+	err = repo.DeleteDevice(ctx, device.ID)
+	is.NoErr(err)
+
+	_, err = repo.GetDeviceByAPIKeyHash(ctx, keyHash)
+	is.True(err != nil)
+	is.Equal(err, ErrDeviceNotFound)
 }
 
 func TestRepository_DatabaseIsolation(t *testing.T) {

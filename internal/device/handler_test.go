@@ -239,3 +239,62 @@ func TestHandler_DeviceHeartbeat_404_DeviceNotFound(t *testing.T) {
 	testServer.HTTPServer.ServeHTTP(heartbeatRes, heartbeatReq)
 	is.Equal(heartbeatRes.Code, http.StatusNotFound)
 }
+
+func TestHandler_DeleteDevice_204(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	device, _, err := testServer.DeviceService.CreateDevice(t.Context(), "to-delete")
+	is.NoErr(err)
+
+	deleteURL := fmt.Sprintf("/api/v1/devices/%d", device.ID)
+	deleteReq := httptest.NewRequest(http.MethodDelete, deleteURL, nil)
+	deleteReq.AddCookie(sessionCookie)
+	deleteRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(deleteRes, deleteReq)
+	is.Equal(deleteRes.Code, http.StatusNoContent)
+
+	// Device no longer in list
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
+	listReq.AddCookie(sessionCookie)
+	listRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(listRes, listReq)
+	is.Equal(listRes.Code, http.StatusOK)
+	var devices []httpapi.Device
+	err = json.NewDecoder(listRes.Body).Decode(&devices)
+	is.NoErr(err)
+	is.Equal(len(devices), 0)
+}
+
+func TestHandler_DeleteDevice_404(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	deleteURL := fmt.Sprintf("/api/v1/devices/%d", 99999)
+	deleteReq := httptest.NewRequest(http.MethodDelete, deleteURL, nil)
+	deleteReq.AddCookie(sessionCookie)
+	deleteRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(deleteRes, deleteReq)
+	is.Equal(deleteRes.Code, http.StatusNotFound)
+}
+
+func TestHandler_CreateDevice_409_DuplicateName(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	// Create first device via service so name is taken
+	_, _, err := testServer.DeviceService.CreateDevice(t.Context(), "dup-name")
+	is.NoErr(err)
+
+	// POST create with same name via HTTP (tests handler 409)
+	createBody, _ := json.Marshal(map[string]string{"name": "dup-name"})
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/devices", bytes.NewReader(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.AddCookie(sessionCookie)
+	createRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(createRes, createReq)
+	is.Equal(createRes.Code, http.StatusConflict)
+}

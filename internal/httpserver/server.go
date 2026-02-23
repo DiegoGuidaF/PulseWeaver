@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"strings"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
@@ -22,7 +23,7 @@ type DeviceHandler = device.HTTPHandler
 type AuthHandler = auth.HTTPHandler
 
 func NewServerFromConfig(deviceHandler *DeviceHandler, authHandler *AuthHandler, logger *slog.Logger, conf config.ConfServer) (http.Handler, error) {
-	trustedProxy, err := ParseTrustedProxy(conf.TrustedProxy)
+	trustedProxy, err := parseTrustedProxy(conf.TrustedProxy)
 	if err != nil {
 		return nil, fmt.Errorf("parse trusted proxy: %w", err)
 	}
@@ -127,4 +128,20 @@ func createResponseErrorHandler() func(http.ResponseWriter, *http.Request, error
 			http.Error(w, "failed to encode response", http.StatusInternalServerError)
 		}
 	}
+}
+
+// ParseTrustedProxy parses a single plain IP address (IPv4 or IPv6).
+// Returns an error if the IP is invalid, contains CIDR notation, or contains commas.
+func parseTrustedProxy(s string) (netip.Addr, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return netip.Addr{}, nil
+	}
+
+	addr, err := netip.ParseAddr(s)
+	if err != nil {
+		return netip.Addr{}, fmt.Errorf("TRUSTED_PROXY must be a single plain IP address (no CIDR notation, no comma-separated lists). Got: '%s'", s)
+	}
+
+	return addr, nil
 }

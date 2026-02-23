@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -32,7 +33,7 @@ func NewRepository(db *sqlx.DB) *Repository {
 func (r *Repository) GetDeviceByID(ctx context.Context, id DeviceID) (*Device, error) {
 	device := &Device{}
 
-	query := `SELECT * FROM devices WHERE id = ?`
+	query := `SELECT * FROM devices WHERE id = ? AND deleted_at IS NULL`
 
 	err := r.db.GetContext(ctx, device, query, id)
 	if err != nil {
@@ -47,12 +48,15 @@ func (r *Repository) GetDeviceByID(ctx context.Context, id DeviceID) (*Device, e
 
 func (r *Repository) CreateDevice(ctx context.Context, device *Device) (*Device, error) {
 	query := `
-		INSERT INTO devices (name, created_at)
-		VALUES (?, ?) returning *
+		INSERT INTO devices (name, created_at, deleted_at)
+		VALUES (?, ?, ?) returning *
 	`
 
-	err := r.db.GetContext(ctx, device, query, device.Name, device.CreatedAt)
+	err := r.db.GetContext(ctx, device, query, device.Name, device.CreatedAt, device.DeletedAt)
 	if err != nil {
+		if domainErr, ok := mapDeviceNameUniqueConstraintError(err); ok {
+			return nil, domainErr
+		}
 		return nil, fmt.Errorf("insert device: %w", err)
 	}
 
@@ -66,6 +70,7 @@ func (r *Repository) GetDevices(ctx context.Context) ([]DeviceWithAPIKeyPrefix, 
 		SELECT d.id, d.name, d.created_at, k.key_prefix
 		FROM devices d
 		INNER JOIN device_api_keys k ON d.id = k.device_id
+		WHERE d.deleted_at IS NULL
 		ORDER BY d.created_at DESC
 	`
 
@@ -216,7 +221,7 @@ func (r *Repository) GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) 
 	query := `
 		SELECT d.* FROM devices d
 		INNER JOIN device_api_keys k ON d.id = k.device_id
-		WHERE k.key_hash = ?
+		WHERE k.key_hash = ? AND d.deleted_at IS NULL
 	`
 
 	err := r.db.GetContext(ctx, device, query, keyHash)
@@ -228,6 +233,30 @@ func (r *Repository) GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) 
 	}
 
 	return device, nil
+}
+
+func mapDeviceNameUniqueConstraintError(err error) (error, bool) {
+	message := strings.ToLower(err.Error())
+	if !strings.Contains(message, "unique constraint failed") {
+		return nil, false
+	}
+	if strings.Contains(message, "name") || strings.Contains(message, "idx_devices_name_active") {
+		return ErrDuplicateDeviceName, true
+	}
+	return nil, false
+}
+
+func (r *Repository) DeleteDevice(ctx context.Context, deviceID DeviceID) error {
+	query := `UPDATE devices SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`
+	result, err := r.db.ExecContext(ctx, query, time.Now().UTC(), deviceID)
+	if err != nil {
+		return fmt.Errorf("delete device: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return ErrDeviceNotFound
+	}
+	return nil
 }
 
 func (r *Repository) GetEnabledUniqueIPs(ctx context.Context) ([]string, error) {

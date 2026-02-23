@@ -46,8 +46,14 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 
 	device, rawAPIKey, err := h.service.CreateDevice(ctx, deviceName)
 	if err != nil {
-		logger.Error("failed to create device", slog.Any(AttrKeyError, err))
-		return httpapi.CreateDevice500JSONResponse(errorMsgResponse("Failed to create device")), nil
+		switch {
+		case errors.Is(err, ErrDuplicateDeviceName):
+			logger.Warn("duplicate device name")
+			return httpapi.CreateDevice409JSONResponse(errorMsgResponse("Device name already in use")), nil
+		default:
+			logger.Error("failed to create device", slog.Any(AttrKeyError, err))
+			return httpapi.CreateDevice500JSONResponse(errorMsgResponse("Failed to create device")), nil
+		}
 	}
 
 	apiDevice := toDeviceResponse(device)
@@ -55,6 +61,28 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 		Device: apiDevice,
 		ApiKey: rawAPIKey,
 	}), nil
+}
+
+func (h *HTTPHandler) DeleteDevice(ctx context.Context, request httpapi.DeleteDeviceRequestObject) (httpapi.DeleteDeviceResponseObject, error) {
+	deviceID := DeviceID(request.DeviceId)
+	ctx, logger := logging.Enrich(ctx,
+		slog.String(AttrKeyOperation, "DeleteDevice"),
+		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
+	)
+
+	err := h.service.DeleteDevice(ctx, deviceID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrDeviceNotFound):
+			logger.Warn("device not found")
+			return httpapi.DeleteDevice404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
+		default:
+			logger.Error("failed to delete device", slog.Any(AttrKeyError, err))
+			return httpapi.DeleteDevice500JSONResponse(errorMsgResponse("Failed to delete device")), nil
+		}
+	}
+
+	return httpapi.DeleteDevice204Response{}, nil
 }
 
 func (h *HTTPHandler) GetDeviceAddresses(ctx context.Context, request httpapi.GetDeviceAddressesRequestObject) (httpapi.GetDeviceAddressesResponseObject, error) {
@@ -131,12 +159,17 @@ func (h *HTTPHandler) DisableAddress(ctx context.Context, request httpapi.Disabl
 
 	address, err := h.service.DisableAddress(ctx, deviceID, addressID)
 	if err != nil {
-		if errors.Is(err, ErrAddressNotFound) || errors.Is(err, ErrAddressNotOwnedByDevice) {
+		switch {
+		case errors.Is(err, ErrDeviceNotFound):
+			logger.Warn("device not found")
+			return httpapi.DisableAddress404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
+		case errors.Is(err, ErrAddressNotFound) || errors.Is(err, ErrAddressNotOwnedByDevice):
 			logger.Warn("address not found or not owned by device")
 			return httpapi.DisableAddress404JSONResponse(errorMsgResponse(fmt.Sprintf("Address id %s for device id %s not found or already disabled", addressID, deviceID))), nil
+		default:
+			logger.Error("failed to disable address", slog.Any(AttrKeyError, err))
+			return httpapi.DisableAddress500JSONResponse(errorMsgResponse("Failed to disable address")), nil
 		}
-		logger.Error("failed to disable address", slog.Any(AttrKeyError, err))
-		return httpapi.DisableAddress500JSONResponse(errorMsgResponse("Failed to disable address")), nil
 	}
 
 	return httpapi.DisableAddress200JSONResponse(toAddressResponse(address)), nil

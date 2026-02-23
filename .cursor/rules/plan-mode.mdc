@@ -1,0 +1,20 @@
+---
+description: Plan mode behavior — no edits or execution; only research and plan/TODO updates
+alwaysApply: true
+---
+
+# Plan Mode
+
+When the user is in **Plan mode**, the agent must **not**:
+
+- Make any file or code edits
+- Run non-readonly tools (e.g. run tests, run builds, run terminals for execution, apply edits, write files)
+- Execute implementation steps from a plan
+
+**Allowed in Plan mode:**
+
+- Gather information (read files, search codebase, list dirs)
+- Answer questions and explain
+- Update the plan document (including adding or editing TODOs)
+
+Implementation (code/config changes, running tests, commits, etc.) must wait until the user confirms the plan or explicitly asks to execute it.

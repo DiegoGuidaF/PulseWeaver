@@ -317,6 +317,63 @@ func TestService_GetDevices_ReturnsListWithPrefix(t *testing.T) {
 	}
 }
 
+func TestService_DeleteDevice_Success(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	mockRepo.devices[DeviceID(1)] = &Device{ID: DeviceID(1), Name: "to-delete"}
+	service := NewService(mockRepo)
+
+	err := service.DeleteDevice(ctx, DeviceID(1))
+	is.NoErr(err)
+	// Mock removes from map
+	_, ok := mockRepo.devices[DeviceID(1)]
+	is.True(!ok)
+}
+
+func TestService_DeleteDevice_NotFound(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo)
+
+	err := service.DeleteDevice(ctx, DeviceID(999))
+	is.True(err != nil)
+	is.True(errors.Is(err, ErrDeviceNotFound))
+}
+
+func TestService_CreateDevice_DuplicateName(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	mockRepo.createDeviceErr = ErrDuplicateDeviceName
+	service := NewService(mockRepo)
+
+	device, rawKey, err := service.CreateDevice(ctx, "dup-name")
+	is.True(err != nil)
+	is.True(errors.Is(err, ErrDuplicateDeviceName))
+	is.True(device == nil)
+	is.True(rawKey == "")
+}
+
+func TestService_DisableAddress_DeviceDeleted(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	// Device not in map simulates deleted device; GetDeviceByID returns ErrDeviceNotFound
+	mockRepo.getDeviceByIDErr = ErrDeviceNotFound
+	service := NewService(mockRepo)
+
+	addr, err := service.DisableAddress(ctx, DeviceID(1), AddressID(1))
+	is.True(err != nil)
+	is.True(errors.Is(err, ErrDeviceNotFound))
+	is.True(addr == nil)
+}
+
 // mockRepository is a hand-rolled mock implementation of DeviceRepository
 type mockRepository struct {
 	devices             map[DeviceID]*Device
@@ -325,6 +382,7 @@ type mockRepository struct {
 	deviceByIP          map[string]*AddressWithStatus // key: "deviceID:ip"
 	apiKeysByHash       map[string]*Device            // keyHash -> device (for GetDeviceByAPIKeyHash)
 	getDeviceByIDErr    error
+	createDeviceErr     error
 	createAddressErr    error
 	getAddressByIPErr   error
 	enableAddressErr    error
@@ -360,6 +418,9 @@ func (m *mockRepository) GetDeviceByID(ctx context.Context, id DeviceID) (*Devic
 }
 
 func (m *mockRepository) CreateDevice(ctx context.Context, device *Device) (*Device, error) {
+	if m.createDeviceErr != nil {
+		return nil, m.createDeviceErr
+	}
 	device.ID = DeviceID(len(m.devices) + 1)
 	m.devices[device.ID] = device
 	return device, nil
@@ -371,6 +432,20 @@ func (m *mockRepository) GetDevices(ctx context.Context) ([]DeviceWithAPIKeyPref
 		devices = append(devices, DeviceWithAPIKeyPrefix{Device: *d, KeyPrefix: "wdk_xxxxxxxx"})
 	}
 	return devices, nil
+}
+
+func (m *mockRepository) DeleteDevice(ctx context.Context, id DeviceID) error {
+	if _, ok := m.devices[id]; !ok {
+		return ErrDeviceNotFound
+	}
+	delete(m.devices, id)
+	for k, v := range m.apiKeysByHash {
+		if v.ID == id {
+			delete(m.apiKeysByHash, k)
+			break
+		}
+	}
+	return nil
 }
 
 func (m *mockRepository) CreateDeviceAPIKey(ctx context.Context, apiKey *APIKey) (*APIKey, error) {
