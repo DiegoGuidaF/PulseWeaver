@@ -103,18 +103,18 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		logger.Warn("failed to generate whitelist on startup", slog.Any("error", err))
 	}
 
-	// Start whitelist service listener
-	go func() {
-		if err := whitelistService.Run(ctx); err != nil {
-			logger.Error("whitelist service exited with error", slog.Any("error", err))
-		}
-	}()
-
 	handler, err := httpserver.NewServerFromConfig(deviceHandler, authHandler, logger, conf.Server)
 	if err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("create http server: %w", err)
 	}
+
+	// Start whitelist service listener (after HTTP server init so we don't leak a goroutine on init failure)
+	go func() {
+		if err := whitelistService.Run(ctx); err != nil {
+			logger.Error("whitelist service exited with error", slog.Any("error", err))
+		}
+	}()
 
 	return &App{
 		Config:           conf,

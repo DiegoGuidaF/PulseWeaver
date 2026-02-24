@@ -6,14 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
-// StartAndWait starts the HTTP server and waits for it to shut down gracefully.
-// It handles signal listening (SIGINT, SIGTERM) and implements graceful shutdown
-// with the configured timeout.
+// StartAndWait starts the HTTP server in the background.
+// It blocks until a server error occurs or the provided context is cancelled,
+// at which point it performs a graceful shutdown with the configured timeout.
 func StartAndWait(ctx context.Context, handler http.Handler, cfg *ServerConfig, logger *slog.Logger) error {
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
@@ -34,15 +31,10 @@ func StartAndWait(ctx context.Context, handler http.Handler, cfg *ServerConfig, 
 		}
 	}()
 
-	// Graceful Shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-
+	// Graceful Shutdown: wait for server error or context cancellation
 	select {
 	case err := <-serverErrors:
 		return fmt.Errorf("server startup error: %w", err)
-	case sig := <-quit:
-		logger.Info("shutdown signal received, shutting down server", slog.String("signal", sig.String()))
 	case <-ctx.Done():
 		logger.Info("shutting down server (context cancelled)")
 	}

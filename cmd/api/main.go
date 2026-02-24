@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/app"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpserver"
@@ -33,7 +35,9 @@ func run(ctx context.Context) (*slog.Logger, error) {
 }
 
 func main() {
-	ctx := context.Background()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	logger, err := run(ctx)
 	if err != nil {
 		// If logger hasn't been instantiated do it now
