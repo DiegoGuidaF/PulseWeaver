@@ -33,6 +33,7 @@ lint:
 
 # Run the linter and automatically fix what it can (gofmt, goimports, etc.).
 fix:
+	go fmt ./...
 	go tool -modfile=tools/go.mod golangci-lint run --fix ./...
 
 migrate-up:

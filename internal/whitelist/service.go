@@ -198,14 +198,14 @@ func (s *Service) atomicWrite(ctx context.Context, content []byte) error {
 	}
 
 	if _, err := file.Write(content); err != nil {
-		file.Close()
+		_ = file.Close()
 		_ = os.Remove(tempPath)
 		logger.Error("failed to write content to temp file", slog.String(AttrKeyWhitelistFile, tempPath), slog.Any(AttrKeyError, err))
 		return fmt.Errorf("write content: %w", err)
 	}
 
 	if err := file.Sync(); err != nil {
-		file.Close()
+		_ = file.Close()
 		_ = os.Remove(tempPath)
 		logger.Error("failed to sync temp file", slog.String(AttrKeyWhitelistFile, tempPath), slog.Any(AttrKeyError, err))
 		return fmt.Errorf("sync temp file: %w", err)
