@@ -1,2 +1,2 @@
-DROP VIEW address_with_status;
+DROP VIEW IF EXISTS address_with_status;
 

@@ -6,23 +6,42 @@ import (
 	"time"
 )
 
+// Address maps the current enabled/disabled state and metadata
+// for an address, joining data from addresses and address_current_state.
 type Address struct {
-	ID        AddressID `db:"id"`
-	DeviceID  DeviceID  `db:"device_id"`
-	IP        string    `db:"ip"`
-	CreatedAt time.Time `db:"created_at"`
+	ID        AddressID    `db:"id"`
+	DeviceID  DeviceID     `db:"device_id"`
+	IP        string       `db:"ip"`
+	Status    bool         `db:"is_enabled"`
+	Source    StatusSource `db:"source"`
+	ExpiresAt *time.Time   `db:"expires_at"`
+	CreatedAt time.Time    `db:"created_at"`
+	UpdatedAt time.Time    `db:"updated_at"`
 }
 
-func NewAddress(deviceID DeviceID, ipAddress string) (*Address, error) {
+type StatusSource string
+
+const (
+	StatusSourceHeartbeat StatusSource = "heartbeat"
+	StatusSourceManual    StatusSource = "manual"
+	StatusSourceExpiry    StatusSource = "expiry"
+)
+
+// CreateAddressParams holds only what is necessary to create an address.
+type CreateAddressParams struct {
+	DeviceID DeviceID
+	IP       string
+}
+
+func NewCreateAddressParams(deviceID DeviceID, ipAddress string) (*CreateAddressParams, error) {
 	parsedIP, err := parseAndValidateIP(ipAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Address{
-		DeviceID:  deviceID,
-		IP:        parsedIP,
-		CreatedAt: time.Now().UTC(),
+	return &CreateAddressParams{
+		DeviceID: deviceID,
+		IP:       parsedIP,
 	}, nil
 }
 

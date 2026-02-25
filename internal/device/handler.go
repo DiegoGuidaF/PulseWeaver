@@ -124,7 +124,7 @@ func (h *HTTPHandler) AddAddress(ctx context.Context, request httpapi.AddAddress
 		slog.String(AttrKeyAddressIP, ipAddress),
 	)
 
-	addressWithIP, wasCreated, err := h.service.AssignAddress(ctx, deviceID, ipAddress)
+	addressWithIP, wasCreated, err := h.service.AssignAddress(ctx, deviceID, ipAddress, StatusSourceManual)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
@@ -190,7 +190,7 @@ func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request httpapi.Devic
 	}
 	ctx, logger = logging.Enrich(ctx, slog.String(AttrKeyClientIP, clientIP))
 
-	address, isNew, err := h.service.AssignAddress(ctx, deviceID, clientIP)
+	address, wasCreated, err := h.service.AssignAddress(ctx, deviceID, clientIP, StatusSourceHeartbeat)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
@@ -206,7 +206,7 @@ func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request httpapi.Devic
 	}
 
 	logger.Info("device heartbeat successful")
-	if isNew {
+	if wasCreated {
 		return httpapi.DeviceHeartbeat201JSONResponse(toAddressResponse(address)), nil
 	}
 
@@ -240,7 +240,7 @@ func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, request httpa
 	}
 	ctx, logger = logging.Enrich(ctx, slog.String(AttrKeyAddressIP, ipToUse))
 
-	address, isNew, err := h.service.AssignAddress(ctx, deviceID, ipToUse)
+	address, wasCreated, err := h.service.AssignAddress(ctx, deviceID, ipToUse, StatusSourceHeartbeat)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
@@ -256,7 +256,7 @@ func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, request httpa
 	}
 	logger.Info("apikey heartbeat successful")
 
-	if isNew {
+	if wasCreated {
 		return httpapi.DeviceHeartbeatByAPIKey201JSONResponse(toAddressResponse(address)), nil
 	}
 
@@ -266,7 +266,7 @@ func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, request httpa
 func (h *HTTPHandler) APIKeyAuthenticator() APIKeyAuthenticator {
 	return h.service
 }
-func toDeviceResponse(d *DeviceWithAPIKeyPrefix) httpapi.Device {
+func toDeviceResponse(d *Device) httpapi.Device {
 	return httpapi.Device{
 		Id:           d.ID.Int64(),
 		Name:         d.Name,
@@ -275,14 +275,14 @@ func toDeviceResponse(d *DeviceWithAPIKeyPrefix) httpapi.Device {
 	}
 }
 
-func toAddressResponse(a *AddressWithStatus) httpapi.Address {
+func toAddressResponse(a *Address) httpapi.Address {
 	return httpapi.Address{
 		Id:        a.ID.Int64(),
 		DeviceId:  a.DeviceID.Int64(),
 		Ip:        a.IP,
 		Status:    a.Status,
 		CreatedAt: a.CreatedAt,
-		UpdatedAt: a.UpdatedAt.Time,
+		UpdatedAt: a.UpdatedAt,
 	}
 }
 

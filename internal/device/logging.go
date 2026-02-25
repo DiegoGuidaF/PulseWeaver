@@ -12,7 +12,7 @@ const (
 	AttrKeyAddressIP  = "address_ip"
 	AttrKeyClientIP   = "client_ip"
 	AttrKeyCount      = "count"
-	AttrKeyCreated    = "created"
+	AttrKeyWasCreated = "was_created"
 	AttrKeyDeviceID   = "device_id"
 	AttrKeyDeviceName = "device_name"
 )

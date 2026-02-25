@@ -75,6 +75,9 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	logger.Info("database initialized and connected successfully")
 
 	// ---- Dependency Initialization
+	addressEvents := make(chan device.AddressEvent, 500)
+	addressChangeSignals := make(chan struct{}, 500)
+
 	// Authentication
 	authRepo := auth.NewRepository(db.DB())
 	authService := auth.NewService(authRepo)
@@ -82,7 +85,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Device & addresses management
 	deviceRepo := device.NewRepository(db.DB())
-	deviceService := device.NewService(deviceRepo)
+	deviceService := device.NewService(deviceRepo, addressEvents, addressChangeSignals)
 	deviceHandler := device.NewHandler(deviceService)
 
 	// Whitelist generation
@@ -109,9 +112,9 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		return nil, fmt.Errorf("create http server: %w", err)
 	}
 
-	// Start whitelist service listener (after HTTP server init so we don't leak a goroutine on init failure)
+	// Start whitelist generation listener
 	go func() {
-		if err := whitelistService.Run(ctx); err != nil {
+		if err := whitelistService.RunListener(ctx, addressChangeSignals); err != nil {
 			logger.Error("whitelist service exited with error", slog.Any("error", err))
 		}
 	}()

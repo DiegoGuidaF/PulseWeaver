@@ -174,7 +174,7 @@ func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIp 
 	var wasCreated bool
 
 	err = s.repo.RunInTx(ctx, func(tx DeviceRepository) error {
-		_, err := tx.GetDeviceByID(ctx, deviceID)
+		_, err := tx.GetDevice(ctx, deviceID)
 		if err != nil {
 			if errors.Is(err, ErrDeviceNotFound) {
 				logger.Warn("device not found")

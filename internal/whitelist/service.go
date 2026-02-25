@@ -22,7 +22,6 @@ type Service struct {
 	provider  EnabledIPsProvider
 	filePath  string
 	rateLimit time.Duration
-	eventChan chan struct{} // buffered, size 1
 }
 
 // NewService creates a new whitelist service.
@@ -32,21 +31,14 @@ func NewService(provider EnabledIPsProvider, conf config.ConfWhitelist) *Service
 		provider:  provider,
 		filePath:  conf.FilePath,
 		rateLimit: conf.RateLimit,
-		eventChan: make(chan struct{}, 1), // buffer size 1 for rate limiting
 	}
 }
 
-// Updates returns the write-only version of the event channel.
-// Called during wiring to give the device service a channel to send on.
-func (s *Service) Updates() chan<- struct{} {
-	return s.eventChan
-}
-
-// Run is the main event loop goroutine.
+// RunListener is the main event loop goroutine.
 // First signal (or signal after cooldown) runs Regenerate immediately.
 // Signals within rateLimit of last execution are deferred to a single run at lastExecution+rateLimit.
 // Runs until context is cancelled.
-func (s *Service) Run(ctx context.Context) error {
+func (s *Service) RunListener(ctx context.Context, deviceEvents <-chan struct{}) error {
 	var timer *time.Timer
 	var timerC <-chan time.Time
 	var lastExecution time.Time
@@ -55,7 +47,7 @@ func (s *Service) Run(ctx context.Context) error {
 
 	for {
 		select {
-		case <-s.eventChan:
+		case <-deviceEvents:
 			if lastExecution.IsZero() || time.Since(lastExecution) >= s.rateLimit {
 				// Outside cooldown: run immediately
 				if timer != nil {
