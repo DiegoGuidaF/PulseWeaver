@@ -88,6 +88,9 @@ func (r *Repository) CreateDevice(ctx context.Context, params *CreateDeviceParam
 		}
 
 		createdDevice, err = tx.GetDevice(ctx, createdDeviceID)
+		if err != nil {
+			return err
+		}
 
 		return nil
 	})
@@ -429,7 +432,7 @@ func (r *Repository) runInTx(ctx context.Context, fn func(*Repository) error) er
 		db:     tx,  // All queries using txRepo.dbtmp will now use this transaction
 	}
 
-	// RunListener the business logic with the transactional repo
+	// Run the business logic with the transactional repo
 	if err := fn(txRepo); err != nil {
 		return err
 	}
@@ -444,11 +447,4 @@ func (r *Repository) RunInTx(ctx context.Context, fn func(repository) error) err
 	return r.runInTx(ctx, func(repo *Repository) error {
 		return fn(repo)
 	})
-}
-
-type dbDevice struct {
-	ID        DeviceID   `db:"id" `
-	Name      string     `db:"name" `
-	CreatedAt time.Time  `db:"created_at" `
-	DeletedAt *time.Time `db:"deleted_at" `
 }

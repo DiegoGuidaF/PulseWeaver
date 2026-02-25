@@ -83,7 +83,7 @@ func TestService_Run_FirstSignalWritesImmediately(t *testing.T) {
 	mockProvider := newMockProvider()
 	mockProvider.ips = []string{"192.168.1.1"}
 
-	filePath, _, updatesChan, cancel, done := newRunningService(t, 200*time.Millisecond, mockProvider)
+	filePath, updatesChan, cancel, done := newRunningService(t, 200*time.Millisecond, mockProvider)
 
 	updatesChan <- struct{}{}
 
@@ -111,7 +111,7 @@ func TestService_Run_DebouncesEvents(t *testing.T) {
 	mockProvider := newMockProvider()
 	mockProvider.ips = []string{"192.168.1.1"}
 
-	_, _, updatesChan, cancel, done := newRunningService(t, 50*time.Millisecond, mockProvider)
+	_, updatesChan, cancel, done := newRunningService(t, 50*time.Millisecond, mockProvider)
 
 	updatesChan <- struct{}{}
 	mockProvider.waitForCall(t)
@@ -142,7 +142,7 @@ func TestService_Run_ContextCancellationExitsCleanly(t *testing.T) {
 	mockProvider := newMockProvider()
 	mockProvider.ips = []string{"192.168.1.1"}
 
-	_, _, _, cancel, done := newRunningService(t, 100*time.Millisecond, mockProvider)
+	_, _, cancel, done := newRunningService(t, 100*time.Millisecond, mockProvider)
 
 	cancel()
 
@@ -159,7 +159,7 @@ func TestService_Run_HandlesMultipleRegenerations(t *testing.T) {
 	mockProvider := newMockProvider()
 	mockProvider.ips = []string{"192.168.1.1"}
 
-	_, _, updatesChan, cancel, done := newRunningService(t, 50*time.Millisecond, mockProvider)
+	_, updatesChan, cancel, done := newRunningService(t, 50*time.Millisecond, mockProvider)
 
 	updatesChan <- struct{}{}
 	mockProvider.waitForCall(t)
@@ -185,7 +185,7 @@ func TestService_Run_ContinuesOnRegenerateError(t *testing.T) {
 		return []string{"192.168.1.1"}, nil
 	}
 
-	_, _, updatesChan, cancel, done := newRunningService(t, 20*time.Millisecond, mockProvider)
+	_, updatesChan, cancel, done := newRunningService(t, 20*time.Millisecond, mockProvider)
 
 	updatesChan <- struct{}{}
 	mockProvider.waitForCall(t)
@@ -261,14 +261,14 @@ func setupService(t *testing.T, rateLimit time.Duration, provider *mockEnabledIP
 // newRunningService encapsulates common setup for tests exercising Service.RunListener.
 // It builds upon setupService by creating a signal channel and launching RunListener in a background goroutine.
 // Returns the channel so tests can send signals
-func newRunningService(t *testing.T, rateLimit time.Duration, provider *mockEnabledIPsProvider) (filePath string, service *Service, updatesChan chan<- struct{}, cancel context.CancelFunc, done <-chan error) {
+func newRunningService(t *testing.T, rateLimit time.Duration, provider *mockEnabledIPsProvider) (filePath string, updatesChan chan<- struct{}, cancel context.CancelFunc, done <-chan error) {
 	t.Helper()
 
 	ctx, cancelCtx := context.WithCancel(context.Background())
 	t.Cleanup(cancelCtx) // Prevent goroutine leaks if test fails early
 
 	// Reuse the synchronous setup
-	filePath, _, service = setupService(t, rateLimit, provider)
+	filePath, _, service := setupService(t, rateLimit, provider)
 
 	ch := make(chan struct{}, 1)
 	doneCh := make(chan error, 1)
@@ -276,5 +276,5 @@ func newRunningService(t *testing.T, rateLimit time.Duration, provider *mockEnab
 		doneCh <- service.RunListener(ctx, ch)
 	}()
 
-	return filePath, service, ch, cancelCtx, doneCh
+	return filePath, ch, cancelCtx, doneCh
 }

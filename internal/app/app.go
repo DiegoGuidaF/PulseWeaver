@@ -11,7 +11,9 @@ import (
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpserver"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/lease"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/rule"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/whitelist"
 )
 
@@ -88,12 +90,20 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	deviceService := device.NewService(deviceRepo, addressEvents, addressChangeSignals)
 	deviceHandler := device.NewHandler(deviceService)
 
-	// Whitelist generation
-	whitelistService := whitelist.NewService(deviceRepo, conf.Whitelist)
-	updatesChan := whitelistService.Updates()
+	// Rule evaluation
+	ruleRepo := rule.NewRepository(db.DB())
+	ruleService := rule.NewService(ruleRepo)
 
-	// Allow address updates to trigger whitelist regeneration
-	deviceService.WithStatusChangeChannel(updatesChan)
+	// Whitelist generation
+	//TODO: We shouldn't depend on the deviceRepository but on the service. Domains interact via services not directly via the repository.
+	// The services must be the guardian of the repository
+	whitelistService := whitelist.NewService(deviceRepo, conf.Whitelist)
+
+	// Address Lease manager
+	addressLeaseRepo := lease.NewRepository(db.DB())
+	addressLeaseService := lease.NewService(addressLeaseRepo, ruleService)
+
+	//scheduler := scheduler.NewService()
 
 	err = authService.BootstrapAdmin(ctx, conf.Server)
 	if err != nil {
@@ -116,6 +126,13 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	go func() {
 		if err := whitelistService.RunListener(ctx, addressChangeSignals); err != nil {
 			logger.Error("whitelist service exited with error", slog.Any("error", err))
+		}
+	}()
+
+	// Start address lease listener
+	go func() {
+		if err := addressLeaseService.RunListener(ctx, addressEvents); err != nil {
+			logger.Error("address lease service exited with error", slog.Any("error", err))
 		}
 	}()
 

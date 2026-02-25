@@ -48,6 +48,12 @@ func (s *Service) RunListener(ctx context.Context, deviceEvents <-chan struct{})
 	for {
 		select {
 		case <-deviceEvents:
+			if ctx.Err() != nil {
+				if timer != nil {
+					timer.Stop()
+				}
+				return nil
+			}
 			if lastExecution.IsZero() || time.Since(lastExecution) >= s.rateLimit {
 				// Outside cooldown: run immediately
 				if timer != nil {
@@ -73,6 +79,12 @@ func (s *Service) RunListener(ctx context.Context, deviceEvents <-chan struct{})
 				}
 			}
 		case <-timerC:
+			if ctx.Err() != nil {
+				if timer != nil {
+					timer.Stop()
+				}
+				return nil
+			}
 			timer = nil
 			timerC = nil
 			if err := s.Regenerate(ctx); err != nil {

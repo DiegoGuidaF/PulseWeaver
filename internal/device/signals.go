@@ -2,6 +2,7 @@ package device
 
 import (
 	"context"
+	"log/slog"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 )
@@ -26,6 +27,6 @@ func (s *Service) publishAddressEvent(ctx context.Context, event AddressEvent) {
 	case s.events <- event:
 	default:
 		logger := logging.FromCtx(ctx)
-		logger.Warn("event channel full, dropped event", "event", event)
+		logger.Warn("event channel full, dropped event", slog.Any("event", event))
 	}
 }

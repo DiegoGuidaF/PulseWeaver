@@ -13,6 +13,7 @@ type Conf struct {
 	Server    ConfServer
 	DB        ConfDB
 	Whitelist ConfWhitelist
+	Rules     ConfRules
 	LogLevel  string         `env:"LOG_LEVEL" envDefault:"info"`
 	LogFormat logging.Format `env:"LOG_FORMAT" envDefault:"text"` // "json" or "text" (tint)
 	LogColor  bool           `env:"LOG_COLOR" envDefault:"false"` // Enable colored output for tint format
@@ -34,6 +35,11 @@ type ConfDB struct {
 type ConfWhitelist struct {
 	FilePath  string        `env:"WHITELIST_FILE_PATH" envDefault:"./whitelist.txt"`
 	RateLimit time.Duration `env:"WHITELIST_RATE_LIMIT" envDefault:"5s"`
+}
+
+// ConfRules holds configuration for background rule/scheduler behaviour.
+type ConfRules struct {
+	CheckInterval time.Duration `env:"RULE_CHECK_INTERVAL" envDefault:"1m"`
 }
 
 func Load() (*Conf, error) {

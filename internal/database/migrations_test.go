@@ -71,7 +71,7 @@ func TestMigrations_DownToZeroAndBackUp(t *testing.T) {
 		t.Fatalf("create migrator: %v", err)
 	}
 	t.Cleanup(func() {
-		m.Close()
+		_, _ = m.Close()
 	})
 
 	// Migrate all the way down to version 0.
@@ -91,4 +91,3 @@ func TestMigrations_DownToZeroAndBackUp(t *testing.T) {
 		t.Fatalf("Up after Down: %v", err)
 	}
 }
-

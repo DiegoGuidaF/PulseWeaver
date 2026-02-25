@@ -1,6 +1,3 @@
--- Squashed initial schema for WallyDic.
--- Generated from a fully-migrated SQLite database.
-
 -- Core device and address tables
 
 CREATE TABLE IF NOT EXISTS "devices"
@@ -34,7 +31,7 @@ CREATE TABLE IF NOT EXISTS address_status
     address_id INTEGER  NOT NULL REFERENCES addresses(id) ON DELETE CASCADE,
     status     BOOLEAN  NOT NULL CHECK (status IN (0, 1)),
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    source     TEXT     NOT NULL DEFAULT 'manual'
+    source     TEXT     NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_address_status_address_id_created_at

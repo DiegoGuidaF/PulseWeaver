@@ -80,6 +80,10 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, strin
 	logger.Debug("creating device")
 
 	createDeviceParams, rawKey, err := NewCreateDeviceParams(name)
+	if err != nil {
+		logger.Error("invalid create device params", slog.Any(AttrKeyError, err))
+		return nil, "", err
+	}
 
 	createdDevice, err := s.repo.CreateDevice(ctx, createDeviceParams)
 	if err != nil {
