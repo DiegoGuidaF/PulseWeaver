@@ -9,7 +9,8 @@ const (
 	AttrKeyOperation = logging.AttrKeyOperation
 	AttrKeyError     = logging.AttrKeyError
 
-	AttrKeyRuleID   = "rule_id"
-	AttrKeyRuleType = "rule_type"
-	AttrKeyDeviceID = "device_id"
+	AttrKeyRuleID               = "rule_id"
+	AttrKeyRuleType             = "rule_type"
+	AttrKeyDeviceID             = "device_id"
+	AttrDeviceAutoExpiryRuleTTL = "device_autoexpiry_ttl_sec"
 )

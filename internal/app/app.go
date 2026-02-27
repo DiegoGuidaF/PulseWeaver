@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/lease"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/rule"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/scheduler"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/whitelist"
 )
 
@@ -93,17 +95,22 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Rule evaluation
 	ruleRepo := rule.NewRepository(db.DB())
 	ruleService := rule.NewService(ruleRepo)
+	ruleHandler := rule.NewHandler(ruleService)
 
 	// Whitelist generation
 	//TODO: We shouldn't depend on the deviceRepository but on the service. Domains interact via services not directly via the repository.
-	// The services must be the guardian of the repository
+	// The services must be the guardian of the repository.
 	whitelistService := whitelist.NewService(deviceRepo, conf.Whitelist)
 
 	// Address Lease manager
 	addressLeaseRepo := lease.NewRepository(db.DB())
 	addressLeaseService := lease.NewService(addressLeaseRepo, ruleService)
 
-	//scheduler := scheduler.NewService()
+	schedulerService, err := scheduler.NewService(addressLeaseService, deviceService)
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("scheduler service init: %w", err)
+	}
 
 	err = authService.BootstrapAdmin(ctx, conf.Server)
 	if err != nil {
@@ -116,7 +123,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		logger.Warn("failed to generate whitelist on startup", slog.Any("error", err))
 	}
 
-	handler, err := httpserver.NewServerFromConfig(deviceHandler, authHandler, logger, conf.Server)
+	handler, err := httpserver.NewServerFromConfig(deviceHandler, authHandler, ruleHandler, logger, conf.Server)
 	if err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("create http server: %w", err)
@@ -135,6 +142,17 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 			logger.Error("address lease service exited with error", slog.Any("error", err))
 		}
 	}()
+
+	// Start rule scheduler for time-based rules (e.g., IP auto-expiry)
+	if conf.Rules.CheckInterval > 0 {
+		go func() {
+			if err := schedulerService.RunSchedule(ctx, conf.Rules.CheckInterval); err != nil && !errors.Is(err, context.Canceled) {
+				logger.Error("rule scheduler exited with error", slog.Any("error", err))
+			}
+		}()
+	} else {
+		logger.Warn("rule scheduler disabled due to non-positive check interval", slog.Duration("interval", conf.Rules.CheckInterval))
+	}
 
 	return &App{
 		Config:           conf,

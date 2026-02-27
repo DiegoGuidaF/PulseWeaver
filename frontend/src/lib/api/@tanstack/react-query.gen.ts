@@ -12,15 +12,18 @@ import {
   createDevice,
   createUser,
   deleteDevice,
+  deleteDeviceAddressLeaseRule,
   deviceHeartbeat,
   deviceHeartbeatByApiKey,
   disableAddress,
   getCurrentUser,
   getDeviceAddresses,
+  getDeviceAddressLeaseRule,
   getDevices,
   login,
   logout,
   type Options,
+  putDeviceAddressLeaseRule,
 } from "../sdk.gen";
 import type {
   AddAddressData,
@@ -32,6 +35,9 @@ import type {
   CreateUserData,
   CreateUserError,
   CreateUserResponse,
+  DeleteDeviceAddressLeaseRuleData,
+  DeleteDeviceAddressLeaseRuleError,
+  DeleteDeviceAddressLeaseRuleResponse,
   DeleteDeviceData,
   DeleteDeviceError,
   DeleteDeviceResponse,
@@ -50,6 +56,9 @@ import type {
   GetDeviceAddressesData,
   GetDeviceAddressesError,
   GetDeviceAddressesResponse,
+  GetDeviceAddressLeaseRuleData,
+  GetDeviceAddressLeaseRuleError,
+  GetDeviceAddressLeaseRuleResponse,
   GetDevicesData,
   GetDevicesError,
   GetDevicesResponse,
@@ -58,6 +67,9 @@ import type {
   LoginResponse,
   LogoutData,
   LogoutResponse,
+  PutDeviceAddressLeaseRuleData,
+  PutDeviceAddressLeaseRuleError,
+  PutDeviceAddressLeaseRuleResponse,
 } from "../types.gen";
 
 /**
@@ -427,6 +439,94 @@ export const disableAddressMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await disableAddress({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Disable device lease rule for a device
+ *
+ * Disables the device lease rule for the device (sets enabled to false).
+ */
+export const deleteDeviceAddressLeaseRuleMutation = (
+  options?: Partial<Options<DeleteDeviceAddressLeaseRuleData>>,
+): UseMutationOptions<
+  DeleteDeviceAddressLeaseRuleResponse,
+  DeleteDeviceAddressLeaseRuleError,
+  Options<DeleteDeviceAddressLeaseRuleData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    DeleteDeviceAddressLeaseRuleResponse,
+    DeleteDeviceAddressLeaseRuleError,
+    Options<DeleteDeviceAddressLeaseRuleData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await deleteDeviceAddressLeaseRule({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const getDeviceAddressLeaseRuleQueryKey = (
+  options: Options<GetDeviceAddressLeaseRuleData>,
+) => createQueryKey("getDeviceAddressLeaseRule", options);
+
+/**
+ * Get IP auto-expiry rule for a device
+ *
+ * Returns the ip_auto_expiry rule for the device if configured.
+ */
+export const getDeviceAddressLeaseRuleOptions = (
+  options: Options<GetDeviceAddressLeaseRuleData>,
+) =>
+  queryOptions<
+    GetDeviceAddressLeaseRuleResponse,
+    GetDeviceAddressLeaseRuleError,
+    GetDeviceAddressLeaseRuleResponse,
+    ReturnType<typeof getDeviceAddressLeaseRuleQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getDeviceAddressLeaseRule({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getDeviceAddressLeaseRuleQueryKey(options),
+  });
+
+/**
+ * Create or update IP auto-expiry rule for a device
+ *
+ * Creates or updates the ip_auto_expiry rule for the device. ttl_seconds must be positive.
+ */
+export const putDeviceAddressLeaseRuleMutation = (
+  options?: Partial<Options<PutDeviceAddressLeaseRuleData>>,
+): UseMutationOptions<
+  PutDeviceAddressLeaseRuleResponse,
+  PutDeviceAddressLeaseRuleError,
+  Options<PutDeviceAddressLeaseRuleData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    PutDeviceAddressLeaseRuleResponse,
+    PutDeviceAddressLeaseRuleError,
+    Options<PutDeviceAddressLeaseRuleData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await putDeviceAddressLeaseRule({
         ...options,
         ...fnOptions,
         throwOnError: true,

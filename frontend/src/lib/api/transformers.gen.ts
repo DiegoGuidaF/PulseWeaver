@@ -9,8 +9,10 @@ import type {
   DisableAddressResponse,
   GetCurrentUserResponse,
   GetDeviceAddressesResponse,
+  GetDeviceAddressLeaseRuleResponse,
   GetDevicesResponse,
   LoginResponse,
+  PutDeviceAddressLeaseRuleResponse,
 } from "./types.gen";
 
 const userSchemaResponseTransformer = (data: any) => {
@@ -101,5 +103,25 @@ export const disableAddressResponseTransformer = async (
   data: any,
 ): Promise<DisableAddressResponse> => {
   data = addressSchemaResponseTransformer(data);
+  return data;
+};
+
+const deviceLeaseRuleSchemaResponseTransformer = (data: any) => {
+  data.created_at = new Date(data.created_at);
+  data.updated_at = new Date(data.updated_at);
+  return data;
+};
+
+export const getDeviceAddressLeaseRuleResponseTransformer = async (
+  data: any,
+): Promise<GetDeviceAddressLeaseRuleResponse> => {
+  data = deviceLeaseRuleSchemaResponseTransformer(data);
+  return data;
+};
+
+export const putDeviceAddressLeaseRuleResponseTransformer = async (
+  data: any,
+): Promise<PutDeviceAddressLeaseRuleResponse> => {
+  data = deviceLeaseRuleSchemaResponseTransformer(data);
   return data;
 };

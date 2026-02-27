@@ -10,6 +10,11 @@ export const zErrorResponse = z.object({
   error: z.optional(z.string()),
 });
 
+export const zPutDeviceLeaseRuleRequest = z.object({
+  ttl_seconds: z.int().gte(1),
+  enabled: z.boolean(),
+});
+
 /**
  * Unique username. Alphanumeric, underscores, and hyphens only.
  */
@@ -89,6 +94,15 @@ export const zAddress = z.object({
   updated_at: z.iso.datetime({ offset: true, local: true }),
 });
 
+export const zDeviceLeaseRule = z.object({
+  id: zId,
+  device_id: zId,
+  enabled: z.boolean(),
+  ttl_seconds: z.int().gte(1),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  updated_at: z.iso.datetime({ offset: true, local: true }),
+});
+
 export const zCreateUserData = z.object({
   body: zCreateUserRequest,
   path: z.optional(z.never()),
@@ -158,14 +172,7 @@ export const zCreateDeviceResponse2 = zCreateDeviceResponse;
 export const zDeleteDeviceData = z.object({
   body: z.optional(z.never()),
   path: z.object({
-    device_id: z.coerce
-      .bigint()
-      .min(BigInt("-9223372036854775808"), {
-        error: "Invalid value: Expected int64 to be >= -9223372036854775808",
-      })
-      .max(BigInt("9223372036854775807"), {
-        error: "Invalid value: Expected int64 to be <= 9223372036854775807",
-      }),
+    device_id: zId,
   }),
   query: z.optional(z.never()),
 });
@@ -178,14 +185,7 @@ export const zDeleteDeviceResponse = z.void();
 export const zGetDeviceAddressesData = z.object({
   body: z.optional(z.never()),
   path: z.object({
-    device_id: z.coerce
-      .bigint()
-      .min(BigInt("-9223372036854775808"), {
-        error: "Invalid value: Expected int64 to be >= -9223372036854775808",
-      })
-      .max(BigInt("9223372036854775807"), {
-        error: "Invalid value: Expected int64 to be <= 9223372036854775807",
-      }),
+    device_id: zId,
   }),
   query: z.optional(z.never()),
 });
@@ -198,14 +198,7 @@ export const zGetDeviceAddressesResponse = z.array(zAddress);
 export const zAddAddressData = z.object({
   body: zAddAddressRequest,
   path: z.object({
-    device_id: z.coerce
-      .bigint()
-      .min(BigInt("-9223372036854775808"), {
-        error: "Invalid value: Expected int64 to be >= -9223372036854775808",
-      })
-      .max(BigInt("9223372036854775807"), {
-        error: "Invalid value: Expected int64 to be <= 9223372036854775807",
-      }),
+    device_id: zId,
   }),
   query: z.optional(z.never()),
 });
@@ -218,14 +211,7 @@ export const zAddAddressResponse = zAddress;
 export const zDeviceHeartbeatData = z.object({
   body: z.optional(z.never()),
   path: z.object({
-    device_id: z.coerce
-      .bigint()
-      .min(BigInt("-9223372036854775808"), {
-        error: "Invalid value: Expected int64 to be >= -9223372036854775808",
-      })
-      .max(BigInt("9223372036854775807"), {
-        error: "Invalid value: Expected int64 to be <= 9223372036854775807",
-      }),
+    device_id: zId,
   }),
   query: z.optional(z.never()),
 });
@@ -249,22 +235,8 @@ export const zDeviceHeartbeatByApiKeyResponse = zAddress;
 export const zDisableAddressData = z.object({
   body: z.optional(z.never()),
   path: z.object({
-    device_id: z.coerce
-      .bigint()
-      .min(BigInt("-9223372036854775808"), {
-        error: "Invalid value: Expected int64 to be >= -9223372036854775808",
-      })
-      .max(BigInt("9223372036854775807"), {
-        error: "Invalid value: Expected int64 to be <= 9223372036854775807",
-      }),
-    address_id: z.coerce
-      .bigint()
-      .min(BigInt("-9223372036854775808"), {
-        error: "Invalid value: Expected int64 to be >= -9223372036854775808",
-      })
-      .max(BigInt("9223372036854775807"), {
-        error: "Invalid value: Expected int64 to be <= 9223372036854775807",
-      }),
+    device_id: zId,
+    address_id: zId,
   }),
   query: z.optional(z.never()),
 });
@@ -273,3 +245,42 @@ export const zDisableAddressData = z.object({
  * Address successfully disabled
  */
 export const zDisableAddressResponse = zAddress;
+
+export const zDeleteDeviceAddressLeaseRuleData = z.object({
+  body: z.optional(z.never()),
+  path: z.object({
+    device_id: zId,
+  }),
+  query: z.optional(z.never()),
+});
+
+/**
+ * Rule disabled
+ */
+export const zDeleteDeviceAddressLeaseRuleResponse = z.void();
+
+export const zGetDeviceAddressLeaseRuleData = z.object({
+  body: z.optional(z.never()),
+  path: z.object({
+    device_id: zId,
+  }),
+  query: z.optional(z.never()),
+});
+
+/**
+ * OK
+ */
+export const zGetDeviceAddressLeaseRuleResponse = zDeviceLeaseRule;
+
+export const zPutDeviceAddressLeaseRuleData = z.object({
+  body: zPutDeviceLeaseRuleRequest,
+  path: z.object({
+    device_id: zId,
+  }),
+  query: z.optional(z.never()),
+});
+
+/**
+ * Rule updated or created
+ */
+export const zPutDeviceAddressLeaseRuleResponse = zDeviceLeaseRule;

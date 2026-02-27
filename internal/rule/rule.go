@@ -2,6 +2,7 @@ package rule
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
@@ -10,12 +11,12 @@ import (
 // RuleID represents the primary key of a row in the device_rules table.
 type RuleID int64
 
-// RuleType is a string identifier for a rule kind (e.g. "ip_auto_expiry").
+// RuleType is a string identifier for a rule kind (e.g. "device_lease").
 type RuleType string
 
 const (
-	// RuleTypeIPAutoExpiry controls automatic expiry of IP addresses for a device.
-	RuleTypeIPAutoExpiry RuleType = "ip_auto_expiry"
+	// RuleTypeDeviceAddressLease controls automatic expiry of IP addresses for a device.
+	RuleTypeDeviceAddressLease RuleType = "device_lease"
 )
 
 // Rule maps to a row in the device_rules table.
@@ -29,28 +30,66 @@ type Rule struct {
 	UpdatedAt time.Time       `db:"updated_at"`
 }
 
-// RuleConfigIPAutoExpiryConfig is the typed configuration for the ip_auto_expiry rule.
-// TTLSeconds is the number of seconds after which an enabled IP should expire.
-type RuleConfigIPAutoExpiryConfig struct {
+// DeviceAddressLeaseRule represents the domain model for the device lease rule.
+type DeviceAddressLeaseRule struct {
+	ID        RuleID
+	DeviceID  device.DeviceID
+	Enabled   bool
+	Config    DeviceAddressLeaseConfig
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// DeviceAddressLeaseConfig holds configuration values for the device lease rule.
+type DeviceAddressLeaseConfig struct {
 	TTLSeconds int `json:"ttl_seconds"`
 }
 
-// ParseIPAutoExpiryConfig parses the JSON config for an ip_auto_expiry rule
-// and enforces basic invariants.
-func parseRuleConfigIPAutoExpiry(raw json.RawMessage) (*RuleConfigIPAutoExpiryConfig, error) {
+// ToDeviceAddressLeaseRule converts the raw Rule row into a DeviceAddressLeaseRule by parsing
+// and validating the JSON config.
+func (r *Rule) ToDeviceAddressLeaseRule() (*DeviceAddressLeaseRule, error) {
+	if r.RuleType != RuleTypeDeviceAddressLease {
+		return nil, fmt.Errorf("%w: invalid rule type %s", ErrInvalidRuleConfig, r.RuleType)
+	}
+	config, err := parseDeviceAddressLeaseConfig(r.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DeviceAddressLeaseRule{
+		ID:        r.ID,
+		DeviceID:  r.DeviceID,
+		Enabled:   r.Enabled,
+		Config:    *config,
+		CreatedAt: r.CreatedAt,
+		UpdatedAt: r.UpdatedAt,
+	}, nil
+}
+
+// parseDeviceAddressLeaseConfig parses the JSON config for a device lease rule
+func parseDeviceAddressLeaseConfig(raw json.RawMessage) (*DeviceAddressLeaseConfig, error) {
 	if len(raw) == 0 {
 		return nil, ErrInvalidRuleConfig
 	}
 
-	var cfg RuleConfigIPAutoExpiryConfig
+	var cfg DeviceAddressLeaseConfig
 	if err := json.Unmarshal(raw, &cfg); err != nil {
 		return nil, ErrInvalidRuleConfig
 	}
 
-	// Enforce a sane lower bound; the exact minimum is also validated at the API layer.
-	if cfg.TTLSeconds <= 0 {
+	if cfg.TTLSeconds < 0 {
 		return nil, ErrInvalidRuleConfig
 	}
 
 	return &cfg, nil
+}
+
+// NewDeviceAddressLeaseConfig Creates an addess lease config and validates the parameters
+func NewDeviceAddressLeaseConfig(addressTTLSeconds int) (*DeviceAddressLeaseConfig, error) {
+	if addressTTLSeconds < 0 {
+		return nil, ErrInvalidRuleConfig
+	}
+	return &DeviceAddressLeaseConfig{
+		TTLSeconds: addressTTLSeconds,
+	}, nil
 }

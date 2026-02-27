@@ -3,8 +3,10 @@ package rule
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
@@ -52,49 +54,76 @@ func (r *Repository) GetRuleByDeviceAndType(ctx context.Context, deviceID device
 	return rule, nil
 }
 
-// UpsertRule creates or updates a rule for a device, identified by (device_id, rule_type).
-func (r *Repository) UpsertRule(ctx context.Context, rule *Rule) (*Rule, error) {
-	now := time.Now().UTC()
+// DisableRule sets enabled=false for the rule identified by (device_id, rule_type).
+func (r *Repository) DisableRule(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error) {
+	rule := &Rule{}
+
 	const query = `
-		INSERT INTO device_rules (device_id, rule_type, enabled, config, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(device_id, rule_type) DO UPDATE SET
-			enabled   = excluded.enabled,
-			config    = excluded.config,
-			updated_at = excluded.updated_at
-		RETURNING id, device_id, rule_type, enabled, config, created_at, updated_at
+		UPDATE device_rules 
+		SET enabled = FALSE, updated_at = ?
+		WHERE device_id = ? AND rule_type = ?
+		RETURNING *
 	`
 
-	if err := r.db.GetContext(ctx, rule, query,
-		rule.DeviceID,
-		rule.RuleType,
-		rule.Enabled,
-		rule.Config,
-		now,
-		now,
-	); err != nil {
-		return nil, fmt.Errorf("upsert rule: %w", err)
+	if err := r.db.GetContext(ctx, rule, query, time.Now().UTC(), deviceID, ruleType); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrRuleNotFound
+		}
+		return nil, mapRepositoryError(err, "disable rule")
 	}
 
 	return rule, nil
 }
 
-// DisableRule Sets enabled false for rule identified by (device_id, rule_type).
-func (r *Repository) DisableRule(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error) {
-	rule := &Rule{}
+// EnableDeviceAddressLeaseRuleConfig creates or updates the device lease rule for a device
+// using the structured params. It is responsible for mapping the config into
+// the JSON shape stored in the database.
+func (r *Repository) EnableDeviceAddressLeaseRuleConfig(ctx context.Context, deviceID device.DeviceID, config *DeviceAddressLeaseConfig) (*Rule, error) {
+	configBytes, err := json.Marshal(config)
+	if err != nil {
+		return nil, fmt.Errorf("marshal rule config: %w", err)
+	}
 
+	rule := &Rule{}
 	const query = `
-		UPDATE device_rules SET enabled = FALSE, updated_at = ?
-		WHERE device_id = ? AND rule_type = ?
+		INSERT INTO device_rules (device_id, rule_type, enabled, config, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(device_id, rule_type) DO UPDATE SET
+			enabled = excluded.enabled,
+			config = excluded.config,
+			updated_at = excluded.updated_at
+		RETURNING *
 	`
 
-	err := r.db.GetContext(ctx, rule, query, time.Now().UTC(), deviceID, ruleType)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrRuleNotFound
-		}
-		return nil, fmt.Errorf("delete rule: %w", err)
+	now := time.Now().UTC()
+	if err := r.db.GetContext(ctx, rule, query,
+		deviceID,
+		RuleTypeDeviceAddressLease,
+		true,
+		configBytes,
+		now,
+		now,
+	); err != nil {
+		return nil, mapRepositoryError(err, "enable device lease rule")
 	}
 
 	return rule, nil
+}
+
+// mapRuleForeignKeyDeviceError maps a SQLite foreign key constraint failure on device_rules.device_id
+// to the domain-level device.ErrDeviceNotFound error.
+func mapRuleForeignKeyDeviceError(err error) (error, bool) {
+	message := strings.ToLower(err.Error())
+	if strings.Contains(message, "foreign key constraint failed") {
+		return device.ErrDeviceNotFound, true
+	}
+	return nil, false
+}
+
+// mapRepositoryError applies repository-level error mapping and wraps with context.
+func mapRepositoryError(err error, operation string) error {
+	if mappedErr, ok := mapRuleForeignKeyDeviceError(err); ok {
+		return mappedErr
+	}
+	return fmt.Errorf("%s: %w", operation, err)
 }

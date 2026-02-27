@@ -93,6 +93,20 @@ type Device struct {
 	Name string `json:"name"`
 }
 
+// DeviceAddressLeaseRule defines model for DeviceAddressLeaseRule.
+type DeviceAddressLeaseRule struct {
+	CreatedAt time.Time `json:"created_at"`
+	DeviceId  ID        `json:"device_id"`
+
+	// Enabled Whether the lease rule is active
+	Enabled bool `json:"enabled"`
+	Id      ID   `json:"id"`
+
+	// TtlSeconds Seconds after which an enabled device address lease expires
+	TtlSeconds int       `json:"ttl_seconds"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
 // DeviceHeartbeatByApiKeyRequest defines model for DeviceHeartbeatByApiKeyRequest.
 type DeviceHeartbeatByApiKeyRequest struct {
 	// Ip IPv4 or IPv6 address
@@ -115,6 +129,12 @@ type IPAddress = string
 
 // Password defines model for Password.
 type Password = string
+
+// PutDeviceAddressLeaseRuleRequest defines model for PutDeviceAddressLeaseRuleRequest.
+type PutDeviceAddressLeaseRuleRequest struct {
+	// TtlSeconds Seconds after which an enabled device address lease expires
+	TtlSeconds int `json:"ttl_seconds"`
+}
 
 // User defines model for User.
 type User struct {
@@ -144,6 +164,9 @@ type CreateDeviceJSONRequestBody = CreateDeviceRequest
 // AddAddressJSONRequestBody defines body for AddAddress for application/json ContentType.
 type AddAddressJSONRequestBody = AddAddressRequest
 
+// PutDeviceAddressLeaseRuleJSONRequestBody defines body for PutDeviceAddressLeaseRule for application/json ContentType.
+type PutDeviceAddressLeaseRuleJSONRequestBody = PutDeviceAddressLeaseRuleRequest
+
 // DeviceHeartbeatByAPIKeyJSONRequestBody defines body for DeviceHeartbeatByAPIKey for application/json ContentType.
 type DeviceHeartbeatByAPIKeyJSONRequestBody = DeviceHeartbeatByApiKeyRequest
 
@@ -169,19 +192,28 @@ type ServerInterface interface {
 	CreateDevice(w http.ResponseWriter, r *http.Request)
 	// Delete a device
 	// (DELETE /devices/{device_id})
-	DeleteDevice(w http.ResponseWriter, r *http.Request, deviceId int64)
+	DeleteDevice(w http.ResponseWriter, r *http.Request, deviceId ID)
 	// Get addresses for a device
 	// (GET /devices/{device_id}/addresses)
-	GetDeviceAddresses(w http.ResponseWriter, r *http.Request, deviceId int64)
+	GetDeviceAddresses(w http.ResponseWriter, r *http.Request, deviceId ID)
 	// Assign address to device
 	// (POST /devices/{device_id}/addresses)
-	AddAddress(w http.ResponseWriter, r *http.Request, deviceId int64)
+	AddAddress(w http.ResponseWriter, r *http.Request, deviceId ID)
 	// Disable address
 	// (DELETE /devices/{device_id}/addresses/{address_id})
-	DisableAddress(w http.ResponseWriter, r *http.Request, deviceId int64, addressId int64)
+	DisableAddress(w http.ResponseWriter, r *http.Request, deviceId ID, addressId ID)
 	// Device heartbeat
 	// (POST /devices/{device_id}/heartbeat)
-	DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId int64)
+	DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId ID)
+	// Disable device lease rule for a device
+	// (DELETE /devices/{device_id}/rules/address_lease)
+	DisableDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request, deviceId ID)
+	// Get IP auto-expiry rule for a device
+	// (GET /devices/{device_id}/rules/address_lease)
+	GetDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request, deviceId ID)
+	// Create or update IP auto-expiry rule for a device
+	// (PUT /devices/{device_id}/rules/address_lease)
+	PutDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request, deviceId ID)
 	// Performs a heartbeat with the given api key header
 	// (POST /heartbeat)
 	DeviceHeartbeatByAPIKey(w http.ResponseWriter, r *http.Request)
@@ -229,31 +261,49 @@ func (_ Unimplemented) CreateDevice(w http.ResponseWriter, r *http.Request) {
 
 // Delete a device
 // (DELETE /devices/{device_id})
-func (_ Unimplemented) DeleteDevice(w http.ResponseWriter, r *http.Request, deviceId int64) {
+func (_ Unimplemented) DeleteDevice(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get addresses for a device
 // (GET /devices/{device_id}/addresses)
-func (_ Unimplemented) GetDeviceAddresses(w http.ResponseWriter, r *http.Request, deviceId int64) {
+func (_ Unimplemented) GetDeviceAddresses(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Assign address to device
 // (POST /devices/{device_id}/addresses)
-func (_ Unimplemented) AddAddress(w http.ResponseWriter, r *http.Request, deviceId int64) {
+func (_ Unimplemented) AddAddress(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Disable address
 // (DELETE /devices/{device_id}/addresses/{address_id})
-func (_ Unimplemented) DisableAddress(w http.ResponseWriter, r *http.Request, deviceId int64, addressId int64) {
+func (_ Unimplemented) DisableAddress(w http.ResponseWriter, r *http.Request, deviceId ID, addressId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Device heartbeat
 // (POST /devices/{device_id}/heartbeat)
-func (_ Unimplemented) DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId int64) {
+func (_ Unimplemented) DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Disable device lease rule for a device
+// (DELETE /devices/{device_id}/rules/address_lease)
+func (_ Unimplemented) DisableDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request, deviceId ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get IP auto-expiry rule for a device
+// (GET /devices/{device_id}/rules/address_lease)
+func (_ Unimplemented) GetDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request, deviceId ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create or update IP auto-expiry rule for a device
+// (PUT /devices/{device_id}/rules/address_lease)
+func (_ Unimplemented) PutDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -392,7 +442,7 @@ func (siw *ServerInterfaceWrapper) DeleteDevice(w http.ResponseWriter, r *http.R
 	var err error
 
 	// ------------- Path parameter "device_id" -------------
-	var deviceId int64
+	var deviceId ID
 
 	err = runtime.BindStyledParameterWithOptions("simple", "device_id", chi.URLParam(r, "device_id"), &deviceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -423,7 +473,7 @@ func (siw *ServerInterfaceWrapper) GetDeviceAddresses(w http.ResponseWriter, r *
 	var err error
 
 	// ------------- Path parameter "device_id" -------------
-	var deviceId int64
+	var deviceId ID
 
 	err = runtime.BindStyledParameterWithOptions("simple", "device_id", chi.URLParam(r, "device_id"), &deviceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -454,7 +504,7 @@ func (siw *ServerInterfaceWrapper) AddAddress(w http.ResponseWriter, r *http.Req
 	var err error
 
 	// ------------- Path parameter "device_id" -------------
-	var deviceId int64
+	var deviceId ID
 
 	err = runtime.BindStyledParameterWithOptions("simple", "device_id", chi.URLParam(r, "device_id"), &deviceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -485,7 +535,7 @@ func (siw *ServerInterfaceWrapper) DisableAddress(w http.ResponseWriter, r *http
 	var err error
 
 	// ------------- Path parameter "device_id" -------------
-	var deviceId int64
+	var deviceId ID
 
 	err = runtime.BindStyledParameterWithOptions("simple", "device_id", chi.URLParam(r, "device_id"), &deviceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -494,7 +544,7 @@ func (siw *ServerInterfaceWrapper) DisableAddress(w http.ResponseWriter, r *http
 	}
 
 	// ------------- Path parameter "address_id" -------------
-	var addressId int64
+	var addressId ID
 
 	err = runtime.BindStyledParameterWithOptions("simple", "address_id", chi.URLParam(r, "address_id"), &addressId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -525,7 +575,7 @@ func (siw *ServerInterfaceWrapper) DeviceHeartbeat(w http.ResponseWriter, r *htt
 	var err error
 
 	// ------------- Path parameter "device_id" -------------
-	var deviceId int64
+	var deviceId ID
 
 	err = runtime.BindStyledParameterWithOptions("simple", "device_id", chi.URLParam(r, "device_id"), &deviceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -541,6 +591,99 @@ func (siw *ServerInterfaceWrapper) DeviceHeartbeat(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeviceHeartbeat(w, r, deviceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DisableDeviceAddressLeaseRule operation middleware
+func (siw *ServerInterfaceWrapper) DisableDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "device_id" -------------
+	var deviceId ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "device_id", chi.URLParam(r, "device_id"), &deviceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "device_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DisableDeviceAddressLeaseRule(w, r, deviceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDeviceAddressLeaseRule operation middleware
+func (siw *ServerInterfaceWrapper) GetDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "device_id" -------------
+	var deviceId ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "device_id", chi.URLParam(r, "device_id"), &deviceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "device_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDeviceAddressLeaseRule(w, r, deviceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutDeviceAddressLeaseRule operation middleware
+func (siw *ServerInterfaceWrapper) PutDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "device_id" -------------
+	var deviceId ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "device_id", chi.URLParam(r, "device_id"), &deviceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "device_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutDeviceAddressLeaseRule(w, r, deviceId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -715,6 +858,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/devices/{device_id}/heartbeat", wrapper.DeviceHeartbeat)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/devices/{device_id}/rules/address_lease", wrapper.DisableDeviceAddressLeaseRule)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/devices/{device_id}/rules/address_lease", wrapper.GetDeviceAddressLeaseRule)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/devices/{device_id}/rules/address_lease", wrapper.PutDeviceAddressLeaseRule)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/heartbeat", wrapper.DeviceHeartbeatByAPIKey)
@@ -943,7 +1095,7 @@ func (response CreateDevice500JSONResponse) VisitCreateDeviceResponse(w http.Res
 }
 
 type DeleteDeviceRequestObject struct {
-	DeviceId int64 `json:"device_id"`
+	DeviceId ID `json:"device_id"`
 }
 
 type DeleteDeviceResponseObject interface {
@@ -977,7 +1129,7 @@ func (response DeleteDevice500JSONResponse) VisitDeleteDeviceResponse(w http.Res
 }
 
 type GetDeviceAddressesRequestObject struct {
-	DeviceId int64 `json:"device_id"`
+	DeviceId ID `json:"device_id"`
 }
 
 type GetDeviceAddressesResponseObject interface {
@@ -1021,7 +1173,7 @@ func (response GetDeviceAddresses500JSONResponse) VisitGetDeviceAddressesRespons
 }
 
 type AddAddressRequestObject struct {
-	DeviceId int64 `json:"device_id"`
+	DeviceId ID `json:"device_id"`
 	Body     *AddAddressJSONRequestBody
 }
 
@@ -1075,8 +1227,8 @@ func (response AddAddress500JSONResponse) VisitAddAddressResponse(w http.Respons
 }
 
 type DisableAddressRequestObject struct {
-	DeviceId  int64 `json:"device_id"`
-	AddressId int64 `json:"address_id"`
+	DeviceId  ID `json:"device_id"`
+	AddressId ID `json:"address_id"`
 }
 
 type DisableAddressResponseObject interface {
@@ -1120,7 +1272,7 @@ func (response DisableAddress500JSONResponse) VisitDisableAddressResponse(w http
 }
 
 type DeviceHeartbeatRequestObject struct {
-	DeviceId int64 `json:"device_id"`
+	DeviceId ID `json:"device_id"`
 }
 
 type DeviceHeartbeatResponseObject interface {
@@ -1166,6 +1318,120 @@ func (response DeviceHeartbeat404JSONResponse) VisitDeviceHeartbeatResponse(w ht
 type DeviceHeartbeat500JSONResponse ErrorResponse
 
 func (response DeviceHeartbeat500JSONResponse) VisitDeviceHeartbeatResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DisableDeviceAddressLeaseRuleRequestObject struct {
+	DeviceId ID `json:"device_id"`
+}
+
+type DisableDeviceAddressLeaseRuleResponseObject interface {
+	VisitDisableDeviceAddressLeaseRuleResponse(w http.ResponseWriter) error
+}
+
+type DisableDeviceAddressLeaseRule204Response struct {
+}
+
+func (response DisableDeviceAddressLeaseRule204Response) VisitDisableDeviceAddressLeaseRuleResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DisableDeviceAddressLeaseRule404JSONResponse ErrorResponse
+
+func (response DisableDeviceAddressLeaseRule404JSONResponse) VisitDisableDeviceAddressLeaseRuleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DisableDeviceAddressLeaseRule500JSONResponse ErrorResponse
+
+func (response DisableDeviceAddressLeaseRule500JSONResponse) VisitDisableDeviceAddressLeaseRuleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDeviceAddressLeaseRuleRequestObject struct {
+	DeviceId ID `json:"device_id"`
+}
+
+type GetDeviceAddressLeaseRuleResponseObject interface {
+	VisitGetDeviceAddressLeaseRuleResponse(w http.ResponseWriter) error
+}
+
+type GetDeviceAddressLeaseRule200JSONResponse DeviceAddressLeaseRule
+
+func (response GetDeviceAddressLeaseRule200JSONResponse) VisitGetDeviceAddressLeaseRuleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDeviceAddressLeaseRule404JSONResponse ErrorResponse
+
+func (response GetDeviceAddressLeaseRule404JSONResponse) VisitGetDeviceAddressLeaseRuleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDeviceAddressLeaseRule500JSONResponse ErrorResponse
+
+func (response GetDeviceAddressLeaseRule500JSONResponse) VisitGetDeviceAddressLeaseRuleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PutDeviceAddressLeaseRuleRequestObject struct {
+	DeviceId ID `json:"device_id"`
+	Body     *PutDeviceAddressLeaseRuleJSONRequestBody
+}
+
+type PutDeviceAddressLeaseRuleResponseObject interface {
+	VisitPutDeviceAddressLeaseRuleResponse(w http.ResponseWriter) error
+}
+
+type PutDeviceAddressLeaseRule200JSONResponse DeviceAddressLeaseRule
+
+func (response PutDeviceAddressLeaseRule200JSONResponse) VisitPutDeviceAddressLeaseRuleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PutDeviceAddressLeaseRule400JSONResponse ErrorResponse
+
+func (response PutDeviceAddressLeaseRule400JSONResponse) VisitPutDeviceAddressLeaseRuleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PutDeviceAddressLeaseRule404JSONResponse ErrorResponse
+
+func (response PutDeviceAddressLeaseRule404JSONResponse) VisitPutDeviceAddressLeaseRuleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PutDeviceAddressLeaseRule500JSONResponse ErrorResponse
+
+func (response PutDeviceAddressLeaseRule500JSONResponse) VisitPutDeviceAddressLeaseRuleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -1260,6 +1526,15 @@ type StrictServerInterface interface {
 	// Device heartbeat
 	// (POST /devices/{device_id}/heartbeat)
 	DeviceHeartbeat(ctx context.Context, request DeviceHeartbeatRequestObject) (DeviceHeartbeatResponseObject, error)
+	// Disable device lease rule for a device
+	// (DELETE /devices/{device_id}/rules/address_lease)
+	DisableDeviceAddressLeaseRule(ctx context.Context, request DisableDeviceAddressLeaseRuleRequestObject) (DisableDeviceAddressLeaseRuleResponseObject, error)
+	// Get IP auto-expiry rule for a device
+	// (GET /devices/{device_id}/rules/address_lease)
+	GetDeviceAddressLeaseRule(ctx context.Context, request GetDeviceAddressLeaseRuleRequestObject) (GetDeviceAddressLeaseRuleResponseObject, error)
+	// Create or update IP auto-expiry rule for a device
+	// (PUT /devices/{device_id}/rules/address_lease)
+	PutDeviceAddressLeaseRule(ctx context.Context, request PutDeviceAddressLeaseRuleRequestObject) (PutDeviceAddressLeaseRuleResponseObject, error)
 	// Performs a heartbeat with the given api key header
 	// (POST /heartbeat)
 	DeviceHeartbeatByAPIKey(ctx context.Context, request DeviceHeartbeatByAPIKeyRequestObject) (DeviceHeartbeatByAPIKeyResponseObject, error)
@@ -1460,7 +1735,7 @@ func (sh *strictHandler) CreateDevice(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteDevice operation middleware
-func (sh *strictHandler) DeleteDevice(w http.ResponseWriter, r *http.Request, deviceId int64) {
+func (sh *strictHandler) DeleteDevice(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	var request DeleteDeviceRequestObject
 
 	request.DeviceId = deviceId
@@ -1486,7 +1761,7 @@ func (sh *strictHandler) DeleteDevice(w http.ResponseWriter, r *http.Request, de
 }
 
 // GetDeviceAddresses operation middleware
-func (sh *strictHandler) GetDeviceAddresses(w http.ResponseWriter, r *http.Request, deviceId int64) {
+func (sh *strictHandler) GetDeviceAddresses(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	var request GetDeviceAddressesRequestObject
 
 	request.DeviceId = deviceId
@@ -1512,7 +1787,7 @@ func (sh *strictHandler) GetDeviceAddresses(w http.ResponseWriter, r *http.Reque
 }
 
 // AddAddress operation middleware
-func (sh *strictHandler) AddAddress(w http.ResponseWriter, r *http.Request, deviceId int64) {
+func (sh *strictHandler) AddAddress(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	var request AddAddressRequestObject
 
 	request.DeviceId = deviceId
@@ -1545,7 +1820,7 @@ func (sh *strictHandler) AddAddress(w http.ResponseWriter, r *http.Request, devi
 }
 
 // DisableAddress operation middleware
-func (sh *strictHandler) DisableAddress(w http.ResponseWriter, r *http.Request, deviceId int64, addressId int64) {
+func (sh *strictHandler) DisableAddress(w http.ResponseWriter, r *http.Request, deviceId ID, addressId ID) {
 	var request DisableAddressRequestObject
 
 	request.DeviceId = deviceId
@@ -1572,7 +1847,7 @@ func (sh *strictHandler) DisableAddress(w http.ResponseWriter, r *http.Request, 
 }
 
 // DeviceHeartbeat operation middleware
-func (sh *strictHandler) DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId int64) {
+func (sh *strictHandler) DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	var request DeviceHeartbeatRequestObject
 
 	request.DeviceId = deviceId
@@ -1590,6 +1865,91 @@ func (sh *strictHandler) DeviceHeartbeat(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DeviceHeartbeatResponseObject); ok {
 		if err := validResponse.VisitDeviceHeartbeatResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DisableDeviceAddressLeaseRule operation middleware
+func (sh *strictHandler) DisableDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request, deviceId ID) {
+	var request DisableDeviceAddressLeaseRuleRequestObject
+
+	request.DeviceId = deviceId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DisableDeviceAddressLeaseRule(ctx, request.(DisableDeviceAddressLeaseRuleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DisableDeviceAddressLeaseRule")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DisableDeviceAddressLeaseRuleResponseObject); ok {
+		if err := validResponse.VisitDisableDeviceAddressLeaseRuleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDeviceAddressLeaseRule operation middleware
+func (sh *strictHandler) GetDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request, deviceId ID) {
+	var request GetDeviceAddressLeaseRuleRequestObject
+
+	request.DeviceId = deviceId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDeviceAddressLeaseRule(ctx, request.(GetDeviceAddressLeaseRuleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDeviceAddressLeaseRule")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDeviceAddressLeaseRuleResponseObject); ok {
+		if err := validResponse.VisitGetDeviceAddressLeaseRuleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutDeviceAddressLeaseRule operation middleware
+func (sh *strictHandler) PutDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request, deviceId ID) {
+	var request PutDeviceAddressLeaseRuleRequestObject
+
+	request.DeviceId = deviceId
+
+	var body PutDeviceAddressLeaseRuleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutDeviceAddressLeaseRule(ctx, request.(PutDeviceAddressLeaseRuleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutDeviceAddressLeaseRule")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutDeviceAddressLeaseRuleResponseObject); ok {
+		if err := validResponse.VisitPutDeviceAddressLeaseRuleResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -1631,44 +1991,49 @@ func (sh *strictHandler) DeviceHeartbeatByAPIKey(w http.ResponseWriter, r *http.
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

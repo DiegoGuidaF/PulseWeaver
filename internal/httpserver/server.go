@@ -22,16 +22,16 @@ import (
 type DeviceHandler = device.HTTPHandler
 type AuthHandler = auth.HTTPHandler
 
-func NewServerFromConfig(deviceHandler *DeviceHandler, authHandler *AuthHandler, logger *slog.Logger, conf config.ConfServer) (http.Handler, error) {
+func NewServerFromConfig(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, logger *slog.Logger, conf config.ConfServer) (http.Handler, error) {
 	trustedProxy, err := parseTrustedProxy(conf.TrustedProxy)
 	if err != nil {
 		return nil, fmt.Errorf("parse trusted proxy: %w", err)
 	}
 
-	return NewServer(deviceHandler, authHandler, logger, trustedProxy), nil
+	return NewServer(deviceHandler, authHandler, ruleHandler, logger, trustedProxy), nil
 }
 
-func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, logger *slog.Logger, trustedProxy netip.Addr) http.Handler {
+func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, logger *slog.Logger, trustedProxy netip.Addr) http.Handler {
 	r := chi.NewRouter()
 
 	loggerConfig := slogchi.Config{
@@ -61,7 +61,7 @@ func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, logger *s
 	r.Use(middleware.SetHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()"))
 	r.Use(MaxBodySizeMiddleware(256 * 1024)) // 256KB
 
-	addRoutes(r, deviceHandler, authHandler)
+	addRoutes(r, deviceHandler, authHandler, ruleHandler)
 
 	return r
 }

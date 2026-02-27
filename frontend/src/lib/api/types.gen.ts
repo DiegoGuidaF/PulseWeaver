@@ -79,6 +79,32 @@ export type Address = {
   updated_at: Date;
 };
 
+export type DeviceLeaseRule = {
+  id: Id;
+  device_id: Id;
+  /**
+   * Whether the lease rule is active
+   */
+  enabled: boolean;
+  /**
+   * Seconds after which an enabled device address lease expires
+   */
+  ttl_seconds: number;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export type PutDeviceLeaseRuleRequest = {
+  /**
+   * Seconds after which an enabled device address lease expires
+   */
+  ttl_seconds: number;
+  /**
+   * Whether the lease rule should be active
+   */
+  enabled: boolean;
+};
+
 /**
  * Unique username. Alphanumeric, underscores, and hyphens only.
  */
@@ -279,7 +305,7 @@ export type DeleteDeviceData = {
     /**
      * Device id
      */
-    device_id: number;
+    device_id: Id;
   };
   query?: never;
   url: "/devices/{device_id}";
@@ -314,7 +340,7 @@ export type GetDeviceAddressesData = {
     /**
      * Device Id
      */
-    device_id: number;
+    device_id: Id;
   };
   query?: never;
   url: "/devices/{device_id}/addresses";
@@ -357,7 +383,7 @@ export type AddAddressData = {
     /**
      * Device id
      */
-    device_id: number;
+    device_id: Id;
   };
   query?: never;
   url: "/devices/{device_id}/addresses";
@@ -399,7 +425,7 @@ export type DeviceHeartbeatData = {
     /**
      * Device Id
      */
-    device_id: number;
+    device_id: Id;
   };
   query?: never;
   url: "/devices/{device_id}/heartbeat";
@@ -482,11 +508,11 @@ export type DisableAddressData = {
     /**
      * Device Id
      */
-    device_id: number;
+    device_id: Id;
     /**
      * Address id
      */
-    address_id: number;
+    address_id: Id;
   };
   query?: never;
   url: "/devices/{device_id}/addresses/{address_id}";
@@ -519,3 +545,115 @@ export type DisableAddressResponses = {
 
 export type DisableAddressResponse =
   DisableAddressResponses[keyof DisableAddressResponses];
+
+export type DeleteDeviceAddressLeaseRuleData = {
+  body?: never;
+  path: {
+    /**
+     * Device id
+     */
+    device_id: Id;
+  };
+  query?: never;
+  url: "/devices/{device_id}/rules/address_lease";
+};
+
+export type DeleteDeviceAddressLeaseRuleErrors = {
+  /**
+   * Device or rule not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type DeleteDeviceAddressLeaseRuleError =
+  DeleteDeviceAddressLeaseRuleErrors[keyof DeleteDeviceAddressLeaseRuleErrors];
+
+export type DeleteDeviceAddressLeaseRuleResponses = {
+  /**
+   * Rule disabled
+   */
+  204: void;
+};
+
+export type DeleteDeviceAddressLeaseRuleResponse =
+  DeleteDeviceAddressLeaseRuleResponses[keyof DeleteDeviceAddressLeaseRuleResponses];
+
+export type GetDeviceAddressLeaseRuleData = {
+  body?: never;
+  path: {
+    /**
+     * Device id
+     */
+    device_id: Id;
+  };
+  query?: never;
+  url: "/devices/{device_id}/rules/address_lease";
+};
+
+export type GetDeviceAddressLeaseRuleErrors = {
+  /**
+   * Device or rule not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type GetDeviceAddressLeaseRuleError =
+  GetDeviceAddressLeaseRuleErrors[keyof GetDeviceAddressLeaseRuleErrors];
+
+export type GetDeviceAddressLeaseRuleResponses = {
+  /**
+   * OK
+   */
+  200: DeviceLeaseRule;
+};
+
+export type GetDeviceAddressLeaseRuleResponse =
+  GetDeviceAddressLeaseRuleResponses[keyof GetDeviceAddressLeaseRuleResponses];
+
+export type PutDeviceAddressLeaseRuleData = {
+  body: PutDeviceLeaseRuleRequest;
+  path: {
+    /**
+     * Device id
+     */
+    device_id: Id;
+  };
+  query?: never;
+  url: "/devices/{device_id}/rules/address_lease";
+};
+
+export type PutDeviceAddressLeaseRuleErrors = {
+  /**
+   * Bad Request
+   */
+  400: ErrorResponse;
+  /**
+   * Device not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type PutDeviceAddressLeaseRuleError =
+  PutDeviceAddressLeaseRuleErrors[keyof PutDeviceAddressLeaseRuleErrors];
+
+export type PutDeviceAddressLeaseRuleResponses = {
+  /**
+   * Rule updated or created
+   */
+  200: DeviceLeaseRule;
+};
+
+export type PutDeviceAddressLeaseRuleResponse =
+  PutDeviceAddressLeaseRuleResponses[keyof PutDeviceAddressLeaseRuleResponses];

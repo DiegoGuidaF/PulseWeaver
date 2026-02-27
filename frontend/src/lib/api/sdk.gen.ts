@@ -11,8 +11,10 @@ import {
   disableAddressResponseTransformer,
   getCurrentUserResponseTransformer,
   getDeviceAddressesResponseTransformer,
+  getDeviceAddressLeaseRuleResponseTransformer,
   getDevicesResponseTransformer,
   loginResponseTransformer,
+  putDeviceAddressLeaseRuleResponseTransformer,
 } from "./transformers.gen";
 import type {
   AddAddressData,
@@ -24,6 +26,9 @@ import type {
   CreateUserData,
   CreateUserErrors,
   CreateUserResponses,
+  DeleteDeviceAddressLeaseRuleData,
+  DeleteDeviceAddressLeaseRuleErrors,
+  DeleteDeviceAddressLeaseRuleResponses,
   DeleteDeviceData,
   DeleteDeviceErrors,
   DeleteDeviceResponses,
@@ -42,6 +47,9 @@ import type {
   GetDeviceAddressesData,
   GetDeviceAddressesErrors,
   GetDeviceAddressesResponses,
+  GetDeviceAddressLeaseRuleData,
+  GetDeviceAddressLeaseRuleErrors,
+  GetDeviceAddressLeaseRuleResponses,
   GetDevicesData,
   GetDevicesErrors,
   GetDevicesResponses,
@@ -50,6 +58,9 @@ import type {
   LoginResponses,
   LogoutData,
   LogoutResponses,
+  PutDeviceAddressLeaseRuleData,
+  PutDeviceAddressLeaseRuleErrors,
+  PutDeviceAddressLeaseRuleResponses,
 } from "./types.gen";
 import {
   zAddAddressData,
@@ -58,6 +69,8 @@ import {
   zCreateDeviceResponse2,
   zCreateUserData,
   zCreateUserResponse,
+  zDeleteDeviceAddressLeaseRuleData,
+  zDeleteDeviceAddressLeaseRuleResponse,
   zDeleteDeviceData,
   zDeleteDeviceResponse,
   zDeviceHeartbeatByApiKeyData,
@@ -70,12 +83,16 @@ import {
   zGetCurrentUserResponse,
   zGetDeviceAddressesData,
   zGetDeviceAddressesResponse,
+  zGetDeviceAddressLeaseRuleData,
+  zGetDeviceAddressLeaseRuleResponse,
   zGetDevicesData,
   zGetDevicesResponse,
   zLoginData,
   zLoginResponse,
   zLogoutData,
   zLogoutResponse,
+  zPutDeviceAddressLeaseRuleData,
+  zPutDeviceAddressLeaseRuleResponse,
 } from "./zod.gen";
 
 export type Options<
@@ -429,4 +446,96 @@ export const disableAddress = <ThrowOnError extends boolean = false>(
     ],
     url: "/devices/{device_id}/addresses/{address_id}",
     ...options,
+  });
+
+/**
+ * Disable device lease rule for a device
+ *
+ * Disables the device lease rule for the device (sets enabled to false).
+ */
+export const deleteDeviceAddressLeaseRule = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DeleteDeviceAddressLeaseRuleData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    DeleteDeviceAddressLeaseRuleResponses,
+    DeleteDeviceAddressLeaseRuleErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await zDeleteDeviceAddressLeaseRuleData.parseAsync(data),
+    responseValidator: async (data) =>
+      await zDeleteDeviceAddressLeaseRuleResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/devices/{device_id}/rules/address_lease",
+    ...options,
+  });
+
+/**
+ * Get IP auto-expiry rule for a device
+ *
+ * Returns the ip_auto_expiry rule for the device if configured.
+ */
+export const getDeviceAddressLeaseRule = <ThrowOnError extends boolean = false>(
+  options: Options<GetDeviceAddressLeaseRuleData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    GetDeviceAddressLeaseRuleResponses,
+    GetDeviceAddressLeaseRuleErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await zGetDeviceAddressLeaseRuleData.parseAsync(data),
+    responseTransformer: getDeviceAddressLeaseRuleResponseTransformer,
+    responseValidator: async (data) =>
+      await zGetDeviceAddressLeaseRuleResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/devices/{device_id}/rules/address_lease",
+    ...options,
+  });
+
+/**
+ * Create or update IP auto-expiry rule for a device
+ *
+ * Creates or updates the ip_auto_expiry rule for the device. ttl_seconds must be positive.
+ */
+export const putDeviceAddressLeaseRule = <ThrowOnError extends boolean = false>(
+  options: Options<PutDeviceAddressLeaseRuleData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    PutDeviceAddressLeaseRuleResponses,
+    PutDeviceAddressLeaseRuleErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await zPutDeviceAddressLeaseRuleData.parseAsync(data),
+    responseTransformer: putDeviceAddressLeaseRuleResponseTransformer,
+    responseValidator: async (data) =>
+      await zPutDeviceAddressLeaseRuleResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/devices/{device_id}/rules/address_lease",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });

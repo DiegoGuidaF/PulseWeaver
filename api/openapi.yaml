@@ -212,8 +212,7 @@ paths:
           description: Device id
           required: true
           schema:
-            type: integer
-            format: int64
+            $ref: '#/components/schemas/ID'
       responses:
         "204":
           description: No Content - Device deleted successfully
@@ -243,8 +242,7 @@ paths:
           description: Device Id
           required: true
           schema:
-            type: integer
-            format: int64
+            $ref: '#/components/schemas/ID'
       responses:
         "200":
           description: OK
@@ -284,8 +282,7 @@ paths:
           description: Device id
           required: true
           schema:
-            type: integer
-            format: int64
+            $ref: '#/components/schemas/ID'
       requestBody:
         description: Address assignment request
         content:
@@ -338,8 +335,7 @@ paths:
           description: Device Id
           required: true
           schema:
-            type: integer
-            format: int64
+            $ref: '#/components/schemas/ID'
       responses:
         "200":
           description: Address enabled
@@ -431,15 +427,13 @@ paths:
           description: Device Id
           required: true
           schema:
-            type: integer
-            format: int64
+            $ref: '#/components/schemas/ID'
         - name: address_id
           in: path
           description: Address id
           required: true
           schema:
-            type: integer
-            format: int64
+            $ref: '#/components/schemas/ID'
       responses:
         "200":
           description: Address successfully disabled
@@ -455,6 +449,111 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Address or device not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /devices/{device_id}/rules/address_lease:
+    get:
+      operationId: getDeviceAddressLeaseRule
+      tags:
+        - rules
+      summary: Get IP auto-expiry rule for a device
+      description: Returns the ip_auto_expiry rule for the device if configured.
+      parameters:
+        - name: device_id
+          in: path
+          description: Device id
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceAddressLeaseRule'
+        "404":
+          description: Device or rule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: putDeviceAddressLeaseRule
+      tags:
+        - rules
+      summary: Create or update IP auto-expiry rule for a device
+      description: Creates or updates the ip_auto_expiry rule for the device. ttl_seconds must be positive.
+      parameters:
+        - name: device_id
+          in: path
+          description: Device id
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PutDeviceAddressLeaseRuleRequest'
+      responses:
+        "200":
+          description: Rule updated or created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceAddressLeaseRule'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: disableDeviceAddressLeaseRule
+      tags:
+        - rules
+      summary: Disable device lease rule for a device
+      description: Disables the device lease rule for the device (sets enabled to false).
+      parameters:
+        - name: device_id
+          in: path
+          description: Device id
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        "204":
+          description: Rule disabled
+        "404":
+          description: Device or rule not found
           content:
             application/json:
               schema:
@@ -630,6 +729,44 @@ components:
           type: string
           format: date-time
           description: Last time it was enabled or disabled
+
+    DeviceAddressLeaseRule:
+      type: object
+      required:
+        - id
+        - device_id
+        - enabled
+        - ttl_seconds
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        device_id:
+          $ref: '#/components/schemas/ID'
+        enabled:
+          type: boolean
+          description: Whether the lease rule is active
+        ttl_seconds:
+          type: integer
+          minimum: 1
+          description: Seconds after which an enabled device address lease expires
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PutDeviceAddressLeaseRuleRequest:
+      type: object
+      required:
+        - ttl_seconds
+      properties:
+        ttl_seconds:
+          type: integer
+          minimum: 1
+          description: Seconds after which an enabled device address lease expires
 
     #################
     # Reused types

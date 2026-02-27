@@ -7,6 +7,7 @@ import (
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/health"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/rule"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/ui"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
@@ -16,10 +17,17 @@ import (
 type CompositeHandler struct {
 	*DeviceHandler
 	*AuthHandler
+	*RuleHandler
 }
 
-func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler) {
-	routeHandler := &CompositeHandler{DeviceHandler: deviceHandler, AuthHandler: authHandler}
+type RuleHandler = rule.HTTPHandler
+
+func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler) {
+	routeHandler := &CompositeHandler{
+		DeviceHandler: deviceHandler,
+		AuthHandler:   authHandler,
+		RuleHandler:   ruleHandler,
+	}
 
 	r.Get("/health", health.Handler)
 

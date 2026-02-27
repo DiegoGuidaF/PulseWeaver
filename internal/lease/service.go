@@ -3,13 +3,12 @@ package lease
 import (
 	"context"
 	"errors"
-	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
 )
 
 type TTLConfigRetriever interface {
-	GetAddressTTL(ctx context.Context, deviceID device.DeviceID) (*time.Duration, error)
+	GetDeviceAddressLeaseTTLSeconds(ctx context.Context, deviceID device.DeviceID) (*int, error)
 }
 type repository interface {
 	UpsertAddressLease(ctx context.Context, addressLease *AddressLease) (*AddressLease, error)
@@ -31,7 +30,7 @@ func NewService(repository repository, ttlConfigRetriever TTLConfigRetriever) *S
 }
 
 func (s *Service) AddAddressLease(ctx context.Context, deviceID device.DeviceID, addressID device.AddressID) (*AddressLease, error) {
-	addressTTL, err := s.ttlConfigRetriever.GetAddressTTL(ctx, deviceID)
+	addressTTL, err := s.ttlConfigRetriever.GetDeviceAddressLeaseTTLSeconds(ctx, deviceID)
 	if err != nil {
 		return nil, err
 	}

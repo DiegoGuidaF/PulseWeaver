@@ -14,8 +14,9 @@ type AddressLease struct {
 	CreatedAt time.Time        `db:"created_at"`
 }
 
-func NewAddressLease(addressID device.AddressID, duration time.Duration) *AddressLease {
+func NewAddressLease(addressID device.AddressID, TTLSeconds int) *AddressLease {
 	now := time.Now().UTC()
+	duration := time.Duration(TTLSeconds) * time.Second
 	expiresAt := now.Add(duration)
 	return &AddressLease{
 		AddressID: addressID,

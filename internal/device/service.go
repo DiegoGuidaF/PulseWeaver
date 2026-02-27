@@ -4,16 +4,9 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 )
-
-// RuleEvaluator is the narrow interface the device service uses to evaluate
-// rule-based configuration such as IP auto-expiry.
-type RuleEvaluator interface {
-	GetAddressTTL(ctx context.Context, deviceID DeviceID) (*time.Duration, error)
-}
 
 type repository interface {
 	GetDevice(ctx context.Context, id DeviceID) (*Device, error)

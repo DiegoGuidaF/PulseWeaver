@@ -168,6 +168,61 @@ export const AddressSchema = {
   },
 } as const;
 
+export const DeviceLeaseRuleSchema = {
+  type: "object",
+  required: [
+    "id",
+    "device_id",
+    "enabled",
+    "ttl_seconds",
+    "created_at",
+    "updated_at",
+  ],
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    device_id: {
+      $ref: "#/components/schemas/ID",
+    },
+    enabled: {
+      type: "boolean",
+      description: "Whether the lease rule is active",
+    },
+    ttl_seconds: {
+      type: "integer",
+      minimum: 1,
+      description:
+        "Seconds after which an enabled device address lease expires",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+    },
+    updated_at: {
+      type: "string",
+      format: "date-time",
+    },
+  },
+} as const;
+
+export const PutDeviceLeaseRuleRequestSchema = {
+  type: "object",
+  required: ["ttl_seconds", "enabled"],
+  properties: {
+    ttl_seconds: {
+      type: "integer",
+      minimum: 1,
+      description:
+        "Seconds after which an enabled device address lease expires",
+    },
+    enabled: {
+      type: "boolean",
+      description: "Whether the lease rule should be active",
+    },
+  },
+} as const;
+
 export const UsernameSchema = {
   type: "string",
   description: "Unique username. Alphanumeric, underscores, and hyphens only.",
