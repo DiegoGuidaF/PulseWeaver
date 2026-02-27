@@ -1,7 +1,7 @@
 # Tools are isolated in tools/go.mod to avoid polluting main module dependencies.
 # Tools are run with -modfile=tools/go.mod to use the separate module.
 
-.PHONY: dev run test clean fix lint migrate-up migrate-down migrate-create
+.PHONY: dev run test clean fix lint migrate-up migrate-down migrate-create api
 
 dev-back:
 	air
@@ -21,7 +21,6 @@ clean:
 	rm -rf bin/
 	rm -rf internal/ui/dist
 	rm -rf frontend/dist
-
 
 test:
 	go test -tags=test -v ./...
@@ -58,3 +57,7 @@ build-frontend:
 build-backend:
 	@echo "🔨 Building Go binary..."
 	go build -tags=prod -o bin/wallydic ./cmd/api
+
+api:
+	go generate ./...
+	cd frontend && npm run generate:api
