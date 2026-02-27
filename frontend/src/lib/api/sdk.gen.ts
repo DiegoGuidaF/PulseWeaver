@@ -26,9 +26,6 @@ import type {
   CreateUserData,
   CreateUserErrors,
   CreateUserResponses,
-  DeleteDeviceAddressLeaseRuleData,
-  DeleteDeviceAddressLeaseRuleErrors,
-  DeleteDeviceAddressLeaseRuleResponses,
   DeleteDeviceData,
   DeleteDeviceErrors,
   DeleteDeviceResponses,
@@ -41,6 +38,9 @@ import type {
   DisableAddressData,
   DisableAddressErrors,
   DisableAddressResponses,
+  DisableDeviceAddressLeaseRuleData,
+  DisableDeviceAddressLeaseRuleErrors,
+  DisableDeviceAddressLeaseRuleResponses,
   GetCurrentUserData,
   GetCurrentUserErrors,
   GetCurrentUserResponses,
@@ -69,8 +69,6 @@ import {
   zCreateDeviceResponse2,
   zCreateUserData,
   zCreateUserResponse,
-  zDeleteDeviceAddressLeaseRuleData,
-  zDeleteDeviceAddressLeaseRuleResponse,
   zDeleteDeviceData,
   zDeleteDeviceResponse,
   zDeviceHeartbeatByApiKeyData,
@@ -79,6 +77,8 @@ import {
   zDeviceHeartbeatResponse,
   zDisableAddressData,
   zDisableAddressResponse,
+  zDisableDeviceAddressLeaseRuleData,
+  zDisableDeviceAddressLeaseRuleResponse,
   zGetCurrentUserData,
   zGetCurrentUserResponse,
   zGetDeviceAddressesData,
@@ -453,20 +453,20 @@ export const disableAddress = <ThrowOnError extends boolean = false>(
  *
  * Disables the device lease rule for the device (sets enabled to false).
  */
-export const deleteDeviceAddressLeaseRule = <
+export const disableDeviceAddressLeaseRule = <
   ThrowOnError extends boolean = false,
 >(
-  options: Options<DeleteDeviceAddressLeaseRuleData, ThrowOnError>,
+  options: Options<DisableDeviceAddressLeaseRuleData, ThrowOnError>,
 ) =>
   (options.client ?? client).delete<
-    DeleteDeviceAddressLeaseRuleResponses,
-    DeleteDeviceAddressLeaseRuleErrors,
+    DisableDeviceAddressLeaseRuleResponses,
+    DisableDeviceAddressLeaseRuleErrors,
     ThrowOnError
   >({
     requestValidator: async (data) =>
-      await zDeleteDeviceAddressLeaseRuleData.parseAsync(data),
+      await zDisableDeviceAddressLeaseRuleData.parseAsync(data),
     responseValidator: async (data) =>
-      await zDeleteDeviceAddressLeaseRuleResponse.parseAsync(data),
+      await zDisableDeviceAddressLeaseRuleResponse.parseAsync(data),
     security: [
       {
         in: "cookie",

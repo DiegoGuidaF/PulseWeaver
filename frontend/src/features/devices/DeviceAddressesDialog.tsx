@@ -22,12 +22,37 @@ import {
 } from "@/components/ui/form";
 import { format } from "date-fns";
 import { useDeviceAddresses } from "@/features/devices/hooks/useDeviceAddresses";
+import { useDeviceAddressLeaseRule } from "@/features/devices/hooks/useDeviceAddressLeaseRule";
+import { usePutDeviceAddressLeaseRule } from "@/features/devices/hooks/usePutDeviceAddressLeaseRule";
+import { useDisableDeviceAddressLeaseRule } from "@/features/devices/hooks/useDisableDeviceAddressLeaseRule";
 import { useAddDeviceAddress } from "@/features/devices/hooks/useAddDeviceAddress";
 import { useDisableDeviceAddress } from "@/features/devices/hooks/useDisableDeviceAddress";
 import { zAddAddressRequest } from "@/lib/api/zod.gen";
-import type { z } from "zod";
+import { z } from "zod";
 
 const addressSchema = zAddAddressRequest;
+
+const TTL_UNITS = ["seconds", "minutes", "days"] as const;
+const SECONDS_PER_MINUTE = 60;
+const SECONDS_PER_DAY = 86400;
+
+function toSeconds(value: number, unit: (typeof TTL_UNITS)[number]): number {
+  switch (unit) {
+    case "seconds":
+      return value;
+    case "minutes":
+      return value * SECONDS_PER_MINUTE;
+    case "days":
+      return value * SECONDS_PER_DAY;
+  }
+}
+
+const leaseRuleFormSchema = z.object({
+  value: z.coerce.number().int("Must be a whole number").min(1, "Minimum is 1"),
+  unit: z.enum(TTL_UNITS),
+});
+
+type LeaseRuleFormValues = z.infer<typeof leaseRuleFormSchema>;
 
 type DeviceAddressesDialogProps = {
   deviceId: number;
@@ -41,6 +66,12 @@ export function DeviceAddressesDialog({
   const [open, setOpen] = useState(false);
 
   const { data: addresses, isLoading } = useDeviceAddresses(deviceId, open);
+  const {
+    data: rule,
+    isLoading: ruleLoading,
+  } = useDeviceAddressLeaseRule(deviceId, open);
+  const putRuleMutation = usePutDeviceAddressLeaseRule(deviceId);
+  const disableRuleMutation = useDisableDeviceAddressLeaseRule(deviceId);
 
   const form = useForm<z.infer<typeof addressSchema>>({
     resolver: zodResolver(addressSchema),
@@ -53,11 +84,32 @@ export function DeviceAddressesDialog({
 
   const disableAddressMutation = useDisableDeviceAddress();
 
+  const leaseRuleForm = useForm<LeaseRuleFormValues>({
+    resolver: zodResolver(leaseRuleFormSchema),
+    defaultValues: { value: 3600, unit: "seconds" },
+  });
+
+  const [editingRule, setEditingRule] = useState(false);
+
   function onSubmit(values: z.infer<typeof addressSchema>) {
     addAddressMutation.mutate({
       path: { device_id: deviceId },
       body: { ip: values.ip },
     });
+  }
+
+  function onLeaseRuleSubmit(values: LeaseRuleFormValues) {
+    putRuleMutation.mutate({
+      body: { ttl_seconds: toSeconds(values.value, values.unit) },
+    });
+    leaseRuleForm.reset();
+    setEditingRule(false);
+  }
+
+  function handleEnableRule() {
+    if (rule) {
+      putRuleMutation.mutate({ body: { ttl_seconds: rule.ttl_seconds } });
+    }
   }
 
   return (
@@ -76,6 +128,187 @@ export function DeviceAddressesDialog({
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Address lease rule */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold">Address lease rule</h4>
+            {ruleLoading ? (
+              <p className="text-muted-foreground text-sm">Loading...</p>
+            ) : rule === null ? (
+              <Form {...leaseRuleForm}>
+                <form
+                  onSubmit={leaseRuleForm.handleSubmit(onLeaseRuleSubmit)}
+                  className="flex flex-wrap items-end gap-4"
+                >
+                  <FormField
+                    control={leaseRuleForm.control}
+                    name="value"
+                    render={({ field }) => (
+                      <FormItem className="w-32">
+                        <FormLabel>TTL</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            step={1}
+                            placeholder="1"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value === ""
+                                  ? undefined
+                                  : Number(e.target.value),
+                              )
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={leaseRuleForm.control}
+                    name="unit"
+                    render={({ field }) => (
+                      <FormItem className="w-28">
+                        <FormLabel>Unit</FormLabel>
+                        <FormControl>
+                          <select
+                            className="border-input focus-visible:ring-ring flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:ring-1 focus-visible:outline-none md:text-sm"
+                            {...field}
+                          >
+                            {TTL_UNITS.map((u) => (
+                              <option key={u} value={u}>
+                                {u}
+                              </option>
+                            ))}
+                          </select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" disabled={putRuleMutation.isPending}>
+                    {putRuleMutation.isPending ? "Creating..." : "Create"}
+                  </Button>
+                </form>
+              </Form>
+            ) : editingRule ? (
+              <Form {...leaseRuleForm}>
+                <form
+                  onSubmit={leaseRuleForm.handleSubmit(onLeaseRuleSubmit)}
+                  className="flex flex-wrap items-end gap-4"
+                >
+                  <FormField
+                    control={leaseRuleForm.control}
+                    name="value"
+                    render={({ field }) => (
+                      <FormItem className="w-32">
+                        <FormLabel>TTL</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            step={1}
+                            placeholder="1"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value === ""
+                                  ? undefined
+                                  : Number(e.target.value),
+                              )
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={leaseRuleForm.control}
+                    name="unit"
+                    render={({ field }) => (
+                      <FormItem className="w-28">
+                        <FormLabel>Unit</FormLabel>
+                        <FormControl>
+                          <select
+                            className="border-input focus-visible:ring-ring flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:ring-1 focus-visible:outline-none md:text-sm"
+                            {...field}
+                          >
+                            {TTL_UNITS.map((u) => (
+                              <option key={u} value={u}>
+                                {u}
+                              </option>
+                            ))}
+                          </select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" disabled={putRuleMutation.isPending}>
+                    {putRuleMutation.isPending ? "Saving..." : "Save"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingRule(false);
+                      leaseRuleForm.reset({
+                        value: rule.ttl_seconds,
+                        unit: "seconds",
+                      });
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </form>
+              </Form>
+            ) : (
+              <div className="space-y-2 rounded-lg border p-3">
+                <p className="text-muted-foreground text-sm">
+                  TTL: {rule.ttl_seconds} seconds · Enabled:{" "}
+                  {rule.enabled ? "Yes" : "No"}
+                </p>
+                <div className="flex gap-2">
+                  {rule.enabled ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingRule(true);
+                          leaseRuleForm.reset({
+                            value: rule.ttl_seconds,
+                            unit: "seconds",
+                          });
+                        }}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => disableRuleMutation.mutate({})}
+                        disabled={disableRuleMutation.isPending}
+                      >
+                        Disable
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={handleEnableRule}
+                      disabled={putRuleMutation.isPending}
+                    >
+                      Enable
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Add Address Form */}
           <Form {...form}>
             <form

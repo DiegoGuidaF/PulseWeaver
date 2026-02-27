@@ -1,4 +1,4 @@
-import type { Address, Device, User } from '@/lib/api';
+import type { Address, Device, DeviceAddressLeaseRule, User } from '@/lib/api';
 
 /**
  * Creates a mock Device object with realistic defaults.
@@ -42,6 +42,25 @@ export function createMockAddress(overrides?: Partial<Address>): Address {
     device_id: 1,
     ip: '192.168.1.100',
     status: true,
+    created_at: new Date('2024-01-01T00:00:00Z'),
+    updated_at: new Date('2024-01-01T00:00:00Z'),
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a mock DeviceAddressLeaseRule with realistic defaults.
+ * @param overrides - Partial DeviceAddressLeaseRule to override defaults
+ * @returns A DeviceAddressLeaseRule object
+ */
+export function createMockDeviceAddressLeaseRule(
+  overrides?: Partial<DeviceAddressLeaseRule>,
+): DeviceAddressLeaseRule {
+  return {
+    id: 1,
+    device_id: 1,
+    enabled: true,
+    ttl_seconds: 3600,
     created_at: new Date('2024-01-01T00:00:00Z'),
     updated_at: new Date('2024-01-01T00:00:00Z'),
     ...overrides,

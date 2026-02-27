@@ -10,9 +10,8 @@ export const zErrorResponse = z.object({
   error: z.optional(z.string()),
 });
 
-export const zPutDeviceLeaseRuleRequest = z.object({
+export const zPutDeviceAddressLeaseRuleRequest = z.object({
   ttl_seconds: z.int().gte(1),
-  enabled: z.boolean(),
 });
 
 /**
@@ -94,7 +93,7 @@ export const zAddress = z.object({
   updated_at: z.iso.datetime({ offset: true, local: true }),
 });
 
-export const zDeviceLeaseRule = z.object({
+export const zDeviceAddressLeaseRule = z.object({
   id: zId,
   device_id: zId,
   enabled: z.boolean(),
@@ -246,7 +245,7 @@ export const zDisableAddressData = z.object({
  */
 export const zDisableAddressResponse = zAddress;
 
-export const zDeleteDeviceAddressLeaseRuleData = z.object({
+export const zDisableDeviceAddressLeaseRuleData = z.object({
   body: z.optional(z.never()),
   path: z.object({
     device_id: zId,
@@ -257,7 +256,7 @@ export const zDeleteDeviceAddressLeaseRuleData = z.object({
 /**
  * Rule disabled
  */
-export const zDeleteDeviceAddressLeaseRuleResponse = z.void();
+export const zDisableDeviceAddressLeaseRuleResponse = z.void();
 
 export const zGetDeviceAddressLeaseRuleData = z.object({
   body: z.optional(z.never()),
@@ -270,10 +269,10 @@ export const zGetDeviceAddressLeaseRuleData = z.object({
 /**
  * OK
  */
-export const zGetDeviceAddressLeaseRuleResponse = zDeviceLeaseRule;
+export const zGetDeviceAddressLeaseRuleResponse = zDeviceAddressLeaseRule;
 
 export const zPutDeviceAddressLeaseRuleData = z.object({
-  body: zPutDeviceLeaseRuleRequest,
+  body: zPutDeviceAddressLeaseRuleRequest,
   path: z.object({
     device_id: zId,
   }),
@@ -283,4 +282,4 @@ export const zPutDeviceAddressLeaseRuleData = z.object({
 /**
  * Rule updated or created
  */
-export const zPutDeviceAddressLeaseRuleResponse = zDeviceLeaseRule;
+export const zPutDeviceAddressLeaseRuleResponse = zDeviceAddressLeaseRule;

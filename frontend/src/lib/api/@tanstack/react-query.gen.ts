@@ -12,10 +12,10 @@ import {
   createDevice,
   createUser,
   deleteDevice,
-  deleteDeviceAddressLeaseRule,
   deviceHeartbeat,
   deviceHeartbeatByApiKey,
   disableAddress,
+  disableDeviceAddressLeaseRule,
   getCurrentUser,
   getDeviceAddresses,
   getDeviceAddressLeaseRule,
@@ -35,9 +35,6 @@ import type {
   CreateUserData,
   CreateUserError,
   CreateUserResponse,
-  DeleteDeviceAddressLeaseRuleData,
-  DeleteDeviceAddressLeaseRuleError,
-  DeleteDeviceAddressLeaseRuleResponse,
   DeleteDeviceData,
   DeleteDeviceError,
   DeleteDeviceResponse,
@@ -50,6 +47,9 @@ import type {
   DisableAddressData,
   DisableAddressError,
   DisableAddressResponse,
+  DisableDeviceAddressLeaseRuleData,
+  DisableDeviceAddressLeaseRuleError,
+  DisableDeviceAddressLeaseRuleResponse,
   GetCurrentUserData,
   GetCurrentUserError,
   GetCurrentUserResponse,
@@ -454,20 +454,20 @@ export const disableAddressMutation = (
  *
  * Disables the device lease rule for the device (sets enabled to false).
  */
-export const deleteDeviceAddressLeaseRuleMutation = (
-  options?: Partial<Options<DeleteDeviceAddressLeaseRuleData>>,
+export const disableDeviceAddressLeaseRuleMutation = (
+  options?: Partial<Options<DisableDeviceAddressLeaseRuleData>>,
 ): UseMutationOptions<
-  DeleteDeviceAddressLeaseRuleResponse,
-  DeleteDeviceAddressLeaseRuleError,
-  Options<DeleteDeviceAddressLeaseRuleData>
+  DisableDeviceAddressLeaseRuleResponse,
+  DisableDeviceAddressLeaseRuleError,
+  Options<DisableDeviceAddressLeaseRuleData>
 > => {
   const mutationOptions: UseMutationOptions<
-    DeleteDeviceAddressLeaseRuleResponse,
-    DeleteDeviceAddressLeaseRuleError,
-    Options<DeleteDeviceAddressLeaseRuleData>
+    DisableDeviceAddressLeaseRuleResponse,
+    DisableDeviceAddressLeaseRuleError,
+    Options<DisableDeviceAddressLeaseRuleData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await deleteDeviceAddressLeaseRule({
+      const { data } = await disableDeviceAddressLeaseRule({
         ...options,
         ...fnOptions,
         throwOnError: true,

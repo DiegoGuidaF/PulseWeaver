@@ -106,7 +106,7 @@ export const disableAddressResponseTransformer = async (
   return data;
 };
 
-const deviceLeaseRuleSchemaResponseTransformer = (data: any) => {
+const deviceAddressLeaseRuleSchemaResponseTransformer = (data: any) => {
   data.created_at = new Date(data.created_at);
   data.updated_at = new Date(data.updated_at);
   return data;
@@ -115,13 +115,13 @@ const deviceLeaseRuleSchemaResponseTransformer = (data: any) => {
 export const getDeviceAddressLeaseRuleResponseTransformer = async (
   data: any,
 ): Promise<GetDeviceAddressLeaseRuleResponse> => {
-  data = deviceLeaseRuleSchemaResponseTransformer(data);
+  data = deviceAddressLeaseRuleSchemaResponseTransformer(data);
   return data;
 };
 
 export const putDeviceAddressLeaseRuleResponseTransformer = async (
   data: any,
 ): Promise<PutDeviceAddressLeaseRuleResponse> => {
-  data = deviceLeaseRuleSchemaResponseTransformer(data);
+  data = deviceAddressLeaseRuleSchemaResponseTransformer(data);
   return data;
 };

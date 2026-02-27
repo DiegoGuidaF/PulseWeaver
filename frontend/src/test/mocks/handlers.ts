@@ -6,7 +6,7 @@ import {
     type JsonBodyType,
     type PathParams
 } from "msw";
-import {createMockAddress, createMockDevice, createMockUser} from "@/test/mocks/data.ts";
+import {createMockAddress, createMockDevice, createMockDeviceAddressLeaseRule, createMockUser} from "@/test/mocks/data.ts";
 
 const BASE_URL = '/api/v1';
 
@@ -15,6 +15,7 @@ const apiEndpoints = {
     deviceById: `${BASE_URL}/devices/:deviceId`,
     deviceAddresses: `${BASE_URL}/devices/:deviceId/addresses`,
     deleteDeviceAddresses: `${BASE_URL}/devices/:deviceId/addresses/:addressId`,
+    deviceAddressLeaseRule: `${BASE_URL}/devices/:deviceId/rules/address_lease`,
     authMe: `${BASE_URL}/auth/me`,
     authLogin: `${BASE_URL}/auth/login`,
 } as const;
@@ -63,7 +64,51 @@ const addressHandlers = {
         () => createMockAddress({status: false}),
         200
     ),
-}
+};
+
+const ruleHandlers = {
+    getDeviceAddressLeaseRuleHandler: (
+        ruleOrNull?: ReturnType<typeof createMockDeviceAddressLeaseRule> | null,
+        customResolver?: HttpResponseResolver
+    ) => {
+        if (customResolver) {
+            return http.get(apiEndpoints.deviceAddressLeaseRule, customResolver);
+        }
+        if (ruleOrNull === undefined || ruleOrNull === null) {
+            return http.get(apiEndpoints.deviceAddressLeaseRule, () =>
+                responses.notFound({ error: 'Not Found' })
+            );
+        }
+        return http.get(apiEndpoints.deviceAddressLeaseRule, () =>
+            HttpResponse.json({
+                id: ruleOrNull.id,
+                device_id: ruleOrNull.device_id,
+                enabled: ruleOrNull.enabled,
+                ttl_seconds: ruleOrNull.ttl_seconds,
+                created_at:
+                    ruleOrNull.created_at instanceof Date
+                        ? ruleOrNull.created_at.toISOString()
+                        : String(ruleOrNull.created_at),
+                updated_at:
+                    ruleOrNull.updated_at instanceof Date
+                        ? ruleOrNull.updated_at.toISOString()
+                        : String(ruleOrNull.updated_at),
+            })
+        );
+    },
+    putDeviceAddressLeaseRuleHandler: createHttpHandler(
+        'put',
+        apiEndpoints.deviceAddressLeaseRule,
+        (info) => createMockDeviceAddressLeaseRule({ device_id: Number(info.params.deviceId) }),
+        200
+    ),
+    deleteDeviceAddressLeaseRuleHandler: createHttpHandler(
+        'delete',
+        apiEndpoints.deviceAddressLeaseRule,
+        () => ({}),
+        204
+    )(undefined, () => responses.noContent()),
+};
 
 const authHandlers = {
     meHandler: createHttpHandler(
@@ -86,6 +131,9 @@ export const handlers = {
     },
     addresses: {
         ...addressHandlers
+    },
+    rules: {
+        ...ruleHandlers
     },
     auth: {
         ...authHandlers

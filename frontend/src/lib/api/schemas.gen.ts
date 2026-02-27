@@ -168,7 +168,7 @@ export const AddressSchema = {
   },
 } as const;
 
-export const DeviceLeaseRuleSchema = {
+export const DeviceAddressLeaseRuleSchema = {
   type: "object",
   required: [
     "id",
@@ -206,19 +206,15 @@ export const DeviceLeaseRuleSchema = {
   },
 } as const;
 
-export const PutDeviceLeaseRuleRequestSchema = {
+export const PutDeviceAddressLeaseRuleRequestSchema = {
   type: "object",
-  required: ["ttl_seconds", "enabled"],
+  required: ["ttl_seconds"],
   properties: {
     ttl_seconds: {
       type: "integer",
       minimum: 1,
       description:
         "Seconds after which an enabled device address lease expires",
-    },
-    enabled: {
-      type: "boolean",
-      description: "Whether the lease rule should be active",
     },
   },
 } as const;
