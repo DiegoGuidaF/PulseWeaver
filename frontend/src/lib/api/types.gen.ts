@@ -330,6 +330,40 @@ export type DeleteDeviceResponses = {
 export type DeleteDeviceResponse =
   DeleteDeviceResponses[keyof DeleteDeviceResponses];
 
+export type GetDeviceData = {
+  body?: never;
+  path: {
+    /**
+     * Device id
+     */
+    device_id: Id;
+  };
+  query?: never;
+  url: "/devices/{device_id}";
+};
+
+export type GetDeviceErrors = {
+  /**
+   * Device not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type GetDeviceError = GetDeviceErrors[keyof GetDeviceErrors];
+
+export type GetDeviceResponses = {
+  /**
+   * OK
+   */
+  200: Device;
+};
+
+export type GetDeviceResponse = GetDeviceResponses[keyof GetDeviceResponses];
+
 export type GetDeviceAddressesData = {
   body?: never;
   path: {

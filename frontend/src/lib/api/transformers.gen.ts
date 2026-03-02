@@ -10,6 +10,7 @@ import type {
   GetCurrentUserResponse,
   GetDeviceAddressesResponse,
   GetDeviceAddressLeaseRuleResponse,
+  GetDeviceResponse,
   GetDevicesResponse,
   LoginResponse,
   PutDeviceAddressLeaseRuleResponse,
@@ -62,6 +63,13 @@ export const createDeviceResponseTransformer = async (
   data: any,
 ): Promise<CreateDeviceResponse2> => {
   data = createDeviceResponseSchemaResponseTransformer(data);
+  return data;
+};
+
+export const getDeviceResponseTransformer = async (
+  data: any,
+): Promise<GetDeviceResponse> => {
+  data = deviceSchemaResponseTransformer(data);
   return data;
 };
 

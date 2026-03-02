@@ -181,6 +181,19 @@ export const zDeleteDeviceData = z.object({
  */
 export const zDeleteDeviceResponse = z.void();
 
+export const zGetDeviceData = z.object({
+  body: z.optional(z.never()),
+  path: z.object({
+    device_id: zId,
+  }),
+  query: z.optional(z.never()),
+});
+
+/**
+ * OK
+ */
+export const zGetDeviceResponse = zDevice;
+
 export const zGetDeviceAddressesData = z.object({
   body: z.optional(z.never()),
   path: z.object({

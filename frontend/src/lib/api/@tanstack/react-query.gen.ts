@@ -17,6 +17,7 @@ import {
   disableAddress,
   disableDeviceAddressLeaseRule,
   getCurrentUser,
+  getDevice,
   getDeviceAddresses,
   getDeviceAddressLeaseRule,
   getDevices,
@@ -59,6 +60,9 @@ import type {
   GetDeviceAddressLeaseRuleData,
   GetDeviceAddressLeaseRuleError,
   GetDeviceAddressLeaseRuleResponse,
+  GetDeviceData,
+  GetDeviceError,
+  GetDeviceResponse,
   GetDevicesData,
   GetDevicesError,
   GetDevicesResponse,
@@ -302,6 +306,33 @@ export const deleteDeviceMutation = (
   };
   return mutationOptions;
 };
+
+export const getDeviceQueryKey = (options: Options<GetDeviceData>) =>
+  createQueryKey("getDevice", options);
+
+/**
+ * Get a device
+ *
+ * Get a single device by its id.
+ */
+export const getDeviceOptions = (options: Options<GetDeviceData>) =>
+  queryOptions<
+    GetDeviceResponse,
+    GetDeviceError,
+    GetDeviceResponse,
+    ReturnType<typeof getDeviceQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getDevice({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getDeviceQueryKey(options),
+  });
 
 export const getDeviceAddressesQueryKey = (
   options: Options<GetDeviceAddressesData>,

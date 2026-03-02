@@ -11,6 +11,22 @@ import {TEST_TIMEOUTS} from '@/test/constants';
 
 describe('DeviceList', () => {
 
+    it('renders manage link for each device that navigates to detail page', async () => {
+        const mockDevices = [
+            createMockDevice({id: 1, name: 'Device One'}),
+        ];
+        server.use(handlers.devices.getDeviceListHandler(mockDevices));
+
+        renderWithProviders(<DeviceList/>);
+
+        await waitFor(() => {
+            expect(screen.getByText('Device One')).toBeInTheDocument();
+        });
+
+        const manageLink = screen.getByRole('link', {name: /manage/i});
+        expect(manageLink).toHaveAttribute('href', '/devices/1');
+    });
+
     it('shows delete button for each device', async () => {
         const mockDevices = [
             createMockDevice({id: 1, name: 'Device One'}),

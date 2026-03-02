@@ -12,6 +12,7 @@ import {
   getCurrentUserResponseTransformer,
   getDeviceAddressesResponseTransformer,
   getDeviceAddressLeaseRuleResponseTransformer,
+  getDeviceResponseTransformer,
   getDevicesResponseTransformer,
   loginResponseTransformer,
   putDeviceAddressLeaseRuleResponseTransformer,
@@ -50,6 +51,9 @@ import type {
   GetDeviceAddressLeaseRuleData,
   GetDeviceAddressLeaseRuleErrors,
   GetDeviceAddressLeaseRuleResponses,
+  GetDeviceData,
+  GetDeviceErrors,
+  GetDeviceResponses,
   GetDevicesData,
   GetDevicesErrors,
   GetDevicesResponses,
@@ -85,6 +89,8 @@ import {
   zGetDeviceAddressesResponse,
   zGetDeviceAddressLeaseRuleData,
   zGetDeviceAddressLeaseRuleResponse,
+  zGetDeviceData,
+  zGetDeviceResponse,
   zGetDevicesData,
   zGetDevicesResponse,
   zLoginData,
@@ -291,6 +297,34 @@ export const deleteDevice = <ThrowOnError extends boolean = false>(
     requestValidator: async (data) => await zDeleteDeviceData.parseAsync(data),
     responseValidator: async (data) =>
       await zDeleteDeviceResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/devices/{device_id}",
+    ...options,
+  });
+
+/**
+ * Get a device
+ *
+ * Get a single device by its id.
+ */
+export const getDevice = <ThrowOnError extends boolean = false>(
+  options: Options<GetDeviceData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    GetDeviceResponses,
+    GetDeviceErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) => await zGetDeviceData.parseAsync(data),
+    responseTransformer: getDeviceResponseTransformer,
+    responseValidator: async (data) =>
+      await zGetDeviceResponse.parseAsync(data),
     security: [
       {
         in: "cookie",

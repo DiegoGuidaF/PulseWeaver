@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Table,
   TableBody,
@@ -21,7 +22,6 @@ import {
 import { format } from "date-fns";
 import { Trash2 } from "lucide-react";
 import type { Device } from "@/lib/api";
-import { DeviceAddressesDialog } from "@/features/devices/DeviceAddressesDialog";
 import { useDevices } from "@/features/devices/hooks/useDevices";
 import { useDeleteDevice } from "@/features/devices/hooks/useDeleteDevice";
 import { toErrorMessage } from "@/lib/api-client";
@@ -118,10 +118,9 @@ export function DeviceList() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <DeviceAddressesDialog
-                        deviceId={device.id}
-                        deviceName={device.name}
-                      />
+                      <Button asChild variant="outline" size="sm">
+                        <Link to={`/devices/${device.id}`}>Manage</Link>
+                      </Button>
                       <Button
                         type="button"
                         variant="ghost"

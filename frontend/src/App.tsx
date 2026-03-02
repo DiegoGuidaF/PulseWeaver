@@ -6,6 +6,7 @@ import { AppErrorBoundary } from "./components/ErrorBoundary";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { DashboardPage } from "./pages/DashboardPage";
+import { DeviceDetailPage } from "./pages/DeviceDetailPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 
@@ -27,6 +28,16 @@ function App() {
                   <ProtectedRoute>
                     <AppShell>
                       <DashboardPage />
+                    </AppShell>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/devices/:deviceId"
+                element={
+                  <ProtectedRoute>
+                    <AppShell>
+                      <DeviceDetailPage />
                     </AppShell>
                   </ProtectedRoute>
                 }
