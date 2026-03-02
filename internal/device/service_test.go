@@ -312,6 +312,51 @@ func TestService_GetDevices_ReturnsListWithPrefix(t *testing.T) {
 	}
 }
 
+func TestService_GetDevice_Success(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	device := &Device{ID: DeviceID(1), Name: "single-device"}
+	mockRepo.devices[device.ID] = device
+	service := NewService(mockRepo, nil, nil)
+
+	got, err := service.GetDevice(ctx, device.ID)
+	is.NoErr(err)
+	is.True(got != nil)
+	is.Equal(got.ID, device.ID)
+	is.Equal(got.Name, device.Name)
+}
+
+func TestService_GetDevice_NotFound(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	mockRepo.getDeviceErr = ErrDeviceNotFound
+	service := NewService(mockRepo, nil, nil)
+
+	got, err := service.GetDevice(ctx, DeviceID(999))
+	is.True(err != nil)
+	is.Equal(err, ErrDeviceNotFound)
+	is.True(got == nil)
+}
+
+func TestService_GetDevice_RepoError(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	repoErr := errors.New("db error")
+	mockRepo.getDeviceErr = repoErr
+	service := NewService(mockRepo, nil, nil)
+
+	got, err := service.GetDevice(ctx, DeviceID(1))
+	is.True(err != nil)
+	is.Equal(err, repoErr)
+	is.True(got == nil)
+}
+
 func TestService_DeleteDevice_Success(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()

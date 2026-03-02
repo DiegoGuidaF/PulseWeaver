@@ -200,6 +200,38 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /devices/{device_id}:
+    get:
+      operationId: getDevice
+      tags:
+        - devices
+      summary: Get a device
+      description: Get a single device by its id.
+      parameters:
+        - name: device_id
+          in: path
+          description: Device id
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        "404":
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteDevice
       tags:

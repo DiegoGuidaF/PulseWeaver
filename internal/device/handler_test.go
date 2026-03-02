@@ -129,6 +129,42 @@ func TestHandler_CreateDevice(t *testing.T) {
 	is.True(resp.ApiKey != "")
 }
 
+func TestHandler_GetDevice_200(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	device, _, err := testServer.DeviceService.CreateDevice(t.Context(), "single-device")
+	is.NoErr(err)
+
+	getURL := fmt.Sprintf("/api/v1/devices/%d", device.ID)
+	getReq := httptest.NewRequest(http.MethodGet, getURL, nil)
+	getReq.AddCookie(sessionCookie)
+	getRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(getRes, getReq)
+	is.Equal(getRes.Code, http.StatusOK)
+
+	var resp httpapi.Device
+	err = json.NewDecoder(getRes.Body).Decode(&resp)
+	is.NoErr(err)
+	is.Equal(resp.Id, int64(device.ID))
+	is.Equal(resp.Name, device.Name)
+	is.True(resp.ApiKeyPrefix != "")
+}
+
+func TestHandler_GetDevice_404(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	getURL := fmt.Sprintf("/api/v1/devices/%d", 99999)
+	getReq := httptest.NewRequest(http.MethodGet, getURL, nil)
+	getReq.AddCookie(sessionCookie)
+	getRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(getRes, getReq)
+	is.Equal(getRes.Code, http.StatusNotFound)
+}
+
 func TestHandler_GetDevices_ReturnsAPIKeyPrefix(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)

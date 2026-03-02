@@ -63,6 +63,28 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 	}), nil
 }
 
+func (h *HTTPHandler) GetDevice(ctx context.Context, request httpapi.GetDeviceRequestObject) (httpapi.GetDeviceResponseObject, error) {
+	deviceID := DeviceID(request.DeviceId)
+	ctx, logger := logging.Enrich(ctx,
+		slog.String(AttrKeyOperation, "GetDevice"),
+		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
+	)
+
+	device, err := h.service.GetDevice(ctx, deviceID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrDeviceNotFound):
+			logger.Warn("device not found")
+			return httpapi.GetDevice404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
+		default:
+			logger.Error("failed to get device", slog.Any(AttrKeyError, err))
+			return httpapi.GetDevice500JSONResponse(errorMsgResponse("Failed to get device")), nil
+		}
+	}
+
+	return httpapi.GetDevice200JSONResponse(toDeviceResponse(device)), nil
+}
+
 func (h *HTTPHandler) DeleteDevice(ctx context.Context, request httpapi.DeleteDeviceRequestObject) (httpapi.DeleteDeviceResponseObject, error) {
 	deviceID := DeviceID(request.DeviceId)
 	ctx, logger := logging.Enrich(ctx,

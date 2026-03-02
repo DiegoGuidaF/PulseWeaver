@@ -51,6 +51,23 @@ func (s *Service) GetDevices(ctx context.Context) ([]Device, error) {
 	return devices, nil
 }
 
+func (s *Service) GetDevice(ctx context.Context, deviceID DeviceID) (*Device, error) {
+	logger := logging.FromCtx(ctx)
+	logger.Debug("getting device")
+
+	device, err := s.repo.GetDevice(ctx, deviceID)
+	if err != nil {
+		if errors.Is(err, ErrDeviceNotFound) {
+			logger.Warn("device not found")
+			return nil, err
+		}
+		logger.Error("database error fetching device", slog.Any(AttrKeyError, err))
+		return nil, err
+	}
+
+	return device, nil
+}
+
 func (s *Service) DeleteDevice(ctx context.Context, deviceID DeviceID) error {
 	logger := logging.FromCtx(ctx)
 	logger.Debug("deleting device")
