@@ -1,6 +1,3 @@
-# Tools are isolated in tools/go.mod to avoid polluting main module dependencies.
-# Tools are run with -modfile=tools/go.mod to use the separate module.
-
 .PHONY: dev run test clean fix lint migrate-up migrate-down migrate-create api
 
 dev-back:

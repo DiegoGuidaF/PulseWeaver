@@ -83,6 +83,6 @@ jobs:
           context: .
           push: ${{ github.ref == 'refs/heads/main' }}
           # If main, push image to both dev and sha-{commit} tags
-          tags: ${{ github.ref == 'refs/heads/main' && format('ghcr.io/{0}:dev,ghcr.io/{0}:sha-{1}', env.REPO_LC, env.SHORT_SHA) || 'wallydic:test' }}
+          tags: ${{ github.ref == 'refs/heads/main' && format('ghcr.io/{0}:dev,ghcr.io/{0}:sha-{1}', env.REPO_LC, env.SHORT_SHA) }}
           cache-from: type=gha
           cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max' || '' }}
