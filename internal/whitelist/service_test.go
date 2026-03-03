@@ -16,7 +16,7 @@ func TestService_Regenerate_WritesIPsToFile(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	filePath, mockProvider, service := setupService(t, 100*time.Millisecond, nil)
+	filePath, mockProvider, service := setupService(t, 100*time.Millisecond, nil, nil)
 	mockProvider.ips = []string{"192.168.1.1", "192.168.1.2", "192.168.1.3"}
 
 	err := service.Regenerate(ctx)
@@ -33,7 +33,7 @@ func TestService_Regenerate_HandlesEmptyList(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	filePath, mockProvider, service := setupService(t, 100*time.Millisecond, nil)
+	filePath, mockProvider, service := setupService(t, 100*time.Millisecond, nil, nil)
 	mockProvider.ips = []string{}
 
 	err := service.Regenerate(ctx)
@@ -48,7 +48,7 @@ func TestService_Regenerate_AtomicWrite(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	filePath, mockProvider, service := setupService(t, 100*time.Millisecond, nil)
+	filePath, mockProvider, service := setupService(t, 100*time.Millisecond, nil, nil)
 	mockProvider.ips = []string{"192.168.1.1"}
 
 	err := service.Regenerate(ctx)
@@ -66,7 +66,7 @@ func TestService_Regenerate_ProviderError(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
-	filePath, mockProvider, service := setupService(t, 100*time.Millisecond, nil)
+	filePath, mockProvider, service := setupService(t, 100*time.Millisecond, nil, nil)
 	testErr := errors.New("provider error")
 	mockProvider.err = testErr
 
@@ -200,6 +200,42 @@ func TestService_Run_ContinuesOnRegenerateError(t *testing.T) {
 	is.Equal(callCount, 2)
 }
 
+type mockChangeNotifier struct {
+	calls   int
+	lastCtx context.Context
+}
+
+func (m *mockChangeNotifier) NotifyChange(ctx context.Context) {
+	m.calls++
+	m.lastCtx = ctx
+}
+
+func TestService_Regenerate_EnqueuesNotificationOnChange(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	notifier := &mockChangeNotifier{}
+	_, mockProvider, service := setupService(t, 100*time.Millisecond, nil, notifier)
+	mockProvider.ips = []string{"192.168.1.1", "192.168.1.2"}
+
+	err := service.Regenerate(ctx)
+	is.NoErr(err)
+	is.Equal(notifier.calls, 1)
+	is.True(notifier.lastCtx != nil)
+}
+
+func TestService_Regenerate_NoNotificationWhenNotifierNil(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	// Construct service with nil notifier and ensure Regenerate does not panic
+	_, mockProvider, service := setupService(t, 100*time.Millisecond, nil, nil)
+	mockProvider.ips = []string{"192.168.1.1"}
+
+	err := service.Regenerate(ctx)
+	is.NoErr(err)
+}
+
 // mockEnabledIPsProvider is a synchronized mock implementation of EnabledIPsProvider.
 type mockEnabledIPsProvider struct {
 	ips      []string
@@ -238,7 +274,7 @@ func (m *mockEnabledIPsProvider) waitForCall(t *testing.T) {
 
 // setupService encapsulates common setup for synchronous Regenerate tests.
 // If provider is nil, it creates a new mockProvider.
-func setupService(t *testing.T, rateLimit time.Duration, provider *mockEnabledIPsProvider) (string, *mockEnabledIPsProvider, *Service) {
+func setupService(t *testing.T, rateLimit time.Duration, provider *mockEnabledIPsProvider, notifier ChangeNotifier) (string, *mockEnabledIPsProvider, *Service) {
 	t.Helper()
 
 	tmpDir := t.TempDir()
@@ -253,7 +289,7 @@ func setupService(t *testing.T, rateLimit time.Duration, provider *mockEnabledIP
 		RateLimit: rateLimit,
 	}
 
-	service := NewService(provider, conf)
+	service := NewService(provider, conf, notifier)
 
 	return filePath, provider, service
 }
@@ -268,7 +304,7 @@ func newRunningService(t *testing.T, rateLimit time.Duration, provider *mockEnab
 	t.Cleanup(cancelCtx) // Prevent goroutine leaks if test fails early
 
 	// Reuse the synchronous setup
-	filePath, _, service := setupService(t, rateLimit, provider)
+	filePath, _, service := setupService(t, rateLimit, provider, nil)
 
 	ch := make(chan struct{}, 1)
 	doneCh := make(chan error, 1)

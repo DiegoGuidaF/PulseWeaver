@@ -18,19 +18,31 @@ type EnabledIPsProvider interface {
 	GetEnabledUniqueIPs(ctx context.Context) ([]string, error)
 }
 
+// ChangeNotifier used to signal that the whitelist has successfully changed
+type ChangeNotifier interface {
+	NotifyChange(ctx context.Context)
+}
+
+// NoOpNotifier does nothing.
+type NoOpNotifier struct{}
+
+func (n NoOpNotifier) NotifyChange(ctx context.Context) {}
+
 type Service struct {
-	provider  EnabledIPsProvider
-	filePath  string
-	rateLimit time.Duration
+	provider       EnabledIPsProvider
+	filePath       string
+	rateLimit      time.Duration
+	changeNotifier ChangeNotifier
 }
 
 // NewService creates a new whitelist service.
 // Receives the whole ConfWhitelist struct since it is domain-specific.
-func NewService(provider EnabledIPsProvider, conf config.ConfWhitelist) *Service {
+func NewService(provider EnabledIPsProvider, conf config.ConfWhitelist, notifier ChangeNotifier) *Service {
 	return &Service{
-		provider:  provider,
-		filePath:  conf.FilePath,
-		rateLimit: conf.RateLimit,
+		provider:       provider,
+		filePath:       conf.FilePath,
+		rateLimit:      conf.RateLimit,
+		changeNotifier: notifier,
 	}
 }
 
@@ -175,6 +187,10 @@ func (s *Service) Regenerate(ctx context.Context) error {
 
 	if err := s.atomicWrite(ctx, newContent); err != nil {
 		return err
+	}
+
+	if s.changeNotifier != nil {
+		s.changeNotifier.NotifyChange(ctx)
 	}
 
 	logger.Info("whitelist regenerated",

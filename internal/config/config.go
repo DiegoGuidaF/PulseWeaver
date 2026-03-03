@@ -14,16 +14,17 @@ type Conf struct {
 	DB        ConfDB
 	Whitelist ConfWhitelist
 	Rules     ConfRules
+	Caddy     ConfCaddy
 	LogLevel  string         `env:"LOG_LEVEL" envDefault:"info"`
 	LogFormat logging.Format `env:"LOG_FORMAT" envDefault:"text"` // "json" or "text" (tint)
 	LogColor  bool           `env:"LOG_COLOR" envDefault:"false"` // Enable colored output for tint format
-	TZ        string         `env:"TZ" envDefault:"UTC"`
 }
 
 type ConfServer struct {
 	AdminPassword string `env:"ADMIN_PASSWORD,required"`
 	Port          int    `env:"SERVER_PORT" envDefault:"8080"`
 	TrustedProxy  string `env:"TRUSTED_PROXY"`
+	TZ            string `env:"TZ" envDefault:"UTC"`
 }
 
 type ConfDB struct {
@@ -35,6 +36,11 @@ type ConfDB struct {
 type ConfWhitelist struct {
 	FilePath  string        `env:"WHITELIST_FILE_PATH" envDefault:"./whitelist.txt"`
 	RateLimit time.Duration `env:"WHITELIST_RATE_LIMIT" envDefault:"5s"`
+}
+
+type ConfCaddy struct {
+	Endpoint  string `env:"CADDY_RELOADER_ENDPOINT"`
+	AuthToken string `env:"CADDY_RELOADER_AUTH_TOKEN"`
 }
 
 // ConfRules holds configuration for background rule/scheduler behaviour.
@@ -59,6 +65,12 @@ func Load() (*Conf, error) {
 	// Validate after parsing
 	if c.Server.Port < 1 || c.Server.Port > 65535 {
 		return nil, fmt.Errorf("invalid port: %d", c.Server.Port)
+	}
+
+	if c.Caddy.Endpoint != "" {
+		if c.Caddy.AuthToken == "" {
+			return nil, fmt.Errorf("caddy endpoint defined but auth token is missing")
+		}
 	}
 
 	return &c, nil

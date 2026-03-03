@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/caddy"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
@@ -98,9 +99,23 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	ruleHandler := rule.NewHandler(ruleService)
 
 	// Whitelist generation
+	var whitelistChangeNotifier whitelist.ChangeNotifier
+	if conf.Caddy.Endpoint != "" {
+		caddyReloadClient := caddy.NewReloaderClient(conf.Caddy.Endpoint, conf.Caddy.AuthToken)
+		whitelistChangeNotifier = caddyReloadClient
+		go func() {
+			if err := caddyReloadClient.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				logger.Error("whitelist change notifier exited with error", slog.Any("error", err))
+			}
+		}()
+	} else {
+		whitelistChangeNotifier = whitelist.NoOpNotifier{}
+		logger.Info("whitelist change webhook URL not configured; change notifications disabled")
+	}
+
 	//TODO: We shouldn't depend on the deviceRepository but on the service. Domains interact via services not directly via the repository.
 	// The services must be the guardian of the repository.
-	whitelistService := whitelist.NewService(deviceRepo, conf.Whitelist)
+	whitelistService := whitelist.NewService(deviceRepo, conf.Whitelist, whitelistChangeNotifier)
 
 	// Address Lease manager
 	addressLeaseRepo := lease.NewRepository(db.DB())
