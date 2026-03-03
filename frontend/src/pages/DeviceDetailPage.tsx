@@ -49,10 +49,7 @@ import { useDeviceAddressLeaseRule } from "@/features/devices/hooks/useDeviceAdd
 import { usePutDeviceAddressLeaseRule } from "@/features/devices/hooks/usePutDeviceAddressLeaseRule";
 import { useDisableDeviceAddressLeaseRule } from "@/features/devices/hooks/useDisableDeviceAddressLeaseRule";
 import { toErrorMessage } from "@/lib/api-client";
-import {
-  zAddAddressRequest,
-  zPutDeviceAddressLeaseRuleRequest,
-} from "@/lib/api/zod.gen";
+import { zAddAddressRequest } from "@/lib/api/zod.gen";
 
 type DeviceDetailRouteParams = {
   deviceId?: string;
@@ -107,7 +104,7 @@ const addressSchema = zAddAddressRequest;
 
 const leaseRuleFormSchema = z.object({
   value: z
-    .number()
+    .coerce.number()
     .int("Must be a whole number")
     .min(1, "Minimum is 1"),
   unit: z.enum(TTL_UNITS),
@@ -436,23 +433,8 @@ function DeviceSettingsRulesTab({ deviceId }: DeviceSettingsRulesTabProps) {
   const [editing, setEditing] = useState(false);
 
   function handleLeaseRuleSubmit(values: LeaseRuleFormValues) {
-    const ttlSeconds = toSeconds(values.value, values.unit);
-    const parsed = zPutDeviceAddressLeaseRuleRequest.safeParse({
-      ttl_seconds: ttlSeconds,
-    });
-
-    if (!parsed.success) {
-      const firstIssue = parsed.error.issues[0];
-      leaseRuleForm.setError("value", {
-        type: "validate",
-        message: firstIssue?.message ?? "Invalid TTL",
-      });
-      return;
-    }
-
     putRuleMutation.mutate({
-      path: { device_id: deviceId },
-      body: parsed.data,
+      body: { ttl_seconds: toSeconds(values.value, values.unit) },
     });
     setEditing(false);
   }
@@ -684,11 +666,9 @@ function DeviceSettingsRulesTab({ deviceId }: DeviceSettingsRulesTabProps) {
                       type="button"
                       variant="destructive"
                       size="sm"
-                    onClick={() =>
-                      disableRuleMutation.mutate({
-                        path: { device_id: deviceId },
-                      })
-                    }
+                      onClick={() =>
+                        disableRuleMutation.mutate({})
+                      }
                       disabled={disableRuleMutation.isPending}
                     >
                       Turn off auto-expiry
