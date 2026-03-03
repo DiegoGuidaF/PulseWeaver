@@ -19,6 +19,7 @@ type repository interface {
 type Service struct {
 	repository         repository
 	ttlConfigRetriever TTLConfigRetriever
+	events             chan device.AddressEvent
 }
 
 // NewService creates a new lease service.
@@ -26,6 +27,7 @@ func NewService(repository repository, ttlConfigRetriever TTLConfigRetriever) *S
 	return &Service{
 		repository:         repository,
 		ttlConfigRetriever: ttlConfigRetriever,
+		events:             make(chan device.AddressEvent, 500),
 	}
 }
 
@@ -66,13 +68,21 @@ func (s *Service) GetExpiredAddressIDs(ctx context.Context) ([]device.AddressID,
 	return s.repository.GetExpiredAddressIDs(ctx)
 }
 
+func (s *Service) OnAddressEvent(ctx context.Context, event device.AddressEvent) {
+	select {
+	case <-ctx.Done():
+		return
+	case s.events <- event:
+	}
+}
+
 // RunListener blocks and processes events. Run this in a goroutine.
-func (s *Service) RunListener(ctx context.Context, events <-chan device.AddressEvent) error {
+func (s *Service) RunListener(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case event := <-events:
+		case event := <-s.events:
 			switch event.Type {
 			case device.EventTypeAddressAssigned:
 				_, _ = s.AddAddressLease(ctx, event.DeviceID, event.AddressID)

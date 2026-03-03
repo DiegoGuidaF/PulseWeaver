@@ -24,19 +24,33 @@ type repository interface {
 	RunInTx(ctx context.Context, fn func(repository) error) error
 }
 
-type Service struct {
-	repo                repository
-	events              chan<- AddressEvent // Carries data
-	addressStateChanged chan<- struct{}     // Dumb signal on address changes
+type AddressObserver interface {
+	OnAddressEvent(ctx context.Context, event AddressEvent)
 }
 
-func NewService(repo repository, events chan<- AddressEvent, addressStateChanged chan<- struct{}) *Service {
+type Service struct {
+	repo      repository
+	observers []AddressObserver
+}
+
+func NewService(repo repository) *Service {
 	s := &Service{
-		repo:                repo,
-		events:              events,
-		addressStateChanged: addressStateChanged,
+		repo: repo,
 	}
 	return s
+}
+
+func (s *Service) AddAddressObserver(o AddressObserver) {
+	if o == nil {
+		return
+	}
+	s.observers = append(s.observers, o)
+}
+
+func (s *Service) notifyObservers(ctx context.Context, event AddressEvent) {
+	for _, o := range s.observers {
+		o.OnAddressEvent(ctx, event)
+	}
 }
 
 func (s *Service) GetDevices(ctx context.Context) ([]Device, error) {
@@ -182,8 +196,7 @@ func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIP 
 		return nil, false, err
 	}
 
-	s.publishAddressEvent(ctx, NewAddressEvent(address, EventTypeAddressAssigned))
-	s.signalAddressStateChanged(ctx)
+	s.notifyObservers(ctx, NewAddressEvent(address, EventTypeAddressAssigned))
 
 	logger.Info("address assigned",
 		slog.String(AttrKeyAddressIP, address.IP),
@@ -265,8 +278,7 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, address
 		return nil, err
 	}
 
-	s.publishAddressEvent(ctx, NewAddressEvent(disabledAddress, EventTypeAddressDisabled))
-	s.signalAddressStateChanged(ctx)
+	s.notifyObservers(ctx, NewAddressEvent(disabledAddress, EventTypeAddressDisabled))
 
 	logger.Info("address disabled",
 		slog.String(AttrKeyAddressIP, disabledAddress.IP),
@@ -287,9 +299,8 @@ func (s *Service) DisableAddresses(ctx context.Context, addressIDs []AddressID, 
 	}
 
 	for _, disabledAddress := range disabledAddresses {
-		s.publishAddressEvent(ctx, NewAddressEvent(&disabledAddress, EventTypeAddressDisabled))
+		s.notifyObservers(ctx, NewAddressEvent(&disabledAddress, EventTypeAddressDisabled))
 	}
-	s.signalAddressStateChanged(ctx)
 
 	logger.Info("addresses disabled",
 		slog.Int(AttrKeyCount, len(disabledAddresses)),

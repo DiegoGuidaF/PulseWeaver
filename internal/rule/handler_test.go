@@ -1,3 +1,5 @@
+//go:build test
+
 package rule_test
 
 import (

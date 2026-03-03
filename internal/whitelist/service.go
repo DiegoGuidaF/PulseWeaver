@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 )
 
@@ -33,6 +34,7 @@ type Service struct {
 	filePath       string
 	rateLimit      time.Duration
 	changeNotifier ChangeNotifier
+	signals        chan struct{}
 }
 
 // NewService creates a new whitelist service.
@@ -43,6 +45,14 @@ func NewService(provider EnabledIPsProvider, conf config.ConfWhitelist, notifier
 		filePath:       conf.FilePath,
 		rateLimit:      conf.RateLimit,
 		changeNotifier: notifier,
+		signals:        make(chan struct{}, 1),
+	}
+}
+
+func (s *Service) OnAddressEvent(_ context.Context, _ device.AddressEvent) {
+	select {
+	case s.signals <- struct{}{}:
+	default:
 	}
 }
 
@@ -50,7 +60,7 @@ func NewService(provider EnabledIPsProvider, conf config.ConfWhitelist, notifier
 // First signal (or signal after cooldown) runs Regenerate immediately.
 // Signals within rateLimit of last execution are deferred to a single run at lastExecution+rateLimit.
 // Runs until context is cancelled.
-func (s *Service) RunListener(ctx context.Context, deviceEvents <-chan struct{}) error {
+func (s *Service) RunListener(ctx context.Context) error {
 	var timer *time.Timer
 	var timerC <-chan time.Time
 	var lastExecution time.Time
@@ -59,7 +69,7 @@ func (s *Service) RunListener(ctx context.Context, deviceEvents <-chan struct{})
 
 	for {
 		select {
-		case <-deviceEvents:
+		case <-s.signals:
 			if ctx.Err() != nil {
 				if timer != nil {
 					timer.Stop()

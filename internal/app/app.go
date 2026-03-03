@@ -79,10 +79,6 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	}
 	logger.Info("database initialized and connected successfully")
 
-	// ---- Dependency Initialization
-	addressEvents := make(chan device.AddressEvent, 500)
-	addressChangeSignals := make(chan struct{}, 500)
-
 	// Authentication
 	authRepo := auth.NewRepository(db.DB())
 	authService := auth.NewService(authRepo)
@@ -90,7 +86,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Device & addresses management
 	deviceRepo := device.NewRepository(db.DB())
-	deviceService := device.NewService(deviceRepo, addressEvents, addressChangeSignals)
+	deviceService := device.NewService(deviceRepo)
 	deviceHandler := device.NewHandler(deviceService)
 
 	// Rule evaluation
@@ -121,6 +117,10 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	addressLeaseRepo := lease.NewRepository(db.DB())
 	addressLeaseService := lease.NewService(addressLeaseRepo, ruleService)
 
+	// Register device address observers
+	deviceService.AddAddressObserver(whitelistService)
+	deviceService.AddAddressObserver(addressLeaseService)
+
 	schedulerService, err := scheduler.NewService(addressLeaseService, deviceService)
 	if err != nil {
 		_ = db.Close()
@@ -146,14 +146,14 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Start whitelist generation listener
 	go func() {
-		if err := whitelistService.RunListener(ctx, addressChangeSignals); err != nil {
+		if err := whitelistService.RunListener(ctx); err != nil {
 			logger.Error("whitelist service exited with error", slog.Any("error", err))
 		}
 	}()
 
 	// Start address lease listener
 	go func() {
-		if err := addressLeaseService.RunListener(ctx, addressEvents); err != nil {
+		if err := addressLeaseService.RunListener(ctx); err != nil {
 			logger.Error("address lease service exited with error", slog.Any("error", err))
 		}
 	}()

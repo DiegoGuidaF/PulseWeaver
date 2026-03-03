@@ -17,7 +17,7 @@ func TestService_AssignAddress_NewAddress(t *testing.T) {
 	device := &Device{ID: DeviceID(1), Name: "test-device"}
 	mockRepo.devices[device.ID] = device
 
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	addr, wasCreated, err := service.AssignAddress(ctx, device.ID, "192.168.1.100", StatusSourceManual)
 	is.NoErr(err)
@@ -45,7 +45,7 @@ func TestService_AssignAddress_ExistingAddress(t *testing.T) {
 	mockRepo.addresses[existingAddr.ID] = existingAddr
 	mockRepo.deviceAddressByIP[key] = existingAddr
 
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	addr, wasCreated, err := service.AssignAddress(ctx, device.ID, "192.168.1.100", StatusSourceManual)
 	is.NoErr(err)
@@ -62,7 +62,7 @@ func TestService_AssignAddress_DeviceNotFound(t *testing.T) {
 	mockRepo := newMockRepository()
 	mockRepo.getDeviceErr = ErrDeviceNotFound
 
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	addr, wasCreated, err := service.AssignAddress(ctx, DeviceID(999), "192.168.1.100", StatusSourceManual)
 	is.True(err != nil)
@@ -92,7 +92,7 @@ func TestService_AssignAddress_TransactionRollback(t *testing.T) {
 		return testErr
 	}
 
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	addr, wasCreated, err := service.AssignAddress(ctx, device.ID, "192.168.1.100", StatusSourceManual)
 	is.True(err != nil)
@@ -117,7 +117,7 @@ func TestService_DisableAddress_Success(t *testing.T) {
 	}
 	mockRepo.addresses[address.ID] = address
 
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	disabledAddr, err := service.DisableAddress(ctx, device.ID, address.ID)
 	is.NoErr(err)
@@ -143,7 +143,7 @@ func TestService_DisableAddress_OwnershipValidation(t *testing.T) {
 	}
 	mockRepo.addresses[address.ID] = address
 
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	// Try to disable address using wrong device ID
 	disabledAddr, err := service.DisableAddress(ctx, device2.ID, address.ID)
@@ -161,7 +161,7 @@ func TestService_DisableAddress_AddressNotFound(t *testing.T) {
 	mockRepo.devices[device.ID] = device
 	mockRepo.checkOwnershipErr = ErrAddressNotOwnedByDevice
 
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	disabledAddr, err := service.DisableAddress(ctx, device.ID, AddressID(999))
 	is.True(err != nil)
@@ -192,7 +192,7 @@ func TestService_GetAddressesForDevice_Success(t *testing.T) {
 	mockRepo.addresses[addr1.ID] = addr1
 	mockRepo.addresses[addr2.ID] = addr2
 
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	addresses, err := service.GetAddressesForDevice(ctx, device.ID)
 	is.NoErr(err)
@@ -206,7 +206,7 @@ func TestService_GetAddressesForDevice_DeviceNotFound(t *testing.T) {
 	mockRepo := newMockRepository()
 	mockRepo.getDeviceErr = ErrDeviceNotFound
 
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	addresses, err := service.GetAddressesForDevice(ctx, DeviceID(999))
 	is.True(err != nil)
@@ -222,7 +222,7 @@ func TestService_GetAddressesForDevice_Empty(t *testing.T) {
 	device := &Device{ID: DeviceID(1), Name: "test-device"}
 	mockRepo.devices[device.ID] = device
 
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	addresses, err := service.GetAddressesForDevice(ctx, device.ID)
 	is.NoErr(err)
@@ -234,7 +234,7 @@ func TestService_CreateDevice_ReturnsDeviceAndRawKey(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	deviceWithPrefix, rawKey, err := service.CreateDevice(ctx, "my-device")
 	is.NoErr(err)
@@ -251,7 +251,7 @@ func TestService_Authenticate_Success(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	// Create device via service so API key is stored in mock
 	deviceWithPrefix, rawKey, err := service.CreateDevice(ctx, "auth-device")
@@ -269,7 +269,7 @@ func TestService_Authenticate_InvalidKeyFormat(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	_, err := service.Authenticate(ctx, "invalid-no-prefix")
 	is.True(err != nil)
@@ -287,7 +287,7 @@ func TestService_Authenticate_NotFound(t *testing.T) {
 	mockRepo := newMockRepository()
 	// No devices/keys in mock; valid format but unknown key
 	rawKey := APIKeyPrefix + "unknownkey123456789012345678901234"
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	_, err := service.Authenticate(ctx, rawKey)
 	is.True(err != nil)
@@ -301,7 +301,7 @@ func TestService_GetDevices_ReturnsListWithPrefix(t *testing.T) {
 	mockRepo := newMockRepository()
 	mockRepo.devices[DeviceID(1)] = &Device{ID: DeviceID(1), Name: "d1"}
 	mockRepo.devices[DeviceID(2)] = &Device{ID: DeviceID(2), Name: "d2"}
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	list, err := service.GetDevices(ctx)
 	is.NoErr(err)
@@ -319,7 +319,7 @@ func TestService_GetDevice_Success(t *testing.T) {
 	mockRepo := newMockRepository()
 	device := &Device{ID: DeviceID(1), Name: "single-device"}
 	mockRepo.devices[device.ID] = device
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	got, err := service.GetDevice(ctx, device.ID)
 	is.NoErr(err)
@@ -334,7 +334,7 @@ func TestService_GetDevice_NotFound(t *testing.T) {
 
 	mockRepo := newMockRepository()
 	mockRepo.getDeviceErr = ErrDeviceNotFound
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	got, err := service.GetDevice(ctx, DeviceID(999))
 	is.True(err != nil)
@@ -349,7 +349,7 @@ func TestService_GetDevice_RepoError(t *testing.T) {
 	mockRepo := newMockRepository()
 	repoErr := errors.New("db error")
 	mockRepo.getDeviceErr = repoErr
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	got, err := service.GetDevice(ctx, DeviceID(1))
 	is.True(err != nil)
@@ -363,7 +363,7 @@ func TestService_DeleteDevice_Success(t *testing.T) {
 
 	mockRepo := newMockRepository()
 	mockRepo.devices[DeviceID(1)] = &Device{ID: DeviceID(1), Name: "to-delete"}
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	err := service.DeleteDevice(ctx, DeviceID(1))
 	is.NoErr(err)
@@ -377,11 +377,115 @@ func TestService_DeleteDevice_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	err := service.DeleteDevice(ctx, DeviceID(999))
 	is.True(err != nil)
 	is.True(errors.Is(err, ErrDeviceNotFound))
+}
+
+type testAddressObserver struct {
+	events []AddressEvent
+}
+
+func (o *testAddressObserver) OnAddressEvent(_ context.Context, event AddressEvent) {
+	o.events = append(o.events, event)
+}
+
+func TestService_AssignAddress_NotifiesObserverOnNewAddress(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	device := &Device{ID: DeviceID(1), Name: "test-device"}
+	mockRepo.devices[device.ID] = device
+
+	service := NewService(mockRepo)
+	observer := &testAddressObserver{}
+	service.AddAddressObserver(observer)
+
+	addr, wasCreated, err := service.AssignAddress(ctx, device.ID, "192.168.1.100", StatusSourceManual)
+	is.NoErr(err)
+	is.True(wasCreated)
+	is.True(addr != nil)
+
+	is.Equal(len(observer.events), 1)
+	event := observer.events[0]
+	is.Equal(event.Type, EventTypeAddressAssigned)
+	is.Equal(event.AddressID, addr.ID)
+	is.Equal(event.DeviceID, device.ID)
+	is.True(!event.OccurredAt.IsZero())
+}
+
+func TestService_DisableAddress_NotifiesObserver(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	device := &Device{ID: DeviceID(1), Name: "test-device"}
+	mockRepo.devices[device.ID] = device
+
+	address := &Address{
+		ID:       AddressID(1),
+		DeviceID: device.ID,
+		IP:       "192.168.1.100",
+		Status:   true,
+	}
+	mockRepo.addresses[address.ID] = address
+
+	service := NewService(mockRepo)
+	observer := &testAddressObserver{}
+	service.AddAddressObserver(observer)
+
+	disabledAddr, err := service.DisableAddress(ctx, device.ID, address.ID)
+	is.NoErr(err)
+	is.True(disabledAddr != nil)
+
+	is.Equal(len(observer.events), 1)
+	event := observer.events[0]
+	is.Equal(event.Type, EventTypeAddressDisabled)
+	is.Equal(event.AddressID, disabledAddr.ID)
+	is.Equal(event.DeviceID, device.ID)
+	is.True(!event.OccurredAt.IsZero())
+}
+
+func TestService_DisableAddresses_NotifiesObserverPerAddress(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+
+	address1 := &Address{
+		ID:       AddressID(1),
+		DeviceID: DeviceID(1),
+		IP:       "192.168.1.1",
+		Status:   true,
+	}
+	address2 := &Address{
+		ID:       AddressID(2),
+		DeviceID: DeviceID(2),
+		IP:       "192.168.1.2",
+		Status:   true,
+	}
+	mockRepo.addresses[address1.ID] = address1
+	mockRepo.addresses[address2.ID] = address2
+
+	service := NewService(mockRepo)
+	observer := &testAddressObserver{}
+	service.AddAddressObserver(observer)
+
+	err := service.DisableAddresses(ctx, []AddressID{address1.ID, address2.ID}, StatusSourceManual)
+	is.NoErr(err)
+
+	is.Equal(len(observer.events), 2)
+	seen := map[AddressID]bool{}
+	for _, event := range observer.events {
+		is.Equal(event.Type, EventTypeAddressDisabled)
+		seen[event.AddressID] = true
+		is.True(!event.OccurredAt.IsZero())
+	}
+	is.True(seen[address1.ID])
+	is.True(seen[address2.ID])
 }
 
 func TestService_CreateDevice_DuplicateName(t *testing.T) {
@@ -390,7 +494,7 @@ func TestService_CreateDevice_DuplicateName(t *testing.T) {
 
 	mockRepo := newMockRepository()
 	mockRepo.createDeviceErr = ErrDuplicateDeviceName
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	device, rawKey, err := service.CreateDevice(ctx, "dup-name")
 	is.True(err != nil)
@@ -406,7 +510,7 @@ func TestService_DisableAddress_DeviceDeleted(t *testing.T) {
 	mockRepo := newMockRepository()
 	// Device not in map simulates deleted device; GetDevice returns ErrDeviceNotFound
 	mockRepo.getDeviceErr = ErrDeviceNotFound
-	service := NewService(mockRepo, nil, nil)
+	service := NewService(mockRepo)
 
 	addr, err := service.DisableAddress(ctx, DeviceID(1), AddressID(1))
 	is.True(err != nil)

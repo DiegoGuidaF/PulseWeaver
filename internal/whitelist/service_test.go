@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
 	"github.com/matryer/is"
 )
 
@@ -83,9 +84,9 @@ func TestService_Run_FirstSignalWritesImmediately(t *testing.T) {
 	mockProvider := newMockProvider()
 	mockProvider.ips = []string{"192.168.1.1"}
 
-	filePath, updatesChan, cancel, done := newRunningService(t, 200*time.Millisecond, mockProvider)
+	filePath, service, cancel, done := newRunningService(t, 200*time.Millisecond, mockProvider)
 
-	updatesChan <- struct{}{}
+	service.OnAddressEvent(context.Background(), device.AddressEvent{})
 
 	mockProvider.waitForCall(t)
 
@@ -111,23 +112,15 @@ func TestService_Run_DebouncesEvents(t *testing.T) {
 	mockProvider := newMockProvider()
 	mockProvider.ips = []string{"192.168.1.1"}
 
-	_, updatesChan, cancel, done := newRunningService(t, 50*time.Millisecond, mockProvider)
+	_, service, cancel, done := newRunningService(t, 50*time.Millisecond, mockProvider)
 
-	updatesChan <- struct{}{}
+	service.OnAddressEvent(context.Background(), device.AddressEvent{})
 	mockProvider.waitForCall(t)
 
-	select {
-	case updatesChan <- struct{}{}:
-	default:
-	}
-	select {
-	case updatesChan <- struct{}{}:
-	default:
-	}
-	select {
-	case updatesChan <- struct{}{}:
-	default:
-	}
+	// Burst of additional events within the debounce window should coalesce
+	service.OnAddressEvent(context.Background(), device.AddressEvent{})
+	service.OnAddressEvent(context.Background(), device.AddressEvent{})
+	service.OnAddressEvent(context.Background(), device.AddressEvent{})
 
 	mockProvider.waitForCall(t)
 
@@ -159,12 +152,12 @@ func TestService_Run_HandlesMultipleRegenerations(t *testing.T) {
 	mockProvider := newMockProvider()
 	mockProvider.ips = []string{"192.168.1.1"}
 
-	_, updatesChan, cancel, done := newRunningService(t, 50*time.Millisecond, mockProvider)
+	_, service, cancel, done := newRunningService(t, 50*time.Millisecond, mockProvider)
 
-	updatesChan <- struct{}{}
+	service.OnAddressEvent(context.Background(), device.AddressEvent{})
 	mockProvider.waitForCall(t)
 
-	updatesChan <- struct{}{}
+	service.OnAddressEvent(context.Background(), device.AddressEvent{})
 	mockProvider.waitForCall(t)
 
 	cancel()
@@ -185,12 +178,12 @@ func TestService_Run_ContinuesOnRegenerateError(t *testing.T) {
 		return []string{"192.168.1.1"}, nil
 	}
 
-	_, updatesChan, cancel, done := newRunningService(t, 20*time.Millisecond, mockProvider)
+	_, service, cancel, done := newRunningService(t, 20*time.Millisecond, mockProvider)
 
-	updatesChan <- struct{}{}
+	service.OnAddressEvent(context.Background(), device.AddressEvent{})
 	mockProvider.waitForCall(t)
 
-	updatesChan <- struct{}{}
+	service.OnAddressEvent(context.Background(), device.AddressEvent{})
 	mockProvider.waitForCall(t)
 
 	cancel()
@@ -295,22 +288,21 @@ func setupService(t *testing.T, rateLimit time.Duration, provider *mockEnabledIP
 }
 
 // newRunningService encapsulates common setup for tests exercising Service.RunListener.
-// It builds upon setupService by creating a signal channel and launching RunListener in a background goroutine.
-// Returns the channel so tests can send signals
-func newRunningService(t *testing.T, rateLimit time.Duration, provider *mockEnabledIPsProvider) (filePath string, updatesChan chan<- struct{}, cancel context.CancelFunc, done <-chan error) {
+// It builds upon setupService by launching RunListener in a background goroutine.
+// Returns the service so tests can trigger events via OnAddressEvent.
+func newRunningService(t *testing.T, rateLimit time.Duration, provider *mockEnabledIPsProvider) (filePath string, service *Service, cancel context.CancelFunc, done <-chan error) {
 	t.Helper()
 
 	ctx, cancelCtx := context.WithCancel(context.Background())
 	t.Cleanup(cancelCtx) // Prevent goroutine leaks if test fails early
 
 	// Reuse the synchronous setup
-	filePath, _, service := setupService(t, rateLimit, provider, nil)
+	filePath, _, service = setupService(t, rateLimit, provider, nil)
 
-	ch := make(chan struct{}, 1)
 	doneCh := make(chan error, 1)
 	go func() {
-		doneCh <- service.RunListener(ctx, ch)
+		doneCh <- service.RunListener(ctx)
 	}()
 
-	return filePath, ch, cancelCtx, doneCh
+	return filePath, service, cancelCtx, doneCh
 }
