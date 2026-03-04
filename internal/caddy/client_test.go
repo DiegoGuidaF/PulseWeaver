@@ -4,19 +4,21 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"sync/atomic"
 	"testing"
 	"time"
 )
 
 func TestHTTPNotifier_SendsPostOnSignal(t *testing.T) {
-	var callCount int32
+	callCh := make(chan struct{}, 10)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Fatalf("expected POST, got %s", r.Method)
 		}
-		atomic.AddInt32(&callCount, 1)
+		select {
+		case callCh <- struct{}{}:
+		default:
+		}
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -36,16 +38,10 @@ func TestHTTPNotifier_SendsPostOnSignal(t *testing.T) {
 
 	notifier.NotifyChange(context.Background())
 
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		if atomic.LoadInt32(&callCount) > 0 {
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	if atomic.LoadInt32(&callCount) != 1 {
-		t.Fatalf("expected 1 call, got %d", callCount)
+	select {
+	case <-callCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("did not receive reload request")
 	}
 
 	cancel()
@@ -99,11 +95,17 @@ func TestHTTPNotifier_IncludesTokenHeader(t *testing.T) {
 }
 
 func TestHTTPNotifier_RetriesOnServerError(t *testing.T) {
-	var callCount int32
+	callCh := make(chan struct{}, 10)
+	callCount := 0
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		current := atomic.AddInt32(&callCount, 1)
-		if current == 1 {
+		callCount++
+		select {
+		case callCh <- struct{}{}:
+		default:
+		}
+
+		if callCount == 1 {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -126,16 +128,17 @@ func TestHTTPNotifier_RetriesOnServerError(t *testing.T) {
 
 	notifier.NotifyChange(context.Background())
 
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if atomic.LoadInt32(&callCount) >= 2 {
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
+	// Expect at least two calls due to retry behavior.
+	select {
+	case <-callCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("did not receive initial request")
 	}
 
-	if atomic.LoadInt32(&callCount) < 2 {
-		t.Fatalf("expected at least 2 calls due to retry, got %d", callCount)
+	select {
+	case <-callCh:
+	case <-time.After(5 * time.Second):
+		t.Fatal("did not receive retry request")
 	}
 
 	cancel()
