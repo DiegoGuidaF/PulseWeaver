@@ -51,6 +51,7 @@ func (s *Service) AddAddressLease(ctx context.Context, deviceID device.DeviceID,
 
 	return addressLease, nil
 }
+
 func (s *Service) DeleteAddressLease(ctx context.Context, addressID device.AddressID) error {
 	err := s.repository.DeleteAddressLeaseByAddressID(ctx, addressID)
 	if err != nil {
