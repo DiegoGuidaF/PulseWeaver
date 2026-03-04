@@ -14,6 +14,8 @@ import (
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 )
 
+const whitelistDebounceDelay = 50 * time.Millisecond
+
 // EnabledIPsProvider is an interface for providers that can return enabled IP addresses.
 type EnabledIPsProvider interface {
 	GetEnabledUniqueIPs(ctx context.Context) ([]string, error)
@@ -30,89 +32,87 @@ type NoOpNotifier struct{}
 func (n NoOpNotifier) NotifyChange(ctx context.Context) {}
 
 type Service struct {
-	provider       EnabledIPsProvider
-	filePath       string
-	rateLimit      time.Duration
-	changeNotifier ChangeNotifier
-	signals        chan struct{}
+	provider            EnabledIPsProvider
+	filePath            string
+	rateLimit           time.Duration
+	changeNotifier      ChangeNotifier
+	addressChangeSignal chan struct{}
 }
 
 // NewService creates a new whitelist service.
 // Receives the whole ConfWhitelist struct since it is domain-specific.
+// If notifier is nil, a NoOpNotifier is used so callers never need to nil-check.
 func NewService(provider EnabledIPsProvider, conf config.ConfWhitelist, notifier ChangeNotifier) *Service {
+	if notifier == nil {
+		notifier = NoOpNotifier{}
+	}
 	return &Service{
-		provider:       provider,
-		filePath:       conf.FilePath,
-		rateLimit:      conf.RateLimit,
-		changeNotifier: notifier,
-		signals:        make(chan struct{}, 1),
+		provider:            provider,
+		filePath:            conf.FilePath,
+		rateLimit:           conf.RateLimit,
+		changeNotifier:      notifier,
+		addressChangeSignal: make(chan struct{}, 1),
 	}
 }
 
+// OnAddressEvent implements device.AddressObserver.
+// The context is discarded: non-blocking drop, context not needed for a buffered signal.
 func (s *Service) OnAddressEvent(_ context.Context, _ device.AddressEvent) {
 	select {
-	case s.signals <- struct{}{}:
+	case s.addressChangeSignal <- struct{}{}:
 	default:
 	}
 }
 
 // RunListener is the main event loop goroutine.
-// First signal (or signal after cooldown) runs Regenerate immediately.
-// Signals within rateLimit of last execution are deferred to a single run at lastExecution+rateLimit.
+// Address change signals trigger debounced and rate-limited Regenerate calls.
 // Runs until context is cancelled.
 func (s *Service) RunListener(ctx context.Context) error {
 	var timer *time.Timer
 	var timerC <-chan time.Time
-	var lastExecution time.Time
+	var lastRunAt time.Time
+
 	ctx, _ = logging.Enrich(ctx, slog.String(AttrKeyComponent, "whitelist"))
 	logger := logging.FromCtx(ctx)
 
+	// debounce calculates the required delay and configures the timer,
+	debounce := func() {
+		runAt := time.Now().Add(whitelistDebounceDelay)
+		if !lastRunAt.IsZero() {
+			earliestByRateLimit := lastRunAt.Add(s.rateLimit)
+			if runAt.Before(earliestByRateLimit) {
+				runAt = earliestByRateLimit
+			}
+		}
+
+		delay := time.Until(runAt)
+		if delay < 0 {
+			delay = 0
+		}
+
+		if timer == nil {
+			timer = time.NewTimer(delay)
+			timerC = timer.C
+		} else {
+			// Safe to Reset a running timer here: this runs in a single goroutine
+			// and the select cases are mutually exclusive, so timerC cannot fire
+			// concurrently with this branch.
+			timer.Reset(delay)
+		}
+	}
+
 	for {
 		select {
-		case <-s.signals:
-			if ctx.Err() != nil {
-				if timer != nil {
-					timer.Stop()
-				}
-				return nil
-			}
-			if lastExecution.IsZero() || time.Since(lastExecution) >= s.rateLimit {
-				// Outside cooldown: run immediately
-				if timer != nil {
-					timer.Stop()
-					timer = nil
-					timerC = nil
-				}
-				lastExecution = time.Now()
-
-				if err := s.Regenerate(ctx); err != nil {
-					logger.Error("whitelist regeneration failed", slog.Any(AttrKeyError, err))
-				}
-			} else {
-				// Inside cooldown: ensure single timer at lastExecution+rateLimit
-				if timer == nil {
-					fireAt := lastExecution.Add(s.rateLimit)
-					d := time.Until(fireAt)
-					if d <= 0 {
-						d = time.Millisecond
-					}
-					timer = time.NewTimer(d)
-					timerC = timer.C
-				}
-			}
+		case <-s.addressChangeSignal:
+			debounce()
 		case <-timerC:
-			if ctx.Err() != nil {
-				if timer != nil {
-					timer.Stop()
-				}
-				return nil
-			}
 			timer = nil
 			timerC = nil
+
 			if err := s.Regenerate(ctx); err != nil {
 				logger.Error("whitelist regeneration failed", slog.Any(AttrKeyError, err))
 			}
-			lastExecution = time.Now()
+			lastRunAt = time.Now()
 		case <-ctx.Done():
 			if timer != nil {
 				timer.Stop()
@@ -199,9 +199,7 @@ func (s *Service) Regenerate(ctx context.Context) error {
 		return err
 	}
 
-	if s.changeNotifier != nil {
-		s.changeNotifier.NotifyChange(ctx)
-	}
+	s.changeNotifier.NotifyChange(ctx)
 
 	logger.Info("whitelist regenerated",
 		slog.String(AttrKeyWhitelistFile, s.filePath),

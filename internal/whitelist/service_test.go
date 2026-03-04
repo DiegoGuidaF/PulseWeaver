@@ -79,25 +79,21 @@ func TestService_Regenerate_ProviderError(t *testing.T) {
 	is.True(os.IsNotExist(err))
 }
 
-func TestService_Run_FirstSignalWritesImmediately(t *testing.T) {
+func TestService_Run_FirstSignalIsDebounced(t *testing.T) {
 	is := is.New(t)
 	mockProvider := newMockProvider()
 	mockProvider.ips = []string{"192.168.1.1"}
 
 	filePath, service, cancel, done := newRunningService(t, 200*time.Millisecond, mockProvider)
+	start := time.Now()
 
 	service.OnAddressEvent(context.Background(), device.AddressEvent{})
 
-	mockProvider.waitForCall(t)
+	mockProvider.waitForNoCall(t, whitelistDebounceDelay/2)
+	firstCallAt := mockProvider.waitForCall(t)
+	is.True(firstCallAt.Sub(start) >= whitelistDebounceDelay-(10*time.Millisecond))
 
-	// Wait for atomic write to complete (provider returns before file is written)
-	deadline := time.Now().Add(1 * time.Second)
-	for time.Now().Before(deadline) {
-		if _, err := os.Stat(filePath); err == nil {
-			break
-		}
-		time.Sleep(2 * time.Millisecond)
-	}
+	waitForFileExists(t, filePath, time.Second)
 
 	content, err := os.ReadFile(filePath)
 	is.NoErr(err)
@@ -108,14 +104,12 @@ func TestService_Run_FirstSignalWritesImmediately(t *testing.T) {
 }
 
 func TestService_Run_DebouncesEvents(t *testing.T) {
-	is := is.New(t)
 	mockProvider := newMockProvider()
 	mockProvider.ips = []string{"192.168.1.1"}
 
-	_, service, cancel, done := newRunningService(t, 50*time.Millisecond, mockProvider)
+	_, service, cancel, done := newRunningService(t, 20*time.Millisecond, mockProvider)
 
 	service.OnAddressEvent(context.Background(), device.AddressEvent{})
-	mockProvider.waitForCall(t)
 
 	// Burst of additional events within the debounce window should coalesce
 	service.OnAddressEvent(context.Background(), device.AddressEvent{})
@@ -123,8 +117,7 @@ func TestService_Run_DebouncesEvents(t *testing.T) {
 	service.OnAddressEvent(context.Background(), device.AddressEvent{})
 
 	mockProvider.waitForCall(t)
-
-	is.Equal(len(mockProvider.callChan), 0)
+	mockProvider.waitForNoCall(t, 2*whitelistDebounceDelay)
 
 	cancel()
 	<-done
@@ -147,18 +140,21 @@ func TestService_Run_ContextCancellationExitsCleanly(t *testing.T) {
 	}
 }
 
-func TestService_Run_HandlesMultipleRegenerations(t *testing.T) {
+func TestService_Run_RespectsRateLimitBetweenRuns(t *testing.T) {
 	is := is.New(t)
 	mockProvider := newMockProvider()
 	mockProvider.ips = []string{"192.168.1.1"}
 
-	_, service, cancel, done := newRunningService(t, 50*time.Millisecond, mockProvider)
+	rateLimit := 200 * time.Millisecond
+	_, service, cancel, done := newRunningService(t, rateLimit, mockProvider)
 
 	service.OnAddressEvent(context.Background(), device.AddressEvent{})
-	mockProvider.waitForCall(t)
+	firstCallAt := mockProvider.waitForCall(t)
 
 	service.OnAddressEvent(context.Background(), device.AddressEvent{})
-	mockProvider.waitForCall(t)
+	mockProvider.waitForNoCall(t, rateLimit-(whitelistDebounceDelay/2))
+	secondCallAt := mockProvider.waitForCall(t)
+	is.True(secondCallAt.Sub(firstCallAt) >= rateLimit-(10*time.Millisecond))
 
 	cancel()
 	err := <-done
@@ -234,18 +230,18 @@ type mockEnabledIPsProvider struct {
 	ips      []string
 	err      error
 	onCall   func() ([]string, error)
-	callChan chan struct{}
+	callChan chan time.Time
 }
 
 func newMockProvider() *mockEnabledIPsProvider {
 	return &mockEnabledIPsProvider{
-		callChan: make(chan struct{}, 10),
+		callChan: make(chan time.Time, 10),
 	}
 }
 
 func (m *mockEnabledIPsProvider) GetEnabledUniqueIPs(_ context.Context) ([]string, error) {
 	select {
-	case m.callChan <- struct{}{}:
+	case m.callChan <- time.Now():
 	default:
 	}
 
@@ -256,12 +252,45 @@ func (m *mockEnabledIPsProvider) GetEnabledUniqueIPs(_ context.Context) ([]strin
 }
 
 // waitForCall blocks until GetEnabledUniqueIPs is called, or times out.
-func (m *mockEnabledIPsProvider) waitForCall(t *testing.T) {
+func (m *mockEnabledIPsProvider) waitForCall(t *testing.T) time.Time {
+	t.Helper()
+	select {
+	case calledAt := <-m.callChan:
+		return calledAt
+	case <-time.After(1 * time.Second):
+		t.Fatal("timed out waiting for GetEnabledUniqueIPs to be called")
+		return time.Time{}
+	}
+}
+
+// waitForNoCall verifies GetEnabledUniqueIPs is not called during the window.
+func (m *mockEnabledIPsProvider) waitForNoCall(t *testing.T, d time.Duration) {
 	t.Helper()
 	select {
 	case <-m.callChan:
-	case <-time.After(1 * time.Second):
-		t.Fatal("timed out waiting for GetEnabledUniqueIPs to be called")
+		t.Fatal("unexpected GetEnabledUniqueIPs call")
+	case <-time.After(d):
+	}
+}
+
+func waitForFileExists(t *testing.T, filePath string, timeout time.Duration) {
+	t.Helper()
+
+	deadline := time.NewTimer(timeout)
+	defer deadline.Stop()
+	checkTicker := time.NewTicker(5 * time.Millisecond)
+	defer checkTicker.Stop()
+
+	for {
+		if _, err := os.Stat(filePath); err == nil {
+			return
+		}
+
+		select {
+		case <-checkTicker.C:
+		case <-deadline.C:
+			t.Fatalf("timed out waiting for file %q to exist", filePath)
+		}
 	}
 }
 
