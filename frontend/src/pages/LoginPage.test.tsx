@@ -5,7 +5,7 @@ import {delay} from 'msw';
 import {server} from '@/test/setup';
 import {renderWithProviders} from '@/test/utils';
 import {LoginPage} from './LoginPage';
-import {AuthProvider} from '@/contexts/AuthContext';
+import {AuthProvider} from '@/features/auth/AuthContext';
 import {TEST_TIMEOUTS} from '@/test/constants';
 import {handlers, responses} from "@/test/mocks/handlers.ts";
 import {createMockUser} from "@/test/mocks/data.ts";

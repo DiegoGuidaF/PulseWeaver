@@ -11,10 +11,14 @@ src/
 ├── pages/                      # Thin route-level components (routing guard + layout only)
 │   ├── DashboardPage.tsx       # /devices — renders CreateDeviceForm + DeviceList
 │   ├── DeviceDetailPage.tsx    # /devices/:deviceId — header + Tabs shell
-│   ├── LoginPage.tsx           # /login — login form + redirect if authed
+│   ├── LoginPage.tsx           # /login — page shell + redirect if authed
 │   └── NotFoundPage.tsx        # * — 404
 ├── features/
 │   ├── auth/
+│   │   ├── AuthContext.tsx         # AuthProvider wraps useCurrentUser; exports useAuth() → { user, isLoading, isAuthenticated }
+│   │   ├── ProtectedRoute.tsx      # Redirects to /login if not authenticated
+│   │   ├── components/
+│   │   │   └── LoginForm.tsx       # Login form state + submission mutation
 │   │   └── hooks/
 │   │       ├── useCurrentUser.ts   # Session query (5min stale, null on 401, refetches on window focus)
 │   │       ├── useLogin.ts         # Login mutation → invalidate user → navigate
@@ -35,12 +39,9 @@ src/
 │           ├── useDeviceAddressLeaseRule.ts        # Lease rule query (null on 404, enabled defaults to true)
 │           ├── usePutDeviceAddressLeaseRule.ts     # Save/update lease rule mutation
 │           └── useDisableDeviceAddressLeaseRule.ts # Disable lease rule mutation
-├── contexts/
-│   └── AuthContext.tsx          # AuthProvider wraps useCurrentUser; exports useAuth() → { user, isLoading, isAuthenticated }
 ├── components/
 │   ├── layout/
 │   │   └── AppShell.tsx        # Sidebar + mobile header layout
-│   ├── ProtectedRoute.tsx      # Redirects to /login if not authenticated
 │   ├── ErrorBoundary.tsx       # AppErrorBoundary — React error boundary with "Try again"
 │   ├── theme-provider.tsx      # Dark/light/system theme context
 │   ├── mode-toggle.tsx         # Theme dropdown button
@@ -84,6 +85,7 @@ src/
 
 ### Auth flow
 - `useCurrentUser` → `AuthContext (AuthProvider)` → `useAuth()` hook consumed by `ProtectedRoute` and `AppShell`
+- `LoginForm` owns login form validation/submission and is rendered by `LoginPage`
 - Login: POST /auth/login → invalidate `getCurrentUserQueryKey` → navigate (awaits invalidation)
 - Logout: POST /auth/logout → `removeQueries()` (clear all) → navigate to /login
 

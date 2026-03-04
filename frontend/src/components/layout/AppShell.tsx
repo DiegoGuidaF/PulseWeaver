@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { ModeToggle } from "@/components/mode-toggle.tsx";
 import { useLogout } from "@/features/auth/hooks/useLogout";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/features/auth/AuthContext";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;

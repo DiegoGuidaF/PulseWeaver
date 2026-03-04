@@ -38,6 +38,10 @@ function toSeconds(value: number, unit: TtlUnit): number {
       return value * SECONDS_PER_MINUTE;
     case "days":
       return value * SECONDS_PER_DAY;
+    default: {
+      const _exhaustive: never = unit;
+      return _exhaustive;
+    }
   }
 }
 
@@ -78,6 +82,7 @@ const leaseRuleFormSchema = z.object({
 });
 
 type LeaseRuleFormValues = z.infer<typeof leaseRuleFormSchema>;
+type LeaseRuleFormInput = z.input<typeof leaseRuleFormSchema>;
 
 interface DeviceSettingsTabProps {
   deviceId: number;
@@ -93,16 +98,18 @@ export function DeviceSettingsTab({ deviceId }: DeviceSettingsTabProps) {
   const putRuleMutation = usePutDeviceAddressLeaseRule(deviceId);
   const disableRuleMutation = useDisableDeviceAddressLeaseRule(deviceId);
 
-  const leaseRuleForm = useForm<LeaseRuleFormValues>({
+  const leaseRuleForm = useForm<LeaseRuleFormInput, unknown, LeaseRuleFormValues>({
     resolver: zodResolver(leaseRuleFormSchema),
     defaultValues: { value: 5, unit: "minutes" },
   });
+  const { reset } = leaseRuleForm;
   const [editing, setEditing] = useState(false);
 
   const isOn = Boolean(rule && rule.enabled);
 
   function handleLeaseRuleSubmit(values: LeaseRuleFormValues) {
     putRuleMutation.mutate({
+      path: { device_id: deviceId },
       body: { ttl_seconds: toSeconds(values.value, values.unit) },
     });
     setEditing(false);
@@ -111,7 +118,7 @@ export function DeviceSettingsTab({ deviceId }: DeviceSettingsTabProps) {
   function handleStartEditing() {
     if (!rule) return;
     const initial = fromSeconds(rule.ttl_seconds);
-    leaseRuleForm.reset(initial);
+    reset(initial);
     setEditing(true);
   }
 
@@ -120,11 +127,16 @@ export function DeviceSettingsTab({ deviceId }: DeviceSettingsTabProps) {
       return;
     }
     const initial = fromSeconds(rule.ttl_seconds);
-    leaseRuleForm.reset(initial);
-  }, [isOn, leaseRuleForm, rule]);
+    reset(initial);
+  }, [isOn, reset, rule]);
 
   const ttlLabel =
     rule && rule.ttl_seconds ? formatTtlLabel(rule.ttl_seconds) : null;
+  const submitButtonLabel = putRuleMutation.isPending
+    ? "Saving..."
+    : isOn
+      ? "Save"
+      : "Enable auto-expiry";
 
   return (
     <div className="space-y-4">
@@ -185,7 +197,10 @@ export function DeviceSettingsTab({ deviceId }: DeviceSettingsTabProps) {
                               min={1}
                               step={1}
                               placeholder="1"
-                              {...field}
+                              name={field.name}
+                              ref={field.ref}
+                              onBlur={field.onBlur}
+                              value={typeof field.value === "number" ? field.value : ""}
                               onChange={(e) =>
                                 field.onChange(
                                   e.target.value === ""
@@ -225,11 +240,7 @@ export function DeviceSettingsTab({ deviceId }: DeviceSettingsTabProps) {
                       type="submit"
                       disabled={putRuleMutation.isPending}
                     >
-                      {putRuleMutation.isPending
-                        ? "Saving..."
-                        : isOn
-                          ? "Save"
-                          : "Enable auto-expiry"}
+                      {submitButtonLabel}
                     </Button>
                     {editing && (
                       <Button
@@ -258,7 +269,11 @@ export function DeviceSettingsTab({ deviceId }: DeviceSettingsTabProps) {
                     type="button"
                     variant="destructive"
                     size="sm"
-                    onClick={() => disableRuleMutation.mutate({})}
+                    onClick={() =>
+                      disableRuleMutation.mutate({
+                        path: { device_id: deviceId },
+                      })
+                    }
                     disabled={disableRuleMutation.isPending}
                   >
                     Turn off auto-expiry

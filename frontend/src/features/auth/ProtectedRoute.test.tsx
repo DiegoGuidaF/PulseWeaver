@@ -4,7 +4,7 @@ import {delay} from 'msw';
 import {server} from '@/test/setup';
 import {renderWithProviders} from '@/test/utils';
 import {ProtectedRoute} from './ProtectedRoute';
-import {AuthProvider} from '@/contexts/AuthContext';
+import {AuthProvider} from '@/features/auth/AuthContext';
 import React from "react";
 import {handlers, responses} from "@/test/mocks/handlers.ts";
 import {createMockUser} from "@/test/mocks/data.ts";
