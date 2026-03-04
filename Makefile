@@ -4,7 +4,7 @@ dev-back:
 	air
 
 dev-front:
-	cd frontend && npm run dev
+	cd frontend && npm install &&  npm run dev
 
 
 # Full production build
