@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
@@ -62,12 +63,20 @@ func Load() (*Conf, error) {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 
-	// Validate after parsing
 	if c.Server.Port < 1 || c.Server.Port > 65535 {
 		return nil, fmt.Errorf("invalid port: %d", c.Server.Port)
 	}
 
+	// Ensure rule scheduler has a valid interval
+	if c.Rules.CheckInterval <= 0 {
+		return nil, fmt.Errorf("check interval must be bigger than 0: %d", c.Rules.CheckInterval)
+	}
+
+	// If Caddy reloader is defined ensure it is valid
 	if c.Caddy.Endpoint != "" {
+		if _, err := url.Parse(c.Caddy.Endpoint); err != nil {
+			return nil, fmt.Errorf("invalid caddy reload endpoint: %s", c.Caddy.Endpoint)
+		}
 		if c.Caddy.AuthToken == "" {
 			return nil, fmt.Errorf("caddy endpoint defined but auth token is missing")
 		}
