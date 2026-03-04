@@ -16,24 +16,26 @@ type repository interface {
 }
 
 type Service struct {
-	repo repository
+	repo   repository
+	logger *slog.Logger
 }
 
-func NewService(repo repository) *Service {
+func NewService(repo repository, logger *slog.Logger) *Service {
 	return &Service{
-		repo: repo,
+		repo:   repo,
+		logger: logger.With(slog.String(logging.AttrKeyComponent, "rule")),
 	}
 }
 
 // GetDeviceAddressLeaseTTLSeconds returns the TTL in seconds to apply for address leases
 // for the given device, or nil if no active rule exists.
 func (s *Service) GetDeviceAddressLeaseTTLSeconds(ctx context.Context, deviceID device.DeviceID) (*int, error) {
-	ctx, logger := logging.Enrich(ctx,
+	logger := s.logger.With(
 		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
 		slog.String(AttrKeyRuleType, string(RuleTypeDeviceAddressLease)),
 	)
 
-	logger.Debug("evaluating device lease rule")
+	logger.DebugContext(ctx, "evaluating device lease rule")
 
 	//TODO: Call other service method to retrieve rule, less duplicated code
 	rule, err := s.repo.GetRuleByDeviceAndType(ctx, deviceID, RuleTypeDeviceAddressLease)
@@ -42,7 +44,7 @@ func (s *Service) GetDeviceAddressLeaseTTLSeconds(ctx context.Context, deviceID 
 			// No rule configured for this device.
 			return nil, nil
 		}
-		logger.Error("failed to load rule", slog.Any(AttrKeyError, err))
+		logger.ErrorContext(ctx, "failed to load rule", slog.Any(AttrKeyError, err))
 		return nil, err
 	}
 
@@ -52,7 +54,7 @@ func (s *Service) GetDeviceAddressLeaseTTLSeconds(ctx context.Context, deviceID 
 
 	addressLeaseRule, err := rule.ToDeviceAddressLeaseRule()
 	if err != nil {
-		logger.Error("invalid device lease rule config",
+		logger.ErrorContext(ctx, "invalid device lease rule config",
 			slog.Any(AttrKeyError, err),
 		)
 		return nil, ErrInvalidRuleConfig

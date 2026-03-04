@@ -50,7 +50,7 @@ func TestService_GetDeviceAddressLeaseTTLSeconds(t *testing.T) {
 	t.Run("no_rule_returns_nil_ttl", func(t *testing.T) {
 		is := is.New(t)
 		repo := &fakeRepository{getRuleErr: ErrRuleNotFound}
-		svc := NewService(repo)
+		svc := NewService(repo, nil)
 		ttl, err := svc.GetDeviceAddressLeaseTTLSeconds(ctx, device.DeviceID(1))
 		is.NoErr(err)
 		is.True(ttl == nil)
@@ -64,7 +64,7 @@ func TestService_GetDeviceAddressLeaseTTLSeconds(t *testing.T) {
 				Enabled: false, Config: json.RawMessage(`{"ttl_seconds":300}`),
 			},
 		}
-		svc := NewService(repo)
+		svc := NewService(repo, nil)
 		ttl, err := svc.GetDeviceAddressLeaseTTLSeconds(ctx, device.DeviceID(1))
 		is.NoErr(err)
 		is.True(ttl == nil)
@@ -78,7 +78,7 @@ func TestService_GetDeviceAddressLeaseTTLSeconds(t *testing.T) {
 				Enabled: true, Config: json.RawMessage(`{"ttl_seconds":300}`),
 			},
 		}
-		svc := NewService(repo)
+		svc := NewService(repo, nil)
 		ttl, err := svc.GetDeviceAddressLeaseTTLSeconds(ctx, device.DeviceID(1))
 		is.NoErr(err)
 		is.True(ttl != nil)
@@ -93,7 +93,7 @@ func TestService_GetDeviceAddressLeaseTTLSeconds(t *testing.T) {
 				Enabled: true, Config: json.RawMessage(`{"ttl_seconds":-1}`),
 			},
 		}
-		svc := NewService(repo)
+		svc := NewService(repo, nil)
 		ttl, err := svc.GetDeviceAddressLeaseTTLSeconds(ctx, device.DeviceID(1))
 		is.True(err != nil)
 		is.True(errors.Is(err, ErrInvalidRuleConfig))
@@ -104,7 +104,7 @@ func TestService_GetDeviceAddressLeaseTTLSeconds(t *testing.T) {
 		is := is.New(t)
 		repoErr := errors.New("db error")
 		repo := &fakeRepository{getRuleErr: repoErr}
-		svc := NewService(repo)
+		svc := NewService(repo, nil)
 		ttl, err := svc.GetDeviceAddressLeaseTTLSeconds(ctx, device.DeviceID(1))
 		is.True(err != nil)
 		is.Equal(err, repoErr)
@@ -124,7 +124,7 @@ func TestService_GetDeviceAddressLeaseRule(t *testing.T) {
 				CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
 			},
 		}
-		svc := NewService(repo)
+		svc := NewService(repo, nil)
 		out, err := svc.GetDeviceAddressLeaseRule(ctx, device.DeviceID(1))
 		is.NoErr(err)
 		is.True(out != nil)
@@ -134,7 +134,7 @@ func TestService_GetDeviceAddressLeaseRule(t *testing.T) {
 	t.Run("not_found", func(t *testing.T) {
 		is := is.New(t)
 		repo := &fakeRepository{getRuleErr: ErrRuleNotFound}
-		svc := NewService(repo)
+		svc := NewService(repo, nil)
 		out, err := svc.GetDeviceAddressLeaseRule(ctx, device.DeviceID(1))
 		is.True(err != nil)
 		is.Equal(err, ErrRuleNotFound)
@@ -149,7 +149,7 @@ func TestService_GetDeviceAddressLeaseRule(t *testing.T) {
 				Enabled: true, Config: json.RawMessage(`{"ttl_seconds":-1}`),
 			},
 		}
-		svc := NewService(repo)
+		svc := NewService(repo, nil)
 		out, err := svc.GetDeviceAddressLeaseRule(ctx, device.DeviceID(1))
 		is.True(err != nil)
 		is.True(errors.Is(err, ErrInvalidRuleConfig))
@@ -169,7 +169,7 @@ func TestService_EnableDeviceAddressLeaseRule(t *testing.T) {
 				CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
 			},
 		}
-		svc := NewService(repo)
+		svc := NewService(repo, nil)
 		out, err := svc.EnableDeviceAddressLeaseRule(ctx, device.DeviceID(1), 300)
 		is.NoErr(err)
 		is.True(out != nil)
@@ -180,7 +180,7 @@ func TestService_EnableDeviceAddressLeaseRule(t *testing.T) {
 	t.Run("negative_ttl_returns_err", func(t *testing.T) {
 		is := is.New(t)
 		repo := &fakeRepository{}
-		svc := NewService(repo)
+		svc := NewService(repo, nil)
 		out, err := svc.EnableDeviceAddressLeaseRule(ctx, device.DeviceID(1), -1)
 		is.True(err != nil)
 		is.True(errors.Is(err, ErrInvalidRuleConfig))
@@ -190,7 +190,7 @@ func TestService_EnableDeviceAddressLeaseRule(t *testing.T) {
 	t.Run("device_not_found_propagated", func(t *testing.T) {
 		is := is.New(t)
 		repo := &fakeRepository{enableErr: device.ErrDeviceNotFound}
-		svc := NewService(repo)
+		svc := NewService(repo, nil)
 		out, err := svc.EnableDeviceAddressLeaseRule(ctx, device.DeviceID(1), 60)
 		is.True(err != nil)
 		is.Equal(err, device.ErrDeviceNotFound)
@@ -201,7 +201,7 @@ func TestService_EnableDeviceAddressLeaseRule(t *testing.T) {
 		is := is.New(t)
 		repoErr := errors.New("db error")
 		repo := &fakeRepository{enableErr: repoErr}
-		svc := NewService(repo)
+		svc := NewService(repo, nil)
 		out, err := svc.EnableDeviceAddressLeaseRule(ctx, device.DeviceID(1), 60)
 		is.True(err != nil)
 		is.Equal(err, repoErr)
@@ -221,7 +221,7 @@ func TestService_DisableDeviceAddressLeaseRule(t *testing.T) {
 				CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
 			},
 		}
-		svc := NewService(repo)
+		svc := NewService(repo, nil)
 		out, err := svc.DisableDeviceAddressLeaseRule(ctx, device.DeviceID(1))
 		is.NoErr(err)
 		is.True(out != nil)
@@ -231,7 +231,7 @@ func TestService_DisableDeviceAddressLeaseRule(t *testing.T) {
 	t.Run("not_found", func(t *testing.T) {
 		is := is.New(t)
 		repo := &fakeRepository{disableErr: ErrRuleNotFound}
-		svc := NewService(repo)
+		svc := NewService(repo, nil)
 		out, err := svc.DisableDeviceAddressLeaseRule(ctx, device.DeviceID(1))
 		is.True(err != nil)
 		is.Equal(err, ErrRuleNotFound)
@@ -242,7 +242,7 @@ func TestService_DisableDeviceAddressLeaseRule(t *testing.T) {
 		is := is.New(t)
 		repoErr := errors.New("db error")
 		repo := &fakeRepository{disableErr: repoErr}
-		svc := NewService(repo)
+		svc := NewService(repo, nil)
 		out, err := svc.DisableDeviceAddressLeaseRule(ctx, device.DeviceID(1))
 		is.True(err != nil)
 		is.Equal(err, repoErr)

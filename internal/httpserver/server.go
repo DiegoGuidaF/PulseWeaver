@@ -11,7 +11,6 @@ import (
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	slogchi "github.com/samber/slog-chi"
@@ -61,7 +60,7 @@ func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandl
 	r.Use(middleware.SetHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()"))
 	r.Use(MaxBodySizeMiddleware(256 * 1024)) // 256KB
 
-	addRoutes(r, deviceHandler, authHandler, ruleHandler)
+	addRoutes(r, deviceHandler, authHandler, ruleHandler, logger)
 
 	return r
 }
@@ -82,10 +81,9 @@ func validationErrorHandler(w http.ResponseWriter, msg string, statusCode int) {
 
 // createRequestErrorHandler creates a request error handler that logs errors with request context
 // and returns proper JSON error responses.
-func createRequestErrorHandler() func(http.ResponseWriter, *http.Request, error) {
+func createRequestErrorHandler(logger *slog.Logger) func(http.ResponseWriter, *http.Request, error) {
 	return func(w http.ResponseWriter, r *http.Request, err error) {
-		logger := logging.FromCtx(r.Context())
-		logger.Warn("request decode error",
+		logger.WarnContext(r.Context(), "request decode error",
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
 			slog.Any("error", err),
@@ -107,10 +105,9 @@ func createRequestErrorHandler() func(http.ResponseWriter, *http.Request, error)
 
 // createResponseErrorHandler creates a response error handler that logs errors with request context
 // and returns proper JSON error responses.
-func createResponseErrorHandler() func(http.ResponseWriter, *http.Request, error) {
+func createResponseErrorHandler(logger *slog.Logger) func(http.ResponseWriter, *http.Request, error) {
 	return func(w http.ResponseWriter, r *http.Request, err error) {
-		logger := logging.FromCtx(r.Context())
-		logger.Error("response error",
+		logger.ErrorContext(r.Context(), "response error",
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
 			slog.Any("error", err),

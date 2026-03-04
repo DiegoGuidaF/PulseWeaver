@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 )
 
 type AddressDisabler interface {
@@ -21,9 +20,10 @@ type ExpiredAddressFinder interface {
 type Service struct {
 	expiredAddressFinder ExpiredAddressFinder
 	addressDisabler      AddressDisabler
+	logger               *slog.Logger
 }
 
-func NewService(expiredAddressFinder ExpiredAddressFinder, addressDisabler AddressDisabler) (*Service, error) {
+func NewService(expiredAddressFinder ExpiredAddressFinder, addressDisabler AddressDisabler, logger *slog.Logger) (*Service, error) {
 	if expiredAddressFinder == nil {
 		return nil, errors.New("expired address finder not configured")
 	}
@@ -33,18 +33,17 @@ func NewService(expiredAddressFinder ExpiredAddressFinder, addressDisabler Addre
 	return &Service{
 		expiredAddressFinder: expiredAddressFinder,
 		addressDisabler:      addressDisabler,
+		logger:               logger.With(slog.String(logging.AttrKeyComponent, "rule_scheduler")),
 	}, nil
 }
 
 // RunSchedule starts the background worker that evaluates time-based rules.
 // It runs an immediate sweep on startup, then ticks at the given interval.
 func (s *Service) RunSchedule(ctx context.Context, interval time.Duration) error {
-	ctx, logger := logging.Enrich(ctx, slog.String(AttrKeyComponent, "rule_scheduler"))
-
-	logger.Info("starting rule engine scheduler", slog.Duration("interval", interval))
+	s.logger.InfoContext(ctx, "starting rule engine scheduler", slog.Duration("interval", interval))
 
 	// Run all time-based rules immediately on startup
-	s.executeScheduledRules(ctx, logger)
+	s.executeScheduledRules(ctx)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -52,17 +51,17 @@ func (s *Service) RunSchedule(ctx context.Context, interval time.Duration) error
 	for {
 		select {
 		case <-ticker.C:
-			s.executeScheduledRules(ctx, logger)
+			s.executeScheduledRules(ctx)
 		case <-ctx.Done():
-			logger.Info("rule engine scheduler stopped")
+			s.logger.InfoContext(ctx, "rule engine scheduler stopped")
 			return nil
 		}
 	}
 }
 
 // executeScheduledRules runs all rules that require periodic background checks.
-func (s *Service) executeScheduledRules(ctx context.Context, logger *slog.Logger) {
+func (s *Service) executeScheduledRules(ctx context.Context) {
 	if err := s.executeAutoExpiry(ctx); err != nil {
-		logger.Error("auto-expiry rule execution failed", slog.Any(AttrKeyError, err))
+		s.logger.ErrorContext(ctx, "auto-expiry rule execution failed", slog.Any(AttrKeyError, err))
 	}
 }

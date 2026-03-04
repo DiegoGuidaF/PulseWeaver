@@ -81,45 +81,38 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Authentication
 	authRepo := auth.NewRepository(db.DB())
-	authService := auth.NewService(authRepo)
-	authHandler := auth.NewHandler(authService)
+	authService := auth.NewService(authRepo, logger)
+	authHandler := auth.NewHandler(authService, logger)
 
 	// Device & addresses management
 	deviceRepo := device.NewRepository(db.DB())
-	deviceService := device.NewService(deviceRepo)
-	deviceHandler := device.NewHandler(deviceService)
+	deviceService := device.NewService(deviceRepo, logger)
+	deviceHandler := device.NewHandler(deviceService, logger)
 
 	// Rule evaluation
 	ruleRepo := rule.NewRepository(db.DB())
-	ruleService := rule.NewService(ruleRepo)
-	ruleHandler := rule.NewHandler(ruleService)
+	ruleService := rule.NewService(ruleRepo, logger)
+	ruleHandler := rule.NewHandler(ruleService, logger)
 
 	// Whitelist generation
-	var whitelistChangeNotifier whitelist.ChangeNotifier
-	if conf.Caddy.Endpoint != "" {
-		caddyReloadClient := caddy.NewReloaderClient(conf.Caddy.Endpoint, conf.Caddy.AuthToken)
-		whitelistChangeNotifier = caddyReloadClient
-		go func() {
-			if err := caddyReloadClient.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-				logger.Error("whitelist change notifier exited with error", slog.Any("error", err))
-			}
-		}()
-	} else {
-		whitelistChangeNotifier = whitelist.NoOpNotifier{}
-		logger.Info("whitelist change webhook URL not configured; change notifications disabled")
-	}
+	caddyReloadClient := caddy.NewReloaderClient(conf.Caddy.Endpoint, conf.Caddy.AuthToken, logger)
+	go func() {
+		if err := caddyReloadClient.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			logger.Error("whitelist change notifier exited with error", slog.Any("error", err))
+		}
+	}()
 
-	whitelistService := whitelist.NewService(deviceService, conf.Whitelist, whitelistChangeNotifier)
+	whitelistService := whitelist.NewService(deviceService, conf.Whitelist, caddyReloadClient, logger)
 
 	// Address Lease manager
 	addressLeaseRepo := lease.NewRepository(db.DB())
-	addressLeaseService := lease.NewService(addressLeaseRepo, ruleService)
+	addressLeaseService := lease.NewService(addressLeaseRepo, ruleService, logger)
 
 	// Register device address observers
 	deviceService.AddAddressObserver(whitelistService)
 	deviceService.AddAddressObserver(addressLeaseService)
 
-	schedulerService, err := scheduler.NewService(addressLeaseService, deviceService)
+	schedulerService, err := scheduler.NewService(addressLeaseService, deviceService, logger)
 	if err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("scheduler service init: %w", err)
@@ -157,15 +150,11 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	}()
 
 	// Start rule scheduler for time-based rules (e.g., IP auto-expiry)
-	if conf.Rules.CheckInterval > 0 {
-		go func() {
-			if err := schedulerService.RunSchedule(ctx, conf.Rules.CheckInterval); err != nil && !errors.Is(err, context.Canceled) {
-				logger.Error("rule scheduler exited with error", slog.Any("error", err))
-			}
-		}()
-	} else {
-		logger.Warn("rule scheduler disabled due to non-positive check interval", slog.Duration("interval", conf.Rules.CheckInterval))
-	}
+	go func() {
+		if err := schedulerService.RunSchedule(ctx, conf.Rules.CheckInterval); err != nil && !errors.Is(err, context.Canceled) {
+			logger.Error("scheduler exited with error", slog.Any("error", err))
+		}
+	}()
 
 	return &App{
 		Config:           conf,

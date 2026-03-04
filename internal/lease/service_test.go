@@ -3,6 +3,7 @@ package lease
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -18,7 +19,7 @@ func TestService_AddAddressLease_Success(t *testing.T) {
 	ttlSeconds := 60
 	mockTTL := &mockTTLConfigRetriever{ttl: &ttlSeconds}
 
-	service := NewService(mockRepo, mockTTL)
+	service := NewService(mockRepo, mockTTL, slog.Default())
 
 	deviceID := device.DeviceID(1)
 	addressID := device.AddressID(10)
@@ -42,7 +43,7 @@ func TestService_AddAddressLease_NoTTLConfigured(t *testing.T) {
 	mockRepo := newMockRepository()
 	mockTTL := &mockTTLConfigRetriever{ttl: nil}
 
-	service := NewService(mockRepo, mockTTL)
+	service := NewService(mockRepo, mockTTL, slog.Default())
 
 	lease, err := service.AddAddressLease(ctx, device.DeviceID(1), device.AddressID(10))
 	is.NoErr(err)
@@ -58,7 +59,7 @@ func TestService_AddAddressLease_TTLConfigError(t *testing.T) {
 	cfgErr := errors.New("ttl config error")
 	mockTTL := &mockTTLConfigRetriever{err: cfgErr}
 
-	service := NewService(mockRepo, mockTTL)
+	service := NewService(mockRepo, mockTTL, slog.Default())
 
 	lease, err := service.AddAddressLease(ctx, device.DeviceID(1), device.AddressID(10))
 	is.True(err != nil)
@@ -75,7 +76,7 @@ func TestService_DeleteAddressLease_Success(t *testing.T) {
 	addressID := device.AddressID(10)
 	mockRepo.leases[addressID] = &AddressLease{AddressID: addressID}
 
-	service := NewService(mockRepo, &mockTTLConfigRetriever{})
+	service := NewService(mockRepo, &mockTTLConfigRetriever{}, slog.Default())
 
 	err := service.DeleteAddressLease(ctx, addressID)
 	is.NoErr(err)
@@ -89,7 +90,7 @@ func TestService_DeleteAddressLease_NotFoundIsNotError(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	service := NewService(mockRepo, &mockTTLConfigRetriever{})
+	service := NewService(mockRepo, &mockTTLConfigRetriever{}, slog.Default())
 
 	err := service.DeleteAddressLease(ctx, device.AddressID(999))
 	is.NoErr(err)
@@ -104,7 +105,7 @@ func TestService_DeleteAddressLease_RepositoryError(t *testing.T) {
 	repoErr := errors.New("delete failed")
 	mockRepo.deleteErr = repoErr
 
-	service := NewService(mockRepo, &mockTTLConfigRetriever{})
+	service := NewService(mockRepo, &mockTTLConfigRetriever{}, slog.Default())
 
 	err := service.DeleteAddressLease(ctx, device.AddressID(10))
 	is.True(err != nil)
@@ -119,7 +120,7 @@ func TestService_GetExpiredAddressIDs(t *testing.T) {
 	mockRepo := newMockRepository()
 	mockRepo.expiredAddressIDs = []device.AddressID{device.AddressID(1), device.AddressID(2)}
 
-	service := NewService(mockRepo, &mockTTLConfigRetriever{})
+	service := NewService(mockRepo, &mockTTLConfigRetriever{}, slog.Default())
 
 	ids, err := service.GetExpiredAddressIDs(ctx)
 	is.NoErr(err)
@@ -138,7 +139,7 @@ func TestService_OnAddressEvent_AssignedEventProcessedByRunListener(t *testing.T
 	ttlSeconds := 30
 	mockTTL := &mockTTLConfigRetriever{ttl: &ttlSeconds}
 
-	service := NewService(mockRepo, mockTTL)
+	service := NewService(mockRepo, mockTTL, slog.Default())
 
 	done := make(chan error, 1)
 	go func() {
@@ -173,7 +174,7 @@ func TestService_OnAddressEvent_DisabledEventProcessedByRunListener(t *testing.T
 	mockRepo := newMockRepository()
 	mockRepo.deleteCalledCh = make(chan struct{}, 1)
 
-	service := NewService(mockRepo, &mockTTLConfigRetriever{})
+	service := NewService(mockRepo, &mockTTLConfigRetriever{}, slog.Default())
 
 	done := make(chan error, 1)
 	go func() {
@@ -207,7 +208,7 @@ func TestService_OnAddressEvent_ContextCancellationUnblocksWhenChannelFull(t *te
 	ctx, cancel := context.WithCancel(context.Background())
 
 	mockRepo := newMockRepository()
-	service := NewService(mockRepo, &mockTTLConfigRetriever{})
+	service := NewService(mockRepo, &mockTTLConfigRetriever{}, slog.Default())
 
 	// Reduce buffer size for this test to ensure the channel can fill.
 	service.events = make(chan device.AddressEvent, 1)
@@ -240,7 +241,7 @@ func TestService_RunListener_ContextCancellationExitsCleanly(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	mockRepo := newMockRepository()
-	service := NewService(mockRepo, &mockTTLConfigRetriever{})
+	service := NewService(mockRepo, &mockTTLConfigRetriever{}, slog.Default())
 
 	done := make(chan error, 1)
 	go func() {

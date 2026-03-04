@@ -2,6 +2,7 @@ package caddy
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,7 +24,7 @@ func TestHTTPNotifier_SendsPostOnSignal(t *testing.T) {
 	}))
 	defer server.Close()
 
-	notifier := NewReloaderClient(server.URL, "")
+	notifier := NewReloaderClient(server.URL, "", slog.Default())
 	if notifier == nil {
 		t.Fatal("expected non-nil notifier")
 	}
@@ -66,7 +67,7 @@ func TestHTTPNotifier_IncludesTokenHeader(t *testing.T) {
 	}))
 	defer server.Close()
 
-	notifier := NewReloaderClient(server.URL, token)
+	notifier := NewReloaderClient(server.URL, token, slog.Default())
 	if notifier == nil {
 		t.Fatal("expected non-nil notifier")
 	}
@@ -113,7 +114,7 @@ func TestHTTPNotifier_RetriesOnServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	notifier := NewReloaderClient(server.URL, "")
+	notifier := NewReloaderClient(server.URL, "", slog.Default())
 	if notifier == nil {
 		t.Fatal("expected non-nil notifier")
 	}

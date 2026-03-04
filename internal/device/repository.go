@@ -404,7 +404,7 @@ func (r *Repository) recordStatusChange(ctx context.Context, addressID AddressID
 // RunInTx runs the callback function inside a transaction.
 // If already running in a transaction context, do not create a new one and reuse it
 func (r *Repository) runInTx(ctx context.Context, fn func(*Repository) error) error {
-	logger := logging.FromCtx(ctx)
+	logger := slog.Default()
 	if r.rootDB == nil {
 		// We are already in a transaction. Do not nest it.
 		return fn(r)

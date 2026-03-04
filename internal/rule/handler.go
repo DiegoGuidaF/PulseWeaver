@@ -14,19 +14,21 @@ import (
 // HTTPHandler handles HTTP requests for rule endpoints.
 type HTTPHandler struct {
 	ruleService *Service
+	logger      *slog.Logger
 }
 
 // NewHandler returns a new rule HTTP handler.
-func NewHandler(ruleService *Service) *HTTPHandler {
+func NewHandler(ruleService *Service, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{
 		ruleService: ruleService,
+		logger:      logger.With(slog.String(logging.AttrKeyComponent, "rule")),
 	}
 }
 
 // GetDeviceAddressLeaseRule returns the device address lease rule for the device.
 func (h *HTTPHandler) GetDeviceAddressLeaseRule(ctx context.Context, request httpapi.GetDeviceAddressLeaseRuleRequestObject) (httpapi.GetDeviceAddressLeaseRuleResponseObject, error) {
 	deviceID := device.DeviceID(request.DeviceId)
-	ctx, logger := logging.Enrich(ctx,
+	logger := h.logger.With(
 		slog.String(AttrKeyOperation, "GetDeviceAddressLeaseRule"),
 		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
 	)
@@ -35,13 +37,13 @@ func (h *HTTPHandler) GetDeviceAddressLeaseRule(ctx context.Context, request htt
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrRuleNotFound):
-			logger.Warn("rule not found")
+			logger.WarnContext(ctx, "rule not found")
 			return httpapi.GetDeviceAddressLeaseRule404JSONResponse(errorMsgResponse("Rule not found")), nil
 		case errors.Is(err, ErrInvalidRuleConfig):
-			logger.Error("invalid rule config detected in db", slog.Any(AttrKeyError, err))
+			logger.ErrorContext(ctx, "invalid rule config detected in db", slog.Any(AttrKeyError, err))
 			return httpapi.GetDeviceAddressLeaseRule500JSONResponse(errorMsgResponse("Rule config parsing error")), nil
 		default:
-			logger.Error("failed to get rule", slog.Any(AttrKeyError, err))
+			logger.ErrorContext(ctx, "failed to get rule", slog.Any(AttrKeyError, err))
 			return httpapi.GetDeviceAddressLeaseRule500JSONResponse(errorMsgResponse("Failed to get rule")), nil
 		}
 	}
@@ -53,7 +55,7 @@ func (h *HTTPHandler) GetDeviceAddressLeaseRule(ctx context.Context, request htt
 func (h *HTTPHandler) PutDeviceAddressLeaseRule(ctx context.Context, request httpapi.PutDeviceAddressLeaseRuleRequestObject) (httpapi.PutDeviceAddressLeaseRuleResponseObject, error) {
 	deviceID := device.DeviceID(request.DeviceId)
 	ttlSeconds := request.Body.TtlSeconds
-	ctx, logger := logging.Enrich(ctx,
+	logger := h.logger.With(
 		slog.String(AttrKeyOperation, "PutDeviceAddressLeaseRule"),
 		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
 		slog.Int(AttrDeviceAutoExpiryRuleTTL, ttlSeconds),
@@ -63,13 +65,13 @@ func (h *HTTPHandler) PutDeviceAddressLeaseRule(ctx context.Context, request htt
 	if err != nil {
 		switch {
 		case errors.Is(err, device.ErrDeviceNotFound):
-			logger.Warn("device not found")
+			logger.WarnContext(ctx, "device not found")
 			return httpapi.PutDeviceAddressLeaseRule404JSONResponse(errorMsgResponse(fmt.Sprintf("Device %d not found", deviceID))), nil
 		case errors.Is(err, ErrInvalidTTL):
-			logger.Warn("invalid ttl value")
+			logger.WarnContext(ctx, "invalid ttl value")
 			return httpapi.PutDeviceAddressLeaseRule400JSONResponse(errorMsgResponse("ttl_seconds must be at least 1")), nil
 		default:
-			logger.Error("failed to upsert rule", slog.Any(AttrKeyError, err))
+			logger.ErrorContext(ctx, "failed to upsert rule", slog.Any(AttrKeyError, err))
 			return httpapi.PutDeviceAddressLeaseRule500JSONResponse(errorMsgResponse("Failed to update rule")), nil
 		}
 	}
@@ -79,7 +81,7 @@ func (h *HTTPHandler) PutDeviceAddressLeaseRule(ctx context.Context, request htt
 // DisableDeviceAddressLeaseRule disables the device address lease rule for the device.
 func (h *HTTPHandler) DisableDeviceAddressLeaseRule(ctx context.Context, request httpapi.DisableDeviceAddressLeaseRuleRequestObject) (httpapi.DisableDeviceAddressLeaseRuleResponseObject, error) {
 	deviceID := device.DeviceID(request.DeviceId)
-	ctx, logger := logging.Enrich(ctx,
+	logger := h.logger.With(
 		slog.String(AttrKeyOperation, "DisableDeviceAddressLeaseRule"),
 		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
 	)
@@ -88,10 +90,10 @@ func (h *HTTPHandler) DisableDeviceAddressLeaseRule(ctx context.Context, request
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrRuleNotFound):
-			logger.Info("rule already disabled or missing")
+			logger.InfoContext(ctx, "rule already disabled or missing")
 			return httpapi.DisableDeviceAddressLeaseRule204Response{}, nil
 		default:
-			logger.Error("failed to disable rule", slog.Any(AttrKeyError, err))
+			logger.ErrorContext(ctx, "failed to disable rule", slog.Any(AttrKeyError, err))
 			return httpapi.DisableDeviceAddressLeaseRule500JSONResponse(errorMsgResponse("Failed to disable rule")), nil
 		}
 	}

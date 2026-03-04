@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"log/slog"
 	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
@@ -22,7 +23,7 @@ type CompositeHandler struct {
 
 type RuleHandler = rule.HTTPHandler
 
-func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler) {
+func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, logger *slog.Logger) {
 	routeHandler := &CompositeHandler{
 		DeviceHandler: deviceHandler,
 		AuthHandler:   authHandler,
@@ -54,8 +55,8 @@ func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandle
 
 		// Create custom error handlers with logging
 		errorOptions := httpapi.StrictHTTPServerOptions{
-			RequestErrorHandlerFunc:  createRequestErrorHandler(),
-			ResponseErrorHandlerFunc: createResponseErrorHandler(),
+			RequestErrorHandlerFunc:  createRequestErrorHandler(logger),
+			ResponseErrorHandlerFunc: createResponseErrorHandler(logger),
 		}
 
 		strictHandler := httpapi.NewStrictHandlerWithOptions(routeHandler, nil, errorOptions)

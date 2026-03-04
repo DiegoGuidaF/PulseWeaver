@@ -19,14 +19,16 @@ const (
 )
 
 type ReloaderClient struct {
+	enabled   bool
 	url       string
 	authToken string
 
 	signals chan struct{}
 	client  *retryablehttp.Client
+	logger  *slog.Logger
 }
 
-func NewReloaderClient(webhookURL string, token string) *ReloaderClient {
+func NewReloaderClient(webhookURL string, token string, logger *slog.Logger) *ReloaderClient {
 	client := retryablehttp.NewClient()
 	client.RetryMax = defaultRetryMax
 	client.Logger = nil // disable internal logging noise
@@ -36,15 +38,21 @@ func NewReloaderClient(webhookURL string, token string) *ReloaderClient {
 	client.HTTPClient.Timeout = defaultRequestTimeout
 
 	return &ReloaderClient{
+		enabled:   webhookURL != "",
 		url:       webhookURL,
 		authToken: token,
 		signals:   make(chan struct{}, 1),
 		client:    client,
+		logger:    logger.With(slog.String(logging.AttrKeyComponent, "caddy_reloader"), slog.String("webhook_url", webhookURL)),
 	}
 }
 
-// NotifyChange enqueues a non-blocking signal that Caddy needs to be reloaded
+// NotifyChange enqueues a non-blocking signal that Caddy needs to be reloaded.
+// If the client is disabled (no endpoint configured), the call is a no-op.
 func (n *ReloaderClient) NotifyChange(_ context.Context) {
+	if !n.enabled {
+		return
+	}
 	select {
 	case n.signals <- struct{}{}:
 	default:
@@ -52,13 +60,14 @@ func (n *ReloaderClient) NotifyChange(_ context.Context) {
 }
 
 // Run processes change signals until the context is cancelled.
+// If the client is disabled (no endpoint configured), it returns nil immediately.
 func (n *ReloaderClient) Run(ctx context.Context) error {
-	ctx, logger := logging.Enrich(ctx,
-		slog.String(logging.AttrKeyComponent, "caddy_reloader"),
-		slog.String("webhook_url", n.url),
-	)
+	if !n.enabled {
+		n.logger.InfoContext(ctx, "caddy reloader disabled (no endpoint configured)")
+		return nil
+	}
 
-	logger.Info("starting caddy reloader")
+	n.logger.InfoContext(ctx, "starting caddy reloader")
 
 	for {
 		select {
@@ -67,14 +76,12 @@ func (n *ReloaderClient) Run(ctx context.Context) error {
 				return nil
 			}
 			if err := n.sendOnce(ctx); err != nil {
-				logger.Error("failed to reload caddy",
-					slog.Any(logging.AttrKeyError, err),
-				)
+				n.logger.ErrorContext(ctx, "failed to reload caddy", slog.Any(logging.AttrKeyError, err))
 				continue
 			}
-			logger.Info("whitelist change notification sent")
+			n.logger.InfoContext(ctx, "whitelist change notification sent")
 		case <-ctx.Done():
-			logger.Info("stopping caddy reloader")
+			n.logger.InfoContext(ctx, "stopping caddy reloader")
 			return nil
 		}
 	}

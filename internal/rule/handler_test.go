@@ -32,7 +32,7 @@ func CreateDeviceAddressLeaseRule(t *testing.T, testServer *app.App, deviceID de
 	t.Helper()
 
 	ruleRepo := rule.NewRepository(testServer.Database.DB())
-	ruleSvc := rule.NewService(ruleRepo)
+	ruleSvc := rule.NewService(ruleRepo, nil)
 
 	r, err := ruleSvc.EnableDeviceAddressLeaseRule(t.Context(), deviceID, ttlSeconds)
 	if err != nil {
@@ -180,7 +180,7 @@ func TestHandler_DisableDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 
 	is.Equal(res.Code, http.StatusNoContent)
 
-	ruleSvc := rule.NewService(rule.NewRepository(testServer.Database.DB()))
+	ruleSvc := rule.NewService(rule.NewRepository(testServer.Database.DB()), nil)
 	ttl, err := ruleSvc.GetDeviceAddressLeaseTTLSeconds(t.Context(), dev.ID)
 	is.NoErr(err)
 	is.True(ttl == nil)

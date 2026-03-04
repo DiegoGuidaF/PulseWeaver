@@ -32,11 +32,13 @@ type AddressObserver interface {
 type Service struct {
 	repo      repository
 	observers []AddressObserver
+	logger    *slog.Logger
 }
 
-func NewService(repo repository) *Service {
+func NewService(repo repository, logger *slog.Logger) *Service {
 	s := &Service{
-		repo: repo,
+		repo:   repo,
+		logger: logger.With(slog.String(logging.AttrKeyComponent, "device")),
 	}
 	return s
 }
@@ -72,19 +74,15 @@ func (s *Service) GetDevice(ctx context.Context, deviceID DeviceID) (*Device, er
 }
 
 func (s *Service) DeleteDevice(ctx context.Context, deviceID DeviceID) error {
-	logger := logging.FromCtx(ctx)
-
 	err := s.repo.DeleteDevice(ctx, deviceID)
 	if err != nil {
 		return err
 	}
-	logger.Info("device deleted", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
+	s.logger.InfoContext(ctx, "device deleted", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 	return nil
 }
 
 func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, string, error) {
-	logger := logging.FromCtx(ctx)
-
 	createDeviceParams, rawKey, err := NewCreateDeviceParams(name)
 	if err != nil {
 		return nil, "", err
@@ -95,7 +93,7 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, strin
 		return nil, "", err
 	}
 
-	logger.Info("device created", slog.Int64(AttrKeyDeviceID, createdDevice.ID.Int64()))
+	s.logger.InfoContext(ctx, "device created", slog.Int64(AttrKeyDeviceID, createdDevice.ID.Int64()))
 
 	return createdDevice, rawKey, nil
 }
@@ -119,8 +117,6 @@ func (s *Service) Authenticate(ctx context.Context, rawKey string) (*Principal, 
 }
 
 func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIP string, source StatusSource) (*Address, bool, error) {
-	logger := logging.FromCtx(ctx)
-
 	createAddressParams, err := NewCreateAddressParams(deviceID, inputIP)
 	if err != nil {
 		return nil, false, err
@@ -161,7 +157,7 @@ func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIP 
 
 	s.notifyObservers(ctx, NewAddressEvent(address, EventTypeAddressAssigned))
 
-	logger.Info("address assigned",
+	s.logger.InfoContext(ctx, "address assigned",
 		slog.String(AttrKeyAddressIP, address.IP),
 		slog.Int64(AttrKeyAddressID, address.ID.Int64()),
 		slog.Bool(AttrKeyWasCreated, wasCreated),
@@ -194,8 +190,6 @@ func (s *Service) GetAddressesForDevice(ctx context.Context, deviceID DeviceID) 
 }
 
 func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, addressID AddressID) (*Address, error) {
-	logger := logging.FromCtx(ctx)
-
 	var disabledAddress *Address
 
 	err := s.repo.RunInTx(ctx, func(tx repository) error {
@@ -222,7 +216,7 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, address
 
 	s.notifyObservers(ctx, NewAddressEvent(disabledAddress, EventTypeAddressDisabled))
 
-	logger.Info("address disabled",
+	s.logger.InfoContext(ctx, "address disabled",
 		slog.String(AttrKeyAddressIP, disabledAddress.IP),
 		slog.Int64(AttrKeyAddressID, disabledAddress.ID.Int64()),
 	)
@@ -239,8 +233,6 @@ func (s *Service) GetEnabledUniqueIPs(ctx context.Context) ([]string, error) {
 }
 
 func (s *Service) DisableAddresses(ctx context.Context, addressIDs []AddressID, source StatusSource) error {
-	logger := logging.FromCtx(ctx)
-
 	disabledAddresses, err := s.repo.DisableAddresses(ctx, addressIDs, source)
 	if err != nil {
 		return err
@@ -250,7 +242,7 @@ func (s *Service) DisableAddresses(ctx context.Context, addressIDs []AddressID, 
 		s.notifyObservers(ctx, NewAddressEvent(&disabledAddress, EventTypeAddressDisabled))
 	}
 
-	logger.Info("addresses disabled",
+	s.logger.InfoContext(ctx, "addresses disabled",
 		slog.Int(AttrKeyCount, len(disabledAddresses)),
 	)
 

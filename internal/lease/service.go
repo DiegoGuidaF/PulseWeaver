@@ -22,14 +22,16 @@ type Service struct {
 	repository         repository
 	ttlConfigRetriever TTLConfigRetriever
 	events             chan device.AddressEvent
+	logger             *slog.Logger
 }
 
 // NewService creates a new lease service.
-func NewService(repository repository, ttlConfigRetriever TTLConfigRetriever) *Service {
+func NewService(repository repository, ttlConfigRetriever TTLConfigRetriever, logger *slog.Logger) *Service {
 	return &Service{
 		repository:         repository,
 		ttlConfigRetriever: ttlConfigRetriever,
 		events:             make(chan device.AddressEvent, 500),
+		logger:             logger.With(slog.String(logging.AttrKeyComponent, "lease")),
 	}
 }
 
@@ -81,8 +83,6 @@ func (s *Service) OnAddressEvent(ctx context.Context, event device.AddressEvent)
 
 // RunListener blocks and processes events. Run this in a goroutine.
 func (s *Service) RunListener(ctx context.Context) error {
-	ctx, logger := logging.Enrich(ctx, slog.String(logging.AttrKeyComponent, "lease"))
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -91,7 +91,7 @@ func (s *Service) RunListener(ctx context.Context) error {
 			switch event.Type {
 			case device.EventTypeAddressAssigned:
 				if _, err := s.AddAddressLease(ctx, event.DeviceID, event.AddressID); err != nil {
-					logger.Error("failed to add address lease",
+					s.logger.ErrorContext(ctx, "failed to add address lease",
 						slog.Any(AttrKeyError, err),
 						slog.Int64(AttrKeyAddressID, event.AddressID.Int64()),
 						slog.Int64(AttrKeyDeviceID, event.DeviceID.Int64()),
@@ -99,7 +99,7 @@ func (s *Service) RunListener(ctx context.Context) error {
 				}
 			case device.EventTypeAddressDisabled:
 				if err := s.DeleteAddressLease(ctx, event.AddressID); err != nil {
-					logger.Error("failed to delete address lease",
+					s.logger.ErrorContext(ctx, "failed to delete address lease",
 						slog.Any(AttrKeyError, err),
 						slog.Int64(AttrKeyAddressID, event.AddressID.Int64()),
 					)

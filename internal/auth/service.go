@@ -9,7 +9,6 @@ import (
 	"log/slog"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -24,16 +23,18 @@ type repository interface {
 	RunInTx(ctx context.Context, fn func(repository) error) error
 }
 type Service struct {
-	repo repository
+	repo   repository
+	logger *slog.Logger
 }
 
-func NewService(repo repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo repository, logger *slog.Logger) *Service {
+	return &Service{
+		repo:   repo,
+		logger: logger.With(slog.String(logging.AttrKeyComponent, "auth")),
+	}
 }
 
 func (s *Service) Login(ctx context.Context, username string, password string) (string, *User, error) {
-	logger := logging.FromCtx(ctx)
-
 	var rawToken string
 	var user *User
 
@@ -60,7 +61,7 @@ func (s *Service) Login(ctx context.Context, username string, password string) (
 			return err
 		}
 
-		logger.Info("user logged in", slog.Int64(AttrKeyUserID, user.ID.Int64()))
+		s.logger.InfoContext(ctx, "user logged in", slog.Int64(AttrKeyUserID, user.ID.Int64()))
 		return nil
 	})
 	if err != nil {
@@ -79,13 +80,11 @@ func (s *Service) GetUserFromPrincipal(ctx context.Context, principal *Principal
 }
 
 func (s *Service) RevokeSession(ctx context.Context, sessionID SessionID) error {
-	logger := logging.FromCtx(ctx)
-
 	err := s.repo.RevokeSessionByID(ctx, sessionID)
 	if err != nil {
 		return err
 	}
-	logger.Info("session revoked", slog.Int64(AttrKeySessionID, sessionID.Int64()))
+	s.logger.InfoContext(ctx, "session revoked", slog.Int64(AttrKeySessionID, sessionID.Int64()))
 	return nil
 }
 
@@ -98,12 +97,10 @@ func (s *Service) CreateUserByAdmin(ctx context.Context, username string, displa
 }
 
 func (s *Service) Authenticate(ctx context.Context, rawToken string) (*Principal, error) {
-	logger := logging.FromCtx(ctx)
-
 	tokenHash := hashRawToken(rawToken)
 	sessionWithUser, err := s.repo.GetSessionWithRoleByTokenHash(ctx, tokenHash)
 	if err != nil {
-		logger.Debug("session not found or invalid")
+		s.logger.DebugContext(ctx, "session not found or invalid")
 		return nil, err
 	}
 
@@ -112,8 +109,6 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (*Principal
 }
 
 func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) error {
-	logger := logging.FromCtx(ctx)
-
 	username := "admin"
 	displayName := "Admin"
 	password := conf.AdminPassword
@@ -121,7 +116,7 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 	err := s.repo.RunInTx(ctx, func(tx repository) error {
 		count, err := tx.CountUsers(ctx)
 		if err != nil {
-			logger.Error("database error counting users", slog.Any(AttrKeyError, err))
+			s.logger.ErrorContext(ctx, "database error counting users", slog.Any(AttrKeyError, err))
 			return err
 		}
 		if count > 0 {
@@ -133,7 +128,7 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 			return fmt.Errorf("failed to bootstrap admin: %w", err)
 		}
 
-		logger.Info("bootstrap admin created", slog.String(AttrKeyUsername, user.Username))
+		s.logger.InfoContext(ctx, "bootstrap admin created", slog.String(AttrKeyUsername, user.Username))
 		return nil
 	})
 	if err != nil {
@@ -144,8 +139,6 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 }
 
 func (s *Service) createUser(tx repository, ctx context.Context, username string, displayName string, email *string, password string, createdBy *UserID, role Role) (*User, error) {
-	logger := logging.FromCtx(ctx)
-
 	newUser, err := NewUser(
 		username,
 		displayName,
@@ -163,7 +156,7 @@ func (s *Service) createUser(tx repository, ctx context.Context, username string
 		return nil, err
 	}
 
-	logger.Info("user created", slog.Int64(AttrKeyUserID, user.ID.Int64()), slog.String(AttrKeyUsername, user.Username))
+	s.logger.InfoContext(ctx, "user created", slog.Int64(AttrKeyUserID, user.ID.Int64()), slog.String(AttrKeyUsername, user.Username))
 	return user, nil
 }
 

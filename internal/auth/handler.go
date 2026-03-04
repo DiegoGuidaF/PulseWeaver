@@ -6,18 +6,18 @@ import (
 	"log/slog"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 type HTTPHandler struct {
 	service      *Service
 	cookieConfig CookieConfig
+	logger       *slog.Logger
 }
 
 func (h *HTTPHandler) Login(ctx context.Context, request httpapi.LoginRequestObject) (httpapi.LoginResponseObject, error) {
 	username := request.Body.Username
-	ctx, logger := logging.Enrich(ctx,
+	logger := h.logger.With(
 		slog.String(AttrKeyOperation, "Login"),
 		slog.String(AttrKeyUsername, username),
 	)
@@ -25,10 +25,10 @@ func (h *HTTPHandler) Login(ctx context.Context, request httpapi.LoginRequestObj
 	rawToken, user, err := h.service.Login(ctx, username, request.Body.Password)
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) || errors.Is(err, ErrUserNotFound) {
-			logger.Warn("invalid credentials")
+			logger.WarnContext(ctx, "invalid credentials")
 			return httpapi.Login401JSONResponse(errorMsgResponse("Invalid credentials")), nil
 		}
-		logger.Error("login failed", slog.Any(AttrKeyError, err))
+		logger.ErrorContext(ctx, "login failed", slog.Any(AttrKeyError, err))
 		return httpapi.Login500JSONResponse(errorMsgResponse("Login failure")), nil
 	}
 
@@ -40,14 +40,14 @@ func (h *HTTPHandler) Login(ctx context.Context, request httpapi.LoginRequestObj
 }
 
 func (h *HTTPHandler) Logout(ctx context.Context, _ httpapi.LogoutRequestObject) (httpapi.LogoutResponseObject, error) {
-	ctx, _ = logging.Enrich(ctx, slog.String(AttrKeyOperation, "Logout"))
+	logger := h.logger.With(slog.String(AttrKeyOperation, "Logout"))
 
 	principal, ok := PrincipalFromContext(ctx)
 	if ok {
-		ctx, logger := logging.Enrich(ctx, slog.Int64(AttrKeySessionID, principal.SessionID.Int64()))
+		sessionLogger := logger.With(slog.Int64(AttrKeySessionID, principal.SessionID.Int64()))
 		err := h.service.RevokeSession(ctx, principal.SessionID)
 		if err != nil {
-			logger.Error("failed to revoke session", slog.Any(AttrKeyError, err))
+			sessionLogger.ErrorContext(ctx, "failed to revoke session", slog.Any(AttrKeyError, err))
 		}
 	}
 
@@ -59,22 +59,22 @@ func (h *HTTPHandler) Logout(ctx context.Context, _ httpapi.LogoutRequestObject)
 }
 
 func (h *HTTPHandler) GetCurrentUser(ctx context.Context, _ httpapi.GetCurrentUserRequestObject) (httpapi.GetCurrentUserResponseObject, error) {
-	ctx, logger := logging.Enrich(ctx, slog.String(AttrKeyOperation, "GetCurrentUser"))
+	logger := h.logger.With(slog.String(AttrKeyOperation, "GetCurrentUser"))
 
 	principal, ok := PrincipalFromContext(ctx)
 	if !ok {
-		logger.Error("principal not in context")
+		logger.ErrorContext(ctx, "principal not in context")
 		return httpapi.GetCurrentUser500JSONResponse(errorMsgResponse("Couldn't retrieve current principal from context")), nil
 	}
-	ctx, logger = logging.Enrich(ctx, slog.Int64(AttrKeyUserID, principal.UserID.Int64()))
+	logger = logger.With(slog.Int64(AttrKeyUserID, principal.UserID.Int64()))
 
 	user, err := h.service.GetUserFromPrincipal(ctx, principal)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
-			logger.Warn("user not found")
+			logger.WarnContext(ctx, "user not found")
 			return httpapi.GetCurrentUser500JSONResponse(errorMsgResponse("User not found")), nil
 		}
-		logger.Error("failed to retrieve current user", slog.Any(AttrKeyError, err))
+		logger.ErrorContext(ctx, "failed to retrieve current user", slog.Any(AttrKeyError, err))
 		return httpapi.GetCurrentUser500JSONResponse(errorMsgResponse("Failed to retrieve current user")), nil
 	}
 
@@ -83,7 +83,7 @@ func (h *HTTPHandler) GetCurrentUser(ctx context.Context, _ httpapi.GetCurrentUs
 
 func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUserRequestObject) (httpapi.CreateUserResponseObject, error) {
 	username := request.Body.Username
-	ctx, logger := logging.Enrich(ctx,
+	logger := h.logger.With(
 		slog.String(AttrKeyOperation, "CreateUser"),
 		slog.String(AttrKeyUsername, username),
 		slog.String(AttrKeyDisplayName, request.Body.DisplayName),
@@ -91,7 +91,7 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUser
 
 	principal, ok := PrincipalFromContext(ctx)
 	if !ok {
-		logger.Error("principal not in context")
+		logger.ErrorContext(ctx, "principal not in context")
 		return httpapi.CreateUser403Response{}, nil
 	}
 
@@ -111,34 +111,35 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUser
 
 	if err != nil {
 		if errors.Is(err, ErrUsernameTaken) {
-			logger.Warn("username already taken")
+			logger.WarnContext(ctx, "username already taken")
 			return httpapi.CreateUser409JSONResponse(errorMsgResponse("User with that username already exists")), nil
 		}
 		if errors.Is(err, ErrEmailTaken) {
-			logger.Warn("email already taken")
+			logger.WarnContext(ctx, "email already taken")
 			return httpapi.CreateUser409JSONResponse(errorMsgResponse("User with that email already exists")), nil
 		}
 		if errors.Is(err, ErrInvalidDisplayName) || errors.Is(err, ErrInvalidUsername) || errors.Is(err, ErrInvalidPassword) {
-			logger.Warn("invalid input")
+			logger.WarnContext(ctx, "invalid input")
 			return httpapi.CreateUser400JSONResponse(errorMsgResponse("Invalid input")), nil
 		}
 		if errors.Is(err, ErrAdminCredentialsRequired) {
-			logger.Warn("admin credentials required")
+			logger.WarnContext(ctx, "admin credentials required")
 			return httpapi.CreateUser403Response{}, nil
 		}
-		logger.Error("failed to create user", slog.Any(AttrKeyError, err))
+		logger.ErrorContext(ctx, "failed to create user", slog.Any(AttrKeyError, err))
 		return httpapi.CreateUser500JSONResponse(errorMsgResponse("Failed to create user")), nil
 	}
 
 	return httpapi.CreateUser201JSONResponse(toUserResponse(user)), nil
 }
 
-func NewHandler(service *Service) *HTTPHandler {
+func NewHandler(service *Service, logger *slog.Logger) *HTTPHandler {
 	cfg := DefaultCookieConfig
 
 	return &HTTPHandler{
 		service:      service,
 		cookieConfig: cfg,
+		logger:       logger.With(slog.String(logging.AttrKeyComponent, "auth")),
 	}
 }
 

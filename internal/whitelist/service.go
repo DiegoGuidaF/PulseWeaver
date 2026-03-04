@@ -26,32 +26,25 @@ type ChangeNotifier interface {
 	NotifyChange(ctx context.Context)
 }
 
-// NoOpNotifier does nothing.
-type NoOpNotifier struct{}
-
-func (n NoOpNotifier) NotifyChange(ctx context.Context) {}
-
 type Service struct {
 	provider            EnabledIPsProvider
 	filePath            string
 	rateLimit           time.Duration
 	changeNotifier      ChangeNotifier
 	addressChangeSignal chan struct{}
+	logger              *slog.Logger
 }
 
 // NewService creates a new whitelist service.
 // Receives the whole ConfWhitelist struct since it is domain-specific.
-// If notifier is nil, a NoOpNotifier is used so callers never need to nil-check.
-func NewService(provider EnabledIPsProvider, conf config.ConfWhitelist, notifier ChangeNotifier) *Service {
-	if notifier == nil {
-		notifier = NoOpNotifier{}
-	}
+func NewService(provider EnabledIPsProvider, conf config.ConfWhitelist, notifier ChangeNotifier, logger *slog.Logger) *Service {
 	return &Service{
 		provider:            provider,
 		filePath:            conf.FilePath,
 		rateLimit:           conf.RateLimit,
 		changeNotifier:      notifier,
 		addressChangeSignal: make(chan struct{}, 1),
+		logger:              logger.With(slog.String(logging.AttrKeyComponent, "whitelist")),
 	}
 }
 
@@ -71,9 +64,6 @@ func (s *Service) RunListener(ctx context.Context) error {
 	var timer *time.Timer
 	var timerC <-chan time.Time
 	var lastRunAt time.Time
-
-	ctx, _ = logging.Enrich(ctx, slog.String(AttrKeyComponent, "whitelist"))
-	logger := logging.FromCtx(ctx)
 
 	// debounce calculates the required delay and configures the timer,
 	debounce := func() {
@@ -109,8 +99,11 @@ func (s *Service) RunListener(ctx context.Context) error {
 			timer = nil
 			timerC = nil
 
-			if err := s.Regenerate(ctx); err != nil {
-				logger.Error("whitelist regeneration failed", slog.Any(AttrKeyError, err))
+			// Each regeneration cycle gets a unique flow ID so all log lines
+			// from that regeneration can be correlated.
+			regenCtx := logging.WithRequestID(ctx, "regen-"+logging.NewShortID())
+			if err := s.Regenerate(regenCtx); err != nil {
+				s.logger.ErrorContext(regenCtx, "whitelist regeneration failed", slog.Any(AttrKeyError, err))
 			}
 			lastRunAt = time.Now()
 		case <-ctx.Done():
@@ -167,8 +160,6 @@ func (s *Service) hashExistingFile() ([32]byte, error) {
 // Regenerate queries enabled IPs from the provider and writes them to the whitelist file.
 // Uses hash-based comparison to skip writes when content hasn't changed.
 func (s *Service) Regenerate(ctx context.Context) error {
-	logger := logging.FromCtx(ctx)
-
 	ips, err := s.provider.GetEnabledUniqueIPs(ctx)
 	if err != nil {
 		return fmt.Errorf("query enabled IPs: %w", err)
@@ -176,18 +167,18 @@ func (s *Service) Regenerate(ctx context.Context) error {
 
 	newContent := generateContent(ips)
 	if len(newContent) == 0 {
-		logger.Warn("no enabled IPs found, writing empty whitelist")
+		s.logger.WarnContext(ctx, "no enabled IPs found, writing empty whitelist")
 	}
 
 	newHash := hashFileContent(newContent)
 	existingHash, err := s.hashExistingFile()
 	if err != nil {
-		logger.Warn("failed to read existing file for comparison, proceeding with write",
+		s.logger.WarnContext(ctx, "failed to read existing file for comparison, proceeding with write",
 			slog.String(AttrKeyWhitelistFile, s.filePath),
 			slog.Any(AttrKeyError, err),
 		)
 	} else if newHash == existingHash {
-		logger.Debug("whitelist unchanged, skipping write",
+		s.logger.DebugContext(ctx, "whitelist unchanged, skipping write",
 			slog.String(AttrKeyWhitelistFile, s.filePath),
 			slog.Int(AttrKeyIPCount, len(ips)),
 		)
@@ -200,7 +191,7 @@ func (s *Service) Regenerate(ctx context.Context) error {
 
 	s.changeNotifier.NotifyChange(ctx)
 
-	logger.Info("whitelist regenerated",
+	s.logger.InfoContext(ctx, "whitelist regenerated",
 		slog.String(AttrKeyWhitelistFile, s.filePath),
 		slog.Int(AttrKeyIPCount, len(ips)),
 	)

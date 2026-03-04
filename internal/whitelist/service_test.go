@@ -3,6 +3,7 @@ package whitelist
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -311,7 +312,7 @@ func setupService(t *testing.T, rateLimit time.Duration, provider *mockEnabledIP
 		RateLimit: rateLimit,
 	}
 
-	service := NewService(provider, conf, notifier)
+	service := NewService(provider, conf, notifier, slog.New(slog.DiscardHandler))
 
 	return filePath, provider, service
 }

@@ -79,17 +79,17 @@ func New(opts Options) *slog.Logger {
 	}
 
 	if opts.Format == JSONFormat {
-		handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		inner := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 			Level: level,
 		})
-		return slog.New(handler)
+		return slog.New(NewContextHandler(inner))
 	}
 
 	w := os.Stdout
-	handler := tint.NewHandler(w, &tint.Options{
+	inner := tint.NewHandler(w, &tint.Options{
 		Level:       level,
 		NoColor:     !opts.Color,
 		ReplaceAttr: tintReplaceAttr,
 	})
-	return slog.New(handler)
+	return slog.New(NewContextHandler(inner))
 }

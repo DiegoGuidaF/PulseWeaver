@@ -139,16 +139,15 @@ func ClientIPFromXFFHeaderMiddleware(trustedProxy netip.Addr) func(http.Handler)
 	}
 }
 
-// RequestLoggerMiddleware creates a middleware that initializes the logger with request attributes
-// (request_id) and injects it into context.
-func RequestLoggerMiddleware(base *slog.Logger) func(http.Handler) http.Handler {
+// RequestLoggerMiddleware stores the request ID in context so the custom
+// slog.Handler can stamp it on every log record produced during this request.
+// The base logger is no longer stored in context; each handler uses its own
+// struct-level logger.
+func RequestLoggerMiddleware(_ *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			reqID := middleware.GetReqID(r.Context())
-			l := base.With(
-				slog.String("request_id", reqID),
-			)
-			ctx := logging.ToCtx(r.Context(), l)
+			ctx := logging.WithRequestID(r.Context(), reqID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -167,9 +166,7 @@ func extractIPFromRemoteAddr(r *http.Request) string {
 // setClientIPInContext sets the client IP in the request context.
 func setClientIPInContext(r *http.Request, ip string) *http.Request {
 	ctx := httpapi.WithClientIP(r.Context(), ip)
-	ctx, _ = logging.Enrich(ctx,
-		slog.String("client_ip", ip),
-	)
+	ctx = logging.WithClientIP(ctx, ip)
 	return r.WithContext(ctx)
 }
 
@@ -178,12 +175,6 @@ func setClientIPInContext(r *http.Request, ip string) *http.Request {
 func collectXFFIPs(r *http.Request) []netip.Addr {
 	// Get all X-Forwarded-For headers
 	xFFFHeaders := r.Header.Values(httpapi.XForwardedFor)
-
-	//TODO:  Find way to only retrieve this logger if it is debug?
-	logger := logging.FromCtx(r.Context())
-	logger.Debug("Received XFF headers",
-		slog.String("x_forwarded_for", strings.Join(xFFFHeaders, ",")),
-	)
 
 	var ips []netip.Addr
 	for _, headerValue := range xFFFHeaders {
