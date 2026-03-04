@@ -171,7 +171,6 @@ func (s *Service) Regenerate(ctx context.Context) error {
 
 	ips, err := s.provider.GetEnabledUniqueIPs(ctx)
 	if err != nil {
-		logger.Error("failed to query enabled IPs", slog.Any(AttrKeyError, err))
 		return fmt.Errorf("query enabled IPs: %w", err)
 	}
 
@@ -188,7 +187,7 @@ func (s *Service) Regenerate(ctx context.Context) error {
 			slog.Any(AttrKeyError, err),
 		)
 	} else if newHash == existingHash {
-		logger.Info("whitelist unchanged, skipping write",
+		logger.Debug("whitelist unchanged, skipping write",
 			slog.String(AttrKeyWhitelistFile, s.filePath),
 			slog.Int(AttrKeyIPCount, len(ips)),
 		)
@@ -209,44 +208,37 @@ func (s *Service) Regenerate(ctx context.Context) error {
 }
 
 // atomicWrite writes content to the whitelist file using a temp file, fsync, and atomic rename.
-func (s *Service) atomicWrite(ctx context.Context, content []byte) error {
-	logger := logging.FromCtx(ctx)
+func (s *Service) atomicWrite(_ context.Context, content []byte) error {
 	tempPath := s.filePath + ".tmp"
 
 	dir := filepath.Dir(s.filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		logger.Error("failed to create directory", slog.String(AttrKeyWhitelistFile, dir), slog.Any(AttrKeyError, err))
 		return fmt.Errorf("create directory: %w", err)
 	}
 
 	file, err := os.Create(tempPath)
 	if err != nil {
-		logger.Error("failed to create temp file", slog.String(AttrKeyWhitelistFile, tempPath), slog.Any(AttrKeyError, err))
-		return fmt.Errorf("create temp file: %w", err)
+		return fmt.Errorf("create temp file %s: %w", tempPath, err)
 	}
 
 	if _, err := file.Write(content); err != nil {
 		_ = file.Close()
 		_ = os.Remove(tempPath)
-		logger.Error("failed to write content to temp file", slog.String(AttrKeyWhitelistFile, tempPath), slog.Any(AttrKeyError, err))
 		return fmt.Errorf("write content: %w", err)
 	}
 
 	if err := file.Sync(); err != nil {
 		_ = file.Close()
 		_ = os.Remove(tempPath)
-		logger.Error("failed to sync temp file", slog.String(AttrKeyWhitelistFile, tempPath), slog.Any(AttrKeyError, err))
 		return fmt.Errorf("sync temp file: %w", err)
 	}
 
 	if err := file.Close(); err != nil {
-		logger.Error("failed to close temp file", slog.String(AttrKeyWhitelistFile, tempPath), slog.Any(AttrKeyError, err))
 		return fmt.Errorf("close temp file: %w", err)
 	}
 
 	if err := os.Rename(tempPath, s.filePath); err != nil {
-		logger.Error("failed to rename temp file", slog.String(AttrKeyWhitelistFile, s.filePath), slog.Any(AttrKeyError, err))
-		return fmt.Errorf("rename temp file: %w", err)
+		return fmt.Errorf("rename %s to %s: %w", tempPath, s.filePath, err)
 	}
 
 	return nil

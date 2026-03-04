@@ -81,7 +81,7 @@ func (s *Service) OnAddressEvent(ctx context.Context, event device.AddressEvent)
 
 // RunListener blocks and processes events. Run this in a goroutine.
 func (s *Service) RunListener(ctx context.Context) error {
-	logger := logging.FromCtx(ctx)
+	ctx, logger := logging.Enrich(ctx, slog.String(logging.AttrKeyComponent, "lease"))
 
 	for {
 		select {

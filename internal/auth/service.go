@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"log/slog"
 
@@ -34,7 +33,6 @@ func NewService(repo repository) *Service {
 
 func (s *Service) Login(ctx context.Context, username string, password string) (string, *User, error) {
 	logger := logging.FromCtx(ctx)
-	logger.Debug("authenticating user")
 
 	var rawToken string
 	var user *User
@@ -43,30 +41,22 @@ func (s *Service) Login(ctx context.Context, username string, password string) (
 		var err error
 		user, err = tx.GetUserByUsername(ctx, username)
 		if err != nil {
-			if errors.Is(err, ErrUserNotFound) {
-				logger.Warn("user not found")
-				return err
-			}
-			logger.Error("database error fetching user", slog.Any(AttrKeyError, err))
 			return err
 		}
 
 		if !checkPassword(user.PasswordHash, password) {
-			logger.Warn("invalid password")
 			return ErrInvalidCredentials
 		}
 
 		var tokenHash string
 		rawToken, tokenHash, err = generateToken()
 		if err != nil {
-			logger.Error("failed to generate token", slog.Any(AttrKeyError, err))
 			return err
 		}
 
 		session := NewSession(user.ID, tokenHash)
 		_, err = tx.CreateSession(ctx, session)
 		if err != nil {
-			logger.Error("database error creating session", slog.Any(AttrKeyError, err))
 			return err
 		}
 
@@ -81,16 +71,8 @@ func (s *Service) Login(ctx context.Context, username string, password string) (
 }
 
 func (s *Service) GetUserFromPrincipal(ctx context.Context, principal *Principal) (*User, error) {
-	logger := logging.FromCtx(ctx)
-	logger.Debug("fetching user from principal")
-
 	user, err := s.repo.GetUserByID(ctx, principal.UserID)
 	if err != nil {
-		if errors.Is(err, ErrUserNotFound) {
-			logger.Warn("user not found")
-			return nil, err
-		}
-		logger.Error("database error fetching user", slog.Any(AttrKeyError, err))
 		return nil, err
 	}
 	return user, nil
@@ -98,11 +80,9 @@ func (s *Service) GetUserFromPrincipal(ctx context.Context, principal *Principal
 
 func (s *Service) RevokeSession(ctx context.Context, sessionID SessionID) error {
 	logger := logging.FromCtx(ctx)
-	logger.Debug("revoking session")
 
 	err := s.repo.RevokeSessionByID(ctx, sessionID)
 	if err != nil {
-		logger.Error("database error revoking session", slog.Any(AttrKeyError, err))
 		return err
 	}
 	logger.Info("session revoked", slog.Int64(AttrKeySessionID, sessionID.Int64()))
@@ -110,11 +90,7 @@ func (s *Service) RevokeSession(ctx context.Context, sessionID SessionID) error 
 }
 
 func (s *Service) CreateUserByAdmin(ctx context.Context, username string, displayName string, email *string, password string, principal *Principal) (*User, error) {
-	logger := logging.FromCtx(ctx)
-	logger.Debug("creating user by admin")
-
 	if !principal.isAdmin() {
-		logger.Warn("admin credentials required")
 		return nil, ErrAdminCredentialsRequired
 	}
 
@@ -123,12 +99,11 @@ func (s *Service) CreateUserByAdmin(ctx context.Context, username string, displa
 
 func (s *Service) Authenticate(ctx context.Context, rawToken string) (*Principal, error) {
 	logger := logging.FromCtx(ctx)
-	logger.Debug("authenticating token")
 
 	tokenHash := hashRawToken(rawToken)
 	sessionWithUser, err := s.repo.GetSessionWithRoleByTokenHash(ctx, tokenHash)
 	if err != nil {
-		logger.Warn("session not found or invalid")
+		logger.Debug("session not found or invalid")
 		return nil, err
 	}
 
@@ -138,7 +113,6 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (*Principal
 
 func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) error {
 	logger := logging.FromCtx(ctx)
-	logger.Debug("bootstrapping admin")
 
 	username := "admin"
 	displayName := "Admin"
@@ -181,17 +155,11 @@ func (s *Service) createUser(tx repository, ctx context.Context, username string
 		createdBy,
 	)
 	if err != nil {
-		logger.Warn("invalid user input", slog.Any(AttrKeyError, err))
 		return nil, err
 	}
 
 	user, err := tx.CreateUser(ctx, newUser)
 	if err != nil {
-		if errors.Is(err, ErrUsernameTaken) || errors.Is(err, ErrEmailTaken) {
-			logger.Warn("username or email already taken")
-			return nil, err
-		}
-		logger.Error("database error creating user", slog.Any(AttrKeyError, err))
 		return nil, err
 	}
 

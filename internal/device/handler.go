@@ -161,8 +161,6 @@ func (h *HTTPHandler) AddAddress(ctx context.Context, request httpapi.AddAddress
 		}
 	}
 
-	logger.Info("Address added or enabled")
-
 	if wasCreated {
 		return httpapi.AddAddress201JSONResponse(toAddressResponse(addressWithIP)), nil
 	}

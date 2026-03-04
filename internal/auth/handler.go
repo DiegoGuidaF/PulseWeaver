@@ -32,8 +32,6 @@ func (h *HTTPHandler) Login(ctx context.Context, request httpapi.LoginRequestObj
 		return httpapi.Login500JSONResponse(errorMsgResponse("Login failure")), nil
 	}
 
-	logger.Info("login successful")
-
 	cookie := NewSessionCookie(rawToken, h.cookieConfig)
 
 	headers := httpapi.Login200ResponseHeaders{SetCookie: cookie.String()}
@@ -50,8 +48,6 @@ func (h *HTTPHandler) Logout(ctx context.Context, _ httpapi.LogoutRequestObject)
 		err := h.service.RevokeSession(ctx, principal.SessionID)
 		if err != nil {
 			logger.Error("failed to revoke session", slog.Any(AttrKeyError, err))
-		} else {
-			logger.Info("logout successful")
 		}
 	}
 
@@ -81,8 +77,6 @@ func (h *HTTPHandler) GetCurrentUser(ctx context.Context, _ httpapi.GetCurrentUs
 		logger.Error("failed to retrieve current user", slog.Any(AttrKeyError, err))
 		return httpapi.GetCurrentUser500JSONResponse(errorMsgResponse("Failed to retrieve current user")), nil
 	}
-
-	logger.Info("current user retrieved", slog.String(AttrKeyUsername, user.Username))
 
 	return httpapi.GetCurrentUser200JSONResponse(toUserResponse(user)), nil
 }
@@ -135,8 +129,6 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUser
 		logger.Error("failed to create user", slog.Any(AttrKeyError, err))
 		return httpapi.CreateUser500JSONResponse(errorMsgResponse("Failed to create user")), nil
 	}
-
-	logger.Info("user created", slog.Int64(AttrKeyUserID, user.ID.Int64()))
 
 	return httpapi.CreateUser201JSONResponse(toUserResponse(user)), nil
 }
