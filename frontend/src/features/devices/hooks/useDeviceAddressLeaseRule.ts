@@ -7,7 +7,7 @@ const pathOptions = (deviceId: number) => ({ path: { device_id: deviceId } });
 
 export function useDeviceAddressLeaseRule(
   deviceId: number,
-  enabled: boolean,
+  enabled = true,
 ): {
   data: DeviceAddressLeaseRule | null;
   isLoading: boolean;

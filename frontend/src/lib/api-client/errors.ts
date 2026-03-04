@@ -13,7 +13,7 @@ export function toErrorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message;
   if (err instanceof Error) return err.message;
   if (typeof err === 'object' && err && 'error' in err) {
-    return String((err as any).error);
+    return String((err as { error: unknown }).error);
   }
   return 'Unknown error';
 }
@@ -26,13 +26,13 @@ export function toApiError(err: unknown): ApiError {
   let status: number | undefined;
   if (err && typeof err === 'object') {
     if ('status' in err) {
-      status = Number((err as any).status);
+      status = Number((err as { status: unknown }).status);
     } else if ('statusCode' in err) {
-      status = Number((err as any).statusCode);
-    } else if ('response' in err && (err as any).response) {
-      const response = (err as any).response;
-      if ('status' in response) {
-        status = Number(response.status);
+      status = Number((err as { statusCode: unknown }).statusCode);
+    } else if ('response' in err) {
+      const response = (err as { response: unknown }).response;
+      if (response && typeof response === 'object' && 'status' in response) {
+        status = Number((response as { status: unknown }).status);
       }
     }
   }

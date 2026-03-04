@@ -51,6 +51,9 @@ Layered architecture: **Handler → Service → Repository → Database**
 - **UI:** shadcn/ui + Tailwind CSS v4; forms via react-hook-form + zod
 - **API helpers:** `@/lib/api-client/` for `toApiError`, `toErrorMessage`, client config
 
+#### Documentation
+- `CODEBASE.md` — Read this file to understand the frontend directory structure, routing, hook conventions, and UX surfaces before making structural changes to the frontend.
+
 ## Key Conventions
 
 ### Go Style

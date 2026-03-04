@@ -11,13 +11,15 @@ export function useCurrentUser() {
       try {
         const response = await getCurrentUser({ throwOnError: false });
         if (response.error) {
-          const status = (response.error as { status?: number })?.status;
-          if (status === 401) return null;
+          if (response.response?.status === 401) return null;
           throw toApiError(response.error);
         }
         return response.data ?? null;
       } catch (err) {
-        const status = (err as { status?: number })?.status;
+        const status =
+          err && typeof err === 'object' && 'status' in err
+            ? Number((err as { status: unknown }).status)
+            : undefined;
         if (status === 401) return null;
         throw toApiError(err);
       }

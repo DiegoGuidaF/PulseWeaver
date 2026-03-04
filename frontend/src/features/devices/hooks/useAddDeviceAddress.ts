@@ -6,10 +6,7 @@ import {
 import { toErrorMessage } from "@/lib/api-client";
 import { toast } from "sonner";
 
-export function useAddDeviceAddress(
-  _deviceId: number,
-  options?: { onSuccess?: () => void },
-) {
+export function useAddDeviceAddress(options?: { onSuccess?: () => void }) {
   const queryClient = useQueryClient();
 
   return useMutation({
