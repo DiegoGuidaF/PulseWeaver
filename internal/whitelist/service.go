@@ -115,21 +115,31 @@ func (s *Service) RunListener(ctx context.Context) error {
 	}
 }
 
-// generateContent generates the file content as bytes from a list of IP addresses.
-// Each IP is written on its own line with a trailing newline, matching the format written to disk.
-// Returns empty slice (not nil) when ips is empty.
+// generateContent generates the whitelist file content as a Caddy snippet-style block.
+// Format: @wallydex_allowlist { ... } with one "    remote_ip <IP>" line per address.
+// For a non-empty IP list, output is "@wallydex_allowlist {\n" + "    remote_ip <IP>\n" per IP + "}\n".
+// For an empty IP list, output is "@wallydex_allowlist {\n}\n" (well-formed block with no remote_ip entries).
+// Returns the block bytes (never nil); empty list still produces the empty-block content.
 func generateContent(ips []string) []byte {
+	const header = "@wallydex_allowlist {\n"
+	const footer = "}\n"
+	const linePrefix = "    remote_ip " // 4 spaces + "remote_ip "
+
 	if len(ips) == 0 {
-		return []byte{}
+		return []byte(header + footer)
 	}
-	// Preallocate capacity: estimate average IP length + newline per IP
-	// Using a conservative estimate of 15 chars per IP (IPv4) + 1 for newline
-	estimatedCapacity := (15 + 1) * len(ips)
+
+	// Preallocate: header + (prefix + ~15 chars IP + newline) per IP + footer
+	estimatedLineLen := len(linePrefix) + 15 + 1
+	estimatedCapacity := len(header) + len(footer) + estimatedLineLen*len(ips)
 	content := make([]byte, 0, estimatedCapacity)
+	content = append(content, header...)
 	for _, ip := range ips {
+		content = append(content, linePrefix...)
 		content = append(content, []byte(ip)...)
 		content = append(content, '\n')
 	}
+	content = append(content, footer...)
 	return content
 }
 
@@ -166,7 +176,7 @@ func (s *Service) Regenerate(ctx context.Context) error {
 	}
 
 	newContent := generateContent(ips)
-	if len(newContent) == 0 {
+	if len(ips) == 0 {
 		s.logger.WarnContext(ctx, "no enabled IPs found, writing empty whitelist")
 	}
 

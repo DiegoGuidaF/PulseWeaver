@@ -27,7 +27,7 @@ func TestService_Regenerate_WritesIPsToFile(t *testing.T) {
 	content, err := os.ReadFile(filePath)
 	is.NoErr(err)
 
-	expected := "192.168.1.1\n192.168.1.2\n192.168.1.3\n"
+	expected := "@wallydex_allowlist {\n    remote_ip 192.168.1.1\n    remote_ip 192.168.1.2\n    remote_ip 192.168.1.3\n}\n"
 	is.Equal(string(content), expected)
 }
 
@@ -43,7 +43,7 @@ func TestService_Regenerate_HandlesEmptyList(t *testing.T) {
 
 	content, err := os.ReadFile(filePath)
 	is.NoErr(err)
-	is.Equal(string(content), "")
+	is.Equal(string(content), "@wallydex_allowlist {\n}\n")
 }
 
 func TestService_Regenerate_AtomicWrite(t *testing.T) {
@@ -98,7 +98,7 @@ func TestService_Run_FirstSignalIsDebounced(t *testing.T) {
 
 	content, err := os.ReadFile(filePath)
 	is.NoErr(err)
-	is.Equal(string(content), "192.168.1.1\n")
+	is.Equal(string(content), "@wallydex_allowlist {\n    remote_ip 192.168.1.1\n}\n")
 
 	cancel()
 	<-done
