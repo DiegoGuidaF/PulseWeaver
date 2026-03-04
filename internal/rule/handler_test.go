@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -32,7 +33,7 @@ func CreateDeviceAddressLeaseRule(t *testing.T, testServer *app.App, deviceID de
 	t.Helper()
 
 	ruleRepo := rule.NewRepository(testServer.Database.DB())
-	ruleSvc := rule.NewService(ruleRepo, nil)
+	ruleSvc := rule.NewService(ruleRepo, slog.New(slog.DiscardHandler))
 
 	r, err := ruleSvc.EnableDeviceAddressLeaseRule(t.Context(), deviceID, ttlSeconds)
 	if err != nil {
@@ -180,7 +181,7 @@ func TestHandler_DisableDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 
 	is.Equal(res.Code, http.StatusNoContent)
 
-	ruleSvc := rule.NewService(rule.NewRepository(testServer.Database.DB()), nil)
+	ruleSvc := rule.NewService(rule.NewRepository(testServer.Database.DB()), slog.New(slog.DiscardHandler))
 	ttl, err := ruleSvc.GetDeviceAddressLeaseTTLSeconds(t.Context(), dev.ID)
 	is.NoErr(err)
 	is.True(ttl == nil)

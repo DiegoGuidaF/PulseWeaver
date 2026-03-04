@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func TestHTTPNotifier_SendsPostOnSignal(t *testing.T) {
+func TestClient_SendsPostOnSignal(t *testing.T) {
 	callCh := make(chan struct{}, 10)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +56,7 @@ func TestHTTPNotifier_SendsPostOnSignal(t *testing.T) {
 	}
 }
 
-func TestHTTPNotifier_IncludesTokenHeader(t *testing.T) {
+func TestClient_IncludesTokenHeader(t *testing.T) {
 	const token = "secret-authToken"
 
 	headerCh := make(chan string, 1)
@@ -95,7 +95,35 @@ func TestHTTPNotifier_IncludesTokenHeader(t *testing.T) {
 	<-done
 }
 
-func TestHTTPNotifier_RetriesOnServerError(t *testing.T) {
+func TestClient_DisabledWhenNoEndpoint(t *testing.T) {
+	notifier := NewReloaderClient("", "", slog.Default())
+
+	// NotifyChange must be a no-op: no signal should be enqueued
+	notifier.NotifyChange(context.Background())
+	select {
+	case <-notifier.signals:
+		t.Fatal("expected no signal enqueued when disabled")
+	default:
+	}
+
+	// Run must return nil immediately without blocking
+	ctx := context.Background()
+	done := make(chan error, 1)
+	go func() {
+		done <- notifier.Run(ctx)
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("expected nil error from Run when disabled, got %v", err)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("Run did not return immediately when disabled")
+	}
+}
+
+func TestClient_RetriesOnServerError(t *testing.T) {
 	callCh := make(chan struct{}, 10)
 	callCount := 0
 

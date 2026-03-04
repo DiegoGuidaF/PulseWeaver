@@ -214,18 +214,6 @@ func TestService_Regenerate_EnqueuesNotificationOnChange(t *testing.T) {
 	is.True(notifier.lastCtx != nil)
 }
 
-func TestService_Regenerate_NoNotificationWhenNotifierNil(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	// Construct service with nil notifier and ensure Regenerate does not panic
-	_, mockProvider, service := setupService(t, 100*time.Millisecond, nil, nil)
-	mockProvider.ips = []string{"192.168.1.1"}
-
-	err := service.Regenerate(ctx)
-	is.NoErr(err)
-}
-
 // mockEnabledIPsProvider is a synchronized mock implementation of EnabledIPsProvider.
 type mockEnabledIPsProvider struct {
 	ips      []string
@@ -305,6 +293,9 @@ func setupService(t *testing.T, rateLimit time.Duration, provider *mockEnabledIP
 
 	if provider == nil {
 		provider = newMockProvider()
+	}
+	if notifier == nil {
+		notifier = &mockChangeNotifier{}
 	}
 
 	conf := config.ConfWhitelist{

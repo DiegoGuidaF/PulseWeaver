@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 )
 
 type HTTPHandler struct {

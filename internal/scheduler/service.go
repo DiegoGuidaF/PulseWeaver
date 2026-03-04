@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 )
 
 type AddressDisabler interface {

@@ -35,6 +35,9 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 			FilePath:  filepath.Join(tmpDir, "whitelist.txt"),
 			RateLimit: 50 * time.Millisecond, // Fast debounce for tests
 		},
+		Rules: config.ConfRules{
+			CheckInterval: time.Minute,
+		},
 	}
 
 	logger := slog.New(slog.DiscardHandler)

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 	"golang.org/x/crypto/bcrypt"
 )
 
