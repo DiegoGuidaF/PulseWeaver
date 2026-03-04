@@ -717,6 +717,18 @@ func (m *mockRepository) CheckAddressOwnership(ctx context.Context, deviceID Dev
 	return nil
 }
 
+func (m *mockRepository) GetEnabledUniqueIPs(_ context.Context) ([]string, error) {
+	ips := make([]string, 0)
+	seen := map[string]bool{}
+	for _, addr := range m.addresses {
+		if addr.Status && !seen[addr.IP] {
+			ips = append(ips, addr.IP)
+			seen[addr.IP] = true
+		}
+	}
+	return ips, nil
+}
+
 func (m *mockRepository) RunInTx(ctx context.Context, fn func(repository) error) error {
 	if m.runInTxFn != nil {
 		return m.runInTxFn(m)

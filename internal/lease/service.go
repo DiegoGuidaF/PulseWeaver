@@ -3,8 +3,10 @@ package lease
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 )
 
 type TTLConfigRetriever interface {
@@ -79,6 +81,8 @@ func (s *Service) OnAddressEvent(ctx context.Context, event device.AddressEvent)
 
 // RunListener blocks and processes events. Run this in a goroutine.
 func (s *Service) RunListener(ctx context.Context) error {
+	logger := logging.FromCtx(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -86,9 +90,20 @@ func (s *Service) RunListener(ctx context.Context) error {
 		case event := <-s.events:
 			switch event.Type {
 			case device.EventTypeAddressAssigned:
-				_, _ = s.AddAddressLease(ctx, event.DeviceID, event.AddressID)
+				if _, err := s.AddAddressLease(ctx, event.DeviceID, event.AddressID); err != nil {
+					logger.Error("failed to add address lease",
+						slog.Any(AttrKeyError, err),
+						slog.Int64(AttrKeyAddressID, event.AddressID.Int64()),
+						slog.Int64(AttrKeyDeviceID, event.DeviceID.Int64()),
+					)
+				}
 			case device.EventTypeAddressDisabled:
-				_ = s.DeleteAddressLease(ctx, event.AddressID)
+				if err := s.DeleteAddressLease(ctx, event.AddressID); err != nil {
+					logger.Error("failed to delete address lease",
+						slog.Any(AttrKeyError, err),
+						slog.Int64(AttrKeyAddressID, event.AddressID.Int64()),
+					)
+				}
 			}
 		}
 	}

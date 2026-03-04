@@ -21,6 +21,7 @@ type repository interface {
 	EnableAddress(ctx context.Context, addressID AddressID, source StatusSource) (*Address, error)
 	CheckAddressOwnership(ctx context.Context, deviceID DeviceID, addressID AddressID) error
 	GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) (*Device, error)
+	GetEnabledUniqueIPs(ctx context.Context) ([]string, error)
 	RunInTx(ctx context.Context, fn func(repository) error) error
 }
 
@@ -286,6 +287,18 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, address
 	)
 
 	return disabledAddress, nil
+}
+
+func (s *Service) GetEnabledUniqueIPs(ctx context.Context) ([]string, error) {
+	logger := logging.FromCtx(ctx)
+	logger.Debug("getting enabled unique IPs")
+
+	ips, err := s.repo.GetEnabledUniqueIPs(ctx)
+	if err != nil {
+		logger.Error("database error getting enabled unique IPs", slog.Any(AttrKeyError, err))
+		return nil, err
+	}
+	return ips, nil
 }
 
 func (s *Service) DisableAddresses(ctx context.Context, addressIDs []AddressID, source StatusSource) error {

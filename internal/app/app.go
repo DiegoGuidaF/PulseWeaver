@@ -109,9 +109,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		logger.Info("whitelist change webhook URL not configured; change notifications disabled")
 	}
 
-	//TODO: We shouldn't depend on the deviceRepository but on the service. Domains interact via services not directly via the repository.
-	// The services must be the guardian of the repository.
-	whitelistService := whitelist.NewService(deviceRepo, conf.Whitelist, whitelistChangeNotifier)
+	whitelistService := whitelist.NewService(deviceService, conf.Whitelist, whitelistChangeNotifier)
 
 	// Address Lease manager
 	addressLeaseRepo := lease.NewRepository(db.DB())
