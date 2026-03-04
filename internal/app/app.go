@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/caddy"
@@ -29,6 +30,7 @@ type App struct {
 	DeviceService    *device.Service
 	AuthService      *auth.Service
 	WhitelistService *whitelist.Service
+	wg               sync.WaitGroup
 }
 
 // New initializes the application with configuration loaded from environment variables.
@@ -79,6 +81,12 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	}
 	logger.Info("database initialized and connected successfully")
 
+	a := &App{
+		Config:   conf,
+		Logger:   logger,
+		Database: db,
+	}
+
 	// Authentication
 	authRepo := auth.NewRepository(db.DB())
 	authService := auth.NewService(authRepo, logger)
@@ -96,7 +104,9 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Whitelist generation
 	caddyReloadClient := caddy.NewReloaderClient(conf.Caddy.Endpoint, conf.Caddy.AuthToken, logger)
+	a.wg.Add(1)
 	go func() {
+		defer a.wg.Done()
 		if err := caddyReloadClient.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			logger.Error("whitelist change notifier exited with error", slog.Any("error", err))
 		}
@@ -136,39 +146,43 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	}
 
 	// Start whitelist generation listener
+	a.wg.Add(1)
 	go func() {
-		if err := whitelistService.RunListener(ctx); err != nil {
+		defer a.wg.Done()
+		if err := whitelistService.RunListener(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			logger.Error("whitelist service exited with error", slog.Any("error", err))
 		}
 	}()
 
 	// Start address lease listener
+	a.wg.Add(1)
 	go func() {
-		if err := addressLeaseService.RunListener(ctx); err != nil {
+		defer a.wg.Done()
+		if err := addressLeaseService.RunListener(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			logger.Error("address lease service exited with error", slog.Any("error", err))
 		}
 	}()
 
 	// Start rule scheduler for time-based rules (e.g., IP auto-expiry)
+	a.wg.Add(1)
 	go func() {
+		defer a.wg.Done()
 		if err := schedulerService.RunSchedule(ctx, conf.Rules.CheckInterval); err != nil && !errors.Is(err, context.Canceled) {
 			logger.Error("scheduler exited with error", slog.Any("error", err))
 		}
 	}()
 
-	return &App{
-		Config:           conf,
-		Logger:           logger,
-		Database:         db,
-		HTTPServer:       handler,
-		DeviceService:    deviceService,
-		AuthService:      authService,
-		WhitelistService: whitelistService,
-	}, nil
+	a.HTTPServer = handler
+	a.DeviceService = deviceService
+	a.AuthService = authService
+	a.WhitelistService = whitelistService
+
+	return a, nil
 }
 
-// Close cleans up application resources.
+// Close waits for all background goroutines to finish, then cleans up application resources.
 func (a *App) Close() error {
+	a.wg.Wait()
 	if a.Database != nil {
 		return a.Database.Close()
 	}

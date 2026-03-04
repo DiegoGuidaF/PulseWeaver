@@ -42,14 +42,15 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 
 	logger := slog.New(slog.DiscardHandler)
 	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
 
 	application, err := app.NewWithConfigAndLogger(ctx, conf, logger)
 	if err != nil {
+		cancel()
 		t.Fatalf("setup app: %v", err)
 	}
 
 	t.Cleanup(func() {
+		cancel() // cancel context first so background goroutines exit before Close waits on them
 		if err := application.Close(); err != nil {
 			t.Logf("error closing app: %v", err)
 		}
