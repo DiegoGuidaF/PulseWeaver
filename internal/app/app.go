@@ -62,6 +62,13 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Set logger for dependencies
 	slog.SetDefault(logger)
 
+	if !conf.Server.TrustedProxy.IsValid() {
+		logger.Warn("TRUSTED_PROXY is not configured — if this service is running behind a reverse proxy " +
+			"(Caddy, Nginx, Traefik, etc.), all client IPs will be detected as the proxy's IP address. " +
+			"Set TRUSTED_PROXY to your proxy's IP. " +
+			"Ignore this warning only if clients connect directly with no proxy in front.")
+	}
+
 	// Log startup configuration
 	logger.Info("initializing app",
 		slog.Int("port", conf.Server.Port),
@@ -93,11 +100,11 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Device & addresses management
 	deviceRepo := device.NewRepository(db.DB())
-	deviceService := device.NewService(deviceRepo, logger)
+	deviceService := device.NewService(deviceRepo, logger, conf.Server.TrustedProxy)
 	deviceHandler := device.NewHandler(deviceService, logger)
 
 	// Authz forward-auth sidecar
-	authzService := authz.NewService(deviceService, conf.Authz.APISecret, logger)
+	authzService := authz.NewService(deviceService, conf.Authz.APISecret, logger, conf.Server.TrustedProxy)
 	authzHandler := authz.NewHandler(authzService, logger)
 
 	// Rule evaluation
@@ -129,11 +136,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		logger.Warn("failed to initialize authz IP cache on startup", slog.Any("error", err))
 	}
 
-	handler, err := httpserver.NewServerFromConfig(deviceHandler, authHandler, ruleHandler, authzHandler, logger, conf.Server)
-	if err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("create http server: %w", err)
-	}
+	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, authzHandler, logger, conf.Server.TrustedProxy)
 
 	// Start authz address change listener to rebuild IP registry cache
 	a.wg.Add(1)

@@ -2,15 +2,12 @@ package httpserver
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/netip"
-	"strings"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/auth"
 	"github.com/DiegoGuidaF/WallyDex/internal/authz"
-	"github.com/DiegoGuidaF/WallyDex/internal/config"
 	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -23,15 +20,6 @@ type DeviceHandler = device.HTTPHandler
 type AuthHandler = auth.HTTPHandler
 type AuthzHandler = authz.Handler
 
-func NewServerFromConfig(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, authzHandler *AuthzHandler, logger *slog.Logger, conf config.ConfServer) (http.Handler, error) {
-	trustedProxy, err := parseTrustedProxy(conf.TrustedProxy)
-	if err != nil {
-		return nil, fmt.Errorf("parse trusted proxy: %w", err)
-	}
-
-	return NewServer(deviceHandler, authHandler, ruleHandler, authzHandler, logger, trustedProxy), nil
-}
-
 func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, authzHandler *AuthzHandler, logger *slog.Logger, trustedProxy netip.Addr) http.Handler {
 	r := chi.NewRouter()
 
@@ -43,12 +31,10 @@ func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandl
 	r.Use(slogchi.NewWithConfig(logger, loggerConfig))
 	r.Use(middleware.Recoverer)
 
-	// Retrieve ClientIP from X-Forwarded-For header if remoteAddr is a trusted proxy,
-	// otherwise extract directly from RemoteAddr.
-	// This is critical for retrieving the ClientIP automatically via the request IP itself instead of having to
-	// rely on the IP sent as part of the body
+	// Retrieve client IP from X-Real-IP when the direct peer is a trusted proxy
+	// prefix, otherwise extract directly from RemoteAddr.
 	if trustedProxy.IsValid() {
-		r.Use(ClientIPFromXFFHeaderMiddleware(trustedProxy))
+		r.Use(ClientIPFromRealIPMiddleware(trustedProxy, logger))
 	} else {
 		r.Use(ClientIPFromRequestMiddleware())
 	}
@@ -127,20 +113,4 @@ func createResponseErrorHandler(logger *slog.Logger) func(http.ResponseWriter, *
 			http.Error(w, "failed to encode response", http.StatusInternalServerError)
 		}
 	}
-}
-
-// ParseTrustedProxy parses a single plain IP address (IPv4 or IPv6).
-// Returns an error if the IP is invalid, contains CIDR notation, or contains commas.
-func parseTrustedProxy(s string) (netip.Addr, error) {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return netip.Addr{}, nil
-	}
-
-	addr, err := netip.ParseAddr(s)
-	if err != nil {
-		return netip.Addr{}, fmt.Errorf("TRUSTED_PROXY must be a single plain IP address (no CIDR notation, no comma-separated lists). Got: '%s'", s)
-	}
-
-	return addr, nil
 }

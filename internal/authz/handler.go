@@ -4,9 +4,9 @@ import (
 	"crypto/subtle"
 	"log/slog"
 	"net/http"
-	"net/netip"
 	"strings"
 
+	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
 	"github.com/DiegoGuidaF/WallyDex/internal/logging"
 )
 
@@ -48,32 +48,22 @@ func (h *Handler) HandleForwardAuthIP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Extract X-Real-IP
-	rawIP := strings.TrimSpace(r.Header.Get("X-Real-IP"))
-	if rawIP == "" {
+	// 3. Read client IP from request context (set by global middleware)
+	clientIP, ok := httpapi.ClientIPFromContext(ctx)
+	if !ok {
+		logger.WarnContext(ctx, "authz: missing client IP in request context")
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 
-	// 4. Validate and normalise IP
-	addr, err := netip.ParseAddr(rawIP)
-	if err != nil {
-		logger.WarnContext(ctx, "authz: invalid IP in X-Real-IP header",
-			slog.String(AttrKeyRequestIP, rawIP),
-		)
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-	normalisedIP := addr.String()
-
-	// 5. Cache lookup
-	if h.service.ContainsIP(normalisedIP) {
+	// 4. Cache lookup
+	if h.service.ContainsIP(clientIP) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
 	logger.DebugContext(ctx, "authz: IP not in enabled set",
-		slog.String(AttrKeyRequestIP, normalisedIP),
+		slog.String(AttrKeyRequestIP, clientIP),
 	)
 	w.WriteHeader(http.StatusForbidden)
 }

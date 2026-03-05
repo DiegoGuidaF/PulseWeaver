@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"testing"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/testdb"
@@ -38,7 +39,7 @@ func createTestDevice(t *testing.T, repo repository, ctx context.Context, name s
 func createTestAddress(t *testing.T, repo repository, ctx context.Context, deviceID DeviceID, ip string) *Address {
 	t.Helper()
 
-	params, err := NewCreateAddressParams(deviceID, ip)
+	params, err := NewCreateAddressParams(deviceID, ip, netip.Addr{})
 	if err != nil {
 		t.Fatalf("create address params %q: %v", ip, err)
 	}
@@ -392,7 +393,7 @@ func TestRepository_FindAddressForDeviceByIp(t *testing.T) {
 	createdAddr := createTestAddress(t, repo, ctx, device.ID, "192.168.1.100")
 
 	// Find the address
-	address, err := repo.GetAddressForDeviceByIP(ctx, device.ID, "192.168.1.100")
+	address, err := repo.GetAddressForDeviceByIP(ctx, device.ID, netip.MustParseAddr("192.168.1.100"))
 	is.NoErr(err)
 	is.Equal(address.ID, createdAddr.ID)
 	is.Equal(address.DeviceID, device.ID)
@@ -409,7 +410,7 @@ func TestRepository_FindAddressForDeviceByIp_NotFound(t *testing.T) {
 	device := createTestDevice(t, repo, ctx, "test-device")
 
 	// Try to find non-existent address
-	_, err := repo.GetAddressForDeviceByIP(ctx, device.ID, "192.168.1.999")
+	_, err := repo.GetAddressForDeviceByIP(ctx, device.ID, netip.MustParseAddr("192.168.1.99"))
 	is.True(err != nil)
 	is.Equal(err, ErrAddressNotFound)
 }
@@ -428,7 +429,7 @@ func TestRepository_FindAddressForDeviceByIp_WrongDevice(t *testing.T) {
 	createTestAddress(t, repo, ctx, device1.ID, "192.168.1.100")
 
 	// Try to find address for device2 (should not find it)
-	_, err := repo.GetAddressForDeviceByIP(ctx, device2.ID, "192.168.1.100")
+	_, err := repo.GetAddressForDeviceByIP(ctx, device2.ID, netip.MustParseAddr("192.168.1.100"))
 	is.True(err != nil)
 	is.Equal(err, ErrAddressNotFound)
 }

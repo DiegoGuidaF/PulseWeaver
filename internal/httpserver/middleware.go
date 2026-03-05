@@ -85,55 +85,58 @@ func ClientIPFromRequestMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-// ClientIPFromXFFHeaderMiddleware is middleware that extracts the client IP from X-Forwarded-For headers
-// only when the direct connection is from a trusted proxy (the given IP address).
-// Otherwise forwarded headers are ignored to prevent spoofing.
+// ClientIPFromRealIPMiddleware extracts client IP from X-Real-IP only when the
+// direct peer address is within trustedProxy.
 //
-// Algorithm:
-// 1. Collects all IPs from ALL X-Forwarded-For headers (prevents header injection attacks)
-// 2. Selects the rightmost IP from XFF headers (more secure - prevents spoofing)
-// 3. Stores client IP in context (does NOT modify r.RemoteAddr to avoid port issues)
-//
-// Note: This middleware assumes trustedProxy.IsValid() is true. Use ClientIPFromRequestMiddleware()
-// when trusted proxy is not configured.
-func ClientIPFromXFFHeaderMiddleware(trustedProxy netip.Addr) func(http.Handler) http.Handler {
+// If the peer is not trusted, X-Real-IP is ignored to prevent spoofing and a
+// security warning is logged when that header is present.
+func ClientIPFromRealIPMiddleware(trustedProxy netip.Addr, logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Extract direct peer IP (the proxy we're connected to)
 			clientIP := extractIPFromRemoteAddr(r)
 
 			peerAddr, err := netip.ParseAddr(clientIP)
 			if err != nil {
-				// Invalid peer IP, don't trust forwarded headers
-				// Store original RemoteAddr IP in context as fallback
 				r = setClientIPInContext(r, clientIP)
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			// Check if direct peer equals the trusted proxy IP
-			if peerAddr != trustedProxy {
-				// Peer is not trusted, use original RemoteAddr IP
+			rawRealIP := strings.TrimSpace(r.Header.Get(httpapi.XRealIP))
+			if trustedProxy.Compare(peerAddr) != 0 {
+				if rawRealIP != "" {
+					if logger != nil {
+						logger.WarnContext(r.Context(), "ignored X-Real-IP from untrusted peer",
+							slog.String("peer_ip", peerAddr.String()),
+							slog.String("header_ip", rawRealIP),
+						)
+					}
+				}
 				r = setClientIPInContext(r, peerAddr.String())
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			// Only trust X-Forwarded-For if peer is trusted
-			// Collect all IPs from all X-Forwarded-For headers
-			xffIPs := collectXFFIPs(r)
-			if len(xffIPs) == 0 {
-				// No XFF headers, use peer IP
+			if rawRealIP == "" {
 				r = setClientIPInContext(r, peerAddr.String())
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			// Use the rightmost IP from XFF headers (most secure - prevents spoofing)
-			selectedIP := xffIPs[len(xffIPs)-1]
+			realAddr, err := netip.ParseAddr(rawRealIP)
+			if err != nil {
+				if logger != nil {
+					logger.WarnContext(r.Context(), "invalid X-Real-IP from trusted peer",
+						slog.String("peer_ip", peerAddr.String()),
+						slog.String("header_ip", rawRealIP),
+					)
+				}
+				r = setClientIPInContext(r, peerAddr.String())
+				next.ServeHTTP(w, r)
+				return
+			}
 
-			// Store selected client IP in context
-			r = setClientIPInContext(r, selectedIP.String())
+			r = setClientIPInContext(r, realAddr.String())
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -168,29 +171,4 @@ func setClientIPInContext(r *http.Request, ip string) *http.Request {
 	ctx := httpapi.WithClientIP(r.Context(), ip)
 	ctx = logging.WithClientIP(ctx, ip)
 	return r.WithContext(ctx)
-}
-
-// collectXFFIPs collects all IP addresses from all X-Forwarded-For headers.
-// Handles multiple headers to prevent header injection attacks.
-func collectXFFIPs(r *http.Request) []netip.Addr {
-	// Get all X-Forwarded-For headers
-	xFFFHeaders := r.Header.Values(httpapi.XForwardedFor)
-
-	var ips []netip.Addr
-	for _, headerValue := range xFFFHeaders {
-		// Split comma-separated values in each header
-		parts := strings.Split(headerValue, ",")
-		for _, part := range parts {
-			candidate := strings.TrimSpace(part)
-			if candidate == "" {
-				continue
-			}
-			// Try to parse as IP address
-			if addr, err := netip.ParseAddr(candidate); err == nil {
-				ips = append(ips, addr)
-			}
-			// Invalid IP entries are ignored
-		}
-	}
-	return ips
 }

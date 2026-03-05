@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"net/netip"
+	"reflect"
 	"time"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/logging"
@@ -20,10 +22,10 @@ type Conf struct {
 }
 
 type ConfServer struct {
-	AdminPassword string `env:"ADMIN_PASSWORD,required"`
-	Port          int    `env:"SERVER_PORT" envDefault:"8080"`
-	TrustedProxy  string `env:"TRUSTED_PROXY"`
-	TZ            string `env:"TZ" envDefault:"UTC"`
+	AdminPassword string     `env:"ADMIN_PASSWORD,required,notEmpty"`
+	Port          int        `env:"SERVER_PORT" envDefault:"8080"`
+	TrustedProxy  netip.Addr `env:"TRUSTED_PROXY"`
+	TZ            string     `env:"TZ" envDefault:"UTC"`
 }
 
 type ConfDB struct {
@@ -33,7 +35,7 @@ type ConfDB struct {
 }
 
 type ConfAuthz struct {
-	APISecret string `env:"AUTHZ_API_SECRET"`
+	APISecret string `env:"AUTHZ_API_SECRET,required,notEmpty"`
 }
 
 // ConfRules holds configuration for background rule/scheduler behaviour.
@@ -50,8 +52,14 @@ func Load() (*Conf, error) {
 		_ = err // Explicitly ignore error
 	}
 
+	envParsingOpts := env.Options{
+		FuncMap: map[reflect.Type]env.ParserFunc{
+			reflect.TypeOf(netip.Addr{}): parseIPAddressFunc,
+		},
+	}
+
 	// Create config struct from env variables
-	if err := env.Parse(&c); err != nil {
+	if err := env.ParseWithOptions(&c, envParsingOpts); err != nil {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 
@@ -64,9 +72,22 @@ func Load() (*Conf, error) {
 		return nil, fmt.Errorf("check interval must be bigger than 0: %d", c.Rules.CheckInterval)
 	}
 
+	// Ensure api secret for Authz endpoint is defined and secure
 	if len(c.Authz.APISecret) < 32 {
 		return nil, fmt.Errorf("authz api secret is too short (got %d chars, minimum 32 required for security)", len(c.Authz.APISecret))
 	}
-
 	return &c, nil
+}
+
+func parseIPAddressFunc(v string) (any, error) {
+	if v == "" {
+		return netip.Addr{}, nil
+	}
+
+	addr, err := netip.ParseAddr(v)
+	if err != nil {
+		return netip.Addr{}, fmt.Errorf("invalid IP '%s': %w", v, err)
+	}
+
+	return addr, nil
 }

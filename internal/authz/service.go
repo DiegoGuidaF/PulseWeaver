@@ -3,6 +3,7 @@ package authz
 import (
 	"context"
 	"log/slog"
+	"net/netip"
 	"sync"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/device"
@@ -19,16 +20,18 @@ type EnabledIPsProvider interface {
 type Service struct {
 	provider            EnabledIPsProvider
 	secret              string
+	trustedProxy        netip.Addr
 	mu                  sync.RWMutex
 	ipSet               map[string]struct{}
 	addressChangeSignal chan struct{} // buffered cap 1
 	logger              *slog.Logger
 }
 
-func NewService(provider EnabledIPsProvider, secret string, logger *slog.Logger) *Service {
+func NewService(provider EnabledIPsProvider, secret string, logger *slog.Logger, trustedProxy netip.Addr) *Service {
 	return &Service{
 		provider:            provider,
 		secret:              secret,
+		trustedProxy:        trustedProxy,
 		ipSet:               make(map[string]struct{}),
 		addressChangeSignal: make(chan struct{}, 1),
 		logger:              logger.With(slog.String(logging.AttrKeyComponent, "authz")),
@@ -66,6 +69,14 @@ func (s *Service) RunListener(ctx context.Context) error {
 
 // ContainsIP reports whether ip is currently in the enabled set. Thread-safe.
 func (s *Service) ContainsIP(ip string) bool {
+	if s.trustedProxy.IsValid() {
+		addr, err := netip.ParseAddr(ip)
+		if err == nil && s.trustedProxy.Compare(addr) == 0 {
+			s.logger.Warn("rejected trusted proxy IP authorization", slog.String(AttrKeyRequestIP, ip))
+			return false
+		}
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	_, ok := s.ipSet[ip]

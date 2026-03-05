@@ -24,6 +24,7 @@ It keeps an up-to-date registry of your devices' current IP addresses and tells 
   - [Docker Compose (recommended)](#docker-compose-recommended)
   - [First-run admin account](#first-run-admin-account)
   - [Configuration reference](#configuration-reference)
+- [Understanding TRUSTED_PROXY](#understanding-trusted_proxy)
 - [Proxy integration](#proxy-integration)
 - [Heartbeat endpoint](#heartbeat-endpoint)
 - [Security model](#security-model)
@@ -126,10 +127,9 @@ The easiest way to run PulseShroud alongside Caddy. The key points are:
 
 - Both services must be on the same Docker network so `wallydex:8080` resolves.
 - `AUTHZ_API_SECRET` is defined once in your `.env` and injected into both containers.
-- `TRUSTED_PROXY` must be set to Caddy's container IP so PulseShroud can correctly extract the real client IP on
-  `/api/v1/heartbeat` calls. Caddy's `reverse_proxy` automatically adds `X-Forwarded-For`; PulseShroud only trusts that
-  header when the request comes from the configured trusted proxy. For `/api/authz/verify-ip`, Caddy's `forward_auth`
-  block sets `X-Real-IP` directly, so `TRUSTED_PROXY` is not strictly required for that endpoint.
+- `TRUSTED_PROXY` must be set to Caddy's container IP so PulseShroud can correctly extract the real
+  client IP on both the heartbeat and forward-auth endpoints. See [Understanding TRUSTED_PROXY](#understanding-trusted_proxy)
+  for the full explanation.
 
 ```yaml
 # docker-compose.yml
@@ -210,13 +210,79 @@ securely (e.g. in your `.env` file with restricted permissions).
 | `ADMIN_PASSWORD`      | Yes                | —         | Password for the `admin` UI account (bootstrapped on first run).                                                                     |
 | `AUTHZ_API_SECRET`    | Yes (min 32 chars) | —         | Shared secret between Caddy and PulseShroud. Minimum 32 characters.                                                                 |
 | `SERVER_PORT`         | No                 | `8080`    | Port PulseShroud listens on.                                                                                                         |
-| `TRUSTED_PROXY`       | No                 | —         | Single IP address of your reverse proxy. Required for heartbeat client IP extraction via `X-Forwarded-For`.                          |
+| `TRUSTED_PROXY`       | No                 | —         | Single IP address of your reverse proxy. Required when running behind a proxy — see [Understanding TRUSTED_PROXY](#understanding-trusted_proxy). |
 | `DB_FILE`             | No                 | `data.db` | Path to the SQLite database file.                                                                                                    |
 | `RULE_CHECK_INTERVAL` | No                 | `1m`      | How often the scheduler checks for expired address leases.<br/> Set this to the lowest address lease TTL you'll use.                 |
 | `TZ`                  | No                 | `UTC`     | Timezone for timestamps.                                                                                                             |
 | `LOG_LEVEL`           | No                 | `info`    | Log level: `debug`, `info`, `warn`, `error`.                                                                                         |
 | `LOG_FORMAT`          | No                 | `text`    | Log format: `text` (human-readable) or `json`.                                                                                       |
 | `LOG_COLOR`           | No                 | `true`    | Use coloured output for `text` format.                                                                                               |
+
+---
+
+## Understanding TRUSTED_PROXY
+
+### For general users
+
+When a reverse proxy like Caddy sits in front of PulseShroud, your device never connects to
+PulseShroud directly. The proxy receives your device's request, then forwards it on your behalf.
+From PulseShroud's point of view, every forwarded request appears to arrive from the proxy's own
+IP address — not from your device.
+
+To solve this, reverse proxies attach a header to each forwarded request that carries the original
+client IP. PulseShroud reads this header to know the real source of the request.
+
+The catch: PulseShroud cannot trust that header from just anyone. If it did, any client could
+send a fake header claiming to be a trusted IP and walk straight through the gate. `TRUSTED_PROXY`
+tells PulseShroud exactly one IP address it will believe. Headers from any other source are silently
+ignored.
+
+> [!WARNING]
+> If you are running behind a reverse proxy and do not set `TRUSTED_PROXY`, PulseShroud will see
+> the proxy's IP for every request. If any device sends a heartbeat through that proxy, the proxy's
+> IP gets registered — and from that point every proxied request passes the gate. PulseShroud logs
+> a warning at startup when `TRUSTED_PROXY` is not configured.
+
+**Why `X-Real-IP` and not `X-Forwarded-For`?**
+
+`X-Forwarded-For` is an older header that builds up a comma-separated chain as a request passes
+through multiple proxies: `X-Forwarded-For: device-ip, proxy1-ip, proxy2-ip`. A client can inject
+a fake first entry before any proxy adds theirs, and there is no universal rule for which entry in
+the chain to trust.
+
+`X-Real-IP` is a single value set directly by the immediate upstream proxy. It is the de facto
+standard for single-proxy setups — Nginx, Caddy, and most reverse proxies set it natively.
+There is no chain to manipulate and no ambiguity about which value to read. Caddy's `forward_auth`
+block sets it explicitly with `{http.request.remote.host}`, making the intent clear.
+
+### Technical deep-dive
+
+**Why single IP, not a CIDR range**
+
+`TRUSTED_PROXY` accepts only a single IP address by design. Accepting a subnet
+(e.g. `172.20.0.0/24`) would extend trust to every address in that range, including the Docker
+network's gateway — typically the first address in the subnet (`172.20.0.1`). The gateway address
+is reachable from the Docker host itself: any process on the host could send a request from that
+address with an arbitrary `X-Real-IP` header and have it accepted as authoritative. A pinned single
+IP (e.g. `172.20.0.2` for the Caddy container) avoids this entirely. If your proxy IP ever changes,
+update `TRUSTED_PROXY` explicitly — the friction is intentional.
+
+**Defense-in-depth against proxy IP registration**
+
+The proxy IP is protected at two independent layers:
+
+1. **Middleware** — `X-Real-IP` is only read when the direct peer exactly matches `TRUSTED_PROXY`.
+   Any other source's `X-Real-IP` header is ignored and a warning is logged.
+2. **Address registry** — PulseShroud refuses to register the `TRUSTED_PROXY` IP as a device
+   address, even if it is explicitly submitted via the API or the heartbeat body. This means that
+   even in a misconfigured deployment where the proxy IP ends up as the apparent client IP, it
+   cannot enter the IP registry and trigger a universal pass.
+
+**Direct-access deployments (no proxy)**
+
+If your devices connect directly to PulseShroud without a proxy in between, leave `TRUSTED_PROXY`
+unset. PulseShroud will use each connection's source IP directly and will never read `X-Real-IP`
+from any source. The startup warning can be safely ignored in this case.
 
 ---
 

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -30,7 +31,7 @@ func noopLogger() *slog.Logger {
 func TestService_Initialize_PopulatesCache(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{ips: []string{"192.168.1.1", "10.0.0.1"}}
-	svc := authz.NewService(provider, "secret", noopLogger())
+	svc := authz.NewService(provider, "secret", noopLogger(), netip.Addr{})
 
 	err := svc.Initialize(context.Background())
 	is.NoErr(err)
@@ -42,7 +43,7 @@ func TestService_Initialize_PopulatesCache(t *testing.T) {
 func TestService_Initialize_PropagatesError(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{err: errors.New("db error")}
-	svc := authz.NewService(provider, "secret", noopLogger())
+	svc := authz.NewService(provider, "secret", noopLogger(), netip.Addr{})
 
 	err := svc.Initialize(context.Background())
 	is.True(err != nil)
@@ -51,7 +52,7 @@ func TestService_Initialize_PropagatesError(t *testing.T) {
 func TestService_OnAddressEvent_RefreshesCache(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{ips: []string{"192.168.1.1"}}
-	svc := authz.NewService(provider, "secret", noopLogger())
+	svc := authz.NewService(provider, "secret", noopLogger(), netip.Addr{})
 
 	is.NoErr(svc.Initialize(context.Background()))
 	is.True(svc.ContainsIP("192.168.1.1"))
@@ -79,7 +80,16 @@ func TestService_OnAddressEvent_RefreshesCache(t *testing.T) {
 func TestService_ContainsIP_Empty(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{ips: []string{}}
-	svc := authz.NewService(provider, "secret", noopLogger())
+	svc := authz.NewService(provider, "secret", noopLogger(), netip.Addr{})
 	is.NoErr(svc.Initialize(context.Background()))
 	is.True(!svc.ContainsIP("1.2.3.4"))
+}
+
+func TestService_ContainsIP_RejectsTrustedProxyIP(t *testing.T) {
+	is := is.New(t)
+	provider := &mockProvider{ips: []string{"127.0.0.1"}}
+	svc := authz.NewService(provider, "secret", noopLogger(), netip.MustParseAddr("127.0.0.1"))
+
+	is.NoErr(svc.Initialize(context.Background()))
+	is.True(!svc.ContainsIP("127.0.0.1"))
 }

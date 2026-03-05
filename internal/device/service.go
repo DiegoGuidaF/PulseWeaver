@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/netip"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/logging"
 )
@@ -14,7 +15,7 @@ type repository interface {
 	GetDevices(ctx context.Context) ([]Device, error)
 	DeleteDevice(ctx context.Context, id DeviceID) error
 	CreateAddress(ctx context.Context, params *CreateAddressParams) (*Address, error)
-	GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip string) (*Address, error)
+	GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip netip.Addr) (*Address, error)
 	ListAddresses(ctx context.Context, deviceID DeviceID) ([]Address, error)
 	DisableAddress(ctx context.Context, addressID AddressID) (*Address, error)
 	DisableAddresses(ctx context.Context, addressIDs []AddressID, source StatusSource) ([]Address, error)
@@ -30,15 +31,17 @@ type AddressObserver interface {
 }
 
 type Service struct {
-	repo      repository
-	observers []AddressObserver
-	logger    *slog.Logger
+	repo         repository
+	observers    []AddressObserver
+	logger       *slog.Logger
+	trustedProxy netip.Addr
 }
 
-func NewService(repo repository, logger *slog.Logger) *Service {
+func NewService(repo repository, logger *slog.Logger, trustedProxy netip.Addr) *Service {
 	s := &Service{
-		repo:   repo,
-		logger: logger.With(slog.String(logging.AttrKeyComponent, "device")),
+		repo:         repo,
+		logger:       logger.With(slog.String(logging.AttrKeyComponent, "device")),
+		trustedProxy: trustedProxy,
 	}
 	return s
 }
@@ -117,7 +120,7 @@ func (s *Service) Authenticate(ctx context.Context, rawKey string) (*Principal, 
 }
 
 func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIP string, source StatusSource) (*Address, bool, error) {
-	createAddressParams, err := NewCreateAddressParams(deviceID, inputIP)
+	createAddressParams, err := NewCreateAddressParams(deviceID, inputIP, s.trustedProxy)
 	if err != nil {
 		return nil, false, err
 	}

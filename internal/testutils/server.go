@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -22,7 +23,7 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 		Server: config.ConfServer{
 			Port:          2000,
 			AdminPassword: "AdminPass123!",
-			TrustedProxy:  "127.0.0.1",
+			TrustedProxy:  netip.MustParseAddr("127.0.0.1"),
 		},
 		DB: config.ConfDB{
 			Dsn:   fmt.Sprintf("file:%s?mode=memory&_loc=auto", t.Name()),

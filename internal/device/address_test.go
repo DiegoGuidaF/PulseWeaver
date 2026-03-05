@@ -2,6 +2,7 @@ package device
 
 import (
 	"errors"
+	"net/netip"
 	"testing"
 
 	"github.com/matryer/is"
@@ -33,22 +34,22 @@ func TestNewAddress_ValidIPv4(t *testing.T) {
 			name:      "valid IPv4 localhost",
 			deviceID:  DeviceID(1),
 			ipAddress: "127.0.0.1",
-			wantIP:    "127.0.0.1",
-			wantErr:   false,
+			wantIP:    "",
+			wantErr:   true,
 		},
 		{
 			name:      "valid IPv4 with port localhost",
 			deviceID:  DeviceID(1),
 			ipAddress: "127.0.0.1:3000",
-			wantIP:    "127.0.0.1",
-			wantErr:   false,
+			wantIP:    "",
+			wantErr:   true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			params, err := NewCreateAddressParams(tt.deviceID, tt.ipAddress)
+			params, err := NewCreateAddressParams(tt.deviceID, tt.ipAddress, netip.Addr{})
 			if tt.wantErr {
 				is.True(err != nil)
 				return
@@ -56,7 +57,7 @@ func TestNewAddress_ValidIPv4(t *testing.T) {
 			is.NoErr(err)
 			is.True(params != nil)
 			is.Equal(params.DeviceID, tt.deviceID)
-			is.Equal(params.IP, tt.wantIP)
+			is.Equal(params.IP.String(), tt.wantIP)
 		})
 	}
 }
@@ -87,22 +88,22 @@ func TestNewAddress_ValidIPv6(t *testing.T) {
 			name:      "valid IPv6 localhost",
 			deviceID:  DeviceID(1),
 			ipAddress: "::1",
-			wantIP:    "::1",
-			wantErr:   false,
+			wantIP:    "",
+			wantErr:   true,
 		},
 		{
 			name:      "valid IPv6 localhost with port",
 			deviceID:  DeviceID(1),
 			ipAddress: "[::1]:3000",
-			wantIP:    "::1",
-			wantErr:   false,
+			wantIP:    "",
+			wantErr:   true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			params, err := NewCreateAddressParams(tt.deviceID, tt.ipAddress)
+			params, err := NewCreateAddressParams(tt.deviceID, tt.ipAddress, netip.Addr{})
 			if tt.wantErr {
 				is.True(err != nil)
 				return
@@ -110,7 +111,7 @@ func TestNewAddress_ValidIPv6(t *testing.T) {
 			is.NoErr(err)
 			is.True(params != nil)
 			is.Equal(params.DeviceID, tt.deviceID)
-			is.Equal(params.IP, tt.wantIP)
+			is.Equal(params.IP.String(), tt.wantIP)
 		})
 	}
 }
@@ -157,9 +158,59 @@ func TestNewAddress_InvalidIP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			params, err := NewCreateAddressParams(tt.deviceID, tt.ipAddress)
+			params, err := NewCreateAddressParams(tt.deviceID, tt.ipAddress, netip.Addr{})
 			is.True(err != nil)
 			is.True(errors.Is(err, tt.wantErr))
+			is.True(params == nil)
+		})
+	}
+}
+
+func TestNewCreateAddressParams_InvalidDeviceIP(t *testing.T) {
+	tests := []struct {
+		name      string
+		ipAddress string
+	}{
+		{
+			name:      "loopback IPv4",
+			ipAddress: "127.0.0.1",
+		},
+		{
+			name:      "loopback IPv6",
+			ipAddress: "::1",
+		},
+		{
+			name:      "multicast IPv4",
+			ipAddress: "224.0.0.1",
+		},
+		{
+			name:      "multicast IPv6",
+			ipAddress: "ff02::1",
+		},
+		{
+			name:      "unspecified IPv4",
+			ipAddress: "0.0.0.0",
+		},
+		{
+			name:      "unspecified IPv6",
+			ipAddress: "::",
+		},
+		{
+			name:      "link-local unicast IPv4",
+			ipAddress: "169.254.1.1",
+		},
+		{
+			name:      "link-local unicast IPv6",
+			ipAddress: "fe80::1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			is := is.New(t)
+			params, err := NewCreateAddressParams(DeviceID(1), tt.ipAddress, netip.Addr{})
+			is.True(err != nil)
+			is.True(errors.Is(err, ErrInvalidDeviceIP))
 			is.True(params == nil)
 		})
 	}
@@ -261,7 +312,7 @@ func TestParseAndValidateIP(t *testing.T) {
 				is.True(errors.Is(err, tt.wantErr))
 			} else {
 				is.NoErr(err)
-				is.Equal(got, tt.want)
+				is.Equal(got.String(), tt.want)
 			}
 		})
 	}

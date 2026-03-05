@@ -5,6 +5,7 @@ package httpserver_test
 import (
 	"bytes"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -16,7 +17,9 @@ import (
 	"github.com/matryer/is"
 )
 
-func TestClientIpFromRequest_ExtractsFromRemoteAddr(t *testing.T) {
+var testLogger = slog.New(slog.DiscardHandler)
+
+func TestClientIPFromRequest_ExtractsFromRemoteAddr(t *testing.T) {
 	is := is.New(t)
 
 	// Create a handler that captures client IP from context
@@ -29,10 +32,10 @@ func TestClientIpFromRequest_ExtractsFromRemoteAddr(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	// Request with X-Forwarded-For header (should be ignored)
+	// Request with X-Real-IP header (should be ignored)
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.RemoteAddr = "127.0.0.1:12345"
-	req.Header.Set(httpapi.XForwardedFor, "192.0.2.100")
+	req.Header.Set(httpapi.XRealIP, "192.0.2.100")
 	res := httptest.NewRecorder()
 
 	handler.ServeHTTP(res, req)
@@ -65,15 +68,15 @@ func TestClientIpFromRequest_HandlesPlainAddress(t *testing.T) {
 	is.Equal(capturedIP, "192.0.2.200")
 }
 
-func TestClientIPFromXFFHeader_TrustedProxyExtractsClientIP(t *testing.T) {
+func TestClientIPFromRealIP_TrustedProxyExtractsClientIP(t *testing.T) {
 	is := is.New(t)
 
-	// Setup trusted proxy IP
+	// Setup trusted proxy prefix
 	trustedProxy := netip.MustParseAddr("127.0.0.1")
 
 	// Create a handler that captures client IP from context
 	var capturedIP string
-	handler := httpserver.ClientIPFromXFFHeaderMiddleware(trustedProxy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpserver.ClientIPFromRealIPMiddleware(trustedProxy, testLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip, ok := httpapi.ClientIPFromContext(r.Context())
 		if ok {
 			capturedIP = ip
@@ -81,28 +84,28 @@ func TestClientIPFromXFFHeader_TrustedProxyExtractsClientIP(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	// Request from trusted proxy with X-Forwarded-For
+	// Request from trusted proxy with X-Real-IP
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.RemoteAddr = "127.0.0.1:12345"
-	req.Header.Set(httpapi.XForwardedFor, "192.0.2.100")
+	req.Header.Set(httpapi.XRealIP, "192.0.2.100")
 	res := httptest.NewRecorder()
 
 	handler.ServeHTTP(res, req)
 
 	is.Equal(res.Code, http.StatusOK)
-	// Context should contain the client IP from X-Forwarded-For
+	// Context should contain the client IP from X-Real-IP
 	is.Equal(capturedIP, "192.0.2.100")
 }
 
-func TestClientIPFromXFFHeader_UntrustedProxyIgnoresXFF(t *testing.T) {
+func TestClientIPFromRealIP_UntrustedProxyIgnoresHeader(t *testing.T) {
 	is := is.New(t)
 
-	// Setup trusted proxy IP (only 127.0.0.1)
+	// Setup trusted proxy prefix (only 127.0.0.1)
 	trustedProxy := netip.MustParseAddr("127.0.0.1")
 
 	// Create a handler that captures client IP from context
 	var capturedIP string
-	handler := httpserver.ClientIPFromXFFHeaderMiddleware(trustedProxy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpserver.ClientIPFromRealIPMiddleware(trustedProxy, testLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip, ok := httpapi.ClientIPFromContext(r.Context())
 		if ok {
 			capturedIP = ip
@@ -110,26 +113,26 @@ func TestClientIPFromXFFHeader_UntrustedProxyIgnoresXFF(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	// Request from untrusted IP with X-Forwarded-For
+	// Request from untrusted IP with X-Real-IP
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.RemoteAddr = "192.0.2.200:12345"              // Not the trusted proxy
-	req.Header.Set(httpapi.XForwardedFor, "10.0.0.1") // Should be ignored
+	req.RemoteAddr = "192.0.2.200:12345"        // Not the trusted proxy
+	req.Header.Set(httpapi.XRealIP, "10.0.0.1") // Should be ignored
 	res := httptest.NewRecorder()
 
 	handler.ServeHTTP(res, req)
 
 	is.Equal(res.Code, http.StatusOK)
-	// Context should contain the untrusted proxy IP (XFF ignored)
+	// Context should contain the untrusted peer IP (X-Real-IP ignored)
 	is.Equal(capturedIP, "192.0.2.200")
 }
 
-func TestClientIPFromXFFHeader_InvalidEntriesIgnored(t *testing.T) {
+func TestClientIPFromRealIP_InvalidHeaderFallsBackToPeer(t *testing.T) {
 	is := is.New(t)
 
 	trustedProxy := netip.MustParseAddr("127.0.0.1")
 
 	var capturedIP string
-	handler := httpserver.ClientIPFromXFFHeaderMiddleware(trustedProxy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpserver.ClientIPFromRealIPMiddleware(trustedProxy, testLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip, ok := httpapi.ClientIPFromContext(r.Context())
 		if ok {
 			capturedIP = ip
@@ -138,45 +141,29 @@ func TestClientIPFromXFFHeader_InvalidEntriesIgnored(t *testing.T) {
 	}))
 
 	tests := []struct {
-		name              string
-		xff               string
-		expectedIP        string
-		expectedUnchanged bool
+		name       string
+		xRealIP    string
+		expectedIP string
 	}{
 		{
-			name:              "invalid IP format",
-			xff:               "not.an.ip",
-			expectedUnchanged: true, // Should keep original peer IP
+			name:       "invalid IP format",
+			xRealIP:    "not.an.ip",
+			expectedIP: "127.0.0.1",
 		},
 		{
-			name:              "empty XFF",
-			xff:               "",
-			expectedUnchanged: true,
-		},
-		{
-			name:              "multiple invalid entries",
-			xff:               "invalid1, invalid2",
-			expectedUnchanged: true,
-		},
-		{
-			name:       "mixed valid and invalid - uses rightmost valid",
-			xff:        "invalid, 192.0.2.100, also-invalid",
-			expectedIP: "192.0.2.100",
+			name:       "empty header",
+			xRealIP:    "",
+			expectedIP: "127.0.0.1",
 		},
 		{
 			name:       "valid IPv4",
-			xff:        "192.0.2.100",
+			xRealIP:    "192.0.2.100",
 			expectedIP: "192.0.2.100",
 		},
 		{
 			name:       "valid IPv6",
-			xff:        "2001:db8::1",
+			xRealIP:    "2001:db8::1",
 			expectedIP: "2001:db8::1",
-		},
-		{
-			name:       "multiple valid IPs - uses rightmost",
-			xff:        "192.0.2.100, 192.0.2.200",
-			expectedIP: "192.0.2.200",
 		},
 	}
 
@@ -186,8 +173,8 @@ func TestClientIPFromXFFHeader_InvalidEntriesIgnored(t *testing.T) {
 			capturedIP = "" // Reset
 			req := httptest.NewRequest(http.MethodGet, "/test", nil)
 			req.RemoteAddr = "127.0.0.1:12345"
-			if tt.xff != "" {
-				req.Header.Set(httpapi.XForwardedFor, tt.xff)
+			if tt.xRealIP != "" {
+				req.Header.Set(httpapi.XRealIP, tt.xRealIP)
 			}
 			res := httptest.NewRecorder()
 
@@ -195,22 +182,18 @@ func TestClientIPFromXFFHeader_InvalidEntriesIgnored(t *testing.T) {
 
 			is.Equal(res.Code, http.StatusOK)
 
-			if tt.expectedUnchanged {
-				is.Equal(capturedIP, "127.0.0.1")
-			} else {
-				is.Equal(capturedIP, tt.expectedIP)
-			}
+			is.Equal(capturedIP, tt.expectedIP)
 		})
 	}
 }
 
-func TestClientIPFromXFFHeader_NoHeaderUsesPeerIP(t *testing.T) {
+func TestClientIPFromRealIP_NoHeaderUsesPeerIP(t *testing.T) {
 	is := is.New(t)
 
 	trustedProxy := netip.MustParseAddr("127.0.0.1")
 
 	var capturedIP string
-	handler := httpserver.ClientIPFromXFFHeaderMiddleware(trustedProxy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpserver.ClientIPFromRealIPMiddleware(trustedProxy, testLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip, ok := httpapi.ClientIPFromContext(r.Context())
 		if ok {
 			capturedIP = ip
@@ -220,23 +203,23 @@ func TestClientIPFromXFFHeader_NoHeaderUsesPeerIP(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.RemoteAddr = "127.0.0.1:12345"
-	// No X-Forwarded-For header
+	// No X-Real-IP header
 	res := httptest.NewRecorder()
 
 	handler.ServeHTTP(res, req)
 
 	is.Equal(res.Code, http.StatusOK)
-	// Context should contain peer IP (no XFF header)
+	// Context should contain peer IP (no X-Real-IP header)
 	is.Equal(capturedIP, "127.0.0.1")
 }
 
-func TestClientIPFromXFFHeader_InvalidPeerIPFallback(t *testing.T) {
+func TestClientIPFromRealIP_InvalidPeerIPFallback(t *testing.T) {
 	is := is.New(t)
 
 	trustedProxy := netip.MustParseAddr("127.0.0.1")
 
 	var capturedIP string
-	handler := httpserver.ClientIPFromXFFHeaderMiddleware(trustedProxy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpserver.ClientIPFromRealIPMiddleware(trustedProxy, testLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip, ok := httpapi.ClientIPFromContext(r.Context())
 		if ok {
 			capturedIP = ip
@@ -247,7 +230,7 @@ func TestClientIPFromXFFHeader_InvalidPeerIPFallback(t *testing.T) {
 	// Request with invalid RemoteAddr format
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.RemoteAddr = "invalid-address" // Invalid format
-	req.Header.Set(httpapi.XForwardedFor, "192.0.2.100")
+	req.Header.Set(httpapi.XRealIP, "192.0.2.100")
 	res := httptest.NewRecorder()
 
 	handler.ServeHTTP(res, req)

@@ -30,13 +30,19 @@ const (
 // CreateAddressParams holds only what is necessary to create an address.
 type CreateAddressParams struct {
 	DeviceID DeviceID
-	IP       string
+	IP       netip.Addr
 }
 
-func NewCreateAddressParams(deviceID DeviceID, ipAddress string) (*CreateAddressParams, error) {
+func NewCreateAddressParams(deviceID DeviceID, ipAddress string, trustedProxy netip.Addr) (*CreateAddressParams, error) {
 	parsedIP, err := parseAndValidateIP(ipAddress)
 	if err != nil {
 		return nil, err
+	}
+	if parsedIP.IsLoopback() || parsedIP.IsMulticast() || parsedIP.IsUnspecified() || parsedIP.IsLinkLocalUnicast() {
+		return nil, ErrInvalidDeviceIP
+	}
+	if trustedProxy.IsValid() && trustedProxy.Compare(parsedIP) == 0 {
+		return nil, ErrTrustedProxyIPRejected
 	}
 
 	return &CreateAddressParams{
@@ -57,19 +63,18 @@ func (id AddressID) String() string {
 
 // parseAndValidateIP parses and validates that the given string is a valid IPv4 or IPv6 address.
 // It ignores the port if present and only cares about the IP component.
-func parseAndValidateIP(ipInput string) (string, error) {
+func parseAndValidateIP(ipInput string) (netip.Addr, error) {
 	// Try to parse as IP without port
-	if ip, err := netip.ParseAddr(ipInput); err == nil {
-		ipStr := ip.String()
-		return ipStr, nil
+	if parsedIP, err := netip.ParseAddr(ipInput); err == nil {
+		return parsedIP, nil
 	}
 
 	// If that fails, try to parse as IP with port
 	if ap, err := netip.ParseAddrPort(ipInput); err == nil {
-		ipStr := ap.Addr().String()
-		return ipStr, nil
+		ipAddr := ap.Addr()
+		return ipAddr, nil
 	}
 
 	// If both fail, return error
-	return "", ErrInvalidIPFormat
+	return netip.Addr{}, ErrInvalidIPFormat
 }

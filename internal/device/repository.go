@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -137,7 +138,7 @@ func (r *Repository) CreateAddress(ctx context.Context, params *CreateAddressPar
 		VALUES (?, ?, ?) RETURNING id
 	`
 		var addressID AddressID
-		err := tx.db.GetContext(ctx, &addressID, query, params.DeviceID, params.IP, time.Now().UTC())
+		err := tx.db.GetContext(ctx, &addressID, query, params.DeviceID, params.IP.String(), time.Now().UTC())
 		if err != nil {
 			return err
 		}
@@ -155,7 +156,7 @@ func (r *Repository) CreateAddress(ctx context.Context, params *CreateAddressPar
 	return address, nil
 }
 
-func (r *Repository) GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip string) (*Address, error) {
+func (r *Repository) GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip netip.Addr) (*Address, error) {
 	address := &Address{}
 
 	query := `
@@ -173,7 +174,7 @@ func (r *Repository) GetAddressForDeviceByIP(ctx context.Context, deviceID Devic
 		ORDER BY ac.updated_at DESC
 	`
 
-	err := r.db.GetContext(ctx, address, query, deviceID, ip)
+	err := r.db.GetContext(ctx, address, query, deviceID, ip.String())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrAddressNotFound
