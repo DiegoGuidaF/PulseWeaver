@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
@@ -118,30 +119,24 @@ func (s *Service) RunListener(ctx context.Context) error {
 // generateContent generates the whitelist file content as a Caddy snippet-style block.
 // Format: @wallydex_allowlist { ... } with one "    remote_ip <IP>" line per address.
 // For a non-empty IP list, output is "@wallydex_allowlist {\n" + "    remote_ip <IP>\n" per IP + "}\n".
-// For an empty IP list, output is "@wallydex_allowlist {\n}\n" (well-formed block with no remote_ip entries).
-// Returns the block bytes (never nil); empty list still produces the empty-block content.
+// For an empty IP list, content has a non-routable IP of 255.255.255.255
+// Returns the block bytes (never nil).
 func generateContent(ips []string) []byte {
 	const header = "@wallydex_allowlist {\n"
 	const footer = "}\n"
 	const linePrefix = "    remote_ip " // 4 spaces + "remote_ip "
 	const nonRoutableIP = "255.255.255.255"
+	var ipString string
 
+	// An empty caddy whitelist would result in an allow all. Set a nonRoutableIP
 	if len(ips) == 0 {
-		return []byte(header + linePrefix + nonRoutableIP + "\n" + footer)
+		ipString = nonRoutableIP
+	} else {
+		ipString = strings.Join(ips, " ")
 	}
+	content := header + linePrefix + ipString + "\n" + footer
 
-	// Preallocate: header + (prefix + ~15 chars IP + newline) per IP + footer
-	estimatedLineLen := len(linePrefix) + 15 + 1
-	estimatedCapacity := len(header) + len(footer) + estimatedLineLen*len(ips)
-	content := make([]byte, 0, estimatedCapacity)
-	content = append(content, header...)
-	for _, ip := range ips {
-		content = append(content, linePrefix...)
-		content = append(content, []byte(ip)...)
-		content = append(content, '\n')
-	}
-	content = append(content, footer...)
-	return content
+	return []byte(content)
 }
 
 // hashFileContent computes the SHA256 hash of file content.

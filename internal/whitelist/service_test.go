@@ -27,7 +27,7 @@ func TestService_Regenerate_WritesIPsToFile(t *testing.T) {
 	content, err := os.ReadFile(filePath)
 	is.NoErr(err)
 
-	expected := "@wallydex_allowlist {\n    remote_ip 192.168.1.1\n    remote_ip 192.168.1.2\n    remote_ip 192.168.1.3\n}\n"
+	expected := "@wallydex_allowlist {\n    remote_ip 192.168.1.1 192.168.1.2 192.168.1.3\n}\n"
 	is.Equal(string(content), expected)
 }
 
