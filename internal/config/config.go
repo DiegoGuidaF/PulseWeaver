@@ -16,6 +16,7 @@ type Conf struct {
 	Whitelist ConfWhitelist
 	Rules     ConfRules
 	Caddy     ConfCaddy
+	Authz     ConfAuthz
 	LogLevel  string         `env:"LOG_LEVEL" envDefault:"info"`
 	LogFormat logging.Format `env:"LOG_FORMAT" envDefault:"text"` // "json" or "text" (tint)
 	LogColor  bool           `env:"LOG_COLOR" envDefault:"false"` // Enable colored output for tint format
@@ -42,6 +43,10 @@ type ConfWhitelist struct {
 type ConfCaddy struct {
 	Endpoint  string `env:"CADDY_RELOADER_ENDPOINT"`
 	AuthToken string `env:"CADDY_RELOADER_AUTH_TOKEN"`
+}
+
+type ConfAuthz struct {
+	APISecret string `env:"AUTHZ_API_SECRET"`
 }
 
 // ConfRules holds configuration for background rule/scheduler behaviour.
@@ -80,6 +85,10 @@ func Load() (*Conf, error) {
 		if c.Caddy.AuthToken == "" {
 			return nil, fmt.Errorf("caddy endpoint defined but auth token is missing")
 		}
+	}
+
+	if len(c.Authz.APISecret) < 32 {
+		return nil, fmt.Errorf("authz api secret is too short (got %d chars, minimum 32 required for security)", len(c.Authz.APISecret))
 	}
 
 	return &c, nil

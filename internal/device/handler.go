@@ -10,6 +10,7 @@ import (
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 )
 
+// TODO: Rename to Handler
 type HTTPHandler struct {
 	service *Service
 	logger  *slog.Logger

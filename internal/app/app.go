@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/authz"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/caddy"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
@@ -30,6 +31,7 @@ type App struct {
 	DeviceService    *device.Service
 	AuthService      *auth.Service
 	WhitelistService *whitelist.Service
+	AuthzService     *authz.Service
 	wg               sync.WaitGroup
 }
 
@@ -97,6 +99,10 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	deviceService := device.NewService(deviceRepo, logger)
 	deviceHandler := device.NewHandler(deviceService, logger)
 
+	// Authz forward-auth sidecar
+	authzService := authz.NewService(deviceService, conf.Authz.APISecret, logger)
+	authzHandler := authz.NewHandler(authzService, logger)
+
 	// Rule evaluation
 	ruleRepo := rule.NewRepository(db.DB())
 	ruleService := rule.NewService(ruleRepo, logger)
@@ -121,6 +127,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Register device address observers
 	deviceService.AddAddressObserver(whitelistService)
 	deviceService.AddAddressObserver(addressLeaseService)
+	deviceService.AddAddressObserver(authzService)
 
 	schedulerService, err := scheduler.NewService(addressLeaseService, deviceService, logger)
 	if err != nil {
@@ -139,7 +146,11 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		logger.Warn("failed to generate whitelist on startup", slog.Any("error", err))
 	}
 
-	handler, err := httpserver.NewServerFromConfig(deviceHandler, authHandler, ruleHandler, logger, conf.Server)
+	if err := authzService.Initialize(ctx); err != nil {
+		logger.Warn("failed to initialize authz IP cache on startup", slog.Any("error", err))
+	}
+
+	handler, err := httpserver.NewServerFromConfig(deviceHandler, authHandler, ruleHandler, authzHandler, logger, conf.Server)
 	if err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("create http server: %w", err)
@@ -151,6 +162,15 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		defer a.wg.Done()
 		if err := whitelistService.RunListener(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			logger.Error("whitelist service exited with error", slog.Any("error", err))
+		}
+	}()
+
+	// Start authz IP cache listener
+	a.wg.Add(1)
+	go func() {
+		defer a.wg.Done()
+		if err := authzService.RunListener(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			logger.Error("authz service exited with error", slog.Any("error", err))
 		}
 	}()
 
@@ -176,6 +196,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	a.DeviceService = deviceService
 	a.AuthService = authService
 	a.WhitelistService = whitelistService
+	a.AuthzService = authzService
 
 	return a, nil
 }

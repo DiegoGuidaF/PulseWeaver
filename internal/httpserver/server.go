@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
+	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/authz"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
 	"github.com/go-chi/chi/v5"
@@ -20,17 +21,18 @@ import (
 
 type DeviceHandler = device.HTTPHandler
 type AuthHandler = auth.HTTPHandler
+type AuthzHandler = authz.Handler
 
-func NewServerFromConfig(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, logger *slog.Logger, conf config.ConfServer) (http.Handler, error) {
+func NewServerFromConfig(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, authzHandler *AuthzHandler, logger *slog.Logger, conf config.ConfServer) (http.Handler, error) {
 	trustedProxy, err := parseTrustedProxy(conf.TrustedProxy)
 	if err != nil {
 		return nil, fmt.Errorf("parse trusted proxy: %w", err)
 	}
 
-	return NewServer(deviceHandler, authHandler, ruleHandler, logger, trustedProxy), nil
+	return NewServer(deviceHandler, authHandler, ruleHandler, authzHandler, logger, trustedProxy), nil
 }
 
-func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, logger *slog.Logger, trustedProxy netip.Addr) http.Handler {
+func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, authzHandler *AuthzHandler, logger *slog.Logger, trustedProxy netip.Addr) http.Handler {
 	r := chi.NewRouter()
 
 	loggerConfig := slogchi.Config{
@@ -60,7 +62,7 @@ func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandl
 	r.Use(middleware.SetHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()"))
 	r.Use(MaxBodySizeMiddleware(256 * 1024)) // 256KB
 
-	addRoutes(r, deviceHandler, authHandler, ruleHandler, logger)
+	addRoutes(r, deviceHandler, authHandler, ruleHandler, authzHandler, logger)
 
 	return r
 }
