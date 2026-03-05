@@ -135,7 +135,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		return nil, fmt.Errorf("create http server: %w", err)
 	}
 
-	// Start authz IP cache listener
+	// Start authz address change listener to rebuild IP registry cache
 	a.wg.Add(1)
 	go func() {
 		defer a.wg.Done()
