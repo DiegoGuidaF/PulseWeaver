@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -18,8 +17,6 @@ import (
 // services, and handlers configured.
 func SetupIntegrationServer(t *testing.T) *app.App {
 	t.Helper()
-	// Create a temporary directory that Go will automatically clean up
-	tmpDir := t.TempDir()
 
 	conf := &config.Conf{
 		Server: config.ConfServer{
@@ -30,10 +27,6 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 		DB: config.ConfDB{
 			Dsn:   fmt.Sprintf("file:%s?mode=memory&_loc=auto", t.Name()),
 			Debug: false,
-		},
-		Whitelist: config.ConfWhitelist{
-			FilePath:  filepath.Join(tmpDir, "whitelist.txt"),
-			RateLimit: 50 * time.Millisecond, // Fast debounce for tests
 		},
 		Rules: config.ConfRules{
 			CheckInterval: time.Minute,

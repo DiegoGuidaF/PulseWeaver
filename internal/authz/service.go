@@ -41,7 +41,7 @@ func (s *Service) Initialize(ctx context.Context) error {
 }
 
 // OnAddressEvent implements device.AddressObserver.
-// Non-blocking signal; context is intentionally discarded (same pattern as whitelist.Service).
+// Non-blocking signal; context is intentionally discarded.
 func (s *Service) OnAddressEvent(_ context.Context, _ device.AddressEvent) {
 	select {
 	case s.addressChangeSignal <- struct{}{}:

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-WallyDic (WallyDex) is a self-hosted device IP address management service. It maintains an updated list of device IPs and exports them as a whitelist file consumable by Caddy for access control. Compiles to a **single binary** with the frontend SPA embedded.
+WallyDic (WallyDex) is a self-hosted device IP address management service. It maintains an updated list of device IPs and acts as a Forward Auth sidecar for reverse proxies (`GET /api/authz/verify-ip`). Compiles to a **single binary** with the frontend SPA embedded.
 
 ## Commands
 
@@ -37,7 +37,7 @@ WallyDic (WallyDex) is a self-hosted device IP address management service. It ma
 Layered architecture: **Handler → Service → Repository → Database**
 
 - **Entry point:** `cmd/api/main.go`
-- **Domain packages** in `internal/`: `auth`, `device`, `lease`, `whitelist`, `caddy`, `rule`, `health`
+- **Domain packages** in `internal/`: `auth`, `authz`, `device`, `lease`, `rule`, `health`
 - **Infrastructure:** `config`, `database`, `httpserver`, `httpapi`, `logging`, `scheduler`, `testdb`, `testutils`, `ui`, `app`
 - **Domain constructors** (e.g. `NewUser`, `NewDevice`) enforce all business validation
 - **Handlers** extract primitives from OpenAPI DTOs, pass to services; never pass OpenAPI types deeper
@@ -52,7 +52,8 @@ Layered architecture: **Handler → Service → Repository → Database**
 - **API helpers:** `@/lib/api-client/` for `toApiError`, `toErrorMessage`, client config
 
 #### Documentation
-- `CODEBASE.md` — Read this file to understand the frontend directory structure, routing, hook conventions, and UX surfaces before making structural changes to the frontend.
+- `CODEBASE-Frontend.md` — Read this file to understand the frontend directory structure, routing, hook conventions, and UX surfaces before making structural changes to the frontend.
+- `CODEBASE-Backend.md` — Read this file to understand the backend package structure, domain boundaries, service lifecycle, observer pattern, and key conventions before making structural changes to the backend.
 
 ## Key Conventions
 

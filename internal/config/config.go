@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"net/url"
 	"time"
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
@@ -13,9 +12,7 @@ import (
 type Conf struct {
 	Server    ConfServer
 	DB        ConfDB
-	Whitelist ConfWhitelist
 	Rules     ConfRules
-	Caddy     ConfCaddy
 	Authz     ConfAuthz
 	LogLevel  string         `env:"LOG_LEVEL" envDefault:"info"`
 	LogFormat logging.Format `env:"LOG_FORMAT" envDefault:"text"` // "json" or "text" (tint)
@@ -33,16 +30,6 @@ type ConfDB struct {
 	File  string `env:"DB_FILE" envDefault:"data.db"`
 	Debug bool   `env:"DB_DEBUG" envDefault:"false"`
 	Dsn   string
-}
-
-type ConfWhitelist struct {
-	FilePath  string        `env:"WHITELIST_FILE_PATH" envDefault:"./whitelist.txt"`
-	RateLimit time.Duration `env:"WHITELIST_RATE_LIMIT" envDefault:"5s"`
-}
-
-type ConfCaddy struct {
-	Endpoint  string `env:"CADDY_RELOADER_ENDPOINT"`
-	AuthToken string `env:"CADDY_RELOADER_AUTH_TOKEN"`
 }
 
 type ConfAuthz struct {
@@ -75,16 +62,6 @@ func Load() (*Conf, error) {
 	// Ensure rule scheduler has a valid interval
 	if c.Rules.CheckInterval <= 0 {
 		return nil, fmt.Errorf("check interval must be bigger than 0: %d", c.Rules.CheckInterval)
-	}
-
-	// If Caddy reloader is defined ensure it is valid
-	if c.Caddy.Endpoint != "" {
-		if _, err := url.Parse(c.Caddy.Endpoint); err != nil {
-			return nil, fmt.Errorf("invalid caddy reload endpoint: %s", c.Caddy.Endpoint)
-		}
-		if c.Caddy.AuthToken == "" {
-			return nil, fmt.Errorf("caddy endpoint defined but auth token is missing")
-		}
 	}
 
 	if len(c.Authz.APISecret) < 32 {

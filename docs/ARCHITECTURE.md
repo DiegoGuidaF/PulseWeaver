@@ -2,7 +2,7 @@
 
 ## Overview
 
-WallyDic is a self-hosted device IP address management service. It maintains an updated list of device IPs and exports them as a whitelist file consumable by Caddy for access control. The production build compiles to a **single binary** — the React SPA is baked into the Go binary at compile time via `embed.FS`, so no separate static file server is needed.
+WallyDic is a self-hosted device IP address management service. It maintains an updated list of device IPs and acts as a Forward Auth sidecar for reverse proxies: on every incoming request the proxy asks `GET /api/authz/verify-ip` and WallyDex responds `200` or `403`. The production build compiles to a **single binary** — the React SPA is baked into the Go binary at compile time via `embed.FS`, so no separate static file server is needed.
 
 ---
 

@@ -10,7 +10,6 @@ import (
 
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/authz"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/caddy"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
@@ -19,20 +18,18 @@ import (
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/rule"
 	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/scheduler"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/whitelist"
 )
 
 // App holds all initialized application components.
 type App struct {
-	Config           *config.Conf
-	Logger           *slog.Logger
-	Database         *database.SQLite
-	HTTPServer       http.Handler
-	DeviceService    *device.Service
-	AuthService      *auth.Service
-	WhitelistService *whitelist.Service
-	AuthzService     *authz.Service
-	wg               sync.WaitGroup
+	Config        *config.Conf
+	Logger        *slog.Logger
+	Database      *database.SQLite
+	HTTPServer    http.Handler
+	DeviceService *device.Service
+	AuthService   *auth.Service
+	AuthzService  *authz.Service
+	wg            sync.WaitGroup
 }
 
 // New initializes the application with configuration loaded from environment variables.
@@ -108,24 +105,11 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	ruleService := rule.NewService(ruleRepo, logger)
 	ruleHandler := rule.NewHandler(ruleService, logger)
 
-	// Whitelist generation
-	caddyReloadClient := caddy.NewReloaderClient(conf.Caddy.Endpoint, conf.Caddy.AuthToken, logger)
-	a.wg.Add(1)
-	go func() {
-		defer a.wg.Done()
-		if err := caddyReloadClient.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			logger.Error("whitelist change notifier exited with error", slog.Any("error", err))
-		}
-	}()
-
-	whitelistService := whitelist.NewService(deviceService, conf.Whitelist, caddyReloadClient, logger)
-
 	// Address Lease manager
 	addressLeaseRepo := lease.NewRepository(db.DB())
 	addressLeaseService := lease.NewService(addressLeaseRepo, ruleService, logger)
 
 	// Register device address observers
-	deviceService.AddAddressObserver(whitelistService)
 	deviceService.AddAddressObserver(addressLeaseService)
 	deviceService.AddAddressObserver(authzService)
 
@@ -141,11 +125,6 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		return nil, fmt.Errorf("failed to bootstrap admin: %w", err)
 	}
 
-	// Initial whitelist generation
-	if err := whitelistService.Regenerate(ctx); err != nil {
-		logger.Warn("failed to generate whitelist on startup", slog.Any("error", err))
-	}
-
 	if err := authzService.Initialize(ctx); err != nil {
 		logger.Warn("failed to initialize authz IP cache on startup", slog.Any("error", err))
 	}
@@ -155,15 +134,6 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		_ = db.Close()
 		return nil, fmt.Errorf("create http server: %w", err)
 	}
-
-	// Start whitelist generation listener
-	a.wg.Add(1)
-	go func() {
-		defer a.wg.Done()
-		if err := whitelistService.RunListener(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			logger.Error("whitelist service exited with error", slog.Any("error", err))
-		}
-	}()
 
 	// Start authz IP cache listener
 	a.wg.Add(1)
@@ -195,7 +165,6 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	a.HTTPServer = handler
 	a.DeviceService = deviceService
 	a.AuthService = authService
-	a.WhitelistService = whitelistService
 	a.AuthzService = authzService
 
 	return a, nil
