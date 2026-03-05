@@ -18,7 +18,7 @@ type EnabledIPsProvider interface {
 // Service maintains an in-memory cache of enabled IPs for fast forward-auth lookups.
 type Service struct {
 	provider            EnabledIPsProvider
-	secret              string // AUTHZ_API_SECRET; empty = fail-closed
+	secret              string
 	mu                  sync.RWMutex
 	ipSet               map[string]struct{}
 	addressChangeSignal chan struct{} // buffered cap 1

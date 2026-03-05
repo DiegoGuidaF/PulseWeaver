@@ -16,7 +16,7 @@ type Conf struct {
 	Authz     ConfAuthz
 	LogLevel  string         `env:"LOG_LEVEL" envDefault:"info"`
 	LogFormat logging.Format `env:"LOG_FORMAT" envDefault:"text"` // "json" or "text" (tint)
-	LogColor  bool           `env:"LOG_COLOR" envDefault:"false"` // Enable colored output for tint format
+	LogColor  bool           `env:"LOG_COLOR" envDefault:"true"`  // Enable colored output (only for text format)
 }
 
 type ConfServer struct {
