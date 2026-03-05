@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/app"
-	"github.com/DiegoGuidaF/WallyDex/internal/httpserver"
 )
 
 func run(ctx context.Context) (*slog.Logger, error) {
@@ -26,8 +25,7 @@ func run(ctx context.Context) (*slog.Logger, error) {
 		}
 	}()
 
-	serverConfig := httpserver.DefaultServerConfigFromConf(application.Config.Server.Port)
-	if err := httpserver.StartAndWait(ctx, application.HTTPServer, serverConfig, application.Logger); err != nil {
+	if err := application.Run(ctx); err != nil {
 		return application.Logger, err
 	}
 

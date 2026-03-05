@@ -308,6 +308,7 @@ func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, request httpa
 func (h *HTTPHandler) APIKeyAuthenticator() APIKeyAuthenticator {
 	return h.service
 }
+
 func toDeviceResponse(d *Device) httpapi.Device {
 	return httpapi.Device{
 		Id:           d.ID.Int64(),

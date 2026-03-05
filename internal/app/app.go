@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"sync"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/auth"
 	"github.com/DiegoGuidaF/WallyDex/internal/authz"
@@ -18,18 +17,20 @@ import (
 	"github.com/DiegoGuidaF/WallyDex/internal/logging"
 	"github.com/DiegoGuidaF/WallyDex/internal/rule"
 	"github.com/DiegoGuidaF/WallyDex/internal/scheduler"
+	"golang.org/x/sync/errgroup"
 )
 
 // App holds all initialized application components.
 type App struct {
-	Config        *config.Conf
-	Logger        *slog.Logger
-	Database      *database.SQLite
-	HTTPServer    http.Handler
-	DeviceService *device.Service
-	AuthService   *auth.Service
-	AuthzService  *authz.Service
-	wg            sync.WaitGroup
+	Config              *config.Conf
+	Logger              *slog.Logger
+	Database            *database.SQLite
+	HTTPServer          http.Handler
+	DeviceService       *device.Service
+	AuthService         *auth.Service
+	AuthzService        *authz.Service
+	addressLeaseService *lease.Service
+	schedulerService    *scheduler.Service
 }
 
 // New initializes the application with configuration loaded from environment variables.
@@ -39,26 +40,17 @@ func New(ctx context.Context) (*App, error) {
 		return nil, fmt.Errorf("config load error: %w", err)
 	}
 
-	return NewWithConfig(ctx, conf)
-}
+	logger := logging.New(logging.Options{
+		Level:  logging.ParseLevel(conf.LogLevel),
+		Format: conf.LogFormat,
+		Color:  conf.LogColor,
+	})
 
-// NewWithConfig initializes the application with the provided configuration.
-// This is useful for testing where custom configuration (e.g., in-memory database) is needed.
-func NewWithConfig(ctx context.Context, conf *config.Conf) (*App, error) {
-	return NewWithConfigAndLogger(ctx, conf, nil)
+	return NewWithConfigAndLogger(ctx, conf, logger)
 }
 
 // NewWithConfigAndLogger initializes the application with the provided configuration and logger.
-// If logger is nil, a default logger is created from LOG_LEVEL and LOG_FORMAT.
-func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog.Logger) (*App, error) {
-	if logger == nil {
-		logger = logging.New(logging.Options{
-			Level:  logging.ParseLevel(conf.LogLevel),
-			Format: conf.LogFormat,
-			Color:  conf.LogColor,
-		})
-	}
-
+func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog.Logger) (_ *App, err error) {
 	// Set logger for dependencies
 	slog.SetDefault(logger)
 
@@ -80,18 +72,16 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
+	defer func() {
+		if err != nil {
+			_ = db.Close()
+		}
+	}()
 
-	if err := db.Migrate(); err != nil {
-		_ = db.Close()
+	if err = db.Migrate(); err != nil {
 		return nil, fmt.Errorf("migration error: %w", err)
 	}
 	logger.Info("database initialized and connected successfully")
-
-	a := &App{
-		Config:   conf,
-		Logger:   logger,
-		Database: db,
-	}
 
 	// Authentication
 	authRepo := auth.NewRepository(db.DB())
@@ -106,7 +96,6 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Authz forward-auth sidecar
 	authzService, err := authz.NewService(deviceService, conf.Authz.APISecret, logger, conf.Server.TrustedProxy)
 	if err != nil {
-		_ = db.Close()
 		return nil, fmt.Errorf("authz service init: %w", err)
 	}
 	authzHandler := authz.NewHTTPHandler(authzService, logger)
@@ -126,13 +115,11 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	schedulerService, err := scheduler.NewService(addressLeaseService, deviceService, logger)
 	if err != nil {
-		_ = db.Close()
 		return nil, fmt.Errorf("scheduler service init: %w", err)
 	}
 
 	err = authService.BootstrapAdmin(ctx, conf.Server)
 	if err != nil {
-		_ = db.Close()
 		return nil, fmt.Errorf("failed to bootstrap admin: %w", err)
 	}
 
@@ -142,44 +129,53 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, authzHandler, logger, conf.Server.TrustedProxy)
 
-	// Start authz address change listener to rebuild IP registry cache
-	a.wg.Add(1)
-	go func() {
-		defer a.wg.Done()
-		if err := authzService.RunListener(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			logger.Error("authz service exited with error", slog.Any("error", err))
-		}
-	}()
-
-	// Start address lease listener
-	a.wg.Add(1)
-	go func() {
-		defer a.wg.Done()
-		if err := addressLeaseService.RunListener(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			logger.Error("address lease service exited with error", slog.Any("error", err))
-		}
-	}()
-
-	// Start rule scheduler for time-based rules (e.g., IP auto-expiry)
-	a.wg.Add(1)
-	go func() {
-		defer a.wg.Done()
-		if err := schedulerService.RunSchedule(ctx, conf.Rules.CheckInterval); err != nil && !errors.Is(err, context.Canceled) {
-			logger.Error("scheduler exited with error", slog.Any("error", err))
-		}
-	}()
-
-	a.HTTPServer = handler
-	a.DeviceService = deviceService
-	a.AuthService = authService
-	a.AuthzService = authzService
-
-	return a, nil
+	return &App{
+		Config:              conf,
+		Logger:              logger,
+		Database:            db,
+		HTTPServer:          handler,
+		DeviceService:       deviceService,
+		AuthService:         authService,
+		AuthzService:        authzService,
+		addressLeaseService: addressLeaseService,
+		schedulerService:    schedulerService,
+	}, nil
 }
 
-// Close waits for all background goroutines to finish, then cleans up application resources.
+// Run starts all application background services and the HTTP server.
+// It blocks until shutdown or the first non-cancelled error.
+func (a *App) Run(ctx context.Context) error {
+	g, gCtx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		return ignoreContextCanceled(a.AuthzService.RunListener(gCtx))
+	})
+
+	g.Go(func() error {
+		return ignoreContextCanceled(a.addressLeaseService.RunListener(gCtx))
+	})
+
+	g.Go(func() error {
+		return ignoreContextCanceled(a.schedulerService.RunSchedule(gCtx, a.Config.Rules.CheckInterval))
+	})
+
+	serverConfig := httpserver.DefaultServerConfigFromConf(a.Config.Server.Port)
+	g.Go(func() error {
+		return ignoreContextCanceled(httpserver.StartAndWait(gCtx, a.HTTPServer, serverConfig, a.Logger))
+	})
+
+	return ignoreContextCanceled(g.Wait())
+}
+
+func ignoreContextCanceled(err error) error {
+	if errors.Is(err, context.Canceled) {
+		return nil
+	}
+	return err
+}
+
+// Close cleans up application resources.
 func (a *App) Close() error {
-	a.wg.Wait()
 	if a.Database != nil {
 		return a.Database.Close()
 	}
