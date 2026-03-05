@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"sync"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
+	"github.com/DiegoGuidaF/WallyDex/internal/device"
+	"github.com/DiegoGuidaF/WallyDex/internal/logging"
 )
 
 // EnabledIPsProvider is the cross-domain interface the authz service consumes.

@@ -11,11 +11,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/app"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/rule"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/testutils"
+	"github.com/DiegoGuidaF/WallyDex/internal/app"
+	"github.com/DiegoGuidaF/WallyDex/internal/device"
+	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
+	"github.com/DiegoGuidaF/WallyDex/internal/rule"
+	"github.com/DiegoGuidaF/WallyDex/internal/testutils"
 	"github.com/matryer/is"
 )
 

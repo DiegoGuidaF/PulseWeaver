@@ -5,7 +5,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
+	"github.com/DiegoGuidaF/WallyDex/internal/logging"
 )
 
 type repository interface {

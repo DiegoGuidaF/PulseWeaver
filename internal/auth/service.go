@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
+	"github.com/DiegoGuidaF/WallyDex/internal/config"
+	"github.com/DiegoGuidaF/WallyDex/internal/logging"
 	"golang.org/x/crypto/bcrypt"
 )
 

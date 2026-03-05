@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
+	"github.com/DiegoGuidaF/WallyDex/internal/config"
 	"github.com/matryer/is"
 )
 

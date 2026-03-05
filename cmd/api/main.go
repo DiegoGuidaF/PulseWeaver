@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/app"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpserver"
+	"github.com/DiegoGuidaF/WallyDex/internal/app"
+	"github.com/DiegoGuidaF/WallyDex/internal/httpserver"
 )
 
 func run(ctx context.Context) (*slog.Logger, error) {

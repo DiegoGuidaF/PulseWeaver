@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/app"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
+	"github.com/DiegoGuidaF/WallyDex/internal/app"
+	"github.com/DiegoGuidaF/WallyDex/internal/config"
 )
 
 // SetupIntegrationServer creates a complete integration test server with database,

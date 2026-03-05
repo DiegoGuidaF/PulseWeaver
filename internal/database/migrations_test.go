@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
+	"github.com/DiegoGuidaF/WallyDex/internal/config"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source/iofs"

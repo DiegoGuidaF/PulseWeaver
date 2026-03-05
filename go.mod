@@ -1,4 +1,4 @@
-module forgejo.wally.mywire.org/diego/WallyDic.git
+module github.com/DiegoGuidaF/WallyDex
 
 go 1.26
 

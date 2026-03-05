@@ -6,8 +6,8 @@ import (
 	"context"
 	"testing"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/testdb"
+	"github.com/DiegoGuidaF/WallyDex/internal/device"
+	"github.com/DiegoGuidaF/WallyDex/internal/testdb"
 	"github.com/matryer/is"
 )
 

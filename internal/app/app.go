@@ -8,16 +8,16 @@ import (
 	"net/http"
 	"sync"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/authz"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpserver"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/lease"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/rule"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/scheduler"
+	"github.com/DiegoGuidaF/WallyDex/internal/auth"
+	"github.com/DiegoGuidaF/WallyDex/internal/authz"
+	"github.com/DiegoGuidaF/WallyDex/internal/config"
+	"github.com/DiegoGuidaF/WallyDex/internal/database"
+	"github.com/DiegoGuidaF/WallyDex/internal/device"
+	"github.com/DiegoGuidaF/WallyDex/internal/httpserver"
+	"github.com/DiegoGuidaF/WallyDex/internal/lease"
+	"github.com/DiegoGuidaF/WallyDex/internal/logging"
+	"github.com/DiegoGuidaF/WallyDex/internal/rule"
+	"github.com/DiegoGuidaF/WallyDex/internal/scheduler"
 )
 
 // App holds all initialized application components.

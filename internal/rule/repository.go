@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
+	"github.com/DiegoGuidaF/WallyDex/internal/device"
 	"github.com/jmoiron/sqlx"
 )
 

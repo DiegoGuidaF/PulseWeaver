@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
+	"github.com/DiegoGuidaF/WallyDex/internal/device"
 )
 
 func (s *Service) executeAutoExpiry(ctx context.Context) error {

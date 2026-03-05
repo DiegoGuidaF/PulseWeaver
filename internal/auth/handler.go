@@ -5,8 +5,8 @@ import (
 	"errors"
 	"log/slog"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
+	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
+	"github.com/DiegoGuidaF/WallyDex/internal/logging"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 

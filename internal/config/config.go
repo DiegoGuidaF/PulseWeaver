@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
+	"github.com/DiegoGuidaF/WallyDex/internal/logging"
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
 )

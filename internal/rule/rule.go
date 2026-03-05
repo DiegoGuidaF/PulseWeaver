@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
+	"github.com/DiegoGuidaF/WallyDex/internal/device"
 )
 
 // RuleID represents the primary key of a row in the device_rules table.

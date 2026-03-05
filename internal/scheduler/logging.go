@@ -1,6 +1,6 @@
 package scheduler
 
-import "forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
+import "github.com/DiegoGuidaF/WallyDex/internal/logging"
 
 // Slog attribute key names for the scheduler domain. Use these constants when
 // logging so keys are consistent and typo-safe across services.

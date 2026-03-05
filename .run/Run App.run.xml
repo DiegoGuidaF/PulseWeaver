@@ -13,7 +13,7 @@
       </ENTRIES>
     </EXTENSION>
     <kind value="PACKAGE" />
-    <package value="forgejo.wally.mywire.org/diego/WallyDic.git/cmd/api" />
+    <package value="github.com/DiegoGuidaF/WallyDex/cmd/api" />
     <directory value="$PROJECT_DIR$" />
     <filePath value="$PROJECT_DIR$/cmd/api/main.go" />
     <method v="2" />

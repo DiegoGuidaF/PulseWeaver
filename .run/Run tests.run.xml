@@ -14,7 +14,7 @@
       </ENTRIES>
     </EXTENSION>
     <kind value="DIRECTORY" />
-    <package value="forgejo.wally.mywire.org/diego/WallyDic.git" />
+    <package value="github.com/DiegoGuidaF/WallyDex" />
     <directory value="$PROJECT_DIR$" />
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />

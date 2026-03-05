@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/database"
+	"github.com/DiegoGuidaF/WallyDex/internal/config"
+	"github.com/DiegoGuidaF/WallyDex/internal/database"
 )
 
 // Setup creates a new in-memory SQLite database for testing.

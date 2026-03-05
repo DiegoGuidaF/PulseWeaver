@@ -7,7 +7,7 @@ import (
 	"net/netip"
 	"strings"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
+	"github.com/DiegoGuidaF/WallyDex/internal/logging"
 )
 
 // Handler is the HTTP handler for forward-auth IP verification.

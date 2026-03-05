@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/authz"
+	"github.com/DiegoGuidaF/WallyDex/internal/authz"
 	"github.com/matryer/is"
 )
 

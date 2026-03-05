@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
+	"github.com/DiegoGuidaF/WallyDex/internal/device"
+	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
+	"github.com/DiegoGuidaF/WallyDex/internal/logging"
 )
 
 // HTTPHandler handles HTTP requests for rule endpoints.

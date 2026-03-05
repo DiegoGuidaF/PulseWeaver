@@ -10,8 +10,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/testutils"
+	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
+	"github.com/DiegoGuidaF/WallyDex/internal/testutils"
 	"github.com/matryer/is"
 )
 

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/testdb"
+	"github.com/DiegoGuidaF/WallyDex/internal/testdb"
 	"github.com/matryer/is"
 )
 

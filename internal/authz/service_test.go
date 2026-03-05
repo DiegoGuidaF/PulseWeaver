@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/authz"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
+	"github.com/DiegoGuidaF/WallyDex/internal/authz"
+	"github.com/DiegoGuidaF/WallyDex/internal/device"
 	"github.com/matryer/is"
 )
 

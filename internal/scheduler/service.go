@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/logging"
+	"github.com/DiegoGuidaF/WallyDex/internal/device"
+	"github.com/DiegoGuidaF/WallyDex/internal/logging"
 )
 
 type AddressDisabler interface {

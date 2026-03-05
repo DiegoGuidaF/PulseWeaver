@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
+	"github.com/DiegoGuidaF/WallyDex/internal/auth"
+	"github.com/DiegoGuidaF/WallyDex/internal/device"
+	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
 	"github.com/getkin/kin-openapi/openapi3filter"
 )
 

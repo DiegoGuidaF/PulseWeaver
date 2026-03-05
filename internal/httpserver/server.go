@@ -8,15 +8,15 @@ import (
 	"net/netip"
 	"strings"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/auth"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/authz"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/config"
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/httpapi"
+	"github.com/DiegoGuidaF/WallyDex/internal/auth"
+	"github.com/DiegoGuidaF/WallyDex/internal/authz"
+	"github.com/DiegoGuidaF/WallyDex/internal/config"
+	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	slogchi "github.com/samber/slog-chi"
 
-	"forgejo.wally.mywire.org/diego/WallyDic.git/internal/device"
+	"github.com/DiegoGuidaF/WallyDex/internal/device"
 )
 
 type DeviceHandler = device.HTTPHandler
