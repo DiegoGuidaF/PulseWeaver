@@ -3,7 +3,7 @@
 [![CI](https://github.com/diegoguidaf/wallydex/actions/workflows/ci.yml/badge.svg)](https://github.com/diegoguidaf/wallydex/actions/workflows/ci.yml)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io%2Fdiegoguidaf%2Fwallydex-2496ED?logo=docker&logoColor=white)](https://github.com/diegoguidaf/wallydex/pkgs/container/wallydex)
 [![Go 1.26](https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white)](go.mod)
-[![License: GPL v3](https://img.shields.io/badge/License-GPL_v3-blue.svg)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
 **PulseShroud** is a self-hosted device address tracker and forward-auth gate for reverse proxies.
 
