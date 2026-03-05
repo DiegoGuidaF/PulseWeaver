@@ -32,6 +32,9 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 		Rules: config.ConfRules{
 			CheckInterval: time.Minute,
 		},
+		Authz: config.ConfAuthz{
+			APISecret: "test-authz-secret",
+		},
 	}
 
 	logger := slog.New(slog.DiscardHandler)

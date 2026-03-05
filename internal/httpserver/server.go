@@ -18,7 +18,7 @@ import (
 
 type DeviceHandler = device.HTTPHandler
 type AuthHandler = auth.HTTPHandler
-type AuthzHandler = authz.Handler
+type AuthzHandler = authz.HTTPHandler
 
 func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, authzHandler *AuthzHandler, logger *slog.Logger, trustedProxy netip.Addr) http.Handler {
 	r := chi.NewRouter()

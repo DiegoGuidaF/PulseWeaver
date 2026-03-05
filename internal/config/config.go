@@ -73,8 +73,8 @@ func Load() (*Conf, error) {
 	}
 
 	// Ensure api secret for Authz endpoint is defined and secure
-	if len(c.Authz.APISecret) < 32 {
-		return nil, fmt.Errorf("authz api secret is too short (got %d chars, minimum 32 required for security)", len(c.Authz.APISecret))
+	if len(c.Authz.APISecret) < 16 {
+		return nil, fmt.Errorf("authz api secret is too short (got %d chars, minimum 16); generate one with: openssl rand -base64 16", len(c.Authz.APISecret))
 	}
 	return &c, nil
 }

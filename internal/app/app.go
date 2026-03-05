@@ -104,8 +104,12 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	deviceHandler := device.NewHandler(deviceService, logger)
 
 	// Authz forward-auth sidecar
-	authzService := authz.NewService(deviceService, conf.Authz.APISecret, logger, conf.Server.TrustedProxy)
-	authzHandler := authz.NewHandler(authzService, logger)
+	authzService, err := authz.NewService(deviceService, conf.Authz.APISecret, logger, conf.Server.TrustedProxy)
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("authz service init: %w", err)
+	}
+	authzHandler := authz.NewHTTPHandler(authzService, logger)
 
 	// Rule evaluation
 	ruleRepo := rule.NewRepository(db.DB())

@@ -2,8 +2,11 @@ package authz
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
 	"log/slog"
 	"net/netip"
+	"strings"
 	"sync"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/device"
@@ -19,7 +22,7 @@ type EnabledIPsProvider interface {
 // Service maintains an in-memory cache of enabled IPs for fast forward-auth lookups.
 type Service struct {
 	provider            EnabledIPsProvider
-	secret              string
+	apiSecretHash       [32]byte
 	trustedProxy        netip.Addr
 	mu                  sync.RWMutex
 	ipSet               map[string]struct{}
@@ -27,15 +30,20 @@ type Service struct {
 	logger              *slog.Logger
 }
 
-func NewService(provider EnabledIPsProvider, secret string, logger *slog.Logger, trustedProxy netip.Addr) *Service {
+func NewService(provider EnabledIPsProvider, secret string, logger *slog.Logger, trustedProxy netip.Addr) (*Service, error) {
+	componentLogger := logger.With(slog.String(logging.AttrKeyComponent, "authz"))
+	if strings.TrimSpace(secret) == "" {
+		return nil, ErrSecretNotConfigured
+	}
+
 	return &Service{
 		provider:            provider,
-		secret:              secret,
+		apiSecretHash:       sha256.Sum256([]byte(secret)),
 		trustedProxy:        trustedProxy,
 		ipSet:               make(map[string]struct{}),
 		addressChangeSignal: make(chan struct{}, 1),
-		logger:              logger.With(slog.String(logging.AttrKeyComponent, "authz")),
-	}
+		logger:              componentLogger,
+	}, nil
 }
 
 // Initialize populates the cache on startup. Called once from app.go.
@@ -67,6 +75,23 @@ func (s *Service) RunListener(ctx context.Context) error {
 	}
 }
 
+// VerifyAccess validates bearer token and verifies that the IP is enabled.
+func (s *Service) VerifyAccess(ctx context.Context, token, clientIP string) error {
+	// Compare fixed-size 32-byte slices and avoid
+	// leaking length information through early returns.
+	tokenHash := sha256.Sum256([]byte(token))
+	if subtle.ConstantTimeCompare(tokenHash[:], s.apiSecretHash[:]) != 1 {
+		s.logger.WarnContext(ctx, "authz: invalid bearer token")
+		return ErrInvalidBearerToken
+	}
+
+	if !s.ContainsIP(clientIP) {
+		return ErrIPNotEnabled
+	}
+
+	return nil
+}
+
 // ContainsIP reports whether ip is currently in the enabled set. Thread-safe.
 func (s *Service) ContainsIP(ip string) bool {
 	if s.trustedProxy.IsValid() {
@@ -81,11 +106,6 @@ func (s *Service) ContainsIP(ip string) bool {
 	defer s.mu.RUnlock()
 	_, ok := s.ipSet[ip]
 	return ok
-}
-
-// Secret returns the configured internal secret. Used by the handler.
-func (s *Service) Secret() string {
-	return s.secret
 }
 
 // refreshCache queries enabled IPs and atomically replaces the in-memory set.

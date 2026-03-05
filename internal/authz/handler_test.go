@@ -4,6 +4,7 @@ package authz_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -35,15 +36,12 @@ func TestHandler_WrongToken_Returns403(t *testing.T) {
 	is.Equal(w.Code, http.StatusForbidden)
 }
 
-func TestHandler_EmptySecret_Returns403(t *testing.T) {
+func TestNewService_EmptySecret_ReturnsError(t *testing.T) {
 	is := is.New(t)
-	h := newTestHandler([]string{"1.2.3.4"}, "") // empty secret = fail-closed
-	r := httptest.NewRequest(http.MethodGet, "/api/authz/verify-ip", nil)
-	r.Header.Set("Authorization", "Bearer anything")
-	r = r.WithContext(httpapi.WithClientIP(r.Context(), "1.2.3.4"))
-	w := httptest.NewRecorder()
-	h.HandleForwardAuthIP(w, r)
-	is.Equal(w.Code, http.StatusForbidden)
+	provider := &mockProvider{ips: []string{"1.2.3.4"}}
+
+	_, err := authz.NewService(provider, "", noopLogger(), netip.Addr{})
+	is.True(errors.Is(err, authz.ErrSecretNotConfigured))
 }
 
 func TestHandler_MissingClientIPInContext_Returns403(t *testing.T) {
@@ -112,18 +110,21 @@ func TestHandler_ProxyIP_Returns403(t *testing.T) {
 	is.Equal(w.Code, http.StatusForbidden)
 }
 
-// newTestHandler creates a Handler pre-populated with the given IPs in its cache.
-func newTestHandler(enabledIPs []string, secret string) *authz.Handler {
+// newTestHandler creates a HTTPHandler pre-populated with the given IPs in its cache.
+func newTestHandler(enabledIPs []string, secret string) *authz.HTTPHandler {
 	return newTestHandlerWithProxy(enabledIPs, secret, "")
 }
 
-func newTestHandlerWithProxy(enabledIPs []string, secret, trustedProxy string) *authz.Handler {
+func newTestHandlerWithProxy(enabledIPs []string, secret, trustedProxy string) *authz.HTTPHandler {
 	provider := &mockProvider{ips: enabledIPs}
 	var proxyAddr netip.Addr
 	if trustedProxy != "" {
 		proxyAddr = netip.MustParseAddr(trustedProxy)
 	}
-	svc := authz.NewService(provider, secret, noopLogger(), proxyAddr)
+	svc, err := authz.NewService(provider, secret, noopLogger(), proxyAddr)
+	if err != nil {
+		panic(err)
+	}
 	_ = svc.Initialize(context.Background())
-	return authz.NewHandler(svc, noopLogger())
+	return authz.NewHTTPHandler(svc, noopLogger())
 }
