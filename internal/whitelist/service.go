@@ -124,9 +124,10 @@ func generateContent(ips []string) []byte {
 	const header = "@wallydex_allowlist {\n"
 	const footer = "}\n"
 	const linePrefix = "    remote_ip " // 4 spaces + "remote_ip "
+	const nonRoutableIP = "255.255.255.255"
 
 	if len(ips) == 0 {
-		return []byte(header + footer)
+		return []byte(header + linePrefix + nonRoutableIP + "\n" + footer)
 	}
 
 	// Preallocate: header + (prefix + ~15 chars IP + newline) per IP + footer

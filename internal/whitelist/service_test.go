@@ -31,7 +31,7 @@ func TestService_Regenerate_WritesIPsToFile(t *testing.T) {
 	is.Equal(string(content), expected)
 }
 
-func TestService_Regenerate_HandlesEmptyList(t *testing.T) {
+func TestService_Regenerate_EmptyListIsNonRoutableIP(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
@@ -43,7 +43,7 @@ func TestService_Regenerate_HandlesEmptyList(t *testing.T) {
 
 	content, err := os.ReadFile(filePath)
 	is.NoErr(err)
-	is.Equal(string(content), "@wallydex_allowlist {\n}\n")
+	is.Equal(string(content), "@wallydex_allowlist {\n    remote_ip 255.255.255.255\n}\n")
 }
 
 func TestService_Regenerate_AtomicWrite(t *testing.T) {
