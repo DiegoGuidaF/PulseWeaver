@@ -91,7 +91,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Device & addresses management
 	deviceRepo := device.NewRepository(db.DB())
 	deviceService := device.NewService(deviceRepo, logger, conf.Server.TrustedProxy)
-	deviceHandler := device.NewHandler(deviceService, logger)
+	deviceHandler := device.NewHTTPHandler(deviceService, logger)
 
 	// Authz forward-auth sidecar
 	authzService, err := authz.NewService(deviceService, conf.Authz.APISecret, logger, conf.Server.TrustedProxy)

@@ -10,13 +10,12 @@ import (
 	"github.com/DiegoGuidaF/WallyDex/internal/logging"
 )
 
-// TODO: Rename to Handler
 type HTTPHandler struct {
 	service *Service
 	logger  *slog.Logger
 }
 
-func NewHandler(service *Service, logger *slog.Logger) *HTTPHandler {
+func NewHTTPHandler(service *Service, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{
 		service: service,
 		logger:  logger.With(slog.String(logging.AttrKeyComponent, "device")),
@@ -151,7 +150,7 @@ func (h *HTTPHandler) AddAddress(ctx context.Context, request httpapi.AddAddress
 		slog.String(AttrKeyAddressIP, ipAddress),
 	)
 
-	addressWithIP, wasCreated, err := h.service.AssignAddress(ctx, deviceID, ipAddress, StatusSourceManual)
+	addressWithIP, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, ipAddress, StatusSourceManual)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
@@ -172,7 +171,7 @@ func (h *HTTPHandler) AddAddress(ctx context.Context, request httpapi.AddAddress
 		}
 	}
 
-	if wasCreated {
+	if eventType == EventTypeAddressCreated {
 		return httpapi.AddAddress201JSONResponse(toAddressResponse(addressWithIP)), nil
 	}
 
@@ -220,7 +219,7 @@ func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request httpapi.Devic
 	}
 	logger = logger.With(slog.String(AttrKeyClientIP, clientIP))
 
-	address, wasCreated, err := h.service.AssignAddress(ctx, deviceID, clientIP, StatusSourceHeartbeat)
+	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, clientIP, StatusSourceHeartbeat)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
@@ -242,7 +241,7 @@ func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request httpapi.Devic
 	}
 
 	logger.InfoContext(ctx, "device heartbeat successful")
-	if wasCreated {
+	if eventType == EventTypeAddressCreated {
 		return httpapi.DeviceHeartbeat201JSONResponse(toAddressResponse(address)), nil
 	}
 
@@ -276,7 +275,7 @@ func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, request httpa
 	}
 	logger = logger.With(slog.String(AttrKeyAddressIP, ipToUse))
 
-	address, wasCreated, err := h.service.AssignAddress(ctx, deviceID, ipToUse, StatusSourceHeartbeat)
+	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, ipToUse, StatusSourceHeartbeat)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
@@ -298,7 +297,7 @@ func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, request httpa
 	}
 	logger.InfoContext(ctx, "apikey heartbeat successful")
 
-	if wasCreated {
+	if eventType == EventTypeAddressCreated {
 		return httpapi.DeviceHeartbeatByAPIKey201JSONResponse(toAddressResponse(address)), nil
 	}
 

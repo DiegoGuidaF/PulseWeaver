@@ -8,8 +8,10 @@ import (
 type EventType string
 
 const (
-	EventTypeAddressAssigned EventType = "address_assigned"
-	EventTypeAddressDisabled EventType = "address_disabled"
+	EventTypeAddressCreated   EventType = "address_created"
+	EventTypeAddressEnabled   EventType = "address_enabled"
+	EventTypeAddressRefreshed EventType = "address_refreshed"
+	EventTypeAddressDisabled  EventType = "address_disabled"
 )
 
 type AddressEvent struct {
@@ -35,4 +37,17 @@ func (e AddressEvent) LogValue() slog.Value {
 		slog.Int64("device_id", e.DeviceID.Int64()),
 		slog.Time("occurred_at", e.OccurredAt),
 	)
+}
+
+// IsAddressEnabled returns true for Created, Enabled, and Refreshed events (address is enabled);
+// false for Disabled.
+func (e AddressEvent) IsAddressEnabled() bool {
+	switch e.Type {
+	case EventTypeAddressCreated, EventTypeAddressEnabled, EventTypeAddressRefreshed:
+		return true
+	case EventTypeAddressDisabled:
+		return false
+	default:
+		return false
+	}
 }

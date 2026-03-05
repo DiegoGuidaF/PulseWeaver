@@ -358,6 +358,12 @@ func (r *Repository) DisableAddresses(ctx context.Context, addressIDs []AddressI
 func (r *Repository) EnableAddress(ctx context.Context, addressID AddressID, source StatusSource) (*Address, error) {
 	return r.recordStatusChange(ctx, addressID, true, source)
 }
+
+// RefreshAddress records activity for an already-enabled address (same DB work as EnableAddress; used for semantic distinction).
+// Refresh is modeled separately at the domain level, but persisted the same as enable to keep full audit history.
+func (r *Repository) RefreshAddress(ctx context.Context, addressID AddressID, source StatusSource) (*Address, error) {
+	return r.EnableAddress(ctx, addressID, source)
+}
 func (r *Repository) recordStatusChange(ctx context.Context, addressID AddressID, isEnabled bool, source StatusSource) (*Address, error) {
 	var finalAddress *Address
 	err := r.runInTx(ctx, func(tx *Repository) error {

@@ -88,8 +88,7 @@ func (s *Service) RunListener(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case event := <-s.events:
-			switch event.Type {
-			case device.EventTypeAddressAssigned:
+			if event.IsAddressEnabled() {
 				if _, err := s.AddAddressLease(ctx, event.DeviceID, event.AddressID); err != nil {
 					s.logger.ErrorContext(ctx, "failed to add address lease",
 						slog.Any(AttrKeyError, err),
@@ -97,7 +96,7 @@ func (s *Service) RunListener(ctx context.Context) error {
 						slog.Int64(AttrKeyDeviceID, event.DeviceID.Int64()),
 					)
 				}
-			case device.EventTypeAddressDisabled:
+			} else {
 				if err := s.DeleteAddressLease(ctx, event.AddressID); err != nil {
 					s.logger.ErrorContext(ctx, "failed to delete address lease",
 						slog.Any(AttrKeyError, err),

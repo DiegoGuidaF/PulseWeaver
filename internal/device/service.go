@@ -20,6 +20,7 @@ type repository interface {
 	DisableAddress(ctx context.Context, addressID AddressID) (*Address, error)
 	DisableAddresses(ctx context.Context, addressIDs []AddressID, source StatusSource) ([]Address, error)
 	EnableAddress(ctx context.Context, addressID AddressID, source StatusSource) (*Address, error)
+	RefreshAddress(ctx context.Context, addressID AddressID, source StatusSource) (*Address, error)
 	CheckAddressOwnership(ctx context.Context, deviceID DeviceID, addressID AddressID) error
 	GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) (*Device, error)
 	GetEnabledUniqueIPs(ctx context.Context) ([]string, error)
@@ -119,14 +120,14 @@ func (s *Service) Authenticate(ctx context.Context, rawKey string) (*Principal, 
 	return PrincipalFromDevice(device), nil
 }
 
-func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIP string, source StatusSource) (*Address, bool, error) {
+func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID DeviceID, inputIP string, source StatusSource) (*Address, EventType, error) {
 	createAddressParams, err := NewCreateAddressParams(deviceID, inputIP, s.trustedProxy)
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
 
 	var address *Address
-	var wasCreated bool
+	var eventType EventType
 
 	err = s.repo.RunInTx(ctx, func(tx repository) error {
 		_, err := tx.GetDevice(ctx, deviceID)
@@ -134,39 +135,45 @@ func (s *Service) AssignAddress(ctx context.Context, deviceID DeviceID, inputIP 
 			return err
 		}
 
-		address, err = tx.GetAddressForDeviceByIP(ctx, deviceID, createAddressParams.IP)
+		existingAddress, err := tx.GetAddressForDeviceByIP(ctx, deviceID, createAddressParams.IP)
 		if err != nil {
 			if errors.Is(err, ErrAddressNotFound) {
-				wasCreated = true
+				eventType = EventTypeAddressCreated
 				address, err = tx.CreateAddress(ctx, createAddressParams)
 				if err != nil {
 					return err
 				}
-			} else {
-				return err
+				return nil
 			}
-		} else {
-			wasCreated = false
-			address, err = tx.EnableAddress(ctx, address.ID, source)
-			if err != nil {
-				return err
-			}
+			return err
+		}
+
+		switch {
+		case !existingAddress.Status:
+			eventType = EventTypeAddressEnabled
+			address, err = tx.EnableAddress(ctx, existingAddress.ID, source)
+		case existingAddress.Status:
+			eventType = EventTypeAddressRefreshed
+			address, err = tx.RefreshAddress(ctx, existingAddress.ID, source)
+		}
+		if err != nil {
+			return err
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
 
-	s.notifyObservers(ctx, NewAddressEvent(address, EventTypeAddressAssigned))
+	s.notifyObservers(ctx, NewAddressEvent(address, eventType))
 
-	s.logger.InfoContext(ctx, "address assigned",
+	s.logger.InfoContext(ctx, "address activity registered",
 		slog.String(AttrKeyAddressIP, address.IP),
 		slog.Int64(AttrKeyAddressID, address.ID.Int64()),
-		slog.Bool(AttrKeyWasCreated, wasCreated),
+		slog.String("event_type", string(eventType)),
 	)
 
-	return address, wasCreated, nil
+	return address, eventType, nil
 }
 
 func (s *Service) GetAddressesForDevice(ctx context.Context, deviceID DeviceID) ([]Address, error) {

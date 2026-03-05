@@ -53,7 +53,11 @@ func (s *Service) Initialize(ctx context.Context) error {
 
 // OnAddressEvent implements device.AddressObserver.
 // Non-blocking signal; context is intentionally discarded.
-func (s *Service) OnAddressEvent(_ context.Context, _ device.AddressEvent) {
+// AddressRefreshed is ignored (no cache refresh) since the IP set is unchanged.
+func (s *Service) OnAddressEvent(_ context.Context, e device.AddressEvent) {
+	if e.Type == device.EventTypeAddressRefreshed {
+		return
+	}
 	select {
 	case s.addressChangeSignal <- struct{}{}:
 	default:

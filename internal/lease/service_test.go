@@ -129,7 +129,7 @@ func TestService_GetExpiredAddressIDs(t *testing.T) {
 	is.Equal(ids[1], device.AddressID(2))
 }
 
-func TestService_OnAddressEvent_AssignedEventProcessedByRunListener(t *testing.T) {
+func TestService_OnAddressEvent_CreatedEventProcessedByRunListener(t *testing.T) {
 	is := is.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -147,7 +147,7 @@ func TestService_OnAddressEvent_AssignedEventProcessedByRunListener(t *testing.T
 	}()
 
 	event := device.AddressEvent{
-		Type:      device.EventTypeAddressAssigned,
+		Type:      device.EventTypeAddressCreated,
 		DeviceID:  device.DeviceID(1),
 		AddressID: device.AddressID(42),
 	}
@@ -214,13 +214,13 @@ func TestService_OnAddressEvent_ContextCancellationUnblocksWhenChannelFull(t *te
 	service.events = make(chan device.AddressEvent, 1)
 
 	// Fill the channel so the next send would block.
-	service.events <- device.AddressEvent{Type: device.EventTypeAddressAssigned}
+	service.events <- device.AddressEvent{Type: device.EventTypeAddressCreated}
 
 	done := make(chan struct{})
 	started := make(chan struct{})
 	go func() {
 		close(started)
-		service.OnAddressEvent(ctx, device.AddressEvent{Type: device.EventTypeAddressAssigned})
+		service.OnAddressEvent(ctx, device.AddressEvent{Type: device.EventTypeAddressCreated})
 		close(done)
 	}()
 
