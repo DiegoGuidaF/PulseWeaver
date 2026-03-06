@@ -35,8 +35,6 @@ func (s *Service) GetDeviceAddressLeaseTTLSeconds(ctx context.Context, deviceID 
 		slog.String(AttrKeyRuleType, string(RuleTypeDeviceAddressLease)),
 	)
 
-	logger.DebugContext(ctx, "evaluating device lease rule")
-
 	//TODO: Call other service method to retrieve rule, less duplicated code
 	rule, err := s.repo.GetRuleByDeviceAndType(ctx, deviceID, RuleTypeDeviceAddressLease)
 	if err != nil {
@@ -81,6 +79,11 @@ func (s *Service) EnableDeviceAddressLeaseRule(
 	deviceID device.DeviceID,
 	ttlSeconds int,
 ) (*DeviceAddressLeaseRule, error) {
+	logger := s.logger.With(
+		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
+		slog.String(AttrKeyRuleType, string(RuleTypeDeviceAddressLease)),
+	)
+
 	config, err := NewDeviceAddressLeaseConfig(ttlSeconds)
 	if err != nil {
 		return nil, err
@@ -90,6 +93,7 @@ func (s *Service) EnableDeviceAddressLeaseRule(
 	if err != nil {
 		return nil, err
 	}
+	logger.InfoContext(ctx, "enabled device address lease rule successfully", slog.Int64(AttrKeyRuleID, int64(newRule.ID)))
 
 	return newRule.ToDeviceAddressLeaseRule()
 }
@@ -97,9 +101,14 @@ func (s *Service) EnableDeviceAddressLeaseRule(
 // DisableDeviceAddressLeaseRule sets enabled to false for the device lease rule for the device.
 // Returns the updated rule or ErrRuleNotFound if no rule exists.
 func (s *Service) DisableDeviceAddressLeaseRule(ctx context.Context, deviceID device.DeviceID) (*DeviceAddressLeaseRule, error) {
+	logger := s.logger.With(
+		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
+		slog.String(AttrKeyRuleType, string(RuleTypeDeviceAddressLease)),
+	)
 	rule, err := s.repo.DisableRule(ctx, deviceID, RuleTypeDeviceAddressLease)
 	if err != nil {
 		return nil, err
 	}
+	logger.InfoContext(ctx, "disabled device address lease rule successfully", slog.Int64(AttrKeyRuleID, int64(rule.ID)))
 	return rule.ToDeviceAddressLeaseRule()
 }

@@ -17,8 +17,8 @@ type HTTPHandler struct {
 	logger      *slog.Logger
 }
 
-// NewHandler returns a new rule HTTP handler.
-func NewHandler(ruleService *Service, logger *slog.Logger) *HTTPHandler {
+// NewHTTPHandler returns a new rule HTTP handler.
+func NewHTTPHandler(ruleService *Service, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{
 		ruleService: ruleService,
 		logger:      logger.With(slog.String(logging.AttrKeyComponent, "rule")),
@@ -27,11 +27,9 @@ func NewHandler(ruleService *Service, logger *slog.Logger) *HTTPHandler {
 
 // GetDeviceAddressLeaseRule returns the device address lease rule for the device.
 func (h *HTTPHandler) GetDeviceAddressLeaseRule(ctx context.Context, request httpapi.GetDeviceAddressLeaseRuleRequestObject) (httpapi.GetDeviceAddressLeaseRuleResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetDeviceAddressLeaseRule")
 	deviceID := device.DeviceID(request.DeviceId)
-	logger := h.logger.With(
-		slog.String(AttrKeyOperation, "GetDeviceAddressLeaseRule"),
-		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
-	)
+	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	addressLeaseRule, err := h.ruleService.GetDeviceAddressLeaseRule(ctx, deviceID)
 	if err != nil {
@@ -53,10 +51,10 @@ func (h *HTTPHandler) GetDeviceAddressLeaseRule(ctx context.Context, request htt
 
 // PutDeviceAddressLeaseRule creates or updates the device address lease rule for the device.
 func (h *HTTPHandler) PutDeviceAddressLeaseRule(ctx context.Context, request httpapi.PutDeviceAddressLeaseRuleRequestObject) (httpapi.PutDeviceAddressLeaseRuleResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "PutDeviceAddressLeaseRule")
 	deviceID := device.DeviceID(request.DeviceId)
 	ttlSeconds := request.Body.TtlSeconds
 	logger := h.logger.With(
-		slog.String(AttrKeyOperation, "PutDeviceAddressLeaseRule"),
 		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
 		slog.Int(AttrDeviceAutoExpiryRuleTTL, ttlSeconds),
 	)
@@ -75,18 +73,19 @@ func (h *HTTPHandler) PutDeviceAddressLeaseRule(ctx context.Context, request htt
 			return httpapi.PutDeviceAddressLeaseRule500JSONResponse(errorMsgResponse("Failed to update rule")), nil
 		}
 	}
+
+	logger.InfoContext(ctx, "device address lease rule updated", slog.Int64(AttrKeyRuleID, int64(r.ID)))
+
 	return httpapi.PutDeviceAddressLeaseRule200JSONResponse(r.toResponse()), nil
 }
 
 // DisableDeviceAddressLeaseRule disables the device address lease rule for the device.
 func (h *HTTPHandler) DisableDeviceAddressLeaseRule(ctx context.Context, request httpapi.DisableDeviceAddressLeaseRuleRequestObject) (httpapi.DisableDeviceAddressLeaseRuleResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "DisableDeviceAddressLeaseRule")
 	deviceID := device.DeviceID(request.DeviceId)
-	logger := h.logger.With(
-		slog.String(AttrKeyOperation, "DisableDeviceAddressLeaseRule"),
-		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
-	)
+	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
-	_, err := h.ruleService.DisableDeviceAddressLeaseRule(ctx, deviceID)
+	rule, err := h.ruleService.DisableDeviceAddressLeaseRule(ctx, deviceID)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrRuleNotFound):
@@ -97,6 +96,7 @@ func (h *HTTPHandler) DisableDeviceAddressLeaseRule(ctx context.Context, request
 			return httpapi.DisableDeviceAddressLeaseRule500JSONResponse(errorMsgResponse("Failed to disable rule")), nil
 		}
 	}
+	logger.InfoContext(ctx, "device address lease rule disabled", slog.Int64(AttrKeyRuleID, int64(rule.ID)))
 
 	return httpapi.DisableDeviceAddressLeaseRule204Response{}, nil
 }

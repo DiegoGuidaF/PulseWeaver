@@ -24,7 +24,8 @@ func NewHTTPHandler(service *Service, logger *slog.Logger) *HTTPHandler {
 // All failure paths return 403 (fail-closed) — never 401, to avoid leaking information.
 func (h *HTTPHandler) HandleForwardAuthIP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	logger := h.logger.With(slog.String(logging.AttrKeyOperation, "HandleForwardAuthIP"))
+	ctx = logging.WithOperation(ctx, "HandleForwardAuthIP")
+	logger := h.logger
 
 	authHeader := r.Header.Get("Authorization")
 	token, ok := strings.CutPrefix(authHeader, "Bearer ")

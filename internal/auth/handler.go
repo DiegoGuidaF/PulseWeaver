@@ -17,11 +17,9 @@ type HTTPHandler struct {
 }
 
 func (h *HTTPHandler) Login(ctx context.Context, request httpapi.LoginRequestObject) (httpapi.LoginResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "Login")
 	username := request.Body.Username
-	logger := h.logger.With(
-		slog.String(AttrKeyOperation, "Login"),
-		slog.String(AttrKeyUsername, username),
-	)
+	logger := h.logger.With(slog.String(AttrKeyUsername, username))
 
 	rawToken, user, err := h.service.Login(ctx, username, request.Body.Password)
 	if err != nil {
@@ -41,7 +39,8 @@ func (h *HTTPHandler) Login(ctx context.Context, request httpapi.LoginRequestObj
 }
 
 func (h *HTTPHandler) Logout(ctx context.Context, _ httpapi.LogoutRequestObject) (httpapi.LogoutResponseObject, error) {
-	logger := h.logger.With(slog.String(AttrKeyOperation, "Logout"))
+	ctx = logging.WithOperation(ctx, "Logout")
+	logger := h.logger
 
 	principal, ok := PrincipalFromContext(ctx)
 	if ok {
@@ -60,7 +59,8 @@ func (h *HTTPHandler) Logout(ctx context.Context, _ httpapi.LogoutRequestObject)
 }
 
 func (h *HTTPHandler) GetCurrentUser(ctx context.Context, _ httpapi.GetCurrentUserRequestObject) (httpapi.GetCurrentUserResponseObject, error) {
-	logger := h.logger.With(slog.String(AttrKeyOperation, "GetCurrentUser"))
+	ctx = logging.WithOperation(ctx, "GetCurrentUser")
+	logger := h.logger
 
 	principal, ok := PrincipalFromContext(ctx)
 	if !ok {
@@ -83,9 +83,9 @@ func (h *HTTPHandler) GetCurrentUser(ctx context.Context, _ httpapi.GetCurrentUs
 }
 
 func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUserRequestObject) (httpapi.CreateUserResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "CreateUser")
 	username := request.Body.Username
 	logger := h.logger.With(
-		slog.String(AttrKeyOperation, "CreateUser"),
 		slog.String(AttrKeyUsername, username),
 		slog.String(AttrKeyDisplayName, request.Body.DisplayName),
 	)
@@ -130,6 +130,8 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUser
 		logger.ErrorContext(ctx, "failed to create user", slog.Any(AttrKeyError, err))
 		return httpapi.CreateUser500JSONResponse(errorMsgResponse("Failed to create user")), nil
 	}
+
+	logger.InfoContext(ctx, "new user created", slog.Int64(AttrKeyUserID, user.ID.Int64()))
 
 	return httpapi.CreateUser201JSONResponse(toUserResponse(user)), nil
 }

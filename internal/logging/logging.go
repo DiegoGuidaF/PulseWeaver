@@ -8,27 +8,30 @@ import (
 	"github.com/lmittmann/tint"
 )
 
-// Tint 8-bit color codes (high intensity 8-15): 9 red, 12 blue, 13 magenta, 14 cyan.
+// Tint 8-bit color codes (high intensity 8-15): 9 red, 11 yellow, 12 blue, 13 magenta, 14 cyan.
 const (
 	tintColorOperation = 13 // bright magenta
+	tintColorComponent = 11 // bright yellow
 	tintColorClientIP  = 14 // bright cyan
 	tintColorRequestID = 12 // bright blue
 	tintColorError     = 9  // bright red
 )
 
-// tintReplaceAttr customized selected attribute keys color (tint handler only).
+// tintReplaceAttr customizes selected attribute keys color (tint handler only).
 func tintReplaceAttr(groups []string, a slog.Attr) slog.Attr {
 	if len(groups) != 0 {
 		return a
 	}
 	switch a.Key {
-	case "operation":
+	case AttrKeyOperation:
 		return tint.Attr(tintColorOperation, a)
-	case "client_ip":
+	case AttrKeyComponent:
+		return tint.Attr(tintColorComponent, a)
+	case AttrKeyClientIP:
 		return tint.Attr(tintColorClientIP, a)
-	case "request_id":
+	case AttrKeyRequestID:
 		return tint.Attr(tintColorRequestID, a)
-	case "error":
+	case AttrKeyError:
 		return tint.Attr(tintColorError, a)
 	}
 	// Color any attribute whose value is an error (e.g. key might vary)

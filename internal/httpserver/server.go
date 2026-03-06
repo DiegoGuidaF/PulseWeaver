@@ -8,12 +8,12 @@ import (
 
 	"github.com/DiegoGuidaF/WallyDex/internal/auth"
 	"github.com/DiegoGuidaF/WallyDex/internal/authz"
+	"github.com/DiegoGuidaF/WallyDex/internal/device"
 	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
+	"github.com/DiegoGuidaF/WallyDex/internal/logging"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	slogchi "github.com/samber/slog-chi"
-
-	"github.com/DiegoGuidaF/WallyDex/internal/device"
 )
 
 type DeviceHandler = device.HTTPHandler
@@ -74,7 +74,7 @@ func createRequestErrorHandler(logger *slog.Logger) func(http.ResponseWriter, *h
 		logger.WarnContext(r.Context(), "request decode error",
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
-			slog.Any("error", err),
+			slog.Any(logging.AttrKeyError, err),
 		)
 
 		w.Header().Set("Content-Type", "application/json")
@@ -98,7 +98,7 @@ func createResponseErrorHandler(logger *slog.Logger) func(http.ResponseWriter, *
 		logger.ErrorContext(r.Context(), "response error",
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
-			slog.Any("error", err),
+			slog.Any(logging.AttrKeyError, err),
 		)
 
 		w.Header().Set("Content-Type", "application/json")

@@ -23,15 +23,14 @@ func NewHTTPHandler(service *Service, logger *slog.Logger) *HTTPHandler {
 }
 
 func (h *HTTPHandler) GetDevices(ctx context.Context, _ httpapi.GetDevicesRequestObject) (httpapi.GetDevicesResponseObject, error) {
-	logger := h.logger.With(slog.String(AttrKeyOperation, "GetDevices"))
+	ctx = logging.WithOperation(ctx, "GetDevices")
+	logger := h.logger
 
 	devices, err := h.service.GetDevices(ctx)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to list devices", slog.Any(AttrKeyError, err))
 		return httpapi.GetDevices500JSONResponse(errorMsgResponse("Error fetching devices")), nil
 	}
-
-	logger.InfoContext(ctx, "devices listed", slog.Int(AttrKeyCount, len(devices)))
 
 	apiDevices := make([]httpapi.Device, len(devices))
 	for i := range devices {
@@ -42,11 +41,9 @@ func (h *HTTPHandler) GetDevices(ctx context.Context, _ httpapi.GetDevicesReques
 }
 
 func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDeviceRequestObject) (httpapi.CreateDeviceResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "CreateDevice")
 	deviceName := request.Body.Name
-	logger := h.logger.With(
-		slog.String(AttrKeyOperation, "CreateDevice"),
-		slog.String(AttrKeyDeviceName, deviceName),
-	)
+	logger := h.logger.With(slog.String(AttrKeyDeviceName, deviceName))
 
 	device, rawAPIKey, err := h.service.CreateDevice(ctx, deviceName)
 	if err != nil {
@@ -59,6 +56,7 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 			return httpapi.CreateDevice500JSONResponse(errorMsgResponse("Failed to create device")), nil
 		}
 	}
+	logger.InfoContext(ctx, "device created", slog.Int64(AttrKeyDeviceID, device.ID.Int64()))
 
 	apiDevice := toDeviceResponse(device)
 	return httpapi.CreateDevice201JSONResponse(httpapi.CreateDeviceResponse{
@@ -68,11 +66,9 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 }
 
 func (h *HTTPHandler) GetDevice(ctx context.Context, request httpapi.GetDeviceRequestObject) (httpapi.GetDeviceResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetDevice")
 	deviceID := DeviceID(request.DeviceId)
-	logger := h.logger.With(
-		slog.String(AttrKeyOperation, "GetDevice"),
-		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
-	)
+	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	device, err := h.service.GetDevice(ctx, deviceID)
 	if err != nil {
@@ -90,11 +86,9 @@ func (h *HTTPHandler) GetDevice(ctx context.Context, request httpapi.GetDeviceRe
 }
 
 func (h *HTTPHandler) DeleteDevice(ctx context.Context, request httpapi.DeleteDeviceRequestObject) (httpapi.DeleteDeviceResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "DeleteDevice")
 	deviceID := DeviceID(request.DeviceId)
-	logger := h.logger.With(
-		slog.String(AttrKeyOperation, "DeleteDevice"),
-		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
-	)
+	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	err := h.service.DeleteDevice(ctx, deviceID)
 	if err != nil {
@@ -107,16 +101,15 @@ func (h *HTTPHandler) DeleteDevice(ctx context.Context, request httpapi.DeleteDe
 			return httpapi.DeleteDevice500JSONResponse(errorMsgResponse("Failed to delete device")), nil
 		}
 	}
+	logger.InfoContext(ctx, "device deleted", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	return httpapi.DeleteDevice204Response{}, nil
 }
 
 func (h *HTTPHandler) GetDeviceAddresses(ctx context.Context, request httpapi.GetDeviceAddressesRequestObject) (httpapi.GetDeviceAddressesResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetDeviceAddresses")
 	deviceID := DeviceID(request.DeviceId)
-	logger := h.logger.With(
-		slog.String(AttrKeyOperation, "GetDeviceAddresses"),
-		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
-	)
+	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	addresses, err := h.service.GetAddressesForDevice(ctx, deviceID)
 	if err != nil {
@@ -131,8 +124,6 @@ func (h *HTTPHandler) GetDeviceAddresses(ctx context.Context, request httpapi.Ge
 		return httpapi.GetDeviceAddresses500JSONResponse(errorMsgResponse("Failed to list device IPs")), nil
 	}
 
-	logger.InfoContext(ctx, "device addresses listed", slog.Int(AttrKeyCount, len(addresses)))
-
 	addressesResponse := make([]httpapi.Address, len(addresses))
 	for i := range addresses {
 		addressesResponse[i] = toAddressResponse(&addresses[i])
@@ -142,15 +133,15 @@ func (h *HTTPHandler) GetDeviceAddresses(ctx context.Context, request httpapi.Ge
 }
 
 func (h *HTTPHandler) AddAddress(ctx context.Context, request httpapi.AddAddressRequestObject) (httpapi.AddAddressResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "AddAddress")
 	deviceID := DeviceID(request.DeviceId)
 	ipAddress := request.Body.Ip
 	logger := h.logger.With(
-		slog.String(AttrKeyOperation, "AddAddress"),
 		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
 		slog.String(AttrKeyAddressIP, ipAddress),
 	)
 
-	addressWithIP, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, ipAddress, StatusSourceManual)
+	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, ipAddress, StatusSourceManual)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
@@ -170,47 +161,23 @@ func (h *HTTPHandler) AddAddress(ctx context.Context, request httpapi.AddAddress
 			return httpapi.AddAddress500JSONResponse(errorMsgResponse("Failed to assign address")), nil
 		}
 	}
-
-	if eventType == EventTypeAddressCreated {
-		return httpapi.AddAddress201JSONResponse(toAddressResponse(addressWithIP)), nil
-	}
-
-	return httpapi.AddAddress200JSONResponse(toAddressResponse(addressWithIP)), nil
-}
-
-func (h *HTTPHandler) DisableAddress(ctx context.Context, request httpapi.DisableAddressRequestObject) (httpapi.DisableAddressResponseObject, error) {
-	deviceID := DeviceID(request.DeviceId)
-	addressID := AddressID(request.AddressId)
-	logger := h.logger.With(
-		slog.String(AttrKeyOperation, "DisableAddress"),
-		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
-		slog.Int64(AttrKeyAddressID, addressID.Int64()),
+	logger.InfoContext(ctx,
+		"manual address register successful",
+		slog.Int64(AttrKeyAddressID, address.ID.Int64()),
+		slog.String(AttrKeyAddressEventType, string(eventType)),
 	)
 
-	address, err := h.service.DisableAddress(ctx, deviceID, addressID)
-	if err != nil {
-		switch {
-		case errors.Is(err, ErrDeviceNotFound):
-			logger.WarnContext(ctx, "device not found")
-			return httpapi.DisableAddress404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
-		case errors.Is(err, ErrAddressNotFound) || errors.Is(err, ErrAddressNotOwnedByDevice):
-			logger.WarnContext(ctx, "address not found or not owned by device")
-			return httpapi.DisableAddress404JSONResponse(errorMsgResponse(fmt.Sprintf("Address id %s for device id %s not found or already disabled", addressID, deviceID))), nil
-		default:
-			logger.ErrorContext(ctx, "failed to disable address", slog.Any(AttrKeyError, err))
-			return httpapi.DisableAddress500JSONResponse(errorMsgResponse("Failed to disable address")), nil
-		}
+	if eventType == EventTypeAddressCreated {
+		return httpapi.AddAddress201JSONResponse(toAddressResponse(address)), nil
 	}
 
-	return httpapi.DisableAddress200JSONResponse(toAddressResponse(address)), nil
+	return httpapi.AddAddress200JSONResponse(toAddressResponse(address)), nil
 }
 
 func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request httpapi.DeviceHeartbeatRequestObject) (httpapi.DeviceHeartbeatResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "DeviceHeartbeat")
 	deviceID := DeviceID(request.DeviceId)
-	logger := h.logger.With(
-		slog.String(AttrKeyOperation, "DeviceHeartbeat"),
-		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
-	)
+	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	clientIP, ok := httpapi.ClientIPFromContext(ctx)
 	if !ok {
@@ -240,7 +207,12 @@ func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request httpapi.Devic
 		}
 	}
 
-	logger.InfoContext(ctx, "device heartbeat successful")
+	logger.InfoContext(ctx,
+		"maual device heartbeat successful",
+		slog.Int64(AttrKeyAddressID, address.ID.Int64()),
+		slog.String(AttrKeyAddressEventType, string(eventType)),
+	)
+
 	if eventType == EventTypeAddressCreated {
 		return httpapi.DeviceHeartbeat201JSONResponse(toAddressResponse(address)), nil
 	}
@@ -249,7 +221,8 @@ func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request httpapi.Devic
 }
 
 func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, request httpapi.DeviceHeartbeatByAPIKeyRequestObject) (httpapi.DeviceHeartbeatByAPIKeyResponseObject, error) {
-	logger := h.logger.With(slog.String(AttrKeyOperation, "DeviceHeartbeatByAPIKey"))
+	ctx = logging.WithOperation(ctx, "DeviceHeartbeatByAPIKey")
+	logger := h.logger
 
 	// Extract deviceID from context
 	principal, ok := PrincipalFromContext(ctx)
@@ -295,13 +268,45 @@ func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, request httpa
 			return httpapi.DeviceHeartbeatByAPIKey500JSONResponse(errorMsgResponse("Failed to checkin device")), nil
 		}
 	}
-	logger.InfoContext(ctx, "apikey heartbeat successful")
+
+	logger.DebugContext(ctx,
+		"apikey device heartbeat successful",
+		slog.Int64(AttrKeyAddressID, address.ID.Int64()),
+		slog.String(AttrKeyAddressEventType, string(eventType)),
+	)
 
 	if eventType == EventTypeAddressCreated {
 		return httpapi.DeviceHeartbeatByAPIKey201JSONResponse(toAddressResponse(address)), nil
 	}
-
 	return httpapi.DeviceHeartbeatByAPIKey200JSONResponse(toAddressResponse(address)), nil
+}
+
+func (h *HTTPHandler) DisableAddress(ctx context.Context, request httpapi.DisableAddressRequestObject) (httpapi.DisableAddressResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "DisableAddress")
+	deviceID := DeviceID(request.DeviceId)
+	addressID := AddressID(request.AddressId)
+	logger := h.logger.With(
+		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
+		slog.Int64(AttrKeyAddressID, addressID.Int64()),
+	)
+
+	address, err := h.service.DisableAddress(ctx, deviceID, addressID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrDeviceNotFound):
+			logger.WarnContext(ctx, "device not found")
+			return httpapi.DisableAddress404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
+		case errors.Is(err, ErrAddressNotFound) || errors.Is(err, ErrAddressNotOwnedByDevice):
+			logger.WarnContext(ctx, "address not found or not owned by device")
+			return httpapi.DisableAddress404JSONResponse(errorMsgResponse(fmt.Sprintf("Address id %s for device id %s not found or already disabled", addressID, deviceID))), nil
+		default:
+			logger.ErrorContext(ctx, "failed to disable address", slog.Any(AttrKeyError, err))
+			return httpapi.DisableAddress500JSONResponse(errorMsgResponse("Failed to disable address")), nil
+		}
+	}
+	logger.DebugContext(ctx, "address disabled")
+
+	return httpapi.DisableAddress200JSONResponse(toAddressResponse(address)), nil
 }
 
 func (h *HTTPHandler) APIKeyAuthenticator() APIKeyAuthenticator {

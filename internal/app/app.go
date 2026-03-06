@@ -103,7 +103,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Rule evaluation
 	ruleRepo := rule.NewRepository(db.DB())
 	ruleService := rule.NewService(ruleRepo, logger)
-	ruleHandler := rule.NewHandler(ruleService, logger)
+	ruleHandler := rule.NewHTTPHandler(ruleService, logger)
 
 	// Address Lease manager
 	addressLeaseRepo := lease.NewRepository(db.DB())

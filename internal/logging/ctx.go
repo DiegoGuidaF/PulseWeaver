@@ -38,3 +38,20 @@ func ClientIPFromCtx(ctx context.Context) (string, bool) {
 	ip, ok := ctx.Value(clientIPKey).(string)
 	return ip, ok
 }
+
+// operationKeyType is an unexported type for the operation context key.
+type operationKeyType struct{}
+
+var operationKey = operationKeyType{}
+
+// WithOperation stores the operation string in the context for the slog handler to stamp automatically.
+func WithOperation(ctx context.Context, operation string) context.Context {
+	return context.WithValue(ctx, operationKey, operation)
+}
+
+// OperationFromCtx retrieves the operation stored by WithOperation.
+// Returns empty string and false if not present.
+func OperationFromCtx(ctx context.Context) (string, bool) {
+	op, ok := ctx.Value(operationKey).(string)
+	return op, ok
+}

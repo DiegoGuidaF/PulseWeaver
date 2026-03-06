@@ -36,6 +36,8 @@ func NewService(repository repository, ttlConfigRetriever TTLConfigRetriever, lo
 }
 
 func (s *Service) AddAddressLease(ctx context.Context, deviceID device.DeviceID, addressID device.AddressID) (*AddressLease, error) {
+	ctx = logging.WithOperation(ctx, "AddAddressLease")
+
 	addressTTL, err := s.ttlConfigRetriever.GetDeviceAddressLeaseTTLSeconds(ctx, deviceID)
 	if err != nil {
 		return nil, err
@@ -57,6 +59,8 @@ func (s *Service) AddAddressLease(ctx context.Context, deviceID device.DeviceID,
 }
 
 func (s *Service) DeleteAddressLease(ctx context.Context, addressID device.AddressID) error {
+	ctx = logging.WithOperation(ctx, "DeleteAddressLease")
+
 	err := s.repository.DeleteAddressLeaseByAddressID(ctx, addressID)
 	if err != nil {
 		// No lease found, not an error
@@ -70,10 +74,12 @@ func (s *Service) DeleteAddressLease(ctx context.Context, addressID device.Addre
 }
 
 func (s *Service) GetExpiredAddressIDs(ctx context.Context) ([]device.AddressID, error) {
+	ctx = logging.WithOperation(ctx, "GetExpiredAddressIDs")
 	return s.repository.GetExpiredAddressIDs(ctx)
 }
 
 func (s *Service) OnAddressEvent(ctx context.Context, event device.AddressEvent) {
+	ctx = logging.WithOperation(ctx, "OnAddressEvent")
 	select {
 	case <-ctx.Done():
 		return
