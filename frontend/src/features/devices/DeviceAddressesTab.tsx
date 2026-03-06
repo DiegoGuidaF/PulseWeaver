@@ -1,4 +1,14 @@
 import { useState } from "react";
+
+const REFRESH_OPTIONS = [
+  { label: "Off", value: 0 },
+  { label: "1s", value: 1_000 },
+  { label: "5s", value: 5_000 },
+  { label: "15s", value: 15_000 },
+  { label: "30s", value: 30_000 },
+  { label: "1 min", value: 60_000 },
+  { label: "5 min", value: 300_000 },
+] as const;
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -41,6 +51,7 @@ import { zAddAddressRequest } from "@/lib/api/zod.gen";
 import { useDeviceAddresses } from "@/features/devices/hooks/useDeviceAddresses";
 import { useAddDeviceAddress } from "@/features/devices/hooks/useAddDeviceAddress";
 import { useDisableDeviceAddress } from "@/features/devices/hooks/useDisableDeviceAddress";
+import { useDeviceHeartbeat } from "@/features/devices/hooks/useDeviceHeartbeat";
 
 const addressSchema = zAddAddressRequest;
 
@@ -49,7 +60,13 @@ interface DeviceAddressesTabProps {
 }
 
 export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
-  const { data: addresses, isLoading } = useDeviceAddresses(deviceId);
+  const [refreshInterval, setRefreshInterval] = useState<number>(5_000);
+  const { data: addresses, isLoading } = useDeviceAddresses(
+    deviceId,
+    true,
+    refreshInterval === 0 ? false : refreshInterval,
+  );
+  const heartbeatMutation = useDeviceHeartbeat(deviceId);
   const form = useForm<z.infer<typeof addressSchema>>({
     resolver: zodResolver(addressSchema),
     defaultValues: { ip: "" },
@@ -90,6 +107,31 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
     <div className="space-y-6">
       <Card>
         <CardHeader>
+          <CardTitle>Heartbeat</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button
+              type="button"
+              onClick={() =>
+                heartbeatMutation.mutate({ path: { device_id: deviceId } })
+              }
+              disabled={heartbeatMutation.isPending}
+            >
+              {heartbeatMutation.isPending ? "Registering..." : "Register my IP"}
+            </Button>
+            {heartbeatMutation.data && (
+              <span className="text-sm text-muted-foreground">
+                Your current IP:{" "}
+                <span className="font-mono">{heartbeatMutation.data.ip}</span>
+              </span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Add IP address</CardTitle>
         </CardHeader>
         <CardContent>
@@ -128,8 +170,28 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Assigned addresses</CardTitle>
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="refresh-interval"
+              className="text-sm text-muted-foreground whitespace-nowrap"
+            >
+              Auto-refresh
+            </label>
+            <select
+              id="refresh-interval"
+              value={refreshInterval}
+              onChange={(e) => setRefreshInterval(Number(e.target.value))}
+              className="rounded-md border border-input bg-background px-2 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              {REFRESH_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (

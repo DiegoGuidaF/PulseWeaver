@@ -514,9 +514,9 @@ export const getDeviceAddressLeaseRuleQueryKey = (
 ) => createQueryKey("getDeviceAddressLeaseRule", options);
 
 /**
- * Get IP auto-expiry rule for a device
+ * Get address lease rule for a device
  *
- * Returns the ip_auto_expiry rule for the device if configured.
+ * Returns the address lease rule for the device if configured.
  */
 export const getDeviceAddressLeaseRuleOptions = (
   options: Options<GetDeviceAddressLeaseRuleData>,

@@ -513,9 +513,9 @@ export const disableDeviceAddressLeaseRule = <
   });
 
 /**
- * Get IP auto-expiry rule for a device
+ * Get address lease rule for a device
  *
- * Returns the ip_auto_expiry rule for the device if configured.
+ * Returns the address lease rule for the device if configured.
  */
 export const getDeviceAddressLeaseRule = <ThrowOnError extends boolean = false>(
   options: Options<GetDeviceAddressLeaseRuleData, ThrowOnError>,
