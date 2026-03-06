@@ -33,6 +33,9 @@ scratch_test.go
 !.vscode/tasks.json
 !.vscode/launch.json
 
+# GoLand
+.idea/*
+
 # Vim/Emacs
 *.swp
 *.swo
@@ -41,3 +44,6 @@ scratch_test.go
 # --- OS Specific ---
 .DS_Store
 Thumbs.db
+
+# Planning repository (internal, separate git repo)
+planning/
