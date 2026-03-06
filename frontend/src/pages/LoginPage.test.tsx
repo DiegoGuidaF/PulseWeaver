@@ -29,9 +29,12 @@ describe('LoginPage', () => {
 
         renderLoginPage({initialEntries: ['/login']});
 
-        await waitFor(() => {
-            expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
-        });
+        await waitFor(
+            () => {
+                expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.SHORT}
+        );
 
         expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
         expect(screen.getByRole('button', {name: /sign in/i})).toBeInTheDocument();
@@ -58,10 +61,12 @@ describe('LoginPage', () => {
         renderLoginPage();
 
         // Wait for redirect to happen
-        await waitFor(() => {
-            // Check that we're not showing the login form
-            expect(screen.queryByLabelText(/username/i)).not.toBeInTheDocument();
-        });
+        await waitFor(
+            () => {
+                expect(screen.queryByLabelText(/username/i)).not.toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.MEDIUM}
+        );
     });
 
     it('shows loading state during login submission', async () => {
@@ -80,9 +85,12 @@ describe('LoginPage', () => {
 
         renderLoginPage({initialEntries: ['/login']});
 
-        await waitFor(() => {
-            expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
-        });
+        await waitFor(
+            () => {
+                expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.SHORT}
+        );
 
         const usernameInput = screen.getByLabelText(/username/i);
         const passwordInput = screen.getByLabelText(/password/i);
@@ -99,19 +107,27 @@ describe('LoginPage', () => {
 
     it('successfully logs in and navigates to /devices', async () => {
         const user = userEvent.setup();
+        let meCallCount = 0;
 
         server.use(
             handlers.auth.meHandler(undefined, async () => {
-                return responses.unauthorized()
+                meCallCount++;
+                if (meCallCount === 1) {
+                    return responses.unauthorized();
+                }
+                return responses.ok(createMockUser());
             }),
             handlers.auth.loginHandler()
         );
 
         renderLoginPage({initialEntries: ['/login']});
 
-        await waitFor(() => {
-            expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
-        });
+        await waitFor(
+            () => {
+                expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.SHORT}
+        );
 
         const usernameInput = screen.getByLabelText(/username/i);
         const passwordInput = screen.getByLabelText(/password/i);
@@ -121,12 +137,12 @@ describe('LoginPage', () => {
         await user.type(passwordInput, 'password');
         await user.click(submitButton);
 
-        // Wait for mutation to complete - button should no longer be in loading state
-        await waitFor(() => {
-            const button = screen.getByRole('button', {name: /sign in/i});
-            expect(button).not.toBeDisabled();
-            expect(button).not.toHaveTextContent(/signing in/i);
-        }, {timeout: TEST_TIMEOUTS.MEDIUM});
+        await waitFor(
+            () => {
+                expect(screen.queryByLabelText(/username/i)).not.toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.MEDIUM}
+        );
     });
 
     it('successfully logs in and navigates to returnTo query parameter', async () => {
@@ -141,9 +157,12 @@ describe('LoginPage', () => {
 
         renderLoginPage({initialEntries: ['/login?returnTo=/custom-path']});
 
-        await waitFor(() => {
-            expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
-        });
+        await waitFor(
+            () => {
+                expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.SHORT}
+        );
 
         const usernameInput = screen.getByLabelText(/username/i);
         const passwordInput = screen.getByLabelText(/password/i);
@@ -154,9 +173,12 @@ describe('LoginPage', () => {
         await user.click(submitButton);
 
         // Wait for success toast (user feedback is important to test)
-        await waitFor(() => {
-            expect(screen.getByText(/login successful/i)).toBeInTheDocument();
-        }, {timeout: TEST_TIMEOUTS.MEDIUM});
+        await waitFor(
+            () => {
+                expect(screen.getByText(/login successful/i)).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.MEDIUM}
+        );
     });
 
     it('shows error toast on login failure', async () => {
@@ -173,9 +195,12 @@ describe('LoginPage', () => {
 
         renderLoginPage({initialEntries: ['/login']});
 
-        await waitFor(() => {
-            expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
-        });
+        await waitFor(
+            () => {
+                expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.SHORT}
+        );
 
         const usernameInput = screen.getByLabelText(/username/i);
         const passwordInput = screen.getByLabelText(/password/i);
@@ -187,10 +212,13 @@ describe('LoginPage', () => {
 
         // Wait for error toast to appear (user feedback is important to test)
         // Toast has both title and description, so use getAllByText
-        await waitFor(() => {
-            const toastElements = screen.getAllByText(/login failed/i);
-            expect(toastElements.length).toBeGreaterThan(0);
-        }, {timeout: TEST_TIMEOUTS.MEDIUM});
+        await waitFor(
+            () => {
+                const toastElements = screen.getAllByText(/login failed/i);
+                expect(toastElements.length).toBeGreaterThan(0);
+            },
+            {timeout: TEST_TIMEOUTS.MEDIUM}
+        );
 
         // Form should still be visible
         expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
@@ -207,20 +235,26 @@ describe('LoginPage', () => {
 
         renderLoginPage({initialEntries: ['/login']});
 
-        await waitFor(() => {
-            expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
-        });
+        await waitFor(
+            () => {
+                expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.SHORT}
+        );
 
         const submitButton = screen.getByRole('button', {name: /sign in/i});
         await user.click(submitButton);
 
         // Wait for validation errors - check that inputs are marked as invalid
         // (ARIA attributes are acceptable for form validation testing)
-        await waitFor(() => {
-            const usernameInput = screen.getByLabelText(/username/i);
-            const passwordInput = screen.getByLabelText(/password/i);
-            expect(usernameInput).toHaveAttribute('aria-invalid', 'true');
-            expect(passwordInput).toHaveAttribute('aria-invalid', 'true');
-        });
+        await waitFor(
+            () => {
+                const usernameInput = screen.getByLabelText(/username/i);
+                const passwordInput = screen.getByLabelText(/password/i);
+                expect(usernameInput).toHaveAttribute('aria-invalid', 'true');
+                expect(passwordInput).toHaveAttribute('aria-invalid', 'true');
+            },
+            {timeout: TEST_TIMEOUTS.SHORT}
+        );
     });
 });

@@ -15,6 +15,7 @@ const apiEndpoints = {
     deviceById: `${BASE_URL}/devices/:deviceId`,
     deviceAddresses: `${BASE_URL}/devices/:deviceId/addresses`,
     deleteDeviceAddresses: `${BASE_URL}/devices/:deviceId/addresses/:addressId`,
+    deviceHeartbeat: `${BASE_URL}/devices/:deviceId/heartbeat`,
     deviceAddressLeaseRule: `${BASE_URL}/devices/:deviceId/rules/address_lease`,
     authMe: `${BASE_URL}/auth/me`,
     authLogin: `${BASE_URL}/auth/login`,
@@ -37,6 +38,12 @@ const devicesHandlers = {
         apiEndpoints.devices,
         () => [createMockDevice()]
     ),
+    // GET /devices/:deviceId
+    getDeviceHandler: createHttpHandler(
+        'get',
+        apiEndpoints.deviceById,
+        (info) => createMockDevice({id: Number(info.params.deviceId)})
+    ),
     // DELETE /devices/:deviceId (custom resolver always used; factory unused)
     deleteDeviceHandler: createHttpHandler(
         'delete',
@@ -57,6 +64,12 @@ const addressHandlers = {
         apiEndpoints.deviceAddresses,
         () => createMockAddress(),
         201
+    ),
+    heartbeatHandler: createHttpHandler(
+        'post',
+        apiEndpoints.deviceHeartbeat,
+        () => createMockAddress({ip: '192.168.1.100', status: true}),
+        200
     ),
     deleteAddressHandler: createHttpHandler(
         'delete',

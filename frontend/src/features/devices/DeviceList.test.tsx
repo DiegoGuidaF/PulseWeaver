@@ -10,37 +10,30 @@ import {handlers, responses} from "@/test/mocks/handlers.ts";
 import {TEST_TIMEOUTS} from '@/test/constants';
 
 describe('DeviceList', () => {
-
-    it('renders manage link for each device that navigates to detail page', async () => {
+    it('renders device table with manage link and delete button', async () => {
         const mockDevices = [
             createMockDevice({id: 1, name: 'Device One'}),
+            createMockDevice({id: 2, name: 'Device Two'}),
         ];
         server.use(handlers.devices.getDeviceListHandler(mockDevices));
 
         renderWithProviders(<DeviceList/>);
 
-        await waitFor(() => {
-            expect(screen.getByText('Device One')).toBeInTheDocument();
-        });
+        await waitFor(
+            () => {
+                expect(screen.getByText('Device One')).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.SHORT}
+        );
 
-        const manageLink = screen.getByRole('link', {name: /manage/i});
-        expect(manageLink).toHaveAttribute('href', '/devices/1');
-    });
-
-    it('shows delete button for each device', async () => {
-        const mockDevices = [
-            createMockDevice({id: 1, name: 'Device One'}),
-        ];
-        server.use(handlers.devices.getDeviceListHandler(mockDevices));
-
-        renderWithProviders(<DeviceList/>);
-
-        await waitFor(() => {
-            expect(screen.getByText('Device One')).toBeInTheDocument();
-        });
+        const manageLinks = screen.getAllByRole('link', {name: /manage/i});
+        expect(manageLinks[0]).toHaveAttribute('href', '/devices/1');
+        expect(manageLinks[1]).toHaveAttribute('href', '/devices/2');
         expect(
             screen.getByRole('button', {name: /delete device device one/i})
         ).toBeInTheDocument();
+        expect(screen.getByText('Device Two')).toBeInTheDocument();
+        expect(screen.getByText('2')).toBeInTheDocument();
     });
 
     it('opens confirm dialog when delete is clicked', async () => {
@@ -52,9 +45,12 @@ describe('DeviceList', () => {
 
         renderWithProviders(<DeviceList/>);
 
-        await waitFor(() => {
-            expect(screen.getByText('To Delete')).toBeInTheDocument();
-        });
+        await waitFor(
+            () => {
+                expect(screen.getByText('To Delete')).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.SHORT}
+        );
 
         await user.click(
             screen.getByRole('button', {name: /delete device to delete/i})
@@ -87,9 +83,12 @@ describe('DeviceList', () => {
 
         renderWithProviders(<DeviceList/>);
 
-        await waitFor(() => {
-            expect(screen.getByText('To Delete')).toBeInTheDocument();
-        });
+        await waitFor(
+            () => {
+                expect(screen.getByText('To Delete')).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.SHORT}
+        );
 
         await user.click(
             screen.getByRole('button', {name: /delete device to delete/i})
@@ -113,7 +112,7 @@ describe('DeviceList', () => {
         );
     });
 
-    it('shows loading skeleton initially', async () => {
+    it('shows loading skeleton initially', () => {
         server.use(
             handlers.devices.getDeviceListHandler(undefined, async () => {
                 await delay('infinite');
@@ -125,32 +124,8 @@ describe('DeviceList', () => {
 
         // Verify title is shown
         expect(screen.getByText('Devices')).toBeInTheDocument();
-
-        // Verify skeleton elements are present
-        const skeletons = screen.getAllByRole('generic');
-        expect(skeletons.length).toBeGreaterThan(0);
-    });
-
-    it('renders devices after successful fetch', async () => {
-        const mockDevices = [
-            createMockDevice({id: 1, name: 'Test Device 1'}),
-            createMockDevice({id: 2, name: 'Test Device 2'}),
-        ];
-
-        server.use(
-            handlers.devices.getDeviceListHandler(mockDevices)
-        );
-
-        renderWithProviders(<DeviceList/>);
-
-        // Wait for devices to appear
-        await waitFor(() => {
-            expect(screen.getByText('Test Device 1')).toBeInTheDocument();
-        });
-
-        expect(screen.getByText('Test Device 2')).toBeInTheDocument();
-        expect(screen.getByText('1')).toBeInTheDocument(); // Device ID
-        expect(screen.getByText('2')).toBeInTheDocument(); // Device ID
+        expect(screen.queryByText('Test Device 1')).not.toBeInTheDocument();
+        expect(screen.queryByText('No devices found.')).not.toBeInTheDocument();
     });
 
     it('shows empty state when no devices are found', async () => {
@@ -160,9 +135,12 @@ describe('DeviceList', () => {
 
         renderWithProviders(<DeviceList/>);
 
-        await waitFor(() => {
-            expect(screen.getByText('No devices found.')).toBeInTheDocument();
-        });
+        await waitFor(
+            () => {
+                expect(screen.getByText('No devices found.')).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.SHORT}
+        );
 
         expect(
             screen.getByText('Add a device above to get started.')
@@ -178,8 +156,11 @@ describe('DeviceList', () => {
 
         renderWithProviders(<DeviceList/>);
 
-        await waitFor(() => {
-            expect(screen.getByText(/Error:/i)).toBeInTheDocument();
-        });
+        await waitFor(
+            () => {
+                expect(screen.getByText(/Error:/i)).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.SHORT}
+        );
     });
 });

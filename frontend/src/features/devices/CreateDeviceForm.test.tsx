@@ -21,17 +21,17 @@ describe('CreateDeviceForm', () => {
         const user = userEvent.setup();
         renderWithProviders(<CreateDeviceForm/>);
 
-        const input = screen.getByLabelText('New Device Name');
+        const input = screen.getByRole('textbox', {name: /new device name/i});
         const submitButton = screen.getByRole('button', {name: /add device/i});
         await user.click(submitButton);
 
-        await waitFor(() => {
-            // Check that input is marked as invalid
-            expect(input).toHaveAttribute('aria-invalid', 'true');
-            // Check for any error message text (zod validation messages vary)
-            const errorMessage = screen.getByRole('textbox', {name: /new device name/i}).closest('div')?.querySelector('p');
-            expect(errorMessage).toBeInTheDocument();
-        });
+        await waitFor(
+            () => {
+                expect(input).toBeInvalid();
+                expect(screen.getByText(/at least|too short|too small|required/i)).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.SHORT}
+        );
     });
 
     it('shows loading state during submission', async () => {
@@ -103,13 +103,16 @@ describe('CreateDeviceForm', () => {
         const closeButton = screen.getByRole('button', {name: /i've saved it/i});
         await user.click(closeButton);
 
-        await waitFor(() => {
-            expect(
-                screen.queryByRole('dialog', {
-                    name: /device created — save your api key/i,
-                }),
-            ).not.toBeInTheDocument();
-        });
+        await waitFor(
+            () => {
+                expect(
+                    screen.queryByRole('dialog', {
+                        name: /device created — save your api key/i,
+                    }),
+                ).not.toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.SHORT}
+        );
 
         expect(screen.getByLabelText('New Device Name')).toHaveValue('');
         expect(screen.getByRole('button', {name: /add device/i})).toBeInTheDocument();
@@ -134,9 +137,12 @@ describe('CreateDeviceForm', () => {
         await user.click(submitButton);
 
         // Wait for error toast to appear (user feedback is important to test)
-        await waitFor(() => {
-            expect(screen.getByText(/error creating device/i)).toBeInTheDocument();
-        }, {timeout: TEST_TIMEOUTS.MEDIUM});
+        await waitFor(
+            () => {
+                expect(screen.getByText(/error creating device/i)).toBeInTheDocument();
+            },
+            {timeout: TEST_TIMEOUTS.MEDIUM}
+        );
 
         // Form should not be reset on error
         expect((input as HTMLInputElement).value).toBe('Test Device');

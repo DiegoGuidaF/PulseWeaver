@@ -1,7 +1,12 @@
 import type {ReactElement} from 'react';
 import { render, type RenderOptions } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, type MemoryRouterProps } from 'react-router-dom';
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  type MemoryRouterProps,
+} from 'react-router-dom';
 import { Toaster } from 'sonner';
 
 /**
@@ -23,6 +28,7 @@ function createTestQueryClient() {
 interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper'> {
   queryClient?: QueryClient;
   initialEntries?: MemoryRouterProps['initialEntries'];
+  path?: string;
 }
 
 /**
@@ -33,6 +39,7 @@ interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper'> {
  * @param options - Optional configuration
  * @param options.queryClient - Custom QueryClient instance (defaults to test-friendly config)
  * @param options.initialEntries - Initial router entries (defaults to ['/'])
+ * @param options.path - Optional route path wrapper for components using useParams
  * @returns Render result with queryClient for test access
  */
 export function renderWithProviders(
@@ -40,9 +47,19 @@ export function renderWithProviders(
   {
     queryClient = createTestQueryClient(),
     initialEntries = ['/'],
+    path,
     ...renderOptions
   }: RenderWithProvidersOptions = {}
 ) {
+  const content = path ? (
+    <Routes>
+      <Route path={path} element={ui} />
+      <Route path="*" element={null} />
+    </Routes>
+  ) : (
+    ui
+  );
+
   function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
@@ -54,7 +71,7 @@ export function renderWithProviders(
     );
   }
 
-  const result = render(ui, { wrapper: Wrapper, ...renderOptions });
+  const result = render(content, { wrapper: Wrapper, ...renderOptions });
   return {
     ...result,
     queryClient,
