@@ -677,7 +677,6 @@ func (m *mockRepository) CreateAddress(ctx context.Context, params *CreateAddres
 		IP:        params.IP.String(),
 		Status:    true,
 		Source:    StatusSourceManual,
-		ExpiresAt: nil,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}

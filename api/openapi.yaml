@@ -496,8 +496,8 @@ paths:
       operationId: getDeviceAddressLeaseRule
       tags:
         - rules
-      summary: Get IP auto-expiry rule for a device
-      description: Returns the ip_auto_expiry rule for the device if configured.
+      summary: Get address lease rule for a device
+      description: Returns the address lease rule for the device if configured.
       parameters:
         - name: device_id
           in: path

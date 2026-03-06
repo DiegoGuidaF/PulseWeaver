@@ -14,7 +14,6 @@ type Address struct {
 	IP        string       `db:"ip"`
 	Status    bool         `db:"is_enabled"`
 	Source    StatusSource `db:"source"`
-	ExpiresAt *time.Time   `db:"expires_at"`
 	CreatedAt time.Time    `db:"created_at"`
 	UpdatedAt time.Time    `db:"updated_at"`
 }
