@@ -57,7 +57,6 @@ COPY --from=backend-builder /app/data /app/data
 
 # Set default environment variables for data persistence
 ENV DB_FILE=/app/data/wallydic.db
-ENV WHITELIST_FILE_PATH=/app/data/whitelist.txt
 
 # Expose default port
 EXPOSE 8080

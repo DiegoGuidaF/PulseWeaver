@@ -148,28 +148,6 @@ In monolithic codebases, when one domain needs data owned by another, prefer int
 - Keeps owning domain independent (no reverse dependencies)
 - Clear dependency direction
 
-**Pattern:**
-```go
-// ✅ CORRECT: Consumer declares interface, owner implements it
-// In whitelist domain:
-type EnabledIPsProvider interface {
-    GetEnabledIPs(ctx context.Context) ([]string, error)
-}
-
-// In device domain (owns the data):
-func (r *Repository) GetEnabledIPs(ctx context.Context) ([]string, error) {
-    // Query address_with_status view
-    return ips, nil
-}
-
-// Whitelist service uses device repository as provider
-whitelistService := whitelist.NewService(deviceRepo, ...)
-
-// ❌ AVOID: Duplicating queries/models
-// Whitelist repository querying address_with_status directly
-// This duplicates the query logic and creates maintenance burden
-```
-
 **Guidelines:**
 - Consumer domain declares interface (e.g., `EnabledIPsProvider`)
 - Owner domain implements interface method on repository
