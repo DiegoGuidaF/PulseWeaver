@@ -714,6 +714,7 @@ components:
         created_at:
           type: string
           format: date-time
+          x-go-type: UTCTime
     Device:
       type: object
       required:
@@ -725,6 +726,7 @@ components:
         created_at:
           type: string
           format: date-time
+          x-go-type: UTCTime
         id:
           $ref: '#/components/schemas/ID'
         name:
@@ -757,9 +759,11 @@ components:
         created_at:
           type: string
           format: date-time
+          x-go-type: UTCTime
         updated_at:
           type: string
           format: date-time
+          x-go-type: UTCTime
           description: Last time it was enabled or disabled
 
     DeviceAddressLeaseRule:
@@ -786,9 +790,11 @@ components:
         created_at:
           type: string
           format: date-time
+          x-go-type: UTCTime
         updated_at:
           type: string
           format: date-time
+          x-go-type: UTCTime
 
     PutDeviceAddressLeaseRuleRequest:
       type: object

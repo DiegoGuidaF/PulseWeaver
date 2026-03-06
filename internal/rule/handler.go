@@ -107,8 +107,8 @@ func (r *DeviceAddressLeaseRule) toResponse() httpapi.DeviceAddressLeaseRule {
 		DeviceId:   httpapi.ID(r.DeviceID),
 		Enabled:    r.Enabled,
 		TtlSeconds: r.Config.TTLSeconds,
-		CreatedAt:  r.CreatedAt,
-		UpdatedAt:  r.UpdatedAt,
+		CreatedAt:  httpapi.UTCTime(r.CreatedAt),
+		UpdatedAt:  httpapi.UTCTime(r.UpdatedAt),
 	}
 }
 

@@ -213,7 +213,7 @@ securely (e.g. in your `.env` file with restricted permissions).
 | `TRUSTED_PROXY`       | No                 | —         | Single IP address of your reverse proxy. Required when running behind a proxy — see [Understanding TRUSTED_PROXY](#understanding-trusted_proxy). |
 | `DB_FILE`             | No                 | `data.db` | Path to the SQLite database file.                                                                                                    |
 | `RULE_CHECK_INTERVAL` | No                 | `1m`      | How often the scheduler checks for expired address leases.<br/> Set this to the lowest address lease TTL you'll use.                 |
-| `TZ`                  | No                 | `UTC`     | Timezone for timestamps.                                                                                                             |
+| `TZ`                  | No                 | `UTC`     | Application timezone for explicit wall-clock operations (e.g. parsing local datetimes without offsets, future local scheduling). Persisted timestamps are UTC; API timestamps are serialized as UTC RFC3339. |
 | `LOG_LEVEL`           | No                 | `info`    | Log level: `debug`, `info`, `warn`, `error`.                                                                                         |
 | `LOG_FORMAT`          | No                 | `text`    | Log format: `text` (human-readable) or `json`.                                                                                       |
 | `LOG_COLOR`           | No                 | `true`    | Use coloured output for `text` format.                                                                                               |

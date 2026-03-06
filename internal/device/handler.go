@@ -317,7 +317,7 @@ func toDeviceResponse(d *Device) httpapi.Device {
 	return httpapi.Device{
 		Id:           d.ID.Int64(),
 		Name:         d.Name,
-		CreatedAt:    d.CreatedAt,
+		CreatedAt:    httpapi.UTCTime(d.CreatedAt),
 		ApiKeyPrefix: d.KeyPrefix,
 	}
 }
@@ -328,8 +328,8 @@ func toAddressResponse(a *Address) httpapi.Address {
 		DeviceId:  a.DeviceID.Int64(),
 		Ip:        a.IP,
 		Status:    a.Status,
-		CreatedAt: a.CreatedAt,
-		UpdatedAt: a.UpdatedAt,
+		CreatedAt: httpapi.UTCTime(a.CreatedAt),
+		UpdatedAt: httpapi.UTCTime(a.UpdatedAt),
 	}
 }
 

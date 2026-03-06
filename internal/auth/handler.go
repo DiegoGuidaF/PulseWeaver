@@ -162,7 +162,7 @@ func toUserResponse(d *User) httpapi.User {
 		Username:    d.Username,
 		DisplayName: d.DisplayName,
 		Email:       email,
-		CreatedAt:   d.CreatedAt,
+		CreatedAt:   httpapi.UTCTime(d.CreatedAt),
 	}
 }
 

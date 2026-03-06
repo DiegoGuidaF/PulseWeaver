@@ -111,6 +111,7 @@ export const UserSchema = {
     created_at: {
       type: "string",
       format: "date-time",
+      "x-go-type": "UTCTime",
     },
   },
 } as const;
@@ -122,6 +123,7 @@ export const DeviceSchema = {
     created_at: {
       type: "string",
       format: "date-time",
+      "x-go-type": "UTCTime",
     },
     id: {
       $ref: "#/components/schemas/ID",
@@ -159,10 +161,12 @@ export const AddressSchema = {
     created_at: {
       type: "string",
       format: "date-time",
+      "x-go-type": "UTCTime",
     },
     updated_at: {
       type: "string",
       format: "date-time",
+      "x-go-type": "UTCTime",
       description: "Last time it was enabled or disabled",
     },
   },
@@ -198,10 +202,12 @@ export const DeviceAddressLeaseRuleSchema = {
     created_at: {
       type: "string",
       format: "date-time",
+      "x-go-type": "UTCTime",
     },
     updated_at: {
       type: "string",
       format: "date-time",
+      "x-go-type": "UTCTime",
     },
   },
 } as const;
