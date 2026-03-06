@@ -1,8 +1,10 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net/netip"
+	"os"
 	"reflect"
 	"time"
 
@@ -29,9 +31,8 @@ type ConfServer struct {
 }
 
 type ConfDB struct {
-	File  string `env:"DB_FILE" envDefault:"data.db"`
-	Debug bool   `env:"DB_DEBUG" envDefault:"false"`
-	Dsn   string
+	DataDir string `env:"DB_DIR" envDefault:"./data"`
+	Dsn     string
 }
 
 type ConfAuthz struct {
@@ -76,18 +77,49 @@ func Load() (*Conf, error) {
 	if len(c.Authz.APISecret) < 16 {
 		return nil, fmt.Errorf("authz api secret is too short (got %d chars, minimum 16); generate one with: openssl rand -base64 16", len(c.Authz.APISecret))
 	}
+
+	if err := validateWritableDir(c.DB.DataDir); err != nil {
+		return nil, fmt.Errorf("DB dir is not valid: %w", err)
+	}
+
 	return &c, nil
 }
 
-func parseIPAddressFunc(v string) (any, error) {
-	if v == "" {
+func parseIPAddressFunc(rawIP string) (any, error) {
+	if rawIP == "" {
 		return netip.Addr{}, nil
 	}
 
-	addr, err := netip.ParseAddr(v)
+	addr, err := netip.ParseAddr(rawIP)
 	if err != nil {
-		return netip.Addr{}, fmt.Errorf("invalid IP '%s': %w", v, err)
+		return netip.Addr{}, fmt.Errorf("invalid IP '%s': %w", rawIP, err)
 	}
 
 	return addr, nil
+}
+
+func validateWritableDir(dir string) error {
+	// Check if it is a directory (or can become one)
+	info, err := os.Stat(dir)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("stat directory %q: %w", dir, err)
+		}
+		// Directory doesn't exist yet, but we can create it later
+	} else if !info.IsDir() {
+		return fmt.Errorf("path %q exists but is not a directory", dir)
+	}
+
+	// Check writability by attempting to create a temp file
+	f, err := os.CreateTemp(dir, "test-dir-write-check-*")
+	if err != nil {
+		return fmt.Errorf("dir %q is not writable: %w", dir, err)
+
+	}
+	defer func(f *os.File) {
+		_ = f.Close()
+		_ = os.Remove(f.Name())
+	}(f)
+
+	return nil
 }

@@ -34,14 +34,12 @@ COPY . .
 COPY --from=frontend-builder /build/dist ./internal/ui/dist
 
 # Build binary with CGO disabled and optimization flags
-# CRITICAL: Create /app/data directory in builder stage (distroless has no shell)
 # Note: GOOS/GOARCH are auto-detected by Go from Docker's build platform
 RUN CGO_ENABLED=0 go build \
     -ldflags="-s -w" \
     -tags=prod \
     -o /app/wallydic \
-    ./cmd/api \
-    && mkdir -p /app/data
+    ./cmd/api
 
 # Stage 3: Final Runtime
 FROM gcr.io/distroless/static-debian12:nonroot
@@ -51,12 +49,8 @@ WORKDIR /app
 # Copy binary from builder stage
 COPY --from=backend-builder /app/wallydic /app/wallydic
 
-# Copy empty /app/data directory structure from builder stage
-# This creates the writable mount point for persistent data
-COPY --from=backend-builder /app/data /app/data
-
-# Set default environment variables for data persistence
-ENV DB_FILE=/app/data/wallydic.db
+# Mount a writable volume at /data — see README for ownership requirements (UID/GID 65532:65532).
+ENV DB_DIR=/data
 
 # Expose default port
 EXPOSE 8080

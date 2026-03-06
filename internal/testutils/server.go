@@ -26,8 +26,7 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 			TrustedProxy:  netip.MustParseAddr("127.0.0.1"),
 		},
 		DB: config.ConfDB{
-			Dsn:   fmt.Sprintf("file:%s?mode=memory&_loc=auto", t.Name()),
-			Debug: false,
+			Dsn: fmt.Sprintf("file:%s?mode=memory&_loc=auto", t.Name()),
 		},
 		Rules: config.ConfRules{
 			CheckInterval: time.Minute,

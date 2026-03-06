@@ -9,16 +9,20 @@ services:
     environment:
       # Required
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
-      # Optional (with defaults from Dockerfile)
+      # Optional (with defaults)
       - SERVER_PORT=8080
-      - DB_FILE=/app/data/wallydic.db
       - LOG_LEVEL=debug
       - LOG_COLOR=true
       - LOG_FORMAT=text
       - AUTHZ_API_SECRET="averylongandsecuresecret"
       #- TZ=
       #- TRUSTED_PROXY=${TRUSTED_PROXY:-}
-      #- DB_DEBUG=${DB_DEBUG:-false}
     volumes:
-      - ./docker-data/:/app/data
+      - ./docker-data:/data
+      # Named volume alternative (easiest for persistence; no chown needed):
+      # - wallydic-data:/data
     restart: unless-stopped
+
+# Uncomment if using named volume:
+# volumes:
+#   wallydic-data:

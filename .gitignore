@@ -14,6 +14,8 @@ scratch_test.go
 *.db-wal
 *.sqlite
 *.db-shm
+# Default DB folder
+/data
 
 # Environment variables (Secrets)
 .env

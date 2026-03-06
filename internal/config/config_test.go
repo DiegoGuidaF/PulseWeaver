@@ -1,13 +1,17 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
 func TestLoad_Validation(t *testing.T) {
+	tmpDir := t.TempDir()
 	// Set required env vars as a baseline for all subtests.
 	t.Setenv("ADMIN_PASSWORD", "TestAdminPassword1!")
 	t.Setenv("AUTHZ_API_SECRET", "averylongandsecuresecret")
+	t.Setenv("DB_DIR", tmpDir)
 
 	t.Run("valid config loads with expected defaults", func(t *testing.T) {
 		conf, err := Load()
@@ -65,6 +69,28 @@ func TestLoad_Validation(t *testing.T) {
 		_, err := Load()
 		if err == nil {
 			t.Fatal("expected error for negative check interval, got nil")
+		}
+	})
+	t.Run("non existent DB_DIR failsfails", func(t *testing.T) {
+		t.Setenv("DB_DIR", "a non existant db dir")
+
+		_, err := Load()
+		if err == nil {
+			t.Fatal("expected error for non existent DB_DIR, got nil")
+		}
+	})
+
+	t.Run("unwritable DB_DIR fails", func(t *testing.T) {
+		// Create a read-only directory
+		readonlyDir := filepath.Join(t.TempDir(), "readonly")
+		if err := os.Mkdir(readonlyDir, 0555); err != nil { // Read-only
+			t.Fatalf("setup readonly dir: %v", err)
+		}
+
+		t.Setenv("DB_DIR", readonlyDir)
+		_, err := Load()
+		if err == nil {
+			t.Fatal("expected error for unwritable DB_DIR, got nil")
 		}
 	})
 }

@@ -78,7 +78,7 @@ internal/
 
 **`config`** — Env var parsing via `caarlos0/env/v11`. Optional `.env` file (godotenv).
 - `ConfServer`: `ADMIN_PASSWORD` (required), `SERVER_PORT`, `TRUSTED_PROXY`, `TZ`
-- `ConfDB`: `DB_FILE`, `DB_DEBUG`
+- `ConfDB`: `DB_DIR` (default ./data, write access validated)
 - `ConfRules`: `RULE_CHECK_INTERVAL` (default 1m)
 - `ConfAuthz`: `AUTHZ_API_SECRET` (minimum 32 chars, validated in `Load()`)
 

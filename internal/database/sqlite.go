@@ -4,14 +4,14 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"path/filepath"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/config"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
-	_ "modernc.org/sqlite"
-
 	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 //go:embed migrations/*.sql
@@ -21,17 +21,19 @@ type SQLite struct {
 	db *sqlx.DB
 }
 
+const dbFileName = "wallydic.db"
+
 func NewSQLite(dbConf config.ConfDB) (*SQLite, error) {
 	var dsn string
 
-	// This allows to easily override dsn for tests
 	if dbConf.Dsn != "" {
 		dsn = dbConf.Dsn
 	} else {
+		dbPath := filepath.Join(dbConf.DataDir, dbFileName)
 		// _time_format=sqlite: Writes time.Time as YYYY-MM-DD HH:MM:SS[+-]HH:MM (SQLite format 4)
 		// _texttotime=1: Makes the driver report time.Time for columns declared as DATE, DATETIME, TIME, or TIMESTAMP
 		// _loc=auto: Automatically handle timezone conversions
-		dsn = fmt.Sprintf("file:%s?_loc=auto&_time_format=sqlite&_texttotime=1", dbConf.File)
+		dsn = "file:" + dbPath + "?_loc=auto&_time_format=sqlite&_texttotime=1"
 	}
 
 	db, err := sqlx.Connect("sqlite", dsn)

@@ -17,8 +17,7 @@ func Setup(t *testing.T) (*database.SQLite, func()) {
 	t.Helper()
 
 	conf := config.ConfDB{
-		Dsn:   fmt.Sprintf("file:%s?mode=memory&_loc=auto&_time_format=sqlite&_texttotime=1", t.Name()),
-		Debug: false,
+		Dsn: fmt.Sprintf("file:%s?mode=memory&_loc=auto&_time_format=sqlite&_texttotime=1", t.Name()),
 	}
 
 	db, err := database.NewSQLite(conf)

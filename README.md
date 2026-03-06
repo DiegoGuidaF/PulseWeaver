@@ -7,10 +7,14 @@
 
 **PulseShroud** is a self-hosted device address tracker and forward-auth gate for reverse proxies.
 
-It keeps an up-to-date registry of your devices' current IP addresses and tells your reverse proxy whether to allow or block each incoming request — no config file reloads, no static IP lists, and no complex identity providers required for the services you want to protect.
+It keeps an up-to-date registry of your devices' current IP addresses and tells your reverse proxy whether to allow or
+block each incoming request — no config file reloads, no static IP lists, and no complex identity providers required for
+the services you want to protect.
 
 > [!NOTE]
-> PulseShroud is not an authentication or authorization system. It is an **IP gate**. It does not verify who a user is; it only checks whether the IP a request comes from belongs to a registered device. Think of it as a network-layer bouncer, not a login system.
+> PulseShroud is not an authentication or authorization system. It is an **IP gate**. It does not verify who a user is;
+> it only checks whether the IP a request comes from belongs to a registered device. Think of it as a network-layer
+> bouncer, not a login system.
 
 ---
 
@@ -21,9 +25,9 @@ It keeps an up-to-date registry of your devices' current IP addresses and tells 
 - [Key concepts](#key-concepts)
 - [The shared-IP model](#the-shared-ip-model)
 - [Setup](#setup)
-  - [Docker Compose (recommended)](#docker-compose-recommended)
-  - [First-run admin account](#first-run-admin-account)
-  - [Configuration reference](#configuration-reference)
+    - [Docker Compose (recommended)](#docker-compose-recommended)
+    - [First-run admin account](#first-run-admin-account)
+    - [Configuration reference](#configuration-reference)
 - [Understanding TRUSTED_PROXY](#understanding-trusted_proxy)
 - [Proxy integration](#proxy-integration)
 - [Heartbeat endpoint](#heartbeat-endpoint)
@@ -56,7 +60,8 @@ sequenceDiagram
     end
 ```
 
-Your reverse proxy asks PulseShroud on every incoming request: "is this IP currently active?" PulseShroud answers 200 (allow) or 403 (block). The check runs against an in-memory cache — no database round-trip per request.
+Your reverse proxy asks PulseShroud on every incoming request: "is this IP currently active?" PulseShroud answers 200 (
+allow) or 403 (block). The check runs against an in-memory cache — no database round-trip per request.
 
 ### 2 — Heartbeat: devices keep their address current
 
@@ -71,34 +76,41 @@ sequenceDiagram
     Note over W: Address is now active.<br/>If an address lease is configured,<br/>old addresses expire automatically.
 ```
 
-Devices authenticate using a per-device API key (`X-API-Key` header). PulseShroud reads the client IP from the request (or from an `ip` field in the request body if provided) and activates it as the device's current address. As long as a device keeps sending heartbeats, its latest address stays active.
+Devices authenticate using a per-device API key (`X-API-Key` header). PulseShroud reads the client IP from the request (
+or from an `ip` field in the request body if provided) and activates it as the device's current address. As long as a
+device keeps sending heartbeats, its latest address stays active.
 
 ---
 
 ## Why use this?
 
-Many self-hosted services — Home Assistant, Jellyfin, Nextcloud, Grafana, etc. — are not designed to work behind complex identity proxies like Authelia or authentik. Adding OIDC/SSO to them is often painful and sometimes breaks the app entirely.
+Many self-hosted services — Home Assistant, Jellyfin, Nextcloud, Grafana, etc. — are not designed to work behind complex
+identity proxies like Authelia or authentik. Adding OIDC/SSO to them is often painful and sometimes breaks the app
+entirely.
 
-PulseShroud takes a different approach: **only accept connections from IP addresses you know**. This drastically reduces the attack surface without touching how the application itself authenticates users.
+PulseShroud takes a different approach: **only accept connections from IP addresses you know**. This drastically reduces
+the attack surface without touching how the application itself authenticates users.
 
 A few concrete benefits:
 
 - No OIDC configuration, no identity provider to maintain.
 - Works with any service out of the box.
 - Devices with changing IPs (phones, laptops on roaming) stay covered automatically via heartbeat.
-- If you visit a friend or stay at a hotel, as soon as your phone connects to their Wi-Fi and sends a heartbeat, that location's IP is activated — and as soon as your address lease expires after you leave, it is automatically deactivated.
+- If you visit a friend or stay at a hotel, as soon as your phone connects to their Wi-Fi and sends a heartbeat, that
+  location's IP is activated — and as soon as your address lease expires after you leave, it is automatically
+  deactivated.
 
 ---
 
 ## Key concepts
 
-| Concept           | Description                                                                                                                        |
-|-------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| **Device**        | A logical endpoint (phone, laptop, server…) with a unique API key.                                                                 |
-| **Address**       | An IP address (v4 or v6) linked to a device. Can be enabled or disabled.                                                           |
-| **Heartbeat**     | A device call to `/api/v1/heartbeat` that enables the caller's current IP as the device's active address.                          |
-| **Address lease** | A TTL* rule per device. When the TTL expires, the address is automatically disabled by PulseShroud's background scheduler.         |
-| **Forward Auth**  | The `GET /api/authz/verify-ip` endpoint. Your reverse proxy calls this on every request to check the client IP.                    |
+| Concept           | Description                                                                                                                |
+|-------------------|----------------------------------------------------------------------------------------------------------------------------|
+| **Device**        | A logical endpoint (phone, laptop, server…) with a unique API key.                                                         |
+| **Address**       | An IP address (v4 or v6) linked to a device. Can be enabled or disabled.                                                   |
+| **Heartbeat**     | A device call to `/api/v1/heartbeat` that enables the caller's current IP as the device's active address.                  |
+| **Address lease** | A TTL* rule per device. When the TTL expires, the address is automatically disabled by PulseShroud's background scheduler. |
+| **Forward Auth**  | The `GET /api/authz/verify-ip` endpoint. Your reverse proxy calls this on every request to check the client IP.            |
 
 > **TTL**: Time-To-Live
 
@@ -108,8 +120,11 @@ A few concrete benefits:
 
 PulseShroud gates by IP, not by individual identity. This means:
 
-- **Multiple devices behind the same NAT (e.g. a home router) all share one public IP.** If your phone's heartbeat activates your home IP, everyone at home can access your services. This is usually the intended behaviour.
-- **Hotel Wi-Fi / friend's house:** as soon as your phone sends a heartbeat from a new network, that network's public IP is activated. Everyone else on that network can also access your services during your stay. If you have an address lease configured, the IP is automatically deactivated shortly after you leave — without any manual action.
+- **Multiple devices behind the same NAT (e.g. a home router) all share one public IP.** If your phone's heartbeat
+  activates your home IP, everyone at home can access your services. This is usually the intended behaviour.
+- **Hotel Wi-Fi / friend's house:** as soon as your phone sends a heartbeat from a new network, that network's public IP
+  is activated. Everyone else on that network can also access your services during your stay. If you have an address
+  lease configured, the IP is automatically deactivated shortly after you leave — without any manual action.
 - **ISP-level CGNAT:** some ISPs share a single public IP across hundreds or thousands of unrelated subscribers.
   Understand that activating a CGNAT IP means allowing all those co-tenants to reach your services. **If your device
   is behind CGNAT (check with your ISP), treat heartbeat-activated IPs from that network with caution.**
@@ -128,7 +143,8 @@ The easiest way to run PulseShroud alongside Caddy. The key points are:
 - Both services must be on the same Docker network so `wallydex:8080` resolves.
 - `AUTHZ_API_SECRET` is defined once in your `.env` and injected into both containers.
 - `TRUSTED_PROXY` must be set to Caddy's container IP so PulseShroud can correctly extract the real
-  client IP on both the heartbeat and forward-auth endpoints. See [Understanding TRUSTED_PROXY](#understanding-trusted_proxy)
+  client IP on both the heartbeat and forward-auth endpoints.
+  See [Understanding TRUSTED_PROXY](#understanding-trusted_proxy)
   for the full explanation.
 
 ```yaml
@@ -166,12 +182,11 @@ services:
     environment:
       ADMIN_PASSWORD: ${WALLYDEX_ADMIN_PASSWORD}
       SERVER_PORT: 8080
-      DB_FILE: /app/data/wallydic.db
       TRUSTED_PROXY: ${CADDY_IP}      # Caddy's container IP on the shared network (single IP only, no CIDR)
       AUTHZ_API_SECRET: ${WALLYDEX_AUTHZ_API_SECRET}
       TZ: ${TZ}
     volumes:
-      - ./wallydex/data:/app/data
+      - ./wallydex/data:/data   # Bind mount; ensure writable by non-root (chown 65532:65532) or use a named volume
     networks:
       - proxy
 
@@ -194,8 +209,46 @@ TZ=Europe/Madrid
 
 > [!TIP]
 > Give Caddy a fixed `ipv4_address` on the shared docker network and set `TRUSTED_PROXY` to that exact IP.
-> `TRUSTED_PROXY` accepts a **single IP address only** — CIDR ranges are not supported. Pinning Caddy's IP is the simplest
+> `TRUSTED_PROXY` accepts a **single IP address only** — CIDR ranges are not supported. Pinning Caddy's IP is the
+> simplest
 > way to keep this stable.
+
+### Data persistence
+
+SQLite database is stored at `$DB_DIR/wallydic.db` (defaults to `/data/wallydic.db` in the Docker image).
+
+#### Docker deployment (recommended)
+
+The image sets `DB_DIR=/data` by default. Mount a writable volume:
+
+- **Named volume (easiest):** `docker run -v wallydic-data:/data ...`
+- **Bind mount:** `docker run -v ./data:/data ...`
+
+Docker runs as non-root UID/GID `65532:65532` (`gcr.io/distroless/static-debian12:nonroot`), so ensure `/data` is
+writable:
+
+```bash
+sudo chown -R 65532:65532 ./data
+```
+
+#### Local development
+
+Defaults to ./data/wallydic.db. No config needed.
+
+#### Custom path
+
+Override with DB_DIR:
+
+```bash
+DB_DIR=/custom/path go run cmd/api/main.go
+# or
+docker run -e DB_DIR=/custom/path ...
+```
+
+#### SQLITE WAL mode warning
+
+Shared-memory coordination (wallydic.db-wal, wallydic.db-shm) requires local disk — not NFS/SMB. For backups, include
+WAL/SHM files or run PRAGMA wal_checkpoint(FULL) first.
 
 ### First-run admin account
 
@@ -205,18 +258,17 @@ securely (e.g. in your `.env` file with restricted permissions).
 
 ### Configuration reference
 
-| Variable              | Required           | Default   | Description                                                                                                                          |
-|-----------------------|--------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------|
-| `ADMIN_PASSWORD`      | Yes                | —         | Password for the `admin` UI account (bootstrapped on first run).                                                                     |
-| `AUTHZ_API_SECRET`    | Yes (min 32 chars) | —         | Shared secret between Caddy and PulseShroud. Minimum 32 characters.                                                                 |
-| `SERVER_PORT`         | No                 | `8080`    | Port PulseShroud listens on.                                                                                                         |
-| `TRUSTED_PROXY`       | No                 | —         | Single IP address of your reverse proxy. Required when running behind a proxy — see [Understanding TRUSTED_PROXY](#understanding-trusted_proxy). |
-| `DB_FILE`             | No                 | `data.db` | Path to the SQLite database file.                                                                                                    |
-| `RULE_CHECK_INTERVAL` | No                 | `1m`      | How often the scheduler checks for expired address leases.<br/> Set this to the lowest address lease TTL you'll use.                 |
-| `TZ`                  | No                 | `UTC`     | Application timezone for explicit wall-clock operations (e.g. parsing local datetimes without offsets, future local scheduling). Persisted timestamps are UTC; API timestamps are serialized as UTC RFC3339. |
-| `LOG_LEVEL`           | No                 | `info`    | Log level: `debug`, `info`, `warn`, `error`.                                                                                         |
-| `LOG_FORMAT`          | No                 | `text`    | Log format: `text` (human-readable) or `json`.                                                                                       |
-| `LOG_COLOR`           | No                 | `true`    | Use coloured output for `text` format.                                                                                               |
+| Variable              | Required           | Default | Description                                                                                                                                                                                                  |
+|-----------------------|--------------------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ADMIN_PASSWORD`      | Yes                | —       | Password for the `admin` UI account (bootstrapped on first run).                                                                                                                                             |
+| `AUTHZ_API_SECRET`    | Yes (min 32 chars) | —       | Shared secret between Caddy and PulseShroud. Minimum 32 characters.                                                                                                                                          |
+| `SERVER_PORT`         | No                 | `8080`  | Port PulseShroud listens on.                                                                                                                                                                                 |
+| `TRUSTED_PROXY`       | No                 | —       | Single IP address of your reverse proxy. Required when running behind a proxy — see [Understanding TRUSTED_PROXY](#understanding-trusted_proxy).                                                             |
+| `RULE_CHECK_INTERVAL` | No                 | `1m`    | How often the scheduler checks for expired address leases.<br/> Set this to the lowest address lease TTL you'll use.                                                                                         |
+| `TZ`                  | No                 | `UTC`   | Application timezone for explicit wall-clock operations (e.g. parsing local datetimes without offsets, future local scheduling). Persisted timestamps are UTC; API timestamps are serialized as UTC RFC3339. |
+| `LOG_LEVEL`           | No                 | `info`  | Log level: `debug`, `info`, `warn`, `error`.                                                                                                                                                                 |
+| `LOG_FORMAT`          | No                 | `text`  | Log format: `text` (human-readable) or `json`.                                                                                                                                                               |
+| `LOG_COLOR`           | No                 | `true`  | Use coloured output for `text` format.                                                                                                                                                                       |
 
 ---
 
@@ -469,6 +521,9 @@ PulseShroud compiles to a **single binary** with the frontend SPA embedded. The 
 embedded at compile time — no separate web server needed in production.
 
 ### Quick start for local development
+
+For local runs (no Docker), the app writes to `/data/wallydic.db`. Create that directory and make it writable before
+starting: `sudo mkdir -p /data && sudo chown $(whoami) /data`.
 
 ```bash
 # Backend (hot reload via Air)

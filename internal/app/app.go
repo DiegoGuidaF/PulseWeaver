@@ -64,7 +64,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Log startup configuration
 	logger.Info("initializing app",
 		slog.Int("port", conf.Server.Port),
-		slog.String("db_file", conf.DB.File),
+		slog.String("db_dir", conf.DB.DataDir),
 	)
 
 	// Database Connection
