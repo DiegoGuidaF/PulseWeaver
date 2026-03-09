@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-WallyDic (WallyDex) is a self-hosted device IP address management service. It maintains an updated list of device IPs and acts as a Forward Auth sidecar for reverse proxies (`GET /api/authz/verify-ip`). Compiles to a **single binary** with the frontend SPA embedded.
+WallyDic (WallyDex) is a self-hosted device IP address management service. It maintains an updated list of device IPs and acts as a Forward Auth sidecar for reverse proxies (`GET /api/policy-engine/verify-ip`). Compiles to a **single binary** with the frontend SPA embedded.
 
 ## Commands
 
@@ -37,7 +37,7 @@ WallyDic (WallyDex) is a self-hosted device IP address management service. It ma
 Layered architecture: **Handler → Service → Repository → Database**
 
 - **Entry point:** `cmd/api/main.go`
-- **Domain packages** in `internal/`: `auth`, `authz`, `device`, `lease`, `rule`, `health`
+- **Domain packages** in `internal/`: `auth`, `policy`, `device`, `lease`, `rule`, `health`
 - **Infrastructure:** `config`, `database`, `httpserver`, `httpapi`, `logging`, `scheduler`, `testdb`, `testutils`, `ui`, `app`
 - **Domain constructors** (e.g. `NewUser`, `NewDevice`) enforce all business validation
 - **Handlers** extract primitives from OpenAPI DTOs, pass to services; never pass OpenAPI types deeper

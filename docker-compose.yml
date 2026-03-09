@@ -14,7 +14,7 @@ services:
       - LOG_LEVEL=debug
       - LOG_COLOR=true
       - LOG_FORMAT=text
-      - AUTHZ_API_SECRET="averylongandsecuresecret"
+      - POLICY_ENGINE_API_SECRET="averylongandsecuresecret"
       #- TZ=
       #- TRUSTED_PROXY=${TRUSTED_PROXY:-}
     volumes:

@@ -7,10 +7,10 @@ import (
 	"net/netip"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/auth"
-	"github.com/DiegoGuidaF/WallyDex/internal/authz"
 	"github.com/DiegoGuidaF/WallyDex/internal/device"
 	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
 	"github.com/DiegoGuidaF/WallyDex/internal/logging"
+	"github.com/DiegoGuidaF/WallyDex/internal/policy"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	slogchi "github.com/samber/slog-chi"
@@ -18,9 +18,9 @@ import (
 
 type DeviceHandler = device.HTTPHandler
 type AuthHandler = auth.HTTPHandler
-type AuthzHandler = authz.HTTPHandler
+type PolicyHandler = policy.HTTPHandler
 
-func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, authzHandler *AuthzHandler, logger *slog.Logger, trustedProxy netip.Addr) http.Handler {
+func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, policyHandler *PolicyHandler, logger *slog.Logger, trustedProxy netip.Addr) http.Handler {
 	r := chi.NewRouter()
 
 	loggerConfig := slogchi.Config{
@@ -48,7 +48,7 @@ func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandl
 	r.Use(middleware.SetHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()"))
 	r.Use(MaxBodySizeMiddleware(256 * 1024)) // 256KB
 
-	addRoutes(r, deviceHandler, authHandler, ruleHandler, authzHandler, logger)
+	addRoutes(r, deviceHandler, authHandler, ruleHandler, policyHandler, logger)
 
 	return r
 }

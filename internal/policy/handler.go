@@ -1,4 +1,4 @@
-package authz
+package policy
 
 import (
 	"log/slog"
@@ -16,10 +16,10 @@ type HTTPHandler struct {
 }
 
 func NewHTTPHandler(service *Service, logger *slog.Logger) *HTTPHandler {
-	return &HTTPHandler{service: service, logger: logger.With(slog.String(logging.AttrKeyComponent, "authz"))}
+	return &HTTPHandler{service: service, logger: logger.With(slog.String(logging.AttrKeyComponent, "policy"))}
 }
 
-// HandleForwardAuthIP serves GET /api/authz/verify-ip.
+// HandleForwardAuthIP serves GET /api/policy-engine/verify-ip.
 // Returns 200 if the IP in X-Real-IP is enabled, 403 otherwise.
 // All failure paths return 403 (fail-closed) — never 401, to avoid leaking information.
 func (h *HTTPHandler) HandleForwardAuthIP(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +36,7 @@ func (h *HTTPHandler) HandleForwardAuthIP(w http.ResponseWriter, r *http.Request
 
 	clientIP, ok := httpapi.ClientIPFromContext(ctx)
 	if !ok {
-		logger.WarnContext(ctx, "authz: missing client IP in request context")
+		logger.WarnContext(ctx, "policy: missing client IP in request context")
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}

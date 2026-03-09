@@ -10,7 +10,7 @@ func TestLoad_Validation(t *testing.T) {
 	tmpDir := t.TempDir()
 	// Set required env vars as a baseline for all subtests.
 	t.Setenv("ADMIN_PASSWORD", "TestAdminPassword1!")
-	t.Setenv("AUTHZ_API_SECRET", "averylongandsecuresecret")
+	t.Setenv("POLICY_ENGINE_API_SECRET", "averylongandsecuresecret")
 	t.Setenv("DB_DIR", tmpDir)
 
 	t.Run("valid config loads with expected defaults", func(t *testing.T) {
@@ -32,8 +32,8 @@ func TestLoad_Validation(t *testing.T) {
 		}
 	})
 
-	t.Run("AUTHZ_API_SECRET shorter than 16 chars fails", func(t *testing.T) {
-		t.Setenv("AUTHZ_API_SECRET", "tooshort")
+	t.Run("POLICY_ENGINE_API_SECRET shorter than 16 chars fails", func(t *testing.T) {
+		t.Setenv("POLICY_ENGINE_API_SECRET", "tooshort")
 		_, err := Load()
 		if err == nil {
 			t.Fatal("expected error for short API secret, got nil")

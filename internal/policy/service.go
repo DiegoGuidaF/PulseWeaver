@@ -1,4 +1,4 @@
-package authz
+package policy
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/DiegoGuidaF/WallyDex/internal/logging"
 )
 
-// EnabledIPsProvider is the cross-domain interface the authz service consumes.
+// EnabledIPsProvider is the cross-domain interface the policy service consumes.
 // Implemented by device.Service.
 type EnabledIPsProvider interface {
 	GetEnabledUniqueIPs(ctx context.Context) ([]string, error)
@@ -31,7 +31,7 @@ type Service struct {
 }
 
 func NewService(provider EnabledIPsProvider, secret string, logger *slog.Logger, trustedProxy netip.Addr) (*Service, error) {
-	componentLogger := logger.With(slog.String(logging.AttrKeyComponent, "authz"))
+	componentLogger := logger.With(slog.String(logging.AttrKeyComponent, "policy"))
 	if strings.TrimSpace(secret) == "" {
 		return nil, ErrSecretNotConfigured
 	}
@@ -71,7 +71,7 @@ func (s *Service) RunListener(ctx context.Context) error {
 		select {
 		case <-s.addressChangeSignal:
 			if err := s.refreshCache(ctx); err != nil {
-				s.logger.ErrorContext(ctx, "authz cache refresh failed", slog.Any(logging.AttrKeyError, err))
+				s.logger.ErrorContext(ctx, "policy cache refresh failed", slog.Any(logging.AttrKeyError, err))
 			}
 		case <-ctx.Done():
 			return nil
@@ -85,7 +85,7 @@ func (s *Service) VerifyAccess(ctx context.Context, token, clientIP string) erro
 	// leaking length information through early returns.
 	tokenHash := sha256.Sum256([]byte(token))
 	if subtle.ConstantTimeCompare(tokenHash[:], s.apiSecretHash[:]) != 1 {
-		s.logger.WarnContext(ctx, "authz: invalid bearer token")
+		s.logger.WarnContext(ctx, "policy: invalid bearer token")
 		return ErrInvalidBearerToken
 	}
 
@@ -128,6 +128,6 @@ func (s *Service) refreshCache(ctx context.Context) error {
 	s.ipSet = newSet
 	s.mu.Unlock()
 
-	s.logger.DebugContext(ctx, "authz IP cache refreshed", slog.Int("ip_count", len(ips)))
+	s.logger.DebugContext(ctx, "policy IP cache refreshed", slog.Int("ip_count", len(ips)))
 	return nil
 }

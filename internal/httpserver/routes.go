@@ -23,7 +23,7 @@ type CompositeHandler struct {
 
 type RuleHandler = rule.HTTPHandler
 
-func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, authzHandler *AuthzHandler, logger *slog.Logger) {
+func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, policyHandler *PolicyHandler, logger *slog.Logger) {
 	routeHandler := &CompositeHandler{
 		DeviceHandler: deviceHandler,
 		AuthHandler:   authHandler,
@@ -31,7 +31,7 @@ func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandle
 	}
 
 	r.Get("/health", health.Handler)
-	r.Get("/api/authz/verify-ip", authzHandler.HandleForwardAuthIP)
+	r.Get("/api/policy-engine/verify-ip", policyHandler.HandleForwardAuthIP)
 
 	r.Route("/api/v1", func(r chi.Router) {
 

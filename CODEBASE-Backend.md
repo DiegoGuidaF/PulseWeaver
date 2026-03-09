@@ -8,7 +8,7 @@
 internal/
 ├── app/            # Dependency injection and application wiring
 ├── auth/           # User authentication (sessions, bcrypt, principals)
-├── authz/          # Forward-auth sidecar (IP allow/deny, in-memory cache)
+├── policy/          # Forward-auth sidecar (IP allow/deny, in-memory cache)
 ├── config/         # Env var parsing (caarlos0/env)
 ├── database/       # SQLite connection, WAL mode, migrations
 ├── device/         # Device and address management (core domain)
@@ -35,7 +35,7 @@ internal/
 - `Address` — IP string, `is_enabled` bool, status source (`heartbeat` | `manual` | `expiry`), optional lease expiry
 - `Service.AssignAddress` — creates or re-enables an address; fires `EventTypeAddressAssigned`
 - `Service.DisableAddress` / `DisableAddresses` — fires `EventTypeAddressDisabled`
-- `Service.GetEnabledUniqueIPs` — `SELECT DISTINCT ip WHERE is_enabled = 1`; consumed by `authz`
+- `Service.GetEnabledUniqueIPs` — `SELECT DISTINCT ip WHERE is_enabled = 1`; consumed by `policy`
 - `Service.AddAddressObserver` — registers listeners for address events (`AddressObserver` interface)
 - API key auth: `wdk_<base64>` prefix; SHA256 hash stored in DB
 - Device principal context: `PrincipalDeviceContextMiddleware` / `PrincipalFromContext`
@@ -47,13 +47,13 @@ internal/
 - Cookie: `__Host-wdc_session` (HTTP-only)
 - User principal context: `PrincipalUserContextMiddleware` / `PrincipalFromContext`
 
-**`authz`** — Forward-auth sidecar. Answers "is this IP enabled?" without a DB round-trip.
+**`policy`** — Forward-auth sidecar. Answers "is this IP enabled?" without a DB round-trip.
 - Maintains `map[string]struct{}` (enabled IPs) under `sync.RWMutex`
 - `Initialize(ctx)` — full `GetEnabledUniqueIPs` query at startup
 - `OnAddressEvent` — non-blocking signal to buffered channel (cap 1); coalesces bursts
 - `RunListener(ctx)` — goroutine; calls `refreshCache` (full DB query) on each signal
-- `HandleForwardAuthIP` — `GET /api/authz/verify-ip`; Bearer token + `X-Real-IP`; returns 200 or 403; fail-closed on any missing/invalid input
-- Secret: `AUTHZ_API_SECRET` env var (minimum 32 chars)
+- `HandleForwardAuthIP` — `GET /api/policy-engine/verify-ip`; Bearer token + `X-Real-IP`; returns 200 or 403; fail-closed on any missing/invalid input
+- Secret: `POLICY_ENGINE_API_SECRET` env var (minimum 32 chars)
 
 **`lease`** — Address lease TTL. Automatically disables addresses when their lease expires.
 - `AddressLease` — links an `AddressID` to an `ExpiresAt` timestamp
@@ -71,16 +71,16 @@ internal/
 ### Infrastructure Packages
 
 **`app`** — Wires everything together in `NewWithConfigAndLogger`.
-- Construction order: DB → auth → device → authz → rule → lease → scheduler → HTTP server
-- Observer registration: `deviceService.AddAddressObserver(addressLeaseService)` then `authz`
-- Goroutines started: `authz.RunListener`, `lease.RunListener`, `scheduler.RunSchedule`
-- `App` struct exposes `DeviceService`, `AuthService`, `AuthzService` for test access
+- Construction order: DB → auth → device → policy → rule → lease → scheduler → HTTP server
+- Observer registration: `deviceService.AddAddressObserver(addressLeaseService)` then `policy`
+- Goroutines started: `policy.RunListener`, `lease.RunListener`, `scheduler.RunSchedule`
+- `App` struct exposes `DeviceService`, `AuthService`, `PolicyService` for test access
 
 **`config`** — Env var parsing via `caarlos0/env/v11`. Optional `.env` file (godotenv).
 - `ConfServer`: `ADMIN_PASSWORD` (required), `SERVER_PORT`, `TRUSTED_PROXY`, `TZ`
 - `ConfDB`: `DB_DIR` (default ./data, write access validated)
 - `ConfRules`: `RULE_CHECK_INTERVAL` (default 1m)
-- `ConfAuthz`: `AUTHZ_API_SECRET` (minimum 32 chars, validated in `Load()`)
+- `ConfPolicy`: `POLICY_ENGINE_API_SECRET` (minimum 32 chars, validated in `Load()`)
 
 **`database`** — Single SQLite connection (sqlx). WAL mode, `MaxOpenConns=1`.
 - `NewSQLite(conf)` — applies pragmas and runs `db.Migrate()`
@@ -88,7 +88,7 @@ internal/
 
 **`httpserver`** — Chi router assembly.
 - `NewServer`: global middleware chain: RequestID → slog-chi → Recoverer → ClientIP → security headers → MaxBodySize (256 KB)
-- `addRoutes`: registers `/health`, `/api/authz/verify-ip` (no OpenAPI validation), then `/api/v1` sub-router
+- `addRoutes`: registers `/health`, `/api/policy-engine/verify-ip` (no OpenAPI validation), then `/api/v1` sub-router
 - `/api/v1` sub-router adds: `LoginRateLimitMiddleware` → OpenAPI validator → `PrincipalUserContextMiddleware` → `PrincipalDeviceContextMiddleware` → generated strict handler
 - `ClientIPFromXFFHeaderMiddleware` used when `TRUSTED_PROXY` is set; otherwise `ClientIPFromRequestMiddleware`
 
@@ -133,7 +133,7 @@ HTTP Handler → Service → Repository → Database
 device.Service.AssignAddress()
   → notifyObservers(EventTypeAddressAssigned)
     → lease.Service.OnAddressEvent()   // non-blocking channel signal
-    → authz.Service.OnAddressEvent()   // non-blocking channel signal
+    → policy.Service.OnAddressEvent()   // non-blocking channel signal
 ```
 Both observers use a buffered channel (cap 1) + dedicated goroutine (`RunListener`) to process signals asynchronously. **Consumer declares the interface; owner implements.**
 
@@ -160,7 +160,7 @@ All config via env vars loaded at startup into `config.Conf`. The struct is pass
 
 ### Cross-Domain Dependencies
 Interfaces are declared in the **consuming** package, implemented by the owning package:
-- `authz.EnabledIPsProvider` ← implemented by `*device.Service`
+- `policy.EnabledIPsProvider` ← implemented by `*device.Service`
 - `lease.TTLConfigRetriever` ← implemented by `*rule.Service`
 - `scheduler.ExpiredAddressFinder` ← implemented by `*lease.Service`
 - `scheduler.AddressDisabler` ← implemented by `*device.Service`
@@ -181,8 +181,8 @@ Interfaces are declared in the **consuming** package, implemented by the owning 
 | `internal/device/service.go` | Core business logic; observer notifications |
 | `internal/device/repository.go` | DB access; `GetEnabledUniqueIPs`; `RunInTx` |
 | `internal/device/events.go` | `AddressEvent`, `EventType`, `AddressObserver` interface |
-| `internal/authz/service.go` | In-memory IP cache; `RunListener` |
-| `internal/authz/handler.go` | `HandleForwardAuthIP` (Bearer + X-Real-IP) |
+| `internal/policy/service.go` | In-memory IP cache; `RunListener` |
+| `internal/policy/handler.go` | `HandleForwardAuthIP` (Bearer + X-Real-IP) |
 | `internal/lease/service.go` | Lease creation/deletion; `RunListener` |
 | `internal/scheduler/service.go` | Periodic auto-expiry task |
 | `internal/logging/ctx.go` | `FromCtx`, `Enrich` — logger-in-context |

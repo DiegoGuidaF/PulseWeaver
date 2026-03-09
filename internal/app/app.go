@@ -8,13 +8,13 @@ import (
 	"net/http"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/auth"
-	"github.com/DiegoGuidaF/WallyDex/internal/authz"
 	"github.com/DiegoGuidaF/WallyDex/internal/config"
 	"github.com/DiegoGuidaF/WallyDex/internal/database"
 	"github.com/DiegoGuidaF/WallyDex/internal/device"
 	"github.com/DiegoGuidaF/WallyDex/internal/httpserver"
 	"github.com/DiegoGuidaF/WallyDex/internal/lease"
 	"github.com/DiegoGuidaF/WallyDex/internal/logging"
+	"github.com/DiegoGuidaF/WallyDex/internal/policy"
 	"github.com/DiegoGuidaF/WallyDex/internal/rule"
 	"github.com/DiegoGuidaF/WallyDex/internal/scheduler"
 	"golang.org/x/sync/errgroup"
@@ -28,7 +28,7 @@ type App struct {
 	HTTPServer          http.Handler
 	DeviceService       *device.Service
 	AuthService         *auth.Service
-	AuthzService        *authz.Service
+	PolicyService       *policy.Service
 	addressLeaseService *lease.Service
 	schedulerService    *scheduler.Service
 }
@@ -93,12 +93,12 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	deviceService := device.NewService(deviceRepo, logger, conf.Server.TrustedProxy)
 	deviceHandler := device.NewHTTPHandler(deviceService, logger)
 
-	// Authz forward-auth sidecar
-	authzService, err := authz.NewService(deviceService, conf.Authz.APISecret, logger, conf.Server.TrustedProxy)
+	// Policy forward-auth sidecar
+	policyService, err := policy.NewService(deviceService, conf.Policy.APISecret, logger, conf.Server.TrustedProxy)
 	if err != nil {
-		return nil, fmt.Errorf("authz service init: %w", err)
+		return nil, fmt.Errorf("policy service init: %w", err)
 	}
-	authzHandler := authz.NewHTTPHandler(authzService, logger)
+	policyHandler := policy.NewHTTPHandler(policyService, logger)
 
 	// Rule evaluation
 	ruleRepo := rule.NewRepository(db.DB())
@@ -111,7 +111,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Register device address observers
 	deviceService.AddAddressObserver(addressLeaseService)
-	deviceService.AddAddressObserver(authzService)
+	deviceService.AddAddressObserver(policyService)
 
 	schedulerService, err := scheduler.NewService(addressLeaseService, deviceService, logger)
 	if err != nil {
@@ -123,11 +123,11 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		return nil, fmt.Errorf("failed to bootstrap admin: %w", err)
 	}
 
-	if err := authzService.Initialize(ctx); err != nil {
-		logger.Warn("failed to initialize authz IP cache on startup", slog.Any("error", err))
+	if err := policyService.Initialize(ctx); err != nil {
+		logger.Warn("failed to initialize policy IP cache on startup", slog.Any("error", err))
 	}
 
-	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, authzHandler, logger, conf.Server.TrustedProxy)
+	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, policyHandler, logger, conf.Server.TrustedProxy)
 
 	return &App{
 		Config:              conf,
@@ -136,7 +136,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		HTTPServer:          handler,
 		DeviceService:       deviceService,
 		AuthService:         authService,
-		AuthzService:        authzService,
+		PolicyService:       policyService,
 		addressLeaseService: addressLeaseService,
 		schedulerService:    schedulerService,
 	}, nil
@@ -148,7 +148,7 @@ func (a *App) Run(ctx context.Context) error {
 	g, gCtx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
-		return ignoreContextCanceled(a.AuthzService.RunListener(gCtx))
+		return ignoreContextCanceled(a.PolicyService.RunListener(gCtx))
 	})
 
 	g.Go(func() error {

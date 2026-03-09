@@ -49,7 +49,7 @@ sequenceDiagram
     participant W as PulseShroud
     participant S as Protected Service
     C ->> P: GET https://homeassistant.example.com
-    P ->> W: GET /api/authz/verify-ip<br/>X-Real-IP: <client IP><br/>Authorization: Bearer <secret>
+    P ->> W: GET /api/policy-engine/verify-ip<br/>X-Real-IP: <client IP><br/>Authorization: Bearer <secret>
     alt IP is active
         W -->> P: 200 OK
         P ->> S: Forward request
@@ -110,7 +110,7 @@ A few concrete benefits:
 | **Address**       | An IP address (v4 or v6) linked to a device. Can be enabled or disabled.                                                   |
 | **Heartbeat**     | A device call to `/api/v1/heartbeat` that enables the caller's current IP as the device's active address.                  |
 | **Address lease** | A TTL* rule per device. When the TTL expires, the address is automatically disabled by PulseShroud's background scheduler. |
-| **Forward Auth**  | The `GET /api/authz/verify-ip` endpoint. Your reverse proxy calls this on every request to check the client IP.            |
+| **Forward Auth**  | The `GET /api/policy-engine/verify-ip` endpoint. Your reverse proxy calls this on every request to check the client IP.    |
 
 > **TTL**: Time-To-Live
 
@@ -141,7 +141,7 @@ multiple unknown co-tenants, higher attack surface.
 The easiest way to run PulseShroud alongside Caddy. The key points are:
 
 - Both services must be on the same Docker network so `wallydex:8080` resolves.
-- `AUTHZ_API_SECRET` is defined once in your `.env` and injected into both containers.
+- `POLICY_ENGINE_API_SECRET` is defined once in your `.env` and injected into both containers.
 - `TRUSTED_PROXY` must be set to Caddy's container IP so PulseShroud can correctly extract the real
   client IP on both the heartbeat and forward-auth endpoints.
   See [Understanding TRUSTED_PROXY](#understanding-trusted_proxy)
@@ -161,7 +161,7 @@ services:
       - "443:443"
       - "443:443/udp"
     environment:
-      WALLYDEX_AUTHZ_API_SECRET: ${WALLYDEX_AUTHZ_API_SECRET}
+      WALLYDEX_POLICY_ENGINE_API_SECRET: ${WALLYDEX_POLICY_ENGINE_API_SECRET}
       TZ: ${TZ}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile
@@ -183,7 +183,7 @@ services:
       ADMIN_PASSWORD: ${WALLYDEX_ADMIN_PASSWORD}
       SERVER_PORT: 8080
       TRUSTED_PROXY: ${CADDY_IP}      # Caddy's container IP on the shared network (single IP only, no CIDR)
-      AUTHZ_API_SECRET: ${WALLYDEX_AUTHZ_API_SECRET}
+      POLICY_ENGINE_API_SECRET: ${WALLYDEX_POLICY_ENGINE_API_SECRET}
       TZ: ${TZ}
     volumes:
       - ./wallydex/data:/data   # Bind mount; ensure writable by non-root (chown 65532:65532) or use a named volume
@@ -201,7 +201,7 @@ networks:
 A minimal `.env` alongside it:
 
 ```dotenv
-WALLYDEX_AUTHZ_API_SECRET=a-very-long-random-secret-at-least-32-chars
+WALLYDEX_POLICY_ENGINE_API_SECRET=a-very-long-random-secret-at-least-32-chars
 WALLYDEX_ADMIN_PASSWORD=a-strong-admin-password
 CADDY_IP=172.20.0.2   # Caddy's fixed IP on the proxy network (single IP, no CIDR)
 TZ=Europe/Madrid
@@ -261,7 +261,7 @@ securely (e.g. in your `.env` file with restricted permissions).
 | Variable              | Required           | Default | Description                                                                                                                                                                                                  |
 |-----------------------|--------------------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `ADMIN_PASSWORD`      | Yes                | —       | Password for the `admin` UI account (bootstrapped on first run).                                                                                                                                             |
-| `AUTHZ_API_SECRET`    | Yes (min 32 chars) | —       | Shared secret between Caddy and PulseShroud. Minimum 32 characters.                                                                                                                                          |
+| `POLICY_ENGINE_API_SECRET`    | Yes (min 32 chars) | —       | Shared secret between Caddy and PulseShroud. Minimum 32 characters.                                                                                                                                          |
 | `SERVER_PORT`         | No                 | `8080`  | Port PulseShroud listens on.                                                                                                                                                                                 |
 | `TRUSTED_PROXY`       | No                 | —       | Single IP address of your reverse proxy. Required when running behind a proxy — see [Understanding TRUSTED_PROXY](#understanding-trusted_proxy).                                                             |
 | `RULE_CHECK_INTERVAL` | No                 | `1m`    | How often the scheduler checks for expired address leases.<br/> Set this to the lowest address lease TTL you'll use.                                                                                         |
@@ -347,10 +347,10 @@ Add the `forward_auth` block to any site you want to protect:
 ```caddy
 your-service.example.com {
     forward_auth http://wallydex:8080 {
-        uri /api/authz/verify-ip
+        uri /api/policy-engine/verify-ip
         header_up X-Real-IP {http.request.remote.host}
         # Pass the shared secret to prove Caddy is the caller
-        header_up Authorization "Bearer {$WALLYDEX_AUTHZ_API_SECRET}"
+        header_up Authorization "Bearer {$WALLYDEX_POLICY_ENGINE_API_SECRET}"
     }
 
     reverse_proxy your-service:port
@@ -364,9 +364,9 @@ It never returns `401` to avoid leaking information about why the request was re
 
 Any proxy that supports forward auth can work. The requirements are:
 
-1. Call `GET http://wallydex:8080/api/authz/verify-ip` before forwarding the request.
+1. Call `GET http://wallydex:8080/api/policy-engine/verify-ip` before forwarding the request.
 2. Pass the real client IP in the `X-Real-IP` header.
-3. Pass `Authorization: Bearer <AUTHZ_API_SECRET>` to authenticate the proxy-to-PulseShroud call.
+3. Pass `Authorization: Bearer <POLICY_ENGINE_API_SECRET>` to authenticate the proxy-to-PulseShroud call.
 4. Allow the request through on `200`; block on anything else.
 
 ---

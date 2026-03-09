@@ -17,7 +17,7 @@ type Conf struct {
 	Server    ConfServer
 	DB        ConfDB
 	Rules     ConfRules
-	Authz     ConfAuthz
+	Policy    ConfPolicy
 	LogLevel  string         `env:"LOG_LEVEL" envDefault:"info"`
 	LogFormat logging.Format `env:"LOG_FORMAT" envDefault:"text"` // "json" or "text" (tint)
 	LogColor  bool           `env:"LOG_COLOR" envDefault:"true"`  // Enable colored output (only for text format)
@@ -35,8 +35,8 @@ type ConfDB struct {
 	Dsn     string
 }
 
-type ConfAuthz struct {
-	APISecret string `env:"AUTHZ_API_SECRET,required,notEmpty"`
+type ConfPolicy struct {
+	APISecret string `env:"POLICY_ENGINE_API_SECRET,required,notEmpty"`
 }
 
 // ConfRules holds configuration for background rule/scheduler behaviour.
@@ -73,9 +73,9 @@ func Load() (*Conf, error) {
 		return nil, fmt.Errorf("check interval must be bigger than 0: %d", c.Rules.CheckInterval)
 	}
 
-	// Ensure api secret for Authz endpoint is defined and secure
-	if len(c.Authz.APISecret) < 16 {
-		return nil, fmt.Errorf("authz api secret is too short (got %d chars, minimum 16); generate one with: openssl rand -base64 16", len(c.Authz.APISecret))
+	// Ensure api secret for Policy endpoint is defined and secure
+	if len(c.Policy.APISecret) < 16 {
+		return nil, fmt.Errorf("policy api secret is too short (got %d chars, minimum 16); generate one with: openssl rand -base64 16", len(c.Policy.APISecret))
 	}
 
 	if err := validateWritableDir(c.DB.DataDir); err != nil {

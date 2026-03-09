@@ -1,9 +1,9 @@
-package authz
+package policy
 
 import "errors"
 
 var (
-	ErrSecretNotConfigured = errors.New("authz secret not configured")
+	ErrSecretNotConfigured = errors.New("policy secret not configured")
 	ErrInvalidBearerToken  = errors.New("invalid bearer token")
 	ErrIPNotEnabled        = errors.New("IP not in enabled set")
 )
