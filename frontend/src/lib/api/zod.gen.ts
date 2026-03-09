@@ -77,6 +77,7 @@ export const zDevice = z.object({
   id: zId,
   name: z.string().min(1).max(50),
   api_key_prefix: z.string(),
+  address_count: z.optional(z.int().gte(0).readonly()),
 });
 
 export const zCreateDeviceResponse = z.object({
@@ -108,6 +109,18 @@ export const zDeviceAddressLeaseRule = z.object({
   ttl_seconds: z.int().gte(1),
   created_at: z.iso.datetime({ offset: true, local: true }),
   updated_at: z.iso.datetime({ offset: true, local: true }),
+});
+
+export const zDeviceWritable = z.object({
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  id: zId,
+  name: z.string().min(1).max(50),
+  api_key_prefix: z.string(),
+});
+
+export const zCreateDeviceResponseWritable = z.object({
+  device: zDeviceWritable,
+  api_key: z.string(),
 });
 
 export const zAddressWritable = z.object({

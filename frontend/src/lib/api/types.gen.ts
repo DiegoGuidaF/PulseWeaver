@@ -62,6 +62,10 @@ export type Device = {
    * Prefix of the device API key (for display only).
    */
   api_key_prefix: string;
+  /**
+   * Number of currently enabled addresses for this device.
+   */
+  readonly address_count?: number;
 };
 
 export type Address = {
@@ -124,6 +128,27 @@ export type Password = string;
 export type IpAddress = string;
 
 export type Id = number;
+
+export type CreateDeviceResponseWritable = {
+  device: DeviceWritable;
+  /**
+   * Secret key for the device; only returned on creation.
+   */
+  api_key: string;
+};
+
+export type DeviceWritable = {
+  created_at: Date;
+  id: Id;
+  /**
+   * User-friendly name for the device
+   */
+  name: string;
+  /**
+   * Prefix of the device API key (for display only).
+   */
+  api_key_prefix: string;
+};
 
 export type AddressWritable = {
   id: Id;

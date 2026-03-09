@@ -138,6 +138,12 @@ export const DeviceSchema = {
       type: "string",
       description: "Prefix of the device API key (for display only).",
     },
+    address_count: {
+      type: "integer",
+      minimum: 0,
+      readOnly: true,
+      description: "Number of currently enabled addresses for this device.",
+    },
   },
 } as const;
 
@@ -278,6 +284,45 @@ export const IPAddressSchema = {
 export const IDSchema = {
   type: "integer",
   format: "int64",
+} as const;
+
+export const CreateDeviceResponseWritableSchema = {
+  type: "object",
+  required: ["device", "api_key"],
+  properties: {
+    device: {
+      $ref: "#/components/schemas/DeviceWritable",
+    },
+    api_key: {
+      type: "string",
+      description: "Secret key for the device; only returned on creation.",
+    },
+  },
+} as const;
+
+export const DeviceWritableSchema = {
+  type: "object",
+  required: ["id", "name", "created_at", "api_key_prefix"],
+  properties: {
+    created_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+    },
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    name: {
+      description: "User-friendly name for the device",
+      type: "string",
+      minLength: 1,
+      maxLength: 50,
+    },
+    api_key_prefix: {
+      type: "string",
+      description: "Prefix of the device API key (for display only).",
+    },
+  },
 } as const;
 
 export const AddressWritableSchema = {

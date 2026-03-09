@@ -88,13 +88,14 @@ export function DeviceList() {
               <TableHead>ID</TableHead>
               <TableHead>Key prefix</TableHead>
               <TableHead>Created At</TableHead>
+              <TableHead>Active addresses</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {devices?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center">
+                <TableCell colSpan={6} className="h-32 text-center">
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <p className="text-muted-foreground">No devices found.</p>
                     <p className="text-sm text-gray-400">
@@ -115,6 +116,13 @@ export function DeviceList() {
                   </TableCell>
                   <TableCell>
                     {format(new Date(device.created_at), "PP p")}
+                  </TableCell>
+                  <TableCell>
+                    {device.address_count === 0 ? (
+                      <span className="text-muted-foreground">0</span>
+                    ) : (
+                      <span className="font-medium">{device.address_count}</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
