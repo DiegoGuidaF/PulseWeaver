@@ -6,150 +6,53 @@ globs:
   - "**/migrations/**"
 ---
 
-# Go Backend Rules
+# Go Backend
 
-**References:** `docs/ai-overview.md`, `docs/ai-go-style.md`
+> Deeper context: `CODEBASE-Backend.md`
 
-## Architecture & Layers
+## Layers
 
-### Layer Structure
-```
-Handler (HTTP) → Service (Business Logic) → Repository (Data Access) → Database
-```
+**Handler → Service → Repository → Database**
 
-- **Handler Layer:** HTTP request/response handling, uses `oapi-codegen` generated types
-- **Service Layer:** Business logic orchestration, uses domain constructors
-- **Repository Layer:** Data access, SQL queries via `sqlx`, error mapping
-- **Domain Layer:** Entity constructors (`NewUser`, `NewDevice`), business validation
-
-### Domain-Driven Design
-
-- **Domain Constructors:** The ONLY place for business validation
-  - Example: `NewUser(username, password) (*User, error)` validates and hashes password
-  - Handlers extract values from OpenAPI DTOs and pass primitives to services
-  - Services call domain constructors which perform all validation
-
-- **Domain Separation:** Domain must NEVER depend on HTTP or OpenAPI types
-  - Flow: OpenAPI DTO → Handler extracts values → Service calls domain constructor → Repository persists domain model
-  - Domain models are pure Go structs, no external dependencies
-
-### DTOs & Type Mapping
-
-- Use `oapi-codegen` generated types for HTTP contracts (`api.CreateUserRequest`)
-- Map OpenAPI types to Domain models immediately in Handler layer
-- Never pass OpenAPI types to Service or Repository layers
+- **Handler:** HTTP binding; extract primitives from OpenAPI DTOs; sets `operation` in ctx (`logging.WithOperation`); never pass OpenAPI types downstream
+- **Service:** Business logic; calls domain constructors; holds `*slog.Logger` as a field; calls observers synchronously after state changes
+- **Repository:** `sqlx` SQL; maps DB errors to domain errors; no logging (errors bubble up)
+- **Domain constructors** (`NewDevice`, `NewUser`, …): the only place for business validation
 
 ## Coding Style ("Boring Go")
 
-### Error Handling
-- Explicit `if err != nil` checks, no error collections or monads
-- Wrap errors with context: `fmt.Errorf("failed to create user: %w", err)`
-- Early returns for error cases
-
-### Concurrency
-- Use `errgroup` for parallel tasks
-- No raw `go func` without lifecycle management
-- Context propagation for cancellation
-
-### Functions & Methods
-- Small, focused functions
-- Service methods own repositories and logger
-- Pure logic helpers should be plain functions (not methods)
+- Explicit `if err != nil`, early returns, no error collections
+- Wrap errors with context: `fmt.Errorf("failed to create device: %w", err)`
+- Small, focused functions; pure logic helpers as plain functions (not methods)
+- No raw `go func` without lifecycle management; use `errgroup` for parallel tasks
 
 ## Repository Pattern
 
-### Interface Location
-- Repository interfaces live in domain package (`auth.Repository`, `device.Repository`)
-- Implementations (`repository.go`) are in the same package as interfaces
-
-### SQL Implementation
-- Use `sqlx` for database operations
-- No ORM
-- Map DB-specific errors (e.g., unique constraint violations) to domain errors inside repo methods
-
-### Transaction Management
-- Repositories implement `RunInTx(ctx context.Context, fn func(Repository) error) error`
-- Callback receives transactional repository instance
-- If already in transaction, callback reuses it (prevents nested transactions)
-- Auto-rollback on error, commit on success
-- Example:
+- Interfaces are **unexported** and live in the domain package (e.g. `repository` in `internal/device/service.go`)
+- `RunInTx(ctx context.Context, fn func(repository) error) error` — callback receives the unexported interface; if already in a transaction, reuses it
+- DB error mapping uses string inspection (driver is `modernc.org/sqlite`):
   ```go
-  err := repo.RunInTx(ctx, func(tx DeviceRepository) error {
-      addr, err := tx.CreateAddress(ctx, address)
-      if err != nil {
-          return err
-      }
-      return tx.EnableAddress(ctx, addr.ID)
-  })
+  strings.Contains(strings.ToLower(err.Error()), "unique constraint failed")
   ```
+  Do not use `sqlite3.ErrConstraintUnique` (that belongs to the `mattn/go-sqlite3` driver, which is not used here).
 
-## Testing Strategy
+## Inter-Domain Communication
 
-### 1. Domain Layer (Unit Tests)
-- **Scope:** Pure functions, entity constructors (`NewUser`), validators
-- **Style:** Table-driven tests (`tests := []struct{...}`)
-- **Dependencies:** None (ultra-fast, no external setup)
+- **Observer callbacks** for async/reactive cross-domain events. Consumer domain defines an observer interface; owner domain calls it:
+  ```go
+  type AddressObserver interface {
+      OnAddressEvent(ctx context.Context, event AddressEvent)
+  }
+  // Owner calls: for _, o := range s.observers { o.OnAddressEvent(ctx, event) }
+  ```
+- **Interfaces** for cross-domain data access: consumer declares the interface, owner implements it
+- Channels may be used as a **private implementation detail** inside a consumer service (e.g. to decouple receiving an observer call from processing it), but channels are not the cross-domain boundary
 
-### 2. Service Layer (Unit Tests)
-- **Scope:** Business logic, orchestration, error handling
-- **Dependencies:** Mock repository interfaces (`mockery` or hand-rolled fakes)
-- **Style:** Table-driven tests
-- **Pattern:** `Given(MockRepo behaves X) -> When(Call Service) -> Then(Expect Y)`
+## Service Lifecycle
 
-### 3. Repository Layer (Integration Tests)
-- **Scope:** SQL queries, data mapping, transaction logic, database constraints
-- **Dependencies:** Real SQLite database (in-memory `file::memory:`)
-- **Lifecycle:** Fresh DB instance with migrations for each test
-- **Goal:** Verify save/read correctness and error mapping (`sqlite3.ErrConstraintUnique` → domain errors)
+Single `Run(ctx context.Context) error` method. Context cancellation handles shutdown — no separate `Start()`/`Stop()`.
 
-### 4. HTTP Handler Layer (E2E Tests)
-- **Scope:** Request binding (JSON → DTO), input validation, response marshaling, status codes
-- **Dependencies:** `httptest.NewServer` or `httptest.NewRecorder`, real service + in-memory DB
-- **Coverage:** Happy paths + critical error paths (401, 403, 400)
-- **Note:** Since we use `StrictServer`, assert against structured response (parse JSON into generated Go types)
-- **Setup Pattern (CRITICAL):**
-  - **Given (Setup):** Use direct service calls for test data setup, NOT HTTP calls
-  - **When/Then (Test):** Use HTTP calls only for the actual test assertions
-  - **Rationale:** Setup via services is faster and focuses HTTP tests on verifying the HTTP layer
-  - **Example:**
-    ```go
-    // ✅ CORRECT: Setup via service
-    device, apiKey, err := testServer.DeviceService.CreateDevice(ctx, "test-device")
-    is.NoErr(err)
-    
-    // Then test HTTP endpoint
-    req := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", nil)
-    req.Header.Set("X-API-Key", apiKey)
-    // ... make HTTP call and assert
-    
-    // ❌ WRONG: Don't use HTTP for setup
-    // createReq := httptest.NewRequest(http.MethodPost, "/api/v1/devices", ...)
-    ```
-  - **Exception:** If testing the CREATE endpoint itself, HTTP call is the "Then" part, not setup
+## Configuration & Migrations
 
-### Test Design Principles
-- **No Logic in Setup:** Test setup should be flat and declarative
-- **Handler Test Setup:** Always use service calls for setup (Given), HTTP calls only for assertions (Then)
-- **Helpers:** Use test builders (e.g., `createAuthenticatedUser(t, db)`) but keep them simple
-- **Assertions:** Use `stretchr/testify/assert` or `require`
-- **State Isolation:** Every test runs in clean state, no shared global DB state
-
-## Configuration
-
-- Use `internal/config` to load environment variables
-- Pass config values (like `AdminPassword`, `TokenTTL`) into Service constructors (`NewService`)
-- Avoid accessing global config from services
-
-## Logging
-
-- Use structured logging with `slog`
-- Pass logger into service constructors
-- Include context in log messages (request ID, user ID, etc.)
-
-## Migration Best Practices
-
-- Use `golang-migrate` for schema management
-- Migrations live in `internal/database/migrations/`
-- Use `make migrate-create` to generate new migrations
-- Always provide both `.up.sql` and `.down.sql` files
-- Test migrations in integration tests
+- Load env vars in `internal/config`; pass values into constructors — no global config access in services
+- Migrations in `internal/database/migrations/`; always provide both `.up.sql` and `.down.sql`; use `make migrate-create`

@@ -2,54 +2,32 @@
 alwaysApply: true
 ---
 
-# WallyDic Project Overview
+# WallyDic
 
-You are an expert Full-Stack Engineer specializing in Go (Backend) and React/TypeScript (Frontend).
-Your goal is to build a low-maintenance, production-ready device management system.
+Self-hosted forward-auth sidecar. Single Go binary with embedded React SPA. Not yet released — code quality over backwards compatibility.
 
-## 🚨 GLOBAL CRITICAL INSTRUCTIONS
+## Stack
+- **Backend:** Go (Chi, SQLite, sqlx) — layered: Handler → Service → Repository → Database
+- **Frontend:** React 19, TypeScript, Vite, shadcn/ui, Tailwind CSS v4
+- **API:** Schema-first OpenAPI — `api/openapi.yaml` is the single source of truth
 
-1. **Search First:** Before generating code, check existing patterns in `docs/` or `frontend/docs/`.
-2. **No Magic:** Prefer explicit code over abstraction.
-3. **Single Binary:** Remember this app compiles to a single binary. Frontend is embedded in Backend.
+## Key Paths
+| Purpose | Path |
+|---|---|
+| Backend entry | `cmd/api/main.go` |
+| Frontend entry | `frontend/src/main.tsx` |
+| API spec | `api/openapi.yaml` |
+| Migrations | `internal/database/migrations/` |
+| Generated backend types | `internal/api/server.gen.go` (**do not modify**) |
+| Generated frontend types | `frontend/src/lib/api/` (**do not modify**) |
 
-## Project Architecture
+## Commands
+- `make dev-back` / `make dev-front` — hot-reload servers
+- `make test` — all Go tests (always use this, not bare `go test ./...`; uses `-tags=test`)
+- `make lint` / `make fix` — lint / lint + autofix
+- `make api` — regenerate backend + frontend types from OpenAPI spec
+- `make build` — full production build
 
-- **Backend:** Go (Chi router, SQLite, single binary)
-- **Frontend:** React 19 + TypeScript + Vite (embedded in backend binary)
-- **API:** Schema-first OpenAPI design (`api/openapi.yaml` is single source of truth)
-- **Deployment:** Single binary contains both backend server and frontend SPA
-
-## 📂 FILE & PATH CONVENTIONS
-
-- **Backend Entry:** `cmd/api/main.go`
-- **Frontend Entry:** `frontend/src/main.tsx`
-- **API Spec:** `api/openapi.yaml` (Single Source of Truth)
-- **Migrations:** `internal/database/migrations/`
-- **Generated Types:** 
-  - Backend: `internal/api/server.gen.go` (via `oapi-codegen`)
-  - Frontend: `frontend/src/lib/api/` (via `@hey-api/openapi-ts`) — `index.ts`, `sdk.gen.ts`, `types.gen.ts`, `zod.gen.ts`, etc. Do not modify; directory is fully generated.
-
-## Documentation References
-
-- **Backend Patterns:** `docs/ai-overview.md`, `docs/ai-go-style.md`
-- **Frontend Patterns:** `frontend/docs/ai-overview.md`, `frontend/docs/ai-frontend-styles.md`
-- **Testing Requirements:** `.cursor/rules/testing.mdc` - **ALWAYS verify tests pass after code changes**
-
-## Code Organization Principles
-
-- **Domain-Driven:** Business logic lives in domain constructors and services
-- **Layered Architecture:** Handler → Service → Repository → Database
-- **Type Safety:** Use generated types from OpenAPI spec, map to domain types explicitly
-- **Testing:** Unit tests for logic, integration tests for repositories, E2E tests for handlers
-
-## Build & Development
-
-- **Backend Dev:** `make dev-back` (uses Air for hot reload)
-- **Frontend Dev:** `make dev-front` (Vite dev server)
-- **Full Build:** `make build` (builds frontend, embeds in backend binary)
-- **Tests:** `make test` (runs all Go tests)
-
-## Backwards Compatibility
-
-- This app has not been released yet, prioritize code quality over maintaining backwards compatibility.
+## Deeper Context
+- Backend patterns and package structure: `CODEBASE-Backend.md`
+- Frontend patterns and routing conventions: `CODEBASE-Frontend.md`
