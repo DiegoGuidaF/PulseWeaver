@@ -141,7 +141,7 @@ func (h *HTTPHandler) AddAddress(ctx context.Context, request httpapi.AddAddress
 		slog.String(AttrKeyAddressIP, ipAddress),
 	)
 
-	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, ipAddress, StatusSourceManual)
+	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, ipAddress, EventSourceManual)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
@@ -186,7 +186,7 @@ func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request httpapi.Devic
 	}
 	logger = logger.With(slog.String(AttrKeyClientIP, clientIP))
 
-	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, clientIP, StatusSourceHeartbeat)
+	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, clientIP, EventSourceHeartbeat)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
@@ -248,7 +248,7 @@ func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, request httpa
 	}
 	logger = logger.With(slog.String(AttrKeyAddressIP, ipToUse))
 
-	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, ipToUse, StatusSourceHeartbeat)
+	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, ipToUse, EventSourceHeartbeat)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
@@ -327,7 +327,7 @@ func toAddressResponse(a *Address) httpapi.Address {
 		Id:        a.ID.Int64(),
 		DeviceId:  a.DeviceID.Int64(),
 		Ip:        a.IP,
-		Status:    a.Status,
+		IsEnabled: a.IsEnabled,
 		CreatedAt: httpapi.UTCTime(a.CreatedAt),
 		UpdatedAt: httpapi.UTCTime(a.UpdatedAt),
 	}

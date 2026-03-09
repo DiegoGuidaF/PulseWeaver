@@ -57,7 +57,7 @@ func TestHandler_AddressLifecycle(t *testing.T) {
 	var createdAddress httpapi.Address
 	err = json.NewDecoder(addRes.Body).Decode(&createdAddress)
 	is.NoErr(err)
-	is.True(createdAddress.Status)
+	is.True(createdAddress.IsEnabled)
 
 	listReq := httptest.NewRequest(http.MethodGet, addURL, nil)
 	listReq.AddCookie(sessionCookie)
@@ -70,7 +70,7 @@ func TestHandler_AddressLifecycle(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(len(addresses), 1)
 	is.Equal(addresses[0].Ip, "192.168.1.100")
-	is.True(addresses[0].Status)
+	is.True(addresses[0].IsEnabled)
 
 	disableURL := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", dev.ID, createdAddress.Id)
 	disableReq := httptest.NewRequest(http.MethodDelete, disableURL, nil)
@@ -82,7 +82,7 @@ func TestHandler_AddressLifecycle(t *testing.T) {
 	var disabled httpapi.Address
 	err = json.NewDecoder(disableRes.Body).Decode(&disabled)
 	is.NoErr(err)
-	is.True(!disabled.Status)
+	is.True(!disabled.IsEnabled)
 }
 
 func TestHandler_DeviceHeartbeat(t *testing.T) {
@@ -210,7 +210,7 @@ func TestHandler_DeviceHeartbeatByApiKey_NoBody(t *testing.T) {
 	err = json.NewDecoder(heartbeatRes.Body).Decode(&addr)
 	is.NoErr(err)
 	is.Equal(addr.Ip, "192.168.1.99")
-	is.True(addr.Status)
+	is.True(addr.IsEnabled)
 }
 
 func TestHandler_DeviceHeartbeatByApiKey_WithBodyIP(t *testing.T) {
@@ -236,7 +236,7 @@ func TestHandler_DeviceHeartbeatByApiKey_WithBodyIP(t *testing.T) {
 	is.NoErr(err)
 	// Verify the IP from body is used, not RemoteAddr
 	is.Equal(addr.Ip, "10.0.0.42")
-	is.True(addr.Status)
+	is.True(addr.IsEnabled)
 }
 
 func TestHandler_DeviceHeartbeatByApiKey_401_NoKey(t *testing.T) {

@@ -18,6 +18,8 @@
     <directory value="$PROJECT_DIR$" />
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />
-    <method v="2" />
+    <method v="2">
+      <option name="GoBeforeRunTask" command="generate ./..." />
+    </method>
   </configuration>
 </component>

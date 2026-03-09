@@ -18,9 +18,9 @@ type repository interface {
 	GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip netip.Addr) (*Address, error)
 	ListAddresses(ctx context.Context, deviceID DeviceID) ([]Address, error)
 	DisableAddress(ctx context.Context, addressID AddressID) (*Address, error)
-	DisableAddresses(ctx context.Context, addressIDs []AddressID, source StatusSource) ([]Address, error)
-	EnableAddress(ctx context.Context, addressID AddressID, source StatusSource) (*Address, error)
-	RefreshAddress(ctx context.Context, addressID AddressID, source StatusSource) (*Address, error)
+	DisableAddresses(ctx context.Context, addressIDs []AddressID, source EventSource) ([]Address, error)
+	EnableAddress(ctx context.Context, addressID AddressID, source EventSource) (*Address, error)
+	RefreshAddress(ctx context.Context, addressID AddressID, source EventSource) (*Address, error)
 	CheckAddressOwnership(ctx context.Context, deviceID DeviceID, addressID AddressID) error
 	GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) (*Device, error)
 	GetEnabledUniqueIPs(ctx context.Context) ([]string, error)
@@ -120,7 +120,7 @@ func (s *Service) Authenticate(ctx context.Context, rawKey string) (*Principal, 
 	return PrincipalFromDevice(device), nil
 }
 
-func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID DeviceID, inputIP string, source StatusSource) (*Address, EventType, error) {
+func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID DeviceID, inputIP string, source EventSource) (*Address, EventType, error) {
 	createAddressParams, err := NewCreateAddressParams(deviceID, inputIP, s.trustedProxy)
 	if err != nil {
 		return nil, "", err
@@ -149,10 +149,10 @@ func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID DeviceID
 		}
 
 		switch {
-		case !existingAddress.Status:
+		case !existingAddress.IsEnabled:
 			eventType = EventTypeAddressEnabled
 			address, err = tx.EnableAddress(ctx, existingAddress.ID, source)
-		case existingAddress.Status:
+		case existingAddress.IsEnabled:
 			eventType = EventTypeAddressRefreshed
 			address, err = tx.RefreshAddress(ctx, existingAddress.ID, source)
 		}
@@ -242,7 +242,7 @@ func (s *Service) GetEnabledUniqueIPs(ctx context.Context) ([]string, error) {
 	return ips, nil
 }
 
-func (s *Service) DisableAddresses(ctx context.Context, addressIDs []AddressID, source StatusSource) error {
+func (s *Service) DisableAddresses(ctx context.Context, addressIDs []AddressID, source EventSource) error {
 	disabledAddresses, err := s.repo.DisableAddresses(ctx, addressIDs, source)
 	if err != nil {
 		return err

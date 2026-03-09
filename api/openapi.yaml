@@ -743,7 +743,7 @@ components:
         - id
         - device_id
         - ip
-        - status
+        - is_enabled
         - created_at
         - updated_at
       properties:
@@ -753,7 +753,7 @@ components:
           $ref: '#/components/schemas/ID'
         ip:
           $ref: '#/components/schemas/IPAddress'
-        status:
+        is_enabled:
           type: boolean
           description: The latest state of this address, enabled or disabled
         created_at:

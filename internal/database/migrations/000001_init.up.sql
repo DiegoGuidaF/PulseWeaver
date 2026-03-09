@@ -3,7 +3,7 @@
 CREATE TABLE IF NOT EXISTS "devices"
 (
     id         INTEGER PRIMARY KEY,
-    name       TEXT NOT NULL,
+    name       TEXT     NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at DATETIME
 );
@@ -25,17 +25,17 @@ CREATE INDEX IF NOT EXISTS idx_address_device_id
 CREATE UNIQUE INDEX IF NOT EXISTS idx_addresses_device_id_ip
     ON addresses (device_id, ip);
 
-CREATE TABLE IF NOT EXISTS address_status
+CREATE TABLE IF NOT EXISTS address_events
 (
     id         INTEGER PRIMARY KEY,
-    address_id INTEGER  NOT NULL REFERENCES addresses(id) ON DELETE CASCADE,
-    status     BOOLEAN  NOT NULL CHECK (status IN (0, 1)),
+    address_id INTEGER  NOT NULL REFERENCES addresses (id) ON DELETE CASCADE,
+    is_enabled BOOLEAN  NOT NULL CHECK (is_enabled IN (0, 1)),
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     source     TEXT     NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_address_status_address_id_created_at
-    ON address_status (address_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_address_events_address_id_created_at
+    ON address_events (address_id, created_at DESC);
 
 -- Authentication tables
 
@@ -73,17 +73,17 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user_id
 CREATE TABLE IF NOT EXISTS device_api_keys
 (
     id         INTEGER PRIMARY KEY,
-    device_id  INTEGER  NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    device_id  INTEGER  NOT NULL REFERENCES devices (id) ON DELETE CASCADE,
     key_prefix TEXT     NOT NULL,
     key_hash   TEXT     NOT NULL UNIQUE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_device_api_keys_device_id
-    ON device_api_keys(device_id);
+    ON device_api_keys (device_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_device_api_keys_key_hash
-    ON device_api_keys(key_hash);
+    ON device_api_keys (key_hash);
 
 -- Address current state
 

@@ -490,7 +490,7 @@ func TestRepository_DisableAddress(t *testing.T) {
 	disabledAddr, err := repo.DisableAddress(ctx, addr.ID)
 	is.NoErr(err)
 	is.Equal(disabledAddr.ID, addr.ID)
-	is.True(!disabledAddr.Status) // Should be disabled
+	is.True(!disabledAddr.IsEnabled) // Should be disabled
 }
 
 func TestRepository_EnableAddress(t *testing.T) {
@@ -508,10 +508,10 @@ func TestRepository_EnableAddress(t *testing.T) {
 	is.NoErr(err)
 
 	// Enable address
-	enabledAddr, err := repo.EnableAddress(ctx, addr.ID, StatusSourceManual)
+	enabledAddr, err := repo.EnableAddress(ctx, addr.ID, EventSourceManual)
 	is.NoErr(err)
 	is.Equal(enabledAddr.ID, addr.ID)
-	is.True(enabledAddr.Status) // Should be enabled
+	is.True(enabledAddr.IsEnabled) // Should be enabled
 }
 
 func TestRepository_GetAddress(t *testing.T) {
@@ -530,7 +530,7 @@ func TestRepository_GetAddress(t *testing.T) {
 	is.Equal(addrWithStatus.ID, addr.ID)
 	is.Equal(addrWithStatus.DeviceID, device.ID)
 	is.Equal(addrWithStatus.IP, "192.168.1.100")
-	is.True(addrWithStatus.Status) // Should be enabled
+	is.True(addrWithStatus.IsEnabled) // Should be enabled
 	is.True(!addrWithStatus.CreatedAt.IsZero())
 }
 
@@ -617,7 +617,7 @@ func TestRepository_RunInTx(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(len(addresses), 1)
 	is.Equal(addresses[0].IP, "192.168.1.100")
-	is.True(addresses[0].Status) // Should be enabled
+	is.True(addresses[0].IsEnabled) // Should be enabled
 }
 
 func TestRepository_RunInTx_Rollback(t *testing.T) {

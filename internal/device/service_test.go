@@ -21,12 +21,12 @@ func TestService_RegisterAddressActivity_NewAddress(t *testing.T) {
 
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 
-	addr, eventType, err := service.RegisterAddressActivity(ctx, device.ID, "192.168.1.100", StatusSourceManual)
+	addr, eventType, err := service.RegisterAddressActivity(ctx, device.ID, "192.168.1.100", EventSourceManual)
 	is.NoErr(err)
 	is.Equal(eventType, EventTypeAddressCreated)
 	is.True(addr != nil)
 	is.Equal(addr.IP, "192.168.1.100")
-	is.True(addr.Status)
+	is.True(addr.IsEnabled)
 }
 
 func TestService_RegisterAddressActivity_ExistingAddress(t *testing.T) {
@@ -38,10 +38,10 @@ func TestService_RegisterAddressActivity_ExistingAddress(t *testing.T) {
 	mockRepo.devices[device.ID] = device
 
 	existingAddr := &Address{
-		ID:       AddressID(1),
-		DeviceID: device.ID,
-		IP:       "192.168.1.100",
-		Status:   false,
+		ID:        AddressID(1),
+		DeviceID:  device.ID,
+		IP:        "192.168.1.100",
+		IsEnabled: false,
 	}
 	key := device.ID.String() + ":192.168.1.100"
 	mockRepo.addresses[existingAddr.ID] = existingAddr
@@ -49,12 +49,12 @@ func TestService_RegisterAddressActivity_ExistingAddress(t *testing.T) {
 
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 
-	addr, eventType, err := service.RegisterAddressActivity(ctx, device.ID, "192.168.1.100", StatusSourceManual)
+	addr, eventType, err := service.RegisterAddressActivity(ctx, device.ID, "192.168.1.100", EventSourceManual)
 	is.NoErr(err)
 	is.Equal(eventType, EventTypeAddressEnabled) // Address already existed, we just enabled it
 	is.True(addr != nil)
 	is.Equal(addr.IP, "192.168.1.100")
-	is.True(addr.Status) // Should be enabled
+	is.True(addr.IsEnabled) // Should be enabled
 }
 
 func TestService_RegisterAddressActivity_ExistingEnabledAddress(t *testing.T) {
@@ -66,10 +66,10 @@ func TestService_RegisterAddressActivity_ExistingEnabledAddress(t *testing.T) {
 	mockRepo.devices[device.ID] = device
 
 	existingAddr := &Address{
-		ID:       AddressID(1),
-		DeviceID: device.ID,
-		IP:       "192.168.1.100",
-		Status:   true, // already enabled
+		ID:        AddressID(1),
+		DeviceID:  device.ID,
+		IP:        "192.168.1.100",
+		IsEnabled: true, // already enabled
 	}
 	key := device.ID.String() + ":192.168.1.100"
 	mockRepo.addresses[existingAddr.ID] = existingAddr
@@ -79,12 +79,12 @@ func TestService_RegisterAddressActivity_ExistingEnabledAddress(t *testing.T) {
 	observer := &testAddressObserver{}
 	service.AddAddressObserver(observer)
 
-	addr, eventType, err := service.RegisterAddressActivity(ctx, device.ID, "192.168.1.100", StatusSourceHeartbeat)
+	addr, eventType, err := service.RegisterAddressActivity(ctx, device.ID, "192.168.1.100", EventSourceHeartbeat)
 	is.NoErr(err)
 	is.Equal(eventType, EventTypeAddressRefreshed)
 	is.True(addr != nil)
 	is.Equal(addr.IP, "192.168.1.100")
-	is.True(addr.Status)
+	is.True(addr.IsEnabled)
 
 	is.Equal(len(observer.events), 1)
 	event := observer.events[0]
@@ -103,7 +103,7 @@ func TestService_RegisterAddressActivity_DeviceNotFound(t *testing.T) {
 
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 
-	addr, eventType, err := service.RegisterAddressActivity(ctx, DeviceID(999), "192.168.1.100", StatusSourceManual)
+	addr, eventType, err := service.RegisterAddressActivity(ctx, DeviceID(999), "192.168.1.100", EventSourceManual)
 	is.True(err != nil)
 	is.Equal(err, ErrDeviceNotFound)
 	is.True(addr == nil)
@@ -120,7 +120,7 @@ func TestService_RegisterAddressActivity_RejectsTrustedProxyIP(t *testing.T) {
 
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.MustParseAddr("10.1.2.3"))
 
-	addr, eventType, err := service.RegisterAddressActivity(ctx, device.ID, "10.1.2.3", StatusSourceHeartbeat)
+	addr, eventType, err := service.RegisterAddressActivity(ctx, device.ID, "10.1.2.3", EventSourceHeartbeat)
 	is.True(errors.Is(err, ErrTrustedProxyIPRejected))
 	is.True(addr == nil)
 	is.Equal(eventType, EventType(""))
@@ -149,7 +149,7 @@ func TestService_RegisterAddressActivity_TransactionRollback(t *testing.T) {
 
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 
-	addr, eventType, err := service.RegisterAddressActivity(ctx, device.ID, "192.168.1.100", StatusSourceManual)
+	addr, eventType, err := service.RegisterAddressActivity(ctx, device.ID, "192.168.1.100", EventSourceManual)
 	is.True(err != nil)
 	is.Equal(err, testErr)
 	is.True(addr == nil)
@@ -165,10 +165,10 @@ func TestService_DisableAddress_Success(t *testing.T) {
 	mockRepo.devices[device.ID] = device
 
 	address := &Address{
-		ID:       AddressID(1),
-		DeviceID: device.ID,
-		IP:       "192.168.1.100",
-		Status:   true,
+		ID:        AddressID(1),
+		DeviceID:  device.ID,
+		IP:        "192.168.1.100",
+		IsEnabled: true,
 	}
 	mockRepo.addresses[address.ID] = address
 
@@ -177,7 +177,7 @@ func TestService_DisableAddress_Success(t *testing.T) {
 	disabledAddr, err := service.DisableAddress(ctx, device.ID, address.ID)
 	is.NoErr(err)
 	is.True(disabledAddr != nil)
-	is.True(!disabledAddr.Status)
+	is.True(!disabledAddr.IsEnabled)
 }
 
 func TestService_DisableAddress_OwnershipValidation(t *testing.T) {
@@ -191,10 +191,10 @@ func TestService_DisableAddress_OwnershipValidation(t *testing.T) {
 	mockRepo.devices[device2.ID] = device2
 
 	address := &Address{
-		ID:       AddressID(1),
-		DeviceID: device1.ID,
-		IP:       "192.168.1.100",
-		Status:   true,
+		ID:        AddressID(1),
+		DeviceID:  device1.ID,
+		IP:        "192.168.1.100",
+		IsEnabled: true,
 	}
 	mockRepo.addresses[address.ID] = address
 
@@ -233,16 +233,16 @@ func TestService_GetAddressesForDevice_Success(t *testing.T) {
 	mockRepo.devices[device.ID] = device
 
 	addr1 := &Address{
-		ID:       AddressID(1),
-		DeviceID: device.ID,
-		IP:       "192.168.1.1",
-		Status:   true,
+		ID:        AddressID(1),
+		DeviceID:  device.ID,
+		IP:        "192.168.1.1",
+		IsEnabled: true,
 	}
 	addr2 := &Address{
-		ID:       AddressID(2),
-		DeviceID: device.ID,
-		IP:       "192.168.1.2",
-		Status:   false,
+		ID:        AddressID(2),
+		DeviceID:  device.ID,
+		IP:        "192.168.1.2",
+		IsEnabled: false,
 	}
 	mockRepo.addresses[addr1.ID] = addr1
 	mockRepo.addresses[addr2.ID] = addr2
@@ -459,7 +459,7 @@ func TestService_RegisterAddressActivity_NotifiesObserverOnNewAddress(t *testing
 	observer := &testAddressObserver{}
 	service.AddAddressObserver(observer)
 
-	addr, eventType, err := service.RegisterAddressActivity(ctx, device.ID, "192.168.1.100", StatusSourceManual)
+	addr, eventType, err := service.RegisterAddressActivity(ctx, device.ID, "192.168.1.100", EventSourceManual)
 	is.NoErr(err)
 	is.Equal(eventType, EventTypeAddressCreated)
 	is.True(addr != nil)
@@ -481,10 +481,10 @@ func TestService_DisableAddress_NotifiesObserver(t *testing.T) {
 	mockRepo.devices[device.ID] = device
 
 	address := &Address{
-		ID:       AddressID(1),
-		DeviceID: device.ID,
-		IP:       "192.168.1.100",
-		Status:   true,
+		ID:        AddressID(1),
+		DeviceID:  device.ID,
+		IP:        "192.168.1.100",
+		IsEnabled: true,
 	}
 	mockRepo.addresses[address.ID] = address
 
@@ -511,16 +511,16 @@ func TestService_DisableAddresses_NotifiesObserverPerAddress(t *testing.T) {
 	mockRepo := newMockRepository()
 
 	address1 := &Address{
-		ID:       AddressID(1),
-		DeviceID: DeviceID(1),
-		IP:       "192.168.1.1",
-		Status:   true,
+		ID:        AddressID(1),
+		DeviceID:  DeviceID(1),
+		IP:        "192.168.1.1",
+		IsEnabled: true,
 	}
 	address2 := &Address{
-		ID:       AddressID(2),
-		DeviceID: DeviceID(2),
-		IP:       "192.168.1.2",
-		Status:   true,
+		ID:        AddressID(2),
+		DeviceID:  DeviceID(2),
+		IP:        "192.168.1.2",
+		IsEnabled: true,
 	}
 	mockRepo.addresses[address1.ID] = address1
 	mockRepo.addresses[address2.ID] = address2
@@ -529,7 +529,7 @@ func TestService_DisableAddresses_NotifiesObserverPerAddress(t *testing.T) {
 	observer := &testAddressObserver{}
 	service.AddAddressObserver(observer)
 
-	err := service.DisableAddresses(ctx, []AddressID{address1.ID, address2.ID}, StatusSourceManual)
+	err := service.DisableAddresses(ctx, []AddressID{address1.ID, address2.ID}, EventSourceManual)
 	is.NoErr(err)
 
 	is.Equal(len(observer.events), 2)
@@ -675,8 +675,8 @@ func (m *mockRepository) CreateAddress(ctx context.Context, params *CreateAddres
 		ID:        AddressID(len(m.addresses) + 1),
 		DeviceID:  params.DeviceID,
 		IP:        params.IP.String(),
-		Status:    true,
-		Source:    StatusSourceManual,
+		IsEnabled: true,
+		Source:    EventSourceManual,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -722,11 +722,11 @@ func (m *mockRepository) DisableAddress(ctx context.Context, addressID AddressID
 	if !ok {
 		return nil, ErrAddressNotFound
 	}
-	addr.Status = false
+	addr.IsEnabled = false
 	return addr, nil
 }
 
-func (m *mockRepository) DisableAddresses(ctx context.Context, addressIDs []AddressID, source StatusSource) ([]Address, error) {
+func (m *mockRepository) DisableAddresses(ctx context.Context, addressIDs []AddressID, source EventSource) ([]Address, error) {
 	result := make([]Address, 0, len(addressIDs))
 	for _, addressID := range addressIDs {
 		addr, err := m.DisableAddress(ctx, addressID)
@@ -739,7 +739,7 @@ func (m *mockRepository) DisableAddresses(ctx context.Context, addressIDs []Addr
 	return result, nil
 }
 
-func (m *mockRepository) EnableAddress(ctx context.Context, addressID AddressID, source StatusSource) (*Address, error) {
+func (m *mockRepository) EnableAddress(ctx context.Context, addressID AddressID, source EventSource) (*Address, error) {
 	if m.enableAddressErr != nil {
 		return nil, m.enableAddressErr
 	}
@@ -747,12 +747,12 @@ func (m *mockRepository) EnableAddress(ctx context.Context, addressID AddressID,
 	if !ok {
 		return nil, ErrAddressNotFound
 	}
-	addr.Status = true
+	addr.IsEnabled = true
 	addr.Source = source
 	return addr, nil
 }
 
-func (m *mockRepository) RefreshAddress(ctx context.Context, addressID AddressID, source StatusSource) (*Address, error) {
+func (m *mockRepository) RefreshAddress(ctx context.Context, addressID AddressID, source EventSource) (*Address, error) {
 	return m.EnableAddress(ctx, addressID, source)
 }
 
@@ -779,7 +779,7 @@ func (m *mockRepository) GetEnabledUniqueIPs(_ context.Context) ([]string, error
 	ips := make([]string, 0)
 	seen := map[string]bool{}
 	for _, addr := range m.addresses {
-		if addr.Status && !seen[addr.IP] {
+		if addr.IsEnabled && !seen[addr.IP] {
 			ips = append(ips, addr.IP)
 			seen[addr.IP] = true
 		}

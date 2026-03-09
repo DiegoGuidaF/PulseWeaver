@@ -9,21 +9,21 @@ import (
 // Address maps the current enabled/disabled state and metadata
 // for an address, joining data from addresses and address_current_state.
 type Address struct {
-	ID        AddressID    `db:"id"`
-	DeviceID  DeviceID     `db:"device_id"`
-	IP        string       `db:"ip"`
-	Status    bool         `db:"is_enabled"`
-	Source    StatusSource `db:"source"`
-	CreatedAt time.Time    `db:"created_at"`
-	UpdatedAt time.Time    `db:"updated_at"`
+	ID        AddressID   `db:"id"`
+	DeviceID  DeviceID    `db:"device_id"`
+	IP        string      `db:"ip"`
+	IsEnabled bool        `db:"is_enabled"`
+	Source    EventSource `db:"source"`
+	CreatedAt time.Time   `db:"created_at"`
+	UpdatedAt time.Time   `db:"updated_at"`
 }
 
-type StatusSource string
+type EventSource string
 
 const (
-	StatusSourceHeartbeat StatusSource = "heartbeat"
-	StatusSourceManual    StatusSource = "manual"
-	StatusSourceExpiry    StatusSource = "expiry"
+	EventSourceHeartbeat EventSource = "heartbeat"
+	EventSourceManual    EventSource = "manual"
+	EventSourceExpiry    EventSource = "expiry"
 )
 
 // CreateAddressParams holds only what is necessary to create an address.

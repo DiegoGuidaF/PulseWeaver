@@ -21,7 +21,7 @@ func (s *Service) executeAutoExpiry(ctx context.Context) error {
 	}
 	s.logger.InfoContext(ctx, "expired addresses detected", slog.Int(AttrKeyCount, len(ids)))
 
-	if err := s.addressDisabler.DisableAddresses(ctx, ids, device.StatusSourceExpiry); err != nil {
+	if err := s.addressDisabler.DisableAddresses(ctx, ids, device.EventSourceExpiry); err != nil {
 		return err
 	}
 	return nil

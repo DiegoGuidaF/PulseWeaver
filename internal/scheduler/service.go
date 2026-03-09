@@ -11,7 +11,7 @@ import (
 )
 
 type AddressDisabler interface {
-	DisableAddresses(ctx context.Context, addressIDs []device.AddressID, source device.StatusSource) error
+	DisableAddresses(ctx context.Context, addressIDs []device.AddressID, source device.EventSource) error
 }
 
 type ExpiredAddressFinder interface {

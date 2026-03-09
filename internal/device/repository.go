@@ -143,7 +143,7 @@ func (r *Repository) CreateAddress(ctx context.Context, params *CreateAddressPar
 			return err
 		}
 
-		address, err = tx.recordStatusChange(ctx, addressID, true, StatusSourceManual)
+		address, err = tx.recordAddressEvent(ctx, addressID, true, EventSourceManual)
 		if err != nil {
 			return err
 		}
@@ -327,10 +327,10 @@ func (r *Repository) GetAddress(ctx context.Context, addressID AddressID) (*Addr
 }
 
 func (r *Repository) DisableAddress(ctx context.Context, addressID AddressID) (*Address, error) {
-	return r.recordStatusChange(ctx, addressID, false, StatusSourceManual)
+	return r.recordAddressEvent(ctx, addressID, false, EventSourceManual)
 }
 
-func (r *Repository) DisableAddresses(ctx context.Context, addressIDs []AddressID, source StatusSource) ([]Address, error) {
+func (r *Repository) DisableAddresses(ctx context.Context, addressIDs []AddressID, source EventSource) ([]Address, error) {
 	if len(addressIDs) == 0 {
 		return []Address{}, nil
 	}
@@ -339,7 +339,7 @@ func (r *Repository) DisableAddresses(ctx context.Context, addressIDs []AddressI
 
 	err := r.runInTx(ctx, func(tx *Repository) error {
 		for i, addressID := range addressIDs {
-			disabledAddress, err := tx.recordStatusChange(ctx, addressID, false, source)
+			disabledAddress, err := tx.recordAddressEvent(ctx, addressID, false, source)
 			if err != nil {
 				return fmt.Errorf("failed to disable address %d: %w", addressID, err)
 			}
@@ -355,27 +355,28 @@ func (r *Repository) DisableAddresses(ctx context.Context, addressIDs []AddressI
 	return disabledAddresses, nil
 }
 
-func (r *Repository) EnableAddress(ctx context.Context, addressID AddressID, source StatusSource) (*Address, error) {
-	return r.recordStatusChange(ctx, addressID, true, source)
+func (r *Repository) EnableAddress(ctx context.Context, addressID AddressID, source EventSource) (*Address, error) {
+	return r.recordAddressEvent(ctx, addressID, true, source)
 }
 
 // RefreshAddress records activity for an already-enabled address (same DB work as EnableAddress; used for semantic distinction).
 // Refresh is modeled separately at the domain level, but persisted the same as enable to keep full audit history.
-func (r *Repository) RefreshAddress(ctx context.Context, addressID AddressID, source StatusSource) (*Address, error) {
+func (r *Repository) RefreshAddress(ctx context.Context, addressID AddressID, source EventSource) (*Address, error) {
 	return r.EnableAddress(ctx, addressID, source)
 }
-func (r *Repository) recordStatusChange(ctx context.Context, addressID AddressID, isEnabled bool, source StatusSource) (*Address, error) {
+
+func (r *Repository) recordAddressEvent(ctx context.Context, addressID AddressID, isEnabled bool, source EventSource) (*Address, error) {
 	var finalAddress *Address
 	err := r.runInTx(ctx, func(tx *Repository) error {
 		now := time.Now().UTC()
 
-		insertStatus := `
-		INSERT INTO address_status (address_id, status, source, created_at)
+		insertEvent := `
+		INSERT INTO address_events (address_id, is_enabled, source, created_at)
 		VALUES (?, ?, ?, ?)
 	`
 
-		if _, err := tx.db.ExecContext(ctx, insertStatus, addressID, isEnabled, source, now); err != nil {
-			return fmt.Errorf("failed to record status: %w", err)
+		if _, err := tx.db.ExecContext(ctx, insertEvent, addressID, isEnabled, source, now); err != nil {
+			return fmt.Errorf("failed to record event: %w", err)
 		}
 
 		upsertState := `

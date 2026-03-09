@@ -6,7 +6,6 @@ dev-back:
 dev-front:
 	cd frontend && npm install &&  npm run dev
 
-
 # Full production build
 build: clean build-frontend build-backend
 	@echo "✅ Build complete! Run ./bin/wallydic"
@@ -19,16 +18,16 @@ clean:
 	rm -rf internal/ui/dist
 	rm -rf frontend/dist
 
-test:
+test: api-back
 	go test -tags=test -v ./...
 
 # Run the linter (prints issues). Uses version from tools/go.mod.
-lint:
+lint: api-back
 	go fmt ./...
 	go tool -modfile=tools/go.mod golangci-lint run ./...
 
 # Run the linter and automatically fix what it can (gofmt, goimports, etc.).
-fix:
+fix: api-back
 	go fmt ./...
 	go tool -modfile=tools/go.mod golangci-lint run --fix ./...
 
@@ -44,17 +43,21 @@ migrate-create:
 	@read -p "Migration name: " name; \
 	migrate create -ext sql -dir internal/database/migrations -seq $$name
 
-build-frontend:
+build-frontend: api-front
 	@echo "📦 Building frontend..."
 	cd frontend && npm install && npm run build
 	@echo "📋 Copying dist to internal/ui..."
 	rm -rf internal/ui/dist
 	cp -r frontend/dist internal/ui/dist
 
-build-backend:
+build-backend: api-back
 	@echo "🔨 Building Go binary..."
 	go build -tags=prod -o bin/wallydic ./cmd/api
 
-api:
+api-back:
 	go generate ./...
+
+api-front:
 	cd frontend && npm run generate:api
+
+api: api-back api-front
