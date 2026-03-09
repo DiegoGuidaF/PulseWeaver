@@ -185,35 +185,6 @@ func (r *Repository) GetAddressForDeviceByIP(ctx context.Context, deviceID Devic
 	return address, nil
 }
 
-func (r *Repository) ListAddresses(ctx context.Context, deviceID DeviceID) ([]Address, error) {
-	var addresses []Address
-
-	query := `
-		SELECT a.id,
-		       a.device_id,
-		       a.ip,
-		       ac.is_enabled,
-		       ac.source,
-		       a.created_at,
-		       ac.updated_at
-		FROM addresses a
-		INNER JOIN address_current_state ac ON a.id = ac.address_id
-		WHERE a.device_id = ?
-		ORDER BY ac.updated_at DESC
-	`
-
-	err := r.db.SelectContext(ctx, &addresses, query, deviceID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list device addresses: %w", err)
-	}
-
-	if addresses == nil {
-		return []Address{}, nil
-	}
-
-	return addresses, nil
-}
-
 func (r *Repository) CheckAddressOwnership(ctx context.Context, deviceID DeviceID, addressID AddressID) error {
 	var dummy int
 

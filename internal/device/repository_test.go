@@ -434,48 +434,6 @@ func TestRepository_FindAddressForDeviceByIp_WrongDevice(t *testing.T) {
 	is.Equal(err, ErrAddressNotFound)
 }
 
-func TestRepository_ListAddresses(t *testing.T) {
-	is := is.New(t)
-
-	repo := setupTestDB(t)
-	ctx := context.Background()
-
-	// Create a device
-	device := createTestDevice(t, repo, ctx, "test-device")
-
-	// Create multiple addresses
-	createTestAddress(t, repo, ctx, device.ID, "192.168.1.1")
-	createTestAddress(t, repo, ctx, device.ID, "192.168.1.2")
-
-	// List addresses
-	addresses, err := repo.ListAddresses(ctx, device.ID)
-	is.NoErr(err)
-	is.Equal(len(addresses), 2)
-
-	// Verify addresses are returned
-	ips := make(map[string]bool)
-	for _, addr := range addresses {
-		ips[addr.IP] = true
-	}
-	is.True(ips["192.168.1.1"])
-	is.True(ips["192.168.1.2"])
-}
-
-func TestRepository_ListAddresses_Empty(t *testing.T) {
-	is := is.New(t)
-
-	repo := setupTestDB(t)
-	ctx := context.Background()
-
-	// Create a device
-	device := createTestDevice(t, repo, ctx, "test-device")
-
-	// List addresses (should be empty)
-	addresses, err := repo.ListAddresses(ctx, device.ID)
-	is.NoErr(err)
-	is.Equal(len(addresses), 0)
-}
-
 func TestRepository_DisableAddress(t *testing.T) {
 	is := is.New(t)
 
@@ -613,11 +571,10 @@ func TestRepository_RunInTx(t *testing.T) {
 	is.NoErr(err)
 
 	// Verify address was created and enabled
-	addresses, err := repo.ListAddresses(ctx, device.ID)
+	address, err := repo.GetAddressForDeviceByIP(ctx, device.ID, netip.MustParseAddr("192.168.1.100"))
 	is.NoErr(err)
-	is.Equal(len(addresses), 1)
-	is.Equal(addresses[0].IP, "192.168.1.100")
-	is.True(addresses[0].IsEnabled) // Should be enabled
+	is.Equal(address.IP, "192.168.1.100")
+	is.True(address.IsEnabled) // Should be enabled
 }
 
 func TestRepository_RunInTx_Rollback(t *testing.T) {
@@ -642,9 +599,9 @@ func TestRepository_RunInTx_Rollback(t *testing.T) {
 	is.Equal(err, testError)
 
 	// Verify address was NOT created (transaction rolled back)
-	addresses, err := repo.ListAddresses(ctx, device.ID)
-	is.NoErr(err)
-	is.Equal(len(addresses), 0) // Should be empty due to rollback
+	_, err = repo.GetAddressForDeviceByIP(ctx, device.ID, netip.MustParseAddr("192.168.1.100"))
+	is.True(err != nil)
+	is.Equal(err, ErrAddressNotFound)
 }
 
 func TestRepository_GetEnabledUniqueIPs_Empty(t *testing.T) {

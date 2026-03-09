@@ -106,32 +106,6 @@ func (h *HTTPHandler) DeleteDevice(ctx context.Context, request httpapi.DeleteDe
 	return httpapi.DeleteDevice204Response{}, nil
 }
 
-func (h *HTTPHandler) GetDeviceAddresses(ctx context.Context, request httpapi.GetDeviceAddressesRequestObject) (httpapi.GetDeviceAddressesResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "GetDeviceAddresses")
-	deviceID := DeviceID(request.DeviceId)
-	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
-
-	addresses, err := h.service.GetAddressesForDevice(ctx, deviceID)
-	if err != nil {
-		if errors.Is(err, ErrDeviceNotFound) {
-			logger.WarnContext(ctx, "device not found")
-			return httpapi.GetDeviceAddresses404JSONResponse(
-				errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID)),
-			), nil
-		}
-
-		logger.ErrorContext(ctx, "failed to list device addresses", slog.Any(AttrKeyError, err))
-		return httpapi.GetDeviceAddresses500JSONResponse(errorMsgResponse("Failed to list device IPs")), nil
-	}
-
-	addressesResponse := make([]httpapi.Address, len(addresses))
-	for i := range addresses {
-		addressesResponse[i] = toAddressResponse(&addresses[i])
-	}
-
-	return httpapi.GetDeviceAddresses200JSONResponse(addressesResponse), nil
-}
-
 func (h *HTTPHandler) AddAddress(ctx context.Context, request httpapi.AddAddressRequestObject) (httpapi.AddAddressResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "AddAddress")
 	deviceID := DeviceID(request.DeviceId)

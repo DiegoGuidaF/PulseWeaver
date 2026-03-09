@@ -15,6 +15,7 @@ import (
 	"github.com/DiegoGuidaF/WallyDex/internal/lease"
 	"github.com/DiegoGuidaF/WallyDex/internal/logging"
 	"github.com/DiegoGuidaF/WallyDex/internal/policy"
+	"github.com/DiegoGuidaF/WallyDex/internal/queries"
 	"github.com/DiegoGuidaF/WallyDex/internal/rule"
 	"github.com/DiegoGuidaF/WallyDex/internal/scheduler"
 	"golang.org/x/sync/errgroup"
@@ -105,6 +106,9 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	ruleService := rule.NewService(ruleRepo, logger)
 	ruleHandler := rule.NewHTTPHandler(ruleService, logger)
 
+	queriesRepo := queries.NewRepository(db.DB())
+	queriesHandler := queries.NewHTTPHandler(queriesRepo, logger)
+
 	// Address Lease manager
 	addressLeaseRepo := lease.NewRepository(db.DB())
 	addressLeaseService := lease.NewService(addressLeaseRepo, ruleService, logger)
@@ -127,7 +131,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		logger.Warn("failed to initialize policy IP cache on startup", slog.Any("error", err))
 	}
 
-	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, policyHandler, logger, conf.Server.TrustedProxy)
+	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, logger, conf.Server.TrustedProxy)
 
 	return &App{
 		Config:              conf,

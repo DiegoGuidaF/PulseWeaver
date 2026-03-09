@@ -1,5 +1,14 @@
 .PHONY: dev run test clean fix lint migrate-up migrate-down migrate-create api
 
+# Disable Go workspace mode so -modfile (used by tools/go.mod) works correctly
+# when this module is used as a submodule inside a go.work workspace.
+export GOWORK=off
+
+MIGRATE := go run -tags sqlite github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
+MIGRATIONS_PATH := internal/database/migrations
+DB_PATH ?= ./data/wallydic.db
+DATABASE_URL := sqlite://$(DB_PATH)
+
 dev-back:
 	air
 
@@ -32,16 +41,16 @@ fix: api-back
 	go tool -modfile=tools/go.mod golangci-lint run --fix ./...
 
 migrate-up:
-	migrate -path internal/database/migrations -database "sqlite://./data.db" up
+	$(MIGRATE) -path $(MIGRATIONS_PATH) -database "$(DATABASE_URL)" up
 
 migrate-down:
-	migrate -path internal/database/migrations -database "sqlite://./data.db" down 1
+	$(MIGRATE) -path $(MIGRATIONS_PATH) -database "$(DATABASE_URL)" down 1
 
 migrate-reapply-latest: migrate-down migrate-up
 
 migrate-create:
 	@read -p "Migration name: " name; \
-	migrate create -ext sql -dir internal/database/migrations -seq $$name
+	$(MIGRATE) create -ext sql -dir $(MIGRATIONS_PATH) -seq $$name
 
 build-frontend: api-front
 	@echo "📦 Building frontend..."

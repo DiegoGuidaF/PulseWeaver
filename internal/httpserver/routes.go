@@ -8,6 +8,8 @@ import (
 	"github.com/DiegoGuidaF/WallyDex/internal/device"
 	"github.com/DiegoGuidaF/WallyDex/internal/health"
 	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
+	"github.com/DiegoGuidaF/WallyDex/internal/policy"
+	"github.com/DiegoGuidaF/WallyDex/internal/queries"
 	"github.com/DiegoGuidaF/WallyDex/internal/rule"
 	"github.com/DiegoGuidaF/WallyDex/internal/ui"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -19,15 +21,21 @@ type CompositeHandler struct {
 	*DeviceHandler
 	*AuthHandler
 	*RuleHandler
+	*QueriesHandler
 }
 
 type RuleHandler = rule.HTTPHandler
+type QueriesHandler = queries.HTTPHandler
+type DeviceHandler = device.HTTPHandler
+type AuthHandler = auth.HTTPHandler
+type PolicyHandler = policy.HTTPHandler
 
-func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, policyHandler *PolicyHandler, logger *slog.Logger) {
+func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, logger *slog.Logger) {
 	routeHandler := &CompositeHandler{
-		DeviceHandler: deviceHandler,
-		AuthHandler:   authHandler,
-		RuleHandler:   ruleHandler,
+		DeviceHandler:  deviceHandler,
+		AuthHandler:    authHandler,
+		RuleHandler:    ruleHandler,
+		QueriesHandler: queriesHandler,
 	}
 
 	r.Get("/health", health.Handler)

@@ -765,6 +765,15 @@ components:
           format: date-time
           x-go-type: UTCTime
           description: Last time it was enabled or disabled
+        expires_at:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+          nullable: true
+          readOnly: true
+          description: >
+            UTC timestamp when this address will auto-expire, if an auto-expiry rule
+            is enabled for the device. Null if no expiry is scheduled.
 
     DeviceAddressLeaseRule:
       type: object

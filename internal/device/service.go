@@ -16,7 +16,6 @@ type repository interface {
 	DeleteDevice(ctx context.Context, id DeviceID) error
 	CreateAddress(ctx context.Context, params *CreateAddressParams) (*Address, error)
 	GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip netip.Addr) (*Address, error)
-	ListAddresses(ctx context.Context, deviceID DeviceID) ([]Address, error)
 	DisableAddress(ctx context.Context, addressID AddressID) (*Address, error)
 	DisableAddresses(ctx context.Context, addressIDs []AddressID, source EventSource) ([]Address, error)
 	EnableAddress(ctx context.Context, addressID AddressID, source EventSource) (*Address, error)
@@ -174,29 +173,6 @@ func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID DeviceID
 	)
 
 	return address, eventType, nil
-}
-
-func (s *Service) GetAddressesForDevice(ctx context.Context, deviceID DeviceID) ([]Address, error) {
-	var addresses []Address
-
-	err := s.repo.RunInTx(ctx, func(tx repository) error {
-		_, err := tx.GetDevice(ctx, deviceID)
-		if err != nil {
-			return err
-		}
-
-		addresses, err = tx.ListAddresses(ctx, deviceID)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return addresses, nil
 }
 
 func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, addressID AddressID) (*Address, error) {

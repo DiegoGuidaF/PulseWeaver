@@ -226,66 +226,6 @@ func TestService_DisableAddress_AddressNotFound(t *testing.T) {
 	is.True(disabledAddr == nil)
 }
 
-func TestService_GetAddressesForDevice_Success(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	mockRepo := newMockRepository()
-	device := &Device{ID: DeviceID(1), Name: "test-device"}
-	mockRepo.devices[device.ID] = device
-
-	addr1 := &Address{
-		ID:        AddressID(1),
-		DeviceID:  device.ID,
-		IP:        "192.168.1.1",
-		IsEnabled: true,
-	}
-	addr2 := &Address{
-		ID:        AddressID(2),
-		DeviceID:  device.ID,
-		IP:        "192.168.1.2",
-		IsEnabled: false,
-	}
-	mockRepo.addresses[addr1.ID] = addr1
-	mockRepo.addresses[addr2.ID] = addr2
-
-	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
-
-	addresses, err := service.GetAddressesForDevice(ctx, device.ID)
-	is.NoErr(err)
-	is.Equal(len(addresses), 2)
-}
-
-func TestService_GetAddressesForDevice_DeviceNotFound(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	mockRepo := newMockRepository()
-	mockRepo.getDeviceErr = ErrDeviceNotFound
-
-	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
-
-	addresses, err := service.GetAddressesForDevice(ctx, DeviceID(999))
-	is.True(err != nil)
-	is.Equal(err, ErrDeviceNotFound)
-	is.True(addresses == nil)
-}
-
-func TestService_GetAddressesForDevice_Empty(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	mockRepo := newMockRepository()
-	device := &Device{ID: DeviceID(1), Name: "test-device"}
-	mockRepo.devices[device.ID] = device
-
-	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
-
-	addresses, err := service.GetAddressesForDevice(ctx, device.ID)
-	is.NoErr(err)
-	is.Equal(len(addresses), 0)
-}
-
 func TestService_CreateDevice_ReturnsDeviceAndRawKey(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
@@ -587,7 +527,6 @@ type mockRepository struct {
 	getAddressByIPErr error
 	enableAddressErr  error
 	disableAddressErr error
-	listAddressesErr  error
 	checkOwnershipErr error
 	runInTxFn         func(repository) error
 }
@@ -701,19 +640,6 @@ func (m *mockRepository) GetAddressForDeviceByIP(ctx context.Context, deviceID D
 	}
 	// Return full Address with status so service can call EnableAddress on it
 	return addr, nil
-}
-
-func (m *mockRepository) ListAddresses(ctx context.Context, deviceID DeviceID) ([]Address, error) {
-	if m.listAddressesErr != nil {
-		return nil, m.listAddressesErr
-	}
-	addresses := make([]Address, 0)
-	for _, addr := range m.addresses {
-		if addr.DeviceID == deviceID {
-			addresses = append(addresses, *addr)
-		}
-	}
-	return addresses, nil
 }
 
 func (m *mockRepository) DisableAddress(ctx context.Context, addressID AddressID) (*Address, error) {
