@@ -27,6 +27,7 @@ export type {
   AddAddressResponse,
   AddAddressResponses,
   Address,
+  AddressWritable,
   AuthRequest,
   ClientOptions,
   CreateDeviceData,

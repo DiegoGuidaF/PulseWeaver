@@ -169,6 +169,15 @@ export const AddressSchema = {
       "x-go-type": "UTCTime",
       description: "Last time it was enabled or disabled",
     },
+    expires_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      nullable: true,
+      readOnly: true,
+      description:
+        "UTC timestamp when this address will auto-expire, if an auto-expiry rule is enabled for the device. Null if no expiry is scheduled.\n",
+    },
   },
 } as const;
 
@@ -269,4 +278,35 @@ export const IPAddressSchema = {
 export const IDSchema = {
   type: "integer",
   format: "int64",
+} as const;
+
+export const AddressWritableSchema = {
+  type: "object",
+  required: ["id", "device_id", "ip", "is_enabled", "created_at", "updated_at"],
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    device_id: {
+      $ref: "#/components/schemas/ID",
+    },
+    ip: {
+      $ref: "#/components/schemas/IPAddress",
+    },
+    is_enabled: {
+      type: "boolean",
+      description: "The latest state of this address, enabled or disabled",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+    },
+    updated_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      description: "Last time it was enabled or disabled",
+    },
+  },
 } as const;

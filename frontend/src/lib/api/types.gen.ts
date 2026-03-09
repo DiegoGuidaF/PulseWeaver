@@ -77,6 +77,11 @@ export type Address = {
    * Last time it was enabled or disabled
    */
   updated_at: Date;
+  /**
+   * UTC timestamp when this address will auto-expire, if an auto-expiry rule is enabled for the device. Null if no expiry is scheduled.
+   *
+   */
+  readonly expires_at?: Date | null;
 };
 
 export type DeviceAddressLeaseRule = {
@@ -119,6 +124,21 @@ export type Password = string;
 export type IpAddress = string;
 
 export type Id = number;
+
+export type AddressWritable = {
+  id: Id;
+  device_id: Id;
+  ip: IpAddress;
+  /**
+   * The latest state of this address, enabled or disabled
+   */
+  is_enabled: boolean;
+  created_at: Date;
+  /**
+   * Last time it was enabled or disabled
+   */
+  updated_at: Date;
+};
 
 export type CreateUserData = {
   body: CreateUserRequest;

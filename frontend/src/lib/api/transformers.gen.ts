@@ -76,6 +76,9 @@ export const getDeviceResponseTransformer = async (
 const addressSchemaResponseTransformer = (data: any) => {
   data.created_at = new Date(data.created_at);
   data.updated_at = new Date(data.updated_at);
+  if (data.expires_at) {
+    data.expires_at = new Date(data.expires_at);
+  }
   return data;
 };
 

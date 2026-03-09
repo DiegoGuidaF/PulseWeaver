@@ -91,6 +91,14 @@ export const zAddress = z.object({
   is_enabled: z.boolean(),
   created_at: z.iso.datetime({ offset: true, local: true }),
   updated_at: z.iso.datetime({ offset: true, local: true }),
+  expires_at: z.optional(
+    z
+      .union([
+        z.iso.datetime({ offset: true, local: true }).readonly(),
+        z.null(),
+      ])
+      .readonly(),
+  ),
 });
 
 export const zDeviceAddressLeaseRule = z.object({
@@ -98,6 +106,15 @@ export const zDeviceAddressLeaseRule = z.object({
   device_id: zId,
   enabled: z.boolean(),
   ttl_seconds: z.int().gte(1),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  updated_at: z.iso.datetime({ offset: true, local: true }),
+});
+
+export const zAddressWritable = z.object({
+  id: zId,
+  device_id: zId,
+  ip: zIpAddress,
+  is_enabled: z.boolean(),
   created_at: z.iso.datetime({ offset: true, local: true }),
   updated_at: z.iso.datetime({ offset: true, local: true }),
 });

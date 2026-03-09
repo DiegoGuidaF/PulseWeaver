@@ -12,7 +12,7 @@ const REFRESH_OPTIONS = [
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format } from "date-fns";
+import { format, isPast } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -211,6 +211,7 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
                   <TableHead>IP</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Updated</TableHead>
+                  <TableHead>Expires</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -241,6 +242,27 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {format(new Date(address.updated_at), "PP p")}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {!address.is_enabled ? (
+                        <span className="text-muted-foreground/50">
+                          Disabled address
+                        </span>
+                      ) : address.expires_at ? (
+                        <span
+                          className={
+                            isPast(new Date(address.expires_at))
+                              ? "text-red-500"
+                              : ""
+                          }
+                        >
+                          {format(new Date(address.expires_at), "PP p")}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/50">
+                          No expiry
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       {address.is_enabled ? (
