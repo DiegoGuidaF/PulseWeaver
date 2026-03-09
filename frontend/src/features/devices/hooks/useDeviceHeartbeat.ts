@@ -6,7 +6,7 @@ import {
 import { toErrorMessage } from "@/lib/api-client";
 import { toast } from "sonner";
 
-export function useDeviceHeartbeat(deviceId: number) {
+export function useDeviceHeartbeat() {
   const queryClient = useQueryClient();
   return useMutation({
     ...deviceHeartbeatMutation(),

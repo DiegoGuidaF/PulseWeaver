@@ -66,7 +66,7 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
     true,
     refreshInterval === 0 ? false : refreshInterval,
   );
-  const heartbeatMutation = useDeviceHeartbeat(deviceId);
+  const heartbeatMutation = useDeviceHeartbeat();
   const form = useForm<z.infer<typeof addressSchema>>({
     resolver: zodResolver(addressSchema),
     defaultValues: { ip: "" },
