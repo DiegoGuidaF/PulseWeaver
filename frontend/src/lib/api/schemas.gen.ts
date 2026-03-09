@@ -143,7 +143,7 @@ export const DeviceSchema = {
 
 export const AddressSchema = {
   type: "object",
-  required: ["id", "device_id", "ip", "status", "created_at", "updated_at"],
+  required: ["id", "device_id", "ip", "is_enabled", "created_at", "updated_at"],
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
@@ -154,7 +154,7 @@ export const AddressSchema = {
     ip: {
       $ref: "#/components/schemas/IPAddress",
     },
-    status: {
+    is_enabled: {
       type: "boolean",
       description: "The latest state of this address, enabled or disabled",
     },

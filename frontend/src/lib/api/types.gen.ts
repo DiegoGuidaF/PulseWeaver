@@ -71,7 +71,7 @@ export type Address = {
   /**
    * The latest state of this address, enabled or disabled
    */
-  status: boolean;
+  is_enabled: boolean;
   created_at: Date;
   /**
    * Last time it was enabled or disabled

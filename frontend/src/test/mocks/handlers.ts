@@ -68,13 +68,13 @@ const addressHandlers = {
     heartbeatHandler: createHttpHandler(
         'post',
         apiEndpoints.deviceHeartbeat,
-        () => createMockAddress({ip: '192.168.1.100', status: true}),
+        () => createMockAddress({ip: '192.168.1.100', is_enabled: true}),
         200
     ),
     deleteAddressHandler: createHttpHandler(
         'delete',
         apiEndpoints.deleteDeviceAddresses,
-        () => createMockAddress({status: false}),
+        () => createMockAddress({is_enabled: false}),
         200
     ),
 };

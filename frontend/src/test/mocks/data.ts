@@ -41,7 +41,7 @@ export function createMockAddress(overrides?: Partial<Address>): Address {
     id: 1,
     device_id: 1,
     ip: '192.168.1.100',
-    status: true,
+    is_enabled: true,
     created_at: new Date('2024-01-01T00:00:00Z'),
     updated_at: new Date('2024-01-01T00:00:00Z'),
     ...overrides,

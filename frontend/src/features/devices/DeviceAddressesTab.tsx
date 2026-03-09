@@ -223,19 +223,19 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
                     <TableCell>
                       <span
                         className="inline-flex items-center gap-2"
-                        title={address.status ? "Active" : "Inactive"}
+                        title={address.is_enabled ? "Active" : "Inactive"}
                       >
                         <span
                           className={cn(
                             "h-2.5 w-2.5 shrink-0 rounded-full",
-                            address.status
+                            address.is_enabled
                               ? "bg-green-500 dark:bg-green-600"
                               : "bg-red-500 dark:bg-red-600",
                           )}
                           aria-hidden
                         />
                         <span className="text-sm text-muted-foreground">
-                          {address.status ? "Active" : "Inactive"}
+                          {address.is_enabled ? "Active" : "Inactive"}
                         </span>
                       </span>
                     </TableCell>
@@ -243,7 +243,7 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
                       {format(new Date(address.updated_at), "PP p")}
                     </TableCell>
                     <TableCell className="text-right">
-                      {address.status ? (
+                      {address.is_enabled ? (
                         <Button
                           type="button"
                           variant="destructive"

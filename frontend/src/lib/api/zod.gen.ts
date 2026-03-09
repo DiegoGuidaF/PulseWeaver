@@ -88,7 +88,7 @@ export const zAddress = z.object({
   id: zId,
   device_id: zId,
   ip: zIpAddress,
-  status: z.boolean(),
+  is_enabled: z.boolean(),
   created_at: z.iso.datetime({ offset: true, local: true }),
   updated_at: z.iso.datetime({ offset: true, local: true }),
 });

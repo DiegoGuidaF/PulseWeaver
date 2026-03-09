@@ -17,7 +17,7 @@ describe('DeviceAddressesTab', () => {
   beforeEach(() => {
     server.use(
       handlers.addresses.getAddressListHandler([
-        createMockAddress({ip: '10.0.0.5', status: true}),
+        createMockAddress({ip: '10.0.0.5', is_enabled: true}),
       ])
     );
   });
@@ -67,7 +67,7 @@ describe('DeviceAddressesTab', () => {
   it('renders inactive address with Enable button', async () => {
     server.use(
       handlers.addresses.getAddressListHandler([
-        createMockAddress({ip: '10.0.0.5', status: false}),
+        createMockAddress({ip: '10.0.0.5', is_enabled: false}),
       ])
     );
 
@@ -129,7 +129,7 @@ describe('DeviceAddressesTab', () => {
     server.use(
       handlers.addresses.heartbeatHandler(undefined, async () => {
         await delay(100);
-        return responses.ok(createMockAddress({ip: '192.168.1.100', status: true}));
+        return responses.ok(createMockAddress({ip: '192.168.1.100', is_enabled: true}));
       })
     );
 
