@@ -65,7 +65,7 @@ func toAddressResponse(a *AddressView) httpapi.Address {
 		UpdatedAt: httpapi.UTCTime(a.UpdatedAt),
 	}
 	if a.ExpiresAt != nil {
-		address.ExpiresAt = a.ExpiresAt
+		address.ExpiresAt = new(httpapi.UTCTime(*a.ExpiresAt))
 	}
 
 	return address
