@@ -1,6 +1,6 @@
 //go:build test
 
-package policy_test
+package policy
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
-	"github.com/DiegoGuidaF/WallyDex/internal/policy"
 	"github.com/matryer/is"
 )
 
@@ -40,8 +39,8 @@ func TestNewService_EmptySecret_ReturnsError(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{ips: []string{"1.2.3.4"}}
 
-	_, err := policy.NewService(provider, "", noopLogger(), netip.Addr{})
-	is.True(errors.Is(err, policy.ErrSecretNotConfigured))
+	_, err := NewService(provider, "", noopLogger(), netip.Addr{})
+	is.True(errors.Is(err, ErrSecretNotConfigured))
 }
 
 func TestHandler_MissingClientIPInContext_Returns403(t *testing.T) {
@@ -111,20 +110,20 @@ func TestHandler_ProxyIP_Returns403(t *testing.T) {
 }
 
 // newTestHandler creates a HTTPHandler pre-populated with the given IPs in its cache.
-func newTestHandler(enabledIPs []string) *policy.HTTPHandler {
+func newTestHandler(enabledIPs []string) *HTTPHandler {
 	return newTestHandlerWithProxy(enabledIPs, "mysecret", "")
 }
 
-func newTestHandlerWithProxy(enabledIPs []string, secret, trustedProxy string) *policy.HTTPHandler {
+func newTestHandlerWithProxy(enabledIPs []string, secret, trustedProxy string) *HTTPHandler {
 	provider := &mockProvider{ips: enabledIPs}
 	var proxyAddr netip.Addr
 	if trustedProxy != "" {
 		proxyAddr = netip.MustParseAddr(trustedProxy)
 	}
-	svc, err := policy.NewService(provider, secret, noopLogger(), proxyAddr)
+	svc, err := NewService(provider, secret, noopLogger(), proxyAddr)
 	if err != nil {
 		panic(err)
 	}
 	_ = svc.Initialize(context.Background())
-	return policy.NewHTTPHandler(svc, noopLogger())
+	return NewHTTPHandler(svc, noopLogger())
 }

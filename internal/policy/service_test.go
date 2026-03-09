@@ -1,6 +1,6 @@
 //go:build test
 
-package policy_test
+package policy
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/device"
-	"github.com/DiegoGuidaF/WallyDex/internal/policy"
 	"github.com/matryer/is"
 )
 
@@ -31,7 +30,7 @@ func noopLogger() *slog.Logger {
 func TestService_Initialize_PopulatesCache(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{ips: []string{"192.168.1.1", "10.0.0.1"}}
-	svc, err := policy.NewService(provider, "secret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, "secret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 
 	err = svc.Initialize(context.Background())
@@ -44,7 +43,7 @@ func TestService_Initialize_PopulatesCache(t *testing.T) {
 func TestService_Initialize_PropagatesError(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{err: errors.New("db error")}
-	svc, err := policy.NewService(provider, "secret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, "secret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 
 	err = svc.Initialize(context.Background())
@@ -54,7 +53,7 @@ func TestService_Initialize_PropagatesError(t *testing.T) {
 func TestService_OnAddressEvent_RefreshesCache(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{ips: []string{"192.168.1.1"}}
-	svc, err := policy.NewService(provider, "secret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, "secret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 
 	is.NoErr(svc.Initialize(context.Background()))
@@ -83,7 +82,7 @@ func TestService_OnAddressEvent_RefreshesCache(t *testing.T) {
 func TestService_ContainsIP_Empty(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{ips: []string{}}
-	svc, err := policy.NewService(provider, "secret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, "secret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 	is.True(!svc.ContainsIP("1.2.3.4"))
@@ -92,7 +91,7 @@ func TestService_ContainsIP_Empty(t *testing.T) {
 func TestService_ContainsIP_RejectsTrustedProxyIP(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{ips: []string{"127.0.0.1"}}
-	svc, err := policy.NewService(provider, "secret", noopLogger(), netip.MustParseAddr("127.0.0.1"))
+	svc, err := NewService(provider, "secret", noopLogger(), netip.MustParseAddr("127.0.0.1"))
 	is.NoErr(err)
 
 	is.NoErr(svc.Initialize(context.Background()))
@@ -103,7 +102,7 @@ func TestService_VerifyAccess(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		is := is.New(t)
 		provider := &mockProvider{ips: []string{"1.2.3.4"}}
-		svc, err := policy.NewService(provider, "mysecret", noopLogger(), netip.Addr{})
+		svc, err := NewService(provider, "mysecret", noopLogger(), netip.Addr{})
 		is.NoErr(err)
 		is.NoErr(svc.Initialize(context.Background()))
 
@@ -114,29 +113,29 @@ func TestService_VerifyAccess(t *testing.T) {
 	t.Run("missing secret", func(t *testing.T) {
 		is := is.New(t)
 		provider := &mockProvider{ips: []string{"1.2.3.4"}}
-		_, err := policy.NewService(provider, "", noopLogger(), netip.Addr{})
-		is.True(errors.Is(err, policy.ErrSecretNotConfigured))
+		_, err := NewService(provider, "", noopLogger(), netip.Addr{})
+		is.True(errors.Is(err, ErrSecretNotConfigured))
 	})
 
 	t.Run("invalid token", func(t *testing.T) {
 		is := is.New(t)
 		provider := &mockProvider{ips: []string{"1.2.3.4"}}
-		svc, err := policy.NewService(provider, "mysecret", noopLogger(), netip.Addr{})
+		svc, err := NewService(provider, "mysecret", noopLogger(), netip.Addr{})
 		is.NoErr(err)
 		is.NoErr(svc.Initialize(context.Background()))
 
 		err = svc.VerifyAccess(context.Background(), "wrong", "1.2.3.4")
-		is.True(errors.Is(err, policy.ErrInvalidBearerToken))
+		is.True(errors.Is(err, ErrInvalidBearerToken))
 	})
 
 	t.Run("ip not enabled", func(t *testing.T) {
 		is := is.New(t)
 		provider := &mockProvider{ips: []string{"1.2.3.4"}}
-		svc, err := policy.NewService(provider, "mysecret", noopLogger(), netip.Addr{})
+		svc, err := NewService(provider, "mysecret", noopLogger(), netip.Addr{})
 		is.NoErr(err)
 		is.NoErr(svc.Initialize(context.Background()))
 
 		err = svc.VerifyAccess(context.Background(), "mysecret", "9.9.9.9")
-		is.True(errors.Is(err, policy.ErrIPNotEnabled))
+		is.True(errors.Is(err, ErrIPNotEnabled))
 	})
 }

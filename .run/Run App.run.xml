@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Run App" type="GoApplicationRunConfiguration" factoryName="Go Application">
-    <module name="WallyDic" />
+    <module name="PulseShroud-WS" />
     <working_directory value="$PROJECT_DIR$" />
     <EXTENSION ID="net.ashald.envfile">
       <option name="IS_ENABLED" value="false" />
