@@ -15,28 +15,6 @@ import (
 	"github.com/matryer/is"
 )
 
-func TestHandler_CreateAndListDevices(t *testing.T) {
-	is := is.New(t)
-	testServer := testutils.SetupIntegrationServer(t)
-	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
-
-	device, _, err := testServer.DeviceService.CreateDevice(t.Context(), "bedroom-sensor")
-	is.NoErr(err)
-
-	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
-	listReq.AddCookie(sessionCookie)
-	listRes := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(listRes, listReq)
-	is.Equal(listRes.Code, http.StatusOK)
-
-	var devices []httpapi.Device
-	err = json.NewDecoder(listRes.Body).Decode(&devices)
-	is.NoErr(err)
-	is.Equal(len(devices), 1)
-	is.Equal(devices[0].Id, int64(device.ID))
-	is.True(devices[0].ApiKeyPrefix != "")
-}
-
 func TestHandler_AddressLifecycle(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
@@ -165,27 +143,6 @@ func TestHandler_GetDevice_404(t *testing.T) {
 	getRes := httptest.NewRecorder()
 	testServer.HTTPServer.ServeHTTP(getRes, getReq)
 	is.Equal(getRes.Code, http.StatusNotFound)
-}
-
-func TestHandler_GetDevices_ReturnsAPIKeyPrefix(t *testing.T) {
-	is := is.New(t)
-	testServer := testutils.SetupIntegrationServer(t)
-	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
-
-	_, _, err := testServer.DeviceService.CreateDevice(t.Context(), "listed-device")
-	is.NoErr(err)
-
-	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
-	listReq.AddCookie(sessionCookie)
-	listRes := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(listRes, listReq)
-	is.Equal(listRes.Code, http.StatusOK)
-
-	var devices []httpapi.Device
-	err = json.NewDecoder(listRes.Body).Decode(&devices)
-	is.NoErr(err)
-	is.Equal(len(devices), 1)
-	is.True(devices[0].ApiKeyPrefix != "")
 }
 
 func TestHandler_DeviceHeartbeatByApiKey_NoBody(t *testing.T) {

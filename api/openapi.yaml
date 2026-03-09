@@ -737,6 +737,11 @@ components:
         api_key_prefix:
           type: string
           description: Prefix of the device API key (for display only).
+        address_count:
+          type: integer
+          minimum: 0
+          readOnly: true
+          description: Number of currently enabled addresses for this device.
     Address:
       type: object
       required:

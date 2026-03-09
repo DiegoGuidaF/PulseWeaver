@@ -291,24 +291,6 @@ func TestService_Authenticate_NotFound(t *testing.T) {
 	is.Equal(err, ErrDeviceNotFound)
 }
 
-func TestService_GetDevices_ReturnsListWithPrefix(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	mockRepo := newMockRepository()
-	mockRepo.devices[DeviceID(1)] = &Device{ID: DeviceID(1), Name: "d1"}
-	mockRepo.devices[DeviceID(2)] = &Device{ID: DeviceID(2), Name: "d2"}
-	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
-
-	list, err := service.GetDevices(ctx)
-	is.NoErr(err)
-	is.Equal(len(list), 2)
-	for i := range list {
-		is.True(list[i].KeyPrefix != "")
-		is.Equal(list[i].KeyPrefix, "wdk_xxxxxxxx")
-	}
-}
-
 func TestService_GetDevice_Success(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
@@ -567,22 +549,6 @@ func (m *mockRepository) CreateDevice(ctx context.Context, params *CreateDeviceP
 	m.devices[device.ID] = device
 	m.apiKeysByHash[params.KeyHash] = device
 	return device, nil
-}
-
-func (m *mockRepository) GetDevices(ctx context.Context) ([]Device, error) {
-	devices := make([]Device, 0, len(m.devices))
-	for _, d := range m.devices {
-		keyPrefix := d.KeyPrefix
-		if keyPrefix == "" {
-			keyPrefix = "wdk_xxxxxxxx"
-		}
-		devices = append(devices, Device{
-			ID:        d.ID,
-			Name:      d.Name,
-			KeyPrefix: keyPrefix,
-		})
-	}
-	return devices, nil
 }
 
 func (m *mockRepository) DeleteDevice(ctx context.Context, id DeviceID) error {

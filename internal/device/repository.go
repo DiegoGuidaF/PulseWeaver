@@ -102,33 +102,6 @@ func (r *Repository) CreateDevice(ctx context.Context, params *CreateDeviceParam
 	return createdDevice, nil
 }
 
-func (r *Repository) GetDevices(ctx context.Context) ([]Device, error) {
-	var devices []Device
-
-	query := `
-		SELECT 
-			d.id,
-			d.name,
-			d.created_at,
-			d.deleted_at,
-			k.key_prefix
-		FROM devices d
-		INNER JOIN device_api_keys k ON d.id = k.device_id
-		WHERE d.deleted_at IS NULL
-		ORDER BY d.created_at DESC
-	`
-
-	if err := r.db.SelectContext(ctx, &devices, query); err != nil {
-		return nil, fmt.Errorf("select devices: %w", err)
-	}
-
-	if devices == nil {
-		return []Device{}, nil
-	}
-
-	return devices, nil
-}
-
 func (r *Repository) CreateAddress(ctx context.Context, params *CreateAddressParams) (*Address, error) {
 	var address *Address
 

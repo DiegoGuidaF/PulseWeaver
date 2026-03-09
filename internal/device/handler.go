@@ -22,24 +22,6 @@ func NewHTTPHandler(service *Service, logger *slog.Logger) *HTTPHandler {
 	}
 }
 
-func (h *HTTPHandler) GetDevices(ctx context.Context, _ httpapi.GetDevicesRequestObject) (httpapi.GetDevicesResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "GetDevices")
-	logger := h.logger
-
-	devices, err := h.service.GetDevices(ctx)
-	if err != nil {
-		logger.ErrorContext(ctx, "failed to list devices", slog.Any(AttrKeyError, err))
-		return httpapi.GetDevices500JSONResponse(errorMsgResponse("Error fetching devices")), nil
-	}
-
-	apiDevices := make([]httpapi.Device, len(devices))
-	for i := range devices {
-		apiDevices[i] = toDeviceResponse(&devices[i])
-	}
-
-	return httpapi.GetDevices200JSONResponse(apiDevices), nil
-}
-
 func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDeviceRequestObject) (httpapi.CreateDeviceResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "CreateDevice")
 	deviceName := request.Body.Name

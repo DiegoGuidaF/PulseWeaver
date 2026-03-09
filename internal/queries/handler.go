@@ -28,7 +28,7 @@ func (h *HTTPHandler) GetDeviceAddresses(
 ) (httpapi.GetDeviceAddressesResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetDeviceAddresses")
 	deviceID := device.DeviceID(request.DeviceId)
-	logger := h.logger.With(slog.Int64("device_id", deviceID.Int64()))
+	logger := h.logger.With(slog.Int64(device.AttrKeyDeviceID, deviceID.Int64()))
 
 	exists, err := h.repo.DeviceExists(ctx, deviceID)
 	if err != nil {
@@ -50,12 +50,31 @@ func (h *HTTPHandler) GetDeviceAddresses(
 
 	response := make([]httpapi.Address, len(addresses))
 	for i := range addresses {
-		response[i] = toAddressResponse(&addresses[i])
+		response[i] = toAddressViewResponse(&addresses[i])
 	}
 	return httpapi.GetDeviceAddresses200JSONResponse(response), nil
 }
 
-func toAddressResponse(a *AddressView) httpapi.Address {
+func (h *HTTPHandler) GetDevices(
+	ctx context.Context,
+	_ httpapi.GetDevicesRequestObject,
+) (httpapi.GetDevicesResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetDevices")
+
+	devices, err := h.repo.GetDevices(ctx)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "failed to list devices", slog.Any(logging.AttrKeyError, err))
+		return httpapi.GetDevices500JSONResponse(errorMsgResponse("Failed to list devices")), nil
+	}
+
+	response := make([]httpapi.Device, len(devices))
+	for i := range devices {
+		response[i] = toDeviceViewResponse(&devices[i])
+	}
+	return httpapi.GetDevices200JSONResponse(response), nil
+}
+
+func toAddressViewResponse(a *AddressView) httpapi.Address {
 	address := httpapi.Address{
 		Id:        a.ID.Int64(),
 		DeviceId:  a.DeviceID.Int64(),
@@ -69,6 +88,16 @@ func toAddressResponse(a *AddressView) httpapi.Address {
 	}
 
 	return address
+}
+
+func toDeviceViewResponse(d *DeviceView) httpapi.Device {
+	return httpapi.Device{
+		Id:           d.ID.Int64(),
+		Name:         d.Name,
+		CreatedAt:    httpapi.UTCTime(d.CreatedAt),
+		ApiKeyPrefix: d.KeyPrefix,
+		AddressCount: new(d.AddressCount),
+	}
 }
 
 func errorMsgResponse(msg string) httpapi.ErrorResponse {

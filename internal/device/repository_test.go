@@ -64,35 +64,6 @@ func TestRepository_CreateDevice(t *testing.T) {
 	is.True(!device.CreatedAt.IsZero())
 }
 
-func TestRepository_GetDevices_Empty(t *testing.T) {
-	is := is.New(t)
-
-	repo := setupTestDB(t)
-	ctx := context.Background()
-
-	devices, err := repo.GetDevices(ctx)
-	is.NoErr(err)
-	is.Equal(len(devices), 0) // Should be empty
-}
-
-func TestRepository_GetDevices_Multiple(t *testing.T) {
-	is := is.New(t)
-
-	repo := setupTestDB(t)
-	ctx := context.Background()
-
-	// Create test data (CreateDevice now creates API key; devices appear in GetDevices JOIN)
-	createTestDevice(t, repo, ctx, "device-1")
-	createTestDevice(t, repo, ctx, "device-2")
-
-	// Get all devices
-	devices, err := repo.GetDevices(ctx)
-	is.NoErr(err)
-	is.Equal(len(devices), 2) // Should have 2 devices
-	is.Equal(devices[0].KeyPrefix != "", true)
-	is.Equal(devices[1].KeyPrefix != "", true)
-}
-
 func TestRepository_CreateDevice_DuplicateName(t *testing.T) {
 	is := is.New(t)
 
@@ -193,28 +164,6 @@ func TestRepository_GetDevice_HidesDeleted(t *testing.T) {
 	is.Equal(err, ErrDeviceNotFound)
 }
 
-func TestRepository_GetDevices_HidesDeleted(t *testing.T) {
-	is := is.New(t)
-
-	repo := setupTestDB(t)
-	ctx := context.Background()
-
-	createTestDevice(t, repo, ctx, "device-1")
-	device2 := createTestDevice(t, repo, ctx, "device-2")
-
-	devices, err := repo.GetDevices(ctx)
-	is.NoErr(err)
-	is.Equal(len(devices), 2)
-
-	err = repo.DeleteDevice(ctx, device2.ID)
-	is.NoErr(err)
-
-	devices, err = repo.GetDevices(ctx)
-	is.NoErr(err)
-	is.Equal(len(devices), 1)
-	is.Equal(devices[0].Name, "device-1")
-}
-
 func TestRepository_GetDeviceByAPIKeyHash_HidesDeleted(t *testing.T) {
 	is := is.New(t)
 
@@ -236,35 +185,6 @@ func TestRepository_GetDeviceByAPIKeyHash_HidesDeleted(t *testing.T) {
 	_, err = repo.GetDeviceByAPIKeyHash(ctx, keyHash)
 	is.True(err != nil)
 	is.Equal(err, ErrDeviceNotFound)
-}
-
-func TestRepository_DatabaseIsolation(t *testing.T) {
-
-	// Test 1: Create 1 device with API key
-	t.Run("test1", func(t *testing.T) {
-		is := is.New(t)
-
-		repo := setupTestDB(t)
-		ctx := context.Background()
-
-		createTestDevice(t, repo, ctx, "device-1")
-
-		devices, err := repo.GetDevices(ctx)
-		is.NoErr(err)
-		is.Equal(len(devices), 1) // Should have 1 device
-	})
-
-	// Test 2: Should have 0 devices (fresh DB)
-	t.Run("test2", func(t *testing.T) {
-		is := is.New(t)
-
-		repo := setupTestDB(t)
-		ctx := context.Background()
-
-		devices, err := repo.GetDevices(ctx)
-		is.NoErr(err)
-		is.Equal(len(devices), 0) // Should be empty (isolated from test1)
-	})
 }
 
 func TestRepository_GetDevice(t *testing.T) {

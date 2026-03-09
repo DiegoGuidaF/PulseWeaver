@@ -12,7 +12,6 @@ import (
 type repository interface {
 	GetDevice(ctx context.Context, id DeviceID) (*Device, error)
 	CreateDevice(ctx context.Context, params *CreateDeviceParams) (*Device, error)
-	GetDevices(ctx context.Context) ([]Device, error)
 	DeleteDevice(ctx context.Context, id DeviceID) error
 	CreateAddress(ctx context.Context, params *CreateAddressParams) (*Address, error)
 	GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip netip.Addr) (*Address, error)
@@ -57,14 +56,6 @@ func (s *Service) notifyObservers(ctx context.Context, event AddressEvent) {
 	for _, o := range s.observers {
 		o.OnAddressEvent(ctx, event)
 	}
-}
-
-func (s *Service) GetDevices(ctx context.Context) ([]Device, error) {
-	devices, err := s.repo.GetDevices(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return devices, nil
 }
 
 func (s *Service) GetDevice(ctx context.Context, deviceID DeviceID) (*Device, error) {
