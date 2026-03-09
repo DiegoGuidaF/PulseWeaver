@@ -144,7 +144,8 @@ func TestRepository_GetDeviceAddresses_ExpiresAtPopulatedWithActiveLease(t *test
 	futureExpiry := time.Now().UTC().Add(24 * time.Hour).Truncate(time.Second)
 	addressLease := &lease.AddressLease{
 		AddressID: addr.ID,
-		ExpiresAt: futureExpiry,
+		DeviceID:  dev.ID,
+		ExpiresAt: &futureExpiry,
 	}
 	_, err := repos.leases.UpsertAddressLease(t.Context(), addressLease)
 	is.NoErr(err)

@@ -36,21 +36,22 @@ func NewRepository(db *sqlx.DB) *Repository {
 
 // UpsertAddressLease creates or updates an address lease
 func (r *Repository) UpsertAddressLease(ctx context.Context, addressLease *AddressLease) (*AddressLease, error) {
-	now := time.Now().UTC()
 	const query = `
-		INSERT INTO address_leases (address_id, expires_at, updated_at, created_at)
-		VALUES (?, ?, ?, ?)
-		ON CONFLICT(address_id, expires_at) DO UPDATE SET
-			expires_at = excluded.expires_at,
+		INSERT INTO address_leases (device_id, address_id, expires_at, updated_at, created_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(address_id) DO UPDATE SET
+			device_id    = excluded.device_id,
+			expires_at   = excluded.expires_at,
 			updated_at   = excluded.updated_at
-		RETURNING * 
+		RETURNING *
 	`
 
 	if err := r.db.GetContext(ctx, addressLease, query,
+		addressLease.DeviceID,
 		addressLease.AddressID,
 		addressLease.ExpiresAt,
-		now,
-		now,
+		addressLease.UpdatedAt,
+		addressLease.CreatedAt,
 	); err != nil {
 		return nil, fmt.Errorf("upsert address lease: %w", err)
 	}
@@ -58,28 +59,12 @@ func (r *Repository) UpsertAddressLease(ctx context.Context, addressLease *Addre
 	return addressLease, nil
 }
 
-func (r *Repository) DeleteAddressLeaseByAddressID(ctx context.Context, addressID device.AddressID) error {
-	const query = `
-		DELETE FROM address_leases WHERE address_id = ?
-	`
-
-	result, err := r.db.ExecContext(ctx, query, addressID)
-	if err != nil {
-		return fmt.Errorf("delete address lease: %w", err)
-	}
-
-	rows, _ := result.RowsAffected()
-	if rows == 0 {
-		return ErrAddressLeaseNotFound
-	}
-
-	return nil
-}
 func (r *Repository) GetExpiredAddressIDs(ctx context.Context) ([]device.AddressID, error) {
 	var addressIDs []device.AddressID
 	now := time.Now().UTC()
 	const query = `
-		SELECT address_id FROM address_leases WHERE expires_at <= ?
+		SELECT address_id FROM address_leases
+		WHERE expires_at IS NOT NULL AND expires_at <= ?
 	`
 
 	if err := r.db.SelectContext(ctx, &addressIDs, query,
@@ -93,4 +78,16 @@ func (r *Repository) GetExpiredAddressIDs(ctx context.Context) ([]device.Address
 	}
 
 	return addressIDs, nil
+}
+
+func (r *Repository) SetDeviceAddressLeasesExpiry(ctx context.Context, deviceID device.DeviceID, expiresAt *time.Time, updatedAt time.Time) error {
+	const query = `
+		UPDATE address_leases SET expires_at = ?, updated_at = ?
+		WHERE device_id = ?
+	`
+	_, err := r.db.ExecContext(ctx, query, expiresAt, updatedAt, deviceID)
+	if err != nil {
+		return fmt.Errorf("set device address leases expiry: %w", err)
+	}
+	return nil
 }

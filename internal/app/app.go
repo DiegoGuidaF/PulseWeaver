@@ -115,6 +115,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Register device address observers
 	deviceService.AddAddressObserver(addressLeaseService)
+	ruleService.AddRuleObserver(addressLeaseService)
 	deviceService.AddAddressObserver(policyService)
 
 	schedulerService, err := scheduler.NewService(addressLeaseService, deviceService, logger)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/device"
 	"github.com/DiegoGuidaF/WallyDex/internal/logging"
@@ -16,14 +17,28 @@ type repository interface {
 }
 
 type Service struct {
-	repo   repository
-	logger *slog.Logger
+	repo      repository
+	observers []RuleObserver
+	logger    *slog.Logger
 }
 
 func NewService(repo repository, logger *slog.Logger) *Service {
 	return &Service{
 		repo:   repo,
 		logger: logger.With(slog.String(logging.AttrKeyComponent, "rule")),
+	}
+}
+
+func (s *Service) AddRuleObserver(o RuleObserver) {
+	if o == nil {
+		return
+	}
+	s.observers = append(s.observers, o)
+}
+
+func (s *Service) notifyRuleObservers(ctx context.Context, event RuleEvent) {
+	for _, o := range s.observers {
+		o.OnRuleEvent(ctx, event)
 	}
 }
 
@@ -95,6 +110,14 @@ func (s *Service) EnableDeviceAddressLeaseRule(
 	}
 	logger.InfoContext(ctx, "enabled device address lease rule successfully", slog.Int64(AttrKeyRuleID, int64(newRule.ID)))
 
+	s.notifyRuleObservers(ctx, RuleEvent{
+		Type:       RuleEventTypeEnabled,
+		DeviceID:   deviceID,
+		RuleType:   RuleTypeDeviceAddressLease,
+		TTLSeconds: new(config.TTLSeconds),
+		OccurredAt: time.Now().UTC(),
+	})
+
 	return newRule.ToDeviceAddressLeaseRule()
 }
 
@@ -110,5 +133,14 @@ func (s *Service) DisableDeviceAddressLeaseRule(ctx context.Context, deviceID de
 		return nil, err
 	}
 	logger.InfoContext(ctx, "disabled device address lease rule successfully", slog.Int64(AttrKeyRuleID, int64(rule.ID)))
+
+	s.notifyRuleObservers(ctx, RuleEvent{
+		Type:       RuleEventTypeDisabled,
+		DeviceID:   deviceID,
+		RuleType:   RuleTypeDeviceAddressLease,
+		TTLSeconds: nil,
+		OccurredAt: time.Now().UTC(),
+	})
+
 	return rule.ToDeviceAddressLeaseRule()
 }

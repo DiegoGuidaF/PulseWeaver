@@ -30,6 +30,14 @@ type fakeRepository struct {
 
 var _ repository = (*fakeRepository)(nil)
 
+type mockRuleObserver struct {
+	events []RuleEvent
+}
+
+func (m *mockRuleObserver) OnRuleEvent(_ context.Context, event RuleEvent) {
+	m.events = append(m.events, event)
+}
+
 func (f *fakeRepository) GetRuleByDeviceAndType(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error) {
 	if f.getRuleErr != nil {
 		return nil, f.getRuleErr
@@ -255,4 +263,53 @@ func TestService_DisableDeviceAddressLeaseRule(t *testing.T) {
 		is.Equal(err, repoErr)
 		is.True(out == nil)
 	})
+}
+
+func TestService_EnableDeviceAddressLeaseRule_EmitsRuleEnabledEvent(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	repo := &fakeRepository{
+		enableResult: &Rule{
+			ID: 1, DeviceID: 55, RuleType: RuleTypeDeviceAddressLease,
+			Enabled: true, Config: json.RawMessage(`{"ttl_seconds":300}`),
+			CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+		},
+	}
+	svc := newTestService(repo)
+	observer := &mockRuleObserver{}
+	svc.AddRuleObserver(observer)
+
+	_, err := svc.EnableDeviceAddressLeaseRule(ctx, device.DeviceID(55), 300)
+	is.NoErr(err)
+	is.Equal(len(observer.events), 1)
+	is.Equal(observer.events[0].Type, RuleEventTypeEnabled)
+	is.Equal(observer.events[0].RuleType, RuleTypeDeviceAddressLease)
+	is.Equal(observer.events[0].DeviceID, device.DeviceID(55))
+	is.True(observer.events[0].TTLSeconds != nil)
+	is.Equal(*observer.events[0].TTLSeconds, 300)
+}
+
+func TestService_DisableDeviceAddressLeaseRule_EmitsRuleDisabledEvent(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	repo := &fakeRepository{
+		disableResult: &Rule{
+			ID: 1, DeviceID: 55, RuleType: RuleTypeDeviceAddressLease,
+			Enabled: false, Config: json.RawMessage(`{"ttl_seconds":300}`),
+			CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+		},
+	}
+	svc := newTestService(repo)
+	observer := &mockRuleObserver{}
+	svc.AddRuleObserver(observer)
+
+	_, err := svc.DisableDeviceAddressLeaseRule(ctx, device.DeviceID(55))
+	is.NoErr(err)
+	is.Equal(len(observer.events), 1)
+	is.Equal(observer.events[0].Type, RuleEventTypeDisabled)
+	is.Equal(observer.events[0].RuleType, RuleTypeDeviceAddressLease)
+	is.Equal(observer.events[0].DeviceID, device.DeviceID(55))
+	is.True(observer.events[0].TTLSeconds == nil)
 }

@@ -2,7 +2,8 @@
 -- Drops all application tables and indexes, preserving golang-migrate metadata.
 
 -- Drop indexes (if they still exist)
-DROP INDEX IF EXISTS idx_address_leases_address_id_expires_at;
+DROP INDEX IF EXISTS idx_address_leases_device_id;
+DROP INDEX IF EXISTS idx_address_leases_address_id;
 DROP INDEX IF EXISTS idx_device_rules_device_rule;
 DROP INDEX IF EXISTS idx_device_api_keys_key_hash;
 DROP INDEX IF EXISTS idx_device_api_keys_device_id;

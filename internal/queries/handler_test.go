@@ -88,7 +88,8 @@ func TestHandler_GetDeviceAddresses_ExpiresAtPopulatedWithLease(t *testing.T) {
 	futureExpiry := time.Now().UTC().Add(time.Hour).Truncate(time.Second)
 	addressLease := &lease.AddressLease{
 		AddressID: addr.ID,
-		ExpiresAt: futureExpiry,
+		DeviceID:  dev.ID,
+		ExpiresAt: &futureExpiry,
 	}
 	_, err = leaseRepo.UpsertAddressLease(t.Context(), addressLease)
 	is.NoErr(err)
@@ -106,7 +107,7 @@ func TestHandler_GetDeviceAddresses_ExpiresAtPopulatedWithLease(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(len(addresses), 1)
 	is.True(addresses[0].ExpiresAt != nil)
-	is.True(addresses[0].ExpiresAt.UTC().Truncate(time.Second).Equal(futureExpiry))
+	is.True(time.Time(*addresses[0].ExpiresAt).UTC().Truncate(time.Second).Equal(futureExpiry))
 }
 
 func TestHandler_GetDeviceAddresses_DeviceNotFound(t *testing.T) {

@@ -8,22 +8,35 @@ import (
 
 type AddressLease struct {
 	ID        AddressLeaseID   `db:"id"`
+	DeviceID  device.DeviceID  `db:"device_id"`
 	AddressID device.AddressID `db:"address_id"`
-	ExpiresAt time.Time        `db:"expires_at"`
+	ExpiresAt *time.Time       `db:"expires_at"`
 	UpdatedAt time.Time        `db:"updated_at"`
 	CreatedAt time.Time        `db:"created_at"`
 }
 
-func NewAddressLease(addressID device.AddressID, TTLSeconds int) *AddressLease {
+// NewAddressLease builds an AddressLease.
+// expiresAt is nil when no addressTTL is nil.
+func NewAddressLease(addressID device.AddressID, deviceID device.DeviceID, addressTTL *int) *AddressLease {
 	now := time.Now().UTC()
-	duration := time.Duration(TTLSeconds) * time.Second
-	expiresAt := now.Add(duration)
 	return &AddressLease{
 		AddressID: addressID,
-		ExpiresAt: expiresAt,
+		DeviceID:  deviceID,
+		ExpiresAt: expiresAtFromTTL(now, addressTTL),
 		UpdatedAt: now,
 		CreatedAt: now,
 	}
+}
+
+// expiresAtFromTTL returns now+TTL or nil if TTL is nil
+func expiresAtFromTTL(now time.Time, addressTTL *int) *time.Time {
+	if addressTTL != nil {
+		duration := time.Duration(*addressTTL) * time.Second
+		return new(now.Add(duration))
+	} else {
+		return nil
+	}
+
 }
 
 // AddressLeaseID represents the primary key of a row in the address_leases table.

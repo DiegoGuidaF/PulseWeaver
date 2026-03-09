@@ -2,11 +2,12 @@ package lease
 
 import (
 	"context"
-	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/device"
 	"github.com/DiegoGuidaF/WallyDex/internal/logging"
+	"github.com/DiegoGuidaF/WallyDex/internal/rule"
 )
 
 type TTLConfigRetriever interface {
@@ -14,14 +15,15 @@ type TTLConfigRetriever interface {
 }
 type repository interface {
 	UpsertAddressLease(ctx context.Context, addressLease *AddressLease) (*AddressLease, error)
-	DeleteAddressLeaseByAddressID(ctx context.Context, addressID device.AddressID) error
 	GetExpiredAddressIDs(ctx context.Context) ([]device.AddressID, error)
+	SetDeviceAddressLeasesExpiry(ctx context.Context, deviceID device.DeviceID, expiresAt *time.Time, updatedAt time.Time) error
 }
 
 type Service struct {
 	repository         repository
 	ttlConfigRetriever TTLConfigRetriever
 	events             chan device.AddressEvent
+	ruleEvents         chan rule.RuleEvent
 	logger             *slog.Logger
 }
 
@@ -31,6 +33,7 @@ func NewService(repository repository, ttlConfigRetriever TTLConfigRetriever, lo
 		repository:         repository,
 		ttlConfigRetriever: ttlConfigRetriever,
 		events:             make(chan device.AddressEvent, 500),
+		ruleEvents:         make(chan rule.RuleEvent, 500),
 		logger:             logger.With(slog.String(logging.AttrKeyComponent, "lease")),
 	}
 }
@@ -43,12 +46,7 @@ func (s *Service) AddAddressLease(ctx context.Context, deviceID device.DeviceID,
 		return nil, err
 	}
 
-	// If no TTL found, do not add a lease
-	if addressTTL == nil {
-		return nil, nil
-	}
-
-	addressLease := NewAddressLease(addressID, *addressTTL)
+	addressLease := NewAddressLease(addressID, deviceID, addressTTL)
 
 	addressLease, err = s.repository.UpsertAddressLease(ctx, addressLease)
 	if err != nil {
@@ -58,19 +56,9 @@ func (s *Service) AddAddressLease(ctx context.Context, deviceID device.DeviceID,
 	return addressLease, nil
 }
 
-func (s *Service) DeleteAddressLease(ctx context.Context, addressID device.AddressID) error {
-	ctx = logging.WithOperation(ctx, "DeleteAddressLease")
-
-	err := s.repository.DeleteAddressLeaseByAddressID(ctx, addressID)
-	if err != nil {
-		// No lease found, not an error
-		if errors.Is(err, ErrAddressLeaseNotFound) {
-			return nil
-		}
-		return err
-	}
-
-	return nil
+func (s *Service) ClearAddressLease(ctx context.Context, deviceID device.DeviceID, addressID device.AddressID) (*AddressLease, error) {
+	ctx = logging.WithOperation(ctx, "ClearAddressLease")
+	return s.repository.UpsertAddressLease(ctx, NewAddressLease(addressID, deviceID, nil))
 }
 
 func (s *Service) GetExpiredAddressIDs(ctx context.Context) ([]device.AddressID, error) {
@@ -87,6 +75,14 @@ func (s *Service) OnAddressEvent(ctx context.Context, event device.AddressEvent)
 	}
 }
 
+func (s *Service) OnRuleEvent(ctx context.Context, event rule.RuleEvent) {
+	ctx = logging.WithOperation(ctx, "OnRuleEvent")
+	select {
+	case <-ctx.Done():
+	case s.ruleEvents <- event:
+	}
+}
+
 // RunListener blocks and processes events. Run this in a goroutine.
 func (s *Service) RunListener(ctx context.Context) error {
 	for {
@@ -96,20 +92,38 @@ func (s *Service) RunListener(ctx context.Context) error {
 		case event := <-s.events:
 			if event.IsAddressEnabled() {
 				if _, err := s.AddAddressLease(ctx, event.DeviceID, event.AddressID); err != nil {
-					s.logger.ErrorContext(ctx, "failed to add address lease",
+					s.logger.ErrorContext(ctx, "failed to upsert address lease",
 						slog.Any(AttrKeyError, err),
 						slog.Int64(AttrKeyAddressID, event.AddressID.Int64()),
 						slog.Int64(AttrKeyDeviceID, event.DeviceID.Int64()),
 					)
 				}
 			} else {
-				if err := s.DeleteAddressLease(ctx, event.AddressID); err != nil {
-					s.logger.ErrorContext(ctx, "failed to delete address lease",
+				if _, err := s.ClearAddressLease(ctx, event.DeviceID, event.AddressID); err != nil {
+					s.logger.ErrorContext(ctx, "failed to clear address lease",
 						slog.Any(AttrKeyError, err),
 						slog.Int64(AttrKeyAddressID, event.AddressID.Int64()),
+						slog.Int64(AttrKeyDeviceID, event.DeviceID.Int64()),
 					)
 				}
 			}
+		case event := <-s.ruleEvents:
+			s.handleLeaseRuleEvent(ctx, event)
 		}
+	}
+}
+
+func (s *Service) handleLeaseRuleEvent(ctx context.Context, event rule.RuleEvent) {
+	if event.RuleType != rule.RuleTypeDeviceAddressLease {
+		return
+	}
+
+	expiresAt := expiresAtFromTTL(event.OccurredAt, event.TTLSeconds)
+
+	if err := s.repository.SetDeviceAddressLeasesExpiry(ctx, event.DeviceID, expiresAt, event.OccurredAt); err != nil {
+		s.logger.ErrorContext(ctx, "failed to sync device leases on rule event",
+			slog.Any(AttrKeyError, err),
+			slog.Int64(AttrKeyDeviceID, event.DeviceID.Int64()),
+		)
 	}
 }

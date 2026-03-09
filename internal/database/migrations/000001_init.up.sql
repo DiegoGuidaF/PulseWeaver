@@ -116,12 +116,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_device_rules_device_rule
 CREATE TABLE IF NOT EXISTS address_leases
 (
     id         INTEGER PRIMARY KEY,
+    device_id  INTEGER  NOT NULL REFERENCES devices (id) ON DELETE CASCADE,
     address_id INTEGER  NOT NULL REFERENCES addresses (id) ON DELETE CASCADE,
-    expires_at DATETIME NOT NULL,
+    expires_at DATETIME,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_address_leases_address_id_expires_at
-    ON address_leases (address_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_address_leases_device_id
+    ON address_leases (device_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_address_leases_address_id
+    ON address_leases (address_id);
 
