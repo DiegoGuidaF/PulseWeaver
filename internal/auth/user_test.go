@@ -14,7 +14,7 @@ func TestNewUser_ValidInputs(t *testing.T) {
 		name        string
 		username    string
 		displayName string
-		email       *string
+		email       string
 		password    string
 		role        Role
 	}{
@@ -22,7 +22,7 @@ func TestNewUser_ValidInputs(t *testing.T) {
 			name:        "valid user with email",
 			username:    "john_doe",
 			displayName: "John Doe",
-			email:       stringPtr("john@example.com"),
+			email:       "john@example.com",
 			password:    "Password123",
 			role:        UserRole,
 		},
@@ -30,7 +30,7 @@ func TestNewUser_ValidInputs(t *testing.T) {
 			name:        "valid user without email",
 			username:    "jane_doe",
 			displayName: "Jane Doe",
-			email:       nil,
+			email:       "",
 			password:    "Password123",
 			role:        UserRole,
 		},
@@ -38,7 +38,7 @@ func TestNewUser_ValidInputs(t *testing.T) {
 			name:        "valid admin user",
 			username:    "admin_user",
 			displayName: "Admin User",
-			email:       nil,
+			email:       "",
 			password:    "AdminPass123!",
 			role:        AdminRole,
 		},
@@ -107,7 +107,7 @@ func TestNewUser_InvalidUsername(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			user, err := NewUser(tt.username, tt.displayName, nil, tt.password, UserRole, nil)
+			user, err := NewUser(tt.username, tt.displayName, "", tt.password, UserRole, nil)
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))
@@ -157,7 +157,7 @@ func TestNewUser_InvalidDisplayName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			user, err := NewUser(tt.username, tt.displayName, nil, tt.password, UserRole, nil)
+			user, err := NewUser(tt.username, tt.displayName, "", tt.password, UserRole, nil)
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))
@@ -193,7 +193,7 @@ func TestNewUser_InvalidPassword(t *testing.T) {
 			name:        "password too long",
 			username:    "testuser",
 			displayName: "Test User",
-			password:    "ThisIsAVeryLongPasswordThatExceedsTheMaximumAllowedLength",
+			password:    "ThisPasswordIsLongerThanSeventyTwoCharacters0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
 			wantErr:     ErrInvalidPassword,
 		},
 		{
@@ -215,7 +215,7 @@ func TestNewUser_InvalidPassword(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			user, err := NewUser(tt.username, tt.displayName, nil, tt.password, UserRole, nil)
+			user, err := NewUser(tt.username, tt.displayName, "", tt.password, UserRole, nil)
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))
@@ -389,7 +389,7 @@ func TestValidatePassword(t *testing.T) {
 		},
 		{
 			name:     "too long",
-			password: "ThisIsAVeryLongPasswordThatExceedsTheMaximumAllowedLength",
+			password: "ThisPasswordIsLongerThanSeventyTwoCharacters0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
 			wantErr:  ErrInvalidPassword,
 		},
 		{
@@ -398,8 +398,8 @@ func TestValidatePassword(t *testing.T) {
 			wantErr:  nil,
 		},
 		{
-			name:     "exactly 32 characters",
-			password: "12345678901234567890123456789012",
+			name:     "exactly 72 characters",
+			password: "123456789012345678901234567890123456789012345678901234567890123456789012",
 			wantErr:  nil,
 		},
 	}
@@ -416,8 +416,4 @@ func TestValidatePassword(t *testing.T) {
 			}
 		})
 	}
-}
-
-func stringPtr(s string) *string {
-	return &s
 }

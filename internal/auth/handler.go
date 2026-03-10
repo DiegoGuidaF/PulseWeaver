@@ -82,6 +82,30 @@ func (h *HTTPHandler) GetCurrentUser(ctx context.Context, _ httpapi.GetCurrentUs
 	return httpapi.GetCurrentUser200JSONResponse(toUserResponse(user)), nil
 }
 
+func (h *HTTPHandler) ListUsers(ctx context.Context, _ httpapi.ListUsersRequestObject) (httpapi.ListUsersResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "ListUsers")
+	logger := h.logger
+
+	principal, ok := PrincipalFromContext(ctx)
+	if !ok || !principal.isAdmin() {
+		logger.WarnContext(ctx, "admin credentials required")
+		return httpapi.ListUsers403Response{}, nil
+	}
+
+	users, err := h.service.ListUsers(ctx)
+	if err != nil {
+		logger.ErrorContext(ctx, "failed to list users", slog.Any(AttrKeyError, err))
+		return httpapi.ListUsers500JSONResponse(errorMsgResponse("Failed to list users")), nil
+	}
+
+	response := make(httpapi.ListUsers200JSONResponse, 0, len(users))
+	for _, user := range users {
+		response = append(response, toUserResponse(&user))
+	}
+
+	return response, nil
+}
+
 func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUserRequestObject) (httpapi.CreateUserResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "CreateUser")
 	username := request.Body.Username
@@ -96,16 +120,11 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUser
 		return httpapi.CreateUser403Response{}, nil
 	}
 
-	// Email is inside an openapi validator, we need to turn it into a valid string or nil
-	var email *string
-	if request.Body.Email != nil {
-		email = new(string(*request.Body.Email))
-	}
 	user, err := h.service.CreateUserByAdmin(
 		ctx,
 		username,
 		request.Body.DisplayName,
-		email,
+		string(request.Body.Email),
 		request.Body.Password,
 		principal,
 	)
@@ -136,6 +155,137 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUser
 	return httpapi.CreateUser201JSONResponse(toUserResponse(user)), nil
 }
 
+func (h *HTTPHandler) UpdateMe(ctx context.Context, request httpapi.UpdateMeRequestObject) (httpapi.UpdateMeResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "UpdateMe")
+	logger := h.logger
+
+	principal, ok := PrincipalFromContext(ctx)
+	if !ok {
+		logger.WarnContext(ctx, "principal not in context")
+		return httpapi.UpdateMe401JSONResponse(errorMsgResponse("Not authenticated")), nil
+	}
+
+	updates := ProfileUpdates{}
+	if request.Body != nil && request.Body.DisplayName != nil {
+		updates.DisplayName = new(*request.Body.DisplayName)
+	}
+	if request.Body != nil && request.Body.Username != nil {
+		updates.Username = new(*request.Body.Username)
+	}
+	if request.Body != nil && request.Body.Email != nil {
+		updates.Email = new(string(*request.Body.Email))
+	}
+
+	user, err := h.service.UpdateOwnProfile(ctx, principal.UserID, updates)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrInvalidDisplayName), errors.Is(err, ErrInvalidUsername), errors.Is(err, ErrNoUpdateFields):
+			logger.WarnContext(ctx, "invalid profile update input")
+			return httpapi.UpdateMe400JSONResponse(errorMsgResponse("Invalid input")), nil
+		case errors.Is(err, ErrUsernameTaken):
+			logger.WarnContext(ctx, "username already taken")
+			return httpapi.UpdateMe409JSONResponse(errorMsgResponse("User with that username already exists")), nil
+		case errors.Is(err, ErrEmailTaken):
+			logger.WarnContext(ctx, "email already taken")
+			return httpapi.UpdateMe409JSONResponse(errorMsgResponse("User with that email already exists")), nil
+		default:
+			logger.ErrorContext(ctx, "failed to update profile", slog.Any(AttrKeyError, err))
+			return httpapi.UpdateMe500JSONResponse(errorMsgResponse("Failed to update profile")), nil
+		}
+	}
+
+	return httpapi.UpdateMe200JSONResponse(toUserResponse(user)), nil
+}
+
+func (h *HTTPHandler) ChangePassword(ctx context.Context, request httpapi.ChangePasswordRequestObject) (httpapi.ChangePasswordResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "ChangePassword")
+	logger := h.logger
+
+	principal, ok := PrincipalFromContext(ctx)
+	if !ok {
+		logger.WarnContext(ctx, "principal not in context")
+		return httpapi.ChangePassword401JSONResponse(errorMsgResponse("Not authenticated")), nil
+	}
+
+	err := h.service.ChangePassword(ctx, principal.UserID, principal.SessionID, request.Body.CurrentPassword, request.Body.Password)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrInvalidCredentials), errors.Is(err, ErrInvalidPassword):
+			logger.WarnContext(ctx, "invalid password change request")
+			return httpapi.ChangePassword400JSONResponse(errorMsgResponse("Invalid password change request")), nil
+		default:
+			logger.ErrorContext(ctx, "failed to change password", slog.Any(AttrKeyError, err))
+			return httpapi.ChangePassword500JSONResponse(errorMsgResponse("Failed to change password")), nil
+		}
+	}
+
+	return httpapi.ChangePassword204Response{}, nil
+}
+
+func (h *HTTPHandler) AdminUpdateUser(ctx context.Context, request httpapi.AdminUpdateUserRequestObject) (httpapi.AdminUpdateUserResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "AdminUpdateUser")
+	logger := h.logger
+
+	principal, ok := PrincipalFromContext(ctx)
+	if !ok || !principal.isAdmin() {
+		logger.WarnContext(ctx, "admin credentials required")
+		return httpapi.AdminUpdateUser403JSONResponse(errorMsgResponse("Admin credentials required")), nil
+	}
+
+	updates := AdminUserUpdates{}
+	if request.Body != nil && request.Body.Role != nil {
+		updates.Role = new(Role(*request.Body.Role))
+	}
+
+	user, err := h.service.AdminUpdateUser(ctx, principal.UserID, UserID(request.UserId), updates)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrInvalidDisplayName), errors.Is(err, ErrInvalidRole), errors.Is(err, ErrNoUpdateFields):
+			logger.WarnContext(ctx, "invalid admin update input")
+			return httpapi.AdminUpdateUser400JSONResponse(errorMsgResponse("Invalid input")), nil
+		case errors.Is(err, ErrSelfRoleChangeForbidden), errors.Is(err, ErrLastAdminChangeForbidden):
+			logger.WarnContext(ctx, "forbidden admin role change")
+			return httpapi.AdminUpdateUser403JSONResponse(errorMsgResponse("Forbidden role change")), nil
+		case errors.Is(err, ErrUserNotFound):
+			logger.WarnContext(ctx, "target user not found")
+			return httpapi.AdminUpdateUser404JSONResponse(errorMsgResponse("User not found")), nil
+		default:
+			logger.ErrorContext(ctx, "failed to update user", slog.Any(AttrKeyError, err))
+			return httpapi.AdminUpdateUser500JSONResponse(errorMsgResponse("Failed to update user")), nil
+		}
+	}
+
+	return httpapi.AdminUpdateUser200JSONResponse(toUserResponse(user)), nil
+}
+
+func (h *HTTPHandler) DeleteUser(ctx context.Context, request httpapi.DeleteUserRequestObject) (httpapi.DeleteUserResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "DeleteUser")
+	logger := h.logger
+
+	principal, ok := PrincipalFromContext(ctx)
+	if !ok || !principal.isAdmin() {
+		logger.WarnContext(ctx, "admin credentials required")
+		return httpapi.DeleteUser403JSONResponse(errorMsgResponse("Admin credentials required")), nil
+	}
+
+	err := h.service.DeleteUser(ctx, principal.UserID, UserID(request.UserId))
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrSelfDeleteForbidden), errors.Is(err, ErrLastAdminChangeForbidden):
+			logger.WarnContext(ctx, "forbidden user delete")
+			return httpapi.DeleteUser403JSONResponse(errorMsgResponse("Forbidden user delete")), nil
+		case errors.Is(err, ErrUserNotFound):
+			logger.WarnContext(ctx, "target user not found")
+			return httpapi.DeleteUser404JSONResponse(errorMsgResponse("User not found")), nil
+		default:
+			logger.ErrorContext(ctx, "failed to delete user", slog.Any(AttrKeyError, err))
+			return httpapi.DeleteUser500JSONResponse(errorMsgResponse("Failed to delete user")), nil
+		}
+	}
+
+	return httpapi.DeleteUser204Response{}, nil
+}
+
 func NewHandler(service *Service, logger *slog.Logger) *HTTPHandler {
 	cfg := DefaultCookieConfig
 
@@ -151,18 +301,14 @@ func (h *HTTPHandler) UserAuthenticator() UserAuthenticator {
 }
 
 func toUserResponse(d *User) httpapi.User {
-	var email *openapi_types.Email
-
-	if d.Email != nil { // Check if email exists
-		email = new(openapi_types.Email(*d.Email))
-	}
-
 	return httpapi.User{
-		Id:          d.ID.Int64(),
-		Username:    d.Username,
-		DisplayName: d.DisplayName,
-		Email:       email,
-		CreatedAt:   httpapi.UTCTime(d.CreatedAt),
+		Id:                 d.ID.Int64(),
+		Username:           d.Username,
+		DisplayName:        d.DisplayName,
+		Email:              new(openapi_types.Email(d.Email)),
+		Role:               httpapi.UserRole(d.Role),
+		MustChangePassword: new(d.MustChangePassword),
+		CreatedAt:          httpapi.UTCTime(d.CreatedAt),
 	}
 }
 

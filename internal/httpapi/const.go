@@ -2,6 +2,7 @@ package httpapi
 
 // Endpoints
 const LoginEndpoint = "/api/v1/auth/login"
+const HeartbeatEndpoint = "/api/v1/heartbeat"
 
 // Headers
 const SessionCookieName = "__Host-wdc_session"

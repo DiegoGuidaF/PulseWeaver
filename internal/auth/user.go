@@ -12,7 +12,6 @@ import (
 
 const AdminRole Role = "admin"
 const UserRole Role = "user"
-const DeviceRole Role = "device"
 
 var (
 	usernameRegex = regexp.MustCompile(`^[a-z0-9_-]+$`)
@@ -21,20 +20,22 @@ var (
 type Role string
 
 type User struct {
-	ID           UserID    `db:"id" `
-	Username     string    `db:"username" `
-	DisplayName  string    `db:"display_name" `
-	Email        *string   `db:"email" `
-	PasswordHash []byte    `db:"password_hash" `
-	Role         Role      `db:"role" `
-	CreatedBy    *UserID   `db:"created_by" `
-	CreatedAt    time.Time `db:"created_at" `
+	ID                 UserID     `db:"id"`
+	Username           string     `db:"username"`
+	DisplayName        string     `db:"display_name"`
+	Email              string     `db:"email"`
+	PasswordHash       []byte     `db:"password_hash"`
+	Role               Role       `db:"role"`
+	MustChangePassword bool       `db:"must_change_password"`
+	CreatedBy          *UserID    `db:"created_by"`
+	CreatedAt          time.Time  `db:"created_at"`
+	DeletedAt          *time.Time `db:"deleted_at"`
 }
 
 func NewUser(
 	username string,
 	displayName string,
-	email *string,
+	email string,
 	password string,
 	role Role,
 	createdByID *UserID,
@@ -127,7 +128,7 @@ func hashPassword(password string) ([]byte, error) {
 
 func validatePassword(password string) error {
 	minPasswordLength := 8
-	maxPasswordLength := 32
+	maxPasswordLength := 72
 	if len(password) < minPasswordLength {
 		return fmt.Errorf("%w: too short (min %d chars)", ErrInvalidPassword, minPasswordLength)
 	}

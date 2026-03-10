@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 WallyDic (WallyDex) is a self-hosted device IP address management service. It maintains an updated list of device IPs and acts as a Forward Auth sidecar for reverse proxies (`GET /api/policy-engine/verify-ip`). Compiles to a **single binary** with the frontend SPA embedded.
 
+## Database Migrations
+
+The app has not been released yet. **Do not create new migration files** for schema changes — instead, modify `internal/database/migrations/000001_init.up.sql` directly. Once the app ships a public release, this policy changes and proper versioned migrations must be used for every schema change.
+
 ## Commands
 
 ### Backend

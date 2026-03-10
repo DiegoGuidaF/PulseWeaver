@@ -67,7 +67,8 @@ func TestHandler_CreateUser(t *testing.T) {
 		is.Equal(raw["email"], "new_user@example.com")
 	})
 
-	t.Run("without_email", func(t *testing.T) {
+	t.Run("without_email_returns_400", func(t *testing.T) {
+		// Email is now required; omitting it must be rejected by the generated request validator.
 		body, _ := json.Marshal(map[string]string{
 			"username":     "new_user_without_email",
 			"display_name": "No Email User",
@@ -80,14 +81,6 @@ func TestHandler_CreateUser(t *testing.T) {
 		res := httptest.NewRecorder()
 		server.ServeHTTP(res, req)
 
-		is.Equal(res.Code, http.StatusCreated)
-
-		var raw map[string]any
-		err := json.NewDecoder(res.Body).Decode(&raw)
-		is.NoErr(err)
-		is.Equal(raw["username"], "new_user_without_email")
-
-		_, hasEmail := raw["email"]
-		is.True(!hasEmail)
+		is.Equal(res.Code, http.StatusBadRequest)
 	})
 }

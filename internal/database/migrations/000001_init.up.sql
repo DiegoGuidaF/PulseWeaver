@@ -42,14 +42,22 @@ CREATE INDEX IF NOT EXISTS idx_address_events_address_id_created_at
 CREATE TABLE IF NOT EXISTS users
 (
     id            INTEGER PRIMARY KEY,
-    username      TEXT      NOT NULL UNIQUE COLLATE NOCASE,
+    username      TEXT      NOT NULL COLLATE NOCASE,
     display_name  TEXT      NOT NULL,
-    email         TEXT UNIQUE,
+    email         TEXT NOT NULL DEFAULT '',
     password_hash BLOB      NOT NULL,
     role          TEXT      NOT NULL DEFAULT 'user',
+    must_change_password BOOLEAN NOT NULL DEFAULT 0 CHECK (must_change_password IN (0, 1)),
     created_by    INTEGER   REFERENCES users (id) ON DELETE SET NULL,
-    created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at    DATETIME
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_active
+    ON users (username COLLATE NOCASE) WHERE deleted_at IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_active
+    ON users (email) WHERE email != '' AND deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS sessions
 (

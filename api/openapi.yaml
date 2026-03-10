@@ -15,6 +15,29 @@ paths:
   # Auth Endpoints
   # --------------------
   /admin/users:
+    get:
+      operationId: listUsers
+      tags:
+        - admin
+      summary: List all users (Admin only)
+      description: Returns all non-deleted users.
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        "403":
+          description: Forbidden - Only admins can list users
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: createUser
       tags:
@@ -44,6 +67,90 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         "400":
           description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/users/{user_id}:
+    patch:
+      operationId: adminUpdateUser
+      tags:
+        - admin
+      summary: Update a user (Admin only)
+      description: Admin updates another user's role.
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUpdateUserRequest'
+      responses:
+        "200":
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "403":
+          description: Forbidden - self role change or last admin lockout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteUser
+      tags:
+        - admin
+      summary: Delete a user (Admin only)
+      description: Soft-deletes a user and revokes all user sessions.
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        "204":
+          description: User deleted successfully
+        "403":
+          description: Forbidden - cannot delete self or last admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: User not found
           content:
             application/json:
               schema:
@@ -130,6 +237,86 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/me:
+    patch:
+      operationId: updateMe
+      tags:
+        - users
+      summary: Update current user profile
+      description: Updates display name, username, and/or email for the authenticated user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        "200":
+          description: User profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: Username or email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/me/password:
+    post:
+      operationId: changePassword
+      tags:
+        - users
+      summary: Change current user password
+      description: Validates current password, updates password, and revokes all other sessions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        "204":
+          description: Password changed successfully
+        "400":
+          description: Current password is wrong or new password is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
           content:
             application/json:
               schema:
@@ -618,6 +805,7 @@ components:
       required:
         - username
         - display_name
+        - email
         - password
       properties:
         username:
@@ -630,6 +818,11 @@ components:
           example: "user@example.com"
         password:
           $ref: '#/components/schemas/Password'
+    AdminUpdateUserRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/UserRole'
     #################
     # Auth Requests
     #################
@@ -643,6 +836,31 @@ components:
           $ref: '#/components/schemas/Username'
         password:
           $ref: '#/components/schemas/Password'
+    UpdateProfileRequest:
+      type: object
+      properties:
+        display_name:
+          $ref: '#/components/schemas/DisplayName'
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: '^[a-zA-Z0-9_-]+$'
+        email:
+          type: string
+          format: email
+    ChangePasswordRequest:
+      type: object
+      required:
+        - current_password
+        - password
+      properties:
+        current_password:
+          type: string
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
 
     #################
     # Device Requests
@@ -700,6 +918,8 @@ components:
         - id
         - username
         - display_name
+        - role
+        - must_change_password
         - created_at
       properties:
         id:
@@ -711,6 +931,13 @@ components:
         email:
           type: string
           format: email
+        role:
+          $ref: '#/components/schemas/UserRole'
+          readOnly: true
+        must_change_password:
+          type: boolean
+          readOnly: true
+          description: When true, the user must change their password before using the app.
         created_at:
           type: string
           format: date-time
@@ -828,8 +1055,14 @@ components:
       description: "Unique username. Alphanumeric, underscores, and hyphens only."
       minLength: 3
       maxLength: 32
-      pattern: '^[a-z0-9_-]+$'
+      pattern: '^[a-zA-Z0-9_-]+$'
       example: "john_doe"
+    UserRole:
+      type: string
+      enum:
+        - admin
+        - user
+      description: The user's role. Only "admin" users can access admin endpoints.
     DisplayName:
       type: string
       description: "User's public name. Unicode allowed."
@@ -840,7 +1073,7 @@ components:
       type: string
       format: password
       minLength: 8
-      maxLength: 32
+      maxLength: 72
       example: "123ASecretPassword"
     IPAddress:
       type: string

@@ -20,7 +20,7 @@ func TestService_Login_Success(t *testing.T) {
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
 	// Create a test user
-	user, err := NewUser("testuser", "Test User", nil, "Password123", UserRole, nil)
+	user, err := NewUser("testuser", "Test User", "", "Password123", UserRole, nil)
 	is.NoErr(err)
 	mockRepo.users[user.ID] = user
 	mockRepo.usersByUsername[user.Username] = user
@@ -56,7 +56,7 @@ func TestService_Login_InvalidPassword(t *testing.T) {
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
 	// Create a test user
-	user, err := NewUser("testuser", "Test User", nil, "Password123", UserRole, nil)
+	user, err := NewUser("testuser", "Test User", "", "Password123", UserRole, nil)
 	is.NoErr(err)
 	mockRepo.users[user.ID] = user
 	mockRepo.usersByUsername[user.Username] = user
@@ -93,7 +93,7 @@ func TestService_GetUserById_Success(t *testing.T) {
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
 	// Create admin user
-	admin, err := NewUser("admin", "Admin", nil, "AdminPass123!", AdminRole, nil)
+	admin, err := NewUser("admin", "Admin", "", "AdminPass123!", AdminRole, nil)
 	is.NoErr(err)
 	mockRepo.users[admin.ID] = admin
 	mockRepo.usersByUsername[admin.Username] = admin
@@ -131,7 +131,7 @@ func TestService_CreateUserByAdmin_Success(t *testing.T) {
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
 	// Create admin user
-	admin, err := NewUser("admin", "Admin", nil, "AdminPass123!", AdminRole, nil)
+	admin, err := NewUser("admin", "Admin", "", "AdminPass123!", AdminRole, nil)
 	is.NoErr(err)
 	mockRepo.users[admin.ID] = admin
 	mockRepo.usersByUsername[admin.Username] = admin
@@ -139,7 +139,7 @@ func TestService_CreateUserByAdmin_Success(t *testing.T) {
 
 	principal := NewPrincipal(admin.ID, SessionID(1), AdminRole)
 
-	createdUser, err := service.CreateUserByAdmin(ctx, "newuser", "New User", nil, "Password123", principal)
+	createdUser, err := service.CreateUserByAdmin(ctx, "newuser", "New User", "", "Password123", principal)
 	is.NoErr(err)
 	is.True(createdUser != nil)
 	is.Equal(createdUser.Username, "newuser")
@@ -155,14 +155,14 @@ func TestService_CreateUserByAdmin_NonAdmin(t *testing.T) {
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
 	// Create regular user
-	regularUser, err := NewUser("regular", "Regular User", nil, "Password123", UserRole, nil)
+	regularUser, err := NewUser("regular", "Regular User", "", "Password123", UserRole, nil)
 	is.NoErr(err)
 	mockRepo.users[regularUser.ID] = regularUser
 	mockRepo.usersByUsername[regularUser.Username] = regularUser
 
 	principal := NewPrincipal(regularUser.ID, SessionID(1), UserRole)
 
-	createdUser, err := service.CreateUserByAdmin(ctx, "newuser", "New User", nil, "Password123", principal)
+	createdUser, err := service.CreateUserByAdmin(ctx, "newuser", "New User", "", "Password123", principal)
 	is.True(err != nil)
 	is.Equal(err, ErrAdminCredentialsRequired)
 	is.True(createdUser == nil)
@@ -176,7 +176,7 @@ func TestService_CreateUserByAdmin_DuplicateUsername(t *testing.T) {
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
 	// Create admin user
-	admin, err := NewUser("admin", "Admin", nil, "AdminPass123!", AdminRole, nil)
+	admin, err := NewUser("admin", "Admin", "", "AdminPass123!", AdminRole, nil)
 	is.NoErr(err)
 	mockRepo.users[admin.ID] = admin
 	mockRepo.usersByUsername[admin.Username] = admin
@@ -185,12 +185,12 @@ func TestService_CreateUserByAdmin_DuplicateUsername(t *testing.T) {
 	principal := NewPrincipal(admin.ID, SessionID(1), AdminRole)
 
 	// First user creation succeeds
-	_, err = service.CreateUserByAdmin(ctx, "newuser", "New User", nil, "Password123", principal)
+	_, err = service.CreateUserByAdmin(ctx, "newuser", "New User", "", "Password123", principal)
 	is.NoErr(err)
 
 	// Second user with same username should fail
 	mockRepo.createUserErr = ErrUsernameTaken
-	createdUser, err := service.CreateUserByAdmin(ctx, "newuser", "New User", nil, "Password123", principal)
+	createdUser, err := service.CreateUserByAdmin(ctx, "newuser", "New User", "", "Password123", principal)
 	is.True(err != nil)
 	is.Equal(err, ErrUsernameTaken)
 	is.True(createdUser == nil)
@@ -202,6 +202,7 @@ func TestService_BootstrapAdmin_CreatesAdminWhenNoUsers(t *testing.T) {
 
 	mockRepo := newMockRepository()
 	mockRepo.userCount = 0
+	mockRepo.adminCount = 0
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
 	conf := config.ConfServer{
@@ -219,7 +220,7 @@ func TestService_BootstrapAdmin_CreatesAdminWhenNoUsers(t *testing.T) {
 	is.Equal(admin.Username, "admin")
 }
 
-func TestService_BootstrapAdmin_SkipsWhenUsersExist(t *testing.T) {
+func TestService_BootstrapAdmin_CreatesAdminWhenNoAdminsExist(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
@@ -227,11 +228,12 @@ func TestService_BootstrapAdmin_SkipsWhenUsersExist(t *testing.T) {
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
 	// Create existing user
-	existingUser, err := NewUser("existing", "Existing User", nil, "Password123", UserRole, nil)
+	existingUser, err := NewUser("existing", "Existing User", "", "Password123", UserRole, nil)
 	is.NoErr(err)
 	mockRepo.users[existingUser.ID] = existingUser
 	mockRepo.usersByUsername[existingUser.Username] = existingUser
 	mockRepo.userCount = 1
+	mockRepo.adminCount = 0
 
 	conf := config.ConfServer{
 		AdminPassword: "AdminPass123!",
@@ -239,11 +241,36 @@ func TestService_BootstrapAdmin_SkipsWhenUsersExist(t *testing.T) {
 
 	err = service.BootstrapAdmin(ctx, conf)
 	is.NoErr(err)
-	is.Equal(mockRepo.userCount, 1) // Should still be 1, not 2
+	is.Equal(mockRepo.userCount, 2)
 
-	// Verify admin was NOT created
-	_, ok := mockRepo.usersByUsername["admin"]
-	is.True(!ok)
+	// Verify admin was created
+	admin, ok := mockRepo.usersByUsername["admin"]
+	is.True(ok)
+	is.Equal(admin.Role, AdminRole)
+}
+
+func TestService_BootstrapAdmin_SkipsWhenAdminExists(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	existingAdmin, err := NewUser("existing_admin", "Existing Admin", "", "Password123", AdminRole, nil)
+	is.NoErr(err)
+	mockRepo.users[UserID(1)] = existingAdmin
+	mockRepo.usersByUsername[existingAdmin.Username] = existingAdmin
+	mockRepo.userCount = 1
+	mockRepo.adminCount = 1
+
+	conf := config.ConfServer{
+		AdminPassword: "AdminPass123!",
+	}
+
+	err = service.BootstrapAdmin(ctx, conf)
+	is.NoErr(err)
+	is.Equal(mockRepo.userCount, 1)
+	is.Equal(mockRepo.adminCount, 1)
 }
 
 func TestService_BootstrapAdmin_UsesProvidedPassword(t *testing.T) {
@@ -252,6 +279,7 @@ func TestService_BootstrapAdmin_UsesProvidedPassword(t *testing.T) {
 
 	mockRepo := newMockRepository()
 	mockRepo.userCount = 0
+	mockRepo.adminCount = 0
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
 	conf := config.ConfServer{
@@ -280,12 +308,14 @@ type mockRepository struct {
 	sessions             map[SessionID]*SessionWithUser
 	sessionsByToken      map[string]*SessionWithUser // tokenHash -> session
 	userCount            int
+	adminCount           int
 	getUserByUsernameErr error
 	getUserByIDErr       error
 	createUserErr        error
 	createSessionErr     error
 	getSessionErr        error
 	countUsersErr        error
+	countAdminUsersErr   error
 	runInTxFn            func(repository) error
 }
 
@@ -332,6 +362,9 @@ func (m *mockRepository) CreateUser(ctx context.Context, user *User) (*User, err
 	m.users[user.ID] = user
 	m.usersByUsername[user.Username] = user
 	m.userCount++
+	if user.Role == AdminRole {
+		m.adminCount++
+	}
 	return user, nil
 }
 
@@ -367,6 +400,68 @@ func (m *mockRepository) CountUsers(ctx context.Context) (int, error) {
 	return m.userCount, nil
 }
 
+func (m *mockRepository) CountAdminUsers(ctx context.Context) (int, error) {
+	if m.countAdminUsersErr != nil {
+		return 0, m.countAdminUsersErr
+	}
+	return m.adminCount, nil
+}
+
+func (m *mockRepository) GetAllUsers(ctx context.Context) ([]User, error) {
+	users := make([]User, 0, len(m.users))
+	for _, user := range m.users {
+		users = append(users, *user)
+	}
+	return users, nil
+}
+
+func (m *mockRepository) UpdateUser(ctx context.Context, user *User) (*User, error) {
+	existing, ok := m.users[user.ID]
+	if !ok {
+		return nil, ErrUserNotFound
+	}
+
+	if existing.Role == AdminRole && user.Role != AdminRole {
+		m.adminCount--
+	}
+	if existing.Role != AdminRole && user.Role == AdminRole {
+		m.adminCount++
+	}
+
+	if existing.Username != user.Username {
+		delete(m.usersByUsername, existing.Username)
+		m.usersByUsername[user.Username] = user
+	}
+
+	*existing = *user
+	return existing, nil
+}
+
+func (m *mockRepository) UpdatePasswordHash(ctx context.Context, userID UserID, newHash []byte) error {
+	user, ok := m.users[userID]
+	if !ok {
+		return ErrUserNotFound
+	}
+	user.PasswordHash = newHash
+	user.MustChangePassword = false
+	return nil
+}
+
+func (m *mockRepository) SoftDeleteUser(ctx context.Context, userID UserID) error {
+	user, ok := m.users[userID]
+	if !ok {
+		return ErrUserNotFound
+	}
+
+	if user.Role == AdminRole {
+		m.adminCount--
+	}
+	m.userCount--
+	delete(m.usersByUsername, user.Username)
+	delete(m.users, userID)
+	return nil
+}
+
 func (m *mockRepository) RevokeSessionByID(ctx context.Context, id SessionID) error {
 	session, ok := m.sessions[id]
 	if !ok {
@@ -374,6 +469,26 @@ func (m *mockRepository) RevokeSessionByID(ctx context.Context, id SessionID) er
 	}
 	delete(m.sessionsByToken, session.TokenHash)
 	delete(m.sessions, id)
+	return nil
+}
+
+func (m *mockRepository) RevokeAllUserSessions(ctx context.Context, userID UserID) error {
+	for id, session := range m.sessions {
+		if session.UserID == userID {
+			delete(m.sessionsByToken, session.TokenHash)
+			delete(m.sessions, id)
+		}
+	}
+	return nil
+}
+
+func (m *mockRepository) RevokeAllUserSessionsExcept(ctx context.Context, userID UserID, exceptSessionID SessionID) error {
+	for id, session := range m.sessions {
+		if session.UserID == userID && id != exceptSessionID {
+			delete(m.sessionsByToken, session.TokenHash)
+			delete(m.sessions, id)
+		}
+	}
 	return nil
 }
 

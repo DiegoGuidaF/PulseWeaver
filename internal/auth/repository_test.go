@@ -21,7 +21,7 @@ func setupAuthTestDB(t *testing.T) *Repository {
 }
 
 //nolint:unparam // role parameter kept for API clarity even though currently always UserRole
-func mustNewUser(t *testing.T, username, displayName string, email *string, role Role) *User {
+func mustNewUser(t *testing.T, username, displayName string, email string, role Role) *User {
 	t.Helper()
 
 	user, err := NewUser(username, displayName, email, "Password123", role, nil)
@@ -38,10 +38,10 @@ func TestRepository_CreateUser_WithEmail(t *testing.T) {
 	ctx := context.Background()
 
 	email := "john@example.com"
-	created, err := repo.CreateUser(ctx, mustNewUser(t, "john_doe", "John Doe", &email, UserRole))
+	created, err := repo.CreateUser(ctx, mustNewUser(t, "john_doe", "John Doe", email, UserRole))
 	is.NoErr(err)
 	is.Equal(created.Username, "john_doe")
-	is.Equal(*created.Email, email)
+	is.Equal(created.Email, email)
 }
 
 func TestRepository_CreateUser_WithoutEmail(t *testing.T) {
@@ -49,9 +49,9 @@ func TestRepository_CreateUser_WithoutEmail(t *testing.T) {
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
 
-	created, err := repo.CreateUser(ctx, mustNewUser(t, "jane_doe", "Jane Doe", nil, UserRole))
+	created, err := repo.CreateUser(ctx, mustNewUser(t, "jane_doe", "Jane Doe", "", UserRole))
 	is.NoErr(err)
-	is.True(created.Email == nil)
+	is.Equal(created.Email, "")
 }
 
 func TestRepository_CreateUser_DuplicateUsernameCaseVariant(t *testing.T) {
@@ -59,10 +59,10 @@ func TestRepository_CreateUser_DuplicateUsernameCaseVariant(t *testing.T) {
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
 
-	_, err := repo.CreateUser(ctx, mustNewUser(t, "john_doe", "John Doe", nil, UserRole))
+	_, err := repo.CreateUser(ctx, mustNewUser(t, "john_doe", "John Doe", "", UserRole))
 	is.NoErr(err)
 
-	_, err = repo.CreateUser(ctx, mustNewUser(t, "JOHN_DOE", "Johnny", nil, UserRole))
+	_, err = repo.CreateUser(ctx, mustNewUser(t, "JOHN_DOE", "Johnny", "", UserRole))
 	is.True(err != nil)
 	is.True(errors.Is(err, ErrUsernameTaken))
 }
@@ -73,10 +73,10 @@ func TestRepository_CreateUser_DuplicateEmail(t *testing.T) {
 	ctx := context.Background()
 
 	email := "duplicate@example.com"
-	_, err := repo.CreateUser(ctx, mustNewUser(t, "user_a", "User A", &email, UserRole))
+	_, err := repo.CreateUser(ctx, mustNewUser(t, "user_a", "User A", email, UserRole))
 	is.NoErr(err)
 
-	_, err = repo.CreateUser(ctx, mustNewUser(t, "user_b", "User B", &email, UserRole))
+	_, err = repo.CreateUser(ctx, mustNewUser(t, "user_b", "User B", email, UserRole))
 	is.True(err != nil)
 	is.True(errors.Is(err, ErrEmailTaken))
 }
@@ -86,7 +86,7 @@ func TestRepository_GetUserByUsername_CaseInsensitiveLookup(t *testing.T) {
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
 
-	_, err := repo.CreateUser(ctx, mustNewUser(t, "alice_user", "Alice", nil, UserRole))
+	_, err := repo.CreateUser(ctx, mustNewUser(t, "alice_user", "Alice", "", UserRole))
 	is.NoErr(err)
 
 	user, err := repo.GetUserByUsername(ctx, "ALICE_USER")
@@ -99,7 +99,7 @@ func TestRepository_SessionCreateAndRead(t *testing.T) {
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
 
-	user, err := repo.CreateUser(ctx, mustNewUser(t, "session_user", "Session User", nil, UserRole))
+	user, err := repo.CreateUser(ctx, mustNewUser(t, "session_user", "Session User", "", UserRole))
 	is.NoErr(err)
 
 	session := NewSession(user.ID, "token-hash-1")
