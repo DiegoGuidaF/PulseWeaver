@@ -52,8 +52,9 @@ func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandle
 			},
 		}
 
-		// Rate limit login: 5 requests per minute per IP; other endpoints not limited
+		// Rate limit unauthenticated endpoints by IP
 		r.Use(LoginRateLimitMiddleware(5, time.Minute))
+		r.Use(HeartbeatRateLimitMiddleware(30, time.Minute))
 
 		// OpenApi request input validators
 		r.Use(nethttpmiddleware.OapiRequestValidatorWithOptions(swagger, validatorOptions))

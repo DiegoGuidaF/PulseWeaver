@@ -15,46 +15,47 @@ import (
 	"github.com/go-chi/httprate"
 )
 
-// LoginRateLimitMiddleware creates a middleware that rate limits only POST /api/v1/auth/login requests.
-// Other endpoints are not affected. Uses a custom key function that reads from context.
+// LoginRateLimitMiddleware rate limits POST /api/v1/auth/login by client IP.
 func LoginRateLimitMiddleware(requests int, window time.Duration) func(http.Handler) http.Handler {
-	// Custom key function that reads client IP from context
-	//nolint:unparam // Error return is required by httprate API signature
-	keyFunc := func(r *http.Request) (string, error) {
-		ip, ok := httpapi.ClientIPFromContext(r.Context())
-		if !ok || ip == "" {
-			// Fallback to RemoteAddr if context doesn't have IP
-			clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
-			if err != nil {
-				clientIP = r.RemoteAddr
-			}
-			return clientIP, nil
+	return ipRateLimitMiddleware(httpapi.LoginEndpoint, http.MethodPost, requests, window,
+		"Too many login attempts. Try again later.")
+}
+
+// HeartbeatRateLimitMiddleware rate limits POST /api/v1/heartbeat by client IP.
+func HeartbeatRateLimitMiddleware(requests int, window time.Duration) func(http.Handler) http.Handler {
+	return ipRateLimitMiddleware(httpapi.HeartbeatEndpoint, http.MethodPost, requests, window,
+		"Too many heartbeat requests. Try again later.")
+}
+
+// ipRateLimitMiddleware creates a middleware that rate limits a specific path+method by client IP.
+// The key is read from the request context (set by the IP middleware) with a fallback to RemoteAddr.
+// When the limit is exceeded, a JSON 429 response is returned with the given message.
+//
+//nolint:unparam // Error return on keyFunc is required by httprate API signature
+func ipRateLimitMiddleware(path, method string, requests int, window time.Duration, msg string) func(http.Handler) http.Handler {
+	clientIP := func(r *http.Request) string {
+		if ip, ok := httpapi.ClientIPFromContext(r.Context()); ok && ip != "" {
+			return ip
 		}
-		return ip, nil
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			return r.RemoteAddr
+		}
+		return host
 	}
 
 	limiter := httprate.NewRateLimiter(requests, window,
-		httprate.WithKeyFuncs(keyFunc),
 		httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusTooManyRequests)
-			msg := "Too many login attempts. Try again later."
 			_ = json.NewEncoder(w).Encode(httpapi.ErrorResponse{Error: &msg})
 		}),
 	)
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Only rate limit login endpoint
-			if r.URL.Path == httpapi.LoginEndpoint && r.Method == http.MethodPost {
-				// Extract key using the custom key function
-				key, err := keyFunc(r)
-				if err != nil {
-					// If we can't extract IP, allow the request through
-					next.ServeHTTP(w, r)
-					return
-				}
-				// Check limit and respond with 429 if exceeded
-				if limiter.RespondOnLimit(w, r, key) {
+			if r.URL.Path == path && r.Method == method {
+				if limiter.RespondOnLimit(w, r, clientIP(r)) {
 					return
 				}
 			}
