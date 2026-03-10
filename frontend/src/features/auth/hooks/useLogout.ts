@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { logoutMutation } from "@/lib/api/@tanstack/react-query.gen";
+import { logoutMutation, getCurrentUserQueryKey } from "@/lib/api/@tanstack/react-query.gen";
 import { toErrorMessage } from "@/lib/api-client";
 import { toast } from "sonner";
 
@@ -11,14 +11,15 @@ export function useLogout() {
   return useMutation({
     ...logoutMutation(),
     onSuccess: () => {
-      // Clear all queries (logout = fresh start)
-      queryClient.removeQueries();
-      // Show toast before navigation
+      // Clear all caches, then immediately set user to null so LoginPage
+      // sees isAuthenticated:false (not a loading state) before the navigate
+      // lands — preventing it from redirecting straight back to /devices.
+      queryClient.clear();
+      queryClient.setQueryData(getCurrentUserQueryKey(), null);
+      navigate("/login", { replace: true });
       toast.success("Logged out", {
         description: "You have been logged out successfully.",
       });
-      // Use React Router navigate for consistency with login
-      navigate("/login");
     },
     onError: (err) => {
       toast.error("Logout failed", {

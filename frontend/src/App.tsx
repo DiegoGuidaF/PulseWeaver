@@ -13,7 +13,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+    <ThemeProvider defaultTheme="system">
       <BrowserRouter>
         <AuthProvider>
           <AppErrorBoundary>

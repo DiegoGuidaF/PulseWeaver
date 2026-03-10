@@ -12,7 +12,7 @@ export const zCreateDeviceRequest = z.object({
 });
 
 export const zErrorResponse = z.object({
-  error: z.optional(z.string()),
+  error: z.string().optional(),
 });
 
 export const zPutDeviceAddressLeaseRuleRequest = z.object({
@@ -34,7 +34,7 @@ export const zUsername = z
 export const zUserRole = z.enum(["admin", "user"]);
 
 export const zAdminUpdateUserRequest = z.object({
-  role: z.optional(zUserRole),
+  role: zUserRole.optional(),
 });
 
 /**
@@ -43,15 +43,14 @@ export const zAdminUpdateUserRequest = z.object({
 export const zDisplayName = z.string().min(1).max(50);
 
 export const zUpdateProfileRequest = z.object({
-  display_name: z.optional(zDisplayName),
-  username: z.optional(
-    z
-      .string()
-      .min(3)
-      .max(32)
-      .regex(/^[a-zA-Z0-9_-]+$/),
-  ),
-  email: z.optional(z.email()),
+  display_name: zDisplayName.optional(),
+  username: z
+    .string()
+    .min(3)
+    .max(32)
+    .regex(/^[a-zA-Z0-9_-]+$/)
+    .optional(),
+  email: z.email().optional(),
 });
 
 export const zPassword = z.string().min(8).max(72);
@@ -78,7 +77,7 @@ export const zAddAddressRequest = z.object({
 });
 
 export const zDeviceHeartbeatByApiKeyRequest = z.object({
-  ip: z.optional(zIpAddress),
+  ip: zIpAddress.optional(),
 });
 
 export const zId = z.coerce
@@ -94,7 +93,7 @@ export const zUser = z.object({
   id: zId,
   username: zUsername,
   display_name: zDisplayName,
-  email: z.optional(z.email()),
+  email: z.email().optional(),
   role: zUserRole,
   must_change_password: z.boolean().readonly(),
   created_at: z.iso.datetime({ offset: true, local: true }),
@@ -105,7 +104,7 @@ export const zDevice = z.object({
   id: zId,
   name: z.string().min(1).max(50),
   api_key_prefix: z.string(),
-  address_count: z.optional(z.int().gte(0).readonly()),
+  address_count: z.int().gte(0).readonly().optional(),
 });
 
 export const zCreateDeviceResponse = z.object({
@@ -120,14 +119,10 @@ export const zAddress = z.object({
   is_enabled: z.boolean(),
   created_at: z.iso.datetime({ offset: true, local: true }),
   updated_at: z.iso.datetime({ offset: true, local: true }),
-  expires_at: z.optional(
-    z
-      .union([
-        z.iso.datetime({ offset: true, local: true }).readonly(),
-        z.null(),
-      ])
-      .readonly(),
-  ),
+  expires_at: z.iso
+    .datetime({ offset: true, local: true })
+    .readonly()
+    .nullish(),
 });
 
 export const zDeviceAddressLeaseRule = z.object({
@@ -143,7 +138,7 @@ export const zUserWritable = z.object({
   id: zId,
   username: zUsername,
   display_name: zDisplayName,
-  email: z.optional(z.email()),
+  email: z.email().optional(),
   created_at: z.iso.datetime({ offset: true, local: true }),
 });
 
@@ -169,9 +164,9 @@ export const zAddressWritable = z.object({
 });
 
 export const zListUsersData = z.object({
-  body: z.optional(z.never()),
-  path: z.optional(z.never()),
-  query: z.optional(z.never()),
+  body: z.never().optional(),
+  path: z.never().optional(),
+  query: z.never().optional(),
 });
 
 /**
@@ -181,8 +176,8 @@ export const zListUsersResponse = z.array(zUser);
 
 export const zCreateUserData = z.object({
   body: zCreateUserRequest,
-  path: z.optional(z.never()),
-  query: z.optional(z.never()),
+  path: z.never().optional(),
+  query: z.never().optional(),
 });
 
 /**
@@ -191,11 +186,11 @@ export const zCreateUserData = z.object({
 export const zCreateUserResponse = zUser;
 
 export const zDeleteUserData = z.object({
-  body: z.optional(z.never()),
+  body: z.never().optional(),
   path: z.object({
     user_id: zId,
   }),
-  query: z.optional(z.never()),
+  query: z.never().optional(),
 });
 
 /**
@@ -208,7 +203,7 @@ export const zAdminUpdateUserData = z.object({
   path: z.object({
     user_id: zId,
   }),
-  query: z.optional(z.never()),
+  query: z.never().optional(),
 });
 
 /**
@@ -218,8 +213,8 @@ export const zAdminUpdateUserResponse = zUser;
 
 export const zLoginData = z.object({
   body: zAuthRequest,
-  path: z.optional(z.never()),
-  query: z.optional(z.never()),
+  path: z.never().optional(),
+  query: z.never().optional(),
 });
 
 /**
@@ -228,9 +223,9 @@ export const zLoginData = z.object({
 export const zLoginResponse = zUser;
 
 export const zLogoutData = z.object({
-  body: z.optional(z.never()),
-  path: z.optional(z.never()),
-  query: z.optional(z.never()),
+  body: z.never().optional(),
+  path: z.never().optional(),
+  query: z.never().optional(),
 });
 
 /**
@@ -239,9 +234,9 @@ export const zLogoutData = z.object({
 export const zLogoutResponse = z.void();
 
 export const zGetCurrentUserData = z.object({
-  body: z.optional(z.never()),
-  path: z.optional(z.never()),
-  query: z.optional(z.never()),
+  body: z.never().optional(),
+  path: z.never().optional(),
+  query: z.never().optional(),
 });
 
 /**
@@ -251,8 +246,8 @@ export const zGetCurrentUserResponse = zUser;
 
 export const zUpdateMeData = z.object({
   body: zUpdateProfileRequest,
-  path: z.optional(z.never()),
-  query: z.optional(z.never()),
+  path: z.never().optional(),
+  query: z.never().optional(),
 });
 
 /**
@@ -262,8 +257,8 @@ export const zUpdateMeResponse = zUser;
 
 export const zChangePasswordData = z.object({
   body: zChangePasswordRequest,
-  path: z.optional(z.never()),
-  query: z.optional(z.never()),
+  path: z.never().optional(),
+  query: z.never().optional(),
 });
 
 /**
@@ -272,9 +267,9 @@ export const zChangePasswordData = z.object({
 export const zChangePasswordResponse = z.void();
 
 export const zGetDevicesData = z.object({
-  body: z.optional(z.never()),
-  path: z.optional(z.never()),
-  query: z.optional(z.never()),
+  body: z.never().optional(),
+  path: z.never().optional(),
+  query: z.never().optional(),
 });
 
 /**
@@ -284,8 +279,8 @@ export const zGetDevicesResponse = z.array(zDevice);
 
 export const zCreateDeviceData = z.object({
   body: zCreateDeviceRequest,
-  path: z.optional(z.never()),
-  query: z.optional(z.never()),
+  path: z.never().optional(),
+  query: z.never().optional(),
 });
 
 /**
@@ -294,11 +289,11 @@ export const zCreateDeviceData = z.object({
 export const zCreateDeviceResponse2 = zCreateDeviceResponse;
 
 export const zDeleteDeviceData = z.object({
-  body: z.optional(z.never()),
+  body: z.never().optional(),
   path: z.object({
     device_id: zId,
   }),
-  query: z.optional(z.never()),
+  query: z.never().optional(),
 });
 
 /**
@@ -307,11 +302,11 @@ export const zDeleteDeviceData = z.object({
 export const zDeleteDeviceResponse = z.void();
 
 export const zGetDeviceData = z.object({
-  body: z.optional(z.never()),
+  body: z.never().optional(),
   path: z.object({
     device_id: zId,
   }),
-  query: z.optional(z.never()),
+  query: z.never().optional(),
 });
 
 /**
@@ -320,11 +315,11 @@ export const zGetDeviceData = z.object({
 export const zGetDeviceResponse = zDevice;
 
 export const zGetDeviceAddressesData = z.object({
-  body: z.optional(z.never()),
+  body: z.never().optional(),
   path: z.object({
     device_id: zId,
   }),
-  query: z.optional(z.never()),
+  query: z.never().optional(),
 });
 
 /**
@@ -337,7 +332,7 @@ export const zAddAddressData = z.object({
   path: z.object({
     device_id: zId,
   }),
-  query: z.optional(z.never()),
+  query: z.never().optional(),
 });
 
 /**
@@ -346,11 +341,11 @@ export const zAddAddressData = z.object({
 export const zAddAddressResponse = zAddress;
 
 export const zDeviceHeartbeatData = z.object({
-  body: z.optional(z.never()),
+  body: z.never().optional(),
   path: z.object({
     device_id: zId,
   }),
-  query: z.optional(z.never()),
+  query: z.never().optional(),
 });
 
 /**
@@ -359,9 +354,9 @@ export const zDeviceHeartbeatData = z.object({
 export const zDeviceHeartbeatResponse = zAddress;
 
 export const zDeviceHeartbeatByApiKeyData = z.object({
-  body: z.optional(zDeviceHeartbeatByApiKeyRequest),
-  path: z.optional(z.never()),
-  query: z.optional(z.never()),
+  body: zDeviceHeartbeatByApiKeyRequest.optional(),
+  path: z.never().optional(),
+  query: z.never().optional(),
 });
 
 /**
@@ -370,12 +365,12 @@ export const zDeviceHeartbeatByApiKeyData = z.object({
 export const zDeviceHeartbeatByApiKeyResponse = zAddress;
 
 export const zDisableAddressData = z.object({
-  body: z.optional(z.never()),
+  body: z.never().optional(),
   path: z.object({
     device_id: zId,
     address_id: zId,
   }),
-  query: z.optional(z.never()),
+  query: z.never().optional(),
 });
 
 /**
@@ -384,11 +379,11 @@ export const zDisableAddressData = z.object({
 export const zDisableAddressResponse = zAddress;
 
 export const zDisableDeviceAddressLeaseRuleData = z.object({
-  body: z.optional(z.never()),
+  body: z.never().optional(),
   path: z.object({
     device_id: zId,
   }),
-  query: z.optional(z.never()),
+  query: z.never().optional(),
 });
 
 /**
@@ -397,11 +392,11 @@ export const zDisableDeviceAddressLeaseRuleData = z.object({
 export const zDisableDeviceAddressLeaseRuleResponse = z.void();
 
 export const zGetDeviceAddressLeaseRuleData = z.object({
-  body: z.optional(z.never()),
+  body: z.never().optional(),
   path: z.object({
     device_id: zId,
   }),
-  query: z.optional(z.never()),
+  query: z.never().optional(),
 });
 
 /**
@@ -414,7 +409,7 @@ export const zPutDeviceAddressLeaseRuleData = z.object({
   path: z.object({
     device_id: zId,
   }),
-  query: z.optional(z.never()),
+  query: z.never().optional(),
 });
 
 /**

@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
 import { LoginForm } from "@/features/auth/components/LoginForm";
+import { ModeToggle } from "@/components/mode-toggle";
 
 export function LoginPage() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -20,6 +21,9 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="absolute top-4 right-4">
+        <ModeToggle />
+      </div>
       <div className="w-full max-w-md space-y-6 rounded-lg border p-8">
         <div className="space-y-2 text-center">
           <h1 className="text-2xl font-bold">Welcome to WallyDic</h1>
