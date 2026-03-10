@@ -7,13 +7,28 @@ export type ClientOptions = {
 export type CreateUserRequest = {
   username: Username;
   display_name: DisplayName;
-  email?: string;
+  email: string;
   password: Password;
+};
+
+export type AdminUpdateUserRequest = {
+  role?: UserRole;
 };
 
 export type AuthRequest = {
   username: Username;
   password: Password;
+};
+
+export type UpdateProfileRequest = {
+  display_name?: DisplayName;
+  username?: string;
+  email?: string;
+};
+
+export type ChangePasswordRequest = {
+  current_password: string;
+  password: string;
 };
 
 export type CreateDeviceRequest = {
@@ -48,6 +63,11 @@ export type User = {
   username: Username;
   display_name: DisplayName;
   email?: string;
+  role: UserRole;
+  /**
+   * When true, the user must change their password before using the app.
+   */
+  readonly must_change_password: boolean;
   created_at: Date;
 };
 
@@ -116,6 +136,16 @@ export type PutDeviceAddressLeaseRuleRequest = {
 export type Username = string;
 
 /**
+ * The user's role. Only "admin" users can access admin endpoints.
+ */
+export const UserRole = { ADMIN: "admin", USER: "user" } as const;
+
+/**
+ * The user's role. Only "admin" users can access admin endpoints.
+ */
+export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+
+/**
  * User's public name. Unicode allowed.
  */
 export type DisplayName = string;
@@ -135,6 +165,14 @@ export type CreateDeviceResponseWritable = {
    * Secret key for the device; only returned on creation.
    */
   api_key: string;
+};
+
+export type UserWritable = {
+  id: Id;
+  username: Username;
+  display_name: DisplayName;
+  email?: string;
+  created_at: Date;
 };
 
 export type DeviceWritable = {
@@ -164,6 +202,35 @@ export type AddressWritable = {
    */
   updated_at: Date;
 };
+
+export type ListUsersData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/admin/users";
+};
+
+export type ListUsersErrors = {
+  /**
+   * Forbidden - Only admins can list users
+   */
+  403: unknown;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type ListUsersError = ListUsersErrors[keyof ListUsersErrors];
+
+export type ListUsersResponses = {
+  /**
+   * Users list
+   */
+  200: Array<User>;
+};
+
+export type ListUsersResponse = ListUsersResponses[keyof ListUsersResponses];
 
 export type CreateUserData = {
   body: CreateUserRequest;
@@ -201,6 +268,82 @@ export type CreateUserResponses = {
 };
 
 export type CreateUserResponse = CreateUserResponses[keyof CreateUserResponses];
+
+export type DeleteUserData = {
+  body?: never;
+  path: {
+    user_id: Id;
+  };
+  query?: never;
+  url: "/admin/users/{user_id}";
+};
+
+export type DeleteUserErrors = {
+  /**
+   * Forbidden - cannot delete self or last admin
+   */
+  403: ErrorResponse;
+  /**
+   * User not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type DeleteUserError = DeleteUserErrors[keyof DeleteUserErrors];
+
+export type DeleteUserResponses = {
+  /**
+   * User deleted successfully
+   */
+  204: void;
+};
+
+export type DeleteUserResponse = DeleteUserResponses[keyof DeleteUserResponses];
+
+export type AdminUpdateUserData = {
+  body: AdminUpdateUserRequest;
+  path: {
+    user_id: Id;
+  };
+  query?: never;
+  url: "/admin/users/{user_id}";
+};
+
+export type AdminUpdateUserErrors = {
+  /**
+   * Bad Request
+   */
+  400: ErrorResponse;
+  /**
+   * Forbidden - self role change or last admin lockout
+   */
+  403: ErrorResponse;
+  /**
+   * User not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type AdminUpdateUserError =
+  AdminUpdateUserErrors[keyof AdminUpdateUserErrors];
+
+export type AdminUpdateUserResponses = {
+  /**
+   * User updated successfully
+   */
+  200: User;
+};
+
+export type AdminUpdateUserResponse =
+  AdminUpdateUserResponses[keyof AdminUpdateUserResponses];
 
 export type LoginData = {
   body: AuthRequest;
@@ -277,6 +420,78 @@ export type GetCurrentUserResponses = {
 
 export type GetCurrentUserResponse =
   GetCurrentUserResponses[keyof GetCurrentUserResponses];
+
+export type UpdateMeData = {
+  body: UpdateProfileRequest;
+  path?: never;
+  query?: never;
+  url: "/users/me";
+};
+
+export type UpdateMeErrors = {
+  /**
+   * Bad Request
+   */
+  400: ErrorResponse;
+  /**
+   * Not authenticated
+   */
+  401: ErrorResponse;
+  /**
+   * Username or email already registered
+   */
+  409: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type UpdateMeError = UpdateMeErrors[keyof UpdateMeErrors];
+
+export type UpdateMeResponses = {
+  /**
+   * User profile updated
+   */
+  200: User;
+};
+
+export type UpdateMeResponse = UpdateMeResponses[keyof UpdateMeResponses];
+
+export type ChangePasswordData = {
+  body: ChangePasswordRequest;
+  path?: never;
+  query?: never;
+  url: "/users/me/password";
+};
+
+export type ChangePasswordErrors = {
+  /**
+   * Current password is wrong or new password is invalid
+   */
+  400: ErrorResponse;
+  /**
+   * Not authenticated
+   */
+  401: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type ChangePasswordError =
+  ChangePasswordErrors[keyof ChangePasswordErrors];
+
+export type ChangePasswordResponses = {
+  /**
+   * Password changed successfully
+   */
+  204: void;
+};
+
+export type ChangePasswordResponse =
+  ChangePasswordResponses[keyof ChangePasswordResponses];
 
 export type GetDevicesData = {
   body?: never;

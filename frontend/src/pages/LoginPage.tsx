@@ -3,7 +3,7 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { LoginForm } from "@/features/auth/components/LoginForm";
 
 export function LoginPage() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -15,7 +15,7 @@ export function LoginPage() {
 
   // Redirect to dashboard if already authenticated
   if (isAuthenticated) {
-    return <Navigate to="/devices" replace />;
+    return <Navigate to={user?.must_change_password ? "/settings" : "/devices"} replace />;
   }
 
   return (

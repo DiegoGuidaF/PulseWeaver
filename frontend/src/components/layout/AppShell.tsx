@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, Server, LogOut } from "lucide-react";
+import { Menu, Server, LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
 // Navigation items
 const sidebarItems = [
   { name: "Devices", href: "/devices", icon: Server },
+  { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 function Sidebar({ className }: SidebarProps) {

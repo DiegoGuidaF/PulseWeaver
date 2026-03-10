@@ -6,7 +6,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -21,6 +21,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     // Redirect to login with returnTo query param
     const returnTo = location.pathname + location.search;
     return <Navigate to={`/login?returnTo=${encodeURIComponent(returnTo)}`} replace />;
+  }
+
+  if (isAuthenticated && user?.must_change_password && location.pathname !== "/settings") {
+    return <Navigate to="/settings" replace />;
   }
 
   return <>{children}</>;

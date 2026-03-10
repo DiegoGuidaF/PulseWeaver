@@ -2,6 +2,7 @@
 
 import type {
   AddAddressResponse,
+  AdminUpdateUserResponse,
   CreateDeviceResponse2,
   CreateUserResponse,
   DeviceHeartbeatByApiKeyResponse,
@@ -12,8 +13,10 @@ import type {
   GetDeviceAddressLeaseRuleResponse,
   GetDeviceResponse,
   GetDevicesResponse,
+  ListUsersResponse,
   LoginResponse,
   PutDeviceAddressLeaseRuleResponse,
+  UpdateMeResponse,
 } from "./types.gen";
 
 const userSchemaResponseTransformer = (data: any) => {
@@ -21,9 +24,23 @@ const userSchemaResponseTransformer = (data: any) => {
   return data;
 };
 
+export const listUsersResponseTransformer = async (
+  data: any,
+): Promise<ListUsersResponse> => {
+  data = data.map((item: any) => userSchemaResponseTransformer(item));
+  return data;
+};
+
 export const createUserResponseTransformer = async (
   data: any,
 ): Promise<CreateUserResponse> => {
+  data = userSchemaResponseTransformer(data);
+  return data;
+};
+
+export const adminUpdateUserResponseTransformer = async (
+  data: any,
+): Promise<AdminUpdateUserResponse> => {
   data = userSchemaResponseTransformer(data);
   return data;
 };
@@ -38,6 +55,13 @@ export const loginResponseTransformer = async (
 export const getCurrentUserResponseTransformer = async (
   data: any,
 ): Promise<GetCurrentUserResponse> => {
+  data = userSchemaResponseTransformer(data);
+  return data;
+};
+
+export const updateMeResponseTransformer = async (
+  data: any,
+): Promise<UpdateMeResponse> => {
   data = userSchemaResponseTransformer(data);
   return data;
 };

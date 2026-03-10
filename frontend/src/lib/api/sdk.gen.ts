@@ -4,6 +4,7 @@ import type { Client, Options as Options2, TDataShape } from "./client";
 import { client } from "./client.gen";
 import {
   addAddressResponseTransformer,
+  adminUpdateUserResponseTransformer,
   createDeviceResponseTransformer,
   createUserResponseTransformer,
   deviceHeartbeatByApiKeyResponseTransformer,
@@ -14,13 +15,21 @@ import {
   getDeviceAddressLeaseRuleResponseTransformer,
   getDeviceResponseTransformer,
   getDevicesResponseTransformer,
+  listUsersResponseTransformer,
   loginResponseTransformer,
   putDeviceAddressLeaseRuleResponseTransformer,
+  updateMeResponseTransformer,
 } from "./transformers.gen";
 import type {
   AddAddressData,
   AddAddressErrors,
   AddAddressResponses,
+  AdminUpdateUserData,
+  AdminUpdateUserErrors,
+  AdminUpdateUserResponses,
+  ChangePasswordData,
+  ChangePasswordErrors,
+  ChangePasswordResponses,
   CreateDeviceData,
   CreateDeviceErrors,
   CreateDeviceResponses,
@@ -30,6 +39,9 @@ import type {
   DeleteDeviceData,
   DeleteDeviceErrors,
   DeleteDeviceResponses,
+  DeleteUserData,
+  DeleteUserErrors,
+  DeleteUserResponses,
   DeviceHeartbeatByApiKeyData,
   DeviceHeartbeatByApiKeyErrors,
   DeviceHeartbeatByApiKeyResponses,
@@ -57,6 +69,9 @@ import type {
   GetDevicesData,
   GetDevicesErrors,
   GetDevicesResponses,
+  ListUsersData,
+  ListUsersErrors,
+  ListUsersResponses,
   LoginData,
   LoginErrors,
   LoginResponses,
@@ -65,16 +80,25 @@ import type {
   PutDeviceAddressLeaseRuleData,
   PutDeviceAddressLeaseRuleErrors,
   PutDeviceAddressLeaseRuleResponses,
+  UpdateMeData,
+  UpdateMeErrors,
+  UpdateMeResponses,
 } from "./types.gen";
 import {
   zAddAddressData,
   zAddAddressResponse,
+  zAdminUpdateUserData,
+  zAdminUpdateUserResponse,
+  zChangePasswordData,
+  zChangePasswordResponse,
   zCreateDeviceData,
   zCreateDeviceResponse2,
   zCreateUserData,
   zCreateUserResponse,
   zDeleteDeviceData,
   zDeleteDeviceResponse,
+  zDeleteUserData,
+  zDeleteUserResponse,
   zDeviceHeartbeatByApiKeyData,
   zDeviceHeartbeatByApiKeyResponse,
   zDeviceHeartbeatData,
@@ -93,12 +117,16 @@ import {
   zGetDeviceResponse,
   zGetDevicesData,
   zGetDevicesResponse,
+  zListUsersData,
+  zListUsersResponse,
   zLoginData,
   zLoginResponse,
   zLogoutData,
   zLogoutResponse,
   zPutDeviceAddressLeaseRuleData,
   zPutDeviceAddressLeaseRuleResponse,
+  zUpdateMeData,
+  zUpdateMeResponse,
 } from "./zod.gen";
 
 export type Options<
@@ -117,6 +145,34 @@ export type Options<
    */
   meta?: Record<string, unknown>;
 };
+
+/**
+ * List all users (Admin only)
+ *
+ * Returns all non-deleted users.
+ */
+export const listUsers = <ThrowOnError extends boolean = false>(
+  options?: Options<ListUsersData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    ListUsersResponses,
+    ListUsersErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) => await zListUsersData.parseAsync(data),
+    responseTransformer: listUsersResponseTransformer,
+    responseValidator: async (data) =>
+      await zListUsersResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/admin/users",
+    ...options,
+  });
 
 /**
  * Register a new user (Admin only)
@@ -143,6 +199,66 @@ export const createUser = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/admin/users",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete a user (Admin only)
+ *
+ * Soft-deletes a user and revokes all user sessions.
+ */
+export const deleteUser = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteUserData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    DeleteUserResponses,
+    DeleteUserErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) => await zDeleteUserData.parseAsync(data),
+    responseValidator: async (data) =>
+      await zDeleteUserResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/admin/users/{user_id}",
+    ...options,
+  });
+
+/**
+ * Update a user (Admin only)
+ *
+ * Admin updates another user's role.
+ */
+export const adminUpdateUser = <ThrowOnError extends boolean = false>(
+  options: Options<AdminUpdateUserData, ThrowOnError>,
+) =>
+  (options.client ?? client).patch<
+    AdminUpdateUserResponses,
+    AdminUpdateUserErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await zAdminUpdateUserData.parseAsync(data),
+    responseTransformer: adminUpdateUserResponseTransformer,
+    responseValidator: async (data) =>
+      await zAdminUpdateUserResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/admin/users/{user_id}",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -219,6 +335,69 @@ export const getCurrentUser = <ThrowOnError extends boolean = false>(
     ],
     url: "/auth/me",
     ...options,
+  });
+
+/**
+ * Update current user profile
+ *
+ * Updates display name, username, and/or email for the authenticated user.
+ */
+export const updateMe = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateMeData, ThrowOnError>,
+) =>
+  (options.client ?? client).patch<
+    UpdateMeResponses,
+    UpdateMeErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) => await zUpdateMeData.parseAsync(data),
+    responseTransformer: updateMeResponseTransformer,
+    responseValidator: async (data) => await zUpdateMeResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/users/me",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Change current user password
+ *
+ * Validates current password, updates password, and revokes all other sessions.
+ */
+export const changePassword = <ThrowOnError extends boolean = false>(
+  options: Options<ChangePasswordData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    ChangePasswordResponses,
+    ChangePasswordErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await zChangePasswordData.parseAsync(data),
+    responseValidator: async (data) =>
+      await zChangePasswordResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/users/me/password",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 
 /**

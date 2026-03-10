@@ -9,6 +9,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { DeviceDetailPage } from "./pages/DeviceDetailPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { SettingsPage } from "./pages/SettingsPage";
 
 function App() {
   return (
@@ -38,6 +39,16 @@ function App() {
                   <ProtectedRoute>
                     <AppShell>
                       <DeviceDetailPage />
+                    </AppShell>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <AppShell>
+                      <SettingsPage />
                     </AppShell>
                   </ProtectedRoute>
                 }

@@ -2,6 +2,11 @@
 
 import * as z from "zod";
 
+export const zChangePasswordRequest = z.object({
+  current_password: z.string(),
+  password: z.string().min(8).max(72),
+});
+
 export const zCreateDeviceRequest = z.object({
   name: z.string().min(1).max(50),
 });
@@ -21,19 +26,40 @@ export const zUsername = z
   .string()
   .min(3)
   .max(32)
-  .regex(/^[a-z0-9_-]+$/);
+  .regex(/^[a-zA-Z0-9_-]+$/);
+
+/**
+ * The user's role. Only "admin" users can access admin endpoints.
+ */
+export const zUserRole = z.enum(["admin", "user"]);
+
+export const zAdminUpdateUserRequest = z.object({
+  role: z.optional(zUserRole),
+});
 
 /**
  * User's public name. Unicode allowed.
  */
 export const zDisplayName = z.string().min(1).max(50);
 
-export const zPassword = z.string().min(8).max(32);
+export const zUpdateProfileRequest = z.object({
+  display_name: z.optional(zDisplayName),
+  username: z.optional(
+    z
+      .string()
+      .min(3)
+      .max(32)
+      .regex(/^[a-zA-Z0-9_-]+$/),
+  ),
+  email: z.optional(z.email()),
+});
+
+export const zPassword = z.string().min(8).max(72);
 
 export const zCreateUserRequest = z.object({
   username: zUsername,
   display_name: zDisplayName,
-  email: z.optional(z.email()),
+  email: z.email(),
   password: zPassword,
 });
 
@@ -69,6 +95,8 @@ export const zUser = z.object({
   username: zUsername,
   display_name: zDisplayName,
   email: z.optional(z.email()),
+  role: zUserRole,
+  must_change_password: z.boolean().readonly(),
   created_at: z.iso.datetime({ offset: true, local: true }),
 });
 
@@ -111,6 +139,14 @@ export const zDeviceAddressLeaseRule = z.object({
   updated_at: z.iso.datetime({ offset: true, local: true }),
 });
 
+export const zUserWritable = z.object({
+  id: zId,
+  username: zUsername,
+  display_name: zDisplayName,
+  email: z.optional(z.email()),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+});
+
 export const zDeviceWritable = z.object({
   created_at: z.iso.datetime({ offset: true, local: true }),
   id: zId,
@@ -132,6 +168,17 @@ export const zAddressWritable = z.object({
   updated_at: z.iso.datetime({ offset: true, local: true }),
 });
 
+export const zListUsersData = z.object({
+  body: z.optional(z.never()),
+  path: z.optional(z.never()),
+  query: z.optional(z.never()),
+});
+
+/**
+ * Users list
+ */
+export const zListUsersResponse = z.array(zUser);
+
 export const zCreateUserData = z.object({
   body: zCreateUserRequest,
   path: z.optional(z.never()),
@@ -142,6 +189,32 @@ export const zCreateUserData = z.object({
  * User created successfully
  */
 export const zCreateUserResponse = zUser;
+
+export const zDeleteUserData = z.object({
+  body: z.optional(z.never()),
+  path: z.object({
+    user_id: zId,
+  }),
+  query: z.optional(z.never()),
+});
+
+/**
+ * User deleted successfully
+ */
+export const zDeleteUserResponse = z.void();
+
+export const zAdminUpdateUserData = z.object({
+  body: zAdminUpdateUserRequest,
+  path: z.object({
+    user_id: zId,
+  }),
+  query: z.optional(z.never()),
+});
+
+/**
+ * User updated successfully
+ */
+export const zAdminUpdateUserResponse = zUser;
 
 export const zLoginData = z.object({
   body: zAuthRequest,
@@ -175,6 +248,28 @@ export const zGetCurrentUserData = z.object({
  * Current user details
  */
 export const zGetCurrentUserResponse = zUser;
+
+export const zUpdateMeData = z.object({
+  body: zUpdateProfileRequest,
+  path: z.optional(z.never()),
+  query: z.optional(z.never()),
+});
+
+/**
+ * User profile updated
+ */
+export const zUpdateMeResponse = zUser;
+
+export const zChangePasswordData = z.object({
+  body: zChangePasswordRequest,
+  path: z.optional(z.never()),
+  query: z.optional(z.never()),
+});
+
+/**
+ * Password changed successfully
+ */
+export const zChangePasswordResponse = z.void();
 
 export const zGetDevicesData = z.object({
   body: z.optional(z.never()),

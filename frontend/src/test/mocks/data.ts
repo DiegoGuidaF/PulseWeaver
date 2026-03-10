@@ -1,4 +1,5 @@
 import type { Address, Device, DeviceAddressLeaseRule, User } from '@/lib/api';
+import { UserRole } from "@/lib/api";
 
 /**
  * Creates a mock Device object with realistic defaults.
@@ -26,6 +27,8 @@ export function createMockUser(overrides?: Partial<User>): User {
     username: 'testuser',
     display_name: 'Test User',
     email: 'test@example.com',
+    role: UserRole.USER,
+    must_change_password: false,
     created_at: new Date('2024-01-01T00:00:00Z'),
     ...overrides,
   };

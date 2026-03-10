@@ -9,9 +9,12 @@ import {
 import { client } from "../client.gen";
 import {
   addAddress,
+  adminUpdateUser,
+  changePassword,
   createDevice,
   createUser,
   deleteDevice,
+  deleteUser,
   deviceHeartbeat,
   deviceHeartbeatByApiKey,
   disableAddress,
@@ -21,15 +24,23 @@ import {
   getDeviceAddresses,
   getDeviceAddressLeaseRule,
   getDevices,
+  listUsers,
   login,
   logout,
   type Options,
   putDeviceAddressLeaseRule,
+  updateMe,
 } from "../sdk.gen";
 import type {
   AddAddressData,
   AddAddressError,
   AddAddressResponse,
+  AdminUpdateUserData,
+  AdminUpdateUserError,
+  AdminUpdateUserResponse,
+  ChangePasswordData,
+  ChangePasswordError,
+  ChangePasswordResponse,
   CreateDeviceData,
   CreateDeviceError,
   CreateDeviceResponse2,
@@ -39,6 +50,9 @@ import type {
   DeleteDeviceData,
   DeleteDeviceError,
   DeleteDeviceResponse,
+  DeleteUserData,
+  DeleteUserError,
+  DeleteUserResponse,
   DeviceHeartbeatByApiKeyData,
   DeviceHeartbeatByApiKeyError,
   DeviceHeartbeatByApiKeyResponse,
@@ -66,6 +80,9 @@ import type {
   GetDevicesData,
   GetDevicesError,
   GetDevicesResponse,
+  ListUsersData,
+  ListUsersError,
+  ListUsersResponse,
   LoginData,
   LoginError,
   LoginResponse,
@@ -74,7 +91,77 @@ import type {
   PutDeviceAddressLeaseRuleData,
   PutDeviceAddressLeaseRuleError,
   PutDeviceAddressLeaseRuleResponse,
+  UpdateMeData,
+  UpdateMeError,
+  UpdateMeResponse,
 } from "../types.gen";
+
+export type QueryKey<TOptions extends Options> = [
+  Pick<TOptions, "baseUrl" | "body" | "headers" | "path" | "query"> & {
+    _id: string;
+    _infinite?: boolean;
+    tags?: ReadonlyArray<string>;
+  },
+];
+
+const createQueryKey = <TOptions extends Options>(
+  id: string,
+  options?: TOptions,
+  infinite?: boolean,
+  tags?: ReadonlyArray<string>,
+): [QueryKey<TOptions>[0]] => {
+  const params: QueryKey<TOptions>[0] = {
+    _id: id,
+    baseUrl:
+      options?.baseUrl || (options?.client ?? client).getConfig().baseUrl,
+  } as QueryKey<TOptions>[0];
+  if (infinite) {
+    params._infinite = infinite;
+  }
+  if (tags) {
+    params.tags = tags;
+  }
+  if (options?.body) {
+    params.body = options.body;
+  }
+  if (options?.headers) {
+    params.headers = options.headers;
+  }
+  if (options?.path) {
+    params.path = options.path;
+  }
+  if (options?.query) {
+    params.query = options.query;
+  }
+  return [params];
+};
+
+export const listUsersQueryKey = (options?: Options<ListUsersData>) =>
+  createQueryKey("listUsers", options);
+
+/**
+ * List all users (Admin only)
+ *
+ * Returns all non-deleted users.
+ */
+export const listUsersOptions = (options?: Options<ListUsersData>) =>
+  queryOptions<
+    ListUsersResponse,
+    ListUsersError,
+    ListUsersResponse,
+    ReturnType<typeof listUsersQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await listUsers({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: listUsersQueryKey(options),
+  });
 
 /**
  * Register a new user (Admin only)
@@ -95,6 +182,64 @@ export const createUserMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await createUser({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Delete a user (Admin only)
+ *
+ * Soft-deletes a user and revokes all user sessions.
+ */
+export const deleteUserMutation = (
+  options?: Partial<Options<DeleteUserData>>,
+): UseMutationOptions<
+  DeleteUserResponse,
+  DeleteUserError,
+  Options<DeleteUserData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    DeleteUserResponse,
+    DeleteUserError,
+    Options<DeleteUserData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await deleteUser({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Update a user (Admin only)
+ *
+ * Admin updates another user's role.
+ */
+export const adminUpdateUserMutation = (
+  options?: Partial<Options<AdminUpdateUserData>>,
+): UseMutationOptions<
+  AdminUpdateUserResponse,
+  AdminUpdateUserError,
+  Options<AdminUpdateUserData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    AdminUpdateUserResponse,
+    AdminUpdateUserError,
+    Options<AdminUpdateUserData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await adminUpdateUser({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -155,46 +300,6 @@ export const logoutMutation = (
   return mutationOptions;
 };
 
-export type QueryKey<TOptions extends Options> = [
-  Pick<TOptions, "baseUrl" | "body" | "headers" | "path" | "query"> & {
-    _id: string;
-    _infinite?: boolean;
-    tags?: ReadonlyArray<string>;
-  },
-];
-
-const createQueryKey = <TOptions extends Options>(
-  id: string,
-  options?: TOptions,
-  infinite?: boolean,
-  tags?: ReadonlyArray<string>,
-): [QueryKey<TOptions>[0]] => {
-  const params: QueryKey<TOptions>[0] = {
-    _id: id,
-    baseUrl:
-      options?.baseUrl || (options?.client ?? client).getConfig().baseUrl,
-  } as QueryKey<TOptions>[0];
-  if (infinite) {
-    params._infinite = infinite;
-  }
-  if (tags) {
-    params.tags = tags;
-  }
-  if (options?.body) {
-    params.body = options.body;
-  }
-  if (options?.headers) {
-    params.headers = options.headers;
-  }
-  if (options?.path) {
-    params.path = options.path;
-  }
-  if (options?.query) {
-    params.query = options.query;
-  }
-  return [params];
-};
-
 export const getCurrentUserQueryKey = (options?: Options<GetCurrentUserData>) =>
   createQueryKey("getCurrentUser", options);
 
@@ -221,6 +326,64 @@ export const getCurrentUserOptions = (options?: Options<GetCurrentUserData>) =>
     },
     queryKey: getCurrentUserQueryKey(options),
   });
+
+/**
+ * Update current user profile
+ *
+ * Updates display name, username, and/or email for the authenticated user.
+ */
+export const updateMeMutation = (
+  options?: Partial<Options<UpdateMeData>>,
+): UseMutationOptions<
+  UpdateMeResponse,
+  UpdateMeError,
+  Options<UpdateMeData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    UpdateMeResponse,
+    UpdateMeError,
+    Options<UpdateMeData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await updateMe({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Change current user password
+ *
+ * Validates current password, updates password, and revokes all other sessions.
+ */
+export const changePasswordMutation = (
+  options?: Partial<Options<ChangePasswordData>>,
+): UseMutationOptions<
+  ChangePasswordResponse,
+  ChangePasswordError,
+  Options<ChangePasswordData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ChangePasswordResponse,
+    ChangePasswordError,
+    Options<ChangePasswordData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await changePassword({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 export const getDevicesQueryKey = (options?: Options<GetDevicesData>) =>
   createQueryKey("getDevices", options);

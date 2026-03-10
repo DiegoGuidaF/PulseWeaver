@@ -2,7 +2,7 @@
 
 export const CreateUserRequestSchema = {
   type: "object",
-  required: ["username", "display_name", "password"],
+  required: ["username", "display_name", "email", "password"],
   properties: {
     username: {
       $ref: "#/components/schemas/Username",
@@ -21,6 +21,15 @@ export const CreateUserRequestSchema = {
   },
 } as const;
 
+export const AdminUpdateUserRequestSchema = {
+  type: "object",
+  properties: {
+    role: {
+      $ref: "#/components/schemas/UserRole",
+    },
+  },
+} as const;
+
 export const AuthRequestSchema = {
   type: "object",
   required: ["username", "password"],
@@ -30,6 +39,40 @@ export const AuthRequestSchema = {
     },
     password: {
       $ref: "#/components/schemas/Password",
+    },
+  },
+} as const;
+
+export const UpdateProfileRequestSchema = {
+  type: "object",
+  properties: {
+    display_name: {
+      $ref: "#/components/schemas/DisplayName",
+    },
+    username: {
+      type: "string",
+      minLength: 3,
+      maxLength: 32,
+      pattern: "^[a-zA-Z0-9_-]+$",
+    },
+    email: {
+      type: "string",
+      format: "email",
+    },
+  },
+} as const;
+
+export const ChangePasswordRequestSchema = {
+  type: "object",
+  required: ["current_password", "password"],
+  properties: {
+    current_password: {
+      type: "string",
+    },
+    password: {
+      type: "string",
+      minLength: 8,
+      maxLength: 72,
     },
   },
 } as const;
@@ -93,7 +136,14 @@ export const ErrorResponseSchema = {
 
 export const UserSchema = {
   type: "object",
-  required: ["id", "username", "display_name", "created_at"],
+  required: [
+    "id",
+    "username",
+    "display_name",
+    "role",
+    "must_change_password",
+    "created_at",
+  ],
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
@@ -107,6 +157,16 @@ export const UserSchema = {
     email: {
       type: "string",
       format: "email",
+    },
+    role: {
+      $ref: "#/components/schemas/UserRole",
+      readOnly: true,
+    },
+    must_change_password: {
+      type: "boolean",
+      readOnly: true,
+      description:
+        "When true, the user must change their password before using the app.",
     },
     created_at: {
       type: "string",
@@ -245,8 +305,15 @@ export const UsernameSchema = {
   description: "Unique username. Alphanumeric, underscores, and hyphens only.",
   minLength: 3,
   maxLength: 32,
-  pattern: "^[a-z0-9_-]+$",
+  pattern: "^[a-zA-Z0-9_-]+$",
   example: "john_doe",
+} as const;
+
+export const UserRoleSchema = {
+  type: "string",
+  enum: ["admin", "user"],
+  description:
+    'The user\'s role. Only "admin" users can access admin endpoints.',
 } as const;
 
 export const DisplayNameSchema = {
@@ -261,7 +328,7 @@ export const PasswordSchema = {
   type: "string",
   format: "password",
   minLength: 8,
-  maxLength: 32,
+  maxLength: 72,
   example: "123ASecretPassword",
 } as const;
 
@@ -296,6 +363,31 @@ export const CreateDeviceResponseWritableSchema = {
     api_key: {
       type: "string",
       description: "Secret key for the device; only returned on creation.",
+    },
+  },
+} as const;
+
+export const UserWritableSchema = {
+  type: "object",
+  required: ["id", "username", "display_name", "created_at"],
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    username: {
+      $ref: "#/components/schemas/Username",
+    },
+    display_name: {
+      $ref: "#/components/schemas/DisplayName",
+    },
+    email: {
+      type: "string",
+      format: "email",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
     },
   },
 } as const;
