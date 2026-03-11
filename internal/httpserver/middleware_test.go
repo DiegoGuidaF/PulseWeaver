@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"testing"
+	"time"
 
 	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
 	"github.com/DiegoGuidaF/WallyDex/internal/httpserver"
@@ -238,6 +239,100 @@ func TestClientIPFromRealIP_InvalidPeerIPFallback(t *testing.T) {
 	is.Equal(res.Code, http.StatusOK)
 	// Should store original RemoteAddr since peer IP is invalid
 	is.Equal(capturedIP, "invalid-address")
+}
+
+func TestHeartbeatRateLimit_429AfterLimit(t *testing.T) {
+	is := is.New(t)
+
+	limit := 2
+	handler := httpserver.HeartbeatRateLimitMiddleware(limit, time.Minute)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	for i := 0; i < limit; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", nil)
+		req.RemoteAddr = "192.0.2.10:12345"
+		res := httptest.NewRecorder()
+		handler.ServeHTTP(res, req)
+		is.Equal(res.Code, http.StatusOK)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", nil)
+	req.RemoteAddr = "192.0.2.10:12345"
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusTooManyRequests)
+
+	var errorResp httpapi.ErrorResponse
+	err := json.NewDecoder(res.Body).Decode(&errorResp)
+	is.NoErr(err)
+	is.True(errorResp.Error != nil)
+	is.Equal(*errorResp.Error, "Too many heartbeat requests. Try again later.")
+}
+
+func TestHeartbeatRateLimit_OnlyAffectsHeartbeatEndpoint(t *testing.T) {
+	is := is.New(t)
+
+	limit := 2
+	called := 0
+	handler := httpserver.HeartbeatRateLimitMiddleware(limit, time.Minute)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called++
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Exhaust the heartbeat budget
+	for i := 0; i < limit+1; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", nil)
+		req.RemoteAddr = "192.0.2.10:12345"
+		res := httptest.NewRecorder()
+		handler.ServeHTTP(res, req)
+	}
+
+	calledAfterHeartbeat := called
+
+	// Requests to a different path must never be rate limited
+	for i := 0; i < limit+5; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/other", nil)
+		req.RemoteAddr = "192.0.2.10:12345"
+		res := httptest.NewRecorder()
+		handler.ServeHTTP(res, req)
+		is.Equal(res.Code, http.StatusOK)
+	}
+
+	_ = calledAfterHeartbeat
+}
+
+func TestHeartbeatRateLimit_DifferentIPsIndependent(t *testing.T) {
+	is := is.New(t)
+
+	limit := 2
+	handler := httpserver.HeartbeatRateLimitMiddleware(limit, time.Minute)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Exhaust the budget for IP1
+	for i := 0; i < limit; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", nil)
+		req.RemoteAddr = "192.0.2.10:12345"
+		res := httptest.NewRecorder()
+		handler.ServeHTTP(res, req)
+		is.Equal(res.Code, http.StatusOK)
+	}
+
+	// IP1 is now rate limited
+	req1 := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", nil)
+	req1.RemoteAddr = "192.0.2.10:12345"
+	res1 := httptest.NewRecorder()
+	handler.ServeHTTP(res1, req1)
+	is.Equal(res1.Code, http.StatusTooManyRequests)
+
+	// IP2 still has its own budget
+	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", nil)
+	req2.RemoteAddr = "192.0.2.20:12345"
+	res2 := httptest.NewRecorder()
+	handler.ServeHTTP(res2, req2)
+	is.Equal(res2.Code, http.StatusOK)
 }
 
 func TestLoginRateLimit_429AfterLimit(t *testing.T) {

@@ -301,6 +301,356 @@ func TestService_BootstrapAdmin_UsesProvidedPassword(t *testing.T) {
 	is.True(token != "")
 }
 
+func TestService_ListUsers_ReturnsAllUsers(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	user1, err := NewUser("alice", "Alice", "", "Password123", UserRole, nil)
+	is.NoErr(err)
+	user2, err := NewUser("bob", "Bob", "", "Password123", AdminRole, nil)
+	is.NoErr(err)
+	mockRepo.users[UserID(1)] = user1
+	mockRepo.users[UserID(2)] = user2
+	mockRepo.usersByUsername[user1.Username] = user1
+	mockRepo.usersByUsername[user2.Username] = user2
+	mockRepo.userCount = 2
+
+	users, err := service.ListUsers(ctx)
+	is.NoErr(err)
+	is.Equal(len(users), 2)
+}
+
+func TestService_UpdateOwnProfile_UpdatesDisplayName(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	user, err := NewUser("alice", "Alice", "alice@example.com", "Password123", UserRole, nil)
+	is.NoErr(err)
+	user.ID = UserID(1)
+	mockRepo.users[user.ID] = user
+	mockRepo.usersByUsername[user.Username] = user
+
+	newName := "Alice Updated"
+	updated, err := service.UpdateOwnProfile(ctx, user.ID, ProfileUpdates{DisplayName: &newName})
+	is.NoErr(err)
+	is.Equal(updated.DisplayName, "Alice Updated")
+}
+
+func TestService_UpdateOwnProfile_UpdatesUsername(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	user, err := NewUser("alice", "Alice", "", "Password123", UserRole, nil)
+	is.NoErr(err)
+	user.ID = UserID(1)
+	mockRepo.users[user.ID] = user
+	mockRepo.usersByUsername[user.Username] = user
+
+	newUsername := "alice2"
+	updated, err := service.UpdateOwnProfile(ctx, user.ID, ProfileUpdates{Username: &newUsername})
+	is.NoErr(err)
+	is.Equal(updated.Username, "alice2")
+}
+
+func TestService_UpdateOwnProfile_NoFieldsReturnsError(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	user, err := NewUser("alice", "Alice", "", "Password123", UserRole, nil)
+	is.NoErr(err)
+	user.ID = UserID(1)
+	mockRepo.users[user.ID] = user
+
+	updated, err := service.UpdateOwnProfile(ctx, user.ID, ProfileUpdates{})
+	is.Equal(err, ErrNoUpdateFields)
+	is.True(updated == nil)
+}
+
+func TestService_UpdateOwnProfile_UserNotFound(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	newName := "Ghost"
+	updated, err := service.UpdateOwnProfile(ctx, UserID(99), ProfileUpdates{DisplayName: &newName})
+	is.Equal(err, ErrUserNotFound)
+	is.True(updated == nil)
+}
+
+func TestService_ChangePassword_Success(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	user, err := NewUser("alice", "Alice", "", "OldPass123!", UserRole, nil)
+	is.NoErr(err)
+	user.ID = UserID(1)
+	mockRepo.users[user.ID] = user
+	mockRepo.usersByUsername[user.Username] = user
+
+	// Create a session for the user so the "current session" is in the store
+	session := &Session{ID: SessionID(1), UserID: user.ID, TokenHash: "hash1"}
+	mockRepo.sessions[session.ID] = &SessionWithUser{Session: *session, UserRole: user.Role}
+	mockRepo.sessionsByToken[session.TokenHash] = mockRepo.sessions[session.ID]
+
+	err = service.ChangePassword(ctx, user.ID, session.ID, "OldPass123!", "NewPass456!")
+	is.NoErr(err)
+
+	// Other sessions should be revoked; current session kept
+	is.Equal(len(mockRepo.sessions), 1)
+}
+
+func TestService_ChangePassword_WrongCurrentPassword(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	user, err := NewUser("alice", "Alice", "", "OldPass123!", UserRole, nil)
+	is.NoErr(err)
+	user.ID = UserID(1)
+	mockRepo.users[user.ID] = user
+
+	err = service.ChangePassword(ctx, user.ID, SessionID(1), "WrongPass!", "NewPass456!")
+	is.Equal(err, ErrInvalidCredentials)
+}
+
+func TestService_ChangePassword_RevokesOtherSessions(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	user, err := NewUser("alice", "Alice", "", "OldPass123!", UserRole, nil)
+	is.NoErr(err)
+	user.ID = UserID(1)
+	mockRepo.users[user.ID] = user
+
+	// Two sessions for this user
+	s1 := &Session{ID: SessionID(1), UserID: user.ID, TokenHash: "hash1"}
+	s2 := &Session{ID: SessionID(2), UserID: user.ID, TokenHash: "hash2"}
+	mockRepo.sessions[s1.ID] = &SessionWithUser{Session: *s1, UserRole: user.Role}
+	mockRepo.sessions[s2.ID] = &SessionWithUser{Session: *s2, UserRole: user.Role}
+	mockRepo.sessionsByToken[s1.TokenHash] = mockRepo.sessions[s1.ID]
+	mockRepo.sessionsByToken[s2.TokenHash] = mockRepo.sessions[s2.ID]
+
+	// Change password keeping session 1
+	err = service.ChangePassword(ctx, user.ID, s1.ID, "OldPass123!", "NewPass456!")
+	is.NoErr(err)
+
+	// Session 2 must be gone, session 1 must remain
+	is.Equal(len(mockRepo.sessions), 1)
+	_, s1Kept := mockRepo.sessions[s1.ID]
+	is.True(s1Kept)
+}
+
+func TestService_AdminUpdateUser_ChangeRole(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	admin, err := NewUser("admin", "Admin", "", "AdminPass123!", AdminRole, nil)
+	is.NoErr(err)
+	admin.ID = UserID(1)
+	mockRepo.users[admin.ID] = admin
+	mockRepo.usersByUsername[admin.Username] = admin
+	mockRepo.adminCount = 1
+
+	target, err := NewUser("alice", "Alice", "", "Password123", UserRole, nil)
+	is.NoErr(err)
+	target.ID = UserID(2)
+	mockRepo.users[target.ID] = target
+	mockRepo.usersByUsername[target.Username] = target
+	mockRepo.userCount = 2
+
+	newRole := AdminRole
+	updated, err := service.AdminUpdateUser(ctx, admin.ID, target.ID, AdminUserUpdates{Role: &newRole})
+	is.NoErr(err)
+	is.Equal(updated.Role, AdminRole)
+}
+
+func TestService_AdminUpdateUser_SelfRoleChangeForbidden(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	admin, err := NewUser("admin", "Admin", "", "AdminPass123!", AdminRole, nil)
+	is.NoErr(err)
+	admin.ID = UserID(1)
+	mockRepo.users[admin.ID] = admin
+	mockRepo.adminCount = 1
+
+	newRole := UserRole
+	updated, err := service.AdminUpdateUser(ctx, admin.ID, admin.ID, AdminUserUpdates{Role: &newRole})
+	is.Equal(err, ErrSelfRoleChangeForbidden)
+	is.True(updated == nil)
+}
+
+func TestService_AdminUpdateUser_LastAdminDemoteForbidden(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	admin1, err := NewUser("admin1", "Admin One", "", "AdminPass123!", AdminRole, nil)
+	is.NoErr(err)
+	admin1.ID = UserID(1)
+	mockRepo.users[admin1.ID] = admin1
+
+	admin2, err := NewUser("admin2", "Admin Two", "", "AdminPass123!", AdminRole, nil)
+	is.NoErr(err)
+	admin2.ID = UserID(2)
+	mockRepo.users[admin2.ID] = admin2
+	mockRepo.adminCount = 1 // only one effective admin: admin2 is the target to demote
+
+	newRole := UserRole
+	updated, err := service.AdminUpdateUser(ctx, admin1.ID, admin2.ID, AdminUserUpdates{Role: &newRole})
+	is.Equal(err, ErrLastAdminChangeForbidden)
+	is.True(updated == nil)
+}
+
+func TestService_AdminUpdateUser_NoFieldsReturnsError(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	admin, err := NewUser("admin", "Admin", "", "AdminPass123!", AdminRole, nil)
+	is.NoErr(err)
+	admin.ID = UserID(1)
+	mockRepo.users[admin.ID] = admin
+
+	target, err := NewUser("alice", "Alice", "", "Password123", UserRole, nil)
+	is.NoErr(err)
+	target.ID = UserID(2)
+	mockRepo.users[target.ID] = target
+
+	updated, err := service.AdminUpdateUser(ctx, admin.ID, target.ID, AdminUserUpdates{})
+	is.Equal(err, ErrNoUpdateFields)
+	is.True(updated == nil)
+}
+
+func TestService_DeleteUser_Success(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	admin, err := NewUser("admin", "Admin", "", "AdminPass123!", AdminRole, nil)
+	is.NoErr(err)
+	admin.ID = UserID(1)
+	mockRepo.users[admin.ID] = admin
+	mockRepo.usersByUsername[admin.Username] = admin
+	mockRepo.adminCount = 1
+
+	target, err := NewUser("alice", "Alice", "", "Password123", UserRole, nil)
+	is.NoErr(err)
+	target.ID = UserID(2)
+	mockRepo.users[target.ID] = target
+	mockRepo.usersByUsername[target.Username] = target
+	mockRepo.userCount = 2
+
+	err = service.DeleteUser(ctx, admin.ID, target.ID)
+	is.NoErr(err)
+	_, exists := mockRepo.users[target.ID]
+	is.True(!exists)
+}
+
+func TestService_DeleteUser_SelfDeleteForbidden(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	admin, err := NewUser("admin", "Admin", "", "AdminPass123!", AdminRole, nil)
+	is.NoErr(err)
+	admin.ID = UserID(1)
+	mockRepo.users[admin.ID] = admin
+	mockRepo.adminCount = 1
+
+	err = service.DeleteUser(ctx, admin.ID, admin.ID)
+	is.Equal(err, ErrSelfDeleteForbidden)
+}
+
+func TestService_DeleteUser_LastAdminDeleteForbidden(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	admin1, err := NewUser("admin1", "Admin One", "", "AdminPass123!", AdminRole, nil)
+	is.NoErr(err)
+	admin1.ID = UserID(1)
+	mockRepo.users[admin1.ID] = admin1
+
+	admin2, err := NewUser("admin2", "Admin Two", "", "AdminPass123!", AdminRole, nil)
+	is.NoErr(err)
+	admin2.ID = UserID(2)
+	mockRepo.users[admin2.ID] = admin2
+	mockRepo.adminCount = 1 // effectively only admin2 is the last admin
+
+	err = service.DeleteUser(ctx, admin1.ID, admin2.ID)
+	is.Equal(err, ErrLastAdminChangeForbidden)
+}
+
+func TestService_DeleteUser_RevokesSessionsOnDelete(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
+
+	admin, err := NewUser("admin", "Admin", "", "AdminPass123!", AdminRole, nil)
+	is.NoErr(err)
+	admin.ID = UserID(1)
+	mockRepo.users[admin.ID] = admin
+	mockRepo.usersByUsername[admin.Username] = admin
+	mockRepo.adminCount = 1
+
+	target, err := NewUser("alice", "Alice", "", "Password123", UserRole, nil)
+	is.NoErr(err)
+	target.ID = UserID(2)
+	mockRepo.users[target.ID] = target
+	mockRepo.usersByUsername[target.Username] = target
+	mockRepo.userCount = 2
+
+	// Give the target a session
+	s := &Session{ID: SessionID(1), UserID: target.ID, TokenHash: "hash1"}
+	mockRepo.sessions[s.ID] = &SessionWithUser{Session: *s, UserRole: target.Role}
+	mockRepo.sessionsByToken[s.TokenHash] = mockRepo.sessions[s.ID]
+
+	err = service.DeleteUser(ctx, admin.ID, target.ID)
+	is.NoErr(err)
+	is.Equal(len(mockRepo.sessions), 0)
+}
+
 // mockRepository is a hand-rolled mock implementation of UserRepository
 type mockRepository struct {
 	users                map[UserID]*User
