@@ -9,8 +9,14 @@ import {handlers, responses} from '@/test/mocks/handlers.ts';
 import {server} from '@/test/setup';
 import {renderWithProviders} from '@/test/utils';
 
+const mockDevice = { name: 'My Router', api_key_prefix: 'rtr_' };
+
 function renderTab() {
   return renderWithProviders(<DeviceSettingsTab deviceId={1}/>);
+}
+
+function renderTabWithDevice() {
+  return renderWithProviders(<DeviceSettingsTab deviceId={1} device={mockDevice}/>);
 }
 
 describe('DeviceSettingsTab', () => {
@@ -162,6 +168,39 @@ describe('DeviceSettingsTab', () => {
       },
       {timeout: TEST_TIMEOUTS.MEDIUM}
     );
+  });
+
+  it('opens confirmation dialog when Regenerate API key is clicked', async () => {
+    const user = userEvent.setup();
+    server.use(handlers.rules.getDeviceAddressLeaseRuleHandler(null));
+
+    renderTabWithDevice();
+
+    await user.click(screen.getByRole('button', {name: 'Regenerate API key'}));
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText(/Regenerate API key for/i)).toBeInTheDocument();
+  });
+
+  it('calls regenerate API and shows new key dialog on confirm', async () => {
+    const user = userEvent.setup();
+    server.use(
+      handlers.rules.getDeviceAddressLeaseRuleHandler(null),
+      handlers.devices.regenerateApiKeyHandler(),
+    );
+
+    renderTabWithDevice();
+
+    await user.click(screen.getByRole('button', {name: 'Regenerate API key'}));
+    await user.click(screen.getByRole('button', {name: 'Regenerate'}));
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('API key regenerated — save your new key')).toBeInTheDocument();
+      },
+      {timeout: TEST_TIMEOUTS.MEDIUM}
+    );
+    expect(screen.getByDisplayValue('regenerated_key_abc123xyz789')).toBeInTheDocument();
   });
 
   it('shows error on fetch failure', async () => {

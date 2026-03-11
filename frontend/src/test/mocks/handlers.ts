@@ -17,6 +17,7 @@ const apiEndpoints = {
     deleteDeviceAddresses: `${BASE_URL}/devices/:deviceId/addresses/:addressId`,
     deviceHeartbeat: `${BASE_URL}/devices/:deviceId/heartbeat`,
     deviceAddressLeaseRule: `${BASE_URL}/devices/:deviceId/rules/address_lease`,
+    regenerateApiKey: `${BASE_URL}/devices/:deviceId/api-key/regenerate`,
     authMe: `${BASE_URL}/auth/me`,
     authLogin: `${BASE_URL}/auth/login`,
     adminUsers: `${BASE_URL}/admin/users`,
@@ -47,6 +48,16 @@ const devicesHandlers = {
         'get',
         apiEndpoints.deviceById,
         (info) => createMockDevice({id: Number(info.params.deviceId)})
+    ),
+    // POST /devices/:deviceId/api-key/regenerate
+    regenerateApiKeyHandler: createHttpHandler(
+        'post',
+        apiEndpoints.regenerateApiKey,
+        (info) => ({
+            device: createMockDevice({ id: Number(info.params.deviceId) }),
+            api_key: 'regenerated_key_abc123xyz789',
+        }),
+        200
     ),
     // DELETE /devices/:deviceId (custom resolver always used; factory unused)
     deleteDeviceHandler: createHttpHandler(

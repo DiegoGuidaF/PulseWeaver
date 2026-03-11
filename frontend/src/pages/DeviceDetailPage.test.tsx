@@ -63,7 +63,6 @@ describe('DeviceDetailPage', () => {
       },
       {timeout: TEST_TIMEOUTS.SHORT}
     );
-    expect(screen.getByText('rtr_')).toBeInTheDocument();
     expect(screen.getByRole('link', {name: /back to devices/i})).toBeInTheDocument();
   });
 

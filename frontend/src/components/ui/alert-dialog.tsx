@@ -9,11 +9,13 @@
 import * as React from "react";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -21,16 +23,8 @@ import { cn } from "@/lib/utils";
 // Re-export root + trigger under the AlertDialog name so imports stay tidy.
 const AlertDialog = Dialog;
 
-// The trigger is just a slot — pass any element as the trigger child.
-const AlertDialogTrigger = React.forwardRef<
-  HTMLButtonElement,
-  React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ children, ...props }, ref) => (
-  <button ref={ref} {...props}>
-    {children}
-  </button>
-));
-AlertDialogTrigger.displayName = "AlertDialogTrigger";
+// Wire the trigger to the Radix Dialog primitive so clicking it opens the dialog.
+const AlertDialogTrigger = DialogTrigger;
 
 // Content wrapper — same as DialogContent but without the X close button.
 const AlertDialogContent = React.forwardRef<
@@ -51,20 +45,21 @@ const AlertDialogFooter = DialogFooter;
 const AlertDialogTitle = DialogTitle;
 const AlertDialogDescription = DialogDescription;
 
-// Cancel button — closes the dialog via the Dialog close mechanism.
+// Cancel button — wraps DialogClose so clicking it dismisses the dialog.
 const AlertDialogCancel = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ className, children, onClick, ...props }, ref) => (
-  <Button
-    ref={ref}
-    variant="outline"
-    className={cn(className)}
-    onClick={onClick}
-    {...props}
-  >
-    {children ?? "Cancel"}
-  </Button>
+>(({ className, children, ...props }, ref) => (
+  <DialogClose asChild>
+    <Button
+      ref={ref}
+      variant="outline"
+      className={cn(className)}
+      {...props}
+    >
+      {children ?? "Cancel"}
+    </Button>
+  </DialogClose>
 ));
 AlertDialogCancel.displayName = "AlertDialogCancel";
 
