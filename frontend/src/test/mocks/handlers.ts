@@ -19,6 +19,10 @@ const apiEndpoints = {
     deviceAddressLeaseRule: `${BASE_URL}/devices/:deviceId/rules/address_lease`,
     authMe: `${BASE_URL}/auth/me`,
     authLogin: `${BASE_URL}/auth/login`,
+    adminUsers: `${BASE_URL}/admin/users`,
+    adminUserById: `${BASE_URL}/admin/users/:userId`,
+    updateMe: `${BASE_URL}/users/me`,
+    changePassword: `${BASE_URL}/users/me/password`,
 } as const;
 
 const devicesHandlers = {
@@ -135,7 +139,34 @@ const authHandlers = {
         apiEndpoints.authLogin,
         () => createMockUser(),
         200
-    )
+    ),
+    listUsersHandler: createHttpHandler(
+        'get',
+        apiEndpoints.adminUsers,
+        () => [createMockUser()]
+    ),
+    updateMeHandler: createHttpHandler(
+        'patch',
+        apiEndpoints.updateMe,
+        () => createMockUser()
+    ),
+    changePasswordHandler: createHttpHandler(
+        'post',
+        apiEndpoints.changePassword,
+        () => ({}),
+        204
+    )(undefined, () => responses.noContent()),
+    adminUpdateUserHandler: createHttpHandler(
+        'patch',
+        apiEndpoints.adminUserById,
+        () => createMockUser()
+    ),
+    deleteUserHandler: createHttpHandler(
+        'delete',
+        apiEndpoints.adminUserById,
+        () => ({}),
+        204
+    )(undefined, () => responses.noContent()),
 }
 
 export const handlers = {
