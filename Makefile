@@ -28,7 +28,7 @@ clean:
 	rm -rf frontend/dist
 
 test: api-back
-	go test -tags=test -v ./...
+	go test -tags=test ./...
 
 # Run frontend tests using the Node version from frontend/.nvmrc
 test-front:

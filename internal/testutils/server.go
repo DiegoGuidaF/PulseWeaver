@@ -3,6 +3,7 @@
 package testutils
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
@@ -14,6 +15,8 @@ import (
 	"github.com/DiegoGuidaF/WallyDex/internal/config"
 )
 
+const TestAdminPassword = "AdminPass123!"
+
 // SetupIntegrationServer creates a complete integration test server with database,
 // services, and handlers configured.
 func SetupIntegrationServer(t *testing.T) *app.App {
@@ -22,7 +25,7 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 	conf := &config.Conf{
 		Server: config.ConfServer{
 			Port:          2000,
-			AdminPassword: "AdminPass123!",
+			AdminPassword: TestAdminPassword,
 			TrustedProxy:  netip.MustParseAddr("127.0.0.1"),
 		},
 		DB: config.ConfDB{
@@ -36,7 +39,9 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 		},
 	}
 
-	logger := slog.New(slog.DiscardHandler)
+	logger := slog.New(slog.NewTextHandler(testWriter{t}, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
 	ctx, cancel := context.WithCancel(context.Background())
 
 	application, err := app.NewWithConfigAndLogger(ctx, conf, logger)
@@ -53,4 +58,12 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 	})
 
 	return application
+}
+
+type testWriter struct{ t testing.TB }
+
+func (tw testWriter) Write(p []byte) (n int, err error) {
+	// Trim the newline since t.Log automatically adds one
+	tw.t.Log(string(bytes.TrimSpace(p)))
+	return len(p), nil
 }
