@@ -131,7 +131,7 @@ export type PutDeviceAddressLeaseRuleRequest = {
 };
 
 /**
- * Unique username. Alphanumeric, underscores, and hyphens only.
+ * Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
  */
 export type Username = string;
 

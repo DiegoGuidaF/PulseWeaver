@@ -68,7 +68,7 @@ type AdminUpdateUserRequest struct {
 type AuthRequest struct {
 	Password Password `json:"password"`
 
-	// Username Unique username. Alphanumeric, underscores, and hyphens only.
+	// Username Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
 	Username Username `json:"username"`
 }
 
@@ -98,7 +98,7 @@ type CreateUserRequest struct {
 	Email       openapi_types.Email `json:"email"`
 	Password    Password            `json:"password"`
 
-	// Username Unique username. Alphanumeric, underscores, and hyphens only.
+	// Username Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
 	Username Username `json:"username"`
 }
 
@@ -182,14 +182,14 @@ type User struct {
 	// Role The user's role. Only "admin" users can access admin endpoints.
 	Role UserRole `json:"role"`
 
-	// Username Unique username. Alphanumeric, underscores, and hyphens only.
+	// Username Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
 	Username Username `json:"username"`
 }
 
 // UserRole The user's role. Only "admin" users can access admin endpoints.
 type UserRole string
 
-// Username Unique username. Alphanumeric, underscores, and hyphens only.
+// Username Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
 type Username = string
 
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
@@ -265,7 +265,7 @@ type ServerInterface interface {
 	DisableAddress(w http.ResponseWriter, r *http.Request, deviceId ID, addressId ID)
 	// Regenerate device API key
 	// (POST /devices/{device_id}/api-key/regenerate)
-	RegenerateDeviceApiKey(w http.ResponseWriter, r *http.Request, deviceId ID)
+	RegenerateDeviceAPIKey(w http.ResponseWriter, r *http.Request, deviceId ID)
 	// Device heartbeat
 	// (POST /devices/{device_id}/heartbeat)
 	DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId ID)
@@ -379,7 +379,7 @@ func (_ Unimplemented) DisableAddress(w http.ResponseWriter, r *http.Request, de
 
 // Regenerate device API key
 // (POST /devices/{device_id}/api-key/regenerate)
-func (_ Unimplemented) RegenerateDeviceApiKey(w http.ResponseWriter, r *http.Request, deviceId ID) {
+func (_ Unimplemented) RegenerateDeviceAPIKey(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -794,8 +794,8 @@ func (siw *ServerInterfaceWrapper) DisableAddress(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
-// RegenerateDeviceApiKey operation middleware
-func (siw *ServerInterfaceWrapper) RegenerateDeviceApiKey(w http.ResponseWriter, r *http.Request) {
+// RegenerateDeviceAPIKey operation middleware
+func (siw *ServerInterfaceWrapper) RegenerateDeviceAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -815,7 +815,7 @@ func (siw *ServerInterfaceWrapper) RegenerateDeviceApiKey(w http.ResponseWriter,
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RegenerateDeviceApiKey(w, r, deviceId)
+		siw.Handler.RegenerateDeviceAPIKey(w, r, deviceId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1165,7 +1165,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/devices/{device_id}/addresses/{address_id}", wrapper.DisableAddress)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/devices/{device_id}/api-key/regenerate", wrapper.RegenerateDeviceApiKey)
+		r.Post(options.BaseURL+"/devices/{device_id}/api-key/regenerate", wrapper.RegenerateDeviceAPIKey)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/devices/{device_id}/heartbeat", wrapper.DeviceHeartbeat)
@@ -1753,35 +1753,35 @@ func (response DisableAddress500JSONResponse) VisitDisableAddressResponse(w http
 	return json.NewEncoder(w).Encode(response)
 }
 
-type RegenerateDeviceApiKeyRequestObject struct {
+type RegenerateDeviceAPIKeyRequestObject struct {
 	DeviceId ID `json:"device_id"`
 }
 
-type RegenerateDeviceApiKeyResponseObject interface {
-	VisitRegenerateDeviceApiKeyResponse(w http.ResponseWriter) error
+type RegenerateDeviceAPIKeyResponseObject interface {
+	VisitRegenerateDeviceAPIKeyResponse(w http.ResponseWriter) error
 }
 
-type RegenerateDeviceApiKey200JSONResponse CreateDeviceResponse
+type RegenerateDeviceAPIKey200JSONResponse CreateDeviceResponse
 
-func (response RegenerateDeviceApiKey200JSONResponse) VisitRegenerateDeviceApiKeyResponse(w http.ResponseWriter) error {
+func (response RegenerateDeviceAPIKey200JSONResponse) VisitRegenerateDeviceAPIKeyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type RegenerateDeviceApiKey404JSONResponse ErrorResponse
+type RegenerateDeviceAPIKey404JSONResponse ErrorResponse
 
-func (response RegenerateDeviceApiKey404JSONResponse) VisitRegenerateDeviceApiKeyResponse(w http.ResponseWriter) error {
+func (response RegenerateDeviceAPIKey404JSONResponse) VisitRegenerateDeviceAPIKeyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type RegenerateDeviceApiKey500JSONResponse ErrorResponse
+type RegenerateDeviceAPIKey500JSONResponse ErrorResponse
 
-func (response RegenerateDeviceApiKey500JSONResponse) VisitRegenerateDeviceApiKeyResponse(w http.ResponseWriter) error {
+func (response RegenerateDeviceAPIKey500JSONResponse) VisitRegenerateDeviceAPIKeyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -2150,7 +2150,7 @@ type StrictServerInterface interface {
 	DisableAddress(ctx context.Context, request DisableAddressRequestObject) (DisableAddressResponseObject, error)
 	// Regenerate device API key
 	// (POST /devices/{device_id}/api-key/regenerate)
-	RegenerateDeviceApiKey(ctx context.Context, request RegenerateDeviceApiKeyRequestObject) (RegenerateDeviceApiKeyResponseObject, error)
+	RegenerateDeviceAPIKey(ctx context.Context, request RegenerateDeviceAPIKeyRequestObject) (RegenerateDeviceAPIKeyResponseObject, error)
 	// Device heartbeat
 	// (POST /devices/{device_id}/heartbeat)
 	DeviceHeartbeat(ctx context.Context, request DeviceHeartbeatRequestObject) (DeviceHeartbeatResponseObject, error)
@@ -2589,25 +2589,25 @@ func (sh *strictHandler) DisableAddress(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
-// RegenerateDeviceApiKey operation middleware
-func (sh *strictHandler) RegenerateDeviceApiKey(w http.ResponseWriter, r *http.Request, deviceId ID) {
-	var request RegenerateDeviceApiKeyRequestObject
+// RegenerateDeviceAPIKey operation middleware
+func (sh *strictHandler) RegenerateDeviceAPIKey(w http.ResponseWriter, r *http.Request, deviceId ID) {
+	var request RegenerateDeviceAPIKeyRequestObject
 
 	request.DeviceId = deviceId
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.RegenerateDeviceApiKey(ctx, request.(RegenerateDeviceApiKeyRequestObject))
+		return sh.ssi.RegenerateDeviceAPIKey(ctx, request.(RegenerateDeviceAPIKeyRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "RegenerateDeviceApiKey")
+		handler = middleware(handler, "RegenerateDeviceAPIKey")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(RegenerateDeviceApiKeyResponseObject); ok {
-		if err := validResponse.VisitRegenerateDeviceApiKeyResponse(w); err != nil {
+	} else if validResponse, ok := response.(RegenerateDeviceAPIKeyResponseObject); ok {
+		if err := validResponse.VisitRegenerateDeviceAPIKeyResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2822,64 +2822,64 @@ func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"/y0YcyWgXAAA",
+	"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",
+	"cSaS4CgY4ZSOFvvB6nr1nwAAAP//qDnVmchcAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

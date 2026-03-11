@@ -30,8 +30,6 @@ func HeartbeatRateLimitMiddleware(requests int, window time.Duration) func(http.
 // ipRateLimitMiddleware creates a middleware that rate limits a specific path+method by client IP.
 // The key is read from the request context (set by the IP middleware) with a fallback to RemoteAddr.
 // When the limit is exceeded, a JSON 429 response is returned with the given message.
-//
-//nolint:unparam // Error return on keyFunc is required by httprate API signature
 func ipRateLimitMiddleware(path, method string, requests int, window time.Duration, msg string) func(http.Handler) http.Handler {
 	clientIP := func(r *http.Request) string {
 		if ip, ok := httpapi.ClientIPFromContext(r.Context()); ok && ip != "" {

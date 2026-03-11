@@ -88,8 +88,8 @@ func (h *HTTPHandler) DeleteDevice(ctx context.Context, request httpapi.DeleteDe
 	return httpapi.DeleteDevice204Response{}, nil
 }
 
-func (h *HTTPHandler) RegenerateDeviceApiKey(ctx context.Context, request httpapi.RegenerateDeviceApiKeyRequestObject) (httpapi.RegenerateDeviceApiKeyResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "RegenerateDeviceApiKey")
+func (h *HTTPHandler) RegenerateDeviceAPIKey(ctx context.Context, request httpapi.RegenerateDeviceAPIKeyRequestObject) (httpapi.RegenerateDeviceAPIKeyResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "RegenerateDeviceAPIKey")
 	deviceID := DeviceID(request.DeviceId)
 	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
@@ -98,15 +98,15 @@ func (h *HTTPHandler) RegenerateDeviceApiKey(ctx context.Context, request httpap
 		switch {
 		case errors.Is(err, ErrDeviceNotFound):
 			logger.WarnContext(ctx, "device not found")
-			return httpapi.RegenerateDeviceApiKey404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
+			return httpapi.RegenerateDeviceAPIKey404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
 		default:
 			logger.ErrorContext(ctx, "failed to regenerate api key", slog.Any(AttrKeyError, err))
-			return httpapi.RegenerateDeviceApiKey500JSONResponse(errorMsgResponse("Failed to regenerate API key")), nil
+			return httpapi.RegenerateDeviceAPIKey500JSONResponse(errorMsgResponse("Failed to regenerate API key")), nil
 		}
 	}
 	logger.InfoContext(ctx, "device api key regenerated")
 
-	return httpapi.RegenerateDeviceApiKey200JSONResponse(httpapi.CreateDeviceResponse{
+	return httpapi.RegenerateDeviceAPIKey200JSONResponse(httpapi.CreateDeviceResponse{
 		Device: toDeviceResponse(device),
 		ApiKey: rawAPIKey,
 	}), nil

@@ -450,7 +450,7 @@ paths:
 
   /devices/{device_id}/api-key/regenerate:
     post:
-      operationId: regenerateDeviceApiKey
+      operationId: regenerateDeviceAPIKey
       summary: Regenerate device API key
       description: >
         Generates a new API key for the device, immediately invalidating the old one.
@@ -882,7 +882,7 @@ components:
           type: string
           minLength: 3
           maxLength: 32
-          pattern: '^[a-zA-Z0-9_-]+$'
+          pattern: '^[a-z0-9_-]+$'
         email:
           type: string
           format: email
@@ -1089,10 +1089,10 @@ components:
     #################
     Username:
       type: string
-      description: "Unique username. Alphanumeric, underscores, and hyphens only."
+      description: "Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted."
       minLength: 3
       maxLength: 32
-      pattern: '^[a-zA-Z0-9_-]+$'
+      pattern: '^[a-z0-9_-]+$'
       example: "john_doe"
     UserRole:
       type: string

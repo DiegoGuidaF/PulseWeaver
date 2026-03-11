@@ -53,7 +53,7 @@ export const UpdateProfileRequestSchema = {
       type: "string",
       minLength: 3,
       maxLength: 32,
-      pattern: "^[a-zA-Z0-9_-]+$",
+      pattern: "^[a-z0-9_-]+$",
     },
     email: {
       type: "string",
@@ -303,10 +303,11 @@ export const PutDeviceAddressLeaseRuleRequestSchema = {
 
 export const UsernameSchema = {
   type: "string",
-  description: "Unique username. Alphanumeric, underscores, and hyphens only.",
+  description:
+    "Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.",
   minLength: 3,
   maxLength: 32,
-  pattern: "^[a-zA-Z0-9_-]+$",
+  pattern: "^[a-z0-9_-]+$",
   example: "john_doe",
 } as const;
 

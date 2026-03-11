@@ -20,13 +20,13 @@ export const zPutDeviceAddressLeaseRuleRequest = z.object({
 });
 
 /**
- * Unique username. Alphanumeric, underscores, and hyphens only.
+ * Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
  */
 export const zUsername = z
   .string()
   .min(3)
   .max(32)
-  .regex(/^[a-zA-Z0-9_-]+$/);
+  .regex(/^[a-z0-9_-]+$/);
 
 /**
  * The user's role. Only "admin" users can access admin endpoints.
@@ -48,7 +48,7 @@ export const zUpdateProfileRequest = z.object({
     .string()
     .min(3)
     .max(32)
-    .regex(/^[a-zA-Z0-9_-]+$/)
+    .regex(/^[a-z0-9_-]+$/)
     .optional(),
   email: z.email().optional(),
 });

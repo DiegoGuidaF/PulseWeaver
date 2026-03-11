@@ -33,9 +33,9 @@ func expiresAtFromTTL(now time.Time, addressTTL *int) *time.Time {
 	if addressTTL != nil {
 		duration := time.Duration(*addressTTL) * time.Second
 		return new(now.Add(duration))
-	} else {
-		return nil
 	}
+
+	return nil
 
 }
 
