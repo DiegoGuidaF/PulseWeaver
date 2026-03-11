@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const REFRESH_OPTIONS = [
   { label: "Off", value: 0 },
@@ -9,6 +9,14 @@ const REFRESH_OPTIONS = [
   { label: "1 min", value: 60_000 },
   { label: "5 min", value: 300_000 },
 ] as const;
+
+const AUTO_HB_INTERVAL_OPTIONS = [
+  { label: "30s", value: 30 },
+  { label: "1m", value: 60 },
+  { label: "5m", value: 300 },
+  { label: "15m", value: 900 },
+] as const;
+
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -45,6 +53,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { Address } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { zAddAddressRequest } from "@/lib/api/zod.gen";
@@ -52,6 +61,13 @@ import { useDeviceAddresses } from "@/features/devices/hooks/useDeviceAddresses"
 import { useAddDeviceAddress } from "@/features/devices/hooks/useAddDeviceAddress";
 import { useDisableDeviceAddress } from "@/features/devices/hooks/useDisableDeviceAddress";
 import { useDeviceHeartbeat } from "@/features/devices/hooks/useDeviceHeartbeat";
+import {
+  getAutoHeartbeatSettings,
+  setAutoHeartbeatSettings,
+  clearAutoHeartbeatSettings,
+  getStoredClientIp,
+  CLIENT_IP_EVENT,
+} from "@/lib/autoHeartbeat";
 
 const addressSchema = zAddAddressRequest;
 
@@ -78,6 +94,41 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
   const [addressToDisable, setAddressToDisable] = useState<Address | null>(
     null,
   );
+
+  // Auto-heartbeat state
+  const [ahSettings, setAhSettings] = useState(getAutoHeartbeatSettings);
+  const [autoClientIp, setAutoClientIp] = useState<string | null>(
+    getStoredClientIp,
+  );
+
+  useEffect(() => {
+    const onStorage = () => setAhSettings(getAutoHeartbeatSettings());
+    const onClientIp = (e: Event) =>
+      setAutoClientIp((e as CustomEvent<string>).detail);
+    window.addEventListener('storage', onStorage);
+    window.addEventListener(CLIENT_IP_EVENT, onClientIp);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(CLIENT_IP_EVENT, onClientIp);
+    };
+  }, []);
+
+  const isActive = ahSettings?.deviceId === deviceId;
+  const currentInterval = isActive
+    ? (ahSettings?.intervalSeconds ?? 60)
+    : 60;
+
+  function handleToggle(checked: boolean) {
+    if (checked) {
+      setAutoHeartbeatSettings({ deviceId, intervalSeconds: currentInterval });
+    } else {
+      clearAutoHeartbeatSettings();
+    }
+  }
+
+  function handleIntervalChange(seconds: number) {
+    setAutoHeartbeatSettings({ deviceId, intervalSeconds: seconds });
+  }
 
   function handleAddAddressSubmit(values: z.infer<typeof addressSchema>) {
     addAddressMutation.mutate({
@@ -125,6 +176,61 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
                 Your current IP:{" "}
                 <span className="font-mono">{heartbeatMutation.data.ip}</span>
               </span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Keep browser IP registered</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <input
+                id="auto-heartbeat-toggle"
+                type="checkbox"
+                checked={isActive}
+                onChange={(e) => handleToggle(e.target.checked)}
+                className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
+              />
+              <Label htmlFor="auto-heartbeat-toggle" className="cursor-pointer">
+                Automatically send heartbeat while this tab is open
+              </Label>
+            </div>
+            {isActive && (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    Interval:
+                  </span>
+                  <div className="flex gap-1">
+                    {AUTO_HB_INTERVAL_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => handleIntervalChange(opt.value)}
+                        className={cn(
+                          "rounded px-2 py-1 text-xs font-medium transition-colors",
+                          currentInterval === opt.value
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80",
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {autoClientIp && (
+                  <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                    <span className="inline-block w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                    Your IP:{" "}
+                    <span className="font-mono">{autoClientIp}</span>
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </CardContent>

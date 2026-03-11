@@ -8,9 +8,12 @@ import { Separator } from "@/components/ui/separator";
 import { ModeToggle } from "@/components/mode-toggle.tsx";
 import { useLogout } from "@/features/auth/hooks/useLogout";
 import { useAuth } from "@/features/auth/AuthContext";
+import { useAutoHeartbeat } from "@/features/devices/hooks/useAutoHeartbeat";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
+  clientIp?: string | null;
+  activeDeviceId?: number | null;
 }
 
 // Navigation items
@@ -19,7 +22,7 @@ const sidebarItems = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-function Sidebar({ className }: SidebarProps) {
+function Sidebar({ className, clientIp, activeDeviceId }: SidebarProps) {
   const location = useLocation();
   const logoutMutation = useLogout();
   const { user } = useAuth();
@@ -59,6 +62,14 @@ function Sidebar({ className }: SidebarProps) {
             </div>
           </div>
         )}
+        {activeDeviceId && clientIp && (
+          <div className="px-3 py-2">
+            <p className="px-4 text-xs text-muted-foreground flex items-center gap-1.5">
+              <span className="inline-block w-2 h-2 rounded-full bg-green-500 shrink-0" />
+              <span className="font-mono">{clientIp}</span>
+            </p>
+          </div>
+        )}
         <div className="px-3 py-2">
           <Button
             variant="ghost"
@@ -77,6 +88,7 @@ function Sidebar({ className }: SidebarProps) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const { clientIp, activeDeviceId } = useAutoHeartbeat();
 
   return (
     <div className="bg-background flex min-h-screen flex-col">
@@ -90,7 +102,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="pr-0">
-            <Sidebar className="px-2" />
+            <Sidebar
+              className="px-2"
+              clientIp={clientIp}
+              activeDeviceId={activeDeviceId}
+            />
           </SheetContent>
         </Sheet>
         <span className="flex-1 font-bold">WallyDic</span>
@@ -103,7 +119,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* 2. Desktop Sidebar */}
         <aside className="fixed top-0 z-30 hidden h-screen w-full shrink-0 border-r md:sticky md:block">
           <div className="flex h-full flex-col py-6 pr-6 pl-2">
-            <Sidebar className="flex-1" />
+            <Sidebar
+              className="flex-1"
+              clientIp={clientIp}
+              activeDeviceId={activeDeviceId}
+            />
 
             {/* Optional: Put theme toggle at bottom of sidebar on desktop?
                             Or keep it in a top bar. Let's do a top bar for content area.
