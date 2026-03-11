@@ -275,6 +275,42 @@ func TestHandler_DeleteDevice_404(t *testing.T) {
 	is.Equal(deleteRes.Code, http.StatusNotFound)
 }
 
+func TestHandler_RegenerateDeviceApiKey_200(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	device, _, err := testServer.DeviceService.CreateDevice(t.Context(), "regen-device")
+	is.NoErr(err)
+
+	regenURL := fmt.Sprintf("/api/v1/devices/%d/api-key/regenerate", device.ID)
+	regenReq := httptest.NewRequest(http.MethodPost, regenURL, nil)
+	regenReq.AddCookie(sessionCookie)
+	regenRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(regenRes, regenReq)
+	is.Equal(regenRes.Code, http.StatusOK)
+
+	var resp httpapi.CreateDeviceResponse
+	err = json.NewDecoder(regenRes.Body).Decode(&resp)
+	is.NoErr(err)
+	is.Equal(resp.Device.Id, int64(device.ID))
+	is.Equal(resp.Device.Name, device.Name)
+	is.True(resp.ApiKey != "")
+}
+
+func TestHandler_RegenerateDeviceApiKey_404(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	regenURL := fmt.Sprintf("/api/v1/devices/%d/api-key/regenerate", 99999)
+	regenReq := httptest.NewRequest(http.MethodPost, regenURL, nil)
+	regenReq.AddCookie(sessionCookie)
+	regenRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(regenRes, regenReq)
+	is.Equal(regenRes.Code, http.StatusNotFound)
+}
+
 func TestHandler_CreateDevice_409_DuplicateName(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)

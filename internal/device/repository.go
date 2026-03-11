@@ -102,6 +102,22 @@ func (r *Repository) CreateDevice(ctx context.Context, params *CreateDeviceParam
 	return createdDevice, nil
 }
 
+func (r *Repository) UpdateAPIKey(ctx context.Context, deviceID DeviceID, keyHash string, keyPrefix string) error {
+	query := `UPDATE device_api_keys SET key_hash = ?, key_prefix = ?, created_at = CURRENT_TIMESTAMP WHERE device_id = ?`
+	result, err := r.db.ExecContext(ctx, query, keyHash, keyPrefix, deviceID)
+	if err != nil {
+		return fmt.Errorf("update api key: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update api key rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrDeviceNotFound
+	}
+	return nil
+}
+
 func (r *Repository) CreateAddress(ctx context.Context, params *CreateAddressParams) (*Address, error) {
 	var address *Address
 

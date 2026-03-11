@@ -448,6 +448,43 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /devices/{device_id}/api-key/regenerate:
+    post:
+      operationId: regenerateDeviceApiKey
+      summary: Regenerate device API key
+      description: >
+        Generates a new API key for the device, immediately invalidating the old one.
+        The raw key is returned once. Admin-only.
+      tags: [devices]
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: device_id
+          in: path
+          description: Device id
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        '200':
+          description: New API key generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDeviceResponse'
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /devices/{device_id}/addresses:
     get:
       operationId: getDeviceAddresses
@@ -901,7 +938,7 @@ components:
           $ref: '#/components/schemas/Device'
         api_key:
           type: string
-          description: Secret key for the device; only returned on creation.
+          description: Secret key for the device; only returned on creation or regeneration.
     ErrorResponse:
       type: object
       properties:

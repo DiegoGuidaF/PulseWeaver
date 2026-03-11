@@ -497,6 +497,75 @@ func TestService_DisableAddress_DeviceDeleted(t *testing.T) {
 	is.True(addr == nil)
 }
 
+func TestService_RegenerateAPIKey_Success(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	device := &Device{ID: DeviceID(1), Name: "regen-device", KeyPrefix: "wdk_oldpre"}
+	mockRepo.devices[device.ID] = device
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
+
+	updatedDevice, rawKey, err := service.RegenerateAPIKey(ctx, device.ID)
+	is.NoErr(err)
+	is.True(updatedDevice != nil)
+	is.Equal(updatedDevice.ID, device.ID)
+	is.True(len(rawKey) > len(APIKeyPrefix))
+	is.Equal(rawKey[:len(APIKeyPrefix)], APIKeyPrefix)
+	// New prefix should be stored
+	is.True(updatedDevice.KeyPrefix != "wdk_oldpre")
+}
+
+func TestService_RegenerateAPIKey_DeviceNotFound(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	mockRepo.getDeviceErr = ErrDeviceNotFound
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
+
+	updatedDevice, rawKey, err := service.RegenerateAPIKey(ctx, DeviceID(999))
+	is.True(err != nil)
+	is.True(errors.Is(err, ErrDeviceNotFound))
+	is.True(updatedDevice == nil)
+	is.Equal(rawKey, "")
+}
+
+func TestService_RegenerateAPIKey_OldKeyInvalidated(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
+
+	// Create device so old key hash is stored
+	_, oldRawKey, err := service.CreateDevice(ctx, "rotate-device")
+	is.NoErr(err)
+	is.True(oldRawKey != "")
+
+	// Get the device
+	var deviceID DeviceID
+	for id := range mockRepo.devices {
+		deviceID = id
+		break
+	}
+
+	// Regenerate key
+	_, newRawKey, err := service.RegenerateAPIKey(ctx, deviceID)
+	is.NoErr(err)
+	is.True(newRawKey != oldRawKey)
+
+	// Old key should no longer be in the hash map
+	oldHash := hashAPIKey(oldRawKey)
+	_, oldKeyFound := mockRepo.apiKeysByHash[oldHash]
+	is.True(!oldKeyFound)
+
+	// New key should authenticate
+	newHash := hashAPIKey(newRawKey)
+	_, newKeyFound := mockRepo.apiKeysByHash[newHash]
+	is.True(newKeyFound)
+}
+
 // mockRepository is a hand-rolled mock implementation of DeviceRepository
 type mockRepository struct {
 	devices           map[DeviceID]*Device
@@ -510,6 +579,7 @@ type mockRepository struct {
 	enableAddressErr  error
 	disableAddressErr error
 	checkOwnershipErr error
+	updateAPIKeyErr   error
 	runInTxFn         func(repository) error
 }
 
@@ -666,6 +736,27 @@ func (m *mockRepository) CheckAddressOwnership(ctx context.Context, deviceID Dev
 	if !ok || addr.DeviceID != deviceID {
 		return ErrAddressNotOwnedByDevice
 	}
+	return nil
+}
+
+func (m *mockRepository) UpdateAPIKey(ctx context.Context, deviceID DeviceID, keyHash string, keyPrefix string) error {
+	if m.updateAPIKeyErr != nil {
+		return m.updateAPIKeyErr
+	}
+	device, ok := m.devices[deviceID]
+	if !ok {
+		return ErrDeviceNotFound
+	}
+	// Update stored state to reflect the new key
+	device.KeyPrefix = keyPrefix
+	// Remove old hash entries for this device, add the new one
+	for k, v := range m.apiKeysByHash {
+		if v.ID == deviceID {
+			delete(m.apiKeysByHash, k)
+			break
+		}
+	}
+	m.apiKeysByHash[keyHash] = device
 	return nil
 }
 

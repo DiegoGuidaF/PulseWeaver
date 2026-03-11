@@ -285,6 +285,56 @@ func TestRepository_CreateDevice_InsertsAPIKeyRow(t *testing.T) {
 	is.Equal(row.KeyHash, hashAPIKey(rawKey))
 }
 
+func TestRepository_UpdateAPIKey_Success(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	params, oldRawKey, err := NewCreateDeviceParams("regen-device")
+	is.NoErr(err)
+	device, err := repo.CreateDevice(ctx, params)
+	is.NoErr(err)
+
+	oldHash := hashAPIKey(oldRawKey)
+
+	// Generate a fresh key
+	_, newHash, newPrefix, err := generateAPIKey()
+	is.NoErr(err)
+
+	err = repo.UpdateAPIKey(ctx, device.ID, newHash, newPrefix)
+	is.NoErr(err)
+
+	// Old hash should no longer authenticate
+	_, err = repo.GetDeviceByAPIKeyHash(ctx, oldHash)
+	is.True(err != nil)
+	is.Equal(err, ErrDeviceNotFound)
+
+	// New hash should authenticate
+	found, err := repo.GetDeviceByAPIKeyHash(ctx, newHash)
+	is.NoErr(err)
+	is.Equal(found.ID, device.ID)
+
+	// GetDevice returns the updated prefix
+	updated, err := repo.GetDevice(ctx, device.ID)
+	is.NoErr(err)
+	is.Equal(updated.KeyPrefix, newPrefix)
+}
+
+func TestRepository_UpdateAPIKey_NotFound(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	_, newHash, newPrefix, err := generateAPIKey()
+	is.NoErr(err)
+
+	err = repo.UpdateAPIKey(ctx, DeviceID(99999), newHash, newPrefix)
+	is.True(err != nil)
+	is.Equal(err, ErrDeviceNotFound)
+}
+
 func TestRepository_CreateAddress(t *testing.T) {
 	is := is.New(t)
 

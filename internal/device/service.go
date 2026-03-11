@@ -3,6 +3,7 @@ package device
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/netip"
 
@@ -13,6 +14,7 @@ type repository interface {
 	GetDevice(ctx context.Context, id DeviceID) (*Device, error)
 	CreateDevice(ctx context.Context, params *CreateDeviceParams) (*Device, error)
 	DeleteDevice(ctx context.Context, id DeviceID) error
+	UpdateAPIKey(ctx context.Context, deviceID DeviceID, keyHash string, keyPrefix string) error
 	CreateAddress(ctx context.Context, params *CreateAddressParams) (*Address, error)
 	GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip netip.Addr) (*Address, error)
 	DisableAddress(ctx context.Context, addressID AddressID) (*Address, error)
@@ -90,6 +92,34 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, strin
 	s.logger.InfoContext(ctx, "device created", slog.Int64(AttrKeyDeviceID, createdDevice.ID.Int64()))
 
 	return createdDevice, rawKey, nil
+}
+
+func (s *Service) RegenerateAPIKey(ctx context.Context, deviceID DeviceID) (*Device, string, error) {
+	rawKey, keyHash, keyPrefix, err := generateAPIKey()
+	if err != nil {
+		return nil, "", fmt.Errorf("generate api key: %w", err)
+	}
+
+	var device *Device
+	err = s.repo.RunInTx(ctx, func(tx repository) error {
+		// Validate device exists (also checks deleted_at) inside the transaction
+		// so the existence check and key update are atomic.
+		if _, err := tx.GetDevice(ctx, deviceID); err != nil {
+			return err
+		}
+		if err := tx.UpdateAPIKey(ctx, deviceID, keyHash, keyPrefix); err != nil {
+			return err
+		}
+		// Fetch fresh device inside the transaction so KeyPrefix reflects the update.
+		var err error
+		device, err = tx.GetDevice(ctx, deviceID)
+		return err
+	})
+	if err != nil {
+		return nil, "", err
+	}
+
+	return device, rawKey, nil
 }
 
 func (s *Service) Authenticate(ctx context.Context, rawKey string) (*Principal, error) {
