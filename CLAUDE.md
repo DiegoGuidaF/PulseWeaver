@@ -21,9 +21,11 @@ The app has not been released yet. **Do not create new migration files** for sch
 - `make api` — regenerate backend + frontend types from OpenAPI spec (`go generate ./...` then frontend `generate:api`)
 
 ### Frontend
+**Always run frontend commands using the Node version in `frontend/.nvmrc` (currently 25.8).**
+Use `nvm exec $(cat frontend/.nvmrc) <command>` for every `npm` call inside `frontend/`.
 - `make dev-front` — Vite dev server
-- `cd frontend && npm test` — run frontend tests (vitest)
-- `cd frontend && npm run generate:api` — regenerate frontend API types/SDK from OpenAPI spec
+- `cd frontend && nvm exec $(cat .nvmrc) npm test` — run frontend tests (vitest)
+- `cd frontend && nvm exec $(cat .nvmrc) npm run generate:api` — regenerate frontend API types/SDK from OpenAPI spec
 
 ### Database
 - `make migrate-up` / `make migrate-down` — apply/rollback migrations

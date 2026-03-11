@@ -7,13 +7,15 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   test: {
     globals: true,
-    environment: 'happy-dom',
-    setupFiles: ['./src/test/setup.ts'],
+    environment: "happy-dom",
+    globalSetup: ["./src/test/globalSetup.ts"],
+    setupFiles: ["./src/test/setup.ts"],
     css: true, // Process CSS for Tailwind
+    execArgv: ["--localstorage-file=./tmp-localstorage"],
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
 });

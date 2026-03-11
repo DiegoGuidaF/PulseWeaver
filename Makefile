@@ -1,4 +1,4 @@
-.PHONY: dev run test clean fix lint migrate-up migrate-down migrate-create api
+.PHONY: dev run test test-front clean fix lint migrate-up migrate-down migrate-create api
 
 # Disable Go workspace mode so -modfile (used by tools/go.mod) works correctly
 # when this module is used as a submodule inside a go.work workspace.
@@ -30,14 +30,18 @@ clean:
 test: api-back
 	go test -tags=test -v ./...
 
+# Run frontend tests using the Node version from frontend/.nvmrc
+test-front:
+	cd frontend && node --version | grep -qE "^v$$(cat .nvmrc)" || \
+		(echo "❌ Wrong Node version. Run: nvm use (expected v$$(cat .nvmrc))" && exit 1)
+	cd frontend && npm test
+
 # Run the linter (prints issues). Uses version from tools/go.mod.
 lint: api-back
-	go fmt ./...
 	go tool -modfile=tools/go.mod golangci-lint run ./...
 
-# Run the linter and automatically fix what it can (gofmt, goimports, etc.).
+# Run the linter and automatically fix what it can
 fix: api-back
-	go fmt ./...
 	go tool -modfile=tools/go.mod golangci-lint run --fix ./...
 
 migrate-up:
