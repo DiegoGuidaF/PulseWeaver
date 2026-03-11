@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { renderHook, act, waitFor, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
-import { http, HttpResponse } from 'msw';
+import { http } from 'msw';
 import React from 'react';
 import { server } from '@/test/setup';
-import { handlers, responses } from '@/test/mocks/handlers';
+import { authHandlers, endpoints, responses } from '@/test/mocks/handlers';
 import { createMockUser } from '@/test/mocks/data';
 import { getCurrentUserQueryKey } from '@/lib/api/@tanstack/react-query.gen';
 import { useChangePassword } from './useChangePassword';
@@ -27,10 +27,7 @@ function createWrapper() {
 
 describe('useChangePassword', () => {
     it('shows success toast and invalidates current user on success', async () => {
-        server.use(
-            handlers.auth.changePasswordHandler,
-            handlers.auth.meHandler()
-        );
+        // authHandlers.changePassword.success() and authHandlers.me.success() are in defaultHandlers
 
         const { queryClient, Wrapper } = createWrapper();
         queryClient.setQueryData(getCurrentUserQueryKey(), createMockUser());
@@ -49,7 +46,7 @@ describe('useChangePassword', () => {
 
     it('shows error toast on wrong current password', async () => {
         server.use(
-            http.post('/api/v1/users/me/password', () =>
+            http.post(endpoints.changePassword, () =>
                 responses.badRequest({ error: 'Invalid password change request' })
             )
         );

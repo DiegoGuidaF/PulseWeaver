@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { renderHook, act, waitFor, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
-import { http, HttpResponse } from 'msw';
+import { http } from 'msw';
 import React from 'react';
 import { server } from '@/test/setup';
-import { handlers, responses } from '@/test/mocks/handlers';
+import { authHandlers, endpoints, responses } from '@/test/mocks/handlers';
 import { createMockUser } from '@/test/mocks/data';
 import { getCurrentUserQueryKey, listUsersQueryKey } from '@/lib/api/@tanstack/react-query.gen';
 import { useAdminUpdateUser } from './useAdminUpdateUser';
@@ -28,9 +28,8 @@ function createWrapper() {
 describe('useAdminUpdateUser', () => {
     it('shows success toast and invalidates user list and current user', async () => {
         server.use(
-            handlers.auth.adminUpdateUserHandler({ role: 'admin' }),
-            handlers.auth.listUsersHandler(),
-            handlers.auth.meHandler()
+            authHandlers.adminUpdateUser.success({ role: 'admin' }),
+            // authHandlers.listUsers.success() and authHandlers.me.success() are in defaultHandlers
         );
 
         const { queryClient, Wrapper } = createWrapper();
@@ -52,7 +51,7 @@ describe('useAdminUpdateUser', () => {
 
     it('shows error toast on failure', async () => {
         server.use(
-            http.patch('/api/v1/admin/users/:userId', () =>
+            http.patch(endpoints.adminUserById, () =>
                 responses.forbidden({ error: 'Forbidden role change' })
             )
         );

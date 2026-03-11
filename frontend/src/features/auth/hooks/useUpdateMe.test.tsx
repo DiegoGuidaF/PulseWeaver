@@ -5,7 +5,7 @@ import { Toaster } from 'sonner';
 import React from 'react';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/setup';
-import { handlers, responses } from '@/test/mocks/handlers';
+import { authHandlers, endpoints, responses } from '@/test/mocks/handlers';
 import { createMockUser } from '@/test/mocks/data';
 import { getCurrentUserQueryKey } from '@/lib/api/@tanstack/react-query.gen';
 import { useUpdateMe } from './useUpdateMe';
@@ -28,8 +28,8 @@ function createWrapper() {
 describe('useUpdateMe', () => {
     it('shows success toast and invalidates current user on success', async () => {
         server.use(
-            handlers.auth.updateMeHandler({ display_name: 'Updated Name' }),
-            handlers.auth.meHandler()
+            authHandlers.updateMe.success({ display_name: 'Updated Name' }),
+            // authHandlers.me.success() is in defaultHandlers
         );
 
         const { queryClient, Wrapper } = createWrapper();
@@ -53,7 +53,7 @@ describe('useUpdateMe', () => {
         // special-cased "Username or email is already in use." message is never shown.
         // The fallback toErrorMessage() path is used instead.
         server.use(
-            http.patch('/api/v1/users/me', () =>
+            http.patch(endpoints.updateMe, () =>
                 HttpResponse.json({ error: 'Conflict' }, { status: 409 })
             )
         );
@@ -72,7 +72,7 @@ describe('useUpdateMe', () => {
 
     it('shows generic error toast on server error', async () => {
         server.use(
-            handlers.auth.updateMeHandler(undefined, () => responses.serverError())
+            http.patch(endpoints.updateMe, () => responses.serverError())
         );
 
         const { Wrapper } = createWrapper();

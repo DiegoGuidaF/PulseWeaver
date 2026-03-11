@@ -1,27 +1,27 @@
-import {describe, expect, it} from 'vitest';
-import {screen, waitFor} from '@testing-library/react';
-import {delay} from 'msw';
-import {server} from '@/test/setup';
-import {renderWithProviders} from '@/test/utils';
-import {ProtectedRoute} from './ProtectedRoute';
-import {AuthProvider} from '@/features/auth/AuthContext';
-import React from "react";
-import {handlers, responses} from "@/test/mocks/handlers.ts";
-import {createMockUser} from "@/test/mocks/data.ts";
+import { describe, expect, it } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
+import { delay, http } from 'msw';
+import { server } from '@/test/setup';
+import { renderWithProviders } from '@/test/utils';
+import { ProtectedRoute } from './ProtectedRoute';
+import { AuthProvider } from '@/features/auth/AuthContext';
+import React from 'react';
+import { authHandlers, endpoints, responses } from '@/test/mocks/handlers';
+import { createMockUser } from '@/test/mocks/data';
 
 function renderProtectedRoute(children: React.ReactNode, initialEntries = ['/protected']) {
     return renderWithProviders(
         <AuthProvider>
             <ProtectedRoute>{children}</ProtectedRoute>
         </AuthProvider>,
-        {initialEntries}
+        { initialEntries }
     );
 }
 
 describe('ProtectedRoute', () => {
     it('shows loading state while checking auth', () => {
         server.use(
-            handlers.auth.meHandler(undefined, async () => {
+            http.get(endpoints.authMe, async () => {
                 await delay('infinite');
                 return responses.ok(createMockUser());
             })
@@ -34,11 +34,7 @@ describe('ProtectedRoute', () => {
     });
 
     it('redirects to login when not authenticated', async () => {
-        server.use(
-            handlers.auth.meHandler(undefined, async () => {
-                return responses.unauthorized()
-            })
-        );
+        server.use(authHandlers.me.unauthenticated());
 
         renderProtectedRoute(<div>Protected Content</div>, ['/devices']);
 
@@ -50,9 +46,7 @@ describe('ProtectedRoute', () => {
     });
 
     it('renders children when authenticated', async () => {
-        server.use(
-            handlers.auth.meHandler()
-        );
+        // defaultHandlers provides authHandlers.me.success() — no server.use() needed
 
         renderProtectedRoute(<div>Protected Content</div>);
 

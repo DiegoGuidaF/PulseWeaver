@@ -1,19 +1,19 @@
-import {describe, expect, it} from 'vitest';
-import {screen, waitFor} from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {delay} from 'msw';
-import {server} from '@/test/setup';
-import {renderWithProviders} from '@/test/utils';
-import {LoginPage} from './LoginPage';
-import {AuthProvider} from '@/features/auth/AuthContext';
-import {TEST_TIMEOUTS} from '@/test/constants';
-import {handlers, responses} from "@/test/mocks/handlers.ts";
-import {createMockUser} from "@/test/mocks/data.ts";
+import { delay, http } from 'msw';
+import { server } from '@/test/setup';
+import { renderWithProviders } from '@/test/utils';
+import { LoginPage } from './LoginPage';
+import { AuthProvider } from '@/features/auth/AuthContext';
+import { TEST_TIMEOUTS } from '@/test/constants';
+import { authHandlers, endpoints, responses } from '@/test/mocks/handlers';
+import { createMockUser } from '@/test/mocks/data';
 
 function renderLoginPage(options?: Parameters<typeof renderWithProviders>[1]) {
     return renderWithProviders(
         <AuthProvider>
-            <LoginPage/>
+            <LoginPage />
         </AuthProvider>,
         options
     );
@@ -21,28 +21,24 @@ function renderLoginPage(options?: Parameters<typeof renderWithProviders>[1]) {
 
 describe('LoginPage', () => {
     it('renders login form with username and password fields', async () => {
-        server.use(
-            handlers.auth.meHandler(undefined, async () => {
-                return responses.unauthorized()
-            })
-        );
+        server.use(authHandlers.me.unauthenticated());
 
-        renderLoginPage({initialEntries: ['/login']});
+        renderLoginPage({ initialEntries: ['/login'] });
 
         await waitFor(
             () => {
                 expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
             },
-            {timeout: TEST_TIMEOUTS.SHORT}
+            { timeout: TEST_TIMEOUTS.SHORT }
         );
 
         expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-        expect(screen.getByRole('button', {name: /sign in/i})).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
     });
 
     it('shows loading state during auth check', () => {
         server.use(
-            handlers.auth.meHandler(undefined, async () => {
+            http.get(endpoints.authMe, async () => {
                 await delay('infinite');
                 return responses.ok(createMockUser());
             })
@@ -54,9 +50,7 @@ describe('LoginPage', () => {
     });
 
     it('redirects to /devices if already authenticated', async () => {
-        server.use(
-            handlers.auth.meHandler()
-        );
+        // defaultHandlers provides authHandlers.me.success() — no server.use() needed
 
         renderLoginPage();
 
@@ -65,44 +59,41 @@ describe('LoginPage', () => {
             () => {
                 expect(screen.queryByLabelText(/username/i)).not.toBeInTheDocument();
             },
-            {timeout: TEST_TIMEOUTS.MEDIUM}
+            { timeout: TEST_TIMEOUTS.MEDIUM }
         );
     });
 
     it('shows loading state during login submission', async () => {
         const user = userEvent.setup();
 
-        // Override handler to delay response (special case for loading state test)
         server.use(
-            handlers.auth.meHandler(undefined, async () => {
-                return responses.unauthorized()
-            }),
-            handlers.auth.loginHandler(undefined, async () => {
+            authHandlers.me.unauthenticated(),
+            http.post(endpoints.authLogin, async () => {
                 await delay('infinite');
                 return responses.ok(createMockUser());
             }),
         );
 
-        renderLoginPage({initialEntries: ['/login']});
+        renderLoginPage({ initialEntries: ['/login'] });
 
         await waitFor(
             () => {
                 expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
             },
-            {timeout: TEST_TIMEOUTS.SHORT}
+            { timeout: TEST_TIMEOUTS.SHORT }
         );
 
         const usernameInput = screen.getByLabelText(/username/i);
         const passwordInput = screen.getByLabelText(/password/i);
-        const submitButton = screen.getByRole('button', {name: /sign in/i});
+        const submitButton = screen.getByRole('button', { name: /sign in/i });
 
         await user.type(usernameInput, 'testuser');
         await user.type(passwordInput, 'password');
         await user.click(submitButton);
 
         // Check loading state
-        expect(screen.getByRole('button', {name: /signing in/i})).toBeInTheDocument();
-        expect(screen.getByRole('button', {name: /signing in/i})).toBeDisabled();
+        expect(screen.getByRole('button', { name: /signing in/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /signing in/i })).toBeDisabled();
     });
 
     it('successfully logs in and navigates to /devices', async () => {
@@ -110,28 +101,28 @@ describe('LoginPage', () => {
         let meCallCount = 0;
 
         server.use(
-            handlers.auth.meHandler(undefined, async () => {
+            http.get(endpoints.authMe, async () => {
                 meCallCount++;
                 if (meCallCount === 1) {
                     return responses.unauthorized();
                 }
                 return responses.ok(createMockUser());
             }),
-            handlers.auth.loginHandler()
+            // authHandlers.login.success() is in defaultHandlers
         );
 
-        renderLoginPage({initialEntries: ['/login']});
+        renderLoginPage({ initialEntries: ['/login'] });
 
         await waitFor(
             () => {
                 expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
             },
-            {timeout: TEST_TIMEOUTS.SHORT}
+            { timeout: TEST_TIMEOUTS.SHORT }
         );
 
         const usernameInput = screen.getByLabelText(/username/i);
         const passwordInput = screen.getByLabelText(/password/i);
-        const submitButton = screen.getByRole('button', {name: /sign in/i});
+        const submitButton = screen.getByRole('button', { name: /sign in/i });
 
         await user.type(usernameInput, 'testuser');
         await user.type(passwordInput, 'password');
@@ -141,7 +132,7 @@ describe('LoginPage', () => {
             () => {
                 expect(screen.queryByLabelText(/username/i)).not.toBeInTheDocument();
             },
-            {timeout: TEST_TIMEOUTS.MEDIUM}
+            { timeout: TEST_TIMEOUTS.MEDIUM }
         );
     });
 
@@ -149,24 +140,22 @@ describe('LoginPage', () => {
         const user = userEvent.setup();
 
         server.use(
-            handlers.auth.meHandler(undefined, async () => {
-                return responses.unauthorized()
-            }),
-            handlers.auth.loginHandler()
+            authHandlers.me.unauthenticated(),
+            // authHandlers.login.success() is in defaultHandlers
         );
 
-        renderLoginPage({initialEntries: ['/login?returnTo=/custom-path']});
+        renderLoginPage({ initialEntries: ['/login?returnTo=/custom-path'] });
 
         await waitFor(
             () => {
                 expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
             },
-            {timeout: TEST_TIMEOUTS.SHORT}
+            { timeout: TEST_TIMEOUTS.SHORT }
         );
 
         const usernameInput = screen.getByLabelText(/username/i);
         const passwordInput = screen.getByLabelText(/password/i);
-        const submitButton = screen.getByRole('button', {name: /sign in/i});
+        const submitButton = screen.getByRole('button', { name: /sign in/i });
 
         await user.type(usernameInput, 'testuser');
         await user.type(passwordInput, 'password');
@@ -177,7 +166,7 @@ describe('LoginPage', () => {
             () => {
                 expect(screen.getByText(/login successful/i)).toBeInTheDocument();
             },
-            {timeout: TEST_TIMEOUTS.MEDIUM}
+            { timeout: TEST_TIMEOUTS.MEDIUM }
         );
     });
 
@@ -185,26 +174,22 @@ describe('LoginPage', () => {
         const user = userEvent.setup();
 
         server.use(
-            handlers.auth.meHandler(undefined, async () => {
-                return responses.unauthorized()
-            }),
-            handlers.auth.loginHandler(undefined, async () => {
-                return responses.serverError()
-            })
+            authHandlers.me.unauthenticated(),
+            http.post(endpoints.authLogin, async () => responses.serverError()),
         );
 
-        renderLoginPage({initialEntries: ['/login']});
+        renderLoginPage({ initialEntries: ['/login'] });
 
         await waitFor(
             () => {
                 expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
             },
-            {timeout: TEST_TIMEOUTS.SHORT}
+            { timeout: TEST_TIMEOUTS.SHORT }
         );
 
         const usernameInput = screen.getByLabelText(/username/i);
         const passwordInput = screen.getByLabelText(/password/i);
-        const submitButton = screen.getByRole('button', {name: /sign in/i});
+        const submitButton = screen.getByRole('button', { name: /sign in/i });
 
         await user.type(usernameInput, 'testuser');
         await user.type(passwordInput, 'wrongpassword');
@@ -217,7 +202,7 @@ describe('LoginPage', () => {
                 const toastElements = screen.getAllByText(/login failed/i);
                 expect(toastElements.length).toBeGreaterThan(0);
             },
-            {timeout: TEST_TIMEOUTS.MEDIUM}
+            { timeout: TEST_TIMEOUTS.MEDIUM }
         );
 
         // Form should still be visible
@@ -227,22 +212,18 @@ describe('LoginPage', () => {
     it('validates form fields (empty username/password)', async () => {
         const user = userEvent.setup();
 
-        server.use(
-            handlers.auth.meHandler(undefined, async () => {
-                return responses.unauthorized()
-            }),
-        );
+        server.use(authHandlers.me.unauthenticated());
 
-        renderLoginPage({initialEntries: ['/login']});
+        renderLoginPage({ initialEntries: ['/login'] });
 
         await waitFor(
             () => {
                 expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
             },
-            {timeout: TEST_TIMEOUTS.SHORT}
+            { timeout: TEST_TIMEOUTS.SHORT }
         );
 
-        const submitButton = screen.getByRole('button', {name: /sign in/i});
+        const submitButton = screen.getByRole('button', { name: /sign in/i });
         await user.click(submitButton);
 
         // Wait for validation errors - check that inputs are marked as invalid
@@ -254,7 +235,7 @@ describe('LoginPage', () => {
                 expect(usernameInput).toHaveAttribute('aria-invalid', 'true');
                 expect(passwordInput).toHaveAttribute('aria-invalid', 'true');
             },
-            {timeout: TEST_TIMEOUTS.SHORT}
+            { timeout: TEST_TIMEOUTS.SHORT }
         );
     });
 });

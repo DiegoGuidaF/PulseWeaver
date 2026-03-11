@@ -1,28 +1,28 @@
-import {describe, expect, it, vi} from 'vitest';
-import {screen, waitFor} from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {delay} from 'msw';
-import {server} from '@/test/setup';
-import {renderWithProviders} from '@/test/utils';
-import {CreateDeviceForm} from './CreateDeviceForm';
-import {TEST_TIMEOUTS} from '@/test/constants';
-import {handlers, responses} from "@/test/mocks/handlers.ts";
-import {createMockDevice} from "@/test/mocks/data.ts";
+import { delay, http } from 'msw';
+import { server } from '@/test/setup';
+import { renderWithProviders } from '@/test/utils';
+import { CreateDeviceForm } from './CreateDeviceForm';
+import { TEST_TIMEOUTS } from '@/test/constants';
+import { deviceHandlers, endpoints, responses } from '@/test/mocks/handlers';
+import { createMockDevice } from '@/test/mocks/data';
 
 describe('CreateDeviceForm', () => {
     it('renders form with input and submit button', () => {
-        renderWithProviders(<CreateDeviceForm/>);
+        renderWithProviders(<CreateDeviceForm />);
 
         expect(screen.getByLabelText('New Device Name')).toBeInTheDocument();
-        expect(screen.getByRole('button', {name: /add device/i})).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /add device/i })).toBeInTheDocument();
     });
 
     it('shows validation error for empty name', async () => {
         const user = userEvent.setup();
-        renderWithProviders(<CreateDeviceForm/>);
+        renderWithProviders(<CreateDeviceForm />);
 
-        const input = screen.getByRole('textbox', {name: /new device name/i});
-        const submitButton = screen.getByRole('button', {name: /add device/i});
+        const input = screen.getByRole('textbox', { name: /new device name/i });
+        const submitButton = screen.getByRole('button', { name: /add device/i });
         await user.click(submitButton);
 
         await waitFor(
@@ -30,7 +30,7 @@ describe('CreateDeviceForm', () => {
                 expect(input).toBeInvalid();
                 expect(screen.getByText(/at least|too short|too small|required/i)).toBeInTheDocument();
             },
-            {timeout: TEST_TIMEOUTS.SHORT}
+            { timeout: TEST_TIMEOUTS.SHORT }
         );
     });
 
@@ -38,23 +38,23 @@ describe('CreateDeviceForm', () => {
         const user = userEvent.setup();
 
         server.use(
-            handlers.devices.createDeviceHandler(undefined, async () => {
+            http.post(endpoints.devices, async () => {
                 await delay('infinite');
                 return responses.created(createMockDevice());
             })
         );
 
-        renderWithProviders(<CreateDeviceForm/>);
+        renderWithProviders(<CreateDeviceForm />);
 
         const input = screen.getByLabelText('New Device Name');
-        const submitButton = screen.getByRole('button', {name: /add device/i});
+        const submitButton = screen.getByRole('button', { name: /add device/i });
 
         await user.type(input, 'Test Device');
         await user.click(submitButton);
 
         // Check loading state
-        expect(screen.getByRole('button', {name: /creating/i})).toBeInTheDocument();
-        expect(screen.getByRole('button', {name: /creating/i})).toBeDisabled();
+        expect(screen.getByRole('button', { name: /creating/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /creating/i })).toBeDisabled();
     });
 
     it('successfully creates device, shows API key dialog, and resets form', async () => {
@@ -64,12 +64,12 @@ describe('CreateDeviceForm', () => {
             .spyOn(navigator.clipboard, 'writeText')
             .mockResolvedValue(undefined);
 
-        server.use(handlers.devices.createDeviceHandler());
+        // defaultHandlers provides create.success() — no server.use() needed
 
-        renderWithProviders(<CreateDeviceForm/>);
+        renderWithProviders(<CreateDeviceForm />);
 
         const input = screen.getByLabelText('New Device Name');
-        const submitButton = screen.getByRole('button', {name: /add device/i});
+        const submitButton = screen.getByRole('button', { name: /add device/i });
 
         await user.type(input, 'New Device');
         await user.click(submitButton);
@@ -86,7 +86,7 @@ describe('CreateDeviceForm', () => {
             ),
         ).toBeInTheDocument();
 
-        const copyButton = screen.getByRole('button', {name: /copy/i});
+        const copyButton = screen.getByRole('button', { name: /copy/i });
         await user.click(copyButton);
         expect(clipboardSpy).toHaveBeenCalledWith(
             'test_api_key_12345678901234567890123456789012',
@@ -100,7 +100,7 @@ describe('CreateDeviceForm', () => {
             }),
         ).toBeInTheDocument();
 
-        const closeButton = screen.getByRole('button', {name: /i've saved it/i});
+        const closeButton = screen.getByRole('button', { name: /i've saved it/i });
         await user.click(closeButton);
 
         await waitFor(
@@ -111,11 +111,11 @@ describe('CreateDeviceForm', () => {
                     }),
                 ).not.toBeInTheDocument();
             },
-            {timeout: TEST_TIMEOUTS.SHORT}
+            { timeout: TEST_TIMEOUTS.SHORT }
         );
 
         expect(screen.getByLabelText('New Device Name')).toHaveValue('');
-        expect(screen.getByRole('button', {name: /add device/i})).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /add device/i })).toBeInTheDocument();
         clipboardSpy.mockRestore();
     });
 
@@ -123,15 +123,13 @@ describe('CreateDeviceForm', () => {
         const user = userEvent.setup();
 
         server.use(
-            handlers.devices.createDeviceHandler(undefined, () => {
-                return responses.serverError();
-            })
+            http.post(endpoints.devices, () => responses.serverError())
         );
 
-        renderWithProviders(<CreateDeviceForm/>);
+        renderWithProviders(<CreateDeviceForm />);
 
         const input = screen.getByLabelText('New Device Name');
-        const submitButton = screen.getByRole('button', {name: /add device/i});
+        const submitButton = screen.getByRole('button', { name: /add device/i });
 
         await user.type(input, 'Test Device');
         await user.click(submitButton);
@@ -141,7 +139,7 @@ describe('CreateDeviceForm', () => {
             () => {
                 expect(screen.getByText(/error creating device/i)).toBeInTheDocument();
             },
-            {timeout: TEST_TIMEOUTS.MEDIUM}
+            { timeout: TEST_TIMEOUTS.MEDIUM }
         );
 
         // Form should not be reset on error
@@ -151,19 +149,12 @@ describe('CreateDeviceForm', () => {
     it('shows error message when device name is already in use (409)', async () => {
         const user = userEvent.setup();
 
-        server.use(
-            handlers.devices.createDeviceHandler(undefined, () => {
-                return responses.custom(
-                    {error: 'Device name already in use'},
-                    409
-                );
-            })
-        );
+        server.use(deviceHandlers.create.conflict());
 
-        renderWithProviders(<CreateDeviceForm/>);
+        renderWithProviders(<CreateDeviceForm />);
 
         const input = screen.getByLabelText('New Device Name');
-        const submitButton = screen.getByRole('button', {name: /add device/i});
+        const submitButton = screen.getByRole('button', { name: /add device/i });
 
         await user.type(input, 'Duplicate Name');
         await user.click(submitButton);
@@ -177,7 +168,7 @@ describe('CreateDeviceForm', () => {
                     screen.getByText(/device name already in use/i)
                 ).toBeInTheDocument();
             },
-            {timeout: TEST_TIMEOUTS.MEDIUM}
+            { timeout: TEST_TIMEOUTS.MEDIUM }
         );
 
         expect((input as HTMLInputElement).value).toBe('Duplicate Name');
