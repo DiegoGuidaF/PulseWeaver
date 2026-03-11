@@ -1,26 +1,19 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  ActionIcon,
+  Button,
+  Card,
+  Group,
+  Modal,
+  Skeleton,
+  Stack,
   Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Text,
+  Title,
+} from "@mantine/core";
+import { IconTrash } from "@tabler/icons-react";
 import { format } from "date-fns";
-import { Trash2 } from "lucide-react";
 import type { Device } from "@/lib/api";
 import { useDevices } from "@/features/devices/hooks/useDevices";
 import { useDeleteDevice } from "@/features/devices/hooks/useDeleteDevice";
@@ -43,143 +36,122 @@ export function DeviceList() {
     );
   }
 
-  if (error)
+  if (error) {
     return (
-      <div className="p-4 text-red-500">Error: {toErrorMessage(error)}</div>
+      <Text c="red" p="md">Error: {toErrorMessage(error)}</Text>
     );
+  }
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Devices</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="flex justify-between border-b py-2">
-              <Skeleton className="h-4 w-[100px]" />
-              <Skeleton className="h-4 w-[100px]" />
-              <Skeleton className="h-4 w-[80px]" />
-              <Skeleton className="h-4 w-[150px]" />
-            </div>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex justify-between border-b py-4">
-                <Skeleton className="h-4 w-[120px]" />
-                <Skeleton className="h-4 w-[80px]" />
-                <Skeleton className="h-4 w-[200px]" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
+      <Card withBorder>
+        <Title order={3} mb="md">Devices</Title>
+        <Stack gap="sm">
+          <Group justify="space-between" pb="sm" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+            <Skeleton height={16} width={100} />
+            <Skeleton height={16} width={100} />
+            <Skeleton height={16} width={80} />
+            <Skeleton height={16} width={150} />
+          </Group>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Group key={i} justify="space-between" py="sm" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+              <Skeleton height={16} width={120} />
+              <Skeleton height={16} width={80} />
+              <Skeleton height={16} width={200} />
+            </Group>
+          ))}
+        </Stack>
       </Card>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Devices</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>ID</TableHead>
-              <TableHead>Key prefix</TableHead>
-              <TableHead>Created At</TableHead>
-              <TableHead>Active addresses</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {devices?.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-32 text-center">
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <p className="text-muted-foreground">No devices found.</p>
-                    <p className="text-sm text-gray-400">
-                      Add a device above to get started.
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              devices?.map((device) => (
-                <TableRow key={device.id}>
-                  <TableCell className="font-medium">{device.name}</TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {device.id}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {device.api_key_prefix}
-                  </TableCell>
-                  <TableCell>
-                    {format(new Date(device.created_at), "PP p")}
-                  </TableCell>
-                  <TableCell>
-                    {device.address_count === 0 ? (
-                      <span className="text-muted-foreground">0</span>
-                    ) : (
-                      <span className="font-medium">{device.address_count}</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button asChild variant="outline" size="sm">
-                        <Link to={`/devices/${device.id}`}>Manage</Link>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Delete device ${device.name}`}
-                        onClick={() => setDeviceToDelete(device)}
-                        disabled={deleteDevice.isPending}
-                      >
-                        <Trash2 className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-      <Dialog
-        open={deviceToDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeviceToDelete(null);
-        }}
+    <Card withBorder>
+      <Title order={3} mb="md">Devices</Title>
+      <Table>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Name</Table.Th>
+            <Table.Th>ID</Table.Th>
+            <Table.Th>Key prefix</Table.Th>
+            <Table.Th>Created At</Table.Th>
+            <Table.Th>Active addresses</Table.Th>
+            <Table.Th style={{ textAlign: "right" }}>Actions</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {devices?.length === 0 ? (
+            <Table.Tr>
+              <Table.Td colSpan={6} style={{ height: 128, textAlign: "center" }}>
+                <Stack align="center" justify="center" gap={8}>
+                  <Text c="dimmed">No devices found.</Text>
+                  <Text size="sm" c="gray">Add a device above to get started.</Text>
+                </Stack>
+              </Table.Td>
+            </Table.Tr>
+          ) : (
+            devices?.map((device) => (
+              <Table.Tr key={device.id}>
+                <Table.Td fw={500}>{device.name}</Table.Td>
+                <Table.Td ff="monospace" fz="xs">{device.id}</Table.Td>
+                <Table.Td ff="monospace" fz="xs" c="dimmed">{device.api_key_prefix}</Table.Td>
+                <Table.Td>{format(new Date(device.created_at), "PP p")}</Table.Td>
+                <Table.Td>
+                  {device.address_count === 0 ? (
+                    <Text c="dimmed">0</Text>
+                  ) : (
+                    <Text fw={500}>{device.address_count}</Text>
+                  )}
+                </Table.Td>
+                <Table.Td>
+                  <Group justify="flex-end" gap="sm">
+                    <Button
+                      component={Link}
+                      to={`/devices/${device.id}`}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Manage
+                    </Button>
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      aria-label={`Delete device ${device.name}`}
+                      onClick={() => setDeviceToDelete(device)}
+                      disabled={deleteDevice.isPending}
+                    >
+                      <IconTrash size={16} stroke={1.5} />
+                    </ActionIcon>
+                  </Group>
+                </Table.Td>
+              </Table.Tr>
+            ))
+          )}
+        </Table.Tbody>
+      </Table>
+
+      <Modal
+        opened={deviceToDelete !== null}
+        onClose={() => setDeviceToDelete(null)}
+        title="Delete device"
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete device</DialogTitle>
-            <DialogDescription>
-              Delete device &quot;{deviceToDelete?.name}&quot;? It will be
-              hidden from the list and cannot receive addresses.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDeviceToDelete(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleConfirmDelete}
-              disabled={deleteDevice.isPending}
-            >
-              {deleteDevice.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <Text size="sm">
+          Delete device &quot;{deviceToDelete?.name}&quot;? It will be hidden from the list and cannot receive addresses.
+        </Text>
+        <Group justify="flex-end" mt="md" gap="sm">
+          <Button type="button" variant="outline" onClick={() => setDeviceToDelete(null)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            color="red"
+            onClick={handleConfirmDelete}
+            disabled={deleteDevice.isPending}
+          >
+            {deleteDevice.isPending ? "Deleting..." : "Delete"}
+          </Button>
+        </Group>
+      </Modal>
     </Card>
   );
 }

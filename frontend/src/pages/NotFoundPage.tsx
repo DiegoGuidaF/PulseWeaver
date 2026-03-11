@@ -1,13 +1,12 @@
 import { Link } from "react-router-dom";
+import { Stack, Title, Text, Anchor } from "@mantine/core";
 
 export function NotFoundPage() {
   return (
-    <div className="flex h-screen flex-col items-center justify-center space-y-4">
-      <h1 className="text-4xl font-bold">404</h1>
-      <p className="text-muted-foreground">Page not found</p>
-      <Link to="/" className="text-blue-500 hover:underline">
-        Go Home
-      </Link>
-    </div>
+    <Stack align="center" justify="center" style={{ height: "100vh" }} gap="md">
+      <Title order={1}>404</Title>
+      <Text c="dimmed">Page not found</Text>
+      <Anchor component={Link} to="/">Go Home</Anchor>
+    </Stack>
   );
 }

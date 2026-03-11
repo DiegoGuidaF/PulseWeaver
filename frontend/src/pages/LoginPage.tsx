@@ -1,38 +1,35 @@
 import { Navigate } from "react-router-dom";
+import { Center, Stack, Title, Text, Paper, Loader } from "@mantine/core";
 import { useAuth } from "@/features/auth/AuthContext";
 import { LoginForm } from "@/features/auth/components/LoginForm";
-import { ModeToggle } from "@/components/mode-toggle";
 
 export function LoginPage() {
   const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
+      <Center style={{ minHeight: "100vh" }}>
+        <Stack align="center" gap="sm">
+          <Loader />
+          <Text c="dimmed">Loading...</Text>
+        </Stack>
+      </Center>
     );
   }
 
-  // Redirect to dashboard if already authenticated
   if (isAuthenticated) {
     return <Navigate to={user?.must_change_password ? "/settings" : "/devices"} replace />;
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="absolute top-4 right-4">
-        <ModeToggle />
-      </div>
-      <div className="w-full max-w-md space-y-6 rounded-lg border p-8">
-        <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-bold">Welcome to WallyDic</h1>
-          <p className="text-muted-foreground">
-            Sign in to your account to continue
-          </p>
-        </div>
+    <Center style={{ minHeight: "100vh" }}>
+      <Paper withBorder p="xl" w="100%" maw={448}>
+        <Stack gap="sm" mb="lg" ta="center">
+          <Title order={2}>Welcome to WallyDic</Title>
+          <Text c="dimmed">Sign in to your account to continue</Text>
+        </Stack>
         <LoginForm />
-      </div>
-    </div>
+      </Paper>
+    </Center>
   );
 }

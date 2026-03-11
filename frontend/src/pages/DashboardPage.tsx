@@ -1,19 +1,18 @@
+import { Stack, Title, Text } from "@mantine/core";
 import { CreateDeviceForm } from "@/features/devices/CreateDeviceForm";
 import { DeviceList } from "@/features/devices/DeviceList";
 
 export function DashboardPage() {
   return (
-    <div className="w-full max-w-5xl space-y-8">
+    <Stack maw={1024} gap="xl">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">WallyDic Manager</h1>
-        <p className="text-muted-foreground">
-          Manage your networked devices and addresses.
-        </p>
+        <Title order={1}>WallyDic Manager</Title>
+        <Text c="dimmed">Manage your networked devices and addresses.</Text>
       </div>
-      <div className="grid gap-8">
+      <Stack gap="xl">
         <CreateDeviceForm />
         <DeviceList />
-      </div>
-    </div>
+      </Stack>
+    </Stack>
   );
 }

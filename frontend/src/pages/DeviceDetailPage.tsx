@@ -1,7 +1,6 @@
 import { Link, Navigate, useParams } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Stack, Skeleton, Tabs, Text, Title, Anchor } from "@mantine/core";
+import { IconChevronLeft } from "@tabler/icons-react";
 import { useDeviceDetail } from "@/features/devices/hooks/useDeviceDetail";
 import { DeviceAddressesTab } from "@/features/devices/DeviceAddressesTab";
 import { DeviceSettingsTab } from "@/features/devices/DeviceSettingsTab";
@@ -28,65 +27,64 @@ export function DeviceDetailPage() {
 
   if (isLoading && !device) {
     headerContent = (
-      <div className="space-y-2">
-        <Skeleton className="h-7 w-48" />
-        <Skeleton className="h-4 w-32" />
-      </div>
+      <Stack gap={8}>
+        <Skeleton height={28} width={192} />
+        <Skeleton height={16} width={128} />
+      </Stack>
     );
   } else if (device) {
     headerContent = (
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{device.name}</h1>
-        <p className="text-sm text-muted-foreground">
+      <Stack gap={4}>
+        <Title order={2}>{device.name}</Title>
+        <Text size="sm" c="dimmed">
           ID{" "}
-          <span className="font-mono text-xs md:text-sm">{device.id}</span>
-        </p>
-      </div>
+          <Text component="span" ff="monospace" size="xs">{device.id}</Text>
+        </Text>
+      </Stack>
     );
   } else if (isError) {
     headerContent = (
-      <p className="text-sm text-red-500">
+      <Text size="sm" c="red">
         Error loading device: {toErrorMessage(error)}
-      </p>
+      </Text>
     );
   } else {
     headerContent = (
-      <p className="text-sm text-muted-foreground">
+      <Text size="sm" c="dimmed">
         Device not found.{" "}
-        <Link to="/devices" className="underline">
-          Back to devices
-        </Link>
-      </p>
+        <Anchor component={Link} to="/devices">Back to devices</Anchor>
+      </Text>
     );
   }
 
   return (
-    <div className="w-full max-w-5xl space-y-8">
-      <div className="space-y-4">
-        <div>
-          <Link
-            to="/devices"
-            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            <span>Back to devices</span>
-          </Link>
-        </div>
+    <Stack maw={1024} gap="xl">
+      <Stack gap="md">
+        <Anchor
+          component={Link}
+          to="/devices"
+          c="dimmed"
+          size="sm"
+          style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+        >
+          <IconChevronLeft size={16} stroke={1.5} />
+          <span>Back to devices</span>
+        </Anchor>
         {headerContent}
-      </div>
+      </Stack>
 
-      <Tabs defaultValue="addresses" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="addresses">Addresses</TabsTrigger>
-          <TabsTrigger value="settings">Settings &amp; Rules</TabsTrigger>
-        </TabsList>
-        <TabsContent value="addresses">
+      <Tabs defaultValue="addresses" keepMounted={false}>
+        <Tabs.List>
+          <Tabs.Tab value="addresses">Addresses</Tabs.Tab>
+          <Tabs.Tab value="settings">Settings &amp; Rules</Tabs.Tab>
+        </Tabs.List>
+        <Tabs.Panel value="addresses" pt="md">
           <DeviceAddressesTab deviceId={deviceId} />
-        </TabsContent>
-        <TabsContent value="settings">
+        </Tabs.Panel>
+        <Tabs.Panel value="settings" pt="md">
           <DeviceSettingsTab deviceId={deviceId} device={device} />
-        </TabsContent>
+        </Tabs.Panel>
       </Tabs>
-    </div>
+    </Stack>
   );
 }

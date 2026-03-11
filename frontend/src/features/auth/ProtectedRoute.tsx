@@ -1,4 +1,5 @@
 import { Navigate, useLocation } from "react-router-dom";
+import { Center, Loader, Stack, Text } from "@mantine/core";
 import { useAuth } from "./AuthContext";
 
 interface ProtectedRouteProps {
@@ -11,14 +12,16 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
+      <Center style={{ minHeight: "100vh" }}>
+        <Stack align="center" gap="sm">
+          <Loader />
+          <Text c="dimmed">Loading...</Text>
+        </Stack>
+      </Center>
     );
   }
 
   if (!isAuthenticated) {
-    // Redirect to login with returnTo query param
     const returnTo = location.pathname + location.search;
     return <Navigate to={`/login?returnTo=${encodeURIComponent(returnTo)}`} replace />;
   }

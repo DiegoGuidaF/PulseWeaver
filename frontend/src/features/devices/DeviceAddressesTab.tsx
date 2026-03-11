@@ -3,42 +3,21 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format, isPast } from "date-fns";
-import { Button } from "@/components/ui/button";
 import {
+  Button,
   Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
+  Group,
+  Modal,
+  NativeSelect,
+  Skeleton,
+  Stack,
+  Switch,
   Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+  Text,
+  TextInput,
+  Title,
+} from "@mantine/core";
 import type { Address } from "@/lib/api";
-import { cn } from "@/lib/utils";
 import { zAddAddressRequest } from "@/lib/api/zod.gen";
 import { useDeviceAddresses } from "@/features/devices/hooks/useDeviceAddresses";
 import { useAddDeviceAddress } from "@/features/devices/hooks/useAddDeviceAddress";
@@ -92,15 +71,11 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
     onSuccess: () => form.reset(),
   });
   const disableAddressMutation = useDisableDeviceAddress();
-  const [addressToDisable, setAddressToDisable] = useState<Address | null>(
-    null,
-  );
+  const [addressToDisable, setAddressToDisable] = useState<Address | null>(null);
 
   // Auto-heartbeat state
   const [ahSettings, setAhSettings] = useState(getAutoHeartbeatSettings);
-  const [autoClientIp, setAutoClientIp] = useState<string | null>(
-    getStoredClientIp,
-  );
+  const [autoClientIp, setAutoClientIp] = useState<string | null>(getStoredClientIp);
 
   useEffect(() => {
     const onSettings = () => setAhSettings(getAutoHeartbeatSettings());
@@ -158,292 +133,251 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Heartbeat</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button
-              type="button"
-              onClick={() =>
-                heartbeatMutation.mutate({ path: { device_id: deviceId } })
-              }
-              disabled={heartbeatMutation.isPending}
-            >
-              {heartbeatMutation.isPending ? "Registering..." : "Register my IP"}
-            </Button>
-            {heartbeatMutation.data && (
-              <span className="text-sm text-muted-foreground">
-                Your current IP:{" "}
-                <span className="font-mono">{heartbeatMutation.data.ip}</span>
-              </span>
-            )}
-          </div>
-        </CardContent>
+    <Stack gap="md">
+      <Card withBorder>
+        <Title order={4} mb="md">Heartbeat</Title>
+        <Group gap="md">
+          <Button
+            type="button"
+            onClick={() =>
+              heartbeatMutation.mutate({ path: { device_id: deviceId } })
+            }
+            disabled={heartbeatMutation.isPending}
+          >
+            {heartbeatMutation.isPending ? "Registering..." : "Register my IP"}
+          </Button>
+          {heartbeatMutation.data && (
+            <Text size="sm" c="dimmed">
+              Your current IP:{" "}
+              <Text component="span" ff="monospace">{heartbeatMutation.data.ip}</Text>
+            </Text>
+          )}
+        </Group>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Keep browser IP registered</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <Switch
-                id="auto-heartbeat-toggle"
-                checked={isActive}
-                onCheckedChange={handleToggle}
-              />
-              <Label htmlFor="auto-heartbeat-toggle" className="cursor-pointer">
-                Automatically send heartbeat while this tab is open
-              </Label>
-            </div>
-            {isActive && (
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">
-                    Interval:
-                  </span>
-                  <div className="flex gap-1">
-                    {AUTO_HB_INTERVAL_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => handleIntervalChange(opt.value)}
-                        className={cn(
-                          "rounded px-2 py-1 text-xs font-medium transition-colors",
-                          currentInterval === opt.value
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground hover:bg-muted/80",
-                        )}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {autoClientIp && (
-                  <span className="text-sm text-muted-foreground flex items-center gap-1.5">
-                    <span className="inline-block w-2 h-2 rounded-full bg-green-500 shrink-0" />
+      <Card withBorder>
+        <Title order={4} mb="md">Keep browser IP registered</Title>
+        <Stack gap="md">
+          <Switch
+            label="Automatically send heartbeat while this tab is open"
+            checked={isActive}
+            onChange={(event) => handleToggle(event.currentTarget.checked)}
+          />
+          {isActive && (
+            <Group gap="lg">
+              <Group gap="sm">
+                <Text size="sm" c="dimmed" style={{ whiteSpace: "nowrap" }}>
+                  Interval:
+                </Text>
+                <Group gap={4}>
+                  {AUTO_HB_INTERVAL_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => handleIntervalChange(opt.value)}
+                      style={{
+                        borderRadius: 4,
+                        padding: "2px 8px",
+                        fontSize: 12,
+                        fontWeight: 500,
+                        cursor: "pointer",
+                        border: "none",
+                        background: currentInterval === opt.value
+                          ? "var(--mantine-color-blue-6)"
+                          : "var(--mantine-color-default-border)",
+                        color: currentInterval === opt.value
+                          ? "#fff"
+                          : "var(--mantine-color-dimmed)",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </Group>
+              </Group>
+              {autoClientIp && (
+                <Group gap={6}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: "var(--mantine-color-green-6)",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Text size="sm" c="dimmed">
                     Your IP:{" "}
-                    <span className="font-mono">{autoClientIp}</span>
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        </CardContent>
+                    <Text component="span" ff="monospace">{autoClientIp}</Text>
+                  </Text>
+                </Group>
+              )}
+            </Group>
+          )}
+        </Stack>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Add IP address</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(handleAddAddressSubmit)}
-              className="flex flex-col gap-4 md:flex-row md:items-end"
+      <Card withBorder>
+        <Title order={4} mb="md">Add IP address</Title>
+        <form onSubmit={form.handleSubmit(handleAddAddressSubmit)}>
+          <Group align="flex-end" gap="md">
+            <TextInput
+              label="IP address"
+              placeholder="192.168.1.100"
+              autoComplete="off"
+              error={form.formState.errors.ip?.message}
+              style={{ flex: 1 }}
+              {...form.register("ip")}
+            />
+            <Button
+              type="submit"
+              disabled={addAddressMutation.isPending}
             >
-              <FormField
-                control={form.control}
-                name="ip"
-                render={({ field }) => (
-                  <FormItem className="flex-1">
-                    <FormLabel>IP address</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="192.168.1.100"
-                        autoComplete="off"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button
-                type="submit"
-                className="md:self-auto self-start"
-                disabled={addAddressMutation.isPending}
-              >
-                {addAddressMutation.isPending ? "Adding..." : "Add IP"}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
+              {addAddressMutation.isPending ? "Adding..." : "Add IP"}
+            </Button>
+          </Group>
+        </form>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <CardTitle>Assigned addresses</CardTitle>
-          <div className="flex items-center gap-2">
-            <label
-              htmlFor="refresh-interval"
-              className="text-sm text-muted-foreground whitespace-nowrap"
-            >
+      <Card withBorder>
+        <Group justify="space-between" mb="md">
+          <Title order={4}>Assigned addresses</Title>
+          <Group gap="sm">
+            <Text size="sm" c="dimmed" style={{ whiteSpace: "nowrap" }}>
               Auto-refresh
-            </label>
-            <select
-              id="refresh-interval"
+            </Text>
+            <NativeSelect
               value={refreshInterval}
               onChange={(e) => setRefreshInterval(Number(e.target.value))}
-              className="rounded-md border border-input bg-background px-2 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              {REFRESH_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-2">
-              <div className="h-4 w-full animate-pulse rounded bg-muted" />
-              <div className="h-4 w-full animate-pulse rounded bg-muted" />
-              <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
-            </div>
-          ) : !addresses || addresses.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No addresses assigned yet.
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>IP</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead>Expires</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {addresses.map((address) => (
-                  <TableRow key={address.id}>
-                    <TableCell className="font-mono text-sm">
-                      {address.ip}
-                    </TableCell>
-                    <TableCell>
+              data={REFRESH_OPTIONS.map((opt) => ({
+                label: opt.label,
+                value: String(opt.value),
+              }))}
+            />
+          </Group>
+        </Group>
+
+        {isLoading ? (
+          <Stack gap={8}>
+            <Skeleton height={16} />
+            <Skeleton height={16} />
+            <Skeleton height={16} width="66%" />
+          </Stack>
+        ) : !addresses || addresses.length === 0 ? (
+          <Text size="sm" c="dimmed">No addresses assigned yet.</Text>
+        ) : (
+          <Table>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>IP</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Updated</Table.Th>
+                <Table.Th>Expires</Table.Th>
+                <Table.Th style={{ textAlign: "right" }}>Actions</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {addresses.map((address) => (
+                <Table.Tr key={address.id}>
+                  <Table.Td ff="monospace" fz="sm">{address.ip}</Table.Td>
+                  <Table.Td>
+                    <Group gap={8} title={address.is_enabled ? "Active" : "Inactive"}>
                       <span
-                        className="inline-flex items-center gap-2"
-                        title={address.is_enabled ? "Active" : "Inactive"}
-                      >
-                        <span
-                          className={cn(
-                            "h-2.5 w-2.5 shrink-0 rounded-full",
-                            address.is_enabled
-                              ? "bg-green-500 dark:bg-green-600"
-                              : "bg-red-500 dark:bg-red-600",
-                          )}
-                          aria-hidden
-                        />
-                        <span className="text-sm text-muted-foreground">
-                          {address.is_enabled ? "Active" : "Inactive"}
-                        </span>
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                        style={{
+                          display: "inline-block",
+                          width: 10,
+                          height: 10,
+                          borderRadius: "50%",
+                          flexShrink: 0,
+                          background: address.is_enabled
+                            ? "var(--mantine-color-green-6)"
+                            : "var(--mantine-color-red-6)",
+                        }}
+                        aria-hidden
+                      />
+                      <Text size="sm" c="dimmed">
+                        {address.is_enabled ? "Active" : "Inactive"}
+                      </Text>
+                    </Group>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed">
                       {format(new Date(address.updated_at), "PP p")}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {!address.is_enabled ? (
-                        <span className="text-muted-foreground/50">
-                          Disabled address
-                        </span>
-                      ) : address.expires_at ? (
-                        <span
-                          className={
-                            isPast(new Date(address.expires_at))
-                              ? "text-red-500"
-                              : ""
-                          }
-                        >
-                          {format(new Date(address.expires_at), "PP p")}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground/50">
-                          No expiry
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {address.is_enabled ? (
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => setAddressToDisable(address)}
-                          disabled={disableAddressMutation.isPending}
-                        >
-                          Disable
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() =>
-                            addAddressMutation.mutate({
-                              path: { device_id: deviceId },
-                              body: { ip: address.ip },
-                            })
-                          }
-                          disabled={addAddressMutation.isPending}
-                        >
-                          Enable
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    {!address.is_enabled ? (
+                      <Text size="sm" c="dimmed" style={{ opacity: 0.5 }}>Disabled address</Text>
+                    ) : address.expires_at ? (
+                      <Text
+                        size="sm"
+                        c={isPast(new Date(address.expires_at)) ? "red" : "dimmed"}
+                      >
+                        {format(new Date(address.expires_at), "PP p")}
+                      </Text>
+                    ) : (
+                      <Text size="sm" c="dimmed" style={{ opacity: 0.5 }}>No expiry</Text>
+                    )}
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: "right" }}>
+                    {address.is_enabled ? (
+                      <Button
+                        type="button"
+                        color="red"
+                        size="sm"
+                        onClick={() => setAddressToDisable(address)}
+                        disabled={disableAddressMutation.isPending}
+                      >
+                        Disable
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() =>
+                          addAddressMutation.mutate({
+                            path: { device_id: deviceId },
+                            body: { ip: address.ip },
+                          })
+                        }
+                        disabled={addAddressMutation.isPending}
+                      >
+                        Enable
+                      </Button>
+                    )}
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        )}
       </Card>
 
-      <Dialog
-        open={addressToDisable !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setAddressToDisable(null);
-          }
-        }}
+      <Modal
+        opened={addressToDisable !== null}
+        onClose={() => setAddressToDisable(null)}
+        title="Disable address"
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Disable address</DialogTitle>
-            <DialogDescription>
-              Disable IP{" "}
-              <span className="font-mono">
-                {addressToDisable?.ip ?? ""}
-              </span>{" "}
-              for this device? Existing connections may stop working.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setAddressToDisable(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleConfirmDisable}
-              disabled={disableAddressMutation.isPending}
-            >
-              {disableAddressMutation.isPending ? "Disabling..." : "Disable"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+        <Text size="sm">
+          Disable IP{" "}
+          <Text component="span" ff="monospace">{addressToDisable?.ip ?? ""}</Text>{" "}
+          for this device? Existing connections may stop working.
+        </Text>
+        <Group justify="flex-end" mt="md" gap="sm">
+          <Button type="button" variant="outline" onClick={() => setAddressToDisable(null)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            color="red"
+            onClick={handleConfirmDisable}
+            disabled={disableAddressMutation.isPending}
+          >
+            {disableAddressMutation.isPending ? "Disabling..." : "Disable"}
+          </Button>
+        </Group>
+      </Modal>
+    </Stack>
   );
 }

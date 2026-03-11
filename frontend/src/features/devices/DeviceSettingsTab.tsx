@@ -2,48 +2,24 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
 import {
+  Button,
   Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Group,
+  Modal,
+  NativeSelect,
+  Skeleton,
+  Stack,
+  Text,
+  TextInput,
+  Title,
+} from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { toErrorMessage } from "@/lib/api-client";
 import { useDeviceAddressLeaseRule } from "@/features/devices/hooks/useDeviceAddressLeaseRule";
 import { usePutDeviceAddressLeaseRule } from "@/features/devices/hooks/usePutDeviceAddressLeaseRule";
 import { useDisableDeviceAddressLeaseRule } from "@/features/devices/hooks/useDisableDeviceAddressLeaseRule";
 import { useRegenerateApiKey } from "@/features/devices/hooks/useRegenerateApiKey";
-import { toast } from "sonner";
 
 const TTL_UNITS = ["seconds", "minutes", "days"] as const;
 const SECONDS_PER_MINUTE = 60;
@@ -122,6 +98,7 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
   const regenerateApiKey = useRegenerateApiKey();
 
   const [regeneratedApiKey, setRegeneratedApiKey] = useState<string | null>(null);
+  const [confirmRegenOpen, setConfirmRegenOpen] = useState(false);
 
   const leaseRuleForm = useForm<LeaseRuleFormInput, unknown, LeaseRuleFormValues>({
     resolver: zodResolver(leaseRuleFormSchema),
@@ -136,15 +113,15 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
     if (!regeneratedApiKey) return;
 
     if (!("clipboard" in navigator) || !navigator.clipboard?.writeText) {
-      toast.error("Copy to clipboard is not supported in this browser.");
+      notifications.show({ message: "Copy to clipboard is not supported in this browser.", color: "red" });
       return;
     }
 
     try {
       await navigator.clipboard.writeText(regeneratedApiKey);
-      toast.success("Copied to clipboard");
+      notifications.show({ message: "Copied to clipboard", color: "green" });
     } catch {
-      toast.error("Failed to copy API key");
+      notifications.show({ message: "Failed to copy API key", color: "red" });
     }
   }
 
@@ -153,6 +130,7 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
       { path: { device_id: deviceId } },
       {
         onSuccess: (data) => {
+          setConfirmRegenOpen(false);
           setRegeneratedApiKey(data.api_key);
         },
       },
@@ -191,260 +169,221 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
       : "Enable auto-expiry";
 
   return (
-    <div className="space-y-6">
+    <Stack gap="xl">
       {/* Settings section */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium">Settings</h3>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">API Key</p>
-                {device ? (
-                  <p className="font-mono text-sm text-muted-foreground">
-                    {device.api_key_prefix}&hellip;
-                  </p>
-                ) : (
-                  <Skeleton className="h-4 w-32" />
-                )}
-              </div>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!device || regenerateApiKey.isPending}
-                  >
-                    Regenerate API key
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      Regenerate API key for &ldquo;{device?.name}&rdquo;?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      The current key (
-                      <span className="font-mono">{device?.api_key_prefix}&hellip;</span>
-                      ) will stop working immediately. You will need to update
-                      any scripts or services using this device.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleConfirmRegenerate}>
-                      Regenerate
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </CardContent>
+      <Stack gap="sm">
+        <Title order={5}>Settings</Title>
+        <Card withBorder>
+          <Group justify="space-between" gap="md">
+            <Stack gap={4}>
+              <Text size="sm" fw={500}>API Key</Text>
+              {device ? (
+                <Text ff="monospace" size="sm" c="dimmed">
+                  {device.api_key_prefix}&hellip;
+                </Text>
+              ) : (
+                <Skeleton height={16} width={128} />
+              )}
+            </Stack>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!device || regenerateApiKey.isPending}
+              onClick={() => setConfirmRegenOpen(true)}
+            >
+              Regenerate API key
+            </Button>
+          </Group>
         </Card>
-      </div>
+      </Stack>
 
       {/* Rules section */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium">Rules</h3>
-        <Card>
-          <CardHeader>
-            <CardTitle>Auto-expiry rule</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-4 w-64" />
-              </div>
-            ) : isError ? (
-              <p className="text-sm text-red-500">
-                Error loading rule: {toErrorMessage(error)}
-              </p>
-            ) : (
-              <>
-                {isOn && (
-                  <div className="space-y-1">
-                    <p className="text-sm">
-                      Status:{" "}
-                      <span className="font-medium">Enabled</span>
-                    </p>
-                    {ttlLabel && (
-                      <p className="text-sm text-muted-foreground">
-                        Addresses will automatically expire after{" "}
-                        <span className="font-medium">{ttlLabel}</span>.
-                      </p>
-                    )}
-                  </div>
-                )}
+      <Stack gap="sm">
+        <Title order={5}>Rules</Title>
+        <Card withBorder>
+          <Title order={4} mb="md">Auto-expiry rule</Title>
+          {isLoading ? (
+            <Stack gap={8}>
+              <Skeleton height={16} width={160} />
+              <Skeleton height={16} width={256} />
+            </Stack>
+          ) : isError ? (
+            <Text size="sm" c="red">
+              Error loading rule: {toErrorMessage(error)}
+            </Text>
+          ) : (
+            <Stack gap="md">
+              {isOn && (
+                <Stack gap={4}>
+                  <Text size="sm">
+                    Status: <Text component="span" fw={500}>Enabled</Text>
+                  </Text>
+                  {ttlLabel && (
+                    <Text size="sm" c="dimmed">
+                      Addresses will automatically expire after{" "}
+                      <Text component="span" fw={500}>{ttlLabel}</Text>.
+                    </Text>
+                  )}
+                </Stack>
+              )}
 
-                {!isOn && (
-                  <p className="text-sm text-muted-foreground">
-                    Auto-expiry is currently{" "}
-                    <span className="font-medium text-foreground">disabled</span>
-                    . Turn it on to automatically revoke stale addresses.
-                  </p>
-                )}
+              {!isOn && (
+                <Text size="sm" c="dimmed">
+                  Auto-expiry is currently{" "}
+                  <Text component="span" fw={500} c="var(--mantine-color-text)">disabled</Text>
+                  . Turn it on to automatically revoke stale addresses.
+                </Text>
+              )}
 
-                {(!isOn || editing) && (
-                  <Form {...leaseRuleForm}>
-                    <form
-                      onSubmit={leaseRuleForm.handleSubmit(handleLeaseRuleSubmit)}
-                      className="flex flex-wrap items-end gap-4"
-                    >
-                      <FormField
-                        control={leaseRuleForm.control}
-                        name="value"
-                        render={({ field }) => (
-                          <FormItem className="w-32">
-                            <FormLabel>Expires after</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min={1}
-                                step={1}
-                                placeholder="1"
-                                name={field.name}
-                                ref={field.ref}
-                                onBlur={field.onBlur}
-                                value={typeof field.value === "number" ? field.value : ""}
-                                onChange={(e) =>
-                                  field.onChange(
-                                    e.target.value === ""
-                                      ? undefined
-                                      : Number(e.target.value),
-                                  )
-                                }
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={leaseRuleForm.control}
-                        name="unit"
-                        render={({ field }) => (
-                          <FormItem className="w-32">
-                            <FormLabel>Unit</FormLabel>
-                            <FormControl>
-                              <select
-                                className="border-input focus-visible:ring-ring flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1"
-                                {...field}
-                              >
-                                {TTL_UNITS.map((unit) => (
-                                  <option key={unit} value={unit}>
-                                    {unit}
-                                  </option>
-                                ))}
-                              </select>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button
-                        type="submit"
-                        disabled={putRuleMutation.isPending}
-                      >
-                        {submitButtonLabel}
-                      </Button>
-                      {editing && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setEditing(false)}
-                        >
-                          Cancel
-                        </Button>
-                      )}
-                    </form>
-                  </Form>
-                )}
-
-                {isOn && !editing && (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleStartEditing}
-                    >
-                      Change TTL
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() =>
-                        disableRuleMutation.mutate({
-                          path: { device_id: deviceId },
-                        })
+              {(!isOn || editing) && (
+                <form onSubmit={leaseRuleForm.handleSubmit(handleLeaseRuleSubmit)}>
+                  <Group align="flex-end" gap="md" wrap="wrap">
+                    <TextInput
+                      label="Expires after"
+                      type="number"
+                      min={1}
+                      step={1}
+                      placeholder="1"
+                      w={128}
+                      error={leaseRuleForm.formState.errors.value?.message}
+                      name={leaseRuleForm.register("value").name}
+                      ref={leaseRuleForm.register("value").ref}
+                      onBlur={leaseRuleForm.register("value").onBlur}
+                      value={
+                        typeof (leaseRuleForm.watch("value") as number | string | undefined) === "number"
+                          ? String(leaseRuleForm.watch("value") as number)
+                          : ""
                       }
-                      disabled={disableRuleMutation.isPending}
-                    >
-                      Turn off auto-expiry
+                      onChange={(e) =>
+                        leaseRuleForm.setValue(
+                          "value",
+                          e.target.value === ""
+                            ? (undefined as unknown as number)
+                            : Number(e.target.value),
+                          { shouldValidate: true },
+                        )
+                      }
+                    />
+                    <NativeSelect
+                      label="Unit"
+                      w={128}
+                      data={TTL_UNITS.map((unit) => ({ label: unit, value: unit }))}
+                      {...leaseRuleForm.register("unit")}
+                    />
+                    <Button type="submit" disabled={putRuleMutation.isPending}>
+                      {submitButtonLabel}
                     </Button>
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                    {editing && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setEditing(false)}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </Group>
+                </form>
+              )}
 
-      {/* One-time key display dialog after successful regeneration */}
-      <Dialog
-        open={regeneratedApiKey !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setRegeneratedApiKey(null);
-          }
-        }}
-      >
-        <DialogContent
-          showCloseButton={false}
-          onInteractOutside={(e) => e.preventDefault()}
-          onEscapeKeyDown={(e) => e.preventDefault()}
-        >
-          <DialogHeader>
-            <DialogTitle>API key regenerated — save your new key</DialogTitle>
-            <DialogDescription>
-              This API key is shown only once. Copy it now and store it
-              securely. The old key is no longer valid.
-            </DialogDescription>
-          </DialogHeader>
-          {regeneratedApiKey && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">New API key</p>
-                <div className="flex gap-2">
-                  <Input
-                    readOnly
-                    value={regeneratedApiKey}
-                    className="font-mono"
-                  />
+              {isOn && !editing && (
+                <Group gap="sm" wrap="wrap">
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={handleCopyRegeneratedKey}
+                    size="sm"
+                    onClick={handleStartEditing}
                   >
+                    Change TTL
+                  </Button>
+                  <Button
+                    type="button"
+                    color="red"
+                    size="sm"
+                    onClick={() =>
+                      disableRuleMutation.mutate({
+                        path: { device_id: deviceId },
+                      })
+                    }
+                    disabled={disableRuleMutation.isPending}
+                  >
+                    Turn off auto-expiry
+                  </Button>
+                </Group>
+              )}
+            </Stack>
+          )}
+        </Card>
+      </Stack>
+
+      {/* Confirm regenerate API key modal */}
+      <Modal
+        opened={confirmRegenOpen}
+        onClose={() => setConfirmRegenOpen(false)}
+        title={`Regenerate API key for "${device?.name}"?`}
+        closeOnClickOutside={false}
+        closeOnEscape={false}
+        withCloseButton={false}
+      >
+        <Text size="sm">
+          The current key (
+          <Text component="span" ff="monospace">{device?.api_key_prefix}&hellip;</Text>
+          ) will stop working immediately. You will need to update any scripts or
+          services using this device.
+        </Text>
+        <Group justify="flex-end" mt="md" gap="sm">
+          <Button variant="outline" onClick={() => setConfirmRegenOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmRegenerate} disabled={regenerateApiKey.isPending}>
+            Regenerate
+          </Button>
+        </Group>
+      </Modal>
+
+      {/* One-time key display modal after successful regeneration */}
+      <Modal
+        opened={regeneratedApiKey !== null}
+        onClose={() => setRegeneratedApiKey(null)}
+        title="API key regenerated — save your new key"
+        closeOnClickOutside={false}
+        closeOnEscape={false}
+        withCloseButton={false}
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            This API key is shown only once. Copy it now and store it securely.
+            The old key is no longer valid.
+          </Text>
+          {regeneratedApiKey && (
+            <>
+              <Stack gap={8}>
+                <Text size="sm" fw={500}>New API key</Text>
+                <Group gap="sm">
+                  <TextInput
+                    readOnly
+                    value={regeneratedApiKey}
+                    ff="monospace"
+                    style={{ flex: 1 }}
+                  />
+                  <Button type="button" variant="outline" onClick={handleCopyRegeneratedKey}>
                     Copy
                   </Button>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
+                </Group>
+              </Stack>
+              <Text size="xs" c="dimmed">
                 You will not be able to see this full API key again. Make sure
                 you have stored it securely.
-              </p>
-            </div>
+              </Text>
+            </>
           )}
-          <DialogFooter>
+          <Group justify="flex-end">
             <Button type="button" onClick={() => setRegeneratedApiKey(null)}>
               I&apos;ve saved it
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+          </Group>
+        </Stack>
+      </Modal>
+    </Stack>
   );
 }

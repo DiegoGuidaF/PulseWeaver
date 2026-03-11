@@ -1,15 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Button, Stack, TextInput } from "@mantine/core";
 import { useLogin } from "@/features/auth/hooks/useLogin";
 import { zAuthRequest } from "@/lib/api/zod.gen";
 import type { z } from "zod";
@@ -32,46 +23,29 @@ export function LoginForm() {
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="username"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Username</FormLabel>
-              <FormControl>
-                <Input placeholder="Enter your username" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+    <form onSubmit={form.handleSubmit(onSubmit)}>
+      <Stack gap="md">
+        <TextInput
+          label="Username"
+          placeholder="Enter your username"
+          error={form.formState.errors.username?.message}
+          {...form.register("username")}
         />
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Password</FormLabel>
-              <FormControl>
-                <Input
-                  type="password"
-                  placeholder="Enter your password"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+        <TextInput
+          label="Password"
+          type="password"
+          placeholder="Enter your password"
+          error={form.formState.errors.password?.message}
+          {...form.register("password")}
         />
         <Button
           type="submit"
-          className="w-full"
+          fullWidth
           disabled={loginMutation.isPending}
         >
           {loginMutation.isPending ? "Signing in..." : "Sign in"}
         </Button>
-      </form>
-    </Form>
+      </Stack>
+    </form>
   );
 }
