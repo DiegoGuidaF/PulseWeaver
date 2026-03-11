@@ -119,7 +119,8 @@ export const CreateDeviceResponseSchema = {
     },
     api_key: {
       type: "string",
-      description: "Secret key for the device; only returned on creation.",
+      description:
+        "Secret key for the device; only returned on creation or regeneration.",
     },
   },
 } as const;
@@ -362,7 +363,8 @@ export const CreateDeviceResponseWritableSchema = {
     },
     api_key: {
       type: "string",
-      description: "Secret key for the device; only returned on creation.",
+      description:
+        "Secret key for the device; only returned on creation or regeneration.",
     },
   },
 } as const;

@@ -22,6 +22,7 @@ export {
   logout,
   type Options,
   putDeviceAddressLeaseRule,
+  regenerateDeviceApiKey,
   updateMe,
 } from "./sdk.gen";
 export {
@@ -144,6 +145,11 @@ export {
   type PutDeviceAddressLeaseRuleRequest,
   type PutDeviceAddressLeaseRuleResponse,
   type PutDeviceAddressLeaseRuleResponses,
+  type RegenerateDeviceApiKeyData,
+  type RegenerateDeviceApiKeyError,
+  type RegenerateDeviceApiKeyErrors,
+  type RegenerateDeviceApiKeyResponse,
+  type RegenerateDeviceApiKeyResponses,
   type UpdateMeData,
   type UpdateMeError,
   type UpdateMeErrors,

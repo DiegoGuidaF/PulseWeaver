@@ -18,6 +18,7 @@ import {
   listUsersResponseTransformer,
   loginResponseTransformer,
   putDeviceAddressLeaseRuleResponseTransformer,
+  regenerateDeviceApiKeyResponseTransformer,
   updateMeResponseTransformer,
 } from "./transformers.gen";
 import type {
@@ -80,6 +81,9 @@ import type {
   PutDeviceAddressLeaseRuleData,
   PutDeviceAddressLeaseRuleErrors,
   PutDeviceAddressLeaseRuleResponses,
+  RegenerateDeviceApiKeyData,
+  RegenerateDeviceApiKeyErrors,
+  RegenerateDeviceApiKeyResponses,
   UpdateMeData,
   UpdateMeErrors,
   UpdateMeResponses,
@@ -125,6 +129,8 @@ import {
   zLogoutResponse,
   zPutDeviceAddressLeaseRuleData,
   zPutDeviceAddressLeaseRuleResponse,
+  zRegenerateDeviceApiKeyData,
+  zRegenerateDeviceApiKeyResponse,
   zUpdateMeData,
   zUpdateMeResponse,
 } from "./zod.gen";
@@ -512,6 +518,36 @@ export const getDevice = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/devices/{device_id}",
+    ...options,
+  });
+
+/**
+ * Regenerate device API key
+ *
+ * Generates a new API key for the device, immediately invalidating the old one. The raw key is returned once. Admin-only.
+ *
+ */
+export const regenerateDeviceApiKey = <ThrowOnError extends boolean = false>(
+  options: Options<RegenerateDeviceApiKeyData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    RegenerateDeviceApiKeyResponses,
+    RegenerateDeviceApiKeyErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await zRegenerateDeviceApiKeyData.parseAsync(data),
+    responseTransformer: regenerateDeviceApiKeyResponseTransformer,
+    responseValidator: async (data) =>
+      await zRegenerateDeviceApiKeyResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/devices/{device_id}/api-key/regenerate",
     ...options,
   });
 

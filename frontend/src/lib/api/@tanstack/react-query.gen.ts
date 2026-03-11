@@ -29,6 +29,7 @@ import {
   logout,
   type Options,
   putDeviceAddressLeaseRule,
+  regenerateDeviceApiKey,
   updateMe,
 } from "../sdk.gen";
 import type {
@@ -91,6 +92,9 @@ import type {
   PutDeviceAddressLeaseRuleData,
   PutDeviceAddressLeaseRuleError,
   PutDeviceAddressLeaseRuleResponse,
+  RegenerateDeviceApiKeyData,
+  RegenerateDeviceApiKeyError,
+  RegenerateDeviceApiKeyResponse,
   UpdateMeData,
   UpdateMeError,
   UpdateMeResponse,
@@ -496,6 +500,36 @@ export const getDeviceOptions = (options: Options<GetDeviceData>) =>
     },
     queryKey: getDeviceQueryKey(options),
   });
+
+/**
+ * Regenerate device API key
+ *
+ * Generates a new API key for the device, immediately invalidating the old one. The raw key is returned once. Admin-only.
+ *
+ */
+export const regenerateDeviceApiKeyMutation = (
+  options?: Partial<Options<RegenerateDeviceApiKeyData>>,
+): UseMutationOptions<
+  RegenerateDeviceApiKeyResponse,
+  RegenerateDeviceApiKeyError,
+  Options<RegenerateDeviceApiKeyData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    RegenerateDeviceApiKeyResponse,
+    RegenerateDeviceApiKeyError,
+    Options<RegenerateDeviceApiKeyData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await regenerateDeviceApiKey({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 export const getDeviceAddressesQueryKey = (
   options: Options<GetDeviceAddressesData>,

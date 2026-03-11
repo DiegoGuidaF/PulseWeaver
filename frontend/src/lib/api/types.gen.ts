@@ -49,7 +49,7 @@ export type DeviceHeartbeatByApiKeyRequest = {
 export type CreateDeviceResponse = {
   device: Device;
   /**
-   * Secret key for the device; only returned on creation.
+   * Secret key for the device; only returned on creation or regeneration.
    */
   api_key: string;
 };
@@ -162,7 +162,7 @@ export type Id = number;
 export type CreateDeviceResponseWritable = {
   device: DeviceWritable;
   /**
-   * Secret key for the device; only returned on creation.
+   * Secret key for the device; only returned on creation or regeneration.
    */
   api_key: string;
 };
@@ -623,6 +623,42 @@ export type GetDeviceResponses = {
 };
 
 export type GetDeviceResponse = GetDeviceResponses[keyof GetDeviceResponses];
+
+export type RegenerateDeviceApiKeyData = {
+  body?: never;
+  path: {
+    /**
+     * Device id
+     */
+    device_id: Id;
+  };
+  query?: never;
+  url: "/devices/{device_id}/api-key/regenerate";
+};
+
+export type RegenerateDeviceApiKeyErrors = {
+  /**
+   * Device not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type RegenerateDeviceApiKeyError =
+  RegenerateDeviceApiKeyErrors[keyof RegenerateDeviceApiKeyErrors];
+
+export type RegenerateDeviceApiKeyResponses = {
+  /**
+   * New API key generated successfully
+   */
+  200: CreateDeviceResponse;
+};
+
+export type RegenerateDeviceApiKeyResponse =
+  RegenerateDeviceApiKeyResponses[keyof RegenerateDeviceApiKeyResponses];
 
 export type GetDeviceAddressesData = {
   body?: never;

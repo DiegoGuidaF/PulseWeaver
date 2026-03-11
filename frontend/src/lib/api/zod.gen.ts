@@ -314,6 +314,19 @@ export const zGetDeviceData = z.object({
  */
 export const zGetDeviceResponse = zDevice;
 
+export const zRegenerateDeviceApiKeyData = z.object({
+  body: z.never().optional(),
+  path: z.object({
+    device_id: zId,
+  }),
+  query: z.never().optional(),
+});
+
+/**
+ * New API key generated successfully
+ */
+export const zRegenerateDeviceApiKeyResponse = zCreateDeviceResponse;
+
 export const zGetDeviceAddressesData = z.object({
   body: z.never().optional(),
   path: z.object({

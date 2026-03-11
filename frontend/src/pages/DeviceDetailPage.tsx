@@ -1,11 +1,35 @@
+import { useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useDevice } from "@/features/devices/hooks/useDevice";
+import { useRegenerateApiKey } from "@/features/devices/hooks/useRegenerateApiKey";
 import { DeviceAddressesTab } from "@/features/devices/DeviceAddressesTab";
 import { DeviceSettingsTab } from "@/features/devices/DeviceSettingsTab";
 import { toErrorMessage } from "@/lib/api-client";
+import { toast } from "sonner";
 
 type DeviceDetailRouteParams = {
   deviceId?: string;
@@ -19,9 +43,41 @@ export function DeviceDetailPage() {
     : Number.NaN;
 
   const { data: device, isLoading, isError, error } = useDevice(deviceId);
+  const regenerateApiKey = useRegenerateApiKey();
+
+  const [regeneratedApiKey, setRegeneratedApiKey] = useState<string | null>(
+    null,
+  );
 
   if (!deviceIdParam || Number.isNaN(deviceId)) {
     return <Navigate to="/devices" replace />;
+  }
+
+  async function handleCopyRegeneratedKey() {
+    if (!regeneratedApiKey) return;
+
+    if (!("clipboard" in navigator) || !navigator.clipboard?.writeText) {
+      toast.error("Copy to clipboard is not supported in this browser.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(regeneratedApiKey);
+      toast.success("Copied to clipboard");
+    } catch {
+      toast.error("Failed to copy API key");
+    }
+  }
+
+  function handleConfirmRegenerate() {
+    regenerateApiKey.mutate(
+      { path: { device_id: deviceId } },
+      {
+        onSuccess: (data) => {
+          setRegeneratedApiKey(data.api_key);
+        },
+      },
+    );
   }
 
   let headerContent: React.ReactNode;
@@ -44,6 +100,38 @@ export function DeviceDetailPage() {
           <span className="font-mono text-xs md:text-sm">
             {device.api_key_prefix}
           </span>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="ml-1 h-5 w-5"
+                title="Regenerate API key"
+                disabled={regenerateApiKey.isPending}
+              >
+                <RefreshCw className="h-3 w-3" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Regenerate API key for &ldquo;{device.name}&rdquo;?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  The current key (
+                  <span className="font-mono">{device.api_key_prefix}&hellip;</span>
+                  ) will stop working immediately. You will need to update any
+                  scripts or services using this device.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmRegenerate}>
+                  Regenerate
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </p>
       </div>
     );
@@ -91,6 +179,60 @@ export function DeviceDetailPage() {
           <DeviceSettingsTab deviceId={deviceId} />
         </TabsContent>
       </Tabs>
+
+      {/* One-time key display dialog after successful regeneration */}
+      <Dialog
+        open={regeneratedApiKey !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRegeneratedApiKey(null);
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>API key regenerated — save your new key</DialogTitle>
+            <DialogDescription>
+              This API key is shown only once. Copy it now and store it
+              securely. The old key is no longer valid.
+            </DialogDescription>
+          </DialogHeader>
+          {regeneratedApiKey && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">New API key</p>
+                <div className="flex gap-2">
+                  <Input
+                    readOnly
+                    value={regeneratedApiKey}
+                    className="font-mono"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCopyRegeneratedKey}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                You will not be able to see this full API key again. Make sure
+                you have stored it securely.
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" onClick={() => setRegeneratedApiKey(null)}>
+              I&apos;ve saved it
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

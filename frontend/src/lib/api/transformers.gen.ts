@@ -16,6 +16,7 @@ import type {
   ListUsersResponse,
   LoginResponse,
   PutDeviceAddressLeaseRuleResponse,
+  RegenerateDeviceApiKeyResponse,
   UpdateMeResponse,
 } from "./types.gen";
 
@@ -94,6 +95,13 @@ export const getDeviceResponseTransformer = async (
   data: any,
 ): Promise<GetDeviceResponse> => {
   data = deviceSchemaResponseTransformer(data);
+  return data;
+};
+
+export const regenerateDeviceApiKeyResponseTransformer = async (
+  data: any,
+): Promise<RegenerateDeviceApiKeyResponse> => {
+  data = createDeviceResponseSchemaResponseTransformer(data);
   return data;
 };
 
