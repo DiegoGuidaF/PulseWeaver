@@ -9,7 +9,9 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import App from "./App";
 import { getCurrentUserQueryKey } from "@/lib/api/@tanstack/react-query.gen";
 import "./lib/api-client/config"; // Initialize API client configuration
-import "./index.css";
+import "@mantine/core/styles.css";
+import "@mantine/dates/styles.css";
+import "@mantine/notifications/styles.css";
 
 // Helper to check if error is 401 and handle redirect
 function handle401Error(error: unknown, isAuthMeQuery = false) {

@@ -1,7 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { Toaster } from "sonner";
+import { MantineProvider } from "@mantine/core";
+import { Notifications } from "@mantine/notifications";
 import { AppShell } from "./components/layout/AppShell";
-import { ThemeProvider } from "./components/theme-provider";
 import { AppErrorBoundary } from "./components/ErrorBoundary";
 import { AuthProvider } from "./features/auth/AuthContext";
 import { ProtectedRoute } from "./features/auth/ProtectedRoute";
@@ -10,10 +10,12 @@ import { DeviceDetailPage } from "./pages/DeviceDetailPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { theme } from "./lib/theme";
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system">
+    <MantineProvider theme={theme} defaultColorScheme="auto">
+      <Notifications />
       <BrowserRouter>
         <AuthProvider>
           <AppErrorBoundary>
@@ -56,10 +58,9 @@ function App() {
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </AppErrorBoundary>
-          <Toaster />
         </AuthProvider>
       </BrowserRouter>
-    </ThemeProvider>
+    </MantineProvider>
   );
 }
 
