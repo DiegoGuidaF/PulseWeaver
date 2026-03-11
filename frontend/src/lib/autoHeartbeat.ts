@@ -2,6 +2,7 @@ const SETTINGS_KEY = 'wallydic_auto_heartbeat';
 const CLIENT_IP_KEY = 'wallydic_client_ip';
 
 export const CLIENT_IP_EVENT = 'wallydic:client-ip-updated';
+export const SETTINGS_EVENT = 'wallydic:settings-updated';
 
 export interface AutoHeartbeatSettings {
   deviceId: number;
@@ -19,12 +20,12 @@ export function getAutoHeartbeatSettings(): AutoHeartbeatSettings | null {
 
 export function setAutoHeartbeatSettings(s: AutoHeartbeatSettings): void {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
-  window.dispatchEvent(new Event('storage'));
+  window.dispatchEvent(new Event(SETTINGS_EVENT));
 }
 
 export function clearAutoHeartbeatSettings(): void {
   localStorage.removeItem(SETTINGS_KEY);
-  window.dispatchEvent(new Event('storage'));
+  window.dispatchEvent(new Event(SETTINGS_EVENT));
 }
 
 export function getStoredClientIp(): string | null {

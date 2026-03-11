@@ -1,22 +1,4 @@
 import { useEffect, useState } from "react";
-
-const REFRESH_OPTIONS = [
-  { label: "Off", value: 0 },
-  { label: "1s", value: 1_000 },
-  { label: "5s", value: 5_000 },
-  { label: "15s", value: 15_000 },
-  { label: "30s", value: 30_000 },
-  { label: "1 min", value: 60_000 },
-  { label: "5 min", value: 300_000 },
-] as const;
-
-const AUTO_HB_INTERVAL_OPTIONS = [
-  { label: "30s", value: 30 },
-  { label: "1m", value: 60 },
-  { label: "5m", value: 300 },
-  { label: "15m", value: 900 },
-] as const;
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -54,6 +36,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import type { Address } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { zAddAddressRequest } from "@/lib/api/zod.gen";
@@ -67,7 +50,25 @@ import {
   clearAutoHeartbeatSettings,
   getStoredClientIp,
   CLIENT_IP_EVENT,
+  SETTINGS_EVENT,
 } from "@/lib/autoHeartbeat";
+
+const REFRESH_OPTIONS = [
+  { label: "Off", value: 0 },
+  { label: "1s", value: 1_000 },
+  { label: "5s", value: 5_000 },
+  { label: "15s", value: 15_000 },
+  { label: "30s", value: 30_000 },
+  { label: "1 min", value: 60_000 },
+  { label: "5 min", value: 300_000 },
+] as const;
+
+const AUTO_HB_INTERVAL_OPTIONS = [
+  { label: "30s", value: 30 },
+  { label: "1m", value: 60 },
+  { label: "5m", value: 300 },
+  { label: "15m", value: 900 },
+] as const;
 
 const addressSchema = zAddAddressRequest;
 
@@ -102,13 +103,15 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
   );
 
   useEffect(() => {
-    const onStorage = () => setAhSettings(getAutoHeartbeatSettings());
+    const onSettings = () => setAhSettings(getAutoHeartbeatSettings());
     const onClientIp = (e: Event) =>
       setAutoClientIp((e as CustomEvent<string>).detail);
-    window.addEventListener('storage', onStorage);
+    window.addEventListener(SETTINGS_EVENT, onSettings);
+    window.addEventListener('storage', onSettings);
     window.addEventListener(CLIENT_IP_EVENT, onClientIp);
     return () => {
-      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(SETTINGS_EVENT, onSettings);
+      window.removeEventListener('storage', onSettings);
       window.removeEventListener(CLIENT_IP_EVENT, onClientIp);
     };
   }, []);
@@ -188,12 +191,10 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
         <CardContent>
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-3">
-              <input
+              <Switch
                 id="auto-heartbeat-toggle"
-                type="checkbox"
                 checked={isActive}
-                onChange={(e) => handleToggle(e.target.checked)}
-                className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
+                onCheckedChange={handleToggle}
               />
               <Label htmlFor="auto-heartbeat-toggle" className="cursor-pointer">
                 Automatically send heartbeat while this tab is open
