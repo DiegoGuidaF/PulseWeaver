@@ -18,6 +18,8 @@ export const endpoints = {
     authLogin: `${BASE}/auth/login`,
     adminUsers: `${BASE}/admin/users`,
     adminUserById: `${BASE}/admin/users/:userId`,
+    promoteUser: `${BASE}/admin/users/:userId/promote`,
+    demoteUser: `${BASE}/admin/users/:userId/demote`,
     updateMe: `${BASE}/users/me`,
     changePassword: `${BASE}/users/me/password`,
 } as const;
@@ -83,10 +85,15 @@ export const authHandlers = {
         success: () =>
             http.post(endpoints.changePassword, () => responses.noContent()),
     },
-    adminUpdateUser: {
+    promoteUser: {
         success: (override?: Partial<User>) =>
-            http.patch(endpoints.adminUserById, () =>
-                HttpResponse.json({ ...createMockUser(), ...override })),
+            http.post(endpoints.promoteUser, () =>
+                HttpResponse.json({ ...createMockUser({ role: 'admin' }), ...override })),
+    },
+    demoteUser: {
+        success: (override?: Partial<User>) =>
+            http.post(endpoints.demoteUser, () =>
+                HttpResponse.json({ ...createMockUser({ role: 'user' }), ...override })),
     },
     deleteUser: {
         success: () =>
@@ -201,7 +208,8 @@ export const defaultHandlers = [
     authHandlers.listUsers.success(),
     authHandlers.updateMe.success(),
     authHandlers.changePassword.success(),
-    authHandlers.adminUpdateUser.success(),
+    authHandlers.promoteUser.success(),
+    authHandlers.demoteUser.success(),
     authHandlers.deleteUser.success(),
     // Devices
     deviceHandlers.list(),

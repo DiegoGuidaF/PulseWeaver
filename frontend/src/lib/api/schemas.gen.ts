@@ -26,15 +26,6 @@ export const CreateUserRequestSchema = {
     }
 } as const;
 
-export const AdminUpdateUserRequestSchema = {
-    type: 'object',
-    properties: {
-        role: {
-            $ref: '#/components/schemas/UserRole'
-        }
-    }
-} as const;
-
 export const AuthRequestSchema = {
     type: 'object',
     required: [
@@ -53,6 +44,23 @@ export const AuthRequestSchema = {
 
 export const UpdateProfileRequestSchema = {
     type: 'object',
+    anyOf: [
+        {
+            required: [
+                'display_name'
+            ]
+        },
+        {
+            required: [
+                'username'
+            ]
+        },
+        {
+            required: [
+                'email'
+            ]
+        }
+    ],
     properties: {
         display_name: {
             $ref: '#/components/schemas/DisplayName'
@@ -158,6 +166,7 @@ export const UserSchema = {
         'id',
         'username',
         'display_name',
+        'email',
         'role',
         'must_change_password',
         'created_at'
@@ -406,6 +415,7 @@ export const UserWritableSchema = {
         'id',
         'username',
         'display_name',
+        'email',
         'created_at'
     ],
     properties: {

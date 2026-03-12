@@ -1,13 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { http } from 'msw';
-import React from 'react';
-import { server } from '@/test/setup';
-import { authHandlers, endpoints, responses } from '@/test/mocks/handlers';
-import { createMockUser } from '@/test/mocks/data';
-import { getCurrentUserQueryKey, listUsersQueryKey } from '@/lib/api/@tanstack/react-query.gen';
-import { useAdminUpdateUser } from './useAdminUpdateUser';
+import { describe, expect, it } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { http } from "msw";
+import React from "react";
+import { server } from "@/test/setup";
+import { authHandlers, endpoints, responses } from "@/test/mocks/handlers";
+import { createMockUser } from "@/test/mocks/data";
+import { getCurrentUserQueryKey, listUsersQueryKey } from "@/lib/api/@tanstack/react-query.gen";
+import { usePromoteUser } from "./usePromoteUser";
 
 function createWrapper() {
     const queryClient = new QueryClient({
@@ -23,21 +23,18 @@ function createWrapper() {
     return { queryClient, Wrapper };
 }
 
-describe('useAdminUpdateUser', () => {
+describe('usePromoteUser', () => {
     it('invalidates user list and current user on success', async () => {
-        server.use(
-            authHandlers.adminUpdateUser.success({ role: 'admin' }),
-            // authHandlers.listUsers.success() and authHandlers.me.success() are in defaultHandlers
-        );
+        server.use(authHandlers.promoteUser.success());
 
         const { queryClient, Wrapper } = createWrapper();
         queryClient.setQueryData(listUsersQueryKey(), [createMockUser()]);
         queryClient.setQueryData(getCurrentUserQueryKey(), createMockUser());
 
-        const { result } = renderHook(() => useAdminUpdateUser(), { wrapper: Wrapper });
+        const { result } = renderHook(() => usePromoteUser(), { wrapper: Wrapper });
 
         act(() => {
-            result.current.mutate({ path: { user_id: 2 }, body: { role: 'admin' } });
+            result.current.mutate({ path: { user_id: 2 } });
         });
 
         await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -48,16 +45,16 @@ describe('useAdminUpdateUser', () => {
 
     it('enters error state on failure', async () => {
         server.use(
-            http.patch(endpoints.adminUserById, () =>
+            http.post(endpoints.promoteUser, () =>
                 responses.forbidden({ error: 'Forbidden role change' })
             )
         );
 
         const { Wrapper } = createWrapper();
-        const { result } = renderHook(() => useAdminUpdateUser(), { wrapper: Wrapper });
+        const { result } = renderHook(() => usePromoteUser(), { wrapper: Wrapper });
 
         act(() => {
-            result.current.mutate({ path: { user_id: 1 }, body: { role: 'user' } });
+            result.current.mutate({ path: { user_id: 1 } });
         });
 
         await waitFor(() => expect(result.current.isError).toBe(true));

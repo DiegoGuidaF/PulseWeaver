@@ -11,16 +11,12 @@ export type CreateUserRequest = {
     password: Password;
 };
 
-export type AdminUpdateUserRequest = {
-    role?: UserRole;
-};
-
 export type AuthRequest = {
     username: Username;
     password: Password;
 };
 
-export type UpdateProfileRequest = {
+export type UpdateProfileRequest = unknown & {
     display_name?: DisplayName;
     username?: string;
     email?: string;
@@ -62,7 +58,7 @@ export type User = {
     id: Id;
     username: Username;
     display_name: DisplayName;
-    email?: string;
+    email: string;
     role: UserRole;
     /**
      * When true, the user must change their password before using the app.
@@ -171,7 +167,7 @@ export type UserWritable = {
     id: Id;
     username: Username;
     display_name: DisplayName;
-    email?: string;
+    email: string;
     created_at: Date;
 };
 
@@ -212,6 +208,10 @@ export type ListUsersData = {
 
 export type ListUsersErrors = {
     /**
+     * Invalid credentials
+     */
+    401: ErrorResponse;
+    /**
      * Forbidden - Only admins can list users
      */
     403: unknown;
@@ -244,6 +244,10 @@ export type CreateUserErrors = {
      * Bad Request
      */
     400: ErrorResponse;
+    /**
+     * Invalid credentials
+     */
+    401: ErrorResponse;
     /**
      * Forbidden - Only admins can create users
      */
@@ -280,7 +284,11 @@ export type DeleteUserData = {
 
 export type DeleteUserErrors = {
     /**
-     * Forbidden - cannot delete self or last admin
+     * Invalid credentials
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden - cannot delete self
      */
     403: ErrorResponse;
     /**
@@ -304,22 +312,22 @@ export type DeleteUserResponses = {
 
 export type DeleteUserResponse = DeleteUserResponses[keyof DeleteUserResponses];
 
-export type AdminUpdateUserData = {
-    body: AdminUpdateUserRequest;
+export type PromoteUserData = {
+    body?: never;
     path: {
         user_id: Id;
     };
     query?: never;
-    url: '/admin/users/{user_id}';
+    url: '/admin/users/{user_id}/promote';
 };
 
-export type AdminUpdateUserErrors = {
+export type PromoteUserErrors = {
     /**
-     * Bad Request
+     * Invalid credentials
      */
-    400: ErrorResponse;
+    401: ErrorResponse;
     /**
-     * Forbidden - self role change or last admin lockout
+     * Forbidden - admin credentials required or self-promotion attempted
      */
     403: ErrorResponse;
     /**
@@ -332,16 +340,55 @@ export type AdminUpdateUserErrors = {
     500: ErrorResponse;
 };
 
-export type AdminUpdateUserError = AdminUpdateUserErrors[keyof AdminUpdateUserErrors];
+export type PromoteUserError = PromoteUserErrors[keyof PromoteUserErrors];
 
-export type AdminUpdateUserResponses = {
+export type PromoteUserResponses = {
     /**
-     * User updated successfully
+     * User promoted successfully
      */
     200: User;
 };
 
-export type AdminUpdateUserResponse = AdminUpdateUserResponses[keyof AdminUpdateUserResponses];
+export type PromoteUserResponse = PromoteUserResponses[keyof PromoteUserResponses];
+
+export type DemoteUserData = {
+    body?: never;
+    path: {
+        user_id: Id;
+    };
+    query?: never;
+    url: '/admin/users/{user_id}/demote';
+};
+
+export type DemoteUserErrors = {
+    /**
+     * Invalid credentials
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden - admin credentials required, self-demotion
+     */
+    403: ErrorResponse;
+    /**
+     * User not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type DemoteUserError = DemoteUserErrors[keyof DemoteUserErrors];
+
+export type DemoteUserResponses = {
+    /**
+     * User demoted successfully
+     */
+    200: User;
+};
+
+export type DemoteUserResponse = DemoteUserResponses[keyof DemoteUserResponses];
 
 export type LoginData = {
     body: AuthRequest;

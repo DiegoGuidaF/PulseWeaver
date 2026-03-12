@@ -17,7 +17,8 @@ import {
 import { notifications } from "@mantine/notifications";
 import { useAuth } from "@/features/auth/AuthContext";
 import { toApiError, toErrorMessage } from "@/lib/api-client";
-import { useAdminUpdateUser } from "@/features/auth/hooks/useAdminUpdateUser";
+import { useDemoteUser } from "@/features/auth/hooks/useDemoteUser";
+import { usePromoteUser } from "@/features/auth/hooks/usePromoteUser";
 import { useChangePassword } from "@/features/auth/hooks/useChangePassword";
 import { useDeleteUser } from "@/features/auth/hooks/useDeleteUser";
 import { useListUsers } from "@/features/auth/hooks/useListUsers";
@@ -40,7 +41,8 @@ export function SettingsPage() {
   const updateMe = useUpdateMe();
   const changePassword = useChangePassword();
   const listUsers = useListUsers({ enabled: user?.role === UserRole.ADMIN });
-  const adminUpdateUser = useAdminUpdateUser();
+  const promoteUser = usePromoteUser();
+  const demoteUser = useDemoteUser();
   const deleteUser = useDeleteUser();
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; username: string } | null>(null);
 
@@ -114,9 +116,9 @@ export function SettingsPage() {
   }
 
   function handleRoleToggle(targetUserId: number, currentRole: string) {
-    const nextRole = currentRole === UserRole.ADMIN ? UserRole.USER : UserRole.ADMIN;
-    adminUpdateUser.mutate(
-      { path: { user_id: targetUserId }, body: { role: nextRole } },
+    const mutation = currentRole === UserRole.ADMIN ? demoteUser : promoteUser;
+    mutation.mutate(
+      { path: { user_id: targetUserId } },
       {
         onSuccess: () => notifications.show({ color: "green", message: "User updated" }),
         onError: (err) =>
@@ -274,7 +276,7 @@ export function SettingsPage() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            disabled={isSelf || adminUpdateUser.isPending}
+                            disabled={isSelf || promoteUser.isPending || demoteUser.isPending}
                             onClick={() => handleRoleToggle(adminUser.id, adminUser.role)}
                           >
                             {isAdmin ? "Demote to user" : "Promote to admin"}

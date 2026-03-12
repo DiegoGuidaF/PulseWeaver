@@ -29,20 +29,16 @@ export const zUsername = z.string().min(3).max(32).regex(/^[a-z0-9_-]+$/);
  */
 export const zUserRole = z.enum(['admin', 'user']);
 
-export const zAdminUpdateUserRequest = z.object({
-    role: zUserRole.optional()
-});
-
 /**
  * User's public name. Unicode allowed.
  */
 export const zDisplayName = z.string().min(1).max(50);
 
-export const zUpdateProfileRequest = z.object({
+export const zUpdateProfileRequest = z.intersection(z.unknown(), z.object({
     display_name: zDisplayName.optional(),
     username: z.string().min(3).max(32).regex(/^[a-z0-9_-]+$/).optional(),
     email: z.email().optional()
-});
+}));
 
 export const zPassword = z.string().min(8).max(72);
 
@@ -80,7 +76,7 @@ export const zUser = z.object({
     id: zId,
     username: zUsername,
     display_name: zDisplayName,
-    email: z.email().optional(),
+    email: z.email(),
     role: zUserRole,
     must_change_password: z.boolean().readonly(),
     created_at: z.iso.datetime({ offset: true, local: true })
@@ -122,7 +118,7 @@ export const zUserWritable = z.object({
     id: zId,
     username: zUsername,
     display_name: zDisplayName,
-    email: z.email().optional(),
+    email: z.email(),
     created_at: z.iso.datetime({ offset: true, local: true })
 });
 
@@ -182,8 +178,8 @@ export const zDeleteUserData = z.object({
  */
 export const zDeleteUserResponse = z.void();
 
-export const zAdminUpdateUserData = z.object({
-    body: zAdminUpdateUserRequest,
+export const zPromoteUserData = z.object({
+    body: z.never().optional(),
     path: z.object({
         user_id: zId
     }),
@@ -191,9 +187,22 @@ export const zAdminUpdateUserData = z.object({
 });
 
 /**
- * User updated successfully
+ * User promoted successfully
  */
-export const zAdminUpdateUserResponse = zUser;
+export const zPromoteUserResponse = zUser;
+
+export const zDemoteUserData = z.object({
+    body: z.never().optional(),
+    path: z.object({
+        user_id: zId
+    }),
+    query: z.never().optional()
+});
+
+/**
+ * User demoted successfully
+ */
+export const zDemoteUserResponse = zUser;
 
 export const zLoginData = z.object({
     body: zAuthRequest,

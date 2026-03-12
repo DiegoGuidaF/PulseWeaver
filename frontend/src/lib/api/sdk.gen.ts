@@ -2,9 +2,9 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import { addAddressResponseTransformer, adminUpdateUserResponseTransformer, createDeviceResponseTransformer, createUserResponseTransformer, deviceHeartbeatByApiKeyResponseTransformer, deviceHeartbeatResponseTransformer, disableAddressResponseTransformer, getCurrentUserResponseTransformer, getDeviceAddressesResponseTransformer, getDeviceAddressLeaseRuleResponseTransformer, getDeviceResponseTransformer, getDevicesResponseTransformer, listUsersResponseTransformer, loginResponseTransformer, putDeviceAddressLeaseRuleResponseTransformer, regenerateDeviceApiKeyResponseTransformer, updateMeResponseTransformer } from './transformers.gen';
-import type { AddAddressData, AddAddressErrors, AddAddressResponses, AdminUpdateUserData, AdminUpdateUserErrors, AdminUpdateUserResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CreateDeviceData, CreateDeviceErrors, CreateDeviceResponses, CreateUserData, CreateUserErrors, CreateUserResponses, DeleteDeviceData, DeleteDeviceErrors, DeleteDeviceResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyErrors, DeviceHeartbeatByApiKeyResponses, DeviceHeartbeatData, DeviceHeartbeatErrors, DeviceHeartbeatResponses, DisableAddressData, DisableAddressErrors, DisableAddressResponses, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleErrors, DisableDeviceAddressLeaseRuleResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetDeviceAddressesData, GetDeviceAddressesErrors, GetDeviceAddressesResponses, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleErrors, GetDeviceAddressLeaseRuleResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetDevicesData, GetDevicesErrors, GetDevicesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleErrors, PutDeviceAddressLeaseRuleResponses, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyErrors, RegenerateDeviceApiKeyResponses, UpdateMeData, UpdateMeErrors, UpdateMeResponses } from './types.gen';
-import { zAddAddressData, zAddAddressResponse, zAdminUpdateUserData, zAdminUpdateUserResponse, zChangePasswordData, zChangePasswordResponse, zCreateDeviceData, zCreateDeviceResponse2, zCreateUserData, zCreateUserResponse, zDeleteDeviceData, zDeleteDeviceResponse, zDeleteUserData, zDeleteUserResponse, zDeviceHeartbeatByApiKeyData, zDeviceHeartbeatByApiKeyResponse, zDeviceHeartbeatData, zDeviceHeartbeatResponse, zDisableAddressData, zDisableAddressResponse, zDisableDeviceAddressLeaseRuleData, zDisableDeviceAddressLeaseRuleResponse, zGetCurrentUserData, zGetCurrentUserResponse, zGetDeviceAddressesData, zGetDeviceAddressesResponse, zGetDeviceAddressLeaseRuleData, zGetDeviceAddressLeaseRuleResponse, zGetDeviceData, zGetDeviceResponse, zGetDevicesData, zGetDevicesResponse, zListUsersData, zListUsersResponse, zLoginData, zLoginResponse, zLogoutData, zLogoutResponse, zPutDeviceAddressLeaseRuleData, zPutDeviceAddressLeaseRuleResponse, zRegenerateDeviceApiKeyData, zRegenerateDeviceApiKeyResponse, zUpdateMeData, zUpdateMeResponse } from './zod.gen';
+import { addAddressResponseTransformer, createDeviceResponseTransformer, createUserResponseTransformer, demoteUserResponseTransformer, deviceHeartbeatByApiKeyResponseTransformer, deviceHeartbeatResponseTransformer, disableAddressResponseTransformer, getCurrentUserResponseTransformer, getDeviceAddressesResponseTransformer, getDeviceAddressLeaseRuleResponseTransformer, getDeviceResponseTransformer, getDevicesResponseTransformer, listUsersResponseTransformer, loginResponseTransformer, promoteUserResponseTransformer, putDeviceAddressLeaseRuleResponseTransformer, regenerateDeviceApiKeyResponseTransformer, updateMeResponseTransformer } from './transformers.gen';
+import type { AddAddressData, AddAddressErrors, AddAddressResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CreateDeviceData, CreateDeviceErrors, CreateDeviceResponses, CreateUserData, CreateUserErrors, CreateUserResponses, DeleteDeviceData, DeleteDeviceErrors, DeleteDeviceResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DemoteUserData, DemoteUserErrors, DemoteUserResponses, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyErrors, DeviceHeartbeatByApiKeyResponses, DeviceHeartbeatData, DeviceHeartbeatErrors, DeviceHeartbeatResponses, DisableAddressData, DisableAddressErrors, DisableAddressResponses, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleErrors, DisableDeviceAddressLeaseRuleResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetDeviceAddressesData, GetDeviceAddressesErrors, GetDeviceAddressesResponses, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleErrors, GetDeviceAddressLeaseRuleResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetDevicesData, GetDevicesErrors, GetDevicesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, PromoteUserData, PromoteUserErrors, PromoteUserResponses, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleErrors, PutDeviceAddressLeaseRuleResponses, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyErrors, RegenerateDeviceApiKeyResponses, UpdateMeData, UpdateMeErrors, UpdateMeResponses } from './types.gen';
+import { zAddAddressData, zAddAddressResponse, zChangePasswordData, zChangePasswordResponse, zCreateDeviceData, zCreateDeviceResponse2, zCreateUserData, zCreateUserResponse, zDeleteDeviceData, zDeleteDeviceResponse, zDeleteUserData, zDeleteUserResponse, zDemoteUserData, zDemoteUserResponse, zDeviceHeartbeatByApiKeyData, zDeviceHeartbeatByApiKeyResponse, zDeviceHeartbeatData, zDeviceHeartbeatResponse, zDisableAddressData, zDisableAddressResponse, zDisableDeviceAddressLeaseRuleData, zDisableDeviceAddressLeaseRuleResponse, zGetCurrentUserData, zGetCurrentUserResponse, zGetDeviceAddressesData, zGetDeviceAddressesResponse, zGetDeviceAddressLeaseRuleData, zGetDeviceAddressLeaseRuleResponse, zGetDeviceData, zGetDeviceResponse, zGetDevicesData, zGetDevicesResponse, zListUsersData, zListUsersResponse, zLoginData, zLoginResponse, zLogoutData, zLogoutResponse, zPromoteUserData, zPromoteUserResponse, zPutDeviceAddressLeaseRuleData, zPutDeviceAddressLeaseRuleResponse, zRegenerateDeviceApiKeyData, zRegenerateDeviceApiKeyResponse, zUpdateMeData, zUpdateMeResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -78,25 +78,39 @@ export const deleteUser = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
- * Update a user (Admin only)
+ * Promote a user to admin (Admin only)
  *
- * Admin updates another user's role.
+ * Promotes another user to the admin role. Cannot promote oneself.
  */
-export const adminUpdateUser = <ThrowOnError extends boolean = false>(options: Options<AdminUpdateUserData, ThrowOnError>) => (options.client ?? client).patch<AdminUpdateUserResponses, AdminUpdateUserErrors, ThrowOnError>({
-    requestValidator: async (data) => await zAdminUpdateUserData.parseAsync(data),
-    responseTransformer: adminUpdateUserResponseTransformer,
-    responseValidator: async (data) => await zAdminUpdateUserResponse.parseAsync(data),
+export const promoteUser = <ThrowOnError extends boolean = false>(options: Options<PromoteUserData, ThrowOnError>) => (options.client ?? client).post<PromoteUserResponses, PromoteUserErrors, ThrowOnError>({
+    requestValidator: async (data) => await zPromoteUserData.parseAsync(data),
+    responseTransformer: promoteUserResponseTransformer,
+    responseValidator: async (data) => await zPromoteUserResponse.parseAsync(data),
     security: [{
             in: 'cookie',
             name: '__Host-wdc_session',
             type: 'apiKey'
         }],
-    url: '/admin/users/{user_id}',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
+    url: '/admin/users/{user_id}/promote',
+    ...options
+});
+
+/**
+ * Demote an admin to regular user (Admin only)
+ *
+ * Demotes another admin to the user role. Cannot demote oneself.
+ */
+export const demoteUser = <ThrowOnError extends boolean = false>(options: Options<DemoteUserData, ThrowOnError>) => (options.client ?? client).post<DemoteUserResponses, DemoteUserErrors, ThrowOnError>({
+    requestValidator: async (data) => await zDemoteUserData.parseAsync(data),
+    responseTransformer: demoteUserResponseTransformer,
+    responseValidator: async (data) => await zDemoteUserResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/users/{user_id}/demote',
+    ...options
 });
 
 /**
