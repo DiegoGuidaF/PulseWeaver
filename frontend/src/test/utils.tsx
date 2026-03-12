@@ -9,7 +9,6 @@ import {
 } from 'react-router-dom';
 import { MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
-import { Toaster } from 'sonner';
 
 /**
  * Creates a test-friendly QueryClient with retry disabled for faster test failures.
@@ -36,9 +35,6 @@ interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper'> {
 /**
  * Renders a component with all necessary providers.
  * Wraps with MantineProvider, Notifications, QueryClientProvider, and MemoryRouter.
- *
- * <Toaster /> (sonner) is kept alongside <Notifications /> until all component
- * notification calls are migrated to @mantine/notifications in step 6.
  *
  * @param ui - The component to render
  * @param options - Optional configuration
@@ -72,7 +68,6 @@ export function renderWithProviders(
                 <QueryClientProvider client={queryClient}>
                     <MemoryRouter initialEntries={initialEntries}>
                         {children}
-                        <Toaster />
                     </MemoryRouter>
                 </QueryClientProvider>
             </MantineProvider>

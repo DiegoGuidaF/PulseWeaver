@@ -19,9 +19,11 @@ import {
     IconSun,
     IconMoon,
 } from "@tabler/icons-react";
+import { notifications } from "@mantine/notifications";
 import { useLogout } from "@/features/auth/hooks/useLogout";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useAutoHeartbeat } from "@/features/devices/hooks/useAutoHeartbeat";
+import { toErrorMessage } from "@/lib/api-client";
 
 const navItems = [
     { label: "Devices", href: "/devices", icon: IconServer },
@@ -126,7 +128,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <NavLink
                         label={logoutMutation.isPending ? "Logging out…" : "Logout"}
                         leftSection={<IconLogout size={18} stroke={1.5} />}
-                        onClick={() => logoutMutation.mutate({})}
+                        onClick={() => logoutMutation.mutate(
+                            {},
+                            {
+                                onError: (err) =>
+                                    notifications.show({ color: "red", title: "Logout failed", message: toErrorMessage(err) }),
+                            },
+                        )}
                         disabled={logoutMutation.isPending}
                         color="red"
                     />

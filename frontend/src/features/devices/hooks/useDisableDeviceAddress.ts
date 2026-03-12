@@ -3,8 +3,6 @@ import {
   disableAddressMutation,
   getDeviceAddressesQueryKey,
 } from "@/lib/api/@tanstack/react-query.gen";
-import { toErrorMessage } from "@/lib/api-client";
-import { toast } from "sonner";
 
 export function useDisableDeviceAddress() {
   const queryClient = useQueryClient();
@@ -16,12 +14,6 @@ export function useDisableDeviceAddress() {
         queryKey: getDeviceAddressesQueryKey({
           path: { device_id: variables.path.device_id },
         }),
-      });
-      toast.success("Address disabled");
-    },
-    onError: (err) => {
-      toast.error("Error disabling address", {
-        description: toErrorMessage(err),
       });
     },
   });

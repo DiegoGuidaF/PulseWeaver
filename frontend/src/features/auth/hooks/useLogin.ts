@@ -4,8 +4,6 @@ import {
   getCurrentUserQueryKey,
   loginMutation,
 } from "@/lib/api/@tanstack/react-query.gen";
-import { toErrorMessage } from "@/lib/api-client";
-import { toast } from "sonner";
 
 export function useLogin() {
   const queryClient = useQueryClient();
@@ -20,14 +18,6 @@ export function useLogin() {
       const params = new URLSearchParams(window.location.search);
       const returnTo = params.get("returnTo") || "/devices";
       navigate(returnTo);
-      toast.success("Login successful", {
-        description: "You have been logged in successfully.",
-      });
-    },
-    onError: (err) => {
-      toast.error("Login failed", {
-        description: toErrorMessage(err),
-      });
     },
   });
 }

@@ -7,13 +7,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "happy-dom",
-    globalSetup: ["./src/test/globalSetup.ts"],
     setupFiles: ["./src/test/setup.ts"],
     css: true,
     testTimeout: 15000,
-    // No --localstorage-file: happy-dom supplies its own in-memory localStorage.
-    // Passing a shared file path caused SQLite "database is locked" errors when
-    // multiple Vitest workers initialised MSW's CookieStore concurrently.
   },
   resolve: {
     alias: {

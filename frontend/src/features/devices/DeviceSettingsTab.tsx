@@ -21,8 +21,9 @@ import { usePutDeviceAddressLeaseRule } from "@/features/devices/hooks/usePutDev
 import { useDisableDeviceAddressLeaseRule } from "@/features/devices/hooks/useDisableDeviceAddressLeaseRule";
 import { useRegenerateApiKey } from "@/features/devices/hooks/useRegenerateApiKey";
 
-const TTL_UNITS = ["seconds", "minutes", "days"] as const;
+const TTL_UNITS = ["seconds", "minutes", "hours", "days"] as const;
 const SECONDS_PER_MINUTE = 60;
+const SECONDS_PER_HOUR = 3600;
 const SECONDS_PER_DAY = 86400;
 
 type TtlUnit = (typeof TTL_UNITS)[number];
@@ -33,6 +34,8 @@ function toSeconds(value: number, unit: TtlUnit): number {
       return value;
     case "minutes":
       return value * SECONDS_PER_MINUTE;
+    case "hours":
+      return value * SECONDS_PER_HOUR;
     case "days":
       return value * SECONDS_PER_DAY;
     default: {
@@ -45,6 +48,9 @@ function toSeconds(value: number, unit: TtlUnit): number {
 function fromSeconds(ttlSeconds: number): { value: string; unit: TtlUnit } {
   if (ttlSeconds % SECONDS_PER_DAY === 0) {
     return { value: String(ttlSeconds / SECONDS_PER_DAY), unit: "days" };
+  }
+  if (ttlSeconds % SECONDS_PER_HOUR === 0) {
+    return { value: String(ttlSeconds / SECONDS_PER_HOUR), unit: "hours" };
   }
   if (ttlSeconds % SECONDS_PER_MINUTE === 0) {
     return { value: String(ttlSeconds / SECONDS_PER_MINUTE), unit: "minutes" };
@@ -68,9 +74,6 @@ function formatTtlLabel(ttlSeconds: number): string {
   return ttlSeconds === 1 ? "1 second" : `${ttlSeconds} seconds`;
 }
 
-// Stored as strings since TextInput type="number" emits string values.
-// zod4Resolver uses z.coerce.number() to validate; the submit handler
-// coerces to number before calling the API.
 type LeaseRuleFormValues = { value: string; unit: TtlUnit };
 
 const leaseRuleFormSchema = z.object({
@@ -83,7 +86,10 @@ interface DeviceSettingsTabProps {
   device?: { name: string; api_key_prefix: string };
 }
 
-export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) {
+export function DeviceSettingsTab({
+  deviceId,
+  device,
+}: DeviceSettingsTabProps) {
   const {
     data: rule,
     isLoading,
@@ -94,7 +100,9 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
   const disableRuleMutation = useDisableDeviceAddressLeaseRule(deviceId);
   const regenerateApiKey = useRegenerateApiKey();
 
-  const [regeneratedApiKey, setRegeneratedApiKey] = useState<string | null>(null);
+  const [regeneratedApiKey, setRegeneratedApiKey] = useState<string | null>(
+    null,
+  );
   const [confirmRegenOpen, setConfirmRegenOpen] = useState(false);
 
   const leaseRuleForm = useForm<LeaseRuleFormValues>({
@@ -109,7 +117,10 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
   async function handleCopyRegeneratedKey() {
     if (!regeneratedApiKey) return;
     if (!("clipboard" in navigator) || !navigator.clipboard?.writeText) {
-      notifications.show({ message: "Copy to clipboard is not supported in this browser.", color: "red" });
+      notifications.show({
+        message: "Copy to clipboard is not supported in this browser.",
+        color: "red",
+      });
       return;
     }
     try {
@@ -128,15 +139,32 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
           setConfirmRegenOpen(false);
           setRegeneratedApiKey(data.api_key);
         },
+        onError: (err) =>
+          notifications.show({ color: "red", message: toErrorMessage(err) }),
       },
     );
   }
 
   function handleLeaseRuleSubmit(values: LeaseRuleFormValues) {
-    putRuleMutation.mutate({
-      path: { device_id: deviceId },
-      body: { ttl_seconds: toSeconds(Number(values.value), values.unit) },
-    });
+    putRuleMutation.mutate(
+      {
+        path: { device_id: deviceId },
+        body: { ttl_seconds: toSeconds(Number(values.value), values.unit) },
+      },
+      {
+        onSuccess: () =>
+          notifications.show({
+            color: "green",
+            message: "Address lease rule saved",
+          }),
+        onError: (err) =>
+          notifications.show({
+            color: "red",
+            title: "Error",
+            message: toErrorMessage(err),
+          }),
+      },
+    );
     setEditing(false);
   }
 
@@ -167,7 +195,9 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
         <Card withBorder>
           <Group justify="space-between" gap="md">
             <Stack gap={4}>
-              <Text size="sm" fw={500}>API Key</Text>
+              <Text size="sm" fw={500}>
+                API Key
+              </Text>
               {device ? (
                 <Text ff="monospace" size="sm" c="dimmed">
                   {device.api_key_prefix}&hellip;
@@ -192,7 +222,9 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
       <Stack gap="sm">
         <Title order={5}>Rules</Title>
         <Card withBorder>
-          <Title order={4} mb="md">Auto-expiry rule</Title>
+          <Title order={4} mb="md">
+            Auto-expiry rule
+          </Title>
           {isLoading ? (
             <Stack gap={8}>
               <Skeleton height={16} width={160} />
@@ -207,12 +239,18 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
               {isOn && (
                 <Stack gap={4}>
                   <Text size="sm">
-                    Status: <Text component="span" fw={500}>Enabled</Text>
+                    Status:{" "}
+                    <Text component="span" fw={500}>
+                      Enabled
+                    </Text>
                   </Text>
                   {ttlLabel && (
                     <Text size="sm" c="dimmed">
                       Addresses will automatically expire after{" "}
-                      <Text component="span" fw={500}>{ttlLabel}</Text>.
+                      <Text component="span" fw={500}>
+                        {ttlLabel}
+                      </Text>
+                      .
                     </Text>
                   )}
                 </Stack>
@@ -221,7 +259,9 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
               {!isOn && (
                 <Text size="sm" c="dimmed">
                   Auto-expiry is currently{" "}
-                  <Text component="span" fw={500} c="var(--mantine-color-text)">disabled</Text>
+                  <Text component="span" fw={500} c="var(--mantine-color-text)">
+                    disabled
+                  </Text>
                   . Turn it on to automatically revoke stale addresses.
                 </Text>
               )}
@@ -241,7 +281,10 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
                     <NativeSelect
                       label="Unit"
                       w={128}
-                      data={TTL_UNITS.map((unit) => ({ label: unit, value: unit }))}
+                      data={TTL_UNITS.map((unit) => ({
+                        label: unit,
+                        value: unit,
+                      }))}
                       {...leaseRuleForm.getInputProps("unit")}
                     />
                     <Button type="submit" disabled={putRuleMutation.isPending}>
@@ -275,9 +318,22 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
                     color="red"
                     size="sm"
                     onClick={() =>
-                      disableRuleMutation.mutate({
-                        path: { device_id: deviceId },
-                      })
+                      disableRuleMutation.mutate(
+                        { path: { device_id: deviceId } },
+                        {
+                          onSuccess: () =>
+                            notifications.show({
+                              color: "green",
+                              message: "Address lease rule disabled",
+                            }),
+                          onError: (err) =>
+                            notifications.show({
+                              color: "red",
+                              title: "Error",
+                              message: toErrorMessage(err),
+                            }),
+                        },
+                      )
                     }
                     disabled={disableRuleMutation.isPending}
                   >
@@ -301,15 +357,20 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
       >
         <Text size="sm">
           The current key (
-          <Text component="span" ff="monospace">{device?.api_key_prefix}&hellip;</Text>
-          ) will stop working immediately. You will need to update any scripts or
-          services using this device.
+          <Text component="span" ff="monospace">
+            {device?.api_key_prefix}&hellip;
+          </Text>
+          ) will stop working immediately. You will need to update any scripts
+          or services using this device.
         </Text>
         <Group justify="flex-end" mt="md" gap="sm">
           <Button variant="outline" onClick={() => setConfirmRegenOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleConfirmRegenerate} disabled={regenerateApiKey.isPending}>
+          <Button
+            onClick={handleConfirmRegenerate}
+            disabled={regenerateApiKey.isPending}
+          >
             Regenerate
           </Button>
         </Group>
@@ -332,7 +393,9 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
           {regeneratedApiKey && (
             <>
               <Stack gap={8}>
-                <Text size="sm" fw={500}>New API key</Text>
+                <Text size="sm" fw={500}>
+                  New API key
+                </Text>
                 <Group gap="sm">
                   <TextInput
                     readOnly
@@ -340,7 +403,11 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
                     ff="monospace"
                     style={{ flex: 1 }}
                   />
-                  <Button type="button" variant="outline" onClick={handleCopyRegeneratedKey}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCopyRegeneratedKey}
+                  >
                     Copy
                   </Button>
                 </Group>

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { renderHook, act, waitFor, screen } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'sonner';
 import { http } from 'msw';
 import React from 'react';
 import { server } from '@/test/setup';
@@ -17,7 +16,6 @@ function createWrapper() {
     function Wrapper({ children }: { children: React.ReactNode }) {
         return (
             <QueryClientProvider client={queryClient}>
-                <Toaster />
                 {children}
             </QueryClientProvider>
         );
@@ -26,7 +24,7 @@ function createWrapper() {
 }
 
 describe('useAdminUpdateUser', () => {
-    it('shows success toast and invalidates user list and current user', async () => {
+    it('invalidates user list and current user on success', async () => {
         server.use(
             authHandlers.adminUpdateUser.success({ role: 'admin' }),
             // authHandlers.listUsers.success() and authHandlers.me.success() are in defaultHandlers
@@ -44,12 +42,11 @@ describe('useAdminUpdateUser', () => {
 
         await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-        expect(await screen.findByText('User updated')).toBeInTheDocument();
         expect(queryClient.getQueryState(listUsersQueryKey())?.isInvalidated).toBe(true);
         expect(queryClient.getQueryState(getCurrentUserQueryKey())?.isInvalidated).toBe(true);
     });
 
-    it('shows error toast on failure', async () => {
+    it('enters error state on failure', async () => {
         server.use(
             http.patch(endpoints.adminUserById, () =>
                 responses.forbidden({ error: 'Forbidden role change' })
@@ -64,7 +61,5 @@ describe('useAdminUpdateUser', () => {
         });
 
         await waitFor(() => expect(result.current.isError).toBe(true));
-
-        expect(await screen.findByText('Failed to update user')).toBeInTheDocument();
     });
 });

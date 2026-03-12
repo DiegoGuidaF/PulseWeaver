@@ -17,6 +17,8 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
+import { toErrorMessage } from "@/lib/api-client";
 import type { Address } from "@/lib/api";
 import { zAddAddressRequest } from "@/lib/api/zod.gen";
 import { useDeviceAddresses } from "@/features/devices/hooks/useDeviceAddresses";
@@ -107,22 +109,24 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
   }
 
   function handleAddAddressSubmit(values: z.infer<typeof addressSchema>) {
-    addAddressMutation.mutate({
-      path: { device_id: deviceId },
-      body: { ip: values.ip },
-    });
+    addAddressMutation.mutate(
+      { path: { device_id: deviceId }, body: { ip: values.ip } },
+      {
+        onSuccess: () => notifications.show({ color: "green", message: "Address added" }),
+        onError: (err) =>
+          notifications.show({ color: "red", title: "Error adding address", message: toErrorMessage(err) }),
+      },
+    );
   }
 
   function handleConfirmDisable() {
     if (!addressToDisable) return;
     disableAddressMutation.mutate(
+      { path: { device_id: deviceId, address_id: addressToDisable.id } },
       {
-        path: {
-          device_id: deviceId,
-          address_id: addressToDisable.id,
-        },
-      },
-      {
+        onSuccess: () => notifications.show({ color: "green", message: "Address disabled" }),
+        onError: (err) =>
+          notifications.show({ color: "red", title: "Error disabling address", message: toErrorMessage(err) }),
         onSettled: () => setAddressToDisable(null),
       },
     );
@@ -136,7 +140,15 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
           <Button
             type="button"
             onClick={() =>
-              heartbeatMutation.mutate({ path: { device_id: deviceId } })
+              heartbeatMutation.mutate(
+                { path: { device_id: deviceId } },
+                {
+                  onSuccess: (address) =>
+                    notifications.show({ color: "green", message: `IP ${address.ip} registered` }),
+                  onError: (err) =>
+                    notifications.show({ color: "red", title: "Heartbeat failed", message: toErrorMessage(err) }),
+                },
+              )
             }
             disabled={heartbeatMutation.isPending}
           >
@@ -328,10 +340,14 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
                         type="button"
                         size="sm"
                         onClick={() =>
-                          addAddressMutation.mutate({
-                            path: { device_id: deviceId },
-                            body: { ip: address.ip },
-                          })
+                          addAddressMutation.mutate(
+                            { path: { device_id: deviceId }, body: { ip: address.ip } },
+                            {
+                              onSuccess: () => notifications.show({ color: "green", message: "Address added" }),
+                              onError: (err) =>
+                                notifications.show({ color: "red", title: "Error adding address", message: toErrorMessage(err) }),
+                            },
+                          )
                         }
                         disabled={addAddressMutation.isPending}
                       >

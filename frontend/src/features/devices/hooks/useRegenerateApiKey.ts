@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { regenerateDeviceApiKeyMutation } from "@/lib/api/@tanstack/react-query.gen";
-import { getDeviceQueryKey } from "@/lib/api/@tanstack/react-query.gen";
-import { toast } from "sonner";
-import { toErrorMessage } from "@/lib/api-client";
+import {
+  regenerateDeviceApiKeyMutation,
+  getDeviceQueryKey,
+} from "@/lib/api/@tanstack/react-query.gen";
 
 export function useRegenerateApiKey() {
   const queryClient = useQueryClient();
@@ -14,10 +14,6 @@ export function useRegenerateApiKey() {
         getDeviceQueryKey({ path: { device_id: variables.path.device_id } }),
         data.device,
       );
-      toast.success("API key regenerated");
-    },
-    onError: (error) => {
-      toast.error(toErrorMessage(error));
     },
   });
 }

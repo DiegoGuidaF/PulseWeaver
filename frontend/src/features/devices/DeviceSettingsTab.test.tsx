@@ -20,9 +20,6 @@ function renderTabWithDevice() {
 }
 
 describe('DeviceSettingsTab', () => {
-    // defaultHandlers provides ruleHandlers.addressLease.get.success() with enabled=true, ttl=3600
-    // No beforeEach needed — override per test where different state is required.
-
     it('shows loading skeleton', () => {
         server.use(
             http.get(endpoints.deviceAddressLeaseRule, async () => {

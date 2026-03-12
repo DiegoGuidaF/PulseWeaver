@@ -45,17 +45,6 @@ export const AuthRequestSchema = {
 
 export const UpdateProfileRequestSchema = {
   type: "object",
-  anyOf: [
-    {
-      required: ["display_name"],
-    },
-    {
-      required: ["username"],
-    },
-    {
-      required: ["email"],
-    },
-  ],
   properties: {
     display_name: {
       $ref: "#/components/schemas/DisplayName",
@@ -152,7 +141,6 @@ export const UserSchema = {
     "id",
     "username",
     "display_name",
-    "email",
     "role",
     "must_change_password",
     "created_at",
@@ -384,7 +372,7 @@ export const CreateDeviceResponseWritableSchema = {
 
 export const UserWritableSchema = {
   type: "object",
-  required: ["id", "username", "display_name", "email", "created_at"],
+  required: ["id", "username", "display_name", "created_at"],
   properties: {
     id: {
       $ref: "#/components/schemas/ID",

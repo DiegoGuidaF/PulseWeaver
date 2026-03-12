@@ -4,8 +4,6 @@ import {
   getCurrentUserQueryKey,
   listUsersQueryKey,
 } from "@/lib/api/@tanstack/react-query.gen";
-import { toErrorMessage } from "@/lib/api-client";
-import { toast } from "sonner";
 
 export function useDeleteUser() {
   const queryClient = useQueryClient();
@@ -15,12 +13,6 @@ export function useDeleteUser() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: listUsersQueryKey() });
       queryClient.invalidateQueries({ queryKey: getCurrentUserQueryKey() });
-      toast.success("User deleted");
-    },
-    onError: (err) => {
-      toast.error("Failed to delete user", {
-        description: toErrorMessage(err),
-      });
     },
   });
 }

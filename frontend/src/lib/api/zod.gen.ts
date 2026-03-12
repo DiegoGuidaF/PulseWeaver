@@ -42,19 +42,16 @@ export const zAdminUpdateUserRequest = z.object({
  */
 export const zDisplayName = z.string().min(1).max(50);
 
-export const zUpdateProfileRequest = z.intersection(
-  z.unknown(),
-  z.object({
-    display_name: zDisplayName.optional(),
-    username: z
-      .string()
-      .min(3)
-      .max(32)
-      .regex(/^[a-z0-9_-]+$/)
-      .optional(),
-    email: z.email().optional(),
-  }),
-);
+export const zUpdateProfileRequest = z.object({
+  display_name: zDisplayName.optional(),
+  username: z
+    .string()
+    .min(3)
+    .max(32)
+    .regex(/^[a-z0-9_-]+$/)
+    .optional(),
+  email: z.email().optional(),
+});
 
 export const zPassword = z.string().min(8).max(72);
 
@@ -96,7 +93,7 @@ export const zUser = z.object({
   id: zId,
   username: zUsername,
   display_name: zDisplayName,
-  email: z.email(),
+  email: z.email().optional(),
   role: zUserRole,
   must_change_password: z.boolean().readonly(),
   created_at: z.iso.datetime({ offset: true, local: true }),
@@ -141,7 +138,7 @@ export const zUserWritable = z.object({
   id: zId,
   username: zUsername,
   display_name: zDisplayName,
-  email: z.email(),
+  email: z.email().optional(),
   created_at: z.iso.datetime({ offset: true, local: true }),
 });
 

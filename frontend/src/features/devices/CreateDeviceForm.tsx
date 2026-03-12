@@ -11,6 +11,7 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useCreateDevice } from "@/features/devices/hooks/useCreateDevice";
+import { toApiError, toErrorMessage } from "@/lib/api-client";
 import type { CreateDeviceResponse } from "@/lib/api";
 import { zCreateDeviceRequest } from "@/lib/api/zod.gen";
 import type { z } from "zod";
@@ -48,7 +49,18 @@ export function CreateDeviceForm() {
   }
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    mutation.mutate({ body: values });
+    mutation.mutate(
+      { body: values },
+      {
+        onError: (err) => {
+          const message =
+            toApiError(err).status === 409
+              ? "A device with this name already exists."
+              : toErrorMessage(err);
+          notifications.show({ color: "red", title: "Error creating device", message });
+        },
+      },
+    );
   }
 
   return (

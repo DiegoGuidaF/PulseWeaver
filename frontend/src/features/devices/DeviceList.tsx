@@ -12,6 +12,7 @@ import {
   Text,
   Title,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { IconTrash } from "@tabler/icons-react";
 import { format } from "date-fns";
 import type { Device } from "@/lib/api";
@@ -29,10 +30,11 @@ export function DeviceList() {
     deleteDevice.mutate(
       { path: { device_id: deviceToDelete.id } },
       {
-        onSettled: () => {
-          setDeviceToDelete(null);
-        },
-      }
+        onSuccess: () => notifications.show({ color: "green", message: "Device deleted" }),
+        onError: (err) =>
+          notifications.show({ color: "red", title: "Error deleting device", message: toErrorMessage(err) }),
+        onSettled: () => setDeviceToDelete(null),
+      },
     );
   }
 

@@ -13,7 +13,9 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { useAuth } from "@/features/auth/AuthContext";
+import { toApiError, toErrorMessage } from "@/lib/api-client";
 import { useAdminUpdateUser } from "@/features/auth/hooks/useAdminUpdateUser";
 import { useChangePassword } from "@/features/auth/hooks/useChangePassword";
 import { useDeleteUser } from "@/features/auth/hooks/useDeleteUser";
@@ -77,7 +79,19 @@ export function SettingsPage() {
       body.email = nextEmail;
     }
 
-    updateMe.mutate({ body });
+    updateMe.mutate(
+      { body },
+      {
+        onSuccess: () => notifications.show({ color: "green", message: "Profile updated" }),
+        onError: (err) => {
+          const message =
+            toApiError(err).status === 409
+              ? "Username or email is already in use."
+              : toErrorMessage(err);
+          notifications.show({ color: "red", title: "Failed to update profile", message });
+        },
+      },
+    );
   }
 
   function submitPassword(values: z.infer<typeof passwordSchema>) {
@@ -89,26 +103,40 @@ export function SettingsPage() {
         },
       },
       {
-        onSuccess: () => passwordForm.reset(),
+        onSuccess: () => {
+          passwordForm.reset();
+          notifications.show({ color: "green", message: "Password changed" });
+        },
+        onError: (err) =>
+          notifications.show({ color: "red", title: "Failed to change password", message: toErrorMessage(err) }),
       },
     );
   }
 
   function handleRoleToggle(targetUserId: number, currentRole: string) {
     const nextRole = currentRole === UserRole.ADMIN ? UserRole.USER : UserRole.ADMIN;
-    adminUpdateUser.mutate({
-      path: { user_id: targetUserId },
-      body: { role: nextRole },
-    });
+    adminUpdateUser.mutate(
+      { path: { user_id: targetUserId }, body: { role: nextRole } },
+      {
+        onSuccess: () => notifications.show({ color: "green", message: "User updated" }),
+        onError: (err) =>
+          notifications.show({ color: "red", title: "Failed to update user", message: toErrorMessage(err) }),
+      },
+    );
   }
 
   function handleAdminDisplayNameSave(targetUserId: number) {
     const displayName = displayNameEdits[targetUserId]?.trim();
     if (!displayName) return;
-    adminUpdateUser.mutate({
-      path: { user_id: targetUserId },
-      body: { display_name: displayName },
-    });
+    //TODO: Remove this, display name shouldn't be edited by admin
+    adminUpdateUser.mutate(
+      { path: { user_id: targetUserId }, body: { } },
+      {
+        onSuccess: () => notifications.show({ color: "green", message: "User updated" }),
+        onError: (err) =>
+          notifications.show({ color: "red", title: "Failed to update user", message: toErrorMessage(err) }),
+      },
+    );
   }
 
   function handleDeleteUser(targetUserId: number, username: string) {
@@ -119,7 +147,12 @@ export function SettingsPage() {
     if (!deleteTarget) return;
     deleteUser.mutate(
       { path: { user_id: deleteTarget.id } },
-      { onSettled: () => setDeleteTarget(null) },
+      {
+        onSuccess: () => notifications.show({ color: "green", message: "User deleted" }),
+        onError: (err) =>
+          notifications.show({ color: "red", title: "Failed to delete user", message: toErrorMessage(err) }),
+        onSettled: () => setDeleteTarget(null),
+      },
     );
   }
 

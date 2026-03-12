@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { renderHook, act, waitFor, screen } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'sonner';
 import React from 'react';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/setup';
@@ -17,7 +16,6 @@ function createWrapper() {
     function Wrapper({ children }: { children: React.ReactNode }) {
         return (
             <QueryClientProvider client={queryClient}>
-                <Toaster />
                 {children}
             </QueryClientProvider>
         );
@@ -26,7 +24,7 @@ function createWrapper() {
 }
 
 describe('useUpdateMe', () => {
-    it('shows success toast and invalidates current user on success', async () => {
+    it('invalidates current user on success', async () => {
         server.use(
             authHandlers.updateMe.success({ display_name: 'Updated Name' }),
             // authHandlers.me.success() is in defaultHandlers
@@ -43,15 +41,10 @@ describe('useUpdateMe', () => {
 
         await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-        expect(await screen.findByText('Profile updated')).toBeInTheDocument();
         expect(queryClient.getQueryState(getCurrentUserQueryKey())?.isInvalidated).toBe(true);
     });
 
-    it('shows error toast with server message on 409', async () => {
-        // NOTE: The SDK throws the raw JSON body ({ error: '...' }) without attaching
-        // the HTTP status, so toApiError() cannot detect the 409 status code and the
-        // special-cased "Username or email is already in use." message is never shown.
-        // The fallback toErrorMessage() path is used instead.
+    it('enters error state on 409 conflict', async () => {
         server.use(
             http.patch(endpoints.updateMe, () =>
                 HttpResponse.json({ error: 'Conflict' }, { status: 409 })
@@ -66,11 +59,9 @@ describe('useUpdateMe', () => {
         });
 
         await waitFor(() => expect(result.current.isError).toBe(true));
-
-        expect(await screen.findByText('Failed to update profile')).toBeInTheDocument();
     });
 
-    it('shows generic error toast on server error', async () => {
+    it('enters error state on server error', async () => {
         server.use(
             http.patch(endpoints.updateMe, () => responses.serverError())
         );
@@ -83,7 +74,5 @@ describe('useUpdateMe', () => {
         });
 
         await waitFor(() => expect(result.current.isError).toBe(true));
-
-        expect(await screen.findByText('Failed to update profile')).toBeInTheDocument();
     });
 });

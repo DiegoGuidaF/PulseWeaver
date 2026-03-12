@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { renderHook, act, waitFor, screen } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'sonner';
 import { http } from 'msw';
 import React from 'react';
 import { server } from '@/test/setup';
@@ -17,7 +16,6 @@ function createWrapper() {
     function Wrapper({ children }: { children: React.ReactNode }) {
         return (
             <QueryClientProvider client={queryClient}>
-                <Toaster />
                 {children}
             </QueryClientProvider>
         );
@@ -26,7 +24,7 @@ function createWrapper() {
 }
 
 describe('useDeleteUser', () => {
-    it('shows success toast and invalidates user list and current user', async () => {
+    it('invalidates user list and current user on success', async () => {
         // authHandlers.deleteUser.success(), listUsers.success(), me.success() are in defaultHandlers
 
         const { queryClient, Wrapper } = createWrapper();
@@ -41,12 +39,11 @@ describe('useDeleteUser', () => {
 
         await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-        expect(await screen.findByText('User deleted')).toBeInTheDocument();
         expect(queryClient.getQueryState(listUsersQueryKey())?.isInvalidated).toBe(true);
         expect(queryClient.getQueryState(getCurrentUserQueryKey())?.isInvalidated).toBe(true);
     });
 
-    it('shows error toast when delete is forbidden', async () => {
+    it('enters error state when delete is forbidden', async () => {
         server.use(
             http.delete(endpoints.adminUserById, () =>
                 responses.forbidden({ error: 'Forbidden user delete' })
@@ -61,11 +58,9 @@ describe('useDeleteUser', () => {
         });
 
         await waitFor(() => expect(result.current.isError).toBe(true));
-
-        expect(await screen.findByText('Failed to delete user')).toBeInTheDocument();
     });
 
-    it('shows error toast when user is not found', async () => {
+    it('enters error state when user is not found', async () => {
         server.use(
             http.delete(endpoints.adminUserById, () =>
                 responses.notFound({ error: 'User not found' })
@@ -80,7 +75,5 @@ describe('useDeleteUser', () => {
         });
 
         await waitFor(() => expect(result.current.isError).toBe(true));
-
-        expect(await screen.findByText('Failed to delete user')).toBeInTheDocument();
     });
 });

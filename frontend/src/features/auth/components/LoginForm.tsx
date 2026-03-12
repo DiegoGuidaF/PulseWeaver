@@ -1,7 +1,9 @@
 import { useForm } from "@mantine/form";
 import { zod4Resolver } from "mantine-form-zod-resolver";
 import { Button, Stack, TextInput } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { useLogin } from "@/features/auth/hooks/useLogin";
+import { toErrorMessage } from "@/lib/api-client";
 import { zAuthRequest } from "@/lib/api/zod.gen";
 import type { z } from "zod";
 
@@ -19,7 +21,13 @@ export function LoginForm() {
   });
 
   function onSubmit(values: z.infer<typeof loginSchema>) {
-    loginMutation.mutate({ body: values });
+    loginMutation.mutate(
+      { body: values },
+      {
+        onError: (err) =>
+          notifications.show({ color: "red", title: "Login failed", message: toErrorMessage(err) }),
+      },
+    );
   }
 
   return (
