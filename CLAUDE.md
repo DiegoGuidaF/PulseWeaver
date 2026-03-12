@@ -54,12 +54,15 @@ Layered architecture: **Handler → Service → Repository → Database**
 - **Entry:** `frontend/src/main.tsx`
 - **Feature slices** in `frontend/src/features/` (devices, settings)
 - **Server state:** TanStack Query v5 with generated query/mutation options from `@/lib/api/@tanstack/react-query.gen`
-- **UI:** shadcn/ui + Tailwind CSS v4; forms via react-hook-form + zod
+- **UI:** Mantine v8 — components, layout (`AppShell`), theming, notifications; see ADR-004
+- **Icons:** `@tabler/icons-react` (all icons named `IconXxx`)
+- **Forms:** `@mantine/form` + `zod4Resolver` from `mantine-form-zod-resolver` (Zod v4)
 - **API helpers:** `@/lib/api-client/` for `toApiError`, `toErrorMessage`, client config
 
 #### Documentation
 - `CODEBASE-Frontend.md` — Read this file to understand the frontend directory structure, routing, hook conventions, and UX surfaces before making structural changes to the frontend.
 - `CODEBASE-Backend.md` — Read this file to understand the backend package structure, domain boundaries, service lifecycle, observer pattern, and key conventions before making structural changes to the backend.
+- **Mantine component/hook reference (LLM-optimised):** https://mantine.dev/llms.txt — fetch this when working on any Mantine UI code; it is a full index of all components and hooks, updated with every release.
 
 ## Key Conventions
 
@@ -76,11 +79,17 @@ Layered architecture: **Handler → Service → Repository → Database**
 - **Service:** table-driven unit tests with mock repositories
 - **Repository:** integration tests with real in-memory SQLite (`file::memory:`)
 - **Handler (E2E):** `httptest` with real services + in-memory DB; setup test data via service calls (not HTTP), HTTP calls only for assertions
-- **Frontend:** `@testing-library/react`, MSW for API mocking (`createHttpHandler` pattern in `src/test/mocks/handlers.ts`), `renderWithProviders` for test setup
+- **Frontend:** `@testing-library/react`, MSW for API mocking, `renderWithProviders` for test setup (wraps with `MantineProvider` + `Notifications` + `QueryClientProvider` + `MemoryRouter`)
+  - `src/test/mocks/handlers.ts` exports domain-grouped handler factories and a `defaultHandlers` array (the happy path, registered globally in `setup.ts`)
+  - Tests only call `server.use(...)` for deviations from the happy path; endpoint strings never appear in test files
 - Use `matryer/is` or `testify/assert` for Go assertions
 
 ### Frontend Patterns
 - `function ComponentName() {}` (not arrow), named exports
 - No `any` — use `unknown` and narrow
-- Use `cn()` for conditional Tailwind classes
-- Generated query keys for cache invalidation; Sonner toasts for all mutation errors/successes
+- No Tailwind classes; no `cn()` utility — use Mantine's `style` prop or CSS modules for one-off layout
+- Generated query keys for cache invalidation
+- Mutation hooks own server state only (mutation + cache invalidation) — no notification calls inside hooks
+- Notification calls (`notifications.show()`) live in component `onSuccess`/`onError` callbacks, not in hooks
+- Hooks may still accept an `onSuccess` callback for coordination logic (form reset, modal close)
+- Fetch https://mantine.dev/llms.txt before writing any Mantine UI code — full component/hook reference

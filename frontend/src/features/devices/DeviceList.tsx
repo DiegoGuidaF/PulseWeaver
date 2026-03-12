@@ -14,7 +14,7 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconTrash } from "@tabler/icons-react";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/dates";
 import type { Device } from "@/lib/api";
 import { useDevices } from "@/features/devices/hooks/useDevices";
 import { useDeleteDevice } from "@/features/devices/hooks/useDeleteDevice";
@@ -97,7 +97,7 @@ export function DeviceList() {
                 <Table.Td fw={500}>{device.name}</Table.Td>
                 <Table.Td ff="monospace" fz="xs">{device.id}</Table.Td>
                 <Table.Td ff="monospace" fz="xs" c="dimmed">{device.api_key_prefix}</Table.Td>
-                <Table.Td>{format(new Date(device.created_at), "PP p")}</Table.Td>
+                <Table.Td>{formatDateTime(device.created_at)}</Table.Td>
                 <Table.Td>
                   {device.address_count === 0 ? (
                     <Text c="dimmed">0</Text>

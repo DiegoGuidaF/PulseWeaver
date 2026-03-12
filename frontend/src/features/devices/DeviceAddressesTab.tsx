@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "@mantine/form";
 import { zod4Resolver } from "mantine-form-zod-resolver";
 import { z } from "zod";
-import { format, isPast } from "date-fns";
+import { formatDateTime, isPast } from "@/lib/dates";
 import {
   Button,
   Card,
@@ -307,7 +307,7 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c="dimmed">
-                      {format(new Date(address.updated_at), "PP p")}
+                      {formatDateTime(address.updated_at)}
                     </Text>
                   </Table.Td>
                   <Table.Td>
@@ -316,9 +316,9 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
                     ) : address.expires_at ? (
                       <Text
                         size="sm"
-                        c={isPast(new Date(address.expires_at)) ? "red" : "dimmed"}
+                        c={isPast(address.expires_at) ? "red" : "dimmed"}
                       >
-                        {format(new Date(address.expires_at), "PP p")}
+                        {formatDateTime(address.expires_at)}
                       </Text>
                     ) : (
                       <Text size="sm" c="dimmed" style={{ opacity: 0.5 }}>No expiry</Text>

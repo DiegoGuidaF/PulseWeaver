@@ -1,17 +1,18 @@
 # Frontend Codebase Reference
 
-> Last updated: 2026-03-04
+> Last updated: 2026-03-12
 
 ## Directory Structure
 
 ```
 src/
-├── App.tsx                     # Router + providers setup (ThemeProvider > BrowserRouter > AuthProvider > AppErrorBoundary)
-├── main.tsx                    # QueryClient + global 401 handler, React root
+├── App.tsx                     # Router + providers setup (MantineProvider > BrowserRouter > AuthProvider > AppErrorBoundary)
+├── main.tsx                    # QueryClient + global 401 handler, React root; imports Mantine CSS
 ├── pages/                      # Thin route-level components (routing guard + layout only)
 │   ├── DashboardPage.tsx       # /devices — renders CreateDeviceForm + DeviceList
 │   ├── DeviceDetailPage.tsx    # /devices/:deviceId — header + Tabs shell
 │   ├── LoginPage.tsx           # /login — page shell + redirect if authed
+│   ├── SettingsPage.tsx        # /settings — user/account settings
 │   └── NotFoundPage.tsx        # * — 404
 ├── features/
 │   ├── auth/
@@ -41,18 +42,15 @@ src/
 │           └── useDisableDeviceAddressLeaseRule.ts # Disable lease rule mutation
 ├── components/
 │   ├── layout/
-│   │   └── AppShell.tsx        # Sidebar + mobile header layout
-│   ├── ErrorBoundary.tsx       # AppErrorBoundary — React error boundary with "Try again"
-│   ├── theme-provider.tsx      # Dark/light/system theme context
-│   ├── mode-toggle.tsx         # Theme dropdown button
-│   └── ui/                     # shadcn/ui components (do not modify)
+│   │   └── AppShell.tsx        # Sidebar + mobile header layout; includes ColorSchemeToggle
+│   └── ErrorBoundary.tsx       # AppErrorBoundary — React error boundary with "Try again"
 └── lib/
     ├── api/                    # Generated — do not edit (regenerate via make api)
     ├── api-client/
     │   ├── config.ts           # Configures generated client (baseUrl=/api/v1, credentials:include)
     │   ├── errors.ts           # ApiError class, toApiError(), toErrorMessage()
     │   └── index.ts            # Re-exports api + api-client
-    └── utils.ts                # cn() — tailwind class merging
+    └── theme.ts                # Mantine theme — createTheme({ primaryColor, fontFamily, defaultRadius })
 ```
 
 ## Routing
@@ -63,13 +61,16 @@ src/
 | `/` | → redirect `/devices` | — |
 | `/devices` | AppShell > DashboardPage | ProtectedRoute |
 | `/devices/:deviceId` | AppShell > DeviceDetailPage | ProtectedRoute |
+| `/settings` | AppShell > SettingsPage | ProtectedRoute |
 | `*` | NotFoundPage | — |
 
 ## Key Patterns
 
 ### Hook conventions
 - **Query hooks**: Return TanStack Query result directly. Exceptions: `useDeviceAddressLeaseRule` normalizes `null` for 404 and returns `{ data, isLoading, isError, error }`; `useCurrentUser` returns `{ data, isLoading, isAuthenticated, error }`.
-- **Mutation hooks**: Always show Sonner toasts on success/error. Accept optional `onSuccess` callback.
+- **Mutation hooks**: Own server state only (mutation + cache invalidation). No `notifications.show()` calls inside hooks.
+- **Notifications**: `notifications.show()` calls belong in component `onSuccess`/`onError` callbacks, not in hooks.
+- **Coordination callbacks**: Hooks may still accept an `onSuccess` option for coordination logic (form reset, modal close).
 - **Cache invalidation**: Mutations invalidate the minimal relevant query key (device-specific where possible).
 - **`enabled` default**: Query hooks that accept `enabled` default it to `true`.
 
@@ -79,7 +80,8 @@ src/
 - Global 401 handler in `main.tsx` via `QueryCache.onError` redirects to `/login?returnTo=…` (skips `auth/me` which returns 401 when logged out; `ProtectedRoute` handles that case instead)
 
 ### Forms
-- All forms: `react-hook-form` + `zodResolver`
+- All forms: `@mantine/form` + `zod4Resolver` from `mantine-form-zod-resolver` (Zod v4 — use `zod4Resolver`, not `zodResolver`)
+- Form structure: `<form onSubmit={form.onSubmit(handleSubmit)}>` with Mantine input components taking `{...form.getInputProps('fieldName')}`
 - Address form uses generated `zAddAddressRequest` Zod schema directly
 - Lease rule form uses a local Zod schema (TTL value + unit)
 
@@ -153,28 +155,27 @@ export function useDevices() {
 }
 ```
 
-**Mutation hook** — wraps a generated mutation factory, owns cache invalidation and toasts:
+**Mutation hook** — owns cache invalidation only; no notification calls:
 ```typescript
 // src/features/devices/hooks/useCreateDevice.ts
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createDeviceMutation, getDevicesQueryKey } from '@/lib/api/@tanstack/react-query.gen';
-import { toErrorMessage } from '@/lib/api-client';
-import { toast } from 'sonner';
 
-export function useCreateDevice(options?: { onSuccess?: () => void }) {
+export function useCreateDevice() {
   const queryClient = useQueryClient();
   return useMutation({
     ...createDeviceMutation(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: getDevicesQueryKey() });
-      toast.success('Device created');
-      options?.onSuccess?.();
-    },
-    onError: (err) => {
-      toast.error('Error creating device', { description: toErrorMessage(err) });
     },
   });
 }
+
+// Component owns what to show and when:
+// mutation.mutate({ body: values }, {
+//   onSuccess: (data) => { setCreatedResult(data); },
+//   onError: (err) => notifications.show({ color: 'red', title: 'Error', message: toErrorMessage(err) }),
+// });
 ```
 
 **Form validation** — use generated Zod schemas where they cover the request shape; define a local schema only for fields that deviate from the API contract (e.g. confirm-password):
@@ -202,3 +203,51 @@ type FormValues = z.infer<typeof formSchema>;
 | `src/lib/api-client/` | `toApiError`, `toErrorMessage`, fetch client config, query keys for any non-spec endpoints | **Yes** — hand-maintained |
 
 `toApiError` and `toErrorMessage` in `src/lib/api-client/errors.ts` must accept `unknown` and narrow — they are the only place error shape knowledge lives outside the generated layer.
+
+## Testing
+
+Frontend tests use `@testing-library/react`, MSW v2, and vitest (happy-dom environment).
+
+### Two-layer handler model
+
+**Layer 1 — global happy-path defaults** registered in `src/test/setup.ts`. Every test starts in an authenticated, data-loaded state without any per-test `server.use()` call.
+
+**Layer 2 — per-test overrides** via `server.use(...)`. MSW prepends these, shadowing the defaults. `afterEach` → `server.resetHandlers()` (in `setup.ts`) restores layer 1.
+
+### Handler structure (`src/test/mocks/handlers.ts`)
+
+Handlers are domain-grouped named variants. No currying, no pre-invocation:
+
+```typescript
+export const authHandlers = {
+  me: {
+    success: (override?: Partial<User>) => http.get('/api/v1/auth/me', () => HttpResponse.json({ ...createMockUser(), ...override })),
+    unauthenticated: () => http.get('/api/v1/auth/me', () => responses.unauthorized()),
+  },
+};
+export const defaultHandlers = [authHandlers.me.success(), deviceHandlers.list(), ...];
+```
+
+- Endpoint path strings live only in `handlers.ts` — never hardcoded in test files.
+- Mock data shapes are composed via `createMock*` factories in `src/test/mocks/data.ts`.
+
+### `renderWithProviders`
+
+Wraps with `MantineProvider` + `Notifications` + `QueryClientProvider` + `MemoryRouter`. Use for all component/page tests.
+
+### Test call-site pattern
+
+```typescript
+// happy path — no server.use() needed
+it('renders device list', async () => {
+  renderWithProviders(<DeviceList />);
+  expect(await screen.findByText('Test Device')).toBeInTheDocument();
+});
+
+// error / specific-data case — only declare the deviation
+it('shows empty state', async () => {
+  server.use(deviceHandlers.list([]));
+  renderWithProviders(<DeviceList />);
+  expect(await screen.findByText(/no devices/i)).toBeInTheDocument();
+});
+```
