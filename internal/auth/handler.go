@@ -87,13 +87,17 @@ func (h *HTTPHandler) ListUsers(ctx context.Context, _ httpapi.ListUsersRequestO
 	logger := h.logger
 
 	principal, ok := PrincipalFromContext(ctx)
-	if !ok || !principal.isAdmin() {
-		logger.WarnContext(ctx, "admin credentials required")
-		return httpapi.ListUsers403Response{}, nil
+	if !ok {
+		logger.WarnContext(ctx, "principal not in context")
+		return httpapi.ListUsers401JSONResponse{}, nil
 	}
 
-	users, err := h.service.ListUsers(ctx)
+	users, err := h.service.ListUsers(ctx, principal)
 	if err != nil {
+		if errors.Is(err, ErrAdminCredentialsRequired) {
+			logger.WarnContext(ctx, "admin credentials required")
+			return httpapi.ListUsers403Response{}, nil
+		}
 		logger.ErrorContext(ctx, "failed to list users", slog.Any(AttrKeyError, err))
 		return httpapi.ListUsers500JSONResponse(errorMsgResponse("Failed to list users")), nil
 	}
@@ -117,10 +121,10 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUser
 	principal, ok := PrincipalFromContext(ctx)
 	if !ok {
 		logger.ErrorContext(ctx, "principal not in context")
-		return httpapi.CreateUser403Response{}, nil
+		return httpapi.CreateUser401JSONResponse{}, nil
 	}
 
-	user, err := h.service.CreateUserByAdmin(
+	user, err := h.service.CreateUser(
 		ctx,
 		username,
 		request.Body.DisplayName,
@@ -165,15 +169,10 @@ func (h *HTTPHandler) UpdateMe(ctx context.Context, request httpapi.UpdateMeRequ
 		return httpapi.UpdateMe401JSONResponse(errorMsgResponse("Not authenticated")), nil
 	}
 
-	updates := ProfileUpdates{}
-	if request.Body != nil && request.Body.DisplayName != nil {
-		updates.DisplayName = new(*request.Body.DisplayName)
-	}
-	if request.Body != nil && request.Body.Username != nil {
-		updates.Username = new(*request.Body.Username)
-	}
-	if request.Body != nil && request.Body.Email != nil {
-		updates.Email = new(string(*request.Body.Email))
+	updates := ProfileUpdates{
+		Username:    request.Body.Username,
+		DisplayName: request.Body.DisplayName,
+		Email:       (*string)(request.Body.Email),
 	}
 
 	user, err := h.service.UpdateOwnProfile(ctx, principal.UserID, updates)
@@ -222,40 +221,66 @@ func (h *HTTPHandler) ChangePassword(ctx context.Context, request httpapi.Change
 	return httpapi.ChangePassword204Response{}, nil
 }
 
-func (h *HTTPHandler) AdminUpdateUser(ctx context.Context, request httpapi.AdminUpdateUserRequestObject) (httpapi.AdminUpdateUserResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "AdminUpdateUser")
+func (h *HTTPHandler) PromoteUser(ctx context.Context, request httpapi.PromoteUserRequestObject) (httpapi.PromoteUserResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "PromoteUser")
 	logger := h.logger
 
 	principal, ok := PrincipalFromContext(ctx)
-	if !ok || !principal.isAdmin() {
-		logger.WarnContext(ctx, "admin credentials required")
-		return httpapi.AdminUpdateUser403JSONResponse(errorMsgResponse("Admin credentials required")), nil
+	if !ok {
+		logger.WarnContext(ctx, "principal not in context")
+		return httpapi.PromoteUser401JSONResponse(errorMsgResponse("Not authenticated")), nil
 	}
 
-	updates := AdminUserUpdates{}
-	if request.Body != nil && request.Body.Role != nil {
-		updates.Role = new(Role(*request.Body.Role))
-	}
-
-	user, err := h.service.AdminUpdateUser(ctx, principal.UserID, UserID(request.UserId), updates)
+	user, err := h.service.PromoteUser(ctx, principal, UserID(request.UserId))
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrInvalidDisplayName), errors.Is(err, ErrInvalidRole), errors.Is(err, ErrNoUpdateFields):
-			logger.WarnContext(ctx, "invalid admin update input")
-			return httpapi.AdminUpdateUser400JSONResponse(errorMsgResponse("Invalid input")), nil
-		case errors.Is(err, ErrSelfRoleChangeForbidden), errors.Is(err, ErrLastAdminChangeForbidden):
-			logger.WarnContext(ctx, "forbidden admin role change")
-			return httpapi.AdminUpdateUser403JSONResponse(errorMsgResponse("Forbidden role change")), nil
+		case errors.Is(err, ErrSelfRoleChangeForbidden):
+			logger.WarnContext(ctx, "forbidden self-promotion")
+			return httpapi.PromoteUser403JSONResponse(errorMsgResponse("Cannot promote yourself")), nil
+		case errors.Is(err, ErrAdminCredentialsRequired):
+			logger.WarnContext(ctx, "admin credentials required")
+			return httpapi.PromoteUser403JSONResponse(errorMsgResponse("admin credentials required")), nil
 		case errors.Is(err, ErrUserNotFound):
 			logger.WarnContext(ctx, "target user not found")
-			return httpapi.AdminUpdateUser404JSONResponse(errorMsgResponse("User not found")), nil
+			return httpapi.PromoteUser404JSONResponse(errorMsgResponse("User not found")), nil
 		default:
-			logger.ErrorContext(ctx, "failed to update user", slog.Any(AttrKeyError, err))
-			return httpapi.AdminUpdateUser500JSONResponse(errorMsgResponse("Failed to update user")), nil
+			logger.ErrorContext(ctx, "failed to promote user", slog.Any(AttrKeyError, err))
+			return httpapi.PromoteUser500JSONResponse(errorMsgResponse("Failed to promote user")), nil
 		}
 	}
 
-	return httpapi.AdminUpdateUser200JSONResponse(toUserResponse(user)), nil
+	return httpapi.PromoteUser200JSONResponse(toUserResponse(user)), nil
+}
+
+func (h *HTTPHandler) DemoteUser(ctx context.Context, request httpapi.DemoteUserRequestObject) (httpapi.DemoteUserResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "DemoteUser")
+	logger := h.logger
+
+	principal, ok := PrincipalFromContext(ctx)
+	if !ok {
+		logger.WarnContext(ctx, "principal not in context")
+		return httpapi.DemoteUser401JSONResponse(errorMsgResponse("Not authenticated")), nil
+	}
+
+	user, err := h.service.DemoteUser(ctx, principal, UserID(request.UserId))
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrSelfRoleChangeForbidden):
+			logger.WarnContext(ctx, "forbidden demotion")
+			return httpapi.DemoteUser403JSONResponse(errorMsgResponse("Forbidden role change")), nil
+		case errors.Is(err, ErrAdminCredentialsRequired):
+			logger.WarnContext(ctx, "admin credentials required")
+			return httpapi.DemoteUser403JSONResponse(errorMsgResponse("admin credentials required")), nil
+		case errors.Is(err, ErrUserNotFound):
+			logger.WarnContext(ctx, "target user not found")
+			return httpapi.DemoteUser404JSONResponse(errorMsgResponse("User not found")), nil
+		default:
+			logger.ErrorContext(ctx, "failed to demote user", slog.Any(AttrKeyError, err))
+			return httpapi.DemoteUser500JSONResponse(errorMsgResponse("Failed to demote user")), nil
+		}
+	}
+
+	return httpapi.DemoteUser200JSONResponse(toUserResponse(user)), nil
 }
 
 func (h *HTTPHandler) DeleteUser(ctx context.Context, request httpapi.DeleteUserRequestObject) (httpapi.DeleteUserResponseObject, error) {
@@ -263,15 +288,15 @@ func (h *HTTPHandler) DeleteUser(ctx context.Context, request httpapi.DeleteUser
 	logger := h.logger
 
 	principal, ok := PrincipalFromContext(ctx)
-	if !ok || !principal.isAdmin() {
-		logger.WarnContext(ctx, "admin credentials required")
-		return httpapi.DeleteUser403JSONResponse(errorMsgResponse("Admin credentials required")), nil
+	if !ok {
+		logger.WarnContext(ctx, "principal not in context")
+		return httpapi.DeleteUser401JSONResponse(errorMsgResponse("Not authenticated")), nil
 	}
 
-	err := h.service.DeleteUser(ctx, principal.UserID, UserID(request.UserId))
+	err := h.service.DeleteUser(ctx, principal, UserID(request.UserId))
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrSelfDeleteForbidden), errors.Is(err, ErrLastAdminChangeForbidden):
+		case errors.Is(err, ErrAdminCredentialsRequired), errors.Is(err, ErrSelfDeleteForbidden):
 			logger.WarnContext(ctx, "forbidden user delete")
 			return httpapi.DeleteUser403JSONResponse(errorMsgResponse("Forbidden user delete")), nil
 		case errors.Is(err, ErrUserNotFound):
@@ -305,7 +330,7 @@ func toUserResponse(d *User) httpapi.User {
 		Id:                 d.ID.Int64(),
 		Username:           d.Username,
 		DisplayName:        d.DisplayName,
-		Email:              new(openapi_types.Email(d.Email)),
+		Email:              openapi_types.Email(d.Email),
 		Role:               httpapi.UserRole(d.Role),
 		MustChangePassword: new(d.MustChangePassword),
 		CreatedAt:          httpapi.UTCTime(d.CreatedAt),

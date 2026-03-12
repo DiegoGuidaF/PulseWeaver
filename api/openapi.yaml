@@ -30,6 +30,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/User'
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "403":
           description: Forbidden - Only admins can list users
         "500":
@@ -57,6 +63,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "403":
           description: Forbidden - Only admins can create users
         "409":
@@ -79,55 +91,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /admin/users/{user_id}:
-    patch:
-      operationId: adminUpdateUser
-      tags:
-        - admin
-      summary: Update a user (Admin only)
-      description: Admin updates another user's role.
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/ID'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AdminUpdateUserRequest'
-      responses:
-        "200":
-          description: User updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-        "403":
-          description: Forbidden - self role change or last admin lockout
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        "404":
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        "400":
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        "500":
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteUser
       tags:
@@ -143,8 +106,104 @@ paths:
       responses:
         "204":
           description: User deleted successfully
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "403":
-          description: Forbidden - cannot delete self or last admin
+          description: Forbidden - cannot delete self
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/users/{user_id}/promote:
+    post:
+      operationId: promoteUser
+      tags:
+        - admin
+      summary: Promote a user to admin (Admin only)
+      description: Promotes another user to the admin role. Cannot promote oneself.
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        "200":
+          description: User promoted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden - admin credentials required or self-promotion attempted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/users/{user_id}/demote:
+    post:
+      operationId: demoteUser
+      tags:
+        - admin
+      summary: Demote an admin to regular user (Admin only)
+      description: Demotes another admin to the user role. Cannot demote oneself.
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        "200":
+          description: User demoted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden - admin credentials required, self-demotion
           content:
             application/json:
               schema:
@@ -855,11 +914,6 @@ components:
           example: "user@example.com"
         password:
           $ref: '#/components/schemas/Password'
-    AdminUpdateUserRequest:
-      type: object
-      properties:
-        role:
-          $ref: '#/components/schemas/UserRole'
     #################
     # Auth Requests
     #################
@@ -875,6 +929,10 @@ components:
           $ref: '#/components/schemas/Password'
     UpdateProfileRequest:
       type: object
+      anyOf:
+        - required: [ display_name ]
+        - required: [ username ]
+        - required: [ email ]
       properties:
         display_name:
           $ref: '#/components/schemas/DisplayName'
@@ -955,6 +1013,7 @@ components:
         - id
         - username
         - display_name
+        - email
         - role
         - must_change_password
         - created_at

@@ -71,6 +71,34 @@ func NewUser(
 	}, nil
 }
 
+func (u *User) Update(up ProfileUpdates) error {
+	if up.DisplayName == nil && up.Username == nil && up.Email == nil {
+		return ErrNoUpdateFields
+	}
+
+	if up.DisplayName != nil {
+		validDisplayName, err := validateDisplayName(*up.DisplayName)
+		if err != nil {
+			return err
+		}
+		u.DisplayName = validDisplayName
+	}
+
+	if up.Username != nil {
+		validUsername, err := validateUsername(*up.Username)
+		if err != nil {
+			return err
+		}
+		u.Username = validUsername
+	}
+
+	if up.Email != nil {
+		u.Email = *up.Email
+	}
+
+	return nil
+}
+
 type UserID int64
 
 func (id UserID) Int64() int64 {

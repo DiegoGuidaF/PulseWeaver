@@ -102,16 +102,16 @@ func (s *Service) RegenerateAPIKey(ctx context.Context, deviceID DeviceID) (*Dev
 
 	var device *Device
 	err = s.repo.RunInTx(ctx, func(tx repository) error {
+		var err error
 		// Validate device exists (also checks deleted_at) inside the transaction
 		// so the existence check and key update are atomic.
-		if _, err := tx.GetDevice(ctx, deviceID); err != nil {
+		if _, err = tx.GetDevice(ctx, deviceID); err != nil {
 			return err
 		}
-		if err := tx.UpdateAPIKey(ctx, deviceID, keyHash, keyPrefix); err != nil {
+		if err = tx.UpdateAPIKey(ctx, deviceID, keyHash, keyPrefix); err != nil {
 			return err
 		}
 		// Fetch fresh device inside the transaction so KeyPrefix reflects the update.
-		var err error
 		device, err = tx.GetDevice(ctx, deviceID)
 		return err
 	})

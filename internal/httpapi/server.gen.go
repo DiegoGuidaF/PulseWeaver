@@ -58,12 +58,6 @@ type Address struct {
 	UpdatedAt UTCTime `json:"updated_at"`
 }
 
-// AdminUpdateUserRequest defines model for AdminUpdateUserRequest.
-type AdminUpdateUserRequest struct {
-	// Role The user's role. Only "admin" users can access admin endpoints.
-	Role *UserRole `json:"role,omitempty"`
-}
-
 // AuthRequest defines model for AuthRequest.
 type AuthRequest struct {
 	Password Password `json:"password"`
@@ -165,16 +159,26 @@ type UpdateProfileRequest struct {
 	DisplayName *DisplayName         `json:"display_name,omitempty"`
 	Email       *openapi_types.Email `json:"email,omitempty"`
 	Username    *string              `json:"username,omitempty"`
+	union       json.RawMessage
 }
+
+// UpdateProfileRequest0 defines model for .
+type UpdateProfileRequest0 = interface{}
+
+// UpdateProfileRequest1 defines model for .
+type UpdateProfileRequest1 = interface{}
+
+// UpdateProfileRequest2 defines model for .
+type UpdateProfileRequest2 = interface{}
 
 // User defines model for User.
 type User struct {
 	CreatedAt UTCTime `json:"created_at"`
 
 	// DisplayName User's public name. Unicode allowed.
-	DisplayName DisplayName          `json:"display_name"`
-	Email       *openapi_types.Email `json:"email,omitempty"`
-	Id          ID                   `json:"id"`
+	DisplayName DisplayName         `json:"display_name"`
+	Email       openapi_types.Email `json:"email"`
+	Id          ID                  `json:"id"`
 
 	// MustChangePassword When true, the user must change their password before using the app.
 	MustChangePassword *bool `json:"must_change_password,omitempty"`
@@ -194,9 +198,6 @@ type Username = string
 
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = CreateUserRequest
-
-// AdminUpdateUserJSONRequestBody defines body for AdminUpdateUser for application/json ContentType.
-type AdminUpdateUserJSONRequestBody = AdminUpdateUserRequest
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = AuthRequest
@@ -219,6 +220,156 @@ type UpdateMeJSONRequestBody = UpdateProfileRequest
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
 type ChangePasswordJSONRequestBody = ChangePasswordRequest
 
+// AsUpdateProfileRequest0 returns the union data inside the UpdateProfileRequest as a UpdateProfileRequest0
+func (t UpdateProfileRequest) AsUpdateProfileRequest0() (UpdateProfileRequest0, error) {
+	var body UpdateProfileRequest0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromUpdateProfileRequest0 overwrites any union data inside the UpdateProfileRequest as the provided UpdateProfileRequest0
+func (t *UpdateProfileRequest) FromUpdateProfileRequest0(v UpdateProfileRequest0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeUpdateProfileRequest0 performs a merge with any union data inside the UpdateProfileRequest, using the provided UpdateProfileRequest0
+func (t *UpdateProfileRequest) MergeUpdateProfileRequest0(v UpdateProfileRequest0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsUpdateProfileRequest1 returns the union data inside the UpdateProfileRequest as a UpdateProfileRequest1
+func (t UpdateProfileRequest) AsUpdateProfileRequest1() (UpdateProfileRequest1, error) {
+	var body UpdateProfileRequest1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromUpdateProfileRequest1 overwrites any union data inside the UpdateProfileRequest as the provided UpdateProfileRequest1
+func (t *UpdateProfileRequest) FromUpdateProfileRequest1(v UpdateProfileRequest1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeUpdateProfileRequest1 performs a merge with any union data inside the UpdateProfileRequest, using the provided UpdateProfileRequest1
+func (t *UpdateProfileRequest) MergeUpdateProfileRequest1(v UpdateProfileRequest1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsUpdateProfileRequest2 returns the union data inside the UpdateProfileRequest as a UpdateProfileRequest2
+func (t UpdateProfileRequest) AsUpdateProfileRequest2() (UpdateProfileRequest2, error) {
+	var body UpdateProfileRequest2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromUpdateProfileRequest2 overwrites any union data inside the UpdateProfileRequest as the provided UpdateProfileRequest2
+func (t *UpdateProfileRequest) FromUpdateProfileRequest2(v UpdateProfileRequest2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeUpdateProfileRequest2 performs a merge with any union data inside the UpdateProfileRequest, using the provided UpdateProfileRequest2
+func (t *UpdateProfileRequest) MergeUpdateProfileRequest2(v UpdateProfileRequest2) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t UpdateProfileRequest) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	object := make(map[string]json.RawMessage)
+	if t.union != nil {
+		err = json.Unmarshal(b, &object)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if t.DisplayName != nil {
+		object["display_name"], err = json.Marshal(t.DisplayName)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'display_name': %w", err)
+		}
+	}
+
+	if t.Email != nil {
+		object["email"], err = json.Marshal(t.Email)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'email': %w", err)
+		}
+	}
+
+	if t.Username != nil {
+		object["username"], err = json.Marshal(t.Username)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'username': %w", err)
+		}
+	}
+	b, err = json.Marshal(object)
+	return b, err
+}
+
+func (t *UpdateProfileRequest) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	if err != nil {
+		return err
+	}
+	object := make(map[string]json.RawMessage)
+	err = json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["display_name"]; found {
+		err = json.Unmarshal(raw, &t.DisplayName)
+		if err != nil {
+			return fmt.Errorf("error reading 'display_name': %w", err)
+		}
+	}
+
+	if raw, found := object["email"]; found {
+		err = json.Unmarshal(raw, &t.Email)
+		if err != nil {
+			return fmt.Errorf("error reading 'email': %w", err)
+		}
+	}
+
+	if raw, found := object["username"]; found {
+		err = json.Unmarshal(raw, &t.Username)
+		if err != nil {
+			return fmt.Errorf("error reading 'username': %w", err)
+		}
+	}
+
+	return err
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// List all users (Admin only)
@@ -230,9 +381,12 @@ type ServerInterface interface {
 	// Delete a user (Admin only)
 	// (DELETE /admin/users/{user_id})
 	DeleteUser(w http.ResponseWriter, r *http.Request, userId ID)
-	// Update a user (Admin only)
-	// (PATCH /admin/users/{user_id})
-	AdminUpdateUser(w http.ResponseWriter, r *http.Request, userId ID)
+	// Demote an admin to regular user (Admin only)
+	// (POST /admin/users/{user_id}/demote)
+	DemoteUser(w http.ResponseWriter, r *http.Request, userId ID)
+	// Promote a user to admin (Admin only)
+	// (POST /admin/users/{user_id}/promote)
+	PromoteUser(w http.ResponseWriter, r *http.Request, userId ID)
 	// Login user
 	// (POST /auth/login)
 	Login(w http.ResponseWriter, r *http.Request)
@@ -311,9 +465,15 @@ func (_ Unimplemented) DeleteUser(w http.ResponseWriter, r *http.Request, userId
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Update a user (Admin only)
-// (PATCH /admin/users/{user_id})
-func (_ Unimplemented) AdminUpdateUser(w http.ResponseWriter, r *http.Request, userId ID) {
+// Demote an admin to regular user (Admin only)
+// (POST /admin/users/{user_id}/demote)
+func (_ Unimplemented) DemoteUser(w http.ResponseWriter, r *http.Request, userId ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Promote a user to admin (Admin only)
+// (POST /admin/users/{user_id}/promote)
+func (_ Unimplemented) PromoteUser(w http.ResponseWriter, r *http.Request, userId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -505,8 +665,8 @@ func (siw *ServerInterfaceWrapper) DeleteUser(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
-// AdminUpdateUser operation middleware
-func (siw *ServerInterfaceWrapper) AdminUpdateUser(w http.ResponseWriter, r *http.Request) {
+// DemoteUser operation middleware
+func (siw *ServerInterfaceWrapper) DemoteUser(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -526,7 +686,38 @@ func (siw *ServerInterfaceWrapper) AdminUpdateUser(w http.ResponseWriter, r *htt
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AdminUpdateUser(w, r, userId)
+		siw.Handler.DemoteUser(w, r, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PromoteUser operation middleware
+func (siw *ServerInterfaceWrapper) PromoteUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "user_id" -------------
+	var userId ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "user_id", chi.URLParam(r, "user_id"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PromoteUser(w, r, userId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1132,7 +1323,10 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/admin/users/{user_id}", wrapper.DeleteUser)
 	})
 	r.Group(func(r chi.Router) {
-		r.Patch(options.BaseURL+"/admin/users/{user_id}", wrapper.AdminUpdateUser)
+		r.Post(options.BaseURL+"/admin/users/{user_id}/demote", wrapper.DemoteUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/admin/users/{user_id}/promote", wrapper.PromoteUser)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/login", wrapper.Login)
@@ -1208,6 +1402,15 @@ func (response ListUsers200JSONResponse) VisitListUsersResponse(w http.ResponseW
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListUsers401JSONResponse ErrorResponse
+
+func (response ListUsers401JSONResponse) VisitListUsersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type ListUsers403Response struct {
 }
 
@@ -1247,6 +1450,15 @@ type CreateUser400JSONResponse ErrorResponse
 func (response CreateUser400JSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateUser401JSONResponse ErrorResponse
+
+func (response CreateUser401JSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -1293,6 +1505,15 @@ func (response DeleteUser204Response) VisitDeleteUserResponse(w http.ResponseWri
 	return nil
 }
 
+type DeleteUser401JSONResponse ErrorResponse
+
+func (response DeleteUser401JSONResponse) VisitDeleteUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type DeleteUser403JSONResponse ErrorResponse
 
 func (response DeleteUser403JSONResponse) VisitDeleteUserResponse(w http.ResponseWriter) error {
@@ -1320,54 +1541,106 @@ func (response DeleteUser500JSONResponse) VisitDeleteUserResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AdminUpdateUserRequestObject struct {
+type DemoteUserRequestObject struct {
 	UserId ID `json:"user_id"`
-	Body   *AdminUpdateUserJSONRequestBody
 }
 
-type AdminUpdateUserResponseObject interface {
-	VisitAdminUpdateUserResponse(w http.ResponseWriter) error
+type DemoteUserResponseObject interface {
+	VisitDemoteUserResponse(w http.ResponseWriter) error
 }
 
-type AdminUpdateUser200JSONResponse User
+type DemoteUser200JSONResponse User
 
-func (response AdminUpdateUser200JSONResponse) VisitAdminUpdateUserResponse(w http.ResponseWriter) error {
+func (response DemoteUser200JSONResponse) VisitDemoteUserResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AdminUpdateUser400JSONResponse ErrorResponse
+type DemoteUser401JSONResponse ErrorResponse
 
-func (response AdminUpdateUser400JSONResponse) VisitAdminUpdateUserResponse(w http.ResponseWriter) error {
+func (response DemoteUser401JSONResponse) VisitDemoteUserResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
+	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AdminUpdateUser403JSONResponse ErrorResponse
+type DemoteUser403JSONResponse ErrorResponse
 
-func (response AdminUpdateUser403JSONResponse) VisitAdminUpdateUserResponse(w http.ResponseWriter) error {
+func (response DemoteUser403JSONResponse) VisitDemoteUserResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AdminUpdateUser404JSONResponse ErrorResponse
+type DemoteUser404JSONResponse ErrorResponse
 
-func (response AdminUpdateUser404JSONResponse) VisitAdminUpdateUserResponse(w http.ResponseWriter) error {
+func (response DemoteUser404JSONResponse) VisitDemoteUserResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AdminUpdateUser500JSONResponse ErrorResponse
+type DemoteUser500JSONResponse ErrorResponse
 
-func (response AdminUpdateUser500JSONResponse) VisitAdminUpdateUserResponse(w http.ResponseWriter) error {
+func (response DemoteUser500JSONResponse) VisitDemoteUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PromoteUserRequestObject struct {
+	UserId ID `json:"user_id"`
+}
+
+type PromoteUserResponseObject interface {
+	VisitPromoteUserResponse(w http.ResponseWriter) error
+}
+
+type PromoteUser200JSONResponse User
+
+func (response PromoteUser200JSONResponse) VisitPromoteUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PromoteUser401JSONResponse ErrorResponse
+
+func (response PromoteUser401JSONResponse) VisitPromoteUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PromoteUser403JSONResponse ErrorResponse
+
+func (response PromoteUser403JSONResponse) VisitPromoteUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PromoteUser404JSONResponse ErrorResponse
+
+func (response PromoteUser404JSONResponse) VisitPromoteUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PromoteUser500JSONResponse ErrorResponse
+
+func (response PromoteUser500JSONResponse) VisitPromoteUserResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -2115,9 +2388,12 @@ type StrictServerInterface interface {
 	// Delete a user (Admin only)
 	// (DELETE /admin/users/{user_id})
 	DeleteUser(ctx context.Context, request DeleteUserRequestObject) (DeleteUserResponseObject, error)
-	// Update a user (Admin only)
-	// (PATCH /admin/users/{user_id})
-	AdminUpdateUser(ctx context.Context, request AdminUpdateUserRequestObject) (AdminUpdateUserResponseObject, error)
+	// Demote an admin to regular user (Admin only)
+	// (POST /admin/users/{user_id}/demote)
+	DemoteUser(ctx context.Context, request DemoteUserRequestObject) (DemoteUserResponseObject, error)
+	// Promote a user to admin (Admin only)
+	// (POST /admin/users/{user_id}/promote)
+	PromoteUser(ctx context.Context, request PromoteUserRequestObject) (PromoteUserResponseObject, error)
 	// Login user
 	// (POST /auth/login)
 	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
@@ -2284,32 +2560,51 @@ func (sh *strictHandler) DeleteUser(w http.ResponseWriter, r *http.Request, user
 	}
 }
 
-// AdminUpdateUser operation middleware
-func (sh *strictHandler) AdminUpdateUser(w http.ResponseWriter, r *http.Request, userId ID) {
-	var request AdminUpdateUserRequestObject
+// DemoteUser operation middleware
+func (sh *strictHandler) DemoteUser(w http.ResponseWriter, r *http.Request, userId ID) {
+	var request DemoteUserRequestObject
 
 	request.UserId = userId
 
-	var body AdminUpdateUserJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.AdminUpdateUser(ctx, request.(AdminUpdateUserRequestObject))
+		return sh.ssi.DemoteUser(ctx, request.(DemoteUserRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "AdminUpdateUser")
+		handler = middleware(handler, "DemoteUser")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(AdminUpdateUserResponseObject); ok {
-		if err := validResponse.VisitAdminUpdateUserResponse(w); err != nil {
+	} else if validResponse, ok := response.(DemoteUserResponseObject); ok {
+		if err := validResponse.VisitDemoteUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PromoteUser operation middleware
+func (sh *strictHandler) PromoteUser(w http.ResponseWriter, r *http.Request, userId ID) {
+	var request PromoteUserRequestObject
+
+	request.UserId = userId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PromoteUser(ctx, request.(PromoteUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PromoteUser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PromoteUserResponseObject); ok {
+		if err := validResponse.VisitPromoteUserResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2822,64 +3117,66 @@ func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"cSaS4CgY4ZSOFvvB6nr1nwAAAP//qDnVmchcAAA=",
+	"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",
+	"AAD//64aTaEiYgAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
