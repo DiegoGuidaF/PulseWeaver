@@ -23,7 +23,7 @@ src/
 │   │   └── hooks/
 │   │       ├── useCurrentUser.ts   # Session query (5min stale, null on 401, refetches on window focus)
 │   │       ├── useLogin.ts         # Login mutation → invalidate user → navigate
-│   │       └── useLogout.ts        # Logout mutation → removeQueries → /login
+│   │       └── useLogout.ts        # Logout mutation → queryClient.clear() + set user null → /login
 │   └── devices/
 │       ├── CreateDeviceForm.tsx    # Name form + success dialog with API key
 │       ├── DeviceList.tsx          # Table of all devices + delete confirmation
@@ -124,7 +124,7 @@ The core maintainability strategy for this frontend is that **`api/openapi.yaml`
 | `zod` | `src/lib/api/zod.gen.ts` | Zod schemas for request and response validation |
 | `@hey-api/transformers` | (applied to SDK) | Deserializes `date-time` strings into `Date` objects |
 | `@tanstack/react-query` | `src/lib/api/@tanstack/react-query.gen.ts` | Query/mutation options factories + query key factories |
-| `@hey-api/client-fetch` | `src/lib/api/client.ts` | Configured fetch client (base URL, cookie auth) |
+| `@hey-api/client-fetch` | `src/lib/api/client.gen.ts` | Configured fetch client (base URL, cookie auth) |
 
 Everything under `src/lib/api/` is **regenerated on every `npm run generate:api`** — never hand-edited.
 
@@ -231,9 +231,10 @@ export const defaultHandlers = [authHandlers.me.success(), deviceHandlers.list()
 - Endpoint path strings live only in `handlers.ts` — never hardcoded in test files.
 - Mock data shapes are composed via `createMock*` factories in `src/test/mocks/data.ts`.
 
-### `renderWithProviders`
+### Test utilities
 
-Wraps with `MantineProvider` + `Notifications` + `QueryClientProvider` + `MemoryRouter`. Use for all component/page tests.
+- `src/test/utils.tsx` — exports `renderWithProviders` (wraps with `MantineProvider` + `Notifications` + `QueryClientProvider` + `MemoryRouter`)
+- `src/test/constants.ts` — exports `TEST_TIMEOUTS` (shared timeout values for async assertions)
 
 ### Test call-site pattern
 

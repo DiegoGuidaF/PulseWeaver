@@ -8,6 +8,7 @@ import {
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import App from "./App";
 import { getCurrentUserQueryKey } from "@/lib/api/@tanstack/react-query.gen";
+import { toApiError } from "@/lib/api-client";
 import "./lib/api-client/config"; // Initialize API client configuration
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
@@ -17,10 +18,7 @@ import "@mantine/notifications/styles.css";
 function handle401Error(error: unknown, isAuthMeQuery = false) {
   // Check if this is a 401 error
   // ApiError instances have a status property, or check the error object directly
-  const status =
-    error instanceof Error && "status" in error
-      ? (error as any).status
-      : (error as any)?.status;
+  const { status } = toApiError(error);
   if (status === 401 && !isAuthMeQuery) {
     // Don't redirect if already on login page or if this is the auth/me query
     if (window.location.pathname !== "/login") {

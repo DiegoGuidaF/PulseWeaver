@@ -152,11 +152,13 @@ export function DeviceSettingsTab({
         body: { ttl_seconds: toSeconds(Number(values.value), values.unit) },
       },
       {
-        onSuccess: () =>
+        onSuccess: () => {
+          setEditing(false);
           notifications.show({
             color: "green",
             message: "Address lease rule saved",
-          }),
+          });
+        },
         onError: (err) =>
           notifications.show({
             color: "red",
@@ -165,7 +167,6 @@ export function DeviceSettingsTab({
           }),
       },
     );
-    setEditing(false);
   }
 
   function handleStartEditing() {

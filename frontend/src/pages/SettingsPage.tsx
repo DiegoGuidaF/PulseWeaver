@@ -3,6 +3,7 @@ import { useForm } from "@mantine/form";
 import { zod4Resolver } from "mantine-form-zod-resolver";
 import { z } from "zod";
 import {
+  Badge,
   Button,
   Card,
   Group,
@@ -41,7 +42,6 @@ export function SettingsPage() {
   const listUsers = useListUsers({ enabled: user?.role === UserRole.ADMIN });
   const adminUpdateUser = useAdminUpdateUser();
   const deleteUser = useDeleteUser();
-  const [displayNameEdits, setDisplayNameEdits] = useState<Record<number, string>>({});
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; username: string } | null>(null);
 
   const profileForm = useForm<z.infer<typeof profileSchema>>({
@@ -117,20 +117,6 @@ export function SettingsPage() {
     const nextRole = currentRole === UserRole.ADMIN ? UserRole.USER : UserRole.ADMIN;
     adminUpdateUser.mutate(
       { path: { user_id: targetUserId }, body: { role: nextRole } },
-      {
-        onSuccess: () => notifications.show({ color: "green", message: "User updated" }),
-        onError: (err) =>
-          notifications.show({ color: "red", title: "Failed to update user", message: toErrorMessage(err) }),
-      },
-    );
-  }
-
-  function handleAdminDisplayNameSave(targetUserId: number) {
-    const displayName = displayNameEdits[targetUserId]?.trim();
-    if (!displayName) return;
-    //TODO: Remove this, display name shouldn't be edited by admin
-    adminUpdateUser.mutate(
-      { path: { user_id: targetUserId }, body: { } },
       {
         onSuccess: () => notifications.show({ color: "green", message: "User updated" }),
         onError: (err) =>
@@ -216,7 +202,7 @@ export function SettingsPage() {
                 {...profileForm.getInputProps("email")}
               />
               <div>
-                <Button type="submit" disabled={updateMe.isPending}>
+                <Button type="submit" disabled={updateMe.isPending || !profileForm.isDirty()}>
                   {updateMe.isPending ? "Saving..." : "Save profile"}
                 </Button>
               </div>
@@ -251,7 +237,10 @@ export function SettingsPage() {
 
         {user?.role === UserRole.ADMIN && !user.must_change_password && (
           <Card withBorder>
-            <Title order={3} mb="md">Users (admin)</Title>
+            <Title order={3} mb="xs">Users</Title>
+            <Text c="dimmed" size="sm" mb="md">
+              Promote or demote users between the user and admin roles. Users manage their own profile information.
+            </Text>
             <Table>
               <Table.Thead>
                 <Table.Tr>
@@ -264,34 +253,21 @@ export function SettingsPage() {
               <Table.Tbody>
                 {adminUsers.map((adminUser) => {
                   const isSelf = adminUser.id === user.id;
+                  const isAdmin = adminUser.role === UserRole.ADMIN;
                   return (
                     <Table.Tr key={adminUser.id}>
-                      <Table.Td fw={500}>{adminUser.username}</Table.Td>
-                      <Table.Td>
-                        <Group gap="sm">
-                          <TextInput
-                            value={displayNameEdits[adminUser.id] ?? adminUser.display_name}
-                            onChange={(event) =>
-                              setDisplayNameEdits((prev) => ({
-                                ...prev,
-                                [adminUser.id]: event.target.value,
-                              }))
-                            }
-                            disabled={isSelf || adminUpdateUser.isPending}
-                            style={{ flex: 1 }}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={isSelf || adminUpdateUser.isPending}
-                            onClick={() => handleAdminDisplayNameSave(adminUser.id)}
-                          >
-                            Save
-                          </Button>
-                        </Group>
+                      <Table.Td fw={500}>
+                        {adminUser.username}
+                        {isSelf && (
+                          <Text component="span" c="dimmed" size="xs" ml="xs">(you)</Text>
+                        )}
                       </Table.Td>
-                      <Table.Td>{adminUser.role}</Table.Td>
+                      <Table.Td c="dimmed">{adminUser.display_name || "—"}</Table.Td>
+                      <Table.Td>
+                        <Badge variant="light" color={isAdmin ? "violet" : "gray"}>
+                          {adminUser.role}
+                        </Badge>
+                      </Table.Td>
                       <Table.Td>
                         <Group justify="flex-end" gap="sm">
                           <Button
@@ -301,11 +277,12 @@ export function SettingsPage() {
                             disabled={isSelf || adminUpdateUser.isPending}
                             onClick={() => handleRoleToggle(adminUser.id, adminUser.role)}
                           >
-                            {adminUser.role === UserRole.ADMIN ? "Demote" : "Promote"}
+                            {isAdmin ? "Demote to user" : "Promote to admin"}
                           </Button>
                           <Button
                             type="button"
                             color="red"
+                            variant="outline"
                             size="sm"
                             disabled={isSelf || deleteUser.isPending}
                             onClick={() => handleDeleteUser(adminUser.id, adminUser.username)}
