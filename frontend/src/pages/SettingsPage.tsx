@@ -84,7 +84,10 @@ export function SettingsPage() {
     updateMe.mutate(
       { body },
       {
-        onSuccess: () => notifications.show({ color: "green", message: "Profile updated" }),
+        onSuccess: () => {
+          profileForm.reset()
+          notifications.show({ color: "green", message: "Profile updated" })
+        },
         onError: (err) => {
           const message =
             toApiError(err).status === 409
