@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "@mantine/form";
+import { zod4Resolver } from "mantine-form-zod-resolver";
 import { z } from "zod";
 import {
   Button,
@@ -42,14 +42,14 @@ function toSeconds(value: number, unit: TtlUnit): number {
   }
 }
 
-function fromSeconds(ttlSeconds: number): { value: number; unit: TtlUnit } {
+function fromSeconds(ttlSeconds: number): { value: string; unit: TtlUnit } {
   if (ttlSeconds % SECONDS_PER_DAY === 0) {
-    return { value: ttlSeconds / SECONDS_PER_DAY, unit: "days" };
+    return { value: String(ttlSeconds / SECONDS_PER_DAY), unit: "days" };
   }
   if (ttlSeconds % SECONDS_PER_MINUTE === 0) {
-    return { value: ttlSeconds / SECONDS_PER_MINUTE, unit: "minutes" };
+    return { value: String(ttlSeconds / SECONDS_PER_MINUTE), unit: "minutes" };
   }
-  return { value: ttlSeconds, unit: "seconds" };
+  return { value: String(ttlSeconds), unit: "seconds" };
 }
 
 function formatTtlLabel(ttlSeconds: number): string {
@@ -57,7 +57,6 @@ function formatTtlLabel(ttlSeconds: number): string {
     const days = ttlSeconds / SECONDS_PER_DAY;
     return days === 1 ? "1 day" : `${days} days`;
   }
-
   if (ttlSeconds % SECONDS_PER_MINUTE === 0) {
     const minutes = ttlSeconds / SECONDS_PER_MINUTE;
     if (minutes % 60 === 0) {
@@ -66,20 +65,18 @@ function formatTtlLabel(ttlSeconds: number): string {
     }
     return minutes === 1 ? "1 minute" : `${minutes} minutes`;
   }
-
   return ttlSeconds === 1 ? "1 second" : `${ttlSeconds} seconds`;
 }
 
+// Stored as strings since TextInput type="number" emits string values.
+// zod4Resolver uses z.coerce.number() to validate; the submit handler
+// coerces to number before calling the API.
+type LeaseRuleFormValues = { value: string; unit: TtlUnit };
+
 const leaseRuleFormSchema = z.object({
-  value: z
-    .coerce.number()
-    .int("Must be a whole number")
-    .min(1, "Minimum is 1"),
+  value: z.coerce.number().int("Must be a whole number").min(1, "Minimum is 1"),
   unit: z.enum(TTL_UNITS),
 });
-
-type LeaseRuleFormValues = z.infer<typeof leaseRuleFormSchema>;
-type LeaseRuleFormInput = z.input<typeof leaseRuleFormSchema>;
 
 interface DeviceSettingsTabProps {
   deviceId: number;
@@ -100,23 +97,21 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
   const [regeneratedApiKey, setRegeneratedApiKey] = useState<string | null>(null);
   const [confirmRegenOpen, setConfirmRegenOpen] = useState(false);
 
-  const leaseRuleForm = useForm<LeaseRuleFormInput, unknown, LeaseRuleFormValues>({
-    resolver: zodResolver(leaseRuleFormSchema),
-    defaultValues: { value: 5, unit: "minutes" },
+  const leaseRuleForm = useForm<LeaseRuleFormValues>({
+    validate: zod4Resolver(leaseRuleFormSchema),
+    initialValues: { value: "5", unit: "minutes" },
   });
-  const { reset } = leaseRuleForm;
+  const { setValues } = leaseRuleForm;
   const [editing, setEditing] = useState(false);
 
   const isOn = Boolean(rule && rule.enabled);
 
   async function handleCopyRegeneratedKey() {
     if (!regeneratedApiKey) return;
-
     if (!("clipboard" in navigator) || !navigator.clipboard?.writeText) {
       notifications.show({ message: "Copy to clipboard is not supported in this browser.", color: "red" });
       return;
     }
-
     try {
       await navigator.clipboard.writeText(regeneratedApiKey);
       notifications.show({ message: "Copied to clipboard", color: "green" });
@@ -140,25 +135,21 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
   function handleLeaseRuleSubmit(values: LeaseRuleFormValues) {
     putRuleMutation.mutate({
       path: { device_id: deviceId },
-      body: { ttl_seconds: toSeconds(values.value, values.unit) },
+      body: { ttl_seconds: toSeconds(Number(values.value), values.unit) },
     });
     setEditing(false);
   }
 
   function handleStartEditing() {
     if (!rule) return;
-    const initial = fromSeconds(rule.ttl_seconds);
-    reset(initial);
+    setValues(fromSeconds(rule.ttl_seconds));
     setEditing(true);
   }
 
   useEffect(() => {
-    if (!rule || isOn) {
-      return;
-    }
-    const initial = fromSeconds(rule.ttl_seconds);
-    reset(initial);
-  }, [isOn, reset, rule]);
+    if (!rule || isOn) return;
+    setValues(fromSeconds(rule.ttl_seconds));
+  }, [isOn, rule, setValues]);
 
   const ttlLabel =
     rule && rule.ttl_seconds ? formatTtlLabel(rule.ttl_seconds) : null;
@@ -236,7 +227,7 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
               )}
 
               {(!isOn || editing) && (
-                <form onSubmit={leaseRuleForm.handleSubmit(handleLeaseRuleSubmit)}>
+                <form onSubmit={leaseRuleForm.onSubmit(handleLeaseRuleSubmit)}>
                   <Group align="flex-end" gap="md" wrap="wrap">
                     <TextInput
                       label="Expires after"
@@ -245,30 +236,13 @@ export function DeviceSettingsTab({ deviceId, device }: DeviceSettingsTabProps) 
                       step={1}
                       placeholder="1"
                       w={128}
-                      error={leaseRuleForm.formState.errors.value?.message}
-                      name={leaseRuleForm.register("value").name}
-                      ref={leaseRuleForm.register("value").ref}
-                      onBlur={leaseRuleForm.register("value").onBlur}
-                      value={
-                        typeof (leaseRuleForm.watch("value") as number | string | undefined) === "number"
-                          ? String(leaseRuleForm.watch("value") as number)
-                          : ""
-                      }
-                      onChange={(e) =>
-                        leaseRuleForm.setValue(
-                          "value",
-                          e.target.value === ""
-                            ? (undefined as unknown as number)
-                            : Number(e.target.value),
-                          { shouldValidate: true },
-                        )
-                      }
+                      {...leaseRuleForm.getInputProps("value")}
                     />
                     <NativeSelect
                       label="Unit"
                       w={128}
                       data={TTL_UNITS.map((unit) => ({ label: unit, value: unit }))}
-                      {...leaseRuleForm.register("unit")}
+                      {...leaseRuleForm.getInputProps("unit")}
                     />
                     <Button type="submit" disabled={putRuleMutation.isPending}>
                       {submitButtonLabel}

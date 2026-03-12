@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "@mantine/form";
+import { zod4Resolver } from "mantine-form-zod-resolver";
 import { z } from "zod";
 import { format, isPast } from "date-fns";
 import {
@@ -64,8 +64,8 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
   );
   const heartbeatMutation = useDeviceHeartbeat();
   const form = useForm<z.infer<typeof addressSchema>>({
-    resolver: zodResolver(addressSchema),
-    defaultValues: { ip: "" },
+    validate: zod4Resolver(addressSchema),
+    initialValues: { ip: "" },
   });
   const addAddressMutation = useAddDeviceAddress({
     onSuccess: () => form.reset(),
@@ -92,9 +92,7 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
   }, []);
 
   const isActive = ahSettings?.deviceId === deviceId;
-  const currentInterval = isActive
-    ? (ahSettings?.intervalSeconds ?? 60)
-    : 60;
+  const currentInterval = isActive ? (ahSettings?.intervalSeconds ?? 60) : 60;
 
   function handleToggle(checked: boolean) {
     if (checked) {
@@ -125,9 +123,7 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
         },
       },
       {
-        onSettled: () => {
-          setAddressToDisable(null);
-        },
+        onSettled: () => setAddressToDisable(null),
       },
     );
   }
@@ -220,20 +216,16 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
 
       <Card withBorder>
         <Title order={4} mb="md">Add IP address</Title>
-        <form onSubmit={form.handleSubmit(handleAddAddressSubmit)}>
+        <form onSubmit={form.onSubmit(handleAddAddressSubmit)}>
           <Group align="flex-end" gap="md">
             <TextInput
               label="IP address"
               placeholder="192.168.1.100"
               autoComplete="off"
-              error={form.formState.errors.ip?.message}
               style={{ flex: 1 }}
-              {...form.register("ip")}
+              {...form.getInputProps("ip")}
             />
-            <Button
-              type="submit"
-              disabled={addAddressMutation.isPending}
-            >
+            <Button type="submit" disabled={addAddressMutation.isPending}>
               {addAddressMutation.isPending ? "Adding..." : "Add IP"}
             </Button>
           </Group>

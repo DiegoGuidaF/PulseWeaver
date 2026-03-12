@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "@mantine/form";
+import { zod4Resolver } from "mantine-form-zod-resolver";
 import {
   Button,
   Group,
@@ -19,8 +19,8 @@ const formSchema = zCreateDeviceRequest;
 
 export function CreateDeviceForm() {
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: { name: "" },
+    validate: zod4Resolver(formSchema),
+    initialValues: { name: "" },
   });
 
   const [createdResult, setCreatedResult] =
@@ -35,12 +35,10 @@ export function CreateDeviceForm() {
 
   async function handleCopyApiKey() {
     if (!createdResult) return;
-
     if (!("clipboard" in navigator) || !navigator.clipboard?.writeText) {
       notifications.show({ message: "Copy to clipboard is not supported in this browser.", color: "red" });
       return;
     }
-
     try {
       await navigator.clipboard.writeText(createdResult.api_key);
       notifications.show({ message: "Copied to clipboard", color: "green" });
@@ -55,14 +53,13 @@ export function CreateDeviceForm() {
 
   return (
     <Stack gap="md">
-      <form onSubmit={form.handleSubmit(onSubmit)}>
+      <form onSubmit={form.onSubmit(onSubmit)}>
         <Group align="flex-end" gap="md">
           <TextInput
             label="New Device Name"
             placeholder="e.g. Office Printer"
-            error={form.formState.errors.name?.message}
             style={{ flex: 1 }}
-            {...form.register("name")}
+            {...form.getInputProps("name")}
           />
           <Button type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? "Creating..." : "Add Device"}

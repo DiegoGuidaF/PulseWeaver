@@ -20,7 +20,7 @@ export type AuthRequest = {
   password: Password;
 };
 
-export type UpdateProfileRequest = {
+export type UpdateProfileRequest = unknown & {
   display_name?: DisplayName;
   username?: string;
   email?: string;
@@ -62,7 +62,7 @@ export type User = {
   id: Id;
   username: Username;
   display_name: DisplayName;
-  email?: string;
+  email: string;
   role: UserRole;
   /**
    * When true, the user must change their password before using the app.
@@ -171,7 +171,7 @@ export type UserWritable = {
   id: Id;
   username: Username;
   display_name: DisplayName;
-  email?: string;
+  email: string;
   created_at: Date;
 };
 

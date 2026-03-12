@@ -1,6 +1,27 @@
 import '@testing-library/jest-dom';
 import { beforeAll, afterEach, afterAll } from 'vitest';
 import { setupServer } from 'msw/node';
+
+// Node 25+ exposes a built-in `localStorage` global whose methods are stubs
+// (they throw) unless `--localstorage-file` is passed to the worker process.
+// Rather than sharing a SQLite file across workers (which causes "database is
+// locked" errors when multiple workers start MSW's CookieStore concurrently),
+// we install a per-worker in-memory implementation here.
+if (typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function') {
+    const store = new Map<string, string>();
+    Object.defineProperty(globalThis, 'localStorage', {
+        value: {
+            getItem: (key: string) => store.get(key) ?? null,
+            setItem: (key: string, value: string) => { store.set(key, String(value)); },
+            removeItem: (key: string) => { store.delete(key); },
+            clear: () => { store.clear(); },
+            get length() { return store.size; },
+            key: (index: number) => [...store.keys()][index] ?? null,
+        },
+        writable: true,
+        configurable: true,
+    });
+}
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
 import { defaultHandlers } from './mocks/handlers';

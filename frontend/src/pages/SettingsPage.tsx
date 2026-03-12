@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "@mantine/form";
+import { zod4Resolver } from "mantine-form-zod-resolver";
 import { z } from "zod";
 import {
   Button,
@@ -43,8 +43,8 @@ export function SettingsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; username: string } | null>(null);
 
   const profileForm = useForm<z.infer<typeof profileSchema>>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
+    validate: zod4Resolver(profileSchema),
+    initialValues: {
       display_name: user?.display_name ?? "",
       username: user?.username ?? "",
       email: user?.email ?? "",
@@ -52,8 +52,8 @@ export function SettingsPage() {
   });
 
   const passwordForm = useForm<z.infer<typeof passwordSchema>>({
-    resolver: zodResolver(passwordSchema),
-    defaultValues: {
+    validate: zod4Resolver(passwordSchema),
+    initialValues: {
       current_password: "",
       password: "",
     },
@@ -89,10 +89,8 @@ export function SettingsPage() {
         },
       },
       {
-        onSuccess: () => {
-          passwordForm.reset();
-        },
-      }
+        onSuccess: () => passwordForm.reset(),
+      },
     );
   }
 
@@ -107,7 +105,6 @@ export function SettingsPage() {
   function handleAdminDisplayNameSave(targetUserId: number) {
     const displayName = displayNameEdits[targetUserId]?.trim();
     if (!displayName) return;
-
     adminUpdateUser.mutate({
       path: { user_id: targetUserId },
       body: { display_name: displayName },
@@ -145,11 +142,7 @@ export function SettingsPage() {
           <Button variant="outline" onClick={() => setDeleteTarget(null)}>
             Cancel
           </Button>
-          <Button
-            color="red"
-            onClick={confirmDeleteUser}
-            disabled={deleteUser.isPending}
-          >
+          <Button color="red" onClick={confirmDeleteUser} disabled={deleteUser.isPending}>
             {deleteUser.isPending ? "Deleting..." : "Delete"}
           </Button>
         </Group>
@@ -172,25 +165,22 @@ export function SettingsPage() {
 
         <Card withBorder>
           <Title order={3} mb="md">My profile</Title>
-          <form onSubmit={profileForm.handleSubmit(submitProfile)}>
+          <form onSubmit={profileForm.onSubmit(submitProfile)}>
             <Stack gap="md">
               <TextInput
                 label="Display name"
                 placeholder="Your display name"
-                error={profileForm.formState.errors.display_name?.message}
-                {...profileForm.register("display_name")}
+                {...profileForm.getInputProps("display_name")}
               />
               <TextInput
                 label="Username"
                 placeholder="Username"
-                error={profileForm.formState.errors.username?.message}
-                {...profileForm.register("username")}
+                {...profileForm.getInputProps("username")}
               />
               <TextInput
                 label="Email"
                 placeholder="you@example.com"
-                error={profileForm.formState.errors.email?.message}
-                {...profileForm.register("email")}
+                {...profileForm.getInputProps("email")}
               />
               <div>
                 <Button type="submit" disabled={updateMe.isPending}>
@@ -203,21 +193,19 @@ export function SettingsPage() {
 
         <Card withBorder>
           <Title order={3} mb="md">Change password</Title>
-          <form onSubmit={passwordForm.handleSubmit(submitPassword)}>
+          <form onSubmit={passwordForm.onSubmit(submitPassword)}>
             <Stack gap="md">
               <TextInput
                 label="Current password"
                 type="password"
                 autoComplete="current-password"
-                error={passwordForm.formState.errors.current_password?.message}
-                {...passwordForm.register("current_password")}
+                {...passwordForm.getInputProps("current_password")}
               />
               <TextInput
                 label="New password"
                 type="password"
                 autoComplete="new-password"
-                error={passwordForm.formState.errors.password?.message}
-                {...passwordForm.register("password")}
+                {...passwordForm.getInputProps("password")}
               />
               <div>
                 <Button type="submit" disabled={changePassword.isPending}>

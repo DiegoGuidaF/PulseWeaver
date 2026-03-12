@@ -1,5 +1,5 @@
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "@mantine/form";
+import { zod4Resolver } from "mantine-form-zod-resolver";
 import { Button, Stack, TextInput } from "@mantine/core";
 import { useLogin } from "@/features/auth/hooks/useLogin";
 import { zAuthRequest } from "@/lib/api/zod.gen";
@@ -11,8 +11,8 @@ export function LoginForm() {
   const loginMutation = useLogin();
 
   const form = useForm<z.infer<typeof loginSchema>>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
+    validate: zod4Resolver(loginSchema),
+    initialValues: {
       username: "",
       password: "",
     },
@@ -23,26 +23,20 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)}>
+    <form onSubmit={form.onSubmit(onSubmit)}>
       <Stack gap="md">
         <TextInput
           label="Username"
           placeholder="Enter your username"
-          error={form.formState.errors.username?.message}
-          {...form.register("username")}
+          {...form.getInputProps("username")}
         />
         <TextInput
           label="Password"
           type="password"
           placeholder="Enter your password"
-          error={form.formState.errors.password?.message}
-          {...form.register("password")}
+          {...form.getInputProps("password")}
         />
-        <Button
-          type="submit"
-          fullWidth
-          disabled={loginMutation.isPending}
-        >
+        <Button type="submit" fullWidth disabled={loginMutation.isPending}>
           {loginMutation.isPending ? "Signing in..." : "Sign in"}
         </Button>
       </Stack>
