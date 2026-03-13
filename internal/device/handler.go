@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
-	"github.com/DiegoGuidaF/WallyDex/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
 type HTTPHandler struct {

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
-	"github.com/DiegoGuidaF/WallyDex/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 

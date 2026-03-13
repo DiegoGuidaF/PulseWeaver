@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/app"
-	"github.com/DiegoGuidaF/WallyDex/internal/config"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/app"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
 )
 
 const TestAdminPassword = "AdminPass123!"

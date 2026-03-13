@@ -284,7 +284,7 @@ export const AddressSchema = {
     }
 } as const;
 
-export const AuditLogResponseSchema = {
+export const RequestAuditLogResponseSchema = {
     type: 'object',
     required: [
         'total',
@@ -307,13 +307,13 @@ export const AuditLogResponseSchema = {
         rows: {
             type: 'array',
             items: {
-                $ref: '#/components/schemas/AuditLogRow'
+                $ref: '#/components/schemas/RequestAuditLogRow'
             }
         }
     }
 } as const;
 
-export const AuditLogRowSchema = {
+export const RequestAuditLogRowSchema = {
     type: 'object',
     required: [
         'id',
@@ -325,12 +325,6 @@ export const AuditLogRowSchema = {
         id: {
             $ref: '#/components/schemas/ID'
         },
-        device_id: {
-            $ref: '#/components/schemas/ID'
-        },
-        rule_id: {
-            $ref: '#/components/schemas/ID'
-        },
         client_ip: {
             $ref: '#/components/schemas/IPAddress'
         },
@@ -340,13 +334,19 @@ export const AuditLogRowSchema = {
         deny_reason: {
             type: 'string'
         },
+        device_id: {
+            $ref: '#/components/schemas/ID'
+        },
+        device_name: {
+            type: 'string'
+        },
+        address_id: {
+            $ref: '#/components/schemas/ID'
+        },
         created_at: {
             type: 'string',
             format: 'date-time',
             'x-go-type': 'UTCTime'
-        },
-        device_name: {
-            type: 'string'
         },
         xff_chain: {
             type: 'string'

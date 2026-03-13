@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/jmoiron/sqlx"
 )
 

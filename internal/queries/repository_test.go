@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/device"
-	"github.com/DiegoGuidaF/WallyDex/internal/lease"
-	"github.com/DiegoGuidaF/WallyDex/internal/queries"
-	"github.com/DiegoGuidaF/WallyDex/internal/testdb"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/jmoiron/sqlx"
 	"github.com/matryer/is"
 )

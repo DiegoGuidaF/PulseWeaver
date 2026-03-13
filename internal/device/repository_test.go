@@ -9,7 +9,7 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/testdb"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/matryer/is"
 )
 

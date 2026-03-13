@@ -8,7 +8,7 @@ import (
 	"syscall"
 	_ "time/tzdata"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/app"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/app"
 )
 
 func run(ctx context.Context) (*slog.Logger, error) {

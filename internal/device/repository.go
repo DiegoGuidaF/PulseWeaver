@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/jmoiron/sqlx"
 )
 

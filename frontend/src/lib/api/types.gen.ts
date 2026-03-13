@@ -104,24 +104,24 @@ export type Address = {
     readonly expires_at?: Date | null;
 };
 
-export type AuditLogResponse = {
+export type RequestAuditLogResponse = {
     /**
      * Total rows matching the current filters (excludes cursor, useful for "N results" UI)
      */
     total: number;
     next_cursor: Id | null;
-    rows: Array<AuditLogRow>;
+    rows: Array<RequestAuditLogRow>;
 };
 
-export type AuditLogRow = {
+export type RequestAuditLogRow = {
     id: Id;
-    device_id?: Id;
-    rule_id?: Id;
     client_ip: IpAddress;
     outcome: boolean;
     deny_reason?: string;
-    created_at: Date;
+    device_id?: Id;
     device_name?: string;
+    address_id?: Id;
+    created_at: Date;
     xff_chain?: string;
     target_host?: string;
     target_uri?: string;
@@ -886,7 +886,7 @@ export type DeviceHeartbeatByApiKeyResponses = {
 
 export type DeviceHeartbeatByApiKeyResponse = DeviceHeartbeatByApiKeyResponses[keyof DeviceHeartbeatByApiKeyResponses];
 
-export type GetAuditLogData = {
+export type GetRequestAuditLogData = {
     body?: never;
     path?: never;
     query?: {
@@ -918,10 +918,10 @@ export type GetAuditLogData = {
          */
         before_id?: Id;
     };
-    url: '/audit-log';
+    url: '/request-audit-log';
 };
 
-export type GetAuditLogErrors = {
+export type GetRequestAuditLogErrors = {
     /**
      * Not authenticated
      */
@@ -936,16 +936,16 @@ export type GetAuditLogErrors = {
     500: ErrorResponse;
 };
 
-export type GetAuditLogError = GetAuditLogErrors[keyof GetAuditLogErrors];
+export type GetRequestAuditLogError = GetRequestAuditLogErrors[keyof GetRequestAuditLogErrors];
 
-export type GetAuditLogResponses = {
+export type GetRequestAuditLogResponses = {
     /**
-     * Audit log entries
+     * Request audit log entries
      */
-    200: AuditLogResponse;
+    200: RequestAuditLogResponse;
 };
 
-export type GetAuditLogResponse = GetAuditLogResponses[keyof GetAuditLogResponses];
+export type GetRequestAuditLogResponse = GetRequestAuditLogResponses[keyof GetRequestAuditLogResponses];
 
 export type DisableAddressData = {
     body?: never;

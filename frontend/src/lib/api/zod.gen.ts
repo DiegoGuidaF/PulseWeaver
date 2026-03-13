@@ -105,15 +105,15 @@ export const zAddress = z.object({
     expires_at: z.iso.datetime({ offset: true, local: true }).readonly().nullish()
 });
 
-export const zAuditLogRow = z.object({
+export const zRequestAuditLogRow = z.object({
     id: zId,
-    device_id: zId.optional(),
-    rule_id: zId.optional(),
     client_ip: zIpAddress,
     outcome: z.boolean(),
     deny_reason: z.string().optional(),
-    created_at: z.iso.datetime({ offset: true, local: true }),
+    device_id: zId.optional(),
     device_name: z.string().optional(),
+    address_id: zId.optional(),
+    created_at: z.iso.datetime({ offset: true, local: true }),
     xff_chain: z.string().optional(),
     target_host: z.string().optional(),
     target_uri: z.string().optional(),
@@ -121,10 +121,10 @@ export const zAuditLogRow = z.object({
     headers: z.record(z.string(), z.array(z.string())).optional()
 });
 
-export const zAuditLogResponse = z.object({
+export const zRequestAuditLogResponse = z.object({
     total: z.int(),
     next_cursor: zId.nullable(),
-    rows: z.array(zAuditLogRow)
+    rows: z.array(zRequestAuditLogRow)
 });
 
 export const zDeviceAddressLeaseRule = z.object({
@@ -392,7 +392,7 @@ export const zDeviceHeartbeatByApiKeyData = z.object({
  */
 export const zDeviceHeartbeatByApiKeyResponse = zAddress;
 
-export const zGetAuditLogData = z.object({
+export const zGetRequestAuditLogData = z.object({
     body: z.never().optional(),
     path: z.never().optional(),
     query: z.object({
@@ -413,9 +413,9 @@ export const zGetAuditLogData = z.object({
 });
 
 /**
- * Audit log entries
+ * Request audit log entries
  */
-export const zGetAuditLogResponse = zAuditLogResponse;
+export const zGetRequestAuditLogResponse = zRequestAuditLogResponse;
 
 export const zDisableAddressData = z.object({
     body: z.never().optional(),

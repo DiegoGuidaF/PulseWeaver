@@ -1,9 +1,9 @@
 services:
-  wallydic:
+  pulseweaver:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: wallydic
+    container_name: pulseweaver
     ports:
       - "8080:8080"
     environment:
@@ -20,9 +20,9 @@ services:
     volumes:
       - ./docker-data:/data
       # Named volume alternative (easiest for persistence; no chown needed):
-      # - wallydic-data:/data
+      # - pulseweaver-data:/data
     restart: unless-stopped
 
 # Uncomment if using named volume:
 # volumes:
-#   wallydic-data:
+#   pulseweaver-data:

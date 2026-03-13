@@ -9,8 +9,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/device"
-	"github.com/DiegoGuidaF/WallyDex/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
 // EnabledIPsProvider is the cross-domain interface the policy service consumes.

@@ -6,7 +6,7 @@ export GOWORK=off
 
 MIGRATE := go run -tags sqlite github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
 MIGRATIONS_PATH := internal/database/migrations
-DB_PATH ?= ./data/wallydic.db
+DB_PATH ?= ./data/data.db
 DATABASE_URL := sqlite://$(DB_PATH)
 
 dev-back:
@@ -17,10 +17,10 @@ dev-front:
 
 # Full production build
 build: clean build-frontend build-backend
-	@echo "✅ Build complete! Run ./bin/wallydic"
+	@echo "✅ Build complete! Run ./bin/pulseweaver"
 
 run: build
-	./bin/wallydic
+	./bin/pulseweaver
 
 clean:
 	rm -rf bin/
@@ -65,7 +65,7 @@ build-frontend: api-front
 
 build-backend: api-back
 	@echo "🔨 Building Go binary..."
-	go build -tags=prod -o bin/wallydic ./cmd/api
+	go build -tags=prod -o bin/pulseweaver ./cmd/api
 
 api-back:
 	go generate ./...

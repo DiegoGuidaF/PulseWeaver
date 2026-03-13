@@ -10,8 +10,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
-	"github.com/DiegoGuidaF/WallyDex/internal/testutils"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
 

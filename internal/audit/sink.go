@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/logging"
-	"github.com/DiegoGuidaF/WallyDex/internal/policy"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 )
 
 // Sink receives DecisionEvents on a buffered channel and batch-inserts them.

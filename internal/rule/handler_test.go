@@ -11,11 +11,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/app"
-	"github.com/DiegoGuidaF/WallyDex/internal/device"
-	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
-	"github.com/DiegoGuidaF/WallyDex/internal/rule"
-	"github.com/DiegoGuidaF/WallyDex/internal/testutils"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/app"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
 

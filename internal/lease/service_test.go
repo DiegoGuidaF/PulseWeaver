@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/device"
-	"github.com/DiegoGuidaF/WallyDex/internal/rule"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/matryer/is"
 )
 

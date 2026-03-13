@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Run App" type="GoApplicationRunConfiguration" factoryName="Go Application">
-    <module name="PulseShroud-WS" />
+    <module name="PulseWeaver-WS" />
     <working_directory value="$PROJECT_DIR$" />
     <EXTENSION ID="net.ashald.envfile">
       <option name="IS_ENABLED" value="false" />
@@ -13,7 +13,7 @@
       </ENTRIES>
     </EXTENSION>
     <kind value="PACKAGE" />
-    <package value="github.com/DiegoGuidaF/WallyDex/cmd/api" />
+    <package value="github.com/DiegoGuidaF/PulseWeaver/cmd/api" />
     <directory value="$PROJECT_DIR$" />
     <filePath value="$PROJECT_DIR$/cmd/api/main.go" />
     <method v="2" />

@@ -21,14 +21,14 @@ describe('autoHeartbeat', () => {
 
     it('returns parsed settings when key exists', () => {
       localStorage.setItem(
-        'wallydic_auto_heartbeat',
+        'pulseweaver_auto_heartbeat',
         JSON.stringify({ deviceId: 7, intervalSeconds: 60 }),
       );
       expect(getAutoHeartbeatSettings()).toEqual({ deviceId: 7, intervalSeconds: 60 });
     });
 
     it('returns null on invalid JSON', () => {
-      localStorage.setItem('wallydic_auto_heartbeat', 'not-json{');
+      localStorage.setItem('pulseweaver_auto_heartbeat', 'not-json{');
       expect(getAutoHeartbeatSettings()).toBeNull();
     });
   });

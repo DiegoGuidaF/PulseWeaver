@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 )
 
 func (s *Service) executeAutoExpiry(ctx context.Context) error {

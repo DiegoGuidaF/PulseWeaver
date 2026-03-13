@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 )
 
 const CookieDuration = 7 * 24 * time.Hour

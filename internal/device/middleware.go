@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 )
 
 // APIKeyAuthenticator defines the interface for authenticating device API keys.

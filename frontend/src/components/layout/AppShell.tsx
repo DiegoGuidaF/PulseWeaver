@@ -77,7 +77,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             size="sm"
                             aria-label="Toggle navigation"
                         />
-                        <Text fw={700}>WallyDic</Text>
+                        <Text fw={700}>PulseWeaver</Text>
                     </Group>
                     <ColorSchemeToggle />
                 </Group>

@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
-	"github.com/DiegoGuidaF/WallyDex/internal/httpserver"
-	"github.com/DiegoGuidaF/WallyDex/internal/testutils"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpserver"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
 

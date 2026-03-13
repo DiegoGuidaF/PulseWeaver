@@ -1,6 +1,6 @@
 openapi: 3.0.1
 info:
-  title: WallyDic Device Management API
+  title: PulseWeaver Device Management API
   description: Device and IP address management system
   version: "1.0"
 servers:

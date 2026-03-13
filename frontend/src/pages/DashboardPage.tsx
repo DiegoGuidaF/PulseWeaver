@@ -6,7 +6,7 @@ export function DashboardPage() {
   return (
     <Stack maw={1024} gap="xl">
       <div>
-        <Title order={1}>WallyDic Manager</Title>
+        <Title order={1}>PulseWeaver Manager</Title>
         <Text c="dimmed">Manage your networked devices and addresses.</Text>
       </div>
       <Stack gap="xl">

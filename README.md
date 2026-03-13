@@ -1,18 +1,18 @@
-# PulseShroud
+# PulseWeaver
 
-[![CI](https://github.com/diegoguidaf/wallydex/actions/workflows/ci.yml/badge.svg)](https://github.com/diegoguidaf/wallydex/actions/workflows/ci.yml)
-[![Docker](https://img.shields.io/badge/docker-ghcr.io%2Fdiegoguidaf%2Fwallydex-2496ED?logo=docker&logoColor=white)](https://github.com/diegoguidaf/wallydex/pkgs/container/wallydex)
+[![CI](https://github.com/diegoguidaf/pulseweaver/actions/workflows/ci.yml/badge.svg)](https://github.com/diegoguidaf/pulseweaver/actions/workflows/ci.yml)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io%2Fdiegoguidaf%2Fpulseweaver-2496ED?logo=docker&logoColor=white)](https://github.com/diegoguidaf/pulseweaver/pkgs/container/pulseweaver)
 [![Go 1.26](https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white)](go.mod)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
-**PulseShroud** is a self-hosted device address tracker and forward-auth gate for reverse proxies.
+**PulseWeaver** is a self-hosted device address tracker and forward-auth gate for reverse proxies.
 
 It keeps an up-to-date registry of your devices' current IP addresses and tells your reverse proxy whether to allow or
 block each incoming request — no config file reloads, no static IP lists, and no complex identity providers required for
 the services you want to protect.
 
 > [!NOTE]
-> PulseShroud is not an authentication or authorization system. It is an **IP gate**. It does not verify who a user is;
+> PulseWeaver is not an authentication or authorization system. It is an **IP gate**. It does not verify who a user is;
 > it only checks whether the IP a request comes from belongs to a registered device. Think of it as a network-layer
 > bouncer, not a login system.
 
@@ -46,7 +46,7 @@ There are two independent flows:
 sequenceDiagram
     participant C as Client
     participant P as Reverse Proxy (Caddy)
-    participant W as PulseShroud
+    participant W as PulseWeaver
     participant S as Protected Service
     C ->> P: GET https://homeassistant.example.com
     P ->> W: GET /api/policy-engine/verify-ip<br/>X-Real-IP: <client IP><br/>Authorization: Bearer <secret>
@@ -60,7 +60,7 @@ sequenceDiagram
     end
 ```
 
-Your reverse proxy asks PulseShroud on every incoming request: "is this IP currently active?" PulseShroud answers 200 (
+Your reverse proxy asks PulseWeaver on every incoming request: "is this IP currently active?" PulseWeaver answers 200 (
 allow) or 403 (block). The check runs against an in-memory cache — no database round-trip per request.
 
 ### 2 — Heartbeat: devices keep their address current
@@ -69,14 +69,14 @@ allow) or 403 (block). The check runs against an in-memory cache — no database
 sequenceDiagram
     participant D as Device (e.g. phone)
     participant H as Heartbeat endpoint<br/>(public, no IP gate)
-    participant W as PulseShroud
+    participant W as PulseWeaver
     D ->> H: POST /api/v1/heartbeat<br/>X-API-Key: <device key>
     H ->> W: Activates device address from request IP
     W -->> D: 200/201 — address active
     Note over W: Address is now active.<br/>If an address lease is configured,<br/>old addresses expire automatically.
 ```
 
-Devices authenticate using a per-device API key (`X-API-Key` header). PulseShroud reads the client IP from the request (
+Devices authenticate using a per-device API key (`X-API-Key` header). PulseWeaver reads the client IP from the request (
 or from an `ip` field in the request body if provided) and activates it as the device's current address. As long as a
 device keeps sending heartbeats, its latest address stays active.
 
@@ -88,7 +88,7 @@ Many self-hosted services — Home Assistant, Jellyfin, Nextcloud, Grafana, etc.
 identity proxies like Authelia or authentik. Adding OIDC/SSO to them is often painful and sometimes breaks the app
 entirely.
 
-PulseShroud takes a different approach: **only accept connections from IP addresses you know**. This drastically reduces
+PulseWeaver takes a different approach: **only accept connections from IP addresses you know**. This drastically reduces
 the attack surface without touching how the application itself authenticates users.
 
 A few concrete benefits:
@@ -109,7 +109,7 @@ A few concrete benefits:
 | **Device**        | A logical endpoint (phone, laptop, server…) with a unique API key.                                                         |
 | **Address**       | An IP address (v4 or v6) linked to a device. Can be enabled or disabled.                                                   |
 | **Heartbeat**     | A device call to `/api/v1/heartbeat` that enables the caller's current IP as the device's active address.                  |
-| **Address lease** | A TTL* rule per device. When the TTL expires, the address is automatically disabled by PulseShroud's background scheduler. |
+| **Address lease** | A TTL* rule per device. When the TTL expires, the address is automatically disabled by PulseWeaver's background scheduler. |
 | **Forward Auth**  | The `GET /api/policy-engine/verify-ip` endpoint. Your reverse proxy calls this on every request to check the client IP.    |
 
 > **TTL**: Time-To-Live
@@ -118,7 +118,7 @@ A few concrete benefits:
 
 ## The shared-IP model
 
-PulseShroud gates by IP, not by individual identity. This means:
+PulseWeaver gates by IP, not by individual identity. This means:
 
 - **Multiple devices behind the same NAT (e.g. a home router) all share one public IP.** If your phone's heartbeat
   activates your home IP, everyone at home can access your services. This is usually the intended behaviour.
@@ -138,11 +138,11 @@ multiple unknown co-tenants, higher attack surface.
 
 ### Docker Compose (recommended)
 
-The easiest way to run PulseShroud alongside Caddy. The key points are:
+The easiest way to run PulseWeaver alongside Caddy. The key points are:
 
-- Both services must be on the same Docker network so `wallydex:8080` resolves.
+- Both services must be on the same Docker network so `pulseweaver:8080` resolves.
 - `POLICY_ENGINE_API_SECRET` is defined once in your `.env` and injected into both containers.
-- `TRUSTED_PROXY` must be set to Caddy's container IP so PulseShroud can correctly extract the real
+- `TRUSTED_PROXY` must be set to Caddy's container IP so PulseWeaver can correctly extract the real
   client IP on both the heartbeat and forward-auth endpoints.
   See [Understanding TRUSTED_PROXY](#understanding-trusted_proxy)
   for the full explanation.
@@ -161,7 +161,7 @@ services:
       - "443:443"
       - "443:443/udp"
     environment:
-      WALLYDEX_POLICY_ENGINE_API_SECRET: ${WALLYDEX_POLICY_ENGINE_API_SECRET}
+      PULSEWEAVER_POLICY_ENGINE_API_SECRET: ${PULSEWEAVER_POLICY_ENGINE_API_SECRET}
       TZ: ${TZ}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile
@@ -169,24 +169,24 @@ services:
       - ./caddy/config:/config
     networks:
       proxy:
-        ipv4_address: ${CADDY_IP} # Set specific IP so we can wire it to PulseShroud TRUSTED_PROXY
+        ipv4_address: ${CADDY_IP} # Set specific IP so we can wire it to PulseWeaver TRUSTED_PROXY
     depends_on:
-      - wallydex
+      - pulseweaver
 
-  wallydex:
-    image: ghcr.io/diegoguidaf/wallydex:dev
-    container_name: wallydex
+  pulseweaver:
+    image: ghcr.io/diegoguidaf/pulseweaver:dev
+    container_name: pulseweaver
     restart: unless-stopped
     expose: # No need to use "ports" if you access this via Caddy
       - 8080
     environment:
-      ADMIN_PASSWORD: ${WALLYDEX_ADMIN_PASSWORD}
+      ADMIN_PASSWORD: ${PULSEWEAVER_ADMIN_PASSWORD}
       SERVER_PORT: 8080
       TRUSTED_PROXY: ${CADDY_IP}      # Caddy's container IP on the shared network (single IP only, no CIDR)
-      POLICY_ENGINE_API_SECRET: ${WALLYDEX_POLICY_ENGINE_API_SECRET}
+      POLICY_ENGINE_API_SECRET: ${PULSEWEAVER_POLICY_ENGINE_API_SECRET}
       TZ: ${TZ}
     volumes:
-      - ./wallydex/data:/data   # Bind mount; ensure writable by non-root (chown 65532:65532) or use a named volume
+      - ./pulseweaver/data:/data   # Bind mount; ensure writable by non-root (chown 65532:65532) or use a named volume
     networks:
       - proxy
 
@@ -201,8 +201,8 @@ networks:
 A minimal `.env` alongside it:
 
 ```dotenv
-WALLYDEX_POLICY_ENGINE_API_SECRET=a-very-long-random-secret-at-least-32-chars
-WALLYDEX_ADMIN_PASSWORD=a-strong-admin-password
+PULSEWEAVER_POLICY_ENGINE_API_SECRET=a-very-long-random-secret-at-least-32-chars
+PULSEWEAVER_ADMIN_PASSWORD=a-strong-admin-password
 CADDY_IP=172.20.0.2   # Caddy's fixed IP on the proxy network (single IP, no CIDR)
 TZ=Europe/Madrid
 ```
@@ -215,13 +215,13 @@ TZ=Europe/Madrid
 
 ### Data persistence
 
-SQLite database is stored at `$DB_DIR/wallydic.db` (defaults to `/data/wallydic.db` in the Docker image).
+SQLite database is stored at `$DB_DIR/data.db` (defaults to `/data/data.db` in the Docker image).
 
 #### Docker deployment (recommended)
 
 The image sets `DB_DIR=/data` by default. Mount a writable volume:
 
-- **Named volume (easiest):** `docker run -v wallydic-data:/data ...`
+- **Named volume (easiest):** `docker run -v pulseweaver-data:/data ...`
 - **Bind mount:** `docker run -v ./data:/data ...`
 
 Docker runs as non-root UID/GID `65532:65532` (`gcr.io/distroless/static-debian12:nonroot`), so ensure `/data` is
@@ -233,7 +233,7 @@ sudo chown -R 65532:65532 ./data
 
 #### Local development
 
-Defaults to ./data/wallydic.db. No config needed.
+Defaults to ./data/data.db. No config needed.
 
 #### Custom path
 
@@ -247,12 +247,12 @@ docker run -e DB_DIR=/custom/path ...
 
 #### SQLITE WAL mode warning
 
-Shared-memory coordination (wallydic.db-wal, wallydic.db-shm) requires local disk — not NFS/SMB. For backups, include
+Shared-memory coordination (data.db-wal, data.db-shm) requires local disk — not NFS/SMB. For backups, include
 WAL/SHM files or run PRAGMA wal_checkpoint(FULL) first.
 
 ### First-run admin account
 
-The PulseShroud web interface is password-protected. On first startup, PulseShroud automatically creates an `admin`
+The PulseWeaver web interface is password-protected. On first startup, PulseWeaver automatically creates an `admin`
 user using the password set in the `ADMIN_PASSWORD` environment variable. Use a strong, unique password and store it
 securely (e.g. in your `.env` file with restricted permissions).
 
@@ -261,8 +261,8 @@ securely (e.g. in your `.env` file with restricted permissions).
 | Variable              | Required           | Default | Description                                                                                                                                                                                                  |
 |-----------------------|--------------------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `ADMIN_PASSWORD`      | Yes                | —       | Password for the `admin` UI account (bootstrapped on first run).                                                                                                                                             |
-| `POLICY_ENGINE_API_SECRET`    | Yes (min 32 chars) | —       | Shared secret between Caddy and PulseShroud. Minimum 32 characters.                                                                                                                                          |
-| `SERVER_PORT`         | No                 | `8080`  | Port PulseShroud listens on.                                                                                                                                                                                 |
+| `POLICY_ENGINE_API_SECRET`    | Yes (min 32 chars) | —       | Shared secret between Caddy and PulseWeaver. Minimum 32 characters.                                                                                                                                          |
+| `SERVER_PORT`         | No                 | `8080`  | Port PulseWeaver listens on.                                                                                                                                                                                 |
 | `TRUSTED_PROXY`       | No                 | —       | Single IP address of your reverse proxy. Required when running behind a proxy — see [Understanding TRUSTED_PROXY](#understanding-trusted_proxy).                                                             |
 | `RULE_CHECK_INTERVAL` | No                 | `1m`    | How often the scheduler checks for expired address leases.<br/> Set this to the lowest address lease TTL you'll use.                                                                                         |
 | `TZ`                  | No                 | `UTC`   | Application timezone for explicit wall-clock operations (e.g. parsing local datetimes without offsets, future local scheduling). Persisted timestamps are UTC; API timestamps are serialized as UTC RFC3339. |
@@ -276,23 +276,23 @@ securely (e.g. in your `.env` file with restricted permissions).
 
 ### For general users
 
-When a reverse proxy like Caddy sits in front of PulseShroud, your device never connects to
-PulseShroud directly. The proxy receives your device's request, then forwards it on your behalf.
-From PulseShroud's point of view, every forwarded request appears to arrive from the proxy's own
+When a reverse proxy like Caddy sits in front of PulseWeaver, your device never connects to
+PulseWeaver directly. The proxy receives your device's request, then forwards it on your behalf.
+From PulseWeaver's point of view, every forwarded request appears to arrive from the proxy's own
 IP address — not from your device.
 
 To solve this, reverse proxies attach a header to each forwarded request that carries the original
-client IP. PulseShroud reads this header to know the real source of the request.
+client IP. PulseWeaver reads this header to know the real source of the request.
 
-The catch: PulseShroud cannot trust that header from just anyone. If it did, any client could
+The catch: PulseWeaver cannot trust that header from just anyone. If it did, any client could
 send a fake header claiming to be a trusted IP and walk straight through the gate. `TRUSTED_PROXY`
-tells PulseShroud exactly one IP address it will believe. Headers from any other source are silently
+tells PulseWeaver exactly one IP address it will believe. Headers from any other source are silently
 ignored.
 
 > [!WARNING]
-> If you are running behind a reverse proxy and do not set `TRUSTED_PROXY`, PulseShroud will see
+> If you are running behind a reverse proxy and do not set `TRUSTED_PROXY`, PulseWeaver will see
 > the proxy's IP for every request. If any device sends a heartbeat through that proxy, the proxy's
-> IP gets registered — and from that point every proxied request passes the gate. PulseShroud logs
+> IP gets registered — and from that point every proxied request passes the gate. PulseWeaver logs
 > a warning at startup when `TRUSTED_PROXY` is not configured.
 
 **Why `X-Real-IP` and not `X-Forwarded-For`?**
@@ -325,15 +325,15 @@ The proxy IP is protected at two independent layers:
 
 1. **Middleware** — `X-Real-IP` is only read when the direct peer exactly matches `TRUSTED_PROXY`.
    Any other source's `X-Real-IP` header is ignored and a warning is logged.
-2. **Address registry** — PulseShroud refuses to register the `TRUSTED_PROXY` IP as a device
+2. **Address registry** — PulseWeaver refuses to register the `TRUSTED_PROXY` IP as a device
    address, even if it is explicitly submitted via the API or the heartbeat body. This means that
    even in a misconfigured deployment where the proxy IP ends up as the apparent client IP, it
    cannot enter the IP registry and trigger a universal pass.
 
 **Direct-access deployments (no proxy)**
 
-If your devices connect directly to PulseShroud without a proxy in between, leave `TRUSTED_PROXY`
-unset. PulseShroud will use each connection's source IP directly and will never read `X-Real-IP`
+If your devices connect directly to PulseWeaver without a proxy in between, leave `TRUSTED_PROXY`
+unset. PulseWeaver will use each connection's source IP directly and will never read `X-Real-IP`
 from any source. The startup warning can be safely ignored in this case.
 
 ---
@@ -346,27 +346,27 @@ Add the `forward_auth` block to any site you want to protect:
 
 ```caddy
 your-service.example.com {
-    forward_auth http://wallydex:8080 {
+    forward_auth http://pulseweaver:8080 {
         uri /api/policy-engine/verify-ip
         header_up X-Real-IP {http.request.remote.host}
         # Pass the shared secret to prove Caddy is the caller
-        header_up Authorization "Bearer {$WALLYDEX_POLICY_ENGINE_API_SECRET}"
+        header_up Authorization "Bearer {$PULSEWEAVER_POLICY_ENGINE_API_SECRET}"
     }
 
     reverse_proxy your-service:port
 }
 ```
 
-PulseShroud's verify-ip endpoint is **fail-closed**: any missing header, invalid secret, or inactive IP returns `403`.
+PulseWeaver's verify-ip endpoint is **fail-closed**: any missing header, invalid secret, or inactive IP returns `403`.
 It never returns `401` to avoid leaking information about why the request was rejected.
 
 ### Other reverse proxies
 
 Any proxy that supports forward auth can work. The requirements are:
 
-1. Call `GET http://wallydex:8080/api/policy-engine/verify-ip` before forwarding the request.
+1. Call `GET http://pulseweaver:8080/api/policy-engine/verify-ip` before forwarding the request.
 2. Pass the real client IP in the `X-Real-IP` header.
-3. Pass `Authorization: Bearer <POLICY_ENGINE_API_SECRET>` to authenticate the proxy-to-PulseShroud call.
+3. Pass `Authorization: Bearer <POLICY_ENGINE_API_SECRET>` to authenticate the proxy-to-PulseWeaver call.
 4. Allow the request through on `200`; block on anything else.
 
 ---
@@ -386,12 +386,12 @@ device-heartbeat.example.com {
     # Rewrite all requests to the heartbeat path
     rewrite * /api/v1/heartbeat
 
-    # Proxy directly to PulseShroud, bypassing forward_auth
-    reverse_proxy wallydex:8080
+    # Proxy directly to PulseWeaver, bypassing forward_auth
+    reverse_proxy pulseweaver:8080
 }
 ```
 
-Authentication is handled by the device's `X-API-Key`, which PulseShroud validates for every heartbeat request. No
+Authentication is handled by the device's `X-API-Key`, which PulseWeaver validates for every heartbeat request. No
 additional auth layer is needed.
 
 **Optional extra obscurity:** If you want the endpoint to be harder to discover, you can add a random path segment to
@@ -402,7 +402,7 @@ device-heartbeat.example.com {
     # Only accept requests to the secret path
     rewrite /your-random-secret /api/v1/heartbeat
 
-    reverse_proxy wallydex:8080
+    reverse_proxy pulseweaver:8080
 }
 ```
 
@@ -441,7 +441,7 @@ heartbeats.
 
 For a device with a mostly stable IP (e.g. a home laptop), manual management is usually sufficient:
 
-1. Open the PulseShroud UI.
+1. Open the PulseWeaver UI.
 2. Navigate to your device's **Addresses** tab.
 3. Click **Add address** and enter the IP manually.
 4. Enable or disable addresses as needed.
@@ -457,7 +457,7 @@ easier. Until then, `curl` + Tasker (Android) or a cron job is the recommended a
 
 ## Security model
 
-### What PulseShroud is
+### What PulseWeaver is
 
 An **IP gate**. It reduces the attack surface of your server by refusing connections from unknown IP addresses before
 they reach any service. It is not:
@@ -490,7 +490,7 @@ With IPv6, devices typically receive globally unique, non-NATted addresses. This
   address, not a whole network.
 - This makes the IP gate more precise and, in principle, more secure under IPv6.
 
-However, **IPv6 support in PulseShroud is not yet thoroughly tested**. The application handles IPv6 addresses in the
+However, **IPv6 support in PulseWeaver is not yet thoroughly tested**. The application handles IPv6 addresses in the
 address model and normalises them at validation time, but real-world edge cases (prefix delegation, temporary addresses,
 dual-stack setups) have not been fully exercised. Treat IPv6 as working but experimental until you have validated it in
 your own setup.
@@ -511,18 +511,18 @@ your own setup.
 - CGNAT can expose your services to unrelated co-tenants if you are not careful.
 - If an active network is compromised while the IP is active, the attacker gains access.
 - Does not replace TLS or app-level authentication.
-- PulseShroud should be **one layer** in a broader defence-in-depth strategy, not the only one.
+- PulseWeaver should be **one layer** in a broader defence-in-depth strategy, not the only one.
 
 ---
 
 ## Development
 
-PulseShroud compiles to a **single binary** with the frontend SPA embedded. The frontend is built with Vite and
+PulseWeaver compiles to a **single binary** with the frontend SPA embedded. The frontend is built with Vite and
 embedded at compile time — no separate web server needed in production.
 
 ### Quick start for local development
 
-For local runs (no Docker), the app writes to `/data/wallydic.db`. Create that directory and make it writable before
+For local runs (no Docker), the app writes to `/data/data.db`. Create that directory and make it writable before
 starting: `sudo mkdir -p /data && sudo chown $(whoami) /data`.
 
 ```bash
@@ -537,7 +537,7 @@ make dev-front
 
 | Command               | Description                                                 |
 |-----------------------|-------------------------------------------------------------|
-| `make build`          | Full production build → `bin/wallydic`                      |
+| `make build`          | Full production build → `bin/pulseweaver`                      |
 | `make test`           | Run all Go tests                                            |
 | `make lint`           | Format + lint                                               |
 | `make api`            | Regenerate backend + frontend types from `api/openapi.yaml` |

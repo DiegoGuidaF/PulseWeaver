@@ -8,15 +8,15 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/config"
-	"github.com/DiegoGuidaF/WallyDex/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"golang.org/x/crypto/bcrypt"
 )
 
 const (
 	BootstrapAdminUsername    = "admin"
 	BootstrapAdminDisplayName = "Admin"
-	BootstrapAdminEmail       = "admin@wallydic.invalid"
+	BootstrapAdminEmail       = "admin@pulseweaver.invalid"
 )
 
 type repository interface {

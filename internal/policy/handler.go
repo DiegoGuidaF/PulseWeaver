@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
-	"github.com/DiegoGuidaF/WallyDex/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
 // HTTPHandler is the HTTP handler for forward-auth IP verification.

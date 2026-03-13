@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 
-# WallyDic
+# PulseWeaver
 
 Self-hosted forward-auth sidecar. Single Go binary with embedded React SPA. Not yet released — code quality over backwards compatibility.
 

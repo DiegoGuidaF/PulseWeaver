@@ -1,6 +1,6 @@
 package rule
 
-import "github.com/DiegoGuidaF/WallyDex/internal/logging"
+import "github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 
 // Slog attribute key names for the rule domain. Use these constants when
 // logging so keys are consistent and typo-safe across services.

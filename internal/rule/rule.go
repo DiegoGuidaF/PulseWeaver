@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 )
 
 // RuleID represents the primary key of a row in the device_rules table.

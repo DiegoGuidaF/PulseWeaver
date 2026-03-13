@@ -25,7 +25,7 @@ export function LoginPage() {
     <Center style={{ minHeight: "100vh" }}>
       <Paper withBorder p="xl" w="100%" maw={448}>
         <Stack gap="sm" mb="lg" ta="center">
-          <Title order={2}>Welcome to WallyDic</Title>
+          <Title order={2}>Welcome to PulseWeaver</Title>
           <Text c="dimmed">Sign in to your account to continue</Text>
         </Stack>
         <LoginForm />

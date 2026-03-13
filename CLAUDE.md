@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-WallyDic (WallyDex) is a self-hosted device IP address management service. It maintains an updated list of device IPs and acts as a Forward Auth sidecar for reverse proxies (`GET /api/policy-engine/verify-ip`). Compiles to a **single binary** with the frontend SPA embedded.
+PulseWeaver is a self-hosted device IP address management service. It maintains an updated list of device IPs and acts as a Forward Auth sidecar for reverse proxies (`GET /api/policy-engine/verify-ip`). Compiles to a **single binary** with the frontend SPA embedded.
 
 ## Database Migrations
 
@@ -32,7 +32,7 @@ Use `nvm exec $(cat frontend/.nvmrc) <command>` for every `npm` call inside `fro
 - `make migrate-create` — create new migration pair
 
 ### Build
-- `make build` — full production build (frontend → embed → Go binary at `bin/wallydic`)
+- `make build` — full production build (frontend → embed → Go binary at `bin/pulseweaver`)
 
 ## Architecture
 

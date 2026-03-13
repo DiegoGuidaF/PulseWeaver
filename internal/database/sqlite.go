@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/config"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
@@ -21,7 +21,7 @@ type SQLite struct {
 	db *sqlx.DB
 }
 
-const dbFileName = "wallydic.db"
+const dbFileName = "data.db"
 
 func NewSQLite(dbConf config.ConfDB) (*SQLite, error) {
 	var dsn string

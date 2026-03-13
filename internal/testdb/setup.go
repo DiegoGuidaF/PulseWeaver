@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/config"
-	"github.com/DiegoGuidaF/WallyDex/internal/database"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 )
 
 // Setup creates a new in-memory SQLite database for testing.

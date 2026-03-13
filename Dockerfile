@@ -38,7 +38,7 @@ COPY --from=frontend-builder /build/dist ./internal/ui/dist
 RUN CGO_ENABLED=0 go build \
     -ldflags="-s -w" \
     -tags=prod \
-    -o /app/wallydic \
+    -o /app/pulseweaver \
     ./cmd/api
 
 # Stage 3: Final Runtime
@@ -47,7 +47,7 @@ FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
 
 # Copy binary from builder stage
-COPY --from=backend-builder /app/wallydic /app/wallydic
+COPY --from=backend-builder /app/pulseweaver /app/pulseweaver
 
 # Mount a writable volume at /data — see README for ownership requirements (UID/GID 65532:65532).
 ENV DB_DIR=/data
@@ -56,4 +56,4 @@ ENV DB_DIR=/data
 EXPOSE 8080
 
 # Run binary
-ENTRYPOINT ["/app/wallydic"]
+ENTRYPOINT ["/app/pulseweaver"]

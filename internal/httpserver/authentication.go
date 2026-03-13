@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/auth"
-	"github.com/DiegoGuidaF/WallyDex/internal/device"
-	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/getkin/kin-openapi/openapi3filter"
 )
 

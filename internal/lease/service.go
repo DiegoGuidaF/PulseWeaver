@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/device"
-	"github.com/DiegoGuidaF/WallyDex/internal/logging"
-	"github.com/DiegoGuidaF/WallyDex/internal/rule"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 )
 
 type TTLConfigRetriever interface {

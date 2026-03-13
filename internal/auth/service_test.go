@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/config"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
 	"github.com/matryer/is"
 )
 

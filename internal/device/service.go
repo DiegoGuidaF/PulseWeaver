@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"net/netip"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
 type repository interface {

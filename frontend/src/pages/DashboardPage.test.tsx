@@ -14,7 +14,7 @@ describe('DashboardPage', () => {
     it('renders heading, create form, and empty device list', async () => {
         renderWithProviders(<DashboardPage />);
 
-        expect(screen.getByRole('heading', { name: 'WallyDic Manager' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'PulseWeaver Manager' })).toBeInTheDocument();
         expect(screen.getByLabelText('New Device Name')).toBeInTheDocument();
         await waitFor(
             () => {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 )
 
 type RuleEventType string

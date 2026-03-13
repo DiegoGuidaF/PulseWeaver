@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addAddress, changePassword, createDevice, createUser, deleteDevice, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, getAuditLog, getCurrentUser, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, listUsers, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, regenerateDeviceApiKey, updateMe } from '../sdk.gen';
-import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, GetAuditLogData, GetAuditLogError, GetAuditLogResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
+import { addAddress, changePassword, createDevice, createUser, deleteDevice, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, getCurrentUser, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, getRequestAuditLog, listUsers, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, regenerateDeviceApiKey, updateMe } from '../sdk.gen';
+import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, GetRequestAuditLogData, GetRequestAuditLogError, GetRequestAuditLogResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -406,17 +406,17 @@ export const deviceHeartbeatByApiKeyMutation = (options?: Partial<Options<Device
     return mutationOptions;
 };
 
-export const getAuditLogQueryKey = (options?: Options<GetAuditLogData>) => createQueryKey('getAuditLog', options);
+export const getRequestAuditLogQueryKey = (options?: Options<GetRequestAuditLogData>) => createQueryKey('getRequestAuditLog', options);
 
 /**
- * List policy audit log entries
+ * List request audit log entries
  *
- * Returns paginated audit log entries for access-control decisions. Admin-only.
+ * Returns paginated request log entries to review access-control decisions. Admin-only.
  *
  */
-export const getAuditLogOptions = (options?: Options<GetAuditLogData>) => queryOptions<GetAuditLogResponse, GetAuditLogError, GetAuditLogResponse, ReturnType<typeof getAuditLogQueryKey>>({
+export const getRequestAuditLogOptions = (options?: Options<GetRequestAuditLogData>) => queryOptions<GetRequestAuditLogResponse, GetRequestAuditLogError, GetRequestAuditLogResponse, ReturnType<typeof getRequestAuditLogQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getAuditLog({
+        const { data } = await getRequestAuditLog({
             ...options,
             ...queryKey[0],
             signal,
@@ -424,7 +424,7 @@ export const getAuditLogOptions = (options?: Options<GetAuditLogData>) => queryO
         });
         return data;
     },
-    queryKey: getAuditLogQueryKey(options)
+    queryKey: getRequestAuditLogQueryKey(options)
 });
 
 /**

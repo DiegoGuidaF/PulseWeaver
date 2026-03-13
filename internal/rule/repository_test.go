@@ -6,8 +6,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/device"
-	"github.com/DiegoGuidaF/WallyDex/internal/testdb"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/matryer/is"
 )
 

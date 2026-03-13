@@ -1,8 +1,8 @@
-const SETTINGS_KEY = 'wallydic_auto_heartbeat';
-const CLIENT_IP_KEY = 'wallydic_client_ip';
+const SETTINGS_KEY = 'pulseweaver_auto_heartbeat';
+const CLIENT_IP_KEY = 'pulseweaver_client_ip';
 
-export const CLIENT_IP_EVENT = 'wallydic:client-ip-updated';
-export const SETTINGS_EVENT = 'wallydic:settings-updated';
+export const CLIENT_IP_EVENT = 'pulseweaver:client-ip-updated';
+export const SETTINGS_EVENT = 'pulseweaver:settings-updated';
 
 export interface AutoHeartbeatSettings {
   deviceId: number;

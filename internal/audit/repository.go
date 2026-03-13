@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/jmoiron/sqlx"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/policy"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 )
 
 // Repository owns the write side of the audit log.

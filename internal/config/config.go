@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/DiegoGuidaF/WallyDex/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
 )

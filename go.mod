@@ -1,4 +1,4 @@
-module github.com/DiegoGuidaF/WallyDex
+module github.com/DiegoGuidaF/PulseWeaver
 
 go 1.26
 
