@@ -123,6 +123,11 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		return nil, fmt.Errorf("scheduler service init: %w", err)
 	}
 
+	err = schedulerService.ExecuteScheduledRules(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to run scheduled rules on init: %w", err)
+	}
+
 	err = authService.BootstrapAdmin(ctx, conf.Server)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bootstrap admin: %w", err)

@@ -43,16 +43,13 @@ func NewService(expiredAddressFinder ExpiredAddressFinder, addressDisabler Addre
 func (s *Service) RunSchedule(ctx context.Context, interval time.Duration) error {
 	s.logger.InfoContext(ctx, "starting rule engine scheduler", slog.Duration("interval", interval))
 
-	// Run all time-based rules immediately on startup
-	s.executeScheduledRules(ctx)
-
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			s.executeScheduledRules(ctx)
+			_ = s.ExecuteScheduledRules(ctx)
 		case <-ctx.Done():
 			s.logger.InfoContext(ctx, "rule engine scheduler stopped")
 			return nil
@@ -60,9 +57,11 @@ func (s *Service) RunSchedule(ctx context.Context, interval time.Duration) error
 	}
 }
 
-// executeScheduledRules runs all rules that require periodic background checks.
-func (s *Service) executeScheduledRules(ctx context.Context) {
+// ExecuteScheduledRules runs all rules that require periodic background checks.
+func (s *Service) ExecuteScheduledRules(ctx context.Context) error {
 	if err := s.executeAutoExpiry(ctx); err != nil {
 		s.logger.ErrorContext(ctx, "auto-expiry rule execution failed", slog.Any(AttrKeyError, err))
+		return err
 	}
+	return nil
 }
