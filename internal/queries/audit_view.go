@@ -191,7 +191,7 @@ func (r *Repository) ListRequestAuditLog(ctx context.Context, q RequestAuditLogQ
 		}
 	}
 
-	if rows == nil {
+	if len(rows) == 0 {
 		rows = []RequestAuditLogView{}
 	}
 
