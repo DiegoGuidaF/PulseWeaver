@@ -105,6 +105,28 @@ export const zAddress = z.object({
     expires_at: z.iso.datetime({ offset: true, local: true }).readonly().nullish()
 });
 
+export const zAuditLogRow = z.object({
+    id: zId,
+    device_id: zId.optional(),
+    rule_id: zId.optional(),
+    client_ip: zIpAddress,
+    outcome: z.boolean(),
+    deny_reason: z.string().optional(),
+    created_at: z.iso.datetime({ offset: true, local: true }),
+    device_name: z.string().optional(),
+    xff_chain: z.string().optional(),
+    target_host: z.string().optional(),
+    target_uri: z.string().optional(),
+    http_method: z.string().optional(),
+    headers: z.record(z.string(), z.array(z.string())).optional()
+});
+
+export const zAuditLogResponse = z.object({
+    total: z.int(),
+    next_cursor: zId.nullable(),
+    rows: z.array(zAuditLogRow)
+});
+
 export const zDeviceAddressLeaseRule = z.object({
     id: zId,
     device_id: zId,
@@ -369,6 +391,31 @@ export const zDeviceHeartbeatByApiKeyData = z.object({
  * Address enabled
  */
 export const zDeviceHeartbeatByApiKeyResponse = zAddress;
+
+export const zGetAuditLogData = z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: z.object({
+        device_id: zId.optional(),
+        outcome: z.boolean().optional(),
+        deny_reason: z.enum([
+            'no_device_match',
+            'ip_not_registered',
+            'invalid_token'
+        ]).optional(),
+        ip: z.string().optional(),
+        host: z.string().optional(),
+        from: z.iso.datetime({ offset: true, local: true }).optional(),
+        to: z.iso.datetime({ offset: true, local: true }).optional(),
+        limit: z.int().lte(200).optional().default(50),
+        before_id: zId.optional()
+    }).optional()
+});
+
+/**
+ * Audit log entries
+ */
+export const zGetAuditLogResponse = zAuditLogResponse;
 
 export const zDisableAddressData = z.object({
     body: z.never().optional(),

@@ -60,6 +60,14 @@ func (id AddressID) String() string {
 	return strconv.FormatInt(int64(id), 10)
 }
 
+// IPEntry associates an enabled IP address with the device and address that last registered it.
+// When multiple devices share the same IP, the most recently active device wins.
+type IPEntry struct {
+	IP        string    `db:"ip"`
+	DeviceID  DeviceID  `db:"device_id"`
+	AddressID AddressID `db:"address_id"`
+}
+
 // parseAndValidateIP parses and validates that the given string is a valid IPv4 or IPv6 address.
 // It ignores the port if present and only cares about the IP component.
 func parseAndValidateIP(ipInput string) (netip.Addr, error) {

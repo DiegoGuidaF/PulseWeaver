@@ -772,6 +772,18 @@ func (m *mockRepository) GetEnabledUniqueIPs(_ context.Context) ([]string, error
 	return ips, nil
 }
 
+func (m *mockRepository) GetEnabledIPEntries(_ context.Context) ([]IPEntry, error) {
+	var entries []IPEntry
+	seen := map[string]bool{}
+	for _, addr := range m.addresses {
+		if addr.IsEnabled && !seen[addr.IP] {
+			entries = append(entries, IPEntry{IP: addr.IP, DeviceID: addr.DeviceID, AddressID: addr.ID})
+			seen[addr.IP] = true
+		}
+	}
+	return entries, nil
+}
+
 func (m *mockRepository) RunInTx(ctx context.Context, fn func(repository) error) error {
 	if m.runInTxFn != nil {
 		return m.runInTxFn(m)

@@ -25,7 +25,7 @@ func NewHTTPHandler(service *Service, logger *slog.Logger) *HTTPHandler {
 func (h *HTTPHandler) HandleForwardAuthIP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	ctx = logging.WithOperation(ctx, "HandleForwardAuthIP")
-	logger := h.logger
+	h.logger.DebugContext(ctx, "Request received with headers", slog.Any("headers", r.Header))
 
 	authHeader := r.Header.Get("Authorization")
 	token, ok := strings.CutPrefix(authHeader, "Bearer ")
@@ -36,12 +36,14 @@ func (h *HTTPHandler) HandleForwardAuthIP(w http.ResponseWriter, r *http.Request
 
 	clientIP, ok := httpapi.ClientIPFromContext(ctx)
 	if !ok {
-		logger.WarnContext(ctx, "policy: missing client IP in request context")
+		h.logger.WarnContext(ctx, "policy: missing client IP in request context")
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 
-	if err := h.service.VerifyAccess(ctx, token, clientIP); err != nil {
+	req := NewVerifyRequest(token, clientIP, r)
+
+	if err := h.service.VerifyAccess(ctx, req); err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}

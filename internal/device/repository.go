@@ -236,26 +236,33 @@ func (r *Repository) DeleteDevice(ctx context.Context, deviceID DeviceID) error 
 	return nil
 }
 
-func (r *Repository) GetEnabledUniqueIPs(ctx context.Context) ([]string, error) {
-	var ips []string
+func (r *Repository) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error) {
+	var entries []IPEntry
 
 	query := `
-		SELECT DISTINCT a.ip
-		FROM addresses a
-		INNER JOIN address_current_state ac ON a.id = ac.address_id
-		WHERE ac.is_enabled = 1
+		SELECT ip, device_id, address_id
+		FROM (
+			SELECT a.ip,
+			       a.device_id,
+			       a.id AS address_id,
+			       ROW_NUMBER() OVER (PARTITION BY a.ip ORDER BY ac.updated_at DESC) AS rn
+			FROM addresses a
+			INNER JOIN address_current_state ac ON a.id = ac.address_id
+			WHERE ac.is_enabled = 1
+		)
+		WHERE rn = 1
 	`
 
-	err := r.db.SelectContext(ctx, &ips, query)
+	err := r.db.SelectContext(ctx, &entries, query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get enabled unique IPs: %w", err)
+		return nil, fmt.Errorf("failed to get enabled IP entries: %w", err)
 	}
 
-	if ips == nil {
-		return []string{}, nil
+	if entries == nil {
+		return []IPEntry{}, nil
 	}
 
-	return ips, nil
+	return entries, nil
 }
 
 // GetAddress returns the current state for a single address ID.

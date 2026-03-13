@@ -74,6 +74,65 @@ func (h *HTTPHandler) GetDevices(
 	return httpapi.GetDevices200JSONResponse(response), nil
 }
 
+func (h *HTTPHandler) GetRequestAuditLog(
+	ctx context.Context,
+	request httpapi.GetRequestAuditLogRequestObject,
+) (httpapi.GetRequestAuditLogResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetAuditLog")
+	//TODO: Remove all 401 errors since they shouldn't reach any handler layer managed by openapi
+
+	params := request.Params
+
+	query := NewRequestAuditLogQuery(params)
+
+	rows, total, err := h.repo.ListRequestAuditLog(ctx, query)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "failed to list audit log", slog.Any(logging.AttrKeyError, err))
+		return httpapi.GetRequestAuditLog500JSONResponse(errorMsgResponse("Failed to list audit log")), nil
+	}
+
+	httpRows := make([]httpapi.RequestAuditLogRow, len(rows))
+	for i := range rows {
+		httpRows[i] = toAuditLogRow(rows[i])
+	}
+
+	var nextCursor *int64
+	if len(rows) == query.Limit {
+		nextCursor = &rows[len(rows)-1].ID
+	}
+
+	response := httpapi.RequestAuditLogResponse{
+		Total:      total,
+		NextCursor: nextCursor,
+	}
+	if len(httpRows) > 0 {
+		response.Rows = httpRows
+	}
+
+	return httpapi.GetRequestAuditLog200JSONResponse(response), nil
+}
+
+func toAuditLogRow(r RequestAuditLogView) httpapi.RequestAuditLogRow {
+	var deviceID *int64
+	if r.DeviceID != nil {
+		deviceID = new(r.DeviceID.Int64())
+	}
+	return httpapi.RequestAuditLogRow{
+		Id:         r.ID,
+		CreatedAt:  httpapi.UTCTime(r.CreatedAt),
+		Outcome:    r.Outcome,
+		ClientIp:   r.ClientIP,
+		DenyReason: r.DenyReason,
+		DeviceId:   deviceID,
+		DeviceName: r.DeviceName,
+		XffChain:   r.XFFChain,
+		TargetHost: r.TargetHost,
+		TargetUri:  r.TargetURI,
+		HttpMethod: r.HTTPMethod,
+		Headers:    &r.Headers,
+	}
+}
+
 func toAddressViewResponse(a *AddressView) httpapi.Address {
 	address := httpapi.Address{
 		Id:        a.ID.Int64(),

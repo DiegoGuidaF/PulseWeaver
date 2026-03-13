@@ -284,6 +284,94 @@ export const AddressSchema = {
     }
 } as const;
 
+export const AuditLogResponseSchema = {
+    type: 'object',
+    required: [
+        'total',
+        'next_cursor',
+        'rows'
+    ],
+    properties: {
+        total: {
+            type: 'integer',
+            description: 'Total rows matching the current filters (excludes cursor, useful for "N results" UI)'
+        },
+        next_cursor: {
+            allOf: [
+                {
+                    $ref: '#/components/schemas/ID'
+                }
+            ],
+            nullable: true
+        },
+        rows: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/AuditLogRow'
+            }
+        }
+    }
+} as const;
+
+export const AuditLogRowSchema = {
+    type: 'object',
+    required: [
+        'id',
+        'created_at',
+        'outcome',
+        'client_ip'
+    ],
+    properties: {
+        id: {
+            $ref: '#/components/schemas/ID'
+        },
+        device_id: {
+            $ref: '#/components/schemas/ID'
+        },
+        rule_id: {
+            $ref: '#/components/schemas/ID'
+        },
+        client_ip: {
+            $ref: '#/components/schemas/IPAddress'
+        },
+        outcome: {
+            type: 'boolean'
+        },
+        deny_reason: {
+            type: 'string'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime'
+        },
+        device_name: {
+            type: 'string'
+        },
+        xff_chain: {
+            type: 'string'
+        },
+        target_host: {
+            type: 'string'
+        },
+        target_uri: {
+            type: 'string'
+        },
+        http_method: {
+            type: 'string'
+        },
+        headers: {
+            type: 'object',
+            additionalProperties: {
+                type: 'array',
+                items: {
+                    type: 'string'
+                }
+            }
+        }
+    }
+} as const;
+
 export const DeviceAddressLeaseRuleSchema = {
     type: 'object',
     required: [

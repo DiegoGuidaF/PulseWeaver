@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/DiegoGuidaF/WallyDex/internal/audit"
 	"github.com/DiegoGuidaF/WallyDex/internal/auth"
 	"github.com/DiegoGuidaF/WallyDex/internal/config"
 	"github.com/DiegoGuidaF/WallyDex/internal/database"
@@ -32,6 +33,7 @@ type App struct {
 	PolicyService       *policy.Service
 	addressLeaseService *lease.Service
 	schedulerService    *scheduler.Service
+	auditSink           *audit.Sink
 }
 
 // New initializes the application with configuration loaded from environment variables.
@@ -109,6 +111,10 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	queriesRepo := queries.NewRepository(db.DB())
 	queriesHandler := queries.NewHTTPHandler(queriesRepo, logger)
 
+	// Audit log — write side
+	auditRepo := audit.NewRepository(db.DB())
+	auditSink := audit.NewSink(auditRepo, logger)
+
 	// Address Lease manager
 	addressLeaseRepo := lease.NewRepository(db.DB())
 	addressLeaseService := lease.NewService(addressLeaseRepo, ruleService, logger)
@@ -117,6 +123,9 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	deviceService.AddAddressObserver(addressLeaseService)
 	ruleService.AddRuleObserver(addressLeaseService)
 	deviceService.AddAddressObserver(policyService)
+
+	// Register policy decision observers
+	policyService.AddDecisionObserver(auditSink)
 
 	schedulerService, err := scheduler.NewService(addressLeaseService, deviceService, logger)
 	if err != nil {
@@ -149,6 +158,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		PolicyService:       policyService,
 		addressLeaseService: addressLeaseService,
 		schedulerService:    schedulerService,
+		auditSink:           auditSink,
 	}, nil
 }
 
@@ -167,6 +177,10 @@ func (a *App) Run(ctx context.Context) error {
 
 	g.Go(func() error {
 		return ignoreContextCanceled(a.schedulerService.RunSchedule(gCtx, a.Config.Rules.CheckInterval))
+	})
+
+	g.Go(func() error {
+		return ignoreContextCanceled(a.auditSink.Run(gCtx))
 	})
 
 	serverConfig := httpserver.DefaultServerConfigFromConf(a.Config.Server.Port)

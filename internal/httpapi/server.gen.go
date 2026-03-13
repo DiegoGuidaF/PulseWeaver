@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
@@ -31,6 +32,13 @@ const (
 const (
 	UserRoleAdmin UserRole = "admin"
 	UserRoleUser  UserRole = "user"
+)
+
+// Defines values for GetRequestAuditLogParamsDenyReason.
+const (
+	InvalidToken    GetRequestAuditLogParamsDenyReason = "invalid_token"
+	IpNotRegistered GetRequestAuditLogParamsDenyReason = "ip_not_registered"
+	NoDeviceMatch   GetRequestAuditLogParamsDenyReason = "no_device_match"
 )
 
 // AddAddressRequest defines model for AddAddressRequest.
@@ -153,6 +161,34 @@ type PutDeviceAddressLeaseRuleRequest struct {
 	TtlSeconds int `json:"ttl_seconds"`
 }
 
+// RequestAuditLogResponse defines model for RequestAuditLogResponse.
+type RequestAuditLogResponse struct {
+	NextCursor *ID                  `json:"next_cursor"`
+	Rows       []RequestAuditLogRow `json:"rows"`
+
+	// Total Total rows matching the current filters (excludes cursor, useful for "N results" UI)
+	Total int `json:"total"`
+}
+
+// RequestAuditLogRow defines model for RequestAuditLogRow.
+type RequestAuditLogRow struct {
+	AddressId *ID `json:"address_id,omitempty"`
+
+	// ClientIp IPv4 or IPv6 address
+	ClientIp   IPAddress            `json:"client_ip"`
+	CreatedAt  UTCTime              `json:"created_at"`
+	DenyReason *string              `json:"deny_reason,omitempty"`
+	DeviceId   *ID                  `json:"device_id,omitempty"`
+	DeviceName *string              `json:"device_name,omitempty"`
+	Headers    *map[string][]string `json:"headers,omitempty"`
+	HttpMethod *string              `json:"http_method,omitempty"`
+	Id         ID                   `json:"id"`
+	Outcome    bool                 `json:"outcome"`
+	TargetHost *string              `json:"target_host,omitempty"`
+	TargetUri  *string              `json:"target_uri,omitempty"`
+	XffChain   *string              `json:"xff_chain,omitempty"`
+}
+
 // UpdateProfileRequest defines model for UpdateProfileRequest.
 type UpdateProfileRequest struct {
 	// DisplayName User's public name. Unicode allowed.
@@ -195,6 +231,34 @@ type UserRole string
 
 // Username Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
 type Username = string
+
+// GetRequestAuditLogParams defines parameters for GetRequestAuditLog.
+type GetRequestAuditLogParams struct {
+	DeviceId   *ID                                 `form:"device_id,omitempty" json:"device_id,omitempty"`
+	Outcome    *bool                               `form:"outcome,omitempty" json:"outcome,omitempty"`
+	DenyReason *GetRequestAuditLogParamsDenyReason `form:"deny_reason,omitempty" json:"deny_reason,omitempty"`
+
+	// Ip Exact client IP match
+	Ip *string `form:"ip,omitempty" json:"ip,omitempty"`
+
+	// Host Exact target host match
+	Host *string `form:"host,omitempty" json:"host,omitempty"`
+
+	// From RFC3339 start of time window (default 24h ago)
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+
+	// To RFC3339 end of time window (default now)
+	To *time.Time `form:"to,omitempty" json:"to,omitempty"`
+
+	// Limit Page size (default 50, max 200)
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// BeforeId Cursor; return rows with id < before_id
+	BeforeId *ID `form:"before_id,omitempty" json:"before_id,omitempty"`
+}
+
+// GetRequestAuditLogParamsDenyReason defines parameters for GetRequestAuditLog.
+type GetRequestAuditLogParamsDenyReason string
 
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = CreateUserRequest
@@ -435,6 +499,9 @@ type ServerInterface interface {
 	// Performs a heartbeat with the given api key header
 	// (POST /heartbeat)
 	DeviceHeartbeatByAPIKey(w http.ResponseWriter, r *http.Request)
+	// List request audit log entries
+	// (GET /request-audit-log)
+	GetRequestAuditLog(w http.ResponseWriter, r *http.Request, params GetRequestAuditLogParams)
 	// Update current user profile
 	// (PATCH /users/me)
 	UpdateMe(w http.ResponseWriter, r *http.Request)
@@ -570,6 +637,12 @@ func (_ Unimplemented) PutDeviceAddressLeaseRule(w http.ResponseWriter, r *http.
 // Performs a heartbeat with the given api key header
 // (POST /heartbeat)
 func (_ Unimplemented) DeviceHeartbeatByAPIKey(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List request audit log entries
+// (GET /request-audit-log)
+func (_ Unimplemented) GetRequestAuditLog(w http.ResponseWriter, r *http.Request, params GetRequestAuditLogParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1160,6 +1233,103 @@ func (siw *ServerInterfaceWrapper) DeviceHeartbeatByAPIKey(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// GetRequestAuditLog operation middleware
+func (siw *ServerInterfaceWrapper) GetRequestAuditLog(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetRequestAuditLogParams
+
+	// ------------- Optional query parameter "device_id" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "device_id", r.URL.Query(), &params.DeviceId)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "device_id", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "outcome" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "outcome", r.URL.Query(), &params.Outcome)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "outcome", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "deny_reason" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "deny_reason", r.URL.Query(), &params.DenyReason)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "deny_reason", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "ip" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "ip", r.URL.Query(), &params.Ip)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ip", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "host" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "host", r.URL.Query(), &params.Host)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "host", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "from", r.URL.Query(), &params.From)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "to", r.URL.Query(), &params.To)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "before_id" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "before_id", r.URL.Query(), &params.BeforeId)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRequestAuditLog(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // UpdateMe operation middleware
 func (siw *ServerInterfaceWrapper) UpdateMe(w http.ResponseWriter, r *http.Request) {
 
@@ -1375,6 +1545,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/heartbeat", wrapper.DeviceHeartbeatByAPIKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/request-audit-log", wrapper.GetRequestAuditLog)
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/users/me", wrapper.UpdateMe)
@@ -2281,6 +2454,50 @@ func (response DeviceHeartbeatByAPIKey500JSONResponse) VisitDeviceHeartbeatByAPI
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetRequestAuditLogRequestObject struct {
+	Params GetRequestAuditLogParams
+}
+
+type GetRequestAuditLogResponseObject interface {
+	VisitGetRequestAuditLogResponse(w http.ResponseWriter) error
+}
+
+type GetRequestAuditLog200JSONResponse RequestAuditLogResponse
+
+func (response GetRequestAuditLog200JSONResponse) VisitGetRequestAuditLogResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRequestAuditLog401JSONResponse ErrorResponse
+
+func (response GetRequestAuditLog401JSONResponse) VisitGetRequestAuditLogResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRequestAuditLog403JSONResponse ErrorResponse
+
+func (response GetRequestAuditLog403JSONResponse) VisitGetRequestAuditLogResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRequestAuditLog500JSONResponse ErrorResponse
+
+func (response GetRequestAuditLog500JSONResponse) VisitGetRequestAuditLogResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type UpdateMeRequestObject struct {
 	Body *UpdateMeJSONRequestBody
 }
@@ -2442,6 +2659,9 @@ type StrictServerInterface interface {
 	// Performs a heartbeat with the given api key header
 	// (POST /heartbeat)
 	DeviceHeartbeatByAPIKey(ctx context.Context, request DeviceHeartbeatByAPIKeyRequestObject) (DeviceHeartbeatByAPIKeyResponseObject, error)
+	// List request audit log entries
+	// (GET /request-audit-log)
+	GetRequestAuditLog(ctx context.Context, request GetRequestAuditLogRequestObject) (GetRequestAuditLogResponseObject, error)
 	// Update current user profile
 	// (PATCH /users/me)
 	UpdateMe(ctx context.Context, request UpdateMeRequestObject) (UpdateMeResponseObject, error)
@@ -3052,6 +3272,32 @@ func (sh *strictHandler) DeviceHeartbeatByAPIKey(w http.ResponseWriter, r *http.
 	}
 }
 
+// GetRequestAuditLog operation middleware
+func (sh *strictHandler) GetRequestAuditLog(w http.ResponseWriter, r *http.Request, params GetRequestAuditLogParams) {
+	var request GetRequestAuditLogRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRequestAuditLog(ctx, request.(GetRequestAuditLogRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRequestAuditLog")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRequestAuditLogResponseObject); ok {
+		if err := validResponse.VisitGetRequestAuditLogResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // UpdateMe operation middleware
 func (sh *strictHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 	var request UpdateMeRequestObject
@@ -3117,66 +3363,75 @@ func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"AAD//64aTaEiYgAA",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

@@ -16,7 +16,12 @@ import (
 // EnabledIPsProvider is the cross-domain interface the policy service consumes.
 // Implemented by device.Service.
 type EnabledIPsProvider interface {
-	GetEnabledUniqueIPs(ctx context.Context) ([]string, error)
+	GetEnabledIPEntries(ctx context.Context) ([]device.IPEntry, error)
+}
+
+type ipSetEntry struct {
+	DeviceID  device.DeviceID
+	AddressID device.AddressID
 }
 
 // Service maintains an in-memory cache of enabled IPs for fast forward-auth lookups.
@@ -25,9 +30,10 @@ type Service struct {
 	apiSecretHash       [32]byte
 	trustedProxy        netip.Addr
 	mu                  sync.RWMutex
-	ipSet               map[string]struct{}
+	ipSet               map[string]ipSetEntry
 	addressChangeSignal chan struct{} // buffered cap 1
 	logger              *slog.Logger
+	observers           []DecisionObserver
 }
 
 func NewService(provider EnabledIPsProvider, secret string, logger *slog.Logger, trustedProxy netip.Addr) (*Service, error) {
@@ -40,7 +46,7 @@ func NewService(provider EnabledIPsProvider, secret string, logger *slog.Logger,
 		provider:            provider,
 		apiSecretHash:       sha256.Sum256([]byte(secret)),
 		trustedProxy:        trustedProxy,
-		ipSet:               make(map[string]struct{}),
+		ipSet:               make(map[string]ipSetEntry),
 		addressChangeSignal: make(chan struct{}, 1),
 		logger:              componentLogger,
 	}, nil
@@ -79,55 +85,81 @@ func (s *Service) RunListener(ctx context.Context) error {
 	}
 }
 
-// VerifyAccess validates bearer token and verifies that the IP is enabled.
-func (s *Service) VerifyAccess(ctx context.Context, token, clientIP string) error {
-	// Compare fixed-size 32-byte slices and avoid
-	// leaking length information through early returns.
-	tokenHash := sha256.Sum256([]byte(token))
+func (s *Service) AddDecisionObserver(o DecisionObserver) {
+	if o == nil {
+		return
+	}
+	s.observers = append(s.observers, o)
+}
+
+func (s *Service) notifyDecisionObservers(ctx context.Context, event DecisionEvent) {
+	for _, o := range s.observers {
+		o.OnDecision(ctx, event)
+	}
+}
+
+// VerifyAccess validates bearer token and verifies that the IP is enabled, emitting a DecisionEvent.
+// Token check stays in the service layer: moving it to the handler would prevent
+// invalid_token deny events from being emitted to the audit log.
+func (s *Service) VerifyAccess(ctx context.Context, req *VerifyRequest) error {
+	tokenHash := sha256.Sum256([]byte(req.Token))
 	if subtle.ConstantTimeCompare(tokenHash[:], s.apiSecretHash[:]) != 1 {
 		s.logger.WarnContext(ctx, "policy: invalid bearer token")
+		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, new(DenyReasonInvalidToken), nil, nil, req))
 		return ErrInvalidBearerToken
 	}
 
-	if !s.ContainsIP(clientIP) {
+	entry, ok := s.lookupIP(req.ClientIP)
+	if !ok {
+		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, new(DenyReasonIPNotRegistered), nil, nil, req))
 		return ErrIPNotEnabled
 	}
+
+	s.notifyDecisionObservers(ctx, NewDecisionEvent(true, nil, &entry.DeviceID, &entry.AddressID, req))
 
 	return nil
 }
 
-// ContainsIP reports whether ip is currently in the enabled set. Thread-safe.
-func (s *Service) ContainsIP(ip string) bool {
+// lookupIP returns the ipSetEntry for ip if it is currently in the enabled set.
+// It rejects the trusted proxy IP regardless of registration status. Thread-safe.
+func (s *Service) lookupIP(ip string) (ipSetEntry, bool) {
 	if s.trustedProxy.IsValid() {
 		addr, err := netip.ParseAddr(ip)
 		if err == nil && s.trustedProxy.Compare(addr) == 0 {
 			s.logger.Warn("rejected trusted proxy IP authorization", slog.String(AttrKeyRequestIP, ip))
-			return false
+			return ipSetEntry{}, false
 		}
 	}
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	_, ok := s.ipSet[ip]
-	return ok
+	entry, ok := s.ipSet[ip]
+	return entry, ok
 }
 
 // refreshCache queries enabled IPs and atomically replaces the in-memory set.
 func (s *Service) refreshCache(ctx context.Context) error {
-	ips, err := s.provider.GetEnabledUniqueIPs(ctx)
+	entries, err := s.provider.GetEnabledIPEntries(ctx)
 	if err != nil {
 		return err
 	}
 
-	newSet := make(map[string]struct{}, len(ips))
-	for _, ip := range ips {
-		newSet[ip] = struct{}{}
+	newSet := make(map[string]ipSetEntry, len(entries))
+	for _, e := range entries {
+		newSet[e.IP] = ipSetEntry{DeviceID: e.DeviceID, AddressID: e.AddressID}
 	}
 
 	s.mu.Lock()
 	s.ipSet = newSet
 	s.mu.Unlock()
 
-	s.logger.DebugContext(ctx, "policy IP cache refreshed", slog.Int("ip_count", len(ips)))
+	s.logger.DebugContext(ctx, "policy IP cache refreshed", slog.Int("ip_count", len(entries)))
 	return nil
+}
+
+func nilIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

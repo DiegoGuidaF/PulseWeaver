@@ -23,7 +23,7 @@ type repository interface {
 	RefreshAddress(ctx context.Context, addressID AddressID, source EventSource) (*Address, error)
 	CheckAddressOwnership(ctx context.Context, deviceID DeviceID, addressID AddressID) error
 	GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) (*Device, error)
-	GetEnabledUniqueIPs(ctx context.Context) ([]string, error)
+	GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error)
 	RunInTx(ctx context.Context, fn func(repository) error) error
 }
 
@@ -231,12 +231,8 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, address
 	return disabledAddress, nil
 }
 
-func (s *Service) GetEnabledUniqueIPs(ctx context.Context) ([]string, error) {
-	ips, err := s.repo.GetEnabledUniqueIPs(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return ips, nil
+func (s *Service) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error) {
+	return s.repo.GetEnabledIPEntries(ctx)
 }
 
 func (s *Service) DisableAddresses(ctx context.Context, addressIDs []AddressID, source EventSource) error {

@@ -137,3 +137,31 @@ CREATE INDEX IF NOT EXISTS idx_address_leases_device_id
 CREATE UNIQUE INDEX IF NOT EXISTS idx_address_leases_address_id
     ON address_leases (address_id);
 
+-- Request audit log
+
+CREATE TABLE IF NOT EXISTS request_audit_log (
+    id           INTEGER PRIMARY KEY,
+    client_ip    TEXT     NOT NULL,
+    outcome      INTEGER  NOT NULL CHECK (outcome IN (0, 1)),
+    deny_reason  TEXT,                                       -- NULL on allow
+    device_id    INTEGER  REFERENCES devices(id) ON DELETE SET NULL,
+    address_id   INTEGER  REFERENCES addresses(id) ON DELETE SET NULL,
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    xff_chain    TEXT,
+    target_host  TEXT,                                       -- X-Forwarded-Host
+    target_uri   TEXT,                                       -- X-Forwarded-Uri
+    http_method  TEXT,                                       -- X-Forwarded-Method
+    headers_json TEXT     NOT NULL DEFAULT '{}'              -- JSON blob of enrichment headers
+);
+
+CREATE INDEX IF NOT EXISTS idx_request_audit_log_created_at
+    ON request_audit_log (created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_request_audit_log_client_ip
+    ON request_audit_log (client_ip);
+
+CREATE INDEX IF NOT EXISTS idx_request_audit_log_device_id
+    ON request_audit_log (device_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_request_audit_log_outcome
+    ON request_audit_log (outcome, created_at DESC);

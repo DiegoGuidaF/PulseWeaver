@@ -18,6 +18,6 @@ func PrincipalFromSession(session *SessionWithUser) *Principal {
 	return NewPrincipal(session.UserID, session.ID, session.UserRole)
 }
 
-func (principal Principal) isAdmin() bool {
+func (principal Principal) IsAdmin() bool {
 	return principal.Role == AdminRole
 }

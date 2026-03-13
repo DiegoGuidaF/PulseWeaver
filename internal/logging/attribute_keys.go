@@ -6,4 +6,5 @@ const (
 	AttrKeyError     = "error"
 	AttrKeyRequestID = "request_id"
 	AttrKeyClientIP  = "client_ip"
+	AttrKeyCount     = "count"
 )

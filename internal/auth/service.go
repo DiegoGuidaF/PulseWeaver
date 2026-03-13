@@ -103,7 +103,7 @@ func (s *Service) RevokeSession(ctx context.Context, sessionID SessionID) error 
 }
 
 func (s *Service) CreateUser(ctx context.Context, username string, displayName string, email string, password string, principal *Principal) (*User, error) {
-	if !principal.isAdmin() {
+	if !principal.IsAdmin() {
 		return nil, ErrAdminCredentialsRequired
 	}
 
@@ -174,7 +174,7 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 }
 
 func (s *Service) ListUsers(ctx context.Context, principal *Principal) ([]User, error) {
-	if !principal.isAdmin() {
+	if !principal.IsAdmin() {
 		return nil, ErrAdminCredentialsRequired
 	}
 	return s.repo.GetAllUsers(ctx)
@@ -251,7 +251,7 @@ func (s *Service) ChangePassword(ctx context.Context, userID UserID, sessionID S
 
 func (s *Service) PromoteUser(ctx context.Context, principal *Principal, targetID UserID) (*User, error) {
 	var updatedUser *User
-	if !principal.isAdmin() {
+	if !principal.IsAdmin() {
 		return nil, ErrAdminCredentialsRequired
 	}
 
@@ -279,7 +279,7 @@ func (s *Service) PromoteUser(ctx context.Context, principal *Principal, targetI
 
 func (s *Service) DemoteUser(ctx context.Context, principal *Principal, targetID UserID) (*User, error) {
 	var updatedUser *User
-	if !principal.isAdmin() {
+	if !principal.IsAdmin() {
 		return nil, ErrAdminCredentialsRequired
 	}
 
@@ -306,7 +306,7 @@ func (s *Service) DemoteUser(ctx context.Context, principal *Principal, targetID
 }
 
 func (s *Service) DeleteUser(ctx context.Context, principal *Principal, targetID UserID) error {
-	if !principal.isAdmin() {
+	if !principal.IsAdmin() {
 		return ErrAdminCredentialsRequired
 	}
 

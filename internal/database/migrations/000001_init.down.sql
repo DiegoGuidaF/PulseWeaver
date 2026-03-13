@@ -13,6 +13,10 @@ DROP INDEX IF EXISTS idx_address_events_address_id_created_at;
 DROP INDEX IF EXISTS idx_addresses_device_id_ip;
 DROP INDEX IF EXISTS idx_address_device_id;
 DROP INDEX IF EXISTS idx_devices_name_active;
+DROP INDEX IF EXISTS idx_request_audit_log_created_at;
+DROP INDEX IF EXISTS idx_request_audit_log_client_ip;
+DROP INDEX IF EXISTS idx_request_audit_log_device_id;
+DROP INDEX IF EXISTS idx_request_audit_log_outcome;
 
 -- Drop tables in dependency-safe order
 DROP TABLE IF EXISTS address_leases;
@@ -24,4 +28,5 @@ DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS address_events;
 DROP TABLE IF EXISTS addresses;
 DROP TABLE IF EXISTS devices;
+DROP TABLE IF EXISTS request_audit_log;
 

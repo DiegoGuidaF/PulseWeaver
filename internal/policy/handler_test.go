@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/DiegoGuidaF/WallyDex/internal/device"
 	"github.com/DiegoGuidaF/WallyDex/internal/httpapi"
 	"github.com/matryer/is"
 )
@@ -37,7 +38,7 @@ func TestHandler_WrongToken_Returns403(t *testing.T) {
 
 func TestNewService_EmptySecret_ReturnsError(t *testing.T) {
 	is := is.New(t)
-	provider := &mockProvider{ips: []string{"1.2.3.4"}}
+	provider := &mockProvider{entries: []device.IPEntry{{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)}}}
 
 	_, err := NewService(provider, "", noopLogger(), netip.Addr{})
 	is.True(errors.Is(err, ErrSecretNotConfigured))
@@ -115,7 +116,11 @@ func newTestHandler(enabledIPs []string) *HTTPHandler {
 }
 
 func newTestHandlerWithProxy(enabledIPs []string, secret, trustedProxy string) *HTTPHandler {
-	provider := &mockProvider{ips: enabledIPs}
+	entries := make([]device.IPEntry, len(enabledIPs))
+	for i, ip := range enabledIPs {
+		entries[i] = device.IPEntry{IP: ip, DeviceID: device.DeviceID(int64(i + 1)), AddressID: device.AddressID(int64(i + 1))}
+	}
+	provider := &mockProvider{entries: entries}
 	var proxyAddr netip.Addr
 	if trustedProxy != "" {
 		proxyAddr = netip.MustParseAddr(trustedProxy)

@@ -515,8 +515,6 @@ paths:
         Generates a new API key for the device, immediately invalidating the old one.
         The raw key is returned once. Admin-only.
       tags: [devices]
-      security:
-        - cookieAuth: []
       parameters:
         - name: device_id
           in: path
@@ -718,6 +716,101 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /request-audit-log:
+    get:
+      operationId: getRequestAuditLog
+      tags:
+        - audit
+      summary: List request audit log entries
+      description: >
+        Returns paginated request log entries to review access-control decisions.
+        Admin-only.
+      parameters:
+        - name: device_id
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ID'
+        - name: outcome
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: deny_reason
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - no_device_match
+              - ip_not_registered
+              - invalid_token
+        - name: ip
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Exact client IP match
+        - name: host
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Exact target host match
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 start of time window (default 24h ago)
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 end of time window (default now)
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+          description: Page size (default 50, max 200)
+        - name: before_id
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ID'
+          description: Cursor; return rows with id < before_id
+      responses:
+        "200":
+          description: Request audit log entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestAuditLogResponse'
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden - admin credentials required
           content:
             application/json:
               schema:
@@ -1102,6 +1195,62 @@ components:
           description: >
             UTC timestamp when this address will auto-expire, if an auto-expiry rule
             is enabled for the device. Null if no expiry is scheduled.
+
+    RequestAuditLogResponse:
+      type: object
+      required:
+        - total
+        - next_cursor
+        - rows
+      properties:
+        total:
+          type: integer
+          description: Total rows matching the current filters (excludes cursor, useful for "N results" UI)
+        next_cursor:
+          allOf:
+            - $ref: '#/components/schemas/ID'
+          nullable: true
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequestAuditLogRow'
+
+    RequestAuditLogRow:
+      type: object
+      required: [id, created_at, outcome, client_ip]
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        client_ip:
+          $ref: '#/components/schemas/IPAddress'
+        outcome:
+          type: boolean
+        deny_reason:
+          type: string
+        device_id:
+          $ref: '#/components/schemas/ID'
+        device_name:
+          type: string
+        address_id:
+          $ref: '#/components/schemas/ID'
+        created_at:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+        xff_chain:
+          type: string
+        target_host:
+          type: string
+        target_uri:
+          type: string
+        http_method:
+          type: string
+        headers:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
 
     DeviceAddressLeaseRule:
       type: object

@@ -104,6 +104,33 @@ export type Address = {
     readonly expires_at?: Date | null;
 };
 
+export type AuditLogResponse = {
+    /**
+     * Total rows matching the current filters (excludes cursor, useful for "N results" UI)
+     */
+    total: number;
+    next_cursor: Id | null;
+    rows: Array<AuditLogRow>;
+};
+
+export type AuditLogRow = {
+    id: Id;
+    device_id?: Id;
+    rule_id?: Id;
+    client_ip: IpAddress;
+    outcome: boolean;
+    deny_reason?: string;
+    created_at: Date;
+    device_name?: string;
+    xff_chain?: string;
+    target_host?: string;
+    target_uri?: string;
+    http_method?: string;
+    headers?: {
+        [key: string]: Array<string>;
+    };
+};
+
 export type DeviceAddressLeaseRule = {
     id: Id;
     device_id: Id;
@@ -858,6 +885,67 @@ export type DeviceHeartbeatByApiKeyResponses = {
 };
 
 export type DeviceHeartbeatByApiKeyResponse = DeviceHeartbeatByApiKeyResponses[keyof DeviceHeartbeatByApiKeyResponses];
+
+export type GetAuditLogData = {
+    body?: never;
+    path?: never;
+    query?: {
+        device_id?: Id;
+        outcome?: boolean;
+        deny_reason?: 'no_device_match' | 'ip_not_registered' | 'invalid_token';
+        /**
+         * Exact client IP match
+         */
+        ip?: string;
+        /**
+         * Exact target host match
+         */
+        host?: string;
+        /**
+         * RFC3339 start of time window (default 24h ago)
+         */
+        from?: Date;
+        /**
+         * RFC3339 end of time window (default now)
+         */
+        to?: Date;
+        /**
+         * Page size (default 50, max 200)
+         */
+        limit?: number;
+        /**
+         * Cursor; return rows with id < before_id
+         */
+        before_id?: Id;
+    };
+    url: '/audit-log';
+};
+
+export type GetAuditLogErrors = {
+    /**
+     * Not authenticated
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden - admin credentials required
+     */
+    403: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type GetAuditLogError = GetAuditLogErrors[keyof GetAuditLogErrors];
+
+export type GetAuditLogResponses = {
+    /**
+     * Audit log entries
+     */
+    200: AuditLogResponse;
+};
+
+export type GetAuditLogResponse = GetAuditLogResponses[keyof GetAuditLogResponses];
 
 export type DisableAddressData = {
     body?: never;

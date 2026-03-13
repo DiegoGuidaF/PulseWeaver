@@ -581,7 +581,7 @@ func TestRepository_GetEnabledUniqueIPs_Empty(t *testing.T) {
 	ctx := context.Background()
 
 	// Get enabled IPs when none exist
-	ips, err := repo.GetEnabledUniqueIPs(ctx)
+	ips, err := repo.GetEnabledIPEntries(ctx)
 	is.NoErr(err)
 	is.Equal(len(ips), 0) // Should be empty
 }
@@ -605,14 +605,14 @@ func TestRepository_GetEnabledUniqueIPs(t *testing.T) {
 	is.NoErr(err)
 
 	// Get enabled IPs
-	ips, err := repo.GetEnabledUniqueIPs(ctx)
+	ips, err := repo.GetEnabledIPEntries(ctx)
 	is.NoErr(err)
 	is.Equal(len(ips), 2) // Should have 2 enabled IPs
 
 	// Verify correct IPs are returned
 	ipMap := make(map[string]bool)
 	for _, ip := range ips {
-		ipMap[ip] = true
+		ipMap[ip.IP] = true
 	}
 	is.True(ipMap["192.168.1.1"])
 	is.True(ipMap["192.168.1.3"])
@@ -636,14 +636,14 @@ func TestRepository_GetEnabledUniqueIPs_Deduplicates(t *testing.T) {
 	_ = createTestAddress(t, repo, ctx, device3.ID, "192.168.1.200")
 
 	// Get enabled IPs
-	ips, err := repo.GetEnabledUniqueIPs(ctx)
+	ips, err := repo.GetEnabledIPEntries(ctx)
 	is.NoErr(err)
 	is.Equal(len(ips), 2) // Should deduplicate: 192.168.1.100 appears only once
 
 	// Verify correct IPs are returned (deduplicated)
 	ipMap := make(map[string]bool)
 	for _, ip := range ips {
-		ipMap[ip] = true
+		ipMap[ip.IP] = true
 	}
 	is.True(ipMap["192.168.1.100"])
 	is.True(ipMap["192.168.1.200"])

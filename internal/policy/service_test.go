@@ -15,12 +15,12 @@ import (
 )
 
 type mockProvider struct {
-	ips []string
-	err error
+	entries []device.IPEntry
+	err     error
 }
 
-func (m *mockProvider) GetEnabledUniqueIPs(_ context.Context) ([]string, error) {
-	return m.ips, m.err
+func (m *mockProvider) GetEnabledIPEntries(_ context.Context) ([]device.IPEntry, error) {
+	return m.entries, m.err
 }
 
 func noopLogger() *slog.Logger {
@@ -29,15 +29,18 @@ func noopLogger() *slog.Logger {
 
 func TestService_Initialize_PopulatesCache(t *testing.T) {
 	is := is.New(t)
-	provider := &mockProvider{ips: []string{"192.168.1.1", "10.0.0.1"}}
+	provider := &mockProvider{entries: []device.IPEntry{
+		{IP: "192.168.1.1", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+		{IP: "10.0.0.1", DeviceID: device.DeviceID(2), AddressID: device.AddressID(2)},
+	}}
 	svc, err := NewService(provider, "secret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 
 	err = svc.Initialize(context.Background())
 	is.NoErr(err)
-	is.True(svc.ContainsIP("192.168.1.1"))
-	is.True(svc.ContainsIP("10.0.0.1"))
-	is.True(!svc.ContainsIP("1.2.3.4"))
+	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "192.168.1.1"}))
+	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "10.0.0.1"}))
+	is.True(errors.Is(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "1.2.3.4"}), ErrIPNotEnabled))
 }
 
 func TestService_Initialize_PropagatesError(t *testing.T) {
@@ -52,15 +55,19 @@ func TestService_Initialize_PropagatesError(t *testing.T) {
 
 func TestService_OnAddressEvent_RefreshesCache(t *testing.T) {
 	is := is.New(t)
-	provider := &mockProvider{ips: []string{"192.168.1.1"}}
+	provider := &mockProvider{entries: []device.IPEntry{
+		{IP: "192.168.1.1", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+	}}
 	svc, err := NewService(provider, "secret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 
 	is.NoErr(svc.Initialize(context.Background()))
-	is.True(svc.ContainsIP("192.168.1.1"))
+	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "192.168.1.1"}))
 
 	// Update provider to return different IPs
-	provider.ips = []string{"10.0.0.2"}
+	provider.entries = []device.IPEntry{
+		{IP: "10.0.0.2", DeviceID: device.DeviceID(3), AddressID: device.AddressID(3)},
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -75,67 +82,87 @@ func TestService_OnAddressEvent_RefreshesCache(t *testing.T) {
 	cancel()
 	<-done
 
-	is.True(!svc.ContainsIP("192.168.1.1"))
-	is.True(svc.ContainsIP("10.0.0.2"))
+	is.True(errors.Is(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "192.168.1.1"}), ErrIPNotEnabled))
+	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "10.0.0.2"}))
 }
 
-func TestService_ContainsIP_Empty(t *testing.T) {
+func TestService_LookupIP_Empty(t *testing.T) {
 	is := is.New(t)
-	provider := &mockProvider{ips: []string{}}
+	provider := &mockProvider{entries: []device.IPEntry{}}
 	svc, err := NewService(provider, "secret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
-	is.True(!svc.ContainsIP("1.2.3.4"))
+	is.True(errors.Is(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "1.2.3.4"}), ErrIPNotEnabled))
 }
 
-func TestService_ContainsIP_RejectsTrustedProxyIP(t *testing.T) {
+func TestService_LookupIP_RejectsTrustedProxyIP(t *testing.T) {
 	is := is.New(t)
-	provider := &mockProvider{ips: []string{"127.0.0.1"}}
+	provider := &mockProvider{entries: []device.IPEntry{
+		{IP: "127.0.0.1", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+	}}
 	svc, err := NewService(provider, "secret", noopLogger(), netip.MustParseAddr("127.0.0.1"))
 	is.NoErr(err)
 
 	is.NoErr(svc.Initialize(context.Background()))
-	is.True(!svc.ContainsIP("127.0.0.1"))
+	is.True(errors.Is(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "127.0.0.1"}), ErrIPNotEnabled))
 }
 
 func TestService_VerifyAccess(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		is := is.New(t)
-		provider := &mockProvider{ips: []string{"1.2.3.4"}}
+		provider := &mockProvider{entries: []device.IPEntry{
+			{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+		}}
 		svc, err := NewService(provider, "mysecret", noopLogger(), netip.Addr{})
 		is.NoErr(err)
 		is.NoErr(svc.Initialize(context.Background()))
 
-		err = svc.VerifyAccess(context.Background(), "mysecret", "1.2.3.4")
+		req := &VerifyRequest{
+			Token:    "mysecret",
+			ClientIP: "1.2.3.4",
+		}
+		err = svc.VerifyAccess(context.Background(), req)
 		is.NoErr(err)
 	})
 
 	t.Run("missing secret", func(t *testing.T) {
 		is := is.New(t)
-		provider := &mockProvider{ips: []string{"1.2.3.4"}}
+		provider := &mockProvider{}
 		_, err := NewService(provider, "", noopLogger(), netip.Addr{})
 		is.True(errors.Is(err, ErrSecretNotConfigured))
 	})
 
 	t.Run("invalid token", func(t *testing.T) {
 		is := is.New(t)
-		provider := &mockProvider{ips: []string{"1.2.3.4"}}
+		provider := &mockProvider{entries: []device.IPEntry{
+			{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+		}}
 		svc, err := NewService(provider, "mysecret", noopLogger(), netip.Addr{})
 		is.NoErr(err)
 		is.NoErr(svc.Initialize(context.Background()))
 
-		err = svc.VerifyAccess(context.Background(), "wrong", "1.2.3.4")
+		req := &VerifyRequest{
+			Token:    "wrong",
+			ClientIP: "1.2.3.4",
+		}
+		err = svc.VerifyAccess(context.Background(), req)
 		is.True(errors.Is(err, ErrInvalidBearerToken))
 	})
 
 	t.Run("ip not enabled", func(t *testing.T) {
 		is := is.New(t)
-		provider := &mockProvider{ips: []string{"1.2.3.4"}}
+		provider := &mockProvider{entries: []device.IPEntry{
+			{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+		}}
 		svc, err := NewService(provider, "mysecret", noopLogger(), netip.Addr{})
 		is.NoErr(err)
 		is.NoErr(svc.Initialize(context.Background()))
 
-		err = svc.VerifyAccess(context.Background(), "mysecret", "9.9.9.9")
+		req := &VerifyRequest{
+			Token:    "mysecret",
+			ClientIP: "9.9.9.9",
+		}
+		err = svc.VerifyAccess(context.Background(), req)
 		is.True(errors.Is(err, ErrIPNotEnabled))
 	})
 }
