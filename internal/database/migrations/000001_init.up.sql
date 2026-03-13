@@ -16,7 +16,10 @@ CREATE TABLE IF NOT EXISTS addresses
     id         INTEGER PRIMARY KEY,
     device_id  INTEGER  NOT NULL REFERENCES devices (id) ON DELETE CASCADE,
     ip         TEXT     NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_enabled BOOLEAN  NOT NULL DEFAULT 1 CHECK (is_enabled IN (0, 1)),
+    source     TEXT     NOT NULL DEFAULT 'manual',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_address_device_id
@@ -24,6 +27,9 @@ CREATE INDEX IF NOT EXISTS idx_address_device_id
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_addresses_device_id_ip
     ON addresses (device_id, ip);
+
+CREATE INDEX IF NOT EXISTS idx_addresses_is_enabled
+    ON addresses (is_enabled);
 
 CREATE TABLE IF NOT EXISTS address_events
 (
@@ -92,16 +98,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_device_api_keys_device_id
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_device_api_keys_key_hash
     ON device_api_keys (key_hash);
-
--- Address current state
-
-CREATE TABLE IF NOT EXISTS address_current_state
-(
-    address_id INTEGER PRIMARY KEY REFERENCES addresses (id) ON DELETE CASCADE,
-    is_enabled BOOLEAN  NOT NULL DEFAULT 1 CHECK (is_enabled IN (0, 1)),
-    source     TEXT     NOT NULL DEFAULT 'manual',
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
 
 -- Device rules
 

@@ -6,8 +6,7 @@ import (
 	"time"
 )
 
-// Address maps the current enabled/disabled state and metadata
-// for an address, joining data from addresses and address_current_state.
+// Address represents an address row with its current enabled/disabled state and metadata.
 type Address struct {
 	ID        AddressID   `db:"id"`
 	DeviceID  DeviceID    `db:"device_id"`

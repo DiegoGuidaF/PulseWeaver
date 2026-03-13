@@ -190,18 +190,11 @@ func TestRepository_GetDeviceAddresses_OrderedByCreatedAtDesc(t *testing.T) {
 		t.Helper()
 		var id device.AddressID
 		err := repos.db.GetContext(t.Context(), &id,
-			`INSERT INTO addresses (device_id, ip, created_at) VALUES (?, ?, ?) RETURNING id`,
-			dev.ID, ip, createdAt,
+			`INSERT INTO addresses (device_id, ip, created_at, is_enabled, source, updated_at) VALUES (?, ?, ?, 1, 'manual', ?) RETURNING id`,
+			dev.ID, ip, createdAt, createdAt,
 		)
 		if err != nil {
 			t.Fatalf("insert address %q: %v", ip, err)
-		}
-		_, err = repos.db.ExecContext(t.Context(),
-			`INSERT INTO address_current_state (address_id, is_enabled, source, updated_at) VALUES (?, 1, 'manual', ?)`,
-			id, createdAt,
-		)
-		if err != nil {
-			t.Fatalf("insert address_current_state for %q: %v", ip, err)
 		}
 		return id
 	}

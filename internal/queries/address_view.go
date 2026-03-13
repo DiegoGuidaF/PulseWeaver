@@ -27,13 +27,12 @@ func (r *Repository) GetDeviceAddresses(ctx context.Context, deviceID device.Dev
 			a.id,
 			a.device_id,
 			a.ip,
-			acs.is_enabled,
-			acs.source,
-			acs.updated_at,
+			a.is_enabled,
+			a.source,
+			a.updated_at,
 			a.created_at,
 			al.expires_at
 		FROM addresses a
-		JOIN address_current_state acs ON acs.address_id = a.id
 		LEFT JOIN address_leases al ON al.address_id = a.id
 		WHERE a.device_id = ?
 		ORDER BY a.created_at DESC

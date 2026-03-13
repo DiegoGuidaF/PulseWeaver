@@ -132,6 +132,8 @@ func (r *Repository) CreateAddress(ctx context.Context, params *CreateAddressPar
 			return err
 		}
 
+		//TODO: We shoudn't update the address itself, only record the event. This probably means we need to extract
+		// the part that updates the address from the one that creates the event
 		address, err = tx.recordAddressEvent(ctx, addressID, true, EventSourceManual)
 		if err != nil {
 			return err
@@ -152,15 +154,14 @@ func (r *Repository) GetAddressForDeviceByIP(ctx context.Context, deviceID Devic
 		SELECT a.id,
 		       a.device_id,
 		       a.ip,
-		       ac.is_enabled,
-		       ac.source,
+		       a.is_enabled,
+		       a.source,
 		       a.created_at,
-		       ac.updated_at
+		       a.updated_at
 		FROM addresses a
-		INNER JOIN address_current_state ac ON a.id = ac.address_id
 		WHERE a.device_id = ?
-		and a.ip = ?
-		ORDER BY ac.updated_at DESC
+		AND a.ip = ?
+		ORDER BY a.updated_at DESC
 	`
 
 	err := r.db.GetContext(ctx, address, query, deviceID, ip.String())
@@ -240,17 +241,11 @@ func (r *Repository) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error)
 	var entries []IPEntry
 
 	query := `
-		SELECT ip, device_id, address_id
-		FROM (
-			SELECT a.ip,
-			       a.device_id,
-			       a.id AS address_id,
-			       ROW_NUMBER() OVER (PARTITION BY a.ip ORDER BY ac.updated_at DESC) AS rn
-			FROM addresses a
-			INNER JOIN address_current_state ac ON a.id = ac.address_id
-			WHERE ac.is_enabled = 1
-		)
-		WHERE rn = 1
+		SELECT a.ip, a.device_id, a.id AS address_id
+		FROM addresses a
+		WHERE a.is_enabled = 1
+		GROUP BY a.ip
+		HAVING a.updated_at = MAX(a.updated_at)
 	`
 
 	err := r.db.SelectContext(ctx, &entries, query)
@@ -273,12 +268,11 @@ func (r *Repository) GetAddress(ctx context.Context, addressID AddressID) (*Addr
 		SELECT a.id,
 		       a.device_id,
 		       a.ip,
-		       ac.is_enabled,
-		       ac.source,
+		       a.is_enabled,
+		       a.source,
 		       a.created_at,
-		       ac.updated_at
+		       a.updated_at
 		FROM addresses a
-		INNER JOIN address_current_state ac ON a.id = ac.address_id
 		WHERE a.id = ?
 	`
 
@@ -346,17 +340,12 @@ func (r *Repository) recordAddressEvent(ctx context.Context, addressID AddressID
 			return fmt.Errorf("failed to record event: %w", err)
 		}
 
-		upsertState := `
-		INSERT INTO address_current_state (address_id, is_enabled, source, updated_at)
-		VALUES (?, ?, ?, ?)
-		ON CONFLICT(address_id) DO UPDATE SET
-			is_enabled = excluded.is_enabled,
-			source     = excluded.source,
-			updated_at = excluded.updated_at
+		updateState := `
+		UPDATE addresses SET is_enabled = ?, source = ?, updated_at = ? WHERE id = ?
 	`
 
-		if _, err := tx.db.ExecContext(ctx, upsertState, addressID, isEnabled, source, now); err != nil {
-			return fmt.Errorf("failed to upsert address current state: %w", err)
+		if _, err := tx.db.ExecContext(ctx, updateState, isEnabled, source, now, addressID); err != nil {
+			return fmt.Errorf("failed to update address state: %w", err)
 		}
 
 		var err error
