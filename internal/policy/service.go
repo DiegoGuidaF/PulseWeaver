@@ -153,7 +153,7 @@ func (s *Service) refreshCache(ctx context.Context) error {
 	s.ipSet = newSet
 	s.mu.Unlock()
 
-	s.logger.DebugContext(ctx, "policy IP cache refreshed", slog.Int("ip_count", len(entries)))
+	s.logger.DebugContext(ctx, "policy IP cache refreshed", slog.Int(logging.AttrKeyIPCount, len(entries)))
 	return nil
 }
 

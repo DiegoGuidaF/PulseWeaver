@@ -7,4 +7,6 @@ const (
 	AttrKeyRequestID = "request_id"
 	AttrKeyClientIP  = "client_ip"
 	AttrKeyCount     = "count"
+	AttrKeyHeaders   = "headers"
+	AttrKeyIPCount   = "ip_count"
 )

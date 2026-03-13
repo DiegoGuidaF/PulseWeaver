@@ -110,6 +110,36 @@ func TestHandler_ProxyIP_Returns403(t *testing.T) {
 	is.Equal(w.Code, http.StatusForbidden)
 }
 
+func TestHandler_EnrichmentHeaders_PassedToVerifyAccess(t *testing.T) {
+	is := is.New(t)
+	obs := &fakeObserver{}
+	h := newTestHandlerWithObserver([]string{"1.2.3.4"}, obs)
+
+	r := httptest.NewRequest(http.MethodGet, "/api/policy-engine/verify-ip", nil)
+	r.Header.Set("Authorization", "Bearer mysecret")
+	r.Header.Set("User-Agent", "TestAgent/1.0")
+	r.Header.Set("X-Forwarded-Host", "myhost.example.com")
+	r.Header.Set("X-Forwarded-Uri", "/protected")
+	r.Header.Set("X-Forwarded-Method", "GET")
+	r = r.WithContext(httpapi.WithClientIP(r.Context(), "1.2.3.4"))
+
+	w := httptest.NewRecorder()
+	h.HandleForwardAuthIP(w, r)
+	is.Equal(w.Code, http.StatusOK)
+
+	events := obs.received()
+	is.Equal(len(events), 1)
+	e := events[0]
+	is.Equal(e.ClientIP, "1.2.3.4")
+	is.True(e.Outcome)
+	is.True(e.TargetHost != nil)
+	is.Equal(*e.TargetHost, "myhost.example.com")
+	is.True(e.TargetURI != nil)
+	is.Equal(*e.TargetURI, "/protected")
+	is.True(len(e.Headers["User-Agent"]) > 0)
+	is.Equal(e.Headers["User-Agent"][0], "TestAgent/1.0")
+}
+
 // newTestHandler creates a HTTPHandler pre-populated with the given IPs in its cache.
 func newTestHandler(enabledIPs []string) *HTTPHandler {
 	return newTestHandlerWithProxy(enabledIPs, "mysecret", "")
@@ -128,6 +158,23 @@ func newTestHandlerWithProxy(enabledIPs []string, secret, trustedProxy string) *
 	svc, err := NewService(provider, secret, noopLogger(), proxyAddr)
 	if err != nil {
 		panic(err)
+	}
+	_ = svc.Initialize(context.Background())
+	return NewHTTPHandler(svc, noopLogger())
+}
+
+func newTestHandlerWithObserver(enabledIPs []string, obs DecisionObserver) *HTTPHandler {
+	entries := make([]device.IPEntry, len(enabledIPs))
+	for i, ip := range enabledIPs {
+		entries[i] = device.IPEntry{IP: ip, DeviceID: device.DeviceID(int64(i + 1)), AddressID: device.AddressID(int64(i + 1))}
+	}
+	provider := &mockProvider{entries: entries}
+	svc, err := NewService(provider, "mysecret", noopLogger(), netip.Addr{})
+	if err != nil {
+		panic(err)
+	}
+	if obs != nil {
+		svc.AddDecisionObserver(obs)
 	}
 	_ = svc.Initialize(context.Background())
 	return NewHTTPHandler(svc, noopLogger())

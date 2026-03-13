@@ -129,11 +129,3 @@ func (r *Repository) runInTx(ctx context.Context, fn func(*Repository) error) er
 	// Commit if successful
 	return tx.Commit()
 }
-
-// RunInTx runs the callback function inside a transaction.
-// If already running in a transaction context, do not create a new one and reuse it
-func (r *Repository) RunInTx(ctx context.Context, fn func(repository) error) error {
-	return r.runInTx(ctx, func(repo *Repository) error {
-		return fn(repo)
-	})
-}

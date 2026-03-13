@@ -59,7 +59,7 @@ func (s *Sink) Run(ctx context.Context) error {
 		copy(events, buffer)
 		buffer = buffer[:0]
 
-		s.logger.DebugContext(ctx, "flushing %d decision events", slog.Int(logging.AttrKeyCount, len(events)))
+		s.logger.DebugContext(ctx, "flushing decision events", slog.Int(logging.AttrKeyCount, len(events)))
 		if err := s.repo.BatchInsert(ctx, events); err != nil {
 			// Best-effort logging; audit failures must not crash the app.
 			s.logger.ErrorContext(ctx, "failed to flush audit events", slog.Any(logging.AttrKeyError, err))

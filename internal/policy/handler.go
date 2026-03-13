@@ -25,7 +25,7 @@ func NewHTTPHandler(service *Service, logger *slog.Logger) *HTTPHandler {
 func (h *HTTPHandler) HandleForwardAuthIP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	ctx = logging.WithOperation(ctx, "HandleForwardAuthIP")
-	h.logger.DebugContext(ctx, "Request received with headers", slog.Any("headers", r.Header))
+	h.logger.DebugContext(ctx, "Request received with headers", slog.Any(logging.AttrKeyHeaders, r.Header))
 
 	authHeader := r.Header.Get("Authorization")
 	token, ok := strings.CutPrefix(authHeader, "Bearer ")
