@@ -30,3 +30,10 @@ func NewVerifyRequest(token string, clientIP string, r *http.Request) *VerifyReq
 		},
 	}
 }
+
+func nilIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}

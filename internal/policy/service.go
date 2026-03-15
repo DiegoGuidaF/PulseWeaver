@@ -102,6 +102,8 @@ func (s *Service) notifyDecisionObservers(ctx context.Context, event DecisionEve
 // Token check stays in the service layer: moving it to the handler would prevent
 // invalid_token deny events from being emitted to the audit log.
 func (s *Service) VerifyAccess(ctx context.Context, req *VerifyRequest) error {
+	s.logger.DebugContext(ctx, "Verify access for ip")
+
 	tokenHash := sha256.Sum256([]byte(req.Token))
 	if subtle.ConstantTimeCompare(tokenHash[:], s.apiSecretHash[:]) != 1 {
 		s.logger.WarnContext(ctx, "policy: invalid bearer token")
@@ -109,12 +111,14 @@ func (s *Service) VerifyAccess(ctx context.Context, req *VerifyRequest) error {
 		return ErrInvalidBearerToken
 	}
 
-	entry, ok := s.lookupIP(req.ClientIP)
+	entry, ok := s.lookupIP(ctx, req.ClientIP)
 	if !ok {
+		s.logger.DebugContext(ctx, "IP not enabled")
 		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, new(DenyReasonIPNotRegistered), nil, nil, req))
 		return ErrIPNotEnabled
 	}
 
+	s.logger.DebugContext(ctx, "IP is enabled")
 	s.notifyDecisionObservers(ctx, NewDecisionEvent(true, nil, &entry.DeviceID, &entry.AddressID, req))
 
 	return nil
@@ -122,11 +126,11 @@ func (s *Service) VerifyAccess(ctx context.Context, req *VerifyRequest) error {
 
 // lookupIP returns the ipSetEntry for ip if it is currently in the enabled set.
 // It rejects the trusted proxy IP regardless of registration status. Thread-safe.
-func (s *Service) lookupIP(ip string) (ipSetEntry, bool) {
+func (s *Service) lookupIP(ctx context.Context, ip string) (ipSetEntry, bool) {
 	if s.trustedProxy.IsValid() {
 		addr, err := netip.ParseAddr(ip)
 		if err == nil && s.trustedProxy.Compare(addr) == 0 {
-			s.logger.Warn("rejected trusted proxy IP authorization", slog.String(AttrKeyRequestIP, ip))
+			s.logger.WarnContext(ctx, "rejected trusted proxy IP authorization", slog.String(AttrKeyRequestIP, ip))
 			return ipSetEntry{}, false
 		}
 	}
@@ -134,6 +138,7 @@ func (s *Service) lookupIP(ip string) (ipSetEntry, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	entry, ok := s.ipSet[ip]
+	s.logger.DebugContext(ctx, "found IP", slog.String(AttrKeyRequestIP, ip))
 	return entry, ok
 }
 
@@ -155,11 +160,4 @@ func (s *Service) refreshCache(ctx context.Context) error {
 
 	s.logger.DebugContext(ctx, "policy IP cache refreshed", slog.Int(logging.AttrKeyIPCount, len(entries)))
 	return nil
-}
-
-func nilIfEmpty(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
 }
