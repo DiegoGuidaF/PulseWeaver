@@ -63,15 +63,10 @@ func NewRequestAuditLogQuery(params httpapi.GetRequestAuditLogParams) RequestAud
 		limit = 200
 	}
 
-	// TODO: Check how this should be done. Currently there is an enum of strings in openapi
-	var denyReason *string
-	if params.DenyReason != nil {
-		denyReason = new(string(*params.DenyReason))
-	}
 	return RequestAuditLogQuery{
 		DeviceID:   (*device.DeviceID)(params.DeviceId),
 		Outcome:    params.Outcome,
-		DenyReason: denyReason,
+		DenyReason: params.DenyReason,
 		ClientIP:   params.Ip,
 		TargetHost: params.Host,
 		From:       from,

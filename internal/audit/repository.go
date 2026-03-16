@@ -14,8 +14,8 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 )
 
-// Repository owns the write side of the audit log.
-// The read side lives in the internal/queries package.
+// Repository owns the audit log write path and simple single-table reads.
+// Cross-domain reads (e.g. joining devices for device_name) live in internal/queries.
 type Repository struct {
 	db     dBInterface
 	rootDB *sqlx.DB
@@ -88,6 +88,23 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 		}
 		return nil
 	})
+}
+
+func (r *Repository) ListDenyReasons(ctx context.Context) ([]string, error) {
+	const query = `
+		SELECT DISTINCT deny_reason
+		FROM request_audit_log
+		WHERE deny_reason IS NOT NULL
+		ORDER BY deny_reason
+	`
+	var reasons []string
+	if err := r.db.SelectContext(ctx, &reasons, query); err != nil {
+		return nil, fmt.Errorf("list deny reasons: %w", err)
+	}
+	if reasons == nil {
+		reasons = []string{}
+	}
+	return reasons, nil
 }
 
 // RunInTx runs the callback function inside a transaction.

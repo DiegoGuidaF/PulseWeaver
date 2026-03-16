@@ -752,10 +752,7 @@ paths:
           required: false
           schema:
             type: string
-            enum:
-              - no_device_match
-              - ip_not_registered
-              - invalid_token
+          description: Filter by deny reason (see GET /request-audit-log/deny-reasons for valid values)
         - name: ip
           in: query
           required: false
@@ -803,6 +800,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RequestAuditLogResponse'
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden - admin credentials required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /request-audit-log/deny-reasons:
+    get:
+      operationId: getRequestAuditLogDenyReasons
+      tags:
+        - audit
+      summary: List valid deny reason values
+      description: >
+        Returns all valid deny_reason values that can appear in audit log entries
+        or be used as the deny_reason filter on GET /request-audit-log.
+      responses:
+        "200":
+          description: List of deny reason values
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
         "401":
           description: Not authenticated
           content:

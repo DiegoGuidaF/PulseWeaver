@@ -398,11 +398,7 @@ export const zGetRequestAuditLogData = z.object({
     query: z.object({
         device_id: zId.optional(),
         outcome: z.boolean().optional(),
-        deny_reason: z.enum([
-            'no_device_match',
-            'ip_not_registered',
-            'invalid_token'
-        ]).optional(),
+        deny_reason: z.string().optional(),
         ip: z.string().optional(),
         host: z.string().optional(),
         from: z.iso.datetime({ offset: true, local: true }).optional(),
@@ -416,6 +412,17 @@ export const zGetRequestAuditLogData = z.object({
  * Request audit log entries
  */
 export const zGetRequestAuditLogResponse = zRequestAuditLogResponse;
+
+export const zGetRequestAuditLogDenyReasonsData = z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: z.never().optional()
+});
+
+/**
+ * List of deny reason values
+ */
+export const zGetRequestAuditLogDenyReasonsResponse = z.array(z.string());
 
 export const zDisableAddressData = z.object({
     body: z.never().optional(),

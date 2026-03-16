@@ -126,6 +126,56 @@ func TestRepository_BatchInsert_DenyEvents(t *testing.T) {
 	is.True(got.AddressID == nil)
 }
 
+func TestRepository_ListDenyReasons_Empty(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestRepo(t)
+
+	reasons, err := repo.ListDenyReasons(context.Background())
+	is.NoErr(err)
+	is.Equal(len(reasons), 0)
+}
+
+func TestRepository_ListDenyReasons_ReturnsSortedDistinct(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestRepo(t)
+	ctx := context.Background()
+
+	r1 := policy.DenyReasonIPNotRegistered
+	r2 := policy.DenyReasonNoDeviceMatch
+
+	events := []policy.DecisionEvent{
+		{ClientIP: "1.1.1.1", Outcome: false, DenyReason: &r1, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
+		{ClientIP: "2.2.2.2", Outcome: false, DenyReason: &r1, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}}, // duplicate
+		{ClientIP: "3.3.3.3", Outcome: false, DenyReason: &r2, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
+	}
+
+	err := repo.BatchInsert(ctx, events)
+	is.NoErr(err)
+
+	reasons, err := repo.ListDenyReasons(ctx)
+	is.NoErr(err)
+	is.Equal(len(reasons), 2)
+	is.Equal(reasons[0], string(r1))
+	is.Equal(reasons[1], string(r2))
+}
+
+func TestRepository_ListDenyReasons_ExcludesAllowEvents(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestRepo(t)
+	ctx := context.Background()
+
+	events := []policy.DecisionEvent{
+		{ClientIP: "1.1.1.1", Outcome: true, DenyReason: nil, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
+	}
+
+	err := repo.BatchInsert(ctx, events)
+	is.NoErr(err)
+
+	reasons, err := repo.ListDenyReasons(ctx)
+	is.NoErr(err)
+	is.Equal(len(reasons), 0)
+}
+
 func TestRepository_BatchInsert_MultiplePersisted(t *testing.T) {
 	is := is.New(t)
 	repo := setupTestRepo(t)

@@ -892,7 +892,10 @@ export type GetRequestAuditLogData = {
     query?: {
         device_id?: Id;
         outcome?: boolean;
-        deny_reason?: 'no_device_match' | 'ip_not_registered' | 'invalid_token';
+        /**
+         * Filter by deny reason (see GET /request-audit-log/deny-reasons for valid values)
+         */
+        deny_reason?: string;
         /**
          * Exact client IP match
          */
@@ -946,6 +949,39 @@ export type GetRequestAuditLogResponses = {
 };
 
 export type GetRequestAuditLogResponse = GetRequestAuditLogResponses[keyof GetRequestAuditLogResponses];
+
+export type GetRequestAuditLogDenyReasonsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/request-audit-log/deny-reasons';
+};
+
+export type GetRequestAuditLogDenyReasonsErrors = {
+    /**
+     * Not authenticated
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden - admin credentials required
+     */
+    403: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type GetRequestAuditLogDenyReasonsError = GetRequestAuditLogDenyReasonsErrors[keyof GetRequestAuditLogDenyReasonsErrors];
+
+export type GetRequestAuditLogDenyReasonsResponses = {
+    /**
+     * List of deny reason values
+     */
+    200: Array<string>;
+};
+
+export type GetRequestAuditLogDenyReasonsResponse = GetRequestAuditLogDenyReasonsResponses[keyof GetRequestAuditLogDenyReasonsResponses];
 
 export type DisableAddressData = {
     body?: never;

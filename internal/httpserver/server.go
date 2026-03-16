@@ -13,7 +13,7 @@ import (
 	slogchi "github.com/samber/slog-chi"
 )
 
-func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, logger *slog.Logger, trustedProxy netip.Addr) http.Handler {
+func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, auditHandler *AuditHandler, logger *slog.Logger, trustedProxy netip.Addr) http.Handler {
 	r := chi.NewRouter()
 
 	loggerConfig := slogchi.Config{
@@ -41,7 +41,7 @@ func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandl
 	r.Use(middleware.SetHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()"))
 	r.Use(MaxBodySizeMiddleware(256 * 1024)) // 256KB
 
-	addRoutes(r, deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, logger)
+	addRoutes(r, deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, auditHandler, logger)
 
 	return r
 }

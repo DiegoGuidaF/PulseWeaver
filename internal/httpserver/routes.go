@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/audit"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/health"
@@ -22,6 +23,7 @@ type CompositeHandler struct {
 	*AuthHandler
 	*RuleHandler
 	*QueriesHandler
+	*AuditHandler
 }
 
 type RuleHandler = rule.HTTPHandler
@@ -29,13 +31,15 @@ type QueriesHandler = queries.HTTPHandler
 type DeviceHandler = device.HTTPHandler
 type AuthHandler = auth.HTTPHandler
 type PolicyHandler = policy.HTTPHandler
+type AuditHandler = audit.HTTPHandler
 
-func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, logger *slog.Logger) {
+func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, auditHandler *AuditHandler, logger *slog.Logger) {
 	routeHandler := &CompositeHandler{
 		DeviceHandler:  deviceHandler,
 		AuthHandler:    authHandler,
 		RuleHandler:    ruleHandler,
 		QueriesHandler: queriesHandler,
+		AuditHandler:   auditHandler,
 	}
 
 	r.Get("/health", health.Handler)

@@ -108,12 +108,13 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	ruleService := rule.NewService(ruleRepo, logger)
 	ruleHandler := rule.NewHTTPHandler(ruleService, logger)
 
-	queriesRepo := queries.NewRepository(db.DB())
-	queriesHandler := queries.NewHTTPHandler(queriesRepo, logger)
-
-	// Audit log — write side
+	// Audit log — write side + simple reads (deny reasons)
 	auditRepo := audit.NewRepository(db.DB())
 	auditSink := audit.NewSink(auditRepo, logger)
+	auditHandler := audit.NewHTTPHandler(auditRepo, logger)
+
+	queriesRepo := queries.NewRepository(db.DB())
+	queriesHandler := queries.NewHTTPHandler(queriesRepo, logger)
 
 	// Address Lease manager
 	addressLeaseRepo := lease.NewRepository(db.DB())
@@ -146,7 +147,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		logger.Warn("failed to initialize policy IP cache on startup", slog.Any("error", err))
 	}
 
-	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, logger, conf.Server.TrustedProxy)
+	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, auditHandler, logger, conf.Server.TrustedProxy)
 
 	return &App{
 		Config:              conf,
