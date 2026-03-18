@@ -30,10 +30,6 @@ func NewSink(repo repository, logger *slog.Logger) *Sink {
 
 // OnDecision implements policy.DecisionObserver.
 func (s *Sink) OnDecision(_ context.Context, e policy.DecisionEvent) {
-	// Ensure headers map is non-nil so JSON marshals to {} instead of null.
-	if e.Headers == nil {
-		e.Headers = make(map[string][]string)
-	}
 	select {
 	case s.ch <- e:
 	default:

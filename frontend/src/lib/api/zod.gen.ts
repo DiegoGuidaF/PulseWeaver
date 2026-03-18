@@ -118,7 +118,7 @@ export const zRequestAuditLogRow = z.object({
     target_host: z.string().optional(),
     target_uri: z.string().optional(),
     http_method: z.string().optional(),
-    headers: z.record(z.string(), z.array(z.string())).optional()
+    headers: z.record(z.string(), z.array(z.string()))
 });
 
 export const zRequestAuditLogResponse = z.object({

@@ -20,15 +20,18 @@ func NewVerifyRequest(token string, clientIP string, r *http.Request) *VerifyReq
 		TargetURI:  nilIfEmpty(r.Header.Get("X-Forwarded-Uri")),
 		HTTPMethod: nilIfEmpty(r.Header.Get("X-Forwarded-Method")),
 		XFFChain:   nilIfEmpty(r.Header.Get("X-Forwarded-For")),
-		Headers: map[string][]string{
-			"User-Agent":        r.Header.Values("User-Agent"),
-			"Referer":           r.Header.Values("Referer"),
-			"Accept-Language":   r.Header.Values("Accept-Language"),
-			"X-Real-IP":         r.Header.Values("X-Real-IP"),
-			"CF-Connecting-IP":  r.Header.Values("CF-Connecting-IP"),
-			"X-Forwarded-Proto": r.Header.Values("X-Forwarded-Proto"),
-		},
+		Headers:    enrichmentHeaders(r),
 	}
+}
+
+func enrichmentHeaders(r *http.Request) map[string][]string {
+	headers := make(map[string][]string)
+	for _, key := range []string{"User-Agent", "Referer", "Accept-Language", "X-Real-IP", "CF-Connecting-IP", "X-Forwarded-Proto"} {
+		if vals := r.Header.Values(key); len(vals) > 0 {
+			headers[key] = vals
+		}
+	}
+	return headers
 }
 
 func nilIfEmpty(s string) *string {

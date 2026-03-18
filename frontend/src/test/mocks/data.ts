@@ -1,4 +1,4 @@
-import type { Address, Device, DeviceAddressLeaseRule, User } from '@/lib/api';
+import type { Address, Device, DeviceAddressLeaseRule, RequestAuditLogResponse, RequestAuditLogRow, User } from '@/lib/api';
 import { UserRole } from "@/lib/api";
 
 /**
@@ -66,6 +66,44 @@ export function createMockDeviceAddressLeaseRule(
     ttl_seconds: 3600,
     created_at: new Date('2024-01-01T00:00:00Z'),
     updated_at: new Date('2024-01-01T00:00:00Z'),
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a mock RequestAuditLogRow with realistic defaults.
+ * @param overrides - Partial RequestAuditLogRow to override defaults
+ * @returns A RequestAuditLogRow object
+ */
+export function createMockRequestAuditLogRow(
+  overrides?: Partial<RequestAuditLogRow>,
+): RequestAuditLogRow {
+  return {
+    id: 1,
+    client_ip: '203.0.113.42',
+    outcome: true,
+    device_id: 1,
+    device_name: 'Test Device',
+    created_at: new Date('2024-01-01T12:00:00Z'),
+    target_host: 'example.com',
+    target_uri: '/api/data',
+    http_method: 'GET',
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a mock RequestAuditLogResponse with realistic defaults.
+ * @param overrides - Partial RequestAuditLogResponse to override defaults
+ * @returns A RequestAuditLogResponse object
+ */
+export function createMockRequestAuditLogResponse(
+  overrides?: Partial<RequestAuditLogResponse>,
+): RequestAuditLogResponse {
+  return {
+    total: 1,
+    next_cursor: null,
+    rows: [createMockRequestAuditLogRow()],
     ...overrides,
   };
 }

@@ -319,7 +319,8 @@ export const RequestAuditLogRowSchema = {
         'id',
         'created_at',
         'outcome',
-        'client_ip'
+        'client_ip',
+        'headers'
     ],
     properties: {
         id: {

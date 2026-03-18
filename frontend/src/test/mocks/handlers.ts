@@ -1,6 +1,6 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, CreateDeviceResponse, Device, DeviceAddressLeaseRule, User } from '@/lib/api';
-import { createMockAddress, createMockDevice, createMockDeviceAddressLeaseRule, createMockUser } from './data';
+import type { Address, CreateDeviceResponse, Device, DeviceAddressLeaseRule, RequestAuditLogResponse, User } from '@/lib/api';
+import { createMockAddress, createMockDevice, createMockDeviceAddressLeaseRule, createMockRequestAuditLogResponse, createMockUser } from './data';
 
 const BASE = '/api/v1';
 
@@ -22,6 +22,8 @@ export const endpoints = {
     demoteUser: `${BASE}/admin/users/:userId/demote`,
     updateMe: `${BASE}/users/me`,
     changePassword: `${BASE}/users/me/password`,
+    requestAuditLog: `${BASE}/request-audit-log`,
+    requestAuditLogDenyReasons: `${BASE}/request-audit-log/deny-reasons`,
 } as const;
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
@@ -199,6 +201,17 @@ export const ruleHandlers = {
     },
 };
 
+// ─── Request audit log handlers ───────────────────────────────────────────────
+export const requestAuditLogHandlers = {
+    list: (override?: RequestAuditLogResponse) =>
+        http.get(endpoints.requestAuditLog, () =>
+            HttpResponse.json(override ?? createMockRequestAuditLogResponse())),
+
+    denyReasons: (reasons?: string[]) =>
+        http.get(endpoints.requestAuditLogDenyReasons, () =>
+            HttpResponse.json(reasons ?? ['invalid_token', 'ip_not_registered', 'no_device_match'])),
+};
+
 // ─── Default happy-path handlers (registered globally in setup.ts) ────────────
 // Every test starts in a fully-loaded state. Only call server.use() for deviations.
 export const defaultHandlers = [
@@ -226,4 +239,7 @@ export const defaultHandlers = [
     ruleHandlers.addressLease.get.success(),
     ruleHandlers.addressLease.put.success(),
     ruleHandlers.addressLease.delete.success(),
+    // Request audit log
+    requestAuditLogHandlers.list(),
+    requestAuditLogHandlers.denyReasons(),
 ];

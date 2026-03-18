@@ -18,6 +18,7 @@ import {
     IconLogout,
     IconSun,
     IconMoon,
+    IconList,
 } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useLogout } from "@/features/auth/hooks/useLogout";
@@ -26,8 +27,9 @@ import { useAutoHeartbeat } from "@/features/devices/hooks/useAutoHeartbeat";
 import { toErrorMessage } from "@/lib/api-client";
 
 const navItems = [
-    { label: "Devices", href: "/devices", icon: IconServer },
-    { label: "Settings", href: "/settings", icon: IconSettings },
+    { label: "Devices", href: "/devices", icon: IconServer, adminOnly: false },
+    { label: "Access Log", href: "/request-audit-log", icon: IconList, adminOnly: true },
+    { label: "Settings", href: "/settings", icon: IconSettings, adminOnly: false },
 ];
 
 function ColorSchemeToggle() {
@@ -87,7 +89,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {/* Nav items */}
                 <MantineAppShell.Section grow>
                     <Stack gap={4}>
-                        {navItems.map((item) => (
+                        {navItems.filter((item) => !item.adminOnly || user?.role === "admin").map((item) => (
                             <NavLink
                                 key={item.href}
                                 component={Link}

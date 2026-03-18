@@ -1251,7 +1251,7 @@ components:
 
     RequestAuditLogRow:
       type: object
-      required: [id, created_at, outcome, client_ip]
+      required: [id, created_at, outcome, client_ip, headers]
       properties:
         id:
           $ref: '#/components/schemas/ID'

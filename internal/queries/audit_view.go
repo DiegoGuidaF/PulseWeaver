@@ -98,8 +98,8 @@ func (r *Repository) ListRequestAuditLog(ctx context.Context, q RequestAuditLogQ
 	}
 
 	if q.ClientIP != nil {
-		whereFilters = append(whereFilters, "ral.client_ip = ?")
-		countArgs = append(countArgs, *q.ClientIP)
+		whereFilters = append(whereFilters, "ral.client_ip LIKE ?")
+		countArgs = append(countArgs, "%"+*q.ClientIP+"%")
 	}
 
 	if q.TargetHost != nil {

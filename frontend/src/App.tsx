@@ -10,6 +10,7 @@ import { DeviceDetailPage } from "./pages/DeviceDetailPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { RequestAuditLogPage } from "./pages/RequestAuditLogPage";
 import { theme } from "./lib/theme";
 
 function App() {
@@ -51,6 +52,16 @@ function App() {
                   <ProtectedRoute>
                     <AppShell>
                       <SettingsPage />
+                    </AppShell>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/request-audit-log"
+                element={
+                  <ProtectedRoute>
+                    <AppShell>
+                      <RequestAuditLogPage />
                     </AppShell>
                   </ProtectedRoute>
                 }

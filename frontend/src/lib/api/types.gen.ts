@@ -126,7 +126,7 @@ export type RequestAuditLogRow = {
     target_host?: string;
     target_uri?: string;
     http_method?: string;
-    headers?: {
+    headers: {
         [key: string]: Array<string>;
     };
 };

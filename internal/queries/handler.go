@@ -79,8 +79,6 @@ func (h *HTTPHandler) GetRequestAuditLog(
 	request httpapi.GetRequestAuditLogRequestObject,
 ) (httpapi.GetRequestAuditLogResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetAuditLog")
-	//TODO: Remove all 401 errors since they shouldn't reach any handler layer managed by openapi
-
 	params := request.Params
 
 	query := NewRequestAuditLogQuery(params)
@@ -104,9 +102,7 @@ func (h *HTTPHandler) GetRequestAuditLog(
 	response := httpapi.RequestAuditLogResponse{
 		Total:      total,
 		NextCursor: nextCursor,
-	}
-	if len(httpRows) > 0 {
-		response.Rows = httpRows
+		Rows:       httpRows,
 	}
 
 	return httpapi.GetRequestAuditLog200JSONResponse(response), nil
@@ -117,6 +113,10 @@ func toAuditLogRow(r RequestAuditLogView) httpapi.RequestAuditLogRow {
 	if r.DeviceID != nil {
 		deviceID = new(r.DeviceID.Int64())
 	}
+	var addressID *int64
+	if r.AddressID != nil {
+		addressID = new(r.AddressID.Int64())
+	}
 	return httpapi.RequestAuditLogRow{
 		Id:         r.ID,
 		CreatedAt:  httpapi.UTCTime(r.CreatedAt),
@@ -125,11 +125,12 @@ func toAuditLogRow(r RequestAuditLogView) httpapi.RequestAuditLogRow {
 		DenyReason: r.DenyReason,
 		DeviceId:   deviceID,
 		DeviceName: r.DeviceName,
+		AddressId:  addressID,
 		XffChain:   r.XFFChain,
 		TargetHost: r.TargetHost,
 		TargetUri:  r.TargetURI,
 		HttpMethod: r.HTTPMethod,
-		Headers:    &r.Headers,
+		Headers:    r.Headers,
 	}
 }
 
