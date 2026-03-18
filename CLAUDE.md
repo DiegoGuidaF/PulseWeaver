@@ -43,7 +43,7 @@ Use `nvm exec $(cat frontend/.nvmrc) <command>` for every `npm` call inside `fro
 Layered architecture: **Handler → Service → Repository → Database**
 
 - **Entry point:** `cmd/api/main.go`
-- **Domain packages** in `internal/`: `auth`, `policy`, `device`, `lease`, `rule`, `health`
+- **Domain packages** in `internal/`: `auth`, `policy`, `device`, `audit`, `queries`, `lease`, `rule`, `health`
 - **Infrastructure:** `config`, `database`, `httpserver`, `httpapi`, `logging`, `scheduler`, `testdb`, `testutils`, `ui`, `app`
 - **Domain constructors** (e.g. `NewUser`, `NewDevice`) enforce all business validation
 - **Handlers** extract primitives from OpenAPI DTOs, pass to services; never pass OpenAPI types deeper
@@ -60,8 +60,8 @@ Layered architecture: **Handler → Service → Repository → Database**
 - **API helpers:** `@/lib/api-client/` for `toApiError`, `toErrorMessage`, client config
 
 #### Documentation
+- `CODEBASE-Backend.md` — Read this file before any backend task to understand the backend package structure, domain boundaries, service lifecycle, observer pattern, and key conventions.
 - `CODEBASE-Frontend.md` — Read this file to understand the frontend directory structure, routing, hook conventions, and UX surfaces before making structural changes to the frontend.
-- `CODEBASE-Backend.md` — Read this file to understand the backend package structure, domain boundaries, service lifecycle, observer pattern, and key conventions before making structural changes to the backend.
 - **Mantine component/hook reference (LLM-optimised):** https://mantine.dev/llms.txt — fetch this when working on any Mantine UI code; it is a full index of all components and hooks, updated with every release.
 
 ## Key Conventions

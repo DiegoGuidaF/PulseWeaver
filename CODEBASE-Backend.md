@@ -1,6 +1,6 @@
 # Backend Codebase Reference
 
-> Last updated: 2026-03-05
+> Last updated: 2026-03-18
 
 ## Directory Structure
 
@@ -11,12 +11,14 @@ internal/
 ├── policy/          # Forward-auth sidecar (IP allow/deny, in-memory cache)
 ├── config/         # Env var parsing (caarlos0/env)
 ├── database/       # SQLite connection, WAL mode, migrations
+├── audit/          # Request audit log (sink, service, repository)
 ├── device/         # Device and address management (core domain)
 ├── health/         # GET /health handler
 ├── httpapi/        # oapi-codegen generated types and strict handler interface
 ├── httpserver/     # Chi router, middleware chain, route registration
 ├── lease/          # Address lease TTL management
 ├── logging/        # slog helpers, context logger, short IDs
+├── queries/        # Read-only query endpoints (devices+addresses, audit log)
 ├── rule/           # Device rule management (currently: address lease TTL rules)
 ├── scheduler/      # Periodic background tasks (auto-expiry of leases)
 ├── testdb/         # In-memory SQLite setup for integration tests
@@ -65,6 +67,18 @@ internal/
 - `DeviceAddressLeaseRule` — per-device TTL in seconds, enabled/disabled flag
 - Config stored as JSON blob in `rules` table; parsed into typed structs
 - `Service.GetDeviceAddressLeaseTTLSeconds` — consumed by `lease.Service`
+
+**`audit`** — Request audit logging.
+- `RequestLog` — structured log of a single API request (method, path, status, duration, principal)
+- `Sink` — `DecisionObserver`; receives `policy.DecisionEvent` and persists via `Repository`
+- `Service` — business logic for creating and querying audit logs
+- `HTTPHandler` — no direct endpoints; audit data exposed via `queries` package
+- Repository writes to `audit_logs` table
+
+**`queries`** — Read-only query endpoints. Aggregates data across domains for list/filter views.
+- `DeviceView`, `AddressView`, `AuditView` — read-model types joining multiple tables
+- `HTTPHandler` — list endpoints: devices with addresses, audit log entries (pagination, filters)
+- `Repository` — SQL SELECT only; no writes; no transactions needed
 
 **`health`** — Simple `GET /health` handler returning `{"status":"ok","timestamp":"..."}`.
 
@@ -164,6 +178,157 @@ Interfaces are declared in the **consuming** package, implemented by the owning 
 - `lease.TTLConfigRetriever` ← implemented by `*rule.Service`
 - `scheduler.ExpiredAddressFinder` ← implemented by `*lease.Service`
 - `scheduler.AddressDisabler` ← implemented by `*device.Service`
+
+---
+
+## Testing
+
+### Handler Tests (E2E)
+
+**Philosophy:** Treat handlers as integration smoke tests. One test per endpoint for the happy path. Add extra tests only for logic that lives in the handler itself (auth enforcement, input validation returning 400, response shaping). Do **not** repeat business-rule combinations here — those belong in service tests.
+
+**Scaffold:**
+```go
+func TestHandler_CreateDevice(t *testing.T) {
+    // Given
+    srv := testutils.SetupIntegrationServer(t)
+    // use srv.DeviceService / srv.AuthService etc. to seed prerequisite state
+
+    // When
+    req := httptest.NewRequest(http.MethodPost, "/api/v1/devices", body)
+    req.Header.Set(...)
+    w := httptest.NewRecorder()
+    srv.ServeHTTP(w, req)
+
+    // Then
+    is := is.New(t)
+    is.Equal(w.Code, http.StatusCreated)
+    var resp httpapi.DeviceResponse
+    json.NewDecoder(w.Body).Decode(&resp)
+    is.Equal(resp.Name, "my-device")
+    // only reach for the repo if the response doesn't expose the state you need:
+    // device, _ := srv.DeviceService.GetDevice(ctx, resp.ID)
+    // is.True(device.CreatedAt.After(before))
+}
+```
+
+**Rules:**
+- `SetupIntegrationServer(t)` is the only setup entry point — never construct services or repos manually in handler tests.
+- Given: call service methods to build state. Never seed the DB directly or call repos from tests.
+- When: always a real HTTP call through `ServeHTTP` (exercises the full middleware chain).
+- Then: assert on the HTTP response (status code + decoded body). Reach into repo/service only for side effects not visible in the response.
+- Auth paths: test unauthenticated and forbidden cases with a dedicated short test (`is.Equal(w.Code, 401)`), not a table.
+
+---
+
+### Service Tests (Unit)
+
+**Philosophy:** All business logic lives here. No HTTP, no real DB. Use fake repository implementations. Table-driven for exhaustive case coverage. Private helpers for "Given" setup — but keep each helper single-purpose; do not add conditions or branching to make one helper serve multiple scenarios.
+
+**Fake repository pattern:**
+```go
+// fakeDeviceRepo implements device.Repository
+type fakeDeviceRepo struct {
+    devices []device.Device
+    err     error // configurable error to simulate failures
+}
+
+func (f *fakeDeviceRepo) CreateDevice(_ context.Context, d device.Device) (device.Device, error) {
+    if f.err != nil { return device.Device{}, f.err }
+    f.devices = append(f.devices, d)
+    return d, nil
+}
+// ... implement remaining interface methods (return zero values if unused in a test)
+```
+
+**Scaffold:**
+```go
+func TestDeviceService_CreateDevice(t *testing.T) {
+    tests := []struct {
+        name    string
+        input   device.CreateDeviceInput
+        repoErr error
+        wantErr bool
+    }{
+        {name: "valid input creates device", input: validInput(), wantErr: false},
+        {name: "repo error bubbles up",      input: validInput(), repoErr: errors.New("db"), wantErr: true},
+        {name: "empty name rejected",        input: inputWithName(""), wantErr: true},
+    }
+    for _, tc := range tests {
+        t.Run(tc.name, func(t *testing.T) {
+            is := is.New(t)
+            repo := &fakeDeviceRepo{err: tc.repoErr}
+            svc := device.NewService(repo)
+
+            got, err := svc.CreateDevice(context.Background(), tc.input)
+
+            if tc.wantErr { is.True(err != nil); return }
+            is.NoErr(err)
+            is.Equal(got.Name, tc.input.Name)
+        })
+    }
+}
+
+// private helpers — one per logical "given", no shared logic:
+func validInput() device.CreateDeviceInput { return device.CreateDeviceInput{Name: "dev-1"} }
+func inputWithName(n string) device.CreateDeviceInput { return device.CreateDeviceInput{Name: n} }
+```
+
+**Rules:**
+- Fake implements the full repository interface; unused methods return zero value + nil error.
+- Add an `err` field (or per-method error fields) to simulate failure paths without complex setup.
+- Private helper functions produce specific inputs or states — they never contain `if`/`switch`.
+- Test the returned domain value, not internal repo state.
+
+---
+
+### Repository Tests (Integration)
+
+**Philosophy:** Real in-memory SQLite. Test CRUD, constraint violations, filter and pagination behaviour, and `RunInTx` rollback. Use private helpers to seed prerequisite rows but keep those helpers unconditional — no branching, just inserts.
+
+**Scaffold:**
+```go
+func TestDeviceRepository_CreateAndGet(t *testing.T) {
+    is := is.New(t)
+    db := testdb.New(t)
+    repo := device.NewRepository(db)
+
+    // Given
+    inserted := insertDevice(t, repo, "dev-1")
+
+    // When
+    got, err := repo.GetDevice(context.Background(), inserted.ID)
+
+    // Then
+    is.NoErr(err)
+    is.Equal(got.Name, "dev-1")
+}
+
+func TestDeviceRepository_CreateDuplicate_ReturnsError(t *testing.T) {
+    is := is.New(t)
+    db := testdb.New(t)
+    repo := device.NewRepository(db)
+    insertDevice(t, repo, "dev-1")
+
+    _, err := repo.CreateDevice(context.Background(), device.Device{Name: "dev-1"})
+
+    is.True(errors.Is(err, device.ErrDeviceNameConflict))
+}
+
+// seed helper — unconditional, returns the created entity for later reference:
+func insertDevice(t *testing.T, repo *device.Repository, name string) device.Device {
+    t.Helper()
+    d, err := repo.CreateDevice(context.Background(), device.Device{Name: name})
+    if err != nil { t.Fatalf("insertDevice: %v", err) }
+    return d
+}
+```
+
+**Rules:**
+- `testdb.New(t)` provides the in-memory SQLite; each test gets a fresh DB (no shared state between tests).
+- Seed helpers (`insertDevice`, `insertAddress`, …) take only the minimal fields needed — no optional-parameter tricks, no conditionals.
+- When multiple helpers are needed in a single test, call them sequentially in the Given block — do not chain them inside each other.
+- `RunInTx` rollback: test by intentionally erroring inside the transaction and confirming the row does not exist afterward.
 
 ---
 
