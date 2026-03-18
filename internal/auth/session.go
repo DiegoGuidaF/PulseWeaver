@@ -17,8 +17,8 @@ type Session struct {
 	RevokedAt  *time.Time `db:"revoked_at" `
 }
 
-func NewSession(userID UserID, tokenHash string) *Session {
-	return &Session{
+func NewSession(userID UserID, tokenHash string) Session {
+	return Session{
 		UserID:     userID,
 		TokenHash:  tokenHash,
 		CreatedAt:  time.Now().UTC(),

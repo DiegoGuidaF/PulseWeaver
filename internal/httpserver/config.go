@@ -15,8 +15,8 @@ type ServerConfig struct {
 	ShutdownTimeout   time.Duration
 }
 
-func DefaultServerConfig() *ServerConfig {
-	return &ServerConfig{
+func DefaultServerConfig() ServerConfig {
+	return ServerConfig{
 		ReadTimeout:       10 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
 		WriteTimeout:      10 * time.Second,
@@ -26,7 +26,7 @@ func DefaultServerConfig() *ServerConfig {
 	}
 }
 
-func DefaultServerConfigFromConf(port int) *ServerConfig {
+func DefaultServerConfigFromConf(port int) ServerConfig {
 	cfg := DefaultServerConfig()
 	cfg.Port = port
 	return cfg

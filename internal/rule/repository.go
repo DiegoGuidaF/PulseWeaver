@@ -36,7 +36,7 @@ func NewRepository(db *sqlx.DB) *Repository {
 
 // GetRuleByDeviceAndType returns a single rule for the given device and type.
 func (r *Repository) GetRuleByDeviceAndType(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error) {
-	rule := &Rule{}
+	rule := new(Rule)
 
 	const query = `
 		SELECT *
@@ -56,7 +56,7 @@ func (r *Repository) GetRuleByDeviceAndType(ctx context.Context, deviceID device
 
 // DisableRule sets enabled=false for the rule identified by (device_id, rule_type).
 func (r *Repository) DisableRule(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error) {
-	rule := &Rule{}
+	rule := new(Rule)
 
 	const query = `
 		UPDATE device_rules 
@@ -78,13 +78,13 @@ func (r *Repository) DisableRule(ctx context.Context, deviceID device.DeviceID, 
 // EnableDeviceAddressLeaseRuleConfig creates or updates the device lease rule for a device
 // using the structured params. It is responsible for mapping the config into
 // the JSON shape stored in the database.
-func (r *Repository) EnableDeviceAddressLeaseRuleConfig(ctx context.Context, deviceID device.DeviceID, config *DeviceAddressLeaseConfig) (*Rule, error) {
+func (r *Repository) EnableDeviceAddressLeaseRuleConfig(ctx context.Context, deviceID device.DeviceID, config DeviceAddressLeaseConfig) (*Rule, error) {
 	configBytes, err := json.Marshal(config)
 	if err != nil {
 		return nil, fmt.Errorf("marshal rule config: %w", err)
 	}
 
-	rule := &Rule{}
+	rule := new(Rule)
 	const query = `
 		INSERT INTO device_rules (device_id, rule_type, enabled, config, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?)

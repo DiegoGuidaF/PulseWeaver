@@ -11,7 +11,7 @@ import (
 // StartAndWait starts the HTTP server in the background.
 // It blocks until a server error occurs or the provided context is cancelled,
 // at which point it performs a graceful shutdown with the configured timeout.
-func StartAndWait(ctx context.Context, handler http.Handler, cfg *ServerConfig, logger *slog.Logger) error {
+func StartAndWait(ctx context.Context, handler http.Handler, cfg ServerConfig, logger *slog.Logger) error {
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
 		Handler:           handler,

@@ -37,7 +37,7 @@ const (
 
 func NewDecisionEvent(outcome bool, denyReason *DenyReason, deviceID *device.DeviceID, addressID *device.AddressID, req *VerifyRequest) DecisionEvent {
 	// Ensure headers map is non-nil.
-	var headers = req.Headers
+	headers := req.Headers
 	if req.Headers == nil {
 		headers = make(map[string][]string)
 	}

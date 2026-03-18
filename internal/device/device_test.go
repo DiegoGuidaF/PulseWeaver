@@ -13,7 +13,6 @@ func TestNewCreateDeviceParams(t *testing.T) {
 
 	params, rawKey, err := NewCreateDeviceParams("test-device")
 	is.NoErr(err)
-	is.True(params != nil)
 	is.Equal(params.Name, "test-device")
 	is.True(params.KeyPrefix != "")
 	is.True(params.KeyHash != "")

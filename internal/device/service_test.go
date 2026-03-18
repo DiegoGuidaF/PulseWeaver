@@ -607,7 +607,7 @@ func (m *mockRepository) GetDevice(ctx context.Context, id DeviceID) (*Device, e
 	return device, nil
 }
 
-func (m *mockRepository) CreateDevice(ctx context.Context, params *CreateDeviceParams) (*Device, error) {
+func (m *mockRepository) CreateDevice(ctx context.Context, params CreateDeviceParams) (*Device, error) {
 	if m.createDeviceErr != nil {
 		return nil, m.createDeviceErr
 	}
@@ -643,7 +643,7 @@ func (m *mockRepository) GetDeviceByAPIKeyHash(ctx context.Context, keyHash stri
 	return device, nil
 }
 
-func (m *mockRepository) CreateAddress(ctx context.Context, params *CreateAddressParams) (*Address, error) {
+func (m *mockRepository) CreateAddress(ctx context.Context, params CreateAddressParams) (*Address, error) {
 	if m.createAddressErr != nil {
 		return nil, m.createAddressErr
 	}

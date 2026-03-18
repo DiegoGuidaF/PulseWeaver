@@ -26,12 +26,12 @@ type CreateDeviceParams struct {
 	KeyHash   string
 }
 
-func NewCreateDeviceParams(name string) (*CreateDeviceParams, string, error) {
+func NewCreateDeviceParams(name string) (CreateDeviceParams, string, error) {
 	rawKey, keyHash, keyPrefix, err := generateAPIKey()
 	if err != nil {
-		return nil, "", err
+		return CreateDeviceParams{}, "", err
 	}
-	return &CreateDeviceParams{
+	return CreateDeviceParams{
 		Name:      name,
 		KeyPrefix: keyPrefix,
 		KeyHash:   keyHash,

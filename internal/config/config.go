@@ -45,7 +45,7 @@ type ConfRules struct {
 }
 
 func Load() (*Conf, error) {
-	var c Conf
+	c := new(Conf)
 
 	// Load .env file if present (optional, ignore errors)
 	//nolint:staticcheck // Empty branch is intentional - .env file is optional
@@ -60,7 +60,7 @@ func Load() (*Conf, error) {
 	}
 
 	// Create config struct from env variables
-	if err := env.ParseWithOptions(&c, envParsingOpts); err != nil {
+	if err := env.ParseWithOptions(c, envParsingOpts); err != nil {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 
@@ -82,7 +82,7 @@ func Load() (*Conf, error) {
 		return nil, fmt.Errorf("DB dir is not valid: %w", err)
 	}
 
-	return &c, nil
+	return c, nil
 }
 
 func parseIPAddressFunc(rawIP string) (any, error) {

@@ -46,9 +46,9 @@ func (s *Service) AddAddressLease(ctx context.Context, deviceID device.DeviceID,
 		return nil, err
 	}
 
-	addressLease := NewAddressLease(addressID, deviceID, addressTTL)
+	al := NewAddressLease(addressID, deviceID, addressTTL)
 
-	addressLease, err = s.repository.UpsertAddressLease(ctx, addressLease)
+	addressLease, err := s.repository.UpsertAddressLease(ctx, &al)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,8 @@ func (s *Service) AddAddressLease(ctx context.Context, deviceID device.DeviceID,
 
 func (s *Service) ClearAddressLease(ctx context.Context, deviceID device.DeviceID, addressID device.AddressID) (*AddressLease, error) {
 	ctx = logging.WithOperation(ctx, "ClearAddressLease")
-	return s.repository.UpsertAddressLease(ctx, NewAddressLease(addressID, deviceID, nil))
+	al := NewAddressLease(addressID, deviceID, nil)
+	return s.repository.UpsertAddressLease(ctx, &al)
 }
 
 func (s *Service) GetExpiredAddressIDs(ctx context.Context) ([]device.AddressID, error) {

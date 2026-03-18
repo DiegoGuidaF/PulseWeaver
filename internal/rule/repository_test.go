@@ -1,26 +1,29 @@
 //go:build test
 
-package rule
+package rule_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
+	"github.com/jmoiron/sqlx"
 	"github.com/matryer/is"
 )
 
-func setupRuleTestDB(t *testing.T) *Repository {
+func setupRuleTestDB(t *testing.T) (*rule.Repository, *sqlx.DB) {
 	t.Helper()
 	db, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
-	return NewRepository(db.DB())
+	sqlDB := db.DB()
+	return rule.NewRepository(sqlDB), sqlDB
 }
 
-func createTestDevice(t *testing.T, repo *Repository, ctx context.Context, name string) *device.Device {
+func insertDevice(t *testing.T, db *sqlx.DB, ctx context.Context, name string) *device.Device {
 	t.Helper()
-	devRepo := device.NewRepository(repo.rootDB)
+	devRepo := device.NewRepository(db)
 	params, _, err := device.NewCreateDeviceParams(name)
 	if err != nil {
 		t.Fatalf("create device params: %v", err)
@@ -32,92 +35,94 @@ func createTestDevice(t *testing.T, repo *Repository, ctx context.Context, name 
 	return dev
 }
 
-func TestRepository_GetRuleByDeviceAndType(t *testing.T) {
+func TestRepository_GetRuleByDeviceAndType_NotFound(t *testing.T) {
 	is := is.New(t)
-	repo := setupRuleTestDB(t)
+	repo, _ := setupRuleTestDB(t)
 	ctx := context.Background()
 
-	t.Run("not_found", func(t *testing.T) {
-		is := is.New(t)
-		rule, err := repo.GetRuleByDeviceAndType(ctx, device.DeviceID(99999), RuleTypeDeviceAddressLease)
-		is.True(err != nil)
-		is.Equal(err, ErrRuleNotFound)
-		is.True(rule == nil)
-	})
+	r, err := repo.GetRuleByDeviceAndType(ctx, device.DeviceID(99999), rule.RuleTypeDeviceAddressLease)
 
-	t.Run("returns_rule_after_enable", func(t *testing.T) {
-		is := is.New(t)
-		dev := createTestDevice(t, repo, ctx, "rule-device")
-		cfg, err := NewDeviceAddressLeaseConfig(60)
-		is.NoErr(err)
-		_, err = repo.EnableDeviceAddressLeaseRuleConfig(ctx, dev.ID, cfg)
-		is.NoErr(err)
-
-		rule, err := repo.GetRuleByDeviceAndType(ctx, dev.ID, RuleTypeDeviceAddressLease)
-		is.NoErr(err)
-		is.True(rule != nil)
-		is.Equal(rule.DeviceID, dev.ID)
-		is.Equal(rule.RuleType, RuleTypeDeviceAddressLease)
-		is.True(rule.Enabled)
-	})
+	is.True(err != nil)
+	is.Equal(err, rule.ErrRuleNotFound)
+	is.True(r == nil)
 }
 
-func TestRepository_EnableDeviceAddressLeaseRuleConfig(t *testing.T) {
+func TestRepository_GetRuleByDeviceAndType_ReturnsRuleAfterEnable(t *testing.T) {
 	is := is.New(t)
-	repo := setupRuleTestDB(t)
+	repo, db := setupRuleTestDB(t)
 	ctx := context.Background()
+	dev := insertDevice(t, db, ctx, "rule-device")
+	cfg, err := rule.NewDeviceAddressLeaseConfig(60)
+	is.NoErr(err)
+	_, err = repo.EnableDeviceAddressLeaseRuleConfig(ctx, dev.ID, cfg)
+	is.NoErr(err)
 
-	t.Run("creates_rule", func(t *testing.T) {
-		is := is.New(t)
-		dev := createTestDevice(t, repo, ctx, "enable-device")
-		cfg, err := NewDeviceAddressLeaseConfig(300)
-		is.NoErr(err)
+	r, err := repo.GetRuleByDeviceAndType(ctx, dev.ID, rule.RuleTypeDeviceAddressLease)
 
-		rule, err := repo.EnableDeviceAddressLeaseRuleConfig(ctx, dev.ID, cfg)
-		is.NoErr(err)
-		is.True(rule != nil)
-		is.Equal(rule.DeviceID, dev.ID)
-		is.Equal(rule.RuleType, RuleTypeDeviceAddressLease)
-		is.True(rule.Enabled)
-		is.True(len(rule.Config) > 0)
-	})
-
-	t.Run("non_existent_device_returns_device_not_found", func(t *testing.T) {
-		is := is.New(t)
-		cfg, err := NewDeviceAddressLeaseConfig(90)
-		is.NoErr(err)
-
-		rule, err := repo.EnableDeviceAddressLeaseRuleConfig(ctx, device.DeviceID(99999), cfg)
-		is.True(err != nil)
-		is.Equal(err, device.ErrDeviceNotFound)
-		is.True(rule == nil)
-	})
+	is.NoErr(err)
+	is.True(r != nil)
+	is.Equal(r.DeviceID, dev.ID)
+	is.Equal(r.RuleType, rule.RuleTypeDeviceAddressLease)
+	is.True(r.Enabled)
 }
 
-func TestRepository_DisableRule(t *testing.T) {
+func TestRepository_EnableDeviceAddressLeaseRuleConfig_CreatesRule(t *testing.T) {
 	is := is.New(t)
-	repo := setupRuleTestDB(t)
+	repo, db := setupRuleTestDB(t)
+	ctx := context.Background()
+	dev := insertDevice(t, db, ctx, "enable-device")
+	cfg, err := rule.NewDeviceAddressLeaseConfig(300)
+	is.NoErr(err)
+
+	r, err := repo.EnableDeviceAddressLeaseRuleConfig(ctx, dev.ID, cfg)
+
+	is.NoErr(err)
+	is.True(r != nil)
+	is.Equal(r.DeviceID, dev.ID)
+	is.Equal(r.RuleType, rule.RuleTypeDeviceAddressLease)
+	is.True(r.Enabled)
+	is.True(len(r.Config) > 0)
+}
+
+func TestRepository_EnableDeviceAddressLeaseRuleConfig_NonExistentDevice(t *testing.T) {
+	is := is.New(t)
+	repo, _ := setupRuleTestDB(t)
+	ctx := context.Background()
+	cfg, err := rule.NewDeviceAddressLeaseConfig(90)
+	is.NoErr(err)
+
+	r, err := repo.EnableDeviceAddressLeaseRuleConfig(ctx, device.DeviceID(99999), cfg)
+
+	is.True(err != nil)
+	is.Equal(err, device.ErrDeviceNotFound)
+	is.True(r == nil)
+}
+
+func TestRepository_DisableRule_NotFound(t *testing.T) {
+	is := is.New(t)
+	repo, _ := setupRuleTestDB(t)
 	ctx := context.Background()
 
-	t.Run("not_found", func(t *testing.T) {
-		is := is.New(t)
-		rule, err := repo.DisableRule(ctx, device.DeviceID(12345), RuleTypeDeviceAddressLease)
-		is.True(err != nil)
-		is.Equal(err, ErrRuleNotFound)
-		is.True(rule == nil)
-	})
+	r, err := repo.DisableRule(ctx, device.DeviceID(12345), rule.RuleTypeDeviceAddressLease)
 
-	t.Run("disables_existing_rule", func(t *testing.T) {
-		is := is.New(t)
-		dev := createTestDevice(t, repo, ctx, "disable-device")
-		cfg, err := NewDeviceAddressLeaseConfig(180)
-		is.NoErr(err)
-		_, err = repo.EnableDeviceAddressLeaseRuleConfig(ctx, dev.ID, cfg)
-		is.NoErr(err)
+	is.True(err != nil)
+	is.Equal(err, rule.ErrRuleNotFound)
+	is.True(r == nil)
+}
 
-		rule, err := repo.DisableRule(ctx, dev.ID, RuleTypeDeviceAddressLease)
-		is.NoErr(err)
-		is.True(rule != nil)
-		is.True(!rule.Enabled)
-	})
+func TestRepository_DisableRule_DisablesExistingRule(t *testing.T) {
+	is := is.New(t)
+	repo, db := setupRuleTestDB(t)
+	ctx := context.Background()
+	dev := insertDevice(t, db, ctx, "disable-device")
+	cfg, err := rule.NewDeviceAddressLeaseConfig(180)
+	is.NoErr(err)
+	_, err = repo.EnableDeviceAddressLeaseRuleConfig(ctx, dev.ID, cfg)
+	is.NoErr(err)
+
+	r, err := repo.DisableRule(ctx, dev.ID, rule.RuleTypeDeviceAddressLease)
+
+	is.NoErr(err)
+	is.True(r != nil)
+	is.True(!r.Enabled)
 }

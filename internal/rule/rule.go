@@ -60,36 +60,34 @@ func (r *Rule) ToDeviceAddressLeaseRule() (*DeviceAddressLeaseRule, error) {
 		ID:        r.ID,
 		DeviceID:  r.DeviceID,
 		Enabled:   r.Enabled,
-		Config:    *config,
+		Config:    config,
 		CreatedAt: r.CreatedAt,
 		UpdatedAt: r.UpdatedAt,
 	}, nil
 }
 
 // parseDeviceAddressLeaseConfig parses the JSON config for a device lease rule
-func parseDeviceAddressLeaseConfig(raw json.RawMessage) (*DeviceAddressLeaseConfig, error) {
+func parseDeviceAddressLeaseConfig(raw json.RawMessage) (DeviceAddressLeaseConfig, error) {
 	if len(raw) == 0 {
-		return nil, ErrInvalidRuleConfig
+		return DeviceAddressLeaseConfig{}, ErrInvalidRuleConfig
 	}
 
 	var cfg DeviceAddressLeaseConfig
 	if err := json.Unmarshal(raw, &cfg); err != nil {
-		return nil, ErrInvalidRuleConfig
+		return DeviceAddressLeaseConfig{}, ErrInvalidRuleConfig
 	}
 
 	if cfg.TTLSeconds < 0 {
-		return nil, ErrInvalidRuleConfig
+		return DeviceAddressLeaseConfig{}, ErrInvalidRuleConfig
 	}
 
-	return &cfg, nil
+	return cfg, nil
 }
 
 // NewDeviceAddressLeaseConfig Creates an addess lease config and validates the parameters
-func NewDeviceAddressLeaseConfig(addressTTLSeconds int) (*DeviceAddressLeaseConfig, error) {
+func NewDeviceAddressLeaseConfig(addressTTLSeconds int) (DeviceAddressLeaseConfig, error) {
 	if addressTTLSeconds < 0 {
-		return nil, ErrInvalidRuleConfig
+		return DeviceAddressLeaseConfig{}, ErrInvalidRuleConfig
 	}
-	return &DeviceAddressLeaseConfig{
-		TTLSeconds: addressTTLSeconds,
-	}, nil
+	return DeviceAddressLeaseConfig{TTLSeconds: addressTTLSeconds}, nil
 }

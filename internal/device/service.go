@@ -12,10 +12,10 @@ import (
 
 type repository interface {
 	GetDevice(ctx context.Context, id DeviceID) (*Device, error)
-	CreateDevice(ctx context.Context, params *CreateDeviceParams) (*Device, error)
+	CreateDevice(ctx context.Context, params CreateDeviceParams) (*Device, error)
 	DeleteDevice(ctx context.Context, id DeviceID) error
 	UpdateAPIKey(ctx context.Context, deviceID DeviceID, keyHash string, keyPrefix string) error
-	CreateAddress(ctx context.Context, params *CreateAddressParams) (*Address, error)
+	CreateAddress(ctx context.Context, params CreateAddressParams) (*Address, error)
 	GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip netip.Addr) (*Address, error)
 	DisableAddress(ctx context.Context, addressID AddressID) (*Address, error)
 	DisableAddresses(ctx context.Context, addressIDs []AddressID, source EventSource) ([]Address, error)

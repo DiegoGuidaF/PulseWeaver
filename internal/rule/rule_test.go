@@ -27,7 +27,6 @@ func TestNewDeviceAddressLeaseConfig_ValidTTLs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg, err := NewDeviceAddressLeaseConfig(tt.ttl)
 			is.NoErr(err)
-			is.True(cfg != nil)
 			is.Equal(cfg.TTLSeconds, tt.ttl)
 		})
 	}
@@ -36,10 +35,9 @@ func TestNewDeviceAddressLeaseConfig_ValidTTLs(t *testing.T) {
 func TestNewDeviceAddressLeaseConfig_InvalidNegativeTTL(t *testing.T) {
 	is := is.New(t)
 
-	cfg, err := NewDeviceAddressLeaseConfig(-1)
+	_, err := NewDeviceAddressLeaseConfig(-1)
 	is.True(err != nil)
 	is.Equal(err, ErrInvalidRuleConfig)
-	is.True(cfg == nil)
 }
 
 func TestParseDeviceAddressLeaseConfig_InvalidInputs(t *testing.T) {
@@ -57,10 +55,9 @@ func TestParseDeviceAddressLeaseConfig_InvalidInputs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg, err := parseDeviceAddressLeaseConfig(tt.raw)
+			_, err := parseDeviceAddressLeaseConfig(tt.raw)
 			is.True(err != nil)
 			is.Equal(err, ErrInvalidRuleConfig)
-			is.True(cfg == nil)
 		})
 	}
 }
@@ -81,7 +78,6 @@ func TestParseDeviceAddressLeaseConfig_ValidInputs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg, err := parseDeviceAddressLeaseConfig(tt.raw)
 			is.NoErr(err)
-			is.True(cfg != nil)
 			is.Equal(cfg.TTLSeconds, tt.expected)
 		})
 	}

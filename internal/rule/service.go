@@ -12,7 +12,7 @@ import (
 
 type repository interface {
 	GetRuleByDeviceAndType(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error)
-	EnableDeviceAddressLeaseRuleConfig(ctx context.Context, deviceID device.DeviceID, config *DeviceAddressLeaseConfig) (*Rule, error)
+	EnableDeviceAddressLeaseRuleConfig(ctx context.Context, deviceID device.DeviceID, config DeviceAddressLeaseConfig) (*Rule, error)
 	DisableRule(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error)
 }
 

@@ -172,6 +172,44 @@ Both are OpenAPI `securitySchemes`; the `AuthenticationFunc` in `httpserver/auth
 ### Config Pattern
 All config via env vars loaded at startup into `config.Conf`. The struct is passed into constructors — never accessed globally. Test helpers bypass `Load()` by constructing `*config.Conf` directly.
 
+### Pointer Allocation (Go 1.26)
+Use `new(T)` instead of a pointer to a local variable when allocating a zero-value struct that will be returned or passed as a pointer:
+
+```go
+// correct
+user := new(User)
+if err := r.db.GetContext(ctx, user, query, id); err != nil { ... }
+return user, nil
+
+// incorrect — triggers Go 1.26 lint warning
+user := &User{}
+// also incorrect
+var user User
+return &user, nil
+```
+
+The rule applies whenever the struct is initialised to its zero value — i.e. no fields are set at the declaration site. Composite literals with field values (`&User{Name: "alice"}`) stay as-is.
+
+### When to use pointers (general guide)
+
+**Receivers** — always use `*T` when the type has a channel, mutex, connection, or any field that must not be copied (e.g. `*Service`, `*Repository`, `*HTTPHandler`). Value receivers are fine only for small, purely data structs with no mutable state.
+
+**Return values** — return `*T` when:
+- The struct is filled by a DB scanner (`new(T)` pattern above).
+- The value is optional and `nil` is a meaningful "absent" state (distinct from the zero value).
+
+Return `T` by value when the function either validates input and returns a domain object (e.g. constructors like `NewDeviceAddressLeaseConfig`) or converts between representations. If the call site would immediately dereference the pointer (`*result`), that is a signal the function should return by value instead.
+
+**Parameters** — pass `T` by value for small structs (≤ ~64 bytes) that the function only reads. Pass `*T` only when the function must mutate the argument, or when the struct is large enough that copying on every call is measurable. Passing a pointer to a tiny config struct (e.g. `*DeviceAddressLeaseConfig` with one `int` field) adds a heap allocation with no benefit.
+
+**Optional fields** — use `*T` for struct fields that are genuinely nullable (e.g. `DenyReason *DenyReason`, `TTLSeconds *int`). Do not use `*T` merely to avoid copying.
+
+**`new(expr)` for `*T` fields (Go 1.26)** — when you need a pointer to a copy of an existing value (e.g. to populate a `*int` field), use `new(expr)`:
+```go
+TTLSeconds: new(config.TTLSeconds)  // *int pointing to a copy — correct
+TTLSeconds: &config.TTLSeconds      // *int aliasing the struct field — wrong
+```
+
 ### Cross-Domain Dependencies
 Interfaces are declared in the **consuming** package, implemented by the owning package:
 - `policy.EnabledIPsProvider` ← implemented by `*device.Service`
@@ -183,7 +221,27 @@ Interfaces are declared in the **consuming** package, implemented by the owning 
 
 ## Testing
 
+### What requires tests
+
+Every package with non-trivial logic must have tests. The minimum bar per package type:
+
+| Package type | Test file required? | Minimum coverage |
+|---|---|---|
+| Domain service (`service.go`) | **Yes** | All public methods: happy path + each distinct error path |
+| Repository (`repository.go`) | **Yes** | Each method: happy path + constraint errors (`ErrNotFound`, unique violations, FK failures) |
+| HTTP handler (`handler.go`) | **Yes** | One E2E test per endpoint (happy path) + handler-specific validation paths |
+| Background service (`RunSchedule`, `RunListener`, sink) | **Yes** | Core execution logic + context cancellation exits cleanly |
+| Domain constructors / value objects | **Yes (same file as service)** | Valid inputs + each invalid input variant |
+| Pure infrastructure (logging helpers, middleware, config parsing) | Recommended | Key behaviours that are not obvious from the code |
+| Generated code, embed stubs, trivial wrappers | No | — |
+
+When reviewing a package: check for the *absence* of `_test.go` files, not just the quality of existing ones. A package with no tests is a gap even if its code looks clean.
+
+---
+
 ### Handler Tests (E2E)
+
+**Package:** `package foo_test` (black-box) — handlers are tested purely through the HTTP interface; no access to unexported internals is needed or wanted.
 
 **Philosophy:** Treat handlers as integration smoke tests. One test per endpoint for the happy path. Add extra tests only for logic that lives in the handler itself (auth enforcement, input validation returning 400, response shaping). Do **not** repeat business-rule combinations here — those belong in service tests.
 
@@ -223,11 +281,13 @@ func TestHandler_CreateDevice(t *testing.T) {
 
 ### Service Tests (Unit)
 
-**Philosophy:** All business logic lives here. No HTTP, no real DB. Use fake repository implementations. Table-driven for exhaustive case coverage. Private helpers for "Given" setup — but keep each helper single-purpose; do not add conditions or branching to make one helper serve multiple scenarios.
+**Package:** `package foo` (white-box) — fake repository implementations must satisfy unexported repository interfaces, which are only visible inside the package.
+
+**Philosophy:** All business logic lives here. No HTTP, no real DB. Use fake repository implementations. One top-level function per scenario — same flat rule as repository tests (not grouped inside a single function with `t.Run`). Use `t.Run` only for true table-driven variations of the same scenario where the same assertion logic applies.
 
 **Fake repository pattern:**
 ```go
-// fakeDeviceRepo implements device.Repository
+// fakeDeviceRepo implements the unexported repository interface
 type fakeDeviceRepo struct {
     devices []device.Device
     err     error // configurable error to simulate failures
@@ -239,52 +299,57 @@ func (f *fakeDeviceRepo) CreateDevice(_ context.Context, d device.Device) (devic
     return d, nil
 }
 // ... implement remaining interface methods (return zero values if unused in a test)
+
+var _ repository = (*fakeDeviceRepo)(nil) // compile-time interface check
 ```
 
 **Scaffold:**
 ```go
-func TestDeviceService_CreateDevice(t *testing.T) {
-    tests := []struct {
-        name    string
-        input   device.CreateDeviceInput
-        repoErr error
-        wantErr bool
-    }{
-        {name: "valid input creates device", input: validInput(), wantErr: false},
-        {name: "repo error bubbles up",      input: validInput(), repoErr: errors.New("db"), wantErr: true},
-        {name: "empty name rejected",        input: inputWithName(""), wantErr: true},
-    }
-    for _, tc := range tests {
-        t.Run(tc.name, func(t *testing.T) {
-            is := is.New(t)
-            repo := &fakeDeviceRepo{err: tc.repoErr}
-            svc := device.NewService(repo)
+func TestService_CreateDevice_ValidInput_CreatesDevice(t *testing.T) {
+    is := is.New(t)
+    repo := &fakeDeviceRepo{}
+    svc := NewService(repo, slog.New(slog.DiscardHandler))
 
-            got, err := svc.CreateDevice(context.Background(), tc.input)
+    got, err := svc.CreateDevice(context.Background(), CreateDeviceInput{Name: "dev-1"})
 
-            if tc.wantErr { is.True(err != nil); return }
-            is.NoErr(err)
-            is.Equal(got.Name, tc.input.Name)
-        })
-    }
+    is.NoErr(err)
+    is.Equal(got.Name, "dev-1")
 }
 
-// private helpers — one per logical "given", no shared logic:
-func validInput() device.CreateDeviceInput { return device.CreateDeviceInput{Name: "dev-1"} }
-func inputWithName(n string) device.CreateDeviceInput { return device.CreateDeviceInput{Name: n} }
+func TestService_CreateDevice_EmptyName_ReturnsErr(t *testing.T) {
+    is := is.New(t)
+    repo := &fakeDeviceRepo{}
+    svc := NewService(repo, slog.New(slog.DiscardHandler))
+
+    _, err := svc.CreateDevice(context.Background(), CreateDeviceInput{Name: ""})
+
+    is.True(err != nil)
+}
+
+func TestService_CreateDevice_RepoError_Propagated(t *testing.T) {
+    is := is.New(t)
+    repo := &fakeDeviceRepo{err: errors.New("db")}
+    svc := NewService(repo, slog.New(slog.DiscardHandler))
+
+    _, err := svc.CreateDevice(context.Background(), CreateDeviceInput{Name: "dev-1"})
+
+    is.True(err != nil)
+}
 ```
 
 **Rules:**
-- Fake implements the full repository interface; unused methods return zero value + nil error.
-- Add an `err` field (or per-method error fields) to simulate failure paths without complex setup.
-- Private helper functions produce specific inputs or states — they never contain `if`/`switch`.
-- Test the returned domain value, not internal repo state.
+- One top-level function per scenario (`TestService_MethodName_Condition_ExpectedOutcome`).
+- Fake implements the full repository interface; unused methods return zero value + nil error. Add a compile-time check with `var _ repository = (*fakeRepo)(nil)`.
+- Add an `err` field (or per-method error fields) to the fake to simulate failure paths without complex setup.
+- Test the returned domain value, not internal fake/repo state.
 
 ---
 
 ### Repository Tests (Integration)
 
-**Philosophy:** Real in-memory SQLite. Test CRUD, constraint violations, filter and pagination behaviour, and `RunInTx` rollback. Use private helpers to seed prerequisite rows but keep those helpers unconditional — no branching, just inserts.
+**Package:** `package foo_test` (black-box) — tests only what callers can observe through the public repository API. If something can only be verified by reaching into unexported fields, that is a signal to either add a read method or drop the assertion.
+
+**Philosophy:** Real in-memory SQLite. Test CRUD, constraint violations, filter and pagination behaviour, and `RunInTx` rollback. One top-level function per case — do **not** wrap independent cases inside a single function with `t.Run`. Use private helpers to seed prerequisite rows but keep those helpers unconditional — no branching, just inserts.
 
 **Scaffold:**
 ```go
@@ -325,6 +390,7 @@ func insertDevice(t *testing.T, repo *device.Repository, name string) device.Dev
 ```
 
 **Rules:**
+- One top-level function per case (`TestDeviceRepository_CreateAndGet`, `TestDeviceRepository_CreateDuplicate_ReturnsError`, …). `t.Run` is for table-driven variations of the same scenario, not for grouping independent cases under a method name.
 - `testdb.New(t)` provides the in-memory SQLite; each test gets a fresh DB (no shared state between tests).
 - Seed helpers (`insertDevice`, `insertAddress`, …) take only the minimal fields needed — no optional-parameter tricks, no conditionals.
 - When multiple helpers are needed in a single test, call them sequentially in the Given block — do not chain them inside each other.

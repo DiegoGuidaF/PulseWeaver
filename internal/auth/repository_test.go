@@ -1,35 +1,36 @@
 //go:build test
 
-package auth
+package auth_test
 
 import (
 	"context"
 	"errors"
 	"testing"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/matryer/is"
 )
 
-func setupAuthTestDB(t *testing.T) *Repository {
+func setupAuthTestDB(t *testing.T) *auth.Repository {
 	t.Helper()
 
 	db, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
 
-	return NewRepository(db.DB())
+	return auth.NewRepository(db.DB())
 }
 
 //nolint:unparam // role parameter kept for API clarity even though currently always UserRole
-func mustNewUser(t *testing.T, username, displayName string, email string, role Role) *User {
+func mustNewUser(t *testing.T, username, displayName string, email string, role auth.Role) *auth.User {
 	t.Helper()
 
-	user, err := NewUser(username, displayName, email, "Password123", role, nil)
+	user, err := auth.NewUser(username, displayName, email, "Password123", role, nil)
 	if err != nil {
 		t.Fatalf("new user: %v", err)
 	}
 
-	return user
+	return &user
 }
 
 func TestRepository_CreateUser_WithEmail(t *testing.T) {
@@ -38,7 +39,7 @@ func TestRepository_CreateUser_WithEmail(t *testing.T) {
 	ctx := context.Background()
 
 	email := "john@example.com"
-	created, err := repo.CreateUser(ctx, mustNewUser(t, "john_doe", "John Doe", email, UserRole))
+	created, err := repo.CreateUser(ctx, mustNewUser(t, "john_doe", "John Doe", email, auth.UserRole))
 	is.NoErr(err)
 	is.Equal(created.Username, "john_doe")
 	is.Equal(created.Email, email)
@@ -49,7 +50,7 @@ func TestRepository_CreateUser_WithoutEmail(t *testing.T) {
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
 
-	created, err := repo.CreateUser(ctx, mustNewUser(t, "jane_doe", "Jane Doe", "", UserRole))
+	created, err := repo.CreateUser(ctx, mustNewUser(t, "jane_doe", "Jane Doe", "", auth.UserRole))
 	is.NoErr(err)
 	is.Equal(created.Email, "")
 }
@@ -59,12 +60,12 @@ func TestRepository_CreateUser_DuplicateUsernameCaseVariant(t *testing.T) {
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
 
-	_, err := repo.CreateUser(ctx, mustNewUser(t, "john_doe", "John Doe", "", UserRole))
+	_, err := repo.CreateUser(ctx, mustNewUser(t, "john_doe", "John Doe", "", auth.UserRole))
 	is.NoErr(err)
 
-	_, err = repo.CreateUser(ctx, mustNewUser(t, "JOHN_DOE", "Johnny", "", UserRole))
+	_, err = repo.CreateUser(ctx, mustNewUser(t, "JOHN_DOE", "Johnny", "", auth.UserRole))
 	is.True(err != nil)
-	is.True(errors.Is(err, ErrUsernameTaken))
+	is.True(errors.Is(err, auth.ErrUsernameTaken))
 }
 
 func TestRepository_CreateUser_DuplicateEmail(t *testing.T) {
@@ -73,12 +74,12 @@ func TestRepository_CreateUser_DuplicateEmail(t *testing.T) {
 	ctx := context.Background()
 
 	email := "duplicate@example.com"
-	_, err := repo.CreateUser(ctx, mustNewUser(t, "user_a", "User A", email, UserRole))
+	_, err := repo.CreateUser(ctx, mustNewUser(t, "user_a", "User A", email, auth.UserRole))
 	is.NoErr(err)
 
-	_, err = repo.CreateUser(ctx, mustNewUser(t, "user_b", "User B", email, UserRole))
+	_, err = repo.CreateUser(ctx, mustNewUser(t, "user_b", "User B", email, auth.UserRole))
 	is.True(err != nil)
-	is.True(errors.Is(err, ErrEmailTaken))
+	is.True(errors.Is(err, auth.ErrEmailTaken))
 }
 
 func TestRepository_GetUserByUsername_CaseInsensitiveLookup(t *testing.T) {
@@ -86,7 +87,7 @@ func TestRepository_GetUserByUsername_CaseInsensitiveLookup(t *testing.T) {
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
 
-	_, err := repo.CreateUser(ctx, mustNewUser(t, "alice_user", "Alice", "", UserRole))
+	_, err := repo.CreateUser(ctx, mustNewUser(t, "alice_user", "Alice", "", auth.UserRole))
 	is.NoErr(err)
 
 	user, err := repo.GetUserByUsername(ctx, "ALICE_USER")
@@ -99,11 +100,11 @@ func TestRepository_SessionCreateAndRead(t *testing.T) {
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
 
-	user, err := repo.CreateUser(ctx, mustNewUser(t, "session_user", "Session User", "", UserRole))
+	user, err := repo.CreateUser(ctx, mustNewUser(t, "session_user", "Session User", "", auth.UserRole))
 	is.NoErr(err)
 
-	session := NewSession(user.ID, "token-hash-1")
-	createdSession, err := repo.CreateSession(ctx, session)
+	s := auth.NewSession(user.ID, "token-hash-1")
+	createdSession, err := repo.CreateSession(ctx, &s)
 	is.NoErr(err)
 	is.Equal(createdSession.UserID, user.ID)
 
@@ -111,10 +112,10 @@ func TestRepository_SessionCreateAndRead(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(foundSession.ID, createdSession.ID)
 	is.Equal(foundSession.UserID, user.ID)
-	is.Equal(foundSession.UserRole, UserRole)
+	is.Equal(foundSession.UserRole, auth.UserRole)
 }
 
-func TestRepository_CountAdminUsers(t *testing.T) {
+func TestRepository_CountAdminUsers_Empty(t *testing.T) {
 	is := is.New(t)
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
@@ -122,23 +123,35 @@ func TestRepository_CountAdminUsers(t *testing.T) {
 	count, err := repo.CountAdminUsers(ctx)
 	is.NoErr(err)
 	is.Equal(count, 0)
+}
 
-	_, err = repo.CreateUser(ctx, mustNewUser(t, "regular_user", "Regular", "", UserRole))
+func TestRepository_CountAdminUsers_ExcludesRegularUsers(t *testing.T) {
+	is := is.New(t)
+	repo := setupAuthTestDB(t)
+	ctx := context.Background()
+
+	_, err := repo.CreateUser(ctx, mustNewUser(t, "regular_user", "Regular", "", auth.UserRole))
 	is.NoErr(err)
 
-	count, err = repo.CountAdminUsers(ctx)
+	count, err := repo.CountAdminUsers(ctx)
 	is.NoErr(err)
 	is.Equal(count, 0)
+}
 
-	_, err = repo.CreateUser(ctx, mustNewUser(t, "admin_user", "Admin", "", AdminRole))
+func TestRepository_CountAdminUsers_CountsAdminUser(t *testing.T) {
+	is := is.New(t)
+	repo := setupAuthTestDB(t)
+	ctx := context.Background()
+
+	_, err := repo.CreateUser(ctx, mustNewUser(t, "admin_user", "Admin", "", auth.AdminRole))
 	is.NoErr(err)
 
-	count, err = repo.CountAdminUsers(ctx)
+	count, err := repo.CountAdminUsers(ctx)
 	is.NoErr(err)
 	is.Equal(count, 1)
 }
 
-func TestRepository_GetAllUsers(t *testing.T) {
+func TestRepository_GetAllUsers_EmptyByDefault(t *testing.T) {
 	is := is.New(t)
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
@@ -146,13 +159,19 @@ func TestRepository_GetAllUsers(t *testing.T) {
 	users, err := repo.GetAllUsers(ctx)
 	is.NoErr(err)
 	is.Equal(len(users), 0)
+}
 
-	_, err = repo.CreateUser(ctx, mustNewUser(t, "user_alpha", "User Alpha", "", UserRole))
+func TestRepository_GetAllUsers_ReturnsInsertedUsers(t *testing.T) {
+	is := is.New(t)
+	repo := setupAuthTestDB(t)
+	ctx := context.Background()
+
+	_, err := repo.CreateUser(ctx, mustNewUser(t, "user_alpha", "User Alpha", "", auth.UserRole))
 	is.NoErr(err)
-	_, err = repo.CreateUser(ctx, mustNewUser(t, "user_beta", "User Beta", "", AdminRole))
+	_, err = repo.CreateUser(ctx, mustNewUser(t, "user_beta", "User Beta", "", auth.AdminRole))
 	is.NoErr(err)
 
-	users, err = repo.GetAllUsers(ctx)
+	users, err := repo.GetAllUsers(ctx)
 	is.NoErr(err)
 	is.Equal(len(users), 2)
 }
@@ -162,7 +181,7 @@ func TestRepository_UpdateUser_UpdatesFields(t *testing.T) {
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
 
-	created, err := repo.CreateUser(ctx, mustNewUser(t, "update_me", "Old Name", "", UserRole))
+	created, err := repo.CreateUser(ctx, mustNewUser(t, "update_me", "Old Name", "", auth.UserRole))
 	is.NoErr(err)
 
 	created.DisplayName = "New Name"
@@ -180,14 +199,14 @@ func TestRepository_UpdateUser_RoleChangeUpdatesAdminCount(t *testing.T) {
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
 
-	user, err := repo.CreateUser(ctx, mustNewUser(t, "promote_me", "Promotee", "", UserRole))
+	user, err := repo.CreateUser(ctx, mustNewUser(t, "promote_me", "Promotee", "", auth.UserRole))
 	is.NoErr(err)
 
 	count, err := repo.CountAdminUsers(ctx)
 	is.NoErr(err)
 	is.Equal(count, 0)
 
-	user.Role = AdminRole
+	user.Role = auth.AdminRole
 	_, err = repo.UpdateUser(ctx, user)
 	is.NoErr(err)
 
@@ -201,7 +220,7 @@ func TestRepository_UpdatePasswordHash(t *testing.T) {
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
 
-	user, err := repo.CreateUser(ctx, mustNewUser(t, "pw_user", "PW User", "", UserRole))
+	user, err := repo.CreateUser(ctx, mustNewUser(t, "pw_user", "PW User", "", auth.UserRole))
 	is.NoErr(err)
 
 	newHash := []byte("new-bcrypt-hash")
@@ -218,17 +237,17 @@ func TestRepository_SoftDeleteUser(t *testing.T) {
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
 
-	user, err := repo.CreateUser(ctx, mustNewUser(t, "delete_me", "Delete Me", "", UserRole))
+	user, err := repo.CreateUser(ctx, mustNewUser(t, "delete_me", "Delete Me", "", auth.UserRole))
 	is.NoErr(err)
 
 	err = repo.SoftDeleteUser(ctx, user.ID)
 	is.NoErr(err)
 
 	_, err = repo.GetUserByID(ctx, user.ID)
-	is.True(errors.Is(err, ErrUserNotFound))
+	is.True(errors.Is(err, auth.ErrUserNotFound))
 
 	_, err = repo.GetUserByUsername(ctx, user.Username)
-	is.True(errors.Is(err, ErrUserNotFound))
+	is.True(errors.Is(err, auth.ErrUserNotFound))
 }
 
 func TestRepository_RevokeAllUserSessions(t *testing.T) {
@@ -236,16 +255,14 @@ func TestRepository_RevokeAllUserSessions(t *testing.T) {
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
 
-	user, err := repo.CreateUser(ctx, mustNewUser(t, "multi_session", "Multi Session", "", UserRole))
+	user, err := repo.CreateUser(ctx, mustNewUser(t, "multi_session", "Multi Session", "", auth.UserRole))
 	is.NoErr(err)
 
-	s1, err := repo.CreateSession(ctx, NewSession(user.ID, "hash-a"))
+	sA := auth.NewSession(user.ID, "hash-a")
+	_, err = repo.CreateSession(ctx, &sA)
 	is.NoErr(err)
-	_, err = repo.CreateSession(ctx, NewSession(user.ID, "hash-b"))
-	is.NoErr(err)
-
-	// Both sessions exist
-	_, err = repo.GetSessionWithRoleByTokenHash(ctx, "hash-a")
+	sB := auth.NewSession(user.ID, "hash-b")
+	_, err = repo.CreateSession(ctx, &sB)
 	is.NoErr(err)
 
 	err = repo.RevokeAllUserSessions(ctx, user.ID)
@@ -255,9 +272,6 @@ func TestRepository_RevokeAllUserSessions(t *testing.T) {
 	is.True(err != nil)
 	_, err = repo.GetSessionWithRoleByTokenHash(ctx, "hash-b")
 	is.True(err != nil)
-
-	// Suppress unused variable warning
-	_ = s1
 }
 
 func TestRepository_RevokeAllUserSessionsExcept(t *testing.T) {
@@ -265,12 +279,14 @@ func TestRepository_RevokeAllUserSessionsExcept(t *testing.T) {
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
 
-	user, err := repo.CreateUser(ctx, mustNewUser(t, "except_user", "Except User", "", UserRole))
+	user, err := repo.CreateUser(ctx, mustNewUser(t, "except_user", "Except User", "", auth.UserRole))
 	is.NoErr(err)
 
-	kept, err := repo.CreateSession(ctx, NewSession(user.ID, "hash-keep"))
+	sKeep := auth.NewSession(user.ID, "hash-keep")
+	kept, err := repo.CreateSession(ctx, &sKeep)
 	is.NoErr(err)
-	_, err = repo.CreateSession(ctx, NewSession(user.ID, "hash-revoke"))
+	sRevoke := auth.NewSession(user.ID, "hash-revoke")
+	_, err = repo.CreateSession(ctx, &sRevoke)
 	is.NoErr(err)
 
 	err = repo.RevokeAllUserSessionsExcept(ctx, user.ID, kept.ID)

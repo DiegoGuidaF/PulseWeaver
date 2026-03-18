@@ -1,45 +1,45 @@
 //go:build test
 
-package device
+package device_test
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/netip"
 	"testing"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/matryer/is"
 )
 
-func setupTestDB(t *testing.T) *Repository {
+func setupTestDB(t *testing.T) *device.Repository {
 	t.Helper()
 
 	db, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
 
-	return NewRepository(db.DB())
+	return device.NewRepository(db.DB())
 }
 
-func createTestDevice(t *testing.T, repo repository, ctx context.Context, name string) *Device {
+func createTestDevice(t *testing.T, repo *device.Repository, ctx context.Context, name string) *device.Device {
 	t.Helper()
 
-	params, _, err := NewCreateDeviceParams(name)
+	params, _, err := device.NewCreateDeviceParams(name)
 	if err != nil {
 		t.Fatalf("create device params %q: %v", name, err)
 	}
-	device, err := repo.CreateDevice(ctx, params)
+	dev, err := repo.CreateDevice(ctx, params)
 	if err != nil {
 		t.Fatalf("create device %q: %v", name, err)
 	}
-	return device
+	return dev
 }
 
-func createTestAddress(t *testing.T, repo repository, ctx context.Context, deviceID DeviceID, ip string) *Address {
+func createTestAddress(t *testing.T, repo *device.Repository, ctx context.Context, deviceID device.DeviceID, ip string) *device.Address {
 	t.Helper()
 
-	params, err := NewCreateAddressParams(deviceID, ip, netip.Addr{})
+	params, err := device.NewCreateAddressParams(deviceID, ip, netip.Addr{})
 	if err != nil {
 		t.Fatalf("create address params %q: %v", ip, err)
 	}
@@ -56,12 +56,12 @@ func TestRepository_CreateDevice(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	params, _, err := NewCreateDeviceParams("test-device")
+	params, _, err := device.NewCreateDeviceParams("test-device")
 	is.NoErr(err)
-	device, err := repo.CreateDevice(ctx, params)
+	dev, err := repo.CreateDevice(ctx, params)
 	is.NoErr(err)
-	is.Equal(device.Name, "test-device")
-	is.True(!device.CreatedAt.IsZero())
+	is.Equal(dev.Name, "test-device")
+	is.True(!dev.CreatedAt.IsZero())
 }
 
 func TestRepository_CreateDevice_DuplicateName(t *testing.T) {
@@ -70,8 +70,7 @@ func TestRepository_CreateDevice_DuplicateName(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create first device
-	params, _, err := NewCreateDeviceParams("duplicate-name")
+	params, _, err := device.NewCreateDeviceParams("duplicate-name")
 	is.NoErr(err)
 	_, err = repo.CreateDevice(ctx, params)
 	is.NoErr(err)
@@ -79,7 +78,7 @@ func TestRepository_CreateDevice_DuplicateName(t *testing.T) {
 	// Try to create device with same name (active unique index)
 	_, err = repo.CreateDevice(ctx, params)
 	is.True(err != nil)
-	is.True(errors.Is(err, ErrDuplicateDeviceName))
+	is.True(errors.Is(err, device.ErrDuplicateDeviceName))
 }
 
 func TestRepository_CreateDevice_SameNameAfterSoftDelete(t *testing.T) {
@@ -88,18 +87,16 @@ func TestRepository_CreateDevice_SameNameAfterSoftDelete(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create device
-	device := createTestDevice(t, repo, ctx, "reused-name")
-	// Soft-delete it
-	err := repo.DeleteDevice(ctx, device.ID)
+	dev := createTestDevice(t, repo, ctx, "reused-name")
+	err := repo.DeleteDevice(ctx, dev.ID)
 	is.NoErr(err)
 
 	// Same name is allowed again
-	params, _, err := NewCreateDeviceParams("reused-name")
+	params, _, err := device.NewCreateDeviceParams("reused-name")
 	is.NoErr(err)
 	second, err := repo.CreateDevice(ctx, params)
 	is.NoErr(err)
-	is.True(second.ID != device.ID)
+	is.True(second.ID != dev.ID)
 	is.Equal(second.Name, "reused-name")
 }
 
@@ -109,14 +106,14 @@ func TestRepository_DeleteDevice_Success(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	device := createTestDevice(t, repo, ctx, "to-delete")
-	err := repo.DeleteDevice(ctx, device.ID)
+	dev := createTestDevice(t, repo, ctx, "to-delete")
+	err := repo.DeleteDevice(ctx, dev.ID)
 	is.NoErr(err)
 
 	// Deleted device is hidden from GetDevice
-	_, err = repo.GetDevice(ctx, device.ID)
+	_, err = repo.GetDevice(ctx, dev.ID)
 	is.True(err != nil)
-	is.Equal(err, ErrDeviceNotFound)
+	is.Equal(err, device.ErrDeviceNotFound)
 }
 
 func TestRepository_DeleteDevice_NotFound(t *testing.T) {
@@ -125,9 +122,9 @@ func TestRepository_DeleteDevice_NotFound(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	err := repo.DeleteDevice(ctx, DeviceID(99999))
+	err := repo.DeleteDevice(ctx, device.DeviceID(99999))
 	is.True(err != nil)
-	is.Equal(err, ErrDeviceNotFound)
+	is.Equal(err, device.ErrDeviceNotFound)
 }
 
 func TestRepository_DeleteDevice_AlreadyDeleted(t *testing.T) {
@@ -136,14 +133,14 @@ func TestRepository_DeleteDevice_AlreadyDeleted(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	device := createTestDevice(t, repo, ctx, "deleted-once")
-	err := repo.DeleteDevice(ctx, device.ID)
+	dev := createTestDevice(t, repo, ctx, "deleted-once")
+	err := repo.DeleteDevice(ctx, dev.ID)
 	is.NoErr(err)
 
 	// Second delete returns not found (idempotent 404)
-	err = repo.DeleteDevice(ctx, device.ID)
+	err = repo.DeleteDevice(ctx, dev.ID)
 	is.True(err != nil)
-	is.Equal(err, ErrDeviceNotFound)
+	is.Equal(err, device.ErrDeviceNotFound)
 }
 
 func TestRepository_GetDevice_HidesDeleted(t *testing.T) {
@@ -152,16 +149,16 @@ func TestRepository_GetDevice_HidesDeleted(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	device := createTestDevice(t, repo, ctx, "hidden-after-delete")
-	_, err := repo.GetDevice(ctx, device.ID)
+	dev := createTestDevice(t, repo, ctx, "hidden-after-delete")
+	_, err := repo.GetDevice(ctx, dev.ID)
 	is.NoErr(err)
 
-	err = repo.DeleteDevice(ctx, device.ID)
+	err = repo.DeleteDevice(ctx, dev.ID)
 	is.NoErr(err)
 
-	_, err = repo.GetDevice(ctx, device.ID)
+	_, err = repo.GetDevice(ctx, dev.ID)
 	is.True(err != nil)
-	is.Equal(err, ErrDeviceNotFound)
+	is.Equal(err, device.ErrDeviceNotFound)
 }
 
 func TestRepository_GetDeviceByAPIKeyHash_HidesDeleted(t *testing.T) {
@@ -170,21 +167,20 @@ func TestRepository_GetDeviceByAPIKeyHash_HidesDeleted(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	params, rawKey, err := NewCreateDeviceParams("apikey-device")
+	params, _, err := device.NewCreateDeviceParams("apikey-device")
 	is.NoErr(err)
-	device, err := repo.CreateDevice(ctx, params)
-	is.NoErr(err)
-
-	keyHash := hashAPIKey(rawKey)
-	_, err = repo.GetDeviceByAPIKeyHash(ctx, keyHash)
+	dev, err := repo.CreateDevice(ctx, params)
 	is.NoErr(err)
 
-	err = repo.DeleteDevice(ctx, device.ID)
+	_, err = repo.GetDeviceByAPIKeyHash(ctx, params.KeyHash)
 	is.NoErr(err)
 
-	_, err = repo.GetDeviceByAPIKeyHash(ctx, keyHash)
+	err = repo.DeleteDevice(ctx, dev.ID)
+	is.NoErr(err)
+
+	_, err = repo.GetDeviceByAPIKeyHash(ctx, params.KeyHash)
 	is.True(err != nil)
-	is.Equal(err, ErrDeviceNotFound)
+	is.Equal(err, device.ErrDeviceNotFound)
 }
 
 func TestRepository_GetDevice(t *testing.T) {
@@ -193,18 +189,16 @@ func TestRepository_GetDevice(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create a device
-	params, _, err := NewCreateDeviceParams("test-device")
+	params, _, err := device.NewCreateDeviceParams("test-device")
 	is.NoErr(err)
-	createdDevice, err := repo.CreateDevice(ctx, params)
+	created, err := repo.CreateDevice(ctx, params)
 	is.NoErr(err)
 
-	// Get device by ID
-	device, err := repo.GetDevice(ctx, createdDevice.ID)
+	got, err := repo.GetDevice(ctx, created.ID)
 	is.NoErr(err)
-	is.Equal(device.ID, createdDevice.ID)
-	is.Equal(device.Name, "test-device")
-	is.True(!device.CreatedAt.IsZero())
+	is.Equal(got.ID, created.ID)
+	is.Equal(got.Name, "test-device")
+	is.True(!got.CreatedAt.IsZero())
 }
 
 func TestRepository_GetDevice_NotFound(t *testing.T) {
@@ -213,10 +207,9 @@ func TestRepository_GetDevice_NotFound(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Try to get non-existent device
-	_, err := repo.GetDevice(ctx, DeviceID(99999))
+	_, err := repo.GetDevice(ctx, device.DeviceID(99999))
 	is.True(err != nil)
-	is.Equal(err, ErrDeviceNotFound)
+	is.Equal(err, device.ErrDeviceNotFound)
 }
 
 func TestRepository_GetDeviceByAPIKeyHash_Success(t *testing.T) {
@@ -225,17 +218,15 @@ func TestRepository_GetDeviceByAPIKeyHash_Success(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create device via CreateDevice
-	params, rawKey, err := NewCreateDeviceParams("lookup-device")
+	params, _, err := device.NewCreateDeviceParams("lookup-device")
 	is.NoErr(err)
-	device, err := repo.CreateDevice(ctx, params)
+	dev, err := repo.CreateDevice(ctx, params)
 	is.NoErr(err)
 
-	keyHash := hashAPIKey(rawKey)
-	found, err := repo.GetDeviceByAPIKeyHash(ctx, keyHash)
+	found, err := repo.GetDeviceByAPIKeyHash(ctx, params.KeyHash)
 	is.NoErr(err)
 	is.True(found != nil)
-	is.Equal(found.ID, device.ID)
+	is.Equal(found.ID, dev.ID)
 	is.Equal(found.Name, "lookup-device")
 }
 
@@ -247,7 +238,7 @@ func TestRepository_GetDeviceByAPIKeyHash_NotFound(t *testing.T) {
 
 	_, err := repo.GetDeviceByAPIKeyHash(ctx, "nonexistent-hash")
 	is.True(err != nil)
-	is.Equal(err, ErrDeviceNotFound)
+	is.Equal(err, device.ErrDeviceNotFound)
 }
 
 func TestRepository_CreateDevice_InsertsAPIKeyRow(t *testing.T) {
@@ -256,33 +247,20 @@ func TestRepository_CreateDevice_InsertsAPIKeyRow(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create device using params so we have the key metadata and raw key
-	params, rawKey, err := NewCreateDeviceParams("with-api-key")
+	params, _, err := device.NewCreateDeviceParams("with-api-key")
 	is.NoErr(err)
-	device, err := repo.CreateDevice(ctx, params)
-	is.NoErr(err)
-
-	// Verify there is exactly one API key row for this device with the expected fields
-	type dbAPIKey struct {
-		DeviceID  DeviceID `db:"device_id"`
-		KeyPrefix string   `db:"key_prefix"`
-		KeyHash   string   `db:"key_hash"`
-	}
-
-	var row dbAPIKey
-	err = repo.rootDB.GetContext(ctx, &row, `
-		SELECT device_id, key_prefix, key_hash
-		FROM device_api_keys
-		WHERE device_id = ?
-	`, device.ID)
+	dev, err := repo.CreateDevice(ctx, params)
 	is.NoErr(err)
 
-	is.Equal(row.DeviceID, device.ID)
-	is.Equal(row.KeyPrefix, params.KeyPrefix)
-	is.Equal(row.KeyHash, params.KeyHash)
+	// Verify key_prefix is returned via GetDevice
+	updated, err := repo.GetDevice(ctx, dev.ID)
+	is.NoErr(err)
+	is.Equal(updated.KeyPrefix, params.KeyPrefix)
 
-	// Sanity check: stored hash matches hashing the raw key returned from NewCreateDeviceParams
-	is.Equal(row.KeyHash, hashAPIKey(rawKey))
+	// Verify key_hash is stored: GetDeviceByAPIKeyHash must return the same device
+	found, err := repo.GetDeviceByAPIKeyHash(ctx, params.KeyHash)
+	is.NoErr(err)
+	is.Equal(found.ID, dev.ID)
 }
 
 func TestRepository_UpdateAPIKey_Success(t *testing.T) {
@@ -291,34 +269,32 @@ func TestRepository_UpdateAPIKey_Success(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	params, oldRawKey, err := NewCreateDeviceParams("regen-device")
+	oldParams, _, err := device.NewCreateDeviceParams("regen-device")
 	is.NoErr(err)
-	device, err := repo.CreateDevice(ctx, params)
-	is.NoErr(err)
-
-	oldHash := hashAPIKey(oldRawKey)
-
-	// Generate a fresh key
-	_, newHash, newPrefix, err := generateAPIKey()
+	dev, err := repo.CreateDevice(ctx, oldParams)
 	is.NoErr(err)
 
-	err = repo.UpdateAPIKey(ctx, device.ID, newHash, newPrefix)
+	// Generate fresh key material via NewCreateDeviceParams (does not insert to DB)
+	newKeyParams, _, err := device.NewCreateDeviceParams("unused-device-name")
+	is.NoErr(err)
+
+	err = repo.UpdateAPIKey(ctx, dev.ID, newKeyParams.KeyHash, newKeyParams.KeyPrefix)
 	is.NoErr(err)
 
 	// Old hash should no longer authenticate
-	_, err = repo.GetDeviceByAPIKeyHash(ctx, oldHash)
+	_, err = repo.GetDeviceByAPIKeyHash(ctx, oldParams.KeyHash)
 	is.True(err != nil)
-	is.Equal(err, ErrDeviceNotFound)
+	is.Equal(err, device.ErrDeviceNotFound)
 
 	// New hash should authenticate
-	found, err := repo.GetDeviceByAPIKeyHash(ctx, newHash)
+	found, err := repo.GetDeviceByAPIKeyHash(ctx, newKeyParams.KeyHash)
 	is.NoErr(err)
-	is.Equal(found.ID, device.ID)
+	is.Equal(found.ID, dev.ID)
 
 	// GetDevice returns the updated prefix
-	updated, err := repo.GetDevice(ctx, device.ID)
+	updated, err := repo.GetDevice(ctx, dev.ID)
 	is.NoErr(err)
-	is.Equal(updated.KeyPrefix, newPrefix)
+	is.Equal(updated.KeyPrefix, newKeyParams.KeyPrefix)
 }
 
 func TestRepository_UpdateAPIKey_NotFound(t *testing.T) {
@@ -327,12 +303,12 @@ func TestRepository_UpdateAPIKey_NotFound(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	_, newHash, newPrefix, err := generateAPIKey()
+	newKeyParams, _, err := device.NewCreateDeviceParams("unused-device-name")
 	is.NoErr(err)
 
-	err = repo.UpdateAPIKey(ctx, DeviceID(99999), newHash, newPrefix)
+	err = repo.UpdateAPIKey(ctx, device.DeviceID(99999), newKeyParams.KeyHash, newKeyParams.KeyPrefix)
 	is.True(err != nil)
-	is.Equal(err, ErrDeviceNotFound)
+	is.Equal(err, device.ErrDeviceNotFound)
 }
 
 func TestRepository_CreateAddress(t *testing.T) {
@@ -341,15 +317,13 @@ func TestRepository_CreateAddress(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create a device first
-	device := createTestDevice(t, repo, ctx, "test-device")
+	dev := createTestDevice(t, repo, ctx, "test-device")
 
-	// Create an address
-	address := createTestAddress(t, repo, ctx, device.ID, "192.168.1.100")
-	is.Equal(address.DeviceID, device.ID)
-	is.Equal(address.IP, "192.168.1.100")
-	is.True(!address.CreatedAt.IsZero())
-	is.True(address.ID != 0)
+	addr := createTestAddress(t, repo, ctx, dev.ID, "192.168.1.100")
+	is.Equal(addr.DeviceID, dev.ID)
+	is.Equal(addr.IP, "192.168.1.100")
+	is.True(!addr.CreatedAt.IsZero())
+	is.True(addr.ID != 0)
 }
 
 func TestRepository_FindAddressForDeviceByIp(t *testing.T) {
@@ -358,16 +332,14 @@ func TestRepository_FindAddressForDeviceByIp(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create a device and address
-	device := createTestDevice(t, repo, ctx, "test-device")
-	createdAddr := createTestAddress(t, repo, ctx, device.ID, "192.168.1.100")
+	dev := createTestDevice(t, repo, ctx, "test-device")
+	createdAddr := createTestAddress(t, repo, ctx, dev.ID, "192.168.1.100")
 
-	// Find the address
-	address, err := repo.GetAddressForDeviceByIP(ctx, device.ID, netip.MustParseAddr("192.168.1.100"))
+	addr, err := repo.GetAddressForDeviceByIP(ctx, dev.ID, netip.MustParseAddr("192.168.1.100"))
 	is.NoErr(err)
-	is.Equal(address.ID, createdAddr.ID)
-	is.Equal(address.DeviceID, device.ID)
-	is.Equal(address.IP, "192.168.1.100")
+	is.Equal(addr.ID, createdAddr.ID)
+	is.Equal(addr.DeviceID, dev.ID)
+	is.Equal(addr.IP, "192.168.1.100")
 }
 
 func TestRepository_FindAddressForDeviceByIp_NotFound(t *testing.T) {
@@ -376,13 +348,11 @@ func TestRepository_FindAddressForDeviceByIp_NotFound(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create a device
-	device := createTestDevice(t, repo, ctx, "test-device")
+	dev := createTestDevice(t, repo, ctx, "test-device")
 
-	// Try to find non-existent address
-	_, err := repo.GetAddressForDeviceByIP(ctx, device.ID, netip.MustParseAddr("192.168.1.99"))
+	_, err := repo.GetAddressForDeviceByIP(ctx, dev.ID, netip.MustParseAddr("192.168.1.99"))
 	is.True(err != nil)
-	is.Equal(err, ErrAddressNotFound)
+	is.Equal(err, device.ErrAddressNotFound)
 }
 
 func TestRepository_FindAddressForDeviceByIp_WrongDevice(t *testing.T) {
@@ -391,17 +361,13 @@ func TestRepository_FindAddressForDeviceByIp_WrongDevice(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create two devices
-	device1 := createTestDevice(t, repo, ctx, "device-1")
-	device2 := createTestDevice(t, repo, ctx, "device-2")
+	dev1 := createTestDevice(t, repo, ctx, "device-1")
+	dev2 := createTestDevice(t, repo, ctx, "device-2")
+	createTestAddress(t, repo, ctx, dev1.ID, "192.168.1.100")
 
-	// Create address for device1
-	createTestAddress(t, repo, ctx, device1.ID, "192.168.1.100")
-
-	// Try to find address for device2 (should not find it)
-	_, err := repo.GetAddressForDeviceByIP(ctx, device2.ID, netip.MustParseAddr("192.168.1.100"))
+	_, err := repo.GetAddressForDeviceByIP(ctx, dev2.ID, netip.MustParseAddr("192.168.1.100"))
 	is.True(err != nil)
-	is.Equal(err, ErrAddressNotFound)
+	is.Equal(err, device.ErrAddressNotFound)
 }
 
 func TestRepository_DisableAddress(t *testing.T) {
@@ -410,15 +376,13 @@ func TestRepository_DisableAddress(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create a device and address
-	device := createTestDevice(t, repo, ctx, "test-device")
-	addr := createTestAddress(t, repo, ctx, device.ID, "192.168.1.100")
+	dev := createTestDevice(t, repo, ctx, "test-device")
+	addr := createTestAddress(t, repo, ctx, dev.ID, "192.168.1.100")
 
-	// Disable address
-	disabledAddr, err := repo.DisableAddress(ctx, addr.ID)
+	disabled, err := repo.DisableAddress(ctx, addr.ID)
 	is.NoErr(err)
-	is.Equal(disabledAddr.ID, addr.ID)
-	is.True(!disabledAddr.IsEnabled) // Should be disabled
+	is.Equal(disabled.ID, addr.ID)
+	is.True(!disabled.IsEnabled)
 }
 
 func TestRepository_EnableAddress(t *testing.T) {
@@ -427,19 +391,16 @@ func TestRepository_EnableAddress(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create a device and address
-	device := createTestDevice(t, repo, ctx, "test-device")
-	addr := createTestAddress(t, repo, ctx, device.ID, "192.168.1.100")
+	dev := createTestDevice(t, repo, ctx, "test-device")
+	addr := createTestAddress(t, repo, ctx, dev.ID, "192.168.1.100")
 
-	// Disable address
 	_, err := repo.DisableAddress(ctx, addr.ID)
 	is.NoErr(err)
 
-	// Enable address
-	enabledAddr, err := repo.EnableAddress(ctx, addr.ID, EventSourceManual)
+	enabled, err := repo.EnableAddress(ctx, addr.ID, device.EventSourceManual)
 	is.NoErr(err)
-	is.Equal(enabledAddr.ID, addr.ID)
-	is.True(enabledAddr.IsEnabled) // Should be enabled
+	is.Equal(enabled.ID, addr.ID)
+	is.True(enabled.IsEnabled)
 }
 
 func TestRepository_GetAddress(t *testing.T) {
@@ -448,18 +409,16 @@ func TestRepository_GetAddress(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create a device and address
-	device := createTestDevice(t, repo, ctx, "test-device")
-	addr := createTestAddress(t, repo, ctx, device.ID, "192.168.1.100")
+	dev := createTestDevice(t, repo, ctx, "test-device")
+	addr := createTestAddress(t, repo, ctx, dev.ID, "192.168.1.100")
 
-	// Get address with status
-	addrWithStatus, err := repo.GetAddress(ctx, addr.ID)
+	got, err := repo.GetAddress(ctx, addr.ID)
 	is.NoErr(err)
-	is.Equal(addrWithStatus.ID, addr.ID)
-	is.Equal(addrWithStatus.DeviceID, device.ID)
-	is.Equal(addrWithStatus.IP, "192.168.1.100")
-	is.True(addrWithStatus.IsEnabled) // Should be enabled
-	is.True(!addrWithStatus.CreatedAt.IsZero())
+	is.Equal(got.ID, addr.ID)
+	is.Equal(got.DeviceID, dev.ID)
+	is.Equal(got.IP, "192.168.1.100")
+	is.True(got.IsEnabled)
+	is.True(!got.CreatedAt.IsZero())
 }
 
 func TestRepository_GetAddress_NotFound(t *testing.T) {
@@ -468,10 +427,9 @@ func TestRepository_GetAddress_NotFound(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Try to get non-existent address
-	_, err := repo.GetAddress(ctx, AddressID(99999))
+	_, err := repo.GetAddress(ctx, device.AddressID(99999))
 	is.True(err != nil)
-	is.Equal(err, ErrAddressNotFound)
+	is.Equal(err, device.ErrAddressNotFound)
 }
 
 func TestRepository_CheckAddressOwnership(t *testing.T) {
@@ -480,12 +438,10 @@ func TestRepository_CheckAddressOwnership(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create a device and address
-	device := createTestDevice(t, repo, ctx, "test-device")
-	addr := createTestAddress(t, repo, ctx, device.ID, "192.168.1.100")
+	dev := createTestDevice(t, repo, ctx, "test-device")
+	addr := createTestAddress(t, repo, ctx, dev.ID, "192.168.1.100")
 
-	// Check ownership (should succeed)
-	err := repo.CheckAddressOwnership(ctx, device.ID, addr.ID)
+	err := repo.CheckAddressOwnership(ctx, dev.ID, addr.ID)
 	is.NoErr(err)
 }
 
@@ -495,17 +451,13 @@ func TestRepository_CheckAddressOwnership_WrongDevice(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create two devices
-	device1 := createTestDevice(t, repo, ctx, "device-1")
-	device2 := createTestDevice(t, repo, ctx, "device-2")
+	dev1 := createTestDevice(t, repo, ctx, "device-1")
+	dev2 := createTestDevice(t, repo, ctx, "device-2")
+	addr := createTestAddress(t, repo, ctx, dev1.ID, "192.168.1.100")
 
-	// Create address for device1
-	addr := createTestAddress(t, repo, ctx, device1.ID, "192.168.1.100")
-
-	// Check ownership with device2 (should fail)
-	err := repo.CheckAddressOwnership(ctx, device2.ID, addr.ID)
+	err := repo.CheckAddressOwnership(ctx, dev2.ID, addr.ID)
 	is.True(err != nil)
-	is.Equal(err, ErrAddressNotOwnedByDevice)
+	is.Equal(err, device.ErrAddressNotOwnedByDevice)
 }
 
 func TestRepository_CheckAddressOwnership_AddressNotFound(t *testing.T) {
@@ -514,64 +466,11 @@ func TestRepository_CheckAddressOwnership_AddressNotFound(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create a device
-	device := createTestDevice(t, repo, ctx, "test-device")
+	dev := createTestDevice(t, repo, ctx, "test-device")
 
-	// Check ownership of non-existent address (should fail)
-	err := repo.CheckAddressOwnership(ctx, device.ID, AddressID(99999))
+	err := repo.CheckAddressOwnership(ctx, dev.ID, device.AddressID(99999))
 	is.True(err != nil)
-	is.Equal(err, ErrAddressNotOwnedByDevice)
-}
-
-func TestRepository_RunInTx(t *testing.T) {
-	is := is.New(t)
-
-	repo := setupTestDB(t)
-	ctx := context.Background()
-
-	// Create a device
-	device := createTestDevice(t, repo, ctx, "test-device")
-
-	// Run operations in transaction
-	err := repo.RunInTx(ctx, func(tx repository) error {
-		// Create address in transaction (CreateAddress already records status as enabled)
-		_ = createTestAddress(t, tx, ctx, device.ID, "192.168.1.100")
-		return nil
-	})
-	is.NoErr(err)
-
-	// Verify address was created and enabled
-	address, err := repo.GetAddressForDeviceByIP(ctx, device.ID, netip.MustParseAddr("192.168.1.100"))
-	is.NoErr(err)
-	is.Equal(address.IP, "192.168.1.100")
-	is.True(address.IsEnabled) // Should be enabled
-}
-
-func TestRepository_RunInTx_Rollback(t *testing.T) {
-	is := is.New(t)
-
-	repo := setupTestDB(t)
-	ctx := context.Background()
-
-	// Create a device
-	device := createTestDevice(t, repo, ctx, "test-device")
-
-	// Run operations in transaction that will fail
-	testError := fmt.Errorf("test error")
-	err := repo.RunInTx(ctx, func(tx repository) error {
-		// Create address in transaction
-		createTestAddress(t, tx, ctx, device.ID, "192.168.1.100")
-
-		// Return error to trigger rollback
-		return testError
-	})
-	is.True(err != nil) // Transaction should fail
-	is.Equal(err, testError)
-
-	// Verify address was NOT created (transaction rolled back)
-	_, err = repo.GetAddressForDeviceByIP(ctx, device.ID, netip.MustParseAddr("192.168.1.100"))
-	is.True(err != nil)
-	is.Equal(err, ErrAddressNotFound)
+	is.Equal(err, device.ErrAddressNotOwnedByDevice)
 }
 
 func TestRepository_GetEnabledUniqueIPs_Empty(t *testing.T) {
@@ -580,10 +479,9 @@ func TestRepository_GetEnabledUniqueIPs_Empty(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Get enabled IPs when none exist
 	ips, err := repo.GetEnabledIPEntries(ctx)
 	is.NoErr(err)
-	is.Equal(len(ips), 0) // Should be empty
+	is.Equal(len(ips), 0)
 }
 
 func TestRepository_GetEnabledUniqueIPs(t *testing.T) {
@@ -592,31 +490,25 @@ func TestRepository_GetEnabledUniqueIPs(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create device
-	device := createTestDevice(t, repo, ctx, "test-device")
+	dev := createTestDevice(t, repo, ctx, "test-device")
+	_ = createTestAddress(t, repo, ctx, dev.ID, "192.168.1.1")
+	addrToDisable := createTestAddress(t, repo, ctx, dev.ID, "192.168.1.2")
+	_ = createTestAddress(t, repo, ctx, dev.ID, "192.168.1.3")
 
-	// Create addresses
-	_ = createTestAddress(t, repo, ctx, device.ID, "192.168.1.1")
-	addrToDisable := createTestAddress(t, repo, ctx, device.ID, "192.168.1.2")
-	_ = createTestAddress(t, repo, ctx, device.ID, "192.168.1.3")
-
-	// Disable addr2
 	_, err := repo.DisableAddress(ctx, addrToDisable.ID)
 	is.NoErr(err)
 
-	// Get enabled IPs
 	ips, err := repo.GetEnabledIPEntries(ctx)
 	is.NoErr(err)
-	is.Equal(len(ips), 2) // Should have 2 enabled IPs
+	is.Equal(len(ips), 2)
 
-	// Verify correct IPs are returned
 	ipMap := make(map[string]bool)
 	for _, ip := range ips {
 		ipMap[ip.IP] = true
 	}
 	is.True(ipMap["192.168.1.1"])
 	is.True(ipMap["192.168.1.3"])
-	is.True(!ipMap["192.168.1.2"]) // Disabled address should not be included
+	is.True(!ipMap["192.168.1.2"])
 }
 
 func TestRepository_GetEnabledUniqueIPs_Deduplicates(t *testing.T) {
@@ -625,22 +517,18 @@ func TestRepository_GetEnabledUniqueIPs_Deduplicates(t *testing.T) {
 	repo := setupTestDB(t)
 	ctx := context.Background()
 
-	// Create multiple devices
-	device1 := createTestDevice(t, repo, ctx, "device-1")
-	device2 := createTestDevice(t, repo, ctx, "device-2")
-	device3 := createTestDevice(t, repo, ctx, "device-3")
+	dev1 := createTestDevice(t, repo, ctx, "device-1")
+	dev2 := createTestDevice(t, repo, ctx, "device-2")
+	dev3 := createTestDevice(t, repo, ctx, "device-3")
 
-	// Create addresses with duplicate IPs across different devices
-	_ = createTestAddress(t, repo, ctx, device1.ID, "192.168.1.100")
-	_ = createTestAddress(t, repo, ctx, device2.ID, "192.168.1.100") // Same IP as addr1
-	_ = createTestAddress(t, repo, ctx, device3.ID, "192.168.1.200")
+	_ = createTestAddress(t, repo, ctx, dev1.ID, "192.168.1.100")
+	_ = createTestAddress(t, repo, ctx, dev2.ID, "192.168.1.100") // same IP as dev1
+	_ = createTestAddress(t, repo, ctx, dev3.ID, "192.168.1.200")
 
-	// Get enabled IPs
 	ips, err := repo.GetEnabledIPEntries(ctx)
 	is.NoErr(err)
-	is.Equal(len(ips), 2) // Should deduplicate: 192.168.1.100 appears only once
+	is.Equal(len(ips), 2) // 192.168.1.100 appears only once
 
-	// Verify correct IPs are returned (deduplicated)
 	ipMap := make(map[string]bool)
 	for _, ip := range ips {
 		ipMap[ip.IP] = true

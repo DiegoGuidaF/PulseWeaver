@@ -44,7 +44,7 @@ func (h *HTTPHandler) HandleForwardAuthIP(w http.ResponseWriter, r *http.Request
 
 	req := NewVerifyRequest(token, clientIP, r)
 
-	if err := h.service.VerifyAccess(ctx, req); err != nil {
+	if err := h.service.VerifyAccess(ctx, &req); err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}

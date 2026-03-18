@@ -34,7 +34,7 @@ func NewRepository(db *sqlx.DB) *Repository {
 }
 
 func (r *Repository) GetDevice(ctx context.Context, id DeviceID) (*Device, error) {
-	device := &Device{}
+	device := new(Device)
 
 	query := `
 		SELECT 
@@ -58,7 +58,7 @@ func (r *Repository) GetDevice(ctx context.Context, id DeviceID) (*Device, error
 	return device, nil
 }
 
-func (r *Repository) CreateDevice(ctx context.Context, params *CreateDeviceParams) (*Device, error) {
+func (r *Repository) CreateDevice(ctx context.Context, params CreateDeviceParams) (*Device, error) {
 	now := time.Now().UTC()
 	var createdDevice *Device
 
@@ -118,7 +118,7 @@ func (r *Repository) UpdateAPIKey(ctx context.Context, deviceID DeviceID, keyHas
 	return nil
 }
 
-func (r *Repository) CreateAddress(ctx context.Context, params *CreateAddressParams) (*Address, error) {
+func (r *Repository) CreateAddress(ctx context.Context, params CreateAddressParams) (*Address, error) {
 	var address *Address
 
 	err := r.runInTx(ctx, func(tx *Repository) error {
@@ -148,7 +148,7 @@ func (r *Repository) CreateAddress(ctx context.Context, params *CreateAddressPar
 }
 
 func (r *Repository) GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip netip.Addr) (*Address, error) {
-	address := &Address{}
+	address := new(Address)
 
 	query := `
 		SELECT a.id,
@@ -191,7 +191,7 @@ func (r *Repository) CheckAddressOwnership(ctx context.Context, deviceID DeviceI
 }
 
 func (r *Repository) GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) (*Device, error) {
-	device := &Device{}
+	device := new(Device)
 
 	query := `
 		SELECT d.* FROM devices d
@@ -262,7 +262,7 @@ func (r *Repository) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error)
 
 // GetAddress returns the current state for a single address ID.
 func (r *Repository) GetAddress(ctx context.Context, addressID AddressID) (*Address, error) {
-	state := &Address{}
+	state := new(Address)
 
 	query := `
 		SELECT a.id,

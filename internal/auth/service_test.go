@@ -56,9 +56,10 @@ func TestService_Login_Success(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
-	user, err := NewUser("testuser", "Test User", "", "Password123", UserRole, nil)
+	u, err := NewUser("testuser", "Test User", "", "Password123", UserRole, nil)
 	is.NoErr(err)
-	user.ID = UserID(1)
+	u.ID = UserID(1)
+	user := &u
 	mockRepo.users[user.ID] = user
 	mockRepo.usersByUsername[user.Username] = user
 	mockRepo.userCount = 1
@@ -92,9 +93,10 @@ func TestService_Login_InvalidPassword(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
-	user, err := NewUser("testuser", "Test User", "", "Password123", UserRole, nil)
+	u, err := NewUser("testuser", "Test User", "", "Password123", UserRole, nil)
 	is.NoErr(err)
-	user.ID = UserID(1)
+	u.ID = UserID(1)
+	user := &u
 	mockRepo.users[user.ID] = user
 	mockRepo.usersByUsername[user.Username] = user
 	mockRepo.userCount = 1
@@ -230,9 +232,10 @@ func TestService_BootstrapAdmin_CreatesAdminWhenNoAdminsExist(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
-	existingUser, err := NewUser("existing", "Existing User", "", "Password123", UserRole, nil)
+	eu, err := NewUser("existing", "Existing User", "", "Password123", UserRole, nil)
 	is.NoErr(err)
-	existingUser.ID = UserID(1)
+	eu.ID = UserID(1)
+	existingUser := &eu
 	mockRepo.users[existingUser.ID] = existingUser
 	mockRepo.usersByUsername[existingUser.Username] = existingUser
 	mockRepo.userCount = 1
@@ -375,9 +378,10 @@ func TestService_ChangePassword_Success(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
-	user, err := NewUser("alice", "Alice", "", "OldPass123!", UserRole, nil)
+	u, err := NewUser("alice", "Alice", "", "OldPass123!", UserRole, nil)
 	is.NoErr(err)
-	user.ID = UserID(1)
+	u.ID = UserID(1)
+	user := &u
 	mockRepo.users[user.ID] = user
 	mockRepo.usersByUsername[user.Username] = user
 	mockRepo.userCount++
@@ -395,9 +399,10 @@ func TestService_ChangePassword_WrongCurrentPassword(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
-	user, err := NewUser("alice", "Alice", "", "OldPass123!", UserRole, nil)
+	u, err := NewUser("alice", "Alice", "", "OldPass123!", UserRole, nil)
 	is.NoErr(err)
-	user.ID = UserID(1)
+	u.ID = UserID(1)
+	user := &u
 	mockRepo.users[user.ID] = user
 	mockRepo.userCount++
 
@@ -412,9 +417,10 @@ func TestService_ChangePassword_RevokesOtherSessions(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
-	user, err := NewUser("alice", "Alice", "", "OldPass123!", UserRole, nil)
+	u, err := NewUser("alice", "Alice", "", "OldPass123!", UserRole, nil)
 	is.NoErr(err)
-	user.ID = UserID(1)
+	u.ID = UserID(1)
+	user := &u
 	mockRepo.users[user.ID] = user
 	mockRepo.userCount++
 

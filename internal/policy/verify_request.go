@@ -12,8 +12,8 @@ type VerifyRequest struct {
 	Headers    map[string][]string
 }
 
-func NewVerifyRequest(token string, clientIP string, r *http.Request) *VerifyRequest {
-	return &VerifyRequest{
+func NewVerifyRequest(token string, clientIP string, r *http.Request) VerifyRequest {
+	return VerifyRequest{
 		Token:      token,
 		ClientIP:   clientIP,
 		TargetHost: nilIfEmpty(r.Header.Get("X-Forwarded-Host")),

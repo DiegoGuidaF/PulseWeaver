@@ -34,7 +34,7 @@ func (r *Repository) CreateUser(ctx context.Context, user *User) (*User, error) 
         INSERT INTO users (username, display_name, email, password_hash, role, must_change_password, created_by, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
 
-	created := &User{}
+	created := new(User)
 	err := r.db.GetContext(ctx, created, query,
 		user.Username,
 		user.DisplayName,
@@ -56,7 +56,7 @@ func (r *Repository) CreateUser(ctx context.Context, user *User) (*User, error) 
 }
 
 func (r *Repository) GetUserByUsername(ctx context.Context, username string) (*User, error) {
-	user := &User{}
+	user := new(User)
 
 	query := `SELECT * FROM users WHERE username = ? AND deleted_at IS NULL`
 
@@ -72,7 +72,7 @@ func (r *Repository) GetUserByUsername(ctx context.Context, username string) (*U
 }
 
 func (r *Repository) GetUserByID(ctx context.Context, userID UserID) (*User, error) {
-	user := &User{}
+	user := new(User)
 
 	query := `SELECT * FROM users WHERE id = ? AND deleted_at IS NULL`
 
@@ -106,7 +106,8 @@ func (r *Repository) CreateSession(ctx context.Context, session *Session) (*Sess
 		VALUES (?, ?, ?, ?) RETURNING *
 	`
 
-	err := r.db.GetContext(ctx, session, query,
+	created := new(Session)
+	err := r.db.GetContext(ctx, created, query,
 		session.UserID,
 		session.TokenHash,
 		session.CreatedAt,
@@ -117,7 +118,7 @@ func (r *Repository) CreateSession(ctx context.Context, session *Session) (*Sess
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
 
-	return session, nil
+	return created, nil
 }
 
 func (r *Repository) CountAdminUsers(ctx context.Context) (int, error) {
@@ -151,7 +152,7 @@ func (r *Repository) UpdateUser(ctx context.Context, user *User) (*User, error) 
         WHERE id = ? AND deleted_at IS NULL
         RETURNING *`
 
-	updated := &User{}
+	updated := new(User)
 	err := r.db.GetContext(ctx, updated, query,
 		user.Username, user.DisplayName, user.Email, user.Role, user.MustChangePassword,
 		user.ID,
@@ -239,7 +240,7 @@ func (r *Repository) RevokeAllUserSessionsExcept(ctx context.Context, userID Use
 // GetSessionWithRoleByTokenHash Finds and retrieves valid session(non-expired or revoked) given a tokenHash.
 // Also returns the user_role
 func (r *Repository) GetSessionWithRoleByTokenHash(ctx context.Context, tokenHash string) (*SessionWithUser, error) {
-	session := &SessionWithUser{}
+	session := new(SessionWithUser)
 
 	query := `SELECT s.*, u.role as user_role FROM sessions s
           	  JOIN users u ON s.user_id = u.id

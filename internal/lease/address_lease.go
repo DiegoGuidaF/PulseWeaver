@@ -17,9 +17,9 @@ type AddressLease struct {
 
 // NewAddressLease builds an AddressLease.
 // expiresAt is nil when no addressTTL is nil.
-func NewAddressLease(addressID device.AddressID, deviceID device.DeviceID, addressTTL *int) *AddressLease {
+func NewAddressLease(addressID device.AddressID, deviceID device.DeviceID, addressTTL *int) AddressLease {
 	now := time.Now().UTC()
-	return &AddressLease{
+	return AddressLease{
 		AddressID: addressID,
 		DeviceID:  deviceID,
 		ExpiresAt: expiresAtFromTTL(now, addressTTL),

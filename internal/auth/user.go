@@ -39,28 +39,28 @@ func NewUser(
 	password string,
 	role Role,
 	createdByID *UserID,
-) (*User, error) {
+) (User, error) {
 	err := validatePassword(password)
 	if err != nil {
-		return nil, err
+		return User{}, err
 	}
 
 	validUsername, err := validateUsername(username)
 	if err != nil {
-		return nil, err
+		return User{}, err
 	}
 
 	validDisplayName, err := validateDisplayName(displayName)
 	if err != nil {
-		return nil, err
+		return User{}, err
 	}
 
 	passwordHash, err := hashPassword(password)
 	if err != nil {
-		return nil, fmt.Errorf("hashing failed: %w", err)
+		return User{}, fmt.Errorf("hashing failed: %w", err)
 	}
 
-	return &User{
+	return User{
 		Username:     validUsername,
 		DisplayName:  validDisplayName,
 		Email:        email,

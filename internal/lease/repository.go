@@ -46,7 +46,8 @@ func (r *Repository) UpsertAddressLease(ctx context.Context, addressLease *Addre
 		RETURNING *
 	`
 
-	if err := r.db.GetContext(ctx, addressLease, query,
+	created := new(AddressLease)
+	if err := r.db.GetContext(ctx, created, query,
 		addressLease.DeviceID,
 		addressLease.AddressID,
 		addressLease.ExpiresAt,
@@ -56,7 +57,7 @@ func (r *Repository) UpsertAddressLease(ctx context.Context, addressLease *Addre
 		return nil, fmt.Errorf("upsert address lease: %w", err)
 	}
 
-	return addressLease, nil
+	return created, nil
 }
 
 func (r *Repository) GetExpiredAddressIDs(ctx context.Context) ([]device.AddressID, error) {

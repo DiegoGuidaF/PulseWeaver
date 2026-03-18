@@ -31,6 +31,7 @@ type App struct {
 	DeviceService       *device.Service
 	AuthService         *auth.Service
 	PolicyService       *policy.Service
+	RuleService         *rule.Service
 	addressLeaseService *lease.Service
 	schedulerService    *scheduler.Service
 	auditSink           *audit.Sink
@@ -157,6 +158,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		DeviceService:       deviceService,
 		AuthService:         authService,
 		PolicyService:       policyService,
+		RuleService:         ruleService,
 		addressLeaseService: addressLeaseService,
 		schedulerService:    schedulerService,
 		auditSink:           auditSink,

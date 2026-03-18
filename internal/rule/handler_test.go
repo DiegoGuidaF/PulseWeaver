@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -29,13 +28,10 @@ func createTestDevice(t *testing.T, testServer *app.App, name string) *device.De
 	return dev
 }
 
-func CreateDeviceAddressLeaseRule(t *testing.T, testServer *app.App, deviceID device.DeviceID, ttlSeconds int) *rule.DeviceAddressLeaseRule {
+func createDeviceAddressLeaseRule(t *testing.T, testServer *app.App, deviceID device.DeviceID, ttlSeconds int) *rule.DeviceAddressLeaseRule {
 	t.Helper()
 
-	ruleRepo := rule.NewRepository(testServer.Database.DB())
-	ruleSvc := rule.NewService(ruleRepo, slog.New(slog.DiscardHandler))
-
-	r, err := ruleSvc.EnableDeviceAddressLeaseRule(t.Context(), deviceID, ttlSeconds)
+	r, err := testServer.RuleService.EnableDeviceAddressLeaseRule(t.Context(), deviceID, ttlSeconds)
 	if err != nil {
 		t.Fatalf("enable lease rule for device %d: %v", deviceID, err)
 	}
@@ -49,7 +45,7 @@ func TestHandler_GetDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
 
 	dev := createTestDevice(t, testServer, "lease-device-get")
-	r := CreateDeviceAddressLeaseRule(t, testServer, dev.ID, 300)
+	r := createDeviceAddressLeaseRule(t, testServer, dev.ID, 300)
 
 	url := fmt.Sprintf("/api/v1/devices/%d/rules/address_lease", dev.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
@@ -170,7 +166,7 @@ func TestHandler_DisableDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
 
 	dev := createTestDevice(t, testServer, "lease-device-disable")
-	CreateDeviceAddressLeaseRule(t, testServer, dev.ID, 120)
+	createDeviceAddressLeaseRule(t, testServer, dev.ID, 120)
 
 	url := fmt.Sprintf("/api/v1/devices/%d/rules/address_lease", dev.ID)
 	req := httptest.NewRequest(http.MethodDelete, url, nil)
@@ -181,8 +177,7 @@ func TestHandler_DisableDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 
 	is.Equal(res.Code, http.StatusNoContent)
 
-	ruleSvc := rule.NewService(rule.NewRepository(testServer.Database.DB()), slog.New(slog.DiscardHandler))
-	ttl, err := ruleSvc.GetDeviceAddressLeaseTTLSeconds(t.Context(), dev.ID)
+	ttl, err := testServer.RuleService.GetDeviceAddressLeaseTTLSeconds(t.Context(), dev.ID)
 	is.NoErr(err)
 	is.True(ttl == nil)
 }

@@ -49,7 +49,6 @@ func TestNewUser_ValidInputs(t *testing.T) {
 			is := is.New(t)
 			user, err := NewUser(tt.username, tt.displayName, tt.email, tt.password, tt.role, nil)
 			is.NoErr(err)
-			is.True(user != nil)
 			is.Equal(user.Username, tt.username)
 			is.Equal(user.DisplayName, tt.displayName)
 			is.Equal(user.Email, tt.email)
@@ -111,10 +110,8 @@ func TestNewUser_InvalidUsername(t *testing.T) {
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))
-				is.True(user == nil)
 			} else {
 				is.NoErr(err)
-				is.True(user != nil)
 				// Verify normalization
 				expectedUsername := "john_doe"
 				is.Equal(user.Username, expectedUsername)
@@ -161,10 +158,8 @@ func TestNewUser_InvalidDisplayName(t *testing.T) {
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))
-				is.True(user == nil)
 			} else {
 				is.NoErr(err)
-				is.True(user != nil)
 				// Verify trimming
 				if tt.displayName == "  John Doe  " {
 					is.Equal(user.DisplayName, "John Doe")
@@ -219,10 +214,9 @@ func TestNewUser_InvalidPassword(t *testing.T) {
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))
-				is.True(user == nil)
 			} else {
 				is.NoErr(err)
-				is.True(user != nil)
+				is.True(len(user.PasswordHash) > 0)
 			}
 		})
 	}

@@ -57,7 +57,6 @@ func TestNewAddress_ValidIPv4(t *testing.T) {
 				return
 			}
 			is.NoErr(err)
-			is.True(params != nil)
 			is.Equal(params.DeviceID, tt.deviceID)
 			is.Equal(params.IP.String(), tt.wantIP)
 		})
@@ -111,7 +110,6 @@ func TestNewAddress_ValidIPv6(t *testing.T) {
 				return
 			}
 			is.NoErr(err)
-			is.True(params != nil)
 			is.Equal(params.DeviceID, tt.deviceID)
 			is.Equal(params.IP.String(), tt.wantIP)
 		})
@@ -160,10 +158,9 @@ func TestNewAddress_InvalidIP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			params, err := NewCreateAddressParams(tt.deviceID, tt.ipAddress, netip.Addr{})
+			_, err := NewCreateAddressParams(tt.deviceID, tt.ipAddress, netip.Addr{})
 			is.True(err != nil)
 			is.True(errors.Is(err, tt.wantErr))
-			is.True(params == nil)
 		})
 	}
 }
@@ -210,10 +207,9 @@ func TestNewCreateAddressParams_InvalidDeviceIP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			params, err := NewCreateAddressParams(DeviceID(1), tt.ipAddress, netip.Addr{})
+			_, err := NewCreateAddressParams(DeviceID(1), tt.ipAddress, netip.Addr{})
 			is.True(err != nil)
 			is.True(errors.Is(err, ErrInvalidDeviceIP))
-			is.True(params == nil)
 		})
 	}
 }

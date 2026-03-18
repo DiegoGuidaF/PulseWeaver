@@ -31,19 +31,19 @@ type CreateAddressParams struct {
 	IP       netip.Addr
 }
 
-func NewCreateAddressParams(deviceID DeviceID, ipAddress string, trustedProxy netip.Addr) (*CreateAddressParams, error) {
+func NewCreateAddressParams(deviceID DeviceID, ipAddress string, trustedProxy netip.Addr) (CreateAddressParams, error) {
 	parsedIP, err := parseAndValidateIP(ipAddress)
 	if err != nil {
-		return nil, err
+		return CreateAddressParams{}, err
 	}
 	if parsedIP.IsLoopback() || parsedIP.IsMulticast() || parsedIP.IsUnspecified() || parsedIP.IsLinkLocalUnicast() {
-		return nil, ErrInvalidDeviceIP
+		return CreateAddressParams{}, ErrInvalidDeviceIP
 	}
 	if trustedProxy.IsValid() && trustedProxy.Compare(parsedIP) == 0 {
-		return nil, ErrTrustedProxyIPRejected
+		return CreateAddressParams{}, ErrTrustedProxyIPRejected
 	}
 
-	return &CreateAddressParams{
+	return CreateAddressParams{
 		DeviceID: deviceID,
 		IP:       parsedIP,
 	}, nil

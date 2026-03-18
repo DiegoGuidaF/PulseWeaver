@@ -306,51 +306,54 @@ func TestHandler_DeleteUser_SelfDeleteForbidden(t *testing.T) {
 	is.Equal(res.Code, http.StatusForbidden)
 }
 
-func TestHandler_CreateUser(t *testing.T) {
+func TestHandler_CreateUser_WithEmail(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	server := testServer.HTTPServer
 	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
 
-	t.Run("with_email", func(t *testing.T) {
-		body, _ := json.Marshal(map[string]string{
-			"username":     "new_user_with_email",
-			"display_name": "New User",
-			"email":        "new_user@example.com",
-			"password":     "Password123",
-		})
-
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/users", bytes.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
-		req.AddCookie(adminCookie)
-		res := httptest.NewRecorder()
-		server.ServeHTTP(res, req)
-
-		is.Equal(res.Code, http.StatusCreated)
-
-		var raw map[string]any
-		err := json.NewDecoder(res.Body).Decode(&raw)
-		is.NoErr(err)
-		is.Equal(raw["username"], "new_user_with_email")
-		is.Equal(raw["email"], "new_user@example.com")
+	body, _ := json.Marshal(map[string]string{
+		"username":     "new_user_with_email",
+		"display_name": "New User",
+		"email":        "new_user@example.com",
+		"password":     "Password123",
 	})
 
-	t.Run("without_email_returns_400", func(t *testing.T) {
-		// Email is now required; omitting it must be rejected by the generated request validator.
-		body, _ := json.Marshal(map[string]string{
-			"username":     "new_user_without_email",
-			"display_name": "No Email User",
-			"password":     "Password123",
-		})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/users", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(adminCookie)
+	res := httptest.NewRecorder()
+	server.ServeHTTP(res, req)
 
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/users", bytes.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
-		req.AddCookie(adminCookie)
-		res := httptest.NewRecorder()
-		server.ServeHTTP(res, req)
+	is.Equal(res.Code, http.StatusCreated)
 
-		is.Equal(res.Code, http.StatusBadRequest)
+	var raw map[string]any
+	err := json.NewDecoder(res.Body).Decode(&raw)
+	is.NoErr(err)
+	is.Equal(raw["username"], "new_user_with_email")
+	is.Equal(raw["email"], "new_user@example.com")
+}
+
+func TestHandler_CreateUser_WithoutEmail_Returns400(t *testing.T) {
+	// Email is now required; omitting it must be rejected by the generated request validator.
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	server := testServer.HTTPServer
+	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
+
+	body, _ := json.Marshal(map[string]string{
+		"username":     "new_user_without_email",
+		"display_name": "No Email User",
+		"password":     "Password123",
 	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/users", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(adminCookie)
+	res := httptest.NewRecorder()
+	server.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusBadRequest)
 }
 
 // getSelfID returns the numeric ID of the currently authenticated user.

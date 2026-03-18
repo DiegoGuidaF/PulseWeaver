@@ -69,8 +69,8 @@ func (s *Service) Login(ctx context.Context, username string, password string) (
 			return err
 		}
 
-		session := NewSession(user.ID, tokenHash)
-		_, err = tx.CreateSession(ctx, session)
+		newSession := NewSession(user.ID, tokenHash)
+		_, err = tx.CreateSession(ctx, &newSession)
 		if err != nil {
 			return err
 		}
@@ -119,7 +119,7 @@ func (s *Service) CreateUser(ctx context.Context, username string, displayName s
 		return nil, err
 	}
 	newUser.MustChangePassword = true
-	return s.createUser(s.repo, ctx, newUser)
+	return s.createUser(s.repo, ctx, &newUser)
 }
 
 func (s *Service) Authenticate(ctx context.Context, rawToken string) (*Principal, error) {
@@ -158,7 +158,7 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 		if err != nil {
 			return err
 		}
-		user, err := s.createUser(tx, ctx, newUser)
+		user, err := s.createUser(tx, ctx, &newUser)
 		if err != nil {
 			return fmt.Errorf("failed to bootstrap admin: %w", err)
 		}

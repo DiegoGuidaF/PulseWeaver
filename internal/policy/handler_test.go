@@ -1,19 +1,52 @@
 //go:build test
 
-package policy
+package policy_test
 
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"sync"
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/matryer/is"
 )
+
+// testMockProvider is a local EnabledIPsProvider for handler tests.
+type testMockProvider struct {
+	entries []device.IPEntry
+	err     error
+}
+
+func (m *testMockProvider) GetEnabledIPEntries(_ context.Context) ([]device.IPEntry, error) {
+	return m.entries, m.err
+}
+
+// testFakeObserver records every DecisionEvent it receives.
+type testFakeObserver struct {
+	mu     sync.Mutex
+	events []policy.DecisionEvent
+}
+
+func (f *testFakeObserver) OnDecision(_ context.Context, e policy.DecisionEvent) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.events = append(f.events, e)
+}
+
+func (f *testFakeObserver) received() []policy.DecisionEvent {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]policy.DecisionEvent, len(f.events))
+	copy(out, f.events)
+	return out
+}
 
 func TestHandler_MissingAuthHeader_Returns403(t *testing.T) {
 	is := is.New(t)
@@ -38,10 +71,10 @@ func TestHandler_WrongToken_Returns403(t *testing.T) {
 
 func TestNewService_EmptySecret_ReturnsError(t *testing.T) {
 	is := is.New(t)
-	provider := &mockProvider{entries: []device.IPEntry{{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)}}}
+	provider := &testMockProvider{entries: []device.IPEntry{{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)}}}
 
-	_, err := NewService(provider, "", noopLogger(), netip.Addr{})
-	is.True(errors.Is(err, ErrSecretNotConfigured))
+	_, err := policy.NewService(provider, "", slog.New(slog.DiscardHandler), netip.Addr{})
+	is.True(errors.Is(err, policy.ErrSecretNotConfigured))
 }
 
 func TestHandler_MissingClientIPInContext_Returns403(t *testing.T) {
@@ -112,7 +145,7 @@ func TestHandler_ProxyIP_Returns403(t *testing.T) {
 
 func TestHandler_EnrichmentHeaders_PassedToVerifyAccess(t *testing.T) {
 	is := is.New(t)
-	obs := &fakeObserver{}
+	obs := &testFakeObserver{}
 	h := newTestHandlerWithObserver([]string{"1.2.3.4"}, obs)
 
 	r := httptest.NewRequest(http.MethodGet, "/api/policy-engine/verify-ip", nil)
@@ -140,36 +173,36 @@ func TestHandler_EnrichmentHeaders_PassedToVerifyAccess(t *testing.T) {
 	is.Equal(e.Headers["User-Agent"][0], "TestAgent/1.0")
 }
 
-// newTestHandler creates a HTTPHandler pre-populated with the given IPs in its cache.
-func newTestHandler(enabledIPs []string) *HTTPHandler {
+// newTestHandler creates an HTTPHandler pre-populated with the given IPs in its cache.
+func newTestHandler(enabledIPs []string) *policy.HTTPHandler {
 	return newTestHandlerWithProxy(enabledIPs, "mysecret", "")
 }
 
-func newTestHandlerWithProxy(enabledIPs []string, secret, trustedProxy string) *HTTPHandler {
+func newTestHandlerWithProxy(enabledIPs []string, secret, trustedProxy string) *policy.HTTPHandler {
 	entries := make([]device.IPEntry, len(enabledIPs))
 	for i, ip := range enabledIPs {
 		entries[i] = device.IPEntry{IP: ip, DeviceID: device.DeviceID(int64(i + 1)), AddressID: device.AddressID(int64(i + 1))}
 	}
-	provider := &mockProvider{entries: entries}
+	provider := &testMockProvider{entries: entries}
 	var proxyAddr netip.Addr
 	if trustedProxy != "" {
 		proxyAddr = netip.MustParseAddr(trustedProxy)
 	}
-	svc, err := NewService(provider, secret, noopLogger(), proxyAddr)
+	svc, err := policy.NewService(provider, secret, slog.New(slog.DiscardHandler), proxyAddr)
 	if err != nil {
 		panic(err)
 	}
 	_ = svc.Initialize(context.Background())
-	return NewHTTPHandler(svc, noopLogger())
+	return policy.NewHTTPHandler(svc, slog.New(slog.DiscardHandler))
 }
 
-func newTestHandlerWithObserver(enabledIPs []string, obs DecisionObserver) *HTTPHandler {
+func newTestHandlerWithObserver(enabledIPs []string, obs policy.DecisionObserver) *policy.HTTPHandler {
 	entries := make([]device.IPEntry, len(enabledIPs))
 	for i, ip := range enabledIPs {
 		entries[i] = device.IPEntry{IP: ip, DeviceID: device.DeviceID(int64(i + 1)), AddressID: device.AddressID(int64(i + 1))}
 	}
-	provider := &mockProvider{entries: entries}
-	svc, err := NewService(provider, "mysecret", noopLogger(), netip.Addr{})
+	provider := &testMockProvider{entries: entries}
+	svc, err := policy.NewService(provider, "mysecret", slog.New(slog.DiscardHandler), netip.Addr{})
 	if err != nil {
 		panic(err)
 	}
@@ -177,5 +210,5 @@ func newTestHandlerWithObserver(enabledIPs []string, obs DecisionObserver) *HTTP
 		svc.AddDecisionObserver(obs)
 	}
 	_ = svc.Initialize(context.Background())
-	return NewHTTPHandler(svc, noopLogger())
+	return policy.NewHTTPHandler(svc, slog.New(slog.DiscardHandler))
 }
