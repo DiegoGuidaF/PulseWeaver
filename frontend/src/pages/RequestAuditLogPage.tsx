@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Stack, Title, Text } from "@mantine/core";
 import { RequestAuditLogFilters } from "@/features/request-audit-log/components/RequestAuditLogFilters";
@@ -6,6 +7,7 @@ import type { GetRequestAuditLogData } from "@/lib/api";
 
 export function RequestAuditLogPage() {
     const [searchParams] = useSearchParams();
+    const [refreshInterval, setRefreshInterval] = useState(0);
 
     const deviceIdStr = searchParams.get("device_id");
     const outcomeStr = searchParams.get("outcome");
@@ -33,8 +35,8 @@ export function RequestAuditLogPage() {
                 <Title order={1}>Access Log</Title>
                 <Text c="dimmed">Policy decision history for all incoming requests.</Text>
             </div>
-            <RequestAuditLogFilters />
-            <RequestAuditLogTable params={params} key={JSON.stringify(params)} />
+            <RequestAuditLogFilters refreshInterval={refreshInterval} onRefreshIntervalChange={setRefreshInterval} />
+            <RequestAuditLogTable params={params} refreshInterval={refreshInterval} key={JSON.stringify(params)} />
         </Stack>
     );
 }

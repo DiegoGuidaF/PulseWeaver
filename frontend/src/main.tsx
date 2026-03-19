@@ -13,6 +13,7 @@ import "./lib/api-client/config"; // Initialize API client configuration
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
+import "mantine-datatable/styles.layer.css";
 
 // Helper to check if error is 401 and handle redirect
 function handle401Error(error: unknown, isAuthMeQuery = false) {

@@ -8,7 +8,6 @@ import {
   Card,
   Group,
   Modal,
-  NativeSelect,
   Skeleton,
   Stack,
   Switch,
@@ -17,6 +16,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { AutoRefreshSelect } from "@/components/AutoRefreshSelect";
 import { notifications } from "@mantine/notifications";
 import { toErrorMessage } from "@/lib/api-client";
 import type { Address } from "@/lib/api";
@@ -33,16 +33,6 @@ import {
   CLIENT_IP_EVENT,
   SETTINGS_EVENT,
 } from "@/lib/autoHeartbeat";
-
-const REFRESH_OPTIONS = [
-  { label: "Off", value: 0 },
-  { label: "1s", value: 1_000 },
-  { label: "5s", value: 5_000 },
-  { label: "15s", value: 15_000 },
-  { label: "30s", value: 30_000 },
-  { label: "1 min", value: 60_000 },
-  { label: "5 min", value: 300_000 },
-] as const;
 
 const AUTO_HB_INTERVAL_OPTIONS = [
   { label: "30s", value: 30 },
@@ -247,19 +237,7 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
       <Card withBorder>
         <Group justify="space-between" mb="md">
           <Title order={4}>Assigned addresses</Title>
-          <Group gap="sm">
-            <Text size="sm" c="dimmed" style={{ whiteSpace: "nowrap" }}>
-              Auto-refresh
-            </Text>
-            <NativeSelect
-              value={refreshInterval}
-              onChange={(e) => setRefreshInterval(Number(e.target.value))}
-              data={REFRESH_OPTIONS.map((opt) => ({
-                label: opt.label,
-                value: String(opt.value),
-              }))}
-            />
-          </Group>
+          <AutoRefreshSelect value={refreshInterval} onChange={setRefreshInterval} />
         </Group>
 
         {isLoading ? (

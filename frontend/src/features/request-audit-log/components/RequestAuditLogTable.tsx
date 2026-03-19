@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Stack, Text, Badge, Button, Alert, Skeleton, Group } from "@mantine/core";
+import { Stack, Text, Badge, Button, Alert, Skeleton, Group, ActionIcon } from "@mantine/core";
 import { DataTable } from "mantine-datatable";
-import { IconAlertCircle } from "@tabler/icons-react";
+import { IconAlertCircle, IconChevronRight } from "@tabler/icons-react";
 import type { RequestAuditLogRow } from "@/lib/api";
 import type { GetRequestAuditLogData } from "@/lib/api";
 import { useRequestAuditLog } from "../hooks/useRequestAuditLog";
@@ -12,15 +12,19 @@ import { toErrorMessage } from "@/lib/api-client";
 
 interface RequestAuditLogTableProps {
     params: GetRequestAuditLogData["query"];
+    refreshInterval: number;
 }
 
-export function RequestAuditLogTable({ params }: RequestAuditLogTableProps) {
+export function RequestAuditLogTable({ params, refreshInterval }: RequestAuditLogTableProps) {
     const [beforeId, setBeforeId] = useState<number | undefined>(undefined);
     const [allRows, setAllRows] = useState<RequestAuditLogRow[]>([]);
     const [selectedRow, setSelectedRow] = useState<RequestAuditLogRow | null>(null);
     const [drawerOpened, setDrawerOpened] = useState(false);
 
-    const { data, isPending, error } = useRequestAuditLog({ ...params, before_id: beforeId });
+    const { data, isPending, error } = useRequestAuditLog(
+        { ...params, before_id: beforeId },
+        refreshInterval === 0 ? false : refreshInterval,
+    );
 
     // Reset accumulated rows when filters change (beforeId is undefined and data changes)
     const currentRows: RequestAuditLogRow[] = (() => {
@@ -79,7 +83,6 @@ export function RequestAuditLogTable({ params }: RequestAuditLogTableProps) {
                 ) : (
                     <DataTable
                         records={displayRows}
-                        onRowClick={({ record }) => handleRowClick(record)}
                         highlightOnHover
                         columns={[
                             {
@@ -136,6 +139,22 @@ export function RequestAuditLogTable({ params }: RequestAuditLogTableProps) {
                                             —
                                         </Text>
                                     ),
+                            },
+                            {
+                                accessor: "actions",
+                                title: "",
+                                width: 40,
+                                render: (row) => (
+                                    <ActionIcon
+                                        variant="subtle"
+                                        color="gray"
+                                        size="sm"
+                                        onClick={() => handleRowClick(row)}
+                                        aria-label="View details"
+                                    >
+                                        <IconChevronRight size={14} />
+                                    </ActionIcon>
+                                ),
                             },
                         ]}
                     />

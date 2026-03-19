@@ -6,23 +6,26 @@ import { IconSearch } from "@tabler/icons-react";
 import { useDevices } from "@/features/devices/hooks/useDevices";
 import { useRequestAuditLogDenyReasons } from "../hooks/useRequestAuditLogDenyReasons";
 import { DENY_REASON_LABELS } from "../constants";
+import { AutoRefreshSelect } from "@/components/AutoRefreshSelect";
 
-export function RequestAuditLogFilters() {
+interface RequestAuditLogFiltersProps {
+    refreshInterval: number;
+    onRefreshIntervalChange: (ms: number) => void;
+}
+
+export function RequestAuditLogFilters({ refreshInterval, onRefreshIntervalChange }: RequestAuditLogFiltersProps) {
     const [searchParams, setSearchParams] = useSearchParams();
     const { data: devices } = useDevices();
     const { data: denyReasons } = useRequestAuditLogDenyReasons();
 
-    // Set default date range on first load if not in URL
+    // Set default `from` on first load if not in URL. `to` is intentionally
+    // left absent so the backend always resolves it to "now" at query time.
     useEffect(() => {
-        const hasFrom = searchParams.has("from");
-        const hasTo = searchParams.has("to");
-        if (!hasFrom || !hasTo) {
-            const now = new Date();
-            const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        if (!searchParams.has("from")) {
+            const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
             setSearchParams(
                 (prev) => {
-                    if (!hasFrom) prev.set("from", dayAgo.toISOString());
-                    if (!hasTo) prev.set("to", now.toISOString());
+                    prev.set("from", dayAgo.toISOString());
                     return prev;
                 },
                 { replace: true },
@@ -36,8 +39,6 @@ export function RequestAuditLogFilters() {
     const denyReason = searchParams.get("deny_reason") ?? null;
     const fromStr = searchParams.get("from");
     const toStr = searchParams.get("to");
-    const fromDate = fromStr ? new Date(fromStr) : null;
-    const toDate = toStr ? new Date(toStr) : null;
 
     const deviceOptions = (devices ?? []).map((d) => ({
         value: String(d.id),
@@ -55,22 +56,6 @@ export function RequestAuditLogFilters() {
                 prev.delete(key);
             } else {
                 prev.set(key, value);
-            }
-            return prev;
-        });
-    }
-
-    function handleDateRange([from, to]: [Date | null, Date | null]) {
-        setSearchParams((prev) => {
-            if (from) {
-                prev.set("from", from.toISOString());
-            } else {
-                prev.delete("from");
-            }
-            if (to) {
-                prev.set("to", to.toISOString());
-            } else {
-                prev.delete("to");
             }
             return prev;
         });
@@ -122,12 +107,20 @@ export function RequestAuditLogFilters() {
                 />
             )}
             <DatePickerInput
-                type="range"
-                placeholder="Date range"
-                value={[fromDate, toDate]}
-                onChange={handleDateRange}
+                label="From"
+                placeholder="24 hours ago"
+                value={fromStr}
+                onChange={(val: string | null) => setParam("from", val)}
                 clearable
-                w={240}
+                w={160}
+            />
+            <DatePickerInput
+                label="To"
+                placeholder="Now (live)"
+                value={toStr}
+                onChange={(val: string | null) => setParam("to", val)}
+                clearable
+                w={160}
             />
             <TextInput
                 placeholder="Filter by IP"
@@ -136,6 +129,7 @@ export function RequestAuditLogFilters() {
                 onChange={(e) => setParam("ip", e.currentTarget.value)}
                 w={200}
             />
+            <AutoRefreshSelect value={refreshInterval} onChange={onRefreshIntervalChange} />
         </Group>
     );
 }
