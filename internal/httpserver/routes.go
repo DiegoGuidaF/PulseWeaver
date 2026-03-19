@@ -50,7 +50,7 @@ func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandle
 		swagger, _ := httpapi.GetSwagger()
 
 		validatorOptions := &nethttpmiddleware.Options{
-			ErrorHandler: validationErrorHandler,
+			ErrorHandler: createValidationErrorHandler(logger),
 			Options: openapi3filter.Options{
 				AuthenticationFunc: AuthenticationFunc(authHandler.UserAuthenticator(), deviceHandler.APIKeyAuthenticator()),
 			},

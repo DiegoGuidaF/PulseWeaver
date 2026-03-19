@@ -46,17 +46,26 @@ func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandl
 	return r
 }
 
-// validationErrorHandler OpenApi validation errors match rest of app JSON with "error" key
-func validationErrorHandler(w http.ResponseWriter, msg string, statusCode int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
+// createValidationErrorHandler returns an OpenAPI validation error handler that logs
+// rejected requests and responds with the standard JSON error shape.
+// Note: the ErrorHandler signature has no *http.Request, so request-scoped fields
+// (request ID, path) are unavailable here — they appear in the slog-chi access log instead.
+func createValidationErrorHandler(logger *slog.Logger) func(http.ResponseWriter, string, int) {
+	return func(w http.ResponseWriter, msg string, statusCode int) {
+		logger.Warn("openapi validation error",
+			slog.String(logging.AttrKeyError, msg),
+			slog.Int("status", statusCode),
+		)
 
-	response := httpapi.ErrorResponse{
-		Error: &msg,
-	}
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		// If encoding fails, response headers are already sent, log error
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(statusCode)
+
+		response := httpapi.ErrorResponse{
+			Error: &msg,
+		}
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		}
 	}
 }
 
