@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useForm } from "@mantine/form";
 import { zod4Resolver } from "mantine-form-zod-resolver";
 import { z } from "zod";
-import { formatDateTime, isPast } from "@/lib/dates";
+import { isPast } from "@/lib/dates";
+import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import {
   Button,
   Card,
@@ -48,6 +49,7 @@ interface DeviceAddressesTabProps {
 }
 
 export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
+  const formatDateTime = useDateFormatter();
   const [refreshInterval, setRefreshInterval] = useState<number>(5_000);
   const { data: addresses, isLoading } = useDeviceAddresses(
     deviceId,

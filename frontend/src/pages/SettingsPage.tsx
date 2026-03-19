@@ -8,12 +8,15 @@ import {
   Card,
   Group,
   Modal,
+  SegmentedControl,
   Stack,
   Table,
   Text,
   TextInput,
   Title,
 } from "@mantine/core";
+import { useDateTimePrefs } from "@/contexts/useDateTimePrefs";
+import type { DateOrder, TimeFormat } from "@/lib/userPreferences";
 import { notifications } from "@mantine/notifications";
 import { useAuth } from "@/features/auth/AuthContext";
 import { toApiError, toErrorMessage } from "@/lib/api-client";
@@ -24,6 +27,18 @@ import { useDeleteUser } from "@/features/auth/hooks/useDeleteUser";
 import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { useUpdateMe } from "@/features/auth/hooks/useUpdateMe";
 import { UserRole } from "@/lib/api";
+
+const PREVIEW_DATE = '2025-07-04T14:30:00Z';
+
+const DATE_ORDER_OPTIONS = [
+  { label: 'MM/DD/YYYY', value: 'MDY' },
+  { label: 'DD/MM/YYYY', value: 'DMY' },
+];
+
+const TIME_FORMAT_OPTIONS = [
+  { label: '12-hour', value: '12h' },
+  { label: '24-hour', value: '24h' },
+];
 
 const profileSchema = z.object({
   display_name: z.string().trim().min(1).max(50).optional(),
@@ -37,6 +52,7 @@ const passwordSchema = z.object({
 });
 
 export function SettingsPage() {
+  const { prefs, setPrefs, formatDateTime } = useDateTimePrefs();
   const { user } = useAuth();
   const updateMe = useUpdateMe();
   const changePassword = useChangePassword();
@@ -64,6 +80,8 @@ export function SettingsPage() {
   });
 
   const adminUsers = useMemo(() => listUsers.data ?? [], [listUsers.data]);
+
+  const previewText = formatDateTime(PREVIEW_DATE);
 
   function submitProfile(values: z.infer<typeof profileSchema>) {
     const body: { display_name?: string; username?: string; email?: string } = {};
@@ -238,6 +256,31 @@ export function SettingsPage() {
               </div>
             </Stack>
           </form>
+        </Card>
+
+        <Card withBorder>
+          <Title order={3} mb="md">Date &amp; Time</Title>
+          <Stack gap="md">
+            <div>
+              <Text size="sm" fw={500} mb={4}>Date format</Text>
+              <SegmentedControl
+                data={DATE_ORDER_OPTIONS}
+                value={prefs.dateOrder}
+                onChange={(val) => setPrefs({ ...prefs, dateOrder: val as DateOrder })}
+              />
+            </div>
+            <div>
+              <Text size="sm" fw={500} mb={4}>Time format</Text>
+              <SegmentedControl
+                data={TIME_FORMAT_OPTIONS}
+                value={prefs.timeFormat}
+                onChange={(val) => setPrefs({ ...prefs, timeFormat: val as TimeFormat })}
+              />
+            </div>
+            <Text size="sm" c="dimmed">
+              Preview: <Text component="span" fw={500}>{previewText}</Text>
+            </Text>
+          </Stack>
         </Card>
 
         {user?.role === UserRole.ADMIN && !user.must_change_password && (

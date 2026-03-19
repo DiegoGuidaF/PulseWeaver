@@ -1,0 +1,233 @@
+import {
+    ActionIcon,
+    Badge,
+    SegmentedControl,
+    Select,
+    Stack,
+    Text,
+    TextInput,
+} from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
+import { IconChevronRight, IconSearch } from "@tabler/icons-react";
+import type { DataTableColumn } from "mantine-datatable";
+import type { RequestAuditLogRow } from "@/lib/api";
+import type { SetURLSearchParams } from "react-router-dom";
+import { DENY_REASON_LABELS } from "../constants";
+import dayjs from "dayjs";
+
+export interface AuditLogColumnDeps {
+    formatDateTime: (value: string) => string;
+    pickerValueFormat: string;
+
+    // Filter values
+    presetStr: string | null;
+    fromStr: string | null;
+    toStr: string | null;
+    ipLocal: string;
+    ipDebounced: string;
+    deviceIdStr: string | null;
+    outcomeStr: string | null;
+    denyReason: string | null;
+
+    // Options
+    deviceOptions: { value: string; label: string }[];
+    denyReasonOptions: { value: string; label: string }[];
+
+    // Setters
+    setParam: (key: string, value: string | null) => void;
+    setIpLocal: (value: string) => void;
+    setSearchParams: SetURLSearchParams;
+
+    // Actions
+    onRowClick: (row: RequestAuditLogRow) => void;
+}
+
+export function getAuditLogColumns(deps: AuditLogColumnDeps): DataTableColumn<RequestAuditLogRow>[] {
+    return [
+        {
+            accessor: "created_at",
+            title: "Time",
+            filter: () => (
+                <Stack gap="xs" p="xs">
+                    <DateTimePicker
+                        label="From"
+                        placeholder="24 hours ago"
+                        value={deps.fromStr ?? null}
+                        onChange={(val) => {
+                            deps.setSearchParams((prev) => {
+                                prev.delete("preset");
+                                if (val) prev.set("from", dayjs(val).toISOString());
+                                else prev.delete("from");
+                                return prev;
+                            });
+                        }}
+                        valueFormat={deps.pickerValueFormat}
+                        timePickerProps={{
+                            withDropdown: true,
+                            popoverProps: { withinPortal: false },
+                        }}
+                        popoverProps={{ withinPortal: false }}
+                        clearable
+                        w={280}
+                    />
+                    <DateTimePicker
+                        label="To"
+                        placeholder="Now (live)"
+                        value={deps.toStr ?? null}
+                        onChange={(val) => {
+                            deps.setSearchParams((prev) => {
+                                prev.delete("preset");
+                                if (val) prev.set("to", dayjs(val).toISOString());
+                                else prev.delete("to");
+                                return prev;
+                            });
+                        }}
+                        valueFormat={deps.pickerValueFormat}
+                        timePickerProps={{
+                            withDropdown: true,
+                            popoverProps: { withinPortal: false },
+                        }}
+                        popoverProps={{ withinPortal: false }}
+                        clearable
+                        w={280}
+                    />
+                </Stack>
+            ),
+            filtering: !!(deps.fromStr || deps.toStr),
+            render: (row) => (
+                <Text size="sm" ff="monospace">
+                    {deps.formatDateTime(row.created_at)}
+                </Text>
+            ),
+        },
+        {
+            accessor: "client_ip",
+            title: "IP",
+            filter: ({ close }) => (
+                <TextInput
+                    placeholder="Filter by IP"
+                    leftSection={<IconSearch size={16} />}
+                    value={deps.ipLocal}
+                    onChange={(e) => deps.setIpLocal(e.currentTarget.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") close(); }}
+                    m="xs"
+                    w={200}
+                />
+            ),
+            filtering: !!deps.ipDebounced,
+            render: (row) => (
+                <Text size="sm" ff="monospace">
+                    {row.client_ip}
+                </Text>
+            ),
+        },
+        {
+            accessor: "target_host",
+            title: "Host",
+            render: (row) => (
+                <Text size="sm">{row.target_host ?? "—"}</Text>
+            ),
+        },
+        {
+            accessor: "device_name",
+            title: "Device",
+            filter: ({ close }) => (
+                <Select
+                    placeholder="All devices"
+                    data={deps.deviceOptions}
+                    value={deps.deviceIdStr}
+                    onChange={(val) => { deps.setParam("device_id", val); close(); }}
+                    clearable
+                    comboboxProps={{ withinPortal: false }}
+                    m="xs"
+                    w={200}
+                />
+            ),
+            filtering: !!deps.deviceIdStr,
+            render: (row) => (
+                <Text size="sm">{row.device_name ?? "—"}</Text>
+            ),
+        },
+        {
+            accessor: "outcome",
+            title: "Outcome",
+            filter: ({ close }) => (
+                <SegmentedControl
+                    data={[
+                        { label: "All", value: "all" },
+                        { label: "Allow", value: "allow" },
+                        { label: "Deny", value: "deny" },
+                    ]}
+                    value={deps.outcomeStr ?? "all"}
+                    onChange={(val) => {
+                        if (val === "all") {
+                            deps.setSearchParams((prev) => {
+                                prev.delete("outcome");
+                                return prev;
+                            });
+                        } else if (val === "allow") {
+                            deps.setSearchParams((prev) => {
+                                prev.set("outcome", val);
+                                prev.delete("deny_reason");
+                                return prev;
+                            });
+                        } else {
+                            deps.setParam("outcome", val);
+                        }
+                        close();
+                    }}
+                    m="xs"
+                />
+            ),
+            filtering: !!deps.outcomeStr,
+            render: (row) => (
+                <Badge color={row.outcome ? "green" : "red"} size="sm">
+                    {row.outcome ? "Allow" : "Deny"}
+                </Badge>
+            ),
+        },
+        {
+            accessor: "deny_reason",
+            title: "Reason",
+            filter: ({ close }) => (
+                <Select
+                    placeholder="Any reason"
+                    data={deps.denyReasonOptions}
+                    value={deps.denyReason}
+                    onChange={(val) => { deps.setParam("deny_reason", val); close(); }}
+                    clearable
+                    comboboxProps={{ withinPortal: false }}
+                    m="xs"
+                    w={200}
+                />
+            ),
+            filtering: !!deps.denyReason,
+            render: (row) =>
+                row.deny_reason ? (
+                    <Text size="sm">
+                        {DENY_REASON_LABELS[row.deny_reason] ?? row.deny_reason}
+                    </Text>
+                ) : (
+                    <Text size="sm" c="dimmed">
+                        —
+                    </Text>
+                ),
+        },
+        {
+            accessor: "actions",
+            title: "",
+            width: 40,
+            render: (row) => (
+                <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    size="sm"
+                    onClick={() => deps.onRowClick(row)}
+                    aria-label="View details"
+                >
+                    <IconChevronRight size={14} />
+                </ActionIcon>
+            ),
+        },
+    ];
+}

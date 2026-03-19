@@ -14,13 +14,14 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconTrash } from "@tabler/icons-react";
-import { formatDateTime } from "@/lib/dates";
+import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import type { Device } from "@/lib/api";
 import { useDevices } from "@/features/devices/hooks/useDevices";
 import { useDeleteDevice } from "@/features/devices/hooks/useDeleteDevice";
 import { toErrorMessage } from "@/lib/api-client";
 
 export function DeviceList() {
+  const formatDateTime = useDateFormatter();
   const { data: devices, isLoading, error } = useDevices();
   const deleteDevice = useDeleteDevice();
   const [deviceToDelete, setDeviceToDelete] = useState<Device | null>(null);

@@ -1,42 +1,44 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Stack, Title, Text } from "@mantine/core";
-import { RequestAuditLogFilters } from "@/features/request-audit-log/components/RequestAuditLogFilters";
+import { Stack, Title, Text, Group } from "@mantine/core";
+import { AutoRefreshSelect } from "@/components/AutoRefreshSelect";
+import { TimeRangePresetSelect } from "@/features/request-audit-log/components/TimeRangePresetSelect";
 import { RequestAuditLogTable } from "@/features/request-audit-log/components/RequestAuditLogTable";
-import type { GetRequestAuditLogData } from "@/lib/api";
+import { useAuditLogFilters } from "@/features/request-audit-log/hooks/useAuditLogFilters";
+
+const DEFAULT_REFRESH = 5_000;
 
 export function RequestAuditLogPage() {
-    const [searchParams] = useSearchParams();
-    const [refreshInterval, setRefreshInterval] = useState(0);
+    const filters = useAuditLogFilters();
 
-    const deviceIdStr = searchParams.get("device_id");
-    const outcomeStr = searchParams.get("outcome");
-    const ip = searchParams.get("ip") ?? undefined;
-    const denyReason = searchParams.get("deny_reason") ?? undefined;
-    const fromStr = searchParams.get("from");
-    const toStr = searchParams.get("to");
-
-    // The generated TypeScript type uses `Date` for datetime fields, but the
-    // Zod request validator (z.iso.datetime) requires ISO string values at
-    // runtime. Pass the raw URL strings directly and cast the type.
-    const params: GetRequestAuditLogData["query"] = {
-        device_id: deviceIdStr ? Number(deviceIdStr) : undefined,
-        outcome:
-            outcomeStr === "allow" ? true : outcomeStr === "deny" ? false : undefined,
-        ip: ip || undefined,
-        deny_reason: denyReason || undefined,
-        from: (fromStr || undefined) as Date | undefined,
-        to: (toStr || undefined) as Date | undefined,
-    };
+    // Bundle hasCustomTo into state so we can reset refreshInterval during
+    // render when it changes (same pattern as pagination reset in the table).
+    const [refresh, setRefresh] = useState({
+        hasCustomTo: filters.hasCustomTo,
+        interval: filters.hasCustomTo ? 0 : DEFAULT_REFRESH,
+    });
+    if (refresh.hasCustomTo !== filters.hasCustomTo) {
+        setRefresh({
+            hasCustomTo: filters.hasCustomTo,
+            interval: filters.hasCustomTo ? 0 : DEFAULT_REFRESH,
+        });
+    }
 
     return (
         <Stack maw={1200} gap="xl">
-            <div>
-                <Title order={1}>Access Log</Title>
-                <Text c="dimmed">Policy decision history for all incoming requests.</Text>
-            </div>
-            <RequestAuditLogFilters refreshInterval={refreshInterval} onRefreshIntervalChange={setRefreshInterval} />
-            <RequestAuditLogTable params={params} refreshInterval={refreshInterval} key={JSON.stringify(params)} />
+            <Group justify="space-between" align="flex-end">
+                <div>
+                    <Title order={1}>Access Log</Title>
+                    <Text c="dimmed">Policy decision history for all incoming requests.</Text>
+                </div>
+                <Group gap="md">
+                    <TimeRangePresetSelect value={filters.presetStr} onChange={filters.setPreset} />
+                    <AutoRefreshSelect
+                        value={refresh.interval}
+                        onChange={(interval) => setRefresh((prev) => ({ ...prev, interval }))}
+                    />
+                </Group>
+            </Group>
+            <RequestAuditLogTable filters={filters} refreshInterval={refresh.interval} />
         </Stack>
     );
 }

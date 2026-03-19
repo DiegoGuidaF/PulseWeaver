@@ -2,7 +2,6 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import { addAddressResponseTransformer, createDeviceResponseTransformer, createUserResponseTransformer, demoteUserResponseTransformer, deviceHeartbeatByApiKeyResponseTransformer, deviceHeartbeatResponseTransformer, disableAddressResponseTransformer, getCurrentUserResponseTransformer, getDeviceAddressesResponseTransformer, getDeviceAddressLeaseRuleResponseTransformer, getDeviceResponseTransformer, getDevicesResponseTransformer, getRequestAuditLogResponseTransformer, listUsersResponseTransformer, loginResponseTransformer, promoteUserResponseTransformer, putDeviceAddressLeaseRuleResponseTransformer, regenerateDeviceApiKeyResponseTransformer, updateMeResponseTransformer } from './transformers.gen';
 import type { AddAddressData, AddAddressErrors, AddAddressResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CreateDeviceData, CreateDeviceErrors, CreateDeviceResponses, CreateUserData, CreateUserErrors, CreateUserResponses, DeleteDeviceData, DeleteDeviceErrors, DeleteDeviceResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DemoteUserData, DemoteUserErrors, DemoteUserResponses, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyErrors, DeviceHeartbeatByApiKeyResponses, DeviceHeartbeatData, DeviceHeartbeatErrors, DeviceHeartbeatResponses, DisableAddressData, DisableAddressErrors, DisableAddressResponses, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleErrors, DisableDeviceAddressLeaseRuleResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetDeviceAddressesData, GetDeviceAddressesErrors, GetDeviceAddressesResponses, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleErrors, GetDeviceAddressLeaseRuleResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetDevicesData, GetDevicesErrors, GetDevicesResponses, GetRequestAuditLogData, GetRequestAuditLogDenyReasonsData, GetRequestAuditLogDenyReasonsErrors, GetRequestAuditLogDenyReasonsResponses, GetRequestAuditLogErrors, GetRequestAuditLogResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, PromoteUserData, PromoteUserErrors, PromoteUserResponses, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleErrors, PutDeviceAddressLeaseRuleResponses, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyErrors, RegenerateDeviceApiKeyResponses, UpdateMeData, UpdateMeErrors, UpdateMeResponses } from './types.gen';
 import { zAddAddressData, zAddAddressResponse, zChangePasswordData, zChangePasswordResponse, zCreateDeviceData, zCreateDeviceResponse2, zCreateUserData, zCreateUserResponse, zDeleteDeviceData, zDeleteDeviceResponse, zDeleteUserData, zDeleteUserResponse, zDemoteUserData, zDemoteUserResponse, zDeviceHeartbeatByApiKeyData, zDeviceHeartbeatByApiKeyResponse, zDeviceHeartbeatData, zDeviceHeartbeatResponse, zDisableAddressData, zDisableAddressResponse, zDisableDeviceAddressLeaseRuleData, zDisableDeviceAddressLeaseRuleResponse, zGetCurrentUserData, zGetCurrentUserResponse, zGetDeviceAddressesData, zGetDeviceAddressesResponse, zGetDeviceAddressLeaseRuleData, zGetDeviceAddressLeaseRuleResponse, zGetDeviceData, zGetDeviceResponse, zGetDevicesData, zGetDevicesResponse, zGetRequestAuditLogData, zGetRequestAuditLogDenyReasonsData, zGetRequestAuditLogDenyReasonsResponse, zGetRequestAuditLogResponse, zListUsersData, zListUsersResponse, zLoginData, zLoginResponse, zLogoutData, zLogoutResponse, zPromoteUserData, zPromoteUserResponse, zPutDeviceAddressLeaseRuleData, zPutDeviceAddressLeaseRuleResponse, zRegenerateDeviceApiKeyData, zRegenerateDeviceApiKeyResponse, zUpdateMeData, zUpdateMeResponse } from './zod.gen';
 
@@ -27,7 +26,6 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
  */
 export const listUsers = <ThrowOnError extends boolean = false>(options?: Options<ListUsersData, ThrowOnError>) => (options?.client ?? client).get<ListUsersResponses, ListUsersErrors, ThrowOnError>({
     requestValidator: async (data) => await zListUsersData.parseAsync(data),
-    responseTransformer: listUsersResponseTransformer,
     responseValidator: async (data) => await zListUsersResponse.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -45,7 +43,6 @@ export const listUsers = <ThrowOnError extends boolean = false>(options?: Option
  */
 export const createUser = <ThrowOnError extends boolean = false>(options: Options<CreateUserData, ThrowOnError>) => (options.client ?? client).post<CreateUserResponses, CreateUserErrors, ThrowOnError>({
     requestValidator: async (data) => await zCreateUserData.parseAsync(data),
-    responseTransformer: createUserResponseTransformer,
     responseValidator: async (data) => await zCreateUserResponse.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -84,7 +81,6 @@ export const deleteUser = <ThrowOnError extends boolean = false>(options: Option
  */
 export const promoteUser = <ThrowOnError extends boolean = false>(options: Options<PromoteUserData, ThrowOnError>) => (options.client ?? client).post<PromoteUserResponses, PromoteUserErrors, ThrowOnError>({
     requestValidator: async (data) => await zPromoteUserData.parseAsync(data),
-    responseTransformer: promoteUserResponseTransformer,
     responseValidator: async (data) => await zPromoteUserResponse.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -102,7 +98,6 @@ export const promoteUser = <ThrowOnError extends boolean = false>(options: Optio
  */
 export const demoteUser = <ThrowOnError extends boolean = false>(options: Options<DemoteUserData, ThrowOnError>) => (options.client ?? client).post<DemoteUserResponses, DemoteUserErrors, ThrowOnError>({
     requestValidator: async (data) => await zDemoteUserData.parseAsync(data),
-    responseTransformer: demoteUserResponseTransformer,
     responseValidator: async (data) => await zDemoteUserResponse.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -120,7 +115,6 @@ export const demoteUser = <ThrowOnError extends boolean = false>(options: Option
  */
 export const login = <ThrowOnError extends boolean = false>(options: Options<LoginData, ThrowOnError>) => (options.client ?? client).post<LoginResponses, LoginErrors, ThrowOnError>({
     requestValidator: async (data) => await zLoginData.parseAsync(data),
-    responseTransformer: loginResponseTransformer,
     responseValidator: async (data) => await zLoginResponse.parseAsync(data),
     url: '/auth/login',
     ...options,
@@ -154,7 +148,6 @@ export const logout = <ThrowOnError extends boolean = false>(options?: Options<L
  */
 export const getCurrentUser = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentUserData, ThrowOnError>) => (options?.client ?? client).get<GetCurrentUserResponses, GetCurrentUserErrors, ThrowOnError>({
     requestValidator: async (data) => await zGetCurrentUserData.parseAsync(data),
-    responseTransformer: getCurrentUserResponseTransformer,
     responseValidator: async (data) => await zGetCurrentUserResponse.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -172,7 +165,6 @@ export const getCurrentUser = <ThrowOnError extends boolean = false>(options?: O
  */
 export const updateMe = <ThrowOnError extends boolean = false>(options: Options<UpdateMeData, ThrowOnError>) => (options.client ?? client).patch<UpdateMeResponses, UpdateMeErrors, ThrowOnError>({
     requestValidator: async (data) => await zUpdateMeData.parseAsync(data),
-    responseTransformer: updateMeResponseTransformer,
     responseValidator: async (data) => await zUpdateMeResponse.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -215,7 +207,6 @@ export const changePassword = <ThrowOnError extends boolean = false>(options: Op
  */
 export const getDevices = <ThrowOnError extends boolean = false>(options?: Options<GetDevicesData, ThrowOnError>) => (options?.client ?? client).get<GetDevicesResponses, GetDevicesErrors, ThrowOnError>({
     requestValidator: async (data) => await zGetDevicesData.parseAsync(data),
-    responseTransformer: getDevicesResponseTransformer,
     responseValidator: async (data) => await zGetDevicesResponse.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -233,7 +224,6 @@ export const getDevices = <ThrowOnError extends boolean = false>(options?: Optio
  */
 export const createDevice = <ThrowOnError extends boolean = false>(options: Options<CreateDeviceData, ThrowOnError>) => (options.client ?? client).post<CreateDeviceResponses, CreateDeviceErrors, ThrowOnError>({
     requestValidator: async (data) => await zCreateDeviceData.parseAsync(data),
-    responseTransformer: createDeviceResponseTransformer,
     responseValidator: async (data) => await zCreateDeviceResponse2.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -272,7 +262,6 @@ export const deleteDevice = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const getDevice = <ThrowOnError extends boolean = false>(options: Options<GetDeviceData, ThrowOnError>) => (options.client ?? client).get<GetDeviceResponses, GetDeviceErrors, ThrowOnError>({
     requestValidator: async (data) => await zGetDeviceData.parseAsync(data),
-    responseTransformer: getDeviceResponseTransformer,
     responseValidator: async (data) => await zGetDeviceResponse.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -291,7 +280,6 @@ export const getDevice = <ThrowOnError extends boolean = false>(options: Options
  */
 export const regenerateDeviceApiKey = <ThrowOnError extends boolean = false>(options: Options<RegenerateDeviceApiKeyData, ThrowOnError>) => (options.client ?? client).post<RegenerateDeviceApiKeyResponses, RegenerateDeviceApiKeyErrors, ThrowOnError>({
     requestValidator: async (data) => await zRegenerateDeviceApiKeyData.parseAsync(data),
-    responseTransformer: regenerateDeviceApiKeyResponseTransformer,
     responseValidator: async (data) => await zRegenerateDeviceApiKeyResponse.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -309,7 +297,6 @@ export const regenerateDeviceApiKey = <ThrowOnError extends boolean = false>(opt
  */
 export const getDeviceAddresses = <ThrowOnError extends boolean = false>(options: Options<GetDeviceAddressesData, ThrowOnError>) => (options.client ?? client).get<GetDeviceAddressesResponses, GetDeviceAddressesErrors, ThrowOnError>({
     requestValidator: async (data) => await zGetDeviceAddressesData.parseAsync(data),
-    responseTransformer: getDeviceAddressesResponseTransformer,
     responseValidator: async (data) => await zGetDeviceAddressesResponse.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -327,7 +314,6 @@ export const getDeviceAddresses = <ThrowOnError extends boolean = false>(options
  */
 export const addAddress = <ThrowOnError extends boolean = false>(options: Options<AddAddressData, ThrowOnError>) => (options.client ?? client).post<AddAddressResponses, AddAddressErrors, ThrowOnError>({
     requestValidator: async (data) => await zAddAddressData.parseAsync(data),
-    responseTransformer: addAddressResponseTransformer,
     responseValidator: async (data) => await zAddAddressResponse.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -349,7 +335,6 @@ export const addAddress = <ThrowOnError extends boolean = false>(options: Option
  */
 export const deviceHeartbeat = <ThrowOnError extends boolean = false>(options: Options<DeviceHeartbeatData, ThrowOnError>) => (options.client ?? client).post<DeviceHeartbeatResponses, DeviceHeartbeatErrors, ThrowOnError>({
     requestValidator: async (data) => await zDeviceHeartbeatData.parseAsync(data),
-    responseTransformer: deviceHeartbeatResponseTransformer,
     responseValidator: async (data) => await zDeviceHeartbeatResponse.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -367,7 +352,6 @@ export const deviceHeartbeat = <ThrowOnError extends boolean = false>(options: O
  */
 export const deviceHeartbeatByApiKey = <ThrowOnError extends boolean = false>(options?: Options<DeviceHeartbeatByApiKeyData, ThrowOnError>) => (options?.client ?? client).post<DeviceHeartbeatByApiKeyResponses, DeviceHeartbeatByApiKeyErrors, ThrowOnError>({
     requestValidator: async (data) => await zDeviceHeartbeatByApiKeyData.parseAsync(data),
-    responseTransformer: deviceHeartbeatByApiKeyResponseTransformer,
     responseValidator: async (data) => await zDeviceHeartbeatByApiKeyResponse.parseAsync(data),
     security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/heartbeat',
@@ -386,7 +370,6 @@ export const deviceHeartbeatByApiKey = <ThrowOnError extends boolean = false>(op
  */
 export const getRequestAuditLog = <ThrowOnError extends boolean = false>(options?: Options<GetRequestAuditLogData, ThrowOnError>) => (options?.client ?? client).get<GetRequestAuditLogResponses, GetRequestAuditLogErrors, ThrowOnError>({
     requestValidator: async (data) => await zGetRequestAuditLogData.parseAsync(data),
-    responseTransformer: getRequestAuditLogResponseTransformer,
     responseValidator: async (data) => await zGetRequestAuditLogResponse.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -422,7 +405,6 @@ export const getRequestAuditLogDenyReasons = <ThrowOnError extends boolean = fal
  */
 export const disableAddress = <ThrowOnError extends boolean = false>(options: Options<DisableAddressData, ThrowOnError>) => (options.client ?? client).delete<DisableAddressResponses, DisableAddressErrors, ThrowOnError>({
     requestValidator: async (data) => await zDisableAddressData.parseAsync(data),
-    responseTransformer: disableAddressResponseTransformer,
     responseValidator: async (data) => await zDisableAddressResponse.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -457,7 +439,6 @@ export const disableDeviceAddressLeaseRule = <ThrowOnError extends boolean = fal
  */
 export const getDeviceAddressLeaseRule = <ThrowOnError extends boolean = false>(options: Options<GetDeviceAddressLeaseRuleData, ThrowOnError>) => (options.client ?? client).get<GetDeviceAddressLeaseRuleResponses, GetDeviceAddressLeaseRuleErrors, ThrowOnError>({
     requestValidator: async (data) => await zGetDeviceAddressLeaseRuleData.parseAsync(data),
-    responseTransformer: getDeviceAddressLeaseRuleResponseTransformer,
     responseValidator: async (data) => await zGetDeviceAddressLeaseRuleResponse.parseAsync(data),
     security: [{
             in: 'cookie',
@@ -475,7 +456,6 @@ export const getDeviceAddressLeaseRule = <ThrowOnError extends boolean = false>(
  */
 export const putDeviceAddressLeaseRule = <ThrowOnError extends boolean = false>(options: Options<PutDeviceAddressLeaseRuleData, ThrowOnError>) => (options.client ?? client).put<PutDeviceAddressLeaseRuleResponses, PutDeviceAddressLeaseRuleErrors, ThrowOnError>({
     requestValidator: async (data) => await zPutDeviceAddressLeaseRuleData.parseAsync(data),
-    responseTransformer: putDeviceAddressLeaseRuleResponseTransformer,
     responseValidator: async (data) => await zPutDeviceAddressLeaseRuleResponse.parseAsync(data),
     security: [{
             in: 'cookie',

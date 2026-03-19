@@ -12,7 +12,7 @@ export default defineConfig({
     plugins: [
         '@hey-api/schemas',
         {
-            dates: true,
+            dates: false,
             bigInt: false,
             name: '@hey-api/transformers',
         },

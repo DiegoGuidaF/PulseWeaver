@@ -88,6 +88,7 @@ export function createMockRequestAuditLogRow(
     target_host: 'example.com',
     target_uri: '/api/data',
     http_method: 'GET',
+    headers: {},
     ...overrides,
   };
 }

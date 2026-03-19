@@ -1,7 +1,7 @@
 import { Drawer, Stack, Text, Group, Badge, Code, Title, Divider } from "@mantine/core";
 import type { RequestAuditLogRow } from "@/lib/api";
 import { DENY_REASON_LABELS } from "../constants";
-import { formatDateTime } from "@/lib/dates";
+import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 
 interface RequestAuditLogDetailDrawerProps {
     row: RequestAuditLogRow | null;
@@ -14,6 +14,7 @@ export function RequestAuditLogDetailDrawer({
     opened,
     onClose,
 }: RequestAuditLogDetailDrawerProps) {
+    const formatDateTime = useDateFormatter();
     return (
         <Drawer
             opened={opened}
@@ -64,7 +65,6 @@ export function RequestAuditLogDetailDrawer({
                                 No device matched
                             </Text>
                         )}
-                        <LabelValue label="ASN / Org" value="— (Phase 1c)" />
                     </Stack>
 
                     {row.headers && Object.keys(row.headers).length > 0 && (

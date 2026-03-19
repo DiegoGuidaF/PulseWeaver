@@ -1,53 +1,93 @@
 import { useState } from "react";
-import { Stack, Text, Badge, Button, Alert, Skeleton, Group, ActionIcon } from "@mantine/core";
+import { Alert, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
 import { DataTable } from "mantine-datatable";
-import { IconAlertCircle, IconChevronRight } from "@tabler/icons-react";
+import { IconAlertCircle, IconFilterOff } from "@tabler/icons-react";
 import type { RequestAuditLogRow } from "@/lib/api";
-import type { GetRequestAuditLogData } from "@/lib/api";
 import { useRequestAuditLog } from "../hooks/useRequestAuditLog";
+import type { AuditLogFilters } from "../hooks/useAuditLogFilters";
 import { RequestAuditLogDetailDrawer } from "./RequestAuditLogDetailDrawer";
+import { getAuditLogColumns } from "./auditLogColumns";
 import { DENY_REASON_LABELS } from "../constants";
-import { formatDateTime } from "@/lib/dates";
 import { toErrorMessage } from "@/lib/api-client";
+import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
+import { useDevices } from "@/features/devices/hooks/useDevices";
+import { useRequestAuditLogDenyReasons } from "../hooks/useRequestAuditLogDenyReasons";
 
 interface RequestAuditLogTableProps {
-    params: GetRequestAuditLogData["query"];
+    filters: AuditLogFilters;
     refreshInterval: number;
 }
 
-export function RequestAuditLogTable({ params, refreshInterval }: RequestAuditLogTableProps) {
-    const [beforeId, setBeforeId] = useState<number | undefined>(undefined);
-    const [allRows, setAllRows] = useState<RequestAuditLogRow[]>([]);
+export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditLogTableProps) {
+    const formatDateTime = useDateFormatter();
+    const pickerValueFormat = usePickerValueFormat();
+
+    const [pagination, setPagination] = useState({
+        filterKey: filters.filterKey,
+        beforeId: undefined as number | undefined,
+        allRows: [] as RequestAuditLogRow[],
+    });
+    // Reset pagination when filters change — React's "adjusting state when a
+    // prop changes" pattern: setState during render triggers a synchronous
+    // re-render before committing, no effect or ref needed.
+    if (pagination.filterKey !== filters.filterKey) {
+        setPagination({ filterKey: filters.filterKey, beforeId: undefined, allRows: [] });
+    }
+    const { beforeId, allRows } = pagination;
+
     const [selectedRow, setSelectedRow] = useState<RequestAuditLogRow | null>(null);
     const [drawerOpened, setDrawerOpened] = useState(false);
 
+    const { data: devices } = useDevices();
+    const { data: denyReasons } = useRequestAuditLogDenyReasons();
+
     const { data, isPending, error } = useRequestAuditLog(
-        { ...params, before_id: beforeId },
+        { ...filters.queryParams, before_id: beforeId },
         refreshInterval === 0 ? false : refreshInterval,
     );
 
-    // Reset accumulated rows when filters change (beforeId is undefined and data changes)
-    const currentRows: RequestAuditLogRow[] = (() => {
-        if (!data) return allRows;
-        if (beforeId === undefined) {
-            // Fresh query — use data directly
-            return data.rows;
-        }
-        return allRows;
-    })();
+    const rows = beforeId !== undefined
+        ? allRows.concat(data?.rows ?? [])
+        : (data?.rows ?? []);
 
     function handleLoadMore() {
         if (!data?.next_cursor) return;
-        setAllRows(displayRows);
-        setBeforeId(data.next_cursor);
+        setPagination((prev) => ({
+            ...prev,
+            allRows: rows,
+            beforeId: data.next_cursor ?? undefined,
+        }));
     }
 
-    function handleRowClick(row: RequestAuditLogRow) {
-        setSelectedRow(row);
-        setDrawerOpened(true);
-    }
+    const deviceOptions = (devices ?? []).map((d) => ({ value: String(d.id), label: d.name }));
+    const denyReasonOptions = (denyReasons ?? []).map((r) => ({
+        value: r,
+        label: DENY_REASON_LABELS[r] ?? r,
+    }));
 
-    if ((isPending || !data) && currentRows.length === 0) {
+    const columns = getAuditLogColumns({
+        formatDateTime,
+        pickerValueFormat,
+        presetStr: filters.presetStr,
+        fromStr: filters.fromStr,
+        toStr: filters.toStr,
+        ipLocal: filters.ipLocal,
+        ipDebounced: filters.ipDebounced,
+        deviceIdStr: filters.deviceIdStr,
+        outcomeStr: filters.outcomeStr,
+        denyReason: filters.denyReason,
+        deviceOptions,
+        denyReasonOptions,
+        setParam: filters.setParam,
+        setIpLocal: filters.setIpLocal,
+        setSearchParams: filters.setSearchParams,
+        onRowClick: (row) => {
+            setSelectedRow(row);
+            setDrawerOpened(true);
+        },
+    });
+
+    if ((isPending || !data) && !error && rows.length === 0) {
         return (
             <Stack gap="xs">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -65,100 +105,35 @@ export function RequestAuditLogTable({ params, refreshInterval }: RequestAuditLo
         );
     }
 
-    const displayRows = beforeId !== undefined ? allRows.concat(data?.rows ?? []) : (data?.rows ?? []);
     const total = data?.total ?? 0;
     const hasMore = Boolean(data?.next_cursor);
 
     return (
         <>
             <Stack gap="sm">
-                <Text size="sm" c="dimmed">
-                    {total} result{total !== 1 ? "s" : ""}
-                </Text>
-
-                {displayRows.length === 0 ? (
-                    <Text c="dimmed" ta="center" py="xl">
-                        No matching log entries.
+                <Group justify="space-between">
+                    <Text size="sm" c="dimmed">
+                        {total} result{total !== 1 ? "s" : ""}
                     </Text>
-                ) : (
-                    <DataTable
-                        records={displayRows}
-                        highlightOnHover
-                        columns={[
-                            {
-                                accessor: "created_at",
-                                title: "Time",
-                                render: (row) => (
-                                    <Text size="sm" ff="monospace">
-                                        {formatDateTime(row.created_at)}
-                                    </Text>
-                                ),
-                            },
-                            {
-                                accessor: "client_ip",
-                                title: "IP",
-                                render: (row) => (
-                                    <Text size="sm" ff="monospace">
-                                        {row.client_ip}
-                                    </Text>
-                                ),
-                            },
-                            {
-                                accessor: "target_host",
-                                title: "Host",
-                                render: (row) => (
-                                    <Text size="sm">{row.target_host ?? "—"}</Text>
-                                ),
-                            },
-                            {
-                                accessor: "device_name",
-                                title: "Device",
-                                render: (row) => (
-                                    <Text size="sm">{row.device_name ?? "—"}</Text>
-                                ),
-                            },
-                            {
-                                accessor: "outcome",
-                                title: "Outcome",
-                                render: (row) => (
-                                    <Badge color={row.outcome ? "green" : "red"} size="sm">
-                                        {row.outcome ? "Allow" : "Deny"}
-                                    </Badge>
-                                ),
-                            },
-                            {
-                                accessor: "deny_reason",
-                                title: "Reason",
-                                render: (row) =>
-                                    row.deny_reason ? (
-                                        <Text size="sm">
-                                            {DENY_REASON_LABELS[row.deny_reason] ?? row.deny_reason}
-                                        </Text>
-                                    ) : (
-                                        <Text size="sm" c="dimmed">
-                                            —
-                                        </Text>
-                                    ),
-                            },
-                            {
-                                accessor: "actions",
-                                title: "",
-                                width: 40,
-                                render: (row) => (
-                                    <ActionIcon
-                                        variant="subtle"
-                                        color="gray"
-                                        size="sm"
-                                        onClick={() => handleRowClick(row)}
-                                        aria-label="View details"
-                                    >
-                                        <IconChevronRight size={14} />
-                                    </ActionIcon>
-                                ),
-                            },
-                        ]}
-                    />
-                )}
+                    {filters.hasActiveFilters && (
+                        <Button
+                            variant="subtle"
+                            size="compact-xs"
+                            leftSection={<IconFilterOff size={14} />}
+                            onClick={filters.clearAll}
+                        >
+                            Clear filters
+                        </Button>
+                    )}
+                </Group>
+
+                <DataTable
+                    records={rows}
+                    highlightOnHover
+                    minHeight={150}
+                    noRecordsText="No matching log entries."
+                    columns={columns}
+                />
 
                 {hasMore && (
                     <Group justify="center">

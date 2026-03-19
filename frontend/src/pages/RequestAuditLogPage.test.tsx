@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http } from "msw";
 import { server } from "@/test/setup";
@@ -12,7 +12,7 @@ import {
 import { endpoints, requestAuditLogHandlers, responses } from "@/test/mocks/handlers";
 import { TEST_TIMEOUTS } from "@/test/constants";
 
-// Pre-set date range so RequestAuditLogFilters' useEffect does not trigger
+// Pre-set date range so the table's useEffect does not trigger
 // a second query (avoiding the double-render that causes test flakiness).
 const BASE_ENTRY =
     "/request-audit-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z";
@@ -42,7 +42,7 @@ describe("RequestAuditLogPage", () => {
         );
 
         expect(screen.getByText("example.com")).toBeInTheDocument();
-        // "Allow" appears in both the outcome filter and the table badge
+        // "Allow" appears as the outcome badge in the table row
         expect(screen.getAllByText("Allow").length).toBeGreaterThan(0);
         expect(screen.getByText("1 result")).toBeInTheDocument();
     });
@@ -130,7 +130,7 @@ describe("RequestAuditLogPage", () => {
             { timeout: TEST_TIMEOUTS.SHORT },
         );
 
-        await user.click(screen.getByText("10.0.0.1"));
+        await user.click(screen.getByRole("button", { name: "View details" }));
 
         await waitFor(
             () => {
@@ -144,28 +144,37 @@ describe("RequestAuditLogPage", () => {
         expect(screen.getAllByText("secure.example.com").length).toBeGreaterThan(0);
     });
 
-    it("outcome filter updates URL search params", async () => {
+    it("outcome column filter opens and shows options", async () => {
         const user = userEvent.setup();
 
         renderWithProviders(<RequestAuditLogPage />, {
             initialEntries: [BASE_ENTRY],
         });
 
+        // Wait for the table to render (column headers should be present)
         await waitFor(
             () => {
-                expect(
-                    screen.getByRole("radio", { name: "Deny" }) ??
-                        screen.getByText("Deny"),
-                ).toBeInTheDocument();
+                expect(screen.getByRole("columnheader", { name: /outcome/i })).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT },
         );
 
-        // SegmentedControl renders buttons/labels — click "Deny"
+        // Open the column filter popover
+        const outcomeHeader = screen.getByRole("columnheader", { name: /outcome/i });
+        const filterButton = within(outcomeHeader).getByRole("button");
+        await user.click(filterButton);
+
+        // The SegmentedControl with "Deny" should now be visible
+        await waitFor(
+            () => {
+                expect(screen.getByText("Deny")).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+
         await user.click(screen.getByText("Deny"));
 
-        // The component should re-render; just verify it doesn't crash and
-        // the "Deny" option is active
+        // Verify the component doesn't crash and "Deny" remains visible
         expect(screen.getByText("Deny")).toBeInTheDocument();
     });
 });

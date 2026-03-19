@@ -9,6 +9,8 @@ import {
 } from 'react-router-dom';
 import { MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
+import { DatesProvider } from '@mantine/dates';
+import { DateTimePrefsProvider } from '@/contexts/DateTimePrefsContext';
 
 /**
  * Creates a test-friendly QueryClient with retry disabled for faster test failures.
@@ -34,7 +36,8 @@ interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper'> {
 
 /**
  * Renders a component with all necessary providers.
- * Wraps with MantineProvider, Notifications, QueryClientProvider, and MemoryRouter.
+ * Wraps with MantineProvider, Notifications, DateTimePrefsProvider, DatesProvider,
+ * QueryClientProvider, and MemoryRouter.
  *
  * @param ui - The component to render
  * @param options - Optional configuration
@@ -65,11 +68,15 @@ export function renderWithProviders(
         return (
             <MantineProvider>
                 <Notifications />
-                <QueryClientProvider client={queryClient}>
-                    <MemoryRouter initialEntries={initialEntries}>
-                        {children}
-                    </MemoryRouter>
-                </QueryClientProvider>
+                <DateTimePrefsProvider>
+                    <DatesProvider settings={{ locale: 'en' }}>
+                        <QueryClientProvider client={queryClient}>
+                            <MemoryRouter initialEntries={initialEntries}>
+                                {children}
+                            </MemoryRouter>
+                        </QueryClientProvider>
+                    </DatesProvider>
+                </DateTimePrefsProvider>
             </MantineProvider>
         );
     }

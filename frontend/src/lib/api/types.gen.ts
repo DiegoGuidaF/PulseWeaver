@@ -64,11 +64,11 @@ export type User = {
      * When true, the user must change their password before using the app.
      */
     readonly must_change_password: boolean;
-    created_at: Date;
+    created_at: string;
 };
 
 export type Device = {
-    created_at: Date;
+    created_at: string;
     id: Id;
     /**
      * User-friendly name for the device
@@ -92,16 +92,16 @@ export type Address = {
      * The latest state of this address, enabled or disabled
      */
     is_enabled: boolean;
-    created_at: Date;
+    created_at: string;
     /**
      * Last time it was enabled or disabled
      */
-    updated_at: Date;
+    updated_at: string;
     /**
      * UTC timestamp when this address will auto-expire, if an auto-expiry rule is enabled for the device. Null if no expiry is scheduled.
      *
      */
-    readonly expires_at?: Date | null;
+    readonly expires_at?: string | null;
 };
 
 export type RequestAuditLogResponse = {
@@ -121,7 +121,7 @@ export type RequestAuditLogRow = {
     device_id?: Id;
     device_name?: string;
     address_id?: Id;
-    created_at: Date;
+    created_at: string;
     xff_chain?: string;
     target_host?: string;
     target_uri?: string;
@@ -142,8 +142,8 @@ export type DeviceAddressLeaseRule = {
      * Seconds after which an enabled device address lease expires
      */
     ttl_seconds: number;
-    created_at: Date;
-    updated_at: Date;
+    created_at: string;
+    updated_at: string;
 };
 
 export type PutDeviceAddressLeaseRuleRequest = {
@@ -195,11 +195,11 @@ export type UserWritable = {
     username: Username;
     display_name: DisplayName;
     email: string;
-    created_at: Date;
+    created_at: string;
 };
 
 export type DeviceWritable = {
-    created_at: Date;
+    created_at: string;
     id: Id;
     /**
      * User-friendly name for the device
@@ -219,11 +219,11 @@ export type AddressWritable = {
      * The latest state of this address, enabled or disabled
      */
     is_enabled: boolean;
-    created_at: Date;
+    created_at: string;
     /**
      * Last time it was enabled or disabled
      */
-    updated_at: Date;
+    updated_at: string;
 };
 
 export type ListUsersData = {
@@ -907,11 +907,11 @@ export type GetRequestAuditLogData = {
         /**
          * RFC3339 start of time window (default 24h ago)
          */
-        from?: Date;
+        from?: string;
         /**
          * RFC3339 end of time window (default now)
          */
-        to?: Date;
+        to?: string;
         /**
          * Page size (default 50, max 200)
          */
