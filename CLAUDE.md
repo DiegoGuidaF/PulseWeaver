@@ -8,7 +8,7 @@ PulseWeaver is a self-hosted device IP address management service. It maintains 
 
 ## Database Migrations
 
-The app has not been released yet. **Do not create new migration files** for schema changes — instead, modify `internal/database/migrations/000001_init.up.sql` directly. Once the app ships a public release, this policy changes and proper versioned migrations must be used for every schema change.
+The app is deployed. **Always create a new numbered migration file** for every schema change — never modify existing migration files. Use `make migrate-create` to generate the next pair, then write the `up` and `down` SQL.
 
 ## Commands
 

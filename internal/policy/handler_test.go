@@ -171,6 +171,7 @@ func TestHandler_EnrichmentHeaders_PassedToVerifyAccess(t *testing.T) {
 	is.Equal(*e.TargetURI, "/protected")
 	is.True(len(e.Headers["User-Agent"]) > 0)
 	is.Equal(e.Headers["User-Agent"][0], "TestAgent/1.0")
+	is.Equal(len(e.Headers["Authorization"]), 0)
 }
 
 // newTestHandler creates an HTTPHandler pre-populated with the given IPs in its cache.

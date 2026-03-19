@@ -1,6 +1,9 @@
 package policy
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
 type VerifyRequest struct {
 	Token      string
@@ -24,10 +27,16 @@ func NewVerifyRequest(token string, clientIP string, r *http.Request) VerifyRequ
 	}
 }
 
+var sensitiveHeaders = map[string]bool{
+	"authorization":       true,
+	"cookie":              true,
+	"proxy-authorization": true,
+}
+
 func enrichmentHeaders(r *http.Request) map[string][]string {
-	headers := make(map[string][]string)
-	for _, key := range []string{"User-Agent", "Referer", "Accept-Language", "X-Real-IP", "CF-Connecting-IP", "X-Forwarded-Proto"} {
-		if vals := r.Header.Values(key); len(vals) > 0 {
+	headers := make(map[string][]string, len(r.Header))
+	for key, vals := range r.Header {
+		if !sensitiveHeaders[strings.ToLower(key)] {
 			headers[key] = vals
 		}
 	}
