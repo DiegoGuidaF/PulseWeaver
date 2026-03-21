@@ -15,6 +15,13 @@ import type { SetURLSearchParams } from "react-router-dom";
 import { DENY_REASON_LABELS } from "../constants";
 import dayjs from "dayjs";
 
+/** Style for marking the "other" endpoint date on each picker's calendar. */
+const refDateStyle = {
+    outline: "1.5px dashed var(--mantine-color-dimmed)",
+    outlineOffset: -1.5,
+    borderRadius: "var(--mantine-radius-sm)",
+} as const;
+
 export interface AuditLogColumnDeps {
     formatDateTime: (value: string) => string;
     pickerValueFormat: string;
@@ -53,6 +60,10 @@ export function getAuditLogColumns(deps: AuditLogColumnDeps): DataTableColumn<Re
                         label="From"
                         placeholder="24 hours ago"
                         value={deps.fromStr ?? null}
+                        maxDate={deps.toStr ?? undefined}
+                        getDayProps={(date) =>
+                            deps.toStr?.startsWith(date) ? { style: refDateStyle } : {}
+                        }
                         onChange={(val) => {
                             deps.setSearchParams((prev) => {
                                 prev.delete("preset");
@@ -62,6 +73,7 @@ export function getAuditLogColumns(deps: AuditLogColumnDeps): DataTableColumn<Re
                             });
                         }}
                         valueFormat={deps.pickerValueFormat}
+                        highlightToday
                         timePickerProps={{
                             withDropdown: true,
                             popoverProps: { withinPortal: false },
@@ -74,6 +86,10 @@ export function getAuditLogColumns(deps: AuditLogColumnDeps): DataTableColumn<Re
                         label="To"
                         placeholder="Now (live)"
                         value={deps.toStr ?? null}
+                        minDate={deps.fromStr ?? undefined}
+                        getDayProps={(date) =>
+                            deps.fromStr?.startsWith(date) ? { style: refDateStyle } : {}
+                        }
                         onChange={(val) => {
                             deps.setSearchParams((prev) => {
                                 prev.delete("preset");
@@ -83,6 +99,7 @@ export function getAuditLogColumns(deps: AuditLogColumnDeps): DataTableColumn<Re
                             });
                         }}
                         valueFormat={deps.pickerValueFormat}
+                        highlightToday
                         timePickerProps={{
                             withDropdown: true,
                             popoverProps: { withinPortal: false },

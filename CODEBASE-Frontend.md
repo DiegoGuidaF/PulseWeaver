@@ -85,6 +85,12 @@ src/
 - Address form uses generated `zAddAddressRequest` Zod schema directly
 - Lease rule form uses a local Zod schema (TTL value + unit)
 
+### Date handling
+- All date manipulation uses **dayjs** — never use `new Date()` or `Date` constructors directly.
+- Mantine v8 `@mantine/dates` components (`DateTimePicker`, `DatePickerInput`, etc.) use **string-based dates** (`DateStringValue`, which is just `string`). Props like `value`, `minDate`, `maxDate`, and `onChange` all work with ISO strings, not `Date` objects.
+- Display formatting uses `dayjs().format()` via the shared `dateTimeFormat()` helper in `src/lib/dates.ts`.
+- The `DateTimePicker` `valueFormat` prop accepts a dayjs format string (e.g. `"MMM DD, YYYY hh:mm A"`).
+
 ### Auth flow
 - `useCurrentUser` → `AuthContext (AuthProvider)` → `useAuth()` hook consumed by `ProtectedRoute` and `AppShell`
 - `LoginForm` owns login form validation/submission and is rendered by `LoginPage`
