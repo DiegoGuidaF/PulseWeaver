@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { Center, Stack, Title, Text, Paper, Loader } from "@mantine/core";
-import { useAuth } from "@/features/auth/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { LoginForm } from "@/features/auth/components/LoginForm";
 
 export function LoginPage() {

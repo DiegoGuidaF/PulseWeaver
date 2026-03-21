@@ -7,14 +7,14 @@ import {
   SETTINGS_EVENT,
   type AutoHeartbeatSettings,
 } from '@/lib/autoHeartbeat';
-import { useAuth } from '@/features/auth/AuthContext';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 
 export function useAutoHeartbeat() {
   const { isAuthenticated } = useAuth();
   const [settings, setSettings] = useState<AutoHeartbeatSettings | null>(
     getAutoHeartbeatSettings,
   );
-  const [clientIp, setClientIp] = useState<string | null>(null);
+  const [lastIp, setLastIp] = useState<string | null>(null);
 
   // Sync settings from localStorage (same-tab via SETTINGS_EVENT, cross-tab via native storage)
   useEffect(() => {
@@ -30,33 +30,37 @@ export function useAutoHeartbeat() {
   const { mutate } = useMutation({
     ...deviceHeartbeatMutation(),
     onSuccess: (address) => {
-      setClientIp(address.ip);
+      setLastIp(address.ip);
       storeClientIp(address.ip);
     },
     // silent — no toast
   });
 
+  const active = isAuthenticated && settings;
+  const deviceId = settings?.deviceId;
+  const intervalSeconds = settings?.intervalSeconds;
+
   // Main interval
   useEffect(() => {
-    if (!isAuthenticated || !settings) {
-      setClientIp(null);
-      return;
-    }
-    const fire = () => mutate({ path: { device_id: settings.deviceId } });
+    if (!active || !deviceId || !intervalSeconds) return;
+    const fire = () => mutate({ path: { device_id: deviceId } });
     fire();
-    const id = setInterval(fire, settings.intervalSeconds * 1_000);
+    const id = setInterval(fire, intervalSeconds * 1_000);
     return () => clearInterval(id);
-  }, [isAuthenticated, mutate, settings?.deviceId, settings?.intervalSeconds]);
+  }, [active, mutate, deviceId, intervalSeconds]);
 
   // Re-fire on tab focus
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState === 'visible' && isAuthenticated && settings)
-        mutate({ path: { device_id: settings.deviceId } });
+      if (document.visibilityState === 'visible' && active && deviceId)
+        mutate({ path: { device_id: deviceId } });
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [isAuthenticated, mutate, settings?.deviceId]);
+  }, [active, mutate, deviceId]);
 
-  return { clientIp, activeDeviceId: settings?.deviceId ?? null };
+  // Only expose IP when heartbeat is active; stale IP is hidden, not leaked
+  const clientIp = active ? lastIp : null;
+
+  return { clientIp, activeDeviceId: deviceId ?? null };
 }

@@ -18,7 +18,7 @@ import {
 import { useDateTimePrefs } from "@/contexts/useDateTimePrefs";
 import type { DateOrder, TimeFormat } from "@/lib/userPreferences";
 import { notifications } from "@mantine/notifications";
-import { useAuth } from "@/features/auth/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { toApiError, toErrorMessage } from "@/lib/api-client";
 import { useDemoteUser } from "@/features/auth/hooks/useDemoteUser";
 import { usePromoteUser } from "@/features/auth/hooks/usePromoteUser";

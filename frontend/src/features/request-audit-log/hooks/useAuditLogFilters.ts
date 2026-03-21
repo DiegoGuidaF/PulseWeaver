@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useSearchParams, type SetURLSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useDebouncedCallback } from "@mantine/hooks";
 import dayjs from "dayjs";
 import type { GetRequestAuditLogData } from "@/lib/api";
@@ -39,24 +39,25 @@ export interface AuditLogFilters {
     setPreset: (key: string | null) => void;
     setParam: (key: string, value: string | null) => void;
     setIpLocal: (value: string) => void;
-    setSearchParams: SetURLSearchParams;
+    setSearchParams: (updater: URLSearchParams | ((prev: URLSearchParams) => URLSearchParams)) => void;
     clearAll: () => void;
 }
 
+function getInitialParams(): URLSearchParams {
+    const init = new URLSearchParams(window.location.search);
+    if (init.toString() === "") {
+        const saved = localStorage.getItem(LS_KEY);
+        if (saved) return new URLSearchParams(saved);
+        return new URLSearchParams(DEFAULT_PARAMS);
+    }
+    return init;
+}
+
 export function useAuditLogFilters(): AuditLogFilters {
-    const [searchParams, setSearchParamsRaw] = useSearchParams(() => {
-        // On mount: if URL has no filter params, restore from localStorage
-        const init = new URLSearchParams(window.location.search);
-        if (init.toString() === "") {
-            const saved = localStorage.getItem(LS_KEY);
-            if (saved) return new URLSearchParams(saved);
-            return new URLSearchParams(DEFAULT_PARAMS);
-        }
-        return init;
-    });
+    const [searchParams, setSearchParamsRaw] = useSearchParams(getInitialParams());
 
     // Wrap setSearchParams to persist every change to localStorage
-    const setSearchParams: SetURLSearchParams = useCallback(
+    const setSearchParams: AuditLogFilters["setSearchParams"] = useCallback(
         (updater) => {
             setSearchParamsRaw((prev) => {
                 const next = typeof updater === "function" ? updater(prev) : updater;

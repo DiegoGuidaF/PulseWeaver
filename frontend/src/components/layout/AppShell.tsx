@@ -22,7 +22,7 @@ import {
 } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useLogout } from "@/features/auth/hooks/useLogout";
-import { useAuth } from "@/features/auth/AuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useAutoHeartbeat } from "@/features/devices/hooks/useAutoHeartbeat";
 import { toErrorMessage } from "@/lib/api-client";
 

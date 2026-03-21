@@ -11,7 +11,7 @@ export function createMockDevice(overrides?: Partial<Device>): Device {
     id: 1,
     name: 'Test Device',
     api_key_prefix: 'test_',
-    created_at: new Date('2024-01-01T00:00:00Z'),
+    created_at: '2024-01-01T00:00:00Z',
     ...overrides,
   };
 }
@@ -29,7 +29,7 @@ export function createMockUser(overrides?: Partial<User>): User {
     email: 'test@example.com',
     role: UserRole.USER,
     must_change_password: false,
-    created_at: new Date('2024-01-01T00:00:00Z'),
+    created_at: '2024-01-01T00:00:00Z',
     ...overrides,
   };
 }
@@ -45,8 +45,8 @@ export function createMockAddress(overrides?: Partial<Address>): Address {
     device_id: 1,
     ip: '192.168.1.100',
     is_enabled: true,
-    created_at: new Date('2024-01-01T00:00:00Z'),
-    updated_at: new Date('2024-01-01T00:00:00Z'),
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
     ...overrides,
   };
 }
@@ -64,8 +64,8 @@ export function createMockDeviceAddressLeaseRule(
     device_id: 1,
     enabled: true,
     ttl_seconds: 3600,
-    created_at: new Date('2024-01-01T00:00:00Z'),
-    updated_at: new Date('2024-01-01T00:00:00Z'),
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
     ...overrides,
   };
 }
@@ -84,7 +84,7 @@ export function createMockRequestAuditLogRow(
     outcome: true,
     device_id: 1,
     device_name: 'Test Device',
-    created_at: new Date('2024-01-01T12:00:00Z'),
+    created_at: '2024-01-01T12:00:00Z',
     target_host: 'example.com',
     target_uri: '/api/data',
     http_method: 'GET',

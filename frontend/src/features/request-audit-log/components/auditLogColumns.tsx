@@ -11,7 +11,7 @@ import { DateTimePicker } from "@mantine/dates";
 import { IconChevronRight, IconSearch } from "@tabler/icons-react";
 import type { DataTableColumn } from "mantine-datatable";
 import type { RequestAuditLogRow } from "@/lib/api";
-import type { SetURLSearchParams } from "react-router-dom";
+import type { AuditLogFilters } from "../hooks/useAuditLogFilters";
 import { DENY_REASON_LABELS } from "../constants";
 import dayjs from "dayjs";
 
@@ -43,7 +43,7 @@ export interface AuditLogColumnDeps {
     // Setters
     setParam: (key: string, value: string | null) => void;
     setIpLocal: (value: string) => void;
-    setSearchParams: SetURLSearchParams;
+    setSearchParams: AuditLogFilters["setSearchParams"];
 
     // Actions
     onRowClick: (row: RequestAuditLogRow) => void;

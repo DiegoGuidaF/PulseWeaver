@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { Center, Loader, Stack, Text } from "@mantine/core";
-import { useAuth } from "./AuthContext";
+import { useAuth } from "./hooks/useAuth";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;

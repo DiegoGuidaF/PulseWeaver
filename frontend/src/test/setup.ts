@@ -16,7 +16,7 @@ import { notifications } from "@mantine/notifications";
 // SegmentedControl that update layout state in response to resize events — React's act()
 // then waits forever for effects to settle. Async firing breaks the loop while still
 // delivering the non-zero dimensions that mantine-datatable needs before waitFor times out.
-global.ResizeObserver = class ResizeObserver {
+globalThis.ResizeObserver = class ResizeObserver {
   private callback: ResizeObserverCallback;
   constructor(callback: ResizeObserverCallback) {
     this.callback = callback;
