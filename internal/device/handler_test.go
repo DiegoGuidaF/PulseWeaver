@@ -329,3 +329,62 @@ func TestHandler_CreateDevice_409_DuplicateName(t *testing.T) {
 	testServer.HTTPServer.ServeHTTP(createRes, createReq)
 	is.Equal(createRes.Code, http.StatusConflict)
 }
+
+func TestHandler_GetDeviceAddressHistory(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "history-device")
+	is.NoErr(err)
+
+	// Register an address via service (creates an enable event)
+	_, _, err = testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "10.0.0.1", "heartbeat")
+	is.NoErr(err)
+
+	url := fmt.Sprintf("/api/v1/devices/%d/addresses/history", dev.ID)
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	req.AddCookie(sessionCookie)
+	res := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusOK)
+
+	var historyResp httpapi.AddressHistoryResponse
+	err = json.NewDecoder(res.Body).Decode(&historyResp)
+	is.NoErr(err)
+
+	is.True(len(historyResp.Buckets) >= 1)
+	is.True(len(historyResp.Events) >= 1)
+	is.Equal(historyResp.Events[0].Ip, "10.0.0.1")
+	is.True(historyResp.Events[0].IsEnabled)
+}
+
+func TestHandler_GetDeviceAddressHistory_DeviceNotFound(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices/99999/addresses/history", nil)
+	req.AddCookie(sessionCookie)
+	res := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusNotFound)
+}
+
+func TestHandler_GetDeviceAddressHistory_InvalidGranularity(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "history-device")
+	is.NoErr(err)
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/devices/%d/addresses/history?granularity=invalid", dev.ID), nil)
+	req.AddCookie(sessionCookie)
+	res := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusBadRequest)
+}

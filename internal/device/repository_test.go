@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/netip"
 	"testing"
+	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
@@ -535,4 +536,78 @@ func TestRepository_GetEnabledUniqueIPs_Deduplicates(t *testing.T) {
 	}
 	is.True(ipMap["192.168.1.100"])
 	is.True(ipMap["192.168.1.200"])
+}
+
+func TestRepository_GetAddressHistory_ReturnsBucketsAndEvents(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repo, ctx, "history-device")
+
+	// Create address → records an enable event
+	addr := createTestAddress(t, repo, ctx, dev.ID, "10.0.0.1")
+
+	// Disable → records a disable event
+	_, err := repo.DisableAddress(ctx, addr.ID)
+	is.NoErr(err)
+
+	// Re-enable → records an enable event
+	_, err = repo.EnableAddress(ctx, addr.ID, device.EventSourceHeartbeat)
+	is.NoErr(err)
+
+	from := time.Now().UTC().Add(-1 * time.Hour)
+	to := time.Now().UTC().Add(1 * time.Hour)
+
+	history, err := repo.GetAddressHistory(ctx, dev.ID, from, to, device.GranularityHour)
+	is.NoErr(err)
+
+	// Should have 1 bucket (all events in the same hour)
+	is.True(len(history.Buckets) >= 1)
+
+	// Should have 3 events: create(enable), disable, enable
+	is.Equal(len(history.Events), 3)
+
+	// Events are ordered DESC (most recent first)
+	is.True(history.Events[0].IsEnabled)                                            // re-enable
+	is.Equal(string(history.Events[0].Source), string(device.EventSourceHeartbeat)) // heartbeat source
+	is.True(!history.Events[1].IsEnabled)                                           // disable
+	is.True(history.Events[2].IsEnabled)                                            // initial create
+}
+
+func TestRepository_GetAddressHistory_EmptyRange(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repo, ctx, "empty-history")
+	createTestAddress(t, repo, ctx, dev.ID, "10.0.0.1")
+
+	// Query a time range far in the past where no events exist
+	from := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
+
+	history, err := repo.GetAddressHistory(ctx, dev.ID, from, to, device.GranularityHour)
+	is.NoErr(err)
+	is.Equal(len(history.Buckets), 0)
+	is.Equal(len(history.Events), 0)
+}
+
+func TestRepository_GetAddressHistory_DayGranularity(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repo, ctx, "day-history")
+	createTestAddress(t, repo, ctx, dev.ID, "10.0.0.1")
+
+	from := time.Now().UTC().Add(-1 * time.Hour)
+	to := time.Now().UTC().Add(1 * time.Hour)
+
+	history, err := repo.GetAddressHistory(ctx, dev.ID, from, to, device.GranularityDay)
+	is.NoErr(err)
+
+	// Should have exactly 1 bucket (all events on the same day)
+	is.Equal(len(history.Buckets), 1)
+	is.True(history.Buckets[0].EventCount >= 1)
 }

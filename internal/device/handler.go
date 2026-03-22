@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
@@ -289,6 +290,53 @@ func (h *HTTPHandler) DisableAddress(ctx context.Context, request httpapi.Disabl
 	return httpapi.DisableAddress200JSONResponse(toAddressResponse(address)), nil
 }
 
+func (h *HTTPHandler) GetDeviceAddressHistory(ctx context.Context, request httpapi.GetDeviceAddressHistoryRequestObject) (httpapi.GetDeviceAddressHistoryResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetDeviceAddressHistory")
+	deviceID := DeviceID(request.DeviceId)
+	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
+
+	now := time.Now().UTC()
+	from := now.Add(-24 * time.Hour)
+	to := now
+
+	if request.Params.From != nil {
+		from = time.Time(*request.Params.From)
+	}
+	if request.Params.To != nil {
+		to = time.Time(*request.Params.To)
+	}
+
+	granularityStr := ""
+	if request.Params.Granularity != nil {
+		granularityStr = string(*request.Params.Granularity)
+	}
+	granularity, err := ParseGranularity(granularityStr)
+	if err != nil {
+		logger.WarnContext(ctx, "invalid granularity", slog.String("granularity", granularityStr))
+		return httpapi.GetDeviceAddressHistory400JSONResponse(errorMsgResponse(err.Error())), nil
+	}
+
+	logger.DebugContext(ctx, "fetching address history",
+		slog.Time("from", from),
+		slog.Time("to", to),
+		slog.String("granularity", string(granularity)),
+	)
+
+	history, err := h.service.GetAddressHistory(ctx, deviceID, from, to, granularity)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrDeviceNotFound):
+			logger.WarnContext(ctx, "device not found")
+			return httpapi.GetDeviceAddressHistory404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
+		default:
+			logger.ErrorContext(ctx, "failed to get address history", slog.Any(AttrKeyError, err))
+			return httpapi.GetDeviceAddressHistory500JSONResponse(errorMsgResponse("Failed to get address history")), nil
+		}
+	}
+
+	return httpapi.GetDeviceAddressHistory200JSONResponse(toAddressHistoryResponse(history)), nil
+}
+
 func (h *HTTPHandler) APIKeyAuthenticator() APIKeyAuthenticator {
 	return h.service
 }
@@ -310,6 +358,32 @@ func toAddressResponse(a *Address) httpapi.Address {
 		IsEnabled: a.IsEnabled,
 		CreatedAt: httpapi.UTCTime(a.CreatedAt),
 		UpdatedAt: httpapi.UTCTime(a.UpdatedAt),
+	}
+}
+
+func toAddressHistoryResponse(h AddressHistory) httpapi.AddressHistoryResponse {
+	buckets := make([]httpapi.AddressHistoryBucket, len(h.Buckets))
+	for i, b := range h.Buckets {
+		buckets[i] = httpapi.AddressHistoryBucket{
+			Timestamp:   httpapi.UTCTime(b.Timestamp.Time),
+			ActiveCount: b.ActiveCount,
+			EventCount:  b.EventCount,
+		}
+	}
+
+	events := make([]httpapi.AddressHistoryEvent, len(h.Events))
+	for i, e := range h.Events {
+		events[i] = httpapi.AddressHistoryEvent{
+			Timestamp: httpapi.UTCTime(e.Timestamp),
+			Ip:        e.IP,
+			IsEnabled: e.IsEnabled,
+			Source:    httpapi.AddressHistoryEventSource(e.Source),
+		}
+	}
+
+	return httpapi.AddressHistoryResponse{
+		Buckets: buckets,
+		Events:  events,
 	}
 }
 

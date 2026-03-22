@@ -365,6 +365,76 @@ func (r *Repository) recordAddressEvent(ctx context.Context, addressID AddressID
 	return finalAddress, nil
 }
 
+// strftimeFmt returns the SQLite strftime format for the given granularity.
+func strftimeFmt(g Granularity) string {
+	if g == GranularityDay {
+		return "%Y-%m-%dT00:00:00Z"
+	}
+	return "%Y-%m-%dT%H:00:00Z"
+}
+
+func (r *Repository) GetAddressHistory(ctx context.Context, deviceID DeviceID, from, to time.Time, granularity Granularity) (AddressHistory, error) {
+	// Bucket events in SQL using strftime. The bucket column is TEXT because
+	// strftime always returns TEXT; HistoryBucket.Timestamp uses database.DBTime
+	// which handles multi-format scanning.
+	bucketsQuery := `
+		SELECT
+			strftime(?, aev.created_at) AS bucket,
+			MAX(
+				(SELECT COUNT(DISTINCT a2.id)
+				 FROM addresses a2
+				 JOIN address_events aev2 ON aev2.address_id = a2.id
+				 WHERE a2.device_id = ?
+				   AND aev2.is_enabled = true
+				   AND aev2.created_at <= aev.created_at
+				   AND (aev2.address_id, aev2.created_at) IN (
+					 SELECT address_id, MAX(created_at) FROM address_events
+					 WHERE created_at <= aev.created_at GROUP BY address_id
+				   )
+				)
+			) AS active_count,
+			COUNT(*) AS event_count
+		FROM address_events aev
+		JOIN addresses a ON a.id = aev.address_id
+		WHERE a.device_id = ?
+		  AND aev.created_at BETWEEN ? AND ?
+		GROUP BY bucket
+		ORDER BY bucket ASC
+	`
+
+	var buckets []HistoryBucket
+	if err := r.db.SelectContext(ctx, &buckets, bucketsQuery, strftimeFmt(granularity), deviceID, deviceID, from, to); err != nil {
+		return AddressHistory{}, fmt.Errorf("get history buckets: %w", err)
+	}
+
+	if buckets == nil {
+		buckets = []HistoryBucket{}
+	}
+
+	eventsQuery := `
+		SELECT aev.created_at, a.ip, aev.is_enabled, aev.source
+		FROM address_events aev
+		JOIN addresses a ON a.id = aev.address_id
+		WHERE a.device_id = ?
+		  AND aev.created_at BETWEEN ? AND ?
+		ORDER BY aev.created_at DESC
+	`
+
+	var events []HistoryEvent
+	if err := r.db.SelectContext(ctx, &events, eventsQuery, deviceID, from, to); err != nil {
+		return AddressHistory{}, fmt.Errorf("get history events: %w", err)
+	}
+
+	if events == nil {
+		events = []HistoryEvent{}
+	}
+
+	return AddressHistory{
+		Buckets: buckets,
+		Events:  events,
+	}, nil
+}
+
 // RunInTx runs the callback function inside a transaction.
 // If already running in a transaction context, do not create a new one and reuse it
 func (r *Repository) runInTx(ctx context.Context, fn func(*Repository) error) error {

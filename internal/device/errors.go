@@ -11,4 +11,5 @@ var (
 	ErrTrustedProxyIPRejected  = errors.New("ip address belongs to trusted proxy")
 	ErrAddressNotOwnedByDevice = errors.New("address is not owned by the device")
 	ErrInvalidAPIKey           = errors.New("invalid api key")
+	ErrInvalidGranularity      = errors.New("invalid granularity: must be 'hour' or 'day'")
 )

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
@@ -24,6 +25,7 @@ type repository interface {
 	CheckAddressOwnership(ctx context.Context, deviceID DeviceID, addressID AddressID) error
 	GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) (*Device, error)
 	GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error)
+	GetAddressHistory(ctx context.Context, deviceID DeviceID, from, to time.Time, granularity Granularity) (AddressHistory, error)
 	RunInTx(ctx context.Context, fn func(repository) error) error
 }
 
@@ -67,6 +69,14 @@ func (s *Service) GetDevice(ctx context.Context, deviceID DeviceID) (*Device, er
 	}
 
 	return device, nil
+}
+
+func (s *Service) GetAddressHistory(ctx context.Context, deviceID DeviceID, from, to time.Time, granularity Granularity) (AddressHistory, error) {
+	if _, err := s.repo.GetDevice(ctx, deviceID); err != nil {
+		return AddressHistory{}, err
+	}
+
+	return s.repo.GetAddressHistory(ctx, deviceID, from, to, granularity)
 }
 
 func (s *Service) DeleteDevice(ctx context.Context, deviceID DeviceID) error {
