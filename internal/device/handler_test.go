@@ -330,7 +330,7 @@ func TestHandler_CreateDevice_409_DuplicateName(t *testing.T) {
 	is.Equal(createRes.Code, http.StatusConflict)
 }
 
-func TestHandler_GetDeviceAddressHistory(t *testing.T) {
+func TestHandler_GetAddressHistory(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
@@ -342,7 +342,7 @@ func TestHandler_GetDeviceAddressHistory(t *testing.T) {
 	_, _, err = testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "10.0.0.1", "heartbeat")
 	is.NoErr(err)
 
-	url := fmt.Sprintf("/api/v1/devices/%d/addresses/history", dev.ID)
+	url := fmt.Sprintf("/api/v1/address-history?device_id=%d", dev.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	req.AddCookie(sessionCookie)
 	res := httptest.NewRecorder()
@@ -358,33 +358,92 @@ func TestHandler_GetDeviceAddressHistory(t *testing.T) {
 	is.True(len(historyResp.Events) >= 1)
 	is.Equal(historyResp.Events[0].Ip, "10.0.0.1")
 	is.True(historyResp.Events[0].IsEnabled)
+	is.Equal(historyResp.Events[0].DeviceName, "history-device")
+	is.True(historyResp.TotalEvents >= 1)
 }
 
-func TestHandler_GetDeviceAddressHistory_DeviceNotFound(t *testing.T) {
+func TestHandler_GetAddressHistory_AllDevices(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices/99999/addresses/history", nil)
+	dev1, _, err := testServer.DeviceService.CreateDevice(t.Context(), "dev-a")
+	is.NoErr(err)
+	dev2, _, err := testServer.DeviceService.CreateDevice(t.Context(), "dev-b")
+	is.NoErr(err)
+
+	_, _, err = testServer.DeviceService.RegisterAddressActivity(t.Context(), dev1.ID, "10.0.0.1", "heartbeat")
+	is.NoErr(err)
+	_, _, err = testServer.DeviceService.RegisterAddressActivity(t.Context(), dev2.ID, "10.0.0.2", "manual")
+	is.NoErr(err)
+
+	// No device_id filter → all devices
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/address-history", nil)
 	req.AddCookie(sessionCookie)
 	res := httptest.NewRecorder()
 	testServer.HTTPServer.ServeHTTP(res, req)
 
-	is.Equal(res.Code, http.StatusNotFound)
+	is.Equal(res.Code, http.StatusOK)
+
+	var historyResp httpapi.AddressHistoryResponse
+	err = json.NewDecoder(res.Body).Decode(&historyResp)
+	is.NoErr(err)
+
+	is.True(historyResp.TotalEvents >= 2)
+	is.True(len(historyResp.Events) >= 2)
 }
 
-func TestHandler_GetDeviceAddressHistory_InvalidGranularity(t *testing.T) {
+func TestHandler_GetAddressHistory_InvalidGranularity(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "history-device")
-	is.NoErr(err)
-
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/devices/%d/addresses/history?granularity=invalid", dev.ID), nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/address-history?granularity=invalid", nil)
 	req.AddCookie(sessionCookie)
 	res := httptest.NewRecorder()
 	testServer.HTTPServer.ServeHTTP(res, req)
 
 	is.Equal(res.Code, http.StatusBadRequest)
+}
+
+func TestHandler_GetAddressHistory_Pagination(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "pagination-dev")
+	is.NoErr(err)
+
+	// Create several events
+	for i := 0; i < 5; i++ {
+		_, _, err = testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, fmt.Sprintf("10.0.0.%d", i+1), "heartbeat")
+		is.NoErr(err)
+	}
+
+	// Page 1: limit 2
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/address-history?limit=2", nil)
+	req.AddCookie(sessionCookie)
+	res := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(res, req)
+	is.Equal(res.Code, http.StatusOK)
+
+	var page1 httpapi.AddressHistoryResponse
+	err = json.NewDecoder(res.Body).Decode(&page1)
+	is.NoErr(err)
+	is.Equal(len(page1.Events), 2)
+	is.True(page1.NextCursor != nil) // more pages
+	is.True(page1.TotalEvents >= 5)
+
+	// Page 2: use cursor
+	url := fmt.Sprintf("/api/v1/address-history?limit=2&before_id=%d", *page1.NextCursor)
+	req = httptest.NewRequest(http.MethodGet, url, nil)
+	req.AddCookie(sessionCookie)
+	res = httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(res, req)
+	is.Equal(res.Code, http.StatusOK)
+
+	var page2 httpapi.AddressHistoryResponse
+	err = json.NewDecoder(res.Body).Decode(&page2)
+	is.NoErr(err)
+	is.Equal(len(page2.Events), 2)
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
@@ -290,51 +289,48 @@ func (h *HTTPHandler) DisableAddress(ctx context.Context, request httpapi.Disabl
 	return httpapi.DisableAddress200JSONResponse(toAddressResponse(address)), nil
 }
 
-func (h *HTTPHandler) GetDeviceAddressHistory(ctx context.Context, request httpapi.GetDeviceAddressHistoryRequestObject) (httpapi.GetDeviceAddressHistoryResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "GetDeviceAddressHistory")
-	deviceID := DeviceID(request.DeviceId)
-	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
+func (h *HTTPHandler) GetAddressHistory(ctx context.Context, request httpapi.GetAddressHistoryRequestObject) (httpapi.GetAddressHistoryResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetAddressHistory")
+	logger := h.logger
+	params := request.Params
 
-	now := time.Now().UTC()
-	from := now.Add(-24 * time.Hour)
-	to := now
-
-	if request.Params.From != nil {
-		from = time.Time(*request.Params.From)
+	query := AddressHistoryQuery{
+		IsEnabled: params.IsEnabled,
+		IP:        params.Ip,
+		BeforeID:  params.BeforeId,
+		Source:    (*string)(params.Source),
 	}
-	if request.Params.To != nil {
-		to = time.Time(*request.Params.To)
+	if params.From != nil {
+		query.From = *params.From
+	}
+	if params.To != nil {
+		query.To = *params.To
+	}
+	if params.Granularity != nil {
+		query.Granularity = Granularity(*params.Granularity)
+	}
+	if params.DeviceId != nil {
+		for _, id := range *params.DeviceId {
+			query.DeviceIDs = append(query.DeviceIDs, DeviceID(id))
+		}
+	}
+	if params.Limit != nil {
+		query.Limit = *params.Limit
 	}
 
-	granularityStr := ""
-	if request.Params.Granularity != nil {
-		granularityStr = string(*request.Params.Granularity)
-	}
-	granularity, err := ParseGranularity(granularityStr)
-	if err != nil {
-		logger.WarnContext(ctx, "invalid granularity", slog.String("granularity", granularityStr))
-		return httpapi.GetDeviceAddressHistory400JSONResponse(errorMsgResponse(err.Error())), nil
-	}
-
-	logger.DebugContext(ctx, "fetching address history",
-		slog.Time("from", from),
-		slog.Time("to", to),
-		slog.String("granularity", string(granularity)),
-	)
-
-	history, err := h.service.GetAddressHistory(ctx, deviceID, from, to, granularity)
+	history, err := h.service.GetAddressHistory(ctx, query)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrDeviceNotFound):
-			logger.WarnContext(ctx, "device not found")
-			return httpapi.GetDeviceAddressHistory404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
+		case errors.Is(err, ErrInvalidGranularity):
+			logger.WarnContext(ctx, "invalid query parameters", slog.Any(AttrKeyError, err))
+			return httpapi.GetAddressHistory400JSONResponse(errorMsgResponse(err.Error())), nil
 		default:
 			logger.ErrorContext(ctx, "failed to get address history", slog.Any(AttrKeyError, err))
-			return httpapi.GetDeviceAddressHistory500JSONResponse(errorMsgResponse("Failed to get address history")), nil
+			return httpapi.GetAddressHistory500JSONResponse(errorMsgResponse("Failed to get address history")), nil
 		}
 	}
 
-	return httpapi.GetDeviceAddressHistory200JSONResponse(toAddressHistoryResponse(history)), nil
+	return httpapi.GetAddressHistory200JSONResponse(toAddressHistoryResponse(history, history.QueryLimit)), nil
 }
 
 func (h *HTTPHandler) APIKeyAuthenticator() APIKeyAuthenticator {
@@ -361,7 +357,7 @@ func toAddressResponse(a *Address) httpapi.Address {
 	}
 }
 
-func toAddressHistoryResponse(h AddressHistory) httpapi.AddressHistoryResponse {
+func toAddressHistoryResponse(h AddressHistory, queryLimit int) httpapi.AddressHistoryResponse {
 	buckets := make([]httpapi.AddressHistoryBucket, len(h.Buckets))
 	for i, b := range h.Buckets {
 		buckets[i] = httpapi.AddressHistoryBucket{
@@ -374,16 +370,28 @@ func toAddressHistoryResponse(h AddressHistory) httpapi.AddressHistoryResponse {
 	events := make([]httpapi.AddressHistoryEvent, len(h.Events))
 	for i, e := range h.Events {
 		events[i] = httpapi.AddressHistoryEvent{
-			Timestamp: httpapi.UTCTime(e.Timestamp),
-			Ip:        e.IP,
-			IsEnabled: e.IsEnabled,
-			Source:    httpapi.AddressHistoryEventSource(e.Source),
+			Id:         e.ID,
+			Timestamp:  httpapi.UTCTime(e.CreatedAt),
+			Ip:         e.IP,
+			IsEnabled:  e.IsEnabled,
+			Source:     httpapi.AddressHistoryEventSource(e.Source),
+			DeviceId:   e.DeviceID.Int64(),
+			DeviceName: e.DeviceName,
 		}
 	}
 
+	// Use len == limit as "has more" signal — reliable across all pages,
+	// unlike comparing against TotalEvents which ignores the cursor offset.
+	var nextCursor *int64
+	if len(h.Events) == queryLimit {
+		nextCursor = &h.Events[len(h.Events)-1].ID
+	}
+
 	return httpapi.AddressHistoryResponse{
-		Buckets: buckets,
-		Events:  events,
+		Buckets:     buckets,
+		Events:      events,
+		TotalEvents: h.TotalEvents,
+		NextCursor:  nextCursor,
 	}
 }
 

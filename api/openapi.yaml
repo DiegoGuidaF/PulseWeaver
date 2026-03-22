@@ -635,22 +635,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /devices/{device_id}/addresses/history:
+  /address-history:
     get:
-      operationId: getDeviceAddressHistory
+      operationId: getAddressHistory
       tags:
         - addresses
-      summary: Get address activity history for a device
+      summary: Get address activity history
       description: >
-        Returns time-bucketed active IP counts and individual address events
-        for the given device within the specified time window.
+        Returns time-bucketed active IP counts and paginated address events.
+        When device_id is omitted, returns history for all devices.
+        When device_id is provided, filters to those devices only.
       parameters:
         - name: device_id
-          in: path
-          description: Device id
-          required: true
+          in: query
+          required: false
+          description: Filter by device ID(s). Empty means all devices.
           schema:
-            $ref: '#/components/schemas/ID'
+            type: array
+            items:
+              $ref: '#/components/schemas/ID'
         - name: from
           in: query
           required: false
@@ -675,21 +678,52 @@ paths:
               - day
             default: hour
           description: Time bucket granularity (default hour)
+        - name: source
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - heartbeat
+              - manual
+              - expiry
+          description: Filter events by source
+        - name: is_enabled
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Filter events by enabled/disabled state
+        - name: ip
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter events by IP address (substring match)
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+          description: Maximum number of events to return (default 50, max 200)
+        - name: before_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+          description: Cursor for pagination — return events with id < before_id
       responses:
         "200":
-          description: Address history with time-series buckets and events
+          description: Address history with time-series buckets and paginated events
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AddressHistoryResponse'
         "400":
           description: Invalid query parameters (e.g. bad granularity)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        "404":
-          description: Device not found
           content:
             application/json:
               schema:
@@ -1201,6 +1235,7 @@ components:
       required:
         - buckets
         - events
+        - total_events
       properties:
         buckets:
           type: array
@@ -1210,6 +1245,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AddressHistoryEvent'
+        total_events:
+          type: integer
+          description: Total number of events matching the filters (for pagination)
+        next_cursor:
+          $ref: '#/components/schemas/ID'
     AddressHistoryBucket:
       type: object
       required:
@@ -1230,11 +1270,16 @@ components:
     AddressHistoryEvent:
       type: object
       required:
+        - id
         - timestamp
         - ip
         - is_enabled
         - source
+        - device_id
+        - device_name
       properties:
+        id:
+          $ref: '#/components/schemas/ID'
         timestamp:
           type: string
           format: date-time
@@ -1252,6 +1297,11 @@ components:
             - manual
             - expiry
           description: What triggered the state change
+        device_id:
+          $ref: '#/components/schemas/ID'
+        device_name:
+          type: string
+          description: Name of the device
 
     #################
     # Domain Entities

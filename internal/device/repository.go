@@ -373,65 +373,147 @@ func strftimeFmt(g Granularity) string {
 	return "%Y-%m-%dT%H:00:00Z"
 }
 
-func (r *Repository) GetAddressHistory(ctx context.Context, deviceID DeviceID, from, to time.Time, granularity Granularity) (AddressHistory, error) {
-	// Bucket events in SQL using strftime. The bucket column is TEXT because
-	// strftime always returns TEXT; HistoryBucket.Timestamp uses database.DBTime
-	// which handles multi-format scanning.
+// deviceIDPlaceholders builds an IN clause fragment and args for a slice of device IDs.
+func deviceIDPlaceholders(ids []DeviceID) (string, []any) {
+	placeholders := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	return strings.Join(placeholders, ", "), args
+}
+
+// escapeLIKE escapes SQL LIKE wildcards (% and _) in user input.
+func escapeLIKE(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
+}
+
+// buildHistoryWhere builds the shared WHERE clause for both buckets and events queries.
+// Returns the filter strings and args. The caller is responsible for joining them.
+func buildHistoryWhere(q AddressHistoryQuery) ([]string, []any) {
+	filters := []string{"d.deleted_at IS NULL"}
+	var args []any
+
+	if len(q.DeviceIDs) > 0 {
+		in, idArgs := deviceIDPlaceholders(q.DeviceIDs)
+		filters = append(filters, "a.device_id IN ("+in+")")
+		args = append(args, idArgs...)
+	}
+
+	if !q.From.IsZero() {
+		filters = append(filters, "aev.created_at >= ?")
+		args = append(args, q.From)
+	}
+	if !q.To.IsZero() {
+		filters = append(filters, "aev.created_at <= ?")
+		args = append(args, q.To)
+	}
+
+	if q.Source != nil {
+		filters = append(filters, "aev.source = ?")
+		args = append(args, *q.Source)
+	}
+	if q.IsEnabled != nil {
+		filters = append(filters, "aev.is_enabled = ?")
+		args = append(args, *q.IsEnabled)
+	}
+	if q.IP != nil {
+		filters = append(filters, "a.ip LIKE ? ESCAPE '\\'")
+		args = append(args, "%"+escapeLIKE(*q.IP)+"%")
+	}
+
+	return filters, args
+}
+
+func joinWhere(filters []string) string {
+	if len(filters) == 0 {
+		return ""
+	}
+	return " WHERE " + strings.Join(filters, " AND ")
+}
+
+func (r *Repository) GetAddressHistory(ctx context.Context, q AddressHistoryQuery) (AddressHistory, error) {
+	filters, baseArgs := buildHistoryWhere(q)
+
+	// ── Buckets ──────────────────────────────────────────────────────────
 	bucketsQuery := `
 		SELECT
 			strftime(?, aev.created_at) AS bucket,
-			MAX(
-				(SELECT COUNT(DISTINCT a2.id)
-				 FROM addresses a2
-				 JOIN address_events aev2 ON aev2.address_id = a2.id
-				 WHERE a2.device_id = ?
-				   AND aev2.is_enabled = true
-				   AND aev2.created_at <= aev.created_at
-				   AND (aev2.address_id, aev2.created_at) IN (
-					 SELECT address_id, MAX(created_at) FROM address_events
-					 WHERE created_at <= aev.created_at GROUP BY address_id
-				   )
-				)
-			) AS active_count,
+			COUNT(DISTINCT CASE WHEN aev.is_enabled THEN aev.address_id END) AS active_count,
 			COUNT(*) AS event_count
 		FROM address_events aev
 		JOIN addresses a ON a.id = aev.address_id
-		WHERE a.device_id = ?
-		  AND aev.created_at BETWEEN ? AND ?
+		JOIN devices d ON d.id = a.device_id
+	` + joinWhere(filters) + `
 		GROUP BY bucket
 		ORDER BY bucket ASC
 	`
 
-	var buckets []HistoryBucket
-	if err := r.db.SelectContext(ctx, &buckets, bucketsQuery, strftimeFmt(granularity), deviceID, deviceID, from, to); err != nil {
+	bucketArgs := make([]any, 0, 1+len(baseArgs))
+	bucketArgs = append(bucketArgs, strftimeFmt(q.Granularity))
+	bucketArgs = append(bucketArgs, baseArgs...)
+
+	var buckets []AddressEventBucket
+	if err := r.db.SelectContext(ctx, &buckets, bucketsQuery, bucketArgs...); err != nil {
 		return AddressHistory{}, fmt.Errorf("get history buckets: %w", err)
 	}
-
 	if buckets == nil {
-		buckets = []HistoryBucket{}
+		buckets = []AddressEventBucket{}
 	}
 
-	eventsQuery := `
-		SELECT aev.created_at, a.ip, aev.is_enabled, aev.source
+	// ── Events (paginated) ───────────────────────────────────────────────
+	// Count total (without cursor)
+	countQuery := `
+		SELECT COUNT(*)
 		FROM address_events aev
 		JOIN addresses a ON a.id = aev.address_id
-		WHERE a.device_id = ?
-		  AND aev.created_at BETWEEN ? AND ?
-		ORDER BY aev.created_at DESC
-	`
+		JOIN devices d ON d.id = a.device_id
+	` + joinWhere(filters)
 
-	var events []HistoryEvent
-	if err := r.db.SelectContext(ctx, &events, eventsQuery, deviceID, from, to); err != nil {
-		return AddressHistory{}, fmt.Errorf("get history events: %w", err)
+	var totalEvents int
+	if err := r.db.GetContext(ctx, &totalEvents, countQuery, baseArgs...); err != nil {
+		return AddressHistory{}, fmt.Errorf("count history events: %w", err)
 	}
 
+	// Select with cursor + limit
+	eventFilters := make([]string, len(filters))
+	copy(eventFilters, filters)
+	eventArgs := make([]any, len(baseArgs))
+	copy(eventArgs, baseArgs)
+
+	if q.BeforeID != nil {
+		eventFilters = append(eventFilters, "aev.id < ?")
+		eventArgs = append(eventArgs, *q.BeforeID)
+	}
+	eventArgs = append(eventArgs, q.Limit)
+
+	eventsQuery := `
+		SELECT aev.id, aev.created_at, a.ip, aev.is_enabled, aev.source,
+		       a.device_id, d.name AS device_name
+		FROM address_events aev
+		JOIN addresses a ON a.id = aev.address_id
+		JOIN devices d ON d.id = a.device_id
+	` + joinWhere(eventFilters) + `
+		ORDER BY aev.id DESC
+		LIMIT ?
+	`
+
+	var events []AddressStateChange
+	if err := r.db.SelectContext(ctx, &events, eventsQuery, eventArgs...); err != nil {
+		return AddressHistory{}, fmt.Errorf("get history events: %w", err)
+	}
 	if events == nil {
-		events = []HistoryEvent{}
+		events = []AddressStateChange{}
 	}
 
 	return AddressHistory{
-		Buckets: buckets,
-		Events:  events,
+		Buckets:     buckets,
+		Events:      events,
+		TotalEvents: totalEvents,
 	}, nil
 }
 

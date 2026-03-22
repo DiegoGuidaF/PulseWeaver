@@ -114,10 +114,13 @@ export function createMockAddressHistoryEvent(
   overrides?: Partial<AddressHistoryEvent>,
 ): AddressHistoryEvent {
   return {
+    id: 1,
     timestamp: '2024-01-01T12:00:00Z',
     ip: '192.168.1.100',
     is_enabled: true,
     source: 'heartbeat',
+    device_id: 1,
+    device_name: 'Test Device',
     ...overrides,
   };
 }
@@ -135,10 +138,12 @@ export function createMockAddressHistoryResponse(
       createMockAddressHistoryBucket({ timestamp: '2024-01-01T12:00:00Z', active_count: 3, event_count: 1 }),
     ],
     events: [
-      createMockAddressHistoryEvent({ timestamp: '2024-01-01T10:30:00Z', ip: '10.0.0.1', is_enabled: true, source: 'heartbeat' }),
-      createMockAddressHistoryEvent({ timestamp: '2024-01-01T11:00:00Z', ip: '10.0.0.2', is_enabled: true, source: 'manual' }),
-      createMockAddressHistoryEvent({ timestamp: '2024-01-01T11:45:00Z', ip: '10.0.0.1', is_enabled: false, source: 'expiry' }),
+      createMockAddressHistoryEvent({ id: 3, timestamp: '2024-01-01T10:30:00Z', ip: '10.0.0.1', is_enabled: true, source: 'heartbeat' }),
+      createMockAddressHistoryEvent({ id: 2, timestamp: '2024-01-01T11:00:00Z', ip: '10.0.0.2', is_enabled: true, source: 'manual' }),
+      createMockAddressHistoryEvent({ id: 1, timestamp: '2024-01-01T11:45:00Z', ip: '10.0.0.1', is_enabled: false, source: 'expiry' }),
     ],
+    total_events: 3,
+    next_cursor: null,
     ...overrides,
   };
 }

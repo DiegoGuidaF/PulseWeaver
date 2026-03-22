@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Badge, Card, Group, SegmentedControl, Skeleton, Stack, Table, Text, Title } from "@mantine/core";
 import { AreaChart } from "@mantine/charts";
 import dayjs from "dayjs";
-import { useDeviceAddressHistory } from "./hooks/useDeviceAddressHistory";
+import { useAddressHistory } from "./hooks/useAddressHistory";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 
 interface DeviceHistoryTabProps {
@@ -17,7 +17,7 @@ const RANGE_HOURS: Record<TimeRange, number> = {
   "30d": 720,
 };
 
-const RANGE_GRANULARITY: Record<TimeRange, string> = {
+const RANGE_GRANULARITY: Record<TimeRange, "hour" | "day"> = {
   "24h": "hour",
   "7d": "hour",
   "30d": "day",
@@ -45,12 +45,11 @@ export function DeviceHistoryTab({ deviceId }: DeviceHistoryTabProps) {
     [range],
   );
 
-  const { data, isLoading } = useDeviceAddressHistory(
-    deviceId,
+  const { data, isLoading } = useAddressHistory({
+    device_id: [deviceId],
     from,
-    undefined,
-    RANGE_GRANULARITY[range],
-  );
+    granularity: RANGE_GRANULARITY[range],
+  });
 
   const chartData = useMemo(() => {
     if (!data?.buckets) return [];
@@ -120,8 +119,8 @@ export function DeviceHistoryTab({ deviceId }: DeviceHistoryTabProps) {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {data.events.map((event, i) => (
-                <Table.Tr key={i}>
+              {data.events.map((event) => (
+                <Table.Tr key={event.id}>
                   <Table.Td>
                     <Text size="sm" ff="monospace">
                       {formatDateTime(event.timestamp)}

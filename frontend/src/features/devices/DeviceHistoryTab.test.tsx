@@ -15,7 +15,7 @@ function renderTab() {
 describe('DeviceHistoryTab', () => {
     it('shows loading skeleton while fetching', () => {
         server.use(
-            http.get(endpoints.deviceAddressHistory, async () => {
+            http.get(endpoints.addressHistory, async () => {
                 await delay('infinite');
                 return responses.ok({ buckets: [], events: [] });
             })

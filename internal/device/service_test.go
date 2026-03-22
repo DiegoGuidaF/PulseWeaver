@@ -566,30 +566,32 @@ func TestService_RegenerateAPIKey_OldKeyInvalidated(t *testing.T) {
 	is.True(newKeyFound)
 }
 
-func TestService_GetAddressHistory_DeviceNotFound(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	mockRepo := newMockRepository()
-	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
-
-	_, err := service.GetAddressHistory(ctx, DeviceID(999), time.Now().Add(-24*time.Hour), time.Now(), GranularityHour)
-
-	is.True(err != nil)
-	is.True(errors.Is(err, ErrDeviceNotFound))
-}
-
 func TestService_GetAddressHistory_ValidInput(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	device := &Device{ID: DeviceID(1), Name: "test"}
-	mockRepo.devices[device.ID] = device
-
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 
-	history, err := service.GetAddressHistory(ctx, device.ID, time.Now().Add(-24*time.Hour), time.Now(), GranularityHour)
+	history, err := service.GetAddressHistory(ctx, AddressHistoryQuery{
+		DeviceIDs:   []DeviceID{1},
+		Granularity: GranularityHour,
+	})
+
+	is.NoErr(err)
+	is.True(history.Buckets != nil)
+	is.True(history.Events != nil)
+}
+
+func TestService_GetAddressHistory_DefaultParams(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
+
+	// Empty query — Validate() should apply defaults
+	history, err := service.GetAddressHistory(ctx, AddressHistoryQuery{})
 
 	is.NoErr(err)
 	is.True(history.Buckets != nil)
@@ -814,8 +816,8 @@ func (m *mockRepository) GetEnabledIPEntries(_ context.Context) ([]IPEntry, erro
 	return entries, nil
 }
 
-func (m *mockRepository) GetAddressHistory(_ context.Context, _ DeviceID, _, _ time.Time, _ Granularity) (AddressHistory, error) {
-	return AddressHistory{Buckets: []HistoryBucket{}, Events: []HistoryEvent{}}, nil
+func (m *mockRepository) GetAddressHistory(_ context.Context, _ AddressHistoryQuery) (AddressHistory, error) {
+	return AddressHistory{Buckets: []AddressEventBucket{}, Events: []AddressStateChange{}}, nil
 }
 
 func (m *mockRepository) RunInTx(ctx context.Context, fn func(repository) error) error {

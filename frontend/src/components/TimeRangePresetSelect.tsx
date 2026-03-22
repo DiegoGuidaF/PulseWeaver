@@ -1,6 +1,6 @@
 import { Group, NativeSelect, Tooltip } from "@mantine/core";
 import { IconClock } from "@tabler/icons-react";
-import { DATEPICKER_TIME_PRESETS } from "../constants";
+import { DATEPICKER_TIME_PRESETS } from "@/lib/timePresets";
 
 const OPTIONS = DATEPICKER_TIME_PRESETS.map(({ key, label }) => ({ label, value: key }));
 

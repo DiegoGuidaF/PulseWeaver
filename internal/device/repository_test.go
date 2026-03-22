@@ -559,7 +559,13 @@ func TestRepository_GetAddressHistory_ReturnsBucketsAndEvents(t *testing.T) {
 	from := time.Now().UTC().Add(-1 * time.Hour)
 	to := time.Now().UTC().Add(1 * time.Hour)
 
-	history, err := repo.GetAddressHistory(ctx, dev.ID, from, to, device.GranularityHour)
+	history, err := repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
+		DeviceIDs:   []device.DeviceID{dev.ID},
+		From:        from,
+		To:          to,
+		Granularity: device.GranularityHour,
+		Limit:       50,
+	})
 	is.NoErr(err)
 
 	// Should have 1 bucket (all events in the same hour)
@@ -567,12 +573,17 @@ func TestRepository_GetAddressHistory_ReturnsBucketsAndEvents(t *testing.T) {
 
 	// Should have 3 events: create(enable), disable, enable
 	is.Equal(len(history.Events), 3)
+	is.Equal(history.TotalEvents, 3)
 
 	// Events are ordered DESC (most recent first)
 	is.True(history.Events[0].IsEnabled)                                            // re-enable
 	is.Equal(string(history.Events[0].Source), string(device.EventSourceHeartbeat)) // heartbeat source
 	is.True(!history.Events[1].IsEnabled)                                           // disable
 	is.True(history.Events[2].IsEnabled)                                            // initial create
+
+	// Events include device info
+	is.Equal(history.Events[0].DeviceID, dev.ID)
+	is.Equal(history.Events[0].DeviceName, "history-device")
 }
 
 func TestRepository_GetAddressHistory_EmptyRange(t *testing.T) {
@@ -587,10 +598,17 @@ func TestRepository_GetAddressHistory_EmptyRange(t *testing.T) {
 	from := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
 
-	history, err := repo.GetAddressHistory(ctx, dev.ID, from, to, device.GranularityHour)
+	history, err := repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
+		DeviceIDs:   []device.DeviceID{dev.ID},
+		From:        from,
+		To:          to,
+		Granularity: device.GranularityHour,
+		Limit:       50,
+	})
 	is.NoErr(err)
 	is.Equal(len(history.Buckets), 0)
 	is.Equal(len(history.Events), 0)
+	is.Equal(history.TotalEvents, 0)
 }
 
 func TestRepository_GetAddressHistory_DayGranularity(t *testing.T) {
@@ -604,10 +622,123 @@ func TestRepository_GetAddressHistory_DayGranularity(t *testing.T) {
 	from := time.Now().UTC().Add(-1 * time.Hour)
 	to := time.Now().UTC().Add(1 * time.Hour)
 
-	history, err := repo.GetAddressHistory(ctx, dev.ID, from, to, device.GranularityDay)
+	history, err := repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
+		DeviceIDs:   []device.DeviceID{dev.ID},
+		From:        from,
+		To:          to,
+		Granularity: device.GranularityDay,
+		Limit:       50,
+	})
 	is.NoErr(err)
 
 	// Should have exactly 1 bucket (all events on the same day)
 	is.Equal(len(history.Buckets), 1)
 	is.True(history.Buckets[0].EventCount >= 1)
+}
+
+func TestRepository_GetAddressHistory_AllDevices(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	dev1 := createTestDevice(t, repo, ctx, "dev1")
+	dev2 := createTestDevice(t, repo, ctx, "dev2")
+	createTestAddress(t, repo, ctx, dev1.ID, "10.0.0.1")
+	createTestAddress(t, repo, ctx, dev2.ID, "10.0.0.2")
+
+	from := time.Now().UTC().Add(-1 * time.Hour)
+	to := time.Now().UTC().Add(1 * time.Hour)
+
+	// No device filter — should return events from both devices
+	history, err := repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
+		From:        from,
+		To:          to,
+		Granularity: device.GranularityHour,
+		Limit:       50,
+	})
+	is.NoErr(err)
+
+	is.Equal(len(history.Events), 2)
+	is.Equal(history.TotalEvents, 2)
+}
+
+func TestRepository_GetAddressHistory_FilterBySource(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repo, ctx, "source-filter")
+	addr := createTestAddress(t, repo, ctx, dev.ID, "10.0.0.1")
+
+	// Disable and re-enable to create heartbeat event
+	_, err := repo.DisableAddress(ctx, addr.ID)
+	is.NoErr(err)
+	_, err = repo.EnableAddress(ctx, addr.ID, device.EventSourceHeartbeat)
+	is.NoErr(err)
+
+	from := time.Now().UTC().Add(-1 * time.Hour)
+	to := time.Now().UTC().Add(1 * time.Hour)
+	source := string(device.EventSourceHeartbeat)
+
+	history, err := repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
+		From:        from,
+		To:          to,
+		Granularity: device.GranularityHour,
+		Source:      &source,
+		Limit:       50,
+	})
+	is.NoErr(err)
+
+	// Only heartbeat events (the re-enable + initial create is "manual", so only 1 heartbeat)
+	for _, e := range history.Events {
+		is.Equal(string(e.Source), string(device.EventSourceHeartbeat))
+	}
+}
+
+func TestRepository_GetAddressHistory_EventsPagination(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repo, ctx, "pagination")
+	addr := createTestAddress(t, repo, ctx, dev.ID, "10.0.0.1")
+
+	// Create several events: enable, disable x3
+	for i := 0; i < 3; i++ {
+		_, err := repo.DisableAddress(ctx, addr.ID)
+		is.NoErr(err)
+		_, err = repo.EnableAddress(ctx, addr.ID, device.EventSourceHeartbeat)
+		is.NoErr(err)
+	}
+
+	from := time.Now().UTC().Add(-1 * time.Hour)
+	to := time.Now().UTC().Add(1 * time.Hour)
+
+	// Page 1: limit 3
+	page1, err := repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
+		From:        from,
+		To:          to,
+		Granularity: device.GranularityHour,
+		Limit:       3,
+	})
+	is.NoErr(err)
+	is.Equal(len(page1.Events), 3)
+	is.True(page1.TotalEvents > 3) // more events exist
+
+	// Page 2: use cursor from last event of page 1
+	cursor := page1.Events[len(page1.Events)-1].ID
+	page2, err := repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
+		From:        from,
+		To:          to,
+		Granularity: device.GranularityHour,
+		BeforeID:    &cursor,
+		Limit:       3,
+	})
+	is.NoErr(err)
+	is.True(len(page2.Events) > 0)
+
+	// Page 2 events should have lower IDs than cursor
+	for _, e := range page2.Events {
+		is.True(e.ID < cursor)
+	}
 }

@@ -2,16 +2,14 @@ import { useState } from "react";
 import { Stack, Title, Text, Group } from "@mantine/core";
 import { AutoRefreshSelect } from "@/components/AutoRefreshSelect";
 import { TimeRangePresetSelect } from "@/components/TimeRangePresetSelect";
-import { RequestAuditLogTable } from "@/features/request-audit-log/components/RequestAuditLogTable";
-import { useAuditLogFilters } from "@/features/request-audit-log/hooks/useAuditLogFilters";
+import { AddressHistoryTable } from "@/features/address-history/components/AddressHistoryTable";
+import { useAddressHistoryFilters } from "@/features/address-history/hooks/useAddressHistoryFilters";
 
 const DEFAULT_REFRESH = 5_000;
 
-export function RequestAuditLogPage() {
-    const filters = useAuditLogFilters();
+export function AddressHistoryPage() {
+    const filters = useAddressHistoryFilters();
 
-    // Bundle hasCustomTo into state so we can reset refreshInterval during
-    // render when it changes (same pattern as pagination reset in the table).
     const [refresh, setRefresh] = useState({
         hasCustomTo: filters.hasCustomTo,
         interval: filters.hasCustomTo ? 0 : DEFAULT_REFRESH,
@@ -27,8 +25,8 @@ export function RequestAuditLogPage() {
         <Stack maw={1200} gap="xl">
             <Group justify="space-between" align="flex-end">
                 <div>
-                    <Title order={1}>Access Log</Title>
-                    <Text c="dimmed">Policy decision history for all incoming requests.</Text>
+                    <Title order={1}>Address Log</Title>
+                    <Text c="dimmed">IP address lease events across all devices.</Text>
                 </div>
                 <Group gap="md">
                     <TimeRangePresetSelect value={filters.presetStr} onChange={filters.setPreset} />
@@ -38,7 +36,7 @@ export function RequestAuditLogPage() {
                     />
                 </Group>
             </Group>
-            <RequestAuditLogTable filters={filters} refreshInterval={refresh.interval} />
+            <AddressHistoryTable filters={filters} refreshInterval={refresh.interval} />
         </Stack>
     );
 }

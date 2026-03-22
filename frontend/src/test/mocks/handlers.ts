@@ -12,7 +12,7 @@ export const endpoints = {
     deviceAddresses: `${BASE}/devices/:deviceId/addresses`,
     deviceAddressById: `${BASE}/devices/:deviceId/addresses/:addressId`,
     deviceHeartbeat: `${BASE}/devices/:deviceId/heartbeat`,
-    deviceAddressHistory: `${BASE}/devices/:deviceId/addresses/history`,
+    addressHistory: `${BASE}/address-history`,
     deviceAddressLeaseRule: `${BASE}/devices/:deviceId/rules/address_lease`,
     regenerateApiKey: `${BASE}/devices/:deviceId/api-key/regenerate`,
     authMe: `${BASE}/auth/me`,
@@ -177,11 +177,11 @@ export const addressHandlers = {
 
     history: {
         success: (override?: AddressHistoryResponse) =>
-            http.get(endpoints.deviceAddressHistory, () =>
+            http.get(endpoints.addressHistory, () =>
                 HttpResponse.json(override ?? createMockAddressHistoryResponse())),
         empty: () =>
-            http.get(endpoints.deviceAddressHistory, () =>
-                HttpResponse.json({ buckets: [], events: [] })),
+            http.get(endpoints.addressHistory, () =>
+                HttpResponse.json({ buckets: [], events: [], total_events: 0, next_cursor: null })),
     },
 };
 

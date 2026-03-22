@@ -21,22 +21,6 @@ export const zAddressHistoryBucket = z.object({
     event_count: z.int()
 });
 
-export const zAddressHistoryEvent = z.object({
-    timestamp: z.iso.datetime({ offset: true, local: true }),
-    ip: z.string(),
-    is_enabled: z.boolean(),
-    source: z.enum([
-        'heartbeat',
-        'manual',
-        'expiry'
-    ])
-});
-
-export const zAddressHistoryResponse = z.object({
-    buckets: z.array(zAddressHistoryBucket),
-    events: z.array(zAddressHistoryEvent)
-});
-
 export const zPutDeviceAddressLeaseRuleRequest = z.object({
     ttl_seconds: z.int().gte(1)
 });
@@ -93,6 +77,27 @@ export const zDeviceHeartbeatByApiKeyRequest = z.object({
 });
 
 export const zId = z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' });
+
+export const zAddressHistoryEvent = z.object({
+    id: zId,
+    timestamp: z.iso.datetime({ offset: true, local: true }),
+    ip: z.string(),
+    is_enabled: z.boolean(),
+    source: z.enum([
+        'heartbeat',
+        'manual',
+        'expiry'
+    ]),
+    device_id: zId,
+    device_name: z.string()
+});
+
+export const zAddressHistoryResponse = z.object({
+    buckets: z.array(zAddressHistoryBucket),
+    events: z.array(zAddressHistoryEvent),
+    total_events: z.int(),
+    next_cursor: zId.optional()
+});
 
 export const zUser = z.object({
     id: zId,
@@ -390,22 +395,30 @@ export const zAddAddressData = z.object({
  */
 export const zAddAddressResponse = zAddress;
 
-export const zGetDeviceAddressHistoryData = z.object({
+export const zGetAddressHistoryData = z.object({
     body: z.never().optional(),
-    path: z.object({
-        device_id: zId
-    }),
+    path: z.never().optional(),
     query: z.object({
+        device_id: z.array(zId).optional(),
         from: z.iso.datetime({ offset: true, local: true }).optional(),
         to: z.iso.datetime({ offset: true, local: true }).optional(),
-        granularity: z.enum(['hour', 'day']).optional()
+        granularity: z.enum(['hour', 'day']).optional(),
+        source: z.enum([
+            'heartbeat',
+            'manual',
+            'expiry'
+        ]).optional(),
+        is_enabled: z.boolean().optional(),
+        ip: z.string().optional(),
+        limit: z.int().lte(200).optional().default(50),
+        before_id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
     }).optional()
 });
 
 /**
- * Address history with time-series buckets and events
+ * Address history with time-series buckets and paginated events
  */
-export const zGetDeviceAddressHistoryResponse = zAddressHistoryResponse;
+export const zGetAddressHistoryResponse = zAddressHistoryResponse;
 
 export const zDeviceHeartbeatData = z.object({
     body: z.never().optional(),

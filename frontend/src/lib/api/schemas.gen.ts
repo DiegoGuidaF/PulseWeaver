@@ -164,7 +164,8 @@ export const AddressHistoryResponseSchema = {
     type: 'object',
     required: [
         'buckets',
-        'events'
+        'events',
+        'total_events'
     ],
     properties: {
         buckets: {
@@ -178,6 +179,13 @@ export const AddressHistoryResponseSchema = {
             items: {
                 $ref: '#/components/schemas/AddressHistoryEvent'
             }
+        },
+        total_events: {
+            type: 'integer',
+            description: 'Total number of events matching the filters (for pagination)'
+        },
+        next_cursor: {
+            $ref: '#/components/schemas/ID'
         }
     }
 } as const;
@@ -209,12 +217,18 @@ export const AddressHistoryBucketSchema = {
 export const AddressHistoryEventSchema = {
     type: 'object',
     required: [
+        'id',
         'timestamp',
         'ip',
         'is_enabled',
-        'source'
+        'source',
+        'device_id',
+        'device_name'
     ],
     properties: {
+        id: {
+            $ref: '#/components/schemas/ID'
+        },
         timestamp: {
             type: 'string',
             format: 'date-time',
@@ -236,6 +250,13 @@ export const AddressHistoryEventSchema = {
                 'expiry'
             ],
             description: 'What triggered the state change'
+        },
+        device_id: {
+            $ref: '#/components/schemas/ID'
+        },
+        device_name: {
+            type: 'string',
+            description: 'Name of the device'
         }
     }
 } as const;

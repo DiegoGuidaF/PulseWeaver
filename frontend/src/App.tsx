@@ -12,6 +12,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { RequestAuditLogPage } from "./pages/RequestAuditLogPage";
+import { AddressHistoryPage } from "./pages/AddressHistoryPage";
 import { theme } from "./lib/theme";
 import { DateTimePrefsProvider } from "./contexts/DateTimePrefsContext";
 
@@ -66,6 +67,16 @@ function App() {
                       <ProtectedRoute>
                         <AppShell>
                           <RequestAuditLogPage />
+                        </AppShell>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/address-history"
+                    element={
+                      <ProtectedRoute>
+                        <AppShell>
+                          <AddressHistoryPage />
                         </AppShell>
                       </ProtectedRoute>
                     }

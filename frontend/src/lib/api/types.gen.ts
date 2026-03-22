@@ -57,6 +57,11 @@ export type ErrorResponse = {
 export type AddressHistoryResponse = {
     buckets: Array<AddressHistoryBucket>;
     events: Array<AddressHistoryEvent>;
+    /**
+     * Total number of events matching the filters (for pagination)
+     */
+    total_events: number;
+    next_cursor?: Id;
 };
 
 export type AddressHistoryBucket = {
@@ -72,6 +77,7 @@ export type AddressHistoryBucket = {
 };
 
 export type AddressHistoryEvent = {
+    id: Id;
     timestamp: string;
     /**
      * IP address
@@ -85,6 +91,11 @@ export type AddressHistoryEvent = {
      * What triggered the state change
      */
     source: 'heartbeat' | 'manual' | 'expiry';
+    device_id: Id;
+    /**
+     * Name of the device
+     */
+    device_name: string;
 };
 
 export type User = {
@@ -840,15 +851,14 @@ export type AddAddressResponses = {
 
 export type AddAddressResponse = AddAddressResponses[keyof AddAddressResponses];
 
-export type GetDeviceAddressHistoryData = {
+export type GetAddressHistoryData = {
     body?: never;
-    path: {
-        /**
-         * Device id
-         */
-        device_id: Id;
-    };
+    path?: never;
     query?: {
+        /**
+         * Filter by device ID(s). Empty means all devices.
+         */
+        device_id?: Array<Id>;
         /**
          * RFC3339 start of time window (default 24h ago)
          */
@@ -861,35 +871,51 @@ export type GetDeviceAddressHistoryData = {
          * Time bucket granularity (default hour)
          */
         granularity?: 'hour' | 'day';
+        /**
+         * Filter events by source
+         */
+        source?: 'heartbeat' | 'manual' | 'expiry';
+        /**
+         * Filter events by enabled/disabled state
+         */
+        is_enabled?: boolean;
+        /**
+         * Filter events by IP address (substring match)
+         */
+        ip?: string;
+        /**
+         * Maximum number of events to return (default 50, max 200)
+         */
+        limit?: number;
+        /**
+         * Cursor for pagination — return events with id < before_id
+         */
+        before_id?: number;
     };
-    url: '/devices/{device_id}/addresses/history';
+    url: '/address-history';
 };
 
-export type GetDeviceAddressHistoryErrors = {
+export type GetAddressHistoryErrors = {
     /**
      * Invalid query parameters (e.g. bad granularity)
      */
     400: ErrorResponse;
-    /**
-     * Device not found
-     */
-    404: ErrorResponse;
     /**
      * Internal Server Error
      */
     500: ErrorResponse;
 };
 
-export type GetDeviceAddressHistoryError = GetDeviceAddressHistoryErrors[keyof GetDeviceAddressHistoryErrors];
+export type GetAddressHistoryError = GetAddressHistoryErrors[keyof GetAddressHistoryErrors];
 
-export type GetDeviceAddressHistoryResponses = {
+export type GetAddressHistoryResponses = {
     /**
-     * Address history with time-series buckets and events
+     * Address history with time-series buckets and paginated events
      */
     200: AddressHistoryResponse;
 };
 
-export type GetDeviceAddressHistoryResponse = GetDeviceAddressHistoryResponses[keyof GetDeviceAddressHistoryResponses];
+export type GetAddressHistoryResponse = GetAddressHistoryResponses[keyof GetAddressHistoryResponses];
 
 export type DeviceHeartbeatData = {
     body?: never;
