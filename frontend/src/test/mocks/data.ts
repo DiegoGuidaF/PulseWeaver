@@ -1,4 +1,4 @@
-import type { Address, Device, DeviceAddressLeaseRule, RequestAuditLogResponse, RequestAuditLogRow, User } from '@/lib/api';
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, Device, DeviceAddressLeaseRule, RequestAuditLogResponse, RequestAuditLogRow, User } from '@/lib/api';
 import { UserRole } from "@/lib/api";
 
 /**
@@ -89,6 +89,56 @@ export function createMockRequestAuditLogRow(
     target_uri: '/api/data',
     http_method: 'GET',
     headers: {},
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a mock AddressHistoryBucket with realistic defaults.
+ */
+export function createMockAddressHistoryBucket(
+  overrides?: Partial<AddressHistoryBucket>,
+): AddressHistoryBucket {
+  return {
+    timestamp: '2024-01-01T12:00:00Z',
+    active_count: 2,
+    event_count: 3,
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a mock AddressHistoryEvent with realistic defaults.
+ */
+export function createMockAddressHistoryEvent(
+  overrides?: Partial<AddressHistoryEvent>,
+): AddressHistoryEvent {
+  return {
+    timestamp: '2024-01-01T12:00:00Z',
+    ip: '192.168.1.100',
+    is_enabled: true,
+    source: 'heartbeat',
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a mock AddressHistoryResponse with realistic defaults.
+ */
+export function createMockAddressHistoryResponse(
+  overrides?: Partial<AddressHistoryResponse>,
+): AddressHistoryResponse {
+  return {
+    buckets: [
+      createMockAddressHistoryBucket({ timestamp: '2024-01-01T10:00:00Z', active_count: 1, event_count: 1 }),
+      createMockAddressHistoryBucket({ timestamp: '2024-01-01T11:00:00Z', active_count: 2, event_count: 2 }),
+      createMockAddressHistoryBucket({ timestamp: '2024-01-01T12:00:00Z', active_count: 3, event_count: 1 }),
+    ],
+    events: [
+      createMockAddressHistoryEvent({ timestamp: '2024-01-01T10:30:00Z', ip: '10.0.0.1', is_enabled: true, source: 'heartbeat' }),
+      createMockAddressHistoryEvent({ timestamp: '2024-01-01T11:00:00Z', ip: '10.0.0.2', is_enabled: true, source: 'manual' }),
+      createMockAddressHistoryEvent({ timestamp: '2024-01-01T11:45:00Z', ip: '10.0.0.1', is_enabled: false, source: 'expiry' }),
+    ],
     ...overrides,
   };
 }

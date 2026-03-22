@@ -15,6 +15,28 @@ export const zErrorResponse = z.object({
     error: z.string().optional()
 });
 
+export const zAddressHistoryBucket = z.object({
+    timestamp: z.iso.datetime({ offset: true, local: true }),
+    active_count: z.int(),
+    event_count: z.int()
+});
+
+export const zAddressHistoryEvent = z.object({
+    timestamp: z.iso.datetime({ offset: true, local: true }),
+    ip: z.string(),
+    is_enabled: z.boolean(),
+    source: z.enum([
+        'heartbeat',
+        'manual',
+        'expiry'
+    ])
+});
+
+export const zAddressHistoryResponse = z.object({
+    buckets: z.array(zAddressHistoryBucket),
+    events: z.array(zAddressHistoryEvent)
+});
+
 export const zPutDeviceAddressLeaseRuleRequest = z.object({
     ttl_seconds: z.int().gte(1)
 });
@@ -367,6 +389,23 @@ export const zAddAddressData = z.object({
  * Address already existed, enabled status set
  */
 export const zAddAddressResponse = zAddress;
+
+export const zGetDeviceAddressHistoryData = z.object({
+    body: z.never().optional(),
+    path: z.object({
+        device_id: zId
+    }),
+    query: z.object({
+        from: z.iso.datetime({ offset: true, local: true }).optional(),
+        to: z.iso.datetime({ offset: true, local: true }).optional(),
+        granularity: z.enum(['hour', 'day']).optional()
+    }).optional()
+});
+
+/**
+ * Address history with time-series buckets and events
+ */
+export const zGetDeviceAddressHistoryResponse = zAddressHistoryResponse;
 
 export const zDeviceHeartbeatData = z.object({
     body: z.never().optional(),

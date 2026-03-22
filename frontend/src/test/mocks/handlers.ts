@@ -1,6 +1,6 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, CreateDeviceResponse, Device, DeviceAddressLeaseRule, RequestAuditLogResponse, User } from '@/lib/api';
-import { createMockAddress, createMockDevice, createMockDeviceAddressLeaseRule, createMockRequestAuditLogResponse, createMockUser } from './data';
+import type { Address, AddressHistoryResponse, CreateDeviceResponse, Device, DeviceAddressLeaseRule, RequestAuditLogResponse, User } from '@/lib/api';
+import { createMockAddress, createMockAddressHistoryResponse, createMockDevice, createMockDeviceAddressLeaseRule, createMockRequestAuditLogResponse, createMockUser } from './data';
 
 const BASE = '/api/v1';
 
@@ -12,6 +12,7 @@ export const endpoints = {
     deviceAddresses: `${BASE}/devices/:deviceId/addresses`,
     deviceAddressById: `${BASE}/devices/:deviceId/addresses/:addressId`,
     deviceHeartbeat: `${BASE}/devices/:deviceId/heartbeat`,
+    deviceAddressHistory: `${BASE}/devices/:deviceId/addresses/history`,
     deviceAddressLeaseRule: `${BASE}/devices/:deviceId/rules/address_lease`,
     regenerateApiKey: `${BASE}/devices/:deviceId/api-key/regenerate`,
     authMe: `${BASE}/auth/me`,
@@ -173,6 +174,15 @@ export const addressHandlers = {
             http.delete(endpoints.deviceAddressById, () =>
                 HttpResponse.json({ ...createMockAddress({ is_enabled: false }), ...override })),
     },
+
+    history: {
+        success: (override?: AddressHistoryResponse) =>
+            http.get(endpoints.deviceAddressHistory, () =>
+                HttpResponse.json(override ?? createMockAddressHistoryResponse())),
+        empty: () =>
+            http.get(endpoints.deviceAddressHistory, () =>
+                HttpResponse.json({ buckets: [], events: [] })),
+    },
 };
 
 // ─── Rule handlers ────────────────────────────────────────────────────────────
@@ -235,6 +245,7 @@ export const defaultHandlers = [
     addressHandlers.create.success(),
     addressHandlers.heartbeat.success(),
     addressHandlers.disable.success(),
+    addressHandlers.history.success(),
     // Rules
     ruleHandlers.addressLease.get.success(),
     ruleHandlers.addressLease.put.success(),

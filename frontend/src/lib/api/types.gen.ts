@@ -54,6 +54,39 @@ export type ErrorResponse = {
     error?: string;
 };
 
+export type AddressHistoryResponse = {
+    buckets: Array<AddressHistoryBucket>;
+    events: Array<AddressHistoryEvent>;
+};
+
+export type AddressHistoryBucket = {
+    timestamp: string;
+    /**
+     * Maximum active IPs seen in this time bucket
+     */
+    active_count: number;
+    /**
+     * Total address events in this time bucket
+     */
+    event_count: number;
+};
+
+export type AddressHistoryEvent = {
+    timestamp: string;
+    /**
+     * IP address
+     */
+    ip: string;
+    /**
+     * Whether the address was enabled or disabled
+     */
+    is_enabled: boolean;
+    /**
+     * What triggered the state change
+     */
+    source: 'heartbeat' | 'manual' | 'expiry';
+};
+
 export type User = {
     id: Id;
     username: Username;
@@ -806,6 +839,57 @@ export type AddAddressResponses = {
 };
 
 export type AddAddressResponse = AddAddressResponses[keyof AddAddressResponses];
+
+export type GetDeviceAddressHistoryData = {
+    body?: never;
+    path: {
+        /**
+         * Device id
+         */
+        device_id: Id;
+    };
+    query?: {
+        /**
+         * RFC3339 start of time window (default 24h ago)
+         */
+        from?: string;
+        /**
+         * RFC3339 end of time window (default now)
+         */
+        to?: string;
+        /**
+         * Time bucket granularity (default hour)
+         */
+        granularity?: 'hour' | 'day';
+    };
+    url: '/devices/{device_id}/addresses/history';
+};
+
+export type GetDeviceAddressHistoryErrors = {
+    /**
+     * Invalid query parameters (e.g. bad granularity)
+     */
+    400: ErrorResponse;
+    /**
+     * Device not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type GetDeviceAddressHistoryError = GetDeviceAddressHistoryErrors[keyof GetDeviceAddressHistoryErrors];
+
+export type GetDeviceAddressHistoryResponses = {
+    /**
+     * Address history with time-series buckets and events
+     */
+    200: AddressHistoryResponse;
+};
+
+export type GetDeviceAddressHistoryResponse = GetDeviceAddressHistoryResponses[keyof GetDeviceAddressHistoryResponses];
 
 export type DeviceHeartbeatData = {
     body?: never;

@@ -160,6 +160,86 @@ export const ErrorResponseSchema = {
     }
 } as const;
 
+export const AddressHistoryResponseSchema = {
+    type: 'object',
+    required: [
+        'buckets',
+        'events'
+    ],
+    properties: {
+        buckets: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/AddressHistoryBucket'
+            }
+        },
+        events: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/AddressHistoryEvent'
+            }
+        }
+    }
+} as const;
+
+export const AddressHistoryBucketSchema = {
+    type: 'object',
+    required: [
+        'timestamp',
+        'active_count',
+        'event_count'
+    ],
+    properties: {
+        timestamp: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime'
+        },
+        active_count: {
+            type: 'integer',
+            description: 'Maximum active IPs seen in this time bucket'
+        },
+        event_count: {
+            type: 'integer',
+            description: 'Total address events in this time bucket'
+        }
+    }
+} as const;
+
+export const AddressHistoryEventSchema = {
+    type: 'object',
+    required: [
+        'timestamp',
+        'ip',
+        'is_enabled',
+        'source'
+    ],
+    properties: {
+        timestamp: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime'
+        },
+        ip: {
+            type: 'string',
+            description: 'IP address'
+        },
+        is_enabled: {
+            type: 'boolean',
+            description: 'Whether the address was enabled or disabled'
+        },
+        source: {
+            type: 'string',
+            enum: [
+                'heartbeat',
+                'manual',
+                'expiry'
+            ],
+            description: 'What triggered the state change'
+        }
+    }
+} as const;
+
 export const UserSchema = {
     type: 'object',
     required: [

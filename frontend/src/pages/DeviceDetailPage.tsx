@@ -4,6 +4,7 @@ import { IconChevronLeft } from "@tabler/icons-react";
 import { useDeviceDetail } from "@/features/devices/hooks/useDeviceDetail";
 import { DeviceAddressesTab } from "@/features/devices/DeviceAddressesTab";
 import { DeviceSettingsTab } from "@/features/devices/DeviceSettingsTab";
+import { DeviceHistoryTab } from "@/features/devices/DeviceHistoryTab";
 import { toErrorMessage } from "@/lib/api-client";
 
 type DeviceDetailRouteParams = {
@@ -77,12 +78,16 @@ export function DeviceDetailPage() {
         <Tabs.List>
           <Tabs.Tab value="addresses">Addresses</Tabs.Tab>
           <Tabs.Tab value="settings">Settings &amp; Rules</Tabs.Tab>
+          <Tabs.Tab value="history">History</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="addresses" pt="md">
           <DeviceAddressesTab deviceId={deviceId} />
         </Tabs.Panel>
         <Tabs.Panel value="settings" pt="md">
           <DeviceSettingsTab deviceId={deviceId} device={device} />
+        </Tabs.Panel>
+        <Tabs.Panel value="history" pt="md">
+          <DeviceHistoryTab deviceId={deviceId} />
         </Tabs.Panel>
       </Tabs>
     </Stack>
