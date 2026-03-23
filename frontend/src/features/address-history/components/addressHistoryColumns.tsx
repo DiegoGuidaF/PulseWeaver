@@ -45,6 +45,7 @@ export interface AddressHistoryColumnDeps {
     deviceIdStr: string | null;
     sourceStr: string | null;
     enabledStr: string | null;
+    lockedDeviceId?: number;
 
     deviceOptions: { value: string; label: string }[];
 
@@ -56,7 +57,7 @@ export interface AddressHistoryColumnDeps {
 export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTableColumn<AddressHistoryEvent>[] {
     const sourceOptions = Object.entries(SOURCE_LABELS).map(([value, label]) => ({ value, label }));
 
-    return [
+    const allColumns: DataTableColumn<AddressHistoryEvent>[] = [
         {
             accessor: "timestamp",
             title: "Time",
@@ -220,4 +221,9 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
             ),
         },
     ];
+
+    if (deps.lockedDeviceId != null) {
+        return allColumns.filter((c) => c.accessor !== "device_name");
+    }
+    return allColumns;
 }

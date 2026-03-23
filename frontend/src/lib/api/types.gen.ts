@@ -61,7 +61,7 @@ export type AddressHistoryResponse = {
      * Total number of events matching the filters (for pagination)
      */
     total_events: number;
-    next_cursor?: Id;
+    next_cursor?: Id | null;
 };
 
 export type AddressHistoryBucket = {

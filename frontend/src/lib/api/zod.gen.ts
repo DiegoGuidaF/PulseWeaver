@@ -96,7 +96,7 @@ export const zAddressHistoryResponse = z.object({
     buckets: z.array(zAddressHistoryBucket),
     events: z.array(zAddressHistoryEvent),
     total_events: z.int(),
-    next_cursor: zId.optional()
+    next_cursor: zId.nullish()
 });
 
 export const zUser = z.object({

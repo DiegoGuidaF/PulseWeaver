@@ -1,14 +1,19 @@
-import { useState } from "react";
-import { Alert, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
+import { useState, useMemo } from "react";
+import { Alert, Button, Card, Group, Skeleton, Stack, Text } from "@mantine/core";
+import { AreaChart } from "@mantine/charts";
 import { DataTable } from "mantine-datatable";
 import { IconAlertCircle, IconFilterOff } from "@tabler/icons-react";
+import dayjs from "dayjs";
 import type { AddressHistoryEvent } from "@/lib/api";
-import { useAddressHistory } from "@/features/devices/hooks/useAddressHistory";
+import { useAddressHistory } from "../hooks/useAddressHistory";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
 import { getAddressHistoryColumns } from "./addressHistoryColumns";
 import { toErrorMessage } from "@/lib/api-client";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
 import { useDevices } from "@/features/devices/hooks/useDevices";
+import { PRESET_MS } from "@/lib/timePresets";
+
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
 interface AddressHistoryTableProps {
     filters: AddressHistoryFilters;
@@ -63,18 +68,40 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         deviceIdStr: filters.deviceIdStr,
         sourceStr: filters.sourceStr,
         enabledStr: filters.enabledStr,
+        lockedDeviceId: filters.lockedDeviceId,
         deviceOptions,
         setParam: filters.setParam,
         setIpLocal: filters.setIpLocal,
         setSearchParams: filters.setSearchParams,
     });
 
+    // Chart data from buckets
+    const useDayFormat = useMemo(() => {
+        const presetMs = filters.presetStr ? PRESET_MS[filters.presetStr] : undefined;
+        if (presetMs !== undefined) return presetMs >= THREE_DAYS_MS;
+        if (filters.fromStr && filters.toStr) {
+            return dayjs(filters.toStr).diff(dayjs(filters.fromStr)) >= THREE_DAYS_MS;
+        }
+        return false;
+    }, [filters.presetStr, filters.fromStr, filters.toStr]);
+
+    const chartData = useMemo(() => {
+        if (!data?.buckets) return [];
+        return data.buckets.map((b) => ({
+            timestamp: dayjs(b.timestamp).format(useDayFormat ? "MMM DD" : "MMM DD HH:mm"),
+            active_count: b.active_count,
+        }));
+    }, [data, useDayFormat]);
+
     if ((isPending || !data) && !error && rows.length === 0) {
         return (
-            <Stack gap="xs">
-                {Array.from({ length: 5 }).map((_, i) => (
-                    <Skeleton key={i} height={40} radius="sm" />
-                ))}
+            <Stack gap="md">
+                <Skeleton height={200} radius="sm" />
+                <Stack gap="xs">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <Skeleton key={i} height={40} radius="sm" />
+                    ))}
+                </Stack>
             </Stack>
         );
     }
@@ -92,6 +119,25 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
 
     return (
         <Stack gap="sm">
+            <Card withBorder padding="md">
+                <Text fw={500} mb="sm">Active IPs over time</Text>
+                {chartData.length > 0 ? (
+                    <AreaChart
+                        h={200}
+                        data={chartData}
+                        dataKey="timestamp"
+                        series={[{ name: "active_count", color: "blue.6" }]}
+                        curveType="monotone"
+                        gridAxis="xy"
+                        yAxisProps={{ allowDecimals: false }}
+                    />
+                ) : (
+                    <Text size="sm" c="dimmed" ta="center" py="xl">
+                        No activity in this period
+                    </Text>
+                )}
+            </Card>
+
             <Group justify="space-between">
                 <Text size="sm" c="dimmed">
                     {total} event{total !== 1 ? "s" : ""}

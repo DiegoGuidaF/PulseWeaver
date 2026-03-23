@@ -9,11 +9,7 @@ const LS_KEY = "pulseweaver:address-history:filters";
 const DEFAULT_PRESET = "last_24h";
 const DEFAULT_PARAMS = new URLSearchParams({ preset: DEFAULT_PRESET });
 
-function persistFilters(params: URLSearchParams) {
-    const str = params.toString();
-    if (str) localStorage.setItem(LS_KEY, str);
-    else localStorage.removeItem(LS_KEY);
-}
+export type SearchParamsSetter = (updater: URLSearchParams | ((prev: URLSearchParams) => URLSearchParams)) => void;
 
 export interface AddressHistoryFilters {
     queryParams: GetAddressHistoryData["query"];
@@ -30,12 +26,19 @@ export interface AddressHistoryFilters {
 
     hasCustomTo: boolean;
     hasActiveFilters: boolean;
+    lockedDeviceId?: number;
 
     setPreset: (key: string | null) => void;
     setParam: (key: string, value: string | null) => void;
     setIpLocal: (value: string) => void;
-    setSearchParams: (updater: URLSearchParams | ((prev: URLSearchParams) => URLSearchParams)) => void;
+    setSearchParams: SearchParamsSetter;
     clearAll: () => void;
+}
+
+function persistFilters(params: URLSearchParams) {
+    const str = params.toString();
+    if (str) localStorage.setItem(LS_KEY, str);
+    else localStorage.removeItem(LS_KEY);
 }
 
 function getDefaultParams(): URLSearchParams {
@@ -44,24 +47,26 @@ function getDefaultParams(): URLSearchParams {
     return new URLSearchParams(DEFAULT_PARAMS);
 }
 
-export function useAddressHistoryFilters(): AddressHistoryFilters {
-    // useSearchParams uses the router's location (works with MemoryRouter in tests).
-    // The default is applied only when the URL has no search params.
-    const [searchParams, setSearchParamsRaw] = useSearchParams(getDefaultParams());
+// ─── Shared core ────────────────────────────────────────────────────────────
 
-    const setSearchParams: AddressHistoryFilters["setSearchParams"] = useCallback(
-        (updater) => {
-            setSearchParamsRaw((prev) => {
-                const next = typeof updater === "function" ? updater(prev) : updater;
-                persistFilters(next);
-                return next;
-            });
-        },
-        [setSearchParamsRaw],
-    );
+interface FilterCoreOptions {
+    lockedDeviceId?: number;
+}
+
+/**
+ * Core filter logic shared between URL-backed and local-state-backed hooks.
+ * Both hooks provide a URLSearchParams + setter pair; this hook handles
+ * IP debounce, derived state, and query param computation.
+ */
+export function useFilterCore(
+    searchParams: URLSearchParams,
+    setSearchParams: SearchParamsSetter,
+    options?: FilterCoreOptions,
+): AddressHistoryFilters {
+    const lockedDeviceId = options?.lockedDeviceId;
 
     const presetStr = searchParams.get("preset");
-    const deviceIdStr = searchParams.get("device_id");
+    const deviceIdStr = lockedDeviceId != null ? String(lockedDeviceId) : searchParams.get("device_id");
     const sourceStr = searchParams.get("source");
     const enabledStr = searchParams.get("is_enabled");
     const fromStr = searchParams.get("from");
@@ -70,7 +75,7 @@ export function useAddressHistoryFilters(): AddressHistoryFilters {
     const [ipLocal, setIpLocalRaw] = useState(() => searchParams.get("ip") ?? "");
     const ipDebounced = searchParams.get("ip") ?? "";
 
-    const syncIpToUrl = useDebouncedCallback((value: string) => {
+    const syncIpToParams = useDebouncedCallback((value: string) => {
         setSearchParams((prev) => {
             if (value === "") prev.delete("ip");
             else prev.set("ip", value);
@@ -80,8 +85,8 @@ export function useAddressHistoryFilters(): AddressHistoryFilters {
 
     const setIpLocal = useCallback((value: string) => {
         setIpLocalRaw(value);
-        syncIpToUrl(value);
-    }, [syncIpToUrl]);
+        syncIpToParams(value);
+    }, [syncIpToParams]);
 
     function setPreset(key: string | null) {
         setSearchParams((prev) => {
@@ -97,6 +102,7 @@ export function useAddressHistoryFilters(): AddressHistoryFilters {
     }
 
     function setParam(key: string, value: string | null) {
+        if (key === "device_id" && lockedDeviceId != null) return;
         setSearchParams((prev) => {
             if (value === null || value === "") prev.delete(key);
             else prev.set(key, value);
@@ -106,7 +112,9 @@ export function useAddressHistoryFilters(): AddressHistoryFilters {
 
     const presetMs = presetStr ? PRESET_MS[presetStr] : undefined;
     const queryParams: GetAddressHistoryData["query"] = {
-        device_id: deviceIdStr ? [Number(deviceIdStr)] : undefined,
+        device_id: lockedDeviceId != null
+            ? [lockedDeviceId]
+            : deviceIdStr ? [Number(deviceIdStr)] : undefined,
         source: (sourceStr || undefined) as "heartbeat" | "manual" | "expiry" | undefined,
         is_enabled: enabledStr === "true" ? true : enabledStr === "false" ? false : undefined,
         ip: ipDebounced || undefined,
@@ -122,7 +130,7 @@ export function useAddressHistoryFilters(): AddressHistoryFilters {
 
     function clearAll() {
         setIpLocalRaw("");
-        syncIpToUrl.cancel();
+        syncIpToParams.cancel();
         setSearchParams(new URLSearchParams(DEFAULT_PARAMS));
     }
 
@@ -141,10 +149,44 @@ export function useAddressHistoryFilters(): AddressHistoryFilters {
         ipDebounced,
         hasCustomTo,
         hasActiveFilters,
+        lockedDeviceId,
         setPreset,
         setParam,
         setIpLocal,
         setSearchParams,
         clearAll,
     };
+}
+
+// ─── URL-backed hook (for dedicated page) ───────────────────────────────────
+
+/**
+ * Computes the default URLSearchParams for the initial useSearchParams call.
+ * Returns defaults from localStorage (or the global default preset) only when
+ * the URL has no time context. When the URL already has `preset` or `from`,
+ * returns undefined so useSearchParams uses the URL as-is.
+ */
+function computeInitialDefault(): URLSearchParams | undefined {
+    if (typeof window === "undefined") return getDefaultParams();
+    const url = new URLSearchParams(window.location.search);
+    if (url.has("preset") || url.has("from")) return undefined;
+    return getDefaultParams();
+}
+
+export function useAddressHistoryFilters(): AddressHistoryFilters {
+    const [defaultInit] = useState(computeInitialDefault);
+    const [searchParams, setSearchParamsRaw] = useSearchParams(defaultInit);
+
+    const setSearchParams: SearchParamsSetter = useCallback(
+        (updater) => {
+            setSearchParamsRaw((prev) => {
+                const next = typeof updater === "function" ? updater(prev) : updater;
+                persistFilters(next);
+                return next;
+            });
+        },
+        [setSearchParamsRaw],
+    );
+
+    return useFilterCore(searchParams, setSearchParams);
 }

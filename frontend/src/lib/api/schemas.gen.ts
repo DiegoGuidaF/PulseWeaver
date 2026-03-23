@@ -185,7 +185,12 @@ export const AddressHistoryResponseSchema = {
             description: 'Total number of events matching the filters (for pagination)'
         },
         next_cursor: {
-            $ref: '#/components/schemas/ID'
+            allOf: [
+                {
+                    $ref: '#/components/schemas/ID'
+                }
+            ],
+            nullable: true
         }
     }
 } as const;
