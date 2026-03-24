@@ -17,14 +17,25 @@ function renderSettingsPage() {
   );
 }
 
-describe('SettingsPage — Date & Time card', () => {
+async function switchToPreferencesTab(user: ReturnType<typeof userEvent.setup>) {
+  await waitFor(
+    () => { expect(screen.getByRole('tab', { name: 'Preferences' })).toBeInTheDocument(); },
+    { timeout: TEST_TIMEOUTS.SHORT },
+  );
+  await user.click(screen.getByRole('tab', { name: 'Preferences' }));
+}
+
+describe('SettingsPage — Date & Time preferences', () => {
   beforeEach(() => {
     localStorage.clear();
     server.use(authHandlers.me.success());
   });
 
   it('renders the Date & Time card with current preference values', async () => {
+    const user = userEvent.setup();
     renderSettingsPage();
+
+    await switchToPreferencesTab(user);
 
     await waitFor(
       () => {
@@ -47,6 +58,8 @@ describe('SettingsPage — Date & Time card', () => {
     const user = userEvent.setup();
     renderSettingsPage();
 
+    await switchToPreferencesTab(user);
+
     await waitFor(
       () => { expect(screen.getByText('Date & Time')).toBeInTheDocument(); },
       { timeout: TEST_TIMEOUTS.MEDIUM },
@@ -65,6 +78,8 @@ describe('SettingsPage — Date & Time card', () => {
   it('changing the time format control persists to localStorage', async () => {
     const user = userEvent.setup();
     renderSettingsPage();
+
+    await switchToPreferencesTab(user);
 
     await waitFor(
       () => { expect(screen.getByText('Date & Time')).toBeInTheDocument(); },
@@ -86,6 +101,8 @@ describe('SettingsPage — Date & Time card', () => {
     localStorage.setItem(DATETIME_PREFS_KEY, JSON.stringify({ dateOrder: 'MDY', timeFormat: '12h' }));
     const user = userEvent.setup();
     renderSettingsPage();
+
+    await switchToPreferencesTab(user);
 
     await waitFor(
       () => { expect(screen.getByText(/Preview:/)).toBeInTheDocument(); },
