@@ -48,13 +48,13 @@ func noopLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 func TestNewService_NilFinder_ReturnsError(t *testing.T) {
 	is := is.New(t)
-	_, err := scheduler.NewService(nil, &fakeAddressDisabler{}, noopLogger())
+	_, err := scheduler.NewService(nil, &fakeAddressDisabler{}, nil, noopLogger())
 	is.True(err != nil)
 }
 
 func TestNewService_NilDisabler_ReturnsError(t *testing.T) {
 	is := is.New(t)
-	_, err := scheduler.NewService(&fakeExpiredFinder{}, nil, noopLogger())
+	_, err := scheduler.NewService(&fakeExpiredFinder{}, nil, nil, noopLogger())
 	is.True(err != nil)
 }
 
@@ -64,7 +64,7 @@ func TestService_ExecuteScheduledRules_NoExpiredAddresses_SkipsDisabler(t *testi
 	is := is.New(t)
 	finder := &fakeExpiredFinder{ids: []device.AddressID{}}
 	disabler := &fakeAddressDisabler{}
-	svc, err := scheduler.NewService(finder, disabler, noopLogger())
+	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
 	is.NoErr(err)
 
 	err = svc.ExecuteScheduledRules(context.Background())
@@ -77,7 +77,7 @@ func TestService_ExecuteScheduledRules_ExpiredAddressesFound_DisablesAll(t *test
 	is := is.New(t)
 	finder := &fakeExpiredFinder{ids: []device.AddressID{device.AddressID(1), device.AddressID(2)}}
 	disabler := &fakeAddressDisabler{}
-	svc, err := scheduler.NewService(finder, disabler, noopLogger())
+	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
 	is.NoErr(err)
 
 	err = svc.ExecuteScheduledRules(context.Background())
@@ -95,7 +95,7 @@ func TestService_ExecuteScheduledRules_FinderError_Propagates(t *testing.T) {
 	finderErr := errors.New("db error")
 	finder := &fakeExpiredFinder{err: finderErr}
 	disabler := &fakeAddressDisabler{}
-	svc, err := scheduler.NewService(finder, disabler, noopLogger())
+	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
 	is.NoErr(err)
 
 	err = svc.ExecuteScheduledRules(context.Background())
@@ -109,7 +109,7 @@ func TestService_ExecuteScheduledRules_DisablerError_Propagates(t *testing.T) {
 	disablerErr := errors.New("disable error")
 	finder := &fakeExpiredFinder{ids: []device.AddressID{device.AddressID(1)}}
 	disabler := &fakeAddressDisabler{err: disablerErr}
-	svc, err := scheduler.NewService(finder, disabler, noopLogger())
+	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
 	is.NoErr(err)
 
 	err = svc.ExecuteScheduledRules(context.Background())
@@ -123,7 +123,7 @@ func TestService_RunSchedule_ContextCancellation_ExitsCleanly(t *testing.T) {
 	is := is.New(t)
 	finder := &fakeExpiredFinder{ids: []device.AddressID{}}
 	disabler := &fakeAddressDisabler{}
-	svc, err := scheduler.NewService(finder, disabler, noopLogger())
+	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
 	is.NoErr(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -147,7 +147,7 @@ func TestService_RunSchedule_TickFiresExecuteScheduledRules(t *testing.T) {
 	is := is.New(t)
 	finder := &fakeExpiredFinder{ids: []device.AddressID{device.AddressID(42)}}
 	disabler := &fakeAddressDisabler{}
-	svc, err := scheduler.NewService(finder, disabler, noopLogger())
+	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
 	is.NoErr(err)
 
 	ctx, cancel := context.WithCancel(context.Background())

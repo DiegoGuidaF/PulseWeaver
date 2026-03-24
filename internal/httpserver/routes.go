@@ -6,6 +6,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/audit"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/health"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
@@ -24,6 +25,7 @@ type CompositeHandler struct {
 	*RuleHandler
 	*QueriesHandler
 	*AuditHandler
+	*DashboardHandler
 }
 
 type RuleHandler = rule.HTTPHandler
@@ -32,14 +34,16 @@ type DeviceHandler = device.HTTPHandler
 type AuthHandler = auth.HTTPHandler
 type PolicyHandler = policy.HTTPHandler
 type AuditHandler = audit.HTTPHandler
+type DashboardHandler = dashboard.HTTPHandler
 
-func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, auditHandler *AuditHandler, logger *slog.Logger) {
+func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, auditHandler *AuditHandler, dashboardHandler *DashboardHandler, logger *slog.Logger) {
 	routeHandler := &CompositeHandler{
-		DeviceHandler:  deviceHandler,
-		AuthHandler:    authHandler,
-		RuleHandler:    ruleHandler,
-		QueriesHandler: queriesHandler,
-		AuditHandler:   auditHandler,
+		DeviceHandler:    deviceHandler,
+		AuthHandler:      authHandler,
+		RuleHandler:      ruleHandler,
+		QueriesHandler:   queriesHandler,
+		AuditHandler:     auditHandler,
+		DashboardHandler: dashboardHandler,
 	}
 
 	r.Get("/health", health.Handler)

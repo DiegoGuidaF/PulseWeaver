@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 	"github.com/matryer/is"
 )
 
@@ -575,7 +576,7 @@ func TestService_GetAddressHistory_ValidInput(t *testing.T) {
 
 	history, err := service.GetAddressHistory(ctx, AddressHistoryQuery{
 		DeviceIDs:   []DeviceID{1},
-		Granularity: GranularityHour,
+		Granularity: timebucket.GranularityHour,
 	})
 
 	is.NoErr(err)

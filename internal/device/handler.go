@@ -8,6 +8,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 )
 
 type HTTPHandler struct {
@@ -307,7 +308,7 @@ func (h *HTTPHandler) GetAddressHistory(ctx context.Context, request httpapi.Get
 		query.To = *params.To
 	}
 	if params.Granularity != nil {
-		query.Granularity = Granularity(*params.Granularity)
+		query.Granularity = timebucket.Granularity(*params.Granularity)
 	}
 	if params.DeviceId != nil {
 		for _, id := range *params.DeviceId {
@@ -321,7 +322,7 @@ func (h *HTTPHandler) GetAddressHistory(ctx context.Context, request httpapi.Get
 	history, err := h.service.GetAddressHistory(ctx, query)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrInvalidGranularity):
+		case errors.Is(err, timebucket.ErrInvalidGranularity):
 			logger.WarnContext(ctx, "invalid query parameters", slog.Any(AttrKeyError, err))
 			return httpapi.GetAddressHistory400JSONResponse(errorMsgResponse(err.Error())), nil
 		default:

@@ -43,8 +43,8 @@ const (
 
 // Defines values for GetAddressHistoryParamsGranularity.
 const (
-	Day  GetAddressHistoryParamsGranularity = "day"
-	Hour GetAddressHistoryParamsGranularity = "hour"
+	GetAddressHistoryParamsGranularityDay  GetAddressHistoryParamsGranularity = "day"
+	GetAddressHistoryParamsGranularityHour GetAddressHistoryParamsGranularity = "hour"
 )
 
 // Defines values for GetAddressHistoryParamsSource.
@@ -52,6 +52,12 @@ const (
 	GetAddressHistoryParamsSourceExpiry    GetAddressHistoryParamsSource = "expiry"
 	GetAddressHistoryParamsSourceHeartbeat GetAddressHistoryParamsSource = "heartbeat"
 	GetAddressHistoryParamsSourceManual    GetAddressHistoryParamsSource = "manual"
+)
+
+// Defines values for GetDashboardTrafficParamsGranularity.
+const (
+	GetDashboardTrafficParamsGranularityDay  GetDashboardTrafficParamsGranularity = "day"
+	GetDashboardTrafficParamsGranularityHour GetDashboardTrafficParamsGranularity = "hour"
 )
 
 // AddAddressRequest defines model for AddAddressRequest.
@@ -157,6 +163,49 @@ type CreateUserRequest struct {
 
 	// Username Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
 	Username Username `json:"username"`
+}
+
+// DashboardServiceCount defines model for DashboardServiceCount.
+type DashboardServiceCount struct {
+	AllowCount int64  `json:"allow_count"`
+	DenyCount  int64  `json:"deny_count"`
+	Host       string `json:"host"`
+}
+
+// DashboardServicesResponse defines model for DashboardServicesResponse.
+type DashboardServicesResponse struct {
+	Services []DashboardServiceCount `json:"services"`
+}
+
+// DashboardStats defines model for DashboardStats.
+type DashboardStats struct {
+	AllowedCount  int64 `json:"allowed_count"`
+	DeniedCount   int64 `json:"denied_count"`
+	TotalRequests int64 `json:"total_requests"`
+	UniqueIps     int64 `json:"unique_ips"`
+}
+
+// DashboardTopDeniedIp defines model for DashboardTopDeniedIp.
+type DashboardTopDeniedIp struct {
+	Count int64  `json:"count"`
+	Ip    string `json:"ip"`
+}
+
+// DashboardTopDeniedIpsResponse defines model for DashboardTopDeniedIpsResponse.
+type DashboardTopDeniedIpsResponse struct {
+	Ips []DashboardTopDeniedIp `json:"ips"`
+}
+
+// DashboardTrafficBucket defines model for DashboardTrafficBucket.
+type DashboardTrafficBucket struct {
+	AllowCount int64   `json:"allow_count"`
+	DenyCount  int64   `json:"deny_count"`
+	Timestamp  UTCTime `json:"timestamp"`
+}
+
+// DashboardTrafficResponse defines model for DashboardTrafficResponse.
+type DashboardTrafficResponse struct {
+	Buckets []DashboardTrafficBucket `json:"buckets"`
 }
 
 // Device defines model for Device.
@@ -322,6 +371,51 @@ type GetAddressHistoryParamsGranularity string
 
 // GetAddressHistoryParamsSource defines parameters for GetAddressHistory.
 type GetAddressHistoryParamsSource string
+
+// GetDashboardServicesParams defines parameters for GetDashboardServices.
+type GetDashboardServicesParams struct {
+	// From RFC3339 start of time window (default 24h ago)
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+
+	// To RFC3339 end of time window (default now)
+	To *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// GetDashboardStatsParams defines parameters for GetDashboardStats.
+type GetDashboardStatsParams struct {
+	// From RFC3339 start of time window (default 24h ago)
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+
+	// To RFC3339 end of time window (default now)
+	To *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// GetDashboardTopDeniedIpsParams defines parameters for GetDashboardTopDeniedIps.
+type GetDashboardTopDeniedIpsParams struct {
+	// From RFC3339 start of time window (default 24h ago)
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+
+	// To RFC3339 end of time window (default now)
+	To *time.Time `form:"to,omitempty" json:"to,omitempty"`
+
+	// Limit Maximum number of IPs to return (default 10, max 100)
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetDashboardTrafficParams defines parameters for GetDashboardTraffic.
+type GetDashboardTrafficParams struct {
+	// From RFC3339 start of time window (default 24h ago)
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+
+	// To RFC3339 end of time window (default now)
+	To *time.Time `form:"to,omitempty" json:"to,omitempty"`
+
+	// Granularity Time bucket granularity (default hour)
+	Granularity *GetDashboardTrafficParamsGranularity `form:"granularity,omitempty" json:"granularity,omitempty"`
+}
+
+// GetDashboardTrafficParamsGranularity defines parameters for GetDashboardTraffic.
+type GetDashboardTrafficParamsGranularity string
 
 // GetRequestAuditLogParams defines parameters for GetRequestAuditLog.
 type GetRequestAuditLogParams struct {
@@ -553,6 +647,18 @@ type ServerInterface interface {
 	// Get current user
 	// (GET /auth/me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request)
+	// Dashboard service breakdown
+	// (GET /dashboard/services)
+	GetDashboardServices(w http.ResponseWriter, r *http.Request, params GetDashboardServicesParams)
+	// Dashboard summary statistics
+	// (GET /dashboard/stats)
+	GetDashboardStats(w http.ResponseWriter, r *http.Request, params GetDashboardStatsParams)
+	// Dashboard top denied IPs
+	// (GET /dashboard/top-denied-ips)
+	GetDashboardTopDeniedIps(w http.ResponseWriter, r *http.Request, params GetDashboardTopDeniedIpsParams)
+	// Dashboard traffic time series
+	// (GET /dashboard/traffic)
+	GetDashboardTraffic(w http.ResponseWriter, r *http.Request, params GetDashboardTrafficParams)
 	// List all devices
 	// (GET /devices)
 	GetDevices(w http.ResponseWriter, r *http.Request)
@@ -661,6 +767,30 @@ func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request) {
 // Get current user
 // (GET /auth/me)
 func (_ Unimplemented) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Dashboard service breakdown
+// (GET /dashboard/services)
+func (_ Unimplemented) GetDashboardServices(w http.ResponseWriter, r *http.Request, params GetDashboardServicesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Dashboard summary statistics
+// (GET /dashboard/stats)
+func (_ Unimplemented) GetDashboardStats(w http.ResponseWriter, r *http.Request, params GetDashboardStatsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Dashboard top denied IPs
+// (GET /dashboard/top-denied-ips)
+func (_ Unimplemented) GetDashboardTopDeniedIps(w http.ResponseWriter, r *http.Request, params GetDashboardTopDeniedIpsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Dashboard traffic time series
+// (GET /dashboard/traffic)
+func (_ Unimplemented) GetDashboardTraffic(w http.ResponseWriter, r *http.Request, params GetDashboardTrafficParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1050,6 +1180,186 @@ func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCurrentUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDashboardServices operation middleware
+func (siw *ServerInterfaceWrapper) GetDashboardServices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetDashboardServicesParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "from", r.URL.Query(), &params.From)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "to", r.URL.Query(), &params.To)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDashboardServices(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDashboardStats operation middleware
+func (siw *ServerInterfaceWrapper) GetDashboardStats(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetDashboardStatsParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "from", r.URL.Query(), &params.From)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "to", r.URL.Query(), &params.To)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDashboardStats(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDashboardTopDeniedIps operation middleware
+func (siw *ServerInterfaceWrapper) GetDashboardTopDeniedIps(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetDashboardTopDeniedIpsParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "from", r.URL.Query(), &params.From)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "to", r.URL.Query(), &params.To)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDashboardTopDeniedIps(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDashboardTraffic operation middleware
+func (siw *ServerInterfaceWrapper) GetDashboardTraffic(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetDashboardTrafficParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "from", r.URL.Query(), &params.From)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "to", r.URL.Query(), &params.To)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "granularity" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "granularity", r.URL.Query(), &params.Granularity)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "granularity", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDashboardTraffic(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1736,6 +2046,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/auth/me", wrapper.GetCurrentUser)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/dashboard/services", wrapper.GetDashboardServices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/dashboard/stats", wrapper.GetDashboardStats)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/dashboard/top-denied-ips", wrapper.GetDashboardTopDeniedIps)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/dashboard/traffic", wrapper.GetDashboardTraffic)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/devices", wrapper.GetDevices)
 	})
 	r.Group(func(r chi.Router) {
@@ -2178,6 +2500,146 @@ func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http
 type GetCurrentUser500JSONResponse ErrorResponse
 
 func (response GetCurrentUser500JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDashboardServicesRequestObject struct {
+	Params GetDashboardServicesParams
+}
+
+type GetDashboardServicesResponseObject interface {
+	VisitGetDashboardServicesResponse(w http.ResponseWriter) error
+}
+
+type GetDashboardServices200JSONResponse DashboardServicesResponse
+
+func (response GetDashboardServices200JSONResponse) VisitGetDashboardServicesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDashboardServices401JSONResponse ErrorResponse
+
+func (response GetDashboardServices401JSONResponse) VisitGetDashboardServicesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDashboardServices500JSONResponse ErrorResponse
+
+func (response GetDashboardServices500JSONResponse) VisitGetDashboardServicesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDashboardStatsRequestObject struct {
+	Params GetDashboardStatsParams
+}
+
+type GetDashboardStatsResponseObject interface {
+	VisitGetDashboardStatsResponse(w http.ResponseWriter) error
+}
+
+type GetDashboardStats200JSONResponse DashboardStats
+
+func (response GetDashboardStats200JSONResponse) VisitGetDashboardStatsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDashboardStats401JSONResponse ErrorResponse
+
+func (response GetDashboardStats401JSONResponse) VisitGetDashboardStatsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDashboardStats500JSONResponse ErrorResponse
+
+func (response GetDashboardStats500JSONResponse) VisitGetDashboardStatsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDashboardTopDeniedIpsRequestObject struct {
+	Params GetDashboardTopDeniedIpsParams
+}
+
+type GetDashboardTopDeniedIpsResponseObject interface {
+	VisitGetDashboardTopDeniedIpsResponse(w http.ResponseWriter) error
+}
+
+type GetDashboardTopDeniedIps200JSONResponse DashboardTopDeniedIpsResponse
+
+func (response GetDashboardTopDeniedIps200JSONResponse) VisitGetDashboardTopDeniedIpsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDashboardTopDeniedIps401JSONResponse ErrorResponse
+
+func (response GetDashboardTopDeniedIps401JSONResponse) VisitGetDashboardTopDeniedIpsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDashboardTopDeniedIps500JSONResponse ErrorResponse
+
+func (response GetDashboardTopDeniedIps500JSONResponse) VisitGetDashboardTopDeniedIpsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDashboardTrafficRequestObject struct {
+	Params GetDashboardTrafficParams
+}
+
+type GetDashboardTrafficResponseObject interface {
+	VisitGetDashboardTrafficResponse(w http.ResponseWriter) error
+}
+
+type GetDashboardTraffic200JSONResponse DashboardTrafficResponse
+
+func (response GetDashboardTraffic200JSONResponse) VisitGetDashboardTrafficResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDashboardTraffic401JSONResponse ErrorResponse
+
+func (response GetDashboardTraffic401JSONResponse) VisitGetDashboardTrafficResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDashboardTraffic500JSONResponse ErrorResponse
+
+func (response GetDashboardTraffic500JSONResponse) VisitGetDashboardTrafficResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -2932,6 +3394,18 @@ type StrictServerInterface interface {
 	// Get current user
 	// (GET /auth/me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
+	// Dashboard service breakdown
+	// (GET /dashboard/services)
+	GetDashboardServices(ctx context.Context, request GetDashboardServicesRequestObject) (GetDashboardServicesResponseObject, error)
+	// Dashboard summary statistics
+	// (GET /dashboard/stats)
+	GetDashboardStats(ctx context.Context, request GetDashboardStatsRequestObject) (GetDashboardStatsResponseObject, error)
+	// Dashboard top denied IPs
+	// (GET /dashboard/top-denied-ips)
+	GetDashboardTopDeniedIps(ctx context.Context, request GetDashboardTopDeniedIpsRequestObject) (GetDashboardTopDeniedIpsResponseObject, error)
+	// Dashboard traffic time series
+	// (GET /dashboard/traffic)
+	GetDashboardTraffic(ctx context.Context, request GetDashboardTrafficRequestObject) (GetDashboardTrafficResponseObject, error)
 	// List all devices
 	// (GET /devices)
 	GetDevices(ctx context.Context, request GetDevicesRequestObject) (GetDevicesResponseObject, error)
@@ -3245,6 +3719,110 @@ func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCurrentUserResponseObject); ok {
 		if err := validResponse.VisitGetCurrentUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDashboardServices operation middleware
+func (sh *strictHandler) GetDashboardServices(w http.ResponseWriter, r *http.Request, params GetDashboardServicesParams) {
+	var request GetDashboardServicesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDashboardServices(ctx, request.(GetDashboardServicesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDashboardServices")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDashboardServicesResponseObject); ok {
+		if err := validResponse.VisitGetDashboardServicesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDashboardStats operation middleware
+func (sh *strictHandler) GetDashboardStats(w http.ResponseWriter, r *http.Request, params GetDashboardStatsParams) {
+	var request GetDashboardStatsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDashboardStats(ctx, request.(GetDashboardStatsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDashboardStats")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDashboardStatsResponseObject); ok {
+		if err := validResponse.VisitGetDashboardStatsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDashboardTopDeniedIps operation middleware
+func (sh *strictHandler) GetDashboardTopDeniedIps(w http.ResponseWriter, r *http.Request, params GetDashboardTopDeniedIpsParams) {
+	var request GetDashboardTopDeniedIpsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDashboardTopDeniedIps(ctx, request.(GetDashboardTopDeniedIpsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDashboardTopDeniedIps")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDashboardTopDeniedIpsResponseObject); ok {
+		if err := validResponse.VisitGetDashboardTopDeniedIpsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDashboardTraffic operation middleware
+func (sh *strictHandler) GetDashboardTraffic(w http.ResponseWriter, r *http.Request, params GetDashboardTrafficParams) {
+	var request GetDashboardTrafficRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDashboardTraffic(ctx, request.(GetDashboardTrafficRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDashboardTraffic")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDashboardTrafficResponseObject); ok {
+		if err := validResponse.VisitGetDashboardTrafficResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -3728,86 +4306,95 @@ func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"JKPT6/3g9vL2/wMAAP//XxM9Fd5+AAA=",
+	"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",
+	"d9d3/xcAAP//C+KpU6OUAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

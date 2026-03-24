@@ -365,14 +365,6 @@ func (r *Repository) recordAddressEvent(ctx context.Context, addressID AddressID
 	return finalAddress, nil
 }
 
-// strftimeFmt returns the SQLite strftime format for the given granularity.
-func strftimeFmt(g Granularity) string {
-	if g == GranularityDay {
-		return "%Y-%m-%dT00:00:00Z"
-	}
-	return "%Y-%m-%dT%H:00:00Z"
-}
-
 // deviceIDPlaceholders builds an IN clause fragment and args for a slice of device IDs.
 func deviceIDPlaceholders(ids []DeviceID) (string, []any) {
 	placeholders := make([]string, len(ids))
@@ -454,7 +446,7 @@ func (r *Repository) GetAddressHistory(ctx context.Context, q AddressHistoryQuer
 	`
 
 	bucketArgs := make([]any, 0, 1+len(baseArgs))
-	bucketArgs = append(bucketArgs, strftimeFmt(q.Granularity))
+	bucketArgs = append(bucketArgs, q.Granularity.StrftimeISO())
 	bucketArgs = append(bucketArgs, baseArgs...)
 
 	var buckets []AddressEventBucket

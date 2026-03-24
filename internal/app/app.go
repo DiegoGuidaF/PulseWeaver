@@ -10,6 +10,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/audit"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpserver"
@@ -129,7 +130,11 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Register policy decision observers
 	policyService.AddDecisionObserver(auditSink)
 
-	schedulerService, err := scheduler.NewService(addressLeaseService, deviceService, logger)
+	// Dashboard — traffic aggregation
+	dashboardRepo := dashboard.NewRepository(db.DB())
+	dashboardHandler := dashboard.NewHTTPHandler(dashboardRepo, logger)
+
+	schedulerService, err := scheduler.NewService(addressLeaseService, deviceService, dashboardRepo, logger)
 	if err != nil {
 		return nil, fmt.Errorf("scheduler service init: %w", err)
 	}
@@ -148,7 +153,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		logger.Warn("failed to initialize policy IP cache on startup", slog.Any("error", err))
 	}
 
-	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, auditHandler, logger, conf.Server.TrustedProxy)
+	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, auditHandler, dashboardHandler, logger, conf.Server.TrustedProxy)
 
 	return &App{
 		Config:              conf,

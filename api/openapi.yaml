@@ -1107,6 +1107,200 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  # --------------------
+  # Dashboard Endpoints
+  # --------------------
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags:
+        - dashboard
+      summary: Dashboard summary statistics
+      description: >
+        Returns aggregate counts (total requests, allowed, denied, unique IPs)
+        over the given time window. Queries pre-aggregated hourly traffic data.
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 start of time window (default 24h ago)
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 end of time window (default now)
+      responses:
+        "200":
+          description: Summary statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStats'
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /dashboard/traffic:
+    get:
+      operationId: getDashboardTraffic
+      tags:
+        - dashboard
+      summary: Dashboard traffic time series
+      description: >
+        Returns time-bucketed allow/deny counts for the stacked area chart.
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 start of time window (default 24h ago)
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 end of time window (default now)
+        - name: granularity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - hour
+              - day
+            default: hour
+          description: Time bucket granularity (default hour)
+      responses:
+        "200":
+          description: Traffic time series
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardTrafficResponse'
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /dashboard/services:
+    get:
+      operationId: getDashboardServices
+      tags:
+        - dashboard
+      summary: Dashboard service breakdown
+      description: >
+        Returns per-host allow/deny counts for the donut chart.
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 start of time window (default 24h ago)
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 end of time window (default now)
+      responses:
+        "200":
+          description: Service breakdown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardServicesResponse'
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /dashboard/top-denied-ips:
+    get:
+      operationId: getDashboardTopDeniedIps
+      tags:
+        - dashboard
+      summary: Dashboard top denied IPs
+      description: >
+        Returns the IPs with the most denied requests for the threat surface table.
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 start of time window (default 24h ago)
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 end of time window (default now)
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+            maximum: 100
+          description: Maximum number of IPs to return (default 10, max 100)
+      responses:
+        "200":
+          description: Top denied IPs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardTopDeniedIpsResponse'
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     cookieAuth:
@@ -1499,6 +1693,106 @@ components:
           type: integer
           minimum: 1
           description: Seconds after which an enabled device address lease expires
+
+    #################
+    # Dashboard
+    #################
+    DashboardStats:
+      type: object
+      required:
+        - total_requests
+        - allowed_count
+        - denied_count
+        - unique_ips
+      properties:
+        total_requests:
+          type: integer
+          format: int64
+        allowed_count:
+          type: integer
+          format: int64
+        denied_count:
+          type: integer
+          format: int64
+        unique_ips:
+          type: integer
+          format: int64
+
+    DashboardTrafficBucket:
+      type: object
+      required:
+        - timestamp
+        - allow_count
+        - deny_count
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+        allow_count:
+          type: integer
+          format: int64
+        deny_count:
+          type: integer
+          format: int64
+
+    DashboardTrafficResponse:
+      type: object
+      required:
+        - buckets
+      properties:
+        buckets:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardTrafficBucket'
+
+    DashboardServiceCount:
+      type: object
+      required:
+        - host
+        - allow_count
+        - deny_count
+      properties:
+        host:
+          type: string
+        allow_count:
+          type: integer
+          format: int64
+        deny_count:
+          type: integer
+          format: int64
+
+    DashboardServicesResponse:
+      type: object
+      required:
+        - services
+      properties:
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardServiceCount'
+
+    DashboardTopDeniedIp:
+      type: object
+      required:
+        - ip
+        - count
+      properties:
+        ip:
+          type: string
+        count:
+          type: integer
+          format: int64
+
+    DashboardTopDeniedIpsResponse:
+      type: object
+      required:
+        - ips
+      properties:
+        ips:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardTopDeniedIp'
 
     #################
     # Reused types

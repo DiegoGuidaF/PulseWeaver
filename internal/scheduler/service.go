@@ -21,10 +21,12 @@ type ExpiredAddressFinder interface {
 type Service struct {
 	expiredAddressFinder ExpiredAddressFinder
 	addressDisabler      AddressDisabler
+	rollupExecutor       RollupExecutor
+	lastRollupHour       time.Time
 	logger               *slog.Logger
 }
 
-func NewService(expiredAddressFinder ExpiredAddressFinder, addressDisabler AddressDisabler, logger *slog.Logger) (*Service, error) {
+func NewService(expiredAddressFinder ExpiredAddressFinder, addressDisabler AddressDisabler, rollupExecutor RollupExecutor, logger *slog.Logger) (*Service, error) {
 	if expiredAddressFinder == nil {
 		return nil, errors.New("expired address finder not configured")
 	}
@@ -34,6 +36,7 @@ func NewService(expiredAddressFinder ExpiredAddressFinder, addressDisabler Addre
 	return &Service{
 		expiredAddressFinder: expiredAddressFinder,
 		addressDisabler:      addressDisabler,
+		rollupExecutor:       rollupExecutor,
 		logger:               logger.With(slog.String(logging.AttrKeyComponent, "rule_scheduler")),
 	}, nil
 }
@@ -61,6 +64,10 @@ func (s *Service) RunSchedule(ctx context.Context, interval time.Duration) error
 func (s *Service) ExecuteScheduledRules(ctx context.Context) error {
 	if err := s.executeAutoExpiry(ctx); err != nil {
 		s.logger.ErrorContext(ctx, "auto-expiry rule execution failed", slog.Any(AttrKeyError, err))
+		return err
+	}
+	if err := s.executeRollup(ctx); err != nil {
+		s.logger.ErrorContext(ctx, "traffic rollup execution failed", slog.Any(AttrKeyError, err))
 		return err
 	}
 	return nil

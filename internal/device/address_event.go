@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 )
 
 // AddressEventBucket holds aggregated activity data for one time period.
@@ -38,34 +39,13 @@ type AddressHistory struct {
 type AddressHistoryQuery struct {
 	From        time.Time
 	To          time.Time
-	Granularity Granularity
+	Granularity timebucket.Granularity
 	DeviceIDs   []DeviceID // empty = all devices
 	Source      *string
 	IsEnabled   *bool
 	IP          *string
 	BeforeID    *int64 // cursor for events pagination
 	Limit       int    // events limit (default 50, max 200)
-}
-
-// Granularity controls the time bucket size for history aggregation.
-type Granularity string
-
-const (
-	GranularityHour Granularity = "hour"
-	GranularityDay  Granularity = "day"
-)
-
-// ParseGranularity validates and returns a Granularity value.
-// Defaults to GranularityHour if the input is empty.
-func ParseGranularity(s string) (Granularity, error) {
-	switch Granularity(s) {
-	case GranularityHour, "":
-		return GranularityHour, nil
-	case GranularityDay:
-		return GranularityDay, nil
-	default:
-		return "", ErrInvalidGranularity
-	}
 }
 
 const (
@@ -77,7 +57,7 @@ const (
 // Validate normalizes defaults and validates business rules on the query.
 // Must be called before passing the query to the repository.
 func (q *AddressHistoryQuery) Validate() error {
-	g, err := ParseGranularity(string(q.Granularity))
+	g, err := timebucket.ParseGranularity(string(q.Granularity))
 	if err != nil {
 		return err
 	}

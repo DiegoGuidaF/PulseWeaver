@@ -11,6 +11,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 	"github.com/matryer/is"
 )
 
@@ -563,7 +564,7 @@ func TestRepository_GetAddressHistory_ReturnsBucketsAndEvents(t *testing.T) {
 		DeviceIDs:   []device.DeviceID{dev.ID},
 		From:        from,
 		To:          to,
-		Granularity: device.GranularityHour,
+		Granularity: timebucket.GranularityHour,
 		Limit:       50,
 	})
 	is.NoErr(err)
@@ -602,7 +603,7 @@ func TestRepository_GetAddressHistory_EmptyRange(t *testing.T) {
 		DeviceIDs:   []device.DeviceID{dev.ID},
 		From:        from,
 		To:          to,
-		Granularity: device.GranularityHour,
+		Granularity: timebucket.GranularityHour,
 		Limit:       50,
 	})
 	is.NoErr(err)
@@ -626,7 +627,7 @@ func TestRepository_GetAddressHistory_DayGranularity(t *testing.T) {
 		DeviceIDs:   []device.DeviceID{dev.ID},
 		From:        from,
 		To:          to,
-		Granularity: device.GranularityDay,
+		Granularity: timebucket.GranularityDay,
 		Limit:       50,
 	})
 	is.NoErr(err)
@@ -653,7 +654,7 @@ func TestRepository_GetAddressHistory_AllDevices(t *testing.T) {
 	history, err := repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
 		From:        from,
 		To:          to,
-		Granularity: device.GranularityHour,
+		Granularity: timebucket.GranularityHour,
 		Limit:       50,
 	})
 	is.NoErr(err)
@@ -683,7 +684,7 @@ func TestRepository_GetAddressHistory_FilterBySource(t *testing.T) {
 	history, err := repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
 		From:        from,
 		To:          to,
-		Granularity: device.GranularityHour,
+		Granularity: timebucket.GranularityHour,
 		Source:      &source,
 		Limit:       50,
 	})
@@ -718,7 +719,7 @@ func TestRepository_GetAddressHistory_EventsPagination(t *testing.T) {
 	page1, err := repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
 		From:        from,
 		To:          to,
-		Granularity: device.GranularityHour,
+		Granularity: timebucket.GranularityHour,
 		Limit:       3,
 	})
 	is.NoErr(err)
@@ -730,7 +731,7 @@ func TestRepository_GetAddressHistory_EventsPagination(t *testing.T) {
 	page2, err := repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
 		From:        from,
 		To:          to,
-		Granularity: device.GranularityHour,
+		Granularity: timebucket.GranularityHour,
 		BeforeID:    &cursor,
 		Limit:       3,
 	})
