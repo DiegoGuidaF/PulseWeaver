@@ -142,7 +142,7 @@ func TestService_RegisterAddressActivity_TransactionRollback(t *testing.T) {
 	mockRepo.runInTxFn = func(repo repository) error {
 		// Try to create address
 		params, _ := NewCreateAddressParams(device.ID, "192.168.1.100", netip.Addr{})
-		_, err := repo.CreateAddress(ctx, params)
+		_, err := repo.CreateAddress(ctx, params, EventSourceManual)
 		if err != nil {
 			return err
 		}
@@ -676,7 +676,7 @@ func (m *mockRepository) GetDeviceByAPIKeyHash(ctx context.Context, keyHash stri
 	return device, nil
 }
 
-func (m *mockRepository) CreateAddress(ctx context.Context, params CreateAddressParams) (*Address, error) {
+func (m *mockRepository) CreateAddress(ctx context.Context, params CreateAddressParams, source EventSource) (*Address, error) {
 	if m.createAddressErr != nil {
 		return nil, m.createAddressErr
 	}

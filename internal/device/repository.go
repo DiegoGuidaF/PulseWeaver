@@ -118,23 +118,27 @@ func (r *Repository) UpdateAPIKey(ctx context.Context, deviceID DeviceID, keyHas
 	return nil
 }
 
-func (r *Repository) CreateAddress(ctx context.Context, params CreateAddressParams) (*Address, error) {
+func (r *Repository) CreateAddress(ctx context.Context, params CreateAddressParams, source EventSource) (*Address, error) {
 	var address *Address
 
 	err := r.runInTx(ctx, func(tx *Repository) error {
+		now := time.Now().UTC()
+
 		query := `
-		INSERT INTO addresses (device_id, ip, created_at)
-		VALUES (?, ?, ?) RETURNING id
+		INSERT INTO addresses (device_id, ip, is_enabled, source, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?) RETURNING id
 	`
 		var addressID AddressID
-		err := tx.db.GetContext(ctx, &addressID, query, params.DeviceID, params.IP.String(), time.Now().UTC())
+		err := tx.db.GetContext(ctx, &addressID, query, params.DeviceID, params.IP.String(), true, source, now, now)
 		if err != nil {
 			return err
 		}
 
-		//TODO: We shoudn't update the address itself, only record the event. This probably means we need to extract
-		// the part that updates the address from the one that creates the event
-		address, err = tx.recordAddressEvent(ctx, addressID, true, EventSourceManual)
+		if err := tx.insertAddressEvent(ctx, addressID, true, source, now); err != nil {
+			return err
+		}
+
+		address, err = tx.GetAddress(ctx, addressID)
 		if err != nil {
 			return err
 		}
@@ -326,18 +330,26 @@ func (r *Repository) RefreshAddress(ctx context.Context, addressID AddressID, so
 	return r.EnableAddress(ctx, addressID, source)
 }
 
+// insertAddressEvent records an event in the address_events audit table without modifying the address itself.
+func (r *Repository) insertAddressEvent(ctx context.Context, addressID AddressID, isEnabled bool, source EventSource, at time.Time) error {
+	query := `
+		INSERT INTO address_events (address_id, is_enabled, source, created_at)
+		VALUES (?, ?, ?, ?)
+	`
+
+	if _, err := r.db.ExecContext(ctx, query, addressID, isEnabled, source, at); err != nil {
+		return fmt.Errorf("failed to record event: %w", err)
+	}
+	return nil
+}
+
 func (r *Repository) recordAddressEvent(ctx context.Context, addressID AddressID, isEnabled bool, source EventSource) (*Address, error) {
 	var finalAddress *Address
 	err := r.runInTx(ctx, func(tx *Repository) error {
 		now := time.Now().UTC()
 
-		insertEvent := `
-		INSERT INTO address_events (address_id, is_enabled, source, created_at)
-		VALUES (?, ?, ?, ?)
-	`
-
-		if _, err := tx.db.ExecContext(ctx, insertEvent, addressID, isEnabled, source, now); err != nil {
-			return fmt.Errorf("failed to record event: %w", err)
+		if err := tx.insertAddressEvent(ctx, addressID, isEnabled, source, now); err != nil {
+			return err
 		}
 
 		updateState := `
@@ -352,11 +364,9 @@ func (r *Repository) recordAddressEvent(ctx context.Context, addressID AddressID
 		finalAddress, err = tx.GetAddress(ctx, addressID)
 		if err != nil {
 			return fmt.Errorf("failed to get address current state: %w", err)
-
 		}
 
 		return nil
-
 	})
 	if err != nil {
 		return nil, err

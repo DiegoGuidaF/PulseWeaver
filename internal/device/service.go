@@ -15,7 +15,7 @@ type repository interface {
 	CreateDevice(ctx context.Context, params CreateDeviceParams) (*Device, error)
 	DeleteDevice(ctx context.Context, id DeviceID) error
 	UpdateAPIKey(ctx context.Context, deviceID DeviceID, keyHash string, keyPrefix string) error
-	CreateAddress(ctx context.Context, params CreateAddressParams) (*Address, error)
+	CreateAddress(ctx context.Context, params CreateAddressParams, source EventSource) (*Address, error)
 	GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip netip.Addr) (*Address, error)
 	DisableAddress(ctx context.Context, addressID AddressID) (*Address, error)
 	DisableAddresses(ctx context.Context, addressIDs []AddressID, source EventSource) ([]Address, error)
@@ -48,6 +48,24 @@ func NewService(repo repository, logger *slog.Logger, trustedProxy netip.Addr) *
 	return s
 }
 
+func (s *Service) Authenticate(ctx context.Context, rawKey string) (*Principal, error) {
+	// Validate key format (must start with prefix)
+	if len(rawKey) < len(APIKeyPrefix) || rawKey[:len(APIKeyPrefix)] != APIKeyPrefix {
+		return nil, ErrInvalidAPIKey
+	}
+
+	// Hash the key
+	keyHash := hashAPIKey(rawKey)
+
+	// Look up device by key hash
+	device, err := s.repo.GetDeviceByAPIKeyHash(ctx, keyHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return PrincipalFromDevice(device), nil
+}
+
 func (s *Service) AddAddressObserver(o AddressObserver) {
 	if o == nil {
 		return
@@ -70,27 +88,6 @@ func (s *Service) GetDevice(ctx context.Context, deviceID DeviceID) (*Device, er
 	return device, nil
 }
 
-func (s *Service) GetAddressHistory(ctx context.Context, query AddressHistoryQuery) (AddressHistory, error) {
-	if err := query.Validate(); err != nil {
-		return AddressHistory{}, err
-	}
-	history, err := s.repo.GetAddressHistory(ctx, query)
-	if err != nil {
-		return AddressHistory{}, err
-	}
-	history.QueryLimit = query.Limit
-	return history, nil
-}
-
-func (s *Service) DeleteDevice(ctx context.Context, deviceID DeviceID) error {
-	err := s.repo.DeleteDevice(ctx, deviceID)
-	if err != nil {
-		return err
-	}
-	s.logger.InfoContext(ctx, "device deleted", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
-	return nil
-}
-
 func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, string, error) {
 	createDeviceParams, rawKey, err := NewCreateDeviceParams(name)
 	if err != nil {
@@ -107,50 +104,25 @@ func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, strin
 	return createdDevice, rawKey, nil
 }
 
-func (s *Service) RegenerateAPIKey(ctx context.Context, deviceID DeviceID) (*Device, string, error) {
-	rawKey, keyHash, keyPrefix, err := generateAPIKey()
+func (s *Service) DeleteDevice(ctx context.Context, deviceID DeviceID) error {
+	err := s.repo.DeleteDevice(ctx, deviceID)
 	if err != nil {
-		return nil, "", fmt.Errorf("generate api key: %w", err)
-	}
-
-	var device *Device
-	err = s.repo.RunInTx(ctx, func(tx repository) error {
-		var err error
-		// Validate device exists (also checks deleted_at) inside the transaction
-		// so the existence check and key update are atomic.
-		if _, err = tx.GetDevice(ctx, deviceID); err != nil {
-			return err
-		}
-		if err = tx.UpdateAPIKey(ctx, deviceID, keyHash, keyPrefix); err != nil {
-			return err
-		}
-		// Fetch fresh device inside the transaction so KeyPrefix reflects the update.
-		device, err = tx.GetDevice(ctx, deviceID)
 		return err
-	})
-	if err != nil {
-		return nil, "", err
 	}
-
-	return device, rawKey, nil
+	s.logger.InfoContext(ctx, "device deleted", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
+	return nil
 }
 
-func (s *Service) Authenticate(ctx context.Context, rawKey string) (*Principal, error) {
-	// Validate key format (must start with prefix)
-	if len(rawKey) < len(APIKeyPrefix) || rawKey[:len(APIKeyPrefix)] != APIKeyPrefix {
-		return nil, ErrInvalidAPIKey
+func (s *Service) GetAddressHistory(ctx context.Context, query AddressHistoryQuery) (AddressHistory, error) {
+	if err := query.Validate(); err != nil {
+		return AddressHistory{}, err
 	}
-
-	// Hash the key
-	keyHash := hashAPIKey(rawKey)
-
-	// Look up device by key hash
-	device, err := s.repo.GetDeviceByAPIKeyHash(ctx, keyHash)
+	history, err := s.repo.GetAddressHistory(ctx, query)
 	if err != nil {
-		return nil, err
+		return AddressHistory{}, err
 	}
-
-	return PrincipalFromDevice(device), nil
+	history.QueryLimit = query.Limit
+	return history, nil
 }
 
 func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID DeviceID, inputIP string, source EventSource) (*Address, EventType, error) {
@@ -172,7 +144,7 @@ func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID DeviceID
 		if err != nil {
 			if errors.Is(err, ErrAddressNotFound) {
 				eventType = EventTypeAddressCreated
-				address, err = tx.CreateAddress(ctx, createAddressParams)
+				address, err = tx.CreateAddress(ctx, createAddressParams, source)
 				if err != nil {
 					return err
 				}
@@ -244,10 +216,6 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, address
 	return disabledAddress, nil
 }
 
-func (s *Service) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error) {
-	return s.repo.GetEnabledIPEntries(ctx)
-}
-
 func (s *Service) DisableAddresses(ctx context.Context, addressIDs []AddressID, source EventSource) error {
 	disabledAddresses, err := s.repo.DisableAddresses(ctx, addressIDs, source)
 	if err != nil {
@@ -263,4 +231,36 @@ func (s *Service) DisableAddresses(ctx context.Context, addressIDs []AddressID, 
 	)
 
 	return nil
+}
+
+func (s *Service) RegenerateAPIKey(ctx context.Context, deviceID DeviceID) (*Device, string, error) {
+	rawKey, keyHash, keyPrefix, err := generateAPIKey()
+	if err != nil {
+		return nil, "", fmt.Errorf("generate api key: %w", err)
+	}
+
+	var device *Device
+	err = s.repo.RunInTx(ctx, func(tx repository) error {
+		var err error
+		// Validate device exists (also checks deleted_at) inside the transaction
+		// so the existence check and key update are atomic.
+		if _, err = tx.GetDevice(ctx, deviceID); err != nil {
+			return err
+		}
+		if err = tx.UpdateAPIKey(ctx, deviceID, keyHash, keyPrefix); err != nil {
+			return err
+		}
+		// Fetch fresh device inside the transaction so KeyPrefix reflects the update.
+		device, err = tx.GetDevice(ctx, deviceID)
+		return err
+	})
+	if err != nil {
+		return nil, "", err
+	}
+
+	return device, rawKey, nil
+}
+
+func (s *Service) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error) {
+	return s.repo.GetEnabledIPEntries(ctx)
 }

@@ -62,7 +62,7 @@ func createAddress(t *testing.T, repo *device.Repository, deviceID device.Device
 	if err != nil {
 		t.Fatalf("NewCreateAddressParams(%q): %v", ip, err)
 	}
-	addr, err := repo.CreateAddress(t.Context(), params)
+	addr, err := repo.CreateAddress(t.Context(), params, device.EventSourceManual)
 	if err != nil {
 		t.Fatalf("CreateAddress(%q): %v", ip, err)
 	}

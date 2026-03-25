@@ -45,7 +45,7 @@ func createTestAddress(t *testing.T, repo *device.Repository, ctx context.Contex
 	if err != nil {
 		t.Fatalf("create address params %q: %v", ip, err)
 	}
-	created, err := repo.CreateAddress(ctx, params)
+	created, err := repo.CreateAddress(ctx, params, device.EventSourceManual)
 	if err != nil {
 		t.Fatalf("persist address %q: %v", ip, err)
 	}
@@ -326,6 +326,23 @@ func TestRepository_CreateAddress(t *testing.T) {
 	is.Equal(addr.IP, "192.168.1.100")
 	is.True(!addr.CreatedAt.IsZero())
 	is.True(addr.ID != 0)
+}
+
+func TestRepository_CreateAddress_SetsInitialState(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repo, ctx, "test-device")
+	addr := createTestAddress(t, repo, ctx, dev.ID, "10.0.0.1")
+
+	// Address should be enabled with the correct source from creation, not from a subsequent update
+	is.True(addr.IsEnabled)
+	is.Equal(string(addr.Source), string(device.EventSourceManual))
+
+	// created_at and updated_at must match — the address was created once, not created then updated
+	is.Equal(addr.CreatedAt, addr.UpdatedAt)
 }
 
 func TestRepository_FindAddressForDeviceByIp(t *testing.T) {
