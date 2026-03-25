@@ -175,6 +175,7 @@ describe("RequestAuditLogPage", () => {
         await user.click(screen.getByText("Deny"));
 
         // Verify the component doesn't crash and "Deny" remains visible
-        expect(screen.getByText("Deny")).toBeInTheDocument();
+        // (appears in both the SegmentedControl option and the active filter chip)
+        expect(screen.getAllByText("Deny").length).toBeGreaterThan(0);
     });
 });

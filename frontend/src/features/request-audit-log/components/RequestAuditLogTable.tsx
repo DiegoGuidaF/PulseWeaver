@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
 import { DataTable } from "mantine-datatable";
 import { IconAlertCircle, IconFilterOff } from "@tabler/icons-react";
 import type { RequestAuditLogRow } from "@/lib/api";
+import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
 import { useRequestAuditLog } from "../hooks/useRequestAuditLog";
 import type { AuditLogFilters } from "../hooks/useAuditLogFilters";
 import { RequestAuditLogDetailDrawer } from "./RequestAuditLogDetailDrawer";
@@ -87,6 +88,67 @@ export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditL
         },
     });
 
+    const filterChips = useMemo(() => {
+        const chips: FilterChip[] = [];
+
+        if (filters.fromStr || filters.toStr) {
+            const from = filters.fromStr ? formatDateTime(filters.fromStr) : "—";
+            const to = filters.toStr ? formatDateTime(filters.toStr) : "now";
+            chips.push({
+                label: "Time",
+                value: `${from} → ${to}`,
+                onRemove: () => {
+                    filters.setSearchParams((prev) => {
+                        prev.delete("from");
+                        prev.delete("to");
+                        return prev;
+                    });
+                },
+            });
+        }
+
+        if (filters.ipDebounced) {
+            chips.push({
+                label: "IP",
+                value: filters.ipDebounced,
+                onRemove: () => filters.setIpLocal(""),
+            });
+        }
+
+        if (filters.deviceIdStr) {
+            const device = deviceOptions.find((d) => d.value === filters.deviceIdStr);
+            chips.push({
+                label: "Device",
+                value: device?.label ?? filters.deviceIdStr,
+                onRemove: () => filters.setParam("device_id", null),
+            });
+        }
+
+        if (filters.outcomeStr) {
+            chips.push({
+                label: "Outcome",
+                value: filters.outcomeStr === "allow" ? "Allow" : "Deny",
+                onRemove: () => {
+                    filters.setSearchParams((prev) => {
+                        prev.delete("outcome");
+                        prev.delete("deny_reason");
+                        return prev;
+                    });
+                },
+            });
+        }
+
+        if (filters.denyReason) {
+            chips.push({
+                label: "Reason",
+                value: DENY_REASON_LABELS[filters.denyReason] ?? filters.denyReason,
+                onRemove: () => filters.setParam("deny_reason", null),
+            });
+        }
+
+        return chips;
+    }, [filters, formatDateTime, deviceOptions]);
+
     if ((isPending || !data) && !error && rows.length === 0) {
         return (
             <Stack gap="xs">
@@ -126,6 +188,8 @@ export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditL
                         </Button>
                     )}
                 </Group>
+
+                <ActiveFilterChips chips={filterChips} />
 
                 <DataTable
                     records={rows}

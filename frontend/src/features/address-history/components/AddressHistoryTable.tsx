@@ -5,9 +5,11 @@ import { DataTable } from "mantine-datatable";
 import { IconAlertCircle, IconFilterOff } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import type { AddressHistoryEvent } from "@/lib/api";
+import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
 import { useAddressHistory } from "../hooks/useAddressHistory";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
 import { getAddressHistoryColumns } from "./addressHistoryColumns";
+import { SOURCE_LABELS } from "../constants";
 import { toErrorMessage } from "@/lib/api-client";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
 import { useDevices } from "@/features/devices/hooks/useDevices";
@@ -74,6 +76,61 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         setIpLocal: filters.setIpLocal,
         setSearchParams: filters.setSearchParams,
     });
+
+    const filterChips = useMemo(() => {
+        const chips: FilterChip[] = [];
+
+        if (filters.fromStr || filters.toStr) {
+            const from = filters.fromStr ? formatDateTime(filters.fromStr) : "—";
+            const to = filters.toStr ? formatDateTime(filters.toStr) : "now";
+            chips.push({
+                label: "Time",
+                value: `${from} → ${to}`,
+                onRemove: () => {
+                    filters.setSearchParams((prev) => {
+                        prev.delete("from");
+                        prev.delete("to");
+                        return prev;
+                    });
+                },
+            });
+        }
+
+        if (filters.deviceIdStr && filters.lockedDeviceId == null) {
+            const device = deviceOptions.find((d) => d.value === filters.deviceIdStr);
+            chips.push({
+                label: "Device",
+                value: device?.label ?? filters.deviceIdStr,
+                onRemove: () => filters.setParam("device_id", null),
+            });
+        }
+
+        if (filters.ipDebounced) {
+            chips.push({
+                label: "IP",
+                value: filters.ipDebounced,
+                onRemove: () => filters.setIpLocal(""),
+            });
+        }
+
+        if (filters.enabledStr) {
+            chips.push({
+                label: "Status",
+                value: filters.enabledStr === "true" ? "Enabled" : "Disabled",
+                onRemove: () => filters.setParam("is_enabled", null),
+            });
+        }
+
+        if (filters.sourceStr) {
+            chips.push({
+                label: "Source",
+                value: SOURCE_LABELS[filters.sourceStr] ?? filters.sourceStr,
+                onRemove: () => filters.setParam("source", null),
+            });
+        }
+
+        return chips;
+    }, [filters, formatDateTime, deviceOptions]);
 
     // Chart data from buckets
     const useDayFormat = useMemo(() => {
@@ -154,6 +211,8 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                     </Button>
                 )}
             </Group>
+
+            <ActiveFilterChips chips={filterChips} />
 
             <DataTable
                 records={rows}

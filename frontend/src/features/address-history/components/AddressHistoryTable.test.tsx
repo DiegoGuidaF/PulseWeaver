@@ -240,6 +240,126 @@ describe("AddressHistoryTable", () => {
         });
     });
 
+    // ─── Active filter chips ─────────────────────────────────────────────────
+
+    describe("Active filter chips", () => {
+        it("shows a Time chip when from/to are set", async () => {
+            server.use(addressHandlers.history.empty());
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.getByText("Time:")).toBeInTheDocument();
+        });
+
+        it("shows an IP chip when ip filter is set via URL", async () => {
+            server.use(addressHandlers.history.empty());
+
+            renderTable([
+                "/address-history?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&ip=10.0.0",
+            ]);
+
+            await waitFor(
+                () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.getByText("IP:")).toBeInTheDocument();
+            expect(screen.getByText(/10\.0\.0/)).toBeInTheDocument();
+        });
+
+        it("shows a Device chip with device name when device_id is set", async () => {
+            server.use(addressHandlers.history.empty());
+
+            renderTable([
+                "/address-history?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&device_id=1",
+            ]);
+
+            await waitFor(
+                () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.getByText("Device:")).toBeInTheDocument();
+            expect(screen.getByText(/Test Device/)).toBeInTheDocument();
+        });
+
+        it("shows a Status chip when is_enabled filter is set", async () => {
+            server.use(addressHandlers.history.empty());
+
+            renderTable([
+                "/address-history?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&is_enabled=true",
+            ]);
+
+            await waitFor(
+                () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.getByText("Status:")).toBeInTheDocument();
+        });
+
+        it("shows a Source chip when source filter is set", async () => {
+            server.use(addressHandlers.history.empty());
+
+            renderTable([
+                "/address-history?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&source=heartbeat",
+            ]);
+
+            await waitFor(
+                () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.getByText("Source:")).toBeInTheDocument();
+            expect(screen.getByText(/Heartbeat/)).toBeInTheDocument();
+        });
+
+        it("does not render chips when only preset is active", async () => {
+            server.use(addressHandlers.history.empty());
+
+            renderTable(["/address-history?preset=last_24h"]);
+
+            await waitFor(
+                () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.queryByText("Time:")).not.toBeInTheDocument();
+            expect(screen.queryByText("IP:")).not.toBeInTheDocument();
+            expect(screen.queryByText("Device:")).not.toBeInTheDocument();
+            expect(screen.queryByText("Status:")).not.toBeInTheDocument();
+            expect(screen.queryByText("Source:")).not.toBeInTheDocument();
+        });
+
+        it("removes the IP chip and clears the filter when remove is clicked", async () => {
+            const user = userEvent.setup();
+            server.use(addressHandlers.history.empty());
+
+            renderTable([
+                "/address-history?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&ip=10.0.0",
+            ]);
+
+            await waitFor(
+                () => expect(screen.getByText("IP:")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            const ipPill = screen.getByText("IP:").closest(".mantine-Pill-root");
+            const removeBtn = ipPill?.querySelector(".mantine-Pill-remove") as HTMLElement;
+            expect(removeBtn).toBeTruthy();
+            await user.click(removeBtn);
+
+            await waitFor(() =>
+                expect(screen.queryByText("IP:")).not.toBeInTheDocument(),
+            );
+        });
+    });
+
     // ─── Date range filter ───────────────────────────────────────────────────
 
     describe("Date range filter", () => {

@@ -365,6 +365,136 @@ describe("RequestAuditLogTable", () => {
         });
     });
 
+    // ─── Active filter chips ──────────────────────────────────────────────────
+
+    describe("Active filter chips", () => {
+        it("shows a Time chip when from/to are set", async () => {
+            server.use(
+                requestAuditLogHandlers.list(
+                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                ),
+            );
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.getByText("Time:")).toBeInTheDocument();
+        });
+
+        it("shows an IP chip when ip filter is set via URL", async () => {
+            server.use(
+                requestAuditLogHandlers.list(
+                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                ),
+            );
+
+            renderTable([
+                "/request-audit-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&ip=10.0.0",
+            ]);
+
+            await waitFor(
+                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.getByText("IP:")).toBeInTheDocument();
+            expect(screen.getByText(/10\.0\.0/)).toBeInTheDocument();
+        });
+
+        it("shows a Device chip with device name when device_id filter is set", async () => {
+            server.use(
+                requestAuditLogHandlers.list(
+                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                ),
+            );
+
+            renderTable([
+                "/request-audit-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&device_id=1",
+            ]);
+
+            await waitFor(
+                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.getByText("Device:")).toBeInTheDocument();
+            expect(screen.getByText(/Test Device/)).toBeInTheDocument();
+        });
+
+        it("shows an Outcome chip when outcome filter is set", async () => {
+            server.use(
+                requestAuditLogHandlers.list(
+                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                ),
+            );
+
+            renderTable([
+                "/request-audit-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&outcome=deny",
+            ]);
+
+            await waitFor(
+                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.getByText("Outcome:")).toBeInTheDocument();
+            expect(screen.getByText(/Deny/)).toBeInTheDocument();
+        });
+
+        it("removes the IP chip and clears the filter when remove is clicked", async () => {
+            const user = userEvent.setup();
+            server.use(
+                requestAuditLogHandlers.list(
+                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                ),
+            );
+
+            renderTable([
+                "/request-audit-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&ip=10.0.0",
+            ]);
+
+            await waitFor(
+                () => expect(screen.getByText("IP:")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            // The IP chip's remove button — Mantine Pill uses aria-hidden CloseButton
+            const ipPill = screen.getByText("IP:").closest(".mantine-Pill-root");
+            const removeBtn = ipPill?.querySelector(".mantine-Pill-remove") as HTMLElement;
+            expect(removeBtn).toBeTruthy();
+            await user.click(removeBtn);
+
+            await waitFor(() =>
+                expect(screen.queryByText("IP:")).not.toBeInTheDocument(),
+            );
+        });
+
+        it("does not render chips when no filters are active", async () => {
+            server.use(
+                requestAuditLogHandlers.list(
+                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                ),
+            );
+
+            // No from/to/ip/device/outcome params — only preset (default)
+            renderTable(["/request-audit-log?preset=last_24h"]);
+
+            await waitFor(
+                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.queryByText("Time:")).not.toBeInTheDocument();
+            expect(screen.queryByText("IP:")).not.toBeInTheDocument();
+            expect(screen.queryByText("Device:")).not.toBeInTheDocument();
+            expect(screen.queryByText("Outcome:")).not.toBeInTheDocument();
+        });
+    });
+
     // ─── Deny reason filter ────────────────────────────────────────────────────
 
     describe("Deny reason filter", () => {
