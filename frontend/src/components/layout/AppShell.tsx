@@ -57,7 +57,7 @@ function ColorSchemeToggle() {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-    const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
+    const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure();
     const location = useLocation();
     const logoutMutation = useLogout();
     const { user } = useAuth();
@@ -101,6 +101,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 label={item.label}
                                 leftSection={<item.icon size={18} stroke={1.5} />}
                                 active={location.pathname.startsWith(item.href)}
+                                onClick={closeMobile}
                             />
                         ))}
                     </Stack>
