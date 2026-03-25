@@ -44,8 +44,11 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: golangci-lint
+      - name: backend-lint
         run: make lint
+
+      - name: frontend-lint
+        run: make lint-front typecheck-front
 
       - name: Run backend tests
         run: make test
