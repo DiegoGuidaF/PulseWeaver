@@ -12,6 +12,8 @@ export const DATEPICKER_TIME_PRESETS = [
 
 export type PresetKey = (typeof DATEPICKER_TIME_PRESETS)[number]["key"];
 
+export const DEFAULT_PRESET_KEY: PresetKey = "last_24h";
+
 export const PRESET_MS: Record<string, number> = Object.fromEntries(
     DATEPICKER_TIME_PRESETS.map(({ key, ms }) => [key, ms]),
 );

@@ -22,8 +22,14 @@ The app is deployed. **Always create a new numbered migration file** for every s
 
 ### Frontend
 - `make dev-front` — Vite dev server
-- `cd frontend && nvm exec $(cat .nvmrc) npm test` — run frontend tests (vitest)
-- `cd frontend && nvm exec $(cat .nvmrc) npm run generate:api` — regenerate frontend API types/SDK from OpenAPI spec
+- `make test-front` — run frontend tests (vitest)
+- `make lint-front` — run ESLint on frontend
+- `make typecheck-front` — run TypeScript type-check (`tsc --noEmit -p tsconfig.app.json`; **never** use bare `tsc --noEmit` — the root tsconfig checks zero files)
+- `cd frontend && npm run generate:api` — regenerate frontend API types/SDK from OpenAPI spec
+
+### Combined
+- `make lint-all` — run all linters + frontend type-check (backend + frontend)
+- `make check` — full pre-push verification: lint-all + all tests
 
 ### Database
 - `make migrate-up` / `make migrate-down` — apply/rollback migrations

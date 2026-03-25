@@ -25,6 +25,42 @@ export const zPutDeviceAddressLeaseRuleRequest = z.object({
     ttl_seconds: z.int().gte(1)
 });
 
+export const zDashboardStats = z.object({
+    total_requests: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    allowed_count: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    denied_count: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    unique_ips: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+export const zDashboardTrafficBucket = z.object({
+    timestamp: z.iso.datetime({ offset: true, local: true }),
+    allow_count: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    deny_count: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+export const zDashboardTrafficResponse = z.object({
+    buckets: z.array(zDashboardTrafficBucket)
+});
+
+export const zDashboardServiceCount = z.object({
+    host: z.string(),
+    allow_count: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    deny_count: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+export const zDashboardServicesResponse = z.object({
+    services: z.array(zDashboardServiceCount)
+});
+
+export const zDashboardTopDeniedIp = z.object({
+    ip: z.string(),
+    count: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+export const zDashboardTopDeniedIpsResponse = z.object({
+    ips: z.array(zDashboardTopDeniedIp)
+});
+
 /**
  * Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
  */
@@ -528,3 +564,61 @@ export const zPutDeviceAddressLeaseRuleData = z.object({
  * Rule updated or created
  */
 export const zPutDeviceAddressLeaseRuleResponse = zDeviceAddressLeaseRule;
+
+export const zGetDashboardStatsData = z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: z.object({
+        from: z.iso.datetime({ offset: true, local: true }).optional(),
+        to: z.iso.datetime({ offset: true, local: true }).optional()
+    }).optional()
+});
+
+/**
+ * Summary statistics
+ */
+export const zGetDashboardStatsResponse = zDashboardStats;
+
+export const zGetDashboardTrafficData = z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: z.object({
+        from: z.iso.datetime({ offset: true, local: true }).optional(),
+        to: z.iso.datetime({ offset: true, local: true }).optional(),
+        granularity: z.enum(['hour', 'day']).optional()
+    }).optional()
+});
+
+/**
+ * Traffic time series
+ */
+export const zGetDashboardTrafficResponse = zDashboardTrafficResponse;
+
+export const zGetDashboardServicesData = z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: z.object({
+        from: z.iso.datetime({ offset: true, local: true }).optional(),
+        to: z.iso.datetime({ offset: true, local: true }).optional()
+    }).optional()
+});
+
+/**
+ * Service breakdown
+ */
+export const zGetDashboardServicesResponse = zDashboardServicesResponse;
+
+export const zGetDashboardTopDeniedIpsData = z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: z.object({
+        from: z.iso.datetime({ offset: true, local: true }).optional(),
+        to: z.iso.datetime({ offset: true, local: true }).optional(),
+        limit: z.int().lte(100).optional().default(10)
+    }).optional()
+});
+
+/**
+ * Top denied IPs
+ */
+export const zGetDashboardTopDeniedIpsResponse = zDashboardTopDeniedIpsResponse;

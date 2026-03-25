@@ -3,11 +3,10 @@ import { useSearchParams } from "react-router-dom";
 import { useDebouncedCallback } from "@mantine/hooks";
 import dayjs from "dayjs";
 import type { GetAddressHistoryData } from "@/lib/api";
-import { PRESET_MS } from "@/lib/timePresets";
+import { DEFAULT_PRESET_KEY, PRESET_MS } from "@/lib/timePresets";
 
 const LS_KEY = "pulseweaver:address-history:filters";
-const DEFAULT_PRESET = "last_24h";
-const DEFAULT_PARAMS = new URLSearchParams({ preset: DEFAULT_PRESET });
+const DEFAULT_PARAMS = new URLSearchParams({ preset: DEFAULT_PRESET_KEY });
 
 export type SearchParamsSetter = (updater: URLSearchParams | ((prev: URLSearchParams) => URLSearchParams)) => void;
 
@@ -125,7 +124,7 @@ export function useFilterCore(
     };
 
     const hasCustomTo = !!toStr && presetMs === undefined;
-    const hasNonDefaultPreset = !!presetStr && presetStr !== DEFAULT_PRESET;
+    const hasNonDefaultPreset = !!presetStr && presetStr !== DEFAULT_PRESET_KEY;
     const hasActiveFilters = !!(hasNonDefaultPreset || fromStr || toStr || deviceIdStr || sourceStr || enabledStr || ipDebounced);
 
     function clearAll() {

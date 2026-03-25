@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import { DashboardPage } from '@/pages/DashboardPage';
+import { DevicesPage } from '@/pages/DevicesPage';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { deviceHandlers } from '@/test/mocks/handlers';
 import { server } from '@/test/setup';
 import { renderWithProviders } from '@/test/utils';
 
-describe('DashboardPage', () => {
+describe('DevicesPage', () => {
     beforeEach(() => {
         server.use(deviceHandlers.list([]));
     });
 
     it('renders heading, create form, and empty device list', async () => {
-        renderWithProviders(<DashboardPage />);
+        renderWithProviders(<DevicesPage />);
 
         expect(screen.getByRole('heading', { name: 'PulseWeaver Manager' })).toBeInTheDocument();
         expect(screen.getByLabelText('New Device Name')).toBeInTheDocument();

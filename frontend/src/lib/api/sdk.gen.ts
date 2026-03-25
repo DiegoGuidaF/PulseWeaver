@@ -2,8 +2,8 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddAddressData, AddAddressErrors, AddAddressResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CreateDeviceData, CreateDeviceErrors, CreateDeviceResponses, CreateUserData, CreateUserErrors, CreateUserResponses, DeleteDeviceData, DeleteDeviceErrors, DeleteDeviceResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DemoteUserData, DemoteUserErrors, DemoteUserResponses, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyErrors, DeviceHeartbeatByApiKeyResponses, DeviceHeartbeatData, DeviceHeartbeatErrors, DeviceHeartbeatResponses, DisableAddressData, DisableAddressErrors, DisableAddressResponses, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleErrors, DisableDeviceAddressLeaseRuleResponses, GetAddressHistoryData, GetAddressHistoryErrors, GetAddressHistoryResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetDeviceAddressesData, GetDeviceAddressesErrors, GetDeviceAddressesResponses, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleErrors, GetDeviceAddressLeaseRuleResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetDevicesData, GetDevicesErrors, GetDevicesResponses, GetRequestAuditLogData, GetRequestAuditLogDenyReasonsData, GetRequestAuditLogDenyReasonsErrors, GetRequestAuditLogDenyReasonsResponses, GetRequestAuditLogErrors, GetRequestAuditLogResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, PromoteUserData, PromoteUserErrors, PromoteUserResponses, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleErrors, PutDeviceAddressLeaseRuleResponses, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyErrors, RegenerateDeviceApiKeyResponses, UpdateMeData, UpdateMeErrors, UpdateMeResponses } from './types.gen';
-import { zAddAddressData, zAddAddressResponse, zChangePasswordData, zChangePasswordResponse, zCreateDeviceData, zCreateDeviceResponse2, zCreateUserData, zCreateUserResponse, zDeleteDeviceData, zDeleteDeviceResponse, zDeleteUserData, zDeleteUserResponse, zDemoteUserData, zDemoteUserResponse, zDeviceHeartbeatByApiKeyData, zDeviceHeartbeatByApiKeyResponse, zDeviceHeartbeatData, zDeviceHeartbeatResponse, zDisableAddressData, zDisableAddressResponse, zDisableDeviceAddressLeaseRuleData, zDisableDeviceAddressLeaseRuleResponse, zGetAddressHistoryData, zGetAddressHistoryResponse, zGetCurrentUserData, zGetCurrentUserResponse, zGetDeviceAddressesData, zGetDeviceAddressesResponse, zGetDeviceAddressLeaseRuleData, zGetDeviceAddressLeaseRuleResponse, zGetDeviceData, zGetDeviceResponse, zGetDevicesData, zGetDevicesResponse, zGetRequestAuditLogData, zGetRequestAuditLogDenyReasonsData, zGetRequestAuditLogDenyReasonsResponse, zGetRequestAuditLogResponse, zListUsersData, zListUsersResponse, zLoginData, zLoginResponse, zLogoutData, zLogoutResponse, zPromoteUserData, zPromoteUserResponse, zPutDeviceAddressLeaseRuleData, zPutDeviceAddressLeaseRuleResponse, zRegenerateDeviceApiKeyData, zRegenerateDeviceApiKeyResponse, zUpdateMeData, zUpdateMeResponse } from './zod.gen';
+import type { AddAddressData, AddAddressErrors, AddAddressResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CreateDeviceData, CreateDeviceErrors, CreateDeviceResponses, CreateUserData, CreateUserErrors, CreateUserResponses, DeleteDeviceData, DeleteDeviceErrors, DeleteDeviceResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DemoteUserData, DemoteUserErrors, DemoteUserResponses, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyErrors, DeviceHeartbeatByApiKeyResponses, DeviceHeartbeatData, DeviceHeartbeatErrors, DeviceHeartbeatResponses, DisableAddressData, DisableAddressErrors, DisableAddressResponses, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleErrors, DisableDeviceAddressLeaseRuleResponses, GetAddressHistoryData, GetAddressHistoryErrors, GetAddressHistoryResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetDashboardServicesData, GetDashboardServicesErrors, GetDashboardServicesResponses, GetDashboardStatsData, GetDashboardStatsErrors, GetDashboardStatsResponses, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsErrors, GetDashboardTopDeniedIpsResponses, GetDashboardTrafficData, GetDashboardTrafficErrors, GetDashboardTrafficResponses, GetDeviceAddressesData, GetDeviceAddressesErrors, GetDeviceAddressesResponses, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleErrors, GetDeviceAddressLeaseRuleResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetDevicesData, GetDevicesErrors, GetDevicesResponses, GetRequestAuditLogData, GetRequestAuditLogDenyReasonsData, GetRequestAuditLogDenyReasonsErrors, GetRequestAuditLogDenyReasonsResponses, GetRequestAuditLogErrors, GetRequestAuditLogResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, PromoteUserData, PromoteUserErrors, PromoteUserResponses, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleErrors, PutDeviceAddressLeaseRuleResponses, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyErrors, RegenerateDeviceApiKeyResponses, UpdateMeData, UpdateMeErrors, UpdateMeResponses } from './types.gen';
+import { zAddAddressData, zAddAddressResponse, zChangePasswordData, zChangePasswordResponse, zCreateDeviceData, zCreateDeviceResponse2, zCreateUserData, zCreateUserResponse, zDeleteDeviceData, zDeleteDeviceResponse, zDeleteUserData, zDeleteUserResponse, zDemoteUserData, zDemoteUserResponse, zDeviceHeartbeatByApiKeyData, zDeviceHeartbeatByApiKeyResponse, zDeviceHeartbeatData, zDeviceHeartbeatResponse, zDisableAddressData, zDisableAddressResponse, zDisableDeviceAddressLeaseRuleData, zDisableDeviceAddressLeaseRuleResponse, zGetAddressHistoryData, zGetAddressHistoryResponse, zGetCurrentUserData, zGetCurrentUserResponse, zGetDashboardServicesData, zGetDashboardServicesResponse, zGetDashboardStatsData, zGetDashboardStatsResponse, zGetDashboardTopDeniedIpsData, zGetDashboardTopDeniedIpsResponse, zGetDashboardTrafficData, zGetDashboardTrafficResponse, zGetDeviceAddressesData, zGetDeviceAddressesResponse, zGetDeviceAddressLeaseRuleData, zGetDeviceAddressLeaseRuleResponse, zGetDeviceData, zGetDeviceResponse, zGetDevicesData, zGetDevicesResponse, zGetRequestAuditLogData, zGetRequestAuditLogDenyReasonsData, zGetRequestAuditLogDenyReasonsResponse, zGetRequestAuditLogResponse, zListUsersData, zListUsersResponse, zLoginData, zLoginResponse, zLogoutData, zLogoutResponse, zPromoteUserData, zPromoteUserResponse, zPutDeviceAddressLeaseRuleData, zPutDeviceAddressLeaseRuleResponse, zRegenerateDeviceApiKeyData, zRegenerateDeviceApiKeyResponse, zUpdateMeData, zUpdateMeResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -486,4 +486,76 @@ export const putDeviceAddressLeaseRule = <ThrowOnError extends boolean = false>(
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * Dashboard summary statistics
+ *
+ * Returns aggregate counts (total requests, allowed, denied, unique IPs) over the given time window. Queries pre-aggregated hourly traffic data.
+ *
+ */
+export const getDashboardStats = <ThrowOnError extends boolean = false>(options?: Options<GetDashboardStatsData, ThrowOnError>) => (options?.client ?? client).get<GetDashboardStatsResponses, GetDashboardStatsErrors, ThrowOnError>({
+    requestValidator: async (data) => await zGetDashboardStatsData.parseAsync(data),
+    responseValidator: async (data) => await zGetDashboardStatsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/dashboard/stats',
+    ...options
+});
+
+/**
+ * Dashboard traffic time series
+ *
+ * Returns time-bucketed allow/deny counts for the stacked area chart.
+ *
+ */
+export const getDashboardTraffic = <ThrowOnError extends boolean = false>(options?: Options<GetDashboardTrafficData, ThrowOnError>) => (options?.client ?? client).get<GetDashboardTrafficResponses, GetDashboardTrafficErrors, ThrowOnError>({
+    requestValidator: async (data) => await zGetDashboardTrafficData.parseAsync(data),
+    responseValidator: async (data) => await zGetDashboardTrafficResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/dashboard/traffic',
+    ...options
+});
+
+/**
+ * Dashboard service breakdown
+ *
+ * Returns per-host allow/deny counts for the donut chart.
+ *
+ */
+export const getDashboardServices = <ThrowOnError extends boolean = false>(options?: Options<GetDashboardServicesData, ThrowOnError>) => (options?.client ?? client).get<GetDashboardServicesResponses, GetDashboardServicesErrors, ThrowOnError>({
+    requestValidator: async (data) => await zGetDashboardServicesData.parseAsync(data),
+    responseValidator: async (data) => await zGetDashboardServicesResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/dashboard/services',
+    ...options
+});
+
+/**
+ * Dashboard top denied IPs
+ *
+ * Returns the IPs with the most denied requests for the threat surface table.
+ *
+ */
+export const getDashboardTopDeniedIps = <ThrowOnError extends boolean = false>(options?: Options<GetDashboardTopDeniedIpsData, ThrowOnError>) => (options?.client ?? client).get<GetDashboardTopDeniedIpsResponses, GetDashboardTopDeniedIpsErrors, ThrowOnError>({
+    requestValidator: async (data) => await zGetDashboardTopDeniedIpsData.parseAsync(data),
+    responseValidator: async (data) => await zGetDashboardTopDeniedIpsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/dashboard/top-denied-ips',
+    ...options
 });

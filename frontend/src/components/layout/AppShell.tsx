@@ -13,6 +13,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+    IconChartBar,
     IconServer,
     IconSettings,
     IconLogout,
@@ -28,6 +29,7 @@ import { useAutoHeartbeat } from "@/features/devices/hooks/useAutoHeartbeat";
 import { toErrorMessage } from "@/lib/api-client";
 
 const navItems = [
+    { label: "Dashboard", href: "/dashboard", icon: IconChartBar, adminOnly: false },
     { label: "Devices", href: "/devices", icon: IconServer, adminOnly: false },
     { label: "Access Log", href: "/request-audit-log", icon: IconList, adminOnly: true },
     { label: "Address Log", href: "/address-history", icon: IconHistory, adminOnly: true },

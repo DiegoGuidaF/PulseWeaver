@@ -532,6 +532,142 @@ export const PutDeviceAddressLeaseRuleRequestSchema = {
     }
 } as const;
 
+export const DashboardStatsSchema = {
+    type: 'object',
+    required: [
+        'total_requests',
+        'allowed_count',
+        'denied_count',
+        'unique_ips'
+    ],
+    properties: {
+        total_requests: {
+            type: 'integer',
+            format: 'int64'
+        },
+        allowed_count: {
+            type: 'integer',
+            format: 'int64'
+        },
+        denied_count: {
+            type: 'integer',
+            format: 'int64'
+        },
+        unique_ips: {
+            type: 'integer',
+            format: 'int64'
+        }
+    }
+} as const;
+
+export const DashboardTrafficBucketSchema = {
+    type: 'object',
+    required: [
+        'timestamp',
+        'allow_count',
+        'deny_count'
+    ],
+    properties: {
+        timestamp: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime'
+        },
+        allow_count: {
+            type: 'integer',
+            format: 'int64'
+        },
+        deny_count: {
+            type: 'integer',
+            format: 'int64'
+        }
+    }
+} as const;
+
+export const DashboardTrafficResponseSchema = {
+    type: 'object',
+    required: [
+        'buckets'
+    ],
+    properties: {
+        buckets: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/DashboardTrafficBucket'
+            }
+        }
+    }
+} as const;
+
+export const DashboardServiceCountSchema = {
+    type: 'object',
+    required: [
+        'host',
+        'allow_count',
+        'deny_count'
+    ],
+    properties: {
+        host: {
+            type: 'string'
+        },
+        allow_count: {
+            type: 'integer',
+            format: 'int64'
+        },
+        deny_count: {
+            type: 'integer',
+            format: 'int64'
+        }
+    }
+} as const;
+
+export const DashboardServicesResponseSchema = {
+    type: 'object',
+    required: [
+        'services'
+    ],
+    properties: {
+        services: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/DashboardServiceCount'
+            }
+        }
+    }
+} as const;
+
+export const DashboardTopDeniedIpSchema = {
+    type: 'object',
+    required: [
+        'ip',
+        'count'
+    ],
+    properties: {
+        ip: {
+            type: 'string'
+        },
+        count: {
+            type: 'integer',
+            format: 'int64'
+        }
+    }
+} as const;
+
+export const DashboardTopDeniedIpsResponseSchema = {
+    type: 'object',
+    required: [
+        'ips'
+    ],
+    properties: {
+        ips: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/DashboardTopDeniedIp'
+            }
+        }
+    }
+} as const;
+
 export const UsernameSchema = {
     type: 'string',
     description: 'Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.',

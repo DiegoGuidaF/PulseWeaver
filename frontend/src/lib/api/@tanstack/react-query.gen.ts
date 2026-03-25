@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addAddress, changePassword, createDevice, createUser, deleteDevice, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, getAddressHistory, getCurrentUser, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, getRequestAuditLog, getRequestAuditLogDenyReasons, listUsers, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, regenerateDeviceApiKey, updateMe } from '../sdk.gen';
-import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, GetAddressHistoryData, GetAddressHistoryError, GetAddressHistoryResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, GetRequestAuditLogData, GetRequestAuditLogDenyReasonsData, GetRequestAuditLogDenyReasonsError, GetRequestAuditLogDenyReasonsResponse, GetRequestAuditLogError, GetRequestAuditLogResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
+import { addAddress, changePassword, createDevice, createUser, deleteDevice, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, getAddressHistory, getCurrentUser, getDashboardServices, getDashboardStats, getDashboardTopDeniedIps, getDashboardTraffic, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, getRequestAuditLog, getRequestAuditLogDenyReasons, listUsers, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, regenerateDeviceApiKey, updateMe } from '../sdk.gen';
+import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, GetAddressHistoryData, GetAddressHistoryError, GetAddressHistoryResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDashboardServicesData, GetDashboardServicesError, GetDashboardServicesResponse, GetDashboardStatsData, GetDashboardStatsError, GetDashboardStatsResponse, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsError, GetDashboardTopDeniedIpsResponse, GetDashboardTrafficData, GetDashboardTrafficError, GetDashboardTrafficResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, GetRequestAuditLogData, GetRequestAuditLogDenyReasonsData, GetRequestAuditLogDenyReasonsError, GetRequestAuditLogDenyReasonsResponse, GetRequestAuditLogError, GetRequestAuditLogResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -545,3 +545,87 @@ export const putDeviceAddressLeaseRuleMutation = (options?: Partial<Options<PutD
     };
     return mutationOptions;
 };
+
+export const getDashboardStatsQueryKey = (options?: Options<GetDashboardStatsData>) => createQueryKey('getDashboardStats', options);
+
+/**
+ * Dashboard summary statistics
+ *
+ * Returns aggregate counts (total requests, allowed, denied, unique IPs) over the given time window. Queries pre-aggregated hourly traffic data.
+ *
+ */
+export const getDashboardStatsOptions = (options?: Options<GetDashboardStatsData>) => queryOptions<GetDashboardStatsResponse, GetDashboardStatsError, GetDashboardStatsResponse, ReturnType<typeof getDashboardStatsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getDashboardStats({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getDashboardStatsQueryKey(options)
+});
+
+export const getDashboardTrafficQueryKey = (options?: Options<GetDashboardTrafficData>) => createQueryKey('getDashboardTraffic', options);
+
+/**
+ * Dashboard traffic time series
+ *
+ * Returns time-bucketed allow/deny counts for the stacked area chart.
+ *
+ */
+export const getDashboardTrafficOptions = (options?: Options<GetDashboardTrafficData>) => queryOptions<GetDashboardTrafficResponse, GetDashboardTrafficError, GetDashboardTrafficResponse, ReturnType<typeof getDashboardTrafficQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getDashboardTraffic({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getDashboardTrafficQueryKey(options)
+});
+
+export const getDashboardServicesQueryKey = (options?: Options<GetDashboardServicesData>) => createQueryKey('getDashboardServices', options);
+
+/**
+ * Dashboard service breakdown
+ *
+ * Returns per-host allow/deny counts for the donut chart.
+ *
+ */
+export const getDashboardServicesOptions = (options?: Options<GetDashboardServicesData>) => queryOptions<GetDashboardServicesResponse, GetDashboardServicesError, GetDashboardServicesResponse, ReturnType<typeof getDashboardServicesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getDashboardServices({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getDashboardServicesQueryKey(options)
+});
+
+export const getDashboardTopDeniedIpsQueryKey = (options?: Options<GetDashboardTopDeniedIpsData>) => createQueryKey('getDashboardTopDeniedIps', options);
+
+/**
+ * Dashboard top denied IPs
+ *
+ * Returns the IPs with the most denied requests for the threat surface table.
+ *
+ */
+export const getDashboardTopDeniedIpsOptions = (options?: Options<GetDashboardTopDeniedIpsData>) => queryOptions<GetDashboardTopDeniedIpsResponse, GetDashboardTopDeniedIpsError, GetDashboardTopDeniedIpsResponse, ReturnType<typeof getDashboardTopDeniedIpsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getDashboardTopDeniedIps({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getDashboardTopDeniedIpsQueryKey(options)
+});

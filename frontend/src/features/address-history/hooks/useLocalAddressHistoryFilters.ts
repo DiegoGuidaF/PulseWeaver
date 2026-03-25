@@ -1,8 +1,9 @@
 import { useState, useCallback } from "react";
 import type { AddressHistoryFilters, SearchParamsSetter } from "./useAddressHistoryFilters";
 import { useFilterCore } from "./useAddressHistoryFilters";
+import { DEFAULT_PRESET_KEY } from "@/lib/timePresets";
 
-const DEFAULT_PARAMS = new URLSearchParams({ preset: "last_24h" });
+const DEFAULT_PARAMS = new URLSearchParams({ preset: DEFAULT_PRESET_KEY });
 
 interface UseLocalAddressHistoryFiltersOptions {
     lockedDeviceId: number;

@@ -1,4 +1,4 @@
-.PHONY: dev run test test-front clean fix lint migrate-up migrate-down migrate-create api
+.PHONY: dev run test test-front clean fix lint lint-front typecheck-front lint-all check migrate-up migrate-down migrate-create api
 
 # Disable Go workspace mode so -modfile (used by tools/go.mod) works correctly
 # when this module is used as a submodule inside a go.work workspace.
@@ -39,6 +39,20 @@ test-front:
 # Run the linter (prints issues). Uses version from tools/go.mod.
 lint: api-back
 	go tool -modfile=tools/go.mod golangci-lint run ./...
+
+# Run frontend ESLint
+lint-front:
+	cd frontend && npx eslint .
+
+# Run frontend TypeScript type-check (uses tsconfig.app.json, not the root solution config)
+typecheck-front:
+	cd frontend && npx tsc --noEmit -p tsconfig.app.json
+
+# Run all linters and type-checks (backend + frontend)
+lint-all: lint lint-front typecheck-front
+
+# Full pre-push check: lint + typecheck + test everything
+check: lint-all test test-front
 
 # Run the linter and automatically fix what it can
 fix: api-back

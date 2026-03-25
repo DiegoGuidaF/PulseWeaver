@@ -1,4 +1,4 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, Device, DeviceAddressLeaseRule, RequestAuditLogResponse, RequestAuditLogRow, User } from '@/lib/api';
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, RequestAuditLogResponse, RequestAuditLogRow, User } from '@/lib/api';
 import { UserRole } from "@/lib/api";
 
 /**
@@ -160,6 +160,52 @@ export function createMockRequestAuditLogResponse(
     total: 1,
     next_cursor: null,
     rows: [createMockRequestAuditLogRow()],
+    ...overrides,
+  };
+}
+
+// ─── Dashboard mock data ─────────────────────────────────────────────────────
+
+export function createMockDashboardStats(
+  overrides?: Partial<DashboardStats>,
+): DashboardStats {
+  return {
+    total_requests: 150,
+    allowed_count: 120,
+    denied_count: 30,
+    unique_ips: 8,
+    ...overrides,
+  };
+}
+
+export function createMockDashboardTrafficBucket(
+  overrides?: Partial<DashboardTrafficBucket>,
+): DashboardTrafficBucket {
+  return {
+    timestamp: '2024-01-01T12:00:00Z',
+    allow_count: 40,
+    deny_count: 10,
+    ...overrides,
+  };
+}
+
+export function createMockDashboardServiceCount(
+  overrides?: Partial<DashboardServiceCount>,
+): DashboardServiceCount {
+  return {
+    host: 'app.example.com',
+    allow_count: 80,
+    deny_count: 15,
+    ...overrides,
+  };
+}
+
+export function createMockDashboardTopDeniedIp(
+  overrides?: Partial<DashboardTopDeniedIp>,
+): DashboardTopDeniedIp {
+  return {
+    ip: '203.0.113.42',
+    count: 25,
     ...overrides,
   };
 }

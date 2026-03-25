@@ -3,11 +3,10 @@ import { useSearchParams } from "react-router-dom";
 import { useDebouncedCallback } from "@mantine/hooks";
 import dayjs from "dayjs";
 import type { GetRequestAuditLogData } from "@/lib/api";
-import { PRESET_MS } from "../constants";
+import { DEFAULT_PRESET_KEY, PRESET_MS } from "../constants";
 
 const LS_KEY = "pulseweaver:audit-log:filters";
-const DEFAULT_PRESET = "last_24h";
-const DEFAULT_PARAMS = new URLSearchParams({ preset: DEFAULT_PRESET });
+const DEFAULT_PARAMS = new URLSearchParams({ preset: DEFAULT_PRESET_KEY });
 
 /** Save current search params to localStorage for next visit. */
 function persistFilters(params: URLSearchParams) {
@@ -128,7 +127,7 @@ export function useAuditLogFilters(): AuditLogFilters {
     };
 
     const hasCustomTo = !!toStr && presetMs === undefined;
-    const hasNonDefaultPreset = !!presetStr && presetStr !== DEFAULT_PRESET;
+    const hasNonDefaultPreset = !!presetStr && presetStr !== DEFAULT_PRESET_KEY;
     const hasActiveFilters = !!(hasNonDefaultPreset || fromStr || toStr || deviceIdStr || outcomeStr || denyReason || ipDebounced);
 
     function clearAll() {

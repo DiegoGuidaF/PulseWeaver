@@ -2,7 +2,7 @@ import { Stack, Title, Text } from "@mantine/core";
 import { CreateDeviceForm } from "@/features/devices/CreateDeviceForm";
 import { DeviceList } from "@/features/devices/DeviceList";
 
-export function DashboardPage() {
+export function DevicesPage() {
   return (
     <Stack maw={1024} gap="xl">
       <div>

@@ -1,6 +1,6 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, CreateDeviceResponse, Device, DeviceAddressLeaseRule, RequestAuditLogResponse, User } from '@/lib/api';
-import { createMockAddress, createMockAddressHistoryResponse, createMockDevice, createMockDeviceAddressLeaseRule, createMockRequestAuditLogResponse, createMockUser } from './data';
+import type { Address, AddressHistoryResponse, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, RequestAuditLogResponse, User } from '@/lib/api';
+import { createMockAddress, createMockAddressHistoryResponse, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockRequestAuditLogResponse, createMockUser } from './data';
 
 const BASE = '/api/v1';
 
@@ -25,6 +25,10 @@ export const endpoints = {
     changePassword: `${BASE}/users/me/password`,
     requestAuditLog: `${BASE}/request-audit-log`,
     requestAuditLogDenyReasons: `${BASE}/request-audit-log/deny-reasons`,
+    dashboardStats: `${BASE}/dashboard/stats`,
+    dashboardTraffic: `${BASE}/dashboard/traffic`,
+    dashboardServices: `${BASE}/dashboard/services`,
+    dashboardTopDeniedIps: `${BASE}/dashboard/top-denied-ips`,
 } as const;
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
@@ -222,6 +226,41 @@ export const requestAuditLogHandlers = {
             HttpResponse.json(reasons ?? ['invalid_token', 'ip_not_registered', 'no_device_match'])),
 };
 
+// ─── Dashboard handlers ──────────────────────────────────────────────────────
+export const dashboardHandlers = {
+    stats: (override?: DashboardStats) =>
+        http.get(endpoints.dashboardStats, () =>
+            HttpResponse.json(override ?? createMockDashboardStats())),
+
+    traffic: (buckets?: DashboardTrafficBucket[]) =>
+        http.get(endpoints.dashboardTraffic, () =>
+            HttpResponse.json({
+                buckets: buckets ?? [
+                    createMockDashboardTrafficBucket({ timestamp: '2024-01-01T10:00:00Z', allow_count: 30, deny_count: 5 }),
+                    createMockDashboardTrafficBucket({ timestamp: '2024-01-01T11:00:00Z', allow_count: 45, deny_count: 12 }),
+                    createMockDashboardTrafficBucket({ timestamp: '2024-01-01T12:00:00Z', allow_count: 40, deny_count: 10 }),
+                ],
+            })),
+
+    services: (services?: DashboardServiceCount[]) =>
+        http.get(endpoints.dashboardServices, () =>
+            HttpResponse.json({
+                services: services ?? [
+                    createMockDashboardServiceCount({ host: 'app.example.com', allow_count: 80, deny_count: 15 }),
+                    createMockDashboardServiceCount({ host: 'api.example.com', allow_count: 40, deny_count: 5 }),
+                ],
+            })),
+
+    topDeniedIps: (ips?: DashboardTopDeniedIp[]) =>
+        http.get(endpoints.dashboardTopDeniedIps, () =>
+            HttpResponse.json({
+                ips: ips ?? [
+                    createMockDashboardTopDeniedIp({ ip: '203.0.113.42', count: 25 }),
+                    createMockDashboardTopDeniedIp({ ip: '198.51.100.7', count: 12 }),
+                ],
+            })),
+};
+
 // ─── Default happy-path handlers (registered globally in setup.ts) ────────────
 // Every test starts in a fully-loaded state. Only call server.use() for deviations.
 export const defaultHandlers = [
@@ -253,4 +292,9 @@ export const defaultHandlers = [
     // Request audit log
     requestAuditLogHandlers.list(),
     requestAuditLogHandlers.denyReasons(),
+    // Dashboard
+    dashboardHandlers.stats(),
+    dashboardHandlers.traffic(),
+    dashboardHandlers.services(),
+    dashboardHandlers.topDeniedIps(),
 ];

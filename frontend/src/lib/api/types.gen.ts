@@ -197,6 +197,42 @@ export type PutDeviceAddressLeaseRuleRequest = {
     ttl_seconds: number;
 };
 
+export type DashboardStats = {
+    total_requests: number;
+    allowed_count: number;
+    denied_count: number;
+    unique_ips: number;
+};
+
+export type DashboardTrafficBucket = {
+    timestamp: string;
+    allow_count: number;
+    deny_count: number;
+};
+
+export type DashboardTrafficResponse = {
+    buckets: Array<DashboardTrafficBucket>;
+};
+
+export type DashboardServiceCount = {
+    host: string;
+    allow_count: number;
+    deny_count: number;
+};
+
+export type DashboardServicesResponse = {
+    services: Array<DashboardServiceCount>;
+};
+
+export type DashboardTopDeniedIp = {
+    ip: string;
+    count: number;
+};
+
+export type DashboardTopDeniedIpsResponse = {
+    ips: Array<DashboardTopDeniedIp>;
+};
+
 /**
  * Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
  */
@@ -1240,3 +1276,163 @@ export type PutDeviceAddressLeaseRuleResponses = {
 };
 
 export type PutDeviceAddressLeaseRuleResponse = PutDeviceAddressLeaseRuleResponses[keyof PutDeviceAddressLeaseRuleResponses];
+
+export type GetDashboardStatsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * RFC3339 start of time window (default 24h ago)
+         */
+        from?: string;
+        /**
+         * RFC3339 end of time window (default now)
+         */
+        to?: string;
+    };
+    url: '/dashboard/stats';
+};
+
+export type GetDashboardStatsErrors = {
+    /**
+     * Not authenticated
+     */
+    401: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type GetDashboardStatsError = GetDashboardStatsErrors[keyof GetDashboardStatsErrors];
+
+export type GetDashboardStatsResponses = {
+    /**
+     * Summary statistics
+     */
+    200: DashboardStats;
+};
+
+export type GetDashboardStatsResponse = GetDashboardStatsResponses[keyof GetDashboardStatsResponses];
+
+export type GetDashboardTrafficData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * RFC3339 start of time window (default 24h ago)
+         */
+        from?: string;
+        /**
+         * RFC3339 end of time window (default now)
+         */
+        to?: string;
+        /**
+         * Time bucket granularity (default hour)
+         */
+        granularity?: 'hour' | 'day';
+    };
+    url: '/dashboard/traffic';
+};
+
+export type GetDashboardTrafficErrors = {
+    /**
+     * Not authenticated
+     */
+    401: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type GetDashboardTrafficError = GetDashboardTrafficErrors[keyof GetDashboardTrafficErrors];
+
+export type GetDashboardTrafficResponses = {
+    /**
+     * Traffic time series
+     */
+    200: DashboardTrafficResponse;
+};
+
+export type GetDashboardTrafficResponse = GetDashboardTrafficResponses[keyof GetDashboardTrafficResponses];
+
+export type GetDashboardServicesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * RFC3339 start of time window (default 24h ago)
+         */
+        from?: string;
+        /**
+         * RFC3339 end of time window (default now)
+         */
+        to?: string;
+    };
+    url: '/dashboard/services';
+};
+
+export type GetDashboardServicesErrors = {
+    /**
+     * Not authenticated
+     */
+    401: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type GetDashboardServicesError = GetDashboardServicesErrors[keyof GetDashboardServicesErrors];
+
+export type GetDashboardServicesResponses = {
+    /**
+     * Service breakdown
+     */
+    200: DashboardServicesResponse;
+};
+
+export type GetDashboardServicesResponse = GetDashboardServicesResponses[keyof GetDashboardServicesResponses];
+
+export type GetDashboardTopDeniedIpsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * RFC3339 start of time window (default 24h ago)
+         */
+        from?: string;
+        /**
+         * RFC3339 end of time window (default now)
+         */
+        to?: string;
+        /**
+         * Maximum number of IPs to return (default 10, max 100)
+         */
+        limit?: number;
+    };
+    url: '/dashboard/top-denied-ips';
+};
+
+export type GetDashboardTopDeniedIpsErrors = {
+    /**
+     * Not authenticated
+     */
+    401: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type GetDashboardTopDeniedIpsError = GetDashboardTopDeniedIpsErrors[keyof GetDashboardTopDeniedIpsErrors];
+
+export type GetDashboardTopDeniedIpsResponses = {
+    /**
+     * Top denied IPs
+     */
+    200: DashboardTopDeniedIpsResponse;
+};
+
+export type GetDashboardTopDeniedIpsResponse = GetDashboardTopDeniedIpsResponses[keyof GetDashboardTopDeniedIpsResponses];
