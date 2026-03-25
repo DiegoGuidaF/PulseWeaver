@@ -45,5 +45,5 @@ scratch_test.go
 .DS_Store
 Thumbs.db
 
-# Planning repository (internal, separate git repo)
-planning/
+# Frontend UI testing
+.playwright-cli/
