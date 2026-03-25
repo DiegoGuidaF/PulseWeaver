@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { Alert, Button, Card, Group, Skeleton, Stack, Text } from "@mantine/core";
-import { AreaChart } from "@mantine/charts";
-import { Brush } from "recharts";
+import { LineChart } from "@mantine/charts";
 import { DataTable } from "mantine-datatable";
 import { IconAlertCircle, IconFilterOff } from "@tabler/icons-react";
 import dayjs from "dayjs";
@@ -123,24 +122,16 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
             <Card withBorder padding="md">
                 <Text fw={500} mb="sm">Active IPs over time</Text>
                 {chartData.length > 0 ? (
-                    <AreaChart
+                    <LineChart
                         h={200}
                         data={chartData}
                         dataKey="timestamp"
-                        series={[{ name: "active_count", color: "blue.6" }]}
+                        series={[{ name: "active_count", color: "blue.6", label:"Distinct IPs count" }]}
+                        yAxisLabel="Distinct IPs"
                         curveType="monotone"
-                        gridAxis="xy"
-                        withDots
-                        withPointLabels
                         tooltipAnimationDuration={150}
-                        valueFormatter={(v) => new Intl.NumberFormat().format(v)}
-                        activeDotProps={{ r: 6, strokeWidth: 2 }}
-                        yAxisProps={{ allowDecimals: false }}
-                    >
-                        {chartData.length > 10 && (
-                            <Brush dataKey="timestamp" height={30} stroke="var(--mantine-color-blue-6)" />
-                        )}
-                    </AreaChart>
+                        withPointLabels
+                    />
                 ) : (
                     <Text size="sm" c="dimmed" ta="center" py="xl">
                         No activity in this period

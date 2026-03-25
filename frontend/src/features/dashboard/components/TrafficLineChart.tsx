@@ -1,9 +1,9 @@
 import { Paper, Text, Skeleton } from "@mantine/core";
-import { AreaChart } from "@mantine/charts";
+import { LineChart } from "@mantine/charts";
 import dayjs from "dayjs";
 import type { DashboardTrafficBucket } from "@/lib/api";
 
-interface TrafficAreaChartProps {
+interface TrafficLineChartProps {
     data: DashboardTrafficBucket[] | undefined;
     isLoading: boolean;
 }
@@ -16,7 +16,7 @@ function formatBucketLabel(ts: string): string {
         : d.format("HH:mm");
 }
 
-export function TrafficAreaChart({ data, isLoading }: TrafficAreaChartProps) {
+export function TrafficLineChart({ data, isLoading }: TrafficLineChartProps) {
     const chartData = (data ?? []).map((b) => ({
         timestamp: formatBucketLabel(b.timestamp),
         Allowed: b.allow_count,
@@ -31,7 +31,7 @@ export function TrafficAreaChart({ data, isLoading }: TrafficAreaChartProps) {
             ) : chartData.length === 0 ? (
                 <Text c="dimmed" ta="center" py="xl">No traffic data for this period.</Text>
             ) : (
-                <AreaChart
+                <LineChart
                     h={300}
                     data={chartData}
                     dataKey="timestamp"
@@ -39,6 +39,10 @@ export function TrafficAreaChart({ data, isLoading }: TrafficAreaChartProps) {
                         { name: "Allowed", color: "teal.6" },
                         { name: "Denied", color: "red.6" },
                     ]}
+                    yAxisLabel="Requests"
+                    curveType="monotone"
+                    tooltipAnimationDuration={150}
+                    withPointLabels
                 />
             )}
         </Paper>

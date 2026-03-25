@@ -4,7 +4,7 @@ import { useDashboardTraffic } from "../hooks/useDashboardTraffic";
 import { useDashboardServices } from "../hooks/useDashboardServices";
 import { useTopDeniedIPs } from "../hooks/useTopDeniedIPs";
 import { DashboardStatCards } from "./DashboardStatCards";
-import { TrafficAreaChart } from "./TrafficAreaChart";
+import { TrafficLineChart } from "./TrafficLineChart.tsx";
 import { ServiceDonutChart } from "./ServiceDonutChart";
 import { TopDeniedIPsTable } from "./TopDeniedIPsTable";
 
@@ -24,7 +24,7 @@ export function DashboardView({ from, to }: DashboardViewProps) {
             <DashboardStatCards data={stats.data} isLoading={stats.isLoading} />
 
             <SimpleGrid cols={{ base: 1, md: 2 }}>
-                <TrafficAreaChart data={traffic.data?.buckets} isLoading={traffic.isLoading} />
+                <TrafficLineChart data={traffic.data?.buckets} isLoading={traffic.isLoading} />
                 <ServiceDonutChart data={services.data?.services} isLoading={services.isLoading} />
             </SimpleGrid>
 
