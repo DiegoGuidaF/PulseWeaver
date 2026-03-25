@@ -127,13 +127,17 @@ export function useAuditLogFilters(): AuditLogFilters {
     };
 
     const hasCustomTo = !!toStr && presetMs === undefined;
-    const hasNonDefaultPreset = !!presetStr && presetStr !== DEFAULT_PRESET_KEY;
-    const hasActiveFilters = !!(hasNonDefaultPreset || fromStr || toStr || deviceIdStr || outcomeStr || denyReason || ipDebounced);
+    const hasActiveFilters = !!(fromStr || toStr || deviceIdStr || outcomeStr || denyReason || ipDebounced);
 
     function clearAll() {
         setIpLocalRaw("");
         syncIpToUrl.cancel();
-        setSearchParams(new URLSearchParams(DEFAULT_PARAMS));
+        setSearchParams((prev) => {
+            const next = new URLSearchParams();
+            // Preserve time range preset params — they are a global setting, not column filters
+            if (prev.has("preset")) next.set("preset", prev.get("preset")!);
+            return next;
+        });
     }
 
     // Changes whenever any filter value changes — used to reset pagination.

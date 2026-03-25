@@ -124,13 +124,17 @@ export function useFilterCore(
     };
 
     const hasCustomTo = !!toStr && presetMs === undefined;
-    const hasNonDefaultPreset = !!presetStr && presetStr !== DEFAULT_PRESET_KEY;
-    const hasActiveFilters = !!(hasNonDefaultPreset || fromStr || toStr || deviceIdStr || sourceStr || enabledStr || ipDebounced);
+    const hasActiveFilters = !!(fromStr || toStr || deviceIdStr || sourceStr || enabledStr || ipDebounced);
 
     function clearAll() {
         setIpLocalRaw("");
         syncIpToParams.cancel();
-        setSearchParams(new URLSearchParams(DEFAULT_PARAMS));
+        setSearchParams((prev) => {
+            const next = new URLSearchParams();
+            // Preserve time range params — they are a global setting, not column filters
+            if (prev.has("preset")) next.set("preset", prev.get("preset")!);
+            return next;
+        });
     }
 
     const filterKey = `${presetStr}|${deviceIdStr}|${sourceStr}|${enabledStr}|${fromStr}|${toStr}|${ipDebounced}`;
