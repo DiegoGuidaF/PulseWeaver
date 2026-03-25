@@ -258,7 +258,7 @@ export type Password = string;
 /**
  * IPv4 or IPv6 address
  */
-export type IpAddress = string;
+export type IpAddress = string | string;
 
 export type Id = number;
 

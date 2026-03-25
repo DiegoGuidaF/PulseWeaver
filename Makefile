@@ -28,7 +28,7 @@ clean:
 	rm -rf frontend/dist
 
 test: api-back
-	go test -tags=test ./...
+	go test -tags=test ./cmd/... ./internal/...
 
 # Run frontend tests using the Node version from frontend/.nvmrc
 test-front:
@@ -38,7 +38,7 @@ test-front:
 
 # Run the linter (prints issues). Uses version from tools/go.mod.
 lint: api-back
-	go tool -modfile=tools/go.mod golangci-lint run ./...
+	go tool -modfile=tools/go.mod golangci-lint run ./cmd/... ./internal/...
 
 # Run frontend ESLint
 lint-front:
@@ -56,7 +56,7 @@ check: lint-all test test-front
 
 # Run the linter and automatically fix what it can
 fix: api-back
-	go tool -modfile=tools/go.mod golangci-lint run --fix ./...
+	go tool -modfile=tools/go.mod golangci-lint run --fix ./cmd/... ./internal/...
 
 migrate-up:
 	$(MIGRATE) -path $(MIGRATIONS_PATH) -database "$(DATABASE_URL)" up
@@ -82,7 +82,7 @@ build-backend: api-back
 	go build -tags=prod -o bin/pulseweaver ./cmd/api
 
 api-back:
-	go generate ./...
+	go generate ./cmd/... ./internal/...
 
 api-front:
 	cd frontend && npm run generate:api

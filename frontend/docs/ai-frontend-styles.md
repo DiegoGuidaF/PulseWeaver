@@ -27,16 +27,6 @@
     - Infer types from Zod schema: `type FormValues = z.infer<typeof formSchema>`.
 - **Global State:** Avoid global context for data. Use it only for app-wide configuration (Theme, AuthUser).
 
-## Styling (Tailwind + shadcn)
-
-- **Utility First:** Use Tailwind classes for layout, spacing, and colors.
-- **Conditionals:** Use `cn()` helper for conditional classes.
-    - *Bad:* `` className={`p-4 ${isActive ? 'bg-blue-500' : ''}`} ``
-    - *Good:* `className={cn("p-4", isActive && "bg-blue-500")}`
-- **Spacing:** Use standard Tailwind spacing steps (4, 8, 16, etc.).
-- **Colors:** Use CSS variables defined in shadcn (`bg-primary`, `text-muted-foreground`) to support Dark Mode
-  automatically.
-
 ## API Interaction
 
 - **Generation:** Run `npm run generate:api` after backend changes.
