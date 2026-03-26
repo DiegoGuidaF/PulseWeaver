@@ -42,7 +42,6 @@ export function TrafficLineChart({ data, isLoading }: TrafficLineChartProps) {
                     yAxisLabel="Requests"
                     curveType="monotone"
                     tooltipAnimationDuration={150}
-                    withPointLabels
                 />
             )}
         </Paper>

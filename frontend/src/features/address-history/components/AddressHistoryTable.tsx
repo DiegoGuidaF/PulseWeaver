@@ -187,7 +187,6 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                         yAxisLabel="Distinct IPs"
                         curveType="monotone"
                         tooltipAnimationDuration={150}
-                        withPointLabels
                     />
                 ) : (
                     <Text size="sm" c="dimmed" ta="center" py="xl">
