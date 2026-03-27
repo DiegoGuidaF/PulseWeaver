@@ -35,7 +35,7 @@ func (r *Repository) GetDeviceAddresses(ctx context.Context, deviceID device.Dev
 		FROM addresses a
 		LEFT JOIN address_leases al ON al.address_id = a.id
 		WHERE a.device_id = ?
-		ORDER BY a.created_at DESC
+		ORDER BY a.updated_at DESC
 	`
 
 	if err := r.db.SelectContext(ctx, &addresses, query, deviceID); err != nil {
