@@ -16,35 +16,15 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useUpdateMe } from "@/features/auth/hooks/useUpdateMe";
 import { useChangePassword } from "@/features/auth/hooks/useChangePassword";
 import { toApiError, toErrorMessage } from "@/lib/api-client";
+import {
+  zUpdateProfileRequest,
+  zChangePasswordRequest,
+} from "@/lib/api/zod.gen";
 
-const profileSchema = z.object({
-  display_name: z
-    .string()
-    .trim()
-    .min(1, "Display name is required")
-    .max(50, "Display name must be 50 characters or fewer")
-    .optional(),
-  username: z
-    .string()
-    .trim()
-    .min(3, "Username must be at least 3 characters")
-    .max(32, "Username must be 32 characters or fewer")
-    .regex(/^[a-zA-Z0-9_-]+$/, "Only letters, numbers, hyphens, and underscores")
-    .optional(),
-  email: z
-    .string()
-    .email("Please enter a valid email address")
-    .optional()
-    .or(z.literal("")),
-});
+const profileSchema = zUpdateProfileRequest;
 
-const passwordSchema = z
-  .object({
-    current_password: z.string().min(1, "Current password is required"),
-    password: z
-      .string()
-      .min(8, "Password must be at least 8 characters")
-      .max(72, "Password must be 72 characters or fewer"),
+const passwordSchema = zChangePasswordRequest
+  .extend({
     confirm_password: z.string().min(1, "Please confirm your new password"),
   })
   .refine((data) => data.password === data.confirm_password, {
@@ -79,6 +59,29 @@ export function AccountTab({ onDirtyChange }: AccountTabProps) {
     },
   });
 
+  // Keep form in sync with server data. When useUpdateMe invalidates
+  // getCurrentUser, fresh user data arrives here. setValues + resetDirty
+  // updates both the displayed values and the dirty-check snapshot so
+  // isDirty() returns false. Unlike initialize(), this works every time.
+  useEffect(() => {
+    if (user) {
+      const values = {
+        display_name: user.display_name ?? "",
+        username: user.username ?? "",
+        email: user.email ?? "",
+      };
+      profileForm.setValues(values);
+      profileForm.resetDirty(values);
+    }
+  // profileForm methods are stable refs; only re-run when server data changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.display_name, user?.username, user?.email]);
+
+  const passwordHasContent =
+    passwordForm.values.current_password.length > 0 &&
+    passwordForm.values.password.length > 0 &&
+    passwordForm.values.confirm_password.length > 0;
+
   // Only the profile form contributes to the unsaved-changes guard.
   // The password form is a stateless "fill-and-submit" flow — partial
   // input there is not meaningful saved state worth guarding.
@@ -108,7 +111,6 @@ export function AccountTab({ onDirtyChange }: AccountTabProps) {
       { body },
       {
         onSuccess: () => {
-          profileForm.reset();
           notifications.show({ color: "green", message: "Profile updated" });
         },
         onError: (err) => {
@@ -204,7 +206,7 @@ export function AccountTab({ onDirtyChange }: AccountTabProps) {
               {...passwordForm.getInputProps("confirm_password")}
             />
             <div>
-              <Button type="submit" disabled={changePassword.isPending}>
+              <Button type="submit" disabled={changePassword.isPending || !passwordHasContent}>
                 {changePassword.isPending ? "Updating..." : "Update password"}
               </Button>
             </div>
