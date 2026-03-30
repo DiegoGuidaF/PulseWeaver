@@ -715,6 +715,16 @@ paths:
             type: integer
             format: int64
           description: Cursor for pagination — return events with id < before_id
+        - name: include_all
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: >
+            When false (default), returns only state-change events
+            (created, enabled, disabled). When true, includes all events
+            including repeated heartbeat refreshes.
       responses:
         "200":
           description: Address history with time-series buckets and paginated events

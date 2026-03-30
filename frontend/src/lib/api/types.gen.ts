@@ -927,6 +927,11 @@ export type GetAddressHistoryData = {
          * Cursor for pagination — return events with id < before_id
          */
         before_id?: number;
+        /**
+         * When false (default), returns only state-change events (created, enabled, disabled). When true, includes all events including repeated heartbeat refreshes.
+         *
+         */
+        include_all?: boolean;
     };
     url: '/address-history';
 };

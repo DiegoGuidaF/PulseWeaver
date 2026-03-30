@@ -318,6 +318,9 @@ func (h *HTTPHandler) GetAddressHistory(ctx context.Context, request httpapi.Get
 	if params.Limit != nil {
 		query.Limit = *params.Limit
 	}
+	if params.IncludeAll != nil {
+		query.IncludeAll = *params.IncludeAll
+	}
 
 	history, err := h.service.GetAddressHistory(ctx, query)
 	if err != nil {

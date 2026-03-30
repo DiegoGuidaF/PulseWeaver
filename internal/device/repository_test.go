@@ -760,3 +760,61 @@ func TestRepository_GetAddressHistory_EventsPagination(t *testing.T) {
 		is.True(e.ID < cursor)
 	}
 }
+
+func TestRepository_GetAddressHistory_StateChangesOnly(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repo, ctx, "state-changes")
+	addr := createTestAddress(t, repo, ctx, dev.ID, "10.0.0.1")
+
+	// Simulate heartbeat refreshes (enable on already-enabled address)
+	_, err := repo.RefreshAddress(ctx, addr.ID, device.EventSourceHeartbeat)
+	is.NoErr(err)
+	_, err = repo.RefreshAddress(ctx, addr.ID, device.EventSourceHeartbeat)
+	is.NoErr(err)
+
+	// Disable → actual state change
+	_, err = repo.DisableAddress(ctx, addr.ID)
+	is.NoErr(err)
+
+	// Re-enable → actual state change
+	_, err = repo.EnableAddress(ctx, addr.ID, device.EventSourceHeartbeat)
+	is.NoErr(err)
+
+	from := time.Now().UTC().Add(-1 * time.Hour)
+	to := time.Now().UTC().Add(1 * time.Hour)
+
+	// IncludeAll = true → should return all 5 events
+	allHistory, err := repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
+		DeviceIDs:   []device.DeviceID{dev.ID},
+		From:        from,
+		To:          to,
+		Granularity: timebucket.GranularityHour,
+		Limit:       50,
+		IncludeAll:  true,
+	})
+	is.NoErr(err)
+	is.Equal(allHistory.TotalEvents, 5) // create + 2 refreshes + disable + enable
+
+	// IncludeAll = false (default) → should return only state changes
+	changesHistory, err := repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
+		DeviceIDs:   []device.DeviceID{dev.ID},
+		From:        from,
+		To:          to,
+		Granularity: timebucket.GranularityHour,
+		Limit:       50,
+		IncludeAll:  false,
+	})
+	is.NoErr(err)
+	is.Equal(changesHistory.TotalEvents, 3) // create, disable, enable
+
+	// Verify the state changes are correct (most recent first)
+	is.True(changesHistory.Events[0].IsEnabled)  // re-enable
+	is.True(!changesHistory.Events[1].IsEnabled) // disable
+	is.True(changesHistory.Events[2].IsEnabled)  // initial create
+
+	// Buckets should still include all events regardless of IncludeAll
+	is.Equal(allHistory.Buckets[0].EventCount, changesHistory.Buckets[0].EventCount)
+}

@@ -447,7 +447,8 @@ export const zGetAddressHistoryData = z.object({
         is_enabled: z.boolean().optional(),
         ip: z.string().optional(),
         limit: z.int().lte(200).optional().default(50),
-        before_id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+        before_id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+        include_all: z.boolean().optional().default(false)
     }).optional()
 });
 

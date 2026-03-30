@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Group, Stack } from "@mantine/core";
+import { Group, SegmentedControl, Stack } from "@mantine/core";
 import { AutoRefreshSelect } from "@/components/AutoRefreshSelect";
 import { TimeRangePresetSelect } from "@/components/TimeRangePresetSelect";
 import { AddressHistoryTable } from "./AddressHistoryTable";
@@ -18,6 +18,15 @@ export function AddressHistoryView({ filters }: AddressHistoryViewProps) {
     return (
         <Stack gap="md">
             <Group gap="md" justify="flex-end">
+                <SegmentedControl
+                    size="xs"
+                    data={[
+                        { label: "State changes", value: "changes" },
+                        { label: "All events", value: "all" },
+                    ]}
+                    value={filters.includeAll ? "all" : "changes"}
+                    onChange={(val) => filters.setIncludeAll(val === "all")}
+                />
                 <TimeRangePresetSelect value={filters.presetStr} onChange={filters.setPreset} />
                 <AutoRefreshSelect value={effectiveInterval} onChange={setUserInterval} />
             </Group>

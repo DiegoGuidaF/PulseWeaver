@@ -431,6 +431,21 @@ func buildHistoryWhere(q AddressHistoryQuery) ([]string, []any) {
 	return filters, args
 }
 
+// stateChangeFilter returns a SQL clause that keeps only state-change events
+// (creation, enable↔disable transitions) by comparing each event's is_enabled
+// with the immediately preceding event for the same address.
+const stateChangeFilter = ` AND (
+	NOT EXISTS (
+		SELECT 1 FROM address_events prev
+		WHERE prev.address_id = aev.address_id AND prev.id < aev.id
+	)
+	OR aev.is_enabled != (
+		SELECT prev.is_enabled FROM address_events prev
+		WHERE prev.address_id = aev.address_id AND prev.id < aev.id
+		ORDER BY prev.id DESC LIMIT 1
+	)
+)`
+
 func joinWhere(filters []string) string {
 	if len(filters) == 0 {
 		return ""
@@ -468,13 +483,21 @@ func (r *Repository) GetAddressHistory(ctx context.Context, q AddressHistoryQuer
 	}
 
 	// ── Events (paginated) ───────────────────────────────────────────────
+	// When IncludeAll is false, append a correlated subquery that keeps only
+	// state-change events (first event per address, or is_enabled differs from
+	// the immediately preceding event for the same address).
+	var scFilter string
+	if !q.IncludeAll {
+		scFilter = stateChangeFilter
+	}
+
 	// Count total (without cursor)
 	countQuery := `
 		SELECT COUNT(*)
 		FROM address_events aev
 		JOIN addresses a ON a.id = aev.address_id
 		JOIN devices d ON d.id = a.device_id
-	` + joinWhere(filters)
+	` + joinWhere(filters) + scFilter
 
 	var totalEvents int
 	if err := r.db.GetContext(ctx, &totalEvents, countQuery, baseArgs...); err != nil {
@@ -499,7 +522,7 @@ func (r *Repository) GetAddressHistory(ctx context.Context, q AddressHistoryQuer
 		FROM address_events aev
 		JOIN addresses a ON a.id = aev.address_id
 		JOIN devices d ON d.id = a.device_id
-	` + joinWhere(eventFilters) + `
+	` + joinWhere(eventFilters) + scFilter + `
 		ORDER BY aev.id DESC
 		LIMIT ?
 	`

@@ -22,6 +22,7 @@ export interface AddressHistoryFilters {
     toStr: string | null;
     ipLocal: string;
     ipDebounced: string;
+    includeAll: boolean;
 
     hasCustomTo: boolean;
     hasActiveFilters: boolean;
@@ -30,6 +31,7 @@ export interface AddressHistoryFilters {
     setPreset: (key: string | null) => void;
     setParam: (key: string, value: string | null) => void;
     setIpLocal: (value: string) => void;
+    setIncludeAll: (value: boolean) => void;
     setSearchParams: SearchParamsSetter;
     clearAll: () => void;
 }
@@ -109,6 +111,17 @@ export function useFilterCore(
         });
     }
 
+    const includeAllStr = searchParams.get("include_all");
+    const includeAll = includeAllStr === "true";
+
+    function setIncludeAll(value: boolean) {
+        setSearchParams((prev) => {
+            if (value) prev.set("include_all", "true");
+            else prev.delete("include_all");
+            return prev;
+        });
+    }
+
     const presetMs = presetStr ? PRESET_MS[presetStr] : undefined;
     const queryParams: GetAddressHistoryData["query"] = {
         device_id: lockedDeviceId != null
@@ -121,6 +134,7 @@ export function useFilterCore(
             ? dayjs().subtract(presetMs, "millisecond").toISOString()
             : (fromStr || undefined),
         to: presetMs !== undefined ? undefined : (toStr || undefined),
+        include_all: includeAll || undefined,
     };
 
     const hasCustomTo = !!toStr && presetMs === undefined;
@@ -137,7 +151,7 @@ export function useFilterCore(
         });
     }
 
-    const filterKey = `${presetStr}|${deviceIdStr}|${sourceStr}|${enabledStr}|${fromStr}|${toStr}|${ipDebounced}`;
+    const filterKey = `${presetStr}|${deviceIdStr}|${sourceStr}|${enabledStr}|${fromStr}|${toStr}|${ipDebounced}|${includeAll}`;
 
     return {
         queryParams,
@@ -150,12 +164,14 @@ export function useFilterCore(
         toStr,
         ipLocal,
         ipDebounced,
+        includeAll,
         hasCustomTo,
         hasActiveFilters,
         lockedDeviceId,
         setPreset,
         setParam,
         setIpLocal,
+        setIncludeAll,
         setSearchParams,
         clearAll,
     };

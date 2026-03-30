@@ -46,6 +46,7 @@ type AddressHistoryQuery struct {
 	IP          *string
 	BeforeID    *int64 // cursor for events pagination
 	Limit       int    // events limit (default 50, max 200)
+	IncludeAll  bool   // when false (default), only state-change events are returned
 }
 
 const (
