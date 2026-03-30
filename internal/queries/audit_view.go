@@ -12,31 +12,38 @@ import (
 )
 
 type RequestAuditLogView struct {
-	ID         int64
-	ClientIP   string
-	Outcome    bool
-	DenyReason *string
-	DeviceID   *device.DeviceID
-	DeviceName *string
-	AddressID  *device.AddressID
-	CreatedAt  time.Time
-	XFFChain   *string
-	TargetHost *string
-	TargetURI  *string
-	HTTPMethod *string
-	Headers    map[string][]string
+	ID            int64
+	ClientIP      string
+	Outcome       bool
+	DenyReason    *string
+	DeviceID      *device.DeviceID
+	DeviceName    *string
+	AddressID     *device.AddressID
+	CreatedAt     time.Time
+	XFFChain      *string
+	TargetHost    *string
+	TargetURI     *string
+	HTTPMethod    *string
+	Headers       map[string][]string
+	CountryCode   *string
+	CountryName   *string
+	ContinentCode *string
+	ASN           *int64
+	ASNOrg        *string
 }
 
 type RequestAuditLogQuery struct {
-	From       time.Time
-	To         time.Time
-	BeforeID   *int64 // cursor: return rows with id < BeforeID; nil for first page
-	ClientIP   *string
-	Outcome    *bool
-	DenyReason *string
-	DeviceID   *device.DeviceID
-	TargetHost *string
-	Limit      int
+	From          time.Time
+	To            time.Time
+	BeforeID      *int64 // cursor: return rows with id < BeforeID; nil for first page
+	ClientIP      *string
+	Outcome       *bool
+	DenyReason    *string
+	DeviceID      *device.DeviceID
+	TargetHost    *string
+	CountryCode   *string
+	ContinentCode *string
+	Limit         int
 }
 
 func NewRequestAuditLogQuery(params httpapi.GetRequestAuditLogParams) RequestAuditLogQuery {
@@ -64,15 +71,17 @@ func NewRequestAuditLogQuery(params httpapi.GetRequestAuditLogParams) RequestAud
 	}
 
 	return RequestAuditLogQuery{
-		DeviceID:   (*device.DeviceID)(params.DeviceId),
-		Outcome:    params.Outcome,
-		DenyReason: params.DenyReason,
-		ClientIP:   params.Ip,
-		TargetHost: params.Host,
-		From:       from,
-		To:         to,
-		Limit:      limit,
-		BeforeID:   params.BeforeId,
+		DeviceID:      (*device.DeviceID)(params.DeviceId),
+		Outcome:       params.Outcome,
+		DenyReason:    params.DenyReason,
+		ClientIP:      params.Ip,
+		TargetHost:    params.Host,
+		CountryCode:   params.CountryCode,
+		ContinentCode: params.ContinentCode,
+		From:          from,
+		To:            to,
+		Limit:         limit,
+		BeforeID:      params.BeforeId,
 	}
 
 }
@@ -107,6 +116,16 @@ func (r *Repository) ListRequestAuditLog(ctx context.Context, q RequestAuditLogQ
 		countArgs = append(countArgs, *q.TargetHost)
 	}
 
+	if q.CountryCode != nil {
+		whereFilters = append(whereFilters, "g.country_code = ?")
+		countArgs = append(countArgs, *q.CountryCode)
+	}
+
+	if q.ContinentCode != nil {
+		whereFilters = append(whereFilters, "g.continent_code = ?")
+		countArgs = append(countArgs, *q.ContinentCode)
+	}
+
 	if !q.From.IsZero() {
 		whereFilters = append(whereFilters, "ral.created_at >= ?")
 		countArgs = append(countArgs, q.From)
@@ -122,6 +141,7 @@ func (r *Repository) ListRequestAuditLog(ctx context.Context, q RequestAuditLogQ
 	countQuery := `
 		SELECT COUNT(*) FROM request_audit_log ral
 		LEFT JOIN devices d ON d.id = ral.device_id
+		LEFT JOIN request_audit_log_geoip g ON g.audit_log_id = ral.id
 	` + buildWhere(whereFilters)
 	if err := r.db.GetContext(ctx, &total, countQuery, countArgs...); err != nil {
 		return nil, 0, fmt.Errorf("count audit log: %w", err)
@@ -134,11 +154,9 @@ func (r *Repository) ListRequestAuditLog(ctx context.Context, q RequestAuditLogQ
 		whereFilters = append(whereFilters, "ral.id < ?")
 		selectArgs = append(selectArgs, *q.BeforeID)
 	}
-	//selectQuery := baseSelect + " " + whereClause +
 	selectArgs = append(selectArgs, q.Limit)
 
 	var dbRows []dbRequestAuditLogRow
-	// Base SELECT query with LEFT JOIN to devices for device_name.
 	selectQuery := `
 		SELECT
 			ral.id,
@@ -153,9 +171,15 @@ func (r *Repository) ListRequestAuditLog(ctx context.Context, q RequestAuditLogQ
 			ral.device_id as device_id,
 			ral.address_id as address_id,
 			d.name as device_name,
-			ral.headers_json
+			ral.headers_json,
+			g.country_code,
+			g.country_name,
+			g.continent_code,
+			g.asn,
+			g.asn_org
 		FROM request_audit_log ral
 		LEFT JOIN devices d ON d.id = ral.device_id
+		LEFT JOIN request_audit_log_geoip g ON g.audit_log_id = ral.id
 	` + buildWhere(whereFilters) + ` ORDER BY ral.id DESC LIMIT ?`
 	if err := r.db.SelectContext(ctx, &dbRows, selectQuery, selectArgs...); err != nil {
 		return nil, 0, fmt.Errorf("list audit log: %w", err)
@@ -170,19 +194,24 @@ func (r *Repository) ListRequestAuditLog(ctx context.Context, q RequestAuditLogQ
 		}
 
 		rows[i] = RequestAuditLogView{
-			ID:         rRow.ID,
-			ClientIP:   rRow.ClientIP,
-			Outcome:    rRow.Outcome,
-			DenyReason: rRow.DenyReason,
-			DeviceID:   rRow.DeviceID,
-			DeviceName: rRow.DeviceName,
-			AddressID:  rRow.AddressID,
-			CreatedAt:  rRow.CreatedAt,
-			XFFChain:   rRow.XFFChain,
-			TargetHost: rRow.TargetHost,
-			TargetURI:  rRow.TargetURI,
-			HTTPMethod: rRow.HTTPMethod,
-			Headers:    headers,
+			ID:            rRow.ID,
+			ClientIP:      rRow.ClientIP,
+			Outcome:       rRow.Outcome,
+			DenyReason:    rRow.DenyReason,
+			DeviceID:      rRow.DeviceID,
+			DeviceName:    rRow.DeviceName,
+			AddressID:     rRow.AddressID,
+			CreatedAt:     rRow.CreatedAt,
+			XFFChain:      rRow.XFFChain,
+			TargetHost:    rRow.TargetHost,
+			TargetURI:     rRow.TargetURI,
+			HTTPMethod:    rRow.HTTPMethod,
+			Headers:       headers,
+			CountryCode:   rRow.CountryCode,
+			CountryName:   rRow.CountryName,
+			ContinentCode: rRow.ContinentCode,
+			ASN:           rRow.ASN,
+			ASNOrg:        rRow.ASNOrg,
 		}
 	}
 
@@ -193,21 +222,76 @@ func (r *Repository) ListRequestAuditLog(ctx context.Context, q RequestAuditLogQ
 	return rows, total, nil
 }
 
+// AuditLogCountryStat holds aggregated request counts for a single country.
+type AuditLogCountryStat struct {
+	CountryCode   string
+	CountryName   string
+	ContinentCode string
+	Total         int64
+	Allowed       int64
+	Denied        int64
+}
+
+// ListAuditLogStatsByCountry returns request counts grouped by country for all rows
+// created at or after since. Only rows with GeoIP data are included.
+func (r *Repository) ListAuditLogStatsByCountry(ctx context.Context, since time.Time) ([]AuditLogCountryStat, error) {
+	const query = `
+		SELECT
+			g.country_code,
+			COALESCE(g.country_name, '')  AS country_name,
+			COALESCE(g.continent_code, '') AS continent_code,
+			COUNT(*) AS total,
+			SUM(CASE WHEN ral.outcome = 1 THEN 1 ELSE 0 END) AS allowed,
+			SUM(CASE WHEN ral.outcome = 0 THEN 1 ELSE 0 END) AS denied
+		FROM request_audit_log_geoip g
+		JOIN request_audit_log ral ON ral.id = g.audit_log_id
+		WHERE ral.created_at >= ?
+		GROUP BY g.country_code, g.country_name, g.continent_code
+		ORDER BY total DESC
+	`
+
+	var rows []dbCountryStatsRow
+	if err := r.db.SelectContext(ctx, &rows, query, since); err != nil {
+		return nil, fmt.Errorf("list audit log stats by country: %w", err)
+	}
+
+	stats := make([]AuditLogCountryStat, len(rows))
+	for i, row := range rows {
+		stats[i] = AuditLogCountryStat(row)
+	}
+
+	return stats, nil
+}
+
 // Page of rows.
 type dbRequestAuditLogRow struct {
-	ID         int64             `db:"id"`
-	ClientIP   string            `db:"client_ip"`
-	Outcome    bool              `db:"outcome"`
-	DenyReason *string           `db:"deny_reason"`
-	DeviceID   *device.DeviceID  `db:"device_id"`
-	DeviceName *string           `db:"device_name"`
-	AddressID  *device.AddressID `db:"address_id"`
-	CreatedAt  time.Time         `db:"created_at"`
-	XFFChain   *string           `db:"xff_chain"`
-	TargetHost *string           `db:"target_host"`
-	TargetURI  *string           `db:"target_uri"`
-	HTTPMethod *string           `db:"http_method"`
-	HeadersRaw string            `db:"headers_json"`
+	ID            int64             `db:"id"`
+	ClientIP      string            `db:"client_ip"`
+	Outcome       bool              `db:"outcome"`
+	DenyReason    *string           `db:"deny_reason"`
+	DeviceID      *device.DeviceID  `db:"device_id"`
+	DeviceName    *string           `db:"device_name"`
+	AddressID     *device.AddressID `db:"address_id"`
+	CreatedAt     time.Time         `db:"created_at"`
+	XFFChain      *string           `db:"xff_chain"`
+	TargetHost    *string           `db:"target_host"`
+	TargetURI     *string           `db:"target_uri"`
+	HTTPMethod    *string           `db:"http_method"`
+	HeadersRaw    string            `db:"headers_json"`
+	CountryCode   *string           `db:"country_code"`
+	CountryName   *string           `db:"country_name"`
+	ContinentCode *string           `db:"continent_code"`
+	ASN           *int64            `db:"asn"`
+	ASNOrg        *string           `db:"asn_org"`
+}
+
+type dbCountryStatsRow struct {
+	CountryCode   string `db:"country_code"`
+	CountryName   string `db:"country_name"`
+	ContinentCode string `db:"continent_code"`
+	Total         int64  `db:"total"`
+	Allowed       int64  `db:"allowed"`
+	Denied        int64  `db:"denied"`
 }
 
 // Helper to format WHERE clause from a list of filters

@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
@@ -17,6 +18,13 @@ import (
 // Implemented by device.Service.
 type EnabledIPsProvider interface {
 	GetEnabledIPEntries(ctx context.Context) ([]device.IPEntry, error)
+}
+
+// GeoIPResolver resolves an IP to geographic and ASN data.
+// Implementations must be safe for concurrent use and fail-open.
+// A nil GeoIPResolver is valid — the service skips enrichment.
+type GeoIPResolver interface {
+	Resolve(ip string) geoip.Result
 }
 
 type ipSetEntry struct {
@@ -27,6 +35,7 @@ type ipSetEntry struct {
 // Service maintains an in-memory cache of enabled IPs for fast forward-auth lookups.
 type Service struct {
 	provider            EnabledIPsProvider
+	geoResolver         GeoIPResolver
 	apiSecretHash       [32]byte
 	trustedProxy        netip.Addr
 	mu                  sync.RWMutex
@@ -36,14 +45,14 @@ type Service struct {
 	observers           []DecisionObserver
 }
 
-func NewService(provider EnabledIPsProvider, secret string, logger *slog.Logger, trustedProxy netip.Addr) (*Service, error) {
+func NewService(provider EnabledIPsProvider, geoResolver GeoIPResolver, secret string, logger *slog.Logger, trustedProxy netip.Addr) (*Service, error) {
 	componentLogger := logger.With(slog.String(logging.AttrKeyComponent, "policy"))
 	if strings.TrimSpace(secret) == "" {
 		return nil, ErrSecretNotConfigured
 	}
-
 	return &Service{
 		provider:            provider,
+		geoResolver:         geoResolver,
 		apiSecretHash:       sha256.Sum256([]byte(secret)),
 		trustedProxy:        trustedProxy,
 		ipSet:               make(map[string]ipSetEntry),
@@ -104,22 +113,24 @@ func (s *Service) notifyDecisionObservers(ctx context.Context, event DecisionEve
 func (s *Service) VerifyAccess(ctx context.Context, req *VerifyRequest) error {
 	s.logger.DebugContext(ctx, "Verify access for ip")
 
+	geo := s.geoResolver.Resolve(req.ClientIP)
+
 	tokenHash := sha256.Sum256([]byte(req.Token))
 	if subtle.ConstantTimeCompare(tokenHash[:], s.apiSecretHash[:]) != 1 {
 		s.logger.WarnContext(ctx, "policy: invalid bearer token")
-		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, new(DenyReasonInvalidToken), nil, nil, req))
+		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, new(DenyReasonInvalidToken), nil, nil, req, geo))
 		return ErrInvalidBearerToken
 	}
 
 	entry, ok := s.lookupIP(ctx, req.ClientIP)
 	if !ok {
 		s.logger.DebugContext(ctx, "IP not enabled")
-		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, new(DenyReasonIPNotRegistered), nil, nil, req))
+		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, new(DenyReasonIPNotRegistered), nil, nil, req, geo))
 		return ErrIPNotEnabled
 	}
 
 	s.logger.DebugContext(ctx, "IP is enabled")
-	s.notifyDecisionObservers(ctx, NewDecisionEvent(true, nil, &entry.DeviceID, &entry.AddressID, req))
+	s.notifyDecisionObservers(ctx, NewDecisionEvent(true, nil, &entry.DeviceID, &entry.AddressID, req, geo))
 
 	return nil
 }

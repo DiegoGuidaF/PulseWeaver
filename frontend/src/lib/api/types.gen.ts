@@ -157,6 +157,15 @@ export type RequestAuditLogResponse = {
     rows: Array<RequestAuditLogRow>;
 };
 
+export type AuditLogCountryStats = {
+    country_code: string;
+    country_name?: string;
+    continent_code?: string;
+    total: number;
+    allowed: number;
+    denied: number;
+};
+
 export type RequestAuditLogRow = {
     id: Id;
     client_ip: IpAddress;
@@ -170,6 +179,26 @@ export type RequestAuditLogRow = {
     target_host?: string;
     target_uri?: string;
     http_method?: string;
+    /**
+     * ISO 3166-1 alpha-2, e.g. "DE"
+     */
+    country_code?: string;
+    /**
+     * e.g. "Germany"
+     */
+    country_name?: string;
+    /**
+     * e.g. "EU"
+     */
+    continent_code?: string;
+    /**
+     * Autonomous System Number
+     */
+    asn?: number;
+    /**
+     * e.g. "Cloudflare, Inc."
+     */
+    asn_org?: string;
     headers: {
         [key: string]: Array<string>;
     };
@@ -1056,6 +1085,14 @@ export type GetRequestAuditLogData = {
          */
         host?: string;
         /**
+         * ISO 3166-1 alpha-2 country code filter (e.g. "DE")
+         */
+        country_code?: string;
+        /**
+         * Continent code filter (e.g. "EU")
+         */
+        continent_code?: string;
+        /**
          * RFC3339 start of time window (default 24h ago)
          */
         from?: string;
@@ -1100,6 +1137,44 @@ export type GetRequestAuditLogResponses = {
 };
 
 export type GetRequestAuditLogResponse = GetRequestAuditLogResponses[keyof GetRequestAuditLogResponses];
+
+export type GetRequestAuditLogByCountryData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * RFC3339 start of time window (default 24h ago)
+         */
+        since?: string;
+    };
+    url: '/request-audit-log/stats/by-country';
+};
+
+export type GetRequestAuditLogByCountryErrors = {
+    /**
+     * Not authenticated
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type GetRequestAuditLogByCountryError = GetRequestAuditLogByCountryErrors[keyof GetRequestAuditLogByCountryErrors];
+
+export type GetRequestAuditLogByCountryResponses = {
+    /**
+     * Request counts by country
+     */
+    200: Array<AuditLogCountryStats>;
+};
+
+export type GetRequestAuditLogByCountryResponse = GetRequestAuditLogByCountryResponses[keyof GetRequestAuditLogByCountryResponses];
 
 export type GetRequestAuditLogDenyReasonsData = {
     body?: never;

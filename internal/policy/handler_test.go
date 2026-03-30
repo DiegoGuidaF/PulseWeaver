@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/matryer/is"
@@ -73,7 +74,7 @@ func TestNewService_EmptySecret_ReturnsError(t *testing.T) {
 	is := is.New(t)
 	provider := &testMockProvider{entries: []device.IPEntry{{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)}}}
 
-	_, err := policy.NewService(provider, "", slog.New(slog.DiscardHandler), netip.Addr{})
+	_, err := policy.NewService(provider, &geoip.Lookup{}, "", slog.New(slog.DiscardHandler), netip.Addr{})
 	is.True(errors.Is(err, policy.ErrSecretNotConfigured))
 }
 
@@ -189,7 +190,7 @@ func newTestHandlerWithProxy(enabledIPs []string, secret, trustedProxy string) *
 	if trustedProxy != "" {
 		proxyAddr = netip.MustParseAddr(trustedProxy)
 	}
-	svc, err := policy.NewService(provider, secret, slog.New(slog.DiscardHandler), proxyAddr)
+	svc, err := policy.NewService(provider, &geoip.Lookup{}, secret, slog.New(slog.DiscardHandler), proxyAddr)
 	if err != nil {
 		panic(err)
 	}
@@ -203,7 +204,7 @@ func newTestHandlerWithObserver(enabledIPs []string, obs policy.DecisionObserver
 		entries[i] = device.IPEntry{IP: ip, DeviceID: device.DeviceID(int64(i + 1)), AddressID: device.AddressID(int64(i + 1))}
 	}
 	provider := &testMockProvider{entries: entries}
-	svc, err := policy.NewService(provider, "mysecret", slog.New(slog.DiscardHandler), netip.Addr{})
+	svc, err := policy.NewService(provider, &geoip.Lookup{}, "mysecret", slog.New(slog.DiscardHandler), netip.Addr{})
 	if err != nil {
 		panic(err)
 	}

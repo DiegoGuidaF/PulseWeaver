@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/audit"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/matryer/is"
@@ -158,6 +159,147 @@ func TestRepository_ListDenyReasons_ExcludesAllowEvents(t *testing.T) {
 	err := repo.BatchInsert(ctx, events)
 	is.NoErr(err)
 
+	reasons, err := repo.ListDenyReasons(ctx)
+	is.NoErr(err)
+	is.Equal(len(reasons), 0)
+}
+
+// GeoIP persistence tests
+
+func TestRepository_BatchInsert_WithGeoIPData(t *testing.T) {
+	is := is.New(t)
+
+	dbWrapper, cleanup := testdb.Setup(t)
+	t.Cleanup(cleanup)
+	repo := audit.NewRepository(dbWrapper.DB())
+	ctx := context.Background()
+
+	// Insert event with full GeoIP data.
+	events := []policy.DecisionEvent{
+		{
+			ClientIP:  "8.8.8.8",
+			Outcome:   true,
+			CreatedAt: time.Now().UTC(),
+			Headers:   map[string][]string{},
+			GeoIP: geoip.Result{
+				CountryCode:   "US",
+				CountryName:   "United States",
+				ContinentCode: "NA",
+				ASN:           15169,
+				ASNOrg:        "Google LLC",
+			},
+		},
+	}
+
+	err := repo.BatchInsert(ctx, events)
+	is.NoErr(err)
+
+	// Verify the geoip row was persisted with correct values.
+	var countryCode, countryName, continentCode, asnOrg string
+	var asn int
+	err = dbWrapper.DB().QueryRow(
+		`SELECT country_code, country_name, continent_code, asn, asn_org
+		 FROM request_audit_log_geoip LIMIT 1`,
+	).Scan(&countryCode, &countryName, &continentCode, &asn, &asnOrg)
+	is.NoErr(err)
+	is.Equal(countryCode, "US")
+	is.Equal(countryName, "United States")
+	is.Equal(continentCode, "NA")
+	is.Equal(asn, 15169)
+	is.Equal(asnOrg, "Google LLC")
+}
+
+func TestRepository_BatchInsert_GeoIPCascadeDelete(t *testing.T) {
+	is := is.New(t)
+
+	dbWrapper, cleanup := testdb.Setup(t)
+	t.Cleanup(cleanup)
+	repo := audit.NewRepository(dbWrapper.DB())
+	ctx := context.Background()
+
+	events := []policy.DecisionEvent{
+		{
+			ClientIP:  "8.8.8.8",
+			Outcome:   true,
+			CreatedAt: time.Now().UTC(),
+			Headers:   map[string][]string{},
+			GeoIP: geoip.Result{
+				CountryCode:   "US",
+				CountryName:   "United States",
+				ContinentCode: "NA",
+				ASN:           15169,
+				ASNOrg:        "Google LLC",
+			},
+		},
+	}
+
+	err := repo.BatchInsert(ctx, events)
+	is.NoErr(err)
+
+	// Delete the audit log row — geoip row should cascade.
+	_, err = dbWrapper.DB().Exec(`DELETE FROM request_audit_log`)
+	is.NoErr(err)
+
+	var count int
+	err = dbWrapper.DB().QueryRow(`SELECT COUNT(*) FROM request_audit_log_geoip`).Scan(&count)
+	is.NoErr(err)
+	is.Equal(count, 0)
+}
+
+func TestRepository_BatchInsert_WithEmptyGeoIP(t *testing.T) {
+	is := is.New(t)
+
+	dbWrapper, cleanup := testdb.Setup(t)
+	t.Cleanup(cleanup)
+	repo := audit.NewRepository(dbWrapper.DB())
+	ctx := context.Background()
+
+	// Private IP — GeoIP.IsEmpty() == true, no geoip row should be written.
+	events := []policy.DecisionEvent{
+		{
+			ClientIP:  "192.168.1.1",
+			Outcome:   true,
+			CreatedAt: time.Now().UTC(),
+			Headers:   map[string][]string{},
+		},
+	}
+
+	err := repo.BatchInsert(ctx, events)
+	is.NoErr(err)
+
+	// Verify no geoip row exists.
+	var count int
+	err = dbWrapper.DB().QueryRow(`SELECT COUNT(*) FROM request_audit_log_geoip`).Scan(&count)
+	is.NoErr(err)
+	is.Equal(count, 0)
+}
+
+func TestRepository_BatchInsert_MixedGeoIP(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestRepo(t)
+	ctx := context.Background()
+
+	// One event with GeoIP, one without — both audit rows must be written.
+	events := []policy.DecisionEvent{
+		{
+			ClientIP:  "8.8.8.8",
+			Outcome:   true,
+			CreatedAt: time.Now().UTC(),
+			Headers:   map[string][]string{},
+			GeoIP:     geoip.Result{CountryCode: "US", CountryName: "United States", ContinentCode: "NA", ASN: 15169, ASNOrg: "Google LLC"},
+		},
+		{
+			ClientIP:  "192.168.1.1",
+			Outcome:   true,
+			CreatedAt: time.Now().UTC(),
+			Headers:   map[string][]string{},
+		},
+	}
+
+	err := repo.BatchInsert(ctx, events)
+	is.NoErr(err)
+
+	// Both audit rows exist (deny reasons list is empty since all allowed).
 	reasons, err := repo.ListDenyReasons(ctx)
 	is.NoErr(err)
 	is.Equal(len(reasons), 0)

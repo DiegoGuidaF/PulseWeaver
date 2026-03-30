@@ -41,24 +41,19 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 	}
 
 	return r.runInTx(ctx, func(tx *Repository) error {
+		const insertAudit = `
+            INSERT INTO request_audit_log (
+                client_ip, device_id, address_id, outcome, deny_reason,
+                created_at, xff_chain, target_host, target_uri, http_method, headers_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
+        `
+		const insertGeoIP = `
+            INSERT INTO request_audit_log_geoip
+                (audit_log_id, country_code, country_name, continent_code, asn, asn_org)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `
 
-		const query = `
-		INSERT INTO request_audit_log (
-			client_ip,
-			device_id,
-			address_id,
-			outcome,
-			deny_reason,
-			created_at,
-			xff_chain,
-			target_host,
-			target_uri,
-			http_method,
-			headers_json
-		) VALUES (
-			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-		)
-	`
 		for _, e := range events {
 			headers := e.Headers
 			if headers == nil {
@@ -68,22 +63,23 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 			if err != nil {
 				return fmt.Errorf("marshal headers_json: %w", err)
 			}
-			if _, err := tx.db.ExecContext(
-				ctx,
-				query,
-				e.ClientIP,
-				e.DeviceID,
-				e.AddressID,
-				e.Outcome,
-				e.DenyReason,
-				e.CreatedAt,
-				e.XFFChain,
-				e.TargetHost,
-				e.TargetURI,
-				e.HTTPMethod,
+
+			var auditID int64
+			if err := tx.db.GetContext(ctx, &auditID, insertAudit,
+				e.ClientIP, e.DeviceID, e.AddressID, e.Outcome, e.DenyReason,
+				e.CreatedAt, e.XFFChain, e.TargetHost, e.TargetURI, e.HTTPMethod,
 				string(headersJSON),
 			); err != nil {
 				return fmt.Errorf("insert audit event: %w", err)
+			}
+
+			if e.GeoIP.IsEmpty() {
+				continue
+			}
+			if _, err := tx.db.ExecContext(ctx, insertGeoIP,
+				auditID, e.GeoIP.CountryCode, e.GeoIP.CountryName, e.GeoIP.ContinentCode, e.GeoIP.ASN, e.GeoIP.ASNOrg,
+			); err != nil {
+				return fmt.Errorf("insert geoip row: %w", err)
 			}
 		}
 		return nil

@@ -419,6 +419,36 @@ export const RequestAuditLogResponseSchema = {
     }
 } as const;
 
+export const AuditLogCountryStatsSchema = {
+    type: 'object',
+    required: [
+        'country_code',
+        'total',
+        'allowed',
+        'denied'
+    ],
+    properties: {
+        country_code: {
+            type: 'string'
+        },
+        country_name: {
+            type: 'string'
+        },
+        continent_code: {
+            type: 'string'
+        },
+        total: {
+            type: 'integer'
+        },
+        allowed: {
+            type: 'integer'
+        },
+        denied: {
+            type: 'integer'
+        }
+    }
+} as const;
+
 export const RequestAuditLogRowSchema = {
     type: 'object',
     required: [
@@ -466,6 +496,26 @@ export const RequestAuditLogRowSchema = {
         },
         http_method: {
             type: 'string'
+        },
+        country_code: {
+            type: 'string',
+            description: 'ISO 3166-1 alpha-2, e.g. "DE"'
+        },
+        country_name: {
+            type: 'string',
+            description: 'e.g. "Germany"'
+        },
+        continent_code: {
+            type: 'string',
+            description: 'e.g. "EU"'
+        },
+        asn: {
+            type: 'integer',
+            description: 'Autonomous System Number'
+        },
+        asn_org: {
+            type: 'string',
+            description: 'e.g. "Cloudflare, Inc."'
         },
         headers: {
             type: 'object',

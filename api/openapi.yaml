@@ -875,6 +875,18 @@ paths:
           schema:
             type: string
           description: Exact target host match
+        - name: country_code
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO 3166-1 alpha-2 country code filter (e.g. "DE")
+        - name: continent_code
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Continent code filter (e.g. "EU")
         - name: from
           in: query
           required: false
@@ -918,6 +930,48 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         "403":
           description: Forbidden - admin credentials required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /request-audit-log/stats/by-country:
+    get:
+      operationId: getRequestAuditLogByCountry
+      tags:
+        - audit
+      summary: Request counts grouped by country
+      parameters:
+        - name: since
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 start of time window (default 24h ago)
+      responses:
+        "200":
+          description: Request counts by country
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLogCountryStats'
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -1627,6 +1681,23 @@ components:
           items:
             $ref: '#/components/schemas/RequestAuditLogRow'
 
+    AuditLogCountryStats:
+      type: object
+      required: [country_code, total, allowed, denied]
+      properties:
+        country_code:
+          type: string
+        country_name:
+          type: string
+        continent_code:
+          type: string
+        total:
+          type: integer
+        allowed:
+          type: integer
+        denied:
+          type: integer
+
     RequestAuditLogRow:
       type: object
       required: [id, created_at, outcome, client_ip, headers]
@@ -1657,6 +1728,21 @@ components:
           type: string
         http_method:
           type: string
+        country_code:
+          type: string
+          description: ISO 3166-1 alpha-2, e.g. "DE"
+        country_name:
+          type: string
+          description: e.g. "Germany"
+        continent_code:
+          type: string
+          description: e.g. "EU"
+        asn:
+          type: integer
+          description: Autonomous System Number
+        asn_org:
+          type: string
+          description: e.g. "Cloudflare, Inc."
         headers:
           type: object
           additionalProperties:

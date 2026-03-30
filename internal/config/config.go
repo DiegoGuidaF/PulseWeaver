@@ -18,6 +18,7 @@ type Conf struct {
 	DB        ConfDB
 	Rules     ConfRules
 	Policy    ConfPolicy
+	GeoIP     ConfGeoIP
 	LogLevel  string         `env:"LOG_LEVEL" envDefault:"info"`
 	LogFormat logging.Format `env:"LOG_FORMAT" envDefault:"text"` // "json" or "text" (tint)
 	LogColor  bool           `env:"LOG_COLOR" envDefault:"true"`  // Enable colored output (only for text format)
@@ -42,6 +43,12 @@ type ConfPolicy struct {
 // ConfRules holds configuration for background rule/scheduler behaviour.
 type ConfRules struct {
 	CheckInterval time.Duration `env:"RULE_CHECK_INTERVAL" envDefault:"1m"`
+}
+
+// ConfGeoIP holds configuration for the GeoIP enrichment feature.
+type ConfGeoIP struct {
+	Enabled bool   `env:"GEOIP_ENABLED"   envDefault:"true"`
+	DataDir string `env:"GEOIP_DATA_DIR"  envDefault:"./data/geoip"`
 }
 
 func Load() (*Conf, error) {
@@ -80,6 +87,10 @@ func Load() (*Conf, error) {
 
 	if err := validateWritableDir(c.DB.DataDir); err != nil {
 		return nil, fmt.Errorf("DB dir is not valid: %w", err)
+	}
+
+	if err := validateWritableDir(c.GeoIP.DataDir); err != nil {
+		return nil, fmt.Errorf("GeoIPDB dir is not valid: %w", err)
 	}
 
 	return c, nil

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 )
 
 // DecisionObserver is implemented by any component that wants to react to
@@ -25,6 +26,7 @@ type DecisionEvent struct {
 	HTTPMethod *string
 	XFFChain   *string
 	Headers    map[string][]string
+	GeoIP      geoip.Result
 }
 
 type DenyReason string
@@ -35,7 +37,7 @@ const (
 	DenyReasonInvalidToken    DenyReason = "invalid_token"
 )
 
-func NewDecisionEvent(outcome bool, denyReason *DenyReason, deviceID *device.DeviceID, addressID *device.AddressID, req *VerifyRequest) DecisionEvent {
+func NewDecisionEvent(outcome bool, denyReason *DenyReason, deviceID *device.DeviceID, addressID *device.AddressID, req *VerifyRequest, geo geoip.Result) DecisionEvent {
 	// Ensure headers map is non-nil.
 	headers := req.Headers
 	if req.Headers == nil {
@@ -53,5 +55,6 @@ func NewDecisionEvent(outcome bool, denyReason *DenyReason, deviceID *device.Dev
 		HTTPMethod: req.HTTPMethod,
 		XFFChain:   req.XFFChain,
 		Headers:    headers,
+		GeoIP:      geo,
 	}
 }

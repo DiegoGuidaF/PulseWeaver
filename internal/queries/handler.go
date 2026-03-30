@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
@@ -108,6 +109,38 @@ func (h *HTTPHandler) GetRequestAuditLog(
 	return httpapi.GetRequestAuditLog200JSONResponse(response), nil
 }
 
+func (h *HTTPHandler) GetRequestAuditLogByCountry(
+	ctx context.Context,
+	request httpapi.GetRequestAuditLogByCountryRequestObject,
+) (httpapi.GetRequestAuditLogByCountryResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetRequestAuditLogByCountry")
+
+	since := time.Now().UTC().Add(-24 * time.Hour)
+	if request.Params.Since != nil {
+		since = *request.Params.Since
+	}
+
+	stats, err := h.repo.ListAuditLogStatsByCountry(ctx, since)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "failed to list audit log stats by country", slog.Any(logging.AttrKeyError, err))
+		return httpapi.GetRequestAuditLogByCountry500JSONResponse(errorMsgResponse("Failed to list country stats")), nil
+	}
+
+	result := make([]httpapi.AuditLogCountryStats, len(stats))
+	for i, s := range stats {
+		result[i] = httpapi.AuditLogCountryStats{
+			CountryCode:   s.CountryCode,
+			CountryName:   &s.CountryName,
+			ContinentCode: &s.ContinentCode,
+			Total:         int(s.Total),
+			Allowed:       int(s.Allowed),
+			Denied:        int(s.Denied),
+		}
+	}
+
+	return httpapi.GetRequestAuditLogByCountry200JSONResponse(result), nil
+}
+
 func toAuditLogRow(r RequestAuditLogView) httpapi.RequestAuditLogRow {
 	var deviceID *int64
 	if r.DeviceID != nil {
@@ -117,20 +150,31 @@ func toAuditLogRow(r RequestAuditLogView) httpapi.RequestAuditLogRow {
 	if r.AddressID != nil {
 		addressID = new(r.AddressID.Int64())
 	}
+
+	var asn *int
+	if r.ASN != nil {
+		asn = new(int(*r.ASN))
+	}
+
 	return httpapi.RequestAuditLogRow{
-		Id:         r.ID,
-		CreatedAt:  httpapi.UTCTime(r.CreatedAt),
-		Outcome:    r.Outcome,
-		ClientIp:   r.ClientIP,
-		DenyReason: r.DenyReason,
-		DeviceId:   deviceID,
-		DeviceName: r.DeviceName,
-		AddressId:  addressID,
-		XffChain:   r.XFFChain,
-		TargetHost: r.TargetHost,
-		TargetUri:  r.TargetURI,
-		HttpMethod: r.HTTPMethod,
-		Headers:    r.Headers,
+		Id:            r.ID,
+		CreatedAt:     httpapi.UTCTime(r.CreatedAt),
+		Outcome:       r.Outcome,
+		ClientIp:      r.ClientIP,
+		DenyReason:    r.DenyReason,
+		DeviceId:      deviceID,
+		DeviceName:    r.DeviceName,
+		AddressId:     addressID,
+		XffChain:      r.XFFChain,
+		TargetHost:    r.TargetHost,
+		TargetUri:     r.TargetURI,
+		HttpMethod:    r.HTTPMethod,
+		Headers:       r.Headers,
+		CountryCode:   r.CountryCode,
+		CountryName:   r.CountryName,
+		ContinentCode: r.ContinentCode,
+		Asn:           asn,
+		AsnOrg:        r.ASNOrg,
 	}
 }
 

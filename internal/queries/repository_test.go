@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/audit"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
@@ -19,6 +20,7 @@ type testRepos struct {
 	queries *queries.Repository
 	devices *device.Repository
 	leases  *lease.Repository
+	audit   *audit.Repository
 	db      *sqlx.DB
 }
 
@@ -34,6 +36,7 @@ func setupRepos(t *testing.T) testRepos {
 		queries: queries.NewRepository(sqlxDB),
 		devices: device.NewRepository(sqlxDB),
 		leases:  lease.NewRepository(sqlxDB),
+		audit:   audit.NewRepository(sqlxDB),
 		db:      sqlxDB,
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpserver"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
@@ -36,6 +37,7 @@ type App struct {
 	addressLeaseService *lease.Service
 	schedulerService    *scheduler.Service
 	auditSink           *audit.Sink
+	geoipLookup         *geoip.Lookup
 }
 
 // New initializes the application with configuration loaded from environment variables.
@@ -98,8 +100,14 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	deviceService := device.NewService(deviceRepo, logger, conf.Server.TrustedProxy)
 	deviceHandler := device.NewHTTPHandler(deviceService, logger)
 
+	// GeoIP enrichment
+	geoipLookup, err := geoip.New(ctx, conf.GeoIP, logger)
+	if err != nil {
+		return nil, fmt.Errorf("geoip init: %w", err)
+	}
+
 	// Policy forward-auth sidecar
-	policyService, err := policy.NewService(deviceService, conf.Policy.APISecret, logger, conf.Server.TrustedProxy)
+	policyService, err := policy.NewService(deviceService, geoipLookup, conf.Policy.APISecret, logger, conf.Server.TrustedProxy)
 	if err != nil {
 		return nil, fmt.Errorf("policy service init: %w", err)
 	}
@@ -167,6 +175,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		addressLeaseService: addressLeaseService,
 		schedulerService:    schedulerService,
 		auditSink:           auditSink,
+		geoipLookup:         geoipLookup,
 	}, nil
 }
 
@@ -189,6 +198,10 @@ func (a *App) Run(ctx context.Context) error {
 
 	g.Go(func() error {
 		return ignoreContextCanceled(a.auditSink.Run(gCtx))
+	})
+
+	g.Go(func() error {
+		return ignoreContextCanceled(a.geoipLookup.RunUpdater(gCtx, a.Logger))
 	})
 
 	serverConfig := httpserver.DefaultServerConfigFromConf(a.Config.Server.Port)

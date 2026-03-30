@@ -21,6 +21,15 @@ export const zAddressHistoryBucket = z.object({
     event_count: z.int()
 });
 
+export const zAuditLogCountryStats = z.object({
+    country_code: z.string(),
+    country_name: z.string().optional(),
+    continent_code: z.string().optional(),
+    total: z.int(),
+    allowed: z.int(),
+    denied: z.int()
+});
+
 export const zPutDeviceAddressLeaseRuleRequest = z.object({
     ttl_seconds: z.int().gte(1)
 });
@@ -181,6 +190,11 @@ export const zRequestAuditLogRow = z.object({
     target_host: z.string().optional(),
     target_uri: z.string().optional(),
     http_method: z.string().optional(),
+    country_code: z.string().optional(),
+    country_name: z.string().optional(),
+    continent_code: z.string().optional(),
+    asn: z.int().optional(),
+    asn_org: z.string().optional(),
     headers: z.record(z.string(), z.array(z.string()))
 });
 
@@ -490,6 +504,8 @@ export const zGetRequestAuditLogData = z.object({
         deny_reason: z.string().optional(),
         ip: z.string().optional(),
         host: z.string().optional(),
+        country_code: z.string().optional(),
+        continent_code: z.string().optional(),
         from: z.iso.datetime({ offset: true, local: true }).optional(),
         to: z.iso.datetime({ offset: true, local: true }).optional(),
         limit: z.int().lte(200).optional().default(50),
@@ -501,6 +517,19 @@ export const zGetRequestAuditLogData = z.object({
  * Request audit log entries
  */
 export const zGetRequestAuditLogResponse = zRequestAuditLogResponse;
+
+export const zGetRequestAuditLogByCountryData = z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: z.object({
+        since: z.iso.datetime({ offset: true, local: true }).optional()
+    }).optional()
+});
+
+/**
+ * Request counts by country
+ */
+export const zGetRequestAuditLogByCountryResponse = z.array(zAuditLogCountryStats);
 
 export const zGetRequestAuditLogDenyReasonsData = z.object({
     body: z.never().optional(),
