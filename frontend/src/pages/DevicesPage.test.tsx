@@ -14,7 +14,7 @@ describe('DevicesPage', () => {
     it('renders heading, create form, and empty device list', async () => {
         renderWithProviders(<DevicesPage />);
 
-        expect(screen.getByRole('heading', { name: 'PulseWeaver Manager' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Devices', level: 1 })).toBeInTheDocument();
         expect(screen.getByLabelText('New Device Name')).toBeInTheDocument();
         await waitFor(
             () => {

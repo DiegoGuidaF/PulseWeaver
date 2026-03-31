@@ -3,19 +3,21 @@ import { Alert, Button, Card, Group, Skeleton, Stack, Text } from "@mantine/core
 import { LineChart } from "@mantine/charts";
 import { DataTable } from "mantine-datatable";
 import { IconAlertCircle, IconFilterOff } from "@tabler/icons-react";
-import dayjs from "dayjs";
 import type { AddressHistoryEvent } from "@/lib/api";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
+import { CursorPagination } from "@/components/CursorPagination";
 import { useAddressHistory } from "../hooks/useAddressHistory";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
 import { getAddressHistoryColumns } from "./addressHistoryColumns";
 import { SOURCE_LABELS } from "../constants";
 import { toErrorMessage } from "@/lib/api-client";
+import { formatChartLabel, presetToMs } from "@/lib/formatChartLabel";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
 import { useDevices } from "@/features/devices/hooks/useDevices";
 import { PRESET_MS } from "@/lib/timePresets";
+import dayjs from "dayjs";
 
-const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+const PAGE_SIZE = 25;
 
 interface AddressHistoryTableProps {
     filters: AddressHistoryFilters;
@@ -26,36 +28,21 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
     const formatDateTime = useDateFormatter();
     const pickerValueFormat = usePickerValueFormat();
 
-    const [pagination, setPagination] = useState({
-        filterKey: filters.filterKey,
-        beforeId: undefined as number | undefined,
-        allRows: [] as AddressHistoryEvent[],
-    });
-    if (pagination.filterKey !== filters.filterKey) {
-        setPagination({ filterKey: filters.filterKey, beforeId: undefined, allRows: [] });
+    const [cursor, setCursor] = useState<string | null>(null);
+    const [filterKey, setFilterKey] = useState(filters.filterKey);
+    if (filterKey !== filters.filterKey) {
+        setFilterKey(filters.filterKey);
+        setCursor(null);
     }
-    const { beforeId, allRows } = pagination;
 
     const { data: devices } = useDevices();
 
     const { data, isPending, error } = useAddressHistory(
-        { ...filters.queryParams, before_id: beforeId },
+        { ...filters.queryParams, before_id: cursor ? Number(cursor) : undefined, limit: PAGE_SIZE },
         refreshInterval === 0 ? false : refreshInterval,
     );
 
-    const events = data?.events ?? [];
-    const rows = beforeId !== undefined
-        ? allRows.concat(events)
-        : events;
-
-    function handleLoadMore() {
-        if (!data?.next_cursor) return;
-        setPagination((prev) => ({
-            ...prev,
-            allRows: rows,
-            beforeId: data.next_cursor ?? undefined,
-        }));
-    }
+    const rows = data?.events ?? [];
 
     const deviceOptions = (devices ?? []).map((d) => ({ value: String(d.id), label: d.name }));
 
@@ -132,23 +119,22 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         return chips;
     }, [filters, formatDateTime, deviceOptions]);
 
-    // Chart data from buckets
-    const useDayFormat = useMemo(() => {
-        const presetMs = filters.presetStr ? PRESET_MS[filters.presetStr] : undefined;
-        if (presetMs !== undefined) return presetMs >= THREE_DAYS_MS;
+    // Chart data from buckets — use shared formatter
+    const timeRangeMs = useMemo(() => {
+        if (filters.presetStr) return presetToMs(filters.presetStr);
         if (filters.fromStr && filters.toStr) {
-            return dayjs(filters.toStr).diff(dayjs(filters.fromStr)) >= THREE_DAYS_MS;
+            return dayjs(filters.toStr).diff(dayjs(filters.fromStr));
         }
-        return false;
+        return presetToMs("last_24h");
     }, [filters.presetStr, filters.fromStr, filters.toStr]);
 
     const chartData = useMemo(() => {
         if (!data?.buckets) return [];
         return data.buckets.map((b) => ({
-            timestamp: dayjs(b.timestamp).format(useDayFormat ? "MMM DD" : "MMM DD HH:mm"),
+            timestamp: formatChartLabel(b.timestamp, timeRangeMs),
             active_count: b.active_count,
         }));
-    }, [data, useDayFormat]);
+    }, [data, timeRangeMs]);
 
     if ((isPending || !data) && !error && rows.length === 0) {
         return (
@@ -172,7 +158,6 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
     }
 
     const total = data?.total_events ?? 0;
-    const hasMore = Boolean(data?.next_cursor);
 
     return (
         <Stack gap="sm">
@@ -187,6 +172,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                         yAxisLabel="Distinct IPs"
                         curveType="monotone"
                         tooltipAnimationDuration={150}
+                        yAxisProps={{ allowDecimals: false }}
                     />
                 ) : (
                     <Text size="sm" c="dimmed" ta="center" py="xl">
@@ -195,10 +181,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                 )}
             </Card>
 
-            <Group justify="space-between">
-                <Text size="sm" c="dimmed">
-                    {total} event{total !== 1 ? "s" : ""}
-                </Text>
+            <Group justify="flex-end">
                 {filters.hasActiveFilters && (
                     <Button
                         variant="subtle"
@@ -222,17 +205,12 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                 columns={columns}
             />
 
-            {hasMore && (
-                <Group justify="center">
-                    <Button
-                        variant="subtle"
-                        onClick={handleLoadMore}
-                        loading={isPending}
-                    >
-                        Load more
-                    </Button>
-                </Group>
-            )}
+            <CursorPagination
+                total={total}
+                nextCursor={data?.next_cursor != null ? String(data.next_cursor) : null}
+                pageSize={PAGE_SIZE}
+                onCursorChange={setCursor}
+            />
         </Stack>
     );
 }

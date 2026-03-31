@@ -41,7 +41,8 @@ describe('DeviceSettingsTab', () => {
 
         await waitFor(
             () => {
-                expect(screen.getByText(/Auto-expiry is currently/i)).toBeInTheDocument();
+                expect(screen.getByText('Status:')).toBeInTheDocument();
+                expect(screen.getByText('Disabled')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );

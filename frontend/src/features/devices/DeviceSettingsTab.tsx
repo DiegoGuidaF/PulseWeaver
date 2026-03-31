@@ -3,6 +3,7 @@ import { useForm } from "@mantine/form";
 import { zod4Resolver } from "mantine-form-zod-resolver";
 import { z } from "zod";
 import {
+  Badge,
   Button,
   Card,
   Group,
@@ -239,12 +240,10 @@ export function DeviceSettingsTab({
             <Stack gap="md">
               {isOn && (
                 <Stack gap={4}>
-                  <Text size="sm">
-                    Status:{" "}
-                    <Text component="span" fw={500}>
-                      Enabled
-                    </Text>
-                  </Text>
+                  <Group gap="sm">
+                    <Text size="sm">Status:</Text>
+                    <Badge color="green" variant="light" size="sm">Enabled</Badge>
+                  </Group>
                   {ttlLabel && (
                     <Text size="sm" c="dimmed">
                       Addresses will automatically expire after{" "}
@@ -258,13 +257,13 @@ export function DeviceSettingsTab({
               )}
 
               {!isOn && (
-                <Text size="sm" c="dimmed">
-                  Auto-expiry is currently{" "}
-                  <Text component="span" fw={500} c="var(--mantine-color-text)">
-                    disabled
+                <Group gap="sm">
+                  <Text size="sm">Status:</Text>
+                  <Badge color="red" variant="light" size="sm">Disabled</Badge>
+                  <Text size="sm" c="dimmed">
+                    Turn it on to automatically revoke stale addresses.
                   </Text>
-                  . Turn it on to automatically revoke stale addresses.
-                </Text>
+                </Group>
               )}
 
               {(!isOn || editing) && (
@@ -316,7 +315,7 @@ export function DeviceSettingsTab({
                   </Button>
                   <Button
                     type="button"
-                    color="red"
+                    variant="outline"
                     size="sm"
                     onClick={() =>
                       disableRuleMutation.mutate(

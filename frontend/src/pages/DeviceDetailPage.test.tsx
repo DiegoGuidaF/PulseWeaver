@@ -36,7 +36,7 @@ describe('DeviceDetailPage', () => {
         );
         expect(screen.queryByText(/API key prefix/i)).not.toBeInTheDocument();
         expect(screen.queryByRole('tab', { name: /addresses/i })).not.toBeInTheDocument();
-        expect(screen.queryByRole('tab', { name: /settings & rules/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole('tab', { name: /settings/i })).not.toBeInTheDocument();
     });
 
     it('shows loading skeleton', () => {
@@ -95,9 +95,9 @@ describe('DeviceDetailPage', () => {
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );
-        await user.click(screen.getByRole('tab', { name: /settings & rules/i }));
+        await user.click(screen.getByRole('tab', { name: /settings/i }));
 
         expect(screen.getByText('Auto-expiry rule')).toBeVisible();
-        expect(screen.queryByText('Add IP address')).not.toBeInTheDocument();
+        expect(screen.queryByText('Register IP address')).not.toBeInTheDocument();
     });
 });

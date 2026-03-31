@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http } from 'msw';
 import { DeviceAddressesTab } from '@/features/devices/DeviceAddressesTab';
@@ -61,8 +61,8 @@ describe('DeviceAddressesTab', () => {
             { timeout: TEST_TIMEOUTS.SHORT }
         );
         expect(screen.getByText('Active')).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Disable' })).toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: 'Enable' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Disable address' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Enable address' })).not.toBeInTheDocument();
     });
 
     it('renders inactive address with Enable button', async () => {
@@ -80,28 +80,11 @@ describe('DeviceAddressesTab', () => {
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );
-        expect(screen.getByRole('button', { name: 'Enable' })).toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: 'Disable' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Enable address' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Disable address' })).not.toBeInTheDocument();
     });
 
-    it('opens disable confirmation dialog', async () => {
-        const user = userEvent.setup();
-        renderTab();
-
-        await waitFor(
-            () => {
-                expect(screen.getByText('10.0.0.5')).toBeInTheDocument();
-            },
-            { timeout: TEST_TIMEOUTS.SHORT }
-        );
-        await user.click(screen.getByRole('button', { name: 'Disable' }));
-
-        const dialog = screen.getByRole('dialog', { name: /disable address/i });
-        expect(dialog).toBeInTheDocument();
-        expect(within(dialog).getByText('10.0.0.5')).toBeInTheDocument();
-    });
-
-    it('confirms disable and shows toast', async () => {
+    it('disables address directly and shows toast', async () => {
         const user = userEvent.setup();
         // addressHandlers.disable.success() is in defaultHandlers
 
@@ -113,9 +96,7 @@ describe('DeviceAddressesTab', () => {
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );
-        await user.click(screen.getByRole('button', { name: 'Disable' }));
-        const dialog = screen.getByRole('dialog', { name: /disable address/i });
-        await user.click(within(dialog).getByRole('button', { name: 'Disable' }));
+        await user.click(screen.getByRole('button', { name: 'Disable address' }));
 
         await waitFor(
             () => {
@@ -141,7 +122,7 @@ describe('DeviceAddressesTab', () => {
 
         await waitFor(
             () => {
-                expect(screen.getByText('Your current IP:')).toBeInTheDocument();
+                expect(screen.getByText(/Your IP:/i)).toBeInTheDocument();
                 expect(screen.getByText('192.168.1.100')).toBeInTheDocument();
                 expect(screen.getByText('IP 192.168.1.100 registered')).toBeInTheDocument();
             },
@@ -174,6 +155,9 @@ describe('DeviceAddressesTab', () => {
 
         renderTab();
 
+        // Switch to Custom IP mode
+        await user.click(screen.getByText('Custom IP'));
+
         const input = screen.getByRole('textbox', { name: /ip address/i });
         await user.type(input, '10.0.1.1');
         await user.click(screen.getByRole('button', { name: /add ip/i }));
@@ -195,6 +179,9 @@ describe('DeviceAddressesTab', () => {
         );
 
         renderTab();
+
+        // Switch to Custom IP mode
+        await user.click(screen.getByText('Custom IP'));
 
         await user.type(screen.getByRole('textbox', { name: /ip address/i }), '10.0.1.1');
         await user.click(screen.getByRole('button', { name: /add ip/i }));

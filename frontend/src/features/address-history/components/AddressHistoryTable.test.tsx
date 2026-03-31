@@ -39,7 +39,7 @@ describe("AddressHistoryTable", () => {
             { timeout: TEST_TIMEOUTS.SHORT },
         );
         expect(screen.getByText("10.0.0.2")).toBeInTheDocument();
-        expect(screen.getByText("3 events")).toBeInTheDocument();
+        expect(screen.getByText("3 results")).toBeInTheDocument();
     });
 
     it("shows no-records message when empty", async () => {
@@ -99,7 +99,7 @@ describe("AddressHistoryTable", () => {
         );
     });
 
-    it("shows Load more button when next_cursor is set", async () => {
+    it("shows pagination with next page when next_cursor is set", async () => {
         server.use(
             addressHandlers.history.success(
                 createMockAddressHistoryResponse({
@@ -112,12 +112,12 @@ describe("AddressHistoryTable", () => {
         renderTable();
 
         await waitFor(
-            () => expect(screen.getByText("Load more")).toBeInTheDocument(),
+            () => expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled(),
             { timeout: TEST_TIMEOUTS.SHORT },
         );
     });
 
-    it("hides Load more button when no next_cursor", async () => {
+    it("disables next page when no next_cursor", async () => {
         server.use(
             addressHandlers.history.success(
                 createMockAddressHistoryResponse({
@@ -130,10 +130,9 @@ describe("AddressHistoryTable", () => {
         renderTable();
 
         await waitFor(
-            () => expect(screen.getByText("3 events")).toBeInTheDocument(),
+            () => expect(screen.getByText("3 results")).toBeInTheDocument(),
             { timeout: TEST_TIMEOUTS.SHORT },
         );
-        expect(screen.queryByText("Load more")).not.toBeInTheDocument();
     });
 
     // ─── IP filter ───────────────────────────────────────────────────────────

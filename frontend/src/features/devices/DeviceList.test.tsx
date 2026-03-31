@@ -10,7 +10,7 @@ import { deviceHandlers, endpoints, responses } from '@/test/mocks/handlers';
 import { TEST_TIMEOUTS } from '@/test/constants';
 
 describe('DeviceList', () => {
-    it('renders device table with manage link and delete button', async () => {
+    it('renders device table with clickable rows and delete button', async () => {
         const mockDevices = [
             createMockDevice({ id: 1, name: 'Device One' }),
             createMockDevice({ id: 2, name: 'Device Two' }),
@@ -26,14 +26,10 @@ describe('DeviceList', () => {
             { timeout: TEST_TIMEOUTS.SHORT }
         );
 
-        const manageLinks = screen.getAllByRole('link', { name: /manage/i });
-        expect(manageLinks[0]).toHaveAttribute('href', '/devices/1');
-        expect(manageLinks[1]).toHaveAttribute('href', '/devices/2');
+        expect(screen.getByText('Device Two')).toBeInTheDocument();
         expect(
             screen.getByRole('button', { name: /delete device device one/i })
         ).toBeInTheDocument();
-        expect(screen.getByText('Device Two')).toBeInTheDocument();
-        expect(screen.getByText('2')).toBeInTheDocument();
     });
 
     it('opens confirm dialog when delete is clicked', async () => {
