@@ -24,7 +24,7 @@ export function DashboardStatCards({ data, isLoading }: DashboardStatCardsProps)
             value: data?.total_requests ?? 0,
             subtitle: null,
             icon: IconArrowsExchange,
-            color: "blue",
+            color: "indigo",
         },
         {
             label: "Allowed",
@@ -45,7 +45,7 @@ export function DashboardStatCards({ data, isLoading }: DashboardStatCardsProps)
             value: data?.unique_ips ?? 0,
             subtitle: null,
             icon: IconUsers,
-            color: "violet",
+            color: "indigo",
         },
     ];
 

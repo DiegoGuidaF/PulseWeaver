@@ -67,6 +67,7 @@ Layered architecture: **Handler → Service → Repository → Database**
 - `CODEBASE-Backend.md` — Read this file before any backend task to understand the backend package structure, domain boundaries, service lifecycle, observer pattern, and key conventions.
 - `CODEBASE-Frontend.md` — Read this file to understand the frontend directory structure, routing, hook conventions, and UX surfaces before making structural changes to the frontend.
 - **Mantine component/hook reference (LLM-optimised):** https://mantine.dev/llms.txt — fetch this when working on any Mantine UI code; it is a full index of all components and hooks, updated with every release.
+- **UI style guide:** `../planning/ui-style-guide.md` — Read this before implementing any new visual elements. Defines the two-color system (Indigo = structure/action, Amber = liveness/pulse), component-level color assignments, and the fading heartbeat pattern.
 
 ## Key Conventions
 

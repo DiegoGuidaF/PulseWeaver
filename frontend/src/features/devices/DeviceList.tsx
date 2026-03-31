@@ -103,7 +103,7 @@ export function DeviceList() {
                   {device.address_count === 0 ? (
                     <Text c="dimmed">0</Text>
                   ) : (
-                    <Text fw={500}>{device.address_count}</Text>
+                    <Text fw={500} c="orange.4">{device.address_count}</Text>
                   )}
                 </Table.Td>
                 <Table.Td>

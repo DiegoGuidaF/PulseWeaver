@@ -23,7 +23,7 @@ const refDateStyle = {
 function sourceBadgeColor(source: string): string {
     switch (source) {
         case "heartbeat":
-            return "blue";
+            return "orange";
         case "manual":
             return "grape";
         case "expiry":

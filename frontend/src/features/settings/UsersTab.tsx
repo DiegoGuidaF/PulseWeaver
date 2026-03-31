@@ -107,7 +107,7 @@ export function UsersTab() {
                     </Table.Td>
                     <Table.Td c="dimmed">{adminUser.display_name || "\u2014"}</Table.Td>
                     <Table.Td>
-                      <Badge variant="light" color={isAdmin ? "violet" : "gray"}>
+                      <Badge variant="light" color={isAdmin ? "indigo" : "gray"}>
                         {adminUser.role}
                       </Badge>
                     </Table.Td>

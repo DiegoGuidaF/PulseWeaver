@@ -30,7 +30,7 @@ export function RequestAuditLogDetailDrawer({
                             {row.outcome ? "Allowed" : "Denied"}
                         </Badge>
                         {!row.outcome && row.deny_reason && (
-                            <Badge color="orange" variant="light" size="lg">
+                            <Badge color="gray" variant="light" size="lg">
                                 {DENY_REASON_LABELS[row.deny_reason] ?? row.deny_reason}
                             </Badge>
                         )}

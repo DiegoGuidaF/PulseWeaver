@@ -183,7 +183,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                         h={200}
                         data={chartData}
                         dataKey="timestamp"
-                        series={[{ name: "active_count", color: "blue.6", label:"Distinct IPs count" }]}
+                        series={[{ name: "active_count", color: "orange.4", label:"Distinct IPs count" }]}
                         yAxisLabel="Distinct IPs"
                         curveType="monotone"
                         tooltipAnimationDuration={150}
