@@ -12,6 +12,7 @@ import {
     useComputedColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { BrandName } from "@/components/BrandName";
 import {
     IconChartBar,
     IconServer,
@@ -83,7 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             size="sm"
                             aria-label="Toggle navigation"
                         />
-                        <Text fw={700}>PulseWeaver</Text>
+                        <BrandName />
                     </Group>
                     <ColorSchemeToggle />
                 </Group>
