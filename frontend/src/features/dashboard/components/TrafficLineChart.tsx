@@ -1,24 +1,19 @@
 import { Paper, Text, Skeleton } from "@mantine/core";
 import { LineChart } from "@mantine/charts";
-import dayjs from "dayjs";
+import { IconChartLine } from "@tabler/icons-react";
+import { formatChartLabel } from "@/lib/formatChartLabel";
+import { EmptyState } from "@/components/EmptyState";
 import type { DashboardTrafficBucket } from "@/lib/api";
 
 interface TrafficLineChartProps {
     data: DashboardTrafficBucket[] | undefined;
     isLoading: boolean;
+    timeRangeMs: number;
 }
 
-function formatBucketLabel(ts: string): string {
-    const d = dayjs(ts);
-    // If the timestamp is midnight, show the date; otherwise show time
-    return d.hour() === 0 && d.minute() === 0
-        ? d.format("MMM D")
-        : d.format("HH:mm");
-}
-
-export function TrafficLineChart({ data, isLoading }: TrafficLineChartProps) {
+export function TrafficLineChart({ data, isLoading, timeRangeMs }: TrafficLineChartProps) {
     const chartData = (data ?? []).map((b) => ({
-        timestamp: formatBucketLabel(b.timestamp),
+        timestamp: formatChartLabel(b.timestamp, timeRangeMs),
         Allowed: b.allow_count,
         Denied: b.deny_count,
     }));
@@ -29,7 +24,11 @@ export function TrafficLineChart({ data, isLoading }: TrafficLineChartProps) {
             {isLoading ? (
                 <Skeleton h={300} />
             ) : chartData.length === 0 ? (
-                <Text c="dimmed" ta="center" py="xl">No traffic data for this period.</Text>
+                <EmptyState
+                    icon={IconChartLine}
+                    title="No traffic recorded yet"
+                    description="Ensure PulseWeaver is configured as a forward-auth sidecar for your reverse proxy."
+                />
             ) : (
                 <LineChart
                     h={300}

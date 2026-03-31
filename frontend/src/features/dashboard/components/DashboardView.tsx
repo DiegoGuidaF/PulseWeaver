@@ -4,16 +4,17 @@ import { useDashboardTraffic } from "../hooks/useDashboardTraffic";
 import { useDashboardServices } from "../hooks/useDashboardServices";
 import { useTopDeniedIPs } from "../hooks/useTopDeniedIPs";
 import { DashboardStatCards } from "./DashboardStatCards";
-import { TrafficLineChart } from "./TrafficLineChart.tsx";
-import { ServiceDonutChart } from "./ServiceDonutChart";
+import { TrafficLineChart } from "./TrafficLineChart";
+import { ServiceBarChart } from "./ServiceBarChart";
 import { TopDeniedIPsTable } from "./TopDeniedIPsTable";
 
 interface DashboardViewProps {
     from?: string;
     to?: string;
+    timeRangeMs: number;
 }
 
-export function DashboardView({ from, to }: DashboardViewProps) {
+export function DashboardView({ from, to, timeRangeMs }: DashboardViewProps) {
     const stats = useDashboardStats(from, to);
     const traffic = useDashboardTraffic(from, to);
     const services = useDashboardServices(from, to);
@@ -24,8 +25,8 @@ export function DashboardView({ from, to }: DashboardViewProps) {
             <DashboardStatCards data={stats.data} isLoading={stats.isLoading} />
 
             <SimpleGrid cols={{ base: 1, md: 2 }}>
-                <TrafficLineChart data={traffic.data?.buckets} isLoading={traffic.isLoading} />
-                <ServiceDonutChart data={services.data?.services} isLoading={services.isLoading} />
+                <TrafficLineChart data={traffic.data?.buckets} isLoading={traffic.isLoading} timeRangeMs={timeRangeMs} />
+                <ServiceBarChart data={services.data?.services} isLoading={services.isLoading} />
             </SimpleGrid>
 
             <TopDeniedIPsTable data={topDenied.data?.ips} isLoading={topDenied.isLoading} />

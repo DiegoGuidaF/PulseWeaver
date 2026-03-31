@@ -54,7 +54,7 @@ export function DashboardStatCards({ data, isLoading }: DashboardStatCardsProps)
             {cards.map((card) => (
                 <Paper key={card.label} withBorder p="md" radius="md">
                     <Group justify="space-between" mb="xs">
-                        <Text size="xs" c="dimmed" fw={500} tt="uppercase">
+                        <Text size="xs" c="dimmed" fw={500}>
                             {card.label}
                         </Text>
                         <card.icon size={20} color={`var(--mantine-color-${card.color}-6)`} stroke={1.5} />

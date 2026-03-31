@@ -1,4 +1,6 @@
 import { Paper, Text, Table, Skeleton } from "@mantine/core";
+import { IconShieldOff } from "@tabler/icons-react";
+import { EmptyState } from "@/components/EmptyState";
 import type { DashboardTopDeniedIp } from "@/lib/api";
 
 interface TopDeniedIPsTableProps {
@@ -8,12 +10,15 @@ interface TopDeniedIPsTableProps {
 
 export function TopDeniedIPsTable({ data, isLoading }: TopDeniedIPsTableProps) {
     return (
-        <Paper withBorder p="md" radius="md">
+        <Paper withBorder p="md" radius="md" maw={600}>
             <Text fw={500} mb="md">Top Denied IPs</Text>
             {isLoading ? (
                 <Skeleton h={200} />
             ) : !data || data.length === 0 ? (
-                <Text c="dimmed" ta="center" py="xl">No denied requests in this period.</Text>
+                <EmptyState
+                    icon={IconShieldOff}
+                    title="No denied requests in this period"
+                />
             ) : (
                 <Table striped highlightOnHover>
                     <Table.Thead>
