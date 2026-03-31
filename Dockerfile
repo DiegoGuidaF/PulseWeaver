@@ -51,6 +51,7 @@ COPY --from=backend-builder /app/pulseweaver /app/pulseweaver
 
 # Mount a writable volume at /data — see README for ownership requirements (UID/GID 65532:65532).
 ENV DB_DIR=/data
+ENV GEOIP_DATA_DIR=/data/geoip
 
 # Expose default port
 EXPOSE 8080
