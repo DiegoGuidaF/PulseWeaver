@@ -1,0 +1,29 @@
+#!/usr/bin/env sh
+# Validates that commit messages follow the Conventional Commits spec.
+# Install: make install-hooks
+
+MSG_FILE="$1"
+MSG=$(cat "$MSG_FILE")
+
+# Pass through merge commits, reverts, and fixups
+case "$MSG" in
+  Merge*|Revert*|fixup!*|squash!*) exit 0 ;;
+esac
+
+# Pattern: type[(scope)][!]: description
+PATTERN='^(build|chore|ci|docs|feat|fix|perf|refactor|style|test)(\([a-z0-9,/-]+\))?!?: .{1,}'
+
+if ! echo "$MSG" | grep -qE "$PATTERN"; then
+  echo ""
+  echo "❌ Invalid commit message format."
+  echo ""
+  echo "   Expected: <type>[(scope)]: <description>"
+  echo "   Example:  feat(ui): add dashboard chart"
+  echo "   Example:  fix: handle nil pointer in auth handler"
+  echo "   Example:  feat!: redesign API (breaking change)"
+  echo ""
+  echo "   Types: build, chore, ci, docs, feat, fix, perf, refactor, style, test"
+  echo "   Scopes are optional. Omit scope for cross-cutting changes."
+  echo ""
+  exit 1
+fi

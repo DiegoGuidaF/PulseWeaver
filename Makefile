@@ -1,8 +1,14 @@
-.PHONY: dev run test test-front clean fix lint lint-front typecheck-front lint-all check migrate-up migrate-down migrate-create api
+.PHONY: dev run test test-front clean fix lint lint-front typecheck-front lint-all check migrate-up migrate-down migrate-create api \
+        install-hooks version release-patch release-minor release-major
 
 # Disable Go workspace mode so -modfile (used by tools/go.mod) works correctly
 # when this module is used as a submodule inside a go.work workspace.
 export GOWORK=off
+
+VERSION ?= $(shell (git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0) | sed 's/^v//')
+NEXT_PATCH = $(shell echo $(VERSION) | awk -F. '{printf "%d.%d.%d", $$1, $$2, $$3+1}')
+NEXT_MINOR = $(shell echo $(VERSION) | awk -F. '{printf "%d.%d.0", $$1, $$2+1}')
+NEXT_MAJOR = $(shell echo $(VERSION) | awk -F. '{printf "%d.0.0", $$1+1}')
 
 MIGRATE := go run -tags sqlite github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
 MIGRATIONS_PATH := internal/database/migrations
@@ -88,3 +94,37 @@ api-front:
 	cd frontend && npm run generate:api
 
 api: api-back api-front
+
+# ---------------------------------------------------------------------------
+# Hooks
+# ---------------------------------------------------------------------------
+
+install-hooks: ## Install git hooks (run once after cloning)
+	@ln -sf "$(PWD)/scripts/commit-msg" "$(PWD)/.git/hooks/commit-msg"
+	@chmod +x "$(PWD)/.git/hooks/commit-msg"
+	@echo "✅ Git hooks installed."
+
+# ---------------------------------------------------------------------------
+# Release
+# ---------------------------------------------------------------------------
+
+version: ## Show current version
+	@echo "v$(VERSION)"
+
+release-patch: ## Tag and push a patch release (x.y.Z+1)
+	@echo "Current: v$(VERSION) → Next: v$(NEXT_PATCH)"
+	@read -p "Confirm? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
+	git tag -a "v$(NEXT_PATCH)" -m "Release v$(NEXT_PATCH)"
+	git push origin main --tags
+
+release-minor: ## Tag and push a minor release (x.Y+1.0)
+	@echo "Current: v$(VERSION) → Next: v$(NEXT_MINOR)"
+	@read -p "Confirm? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
+	git tag -a "v$(NEXT_MINOR)" -m "Release v$(NEXT_MINOR)"
+	git push origin main --tags
+
+release-major: ## Tag and push a major release (X+1.0.0)
+	@echo "Current: v$(VERSION) → Next: v$(NEXT_MAJOR)"
+	@read -p "Confirm? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
+	git tag -a "v$(NEXT_MAJOR)" -m "Release v$(NEXT_MAJOR)"
+	git push origin main --tags

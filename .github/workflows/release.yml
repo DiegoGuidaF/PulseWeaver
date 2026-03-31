@@ -1,0 +1,135 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.26'
+          cache-dependency-path: |
+            go.sum
+            tools/go.sum
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '25.8'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Go dependencies
+        run: |
+          go mod download
+          go mod download -modfile=tools/go.mod
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: backend-lint
+        run: make lint
+
+      - name: frontend-lint
+        run: make lint-front typecheck-front
+
+      - name: Run backend tests
+        run: make test
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test
+
+  release:
+    name: Publish Release
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set env variables
+        run: |
+          echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> "${GITHUB_ENV}"
+          echo "VERSION=${GITHUB_REF_NAME}" >> "${GITHUB_ENV}"
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ env.REPO_LC }}:${{ env.VERSION }}
+            ghcr.io/${{ env.REPO_LC }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate changelog
+        uses: orhun/git-cliff-action@4cfa85f3bef62b9c6aedeaadccf5fbaee97b4b00 # v4
+        id: cliff
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: RELEASE_NOTES.md
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Update CHANGELOG.md
+        uses: orhun/git-cliff-action@4cfa85f3bef62b9c6aedeaadccf5fbaee97b4b00 # v4
+        with:
+          config: cliff.toml
+          args: --output CHANGELOG.md
+        env:
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Commit CHANGELOG.md
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git diff --staged --quiet || git commit -m "chore(ci): update CHANGELOG.md for ${{ env.VERSION }}"
+          git push origin HEAD:main
+
+      - name: Append Docker image info to release notes
+        run: |
+          echo "" >> RELEASE_NOTES.md
+          echo "---" >> RELEASE_NOTES.md
+          echo "**Docker image:** \`ghcr.io/${{ env.REPO_LC }}:${{ env.VERSION }}\`" >> RELEASE_NOTES.md
+          echo '```' >> RELEASE_NOTES.md
+          echo "docker pull ghcr.io/${{ env.REPO_LC }}:${{ env.VERSION }}" >> RELEASE_NOTES.md
+          echo '```' >> RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: ${{ env.VERSION }}
+          body_path: RELEASE_NOTES.md

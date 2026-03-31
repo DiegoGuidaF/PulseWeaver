@@ -1,0 +1,57 @@
+# git-cliff configuration — https://git-cliff.org/docs/configuration
+# Shared convention for all PulseWeaver repositories.
+
+[changelog]
+header = """
+# Changelog\n
+All notable changes to this project will be documented in this file.\n
+"""
+body = """
+{% if version %}\
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+- {% if commit.scope %}*({{ commit.scope }})* {% endif %}\
+{% if commit.breaking %}[**breaking**] {% endif %}\
+{{ commit.message | upper_first }} ([`{{ commit.id | truncate(length=7, end="") }}`]({{ remote.link }}/commit/{{ commit.id }}))\
+{% endfor %}
+{% endfor %}\n
+"""
+footer = ""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+commit_preprocessors = [
+  { pattern = '\(#([0-9]+)\)', replace = "([#${1}]({{ remote.link }}/pull/${1}))" },
+]
+commit_parsers = [
+  { message = "^feat", group = "Features" },
+  { message = "^fix", group = "Bug Fixes" },
+  { message = "^perf", group = "Performance" },
+  { message = "^refactor", group = "Refactor" },
+  { message = "^docs", group = "Documentation" },
+  { message = "^style", group = "Miscellaneous" },
+  { message = "^test", group = "Miscellaneous" },
+  { message = "^build", group = "Miscellaneous" },
+  { message = "^ci", group = "Miscellaneous" },
+  { message = "^chore", group = "Miscellaneous" },
+  { message = "^revert", group = "Miscellaneous" },
+]
+protect_breaking_commits = false
+filter_commits = false
+tag_pattern = "v[0-9].*"
+skip_tags = ""
+ignore_tags = ""
+topo_order = false
+sort_commits = "oldest"
+
+[remote.github]
+owner = "DiegoGuidaF"
+repo = "PulseWeaver"
