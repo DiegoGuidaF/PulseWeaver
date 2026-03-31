@@ -448,11 +448,6 @@ For a device with a mostly stable IP (e.g. a home laptop), manual management is 
 
 No heartbeat automation required unless you want it.
 
-### Future: CLI and mobile clients
-
-A simple CLI tool (Linux, macOS, Windows) and native mobile helpers for iOS/Android are planned to make heartbeat setup
-easier. Until then, `curl` + Tasker (Android) or a cron job is the recommended approach.
-
 ---
 
 ## Security model

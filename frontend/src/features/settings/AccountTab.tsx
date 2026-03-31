@@ -165,13 +165,15 @@ export function AccountTab({ onDirtyChange }: AccountTabProps) {
               {...profileForm.getInputProps("email")}
             />
             <Group gap="sm">
-              <Button type="submit" disabled={updateMe.isPending || !isDirty}>
-                {updateMe.isPending ? "Saving..." : "Save profile"}
-              </Button>
               {isDirty && (
-                <Button variant="outline" onClick={() => profileForm.reset()}>
-                  Discard changes
-                </Button>
+                <>
+                  <Button type="submit" disabled={updateMe.isPending}>
+                    {updateMe.isPending ? "Saving..." : "Save profile"}
+                  </Button>
+                  <Button variant="outline" onClick={() => profileForm.reset()}>
+                    Discard changes
+                  </Button>
+                </>
               )}
             </Group>
           </Stack>

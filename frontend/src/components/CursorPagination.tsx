@@ -11,6 +11,8 @@ interface CursorPaginationProps {
     pageSize?: number;
     /** Called when the user navigates — pass the cursor as `before_id` to the API */
     onCursorChange: (cursor: string | null) => void;
+    /** When this value changes, internal page state resets to page 0 */
+    resetKey?: string;
 }
 
 export function CursorPagination({
@@ -18,10 +20,18 @@ export function CursorPagination({
     nextCursor,
     pageSize = 25,
     onCursorChange,
+    resetKey,
 }: CursorPaginationProps) {
     const [page, setPage] = useState(0);
-    // Cache of cursors: cursorCache[pageIndex] = cursor used to fetch that page
     const cursorCache = useRef<Map<number, string | null>>(new Map([[0, null]]));
+
+    // Reset internal state when resetKey changes (e.g. filter change)
+    const [prevResetKey, setPrevResetKey] = useState(resetKey);
+    if (resetKey !== prevResetKey) {
+        setPrevResetKey(resetKey);
+        setPage(0);
+        cursorCache.current = new Map([[0, null]]);
+    }
 
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
 

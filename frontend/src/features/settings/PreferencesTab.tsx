@@ -19,7 +19,7 @@ export function PreferencesTab() {
   const previewText = formatDateTime(PREVIEW_DATE);
 
   return (
-    <Card withBorder>
+    <Card withBorder maw={600}>
       <Title order={3} mb="md">Date & Time</Title>
       <Stack gap="md">
         <div>

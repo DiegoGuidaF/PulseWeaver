@@ -1,10 +1,15 @@
 import { useMemo, useState } from "react";
-import { Alert, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
+import { Alert, Button, Card, Group, Skeleton, Stack, Text } from "@mantine/core";
 import { DataTable } from "mantine-datatable";
-import { IconAlertCircle, IconFilterOff } from "@tabler/icons-react";
+import { LineChart } from "@mantine/charts";
+import { IconAlertCircle, IconChartLine, IconFilterOff } from "@tabler/icons-react";
 import type { RequestAuditLogRow } from "@/lib/api";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
+import { CursorPagination } from "@/components/CursorPagination";
+import { EmptyState } from "@/components/EmptyState";
+import { formatChartLabel, presetToMs } from "@/lib/formatChartLabel";
 import { useRequestAuditLog } from "../hooks/useRequestAuditLog";
+import { useDashboardTraffic } from "@/features/dashboard/hooks/useDashboardTraffic";
 import type { AuditLogFilters } from "../hooks/useAuditLogFilters";
 import { RequestAuditLogDetailDrawer } from "./RequestAuditLogDetailDrawer";
 import { getAuditLogColumns } from "./auditLogColumns";
@@ -19,22 +24,20 @@ interface RequestAuditLogTableProps {
     refreshInterval: number;
 }
 
+const PAGE_SIZE = 25;
+
 export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditLogTableProps) {
     const formatDateTime = useDateFormatter();
     const pickerValueFormat = usePickerValueFormat();
 
-    const [pagination, setPagination] = useState({
-        filterKey: filters.filterKey,
-        beforeId: undefined as number | undefined,
-        allRows: [] as RequestAuditLogRow[],
-    });
-    // Reset pagination when filters change — React's "adjusting state when a
-    // prop changes" pattern: setState during render triggers a synchronous
-    // re-render before committing, no effect or ref needed.
-    if (pagination.filterKey !== filters.filterKey) {
-        setPagination({ filterKey: filters.filterKey, beforeId: undefined, allRows: [] });
+    const [cursor, setCursor] = useState<string | null>(null);
+
+    // Reset cursor when filters change
+    const [filterKey, setFilterKey] = useState(filters.filterKey);
+    if (filterKey !== filters.filterKey) {
+        setFilterKey(filters.filterKey);
+        setCursor(null);
     }
-    const { beforeId, allRows } = pagination;
 
     const [selectedRow, setSelectedRow] = useState<RequestAuditLogRow | null>(null);
     const [drawerOpened, setDrawerOpened] = useState(false);
@@ -43,22 +46,23 @@ export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditL
     const { data: denyReasons } = useRequestAuditLogDenyReasons();
 
     const { data, isPending, error } = useRequestAuditLog(
-        { ...filters.queryParams, before_id: beforeId },
+        { ...filters.queryParams, before_id: cursor ? Number(cursor) : undefined, limit: PAGE_SIZE },
         refreshInterval === 0 ? false : refreshInterval,
     );
 
-    const rows = beforeId !== undefined
-        ? allRows.concat(data?.rows ?? [])
-        : (data?.rows ?? []);
+    // Chart data — uses the dashboard traffic endpoint with the same time range
+    const timeRangeMs = filters.presetStr ? presetToMs(filters.presetStr) : 0;
+    const { data: trafficData, isLoading: trafficLoading } = useDashboardTraffic(
+        filters.queryParams.from,
+        filters.queryParams.to,
+    );
+    const chartData = (trafficData?.buckets ?? []).map((b) => ({
+        timestamp: formatChartLabel(b.timestamp, timeRangeMs || 24 * 60 * 60 * 1000),
+        Allowed: b.allow_count,
+        Denied: b.deny_count,
+    }));
 
-    function handleLoadMore() {
-        if (!data?.next_cursor) return;
-        setPagination((prev) => ({
-            ...prev,
-            allRows: rows,
-            beforeId: data.next_cursor ?? undefined,
-        }));
-    }
+    const rows = data?.rows ?? [];
 
     const deviceOptions = (devices ?? []).map((d) => ({ value: String(d.id), label: d.name }));
     const denyReasonOptions = (denyReasons ?? []).map((r) => ({
@@ -168,15 +172,38 @@ export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditL
     }
 
     const total = data?.total ?? 0;
-    const hasMore = Boolean(data?.next_cursor);
 
     return (
         <>
             <Stack gap="sm">
-                <Group justify="space-between">
-                    <Text size="sm" c="dimmed">
-                        {total} result{total !== 1 ? "s" : ""}
-                    </Text>
+                {/* Traffic chart */}
+                <Card withBorder p="md" radius="md">
+                    <Text fw={500} mb="md">Traffic over time</Text>
+                    {trafficLoading ? (
+                        <Skeleton h={200} />
+                    ) : chartData.length === 0 ? (
+                        <EmptyState
+                            icon={IconChartLine}
+                            title="No traffic recorded yet"
+                        />
+                    ) : (
+                        <LineChart
+                            h={200}
+                            data={chartData}
+                            dataKey="timestamp"
+                            series={[
+                                { name: "Allowed", color: "teal.6" },
+                                { name: "Denied", color: "red.6" },
+                            ]}
+                            yAxisLabel="Requests"
+                            yAxisProps={{ allowDecimals: false }}
+                            curveType="monotone"
+                            tooltipAnimationDuration={150}
+                        />
+                    )}
+                </Card>
+
+                <Group justify="flex-end">
                     {filters.hasActiveFilters && (
                         <Button
                             variant="subtle"
@@ -199,17 +226,13 @@ export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditL
                     columns={columns}
                 />
 
-                {hasMore && (
-                    <Group justify="center">
-                        <Button
-                            variant="subtle"
-                            onClick={handleLoadMore}
-                            loading={isPending}
-                        >
-                            Load more
-                        </Button>
-                    </Group>
-                )}
+                <CursorPagination
+                    total={total}
+                    nextCursor={data?.next_cursor != null ? String(data.next_cursor) : null}
+                    pageSize={PAGE_SIZE}
+                    onCursorChange={setCursor}
+                    resetKey={filters.filterKey}
+                />
             </Stack>
 
             <RequestAuditLogDetailDrawer

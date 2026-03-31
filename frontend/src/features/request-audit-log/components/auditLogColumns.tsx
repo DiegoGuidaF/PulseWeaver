@@ -162,7 +162,9 @@ export function getAuditLogColumns(deps: AuditLogColumnDeps): DataTableColumn<Re
             ),
             filtering: !!deps.deviceIdStr,
             render: (row) => (
-                <Text size="sm">{row.device_name ?? "—"}</Text>
+                row.device_name
+                    ? <Text size="sm">{row.device_name}</Text>
+                    : <Text size="sm" c="dimmed">Unknown</Text>
             ),
         },
         {
@@ -233,16 +235,16 @@ export function getAuditLogColumns(deps: AuditLogColumnDeps): DataTableColumn<Re
         {
             accessor: "actions",
             title: "",
-            width: 40,
+            width: 48,
             render: (row) => (
                 <ActionIcon
                     variant="subtle"
                     color="gray"
-                    size="sm"
+                    size="md"
                     onClick={() => deps.onRowClick(row)}
                     aria-label="View details"
                 >
-                    <IconChevronRight size={14} />
+                    <IconChevronRight size={18} />
                 </ActionIcon>
             ),
         },

@@ -210,6 +210,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                 nextCursor={data?.next_cursor != null ? String(data.next_cursor) : null}
                 pageSize={PAGE_SIZE}
                 onCursorChange={setCursor}
+                resetKey={filters.filterKey}
             />
         </Stack>
     );

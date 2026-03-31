@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  ActionIcon,
   Badge,
   Button,
   Card,
@@ -8,8 +9,10 @@ import {
   Table,
   Text,
   Title,
+  Tooltip,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
+import { IconTrash } from "@tabler/icons-react";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { usePromoteUser } from "@/features/auth/hooks/usePromoteUser";
@@ -112,27 +115,30 @@ export function UsersTab() {
                       </Badge>
                     </Table.Td>
                     <Table.Td>
-                      <Group justify="flex-end" gap="sm">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={isSelf || promoteUser.isPending || demoteUser.isPending}
-                          onClick={() => handleRoleToggle(adminUser.id, adminUser.role)}
-                        >
-                          {isAdmin ? "Demote to user" : "Promote to admin"}
-                        </Button>
-                        <Button
-                          type="button"
-                          color="red"
-                          variant="outline"
-                          size="sm"
-                          disabled={isSelf || deleteUser.isPending}
-                          onClick={() => setDeleteTarget({ id: adminUser.id, username: adminUser.username })}
-                        >
-                          Delete
-                        </Button>
-                      </Group>
+                      {!isSelf && (
+                        <Group justify="flex-end" gap="sm">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={promoteUser.isPending || demoteUser.isPending}
+                            onClick={() => handleRoleToggle(adminUser.id, adminUser.role)}
+                          >
+                            {isAdmin ? "Demote to user" : "Promote to admin"}
+                          </Button>
+                          <Tooltip label="Delete user" withArrow>
+                            <ActionIcon
+                              variant="subtle"
+                              color="red"
+                              disabled={deleteUser.isPending}
+                              onClick={() => setDeleteTarget({ id: adminUser.id, username: adminUser.username })}
+                              aria-label={`Delete user ${adminUser.username}`}
+                            >
+                              <IconTrash size={16} stroke={1.5} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
+                      )}
                     </Table.Td>
                   </Table.Tr>
                 );
