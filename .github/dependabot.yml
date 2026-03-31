@@ -7,7 +7,7 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
-    labels: ["dependencies", "go"]
+    labels: ["dependencies", "backend"]
 
   # Frontend npm
   - package-ecosystem: "npm"
@@ -18,8 +18,12 @@ updates:
     open-pull-requests-limit: 5
     labels: ["dependencies", "frontend"]
     groups:
-      # Group minor/patch updates to reduce PR noise
+      # Group all @mantine/* packages together (including major bumps)
+      mantine:
+        patterns: ["@mantine/*"]
+      # Group remaining minor/patch updates to reduce PR noise
       frontend-minor-patch:
+        patterns: ["*"]
         update-types: ["minor", "patch"]
 
   # GitHub Actions
