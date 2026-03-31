@@ -18,67 +18,23 @@ the services you want to protect.
 
 ---
 
-## Table of Contents
+## Screenshots
 
-- [How it works](#how-it-works)
-- [Why use this?](#why-use-this)
-- [Key concepts](#key-concepts)
-- [The shared-IP model](#the-shared-ip-model)
-- [Setup](#setup)
-    - [Docker Compose (recommended)](#docker-compose-recommended)
-    - [First-run admin account](#first-run-admin-account)
-    - [Configuration reference](#configuration-reference)
-- [Understanding TRUSTED_PROXY](#understanding-trusted_proxy)
-- [Proxy integration](#proxy-integration)
-- [Heartbeat endpoint](#heartbeat-endpoint)
-- [Security model](#security-model)
-- [Development](#development)
+| Dashboard | Devices |
+|-----------|---------|
+| ![Dashboard](screenshots/03-dashboard.png) | ![Devices](screenshots/02-devices.png) |
+
+| Device addresses |
+|-----------------|
+| ![Device addresses](screenshots/07-device-detail-addresses.png) |
 
 ---
 
 ## How it works
 
-There are two independent flows:
+Two flows work together. Your **reverse proxy** calls `GET /api/policy-engine/verify-ip` on every request — PulseWeaver answers 200 (allow) or 403 (block) from an in-memory cache. Your **devices** send periodic heartbeats (`POST /api/v1/heartbeat` with an `X-API-Key` header) to register their current IP. As long as heartbeats keep coming, the IP stays active. If a device has an address lease configured, the IP expires automatically when the TTL runs out.
 
-### 1 — Forward Auth: every request is checked
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant P as Reverse Proxy (Caddy)
-    participant W as PulseWeaver
-    participant S as Protected Service
-    C ->> P: GET https://homeassistant.example.com
-    P ->> W: GET /api/policy-engine/verify-ip<br/>X-Real-IP: <client IP><br/>Authorization: Bearer <secret>
-    alt IP is active
-        W -->> P: 200 OK
-        P ->> S: Forward request
-        S -->> C: Response
-    else IP is not active
-        W -->> P: 403 Forbidden
-        P -->> C: 403 Forbidden
-    end
-```
-
-Your reverse proxy asks PulseWeaver on every incoming request: "is this IP currently active?" PulseWeaver answers 200 (
-allow) or 403 (block). The check runs against an in-memory cache — no database round-trip per request.
-
-### 2 — Heartbeat: devices keep their address current
-
-```mermaid
-sequenceDiagram
-    participant D as Device (e.g. phone)
-    participant H as Heartbeat endpoint<br/>(public, no IP gate)
-    participant W as PulseWeaver
-    D ->> H: POST /api/v1/heartbeat<br/>X-API-Key: <device key>
-    H ->> W: Activates device address from request IP
-    W -->> D: 200/201 — address active
-    Note over W: Address is now active.<br/>If an address lease is configured,<br/>old addresses expire automatically.
-```
-
-Devices authenticate using a per-device API key (`X-API-Key` header). PulseWeaver reads the client IP from the request (
-or from an `ip` field in the request body if provided) and activates it as the device's current address. As long as a
-device keeps sending heartbeats, its latest address stays active.
+📖 [Detailed flow diagrams →](docs/How-It-Works.md)
 
 ---
 
@@ -91,14 +47,10 @@ entirely.
 PulseWeaver takes a different approach: **only accept connections from IP addresses you know**. This drastically reduces
 the attack surface without touching how the application itself authenticates users.
 
-A few concrete benefits:
-
 - No OIDC configuration, no identity provider to maintain.
 - Works with any service out of the box.
 - Devices with changing IPs (phones, laptops on roaming) stay covered automatically via heartbeat.
-- If you visit a friend or stay at a hotel, as soon as your phone connects to their Wi-Fi and sends a heartbeat, that
-  location's IP is activated — and as soon as your address lease expires after you leave, it is automatically
-  deactivated.
+- Travel and flexible remote access: heartbeat + address lease gives you zero-config access from wherever your device is.
 
 ---
 
@@ -116,24 +68,6 @@ A few concrete benefits:
 
 ---
 
-## The shared-IP model
-
-PulseWeaver gates by IP, not by individual identity. This means:
-
-- **Multiple devices behind the same NAT (e.g. a home router) all share one public IP.** If your phone's heartbeat
-  activates your home IP, everyone at home can access your services. This is usually the intended behaviour.
-- **Hotel Wi-Fi / friend's house:** as soon as your phone sends a heartbeat from a new network, that network's public IP
-  is activated. Everyone else on that network can also access your services during your stay. If you have an address
-  lease configured, the IP is automatically deactivated shortly after you leave — without any manual action.
-- **ISP-level CGNAT:** some ISPs share a single public IP across hundreds or thousands of unrelated subscribers.
-  Understand that activating a CGNAT IP means allowing all those co-tenants to reach your services. **If your device
-  is behind CGNAT (check with your ISP), treat heartbeat-activated IPs from that network with caution.**
-
-In summary: private NAT (home router, hotel, friend's house) — controlled network, great fit. ISP CGNAT — allows
-multiple unknown co-tenants, higher attack surface.
-
----
-
 ## Setup
 
 ### Docker Compose (recommended)
@@ -144,7 +78,7 @@ The easiest way to run PulseWeaver alongside Caddy. The key points are:
 - `POLICY_ENGINE_API_SECRET` is defined once in your `.env` and injected into both containers.
 - `TRUSTED_PROXY` must be set to Caddy's container IP so PulseWeaver can correctly extract the real
   client IP on both the heartbeat and forward-auth endpoints.
-  See [Understanding TRUSTED_PROXY](#understanding-trusted_proxy)
+  See [Understanding TRUSTED_PROXY](docs/Understanding-TRUSTED_PROXY.md)
   for the full explanation.
 
 ```yaml
@@ -210,51 +144,12 @@ TZ=Europe/Madrid
 > [!TIP]
 > Give Caddy a fixed `ipv4_address` on the shared docker network and set `TRUSTED_PROXY` to that exact IP.
 > `TRUSTED_PROXY` accepts a **single IP address only** — CIDR ranges are not supported. Pinning Caddy's IP is the
-> simplest
-> way to keep this stable.
-
-### Data persistence
-
-SQLite database is stored at `$DB_DIR/data.db` (defaults to `/data/data.db` in the Docker image).
-
-#### Docker deployment (recommended)
-
-The image sets `DB_DIR=/data` by default. Mount a writable volume:
-
-- **Named volume (easiest):** `docker run -v pulseweaver-data:/data ...`
-- **Bind mount:** `docker run -v ./data:/data ...`
-
-Docker runs as non-root UID/GID `65532:65532` (`gcr.io/distroless/static-debian12:nonroot`), so ensure `/data` is
-writable:
-
-```bash
-sudo chown -R 65532:65532 ./data
-```
-
-#### Local development
-
-Defaults to ./data/data.db. No config needed.
-
-#### Custom path
-
-Override with DB_DIR:
-
-```bash
-DB_DIR=/custom/path go run cmd/api/main.go
-# or
-docker run -e DB_DIR=/custom/path ...
-```
-
-#### SQLITE WAL mode warning
-
-Shared-memory coordination (data.db-wal, data.db-shm) requires local disk — not NFS/SMB. For backups, include
-WAL/SHM files or run PRAGMA wal_checkpoint(FULL) first.
+> simplest way to keep this stable.
 
 ### First-run admin account
 
-The PulseWeaver web interface is password-protected. On first startup, PulseWeaver automatically creates an `admin`
-user using the password set in the `ADMIN_PASSWORD` environment variable. Use a strong, unique password and store it
-securely (e.g. in your `.env` file with restricted permissions).
+On first startup, PulseWeaver creates an `admin` user using the `ADMIN_PASSWORD` environment variable. Use a strong,
+unique password and store it securely (e.g. in your `.env` file with restricted permissions).
 
 ### Configuration reference
 
@@ -263,78 +158,13 @@ securely (e.g. in your `.env` file with restricted permissions).
 | `ADMIN_PASSWORD`      | Yes                | —       | Password for the `admin` UI account (bootstrapped on first run).                                                                                                                                             |
 | `POLICY_ENGINE_API_SECRET`    | Yes (min 32 chars) | —       | Shared secret between Caddy and PulseWeaver. Minimum 32 characters.                                                                                                                                          |
 | `SERVER_PORT`         | No                 | `8080`  | Port PulseWeaver listens on.                                                                                                                                                                                 |
-| `TRUSTED_PROXY`       | No                 | —       | Single IP address of your reverse proxy. Required when running behind a proxy — see [Understanding TRUSTED_PROXY](#understanding-trusted_proxy).                                                             |
-| `RULE_CHECK_INTERVAL` | No                 | `1m`    | How often the scheduler checks for expired address leases.<br/> Set this to the lowest address lease TTL you'll use.                                                                                         |
-| `TZ`                  | No                 | `UTC`   | Application timezone for explicit wall-clock operations (e.g. parsing local datetimes without offsets, future local scheduling). Persisted timestamps are UTC; API timestamps are serialized as UTC RFC3339. |
+| `TRUSTED_PROXY`       | No                 | —       | Single IP address of your reverse proxy. Required when running behind a proxy — see [Understanding TRUSTED_PROXY](docs/Understanding-TRUSTED_PROXY.md).                                                     |
+| `RULE_CHECK_INTERVAL` | No                 | `1m`    | How often the scheduler checks for expired address leases. Set this to the lowest address lease TTL you'll use.                                                                                              |
+| `DB_DIR`              | No                 | `./data` (Docker: `/data`) | Directory for the SQLite database. See [Data Persistence](docs/Data-Persistence.md).                                                                                                                        |
+| `TZ`                  | No                 | `UTC`   | Application timezone for explicit wall-clock operations. Persisted timestamps are UTC; API timestamps are serialized as UTC RFC3339.                                                                         |
 | `LOG_LEVEL`           | No                 | `info`  | Log level: `debug`, `info`, `warn`, `error`.                                                                                                                                                                 |
 | `LOG_FORMAT`          | No                 | `text`  | Log format: `text` (human-readable) or `json`.                                                                                                                                                               |
 | `LOG_COLOR`           | No                 | `true`  | Use coloured output for `text` format.                                                                                                                                                                       |
-
----
-
-## Understanding TRUSTED_PROXY
-
-### For general users
-
-When a reverse proxy like Caddy sits in front of PulseWeaver, your device never connects to
-PulseWeaver directly. The proxy receives your device's request, then forwards it on your behalf.
-From PulseWeaver's point of view, every forwarded request appears to arrive from the proxy's own
-IP address — not from your device.
-
-To solve this, reverse proxies attach a header to each forwarded request that carries the original
-client IP. PulseWeaver reads this header to know the real source of the request.
-
-The catch: PulseWeaver cannot trust that header from just anyone. If it did, any client could
-send a fake header claiming to be a trusted IP and walk straight through the gate. `TRUSTED_PROXY`
-tells PulseWeaver exactly one IP address it will believe. Headers from any other source are silently
-ignored.
-
-> [!WARNING]
-> If you are running behind a reverse proxy and do not set `TRUSTED_PROXY`, PulseWeaver will see
-> the proxy's IP for every request. If any device sends a heartbeat through that proxy, the proxy's
-> IP gets registered — and from that point every proxied request passes the gate. PulseWeaver logs
-> a warning at startup when `TRUSTED_PROXY` is not configured.
-
-**Why `X-Real-IP` and not `X-Forwarded-For`?**
-
-`X-Forwarded-For` is an older header that builds up a comma-separated chain as a request passes
-through multiple proxies: `X-Forwarded-For: device-ip, proxy1-ip, proxy2-ip`. A client can inject
-a fake first entry before any proxy adds theirs, and there is no universal rule for which entry in
-the chain to trust.
-
-`X-Real-IP` is a single value set directly by the immediate upstream proxy. It is the de facto
-standard for single-proxy setups — Nginx, Caddy, and most reverse proxies set it natively.
-There is no chain to manipulate and no ambiguity about which value to read. Caddy's `forward_auth`
-block sets it explicitly with `{http.request.remote.host}`, making the intent clear.
-
-### Technical deep-dive
-
-**Why single IP, not a CIDR range**
-
-`TRUSTED_PROXY` accepts only a single IP address by design. Accepting a subnet
-(e.g. `172.20.0.0/24`) would extend trust to every address in that range, including the Docker
-network's gateway — typically the first address in the subnet (`172.20.0.1`). The gateway address
-is reachable from the Docker host itself: any process on the host could send a request from that
-address with an arbitrary `X-Real-IP` header and have it accepted as authoritative. A pinned single
-IP (e.g. `172.20.0.2` for the Caddy container) avoids this entirely. If your proxy IP ever changes,
-update `TRUSTED_PROXY` explicitly — the friction is intentional.
-
-**Defense-in-depth against proxy IP registration**
-
-The proxy IP is protected at two independent layers:
-
-1. **Middleware** — `X-Real-IP` is only read when the direct peer exactly matches `TRUSTED_PROXY`.
-   Any other source's `X-Real-IP` header is ignored and a warning is logged.
-2. **Address registry** — PulseWeaver refuses to register the `TRUSTED_PROXY` IP as a device
-   address, even if it is explicitly submitted via the API or the heartbeat body. This means that
-   even in a misconfigured deployment where the proxy IP ends up as the apparent client IP, it
-   cannot enter the IP registry and trigger a universal pass.
-
-**Direct-access deployments (no proxy)**
-
-If your devices connect directly to PulseWeaver without a proxy in between, leave `TRUSTED_PROXY`
-unset. PulseWeaver will use each connection's source IP directly and will never read `X-Real-IP`
-from any source. The startup warning can be safely ignored in this case.
 
 ---
 
@@ -349,7 +179,6 @@ your-service.example.com {
     forward_auth http://pulseweaver:8080 {
         uri /api/policy-engine/verify-ip
         header_up X-Real-IP {http.request.remote.host}
-        # Pass the shared secret to prove Caddy is the caller
         header_up Authorization "Bearer {$PULSEWEAVER_POLICY_ENGINE_API_SECRET}"
     }
 
@@ -358,7 +187,6 @@ your-service.example.com {
 ```
 
 PulseWeaver's verify-ip endpoint is **fail-closed**: any missing header, invalid secret, or inactive IP returns `403`.
-It never returns `401` to avoid leaking information about why the request was rejected.
 
 ### Other reverse proxies
 
@@ -371,142 +199,37 @@ Any proxy that supports forward auth can work. The requirements are:
 
 ---
 
-## Heartbeat endpoint
+## Keeping devices connected
 
-The heartbeat endpoint (`POST /api/v1/heartbeat`) must be **reachable from your devices without going through the
-forward-auth gate** — if it were gated behind the IP check, a device with a new IP could never activate that IP in the
-first place.
+Devices send periodic heartbeats to keep their current IP active. There are several ways to set this up:
 
-### Exposing the heartbeat with Caddy
+| Method | Best for | Details |
+|--------|----------|---------|
+| **[Heartbeat Client](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client)** | Android, desktop (Linux/macOS/Windows) | Dedicated app with background scheduling, network-awareness, and system tray support. |
+| **[systemd timer / launchd agent](docs/Lightweight-Heartbeat-Clients.md)** | Headless Linux & macOS servers | Zero-dependency `curl` + OS scheduler. No app needed. |
+| **[Tasker](docs/Heartbeat-Endpoint-Setup.md#android-tasker)** | Android (DIY) | HTTP request on a timer or network change event. |
+| **Manual** | Static IP devices | Add addresses directly in the PulseWeaver UI — no heartbeat needed. |
 
-Create a dedicated site that routes only to the heartbeat endpoint:
-
-```caddy
-device-heartbeat.example.com {
-    # Rewrite all requests to the heartbeat path
-    rewrite * /api/v1/heartbeat
-
-    # Proxy directly to PulseWeaver, bypassing forward_auth
-    reverse_proxy pulseweaver:8080
-}
-```
-
-Authentication is handled by the device's `X-API-Key`, which PulseWeaver validates for every heartbeat request. No
-additional auth layer is needed.
-
-**Optional extra obscurity:** If you want the endpoint to be harder to discover, you can add a random path segment to
-the public URL and rewrite it:
-
-```caddy
-device-heartbeat.example.com {
-    # Only accept requests to the secret path
-    rewrite /your-random-secret /api/v1/heartbeat
-
-    reverse_proxy pulseweaver:8080
-}
-```
-
-The device API key remains the real security control. The path segment is just an additional obstacle.
-
-### Android (Tasker)
-
-Create a Tasker profile that triggers on:
-
-- A periodic timer (e.g. every 4 minutes, take into account the address lease TTL for that device)
-- WiFi connected / disconnected
-- Mobile data connected / disconnected
-
-The action is an HTTP Request (or a Shell action with `curl`):
-
-```bash
-curl -s -X POST https://device-heartbeat.example.com \
-  -H "X-API-Key: your-device-api-key"
-```
-
-This keeps your phone's current IP active at all times as you move between networks.
-
-**Recommended setup with address leases:**
-
-Set your device's address lease TTL to **5 minutes** (a bit more than the heartbeat interval). This means:
-
-- After each heartbeat, the address is active for 5 more minutes.
-- If no heartbeat arrives (e.g. you turned off your phone), the address is automatically deactivated after 5 minutes.
-- Old addresses (previous network) expire shortly after you change networks.
-- The overlap window — the time two addresses are simultaneously active — is at most one heartbeat interval.
-
-You can tune the TTL shorter (e.g. 2 minutes) for tighter expiry, or longer if you prefer more tolerance for missed
-heartbeats.
-
-### Laptop / static device
-
-For a device with a mostly stable IP (e.g. a home laptop), manual management is usually sufficient:
-
-1. Open the PulseWeaver UI.
-2. Navigate to your device's **Addresses** tab.
-3. Click **Add address** and enter the IP manually.
-4. Enable or disable addresses as needed.
-
-No heartbeat automation required unless you want it.
+The heartbeat endpoint (`POST /api/v1/heartbeat`) must be exposed **without** the forward-auth gate — see
+[Heartbeat Endpoint Setup](docs/Heartbeat-Endpoint-Setup.md) for the Caddy configuration.
 
 ---
 
 ## Security model
 
-### What PulseWeaver is
+PulseWeaver is an **IP gate** — it reduces your attack surface by blocking unknown IPs before they reach any service.
+It is **not** a user authentication system or a replacement for identity providers.
 
-An **IP gate**. It reduces the attack surface of your server by refusing connections from unknown IP addresses before
-they reach any service. It is not:
+| ✅ Works well | ⚠️ Not enough on its own |
+|--------------|--------------------------|
+| Services that break behind SSO proxies | Identifying individual users |
+| Homelab with a small set of trusted networks | Clients on ISP-level CGNAT |
+| Reducing blast radius of unpatched CVEs | Compromised active networks |
+| Zero-config travel access via heartbeat + lease | Replacing TLS or app-level auth |
 
-- A user authentication system (no passwords, no sessions, no tokens for end users).
-- A replacement for Authelia, authentik, Keycloak, or any identity provider.
-- A guarantee of security on its own.
+PulseWeaver should be **one layer** in a defence-in-depth strategy, not the only one.
 
-### When it works well
-
-- Services that break when placed behind an SSO proxy (Home Assistant, many media servers, IoT dashboards, etc.).
-- Homelab environments where the set of trusted networks is small and well-understood.
-- Reducing the blast radius of unpatched CVEs: an attacker cannot even reach the service if their IP is not active.
-- Travel and flexible remote access: heartbeat + address lease gives you zero-config access from wherever your device
-  is.
-
-### When it is not enough
-
-- If you need to identify individual users (use app-level auth in addition).
-- If clients are on ISP-level CGNAT (see above).
-- If an active network is compromised (VPN leak, shared Wi-Fi with a bad actor, etc.).
-- As a substitute for TLS. Always use HTTPS.
-
-### IPv6
-
-With IPv6, devices typically receive globally unique, non-NATted addresses. This means:
-
-- Each device has its own public IP rather than sharing one with an entire household.
-- The "shared NAT" behaviour described above does not apply — an IPv6 heartbeat will activate a specific device's
-  address, not a whole network.
-- This makes the IP gate more precise and, in principle, more secure under IPv6.
-
-However, **IPv6 support in PulseWeaver is not yet thoroughly tested**. The application handles IPv6 addresses in the
-address model and normalises them at validation time, but real-world edge cases (prefix delegation, temporary addresses,
-dual-stack setups) have not been fully exercised. Treat IPv6 as working but experimental until you have validated it in
-your own setup.
-
-### Pros and cons summary
-
-**Pros**
-
-- Drastically reduced attack surface — unknown IPs cannot even reach your services.
-- Simple mental model: devices keep their address active, everything else is blocked.
-- No changes to existing applications or their auth systems.
-- Zero-config access from trusted locations via heartbeat + lease.
-- The "whole-network" behaviour of NAT works in your favour for home, hotel, and friend's house scenarios.
-
-**Cons / caveats**
-
-- IP-based trust only — does not verify identity.
-- CGNAT can expose your services to unrelated co-tenants if you are not careful.
-- If an active network is compromised while the IP is active, the attacker gains access.
-- Does not replace TLS or app-level authentication.
-- PulseWeaver should be **one layer** in a broader defence-in-depth strategy, not the only one.
+📖 **Deep dives:** [Security Model](docs/Security-Model.md) · [Shared-IP Model](docs/Shared-IP-Model.md) · [Understanding TRUSTED_PROXY](docs/Understanding-TRUSTED_PROXY.md)
 
 ---
 
