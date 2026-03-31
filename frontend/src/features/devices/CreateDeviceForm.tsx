@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useForm } from "@mantine/form";
-import { zod4Resolver } from "mantine-form-zod-resolver";
+import { useForm, schemaResolver } from "@mantine/form";
 import {
   Button,
   Card,
@@ -22,7 +21,7 @@ const formSchema = zCreateDeviceRequest;
 
 export function CreateDeviceForm() {
   const form = useForm<z.infer<typeof formSchema>>({
-    validate: zod4Resolver(formSchema),
+    validate: schemaResolver(formSchema),
     initialValues: { name: "" },
   });
 

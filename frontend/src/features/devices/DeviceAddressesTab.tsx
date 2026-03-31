@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { useForm } from "@mantine/form";
-import { zod4Resolver } from "mantine-form-zod-resolver";
+import { useForm, schemaResolver } from "@mantine/form";
 import { z } from "zod";
 import { isPast } from "@/lib/dates";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
@@ -117,7 +116,7 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
   );
   const heartbeatMutation = useDeviceHeartbeat();
   const form = useForm<z.infer<typeof addressSchema>>({
-    validate: zod4Resolver(addressSchema),
+    validate: schemaResolver(addressSchema),
     initialValues: { ip: "" },
   });
   const addAddressMutation = useAddDeviceAddress({

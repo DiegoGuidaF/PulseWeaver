@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { useForm } from "@mantine/form";
-import { zod4Resolver } from "mantine-form-zod-resolver";
+import { useForm, schemaResolver } from "@mantine/form";
 import { z } from "zod";
 import {
   Badge,
@@ -107,7 +106,7 @@ export function DeviceSettingsTab({
   const [confirmRegenOpen, setConfirmRegenOpen] = useState(false);
 
   const leaseRuleForm = useForm<LeaseRuleFormValues>({
-    validate: zod4Resolver(leaseRuleFormSchema),
+    validate: schemaResolver(leaseRuleFormSchema),
     initialValues: { value: "5", unit: "minutes" },
   });
   const { setValues } = leaseRuleForm;

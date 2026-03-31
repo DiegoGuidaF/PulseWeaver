@@ -1,5 +1,4 @@
-import { useForm } from "@mantine/form";
-import { zod4Resolver } from "mantine-form-zod-resolver";
+import { useForm, schemaResolver } from "@mantine/form";
 import { Button, Stack, TextInput } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useLogin } from "@/features/auth/hooks/useLogin";
@@ -13,7 +12,7 @@ export function LoginForm() {
   const loginMutation = useLogin();
 
   const form = useForm<z.infer<typeof loginSchema>>({
-    validate: zod4Resolver(loginSchema),
+    validate: schemaResolver(loginSchema),
     initialValues: {
       username: "",
       password: "",

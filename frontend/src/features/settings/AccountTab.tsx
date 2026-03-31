@@ -1,6 +1,5 @@
 import { useEffect } from "react";
-import { useForm } from "@mantine/form";
-import { zod4Resolver } from "mantine-form-zod-resolver";
+import { useForm, schemaResolver } from "@mantine/form";
 import { z } from "zod";
 import {
   Button,
@@ -42,7 +41,7 @@ export function AccountTab({ onDirtyChange }: AccountTabProps) {
   const changePassword = useChangePassword();
 
   const profileForm = useForm<z.infer<typeof profileSchema>>({
-    validate: zod4Resolver(profileSchema),
+    validate: schemaResolver(profileSchema),
     initialValues: {
       display_name: user?.display_name ?? "",
       username: user?.username ?? "",
@@ -51,7 +50,7 @@ export function AccountTab({ onDirtyChange }: AccountTabProps) {
   });
 
   const passwordForm = useForm<z.infer<typeof passwordSchema>>({
-    validate: zod4Resolver(passwordSchema),
+    validate: schemaResolver(passwordSchema),
     initialValues: {
       current_password: "",
       password: "",
