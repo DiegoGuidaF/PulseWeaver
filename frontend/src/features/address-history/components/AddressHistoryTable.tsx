@@ -3,7 +3,6 @@ import { Alert, Button, Card, Group, Skeleton, Stack, Text } from "@mantine/core
 import { LineChart } from "@mantine/charts";
 import { DataTable } from "mantine-datatable";
 import { IconAlertCircle, IconFilterOff } from "@tabler/icons-react";
-import type { AddressHistoryEvent } from "@/lib/api";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
 import { CursorPagination } from "@/components/CursorPagination";
 import { useAddressHistory } from "../hooks/useAddressHistory";
@@ -14,7 +13,6 @@ import { toErrorMessage } from "@/lib/api-client";
 import { formatChartLabel, presetToMs } from "@/lib/formatChartLabel";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
 import { useDevices } from "@/features/devices/hooks/useDevices";
-import { PRESET_MS } from "@/lib/timePresets";
 import dayjs from "dayjs";
 
 const PAGE_SIZE = 25;

@@ -30,7 +30,8 @@ export function CursorPagination({
     if (resetKey !== prevResetKey) {
         setPrevResetKey(resetKey);
         setPage(0);
-        cursorCache.current = new Map([[0, null]]);
+        // cursorCache needs no reset: goNext always overwrites entries before
+        // reading them, and goPrev is disabled when page === 0.
     }
 
     const totalPages = Math.max(1, Math.ceil(total / pageSize));

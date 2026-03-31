@@ -52,8 +52,8 @@ export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditL
     // Chart data — uses the dashboard traffic endpoint with the same time range
     const timeRangeMs = filters.presetStr ? presetToMs(filters.presetStr) : 0;
     const { data: trafficData, isLoading: trafficLoading } = useDashboardTraffic(
-        filters.queryParams.from,
-        filters.queryParams.to,
+        filters.queryParams?.from,
+        filters.queryParams?.to,
     );
 
     const rows = data?.rows ?? [];

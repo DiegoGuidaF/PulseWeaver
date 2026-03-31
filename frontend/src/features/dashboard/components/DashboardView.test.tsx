@@ -6,7 +6,7 @@ import { renderWithProviders } from '@/test/utils';
 
 describe('DashboardView', () => {
     it('renders stat cards with data from the API', async () => {
-        renderWithProviders(<DashboardView />);
+        renderWithProviders(<DashboardView timeRangeMs={0} />);
 
         await waitFor(
             () => {
@@ -20,7 +20,7 @@ describe('DashboardView', () => {
     });
 
     it('renders stat card labels', async () => {
-        renderWithProviders(<DashboardView />);
+        renderWithProviders(<DashboardView timeRangeMs={0} />);
 
         await waitFor(
             () => {
@@ -34,18 +34,18 @@ describe('DashboardView', () => {
     });
 
     it('renders traffic chart heading', async () => {
-        renderWithProviders(<DashboardView />);
+        renderWithProviders(<DashboardView timeRangeMs={0} />);
 
         await waitFor(
             () => {
-                expect(screen.getByText('Traffic Over Time')).toBeInTheDocument();
+                expect(screen.getByText('Traffic over time')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT },
         );
     });
 
     it('renders services chart heading', async () => {
-        renderWithProviders(<DashboardView />);
+        renderWithProviders(<DashboardView timeRangeMs={0} />);
 
         await waitFor(
             () => {
@@ -56,7 +56,7 @@ describe('DashboardView', () => {
     });
 
     it('renders top denied IPs table with data', async () => {
-        renderWithProviders(<DashboardView />);
+        renderWithProviders(<DashboardView timeRangeMs={0} />);
 
         await waitFor(
             () => {
