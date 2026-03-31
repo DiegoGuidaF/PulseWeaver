@@ -17,7 +17,7 @@ require (
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/samber/slog-chi v1.19.0
 	golang.org/x/crypto v0.49.0
-	golang.org/x/sync v0.19.0
+	golang.org/x/sync v0.20.0
 	modernc.org/sqlite v1.46.1
 )
 
