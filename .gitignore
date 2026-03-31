@@ -20,6 +20,7 @@ scratch_test.go
 # Environment variables (Secrets)
 .env
 .env.*
+!.env.example
 
 # --- IDEs & Editors ---
 # JetBrains (IntelliJ, GoLand, etc.)

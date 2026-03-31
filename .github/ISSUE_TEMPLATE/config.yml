@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/DiegoGuidaF/PulseWeaver/discussions
+    about: For usage questions, setup help, or general discussion — please use Discussions rather than issues.

@@ -1,0 +1,61 @@
+name: Bug Report
+description: Something is not working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing a bug, please check the [Security Model](../docs/Security-Model.md) — some behaviours are intentional design constraints.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Configure PulseWeaver with ...
+        2. Send a request from ...
+        3. See ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: PulseWeaver version
+      placeholder: "v0.1.0 or Docker image tag"
+    validations:
+      required: true
+
+  - type: input
+    id: proxy
+    attributes:
+      label: Reverse proxy
+      placeholder: "Caddy 2.9, Nginx, Traefik, ..."
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant configuration
+      description: Paste your `docker-compose.yml` or environment variables (redact secrets).
+      render: yaml
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      render: text
