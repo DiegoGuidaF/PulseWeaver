@@ -23,7 +23,7 @@ export function DeviceDetailPage() {
     ? Number.parseInt(deviceIdParam, 10)
     : Number.NaN;
 
-  const { data: device, isLoading, isError, error } = useDeviceDetail(deviceId);
+  const { data: device, isLoading, isError, error } = useDeviceDetail(deviceId, 10_000);
   const { data: leaseRule } = useDeviceAddressLeaseRule(deviceId);
 
   if (!deviceIdParam || Number.isNaN(deviceId)) {

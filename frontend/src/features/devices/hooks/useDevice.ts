@@ -16,7 +16,7 @@ function findDeviceById(
   return devices?.find((device) => device.id === deviceId);
 }
 
-export function useDevice(deviceId: number) {
+export function useDevice(deviceId: number, refetchInterval: number | false = false) {
   const queryClient = useQueryClient();
 
   return useQuery({
@@ -50,6 +50,7 @@ export function useDevice(deviceId: number) {
       );
       return findDeviceById(devices, deviceId);
     },
+    refetchInterval,
   });
 }
 
