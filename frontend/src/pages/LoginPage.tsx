@@ -1,5 +1,5 @@
 import { Navigate } from "react-router-dom";
-import { Center, Stack, Title, Text, Paper, Loader } from "@mantine/core";
+import { Center, Stack, Text, Paper, Loader } from "@mantine/core";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { LoginForm } from "@/features/auth/components/LoginForm";
 import { BrandName } from "@/components/BrandName";
@@ -25,8 +25,8 @@ export function LoginPage() {
   return (
     <Center style={{ minHeight: "100vh" }}>
       <Paper withBorder p="xl" w="100%" maw={448}>
-        <Stack gap="sm" mb="lg" ta="center">
-          <Title order={2}>Welcome to <BrandName /></Title>
+        <Stack gap="xs" mb="lg" ta="center">
+          <BrandName size="2.5rem" style={{ display: "block" }} />
           <Text c="dimmed">Sign in to your account to continue</Text>
         </Stack>
         <LoginForm />

@@ -18,6 +18,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@fontsource/space-grotesk": "^5.2.10",
     "@mantine/charts": "^8.3.18",
     "@mantine/core": "^8.3.18",
     "@mantine/dates": "^8.3.18",
