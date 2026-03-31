@@ -6,13 +6,11 @@ export function DevicesPage() {
   return (
     <Stack maw={1024} gap="xl">
       <div>
-        <Title order={1}>PulseWeaver Manager</Title>
-        <Text c="dimmed">Manage your networked devices and addresses.</Text>
+        <Title order={1}>Devices</Title>
+        <Text c="dimmed" size="sm">Manage your registered devices.</Text>
       </div>
-      <Stack gap="xl">
-        <CreateDeviceForm />
-        <DeviceList />
-      </Stack>
+      <CreateDeviceForm />
+      <DeviceList />
     </Stack>
   );
 }

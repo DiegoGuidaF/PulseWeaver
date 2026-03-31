@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   ActionIcon,
   Button,
@@ -11,6 +11,7 @@ import {
   Table,
   Text,
   Title,
+  Tooltip,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconTrash } from "@tabler/icons-react";
@@ -21,6 +22,7 @@ import { useDeleteDevice } from "@/features/devices/hooks/useDeleteDevice";
 import { toErrorMessage } from "@/lib/api-client";
 
 export function DeviceList() {
+  const navigate = useNavigate();
   const formatDateTime = useDateFormatter();
   const { data: devices, isLoading, error } = useDevices();
   const deleteDevice = useDeleteDevice();
@@ -71,21 +73,20 @@ export function DeviceList() {
   return (
     <Card withBorder>
       <Title order={3} mb="md">Devices</Title>
-      <Table>
+      <Table highlightOnHover>
         <Table.Thead>
           <Table.Tr>
             <Table.Th>Name</Table.Th>
-            <Table.Th>ID</Table.Th>
             <Table.Th>Key prefix</Table.Th>
-            <Table.Th>Created At</Table.Th>
-            <Table.Th>Active addresses</Table.Th>
-            <Table.Th style={{ textAlign: "right" }}>Actions</Table.Th>
+            <Table.Th>Created</Table.Th>
+            <Table.Th>Live IPs</Table.Th>
+            <Table.Th w={48} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {devices?.length === 0 ? (
             <Table.Tr>
-              <Table.Td colSpan={6} style={{ height: 128, textAlign: "center" }}>
+              <Table.Td colSpan={5} style={{ height: 128, textAlign: "center" }}>
                 <Stack align="center" justify="center" gap={8}>
                   <Text c="dimmed">No devices found.</Text>
                   <Text size="sm" c="gray">Add a device above to get started.</Text>
@@ -94,9 +95,12 @@ export function DeviceList() {
             </Table.Tr>
           ) : (
             devices?.map((device) => (
-              <Table.Tr key={device.id}>
+              <Table.Tr
+                key={device.id}
+                style={{ cursor: "pointer" }}
+                onClick={() => navigate(`/devices/${device.id}`)}
+              >
                 <Table.Td fw={500}>{device.name}</Table.Td>
-                <Table.Td ff="monospace" fz="xs">{device.id}</Table.Td>
                 <Table.Td ff="monospace" fz="xs" c="dimmed">{device.api_key_prefix}</Table.Td>
                 <Table.Td>{formatDateTime(device.created_at)}</Table.Td>
                 <Table.Td>
@@ -107,25 +111,20 @@ export function DeviceList() {
                   )}
                 </Table.Td>
                 <Table.Td>
-                  <Group justify="flex-end" gap="sm">
-                    <Button
-                      component={Link}
-                      to={`/devices/${device.id}`}
-                      variant="outline"
-                      size="sm"
-                    >
-                      Manage
-                    </Button>
+                  <Tooltip label="Delete device" withArrow>
                     <ActionIcon
                       variant="subtle"
-                      color="gray"
+                      color="red"
                       aria-label={`Delete device ${device.name}`}
-                      onClick={() => setDeviceToDelete(device)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeviceToDelete(device);
+                      }}
                       disabled={deleteDevice.isPending}
                     >
                       <IconTrash size={16} stroke={1.5} />
                     </ActionIcon>
-                  </Group>
+                  </Tooltip>
                 </Table.Td>
               </Table.Tr>
             ))

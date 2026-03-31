@@ -3,11 +3,13 @@ import { useForm } from "@mantine/form";
 import { zod4Resolver } from "mantine-form-zod-resolver";
 import {
   Button,
+  Card,
   Group,
   Modal,
   Stack,
   Text,
   TextInput,
+  Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useCreateDevice } from "@/features/devices/hooks/useCreateDevice";
@@ -64,7 +66,8 @@ export function CreateDeviceForm() {
   }
 
   return (
-    <Stack gap="md">
+    <Card withBorder>
+      <Title order={4} mb="md">Add Device</Title>
       <form onSubmit={form.onSubmit(onSubmit)}>
         <Group align="flex-end" gap="md">
           <TextInput
@@ -124,6 +127,6 @@ export function CreateDeviceForm() {
           </Group>
         </Stack>
       </Modal>
-    </Stack>
+    </Card>
   );
 }

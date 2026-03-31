@@ -14,6 +14,7 @@ type DeviceView struct {
 	CreatedAt    time.Time       `db:"created_at"`
 	KeyPrefix    string          `db:"key_prefix"`
 	AddressCount int             `db:"address_count"`
+	LastSeenAt   *time.Time      `db:"last_seen_at"`
 }
 
 func (r *Repository) GetDevices(ctx context.Context) ([]DeviceView, error) {
@@ -25,7 +26,8 @@ func (r *Repository) GetDevices(ctx context.Context) ([]DeviceView, error) {
 			d.name,
 			d.created_at,
 			dk.key_prefix,
-			COUNT(a.id) AS address_count
+			COUNT(a.id) AS address_count,
+			MAX(a.updated_at) AS last_seen_at
 		FROM devices d
 		JOIN device_api_keys dk ON dk.device_id = d.id
 		LEFT JOIN addresses a ON a.device_id = d.id AND a.is_enabled = true

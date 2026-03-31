@@ -126,6 +126,10 @@ export type Device = {
      * Number of currently enabled addresses for this device.
      */
     readonly address_count?: number;
+    /**
+     * Most recent address activity for this device (heartbeat or manual update).
+     */
+    readonly last_seen_at?: string | null;
 };
 
 export type Address = {

@@ -340,6 +340,14 @@ export const DeviceSchema = {
             minimum: 0,
             readOnly: true,
             description: 'Number of currently enabled addresses for this device.'
+        },
+        last_seen_at: {
+            type: 'string',
+            format: 'date-time',
+            nullable: true,
+            readOnly: true,
+            'x-go-type': 'UTCTime',
+            description: 'Most recent address activity for this device (heartbeat or manual update).'
         }
     }
 } as const;

@@ -159,7 +159,8 @@ export const zDevice = z.object({
     id: zId,
     name: z.string().min(1).max(50),
     api_key_prefix: z.string(),
-    address_count: z.int().gte(0).readonly().optional()
+    address_count: z.int().gte(0).readonly().optional(),
+    last_seen_at: z.iso.datetime({ offset: true, local: true }).readonly().nullish()
 });
 
 export const zCreateDeviceResponse = z.object({
