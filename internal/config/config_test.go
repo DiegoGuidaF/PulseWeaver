@@ -14,6 +14,7 @@ func TestLoad_Validation(t *testing.T) {
 	t.Setenv("ADMIN_PASSWORD", "TestAdminPassword1!")
 	t.Setenv("POLICY_ENGINE_API_SECRET", "averylongandsecuresecret")
 	t.Setenv("DB_DIR", tmpDir)
+	t.Setenv("GEOIP_DATA_DIR", tmpDir)
 
 	t.Run("valid config loads with expected defaults", func(t *testing.T) {
 		conf, err := Load()
@@ -93,6 +94,29 @@ func TestLoad_Validation(t *testing.T) {
 		_, err := Load()
 		if err == nil {
 			t.Fatal("expected error for unwritable DB_DIR, got nil")
+		}
+	})
+
+	t.Run("non existent GEOIP_DATA_DIR fails", func(t *testing.T) {
+		t.Setenv("GEOIP_DATA_DIR", "a non existant dir")
+
+		_, err := Load()
+		if err == nil {
+			t.Fatal("expected error for non existent GEOIP_DATA_DIR, got nil")
+		}
+	})
+
+	t.Run("unwritable DB_DIR fails", func(t *testing.T) {
+		// Create a read-only directory
+		readonlyDir := filepath.Join(t.TempDir(), "readonly")
+		if err := os.Mkdir(readonlyDir, 0555); err != nil { // Read-only
+			t.Fatalf("setup readonly dir: %v", err)
+		}
+
+		t.Setenv("GEOIP_DATA_DIR", readonlyDir)
+		_, err := Load()
+		if err == nil {
+			t.Fatal("expected error for unwritable GEOIP_DATA_DIR, got nil")
 		}
 	})
 }

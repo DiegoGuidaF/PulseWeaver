@@ -197,8 +197,7 @@ func toAddressViewResponse(a *AddressView) httpapi.Address {
 func toDeviceViewResponse(d *DeviceView) httpapi.Device {
 	var lastSeenAt *httpapi.UTCTime
 	if d.LastSeenAt != nil {
-		t := httpapi.UTCTime(*d.LastSeenAt)
-		lastSeenAt = &t
+		lastSeenAt = new(httpapi.UTCTime(d.LastSeenAt.Time))
 	}
 	return httpapi.Device{
 		Id:           d.ID.Int64(),

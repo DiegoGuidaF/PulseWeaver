@@ -5,16 +5,17 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 )
 
 type DeviceView struct {
-	ID           device.DeviceID `db:"id"`
-	Name         string          `db:"name"`
-	CreatedAt    time.Time       `db:"created_at"`
-	KeyPrefix    string          `db:"key_prefix"`
-	AddressCount int             `db:"address_count"`
-	LastSeenAt   *time.Time      `db:"last_seen_at"`
+	ID           device.DeviceID  `db:"id"`
+	Name         string           `db:"name"`
+	CreatedAt    time.Time        `db:"created_at"`
+	KeyPrefix    string           `db:"key_prefix"`
+	AddressCount int              `db:"address_count"`
+	LastSeenAt   *database.DBTime `db:"last_seen_at"`
 }
 
 func (r *Repository) GetDevices(ctx context.Context) ([]DeviceView, error) {
@@ -27,7 +28,7 @@ func (r *Repository) GetDevices(ctx context.Context) ([]DeviceView, error) {
 			d.created_at,
 			dk.key_prefix,
 			COUNT(a.id) AS address_count,
-			MAX(a.updated_at) AS last_seen_at
+			(SELECT MAX(a2.updated_at) FROM addresses a2 WHERE a2.device_id = d.id) AS last_seen_at
 		FROM devices d
 		JOIN device_api_keys dk ON dk.device_id = d.id
 		LEFT JOIN addresses a ON a.device_id = d.id AND a.is_enabled = true

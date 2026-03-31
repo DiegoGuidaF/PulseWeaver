@@ -8,17 +8,19 @@ import (
 	"io"
 	"strconv"
 	"time"
+
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 )
 
 const APIKeyPrefix = "wdk_"
 
 type Device struct {
-	ID         DeviceID   `db:"id" `
-	Name       string     `db:"name" `
-	CreatedAt  time.Time  `db:"created_at" `
-	DeletedAt  *time.Time `db:"deleted_at" `
-	KeyPrefix  string     `db:"key_prefix"`
-	LastSeenAt *time.Time `db:"last_seen_at"`
+	ID         DeviceID         `db:"id" `
+	Name       string           `db:"name" `
+	CreatedAt  time.Time        `db:"created_at" `
+	DeletedAt  *time.Time       `db:"deleted_at" `
+	KeyPrefix  string           `db:"key_prefix"`
+	LastSeenAt *database.DBTime `db:"last_seen_at"`
 }
 
 type CreateDeviceParams struct {
