@@ -1,6 +1,6 @@
 version: 2
 updates:
-  # Go modules
+  # Go modules — group all minor/patch together; major bumps get individual PRs
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
@@ -8,6 +8,9 @@ updates:
       day: "monday"
     open-pull-requests-limit: 5
     labels: ["dependencies", "backend"]
+    groups:
+      go-minor-patch:
+        update-types: ["minor", "patch"]
 
   # Frontend npm
   - package-ecosystem: "npm"
@@ -26,7 +29,7 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
 
-  # GitHub Actions
+  # GitHub Actions — group everything together
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -34,3 +37,6 @@ updates:
       day: "monday"
     open-pull-requests-limit: 5
     labels: ["dependencies", "ci"]
+    groups:
+      github-actions:
+        patterns: ["*"]
