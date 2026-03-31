@@ -46,7 +46,62 @@ const AUTO_HB_INTERVAL_OPTIONS = [
 
 const addressSchema = zAddAddressRequest;
 
-type RegisterMode = "my-ip" | "custom";
+const RegisterMode = {
+  MyIp: "my-ip",
+  Custom: "custom",
+} as const;
+type RegisterMode = (typeof RegisterMode)[keyof typeof RegisterMode];
+
+function StatusDot({ color, size = 8 }: { color: string; size?: number }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: "inline-block",
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        flexShrink: 0,
+        background: `var(--mantine-color-${color}-6)`,
+      }}
+    />
+  );
+}
+
+function useAutoHeartbeat(deviceId: number) {
+  const [settings, setSettings] = useState(getAutoHeartbeatSettings);
+  const [clientIp, setClientIp] = useState<string | null>(getStoredClientIp);
+
+  useEffect(() => {
+    const onSettings = () => setSettings(getAutoHeartbeatSettings());
+    const onClientIp = (e: Event) => setClientIp((e as CustomEvent<string>).detail);
+    window.addEventListener(SETTINGS_EVENT, onSettings);
+    window.addEventListener("storage", onSettings);
+    window.addEventListener(CLIENT_IP_EVENT, onClientIp);
+    return () => {
+      window.removeEventListener(SETTINGS_EVENT, onSettings);
+      window.removeEventListener("storage", onSettings);
+      window.removeEventListener(CLIENT_IP_EVENT, onClientIp);
+    };
+  }, []);
+
+  const isActive = settings?.deviceId === deviceId;
+  const intervalSeconds = isActive ? (settings?.intervalSeconds ?? 60) : 60;
+
+  function toggle(checked: boolean) {
+    if (checked) {
+      setAutoHeartbeatSettings({ deviceId, intervalSeconds });
+    } else {
+      clearAutoHeartbeatSettings();
+    }
+  }
+
+  function changeInterval(seconds: number) {
+    setAutoHeartbeatSettings({ deviceId, intervalSeconds: seconds });
+  }
+
+  return { isActive, intervalSeconds, clientIp, toggle, changeInterval };
+}
 
 interface DeviceAddressesTabProps {
   deviceId: number;
@@ -70,40 +125,8 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
   });
   const disableAddressMutation = useDisableDeviceAddress();
 
-  const [registerMode, setRegisterMode] = useState<RegisterMode>("my-ip");
-
-  // Auto-heartbeat state
-  const [ahSettings, setAhSettings] = useState(getAutoHeartbeatSettings);
-  const [autoClientIp, setAutoClientIp] = useState<string | null>(getStoredClientIp);
-
-  useEffect(() => {
-    const onSettings = () => setAhSettings(getAutoHeartbeatSettings());
-    const onClientIp = (e: Event) =>
-      setAutoClientIp((e as CustomEvent<string>).detail);
-    window.addEventListener(SETTINGS_EVENT, onSettings);
-    window.addEventListener('storage', onSettings);
-    window.addEventListener(CLIENT_IP_EVENT, onClientIp);
-    return () => {
-      window.removeEventListener(SETTINGS_EVENT, onSettings);
-      window.removeEventListener('storage', onSettings);
-      window.removeEventListener(CLIENT_IP_EVENT, onClientIp);
-    };
-  }, []);
-
-  const isActive = ahSettings?.deviceId === deviceId;
-  const currentInterval = isActive ? (ahSettings?.intervalSeconds ?? 60) : 60;
-
-  function handleToggle(checked: boolean) {
-    if (checked) {
-      setAutoHeartbeatSettings({ deviceId, intervalSeconds: currentInterval });
-    } else {
-      clearAutoHeartbeatSettings();
-    }
-  }
-
-  function handleIntervalChange(seconds: number) {
-    setAutoHeartbeatSettings({ deviceId, intervalSeconds: seconds });
-  }
+  const [registerMode, setRegisterMode] = useState<RegisterMode>(RegisterMode.MyIp);
+  const autoHeartbeat = useAutoHeartbeat(deviceId);
 
   function handleAddAddressSubmit(values: z.infer<typeof addressSchema>) {
     addAddressMutation.mutate(
@@ -127,6 +150,29 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
     );
   }
 
+  function handleHeartbeat() {
+    heartbeatMutation.mutate(
+      { path: { device_id: deviceId } },
+      {
+        onSuccess: (address) =>
+          notifications.show({ color: "green", message: `IP ${address.ip} registered` }),
+        onError: (err) =>
+          notifications.show({ color: "red", title: "Heartbeat failed", message: toErrorMessage(err) }),
+      },
+    );
+  }
+
+  function handleReEnable(ip: string) {
+    addAddressMutation.mutate(
+      { path: { device_id: deviceId }, body: { ip } },
+      {
+        onSuccess: () => notifications.show({ color: "green", message: "Address enabled" }),
+        onError: (err) =>
+          notifications.show({ color: "red", title: "Error", message: toErrorMessage(err) }),
+      },
+    );
+  }
+
   return (
     <Stack gap="md">
       {/* Register IP address — unified card */}
@@ -138,27 +184,17 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
             value={registerMode}
             onChange={(v) => setRegisterMode(v as RegisterMode)}
             data={[
-              { label: "My current IP", value: "my-ip" },
-              { label: "Custom IP", value: "custom" },
+              { label: "My current IP", value: RegisterMode.MyIp },
+              { label: "Custom IP", value: RegisterMode.Custom },
             ]}
           />
 
-          {registerMode === "my-ip" ? (
+          {registerMode === RegisterMode.MyIp ? (
             <Stack gap="md">
               <Group gap="md">
                 <Button
                   type="button"
-                  onClick={() =>
-                    heartbeatMutation.mutate(
-                      { path: { device_id: deviceId } },
-                      {
-                        onSuccess: (address) =>
-                          notifications.show({ color: "green", message: `IP ${address.ip} registered` }),
-                        onError: (err) =>
-                          notifications.show({ color: "red", title: "Heartbeat failed", message: toErrorMessage(err) }),
-                      },
-                    )
-                  }
+                  onClick={handleHeartbeat}
                   disabled={heartbeatMutation.isPending}
                 >
                   {heartbeatMutation.isPending ? "Registering..." : "Register my IP"}
@@ -173,56 +209,31 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
 
               <Switch
                 label="Auto-register while this tab is open"
-                checked={isActive}
-                onChange={(event) => handleToggle(event.currentTarget.checked)}
+                checked={autoHeartbeat.isActive}
+                onChange={(event) => autoHeartbeat.toggle(event.currentTarget.checked)}
               />
-              {isActive && (
+              {autoHeartbeat.isActive && (
                 <Group gap="lg">
                   <Group gap="sm">
                     <Text size="sm" c="dimmed" style={{ whiteSpace: "nowrap" }}>
                       Interval:
                     </Text>
-                    <Group gap={4}>
-                      {AUTO_HB_INTERVAL_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => handleIntervalChange(opt.value)}
-                          style={{
-                            borderRadius: 4,
-                            padding: "2px 8px",
-                            fontSize: 12,
-                            fontWeight: 500,
-                            cursor: "pointer",
-                            border: "none",
-                            background: currentInterval === opt.value
-                              ? "var(--mantine-color-indigo-6)"
-                              : "var(--mantine-color-default-border)",
-                            color: currentInterval === opt.value
-                              ? "#fff"
-                              : "var(--mantine-color-dimmed)",
-                          }}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </Group>
+                    <SegmentedControl
+                      size="xs"
+                      value={String(autoHeartbeat.intervalSeconds)}
+                      onChange={(v) => autoHeartbeat.changeInterval(Number(v))}
+                      data={AUTO_HB_INTERVAL_OPTIONS.map((opt) => ({
+                        label: opt.label,
+                        value: String(opt.value),
+                      }))}
+                    />
                   </Group>
-                  {autoClientIp && (
+                  {autoHeartbeat.clientIp && (
                     <Group gap={6}>
-                      <span
-                        style={{
-                          display: "inline-block",
-                          width: 8,
-                          height: 8,
-                          borderRadius: "50%",
-                          background: "var(--mantine-color-green-6)",
-                          flexShrink: 0,
-                        }}
-                      />
+                      <StatusDot color="green" />
                       <Text size="sm" c="dimmed">
                         IP:{" "}
-                        <Text component="span" ff="monospace">{autoClientIp}</Text>
+                        <Text component="span" ff="monospace">{autoHeartbeat.clientIp}</Text>
                       </Text>
                     </Group>
                   )}
@@ -283,19 +294,7 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
                   <Table.Td ff="monospace" fz="sm">{address.ip}</Table.Td>
                   <Table.Td>
                     <Group gap={8} title={address.is_enabled ? "Active" : "Inactive"}>
-                      <span
-                        style={{
-                          display: "inline-block",
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          flexShrink: 0,
-                          background: address.is_enabled
-                            ? "var(--mantine-color-green-6)"
-                            : "var(--mantine-color-red-6)",
-                        }}
-                        aria-hidden
-                      />
+                      <StatusDot color={address.is_enabled ? "green" : "red"} size={10} />
                       <Text size="sm" c="dimmed">
                         {address.is_enabled ? "Active" : "Inactive"}
                       </Text>
@@ -336,16 +335,7 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
                         <ActionIcon
                           variant="subtle"
                           color="green"
-                          onClick={() =>
-                            addAddressMutation.mutate(
-                              { path: { device_id: deviceId }, body: { ip: address.ip } },
-                              {
-                                onSuccess: () => notifications.show({ color: "green", message: "Address enabled" }),
-                                onError: (err) =>
-                                  notifications.show({ color: "red", title: "Error", message: toErrorMessage(err) }),
-                              },
-                            )
-                          }
+                          onClick={() => handleReEnable(address.ip)}
                           disabled={addAddressMutation.isPending}
                           aria-label="Enable address"
                         >

@@ -1,5 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
 import {
   QueryCache,
   QueryClient,
@@ -10,6 +12,7 @@ import App from "./App";
 import { getCurrentUserQueryKey } from "@/lib/api/@tanstack/react-query.gen";
 import { toApiError } from "@/lib/api-client";
 import "./lib/api-client/config"; // Initialize API client configuration
+dayjs.extend(relativeTime);
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 import '@mantine/charts/styles.css';

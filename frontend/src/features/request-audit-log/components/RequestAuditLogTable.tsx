@@ -1,13 +1,12 @@
 import { useMemo, useState } from "react";
-import { Alert, Button, Card, Group, Skeleton, Stack, Text } from "@mantine/core";
+import { Alert, Button, Group, Skeleton, Stack } from "@mantine/core";
 import { DataTable } from "mantine-datatable";
-import { LineChart } from "@mantine/charts";
-import { IconAlertCircle, IconChartLine, IconFilterOff } from "@tabler/icons-react";
+import { IconAlertCircle, IconFilterOff } from "@tabler/icons-react";
 import type { RequestAuditLogRow } from "@/lib/api";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
 import { CursorPagination } from "@/components/CursorPagination";
-import { EmptyState } from "@/components/EmptyState";
-import { formatChartLabel, presetToMs } from "@/lib/formatChartLabel";
+import { TrafficLineChart } from "@/components/TrafficLineChart";
+import { presetToMs } from "@/lib/formatChartLabel";
 import { useRequestAuditLog } from "../hooks/useRequestAuditLog";
 import { useDashboardTraffic } from "@/features/dashboard/hooks/useDashboardTraffic";
 import type { AuditLogFilters } from "../hooks/useAuditLogFilters";
@@ -56,11 +55,6 @@ export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditL
         filters.queryParams.from,
         filters.queryParams.to,
     );
-    const chartData = (trafficData?.buckets ?? []).map((b) => ({
-        timestamp: formatChartLabel(b.timestamp, timeRangeMs || 24 * 60 * 60 * 1000),
-        Allowed: b.allow_count,
-        Denied: b.deny_count,
-    }));
 
     const rows = data?.rows ?? [];
 
@@ -177,31 +171,12 @@ export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditL
         <>
             <Stack gap="sm">
                 {/* Traffic chart */}
-                <Card withBorder p="md" radius="md">
-                    <Text fw={500} mb="md">Traffic over time</Text>
-                    {trafficLoading ? (
-                        <Skeleton h={200} />
-                    ) : chartData.length === 0 ? (
-                        <EmptyState
-                            icon={IconChartLine}
-                            title="No traffic recorded yet"
-                        />
-                    ) : (
-                        <LineChart
-                            h={200}
-                            data={chartData}
-                            dataKey="timestamp"
-                            series={[
-                                { name: "Allowed", color: "teal.6" },
-                                { name: "Denied", color: "red.6" },
-                            ]}
-                            yAxisLabel="Requests"
-                            yAxisProps={{ allowDecimals: false }}
-                            curveType="monotone"
-                            tooltipAnimationDuration={150}
-                        />
-                    )}
-                </Card>
+                <TrafficLineChart
+                    data={trafficData?.buckets}
+                    isLoading={trafficLoading}
+                    timeRangeMs={timeRangeMs || 24 * 60 * 60 * 1000}
+                    h={200}
+                />
 
                 <Group justify="flex-end">
                     {filters.hasActiveFilters && (

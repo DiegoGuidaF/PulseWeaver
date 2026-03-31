@@ -4,7 +4,7 @@ import { useDashboardTraffic } from "../hooks/useDashboardTraffic";
 import { useDashboardServices } from "../hooks/useDashboardServices";
 import { useTopDeniedIPs } from "../hooks/useTopDeniedIPs";
 import { DashboardStatCards } from "./DashboardStatCards";
-import { TrafficLineChart } from "./TrafficLineChart";
+import { TrafficLineChart } from "@/components/TrafficLineChart";
 import { ServiceBarChart } from "./ServiceBarChart";
 import { TopDeniedIPsTable } from "./TopDeniedIPsTable";
 

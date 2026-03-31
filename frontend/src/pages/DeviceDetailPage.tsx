@@ -2,15 +2,12 @@ import { Link, Navigate, useParams } from "react-router-dom";
 import { Badge, Group, Stack, Skeleton, Tabs, Text, Title, Anchor } from "@mantine/core";
 import { IconChevronLeft } from "@tabler/icons-react";
 import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
 import { useDeviceDetail } from "@/features/devices/hooks/useDeviceDetail";
 import { useDeviceAddressLeaseRule } from "@/features/devices/hooks/useDeviceAddressLeaseRule";
 import { DeviceAddressesTab } from "@/features/devices/DeviceAddressesTab";
 import { DeviceSettingsTab } from "@/features/devices/DeviceSettingsTab";
 import { DeviceHistoryTab } from "@/features/devices/DeviceHistoryTab";
 import { toErrorMessage } from "@/lib/api-client";
-
-dayjs.extend(relativeTime);
 
 type DeviceDetailRouteParams = {
   deviceId?: string;
