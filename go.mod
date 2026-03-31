@@ -13,7 +13,7 @@ require (
 	github.com/lmittmann/tint v1.1.3
 	github.com/matryer/is v1.4.1
 	github.com/oapi-codegen/nethttp-middleware v1.1.2
-	github.com/oapi-codegen/runtime v1.2.0
+	github.com/oapi-codegen/runtime v1.3.1
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/samber/slog-chi v1.19.0
 	golang.org/x/crypto v0.49.0
