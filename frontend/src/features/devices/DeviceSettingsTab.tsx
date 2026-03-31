@@ -245,13 +245,10 @@ export function DeviceSettingsTab({
                     <Badge color="green" variant="light" size="sm">Enabled</Badge>
                   </Group>
                   {ttlLabel && (
-                    <Text size="sm" c="dimmed">
-                      Addresses will automatically expire after{" "}
-                      <Text component="span" fw={500}>
-                        {ttlLabel}
-                      </Text>
-                      .
-                    </Text>
+                    <Group gap="sm">
+                      <Text size="sm">TTL:</Text>
+                      <Text size="sm" fw={600}>{ttlLabel}</Text>
+                    </Group>
                   )}
                 </Stack>
               )}
