@@ -837,12 +837,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /request-audit-log:
+  /access-log:
     get:
-      operationId: getRequestAuditLog
+      operationId: getAccessLog
       tags:
-        - audit
-      summary: List request audit log entries
+        - access-log
+      summary: List access log entries
       description: >
         Returns paginated request log entries to review access-control decisions.
         Admin-only.
@@ -862,7 +862,7 @@ paths:
           required: false
           schema:
             type: string
-          description: Filter by deny reason (see GET /request-audit-log/deny-reasons for valid values)
+          description: Filter by deny reason (see GET /access-log/deny-reasons for valid values)
         - name: ip
           in: query
           required: false
@@ -917,11 +917,11 @@ paths:
           description: Cursor; return rows with id < before_id
       responses:
         "200":
-          description: Request audit log entries
+          description: Access log entries
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RequestAuditLogResponse'
+                $ref: '#/components/schemas/AccessLogResponse'
         "401":
           description: Not authenticated
           content:
@@ -941,11 +941,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /request-audit-log/stats/by-country:
+  /access-log/stats/by-country:
     get:
-      operationId: getRequestAuditLogByCountry
+      operationId: getAccessLogByCountry
       tags:
-        - audit
+        - access-log
       summary: Request counts grouped by country
       parameters:
         - name: since
@@ -983,15 +983,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /request-audit-log/deny-reasons:
+  /access-log/deny-reasons:
     get:
-      operationId: getRequestAuditLogDenyReasons
+      operationId: getAccessLogDenyReasons
       tags:
-        - audit
+        - access-log
       summary: List valid deny reason values
       description: >
         Returns all valid deny_reason values that can appear in audit log entries
-        or be used as the deny_reason filter on GET /request-audit-log.
+        or be used as the deny_reason filter on GET /access-log.
       responses:
         "200":
           description: List of deny reason values
@@ -1669,7 +1669,7 @@ components:
             UTC timestamp when this address will auto-expire, if an auto-expiry rule
             is enabled for the device. Null if no expiry is scheduled.
 
-    RequestAuditLogResponse:
+    AccessLogResponse:
       type: object
       required:
         - total
@@ -1686,7 +1686,7 @@ components:
         rows:
           type: array
           items:
-            $ref: '#/components/schemas/RequestAuditLogRow'
+            $ref: '#/components/schemas/AccessLogRow'
 
     AuditLogCountryStats:
       type: object
@@ -1705,7 +1705,7 @@ components:
         denied:
           type: integer
 
-    RequestAuditLogRow:
+    AccessLogRow:
       type: object
       required: [id, created_at, outcome, client_ip, headers]
       properties:

@@ -1,6 +1,6 @@
 //go:build test
 
-package audit_test
+package accesslog_test
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/audit"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
@@ -21,7 +21,7 @@ func TestHandler_GetDenyReasons_Empty(t *testing.T) {
 	server := testServer.HTTPServer
 	adminCookie := testutils.LoginCookie(t, server, "admin", testutils.TestAdminPassword)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/request-audit-log/deny-reasons", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/access-log/deny-reasons", nil)
 	req.AddCookie(adminCookie)
 	res := httptest.NewRecorder()
 
@@ -41,7 +41,7 @@ func TestHandler_GetDenyReasons_WithData(t *testing.T) {
 	server := testServer.HTTPServer
 	adminCookie := testutils.LoginCookie(t, server, "admin", testutils.TestAdminPassword)
 
-	repo := audit.NewRepository(testServer.Database.DB())
+	repo := accesslog.NewRepository(testServer.Database.DB())
 	r1 := policy.DenyReasonIPNotRegistered
 	r2 := policy.DenyReasonNoDeviceMatch
 	events := []policy.DecisionEvent{
@@ -53,7 +53,7 @@ func TestHandler_GetDenyReasons_WithData(t *testing.T) {
 	err := repo.BatchInsert(t.Context(), events)
 	is.NoErr(err)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/request-audit-log/deny-reasons", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/access-log/deny-reasons", nil)
 	req.AddCookie(adminCookie)
 	res := httptest.NewRecorder()
 

@@ -1,4 +1,4 @@
-package audit
+package accesslog
 
 import (
 	"context"
@@ -24,7 +24,7 @@ func NewSink(repo repository, logger *slog.Logger) *Sink {
 	return &Sink{
 		ch:     make(chan policy.DecisionEvent, 500),
 		repo:   repo,
-		logger: logger.With(slog.String(logging.AttrKeyComponent, "audit")),
+		logger: logger.With(slog.String(logging.AttrKeyComponent, "accesslog")),
 	}
 }
 

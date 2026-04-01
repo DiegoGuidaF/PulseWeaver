@@ -1,4 +1,4 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, RequestAuditLogResponse, RequestAuditLogRow, User } from '@/lib/api';
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, AccessLogResponse, AccessLogRow, User } from '@/lib/api';
 import { UserRole } from "@/lib/api";
 
 /**
@@ -71,13 +71,13 @@ export function createMockDeviceAddressLeaseRule(
 }
 
 /**
- * Creates a mock RequestAuditLogRow with realistic defaults.
- * @param overrides - Partial RequestAuditLogRow to override defaults
- * @returns A RequestAuditLogRow object
+ * Creates a mock AccessLogRow with realistic defaults.
+ * @param overrides - Partial AccessLogRow to override defaults
+ * @returns A AccessLogRow object
  */
-export function createMockRequestAuditLogRow(
-  overrides?: Partial<RequestAuditLogRow>,
-): RequestAuditLogRow {
+export function createMockAccessLogRow(
+  overrides?: Partial<AccessLogRow>,
+): AccessLogRow {
   return {
     id: 1,
     client_ip: '203.0.113.42',
@@ -149,17 +149,17 @@ export function createMockAddressHistoryResponse(
 }
 
 /**
- * Creates a mock RequestAuditLogResponse with realistic defaults.
- * @param overrides - Partial RequestAuditLogResponse to override defaults
- * @returns A RequestAuditLogResponse object
+ * Creates a mock AccessLogResponse with realistic defaults.
+ * @param overrides - Partial AccessLogResponse to override defaults
+ * @returns A AccessLogResponse object
  */
-export function createMockRequestAuditLogResponse(
-  overrides?: Partial<RequestAuditLogResponse>,
-): RequestAuditLogResponse {
+export function createMockAccessLogResponse(
+  overrides?: Partial<AccessLogResponse>,
+): AccessLogResponse {
   return {
     total: 1,
     next_cursor: null,
-    rows: [createMockRequestAuditLogRow()],
+    rows: [createMockAccessLogRow()],
     ...overrides,
   };
 }

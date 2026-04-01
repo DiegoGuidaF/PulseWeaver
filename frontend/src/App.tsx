@@ -12,7 +12,7 @@ import { TrafficDashboardPage } from "./pages/TrafficDashboardPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { RequestAuditLogPage } from "./pages/RequestAuditLogPage";
+import { AccessLogPage } from "./pages/AccessLogPage";
 import { AddressHistoryPage } from "./pages/AddressHistoryPage";
 import { theme } from "./lib/theme";
 import { DateTimePrefsProvider } from "./contexts/DateTimePrefsContext";
@@ -73,11 +73,11 @@ function App() {
                     }
                   />
                   <Route
-                    path="/request-audit-log"
+                    path="/access-log"
                     element={
                       <ProtectedRoute>
                         <AppShell>
-                          <RequestAuditLogPage />
+                          <AccessLogPage />
                         </AppShell>
                       </ProtectedRoute>
                     }

@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/audit"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
@@ -33,7 +33,7 @@ type QueriesHandler = queries.HTTPHandler
 type DeviceHandler = device.HTTPHandler
 type AuthHandler = auth.HTTPHandler
 type PolicyHandler = policy.HTTPHandler
-type AuditHandler = audit.HTTPHandler
+type AuditHandler = accesslog.HTTPHandler
 type DashboardHandler = dashboard.HTTPHandler
 
 func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, auditHandler *AuditHandler, dashboardHandler *DashboardHandler, logger *slog.Logger) {

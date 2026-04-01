@@ -10,8 +10,8 @@ import {
 import { DateTimePicker } from "@mantine/dates";
 import { IconChevronRight, IconHome, IconSearch } from "@tabler/icons-react";
 import type { DataTableColumn } from "mantine-datatable";
-import type { RequestAuditLogRow } from "@/lib/api";
-import type { AuditLogFilters } from "../hooks/useAuditLogFilters";
+import type { AccessLogRow } from "@/lib/api";
+import type { AuditLogFilters } from "../hooks/useAccessLogFilters";
 import { DENY_REASON_LABELS } from "../constants";
 import { countryFlagEmoji } from "@/lib/countryFlag";
 import dayjs from "dayjs";
@@ -23,7 +23,7 @@ const refDateStyle = {
     borderRadius: "var(--mantine-radius-sm)",
 } as const;
 
-export interface AuditLogColumnDeps {
+export interface AccessLogColumnDeps {
     formatDateTime: (value: string) => string;
     pickerValueFormat: string;
 
@@ -50,10 +50,10 @@ export interface AuditLogColumnDeps {
     setSearchParams: AuditLogFilters["setSearchParams"];
 
     // Actions
-    onRowClick: (row: RequestAuditLogRow) => void;
+    onRowClick: (row: AccessLogRow) => void;
 }
 
-export function getAuditLogColumns(deps: AuditLogColumnDeps): DataTableColumn<RequestAuditLogRow>[] {
+export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<AccessLogRow>[] {
     return [
         {
             accessor: "created_at",

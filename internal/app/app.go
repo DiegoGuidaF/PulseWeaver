@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/audit"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
@@ -36,7 +36,7 @@ type App struct {
 	RuleService         *rule.Service
 	addressLeaseService *lease.Service
 	schedulerService    *scheduler.Service
-	auditSink           *audit.Sink
+	auditSink           *accesslog.Sink
 	geoipLookup         *geoip.Lookup
 }
 
@@ -119,9 +119,9 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	ruleHandler := rule.NewHTTPHandler(ruleService, logger)
 
 	// Audit log — write side + simple reads (deny reasons)
-	auditRepo := audit.NewRepository(db.DB())
-	auditSink := audit.NewSink(auditRepo, logger)
-	auditHandler := audit.NewHTTPHandler(auditRepo, logger)
+	auditRepo := accesslog.NewRepository(db.DB())
+	auditSink := accesslog.NewSink(auditRepo, logger)
+	auditHandler := accesslog.NewHTTPHandler(auditRepo, logger)
 
 	queriesRepo := queries.NewRepository(db.DB())
 	queriesHandler := queries.NewHTTPHandler(queriesRepo, logger)

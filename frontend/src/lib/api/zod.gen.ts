@@ -178,7 +178,7 @@ export const zAddress = z.object({
     expires_at: z.iso.datetime({ offset: true, local: true }).readonly().nullish()
 });
 
-export const zRequestAuditLogRow = z.object({
+export const zAccessLogRow = z.object({
     id: zId,
     client_ip: zIpAddress,
     outcome: z.boolean(),
@@ -199,10 +199,10 @@ export const zRequestAuditLogRow = z.object({
     headers: z.record(z.string(), z.array(z.string()))
 });
 
-export const zRequestAuditLogResponse = z.object({
+export const zAccessLogResponse = z.object({
     total: z.int(),
     next_cursor: zId.nullable(),
-    rows: z.array(zRequestAuditLogRow)
+    rows: z.array(zAccessLogRow)
 });
 
 export const zDeviceAddressLeaseRule = z.object({
@@ -496,7 +496,7 @@ export const zDeviceHeartbeatByApiKeyData = z.object({
  */
 export const zDeviceHeartbeatByApiKeyResponse = zAddress;
 
-export const zGetRequestAuditLogData = z.object({
+export const zGetAccessLogData = z.object({
     body: z.never().optional(),
     path: z.never().optional(),
     query: z.object({
@@ -515,11 +515,11 @@ export const zGetRequestAuditLogData = z.object({
 });
 
 /**
- * Request audit log entries
+ * Access log entries
  */
-export const zGetRequestAuditLogResponse = zRequestAuditLogResponse;
+export const zGetAccessLogResponse = zAccessLogResponse;
 
-export const zGetRequestAuditLogByCountryData = z.object({
+export const zGetAccessLogByCountryData = z.object({
     body: z.never().optional(),
     path: z.never().optional(),
     query: z.object({
@@ -530,9 +530,9 @@ export const zGetRequestAuditLogByCountryData = z.object({
 /**
  * Request counts by country
  */
-export const zGetRequestAuditLogByCountryResponse = z.array(zAuditLogCountryStats);
+export const zGetAccessLogByCountryResponse = z.array(zAuditLogCountryStats);
 
-export const zGetRequestAuditLogDenyReasonsData = z.object({
+export const zGetAccessLogDenyReasonsData = z.object({
     body: z.never().optional(),
     path: z.never().optional(),
     query: z.never().optional()
@@ -541,7 +541,7 @@ export const zGetRequestAuditLogDenyReasonsData = z.object({
 /**
  * List of deny reason values
  */
-export const zGetRequestAuditLogDenyReasonsResponse = z.array(z.string());
+export const zGetAccessLogDenyReasonsResponse = z.array(z.string());
 
 export const zDisableAddressData = z.object({
     body: z.never().optional(),

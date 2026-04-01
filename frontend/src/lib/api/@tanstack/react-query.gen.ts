@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addAddress, changePassword, createDevice, createUser, deleteDevice, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, getAddressHistory, getCurrentUser, getDashboardServices, getDashboardStats, getDashboardTopDeniedIps, getDashboardTraffic, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, getRequestAuditLog, getRequestAuditLogByCountry, getRequestAuditLogDenyReasons, listUsers, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, regenerateDeviceApiKey, updateMe } from '../sdk.gen';
-import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, GetAddressHistoryData, GetAddressHistoryError, GetAddressHistoryResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDashboardServicesData, GetDashboardServicesError, GetDashboardServicesResponse, GetDashboardStatsData, GetDashboardStatsError, GetDashboardStatsResponse, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsError, GetDashboardTopDeniedIpsResponse, GetDashboardTrafficData, GetDashboardTrafficError, GetDashboardTrafficResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, GetRequestAuditLogByCountryData, GetRequestAuditLogByCountryError, GetRequestAuditLogByCountryResponse, GetRequestAuditLogData, GetRequestAuditLogDenyReasonsData, GetRequestAuditLogDenyReasonsError, GetRequestAuditLogDenyReasonsResponse, GetRequestAuditLogError, GetRequestAuditLogResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
+import { addAddress, changePassword, createDevice, createUser, deleteDevice, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, getAccessLog, getAccessLogByCountry, getAccessLogDenyReasons, getAddressHistory, getCurrentUser, getDashboardServices, getDashboardStats, getDashboardTopDeniedIps, getDashboardTraffic, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, listUsers, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, regenerateDeviceApiKey, updateMe } from '../sdk.gen';
+import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, GetAccessLogByCountryData, GetAccessLogByCountryError, GetAccessLogByCountryResponse, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsError, GetAccessLogDenyReasonsResponse, GetAccessLogError, GetAccessLogResponse, GetAddressHistoryData, GetAddressHistoryError, GetAddressHistoryResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDashboardServicesData, GetDashboardServicesError, GetDashboardServicesResponse, GetDashboardStatsData, GetDashboardStatsError, GetDashboardStatsResponse, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsError, GetDashboardTopDeniedIpsResponse, GetDashboardTrafficData, GetDashboardTrafficError, GetDashboardTrafficResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -427,17 +427,17 @@ export const deviceHeartbeatByApiKeyMutation = (options?: Partial<Options<Device
     return mutationOptions;
 };
 
-export const getRequestAuditLogQueryKey = (options?: Options<GetRequestAuditLogData>) => createQueryKey('getRequestAuditLog', options);
+export const getAccessLogQueryKey = (options?: Options<GetAccessLogData>) => createQueryKey('getAccessLog', options);
 
 /**
- * List request audit log entries
+ * List access log entries
  *
  * Returns paginated request log entries to review access-control decisions. Admin-only.
  *
  */
-export const getRequestAuditLogOptions = (options?: Options<GetRequestAuditLogData>) => queryOptions<GetRequestAuditLogResponse, GetRequestAuditLogError, GetRequestAuditLogResponse, ReturnType<typeof getRequestAuditLogQueryKey>>({
+export const getAccessLogOptions = (options?: Options<GetAccessLogData>) => queryOptions<GetAccessLogResponse, GetAccessLogError, GetAccessLogResponse, ReturnType<typeof getAccessLogQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getRequestAuditLog({
+        const { data } = await getAccessLog({
             ...options,
             ...queryKey[0],
             signal,
@@ -445,17 +445,17 @@ export const getRequestAuditLogOptions = (options?: Options<GetRequestAuditLogDa
         });
         return data;
     },
-    queryKey: getRequestAuditLogQueryKey(options)
+    queryKey: getAccessLogQueryKey(options)
 });
 
-export const getRequestAuditLogByCountryQueryKey = (options?: Options<GetRequestAuditLogByCountryData>) => createQueryKey('getRequestAuditLogByCountry', options);
+export const getAccessLogByCountryQueryKey = (options?: Options<GetAccessLogByCountryData>) => createQueryKey('getAccessLogByCountry', options);
 
 /**
  * Request counts grouped by country
  */
-export const getRequestAuditLogByCountryOptions = (options?: Options<GetRequestAuditLogByCountryData>) => queryOptions<GetRequestAuditLogByCountryResponse, GetRequestAuditLogByCountryError, GetRequestAuditLogByCountryResponse, ReturnType<typeof getRequestAuditLogByCountryQueryKey>>({
+export const getAccessLogByCountryOptions = (options?: Options<GetAccessLogByCountryData>) => queryOptions<GetAccessLogByCountryResponse, GetAccessLogByCountryError, GetAccessLogByCountryResponse, ReturnType<typeof getAccessLogByCountryQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getRequestAuditLogByCountry({
+        const { data } = await getAccessLogByCountry({
             ...options,
             ...queryKey[0],
             signal,
@@ -463,20 +463,20 @@ export const getRequestAuditLogByCountryOptions = (options?: Options<GetRequestA
         });
         return data;
     },
-    queryKey: getRequestAuditLogByCountryQueryKey(options)
+    queryKey: getAccessLogByCountryQueryKey(options)
 });
 
-export const getRequestAuditLogDenyReasonsQueryKey = (options?: Options<GetRequestAuditLogDenyReasonsData>) => createQueryKey('getRequestAuditLogDenyReasons', options);
+export const getAccessLogDenyReasonsQueryKey = (options?: Options<GetAccessLogDenyReasonsData>) => createQueryKey('getAccessLogDenyReasons', options);
 
 /**
  * List valid deny reason values
  *
- * Returns all valid deny_reason values that can appear in audit log entries or be used as the deny_reason filter on GET /request-audit-log.
+ * Returns all valid deny_reason values that can appear in audit log entries or be used as the deny_reason filter on GET /access-log.
  *
  */
-export const getRequestAuditLogDenyReasonsOptions = (options?: Options<GetRequestAuditLogDenyReasonsData>) => queryOptions<GetRequestAuditLogDenyReasonsResponse, GetRequestAuditLogDenyReasonsError, GetRequestAuditLogDenyReasonsResponse, ReturnType<typeof getRequestAuditLogDenyReasonsQueryKey>>({
+export const getAccessLogDenyReasonsOptions = (options?: Options<GetAccessLogDenyReasonsData>) => queryOptions<GetAccessLogDenyReasonsResponse, GetAccessLogDenyReasonsError, GetAccessLogDenyReasonsResponse, ReturnType<typeof getAccessLogDenyReasonsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getRequestAuditLogDenyReasons({
+        const { data } = await getAccessLogDenyReasons({
             ...options,
             ...queryKey[0],
             signal,
@@ -484,7 +484,7 @@ export const getRequestAuditLogDenyReasonsOptions = (options?: Options<GetReques
         });
         return data;
     },
-    queryKey: getRequestAuditLogDenyReasonsQueryKey(options)
+    queryKey: getAccessLogDenyReasonsQueryKey(options)
 });
 
 /**

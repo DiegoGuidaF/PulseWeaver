@@ -4,10 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { http } from "msw";
 import { server } from "@/test/setup";
 import { renderWithProviders } from "@/test/utils";
-import { RequestAuditLogPage } from "./RequestAuditLogPage";
+import { AccessLogPage } from "./AccessLogPage";
 import {
-    createMockRequestAuditLogRow,
-    createMockRequestAuditLogResponse,
+    createMockAccessLogRow,
+    createMockAccessLogResponse,
 } from "@/test/mocks/data";
 import { endpoints, requestAuditLogHandlers, responses } from "@/test/mocks/handlers";
 import { TEST_TIMEOUTS } from "@/test/constants";
@@ -15,22 +15,22 @@ import { TEST_TIMEOUTS } from "@/test/constants";
 // Pre-set date range so the table's useEffect does not trigger
 // a second query (avoiding the double-render that causes test flakiness).
 const BASE_ENTRY =
-    "/request-audit-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z";
+    "/access-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z";
 
-describe("RequestAuditLogPage", () => {
+describe("AccessLogPage", () => {
     it("renders table with mock rows", async () => {
-        const row = createMockRequestAuditLogRow({
+        const row = createMockAccessLogRow({
             client_ip: "203.0.113.42",
             target_host: "example.com",
             outcome: true,
         });
         server.use(
             requestAuditLogHandlers.list(
-                createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                createMockAccessLogResponse({ rows: [row], total: 1 }),
             ),
         );
 
-        renderWithProviders(<RequestAuditLogPage />, {
+        renderWithProviders(<AccessLogPage />, {
             initialEntries: [BASE_ENTRY],
         });
 
@@ -50,11 +50,11 @@ describe("RequestAuditLogPage", () => {
     it("shows empty state when rows is empty", async () => {
         server.use(
             requestAuditLogHandlers.list(
-                createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                createMockAccessLogResponse({ rows: [], total: 0 }),
             ),
         );
 
-        renderWithProviders(<RequestAuditLogPage />, {
+        renderWithProviders(<AccessLogPage />, {
             initialEntries: [BASE_ENTRY],
         });
 
@@ -73,7 +73,7 @@ describe("RequestAuditLogPage", () => {
             http.get(endpoints.requestAuditLog, () => responses.serverError()),
         );
 
-        renderWithProviders(<RequestAuditLogPage />, {
+        renderWithProviders(<AccessLogPage />, {
             initialEntries: [BASE_ENTRY],
         });
 
@@ -92,7 +92,7 @@ describe("RequestAuditLogPage", () => {
             ),
         );
 
-        renderWithProviders(<RequestAuditLogPage />, {
+        renderWithProviders(<AccessLogPage />, {
             initialEntries: [BASE_ENTRY],
         });
 
@@ -106,7 +106,7 @@ describe("RequestAuditLogPage", () => {
 
     it("row click opens detail drawer with row data", async () => {
         const user = userEvent.setup();
-        const row = createMockRequestAuditLogRow({
+        const row = createMockAccessLogRow({
             id: 42,
             client_ip: "10.0.0.1",
             outcome: false,
@@ -115,11 +115,11 @@ describe("RequestAuditLogPage", () => {
         });
         server.use(
             requestAuditLogHandlers.list(
-                createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                createMockAccessLogResponse({ rows: [row], total: 1 }),
             ),
         );
 
-        renderWithProviders(<RequestAuditLogPage />, {
+        renderWithProviders(<AccessLogPage />, {
             initialEntries: [BASE_ENTRY],
         });
 
@@ -147,7 +147,7 @@ describe("RequestAuditLogPage", () => {
     it("outcome column filter opens and shows options", async () => {
         const user = userEvent.setup();
 
-        renderWithProviders(<RequestAuditLogPage />, {
+        renderWithProviders(<AccessLogPage />, {
             initialEntries: [BASE_ENTRY],
         });
 

@@ -3,13 +3,13 @@ import { Stack } from "@mantine/core";
 import { AutoRefreshSelect } from "@/components/AutoRefreshSelect";
 import { TimeRangePresetSelect } from "@/components/TimeRangePresetSelect";
 import { PageToolbar } from "@/components/PageToolbar";
-import { RequestAuditLogTable } from "@/features/request-audit-log/components/RequestAuditLogTable";
-import { useAuditLogFilters } from "@/features/request-audit-log/hooks/useAuditLogFilters";
+import { AccessLogTable } from "@/features/access-log/components/AccessLogTable";
+import { useAccessLogFilters } from "@/features/access-log/hooks/useAccessLogFilters";
 
 const DEFAULT_REFRESH = 5_000;
 
-export function RequestAuditLogPage() {
-    const filters = useAuditLogFilters();
+export function AccessLogPage() {
+    const filters = useAccessLogFilters();
 
     const [refresh, setRefresh] = useState({
         hasCustomTo: filters.hasCustomTo,
@@ -36,7 +36,7 @@ export function RequestAuditLogPage() {
                     </>
                 }
             />
-            <RequestAuditLogTable filters={filters} refreshInterval={refresh.interval} />
+            <AccessLogTable filters={filters} refreshInterval={refresh.interval} />
         </Stack>
     );
 }

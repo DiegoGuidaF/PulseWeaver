@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/audit"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
@@ -20,19 +20,19 @@ import (
 	"github.com/matryer/is"
 )
 
-func TestHandler_GetRequestAuditLog_EmptyRows(t *testing.T) {
+func TestHandler_GetAccessLog_EmptyRows(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/request-audit-log", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/access-log", nil)
 	req.AddCookie(adminCookie)
 	rec := httptest.NewRecorder()
 	testServer.HTTPServer.ServeHTTP(rec, req)
 
 	is.Equal(rec.Code, http.StatusOK)
 
-	var response httpapi.RequestAuditLogResponse
+	var response httpapi.AccessLogResponse
 	err := json.NewDecoder(rec.Body).Decode(&response)
 	is.NoErr(err)
 	is.Equal(response.Total, 0)
@@ -40,7 +40,7 @@ func TestHandler_GetRequestAuditLog_EmptyRows(t *testing.T) {
 	is.True(response.NextCursor == nil)
 }
 
-func TestHandler_GetRequestAuditLog_CorrectFields(t *testing.T) {
+func TestHandler_GetAccessLog_CorrectFields(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
@@ -59,7 +59,7 @@ func TestHandler_GetRequestAuditLog_CorrectFields(t *testing.T) {
 	devID := dev.ID
 	addrID := addr.ID
 
-	auditRepo := audit.NewRepository(testServer.Database.DB())
+	auditRepo := accesslog.NewRepository(testServer.Database.DB())
 	err = auditRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
 		{
 			ClientIP:   "1.2.3.4",
@@ -77,14 +77,14 @@ func TestHandler_GetRequestAuditLog_CorrectFields(t *testing.T) {
 	})
 	is.NoErr(err)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/request-audit-log", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/access-log", nil)
 	req.AddCookie(adminCookie)
 	rec := httptest.NewRecorder()
 	testServer.HTTPServer.ServeHTTP(rec, req)
 
 	is.Equal(rec.Code, http.StatusOK)
 
-	var response httpapi.RequestAuditLogResponse
+	var response httpapi.AccessLogResponse
 	err = json.NewDecoder(rec.Body).Decode(&response)
 	is.NoErr(err)
 	is.Equal(response.Total, 1)
@@ -113,13 +113,13 @@ func TestHandler_GetRequestAuditLog_CorrectFields(t *testing.T) {
 	is.True(time.Time(row.CreatedAt).UTC().Truncate(time.Second).Equal(createdAt))
 }
 
-func TestHandler_GetRequestAuditLog_FilterByOutcome(t *testing.T) {
+func TestHandler_GetAccessLog_FilterByOutcome(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
 	reason := policy.DenyReasonIPNotRegistered
-	auditRepo := audit.NewRepository(testServer.Database.DB())
+	auditRepo := accesslog.NewRepository(testServer.Database.DB())
 	err := auditRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
 		{ClientIP: "1.1.1.1", Outcome: false, DenyReason: &reason, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
 		{ClientIP: "2.2.2.2", Outcome: false, DenyReason: &reason, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
@@ -127,14 +127,14 @@ func TestHandler_GetRequestAuditLog_FilterByOutcome(t *testing.T) {
 	})
 	is.NoErr(err)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/request-audit-log?outcome=false", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/access-log?outcome=false", nil)
 	req.AddCookie(adminCookie)
 	rec := httptest.NewRecorder()
 	testServer.HTTPServer.ServeHTTP(rec, req)
 
 	is.Equal(rec.Code, http.StatusOK)
 
-	var response httpapi.RequestAuditLogResponse
+	var response httpapi.AccessLogResponse
 	err = json.NewDecoder(rec.Body).Decode(&response)
 	is.NoErr(err)
 	is.Equal(response.Total, 2)
@@ -144,7 +144,7 @@ func TestHandler_GetRequestAuditLog_FilterByOutcome(t *testing.T) {
 	}
 }
 
-func TestHandler_GetRequestAuditLog_FilterByDeviceID(t *testing.T) {
+func TestHandler_GetAccessLog_FilterByDeviceID(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
@@ -154,14 +154,14 @@ func TestHandler_GetRequestAuditLog_FilterByDeviceID(t *testing.T) {
 	devID := dev.ID
 
 	reason := policy.DenyReasonIPNotRegistered
-	auditRepo := audit.NewRepository(testServer.Database.DB())
+	auditRepo := accesslog.NewRepository(testServer.Database.DB())
 	err = auditRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
 		{ClientIP: "1.1.1.1", Outcome: false, DenyReason: &reason, DeviceID: &devID, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
 		{ClientIP: "2.2.2.2", Outcome: false, DenyReason: &reason, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}}, // no device
 	})
 	is.NoErr(err)
 
-	url := fmt.Sprintf("/api/v1/request-audit-log?device_id=%d", devID)
+	url := fmt.Sprintf("/api/v1/access-log?device_id=%d", devID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	req.AddCookie(adminCookie)
 	rec := httptest.NewRecorder()
@@ -169,7 +169,7 @@ func TestHandler_GetRequestAuditLog_FilterByDeviceID(t *testing.T) {
 
 	is.Equal(rec.Code, http.StatusOK)
 
-	var response httpapi.RequestAuditLogResponse
+	var response httpapi.AccessLogResponse
 	err = json.NewDecoder(rec.Body).Decode(&response)
 	is.NoErr(err)
 	is.Equal(response.Total, 1)
@@ -178,12 +178,12 @@ func TestHandler_GetRequestAuditLog_FilterByDeviceID(t *testing.T) {
 	is.Equal(*response.Rows[0].DeviceId, int64(devID))
 }
 
-func TestHandler_GetRequestAuditLog_FilterByIPPartialMatch(t *testing.T) {
+func TestHandler_GetAccessLog_FilterByIPPartialMatch(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	auditRepo := audit.NewRepository(testServer.Database.DB())
+	auditRepo := accesslog.NewRepository(testServer.Database.DB())
 	err := auditRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
 		{ClientIP: "123.222.234.1", Outcome: true, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
 		{ClientIP: "234.111.222.111", Outcome: true, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
@@ -191,14 +191,14 @@ func TestHandler_GetRequestAuditLog_FilterByIPPartialMatch(t *testing.T) {
 	})
 	is.NoErr(err)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/request-audit-log?ip=234", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/access-log?ip=234", nil)
 	req.AddCookie(adminCookie)
 	rec := httptest.NewRecorder()
 	testServer.HTTPServer.ServeHTTP(rec, req)
 
 	is.Equal(rec.Code, http.StatusOK)
 
-	var response httpapi.RequestAuditLogResponse
+	var response httpapi.AccessLogResponse
 	err = json.NewDecoder(rec.Body).Decode(&response)
 	is.NoErr(err)
 	is.Equal(response.Total, 2)
@@ -208,13 +208,13 @@ func TestHandler_GetRequestAuditLog_FilterByIPPartialMatch(t *testing.T) {
 	}
 }
 
-func TestHandler_GetRequestAuditLog_Pagination(t *testing.T) {
+func TestHandler_GetAccessLog_Pagination(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
 	reason := policy.DenyReasonIPNotRegistered
-	auditRepo := audit.NewRepository(testServer.Database.DB())
+	auditRepo := accesslog.NewRepository(testServer.Database.DB())
 	err := auditRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
 		{ClientIP: "1.1.1.1", Outcome: false, DenyReason: &reason, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
 		{ClientIP: "2.2.2.2", Outcome: false, DenyReason: &reason, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
@@ -223,14 +223,14 @@ func TestHandler_GetRequestAuditLog_Pagination(t *testing.T) {
 	is.NoErr(err)
 
 	// First page: limit=2 → 2 rows returned, next_cursor set, total reflects all 3
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/request-audit-log?limit=2", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/access-log?limit=2", nil)
 	req.AddCookie(adminCookie)
 	rec := httptest.NewRecorder()
 	testServer.HTTPServer.ServeHTTP(rec, req)
 
 	is.Equal(rec.Code, http.StatusOK)
 
-	var page1 httpapi.RequestAuditLogResponse
+	var page1 httpapi.AccessLogResponse
 	err = json.NewDecoder(rec.Body).Decode(&page1)
 	is.NoErr(err)
 	is.Equal(page1.Total, 3)
@@ -238,7 +238,7 @@ func TestHandler_GetRequestAuditLog_Pagination(t *testing.T) {
 	is.True(page1.NextCursor != nil)
 
 	// Second page: before_id=cursor → 1 remaining row, no further cursor
-	url := fmt.Sprintf("/api/v1/request-audit-log?limit=2&before_id=%d", *page1.NextCursor)
+	url := fmt.Sprintf("/api/v1/access-log?limit=2&before_id=%d", *page1.NextCursor)
 	req = httptest.NewRequest(http.MethodGet, url, nil)
 	req.AddCookie(adminCookie)
 	rec = httptest.NewRecorder()
@@ -246,7 +246,7 @@ func TestHandler_GetRequestAuditLog_Pagination(t *testing.T) {
 
 	is.Equal(rec.Code, http.StatusOK)
 
-	var page2 httpapi.RequestAuditLogResponse
+	var page2 httpapi.AccessLogResponse
 	err = json.NewDecoder(rec.Body).Decode(&page2)
 	is.NoErr(err)
 	is.Equal(len(page2.Rows), 1)

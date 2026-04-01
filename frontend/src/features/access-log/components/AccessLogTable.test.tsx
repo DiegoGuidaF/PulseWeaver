@@ -4,22 +4,22 @@ import userEvent from "@testing-library/user-event";
 import { http } from "msw";
 import { server } from "@/test/setup";
 import { renderWithProviders } from "@/test/utils";
-import { RequestAuditLogPage } from "@/pages/RequestAuditLogPage";
+import { AccessLogPage } from "@/pages/AccessLogPage";
 import {
-    createMockRequestAuditLogRow,
-    createMockRequestAuditLogResponse,
+    createMockAccessLogRow,
+    createMockAccessLogResponse,
 } from "@/test/mocks/data";
 import { endpoints, requestAuditLogHandlers, responses } from "@/test/mocks/handlers";
 import { TEST_TIMEOUTS } from "@/test/constants";
 
 // Pre-set date range so the component starts with a bounded time window.
 const BASE_ENTRY =
-    "/request-audit-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z";
+    "/access-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function renderTable(initialEntries = [BASE_ENTRY]) {
-    return renderWithProviders(<RequestAuditLogPage />, {
+    return renderWithProviders(<AccessLogPage />, {
         initialEntries,
     });
 }
@@ -37,16 +37,16 @@ function getFilterButton(columnTitle: string | RegExp) {
 
 // ─── Basic rendering ─────────────────────────────────────────────────────────
 
-describe("RequestAuditLogTable", () => {
+describe("AccessLogTable", () => {
     it("renders table rows from API response", async () => {
-        const row = createMockRequestAuditLogRow({
+        const row = createMockAccessLogRow({
             client_ip: "203.0.113.42",
             target_host: "example.com",
             outcome: true,
         });
         server.use(
             requestAuditLogHandlers.list(
-                createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                createMockAccessLogResponse({ rows: [row], total: 1 }),
             ),
         );
 
@@ -64,7 +64,7 @@ describe("RequestAuditLogTable", () => {
     it("shows no-records message while keeping column headers visible", async () => {
         server.use(
             requestAuditLogHandlers.list(
-                createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                createMockAccessLogResponse({ rows: [], total: 0 }),
             ),
         );
 
@@ -111,7 +111,7 @@ describe("RequestAuditLogTable", () => {
 
     it("row click opens detail drawer with row data", async () => {
         const user = userEvent.setup();
-        const row = createMockRequestAuditLogRow({
+        const row = createMockAccessLogRow({
             id: 42,
             client_ip: "10.0.0.1",
             outcome: false,
@@ -120,7 +120,7 @@ describe("RequestAuditLogTable", () => {
         });
         server.use(
             requestAuditLogHandlers.list(
-                createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                createMockAccessLogResponse({ rows: [row], total: 1 }),
             ),
         );
 
@@ -148,7 +148,7 @@ describe("RequestAuditLogTable", () => {
             const user = userEvent.setup();
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
@@ -170,7 +170,7 @@ describe("RequestAuditLogTable", () => {
             const user = userEvent.setup();
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
@@ -199,7 +199,7 @@ describe("RequestAuditLogTable", () => {
             const user = userEvent.setup();
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
@@ -221,7 +221,7 @@ describe("RequestAuditLogTable", () => {
             const user = userEvent.setup();
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
@@ -267,7 +267,7 @@ describe("RequestAuditLogTable", () => {
             const user = userEvent.setup();
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
@@ -289,7 +289,7 @@ describe("RequestAuditLogTable", () => {
             const user = userEvent.setup();
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
@@ -321,7 +321,7 @@ describe("RequestAuditLogTable", () => {
             const user = userEvent.setup();
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
@@ -347,7 +347,7 @@ describe("RequestAuditLogTable", () => {
             const user = userEvent.setup();
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
@@ -371,7 +371,7 @@ describe("RequestAuditLogTable", () => {
         it("shows a Time chip when from/to are set", async () => {
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
@@ -388,12 +388,12 @@ describe("RequestAuditLogTable", () => {
         it("shows an IP chip when ip filter is set via URL", async () => {
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
             renderTable([
-                "/request-audit-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&ip=10.0.0",
+                "/access-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&ip=10.0.0",
             ]);
 
             await waitFor(
@@ -408,12 +408,12 @@ describe("RequestAuditLogTable", () => {
         it("shows a Device chip with device name when device_id filter is set", async () => {
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
             renderTable([
-                "/request-audit-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&device_id=1",
+                "/access-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&device_id=1",
             ]);
 
             await waitFor(
@@ -428,12 +428,12 @@ describe("RequestAuditLogTable", () => {
         it("shows an Outcome chip when outcome filter is set", async () => {
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
             renderTable([
-                "/request-audit-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&outcome=deny",
+                "/access-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&outcome=deny",
             ]);
 
             await waitFor(
@@ -449,12 +449,12 @@ describe("RequestAuditLogTable", () => {
             const user = userEvent.setup();
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
             renderTable([
-                "/request-audit-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&ip=10.0.0",
+                "/access-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&ip=10.0.0",
             ]);
 
             await waitFor(
@@ -476,12 +476,12 @@ describe("RequestAuditLogTable", () => {
         it("does not render chips when no filters are active", async () => {
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
             // No from/to/ip/device/outcome params — only preset (default)
-            renderTable(["/request-audit-log?preset=last_24h"]);
+            renderTable(["/access-log?preset=last_24h"]);
 
             await waitFor(
                 () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
@@ -502,7 +502,7 @@ describe("RequestAuditLogTable", () => {
             const user = userEvent.setup();
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 

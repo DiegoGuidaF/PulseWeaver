@@ -398,7 +398,7 @@ export const AddressSchema = {
     }
 } as const;
 
-export const RequestAuditLogResponseSchema = {
+export const AccessLogResponseSchema = {
     type: 'object',
     required: [
         'total',
@@ -421,7 +421,7 @@ export const RequestAuditLogResponseSchema = {
         rows: {
             type: 'array',
             items: {
-                $ref: '#/components/schemas/RequestAuditLogRow'
+                $ref: '#/components/schemas/AccessLogRow'
             }
         }
     }
@@ -457,7 +457,7 @@ export const AuditLogCountryStatsSchema = {
     }
 } as const;
 
-export const RequestAuditLogRowSchema = {
+export const AccessLogRowSchema = {
     type: 'object',
     required: [
         'id',

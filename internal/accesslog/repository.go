@@ -1,4 +1,4 @@
-package audit
+package accesslog
 
 import (
 	"context"
@@ -42,14 +42,14 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 
 	return r.runInTx(ctx, func(tx *Repository) error {
 		const insertAudit = `
-            INSERT INTO request_audit_log (
+            INSERT INTO access_log (
                 client_ip, device_id, address_id, outcome, deny_reason,
                 created_at, xff_chain, target_host, target_uri, http_method, headers_json
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id
         `
 		const insertGeoIP = `
-            INSERT INTO request_audit_log_geoip
+            INSERT INTO access_log_geoip
                 (audit_log_id, country_code, country_name, continent_code, asn, asn_org)
             VALUES (?, ?, ?, ?, ?, ?)
         `
@@ -89,7 +89,7 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 func (r *Repository) ListDenyReasons(ctx context.Context) ([]string, error) {
 	const query = `
 		SELECT DISTINCT deny_reason
-		FROM request_audit_log
+		FROM access_log
 		WHERE deny_reason IS NOT NULL
 		ORDER BY deny_reason
 	`

@@ -11,7 +11,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 )
 
-type RequestAuditLogView struct {
+type AccessLogView struct {
 	ID            int64
 	ClientIP      string
 	Outcome       bool
@@ -32,7 +32,7 @@ type RequestAuditLogView struct {
 	ASNOrg        *string
 }
 
-type RequestAuditLogQuery struct {
+type AccessLogQuery struct {
 	From          time.Time
 	To            time.Time
 	BeforeID      *int64 // cursor: return rows with id < BeforeID; nil for first page
@@ -46,7 +46,7 @@ type RequestAuditLogQuery struct {
 	Limit         int
 }
 
-func NewRequestAuditLogQuery(params httpapi.GetRequestAuditLogParams) RequestAuditLogQuery {
+func NewAccessLogQuery(params httpapi.GetAccessLogParams) AccessLogQuery {
 	// Defaults: from = 24h ago, to = now, limit = 50 if not provided.
 	now := time.Now().UTC()
 	from := now.Add(-24 * time.Hour)
@@ -70,7 +70,7 @@ func NewRequestAuditLogQuery(params httpapi.GetRequestAuditLogParams) RequestAud
 		limit = 200
 	}
 
-	return RequestAuditLogQuery{
+	return AccessLogQuery{
 		DeviceID:      (*device.DeviceID)(params.DeviceId),
 		Outcome:       params.Outcome,
 		DenyReason:    params.DenyReason,
@@ -86,7 +86,7 @@ func NewRequestAuditLogQuery(params httpapi.GetRequestAuditLogParams) RequestAud
 
 }
 
-func (r *Repository) ListRequestAuditLog(ctx context.Context, q RequestAuditLogQuery) ([]RequestAuditLogView, int, error) {
+func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]AccessLogView, int, error) {
 
 	whereFilters := []string{"1=1"}
 	var countArgs []any
@@ -139,9 +139,9 @@ func (r *Repository) ListRequestAuditLog(ctx context.Context, q RequestAuditLogQ
 	// Total count
 	var total int
 	countQuery := `
-		SELECT COUNT(*) FROM request_audit_log ral
+		SELECT COUNT(*) FROM access_log ral
 		LEFT JOIN devices d ON d.id = ral.device_id
-		LEFT JOIN request_audit_log_geoip g ON g.audit_log_id = ral.id
+		LEFT JOIN access_log_geoip g ON g.audit_log_id = ral.id
 	` + buildWhere(whereFilters)
 	if err := r.db.GetContext(ctx, &total, countQuery, countArgs...); err != nil {
 		return nil, 0, fmt.Errorf("count audit log: %w", err)
@@ -156,7 +156,7 @@ func (r *Repository) ListRequestAuditLog(ctx context.Context, q RequestAuditLogQ
 	}
 	selectArgs = append(selectArgs, q.Limit)
 
-	var dbRows []dbRequestAuditLogRow
+	var dbRows []dbAccessLogRow
 	selectQuery := `
 		SELECT
 			ral.id,
@@ -177,15 +177,15 @@ func (r *Repository) ListRequestAuditLog(ctx context.Context, q RequestAuditLogQ
 			g.continent_code,
 			g.asn,
 			g.asn_org
-		FROM request_audit_log ral
+		FROM access_log ral
 		LEFT JOIN devices d ON d.id = ral.device_id
-		LEFT JOIN request_audit_log_geoip g ON g.audit_log_id = ral.id
+		LEFT JOIN access_log_geoip g ON g.audit_log_id = ral.id
 	` + buildWhere(whereFilters) + ` ORDER BY ral.id DESC LIMIT ?`
 	if err := r.db.SelectContext(ctx, &dbRows, selectQuery, selectArgs...); err != nil {
 		return nil, 0, fmt.Errorf("list audit log: %w", err)
 	}
 
-	rows := make([]RequestAuditLogView, len(dbRows))
+	rows := make([]AccessLogView, len(dbRows))
 	for i, rRow := range dbRows {
 		var headers map[string][]string
 		if err := json.Unmarshal([]byte(rRow.HeadersRaw), &headers); err != nil {
@@ -193,7 +193,7 @@ func (r *Repository) ListRequestAuditLog(ctx context.Context, q RequestAuditLogQ
 			headers = map[string][]string{}
 		}
 
-		rows[i] = RequestAuditLogView{
+		rows[i] = AccessLogView{
 			ID:            rRow.ID,
 			ClientIP:      rRow.ClientIP,
 			Outcome:       rRow.Outcome,
@@ -216,7 +216,7 @@ func (r *Repository) ListRequestAuditLog(ctx context.Context, q RequestAuditLogQ
 	}
 
 	if len(rows) == 0 {
-		rows = []RequestAuditLogView{}
+		rows = []AccessLogView{}
 	}
 
 	return rows, total, nil
@@ -243,8 +243,8 @@ func (r *Repository) ListAuditLogStatsByCountry(ctx context.Context, since time.
 			COUNT(*) AS total,
 			SUM(CASE WHEN ral.outcome = 1 THEN 1 ELSE 0 END) AS allowed,
 			SUM(CASE WHEN ral.outcome = 0 THEN 1 ELSE 0 END) AS denied
-		FROM request_audit_log_geoip g
-		JOIN request_audit_log ral ON ral.id = g.audit_log_id
+		FROM access_log_geoip g
+		JOIN access_log ral ON ral.id = g.audit_log_id
 		WHERE ral.created_at >= ?
 		GROUP BY g.country_code, g.country_name, g.continent_code
 		ORDER BY total DESC
@@ -264,7 +264,7 @@ func (r *Repository) ListAuditLogStatsByCountry(ctx context.Context, since time.
 }
 
 // Page of rows.
-type dbRequestAuditLogRow struct {
+type dbAccessLogRow struct {
 	ID            int64             `db:"id"`
 	ClientIP      string            `db:"client_ip"`
 	Outcome       bool              `db:"outcome"`

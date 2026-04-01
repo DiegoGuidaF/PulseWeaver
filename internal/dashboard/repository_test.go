@@ -22,15 +22,15 @@ func setupTestRepo(t *testing.T) (*dashboard.Repository, *sqlx.DB) {
 	return repo, db.DB()
 }
 
-// seedAuditRow inserts a single row into request_audit_log for testing.
-func seedAuditRow(t *testing.T, db *sqlx.DB, clientIP string, targetHost string, outcome bool, denyReason string, createdAt time.Time) {
+// seedAccessLogRow inserts a single row into access_log for testing.
+func seedAccessLogRow(t *testing.T, db *sqlx.DB, clientIP string, targetHost string, outcome bool, denyReason string, createdAt time.Time) {
 	t.Helper()
 	outcomeInt := 0
 	if outcome {
 		outcomeInt = 1
 	}
 	_, err := db.Exec(`
-		INSERT INTO request_audit_log (client_ip, target_host, outcome, deny_reason, created_at, headers_json)
+		INSERT INTO access_log (client_ip, target_host, outcome, deny_reason, created_at, headers_json)
 		VALUES (?, ?, ?, ?, ?, '{}')
 	`, clientIP, targetHost, outcomeInt, denyReason, createdAt.UTC())
 	if err != nil {
@@ -66,12 +66,12 @@ func TestRunRollup_SingleHour_AggregatesCorrectly(t *testing.T) {
 	to := hour.Add(time.Hour)
 
 	// 3 allow + 2 deny from same IP, 1 deny from different IP
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", true, "", hour.Add(5*time.Minute))
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", true, "", hour.Add(10*time.Minute))
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", true, "", hour.Add(15*time.Minute))
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour.Add(20*time.Minute))
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour.Add(25*time.Minute))
-	seedAuditRow(t, db, "10.0.0.2", "api.example.com", false, "no_device_match", hour.Add(30*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", true, "", hour.Add(5*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", true, "", hour.Add(10*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", true, "", hour.Add(15*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour.Add(20*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour.Add(25*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.2", "api.example.com", false, "no_device_match", hour.Add(30*time.Minute))
 
 	err := repo.RunRollup(ctx, from, to)
 	is.NoErr(err)
@@ -93,7 +93,7 @@ func TestRunRollup_Idempotent(t *testing.T) {
 	from := hour
 	to := hour.Add(time.Hour)
 
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", true, "", hour.Add(5*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", true, "", hour.Add(5*time.Minute))
 
 	is.NoErr(repo.RunRollup(ctx, from, to))
 	is.NoErr(repo.RunRollup(ctx, from, to)) // second run should not duplicate
@@ -115,9 +115,9 @@ func TestGetTrafficSeries_MultiHour(t *testing.T) {
 	from := hour1
 	to := hour2.Add(time.Hour)
 
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", true, "", hour1.Add(5*time.Minute))
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour1.Add(10*time.Minute))
-	seedAuditRow(t, db, "10.0.0.2", "app.example.com", true, "", hour2.Add(5*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", true, "", hour1.Add(5*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour1.Add(10*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.2", "app.example.com", true, "", hour2.Add(5*time.Minute))
 
 	is.NoErr(repo.RunRollup(ctx, from, to))
 
@@ -141,9 +141,9 @@ func TestGetTrafficSeries_DayGranularity(t *testing.T) {
 	from := day1Hour1
 	to := day2Hour1.Add(time.Hour)
 
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", true, "", day1Hour1.Add(5*time.Minute))
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", true, "", day1Hour2.Add(5*time.Minute))
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", day2Hour1.Add(5*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", true, "", day1Hour1.Add(5*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", true, "", day1Hour2.Add(5*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", day2Hour1.Add(5*time.Minute))
 
 	is.NoErr(repo.RunRollup(ctx, from, to))
 
@@ -181,11 +181,11 @@ func TestGetTopDeniedIPs(t *testing.T) {
 	to := hour.Add(time.Hour)
 
 	// 10.0.0.2 has 3 denies, 10.0.0.1 has 1 deny, 10.0.0.3 has 0 denies (allow only)
-	seedAuditRow(t, db, "10.0.0.2", "app.example.com", false, "ip_not_registered", hour.Add(1*time.Minute))
-	seedAuditRow(t, db, "10.0.0.2", "app.example.com", false, "ip_not_registered", hour.Add(2*time.Minute))
-	seedAuditRow(t, db, "10.0.0.2", "app.example.com", false, "no_device_match", hour.Add(3*time.Minute))
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour.Add(4*time.Minute))
-	seedAuditRow(t, db, "10.0.0.3", "app.example.com", true, "", hour.Add(5*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.2", "app.example.com", false, "ip_not_registered", hour.Add(1*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.2", "app.example.com", false, "ip_not_registered", hour.Add(2*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.2", "app.example.com", false, "no_device_match", hour.Add(3*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour.Add(4*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.3", "app.example.com", true, "", hour.Add(5*time.Minute))
 
 	is.NoErr(repo.RunRollup(ctx, from, to))
 
@@ -207,9 +207,9 @@ func TestGetTopDeniedIPs_RespectsLimit(t *testing.T) {
 	from := hour
 	to := hour.Add(time.Hour)
 
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour.Add(1*time.Minute))
-	seedAuditRow(t, db, "10.0.0.2", "app.example.com", false, "ip_not_registered", hour.Add(2*time.Minute))
-	seedAuditRow(t, db, "10.0.0.3", "app.example.com", false, "ip_not_registered", hour.Add(3*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour.Add(1*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.2", "app.example.com", false, "ip_not_registered", hour.Add(2*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.3", "app.example.com", false, "ip_not_registered", hour.Add(3*time.Minute))
 
 	is.NoErr(repo.RunRollup(ctx, from, to))
 
@@ -242,10 +242,10 @@ func TestGetServiceSplit(t *testing.T) {
 	from := hour
 	to := hour.Add(time.Hour)
 
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", true, "", hour.Add(1*time.Minute))
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", true, "", hour.Add(2*time.Minute))
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour.Add(3*time.Minute))
-	seedAuditRow(t, db, "10.0.0.1", "api.example.com", true, "", hour.Add(4*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", true, "", hour.Add(1*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", true, "", hour.Add(2*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour.Add(3*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "api.example.com", true, "", hour.Add(4*time.Minute))
 
 	is.NoErr(repo.RunRollup(ctx, from, to))
 
@@ -286,9 +286,9 @@ func TestRunRollup_DenyReasonGrouping(t *testing.T) {
 	to := hour.Add(time.Hour)
 
 	// Same IP, same host, same outcome=deny, different deny_reasons → separate aggregate rows
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour.Add(1*time.Minute))
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour.Add(2*time.Minute))
-	seedAuditRow(t, db, "10.0.0.1", "app.example.com", false, "no_device_match", hour.Add(3*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour.Add(1*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour.Add(2*time.Minute))
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", false, "no_device_match", hour.Add(3*time.Minute))
 
 	is.NoErr(repo.RunRollup(ctx, from, to))
 

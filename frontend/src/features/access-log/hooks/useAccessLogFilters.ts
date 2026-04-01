@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useDebouncedCallback } from "@mantine/hooks";
 import dayjs from "dayjs";
-import type { GetRequestAuditLogData } from "@/lib/api";
+import type { GetAccessLogData } from "@/lib/api";
 import { DEFAULT_PRESET_KEY, PRESET_MS } from "../constants";
 
 const LS_KEY = "pulseweaver:audit-log:filters";
@@ -16,7 +16,7 @@ function persistFilters(params: URLSearchParams) {
 }
 
 export interface AuditLogFilters {
-    queryParams: GetRequestAuditLogData["query"];
+    queryParams: GetAccessLogData["query"];
     filterKey: string;
 
     // Individual values for UI widgets
@@ -55,7 +55,7 @@ function getInitialParams(): URLSearchParams {
     return init;
 }
 
-export function useAuditLogFilters(): AuditLogFilters {
+export function useAccessLogFilters(): AuditLogFilters {
     const [searchParams, setSearchParamsRaw] = useSearchParams(getInitialParams());
 
     // Wrap setSearchParams to persist every change to localStorage
@@ -139,7 +139,7 @@ export function useAuditLogFilters(): AuditLogFilters {
 
     // Compute query params: preset takes precedence over raw from/to
     const presetMs = presetStr ? PRESET_MS[presetStr] : undefined;
-    const queryParams: GetRequestAuditLogData["query"] = {
+    const queryParams: GetAccessLogData["query"] = {
         device_id: deviceIdStr ? Number(deviceIdStr) : undefined,
         outcome: outcomeStr === "allow" ? true : outcomeStr === "deny" ? false : undefined,
         ip: ipDebounced || undefined,

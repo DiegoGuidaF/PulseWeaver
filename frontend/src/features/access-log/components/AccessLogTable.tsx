@@ -2,30 +2,30 @@ import { useMemo, useState } from "react";
 import { Alert, Anchor, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
 import { DataTable } from "mantine-datatable";
 import { IconAlertCircle, IconFilterOff } from "@tabler/icons-react";
-import type { RequestAuditLogRow } from "@/lib/api";
+import type { AccessLogRow } from "@/lib/api";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
 import { CursorPagination } from "@/components/CursorPagination";
 import { TrafficLineChart } from "@/components/TrafficLineChart";
 import { presetToMs } from "@/lib/formatChartLabel";
-import { useRequestAuditLog } from "../hooks/useRequestAuditLog";
+import { useAccessLog } from "../hooks/useAccessLog";
 import { useDashboardTraffic } from "@/features/dashboard/hooks/useDashboardTraffic";
-import type { AuditLogFilters } from "../hooks/useAuditLogFilters";
-import { RequestAuditLogDetailDrawer } from "./RequestAuditLogDetailDrawer";
-import { getAuditLogColumns } from "./auditLogColumns";
+import type { AuditLogFilters } from "../hooks/useAccessLogFilters";
+import { AccessLogDetailDrawer } from "./AccessLogDetailDrawer";
+import { getAccessLogColumns } from "./accessLogColumns";
 import { DENY_REASON_LABELS } from "../constants";
 import { toErrorMessage } from "@/lib/api-client";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
 import { useDevices } from "@/features/devices/hooks/useDevices";
-import { useRequestAuditLogDenyReasons } from "../hooks/useRequestAuditLogDenyReasons";
+import { useAccessLogDenyReasons } from "../hooks/useAccessLogDenyReasons";
 
-interface RequestAuditLogTableProps {
+interface AccessLogTableProps {
     filters: AuditLogFilters;
     refreshInterval: number;
 }
 
 const PAGE_SIZE = 25;
 
-export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditLogTableProps) {
+export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps) {
     const formatDateTime = useDateFormatter();
     const pickerValueFormat = usePickerValueFormat();
 
@@ -38,13 +38,13 @@ export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditL
         setCursor(null);
     }
 
-    const [selectedRow, setSelectedRow] = useState<RequestAuditLogRow | null>(null);
+    const [selectedRow, setSelectedRow] = useState<AccessLogRow | null>(null);
     const [drawerOpened, setDrawerOpened] = useState(false);
 
     const { data: devices } = useDevices();
-    const { data: denyReasons } = useRequestAuditLogDenyReasons();
+    const { data: denyReasons } = useAccessLogDenyReasons();
 
-    const { data, isPending, error } = useRequestAuditLog(
+    const { data, isPending, error } = useAccessLog(
         { ...filters.queryParams, before_id: cursor ? Number(cursor) : undefined, limit: PAGE_SIZE },
         refreshInterval === 0 ? false : refreshInterval,
     );
@@ -64,7 +64,7 @@ export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditL
         label: DENY_REASON_LABELS[r] ?? r,
     }));
 
-    const columns = getAuditLogColumns({
+    const columns = getAccessLogColumns({
         formatDateTime,
         pickerValueFormat,
         presetStr: filters.presetStr,
@@ -229,7 +229,7 @@ export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditL
                 )}
             </Stack>
 
-            <RequestAuditLogDetailDrawer
+            <AccessLogDetailDrawer
                 row={selectedRow}
                 opened={drawerOpened}
                 onClose={() => setDrawerOpened(false)}

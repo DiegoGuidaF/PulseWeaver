@@ -1,24 +1,24 @@
 //go:build test
 
-package audit_test
+package accesslog_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/audit"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/matryer/is"
 )
 
-func setupTestRepo(t *testing.T) *audit.Repository {
+func setupTestRepo(t *testing.T) *accesslog.Repository {
 	t.Helper()
 	db, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
-	return audit.NewRepository(db.DB())
+	return accesslog.NewRepository(db.DB())
 }
 
 func TestRepository_BatchInsert_EmptyBatch(t *testing.T) {
@@ -171,7 +171,7 @@ func TestRepository_BatchInsert_WithGeoIPData(t *testing.T) {
 
 	dbWrapper, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
-	repo := audit.NewRepository(dbWrapper.DB())
+	repo := accesslog.NewRepository(dbWrapper.DB())
 	ctx := context.Background()
 
 	// Insert event with full GeoIP data.
@@ -199,7 +199,7 @@ func TestRepository_BatchInsert_WithGeoIPData(t *testing.T) {
 	var asn int
 	err = dbWrapper.DB().QueryRow(
 		`SELECT country_code, country_name, continent_code, asn, asn_org
-		 FROM request_audit_log_geoip LIMIT 1`,
+		 FROM access_log_geoip LIMIT 1`,
 	).Scan(&countryCode, &countryName, &continentCode, &asn, &asnOrg)
 	is.NoErr(err)
 	is.Equal(countryCode, "US")
@@ -214,7 +214,7 @@ func TestRepository_BatchInsert_GeoIPCascadeDelete(t *testing.T) {
 
 	dbWrapper, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
-	repo := audit.NewRepository(dbWrapper.DB())
+	repo := accesslog.NewRepository(dbWrapper.DB())
 	ctx := context.Background()
 
 	events := []policy.DecisionEvent{
@@ -237,11 +237,11 @@ func TestRepository_BatchInsert_GeoIPCascadeDelete(t *testing.T) {
 	is.NoErr(err)
 
 	// Delete the audit log row — geoip row should cascade.
-	_, err = dbWrapper.DB().Exec(`DELETE FROM request_audit_log`)
+	_, err = dbWrapper.DB().Exec(`DELETE FROM access_log`)
 	is.NoErr(err)
 
 	var count int
-	err = dbWrapper.DB().QueryRow(`SELECT COUNT(*) FROM request_audit_log_geoip`).Scan(&count)
+	err = dbWrapper.DB().QueryRow(`SELECT COUNT(*) FROM access_log_geoip`).Scan(&count)
 	is.NoErr(err)
 	is.Equal(count, 0)
 }
@@ -251,7 +251,7 @@ func TestRepository_BatchInsert_WithEmptyGeoIP(t *testing.T) {
 
 	dbWrapper, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
-	repo := audit.NewRepository(dbWrapper.DB())
+	repo := accesslog.NewRepository(dbWrapper.DB())
 	ctx := context.Background()
 
 	// Private IP — GeoIP.IsEmpty() == true, no geoip row should be written.
@@ -269,7 +269,7 @@ func TestRepository_BatchInsert_WithEmptyGeoIP(t *testing.T) {
 
 	// Verify no geoip row exists.
 	var count int
-	err = dbWrapper.DB().QueryRow(`SELECT COUNT(*) FROM request_audit_log_geoip`).Scan(&count)
+	err = dbWrapper.DB().QueryRow(`SELECT COUNT(*) FROM access_log_geoip`).Scan(&count)
 	is.NoErr(err)
 	is.Equal(count, 0)
 }

@@ -1,20 +1,20 @@
 import { Badge, Code, Divider, Drawer, Group, Stack, Text, Title } from "@mantine/core";
-import type { RequestAuditLogRow } from "@/lib/api";
+import type { AccessLogRow } from "@/lib/api";
 import { DENY_REASON_LABELS } from "../constants";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { countryFlagEmoji } from "@/lib/countryFlag";
 
-interface RequestAuditLogDetailDrawerProps {
-    row: RequestAuditLogRow | null;
+interface AccessLogDetailDrawerProps {
+    row: AccessLogRow | null;
     opened: boolean;
     onClose: () => void;
 }
 
-export function RequestAuditLogDetailDrawer({
+export function AccessLogDetailDrawer({
     row,
     opened,
     onClose,
-}: RequestAuditLogDetailDrawerProps) {
+}: AccessLogDetailDrawerProps) {
     const formatDateTime = useDateFormatter();
     return (
         <Drawer

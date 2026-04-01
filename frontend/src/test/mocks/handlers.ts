@@ -1,6 +1,6 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, RequestAuditLogResponse, User } from '@/lib/api';
-import { createMockAddress, createMockAddressHistoryResponse, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockRequestAuditLogResponse, createMockUser } from './data';
+import type { Address, AddressHistoryResponse, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, AccessLogResponse, User } from '@/lib/api';
+import { createMockAddress, createMockAddressHistoryResponse, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockAccessLogResponse, createMockUser } from './data';
 
 const BASE = '/api/v1';
 
@@ -23,8 +23,8 @@ export const endpoints = {
     demoteUser: `${BASE}/admin/users/:userId/demote`,
     updateMe: `${BASE}/users/me`,
     changePassword: `${BASE}/users/me/password`,
-    requestAuditLog: `${BASE}/request-audit-log`,
-    requestAuditLogDenyReasons: `${BASE}/request-audit-log/deny-reasons`,
+    requestAuditLog: `${BASE}/access-log`,
+    requestAuditLogDenyReasons: `${BASE}/access-log/deny-reasons`,
     dashboardStats: `${BASE}/dashboard/stats`,
     dashboardTraffic: `${BASE}/dashboard/traffic`,
     dashboardServices: `${BASE}/dashboard/services`,
@@ -217,9 +217,9 @@ export const ruleHandlers = {
 
 // ─── Request audit log handlers ───────────────────────────────────────────────
 export const requestAuditLogHandlers = {
-    list: (override?: RequestAuditLogResponse) =>
+    list: (override?: AccessLogResponse) =>
         http.get(endpoints.requestAuditLog, () =>
-            HttpResponse.json(override ?? createMockRequestAuditLogResponse())),
+            HttpResponse.json(override ?? createMockAccessLogResponse())),
 
     denyReasons: (reasons?: string[]) =>
         http.get(endpoints.requestAuditLogDenyReasons, () =>

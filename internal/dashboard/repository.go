@@ -30,7 +30,7 @@ func NewRepository(db *sqlx.DB) *Repository {
 	}
 }
 
-// RunRollup aggregates request_audit_log rows in [from, to) into hourly_traffic_aggregates.
+// RunRollup aggregates access_log rows in [from, to) into hourly_traffic_aggregates.
 // Idempotent via INSERT OR REPLACE on the unique index.
 //
 // The strftime output is concatenated with '+00:00' so that bucket_at stores
@@ -47,7 +47,7 @@ func (r *Repository) RunRollup(ctx context.Context, from, to time.Time) error {
 			outcome,
 			COALESCE(deny_reason, '')                              AS deny_reason,
 			COUNT(*)                                               AS request_count
-		FROM request_audit_log
+		FROM access_log
 		WHERE created_at >= ?
 		  AND created_at <  ?
 		GROUP BY bucket_at, client_ip, target_host, outcome, deny_reason

@@ -152,13 +152,13 @@ export type Address = {
     readonly expires_at?: string | null;
 };
 
-export type RequestAuditLogResponse = {
+export type AccessLogResponse = {
     /**
      * Total rows matching the current filters (excludes cursor, useful for "N results" UI)
      */
     total: number;
     next_cursor: Id | null;
-    rows: Array<RequestAuditLogRow>;
+    rows: Array<AccessLogRow>;
 };
 
 export type AuditLogCountryStats = {
@@ -170,7 +170,7 @@ export type AuditLogCountryStats = {
     denied: number;
 };
 
-export type RequestAuditLogRow = {
+export type AccessLogRow = {
     id: Id;
     client_ip: IpAddress;
     outcome: boolean;
@@ -1070,14 +1070,14 @@ export type DeviceHeartbeatByApiKeyResponses = {
 
 export type DeviceHeartbeatByApiKeyResponse = DeviceHeartbeatByApiKeyResponses[keyof DeviceHeartbeatByApiKeyResponses];
 
-export type GetRequestAuditLogData = {
+export type GetAccessLogData = {
     body?: never;
     path?: never;
     query?: {
         device_id?: Id;
         outcome?: boolean;
         /**
-         * Filter by deny reason (see GET /request-audit-log/deny-reasons for valid values)
+         * Filter by deny reason (see GET /access-log/deny-reasons for valid values)
          */
         deny_reason?: string;
         /**
@@ -1113,10 +1113,10 @@ export type GetRequestAuditLogData = {
          */
         before_id?: Id;
     };
-    url: '/request-audit-log';
+    url: '/access-log';
 };
 
-export type GetRequestAuditLogErrors = {
+export type GetAccessLogErrors = {
     /**
      * Not authenticated
      */
@@ -1131,18 +1131,18 @@ export type GetRequestAuditLogErrors = {
     500: ErrorResponse;
 };
 
-export type GetRequestAuditLogError = GetRequestAuditLogErrors[keyof GetRequestAuditLogErrors];
+export type GetAccessLogError = GetAccessLogErrors[keyof GetAccessLogErrors];
 
-export type GetRequestAuditLogResponses = {
+export type GetAccessLogResponses = {
     /**
-     * Request audit log entries
+     * Access log entries
      */
-    200: RequestAuditLogResponse;
+    200: AccessLogResponse;
 };
 
-export type GetRequestAuditLogResponse = GetRequestAuditLogResponses[keyof GetRequestAuditLogResponses];
+export type GetAccessLogResponse = GetAccessLogResponses[keyof GetAccessLogResponses];
 
-export type GetRequestAuditLogByCountryData = {
+export type GetAccessLogByCountryData = {
     body?: never;
     path?: never;
     query?: {
@@ -1151,10 +1151,10 @@ export type GetRequestAuditLogByCountryData = {
          */
         since?: string;
     };
-    url: '/request-audit-log/stats/by-country';
+    url: '/access-log/stats/by-country';
 };
 
-export type GetRequestAuditLogByCountryErrors = {
+export type GetAccessLogByCountryErrors = {
     /**
      * Not authenticated
      */
@@ -1169,25 +1169,25 @@ export type GetRequestAuditLogByCountryErrors = {
     500: ErrorResponse;
 };
 
-export type GetRequestAuditLogByCountryError = GetRequestAuditLogByCountryErrors[keyof GetRequestAuditLogByCountryErrors];
+export type GetAccessLogByCountryError = GetAccessLogByCountryErrors[keyof GetAccessLogByCountryErrors];
 
-export type GetRequestAuditLogByCountryResponses = {
+export type GetAccessLogByCountryResponses = {
     /**
      * Request counts by country
      */
     200: Array<AuditLogCountryStats>;
 };
 
-export type GetRequestAuditLogByCountryResponse = GetRequestAuditLogByCountryResponses[keyof GetRequestAuditLogByCountryResponses];
+export type GetAccessLogByCountryResponse = GetAccessLogByCountryResponses[keyof GetAccessLogByCountryResponses];
 
-export type GetRequestAuditLogDenyReasonsData = {
+export type GetAccessLogDenyReasonsData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/request-audit-log/deny-reasons';
+    url: '/access-log/deny-reasons';
 };
 
-export type GetRequestAuditLogDenyReasonsErrors = {
+export type GetAccessLogDenyReasonsErrors = {
     /**
      * Not authenticated
      */
@@ -1202,16 +1202,16 @@ export type GetRequestAuditLogDenyReasonsErrors = {
     500: ErrorResponse;
 };
 
-export type GetRequestAuditLogDenyReasonsError = GetRequestAuditLogDenyReasonsErrors[keyof GetRequestAuditLogDenyReasonsErrors];
+export type GetAccessLogDenyReasonsError = GetAccessLogDenyReasonsErrors[keyof GetAccessLogDenyReasonsErrors];
 
-export type GetRequestAuditLogDenyReasonsResponses = {
+export type GetAccessLogDenyReasonsResponses = {
     /**
      * List of deny reason values
      */
     200: Array<string>;
 };
 
-export type GetRequestAuditLogDenyReasonsResponse = GetRequestAuditLogDenyReasonsResponses[keyof GetRequestAuditLogDenyReasonsResponses];
+export type GetAccessLogDenyReasonsResponse = GetAccessLogDenyReasonsResponses[keyof GetAccessLogDenyReasonsResponses];
 
 export type DisableAddressData = {
     body?: never;

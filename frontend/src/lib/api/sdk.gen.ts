@@ -2,8 +2,8 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddAddressData, AddAddressErrors, AddAddressResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CreateDeviceData, CreateDeviceErrors, CreateDeviceResponses, CreateUserData, CreateUserErrors, CreateUserResponses, DeleteDeviceData, DeleteDeviceErrors, DeleteDeviceResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DemoteUserData, DemoteUserErrors, DemoteUserResponses, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyErrors, DeviceHeartbeatByApiKeyResponses, DeviceHeartbeatData, DeviceHeartbeatErrors, DeviceHeartbeatResponses, DisableAddressData, DisableAddressErrors, DisableAddressResponses, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleErrors, DisableDeviceAddressLeaseRuleResponses, GetAddressHistoryData, GetAddressHistoryErrors, GetAddressHistoryResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetDashboardServicesData, GetDashboardServicesErrors, GetDashboardServicesResponses, GetDashboardStatsData, GetDashboardStatsErrors, GetDashboardStatsResponses, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsErrors, GetDashboardTopDeniedIpsResponses, GetDashboardTrafficData, GetDashboardTrafficErrors, GetDashboardTrafficResponses, GetDeviceAddressesData, GetDeviceAddressesErrors, GetDeviceAddressesResponses, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleErrors, GetDeviceAddressLeaseRuleResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetDevicesData, GetDevicesErrors, GetDevicesResponses, GetRequestAuditLogByCountryData, GetRequestAuditLogByCountryErrors, GetRequestAuditLogByCountryResponses, GetRequestAuditLogData, GetRequestAuditLogDenyReasonsData, GetRequestAuditLogDenyReasonsErrors, GetRequestAuditLogDenyReasonsResponses, GetRequestAuditLogErrors, GetRequestAuditLogResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, PromoteUserData, PromoteUserErrors, PromoteUserResponses, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleErrors, PutDeviceAddressLeaseRuleResponses, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyErrors, RegenerateDeviceApiKeyResponses, UpdateMeData, UpdateMeErrors, UpdateMeResponses } from './types.gen';
-import { zAddAddressData, zAddAddressResponse, zChangePasswordData, zChangePasswordResponse, zCreateDeviceData, zCreateDeviceResponse2, zCreateUserData, zCreateUserResponse, zDeleteDeviceData, zDeleteDeviceResponse, zDeleteUserData, zDeleteUserResponse, zDemoteUserData, zDemoteUserResponse, zDeviceHeartbeatByApiKeyData, zDeviceHeartbeatByApiKeyResponse, zDeviceHeartbeatData, zDeviceHeartbeatResponse, zDisableAddressData, zDisableAddressResponse, zDisableDeviceAddressLeaseRuleData, zDisableDeviceAddressLeaseRuleResponse, zGetAddressHistoryData, zGetAddressHistoryResponse, zGetCurrentUserData, zGetCurrentUserResponse, zGetDashboardServicesData, zGetDashboardServicesResponse, zGetDashboardStatsData, zGetDashboardStatsResponse, zGetDashboardTopDeniedIpsData, zGetDashboardTopDeniedIpsResponse, zGetDashboardTrafficData, zGetDashboardTrafficResponse, zGetDeviceAddressesData, zGetDeviceAddressesResponse, zGetDeviceAddressLeaseRuleData, zGetDeviceAddressLeaseRuleResponse, zGetDeviceData, zGetDeviceResponse, zGetDevicesData, zGetDevicesResponse, zGetRequestAuditLogByCountryData, zGetRequestAuditLogByCountryResponse, zGetRequestAuditLogData, zGetRequestAuditLogDenyReasonsData, zGetRequestAuditLogDenyReasonsResponse, zGetRequestAuditLogResponse, zListUsersData, zListUsersResponse, zLoginData, zLoginResponse, zLogoutData, zLogoutResponse, zPromoteUserData, zPromoteUserResponse, zPutDeviceAddressLeaseRuleData, zPutDeviceAddressLeaseRuleResponse, zRegenerateDeviceApiKeyData, zRegenerateDeviceApiKeyResponse, zUpdateMeData, zUpdateMeResponse } from './zod.gen';
+import type { AddAddressData, AddAddressErrors, AddAddressResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CreateDeviceData, CreateDeviceErrors, CreateDeviceResponses, CreateUserData, CreateUserErrors, CreateUserResponses, DeleteDeviceData, DeleteDeviceErrors, DeleteDeviceResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DemoteUserData, DemoteUserErrors, DemoteUserResponses, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyErrors, DeviceHeartbeatByApiKeyResponses, DeviceHeartbeatData, DeviceHeartbeatErrors, DeviceHeartbeatResponses, DisableAddressData, DisableAddressErrors, DisableAddressResponses, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleErrors, DisableDeviceAddressLeaseRuleResponses, GetAccessLogByCountryData, GetAccessLogByCountryErrors, GetAccessLogByCountryResponses, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsErrors, GetAccessLogDenyReasonsResponses, GetAccessLogErrors, GetAccessLogResponses, GetAddressHistoryData, GetAddressHistoryErrors, GetAddressHistoryResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetDashboardServicesData, GetDashboardServicesErrors, GetDashboardServicesResponses, GetDashboardStatsData, GetDashboardStatsErrors, GetDashboardStatsResponses, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsErrors, GetDashboardTopDeniedIpsResponses, GetDashboardTrafficData, GetDashboardTrafficErrors, GetDashboardTrafficResponses, GetDeviceAddressesData, GetDeviceAddressesErrors, GetDeviceAddressesResponses, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleErrors, GetDeviceAddressLeaseRuleResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetDevicesData, GetDevicesErrors, GetDevicesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, PromoteUserData, PromoteUserErrors, PromoteUserResponses, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleErrors, PutDeviceAddressLeaseRuleResponses, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyErrors, RegenerateDeviceApiKeyResponses, UpdateMeData, UpdateMeErrors, UpdateMeResponses } from './types.gen';
+import { zAddAddressData, zAddAddressResponse, zChangePasswordData, zChangePasswordResponse, zCreateDeviceData, zCreateDeviceResponse2, zCreateUserData, zCreateUserResponse, zDeleteDeviceData, zDeleteDeviceResponse, zDeleteUserData, zDeleteUserResponse, zDemoteUserData, zDemoteUserResponse, zDeviceHeartbeatByApiKeyData, zDeviceHeartbeatByApiKeyResponse, zDeviceHeartbeatData, zDeviceHeartbeatResponse, zDisableAddressData, zDisableAddressResponse, zDisableDeviceAddressLeaseRuleData, zDisableDeviceAddressLeaseRuleResponse, zGetAccessLogByCountryData, zGetAccessLogByCountryResponse, zGetAccessLogData, zGetAccessLogDenyReasonsData, zGetAccessLogDenyReasonsResponse, zGetAccessLogResponse, zGetAddressHistoryData, zGetAddressHistoryResponse, zGetCurrentUserData, zGetCurrentUserResponse, zGetDashboardServicesData, zGetDashboardServicesResponse, zGetDashboardStatsData, zGetDashboardStatsResponse, zGetDashboardTopDeniedIpsData, zGetDashboardTopDeniedIpsResponse, zGetDashboardTrafficData, zGetDashboardTrafficResponse, zGetDeviceAddressesData, zGetDeviceAddressesResponse, zGetDeviceAddressLeaseRuleData, zGetDeviceAddressLeaseRuleResponse, zGetDeviceData, zGetDeviceResponse, zGetDevicesData, zGetDevicesResponse, zListUsersData, zListUsersResponse, zLoginData, zLoginResponse, zLogoutData, zLogoutResponse, zPromoteUserData, zPromoteUserResponse, zPutDeviceAddressLeaseRuleData, zPutDeviceAddressLeaseRuleResponse, zRegenerateDeviceApiKeyData, zRegenerateDeviceApiKeyResponse, zUpdateMeData, zUpdateMeResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -381,53 +381,53 @@ export const deviceHeartbeatByApiKey = <ThrowOnError extends boolean = false>(op
 });
 
 /**
- * List request audit log entries
+ * List access log entries
  *
  * Returns paginated request log entries to review access-control decisions. Admin-only.
  *
  */
-export const getRequestAuditLog = <ThrowOnError extends boolean = false>(options?: Options<GetRequestAuditLogData, ThrowOnError>) => (options?.client ?? client).get<GetRequestAuditLogResponses, GetRequestAuditLogErrors, ThrowOnError>({
-    requestValidator: async (data) => await zGetRequestAuditLogData.parseAsync(data),
-    responseValidator: async (data) => await zGetRequestAuditLogResponse.parseAsync(data),
+export const getAccessLog = <ThrowOnError extends boolean = false>(options?: Options<GetAccessLogData, ThrowOnError>) => (options?.client ?? client).get<GetAccessLogResponses, GetAccessLogErrors, ThrowOnError>({
+    requestValidator: async (data) => await zGetAccessLogData.parseAsync(data),
+    responseValidator: async (data) => await zGetAccessLogResponse.parseAsync(data),
     security: [{
             in: 'cookie',
             name: '__Host-wdc_session',
             type: 'apiKey'
         }],
-    url: '/request-audit-log',
+    url: '/access-log',
     ...options
 });
 
 /**
  * Request counts grouped by country
  */
-export const getRequestAuditLogByCountry = <ThrowOnError extends boolean = false>(options?: Options<GetRequestAuditLogByCountryData, ThrowOnError>) => (options?.client ?? client).get<GetRequestAuditLogByCountryResponses, GetRequestAuditLogByCountryErrors, ThrowOnError>({
-    requestValidator: async (data) => await zGetRequestAuditLogByCountryData.parseAsync(data),
-    responseValidator: async (data) => await zGetRequestAuditLogByCountryResponse.parseAsync(data),
+export const getAccessLogByCountry = <ThrowOnError extends boolean = false>(options?: Options<GetAccessLogByCountryData, ThrowOnError>) => (options?.client ?? client).get<GetAccessLogByCountryResponses, GetAccessLogByCountryErrors, ThrowOnError>({
+    requestValidator: async (data) => await zGetAccessLogByCountryData.parseAsync(data),
+    responseValidator: async (data) => await zGetAccessLogByCountryResponse.parseAsync(data),
     security: [{
             in: 'cookie',
             name: '__Host-wdc_session',
             type: 'apiKey'
         }],
-    url: '/request-audit-log/stats/by-country',
+    url: '/access-log/stats/by-country',
     ...options
 });
 
 /**
  * List valid deny reason values
  *
- * Returns all valid deny_reason values that can appear in audit log entries or be used as the deny_reason filter on GET /request-audit-log.
+ * Returns all valid deny_reason values that can appear in audit log entries or be used as the deny_reason filter on GET /access-log.
  *
  */
-export const getRequestAuditLogDenyReasons = <ThrowOnError extends boolean = false>(options?: Options<GetRequestAuditLogDenyReasonsData, ThrowOnError>) => (options?.client ?? client).get<GetRequestAuditLogDenyReasonsResponses, GetRequestAuditLogDenyReasonsErrors, ThrowOnError>({
-    requestValidator: async (data) => await zGetRequestAuditLogDenyReasonsData.parseAsync(data),
-    responseValidator: async (data) => await zGetRequestAuditLogDenyReasonsResponse.parseAsync(data),
+export const getAccessLogDenyReasons = <ThrowOnError extends boolean = false>(options?: Options<GetAccessLogDenyReasonsData, ThrowOnError>) => (options?.client ?? client).get<GetAccessLogDenyReasonsResponses, GetAccessLogDenyReasonsErrors, ThrowOnError>({
+    requestValidator: async (data) => await zGetAccessLogDenyReasonsData.parseAsync(data),
+    responseValidator: async (data) => await zGetAccessLogDenyReasonsResponse.parseAsync(data),
     security: [{
             in: 'cookie',
             name: '__Host-wdc_session',
             type: 'apiKey'
         }],
-    url: '/request-audit-log/deny-reasons',
+    url: '/access-log/deny-reasons',
     ...options
 });
 

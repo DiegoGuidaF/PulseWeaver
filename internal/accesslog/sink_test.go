@@ -1,6 +1,6 @@
 //go:build test
 
-package audit
+package accesslog
 
 import (
 	"context"

@@ -75,24 +75,24 @@ func (h *HTTPHandler) GetDevices(
 	return httpapi.GetDevices200JSONResponse(response), nil
 }
 
-func (h *HTTPHandler) GetRequestAuditLog(
+func (h *HTTPHandler) GetAccessLog(
 	ctx context.Context,
-	request httpapi.GetRequestAuditLogRequestObject,
-) (httpapi.GetRequestAuditLogResponseObject, error) {
+	request httpapi.GetAccessLogRequestObject,
+) (httpapi.GetAccessLogResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetAuditLog")
 	params := request.Params
 
-	query := NewRequestAuditLogQuery(params)
+	query := NewAccessLogQuery(params)
 
-	rows, total, err := h.repo.ListRequestAuditLog(ctx, query)
+	rows, total, err := h.repo.ListAccessLog(ctx, query)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "failed to list audit log", slog.Any(logging.AttrKeyError, err))
-		return httpapi.GetRequestAuditLog500JSONResponse(errorMsgResponse("Failed to list audit log")), nil
+		return httpapi.GetAccessLog500JSONResponse(errorMsgResponse("Failed to list audit log")), nil
 	}
 
-	httpRows := make([]httpapi.RequestAuditLogRow, len(rows))
+	httpRows := make([]httpapi.AccessLogRow, len(rows))
 	for i := range rows {
-		httpRows[i] = toAuditLogRow(rows[i])
+		httpRows[i] = toAccessLogRow(rows[i])
 	}
 
 	var nextCursor *int64
@@ -100,20 +100,20 @@ func (h *HTTPHandler) GetRequestAuditLog(
 		nextCursor = &rows[len(rows)-1].ID
 	}
 
-	response := httpapi.RequestAuditLogResponse{
+	response := httpapi.AccessLogResponse{
 		Total:      total,
 		NextCursor: nextCursor,
 		Rows:       httpRows,
 	}
 
-	return httpapi.GetRequestAuditLog200JSONResponse(response), nil
+	return httpapi.GetAccessLog200JSONResponse(response), nil
 }
 
-func (h *HTTPHandler) GetRequestAuditLogByCountry(
+func (h *HTTPHandler) GetAccessLogByCountry(
 	ctx context.Context,
-	request httpapi.GetRequestAuditLogByCountryRequestObject,
-) (httpapi.GetRequestAuditLogByCountryResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "GetRequestAuditLogByCountry")
+	request httpapi.GetAccessLogByCountryRequestObject,
+) (httpapi.GetAccessLogByCountryResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetAccessLogByCountry")
 
 	since := time.Now().UTC().Add(-24 * time.Hour)
 	if request.Params.Since != nil {
@@ -123,7 +123,7 @@ func (h *HTTPHandler) GetRequestAuditLogByCountry(
 	stats, err := h.repo.ListAuditLogStatsByCountry(ctx, since)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "failed to list audit log stats by country", slog.Any(logging.AttrKeyError, err))
-		return httpapi.GetRequestAuditLogByCountry500JSONResponse(errorMsgResponse("Failed to list country stats")), nil
+		return httpapi.GetAccessLogByCountry500JSONResponse(errorMsgResponse("Failed to list country stats")), nil
 	}
 
 	result := make([]httpapi.AuditLogCountryStats, len(stats))
@@ -138,10 +138,10 @@ func (h *HTTPHandler) GetRequestAuditLogByCountry(
 		}
 	}
 
-	return httpapi.GetRequestAuditLogByCountry200JSONResponse(result), nil
+	return httpapi.GetAccessLogByCountry200JSONResponse(result), nil
 }
 
-func toAuditLogRow(r RequestAuditLogView) httpapi.RequestAuditLogRow {
+func toAccessLogRow(r AccessLogView) httpapi.AccessLogRow {
 	var deviceID *int64
 	if r.DeviceID != nil {
 		deviceID = new(r.DeviceID.Int64())
@@ -156,7 +156,7 @@ func toAuditLogRow(r RequestAuditLogView) httpapi.RequestAuditLogRow {
 		asn = new(int(*r.ASN))
 	}
 
-	return httpapi.RequestAuditLogRow{
+	return httpapi.AccessLogRow{
 		Id:            r.ID,
 		CreatedAt:     httpapi.UTCTime(r.CreatedAt),
 		Outcome:       r.Outcome,
