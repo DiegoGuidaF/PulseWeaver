@@ -21,7 +21,7 @@ func TestSQLiteMigrate_Idempotent(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "idempotent.db")
 
-	sqliteDB, err := NewSQLite(config.ConfDB{Dsn: fmt.Sprintf("file:%s?_loc=auto&_time_format=sqlite&_texttotime=1", dbPath)})
+	sqliteDB, err := NewSQLite(config.ConfDB{Dsn: fmt.Sprintf("file:%s?_time_format=sqlite&_texttotime=1&_timezone=UTC", dbPath)})
 	if err != nil {
 		t.Fatalf("NewSQLite: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestMigrations_DownToZeroAndBackUp(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "down-up.db")
 
-	sqliteDB, err := NewSQLite(config.ConfDB{Dsn: fmt.Sprintf("file:%s?_loc=auto&_time_format=sqlite&_texttotime=1", dbPath)})
+	sqliteDB, err := NewSQLite(config.ConfDB{Dsn: fmt.Sprintf("file:%s?_time_format=sqlite&_texttotime=1&_timezone=UTC", dbPath)})
 	if err != nil {
 		t.Fatalf("NewSQLite: %v", err)
 	}

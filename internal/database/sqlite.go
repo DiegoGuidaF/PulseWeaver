@@ -32,8 +32,8 @@ func NewSQLite(dbConf config.ConfDB) (*SQLite, error) {
 		dbPath := filepath.Join(dbConf.DataDir, dbFileName)
 		// _time_format=sqlite: Writes time.Time as YYYY-MM-DD HH:MM:SS[+-]HH:MM (SQLite format 4)
 		// _texttotime=1: Makes the driver report time.Time for columns declared as DATE, DATETIME, TIME, or TIMESTAMP
-		// _loc=auto: Automatically handle timezone conversions
-		dsn = "file:" + dbPath + "?_loc=auto&_time_format=sqlite&_texttotime=1"
+		// _timezone=UTC: Interprets timezone-less strings as UTC on reads; converts to UTC before writing (v1.48+)
+		dsn = "file:" + dbPath + "?_time_format=sqlite&_texttotime=1&_timezone=UTC"
 	}
 
 	db, err := sqlx.Connect("sqlite", dsn)
