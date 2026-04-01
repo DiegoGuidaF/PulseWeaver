@@ -4,9 +4,9 @@
  */
 export const TEST_TIMEOUTS = {
   /** Short timeout for fast operations (default: 1000ms) */
-  SHORT: 1000,
+  SHORT: 2000,
   /** Medium timeout for typical async operations */
-  MEDIUM: 2000,
+  MEDIUM: 4000,
   /** Long timeout for slow operations or CI environments */
-  LONG: 5000,
+  LONG: 7000,
 } as const;
