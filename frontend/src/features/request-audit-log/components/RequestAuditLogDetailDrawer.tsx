@@ -1,7 +1,8 @@
-import { Drawer, Stack, Text, Group, Badge, Code, Title, Divider } from "@mantine/core";
+import { Badge, Code, Divider, Drawer, Group, Stack, Text, Title } from "@mantine/core";
 import type { RequestAuditLogRow } from "@/lib/api";
 import { DENY_REASON_LABELS } from "../constants";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
+import { countryFlagEmoji } from "@/lib/countryFlag";
 
 interface RequestAuditLogDetailDrawerProps {
     row: RequestAuditLogRow | null;
@@ -66,6 +67,26 @@ export function RequestAuditLogDetailDrawer({
                             </Text>
                         )}
                     </Stack>
+
+                    {row.country_code && (
+                      <Stack gap="xs">
+                        <Title order={5}>Location</Title>
+                        <Divider />
+                        <LabelValue
+                          label="Country"
+                          value={`${countryFlagEmoji(row.country_code)} ${row.country_name ?? ""} (${row.country_code})`.trim()}
+                        />
+                        {row.continent_code && (
+                          <LabelValue label="Continent" value={row.continent_code} />
+                        )}
+                        {(row.asn != null || row.asn_org) && (
+                          <LabelValue
+                            label="ASN"
+                            value={[row.asn, row.asn_org].filter(Boolean).join(" — ")}
+                          />
+                        )}
+                      </Stack>
+                    )}
 
                     {row.headers && Object.keys(row.headers).length > 0 && (
                         <Stack gap="xs">

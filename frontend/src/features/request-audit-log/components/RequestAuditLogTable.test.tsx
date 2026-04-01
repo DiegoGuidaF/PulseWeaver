@@ -520,4 +520,213 @@ describe("RequestAuditLogTable", () => {
             ).toBeInTheDocument();
         });
     });
+
+    // ─── GeoIP — Country column ────────────────────────────────────────────────
+
+    describe("Country column", () => {
+        it("renders flag emoji and country code when country_code is present", async () => {
+            const row = createMockRequestAuditLogRow({
+                client_ip: "8.8.8.8",
+                country_code: "DE",
+                country_name: "Germany",
+            });
+            server.use(
+                requestAuditLogHandlers.list(
+                    createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                ),
+            );
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText(/🇩🇪/)).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+            // Flag and code rendered together
+            expect(screen.getByText(/DE/)).toBeInTheDocument();
+        });
+
+        it("renders a house icon when country_code is absent", async () => {
+            const row = createMockRequestAuditLogRow({ client_ip: "192.168.1.1" });
+            server.use(
+                requestAuditLogHandlers.list(
+                    createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                ),
+            );
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("192.168.1.1")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            // No flag emoji rendered in the country column
+            expect(screen.queryByText(/🇦-🇿/)).not.toBeInTheDocument();
+            // The Country column header exists
+            const countryHeader = screen
+                .getAllByRole("columnheader")
+                .find((h) => h.textContent?.includes("Country"));
+            expect(countryHeader).toBeDefined();
+            // An SVG icon (IconHome) is rendered — no country code text
+            expect(screen.queryByText("DE")).not.toBeInTheDocument();
+        });
+    });
+
+    // ─── GeoIP — Detail drawer Location section ───────────────────────────────
+
+    describe("Detail drawer — Location section", () => {
+        it("shows the Location section with ASN when GeoIP data is present", async () => {
+            const user = userEvent.setup();
+            const row = createMockRequestAuditLogRow({
+                client_ip: "8.8.8.8",
+                country_code: "US",
+                country_name: "United States",
+                continent_code: "NA",
+                asn: 15169,
+                asn_org: "Google LLC",
+            });
+            server.use(
+                requestAuditLogHandlers.list(
+                    createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                ),
+            );
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("8.8.8.8")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            await user.click(screen.getByRole("button", { name: "View details" }));
+
+            await waitFor(
+                () => expect(screen.getByText("Location")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+            expect(screen.getByText(/Google LLC/)).toBeInTheDocument();
+            expect(screen.getByText(/15169/)).toBeInTheDocument();
+        });
+
+        it("hides the Location section when no GeoIP fields are present", async () => {
+            const user = userEvent.setup();
+            const row = createMockRequestAuditLogRow({ client_ip: "192.168.0.1" });
+            server.use(
+                requestAuditLogHandlers.list(
+                    createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                ),
+            );
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("192.168.0.1")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            await user.click(screen.getByRole("button", { name: "View details" }));
+
+            await waitFor(
+                () => expect(screen.getByText("Request Detail")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+            expect(screen.queryByText("Location")).not.toBeInTheDocument();
+        });
+    });
+
+    // ─── GeoIP — DB-IP attribution ────────────────────────────────────────────
+
+    describe("DB-IP attribution", () => {
+        it("renders the attribution link when at least one row has country_code", async () => {
+            const row = createMockRequestAuditLogRow({
+                client_ip: "8.8.8.8",
+                country_code: "US",
+            });
+            server.use(
+                requestAuditLogHandlers.list(
+                    createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                ),
+            );
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("IP Geolocation by DB-IP")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+            expect(screen.getByRole("link", { name: "IP Geolocation by DB-IP" })).toHaveAttribute(
+                "href",
+                "https://db-ip.com",
+            );
+        });
+
+        it("does not render the attribution link when no rows have country_code", async () => {
+            const row = createMockRequestAuditLogRow({ client_ip: "192.168.1.1" });
+            server.use(
+                requestAuditLogHandlers.list(
+                    createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                ),
+            );
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("192.168.1.1")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+            expect(screen.queryByText("IP Geolocation by DB-IP")).not.toBeInTheDocument();
+        });
+    });
+
+    // ─── GeoIP — Country filter chip ─────────────────────────────────────────
+
+    describe("Country filter chip", () => {
+        it("shows a Country chip when country_code URL param is set", async () => {
+            server.use(
+                requestAuditLogHandlers.list(
+                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                ),
+            );
+
+            renderTable([
+                "/request-audit-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&country_code=DE",
+            ]);
+
+            await waitFor(
+                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.getByText("Country:")).toBeInTheDocument();
+            expect(screen.getByText("DE")).toBeInTheDocument();
+        });
+
+        it("removes the Country chip and clears the filter when remove is clicked", async () => {
+            const user = userEvent.setup();
+            server.use(
+                requestAuditLogHandlers.list(
+                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                ),
+            );
+
+            renderTable([
+                "/request-audit-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&country_code=DE",
+            ]);
+
+            await waitFor(
+                () => expect(screen.getByText("Country:")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            const countryPill = screen.getByText("Country:").closest(".mantine-Pill-root");
+            const removeBtn = countryPill?.querySelector(".mantine-Pill-remove") as HTMLElement;
+            expect(removeBtn).toBeTruthy();
+            await user.click(removeBtn);
+
+            await waitFor(() =>
+                expect(screen.queryByText("Country:")).not.toBeInTheDocument(),
+            );
+        });
+    });
 });

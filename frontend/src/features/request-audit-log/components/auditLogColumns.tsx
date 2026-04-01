@@ -8,11 +8,12 @@ import {
     TextInput,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { IconChevronRight, IconSearch } from "@tabler/icons-react";
+import { IconChevronRight, IconHome, IconSearch } from "@tabler/icons-react";
 import type { DataTableColumn } from "mantine-datatable";
 import type { RequestAuditLogRow } from "@/lib/api";
 import type { AuditLogFilters } from "../hooks/useAuditLogFilters";
 import { DENY_REASON_LABELS } from "../constants";
+import { countryFlagEmoji } from "@/lib/countryFlag";
 import dayjs from "dayjs";
 
 /** Style for marking the "other" endpoint date on each picker's calendar. */
@@ -35,6 +36,8 @@ export interface AuditLogColumnDeps {
     deviceIdStr: string | null;
     outcomeStr: string | null;
     denyReason: string | null;
+    countryCodeLocal: string;
+    countryCodeDebounced: string;
 
     // Options
     deviceOptions: { value: string; label: string }[];
@@ -43,6 +46,7 @@ export interface AuditLogColumnDeps {
     // Setters
     setParam: (key: string, value: string | null) => void;
     setIpLocal: (value: string) => void;
+    setCountryCodeLocal: (value: string) => void;
     setSearchParams: AuditLogFilters["setSearchParams"];
 
     // Actions
@@ -137,6 +141,30 @@ export function getAuditLogColumns(deps: AuditLogColumnDeps): DataTableColumn<Re
                     {row.client_ip}
                 </Text>
             ),
+        },
+        {
+            accessor: "country_code",
+            title: "Country",
+            filter: ({ close }) => (
+                <TextInput
+                    placeholder="e.g. DE"
+                    leftSection={<IconSearch size={16} />}
+                    value={deps.countryCodeLocal}
+                    onChange={(e) => deps.setCountryCodeLocal(e.currentTarget.value.toUpperCase())}
+                    onKeyDown={(e) => { if (e.key === "Enter") close(); }}
+                    m="xs"
+                    w={160}
+                />
+            ),
+            filtering: !!deps.countryCodeDebounced,
+            render: (row) =>
+                row.country_code ? (
+                    <Text size="sm">
+                        {countryFlagEmoji(row.country_code)} {row.country_code}
+                    </Text>
+                ) : (
+                    <IconHome size={14} color="var(--mantine-color-dimmed)" />
+                ),
         },
         {
             accessor: "target_host",

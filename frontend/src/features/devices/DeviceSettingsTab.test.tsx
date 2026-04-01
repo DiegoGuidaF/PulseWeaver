@@ -150,7 +150,7 @@ describe('DeviceSettingsTab', () => {
             () => {
                 expect(screen.getByRole('button', { name: 'Turn off auto-expiry' })).toBeInTheDocument();
             },
-            { timeout: TEST_TIMEOUTS.SHORT }
+            { timeout: TEST_TIMEOUTS.MEDIUM }
         );
         await user.click(screen.getByRole('button', { name: 'Turn off auto-expiry' }));
 

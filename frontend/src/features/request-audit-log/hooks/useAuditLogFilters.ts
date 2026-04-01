@@ -28,16 +28,19 @@ export interface AuditLogFilters {
     toStr: string | null;
     ipLocal: string;
     ipDebounced: string;
+    countryCodeLocal: string;
+    countryCodeDebounced: string;
 
     /** True when a custom `to` is set (historical view, not live tail). */
     hasCustomTo: boolean;
-    /** True when any filter is active (preset, date, device, outcome, IP, deny reason). */
+    /** True when any filter is active (preset, date, device, outcome, IP, deny reason, country). */
     hasActiveFilters: boolean;
 
     // Setters
     setPreset: (key: string | null) => void;
     setParam: (key: string, value: string | null) => void;
     setIpLocal: (value: string) => void;
+    setCountryCodeLocal: (value: string) => void;
     setSearchParams: (updater: URLSearchParams | ((prev: URLSearchParams) => URLSearchParams)) => void;
     clearAll: () => void;
 }
@@ -92,6 +95,27 @@ export function useAuditLogFilters(): AuditLogFilters {
         syncIpToUrl(value);
     }, [syncIpToUrl]);
 
+    // Country filter: same debounced pattern as IP.
+    const [countryCodeLocalRaw, setCountryCodeLocalRaw] = useState(() => searchParams.get("country_code") ?? "");
+    const countryCodeDebounced = searchParams.get("country_code") ?? "";
+
+    const syncCountryCodeToUrl = useDebouncedCallback((value: string) => {
+        setSearchParams((prev) => {
+            if (value === "") prev.delete("country_code");
+            else prev.set("country_code", value);
+            return prev;
+        });
+    }, 300);
+
+    const setCountryCodeLocal = useCallback((value: string) => {
+        setCountryCodeLocalRaw(value);
+        // Only query on a complete 2-char ISO code or when clearing — avoids
+        // firing requests for partial input like "D" that will never match.
+        if (value === "" || value.length === 2) {
+            syncCountryCodeToUrl(value);
+        }
+    }, [syncCountryCodeToUrl]);
+
     function setPreset(key: string | null) {
         setSearchParams((prev) => {
             if (key) {
@@ -120,6 +144,7 @@ export function useAuditLogFilters(): AuditLogFilters {
         outcome: outcomeStr === "allow" ? true : outcomeStr === "deny" ? false : undefined,
         ip: ipDebounced || undefined,
         deny_reason: denyReason || undefined,
+        country_code: countryCodeDebounced || undefined,
         from: presetMs !== undefined
             ? dayjs().subtract(presetMs, "millisecond").toISOString()
             : (fromStr || undefined),
@@ -127,11 +152,13 @@ export function useAuditLogFilters(): AuditLogFilters {
     };
 
     const hasCustomTo = !!toStr && presetMs === undefined;
-    const hasActiveFilters = !!(fromStr || toStr || deviceIdStr || outcomeStr || denyReason || ipDebounced);
+    const hasActiveFilters = !!(fromStr || toStr || deviceIdStr || outcomeStr || denyReason || ipDebounced || countryCodeDebounced);
 
     function clearAll() {
         setIpLocalRaw("");
         syncIpToUrl.cancel();
+        setCountryCodeLocalRaw("");
+        syncCountryCodeToUrl.cancel();
         setSearchParams((prev) => {
             const next = new URLSearchParams();
             // Preserve time range preset params — they are a global setting, not column filters
@@ -141,7 +168,7 @@ export function useAuditLogFilters(): AuditLogFilters {
     }
 
     // Changes whenever any filter value changes — used to reset pagination.
-    const filterKey = `${presetStr}|${deviceIdStr}|${outcomeStr}|${denyReason}|${fromStr}|${toStr}|${ipDebounced}`;
+    const filterKey = `${presetStr}|${deviceIdStr}|${outcomeStr}|${denyReason}|${fromStr}|${toStr}|${ipDebounced}|${countryCodeDebounced}`;
 
     return {
         queryParams,
@@ -154,11 +181,14 @@ export function useAuditLogFilters(): AuditLogFilters {
         toStr,
         ipLocal,
         ipDebounced,
+        countryCodeLocal: countryCodeLocalRaw,
+        countryCodeDebounced,
         hasCustomTo,
         hasActiveFilters,
         setPreset,
         setParam,
         setIpLocal,
+        setCountryCodeLocal,
         setSearchParams,
         clearAll,
     };

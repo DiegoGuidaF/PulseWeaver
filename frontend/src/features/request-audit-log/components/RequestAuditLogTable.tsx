@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Button, Group, Skeleton, Stack } from "@mantine/core";
+import { Alert, Anchor, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
 import { DataTable } from "mantine-datatable";
 import { IconAlertCircle, IconFilterOff } from "@tabler/icons-react";
 import type { RequestAuditLogRow } from "@/lib/api";
@@ -75,10 +75,13 @@ export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditL
         deviceIdStr: filters.deviceIdStr,
         outcomeStr: filters.outcomeStr,
         denyReason: filters.denyReason,
+        countryCodeLocal: filters.countryCodeLocal,
+        countryCodeDebounced: filters.countryCodeDebounced,
         deviceOptions,
         denyReasonOptions,
         setParam: filters.setParam,
         setIpLocal: filters.setIpLocal,
+        setCountryCodeLocal: filters.setCountryCodeLocal,
         setSearchParams: filters.setSearchParams,
         onRowClick: (row) => {
             setSelectedRow(row);
@@ -141,6 +144,14 @@ export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditL
                 label: "Reason",
                 value: DENY_REASON_LABELS[filters.denyReason] ?? filters.denyReason,
                 onRemove: () => filters.setParam("deny_reason", null),
+            });
+        }
+
+        if (filters.countryCodeDebounced) {
+            chips.push({
+                label: "Country",
+                value: filters.countryCodeDebounced,
+                onRemove: () => filters.setCountryCodeLocal(""),
             });
         }
 
@@ -208,6 +219,14 @@ export function RequestAuditLogTable({ filters, refreshInterval }: RequestAuditL
                     onCursorChange={setCursor}
                     resetKey={filters.filterKey}
                 />
+
+                {rows.some((r) => r.country_code) && (
+                    <Text size="xs" c="dimmed" ta="right">
+                        <Anchor href="https://db-ip.com" target="_blank" rel="noopener noreferrer" size="xs" c="dimmed">
+                            IP Geolocation by DB-IP
+                        </Anchor>
+                    </Text>
+                )}
             </Stack>
 
             <RequestAuditLogDetailDrawer
