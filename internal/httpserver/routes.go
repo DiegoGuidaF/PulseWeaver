@@ -24,7 +24,7 @@ type CompositeHandler struct {
 	*AuthHandler
 	*RuleHandler
 	*QueriesHandler
-	*AuditHandler
+	*AccessLogHandler
 	*DashboardHandler
 }
 
@@ -33,16 +33,16 @@ type QueriesHandler = queries.HTTPHandler
 type DeviceHandler = device.HTTPHandler
 type AuthHandler = auth.HTTPHandler
 type PolicyHandler = policy.HTTPHandler
-type AuditHandler = accesslog.HTTPHandler
+type AccessLogHandler = accesslog.HTTPHandler
 type DashboardHandler = dashboard.HTTPHandler
 
-func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, auditHandler *AuditHandler, dashboardHandler *DashboardHandler, logger *slog.Logger) {
+func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, accessLogHandler *AccessLogHandler, dashboardHandler *DashboardHandler, logger *slog.Logger) {
 	routeHandler := &CompositeHandler{
 		DeviceHandler:    deviceHandler,
 		AuthHandler:      authHandler,
 		RuleHandler:      ruleHandler,
 		QueriesHandler:   queriesHandler,
-		AuditHandler:     auditHandler,
+		AccessLogHandler: accessLogHandler,
 		DashboardHandler: dashboardHandler,
 	}
 

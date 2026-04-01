@@ -17,11 +17,11 @@ import (
 
 // testRepos groups all repositories used by the queries package tests.
 type testRepos struct {
-	queries *queries.Repository
-	devices *device.Repository
-	leases  *lease.Repository
-	audit   *accesslog.Repository
-	db      *sqlx.DB
+	queries   *queries.Repository
+	devices   *device.Repository
+	leases    *lease.Repository
+	accessLog *accesslog.Repository
+	db        *sqlx.DB
 }
 
 // setupRepos creates an in-memory SQLite DB and returns all repositories sharing it.
@@ -33,11 +33,11 @@ func setupRepos(t *testing.T) testRepos {
 
 	sqlxDB := dbWrapper.DB()
 	return testRepos{
-		queries: queries.NewRepository(sqlxDB),
-		devices: device.NewRepository(sqlxDB),
-		leases:  lease.NewRepository(sqlxDB),
-		audit:   accesslog.NewRepository(sqlxDB),
-		db:      sqlxDB,
+		queries:   queries.NewRepository(sqlxDB),
+		devices:   device.NewRepository(sqlxDB),
+		leases:    lease.NewRepository(sqlxDB),
+		accessLog: accesslog.NewRepository(sqlxDB),
+		db:        sqlxDB,
 	}
 }
 

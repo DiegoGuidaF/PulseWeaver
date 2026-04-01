@@ -161,7 +161,7 @@ export type AccessLogResponse = {
     rows: Array<AccessLogRow>;
 };
 
-export type AuditLogCountryStats = {
+export type AccessLogCountryStats = {
     country_code: string;
     country_name?: string;
     continent_code?: string;
@@ -1179,7 +1179,7 @@ export type GetAccessLogByCountryResponses = {
     /**
      * Request counts by country
      */
-    200: Array<AuditLogCountryStats>;
+    200: Array<AccessLogCountryStats>;
 };
 
 export type GetAccessLogByCountryResponse = GetAccessLogByCountryResponses[keyof GetAccessLogByCountryResponses];

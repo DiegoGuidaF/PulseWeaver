@@ -45,7 +45,7 @@ func TestHandler_GetAccessLog_CorrectFields(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "audit-fields-device")
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "access-fields-device")
 	is.NoErr(err)
 	addr, _, err := testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "10.0.10.1", device.EventSourceManual)
 	is.NoErr(err)
@@ -59,8 +59,8 @@ func TestHandler_GetAccessLog_CorrectFields(t *testing.T) {
 	devID := dev.ID
 	addrID := addr.ID
 
-	auditRepo := accesslog.NewRepository(testServer.Database.DB())
-	err = auditRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
+	accessRepo := accesslog.NewRepository(testServer.Database.DB())
+	err = accessRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
 		{
 			ClientIP:   "1.2.3.4",
 			Outcome:    false,
@@ -119,8 +119,8 @@ func TestHandler_GetAccessLog_FilterByOutcome(t *testing.T) {
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
 	reason := policy.DenyReasonIPNotRegistered
-	auditRepo := accesslog.NewRepository(testServer.Database.DB())
-	err := auditRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
+	accessRepo := accesslog.NewRepository(testServer.Database.DB())
+	err := accessRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
 		{ClientIP: "1.1.1.1", Outcome: false, DenyReason: &reason, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
 		{ClientIP: "2.2.2.2", Outcome: false, DenyReason: &reason, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
 		{ClientIP: "3.3.3.3", Outcome: true, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
@@ -149,13 +149,13 @@ func TestHandler_GetAccessLog_FilterByDeviceID(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "audit-device-filter")
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "access-device-filter")
 	is.NoErr(err)
 	devID := dev.ID
 
 	reason := policy.DenyReasonIPNotRegistered
-	auditRepo := accesslog.NewRepository(testServer.Database.DB())
-	err = auditRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
+	accessRepo := accesslog.NewRepository(testServer.Database.DB())
+	err = accessRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
 		{ClientIP: "1.1.1.1", Outcome: false, DenyReason: &reason, DeviceID: &devID, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
 		{ClientIP: "2.2.2.2", Outcome: false, DenyReason: &reason, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}}, // no device
 	})
@@ -183,8 +183,8 @@ func TestHandler_GetAccessLog_FilterByIPPartialMatch(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	auditRepo := accesslog.NewRepository(testServer.Database.DB())
-	err := auditRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
+	accessRepo := accesslog.NewRepository(testServer.Database.DB())
+	err := accessRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
 		{ClientIP: "123.222.234.1", Outcome: true, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
 		{ClientIP: "234.111.222.111", Outcome: true, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
 		{ClientIP: "111.111.111.1", Outcome: true, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
@@ -214,8 +214,8 @@ func TestHandler_GetAccessLog_Pagination(t *testing.T) {
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
 	reason := policy.DenyReasonIPNotRegistered
-	auditRepo := accesslog.NewRepository(testServer.Database.DB())
-	err := auditRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
+	accessRepo := accesslog.NewRepository(testServer.Database.DB())
+	err := accessRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
 		{ClientIP: "1.1.1.1", Outcome: false, DenyReason: &reason, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
 		{ClientIP: "2.2.2.2", Outcome: false, DenyReason: &reason, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
 		{ClientIP: "3.3.3.3", Outcome: false, DenyReason: &reason, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},

@@ -21,7 +21,7 @@ export const zAddressHistoryBucket = z.object({
     event_count: z.int()
 });
 
-export const zAuditLogCountryStats = z.object({
+export const zAccessLogCountryStats = z.object({
     country_code: z.string(),
     country_name: z.string().optional(),
     continent_code: z.string().optional(),
@@ -531,7 +531,7 @@ export const zGetAccessLogByCountryData = z.object({
 /**
  * Request counts by country
  */
-export const zGetAccessLogByCountryResponse = z.array(zAuditLogCountryStats);
+export const zGetAccessLogByCountryResponse = z.array(zAccessLogCountryStats);
 
 export const zGetAccessLogDenyReasonsData = z.object({
     body: z.never().optional(),

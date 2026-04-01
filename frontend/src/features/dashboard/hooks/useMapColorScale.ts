@@ -1,14 +1,14 @@
 import { useMemo } from "react";
 import { useMantineTheme } from "@mantine/core";
 import { scaleSqrt } from "d3-scale";
-import type { AuditLogCountryStats } from "@/lib/api/types.gen";
+import type { AccessLogCountryStats } from "@/lib/api/types.gen";
 
 type Metric = "denied" | "total";
 
 export function useMapColorScale(
-    data: AuditLogCountryStats[] | undefined,
+    data: AccessLogCountryStats[] | undefined,
     metric: Metric,
-): (countryCode: string, lookup: Map<string, AuditLogCountryStats>) => string {
+): (countryCode: string, lookup: Map<string, AccessLogCountryStats>) => string {
     const theme = useMantineTheme();
 
     return useMemo(() => {
@@ -28,7 +28,7 @@ export function useMapColorScale(
 
         return (
             countryCode: string,
-            lookup: Map<string, AuditLogCountryStats>,
+            lookup: Map<string, AccessLogCountryStats>,
         ) => {
             const stats = lookup.get(countryCode);
             if (!stats) return noDataColor;

@@ -2,13 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
 import { AccessMap } from './AccessMap';
-import { createMockAuditLogCountryStats } from '@/test/mocks/data';
-import type { AuditLogCountryStats } from '@/lib/api/types.gen';
+import { createMockAccessLogCountryStats } from '@/test/mocks/data';
+import type { AccessLogCountryStats } from '@/lib/api/types.gen';
 
 const noopColorFn = () => '#555555';
 
 function renderMap(props?: Partial<React.ComponentProps<typeof AccessMap>>) {
-    const lookup = new Map<string, AuditLogCountryStats>();
+    const lookup = new Map<string, AccessLogCountryStats>();
     return render(
         <MantineProvider>
             <AccessMap
@@ -45,7 +45,7 @@ describe('AccessMap', () => {
     });
 
     it('renders SVG world map when data is provided', () => {
-        const data = [createMockAuditLogCountryStats()];
+        const data = [createMockAccessLogCountryStats()];
         const lookup = new Map([['US', data[0]]]);
         renderMap({ data, lookup });
 
@@ -58,7 +58,7 @@ describe('AccessMap', () => {
 
     it('calls onCountryClick when clicking a country with data', () => {
         const onCountryClick = vi.fn();
-        const data = [createMockAuditLogCountryStats({ country_code: 'US' })];
+        const data = [createMockAccessLogCountryStats({ country_code: 'US' })];
         const lookup = new Map([['US', data[0]]]);
 
         renderMap({ data, lookup, onCountryClick });
@@ -74,7 +74,7 @@ describe('AccessMap', () => {
     });
 
     it('renders heading', () => {
-        const data = [createMockAuditLogCountryStats()];
+        const data = [createMockAccessLogCountryStats()];
         const lookup = new Map([['US', data[0]]]);
         renderMap({ data, lookup });
         expect(screen.getByText('Access Map')).toBeInTheDocument();

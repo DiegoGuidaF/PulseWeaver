@@ -33,7 +33,7 @@ func (s *Sink) OnDecision(_ context.Context, e policy.DecisionEvent) {
 	select {
 	case s.ch <- e:
 	default:
-		s.logger.Error("audit buffer full, event dropped")
+		s.logger.Error("access log buffer full, event dropped")
 	}
 }
 
@@ -57,8 +57,8 @@ func (s *Sink) Run(ctx context.Context) error {
 
 		s.logger.DebugContext(ctx, "flushing decision events", slog.Int(logging.AttrKeyCount, len(events)))
 		if err := s.repo.BatchInsert(ctx, events); err != nil {
-			// Best-effort logging; audit failures must not crash the app.
-			s.logger.ErrorContext(ctx, "failed to flush audit events", slog.Any(logging.AttrKeyError, err))
+			// Best-effort logging; access log failures must not crash the app.
+			s.logger.ErrorContext(ctx, "failed to flush access log events", slog.Any(logging.AttrKeyError, err))
 		}
 	}
 

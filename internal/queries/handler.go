@@ -79,15 +79,15 @@ func (h *HTTPHandler) GetAccessLog(
 	ctx context.Context,
 	request httpapi.GetAccessLogRequestObject,
 ) (httpapi.GetAccessLogResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "GetAuditLog")
+	ctx = logging.WithOperation(ctx, "GetAccessLog")
 	params := request.Params
 
 	query := NewAccessLogQuery(params)
 
 	rows, total, err := h.repo.ListAccessLog(ctx, query)
 	if err != nil {
-		h.logger.ErrorContext(ctx, "failed to list audit log", slog.Any(logging.AttrKeyError, err))
-		return httpapi.GetAccessLog500JSONResponse(errorMsgResponse("Failed to list audit log")), nil
+		h.logger.ErrorContext(ctx, "failed to list access log", slog.Any(logging.AttrKeyError, err))
+		return httpapi.GetAccessLog500JSONResponse(errorMsgResponse("Failed to list access log")), nil
 	}
 
 	httpRows := make([]httpapi.AccessLogRow, len(rows))
@@ -125,15 +125,15 @@ func (h *HTTPHandler) GetAccessLogByCountry(
 		to = request.Params.To.UTC()
 	}
 
-	stats, err := h.repo.ListAuditLogStatsByCountry(ctx, from, to)
+	stats, err := h.repo.ListAccessLogStatsByCountry(ctx, from, to)
 	if err != nil {
-		h.logger.ErrorContext(ctx, "failed to list audit log stats by country", slog.Any(logging.AttrKeyError, err))
+		h.logger.ErrorContext(ctx, "failed to list access log stats by country", slog.Any(logging.AttrKeyError, err))
 		return httpapi.GetAccessLogByCountry500JSONResponse(errorMsgResponse("Failed to list country stats")), nil
 	}
 
-	result := make([]httpapi.AuditLogCountryStats, len(stats))
+	result := make([]httpapi.AccessLogCountryStats, len(stats))
 	for i, s := range stats {
-		result[i] = httpapi.AuditLogCountryStats{
+		result[i] = httpapi.AccessLogCountryStats{
 			CountryCode:   s.CountryCode,
 			CountryName:   &s.CountryName,
 			ContinentCode: &s.ContinentCode,

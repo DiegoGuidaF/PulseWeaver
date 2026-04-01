@@ -236,7 +236,7 @@ func TestRepository_BatchInsert_GeoIPCascadeDelete(t *testing.T) {
 	err := repo.BatchInsert(ctx, events)
 	is.NoErr(err)
 
-	// Delete the audit log row — geoip row should cascade.
+	// Delete the access log row — geoip row should cascade.
 	_, err = dbWrapper.DB().Exec(`DELETE FROM access_log`)
 	is.NoErr(err)
 
@@ -279,7 +279,7 @@ func TestRepository_BatchInsert_MixedGeoIP(t *testing.T) {
 	repo := setupTestRepo(t)
 	ctx := context.Background()
 
-	// One event with GeoIP, one without — both audit rows must be written.
+	// One event with GeoIP, one without — both access rows must be written.
 	events := []policy.DecisionEvent{
 		{
 			ClientIP:  "8.8.8.8",
@@ -299,7 +299,7 @@ func TestRepository_BatchInsert_MixedGeoIP(t *testing.T) {
 	err := repo.BatchInsert(ctx, events)
 	is.NoErr(err)
 
-	// Both audit rows exist (deny reasons list is empty since all allowed).
+	// Both access rows exist (deny reasons list is empty since all allowed).
 	reasons, err := repo.ListDenyReasons(ctx)
 	is.NoErr(err)
 	is.Equal(len(reasons), 0)

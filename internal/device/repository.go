@@ -325,8 +325,7 @@ func (r *Repository) EnableAddress(ctx context.Context, addressID AddressID, sou
 	return r.recordAddressEvent(ctx, addressID, true, source)
 }
 
-// RefreshAddress records activity for an already-enabled address (same DB work as EnableAddress; used for semantic distinction).
-// Refresh is modeled separately at the domain level, but persisted the same as enable to keep full audit history.
+// RefreshAddress records activity for an already-enabled address
 func (r *Repository) RefreshAddress(ctx context.Context, addressID AddressID, source EventSource) (*Address, error) {
 	return r.EnableAddress(ctx, addressID, source)
 }

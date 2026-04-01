@@ -34,13 +34,13 @@ func seedAccessLogRow(t *testing.T, db *sqlx.DB, clientIP string, targetHost str
 		VALUES (?, ?, ?, ?, ?, '{}')
 	`, clientIP, targetHost, outcomeInt, denyReason, createdAt.UTC())
 	if err != nil {
-		t.Fatalf("seed audit row: %v", err)
+		t.Fatalf("seed access row: %v", err)
 	}
 }
 
 // --- RunRollup ---
 
-func TestRunRollup_EmptyAuditLog_NoAggregates(t *testing.T) {
+func TestRunRollup_EmptyAccessLog_NoAggregates(t *testing.T) {
 	is := is.New(t)
 	repo, _ := setupTestRepo(t)
 	ctx := context.Background()

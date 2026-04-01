@@ -5,7 +5,7 @@ import dayjs from "dayjs";
 import type { GetAccessLogData } from "@/lib/api";
 import { DEFAULT_PRESET_KEY, PRESET_MS } from "../constants";
 
-const LS_KEY = "pulseweaver:audit-log:filters";
+const LS_KEY = "pulseweaver:access-log:filters";
 const DEFAULT_PARAMS = new URLSearchParams({ preset: DEFAULT_PRESET_KEY });
 
 /** Save current search params to localStorage for next visit. */
@@ -15,7 +15,7 @@ function persistFilters(params: URLSearchParams) {
     else localStorage.removeItem(LS_KEY);
 }
 
-export interface AuditLogFilters {
+export interface AccessLogFilters {
     queryParams: GetAccessLogData["query"];
     filterKey: string;
 
@@ -55,11 +55,11 @@ function getInitialParams(): URLSearchParams {
     return init;
 }
 
-export function useAccessLogFilters(): AuditLogFilters {
+export function useAccessLogFilters(): AccessLogFilters {
     const [searchParams, setSearchParamsRaw] = useSearchParams(getInitialParams());
 
     // Wrap setSearchParams to persist every change to localStorage
-    const setSearchParams: AuditLogFilters["setSearchParams"] = useCallback(
+    const setSearchParams: AccessLogFilters["setSearchParams"] = useCallback(
         (updater) => {
             setSearchParamsRaw((prev) => {
                 const next = typeof updater === "function" ? updater(prev) : updater;

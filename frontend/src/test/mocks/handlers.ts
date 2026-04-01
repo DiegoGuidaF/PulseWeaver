@@ -1,6 +1,6 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, AuditLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, AccessLogResponse, User } from '@/lib/api';
-import { createMockAddress, createMockAddressHistoryResponse, createMockAuditLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockAccessLogResponse, createMockUser } from './data';
+import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, AccessLogResponse, User } from '@/lib/api';
+import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockAccessLogResponse, createMockUser } from './data';
 
 const BASE = '/api/v1';
 
@@ -23,8 +23,8 @@ export const endpoints = {
     demoteUser: `${BASE}/admin/users/:userId/demote`,
     updateMe: `${BASE}/users/me`,
     changePassword: `${BASE}/users/me/password`,
-    requestAuditLog: `${BASE}/access-log`,
-    requestAuditLogDenyReasons: `${BASE}/access-log/deny-reasons`,
+    accessLog: `${BASE}/access-log`,
+    accessLogDenyReasons: `${BASE}/access-log/deny-reasons`,
     accessLogByCountry: `${BASE}/access-log/stats/by-country`,
     dashboardStats: `${BASE}/dashboard/stats`,
     dashboardTraffic: `${BASE}/dashboard/traffic`,
@@ -216,23 +216,23 @@ export const ruleHandlers = {
     },
 };
 
-// ─── Request audit log handlers ───────────────────────────────────────────────
-export const requestAuditLogHandlers = {
+// ─── Access log handlers ───────────────────────────────────────────────
+export const accessLogHandlers = {
     list: (override?: AccessLogResponse) =>
-        http.get(endpoints.requestAuditLog, () =>
+        http.get(endpoints.accessLog, () =>
             HttpResponse.json(override ?? createMockAccessLogResponse())),
 
     denyReasons: (reasons?: string[]) =>
-        http.get(endpoints.requestAuditLogDenyReasons, () =>
+        http.get(endpoints.accessLogDenyReasons, () =>
             HttpResponse.json(reasons ?? ['invalid_token', 'ip_not_registered', 'no_device_match'])),
 
-    byCountry: (stats?: AuditLogCountryStats[]) =>
+    byCountry: (stats?: AccessLogCountryStats[]) =>
         http.get(endpoints.accessLogByCountry, () =>
             HttpResponse.json(
                 stats ?? [
-                    createMockAuditLogCountryStats({ country_code: 'US', country_name: 'United States', total: 100, allowed: 80, denied: 20 }),
-                    createMockAuditLogCountryStats({ country_code: 'DE', country_name: 'Germany', total: 50, allowed: 45, denied: 5 }),
-                    createMockAuditLogCountryStats({ country_code: 'CN', country_name: 'China', total: 75, allowed: 5, denied: 70 }),
+                    createMockAccessLogCountryStats({ country_code: 'US', country_name: 'United States', total: 100, allowed: 80, denied: 20 }),
+                    createMockAccessLogCountryStats({ country_code: 'DE', country_name: 'Germany', total: 50, allowed: 45, denied: 5 }),
+                    createMockAccessLogCountryStats({ country_code: 'CN', country_name: 'China', total: 75, allowed: 5, denied: 70 }),
                 ],
             )),
 };
@@ -300,10 +300,10 @@ export const defaultHandlers = [
     ruleHandlers.addressLease.get.success(),
     ruleHandlers.addressLease.put.success(),
     ruleHandlers.addressLease.delete.success(),
-    // Request audit log
-    requestAuditLogHandlers.list(),
-    requestAuditLogHandlers.denyReasons(),
-    requestAuditLogHandlers.byCountry(),
+    // Access log
+    accessLogHandlers.list(),
+    accessLogHandlers.denyReasons(),
+    accessLogHandlers.byCountry(),
     // Dashboard
     dashboardHandlers.stats(),
     dashboardHandlers.traffic(),

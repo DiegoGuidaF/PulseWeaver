@@ -427,7 +427,7 @@ export const AccessLogResponseSchema = {
     }
 } as const;
 
-export const AuditLogCountryStatsSchema = {
+export const AccessLogCountryStatsSchema = {
     type: 'object',
     required: [
         'country_code',

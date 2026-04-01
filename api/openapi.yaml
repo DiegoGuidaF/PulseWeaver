@@ -970,7 +970,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/AuditLogCountryStats'
+                  $ref: '#/components/schemas/AccessLogCountryStats'
         "401":
           description: Not authenticated
           content:
@@ -997,7 +997,7 @@ paths:
         - access-log
       summary: List valid deny reason values
       description: >
-        Returns all valid deny_reason values that can appear in audit log entries
+        Returns all valid deny_reason values that can appear in access log entries
         or be used as the deny_reason filter on GET /access-log.
       responses:
         "200":
@@ -1695,7 +1695,7 @@ components:
           items:
             $ref: '#/components/schemas/AccessLogRow'
 
-    AuditLogCountryStats:
+    AccessLogCountryStats:
       type: object
       required: [country_code, total, allowed, denied]
       properties:

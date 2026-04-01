@@ -9,7 +9,7 @@ import {
     createMockAccessLogRow,
     createMockAccessLogResponse,
 } from "@/test/mocks/data";
-import { endpoints, requestAuditLogHandlers, responses } from "@/test/mocks/handlers";
+import { endpoints, accessLogHandlers, responses } from "@/test/mocks/handlers";
 import { TEST_TIMEOUTS } from "@/test/constants";
 
 // Pre-set date range so the table's useEffect does not trigger
@@ -25,7 +25,7 @@ describe("AccessLogPage", () => {
             outcome: true,
         });
         server.use(
-            requestAuditLogHandlers.list(
+            accessLogHandlers.list(
                 createMockAccessLogResponse({ rows: [row], total: 1 }),
             ),
         );
@@ -49,7 +49,7 @@ describe("AccessLogPage", () => {
 
     it("shows empty state when rows is empty", async () => {
         server.use(
-            requestAuditLogHandlers.list(
+            accessLogHandlers.list(
                 createMockAccessLogResponse({ rows: [], total: 0 }),
             ),
         );
@@ -70,7 +70,7 @@ describe("AccessLogPage", () => {
 
     it("shows error state when API returns 500", async () => {
         server.use(
-            http.get(endpoints.requestAuditLog, () => responses.serverError()),
+            http.get(endpoints.accessLog, () => responses.serverError()),
         );
 
         renderWithProviders(<AccessLogPage />, {
@@ -87,7 +87,7 @@ describe("AccessLogPage", () => {
 
     it("shows error state when API returns 403", async () => {
         server.use(
-            http.get(endpoints.requestAuditLog, () =>
+            http.get(endpoints.accessLog, () =>
                 responses.forbidden({ message: "Forbidden - admin credentials required" }),
             ),
         );
@@ -114,7 +114,7 @@ describe("AccessLogPage", () => {
             target_host: "secure.example.com",
         });
         server.use(
-            requestAuditLogHandlers.list(
+            accessLogHandlers.list(
                 createMockAccessLogResponse({ rows: [row], total: 1 }),
             ),
         );

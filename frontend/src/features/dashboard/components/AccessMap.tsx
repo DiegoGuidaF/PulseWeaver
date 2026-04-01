@@ -10,7 +10,7 @@ import worldData from "world-atlas/countries-110m.json";
 import { numericToAlpha2 } from "@/lib/countryCodeMap";
 import { countryFlagEmoji } from "@/lib/countryFlag";
 import { EmptyState } from "@/components/EmptyState";
-import type { AuditLogCountryStats } from "@/lib/api/types.gen";
+import type { AccessLogCountryStats } from "@/lib/api/types.gen";
 
 // Convert TopoJSON → GeoJSON once at module level (no re-parsing per render)
 const worldTopo = worldData as unknown as Topology;
@@ -22,18 +22,18 @@ const countries = feature(
 const MAP_HEIGHT = 300;
 
 interface AccessMapProps {
-    data: AuditLogCountryStats[] | undefined;
+    data: AccessLogCountryStats[] | undefined;
     isLoading: boolean;
     colorFn: (
         countryCode: string,
-        lookup: Map<string, AuditLogCountryStats>,
+        lookup: Map<string, AccessLogCountryStats>,
     ) => string;
-    lookup: Map<string, AuditLogCountryStats>;
+    lookup: Map<string, AccessLogCountryStats>;
     onCountryClick: (code: string) => void;
 }
 
 interface TooltipState {
-    stats: AuditLogCountryStats;
+    stats: AccessLogCountryStats;
     x: number;
     y: number;
 }

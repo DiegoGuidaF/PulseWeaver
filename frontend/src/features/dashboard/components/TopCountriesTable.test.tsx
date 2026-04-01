@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
 import { TopCountriesTable } from './TopCountriesTable';
-import { createMockAuditLogCountryStats } from '@/test/mocks/data';
+import { createMockAccessLogCountryStats } from '@/test/mocks/data';
 
 function renderTable(
     props?: Partial<React.ComponentProps<typeof TopCountriesTable>>,
@@ -35,15 +35,15 @@ describe('TopCountriesTable', () => {
     });
 
     it('renders heading', () => {
-        renderTable({ data: [createMockAuditLogCountryStats()] });
+        renderTable({ data: [createMockAccessLogCountryStats()] });
         expect(screen.getByText('Top Countries')).toBeInTheDocument();
     });
 
     it('sorts rows by denied count descending', () => {
         const data = [
-            createMockAuditLogCountryStats({ country_code: 'DE', country_name: 'Germany', denied: 5, allowed: 45, total: 50 }),
-            createMockAuditLogCountryStats({ country_code: 'CN', country_name: 'China', denied: 70, allowed: 5, total: 75 }),
-            createMockAuditLogCountryStats({ country_code: 'US', country_name: 'United States', denied: 20, allowed: 80, total: 100 }),
+            createMockAccessLogCountryStats({ country_code: 'DE', country_name: 'Germany', denied: 5, allowed: 45, total: 50 }),
+            createMockAccessLogCountryStats({ country_code: 'CN', country_name: 'China', denied: 70, allowed: 5, total: 75 }),
+            createMockAccessLogCountryStats({ country_code: 'US', country_name: 'United States', denied: 20, allowed: 80, total: 100 }),
         ];
         renderTable({ data, metric: 'denied' });
 
@@ -55,9 +55,9 @@ describe('TopCountriesTable', () => {
 
     it('sorts rows by total count descending when metric is total', () => {
         const data = [
-            createMockAuditLogCountryStats({ country_code: 'DE', country_name: 'Germany', total: 50 }),
-            createMockAuditLogCountryStats({ country_code: 'US', country_name: 'United States', total: 100 }),
-            createMockAuditLogCountryStats({ country_code: 'CN', country_name: 'China', total: 75 }),
+            createMockAccessLogCountryStats({ country_code: 'DE', country_name: 'Germany', total: 50 }),
+            createMockAccessLogCountryStats({ country_code: 'US', country_name: 'United States', total: 100 }),
+            createMockAccessLogCountryStats({ country_code: 'CN', country_name: 'China', total: 75 }),
         ];
         renderTable({ data, metric: 'total' });
 
@@ -69,7 +69,7 @@ describe('TopCountriesTable', () => {
 
     it('caps display at top 10 entries', () => {
         const data = Array.from({ length: 15 }, (_, i) =>
-            createMockAuditLogCountryStats({
+            createMockAccessLogCountryStats({
                 country_code: `C${i}`,
                 country_name: `Country ${i}`,
                 denied: 100 - i,
@@ -86,7 +86,7 @@ describe('TopCountriesTable', () => {
     it('calls onCountryClick when a row is clicked', () => {
         const onCountryClick = vi.fn();
         const data = [
-            createMockAuditLogCountryStats({ country_code: 'US', country_name: 'United States' }),
+            createMockAccessLogCountryStats({ country_code: 'US', country_name: 'United States' }),
         ];
         renderTable({ data, onCountryClick });
 
@@ -97,8 +97,8 @@ describe('TopCountriesTable', () => {
 
     it('displays rank numbers starting from 1', () => {
         const data = [
-            createMockAuditLogCountryStats({ country_code: 'US', denied: 20 }),
-            createMockAuditLogCountryStats({ country_code: 'DE', denied: 5 }),
+            createMockAccessLogCountryStats({ country_code: 'US', denied: 20 }),
+            createMockAccessLogCountryStats({ country_code: 'DE', denied: 5 }),
         ];
         renderTable({ data });
 

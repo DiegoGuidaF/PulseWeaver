@@ -3,12 +3,12 @@ import { Paper, Text, Table, Skeleton } from "@mantine/core";
 import { IconGlobe } from "@tabler/icons-react";
 import { countryFlagEmoji } from "@/lib/countryFlag";
 import { EmptyState } from "@/components/EmptyState";
-import type { AuditLogCountryStats } from "@/lib/api/types.gen";
+import type { AccessLogCountryStats } from "@/lib/api/types.gen";
 
 type Metric = "denied" | "total";
 
 interface TopCountriesTableProps {
-    data: AuditLogCountryStats[] | undefined;
+    data: AccessLogCountryStats[] | undefined;
     isLoading: boolean;
     metric: Metric;
     onCountryClick: (code: string) => void;

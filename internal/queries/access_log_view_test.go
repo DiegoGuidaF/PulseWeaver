@@ -11,13 +11,13 @@ import (
 	"github.com/matryer/is"
 )
 
-func TestRepository_ListAuditLogStatsByCountry(t *testing.T) {
+func TestRepository_ListAccessLogStatsByCountry(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 	ctx := t.Context()
 
-	// Insert audit events with GeoIP data via the audit repository.
-	err := repos.audit.BatchInsert(ctx, []policy.DecisionEvent{
+	// Insert access events with GeoIP data via the access repository.
+	err := repos.accessLog.BatchInsert(ctx, []policy.DecisionEvent{
 		{
 			ClientIP:  "8.8.8.8",
 			Outcome:   true,
@@ -52,7 +52,7 @@ func TestRepository_ListAuditLogStatsByCountry(t *testing.T) {
 
 	now := time.Now().UTC()
 	from := now.Add(-1 * time.Hour)
-	stats, err := repos.queries.ListAuditLogStatsByCountry(ctx, from, now)
+	stats, err := repos.queries.ListAccessLogStatsByCountry(ctx, from, now)
 	is.NoErr(err)
 
 	// Should have 2 countries (US and AU); private IP excluded.
@@ -75,25 +75,25 @@ func TestRepository_ListAuditLogStatsByCountry(t *testing.T) {
 	is.Equal(stats[1].Denied, int64(0))
 }
 
-func TestRepository_ListAuditLogStatsByCountry_Empty(t *testing.T) {
+func TestRepository_ListaccessLogStatsByCountry_Empty(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 
 	now := time.Now().UTC()
 	from := now.Add(-1 * time.Hour)
-	stats, err := repos.queries.ListAuditLogStatsByCountry(t.Context(), from, now)
+	stats, err := repos.queries.ListAccessLogStatsByCountry(t.Context(), from, now)
 	is.NoErr(err)
 	is.Equal(len(stats), 0)
 }
 
-func TestRepository_ListAuditLogStatsByCountry_FromFilter(t *testing.T) {
+func TestRepository_ListaccessLogStatsByCountry_FromFilter(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 	ctx := t.Context()
 
 	// Insert an old event (created 2 hours ago).
 	oldTime := time.Now().UTC().Add(-2 * time.Hour)
-	err := repos.audit.BatchInsert(ctx, []policy.DecisionEvent{
+	err := repos.accessLog.BatchInsert(ctx, []policy.DecisionEvent{
 		{
 			ClientIP:  "8.8.8.8",
 			Outcome:   true,
@@ -107,12 +107,12 @@ func TestRepository_ListAuditLogStatsByCountry_FromFilter(t *testing.T) {
 	// Query with from = 1 hour ago — should exclude the old event.
 	now := time.Now().UTC()
 	from := now.Add(-1 * time.Hour)
-	stats, err := repos.queries.ListAuditLogStatsByCountry(ctx, from, now)
+	stats, err := repos.queries.ListAccessLogStatsByCountry(ctx, from, now)
 	is.NoErr(err)
 	is.Equal(len(stats), 0)
 }
 
-func TestRepository_ListAuditLogStatsByCountry_ToFilter(t *testing.T) {
+func TestRepository_ListaccessLogStatsByCountry_ToFilter(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 	ctx := t.Context()
@@ -120,7 +120,7 @@ func TestRepository_ListAuditLogStatsByCountry_ToFilter(t *testing.T) {
 	now := time.Now().UTC()
 
 	// Insert a recent event.
-	err := repos.audit.BatchInsert(ctx, []policy.DecisionEvent{
+	err := repos.accessLog.BatchInsert(ctx, []policy.DecisionEvent{
 		{
 			ClientIP:  "8.8.8.8",
 			Outcome:   true,
@@ -134,12 +134,12 @@ func TestRepository_ListAuditLogStatsByCountry_ToFilter(t *testing.T) {
 	// Query with to = 1 hour ago — should exclude the event created at now.
 	from := now.Add(-2 * time.Hour)
 	to := now.Add(-1 * time.Hour)
-	stats, err := repos.queries.ListAuditLogStatsByCountry(ctx, from, to)
+	stats, err := repos.queries.ListAccessLogStatsByCountry(ctx, from, to)
 	is.NoErr(err)
 	is.Equal(len(stats), 0)
 
 	// Query with to = now — should include the event.
-	stats, err = repos.queries.ListAuditLogStatsByCountry(ctx, from, now)
+	stats, err = repos.queries.ListAccessLogStatsByCountry(ctx, from, now)
 	is.NoErr(err)
 	is.Equal(len(stats), 1)
 	is.Equal(stats[0].CountryCode, "DE")

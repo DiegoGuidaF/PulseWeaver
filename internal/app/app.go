@@ -36,7 +36,7 @@ type App struct {
 	RuleService         *rule.Service
 	addressLeaseService *lease.Service
 	schedulerService    *scheduler.Service
-	auditSink           *accesslog.Sink
+	accessLogSink       *accesslog.Sink
 	geoipLookup         *geoip.Lookup
 }
 
@@ -118,10 +118,10 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	ruleService := rule.NewService(ruleRepo, logger)
 	ruleHandler := rule.NewHTTPHandler(ruleService, logger)
 
-	// Audit log — write side + simple reads (deny reasons)
-	auditRepo := accesslog.NewRepository(db.DB())
-	auditSink := accesslog.NewSink(auditRepo, logger)
-	auditHandler := accesslog.NewHTTPHandler(auditRepo, logger)
+	// Access log
+	accessLogRepo := accesslog.NewRepository(db.DB())
+	accessLogSink := accesslog.NewSink(accessLogRepo, logger)
+	accessLogHandler := accesslog.NewHTTPHandler(accessLogRepo, logger)
 
 	queriesRepo := queries.NewRepository(db.DB())
 	queriesHandler := queries.NewHTTPHandler(queriesRepo, logger)
@@ -136,7 +136,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	deviceService.AddAddressObserver(policyService)
 
 	// Register policy decision observers
-	policyService.AddDecisionObserver(auditSink)
+	policyService.AddDecisionObserver(accessLogSink)
 
 	// Dashboard — traffic aggregation
 	dashboardRepo := dashboard.NewRepository(db.DB())
@@ -161,7 +161,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		logger.Warn("failed to initialize policy IP cache on startup", slog.Any("error", err))
 	}
 
-	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, auditHandler, dashboardHandler, logger, conf.Server.TrustedProxy)
+	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, accessLogHandler, dashboardHandler, logger, conf.Server.TrustedProxy)
 
 	return &App{
 		Config:              conf,
@@ -174,7 +174,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		RuleService:         ruleService,
 		addressLeaseService: addressLeaseService,
 		schedulerService:    schedulerService,
-		auditSink:           auditSink,
+		accessLogSink:       accessLogSink,
 		geoipLookup:         geoipLookup,
 	}, nil
 }
@@ -197,7 +197,7 @@ func (a *App) Run(ctx context.Context) error {
 	})
 
 	g.Go(func() error {
-		return ignoreContextCanceled(a.auditSink.Run(gCtx))
+		return ignoreContextCanceled(a.accessLogSink.Run(gCtx))
 	})
 
 	g.Go(func() error {

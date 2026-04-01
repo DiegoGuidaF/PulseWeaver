@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// RollupExecutor aggregates raw audit log rows into hourly traffic buckets.
+// RollupExecutor aggregates raw access log rows into hourly traffic buckets.
 type RollupExecutor interface {
 	RunRollup(ctx context.Context, from, to time.Time) error
 }

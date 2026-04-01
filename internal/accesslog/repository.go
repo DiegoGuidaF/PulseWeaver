@@ -14,7 +14,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 )
 
-// Repository owns the audit log write path and simple single-table reads.
+// Repository owns the access log write path and simple single-table reads.
 // Cross-domain reads (e.g. joining devices for device_name) live in internal/queries.
 type Repository struct {
 	db     dBInterface
@@ -41,7 +41,7 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 	}
 
 	return r.runInTx(ctx, func(tx *Repository) error {
-		const insertAudit = `
+		const insertAccessLog = `
             INSERT INTO access_log (
                 client_ip, device_id, address_id, outcome, deny_reason,
                 created_at, xff_chain, target_host, target_uri, http_method, headers_json
@@ -50,7 +50,7 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
         `
 		const insertGeoIP = `
             INSERT INTO access_log_geoip
-                (audit_log_id, country_code, country_name, continent_code, asn, asn_org)
+                (access_log_id, country_code, country_name, continent_code, asn, asn_org)
             VALUES (?, ?, ?, ?, ?, ?)
         `
 
@@ -64,20 +64,20 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 				return fmt.Errorf("marshal headers_json: %w", err)
 			}
 
-			var auditID int64
-			if err := tx.db.GetContext(ctx, &auditID, insertAudit,
+			var accessID int64
+			if err := tx.db.GetContext(ctx, &accessID, insertAccessLog,
 				e.ClientIP, e.DeviceID, e.AddressID, e.Outcome, e.DenyReason,
 				e.CreatedAt, e.XFFChain, e.TargetHost, e.TargetURI, e.HTTPMethod,
 				string(headersJSON),
 			); err != nil {
-				return fmt.Errorf("insert audit event: %w", err)
+				return fmt.Errorf("insert access event: %w", err)
 			}
 
 			if e.GeoIP.IsEmpty() {
 				continue
 			}
 			if _, err := tx.db.ExecContext(ctx, insertGeoIP,
-				auditID, e.GeoIP.CountryCode, e.GeoIP.CountryName, e.GeoIP.ContinentCode, e.GeoIP.ASN, e.GeoIP.ASNOrg,
+				accessID, e.GeoIP.CountryCode, e.GeoIP.CountryName, e.GeoIP.ContinentCode, e.GeoIP.ASN, e.GeoIP.ASNOrg,
 			); err != nil {
 				return fmt.Errorf("insert geoip row: %w", err)
 			}

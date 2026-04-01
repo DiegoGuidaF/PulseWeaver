@@ -416,7 +416,7 @@ export const getAccessLogByCountry = <ThrowOnError extends boolean = false>(opti
 /**
  * List valid deny reason values
  *
- * Returns all valid deny_reason values that can appear in audit log entries or be used as the deny_reason filter on GET /access-log.
+ * Returns all valid deny_reason values that can appear in access log entries or be used as the deny_reason filter on GET /access-log.
  *
  */
 export const getAccessLogDenyReasons = <ThrowOnError extends boolean = false>(options?: Options<GetAccessLogDenyReasonsData, ThrowOnError>) => (options?.client ?? client).get<GetAccessLogDenyReasonsResponses, GetAccessLogDenyReasonsErrors, ThrowOnError>({

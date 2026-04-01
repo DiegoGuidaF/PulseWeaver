@@ -11,7 +11,7 @@ import { DateTimePicker } from "@mantine/dates";
 import { IconChevronRight, IconHome, IconSearch } from "@tabler/icons-react";
 import type { DataTableColumn } from "mantine-datatable";
 import type { AccessLogRow } from "@/lib/api";
-import type { AuditLogFilters } from "../hooks/useAccessLogFilters";
+import type { AccessLogFilters } from "../hooks/useAccessLogFilters";
 import { DENY_REASON_LABELS } from "../constants";
 import { countryFlagEmoji } from "@/lib/countryFlag";
 import dayjs from "dayjs";
@@ -47,7 +47,7 @@ export interface AccessLogColumnDeps {
     setParam: (key: string, value: string | null) => void;
     setIpLocal: (value: string) => void;
     setCountryCodeLocal: (value: string) => void;
-    setSearchParams: AuditLogFilters["setSearchParams"];
+    setSearchParams: AccessLogFilters["setSearchParams"];
 
     // Actions
     onRowClick: (row: AccessLogRow) => void;

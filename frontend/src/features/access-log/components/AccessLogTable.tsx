@@ -9,7 +9,7 @@ import { TrafficLineChart } from "@/components/TrafficLineChart";
 import { presetToMs } from "@/lib/formatChartLabel";
 import { useAccessLog } from "../hooks/useAccessLog";
 import { useDashboardTraffic } from "@/features/dashboard/hooks/useDashboardTraffic";
-import type { AuditLogFilters } from "../hooks/useAccessLogFilters";
+import type { AccessLogFilters } from "../hooks/useAccessLogFilters";
 import { AccessLogDetailDrawer } from "./AccessLogDetailDrawer";
 import { getAccessLogColumns } from "./accessLogColumns";
 import { DENY_REASON_LABELS } from "../constants";
@@ -19,7 +19,7 @@ import { useDevices } from "@/features/devices/hooks/useDevices";
 import { useAccessLogDenyReasons } from "../hooks/useAccessLogDenyReasons";
 
 interface AccessLogTableProps {
-    filters: AuditLogFilters;
+    filters: AccessLogFilters;
     refreshInterval: number;
 }
 

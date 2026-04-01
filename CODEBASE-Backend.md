@@ -11,7 +11,7 @@ internal/
 ├── policy/          # Forward-auth sidecar (IP allow/deny, in-memory cache)
 ├── config/         # Env var parsing (caarlos0/env)
 ├── database/       # SQLite connection, WAL mode, migrations
-├── audit/          # Request audit log (sink, service, repository)
+├── accesslog/      # Request access log (sink, service, repository)
 ├── device/         # Device and address management (core domain)
 ├── health/         # GET /health handler
 ├── httpapi/        # oapi-codegen generated types and strict handler interface
@@ -68,16 +68,16 @@ internal/
 - Config stored as JSON blob in `rules` table; parsed into typed structs
 - `Service.GetDeviceAddressLeaseTTLSeconds` — consumed by `lease.Service`
 
-**`audit`** — Request audit logging.
+**`accessLog`** — Request access logging.
 - `RequestLog` — structured log of a single API request (method, path, status, duration, principal)
 - `Sink` — `DecisionObserver`; receives `policy.DecisionEvent` and persists via `Repository`
 - `Service` — business logic for creating and querying audit logs
-- `HTTPHandler` — no direct endpoints; audit data exposed via `queries` package
-- Repository writes to `audit_logs` table
+- `HTTPHandler` — no direct endpoints; access log data exposed via `queries` package
+- Repository writes to `access_logs` table
 
 **`queries`** — Read-only query endpoints. Aggregates data across domains for list/filter views.
-- `DeviceView`, `AddressView`, `AuditView` — read-model types joining multiple tables
-- `HTTPHandler` — list endpoints: devices with addresses, audit log entries (pagination, filters)
+- `DeviceView`, `AddressView`, `AccessLogView` — read-model types joining multiple tables
+- `HTTPHandler` — list endpoints: devices with addresses, access log entries (pagination, filters)
 - `Repository` — SQL SELECT only; no writes; no transactions needed
 
 **`health`** — Simple `GET /health` handler returning `{"status":"ok","timestamp":"..."}`.

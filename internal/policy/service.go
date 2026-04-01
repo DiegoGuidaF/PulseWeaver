@@ -108,8 +108,6 @@ func (s *Service) notifyDecisionObservers(ctx context.Context, event DecisionEve
 }
 
 // VerifyAccess validates bearer token and verifies that the IP is enabled, emitting a DecisionEvent.
-// Token check stays in the service layer: moving it to the handler would prevent
-// invalid_token deny events from being emitted to the audit log.
 func (s *Service) VerifyAccess(ctx context.Context, req *VerifyRequest) error {
 	s.logger.DebugContext(ctx, "Verify access for ip")
 

@@ -9,7 +9,7 @@ import {
     createMockAccessLogRow,
     createMockAccessLogResponse,
 } from "@/test/mocks/data";
-import { endpoints, requestAuditLogHandlers, responses } from "@/test/mocks/handlers";
+import { endpoints, accessLogHandlers, responses } from "@/test/mocks/handlers";
 import { TEST_TIMEOUTS } from "@/test/constants";
 
 // Pre-set date range so the component starts with a bounded time window.
@@ -45,7 +45,7 @@ describe("AccessLogTable", () => {
             outcome: true,
         });
         server.use(
-            requestAuditLogHandlers.list(
+            accessLogHandlers.list(
                 createMockAccessLogResponse({ rows: [row], total: 1 }),
             ),
         );
@@ -63,7 +63,7 @@ describe("AccessLogTable", () => {
 
     it("shows no-records message while keeping column headers visible", async () => {
         server.use(
-            requestAuditLogHandlers.list(
+            accessLogHandlers.list(
                 createMockAccessLogResponse({ rows: [], total: 0 }),
             ),
         );
@@ -84,7 +84,7 @@ describe("AccessLogTable", () => {
     });
 
     it("shows error alert when API returns 500", async () => {
-        server.use(http.get(endpoints.requestAuditLog, () => responses.serverError()));
+        server.use(http.get(endpoints.accessLog, () => responses.serverError()));
 
         renderTable();
 
@@ -96,7 +96,7 @@ describe("AccessLogTable", () => {
 
     it("shows error alert when API returns 403", async () => {
         server.use(
-            http.get(endpoints.requestAuditLog, () =>
+            http.get(endpoints.accessLog, () =>
                 responses.forbidden({ message: "Forbidden - admin credentials required" }),
             ),
         );
@@ -119,7 +119,7 @@ describe("AccessLogTable", () => {
             target_host: "secure.example.com",
         });
         server.use(
-            requestAuditLogHandlers.list(
+            accessLogHandlers.list(
                 createMockAccessLogResponse({ rows: [row], total: 1 }),
             ),
         );
@@ -147,7 +147,7 @@ describe("AccessLogTable", () => {
         it("opens when the filter icon is clicked", async () => {
             const user = userEvent.setup();
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
@@ -169,7 +169,7 @@ describe("AccessLogTable", () => {
         it("closes when the filter icon is clicked again (toggle)", async () => {
             const user = userEvent.setup();
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
@@ -198,7 +198,7 @@ describe("AccessLogTable", () => {
         it("retains all typed characters without resetting", async () => {
             const user = userEvent.setup();
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
@@ -220,7 +220,7 @@ describe("AccessLogTable", () => {
         it("activates filter indicator only after debounce, not on every keystroke", async () => {
             const user = userEvent.setup();
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
@@ -266,7 +266,7 @@ describe("AccessLogTable", () => {
         it("opens when the filter icon is clicked", async () => {
             const user = userEvent.setup();
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
@@ -288,7 +288,7 @@ describe("AccessLogTable", () => {
         it("closes when filter icon is clicked again (toggle)", async () => {
             const user = userEvent.setup();
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
@@ -320,7 +320,7 @@ describe("AccessLogTable", () => {
         it("opens when the filter icon is clicked", async () => {
             const user = userEvent.setup();
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
@@ -346,7 +346,7 @@ describe("AccessLogTable", () => {
         it("opens when the filter icon is clicked and shows From and To pickers", async () => {
             const user = userEvent.setup();
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
@@ -370,7 +370,7 @@ describe("AccessLogTable", () => {
     describe("Active filter chips", () => {
         it("shows a Time chip when from/to are set", async () => {
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
@@ -387,7 +387,7 @@ describe("AccessLogTable", () => {
 
         it("shows an IP chip when ip filter is set via URL", async () => {
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
@@ -407,7 +407,7 @@ describe("AccessLogTable", () => {
 
         it("shows a Device chip with device name when device_id filter is set", async () => {
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
@@ -427,7 +427,7 @@ describe("AccessLogTable", () => {
 
         it("shows an Outcome chip when outcome filter is set", async () => {
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
@@ -448,7 +448,7 @@ describe("AccessLogTable", () => {
         it("removes the IP chip and clears the filter when remove is clicked", async () => {
             const user = userEvent.setup();
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
@@ -475,7 +475,7 @@ describe("AccessLogTable", () => {
 
         it("does not render chips when no filters are active", async () => {
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
@@ -501,7 +501,7 @@ describe("AccessLogTable", () => {
         it("opens when the filter icon is clicked", async () => {
             const user = userEvent.setup();
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
@@ -531,7 +531,7 @@ describe("AccessLogTable", () => {
                 country_name: "Germany",
             });
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [row], total: 1 }),
                 ),
             );
@@ -549,7 +549,7 @@ describe("AccessLogTable", () => {
         it("renders a house icon when country_code is absent", async () => {
             const row = createMockAccessLogRow({ client_ip: "192.168.1.1" });
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [row], total: 1 }),
                 ),
             );
@@ -587,7 +587,7 @@ describe("AccessLogTable", () => {
                 asn_org: "Google LLC",
             });
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [row], total: 1 }),
                 ),
             );
@@ -613,7 +613,7 @@ describe("AccessLogTable", () => {
             const user = userEvent.setup();
             const row = createMockAccessLogRow({ client_ip: "192.168.0.1" });
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [row], total: 1 }),
                 ),
             );
@@ -644,7 +644,7 @@ describe("AccessLogTable", () => {
                 country_code: "US",
             });
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [row], total: 1 }),
                 ),
             );
@@ -664,7 +664,7 @@ describe("AccessLogTable", () => {
         it("does not render the attribution link when no rows have country_code", async () => {
             const row = createMockAccessLogRow({ client_ip: "192.168.1.1" });
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [row], total: 1 }),
                 ),
             );
@@ -684,13 +684,13 @@ describe("AccessLogTable", () => {
     describe("Country filter chip", () => {
         it("shows a Country chip when country_code URL param is set", async () => {
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
             renderTable([
-                "/request-audit-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&country_code=DE",
+                "/access-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&country_code=DE",
             ]);
 
             await waitFor(
@@ -705,13 +705,13 @@ describe("AccessLogTable", () => {
         it("removes the Country chip and clears the filter when remove is clicked", async () => {
             const user = userEvent.setup();
             server.use(
-                requestAuditLogHandlers.list(
+                accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
             renderTable([
-                "/request-audit-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&country_code=DE",
+                "/access-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&country_code=DE",
             ]);
 
             await waitFor(

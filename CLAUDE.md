@@ -47,7 +47,7 @@ The app is deployed. **Always create a new numbered migration file** for every s
 Layered architecture: **Handler → Service → Repository → Database**
 
 - **Entry point:** `cmd/api/main.go`
-- **Domain packages** in `internal/`: `auth`, `policy`, `device`, `audit`, `queries`, `lease`, `rule`, `health`
+- **Domain packages** in `internal/`: `auth`, `policy`, `device`, `accesslog`, `queries`, `lease`, `rule`, `health`
 - **Infrastructure:** `config`, `database`, `httpserver`, `httpapi`, `logging`, `scheduler`, `testdb`, `testutils`, `ui`, `app`
 - **Domain constructors** (e.g. `NewUser`, `NewDevice`) enforce all business validation
 - **Handlers** extract primitives from OpenAPI DTOs, pass to services; never pass OpenAPI types deeper

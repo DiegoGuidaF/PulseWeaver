@@ -141,10 +141,10 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 	countQuery := `
 		SELECT COUNT(*) FROM access_log ral
 		LEFT JOIN devices d ON d.id = ral.device_id
-		LEFT JOIN access_log_geoip g ON g.audit_log_id = ral.id
+		LEFT JOIN access_log_geoip g ON g.access_log_id = ral.id
 	` + buildWhere(whereFilters)
 	if err := r.db.GetContext(ctx, &total, countQuery, countArgs...); err != nil {
-		return nil, 0, fmt.Errorf("count audit log: %w", err)
+		return nil, 0, fmt.Errorf("count access log: %w", err)
 	}
 
 	selectArgs := countArgs
@@ -179,10 +179,10 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 			g.asn_org
 		FROM access_log ral
 		LEFT JOIN devices d ON d.id = ral.device_id
-		LEFT JOIN access_log_geoip g ON g.audit_log_id = ral.id
+		LEFT JOIN access_log_geoip g ON g.access_log_id = ral.id
 	` + buildWhere(whereFilters) + ` ORDER BY ral.id DESC LIMIT ?`
 	if err := r.db.SelectContext(ctx, &dbRows, selectQuery, selectArgs...); err != nil {
-		return nil, 0, fmt.Errorf("list audit log: %w", err)
+		return nil, 0, fmt.Errorf("list access log: %w", err)
 	}
 
 	rows := make([]AccessLogView, len(dbRows))
@@ -222,8 +222,8 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 	return rows, total, nil
 }
 
-// AuditLogCountryStat holds aggregated request counts for a single country.
-type AuditLogCountryStat struct {
+// AccessLogCountryStat holds aggregated request counts for a single country.
+type AccessLogCountryStat struct {
 	CountryCode   string
 	CountryName   string
 	ContinentCode string
@@ -232,9 +232,9 @@ type AuditLogCountryStat struct {
 	Denied        int64
 }
 
-// ListAuditLogStatsByCountry returns request counts grouped by country for all rows
+// ListAccessLogStatsByCountry returns request counts grouped by country for all rows
 // within the [from, to] time window. Only rows with GeoIP data are included.
-func (r *Repository) ListAuditLogStatsByCountry(ctx context.Context, from, to time.Time) ([]AuditLogCountryStat, error) {
+func (r *Repository) ListAccessLogStatsByCountry(ctx context.Context, from, to time.Time) ([]AccessLogCountryStat, error) {
 	const query = `
 		SELECT
 			g.country_code,
@@ -244,7 +244,7 @@ func (r *Repository) ListAuditLogStatsByCountry(ctx context.Context, from, to ti
 			SUM(CASE WHEN ral.outcome = 1 THEN 1 ELSE 0 END) AS allowed,
 			SUM(CASE WHEN ral.outcome = 0 THEN 1 ELSE 0 END) AS denied
 		FROM access_log_geoip g
-		JOIN access_log ral ON ral.id = g.audit_log_id
+		JOIN access_log ral ON ral.id = g.access_log_id
 		WHERE ral.created_at >= ? AND ral.created_at <= ?
 		GROUP BY g.country_code, g.country_name, g.continent_code
 		ORDER BY total DESC
@@ -252,12 +252,12 @@ func (r *Repository) ListAuditLogStatsByCountry(ctx context.Context, from, to ti
 
 	var rows []dbCountryStatsRow
 	if err := r.db.SelectContext(ctx, &rows, query, from, to); err != nil {
-		return nil, fmt.Errorf("list audit log stats by country: %w", err)
+		return nil, fmt.Errorf("list access log stats by country: %w", err)
 	}
 
-	stats := make([]AuditLogCountryStat, len(rows))
+	stats := make([]AccessLogCountryStat, len(rows))
 	for i, row := range rows {
-		stats[i] = AuditLogCountryStat(row)
+		stats[i] = AccessLogCountryStat(row)
 	}
 
 	return stats, nil
