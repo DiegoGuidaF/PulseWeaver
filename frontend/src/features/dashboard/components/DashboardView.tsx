@@ -1,4 +1,4 @@
-import { Stack, SimpleGrid } from "@mantine/core";
+import { SimpleGrid, Stack } from "@mantine/core";
 import { useDashboardStats } from "../hooks/useDashboardStats";
 import { useDashboardTraffic } from "../hooks/useDashboardTraffic";
 import { useDashboardServices } from "../hooks/useDashboardServices";
@@ -30,9 +30,9 @@ export function DashboardView({ from, to, timeRangeMs }: DashboardViewProps) {
                 <ServiceBarChart data={services.data?.services} isLoading={services.isLoading} />
             </SimpleGrid>
 
-            <TopDeniedIPsTable data={topDenied.data?.ips} isLoading={topDenied.isLoading} />
-
             <CountryStatsSection from={from} to={to} />
+
+            <TopDeniedIPsTable data={topDenied.data?.ips} isLoading={topDenied.isLoading} />
         </Stack>
     );
 }

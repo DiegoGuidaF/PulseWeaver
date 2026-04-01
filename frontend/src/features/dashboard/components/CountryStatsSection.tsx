@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Stack, Grid, Group, SegmentedControl } from "@mantine/core";
+import { Stack, Grid } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import { useCountryStats } from "../hooks/useCountryStats";
 import { useCountryLookup } from "../hooks/useCountryLookup";
@@ -29,22 +29,13 @@ export function CountryStatsSection({ from, to }: CountryStatsSectionProps) {
 
     return (
         <Stack gap="xs">
-            <Group justify="flex-end">
-                <SegmentedControl
-                    size="xs"
-                    value={metric}
-                    onChange={(v) => setMetric(v as Metric)}
-                    data={[
-                        { value: "denied", label: "Denied" },
-                        { value: "total", label: "Total" },
-                    ]}
-                />
-            </Group>
             <Grid>
                 <Grid.Col span={{ base: 12, md: 8 }}>
                     <AccessMap
                         data={data}
                         isLoading={isLoading}
+                        metric={metric}
+                        onMetricChange={setMetric}
                         colorFn={colorFn}
                         lookup={lookup}
                         onCountryClick={handleCountryClick}

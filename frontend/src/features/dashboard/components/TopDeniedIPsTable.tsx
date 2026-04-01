@@ -10,7 +10,7 @@ interface TopDeniedIPsTableProps {
 
 export function TopDeniedIPsTable({ data, isLoading }: TopDeniedIPsTableProps) {
     return (
-        <Paper withBorder p="md" radius="md" maw={600}>
+        <Paper withBorder p="md" radius="md">
             <Text fw={500} mb="md">Top Denied IPs</Text>
             {isLoading ? (
                 <Skeleton h={200} />

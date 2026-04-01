@@ -1,10 +1,10 @@
 import { useState, useCallback, useMemo } from "react";
-import { Paper, Text, Skeleton, Box } from "@mantine/core";
+import { Paper, Text, Skeleton, Box, Group, SegmentedControl } from "@mantine/core";
 import { useElementSize } from "@mantine/hooks";
 import { IconMap } from "@tabler/icons-react";
-import { geoEqualEarth, geoPath } from "d3-geo";
+import { geoNaturalEarth1, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
-import type { FeatureCollection, Geometry } from "geojson";
+import type { Feature, FeatureCollection, Geometry } from "geojson";
 import type { Topology } from "topojson-specification";
 import worldData from "world-atlas/countries-110m.json";
 import { numericToAlpha2 } from "@/lib/countryCodeMap";
@@ -19,11 +19,35 @@ const countries = feature(
     worldTopo.objects.countries,
 ) as FeatureCollection<Geometry>;
 
-const MAP_HEIGHT = 300;
+// Bounding box that excludes Antarctica: clip at 60°S and 83°N.
+// geoNaturalEarth1().fitExtent() will scale/translate the projection so these
+// bounds fill the SVG area; anything outside (Antarctica) is clipped by viewBox.
+const CLIP_BOUNDS: Feature = {
+    type: "Feature",
+    properties: null,
+    geometry: {
+        type: "Polygon",
+        coordinates: [
+            [
+                [-179.9, -60],
+                [179.9, -60],
+                [179.9, 83],
+                [-179.9, 83],
+                [-179.9, -60],
+            ],
+        ],
+    },
+};
+
+const MAP_HEIGHT = 420;
+
+type Metric = "denied" | "total";
 
 interface AccessMapProps {
     data: AccessLogCountryStats[] | undefined;
     isLoading: boolean;
+    metric: Metric;
+    onMetricChange: (metric: Metric) => void;
     colorFn: (
         countryCode: string,
         lookup: Map<string, AccessLogCountryStats>,
@@ -41,6 +65,8 @@ interface TooltipState {
 export function AccessMap({
     data,
     isLoading,
+    metric,
+    onMetricChange,
     colorFn,
     lookup,
     onCountryClick,
@@ -53,12 +79,12 @@ export function AccessMap({
 
     const projection = useMemo(
         () =>
-            geoEqualEarth().fitExtent(
+            geoNaturalEarth1().fitExtent(
                 [
                     [2, 2],
                     [w - 2, MAP_HEIGHT - 2],
                 ],
-                countries,
+                CLIP_BOUNDS,
             ),
         [w],
     );
@@ -88,9 +114,18 @@ export function AccessMap({
 
     return (
         <Paper withBorder p="md" radius="md">
-            <Text fw={500} mb="md">
-                Access Map
-            </Text>
+            <Group justify="space-between" mb="md">
+                <Text fw={500}>Access Map</Text>
+                <SegmentedControl
+                    size="xs"
+                    value={metric}
+                    onChange={(v) => onMetricChange(v as Metric)}
+                    data={[
+                        { value: "denied", label: "Denied" },
+                        { value: "total", label: "Total" },
+                    ]}
+                />
+            </Group>
             {isLoading ? (
                 <Skeleton h={MAP_HEIGHT} />
             ) : !data || data.length === 0 ? (

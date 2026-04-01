@@ -14,6 +14,8 @@ function renderMap(props?: Partial<React.ComponentProps<typeof AccessMap>>) {
             <AccessMap
                 data={props?.data ?? []}
                 isLoading={props?.isLoading ?? false}
+                metric={props?.metric ?? "denied"}
+                onMetricChange={props?.onMetricChange ?? vi.fn()}
                 colorFn={props?.colorFn ?? noopColorFn}
                 lookup={props?.lookup ?? lookup}
                 onCountryClick={props?.onCountryClick ?? vi.fn()}
