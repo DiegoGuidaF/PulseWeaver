@@ -34,6 +34,10 @@ export const zPutDeviceAddressLeaseRuleRequest = z.object({
     ttl_seconds: z.int().gte(1)
 });
 
+export const zPutMaxActiveAddressesRuleRequest = z.object({
+    max_addresses: z.int().gte(1)
+});
+
 export const zDashboardStats = z.object({
     total_requests: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     allowed_count: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
@@ -212,6 +216,15 @@ export const zDeviceAddressLeaseRule = z.object({
     device_id: zId,
     enabled: z.boolean(),
     ttl_seconds: z.int().gte(1),
+    created_at: z.iso.datetime({ offset: true, local: true }),
+    updated_at: z.iso.datetime({ offset: true, local: true })
+});
+
+export const zMaxActiveAddressesRule = z.object({
+    id: zId,
+    device_id: zId,
+    enabled: z.boolean(),
+    max_addresses: z.int().gte(1),
     created_at: z.iso.datetime({ offset: true, local: true }),
     updated_at: z.iso.datetime({ offset: true, local: true })
 });
@@ -598,6 +611,45 @@ export const zPutDeviceAddressLeaseRuleData = z.object({
  * Rule updated or created
  */
 export const zPutDeviceAddressLeaseRuleResponse = zDeviceAddressLeaseRule;
+
+export const zDisableMaxActiveAddressesRuleData = z.object({
+    body: z.never().optional(),
+    path: z.object({
+        device_id: zId
+    }),
+    query: z.never().optional()
+});
+
+/**
+ * Rule disabled
+ */
+export const zDisableMaxActiveAddressesRuleResponse = z.void();
+
+export const zGetMaxActiveAddressesRuleData = z.object({
+    body: z.never().optional(),
+    path: z.object({
+        device_id: zId
+    }),
+    query: z.never().optional()
+});
+
+/**
+ * OK
+ */
+export const zGetMaxActiveAddressesRuleResponse = zMaxActiveAddressesRule;
+
+export const zPutMaxActiveAddressesRuleData = z.object({
+    body: zPutMaxActiveAddressesRuleRequest,
+    path: z.object({
+        device_id: zId
+    }),
+    query: z.never().optional()
+});
+
+/**
+ * Rule updated or created
+ */
+export const zPutMaxActiveAddressesRuleResponse = zMaxActiveAddressesRule;
 
 export const zGetDashboardStatsData = z.object({
     body: z.never().optional(),

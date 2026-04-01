@@ -595,6 +595,59 @@ export const PutDeviceAddressLeaseRuleRequestSchema = {
     }
 } as const;
 
+export const MaxActiveAddressesRuleSchema = {
+    type: 'object',
+    required: [
+        'id',
+        'device_id',
+        'enabled',
+        'max_addresses',
+        'created_at',
+        'updated_at'
+    ],
+    properties: {
+        id: {
+            $ref: '#/components/schemas/ID'
+        },
+        device_id: {
+            $ref: '#/components/schemas/ID'
+        },
+        enabled: {
+            type: 'boolean',
+            description: 'Whether the max active addresses rule is active'
+        },
+        max_addresses: {
+            type: 'integer',
+            minimum: 1,
+            description: 'Maximum number of simultaneously enabled IP addresses'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime'
+        }
+    }
+} as const;
+
+export const PutMaxActiveAddressesRuleRequestSchema = {
+    type: 'object',
+    required: [
+        'max_addresses'
+    ],
+    properties: {
+        max_addresses: {
+            type: 'integer',
+            minimum: 1,
+            description: 'Maximum number of simultaneously enabled IP addresses'
+        }
+    }
+} as const;
+
 export const DashboardStatsSchema = {
     type: 'object',
     required: [

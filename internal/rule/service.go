@@ -13,6 +13,7 @@ import (
 type repository interface {
 	GetRuleByDeviceAndType(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error)
 	EnableDeviceAddressLeaseRuleConfig(ctx context.Context, deviceID device.DeviceID, config DeviceAddressLeaseConfig) (*Rule, error)
+	EnableMaxActiveAddressesRuleConfig(ctx context.Context, deviceID device.DeviceID, config MaxActiveAddressesConfig) (*Rule, error)
 	DisableRule(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error)
 }
 
@@ -143,4 +144,79 @@ func (s *Service) DisableDeviceAddressLeaseRule(ctx context.Context, deviceID de
 	})
 
 	return rule.ToDeviceAddressLeaseRule()
+}
+
+// GetMaxActiveAddressesRule returns the max active addresses rule for the device, or ErrRuleNotFound if none exists.
+func (s *Service) GetMaxActiveAddressesRule(ctx context.Context, deviceID device.DeviceID) (*MaxActiveAddressesRule, error) {
+	rule, err := s.repo.GetRuleByDeviceAndType(ctx, deviceID, RuleTypeMaxActiveAddresses)
+	if err != nil {
+		return nil, err
+	}
+	return rule.ToMaxActiveAddressesRule()
+}
+
+// GetMaxActiveAddresses returns the maximum number of active addresses for the device, or nil if no active rule.
+func (s *Service) GetMaxActiveAddresses(ctx context.Context, deviceID device.DeviceID) (*int, error) {
+	logger := s.logger.With(
+		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
+		slog.String(AttrKeyRuleType, string(RuleTypeMaxActiveAddresses)),
+	)
+
+	rule, err := s.repo.GetRuleByDeviceAndType(ctx, deviceID, RuleTypeMaxActiveAddresses)
+	if err != nil {
+		if errors.Is(err, ErrRuleNotFound) {
+			return nil, nil
+		}
+		logger.ErrorContext(ctx, "failed to load rule", slog.Any(AttrKeyError, err))
+		return nil, err
+	}
+
+	if !rule.Enabled {
+		return nil, nil
+	}
+
+	maxAddressesRule, err := rule.ToMaxActiveAddressesRule()
+	if err != nil {
+		logger.ErrorContext(ctx, "invalid max active addresses rule config", slog.Any(AttrKeyError, err))
+		return nil, ErrInvalidRuleConfig
+	}
+
+	return new(maxAddressesRule.Config.MaxAddresses), nil
+}
+
+// EnableMaxActiveAddressesRule creates or updates the max active addresses rule for the device.
+func (s *Service) EnableMaxActiveAddressesRule(ctx context.Context, deviceID device.DeviceID, maxAddresses int) (*MaxActiveAddressesRule, error) {
+	logger := s.logger.With(
+		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
+		slog.String(AttrKeyRuleType, string(RuleTypeMaxActiveAddresses)),
+	)
+
+	config, err := NewMaxActiveAddressesConfig(maxAddresses)
+	if err != nil {
+		return nil, err
+	}
+
+	newRule, err := s.repo.EnableMaxActiveAddressesRuleConfig(ctx, deviceID, config)
+	if err != nil {
+		return nil, err
+	}
+	logger.InfoContext(ctx, "enabled max active addresses rule successfully", slog.Int64(AttrKeyRuleID, int64(newRule.ID)))
+
+	return newRule.ToMaxActiveAddressesRule()
+}
+
+// DisableMaxActiveAddressesRule sets enabled to false for the max active addresses rule for the device.
+func (s *Service) DisableMaxActiveAddressesRule(ctx context.Context, deviceID device.DeviceID) (*MaxActiveAddressesRule, error) {
+	logger := s.logger.With(
+		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
+		slog.String(AttrKeyRuleType, string(RuleTypeMaxActiveAddresses)),
+	)
+
+	rule, err := s.repo.DisableRule(ctx, deviceID, RuleTypeMaxActiveAddresses)
+	if err != nil {
+		return nil, err
+	}
+	logger.InfoContext(ctx, "disabled max active addresses rule successfully", slog.Int64(AttrKeyRuleID, int64(rule.ID)))
+
+	return rule.ToMaxActiveAddressesRule()
 }

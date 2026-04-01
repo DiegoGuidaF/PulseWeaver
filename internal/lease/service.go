@@ -73,6 +73,10 @@ func (s *Service) OnAddressEvent(ctx context.Context, event device.AddressEvent)
 	case <-ctx.Done():
 		return
 	case s.events <- event:
+	default:
+		s.logger.Warn("address lease event channel full, dropping event",
+			slog.Int64("device_id", event.DeviceID.Int64()),
+		)
 	}
 }
 
@@ -81,6 +85,10 @@ func (s *Service) OnRuleEvent(ctx context.Context, event rule.RuleEvent) {
 	select {
 	case <-ctx.Done():
 	case s.ruleEvents <- event:
+	default:
+		s.logger.Warn("address lease rule change channel full, dropping event",
+			slog.Int64("device_id", event.DeviceID.Int64()),
+		)
 	}
 }
 

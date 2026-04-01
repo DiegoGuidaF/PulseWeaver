@@ -17,6 +17,9 @@ type RuleType string
 const (
 	// RuleTypeDeviceAddressLease controls automatic expiry of IP addresses for a device.
 	RuleTypeDeviceAddressLease RuleType = "device_lease"
+
+	// RuleTypeMaxActiveAddresses limits the number of simultaneously enabled IP addresses per device.
+	RuleTypeMaxActiveAddresses RuleType = "max_active_addresses"
 )
 
 // Rule maps to a row in the device_rules table.
@@ -90,4 +93,61 @@ func NewDeviceAddressLeaseConfig(addressTTLSeconds int) (DeviceAddressLeaseConfi
 		return DeviceAddressLeaseConfig{}, ErrInvalidRuleConfig
 	}
 	return DeviceAddressLeaseConfig{TTLSeconds: addressTTLSeconds}, nil
+}
+
+// MaxActiveAddressesRule represents the domain model for the max active addresses rule.
+type MaxActiveAddressesRule struct {
+	ID        RuleID
+	DeviceID  device.DeviceID
+	Enabled   bool
+	Config    MaxActiveAddressesConfig
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// MaxActiveAddressesConfig holds configuration for the max active addresses rule.
+type MaxActiveAddressesConfig struct {
+	MaxAddresses int `json:"max_addresses"`
+}
+
+// NewMaxActiveAddressesConfig validates and creates a MaxActiveAddressesConfig.
+func NewMaxActiveAddressesConfig(maxAddresses int) (MaxActiveAddressesConfig, error) {
+	if maxAddresses < 1 {
+		return MaxActiveAddressesConfig{}, ErrInvalidMaxAddresses
+	}
+	return MaxActiveAddressesConfig{MaxAddresses: maxAddresses}, nil
+}
+
+// parseMaxActiveAddressesConfig parses the JSON config for a max active addresses rule.
+func parseMaxActiveAddressesConfig(raw json.RawMessage) (MaxActiveAddressesConfig, error) {
+	if len(raw) == 0 {
+		return MaxActiveAddressesConfig{}, ErrInvalidRuleConfig
+	}
+	var cfg MaxActiveAddressesConfig
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return MaxActiveAddressesConfig{}, ErrInvalidRuleConfig
+	}
+	if cfg.MaxAddresses < 1 {
+		return MaxActiveAddressesConfig{}, ErrInvalidRuleConfig
+	}
+	return cfg, nil
+}
+
+// ToMaxActiveAddressesRule converts the raw Rule row into a MaxActiveAddressesRule.
+func (r *Rule) ToMaxActiveAddressesRule() (*MaxActiveAddressesRule, error) {
+	if r.RuleType != RuleTypeMaxActiveAddresses {
+		return nil, fmt.Errorf("%w: invalid rule type %s", ErrInvalidRuleConfig, r.RuleType)
+	}
+	config, err := parseMaxActiveAddressesConfig(r.Config)
+	if err != nil {
+		return nil, err
+	}
+	return &MaxActiveAddressesRule{
+		ID:        r.ID,
+		DeviceID:  r.DeviceID,
+		Enabled:   r.Enabled,
+		Config:    config,
+		CreatedAt: r.CreatedAt,
+		UpdatedAt: r.UpdatedAt,
+	}, nil
 }

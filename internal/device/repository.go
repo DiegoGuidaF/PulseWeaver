@@ -265,6 +265,24 @@ func (r *Repository) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error)
 	return entries, nil
 }
 
+// GetEnabledAddressesForDevice returns all enabled addresses for a device, ordered by updated_at DESC.
+func (r *Repository) GetEnabledAddressesForDevice(ctx context.Context, deviceID DeviceID) ([]Address, error) {
+	var addresses []Address
+
+	const query = `
+		SELECT id, device_id, ip, is_enabled, source, created_at, updated_at
+		FROM addresses
+		WHERE device_id = ? AND is_enabled = 1
+		ORDER BY updated_at DESC
+	`
+
+	if err := r.db.SelectContext(ctx, &addresses, query, deviceID); err != nil {
+		return nil, fmt.Errorf("get enabled addresses for device: %w", err)
+	}
+
+	return addresses, nil
+}
+
 // GetAddress returns the current state for a single address ID.
 func (r *Repository) GetAddress(ctx context.Context, addressID AddressID) (*Address, error) {
 	state := new(Address)

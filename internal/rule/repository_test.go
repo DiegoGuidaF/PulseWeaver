@@ -126,3 +126,59 @@ func TestRepository_DisableRule_DisablesExistingRule(t *testing.T) {
 	is.True(r != nil)
 	is.True(!r.Enabled)
 }
+
+func TestRepository_EnableMaxActiveAddressesRuleConfig_Creates(t *testing.T) {
+	is := is.New(t)
+	repo, db := setupRuleTestDB(t)
+	ctx := context.Background()
+	dev := insertDevice(t, db, ctx, "max-addr-create-device")
+	cfg, err := rule.NewMaxActiveAddressesConfig(3)
+	is.NoErr(err)
+
+	r, err := repo.EnableMaxActiveAddressesRuleConfig(ctx, dev.ID, cfg)
+
+	is.NoErr(err)
+	is.True(r != nil)
+	is.Equal(r.DeviceID, dev.ID)
+	is.Equal(r.RuleType, rule.RuleTypeMaxActiveAddresses)
+	is.True(r.Enabled)
+	is.True(len(r.Config) > 0)
+}
+
+func TestRepository_EnableMaxActiveAddressesRuleConfig_Upsert(t *testing.T) {
+	is := is.New(t)
+	repo, db := setupRuleTestDB(t)
+	ctx := context.Background()
+	dev := insertDevice(t, db, ctx, "max-addr-upsert-device")
+
+	cfg1, _ := rule.NewMaxActiveAddressesConfig(3)
+	r1, err := repo.EnableMaxActiveAddressesRuleConfig(ctx, dev.ID, cfg1)
+	is.NoErr(err)
+	is.True(r1 != nil)
+
+	cfg2, _ := rule.NewMaxActiveAddressesConfig(5)
+	r2, err := repo.EnableMaxActiveAddressesRuleConfig(ctx, dev.ID, cfg2)
+	is.NoErr(err)
+	is.True(r2 != nil)
+	is.Equal(r1.ID, r2.ID)
+
+	// Verify only one rule exists
+	fetched, err := repo.GetRuleByDeviceAndType(ctx, dev.ID, rule.RuleTypeMaxActiveAddresses)
+	is.NoErr(err)
+	maxRule, err := fetched.ToMaxActiveAddressesRule()
+	is.NoErr(err)
+	is.Equal(maxRule.Config.MaxAddresses, 5)
+}
+
+func TestRepository_EnableMaxActiveAddressesRuleConfig_NonExistentDevice(t *testing.T) {
+	is := is.New(t)
+	repo, _ := setupRuleTestDB(t)
+	ctx := context.Background()
+	cfg, _ := rule.NewMaxActiveAddressesConfig(3)
+
+	r, err := repo.EnableMaxActiveAddressesRuleConfig(ctx, device.DeviceID(99999), cfg)
+
+	is.True(err != nil)
+	is.Equal(err, device.ErrDeviceNotFound)
+	is.True(r == nil)
+}

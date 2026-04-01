@@ -818,3 +818,57 @@ func TestRepository_GetAddressHistory_StateChangesOnly(t *testing.T) {
 	// Buckets should still include all events regardless of IncludeAll
 	is.Equal(allHistory.Buckets[0].EventCount, changesHistory.Buckets[0].EventCount)
 }
+
+func TestRepository_GetEnabledAddressesForDevice_ReturnsOnlyEnabled(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+	dev := createTestDevice(t, repo, ctx, "enabled-filter-device")
+
+	// Create two addresses, disable one
+	addr1 := createTestAddress(t, repo, ctx, dev.ID, "10.0.0.1")
+	addr2 := createTestAddress(t, repo, ctx, dev.ID, "10.0.0.2")
+
+	_, err := repo.DisableAddress(ctx, addr2.ID)
+	is.NoErr(err)
+
+	enabled, err := repo.GetEnabledAddressesForDevice(ctx, dev.ID)
+	is.NoErr(err)
+	is.Equal(len(enabled), 1)
+	is.Equal(enabled[0].ID, addr1.ID)
+}
+
+func TestRepository_GetEnabledAddressesForDevice_OrderedByUpdatedAtDesc(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+	dev := createTestDevice(t, repo, ctx, "order-device")
+
+	addr1 := createTestAddress(t, repo, ctx, dev.ID, "10.0.0.1")
+	addr2 := createTestAddress(t, repo, ctx, dev.ID, "10.0.0.2")
+
+	// Refresh addr1 so it has a more recent updated_at
+	_, err := repo.RefreshAddress(ctx, addr1.ID, device.EventSourceManual)
+	is.NoErr(err)
+
+	enabled, err := repo.GetEnabledAddressesForDevice(ctx, dev.ID)
+	is.NoErr(err)
+	is.Equal(len(enabled), 2)
+	// addr1 was refreshed more recently, should be first
+	is.Equal(enabled[0].ID, addr1.ID)
+	is.Equal(enabled[1].ID, addr2.ID)
+}
+
+func TestRepository_GetEnabledAddressesForDevice_EmptyWhenNone(t *testing.T) {
+	is := is.New(t)
+
+	repo := setupTestDB(t)
+	ctx := context.Background()
+	dev := createTestDevice(t, repo, ctx, "empty-device")
+
+	enabled, err := repo.GetEnabledAddressesForDevice(ctx, dev.ID)
+	is.NoErr(err)
+	is.Equal(len(enabled), 0)
+}

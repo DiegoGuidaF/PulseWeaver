@@ -145,3 +145,135 @@ func TestRule_ToDeviceAddressLeaseRule_ValidRule(t *testing.T) {
 	is.Equal(result.CreatedAt, rule.CreatedAt)
 	is.Equal(result.UpdatedAt, rule.UpdatedAt)
 }
+
+// MaxActiveAddressesConfig tests
+
+func TestNewMaxActiveAddressesConfig_Valid(t *testing.T) {
+	is := is.New(t)
+
+	tests := []struct {
+		name         string
+		maxAddresses int
+	}{
+		{name: "min_value", maxAddresses: 1},
+		{name: "typical_value", maxAddresses: 5},
+		{name: "large_value", maxAddresses: 100},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := NewMaxActiveAddressesConfig(tt.maxAddresses)
+			is.NoErr(err)
+			is.Equal(cfg.MaxAddresses, tt.maxAddresses)
+		})
+	}
+}
+
+func TestNewMaxActiveAddressesConfig_Invalid(t *testing.T) {
+	is := is.New(t)
+
+	tests := []struct {
+		name         string
+		maxAddresses int
+	}{
+		{name: "zero", maxAddresses: 0},
+		{name: "negative", maxAddresses: -1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewMaxActiveAddressesConfig(tt.maxAddresses)
+			is.True(err != nil)
+			is.True(errors.Is(err, ErrInvalidMaxAddresses))
+		})
+	}
+}
+
+func TestParseMaxActiveAddressesConfig_Valid(t *testing.T) {
+	is := is.New(t)
+
+	cfg, err := parseMaxActiveAddressesConfig(json.RawMessage(`{"max_addresses":3}`))
+	is.NoErr(err)
+	is.Equal(cfg.MaxAddresses, 3)
+}
+
+func TestParseMaxActiveAddressesConfig_Invalid(t *testing.T) {
+	is := is.New(t)
+
+	tests := []struct {
+		name string
+		raw  json.RawMessage
+	}{
+		{name: "empty", raw: json.RawMessage{}},
+		{name: "nil", raw: nil},
+		{name: "malformed_json", raw: json.RawMessage(`{"max_addresses":`)},
+		{name: "zero_value", raw: json.RawMessage(`{"max_addresses":0}`)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := parseMaxActiveAddressesConfig(tt.raw)
+			is.True(err != nil)
+			is.True(errors.Is(err, ErrInvalidRuleConfig))
+		})
+	}
+}
+
+func TestRule_ToMaxActiveAddressesRule_WrongType(t *testing.T) {
+	is := is.New(t)
+
+	r := &Rule{
+		ID:       RuleID(1),
+		DeviceID: device.DeviceID(42),
+		RuleType: RuleTypeDeviceAddressLease,
+		Enabled:  true,
+		Config:   json.RawMessage(`{"max_addresses":3}`),
+	}
+
+	result, err := r.ToMaxActiveAddressesRule()
+	is.True(err != nil)
+	is.True(errors.Is(err, ErrInvalidRuleConfig))
+	is.True(result == nil)
+}
+
+func TestRule_ToMaxActiveAddressesRule_InvalidConfig(t *testing.T) {
+	is := is.New(t)
+
+	r := &Rule{
+		ID:       RuleID(1),
+		DeviceID: device.DeviceID(42),
+		RuleType: RuleTypeMaxActiveAddresses,
+		Enabled:  true,
+		Config:   json.RawMessage(`{"max_addresses":0}`),
+	}
+
+	result, err := r.ToMaxActiveAddressesRule()
+	is.True(err != nil)
+	is.True(errors.Is(err, ErrInvalidRuleConfig))
+	is.True(result == nil)
+}
+
+func TestRule_ToMaxActiveAddressesRule_Valid(t *testing.T) {
+	is := is.New(t)
+
+	now := time.Now().UTC()
+	r := &Rule{
+		ID:        RuleID(7),
+		DeviceID:  device.DeviceID(99),
+		RuleType:  RuleTypeMaxActiveAddresses,
+		Enabled:   true,
+		Config:    json.RawMessage(`{"max_addresses":5}`),
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	result, err := r.ToMaxActiveAddressesRule()
+	is.NoErr(err)
+	is.True(result != nil)
+	is.Equal(result.ID, r.ID)
+	is.Equal(result.DeviceID, r.DeviceID)
+	is.Equal(result.Enabled, r.Enabled)
+	is.Equal(result.Config.MaxAddresses, 5)
+	is.Equal(result.CreatedAt, r.CreatedAt)
+	is.Equal(result.UpdatedAt, r.UpdatedAt)
+}

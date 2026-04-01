@@ -25,6 +25,7 @@ type repository interface {
 	GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) (*Device, error)
 	GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error)
 	GetAddressHistory(ctx context.Context, query AddressHistoryQuery) (AddressHistory, error)
+	GetEnabledAddressesForDevice(ctx context.Context, deviceID DeviceID) ([]Address, error)
 	RunInTx(ctx context.Context, fn func(repository) error) error
 }
 
@@ -263,4 +264,9 @@ func (s *Service) RegenerateAPIKey(ctx context.Context, deviceID DeviceID) (*Dev
 
 func (s *Service) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error) {
 	return s.repo.GetEnabledIPEntries(ctx)
+}
+
+// GetEnabledAddressesForDevice returns all enabled addresses for a device, ordered by updated_at DESC.
+func (s *Service) GetEnabledAddressesForDevice(ctx context.Context, deviceID DeviceID) ([]Address, error) {
+	return s.repo.GetEnabledAddressesForDevice(ctx, deviceID)
 }

@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addAddress, changePassword, createDevice, createUser, deleteDevice, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, getAccessLog, getAccessLogByCountry, getAccessLogDenyReasons, getAddressHistory, getCurrentUser, getDashboardServices, getDashboardStats, getDashboardTopDeniedIps, getDashboardTraffic, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, listUsers, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, regenerateDeviceApiKey, updateMe } from '../sdk.gen';
-import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, GetAccessLogByCountryData, GetAccessLogByCountryError, GetAccessLogByCountryResponse, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsError, GetAccessLogDenyReasonsResponse, GetAccessLogError, GetAccessLogResponse, GetAddressHistoryData, GetAddressHistoryError, GetAddressHistoryResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDashboardServicesData, GetDashboardServicesError, GetDashboardServicesResponse, GetDashboardStatsData, GetDashboardStatsError, GetDashboardStatsResponse, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsError, GetDashboardTopDeniedIpsResponse, GetDashboardTrafficData, GetDashboardTrafficError, GetDashboardTrafficResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
+import { addAddress, changePassword, createDevice, createUser, deleteDevice, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, disableMaxActiveAddressesRule, getAccessLog, getAccessLogByCountry, getAccessLogDenyReasons, getAddressHistory, getCurrentUser, getDashboardServices, getDashboardStats, getDashboardTopDeniedIps, getDashboardTraffic, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, getMaxActiveAddressesRule, listUsers, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, putMaxActiveAddressesRule, regenerateDeviceApiKey, updateMe } from '../sdk.gen';
+import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, DisableMaxActiveAddressesRuleData, DisableMaxActiveAddressesRuleError, DisableMaxActiveAddressesRuleResponse, GetAccessLogByCountryData, GetAccessLogByCountryError, GetAccessLogByCountryResponse, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsError, GetAccessLogDenyReasonsResponse, GetAccessLogError, GetAccessLogResponse, GetAddressHistoryData, GetAddressHistoryError, GetAddressHistoryResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDashboardServicesData, GetDashboardServicesError, GetDashboardServicesResponse, GetDashboardStatsData, GetDashboardStatsError, GetDashboardStatsResponse, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsError, GetDashboardTopDeniedIpsResponse, GetDashboardTrafficData, GetDashboardTrafficError, GetDashboardTrafficResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, GetMaxActiveAddressesRuleData, GetMaxActiveAddressesRuleError, GetMaxActiveAddressesRuleResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, PutMaxActiveAddressesRuleData, PutMaxActiveAddressesRuleError, PutMaxActiveAddressesRuleResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -554,6 +554,64 @@ export const putDeviceAddressLeaseRuleMutation = (options?: Partial<Options<PutD
     const mutationOptions: UseMutationOptions<PutDeviceAddressLeaseRuleResponse, PutDeviceAddressLeaseRuleError, Options<PutDeviceAddressLeaseRuleData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await putDeviceAddressLeaseRule({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Disable max active addresses rule for a device
+ *
+ * Disables the max active addresses rule for the device (sets enabled to false).
+ */
+export const disableMaxActiveAddressesRuleMutation = (options?: Partial<Options<DisableMaxActiveAddressesRuleData>>): UseMutationOptions<DisableMaxActiveAddressesRuleResponse, DisableMaxActiveAddressesRuleError, Options<DisableMaxActiveAddressesRuleData>> => {
+    const mutationOptions: UseMutationOptions<DisableMaxActiveAddressesRuleResponse, DisableMaxActiveAddressesRuleError, Options<DisableMaxActiveAddressesRuleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await disableMaxActiveAddressesRule({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getMaxActiveAddressesRuleQueryKey = (options: Options<GetMaxActiveAddressesRuleData>) => createQueryKey('getMaxActiveAddressesRule', options);
+
+/**
+ * Get max active addresses rule for a device
+ *
+ * Returns the max active addresses rule for the device if configured.
+ */
+export const getMaxActiveAddressesRuleOptions = (options: Options<GetMaxActiveAddressesRuleData>) => queryOptions<GetMaxActiveAddressesRuleResponse, GetMaxActiveAddressesRuleError, GetMaxActiveAddressesRuleResponse, ReturnType<typeof getMaxActiveAddressesRuleQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getMaxActiveAddressesRule({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getMaxActiveAddressesRuleQueryKey(options)
+});
+
+/**
+ * Create or update max active addresses rule for a device
+ *
+ * Creates or updates the max active addresses rule. max_addresses must be at least 1.
+ */
+export const putMaxActiveAddressesRuleMutation = (options?: Partial<Options<PutMaxActiveAddressesRuleData>>): UseMutationOptions<PutMaxActiveAddressesRuleResponse, PutMaxActiveAddressesRuleError, Options<PutMaxActiveAddressesRuleData>> => {
+    const mutationOptions: UseMutationOptions<PutMaxActiveAddressesRuleResponse, PutMaxActiveAddressesRuleError, Options<PutMaxActiveAddressesRuleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await putMaxActiveAddressesRule({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

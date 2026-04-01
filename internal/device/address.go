@@ -20,9 +20,10 @@ type Address struct {
 type EventSource string
 
 const (
-	EventSourceHeartbeat EventSource = "heartbeat"
-	EventSourceManual    EventSource = "manual"
-	EventSourceExpiry    EventSource = "expiry"
+	EventSourceHeartbeat     EventSource = "heartbeat"
+	EventSourceManual        EventSource = "manual"
+	EventSourceExpiry        EventSource = "expiry"
+	EventSourceLimitExceeded EventSource = "limit_exceeded"
 )
 
 // CreateAddressParams holds only what is necessary to create an address.

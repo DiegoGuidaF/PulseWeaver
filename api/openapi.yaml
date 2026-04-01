@@ -1178,6 +1178,112 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /devices/{device_id}/rules/max_active_addresses:
+    get:
+      operationId: getMaxActiveAddressesRule
+      tags:
+        - rules
+      summary: Get max active addresses rule for a device
+      description: Returns the max active addresses rule for the device if configured.
+      parameters:
+        - name: device_id
+          in: path
+          description: Device id
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaxActiveAddressesRule'
+        "404":
+          description: Device or rule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: putMaxActiveAddressesRule
+      tags:
+        - rules
+      summary: Create or update max active addresses rule for a device
+      description: Creates or updates the max active addresses rule. max_addresses must be at least 1.
+      parameters:
+        - name: device_id
+          in: path
+          description: Device id
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PutMaxActiveAddressesRuleRequest'
+      responses:
+        "200":
+          description: Rule updated or created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaxActiveAddressesRule'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: disableMaxActiveAddressesRule
+      tags:
+        - rules
+      summary: Disable max active addresses rule for a device
+      description: Disables the max active addresses rule for the device (sets enabled to false).
+      parameters:
+        - name: device_id
+          in: path
+          description: Device id
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        "204":
+          description: Rule disabled
+        "404":
+          description: Device or rule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   # --------------------
   # Dashboard Endpoints
   # --------------------
@@ -1807,6 +1913,46 @@ components:
           type: integer
           minimum: 1
           description: Seconds after which an enabled device address lease expires
+
+    MaxActiveAddressesRule:
+      type: object
+      required:
+        - id
+        - device_id
+        - enabled
+        - max_addresses
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        device_id:
+          $ref: '#/components/schemas/ID'
+        enabled:
+          type: boolean
+          description: Whether the max active addresses rule is active
+        max_addresses:
+          type: integer
+          minimum: 1
+          description: Maximum number of simultaneously enabled IP addresses
+        created_at:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+        updated_at:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+
+    PutMaxActiveAddressesRuleRequest:
+      type: object
+      required:
+        - max_addresses
+      properties:
+        max_addresses:
+          type: integer
+          minimum: 1
+          description: Maximum number of simultaneously enabled IP addresses
 
     #################
     # Dashboard

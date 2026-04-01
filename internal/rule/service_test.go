@@ -52,6 +52,13 @@ func (f *fakeRepository) EnableDeviceAddressLeaseRuleConfig(ctx context.Context,
 	return f.enableResult, nil
 }
 
+func (f *fakeRepository) EnableMaxActiveAddressesRuleConfig(ctx context.Context, deviceID device.DeviceID, config MaxActiveAddressesConfig) (*Rule, error) {
+	if f.enableErr != nil {
+		return nil, f.enableErr
+	}
+	return f.enableResult, nil
+}
+
 func (f *fakeRepository) DisableRule(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error) {
 	if f.disableErr != nil {
 		return nil, f.disableErr
@@ -306,4 +313,168 @@ func TestService_DisableDeviceAddressLeaseRule_EmitsRuleDisabledEvent(t *testing
 	is.Equal(observer.events[0].RuleType, RuleTypeDeviceAddressLease)
 	is.Equal(observer.events[0].DeviceID, device.DeviceID(55))
 	is.True(observer.events[0].TTLSeconds == nil)
+}
+
+// GetMaxActiveAddresses
+
+func TestService_GetMaxActiveAddresses_NoRule_ReturnsNil(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepository{getRuleErr: ErrRuleNotFound}
+	svc := newTestService(repo)
+	max, err := svc.GetMaxActiveAddresses(context.Background(), device.DeviceID(1))
+	is.NoErr(err)
+	is.True(max == nil)
+}
+
+func TestService_GetMaxActiveAddresses_DisabledRule_ReturnsNil(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepository{
+		getRuleResult: &Rule{
+			ID: 1, DeviceID: 1, RuleType: RuleTypeMaxActiveAddresses,
+			Enabled: false, Config: json.RawMessage(`{"max_addresses":3}`),
+		},
+	}
+	svc := newTestService(repo)
+	max, err := svc.GetMaxActiveAddresses(context.Background(), device.DeviceID(1))
+	is.NoErr(err)
+	is.True(max == nil)
+}
+
+func TestService_GetMaxActiveAddresses_EnabledRule_ReturnsMaxAddresses(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepository{
+		getRuleResult: &Rule{
+			ID: 1, DeviceID: 1, RuleType: RuleTypeMaxActiveAddresses,
+			Enabled: true, Config: json.RawMessage(`{"max_addresses":3}`),
+		},
+	}
+	svc := newTestService(repo)
+	max, err := svc.GetMaxActiveAddresses(context.Background(), device.DeviceID(1))
+	is.NoErr(err)
+	is.True(max != nil)
+	is.Equal(*max, 3)
+}
+
+func TestService_GetMaxActiveAddresses_InvalidConfig_ReturnsErr(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepository{
+		getRuleResult: &Rule{
+			ID: 1, DeviceID: 1, RuleType: RuleTypeMaxActiveAddresses,
+			Enabled: true, Config: json.RawMessage(`{"max_addresses":0}`),
+		},
+	}
+	svc := newTestService(repo)
+	max, err := svc.GetMaxActiveAddresses(context.Background(), device.DeviceID(1))
+	is.True(err != nil)
+	is.True(errors.Is(err, ErrInvalidRuleConfig))
+	is.True(max == nil)
+}
+
+// EnableMaxActiveAddressesRule
+
+func TestService_EnableMaxActiveAddressesRule_Valid(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepository{
+		enableResult: &Rule{
+			ID: 2, DeviceID: 1, RuleType: RuleTypeMaxActiveAddresses,
+			Enabled: true, Config: json.RawMessage(`{"max_addresses":5}`),
+			CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+		},
+	}
+	svc := newTestService(repo)
+	out, err := svc.EnableMaxActiveAddressesRule(context.Background(), device.DeviceID(1), 5)
+	is.NoErr(err)
+	is.True(out != nil)
+	is.Equal(out.Config.MaxAddresses, 5)
+	is.True(out.Enabled)
+}
+
+func TestService_EnableMaxActiveAddressesRule_InvalidMax(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepository{}
+	svc := newTestService(repo)
+	out, err := svc.EnableMaxActiveAddressesRule(context.Background(), device.DeviceID(1), 0)
+	is.True(err != nil)
+	is.True(errors.Is(err, ErrInvalidMaxAddresses))
+	is.True(out == nil)
+}
+
+func TestService_EnableMaxActiveAddressesRule_DeviceNotFound(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepository{enableErr: device.ErrDeviceNotFound}
+	svc := newTestService(repo)
+	out, err := svc.EnableMaxActiveAddressesRule(context.Background(), device.DeviceID(1), 3)
+	is.True(err != nil)
+	is.Equal(err, device.ErrDeviceNotFound)
+	is.True(out == nil)
+}
+
+// DisableMaxActiveAddressesRule
+
+func TestService_DisableMaxActiveAddressesRule_ReturnsRule(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepository{
+		disableResult: &Rule{
+			ID: 2, DeviceID: 1, RuleType: RuleTypeMaxActiveAddresses,
+			Enabled: false, Config: json.RawMessage(`{"max_addresses":5}`),
+			CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+		},
+	}
+	svc := newTestService(repo)
+	out, err := svc.DisableMaxActiveAddressesRule(context.Background(), device.DeviceID(1))
+	is.NoErr(err)
+	is.True(out != nil)
+	is.True(!out.Enabled)
+}
+
+func TestService_DisableMaxActiveAddressesRule_NotFound(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepository{disableErr: ErrRuleNotFound}
+	svc := newTestService(repo)
+	out, err := svc.DisableMaxActiveAddressesRule(context.Background(), device.DeviceID(1))
+	is.True(err != nil)
+	is.Equal(err, ErrRuleNotFound)
+	is.True(out == nil)
+}
+
+// Verify no observer events for max active addresses rule
+
+func TestService_EnableMaxActiveAddressesRule_NoObserverEvents(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	repo := &fakeRepository{
+		enableResult: &Rule{
+			ID: 2, DeviceID: 55, RuleType: RuleTypeMaxActiveAddresses,
+			Enabled: true, Config: json.RawMessage(`{"max_addresses":3}`),
+			CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+		},
+	}
+	svc := newTestService(repo)
+	observer := &mockRuleObserver{}
+	svc.AddRuleObserver(observer)
+
+	_, err := svc.EnableMaxActiveAddressesRule(ctx, device.DeviceID(55), 3)
+	is.NoErr(err)
+	is.Equal(len(observer.events), 0)
+}
+
+func TestService_DisableMaxActiveAddressesRule_NoObserverEvents(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	repo := &fakeRepository{
+		disableResult: &Rule{
+			ID: 2, DeviceID: 55, RuleType: RuleTypeMaxActiveAddresses,
+			Enabled: false, Config: json.RawMessage(`{"max_addresses":3}`),
+			CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+		},
+	}
+	svc := newTestService(repo)
+	observer := &mockRuleObserver{}
+	svc.AddRuleObserver(observer)
+
+	_, err := svc.DisableMaxActiveAddressesRule(ctx, device.DeviceID(55))
+	is.NoErr(err)
+	is.Equal(len(observer.events), 0)
 }

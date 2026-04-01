@@ -17,6 +17,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpserver"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/maxaddr"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
@@ -35,6 +36,7 @@ type App struct {
 	PolicyService       *policy.Service
 	RuleService         *rule.Service
 	addressLeaseService *lease.Service
+	maxAddrService      *maxaddr.Service
 	schedulerService    *scheduler.Service
 	accessLogSink       *accesslog.Sink
 	geoipLookup         *geoip.Lookup
@@ -130,10 +132,14 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	addressLeaseRepo := lease.NewRepository(db.DB())
 	addressLeaseService := lease.NewService(addressLeaseRepo, ruleService, logger)
 
+	// Max active addresses enforcer
+	maxAddrService := maxaddr.NewService(ruleService, deviceService, deviceService, logger)
+
 	// Register device address observers
 	deviceService.AddAddressObserver(addressLeaseService)
 	ruleService.AddRuleObserver(addressLeaseService)
 	deviceService.AddAddressObserver(policyService)
+	deviceService.AddAddressObserver(maxAddrService)
 
 	// Register policy decision observers
 	policyService.AddDecisionObserver(accessLogSink)
@@ -173,6 +179,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		PolicyService:       policyService,
 		RuleService:         ruleService,
 		addressLeaseService: addressLeaseService,
+		maxAddrService:      maxAddrService,
 		schedulerService:    schedulerService,
 		accessLogSink:       accessLogSink,
 		geoipLookup:         geoipLookup,
@@ -190,6 +197,10 @@ func (a *App) Run(ctx context.Context) error {
 
 	g.Go(func() error {
 		return ignoreContextCanceled(a.addressLeaseService.RunListener(gCtx))
+	})
+
+	g.Go(func() error {
+		return ignoreContextCanceled(a.maxAddrService.RunListener(gCtx))
 	})
 
 	g.Go(func() error {

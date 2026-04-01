@@ -110,6 +110,39 @@ func (r *Repository) EnableDeviceAddressLeaseRuleConfig(ctx context.Context, dev
 	return rule, nil
 }
 
+// EnableMaxActiveAddressesRuleConfig creates or updates the max active addresses rule for a device.
+func (r *Repository) EnableMaxActiveAddressesRuleConfig(ctx context.Context, deviceID device.DeviceID, config MaxActiveAddressesConfig) (*Rule, error) {
+	configBytes, err := json.Marshal(config)
+	if err != nil {
+		return nil, fmt.Errorf("marshal rule config: %w", err)
+	}
+
+	rule := new(Rule)
+	const query = `
+		INSERT INTO device_rules (device_id, rule_type, enabled, config, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(device_id, rule_type) DO UPDATE SET
+			enabled = excluded.enabled,
+			config = excluded.config,
+			updated_at = excluded.updated_at
+		RETURNING *
+	`
+
+	now := time.Now().UTC()
+	if err := r.db.GetContext(ctx, rule, query,
+		deviceID,
+		RuleTypeMaxActiveAddresses,
+		true,
+		configBytes,
+		now,
+		now,
+	); err != nil {
+		return nil, mapRepositoryError(err, "enable max active addresses rule")
+	}
+
+	return rule, nil
+}
+
 // mapRuleForeignKeyDeviceError maps a SQLite foreign key constraint failure on device_rules.device_id
 // to the domain-level device.ErrDeviceNotFound error.
 func mapRuleForeignKeyDeviceError(err error) (error, bool) {

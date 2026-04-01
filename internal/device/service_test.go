@@ -827,3 +827,21 @@ func (m *mockRepository) RunInTx(ctx context.Context, fn func(repository) error)
 	}
 	return fn(m)
 }
+
+func (m *mockRepository) GetEnabledAddressesForDevice(_ context.Context, deviceID DeviceID) ([]Address, error) {
+	var result []Address
+	for _, addr := range m.addresses {
+		if addr.DeviceID == deviceID && addr.IsEnabled {
+			result = append(result, *addr)
+		}
+	}
+	// Sort by UpdatedAt DESC to match repository behavior
+	for i := 0; i < len(result); i++ {
+		for j := i + 1; j < len(result); j++ {
+			if result[j].UpdatedAt.After(result[i].UpdatedAt) {
+				result[i], result[j] = result[j], result[i]
+			}
+		}
+	}
+	return result, nil
+}

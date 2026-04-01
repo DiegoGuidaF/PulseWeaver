@@ -234,6 +234,28 @@ export type PutDeviceAddressLeaseRuleRequest = {
     ttl_seconds: number;
 };
 
+export type MaxActiveAddressesRule = {
+    id: Id;
+    device_id: Id;
+    /**
+     * Whether the max active addresses rule is active
+     */
+    enabled: boolean;
+    /**
+     * Maximum number of simultaneously enabled IP addresses
+     */
+    max_addresses: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type PutMaxActiveAddressesRuleRequest = {
+    /**
+     * Maximum number of simultaneously enabled IP addresses
+     */
+    max_addresses: number;
+};
+
 export type DashboardStats = {
     total_requests: number;
     allowed_count: number;
@@ -1372,6 +1394,112 @@ export type PutDeviceAddressLeaseRuleResponses = {
 };
 
 export type PutDeviceAddressLeaseRuleResponse = PutDeviceAddressLeaseRuleResponses[keyof PutDeviceAddressLeaseRuleResponses];
+
+export type DisableMaxActiveAddressesRuleData = {
+    body?: never;
+    path: {
+        /**
+         * Device id
+         */
+        device_id: Id;
+    };
+    query?: never;
+    url: '/devices/{device_id}/rules/max_active_addresses';
+};
+
+export type DisableMaxActiveAddressesRuleErrors = {
+    /**
+     * Device or rule not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type DisableMaxActiveAddressesRuleError = DisableMaxActiveAddressesRuleErrors[keyof DisableMaxActiveAddressesRuleErrors];
+
+export type DisableMaxActiveAddressesRuleResponses = {
+    /**
+     * Rule disabled
+     */
+    204: void;
+};
+
+export type DisableMaxActiveAddressesRuleResponse = DisableMaxActiveAddressesRuleResponses[keyof DisableMaxActiveAddressesRuleResponses];
+
+export type GetMaxActiveAddressesRuleData = {
+    body?: never;
+    path: {
+        /**
+         * Device id
+         */
+        device_id: Id;
+    };
+    query?: never;
+    url: '/devices/{device_id}/rules/max_active_addresses';
+};
+
+export type GetMaxActiveAddressesRuleErrors = {
+    /**
+     * Device or rule not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type GetMaxActiveAddressesRuleError = GetMaxActiveAddressesRuleErrors[keyof GetMaxActiveAddressesRuleErrors];
+
+export type GetMaxActiveAddressesRuleResponses = {
+    /**
+     * OK
+     */
+    200: MaxActiveAddressesRule;
+};
+
+export type GetMaxActiveAddressesRuleResponse = GetMaxActiveAddressesRuleResponses[keyof GetMaxActiveAddressesRuleResponses];
+
+export type PutMaxActiveAddressesRuleData = {
+    body: PutMaxActiveAddressesRuleRequest;
+    path: {
+        /**
+         * Device id
+         */
+        device_id: Id;
+    };
+    query?: never;
+    url: '/devices/{device_id}/rules/max_active_addresses';
+};
+
+export type PutMaxActiveAddressesRuleErrors = {
+    /**
+     * Bad Request
+     */
+    400: ErrorResponse;
+    /**
+     * Device not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type PutMaxActiveAddressesRuleError = PutMaxActiveAddressesRuleErrors[keyof PutMaxActiveAddressesRuleErrors];
+
+export type PutMaxActiveAddressesRuleResponses = {
+    /**
+     * Rule updated or created
+     */
+    200: MaxActiveAddressesRule;
+};
+
+export type PutMaxActiveAddressesRuleResponse = PutMaxActiveAddressesRuleResponses[keyof PutMaxActiveAddressesRuleResponses];
 
 export type GetDashboardStatsData = {
     body?: never;
