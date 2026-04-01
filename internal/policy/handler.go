@@ -27,6 +27,15 @@ func (h *HTTPHandler) HandleForwardAuthIP(w http.ResponseWriter, r *http.Request
 	ctx = logging.WithOperation(ctx, "HandleForwardAuthIP")
 	h.logger.DebugContext(ctx, "Verify request received")
 
+	// Reject QUIC 0-RTT early data: the remote IP is unavailable before the TLS
+	// handshake completes, so we cannot reliably identify the client. The client
+	// should retry over a fully established connection (RFC 8470).
+	if r.Header.Get("Early-Data") == "1" {
+		h.logger.WarnContext(ctx, "rejected 0-RTT early data request")
+		w.WriteHeader(http.StatusTooEarly)
+		return
+	}
+
 	authHeader := r.Header.Get("Authorization")
 	token, ok := strings.CutPrefix(authHeader, "Bearer ")
 	if !ok || token == "" {
