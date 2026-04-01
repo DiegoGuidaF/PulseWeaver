@@ -1,4 +1,4 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, AccessLogResponse, AccessLogRow, User } from '@/lib/api';
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AuditLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, AccessLogResponse, AccessLogRow, User } from '@/lib/api';
 import { UserRole } from "@/lib/api";
 
 /**
@@ -206,6 +206,20 @@ export function createMockDashboardTopDeniedIp(
   return {
     ip: '203.0.113.42',
     count: 25,
+    ...overrides,
+  };
+}
+
+export function createMockAuditLogCountryStats(
+  overrides?: Partial<AuditLogCountryStats>,
+): AuditLogCountryStats {
+  return {
+    country_code: 'US',
+    country_name: 'United States',
+    continent_code: 'NA',
+    total: 100,
+    allowed: 80,
+    denied: 20,
     ...overrides,
   };
 }

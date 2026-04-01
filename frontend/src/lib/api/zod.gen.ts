@@ -523,7 +523,8 @@ export const zGetAccessLogByCountryData = z.object({
     body: z.never().optional(),
     path: z.never().optional(),
     query: z.object({
-        since: z.iso.datetime({ offset: true, local: true }).optional()
+        from: z.iso.datetime({ offset: true, local: true }).optional(),
+        to: z.iso.datetime({ offset: true, local: true }).optional()
     }).optional()
 });
 

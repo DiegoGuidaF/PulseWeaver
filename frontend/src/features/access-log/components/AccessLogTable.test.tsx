@@ -525,14 +525,14 @@ describe("AccessLogTable", () => {
 
     describe("Country column", () => {
         it("renders flag emoji and country code when country_code is present", async () => {
-            const row = createMockRequestAuditLogRow({
+            const row = createMockAccessLogRow({
                 client_ip: "8.8.8.8",
                 country_code: "DE",
                 country_name: "Germany",
             });
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                    createMockAccessLogResponse({ rows: [row], total: 1 }),
                 ),
             );
 
@@ -547,10 +547,10 @@ describe("AccessLogTable", () => {
         });
 
         it("renders a house icon when country_code is absent", async () => {
-            const row = createMockRequestAuditLogRow({ client_ip: "192.168.1.1" });
+            const row = createMockAccessLogRow({ client_ip: "192.168.1.1" });
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                    createMockAccessLogResponse({ rows: [row], total: 1 }),
                 ),
             );
 
@@ -578,7 +578,7 @@ describe("AccessLogTable", () => {
     describe("Detail drawer — Location section", () => {
         it("shows the Location section with ASN when GeoIP data is present", async () => {
             const user = userEvent.setup();
-            const row = createMockRequestAuditLogRow({
+            const row = createMockAccessLogRow({
                 client_ip: "8.8.8.8",
                 country_code: "US",
                 country_name: "United States",
@@ -588,7 +588,7 @@ describe("AccessLogTable", () => {
             });
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                    createMockAccessLogResponse({ rows: [row], total: 1 }),
                 ),
             );
 
@@ -611,10 +611,10 @@ describe("AccessLogTable", () => {
 
         it("hides the Location section when no GeoIP fields are present", async () => {
             const user = userEvent.setup();
-            const row = createMockRequestAuditLogRow({ client_ip: "192.168.0.1" });
+            const row = createMockAccessLogRow({ client_ip: "192.168.0.1" });
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                    createMockAccessLogResponse({ rows: [row], total: 1 }),
                 ),
             );
 
@@ -639,13 +639,13 @@ describe("AccessLogTable", () => {
 
     describe("DB-IP attribution", () => {
         it("renders the attribution link when at least one row has country_code", async () => {
-            const row = createMockRequestAuditLogRow({
+            const row = createMockAccessLogRow({
                 client_ip: "8.8.8.8",
                 country_code: "US",
             });
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                    createMockAccessLogResponse({ rows: [row], total: 1 }),
                 ),
             );
 
@@ -662,10 +662,10 @@ describe("AccessLogTable", () => {
         });
 
         it("does not render the attribution link when no rows have country_code", async () => {
-            const row = createMockRequestAuditLogRow({ client_ip: "192.168.1.1" });
+            const row = createMockAccessLogRow({ client_ip: "192.168.1.1" });
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [row], total: 1 }),
+                    createMockAccessLogResponse({ rows: [row], total: 1 }),
                 ),
             );
 
@@ -685,7 +685,7 @@ describe("AccessLogTable", () => {
         it("shows a Country chip when country_code URL param is set", async () => {
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 
@@ -706,7 +706,7 @@ describe("AccessLogTable", () => {
             const user = userEvent.setup();
             server.use(
                 requestAuditLogHandlers.list(
-                    createMockRequestAuditLogResponse({ rows: [], total: 0 }),
+                    createMockAccessLogResponse({ rows: [], total: 0 }),
                 ),
             );
 

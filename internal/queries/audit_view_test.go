@@ -50,8 +50,9 @@ func TestRepository_ListAuditLogStatsByCountry(t *testing.T) {
 	})
 	is.NoErr(err)
 
-	since := time.Now().UTC().Add(-1 * time.Hour)
-	stats, err := repos.queries.ListAuditLogStatsByCountry(ctx, since)
+	now := time.Now().UTC()
+	from := now.Add(-1 * time.Hour)
+	stats, err := repos.queries.ListAuditLogStatsByCountry(ctx, from, now)
 	is.NoErr(err)
 
 	// Should have 2 countries (US and AU); private IP excluded.
@@ -78,13 +79,14 @@ func TestRepository_ListAuditLogStatsByCountry_Empty(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 
-	since := time.Now().UTC().Add(-1 * time.Hour)
-	stats, err := repos.queries.ListAuditLogStatsByCountry(t.Context(), since)
+	now := time.Now().UTC()
+	from := now.Add(-1 * time.Hour)
+	stats, err := repos.queries.ListAuditLogStatsByCountry(t.Context(), from, now)
 	is.NoErr(err)
 	is.Equal(len(stats), 0)
 }
 
-func TestRepository_ListAuditLogStatsByCountry_SinceFilter(t *testing.T) {
+func TestRepository_ListAuditLogStatsByCountry_FromFilter(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 	ctx := t.Context()
@@ -102,11 +104,45 @@ func TestRepository_ListAuditLogStatsByCountry_SinceFilter(t *testing.T) {
 	})
 	is.NoErr(err)
 
-	// Query with since = 1 hour ago — should exclude the old event.
-	since := time.Now().UTC().Add(-1 * time.Hour)
-	stats, err := repos.queries.ListAuditLogStatsByCountry(ctx, since)
+	// Query with from = 1 hour ago — should exclude the old event.
+	now := time.Now().UTC()
+	from := now.Add(-1 * time.Hour)
+	stats, err := repos.queries.ListAuditLogStatsByCountry(ctx, from, now)
 	is.NoErr(err)
 	is.Equal(len(stats), 0)
+}
+
+func TestRepository_ListAuditLogStatsByCountry_ToFilter(t *testing.T) {
+	is := is.New(t)
+	repos := setupRepos(t)
+	ctx := t.Context()
+
+	now := time.Now().UTC()
+
+	// Insert a recent event.
+	err := repos.audit.BatchInsert(ctx, []policy.DecisionEvent{
+		{
+			ClientIP:  "8.8.8.8",
+			Outcome:   true,
+			CreatedAt: now,
+			Headers:   map[string][]string{},
+			GeoIP:     geoip.Result{CountryCode: "DE", CountryName: "Germany", ContinentCode: "EU"},
+		},
+	})
+	is.NoErr(err)
+
+	// Query with to = 1 hour ago — should exclude the event created at now.
+	from := now.Add(-2 * time.Hour)
+	to := now.Add(-1 * time.Hour)
+	stats, err := repos.queries.ListAuditLogStatsByCountry(ctx, from, to)
+	is.NoErr(err)
+	is.Equal(len(stats), 0)
+
+	// Query with to = now — should include the event.
+	stats, err = repos.queries.ListAuditLogStatsByCountry(ctx, from, now)
+	is.NoErr(err)
+	is.Equal(len(stats), 1)
+	is.Equal(stats[0].CountryCode, "DE")
 }
 
 func ptrDenyReason(r policy.DenyReason) *policy.DenyReason {

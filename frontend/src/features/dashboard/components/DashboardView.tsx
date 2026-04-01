@@ -7,6 +7,7 @@ import { DashboardStatCards } from "./DashboardStatCards";
 import { TrafficLineChart } from "@/components/TrafficLineChart";
 import { ServiceBarChart } from "./ServiceBarChart";
 import { TopDeniedIPsTable } from "./TopDeniedIPsTable";
+import { CountryStatsSection } from "./CountryStatsSection";
 
 interface DashboardViewProps {
     from?: string;
@@ -30,6 +31,8 @@ export function DashboardView({ from, to, timeRangeMs }: DashboardViewProps) {
             </SimpleGrid>
 
             <TopDeniedIPsTable data={topDenied.data?.ips} isLoading={topDenied.isLoading} />
+
+            <CountryStatsSection from={from} to={to} />
         </Stack>
     );
 }

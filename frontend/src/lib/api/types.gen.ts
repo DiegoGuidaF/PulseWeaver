@@ -1149,7 +1149,11 @@ export type GetAccessLogByCountryData = {
         /**
          * RFC3339 start of time window (default 24h ago)
          */
-        since?: string;
+        from?: string;
+        /**
+         * RFC3339 end of time window (default now)
+         */
+        to?: string;
     };
     url: '/access-log/stats/by-country';
 };

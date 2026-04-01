@@ -948,13 +948,20 @@ paths:
         - access-log
       summary: Request counts grouped by country
       parameters:
-        - name: since
+        - name: from
           in: query
           required: false
           schema:
             type: string
             format: date-time
           description: RFC3339 start of time window (default 24h ago)
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 end of time window (default now)
       responses:
         "200":
           description: Request counts by country

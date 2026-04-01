@@ -1,6 +1,6 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, AccessLogResponse, User } from '@/lib/api';
-import { createMockAddress, createMockAddressHistoryResponse, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockAccessLogResponse, createMockUser } from './data';
+import type { Address, AddressHistoryResponse, AuditLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, AccessLogResponse, User } from '@/lib/api';
+import { createMockAddress, createMockAddressHistoryResponse, createMockAuditLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockAccessLogResponse, createMockUser } from './data';
 
 const BASE = '/api/v1';
 
@@ -25,6 +25,7 @@ export const endpoints = {
     changePassword: `${BASE}/users/me/password`,
     requestAuditLog: `${BASE}/access-log`,
     requestAuditLogDenyReasons: `${BASE}/access-log/deny-reasons`,
+    accessLogByCountry: `${BASE}/access-log/stats/by-country`,
     dashboardStats: `${BASE}/dashboard/stats`,
     dashboardTraffic: `${BASE}/dashboard/traffic`,
     dashboardServices: `${BASE}/dashboard/services`,
@@ -224,6 +225,16 @@ export const requestAuditLogHandlers = {
     denyReasons: (reasons?: string[]) =>
         http.get(endpoints.requestAuditLogDenyReasons, () =>
             HttpResponse.json(reasons ?? ['invalid_token', 'ip_not_registered', 'no_device_match'])),
+
+    byCountry: (stats?: AuditLogCountryStats[]) =>
+        http.get(endpoints.accessLogByCountry, () =>
+            HttpResponse.json(
+                stats ?? [
+                    createMockAuditLogCountryStats({ country_code: 'US', country_name: 'United States', total: 100, allowed: 80, denied: 20 }),
+                    createMockAuditLogCountryStats({ country_code: 'DE', country_name: 'Germany', total: 50, allowed: 45, denied: 5 }),
+                    createMockAuditLogCountryStats({ country_code: 'CN', country_name: 'China', total: 75, allowed: 5, denied: 70 }),
+                ],
+            )),
 };
 
 // ─── Dashboard handlers ──────────────────────────────────────────────────────
@@ -292,6 +303,7 @@ export const defaultHandlers = [
     // Request audit log
     requestAuditLogHandlers.list(),
     requestAuditLogHandlers.denyReasons(),
+    requestAuditLogHandlers.byCountry(),
     // Dashboard
     dashboardHandlers.stats(),
     dashboardHandlers.traffic(),

@@ -233,8 +233,8 @@ type AuditLogCountryStat struct {
 }
 
 // ListAuditLogStatsByCountry returns request counts grouped by country for all rows
-// created at or after since. Only rows with GeoIP data are included.
-func (r *Repository) ListAuditLogStatsByCountry(ctx context.Context, since time.Time) ([]AuditLogCountryStat, error) {
+// within the [from, to] time window. Only rows with GeoIP data are included.
+func (r *Repository) ListAuditLogStatsByCountry(ctx context.Context, from, to time.Time) ([]AuditLogCountryStat, error) {
 	const query = `
 		SELECT
 			g.country_code,
@@ -245,13 +245,13 @@ func (r *Repository) ListAuditLogStatsByCountry(ctx context.Context, since time.
 			SUM(CASE WHEN ral.outcome = 0 THEN 1 ELSE 0 END) AS denied
 		FROM access_log_geoip g
 		JOIN access_log ral ON ral.id = g.audit_log_id
-		WHERE ral.created_at >= ?
+		WHERE ral.created_at >= ? AND ral.created_at <= ?
 		GROUP BY g.country_code, g.country_name, g.continent_code
 		ORDER BY total DESC
 	`
 
 	var rows []dbCountryStatsRow
-	if err := r.db.SelectContext(ctx, &rows, query, since); err != nil {
+	if err := r.db.SelectContext(ctx, &rows, query, from, to); err != nil {
 		return nil, fmt.Errorf("list audit log stats by country: %w", err)
 	}
 

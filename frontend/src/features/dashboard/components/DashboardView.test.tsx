@@ -25,8 +25,9 @@ describe('DashboardView', () => {
         await waitFor(
             () => {
                 expect(screen.getByText('Total Requests')).toBeInTheDocument();
-                expect(screen.getByText('Allowed')).toBeInTheDocument();
-                expect(screen.getByText('Denied')).toBeInTheDocument();
+                // "Allowed" and "Denied" also appear in TopCountriesTable columns
+                expect(screen.getAllByText('Allowed').length).toBeGreaterThan(0);
+                expect(screen.getAllByText('Denied').length).toBeGreaterThan(0);
                 expect(screen.getByText('Unique IPs')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT },

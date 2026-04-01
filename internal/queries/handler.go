@@ -115,12 +115,17 @@ func (h *HTTPHandler) GetAccessLogByCountry(
 ) (httpapi.GetAccessLogByCountryResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetAccessLogByCountry")
 
-	since := time.Now().UTC().Add(-24 * time.Hour)
-	if request.Params.Since != nil {
-		since = *request.Params.Since
+	now := time.Now().UTC()
+	from := now.Add(-24 * time.Hour)
+	to := now
+	if request.Params.From != nil {
+		from = request.Params.From.UTC()
+	}
+	if request.Params.To != nil {
+		to = request.Params.To.UTC()
 	}
 
-	stats, err := h.repo.ListAuditLogStatsByCountry(ctx, since)
+	stats, err := h.repo.ListAuditLogStatsByCountry(ctx, from, to)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "failed to list audit log stats by country", slog.Any(logging.AttrKeyError, err))
 		return httpapi.GetAccessLogByCountry500JSONResponse(errorMsgResponse("Failed to list country stats")), nil
