@@ -20,6 +20,7 @@ type AccessLogView struct {
 	DeviceName    *string
 	AddressID     *device.AddressID
 	CreatedAt     time.Time
+	DurationUs    int64
 	XFFChain      *string
 	TargetHost    *string
 	TargetURI     *string
@@ -172,6 +173,7 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 			ral.address_id as address_id,
 			d.name as device_name,
 			ral.headers_json,
+			ral.duration_us,
 			g.country_code,
 			g.country_name,
 			g.continent_code,
@@ -202,6 +204,7 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 			DeviceName:    rRow.DeviceName,
 			AddressID:     rRow.AddressID,
 			CreatedAt:     rRow.CreatedAt,
+			DurationUs:    rRow.DurationUs,
 			XFFChain:      rRow.XFFChain,
 			TargetHost:    rRow.TargetHost,
 			TargetURI:     rRow.TargetURI,
@@ -273,6 +276,7 @@ type dbAccessLogRow struct {
 	DeviceName    *string           `db:"device_name"`
 	AddressID     *device.AddressID `db:"address_id"`
 	CreatedAt     time.Time         `db:"created_at"`
+	DurationUs    int64             `db:"duration_us"`
 	XFFChain      *string           `db:"xff_chain"`
 	TargetHost    *string           `db:"target_host"`
 	TargetURI     *string           `db:"target_uri"`

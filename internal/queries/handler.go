@@ -180,6 +180,7 @@ func toAccessLogRow(r AccessLogView) httpapi.AccessLogRow {
 		ContinentCode: r.ContinentCode,
 		Asn:           asn,
 		AsnOrg:        r.ASNOrg,
+		DurationUs:    &r.DurationUs,
 	}
 }
 

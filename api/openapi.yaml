@@ -1757,6 +1757,10 @@ components:
         asn_org:
           type: string
           description: e.g. "Cloudflare, Inc."
+        duration_us:
+          type: integer
+          format: int64
+          description: Request processing duration in microseconds
         headers:
           type: object
           additionalProperties:

@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
@@ -110,25 +111,26 @@ func (s *Service) notifyDecisionObservers(ctx context.Context, event DecisionEve
 // VerifyAccess validates bearer token and verifies that the IP is enabled, emitting a DecisionEvent.
 func (s *Service) VerifyAccess(ctx context.Context, req *VerifyRequest) error {
 	s.logger.DebugContext(ctx, "Verify access for ip")
+	start := time.Now()
 
 	geo := s.geoResolver.Resolve(req.ClientIP)
 
 	tokenHash := sha256.Sum256([]byte(req.Token))
 	if subtle.ConstantTimeCompare(tokenHash[:], s.apiSecretHash[:]) != 1 {
 		s.logger.WarnContext(ctx, "policy: invalid bearer token")
-		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, new(DenyReasonInvalidToken), nil, nil, req, geo))
+		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, new(DenyReasonInvalidToken), nil, nil, req, geo, time.Since(start).Microseconds()))
 		return ErrInvalidBearerToken
 	}
 
 	entry, ok := s.lookupIP(ctx, req.ClientIP)
 	if !ok {
 		s.logger.DebugContext(ctx, "IP not enabled")
-		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, new(DenyReasonIPNotRegistered), nil, nil, req, geo))
+		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, new(DenyReasonIPNotRegistered), nil, nil, req, geo, time.Since(start).Microseconds()))
 		return ErrIPNotEnabled
 	}
 
 	s.logger.DebugContext(ctx, "IP is enabled")
-	s.notifyDecisionObservers(ctx, NewDecisionEvent(true, nil, &entry.DeviceID, &entry.AddressID, req, geo))
+	s.notifyDecisionObservers(ctx, NewDecisionEvent(true, nil, &entry.DeviceID, &entry.AddressID, req, geo, time.Since(start).Microseconds()))
 
 	return nil
 }

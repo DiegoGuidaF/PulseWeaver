@@ -44,8 +44,9 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 		const insertAccessLog = `
             INSERT INTO access_log (
                 client_ip, device_id, address_id, outcome, deny_reason,
-                created_at, xff_chain, target_host, target_uri, http_method, headers_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                created_at, xff_chain, target_host, target_uri, http_method, headers_json,
+                duration_us
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id
         `
 		const insertGeoIP = `
@@ -68,7 +69,7 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 			if err := tx.db.GetContext(ctx, &accessID, insertAccessLog,
 				e.ClientIP, e.DeviceID, e.AddressID, e.Outcome, e.DenyReason,
 				e.CreatedAt, e.XFFChain, e.TargetHost, e.TargetURI, e.HTTPMethod,
-				string(headersJSON),
+				string(headersJSON), e.DurationUs,
 			); err != nil {
 				return fmt.Errorf("insert access event: %w", err)
 			}

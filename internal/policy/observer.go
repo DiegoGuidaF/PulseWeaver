@@ -21,6 +21,7 @@ type DecisionEvent struct {
 	DeviceID   *device.DeviceID
 	AddressID  *device.AddressID
 	CreatedAt  time.Time
+	DurationUs int64
 	TargetHost *string
 	TargetURI  *string
 	HTTPMethod *string
@@ -37,7 +38,7 @@ const (
 	DenyReasonInvalidToken    DenyReason = "invalid_token"
 )
 
-func NewDecisionEvent(outcome bool, denyReason *DenyReason, deviceID *device.DeviceID, addressID *device.AddressID, req *VerifyRequest, geo geoip.Result) DecisionEvent {
+func NewDecisionEvent(outcome bool, denyReason *DenyReason, deviceID *device.DeviceID, addressID *device.AddressID, req *VerifyRequest, geo geoip.Result, durationUs int64) DecisionEvent {
 	// Ensure headers map is non-nil.
 	headers := req.Headers
 	if req.Headers == nil {
@@ -50,6 +51,7 @@ func NewDecisionEvent(outcome bool, denyReason *DenyReason, deviceID *device.Dev
 		DeviceID:   deviceID,
 		AddressID:  addressID,
 		CreatedAt:  time.Now().UTC(),
+		DurationUs: durationUs,
 		TargetHost: req.TargetHost,
 		TargetURI:  req.TargetURI,
 		HTTPMethod: req.HTTPMethod,
