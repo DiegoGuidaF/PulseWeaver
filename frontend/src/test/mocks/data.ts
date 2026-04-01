@@ -174,6 +174,7 @@ export function createMockDashboardStats(
     allowed_count: 120,
     denied_count: 30,
     unique_ips: 8,
+    avg_duration_us: 1250,
     ...overrides,
   };
 }

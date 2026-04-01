@@ -4,6 +4,7 @@ import {
     IconCheck,
     IconX,
     IconUsers,
+    IconClock,
 } from "@tabler/icons-react";
 import type { DashboardStats } from "@/lib/api";
 
@@ -17,40 +18,51 @@ function pct(count: number, total: number): string {
     return `${((count / total) * 100).toFixed(1)}%`;
 }
 
+function formatDuration(us: number): string {
+    return `${(us / 1000).toFixed(2)} ms`;
+}
+
 export function DashboardStatCards({ data, isLoading }: DashboardStatCardsProps) {
     const cards = [
         {
             label: "Total Requests",
-            value: data?.total_requests ?? 0,
+            value: (data?.total_requests ?? 0).toLocaleString(),
             subtitle: null,
             icon: IconArrowsExchange,
             color: "indigo",
         },
         {
             label: "Allowed",
-            value: data?.allowed_count ?? 0,
+            value: (data?.allowed_count ?? 0).toLocaleString(),
             subtitle: data ? pct(data.allowed_count, data.total_requests) : null,
             icon: IconCheck,
             color: "teal",
         },
         {
             label: "Denied",
-            value: data?.denied_count ?? 0,
+            value: (data?.denied_count ?? 0).toLocaleString(),
             subtitle: data ? pct(data.denied_count, data.total_requests) : null,
             icon: IconX,
             color: "red",
         },
         {
             label: "Unique IPs",
-            value: data?.unique_ips ?? 0,
+            value: (data?.unique_ips ?? 0).toLocaleString(),
             subtitle: null,
             icon: IconUsers,
             color: "indigo",
         },
+        {
+            label: "Avg Response Time",
+            value: data ? formatDuration(data.avg_duration_us) : "—",
+            subtitle: null,
+            icon: IconClock,
+            color: "violet",
+        },
     ];
 
     return (
-        <SimpleGrid cols={{ base: 2, sm: 4 }}>
+        <SimpleGrid cols={{ base: 2, sm: 3, lg: 5 }}>
             {cards.map((card) => (
                 <Paper key={card.label} withBorder p="md" radius="md">
                     <Group justify="space-between" mb="xs">
@@ -64,7 +76,7 @@ export function DashboardStatCards({ data, isLoading }: DashboardStatCardsProps)
                     ) : (
                         <Group align="baseline" gap="xs">
                             <Text fw={700} fz="xl">
-                                {card.value.toLocaleString()}
+                                {card.value}
                             </Text>
                             {card.subtitle && (
                                 <Text size="sm" c="dimmed">

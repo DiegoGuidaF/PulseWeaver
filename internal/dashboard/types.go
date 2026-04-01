@@ -8,6 +8,7 @@ type SummaryStats struct {
 	AllowedCount  int64 `db:"allowed_count"`
 	DeniedCount   int64 `db:"denied_count"`
 	UniqueIPs     int64 `db:"unique_ips"`
+	AvgDurationUs int64 `db:"avg_duration_us"`
 }
 
 // TrafficBucket holds allow/deny counts for a single time bucket.

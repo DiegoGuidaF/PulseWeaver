@@ -1818,6 +1818,7 @@ components:
         - allowed_count
         - denied_count
         - unique_ips
+        - avg_duration_us
       properties:
         total_requests:
           type: integer
@@ -1831,6 +1832,10 @@ components:
         unique_ips:
           type: integer
           format: int64
+        avg_duration_us:
+          type: integer
+          format: int64
+          description: Average request processing duration in microseconds over the time window
 
     DashboardTrafficBucket:
       type: object

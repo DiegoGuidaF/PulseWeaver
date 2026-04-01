@@ -525,6 +525,11 @@ export const AccessLogRowSchema = {
             type: 'string',
             description: 'e.g. "Cloudflare, Inc."'
         },
+        duration_us: {
+            type: 'integer',
+            format: 'int64',
+            description: 'Request processing duration in microseconds'
+        },
         headers: {
             type: 'object',
             additionalProperties: {
@@ -596,7 +601,8 @@ export const DashboardStatsSchema = {
         'total_requests',
         'allowed_count',
         'denied_count',
-        'unique_ips'
+        'unique_ips',
+        'avg_duration_us'
     ],
     properties: {
         total_requests: {
@@ -614,6 +620,11 @@ export const DashboardStatsSchema = {
         unique_ips: {
             type: 'integer',
             format: 'int64'
+        },
+        avg_duration_us: {
+            type: 'integer',
+            format: 'int64',
+            description: 'Average request processing duration in microseconds over the time window'
         }
     }
 } as const;

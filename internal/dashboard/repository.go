@@ -39,14 +39,16 @@ func NewRepository(db *sqlx.DB) *Repository {
 func (r *Repository) RunRollup(ctx context.Context, from, to time.Time) error {
 	const query = `
 		INSERT OR REPLACE INTO hourly_traffic_aggregates
-			(bucket_at, client_ip, target_host, outcome, deny_reason, request_count)
+			(bucket_at, client_ip, target_host, outcome, deny_reason, request_count, sum_duration_us, max_duration_us)
 		SELECT
 			strftime('%Y-%m-%d %H:00:00', created_at) || '+00:00' AS bucket_at,
 			client_ip,
 			COALESCE(target_host, '')                              AS target_host,
 			outcome,
 			COALESCE(deny_reason, '')                              AS deny_reason,
-			COUNT(*)                                               AS request_count
+			COUNT(*)                                               AS request_count,
+			SUM(COALESCE(duration_us, 0))                          AS sum_duration_us,
+			MAX(COALESCE(duration_us, 0))                          AS max_duration_us
 		FROM access_log
 		WHERE created_at >= ?
 		  AND created_at <  ?
@@ -62,10 +64,14 @@ func (r *Repository) RunRollup(ctx context.Context, from, to time.Time) error {
 func (r *Repository) GetSummaryStats(ctx context.Context, from, to time.Time) (SummaryStats, error) {
 	const query = `
 	SELECT
-		COALESCE(SUM(request_count), 0)                                       AS total_requests,
-		COALESCE(SUM(CASE WHEN outcome = 1 THEN request_count ELSE 0 END), 0) AS allowed_count,
-		COALESCE(SUM(CASE WHEN outcome = 0 THEN request_count ELSE 0 END), 0) AS denied_count,
-		COUNT(DISTINCT client_ip)                                              AS unique_ips
+		COALESCE(SUM(request_count), 0)                                                     AS total_requests,
+		COALESCE(SUM(CASE WHEN outcome = 1 THEN request_count ELSE 0 END), 0)               AS allowed_count,
+		COALESCE(SUM(CASE WHEN outcome = 0 THEN request_count ELSE 0 END), 0)               AS denied_count,
+		COUNT(DISTINCT client_ip)                                                            AS unique_ips,
+		CASE WHEN SUM(request_count) > 0
+			THEN SUM(sum_duration_us) / SUM(request_count)
+			ELSE 0
+		END                                                                                  AS avg_duration_us
 	FROM hourly_traffic_aggregates
 	WHERE bucket_at >= ? AND bucket_at < ?
 	`

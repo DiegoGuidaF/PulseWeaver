@@ -261,6 +261,15 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
                 ),
         },
         {
+            accessor: "duration_us",
+            title: "Duration",
+            render: (row) => (
+                <Text size="sm" ff="monospace">
+                    {row.duration_us != null ? `${(row.duration_us / 1000).toFixed(2)} ms` : "—"}
+                </Text>
+            ),
+        },
+        {
             accessor: "actions",
             title: "",
             width: 48,

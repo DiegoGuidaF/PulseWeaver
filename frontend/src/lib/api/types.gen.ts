@@ -203,6 +203,10 @@ export type AccessLogRow = {
      * e.g. "Cloudflare, Inc."
      */
     asn_org?: string;
+    /**
+     * Request processing duration in microseconds
+     */
+    duration_us?: number;
     headers: {
         [key: string]: Array<string>;
     };
@@ -235,6 +239,10 @@ export type DashboardStats = {
     allowed_count: number;
     denied_count: number;
     unique_ips: number;
+    /**
+     * Average request processing duration in microseconds over the time window
+     */
+    avg_duration_us: number;
 };
 
 export type DashboardTrafficBucket = {
