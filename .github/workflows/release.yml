@@ -100,15 +100,12 @@ jobs:
           args: --latest --strip header
         env:
           OUTPUT: RELEASE_NOTES.md
-          GITHUB_REPO: ${{ github.repository }}
 
       - name: Update CHANGELOG.md
         uses: orhun/git-cliff-action@v4
         with:
           config: cliff.toml
           args: --output CHANGELOG.md
-        env:
-          GITHUB_REPO: ${{ github.repository }}
 
       - name: Commit CHANGELOG.md
         run: |

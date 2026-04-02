@@ -17,7 +17,7 @@ body = """
 {% for commit in commits %}
 - {% if commit.scope %}*({{ commit.scope }})* {% endif %}\
 {% if commit.breaking %}[**breaking**] {% endif %}\
-{{ commit.message | upper_first }} ([`{{ commit.id | truncate(length=7, end="") }}`]({{ remote.link }}/commit/{{ commit.id }}))\
+{{ commit.message | upper_first }} ([`{{ commit.id | truncate(length=7, end="") }}`](https://github.com/DiegoGuidaF/PulseWeaver/commit/{{ commit.id }}))\
 {% endfor %}
 {% endfor %}\n
 """
@@ -29,7 +29,7 @@ conventional_commits = true
 filter_unconventional = true
 split_commits = false
 commit_preprocessors = [
-  { pattern = '\(#([0-9]+)\)', replace = "([#${1}]({{ remote.link }}/pull/${1}))" },
+  { pattern = '\(#([0-9]+)\)', replace = "([#${1}](https://github.com/DiegoGuidaF/PulseWeaver/pull/${1}))" },
 ]
 commit_parsers = [
   { message = "^feat", group = "Features" },
@@ -51,7 +51,3 @@ skip_tags = ""
 ignore_tags = ""
 topo_order = false
 sort_commits = "oldest"
-
-[remote.github]
-owner = "DiegoGuidaF"
-repo = "PulseWeaver"
