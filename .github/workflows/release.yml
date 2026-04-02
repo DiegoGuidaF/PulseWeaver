@@ -4,61 +4,23 @@ on:
   push:
     tags: ['v*']
 
-permissions:
-  contents: write
-  packages: write
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   test:
-    name: Run Tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.26'
-          cache-dependency-path: |
-            go.sum
-            tools/go.sum
-          cache: true
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '25.8'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install Go dependencies
-        run: |
-          go mod download
-          go mod download -modfile=tools/go.mod
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: backend-lint
-        run: make lint
-
-      - name: frontend-lint
-        run: make lint-front typecheck-front
-
-      - name: Run backend tests
-        run: make test
-
-      - name: Run frontend tests
-        working-directory: frontend
-        run: npm test
+    permissions:
+      contents: read
+    uses: ./.github/workflows/test.yml
 
   release:
     name: Publish Release
     runs-on: ubuntu-latest
     needs: test
+    permissions:
+      contents: write
+      packages: write
 
     steps:
       - name: Checkout code
@@ -76,19 +38,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set env variables
-        run: |
-          echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> "${GITHUB_ENV}"
-          echo "VERSION=${GITHUB_REF_NAME}" >> "${GITHUB_ENV}"
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
-          tags: |
-            ghcr.io/${{ env.REPO_LC }}:${{ env.VERSION }}
-            ghcr.io/${{ env.REPO_LC }}:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -112,21 +77,23 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
-          git diff --staged --quiet || git commit -m "chore(ci): update CHANGELOG.md for ${{ env.VERSION }}"
-          git push origin HEAD:main
+          git diff --staged --quiet || git commit -m "chore(ci): update CHANGELOG.md for ${{ github.ref_name }}"
+          git push origin HEAD:${{ github.event.repository.default_branch }}
 
       - name: Append Docker image info to release notes
         run: |
+          REPO_LC="${GITHUB_REPOSITORY,,}"
           echo "" >> RELEASE_NOTES.md
           echo "---" >> RELEASE_NOTES.md
-          echo "**Docker image:** \`ghcr.io/${{ env.REPO_LC }}:${{ env.VERSION }}\`" >> RELEASE_NOTES.md
+          echo "**Docker image:** \`ghcr.io/${REPO_LC}:${{ github.ref_name }}\`" >> RELEASE_NOTES.md
           echo '```' >> RELEASE_NOTES.md
-          echo "docker pull ghcr.io/${{ env.REPO_LC }}:${{ env.VERSION }}" >> RELEASE_NOTES.md
+          echo "docker pull ghcr.io/${REPO_LC}:${{ github.ref_name }}" >> RELEASE_NOTES.md
           echo '```' >> RELEASE_NOTES.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.VERSION }}
-          name: ${{ env.VERSION }}
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
+

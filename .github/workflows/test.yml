@@ -1,0 +1,51 @@
+name: Test
+
+on:
+  workflow_call:
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache-dependency-path: |
+            go.sum
+            tools/go.sum
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '25.8'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Go dependencies
+        run: |
+          go mod download
+          go mod download -modfile=tools/go.mod
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: backend-lint
+        run: make lint
+
+      - name: frontend-lint
+        run: make lint-front typecheck-front
+
+      - name: Run backend tests
+        run: make test
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test
