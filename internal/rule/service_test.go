@@ -437,9 +437,9 @@ func TestService_DisableMaxActiveAddressesRule_NotFound(t *testing.T) {
 	is.True(out == nil)
 }
 
-// Verify no observer events for max active addresses rule
+// Verify observer events for max active addresses rule
 
-func TestService_EnableMaxActiveAddressesRule_NoObserverEvents(t *testing.T) {
+func TestService_EnableMaxActiveAddressesRule_FiresObserverEvent(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
@@ -456,7 +456,10 @@ func TestService_EnableMaxActiveAddressesRule_NoObserverEvents(t *testing.T) {
 
 	_, err := svc.EnableMaxActiveAddressesRule(ctx, device.DeviceID(55), 3)
 	is.NoErr(err)
-	is.Equal(len(observer.events), 0)
+	is.Equal(len(observer.events), 1)
+	is.Equal(observer.events[0].Type, RuleEventTypeEnabled)
+	is.Equal(observer.events[0].RuleType, RuleTypeMaxActiveAddresses)
+	is.Equal(observer.events[0].DeviceID, device.DeviceID(55))
 }
 
 func TestService_DisableMaxActiveAddressesRule_NoObserverEvents(t *testing.T) {

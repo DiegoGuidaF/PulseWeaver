@@ -6,6 +6,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 )
 
 // MaxAddressesProvider is implemented by *rule.Service.
@@ -25,21 +26,23 @@ type AddressDisabler interface {
 
 // Service listens for address events and enforces the max active addresses rule asynchronously.
 type Service struct {
-	provider MaxAddressesProvider
-	fetcher  EnabledAddressFetcher
-	disabler AddressDisabler
-	events   chan device.AddressEvent
-	logger   *slog.Logger
+	provider   MaxAddressesProvider
+	fetcher    EnabledAddressFetcher
+	disabler   AddressDisabler
+	events     chan device.AddressEvent
+	ruleEvents chan rule.RuleEvent
+	logger     *slog.Logger
 }
 
 // NewService creates a new maxaddr enforcement service.
 func NewService(provider MaxAddressesProvider, fetcher EnabledAddressFetcher, disabler AddressDisabler, logger *slog.Logger) *Service {
 	return &Service{
-		provider: provider,
-		fetcher:  fetcher,
-		disabler: disabler,
-		events:   make(chan device.AddressEvent, 500),
-		logger:   logger.With(slog.String(logging.AttrKeyComponent, "maxaddr")),
+		provider:   provider,
+		fetcher:    fetcher,
+		disabler:   disabler,
+		events:     make(chan device.AddressEvent, 500),
+		ruleEvents: make(chan rule.RuleEvent, 100),
+		logger:     logger.With(slog.String(logging.AttrKeyComponent, "maxaddr")),
 	}
 }
 
@@ -59,7 +62,22 @@ func (s *Service) OnAddressEvent(ctx context.Context, event device.AddressEvent)
 	}
 }
 
-// RunListener processes address events until the context is cancelled.
+// OnRuleEvent implements rule.RuleObserver. It triggers enforcement when the
+// max active addresses rule is enabled or updated.
+func (s *Service) OnRuleEvent(ctx context.Context, event rule.RuleEvent) {
+	if event.RuleType != rule.RuleTypeMaxActiveAddresses || event.Type != rule.RuleEventTypeEnabled {
+		return
+	}
+	select {
+	case s.ruleEvents <- event:
+	default:
+		s.logger.Warn("max active addresses rule event channel full, dropping event",
+			slog.Int64("device_id", event.DeviceID.Int64()),
+		)
+	}
+}
+
+// RunListener processes address and rule events until the context is cancelled.
 // Run this in a goroutine.
 func (s *Service) RunListener(ctx context.Context) error {
 	for {
@@ -68,6 +86,9 @@ func (s *Service) RunListener(ctx context.Context) error {
 			return nil
 		case event := <-s.events:
 			s.enforce(ctx, event.DeviceID, event.AddressID)
+		case event := <-s.ruleEvents:
+			// No justRegisteredID to protect — evict purely by updated_at order.
+			s.enforce(ctx, event.DeviceID, 0)
 		}
 	}
 }

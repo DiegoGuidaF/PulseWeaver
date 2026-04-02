@@ -137,9 +137,12 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Register device address observers
 	deviceService.AddAddressObserver(addressLeaseService)
-	ruleService.AddRuleObserver(addressLeaseService)
 	deviceService.AddAddressObserver(policyService)
 	deviceService.AddAddressObserver(maxAddrService)
+
+	// Register rule change observers
+	ruleService.AddRuleObserver(addressLeaseService)
+	ruleService.AddRuleObserver(maxAddrService)
 
 	// Register policy decision observers
 	policyService.AddDecisionObserver(accessLogSink)
