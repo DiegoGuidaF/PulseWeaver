@@ -10,6 +10,8 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     css: true,
     testTimeout: 15000,
+    pool: "forks",
+    maxWorkers: '50%',
   },
   resolve: {
     alias: {

@@ -196,7 +196,9 @@ describe("AccessLogTable", () => {
         });
 
         it("retains all typed characters without resetting", async () => {
-            const user = userEvent.setup();
+            // delay: null dispatches all keystrokes synchronously so the 300 ms debounce
+            // cannot fire mid-type and trigger a re-render that would stale the input ref.
+            const user = userEvent.setup({ delay: null });
             server.use(
                 accessLogHandlers.list(
                     createMockAccessLogResponse({ rows: [], total: 0 }),

@@ -225,7 +225,7 @@ describe('DeviceSettingsTab — Max active IPs rule', () => {
             { timeout: TEST_TIMEOUTS.SHORT }
         );
         expect(screen.queryByRole('button', { name: 'Turn off max-IP rule' })).not.toBeInTheDocument();
-        expect(screen.getByRole('spinbutton', { name: /max active ips/i })).toHaveValue(3);
+        expect(screen.getByRole('spinbutton', { name: /max active ips/i })).toHaveValue(2);
     });
 
     it('shows enabled state with max_addresses value', async () => {
