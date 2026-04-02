@@ -45,7 +45,7 @@ func TestHandler_GetAccessLog_CorrectFields(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "access-fields-device")
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "access-fields-device", nil)
 	is.NoErr(err)
 	addr, _, err := testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "10.0.10.1", device.EventSourceManual)
 	is.NoErr(err)
@@ -149,7 +149,7 @@ func TestHandler_GetAccessLog_FilterByDeviceID(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "access-device-filter")
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "access-device-filter", nil)
 	is.NoErr(err)
 	devID := dev.ID
 
@@ -258,7 +258,7 @@ func TestHandler_GetDeviceAddresses_EmptyArray(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "empty-addresses-device")
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "empty-addresses-device", nil)
 	is.NoErr(err)
 
 	url := fmt.Sprintf("/api/v1/devices/%d/addresses", dev.ID)
@@ -280,7 +280,7 @@ func TestHandler_GetDeviceAddresses_CorrectFields(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "fields-device")
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "fields-device", nil)
 	is.NoErr(err)
 
 	_, _, err = testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "10.0.1.1", device.EventSourceManual)
@@ -313,7 +313,7 @@ func TestHandler_GetDeviceAddresses_ExpiresAtPopulatedWithLease(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "lease-handler-device")
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "lease-handler-device", nil)
 	is.NoErr(err)
 
 	addr, _, err := testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "10.0.2.1", device.EventSourceManual)
@@ -365,7 +365,7 @@ func TestHandler_GetDeviceAddresses_ExpiresAtNullWhenNoLease(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "no-lease-handler-device")
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "no-lease-handler-device", nil)
 	is.NoErr(err)
 
 	_, _, err = testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "10.0.3.1", device.EventSourceManual)
@@ -409,7 +409,7 @@ func TestHandler_GetDevices_CorrectFields(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "list-fields-device")
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "list-fields-device", nil)
 	is.NoErr(err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
@@ -436,7 +436,7 @@ func TestHandler_GetDevices_AddressCountReflectsEnabledAddresses(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "list-count-device")
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "list-count-device", nil)
 	is.NoErr(err)
 
 	addrToDisable, _, err := testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "10.0.4.1", device.EventSourceManual)

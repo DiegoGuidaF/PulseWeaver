@@ -32,6 +32,10 @@ export type CreateDeviceRequest = {
      * User-friendly name for the device
      */
     name: string;
+    /**
+     * Admin only. Owner to assign the device to. Ignored for regular users (always assigned to self). When omitted by an admin, defaults to the calling admin's own ID.
+     */
+    owner_id?: number | null;
 };
 
 export type UpdateDeviceRequest = {
@@ -51,6 +55,10 @@ export type UpdateDeviceRequest = {
      * Tabler icon name override. Pass null to clear.
      */
     icon?: string | null;
+    /**
+     * Admin only. Reassign device ownership to another user.
+     */
+    owner_id?: number | null;
 };
 
 export type AddAddressRequest = {
@@ -165,6 +173,14 @@ export type Device = {
      * Most recent address activity for this device (heartbeat or manual update).
      */
     readonly last_seen_at?: string | null;
+    /**
+     * ID of the user who owns this device.
+     */
+    readonly owner_id?: number;
+    /**
+     * Display name of the owning user (for display only).
+     */
+    readonly owner_name?: string;
 };
 
 export type DeviceTypeItem = {
@@ -616,6 +632,41 @@ export type DemoteUserResponses = {
 
 export type DemoteUserResponse = DemoteUserResponses[keyof DemoteUserResponses];
 
+export type GetDevicesByUserData = {
+    body?: never;
+    path: {
+        user_id: Id;
+    };
+    query?: never;
+    url: '/admin/users/{user_id}/devices';
+};
+
+export type GetDevicesByUserErrors = {
+    /**
+     * Forbidden - admin credentials required
+     */
+    403: ErrorResponse;
+    /**
+     * User not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type GetDevicesByUserError = GetDevicesByUserErrors[keyof GetDevicesByUserErrors];
+
+export type GetDevicesByUserResponses = {
+    /**
+     * OK
+     */
+    200: Array<Device>;
+};
+
+export type GetDevicesByUserResponse = GetDevicesByUserResponses[keyof GetDevicesByUserResponses];
+
 export type LoginData = {
     body: AuthRequest;
     path?: never;
@@ -907,6 +958,10 @@ export type UpdateDeviceErrors = {
      */
     400: ErrorResponse;
     /**
+     * Forbidden - admin credentials required for owner reassignment
+     */
+    403: ErrorResponse;
+    /**
      * Device not found
      */
     404: ErrorResponse;
@@ -1118,6 +1173,10 @@ export type GetAddressHistoryErrors = {
      * Invalid query parameters (e.g. bad granularity)
      */
     400: ErrorResponse;
+    /**
+     * Forbidden - admin credentials required
+     */
+    403: ErrorResponse;
     /**
      * Internal Server Error
      */
@@ -1637,6 +1696,10 @@ export type GetDashboardStatsErrors = {
      */
     401: ErrorResponse;
     /**
+     * Forbidden - admin credentials required
+     */
+    403: ErrorResponse;
+    /**
      * Internal Server Error
      */
     500: ErrorResponse;
@@ -1679,6 +1742,10 @@ export type GetDashboardTrafficErrors = {
      */
     401: ErrorResponse;
     /**
+     * Forbidden - admin credentials required
+     */
+    403: ErrorResponse;
+    /**
      * Internal Server Error
      */
     500: ErrorResponse;
@@ -1716,6 +1783,10 @@ export type GetDashboardServicesErrors = {
      * Not authenticated
      */
     401: ErrorResponse;
+    /**
+     * Forbidden - admin credentials required
+     */
+    403: ErrorResponse;
     /**
      * Internal Server Error
      */
@@ -1758,6 +1829,10 @@ export type GetDashboardTopDeniedIpsErrors = {
      * Not authenticated
      */
     401: ErrorResponse;
+    /**
+     * Forbidden - admin credentials required
+     */
+    403: ErrorResponse;
     /**
      * Internal Server Error
      */

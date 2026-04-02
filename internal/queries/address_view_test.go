@@ -15,7 +15,7 @@ func TestRepository_GetDeviceAddresses_EmptyForNoAddresses(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 
-	dev := createDevice(t, repos.devices, "no-addresses")
+	dev := createDevice(t, repos, "no-addresses")
 
 	addresses, err := repos.queries.GetDeviceAddresses(t.Context(), dev.ID)
 	is.NoErr(err)
@@ -26,7 +26,7 @@ func TestRepository_GetDeviceAddresses_CorrectFields(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 
-	dev := createDevice(t, repos.devices, "field-check-device")
+	dev := createDevice(t, repos, "field-check-device")
 	addr := createAddress(t, repos.devices, dev.ID, "10.0.0.1")
 
 	addresses, err := repos.queries.GetDeviceAddresses(t.Context(), dev.ID)
@@ -47,7 +47,7 @@ func TestRepository_GetDeviceAddresses_ExpiresAtPopulatedWithActiveLease(t *test
 	is := is.New(t)
 	repos := setupRepos(t)
 
-	dev := createDevice(t, repos.devices, "lease-device")
+	dev := createDevice(t, repos, "lease-device")
 	addr := createAddress(t, repos.devices, dev.ID, "10.1.2.3")
 
 	futureExpiry := time.Now().UTC().Add(24 * time.Hour).Truncate(time.Second)
@@ -71,7 +71,7 @@ func TestRepository_GetDeviceAddresses_ExpiresAtNilWhenNoLease(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 
-	dev := createDevice(t, repos.devices, "no-lease-device")
+	dev := createDevice(t, repos, "no-lease-device")
 	createAddress(t, repos.devices, dev.ID, "192.168.100.1")
 
 	addresses, err := repos.queries.GetDeviceAddresses(t.Context(), dev.ID)
@@ -84,7 +84,7 @@ func TestRepository_GetDeviceAddresses_OrderedByCreatedAtDesc(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 
-	dev := createDevice(t, repos.devices, "ordering-device")
+	dev := createDevice(t, repos, "ordering-device")
 
 	// Insert the addresses row directly with explicit created_at values so the
 	// ORDER BY created_at DESC behaviour is testable even when all three inserts

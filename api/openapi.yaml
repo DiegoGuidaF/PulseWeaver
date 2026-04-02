@@ -221,6 +221,47 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /admin/users/{user_id}/devices:
+    get:
+      operationId: getDevicesByUser
+      tags:
+        - admin
+      summary: List devices owned by a user (Admin only)
+      description: Returns all devices assigned to the specified user.
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Device'
+        "403":
+          description: Forbidden - admin credentials required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /auth/login:
     post:
       operationId: login
@@ -538,6 +579,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden - admin credentials required for owner reassignment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Device not found
           content:
@@ -801,6 +848,12 @@ paths:
                 $ref: '#/components/schemas/AddressHistoryResponse'
         "400":
           description: Invalid query parameters (e.g. bad granularity)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden - admin credentials required
           content:
             application/json:
               schema:
@@ -1391,6 +1444,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden - admin credentials required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Internal Server Error
           content:
@@ -1444,6 +1503,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden - admin credentials required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Internal Server Error
           content:
@@ -1483,6 +1548,12 @@ paths:
                 $ref: '#/components/schemas/DashboardServicesResponse'
         "401":
           description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden - admin credentials required
           content:
             application/json:
               schema:
@@ -1534,6 +1605,12 @@ paths:
                 $ref: '#/components/schemas/DashboardTopDeniedIpsResponse'
         "401":
           description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden - admin credentials required
           content:
             application/json:
               schema:
@@ -1636,6 +1713,10 @@ components:
           minLength: 1
           maxLength: 50
           description: "User-friendly name for the device"
+        owner_id:
+          type: integer
+          nullable: true
+          description: "Admin only. Owner to assign the device to. Ignored for regular users (always assigned to self). When omitted by an admin, defaults to the calling admin's own ID."
     UpdateDeviceRequest:
       type: object
       properties:
@@ -1662,6 +1743,10 @@ components:
           x-go-type: NullableString
           x-go-type-skip-optional-pointer: true
           description: Tabler icon name override. Pass null to clear.
+        owner_id:
+          type: integer
+          nullable: true
+          description: "Admin only. Reassign device ownership to another user."
     AddAddressRequest:
       required:
         - ip
@@ -1858,6 +1943,14 @@ components:
           readOnly: true
           x-go-type: UTCTime
           description: Most recent address activity for this device (heartbeat or manual update).
+        owner_id:
+          type: integer
+          readOnly: true
+          description: ID of the user who owns this device.
+        owner_name:
+          type: string
+          readOnly: true
+          description: Display name of the owning user (for display only).
     DeviceTypeItem:
       type: object
       required:

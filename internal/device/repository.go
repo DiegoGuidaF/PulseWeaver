@@ -47,7 +47,8 @@ func (r *Repository) GetDevice(ctx context.Context, id DeviceID) (*Device, error
 			d.updated_at,
 			d.deleted_at,
 			k.key_prefix,
-			(SELECT MAX(a.updated_at) FROM addresses a WHERE a.device_id = d.id) AS last_seen_at
+			(SELECT MAX(a.updated_at) FROM addresses a WHERE a.device_id = d.id) AS last_seen_at,
+			COALESCE(d.owner_id, 0) AS owner_id
 		FROM devices d
         INNER JOIN device_api_keys k ON d.id = k.device_id
 		WHERE d.id = ? AND d.deleted_at IS NULL`
@@ -70,13 +71,16 @@ func (r *Repository) CreateDevice(ctx context.Context, params CreateDeviceParams
 	err := r.runInTx(ctx, func(tx *Repository) error {
 		// Create device
 		deviceQuery := `
-		INSERT INTO devices (name, created_at)
-		VALUES (?, ?) RETURNING id
+		INSERT INTO devices (name, owner_id, created_at)
+		VALUES (?, ?, ?) RETURNING id
 		`
 		var createdDeviceID DeviceID
-		err := tx.db.GetContext(ctx, &createdDeviceID, deviceQuery, params.Name, now)
+		err := tx.db.GetContext(ctx, &createdDeviceID, deviceQuery, params.Name, params.OwnerID, now)
 		if err != nil {
 			if domainErr, ok := mapDeviceNameUniqueConstraintError(err); ok {
+				return domainErr
+			}
+			if domainErr, ok := mapOwnerFKConstraintError(err); ok {
 				return domainErr
 			}
 			return fmt.Errorf("insert device: %w", err)
@@ -203,7 +207,10 @@ func (r *Repository) GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) 
 	device := new(Device)
 
 	query := `
-		SELECT d.* FROM devices d
+		SELECT d.id, d.name, d.device_type, d.description, d.icon, d.created_at, d.updated_at, d.deleted_at,
+		       k.key_prefix,
+		       COALESCE(d.owner_id, 0) AS owner_id
+		FROM devices d
 		INNER JOIN device_api_keys k ON d.id = k.device_id
 		WHERE k.key_hash = ? AND d.deleted_at IS NULL
 	`
@@ -230,6 +237,13 @@ func mapDeviceNameUniqueConstraintError(err error) (error, bool) {
 	return nil, false
 }
 
+func mapOwnerFKConstraintError(err error) (error, bool) {
+	if strings.Contains(strings.ToLower(err.Error()), "foreign key constraint failed") {
+		return ErrOwnerNotFound, true
+	}
+	return nil, false
+}
+
 func (r *Repository) DeleteDevice(ctx context.Context, deviceID DeviceID) error {
 	query := `UPDATE devices SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`
 	result, err := r.db.ExecContext(ctx, query, time.Now().UTC(), deviceID)
@@ -249,14 +263,17 @@ func (r *Repository) DeleteDevice(ctx context.Context, deviceID DeviceID) error 
 func (r *Repository) UpdateDevice(ctx context.Context, device *Device) (*Device, error) {
 	query := `
 		UPDATE devices
-		SET name = ?, device_type = ?, description = ?, icon = ?, updated_at = CURRENT_TIMESTAMP
+		SET name = ?, device_type = ?, description = ?, icon = ?, owner_id = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ? AND deleted_at IS NULL
 	`
 	result, err := r.db.ExecContext(ctx, query,
-		device.Name, string(device.DeviceType), device.Description, device.Icon, device.ID,
+		device.Name, string(device.DeviceType), device.Description, device.Icon, device.OwnerID, device.ID,
 	)
 	if err != nil {
 		if domainErr, ok := mapDeviceNameUniqueConstraintError(err); ok {
+			return nil, domainErr
+		}
+		if domainErr, ok := mapOwnerFKConstraintError(err); ok {
 			return nil, domainErr
 		}
 		return nil, fmt.Errorf("update device: %w", err)

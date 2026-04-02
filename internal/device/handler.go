@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
@@ -28,12 +30,26 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 	deviceName := request.Body.Name
 	logger := h.logger.With(slog.String(AttrKeyDeviceName, deviceName))
 
-	device, rawAPIKey, err := h.service.CreateDevice(ctx, deviceName)
+	principal, ok := auth.PrincipalFromContext(ctx)
+	if !ok {
+		return httpapi.CreateDevice500JSONResponse(errorMsgResponse("Not authenticated")), nil
+	}
+
+	var ownerID *auth.UserID
+	if request.Body.OwnerId != nil {
+		v := auth.UserID(*request.Body.OwnerId)
+		ownerID = &v
+	}
+
+	device, rawAPIKey, err := h.service.CreateDevice(ctx, principal, deviceName, ownerID)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrDuplicateDeviceName):
 			logger.WarnContext(ctx, "duplicate device name")
 			return httpapi.CreateDevice409JSONResponse(errorMsgResponse("Device name already in use")), nil
+		case errors.Is(err, ErrOwnerNotFound):
+			logger.WarnContext(ctx, "owner not found", slog.Any(AttrKeyError, err))
+			return httpapi.CreateDevice400JSONResponse(errorMsgResponse("Specified owner does not exist")), nil
 		default:
 			logger.ErrorContext(ctx, "failed to create device", slog.Any(AttrKeyError, err))
 			return httpapi.CreateDevice500JSONResponse(errorMsgResponse("Failed to create device")), nil
@@ -46,26 +62,6 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 		Device: apiDevice,
 		ApiKey: rawAPIKey,
 	}), nil
-}
-
-func (h *HTTPHandler) GetDevice(ctx context.Context, request httpapi.GetDeviceRequestObject) (httpapi.GetDeviceResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "GetDevice")
-	deviceID := DeviceID(request.DeviceId)
-	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
-
-	device, err := h.service.GetDevice(ctx, deviceID)
-	if err != nil {
-		switch {
-		case errors.Is(err, ErrDeviceNotFound):
-			logger.WarnContext(ctx, "device not found")
-			return httpapi.GetDevice404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
-		default:
-			logger.ErrorContext(ctx, "failed to get device", slog.Any(AttrKeyError, err))
-			return httpapi.GetDevice500JSONResponse(errorMsgResponse("Failed to get device")), nil
-		}
-	}
-
-	return httpapi.GetDevice200JSONResponse(toDeviceResponse(device)), nil
 }
 
 func (h *HTTPHandler) DeleteDevice(ctx context.Context, request httpapi.DeleteDeviceRequestObject) (httpapi.DeleteDeviceResponseObject, error) {
@@ -293,6 +289,11 @@ func (h *HTTPHandler) DisableAddress(ctx context.Context, request httpapi.Disabl
 func (h *HTTPHandler) GetAddressHistory(ctx context.Context, request httpapi.GetAddressHistoryRequestObject) (httpapi.GetAddressHistoryResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetAddressHistory")
 	logger := h.logger
+
+	principal, ok := auth.PrincipalFromContext(ctx)
+	if !ok || !principal.IsAdmin() {
+		return httpapi.GetAddressHistory403JSONResponse(errorMsgResponse("Admin credentials required")), nil
+	}
 	params := request.Params
 
 	query := AddressHistoryQuery{
@@ -342,10 +343,13 @@ func (h *HTTPHandler) UpdateDevice(ctx context.Context, request httpapi.UpdateDe
 	deviceID := DeviceID(request.DeviceId)
 	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
+	principal, ok := auth.PrincipalFromContext(ctx)
+	if !ok {
+		return httpapi.UpdateDevice500JSONResponse(errorMsgResponse("Not authenticated")), nil
+	}
+
 	body := request.Body
 
-	// Convert the generated request body to the service input.
-	// NullableString distinguishes absent (Set=false) from explicit null (Set=true, Value=nil).
 	input := UpdateDeviceInput{
 		Name: body.Name,
 	}
@@ -358,8 +362,12 @@ func (h *HTTPHandler) UpdateDevice(ctx context.Context, request httpapi.UpdateDe
 	if body.Icon.Set {
 		input.Icon = &body.Icon.Value
 	}
+	if body.OwnerId != nil {
+		v := auth.UserID(*body.OwnerId)
+		input.OwnerID = &v
+	}
 
-	device, err := h.service.UpdateDevice(ctx, deviceID, input)
+	device, err := h.service.UpdateDevice(ctx, principal, deviceID, input)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrDeviceNotFound):
@@ -369,9 +377,13 @@ func (h *HTTPHandler) UpdateDevice(ctx context.Context, request httpapi.UpdateDe
 			logger.WarnContext(ctx, "duplicate device name")
 			return httpapi.UpdateDevice409JSONResponse(errorMsgResponse("Device name already in use")), nil
 		case errors.Is(err, ErrInvalidDeviceType), errors.Is(err, ErrInvalidDeviceName),
-			errors.Is(err, ErrDescriptionTooLong), errors.Is(err, ErrIconTooLong):
+			errors.Is(err, ErrDescriptionTooLong), errors.Is(err, ErrIconTooLong),
+			errors.Is(err, ErrOwnerNotFound):
 			logger.WarnContext(ctx, "invalid update request", slog.Any(AttrKeyError, err))
 			return httpapi.UpdateDevice400JSONResponse(errorMsgResponse(err.Error())), nil
+		case errors.Is(err, auth.ErrAdminCredentialsRequired):
+			logger.WarnContext(ctx, "non-admin attempted owner reassignment")
+			return httpapi.UpdateDevice403JSONResponse(errorMsgResponse("Admin credentials required")), nil
 		default:
 			logger.ErrorContext(ctx, "failed to update device", slog.Any(AttrKeyError, err))
 			return httpapi.UpdateDevice500JSONResponse(errorMsgResponse("Failed to update device")), nil
@@ -398,11 +410,16 @@ func (h *HTTPHandler) APIKeyAuthenticator() APIKeyAuthenticator {
 	return h.service
 }
 
+func (h *HTTPHandler) OwnershipMiddleware() func(http.Handler) http.Handler {
+	return OwnershipMiddleware(h.service, h.logger)
+}
+
 func toDeviceResponse(d *Device) httpapi.Device {
 	var lastSeenAt *httpapi.UTCTime
 	if d.LastSeenAt != nil {
 		lastSeenAt = new(httpapi.UTCTime(d.LastSeenAt.Time))
 	}
+	ownerID := int(d.OwnerID.Int64())
 	return httpapi.Device{
 		Id:           d.ID.Int64(),
 		Name:         d.Name,
@@ -413,6 +430,7 @@ func toDeviceResponse(d *Device) httpapi.Device {
 		UpdatedAt:    httpapi.UTCTime(d.UpdatedAt),
 		ApiKeyPrefix: d.KeyPrefix,
 		LastSeenAt:   lastSeenAt,
+		OwnerId:      &ownerID,
 	}
 }
 

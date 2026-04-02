@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/netip"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
@@ -90,8 +91,13 @@ func (s *Service) GetDevice(ctx context.Context, deviceID DeviceID) (*Device, er
 	return device, nil
 }
 
-func (s *Service) CreateDevice(ctx context.Context, name string) (*Device, string, error) {
-	createDeviceParams, rawKey, err := NewCreateDeviceParams(name)
+func (s *Service) CreateDevice(ctx context.Context, principal *auth.Principal, name string, requestedOwnerID *auth.UserID) (*Device, string, error) {
+	ownerID := principal.UserID
+	if principal.IsAdmin() && requestedOwnerID != nil {
+		ownerID = *requestedOwnerID
+	}
+
+	createDeviceParams, rawKey, err := NewCreateDeviceParams(name, ownerID)
 	if err != nil {
 		return nil, "", err
 	}
@@ -123,15 +129,20 @@ type UpdateDeviceInput struct {
 	DeviceType  *string
 	Description **string
 	Icon        **string
+	OwnerID     *auth.UserID
 }
 
-func (s *Service) UpdateDevice(ctx context.Context, deviceID DeviceID, input UpdateDeviceInput) (*Device, error) {
+func (s *Service) UpdateDevice(ctx context.Context, principal *auth.Principal, deviceID DeviceID, input UpdateDeviceInput) (*Device, error) {
+	if input.OwnerID != nil && !principal.IsAdmin() {
+		return nil, auth.ErrAdminCredentialsRequired
+	}
+
 	device, err := s.repo.GetDevice(ctx, deviceID)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := device.Update(input.Name, input.DeviceType, input.Description, input.Icon); err != nil {
+	if err := device.Update(input.Name, input.DeviceType, input.Description, input.Icon, input.OwnerID); err != nil {
 		return nil, err
 	}
 

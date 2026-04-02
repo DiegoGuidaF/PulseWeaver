@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 )
 
@@ -47,6 +48,7 @@ type Device struct {
 	DeletedAt   *time.Time       `db:"deleted_at"`
 	KeyPrefix   string           `db:"key_prefix"`
 	LastSeenAt  *database.DBTime `db:"last_seen_at"`
+	OwnerID     auth.UserID      `db:"owner_id"`
 }
 
 // Update applies patch inputs to the device in-place, validating each field.
@@ -57,7 +59,7 @@ type Device struct {
 //   - deviceType:  nil = keep current; non-nil = set type (validated)
 //   - description: nil = keep current; non-nil ptr to nil = clear; non-nil ptr to value = set
 //   - icon:        same semantics as description
-func (d *Device) Update(name *string, deviceType *string, description **string, icon **string) error {
+func (d *Device) Update(name *string, deviceType *string, description **string, icon **string, ownerID *auth.UserID) error {
 	// Validate all fields before mutating any of them.
 	var parsedType DeviceType
 	if name != nil {
@@ -92,6 +94,9 @@ func (d *Device) Update(name *string, deviceType *string, description **string, 
 	if icon != nil {
 		d.Icon = *icon
 	}
+	if ownerID != nil {
+		d.OwnerID = *ownerID
+	}
 
 	return nil
 }
@@ -109,9 +114,10 @@ type CreateDeviceParams struct {
 	Name      string
 	KeyPrefix string
 	KeyHash   string
+	OwnerID   auth.UserID
 }
 
-func NewCreateDeviceParams(name string) (CreateDeviceParams, string, error) {
+func NewCreateDeviceParams(name string, ownerID auth.UserID) (CreateDeviceParams, string, error) {
 	rawKey, keyHash, keyPrefix, err := generateAPIKey()
 	if err != nil {
 		return CreateDeviceParams{}, "", err
@@ -120,6 +126,7 @@ func NewCreateDeviceParams(name string) (CreateDeviceParams, string, error) {
 		Name:      name,
 		KeyPrefix: keyPrefix,
 		KeyHash:   keyHash,
+		OwnerID:   ownerID,
 	}, rawKey, nil
 }
 

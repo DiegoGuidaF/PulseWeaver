@@ -108,6 +108,11 @@ export const CreateDeviceRequestSchema = {
             minLength: 1,
             maxLength: 50,
             description: 'User-friendly name for the device'
+        },
+        owner_id: {
+            type: 'integer',
+            nullable: true,
+            description: 'Admin only. Owner to assign the device to. Ignored for regular users (always assigned to self). When omitted by an admin, defaults to the calling admin\'s own ID.'
         }
     }
 } as const;
@@ -144,6 +149,11 @@ export const UpdateDeviceRequestSchema = {
             'x-go-type': 'NullableString',
             'x-go-type-skip-optional-pointer': true,
             description: 'Tabler icon name override. Pass null to clear.'
+        },
+        owner_id: {
+            type: 'integer',
+            nullable: true,
+            description: 'Admin only. Reassign device ownership to another user.'
         }
     }
 } as const;
@@ -412,6 +422,16 @@ export const DeviceSchema = {
             readOnly: true,
             'x-go-type': 'UTCTime',
             description: 'Most recent address activity for this device (heartbeat or manual update).'
+        },
+        owner_id: {
+            type: 'integer',
+            readOnly: true,
+            description: 'ID of the user who owns this device.'
+        },
+        owner_name: {
+            type: 'string',
+            readOnly: true,
+            description: 'Display name of the owning user (for display only).'
         }
     }
 } as const;

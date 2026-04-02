@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
@@ -34,6 +35,12 @@ func (h *HTTPHandler) GetDashboardStats(
 	request httpapi.GetDashboardStatsRequestObject,
 ) (httpapi.GetDashboardStatsResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetDashboardStats")
+
+	principal, ok := auth.PrincipalFromContext(ctx)
+	if !ok || !principal.IsAdmin() {
+		return httpapi.GetDashboardStats403JSONResponse(errorMsgResponse("Admin credentials required")), nil
+	}
+
 	from, to := parseTimeRange(request.Params.From, request.Params.To)
 
 	stats, err := h.repo.GetSummaryStats(ctx, from, to)
@@ -56,6 +63,12 @@ func (h *HTTPHandler) GetDashboardTraffic(
 	request httpapi.GetDashboardTrafficRequestObject,
 ) (httpapi.GetDashboardTrafficResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetDashboardTraffic")
+
+	principal, ok := auth.PrincipalFromContext(ctx)
+	if !ok || !principal.IsAdmin() {
+		return httpapi.GetDashboardTraffic403JSONResponse(errorMsgResponse("Admin credentials required")), nil
+	}
+
 	from, to := parseTimeRange(request.Params.From, request.Params.To)
 
 	granularity := timebucket.GranularityHour
@@ -88,6 +101,12 @@ func (h *HTTPHandler) GetDashboardServices(
 	request httpapi.GetDashboardServicesRequestObject,
 ) (httpapi.GetDashboardServicesResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetDashboardServices")
+
+	principal, ok := auth.PrincipalFromContext(ctx)
+	if !ok || !principal.IsAdmin() {
+		return httpapi.GetDashboardServices403JSONResponse(errorMsgResponse("Admin credentials required")), nil
+	}
+
 	from, to := parseTimeRange(request.Params.From, request.Params.To)
 
 	services, err := h.repo.GetServiceSplit(ctx, from, to)
@@ -115,6 +134,12 @@ func (h *HTTPHandler) GetDashboardTopDeniedIps(
 	request httpapi.GetDashboardTopDeniedIpsRequestObject,
 ) (httpapi.GetDashboardTopDeniedIpsResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetDashboardTopDeniedIps")
+
+	principal, ok := auth.PrincipalFromContext(ctx)
+	if !ok || !principal.IsAdmin() {
+		return httpapi.GetDashboardTopDeniedIps403JSONResponse(errorMsgResponse("Admin credentials required")), nil
+	}
+
 	from, to := parseTimeRange(request.Params.From, request.Params.To)
 
 	limit := 10

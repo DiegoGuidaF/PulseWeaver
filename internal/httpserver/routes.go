@@ -68,8 +68,10 @@ func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandle
 		r.Use(nethttpmiddleware.OapiRequestValidatorWithOptions(swagger, validatorOptions))
 		// Inject auth token into context if present
 		r.Use(auth.PrincipalUserContextMiddleware(authHandler.UserAuthenticator()))
-		// Inject auth token into context if present
+		// Inject device API key into context if present
 		r.Use(device.PrincipalDeviceContextMiddleware(deviceHandler.APIKeyAuthenticator()))
+		// Enforce device ownership: users can only access their own devices
+		r.Use(deviceHandler.OwnershipMiddleware())
 
 		// Create custom error handlers with logging
 		errorOptions := httpapi.StrictHTTPServerOptions{

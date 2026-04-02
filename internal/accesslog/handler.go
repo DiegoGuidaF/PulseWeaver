@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
@@ -29,6 +30,12 @@ func (h *HTTPHandler) GetAccessLogDenyReasons(
 	_ httpapi.GetAccessLogDenyReasonsRequestObject,
 ) (httpapi.GetAccessLogDenyReasonsResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetAccessLogDenyReasons")
+
+	principal, ok := auth.PrincipalFromContext(ctx)
+	if !ok || !principal.IsAdmin() {
+		return httpapi.GetAccessLogDenyReasons403JSONResponse(errorMsgResponse("Admin credentials required")), nil
+	}
+
 	reasons, err := h.repo.ListDenyReasons(ctx)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "failed to list deny reasons", slog.Any(logging.AttrKeyError, err))

@@ -2,10 +2,12 @@ package queries
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
@@ -62,7 +64,18 @@ func (h *HTTPHandler) GetDevices(
 ) (httpapi.GetDevicesResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetDevices")
 
-	devices, err := h.repo.GetDevices(ctx)
+	principal, ok := auth.PrincipalFromContext(ctx)
+	if !ok {
+		return httpapi.GetDevices500JSONResponse(errorMsgResponse("Not authenticated")), nil
+	}
+
+	var ownerFilter *auth.UserID
+	if !principal.IsAdmin() {
+		ownerID := principal.UserID
+		ownerFilter = &ownerID
+	}
+
+	devices, err := h.repo.GetDevices(ctx, ownerFilter)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "failed to list devices", slog.Any(logging.AttrKeyError, err))
 		return httpapi.GetDevices500JSONResponse(errorMsgResponse("Failed to list devices")), nil
@@ -75,11 +88,46 @@ func (h *HTTPHandler) GetDevices(
 	return httpapi.GetDevices200JSONResponse(response), nil
 }
 
+func (h *HTTPHandler) GetDevicesByUser(
+	ctx context.Context,
+	request httpapi.GetDevicesByUserRequestObject,
+) (httpapi.GetDevicesByUserResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetDevicesByUser")
+
+	principal, ok := auth.PrincipalFromContext(ctx)
+	if !ok || !principal.IsAdmin() {
+		return httpapi.GetDevicesByUser403JSONResponse(errorMsgResponse("Admin credentials required")), nil
+	}
+
+	devices, err := h.repo.GetDevicesByUser(ctx, auth.UserID(request.UserId))
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrUserNotFound):
+			return httpapi.GetDevicesByUser404JSONResponse(errorMsgResponse("User not found")), nil
+		default:
+			h.logger.ErrorContext(ctx, "failed to list devices by user", slog.Any(logging.AttrKeyError, err))
+			return httpapi.GetDevicesByUser500JSONResponse(errorMsgResponse("Failed to list devices")), nil
+		}
+	}
+
+	response := make([]httpapi.Device, len(devices))
+	for i := range devices {
+		response[i] = toDeviceViewResponse(&devices[i])
+	}
+	return httpapi.GetDevicesByUser200JSONResponse(response), nil
+}
+
 func (h *HTTPHandler) GetAccessLog(
 	ctx context.Context,
 	request httpapi.GetAccessLogRequestObject,
 ) (httpapi.GetAccessLogResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetAccessLog")
+
+	principal, ok := auth.PrincipalFromContext(ctx)
+	if !ok || !principal.IsAdmin() {
+		return httpapi.GetAccessLog403JSONResponse(errorMsgResponse("Admin credentials required")), nil
+	}
+
 	params := request.Params
 
 	query := NewAccessLogQuery(params)
@@ -114,6 +162,11 @@ func (h *HTTPHandler) GetAccessLogByCountry(
 	request httpapi.GetAccessLogByCountryRequestObject,
 ) (httpapi.GetAccessLogByCountryResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetAccessLogByCountry")
+
+	principal, ok := auth.PrincipalFromContext(ctx)
+	if !ok || !principal.IsAdmin() {
+		return httpapi.GetAccessLogByCountry403JSONResponse(errorMsgResponse("Admin credentials required")), nil
+	}
 
 	now := time.Now().UTC()
 	from := now.Add(-24 * time.Hour)
@@ -205,6 +258,8 @@ func toDeviceViewResponse(d *DeviceView) httpapi.Device {
 	if d.LastSeenAt != nil {
 		lastSeenAt = new(httpapi.UTCTime(d.LastSeenAt.Time))
 	}
+	ownerID := int(d.OwnerID.Int64())
+	ownerName := d.OwnerName
 	return httpapi.Device{
 		Id:           d.ID.Int64(),
 		Name:         d.Name,
@@ -216,6 +271,50 @@ func toDeviceViewResponse(d *DeviceView) httpapi.Device {
 		ApiKeyPrefix: d.KeyPrefix,
 		AddressCount: new(d.AddressCount),
 		LastSeenAt:   lastSeenAt,
+		OwnerId:      &ownerID,
+		OwnerName:    &ownerName,
+	}
+}
+
+func (h *HTTPHandler) GetDevice(ctx context.Context, request httpapi.GetDeviceRequestObject) (httpapi.GetDeviceResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetDevice")
+	deviceID := device.DeviceID(request.DeviceId)
+	logger := h.logger.With(slog.Int64(device.AttrKeyDeviceID, deviceID.Int64()))
+
+	detail, err := h.repo.GetDeviceDetail(ctx, deviceID)
+	if err != nil {
+		switch {
+		case errors.Is(err, device.ErrDeviceNotFound):
+			logger.WarnContext(ctx, "device not found")
+			return httpapi.GetDevice404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %d not found", deviceID))), nil
+		default:
+			logger.ErrorContext(ctx, "failed to get device", slog.Any(logging.AttrKeyError, err))
+			return httpapi.GetDevice500JSONResponse(errorMsgResponse("Failed to get device")), nil
+		}
+	}
+
+	return httpapi.GetDevice200JSONResponse(toDeviceDetailResponse(detail)), nil
+}
+
+func toDeviceDetailResponse(d *DeviceDetail) httpapi.Device {
+	var lastSeenAt *httpapi.UTCTime
+	if d.LastSeenAt != nil {
+		lastSeenAt = new(httpapi.UTCTime(d.LastSeenAt.Time))
+	}
+	ownerID := int(d.OwnerID.Int64())
+	ownerName := d.OwnerName
+	return httpapi.Device{
+		Id:           d.ID.Int64(),
+		Name:         d.Name,
+		DeviceType:   httpapi.DeviceDeviceType(d.DeviceType),
+		Description:  d.Description,
+		Icon:         d.Icon,
+		CreatedAt:    httpapi.UTCTime(d.CreatedAt),
+		UpdatedAt:    httpapi.UTCTime(d.UpdatedAt),
+		ApiKeyPrefix: d.KeyPrefix,
+		LastSeenAt:   lastSeenAt,
+		OwnerId:      &ownerID,
+		OwnerName:    &ownerName,
 	}
 }
 

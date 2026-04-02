@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
@@ -17,11 +18,12 @@ import (
 
 // testRepos groups all repositories used by the queries package tests.
 type testRepos struct {
-	queries   *queries.Repository
-	devices   *device.Repository
-	leases    *lease.Repository
-	accessLog *accesslog.Repository
-	db        *sqlx.DB
+	queries     *queries.Repository
+	devices     *device.Repository
+	leases      *lease.Repository
+	accessLog   *accesslog.Repository
+	db          *sqlx.DB
+	testOwnerID auth.UserID
 }
 
 // setupRepos creates an in-memory SQLite DB and returns all repositories sharing it.
@@ -32,24 +34,35 @@ func setupRepos(t *testing.T) testRepos {
 	t.Cleanup(cleanup)
 
 	sqlxDB := dbWrapper.DB()
+
+	// Insert a test owner user (all devices need an owner since migration 000010).
+	var ownerID auth.UserID
+	err := sqlxDB.QueryRowx(
+		`INSERT INTO users (username, display_name, password_hash, role) VALUES ('testadmin', 'Test Admin', 'x', 'admin') RETURNING id`,
+	).Scan(&ownerID)
+	if err != nil {
+		t.Fatalf("setupRepos: insert test user: %v", err)
+	}
+
 	return testRepos{
-		queries:   queries.NewRepository(sqlxDB),
-		devices:   device.NewRepository(sqlxDB),
-		leases:    lease.NewRepository(sqlxDB),
-		accessLog: accesslog.NewRepository(sqlxDB),
-		db:        sqlxDB,
+		queries:     queries.NewRepository(sqlxDB),
+		devices:     device.NewRepository(sqlxDB),
+		leases:      lease.NewRepository(sqlxDB),
+		accessLog:   accesslog.NewRepository(sqlxDB),
+		db:          sqlxDB,
+		testOwnerID: ownerID,
 	}
 }
 
 // createDevice is a test helper that inserts a device using the device repository.
-func createDevice(t *testing.T, repo *device.Repository, name string) *device.Device {
+func createDevice(t *testing.T, repos testRepos, name string) *device.Device {
 	t.Helper()
 
-	params, _, err := device.NewCreateDeviceParams(name)
+	params, _, err := device.NewCreateDeviceParams(name, repos.testOwnerID)
 	if err != nil {
 		t.Fatalf("NewCreateDeviceParams(%q): %v", name, err)
 	}
-	dev, err := repo.CreateDevice(t.Context(), params)
+	dev, err := repos.devices.CreateDevice(t.Context(), params)
 	if err != nil {
 		t.Fatalf("CreateDevice(%q): %v", name, err)
 	}
@@ -75,7 +88,7 @@ func TestRepository_DeviceExists_ExistingDevice(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 
-	dev := createDevice(t, repos.devices, "existing-device")
+	dev := createDevice(t, repos, "existing-device")
 
 	exists, err := repos.queries.DeviceExists(t.Context(), dev.ID)
 	is.NoErr(err)
@@ -95,7 +108,7 @@ func TestRepository_DeviceExists_SoftDeletedDevice(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 
-	dev := createDevice(t, repos.devices, "to-delete")
+	dev := createDevice(t, repos, "to-delete")
 	err := repos.devices.DeleteDevice(t.Context(), dev.ID)
 	is.NoErr(err)
 

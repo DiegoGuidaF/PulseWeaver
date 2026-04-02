@@ -14,7 +14,7 @@ func TestRepository_GetDevices_EmptySlice(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 
-	devices, err := repos.queries.GetDevices(t.Context())
+	devices, err := repos.queries.GetDevices(t.Context(), nil)
 	is.NoErr(err)
 	is.Equal(len(devices), 0)
 }
@@ -23,9 +23,9 @@ func TestRepository_GetDevices_ReturnsFields(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 
-	dev := createDevice(t, repos.devices, "device-fields")
+	dev := createDevice(t, repos, "device-fields")
 
-	devices, err := repos.queries.GetDevices(t.Context())
+	devices, err := repos.queries.GetDevices(t.Context(), nil)
 	is.NoErr(err)
 	is.Equal(len(devices), 1)
 
@@ -41,9 +41,9 @@ func TestRepository_GetDevices_AddressCountZeroWhenNoAddresses(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 
-	createDevice(t, repos.devices, "device-no-addresses")
+	createDevice(t, repos, "device-no-addresses")
 
-	devices, err := repos.queries.GetDevices(t.Context())
+	devices, err := repos.queries.GetDevices(t.Context(), nil)
 	is.NoErr(err)
 	is.Equal(len(devices), 1)
 	is.Equal(devices[0].AddressCount, 0)
@@ -53,14 +53,14 @@ func TestRepository_GetDevices_AddressCountOnlyCountsEnabledAddresses(t *testing
 	is := is.New(t)
 	repos := setupRepos(t)
 
-	dev := createDevice(t, repos.devices, "device-count")
+	dev := createDevice(t, repos, "device-count")
 	addr1 := createAddress(t, repos.devices, dev.ID, "10.0.0.10")
 	createAddress(t, repos.devices, dev.ID, "10.0.0.11")
 
 	_, err := repos.devices.DisableAddress(t.Context(), addr1.ID)
 	is.NoErr(err)
 
-	devices, err := repos.queries.GetDevices(t.Context())
+	devices, err := repos.queries.GetDevices(t.Context(), nil)
 	is.NoErr(err)
 	is.Equal(len(devices), 1)
 	is.Equal(devices[0].AddressCount, 1)
@@ -99,7 +99,7 @@ func TestRepository_GetDevices_OrderedByCreatedAtDesc(t *testing.T) {
 	oldID := insertDevice("older-device", "wdk_oldaaaa", "hash-old", olderTime)
 	newID := insertDevice("newer-device", "wdk_newbbbb", "hash-new", newerTime)
 
-	devices, err := repos.queries.GetDevices(t.Context())
+	devices, err := repos.queries.GetDevices(t.Context(), nil)
 	is.NoErr(err)
 	is.Equal(len(devices), 2)
 	is.Equal(devices[0].ID, newID)

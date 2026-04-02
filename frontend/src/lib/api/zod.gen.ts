@@ -8,14 +8,16 @@ export const zChangePasswordRequest = z.object({
 });
 
 export const zCreateDeviceRequest = z.object({
-    name: z.string().min(1).max(50)
+    name: z.string().min(1).max(50),
+    owner_id: z.int().nullish()
 });
 
 export const zUpdateDeviceRequest = z.object({
     name: z.string().min(1).max(50).optional(),
     device_type: z.enum(['static', 'mobile']).optional(),
     description: z.string().max(200).nullish(),
-    icon: z.string().max(80).nullish()
+    icon: z.string().max(80).nullish(),
+    owner_id: z.int().nullish()
 });
 
 export const zErrorResponse = z.object({
@@ -181,7 +183,9 @@ export const zDevice = z.object({
     icon: z.string().max(80).nullish(),
     api_key_prefix: z.string(),
     address_count: z.int().gte(0).readonly().optional(),
-    last_seen_at: z.iso.datetime({ offset: true, local: true }).readonly().nullish()
+    last_seen_at: z.iso.datetime({ offset: true, local: true }).readonly().nullish(),
+    owner_id: z.int().readonly().optional(),
+    owner_name: z.string().readonly().optional()
 });
 
 export const zCreateDeviceResponse = z.object({
@@ -338,6 +342,19 @@ export const zDemoteUserData = z.object({
  * User demoted successfully
  */
 export const zDemoteUserResponse = zUser;
+
+export const zGetDevicesByUserData = z.object({
+    body: z.never().optional(),
+    path: z.object({
+        user_id: zId
+    }),
+    query: z.never().optional()
+});
+
+/**
+ * OK
+ */
+export const zGetDevicesByUserResponse = z.array(zDevice);
 
 export const zLoginData = z.object({
     body: zAuthRequest,

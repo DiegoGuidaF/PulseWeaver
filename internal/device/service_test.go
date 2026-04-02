@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 	"github.com/matryer/is"
 )
@@ -227,6 +228,10 @@ func TestService_DisableAddress_AddressNotFound(t *testing.T) {
 	is.True(disabledAddr == nil)
 }
 
+func testAdminPrincipal() *auth.Principal {
+	return auth.NewPrincipal(auth.UserID(1), auth.SessionID(0), auth.AdminRole)
+}
+
 func TestService_CreateDevice_ReturnsDeviceAndRawKey(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
@@ -234,7 +239,7 @@ func TestService_CreateDevice_ReturnsDeviceAndRawKey(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 
-	deviceWithPrefix, rawKey, err := service.CreateDevice(ctx, "my-device")
+	deviceWithPrefix, rawKey, err := service.CreateDevice(ctx, testAdminPrincipal(), "my-device", nil)
 	is.NoErr(err)
 	is.True(deviceWithPrefix != nil)
 	is.Equal(deviceWithPrefix.Name, "my-device")
@@ -252,7 +257,7 @@ func TestService_Authenticate_Success(t *testing.T) {
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 
 	// Create device via service so API key is stored in mock
-	deviceWithPrefix, rawKey, err := service.CreateDevice(ctx, "auth-device")
+	deviceWithPrefix, rawKey, err := service.CreateDevice(ctx, testAdminPrincipal(), "auth-device", nil)
 	is.NoErr(err)
 	is.True(rawKey != "")
 
@@ -476,7 +481,7 @@ func TestService_CreateDevice_DuplicateName(t *testing.T) {
 	mockRepo.createDeviceErr = ErrDuplicateDeviceName
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 
-	device, rawKey, err := service.CreateDevice(ctx, "dup-name")
+	device, rawKey, err := service.CreateDevice(ctx, testAdminPrincipal(), "dup-name", nil)
 	is.True(err != nil)
 	is.True(errors.Is(err, ErrDuplicateDeviceName))
 	is.True(device == nil)
@@ -540,7 +545,7 @@ func TestService_RegenerateAPIKey_OldKeyInvalidated(t *testing.T) {
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 
 	// Create device so old key hash is stored
-	_, oldRawKey, err := service.CreateDevice(ctx, "rotate-device")
+	_, oldRawKey, err := service.CreateDevice(ctx, testAdminPrincipal(), "rotate-device", nil)
 	is.NoErr(err)
 	is.True(oldRawKey != "")
 
@@ -609,7 +614,7 @@ func TestService_UpdateDevice_RenamesDevice(t *testing.T) {
 
 	svc := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 	newName := "new-name"
-	updated, err := svc.UpdateDevice(ctx, d.ID, UpdateDeviceInput{Name: &newName})
+	updated, err := svc.UpdateDevice(ctx, testAdminPrincipal(), d.ID, UpdateDeviceInput{Name: &newName})
 
 	is.NoErr(err)
 	is.Equal(updated.Name, "new-name")
@@ -622,7 +627,7 @@ func TestService_UpdateDevice_DeviceNotFound(t *testing.T) {
 	mockRepo := newMockRepository()
 	svc := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 
-	_, err := svc.UpdateDevice(ctx, DeviceID(99), UpdateDeviceInput{})
+	_, err := svc.UpdateDevice(ctx, testAdminPrincipal(), DeviceID(99), UpdateDeviceInput{})
 
 	is.True(errors.Is(err, ErrDeviceNotFound))
 }
@@ -637,7 +642,7 @@ func TestService_UpdateDevice_InvalidTypePropagated(t *testing.T) {
 
 	svc := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 	bad := "robot"
-	_, err := svc.UpdateDevice(ctx, d.ID, UpdateDeviceInput{DeviceType: &bad})
+	_, err := svc.UpdateDevice(ctx, testAdminPrincipal(), d.ID, UpdateDeviceInput{DeviceType: &bad})
 
 	is.True(errors.Is(err, ErrInvalidDeviceType))
 }
@@ -653,7 +658,7 @@ func TestService_UpdateDevice_RepoErrorPropagated(t *testing.T) {
 	mockRepo.updateDeviceErr = sentinel
 
 	svc := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
-	_, err := svc.UpdateDevice(ctx, d.ID, UpdateDeviceInput{})
+	_, err := svc.UpdateDevice(ctx, testAdminPrincipal(), d.ID, UpdateDeviceInput{})
 
 	is.True(errors.Is(err, sentinel))
 }
