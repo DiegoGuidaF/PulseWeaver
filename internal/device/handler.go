@@ -185,7 +185,7 @@ func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request httpapi.Devic
 	}
 
 	logger.InfoContext(ctx,
-		"maual device heartbeat successful",
+		"manual device heartbeat successful",
 		slog.Int64(AttrKeyAddressID, address.ID.Int64()),
 		slog.String(AttrKeyAddressEventType, string(eventType)),
 	)

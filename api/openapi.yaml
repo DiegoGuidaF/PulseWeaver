@@ -801,6 +801,7 @@ paths:
               - heartbeat
               - manual
               - expiry
+              - limit_exceeded
           description: Filter events by source
         - name: is_enabled
           in: query
