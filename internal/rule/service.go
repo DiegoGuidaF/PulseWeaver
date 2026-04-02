@@ -225,12 +225,5 @@ func (s *Service) DisableMaxActiveAddressesRule(ctx context.Context, deviceID de
 	}
 	logger.InfoContext(ctx, "disabled max active addresses rule successfully", slog.Int64(AttrKeyRuleID, int64(rule.ID)))
 
-	s.notifyRuleObservers(ctx, RuleEvent{
-		Type:       RuleEventTypeDisabled,
-		DeviceID:   deviceID,
-		RuleType:   RuleTypeMaxActiveAddresses,
-		OccurredAt: time.Now().UTC(),
-	})
-
 	return rule.ToMaxActiveAddressesRule()
 }
