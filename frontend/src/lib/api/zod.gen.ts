@@ -176,7 +176,7 @@ export const zDevice = z.object({
     updated_at: z.iso.datetime({ offset: true, local: true }),
     id: zId,
     name: z.string().min(1).max(50),
-    device_type: z.enum(['generic', 'mobile']),
+    device_type: z.enum(['static', 'mobile']),
     description: z.string().max(200).nullish(),
     icon: z.string().max(80).nullish(),
     api_key_prefix: z.string(),
@@ -258,7 +258,7 @@ export const zDeviceWritable = z.object({
     updated_at: z.iso.datetime({ offset: true, local: true }),
     id: zId,
     name: z.string().min(1).max(50),
-    device_type: z.enum(['generic', 'mobile']),
+    device_type: z.enum(['static', 'mobile']),
     description: z.string().max(200).nullish(),
     icon: z.string().max(80).nullish(),
     api_key_prefix: z.string()

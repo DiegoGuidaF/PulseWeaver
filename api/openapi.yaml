@@ -1831,8 +1831,8 @@ components:
           maxLength: 50
         device_type:
           type: string
-          enum: [generic, mobile]
-          description: Network behaviour classification. Defaults to "generic".
+          enum: [static, mobile]
+          description: Network behaviour classification. Defaults to "static".
         description:
           type: string
           nullable: true

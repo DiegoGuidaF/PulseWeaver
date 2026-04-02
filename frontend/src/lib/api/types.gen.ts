@@ -142,9 +142,9 @@ export type Device = {
      */
     name: string;
     /**
-     * Network behaviour classification. Defaults to "generic".
+     * Network behaviour classification. Defaults to "static".
      */
-    device_type: 'generic' | 'mobile';
+    device_type: 'static' | 'mobile';
     /**
      * Free-form note about the device.
      */
@@ -393,9 +393,9 @@ export type DeviceWritable = {
      */
     name: string;
     /**
-     * Network behaviour classification. Defaults to "generic".
+     * Network behaviour classification. Defaults to "static".
      */
-    device_type: 'generic' | 'mobile';
+    device_type: 'static' | 'mobile';
     /**
      * Free-form note about the device.
      */

@@ -378,10 +378,10 @@ export const DeviceSchema = {
         device_type: {
             type: 'string',
             enum: [
-                'generic',
+                'static',
                 'mobile'
             ],
-            description: 'Network behaviour classification. Defaults to "generic".'
+            description: 'Network behaviour classification. Defaults to "static".'
         },
         description: {
             type: 'string',
@@ -1007,10 +1007,10 @@ export const DeviceWritableSchema = {
         device_type: {
             type: 'string',
             enum: [
-                'generic',
+                'static',
                 'mobile'
             ],
-            description: 'Network behaviour classification. Defaults to "generic".'
+            description: 'Network behaviour classification. Defaults to "static".'
         },
         description: {
             type: 'string',
