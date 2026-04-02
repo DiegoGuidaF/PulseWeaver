@@ -562,12 +562,12 @@ func TestService_RegenerateAPIKey_OldKeyInvalidated(t *testing.T) {
 	is.True(newRawKey != oldRawKey)
 
 	// Old key should no longer be in the hash map
-	oldHash := hashAPIKey(oldRawKey)
+	oldHash := HashAPIKey(oldRawKey)
 	_, oldKeyFound := mockRepo.apiKeysByHash[oldHash]
 	is.True(!oldKeyFound)
 
 	// New key should authenticate
-	newHash := hashAPIKey(newRawKey)
+	newHash := HashAPIKey(newRawKey)
 	_, newKeyFound := mockRepo.apiKeysByHash[newHash]
 	is.True(newKeyFound)
 }

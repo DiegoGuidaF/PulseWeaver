@@ -12,6 +12,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/registration"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ui"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -26,6 +27,7 @@ type CompositeHandler struct {
 	*QueriesHandler
 	*AccessLogHandler
 	*DashboardHandler
+	*RegistrationHandler
 }
 
 type RuleHandler = rule.HTTPHandler
@@ -35,15 +37,17 @@ type AuthHandler = auth.HTTPHandler
 type PolicyHandler = policy.HTTPHandler
 type AccessLogHandler = accesslog.HTTPHandler
 type DashboardHandler = dashboard.HTTPHandler
+type RegistrationHandler = registration.HTTPHandler
 
-func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, accessLogHandler *AccessLogHandler, dashboardHandler *DashboardHandler, logger *slog.Logger) {
+func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, accessLogHandler *AccessLogHandler, dashboardHandler *DashboardHandler, registrationHandler *RegistrationHandler, logger *slog.Logger) {
 	routeHandler := &CompositeHandler{
-		DeviceHandler:    deviceHandler,
-		AuthHandler:      authHandler,
-		RuleHandler:      ruleHandler,
-		QueriesHandler:   queriesHandler,
-		AccessLogHandler: accessLogHandler,
-		DashboardHandler: dashboardHandler,
+		DeviceHandler:       deviceHandler,
+		AuthHandler:         authHandler,
+		RuleHandler:         ruleHandler,
+		QueriesHandler:      queriesHandler,
+		AccessLogHandler:    accessLogHandler,
+		DashboardHandler:    dashboardHandler,
+		RegistrationHandler: registrationHandler,
 	}
 
 	r.Get("/health", health.Handler)
@@ -63,6 +67,7 @@ func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandle
 		// Rate limit unauthenticated endpoints by IP
 		r.Use(LoginRateLimitMiddleware(5, time.Minute))
 		r.Use(HeartbeatRateLimitMiddleware(30, time.Minute))
+		r.Use(RegistrationRateLimitMiddleware(10, time.Minute))
 
 		// OpenApi request input validators
 		r.Use(nethttpmiddleware.OapiRequestValidatorWithOptions(swagger, validatorOptions))

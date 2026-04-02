@@ -27,6 +27,12 @@ func HeartbeatRateLimitMiddleware(requests int, window time.Duration) func(http.
 		"Too many heartbeat requests. Try again later.")
 }
 
+// RegistrationRateLimitMiddleware rate limits POST /api/v1/register by client IP.
+func RegistrationRateLimitMiddleware(requests int, window time.Duration) func(http.Handler) http.Handler {
+	return ipRateLimitMiddleware(httpapi.RegisterEndpoint, http.MethodPost, requests, window,
+		"Too many registration attempts. Try again later.")
+}
+
 // ipRateLimitMiddleware creates a middleware that rate limits a specific path+method by client IP.
 // The key is read from the request context (set by the IP middleware) with a fallback to RemoteAddr.
 // When the limit is exceeded, a JSON 429 response is returned with the given message.

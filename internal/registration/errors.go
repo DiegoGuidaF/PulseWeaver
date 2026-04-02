@@ -1,0 +1,11 @@
+package registration
+
+import "errors"
+
+var (
+	// ErrInviteNotFound is returned when the registration code or ID does not match any record.
+	ErrInviteNotFound = errors.New("registration invite not found")
+
+	// ErrInviteNotPending is returned when the invite is already used or expired at delete time.
+	ErrInviteNotPending = errors.New("registration invite is no longer pending")
+)

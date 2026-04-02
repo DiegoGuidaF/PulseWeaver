@@ -20,6 +20,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/maxaddr"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/registration"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/scheduler"
 	"golang.org/x/sync/errgroup"
@@ -35,6 +36,7 @@ type App struct {
 	AuthService         *auth.Service
 	PolicyService       *policy.Service
 	RuleService         *rule.Service
+	RegistrationService *registration.Service
 	addressLeaseService *lease.Service
 	maxAddrService      *maxaddr.Service
 	schedulerService    *scheduler.Service
@@ -170,7 +172,11 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		logger.Warn("failed to initialize policy IP cache on startup", slog.Any("error", err))
 	}
 
-	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, accessLogHandler, dashboardHandler, logger, conf.Server.TrustedProxy)
+	registrationRepo := registration.NewRepository(db.DB())
+	registrationService := registration.NewService(registrationRepo, logger)
+	registrationHandler := registration.NewHTTPHandler(registrationService, logger)
+
+	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, accessLogHandler, dashboardHandler, registrationHandler, logger, conf.Server.TrustedProxy)
 
 	return &App{
 		Config:              conf,
@@ -181,6 +187,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		AuthService:         authService,
 		PolicyService:       policyService,
 		RuleService:         ruleService,
+		RegistrationService: registrationService,
 		addressLeaseService: addressLeaseService,
 		maxAddrService:      maxAddrService,
 		schedulerService:    schedulerService,
