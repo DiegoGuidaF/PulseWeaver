@@ -58,7 +58,7 @@ func (s *Service) Authenticate(ctx context.Context, rawKey string) (*Principal, 
 	}
 
 	// Hash the key
-	keyHash := hashAPIKey(rawKey)
+	keyHash := HashAPIKey(rawKey)
 
 	// Look up device by key hash
 	device, err := s.repo.GetDeviceByAPIKeyHash(ctx, keyHash)
@@ -270,7 +270,7 @@ func (s *Service) DisableAddresses(ctx context.Context, addressIDs []AddressID, 
 }
 
 func (s *Service) RegenerateAPIKey(ctx context.Context, deviceID DeviceID) (*Device, string, error) {
-	rawKey, keyHash, keyPrefix, err := generateAPIKey()
+	rawKey, keyHash, keyPrefix, err := GenerateAPIKey()
 	if err != nil {
 		return nil, "", fmt.Errorf("generate api key: %w", err)
 	}

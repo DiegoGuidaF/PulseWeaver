@@ -118,7 +118,7 @@ type CreateDeviceParams struct {
 }
 
 func NewCreateDeviceParams(name string, ownerID auth.UserID) (CreateDeviceParams, string, error) {
-	rawKey, keyHash, keyPrefix, err := generateAPIKey()
+	rawKey, keyHash, keyPrefix, err := GenerateAPIKey()
 	if err != nil {
 		return CreateDeviceParams{}, "", err
 	}
@@ -140,9 +140,9 @@ func (id DeviceID) String() string {
 	return strconv.FormatInt(int64(id), 10)
 }
 
-// generateAPIKey generates a new API key and returns the raw key (to send to user),
+// GenerateAPIKey generates a new API key and returns the raw key (to send to user),
 // the key hash (to store in DB), and the key prefix (for display).
-func generateAPIKey() (rawKey string, keyHash string, keyPrefix string, error error) {
+func GenerateAPIKey() (rawKey string, keyHash string, keyPrefix string, error error) {
 	// Generate 32 random bytes (same as auth tokens)
 	b := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {
@@ -156,7 +156,7 @@ func generateAPIKey() (rawKey string, keyHash string, keyPrefix string, error er
 	prefixedKey := APIKeyPrefix + rawKey
 
 	// Hash for storage (SHA-256, same pattern as auth tokens)
-	keyHash = hashAPIKey(prefixedKey)
+	keyHash = HashAPIKey(prefixedKey)
 
 	// Extract prefix for display (first 8 chars after prefix)
 	keyPrefix = prefixedKey[:len(APIKeyPrefix)+8]
@@ -164,9 +164,9 @@ func generateAPIKey() (rawKey string, keyHash string, keyPrefix string, error er
 	return prefixedKey, keyHash, keyPrefix, nil
 }
 
-// hashAPIKey hashes the API key using SHA-256 and returns base64url encoded hash.
+// HashAPIKey hashes the API key using SHA-256 and returns base64url encoded hash.
 // This mirrors the pattern used in auth.hashRawToken.
-func hashAPIKey(rawKey string) string {
+func HashAPIKey(rawKey string) string {
 	hash := sha256.Sum256([]byte(rawKey))
 	return base64.RawURLEncoding.EncodeToString(hash[:])
 }

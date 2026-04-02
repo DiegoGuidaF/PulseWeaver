@@ -1623,6 +1623,186 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  # --------------------
+  # Registration Endpoints
+  # --------------------
+  /register:
+    post:
+      operationId: claimRegistration
+      tags:
+        - registration
+      security: []
+      summary: Claim a registration code
+      description: |
+        Public endpoint — no auth required. The registration code is the credential.
+        Validates and claims a pending registration, creates the device, and returns
+        the full configuration payload including the device API key (one-time only).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClaimRegistrationRequest'
+      responses:
+        "200":
+          description: Registration successful — device created and config returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimRegistrationResponse'
+        "404":
+          description: Code not found, already used, or expired (deliberately vague)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/registrations:
+    get:
+      operationId: listRegistrations
+      tags:
+        - registration
+      summary: List pending registrations (Admin only)
+      description: |
+        Returns registration invites. By default returns only pending (unclaimed,
+        non-expired) invites. Pass `?status=all` to include used and expired.
+        Never returns device_api_key.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, all]
+            default: pending
+      responses:
+        "200":
+          description: List of registrations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PendingRegistration'
+        "401":
+          description: Not authenticated
+        "403":
+          description: Admin credentials required
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createRegistration
+      tags:
+        - registration
+      summary: Create a registration invite (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRegistrationRequest'
+      responses:
+        "201":
+          description: Registration invite created — includes registration_code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingRegistration'
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Not authenticated
+        "403":
+          description: Admin credentials required
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/registrations/{registration_id}:
+    get:
+      operationId: getRegistration
+      tags:
+        - registration
+      summary: Get a single registration invite (Admin only)
+      description: Returns the invite including registration_code if not yet claimed.
+      parameters:
+        - name: registration_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Registration invite
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingRegistration'
+        "401":
+          description: Not authenticated
+        "403":
+          description: Admin credentials required
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteRegistration
+      tags:
+        - registration
+      summary: Invalidate and delete an unclaimed invite (Admin only)
+      description: Hard-deletes an unclaimed registration invite. Returns 404 if already used or not found.
+      parameters:
+        - name: registration_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Invite deleted
+        "401":
+          description: Not authenticated
+        "403":
+          description: Admin credentials required
+        "404":
+          description: Not found or already used
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     cookieAuth:
@@ -2317,3 +2497,123 @@ components:
     ID:
       type: integer
       format: int64
+
+    #################
+    # Registration
+    #################
+    CreateRegistrationRequest:
+      type: object
+      required:
+        - device_name
+        - heartbeat_server_url
+        - interval_seconds
+        - expires_in_hours
+      properties:
+        device_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Dad's Phone"
+        heartbeat_server_url:
+          type: string
+          format: uri
+          example: "https://pulse.home.lan"
+        interval_seconds:
+          type: integer
+          minimum: 60
+          example: 900
+        biometric_enabled:
+          type: boolean
+          default: false
+        biometric_user_can_toggle:
+          type: boolean
+          default: true
+        expires_in_hours:
+          type: integer
+          enum: [1, 24, 48, 168]
+          example: 24
+
+    PendingRegistration:
+      type: object
+      required:
+        - id
+        - device_name
+        - device_api_key_prefix
+        - heartbeat_server_url
+        - interval_seconds
+        - biometric_enabled
+        - biometric_user_can_toggle
+        - expires_at
+        - created_at
+        - status
+      properties:
+        id:
+          type: string
+        device_name:
+          type: string
+        registration_code:
+          type: string
+          nullable: true
+          description: Present only while unclaimed. Null after the invite is used.
+        device_api_key_prefix:
+          type: string
+          description: Always present; retained after claim for admin reference.
+        heartbeat_server_url:
+          type: string
+        interval_seconds:
+          type: integer
+        biometric_enabled:
+          type: boolean
+        biometric_user_can_toggle:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+        created_at:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+        used_at:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+          nullable: true
+        created_device_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: Set after the invite is claimed and the device is created.
+        status:
+          type: string
+          enum: [pending, used, expired]
+
+    ClaimRegistrationRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          description: The full registration code as received (not decoded).
+
+    ClaimRegistrationResponse:
+      type: object
+      required:
+        - server_url
+        - interval_seconds
+        - biometric_enabled
+        - biometric_user_can_toggle
+        - api_key
+      properties:
+        server_url:
+          type: string
+        interval_seconds:
+          type: integer
+        biometric_enabled:
+          type: boolean
+        biometric_user_can_toggle:
+          type: boolean
+        api_key:
+          type: string
+          description: Plaintext device API key — one time only.

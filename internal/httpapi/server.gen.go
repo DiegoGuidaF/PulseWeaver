@@ -35,10 +35,25 @@ const (
 	AddressHistoryEventSourceManual    AddressHistoryEventSource = "manual"
 )
 
+// Defines values for CreateRegistrationRequestExpiresInHours.
+const (
+	N1   CreateRegistrationRequestExpiresInHours = 1
+	N168 CreateRegistrationRequestExpiresInHours = 168
+	N24  CreateRegistrationRequestExpiresInHours = 24
+	N48  CreateRegistrationRequestExpiresInHours = 48
+)
+
 // Defines values for DeviceDeviceType.
 const (
 	DeviceDeviceTypeMobile DeviceDeviceType = "mobile"
 	DeviceDeviceTypeStatic DeviceDeviceType = "static"
+)
+
+// Defines values for PendingRegistrationStatus.
+const (
+	PendingRegistrationStatusExpired PendingRegistrationStatus = "expired"
+	PendingRegistrationStatusPending PendingRegistrationStatus = "pending"
+	PendingRegistrationStatusUsed    PendingRegistrationStatus = "used"
 )
 
 // Defines values for UpdateDeviceRequestDeviceType.
@@ -65,6 +80,12 @@ const (
 	GetAddressHistoryParamsSourceHeartbeat     GetAddressHistoryParamsSource = "heartbeat"
 	GetAddressHistoryParamsSourceLimitExceeded GetAddressHistoryParamsSource = "limit_exceeded"
 	GetAddressHistoryParamsSourceManual        GetAddressHistoryParamsSource = "manual"
+)
+
+// Defines values for ListRegistrationsParamsStatus.
+const (
+	ListRegistrationsParamsStatusAll     ListRegistrationsParamsStatus = "all"
+	ListRegistrationsParamsStatusPending ListRegistrationsParamsStatus = "pending"
 )
 
 // Defines values for GetDashboardTrafficParamsGranularity.
@@ -210,6 +231,22 @@ type ChangePasswordRequest struct {
 	Password        string `json:"password"`
 }
 
+// ClaimRegistrationRequest defines model for ClaimRegistrationRequest.
+type ClaimRegistrationRequest struct {
+	// Code The full registration code as received (not decoded).
+	Code string `json:"code"`
+}
+
+// ClaimRegistrationResponse defines model for ClaimRegistrationResponse.
+type ClaimRegistrationResponse struct {
+	// ApiKey Plaintext device API key — one time only.
+	ApiKey                 string `json:"api_key"`
+	BiometricEnabled       bool   `json:"biometric_enabled"`
+	BiometricUserCanToggle bool   `json:"biometric_user_can_toggle"`
+	IntervalSeconds        int    `json:"interval_seconds"`
+	ServerUrl              string `json:"server_url"`
+}
+
 // CreateDeviceRequest defines model for CreateDeviceRequest.
 type CreateDeviceRequest struct {
 	// Name User-friendly name for the device
@@ -225,6 +262,19 @@ type CreateDeviceResponse struct {
 	ApiKey string `json:"api_key"`
 	Device Device `json:"device"`
 }
+
+// CreateRegistrationRequest defines model for CreateRegistrationRequest.
+type CreateRegistrationRequest struct {
+	BiometricEnabled       *bool                                   `json:"biometric_enabled,omitempty"`
+	BiometricUserCanToggle *bool                                   `json:"biometric_user_can_toggle,omitempty"`
+	DeviceName             string                                  `json:"device_name"`
+	ExpiresInHours         CreateRegistrationRequestExpiresInHours `json:"expires_in_hours"`
+	HeartbeatServerUrl     string                                  `json:"heartbeat_server_url"`
+	IntervalSeconds        int                                     `json:"interval_seconds"`
+}
+
+// CreateRegistrationRequestExpiresInHours defines model for CreateRegistrationRequest.ExpiresInHours.
+type CreateRegistrationRequestExpiresInHours int
 
 // CreateUserRequest defines model for CreateUserRequest.
 type CreateUserRequest struct {
@@ -377,6 +427,32 @@ type MaxActiveAddressesRule struct {
 
 // Password defines model for Password.
 type Password = string
+
+// PendingRegistration defines model for PendingRegistration.
+type PendingRegistration struct {
+	BiometricEnabled       bool    `json:"biometric_enabled"`
+	BiometricUserCanToggle bool    `json:"biometric_user_can_toggle"`
+	CreatedAt              UTCTime `json:"created_at"`
+
+	// CreatedDeviceId Set after the invite is claimed and the device is created.
+	CreatedDeviceId *int64 `json:"created_device_id"`
+
+	// DeviceApiKeyPrefix Always present; retained after claim for admin reference.
+	DeviceApiKeyPrefix string  `json:"device_api_key_prefix"`
+	DeviceName         string  `json:"device_name"`
+	ExpiresAt          UTCTime `json:"expires_at"`
+	HeartbeatServerUrl string  `json:"heartbeat_server_url"`
+	Id                 string  `json:"id"`
+	IntervalSeconds    int     `json:"interval_seconds"`
+
+	// RegistrationCode Present only while unclaimed. Null after the invite is used.
+	RegistrationCode *string                   `json:"registration_code"`
+	Status           PendingRegistrationStatus `json:"status"`
+	UsedAt           *UTCTime                  `json:"used_at"`
+}
+
+// PendingRegistrationStatus defines model for PendingRegistration.Status.
+type PendingRegistrationStatus string
 
 // PutDeviceAddressLeaseRuleRequest defines model for PutDeviceAddressLeaseRuleRequest.
 type PutDeviceAddressLeaseRuleRequest struct {
@@ -535,6 +611,14 @@ type GetAddressHistoryParamsGranularity string
 // GetAddressHistoryParamsSource defines parameters for GetAddressHistory.
 type GetAddressHistoryParamsSource string
 
+// ListRegistrationsParams defines parameters for ListRegistrations.
+type ListRegistrationsParams struct {
+	Status *ListRegistrationsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// ListRegistrationsParamsStatus defines parameters for ListRegistrations.
+type ListRegistrationsParamsStatus string
+
 // GetDashboardServicesParams defines parameters for GetDashboardServices.
 type GetDashboardServicesParams struct {
 	// From RFC3339 start of time window (default 24h ago)
@@ -580,6 +664,9 @@ type GetDashboardTrafficParams struct {
 // GetDashboardTrafficParamsGranularity defines parameters for GetDashboardTraffic.
 type GetDashboardTrafficParamsGranularity string
 
+// CreateRegistrationJSONRequestBody defines body for CreateRegistration for application/json ContentType.
+type CreateRegistrationJSONRequestBody = CreateRegistrationRequest
+
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = CreateUserRequest
 
@@ -603,6 +690,9 @@ type PutMaxActiveAddressesRuleJSONRequestBody = PutMaxActiveAddressesRuleRequest
 
 // DeviceHeartbeatByAPIKeyJSONRequestBody defines body for DeviceHeartbeatByAPIKey for application/json ContentType.
 type DeviceHeartbeatByAPIKeyJSONRequestBody = DeviceHeartbeatByApiKeyRequest
+
+// ClaimRegistrationJSONRequestBody defines body for ClaimRegistration for application/json ContentType.
+type ClaimRegistrationJSONRequestBody = ClaimRegistrationRequest
 
 // UpdateMeJSONRequestBody defines body for UpdateMe for application/json ContentType.
 type UpdateMeJSONRequestBody = UpdateProfileRequest
@@ -774,6 +864,18 @@ type ServerInterface interface {
 	// Get address activity history
 	// (GET /address-history)
 	GetAddressHistory(w http.ResponseWriter, r *http.Request, params GetAddressHistoryParams)
+	// List pending registrations (Admin only)
+	// (GET /admin/registrations)
+	ListRegistrations(w http.ResponseWriter, r *http.Request, params ListRegistrationsParams)
+	// Create a registration invite (Admin only)
+	// (POST /admin/registrations)
+	CreateRegistration(w http.ResponseWriter, r *http.Request)
+	// Invalidate and delete an unclaimed invite (Admin only)
+	// (DELETE /admin/registrations/{registration_id})
+	DeleteRegistration(w http.ResponseWriter, r *http.Request, registrationId string)
+	// Get a single registration invite (Admin only)
+	// (GET /admin/registrations/{registration_id})
+	GetRegistration(w http.ResponseWriter, r *http.Request, registrationId string)
 	// List all users (Admin only)
 	// (GET /admin/users)
 	ListUsers(w http.ResponseWriter, r *http.Request)
@@ -867,6 +969,9 @@ type ServerInterface interface {
 	// Performs a heartbeat with the given api key header
 	// (POST /heartbeat)
 	DeviceHeartbeatByAPIKey(w http.ResponseWriter, r *http.Request)
+	// Claim a registration code
+	// (POST /register)
+	ClaimRegistration(w http.ResponseWriter, r *http.Request)
 	// Update current user profile
 	// (PATCH /users/me)
 	UpdateMe(w http.ResponseWriter, r *http.Request)
@@ -900,6 +1005,30 @@ func (_ Unimplemented) GetAccessLogByCountry(w http.ResponseWriter, r *http.Requ
 // Get address activity history
 // (GET /address-history)
 func (_ Unimplemented) GetAddressHistory(w http.ResponseWriter, r *http.Request, params GetAddressHistoryParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List pending registrations (Admin only)
+// (GET /admin/registrations)
+func (_ Unimplemented) ListRegistrations(w http.ResponseWriter, r *http.Request, params ListRegistrationsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a registration invite (Admin only)
+// (POST /admin/registrations)
+func (_ Unimplemented) CreateRegistration(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Invalidate and delete an unclaimed invite (Admin only)
+// (DELETE /admin/registrations/{registration_id})
+func (_ Unimplemented) DeleteRegistration(w http.ResponseWriter, r *http.Request, registrationId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get a single registration invite (Admin only)
+// (GET /admin/registrations/{registration_id})
+func (_ Unimplemented) GetRegistration(w http.ResponseWriter, r *http.Request, registrationId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1086,6 +1215,12 @@ func (_ Unimplemented) PutMaxActiveAddressesRule(w http.ResponseWriter, r *http.
 // Performs a heartbeat with the given api key header
 // (POST /heartbeat)
 func (_ Unimplemented) DeviceHeartbeatByAPIKey(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Claim a registration code
+// (POST /register)
+func (_ Unimplemented) ClaimRegistration(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1380,6 +1515,121 @@ func (siw *ServerInterfaceWrapper) GetAddressHistory(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAddressHistory(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRegistrations operation middleware
+func (siw *ServerInterfaceWrapper) ListRegistrations(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRegistrationsParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "status", r.URL.Query(), &params.Status)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRegistrations(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateRegistration operation middleware
+func (siw *ServerInterfaceWrapper) CreateRegistration(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateRegistration(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteRegistration operation middleware
+func (siw *ServerInterfaceWrapper) DeleteRegistration(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "registration_id" -------------
+	var registrationId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "registration_id", chi.URLParam(r, "registration_id"), &registrationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "registration_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteRegistration(w, r, registrationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRegistration operation middleware
+func (siw *ServerInterfaceWrapper) GetRegistration(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "registration_id" -------------
+	var registrationId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "registration_id", chi.URLParam(r, "registration_id"), &registrationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "registration_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRegistration(w, r, registrationId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2310,6 +2560,20 @@ func (siw *ServerInterfaceWrapper) DeviceHeartbeatByAPIKey(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// ClaimRegistration operation middleware
+func (siw *ServerInterfaceWrapper) ClaimRegistration(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClaimRegistration(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // UpdateMe operation middleware
 func (siw *ServerInterfaceWrapper) UpdateMe(w http.ResponseWriter, r *http.Request) {
 
@@ -2476,6 +2740,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/address-history", wrapper.GetAddressHistory)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/registrations", wrapper.ListRegistrations)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/admin/registrations", wrapper.CreateRegistration)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/admin/registrations/{registration_id}", wrapper.DeleteRegistration)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/registrations/{registration_id}", wrapper.GetRegistration)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/admin/users", wrapper.ListUsers)
 	})
 	r.Group(func(r chi.Router) {
@@ -2567,6 +2843,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/heartbeat", wrapper.DeviceHeartbeatByAPIKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/register", wrapper.ClaimRegistration)
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/users/me", wrapper.UpdateMe)
@@ -2747,6 +3026,200 @@ func (response GetAddressHistory403JSONResponse) VisitGetAddressHistoryResponse(
 type GetAddressHistory500JSONResponse ErrorResponse
 
 func (response GetAddressHistory500JSONResponse) VisitGetAddressHistoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListRegistrationsRequestObject struct {
+	Params ListRegistrationsParams
+}
+
+type ListRegistrationsResponseObject interface {
+	VisitListRegistrationsResponse(w http.ResponseWriter) error
+}
+
+type ListRegistrations200JSONResponse []PendingRegistration
+
+func (response ListRegistrations200JSONResponse) VisitListRegistrationsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListRegistrations401Response struct {
+}
+
+func (response ListRegistrations401Response) VisitListRegistrationsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type ListRegistrations403Response struct {
+}
+
+func (response ListRegistrations403Response) VisitListRegistrationsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type ListRegistrations500JSONResponse ErrorResponse
+
+func (response ListRegistrations500JSONResponse) VisitListRegistrationsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateRegistrationRequestObject struct {
+	Body *CreateRegistrationJSONRequestBody
+}
+
+type CreateRegistrationResponseObject interface {
+	VisitCreateRegistrationResponse(w http.ResponseWriter) error
+}
+
+type CreateRegistration201JSONResponse PendingRegistration
+
+func (response CreateRegistration201JSONResponse) VisitCreateRegistrationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateRegistration400JSONResponse ErrorResponse
+
+func (response CreateRegistration400JSONResponse) VisitCreateRegistrationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateRegistration401Response struct {
+}
+
+func (response CreateRegistration401Response) VisitCreateRegistrationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type CreateRegistration403Response struct {
+}
+
+func (response CreateRegistration403Response) VisitCreateRegistrationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type CreateRegistration500JSONResponse ErrorResponse
+
+func (response CreateRegistration500JSONResponse) VisitCreateRegistrationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteRegistrationRequestObject struct {
+	RegistrationId string `json:"registration_id"`
+}
+
+type DeleteRegistrationResponseObject interface {
+	VisitDeleteRegistrationResponse(w http.ResponseWriter) error
+}
+
+type DeleteRegistration204Response struct {
+}
+
+func (response DeleteRegistration204Response) VisitDeleteRegistrationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteRegistration401Response struct {
+}
+
+func (response DeleteRegistration401Response) VisitDeleteRegistrationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type DeleteRegistration403Response struct {
+}
+
+func (response DeleteRegistration403Response) VisitDeleteRegistrationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type DeleteRegistration404JSONResponse ErrorResponse
+
+func (response DeleteRegistration404JSONResponse) VisitDeleteRegistrationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteRegistration500JSONResponse ErrorResponse
+
+func (response DeleteRegistration500JSONResponse) VisitDeleteRegistrationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRegistrationRequestObject struct {
+	RegistrationId string `json:"registration_id"`
+}
+
+type GetRegistrationResponseObject interface {
+	VisitGetRegistrationResponse(w http.ResponseWriter) error
+}
+
+type GetRegistration200JSONResponse PendingRegistration
+
+func (response GetRegistration200JSONResponse) VisitGetRegistrationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRegistration401Response struct {
+}
+
+func (response GetRegistration401Response) VisitGetRegistrationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type GetRegistration403Response struct {
+}
+
+func (response GetRegistration403Response) VisitGetRegistrationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type GetRegistration404JSONResponse ErrorResponse
+
+func (response GetRegistration404JSONResponse) VisitGetRegistrationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRegistration500JSONResponse ErrorResponse
+
+func (response GetRegistration500JSONResponse) VisitGetRegistrationResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -4061,6 +4534,41 @@ func (response DeviceHeartbeatByAPIKey500JSONResponse) VisitDeviceHeartbeatByAPI
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ClaimRegistrationRequestObject struct {
+	Body *ClaimRegistrationJSONRequestBody
+}
+
+type ClaimRegistrationResponseObject interface {
+	VisitClaimRegistrationResponse(w http.ResponseWriter) error
+}
+
+type ClaimRegistration200JSONResponse ClaimRegistrationResponse
+
+func (response ClaimRegistration200JSONResponse) VisitClaimRegistrationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimRegistration404JSONResponse ErrorResponse
+
+func (response ClaimRegistration404JSONResponse) VisitClaimRegistrationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimRegistration500JSONResponse ErrorResponse
+
+func (response ClaimRegistration500JSONResponse) VisitClaimRegistrationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type UpdateMeRequestObject struct {
 	Body *UpdateMeJSONRequestBody
 }
@@ -4171,6 +4679,18 @@ type StrictServerInterface interface {
 	// Get address activity history
 	// (GET /address-history)
 	GetAddressHistory(ctx context.Context, request GetAddressHistoryRequestObject) (GetAddressHistoryResponseObject, error)
+	// List pending registrations (Admin only)
+	// (GET /admin/registrations)
+	ListRegistrations(ctx context.Context, request ListRegistrationsRequestObject) (ListRegistrationsResponseObject, error)
+	// Create a registration invite (Admin only)
+	// (POST /admin/registrations)
+	CreateRegistration(ctx context.Context, request CreateRegistrationRequestObject) (CreateRegistrationResponseObject, error)
+	// Invalidate and delete an unclaimed invite (Admin only)
+	// (DELETE /admin/registrations/{registration_id})
+	DeleteRegistration(ctx context.Context, request DeleteRegistrationRequestObject) (DeleteRegistrationResponseObject, error)
+	// Get a single registration invite (Admin only)
+	// (GET /admin/registrations/{registration_id})
+	GetRegistration(ctx context.Context, request GetRegistrationRequestObject) (GetRegistrationResponseObject, error)
 	// List all users (Admin only)
 	// (GET /admin/users)
 	ListUsers(ctx context.Context, request ListUsersRequestObject) (ListUsersResponseObject, error)
@@ -4264,6 +4784,9 @@ type StrictServerInterface interface {
 	// Performs a heartbeat with the given api key header
 	// (POST /heartbeat)
 	DeviceHeartbeatByAPIKey(ctx context.Context, request DeviceHeartbeatByAPIKeyRequestObject) (DeviceHeartbeatByAPIKeyResponseObject, error)
+	// Claim a registration code
+	// (POST /register)
+	ClaimRegistration(ctx context.Context, request ClaimRegistrationRequestObject) (ClaimRegistrationResponseObject, error)
 	// Update current user profile
 	// (PATCH /users/me)
 	UpdateMe(ctx context.Context, request UpdateMeRequestObject) (UpdateMeResponseObject, error)
@@ -4396,6 +4919,115 @@ func (sh *strictHandler) GetAddressHistory(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAddressHistoryResponseObject); ok {
 		if err := validResponse.VisitGetAddressHistoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListRegistrations operation middleware
+func (sh *strictHandler) ListRegistrations(w http.ResponseWriter, r *http.Request, params ListRegistrationsParams) {
+	var request ListRegistrationsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRegistrations(ctx, request.(ListRegistrationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRegistrations")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListRegistrationsResponseObject); ok {
+		if err := validResponse.VisitListRegistrationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateRegistration operation middleware
+func (sh *strictHandler) CreateRegistration(w http.ResponseWriter, r *http.Request) {
+	var request CreateRegistrationRequestObject
+
+	var body CreateRegistrationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateRegistration(ctx, request.(CreateRegistrationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateRegistration")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateRegistrationResponseObject); ok {
+		if err := validResponse.VisitCreateRegistrationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteRegistration operation middleware
+func (sh *strictHandler) DeleteRegistration(w http.ResponseWriter, r *http.Request, registrationId string) {
+	var request DeleteRegistrationRequestObject
+
+	request.RegistrationId = registrationId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteRegistration(ctx, request.(DeleteRegistrationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteRegistration")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteRegistrationResponseObject); ok {
+		if err := validResponse.VisitDeleteRegistrationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRegistration operation middleware
+func (sh *strictHandler) GetRegistration(w http.ResponseWriter, r *http.Request, registrationId string) {
+	var request GetRegistrationRequestObject
+
+	request.RegistrationId = registrationId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRegistration(ctx, request.(GetRegistrationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRegistration")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRegistrationResponseObject); ok {
+		if err := validResponse.VisitGetRegistrationResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -5248,6 +5880,37 @@ func (sh *strictHandler) DeviceHeartbeatByAPIKey(w http.ResponseWriter, r *http.
 	}
 }
 
+// ClaimRegistration operation middleware
+func (sh *strictHandler) ClaimRegistration(w http.ResponseWriter, r *http.Request) {
+	var request ClaimRegistrationRequestObject
+
+	var body ClaimRegistrationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ClaimRegistration(ctx, request.(ClaimRegistrationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ClaimRegistration")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ClaimRegistrationResponseObject); ok {
+		if err := validResponse.VisitClaimRegistrationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // UpdateMe operation middleware
 func (sh *strictHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 	var request UpdateMeRequestObject
@@ -5313,116 +5976,132 @@ func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"//8nZatb2r8AAA==",
+	"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",
+	"cBoc4ZQc3Z0ED7cP/xMAAP//aeAa4qfZAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
