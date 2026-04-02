@@ -49,7 +49,7 @@ func NewService(provider MaxAddressesProvider, fetcher EnabledAddressFetcher, di
 // OnAddressEvent implements device.AddressObserver. It filters events before enqueuing:
 // only Created and Enabled events trigger enforcement.
 func (s *Service) OnAddressEvent(ctx context.Context, event device.AddressEvent) {
-	ctx = logging.WithOperation(ctx, "OnAddressEvent")
+	logging.WithOperation(ctx, "OnAddressEvent")
 	if event.Type != device.EventTypeAddressCreated && event.Type != device.EventTypeAddressEnabled {
 		return
 	}
