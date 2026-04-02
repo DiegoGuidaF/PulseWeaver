@@ -1,6 +1,6 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, AccessLogResponse, User } from '@/lib/api';
-import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockAccessLogResponse, createMockUser } from './data';
+import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, MaxActiveAddressesRule, AccessLogResponse, User } from '@/lib/api';
+import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockUser } from './data';
 
 const BASE = '/api/v1';
 
@@ -14,6 +14,7 @@ export const endpoints = {
     deviceHeartbeat: `${BASE}/devices/:deviceId/heartbeat`,
     addressHistory: `${BASE}/address-history`,
     deviceAddressLeaseRule: `${BASE}/devices/:deviceId/rules/address_lease`,
+    maxActiveAddressesRule: `${BASE}/devices/:deviceId/rules/max_active_addresses`,
     regenerateApiKey: `${BASE}/devices/:deviceId/api-key/regenerate`,
     authMe: `${BASE}/auth/me`,
     authLogin: `${BASE}/auth/login`,
@@ -214,6 +215,28 @@ export const ruleHandlers = {
                 http.delete(endpoints.deviceAddressLeaseRule, () => responses.noContent()),
         },
     },
+    maxActiveAddresses: {
+        get: {
+            success: (override?: Partial<MaxActiveAddressesRule>) =>
+                http.get(endpoints.maxActiveAddressesRule, () =>
+                    HttpResponse.json({ ...createMockMaxActiveAddressesRule(), ...override })),
+            notFound: () =>
+                http.get(endpoints.maxActiveAddressesRule, () =>
+                    responses.notFound({ error: 'Not Found' })),
+        },
+        put: {
+            success: (override?: Partial<MaxActiveAddressesRule>) =>
+                http.put(endpoints.maxActiveAddressesRule, ({ params }) =>
+                    HttpResponse.json({
+                        ...createMockMaxActiveAddressesRule({ device_id: Number(params.deviceId) }),
+                        ...override,
+                    })),
+        },
+        delete: {
+            success: () =>
+                http.delete(endpoints.maxActiveAddressesRule, () => responses.noContent()),
+        },
+    },
 };
 
 // ─── Access log handlers ───────────────────────────────────────────────
@@ -300,6 +323,9 @@ export const defaultHandlers = [
     ruleHandlers.addressLease.get.success(),
     ruleHandlers.addressLease.put.success(),
     ruleHandlers.addressLease.delete.success(),
+    ruleHandlers.maxActiveAddresses.get.notFound(),
+    ruleHandlers.maxActiveAddresses.put.success(),
+    ruleHandlers.maxActiveAddresses.delete.success(),
     // Access log
     accessLogHandlers.list(),
     accessLogHandlers.denyReasons(),

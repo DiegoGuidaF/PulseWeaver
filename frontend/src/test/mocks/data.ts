@@ -1,4 +1,4 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, AccessLogResponse, AccessLogRow, User } from '@/lib/api';
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, User } from '@/lib/api';
 import { UserRole } from "@/lib/api";
 
 /**
@@ -64,6 +64,25 @@ export function createMockDeviceAddressLeaseRule(
     device_id: 1,
     enabled: true,
     ttl_seconds: 3600,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a mock MaxActiveAddressesRule with realistic defaults.
+ * @param overrides - Partial MaxActiveAddressesRule to override defaults
+ * @returns A MaxActiveAddressesRule object
+ */
+export function createMockMaxActiveAddressesRule(
+  overrides?: Partial<MaxActiveAddressesRule>,
+): MaxActiveAddressesRule {
+  return {
+    id: 1,
+    device_id: 1,
+    enabled: true,
+    max_addresses: 3,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
     ...overrides,

@@ -41,8 +41,9 @@ describe('DeviceSettingsTab', () => {
 
         await waitFor(
             () => {
-                expect(screen.getByText('Status:')).toBeInTheDocument();
-                expect(screen.getByText('Disabled')).toBeInTheDocument();
+                // Both cards show "Status:" and "Disabled" when neither rule is configured
+                expect(screen.getAllByText('Status:').length).toBeGreaterThanOrEqual(1);
+                expect(screen.getAllByText('Disabled').length).toBeGreaterThanOrEqual(1);
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );
@@ -53,12 +54,13 @@ describe('DeviceSettingsTab', () => {
     });
 
     it('shows enabled state with TTL', async () => {
-        // defaultHandlers provides enabled=true, ttl_seconds=3600
+        // defaultHandlers provides enabled=true, ttl_seconds=3600 for lease; max_addresses=notFound
         renderTab();
 
         await waitFor(
             () => {
-                expect(screen.getByText('Status:')).toBeInTheDocument();
+                // Lease card shows "Enabled"; max addresses card shows "Disabled" (not configured)
+                expect(screen.getAllByText('Status:').length).toBeGreaterThanOrEqual(1);
                 expect(screen.getByText('Enabled')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT }
@@ -204,6 +206,146 @@ describe('DeviceSettingsTab', () => {
         await waitFor(
             () => {
                 expect(screen.getByText(/Error loading rule:/i)).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+    });
+});
+
+describe('DeviceSettingsTab — Max active IPs rule', () => {
+    it('shows disabled state when no rule (404)', async () => {
+        // defaultHandlers already returns notFound for max_active_addresses
+        renderTab();
+
+        await waitFor(
+            () => {
+                expect(screen.getByText('Max active IPs rule')).toBeInTheDocument();
+                expect(screen.getByRole('button', { name: 'Enable max-IP rule' })).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        expect(screen.queryByRole('button', { name: 'Turn off max-IP rule' })).not.toBeInTheDocument();
+        expect(screen.getByRole('spinbutton', { name: /max active ips/i })).toHaveValue(3);
+    });
+
+    it('shows enabled state with max_addresses value', async () => {
+        server.use(ruleHandlers.maxActiveAddresses.get.success({ max_addresses: 5 }));
+
+        renderTab();
+
+        await waitFor(
+            () => {
+                expect(screen.getByText('5')).toBeInTheDocument();
+                expect(screen.getByRole('button', { name: 'Change limit' })).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        expect(screen.getByRole('button', { name: 'Turn off max-IP rule' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Enable max-IP rule' })).not.toBeInTheDocument();
+    });
+
+    it('enables rule and shows toast', async () => {
+        const user = userEvent.setup();
+        // defaultHandlers: notFound for get, success for put
+
+        renderTab();
+
+        await waitFor(
+            () => {
+                expect(screen.getByRole('button', { name: 'Enable max-IP rule' })).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        await user.click(screen.getByRole('button', { name: 'Enable max-IP rule' }));
+
+        await waitFor(
+            () => {
+                expect(screen.getByText('Max active IPs rule saved')).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.MEDIUM }
+        );
+    });
+
+    it('edits limit and shows toast', async () => {
+        const user = userEvent.setup();
+        server.use(ruleHandlers.maxActiveAddresses.get.success({ max_addresses: 3 }));
+
+        renderTab();
+
+        await waitFor(
+            () => {
+                expect(screen.getByRole('button', { name: 'Change limit' })).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        await user.click(screen.getByRole('button', { name: 'Change limit' }));
+
+        const input = screen.getByRole('spinbutton', { name: /max active ips/i });
+        await user.clear(input);
+        await user.type(input, '5');
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(
+            () => {
+                expect(screen.getByText('Max active IPs rule saved')).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.MEDIUM }
+        );
+        expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+    });
+
+    it('cancels limit edit', async () => {
+        const user = userEvent.setup();
+        server.use(ruleHandlers.maxActiveAddresses.get.success());
+
+        renderTab();
+
+        await waitFor(
+            () => {
+                expect(screen.getByRole('button', { name: 'Change limit' })).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        await user.click(screen.getByRole('button', { name: 'Change limit' }));
+        await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+        expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Change limit' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Turn off max-IP rule' })).toBeInTheDocument();
+    });
+
+    it('turns off rule and shows toast', async () => {
+        const user = userEvent.setup();
+        server.use(ruleHandlers.maxActiveAddresses.get.success());
+
+        renderTab();
+
+        await waitFor(
+            () => {
+                expect(screen.getByRole('button', { name: 'Turn off max-IP rule' })).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.MEDIUM }
+        );
+        await user.click(screen.getByRole('button', { name: 'Turn off max-IP rule' }));
+
+        await waitFor(
+            () => {
+                expect(screen.getByText('Max active IPs rule disabled')).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.MEDIUM }
+        );
+    });
+
+    it('shows error on fetch failure', async () => {
+        server.use(
+            http.get(endpoints.maxActiveAddressesRule, () => responses.serverError())
+        );
+
+        renderTab();
+
+        await waitFor(
+            () => {
+                expect(screen.getAllByText(/Error loading rule:/i).length).toBeGreaterThanOrEqual(1);
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );

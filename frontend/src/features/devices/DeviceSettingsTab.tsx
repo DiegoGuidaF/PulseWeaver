@@ -20,6 +20,9 @@ import { useDeviceAddressLeaseRule } from "@/features/devices/hooks/useDeviceAdd
 import { usePutDeviceAddressLeaseRule } from "@/features/devices/hooks/usePutDeviceAddressLeaseRule";
 import { useDisableDeviceAddressLeaseRule } from "@/features/devices/hooks/useDisableDeviceAddressLeaseRule";
 import { useRegenerateApiKey } from "@/features/devices/hooks/useRegenerateApiKey";
+import { useMaxActiveAddressesRule } from "@/features/devices/hooks/useMaxActiveAddressesRule";
+import { usePutMaxActiveAddressesRule } from "@/features/devices/hooks/usePutMaxActiveAddressesRule";
+import { useDisableMaxActiveAddressesRule } from "@/features/devices/hooks/useDisableMaxActiveAddressesRule";
 
 const TTL_UNITS = ["seconds", "minutes", "hours", "days"] as const;
 const SECONDS_PER_MINUTE = 60;
@@ -81,6 +84,15 @@ const leaseRuleFormSchema = z.object({
   unit: z.enum(TTL_UNITS),
 });
 
+type MaxAddressesFormValues = { max_addresses: string };
+
+const maxAddressesFormSchema = z.object({
+  max_addresses: z.coerce
+    .number()
+    .int("Must be a whole number")
+    .min(1, "Minimum is 1"),
+});
+
 interface DeviceSettingsTabProps {
   deviceId: number;
   device?: { name: string; api_key_prefix: string };
@@ -91,14 +103,24 @@ export function DeviceSettingsTab({
   device,
 }: DeviceSettingsTabProps) {
   const {
-    data: rule,
-    isLoading,
-    isError,
-    error,
+    data: addressLeaseRule,
+    isLoading: isAddressLeaseLoading,
+    isError: isAddressLeaseError,
+    error: addressLeaseError,
   } = useDeviceAddressLeaseRule(deviceId);
   const putRuleMutation = usePutDeviceAddressLeaseRule(deviceId);
   const disableRuleMutation = useDisableDeviceAddressLeaseRule(deviceId);
   const regenerateApiKey = useRegenerateApiKey();
+
+  const {
+    data: maxAddressesRule,
+    isLoading: isMaxAddressesLoading,
+    isError: isMaxAddressesError,
+    error: maxAddressesError,
+  } = useMaxActiveAddressesRule(deviceId);
+  const putMaxAddressesRuleMutation = usePutMaxActiveAddressesRule(deviceId);
+  const disableMaxAddressesRuleMutation =
+    useDisableMaxActiveAddressesRule(deviceId);
 
   const [regeneratedApiKey, setRegeneratedApiKey] = useState<string | null>(
     null,
@@ -109,10 +131,21 @@ export function DeviceSettingsTab({
     validate: schemaResolver(leaseRuleFormSchema),
     initialValues: { value: "5", unit: "minutes" },
   });
-  const { setValues } = leaseRuleForm;
-  const [editing, setEditing] = useState(false);
+  const { setValues: setAddressLeaseValues } = leaseRuleForm;
+  const [addressLeaseEditing, setAddressLeaseEditing] = useState(false);
 
-  const isOn = Boolean(rule && rule.enabled);
+  const isAddressLeaseOn = Boolean(addressLeaseRule && addressLeaseRule.enabled);
+
+  const maxAddressesForm = useForm<MaxAddressesFormValues>({
+    validate: schemaResolver(maxAddressesFormSchema),
+    initialValues: { max_addresses: "2" },
+  });
+  const { setValues: setMaxAddressesValues } = maxAddressesForm;
+  const [maxAddressesEditing, setMaxAddressesEditing] = useState(false);
+
+  const isMaxAddressesOn = Boolean(
+    maxAddressesRule && maxAddressesRule.enabled,
+  );
 
   async function handleCopyRegeneratedKey() {
     if (!regeneratedApiKey) return;
@@ -145,7 +178,7 @@ export function DeviceSettingsTab({
     );
   }
 
-  function handleLeaseRuleSubmit(values: LeaseRuleFormValues) {
+  function handleAddressLeaseSubmit(values: LeaseRuleFormValues) {
     putRuleMutation.mutate(
       {
         path: { device_id: deviceId },
@@ -153,7 +186,7 @@ export function DeviceSettingsTab({
       },
       {
         onSuccess: () => {
-          setEditing(false);
+          setAddressLeaseEditing(false);
           notifications.show({
             color: "green",
             message: "Address lease rule saved",
@@ -169,24 +202,69 @@ export function DeviceSettingsTab({
     );
   }
 
-  function handleStartEditing() {
-    if (!rule) return;
-    setValues(fromSeconds(rule.ttl_seconds));
-    setEditing(true);
+  function handleAddressLeaseStartEditing() {
+    if (!addressLeaseRule) return;
+    setAddressLeaseValues(fromSeconds(addressLeaseRule.ttl_seconds));
+    setAddressLeaseEditing(true);
   }
 
   useEffect(() => {
-    if (!rule || isOn) return;
-    setValues(fromSeconds(rule.ttl_seconds));
-  }, [isOn, rule, setValues]);
+    if (!addressLeaseRule || isAddressLeaseOn) return;
+    setAddressLeaseValues(fromSeconds(addressLeaseRule.ttl_seconds));
+  }, [isAddressLeaseOn, addressLeaseRule, setAddressLeaseValues]);
+
+  useEffect(() => {
+    if (!maxAddressesRule || isMaxAddressesOn) return;
+    setMaxAddressesValues({
+      max_addresses: String(maxAddressesRule.max_addresses),
+    });
+  }, [isMaxAddressesOn, maxAddressesRule, setMaxAddressesValues]);
+
+  function handleMaxAddressesSubmit(values: MaxAddressesFormValues) {
+    putMaxAddressesRuleMutation.mutate(
+      {
+        path: { device_id: deviceId },
+        body: { max_addresses: Number(values.max_addresses) },
+      },
+      {
+        onSuccess: () => {
+          setMaxAddressesEditing(false);
+          notifications.show({
+            color: "green",
+            message: "Max active IPs rule saved",
+          });
+        },
+        onError: (err) =>
+          notifications.show({
+            color: "red",
+            title: "Error",
+            message: toErrorMessage(err),
+          }),
+      },
+    );
+  }
+
+  function handleStartEditingMaxAddresses() {
+    if (!maxAddressesRule) return;
+    setMaxAddressesValues({
+      max_addresses: String(maxAddressesRule.max_addresses),
+    });
+    setMaxAddressesEditing(true);
+  }
 
   const ttlLabel =
-    rule && rule.ttl_seconds ? formatTtlLabel(rule.ttl_seconds) : null;
+    addressLeaseRule && addressLeaseRule.ttl_seconds ? formatTtlLabel(addressLeaseRule.ttl_seconds) : null;
   const submitButtonLabel = putRuleMutation.isPending
     ? "Saving..."
-    : isOn
+    : isAddressLeaseOn
       ? "Save"
       : "Enable auto-expiry";
+
+  const maxAddressesSubmitLabel = putMaxAddressesRuleMutation.isPending
+    ? "Saving..."
+    : isMaxAddressesOn
+      ? "Save"
+      : "Enable max-IP rule";
 
   return (
     <Stack gap="xl">
@@ -226,18 +304,18 @@ export function DeviceSettingsTab({
           <Title order={4} mb="md">
             Auto-expiry rule
           </Title>
-          {isLoading ? (
+          {isAddressLeaseLoading ? (
             <Stack gap={8}>
               <Skeleton height={16} width={160} />
               <Skeleton height={16} width={256} />
             </Stack>
-          ) : isError ? (
+          ) : isAddressLeaseError ? (
             <Text size="sm" c="red">
-              Error loading rule: {toErrorMessage(error)}
+              Error loading rule: {toErrorMessage(addressLeaseError)}
             </Text>
           ) : (
             <Stack gap="md">
-              {isOn && (
+              {isAddressLeaseOn && (
                 <Stack gap={4}>
                   <Group gap="sm">
                     <Text size="sm">Status:</Text>
@@ -252,7 +330,7 @@ export function DeviceSettingsTab({
                 </Stack>
               )}
 
-              {!isOn && (
+              {!isAddressLeaseOn && (
                 <Group gap="sm">
                   <Text size="sm">Status:</Text>
                   <Badge color="red" variant="light" size="sm">Disabled</Badge>
@@ -262,8 +340,8 @@ export function DeviceSettingsTab({
                 </Group>
               )}
 
-              {(!isOn || editing) && (
-                <form onSubmit={leaseRuleForm.onSubmit(handleLeaseRuleSubmit)}>
+              {(!isAddressLeaseOn || addressLeaseEditing) && (
+                <form onSubmit={leaseRuleForm.onSubmit(handleAddressLeaseSubmit)}>
                   <Group align="flex-end" gap="md" wrap="wrap">
                     <TextInput
                       label="Expires after"
@@ -286,11 +364,11 @@ export function DeviceSettingsTab({
                     <Button type="submit" disabled={putRuleMutation.isPending}>
                       {submitButtonLabel}
                     </Button>
-                    {editing && (
+                    {addressLeaseEditing && (
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setEditing(false)}
+                        onClick={() => setAddressLeaseEditing(false)}
                       >
                         Cancel
                       </Button>
@@ -299,13 +377,13 @@ export function DeviceSettingsTab({
                 </form>
               )}
 
-              {isOn && !editing && (
+              {isAddressLeaseOn && !addressLeaseEditing && (
                 <Group gap="sm" wrap="wrap">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={handleStartEditing}
+                    onClick={handleAddressLeaseStartEditing}
                   >
                     Change TTL
                   </Button>
@@ -334,6 +412,126 @@ export function DeviceSettingsTab({
                     disabled={disableRuleMutation.isPending}
                   >
                     Turn off auto-expiry
+                  </Button>
+                </Group>
+              )}
+            </Stack>
+          )}
+        </Card>
+        <Card withBorder>
+          <Title order={4} mb="md">
+            Max active IPs rule
+          </Title>
+          {isMaxAddressesLoading ? (
+            <Stack gap={8}>
+              <Skeleton height={16} width={160} />
+              <Skeleton height={16} width={256} />
+            </Stack>
+          ) : isMaxAddressesError ? (
+            <Text size="sm" c="red">
+              Error loading rule: {toErrorMessage(maxAddressesError)}
+            </Text>
+          ) : (
+            <Stack gap="md">
+              {isMaxAddressesOn && (
+                <Stack gap={4}>
+                  <Group gap="sm">
+                    <Text size="sm">Status:</Text>
+                    <Badge color="green" variant="light" size="sm">
+                      Enabled
+                    </Badge>
+                  </Group>
+                  <Group gap="sm">
+                    <Text size="sm">Max IPs:</Text>
+                    <Text size="sm" fw={600}>
+                      {maxAddressesRule!.max_addresses}
+                    </Text>
+                  </Group>
+                </Stack>
+              )}
+
+              {!isMaxAddressesOn && (
+                <Group gap="sm">
+                  <Text size="sm">Status:</Text>
+                  <Badge color="red" variant="light" size="sm">
+                    Disabled
+                  </Badge>
+                  <Text size="sm" c="dimmed">
+                    Turn it on to limit the number of simultaneously active IPs.
+                  </Text>
+                </Group>
+              )}
+
+              {(!isMaxAddressesOn || maxAddressesEditing) && (
+                <form
+                  onSubmit={maxAddressesForm.onSubmit(
+                    handleMaxAddressesSubmit,
+                  )}
+                >
+                  <Group align="flex-end" gap="md" wrap="wrap">
+                    <TextInput
+                      label="Max active IPs"
+                      type="number"
+                      min={1}
+                      step={1}
+                      placeholder="3"
+                      w={128}
+                      {...maxAddressesForm.getInputProps("max_addresses")}
+                    />
+                    <Button
+                      type="submit"
+                      disabled={putMaxAddressesRuleMutation.isPending}
+                    >
+                      {maxAddressesSubmitLabel}
+                    </Button>
+                    {maxAddressesEditing && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setMaxAddressesEditing(false)}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </Group>
+                </form>
+              )}
+
+              {isMaxAddressesOn && !maxAddressesEditing && (
+                <Group gap="sm" wrap="wrap">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleStartEditingMaxAddresses}
+                  >
+                    Change limit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      disableMaxAddressesRuleMutation.mutate(
+                        { path: { device_id: deviceId } },
+                        {
+                          onSuccess: () =>
+                            notifications.show({
+                              color: "green",
+                              message: "Max active IPs rule disabled",
+                            }),
+                          onError: (err) =>
+                            notifications.show({
+                              color: "red",
+                              title: "Error",
+                              message: toErrorMessage(err),
+                            }),
+                        },
+                      )
+                    }
+                    disabled={disableMaxAddressesRuleMutation.isPending}
+                  >
+                    Turn off max-IP rule
                   </Button>
                 </Group>
               )}
