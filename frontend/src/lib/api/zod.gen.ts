@@ -11,6 +11,13 @@ export const zCreateDeviceRequest = z.object({
     name: z.string().min(1).max(50)
 });
 
+export const zUpdateDeviceRequest = z.object({
+    name: z.string().min(1).max(50).optional(),
+    device_type: z.enum(['static', 'mobile']).optional(),
+    description: z.string().max(200).nullish(),
+    icon: z.string().max(80).nullish()
+});
+
 export const zErrorResponse = z.object({
     error: z.string().optional()
 });
@@ -19,6 +26,11 @@ export const zAddressHistoryBucket = z.object({
     timestamp: z.iso.datetime({ offset: true, local: true }),
     active_count: z.int(),
     event_count: z.int()
+});
+
+export const zDeviceTypeItem = z.object({
+    value: z.string(),
+    label: z.string()
 });
 
 export const zAccessLogCountryStats = z.object({
@@ -161,8 +173,12 @@ export const zUser = z.object({
 
 export const zDevice = z.object({
     created_at: z.iso.datetime({ offset: true, local: true }),
+    updated_at: z.iso.datetime({ offset: true, local: true }),
     id: zId,
     name: z.string().min(1).max(50),
+    device_type: z.enum(['generic', 'mobile']),
+    description: z.string().max(200).nullish(),
+    icon: z.string().max(80).nullish(),
     api_key_prefix: z.string(),
     address_count: z.int().gte(0).readonly().optional(),
     last_seen_at: z.iso.datetime({ offset: true, local: true }).readonly().nullish()
@@ -239,8 +255,12 @@ export const zUserWritable = z.object({
 
 export const zDeviceWritable = z.object({
     created_at: z.iso.datetime({ offset: true, local: true }),
+    updated_at: z.iso.datetime({ offset: true, local: true }),
     id: zId,
     name: z.string().min(1).max(50),
+    device_type: z.enum(['generic', 'mobile']),
+    description: z.string().max(200).nullish(),
+    icon: z.string().max(80).nullish(),
     api_key_prefix: z.string()
 });
 
@@ -421,6 +441,30 @@ export const zGetDeviceData = z.object({
  * OK
  */
 export const zGetDeviceResponse = zDevice;
+
+export const zUpdateDeviceData = z.object({
+    body: zUpdateDeviceRequest,
+    path: z.object({
+        device_id: zId
+    }),
+    query: z.never().optional()
+});
+
+/**
+ * OK
+ */
+export const zUpdateDeviceResponse = zDevice;
+
+export const zListDeviceTypesData = z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: z.never().optional()
+});
+
+/**
+ * OK
+ */
+export const zListDeviceTypesResponse = z.array(zDeviceTypeItem);
 
 export const zRegenerateDeviceApiKeyData = z.object({
     body: z.never().optional(),

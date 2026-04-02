@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addAddress, changePassword, createDevice, createUser, deleteDevice, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, disableMaxActiveAddressesRule, getAccessLog, getAccessLogByCountry, getAccessLogDenyReasons, getAddressHistory, getCurrentUser, getDashboardServices, getDashboardStats, getDashboardTopDeniedIps, getDashboardTraffic, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, getMaxActiveAddressesRule, listUsers, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, putMaxActiveAddressesRule, regenerateDeviceApiKey, updateMe } from '../sdk.gen';
-import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, DisableMaxActiveAddressesRuleData, DisableMaxActiveAddressesRuleError, DisableMaxActiveAddressesRuleResponse, GetAccessLogByCountryData, GetAccessLogByCountryError, GetAccessLogByCountryResponse, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsError, GetAccessLogDenyReasonsResponse, GetAccessLogError, GetAccessLogResponse, GetAddressHistoryData, GetAddressHistoryError, GetAddressHistoryResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDashboardServicesData, GetDashboardServicesError, GetDashboardServicesResponse, GetDashboardStatsData, GetDashboardStatsError, GetDashboardStatsResponse, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsError, GetDashboardTopDeniedIpsResponse, GetDashboardTrafficData, GetDashboardTrafficError, GetDashboardTrafficResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, GetMaxActiveAddressesRuleData, GetMaxActiveAddressesRuleError, GetMaxActiveAddressesRuleResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, PutMaxActiveAddressesRuleData, PutMaxActiveAddressesRuleError, PutMaxActiveAddressesRuleResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
+import { addAddress, changePassword, createDevice, createUser, deleteDevice, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, disableMaxActiveAddressesRule, getAccessLog, getAccessLogByCountry, getAccessLogDenyReasons, getAddressHistory, getCurrentUser, getDashboardServices, getDashboardStats, getDashboardTopDeniedIps, getDashboardTraffic, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, getMaxActiveAddressesRule, listDeviceTypes, listUsers, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, putMaxActiveAddressesRule, regenerateDeviceApiKey, updateDevice, updateMe } from '../sdk.gen';
+import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, DisableMaxActiveAddressesRuleData, DisableMaxActiveAddressesRuleError, DisableMaxActiveAddressesRuleResponse, GetAccessLogByCountryData, GetAccessLogByCountryError, GetAccessLogByCountryResponse, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsError, GetAccessLogDenyReasonsResponse, GetAccessLogError, GetAccessLogResponse, GetAddressHistoryData, GetAddressHistoryError, GetAddressHistoryResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDashboardServicesData, GetDashboardServicesError, GetDashboardServicesResponse, GetDashboardStatsData, GetDashboardStatsError, GetDashboardStatsResponse, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsError, GetDashboardTopDeniedIpsResponse, GetDashboardTrafficData, GetDashboardTrafficError, GetDashboardTrafficResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, GetMaxActiveAddressesRuleData, GetMaxActiveAddressesRuleError, GetMaxActiveAddressesRuleResponse, ListDeviceTypesData, ListDeviceTypesResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, PutMaxActiveAddressesRuleData, PutMaxActiveAddressesRuleError, PutMaxActiveAddressesRuleResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, UpdateDeviceData, UpdateDeviceError, UpdateDeviceResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -307,6 +307,45 @@ export const getDeviceOptions = (options: Options<GetDeviceData>) => queryOption
         return data;
     },
     queryKey: getDeviceQueryKey(options)
+});
+
+/**
+ * Update device profile
+ *
+ * Update one or more profile fields for a device. Omitted fields are left unchanged. Pass null for description or icon to clear them.
+ */
+export const updateDeviceMutation = (options?: Partial<Options<UpdateDeviceData>>): UseMutationOptions<UpdateDeviceResponse, UpdateDeviceError, Options<UpdateDeviceData>> => {
+    const mutationOptions: UseMutationOptions<UpdateDeviceResponse, UpdateDeviceError, Options<UpdateDeviceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateDevice({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listDeviceTypesQueryKey = (options?: Options<ListDeviceTypesData>) => createQueryKey('listDeviceTypes', options);
+
+/**
+ * List device types
+ *
+ * Returns the valid device type values and their display labels.
+ */
+export const listDeviceTypesOptions = (options?: Options<ListDeviceTypesData>) => queryOptions<ListDeviceTypesResponse, DefaultError, ListDeviceTypesResponse, ReturnType<typeof listDeviceTypesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listDeviceTypes({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listDeviceTypesQueryKey(options)
 });
 
 /**

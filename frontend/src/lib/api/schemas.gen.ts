@@ -112,6 +112,42 @@ export const CreateDeviceRequestSchema = {
     }
 } as const;
 
+export const UpdateDeviceRequestSchema = {
+    type: 'object',
+    properties: {
+        name: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 50,
+            description: 'New name for the device'
+        },
+        device_type: {
+            type: 'string',
+            enum: [
+                'static',
+                'mobile'
+            ],
+            description: 'Network behaviour classification.'
+        },
+        description: {
+            type: 'string',
+            nullable: true,
+            maxLength: 200,
+            'x-go-type': 'NullableString',
+            'x-go-type-skip-optional-pointer': true,
+            description: 'Free-form note. Pass null to clear.'
+        },
+        icon: {
+            type: 'string',
+            nullable: true,
+            maxLength: 80,
+            'x-go-type': 'NullableString',
+            'x-go-type-skip-optional-pointer': true,
+            description: 'Tabler icon name override. Pass null to clear.'
+        }
+    }
+} as const;
+
 export const AddAddressRequestSchema = {
     required: [
         'ip'
@@ -314,13 +350,21 @@ export const DeviceSchema = {
         'id',
         'name',
         'created_at',
-        'api_key_prefix'
+        'api_key_prefix',
+        'device_type',
+        'updated_at'
     ],
     properties: {
         created_at: {
             type: 'string',
             format: 'date-time',
             'x-go-type': 'UTCTime'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime',
+            description: 'Last time the device profile was modified.'
         },
         id: {
             $ref: '#/components/schemas/ID'
@@ -330,6 +374,26 @@ export const DeviceSchema = {
             type: 'string',
             minLength: 1,
             maxLength: 50
+        },
+        device_type: {
+            type: 'string',
+            enum: [
+                'generic',
+                'mobile'
+            ],
+            description: 'Network behaviour classification. Defaults to "generic".'
+        },
+        description: {
+            type: 'string',
+            nullable: true,
+            maxLength: 200,
+            description: 'Free-form note about the device.'
+        },
+        icon: {
+            type: 'string',
+            nullable: true,
+            maxLength: 80,
+            description: 'Tabler icon name override (e.g. "IconRouter").'
         },
         api_key_prefix: {
             type: 'string',
@@ -348,6 +412,22 @@ export const DeviceSchema = {
             readOnly: true,
             'x-go-type': 'UTCTime',
             description: 'Most recent address activity for this device (heartbeat or manual update).'
+        }
+    }
+} as const;
+
+export const DeviceTypeItemSchema = {
+    type: 'object',
+    required: [
+        'value',
+        'label'
+    ],
+    properties: {
+        value: {
+            type: 'string'
+        },
+        label: {
+            type: 'string'
         }
     }
 } as const;
@@ -899,13 +979,21 @@ export const DeviceWritableSchema = {
         'id',
         'name',
         'created_at',
-        'api_key_prefix'
+        'api_key_prefix',
+        'device_type',
+        'updated_at'
     ],
     properties: {
         created_at: {
             type: 'string',
             format: 'date-time',
             'x-go-type': 'UTCTime'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime',
+            description: 'Last time the device profile was modified.'
         },
         id: {
             $ref: '#/components/schemas/ID'
@@ -915,6 +1003,26 @@ export const DeviceWritableSchema = {
             type: 'string',
             minLength: 1,
             maxLength: 50
+        },
+        device_type: {
+            type: 'string',
+            enum: [
+                'generic',
+                'mobile'
+            ],
+            description: 'Network behaviour classification. Defaults to "generic".'
+        },
+        description: {
+            type: 'string',
+            nullable: true,
+            maxLength: 200,
+            description: 'Free-form note about the device.'
+        },
+        icon: {
+            type: 'string',
+            nullable: true,
+            maxLength: 80,
+            description: 'Tabler icon name override (e.g. "IconRouter").'
         },
         api_key_prefix: {
             type: 'string',

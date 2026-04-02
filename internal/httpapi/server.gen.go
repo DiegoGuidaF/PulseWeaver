@@ -35,6 +35,18 @@ const (
 	AddressHistoryEventSourceManual    AddressHistoryEventSource = "manual"
 )
 
+// Defines values for DeviceDeviceType.
+const (
+	DeviceDeviceTypeGeneric DeviceDeviceType = "generic"
+	DeviceDeviceTypeMobile  DeviceDeviceType = "mobile"
+)
+
+// Defines values for UpdateDeviceRequestDeviceType.
+const (
+	UpdateDeviceRequestDeviceTypeMobile UpdateDeviceRequestDeviceType = "mobile"
+	UpdateDeviceRequestDeviceTypeStatic UpdateDeviceRequestDeviceType = "static"
+)
+
 // Defines values for UserRole.
 const (
 	UserRoleAdmin UserRole = "admin"
@@ -275,14 +287,29 @@ type Device struct {
 	// ApiKeyPrefix Prefix of the device API key (for display only).
 	ApiKeyPrefix string  `json:"api_key_prefix"`
 	CreatedAt    UTCTime `json:"created_at"`
-	Id           ID      `json:"id"`
+
+	// Description Free-form note about the device.
+	Description *string `json:"description"`
+
+	// DeviceType Network behaviour classification. Defaults to "generic".
+	DeviceType DeviceDeviceType `json:"device_type"`
+
+	// Icon Tabler icon name override (e.g. "IconRouter").
+	Icon *string `json:"icon"`
+	Id   ID      `json:"id"`
 
 	// LastSeenAt Most recent address activity for this device (heartbeat or manual update).
 	LastSeenAt *UTCTime `json:"last_seen_at"`
 
 	// Name User-friendly name for the device
 	Name string `json:"name"`
+
+	// UpdatedAt Last time the device profile was modified.
+	UpdatedAt UTCTime `json:"updated_at"`
 }
+
+// DeviceDeviceType Network behaviour classification. Defaults to "generic".
+type DeviceDeviceType string
 
 // DeviceAddressLeaseRule defines model for DeviceAddressLeaseRule.
 type DeviceAddressLeaseRule struct {
@@ -302,6 +329,12 @@ type DeviceAddressLeaseRule struct {
 type DeviceHeartbeatByApiKeyRequest struct {
 	// Ip IPv4 or IPv6 address
 	Ip *IPAddress `json:"ip,omitempty"`
+}
+
+// DeviceTypeItem defines model for DeviceTypeItem.
+type DeviceTypeItem struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
 }
 
 // DisplayName User's public name. Unicode allowed.
@@ -346,6 +379,24 @@ type PutMaxActiveAddressesRuleRequest struct {
 	// MaxAddresses Maximum number of simultaneously enabled IP addresses
 	MaxAddresses int `json:"max_addresses"`
 }
+
+// UpdateDeviceRequest defines model for UpdateDeviceRequest.
+type UpdateDeviceRequest struct {
+	// Description Free-form note. Pass null to clear.
+	Description NullableString `json:"description"`
+
+	// DeviceType Network behaviour classification.
+	DeviceType *UpdateDeviceRequestDeviceType `json:"device_type,omitempty"`
+
+	// Icon Tabler icon name override. Pass null to clear.
+	Icon NullableString `json:"icon"`
+
+	// Name New name for the device
+	Name *string `json:"name,omitempty"`
+}
+
+// UpdateDeviceRequestDeviceType Network behaviour classification.
+type UpdateDeviceRequestDeviceType string
 
 // UpdateProfileRequest defines model for UpdateProfileRequest.
 type UpdateProfileRequest struct {
@@ -524,6 +575,9 @@ type LoginJSONRequestBody = AuthRequest
 
 // CreateDeviceJSONRequestBody defines body for CreateDevice for application/json ContentType.
 type CreateDeviceJSONRequestBody = CreateDeviceRequest
+
+// UpdateDeviceJSONRequestBody defines body for UpdateDevice for application/json ContentType.
+type UpdateDeviceJSONRequestBody = UpdateDeviceRequest
 
 // AddAddressJSONRequestBody defines body for AddAddress for application/json ContentType.
 type AddAddressJSONRequestBody = AddAddressRequest
@@ -743,6 +797,9 @@ type ServerInterface interface {
 	// Dashboard traffic time series
 	// (GET /dashboard/traffic)
 	GetDashboardTraffic(w http.ResponseWriter, r *http.Request, params GetDashboardTrafficParams)
+	// List device types
+	// (GET /device-types)
+	ListDeviceTypes(w http.ResponseWriter, r *http.Request)
 	// List all devices
 	// (GET /devices)
 	GetDevices(w http.ResponseWriter, r *http.Request)
@@ -755,6 +812,9 @@ type ServerInterface interface {
 	// Get a device
 	// (GET /devices/{device_id})
 	GetDevice(w http.ResponseWriter, r *http.Request, deviceId ID)
+	// Update device profile
+	// (PATCH /devices/{device_id})
+	UpdateDevice(w http.ResponseWriter, r *http.Request, deviceId ID)
 	// Get addresses for a device
 	// (GET /devices/{device_id}/addresses)
 	GetDeviceAddresses(w http.ResponseWriter, r *http.Request, deviceId ID)
@@ -899,6 +959,12 @@ func (_ Unimplemented) GetDashboardTraffic(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// List device types
+// (GET /device-types)
+func (_ Unimplemented) ListDeviceTypes(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // List all devices
 // (GET /devices)
 func (_ Unimplemented) GetDevices(w http.ResponseWriter, r *http.Request) {
@@ -920,6 +986,12 @@ func (_ Unimplemented) DeleteDevice(w http.ResponseWriter, r *http.Request, devi
 // Get a device
 // (GET /devices/{device_id})
 func (_ Unimplemented) GetDevice(w http.ResponseWriter, r *http.Request, deviceId ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update device profile
+// (PATCH /devices/{device_id})
+func (_ Unimplemented) UpdateDevice(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1662,6 +1734,26 @@ func (siw *ServerInterfaceWrapper) GetDashboardTraffic(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// ListDeviceTypes operation middleware
+func (siw *ServerInterfaceWrapper) ListDeviceTypes(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDeviceTypes(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetDevices operation middleware
 func (siw *ServerInterfaceWrapper) GetDevices(w http.ResponseWriter, r *http.Request) {
 
@@ -1755,6 +1847,37 @@ func (siw *ServerInterfaceWrapper) GetDevice(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDevice(w, r, deviceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateDevice operation middleware
+func (siw *ServerInterfaceWrapper) UpdateDevice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "device_id" -------------
+	var deviceId ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "device_id", chi.URLParam(r, "device_id"), &deviceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "device_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateDevice(w, r, deviceId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2336,6 +2459,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/dashboard/traffic", wrapper.GetDashboardTraffic)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/device-types", wrapper.ListDeviceTypes)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/devices", wrapper.GetDevices)
 	})
 	r.Group(func(r chi.Router) {
@@ -2346,6 +2472,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/devices/{device_id}", wrapper.GetDevice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/devices/{device_id}", wrapper.UpdateDevice)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/devices/{device_id}/addresses", wrapper.GetDeviceAddresses)
@@ -3058,6 +3187,22 @@ func (response GetDashboardTraffic500JSONResponse) VisitGetDashboardTrafficRespo
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListDeviceTypesRequestObject struct {
+}
+
+type ListDeviceTypesResponseObject interface {
+	VisitListDeviceTypesResponse(w http.ResponseWriter) error
+}
+
+type ListDeviceTypes200JSONResponse []DeviceTypeItem
+
+func (response ListDeviceTypes200JSONResponse) VisitListDeviceTypesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetDevicesRequestObject struct {
 }
 
@@ -3190,6 +3335,60 @@ func (response GetDevice404JSONResponse) VisitGetDeviceResponse(w http.ResponseW
 type GetDevice500JSONResponse ErrorResponse
 
 func (response GetDevice500JSONResponse) VisitGetDeviceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateDeviceRequestObject struct {
+	DeviceId ID `json:"device_id"`
+	Body     *UpdateDeviceJSONRequestBody
+}
+
+type UpdateDeviceResponseObject interface {
+	VisitUpdateDeviceResponse(w http.ResponseWriter) error
+}
+
+type UpdateDevice200JSONResponse Device
+
+func (response UpdateDevice200JSONResponse) VisitUpdateDeviceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateDevice400JSONResponse ErrorResponse
+
+func (response UpdateDevice400JSONResponse) VisitUpdateDeviceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateDevice404JSONResponse ErrorResponse
+
+func (response UpdateDevice404JSONResponse) VisitUpdateDeviceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateDevice409JSONResponse ErrorResponse
+
+func (response UpdateDevice409JSONResponse) VisitUpdateDeviceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateDevice500JSONResponse ErrorResponse
+
+func (response UpdateDevice500JSONResponse) VisitUpdateDeviceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -3854,6 +4053,9 @@ type StrictServerInterface interface {
 	// Dashboard traffic time series
 	// (GET /dashboard/traffic)
 	GetDashboardTraffic(ctx context.Context, request GetDashboardTrafficRequestObject) (GetDashboardTrafficResponseObject, error)
+	// List device types
+	// (GET /device-types)
+	ListDeviceTypes(ctx context.Context, request ListDeviceTypesRequestObject) (ListDeviceTypesResponseObject, error)
 	// List all devices
 	// (GET /devices)
 	GetDevices(ctx context.Context, request GetDevicesRequestObject) (GetDevicesResponseObject, error)
@@ -3866,6 +4068,9 @@ type StrictServerInterface interface {
 	// Get a device
 	// (GET /devices/{device_id})
 	GetDevice(ctx context.Context, request GetDeviceRequestObject) (GetDeviceResponseObject, error)
+	// Update device profile
+	// (PATCH /devices/{device_id})
+	UpdateDevice(ctx context.Context, request UpdateDeviceRequestObject) (UpdateDeviceResponseObject, error)
 	// Get addresses for a device
 	// (GET /devices/{device_id}/addresses)
 	GetDeviceAddresses(ctx context.Context, request GetDeviceAddressesRequestObject) (GetDeviceAddressesResponseObject, error)
@@ -4357,6 +4562,30 @@ func (sh *strictHandler) GetDashboardTraffic(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// ListDeviceTypes operation middleware
+func (sh *strictHandler) ListDeviceTypes(w http.ResponseWriter, r *http.Request) {
+	var request ListDeviceTypesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListDeviceTypes(ctx, request.(ListDeviceTypesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListDeviceTypes")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListDeviceTypesResponseObject); ok {
+		if err := validResponse.VisitListDeviceTypesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetDevices operation middleware
 func (sh *strictHandler) GetDevices(w http.ResponseWriter, r *http.Request) {
 	var request GetDevicesRequestObject
@@ -4457,6 +4686,39 @@ func (sh *strictHandler) GetDevice(w http.ResponseWriter, r *http.Request, devic
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetDeviceResponseObject); ok {
 		if err := validResponse.VisitGetDeviceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateDevice operation middleware
+func (sh *strictHandler) UpdateDevice(w http.ResponseWriter, r *http.Request, deviceId ID) {
+	var request UpdateDeviceRequestObject
+
+	request.DeviceId = deviceId
+
+	var body UpdateDeviceJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateDevice(ctx, request.(UpdateDeviceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateDevice")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateDeviceResponseObject); ok {
+		if err := validResponse.VisitUpdateDeviceResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4868,105 +5130,111 @@ func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"Dq6OgtvL2/8PAAD//81a0F+qqwAA",
+	"H4sIAAAAAAAC/+w97XIbt3avcmZ7Z2pPSUqyfdNE908VyUnUOA5ry72dsVUOuHtIIt4FNgBWEq9HM32I",
+	"PmGfpIOP/caSS5ui6IS/bHF3gYOD830ODj4FIU9SzpApGZx+CmS4wISY/56FIUr5is/PecaUWL5VxL6T",
+	"Cp6iUBTNXySO+S1G+r9qmWJwGlCmcI4iuB8EIWeK6sEnIY+w8o5UgrK5fcWMvv4FRhL/CxEy2gWA4orE",
+	"vkf3g0Dg7xkV+sv3dSjyzwbF4opJrgf5SHz6G4ZKz1Eg6g3KlDOJbSQxvFOTMBOSC4ezX2fB6ftPwV8E",
+	"zoLT4J+Oym04cntwdHkR3F8PApbFMZnGGJwqkaGGm9+aQanCxPxn1SAlcPzWIMRCT4QgyxqCIpShoKmi",
+	"nAWnwZX+GfRMkBAVLiibg1oghJkQyBTMaKxQSHiCd2GcRSjBrm4AmcRZFsOMC/gQvAaBMouV/BDAu8un",
+	"wWDdPuSIryLMrXg16vmthzSjSKCUExqtw5JG9SAgkrUxcZYpznjCMwlvl1JhAq+zZIrCsxYzwoSLeXsU",
+	"HM1H8CE4j3kWzWIicACXLBx9CMphKhQfU80yNF0L9vjMLtHPa14QXr7rmLTBh/WPL9/+Cs9PvvlmeAIk",
+	"Thdk+GwAbsCLl6sHzPnWC82PKBLClh0jCCQKowlR+vsZF4n+XxARhUNFE2x9MwjuhnM+dD++uzq/0m9Z",
+	"EbGcCCSSsw4RckND7E0o7vVuiZQJotc5yWR75W/w9wylglRwTbyas/L3gTJIaCi4xJCzSAaDctWUqW9e",
+	"eIlugSRCkVM81QOReFzjhEJUtEBtyYMmiy2USicJqgWPvAP0xRnPVMhr+JpyHiNhZlYi5qgmCy6VH0r7",
+	"PBPU+/huNpuEC0J9m9sQMFQL8wphlYBV+a5EqlfqRJHjO7eXbdGzEe82QUy7ZjWvt+baJptsxAZ4l1KB",
+	"0k1cp/J3V+egJ5eKJCncLpCBWlAJTibDLY1jIJniQzvKAOgMCKv8tASRxQhUAjKt/yKjU7QSsmCO4HUW",
+	"x/ozxsF9QSVoEKMsxmj0gVX5p4qOukrV2CfRryxe5n/3RFdfPG0oyKmcuBV79PICISZKyw+piELgsxpe",
+	"BwWyuICISjvMwMNyWRpVqKY+yysildk9oApuiewY9PNJzceUJfEZjNXw0GDZCuwrOOUnKhUXy++z8CN6",
+	"WJSEit7gxKipNgp+IXc0yRKwb8HlWIJENBLa4NtgZ2qH9gllvLGa2Du4ta5yVjCvyt4jF1z1ZdzeNLyK",
+	"UQd1zNSXsh7dL/XbbWx/mYato+81SRzh57LAZz1sxp0Nc2ec74535BUM+vcFqgVaOVXIuk4OarOl5JkI",
+	"0TcuUaAEnc9RYGSGtwIgXBA21whAliV6JxdIhJqiYZSEsMzY01Y+VravolsfhJ4MG1eJqs3Sbql1zq9u",
+	"/Hpi6/a4LANt4Cf5ZIbHPrLM+pnDWt7wjLpV/9D4UJMSUJ/sYcaH0UzkpE/Nyyu8O61xUzKnzJinPfy3",
+	"HO0FohrgeLc0U4tOQyolUt5ysZaXx/l7WrVJFLnkWPXNu/y95iqKAQbl/D7Izw3v5VN3rsE5zZPqWlps",
+	"WH2YkLtXyOZqEZz+67NBkFCW//ntYI1925pr3RKMXr0wXNe5AL8Y1ugbzgRFFsVL0O80LDQjd0iSatoM",
+	"xiikdkwgXXCGRjYVi/zrcW2RJ+sW2Skd6qvpkg0kpZOPuGyv6C2GAhV8xGVjJX8DzuIlCFSZYFqKMzAG",
+	"ifbZuACBc2RofbiRT2M4fKyhRwt3a7UFMnO4u1eut6RzFyMq05iUDvlKUOy7r4m1dDEh1ESJyv3UPPJv",
+	"7s9RyJOqPWhfH6wm8sfg5hoKBgWcKznkgsjFlBMRvUWhN+I8t+k8cdDS4Ovht5ugxCYfdLjHjeWatwY1",
+	"eGpz9Vmj7GYe6d7orQL9+GspwcYqimlWg7syJr0RcsnNfLIybnN2g4LMEUT/+A3wG2cKGqP+lrKI3/YL",
+	"6th480YrsIrWgSd7fpQx+nuGE5r2+8AXri2nHDQw31hGbbY2xlfu9BVPL8xYl6lHwW6AJWvurwkSaVu1",
+	"B7dUgFrBMQ63mzFLdb3reEVPsBpOQWYzGnZ6wg8vunbgtH6WvHOY2Z4f0YHzdVuYT+MFtjAe/OmNjiDD",
+	"68LEdzZhvCy8UPcpSmfnUJkH1QJjidFE+5LHnZGxqty0RskkFTijd20wxub3ursOZ+NLY2UZB8MpZWNi",
+	"PR09dCKgAlsT1B8E4lCPDowrBDLlmaoGHOtG67Pj43YksSuzYH9vbRGqWy4+whQX5IbyTEAYEynpjIbW",
+	"loQLnJEsVhIUhw+BsTJp+CEYVfx996MGjk9pjF4nn4a+BV9p0AXoh9Z+1/pK0AjhicvPXIacveGZQvEh",
+	"eNpAwLd91t83ChMTqSYSkXkDkr9wqUBgiEwVURUTpaJq2SRheFJEQLRtbkMgYEOGZgkPGRL+fE9pE3eo",
+	"b/S2wnGp4DMao4lFJTyiM4rRaOsxXGdX14K1DQFRZ4m1sVwr/FwY5RUSiW+yGPcpCdInEhhrwIt8ho2v",
+	"esN/fWdVKp7kSUKfG2usTzJTKOB2QcMFEFYIf0cROR9Z2Fwupyr+T7z2Yo3wHi4DUIYJq0vdLA9gaeen",
+	"XBp8vzxL6c+43FrSrmPCq2WKlwqT9gQxmWLsjf7ckDjD9YapfW3gBvKuueK4e+XQP0tIs2lMQyOHRvCO",
+	"0ZBHCM5yH9WCNv/OFwwu+Oby6aUQXHRbVagf1+MJjioZVzDjGYsCXxCotdzLi54GaLlz2nJiSxdfLb9M",
+	"b154TI/6G9+037getFIHNy+03rkc33xTSSKUCz357tno5JtvRyejk+fPfNbOL+TuzEiIs9xK+xpFXkLu",
+	"8uRZaW1uUQIm5G5SDNydvysD3ZImWawIQ57Jiilcpnr2UvrVl7mZ/BtXom0V+nv2/MwGOsdljLhYSiVu",
+	"vEkUehCMM+XX1Z3i9pF0WNOHrEDhRWKm/AzZua5HoMzGmuoQ+Fb1zlDOmrD/Bs7SCDQxgbaitasSxkjE",
+	"5v5SnVteu3ffth4O5UeaDnlqS52GKdeIEEUC7Mt8roprJRVRW/aseiDq213hqSO7jrdbcFHuO4lubD2R",
+	"CtWV6riW9qjG6q+1KvYG9VtPbFD/Wmvm7ec/1qc4qumKCsKe1yXo80GQEqVQaIz/93sy/Mfx8LvJ8Ppf",
+	"/tLP7tGW3INaBDvBVW9dn0k1sYUOtSRqy/pgYNjFkK3eCNBfuhIJ/SMVkH8PU5xxoV/Ls94kTTUndnj+",
+	"FRNF8LhXNuqNfm8bGSxjE6xPYxm4OrBVsxyuOyjqjVtYu+Yss56DnmEEGjvwISBRQtmHwDyTEBIGxJRj",
+	"g3kAyCIjcGRVoppHbjFecfqugquG82JyB5CjYQSv+C2KUCt+U5LMsgQFDQeQsQiFDLlAOQDCIlgs0wUy",
+	"aQKMI3iXpu6zGJUpcyDC+h0a/FQ1faDf+IJNoqYP9GX8LDHMBFXLt3rni6T0z7g8y/RordSTC5eaaKmz",
+	"fDK1QKac0nLxuiLw9TQYBFR/actY88jMafBfw7Px5fBnXJZg2YltxTb/SDEHwXxvfyq/n0x+4lINb6Nw",
+	"IlFKDV5rIL1Ayma8vY4LBzurGjeQEEbmmCBTIE2FvakcUrZqIIsl/h3JDQpwX/9Svn42vgwGwQ0Kacc/",
+	"GR2bUuMUGUlpcBo8Hx2PTkyCVy0Mlo8siQ5jbor056h8BdoqE0zmhS8YFSm/mM8BmRIUTUBW4A3FW0f1",
+	"w5AzJXgMEYZUwyNHcKapfWjIzhSjallt9usyCk6DH1EV5xcMjIIkqEwl93uH/t8zFMsS+1UXwQqNPvJT",
+	"K0jfaGXhczlWU9jpbxt2n6kNgukSImRLsEX18EQiwo8vr6CC4CP9wtC+YBMNNySmEZgghixItLXGslTf",
+	"A1nJRE3AXt6RUIGt4dbkZSqaOiYxCb6Nx7ZV6LDgUq0c3WXgNxi/fbwC3PEJMMEZW5BVROUvXn4IuvDX",
+	"OMm0ARDn+QES75wv362as3b0ZKNZ3/xw/vz58+9AKiKUSROVqXJ4Etn8Bzx7sQAy510AzIQpQCmn7WH7",
+	"rIAFWdQJCeO3XVAovgUYxmSOIOk/sJzyr8cDE055dnzcNXVME1qnOfexM9Wtz+mcsLb32CIFU4r4N1fw",
+	"ZM+B3VK1ABrBh+z4+HnozCdXru2BqPp8A1l1rS0fGzY0AvvZ8bHN8DPl6opJmsZO7R395g709JugfVDP",
+	"6KqGrrU2TEXUa5Xy4vhka2DUY6MeEF5rW6TU7xhZCJ7vDoIfuJjSKEIGQ2fNhQIjDQ+JJRSm6f0g+OsW",
+	"92ctWJfafWUkhrcotEVgPrAGVZYkRCyD0+AVlSo3RKubOAgUmUtjg5YmwLX+tktlrTUQSBw7lVZRWk69",
+	"gVoQZY3iNEUigDIPVMAFTI1NGwGRztsuh3IimLOmal1nTlwgW75xq/hChup7dKy9W2Yn+KxmJ1jkHDjq",
+	"q+Ooks4bW9mPr6QiSh5Nl0NnnlR4q5uKv1+6o+dt6/hgQ1RguN4Wi/dSnrV2AD3EQH7e1ey81I5DTgN/",
+	"Yimwl4ze2Km54FmKUXXHVjG79eaHC3vUZa3y1LQ8tGVvWvnlx+zyyQmLKg54/ajcCEyor/CGgUrgCVUK",
+	"o4EzWSU4OIzfqRW1fdv7bSr4DY30x/nBF8VBLbjMY98udNShdGtHfNaJqqr7bMIZlxdP5NMRvExStYQE",
+	"ibMrcnA7vWRfJKAXI7sCkkY14kGkrobhqjyVCXNBWBYTQdWyBGDBM9EFQeUDv48W6K+rZ/jsnxHxHdnr",
+	"jMm4o1zTJRRH63zQFA9LQD7v7GAPQFwu8yg/82gPLXZFZWqnAzePSZXTVqKLT2Q2tQDbmM3TLYWE2mlc",
+	"N70JDBq3+dEdeKif34P/+5//zWFzwG7Fqe9xasCbq5mRWJZhjqel7DaHrQylDF3uxoH7xCUximPug+I0",
+	"7VMn2W0CiDLXlkbL0uKAtf5NE4LA1AxTBsxB4EygXKC0Ut5LIXbMCYlj/0aZ9bQTRg8b0/Cfh/UFNhxD",
+	"5IrRbL3RwhKNL+pq0Buq1x3cNJbSTu0V63GYPYBSpbp45JREVTH8dC/tqR/RU628KOyEwpQqKzWcJZVQ",
+	"dmSyar1CEIyzYYSxsaPMV6OWmaJduHdmwF24CiY53cMzMBBBTKXauSuQk1fFCa84A92uu0l9mg2yGU8N",
+	"vEX6HgfD4tjlaJ+YhJQ9aFEjwISy4Pp+EKTuhGFDmRihK4EAw1ubVyehsdPblFaeQw1sDhul+p5Hy63h",
+	"pX3Q9b6eLs+7pNXJfHu0ZanbT83g9BPIzPhHsyyOlzuXnd+TCArkfKWMZRFZstaL4+92t4i8CAG4AFNc",
+	"ASQWSKIlCJxTqXBfQ3VvHHhVVl3D9A2Nc/RJ/zOh0b3dL61WPNWZfKacztFiwYoEFoHAG/7RWV3mR1ck",
+	"4FFJF+ZrJyh8ue+UqEVpfDmogianf2Fy6YW/SB5yfdrm473hpd3HrUPCGFcONyAxnllwXuyWMytnBPaR",
+	"By1h51zxudx3FGHCLev5lfKFea6tdW5q7m1SwQSuXO2bLdY6zzdNvw6cod43Hzvq54/Njse70dIWGQfu",
+	"7pmVGhheHxqs6e8OTO9hesNehJV8KHCuvdMvFAOp4KvlwNi+UAoCM5+TAxaYmiBwA3ZLAjfgn0QUOHQc",
+	"ZEFPWaBNYiMNLOIoZ0CUwiQt0mkHwVAVDI6bcnNAcYfbPgIhU4ujmM9tW1s/959V0pmytMOlieOBVIKG",
+	"Cn66uhoPbUzVmuNgy3o9cSIz28M47tU2b71c9oeXAK/4fI4RUFbn/lpL5beohue2Cro2XzNBcL8nMmNf",
+	"OMBVuAen769rESlNYYZQq1SfqUWD6HmmuqneLd3QvOmEuZ6s9Xh9vD9HEjxTW6GJ+8ba9bhrFm/PPqzO",
+	"nZed+ONlvaQhP6kRoSI09vjdP6I6t58WQbodc52b3korB+d+1ILsZQYhrKDLTzZR3nPoqNqcbfXZBhRD",
+	"U8dujv2bsse88qI49sdZZs5OCdVR+dDqGneo03rQOq1NuuzJVaTn3oGpQPIx4rfswH5+ry5HKsgWxkpO",
+	"LNivzY55e8LVObz5XODc9HK2HPhE2dtXXFu9Qd6bYwC2nd4AbB89uBzLp2WPwTm9QVYl5BH8R2ZTu6nA",
+	"YTFNZGpV4iUo26IMIqLIWhY3Sznw9+Pzt6279DC1JVtTN0GlouFBqa7l6jbK+rC14unQcuLQ9XZca61d",
+	"jl2tjWmNohWvHaBg8kLtqoVAoo1PMSMhgiLTGNcxZ7UP5YFHN4OhXcel98pTxHXiirhOPquI66RaxHXi",
+	"LeLaifjwtiz1MNIVT3MSvRwfJMk6SaLq6OolRaz23bRQutNel4qEH/UbAkk/s921KD1IjK+3FHg3MqPR",
+	"JNcnLpwpaTbE1hMeZMY6meHB2QrBYSr+TauWfiZHfmLL+C36s/xkImGR64WSd9417QQ7ygbLnoa7KR5s",
+	"9FDsUUb468++qrfKwmtoRddWvoLUbnyaCs7yNAZMMeZsbhrGuARbK/bmjbhdYB4f2RUC+yJun4sWowJr",
+	"7d1bXavo6p8cDeQass9mVW8QedAKxnrvNQ+qXLuT4p4RB0qwy1pH730qvpCuLXt8/ErHHRYJnnM2i2mo",
+	"YJh3pjElg3mloM1y7CWDFTxSXp62SjoefSpOm21SFJjf0nhVNqGmEhY2xazNQVM8bdWRqywTGGKtYWhX",
+	"2WDBnysNV7ct5WmWeuFC9QzdQxcVvuZwbve/JJfuGsMdptAvmm1397qkbgXBDlZocJCUzeOCDKdLoEoC",
+	"jVbo6n2lrS2a9/ltUx12wYEMved5VtNgatpCtWuKTedL4MyUlCdclA35ZxTjyHrxpcz81Z5mzh8SgRDj",
+	"TEHG7Hm4qNpG1HaFK6bTM5i+o3l7UW37JG1Sr7aA3SNq37695et1u+MClPW89phG0yPz+cFq6yV9nAyp",
+	"3+exie12VGtKvdLf9d8TRECmGFKTMixuxOnQn2eVztV9RMvlfivSTS577e96/9nYnkaG83/Ybw3foPmW",
+	"vq+e1+0KQ5xFkYtB5AeAFS/1e4ttzqLorLgq4o+rictlroh75OfUiZR0zkyf1/6hj60frF8JoVMaeEdl",
+	"tSmBySdnEqS9+G2bAZkVUD1WDCavQ80J3SVVDh6ER76cGZquyoSV0mWtIj/6lF8CuCY2c2G7ZMjavfT1",
+	"Bv+eWIv9aDPJ9MCKfPCpgxm7JGKJoP11xXvImmqQqOh5snNe/4W6C28Lfa5VZLkDu2b6HDtlX/SC/0f7",
+	"GcmyO1e5GGojvk/p8CMuj4r7xlecC/vRvZG3baj2kC+ZfgA0STCiRGGsvR9XV59ficDjCDhzQVxBbs0I",
+	"VFYvQg9xXZ/zNwW0zjUYX9oG9H/wAFvf5Mnryu7kmDpEhXs1O3DYalwru5FTXLY8W3HU2owuMOVCSRM7",
+	"zovyy0ZjI3h5pwQJlTueUfShN6kO/VN+iwBhESCTmUA9lmYnZzeOjH9G9e96JVf8I5po3lt7vMWXDKld",
+	"cPjHcLW/UFHmHeR2Z3i/rnh5ef8Xu8ePo6Rzg7zSBO9gk69KLhkgq60P+0sPkcUoc3t8Yq6h622GO6FV",
+	"uRu2rpvhiTnGmTuVituGeU87DfWOu3K/niypBrdh3O6eWrmwm7HnVOsMST8ReaJWhlK786TVyrH6rYo+",
+	"yqQzCDmb0XkmMFofBd57Wtx2pqe17r3Ksn4dFF7tnrgJeafZihZ2XLib4C2l03RCMsUntsWtj9RHULkg",
+	"1F4nN0VIuaSK3nhiJp3XoP6hA7trL399lHxrHy40Ksfdo6upI9yXSraDmeYtWisY2Ji3meLDJu+uEA6r",
+	"rThza67pQ9+8vreHMdd93fUXGnUdt4EfjLo/sFG3mpi+zLjrTajrbbyvizS3t9cd6z7YeJ9l430BsW9i",
+	"6nVOM4LademFjUeUMTsVnHitvL0n/gex8lZfhb9jK68/Hx6svK/Vyvts6aBtvR6x/bem+k/C6twATDPV",
+	"vHK5cnEQ3FACLjnXVKOKu6Wsi95/vywSYw/BvO3ZzHXNFda9PwTuD4H7/ZcVZWO5+qXp76/va53mxig0",
+	"9iSQyjUvRQ8O2yyHpNSkXYtr0v2Rf9uU1TZmW1nhL4sjtVqhD4rL6s099EdFN/lNDiTagX95qMOIdvix",
+	"rSbes/aMeYNWc07Cae8/1WUKHRcWHm5C6F0tX22e56mZt9dL1Jn8KCVS3nIRdRsN/1l0n8zHz78ZFD5H",
+	"+UvzYgTbprn7ZoRzc8RnnEPxQIeQa5NsxPieGE8+DrjjSY97/8l5Y1O0qXYrOJtrKmZ4W3vgap4O3Sr8",
+	"9ri9fq3ORiVltvioqaBtR9aagjaTWd84E3FwGhyRlB7dnAT31/f/HwAA//9BFpm1j7YAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

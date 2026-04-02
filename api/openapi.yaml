@@ -506,6 +506,73 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: updateDevice
+      tags:
+        - devices
+      summary: Update device profile
+      description: Update one or more profile fields for a device. Omitted fields are left unchanged. Pass null for description or icon to clear them.
+      parameters:
+        - name: device_id
+          in: path
+          description: Device id
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeviceRequest'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: Conflict - Device name already in use
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /device-types:
+    get:
+      operationId: listDeviceTypes
+      tags:
+        - devices
+      summary: List device types
+      description: Returns the valid device type values and their display labels.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceTypeItem'
 
   /devices/{device_id}/api-key/regenerate:
     post:
@@ -1569,6 +1636,32 @@ components:
           minLength: 1
           maxLength: 50
           description: "User-friendly name for the device"
+    UpdateDeviceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: "New name for the device"
+        device_type:
+          type: string
+          enum: [static, mobile]
+          description: Network behaviour classification.
+        description:
+          type: string
+          nullable: true
+          maxLength: 200
+          x-go-type: NullableString
+          x-go-type-skip-optional-pointer: true
+          description: Free-form note. Pass null to clear.
+        icon:
+          type: string
+          nullable: true
+          maxLength: 80
+          x-go-type: NullableString
+          x-go-type-skip-optional-pointer: true
+          description: Tabler icon name override. Pass null to clear.
     AddAddressRequest:
       required:
         - ip
@@ -1717,11 +1810,18 @@ components:
         - name
         - created_at
         - api_key_prefix
+        - device_type
+        - updated_at
       properties:
         created_at:
           type: string
           format: date-time
           x-go-type: UTCTime
+        updated_at:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+          description: Last time the device profile was modified.
         id:
           $ref: '#/components/schemas/ID'
         name:
@@ -1729,6 +1829,20 @@ components:
           type: string
           minLength: 1
           maxLength: 50
+        device_type:
+          type: string
+          enum: [generic, mobile]
+          description: Network behaviour classification. Defaults to "generic".
+        description:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: Free-form note about the device.
+        icon:
+          type: string
+          nullable: true
+          maxLength: 80
+          description: Tabler icon name override (e.g. "IconRouter").
         api_key_prefix:
           type: string
           description: Prefix of the device API key (for display only).
@@ -1744,6 +1858,16 @@ components:
           readOnly: true
           x-go-type: UTCTime
           description: Most recent address activity for this device (heartbeat or manual update).
+    DeviceTypeItem:
+      type: object
+      required:
+        - value
+        - label
+      properties:
+        value:
+          type: string
+        label:
+          type: string
     Address:
       type: object
       required:

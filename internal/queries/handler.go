@@ -208,7 +208,11 @@ func toDeviceViewResponse(d *DeviceView) httpapi.Device {
 	return httpapi.Device{
 		Id:           d.ID.Int64(),
 		Name:         d.Name,
+		DeviceType:   httpapi.DeviceDeviceType(d.DeviceType),
+		Description:  d.Description,
+		Icon:         d.Icon,
 		CreatedAt:    httpapi.UTCTime(d.CreatedAt),
+		UpdatedAt:    httpapi.UTCTime(d.UpdatedAt),
 		ApiKeyPrefix: d.KeyPrefix,
 		AddressCount: new(d.AddressCount),
 		LastSeenAt:   lastSeenAt,

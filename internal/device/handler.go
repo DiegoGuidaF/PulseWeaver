@@ -337,6 +337,63 @@ func (h *HTTPHandler) GetAddressHistory(ctx context.Context, request httpapi.Get
 	return httpapi.GetAddressHistory200JSONResponse(toAddressHistoryResponse(history, history.QueryLimit)), nil
 }
 
+func (h *HTTPHandler) UpdateDevice(ctx context.Context, request httpapi.UpdateDeviceRequestObject) (httpapi.UpdateDeviceResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "UpdateDevice")
+	deviceID := DeviceID(request.DeviceId)
+	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
+
+	body := request.Body
+
+	// Convert the generated request body to the service input.
+	// NullableString distinguishes absent (Set=false) from explicit null (Set=true, Value=nil).
+	input := UpdateDeviceInput{
+		Name: body.Name,
+	}
+	if body.DeviceType != nil {
+		input.DeviceType = new(string(*body.DeviceType))
+	}
+	if body.Description.Set {
+		input.Description = &body.Description.Value
+	}
+	if body.Icon.Set {
+		input.Icon = &body.Icon.Value
+	}
+
+	device, err := h.service.UpdateDevice(ctx, deviceID, input)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrDeviceNotFound):
+			logger.WarnContext(ctx, "device not found")
+			return httpapi.UpdateDevice404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
+		case errors.Is(err, ErrDuplicateDeviceName):
+			logger.WarnContext(ctx, "duplicate device name")
+			return httpapi.UpdateDevice409JSONResponse(errorMsgResponse("Device name already in use")), nil
+		case errors.Is(err, ErrInvalidDeviceType), errors.Is(err, ErrInvalidDeviceName),
+			errors.Is(err, ErrDescriptionTooLong), errors.Is(err, ErrIconTooLong):
+			logger.WarnContext(ctx, "invalid update request", slog.Any(AttrKeyError, err))
+			return httpapi.UpdateDevice400JSONResponse(errorMsgResponse(err.Error())), nil
+		default:
+			logger.ErrorContext(ctx, "failed to update device", slog.Any(AttrKeyError, err))
+			return httpapi.UpdateDevice500JSONResponse(errorMsgResponse("Failed to update device")), nil
+		}
+	}
+
+	logger.InfoContext(ctx, "device updated")
+	return httpapi.UpdateDevice200JSONResponse(toDeviceResponse(device)), nil
+}
+
+func (h *HTTPHandler) ListDeviceTypes(_ context.Context, _ httpapi.ListDeviceTypesRequestObject) (httpapi.ListDeviceTypesResponseObject, error) {
+	result := make([]httpapi.DeviceTypeItem, 0, len(AllowedDeviceTypes))
+	for _, dt := range AllowedDeviceTypes {
+		label := DeviceTypeLabels[dt]
+		result = append(result, httpapi.DeviceTypeItem{
+			Value: string(dt),
+			Label: label,
+		})
+	}
+	return httpapi.ListDeviceTypes200JSONResponse(result), nil
+}
+
 func (h *HTTPHandler) APIKeyAuthenticator() APIKeyAuthenticator {
 	return h.service
 }
@@ -349,7 +406,11 @@ func toDeviceResponse(d *Device) httpapi.Device {
 	return httpapi.Device{
 		Id:           d.ID.Int64(),
 		Name:         d.Name,
+		DeviceType:   httpapi.DeviceDeviceType(d.DeviceType),
+		Description:  d.Description,
+		Icon:         d.Icon,
 		CreatedAt:    httpapi.UTCTime(d.CreatedAt),
+		UpdatedAt:    httpapi.UTCTime(d.UpdatedAt),
 		ApiKeyPrefix: d.KeyPrefix,
 		LastSeenAt:   lastSeenAt,
 	}

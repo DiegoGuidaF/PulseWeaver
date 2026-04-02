@@ -34,6 +34,25 @@ export type CreateDeviceRequest = {
     name: string;
 };
 
+export type UpdateDeviceRequest = {
+    /**
+     * New name for the device
+     */
+    name?: string;
+    /**
+     * Network behaviour classification.
+     */
+    device_type?: 'static' | 'mobile';
+    /**
+     * Free-form note. Pass null to clear.
+     */
+    description?: string | null;
+    /**
+     * Tabler icon name override. Pass null to clear.
+     */
+    icon?: string | null;
+};
+
 export type AddAddressRequest = {
     ip: IpAddress;
 };
@@ -113,11 +132,27 @@ export type User = {
 
 export type Device = {
     created_at: string;
+    /**
+     * Last time the device profile was modified.
+     */
+    updated_at: string;
     id: Id;
     /**
      * User-friendly name for the device
      */
     name: string;
+    /**
+     * Network behaviour classification. Defaults to "generic".
+     */
+    device_type: 'generic' | 'mobile';
+    /**
+     * Free-form note about the device.
+     */
+    description?: string | null;
+    /**
+     * Tabler icon name override (e.g. "IconRouter").
+     */
+    icon?: string | null;
     /**
      * Prefix of the device API key (for display only).
      */
@@ -130,6 +165,11 @@ export type Device = {
      * Most recent address activity for this device (heartbeat or manual update).
      */
     readonly last_seen_at?: string | null;
+};
+
+export type DeviceTypeItem = {
+    value: string;
+    label: string;
 };
 
 export type Address = {
@@ -343,11 +383,27 @@ export type UserWritable = {
 
 export type DeviceWritable = {
     created_at: string;
+    /**
+     * Last time the device profile was modified.
+     */
+    updated_at: string;
     id: Id;
     /**
      * User-friendly name for the device
      */
     name: string;
+    /**
+     * Network behaviour classification. Defaults to "generic".
+     */
+    device_type: 'generic' | 'mobile';
+    /**
+     * Free-form note about the device.
+     */
+    description?: string | null;
+    /**
+     * Tabler icon name override (e.g. "IconRouter").
+     */
+    icon?: string | null;
     /**
      * Prefix of the device API key (for display only).
      */
@@ -832,6 +888,64 @@ export type GetDeviceResponses = {
 };
 
 export type GetDeviceResponse = GetDeviceResponses[keyof GetDeviceResponses];
+
+export type UpdateDeviceData = {
+    body: UpdateDeviceRequest;
+    path: {
+        /**
+         * Device id
+         */
+        device_id: Id;
+    };
+    query?: never;
+    url: '/devices/{device_id}';
+};
+
+export type UpdateDeviceErrors = {
+    /**
+     * Bad Request
+     */
+    400: ErrorResponse;
+    /**
+     * Device not found
+     */
+    404: ErrorResponse;
+    /**
+     * Conflict - Device name already in use
+     */
+    409: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type UpdateDeviceError = UpdateDeviceErrors[keyof UpdateDeviceErrors];
+
+export type UpdateDeviceResponses = {
+    /**
+     * OK
+     */
+    200: Device;
+};
+
+export type UpdateDeviceResponse = UpdateDeviceResponses[keyof UpdateDeviceResponses];
+
+export type ListDeviceTypesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/device-types';
+};
+
+export type ListDeviceTypesResponses = {
+    /**
+     * OK
+     */
+    200: Array<DeviceTypeItem>;
+};
+
+export type ListDeviceTypesResponse = ListDeviceTypesResponses[keyof ListDeviceTypesResponses];
 
 export type RegenerateDeviceApiKeyData = {
     body?: never;

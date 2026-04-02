@@ -14,6 +14,7 @@ type repository interface {
 	GetDevice(ctx context.Context, id DeviceID) (*Device, error)
 	CreateDevice(ctx context.Context, params CreateDeviceParams) (*Device, error)
 	DeleteDevice(ctx context.Context, id DeviceID) error
+	UpdateDevice(ctx context.Context, device *Device) (*Device, error)
 	UpdateAPIKey(ctx context.Context, deviceID DeviceID, keyHash string, keyPrefix string) error
 	CreateAddress(ctx context.Context, params CreateAddressParams, source EventSource) (*Address, error)
 	GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip netip.Addr) (*Address, error)
@@ -112,6 +113,29 @@ func (s *Service) DeleteDevice(ctx context.Context, deviceID DeviceID) error {
 	}
 	s.logger.InfoContext(ctx, "device deleted", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 	return nil
+}
+
+// UpdateDeviceInput carries the raw nullable API values for a device profile update.
+// nil pointer = field was absent in the request (leave unchanged).
+// For Description and Icon, **string semantics apply: nil = absent, *nil = clear, *&s = set.
+type UpdateDeviceInput struct {
+	Name        *string
+	DeviceType  *string
+	Description **string
+	Icon        **string
+}
+
+func (s *Service) UpdateDevice(ctx context.Context, deviceID DeviceID, input UpdateDeviceInput) (*Device, error) {
+	device, err := s.repo.GetDevice(ctx, deviceID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := device.Update(input.Name, input.DeviceType, input.Description, input.Icon); err != nil {
+		return nil, err
+	}
+
+	return s.repo.UpdateDevice(ctx, device)
 }
 
 func (s *Service) GetAddressHistory(ctx context.Context, query AddressHistoryQuery) (AddressHistory, error) {

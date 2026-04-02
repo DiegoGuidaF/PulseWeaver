@@ -872,3 +872,105 @@ func TestRepository_GetEnabledAddressesForDevice_EmptyWhenNone(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(len(enabled), 0)
 }
+
+func TestRepository_CreateDevice_DefaultsForNewFields(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repo, ctx, "defaults-device")
+
+	is.Equal(dev.DeviceType, device.DeviceTypeStatic)
+	is.True(dev.Description == nil)
+	is.True(dev.Icon == nil)
+	is.True(!dev.UpdatedAt.IsZero())
+}
+
+func TestRepository_UpdateDevice_Rename(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repo, ctx, "original")
+	originalUpdatedAt := dev.UpdatedAt
+
+	// Give time so updated_at can advance
+	time.Sleep(2 * time.Millisecond)
+
+	dev.Name = "renamed"
+	updated, err := repo.UpdateDevice(ctx, dev)
+
+	is.NoErr(err)
+	is.Equal(updated.Name, "renamed")
+	// Note: SQLite CURRENT_TIMESTAMP has second-level granularity; a sub-second
+	// sleep cannot verify advancement. The assertion checks only that updated_at
+	// was not moved backward.
+	is.True(!updated.UpdatedAt.Before(originalUpdatedAt))
+}
+
+func TestRepository_UpdateDevice_SetAllFields(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repo, ctx, "full-update")
+	desc := "a note"
+	icon := "IconRouter"
+	dev.DeviceType = device.DeviceTypeMobile
+	dev.Description = &desc
+	dev.Icon = &icon
+
+	updated, err := repo.UpdateDevice(ctx, dev)
+
+	is.NoErr(err)
+	is.Equal(updated.DeviceType, device.DeviceTypeMobile)
+	is.True(updated.Description != nil)
+	is.Equal(*updated.Description, "a note")
+	is.True(updated.Icon != nil)
+	is.Equal(*updated.Icon, "IconRouter")
+}
+
+func TestRepository_UpdateDevice_ClearDescription(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repo, ctx, "clear-desc")
+	desc := "initial"
+	dev.Description = &desc
+	dev, err := repo.UpdateDevice(ctx, dev)
+	is.NoErr(err)
+	is.True(dev.Description != nil)
+
+	// Now clear it
+	dev.Description = nil
+	updated, err := repo.UpdateDevice(ctx, dev)
+
+	is.NoErr(err)
+	is.True(updated.Description == nil)
+}
+
+func TestRepository_UpdateDevice_NotFound(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	ghost := &device.Device{ID: device.DeviceID(9999), Name: "ghost", DeviceType: device.DeviceTypeStatic}
+	_, err := repo.UpdateDevice(ctx, ghost)
+
+	is.True(errors.Is(err, device.ErrDeviceNotFound))
+}
+
+func TestRepository_UpdateDevice_DuplicateName(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	createTestDevice(t, repo, ctx, "taken")
+	dev := createTestDevice(t, repo, ctx, "to-rename")
+	dev.Name = "taken"
+
+	_, err := repo.UpdateDevice(ctx, dev)
+
+	is.True(errors.Is(err, device.ErrDuplicateDeviceName))
+}

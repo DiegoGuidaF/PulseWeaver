@@ -37,10 +37,14 @@ func (r *Repository) GetDevice(ctx context.Context, id DeviceID) (*Device, error
 	device := new(Device)
 
 	query := `
-		SELECT 
+		SELECT
 		    d.id,
 			d.name,
+			d.device_type,
+			d.description,
+			d.icon,
 			d.created_at,
+			d.updated_at,
 			d.deleted_at,
 			k.key_prefix,
 			(SELECT MAX(a.updated_at) FROM addresses a WHERE a.device_id = d.id) AS last_seen_at
@@ -240,6 +244,31 @@ func (r *Repository) DeleteDevice(ctx context.Context, deviceID DeviceID) error 
 		return ErrDeviceNotFound
 	}
 	return nil
+}
+
+func (r *Repository) UpdateDevice(ctx context.Context, device *Device) (*Device, error) {
+	query := `
+		UPDATE devices
+		SET name = ?, device_type = ?, description = ?, icon = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ? AND deleted_at IS NULL
+	`
+	result, err := r.db.ExecContext(ctx, query,
+		device.Name, string(device.DeviceType), device.Description, device.Icon, device.ID,
+	)
+	if err != nil {
+		if domainErr, ok := mapDeviceNameUniqueConstraintError(err); ok {
+			return nil, domainErr
+		}
+		return nil, fmt.Errorf("update device: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("update device rows affected: %w", err)
+	}
+	if rows == 0 {
+		return nil, ErrDeviceNotFound
+	}
+	return r.GetDevice(ctx, device.ID)
 }
 
 func (r *Repository) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error) {

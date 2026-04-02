@@ -599,6 +599,65 @@ func TestService_GetAddressHistory_DefaultParams(t *testing.T) {
 	is.True(history.Events != nil)
 }
 
+func TestService_UpdateDevice_RenamesDevice(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	d := &Device{ID: DeviceID(1), Name: "old", DeviceType: DeviceTypeStatic}
+	mockRepo.devices[d.ID] = d
+
+	svc := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
+	newName := "new-name"
+	updated, err := svc.UpdateDevice(ctx, d.ID, UpdateDeviceInput{Name: &newName})
+
+	is.NoErr(err)
+	is.Equal(updated.Name, "new-name")
+}
+
+func TestService_UpdateDevice_DeviceNotFound(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	svc := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
+
+	_, err := svc.UpdateDevice(ctx, DeviceID(99), UpdateDeviceInput{})
+
+	is.True(errors.Is(err, ErrDeviceNotFound))
+}
+
+func TestService_UpdateDevice_InvalidTypePropagated(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	d := &Device{ID: DeviceID(1), Name: "d", DeviceType: DeviceTypeStatic}
+	mockRepo.devices[d.ID] = d
+
+	svc := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
+	bad := "robot"
+	_, err := svc.UpdateDevice(ctx, d.ID, UpdateDeviceInput{DeviceType: &bad})
+
+	is.True(errors.Is(err, ErrInvalidDeviceType))
+}
+
+func TestService_UpdateDevice_RepoErrorPropagated(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	sentinel := errors.New("db gone")
+	mockRepo := newMockRepository()
+	d := &Device{ID: DeviceID(1), Name: "d", DeviceType: DeviceTypeStatic}
+	mockRepo.devices[d.ID] = d
+	mockRepo.updateDeviceErr = sentinel
+
+	svc := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
+	_, err := svc.UpdateDevice(ctx, d.ID, UpdateDeviceInput{})
+
+	is.True(errors.Is(err, sentinel))
+}
+
 // mockRepository is a hand-rolled mock implementation of DeviceRepository
 type mockRepository struct {
 	devices           map[DeviceID]*Device
@@ -613,6 +672,7 @@ type mockRepository struct {
 	disableAddressErr error
 	checkOwnershipErr error
 	updateAPIKeyErr   error
+	updateDeviceErr   error
 	runInTxFn         func(repository) error
 }
 
@@ -819,6 +879,17 @@ func (m *mockRepository) GetEnabledIPEntries(_ context.Context) ([]IPEntry, erro
 
 func (m *mockRepository) GetAddressHistory(_ context.Context, _ AddressHistoryQuery) (AddressHistory, error) {
 	return AddressHistory{Buckets: []AddressEventBucket{}, Events: []AddressStateChange{}}, nil
+}
+
+func (m *mockRepository) UpdateDevice(_ context.Context, device *Device) (*Device, error) {
+	if m.updateDeviceErr != nil {
+		return nil, m.updateDeviceErr
+	}
+	if _, ok := m.devices[device.ID]; !ok {
+		return nil, ErrDeviceNotFound
+	}
+	m.devices[device.ID] = device
+	return device, nil
 }
 
 func (m *mockRepository) RunInTx(ctx context.Context, fn func(repository) error) error {

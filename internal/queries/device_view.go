@@ -10,12 +10,16 @@ import (
 )
 
 type DeviceView struct {
-	ID           device.DeviceID  `db:"id"`
-	Name         string           `db:"name"`
-	CreatedAt    time.Time        `db:"created_at"`
-	KeyPrefix    string           `db:"key_prefix"`
-	AddressCount int              `db:"address_count"`
-	LastSeenAt   *database.DBTime `db:"last_seen_at"`
+	ID           device.DeviceID   `db:"id"`
+	Name         string            `db:"name"`
+	DeviceType   device.DeviceType `db:"device_type"`
+	Description  *string           `db:"description"`
+	Icon         *string           `db:"icon"`
+	CreatedAt    time.Time         `db:"created_at"`
+	UpdatedAt    time.Time         `db:"updated_at"`
+	KeyPrefix    string            `db:"key_prefix"`
+	AddressCount int               `db:"address_count"`
+	LastSeenAt   *database.DBTime  `db:"last_seen_at"`
 }
 
 func (r *Repository) GetDevices(ctx context.Context) ([]DeviceView, error) {
@@ -25,7 +29,11 @@ func (r *Repository) GetDevices(ctx context.Context) ([]DeviceView, error) {
 		SELECT
 			d.id,
 			d.name,
+			d.device_type,
+			d.description,
+			d.icon,
 			d.created_at,
+			d.updated_at,
 			dk.key_prefix,
 			COUNT(a.id) AS address_count,
 			(SELECT MAX(a2.updated_at) FROM addresses a2 WHERE a2.device_id = d.id) AS last_seen_at
@@ -33,8 +41,8 @@ func (r *Repository) GetDevices(ctx context.Context) ([]DeviceView, error) {
 		JOIN device_api_keys dk ON dk.device_id = d.id
 		LEFT JOIN addresses a ON a.device_id = d.id AND a.is_enabled = true
 		WHERE d.deleted_at IS NULL
-		GROUP BY d.id, d.name, d.created_at, dk.key_prefix
-		ORDER BY d.created_at DESC
+		GROUP BY d.id, d.name, d.device_type, d.description, d.icon, d.created_at, d.updated_at, dk.key_prefix
+		ORDER BY d.updated_at DESC
 	`
 
 	if err := r.db.SelectContext(ctx, &devices, query); err != nil {

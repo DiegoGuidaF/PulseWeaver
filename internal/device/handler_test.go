@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
@@ -446,4 +447,167 @@ func TestHandler_GetAddressHistory_Pagination(t *testing.T) {
 	err = json.NewDecoder(res.Body).Decode(&page2)
 	is.NoErr(err)
 	is.Equal(len(page2.Events), 2)
+}
+
+func TestHandler_UpdateDevice_RenameAndSetType(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "sensor")
+	is.NoErr(err)
+
+	body, _ := json.Marshal(map[string]string{"name": "sensor-renamed", "device_type": "mobile"})
+	url := fmt.Sprintf("/api/v1/devices/%d", dev.ID)
+	req := httptest.NewRequest(http.MethodPatch, url, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(sessionCookie)
+	res := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusOK)
+
+	var updated httpapi.Device
+	err = json.NewDecoder(res.Body).Decode(&updated)
+	is.NoErr(err)
+	is.Equal(updated.Name, "sensor-renamed")
+	is.Equal(string(updated.DeviceType), "mobile")
+	is.True(updated.Description == nil)
+}
+
+func TestHandler_UpdateDevice_SetAndClearDescription(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "noted-device")
+	is.NoErr(err)
+	url := fmt.Sprintf("/api/v1/devices/%d", dev.ID)
+
+	// Set description
+	setBody, _ := json.Marshal(map[string]string{"description": "my note"})
+	req := httptest.NewRequest(http.MethodPatch, url, bytes.NewReader(setBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(sessionCookie)
+	res := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(res, req)
+	is.Equal(res.Code, http.StatusOK)
+
+	var withDesc httpapi.Device
+	err = json.NewDecoder(res.Body).Decode(&withDesc)
+	is.NoErr(err)
+	is.True(withDesc.Description != nil)
+	is.Equal(*withDesc.Description, "my note")
+
+	// Clear description via explicit null
+	clearBody := []byte(`{"description":null}`)
+	req2 := httptest.NewRequest(http.MethodPatch, url, bytes.NewReader(clearBody))
+	req2.Header.Set("Content-Type", "application/json")
+	req2.AddCookie(sessionCookie)
+	res2 := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(res2, req2)
+	is.Equal(res2.Code, http.StatusOK)
+
+	var cleared httpapi.Device
+	err = json.NewDecoder(res2.Body).Decode(&cleared)
+	is.NoErr(err)
+	is.True(cleared.Description == nil)
+}
+
+func TestHandler_UpdateDevice_InvalidType_Returns400(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), "type-test")
+	is.NoErr(err)
+
+	body, _ := json.Marshal(map[string]string{"device_type": "robot"})
+	url := fmt.Sprintf("/api/v1/devices/%d", dev.ID)
+	req := httptest.NewRequest(http.MethodPatch, url, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(sessionCookie)
+	res := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusBadRequest)
+}
+
+func TestHandler_UpdateDevice_DuplicateName_Returns409(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	_, _, err := testServer.DeviceService.CreateDevice(t.Context(), "taken")
+	is.NoErr(err)
+	dev2, _, err := testServer.DeviceService.CreateDevice(t.Context(), "to-rename")
+	is.NoErr(err)
+
+	body, _ := json.Marshal(map[string]string{"name": "taken"})
+	url := fmt.Sprintf("/api/v1/devices/%d", dev2.ID)
+	req := httptest.NewRequest(http.MethodPatch, url, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(sessionCookie)
+	res := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusConflict)
+}
+
+func TestHandler_UpdateDevice_NotFound_Returns404(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	body, _ := json.Marshal(map[string]string{"name": "ghost"})
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/devices/9999", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(sessionCookie)
+	res := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusNotFound)
+}
+
+func TestHandler_ListDeviceTypes(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/device-types", nil)
+	req.AddCookie(sessionCookie)
+	res := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusOK)
+
+	var types []httpapi.DeviceTypeItem
+	err := json.NewDecoder(res.Body).Decode(&types)
+	is.NoErr(err)
+	is.Equal(len(types), 2)
+	is.Equal(types[0].Value, "static")
+	is.Equal(types[0].Label, "Static")
+	is.Equal(types[1].Value, "mobile")
+}
+
+func TestHandler_GetDevices_ContainsUpdatedAt(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	_, _, err := testServer.DeviceService.CreateDevice(t.Context(), "list-device")
+	is.NoErr(err)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
+	req.AddCookie(sessionCookie)
+	res := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusOK)
+
+	var devices []httpapi.Device
+	err = json.NewDecoder(res.Body).Decode(&devices)
+	is.NoErr(err)
+	is.Equal(len(devices), 1)
+	is.True(!time.Time(devices[0].UpdatedAt).IsZero())
 }
