@@ -4,9 +4,10 @@ import { useAuth } from "./hooks/useAuth";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  adminOnly?: boolean;
 }
 
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, adminOnly }: ProtectedRouteProps) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
@@ -28,6 +29,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (isAuthenticated && user?.must_change_password && location.pathname !== "/settings") {
     return <Navigate to="/settings" replace />;
+  }
+
+  if (adminOnly && user?.role !== "admin") {
+    return <Navigate to="/devices" replace />;
   }
 
   return <>{children}</>;

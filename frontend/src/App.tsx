@@ -35,7 +35,7 @@ function App() {
                   <Route
                     path="/dashboard"
                     element={
-                      <ProtectedRoute>
+                      <ProtectedRoute adminOnly>
                         <AppShell>
                           <TrafficDashboardPage />
                         </AppShell>
@@ -75,7 +75,7 @@ function App() {
                   <Route
                     path="/access-log"
                     element={
-                      <ProtectedRoute>
+                      <ProtectedRoute adminOnly>
                         <AppShell>
                           <AccessLogPage />
                         </AppShell>
@@ -85,7 +85,7 @@ function App() {
                   <Route
                     path="/address-history"
                     element={
-                      <ProtectedRoute>
+                      <ProtectedRoute adminOnly>
                         <AppShell>
                           <AddressHistoryPage />
                         </AppShell>
