@@ -8,6 +8,9 @@ import { DeviceAddressesTab } from "@/features/devices/DeviceAddressesTab";
 import { DeviceSettingsTab } from "@/features/devices/DeviceSettingsTab";
 import { DeviceHistoryTab } from "@/features/devices/DeviceHistoryTab";
 import { toErrorMessage } from "@/lib/api-client";
+import { getDeviceIcon } from "@/features/devices/deviceTypeConfig";
+import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
+import { UserRole } from "@/lib/api";
 
 type DeviceDetailRouteParams = {
   deviceId?: string;
@@ -22,6 +25,8 @@ export function DeviceDetailPage() {
 
   const { data: device, isLoading, isError, error } = useDeviceDetail(deviceId, 10_000);
   const { data: leaseRule } = useDeviceAddressLeaseRule(deviceId);
+  const { data: currentUser } = useCurrentUser();
+  const isAdmin = currentUser?.role === UserRole.ADMIN;
 
   if (!deviceIdParam || Number.isNaN(deviceId)) {
     return <Navigate to="/devices" replace />;
@@ -47,9 +52,23 @@ export function DeviceDetailPage() {
       </Stack>
     );
   } else if (device) {
+    const { Icon: DeviceIcon, color: deviceIconColor } = getDeviceIcon(device);
     headerContent = (
       <Stack gap={4}>
-        <Title order={2}>{device.name}</Title>
+        <Title order={2}>
+          <Group gap="xs" align="center">
+            <DeviceIcon
+              size={22}
+              style={{
+                color:
+                  deviceIconColor === "dimmed"
+                    ? "var(--mantine-color-dimmed)"
+                    : `var(--mantine-color-${deviceIconColor}-filled)`,
+              }}
+            />
+            {device.name}
+          </Group>
+        </Title>
         <Group gap="md">
           <Text size="sm" c={liveIPs > 0 ? "orange.4" : "dimmed"} fw={liveIPs > 0 ? 500 : undefined}>
             {liveIPs} Live {liveIPs === 1 ? "IP" : "IPs"}
@@ -63,6 +82,12 @@ export function DeviceDetailPage() {
             <Badge variant="light" color="green" size="sm">Auto-expiry: {formatExpiry(expirySeconds)}</Badge>
           ) : (
             <Text size="sm" c="dimmed">No auto-expiry</Text>
+          )}
+          {isAdmin && device.owner_name && (
+            <>
+              <Text size="sm" c="dimmed">·</Text>
+              <Text size="sm" c="dimmed">Owner: {device.owner_name}</Text>
+            </>
           )}
         </Group>
       </Stack>

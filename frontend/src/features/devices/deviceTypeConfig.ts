@@ -11,7 +11,7 @@ import {
   IconDeviceTv,
   IconDeviceWatch,
   IconDevices,
-  IconLaptop,
+  IconDeviceLaptop,
   IconRouter,
   IconServer,
 } from "@tabler/icons-react";
@@ -30,7 +30,7 @@ export const DEVICE_TYPE_CONFIG: Record<
 
 export const ICON_PICKER_OPTIONS: { name: string; icon: TablerIcon }[] = [
   { name: "IconDeviceMobile", icon: IconDeviceMobile },
-  { name: "IconLaptop", icon: IconLaptop },
+  { name: "IconDeviceLaptop", icon: IconDeviceLaptop },
   { name: "IconDeviceDesktop", icon: IconDeviceDesktop },
   { name: "IconServer", icon: IconServer },
   { name: "IconCpu", icon: IconCpu },

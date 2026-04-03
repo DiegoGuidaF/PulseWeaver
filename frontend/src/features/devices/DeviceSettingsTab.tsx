@@ -2,20 +2,31 @@ import { useEffect, useState } from "react";
 import { useForm, schemaResolver } from "@mantine/form";
 import { z } from "zod";
 import {
+  ActionIcon,
   Badge,
   Button,
   Card,
   Group,
   Modal,
   NativeSelect,
+  Popover,
+  SegmentedControl,
+  Select,
+  SimpleGrid,
   Skeleton,
   Stack,
   Text,
+  Textarea,
   TextInput,
   Title,
+  UnstyledButton,
 } from "@mantine/core";
+import { IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { toErrorMessage } from "@/lib/api-client";
+import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
+import { useListUsers } from "@/features/auth/hooks/useListUsers";
+import { UserRole } from "@/lib/api";
 import { useDeviceAddressLeaseRule } from "@/features/devices/hooks/useDeviceAddressLeaseRule";
 import { usePutDeviceAddressLeaseRule } from "@/features/devices/hooks/usePutDeviceAddressLeaseRule";
 import { useDisableDeviceAddressLeaseRule } from "@/features/devices/hooks/useDisableDeviceAddressLeaseRule";
@@ -23,6 +34,19 @@ import { useRegenerateApiKey } from "@/features/devices/hooks/useRegenerateApiKe
 import { useMaxActiveAddressesRule } from "@/features/devices/hooks/useMaxActiveAddressesRule";
 import { usePutMaxActiveAddressesRule } from "@/features/devices/hooks/usePutMaxActiveAddressesRule";
 import { useDisableMaxActiveAddressesRule } from "@/features/devices/hooks/useDisableMaxActiveAddressesRule";
+import { useDeviceTypes } from "@/features/devices/hooks/useDeviceTypes";
+import { useUpdateDevice } from "@/features/devices/hooks/useUpdateDevice";
+import {
+  DEVICE_TYPE_CONFIG,
+  ICON_PICKER_OPTIONS,
+  getDeviceIcon,
+} from "@/features/devices/deviceTypeConfig";
+import type { DeviceType } from "@/features/devices/deviceTypeConfig";
+import type { DeviceTypeItem } from "@/lib/api";
+
+// ---------------------------------------------------------------------------
+// TTL helpers (unchanged)
+// ---------------------------------------------------------------------------
 
 const TTL_UNITS = ["seconds", "minutes", "hours", "days"] as const;
 const SECONDS_PER_MINUTE = 60;
@@ -77,6 +101,408 @@ function formatTtlLabel(ttlSeconds: number): string {
   return ttlSeconds === 1 ? "1 second" : `${ttlSeconds} seconds`;
 }
 
+// ---------------------------------------------------------------------------
+// Device profile card
+// ---------------------------------------------------------------------------
+
+// Constraints mirror zUpdateDeviceRequest (generated from OpenAPI spec).
+// All form fields are strings; empty string is the null sentinel for nullable
+// fields (description, icon) — transformed on submit.
+const profileFormSchema = z.object({
+  name: z.string().min(1, "Name is required").max(50),
+  device_type: z.enum(["static", "mobile"]),
+  description: z.string().max(200),
+  icon: z.string().max(80),
+});
+
+type ProfileFormValues = z.infer<typeof profileFormSchema>;
+
+interface DeviceForProfile {
+  name: string;
+  device_type: DeviceType;
+  description?: string | null;
+  icon?: string | null;
+}
+
+function deviceToFormValues(d: DeviceForProfile): ProfileFormValues {
+  return {
+    name: d.name,
+    device_type: d.device_type,
+    description: d.description ?? "",
+    icon: d.icon ?? "",
+  };
+}
+
+interface IconPickerPopoverProps {
+  opened: boolean;
+  onClose: () => void;
+  target: React.ReactNode;
+  selectedIcon: string;
+  onSelect: (name: string) => void;
+}
+
+function IconPickerPopover({
+  opened,
+  onClose,
+  target,
+  selectedIcon,
+  onSelect,
+}: IconPickerPopoverProps) {
+  return (
+    <Popover
+      opened={opened}
+      onClose={onClose}
+      position="bottom-start"
+      withinPortal
+      shadow="md"
+    >
+      <Popover.Target>{target}</Popover.Target>
+      <Popover.Dropdown>
+        <SimpleGrid cols={5} spacing={4}>
+          {ICON_PICKER_OPTIONS.map(({ name, icon: Icon }) => (
+            <ActionIcon
+              key={name}
+              variant={selectedIcon === name ? "filled" : "subtle"}
+              size="lg"
+              aria-label={name}
+              onClick={() => {
+                onSelect(name);
+                onClose();
+              }}
+            >
+              <Icon size={18} />
+            </ActionIcon>
+          ))}
+        </SimpleGrid>
+      </Popover.Dropdown>
+    </Popover>
+  );
+}
+
+interface DeviceProfileCardProps {
+  deviceId: number;
+  device: DeviceForProfile;
+  deviceTypes: DeviceTypeItem[];
+}
+
+function DeviceProfileCard({
+  deviceId,
+  device,
+  deviceTypes,
+}: DeviceProfileCardProps) {
+  const updateDevice = useUpdateDevice(deviceId);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+
+  const form = useForm<ProfileFormValues>({
+    validate: schemaResolver(profileFormSchema),
+    initialValues: deviceToFormValues(device),
+  });
+
+  // Sync with latest server state, but never overwrite an in-progress edit.
+  useEffect(() => {
+    if (form.isDirty()) return;
+    form.setValues(deviceToFormValues(device));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [device]);
+
+  const segmentedData =
+    deviceTypes.length > 0
+      ? deviceTypes.map((t) => ({ value: t.value, label: t.label }))
+      : (Object.keys(DEVICE_TYPE_CONFIG) as DeviceType[]).map((v) => ({
+          value: v,
+          label: v.charAt(0).toUpperCase() + v.slice(1),
+        }));
+
+  const { Icon: CurrentIcon, color: currentColor } = getDeviceIcon({
+    device_type: form.values.device_type,
+    icon: form.values.icon || null,
+  });
+
+  const isDirty = form.isDirty();
+  const descLen = form.values.description.length;
+
+  function handleReset() {
+    const vals = deviceToFormValues(device);
+    form.setValues(vals);
+    form.resetDirty(vals);
+  }
+
+  function handleSubmit(values: ProfileFormValues) {
+    const body: Record<string, unknown> = {};
+    if (values.name !== device.name) body.name = values.name;
+    if (values.device_type !== device.device_type)
+      body.device_type = values.device_type;
+    const newDesc = values.description || null;
+    if (newDesc !== (device.description ?? null)) body.description = newDesc;
+    const newIcon = values.icon || null;
+    if (newIcon !== (device.icon ?? null)) body.icon = newIcon;
+
+    updateDevice.mutate(
+      { path: { device_id: deviceId }, body },
+      {
+        onSuccess: () => {
+          form.resetDirty(values);
+          notifications.show({ color: "green", message: "Device profile saved" });
+        },
+        onError: (err) => {
+          const status =
+            err && typeof err === "object" && "status" in err
+              ? (err as { status: unknown }).status
+              : undefined;
+          if (status === 409) {
+            form.setFieldError("name", "Name already in use");
+          } else {
+            notifications.show({ color: "red", message: toErrorMessage(err) });
+          }
+        },
+      },
+    );
+  }
+
+  return (
+    <Card withBorder>
+      <form onSubmit={form.onSubmit(handleSubmit)}>
+        <Stack gap="md">
+          <Group justify="space-between" align="center">
+            <Text fw={500}>
+              Device profile{" "}
+              {isDirty && (
+                <Text component="span" c="yellow.5" aria-label="unsaved changes">
+                  •
+                </Text>
+              )}
+            </Text>
+          </Group>
+
+          <TextInput
+            label="Name"
+            placeholder="My device"
+            {...form.getInputProps("name")}
+          />
+
+          <div>
+            <Text size="sm" fw={500} mb={4}>
+              Type
+            </Text>
+            <SegmentedControl
+              data={segmentedData}
+              value={form.values.device_type}
+              onChange={(val) =>
+                form.setFieldValue("device_type", val as DeviceType)
+              }
+            />
+          </div>
+
+          <div>
+            <Textarea
+              label="Description"
+              placeholder="e.g. Juan's work MacBook, Living room Proxmox node"
+              autosize
+              maxRows={4}
+              {...form.getInputProps("description")}
+            />
+            <Text size="xs" c="dimmed" ta="right" mt={2}>
+              {descLen}/200
+            </Text>
+          </div>
+
+          <div>
+            <Text size="sm" fw={500} mb={4}>
+              Icon
+            </Text>
+            <Group gap="sm" align="center">
+              <IconPickerPopover
+                opened={iconPickerOpen}
+                onClose={() => setIconPickerOpen(false)}
+                selectedIcon={form.values.icon}
+                onSelect={(name) => form.setFieldValue("icon", name)}
+                target={
+                  <UnstyledButton
+                    onClick={() => setIconPickerOpen((o) => !o)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "6px 10px",
+                      borderRadius: "var(--mantine-radius-sm)",
+                      border:
+                        "1px solid var(--mantine-color-default-border)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <CurrentIcon
+                      size={20}
+                      style={{
+                        color:
+                          currentColor === "dimmed"
+                            ? "var(--mantine-color-dimmed)"
+                            : `var(--mantine-color-${currentColor}-filled)`,
+                      }}
+                    />
+                    <Text size="sm" c={form.values.icon ? undefined : "dimmed"}>
+                      {form.values.icon || "Type default"}
+                    </Text>
+                  </UnstyledButton>
+                }
+              />
+              {form.values.icon && (
+                <ActionIcon
+                  variant="subtle"
+                  color="dimmed"
+                  size="sm"
+                  aria-label="Clear icon override"
+                  onClick={() => form.setFieldValue("icon", "")}
+                >
+                  <IconX size={14} />
+                </ActionIcon>
+              )}
+            </Group>
+          </div>
+
+          <Group justify="flex-end" gap="sm">
+            {isDirty && (
+              <Button
+                type="button"
+                variant="subtle"
+                size="sm"
+                onClick={handleReset}
+              >
+                Reset
+              </Button>
+            )}
+            <Button
+              type="submit"
+              size="sm"
+              disabled={!isDirty || updateDevice.isPending}
+              loading={updateDevice.isPending}
+            >
+              Save
+            </Button>
+          </Group>
+        </Stack>
+      </form>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Ownership card
+// ---------------------------------------------------------------------------
+
+interface DeviceOwnershipCardProps {
+  deviceId: number;
+  ownerId?: number;
+  ownerName?: string;
+}
+
+function DeviceOwnershipCard({
+  deviceId,
+  ownerId,
+  ownerName,
+}: DeviceOwnershipCardProps) {
+  const { data: currentUser } = useCurrentUser();
+  const isAdmin = currentUser?.role === UserRole.ADMIN;
+
+  const { data: users, isLoading: usersLoading } = useListUsers({
+    enabled: isAdmin,
+  });
+
+  const updateDevice = useUpdateDevice(deviceId);
+  const [selectedOwner, setSelectedOwner] = useState(
+    ownerId != null ? String(ownerId) : "",
+  );
+
+  const ownerDirty =
+    selectedOwner !== (ownerId != null ? String(ownerId) : "");
+
+  function handleOwnerSave() {
+    if (!selectedOwner) return;
+    updateDevice.mutate(
+      {
+        path: { device_id: deviceId },
+        body: { owner_id: Number(selectedOwner) },
+      },
+      {
+        onSuccess: () =>
+          notifications.show({
+            color: "green",
+            message: "Device ownership updated",
+          }),
+        onError: (err) => {
+          const status =
+            err && typeof err === "object" && "status" in err
+              ? (err as { status: unknown }).status
+              : undefined;
+          notifications.show({
+            color: "red",
+            message:
+              status === 403
+                ? "Admin permission required to reassign ownership"
+                : toErrorMessage(err),
+          });
+        },
+      },
+    );
+  }
+
+  const selectData =
+    users?.map((u) => ({ value: String(u.id), label: u.display_name })) ?? [];
+
+  return (
+    <Card withBorder>
+      <Stack gap="md">
+        <Text fw={500}>Ownership</Text>
+        {!isAdmin ? (
+          <Group gap="xs">
+            <Text size="sm" c="dimmed">
+              Owned by
+            </Text>
+            <Text size="sm">{ownerName ?? "—"}</Text>
+          </Group>
+        ) : usersLoading ? (
+          <Skeleton height={36} width={240} />
+        ) : (
+          <>
+            <Select
+              label="Owner"
+              data={selectData}
+              value={selectedOwner}
+              onChange={(val) => setSelectedOwner(val ?? "")}
+              searchable
+              w={300}
+            />
+            <Group gap="sm">
+              {ownerDirty && (
+                <Button
+                  variant="subtle"
+                  size="sm"
+                  onClick={() =>
+                    setSelectedOwner(ownerId != null ? String(ownerId) : "")
+                  }
+                >
+                  Reset
+                </Button>
+              )}
+              <Button
+                size="sm"
+                disabled={!ownerDirty || updateDevice.isPending}
+                loading={updateDevice.isPending}
+                onClick={handleOwnerSave}
+              >
+                Save
+              </Button>
+            </Group>
+          </>
+        )}
+      </Stack>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main tab
+// ---------------------------------------------------------------------------
+
 type LeaseRuleFormValues = { value: string; unit: TtlUnit };
 
 const leaseRuleFormSchema = z.object({
@@ -95,13 +521,23 @@ const maxAddressesFormSchema = z.object({
 
 interface DeviceSettingsTabProps {
   deviceId: number;
-  device?: { name: string; api_key_prefix: string };
+  device?: {
+    name: string;
+    api_key_prefix: string;
+    device_type: DeviceType;
+    description?: string | null;
+    icon?: string | null;
+    owner_id?: number;
+    owner_name?: string;
+  };
 }
 
 export function DeviceSettingsTab({
   deviceId,
   device,
 }: DeviceSettingsTabProps) {
+  const { data: deviceTypes } = useDeviceTypes();
+
   const {
     data: addressLeaseRule,
     isLoading: isAddressLeaseLoading,
@@ -253,7 +689,9 @@ export function DeviceSettingsTab({
   }
 
   const ttlLabel =
-    addressLeaseRule && addressLeaseRule.ttl_seconds ? formatTtlLabel(addressLeaseRule.ttl_seconds) : null;
+    addressLeaseRule && addressLeaseRule.ttl_seconds
+      ? formatTtlLabel(addressLeaseRule.ttl_seconds)
+      : null;
   const submitButtonLabel = putRuleMutation.isPending
     ? "Saving..."
     : isAddressLeaseOn
@@ -268,7 +706,44 @@ export function DeviceSettingsTab({
 
   return (
     <Stack gap="xl">
-      {/* Settings section */}
+      {/* Device profile */}
+      <Stack gap="sm">
+        <Title order={5}>Device profile</Title>
+        {device ? (
+          <DeviceProfileCard
+            deviceId={deviceId}
+            device={device}
+            deviceTypes={deviceTypes ?? []}
+          />
+        ) : (
+          <Card withBorder>
+            <Stack gap={8}>
+              <Skeleton height={36} />
+              <Skeleton height={36} />
+              <Skeleton height={60} />
+            </Stack>
+          </Card>
+        )}
+      </Stack>
+
+      {/* Ownership */}
+      <Stack gap="sm">
+        <Title order={5}>Ownership</Title>
+        {device ? (
+          <DeviceOwnershipCard
+            key={device.owner_id}
+            deviceId={deviceId}
+            ownerId={device.owner_id}
+            ownerName={device.owner_name}
+          />
+        ) : (
+          <Card withBorder>
+            <Skeleton height={20} width={180} />
+          </Card>
+        )}
+      </Stack>
+
+      {/* Settings */}
       <Stack gap="sm">
         <Title order={5}>Settings</Title>
         <Card withBorder>
@@ -297,7 +772,7 @@ export function DeviceSettingsTab({
         </Card>
       </Stack>
 
-      {/* Rules section */}
+      {/* Rules */}
       <Stack gap="sm">
         <Title order={5}>Rules</Title>
         <Card withBorder>
@@ -319,29 +794,35 @@ export function DeviceSettingsTab({
                 <Stack gap={4}>
                   <Group gap="sm">
                     <Text size="sm">Status:</Text>
-                    <Badge color="green" variant="light" size="sm">Enabled</Badge>
+                    <Badge color="green" variant="light" size="sm">
+                      Enabled
+                    </Badge>
                   </Group>
                   {ttlLabel && (
                     <Group gap="sm">
                       <Text size="sm">TTL:</Text>
-                      <Text size="sm" fw={600}>{ttlLabel}</Text>
+                      <Text size="sm" fw={600}>
+                        {ttlLabel}
+                      </Text>
                     </Group>
                   )}
                 </Stack>
               )}
-
               {!isAddressLeaseOn && (
                 <Group gap="sm">
                   <Text size="sm">Status:</Text>
-                  <Badge color="red" variant="light" size="sm">Disabled</Badge>
+                  <Badge color="red" variant="light" size="sm">
+                    Disabled
+                  </Badge>
                   <Text size="sm" c="dimmed">
                     Turn it on to automatically revoke stale addresses.
                   </Text>
                 </Group>
               )}
-
               {(!isAddressLeaseOn || addressLeaseEditing) && (
-                <form onSubmit={leaseRuleForm.onSubmit(handleAddressLeaseSubmit)}>
+                <form
+                  onSubmit={leaseRuleForm.onSubmit(handleAddressLeaseSubmit)}
+                >
                   <Group align="flex-end" gap="md" wrap="wrap">
                     <TextInput
                       label="Expires after"
@@ -376,7 +857,6 @@ export function DeviceSettingsTab({
                   </Group>
                 </form>
               )}
-
               {isAddressLeaseOn && !addressLeaseEditing && (
                 <Group gap="sm" wrap="wrap">
                   <Button
@@ -449,7 +929,6 @@ export function DeviceSettingsTab({
                   </Group>
                 </Stack>
               )}
-
               {!isMaxAddressesOn && (
                 <Group gap="sm">
                   <Text size="sm">Status:</Text>
@@ -461,12 +940,9 @@ export function DeviceSettingsTab({
                   </Text>
                 </Group>
               )}
-
               {(!isMaxAddressesOn || maxAddressesEditing) && (
                 <form
-                  onSubmit={maxAddressesForm.onSubmit(
-                    handleMaxAddressesSubmit,
-                  )}
+                  onSubmit={maxAddressesForm.onSubmit(handleMaxAddressesSubmit)}
                 >
                   <Group align="flex-end" gap="md" wrap="wrap">
                     <TextInput
@@ -496,7 +972,6 @@ export function DeviceSettingsTab({
                   </Group>
                 </form>
               )}
-
               {isMaxAddressesOn && !maxAddressesEditing && (
                 <Group gap="sm" wrap="wrap">
                   <Button

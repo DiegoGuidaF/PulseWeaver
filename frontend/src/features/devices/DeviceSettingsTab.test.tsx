@@ -9,7 +9,7 @@ import { endpoints, responses, ruleHandlers } from '@/test/mocks/handlers';
 import { server } from '@/test/setup';
 import { renderWithProviders } from '@/test/utils';
 
-const mockDevice = { name: 'My Router', api_key_prefix: 'rtr_' };
+const mockDevice = { name: 'My Router', api_key_prefix: 'rtr_', device_type: 'static' as const };
 
 function renderTab() {
     return renderWithProviders(<DeviceSettingsTab deviceId={1} />);
