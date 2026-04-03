@@ -104,6 +104,11 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	deviceService := device.NewService(deviceRepo, logger, conf.Server.TrustedProxy)
 	deviceHandler := device.NewHTTPHandler(deviceService, logger)
 
+	// Device provisioner
+	registrationRepo := registration.NewRepository(db.DB())
+	registrationService := registration.NewService(registrationRepo, logger)
+	registrationHandler := registration.NewHTTPHandler(registrationService, logger)
+
 	// GeoIP enrichment
 	geoipLookup, err := geoip.New(ctx, conf.GeoIP, logger)
 	if err != nil {
@@ -127,6 +132,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	accessLogSink := accesslog.NewSink(accessLogRepo, logger)
 	accessLogHandler := accesslog.NewHTTPHandler(accessLogRepo, logger)
 
+	// Queries - Manage complex crossdomain queries tailored for the frontend
 	queriesRepo := queries.NewRepository(db.DB())
 	queriesHandler := queries.NewHTTPHandler(queriesRepo, logger)
 
@@ -153,28 +159,28 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	dashboardRepo := dashboard.NewRepository(db.DB())
 	dashboardHandler := dashboard.NewHTTPHandler(dashboardRepo, logger)
 
+	// Runs scheduled jobs - Address leasing, traffic aggregates for the dashboard...
 	schedulerService, err := scheduler.NewService(addressLeaseService, deviceService, dashboardRepo, logger)
 	if err != nil {
 		return nil, fmt.Errorf("scheduler service init: %w", err)
 	}
 
+	// Fire the rules on start to ensure we disable no longer valid addresses before letting them through
 	err = schedulerService.ExecuteScheduledRules(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run scheduled rules on init: %w", err)
 	}
 
+	// Ensure there's at least 1 admin user
 	err = authService.BootstrapAdmin(ctx, conf.Server)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bootstrap admin: %w", err)
 	}
 
+	// Initialize the authorization hotpath by loading the enabled addresses in-memory
 	if err := policyService.Initialize(ctx); err != nil {
 		logger.Warn("failed to initialize policy IP cache on startup", slog.Any("error", err))
 	}
-
-	registrationRepo := registration.NewRepository(db.DB())
-	registrationService := registration.NewService(registrationRepo, logger)
-	registrationHandler := registration.NewHTTPHandler(registrationService, logger)
 
 	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, accessLogHandler, dashboardHandler, registrationHandler, logger, conf.Server.TrustedProxy)
 

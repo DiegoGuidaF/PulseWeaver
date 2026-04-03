@@ -249,6 +249,52 @@ export const zMaxActiveAddressesRule = z.object({
     updated_at: z.iso.datetime({ offset: true, local: true })
 });
 
+export const zCreateRegistrationRequest = z.object({
+    device_name: z.string().min(1).max(100),
+    heartbeat_server_url: z.url(),
+    interval_seconds: z.int().gte(60),
+    biometric_enabled: z.boolean().optional().default(false),
+    biometric_user_can_toggle: z.boolean().optional().default(true),
+    expires_in_hours: z.union([
+        z.literal(1),
+        z.literal(24),
+        z.literal(48),
+        z.literal(168)
+    ])
+});
+
+export const zPendingRegistration = z.object({
+    id: z.string(),
+    device_name: z.string(),
+    registration_code: z.string().nullish(),
+    device_api_key_prefix: z.string(),
+    heartbeat_server_url: z.string(),
+    interval_seconds: z.int(),
+    biometric_enabled: z.boolean(),
+    biometric_user_can_toggle: z.boolean(),
+    expires_at: z.iso.datetime({ offset: true, local: true }),
+    created_at: z.iso.datetime({ offset: true, local: true }),
+    used_at: z.iso.datetime({ offset: true, local: true }).nullish(),
+    created_device_id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).nullish(),
+    status: z.enum([
+        'pending',
+        'used',
+        'expired'
+    ])
+});
+
+export const zClaimRegistrationRequest = z.object({
+    code: z.string()
+});
+
+export const zClaimRegistrationResponse = z.object({
+    server_url: z.string(),
+    interval_seconds: z.int(),
+    biometric_enabled: z.boolean(),
+    biometric_user_can_toggle: z.boolean(),
+    api_key: z.string()
+});
+
 export const zUserWritable = z.object({
     id: zId,
     username: zUsername,
@@ -533,7 +579,8 @@ export const zGetAddressHistoryData = z.object({
         source: z.enum([
             'heartbeat',
             'manual',
-            'expiry'
+            'expiry',
+            'limit_exceeded'
         ]).optional(),
         is_enabled: z.boolean().optional(),
         ip: z.string().optional(),
@@ -769,3 +816,64 @@ export const zGetDashboardTopDeniedIpsData = z.object({
  * Top denied IPs
  */
 export const zGetDashboardTopDeniedIpsResponse = zDashboardTopDeniedIpsResponse;
+
+export const zClaimRegistrationData = z.object({
+    body: zClaimRegistrationRequest,
+    path: z.never().optional(),
+    query: z.never().optional()
+});
+
+/**
+ * Registration successful — device created and config returned
+ */
+export const zClaimRegistrationResponse2 = zClaimRegistrationResponse;
+
+export const zListRegistrationsData = z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: z.object({
+        status: z.enum(['pending', 'all']).optional()
+    }).optional()
+});
+
+/**
+ * List of registrations
+ */
+export const zListRegistrationsResponse = z.array(zPendingRegistration);
+
+export const zCreateRegistrationData = z.object({
+    body: zCreateRegistrationRequest,
+    path: z.never().optional(),
+    query: z.never().optional()
+});
+
+/**
+ * Registration invite created — includes registration_code
+ */
+export const zCreateRegistrationResponse = zPendingRegistration;
+
+export const zDeleteRegistrationData = z.object({
+    body: z.never().optional(),
+    path: z.object({
+        registration_id: z.string()
+    }),
+    query: z.never().optional()
+});
+
+/**
+ * Invite deleted
+ */
+export const zDeleteRegistrationResponse = z.void();
+
+export const zGetRegistrationData = z.object({
+    body: z.never().optional(),
+    path: z.object({
+        registration_id: z.string()
+    }),
+    query: z.never().optional()
+});
+
+/**
+ * Registration invite
+ */
+export const zGetRegistrationResponse = zPendingRegistration;

@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addAddress, changePassword, createDevice, createUser, deleteDevice, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, disableMaxActiveAddressesRule, getAccessLog, getAccessLogByCountry, getAccessLogDenyReasons, getAddressHistory, getCurrentUser, getDashboardServices, getDashboardStats, getDashboardTopDeniedIps, getDashboardTraffic, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, getDevicesByUser, getMaxActiveAddressesRule, listDeviceTypes, listUsers, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, putMaxActiveAddressesRule, regenerateDeviceApiKey, updateDevice, updateMe } from '../sdk.gen';
-import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, DisableMaxActiveAddressesRuleData, DisableMaxActiveAddressesRuleError, DisableMaxActiveAddressesRuleResponse, GetAccessLogByCountryData, GetAccessLogByCountryError, GetAccessLogByCountryResponse, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsError, GetAccessLogDenyReasonsResponse, GetAccessLogError, GetAccessLogResponse, GetAddressHistoryData, GetAddressHistoryError, GetAddressHistoryResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDashboardServicesData, GetDashboardServicesError, GetDashboardServicesResponse, GetDashboardStatsData, GetDashboardStatsError, GetDashboardStatsResponse, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsError, GetDashboardTopDeniedIpsResponse, GetDashboardTrafficData, GetDashboardTrafficError, GetDashboardTrafficResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesByUserData, GetDevicesByUserError, GetDevicesByUserResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, GetMaxActiveAddressesRuleData, GetMaxActiveAddressesRuleError, GetMaxActiveAddressesRuleResponse, ListDeviceTypesData, ListDeviceTypesResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, PutMaxActiveAddressesRuleData, PutMaxActiveAddressesRuleError, PutMaxActiveAddressesRuleResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, UpdateDeviceData, UpdateDeviceError, UpdateDeviceResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
+import { addAddress, changePassword, claimRegistration, createDevice, createRegistration, createUser, deleteDevice, deleteRegistration, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, disableMaxActiveAddressesRule, getAccessLog, getAccessLogByCountry, getAccessLogDenyReasons, getAddressHistory, getCurrentUser, getDashboardServices, getDashboardStats, getDashboardTopDeniedIps, getDashboardTraffic, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, getDevicesByUser, getMaxActiveAddressesRule, getRegistration, listDeviceTypes, listRegistrations, listUsers, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, putMaxActiveAddressesRule, regenerateDeviceApiKey, updateDevice, updateMe } from '../sdk.gen';
+import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, ClaimRegistrationData, ClaimRegistrationError, ClaimRegistrationResponse2, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateRegistrationData, CreateRegistrationError, CreateRegistrationResponse, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteRegistrationData, DeleteRegistrationError, DeleteRegistrationResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, DisableMaxActiveAddressesRuleData, DisableMaxActiveAddressesRuleError, DisableMaxActiveAddressesRuleResponse, GetAccessLogByCountryData, GetAccessLogByCountryError, GetAccessLogByCountryResponse, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsError, GetAccessLogDenyReasonsResponse, GetAccessLogError, GetAccessLogResponse, GetAddressHistoryData, GetAddressHistoryError, GetAddressHistoryResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDashboardServicesData, GetDashboardServicesError, GetDashboardServicesResponse, GetDashboardStatsData, GetDashboardStatsError, GetDashboardStatsResponse, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsError, GetDashboardTopDeniedIpsResponse, GetDashboardTrafficData, GetDashboardTrafficError, GetDashboardTrafficResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesByUserData, GetDevicesByUserError, GetDevicesByUserResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, GetMaxActiveAddressesRuleData, GetMaxActiveAddressesRuleError, GetMaxActiveAddressesRuleResponse, GetRegistrationData, GetRegistrationError, GetRegistrationResponse, ListDeviceTypesData, ListDeviceTypesResponse, ListRegistrationsData, ListRegistrationsError, ListRegistrationsResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, PutMaxActiveAddressesRuleData, PutMaxActiveAddressesRuleError, PutMaxActiveAddressesRuleResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, UpdateDeviceData, UpdateDeviceError, UpdateDeviceResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -763,4 +763,105 @@ export const getDashboardTopDeniedIpsOptions = (options?: Options<GetDashboardTo
         return data;
     },
     queryKey: getDashboardTopDeniedIpsQueryKey(options)
+});
+
+/**
+ * Claim a registration code
+ *
+ * Public endpoint — no auth required. The registration code is the credential.
+ * Validates and claims a pending registration, creates the device, and returns
+ * the full configuration payload including the device API key (one-time only).
+ *
+ */
+export const claimRegistrationMutation = (options?: Partial<Options<ClaimRegistrationData>>): UseMutationOptions<ClaimRegistrationResponse2, ClaimRegistrationError, Options<ClaimRegistrationData>> => {
+    const mutationOptions: UseMutationOptions<ClaimRegistrationResponse2, ClaimRegistrationError, Options<ClaimRegistrationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await claimRegistration({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listRegistrationsQueryKey = (options?: Options<ListRegistrationsData>) => createQueryKey('listRegistrations', options);
+
+/**
+ * List pending registrations (Admin only)
+ *
+ * Returns registration invites. By default returns only pending (unclaimed,
+ * non-expired) invites. Pass `?status=all` to include used and expired.
+ * Never returns device_api_key.
+ *
+ */
+export const listRegistrationsOptions = (options?: Options<ListRegistrationsData>) => queryOptions<ListRegistrationsResponse, ListRegistrationsError, ListRegistrationsResponse, ReturnType<typeof listRegistrationsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listRegistrations({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listRegistrationsQueryKey(options)
+});
+
+/**
+ * Create a registration invite (Admin only)
+ */
+export const createRegistrationMutation = (options?: Partial<Options<CreateRegistrationData>>): UseMutationOptions<CreateRegistrationResponse, CreateRegistrationError, Options<CreateRegistrationData>> => {
+    const mutationOptions: UseMutationOptions<CreateRegistrationResponse, CreateRegistrationError, Options<CreateRegistrationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createRegistration({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Invalidate and delete an unclaimed invite (Admin only)
+ *
+ * Hard-deletes an unclaimed registration invite. Returns 404 if already used or not found.
+ */
+export const deleteRegistrationMutation = (options?: Partial<Options<DeleteRegistrationData>>): UseMutationOptions<DeleteRegistrationResponse, DeleteRegistrationError, Options<DeleteRegistrationData>> => {
+    const mutationOptions: UseMutationOptions<DeleteRegistrationResponse, DeleteRegistrationError, Options<DeleteRegistrationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteRegistration({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getRegistrationQueryKey = (options: Options<GetRegistrationData>) => createQueryKey('getRegistration', options);
+
+/**
+ * Get a single registration invite (Admin only)
+ *
+ * Returns the invite including registration_code if not yet claimed.
+ */
+export const getRegistrationOptions = (options: Options<GetRegistrationData>) => queryOptions<GetRegistrationResponse, GetRegistrationError, GetRegistrationResponse, ReturnType<typeof getRegistrationQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getRegistration({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getRegistrationQueryKey(options)
 });

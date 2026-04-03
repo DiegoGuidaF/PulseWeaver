@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -24,19 +25,19 @@ func NewRepository(db *sqlx.DB) *Repository {
 
 // pendingRegistrationRow is the raw DB row for a pending_registrations record.
 type pendingRegistrationRow struct {
-	ID                      string         `db:"id"`
-	DeviceName              string         `db:"device_name"`
-	RegistrationCode        sql.NullString `db:"registration_code"`
-	DeviceAPIKey            sql.NullString `db:"device_api_key"`
-	DeviceAPIKeyPrefix      string         `db:"device_api_key_prefix"`
-	HeartbeatServerURL      string         `db:"heartbeat_server_url"`
-	HeartbeatIntervalSecs   int            `db:"heartbeat_interval_seconds"`
-	BiometricEnabled        bool           `db:"biometric_enabled"`
-	BiometricUserCanToggle  bool           `db:"biometric_user_can_toggle"`
-	ExpiresAt               time.Time      `db:"expires_at"`
-	CreatedAt               time.Time      `db:"created_at"`
-	UsedAt                  sql.NullTime   `db:"used_at"`
-	CreatedDeviceID         sql.NullInt64  `db:"created_device_id"`
+	ID                     string         `db:"id"`
+	DeviceName             string         `db:"device_name"`
+	RegistrationCode       sql.NullString `db:"registration_code"`
+	DeviceAPIKey           sql.NullString `db:"device_api_key"`
+	DeviceAPIKeyPrefix     string         `db:"device_api_key_prefix"`
+	HeartbeatServerURL     string         `db:"heartbeat_server_url"`
+	HeartbeatIntervalSecs  int            `db:"heartbeat_interval_seconds"`
+	BiometricEnabled       bool           `db:"biometric_enabled"`
+	BiometricUserCanToggle bool           `db:"biometric_user_can_toggle"`
+	ExpiresAt              time.Time      `db:"expires_at"`
+	CreatedAt              time.Time      `db:"created_at"`
+	UsedAt                 sql.NullTime   `db:"used_at"`
+	CreatedDeviceID        sql.NullInt64  `db:"created_device_id"`
 }
 
 func rowToDomain(r pendingRegistrationRow) *PendingRegistration {
@@ -81,17 +82,17 @@ func (r *Repository) CreateInvite(ctx context.Context, p *PendingRegistration) e
 			:expires_at, :created_at
 		)`
 	_, err := r.db.NamedExecContext(ctx, query, map[string]any{
-		"id":                          p.ID,
-		"device_name":                 p.DeviceName,
-		"registration_code":           p.RegistrationCode,
-		"device_api_key":              p.DeviceAPIKey,
-		"device_api_key_prefix":       p.DeviceAPIKeyPrefix,
-		"heartbeat_server_url":        p.HeartbeatServerURL,
-		"heartbeat_interval_seconds":  p.IntervalSeconds,
-		"biometric_enabled":           p.BiometricEnabled,
-		"biometric_user_can_toggle":   p.BiometricUserCanToggle,
-		"expires_at":                  p.ExpiresAt,
-		"created_at":                  p.CreatedAt,
+		"id":                         p.ID,
+		"device_name":                p.DeviceName,
+		"registration_code":          p.RegistrationCode,
+		"device_api_key":             p.DeviceAPIKey,
+		"device_api_key_prefix":      p.DeviceAPIKeyPrefix,
+		"heartbeat_server_url":       p.HeartbeatServerURL,
+		"heartbeat_interval_seconds": p.IntervalSeconds,
+		"biometric_enabled":          p.BiometricEnabled,
+		"biometric_user_can_toggle":  p.BiometricUserCanToggle,
+		"expires_at":                 p.ExpiresAt,
+		"created_at":                 p.CreatedAt,
 	})
 	if err != nil {
 		return fmt.Errorf("create invite: %w", err)
@@ -180,7 +181,7 @@ func (r *Repository) ClaimInvite(ctx context.Context, code string) (*ClaimResult
 	}
 	defer func() {
 		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
-			logger.ErrorContext(ctx, "claim invite rollback failed", "error", err)
+			logger.ErrorContext(ctx, "claim invite rollback failed", slog.Any(logging.AttrKeyError, err))
 		}
 	}()
 

@@ -10,29 +10,19 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
-// service is the interface the HTTPHandler requires from the business layer.
-type service interface {
-	CreateInvite(ctx context.Context, req CreateInviteRequest) (*PendingRegistration, error)
-	GetInvite(ctx context.Context, id string) (*PendingRegistration, error)
-	ListInvites(ctx context.Context, filter InviteFilter) ([]*PendingRegistration, error)
-	ClaimInvite(ctx context.Context, code string) (*ClaimResult, error)
-	InvalidateInvite(ctx context.Context, id string) error
-}
-
 // HTTPHandler implements the registration subset of httpapi.StrictServerInterface.
 type HTTPHandler struct {
-	service service
+	service *Service
 	logger  *slog.Logger
 }
 
-func NewHTTPHandler(svc service, logger *slog.Logger) *HTTPHandler {
+func NewHTTPHandler(svc *Service, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{
 		service: svc,
 		logger:  logger.With(slog.String(logging.AttrKeyComponent, "registration")),
 	}
 }
 
-// ClaimRegistration handles POST /register (public — no auth required).
 func (h *HTTPHandler) ClaimRegistration(ctx context.Context, request httpapi.ClaimRegistrationRequestObject) (httpapi.ClaimRegistrationResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "ClaimRegistration")
 	logger := h.logger
@@ -56,7 +46,6 @@ func (h *HTTPHandler) ClaimRegistration(ctx context.Context, request httpapi.Cla
 	}), nil
 }
 
-// CreateRegistration handles POST /admin/registrations.
 func (h *HTTPHandler) CreateRegistration(ctx context.Context, request httpapi.CreateRegistrationRequestObject) (httpapi.CreateRegistrationResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "CreateRegistration")
 	logger := h.logger
@@ -95,7 +84,6 @@ func (h *HTTPHandler) CreateRegistration(ctx context.Context, request httpapi.Cr
 	return httpapi.CreateRegistration201JSONResponse(toAPIRegistration(invite)), nil
 }
 
-// ListRegistrations handles GET /admin/registrations.
 func (h *HTTPHandler) ListRegistrations(ctx context.Context, request httpapi.ListRegistrationsRequestObject) (httpapi.ListRegistrationsResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "ListRegistrations")
 	logger := h.logger
@@ -126,7 +114,6 @@ func (h *HTTPHandler) ListRegistrations(ctx context.Context, request httpapi.Lis
 	return resp, nil
 }
 
-// GetRegistration handles GET /admin/registrations/{registration_id}.
 func (h *HTTPHandler) GetRegistration(ctx context.Context, request httpapi.GetRegistrationRequestObject) (httpapi.GetRegistrationResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetRegistration")
 	logger := h.logger
@@ -151,7 +138,6 @@ func (h *HTTPHandler) GetRegistration(ctx context.Context, request httpapi.GetRe
 	return httpapi.GetRegistration200JSONResponse(toAPIRegistration(invite)), nil
 }
 
-// DeleteRegistration handles DELETE /admin/registrations/{registration_id}.
 func (h *HTTPHandler) DeleteRegistration(ctx context.Context, request httpapi.DeleteRegistrationRequestObject) (httpapi.DeleteRegistrationResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "DeleteRegistration")
 	logger := h.logger
@@ -180,7 +166,6 @@ func (h *HTTPHandler) DeleteRegistration(ctx context.Context, request httpapi.De
 }
 
 // toAPIRegistration converts a domain PendingRegistration to the httpapi type.
-// Note: DeviceAPIKey is intentionally never included in any response.
 func toAPIRegistration(p *PendingRegistration) httpapi.PendingRegistration {
 	reg := httpapi.PendingRegistration{
 		Id:                     p.ID,

@@ -2,8 +2,8 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddAddressData, AddAddressErrors, AddAddressResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, CreateDeviceData, CreateDeviceErrors, CreateDeviceResponses, CreateUserData, CreateUserErrors, CreateUserResponses, DeleteDeviceData, DeleteDeviceErrors, DeleteDeviceResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DemoteUserData, DemoteUserErrors, DemoteUserResponses, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyErrors, DeviceHeartbeatByApiKeyResponses, DeviceHeartbeatData, DeviceHeartbeatErrors, DeviceHeartbeatResponses, DisableAddressData, DisableAddressErrors, DisableAddressResponses, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleErrors, DisableDeviceAddressLeaseRuleResponses, DisableMaxActiveAddressesRuleData, DisableMaxActiveAddressesRuleErrors, DisableMaxActiveAddressesRuleResponses, GetAccessLogByCountryData, GetAccessLogByCountryErrors, GetAccessLogByCountryResponses, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsErrors, GetAccessLogDenyReasonsResponses, GetAccessLogErrors, GetAccessLogResponses, GetAddressHistoryData, GetAddressHistoryErrors, GetAddressHistoryResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetDashboardServicesData, GetDashboardServicesErrors, GetDashboardServicesResponses, GetDashboardStatsData, GetDashboardStatsErrors, GetDashboardStatsResponses, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsErrors, GetDashboardTopDeniedIpsResponses, GetDashboardTrafficData, GetDashboardTrafficErrors, GetDashboardTrafficResponses, GetDeviceAddressesData, GetDeviceAddressesErrors, GetDeviceAddressesResponses, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleErrors, GetDeviceAddressLeaseRuleResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetDevicesByUserData, GetDevicesByUserErrors, GetDevicesByUserResponses, GetDevicesData, GetDevicesErrors, GetDevicesResponses, GetMaxActiveAddressesRuleData, GetMaxActiveAddressesRuleErrors, GetMaxActiveAddressesRuleResponses, ListDeviceTypesData, ListDeviceTypesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, PromoteUserData, PromoteUserErrors, PromoteUserResponses, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleErrors, PutDeviceAddressLeaseRuleResponses, PutMaxActiveAddressesRuleData, PutMaxActiveAddressesRuleErrors, PutMaxActiveAddressesRuleResponses, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyErrors, RegenerateDeviceApiKeyResponses, UpdateDeviceData, UpdateDeviceErrors, UpdateDeviceResponses, UpdateMeData, UpdateMeErrors, UpdateMeResponses } from './types.gen';
-import { zAddAddressData, zAddAddressResponse, zChangePasswordData, zChangePasswordResponse, zCreateDeviceData, zCreateDeviceResponse2, zCreateUserData, zCreateUserResponse, zDeleteDeviceData, zDeleteDeviceResponse, zDeleteUserData, zDeleteUserResponse, zDemoteUserData, zDemoteUserResponse, zDeviceHeartbeatByApiKeyData, zDeviceHeartbeatByApiKeyResponse, zDeviceHeartbeatData, zDeviceHeartbeatResponse, zDisableAddressData, zDisableAddressResponse, zDisableDeviceAddressLeaseRuleData, zDisableDeviceAddressLeaseRuleResponse, zDisableMaxActiveAddressesRuleData, zDisableMaxActiveAddressesRuleResponse, zGetAccessLogByCountryData, zGetAccessLogByCountryResponse, zGetAccessLogData, zGetAccessLogDenyReasonsData, zGetAccessLogDenyReasonsResponse, zGetAccessLogResponse, zGetAddressHistoryData, zGetAddressHistoryResponse, zGetCurrentUserData, zGetCurrentUserResponse, zGetDashboardServicesData, zGetDashboardServicesResponse, zGetDashboardStatsData, zGetDashboardStatsResponse, zGetDashboardTopDeniedIpsData, zGetDashboardTopDeniedIpsResponse, zGetDashboardTrafficData, zGetDashboardTrafficResponse, zGetDeviceAddressesData, zGetDeviceAddressesResponse, zGetDeviceAddressLeaseRuleData, zGetDeviceAddressLeaseRuleResponse, zGetDeviceData, zGetDeviceResponse, zGetDevicesByUserData, zGetDevicesByUserResponse, zGetDevicesData, zGetDevicesResponse, zGetMaxActiveAddressesRuleData, zGetMaxActiveAddressesRuleResponse, zListDeviceTypesData, zListDeviceTypesResponse, zListUsersData, zListUsersResponse, zLoginData, zLoginResponse, zLogoutData, zLogoutResponse, zPromoteUserData, zPromoteUserResponse, zPutDeviceAddressLeaseRuleData, zPutDeviceAddressLeaseRuleResponse, zPutMaxActiveAddressesRuleData, zPutMaxActiveAddressesRuleResponse, zRegenerateDeviceApiKeyData, zRegenerateDeviceApiKeyResponse, zUpdateDeviceData, zUpdateDeviceResponse, zUpdateMeData, zUpdateMeResponse } from './zod.gen';
+import type { AddAddressData, AddAddressErrors, AddAddressResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, ClaimRegistrationData, ClaimRegistrationErrors, ClaimRegistrationResponses, CreateDeviceData, CreateDeviceErrors, CreateDeviceResponses, CreateRegistrationData, CreateRegistrationErrors, CreateRegistrationResponses, CreateUserData, CreateUserErrors, CreateUserResponses, DeleteDeviceData, DeleteDeviceErrors, DeleteDeviceResponses, DeleteRegistrationData, DeleteRegistrationErrors, DeleteRegistrationResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DemoteUserData, DemoteUserErrors, DemoteUserResponses, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyErrors, DeviceHeartbeatByApiKeyResponses, DeviceHeartbeatData, DeviceHeartbeatErrors, DeviceHeartbeatResponses, DisableAddressData, DisableAddressErrors, DisableAddressResponses, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleErrors, DisableDeviceAddressLeaseRuleResponses, DisableMaxActiveAddressesRuleData, DisableMaxActiveAddressesRuleErrors, DisableMaxActiveAddressesRuleResponses, GetAccessLogByCountryData, GetAccessLogByCountryErrors, GetAccessLogByCountryResponses, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsErrors, GetAccessLogDenyReasonsResponses, GetAccessLogErrors, GetAccessLogResponses, GetAddressHistoryData, GetAddressHistoryErrors, GetAddressHistoryResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetDashboardServicesData, GetDashboardServicesErrors, GetDashboardServicesResponses, GetDashboardStatsData, GetDashboardStatsErrors, GetDashboardStatsResponses, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsErrors, GetDashboardTopDeniedIpsResponses, GetDashboardTrafficData, GetDashboardTrafficErrors, GetDashboardTrafficResponses, GetDeviceAddressesData, GetDeviceAddressesErrors, GetDeviceAddressesResponses, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleErrors, GetDeviceAddressLeaseRuleResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetDevicesByUserData, GetDevicesByUserErrors, GetDevicesByUserResponses, GetDevicesData, GetDevicesErrors, GetDevicesResponses, GetMaxActiveAddressesRuleData, GetMaxActiveAddressesRuleErrors, GetMaxActiveAddressesRuleResponses, GetRegistrationData, GetRegistrationErrors, GetRegistrationResponses, ListDeviceTypesData, ListDeviceTypesResponses, ListRegistrationsData, ListRegistrationsErrors, ListRegistrationsResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, PromoteUserData, PromoteUserErrors, PromoteUserResponses, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleErrors, PutDeviceAddressLeaseRuleResponses, PutMaxActiveAddressesRuleData, PutMaxActiveAddressesRuleErrors, PutMaxActiveAddressesRuleResponses, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyErrors, RegenerateDeviceApiKeyResponses, UpdateDeviceData, UpdateDeviceErrors, UpdateDeviceResponses, UpdateMeData, UpdateMeErrors, UpdateMeResponses } from './types.gen';
+import { zAddAddressData, zAddAddressResponse, zChangePasswordData, zChangePasswordResponse, zClaimRegistrationData, zClaimRegistrationResponse2, zCreateDeviceData, zCreateDeviceResponse2, zCreateRegistrationData, zCreateRegistrationResponse, zCreateUserData, zCreateUserResponse, zDeleteDeviceData, zDeleteDeviceResponse, zDeleteRegistrationData, zDeleteRegistrationResponse, zDeleteUserData, zDeleteUserResponse, zDemoteUserData, zDemoteUserResponse, zDeviceHeartbeatByApiKeyData, zDeviceHeartbeatByApiKeyResponse, zDeviceHeartbeatData, zDeviceHeartbeatResponse, zDisableAddressData, zDisableAddressResponse, zDisableDeviceAddressLeaseRuleData, zDisableDeviceAddressLeaseRuleResponse, zDisableMaxActiveAddressesRuleData, zDisableMaxActiveAddressesRuleResponse, zGetAccessLogByCountryData, zGetAccessLogByCountryResponse, zGetAccessLogData, zGetAccessLogDenyReasonsData, zGetAccessLogDenyReasonsResponse, zGetAccessLogResponse, zGetAddressHistoryData, zGetAddressHistoryResponse, zGetCurrentUserData, zGetCurrentUserResponse, zGetDashboardServicesData, zGetDashboardServicesResponse, zGetDashboardStatsData, zGetDashboardStatsResponse, zGetDashboardTopDeniedIpsData, zGetDashboardTopDeniedIpsResponse, zGetDashboardTrafficData, zGetDashboardTrafficResponse, zGetDeviceAddressesData, zGetDeviceAddressesResponse, zGetDeviceAddressLeaseRuleData, zGetDeviceAddressLeaseRuleResponse, zGetDeviceData, zGetDeviceResponse, zGetDevicesByUserData, zGetDevicesByUserResponse, zGetDevicesData, zGetDevicesResponse, zGetMaxActiveAddressesRuleData, zGetMaxActiveAddressesRuleResponse, zGetRegistrationData, zGetRegistrationResponse, zListDeviceTypesData, zListDeviceTypesResponse, zListRegistrationsData, zListRegistrationsResponse, zListUsersData, zListUsersResponse, zLoginData, zLoginResponse, zLogoutData, zLogoutResponse, zPromoteUserData, zPromoteUserResponse, zPutDeviceAddressLeaseRuleData, zPutDeviceAddressLeaseRuleResponse, zPutMaxActiveAddressesRuleData, zPutMaxActiveAddressesRuleResponse, zRegenerateDeviceApiKeyData, zRegenerateDeviceApiKeyResponse, zUpdateDeviceData, zUpdateDeviceResponse, zUpdateMeData, zUpdateMeResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -682,5 +682,97 @@ export const getDashboardTopDeniedIps = <ThrowOnError extends boolean = false>(o
             type: 'apiKey'
         }],
     url: '/dashboard/top-denied-ips',
+    ...options
+});
+
+/**
+ * Claim a registration code
+ *
+ * Public endpoint — no auth required. The registration code is the credential.
+ * Validates and claims a pending registration, creates the device, and returns
+ * the full configuration payload including the device API key (one-time only).
+ *
+ */
+export const claimRegistration = <ThrowOnError extends boolean = false>(options: Options<ClaimRegistrationData, ThrowOnError>) => (options.client ?? client).post<ClaimRegistrationResponses, ClaimRegistrationErrors, ThrowOnError>({
+    requestValidator: async (data) => await zClaimRegistrationData.parseAsync(data),
+    responseValidator: async (data) => await zClaimRegistrationResponse2.parseAsync(data),
+    url: '/register',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List pending registrations (Admin only)
+ *
+ * Returns registration invites. By default returns only pending (unclaimed,
+ * non-expired) invites. Pass `?status=all` to include used and expired.
+ * Never returns device_api_key.
+ *
+ */
+export const listRegistrations = <ThrowOnError extends boolean = false>(options?: Options<ListRegistrationsData, ThrowOnError>) => (options?.client ?? client).get<ListRegistrationsResponses, ListRegistrationsErrors, ThrowOnError>({
+    requestValidator: async (data) => await zListRegistrationsData.parseAsync(data),
+    responseValidator: async (data) => await zListRegistrationsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/registrations',
+    ...options
+});
+
+/**
+ * Create a registration invite (Admin only)
+ */
+export const createRegistration = <ThrowOnError extends boolean = false>(options: Options<CreateRegistrationData, ThrowOnError>) => (options.client ?? client).post<CreateRegistrationResponses, CreateRegistrationErrors, ThrowOnError>({
+    requestValidator: async (data) => await zCreateRegistrationData.parseAsync(data),
+    responseValidator: async (data) => await zCreateRegistrationResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/registrations',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Invalidate and delete an unclaimed invite (Admin only)
+ *
+ * Hard-deletes an unclaimed registration invite. Returns 404 if already used or not found.
+ */
+export const deleteRegistration = <ThrowOnError extends boolean = false>(options: Options<DeleteRegistrationData, ThrowOnError>) => (options.client ?? client).delete<DeleteRegistrationResponses, DeleteRegistrationErrors, ThrowOnError>({
+    requestValidator: async (data) => await zDeleteRegistrationData.parseAsync(data),
+    responseValidator: async (data) => await zDeleteRegistrationResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/registrations/{registration_id}',
+    ...options
+});
+
+/**
+ * Get a single registration invite (Admin only)
+ *
+ * Returns the invite including registration_code if not yet claimed.
+ */
+export const getRegistration = <ThrowOnError extends boolean = false>(options: Options<GetRegistrationData, ThrowOnError>) => (options.client ?? client).get<GetRegistrationResponses, GetRegistrationErrors, ThrowOnError>({
+    requestValidator: async (data) => await zGetRegistrationData.parseAsync(data),
+    responseValidator: async (data) => await zGetRegistrationResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/registrations/{registration_id}',
     ...options
 });

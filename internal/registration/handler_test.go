@@ -9,8 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/registration"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
@@ -49,10 +49,9 @@ func TestHandler_CreateRegistration_AdminCreatesInvite(t *testing.T) {
 	is.True(resp.RegistrationCode != nil && *resp.RegistrationCode != "")
 	is.Equal(resp.Status, httpapi.PendingRegistrationStatusPending)
 	// device_api_key must never be in the response
-	raw := w.Body.String()
 	// Re-read since Decode consumed it
 	b, _ := json.Marshal(resp)
-	raw = string(b)
+	raw := string(b)
 	is.True(!containsKey(raw, "device_api_key"))
 }
 
@@ -254,8 +253,8 @@ func TestHandler_ClaimRegistration_CreatedDeviceHasCorrectAPIKeyPrefix(t *testin
 	is.NoErr(json.NewDecoder(w2.Body).Decode(&result))
 
 	// The returned API key should start with the expected prefix
-	is.True(len(result.ApiKey) > len(registration.APIKeyPrefixForTest))
-	is.Equal(result.ApiKey[:len(registration.APIKeyPrefixForTest)], registration.APIKeyPrefixForTest)
+	is.True(len(result.ApiKey) > len(device.APIKeyPrefix))
+	is.Equal(result.ApiKey[:len(device.APIKeyPrefix)], device.APIKeyPrefix)
 }
 
 // containsKey checks whether a JSON string contains a top-level key.

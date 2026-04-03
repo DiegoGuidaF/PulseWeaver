@@ -381,6 +381,58 @@ export type IpAddress = string | string;
 
 export type Id = number;
 
+export type CreateRegistrationRequest = {
+    device_name: string;
+    heartbeat_server_url: string;
+    interval_seconds: number;
+    biometric_enabled?: boolean;
+    biometric_user_can_toggle?: boolean;
+    expires_in_hours: 1 | 24 | 48 | 168;
+};
+
+export type PendingRegistration = {
+    id: string;
+    device_name: string;
+    /**
+     * Present only while unclaimed. Null after the invite is used.
+     */
+    registration_code?: string | null;
+    /**
+     * Always present; retained after claim for admin reference.
+     */
+    device_api_key_prefix: string;
+    heartbeat_server_url: string;
+    interval_seconds: number;
+    biometric_enabled: boolean;
+    biometric_user_can_toggle: boolean;
+    expires_at: string;
+    created_at: string;
+    used_at?: string | null;
+    /**
+     * Set after the invite is claimed and the device is created.
+     */
+    created_device_id?: number | null;
+    status: 'pending' | 'used' | 'expired';
+};
+
+export type ClaimRegistrationRequest = {
+    /**
+     * The full registration code as received (not decoded).
+     */
+    code: string;
+};
+
+export type ClaimRegistrationResponse = {
+    server_url: string;
+    interval_seconds: number;
+    biometric_enabled: boolean;
+    biometric_user_can_toggle: boolean;
+    /**
+     * Plaintext device API key — one time only.
+     */
+    api_key: string;
+};
+
 export type CreateDeviceResponseWritable = {
     device: DeviceWritable;
     /**
@@ -1142,7 +1194,7 @@ export type GetAddressHistoryData = {
         /**
          * Filter events by source
          */
-        source?: 'heartbeat' | 'manual' | 'expiry';
+        source?: 'heartbeat' | 'manual' | 'expiry' | 'limit_exceeded';
         /**
          * Filter events by enabled/disabled state
          */
@@ -1849,3 +1901,182 @@ export type GetDashboardTopDeniedIpsResponses = {
 };
 
 export type GetDashboardTopDeniedIpsResponse = GetDashboardTopDeniedIpsResponses[keyof GetDashboardTopDeniedIpsResponses];
+
+export type ClaimRegistrationData = {
+    body: ClaimRegistrationRequest;
+    path?: never;
+    query?: never;
+    url: '/register';
+};
+
+export type ClaimRegistrationErrors = {
+    /**
+     * Code not found, already used, or expired (deliberately vague)
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type ClaimRegistrationError = ClaimRegistrationErrors[keyof ClaimRegistrationErrors];
+
+export type ClaimRegistrationResponses = {
+    /**
+     * Registration successful — device created and config returned
+     */
+    200: ClaimRegistrationResponse;
+};
+
+export type ClaimRegistrationResponse2 = ClaimRegistrationResponses[keyof ClaimRegistrationResponses];
+
+export type ListRegistrationsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        status?: 'pending' | 'all';
+    };
+    url: '/admin/registrations';
+};
+
+export type ListRegistrationsErrors = {
+    /**
+     * Not authenticated
+     */
+    401: unknown;
+    /**
+     * Admin credentials required
+     */
+    403: unknown;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type ListRegistrationsError = ListRegistrationsErrors[keyof ListRegistrationsErrors];
+
+export type ListRegistrationsResponses = {
+    /**
+     * List of registrations
+     */
+    200: Array<PendingRegistration>;
+};
+
+export type ListRegistrationsResponse = ListRegistrationsResponses[keyof ListRegistrationsResponses];
+
+export type CreateRegistrationData = {
+    body: CreateRegistrationRequest;
+    path?: never;
+    query?: never;
+    url: '/admin/registrations';
+};
+
+export type CreateRegistrationErrors = {
+    /**
+     * Invalid request body
+     */
+    400: ErrorResponse;
+    /**
+     * Not authenticated
+     */
+    401: unknown;
+    /**
+     * Admin credentials required
+     */
+    403: unknown;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateRegistrationError = CreateRegistrationErrors[keyof CreateRegistrationErrors];
+
+export type CreateRegistrationResponses = {
+    /**
+     * Registration invite created — includes registration_code
+     */
+    201: PendingRegistration;
+};
+
+export type CreateRegistrationResponse = CreateRegistrationResponses[keyof CreateRegistrationResponses];
+
+export type DeleteRegistrationData = {
+    body?: never;
+    path: {
+        registration_id: string;
+    };
+    query?: never;
+    url: '/admin/registrations/{registration_id}';
+};
+
+export type DeleteRegistrationErrors = {
+    /**
+     * Not authenticated
+     */
+    401: unknown;
+    /**
+     * Admin credentials required
+     */
+    403: unknown;
+    /**
+     * Not found or already used
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteRegistrationError = DeleteRegistrationErrors[keyof DeleteRegistrationErrors];
+
+export type DeleteRegistrationResponses = {
+    /**
+     * Invite deleted
+     */
+    204: void;
+};
+
+export type DeleteRegistrationResponse = DeleteRegistrationResponses[keyof DeleteRegistrationResponses];
+
+export type GetRegistrationData = {
+    body?: never;
+    path: {
+        registration_id: string;
+    };
+    query?: never;
+    url: '/admin/registrations/{registration_id}';
+};
+
+export type GetRegistrationErrors = {
+    /**
+     * Not authenticated
+     */
+    401: unknown;
+    /**
+     * Admin credentials required
+     */
+    403: unknown;
+    /**
+     * Not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type GetRegistrationError = GetRegistrationErrors[keyof GetRegistrationErrors];
+
+export type GetRegistrationResponses = {
+    /**
+     * Registration invite
+     */
+    200: PendingRegistration;
+};
+
+export type GetRegistrationResponse = GetRegistrationResponses[keyof GetRegistrationResponses];

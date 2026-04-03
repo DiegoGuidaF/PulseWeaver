@@ -19,7 +19,7 @@ func generateRegistrationCode(serverURL string) (code string, rawToken []byte, e
 		return "", nil, fmt.Errorf("generate registration token: %w", err)
 	}
 
-	payload := append(rawToken, []byte(serverURL)...) //nolint:gocritic // intentional append into new slice
+	payload := append(rawToken, []byte(serverURL)...)
 	code = base64.RawURLEncoding.EncodeToString(payload)
 	return code, rawToken, nil
 }

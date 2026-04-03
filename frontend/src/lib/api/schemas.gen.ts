@@ -945,6 +945,169 @@ export const IDSchema = {
     format: 'int64'
 } as const;
 
+export const CreateRegistrationRequestSchema = {
+    type: 'object',
+    required: [
+        'device_name',
+        'heartbeat_server_url',
+        'interval_seconds',
+        'expires_in_hours'
+    ],
+    properties: {
+        device_name: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 100,
+            example: 'Dad\'s Phone'
+        },
+        heartbeat_server_url: {
+            type: 'string',
+            format: 'uri',
+            example: 'https://pulse.home.lan'
+        },
+        interval_seconds: {
+            type: 'integer',
+            minimum: 60,
+            example: 900
+        },
+        biometric_enabled: {
+            type: 'boolean',
+            default: false
+        },
+        biometric_user_can_toggle: {
+            type: 'boolean',
+            default: true
+        },
+        expires_in_hours: {
+            type: 'integer',
+            enum: [
+                1,
+                24,
+                48,
+                168
+            ],
+            example: 24
+        }
+    }
+} as const;
+
+export const PendingRegistrationSchema = {
+    type: 'object',
+    required: [
+        'id',
+        'device_name',
+        'device_api_key_prefix',
+        'heartbeat_server_url',
+        'interval_seconds',
+        'biometric_enabled',
+        'biometric_user_can_toggle',
+        'expires_at',
+        'created_at',
+        'status'
+    ],
+    properties: {
+        id: {
+            type: 'string'
+        },
+        device_name: {
+            type: 'string'
+        },
+        registration_code: {
+            type: 'string',
+            nullable: true,
+            description: 'Present only while unclaimed. Null after the invite is used.'
+        },
+        device_api_key_prefix: {
+            type: 'string',
+            description: 'Always present; retained after claim for admin reference.'
+        },
+        heartbeat_server_url: {
+            type: 'string'
+        },
+        interval_seconds: {
+            type: 'integer'
+        },
+        biometric_enabled: {
+            type: 'boolean'
+        },
+        biometric_user_can_toggle: {
+            type: 'boolean'
+        },
+        expires_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime'
+        },
+        used_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime',
+            nullable: true
+        },
+        created_device_id: {
+            type: 'integer',
+            format: 'int64',
+            nullable: true,
+            description: 'Set after the invite is claimed and the device is created.'
+        },
+        status: {
+            type: 'string',
+            enum: [
+                'pending',
+                'used',
+                'expired'
+            ]
+        }
+    }
+} as const;
+
+export const ClaimRegistrationRequestSchema = {
+    type: 'object',
+    required: [
+        'code'
+    ],
+    properties: {
+        code: {
+            type: 'string',
+            description: 'The full registration code as received (not decoded).'
+        }
+    }
+} as const;
+
+export const ClaimRegistrationResponseSchema = {
+    type: 'object',
+    required: [
+        'server_url',
+        'interval_seconds',
+        'biometric_enabled',
+        'biometric_user_can_toggle',
+        'api_key'
+    ],
+    properties: {
+        server_url: {
+            type: 'string'
+        },
+        interval_seconds: {
+            type: 'integer'
+        },
+        biometric_enabled: {
+            type: 'boolean'
+        },
+        biometric_user_can_toggle: {
+            type: 'boolean'
+        },
+        api_key: {
+            type: 'string',
+            description: 'Plaintext device API key — one time only.'
+        }
+    }
+} as const;
+
 export const CreateDeviceResponseWritableSchema = {
     type: 'object',
     required: [
