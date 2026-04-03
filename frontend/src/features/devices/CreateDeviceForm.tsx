@@ -5,6 +5,7 @@ import {
   Card,
   Group,
   Modal,
+  Select,
   Stack,
   Text,
   TextInput,
@@ -12,14 +13,31 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useCreateDevice } from "@/features/devices/hooks/useCreateDevice";
+import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
+import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { toApiError, toErrorMessage } from "@/lib/api-client";
 import type { CreateDeviceResponse } from "@/lib/api";
+import { UserRole } from "@/lib/api";
 import { zCreateDeviceRequest } from "@/lib/api/zod.gen";
 import type { z } from "zod";
 
 const formSchema = zCreateDeviceRequest;
 
 export function CreateDeviceForm() {
+  const { data: currentUser } = useCurrentUser();
+  const isAdmin = currentUser?.role === UserRole.ADMIN;
+  const { data: users } = useListUsers({ enabled: isAdmin });
+
+  const ownerOptions = (users ?? []).map((u) => ({
+    value: String(u.id),
+    label: u.id === currentUser?.id ? `${u.display_name} (you)` : u.display_name,
+  }));
+
+  const [selectedOwner, setSelectedOwner] = useState<string | null>(null);
+
+  // Resolve to current user's ID once loaded.
+  const effectiveOwner = selectedOwner ?? (currentUser ? String(currentUser.id) : null);
+
   const form = useForm<z.infer<typeof formSchema>>({
     validate: schemaResolver(formSchema),
     initialValues: { name: "" },
@@ -50,8 +68,12 @@ export function CreateDeviceForm() {
   }
 
   function onSubmit(values: z.infer<typeof formSchema>) {
+    const body: z.infer<typeof formSchema> = { ...values };
+    if (isAdmin && effectiveOwner) {
+      body.owner_id = Number(effectiveOwner);
+    }
     mutation.mutate(
-      { body: values },
+      { body },
       {
         onError: (err) => {
           const message =
@@ -75,6 +97,16 @@ export function CreateDeviceForm() {
             style={{ flex: 1 }}
             {...form.getInputProps("name")}
           />
+          {isAdmin && (
+            <Select
+              label="Owner"
+              data={ownerOptions}
+              value={effectiveOwner}
+              onChange={setSelectedOwner}
+              searchable
+              style={{ minWidth: 180 }}
+            />
+          )}
           <Button type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? "Creating..." : "Add Device"}
           </Button>
