@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useForm, schemaResolver } from "@mantine/form";
 import {
   ActionIcon,
   Badge,
@@ -6,8 +7,11 @@ import {
   Card,
   Group,
   Modal,
+  PasswordInput,
+  Stack,
   Table,
   Text,
+  TextInput,
   Title,
   Tooltip,
 } from "@mantine/core";
@@ -18,8 +22,14 @@ import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { usePromoteUser } from "@/features/auth/hooks/usePromoteUser";
 import { useDemoteUser } from "@/features/auth/hooks/useDemoteUser";
 import { useDeleteUser } from "@/features/auth/hooks/useDeleteUser";
-import { toErrorMessage } from "@/lib/api-client";
+import { useCreateUser } from "@/features/auth/hooks/useCreateUser";
+import { toApiError, toErrorMessage } from "@/lib/api-client";
 import { UserRole } from "@/lib/api";
+import { zCreateUserRequest } from "@/lib/api/zod.gen";
+import type { z } from "zod";
+
+const createUserSchema = zCreateUserRequest;
+type CreateUserValues = z.infer<typeof createUserSchema>;
 
 export function UsersTab() {
   const { user } = useAuth();
@@ -27,7 +37,39 @@ export function UsersTab() {
   const promoteUser = usePromoteUser();
   const demoteUser = useDemoteUser();
   const deleteUser = useDeleteUser();
+  const createUser = useCreateUser();
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; username: string } | null>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  const createForm = useForm<CreateUserValues>({
+    validate: schemaResolver(createUserSchema),
+    initialValues: { username: "", email: "", display_name: "", password: "" },
+  });
+
+  function handleCreateUser(values: CreateUserValues) {
+    createUser.mutate(
+      { body: values },
+      {
+        onSuccess: () => {
+          notifications.show({ color: "green", message: "User created" });
+          setCreateModalOpen(false);
+          createForm.reset();
+        },
+        onError: (err) => {
+          const message =
+            toApiError(err).status === 409
+              ? "A user with this username already exists."
+              : toErrorMessage(err);
+          notifications.show({ color: "red", title: "Failed to create user", message });
+        },
+      },
+    );
+  }
+
+  function handleCloseCreateModal() {
+    setCreateModalOpen(false);
+    createForm.reset();
+  }
 
   const users = listUsers.data ?? [];
 
@@ -81,8 +123,53 @@ export function UsersTab() {
         </Group>
       </Modal>
 
+      <Modal
+        opened={createModalOpen}
+        onClose={handleCloseCreateModal}
+        title="Create user"
+      >
+        <form onSubmit={createForm.onSubmit(handleCreateUser)}>
+          <Stack gap="sm">
+            <TextInput
+              label="Username"
+              placeholder="e.g. jgarcia"
+              {...createForm.getInputProps("username")}
+            />
+            <TextInput
+              label="Email"
+              type="email"
+              placeholder="e.g. juan@example.com"
+              {...createForm.getInputProps("email")}
+            />
+            <TextInput
+              label="Display name"
+              placeholder="e.g. Juan Garcia"
+              {...createForm.getInputProps("display_name")}
+            />
+            <PasswordInput
+              label="Temporary password"
+              description="The user will be asked to change this on first login."
+              {...createForm.getInputProps("password")}
+            />
+            <Group justify="flex-end" mt="xs" gap="sm">
+              <Button type="button" variant="outline" onClick={handleCloseCreateModal}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createUser.isPending}>
+                {createUser.isPending ? "Creating..." : "Create user"}
+              </Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
+
       <Card withBorder>
-        <Title order={3} mb="xs">Users</Title>
+        <Group justify="space-between" mb="xs">
+          <Title order={3}>Users</Title>
+          <Button size="sm" onClick={() => setCreateModalOpen(true)}>
+            Create user
+          </Button>
+        </Group>
         <Text c="dimmed" size="sm" mb="md">
           Promote or demote users between the user and admin roles. Users manage their own profile information.
         </Text>
