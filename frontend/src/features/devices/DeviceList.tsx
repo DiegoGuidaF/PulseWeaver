@@ -41,7 +41,7 @@ export function DeviceList() {
   // Both queries run unconditionally to respect Rules of Hooks;
   // only the relevant result is used based on ownerFilter.
   const allDevices = useDevices();
-  const userDevices = useGetDevicesByUser(ownerFilter ?? 0);
+  const userDevices = useGetDevicesByUser(ownerFilter);
 
   const { data: devices, isLoading, error } =
     ownerFilter !== null ? userDevices : allDevices;
@@ -70,7 +70,18 @@ export function DeviceList() {
   const useChips = userList.length <= CHIP_FILTER_MAX_USERS;
 
   function renderOwnerFilter() {
-    if (!isAdmin || userList.length === 0) return null;
+    if (!isAdmin) return null;
+    // While user list is loading, show placeholder chips to prevent layout shift.
+    if (users === undefined) {
+      return (
+        <Group gap="xs" mb="sm">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} height={28} width={72} radius="xl" />
+          ))}
+        </Group>
+      );
+    }
+    if (userList.length === 0) return null;
 
     if (useChips) {
       return (

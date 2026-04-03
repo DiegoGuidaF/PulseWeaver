@@ -133,6 +133,7 @@ export function UsersTab() {
             <TextInput
               label="Username"
               placeholder="e.g. jgarcia"
+              description="Lowercase letters, numbers, hyphens, and underscores only"
               {...createForm.getInputProps("username")}
             />
             <TextInput

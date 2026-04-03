@@ -50,6 +50,7 @@ export function CreateDeviceForm() {
     onSuccess: (data) => {
       setCreatedResult(data);
       form.reset();
+      setSelectedOwner(null);
     },
   });
 

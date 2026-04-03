@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { Center, Loader, Stack, Text } from "@mantine/core";
 import { useAuth } from "./hooks/useAuth";
+import { UserRole } from "@/lib/api";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -31,7 +32,7 @@ export function ProtectedRoute({ children, adminOnly }: ProtectedRouteProps) {
     return <Navigate to="/settings" replace />;
   }
 
-  if (adminOnly && user?.role !== "admin") {
+  if (adminOnly && user?.role !== UserRole.ADMIN) {
     return <Navigate to="/devices" replace />;
   }
 
