@@ -150,7 +150,8 @@ export const zAddressHistoryEvent = z.object({
     source: z.enum([
         'heartbeat',
         'manual',
-        'expiry'
+        'expiry',
+        'limit_exceeded'
     ]),
     device_id: zId,
     device_name: z.string()

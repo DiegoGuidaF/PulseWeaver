@@ -2028,6 +2028,7 @@ components:
             - heartbeat
             - manual
             - expiry
+            - limit_exceeded
           description: What triggered the state change
         device_id:
           $ref: '#/components/schemas/ID'

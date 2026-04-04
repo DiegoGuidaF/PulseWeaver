@@ -117,7 +117,7 @@ export type AddressHistoryEvent = {
     /**
      * What triggered the state change
      */
-    source: 'heartbeat' | 'manual' | 'expiry';
+    source: 'heartbeat' | 'manual' | 'expiry' | 'limit_exceeded';
     device_id: Id;
     /**
      * Name of the device

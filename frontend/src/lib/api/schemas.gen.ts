@@ -298,7 +298,8 @@ export const AddressHistoryEventSchema = {
             enum: [
                 'heartbeat',
                 'manual',
-                'expiry'
+                'expiry',
+                'limit_exceeded'
             ],
             description: 'What triggered the state change'
         },
