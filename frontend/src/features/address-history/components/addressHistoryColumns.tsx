@@ -28,6 +28,8 @@ function sourceBadgeColor(source: string): string {
             return "grape";
         case "expiry":
             return "orange";
+        case "limit_exceeded":
+            return "red";
         default:
             return "gray";
     }
