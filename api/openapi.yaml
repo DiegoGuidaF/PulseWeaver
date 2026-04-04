@@ -796,12 +796,7 @@ paths:
           in: query
           required: false
           schema:
-            type: string
-            enum:
-              - heartbeat
-              - manual
-              - expiry
-              - limit_exceeded
+            $ref: '#/components/schemas/AddressEventSource'
           description: Filter events by source
         - name: is_enabled
           in: query
@@ -1999,6 +1994,15 @@ components:
         event_count:
           type: integer
           description: Total address events in this time bucket
+    AddressEventSource:
+      type: string
+      description: What triggered an address state change
+      enum:
+        - heartbeat
+        - manual
+        - expiry
+        - limit_exceeded
+
     AddressHistoryEvent:
       type: object
       required:
@@ -2023,13 +2027,7 @@ components:
           type: boolean
           description: Whether the address was enabled or disabled
         source:
-          type: string
-          enum:
-            - heartbeat
-            - manual
-            - expiry
-            - limit_exceeded
-          description: What triggered the state change
+          $ref: '#/components/schemas/AddressEventSource'
         device_id:
           $ref: '#/components/schemas/ID'
         device_name:

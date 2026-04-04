@@ -265,6 +265,17 @@ export const AddressHistoryBucketSchema = {
     }
 } as const;
 
+export const AddressEventSourceSchema = {
+    type: 'string',
+    description: 'What triggered an address state change',
+    enum: [
+        'heartbeat',
+        'manual',
+        'expiry',
+        'limit_exceeded'
+    ]
+} as const;
+
 export const AddressHistoryEventSchema = {
     type: 'object',
     required: [
@@ -294,14 +305,7 @@ export const AddressHistoryEventSchema = {
             description: 'Whether the address was enabled or disabled'
         },
         source: {
-            type: 'string',
-            enum: [
-                'heartbeat',
-                'manual',
-                'expiry',
-                'limit_exceeded'
-            ],
-            description: 'What triggered the state change'
+            $ref: '#/components/schemas/AddressEventSource'
         },
         device_id: {
             $ref: '#/components/schemas/ID'

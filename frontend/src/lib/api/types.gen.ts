@@ -103,6 +103,21 @@ export type AddressHistoryBucket = {
     event_count: number;
 };
 
+/**
+ * What triggered an address state change
+ */
+export const AddressEventSource = {
+    HEARTBEAT: 'heartbeat',
+    MANUAL: 'manual',
+    EXPIRY: 'expiry',
+    LIMIT_EXCEEDED: 'limit_exceeded'
+} as const;
+
+/**
+ * What triggered an address state change
+ */
+export type AddressEventSource = typeof AddressEventSource[keyof typeof AddressEventSource];
+
 export type AddressHistoryEvent = {
     id: Id;
     timestamp: string;
@@ -114,10 +129,7 @@ export type AddressHistoryEvent = {
      * Whether the address was enabled or disabled
      */
     is_enabled: boolean;
-    /**
-     * What triggered the state change
-     */
-    source: 'heartbeat' | 'manual' | 'expiry' | 'limit_exceeded';
+    source: AddressEventSource;
     device_id: Id;
     /**
      * Name of the device
@@ -1194,7 +1206,7 @@ export type GetAddressHistoryData = {
         /**
          * Filter events by source
          */
-        source?: 'heartbeat' | 'manual' | 'expiry' | 'limit_exceeded';
+        source?: AddressEventSource;
         /**
          * Filter events by enabled/disabled state
          */

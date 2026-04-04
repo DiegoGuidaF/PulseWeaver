@@ -30,6 +30,16 @@ export const zAddressHistoryBucket = z.object({
     event_count: z.int()
 });
 
+/**
+ * What triggered an address state change
+ */
+export const zAddressEventSource = z.enum([
+    'heartbeat',
+    'manual',
+    'expiry',
+    'limit_exceeded'
+]);
+
 export const zDeviceTypeItem = z.object({
     value: z.string(),
     label: z.string()
@@ -147,12 +157,7 @@ export const zAddressHistoryEvent = z.object({
     timestamp: z.iso.datetime({ offset: true, local: true }),
     ip: z.string(),
     is_enabled: z.boolean(),
-    source: z.enum([
-        'heartbeat',
-        'manual',
-        'expiry',
-        'limit_exceeded'
-    ]),
+    source: zAddressEventSource,
     device_id: zId,
     device_name: z.string()
 });
@@ -577,12 +582,7 @@ export const zGetAddressHistoryData = z.object({
         from: z.iso.datetime({ offset: true, local: true }).optional(),
         to: z.iso.datetime({ offset: true, local: true }).optional(),
         granularity: z.enum(['hour', 'day']).optional(),
-        source: z.enum([
-            'heartbeat',
-            'manual',
-            'expiry',
-            'limit_exceeded'
-        ]).optional(),
+        source: zAddressEventSource.optional(),
         is_enabled: z.boolean().optional(),
         ip: z.string().optional(),
         limit: z.int().lte(200).optional().default(50),

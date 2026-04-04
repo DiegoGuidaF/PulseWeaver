@@ -4,6 +4,8 @@ import (
 	"net/netip"
 	"strconv"
 	"time"
+
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 )
 
 // Address represents an address row with its current enabled/disabled state and metadata.
@@ -17,13 +19,15 @@ type Address struct {
 	UpdatedAt time.Time   `db:"updated_at"`
 }
 
-type EventSource string
+// EventSource is an alias for the API-generated type, making openapi.yaml
+// the single source of truth for valid values.
+type EventSource = httpapi.AddressEventSource
 
 const (
-	EventSourceHeartbeat     EventSource = "heartbeat"
-	EventSourceManual        EventSource = "manual"
-	EventSourceExpiry        EventSource = "expiry"
-	EventSourceLimitExceeded EventSource = "limit_exceeded"
+	EventSourceHeartbeat     = httpapi.Heartbeat
+	EventSourceManual        = httpapi.Manual
+	EventSourceExpiry        = httpapi.Expiry
+	EventSourceLimitExceeded = httpapi.LimitExceeded
 )
 
 // CreateAddressParams holds only what is necessary to create an address.

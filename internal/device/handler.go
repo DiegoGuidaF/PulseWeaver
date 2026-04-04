@@ -462,7 +462,7 @@ func toAddressHistoryResponse(h AddressHistory, queryLimit int) httpapi.AddressH
 			Timestamp:  httpapi.UTCTime(e.CreatedAt),
 			Ip:         e.IP,
 			IsEnabled:  e.IsEnabled,
-			Source:     httpapi.AddressHistoryEventSource(e.Source),
+			Source:     e.Source,
 			DeviceId:   e.DeviceID.Int64(),
 			DeviceName: e.DeviceName,
 		}
