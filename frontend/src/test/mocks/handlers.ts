@@ -1,5 +1,5 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, MaxActiveAddressesRule, AccessLogResponse, User } from '@/lib/api';
+import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceTypeItem, MaxActiveAddressesRule, AccessLogResponse, User } from '@/lib/api';
 import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockUser } from './data';
 
 const BASE = '/api/v1';
@@ -16,6 +16,7 @@ export const endpoints = {
     deviceAddressLeaseRule: `${BASE}/devices/:deviceId/rules/address_lease`,
     maxActiveAddressesRule: `${BASE}/devices/:deviceId/rules/max_active_addresses`,
     regenerateApiKey: `${BASE}/devices/:deviceId/api-key/regenerate`,
+    deviceTypes: `${BASE}/device-types`,
     authMe: `${BASE}/auth/me`,
     authLogin: `${BASE}/auth/login`,
     adminUsers: `${BASE}/admin/users`,
@@ -152,6 +153,13 @@ export const deviceHandlers = {
                     ...override,
                 })),
     },
+
+    listTypes: (types?: DeviceTypeItem[]) =>
+        http.get(endpoints.deviceTypes, () =>
+            HttpResponse.json(types ?? [
+                { value: 'static', label: 'Static' },
+                { value: 'dynamic', label: 'Dynamic' },
+            ])),
 };
 
 // ─── Address handlers ─────────────────────────────────────────────────────────
@@ -313,6 +321,7 @@ export const defaultHandlers = [
     deviceHandlers.create.success(),
     deviceHandlers.delete.success(),
     deviceHandlers.regenerateApiKey.success(),
+    deviceHandlers.listTypes(),
     // Addresses
     addressHandlers.list(),
     addressHandlers.create.success(),

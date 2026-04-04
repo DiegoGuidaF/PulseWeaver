@@ -36,7 +36,23 @@ globalThis.ResizeObserver = class ResizeObserver {
   disconnect() {}
 };
 
-// 2. Polyfill localStorage and sessionStorage for Node 25 / MSW compatibility
+// 2. Polyfill document.fonts — missing in happy-dom; required by Mantine Textarea autosize.
+// Autosize.tsx calls document.fonts.addEventListener('loadingdone', ...) in a useEffect.
+// Without this, opening any modal that contains a DeviceProfileCard (which has <Textarea autosize>)
+// throws "Cannot read properties of undefined (reading 'addEventListener')".
+if (!document.fonts) {
+  Object.defineProperty(document, 'fonts', {
+    value: {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    },
+    writable: true,
+    configurable: true,
+  });
+}
+
+// 3. Polyfill localStorage and sessionStorage for Node 25 / MSW compatibility
 const createStorageMock = () => {
   let store: Record<string, string> = {};
   return {
