@@ -12,6 +12,7 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { toErrorMessage } from "@/lib/api-client";
+import { useClipboard } from "@/hooks/useClipboard";
 import { useRegenerateApiKey } from "@/features/devices/hooks/useRegenerateApiKey";
 import { useDeviceTypes } from "@/features/devices/hooks/useDeviceTypes";
 import { DeviceProfileCard } from "@/features/devices/DeviceProfileCard";
@@ -39,28 +40,12 @@ export function DeviceSettingsTab({
 }: DeviceSettingsTabProps) {
   const { data: deviceTypes } = useDeviceTypes();
   const regenerateApiKey = useRegenerateApiKey();
+  const { copy } = useClipboard();
 
   const [regeneratedApiKey, setRegeneratedApiKey] = useState<string | null>(
     null,
   );
   const [confirmRegenOpen, setConfirmRegenOpen] = useState(false);
-
-  async function handleCopyRegeneratedKey() {
-    if (!regeneratedApiKey) return;
-    if (!("clipboard" in navigator) || !navigator.clipboard?.writeText) {
-      notifications.show({
-        message: "Copy to clipboard is not supported in this browser.",
-        color: "red",
-      });
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(regeneratedApiKey);
-      notifications.show({ message: "Copied to clipboard", color: "green" });
-    } catch {
-      notifications.show({ message: "Failed to copy API key", color: "red" });
-    }
-  }
 
   function handleConfirmRegenerate() {
     regenerateApiKey.mutate(
@@ -202,7 +187,7 @@ export function DeviceSettingsTab({
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={handleCopyRegeneratedKey}
+                    onClick={() => regeneratedApiKey && copy(regeneratedApiKey, { errorMessage: "Failed to copy API key" })}
                   >
                     Copy
                   </Button>

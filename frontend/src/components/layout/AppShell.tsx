@@ -39,6 +39,11 @@ const navItems = [
     { label: "Settings", href: "/settings", icon: IconSettings, adminOnly: false },
 ];
 
+const externalLinks = [
+    { label: "GitHub", href: "https://github.com/DiegoGuidaF/pulseweaver", icon: IconBrandGithub },
+    { label: "Feedback", href: "https://github.com/DiegoGuidaF/pulseweaver/issues", icon: IconMessageCircle },
+];
+
 function ColorSchemeToggle() {
     const { setColorScheme } = useMantineColorScheme();
     const computed = useComputedColorScheme("light");
@@ -135,24 +140,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             </Text>
                         </Group>
                     )}
-                    <NavLink
-                        component="a"
-                        href="https://github.com/DiegoGuidaF/pulseweaver"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        label="GitHub"
-                        leftSection={<IconBrandGithub size={18} stroke={1.5} />}
-                        c="dimmed"
-                    />
-                    <NavLink
-                        component="a"
-                        href="https://github.com/DiegoGuidaF/pulseweaver/issues"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        label="Feedback"
-                        leftSection={<IconMessageCircle size={18} stroke={1.5} />}
-                        c="dimmed"
-                    />
+                    {externalLinks.map((link) => (
+                        <NavLink
+                            key={link.href}
+                            component="a"
+                            href={link.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            label={link.label}
+                            leftSection={<link.icon size={18} stroke={1.5} />}
+                            c="dimmed"
+                        />
+                    ))}
                     <Divider my="xs" />
                     <NavLink
                         label={logoutMutation.isPending ? "Logging out…" : "Logout"}

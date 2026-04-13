@@ -1,9 +1,10 @@
 import { ActionIcon, Badge, Code, Divider, Drawer, Group, Stack, Text, Title, Tooltip } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
+import { useMemo } from "react";
 import type { AccessLogRow } from "@/lib/api";
 import { DENY_REASON_LABELS } from "../constants";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { countryFlagEmoji } from "@/lib/countryFlag";
+import { useClipboard } from "@/hooks/useClipboard";
 import { IconCopy } from "@tabler/icons-react";
 
 interface AccessLogDetailDrawerProps {
@@ -18,20 +19,11 @@ export function AccessLogDetailDrawer({
     onClose,
 }: AccessLogDetailDrawerProps) {
     const formatDateTime = useDateFormatter();
-
-    async function handleCopyHeaders() {
-        if (!row?.headers) return;
-        if (!("clipboard" in navigator) || !navigator.clipboard?.writeText) {
-            notifications.show({ message: "Copy to clipboard is not supported in this browser.", color: "red" });
-            return;
-        }
-        try {
-            await navigator.clipboard.writeText(JSON.stringify(row.headers, null, 2));
-            notifications.show({ message: "Headers copied to clipboard", color: "green" });
-        } catch {
-            notifications.show({ message: "Failed to copy headers", color: "red" });
-        }
-    }
+    const { copy } = useClipboard();
+    const headersJson = useMemo(
+        () => (row?.headers ? JSON.stringify(row.headers, null, 2) : null),
+        [row],
+    );
 
     return (
         <Drawer
@@ -105,25 +97,23 @@ export function AccessLogDetailDrawer({
                       </Stack>
                     )}
 
-                    {row.headers && Object.keys(row.headers).length > 0 && (
+                    {headersJson && (
                         <Stack gap="xs">
-                            <Group justify="space-between" align="center">
+                            <Group justify="space-between">
                                 <Title order={5}>Headers</Title>
                                 <Tooltip label="Copy headers">
                                     <ActionIcon
                                         variant="subtle"
                                         size="sm"
                                         aria-label="Copy headers"
-                                        onClick={handleCopyHeaders}
+                                        onClick={() => copy(headersJson, { successMessage: "Headers copied to clipboard", errorMessage: "Failed to copy headers" })}
                                     >
                                         <IconCopy size={14} />
                                     </ActionIcon>
                                 </Tooltip>
                             </Group>
                             <Divider />
-                            <Code block>
-                                {JSON.stringify(row.headers, null, 2)}
-                            </Code>
+                            <Code block>{headersJson}</Code>
                         </Stack>
                     )}
                 </Stack>
