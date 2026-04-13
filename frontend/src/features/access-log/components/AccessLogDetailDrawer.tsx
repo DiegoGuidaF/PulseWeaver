@@ -1,8 +1,10 @@
-import { Badge, Code, Divider, Drawer, Group, Stack, Text, Title } from "@mantine/core";
+import { ActionIcon, Badge, Code, Divider, Drawer, Group, Stack, Text, Title, Tooltip } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import type { AccessLogRow } from "@/lib/api";
 import { DENY_REASON_LABELS } from "../constants";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { countryFlagEmoji } from "@/lib/countryFlag";
+import { IconCopy } from "@tabler/icons-react";
 
 interface AccessLogDetailDrawerProps {
     row: AccessLogRow | null;
@@ -16,6 +18,21 @@ export function AccessLogDetailDrawer({
     onClose,
 }: AccessLogDetailDrawerProps) {
     const formatDateTime = useDateFormatter();
+
+    async function handleCopyHeaders() {
+        if (!row?.headers) return;
+        if (!("clipboard" in navigator) || !navigator.clipboard?.writeText) {
+            notifications.show({ message: "Copy to clipboard is not supported in this browser.", color: "red" });
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(JSON.stringify(row.headers, null, 2));
+            notifications.show({ message: "Headers copied to clipboard", color: "green" });
+        } catch {
+            notifications.show({ message: "Failed to copy headers", color: "red" });
+        }
+    }
+
     return (
         <Drawer
             opened={opened}
@@ -90,7 +107,19 @@ export function AccessLogDetailDrawer({
 
                     {row.headers && Object.keys(row.headers).length > 0 && (
                         <Stack gap="xs">
-                            <Title order={5}>Headers</Title>
+                            <Group justify="space-between" align="center">
+                                <Title order={5}>Headers</Title>
+                                <Tooltip label="Copy headers">
+                                    <ActionIcon
+                                        variant="subtle"
+                                        size="sm"
+                                        aria-label="Copy headers"
+                                        onClick={handleCopyHeaders}
+                                    >
+                                        <IconCopy size={14} />
+                                    </ActionIcon>
+                                </Tooltip>
+                            </Group>
                             <Divider />
                             <Code block>
                                 {JSON.stringify(row.headers, null, 2)}
