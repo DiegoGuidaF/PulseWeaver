@@ -27,6 +27,11 @@ export function CountryStatsSection({ from, to }: CountryStatsSectionProps) {
         [navigate],
     );
 
+    // Hide the entire section when geo data is unavailable (GeoIP disabled or no enriched records).
+    // The country stats query only returns rows from access_log_geoip (JOIN, not LEFT JOIN),
+    // so an empty result after loading reliably indicates no geo enrichment is active.
+    if (!isLoading && (data?.length ?? 0) === 0) return null;
+
     return (
         <Stack gap="xs">
             <Grid>
