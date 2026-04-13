@@ -8,19 +8,19 @@ tmp_dir = "tmp"
 args_bin = []
 bin = "./tmp/main"
 #pre_cmd = ["swag init -g internal/httpserver/server.go --output docs", "swag fmt"]
-pre_cmd = ["GOWORK=off go generate ./..."]
+pre_cmd = ["npm run bundle:api", "GOWORK=off go generate ./..."]
 # The "dev" tag ensures we don't need the frontend
 cmd = "go build -o ./tmp/main ./cmd/api/main.go"
 delay = 1000
-exclude_dir = ["assets", "tmp", "vendor", "testdata", "bin", "docs", "frontend"]
-exclude_file = []
+exclude_dir = ["assets", "tmp", "vendor", "testdata", "bin", "docs", "frontend", "node_modules"]
+exclude_file = ["api/openapi-bundle.gen.yaml"]
 exclude_regex = ["_test.go", ".*.db", ".*.db-journal", ".*.db-wal", ".*.gen.go"]
 exclude_unchanged = false
 follow_symlink = false
 full_bin = ""
 include_dir = []
 include_ext = ["go", "tpl", "tmpl", "html", "env"]
-include_file = ["api/openapi.yaml"]
+include_file = []
 kill_delay = "2s"
 log = "build-errors.log"
 poll = false

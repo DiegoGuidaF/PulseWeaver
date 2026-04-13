@@ -1,0 +1,211 @@
+addressLeaseRule:
+  get:
+    operationId: getDeviceAddressLeaseRule
+    tags:
+      - rules
+    summary: Get address lease rule for a device
+    description: Returns the address lease rule for the device if configured.
+    parameters:
+      - name: device_id
+        in: path
+        description: Device id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/rules.yaml#/DeviceAddressLeaseRule'
+      "404":
+        description: Device or rule not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+  put:
+    operationId: putDeviceAddressLeaseRule
+    tags:
+      - rules
+    summary: Create or update IP auto-expiry rule for a device
+    description: Creates or updates the ip_auto_expiry rule for the device. ttl_seconds must be positive.
+    parameters:
+      - name: device_id
+        in: path
+        description: Device id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/rules.yaml#/PutDeviceAddressLeaseRuleRequest'
+    responses:
+      "200":
+        description: Rule updated or created
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/rules.yaml#/DeviceAddressLeaseRule'
+      "400":
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "404":
+        description: Device not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+  delete:
+    operationId: disableDeviceAddressLeaseRule
+    tags:
+      - rules
+    summary: Disable device lease rule for a device
+    description: Disables the device lease rule for the device (sets enabled to false).
+    parameters:
+      - name: device_id
+        in: path
+        description: Device id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "204":
+        description: Rule disabled
+      "404":
+        description: Device or rule not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+maxActiveAddressesRule:
+  get:
+    operationId: getMaxActiveAddressesRule
+    tags:
+      - rules
+    summary: Get max active addresses rule for a device
+    description: Returns the max active addresses rule for the device if configured.
+    parameters:
+      - name: device_id
+        in: path
+        description: Device id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/rules.yaml#/MaxActiveAddressesRule'
+      "404":
+        description: Device or rule not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+  put:
+    operationId: putMaxActiveAddressesRule
+    tags:
+      - rules
+    summary: Create or update max active addresses rule for a device
+    description: Creates or updates the max active addresses rule. max_addresses must be at least 1.
+    parameters:
+      - name: device_id
+        in: path
+        description: Device id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/rules.yaml#/PutMaxActiveAddressesRuleRequest'
+    responses:
+      "200":
+        description: Rule updated or created
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/rules.yaml#/MaxActiveAddressesRule'
+      "400":
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "404":
+        description: Device not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+  delete:
+    operationId: disableMaxActiveAddressesRule
+    tags:
+      - rules
+    summary: Disable max active addresses rule for a device
+    description: Disables the max active addresses rule for the device (sets enabled to false).
+    parameters:
+      - name: device_id
+        in: path
+        description: Device id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "204":
+        description: Rule disabled
+      "404":
+        description: Device or rule not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'

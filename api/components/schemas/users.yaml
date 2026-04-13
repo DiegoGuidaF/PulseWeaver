@@ -1,0 +1,121 @@
+Username:
+  type: string
+  description: "Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted."
+  minLength: 3
+  maxLength: 32
+  pattern: '^[a-z0-9_-]+$'
+  example: "john_doe"
+
+UserRole:
+  type: string
+  enum:
+    - admin
+    - user
+  description: The user's role. Only "admin" users can access admin endpoints.
+
+DisplayName:
+  type: string
+  description: "User's public name. Unicode allowed."
+  minLength: 1
+  maxLength: 50
+  example: "John Doe"
+
+Password:
+  type: string
+  format: password
+  minLength: 8
+  maxLength: 72
+  example: "123ASecretPassword"
+
+User:
+  type: object
+  required:
+    - id
+    - username
+    - display_name
+    - email
+    - role
+    - must_change_password
+    - created_at
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    username:
+      $ref: '#/Username'
+    display_name:
+      $ref: '#/DisplayName'
+    email:
+      type: string
+      format: email
+    role:
+      $ref: '#/UserRole'
+      readOnly: true
+    must_change_password:
+      type: boolean
+      readOnly: true
+      description: When true, the user must change their password before using the app.
+    created_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+
+AuthRequest:
+  type: object
+  required:
+    - username
+    - password
+  properties:
+    username:
+      $ref: '#/Username'
+    password:
+      $ref: '#/Password'
+
+CreateUserRequest:
+  type: object
+  required:
+    - username
+    - display_name
+    - email
+    - password
+  properties:
+    username:
+      $ref: '#/Username'
+    display_name:
+      $ref: '#/DisplayName'
+    email:
+      type: string
+      format: email
+      example: "user@example.com"
+    password:
+      $ref: '#/Password'
+
+UpdateProfileRequest:
+  type: object
+  anyOf:
+    - required: [ display_name ]
+    - required: [ username ]
+    - required: [ email ]
+  properties:
+    display_name:
+      $ref: '#/DisplayName'
+    username:
+      type: string
+      minLength: 3
+      maxLength: 32
+      pattern: '^[a-z0-9_-]+$'
+    email:
+      type: string
+      format: email
+
+ChangePasswordRequest:
+  type: object
+  required:
+    - current_password
+    - password
+  properties:
+    current_password:
+      type: string
+    password:
+      type: string
+      minLength: 8
+      maxLength: 72

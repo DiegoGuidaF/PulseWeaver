@@ -1,0 +1,250 @@
+deviceAddresses:
+  get:
+    operationId: getDeviceAddresses
+    tags:
+      - addresses
+    summary: Get addresses for a device
+    description: Get all enabled addresses for a specific device.
+    parameters:
+      - name: device_id
+        in: path
+        description: Device Id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: OK
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/schemas/addresses.yaml#/Address'
+      "400":
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "404":
+        description: Device id not Found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+  post:
+    operationId: addAddress
+    tags:
+      - addresses
+    summary: Assign address to device
+    description: Add a new address to a device.
+    parameters:
+      - name: device_id
+        in: path
+        description: Device id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    requestBody:
+      description: Address assignment request
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/addresses.yaml#/AddAddressRequest'
+      required: true
+    responses:
+      "200":
+        description: Address already existed, enabled status set
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/addresses.yaml#/Address'
+      "201":
+        description: Created
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/addresses.yaml#/Address'
+      "400":
+        description: Invalid address format
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "404":
+        description: Device not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+addressHistory:
+  get:
+    operationId: getAddressHistory
+    tags:
+      - addresses
+    summary: Get address activity history
+    description: >
+      Returns time-bucketed active IP counts and paginated address events.
+      When device_id is omitted, returns history for all devices.
+      When device_id is provided, filters to those devices only.
+    parameters:
+      - name: device_id
+        in: query
+        required: false
+        description: Filter by device ID(s). Empty means all devices.
+        schema:
+          type: array
+          items:
+            $ref: '../components/schemas/common.yaml#/ID'
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 start of time window (default 24h ago)
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 end of time window (default now)
+      - name: granularity
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+            - hour
+            - day
+          default: hour
+        description: Time bucket granularity (default hour)
+      - name: source
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/addresses.yaml#/AddressEventSource'
+        description: Filter events by source
+      - name: is_enabled
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Filter events by enabled/disabled state
+      - name: ip
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Filter events by IP address (substring match)
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 200
+        description: Maximum number of events to return (default 50, max 200)
+      - name: before_id
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+        description: Cursor for pagination — return events with id < before_id
+      - name: include_all
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+        description: >
+          When false (default), returns only state-change events
+          (created, enabled, disabled). When true, includes all events
+          including repeated heartbeat refreshes.
+    responses:
+      "200":
+        description: Address history with time-series buckets and paginated events
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/addresses.yaml#/AddressHistoryResponse'
+      "400":
+        description: Invalid query parameters (e.g. bad granularity)
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+addressById:
+  delete:
+    operationId: disableAddress
+    tags:
+      - addresses
+    summary: Disable address
+    description: Disables the address for the device.
+    parameters:
+      - name: device_id
+        in: path
+        description: Device Id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+      - name: address_id
+        in: path
+        description: Address id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: Address successfully disabled
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/addresses.yaml#/Address'
+      "400":
+        description: Missing device id or address id
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "404":
+        description: Address or device not found.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'

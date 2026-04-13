@@ -5,6 +5,8 @@
 /tmp/
 /internal/ui/dist
 
+/node_modules
+
 # Scratch/test files
 scratch_test.go
 

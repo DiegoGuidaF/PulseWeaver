@@ -1,7 +1,7 @@
 import {defineConfig} from '@hey-api/openapi-ts';
 
 export default defineConfig({
-    input: '../api/openapi.yaml',
+    input: '../api/openapi-bundle.gen.yaml',
     output: {
         path: './src/lib/api',
         postProcess: [

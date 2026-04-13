@@ -388,6 +388,44 @@ export const regenerateDeviceApiKeyMutation = (options?: Partial<Options<Regener
     return mutationOptions;
 };
 
+/**
+ * Device heartbeat
+ *
+ * Device reports its current IP address. Extracts the client IP from the request and ensures it is enabled. Requires API Token or Session.
+ */
+export const deviceHeartbeatMutation = (options?: Partial<Options<DeviceHeartbeatData>>): UseMutationOptions<DeviceHeartbeatResponse, DeviceHeartbeatError, Options<DeviceHeartbeatData>> => {
+    const mutationOptions: UseMutationOptions<DeviceHeartbeatResponse, DeviceHeartbeatError, Options<DeviceHeartbeatData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deviceHeartbeat({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Performs a heartbeat with the given api key header
+ *
+ * Same as /devices/{device_id}/heartbeat but authentication is provided via api-key for the device to update
+ */
+export const deviceHeartbeatByApiKeyMutation = (options?: Partial<Options<DeviceHeartbeatByApiKeyData>>): UseMutationOptions<DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatByApiKeyError, Options<DeviceHeartbeatByApiKeyData>> => {
+    const mutationOptions: UseMutationOptions<DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatByApiKeyError, Options<DeviceHeartbeatByApiKeyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deviceHeartbeatByApiKey({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const getDeviceAddressesQueryKey = (options: Options<GetDeviceAddressesData>) => createQueryKey('getDeviceAddresses', options);
 
 /**
@@ -449,33 +487,14 @@ export const getAddressHistoryOptions = (options?: Options<GetAddressHistoryData
 });
 
 /**
- * Device heartbeat
+ * Disable address
  *
- * Device reports its current IP address. Extracts the client IP from the request and ensures it is enabled. Requires API Token or Session.
+ * Disables the address for the device.
  */
-export const deviceHeartbeatMutation = (options?: Partial<Options<DeviceHeartbeatData>>): UseMutationOptions<DeviceHeartbeatResponse, DeviceHeartbeatError, Options<DeviceHeartbeatData>> => {
-    const mutationOptions: UseMutationOptions<DeviceHeartbeatResponse, DeviceHeartbeatError, Options<DeviceHeartbeatData>> = {
+export const disableAddressMutation = (options?: Partial<Options<DisableAddressData>>): UseMutationOptions<DisableAddressResponse, DisableAddressError, Options<DisableAddressData>> => {
+    const mutationOptions: UseMutationOptions<DisableAddressResponse, DisableAddressError, Options<DisableAddressData>> = {
         mutationFn: async (fnOptions) => {
-            const { data } = await deviceHeartbeat({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Performs a heartbeat with the given api key header
- *
- * Same as /devices/{device_id}/heartbeat but authentication is provided via api-key for the device to update
- */
-export const deviceHeartbeatByApiKeyMutation = (options?: Partial<Options<DeviceHeartbeatByApiKeyData>>): UseMutationOptions<DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatByApiKeyError, Options<DeviceHeartbeatByApiKeyData>> => {
-    const mutationOptions: UseMutationOptions<DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatByApiKeyError, Options<DeviceHeartbeatByApiKeyData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await deviceHeartbeatByApiKey({
+            const { data } = await disableAddress({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -545,25 +564,6 @@ export const getAccessLogDenyReasonsOptions = (options?: Options<GetAccessLogDen
     },
     queryKey: getAccessLogDenyReasonsQueryKey(options)
 });
-
-/**
- * Disable address
- *
- * Disables the address for the device.
- */
-export const disableAddressMutation = (options?: Partial<Options<DisableAddressData>>): UseMutationOptions<DisableAddressResponse, DisableAddressError, Options<DisableAddressData>> => {
-    const mutationOptions: UseMutationOptions<DisableAddressResponse, DisableAddressError, Options<DisableAddressData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await disableAddress({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
 
 /**
  * Disable device lease rule for a device

@@ -1,0 +1,79 @@
+login:
+  post:
+    operationId: login
+    tags:
+      - auth
+    summary: Login user
+    description: Authenticates user and sets a strict HTTP-only session cookie.
+    security: [ ] # Public endpoint
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/users.yaml#/AuthRequest'
+    responses:
+      "200":
+        description: Logged in successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/users.yaml#/User'
+        headers:
+          Set-Cookie:
+            schema:
+              type: string
+      "401":
+        description: Invalid credentials
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+logout:
+  post:
+    operationId: logout
+    tags:
+      - auth
+    summary: Logout user
+    description: Invalidates the session cookie.
+    responses:
+      "204":
+        description: Logged out successfully
+        headers:
+          Set-Cookie:
+            schema:
+              type: string
+
+me:
+  get:
+    operationId: getCurrentUser
+    tags:
+      - auth
+    summary: Get current user
+    description: Returns the currently authenticated user's details.
+    responses:
+      "200":
+        description: Current user details
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/users.yaml#/User'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'

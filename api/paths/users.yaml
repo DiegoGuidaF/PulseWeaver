@@ -1,0 +1,79 @@
+profile:
+  patch:
+    operationId: updateMe
+    tags:
+      - users
+    summary: Update current user profile
+    description: Updates display name, username, and/or email for the authenticated user.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/users.yaml#/UpdateProfileRequest'
+    responses:
+      "200":
+        description: User profile updated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/users.yaml#/User'
+      "400":
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "409":
+        description: Username or email already registered
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+password:
+  post:
+    operationId: changePassword
+    tags:
+      - users
+    summary: Change current user password
+    description: Validates current password, updates password, and revokes all other sessions.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/users.yaml#/ChangePasswordRequest'
+    responses:
+      "204":
+        description: Password changed successfully
+      "400":
+        description: Current password is wrong or new password is invalid
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'

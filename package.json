@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "bundle:api": "redocly bundle api/openapi.yaml -o api/openapi-bundle.gen.yaml"
+  },
+  "dependencies": {
+    "@redocly/cli": "^2.26.0"
+  }
+}

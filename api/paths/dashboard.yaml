@@ -1,0 +1,214 @@
+stats:
+  get:
+    operationId: getDashboardStats
+    tags:
+      - dashboard
+    summary: Dashboard summary statistics
+    description: >
+      Returns aggregate counts (total requests, allowed, denied, unique IPs)
+      over the given time window. Queries pre-aggregated hourly traffic data.
+    parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 start of time window (default 24h ago)
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 end of time window (default now)
+    responses:
+      "200":
+        description: Summary statistics
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/dashboard.yaml#/DashboardStats'
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+traffic:
+  get:
+    operationId: getDashboardTraffic
+    tags:
+      - dashboard
+    summary: Dashboard traffic time series
+    description: >
+      Returns time-bucketed allow/deny counts for the stacked area chart.
+    parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 start of time window (default 24h ago)
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 end of time window (default now)
+      - name: granularity
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+            - hour
+            - day
+          default: hour
+        description: Time bucket granularity (default hour)
+    responses:
+      "200":
+        description: Traffic time series
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/dashboard.yaml#/DashboardTrafficResponse'
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+services:
+  get:
+    operationId: getDashboardServices
+    tags:
+      - dashboard
+    summary: Dashboard service breakdown
+    description: >
+      Returns per-host allow/deny counts for the donut chart.
+    parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 start of time window (default 24h ago)
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 end of time window (default now)
+    responses:
+      "200":
+        description: Service breakdown
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/dashboard.yaml#/DashboardServicesResponse'
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+topDeniedIps:
+  get:
+    operationId: getDashboardTopDeniedIps
+    tags:
+      - dashboard
+    summary: Dashboard top denied IPs
+    description: >
+      Returns the IPs with the most denied requests for the threat surface table.
+    parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 start of time window (default 24h ago)
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 end of time window (default now)
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 10
+          maximum: 100
+        description: Maximum number of IPs to return (default 10, max 100)
+    responses:
+      "200":
+        description: Top denied IPs
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/dashboard.yaml#/DashboardTopDeniedIpsResponse'
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'

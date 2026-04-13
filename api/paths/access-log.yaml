@@ -1,0 +1,189 @@
+accessLog:
+  get:
+    operationId: getAccessLog
+    tags:
+      - access-log
+    summary: List access log entries
+    description: >
+      Returns paginated request log entries to review access-control decisions.
+      Admin-only.
+    parameters:
+      - name: device_id
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+      - name: outcome
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: deny_reason
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Filter by deny reason (see GET /access-log/deny-reasons for valid values)
+      - name: ip
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Exact client IP match
+      - name: host
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Exact target host match
+      - name: country_code
+        in: query
+        required: false
+        schema:
+          type: string
+        description: ISO 3166-1 alpha-2 country code filter (e.g. "DE")
+      - name: continent_code
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Continent code filter (e.g. "EU")
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 start of time window (default 24h ago)
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 end of time window (default now)
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 200
+        description: Page size (default 50, max 200)
+      - name: before_id
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+        description: Cursor; return rows with id < before_id
+    responses:
+      "200":
+        description: Access log entries
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/access-log.yaml#/AccessLogResponse'
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+accessLogByCountry:
+  get:
+    operationId: getAccessLogByCountry
+    tags:
+      - access-log
+    summary: Request counts grouped by country
+    parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 start of time window (default 24h ago)
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 end of time window (default now)
+    responses:
+      "200":
+        description: Request counts by country
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/schemas/access-log.yaml#/AccessLogCountryStats'
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+accessLogDenyReasons:
+  get:
+    operationId: getAccessLogDenyReasons
+    tags:
+      - access-log
+    summary: List valid deny reason values
+    description: >
+      Returns all valid deny_reason values that can appear in access log entries
+      or be used as the deny_reason filter on GET /access-log.
+    responses:
+      "200":
+        description: List of deny reason values
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'

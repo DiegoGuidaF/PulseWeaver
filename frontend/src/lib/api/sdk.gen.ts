@@ -346,6 +346,40 @@ export const regenerateDeviceApiKey = <ThrowOnError extends boolean = false>(opt
 });
 
 /**
+ * Device heartbeat
+ *
+ * Device reports its current IP address. Extracts the client IP from the request and ensures it is enabled. Requires API Token or Session.
+ */
+export const deviceHeartbeat = <ThrowOnError extends boolean = false>(options: Options<DeviceHeartbeatData, ThrowOnError>) => (options.client ?? client).post<DeviceHeartbeatResponses, DeviceHeartbeatErrors, ThrowOnError>({
+    requestValidator: async (data) => await zDeviceHeartbeatData.parseAsync(data),
+    responseValidator: async (data) => await zDeviceHeartbeatResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/devices/{device_id}/heartbeat',
+    ...options
+});
+
+/**
+ * Performs a heartbeat with the given api key header
+ *
+ * Same as /devices/{device_id}/heartbeat but authentication is provided via api-key for the device to update
+ */
+export const deviceHeartbeatByApiKey = <ThrowOnError extends boolean = false>(options?: Options<DeviceHeartbeatByApiKeyData, ThrowOnError>) => (options?.client ?? client).post<DeviceHeartbeatByApiKeyResponses, DeviceHeartbeatByApiKeyErrors, ThrowOnError>({
+    requestValidator: async (data) => await zDeviceHeartbeatByApiKeyData.parseAsync(data),
+    responseValidator: async (data) => await zDeviceHeartbeatByApiKeyResponse.parseAsync(data),
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/heartbeat',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers
+    }
+});
+
+/**
  * Get addresses for a device
  *
  * Get all enabled addresses for a specific device.
@@ -402,37 +436,20 @@ export const getAddressHistory = <ThrowOnError extends boolean = false>(options?
 });
 
 /**
- * Device heartbeat
+ * Disable address
  *
- * Device reports its current IP address. Extracts the client IP from the request and ensures it is enabled. Requires API Token or Session.
+ * Disables the address for the device.
  */
-export const deviceHeartbeat = <ThrowOnError extends boolean = false>(options: Options<DeviceHeartbeatData, ThrowOnError>) => (options.client ?? client).post<DeviceHeartbeatResponses, DeviceHeartbeatErrors, ThrowOnError>({
-    requestValidator: async (data) => await zDeviceHeartbeatData.parseAsync(data),
-    responseValidator: async (data) => await zDeviceHeartbeatResponse.parseAsync(data),
+export const disableAddress = <ThrowOnError extends boolean = false>(options: Options<DisableAddressData, ThrowOnError>) => (options.client ?? client).delete<DisableAddressResponses, DisableAddressErrors, ThrowOnError>({
+    requestValidator: async (data) => await zDisableAddressData.parseAsync(data),
+    responseValidator: async (data) => await zDisableAddressResponse.parseAsync(data),
     security: [{
             in: 'cookie',
             name: '__Host-wdc_session',
             type: 'apiKey'
         }],
-    url: '/devices/{device_id}/heartbeat',
+    url: '/devices/{device_id}/addresses/{address_id}',
     ...options
-});
-
-/**
- * Performs a heartbeat with the given api key header
- *
- * Same as /devices/{device_id}/heartbeat but authentication is provided via api-key for the device to update
- */
-export const deviceHeartbeatByApiKey = <ThrowOnError extends boolean = false>(options?: Options<DeviceHeartbeatByApiKeyData, ThrowOnError>) => (options?.client ?? client).post<DeviceHeartbeatByApiKeyResponses, DeviceHeartbeatByApiKeyErrors, ThrowOnError>({
-    requestValidator: async (data) => await zDeviceHeartbeatByApiKeyData.parseAsync(data),
-    responseValidator: async (data) => await zDeviceHeartbeatByApiKeyResponse.parseAsync(data),
-    security: [{ name: 'X-API-Key', type: 'apiKey' }],
-    url: '/heartbeat',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers
-    }
 });
 
 /**
@@ -483,23 +500,6 @@ export const getAccessLogDenyReasons = <ThrowOnError extends boolean = false>(op
             type: 'apiKey'
         }],
     url: '/access-log/deny-reasons',
-    ...options
-});
-
-/**
- * Disable address
- *
- * Disables the address for the device.
- */
-export const disableAddress = <ThrowOnError extends boolean = false>(options: Options<DisableAddressData, ThrowOnError>) => (options.client ?? client).delete<DisableAddressResponses, DisableAddressErrors, ThrowOnError>({
-    requestValidator: async (data) => await zDisableAddressData.parseAsync(data),
-    responseValidator: async (data) => await zDisableAddressResponse.parseAsync(data),
-    security: [{
-            in: 'cookie',
-            name: '__Host-wdc_session',
-            type: 'apiKey'
-        }],
-    url: '/devices/{device_id}/addresses/{address_id}',
     ...options
 });
 

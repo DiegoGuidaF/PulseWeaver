@@ -1,0 +1,139 @@
+CreateDeviceRequest:
+  type: object
+  required:
+    - name
+  properties:
+    name:
+      type: string
+      example: Personal phone
+      minLength: 1
+      maxLength: 50
+      description: "User-friendly name for the device"
+    owner_id:
+      type: integer
+      nullable: true
+      description: "Admin only. Owner to assign the device to. Ignored for regular users (always assigned to self). When omitted by an admin, defaults to the calling admin's own ID."
+
+UpdateDeviceRequest:
+  type: object
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 50
+      description: "New name for the device"
+    device_type:
+      type: string
+      enum: [static, mobile]
+      description: Network behaviour classification.
+    description:
+      type: string
+      nullable: true
+      maxLength: 200
+      x-go-type: NullableString
+      x-go-type-skip-optional-pointer: true
+      description: Free-form note. Pass null to clear.
+    icon:
+      type: string
+      nullable: true
+      maxLength: 80
+      x-go-type: NullableString
+      x-go-type-skip-optional-pointer: true
+      description: Tabler icon name override. Pass null to clear.
+    owner_id:
+      type: integer
+      nullable: true
+      description: "Admin only. Reassign device ownership to another user."
+
+CreateDeviceResponse:
+  type: object
+  required:
+    - device
+    - api_key
+  properties:
+    device:
+      $ref: '#/Device'
+    api_key:
+      type: string
+      description: Secret key for the device; only returned on creation or regeneration.
+
+Device:
+  type: object
+  required:
+    - id
+    - name
+    - created_at
+    - api_key_prefix
+    - device_type
+    - updated_at
+  properties:
+    created_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+    updated_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+      description: Last time the device profile was modified.
+    id:
+      $ref: './common.yaml#/ID'
+    name:
+      description: "User-friendly name for the device"
+      type: string
+      minLength: 1
+      maxLength: 50
+    device_type:
+      type: string
+      enum: [static, mobile]
+      description: Network behaviour classification. Defaults to "static".
+    description:
+      type: string
+      nullable: true
+      maxLength: 200
+      description: Free-form note about the device.
+    icon:
+      type: string
+      nullable: true
+      maxLength: 80
+      description: Tabler icon name override (e.g. "IconRouter").
+    api_key_prefix:
+      type: string
+      description: Prefix of the device API key (for display only).
+    address_count:
+      type: integer
+      minimum: 0
+      readOnly: true
+      description: Number of currently enabled addresses for this device.
+    last_seen_at:
+      type: string
+      format: date-time
+      nullable: true
+      readOnly: true
+      x-go-type: UTCTime
+      description: Most recent address activity for this device (heartbeat or manual update).
+    owner_id:
+      type: integer
+      readOnly: true
+      description: ID of the user who owns this device.
+    owner_name:
+      type: string
+      readOnly: true
+      description: Display name of the owning user (for display only).
+
+DeviceTypeItem:
+  type: object
+  required:
+    - value
+    - label
+  properties:
+    value:
+      type: string
+    label:
+      type: string
+
+DeviceHeartbeatByApiKeyRequest:
+  type: object
+  properties:
+    ip:
+      $ref: './common.yaml#/IPAddress'

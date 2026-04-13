@@ -1,0 +1,101 @@
+DashboardStats:
+  type: object
+  required:
+    - total_requests
+    - allowed_count
+    - denied_count
+    - unique_ips
+    - avg_duration_us
+  properties:
+    total_requests:
+      type: integer
+      format: int64
+    allowed_count:
+      type: integer
+      format: int64
+    denied_count:
+      type: integer
+      format: int64
+    unique_ips:
+      type: integer
+      format: int64
+    avg_duration_us:
+      type: integer
+      format: int64
+      description: Average request processing duration in microseconds over the time window
+
+DashboardTrafficBucket:
+  type: object
+  required:
+    - timestamp
+    - allow_count
+    - deny_count
+  properties:
+    timestamp:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+    allow_count:
+      type: integer
+      format: int64
+    deny_count:
+      type: integer
+      format: int64
+
+DashboardTrafficResponse:
+  type: object
+  required:
+    - buckets
+  properties:
+    buckets:
+      type: array
+      items:
+        $ref: '#/DashboardTrafficBucket'
+
+DashboardServiceCount:
+  type: object
+  required:
+    - host
+    - allow_count
+    - deny_count
+  properties:
+    host:
+      type: string
+    allow_count:
+      type: integer
+      format: int64
+    deny_count:
+      type: integer
+      format: int64
+
+DashboardServicesResponse:
+  type: object
+  required:
+    - services
+  properties:
+    services:
+      type: array
+      items:
+        $ref: '#/DashboardServiceCount'
+
+DashboardTopDeniedIp:
+  type: object
+  required:
+    - ip
+    - count
+  properties:
+    ip:
+      type: string
+    count:
+      type: integer
+      format: int64
+
+DashboardTopDeniedIpsResponse:
+  type: object
+  required:
+    - ips
+  properties:
+    ips:
+      type: array
+      items:
+        $ref: '#/DashboardTopDeniedIp'

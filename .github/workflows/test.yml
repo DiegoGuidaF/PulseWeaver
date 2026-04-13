@@ -26,16 +26,25 @@ jobs:
         with:
           node-version: '25.8'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
 
       - name: Install Go dependencies
         run: |
           go mod download
           go mod download -modfile=tools/go.mod
 
+      - name: Install root dependencies
+        run: npm ci
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
+
+      - name: Bundle API spec and generate frontend types
+        working-directory: frontend
+        run: npm run generate:api
 
       - name: backend-lint
         run: make lint

@@ -4,15 +4,61 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}/api/v1` | (string & {});
 };
 
-export type CreateUserRequest = {
+export type ErrorResponse = {
+    error?: string;
+};
+
+export type Id = number;
+
+/**
+ * IPv4 or IPv6 address
+ */
+export type IpAddress = string | string;
+
+/**
+ * Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
+ */
+export type Username = string;
+
+/**
+ * The user's role. Only "admin" users can access admin endpoints.
+ */
+export const UserRole = { ADMIN: 'admin', USER: 'user' } as const;
+
+/**
+ * The user's role. Only "admin" users can access admin endpoints.
+ */
+export type UserRole = typeof UserRole[keyof typeof UserRole];
+
+/**
+ * User's public name. Unicode allowed.
+ */
+export type DisplayName = string;
+
+export type Password = string;
+
+export type User = {
+    id: Id;
     username: Username;
     display_name: DisplayName;
     email: string;
-    password: Password;
+    role: UserRole;
+    /**
+     * When true, the user must change their password before using the app.
+     */
+    readonly must_change_password: boolean;
+    created_at: string;
 };
 
 export type AuthRequest = {
     username: Username;
+    password: Password;
+};
+
+export type CreateUserRequest = {
+    username: Username;
+    display_name: DisplayName;
+    email: string;
     password: Password;
 };
 
@@ -61,14 +107,6 @@ export type UpdateDeviceRequest = {
     owner_id?: number | null;
 };
 
-export type AddAddressRequest = {
-    ip: IpAddress;
-};
-
-export type DeviceHeartbeatByApiKeyRequest = {
-    ip?: IpAddress;
-};
-
 export type CreateDeviceResponse = {
     device: Device;
     /**
@@ -77,8 +115,82 @@ export type CreateDeviceResponse = {
     api_key: string;
 };
 
-export type ErrorResponse = {
-    error?: string;
+export type Device = {
+    created_at: string;
+    /**
+     * Last time the device profile was modified.
+     */
+    updated_at: string;
+    id: Id;
+    /**
+     * User-friendly name for the device
+     */
+    name: string;
+    /**
+     * Network behaviour classification. Defaults to "static".
+     */
+    device_type: 'static' | 'mobile';
+    /**
+     * Free-form note about the device.
+     */
+    description?: string | null;
+    /**
+     * Tabler icon name override (e.g. "IconRouter").
+     */
+    icon?: string | null;
+    /**
+     * Prefix of the device API key (for display only).
+     */
+    api_key_prefix: string;
+    /**
+     * Number of currently enabled addresses for this device.
+     */
+    readonly address_count?: number;
+    /**
+     * Most recent address activity for this device (heartbeat or manual update).
+     */
+    readonly last_seen_at?: string | null;
+    /**
+     * ID of the user who owns this device.
+     */
+    readonly owner_id?: number;
+    /**
+     * Display name of the owning user (for display only).
+     */
+    readonly owner_name?: string;
+};
+
+export type DeviceTypeItem = {
+    value: string;
+    label: string;
+};
+
+export type DeviceHeartbeatByApiKeyRequest = {
+    ip?: IpAddress;
+};
+
+export type AddAddressRequest = {
+    ip: IpAddress;
+};
+
+export type Address = {
+    id: Id;
+    device_id: Id;
+    ip: IpAddress;
+    /**
+     * The latest state of this address, enabled or disabled
+     */
+    is_enabled: boolean;
+    created_at: string;
+    /**
+     * Last time it was enabled or disabled
+     */
+    updated_at: string;
+    /**
+     * UTC timestamp when this address will auto-expire, if an auto-expiry rule is enabled for the device. Null if no expiry is scheduled.
+     *
+     */
+    readonly expires_at?: string | null;
 };
 
 export type AddressHistoryResponse = {
@@ -135,89 +247,6 @@ export type AddressHistoryEvent = {
      * Name of the device
      */
     device_name: string;
-};
-
-export type User = {
-    id: Id;
-    username: Username;
-    display_name: DisplayName;
-    email: string;
-    role: UserRole;
-    /**
-     * When true, the user must change their password before using the app.
-     */
-    readonly must_change_password: boolean;
-    created_at: string;
-};
-
-export type Device = {
-    created_at: string;
-    /**
-     * Last time the device profile was modified.
-     */
-    updated_at: string;
-    id: Id;
-    /**
-     * User-friendly name for the device
-     */
-    name: string;
-    /**
-     * Network behaviour classification. Defaults to "static".
-     */
-    device_type: 'static' | 'mobile';
-    /**
-     * Free-form note about the device.
-     */
-    description?: string | null;
-    /**
-     * Tabler icon name override (e.g. "IconRouter").
-     */
-    icon?: string | null;
-    /**
-     * Prefix of the device API key (for display only).
-     */
-    api_key_prefix: string;
-    /**
-     * Number of currently enabled addresses for this device.
-     */
-    readonly address_count?: number;
-    /**
-     * Most recent address activity for this device (heartbeat or manual update).
-     */
-    readonly last_seen_at?: string | null;
-    /**
-     * ID of the user who owns this device.
-     */
-    readonly owner_id?: number;
-    /**
-     * Display name of the owning user (for display only).
-     */
-    readonly owner_name?: string;
-};
-
-export type DeviceTypeItem = {
-    value: string;
-    label: string;
-};
-
-export type Address = {
-    id: Id;
-    device_id: Id;
-    ip: IpAddress;
-    /**
-     * The latest state of this address, enabled or disabled
-     */
-    is_enabled: boolean;
-    created_at: string;
-    /**
-     * Last time it was enabled or disabled
-     */
-    updated_at: string;
-    /**
-     * UTC timestamp when this address will auto-expire, if an auto-expiry rule is enabled for the device. Null if no expiry is scheduled.
-     *
-     */
-    readonly expires_at?: string | null;
 };
 
 export type AccessLogResponse = {
@@ -364,35 +393,6 @@ export type DashboardTopDeniedIpsResponse = {
     ips: Array<DashboardTopDeniedIp>;
 };
 
-/**
- * Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
- */
-export type Username = string;
-
-/**
- * The user's role. Only "admin" users can access admin endpoints.
- */
-export const UserRole = { ADMIN: 'admin', USER: 'user' } as const;
-
-/**
- * The user's role. Only "admin" users can access admin endpoints.
- */
-export type UserRole = typeof UserRole[keyof typeof UserRole];
-
-/**
- * User's public name. Unicode allowed.
- */
-export type DisplayName = string;
-
-export type Password = string;
-
-/**
- * IPv4 or IPv6 address
- */
-export type IpAddress = string | string;
-
-export type Id = number;
-
 export type CreateRegistrationRequest = {
     device_name: string;
     heartbeat_server_url: string;
@@ -445,20 +445,20 @@ export type ClaimRegistrationResponse = {
     api_key: string;
 };
 
-export type CreateDeviceResponseWritable = {
-    device: DeviceWritable;
-    /**
-     * Secret key for the device; only returned on creation or regeneration.
-     */
-    api_key: string;
-};
-
 export type UserWritable = {
     id: Id;
     username: Username;
     display_name: DisplayName;
     email: string;
     created_at: string;
+};
+
+export type CreateDeviceResponseWritable = {
+    device: DeviceWritable;
+    /**
+     * Secret key for the device; only returned on creation or regeneration.
+     */
+    api_key: string;
 };
 
 export type DeviceWritable = {
@@ -1100,6 +1100,85 @@ export type RegenerateDeviceApiKeyResponses = {
 
 export type RegenerateDeviceApiKeyResponse = RegenerateDeviceApiKeyResponses[keyof RegenerateDeviceApiKeyResponses];
 
+export type DeviceHeartbeatData = {
+    body?: never;
+    path: {
+        /**
+         * Device Id
+         */
+        device_id: Id;
+    };
+    query?: never;
+    url: '/devices/{device_id}/heartbeat';
+};
+
+export type DeviceHeartbeatErrors = {
+    /**
+     * Invalid IP address format
+     */
+    400: ErrorResponse;
+    /**
+     * Device not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type DeviceHeartbeatError = DeviceHeartbeatErrors[keyof DeviceHeartbeatErrors];
+
+export type DeviceHeartbeatResponses = {
+    /**
+     * Address enabled
+     */
+    200: Address;
+    /**
+     * New address created and enabled
+     */
+    201: Address;
+};
+
+export type DeviceHeartbeatResponse = DeviceHeartbeatResponses[keyof DeviceHeartbeatResponses];
+
+export type DeviceHeartbeatByApiKeyData = {
+    body?: DeviceHeartbeatByApiKeyRequest;
+    path?: never;
+    query?: never;
+    url: '/heartbeat';
+};
+
+export type DeviceHeartbeatByApiKeyErrors = {
+    /**
+     * Invalid IP address format
+     */
+    400: ErrorResponse;
+    /**
+     * Device not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type DeviceHeartbeatByApiKeyError = DeviceHeartbeatByApiKeyErrors[keyof DeviceHeartbeatByApiKeyErrors];
+
+export type DeviceHeartbeatByApiKeyResponses = {
+    /**
+     * Address enabled
+     */
+    200: Address;
+    /**
+     * New address created and enabled
+     */
+    201: Address;
+};
+
+export type DeviceHeartbeatByApiKeyResponse = DeviceHeartbeatByApiKeyResponses[keyof DeviceHeartbeatByApiKeyResponses];
+
 export type GetDeviceAddressesData = {
     body?: never;
     path: {
@@ -1258,25 +1337,29 @@ export type GetAddressHistoryResponses = {
 
 export type GetAddressHistoryResponse = GetAddressHistoryResponses[keyof GetAddressHistoryResponses];
 
-export type DeviceHeartbeatData = {
+export type DisableAddressData = {
     body?: never;
     path: {
         /**
          * Device Id
          */
         device_id: Id;
+        /**
+         * Address id
+         */
+        address_id: Id;
     };
     query?: never;
-    url: '/devices/{device_id}/heartbeat';
+    url: '/devices/{device_id}/addresses/{address_id}';
 };
 
-export type DeviceHeartbeatErrors = {
+export type DisableAddressErrors = {
     /**
-     * Invalid IP address format
+     * Missing device id or address id
      */
     400: ErrorResponse;
     /**
-     * Device not found
+     * Address or device not found.
      */
     404: ErrorResponse;
     /**
@@ -1285,57 +1368,16 @@ export type DeviceHeartbeatErrors = {
     500: ErrorResponse;
 };
 
-export type DeviceHeartbeatError = DeviceHeartbeatErrors[keyof DeviceHeartbeatErrors];
+export type DisableAddressError = DisableAddressErrors[keyof DisableAddressErrors];
 
-export type DeviceHeartbeatResponses = {
+export type DisableAddressResponses = {
     /**
-     * Address enabled
+     * Address successfully disabled
      */
     200: Address;
-    /**
-     * New address created and enabled
-     */
-    201: Address;
 };
 
-export type DeviceHeartbeatResponse = DeviceHeartbeatResponses[keyof DeviceHeartbeatResponses];
-
-export type DeviceHeartbeatByApiKeyData = {
-    body?: DeviceHeartbeatByApiKeyRequest;
-    path?: never;
-    query?: never;
-    url: '/heartbeat';
-};
-
-export type DeviceHeartbeatByApiKeyErrors = {
-    /**
-     * Invalid IP address format
-     */
-    400: ErrorResponse;
-    /**
-     * Device not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: ErrorResponse;
-};
-
-export type DeviceHeartbeatByApiKeyError = DeviceHeartbeatByApiKeyErrors[keyof DeviceHeartbeatByApiKeyErrors];
-
-export type DeviceHeartbeatByApiKeyResponses = {
-    /**
-     * Address enabled
-     */
-    200: Address;
-    /**
-     * New address created and enabled
-     */
-    201: Address;
-};
-
-export type DeviceHeartbeatByApiKeyResponse = DeviceHeartbeatByApiKeyResponses[keyof DeviceHeartbeatByApiKeyResponses];
+export type DisableAddressResponse = DisableAddressResponses[keyof DisableAddressResponses];
 
 export type GetAccessLogData = {
     body?: never;
@@ -1483,48 +1525,6 @@ export type GetAccessLogDenyReasonsResponses = {
 };
 
 export type GetAccessLogDenyReasonsResponse = GetAccessLogDenyReasonsResponses[keyof GetAccessLogDenyReasonsResponses];
-
-export type DisableAddressData = {
-    body?: never;
-    path: {
-        /**
-         * Device Id
-         */
-        device_id: Id;
-        /**
-         * Address id
-         */
-        address_id: Id;
-    };
-    query?: never;
-    url: '/devices/{device_id}/addresses/{address_id}';
-};
-
-export type DisableAddressErrors = {
-    /**
-     * Missing device id or address id
-     */
-    400: ErrorResponse;
-    /**
-     * Address or device not found.
-     */
-    404: ErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: ErrorResponse;
-};
-
-export type DisableAddressError = DisableAddressErrors[keyof DisableAddressErrors];
-
-export type DisableAddressResponses = {
-    /**
-     * Address successfully disabled
-     */
-    200: Address;
-};
-
-export type DisableAddressResponse = DisableAddressResponses[keyof DisableAddressResponses];
 
 export type DisableDeviceAddressLeaseRuleData = {
     body?: never;

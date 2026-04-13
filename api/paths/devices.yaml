@@ -1,0 +1,323 @@
+devices:
+  get:
+    operationId: getDevices
+    tags:
+      - devices
+    summary: List all devices
+    description: Get all devices belonging to the authenticated user.
+    responses:
+      "200":
+        description: OK
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/schemas/devices.yaml#/Device'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+  post:
+    operationId: createDevice
+    tags:
+      - devices
+    summary: Create a device
+    description: Create a new device for the authenticated user.
+    requestBody:
+      description: Device creation request
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/devices.yaml#/CreateDeviceRequest'
+      required: true
+    responses:
+      "201":
+        description: Created
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/devices.yaml#/CreateDeviceResponse'
+      "400":
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "409":
+        description: Conflict - Device name already in use
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+deviceById:
+  get:
+    operationId: getDevice
+    tags:
+      - devices
+    summary: Get a device
+    description: Get a single device by its id.
+    parameters:
+      - name: device_id
+        in: path
+        description: Device id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/devices.yaml#/Device'
+      "404":
+        description: Device not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+  delete:
+    operationId: deleteDevice
+    tags:
+      - devices
+    summary: Delete a device
+    description: Soft-deletes a device. The device is hidden from lists and cannot receive addresses.
+    parameters:
+      - name: device_id
+        in: path
+        description: Device id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "204":
+        description: No Content - Device deleted successfully
+      "404":
+        description: Device not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+  patch:
+    operationId: updateDevice
+    tags:
+      - devices
+    summary: Update device profile
+    description: Update one or more profile fields for a device. Omitted fields are left unchanged. Pass null for description or icon to clear them.
+    parameters:
+      - name: device_id
+        in: path
+        description: Device id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/devices.yaml#/UpdateDeviceRequest'
+    responses:
+      "200":
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/devices.yaml#/Device'
+      "400":
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required for owner reassignment
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "404":
+        description: Device not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "409":
+        description: Conflict - Device name already in use
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+deviceTypes:
+  get:
+    operationId: listDeviceTypes
+    tags:
+      - devices
+    summary: List device types
+    description: Returns the valid device type values and their display labels.
+    responses:
+      "200":
+        description: OK
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/schemas/devices.yaml#/DeviceTypeItem'
+
+regenerateApiKey:
+  post:
+    operationId: regenerateDeviceAPIKey
+    summary: Regenerate device API key
+    description: >
+      Generates a new API key for the device, immediately invalidating the old one.
+      The raw key is returned once. Admin-only.
+    tags: [devices]
+    parameters:
+      - name: device_id
+        in: path
+        description: Device id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      '200':
+        description: New API key generated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/devices.yaml#/CreateDeviceResponse'
+      '404':
+        description: Device not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+heartbeatById:
+  post:
+    operationId: deviceHeartbeat
+    tags:
+      - devices
+    summary: Device heartbeat
+    description: Device reports its current IP address. Extracts the client IP from the request and ensures it is enabled. Requires API Token or Session.
+    parameters:
+      - name: device_id
+        in: path
+        description: Device Id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: Address enabled
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/addresses.yaml#/Address'
+      "201":
+        description: New address created and enabled
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/addresses.yaml#/Address'
+      "400":
+        description: Invalid IP address format
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "404":
+        description: Device not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+heartbeat:
+  post:
+    operationId: deviceHeartbeatByAPIKey
+    tags:
+      - devices
+    security:
+      - apiKeyAuth: []
+    summary: Performs a heartbeat with the given api key header
+    description: Same as /devices/{device_id}/heartbeat but authentication is provided via api-key for the device to update
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/devices.yaml#/DeviceHeartbeatByApiKeyRequest'
+    responses:
+      "200":
+        description: Address enabled
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/addresses.yaml#/Address'
+      "201":
+        description: New address created and enabled
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/addresses.yaml#/Address'
+      "400":
+        description: Invalid IP address format
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "404":
+        description: Device not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'

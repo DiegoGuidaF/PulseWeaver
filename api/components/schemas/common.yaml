@@ -1,0 +1,20 @@
+ErrorResponse:
+  type: object
+  properties:
+    error:
+      type: string
+      example: device not found
+
+ID:
+  type: integer
+  format: int64
+
+IPAddress:
+  type: string
+  description: "IPv4 or IPv6 address"
+  anyOf:
+    - type: string
+      format: ipv4
+    - type: string
+      format: ipv6
+  example: "192.168.1.132"

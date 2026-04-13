@@ -1,21 +1,24 @@
 # Stage 1: Frontend Build
 FROM node:25.8-alpine AS frontend-builder
 
-WORKDIR /build
+WORKDIR /app
 
-# Copy package files and install dependencies
-COPY frontend/package*.json ./
+# Install root-level deps (redocly for API bundling)
+COPY package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci
 
-# Copy API spec file (needed for frontend API type generation)
-# The openapi-ts.config.ts references ../api/openapi.yaml relative to frontend/
-# So we need api/ at /api/ (one level up from WORKDIR /build)
-COPY api/ /api/
+# Copy split API spec files (bundled during npm run build via pregenerate:api)
+COPY api/ ./api/
 
-# Copy frontend source and build
-COPY frontend/ ./
-RUN npm run build
+# Install frontend deps
+COPY frontend/package*.json ./frontend/
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefix frontend
+
+# Build: prebuild → generate:api → pregenerate:api → bundle:api → openapi-ts → tsc + vite
+COPY frontend/ ./frontend/
+RUN npm run build --prefix frontend
 
 # Stage 2: Go Build
 FROM golang:1.26-alpine AS backend-builder
@@ -30,8 +33,11 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # Copy Go source code
 COPY . .
 
+# Bundle is generated inside the frontend stage — bring it in for go:generate/go:embed
+COPY --from=frontend-builder /app/api/openapi-bundle.gen.yaml ./api/openapi-bundle.gen.yaml
+
 # Copy frontend dist from Stage 1 to internal/ui/dist
-COPY --from=frontend-builder /build/dist ./internal/ui/dist
+COPY --from=frontend-builder /app/frontend/dist ./internal/ui/dist
 
 # Build binary with CGO disabled and optimization flags
 # Note: GOOS/GOARCH are auto-detected by Go from Docker's build platform

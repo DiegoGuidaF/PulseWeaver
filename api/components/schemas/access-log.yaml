@@ -1,0 +1,91 @@
+AccessLogResponse:
+  type: object
+  required:
+    - total
+    - next_cursor
+    - rows
+  properties:
+    total:
+      type: integer
+      description: Total rows matching the current filters (excludes cursor, useful for "N results" UI)
+    next_cursor:
+      allOf:
+        - $ref: './common.yaml#/ID'
+      nullable: true
+    rows:
+      type: array
+      items:
+        $ref: '#/AccessLogRow'
+
+AccessLogCountryStats:
+  type: object
+  required: [country_code, total, allowed, denied]
+  properties:
+    country_code:
+      type: string
+    country_name:
+      type: string
+    continent_code:
+      type: string
+    total:
+      type: integer
+    allowed:
+      type: integer
+    denied:
+      type: integer
+
+AccessLogRow:
+  type: object
+  required: [id, created_at, outcome, client_ip, headers]
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    client_ip:
+      $ref: './common.yaml#/IPAddress'
+    outcome:
+      type: boolean
+    deny_reason:
+      type: string
+    device_id:
+      $ref: './common.yaml#/ID'
+    device_name:
+      type: string
+    address_id:
+      $ref: './common.yaml#/ID'
+    created_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+    xff_chain:
+      type: string
+    target_host:
+      type: string
+    target_uri:
+      type: string
+    http_method:
+      type: string
+    country_code:
+      type: string
+      description: ISO 3166-1 alpha-2, e.g. "DE"
+    country_name:
+      type: string
+      description: e.g. "Germany"
+    continent_code:
+      type: string
+      description: e.g. "EU"
+    asn:
+      type: integer
+      description: Autonomous System Number
+    asn_org:
+      type: string
+      description: e.g. "Cloudflare, Inc."
+    duration_us:
+      type: integer
+      format: int64
+      description: Request processing duration in microseconds
+    headers:
+      type: object
+      additionalProperties:
+        type: array
+        items:
+          type: string

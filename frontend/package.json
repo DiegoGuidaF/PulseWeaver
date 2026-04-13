@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "pregenerate:api": "npm --prefix .. run bundle:api",
     "generate:api": "openapi-ts",
     "test": "vitest run",
     "test:watch": "vitest",

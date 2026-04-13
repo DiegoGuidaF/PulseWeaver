@@ -1,0 +1,126 @@
+AddAddressRequest:
+  required:
+    - ip
+  type: object
+  properties:
+    ip:
+      $ref: './common.yaml#/IPAddress'
+
+Address:
+  type: object
+  required:
+    - id
+    - device_id
+    - ip
+    - is_enabled
+    - created_at
+    - updated_at
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    device_id:
+      $ref: './common.yaml#/ID'
+    ip:
+      $ref: './common.yaml#/IPAddress'
+    is_enabled:
+      type: boolean
+      description: The latest state of this address, enabled or disabled
+    created_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+    updated_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+      description: Last time it was enabled or disabled
+    expires_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+      nullable: true
+      readOnly: true
+      description: >
+        UTC timestamp when this address will auto-expire, if an auto-expiry rule
+        is enabled for the device. Null if no expiry is scheduled.
+
+AddressHistoryResponse:
+  type: object
+  required:
+    - buckets
+    - events
+    - total_events
+  properties:
+    buckets:
+      type: array
+      items:
+        $ref: '#/AddressHistoryBucket'
+    events:
+      type: array
+      items:
+        $ref: '#/AddressHistoryEvent'
+    total_events:
+      type: integer
+      description: Total number of events matching the filters (for pagination)
+    next_cursor:
+      allOf:
+        - $ref: './common.yaml#/ID'
+      nullable: true
+
+AddressHistoryBucket:
+  type: object
+  required:
+    - timestamp
+    - active_count
+    - event_count
+  properties:
+    timestamp:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+    active_count:
+      type: integer
+      description: Maximum active IPs seen in this time bucket
+    event_count:
+      type: integer
+      description: Total address events in this time bucket
+
+AddressEventSource:
+  type: string
+  description: What triggered an address state change
+  enum:
+    - heartbeat
+    - manual
+    - expiry
+    - limit_exceeded
+
+AddressHistoryEvent:
+  type: object
+  required:
+    - id
+    - timestamp
+    - ip
+    - is_enabled
+    - source
+    - device_id
+    - device_name
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    timestamp:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+    ip:
+      type: string
+      description: IP address
+    is_enabled:
+      type: boolean
+      description: Whether the address was enabled or disabled
+    source:
+      $ref: '#/AddressEventSource'
+    device_id:
+      $ref: './common.yaml#/ID'
+    device_name:
+      type: string
+      description: Name of the device

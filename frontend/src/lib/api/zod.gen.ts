@@ -2,6 +2,65 @@
 
 import * as z from 'zod';
 
+export const zErrorResponse = z.object({
+    error: z.string().optional()
+});
+
+export const zId = z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' });
+
+/**
+ * IPv4 or IPv6 address
+ */
+export const zIpAddress = z.union([
+    z.ipv4(),
+    z.ipv6()
+]);
+
+/**
+ * Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
+ */
+export const zUsername = z.string().min(3).max(32).regex(/^[a-z0-9_-]+$/);
+
+/**
+ * The user's role. Only "admin" users can access admin endpoints.
+ */
+export const zUserRole = z.enum(['admin', 'user']);
+
+/**
+ * User's public name. Unicode allowed.
+ */
+export const zDisplayName = z.string().min(1).max(50);
+
+export const zPassword = z.string().min(8).max(72);
+
+export const zUser = z.object({
+    id: zId,
+    username: zUsername,
+    display_name: zDisplayName,
+    email: z.email(),
+    role: zUserRole,
+    must_change_password: z.boolean().readonly(),
+    created_at: z.iso.datetime({ offset: true, local: true })
+});
+
+export const zAuthRequest = z.object({
+    username: zUsername,
+    password: zPassword
+});
+
+export const zCreateUserRequest = z.object({
+    username: zUsername,
+    display_name: zDisplayName,
+    email: z.email(),
+    password: zPassword
+});
+
+export const zUpdateProfileRequest = z.intersection(z.unknown(), z.object({
+    display_name: zDisplayName.optional(),
+    username: z.string().min(3).max(32).regex(/^[a-z0-9_-]+$/).optional(),
+    email: z.email().optional()
+}));
+
 export const zChangePasswordRequest = z.object({
     current_password: z.string(),
     password: z.string().min(8).max(72)
@@ -20,8 +79,47 @@ export const zUpdateDeviceRequest = z.object({
     owner_id: z.int().nullish()
 });
 
-export const zErrorResponse = z.object({
-    error: z.string().optional()
+export const zDevice = z.object({
+    created_at: z.iso.datetime({ offset: true, local: true }),
+    updated_at: z.iso.datetime({ offset: true, local: true }),
+    id: zId,
+    name: z.string().min(1).max(50),
+    device_type: z.enum(['static', 'mobile']),
+    description: z.string().max(200).nullish(),
+    icon: z.string().max(80).nullish(),
+    api_key_prefix: z.string(),
+    address_count: z.int().gte(0).readonly().optional(),
+    last_seen_at: z.iso.datetime({ offset: true, local: true }).readonly().nullish(),
+    owner_id: z.int().readonly().optional(),
+    owner_name: z.string().readonly().optional()
+});
+
+export const zCreateDeviceResponse = z.object({
+    device: zDevice,
+    api_key: z.string()
+});
+
+export const zDeviceTypeItem = z.object({
+    value: z.string(),
+    label: z.string()
+});
+
+export const zDeviceHeartbeatByApiKeyRequest = z.object({
+    ip: zIpAddress.optional()
+});
+
+export const zAddAddressRequest = z.object({
+    ip: zIpAddress
+});
+
+export const zAddress = z.object({
+    id: zId,
+    device_id: zId,
+    ip: zIpAddress,
+    is_enabled: z.boolean(),
+    created_at: z.iso.datetime({ offset: true, local: true }),
+    updated_at: z.iso.datetime({ offset: true, local: true }),
+    expires_at: z.iso.datetime({ offset: true, local: true }).readonly().nullish()
 });
 
 export const zAddressHistoryBucket = z.object({
@@ -40,9 +138,21 @@ export const zAddressEventSource = z.enum([
     'limit_exceeded'
 ]);
 
-export const zDeviceTypeItem = z.object({
-    value: z.string(),
-    label: z.string()
+export const zAddressHistoryEvent = z.object({
+    id: zId,
+    timestamp: z.iso.datetime({ offset: true, local: true }),
+    ip: z.string(),
+    is_enabled: z.boolean(),
+    source: zAddressEventSource,
+    device_id: zId,
+    device_name: z.string()
+});
+
+export const zAddressHistoryResponse = z.object({
+    buckets: z.array(zAddressHistoryBucket),
+    events: z.array(zAddressHistoryEvent),
+    total_events: z.int(),
+    next_cursor: zId.nullish()
 });
 
 export const zAccessLogCountryStats = z.object({
@@ -54,8 +164,54 @@ export const zAccessLogCountryStats = z.object({
     denied: z.int()
 });
 
+export const zAccessLogRow = z.object({
+    id: zId,
+    client_ip: zIpAddress,
+    outcome: z.boolean(),
+    deny_reason: z.string().optional(),
+    device_id: zId.optional(),
+    device_name: z.string().optional(),
+    address_id: zId.optional(),
+    created_at: z.iso.datetime({ offset: true, local: true }),
+    xff_chain: z.string().optional(),
+    target_host: z.string().optional(),
+    target_uri: z.string().optional(),
+    http_method: z.string().optional(),
+    country_code: z.string().optional(),
+    country_name: z.string().optional(),
+    continent_code: z.string().optional(),
+    asn: z.int().optional(),
+    asn_org: z.string().optional(),
+    duration_us: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+    headers: z.record(z.string(), z.array(z.string()))
+});
+
+export const zAccessLogResponse = z.object({
+    total: z.int(),
+    next_cursor: zId.nullable(),
+    rows: z.array(zAccessLogRow)
+});
+
+export const zDeviceAddressLeaseRule = z.object({
+    id: zId,
+    device_id: zId,
+    enabled: z.boolean(),
+    ttl_seconds: z.int().gte(1),
+    created_at: z.iso.datetime({ offset: true, local: true }),
+    updated_at: z.iso.datetime({ offset: true, local: true })
+});
+
 export const zPutDeviceAddressLeaseRuleRequest = z.object({
     ttl_seconds: z.int().gte(1)
+});
+
+export const zMaxActiveAddressesRule = z.object({
+    id: zId,
+    device_id: zId,
+    enabled: z.boolean(),
+    max_addresses: z.int().gte(1),
+    created_at: z.iso.datetime({ offset: true, local: true }),
+    updated_at: z.iso.datetime({ offset: true, local: true })
 });
 
 export const zPutMaxActiveAddressesRuleRequest = z.object({
@@ -97,162 +253,6 @@ export const zDashboardTopDeniedIp = z.object({
 
 export const zDashboardTopDeniedIpsResponse = z.object({
     ips: z.array(zDashboardTopDeniedIp)
-});
-
-/**
- * Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
- */
-export const zUsername = z.string().min(3).max(32).regex(/^[a-z0-9_-]+$/);
-
-/**
- * The user's role. Only "admin" users can access admin endpoints.
- */
-export const zUserRole = z.enum(['admin', 'user']);
-
-/**
- * User's public name. Unicode allowed.
- */
-export const zDisplayName = z.string().min(1).max(50);
-
-export const zUpdateProfileRequest = z.intersection(z.unknown(), z.object({
-    display_name: zDisplayName.optional(),
-    username: z.string().min(3).max(32).regex(/^[a-z0-9_-]+$/).optional(),
-    email: z.email().optional()
-}));
-
-export const zPassword = z.string().min(8).max(72);
-
-export const zCreateUserRequest = z.object({
-    username: zUsername,
-    display_name: zDisplayName,
-    email: z.email(),
-    password: zPassword
-});
-
-export const zAuthRequest = z.object({
-    username: zUsername,
-    password: zPassword
-});
-
-/**
- * IPv4 or IPv6 address
- */
-export const zIpAddress = z.union([
-    z.ipv4(),
-    z.ipv6()
-]);
-
-export const zAddAddressRequest = z.object({
-    ip: zIpAddress
-});
-
-export const zDeviceHeartbeatByApiKeyRequest = z.object({
-    ip: zIpAddress.optional()
-});
-
-export const zId = z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' });
-
-export const zAddressHistoryEvent = z.object({
-    id: zId,
-    timestamp: z.iso.datetime({ offset: true, local: true }),
-    ip: z.string(),
-    is_enabled: z.boolean(),
-    source: zAddressEventSource,
-    device_id: zId,
-    device_name: z.string()
-});
-
-export const zAddressHistoryResponse = z.object({
-    buckets: z.array(zAddressHistoryBucket),
-    events: z.array(zAddressHistoryEvent),
-    total_events: z.int(),
-    next_cursor: zId.nullish()
-});
-
-export const zUser = z.object({
-    id: zId,
-    username: zUsername,
-    display_name: zDisplayName,
-    email: z.email(),
-    role: zUserRole,
-    must_change_password: z.boolean().readonly(),
-    created_at: z.iso.datetime({ offset: true, local: true })
-});
-
-export const zDevice = z.object({
-    created_at: z.iso.datetime({ offset: true, local: true }),
-    updated_at: z.iso.datetime({ offset: true, local: true }),
-    id: zId,
-    name: z.string().min(1).max(50),
-    device_type: z.enum(['static', 'mobile']),
-    description: z.string().max(200).nullish(),
-    icon: z.string().max(80).nullish(),
-    api_key_prefix: z.string(),
-    address_count: z.int().gte(0).readonly().optional(),
-    last_seen_at: z.iso.datetime({ offset: true, local: true }).readonly().nullish(),
-    owner_id: z.int().readonly().optional(),
-    owner_name: z.string().readonly().optional()
-});
-
-export const zCreateDeviceResponse = z.object({
-    device: zDevice,
-    api_key: z.string()
-});
-
-export const zAddress = z.object({
-    id: zId,
-    device_id: zId,
-    ip: zIpAddress,
-    is_enabled: z.boolean(),
-    created_at: z.iso.datetime({ offset: true, local: true }),
-    updated_at: z.iso.datetime({ offset: true, local: true }),
-    expires_at: z.iso.datetime({ offset: true, local: true }).readonly().nullish()
-});
-
-export const zAccessLogRow = z.object({
-    id: zId,
-    client_ip: zIpAddress,
-    outcome: z.boolean(),
-    deny_reason: z.string().optional(),
-    device_id: zId.optional(),
-    device_name: z.string().optional(),
-    address_id: zId.optional(),
-    created_at: z.iso.datetime({ offset: true, local: true }),
-    xff_chain: z.string().optional(),
-    target_host: z.string().optional(),
-    target_uri: z.string().optional(),
-    http_method: z.string().optional(),
-    country_code: z.string().optional(),
-    country_name: z.string().optional(),
-    continent_code: z.string().optional(),
-    asn: z.int().optional(),
-    asn_org: z.string().optional(),
-    duration_us: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    headers: z.record(z.string(), z.array(z.string()))
-});
-
-export const zAccessLogResponse = z.object({
-    total: z.int(),
-    next_cursor: zId.nullable(),
-    rows: z.array(zAccessLogRow)
-});
-
-export const zDeviceAddressLeaseRule = z.object({
-    id: zId,
-    device_id: zId,
-    enabled: z.boolean(),
-    ttl_seconds: z.int().gte(1),
-    created_at: z.iso.datetime({ offset: true, local: true }),
-    updated_at: z.iso.datetime({ offset: true, local: true })
-});
-
-export const zMaxActiveAddressesRule = z.object({
-    id: zId,
-    device_id: zId,
-    enabled: z.boolean(),
-    max_addresses: z.int().gte(1),
-    created_at: z.iso.datetime({ offset: true, local: true }),
-    updated_at: z.iso.datetime({ offset: true, local: true })
 });
 
 export const zCreateRegistrationRequest = z.object({
@@ -548,6 +548,30 @@ export const zRegenerateDeviceApiKeyData = z.object({
  */
 export const zRegenerateDeviceApiKeyResponse = zCreateDeviceResponse;
 
+export const zDeviceHeartbeatData = z.object({
+    body: z.never().optional(),
+    path: z.object({
+        device_id: zId
+    }),
+    query: z.never().optional()
+});
+
+/**
+ * Address enabled
+ */
+export const zDeviceHeartbeatResponse = zAddress;
+
+export const zDeviceHeartbeatByApiKeyData = z.object({
+    body: zDeviceHeartbeatByApiKeyRequest.optional(),
+    path: z.never().optional(),
+    query: z.never().optional()
+});
+
+/**
+ * Address enabled
+ */
+export const zDeviceHeartbeatByApiKeyResponse = zAddress;
+
 export const zGetDeviceAddressesData = z.object({
     body: z.never().optional(),
     path: z.object({
@@ -596,29 +620,19 @@ export const zGetAddressHistoryData = z.object({
  */
 export const zGetAddressHistoryResponse = zAddressHistoryResponse;
 
-export const zDeviceHeartbeatData = z.object({
+export const zDisableAddressData = z.object({
     body: z.never().optional(),
     path: z.object({
-        device_id: zId
+        device_id: zId,
+        address_id: zId
     }),
     query: z.never().optional()
 });
 
 /**
- * Address enabled
+ * Address successfully disabled
  */
-export const zDeviceHeartbeatResponse = zAddress;
-
-export const zDeviceHeartbeatByApiKeyData = z.object({
-    body: zDeviceHeartbeatByApiKeyRequest.optional(),
-    path: z.never().optional(),
-    query: z.never().optional()
-});
-
-/**
- * Address enabled
- */
-export const zDeviceHeartbeatByApiKeyResponse = zAddress;
+export const zDisableAddressResponse = zAddress;
 
 export const zGetAccessLogData = z.object({
     body: z.never().optional(),
@@ -667,20 +681,6 @@ export const zGetAccessLogDenyReasonsData = z.object({
  * List of deny reason values
  */
 export const zGetAccessLogDenyReasonsResponse = z.array(z.string());
-
-export const zDisableAddressData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        device_id: zId,
-        address_id: zId
-    }),
-    query: z.never().optional()
-});
-
-/**
- * Address successfully disabled
- */
-export const zDisableAddressResponse = zAddress;
 
 export const zDisableDeviceAddressLeaseRuleData = z.object({
     body: z.never().optional(),

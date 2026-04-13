@@ -1,0 +1,247 @@
+users:
+  get:
+    operationId: listUsers
+    tags:
+      - admin
+    summary: List all users (Admin only)
+    description: Returns all non-deleted users.
+    responses:
+      "200":
+        description: Users list
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/schemas/users.yaml#/User'
+      "401":
+        description: Invalid credentials
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - Only admins can list users
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+  post:
+    operationId: createUser
+    tags:
+      - admin
+    summary: Register a new user (Admin only)
+    description: Creates a new user account.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/users.yaml#/CreateUserRequest'
+    responses:
+      "201":
+        description: User created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/users.yaml#/User'
+      "401":
+        description: Invalid credentials
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - Only admins can create users
+      "409":
+        description: Username or email already registered
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "400":
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+userById:
+  delete:
+    operationId: deleteUser
+    tags:
+      - admin
+    summary: Delete a user (Admin only)
+    description: Soft-deletes a user and revokes all user sessions.
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "204":
+        description: User deleted successfully
+      "401":
+        description: Invalid credentials
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - cannot delete self
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "404":
+        description: User not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+promoteUser:
+  post:
+    operationId: promoteUser
+    tags:
+      - admin
+    summary: Promote a user to admin (Admin only)
+    description: Promotes another user to the admin role. Cannot promote oneself.
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: User promoted successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/users.yaml#/User'
+      "401":
+        description: Invalid credentials
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required or self-promotion attempted
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "404":
+        description: User not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+demoteUser:
+  post:
+    operationId: demoteUser
+    tags:
+      - admin
+    summary: Demote an admin to regular user (Admin only)
+    description: Demotes another admin to the user role. Cannot demote oneself.
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: User demoted successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/users.yaml#/User'
+      "401":
+        description: Invalid credentials
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required, self-demotion
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "404":
+        description: User not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+userDevices:
+  get:
+    operationId: getDevicesByUser
+    tags:
+      - admin
+    summary: List devices owned by a user (Admin only)
+    description: Returns all devices assigned to the specified user.
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: OK
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/schemas/devices.yaml#/Device'
+      "403":
+        description: Forbidden - admin credentials required
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "404":
+        description: User not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
