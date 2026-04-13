@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Alert, Button, Card, Group, Skeleton, Stack, Text } from "@mantine/core";
 import { LineChart } from "@mantine/charts";
 import { DataTable } from "mantine-datatable";
@@ -23,6 +24,7 @@ interface AddressHistoryTableProps {
 }
 
 export function AddressHistoryTable({ filters, refreshInterval }: AddressHistoryTableProps) {
+    const navigate = useNavigate();
     const formatDateTime = useDateFormatter();
     const pickerValueFormat = usePickerValueFormat();
 
@@ -60,6 +62,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         setParam: filters.setParam,
         setIpLocal: filters.setIpLocal,
         setSearchParams: filters.setSearchParams,
+        onDeviceClick: (deviceId) => navigate(`/devices/${deviceId}`),
     });
 
     const filterChips = useMemo(() => {

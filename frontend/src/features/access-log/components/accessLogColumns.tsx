@@ -1,5 +1,6 @@
 import {
     ActionIcon,
+    Anchor,
     Badge,
     SegmentedControl,
     Select,
@@ -51,6 +52,7 @@ export interface AccessLogColumnDeps {
 
     // Actions
     onRowClick: (row: AccessLogRow) => void;
+    onDeviceClick: (deviceId: number) => void;
 }
 
 export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<AccessLogRow>[] {
@@ -190,8 +192,15 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
             ),
             filtering: !!deps.deviceIdStr,
             render: (row) => (
-                row.device_name
-                    ? <Text size="sm">{row.device_name}</Text>
+                row.device_name && row.device_id != null
+                    ? (
+                        <Anchor
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); deps.onDeviceClick(row.device_id!); }}
+                        >
+                            {row.device_name}
+                        </Anchor>
+                    )
                     : <Text size="sm" c="dimmed">Unknown</Text>
             ),
         },

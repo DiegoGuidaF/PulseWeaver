@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Alert, Anchor, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
 import { DataTable } from "mantine-datatable";
 import { IconAlertCircle, IconFilterOff } from "@tabler/icons-react";
@@ -26,6 +27,7 @@ interface AccessLogTableProps {
 const PAGE_SIZE = 25;
 
 export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps) {
+    const navigate = useNavigate();
     const formatDateTime = useDateFormatter();
     const pickerValueFormat = usePickerValueFormat();
 
@@ -87,6 +89,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
             setSelectedRow(row);
             setDrawerOpened(true);
         },
+        onDeviceClick: (deviceId) => navigate(`/devices/${deviceId}`),
     });
 
     const filterChips = useMemo(() => {

@@ -1,4 +1,5 @@
 import {
+    Anchor,
     Badge,
     SegmentedControl,
     Select,
@@ -54,6 +55,7 @@ export interface AddressHistoryColumnDeps {
     setParam: (key: string, value: string | null) => void;
     setIpLocal: (value: string) => void;
     setSearchParams: AddressHistoryFilters["setSearchParams"];
+    onDeviceClick: (deviceId: number) => void;
 }
 
 export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTableColumn<AddressHistoryEvent>[] {
@@ -143,7 +145,9 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
             ),
             filtering: !!deps.deviceIdStr,
             render: (row) => (
-                <Text size="sm">{row.device_name}</Text>
+                <Anchor size="sm" onClick={() => deps.onDeviceClick(row.device_id)}>
+                    {row.device_name}
+                </Anchor>
             ),
         },
         {
