@@ -8,18 +8,18 @@ import {
     ActionIcon,
     Burger,
     Group,
+    Tooltip,
     useMantineColorScheme,
     useComputedColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { BrandName } from "@/components/BrandName";
 import {
-    IconBrandGithub,
     IconChartBar,
+    IconHelp,
     IconHistory,
     IconList,
     IconLogout,
-    IconMessageCircle,
     IconMoon,
     IconServer,
     IconSettings,
@@ -37,11 +37,6 @@ const navItems = [
     { label: "Access Log", href: "/access-log", icon: IconList, adminOnly: true },
     { label: "Address Log", href: "/address-history", icon: IconHistory, adminOnly: true },
     { label: "Settings", href: "/settings", icon: IconSettings, adminOnly: false },
-];
-
-const externalLinks = [
-    { label: "GitHub", href: "https://github.com/DiegoGuidaF/pulseweaver", icon: IconBrandGithub },
-    { label: "Feedback", href: "https://github.com/DiegoGuidaF/pulseweaver/issues", icon: IconMessageCircle },
 ];
 
 function ColorSchemeToggle() {
@@ -93,7 +88,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         />
                         <BrandName />
                     </Group>
-                    <ColorSchemeToggle />
+                    <Group gap="xs">
+                        <ColorSchemeToggle />
+                        <Tooltip label="Help & docs" position="bottom">
+                            <ActionIcon
+                                component="a"
+                                href="https://github.com/DiegoGuidaF/pulseweaver"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                variant="subtle"
+                                size="md"
+                                aria-label="Help and docs"
+                            >
+                                <IconHelp size={18} stroke={1.5} />
+                            </ActionIcon>
+                        </Tooltip>
+                    </Group>
                 </Group>
             </MantineAppShell.Header>
 
@@ -140,18 +150,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             </Text>
                         </Group>
                     )}
-                    {externalLinks.map((link) => (
-                        <NavLink
-                            key={link.href}
-                            component="a"
-                            href={link.href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            label={link.label}
-                            leftSection={<link.icon size={18} stroke={1.5} />}
-                            c="dimmed"
-                        />
-                    ))}
                     <Divider my="xs" />
                     <NavLink
                         label={logoutMutation.isPending ? "Logging out…" : "Logout"}
