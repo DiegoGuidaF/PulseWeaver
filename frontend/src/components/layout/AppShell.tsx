@@ -14,14 +14,16 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { BrandName } from "@/components/BrandName";
 import {
+    IconBrandGithub,
     IconChartBar,
+    IconHistory,
+    IconList,
+    IconLogout,
+    IconMessageCircle,
+    IconMoon,
     IconServer,
     IconSettings,
-    IconLogout,
     IconSun,
-    IconMoon,
-    IconList,
-    IconHistory,
 } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useLogout } from "@/features/auth/hooks/useLogout";
@@ -133,6 +135,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             </Text>
                         </Group>
                     )}
+                    <NavLink
+                        component="a"
+                        href="https://github.com/DiegoGuidaF/pulseweaver"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        label="GitHub"
+                        leftSection={<IconBrandGithub size={18} stroke={1.5} />}
+                        c="dimmed"
+                    />
+                    <NavLink
+                        component="a"
+                        href="https://github.com/DiegoGuidaF/pulseweaver/issues"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        label="Feedback"
+                        leftSection={<IconMessageCircle size={18} stroke={1.5} />}
+                        c="dimmed"
+                    />
+                    <Divider my="xs" />
                     <NavLink
                         label={logoutMutation.isPending ? "Logging out…" : "Logout"}
                         leftSection={<IconLogout size={18} stroke={1.5} />}
