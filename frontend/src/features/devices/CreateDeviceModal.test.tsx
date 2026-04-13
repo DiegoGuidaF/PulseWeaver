@@ -1,0 +1,126 @@
+import { describe, expect, it, vi } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { delay, http } from 'msw';
+import { server } from '@/test/setup';
+import { renderWithProviders } from '@/test/utils';
+import { CreateDeviceModal } from './CreateDeviceModal';
+import { TEST_TIMEOUTS } from '@/test/constants';
+import { deviceHandlers, endpoints, responses } from '@/test/mocks/handlers';
+import { createMockDevice } from '@/test/mocks/data';
+
+function renderModal(onClose: () => void = vi.fn()) {
+    return renderWithProviders(<CreateDeviceModal opened={true} onClose={onClose} />);
+}
+
+describe('CreateDeviceModal', () => {
+    it('renders form with name input and submit button', () => {
+        renderModal();
+
+        expect(screen.getByLabelText('Name')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /create device/i })).toBeInTheDocument();
+    });
+
+    it('shows validation error for empty name', async () => {
+        const user = userEvent.setup();
+        renderModal();
+
+        const input = screen.getByLabelText('Name');
+        await user.click(screen.getByRole('button', { name: /create device/i }));
+
+        await waitFor(
+            () => {
+                expect(input).toBeInvalid();
+                expect(screen.getByText(/at least|too short|too small|required/i)).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+    });
+
+    it('shows loading state during submission', async () => {
+        const user = userEvent.setup();
+
+        server.use(
+            http.post(endpoints.devices, async () => {
+                await delay('infinite');
+                return responses.created(createMockDevice());
+            })
+        );
+
+        renderModal();
+
+        await user.type(screen.getByLabelText('Name'), 'Test Device');
+        await user.click(screen.getByRole('button', { name: /create device/i }));
+
+        expect(screen.getByRole('button', { name: /create device/i })).toBeDisabled();
+    });
+
+    it('calls onClose after successful creation', async () => {
+        const user = userEvent.setup();
+        const onClose = vi.fn();
+
+        // defaultHandlers provides create.success() — no server.use() needed
+
+        renderModal(onClose);
+
+        await user.type(screen.getByLabelText('Name'), 'New Device');
+        await user.click(screen.getByRole('button', { name: /create device/i }));
+
+        await waitFor(
+            () => {
+                expect(onClose).toHaveBeenCalled();
+            },
+            { timeout: TEST_TIMEOUTS.MEDIUM }
+        );
+    });
+
+    it('shows error toast on API error', async () => {
+        const user = userEvent.setup();
+
+        server.use(
+            http.post(endpoints.devices, () => responses.serverError())
+        );
+
+        renderModal();
+
+        const input = screen.getByLabelText('Name');
+        await user.type(input, 'Test Device');
+        await user.click(screen.getByRole('button', { name: /create device/i }));
+
+        await waitFor(
+            () => {
+                expect(screen.getByText(/error creating device/i)).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.MEDIUM }
+        );
+
+        // Form should not be reset on error
+        expect((input as HTMLInputElement).value).toBe('Test Device');
+    });
+
+    it('shows error message when device name is already in use (409)', async () => {
+        const user = userEvent.setup();
+
+        server.use(deviceHandlers.create.conflict());
+
+        renderModal();
+
+        const input = screen.getByLabelText('Name');
+        await user.type(input, 'Duplicate Name');
+        await user.click(screen.getByRole('button', { name: /create device/i }));
+
+        await waitFor(
+            () => {
+                expect(
+                    screen.getByText(/error creating device/i)
+                ).toBeInTheDocument();
+                expect(
+                    screen.getByText(/already exists/i)
+                ).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.MEDIUM }
+        );
+
+        expect((input as HTMLInputElement).value).toBe('Duplicate Name');
+    });
+});

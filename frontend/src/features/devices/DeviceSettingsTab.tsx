@@ -16,8 +16,6 @@ import { useRegenerateApiKey } from "@/features/devices/hooks/useRegenerateApiKe
 import { useDeviceTypes } from "@/features/devices/hooks/useDeviceTypes";
 import { DeviceProfileCard } from "@/features/devices/DeviceProfileCard";
 import { DeviceOwnershipCard } from "@/features/devices/DeviceOwnershipCard";
-import { AddressLeaseRuleCard } from "@/features/devices/AddressLeaseRuleCard";
-import { MaxActiveIpsRuleCard } from "@/features/devices/MaxActiveIpsRuleCard";
 import type { DeviceType } from "@/features/devices/deviceTypeConfig";
 
 export interface DeviceData {
@@ -145,14 +143,6 @@ export function DeviceSettingsTab({
         </Card>
       </Stack>
 
-      {/* Rules */}
-      <Stack gap="sm">
-        <Title order={5}>Rules</Title>
-        <AddressLeaseRuleCard deviceId={deviceId} />
-        <MaxActiveIpsRuleCard deviceId={deviceId} />
-      </Stack>
-
-      {/* Confirm regenerate API key modal */}
       <Modal
         opened={confirmRegenOpen}
         onClose={() => setConfirmRegenOpen(false)}

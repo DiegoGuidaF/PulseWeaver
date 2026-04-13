@@ -16,7 +16,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconTrash } from "@tabler/icons-react";
+import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import type { Device } from "@/lib/api";
 import { UserRole } from "@/lib/api";
@@ -25,6 +25,7 @@ import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { useDevices } from "@/features/devices/hooks/useDevices";
 import { useGetDevicesByUser } from "@/features/devices/hooks/useGetDevicesByUser";
 import { useDeleteDevice } from "@/features/devices/hooks/useDeleteDevice";
+import { CreateDeviceModal } from "@/features/devices/CreateDeviceModal";
 import { toErrorMessage } from "@/lib/api-client";
 
 const CHIP_FILTER_MAX_USERS = 8;
@@ -37,6 +38,7 @@ export function DeviceList() {
 
   const { data: users } = useListUsers({ enabled: isAdmin });
   const [ownerFilter, setOwnerFilter] = useState<number | null>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   // Both queries run unconditionally to respect Rules of Hooks;
   // only the relevant result is used based on ownerFilter.
@@ -124,23 +126,34 @@ export function DeviceList() {
   if (isLoading) {
     const colCount = showOwnerCol ? 6 : 5;
     return (
-      <Card withBorder>
-        <Title order={3} mb="md">Devices</Title>
-        <Stack gap="sm">
-          <Group justify="space-between" pb="sm" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
-            {Array.from({ length: colCount }).map((_, i) => (
-              <Skeleton key={i} height={16} width={100} />
-            ))}
+      <>
+        <CreateDeviceModal
+          opened={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+        />
+        <Card withBorder>
+          <Group justify="space-between" mb="md">
+            <Title order={3}>Devices</Title>
+            <Button size="sm" leftSection={<IconPlus size={16} />} disabled>
+              New device
+            </Button>
           </Group>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Group key={i} justify="space-between" py="sm" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
-              <Skeleton height={16} width={120} />
-              <Skeleton height={16} width={80} />
-              <Skeleton height={16} width={200} />
+          <Stack gap="sm">
+            <Group justify="space-between" pb="sm" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+              {Array.from({ length: colCount }).map((_, i) => (
+                <Skeleton key={i} height={16} width={100} />
+              ))}
             </Group>
-          ))}
-        </Stack>
-      </Card>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Group key={i} justify="space-between" py="sm" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+                <Skeleton height={16} width={120} />
+                <Skeleton height={16} width={80} />
+                <Skeleton height={16} width={200} />
+              </Group>
+            ))}
+          </Stack>
+        </Card>
+      </>
     );
   }
 
@@ -151,8 +164,22 @@ export function DeviceList() {
       : "No devices found.";
 
   return (
-    <Card withBorder>
-      <Title order={3} mb="md">Devices</Title>
+    <>
+      <CreateDeviceModal
+        opened={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+      />
+      <Card withBorder>
+        <Group justify="space-between" mb="md">
+          <Title order={3}>Devices</Title>
+          <Button
+            size="sm"
+            leftSection={<IconPlus size={16} />}
+            onClick={() => setCreateModalOpen(true)}
+          >
+            New device
+          </Button>
+        </Group>
       {renderOwnerFilter()}
       <Table highlightOnHover>
         <Table.Thead>
@@ -172,7 +199,7 @@ export function DeviceList() {
                 <Stack align="center" justify="center" gap={8}>
                   <Text c="dimmed">{emptyMessage}</Text>
                   {ownerFilter === null && (
-                    <Text size="sm" c="gray">Add a device above to get started.</Text>
+                    <Text size="sm" c="gray">Click &quot;New device&quot; to get started.</Text>
                   )}
                 </Stack>
               </Table.Td>
@@ -242,5 +269,6 @@ export function DeviceList() {
         </Group>
       </Modal>
     </Card>
+    </>
   );
 }

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import {
+  Badge,
   Button,
   Card,
   Group,
+  Modal,
   Select,
   Skeleton,
   Stack,
@@ -37,6 +39,11 @@ export function DeviceOwnershipCard({
   const [selectedOwner, setSelectedOwner] = useState(
     ownerId != null ? String(ownerId) : "",
   );
+  const [confirmTarget, setConfirmTarget] = useState<{
+    ownerId: number;
+    ownerName: string;
+    ownerRole: UserRole;
+  } | null>(null);
 
   const ownerDirty =
     selectedOwner !== (ownerId != null ? String(ownerId) : "");
@@ -48,24 +55,38 @@ export function DeviceOwnershipCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerId]);
 
+  const pendingOwnerName = confirmTarget?.ownerName;
+  const prevOwnerRole = users?.find((u) => u.id === ownerId)?.role;
+
   function handleOwnerSave() {
     if (!selectedOwner) return;
+    const newUser = users?.find((u) => String(u.id) === selectedOwner);
+    const newOwnerName = newUser?.display_name ?? selectedOwner;
+    const newOwnerRole = newUser?.role ?? UserRole.USER;
+    setConfirmTarget({ ownerId: Number(selectedOwner), ownerName: newOwnerName, ownerRole: newOwnerRole });
+  }
+
+  function handleConfirmOwnerChange() {
+    if (!confirmTarget) return;
     updateDevice.mutate(
       {
         path: { device_id: deviceId },
-        body: { owner_id: Number(selectedOwner) },
+        body: { owner_id: confirmTarget.ownerId },
       },
       {
-        onSuccess: () =>
+        onSuccess: () => {
+          setConfirmTarget(null);
           notifications.show({
             color: "green",
             message: "Device ownership updated",
-          }),
+          });
+        },
         onError: (err) => {
           const status =
             err && typeof err === "object" && "status" in err
               ? (err as { status: unknown }).status
               : undefined;
+          setConfirmTarget(null);
           notifications.show({
             color: "red",
             message:
@@ -82,9 +103,49 @@ export function DeviceOwnershipCard({
     users?.map((u) => ({ value: String(u.id), label: u.display_name })) ?? [];
 
   return (
-    <Card withBorder>
+    <>
+      <Modal
+        opened={confirmTarget !== null}
+        onClose={() => setConfirmTarget(null)}
+        title="Reassign device ownership?"
+        closeOnClickOutside={false}
+      >
+        <Stack gap="xs" my="xs">
+          <Group gap="xs">
+            <Text size="sm" c="dimmed" w={36}>From</Text>
+            <Text size="sm" fw={500}>{ownerName ?? "—"}</Text>
+            {prevOwnerRole && (
+              <Badge variant="light" color={prevOwnerRole === UserRole.ADMIN ? "indigo" : "gray"} size="sm">
+                {prevOwnerRole}
+              </Badge>
+            )}
+          </Group>
+          <Group gap="xs">
+            <Text size="sm" c="dimmed" w={36}>To</Text>
+            <Text size="sm" fw={500}>{pendingOwnerName}</Text>
+            {confirmTarget?.ownerRole && (
+              <Badge variant="light" color={confirmTarget.ownerRole === UserRole.ADMIN ? "indigo" : "gray"} size="sm">
+                {confirmTarget.ownerRole}
+              </Badge>
+            )}
+          </Group>
+        </Stack>
+        <Group justify="flex-end" mt="md" gap="sm">
+          <Button variant="outline" onClick={() => setConfirmTarget(null)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmOwnerChange}
+            disabled={updateDevice.isPending}
+            loading={updateDevice.isPending}
+          >
+            Reassign
+          </Button>
+        </Group>
+      </Modal>
+
+      <Card withBorder>
       <Stack gap="md">
-        <Text fw={500}>Ownership</Text>
         {!isAdmin ? (
           <Group gap="xs">
             <Text size="sm" c="dimmed">
@@ -129,5 +190,6 @@ export function DeviceOwnershipCard({
         )}
       </Stack>
     </Card>
+    </>
   );
 }

@@ -1,5 +1,4 @@
 import { Stack, Title, Text } from "@mantine/core";
-import { CreateDeviceForm } from "@/features/devices/CreateDeviceForm";
 import { DeviceList } from "@/features/devices/DeviceList";
 
 export function DevicesPage() {
@@ -9,7 +8,6 @@ export function DevicesPage() {
         <Title order={1}>Devices</Title>
         <Text c="dimmed" size="sm">Manage your registered devices.</Text>
       </div>
-      <CreateDeviceForm />
       <DeviceList />
     </Stack>
   );

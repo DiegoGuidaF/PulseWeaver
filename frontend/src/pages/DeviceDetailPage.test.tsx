@@ -3,9 +3,9 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http } from 'msw';
 import { DeviceDetailPage } from '@/pages/DeviceDetailPage';
-import { createMockDevice, createMockDeviceAddressLeaseRule } from '@/test/mocks/data';
+import { createMockDevice } from '@/test/mocks/data';
 import { TEST_TIMEOUTS } from '@/test/constants';
-import { addressHandlers, deviceHandlers, endpoints, responses, ruleHandlers } from '@/test/mocks/handlers';
+import { addressHandlers, deviceHandlers, endpoints, responses } from '@/test/mocks/handlers';
 import { server } from '@/test/setup';
 import { renderWithProviders } from '@/test/utils';
 
@@ -21,7 +21,6 @@ describe('DeviceDetailPage', () => {
         server.use(
             deviceHandlers.getById({ name: 'My Router', api_key_prefix: 'rtr_' }),
             addressHandlers.list([]),
-            ruleHandlers.addressLease.get.notFound(),
         );
     });
 
@@ -79,13 +78,29 @@ describe('DeviceDetailPage', () => {
         );
     });
 
+    it('switches to Rules tab', async () => {
+        const user = userEvent.setup();
+
+        renderPage();
+
+        await waitFor(
+            () => {
+                expect(screen.getByRole('heading', { name: 'My Router' })).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        await user.click(screen.getByRole('tab', { name: /rules/i }));
+
+        await waitFor(
+            () => {
+                expect(screen.getByText('Auto-expiry rule')).toBeVisible();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+    });
+
     it('switches to Settings tab', async () => {
         const user = userEvent.setup();
-        server.use(
-            ruleHandlers.addressLease.get.success(
-                createMockDeviceAddressLeaseRule({ enabled: true, ttl_seconds: 3600 })
-            )
-        );
 
         renderPage();
 
@@ -97,7 +112,7 @@ describe('DeviceDetailPage', () => {
         );
         await user.click(screen.getByRole('tab', { name: /settings/i }));
 
-        expect(screen.getByText('Auto-expiry rule')).toBeVisible();
+        expect(screen.getByRole('button', { name: 'Regenerate API key' })).toBeVisible();
         expect(screen.queryByText('Register IP address')).not.toBeInTheDocument();
     });
 });

@@ -6,31 +6,26 @@ import {
   Button,
   Card,
   Group,
-  Popover,
   SegmentedControl,
-  SimpleGrid,
   Stack,
   Text,
   Textarea,
   TextInput,
+  Tooltip,
   UnstyledButton,
 } from "@mantine/core";
+import { IconPickerPopover } from "@/features/devices/IconPickerPopover";
 import { IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { toErrorMessage } from "@/lib/api-client";
 import { useUpdateDevice } from "@/features/devices/hooks/useUpdateDevice";
 import {
   DEVICE_TYPE_CONFIG,
-  ICON_PICKER_OPTIONS,
   getDeviceIcon,
 } from "@/features/devices/deviceTypeConfig";
 import type { DeviceType } from "@/features/devices/deviceTypeConfig";
 import type { DeviceTypeItem } from "@/lib/api";
 import { zUpdateDeviceRequest } from "@/lib/api/zod.gen";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 export interface DeviceForProfile {
   name: string;
@@ -39,17 +34,6 @@ export interface DeviceForProfile {
   icon?: string | null;
 }
 
-// ---------------------------------------------------------------------------
-// Form schema
-// ---------------------------------------------------------------------------
-
-// Derived from the generated zUpdateDeviceRequest schema so constraints
-// stay in sync with the OpenAPI spec automatically on `make api`.
-//
-// name / device_type: .unwrap() strips .optional() — the form always
-//   has all fields populated (unlike the PATCH request which allows partials).
-// description / icon: the API accepts null/undefined, but the form holds plain
-//   strings (empty string = null sentinel, transformed on submit).
 const profileFormSchema = z.object({
   name: zUpdateDeviceRequest.shape.name.unwrap(),
   device_type: zUpdateDeviceRequest.shape.device_type.unwrap(),
@@ -67,60 +51,6 @@ function deviceToFormValues(d: DeviceForProfile): ProfileFormValues {
     icon: d.icon ?? "",
   };
 }
-
-// ---------------------------------------------------------------------------
-// Icon picker popover
-// ---------------------------------------------------------------------------
-
-interface IconPickerPopoverProps {
-  opened: boolean;
-  onClose: () => void;
-  target: React.ReactNode;
-  selectedIcon: string;
-  onSelect: (name: string) => void;
-}
-
-function IconPickerPopover({
-  opened,
-  onClose,
-  target,
-  selectedIcon,
-  onSelect,
-}: IconPickerPopoverProps) {
-  return (
-    <Popover
-      opened={opened}
-      onClose={onClose}
-      position="bottom-start"
-      withinPortal
-      shadow="md"
-    >
-      <Popover.Target>{target}</Popover.Target>
-      <Popover.Dropdown>
-        <SimpleGrid cols={5} spacing={4}>
-          {ICON_PICKER_OPTIONS.map(({ name, icon: Icon }) => (
-            <ActionIcon
-              key={name}
-              variant={selectedIcon === name ? "filled" : "subtle"}
-              size="lg"
-              aria-label={name}
-              onClick={() => {
-                onSelect(name);
-                onClose();
-              }}
-            >
-              <Icon size={18} />
-            </ActionIcon>
-          ))}
-        </SimpleGrid>
-      </Popover.Dropdown>
-    </Popover>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// DeviceProfileCard
-// ---------------------------------------------------------------------------
 
 export interface DeviceProfileCardProps {
   deviceId: number;
@@ -206,35 +136,81 @@ export function DeviceProfileCard({
     <Card withBorder>
       <form onSubmit={form.onSubmit(handleSubmit)}>
         <Stack gap="md">
-          <Group justify="space-between" align="center">
-            <Text fw={500}>
-              Device profile{" "}
-              {isDirty && (
-                <Text component="span" c="yellow.5" aria-label="unsaved changes">
-                  •
-                </Text>
-              )}
-            </Text>
-          </Group>
-
           <TextInput
             label="Name"
             placeholder="My device"
             {...form.getInputProps("name")}
           />
 
-          <div>
-            <Text size="sm" fw={500} mb={4}>
-              Type
-            </Text>
-            <SegmentedControl
-              data={segmentedData}
-              value={form.values.device_type}
-              onChange={(val) =>
-                form.setFieldValue("device_type", val as DeviceType)
-              }
-            />
-          </div>
+          <Group gap="lg" align="flex-end">
+            <div>
+              <Text size="sm" fw={500} mb={4}>
+                Type
+              </Text>
+              <SegmentedControl
+                data={segmentedData}
+                value={form.values.device_type}
+                onChange={(val) =>
+                  form.setFieldValue("device_type", val as DeviceType)
+                }
+              />
+            </div>
+
+            <div>
+              <Text size="sm" fw={500} mb={4}>
+                Icon
+              </Text>
+              <Group gap="xs" align="center">
+                <IconPickerPopover
+                  opened={iconPickerOpen}
+                  onClose={() => setIconPickerOpen(false)}
+                  selectedIcon={form.values.icon}
+                  onSelect={(name) => form.setFieldValue("icon", name)}
+                  target={
+                    <Tooltip
+                      label={form.values.icon || "Type default"}
+                      withArrow
+                    >
+                      <UnstyledButton
+                        onClick={() => setIconPickerOpen((o) => !o)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: 36,
+                          height: 36,
+                          borderRadius: "var(--mantine-radius-sm)",
+                          border: "1px solid var(--mantine-color-default-border)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <CurrentIcon
+                          size={20}
+                          style={{
+                            color:
+                              currentColor === "dimmed"
+                                ? "var(--mantine-color-dimmed)"
+                                : `var(--mantine-color-${currentColor}-filled)`,
+                          }}
+                        />
+                      </UnstyledButton>
+                    </Tooltip>
+                  }
+                />
+                {form.values.icon && (
+                  <ActionIcon
+                    variant="subtle"
+                    color="dimmed"
+                    size="sm"
+                    aria-label="Clear icon override"
+                    onClick={() => form.setFieldValue("icon", "")}
+                  >
+                    <IconX size={14} />
+                  </ActionIcon>
+                )}
+              </Group>
+            </div>
+          </Group>
 
           <div>
             <Textarea
@@ -249,78 +225,28 @@ export function DeviceProfileCard({
             </Text>
           </div>
 
-          <div>
-            <Text size="sm" fw={500} mb={4}>
-              Icon
-            </Text>
-            <Group gap="sm" align="center">
-              <IconPickerPopover
-                opened={iconPickerOpen}
-                onClose={() => setIconPickerOpen(false)}
-                selectedIcon={form.values.icon}
-                onSelect={(name) => form.setFieldValue("icon", name)}
-                target={
-                  <UnstyledButton
-                    onClick={() => setIconPickerOpen((o) => !o)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "6px 10px",
-                      borderRadius: "var(--mantine-radius-sm)",
-                      border: "1px solid var(--mantine-color-default-border)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <CurrentIcon
-                      size={20}
-                      style={{
-                        color:
-                          currentColor === "dimmed"
-                            ? "var(--mantine-color-dimmed)"
-                            : `var(--mantine-color-${currentColor}-filled)`,
-                      }}
-                    />
-                    <Text size="sm" c={form.values.icon ? undefined : "dimmed"}>
-                      {form.values.icon || "Type default"}
-                    </Text>
-                  </UnstyledButton>
-                }
-              />
-              {form.values.icon && (
-                <ActionIcon
+          {isDirty && (
+            <Group justify="space-between" align="center">
+              <Text size="xs" c="yellow.5">Unsaved changes</Text>
+              <Group gap="sm">
+                <Button
+                  type="button"
                   variant="subtle"
-                  color="dimmed"
                   size="sm"
-                  aria-label="Clear icon override"
-                  onClick={() => form.setFieldValue("icon", "")}
+                  onClick={handleReset}
                 >
-                  <IconX size={14} />
-                </ActionIcon>
-              )}
+                  Reset
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  loading={updateDevice.isPending}
+                >
+                  Save
+                </Button>
+              </Group>
             </Group>
-          </div>
-
-          <Group justify="flex-end" gap="sm">
-            {isDirty && (
-              <Button
-                type="button"
-                variant="subtle"
-                size="sm"
-                onClick={handleReset}
-              >
-                Reset
-              </Button>
-            )}
-            <Button
-              type="submit"
-              size="sm"
-              disabled={!isDirty || updateDevice.isPending}
-              loading={updateDevice.isPending}
-            >
-              Save
-            </Button>
-          </Group>
+          )}
         </Stack>
       </form>
     </Card>

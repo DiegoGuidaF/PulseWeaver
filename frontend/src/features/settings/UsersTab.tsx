@@ -40,6 +40,11 @@ export function UsersTab() {
   const createUser = useCreateUser();
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; username: string } | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [pendingRole, setPendingRole] = useState<{
+    userId: number;
+    username: string;
+    targetRole: "admin" | "user";
+  } | null>(null);
 
   const createForm = useForm<CreateUserValues>({
     validate: schemaResolver(createUserSchema),
@@ -73,14 +78,21 @@ export function UsersTab() {
 
   const users = listUsers.data ?? [];
 
-  function handleRoleToggle(targetUserId: number, currentRole: string) {
-    const mutation = currentRole === UserRole.ADMIN ? demoteUser : promoteUser;
+  function handleRoleToggle(targetUserId: number, currentRole: string, username: string) {
+    const targetRole = currentRole === UserRole.ADMIN ? "user" : "admin";
+    setPendingRole({ userId: targetUserId, username, targetRole });
+  }
+
+  function handleConfirmRoleChange() {
+    if (!pendingRole) return;
+    const mutation = pendingRole.targetRole === "admin" ? promoteUser : demoteUser;
     mutation.mutate(
-      { path: { user_id: targetUserId } },
+      { path: { user_id: pendingRole.userId } },
       {
         onSuccess: () => notifications.show({ color: "green", message: "User updated" }),
         onError: (err) =>
           notifications.show({ color: "red", title: "Failed to update user", message: toErrorMessage(err) }),
+        onSettled: () => setPendingRole(null),
       },
     );
   }
@@ -100,6 +112,44 @@ export function UsersTab() {
 
   return (
     <>
+      <Modal
+        opened={pendingRole !== null}
+        onClose={() => setPendingRole(null)}
+        title={pendingRole?.targetRole === "admin" ? "Promote to admin?" : "Demote to user?"}
+        closeOnClickOutside={false}
+      >
+        {pendingRole?.targetRole === "admin" ? (
+          <Text size="sm">
+            Promoting{" "}
+            <Text component="span" fw={600}>{pendingRole.username}</Text> to admin
+            will give them visibility of <Text component="span" fw={500}>all devices</Text> across all
+            users. They will also gain access to admin-only pages: Dashboard,
+            Access Log, and Address History, including server-wide metrics.
+          </Text>
+        ) : (
+          <Text size="sm">
+            Demoting{" "}
+            <Text component="span" fw={600}>{pendingRole?.username}</Text> to user
+            will restrict them to seeing <Text component="span" fw={500}>only their own devices</Text>.
+            They will lose access to admin-only pages (Dashboard, Access Log,
+            Address History) and will no longer be able to view server-wide
+            metrics.
+          </Text>
+        )}
+        <Group justify="flex-end" mt="md" gap="sm">
+          <Button variant="outline" onClick={() => setPendingRole(null)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmRoleChange}
+            disabled={promoteUser.isPending || demoteUser.isPending}
+            loading={promoteUser.isPending || demoteUser.isPending}
+          >
+            Confirm
+          </Button>
+        </Group>
+      </Modal>
+
       <Modal
         opened={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
@@ -210,7 +260,7 @@ export function UsersTab() {
                             variant="outline"
                             size="sm"
                             disabled={promoteUser.isPending || demoteUser.isPending}
-                            onClick={() => handleRoleToggle(adminUser.id, adminUser.role)}
+                            onClick={() => handleRoleToggle(adminUser.id, adminUser.role, adminUser.username)}
                           >
                             {isAdmin ? "Demote to user" : "Promote to admin"}
                           </Button>

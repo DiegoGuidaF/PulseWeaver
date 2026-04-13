@@ -11,11 +11,11 @@ describe('DevicesPage', () => {
         server.use(deviceHandlers.list([]));
     });
 
-    it('renders heading, create form, and empty device list', async () => {
+    it('renders heading, new device button, and empty device list', async () => {
         renderWithProviders(<DevicesPage />);
 
         expect(screen.getByRole('heading', { name: 'Devices', level: 1 })).toBeInTheDocument();
-        expect(screen.getByLabelText('New Device Name')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /new device/i })).toBeInTheDocument();
         await waitFor(
             () => {
                 expect(screen.getByText('No devices found.')).toBeInTheDocument();

@@ -136,7 +136,7 @@ describe('DeviceList', () => {
         );
 
         expect(
-            screen.getByText('Add a device above to get started.')
+            screen.getByText('Click "New device" to get started.')
         ).toBeInTheDocument();
     });
 

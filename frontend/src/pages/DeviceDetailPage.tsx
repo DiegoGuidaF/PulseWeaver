@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 import { useDeviceDetail } from "@/features/devices/hooks/useDeviceDetail";
 import { useDeviceAddressLeaseRule } from "@/features/devices/hooks/useDeviceAddressLeaseRule";
 import { DeviceAddressesTab } from "@/features/devices/DeviceAddressesTab";
+import { DeviceRulesTab } from "@/features/devices/DeviceRulesTab";
 import { DeviceSettingsTab } from "@/features/devices/DeviceSettingsTab";
 import { DeviceHistoryTab } from "@/features/devices/DeviceHistoryTab";
 import { toErrorMessage } from "@/lib/api-client";
@@ -126,17 +127,21 @@ export function DeviceDetailPage() {
       <Tabs defaultValue="addresses" keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="addresses">Addresses</Tabs.Tab>
-          <Tabs.Tab value="settings">Settings</Tabs.Tab>
+          <Tabs.Tab value="rules">Rules</Tabs.Tab>
           <Tabs.Tab value="history">History</Tabs.Tab>
+          <Tabs.Tab value="settings">Settings</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="addresses" pt="md">
           <DeviceAddressesTab deviceId={deviceId} />
         </Tabs.Panel>
-        <Tabs.Panel value="settings" pt="md">
-          <DeviceSettingsTab deviceId={deviceId} device={device} />
+        <Tabs.Panel value="rules" pt="md">
+          <DeviceRulesTab deviceId={deviceId} />
         </Tabs.Panel>
         <Tabs.Panel value="history" pt="md">
           <DeviceHistoryTab deviceId={deviceId} />
+        </Tabs.Panel>
+        <Tabs.Panel value="settings" pt="md">
+          <DeviceSettingsTab deviceId={deviceId} device={device} />
         </Tabs.Panel>
       </Tabs>
     </Stack>
