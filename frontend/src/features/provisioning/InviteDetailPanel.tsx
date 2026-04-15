@@ -1,8 +1,8 @@
 import { ActionIcon, Button, Card, Group, Text, TextInput } from "@mantine/core";
 import { IconCopy } from "@tabler/icons-react";
-import { notifications } from "@mantine/notifications";
 import type { PendingRegistration } from "@/lib/api";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
+import { useClipboard } from "@/hooks/useClipboard";
 
 interface InviteDetailPanelProps {
   registration: PendingRegistration;
@@ -14,11 +14,7 @@ export function InviteDetailPanel({
   onCreateAnother,
 }: InviteDetailPanelProps) {
   const formatDateTime = useDateFormatter();
-
-  function copyCode() {
-    navigator.clipboard.writeText(registration.registration_code ?? "");
-    notifications.show({ color: "green", message: "Code copied" });
-  }
+  const { copy } = useClipboard();
 
   return (
     <Card withBorder>
@@ -36,7 +32,7 @@ export function InviteDetailPanel({
         <ActionIcon
           variant="default"
           size="lg"
-          onClick={copyCode}
+          onClick={() => copy(registration.registration_code ?? "", { successMessage: "Code copied" })}
           disabled={!registration.registration_code}
           aria-label="Copy registration code"
           mb={1}

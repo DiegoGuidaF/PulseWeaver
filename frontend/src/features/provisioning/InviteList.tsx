@@ -18,25 +18,20 @@ import { notifications } from "@mantine/notifications";
 import { useListRegistrations } from "./hooks/useListRegistrations";
 import { useDeleteRegistration } from "./hooks/useDeleteRegistration";
 import { InviteDetailPanel } from "./InviteDetailPanel";
+import {
+  EXPIRING_SOON_MS,
+  FILTER_TAB_OPTIONS,
+  STATUS_BADGE,
+} from "./constants";
+import type { FilterTab } from "./constants";
 import type { PendingRegistration } from "@/lib/api";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { toErrorMessage } from "@/lib/api-client";
 
-type FilterTab = "pending" | "used" | "expired" | "all";
-
-const STATUS_BADGE: Record<
-  PendingRegistration["status"],
-  { color: string; label: string }
-> = {
-  pending: { color: "green", label: "Pending" },
-  used: { color: "gray", label: "Used" },
-  expired: { color: "red", label: "Expired" },
-};
-
 function isExpiringSoon(row: PendingRegistration): boolean {
   return (
     row.status === "pending" &&
-    new Date(row.expires_at).getTime() - Date.now() < 60 * 60 * 1000
+    new Date(row.expires_at).getTime() - Date.now() < EXPIRING_SOON_MS
   );
 }
 
@@ -100,12 +95,7 @@ export function InviteList() {
         <SegmentedControl
           value={tab}
           onChange={(v) => setTab(v as FilterTab)}
-          data={[
-            { value: "pending", label: "Pending" },
-            { value: "used", label: "Used" },
-            { value: "expired", label: "Expired" },
-            { value: "all", label: "All" },
-          ]}
+          data={FILTER_TAB_OPTIONS}
         />
 
         {isLoading ? (
@@ -113,7 +103,7 @@ export function InviteList() {
         ) : rows.length === 0 ? (
           <Text c="dimmed">
             {tab === "pending"
-              ? "No pending invites. Use the form above to create one."
+              ? "No pending invites. Click Create invite to add one."
               : "No invites found."}
           </Text>
         ) : (

@@ -33,8 +33,7 @@ func NewService(repo repository, logger *slog.Logger) *Service {
 }
 
 // CreateInvite generates a registration code and a pre-staged device API key, then
-// persists the invite. The admin can share the registration_code (as a QR or text)
-// with the end user.
+// persists the invite.
 func (s *Service) CreateInvite(ctx context.Context, req CreateInviteRequest) (*PendingRegistration, error) {
 	code, _, err := generateRegistrationCode(req.HeartbeatServerURL)
 	if err != nil {

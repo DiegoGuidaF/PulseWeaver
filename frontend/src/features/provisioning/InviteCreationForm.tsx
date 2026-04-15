@@ -4,6 +4,7 @@ import {
   Button,
   Collapse,
   Fieldset,
+  Group,
   SegmentedControl,
   Select,
   Stack,
@@ -14,28 +15,24 @@ import {
 import { notifications } from "@mantine/notifications";
 import { useCreateRegistration } from "./hooks/useCreateRegistration";
 import { zCreateRegistrationRequest } from "@/lib/api/zod.gen";
+import type { z } from "zod";
 import type { PendingRegistration } from "@/lib/api";
 import { toErrorMessage } from "@/lib/api-client";
 
+const createRegistrationSchema = zCreateRegistrationRequest;
+type CreateRegistrationValues = z.infer<typeof createRegistrationSchema>;
+
 interface InviteCreationFormProps {
   onSuccess: (registration: PendingRegistration) => void;
+  onCancel?: () => void;
 }
 
-type FormValues = {
-  device_name: string;
-  heartbeat_server_url: string;
-  interval_seconds: number;
-  biometric_enabled: boolean;
-  biometric_user_can_toggle: boolean;
-  expires_in_hours: 1 | 24 | 48 | 168;
-};
-
-export function InviteCreationForm({ onSuccess }: InviteCreationFormProps) {
+export function InviteCreationForm({ onSuccess, onCancel }: InviteCreationFormProps) {
   const mutation = useCreateRegistration();
   const [showBiometric, setShowBiometric] = useState(false);
 
-  const form = useForm<FormValues>({
-    validate: schemaResolver(zCreateRegistrationRequest),
+  const form = useForm<CreateRegistrationValues>({
+    validate: schemaResolver(createRegistrationSchema),
     initialValues: {
       device_name: "",
       heartbeat_server_url: window.location.origin,
@@ -46,7 +43,7 @@ export function InviteCreationForm({ onSuccess }: InviteCreationFormProps) {
     },
   });
 
-  function onSubmit(values: FormValues) {
+  function onSubmit(values: CreateRegistrationValues) {
     mutation.mutate(
       { body: values },
       {
@@ -144,9 +141,16 @@ export function InviteCreationForm({ onSuccess }: InviteCreationFormProps) {
           </Stack>
         </Fieldset>
 
-        <Button type="submit" loading={mutation.isPending}>
-          Create invite →
-        </Button>
+        <Group justify="flex-end" gap="sm">
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+          <Button type="submit" loading={mutation.isPending}>
+            Create invite →
+          </Button>
+        </Group>
       </Stack>
     </form>
   );

@@ -96,7 +96,6 @@ func (h *HTTPHandler) ListRegistrations(ctx context.Context, request httpapi.Lis
 		return httpapi.ListRegistrations403Response{}, nil
 	}
 
-	//TODO Maybe this filter instantiation should be done directly in the service and do the includeAll toggle
 	filter := InviteFilter{}
 	if request.Params.Status != nil && *request.Params.Status == httpapi.ListRegistrationsParamsStatusAll {
 		filter.IncludeAll = true
