@@ -35,9 +35,11 @@ After adding a migration: review `internal/database/migration_test_seed.sql` and
 
 ## Architecture & Conventions
 
+**Pattern library:** Before implementing any feature, read `docs/patterns/_index.md` and load every pattern that applies. The index has "use when" / "avoid when" columns to help you pick the right ones. After implementing, follow the [pattern maintenance protocol](../project/workflow/WORKFLOW.md#pattern-maintenance).
+
 Full reference docs:
-- **Backend:** `CODEBASE-Backend.md` — package structure, domain boundaries, observer pattern, testing scaffolds
-- **Frontend:** `CODEBASE-Frontend.md` — directory layout, hook conventions, OpenAPI layering, testing
+- **Backend:** `CODEBASE-Backend.md` — package map, domain responsibilities, critical files
+- **Frontend:** `CODEBASE-Frontend.md` — directory layout, routing, auth flow, UX surfaces
 - **UI style:** `../planning/ui-style-guide.md` — two-color system, component color assignments
 - **Mantine reference:** https://mantine.dev/llms.txt — fetch before writing any Mantine UI code
 
