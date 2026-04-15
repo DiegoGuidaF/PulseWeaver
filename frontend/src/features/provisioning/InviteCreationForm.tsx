@@ -5,6 +5,7 @@ import {
   Collapse,
   Fieldset,
   Group,
+  NumberInput,
   SegmentedControl,
   Select,
   Stack,
@@ -35,6 +36,7 @@ export function InviteCreationForm({ onSuccess, onCancel }: InviteCreationFormPr
     validate: schemaResolver(createRegistrationSchema),
     initialValues: {
       device_name: "",
+      owner_id: 1,
       heartbeat_server_url: window.location.origin,
       interval_seconds: 900,
       biometric_enabled: false,
@@ -67,6 +69,13 @@ export function InviteCreationForm({ onSuccess, onCancel }: InviteCreationFormPr
               label="Device name"
               placeholder="e.g. Office Laptop"
               {...form.getInputProps("device_name")}
+            />
+            <NumberInput
+              label="Owner ID"
+              description="User ID of the person who will own this device."
+              min={1}
+              allowDecimal={false}
+              {...form.getInputProps("owner_id")}
             />
             <Select
               label="Expires in"

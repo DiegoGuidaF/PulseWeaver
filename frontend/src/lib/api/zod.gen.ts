@@ -255,6 +255,7 @@ export const zDashboardTopDeniedIpsResponse = z.object({
 });
 
 export const zCreateRegistrationRequest = z.object({
+    owner_id: z.int(),
     device_name: z.string().min(1).max(100),
     heartbeat_server_url: z.url(),
     interval_seconds: z.int().gte(60),
@@ -271,6 +272,7 @@ export const zCreateRegistrationRequest = z.object({
 export const zPendingRegistration = z.object({
     id: z.string(),
     device_name: z.string(),
+    owner_id: zId,
     registration_code: z.string().nullish(),
     device_api_key_prefix: z.string(),
     heartbeat_server_url: z.string(),

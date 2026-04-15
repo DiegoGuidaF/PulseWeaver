@@ -387,6 +387,10 @@ export type DashboardTopDeniedIpsResponse = {
 };
 
 export type CreateRegistrationRequest = {
+    /**
+     * ID of the user who will own the registered device.
+     */
+    owner_id: number;
     device_name: string;
     heartbeat_server_url: string;
     interval_seconds: number;
@@ -398,6 +402,7 @@ export type CreateRegistrationRequest = {
 export type PendingRegistration = {
     id: string;
     device_name: string;
+    owner_id: Id;
     /**
      * Present only while unclaimed. Null after the invite is used.
      */

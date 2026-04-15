@@ -51,6 +51,7 @@ func (s *Service) CreateInvite(ctx context.Context, req CreateInviteRequest) (*P
 	p := &PendingRegistration{
 		ID:                     generateID(),
 		DeviceName:             req.DeviceName,
+		OwnerID:                req.OwnerID,
 		RegistrationCode:       &code,
 		DeviceAPIKey:           &rawAPIKey,
 		DeviceAPIKeyPrefix:     keyPrefix,

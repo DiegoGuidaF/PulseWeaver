@@ -1,6 +1,10 @@
 package registration
 
-import "time"
+import (
+	"time"
+
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+)
 
 // RegistrationID is the primary key of a pending registration.
 type RegistrationID = string
@@ -10,6 +14,7 @@ type PendingRegistration struct {
 	ID string
 
 	DeviceName string
+	OwnerID    auth.UserID
 
 	// RegistrationCode is the full base64url-encoded code delivered to the app.
 	// Nulled after claim.
@@ -59,6 +64,7 @@ const (
 // CreateInviteRequest carries the admin-provided fields for a new invite.
 type CreateInviteRequest struct {
 	DeviceName             string
+	OwnerID                auth.UserID
 	HeartbeatServerURL     string
 	IntervalSeconds        int
 	BiometricEnabled       bool

@@ -70,6 +70,7 @@ func (h *HTTPHandler) CreateRegistration(ctx context.Context, request httpapi.Cr
 
 	invite, err := h.service.CreateInvite(ctx, CreateInviteRequest{
 		DeviceName:             body.DeviceName,
+		OwnerID:                auth.UserID(body.OwnerId),
 		HeartbeatServerURL:     body.HeartbeatServerUrl,
 		IntervalSeconds:        body.IntervalSeconds,
 		BiometricEnabled:       biometricEnabled,
@@ -170,6 +171,7 @@ func toAPIRegistration(p *PendingRegistration) httpapi.PendingRegistration {
 	reg := httpapi.PendingRegistration{
 		Id:                     p.ID,
 		DeviceName:             p.DeviceName,
+		OwnerId:                p.OwnerID.Int64(),
 		RegistrationCode:       p.RegistrationCode,
 		DeviceApiKeyPrefix:     p.DeviceAPIKeyPrefix,
 		HeartbeatServerUrl:     p.HeartbeatServerURL,

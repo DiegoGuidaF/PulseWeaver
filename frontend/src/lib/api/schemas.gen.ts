@@ -952,9 +952,15 @@ export const CreateRegistrationRequestSchema = {
         'device_name',
         'heartbeat_server_url',
         'interval_seconds',
-        'expires_in_hours'
+        'expires_in_hours',
+        'owner_id'
     ],
     properties: {
+        owner_id: {
+            type: 'integer',
+            description: 'ID of the user who will own the registered device.',
+            example: 1
+        },
         device_name: {
             type: 'string',
             minLength: 1,
@@ -997,6 +1003,7 @@ export const PendingRegistrationSchema = {
     required: [
         'id',
         'device_name',
+        'owner_id',
         'device_api_key_prefix',
         'heartbeat_server_url',
         'interval_seconds',
@@ -1012,6 +1019,10 @@ export const PendingRegistrationSchema = {
         },
         device_name: {
             type: 'string'
+        },
+        owner_id: {
+            $ref: '#/components/schemas/ID',
+            description: 'ID of the user who owns the registered device.'
         },
         registration_code: {
             type: 'string',

@@ -67,6 +67,20 @@ INSERT INTO address_leases (device_id, address_id)
 INSERT INTO sessions (user_id, token_hash, expires_at)
     SELECT id, X'CAFEBABE', '2099-01-01 00:00:00' FROM users WHERE username = 'seed-user';
 
+-- ── Pending registration ──────────────────────────────────────────────────────
+
+-- Unclaimed invite (registration_code and device_api_key present).
+-- owner_id is intentionally omitted: this seed runs at migration N-1
+-- (before 000013 adds owner_id with DEFAULT 1), so the column does not
+-- exist yet. The migration will assign owner_id = 1 to this row.
+INSERT INTO pending_registrations
+    (id, device_name, registration_code, device_api_key, device_api_key_prefix,
+     heartbeat_server_url, heartbeat_interval_seconds, biometric_enabled, biometric_user_can_toggle,
+     expires_at, created_at)
+VALUES ('seed-reg-01', 'seed-device', 'code-abc', 'raw-key-abc', 'pw_seed',
+        'https://pulse.example.com', 900, 0, 1,
+        '2099-01-01 00:00:00', '2024-01-01 00:00:00');
+
 -- ── access_log: device_id/address_id nullable ─────────────────────────────────
 
 -- Allow entry — with non-empty headers_json and xff_chain

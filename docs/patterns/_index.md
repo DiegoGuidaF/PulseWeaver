@@ -14,6 +14,8 @@
 | Config pattern | `config-pattern.md` | Adding a new env var or configuration option | Runtime-mutable settings (not supported) | `config/config.go` |
 | Logging context | `logging-context.md` | Adding log statements in handlers or services | Generated code or test helpers | `logging/ctx.go` |
 | Pointer conventions | `pointer-conventions.md` | Declaring structs, return types, or struct fields with pointers | — | — |
+| ID types | `id-types.md` | Defining or using entity/foreign-key ID fields in Go, OpenAPI, or TypeScript | — | `auth/user.go`, `device/device.go`, `api/components/schemas/common.yaml` |
+| Migrations | `migrations.md` | Writing any migration file | — | `internal/database/migrations/` |
 | Handler tests | `handler-tests.md` | Writing tests for HTTP endpoints | Testing business logic (use service tests) | `device/handler_test.go`, `testutils/server.go` |
 | Service tests | `service-tests.md` | Writing tests for service methods | Testing SQL/HTTP (use repository/handler tests) | `device/service_test.go` |
 | Repository tests | `repository-tests.md` | Writing tests for repository methods | Testing business logic (use service tests) | `device/repository_test.go`, `testdb/` |

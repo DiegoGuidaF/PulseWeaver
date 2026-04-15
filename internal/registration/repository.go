@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/google/uuid"
@@ -27,6 +28,7 @@ func NewRepository(db *sqlx.DB) *Repository {
 type pendingRegistrationRow struct {
 	ID                     string         `db:"id"`
 	DeviceName             string         `db:"device_name"`
+	OwnerID                auth.UserID    `db:"owner_id"`
 	RegistrationCode       sql.NullString `db:"registration_code"`
 	DeviceAPIKey           sql.NullString `db:"device_api_key"`
 	DeviceAPIKeyPrefix     string         `db:"device_api_key_prefix"`
@@ -44,6 +46,7 @@ func rowToDomain(r pendingRegistrationRow) *PendingRegistration {
 	p := &PendingRegistration{
 		ID:                     r.ID,
 		DeviceName:             r.DeviceName,
+		OwnerID:                r.OwnerID,
 		DeviceAPIKeyPrefix:     r.DeviceAPIKeyPrefix,
 		HeartbeatServerURL:     r.HeartbeatServerURL,
 		IntervalSeconds:        r.HeartbeatIntervalSecs,
@@ -71,12 +74,12 @@ func rowToDomain(r pendingRegistrationRow) *PendingRegistration {
 func (r *Repository) CreateInvite(ctx context.Context, p *PendingRegistration) error {
 	query := `
 		INSERT INTO pending_registrations (
-			id, device_name, registration_code, device_api_key, device_api_key_prefix,
+			id, device_name, owner_id, registration_code, device_api_key, device_api_key_prefix,
 			heartbeat_server_url, heartbeat_interval_seconds,
 			biometric_enabled, biometric_user_can_toggle,
 			expires_at, created_at
 		) VALUES (
-			:id, :device_name, :registration_code, :device_api_key, :device_api_key_prefix,
+			:id, :device_name, :owner_id, :registration_code, :device_api_key, :device_api_key_prefix,
 			:heartbeat_server_url, :heartbeat_interval_seconds,
 			:biometric_enabled, :biometric_user_can_toggle,
 			:expires_at, :created_at
@@ -84,6 +87,7 @@ func (r *Repository) CreateInvite(ctx context.Context, p *PendingRegistration) e
 	_, err := r.db.NamedExecContext(ctx, query, map[string]any{
 		"id":                         p.ID,
 		"device_name":                p.DeviceName,
+		"owner_id":                   p.OwnerID,
 		"registration_code":          p.RegistrationCode,
 		"device_api_key":             p.DeviceAPIKey,
 		"device_api_key_prefix":      p.DeviceAPIKeyPrefix,
@@ -209,11 +213,10 @@ func (r *Repository) ClaimInvite(ctx context.Context, code string) (*ClaimResult
 
 	// 2. Create the device row — let SQLite assign the integer ID.
 	now := time.Now().UTC()
-	//TODO: Remove hardcoded owner_id. It must be added to the pending_registration UI and DB so it can be retrieved here
 	result, err := tx.ExecContext(ctx,
 		`INSERT INTO devices (name, device_type, created_at, updated_at, owner_id)
 		 VALUES (?, 'mobile', ?, ?, ?)`,
-		row.DeviceName, now, now, 1,
+		row.DeviceName, now, now, row.OwnerID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create device: %w", err)

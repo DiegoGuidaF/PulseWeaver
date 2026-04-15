@@ -111,6 +111,7 @@ export function InviteList() {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Device name</Table.Th>
+                <Table.Th>Owner ID</Table.Th>
                 <Table.Th>API key prefix</Table.Th>
                 <Table.Th>Created</Table.Th>
                 <Table.Th>Expires</Table.Th>
@@ -133,6 +134,7 @@ export function InviteList() {
                       row.device_name
                     )}
                   </Table.Td>
+                  <Table.Td>{row.owner_id}</Table.Td>
                   <Table.Td>
                     <Text component="span" ff="monospace" size="sm">
                       {row.device_api_key_prefix}

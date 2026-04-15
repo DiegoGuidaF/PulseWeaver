@@ -32,6 +32,7 @@ func defaultInviteBody() map[string]any {
 		"heartbeat_server_url": "https://pulse.home.lan",
 		"interval_seconds":     900,
 		"expires_in_hours":     24,
+		"owner_id":             1,
 	}
 }
 
@@ -79,6 +80,7 @@ func TestHandler_ListRegistrations_DefaultPendingOnly(t *testing.T) {
 		"heartbeat_server_url": "https://pulse.home.lan",
 		"interval_seconds":     300,
 		"expires_in_hours":     1,
+		"owner_id":             1,
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/registrations", nil)
