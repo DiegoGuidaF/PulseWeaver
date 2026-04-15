@@ -19,8 +19,7 @@ func TestService_AddAddressLease_Success(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	ttlSeconds := 60
-	mockTTL := &mockTTLConfigRetriever{ttl: &ttlSeconds}
+	mockTTL := &mockTTLConfigRetriever{ttl: new(60)}
 
 	service := NewService(mockRepo, mockTTL, slog.Default())
 
@@ -81,8 +80,7 @@ func TestService_ClearAddressLease_Success(t *testing.T) {
 	mockRepo := newMockRepository()
 	deviceID := device.DeviceID(1)
 	addressID := device.AddressID(10)
-	expiresAt := time.Now().UTC().Add(1 * time.Minute)
-	mockRepo.leases[addressID] = &AddressLease{AddressID: addressID, DeviceID: deviceID, ExpiresAt: &expiresAt}
+	mockRepo.leases[addressID] = &AddressLease{AddressID: addressID, DeviceID: deviceID, ExpiresAt: new(time.Now().UTC().Add(1 * time.Minute))}
 
 	service := NewService(mockRepo, &mockTTLConfigRetriever{}, slog.Default())
 
@@ -117,8 +115,7 @@ func TestService_OnAddressEvent_CreatedEventProcessedByRunListener(t *testing.T)
 
 	mockRepo := newMockRepository()
 	mockRepo.upsertCalledCh = make(chan struct{}, 1)
-	ttlSeconds := 30
-	mockTTL := &mockTTLConfigRetriever{ttl: &ttlSeconds}
+	mockTTL := &mockTTLConfigRetriever{ttl: new(30)}
 
 	service := NewService(mockRepo, mockTTL, slog.Default())
 
@@ -226,12 +223,11 @@ func TestService_handleLeaseRuleEvent_EnabledRuleUpdatesDeviceLeases(t *testing.
 	mockRepo := newMockRepository()
 	service := NewService(mockRepo, &mockTTLConfigRetriever{}, slog.Default())
 
-	ttl := 300
 	event := rule.RuleEvent{
 		Type:       rule.RuleEventTypeEnabled,
 		DeviceID:   device.DeviceID(99),
 		RuleType:   rule.RuleTypeDeviceAddressLease,
-		TTLSeconds: &ttl,
+		TTLSeconds: new(300),
 		OccurredAt: time.Now().UTC(),
 	}
 
@@ -271,12 +267,11 @@ func TestService_handleLeaseRuleEvent_WrongRuleTypeIgnored(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := NewService(mockRepo, &mockTTLConfigRetriever{}, slog.Default())
 
-	ttl := 60
 	event := rule.RuleEvent{
 		Type:       rule.RuleEventTypeEnabled,
 		DeviceID:   device.DeviceID(99),
 		RuleType:   rule.RuleType("other_rule"),
-		TTLSeconds: &ttl,
+		TTLSeconds: new(60),
 		OccurredAt: time.Now().UTC(),
 	}
 
@@ -300,12 +295,11 @@ func TestService_OnRuleEvent_EnabledEventProcessedByRunListener(t *testing.T) {
 		done <- service.RunListener(ctx)
 	}()
 
-	ttl := 300
 	event := rule.RuleEvent{
 		Type:       rule.RuleEventTypeEnabled,
 		DeviceID:   device.DeviceID(99),
 		RuleType:   rule.RuleTypeDeviceAddressLease,
-		TTLSeconds: &ttl,
+		TTLSeconds: new(300),
 		OccurredAt: time.Now().UTC(),
 	}
 

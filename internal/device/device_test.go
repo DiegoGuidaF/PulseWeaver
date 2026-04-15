@@ -9,13 +9,11 @@ import (
 	"github.com/matryer/is"
 )
 
-func ptrStr(s string) *string { return &s }
-
 func TestDevice_Update_Rename(t *testing.T) {
 	is := is.New(t)
 	d := &Device{Name: "old-name", DeviceType: DeviceTypeStatic}
 
-	err := d.Update(ptrStr("new-name"), nil, nil, nil, nil)
+	err := d.Update(new("new-name"), nil, nil, nil, nil)
 
 	is.NoErr(err)
 	is.Equal(d.Name, "new-name")
@@ -34,9 +32,7 @@ func TestDevice_Update_NameUnchangedWhenNil(t *testing.T) {
 func TestDevice_Update_InvalidNameEmpty(t *testing.T) {
 	is := is.New(t)
 	d := &Device{Name: "original", DeviceType: DeviceTypeStatic}
-	empty := ""
-
-	err := d.Update(&empty, nil, nil, nil, nil)
+	err := d.Update(new(""), nil, nil, nil, nil)
 
 	is.True(err != nil)
 	is.Equal(d.Name, "original") // not mutated on validation error
@@ -45,9 +41,7 @@ func TestDevice_Update_InvalidNameEmpty(t *testing.T) {
 func TestDevice_Update_InvalidNameTooLong(t *testing.T) {
 	is := is.New(t)
 	d := &Device{Name: "original", DeviceType: DeviceTypeStatic}
-	long := string(make([]rune, 51))
-
-	err := d.Update(&long, nil, nil, nil, nil)
+	err := d.Update(new(string(make([]rune, 51))), nil, nil, nil, nil)
 
 	is.True(err != nil)
 	is.Equal(d.Name, "original")
@@ -57,7 +51,7 @@ func TestDevice_Update_SetDeviceType(t *testing.T) {
 	is := is.New(t)
 	d := &Device{Name: "d", DeviceType: DeviceTypeStatic}
 
-	err := d.Update(nil, ptrStr("mobile"), nil, nil, nil)
+	err := d.Update(nil, new("mobile"), nil, nil, nil)
 
 	is.NoErr(err)
 	is.Equal(d.DeviceType, DeviceTypeMobile)
@@ -77,7 +71,7 @@ func TestDevice_Update_InvalidDeviceType(t *testing.T) {
 	is := is.New(t)
 	d := &Device{Name: "d", DeviceType: DeviceTypeStatic}
 
-	err := d.Update(nil, ptrStr("invalid"), nil, nil, nil)
+	err := d.Update(nil, new("invalid"), nil, nil, nil)
 
 	is.True(err != nil)
 	is.Equal(d.DeviceType, DeviceTypeStatic) // not mutated
@@ -86,7 +80,7 @@ func TestDevice_Update_InvalidDeviceType(t *testing.T) {
 func TestDevice_Update_SetDescription(t *testing.T) {
 	is := is.New(t)
 	d := &Device{Name: "d", DeviceType: DeviceTypeStatic}
-	desc := ptrStr("my server")
+	desc := new("my server")
 
 	err := d.Update(nil, nil, &desc, nil, nil)
 
@@ -97,8 +91,7 @@ func TestDevice_Update_SetDescription(t *testing.T) {
 
 func TestDevice_Update_ClearDescription(t *testing.T) {
 	is := is.New(t)
-	orig := "has a description"
-	d := &Device{Name: "d", DeviceType: DeviceTypeStatic, Description: &orig}
+	d := &Device{Name: "d", DeviceType: DeviceTypeStatic, Description: new("has a description")}
 	var nilPtr *string
 
 	err := d.Update(nil, nil, &nilPtr, nil, nil)
@@ -109,8 +102,7 @@ func TestDevice_Update_ClearDescription(t *testing.T) {
 
 func TestDevice_Update_DescriptionUnchangedWhenNil(t *testing.T) {
 	is := is.New(t)
-	orig := "keep me"
-	d := &Device{Name: "d", DeviceType: DeviceTypeStatic, Description: &orig}
+	d := &Device{Name: "d", DeviceType: DeviceTypeStatic, Description: new("keep me")}
 
 	err := d.Update(nil, nil, nil, nil, nil)
 
@@ -122,8 +114,7 @@ func TestDevice_Update_DescriptionUnchangedWhenNil(t *testing.T) {
 func TestDevice_Update_DescriptionTooLong(t *testing.T) {
 	is := is.New(t)
 	d := &Device{Name: "d", DeviceType: DeviceTypeStatic}
-	long := string(make([]rune, 201))
-	longPtr := &long
+	longPtr := new(string(make([]rune, 201)))
 
 	err := d.Update(nil, nil, &longPtr, nil, nil)
 
@@ -134,7 +125,7 @@ func TestDevice_Update_DescriptionTooLong(t *testing.T) {
 func TestDevice_Update_SetIcon(t *testing.T) {
 	is := is.New(t)
 	d := &Device{Name: "d", DeviceType: DeviceTypeStatic}
-	icon := ptrStr("IconRouter")
+	icon := new("IconRouter")
 
 	err := d.Update(nil, nil, nil, &icon, nil)
 
@@ -145,8 +136,7 @@ func TestDevice_Update_SetIcon(t *testing.T) {
 
 func TestDevice_Update_ClearIcon(t *testing.T) {
 	is := is.New(t)
-	orig := "IconServer"
-	d := &Device{Name: "d", DeviceType: DeviceTypeStatic, Icon: &orig}
+	d := &Device{Name: "d", DeviceType: DeviceTypeStatic, Icon: new("IconServer")}
 	var nilPtr *string
 
 	err := d.Update(nil, nil, nil, &nilPtr, nil)
@@ -158,8 +148,7 @@ func TestDevice_Update_ClearIcon(t *testing.T) {
 func TestDevice_Update_IconTooLong(t *testing.T) {
 	is := is.New(t)
 	d := &Device{Name: "d", DeviceType: DeviceTypeStatic}
-	long := string(make([]rune, 81))
-	longPtr := &long
+	longPtr := new(string(make([]rune, 81)))
 
 	err := d.Update(nil, nil, nil, &longPtr, nil)
 
@@ -171,7 +160,7 @@ func TestDevice_Update_NameNotMutatedWhenLaterFieldInvalid(t *testing.T) {
 	is := is.New(t)
 	d := &Device{Name: "original", DeviceType: DeviceTypeStatic}
 
-	err := d.Update(ptrStr("new-name"), ptrStr("robot"), nil, nil, nil)
+	err := d.Update(new("new-name"), new("robot"), nil, nil, nil)
 
 	is.True(err != nil)
 	is.Equal(d.Name, "original")             // name must not be written on validation failure

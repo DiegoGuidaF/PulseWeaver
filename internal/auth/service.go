@@ -69,8 +69,7 @@ func (s *Service) Login(ctx context.Context, username string, password string) (
 			return err
 		}
 
-		newSession := NewSession(user.ID, tokenHash)
-		_, err = tx.CreateSession(ctx, &newSession)
+		_, err = tx.CreateSession(ctx, new(NewSession(user.ID, tokenHash)))
 		if err != nil {
 			return err
 		}

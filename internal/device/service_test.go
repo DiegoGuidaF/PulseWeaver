@@ -613,8 +613,7 @@ func TestService_UpdateDevice_RenamesDevice(t *testing.T) {
 	mockRepo.devices[d.ID] = d
 
 	svc := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
-	newName := "new-name"
-	updated, err := svc.UpdateDevice(ctx, testAdminPrincipal(), d.ID, UpdateDeviceInput{Name: &newName})
+	updated, err := svc.UpdateDevice(ctx, testAdminPrincipal(), d.ID, UpdateDeviceInput{Name: new("new-name")})
 
 	is.NoErr(err)
 	is.Equal(updated.Name, "new-name")
@@ -641,8 +640,7 @@ func TestService_UpdateDevice_InvalidTypePropagated(t *testing.T) {
 	mockRepo.devices[d.ID] = d
 
 	svc := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
-	bad := "robot"
-	_, err := svc.UpdateDevice(ctx, testAdminPrincipal(), d.ID, UpdateDeviceInput{DeviceType: &bad})
+	_, err := svc.UpdateDevice(ctx, testAdminPrincipal(), d.ID, UpdateDeviceInput{DeviceType: new("robot")})
 
 	is.True(errors.Is(err, ErrInvalidDeviceType))
 }

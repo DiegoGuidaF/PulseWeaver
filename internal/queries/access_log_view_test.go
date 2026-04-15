@@ -28,7 +28,7 @@ func TestRepository_ListAccessLogStatsByCountry(t *testing.T) {
 		{
 			ClientIP:   "8.8.4.4",
 			Outcome:    false,
-			DenyReason: ptrDenyReason(policy.DenyReasonIPNotRegistered),
+			DenyReason: new(policy.DenyReasonIPNotRegistered),
 			CreatedAt:  time.Now().UTC(),
 			Headers:    map[string][]string{},
 			GeoIP:      geoip.Result{CountryCode: "US", CountryName: "United States", ContinentCode: "NA", ASN: 15169, ASNOrg: "Google LLC"},
@@ -143,8 +143,4 @@ func TestRepository_ListaccessLogStatsByCountry_ToFilter(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(len(stats), 1)
 	is.Equal(stats[0].CountryCode, "DE")
-}
-
-func ptrDenyReason(r policy.DenyReason) *policy.DenyReason {
-	return &r
 }

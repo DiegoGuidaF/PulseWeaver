@@ -50,23 +50,19 @@ func TestHandler_GetAccessLog_CorrectFields(t *testing.T) {
 	addr, _, err := testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "10.0.10.1", device.EventSourceManual)
 	is.NoErr(err)
 
-	reason := policy.DenyReasonIPNotRegistered
 	targetHost := "example.com"
 	targetURI := "/api/test"
 	httpMethod := "GET"
 	xffChain := "1.2.3.4, 10.0.0.1"
 	createdAt := time.Now().UTC().Truncate(time.Second)
-	devID := dev.ID
-	addrID := addr.ID
-
 	accessRepo := accesslog.NewRepository(testServer.Database.DB())
 	err = accessRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
 		{
 			ClientIP:   "1.2.3.4",
 			Outcome:    false,
-			DenyReason: &reason,
-			DeviceID:   &devID,
-			AddressID:  &addrID,
+			DenyReason: new(policy.DenyReasonIPNotRegistered),
+			DeviceID:   new(dev.ID),
+			AddressID:  new(addr.ID),
 			CreatedAt:  createdAt,
 			TargetHost: &targetHost,
 			TargetURI:  &targetURI,

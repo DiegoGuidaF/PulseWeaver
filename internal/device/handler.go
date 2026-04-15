@@ -37,8 +37,7 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 
 	var ownerID *auth.UserID
 	if request.Body.OwnerId != nil {
-		v := auth.UserID(*request.Body.OwnerId)
-		ownerID = &v
+		ownerID = new(auth.UserID(*request.Body.OwnerId))
 	}
 
 	device, rawAPIKey, err := h.service.CreateDevice(ctx, principal, deviceName, ownerID)
@@ -363,8 +362,7 @@ func (h *HTTPHandler) UpdateDevice(ctx context.Context, request httpapi.UpdateDe
 		input.Icon = &body.Icon.Value
 	}
 	if body.OwnerId != nil {
-		v := auth.UserID(*body.OwnerId)
-		input.OwnerID = &v
+		input.OwnerID = new(auth.UserID(*body.OwnerId))
 	}
 
 	device, err := h.service.UpdateDevice(ctx, principal, deviceID, input)
@@ -419,7 +417,6 @@ func toDeviceResponse(d *Device) httpapi.Device {
 	if d.LastSeenAt != nil {
 		lastSeenAt = new(httpapi.UTCTime(d.LastSeenAt.Time))
 	}
-	ownerID := int(d.OwnerID.Int64())
 	return httpapi.Device{
 		Id:           d.ID.Int64(),
 		Name:         d.Name,
@@ -430,7 +427,7 @@ func toDeviceResponse(d *Device) httpapi.Device {
 		UpdatedAt:    httpapi.UTCTime(d.UpdatedAt),
 		ApiKeyPrefix: d.KeyPrefix,
 		LastSeenAt:   lastSeenAt,
-		OwnerId:      &ownerID,
+		OwnerId:      new(int(d.OwnerID.Int64())),
 	}
 }
 

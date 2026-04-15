@@ -323,8 +323,7 @@ func TestService_UpdateOwnProfile_UpdatesDisplayName(t *testing.T) {
 
 	givenUser(mockRepo, UserID(1), "alice", UserRole)
 
-	newName := "Alice Updated"
-	updated, err := service.UpdateOwnProfile(ctx, UserID(1), ProfileUpdates{DisplayName: &newName})
+	updated, err := service.UpdateOwnProfile(ctx, UserID(1), ProfileUpdates{DisplayName: new("Alice Updated")})
 	is.NoErr(err)
 	is.Equal(updated.DisplayName, "Alice Updated")
 }
@@ -338,8 +337,7 @@ func TestService_UpdateOwnProfile_UpdatesUsername(t *testing.T) {
 
 	givenUser(mockRepo, UserID(1), "alice", UserRole)
 
-	newUsername := "alice2"
-	updated, err := service.UpdateOwnProfile(ctx, UserID(1), ProfileUpdates{Username: &newUsername})
+	updated, err := service.UpdateOwnProfile(ctx, UserID(1), ProfileUpdates{Username: new("alice2")})
 	is.NoErr(err)
 	is.Equal(updated.Username, "alice2")
 }
@@ -365,8 +363,7 @@ func TestService_UpdateOwnProfile_UserNotFound(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler))
 
-	newName := "Ghost"
-	updated, err := service.UpdateOwnProfile(ctx, UserID(99), ProfileUpdates{DisplayName: &newName})
+	updated, err := service.UpdateOwnProfile(ctx, UserID(99), ProfileUpdates{DisplayName: new("Ghost")})
 	is.Equal(err, ErrUserNotFound)
 	is.True(updated == nil)
 }

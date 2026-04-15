@@ -45,8 +45,6 @@ func (m *mockAddressDisabler) DisableAddresses(_ context.Context, addressIDs []d
 	return m.err
 }
 
-func ptr(v int) *int { return &v }
-
 func newTestService(provider MaxAddressesProvider, fetcher EnabledAddressFetcher, disabler AddressDisabler) *Service {
 	return NewService(provider, fetcher, disabler, slog.New(slog.DiscardHandler))
 }
@@ -73,7 +71,7 @@ func TestService_Enforce_UnderLimit_NoEviction(t *testing.T) {
 	is := is.New(t)
 	disabler := &mockAddressDisabler{}
 	svc := newTestService(
-		&mockMaxAddressesProvider{maxAddresses: ptr(2)},
+		&mockMaxAddressesProvider{maxAddresses: new(2)},
 		&mockEnabledAddressFetcher{
 			addresses: []device.Address{
 				{ID: device.AddressID(1), IsEnabled: true},
@@ -92,7 +90,7 @@ func TestService_Enforce_AtLimit_NoEviction(t *testing.T) {
 	now := time.Now().UTC()
 	disabler := &mockAddressDisabler{}
 	svc := newTestService(
-		&mockMaxAddressesProvider{maxAddresses: ptr(2)},
+		&mockMaxAddressesProvider{maxAddresses: new(2)},
 		&mockEnabledAddressFetcher{
 			addresses: []device.Address{
 				{ID: device.AddressID(2), IsEnabled: true, UpdatedAt: now},
@@ -118,7 +116,7 @@ func TestService_Enforce_OverLimit_EvictsOldest(t *testing.T) {
 	addr3 := device.Address{ID: device.AddressID(3), IsEnabled: true, UpdatedAt: now}
 
 	svc := newTestService(
-		&mockMaxAddressesProvider{maxAddresses: ptr(2)},
+		&mockMaxAddressesProvider{maxAddresses: new(2)},
 		&mockEnabledAddressFetcher{
 			addresses: []device.Address{addr3, addr2, addr1}, // DESC order
 		},
@@ -142,7 +140,7 @@ func TestService_Enforce_NewAddressNotEvicted(t *testing.T) {
 	addr3 := device.Address{ID: device.AddressID(3), IsEnabled: true, UpdatedAt: now}
 
 	svc := newTestService(
-		&mockMaxAddressesProvider{maxAddresses: ptr(2)},
+		&mockMaxAddressesProvider{maxAddresses: new(2)},
 		&mockEnabledAddressFetcher{
 			addresses: []device.Address{addr3, addr2, addr1}, // DESC order
 		},
@@ -175,7 +173,7 @@ func TestService_Enforce_FetcherError_BestEffort(t *testing.T) {
 	is := is.New(t)
 	disabler := &mockAddressDisabler{}
 	svc := newTestService(
-		&mockMaxAddressesProvider{maxAddresses: ptr(2)},
+		&mockMaxAddressesProvider{maxAddresses: new(2)},
 		&mockEnabledAddressFetcher{err: errors.New("db error")},
 		disabler,
 	)

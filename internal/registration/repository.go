@@ -136,6 +136,7 @@ func (r *Repository) ListInvites(ctx context.Context, filter InviteFilter) ([]*P
 // InvalidateInvite hard-deletes an unclaimed (pending) invite.
 // Returns ErrInviteNotFound if no matching record exists.
 // Returns ErrInviteNotPending if the invite has already been used.
+// TODO: This shouldn't hard-delete but soft-delete
 func (r *Repository) InvalidateInvite(ctx context.Context, id string) error {
 	// Only delete unclaimed, non-expired records.
 	result, err := r.db.ExecContext(ctx,

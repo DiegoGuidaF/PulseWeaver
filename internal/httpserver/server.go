@@ -82,9 +82,8 @@ func createRequestErrorHandler(logger *slog.Logger) func(http.ResponseWriter, *h
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 
-		errorMsg := err.Error()
 		response := httpapi.ErrorResponse{
-			Error: &errorMsg,
+			Error: new(err.Error()),
 		}
 		if encodeErr := json.NewEncoder(w).Encode(response); encodeErr != nil {
 			// If encoding fails, response headers are already sent, log error
@@ -106,9 +105,8 @@ func createResponseErrorHandler(logger *slog.Logger) func(http.ResponseWriter, *
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 
-		errorMsg := "Internal server error"
 		response := httpapi.ErrorResponse{
-			Error: &errorMsg,
+			Error: new("Internal server error"),
 		}
 		if encodeErr := json.NewEncoder(w).Encode(response); encodeErr != nil {
 			// If encoding fails, response headers are already sent, log error

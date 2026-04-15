@@ -91,9 +91,8 @@ func TestRepository_UpsertAddressLease_UpdatesExistingLease(t *testing.T) {
 	dev := insertDevice(t, db, "lease-device-update")
 	addr := insertAddress(t, db, dev.ID, "10.0.0.2")
 
-	first := time.Now().UTC().Add(time.Hour).Truncate(time.Second)
 	_, err := repo.UpsertAddressLease(context.Background(), &lease.AddressLease{
-		AddressID: addr.ID, DeviceID: dev.ID, ExpiresAt: &first,
+		AddressID: addr.ID, DeviceID: dev.ID, ExpiresAt: new(time.Now().UTC().Add(time.Hour).Truncate(time.Second)),
 	})
 	is.NoErr(err)
 
@@ -139,9 +138,8 @@ func TestRepository_GetExpiredAddressIDs_PastExpiry_ReturnsID(t *testing.T) {
 	dev := insertDevice(t, db, "lease-device-expired")
 	addr := insertAddress(t, db, dev.ID, "10.0.1.1")
 
-	past := time.Now().UTC().Add(-time.Minute)
 	_, err := repo.UpsertAddressLease(context.Background(), &lease.AddressLease{
-		AddressID: addr.ID, DeviceID: dev.ID, ExpiresAt: &past,
+		AddressID: addr.ID, DeviceID: dev.ID, ExpiresAt: new(time.Now().UTC().Add(-time.Minute)),
 	})
 	is.NoErr(err)
 
@@ -158,9 +156,8 @@ func TestRepository_GetExpiredAddressIDs_FutureExpiry_NotReturned(t *testing.T) 
 	dev := insertDevice(t, db, "lease-device-future")
 	addr := insertAddress(t, db, dev.ID, "10.0.2.1")
 
-	future := time.Now().UTC().Add(time.Hour)
 	_, err := repo.UpsertAddressLease(context.Background(), &lease.AddressLease{
-		AddressID: addr.ID, DeviceID: dev.ID, ExpiresAt: &future,
+		AddressID: addr.ID, DeviceID: dev.ID, ExpiresAt: new(time.Now().UTC().Add(time.Hour)),
 	})
 	is.NoErr(err)
 
@@ -207,8 +204,7 @@ func TestRepository_SetDeviceAddressLeasesExpiry_UpdatesAllLeasesForDevice(t *te
 	is.NoErr(err)
 	is.Equal(len(expired), 2)
 
-	future := time.Now().UTC().Add(time.Hour)
-	err = repo.SetDeviceAddressLeasesExpiry(context.Background(), dev.ID, &future, time.Now().UTC())
+	err = repo.SetDeviceAddressLeasesExpiry(context.Background(), dev.ID, new(time.Now().UTC().Add(time.Hour)), time.Now().UTC())
 	is.NoErr(err)
 
 	// After the update, none should be expired.
@@ -223,8 +219,7 @@ func TestRepository_SetDeviceAddressLeasesExpiry_NilExpiry_ClearsExpiry(t *testi
 	dev := insertDevice(t, db, "lease-device-clear-expiry")
 	addr := insertAddress(t, db, dev.ID, "10.2.0.1")
 
-	past := time.Now().UTC().Add(-time.Minute)
-	_, err := repo.UpsertAddressLease(context.Background(), &lease.AddressLease{AddressID: addr.ID, DeviceID: dev.ID, ExpiresAt: &past})
+	_, err := repo.UpsertAddressLease(context.Background(), &lease.AddressLease{AddressID: addr.ID, DeviceID: dev.ID, ExpiresAt: new(time.Now().UTC().Add(-time.Minute))})
 	is.NoErr(err)
 
 	err = repo.SetDeviceAddressLeasesExpiry(context.Background(), dev.ID, nil, time.Now().UTC())
@@ -251,8 +246,7 @@ func TestRepository_SetDeviceAddressLeasesExpiry_OnlyAffectsTargetDevice(t *test
 	is.NoErr(err)
 
 	// Update only dev1's leases to a future time.
-	future := time.Now().UTC().Add(time.Hour)
-	err = repo.SetDeviceAddressLeasesExpiry(context.Background(), dev1.ID, &future, time.Now().UTC())
+	err = repo.SetDeviceAddressLeasesExpiry(context.Background(), dev1.ID, new(time.Now().UTC().Add(time.Hour)), time.Now().UTC())
 	is.NoErr(err)
 
 	// dev2's lease should still be expired.

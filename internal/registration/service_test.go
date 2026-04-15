@@ -129,10 +129,7 @@ func TestService_ListInvites_PendingOnly(t *testing.T) {
 	repo := newMockRepo()
 	svc := newTestService(repo)
 
-	now := time.Now().UTC()
-	usedAt := now.Add(-1 * time.Hour)
-
-	// Active invite
+	now := time.Now().UTC() // Active invite
 	repo.invites["active"] = &PendingRegistration{
 		ID: "active", DeviceName: "Active",
 		ExpiresAt: now.Add(24 * time.Hour), CreatedAt: now,
@@ -140,7 +137,7 @@ func TestService_ListInvites_PendingOnly(t *testing.T) {
 	// Used invite
 	repo.invites["used"] = &PendingRegistration{
 		ID: "used", DeviceName: "Used",
-		ExpiresAt: now.Add(24 * time.Hour), CreatedAt: now, UsedAt: &usedAt,
+		ExpiresAt: now.Add(24 * time.Hour), CreatedAt: now, UsedAt: new(now.Add(-1 * time.Hour)),
 	}
 	// Expired invite
 	repo.invites["expired"] = &PendingRegistration{
@@ -218,10 +215,9 @@ func TestService_InvalidateInvite_AlreadyUsed(t *testing.T) {
 	svc := newTestService(repo)
 
 	now := time.Now().UTC()
-	usedAt := now.Add(-1 * time.Hour)
 	repo.invites["used"] = &PendingRegistration{
 		ID: "used", DeviceName: "Used Device",
-		ExpiresAt: now.Add(24 * time.Hour), CreatedAt: now.Add(-2 * time.Hour), UsedAt: &usedAt,
+		ExpiresAt: now.Add(24 * time.Hour), CreatedAt: now.Add(-2 * time.Hour), UsedAt: new(now.Add(-1 * time.Hour)),
 	}
 
 	err := svc.InvalidateInvite(context.Background(), "used")
@@ -238,7 +234,6 @@ func TestPendingRegistration_Status(t *testing.T) {
 	expired := &PendingRegistration{ExpiresAt: now.Add(-time.Hour)}
 	is.Equal(expired.Status(), StatusExpired)
 
-	usedAt := now.Add(-time.Minute)
-	used := &PendingRegistration{ExpiresAt: now.Add(time.Hour), UsedAt: &usedAt}
+	used := &PendingRegistration{ExpiresAt: now.Add(time.Hour), UsedAt: new(now.Add(-time.Minute))}
 	is.Equal(used.Status(), StatusUsed)
 }

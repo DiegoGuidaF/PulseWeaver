@@ -145,11 +145,10 @@ func TestService_NotifyDecisionObservers_AllowEvent(t *testing.T) {
 	obs := &fakeObserver{}
 	svc.AddDecisionObserver(obs)
 
-	targetHost := "example.com"
 	req := &VerifyRequest{
 		Token:      "mysecret",
 		ClientIP:   "1.2.3.4",
-		TargetHost: &targetHost,
+		TargetHost: new("example.com"),
 	}
 	err = svc.VerifyAccess(context.Background(), req)
 	is.NoErr(err)

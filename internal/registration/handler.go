@@ -96,6 +96,7 @@ func (h *HTTPHandler) ListRegistrations(ctx context.Context, request httpapi.Lis
 		return httpapi.ListRegistrations403Response{}, nil
 	}
 
+	//TODO Maybe this filter instantiation should be done directly in the service and do the includeAll toggle
 	filter := InviteFilter{}
 	if request.Params.Status != nil && *request.Params.Status == httpapi.ListRegistrationsParamsStatusAll {
 		filter.IncludeAll = true
@@ -181,8 +182,7 @@ func toAPIRegistration(p *PendingRegistration) httpapi.PendingRegistration {
 		Status:                 httpapi.PendingRegistrationStatus(p.Status()),
 	}
 	if p.UsedAt != nil {
-		t := httpapi.UTCTime(*p.UsedAt)
-		reg.UsedAt = &t
+		reg.UsedAt = new(httpapi.UTCTime(*p.UsedAt))
 	}
 	if p.CreatedDeviceID != nil {
 		reg.CreatedDeviceId = p.CreatedDeviceID

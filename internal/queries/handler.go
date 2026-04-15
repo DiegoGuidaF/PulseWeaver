@@ -71,8 +71,7 @@ func (h *HTTPHandler) GetDevices(
 
 	var ownerFilter *auth.UserID
 	if !principal.IsAdmin() {
-		ownerID := principal.UserID
-		ownerFilter = &ownerID
+		ownerFilter = new(principal.UserID)
 	}
 
 	devices, err := h.repo.GetDevices(ctx, ownerFilter)
@@ -258,8 +257,6 @@ func toDeviceViewResponse(d *DeviceView) httpapi.Device {
 	if d.LastSeenAt != nil {
 		lastSeenAt = new(httpapi.UTCTime(d.LastSeenAt.Time))
 	}
-	ownerID := int(d.OwnerID.Int64())
-	ownerName := d.OwnerName
 	return httpapi.Device{
 		Id:           d.ID.Int64(),
 		Name:         d.Name,
@@ -271,8 +268,8 @@ func toDeviceViewResponse(d *DeviceView) httpapi.Device {
 		ApiKeyPrefix: d.KeyPrefix,
 		AddressCount: new(d.AddressCount),
 		LastSeenAt:   lastSeenAt,
-		OwnerId:      &ownerID,
-		OwnerName:    &ownerName,
+		OwnerId:      new(int(d.OwnerID.Int64())),
+		OwnerName:    new(d.OwnerName),
 	}
 }
 
@@ -301,8 +298,6 @@ func toDeviceDetailResponse(d *DeviceDetail) httpapi.Device {
 	if d.LastSeenAt != nil {
 		lastSeenAt = new(httpapi.UTCTime(d.LastSeenAt.Time))
 	}
-	ownerID := int(d.OwnerID.Int64())
-	ownerName := d.OwnerName
 	return httpapi.Device{
 		Id:           d.ID.Int64(),
 		Name:         d.Name,
@@ -313,8 +308,8 @@ func toDeviceDetailResponse(d *DeviceDetail) httpapi.Device {
 		UpdatedAt:    httpapi.UTCTime(d.UpdatedAt),
 		ApiKeyPrefix: d.KeyPrefix,
 		LastSeenAt:   lastSeenAt,
-		OwnerId:      &ownerID,
-		OwnerName:    &ownerName,
+		OwnerId:      new(int(d.OwnerID.Int64())),
+		OwnerName:    new(d.OwnerName),
 	}
 }
 

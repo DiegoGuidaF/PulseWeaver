@@ -713,13 +713,11 @@ func TestRepository_GetAddressHistory_FilterBySource(t *testing.T) {
 
 	from := time.Now().UTC().Add(-1 * time.Hour)
 	to := time.Now().UTC().Add(1 * time.Hour)
-	source := string(device.EventSourceHeartbeat)
-
 	history, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
 		From:        from,
 		To:          to,
 		Granularity: timebucket.GranularityHour,
-		Source:      &source,
+		Source:      new(string(device.EventSourceHeartbeat)),
 		Limit:       50,
 	})
 	is.NoErr(err)
@@ -931,11 +929,9 @@ func TestRepository_UpdateDevice_SetAllFields(t *testing.T) {
 	ctx := context.Background()
 
 	dev := createTestDevice(t, repos, ctx, "full-update")
-	desc := "a note"
-	icon := "IconRouter"
 	dev.DeviceType = device.DeviceTypeMobile
-	dev.Description = &desc
-	dev.Icon = &icon
+	dev.Description = new("a note")
+	dev.Icon = new("IconRouter")
 
 	updated, err := repos.repo.UpdateDevice(ctx, dev)
 
@@ -953,8 +949,7 @@ func TestRepository_UpdateDevice_ClearDescription(t *testing.T) {
 	ctx := context.Background()
 
 	dev := createTestDevice(t, repos, ctx, "clear-desc")
-	desc := "initial"
-	dev.Description = &desc
+	dev.Description = new("initial")
 	dev, err := repos.repo.UpdateDevice(ctx, dev)
 	is.NoErr(err)
 	is.True(dev.Description != nil)

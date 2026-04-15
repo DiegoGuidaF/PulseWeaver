@@ -103,8 +103,7 @@ func TestRepository_SessionCreateAndRead(t *testing.T) {
 	user, err := repo.CreateUser(ctx, mustNewUser(t, "session_user", "Session User", "", auth.UserRole))
 	is.NoErr(err)
 
-	s := auth.NewSession(user.ID, "token-hash-1")
-	createdSession, err := repo.CreateSession(ctx, &s)
+	createdSession, err := repo.CreateSession(ctx, new(auth.NewSession(user.ID, "token-hash-1")))
 	is.NoErr(err)
 	is.Equal(createdSession.UserID, user.ID)
 
@@ -258,11 +257,9 @@ func TestRepository_RevokeAllUserSessions(t *testing.T) {
 	user, err := repo.CreateUser(ctx, mustNewUser(t, "multi_session", "Multi Session", "", auth.UserRole))
 	is.NoErr(err)
 
-	sA := auth.NewSession(user.ID, "hash-a")
-	_, err = repo.CreateSession(ctx, &sA)
+	_, err = repo.CreateSession(ctx, new(auth.NewSession(user.ID, "hash-a")))
 	is.NoErr(err)
-	sB := auth.NewSession(user.ID, "hash-b")
-	_, err = repo.CreateSession(ctx, &sB)
+	_, err = repo.CreateSession(ctx, new(auth.NewSession(user.ID, "hash-b")))
 	is.NoErr(err)
 
 	err = repo.RevokeAllUserSessions(ctx, user.ID)
@@ -282,11 +279,9 @@ func TestRepository_RevokeAllUserSessionsExcept(t *testing.T) {
 	user, err := repo.CreateUser(ctx, mustNewUser(t, "except_user", "Except User", "", auth.UserRole))
 	is.NoErr(err)
 
-	sKeep := auth.NewSession(user.ID, "hash-keep")
-	kept, err := repo.CreateSession(ctx, &sKeep)
+	kept, err := repo.CreateSession(ctx, new(auth.NewSession(user.ID, "hash-keep")))
 	is.NoErr(err)
-	sRevoke := auth.NewSession(user.ID, "hash-revoke")
-	_, err = repo.CreateSession(ctx, &sRevoke)
+	_, err = repo.CreateSession(ctx, new(auth.NewSession(user.ID, "hash-revoke")))
 	is.NoErr(err)
 
 	err = repo.RevokeAllUserSessionsExcept(ctx, user.ID, kept.ID)
