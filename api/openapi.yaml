@@ -52,6 +52,8 @@ paths:
     $ref: './paths/devices.yaml#/deviceById'
   /device-types:
     $ref: './paths/devices.yaml#/deviceTypes'
+  /devices/{device_id}/api-key:
+    $ref: './paths/devices.yaml#/deleteApiKey'
   /devices/{device_id}/api-key/regenerate:
     $ref: './paths/devices.yaml#/regenerateApiKey'
   /devices/{device_id}/heartbeat:

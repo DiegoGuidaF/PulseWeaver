@@ -173,6 +173,7 @@ func (r *Repository) InvalidateInvite(ctx context.Context, id string) error {
 //  3. Marks the pending registration as used and links it to the created device.
 //
 // Returns ErrInviteNotFound if the code is unknown, already used, or expired.
+// TODO: Add tx manager from other repositories and use it here
 func (r *Repository) ClaimInvite(ctx context.Context, code string) (*ClaimResult, error) {
 	logger := slog.Default()
 
@@ -208,10 +209,11 @@ func (r *Repository) ClaimInvite(ctx context.Context, code string) (*ClaimResult
 
 	// 2. Create the device row — let SQLite assign the integer ID.
 	now := time.Now().UTC()
+	//TODO: Remove hardcoded owner_id. It must be added to the pending_registration UI and DB so it can be retrieved here
 	result, err := tx.ExecContext(ctx,
-		`INSERT INTO devices (name, device_type, created_at, updated_at)
-		 VALUES (?, 'mobile', ?, ?)`,
-		row.DeviceName, now, now,
+		`INSERT INTO devices (name, device_type, created_at, updated_at, owner_id)
+		 VALUES (?, 'mobile', ?, ?, ?)`,
+		row.DeviceName, now, now, 1,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create device: %w", err)

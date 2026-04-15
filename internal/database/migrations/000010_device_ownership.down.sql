@@ -1,3 +1,5 @@
+BEGIN TRANSACTION;
+
 -- SQLite does not support DROP COLUMN; recreate the table without owner_id.
 CREATE TABLE devices_new (
     id          INTEGER PRIMARY KEY,
@@ -15,3 +17,5 @@ DROP TABLE devices;
 ALTER TABLE devices_new RENAME TO devices;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_name_active ON devices (name) WHERE deleted_at IS NULL;
+
+COMMIT;

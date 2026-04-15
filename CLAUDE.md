@@ -16,7 +16,7 @@ After adding a migration: review `internal/database/migration_test_seed.sql` and
 - `make dev-back` — hot-reload backend (uses Air)
 - `make test` — run all Go tests (**always use this**, not bare `go test ./...`; uses `-tags=test`)
 - `go test -tags=test -v ./internal/<pkg>/...` — run tests for a single package (finish with `make test`)
-- `make lint` — format + golangci-lint
+- `make lint-back` — format + golangci-lint + check-migrations(ensures they start/end transaction)
 - `make fix` — format + golangci-lint with auto-fix
 - `make api` — regenerate backend + frontend types from OpenAPI spec
 

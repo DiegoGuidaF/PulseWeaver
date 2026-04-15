@@ -1,3 +1,5 @@
+BEGIN TRANSACTION;
+
 -- Core device and address tables
 
 CREATE TABLE IF NOT EXISTS "devices"
@@ -161,3 +163,4 @@ CREATE INDEX IF NOT EXISTS idx_request_audit_log_device_id
 
 CREATE INDEX IF NOT EXISTS idx_request_audit_log_outcome
     ON request_audit_log (outcome, created_at DESC);
+COMMIT;

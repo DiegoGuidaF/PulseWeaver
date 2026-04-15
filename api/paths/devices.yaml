@@ -197,10 +197,11 @@ deviceTypes:
 regenerateApiKey:
   post:
     operationId: regenerateDeviceAPIKey
-    summary: Regenerate device API key
+    summary: Generate or regenerate device API key
     description: >
-      Generates a new API key for the device, immediately invalidating the old one.
-      The raw key is returned once. Admin-only.
+      Generates a new API key for the device. If a key already exists, it is immediately
+      invalidated and replaced. Works as both the first-time generation and rotation endpoint.
+      The raw key is returned once and cannot be retrieved again. Admin-only.
     tags: [devices]
     parameters:
       - name: device_id
@@ -211,13 +212,44 @@ regenerateApiKey:
           $ref: '../components/schemas/common.yaml#/ID'
     responses:
       '200':
-        description: New API key generated successfully
+        description: API key generated or regenerated successfully
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/devices.yaml#/CreateDeviceResponse'
+              $ref: '../components/schemas/devices.yaml#/DeviceAPIKeyResponse'
       '404':
         description: Device not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+deleteApiKey:
+  delete:
+    operationId: deleteDeviceAPIKey
+    summary: Delete device API key
+    description: >
+      Permanently removes the API key for the device. Any currently connected device
+      using this key will immediately stop being able to send heartbeats.
+    tags: [devices]
+    parameters:
+      - name: device_id
+        in: path
+        description: Device id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      '204':
+        description: No Content - API key deleted successfully
+      '404':
+        description: Device not found or device has no API key
         content:
           application/json:
             schema:

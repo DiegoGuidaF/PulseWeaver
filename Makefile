@@ -1,5 +1,5 @@
 .PHONY: dev run test test-front clean fix lint lint-front typecheck-front lint-all check migrate-up migrate-down migrate-create api \
-        install-hooks version release-patch release-minor release-major
+        install-hooks version release-patch release-minor release-major check-migrations
 
 # Disable Go workspace mode so -modfile (used by tools/go.mod) works correctly
 # when this module is used as a submodule inside a go.work workspace.
@@ -43,7 +43,7 @@ test-front:
 	cd frontend && npm test
 
 # Run the linter (prints issues). Uses version from tools/go.mod.
-lint: api-back
+lint-back: api-back check-migrations
 	go tool -modfile=tools/go.mod golangci-lint run ./cmd/... ./internal/...
 
 # Run frontend ESLint
@@ -58,7 +58,7 @@ typecheck-front:
 lint-all: lint lint-front typecheck-front
 
 # Full pre-push check: lint + typecheck + test everything
-check: lint-all test test-front
+check: check-migrations lint-all test test-front
 
 # Run the linter and automatically fix what it can
 fix: api-back
@@ -75,6 +75,9 @@ migrate-reapply-latest: migrate-down migrate-up
 migrate-create:
 	@read -p "Migration name: " name; \
 	$(MIGRATE) create -ext sql -dir $(MIGRATIONS_PATH) -seq $$name
+
+check-migrations: ## Verify all migration files have explicit BEGIN TRANSACTION / COMMIT
+	@bash scripts/check-migrations.sh
 
 build-frontend: api-front
 	@echo "📦 Building frontend..."

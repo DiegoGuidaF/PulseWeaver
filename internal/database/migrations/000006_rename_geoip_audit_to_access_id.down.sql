@@ -1,1 +1,4 @@
+BEGIN TRANSACTION;
+
 ALTER TABLE access_log_geoip RENAME COLUMN access_log_id TO audit_log_id;
+COMMIT;

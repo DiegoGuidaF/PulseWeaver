@@ -257,7 +257,7 @@ make dev-front
 |-----------------------|-------------------------------------------------------------|
 | `make build`          | Full production build → `bin/pulseweaver`                      |
 | `make test`           | Run all Go tests                                            |
-| `make lint`           | Format + lint                                               |
+| `make lint-back`      | Format + lint                                               |
 | `make api`            | Regenerate backend + frontend types from `api/openapi.yaml` |
 | `make migrate-up`     | Apply pending database migrations                           |
 | `make migrate-create` | Create a new migration pair                                 |

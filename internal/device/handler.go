@@ -40,7 +40,7 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 		ownerID = new(auth.UserID(*request.Body.OwnerId))
 	}
 
-	device, rawAPIKey, err := h.service.CreateDevice(ctx, principal, deviceName, ownerID)
+	device, err := h.service.CreateDevice(ctx, principal, deviceName, ownerID)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrDuplicateDeviceName):
@@ -56,10 +56,8 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 	}
 	logger.InfoContext(ctx, "device created", slog.Int64(AttrKeyDeviceID, device.ID.Int64()))
 
-	apiDevice := toDeviceResponse(device)
 	return httpapi.CreateDevice201JSONResponse(httpapi.CreateDeviceResponse{
-		Device: apiDevice,
-		ApiKey: rawAPIKey,
+		Device: toDeviceResponse(device),
 	}), nil
 }
 
@@ -102,10 +100,34 @@ func (h *HTTPHandler) RegenerateDeviceAPIKey(ctx context.Context, request httpap
 	}
 	logger.InfoContext(ctx, "device api key regenerated")
 
-	return httpapi.RegenerateDeviceAPIKey200JSONResponse(httpapi.CreateDeviceResponse{
+	return httpapi.RegenerateDeviceAPIKey200JSONResponse(httpapi.DeviceAPIKeyResponse{
 		Device: toDeviceResponse(device),
 		ApiKey: rawAPIKey,
 	}), nil
+}
+
+func (h *HTTPHandler) DeleteDeviceAPIKey(ctx context.Context, request httpapi.DeleteDeviceAPIKeyRequestObject) (httpapi.DeleteDeviceAPIKeyResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "DeleteDeviceAPIKey")
+	deviceID := DeviceID(request.DeviceId)
+	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
+
+	err := h.service.DeleteAPIKey(ctx, deviceID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrDeviceNotFound):
+			logger.WarnContext(ctx, "device not found")
+			return httpapi.DeleteDeviceAPIKey404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
+		case errors.Is(err, ErrNoAPIKey):
+			logger.WarnContext(ctx, "device has no api key")
+			return httpapi.DeleteDeviceAPIKey404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s has no API key", deviceID))), nil
+		default:
+			logger.ErrorContext(ctx, "failed to delete api key", slog.Any(AttrKeyError, err))
+			return httpapi.DeleteDeviceAPIKey500JSONResponse(errorMsgResponse("Failed to delete API key")), nil
+		}
+	}
+	logger.InfoContext(ctx, "device api key deleted")
+
+	return httpapi.DeleteDeviceAPIKey204Response{}, nil
 }
 
 func (h *HTTPHandler) AddAddress(ctx context.Context, request httpapi.AddAddressRequestObject) (httpapi.AddAddressResponseObject, error) {
@@ -427,7 +449,7 @@ func toDeviceResponse(d *Device) httpapi.Device {
 		UpdatedAt:    httpapi.UTCTime(d.UpdatedAt),
 		ApiKeyPrefix: d.KeyPrefix,
 		LastSeenAt:   lastSeenAt,
-		OwnerId:      new(int(d.OwnerID.Int64())),
+		OwnerId:      d.OwnerID.Int64(),
 	}
 }
 

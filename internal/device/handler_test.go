@@ -21,7 +21,7 @@ func TestHandler_AddressLifecycle(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "router", nil)
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "router", nil)
 	is.NoErr(err)
 
 	addBody, _ := json.Marshal(map[string]string{"ip": "192.168.1.100"})
@@ -69,7 +69,7 @@ func TestHandler_DeviceHeartbeat(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "checkin-device", nil)
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "checkin-device", nil)
 	is.NoErr(err)
 
 	heartbeatURL := fmt.Sprintf("/api/v1/devices/%d/heartbeat", dev.ID)
@@ -107,7 +107,8 @@ func TestHandler_CreateDevice(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(resp.Device.Name, "sensor-1")
 	is.True(resp.Device.Id != 0)
-	is.True(resp.ApiKey != "")
+	// No API key returned on device creation — must be generated separately.
+	is.True(resp.Device.ApiKeyPrefix == nil)
 }
 
 func TestHandler_GetDevice_200(t *testing.T) {
@@ -115,7 +116,7 @@ func TestHandler_GetDevice_200(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	device, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "single-device", nil)
+	device, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "single-device", nil)
 	is.NoErr(err)
 
 	getURL := fmt.Sprintf("/api/v1/devices/%d", device.ID)
@@ -130,7 +131,8 @@ func TestHandler_GetDevice_200(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(resp.Id, int64(device.ID))
 	is.Equal(resp.Name, device.Name)
-	is.True(resp.ApiKeyPrefix != "")
+	// No API key yet on newly created device.
+	is.True(resp.ApiKeyPrefix == nil)
 }
 
 func TestHandler_GetDevice_404(t *testing.T) {
@@ -150,7 +152,9 @@ func TestHandler_DeviceHeartbeatByApiKey_NoBody(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 
-	_, apiKey, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "apikey-heartbeat-device", nil)
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "apikey-heartbeat-device", nil)
+	is.NoErr(err)
+	_, apiKey, err := testServer.DeviceService.RegenerateAPIKey(t.Context(), dev.ID)
 	is.NoErr(err)
 
 	// POST /heartbeat with X-API-Key (no session cookie needed)
@@ -175,7 +179,9 @@ func TestHandler_DeviceHeartbeatByApiKey_WithBodyIP(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 
-	_, apiKey, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "apikey-heartbeat-with-body-ip", nil)
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "apikey-heartbeat-with-body-ip", nil)
+	is.NoErr(err)
+	_, apiKey, err := testServer.DeviceService.RegenerateAPIKey(t.Context(), dev.ID)
 	is.NoErr(err)
 
 	// POST /heartbeat with X-API-Key and IP in request body
@@ -241,7 +247,7 @@ func TestHandler_DeleteDevice_204(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	device, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "to-delete", nil)
+	device, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "to-delete", nil)
 	is.NoErr(err)
 
 	deleteURL := fmt.Sprintf("/api/v1/devices/%d", device.ID)
@@ -281,7 +287,7 @@ func TestHandler_RegenerateDeviceApiKey_200(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	device, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "regen-device", nil)
+	device, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "regen-device", nil)
 	is.NoErr(err)
 
 	regenURL := fmt.Sprintf("/api/v1/devices/%d/api-key/regenerate", device.ID)
@@ -291,7 +297,7 @@ func TestHandler_RegenerateDeviceApiKey_200(t *testing.T) {
 	testServer.HTTPServer.ServeHTTP(regenRes, regenReq)
 	is.Equal(regenRes.Code, http.StatusOK)
 
-	var resp httpapi.CreateDeviceResponse
+	var resp httpapi.DeviceAPIKeyResponse
 	err = json.NewDecoder(regenRes.Body).Decode(&resp)
 	is.NoErr(err)
 	is.Equal(resp.Device.Id, int64(device.ID))
@@ -312,13 +318,61 @@ func TestHandler_RegenerateDeviceApiKey_404(t *testing.T) {
 	is.Equal(regenRes.Code, http.StatusNotFound)
 }
 
+func TestHandler_DeleteDeviceApiKey_204(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "delete-key-device", nil)
+	is.NoErr(err)
+	// Generate a key first so there is something to delete
+	_, _, err = testServer.DeviceService.RegenerateAPIKey(t.Context(), dev.ID)
+	is.NoErr(err)
+
+	deleteURL := fmt.Sprintf("/api/v1/devices/%d/api-key", dev.ID)
+	deleteReq := httptest.NewRequest(http.MethodDelete, deleteURL, nil)
+	deleteReq.AddCookie(sessionCookie)
+	deleteRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(deleteRes, deleteReq)
+	is.Equal(deleteRes.Code, http.StatusNoContent)
+}
+
+func TestHandler_DeleteDeviceApiKey_404_NoKey(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "no-key-device", nil)
+	is.NoErr(err)
+
+	deleteURL := fmt.Sprintf("/api/v1/devices/%d/api-key", dev.ID)
+	deleteReq := httptest.NewRequest(http.MethodDelete, deleteURL, nil)
+	deleteReq.AddCookie(sessionCookie)
+	deleteRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(deleteRes, deleteReq)
+	is.Equal(deleteRes.Code, http.StatusNotFound)
+}
+
+func TestHandler_DeleteDeviceApiKey_404_DeviceNotFound(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
+
+	deleteURL := fmt.Sprintf("/api/v1/devices/%d/api-key", 99999)
+	deleteReq := httptest.NewRequest(http.MethodDelete, deleteURL, nil)
+	deleteReq.AddCookie(sessionCookie)
+	deleteRes := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(deleteRes, deleteReq)
+	is.Equal(deleteRes.Code, http.StatusNotFound)
+}
+
 func TestHandler_CreateDevice_409_DuplicateName(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
 	// Create first device via service so name is taken
-	_, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "dup-name", nil)
+	_, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "dup-name", nil)
 	is.NoErr(err)
 
 	// POST create with same name via HTTP (tests handler 409)
@@ -336,7 +390,7 @@ func TestHandler_GetAddressHistory(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "history-device", nil)
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "history-device", nil)
 	is.NoErr(err)
 
 	// Register an address via service (creates an enable event)
@@ -368,9 +422,9 @@ func TestHandler_GetAddressHistory_AllDevices(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev1, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "dev-a", nil)
+	dev1, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "dev-a", nil)
 	is.NoErr(err)
-	dev2, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "dev-b", nil)
+	dev2, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "dev-b", nil)
 	is.NoErr(err)
 
 	_, _, err = testServer.DeviceService.RegisterAddressActivity(t.Context(), dev1.ID, "10.0.0.1", "heartbeat")
@@ -412,7 +466,7 @@ func TestHandler_GetAddressHistory_Pagination(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "pagination-dev", nil)
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "pagination-dev", nil)
 	is.NoErr(err)
 
 	// Create several events
@@ -454,7 +508,7 @@ func TestHandler_UpdateDevice_RenameAndSetType(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "sensor", nil)
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "sensor", nil)
 	is.NoErr(err)
 
 	body, _ := json.Marshal(map[string]string{"name": "sensor-renamed", "device_type": "mobile"})
@@ -480,7 +534,7 @@ func TestHandler_UpdateDevice_SetAndClearDescription(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "noted-device", nil)
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "noted-device", nil)
 	is.NoErr(err)
 	url := fmt.Sprintf("/api/v1/devices/%d", dev.ID)
 
@@ -519,7 +573,7 @@ func TestHandler_UpdateDevice_InvalidType_Returns400(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "type-test", nil)
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "type-test", nil)
 	is.NoErr(err)
 
 	body, _ := json.Marshal(map[string]string{"device_type": "robot"})
@@ -538,9 +592,9 @@ func TestHandler_UpdateDevice_DuplicateName_Returns409(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	_, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "taken", nil)
+	_, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "taken", nil)
 	is.NoErr(err)
-	dev2, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "to-rename", nil)
+	dev2, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "to-rename", nil)
 	is.NoErr(err)
 
 	body, _ := json.Marshal(map[string]string{"name": "taken"})
@@ -595,7 +649,7 @@ func TestHandler_GetDevices_ContainsUpdatedAt(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
 
-	_, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "list-device", nil)
+	_, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "list-device", nil)
 	is.NoErr(err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)

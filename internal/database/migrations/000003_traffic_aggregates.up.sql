@@ -1,3 +1,5 @@
+BEGIN TRANSACTION;
+
 CREATE TABLE IF NOT EXISTS hourly_traffic_aggregates (
     id            INTEGER PRIMARY KEY,
     bucket_at     DATETIME NOT NULL,   -- truncated to the hour, UTC
@@ -14,3 +16,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_hourly_aggregates_bucket
 
 CREATE INDEX IF NOT EXISTS idx_hourly_aggregates_bucket_at
     ON hourly_traffic_aggregates (bucket_at DESC);
+
+COMMIT;

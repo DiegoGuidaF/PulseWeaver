@@ -1,3 +1,5 @@
+BEGIN TRANSACTION;
+
 -- SQLite does not support DROP COLUMN on older versions; recreate the table.
 CREATE TABLE access_log_new (
     id           INTEGER PRIMARY KEY,
@@ -26,3 +28,5 @@ CREATE INDEX IF NOT EXISTS idx_access_log_created_at ON access_log (created_at D
 CREATE INDEX IF NOT EXISTS idx_access_log_client_ip  ON access_log (client_ip);
 CREATE INDEX IF NOT EXISTS idx_access_log_device_id  ON access_log (device_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_access_log_outcome    ON access_log (outcome, created_at DESC);
+
+COMMIT;

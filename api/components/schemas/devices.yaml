@@ -49,13 +49,21 @@ CreateDeviceResponse:
   type: object
   required:
     - device
+  properties:
+    device:
+      $ref: '#/Device'
+
+DeviceAPIKeyResponse:
+  type: object
+  required:
+    - device
     - api_key
   properties:
     device:
       $ref: '#/Device'
     api_key:
       type: string
-      description: Secret key for the device; only returned on creation or regeneration.
+      description: Secret key for the device.
 
 Device:
   type: object
@@ -63,9 +71,9 @@ Device:
     - id
     - name
     - created_at
-    - api_key_prefix
     - device_type
     - updated_at
+    - owner_id
   properties:
     created_at:
       type: string
@@ -99,7 +107,8 @@ Device:
       description: Tabler icon name override (e.g. "IconRouter").
     api_key_prefix:
       type: string
-      description: Prefix of the device API key (for display only).
+      nullable: true
+      description: Prefix of the device API key (for display only). Null if no API key has been generated yet.
     address_count:
       type: integer
       minimum: 0
@@ -113,8 +122,8 @@ Device:
       x-go-type: UTCTime
       description: Most recent address activity for this device (heartbeat or manual update).
     owner_id:
-      type: integer
       readOnly: true
+      $ref: './common.yaml#/ID'
       description: ID of the user who owns this device.
     owner_name:
       type: string

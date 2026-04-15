@@ -5,7 +5,6 @@ package device
 import (
 	"testing"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/matryer/is"
 )
 
@@ -165,16 +164,4 @@ func TestDevice_Update_NameNotMutatedWhenLaterFieldInvalid(t *testing.T) {
 	is.True(err != nil)
 	is.Equal(d.Name, "original")             // name must not be written on validation failure
 	is.Equal(d.DeviceType, DeviceTypeStatic) // type must not be written either
-}
-
-func TestNewCreateDeviceParams(t *testing.T) {
-	is := is.New(t)
-
-	params, rawKey, err := NewCreateDeviceParams("test-device", auth.UserID(1))
-	is.NoErr(err)
-	is.Equal(params.Name, "test-device")
-	is.True(params.KeyPrefix != "")
-	is.True(params.KeyHash != "")
-	is.True(len(rawKey) > len(APIKeyPrefix))
-	is.Equal(rawKey[:len(APIKeyPrefix)], APIKeyPrefix)
 }

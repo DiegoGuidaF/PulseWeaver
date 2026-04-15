@@ -232,21 +232,20 @@ func testAdminPrincipal() *auth.Principal {
 	return auth.NewPrincipal(auth.UserID(1), auth.SessionID(0), auth.AdminRole)
 }
 
-func TestService_CreateDevice_ReturnsDeviceAndRawKey(t *testing.T) {
+func TestService_CreateDevice_ReturnsDevice(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 
-	deviceWithPrefix, rawKey, err := service.CreateDevice(ctx, testAdminPrincipal(), "my-device", nil)
+	createdDevice, err := service.CreateDevice(ctx, testAdminPrincipal(), "my-device", nil)
 	is.NoErr(err)
-	is.True(deviceWithPrefix != nil)
-	is.Equal(deviceWithPrefix.Name, "my-device")
-	is.True(deviceWithPrefix.ID != 0)
-	is.True(deviceWithPrefix.KeyPrefix != "")
-	is.True(len(rawKey) > len(APIKeyPrefix))
-	is.Equal(rawKey[:len(APIKeyPrefix)], APIKeyPrefix)
+	is.True(createdDevice != nil)
+	is.Equal(createdDevice.Name, "my-device")
+	is.True(createdDevice.ID != 0)
+	// No API key is generated on device creation — key must be generated separately.
+	is.True(createdDevice.KeyPrefix == nil)
 }
 
 func TestService_Authenticate_Success(t *testing.T) {
@@ -256,8 +255,11 @@ func TestService_Authenticate_Success(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 
-	// Create device via service so API key is stored in mock
-	deviceWithPrefix, rawKey, err := service.CreateDevice(ctx, testAdminPrincipal(), "auth-device", nil)
+	// Create device then generate an API key so the hash is stored in the mock.
+	deviceWithPrefix, err := service.CreateDevice(ctx, testAdminPrincipal(), "auth-device", nil)
+	is.NoErr(err)
+
+	_, rawKey, err := service.RegenerateAPIKey(ctx, deviceWithPrefix.ID)
 	is.NoErr(err)
 	is.True(rawKey != "")
 
@@ -481,11 +483,10 @@ func TestService_CreateDevice_DuplicateName(t *testing.T) {
 	mockRepo.createDeviceErr = ErrDuplicateDeviceName
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 
-	device, rawKey, err := service.CreateDevice(ctx, testAdminPrincipal(), "dup-name", nil)
+	device, err := service.CreateDevice(ctx, testAdminPrincipal(), "dup-name", nil)
 	is.True(err != nil)
 	is.True(errors.Is(err, ErrDuplicateDeviceName))
 	is.True(device == nil)
-	is.True(rawKey == "")
 }
 
 func TestService_DisableAddress_DeviceDeleted(t *testing.T) {
@@ -507,8 +508,9 @@ func TestService_RegenerateAPIKey_Success(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
+	oldPrefix := "wdk_oldpre"
 	mockRepo := newMockRepository()
-	device := &Device{ID: DeviceID(1), Name: "regen-device", KeyPrefix: "wdk_oldpre"}
+	device := &Device{ID: DeviceID(1), Name: "regen-device", KeyPrefix: &oldPrefix}
 	mockRepo.devices[device.ID] = device
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 
@@ -518,8 +520,8 @@ func TestService_RegenerateAPIKey_Success(t *testing.T) {
 	is.Equal(updatedDevice.ID, device.ID)
 	is.True(len(rawKey) > len(APIKeyPrefix))
 	is.Equal(rawKey[:len(APIKeyPrefix)], APIKeyPrefix)
-	// New prefix should be stored
-	is.True(updatedDevice.KeyPrefix != "wdk_oldpre")
+	// New prefix should be stored and differ from the old one
+	is.True(updatedDevice.KeyPrefix != nil && *updatedDevice.KeyPrefix != oldPrefix)
 }
 
 func TestService_RegenerateAPIKey_DeviceNotFound(t *testing.T) {
@@ -544,8 +546,10 @@ func TestService_RegenerateAPIKey_OldKeyInvalidated(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := NewService(mockRepo, slog.New(slog.DiscardHandler), netip.Addr{})
 
-	// Create device so old key hash is stored
-	_, oldRawKey, err := service.CreateDevice(ctx, testAdminPrincipal(), "rotate-device", nil)
+	// Create device then generate first key so old key hash is stored.
+	createdDev, err := service.CreateDevice(ctx, testAdminPrincipal(), "rotate-device", nil)
+	is.NoErr(err)
+	_, oldRawKey, err := service.RegenerateAPIKey(ctx, createdDev.ID)
 	is.NoErr(err)
 	is.True(oldRawKey != "")
 
@@ -708,12 +712,11 @@ func (m *mockRepository) CreateDevice(ctx context.Context, params CreateDevicePa
 		return nil, m.createDeviceErr
 	}
 	device := &Device{
-		ID:        DeviceID(len(m.devices) + 1),
-		Name:      params.Name,
-		KeyPrefix: params.KeyPrefix,
+		ID:   DeviceID(len(m.devices) + 1),
+		Name: params.Name,
+		// No API key on creation — must be generated separately via UpsertAPIKey.
 	}
 	m.devices[device.ID] = device
-	m.apiKeysByHash[params.KeyHash] = device
 	return device, nil
 }
 
@@ -835,7 +838,7 @@ func (m *mockRepository) CheckAddressOwnership(ctx context.Context, deviceID Dev
 	return nil
 }
 
-func (m *mockRepository) UpdateAPIKey(ctx context.Context, deviceID DeviceID, keyHash string, keyPrefix string) error {
+func (m *mockRepository) UpsertAPIKey(ctx context.Context, deviceID DeviceID, keyHash string, keyPrefix string) error {
 	if m.updateAPIKeyErr != nil {
 		return m.updateAPIKeyErr
 	}
@@ -844,7 +847,7 @@ func (m *mockRepository) UpdateAPIKey(ctx context.Context, deviceID DeviceID, ke
 		return ErrDeviceNotFound
 	}
 	// Update stored state to reflect the new key
-	device.KeyPrefix = keyPrefix
+	device.KeyPrefix = &keyPrefix
 	// Remove old hash entries for this device, add the new one
 	for k, v := range m.apiKeysByHash {
 		if v.ID == deviceID {
@@ -853,6 +856,25 @@ func (m *mockRepository) UpdateAPIKey(ctx context.Context, deviceID DeviceID, ke
 		}
 	}
 	m.apiKeysByHash[keyHash] = device
+	return nil
+}
+
+func (m *mockRepository) DeleteAPIKey(ctx context.Context, deviceID DeviceID) error {
+	device, ok := m.devices[deviceID]
+	if !ok {
+		return ErrNoAPIKey
+	}
+	if device.KeyPrefix == nil {
+		return ErrNoAPIKey
+	}
+	// Remove the key from the hash map
+	for k, v := range m.apiKeysByHash {
+		if v.ID == deviceID {
+			delete(m.apiKeysByHash, k)
+			break
+		}
+	}
+	device.KeyPrefix = nil
 	return nil
 }
 

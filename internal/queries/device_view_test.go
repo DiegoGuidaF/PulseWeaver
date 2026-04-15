@@ -78,8 +78,8 @@ func TestRepository_GetDevices_OrderedByCreatedAtDesc(t *testing.T) {
 
 		var id device.DeviceID
 		err := repos.db.GetContext(t.Context(), &id,
-			`INSERT INTO devices (name, created_at) VALUES (?, ?) RETURNING id`,
-			name, createdAt,
+			`INSERT INTO devices (name, created_at, owner_id) VALUES (?, ?, ?) RETURNING id`,
+			name, createdAt, 1,
 		)
 		if err != nil {
 			t.Fatalf("insert device %q: %v", name, err)

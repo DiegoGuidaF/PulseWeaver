@@ -21,7 +21,7 @@ import (
 func createTestDevice(t *testing.T, testServer *app.App, name string) *device.Device {
 	t.Helper()
 
-	dev, _, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), name, nil)
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), name, nil)
 	if err != nil {
 		t.Fatalf("create device %q: %v", name, err)
 	}

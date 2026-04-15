@@ -47,7 +47,7 @@ jobs:
         run: npm run generate:api
 
       - name: backend-lint
-        run: make lint
+        run: make lint-back
 
       - name: frontend-lint
         run: make lint-front typecheck-front

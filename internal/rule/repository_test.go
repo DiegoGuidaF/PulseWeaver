@@ -36,11 +36,7 @@ func insertDevice(t *testing.T, db *sqlx.DB, ctx context.Context, name string) *
 	t.Helper()
 	ownerID := ensureTestOwner(t, db, ctx)
 	devRepo := device.NewRepository(db)
-	params, _, err := device.NewCreateDeviceParams(name, ownerID)
-	if err != nil {
-		t.Fatalf("create device params: %v", err)
-	}
-	dev, err := devRepo.CreateDevice(ctx, params)
+	dev, err := devRepo.CreateDevice(ctx, device.CreateDeviceParams{Name: name, OwnerID: ownerID})
 	if err != nil {
 		t.Fatalf("create device: %v", err)
 	}

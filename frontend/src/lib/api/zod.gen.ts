@@ -87,16 +87,15 @@ export const zDevice = z.object({
     device_type: z.enum(['static', 'mobile']),
     description: z.string().max(200).nullish(),
     icon: z.string().max(80).nullish(),
-    api_key_prefix: z.string(),
+    api_key_prefix: z.string().nullish(),
     address_count: z.int().gte(0).readonly().optional(),
     last_seen_at: z.iso.datetime({ offset: true, local: true }).readonly().nullish(),
-    owner_id: z.int().readonly().optional(),
+    owner_id: zId,
     owner_name: z.string().readonly().optional()
 });
 
 export const zCreateDeviceResponse = z.object({
-    device: zDevice,
-    api_key: z.string()
+    device: zDevice
 });
 
 export const zDeviceTypeItem = z.object({
@@ -301,6 +300,11 @@ export const zClaimRegistrationResponse = z.object({
     api_key: z.string()
 });
 
+export const zDeviceApiKeyResponse = z.object({
+    device: zDevice,
+    api_key: z.string()
+});
+
 export const zUserWritable = z.object({
     id: zId,
     username: zUsername,
@@ -317,12 +321,11 @@ export const zDeviceWritable = z.object({
     device_type: z.enum(['static', 'mobile']),
     description: z.string().max(200).nullish(),
     icon: z.string().max(80).nullish(),
-    api_key_prefix: z.string()
+    api_key_prefix: z.string().nullish()
 });
 
 export const zCreateDeviceResponseWritable = z.object({
-    device: zDeviceWritable,
-    api_key: z.string()
+    device: zDeviceWritable
 });
 
 export const zAddressWritable = z.object({
@@ -332,6 +335,11 @@ export const zAddressWritable = z.object({
     is_enabled: z.boolean(),
     created_at: z.iso.datetime({ offset: true, local: true }),
     updated_at: z.iso.datetime({ offset: true, local: true })
+});
+
+export const zDeviceApiKeyResponseWritable = z.object({
+    device: zDeviceWritable,
+    api_key: z.string()
 });
 
 export const zListUsersData = z.object({
@@ -535,6 +543,19 @@ export const zListDeviceTypesData = z.object({
  */
 export const zListDeviceTypesResponse = z.array(zDeviceTypeItem);
 
+export const zDeleteDeviceApiKeyData = z.object({
+    body: z.never().optional(),
+    path: z.object({
+        device_id: zId
+    }),
+    query: z.never().optional()
+});
+
+/**
+ * No Content - API key deleted successfully
+ */
+export const zDeleteDeviceApiKeyResponse = z.void();
+
 export const zRegenerateDeviceApiKeyData = z.object({
     body: z.never().optional(),
     path: z.object({
@@ -544,9 +565,9 @@ export const zRegenerateDeviceApiKeyData = z.object({
 });
 
 /**
- * New API key generated successfully
+ * API key generated or regenerated successfully
  */
-export const zRegenerateDeviceApiKeyResponse = zCreateDeviceResponse;
+export const zRegenerateDeviceApiKeyResponse = zDeviceApiKeyResponse;
 
 export const zDeviceHeartbeatData = z.object({
     body: z.never().optional(),

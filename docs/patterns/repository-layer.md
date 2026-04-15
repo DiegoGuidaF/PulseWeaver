@@ -67,9 +67,21 @@ func (r *Repository) RunInTx(ctx context.Context, fn func(tx *sqlx.Tx) error) er
 }
 ```
 
+## SQLite FK error mapping
+
+The CGo-free `modernc.org/sqlite` driver (used in PulseWeaver) wraps FK violations as a plain `*fmt.wrapError`. There are no typed SQLite error codes available — check by string matching:
+
+```go
+if strings.Contains(strings.ToLower(err.Error()), "foreign key constraint failed") {
+    return ErrDeviceNotFound // or whichever sentinel fits the violated FK
+}
+```
+
+Map FK errors as close to the DB call as possible (in the repository method, not the service).
+
 ## Key rules
 
-- **Error mapping**: check `sql.ErrNoRows` → `ErrNotFound`, unique constraint violations → `ErrConflict` / domain-specific error.
+- **Error mapping**: check `sql.ErrNoRows` → `ErrNotFound`, unique constraint violations → `ErrConflict` / domain-specific error, FK violations → string match (see above).
 - **`new(T)` for scan targets**: use `new(Device)` not `&Device{}` for Go 1.26 compliance (see `pointer-conventions.md`).
 - **Wrap errors**: always `fmt.Errorf("method name: %w", err)` for traceability.
 - **No business logic**: repositories are pure data access. Validation belongs in services.

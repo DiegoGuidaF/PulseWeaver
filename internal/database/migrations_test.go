@@ -63,7 +63,7 @@ func TestMigrations_DownToZeroAndBackUp(t *testing.T) {
 	}
 
 	// Re-create the migrator against the same DB so we can exercise Down().
-	driver, err := sqlite.WithInstance(sqliteDB.DB().DB, &sqlite.Config{})
+	driver, err := sqlite.WithInstance(sqliteDB.DB().DB, &sqlite.Config{NoTxWrap: true})
 	if err != nil {
 		t.Fatalf("create driver: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestMigrations_FinalMigration_WithData(t *testing.T) {
 		t.Fatalf("Migrate (up): %v", err)
 	}
 
-	driver, err := sqlite.WithInstance(sqliteDB.DB().DB, &sqlite.Config{})
+	driver, err := sqlite.WithInstance(sqliteDB.DB().DB, &sqlite.Config{NoTxWrap: true})
 	if err != nil {
 		t.Fatalf("create driver: %v", err)
 	}

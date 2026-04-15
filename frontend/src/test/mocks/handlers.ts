@@ -16,6 +16,7 @@ export const endpoints = {
     deviceAddressLeaseRule: `${BASE}/devices/:deviceId/rules/address_lease`,
     maxActiveAddressesRule: `${BASE}/devices/:deviceId/rules/max_active_addresses`,
     regenerateApiKey: `${BASE}/devices/:deviceId/api-key/regenerate`,
+    deleteApiKey: `${BASE}/devices/:deviceId/api-key`,
     deviceTypes: `${BASE}/device-types`,
     authMe: `${BASE}/auth/me`,
     authLogin: `${BASE}/auth/login`,
@@ -152,6 +153,13 @@ export const deviceHandlers = {
                     api_key: 'regenerated_key_abc123xyz789',
                     ...override,
                 })),
+    },
+
+    deleteApiKey: {
+        success: () =>
+            http.delete(endpoints.deleteApiKey, () => responses.noContent()),
+        notFound: () =>
+            http.delete(endpoints.deleteApiKey, () => responses.notFound()),
     },
 
     listTypes: (types?: DeviceTypeItem[]) =>

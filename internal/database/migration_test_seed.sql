@@ -14,13 +14,14 @@
 
 -- ── No FK dependencies ────────────────────────────────────────────────────────
 
--- Active device
-INSERT INTO devices (name) VALUES ('seed-router');
--- Soft-deleted device — migrations must handle both live and deleted rows
-INSERT INTO devices (name, deleted_at) VALUES ('seed-old-device', '2024-01-01 00:00:00');
-
+-- A user
 INSERT INTO users (username, display_name, email, password_hash, role)
 VALUES ('seed-user', 'Seed User', 'seed@example.com', X'DEADBEEF', 'user');
+
+-- Active device
+INSERT INTO devices (name, owner_id) VALUES ('seed-router', 1);
+-- Soft-deleted device — migrations must handle both live and deleted rows
+INSERT INTO devices (name, deleted_at, owner_id) VALUES ('seed-old-device', '2024-01-01 00:00:00', 1);
 
 -- Both outcome values to exercise CHECK (outcome IN (0, 1))
 INSERT INTO hourly_traffic_aggregates

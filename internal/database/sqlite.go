@@ -75,7 +75,7 @@ func (s *SQLite) Close() error {
 
 func (s *SQLite) Migrate() error {
 	// Create sqlite driver instance
-	driver, err := sqlite.WithInstance(s.db.DB, &sqlite.Config{})
+	driver, err := sqlite.WithInstance(s.db.DB, &sqlite.Config{NoTxWrap: true})
 	if err != nil {
 		return fmt.Errorf("create driver: %w", err)
 	}

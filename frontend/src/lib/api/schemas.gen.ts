@@ -268,16 +268,11 @@ export const UpdateDeviceRequestSchema = {
 export const CreateDeviceResponseSchema = {
     type: 'object',
     required: [
-        'device',
-        'api_key'
+        'device'
     ],
     properties: {
         device: {
             $ref: '#/components/schemas/Device'
-        },
-        api_key: {
-            type: 'string',
-            description: 'Secret key for the device; only returned on creation or regeneration.'
         }
     }
 } as const;
@@ -288,9 +283,9 @@ export const DeviceSchema = {
         'id',
         'name',
         'created_at',
-        'api_key_prefix',
         'device_type',
-        'updated_at'
+        'updated_at',
+        'owner_id'
     ],
     properties: {
         created_at: {
@@ -335,7 +330,8 @@ export const DeviceSchema = {
         },
         api_key_prefix: {
             type: 'string',
-            description: 'Prefix of the device API key (for display only).'
+            nullable: true,
+            description: 'Prefix of the device API key (for display only). Null if no API key has been generated yet.'
         },
         address_count: {
             type: 'integer',
@@ -352,8 +348,8 @@ export const DeviceSchema = {
             description: 'Most recent address activity for this device (heartbeat or manual update).'
         },
         owner_id: {
-            type: 'integer',
             readOnly: true,
+            $ref: '#/components/schemas/ID',
             description: 'ID of the user who owns this device.'
         },
         owner_name: {
@@ -1113,6 +1109,23 @@ export const ClaimRegistrationResponseSchema = {
     }
 } as const;
 
+export const DeviceAPIKeyResponseSchema = {
+    type: 'object',
+    required: [
+        'device',
+        'api_key'
+    ],
+    properties: {
+        device: {
+            $ref: '#/components/schemas/Device'
+        },
+        api_key: {
+            type: 'string',
+            description: 'Secret key for the device.'
+        }
+    }
+} as const;
+
 export const UserWritableSchema = {
     type: 'object',
     required: [
@@ -1147,16 +1160,11 @@ export const UserWritableSchema = {
 export const CreateDeviceResponseWritableSchema = {
     type: 'object',
     required: [
-        'device',
-        'api_key'
+        'device'
     ],
     properties: {
         device: {
             $ref: '#/components/schemas/DeviceWritable'
-        },
-        api_key: {
-            type: 'string',
-            description: 'Secret key for the device; only returned on creation or regeneration.'
         }
     }
 } as const;
@@ -1167,7 +1175,6 @@ export const DeviceWritableSchema = {
         'id',
         'name',
         'created_at',
-        'api_key_prefix',
         'device_type',
         'updated_at'
     ],
@@ -1214,7 +1221,8 @@ export const DeviceWritableSchema = {
         },
         api_key_prefix: {
             type: 'string',
-            description: 'Prefix of the device API key (for display only).'
+            nullable: true,
+            description: 'Prefix of the device API key (for display only). Null if no API key has been generated yet.'
         }
     }
 } as const;
@@ -1253,6 +1261,23 @@ export const AddressWritableSchema = {
             format: 'date-time',
             'x-go-type': 'UTCTime',
             description: 'Last time it was enabled or disabled'
+        }
+    }
+} as const;
+
+export const DeviceAPIKeyResponseWritableSchema = {
+    type: 'object',
+    required: [
+        'device',
+        'api_key'
+    ],
+    properties: {
+        device: {
+            $ref: '#/components/schemas/DeviceWritable'
+        },
+        api_key: {
+            type: 'string',
+            description: 'Secret key for the device.'
         }
     }
 } as const;

@@ -1,3 +1,5 @@
+BEGIN TRANSACTION;
+
 -- Down migration for squashed initial schema.
 -- Drops all application tables and indexes, preserving golang-migrate metadata.
 
@@ -32,3 +34,5 @@ DROP TABLE IF EXISTS address_events;
 DROP TABLE IF EXISTS addresses;
 DROP TABLE IF EXISTS devices;
 
+
+COMMIT;

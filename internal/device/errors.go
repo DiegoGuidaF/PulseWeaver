@@ -5,6 +5,7 @@ import "errors"
 var (
 	ErrDeviceNotFound          = errors.New("device not found")
 	ErrOwnerNotFound           = errors.New("device owner not found")
+	ErrNoAPIKey                = errors.New("device has no API key")
 	ErrDuplicateDeviceName     = errors.New("device name already in use")
 	ErrAddressNotFound         = errors.New("device address not found")
 	ErrInvalidIPFormat         = errors.New("invalid IP address format")

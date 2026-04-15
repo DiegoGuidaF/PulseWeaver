@@ -109,10 +109,6 @@ export type UpdateDeviceRequest = {
 
 export type CreateDeviceResponse = {
     device: Device;
-    /**
-     * Secret key for the device; only returned on creation or regeneration.
-     */
-    api_key: string;
 };
 
 export type Device = {
@@ -139,9 +135,9 @@ export type Device = {
      */
     icon?: string | null;
     /**
-     * Prefix of the device API key (for display only).
+     * Prefix of the device API key (for display only). Null if no API key has been generated yet.
      */
-    api_key_prefix: string;
+    api_key_prefix?: string | null;
     /**
      * Number of currently enabled addresses for this device.
      */
@@ -150,10 +146,7 @@ export type Device = {
      * Most recent address activity for this device (heartbeat or manual update).
      */
     readonly last_seen_at?: string | null;
-    /**
-     * ID of the user who owns this device.
-     */
-    readonly owner_id?: number;
+    owner_id: Id;
     /**
      * Display name of the owning user (for display only).
      */
@@ -445,6 +438,14 @@ export type ClaimRegistrationResponse = {
     api_key: string;
 };
 
+export type DeviceApiKeyResponse = {
+    device: Device;
+    /**
+     * Secret key for the device.
+     */
+    api_key: string;
+};
+
 export type UserWritable = {
     id: Id;
     username: Username;
@@ -455,10 +456,6 @@ export type UserWritable = {
 
 export type CreateDeviceResponseWritable = {
     device: DeviceWritable;
-    /**
-     * Secret key for the device; only returned on creation or regeneration.
-     */
-    api_key: string;
 };
 
 export type DeviceWritable = {
@@ -485,9 +482,9 @@ export type DeviceWritable = {
      */
     icon?: string | null;
     /**
-     * Prefix of the device API key (for display only).
+     * Prefix of the device API key (for display only). Null if no API key has been generated yet.
      */
-    api_key_prefix: string;
+    api_key_prefix?: string | null;
 };
 
 export type AddressWritable = {
@@ -503,6 +500,14 @@ export type AddressWritable = {
      * Last time it was enabled or disabled
      */
     updated_at: string;
+};
+
+export type DeviceApiKeyResponseWritable = {
+    device: DeviceWritable;
+    /**
+     * Secret key for the device.
+     */
+    api_key: string;
 };
 
 export type ListUsersData = {
@@ -1066,6 +1071,40 @@ export type ListDeviceTypesResponses = {
 
 export type ListDeviceTypesResponse = ListDeviceTypesResponses[keyof ListDeviceTypesResponses];
 
+export type DeleteDeviceApiKeyData = {
+    body?: never;
+    path: {
+        /**
+         * Device id
+         */
+        device_id: Id;
+    };
+    query?: never;
+    url: '/devices/{device_id}/api-key';
+};
+
+export type DeleteDeviceApiKeyErrors = {
+    /**
+     * Device not found or device has no API key
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteDeviceApiKeyError = DeleteDeviceApiKeyErrors[keyof DeleteDeviceApiKeyErrors];
+
+export type DeleteDeviceApiKeyResponses = {
+    /**
+     * No Content - API key deleted successfully
+     */
+    204: void;
+};
+
+export type DeleteDeviceApiKeyResponse = DeleteDeviceApiKeyResponses[keyof DeleteDeviceApiKeyResponses];
+
 export type RegenerateDeviceApiKeyData = {
     body?: never;
     path: {
@@ -1093,9 +1132,9 @@ export type RegenerateDeviceApiKeyError = RegenerateDeviceApiKeyErrors[keyof Reg
 
 export type RegenerateDeviceApiKeyResponses = {
     /**
-     * New API key generated successfully
+     * API key generated or regenerated successfully
      */
-    200: CreateDeviceResponse;
+    200: DeviceApiKeyResponse;
 };
 
 export type RegenerateDeviceApiKeyResponse = RegenerateDeviceApiKeyResponses[keyof RegenerateDeviceApiKeyResponses];

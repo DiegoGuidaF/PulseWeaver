@@ -599,12 +599,42 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/DeviceTypeItem'
+  /devices/{device_id}/api-key:
+    delete:
+      operationId: deleteDeviceAPIKey
+      summary: Delete device API key
+      description: |
+        Permanently removes the API key for the device. Any currently connected device using this key will immediately stop being able to send heartbeats.
+      tags:
+        - devices
+      parameters:
+        - name: device_id
+          in: path
+          description: Device id
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        '204':
+          description: No Content - API key deleted successfully
+        '404':
+          description: Device not found or device has no API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /devices/{device_id}/api-key/regenerate:
     post:
       operationId: regenerateDeviceAPIKey
-      summary: Regenerate device API key
+      summary: Generate or regenerate device API key
       description: |
-        Generates a new API key for the device, immediately invalidating the old one. The raw key is returned once. Admin-only.
+        Generates a new API key for the device. If a key already exists, it is immediately invalidated and replaced. Works as both the first-time generation and rotation endpoint. The raw key is returned once and cannot be retrieved again. Admin-only.
       tags:
         - devices
       parameters:
@@ -616,11 +646,11 @@ paths:
             $ref: '#/components/schemas/ID'
       responses:
         '200':
-          description: New API key generated successfully
+          description: API key generated or regenerated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CreateDeviceResponse'
+                $ref: '#/components/schemas/DeviceAPIKeyResponse'
         '404':
           description: Device not found
           content:
@@ -1946,22 +1976,18 @@ components:
       type: object
       required:
         - device
-        - api_key
       properties:
         device:
           $ref: '#/components/schemas/Device'
-        api_key:
-          type: string
-          description: Secret key for the device; only returned on creation or regeneration.
     Device:
       type: object
       required:
         - id
         - name
         - created_at
-        - api_key_prefix
         - device_type
         - updated_at
+        - owner_id
       properties:
         created_at:
           type: string
@@ -1997,7 +2023,8 @@ components:
           description: Tabler icon name override (e.g. "IconRouter").
         api_key_prefix:
           type: string
-          description: Prefix of the device API key (for display only).
+          nullable: true
+          description: Prefix of the device API key (for display only). Null if no API key has been generated yet.
         address_count:
           type: integer
           minimum: 0
@@ -2011,8 +2038,8 @@ components:
           x-go-type: UTCTime
           description: Most recent address activity for this device (heartbeat or manual update).
         owner_id:
-          type: integer
           readOnly: true
+          $ref: '#/components/schemas/ID'
           description: ID of the user who owns this device.
         owner_name:
           type: string
@@ -2542,3 +2569,14 @@ components:
         api_key:
           type: string
           description: Plaintext device API key — one time only.
+    DeviceAPIKeyResponse:
+      type: object
+      required:
+        - device
+        - api_key
+      properties:
+        device:
+          $ref: '#/components/schemas/Device'
+        api_key:
+          type: string
+          description: Secret key for the device.

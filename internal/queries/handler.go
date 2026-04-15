@@ -268,7 +268,7 @@ func toDeviceViewResponse(d *DeviceView) httpapi.Device {
 		ApiKeyPrefix: d.KeyPrefix,
 		AddressCount: new(d.AddressCount),
 		LastSeenAt:   lastSeenAt,
-		OwnerId:      new(int(d.OwnerID.Int64())),
+		OwnerId:      d.OwnerID.Int64(),
 		OwnerName:    new(d.OwnerName),
 	}
 }
@@ -307,8 +307,9 @@ func toDeviceDetailResponse(d *DeviceDetail) httpapi.Device {
 		CreatedAt:    httpapi.UTCTime(d.CreatedAt),
 		UpdatedAt:    httpapi.UTCTime(d.UpdatedAt),
 		ApiKeyPrefix: d.KeyPrefix,
+		AddressCount: &d.AddressCount,
 		LastSeenAt:   lastSeenAt,
-		OwnerId:      new(int(d.OwnerID.Int64())),
+		OwnerId:      d.OwnerID.Int64(),
 		OwnerName:    new(d.OwnerName),
 	}
 }

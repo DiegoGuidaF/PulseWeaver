@@ -37,21 +37,21 @@ func (r *Repository) GetDevice(ctx context.Context, id DeviceID) (*Device, error
 	device := new(Device)
 
 	query := `
-		SELECT
-		    d.id,
-			d.name,
-			d.device_type,
-			d.description,
-			d.icon,
-			d.created_at,
-			d.updated_at,
-			d.deleted_at,
-			k.key_prefix,
-			(SELECT MAX(a.updated_at) FROM addresses a WHERE a.device_id = d.id) AS last_seen_at,
-			COALESCE(d.owner_id, 0) AS owner_id
-		FROM devices d
-        INNER JOIN device_api_keys k ON d.id = k.device_id
-		WHERE d.id = ? AND d.deleted_at IS NULL`
+			SELECT
+				d.id,
+				d.name,
+				d.device_type,
+				d.description,
+				d.icon,
+				d.created_at,
+				d.updated_at,
+				d.deleted_at,
+				k.key_prefix,
+				(SELECT MAX(a.updated_at) FROM addresses a WHERE a.device_id = d.id) AS last_seen_at,
+				d.owner_id AS owner_id
+			FROM devices d
+			LEFT JOIN device_api_keys k ON d.id = k.device_id
+			WHERE d.id = ? AND d.deleted_at IS NULL`
 
 	err := r.db.GetContext(ctx, device, query, id)
 	if err != nil {
@@ -66,63 +66,54 @@ func (r *Repository) GetDevice(ctx context.Context, id DeviceID) (*Device, error
 
 func (r *Repository) CreateDevice(ctx context.Context, params CreateDeviceParams) (*Device, error) {
 	now := time.Now().UTC()
-	var createdDevice *Device
+	createdDevice := new(Device)
 
-	err := r.runInTx(ctx, func(tx *Repository) error {
-		// Create device
-		deviceQuery := `
-		INSERT INTO devices (name, owner_id, created_at)
-		VALUES (?, ?, ?) RETURNING id
-		`
-		var createdDeviceID DeviceID
-		err := tx.db.GetContext(ctx, &createdDeviceID, deviceQuery, params.Name, params.OwnerID, now)
-		if err != nil {
-			if domainErr, ok := mapDeviceNameUniqueConstraintError(err); ok {
-				return domainErr
-			}
-			if domainErr, ok := mapOwnerFKConstraintError(err); ok {
-				return domainErr
-			}
-			return fmt.Errorf("insert device: %w", err)
-		}
+	deviceQuery := `INSERT INTO devices (name, owner_id, created_at) VALUES (?, ?, ?) RETURNING * `
 
-		// Add API KEY to device
-		apiQuery := `
-		INSERT INTO device_api_keys (device_id, key_prefix, key_hash, created_at)
-		VALUES (?, ?, ?, ?)
-	`
-
-		_, err = tx.db.ExecContext(ctx, apiQuery, createdDeviceID, params.KeyPrefix, params.KeyHash, now)
-		if err != nil {
-			return err
-		}
-
-		createdDevice, err = tx.GetDevice(ctx, createdDeviceID)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
+	err := r.db.GetContext(ctx, createdDevice, deviceQuery, params.Name, params.OwnerID, now)
 	if err != nil {
-		return nil, err
+		if domainErr, ok := mapDeviceNameUniqueConstraintError(err); ok {
+			return nil, domainErr
+		}
+		if domainErr, ok := mapOwnerFKConstraintError(err); ok {
+			return nil, domainErr
+		}
+		return nil, fmt.Errorf("insert device: %w", err)
 	}
 
 	return createdDevice, nil
 }
 
-func (r *Repository) UpdateAPIKey(ctx context.Context, deviceID DeviceID, keyHash string, keyPrefix string) error {
-	query := `UPDATE device_api_keys SET key_hash = ?, key_prefix = ?, created_at = CURRENT_TIMESTAMP WHERE device_id = ?`
-	result, err := r.db.ExecContext(ctx, query, keyHash, keyPrefix, deviceID)
+func (r *Repository) UpsertAPIKey(ctx context.Context, deviceID DeviceID, keyHash string, keyPrefix string) error {
+	query := `
+		INSERT INTO device_api_keys (device_id, key_prefix, key_hash, created_at)
+		VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(device_id) DO UPDATE SET
+			key_prefix = excluded.key_prefix,
+			key_hash   = excluded.key_hash,
+			created_at = CURRENT_TIMESTAMP`
+	_, err := r.db.ExecContext(ctx, query, deviceID, keyPrefix, keyHash)
 	if err != nil {
-		return fmt.Errorf("update api key: %w", err)
+		if strings.Contains(strings.ToLower(err.Error()), "foreign key constraint failed") {
+			return ErrDeviceNotFound
+		}
+		return fmt.Errorf("upsert api key: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) DeleteAPIKey(ctx context.Context, deviceID DeviceID) error {
+	query := `DELETE FROM device_api_keys WHERE device_id = ?`
+	result, err := r.db.ExecContext(ctx, query, deviceID)
+	if err != nil {
+		return fmt.Errorf("delete api key: %w", err)
 	}
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("update api key rows affected: %w", err)
+		return fmt.Errorf("delete api key rows affected: %w", err)
 	}
 	if rows == 0 {
-		return ErrDeviceNotFound
+		return ErrNoAPIKey
 	}
 	return nil
 }
@@ -207,13 +198,13 @@ func (r *Repository) GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) 
 	device := new(Device)
 
 	query := `
-		SELECT d.id, d.name, d.device_type, d.description, d.icon, d.created_at, d.updated_at, d.deleted_at,
-		       k.key_prefix,
-		       COALESCE(d.owner_id, 0) AS owner_id
-		FROM devices d
-		INNER JOIN device_api_keys k ON d.id = k.device_id
-		WHERE k.key_hash = ? AND d.deleted_at IS NULL
-	`
+			SELECT d.id, d.name, d.device_type, d.description, d.icon, d.created_at, d.updated_at, d.deleted_at,
+				   k.key_prefix,
+				   d.owner_id AS owner_id
+			FROM devices d
+			INNER JOIN device_api_keys k ON d.id = k.device_id
+			WHERE k.key_hash = ? AND d.deleted_at IS NULL
+		`
 
 	err := r.db.GetContext(ctx, device, query, keyHash)
 	if err != nil {

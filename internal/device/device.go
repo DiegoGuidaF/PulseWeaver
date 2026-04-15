@@ -46,7 +46,7 @@ type Device struct {
 	CreatedAt   time.Time        `db:"created_at"`
 	UpdatedAt   time.Time        `db:"updated_at"`
 	DeletedAt   *time.Time       `db:"deleted_at"`
-	KeyPrefix   string           `db:"key_prefix"`
+	KeyPrefix   *string          `db:"key_prefix"`
 	LastSeenAt  *database.DBTime `db:"last_seen_at"`
 	OwnerID     auth.UserID      `db:"owner_id"`
 }
@@ -111,23 +111,8 @@ func parseDeviceType(t string) (DeviceType, error) {
 }
 
 type CreateDeviceParams struct {
-	Name      string
-	KeyPrefix string
-	KeyHash   string
-	OwnerID   auth.UserID
-}
-
-func NewCreateDeviceParams(name string, ownerID auth.UserID) (CreateDeviceParams, string, error) {
-	rawKey, keyHash, keyPrefix, err := GenerateAPIKey()
-	if err != nil {
-		return CreateDeviceParams{}, "", err
-	}
-	return CreateDeviceParams{
-		Name:      name,
-		KeyPrefix: keyPrefix,
-		KeyHash:   keyHash,
-		OwnerID:   ownerID,
-	}, rawKey, nil
+	Name    string
+	OwnerID auth.UserID
 }
 
 type DeviceID int64

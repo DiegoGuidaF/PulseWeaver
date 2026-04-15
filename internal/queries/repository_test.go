@@ -58,11 +58,7 @@ func setupRepos(t *testing.T) testRepos {
 func createDevice(t *testing.T, repos testRepos, name string) *device.Device {
 	t.Helper()
 
-	params, _, err := device.NewCreateDeviceParams(name, repos.testOwnerID)
-	if err != nil {
-		t.Fatalf("NewCreateDeviceParams(%q): %v", name, err)
-	}
-	dev, err := repos.devices.CreateDevice(t.Context(), params)
+	dev, err := repos.devices.CreateDevice(t.Context(), device.CreateDeviceParams{Name: name, OwnerID: repos.testOwnerID})
 	if err != nil {
 		t.Fatalf("CreateDevice(%q): %v", name, err)
 	}

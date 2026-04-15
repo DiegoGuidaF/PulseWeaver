@@ -1,3 +1,5 @@
+BEGIN TRANSACTION;
+
 -- Remove null-valued entries from headers_json in request_audit_log.
 -- Rows stored before the store-all-headers change may contain entries like
 -- {"User-Agent": null, "Referer": null, ...} from the old allowlist approach.
@@ -12,3 +14,5 @@ SET headers_json = (
     WHERE value != 'null'
 )
 WHERE headers_json != '{}';
+
+COMMIT;

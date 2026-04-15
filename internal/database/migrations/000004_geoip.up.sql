@@ -1,3 +1,5 @@
+BEGIN TRANSACTION;
+
 CREATE TABLE IF NOT EXISTS request_audit_log_geoip (
     audit_log_id   INTEGER PRIMARY KEY
                    REFERENCES request_audit_log(id) ON DELETE CASCADE,
@@ -7,3 +9,5 @@ CREATE TABLE IF NOT EXISTS request_audit_log_geoip (
     asn            INTEGER,
     asn_org        TEXT
 );
+
+COMMIT;

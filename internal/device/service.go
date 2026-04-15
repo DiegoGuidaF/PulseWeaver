@@ -16,7 +16,8 @@ type repository interface {
 	CreateDevice(ctx context.Context, params CreateDeviceParams) (*Device, error)
 	DeleteDevice(ctx context.Context, id DeviceID) error
 	UpdateDevice(ctx context.Context, device *Device) (*Device, error)
-	UpdateAPIKey(ctx context.Context, deviceID DeviceID, keyHash string, keyPrefix string) error
+	UpsertAPIKey(ctx context.Context, deviceID DeviceID, keyHash string, keyPrefix string) error
+	DeleteAPIKey(ctx context.Context, deviceID DeviceID) error
 	CreateAddress(ctx context.Context, params CreateAddressParams, source EventSource) (*Address, error)
 	GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip netip.Addr) (*Address, error)
 	DisableAddress(ctx context.Context, addressID AddressID) (*Address, error)
@@ -91,25 +92,20 @@ func (s *Service) GetDevice(ctx context.Context, deviceID DeviceID) (*Device, er
 	return device, nil
 }
 
-func (s *Service) CreateDevice(ctx context.Context, principal *auth.Principal, name string, requestedOwnerID *auth.UserID) (*Device, string, error) {
+func (s *Service) CreateDevice(ctx context.Context, principal *auth.Principal, name string, requestedOwnerID *auth.UserID) (*Device, error) {
 	ownerID := principal.UserID
 	if principal.IsAdmin() && requestedOwnerID != nil {
 		ownerID = *requestedOwnerID
 	}
 
-	createDeviceParams, rawKey, err := NewCreateDeviceParams(name, ownerID)
+	createdDevice, err := s.repo.CreateDevice(ctx, CreateDeviceParams{Name: name, OwnerID: ownerID})
 	if err != nil {
-		return nil, "", err
-	}
-
-	createdDevice, err := s.repo.CreateDevice(ctx, createDeviceParams)
-	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	s.logger.InfoContext(ctx, "device created", slog.Int64(AttrKeyDeviceID, createdDevice.ID.Int64()))
 
-	return createdDevice, rawKey, nil
+	return createdDevice, nil
 }
 
 func (s *Service) DeleteDevice(ctx context.Context, deviceID DeviceID) error {
@@ -279,14 +275,14 @@ func (s *Service) RegenerateAPIKey(ctx context.Context, deviceID DeviceID) (*Dev
 	err = s.repo.RunInTx(ctx, func(tx repository) error {
 		var err error
 		// Validate device exists (also checks deleted_at) inside the transaction
-		// so the existence check and key update are atomic.
+		// so the existence check and key upsert are atomic.
 		if _, err = tx.GetDevice(ctx, deviceID); err != nil {
 			return err
 		}
-		if err = tx.UpdateAPIKey(ctx, deviceID, keyHash, keyPrefix); err != nil {
+		if err = tx.UpsertAPIKey(ctx, deviceID, keyHash, keyPrefix); err != nil {
 			return err
 		}
-		// Fetch fresh device inside the transaction so KeyPrefix reflects the update.
+		// Fetch fresh device inside the transaction so KeyPrefix reflects the upsert.
 		device, err = tx.GetDevice(ctx, deviceID)
 		return err
 	})
@@ -295,6 +291,21 @@ func (s *Service) RegenerateAPIKey(ctx context.Context, deviceID DeviceID) (*Dev
 	}
 
 	return device, rawKey, nil
+}
+
+func (s *Service) DeleteAPIKey(ctx context.Context, deviceID DeviceID) error {
+	err := s.repo.RunInTx(ctx, func(tx repository) error {
+		// Validate device exists before attempting key deletion.
+		if _, err := tx.GetDevice(ctx, deviceID); err != nil {
+			return err
+		}
+		return tx.DeleteAPIKey(ctx, deviceID)
+	})
+	if err != nil {
+		return err
+	}
+	s.logger.InfoContext(ctx, "device api key deleted", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
+	return nil
 }
 
 func (s *Service) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error) {

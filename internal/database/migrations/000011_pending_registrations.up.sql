@@ -1,3 +1,5 @@
+BEGIN TRANSACTION;
+
 CREATE TABLE pending_registrations (
     id                          TEXT     PRIMARY KEY,
 
@@ -22,3 +24,5 @@ CREATE TABLE pending_registrations (
     used_at                     DATETIME,
     created_device_id           INTEGER  REFERENCES devices(id)
 );
+
+COMMIT;

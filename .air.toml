@@ -11,7 +11,7 @@ bin = "./tmp/main"
 pre_cmd = ["npm run bundle:api", "GOWORK=off go generate ./..."]
 # The "dev" tag ensures we don't need the frontend
 cmd = "go build -o ./tmp/main ./cmd/api/main.go"
-delay = 1000
+delay = 10000
 exclude_dir = ["assets", "tmp", "vendor", "testdata", "bin", "docs", "frontend", "node_modules"]
 exclude_file = ["api/openapi-bundle.gen.yaml"]
 exclude_regex = ["_test.go", ".*.db", ".*.db-journal", ".*.db-wal", ".*.gen.go"]

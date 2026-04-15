@@ -44,11 +44,7 @@ func setupTestDB(t *testing.T) testFixture {
 func createTestDevice(t *testing.T, fix testFixture, ctx context.Context, name string) *device.Device {
 	t.Helper()
 
-	params, _, err := device.NewCreateDeviceParams(name, fix.ownerID)
-	if err != nil {
-		t.Fatalf("create device params %q: %v", name, err)
-	}
-	dev, err := fix.repo.CreateDevice(ctx, params)
+	dev, err := fix.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: name, OwnerID: fix.ownerID})
 	if err != nil {
 		t.Fatalf("create device %q: %v", name, err)
 	}
@@ -75,9 +71,7 @@ func TestRepository_CreateDevice(t *testing.T) {
 	repos := setupTestDB(t)
 	ctx := context.Background()
 
-	params, _, err := device.NewCreateDeviceParams("test-device", repos.ownerID)
-	is.NoErr(err)
-	dev, err := repos.repo.CreateDevice(ctx, params)
+	dev, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "test-device", OwnerID: repos.ownerID})
 	is.NoErr(err)
 	is.Equal(dev.Name, "test-device")
 	is.True(!dev.CreatedAt.IsZero())
@@ -89,9 +83,8 @@ func TestRepository_CreateDevice_DuplicateName(t *testing.T) {
 	repos := setupTestDB(t)
 	ctx := context.Background()
 
-	params, _, err := device.NewCreateDeviceParams("duplicate-name", repos.ownerID)
-	is.NoErr(err)
-	_, err = repos.repo.CreateDevice(ctx, params)
+	params := device.CreateDeviceParams{Name: "duplicate-name", OwnerID: repos.ownerID}
+	_, err := repos.repo.CreateDevice(ctx, params)
 	is.NoErr(err)
 
 	// Try to create device with same name (active unique index)
@@ -111,9 +104,7 @@ func TestRepository_CreateDevice_SameNameAfterSoftDelete(t *testing.T) {
 	is.NoErr(err)
 
 	// Same name is allowed again
-	params, _, err := device.NewCreateDeviceParams("reused-name", repos.ownerID)
-	is.NoErr(err)
-	second, err := repos.repo.CreateDevice(ctx, params)
+	second, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "reused-name", OwnerID: repos.ownerID})
 	is.NoErr(err)
 	is.True(second.ID != dev.ID)
 	is.Equal(second.Name, "reused-name")
@@ -186,18 +177,21 @@ func TestRepository_GetDeviceByAPIKeyHash_HidesDeleted(t *testing.T) {
 	repos := setupTestDB(t)
 	ctx := context.Background()
 
-	params, _, err := device.NewCreateDeviceParams("apikey-device", repos.ownerID)
-	is.NoErr(err)
-	dev, err := repos.repo.CreateDevice(ctx, params)
+	dev, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "apikey-device", OwnerID: repos.ownerID})
 	is.NoErr(err)
 
-	_, err = repos.repo.GetDeviceByAPIKeyHash(ctx, params.KeyHash)
+	_, keyHash, keyPrefix, err := device.GenerateAPIKey()
+	is.NoErr(err)
+	err = repos.repo.UpsertAPIKey(ctx, dev.ID, keyHash, keyPrefix)
+	is.NoErr(err)
+
+	_, err = repos.repo.GetDeviceByAPIKeyHash(ctx, keyHash)
 	is.NoErr(err)
 
 	err = repos.repo.DeleteDevice(ctx, dev.ID)
 	is.NoErr(err)
 
-	_, err = repos.repo.GetDeviceByAPIKeyHash(ctx, params.KeyHash)
+	_, err = repos.repo.GetDeviceByAPIKeyHash(ctx, keyHash)
 	is.True(err != nil)
 	is.Equal(err, device.ErrDeviceNotFound)
 }
@@ -208,9 +202,7 @@ func TestRepository_GetDevice(t *testing.T) {
 	repos := setupTestDB(t)
 	ctx := context.Background()
 
-	params, _, err := device.NewCreateDeviceParams("test-device", repos.ownerID)
-	is.NoErr(err)
-	created, err := repos.repo.CreateDevice(ctx, params)
+	created, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "test-device", OwnerID: repos.ownerID})
 	is.NoErr(err)
 
 	got, err := repos.repo.GetDevice(ctx, created.ID)
@@ -218,6 +210,7 @@ func TestRepository_GetDevice(t *testing.T) {
 	is.Equal(got.ID, created.ID)
 	is.Equal(got.Name, "test-device")
 	is.True(!got.CreatedAt.IsZero())
+	is.True(got.KeyPrefix == nil) // new devices have no API key
 }
 
 func TestRepository_GetDevice_NotFound(t *testing.T) {
@@ -237,12 +230,15 @@ func TestRepository_GetDeviceByAPIKeyHash_Success(t *testing.T) {
 	repos := setupTestDB(t)
 	ctx := context.Background()
 
-	params, _, err := device.NewCreateDeviceParams("lookup-device", repos.ownerID)
-	is.NoErr(err)
-	dev, err := repos.repo.CreateDevice(ctx, params)
+	dev, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "lookup-device", OwnerID: repos.ownerID})
 	is.NoErr(err)
 
-	found, err := repos.repo.GetDeviceByAPIKeyHash(ctx, params.KeyHash)
+	_, keyHash, keyPrefix, err := device.GenerateAPIKey()
+	is.NoErr(err)
+	err = repos.repo.UpsertAPIKey(ctx, dev.ID, keyHash, keyPrefix)
+	is.NoErr(err)
+
+	found, err := repos.repo.GetDeviceByAPIKeyHash(ctx, keyHash)
 	is.NoErr(err)
 	is.True(found != nil)
 	is.Equal(found.ID, dev.ID)
@@ -260,74 +256,115 @@ func TestRepository_GetDeviceByAPIKeyHash_NotFound(t *testing.T) {
 	is.Equal(err, device.ErrDeviceNotFound)
 }
 
-func TestRepository_CreateDevice_InsertsAPIKeyRow(t *testing.T) {
+func TestRepository_CreateDevice_NoAPIKeyRow(t *testing.T) {
 	is := is.New(t)
 
 	repos := setupTestDB(t)
 	ctx := context.Background()
 
-	params, _, err := device.NewCreateDeviceParams("with-api-key", repos.ownerID)
-	is.NoErr(err)
-	dev, err := repos.repo.CreateDevice(ctx, params)
+	dev, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "no-api-key", OwnerID: repos.ownerID})
 	is.NoErr(err)
 
-	// Verify key_prefix is returned via GetDevice
-	updated, err := repos.repo.GetDevice(ctx, dev.ID)
+	// Verify CreateDevice does NOT create a key: KeyPrefix must be nil
+	fetched, err := repos.repo.GetDevice(ctx, dev.ID)
 	is.NoErr(err)
-	is.Equal(updated.KeyPrefix, params.KeyPrefix)
-
-	// Verify key_hash is stored: GetDeviceByAPIKeyHash must return the same device
-	found, err := repos.repo.GetDeviceByAPIKeyHash(ctx, params.KeyHash)
-	is.NoErr(err)
-	is.Equal(found.ID, dev.ID)
+	is.True(fetched.KeyPrefix == nil)
 }
 
-func TestRepository_UpdateAPIKey_Success(t *testing.T) {
+func TestRepository_UpsertAPIKey_Success(t *testing.T) {
 	is := is.New(t)
 
 	repos := setupTestDB(t)
 	ctx := context.Background()
 
-	oldParams, _, err := device.NewCreateDeviceParams("regen-device", repos.ownerID)
-	is.NoErr(err)
-	dev, err := repos.repo.CreateDevice(ctx, oldParams)
+	dev, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "regen-device", OwnerID: repos.ownerID})
 	is.NoErr(err)
 
-	// Generate fresh key material via NewCreateDeviceParams (does not insert to DB)
-	newKeyParams, _, err := device.NewCreateDeviceParams("unused-device-name", repos.ownerID)
+	// First call: insert (device has no key yet)
+	_, oldHash, oldPrefix, err := device.GenerateAPIKey()
+	is.NoErr(err)
+	err = repos.repo.UpsertAPIKey(ctx, dev.ID, oldHash, oldPrefix)
 	is.NoErr(err)
 
-	err = repos.repo.UpdateAPIKey(ctx, dev.ID, newKeyParams.KeyHash, newKeyParams.KeyPrefix)
+	found, err := repos.repo.GetDeviceByAPIKeyHash(ctx, oldHash)
+	is.NoErr(err)
+	is.Equal(found.ID, dev.ID)
+	is.True(found.KeyPrefix != nil)
+	is.Equal(*found.KeyPrefix, oldPrefix)
+
+	// Second call: update (rotate to new key)
+	_, newHash, newPrefix, err := device.GenerateAPIKey()
+	is.NoErr(err)
+	err = repos.repo.UpsertAPIKey(ctx, dev.ID, newHash, newPrefix)
 	is.NoErr(err)
 
 	// Old hash should no longer authenticate
-	_, err = repos.repo.GetDeviceByAPIKeyHash(ctx, oldParams.KeyHash)
+	_, err = repos.repo.GetDeviceByAPIKeyHash(ctx, oldHash)
 	is.True(err != nil)
 	is.Equal(err, device.ErrDeviceNotFound)
 
 	// New hash should authenticate
-	found, err := repos.repo.GetDeviceByAPIKeyHash(ctx, newKeyParams.KeyHash)
+	updated, err := repos.repo.GetDeviceByAPIKeyHash(ctx, newHash)
 	is.NoErr(err)
-	is.Equal(found.ID, dev.ID)
-
-	// GetDevice returns the updated prefix
-	updated, err := repos.repo.GetDevice(ctx, dev.ID)
-	is.NoErr(err)
-	is.Equal(updated.KeyPrefix, newKeyParams.KeyPrefix)
+	is.Equal(updated.ID, dev.ID)
+	is.True(updated.KeyPrefix != nil)
+	is.Equal(*updated.KeyPrefix, newPrefix)
 }
 
-func TestRepository_UpdateAPIKey_NotFound(t *testing.T) {
+func TestRepository_UpsertAPIKey_NonExistentDevice(t *testing.T) {
 	is := is.New(t)
 
 	repos := setupTestDB(t)
 	ctx := context.Background()
 
-	newKeyParams, _, err := device.NewCreateDeviceParams("unused-device-name", repos.ownerID)
+	_, keyHash, keyPrefix, err := device.GenerateAPIKey()
 	is.NoErr(err)
 
-	err = repos.repo.UpdateAPIKey(ctx, device.DeviceID(99999), newKeyParams.KeyHash, newKeyParams.KeyPrefix)
+	err = repos.repo.UpsertAPIKey(ctx, device.DeviceID(99999), keyHash, keyPrefix)
 	is.True(err != nil)
 	is.Equal(err, device.ErrDeviceNotFound)
+}
+
+func TestRepository_DeleteAPIKey_Success(t *testing.T) {
+	is := is.New(t)
+
+	repos := setupTestDB(t)
+	ctx := context.Background()
+
+	dev, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "delete-key-device", OwnerID: repos.ownerID})
+	is.NoErr(err)
+
+	_, keyHash, keyPrefix, err := device.GenerateAPIKey()
+	is.NoErr(err)
+	err = repos.repo.UpsertAPIKey(ctx, dev.ID, keyHash, keyPrefix)
+	is.NoErr(err)
+
+	err = repos.repo.DeleteAPIKey(ctx, dev.ID)
+	is.NoErr(err)
+
+	// Key should no longer authenticate
+	_, err = repos.repo.GetDeviceByAPIKeyHash(ctx, keyHash)
+	is.True(err != nil)
+	is.Equal(err, device.ErrDeviceNotFound)
+
+	// Device's KeyPrefix must be nil after deletion
+	fetched, err := repos.repo.GetDevice(ctx, dev.ID)
+	is.NoErr(err)
+	is.True(fetched.KeyPrefix == nil)
+}
+
+func TestRepository_DeleteAPIKey_NotFound(t *testing.T) {
+	is := is.New(t)
+
+	repos := setupTestDB(t)
+	ctx := context.Background()
+
+	dev, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "no-key-device", OwnerID: repos.ownerID})
+	is.NoErr(err)
+
+	err = repos.repo.DeleteAPIKey(ctx, dev.ID)
+	is.True(err != nil)
+	is.Equal(err, device.ErrNoAPIKey)
 }
 
 func TestRepository_CreateAddress(t *testing.T) {
