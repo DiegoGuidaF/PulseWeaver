@@ -21,6 +21,7 @@ import {
     IconList,
     IconLogout,
     IconMoon,
+    IconQrcode,
     IconServer,
     IconSettings,
     IconSun,
@@ -34,6 +35,7 @@ import { toErrorMessage } from "@/lib/api-client";
 const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: IconChartBar, adminOnly: true },
     { label: "Devices", href: "/devices", icon: IconServer, adminOnly: false },
+    { label: "Provisioning", href: "/device-provisioning", icon: IconQrcode, adminOnly: true },
     { label: "Access Log", href: "/access-log", icon: IconList, adminOnly: true },
     { label: "Address Log", href: "/address-history", icon: IconHistory, adminOnly: true },
     { label: "Settings", href: "/settings", icon: IconSettings, adminOnly: false },

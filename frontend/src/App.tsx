@@ -14,6 +14,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AccessLogPage } from "./pages/AccessLogPage";
 import { AddressHistoryPage } from "./pages/AddressHistoryPage";
+import { DeviceProvisioningPage } from "./pages/DeviceProvisioningPage";
 import { theme } from "./lib/theme";
 import { DateTimePrefsProvider } from "./contexts/DateTimePrefsContext";
 
@@ -88,6 +89,16 @@ function App() {
                       <ProtectedRoute adminOnly>
                         <AppShell>
                           <AddressHistoryPage />
+                        </AppShell>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/device-provisioning"
+                    element={
+                      <ProtectedRoute adminOnly>
+                        <AppShell>
+                          <DeviceProvisioningPage />
                         </AppShell>
                       </ProtectedRoute>
                     }
