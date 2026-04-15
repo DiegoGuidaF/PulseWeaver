@@ -67,7 +67,7 @@ describe('DeviceSettingsTab', () => {
 
         await waitFor(
             () => {
-                expect(screen.getByText('API key regenerated — save your new key')).toBeInTheDocument();
+                expect(screen.getByText('API key generated — save it')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.MEDIUM }
         );
