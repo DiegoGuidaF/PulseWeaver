@@ -159,11 +159,11 @@ func TestService_ClaimInvite_ReturnsConfig(t *testing.T) {
 	is := is.New(t)
 	repo := newMockRepo()
 	repo.claimResult = &ClaimResult{
-		ServerURL:              "https://pulse.home.lan",
-		IntervalSeconds:        900,
-		BiometricEnabled:       false,
-		BiometricUserCanToggle: true,
-		RawAPIKey:              "wdk_testkey",
+		ServerURL:           "https://pulse.home.lan",
+		IntervalSeconds:     900,
+		AppBiometricEnabled: false,
+		AppSettingsLocked:   false,
+		RawAPIKey:           "wdk_testkey",
 	}
 	svc := newTestService(repo)
 

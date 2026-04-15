@@ -394,8 +394,8 @@ export type CreateRegistrationRequest = {
     device_name: string;
     heartbeat_server_url: string;
     interval_seconds: number;
-    biometric_enabled?: boolean;
-    biometric_user_can_toggle?: boolean;
+    app_biometric_enabled?: boolean;
+    app_settings_locked?: boolean;
     expires_in_hours: 1 | 24 | 48 | 168;
 };
 
@@ -413,8 +413,8 @@ export type PendingRegistration = {
     device_api_key_prefix: string;
     heartbeat_server_url: string;
     interval_seconds: number;
-    biometric_enabled: boolean;
-    biometric_user_can_toggle: boolean;
+    app_biometric_enabled: boolean;
+    app_settings_locked: boolean;
     expires_at: string;
     created_at: string;
     used_at?: string | null;
@@ -435,8 +435,8 @@ export type ClaimRegistrationRequest = {
 export type ClaimRegistrationResponse = {
     server_url: string;
     interval_seconds: number;
-    biometric_enabled: boolean;
-    biometric_user_can_toggle: boolean;
+    app_biometric_enabled: boolean;
+    app_settings_locked: boolean;
     /**
      * Plaintext device API key — one time only.
      */

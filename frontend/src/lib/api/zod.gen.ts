@@ -259,8 +259,8 @@ export const zCreateRegistrationRequest = z.object({
     device_name: z.string().min(1).max(100),
     heartbeat_server_url: z.url(),
     interval_seconds: z.int().gte(60),
-    biometric_enabled: z.boolean().optional().default(false),
-    biometric_user_can_toggle: z.boolean().optional().default(true),
+    app_biometric_enabled: z.boolean().optional().default(false),
+    app_settings_locked: z.boolean().optional().default(false),
     expires_in_hours: z.union([
         z.literal(1),
         z.literal(24),
@@ -277,8 +277,8 @@ export const zPendingRegistration = z.object({
     device_api_key_prefix: z.string(),
     heartbeat_server_url: z.string(),
     interval_seconds: z.int(),
-    biometric_enabled: z.boolean(),
-    biometric_user_can_toggle: z.boolean(),
+    app_biometric_enabled: z.boolean(),
+    app_settings_locked: z.boolean(),
     expires_at: z.iso.datetime({ offset: true, local: true }),
     created_at: z.iso.datetime({ offset: true, local: true }),
     used_at: z.iso.datetime({ offset: true, local: true }).nullish(),
@@ -297,8 +297,8 @@ export const zClaimRegistrationRequest = z.object({
 export const zClaimRegistrationResponse = z.object({
     server_url: z.string(),
     interval_seconds: z.int(),
-    biometric_enabled: z.boolean(),
-    biometric_user_can_toggle: z.boolean(),
+    app_biometric_enabled: z.boolean(),
+    app_settings_locked: z.boolean(),
     api_key: z.string()
 });
 

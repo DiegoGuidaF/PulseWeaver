@@ -24,12 +24,12 @@ CreateRegistrationRequest:
       type: integer
       minimum: 60
       example: 900
-    biometric_enabled:
+    app_biometric_enabled:
       type: boolean
       default: false
-    biometric_user_can_toggle:
+    app_settings_locked:
       type: boolean
-      default: true
+      default: false
     expires_in_hours:
       type: integer
       enum: [1, 24, 48, 168]
@@ -44,8 +44,8 @@ PendingRegistration:
     - device_api_key_prefix
     - heartbeat_server_url
     - interval_seconds
-    - biometric_enabled
-    - biometric_user_can_toggle
+    - app_biometric_enabled
+    - app_settings_locked
     - expires_at
     - created_at
     - status
@@ -68,9 +68,9 @@ PendingRegistration:
       type: string
     interval_seconds:
       type: integer
-    biometric_enabled:
+    app_biometric_enabled:
       type: boolean
-    biometric_user_can_toggle:
+    app_settings_locked:
       type: boolean
     expires_at:
       type: string
@@ -108,17 +108,17 @@ ClaimRegistrationResponse:
   required:
     - server_url
     - interval_seconds
-    - biometric_enabled
-    - biometric_user_can_toggle
+    - app_biometric_enabled
+    - app_settings_locked
     - api_key
   properties:
     server_url:
       type: string
     interval_seconds:
       type: integer
-    biometric_enabled:
+    app_biometric_enabled:
       type: boolean
-    biometric_user_can_toggle:
+    app_settings_locked:
       type: boolean
     api_key:
       type: string

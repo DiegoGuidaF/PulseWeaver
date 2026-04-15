@@ -26,34 +26,34 @@ func NewRepository(db *sqlx.DB) *Repository {
 
 // pendingRegistrationRow is the raw DB row for a pending_registrations record.
 type pendingRegistrationRow struct {
-	ID                     string         `db:"id"`
-	DeviceName             string         `db:"device_name"`
-	OwnerID                auth.UserID    `db:"owner_id"`
-	RegistrationCode       sql.NullString `db:"registration_code"`
-	DeviceAPIKey           sql.NullString `db:"device_api_key"`
-	DeviceAPIKeyPrefix     string         `db:"device_api_key_prefix"`
-	HeartbeatServerURL     string         `db:"heartbeat_server_url"`
-	HeartbeatIntervalSecs  int            `db:"heartbeat_interval_seconds"`
-	BiometricEnabled       bool           `db:"biometric_enabled"`
-	BiometricUserCanToggle bool           `db:"biometric_user_can_toggle"`
-	ExpiresAt              time.Time      `db:"expires_at"`
-	CreatedAt              time.Time      `db:"created_at"`
-	UsedAt                 sql.NullTime   `db:"used_at"`
-	CreatedDeviceID        sql.NullInt64  `db:"created_device_id"`
+	ID                    string         `db:"id"`
+	DeviceName            string         `db:"device_name"`
+	OwnerID               auth.UserID    `db:"owner_id"`
+	RegistrationCode      sql.NullString `db:"registration_code"`
+	DeviceAPIKey          sql.NullString `db:"device_api_key"`
+	DeviceAPIKeyPrefix    string         `db:"device_api_key_prefix"`
+	HeartbeatServerURL    string         `db:"heartbeat_server_url"`
+	HeartbeatIntervalSecs int            `db:"heartbeat_interval_seconds"`
+	AppBiometricEnabled   bool           `db:"app_biometric_enabled"`
+	AppSettingsLocked     bool           `db:"app_settings_locked"`
+	ExpiresAt             time.Time      `db:"expires_at"`
+	CreatedAt             time.Time      `db:"created_at"`
+	UsedAt                sql.NullTime   `db:"used_at"`
+	CreatedDeviceID       sql.NullInt64  `db:"created_device_id"`
 }
 
 func rowToDomain(r pendingRegistrationRow) *PendingRegistration {
 	p := &PendingRegistration{
-		ID:                     r.ID,
-		DeviceName:             r.DeviceName,
-		OwnerID:                r.OwnerID,
-		DeviceAPIKeyPrefix:     r.DeviceAPIKeyPrefix,
-		HeartbeatServerURL:     r.HeartbeatServerURL,
-		IntervalSeconds:        r.HeartbeatIntervalSecs,
-		BiometricEnabled:       r.BiometricEnabled,
-		BiometricUserCanToggle: r.BiometricUserCanToggle,
-		ExpiresAt:              r.ExpiresAt,
-		CreatedAt:              r.CreatedAt,
+		ID:                  r.ID,
+		DeviceName:          r.DeviceName,
+		OwnerID:             r.OwnerID,
+		DeviceAPIKeyPrefix:  r.DeviceAPIKeyPrefix,
+		HeartbeatServerURL:  r.HeartbeatServerURL,
+		IntervalSeconds:     r.HeartbeatIntervalSecs,
+		AppBiometricEnabled: r.AppBiometricEnabled,
+		AppSettingsLocked:   r.AppSettingsLocked,
+		ExpiresAt:           r.ExpiresAt,
+		CreatedAt:           r.CreatedAt,
 	}
 	if r.RegistrationCode.Valid {
 		p.RegistrationCode = &r.RegistrationCode.String
@@ -76,12 +76,12 @@ func (r *Repository) CreateInvite(ctx context.Context, p *PendingRegistration) e
 		INSERT INTO pending_registrations (
 			id, device_name, owner_id, registration_code, device_api_key, device_api_key_prefix,
 			heartbeat_server_url, heartbeat_interval_seconds,
-			biometric_enabled, biometric_user_can_toggle,
+			app_biometric_enabled, app_settings_locked,
 			expires_at, created_at
 		) VALUES (
 			:id, :device_name, :owner_id, :registration_code, :device_api_key, :device_api_key_prefix,
 			:heartbeat_server_url, :heartbeat_interval_seconds,
-			:biometric_enabled, :biometric_user_can_toggle,
+			:app_biometric_enabled, :app_settings_locked,
 			:expires_at, :created_at
 		)`
 	_, err := r.db.NamedExecContext(ctx, query, map[string]any{
@@ -93,8 +93,8 @@ func (r *Repository) CreateInvite(ctx context.Context, p *PendingRegistration) e
 		"device_api_key_prefix":      p.DeviceAPIKeyPrefix,
 		"heartbeat_server_url":       p.HeartbeatServerURL,
 		"heartbeat_interval_seconds": p.IntervalSeconds,
-		"biometric_enabled":          p.BiometricEnabled,
-		"biometric_user_can_toggle":  p.BiometricUserCanToggle,
+		"app_biometric_enabled":      p.AppBiometricEnabled,
+		"app_settings_locked":        p.AppSettingsLocked,
 		"expires_at":                 p.ExpiresAt,
 		"created_at":                 p.CreatedAt,
 	})
@@ -253,11 +253,11 @@ func (r *Repository) ClaimInvite(ctx context.Context, code string) (*ClaimResult
 	}
 
 	return &ClaimResult{
-		ServerURL:              row.HeartbeatServerURL,
-		IntervalSeconds:        row.HeartbeatIntervalSecs,
-		BiometricEnabled:       row.BiometricEnabled,
-		BiometricUserCanToggle: row.BiometricUserCanToggle,
-		RawAPIKey:              rawAPIKey,
+		ServerURL:           row.HeartbeatServerURL,
+		IntervalSeconds:     row.HeartbeatIntervalSecs,
+		AppBiometricEnabled: row.AppBiometricEnabled,
+		AppSettingsLocked:   row.AppSettingsLocked,
+		RawAPIKey:           rawAPIKey,
 	}, nil
 }
 

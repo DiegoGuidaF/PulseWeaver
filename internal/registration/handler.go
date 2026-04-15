@@ -38,11 +38,11 @@ func (h *HTTPHandler) ClaimRegistration(ctx context.Context, request httpapi.Cla
 	}
 
 	return httpapi.ClaimRegistration200JSONResponse(httpapi.ClaimRegistrationResponse{
-		ServerUrl:              result.ServerURL,
-		IntervalSeconds:        result.IntervalSeconds,
-		BiometricEnabled:       result.BiometricEnabled,
-		BiometricUserCanToggle: result.BiometricUserCanToggle,
-		ApiKey:                 result.RawAPIKey,
+		ServerUrl:           result.ServerURL,
+		IntervalSeconds:     result.IntervalSeconds,
+		AppBiometricEnabled: result.AppBiometricEnabled,
+		AppSettingsLocked:   result.AppSettingsLocked,
+		ApiKey:              result.RawAPIKey,
 	}), nil
 }
 
@@ -59,23 +59,23 @@ func (h *HTTPHandler) CreateRegistration(ctx context.Context, request httpapi.Cr
 	}
 
 	body := request.Body
-	biometricEnabled := false
-	if body.BiometricEnabled != nil {
-		biometricEnabled = *body.BiometricEnabled
+	appBiometricEnabled := false
+	if body.AppBiometricEnabled != nil {
+		appBiometricEnabled = *body.AppBiometricEnabled
 	}
-	biometricUserCanToggle := true
-	if body.BiometricUserCanToggle != nil {
-		biometricUserCanToggle = *body.BiometricUserCanToggle
+	appSettingsLocked := false
+	if body.AppSettingsLocked != nil {
+		appSettingsLocked = *body.AppSettingsLocked
 	}
 
 	invite, err := h.service.CreateInvite(ctx, CreateInviteRequest{
-		DeviceName:             body.DeviceName,
-		OwnerID:                auth.UserID(body.OwnerId),
-		HeartbeatServerURL:     body.HeartbeatServerUrl,
-		IntervalSeconds:        body.IntervalSeconds,
-		BiometricEnabled:       biometricEnabled,
-		BiometricUserCanToggle: biometricUserCanToggle,
-		ExpiresInHours:         int(body.ExpiresInHours),
+		DeviceName:          body.DeviceName,
+		OwnerID:             auth.UserID(body.OwnerId),
+		HeartbeatServerURL:  body.HeartbeatServerUrl,
+		IntervalSeconds:     body.IntervalSeconds,
+		AppBiometricEnabled: appBiometricEnabled,
+		AppSettingsLocked:   appSettingsLocked,
+		ExpiresInHours:      int(body.ExpiresInHours),
 	})
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to create registration invite", slog.Any(logging.AttrKeyError, err))
@@ -169,18 +169,18 @@ func (h *HTTPHandler) DeleteRegistration(ctx context.Context, request httpapi.De
 // toAPIRegistration converts a domain PendingRegistration to the httpapi type.
 func toAPIRegistration(p *PendingRegistration) httpapi.PendingRegistration {
 	reg := httpapi.PendingRegistration{
-		Id:                     p.ID,
-		DeviceName:             p.DeviceName,
-		OwnerId:                p.OwnerID.Int64(),
-		RegistrationCode:       p.RegistrationCode,
-		DeviceApiKeyPrefix:     p.DeviceAPIKeyPrefix,
-		HeartbeatServerUrl:     p.HeartbeatServerURL,
-		IntervalSeconds:        p.IntervalSeconds,
-		BiometricEnabled:       p.BiometricEnabled,
-		BiometricUserCanToggle: p.BiometricUserCanToggle,
-		ExpiresAt:              httpapi.UTCTime(p.ExpiresAt),
-		CreatedAt:              httpapi.UTCTime(p.CreatedAt),
-		Status:                 httpapi.PendingRegistrationStatus(p.Status()),
+		Id:                  p.ID,
+		DeviceName:          p.DeviceName,
+		OwnerId:             p.OwnerID.Int64(),
+		RegistrationCode:    p.RegistrationCode,
+		DeviceApiKeyPrefix:  p.DeviceAPIKeyPrefix,
+		HeartbeatServerUrl:  p.HeartbeatServerURL,
+		IntervalSeconds:     p.IntervalSeconds,
+		AppBiometricEnabled: p.AppBiometricEnabled,
+		AppSettingsLocked:   p.AppSettingsLocked,
+		ExpiresAt:           httpapi.UTCTime(p.ExpiresAt),
+		CreatedAt:           httpapi.UTCTime(p.CreatedAt),
+		Status:              httpapi.PendingRegistrationStatus(p.Status()),
 	}
 	if p.UsedAt != nil {
 		reg.UsedAt = new(httpapi.UTCTime(*p.UsedAt))

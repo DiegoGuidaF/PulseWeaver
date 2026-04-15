@@ -49,18 +49,18 @@ func (s *Service) CreateInvite(ctx context.Context, req CreateInviteRequest) (*P
 	expiresAt := now.Add(time.Duration(req.ExpiresInHours) * time.Hour)
 
 	p := &PendingRegistration{
-		ID:                     generateID(),
-		DeviceName:             req.DeviceName,
-		OwnerID:                req.OwnerID,
-		RegistrationCode:       &code,
-		DeviceAPIKey:           &rawAPIKey,
-		DeviceAPIKeyPrefix:     keyPrefix,
-		HeartbeatServerURL:     req.HeartbeatServerURL,
-		IntervalSeconds:        req.IntervalSeconds,
-		BiometricEnabled:       req.BiometricEnabled,
-		BiometricUserCanToggle: req.BiometricUserCanToggle,
-		ExpiresAt:              expiresAt,
-		CreatedAt:              now,
+		ID:                  generateID(),
+		DeviceName:          req.DeviceName,
+		OwnerID:             req.OwnerID,
+		RegistrationCode:    &code,
+		DeviceAPIKey:        &rawAPIKey,
+		DeviceAPIKeyPrefix:  keyPrefix,
+		HeartbeatServerURL:  req.HeartbeatServerURL,
+		IntervalSeconds:     req.IntervalSeconds,
+		AppBiometricEnabled: req.AppBiometricEnabled,
+		AppSettingsLocked:   req.AppSettingsLocked,
+		ExpiresAt:           expiresAt,
+		CreatedAt:           now,
 	}
 
 	if err := s.repo.CreateInvite(ctx, p); err != nil {

@@ -1,8 +1,6 @@
-import { useState } from "react";
 import { useForm, schemaResolver } from "@mantine/form";
 import {
   Button,
-  Collapse,
   Fieldset,
   Group,
   NumberInput,
@@ -30,7 +28,6 @@ interface InviteCreationFormProps {
 
 export function InviteCreationForm({ onSuccess, onCancel }: InviteCreationFormProps) {
   const mutation = useCreateRegistration();
-  const [showBiometric, setShowBiometric] = useState(false);
 
   const form = useForm<CreateRegistrationValues>({
     validate: schemaResolver(createRegistrationSchema),
@@ -39,8 +36,8 @@ export function InviteCreationForm({ onSuccess, onCancel }: InviteCreationFormPr
       owner_id: 1,
       heartbeat_server_url: window.location.origin,
       interval_seconds: 900,
-      biometric_enabled: false,
-      biometric_user_can_toggle: true,
+      app_biometric_enabled: false,
+      app_settings_locked: false,
       expires_in_hours: 24,
     },
   });
@@ -125,28 +122,18 @@ export function InviteCreationForm({ onSuccess, onCancel }: InviteCreationFormPr
               {...form.getInputProps("heartbeat_server_url")}
             />
             <Switch
-              label="Configure biometric settings"
-              checked={showBiometric}
-              onChange={(e) => setShowBiometric(e.currentTarget.checked)}
+              label="Enable biometric unlock"
+              {...form.getInputProps("app_biometric_enabled", {
+                type: "checkbox",
+              })}
             />
-            <Collapse expanded={showBiometric}>
-              <Stack gap="sm" pt="xs">
-                <Switch
-                  label="Enable biometrics"
-                  {...form.getInputProps("biometric_enabled", {
-                    type: "checkbox",
-                  })}
-                />
-                {form.values.biometric_enabled && (
-                  <Switch
-                    label="User can toggle biometrics"
-                    {...form.getInputProps("biometric_user_can_toggle", {
-                      type: "checkbox",
-                    })}
-                  />
-                )}
-              </Stack>
-            </Collapse>
+            <Switch
+              label="Lock all app settings on device"
+              description="Prevents the user from changing any app settings."
+              {...form.getInputProps("app_settings_locked", {
+                type: "checkbox",
+              })}
+            />
           </Stack>
         </Fieldset>
 

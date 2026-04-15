@@ -28,10 +28,10 @@ type PendingRegistration struct {
 	// DeviceAPIKeyPrefix is kept after claim for admin reference.
 	DeviceAPIKeyPrefix string
 
-	HeartbeatServerURL     string
-	IntervalSeconds        int
-	BiometricEnabled       bool
-	BiometricUserCanToggle bool
+	HeartbeatServerURL  string
+	IntervalSeconds     int
+	AppBiometricEnabled bool
+	AppSettingsLocked   bool
 
 	ExpiresAt time.Time
 	CreatedAt time.Time
@@ -63,22 +63,22 @@ const (
 
 // CreateInviteRequest carries the admin-provided fields for a new invite.
 type CreateInviteRequest struct {
-	DeviceName             string
-	OwnerID                auth.UserID
-	HeartbeatServerURL     string
-	IntervalSeconds        int
-	BiometricEnabled       bool
-	BiometricUserCanToggle bool
-	ExpiresInHours         int
+	DeviceName          string
+	OwnerID             auth.UserID
+	HeartbeatServerURL  string
+	IntervalSeconds     int
+	AppBiometricEnabled bool
+	AppSettingsLocked   bool
+	ExpiresInHours      int
 }
 
 // ClaimResult is returned after a successful claim: the config payload and the one-time API key.
 type ClaimResult struct {
-	ServerURL              string
-	IntervalSeconds        int
-	BiometricEnabled       bool
-	BiometricUserCanToggle bool
-	RawAPIKey              string // Plaintext — send to app, never stored again.
+	ServerURL           string
+	IntervalSeconds     int
+	AppBiometricEnabled bool
+	AppSettingsLocked   bool
+	RawAPIKey           string // Plaintext — send to app, never stored again.
 }
 
 // InviteFilter controls which invites are returned by ListInvites.

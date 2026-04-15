@@ -977,13 +977,13 @@ export const CreateRegistrationRequestSchema = {
             minimum: 60,
             example: 900
         },
-        biometric_enabled: {
+        app_biometric_enabled: {
             type: 'boolean',
             default: false
         },
-        biometric_user_can_toggle: {
+        app_settings_locked: {
             type: 'boolean',
-            default: true
+            default: false
         },
         expires_in_hours: {
             type: 'integer',
@@ -1007,8 +1007,8 @@ export const PendingRegistrationSchema = {
         'device_api_key_prefix',
         'heartbeat_server_url',
         'interval_seconds',
-        'biometric_enabled',
-        'biometric_user_can_toggle',
+        'app_biometric_enabled',
+        'app_settings_locked',
         'expires_at',
         'created_at',
         'status'
@@ -1039,10 +1039,10 @@ export const PendingRegistrationSchema = {
         interval_seconds: {
             type: 'integer'
         },
-        biometric_enabled: {
+        app_biometric_enabled: {
             type: 'boolean'
         },
-        biometric_user_can_toggle: {
+        app_settings_locked: {
             type: 'boolean'
         },
         expires_at: {
@@ -1096,8 +1096,8 @@ export const ClaimRegistrationResponseSchema = {
     required: [
         'server_url',
         'interval_seconds',
-        'biometric_enabled',
-        'biometric_user_can_toggle',
+        'app_biometric_enabled',
+        'app_settings_locked',
         'api_key'
     ],
     properties: {
@@ -1107,10 +1107,10 @@ export const ClaimRegistrationResponseSchema = {
         interval_seconds: {
             type: 'integer'
         },
-        biometric_enabled: {
+        app_biometric_enabled: {
             type: 'boolean'
         },
-        biometric_user_can_toggle: {
+        app_settings_locked: {
             type: 'boolean'
         },
         api_key: {
