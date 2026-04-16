@@ -134,12 +134,16 @@ func TestHandler_DeleteRegistration_InvalidatesPendingInvite(t *testing.T) {
 	ts.HTTPServer.ServeHTTP(w2, req)
 	is.Equal(w2.Code, http.StatusNoContent)
 
-	// Verify it's gone
+	// Soft delete: the invite still exists but its status is now "invalidated".
 	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/admin/registrations/"+created.Id, nil)
 	req2.AddCookie(cookie)
 	w3 := httptest.NewRecorder()
 	ts.HTTPServer.ServeHTTP(w3, req2)
-	is.Equal(w3.Code, http.StatusNotFound)
+	is.Equal(w3.Code, http.StatusOK)
+
+	var fetched httpapi.PendingRegistration
+	is.NoErr(json.NewDecoder(w3.Body).Decode(&fetched))
+	is.Equal(string(fetched.Status), "invalidated")
 }
 
 func TestHandler_ClaimRegistration_SuccessfulClaim(t *testing.T) {

@@ -68,9 +68,14 @@ func (r *Repository) CreateDevice(ctx context.Context, params CreateDeviceParams
 	now := time.Now().UTC()
 	createdDevice := new(Device)
 
-	deviceQuery := `INSERT INTO devices (name, owner_id, created_at) VALUES (?, ?, ?) RETURNING * `
+	deviceType := params.DeviceType
+	if deviceType == "" {
+		deviceType = "static"
+	}
 
-	err := r.db.GetContext(ctx, createdDevice, deviceQuery, params.Name, params.OwnerID, now)
+	deviceQuery := `INSERT INTO devices (name, owner_id, device_type, created_at) VALUES (?, ?, ?, ?) RETURNING *`
+
+	err := r.db.GetContext(ctx, createdDevice, deviceQuery, params.Name, params.OwnerID, deviceType, now)
 	if err != nil {
 		if domainErr, ok := mapDeviceNameUniqueConstraintError(err); ok {
 			return nil, domainErr

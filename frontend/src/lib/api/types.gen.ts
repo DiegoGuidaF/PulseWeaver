@@ -407,10 +407,6 @@ export type PendingRegistration = {
      * Present only while unclaimed. Null after the invite is used.
      */
     registration_code?: string | null;
-    /**
-     * Always present; retained after claim for admin reference.
-     */
-    device_api_key_prefix: string;
     heartbeat_server_url: string;
     interval_seconds: number;
     app_biometric_enabled: boolean;
@@ -418,11 +414,12 @@ export type PendingRegistration = {
     expires_at: string;
     created_at: string;
     used_at?: string | null;
+    invalidated_at?: string | null;
     /**
      * Set after the invite is claimed and the device is created.
      */
     created_device_id?: number | null;
-    status: 'pending' | 'used' | 'expired';
+    status: 'pending' | 'used' | 'expired' | 'invalidated';
 };
 
 export type ClaimRegistrationRequest = {

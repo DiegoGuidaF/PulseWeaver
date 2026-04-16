@@ -55,10 +55,11 @@ func (m *mockRepo) InvalidateInvite(_ context.Context, id string) error {
 	if !ok {
 		return ErrInviteNotFound
 	}
-	if p.UsedAt != nil {
+	if p.UsedAt != nil || p.InvalidatedAt != nil {
 		return ErrInviteNotPending
 	}
-	delete(m.invites, id)
+	now := time.Now()
+	p.InvalidatedAt = &now
 	return nil
 }
 
@@ -87,8 +88,6 @@ func TestService_CreateInvite_StoresInvite(t *testing.T) {
 	is.True(invite != nil)
 	is.Equal(invite.DeviceName, "Dad's Phone")
 	is.True(invite.RegistrationCode != nil && *invite.RegistrationCode != "")
-	is.True(invite.DeviceAPIKey != nil && *invite.DeviceAPIKey != "")
-	is.True(invite.DeviceAPIKeyPrefix != "")
 	is.Equal(invite.Status(), StatusPending)
 
 	// Verify persisted in repo
@@ -129,20 +128,24 @@ func TestService_ListInvites_PendingOnly(t *testing.T) {
 	repo := newMockRepo()
 	svc := newTestService(repo)
 
-	now := time.Now().UTC() // Active invite
+	now := time.Now().UTC()
+	invalidatedAt := now.Add(-30 * time.Minute)
+
 	repo.invites["active"] = &PendingRegistration{
 		ID: "active", DeviceName: "Active",
 		ExpiresAt: now.Add(24 * time.Hour), CreatedAt: now,
 	}
-	// Used invite
 	repo.invites["used"] = &PendingRegistration{
 		ID: "used", DeviceName: "Used",
 		ExpiresAt: now.Add(24 * time.Hour), CreatedAt: now, UsedAt: new(now.Add(-1 * time.Hour)),
 	}
-	// Expired invite
 	repo.invites["expired"] = &PendingRegistration{
 		ID: "expired", DeviceName: "Expired",
 		ExpiresAt: now.Add(-1 * time.Hour), CreatedAt: now.Add(-2 * time.Hour),
+	}
+	repo.invites["invalidated"] = &PendingRegistration{
+		ID: "invalidated", DeviceName: "Invalidated",
+		ExpiresAt: now.Add(24 * time.Hour), CreatedAt: now, InvalidatedAt: &invalidatedAt,
 	}
 
 	pending, err := svc.ListInvites(context.Background(), InviteFilter{})
@@ -152,7 +155,7 @@ func TestService_ListInvites_PendingOnly(t *testing.T) {
 
 	all, err := svc.ListInvites(context.Background(), InviteFilter{IncludeAll: true})
 	is.NoErr(err)
-	is.Equal(len(all), 3)
+	is.Equal(len(all), 4)
 }
 
 func TestService_ClaimInvite_ReturnsConfig(t *testing.T) {
@@ -183,7 +186,7 @@ func TestService_ClaimInvite_ReturnsNotFoundOnError(t *testing.T) {
 	is.True(errors.Is(err, ErrInviteNotFound))
 }
 
-func TestService_InvalidateInvite_RemovesPendingInvite(t *testing.T) {
+func TestService_InvalidateInvite_SoftDeletesPendingInvite(t *testing.T) {
 	is := is.New(t)
 	repo := newMockRepo()
 	svc := newTestService(repo)
@@ -197,8 +200,10 @@ func TestService_InvalidateInvite_RemovesPendingInvite(t *testing.T) {
 	err := svc.InvalidateInvite(context.Background(), "inv1")
 	is.NoErr(err)
 
-	_, err = repo.GetInvite(context.Background(), "inv1")
-	is.True(errors.Is(err, ErrInviteNotFound))
+	// Invite still exists (soft delete), but its status is now Invalidated.
+	invite, err := repo.GetInvite(context.Background(), "inv1")
+	is.NoErr(err)
+	is.Equal(invite.Status(), StatusInvalidated)
 }
 
 func TestService_InvalidateInvite_NotFound(t *testing.T) {
@@ -227,6 +232,7 @@ func TestService_InvalidateInvite_AlreadyUsed(t *testing.T) {
 func TestPendingRegistration_Status(t *testing.T) {
 	is := is.New(t)
 	now := time.Now().UTC()
+	past := now.Add(-time.Minute)
 
 	pending := &PendingRegistration{ExpiresAt: now.Add(time.Hour)}
 	is.Equal(pending.Status(), StatusPending)
@@ -234,6 +240,9 @@ func TestPendingRegistration_Status(t *testing.T) {
 	expired := &PendingRegistration{ExpiresAt: now.Add(-time.Hour)}
 	is.Equal(expired.Status(), StatusExpired)
 
-	used := &PendingRegistration{ExpiresAt: now.Add(time.Hour), UsedAt: new(now.Add(-time.Minute))}
+	used := &PendingRegistration{ExpiresAt: now.Add(time.Hour), UsedAt: &past}
 	is.Equal(used.Status(), StatusUsed)
+
+	invalidated := &PendingRegistration{ExpiresAt: now.Add(time.Hour), InvalidatedAt: &past}
+	is.Equal(invalidated.Status(), StatusInvalidated)
 }

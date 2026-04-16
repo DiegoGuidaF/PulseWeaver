@@ -316,3 +316,39 @@ func (s *Service) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error) {
 func (s *Service) GetEnabledAddressesForDevice(ctx context.Context, deviceID DeviceID) ([]Address, error) {
 	return s.repo.GetEnabledAddressesForDevice(ctx, deviceID)
 }
+
+// CreateDeviceWithAPIKey creates a new device and assigns it an API key, all within a single
+// transaction. It is the entry point for the registration domain when claiming an invite.
+// Returns the new device ID and the plaintext API key (one-time; never stored after this call).
+func (s *Service) CreateDeviceWithAPIKey(ctx context.Context, name string, ownerID auth.UserID) (int64, string, error) {
+	var deviceID DeviceID
+	var rawAPIKey string
+
+	err := s.repo.RunInTx(ctx, func(txRepo repository) error {
+		rawKey, keyHash, keyPrefix, err := GenerateAPIKey()
+		if err != nil {
+			return fmt.Errorf("generate api key: %w", err)
+		}
+
+		dev, err := txRepo.CreateDevice(ctx, CreateDeviceParams{
+			Name:       name,
+			OwnerID:    ownerID,
+			DeviceType: "mobile",
+		})
+		if err != nil {
+			return err
+		}
+
+		if err := txRepo.UpsertAPIKey(ctx, dev.ID, keyHash, keyPrefix); err != nil {
+			return err
+		}
+
+		deviceID = dev.ID
+		rawAPIKey = rawKey
+		return nil
+	})
+	if err != nil {
+		return 0, "", err
+	}
+	return deviceID.Int64(), rawAPIKey, nil
+}

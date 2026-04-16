@@ -111,8 +111,9 @@ func parseDeviceType(t string) (DeviceType, error) {
 }
 
 type CreateDeviceParams struct {
-	Name    string
-	OwnerID auth.UserID
+	Name       string
+	OwnerID    auth.UserID
+	DeviceType string // optional; defaults to "static" when empty
 }
 
 type DeviceID int64

@@ -9,19 +9,25 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
-// Repository handles all database operations for the registration package.
-type Repository struct {
-	db *sqlx.DB
+// deviceProvisioner abstracts device creation during claim.
+// Satisfied by *device.Service — the service is the public boundary of the device domain.
+type deviceProvisioner interface {
+	CreateDeviceWithAPIKey(ctx context.Context, name string, ownerID auth.UserID) (deviceID int64, rawAPIKey string, err error)
 }
 
-func NewRepository(db *sqlx.DB) *Repository {
-	return &Repository{db: db}
+// Repository handles all database operations for the registration package.
+type Repository struct {
+	db                *sqlx.DB
+	deviceProvisioner deviceProvisioner
+}
+
+func NewRepository(db *sqlx.DB, provisioner deviceProvisioner) *Repository {
+	return &Repository{db: db, deviceProvisioner: provisioner}
 }
 
 // pendingRegistrationRow is the raw DB row for a pending_registrations record.
@@ -30,8 +36,6 @@ type pendingRegistrationRow struct {
 	DeviceName            string         `db:"device_name"`
 	OwnerID               auth.UserID    `db:"owner_id"`
 	RegistrationCode      sql.NullString `db:"registration_code"`
-	DeviceAPIKey          sql.NullString `db:"device_api_key"`
-	DeviceAPIKeyPrefix    string         `db:"device_api_key_prefix"`
 	HeartbeatServerURL    string         `db:"heartbeat_server_url"`
 	HeartbeatIntervalSecs int            `db:"heartbeat_interval_seconds"`
 	AppBiometricEnabled   bool           `db:"app_biometric_enabled"`
@@ -39,6 +43,7 @@ type pendingRegistrationRow struct {
 	ExpiresAt             time.Time      `db:"expires_at"`
 	CreatedAt             time.Time      `db:"created_at"`
 	UsedAt                sql.NullTime   `db:"used_at"`
+	InvalidatedAt         sql.NullTime   `db:"invalidated_at"`
 	CreatedDeviceID       sql.NullInt64  `db:"created_device_id"`
 }
 
@@ -47,7 +52,6 @@ func rowToDomain(r pendingRegistrationRow) *PendingRegistration {
 		ID:                  r.ID,
 		DeviceName:          r.DeviceName,
 		OwnerID:             r.OwnerID,
-		DeviceAPIKeyPrefix:  r.DeviceAPIKeyPrefix,
 		HeartbeatServerURL:  r.HeartbeatServerURL,
 		IntervalSeconds:     r.HeartbeatIntervalSecs,
 		AppBiometricEnabled: r.AppBiometricEnabled,
@@ -58,11 +62,11 @@ func rowToDomain(r pendingRegistrationRow) *PendingRegistration {
 	if r.RegistrationCode.Valid {
 		p.RegistrationCode = &r.RegistrationCode.String
 	}
-	if r.DeviceAPIKey.Valid {
-		p.DeviceAPIKey = &r.DeviceAPIKey.String
-	}
 	if r.UsedAt.Valid {
 		p.UsedAt = &r.UsedAt.Time
+	}
+	if r.InvalidatedAt.Valid {
+		p.InvalidatedAt = &r.InvalidatedAt.Time
 	}
 	if r.CreatedDeviceID.Valid {
 		p.CreatedDeviceID = &r.CreatedDeviceID.Int64
@@ -74,12 +78,12 @@ func rowToDomain(r pendingRegistrationRow) *PendingRegistration {
 func (r *Repository) CreateInvite(ctx context.Context, p *PendingRegistration) error {
 	query := `
 		INSERT INTO pending_registrations (
-			id, device_name, owner_id, registration_code, device_api_key, device_api_key_prefix,
+			id, device_name, owner_id, registration_code,
 			heartbeat_server_url, heartbeat_interval_seconds,
 			app_biometric_enabled, app_settings_locked,
 			expires_at, created_at
 		) VALUES (
-			:id, :device_name, :owner_id, :registration_code, :device_api_key, :device_api_key_prefix,
+			:id, :device_name, :owner_id, :registration_code,
 			:heartbeat_server_url, :heartbeat_interval_seconds,
 			:app_biometric_enabled, :app_settings_locked,
 			:expires_at, :created_at
@@ -89,8 +93,6 @@ func (r *Repository) CreateInvite(ctx context.Context, p *PendingRegistration) e
 		"device_name":                p.DeviceName,
 		"owner_id":                   p.OwnerID,
 		"registration_code":          p.RegistrationCode,
-		"device_api_key":             p.DeviceAPIKey,
-		"device_api_key_prefix":      p.DeviceAPIKeyPrefix,
 		"heartbeat_server_url":       p.HeartbeatServerURL,
 		"heartbeat_interval_seconds": p.IntervalSeconds,
 		"app_biometric_enabled":      p.AppBiometricEnabled,
@@ -118,11 +120,11 @@ func (r *Repository) GetInvite(ctx context.Context, id string) (*PendingRegistra
 }
 
 // ListInvites returns registration invites, filtered by the given options.
-// When filter.IncludeAll is false, only pending (unclaimed and non-expired) invites are returned.
+// When filter.IncludeAll is false, only pending (unclaimed, non-invalidated, non-expired) invites are returned.
 func (r *Repository) ListInvites(ctx context.Context, filter InviteFilter) ([]*PendingRegistration, error) {
 	query := `SELECT * FROM pending_registrations`
 	if !filter.IncludeAll {
-		query += ` WHERE used_at IS NULL AND expires_at > CURRENT_TIMESTAMP`
+		query += ` WHERE used_at IS NULL AND invalidated_at IS NULL AND expires_at > CURRENT_TIMESTAMP`
 	}
 	query += ` ORDER BY created_at DESC`
 
@@ -137,14 +139,14 @@ func (r *Repository) ListInvites(ctx context.Context, filter InviteFilter) ([]*P
 	return result, nil
 }
 
-// InvalidateInvite hard-deletes an unclaimed (pending) invite.
+// InvalidateInvite soft-deletes a pending invite by setting invalidated_at.
 // Returns ErrInviteNotFound if no matching record exists.
-// Returns ErrInviteNotPending if the invite has already been used.
-// TODO: This shouldn't hard-delete but soft-delete
+// Returns ErrInviteNotPending if the invite has already been used or invalidated.
 func (r *Repository) InvalidateInvite(ctx context.Context, id string) error {
-	// Only delete unclaimed, non-expired records.
 	result, err := r.db.ExecContext(ctx,
-		`DELETE FROM pending_registrations WHERE id = ? AND used_at IS NULL`,
+		`UPDATE pending_registrations
+		 SET invalidated_at = CURRENT_TIMESTAMP
+		 WHERE id = ? AND used_at IS NULL AND invalidated_at IS NULL`,
 		id,
 	)
 	if err != nil {
@@ -155,29 +157,27 @@ func (r *Repository) InvalidateInvite(ctx context.Context, id string) error {
 		return fmt.Errorf("invalidate invite rows affected: %w", err)
 	}
 	if rows == 0 {
-		// Distinguish between "never existed / already claimed" and "already used".
-		var usedAt sql.NullTime
+		// Distinguish between "never existed" and "already used/invalidated".
+		var exists bool
 		err = r.db.QueryRowContext(ctx,
-			`SELECT used_at FROM pending_registrations WHERE id = ?`, id,
-		).Scan(&usedAt)
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrInviteNotFound
-		}
+			`SELECT COUNT(*) > 0 FROM pending_registrations WHERE id = ?`, id,
+		).Scan(&exists)
 		if err != nil {
 			return fmt.Errorf("invalidate invite check: %w", err)
+		}
+		if !exists {
+			return ErrInviteNotFound
 		}
 		return ErrInviteNotPending
 	}
 	return nil
 }
 
-// ClaimInvite validates the registration code and, in a single atomic transaction:
-//  1. Creates the device row.
-//  2. Inserts the pre-staged API key into device_api_keys.
-//  3. Marks the pending registration as used and links it to the created device.
+// ClaimInvite validates the registration code and, in an atomic sequence:
+//  1. Provisions a new device and API key via the device domain.
+//  2. Marks the pending registration as used and links it to the created device.
 //
-// Returns ErrInviteNotFound if the code is unknown, already used, or expired.
-// TODO: Add tx manager from other repositories and use it here
+// Returns ErrInviteNotFound if the code is unknown, already used, invalidated, or expired.
 func (r *Repository) ClaimInvite(ctx context.Context, code string) (*ClaimResult, error) {
 	logger := slog.Default()
 
@@ -191,11 +191,14 @@ func (r *Repository) ClaimInvite(ctx context.Context, code string) (*ClaimResult
 		}
 	}()
 
-	// 1. Fetch and lock the pending registration.
+	// 1. Fetch the pending registration.
 	var row pendingRegistrationRow
 	err = tx.GetContext(ctx, &row,
 		`SELECT * FROM pending_registrations
-		 WHERE registration_code = ? AND used_at IS NULL AND expires_at > CURRENT_TIMESTAMP`,
+		 WHERE registration_code = ?
+		   AND used_at IS NULL
+		   AND invalidated_at IS NULL
+		   AND expires_at > CURRENT_TIMESTAMP`,
 		code,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -205,42 +208,19 @@ func (r *Repository) ClaimInvite(ctx context.Context, code string) (*ClaimResult
 		return nil, fmt.Errorf("fetch pending registration: %w", err)
 	}
 
-	// device_api_key must be present (it was set at invite creation time).
-	if !row.DeviceAPIKey.Valid || row.DeviceAPIKey.String == "" {
-		return nil, fmt.Errorf("pending registration has no device api key")
+	// 2. Provision device + API key via the device domain.
+	// Note: device provisioning runs in its own internal transaction within the device service.
+	// The pending_registrations update below completes the claim atomically within this tx.
+	deviceID, rawAPIKey, err := r.deviceProvisioner.CreateDeviceWithAPIKey(ctx, row.DeviceName, row.OwnerID)
+	if err != nil {
+		return nil, fmt.Errorf("provision device: %w", err)
 	}
-	rawAPIKey := row.DeviceAPIKey.String
 
-	// 2. Create the device row — let SQLite assign the integer ID.
+	// 3. Mark the pending registration as used and link it to the created device.
 	now := time.Now().UTC()
-	result, err := tx.ExecContext(ctx,
-		`INSERT INTO devices (name, device_type, created_at, updated_at, owner_id)
-		 VALUES (?, 'mobile', ?, ?, ?)`,
-		row.DeviceName, now, now, row.OwnerID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("create device: %w", err)
-	}
-	deviceID, err := result.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("get device id: %w", err)
-	}
-
-	// 3. Insert the pre-staged API key (hash the plaintext stored in pending_registrations).
-	keyHash := device.HashAPIKey(rawAPIKey)
-	_, err = tx.ExecContext(ctx,
-		`INSERT INTO device_api_keys (device_id, key_prefix, key_hash, created_at)
-		 VALUES (?, ?, ?, ?)`,
-		deviceID, row.DeviceAPIKeyPrefix, keyHash, now,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("insert device api key: %w", err)
-	}
-
-	// 4. Mark the pending registration as used and link it to the created device.
 	_, err = tx.ExecContext(ctx,
 		`UPDATE pending_registrations
-		 SET registration_code = NULL, device_api_key = NULL, used_at = ?, created_device_id = ?
+		 SET registration_code = NULL, used_at = ?, created_device_id = ?
 		 WHERE id = ?`,
 		now, deviceID, row.ID,
 	)

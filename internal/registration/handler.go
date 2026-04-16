@@ -173,7 +173,6 @@ func toAPIRegistration(p *PendingRegistration) httpapi.PendingRegistration {
 		DeviceName:          p.DeviceName,
 		OwnerId:             p.OwnerID.Int64(),
 		RegistrationCode:    p.RegistrationCode,
-		DeviceApiKeyPrefix:  p.DeviceAPIKeyPrefix,
 		HeartbeatServerUrl:  p.HeartbeatServerURL,
 		IntervalSeconds:     p.IntervalSeconds,
 		AppBiometricEnabled: p.AppBiometricEnabled,
@@ -184,6 +183,9 @@ func toAPIRegistration(p *PendingRegistration) httpapi.PendingRegistration {
 	}
 	if p.UsedAt != nil {
 		reg.UsedAt = new(httpapi.UTCTime(*p.UsedAt))
+	}
+	if p.InvalidatedAt != nil {
+		reg.InvalidatedAt = new(httpapi.UTCTime(*p.InvalidatedAt))
 	}
 	if p.CreatedDeviceID != nil {
 		reg.CreatedDeviceId = p.CreatedDeviceID

@@ -20,13 +20,6 @@ type PendingRegistration struct {
 	// Nulled after claim.
 	RegistrationCode *string
 
-	// DeviceAPIKey is the pre-generated raw device key stored in plaintext until claimed.
-	// Nulled after claim.
-	DeviceAPIKey *string
-
-	// DeviceAPIKeyPrefix is kept after claim for admin reference.
-	DeviceAPIKeyPrefix string
-
 	HeartbeatServerURL  string
 	IntervalSeconds     int
 	AppBiometricEnabled bool
@@ -36,6 +29,9 @@ type PendingRegistration struct {
 	CreatedAt time.Time
 	UsedAt    *time.Time
 
+	// InvalidatedAt is set when an admin invalidates a pending invite (soft delete).
+	InvalidatedAt *time.Time
+
 	// CreatedDeviceID is set after the invite is successfully claimed.
 	CreatedDeviceID *int64
 }
@@ -44,6 +40,9 @@ type PendingRegistration struct {
 func (p *PendingRegistration) Status() PendingRegistrationStatus {
 	if p.UsedAt != nil {
 		return StatusUsed
+	}
+	if p.InvalidatedAt != nil {
+		return StatusInvalidated
 	}
 	if time.Now().After(p.ExpiresAt) {
 		return StatusExpired
@@ -55,9 +54,10 @@ func (p *PendingRegistration) Status() PendingRegistrationStatus {
 type PendingRegistrationStatus string
 
 const (
-	StatusPending PendingRegistrationStatus = "pending"
-	StatusUsed    PendingRegistrationStatus = "used"
-	StatusExpired PendingRegistrationStatus = "expired"
+	StatusPending     PendingRegistrationStatus = "pending"
+	StatusUsed        PendingRegistrationStatus = "used"
+	StatusExpired     PendingRegistrationStatus = "expired"
+	StatusInvalidated PendingRegistrationStatus = "invalidated"
 )
 
 // CreateInviteRequest carries the admin-provided fields for a new invite.

@@ -105,7 +105,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	deviceHandler := device.NewHTTPHandler(deviceService, logger)
 
 	// Device provisioner
-	registrationRepo := registration.NewRepository(db.DB())
+	registrationRepo := registration.NewRepository(db.DB(), deviceService)
 	registrationService := registration.NewService(registrationRepo, logger)
 	registrationHandler := registration.NewHTTPHandler(registrationService, logger)
 

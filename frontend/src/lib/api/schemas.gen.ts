@@ -1004,7 +1004,6 @@ export const PendingRegistrationSchema = {
         'id',
         'device_name',
         'owner_id',
-        'device_api_key_prefix',
         'heartbeat_server_url',
         'interval_seconds',
         'app_biometric_enabled',
@@ -1028,10 +1027,6 @@ export const PendingRegistrationSchema = {
             type: 'string',
             nullable: true,
             description: 'Present only while unclaimed. Null after the invite is used.'
-        },
-        device_api_key_prefix: {
-            type: 'string',
-            description: 'Always present; retained after claim for admin reference.'
         },
         heartbeat_server_url: {
             type: 'string'
@@ -1061,6 +1056,12 @@ export const PendingRegistrationSchema = {
             'x-go-type': 'UTCTime',
             nullable: true
         },
+        invalidated_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime',
+            nullable: true
+        },
         created_device_id: {
             type: 'integer',
             format: 'int64',
@@ -1072,7 +1073,8 @@ export const PendingRegistrationSchema = {
             enum: [
                 'pending',
                 'used',
-                'expired'
+                'expired',
+                'invalidated'
             ]
         }
     }

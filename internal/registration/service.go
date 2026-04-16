@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
@@ -32,17 +31,12 @@ func NewService(repo repository, logger *slog.Logger) *Service {
 	}
 }
 
-// CreateInvite generates a registration code and a pre-staged device API key, then
-// persists the invite.
+// CreateInvite generates a registration code and persists the invite.
+// The device API key is generated later at claim time — not pre-staged here.
 func (s *Service) CreateInvite(ctx context.Context, req CreateInviteRequest) (*PendingRegistration, error) {
 	code, _, err := generateRegistrationCode(req.HeartbeatServerURL)
 	if err != nil {
 		return nil, fmt.Errorf("generate registration code: %w", err)
-	}
-
-	rawAPIKey, _, keyPrefix, err := device.GenerateAPIKey()
-	if err != nil {
-		return nil, fmt.Errorf("generate device api key: %w", err)
 	}
 
 	now := time.Now().UTC()
@@ -53,8 +47,6 @@ func (s *Service) CreateInvite(ctx context.Context, req CreateInviteRequest) (*P
 		DeviceName:          req.DeviceName,
 		OwnerID:             req.OwnerID,
 		RegistrationCode:    &code,
-		DeviceAPIKey:        &rawAPIKey,
-		DeviceAPIKeyPrefix:  keyPrefix,
 		HeartbeatServerURL:  req.HeartbeatServerURL,
 		IntervalSeconds:     req.IntervalSeconds,
 		AppBiometricEnabled: req.AppBiometricEnabled,

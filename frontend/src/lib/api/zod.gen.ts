@@ -274,7 +274,6 @@ export const zPendingRegistration = z.object({
     device_name: z.string(),
     owner_id: zId,
     registration_code: z.string().nullish(),
-    device_api_key_prefix: z.string(),
     heartbeat_server_url: z.string(),
     interval_seconds: z.int(),
     app_biometric_enabled: z.boolean(),
@@ -282,11 +281,13 @@ export const zPendingRegistration = z.object({
     expires_at: z.iso.datetime({ offset: true, local: true }),
     created_at: z.iso.datetime({ offset: true, local: true }),
     used_at: z.iso.datetime({ offset: true, local: true }).nullish(),
+    invalidated_at: z.iso.datetime({ offset: true, local: true }).nullish(),
     created_device_id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).nullish(),
     status: z.enum([
         'pending',
         'used',
-        'expired'
+        'expired',
+        'invalidated'
     ])
 });
 

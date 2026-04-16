@@ -70,14 +70,14 @@ INSERT INTO sessions (user_id, token_hash, expires_at)
 -- ── Pending registration ──────────────────────────────────────────────────────
 
 -- Unclaimed invite (registration_code and device_api_key present).
--- Uses old column names biometric_enabled / biometric_user_can_toggle because
--- this seed runs at N-1 (= 000013); migration 000014 renames them.
+-- Uses column names from 000014 schema (app_biometric_enabled / app_settings_locked);
+-- this seed runs at N-1 (= 000014); migration 000015 drops device_api_key and device_api_key_prefix.
 INSERT INTO pending_registrations
     (id, device_name, owner_id, registration_code, device_api_key, device_api_key_prefix,
-     heartbeat_server_url, heartbeat_interval_seconds, biometric_enabled, biometric_user_can_toggle,
+     heartbeat_server_url, heartbeat_interval_seconds, app_biometric_enabled, app_settings_locked,
      expires_at, created_at)
     SELECT 'seed-reg-01', 'seed-device', u.id, 'code-abc', 'raw-key-abc', 'pw_seed',
-           'https://pulse.example.com', 900, 0, 1,
+           'https://pulse.example.com', 900, 0, 0,
            '2099-01-01 00:00:00', '2024-01-01 00:00:00'
     FROM users u WHERE u.username = 'seed-user';
 
