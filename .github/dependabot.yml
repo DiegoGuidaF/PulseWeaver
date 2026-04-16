@@ -1,15 +1,31 @@
 version: 2
 updates:
-  # Go modules — group all minor/patch together; major bumps get individual PRs
+  # Go modules (app) — group all minor/patch together; major bumps get individual PRs
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
+      timezone: "Europe/Rome"
     open-pull-requests-limit: 5
+    assignees: ["DiegoGuidaF"]
     labels: ["dependencies", "backend"]
     groups:
       go-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # Go modules (tools) — golangci-lint, oapi-codegen
+  - package-ecosystem: "gomod"
+    directory: "/tools"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "Europe/Rome"
+    open-pull-requests-limit: 3
+    assignees: ["DiegoGuidaF"]
+    labels: ["dependencies", "backend"]
+    groups:
+      go-tools-minor-patch:
         update-types: ["minor", "patch"]
 
   # Frontend npm
@@ -18,8 +34,19 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+      timezone: "Europe/Rome"
     open-pull-requests-limit: 5
+    assignees: ["DiegoGuidaF"]
     labels: ["dependencies", "frontend"]
+    ignore:
+      # TypeScript and ESLint major bumps require manual migration work.
+      # Close the open PRs (#22, #28) and handle these as planned stories.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/*"
+        update-types: ["version-update:semver-major"]
     groups:
       # Group all @mantine/* packages together (including major bumps)
       mantine:
@@ -35,7 +62,9 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+      timezone: "Europe/Rome"
     open-pull-requests-limit: 5
+    assignees: ["DiegoGuidaF"]
     labels: ["dependencies", "ci"]
     groups:
       github-actions:

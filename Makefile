@@ -98,6 +98,9 @@ api-front:
 
 api: api-back api-front
 
+gh-auto-merge-dependabot:
+	gh pr list --repo DiegoGuidaF/PulseWeaver --author "app/dependabot" --state open --json number,title,statusCheckRollup --jq '.[] | select([.statusCheckRollup[].conclusion] | all(. == "SUCCESS" or . == "SKIPPED")) | .number' | xargs -I{} gh pr merge {} --squash --delete-branch --repo DiegoGuidaF/PulseWeaver
+
 # ---------------------------------------------------------------------------
 # Hooks
 # ---------------------------------------------------------------------------

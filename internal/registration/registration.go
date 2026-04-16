@@ -22,7 +22,6 @@ type PendingRegistration struct {
 
 	// DeviceAPIKey is the pre-generated raw device key stored in plaintext until claimed.
 	// Nulled after claim.
-	//TODO: This could be added the json annotation to never serialize it
 	DeviceAPIKey *string
 
 	// DeviceAPIKeyPrefix is kept after claim for admin reference.
