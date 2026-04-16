@@ -225,7 +225,6 @@ export const createClient = (config: Config = {}): Client => {
       throw finalError;
     }
 
-    // TODO: we probably want to return error and improve types
     return opts.responseStyle === 'data'
       ? undefined
       : {

@@ -1,22 +1,14 @@
-import { useForm, schemaResolver } from "@mantine/form";
-import {
-  Button,
-  Fieldset,
-  Group,
-  NumberInput,
-  SegmentedControl,
-  Select,
-  Stack,
-  Switch,
-  Text,
-  TextInput,
-} from "@mantine/core";
+import { schemaResolver, useForm } from "@mantine/form";
+import { Button, Fieldset, Group, SegmentedControl, Select, Stack, Switch, Text, TextInput, } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useCreateRegistration } from "./hooks/useCreateRegistration";
 import { zCreateRegistrationRequest } from "@/lib/api/zod.gen";
 import type { z } from "zod";
-import type { PendingRegistration } from "@/lib/api";
+import { type PendingRegistration } from "@/lib/api";
 import { toErrorMessage } from "@/lib/api-client";
+import { useListUsers } from "@/features/auth/hooks/useListUsers.ts";
+import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser.ts";
+import { useState } from "react";
 
 const createRegistrationSchema = zCreateRegistrationRequest;
 type CreateRegistrationValues = z.infer<typeof createRegistrationSchema>;
@@ -28,6 +20,17 @@ interface InviteCreationFormProps {
 
 export function InviteCreationForm({ onSuccess, onCancel }: InviteCreationFormProps) {
   const mutation = useCreateRegistration();
+  const { data: currentUser } = useCurrentUser();
+  const { data: users } = useListUsers();
+
+  const ownerOptions = (users ?? []).map((u) => ({
+    value: String(u.id),
+    label: u.id === currentUser?.id ? `${u.display_name} (you)` : u.display_name,
+  }));
+
+  const [selectedOwner, setSelectedOwner] = useState<string | null>(null);
+  // Set to current user by default
+  const effectiveOwner = selectedOwner ?? (currentUser ? String(currentUser.id) : null);
 
   const form = useForm<CreateRegistrationValues>({
     validate: schemaResolver(createRegistrationSchema),
@@ -43,6 +46,8 @@ export function InviteCreationForm({ onSuccess, onCancel }: InviteCreationFormPr
   });
 
   function onSubmit(values: CreateRegistrationValues) {
+    values.owner_id = Number(effectiveOwner)
+
     mutation.mutate(
       { body: values },
       {
@@ -67,12 +72,13 @@ export function InviteCreationForm({ onSuccess, onCancel }: InviteCreationFormPr
               placeholder="e.g. Office Laptop"
               {...form.getInputProps("device_name")}
             />
-            <NumberInput
-              label="Owner ID"
-              description="User ID of the person who will own this device."
-              min={1}
-              allowDecimal={false}
-              {...form.getInputProps("owner_id")}
+            <Select
+              label="Owner"
+              description="User who will own this device."
+              data={ownerOptions}
+              value={effectiveOwner}
+              onChange={setSelectedOwner}
+              searchable
             />
             <Select
               label="Expires in"
@@ -118,7 +124,7 @@ export function InviteCreationForm({ onSuccess, onCancel }: InviteCreationFormPr
               />
             </div>
             <TextInput
-              label="Heartbeat server URL"
+              label="External server URL (for heartbeat and register endpoints)"
               {...form.getInputProps("heartbeat_server_url")}
             />
             <Switch

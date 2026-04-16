@@ -36,10 +36,6 @@ import { UserRole } from "@/lib/api";
 import { zCreateDeviceRequest, zUpdateDeviceRequest } from "@/lib/api/zod.gen";
 import { IconX } from "@tabler/icons-react";
 
-// ---------------------------------------------------------------------------
-// Form schema
-// ---------------------------------------------------------------------------
-
 const formSchema = z.object({
   name: zCreateDeviceRequest.shape.name,
   device_type: zUpdateDeviceRequest.shape.device_type.unwrap(),
@@ -48,11 +44,6 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-
-// ---------------------------------------------------------------------------
-// CreateDeviceModal
-// ---------------------------------------------------------------------------
-
 interface CreateDeviceModalProps {
   opened: boolean;
   onClose: () => void;
