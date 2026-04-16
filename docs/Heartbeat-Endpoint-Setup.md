@@ -4,9 +4,26 @@ The heartbeat endpoint (`POST /api/v1/heartbeat`) must be **reachable from your 
 forward-auth gate** — if it were gated behind the IP check, a device with a new IP could never activate that IP in the
 first place.
 
-## Exposing the heartbeat with Caddy
+If you use [device provisioning](../README.md#device-provisioning), the registration endpoint
+(`POST /api/v1/register`) also needs to be publicly reachable. The examples below show how to expose both.
 
-Create a dedicated site that routes only to the heartbeat endpoint:
+## Exposing device endpoints with Caddy
+
+The recommended approach exposes only the two device-facing endpoints on a single public domain — everything else
+returns 404:
+
+```caddy
+device.example.com {
+    @device-endpoints path /api/v1/heartbeat /api/v1/register
+    handle @device-endpoints {
+        reverse_proxy pulseweaver:8080
+    }
+    respond 404
+}
+```
+
+Alternatively, create a dedicated site that routes only to the heartbeat endpoint (if you don't use provisioning or
+expose the registration endpoint separately):
 
 ```caddy
 device-heartbeat.example.com {
@@ -22,18 +39,31 @@ Authentication is handled by the device's `X-API-Key`, which PulseWeaver validat
 additional auth layer is needed.
 
 **Optional extra obscurity:** If you want the endpoint to be harder to discover, you can add a random path segment to
-the public URL and rewrite it:
+the public URL and rewrite it. This should be treated as a noise-reduction measure, not as security, the real security
+is provided by the API key in the header.
 
 ```caddy
 device-heartbeat.example.com {
-    # Only accept requests to the secret path
-    rewrite /your-random-secret /api/v1/heartbeat
+    handle /your-random-secret {
+        rewrite * /api/v1/heartbeat
+        reverse_proxy pulseweaver:8080
+    }
 
-    reverse_proxy pulseweaver:8080
+    handle {
+        respond "Not Found" 404
+    }
 }
 ```
 
-The device API key remains the real security control. The path segment is just an additional obstacle.
+The API key provides the real security. The secret path is only a small discovery barrier, but it helps limit casual
+probing when the domain becomes visible through public certificate logs.
+
+
+<!--
+TODO: This sections below don't quite fit here. Probably the Android Tasker should move to the heartbeat-client repository.
+There should be a separate rules section maybe? Also, make clear the recommendations regarding devices with dynamic IPs 
+(there a brief mention of this in the heartbeat client documentation)
+-->
 
 ## Android (Tasker)
 
