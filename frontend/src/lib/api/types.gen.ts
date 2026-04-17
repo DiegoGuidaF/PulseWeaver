@@ -387,10 +387,7 @@ export type DashboardTopDeniedIpsResponse = {
 };
 
 export type CreateRegistrationRequest = {
-    /**
-     * ID of the user who will own the registered device.
-     */
-    owner_id: number;
+    owner_id: Id;
     device_name: string;
     heartbeat_server_url: string;
     interval_seconds: number;
@@ -400,7 +397,7 @@ export type CreateRegistrationRequest = {
 };
 
 export type PendingRegistration = {
-    id: string;
+    id: Id;
     device_name: string;
     owner_id: Id;
     /**
@@ -415,10 +412,7 @@ export type PendingRegistration = {
     created_at: string;
     used_at?: string | null;
     invalidated_at?: string | null;
-    /**
-     * Set after the invite is claimed and the device is created.
-     */
-    created_device_id?: number | null;
+    created_device_id?: Id;
     status: 'pending' | 'used' | 'expired' | 'invalidated';
 };
 
@@ -2059,7 +2053,7 @@ export type CreateRegistrationResponse = CreateRegistrationResponses[keyof Creat
 export type DeleteRegistrationData = {
     body?: never;
     path: {
-        registration_id: string;
+        registration_id: Id;
     };
     query?: never;
     url: '/admin/registrations/{registration_id}';
@@ -2098,7 +2092,7 @@ export type DeleteRegistrationResponse = DeleteRegistrationResponses[keyof Delet
 export type GetRegistrationData = {
     body?: never;
     path: {
-        registration_id: string;
+        registration_id: Id;
     };
     query?: never;
     url: '/admin/registrations/{registration_id}';

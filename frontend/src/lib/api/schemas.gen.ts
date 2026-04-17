@@ -957,9 +957,8 @@ export const CreateRegistrationRequestSchema = {
     ],
     properties: {
         owner_id: {
-            type: 'integer',
-            description: 'ID of the user who will own the registered device.',
-            example: 1
+            $ref: '#/components/schemas/ID',
+            description: 'ID of the user who will own the registered device.'
         },
         device_name: {
             type: 'string',
@@ -1014,7 +1013,7 @@ export const PendingRegistrationSchema = {
     ],
     properties: {
         id: {
-            type: 'string'
+            $ref: '#/components/schemas/ID'
         },
         device_name: {
             type: 'string'
@@ -1063,8 +1062,7 @@ export const PendingRegistrationSchema = {
             nullable: true
         },
         created_device_id: {
-            type: 'integer',
-            format: 'int64',
+            $ref: '#/components/schemas/ID',
             nullable: true,
             description: 'Set after the invite is claimed and the device is created.'
         },

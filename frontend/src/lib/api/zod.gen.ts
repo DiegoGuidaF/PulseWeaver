@@ -255,7 +255,7 @@ export const zDashboardTopDeniedIpsResponse = z.object({
 });
 
 export const zCreateRegistrationRequest = z.object({
-    owner_id: z.int(),
+    owner_id: zId,
     device_name: z.string().min(1).max(100),
     heartbeat_server_url: z.url(),
     interval_seconds: z.int().gte(60),
@@ -270,7 +270,7 @@ export const zCreateRegistrationRequest = z.object({
 });
 
 export const zPendingRegistration = z.object({
-    id: z.string(),
+    id: zId,
     device_name: z.string(),
     owner_id: zId,
     registration_code: z.string().nullish(),
@@ -282,7 +282,7 @@ export const zPendingRegistration = z.object({
     created_at: z.iso.datetime({ offset: true, local: true }),
     used_at: z.iso.datetime({ offset: true, local: true }).nullish(),
     invalidated_at: z.iso.datetime({ offset: true, local: true }).nullish(),
-    created_device_id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).nullish(),
+    created_device_id: zId.optional(),
     status: z.enum([
         'pending',
         'used',
@@ -880,7 +880,7 @@ export const zCreateRegistrationResponse = zPendingRegistration;
 export const zDeleteRegistrationData = z.object({
     body: z.never().optional(),
     path: z.object({
-        registration_id: z.string()
+        registration_id: zId
     }),
     query: z.never().optional()
 });
@@ -893,7 +893,7 @@ export const zDeleteRegistrationResponse = z.void();
 export const zGetRegistrationData = z.object({
     body: z.never().optional(),
     path: z.object({
-        registration_id: z.string()
+        registration_id: zId
     }),
     query: z.never().optional()
 });

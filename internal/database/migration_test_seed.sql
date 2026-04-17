@@ -76,7 +76,7 @@ INSERT INTO pending_registrations
     (id, device_name, owner_id, registration_code, device_api_key, device_api_key_prefix,
      heartbeat_server_url, heartbeat_interval_seconds, app_biometric_enabled, app_settings_locked,
      expires_at, created_at)
-    SELECT 'seed-reg-01', 'seed-device', u.id, 'code-abc', 'raw-key-abc', 'pw_seed',
+    SELECT 0, 'seed-device', u.id, 'code-abc', 'raw-key-abc', 'pw_seed',
            'https://pulse.example.com', 900, 0, 0,
            '2099-01-01 00:00:00', '2024-01-01 00:00:00'
     FROM users u WHERE u.username = 'seed-user';

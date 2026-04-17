@@ -1724,7 +1724,7 @@ paths:
           in: path
           required: true
           schema:
-            type: string
+            $ref: '#/components/schemas/ID'
       responses:
         '200':
           description: Registration invite
@@ -1759,7 +1759,7 @@ paths:
           in: path
           required: true
           schema:
-            type: string
+            $ref: '#/components/schemas/ID'
       responses:
         '204':
           description: Invite deleted
@@ -2459,9 +2459,8 @@ components:
         - owner_id
       properties:
         owner_id:
-          type: integer
+          $ref: '#/components/schemas/ID'
           description: ID of the user who will own the registered device.
-          example: 1
         device_name:
           type: string
           minLength: 1
@@ -2504,7 +2503,7 @@ components:
         - status
       properties:
         id:
-          type: string
+          $ref: '#/components/schemas/ID'
         device_name:
           type: string
         owner_id:
@@ -2541,8 +2540,7 @@ components:
           x-go-type: UTCTime
           nullable: true
         created_device_id:
-          type: integer
-          format: int64
+          $ref: '#/components/schemas/ID'
           nullable: true
           description: Set after the invite is claimed and the device is created.
         status:

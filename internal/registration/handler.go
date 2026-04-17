@@ -110,7 +110,8 @@ func (h *HTTPHandler) ListRegistrations(ctx context.Context, request httpapi.Lis
 
 	resp := make(httpapi.ListRegistrations200JSONResponse, 0, len(invites))
 	for _, inv := range invites {
-		resp = append(resp, toAPIRegistration(inv))
+		//TODO: review usage of ptrs
+		resp = append(resp, toAPIRegistration(&inv))
 	}
 	return resp, nil
 }
@@ -127,7 +128,7 @@ func (h *HTTPHandler) GetRegistration(ctx context.Context, request httpapi.GetRe
 		return httpapi.GetRegistration403Response{}, nil
 	}
 
-	invite, err := h.service.GetInvite(ctx, request.RegistrationId)
+	invite, err := h.service.GetInvite(ctx, PendingRegistrationID(request.RegistrationId))
 	if err != nil {
 		if errors.Is(err, ErrInviteNotFound) {
 			return httpapi.GetRegistration404JSONResponse(errorMsgResponse("Registration invite not found")), nil
@@ -151,7 +152,7 @@ func (h *HTTPHandler) DeleteRegistration(ctx context.Context, request httpapi.De
 		return httpapi.DeleteRegistration403Response{}, nil
 	}
 
-	err := h.service.InvalidateInvite(ctx, request.RegistrationId)
+	err := h.service.InvalidateInvite(ctx, PendingRegistrationID(request.RegistrationId))
 	if err != nil {
 		if errors.Is(err, ErrInviteNotFound) {
 			return httpapi.DeleteRegistration404JSONResponse(errorMsgResponse("Registration invite not found")), nil
@@ -169,12 +170,12 @@ func (h *HTTPHandler) DeleteRegistration(ctx context.Context, request httpapi.De
 // toAPIRegistration converts a domain PendingRegistration to the httpapi type.
 func toAPIRegistration(p *PendingRegistration) httpapi.PendingRegistration {
 	reg := httpapi.PendingRegistration{
-		Id:                  p.ID,
+		Id:                  p.ID.Int64(),
 		DeviceName:          p.DeviceName,
 		OwnerId:             p.OwnerID.Int64(),
 		RegistrationCode:    p.RegistrationCode,
 		HeartbeatServerUrl:  p.HeartbeatServerURL,
-		IntervalSeconds:     p.IntervalSeconds,
+		IntervalSeconds:     p.HeartbeatIntervalSeconds,
 		AppBiometricEnabled: p.AppBiometricEnabled,
 		AppSettingsLocked:   p.AppSettingsLocked,
 		ExpiresAt:           httpapi.UTCTime(p.ExpiresAt),

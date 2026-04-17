@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
@@ -105,7 +106,7 @@ func TestHandler_GetRegistration_ReturnsInviteWithCode(t *testing.T) {
 	var created httpapi.PendingRegistration
 	is.NoErr(json.NewDecoder(w.Body).Decode(&created))
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/registrations/"+created.Id, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/registrations/"+strconv.FormatInt(created.Id, 10), nil)
 	req.AddCookie(cookie)
 	w2 := httptest.NewRecorder()
 	ts.HTTPServer.ServeHTTP(w2, req)
@@ -128,14 +129,14 @@ func TestHandler_DeleteRegistration_InvalidatesPendingInvite(t *testing.T) {
 	var created httpapi.PendingRegistration
 	is.NoErr(json.NewDecoder(w.Body).Decode(&created))
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/registrations/"+created.Id, nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/registrations/"+strconv.FormatInt(created.Id, 10), nil)
 	req.AddCookie(cookie)
 	w2 := httptest.NewRecorder()
 	ts.HTTPServer.ServeHTTP(w2, req)
 	is.Equal(w2.Code, http.StatusNoContent)
 
 	// Soft delete: the invite still exists but its status is now "invalidated".
-	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/admin/registrations/"+created.Id, nil)
+	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/admin/registrations/"+strconv.FormatInt(created.Id, 10), nil)
 	req2.AddCookie(cookie)
 	w3 := httptest.NewRecorder()
 	ts.HTTPServer.ServeHTTP(w3, req2)
@@ -172,7 +173,7 @@ func TestHandler_ClaimRegistration_SuccessfulClaim(t *testing.T) {
 	is.True(result.ApiKey != "")
 
 	// Verify invite now shows as used
-	req3 := httptest.NewRequest(http.MethodGet, "/api/v1/admin/registrations/"+created.Id, nil)
+	req3 := httptest.NewRequest(http.MethodGet, "/api/v1/admin/registrations/"+strconv.FormatInt(created.Id, 10), nil)
 	req3.AddCookie(cookie)
 	w3 := httptest.NewRecorder()
 	ts.HTTPServer.ServeHTTP(w3, req3)
@@ -228,7 +229,7 @@ func TestHandler_ClaimRegistration_InvalidatedCodeReturns404(t *testing.T) {
 	json.NewDecoder(w.Body).Decode(&created) //nolint:errcheck
 
 	// Invalidate
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/registrations/"+created.Id, nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/registrations/"+strconv.FormatInt(created.Id, 10), nil)
 	req.AddCookie(cookie)
 	ts.HTTPServer.ServeHTTP(httptest.NewRecorder(), req)
 

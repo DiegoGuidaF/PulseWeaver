@@ -320,7 +320,7 @@ func (s *Service) GetEnabledAddressesForDevice(ctx context.Context, deviceID Dev
 // CreateDeviceWithAPIKey creates a new device and assigns it an API key, all within a single
 // transaction. It is the entry point for the registration domain when claiming an invite.
 // Returns the new device ID and the plaintext API key (one-time; never stored after this call).
-func (s *Service) CreateDeviceWithAPIKey(ctx context.Context, name string, ownerID auth.UserID) (int64, string, error) {
+func (s *Service) CreateDeviceWithAPIKey(ctx context.Context, name string, ownerID auth.UserID) (DeviceID, string, error) {
 	var deviceID DeviceID
 	var rawAPIKey string
 
@@ -350,5 +350,5 @@ func (s *Service) CreateDeviceWithAPIKey(ctx context.Context, name string, owner
 	if err != nil {
 		return 0, "", err
 	}
-	return deviceID.Int64(), rawAPIKey, nil
+	return deviceID, rawAPIKey, nil
 }

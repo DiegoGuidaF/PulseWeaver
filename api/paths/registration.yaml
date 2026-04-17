@@ -119,7 +119,7 @@ adminRegistrationById:
         in: path
         required: true
         schema:
-          type: string
+          $ref: '../components/schemas/common.yaml#/ID'
     responses:
       "200":
         description: Registration invite
@@ -154,7 +154,7 @@ adminRegistrationById:
         in: path
         required: true
         schema:
-          type: string
+          $ref: '../components/schemas/common.yaml#/ID'
     responses:
       "204":
         description: Invite deleted
