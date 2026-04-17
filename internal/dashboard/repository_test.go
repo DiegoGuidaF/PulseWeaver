@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
-	"github.com/jmoiron/sqlx"
 	"github.com/matryer/is"
 )
 
-func setupTestRepo(t *testing.T) (*dashboard.Repository, *sqlx.DB) {
+func setupTestRepo(t *testing.T) (*dashboard.Repository, *database.DB) {
 	t.Helper()
 	db, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
@@ -23,13 +23,13 @@ func setupTestRepo(t *testing.T) (*dashboard.Repository, *sqlx.DB) {
 }
 
 // seedAccessLogRow inserts a single row into access_log for testing.
-func seedAccessLogRow(t *testing.T, db *sqlx.DB, clientIP string, targetHost string, outcome bool, denyReason string, createdAt time.Time) {
+func seedAccessLogRow(t *testing.T, db *database.DB, clientIP string, targetHost string, outcome bool, denyReason string, createdAt time.Time) {
 	t.Helper()
 	outcomeInt := 0
 	if outcome {
 		outcomeInt = 1
 	}
-	_, err := db.Exec(`
+	_, err := db.ExecContext(t.Context(), `
 		INSERT INTO access_log (client_ip, target_host, outcome, deny_reason, created_at, headers_json)
 		VALUES (?, ?, ?, ?, ?, '{}')
 	`, clientIP, targetHost, outcomeInt, denyReason, createdAt.UTC())

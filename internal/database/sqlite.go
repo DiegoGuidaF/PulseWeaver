@@ -18,7 +18,9 @@ import (
 var migrationsFS embed.FS
 
 type SQLite struct {
-	db *sqlx.DB
+	pool *sqlx.DB
+	db   *DB
+	tx   *Transactor
 }
 
 const dbFileName = "data.db"
@@ -36,15 +38,15 @@ func NewSQLite(dbConf config.ConfDB) (*SQLite, error) {
 		dsn = "file:" + dbPath + "?_time_format=sqlite&_texttotime=1&_timezone=UTC"
 	}
 
-	db, err := sqlx.Connect("sqlite", dsn)
+	pool, err := sqlx.Connect("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
 	// Connection pool settings (SQLite handles 1 writer at a time)
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-	db.SetConnMaxLifetime(0) // Reuse connections indefinitely (SQLite is file-based)
+	pool.SetMaxOpenConns(1)
+	pool.SetMaxIdleConns(1)
+	pool.SetConnMaxLifetime(0) // Reuse connections indefinitely (SQLite is file-based)
 
 	// SQLite-specific pragmas
 	pragmas := []string{
@@ -55,27 +57,34 @@ func NewSQLite(dbConf config.ConfDB) (*SQLite, error) {
 		"PRAGMA cache_size = -64000",
 	}
 
+	//TODO: These pragmas are only set on this first connection. If Max connections is >1, a hook should be done instead
 	for _, pragma := range pragmas {
-		if _, err := db.Exec(pragma); err != nil {
-			_ = db.Close()
+		if _, err := pool.Exec(pragma); err != nil {
+			_ = pool.Close()
 			return nil, fmt.Errorf("exec %q: %w", pragma, err)
 		}
 	}
 
-	return &SQLite{db: db}, nil
+	return &SQLite{
+		pool: pool,
+		db:   newDB(pool),
+		tx:   NewTransactor(pool),
+	}, nil
 }
 
-func (s *SQLite) DB() *sqlx.DB {
+func (s *SQLite) DB() *DB {
 	return s.db
 }
 
+func (s *SQLite) Transactor() *Transactor { return s.tx }
+
 func (s *SQLite) Close() error {
-	return s.db.Close()
+	return s.pool.Close()
 }
 
 func (s *SQLite) Migrate() error {
 	// Create sqlite driver instance
-	driver, err := sqlite.WithInstance(s.db.DB, &sqlite.Config{NoTxWrap: true})
+	driver, err := sqlite.WithInstance(s.pool.DB, &sqlite.Config{NoTxWrap: true})
 	if err != nil {
 		return fmt.Errorf("create driver: %w", err)
 	}

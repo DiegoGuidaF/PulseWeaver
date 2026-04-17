@@ -2,31 +2,21 @@ package dashboard
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
-	"github.com/jmoiron/sqlx"
 )
 
 // Repository provides both read and write access to traffic aggregates.
 type Repository struct {
-	db     dbInterface
-	rootDB *sqlx.DB
+	db *database.DB
 }
 
-type dbInterface interface {
-	sqlx.ExtContext
-	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-}
-
-func NewRepository(db *sqlx.DB) *Repository {
+func NewRepository(db *database.DB) *Repository {
 	return &Repository{
-		rootDB: db,
-		db:     db,
+		db: db,
 	}
 }
 

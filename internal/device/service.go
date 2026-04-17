@@ -29,7 +29,10 @@ type repository interface {
 	GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error)
 	GetAddressHistory(ctx context.Context, query AddressHistoryQuery) (AddressHistory, error)
 	GetEnabledAddressesForDevice(ctx context.Context, deviceID DeviceID) ([]Address, error)
-	RunInTx(ctx context.Context, fn func(repository) error) error
+}
+
+type transactor interface {
+	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
 type AddressObserver interface {
@@ -38,14 +41,16 @@ type AddressObserver interface {
 
 type Service struct {
 	repo         repository
+	tx           transactor
 	observers    []AddressObserver
 	logger       *slog.Logger
 	trustedProxy netip.Addr
 }
 
-func NewService(repo repository, logger *slog.Logger, trustedProxy netip.Addr) *Service {
+func NewService(repo repository, transactor transactor, logger *slog.Logger, trustedProxy netip.Addr) *Service {
 	s := &Service{
 		repo:         repo,
+		tx:           transactor,
 		logger:       logger.With(slog.String(logging.AttrKeyComponent, "device")),
 		trustedProxy: trustedProxy,
 	}
@@ -166,17 +171,17 @@ func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID DeviceID
 	var address *Address
 	var eventType EventType
 
-	err = s.repo.RunInTx(ctx, func(tx repository) error {
-		_, err := tx.GetDevice(ctx, deviceID)
+	err = s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		_, err := s.repo.GetDevice(ctx, deviceID)
 		if err != nil {
 			return err
 		}
 
-		existingAddress, err := tx.GetAddressForDeviceByIP(ctx, deviceID, createAddressParams.IP)
+		existingAddress, err := s.repo.GetAddressForDeviceByIP(ctx, deviceID, createAddressParams.IP)
 		if err != nil {
 			if errors.Is(err, ErrAddressNotFound) {
 				eventType = EventTypeAddressCreated
-				address, err = tx.CreateAddress(ctx, createAddressParams, source)
+				address, err = s.repo.CreateAddress(ctx, createAddressParams, source)
 				if err != nil {
 					return err
 				}
@@ -188,10 +193,10 @@ func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID DeviceID
 		switch {
 		case !existingAddress.IsEnabled:
 			eventType = EventTypeAddressEnabled
-			address, err = tx.EnableAddress(ctx, existingAddress.ID, source)
+			address, err = s.repo.EnableAddress(ctx, existingAddress.ID, source)
 		case existingAddress.IsEnabled:
 			eventType = EventTypeAddressRefreshed
-			address, err = tx.RefreshAddress(ctx, existingAddress.ID, source)
+			address, err = s.repo.RefreshAddress(ctx, existingAddress.ID, source)
 		}
 		if err != nil {
 			return err
@@ -216,18 +221,18 @@ func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID DeviceID
 func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, addressID AddressID) (*Address, error) {
 	var disabledAddress *Address
 
-	err := s.repo.RunInTx(ctx, func(tx repository) error {
-		_, err := tx.GetDevice(ctx, deviceID)
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		_, err := s.repo.GetDevice(ctx, deviceID)
 		if err != nil {
 			return err
 		}
 
-		err = tx.CheckAddressOwnership(ctx, deviceID, addressID)
+		err = s.repo.CheckAddressOwnership(ctx, deviceID, addressID)
 		if err != nil {
 			return err
 		}
 
-		disabledAddress, err = tx.DisableAddress(ctx, addressID)
+		disabledAddress, err = s.repo.DisableAddress(ctx, addressID)
 		if err != nil {
 			return err
 		}
@@ -272,18 +277,18 @@ func (s *Service) RegenerateAPIKey(ctx context.Context, deviceID DeviceID) (*Dev
 	}
 
 	var device *Device
-	err = s.repo.RunInTx(ctx, func(tx repository) error {
+	err = s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		var err error
 		// Validate device exists (also checks deleted_at) inside the transaction
 		// so the existence check and key upsert are atomic.
-		if _, err = tx.GetDevice(ctx, deviceID); err != nil {
+		if _, err = s.repo.GetDevice(ctx, deviceID); err != nil {
 			return err
 		}
-		if err = tx.UpsertAPIKey(ctx, deviceID, keyHash, keyPrefix); err != nil {
+		if err = s.repo.UpsertAPIKey(ctx, deviceID, keyHash, keyPrefix); err != nil {
 			return err
 		}
 		// Fetch fresh device inside the transaction so KeyPrefix reflects the upsert.
-		device, err = tx.GetDevice(ctx, deviceID)
+		device, err = s.repo.GetDevice(ctx, deviceID)
 		return err
 	})
 	if err != nil {
@@ -294,12 +299,12 @@ func (s *Service) RegenerateAPIKey(ctx context.Context, deviceID DeviceID) (*Dev
 }
 
 func (s *Service) DeleteAPIKey(ctx context.Context, deviceID DeviceID) error {
-	err := s.repo.RunInTx(ctx, func(tx repository) error {
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		// Validate device exists before attempting key deletion.
-		if _, err := tx.GetDevice(ctx, deviceID); err != nil {
+		if _, err := s.repo.GetDevice(ctx, deviceID); err != nil {
 			return err
 		}
-		return tx.DeleteAPIKey(ctx, deviceID)
+		return s.repo.DeleteAPIKey(ctx, deviceID)
 	})
 	if err != nil {
 		return err
@@ -324,13 +329,13 @@ func (s *Service) CreateDeviceWithAPIKey(ctx context.Context, name string, owner
 	var deviceID DeviceID
 	var rawAPIKey string
 
-	err := s.repo.RunInTx(ctx, func(txRepo repository) error {
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		rawKey, keyHash, keyPrefix, err := GenerateAPIKey()
 		if err != nil {
 			return fmt.Errorf("generate api key: %w", err)
 		}
 
-		dev, err := txRepo.CreateDevice(ctx, CreateDeviceParams{
+		dev, err := s.repo.CreateDevice(ctx, CreateDeviceParams{
 			Name:       name,
 			OwnerID:    ownerID,
 			DeviceType: "mobile",
@@ -339,7 +344,7 @@ func (s *Service) CreateDeviceWithAPIKey(ctx context.Context, name string, owner
 			return err
 		}
 
-		if err := txRepo.UpsertAPIKey(ctx, dev.ID, keyHash, keyPrefix); err != nil {
+		if err := s.repo.UpsertAPIKey(ctx, dev.ID, keyHash, keyPrefix); err != nil {
 			return err
 		}
 

@@ -63,7 +63,7 @@ func TestMigrations_DownToZeroAndBackUp(t *testing.T) {
 	}
 
 	// Re-create the migrator against the same DB so we can exercise Down().
-	driver, err := sqlite.WithInstance(sqliteDB.DB().DB, &sqlite.Config{NoTxWrap: true})
+	driver, err := sqlite.WithInstance(sqliteDB.DB().pool.DB, &sqlite.Config{NoTxWrap: true})
 	if err != nil {
 		t.Fatalf("create driver: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestMigrations_FinalMigration_WithData(t *testing.T) {
 		t.Fatalf("Migrate (up): %v", err)
 	}
 
-	driver, err := sqlite.WithInstance(sqliteDB.DB().DB, &sqlite.Config{NoTxWrap: true})
+	driver, err := sqlite.WithInstance(sqliteDB.DB().pool.DB, &sqlite.Config{NoTxWrap: true})
 	if err != nil {
 		t.Fatalf("create driver: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestMigrations_FinalMigration_WithData(t *testing.T) {
 
 	// Verify seed data survived intact.
 	var count int
-	if err := sqliteDB.DB().Get(&count, `SELECT COUNT(*) FROM devices WHERE name = 'seed-router'`); err != nil {
+	if err := sqliteDB.DB().GetContext(t.Context(), &count, `SELECT COUNT(*) FROM devices WHERE name = 'seed-router'`); err != nil {
 		t.Fatalf("verify seed device: %v", err)
 	}
 	if count != 1 {
@@ -162,7 +162,7 @@ func TestMigrations_FinalMigration_WithData(t *testing.T) {
 // valid for the penultimate schema version (after Steps(-1)).
 func seedBeforeLatestMigration(t *testing.T, db *SQLite) {
 	t.Helper()
-	if _, err := db.DB().Exec(migrationTestSeedSQL); err != nil {
+	if _, err := db.DB().ExecContext(t.Context(), migrationTestSeedSQL); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 }

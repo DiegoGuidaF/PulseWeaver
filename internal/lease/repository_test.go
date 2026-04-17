@@ -9,31 +9,31 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
-	"github.com/jmoiron/sqlx"
 	"github.com/matryer/is"
 )
 
-func setupLeaseTestDB(t *testing.T) (*lease.Repository, *sqlx.DB) {
+func setupLeaseTestDB(t *testing.T) (*lease.Repository, *database.DB) {
 	t.Helper()
 	db, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
 	return lease.NewRepository(db.DB()), db.DB()
 }
 
-func ensureTestOwner(t *testing.T, db *sqlx.DB) auth.UserID {
+func ensureTestOwner(t *testing.T, db *database.DB) auth.UserID {
 	t.Helper()
-	_, _ = db.Exec(`INSERT OR IGNORE INTO users (username, display_name, password_hash, role) VALUES ('testowner', 'Test Owner', 'x', 'admin')`)
+	_, _ = db.ExecContext(t.Context(), `INSERT OR IGNORE INTO users (username, display_name, password_hash, role) VALUES ('testowner', 'Test Owner', 'x', 'admin')`)
 	var id auth.UserID
-	if err := db.QueryRowx(`SELECT id FROM users WHERE username = 'testowner'`).Scan(&id); err != nil {
+	if err := db.QueryRowxContext(t.Context(), `SELECT id FROM users WHERE username = 'testowner'`).Scan(&id); err != nil {
 		t.Fatalf("ensureTestOwner: %v", err)
 	}
 	return id
 }
 
-func insertDevice(t *testing.T, db *sqlx.DB, name string) *device.Device {
+func insertDevice(t *testing.T, db *database.DB, name string) *device.Device {
 	t.Helper()
 	ownerID := ensureTestOwner(t, db)
 	dev, err := device.NewRepository(db).CreateDevice(context.Background(), device.CreateDeviceParams{Name: name, OwnerID: ownerID})
@@ -43,7 +43,7 @@ func insertDevice(t *testing.T, db *sqlx.DB, name string) *device.Device {
 	return dev
 }
 
-func insertAddress(t *testing.T, db *sqlx.DB, deviceID device.DeviceID, ip string) *device.Address {
+func insertAddress(t *testing.T, db *database.DB, deviceID device.DeviceID, ip string) *device.Address {
 	t.Helper()
 	params, err := device.NewCreateAddressParams(deviceID, ip, netip.Addr{})
 	if err != nil {

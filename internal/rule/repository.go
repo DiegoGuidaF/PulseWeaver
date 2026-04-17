@@ -9,28 +9,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
-	"github.com/jmoiron/sqlx"
 )
-
-type dBInterface interface {
-	sqlx.ExtContext
-	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-}
 
 // Repository provides SQL-backed persistence for device rules.
 type Repository struct {
-	db     dBInterface
-	rootDB *sqlx.DB
+	db *database.DB
 }
 
 // NewRepository creates a new Repository backed by the given sqlx.DB.
-func NewRepository(db *sqlx.DB) *Repository {
+func NewRepository(db *database.DB) *Repository {
 	return &Repository{
-		db:     db,
-		rootDB: db,
+		db: db,
 	}
 }
 

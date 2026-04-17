@@ -7,14 +7,14 @@ import (
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
-	"github.com/jmoiron/sqlx"
 	"github.com/matryer/is"
 )
 
-func setupRuleTestDB(t *testing.T) (*rule.Repository, *sqlx.DB) {
+func setupRuleTestDB(t *testing.T) (*rule.Repository, *database.DB) {
 	t.Helper()
 	db, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
@@ -22,7 +22,7 @@ func setupRuleTestDB(t *testing.T) (*rule.Repository, *sqlx.DB) {
 	return rule.NewRepository(sqlDB), sqlDB
 }
 
-func ensureTestOwner(t *testing.T, db *sqlx.DB, ctx context.Context) auth.UserID {
+func ensureTestOwner(t *testing.T, db *database.DB, ctx context.Context) auth.UserID {
 	t.Helper()
 	_, _ = db.ExecContext(ctx, `INSERT OR IGNORE INTO users (username, display_name, password_hash, role) VALUES ('testowner', 'Test Owner', 'x', 'admin')`)
 	var id auth.UserID
@@ -32,7 +32,7 @@ func ensureTestOwner(t *testing.T, db *sqlx.DB, ctx context.Context) auth.UserID
 	return id
 }
 
-func insertDevice(t *testing.T, db *sqlx.DB, ctx context.Context, name string) *device.Device {
+func insertDevice(t *testing.T, db *database.DB, ctx context.Context, name string) *device.Device {
 	t.Helper()
 	ownerID := ensureTestOwner(t, db, ctx)
 	devRepo := device.NewRepository(db)

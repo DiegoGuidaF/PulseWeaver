@@ -5,31 +5,20 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/netip"
 	"strings"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
-	"github.com/jmoiron/sqlx"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 )
 
 type Repository struct {
-	db     dBInterface
-	rootDB *sqlx.DB
+	db *database.DB
 }
 
-type dBInterface interface {
-	sqlx.ExtContext
-	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-}
-
-func NewRepository(db *sqlx.DB) *Repository {
+func NewRepository(db *database.DB) *Repository {
 	return &Repository{
-		rootDB: db,
-		db:     db,
+		db: db,
 	}
 }
 
@@ -126,7 +115,7 @@ func (r *Repository) DeleteAPIKey(ctx context.Context, deviceID DeviceID) error 
 func (r *Repository) CreateAddress(ctx context.Context, params CreateAddressParams, source EventSource) (*Address, error) {
 	var address *Address
 
-	err := r.runInTx(ctx, func(tx *Repository) error {
+	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
 		now := time.Now().UTC()
 
 		query := `
@@ -134,16 +123,16 @@ func (r *Repository) CreateAddress(ctx context.Context, params CreateAddressPara
 		VALUES (?, ?, ?, ?, ?, ?) RETURNING id
 	`
 		var addressID AddressID
-		err := tx.db.GetContext(ctx, &addressID, query, params.DeviceID, params.IP.String(), true, source, now, now)
+		err := r.db.GetContext(ctx, &addressID, query, params.DeviceID, params.IP.String(), true, source, now, now)
 		if err != nil {
 			return err
 		}
 
-		if err := tx.insertAddressEvent(ctx, addressID, true, source, now); err != nil {
+		if err := r.insertAddressEvent(ctx, addressID, true, source, now); err != nil {
 			return err
 		}
 
-		address, err = tx.GetAddress(ctx, addressID)
+		address, err = r.GetAddress(ctx, addressID)
 		if err != nil {
 			return err
 		}
@@ -363,9 +352,9 @@ func (r *Repository) DisableAddresses(ctx context.Context, addressIDs []AddressI
 
 	disabledAddresses := make([]Address, len(addressIDs))
 
-	err := r.runInTx(ctx, func(tx *Repository) error {
+	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
 		for i, addressID := range addressIDs {
-			disabledAddress, err := tx.recordAddressEvent(ctx, addressID, false, source)
+			disabledAddress, err := r.recordAddressEvent(ctx, addressID, false, source)
 			if err != nil {
 				return fmt.Errorf("failed to disable address %d: %w", addressID, err)
 			}
@@ -405,10 +394,10 @@ func (r *Repository) insertAddressEvent(ctx context.Context, addressID AddressID
 
 func (r *Repository) recordAddressEvent(ctx context.Context, addressID AddressID, isEnabled bool, source EventSource) (*Address, error) {
 	var finalAddress *Address
-	err := r.runInTx(ctx, func(tx *Repository) error {
+	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
 		now := time.Now().UTC()
 
-		if err := tx.insertAddressEvent(ctx, addressID, isEnabled, source, now); err != nil {
+		if err := r.insertAddressEvent(ctx, addressID, isEnabled, source, now); err != nil {
 			return err
 		}
 
@@ -416,12 +405,12 @@ func (r *Repository) recordAddressEvent(ctx context.Context, addressID AddressID
 		UPDATE addresses SET is_enabled = ?, source = ?, updated_at = ? WHERE id = ?
 	`
 
-		if _, err := tx.db.ExecContext(ctx, updateState, isEnabled, source, now, addressID); err != nil {
+		if _, err := r.db.ExecContext(ctx, updateState, isEnabled, source, now, addressID); err != nil {
 			return fmt.Errorf("failed to update address state: %w", err)
 		}
 
 		var err error
-		finalAddress, err = tx.GetAddress(ctx, addressID)
+		finalAddress, err = r.GetAddress(ctx, addressID)
 		if err != nil {
 			return fmt.Errorf("failed to get address current state: %w", err)
 		}
@@ -600,52 +589,4 @@ func (r *Repository) GetAddressHistory(ctx context.Context, q AddressHistoryQuer
 		Events:      events,
 		TotalEvents: totalEvents,
 	}, nil
-}
-
-// RunInTx runs the callback function inside a transaction.
-// If already running in a transaction context, do not create a new one and reuse it
-func (r *Repository) runInTx(ctx context.Context, fn func(*Repository) error) error {
-	logger := slog.Default()
-	if r.rootDB == nil {
-		// We are already in a transaction. Do not nest it.
-		return fn(r)
-	}
-
-	// Start the transaction
-	tx, err := r.rootDB.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	// Defer rollback (standard practice)
-	defer func() {
-		//nolint:staticcheck // Empty branch is intentional - ErrTxDone is expected after commit
-		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
-			// Rollback error is only significant if transaction wasn't already committed/rolled back
-			logger.Error("failed to rollback transaction", slog.Any(logging.AttrKeyError, err))
-		}
-	}()
-
-	// Create a COPY of the repository
-	// We replace 'db' with the transaction 'tx' and set the rootDB to nil so that it is not reused
-	txRepo := &Repository{
-		rootDB: nil, // Prevent nested transactions
-		db:     tx,  // All queries using txRepo.dbtmp will now use this transaction
-	}
-
-	// Run the business logic with the transactional repo
-	if err := fn(txRepo); err != nil {
-		return err
-	}
-
-	// Commit if successful
-	return tx.Commit()
-}
-
-// RunInTx runs the callback function inside a transaction.
-// If already running in a transaction context, do not create a new one and reuse it
-func (r *Repository) RunInTx(ctx context.Context, fn func(repository) error) error {
-	return r.runInTx(ctx, func(repo *Repository) error {
-		return fn(repo)
-	})
 }

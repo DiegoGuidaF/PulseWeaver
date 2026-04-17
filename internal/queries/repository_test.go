@@ -8,11 +8,11 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
-	"github.com/jmoiron/sqlx"
 	"github.com/matryer/is"
 )
 
@@ -22,7 +22,7 @@ type testRepos struct {
 	devices     *device.Repository
 	leases      *lease.Repository
 	accessLog   *accesslog.Repository
-	db          *sqlx.DB
+	db          *database.DB
 	testOwnerID auth.UserID
 }
 
@@ -37,7 +37,8 @@ func setupRepos(t *testing.T) testRepos {
 
 	// Insert a test owner user (all devices need an owner since migration 000010).
 	var ownerID auth.UserID
-	err := sqlxDB.QueryRowx(
+	err := sqlxDB.QueryRowxContext(
+		t.Context(),
 		`INSERT INTO users (username, display_name, password_hash, role) VALUES ('testadmin', 'Test Admin', 'x', 'admin') RETURNING id`,
 	).Scan(&ownerID)
 	if err != nil {

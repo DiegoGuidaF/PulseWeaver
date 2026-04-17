@@ -7,25 +7,16 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 )
 
 type Repository struct {
-	db     dBInterface
-	rootDB *sqlx.DB
+	db *database.DB
 }
 
-type dBInterface interface {
-	sqlx.ExtContext
-	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-}
-
-func NewRepository(db *sqlx.DB) *Repository {
+func NewRepository(db *database.DB) *Repository {
 	return &Repository{
-		rootDB: db,
-		db:     db,
+		db: db,
 	}
 }
 
@@ -270,40 +261,6 @@ func (r *Repository) RevokeSessionByID(ctx context.Context, id SessionID) error 
 	}
 
 	return nil
-}
-
-// RunInTx runs the callback function inside a transaction.
-// If already running in a transaction context, do not create a new one and reuse it
-func (r *Repository) RunInTx(ctx context.Context, fn func(repository) error) error {
-	if r.rootDB == nil {
-		// We are already in a transaction. Do not nest it.
-		return fn(r)
-	}
-
-	// Start the transaction
-	tx, err := r.rootDB.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		//nolint:staticcheck // Empty branch is intentional - ErrTxDone is expected after commit
-		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
-			// Rollback error is only significant if transaction wasn't already committed/rolled back
-		}
-	}()
-
-	// Copy of the repository without rootDB so we can't do nested transactions
-	txRepo := &Repository{
-		rootDB: nil,
-		db:     tx,
-	}
-
-	// Run function
-	if err := fn(txRepo); err != nil {
-		return err
-	}
-
-	return tx.Commit()
 }
 
 func mapUserCreationUniqueConstraintError(err error) (error, bool) {

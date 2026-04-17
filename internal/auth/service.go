@@ -34,16 +34,22 @@ type repository interface {
 	RevokeSessionByID(ctx context.Context, id SessionID) error
 	RevokeAllUserSessions(ctx context.Context, userID UserID) error
 	RevokeAllUserSessionsExcept(ctx context.Context, userID UserID, exceptSessionID SessionID) error
-	RunInTx(ctx context.Context, fn func(repository) error) error
 }
+
+type transactor interface {
+	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
 type Service struct {
 	repo   repository
+	tx     transactor
 	logger *slog.Logger
 }
 
-func NewService(repo repository, logger *slog.Logger) *Service {
+func NewService(repo repository, tx transactor, logger *slog.Logger) *Service {
 	return &Service{
 		repo:   repo,
+		tx:     tx,
 		logger: logger.With(slog.String(logging.AttrKeyComponent, "auth")),
 	}
 }
@@ -52,9 +58,9 @@ func (s *Service) Login(ctx context.Context, username string, password string) (
 	var rawToken string
 	var user *User
 
-	err := s.repo.RunInTx(ctx, func(tx repository) error {
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		var err error
-		user, err = tx.GetUserByUsername(ctx, username)
+		user, err = s.repo.GetUserByUsername(ctx, username)
 		if err != nil {
 			return err
 		}
@@ -69,7 +75,7 @@ func (s *Service) Login(ctx context.Context, username string, password string) (
 			return err
 		}
 
-		_, err = tx.CreateSession(ctx, new(NewSession(user.ID, tokenHash)))
+		_, err = s.repo.CreateSession(ctx, new(NewSession(user.ID, tokenHash)))
 		if err != nil {
 			return err
 		}
@@ -136,8 +142,8 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (*Principal
 func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) error {
 	password := conf.AdminPassword
 
-	err := s.repo.RunInTx(ctx, func(tx repository) error {
-		count, err := tx.CountAdminUsers(ctx)
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		count, err := s.repo.CountAdminUsers(ctx)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "database error counting admins", slog.Any(AttrKeyError, err))
 			return err
@@ -157,7 +163,8 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 		if err != nil {
 			return err
 		}
-		user, err := s.createUser(tx, ctx, &newUser)
+		//TODO: This could be improved maybe with the new transaction management via context
+		user, err := s.createUser(s.repo, ctx, &newUser)
 		if err != nil {
 			return fmt.Errorf("failed to bootstrap admin: %w", err)
 		}
@@ -188,8 +195,8 @@ type ProfileUpdates struct {
 func (s *Service) UpdateOwnProfile(ctx context.Context, userID UserID, updates ProfileUpdates) (*User, error) {
 	var updatedUser *User
 
-	err := s.repo.RunInTx(ctx, func(tx repository) error {
-		user, err := tx.GetUserByID(ctx, userID)
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		user, err := s.repo.GetUserByID(ctx, userID)
 		if err != nil {
 			return err
 		}
@@ -199,7 +206,7 @@ func (s *Service) UpdateOwnProfile(ctx context.Context, userID UserID, updates P
 			return err
 		}
 
-		updatedUser, err = tx.UpdateUser(ctx, user)
+		updatedUser, err = s.repo.UpdateUser(ctx, user)
 		if err != nil {
 			return err
 		}
@@ -214,8 +221,9 @@ func (s *Service) UpdateOwnProfile(ctx context.Context, userID UserID, updates P
 }
 
 func (s *Service) ChangePassword(ctx context.Context, userID UserID, sessionID SessionID, currentPassword string, newPassword string) error {
-	return s.repo.RunInTx(ctx, func(tx repository) error {
-		user, err := tx.GetUserByID(ctx, userID)
+	return s.tx.WithinTx(ctx, func(ctx context.Context) error {
+
+		user, err := s.repo.GetUserByID(ctx, userID)
 		if err != nil {
 			return err
 		}
@@ -224,7 +232,7 @@ func (s *Service) ChangePassword(ctx context.Context, userID UserID, sessionID S
 			return ErrInvalidCredentials
 		}
 
-		err = validatePassword(newPassword)
+		err = ValidatePassword(newPassword)
 		if err != nil {
 			return err
 		}
@@ -233,12 +241,12 @@ func (s *Service) ChangePassword(ctx context.Context, userID UserID, sessionID S
 			return fmt.Errorf("hashing failed: %w", err)
 		}
 
-		err = tx.UpdatePasswordHash(ctx, userID, newPasswordHash)
+		err = s.repo.UpdatePasswordHash(ctx, userID, newPasswordHash)
 		if err != nil {
 			return err
 		}
 
-		err = tx.RevokeAllUserSessionsExcept(ctx, userID, sessionID)
+		err = s.repo.RevokeAllUserSessionsExcept(ctx, userID, sessionID)
 		if err != nil {
 			return err
 		}
@@ -258,14 +266,14 @@ func (s *Service) PromoteUser(ctx context.Context, principal *Principal, targetI
 		return nil, ErrSelfRoleChangeForbidden
 	}
 
-	err := s.repo.RunInTx(ctx, func(tx repository) error {
-		target, err := tx.GetUserByID(ctx, targetID)
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		target, err := s.repo.GetUserByID(ctx, targetID)
 		if err != nil {
 			return err
 		}
 
 		target.Role = AdminRole
-		updatedUser, err = tx.UpdateUser(ctx, target)
+		updatedUser, err = s.repo.UpdateUser(ctx, target)
 		return err
 	})
 	if err != nil {
@@ -286,14 +294,14 @@ func (s *Service) DemoteUser(ctx context.Context, principal *Principal, targetID
 		return nil, ErrSelfRoleChangeForbidden
 	}
 
-	err := s.repo.RunInTx(ctx, func(tx repository) error {
-		target, err := tx.GetUserByID(ctx, targetID)
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		target, err := s.repo.GetUserByID(ctx, targetID)
 		if err != nil {
 			return err
 		}
 
 		target.Role = UserRole
-		updatedUser, err = tx.UpdateUser(ctx, target)
+		updatedUser, err = s.repo.UpdateUser(ctx, target)
 		return err
 	})
 	if err != nil {
@@ -313,19 +321,19 @@ func (s *Service) DeleteUser(ctx context.Context, principal *Principal, targetID
 		return ErrSelfDeleteForbidden
 	}
 
-	err := s.repo.RunInTx(ctx, func(tx repository) error {
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		// Ensure user to delete exists and is valid
-		_, err := tx.GetUserByID(ctx, targetID)
+		_, err := s.repo.GetUserByID(ctx, targetID)
 		if err != nil {
 			return err
 		}
 
-		err = tx.RevokeAllUserSessions(ctx, targetID)
+		err = s.repo.RevokeAllUserSessions(ctx, targetID)
 		if err != nil {
 			return err
 		}
 
-		err = tx.SoftDeleteUser(ctx, targetID)
+		err = s.repo.SoftDeleteUser(ctx, targetID)
 		if err != nil {
 			return err
 		}
@@ -338,7 +346,7 @@ func (s *Service) DeleteUser(ctx context.Context, principal *Principal, targetID
 }
 
 func (s *Service) createUser(tx repository, ctx context.Context, newUser *User) (*User, error) {
-	user, err := tx.CreateUser(ctx, newUser)
+	user, err := s.repo.CreateUser(ctx, newUser)
 	if err != nil {
 		return nil, err
 	}

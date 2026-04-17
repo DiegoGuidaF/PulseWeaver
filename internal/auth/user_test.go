@@ -1,11 +1,12 @@
 //go:build test
 
-package auth
+package auth_test
 
 import (
 	"errors"
 	"testing"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/matryer/is"
 )
 
@@ -16,7 +17,7 @@ func TestNewUser_ValidInputs(t *testing.T) {
 		displayName string
 		email       string
 		password    string
-		role        Role
+		role        auth.Role
 	}{
 		{
 			name:        "valid user with email",
@@ -24,7 +25,7 @@ func TestNewUser_ValidInputs(t *testing.T) {
 			displayName: "John Doe",
 			email:       "john@example.com",
 			password:    "Password123",
-			role:        UserRole,
+			role:        auth.UserRole,
 		},
 		{
 			name:        "valid user without email",
@@ -32,7 +33,7 @@ func TestNewUser_ValidInputs(t *testing.T) {
 			displayName: "Jane Doe",
 			email:       "",
 			password:    "Password123",
-			role:        UserRole,
+			role:        auth.UserRole,
 		},
 		{
 			name:        "valid admin user",
@@ -40,14 +41,14 @@ func TestNewUser_ValidInputs(t *testing.T) {
 			displayName: "Admin User",
 			email:       "",
 			password:    "AdminPass123!",
-			role:        AdminRole,
+			role:        auth.AdminRole,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			user, err := NewUser(tt.username, tt.displayName, tt.email, tt.password, tt.role, nil)
+			user, err := auth.NewUser(tt.username, tt.displayName, tt.email, tt.password, tt.role, nil)
 			is.NoErr(err)
 			is.Equal(user.Username, tt.username)
 			is.Equal(user.DisplayName, tt.displayName)
@@ -71,21 +72,21 @@ func TestNewUser_InvalidUsername(t *testing.T) {
 			username:    "ab",
 			displayName: "Test User",
 			password:    "Password123",
-			wantErr:     ErrInvalidUsername,
+			wantErr:     auth.ErrInvalidUsername,
 		},
 		{
 			name:        "username too long",
 			username:    "this_is_a_very_long_username_that_exceeds_limit",
 			displayName: "Test User",
 			password:    "Password123",
-			wantErr:     ErrInvalidUsername,
+			wantErr:     auth.ErrInvalidUsername,
 		},
 		{
 			name:        "username with invalid characters",
 			username:    "john.doe",
 			displayName: "Test User",
 			password:    "Password123",
-			wantErr:     ErrInvalidUsername,
+			wantErr:     auth.ErrInvalidUsername,
 		},
 		{
 			name:        "username with uppercase normalized to lowercase",
@@ -106,7 +107,7 @@ func TestNewUser_InvalidUsername(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			user, err := NewUser(tt.username, tt.displayName, "", tt.password, UserRole, nil)
+			user, err := auth.NewUser(tt.username, tt.displayName, "", tt.password, auth.UserRole, nil)
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))
@@ -133,14 +134,14 @@ func TestNewUser_InvalidDisplayName(t *testing.T) {
 			username:    "testuser",
 			displayName: "",
 			password:    "Password123",
-			wantErr:     ErrInvalidDisplayName,
+			wantErr:     auth.ErrInvalidDisplayName,
 		},
 		{
 			name:        "display name too long",
 			username:    "testuser",
 			displayName: "This is a very long display name that exceeds the maximum allowed length of fifty characters",
 			password:    "Password123",
-			wantErr:     ErrInvalidDisplayName,
+			wantErr:     auth.ErrInvalidDisplayName,
 		},
 		{
 			name:        "display name with whitespace trimmed",
@@ -154,7 +155,7 @@ func TestNewUser_InvalidDisplayName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			user, err := NewUser(tt.username, tt.displayName, "", tt.password, UserRole, nil)
+			user, err := auth.NewUser(tt.username, tt.displayName, "", tt.password, auth.UserRole, nil)
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))
@@ -182,14 +183,14 @@ func TestNewUser_InvalidPassword(t *testing.T) {
 			username:    "testuser",
 			displayName: "Test User",
 			password:    "Pass1",
-			wantErr:     ErrInvalidPassword,
+			wantErr:     auth.ErrInvalidPassword,
 		},
 		{
 			name:        "password too long",
 			username:    "testuser",
 			displayName: "Test User",
 			password:    "ThisPasswordIsLongerThanSeventyTwoCharacters0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-			wantErr:     ErrInvalidPassword,
+			wantErr:     auth.ErrInvalidPassword,
 		},
 		{
 			name:        "valid password minimum length",
@@ -210,7 +211,7 @@ func TestNewUser_InvalidPassword(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			user, err := NewUser(tt.username, tt.displayName, "", tt.password, UserRole, nil)
+			user, err := auth.NewUser(tt.username, tt.displayName, "", tt.password, auth.UserRole, nil)
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))
@@ -263,32 +264,32 @@ func TestValidateUsername(t *testing.T) {
 			name:     "too short",
 			username: "ab",
 			want:     "",
-			wantErr:  ErrInvalidUsername,
+			wantErr:  auth.ErrInvalidUsername,
 		},
 		{
 			name:     "too long",
 			username: "this_is_a_very_long_username_that_exceeds_limit",
 			want:     "",
-			wantErr:  ErrInvalidUsername,
+			wantErr:  auth.ErrInvalidUsername,
 		},
 		{
 			name:     "invalid characters dot",
 			username: "john.doe",
 			want:     "",
-			wantErr:  ErrInvalidUsername,
+			wantErr:  auth.ErrInvalidUsername,
 		},
 		{
 			name:     "invalid characters space",
 			username: "john doe",
 			want:     "",
-			wantErr:  ErrInvalidUsername,
+			wantErr:  auth.ErrInvalidUsername,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			got, err := validateUsername(tt.username)
+			got, err := auth.ValidateUsername(tt.username)
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))
@@ -335,20 +336,20 @@ func TestValidateDisplayName(t *testing.T) {
 			name:        "empty after trim",
 			displayName: "   ",
 			want:        "",
-			wantErr:     ErrInvalidDisplayName,
+			wantErr:     auth.ErrInvalidDisplayName,
 		},
 		{
 			name:        "too long",
 			displayName: "This is a very long display name that exceeds the maximum allowed length of fifty characters",
 			want:        "",
-			wantErr:     ErrInvalidDisplayName,
+			wantErr:     auth.ErrInvalidDisplayName,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			got, err := validateDisplayName(tt.displayName)
+			got, err := auth.ValidateDisplayName(tt.displayName)
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))
@@ -379,12 +380,12 @@ func TestValidatePassword(t *testing.T) {
 		{
 			name:     "too short",
 			password: "Pass1",
-			wantErr:  ErrInvalidPassword,
+			wantErr:  auth.ErrInvalidPassword,
 		},
 		{
 			name:     "too long",
 			password: "ThisPasswordIsLongerThanSeventyTwoCharacters0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-			wantErr:  ErrInvalidPassword,
+			wantErr:  auth.ErrInvalidPassword,
 		},
 		{
 			name:     "exactly 8 characters",
@@ -401,7 +402,7 @@ func TestValidatePassword(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			err := validatePassword(tt.password)
+			err := auth.ValidatePassword(tt.password)
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))

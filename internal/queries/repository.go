@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
-	"github.com/jmoiron/sqlx"
 )
 
 type Repository struct {
-	db *sqlx.DB
+	db *database.DB
 }
 
-func NewRepository(db *sqlx.DB) *Repository {
+func NewRepository(db *database.DB) *Repository {
 	return &Repository{db: db}
 }
 

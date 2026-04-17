@@ -189,7 +189,7 @@ func TestRepository_BatchInsert_WithGeoIPData(t *testing.T) {
 	// Verify the geoip row was persisted with correct values.
 	var countryCode, countryName, continentCode, asnOrg string
 	var asn int
-	err = dbWrapper.DB().QueryRow(
+	err = dbWrapper.DB().QueryRowxContext(t.Context(),
 		`SELECT country_code, country_name, continent_code, asn, asn_org
 		 FROM access_log_geoip LIMIT 1`,
 	).Scan(&countryCode, &countryName, &continentCode, &asn, &asnOrg)
@@ -229,11 +229,11 @@ func TestRepository_BatchInsert_GeoIPCascadeDelete(t *testing.T) {
 	is.NoErr(err)
 
 	// Delete the access log row — geoip row should cascade.
-	_, err = dbWrapper.DB().Exec(`DELETE FROM access_log`)
+	_, err = dbWrapper.DB().ExecContext(t.Context(), `DELETE FROM access_log`)
 	is.NoErr(err)
 
 	var count int
-	err = dbWrapper.DB().QueryRow(`SELECT COUNT(*) FROM access_log_geoip`).Scan(&count)
+	err = dbWrapper.DB().QueryRowxContext(t.Context(), `SELECT COUNT(*) FROM access_log_geoip`).Scan(&count)
 	is.NoErr(err)
 	is.Equal(count, 0)
 }
@@ -261,7 +261,7 @@ func TestRepository_BatchInsert_WithEmptyGeoIP(t *testing.T) {
 
 	// Verify no geoip row exists.
 	var count int
-	err = dbWrapper.DB().QueryRow(`SELECT COUNT(*) FROM access_log_geoip`).Scan(&count)
+	err = dbWrapper.DB().QueryRowxContext(t.Context(), `SELECT COUNT(*) FROM access_log_geoip`).Scan(&count)
 	is.NoErr(err)
 	is.Equal(count, 0)
 }

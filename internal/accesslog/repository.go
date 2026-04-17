@@ -2,36 +2,22 @@ package accesslog
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"log/slog"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
-	"github.com/jmoiron/sqlx"
-
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 )
 
 // Repository owns the access log write path and simple single-table reads.
 // Cross-domain reads (e.g. joining devices for device_name) live in internal/queries.
 type Repository struct {
-	db     dBInterface
-	rootDB *sqlx.DB
+	db *database.DB
 }
 
-type dBInterface interface {
-	sqlx.ExtContext
-	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-}
-
-func NewRepository(db *sqlx.DB) *Repository {
+func NewRepository(db *database.DB) *Repository {
 	return &Repository{
-		rootDB: db,
-		db:     db,
+		db: db,
 	}
 }
 
@@ -40,7 +26,7 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 		return nil
 	}
 
-	return r.runInTx(ctx, func(tx *Repository) error {
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
 		const insertAccessLog = `
             INSERT INTO access_log (
                 client_ip, device_id, address_id, outcome, deny_reason,
@@ -66,7 +52,7 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 			}
 
 			var accessID int64
-			if err := tx.db.GetContext(ctx, &accessID, insertAccessLog,
+			if err := r.db.GetContext(ctx, &accessID, insertAccessLog,
 				e.ClientIP, e.DeviceID, e.AddressID, e.Outcome, e.DenyReason,
 				e.CreatedAt, e.XFFChain, e.TargetHost, e.TargetURI, e.HTTPMethod,
 				string(headersJSON), e.DurationUs,
@@ -77,7 +63,7 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 			if e.GeoIP.IsEmpty() {
 				continue
 			}
-			if _, err := tx.db.ExecContext(ctx, insertGeoIP,
+			if _, err := r.db.ExecContext(ctx, insertGeoIP,
 				accessID, e.GeoIP.CountryCode, e.GeoIP.CountryName, e.GeoIP.ContinentCode, e.GeoIP.ASN, e.GeoIP.ASNOrg,
 			); err != nil {
 				return fmt.Errorf("insert geoip row: %w", err)
@@ -102,44 +88,4 @@ func (r *Repository) ListDenyReasons(ctx context.Context) ([]string, error) {
 		reasons = []string{}
 	}
 	return reasons, nil
-}
-
-// RunInTx runs the callback function inside a transaction.
-// If already running in a transaction context, do not create a new one and reuse it
-func (r *Repository) runInTx(ctx context.Context, fn func(*Repository) error) error {
-	logger := slog.Default()
-	if r.rootDB == nil {
-		// We are already in a transaction. Do not nest it.
-		return fn(r)
-	}
-
-	// Start the transaction
-	tx, err := r.rootDB.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	// Defer rollback (standard practice)
-	defer func() {
-		//nolint:staticcheck // Empty branch is intentional - ErrTxDone is expected after commit
-		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
-			// Rollback error is only significant if transaction wasn't already committed/rolled back
-			logger.Error("failed to rollback transaction", slog.Any(logging.AttrKeyError, err))
-		}
-	}()
-
-	// Create a COPY of the repository
-	// We replace 'db' with the transaction 'tx' and set the rootDB to nil so that it is not reused
-	txRepo := &Repository{
-		rootDB: nil, // Prevent nested transactions
-		db:     tx,  // All queries using txRepo.dbtmp will now use this transaction
-	}
-
-	// Run the business logic with the transactional repo
-	if err := fn(txRepo); err != nil {
-		return err
-	}
-
-	// Commit if successful
-	return tx.Commit()
 }

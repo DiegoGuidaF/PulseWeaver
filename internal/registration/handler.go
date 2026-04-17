@@ -157,9 +157,6 @@ func (h *HTTPHandler) DeleteRegistration(ctx context.Context, request httpapi.De
 		if errors.Is(err, ErrInviteNotFound) {
 			return httpapi.DeleteRegistration404JSONResponse(errorMsgResponse("Registration invite not found")), nil
 		}
-		if errors.Is(err, ErrInviteNotPending) {
-			return httpapi.DeleteRegistration404JSONResponse(errorMsgResponse("Registration invite not found")), nil
-		}
 		logger.ErrorContext(ctx, "failed to delete registration invite", slog.Any(logging.AttrKeyError, err))
 		return httpapi.DeleteRegistration500JSONResponse(errorMsgResponse("Failed to delete registration invite")), nil
 	}

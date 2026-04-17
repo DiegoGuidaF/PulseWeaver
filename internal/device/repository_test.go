@@ -29,7 +29,7 @@ func setupTestDB(t *testing.T) testFixture {
 
 	sqlxDB := db.DB()
 	var ownerID auth.UserID
-	if err := sqlxDB.QueryRowx(
+	if err := sqlxDB.QueryRowxContext(t.Context(),
 		`INSERT INTO users (username, display_name, password_hash, role) VALUES ('testadmin', 'Test Admin', 'x', 'admin') RETURNING id`,
 	).Scan(&ownerID); err != nil {
 		t.Fatalf("setupTestDB: insert test user: %v", err)

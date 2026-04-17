@@ -40,17 +40,17 @@ func NewUser(
 	role Role,
 	createdByID *UserID,
 ) (User, error) {
-	err := validatePassword(password)
+	err := ValidatePassword(password)
 	if err != nil {
 		return User{}, err
 	}
 
-	validUsername, err := validateUsername(username)
+	validUsername, err := ValidateUsername(username)
 	if err != nil {
 		return User{}, err
 	}
 
-	validDisplayName, err := validateDisplayName(displayName)
+	validDisplayName, err := ValidateDisplayName(displayName)
 	if err != nil {
 		return User{}, err
 	}
@@ -77,7 +77,7 @@ func (u *User) Update(up ProfileUpdates) error {
 	}
 
 	if up.DisplayName != nil {
-		validDisplayName, err := validateDisplayName(*up.DisplayName)
+		validDisplayName, err := ValidateDisplayName(*up.DisplayName)
 		if err != nil {
 			return err
 		}
@@ -85,7 +85,7 @@ func (u *User) Update(up ProfileUpdates) error {
 	}
 
 	if up.Username != nil {
-		validUsername, err := validateUsername(*up.Username)
+		validUsername, err := ValidateUsername(*up.Username)
 		if err != nil {
 			return err
 		}
@@ -113,7 +113,8 @@ func (r Role) String() string {
 	return string(r)
 }
 
-func validateDisplayName(input string) (string, error) {
+// TODO: Make private, make user_tests go through the NewUser public path instead
+func ValidateDisplayName(input string) (string, error) {
 	clean := strings.TrimSpace(input)
 	minDisplayNameLength := 1
 	maxDisplayNameLength := 50
@@ -129,7 +130,8 @@ func validateDisplayName(input string) (string, error) {
 	return clean, nil
 }
 
-func validateUsername(username string) (string, error) {
+// TODO: Make private, make user_tests go through the NewUser public path instead
+func ValidateUsername(username string) (string, error) {
 	normalized := strings.ToLower(strings.TrimSpace(username))
 
 	minUsernameLength := 3
@@ -154,7 +156,8 @@ func hashPassword(password string) ([]byte, error) {
 	return bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 }
 
-func validatePassword(password string) error {
+// TODO: Make private, make user_tests go through the NewUser public path instead
+func ValidatePassword(password string) error {
 	minPasswordLength := 8
 	maxPasswordLength := 72
 	if len(password) < minPasswordLength {

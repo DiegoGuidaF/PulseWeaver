@@ -37,7 +37,7 @@ type CreateAddressParams struct {
 }
 
 func NewCreateAddressParams(deviceID DeviceID, ipAddress string, trustedProxy netip.Addr) (CreateAddressParams, error) {
-	parsedIP, err := parseAndValidateIP(ipAddress)
+	parsedIP, err := ParseAndValidateIP(ipAddress)
 	if err != nil {
 		return CreateAddressParams{}, err
 	}
@@ -72,9 +72,10 @@ type IPEntry struct {
 	AddressID AddressID `db:"address_id"`
 }
 
-// parseAndValidateIP parses and validates that the given string is a valid IPv4 or IPv6 address.
+// ParseAndValidateIP parses and validates that the given string is a valid IPv4 or IPv6 address.
 // It ignores the port if present and only cares about the IP component.
-func parseAndValidateIP(ipInput string) (netip.Addr, error) {
+// TODO: Make private once the address_test go through the NewCreateAddressParams
+func ParseAndValidateIP(ipInput string) (netip.Addr, error) {
 	// Try to parse as IP without port
 	if parsedIP, err := netip.ParseAddr(ipInput); err == nil {
 		return parsedIP, nil

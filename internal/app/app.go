@@ -96,12 +96,12 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Authentication
 	authRepo := auth.NewRepository(db.DB())
-	authService := auth.NewService(authRepo, logger)
+	authService := auth.NewService(authRepo, db.Transactor(), logger)
 	authHandler := auth.NewHandler(authService, logger)
 
 	// Device & addresses management
 	deviceRepo := device.NewRepository(db.DB())
-	deviceService := device.NewService(deviceRepo, logger, conf.Server.TrustedProxy)
+	deviceService := device.NewService(deviceRepo, db.Transactor(), logger, conf.Server.TrustedProxy)
 	deviceHandler := device.NewHTTPHandler(deviceService, logger)
 
 	// Device provisioner

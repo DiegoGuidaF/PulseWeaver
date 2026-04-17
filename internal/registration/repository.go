@@ -5,13 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
-	"github.com/jmoiron/sqlx"
 )
 
 // deviceProvisioner abstracts device creation during claim.
@@ -23,20 +21,12 @@ type deviceProvisioner interface {
 
 // Repository handles all database operations for the registration package.
 type Repository struct {
-	db                dBInterface
-	rootDB            *sqlx.DB
+	db                *database.DB
 	deviceProvisioner deviceProvisioner
 }
 
-type dBInterface interface {
-	sqlx.ExtContext
-	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-}
-
-func NewRepository(db *sqlx.DB, provisioner deviceProvisioner) *Repository {
-	return &Repository{db: db, deviceProvisioner: provisioner, rootDB: db}
+func NewRepository(db *database.DB, provisioner deviceProvisioner) *Repository {
+	return &Repository{db: db, deviceProvisioner: provisioner}
 }
 
 // CreateInvite inserts a new pending registration record.
@@ -114,18 +104,7 @@ func (r *Repository) InvalidateInvite(ctx context.Context, id PendingRegistratio
 		return fmt.Errorf("invalidate invite rows affected: %w", err)
 	}
 	if rows == 0 {
-		// Distinguish between "never existed" and "already used/invalidated".
-		var exists bool
-		err = r.rootDB.QueryRowContext(ctx,
-			`SELECT COUNT(*) > 0 FROM pending_registrations WHERE id = ?`, id,
-		).Scan(&exists)
-		if err != nil {
-			return fmt.Errorf("invalidate invite check: %w", err)
-		}
-		if !exists {
-			return ErrInviteNotFound
-		}
-		return ErrInviteNotPending
+		return ErrInviteNotFound
 	}
 	return nil
 }
@@ -146,9 +125,9 @@ func (r *Repository) ClaimInvite(ctx context.Context, code string) (*ClaimResult
 	claimedReg := new(PendingRegistration)
 	var rawAPIKey string
 
-	err := r.runInTx(ctx, func(tx *Repository) error {
+	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
 		// 1. Fetch the pending registration.
-		err := tx.db.GetContext(ctx, claimedReg,
+		err := r.db.GetContext(ctx, claimedReg,
 			`SELECT * FROM pending_registrations
 		 WHERE registration_code = ?
 		   AND used_at IS NULL
@@ -197,52 +176,4 @@ func (r *Repository) ClaimInvite(ctx context.Context, code string) (*ClaimResult
 		AppSettingsLocked:   claimedReg.AppSettingsLocked,
 		RawAPIKey:           rawAPIKey,
 	}, nil
-}
-
-// RunInTx runs the callback function inside a transaction.
-// If already running in a transaction context, do not create a new one and reuse it
-func (r *Repository) runInTx(ctx context.Context, fn func(*Repository) error) error {
-	logger := slog.Default()
-	if r.rootDB == nil {
-		// We are already in a transaction. Do not nest it.
-		return fn(r)
-	}
-
-	// Start the transaction
-	tx, err := r.rootDB.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	// Defer rollback (standard practice)
-	defer func() {
-		//nolint:staticcheck // Empty branch is intentional - ErrTxDone is expected after commit
-		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
-			// Rollback error is only significant if transaction wasn't already committed/rolled back
-			logger.Error("failed to rollback transaction", slog.Any(logging.AttrKeyError, err))
-		}
-	}()
-
-	// Create a COPY of the repository
-	// We replace 'db' with the transaction 'tx' and set the rootDB to nil so that it is not reused
-	txRepo := &Repository{
-		rootDB: nil, // Prevent nested transactions
-		db:     tx,  // All queries using txRepo.dbtmp will now use this transaction
-	}
-
-	// Run the business logic with the transactional repo
-	if err := fn(txRepo); err != nil {
-		return err
-	}
-
-	// Commit if successful
-	return tx.Commit()
-}
-
-// RunInTx runs the callback function inside a transaction.
-// If already running in a transaction context, do not create a new one and reuse it
-func (r *Repository) RunInTx(ctx context.Context, fn func(repository) error) error {
-	return r.runInTx(ctx, func(repo *Repository) error {
-		return fn(repo)
-	})
 }
