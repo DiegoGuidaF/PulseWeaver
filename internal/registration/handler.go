@@ -29,7 +29,7 @@ func (h *HTTPHandler) ClaimRegistration(ctx context.Context, request httpapi.Cla
 
 	result, err := h.service.ClaimInvite(ctx, request.Body.Code)
 	if err != nil {
-		if errors.Is(err, ErrInviteNotFound) {
+		if errors.Is(err, ErrInviteNotFound) || errors.Is(err, ErrInviteExpired) || errors.Is(err, ErrInviteNotClaimable) {
 			// Deliberately vague — do not leak whether the code was unknown, used, or expired.
 			return httpapi.ClaimRegistration404JSONResponse(errorMsgResponse("Registration code not found")), nil
 		}

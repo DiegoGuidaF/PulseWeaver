@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
@@ -14,19 +17,33 @@ type repository interface {
 	GetInvite(ctx context.Context, id PendingRegistrationID) (*PendingRegistration, error)
 	ListInvites(ctx context.Context, filter InviteFilter) ([]PendingRegistration, error)
 	InvalidateInvite(ctx context.Context, id PendingRegistrationID) error
-	ClaimInvite(ctx context.Context, code string) (*ClaimResult, error)
+	ClaimInvite(ctx context.Context, id PendingRegistrationID, deviceID device.DeviceID) (*PendingRegistration, error)
+	GetInviteByCode(ctx context.Context, code string) (*PendingRegistration, error)
+}
+
+type transactor interface {
+	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
+// deviceProvisioner Allows creating a device with a given apiKey
+type deviceProvisioner interface {
+	CreateDeviceWithAPIKey(ctx context.Context, name string, ownerID auth.UserID) (deviceID device.DeviceID, rawAPIKey string, err error)
 }
 
 // Service contains all business logic for the registration package.
 type Service struct {
-	repo   repository
-	logger *slog.Logger
+	repo              repository
+	tx                transactor
+	deviceProvisioner deviceProvisioner
+	logger            *slog.Logger
 }
 
-func NewService(repo repository, logger *slog.Logger) *Service {
+func NewService(repo repository, tx transactor, deviceProvisioner deviceProvisioner, logger *slog.Logger) *Service {
 	return &Service{
-		repo:   repo,
-		logger: logger.With(slog.String(logging.AttrKeyComponent, "registration")),
+		repo:              repo,
+		tx:                tx,
+		deviceProvisioner: deviceProvisioner,
+		logger:            logger.With(slog.String(logging.AttrKeyComponent, "registration")),
 	}
 }
 
@@ -68,12 +85,42 @@ func (s *Service) ListInvites(ctx context.Context, filter InviteFilter) ([]Pendi
 // ClaimInvite validates and redeems a registration code. On success it returns the
 // configuration payload and the plaintext device API key (one-time only).
 func (s *Service) ClaimInvite(ctx context.Context, code string) (*ClaimResult, error) {
-	result, err := s.repo.ClaimInvite(ctx, code)
+	claimedInvite := new(PendingRegistration)
+	var rawAPIKey string
+
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		invite, err := s.repo.GetInviteByCode(ctx, code)
+		if err != nil {
+			return err
+		}
+		if invite.UsedAt != nil || invite.InvalidatedAt != nil {
+			s.logger.InfoContext(ctx, "attempted to claim already used or invalidated invite", slog.Int64("id", invite.ID.Int64()))
+			return ErrInviteNotClaimable
+		}
+		if !invite.ExpiresAt.After(time.Now().UTC()) {
+			s.logger.InfoContext(ctx, "attempted to claim expired invite", slog.Int64("id", invite.ID.Int64()))
+			return ErrInviteExpired
+		}
+
+		var deviceID device.DeviceID
+		deviceID, rawAPIKey, err = s.deviceProvisioner.CreateDeviceWithAPIKey(ctx, invite.DeviceName, invite.OwnerID)
+		if err != nil {
+			return fmt.Errorf("register device via invitation claim: %w", err)
+		}
+
+		claimedInvite, err = s.repo.ClaimInvite(ctx, invite.ID, deviceID)
+		if err != nil {
+			return fmt.Errorf("mark invite as claimed: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 	s.logger.InfoContext(ctx, "registration invite claimed")
-	return result, nil
+
+	result := claimedInvite.ToClaimResult(rawAPIKey)
+	return &result, nil
 }
 
 // InvalidateInvite hard-deletes an unclaimed invite.

@@ -4,37 +4,39 @@ package registration_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/registration"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
 
-func createInvite(t *testing.T, server http.Handler, cookie *http.Cookie, body map[string]any) *httptest.ResponseRecorder {
+func defaultCreateInviteRequest() registration.CreateInviteRequest {
+	return registration.CreateInviteRequest{
+		DeviceName:         "Dad's Phone",
+		OwnerID:            auth.UserID(1),
+		HeartbeatServerURL: "https://pulse.home.lan",
+		IntervalSeconds:    900,
+		ExpiresInHours:     24,
+	}
+}
+
+func claimInvite(t *testing.T, server http.Handler, code string) *httptest.ResponseRecorder {
 	t.Helper()
-	b, _ := json.Marshal(body)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/registrations", bytes.NewReader(b))
+	b, _ := json.Marshal(map[string]string{"code": code})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/register", bytes.NewReader(b))
 	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
 	w := httptest.NewRecorder()
 	server.ServeHTTP(w, req)
 	return w
-}
-
-func defaultInviteBody() map[string]any {
-	return map[string]any{
-		"device_name":          "Dad's Phone",
-		"heartbeat_server_url": "https://pulse.home.lan",
-		"interval_seconds":     900,
-		"expires_in_hours":     24,
-		"owner_id":             1,
-	}
 }
 
 func TestHandler_CreateRegistration_AdminCreatesInvite(t *testing.T) {
@@ -42,27 +44,42 @@ func TestHandler_CreateRegistration_AdminCreatesInvite(t *testing.T) {
 	ts := testutils.SetupIntegrationServer(t)
 	cookie := testutils.LoginCookie(t, ts.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	w := createInvite(t, ts.HTTPServer, cookie, defaultInviteBody())
-	is.Equal(w.Code, http.StatusCreated)
+	body, _ := json.Marshal(map[string]any{
+		"device_name":          "Dad's Phone",
+		"heartbeat_server_url": "https://pulse.home.lan",
+		"interval_seconds":     900,
+		"expires_in_hours":     24,
+		"owner_id":             1,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/registrations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	ts.HTTPServer.ServeHTTP(w, req)
 
+	is.Equal(w.Code, http.StatusCreated)
 	var resp httpapi.PendingRegistration
 	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
 	is.Equal(resp.DeviceName, "Dad's Phone")
 	is.True(resp.RegistrationCode != nil && *resp.RegistrationCode != "")
 	is.Equal(resp.Status, httpapi.PendingRegistrationStatusPending)
 	// device_api_key must never be in the response
-	// Re-read since Decode consumed it
-	b, _ := json.Marshal(resp)
-	raw := string(b)
-	is.True(!containsKey(raw, "device_api_key"))
+	raw, _ := json.Marshal(resp)
+	is.True(!containsKey(string(raw), "device_api_key"))
 }
 
 func TestHandler_CreateRegistration_RequiresAdmin(t *testing.T) {
 	is := is.New(t)
 	ts := testutils.SetupIntegrationServer(t)
-	// No cookie at all
-	b, _ := json.Marshal(defaultInviteBody())
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/registrations", bytes.NewReader(b))
+
+	body, _ := json.Marshal(map[string]any{
+		"device_name":          "Dad's Phone",
+		"heartbeat_server_url": "https://pulse.home.lan",
+		"interval_seconds":     900,
+		"expires_in_hours":     24,
+		"owner_id":             1,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/registrations", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	ts.HTTPServer.ServeHTTP(w, req)
@@ -74,15 +91,17 @@ func TestHandler_ListRegistrations_DefaultPendingOnly(t *testing.T) {
 	ts := testutils.SetupIntegrationServer(t)
 	cookie := testutils.LoginCookie(t, ts.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	// Create two invites
-	createInvite(t, ts.HTTPServer, cookie, defaultInviteBody())
-	createInvite(t, ts.HTTPServer, cookie, map[string]any{
-		"device_name":          "Mom's Phone",
-		"heartbeat_server_url": "https://pulse.home.lan",
-		"interval_seconds":     300,
-		"expires_in_hours":     1,
-		"owner_id":             1,
+	// Given — two pending invites seeded via service
+	_, err := ts.RegistrationService.CreateInvite(context.Background(), defaultCreateInviteRequest())
+	is.NoErr(err)
+	_, err = ts.RegistrationService.CreateInvite(context.Background(), registration.CreateInviteRequest{
+		DeviceName:         "Mom's Phone",
+		OwnerID:            auth.UserID(1),
+		HeartbeatServerURL: "https://pulse.home.lan",
+		IntervalSeconds:    300,
+		ExpiresInHours:     1,
 	})
+	is.NoErr(err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/registrations", nil)
 	req.AddCookie(cookie)
@@ -100,22 +119,20 @@ func TestHandler_GetRegistration_ReturnsInviteWithCode(t *testing.T) {
 	ts := testutils.SetupIntegrationServer(t)
 	cookie := testutils.LoginCookie(t, ts.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	w := createInvite(t, ts.HTTPServer, cookie, defaultInviteBody())
-	is.Equal(w.Code, http.StatusCreated)
+	// Given
+	invite, err := ts.RegistrationService.CreateInvite(context.Background(), defaultCreateInviteRequest())
+	is.NoErr(err)
 
-	var created httpapi.PendingRegistration
-	is.NoErr(json.NewDecoder(w.Body).Decode(&created))
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/registrations/"+strconv.FormatInt(created.Id, 10), nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/registrations/"+strconv.FormatInt(invite.ID.Int64(), 10), nil)
 	req.AddCookie(cookie)
-	w2 := httptest.NewRecorder()
-	ts.HTTPServer.ServeHTTP(w2, req)
-	is.Equal(w2.Code, http.StatusOK)
+	w := httptest.NewRecorder()
+	ts.HTTPServer.ServeHTTP(w, req)
+	is.Equal(w.Code, http.StatusOK)
 
 	var fetched httpapi.PendingRegistration
-	is.NoErr(json.NewDecoder(w2.Body).Decode(&fetched))
-	is.Equal(fetched.Id, created.Id)
-	is.True(fetched.RegistrationCode != nil && *fetched.RegistrationCode == *created.RegistrationCode)
+	is.NoErr(json.NewDecoder(w.Body).Decode(&fetched))
+	is.Equal(fetched.Id, invite.ID.Int64())
+	is.True(fetched.RegistrationCode != nil && *fetched.RegistrationCode == *invite.RegistrationCode)
 }
 
 func TestHandler_DeleteRegistration_InvalidatesPendingInvite(t *testing.T) {
@@ -123,143 +140,100 @@ func TestHandler_DeleteRegistration_InvalidatesPendingInvite(t *testing.T) {
 	ts := testutils.SetupIntegrationServer(t)
 	cookie := testutils.LoginCookie(t, ts.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	w := createInvite(t, ts.HTTPServer, cookie, defaultInviteBody())
-	is.Equal(w.Code, http.StatusCreated)
+	// Given
+	invite, err := ts.RegistrationService.CreateInvite(context.Background(), defaultCreateInviteRequest())
+	is.NoErr(err)
 
-	var created httpapi.PendingRegistration
-	is.NoErr(json.NewDecoder(w.Body).Decode(&created))
-
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/registrations/"+strconv.FormatInt(created.Id, 10), nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/registrations/"+strconv.FormatInt(invite.ID.Int64(), 10), nil)
 	req.AddCookie(cookie)
-	w2 := httptest.NewRecorder()
-	ts.HTTPServer.ServeHTTP(w2, req)
-	is.Equal(w2.Code, http.StatusNoContent)
+	w := httptest.NewRecorder()
+	ts.HTTPServer.ServeHTTP(w, req)
+	is.Equal(w.Code, http.StatusNoContent)
 
-	// Soft delete: the invite still exists but its status is now "invalidated".
-	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/admin/registrations/"+strconv.FormatInt(created.Id, 10), nil)
-	req2.AddCookie(cookie)
-	w3 := httptest.NewRecorder()
-	ts.HTTPServer.ServeHTTP(w3, req2)
-	is.Equal(w3.Code, http.StatusOK)
-
-	var fetched httpapi.PendingRegistration
-	is.NoErr(json.NewDecoder(w3.Body).Decode(&fetched))
-	is.Equal(string(fetched.Status), "invalidated")
+	// Soft delete: the invite still exists but its status is now "invalidated"
+	fetched, err := ts.RegistrationService.GetInvite(context.Background(), invite.ID)
+	is.NoErr(err)
+	is.Equal(fetched.Status(), registration.StatusInvalidated)
 }
 
 func TestHandler_ClaimRegistration_SuccessfulClaim(t *testing.T) {
 	is := is.New(t)
 	ts := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, ts.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	// Create invite
-	w := createInvite(t, ts.HTTPServer, cookie, defaultInviteBody())
-	is.Equal(w.Code, http.StatusCreated)
-	var created httpapi.PendingRegistration
-	is.NoErr(json.NewDecoder(w.Body).Decode(&created))
+	// Given
+	invite, err := ts.RegistrationService.CreateInvite(context.Background(), defaultCreateInviteRequest())
+	is.NoErr(err)
 
-	// Claim it
-	b, _ := json.Marshal(map[string]string{"code": *created.RegistrationCode})
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/register", bytes.NewReader(b))
-	req.Header.Set("Content-Type", "application/json")
-	w2 := httptest.NewRecorder()
-	ts.HTTPServer.ServeHTTP(w2, req)
-	is.Equal(w2.Code, http.StatusOK)
+	// When
+	w := claimInvite(t, ts.HTTPServer, *invite.RegistrationCode)
+	is.Equal(w.Code, http.StatusOK)
 
 	var result httpapi.ClaimRegistrationResponse
-	is.NoErr(json.NewDecoder(w2.Body).Decode(&result))
+	is.NoErr(json.NewDecoder(w.Body).Decode(&result))
 	is.Equal(result.ServerUrl, "https://pulse.home.lan")
 	is.Equal(result.IntervalSeconds, 900)
 	is.True(result.ApiKey != "")
 
-	// Verify invite now shows as used
-	req3 := httptest.NewRequest(http.MethodGet, "/api/v1/admin/registrations/"+strconv.FormatInt(created.Id, 10), nil)
-	req3.AddCookie(cookie)
-	w3 := httptest.NewRecorder()
-	ts.HTTPServer.ServeHTTP(w3, req3)
-	var updated httpapi.PendingRegistration
-	is.NoErr(json.NewDecoder(w3.Body).Decode(&updated))
-	is.Equal(updated.Status, httpapi.PendingRegistrationStatusUsed)
-	is.True(updated.RegistrationCode == nil)
-	is.True(updated.CreatedDeviceId != nil)
+	// Then — verify side effects not visible in the claim response
+	fetched, err := ts.RegistrationService.GetInvite(context.Background(), invite.ID)
+	is.NoErr(err)
+	is.Equal(fetched.Status(), registration.StatusUsed)
+	is.True(fetched.RegistrationCode == nil)
+	is.True(fetched.CreatedDeviceID != nil)
 }
 
 func TestHandler_ClaimRegistration_UnknownCodeReturns404(t *testing.T) {
 	is := is.New(t)
 	ts := testutils.SetupIntegrationServer(t)
 
-	b, _ := json.Marshal(map[string]string{"code": "totallyinvalidcode"})
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/register", bytes.NewReader(b))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	ts.HTTPServer.ServeHTTP(w, req)
+	w := claimInvite(t, ts.HTTPServer, "totallyinvalidcode")
 	is.Equal(w.Code, http.StatusNotFound)
 }
 
 func TestHandler_ClaimRegistration_CodeUsedTwiceReturns404(t *testing.T) {
 	is := is.New(t)
 	ts := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, ts.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	w := createInvite(t, ts.HTTPServer, cookie, defaultInviteBody())
-	is.Equal(w.Code, http.StatusCreated)
-	var created httpapi.PendingRegistration
-	is.NoErr(json.NewDecoder(w.Body).Decode(&created))
+	// Given — invite already claimed
+	invite, err := ts.RegistrationService.CreateInvite(context.Background(), defaultCreateInviteRequest())
+	is.NoErr(err)
+	_, err = ts.RegistrationService.ClaimInvite(context.Background(), *invite.RegistrationCode)
+	is.NoErr(err)
 
-	claim := func() *httptest.ResponseRecorder {
-		b, _ := json.Marshal(map[string]string{"code": *created.RegistrationCode})
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/register", bytes.NewReader(b))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		ts.HTTPServer.ServeHTTP(w, req)
-		return w
-	}
-
-	is.Equal(claim().Code, http.StatusOK)
-	is.Equal(claim().Code, http.StatusNotFound)
+	// When — try to claim the same code again
+	w := claimInvite(t, ts.HTTPServer, *invite.RegistrationCode)
+	is.Equal(w.Code, http.StatusNotFound)
 }
 
 func TestHandler_ClaimRegistration_InvalidatedCodeReturns404(t *testing.T) {
 	is := is.New(t)
 	ts := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, ts.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	w := createInvite(t, ts.HTTPServer, cookie, defaultInviteBody())
-	var created httpapi.PendingRegistration
-	json.NewDecoder(w.Body).Decode(&created) //nolint:errcheck
+	// Given — invite invalidated by admin
+	invite, err := ts.RegistrationService.CreateInvite(context.Background(), defaultCreateInviteRequest())
+	is.NoErr(err)
+	err = ts.RegistrationService.InvalidateInvite(context.Background(), invite.ID)
+	is.NoErr(err)
 
-	// Invalidate
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/registrations/"+strconv.FormatInt(created.Id, 10), nil)
-	req.AddCookie(cookie)
-	ts.HTTPServer.ServeHTTP(httptest.NewRecorder(), req)
-
-	// Try to claim
-	b, _ := json.Marshal(map[string]string{"code": *created.RegistrationCode})
-	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/register", bytes.NewReader(b))
-	req2.Header.Set("Content-Type", "application/json")
-	w2 := httptest.NewRecorder()
-	ts.HTTPServer.ServeHTTP(w2, req2)
-	is.Equal(w2.Code, http.StatusNotFound)
+	// When — try to claim an invalidated code
+	w := claimInvite(t, ts.HTTPServer, *invite.RegistrationCode)
+	is.Equal(w.Code, http.StatusNotFound)
 }
 
 func TestHandler_ClaimRegistration_CreatedDeviceHasCorrectAPIKeyPrefix(t *testing.T) {
 	is := is.New(t)
 	ts := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, ts.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	w := createInvite(t, ts.HTTPServer, cookie, defaultInviteBody())
-	var created httpapi.PendingRegistration
-	is.NoErr(json.NewDecoder(w.Body).Decode(&created))
+	// Given
+	invite, err := ts.RegistrationService.CreateInvite(context.Background(), defaultCreateInviteRequest())
+	is.NoErr(err)
 
-	b, _ := json.Marshal(map[string]string{"code": *created.RegistrationCode})
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/register", bytes.NewReader(b))
-	req.Header.Set("Content-Type", "application/json")
-	w2 := httptest.NewRecorder()
-	ts.HTTPServer.ServeHTTP(w2, req)
+	// When
+	w := claimInvite(t, ts.HTTPServer, *invite.RegistrationCode)
+	is.Equal(w.Code, http.StatusOK)
+
 	var result httpapi.ClaimRegistrationResponse
-	is.NoErr(json.NewDecoder(w2.Body).Decode(&result))
-
-	// The returned API key should start with the expected prefix
+	is.NoErr(json.NewDecoder(w.Body).Decode(&result))
 	is.True(len(result.ApiKey) > len(device.APIKeyPrefix))
 	is.Equal(result.ApiKey[:len(device.APIKeyPrefix)], device.APIKeyPrefix)
 }

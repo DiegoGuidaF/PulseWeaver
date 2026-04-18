@@ -106,7 +106,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Device provisioner
 	registrationRepo := registration.NewRepository(db.DB(), deviceService)
-	registrationService := registration.NewService(registrationRepo, logger)
+	registrationService := registration.NewService(registrationRepo, db.Transactor(), deviceService, logger)
 	registrationHandler := registration.NewHTTPHandler(registrationService, logger)
 
 	// GeoIP enrichment

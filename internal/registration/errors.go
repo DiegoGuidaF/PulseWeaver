@@ -8,4 +8,7 @@ var (
 
 	// ErrInviteNotPending is returned when the invite is already used or expired at delete time.
 	ErrInviteNotPending = errors.New("registration invite is no longer pending")
+
+	ErrInviteNotClaimable = errors.New("cannot claim an invalid or expired invite")
+	ErrInviteExpired      = errors.New("invite expired")
 )

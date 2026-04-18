@@ -60,6 +60,17 @@ func (p *PendingRegistration) Status() PendingRegistrationStatus {
 	return StatusPending
 }
 
+func (p *PendingRegistration) ToClaimResult(rawAPIKey string) ClaimResult {
+	return ClaimResult{
+		p.HeartbeatServerURL,
+		p.HeartbeatIntervalSeconds,
+		p.AppBiometricEnabled,
+		p.AppSettingsLocked,
+		rawAPIKey,
+	}
+
+}
+
 // PendingRegistrationStatus is the derived lifecycle state of an invite.
 type PendingRegistrationStatus string
 

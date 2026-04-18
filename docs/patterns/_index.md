@@ -15,6 +15,7 @@
 | Logging context | `logging-context.md` | Adding log statements in handlers or services | Generated code or test helpers | `logging/ctx.go` |
 | Pointer conventions | `pointer-conventions.md` | Declaring structs, return types, or struct fields with pointers | — | — |
 | ID types | `id-types.md` | Defining or using entity/foreign-key ID fields in Go, OpenAPI, or TypeScript | — | `auth/user.go`, `device/device.go`, `api/components/schemas/common.yaml` |
+| Database transactions | `database-transactions.md` | Wrapping multi-step operations atomically in services or repos | Single-query methods that need no tx | `internal/database/db.go`, `internal/database/transactor.go` |
 | Migrations | `migrations.md` | Writing any migration file | — | `internal/database/migrations/` |
 | Handler tests | `handler-tests.md` | Writing tests for HTTP endpoints | Testing business logic (use service tests) | `device/handler_test.go`, `testutils/server.go` |
 | Service tests | `service-tests.md` | Writing tests for service methods | Testing SQL/HTTP (use repository/handler tests) | `device/service_test.go` |

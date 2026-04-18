@@ -31,12 +31,12 @@ type repository interface {
 	GetEnabledAddressesForDevice(ctx context.Context, deviceID DeviceID) ([]Address, error)
 }
 
-type transactor interface {
-	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
-}
-
 type AddressObserver interface {
 	OnAddressEvent(ctx context.Context, event AddressEvent)
+}
+
+type transactor interface {
+	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
 type Service struct {

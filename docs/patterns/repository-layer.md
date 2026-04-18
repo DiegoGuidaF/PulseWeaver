@@ -17,10 +17,10 @@ Service → Repository (domain types in/out) → sqlx → SQLite
 
 ```go
 type Repository struct {
-    db *sqlx.DB
+    db *database.DB
 }
 
-func NewRepository(db *sqlx.DB) *Repository {
+func NewRepository(db *database.DB) *Repository {
     return &Repository{db: db}
 }
 
@@ -49,23 +49,9 @@ func (r *Repository) CreateDevice(ctx context.Context, d Device) (Device, error)
 }
 ```
 
-## Transactions (`RunInTx`)
+## Transactions
 
-For multi-step operations that must be atomic:
-
-```go
-func (r *Repository) RunInTx(ctx context.Context, fn func(tx *sqlx.Tx) error) error {
-    tx, err := r.db.BeginTxx(ctx, nil)
-    if err != nil {
-        return fmt.Errorf("begin tx: %w", err)
-    }
-    if err := fn(tx); err != nil {
-        _ = tx.Rollback()
-        return err
-    }
-    return tx.Commit()
-}
-```
+Use `r.db.WithinTx` for multi-step writes that must be atomic. See `database-transactions.md` for the full pattern, including how service-initiated transactions are joined automatically.
 
 ## SQLite FK error mapping
 
