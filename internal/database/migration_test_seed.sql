@@ -1,10 +1,11 @@
 -- Seed data for TestMigrations_FinalMigration_WithData.
--- Inserted after Steps(-1) (schema at N-1), before the final migration is re-applied.
+-- Targets the LATEST schema (N). The test seeds at N, rolls back to N-1 via the
+-- down migration, then re-applies the up migration — verifying the round-trip.
 -- Rows are ordered by FK dependency so foreign_keys=ON is satisfied.
 --
--- When a new migration is added: review whether the seed still covers all tables
--- and constraints affected by the migration (NOT NULL, CHECK, UNIQUE, FK, nullable
--- columns). Add or update rows below as needed.
+-- When a new migration is added: update this seed so it inserts cleanly at the
+-- new latest schema. Tables and columns added/removed by the migration must be
+-- reflected here in the same commit.
 --
 -- Coverage goals:
 --   - Every table has at least one row
@@ -73,8 +74,6 @@ INSERT INTO sessions (user_id, token_hash, expires_at)
 
 -- ── Pending registration ──────────────────────────────────────────────────────
 
--- Unclaimed invite. Uses 000015 schema (device_api_key/prefix columns were dropped in 000015).
--- Seed runs at N-1 (= 000015); migration 000016 makes password_hash nullable.
 INSERT INTO pending_registrations
     (device_name, owner_id, registration_code,
      heartbeat_server_url, heartbeat_interval_seconds, app_biometric_enabled, app_settings_locked,
@@ -84,23 +83,49 @@ INSERT INTO pending_registrations
            '2099-01-01 00:00:00', '2024-01-01 00:00:00'
     FROM users u WHERE u.username = 'seed-user';
 
--- ── access_log: device_id/address_id nullable ─────────────────────────────────
+-- ── access_log (000018+: no device_id/address_id, uses contributor_count) ─────
 
--- Allow entry — with non-empty headers_json and xff_chain
+-- Allow entry — contributor_count=1 (matching contributor row below)
 INSERT INTO access_log
-    (client_ip, outcome, device_id, address_id, xff_chain, target_host, target_uri, http_method, headers_json)
-    SELECT '10.0.0.2', 1, d.id, a.id, '10.0.0.1', 'example.com', '/api', 'GET',
-           '{"X-Real-IP": "10.0.0.2"}'
-    FROM devices d JOIN addresses a ON a.device_id = d.id AND a.ip = '192.168.1.1'
-    WHERE d.name = 'seed-router';
+    (client_ip, outcome, contributor_count, xff_chain, target_host, target_uri, http_method, headers_json)
+VALUES ('10.0.0.2', 1, 1, '10.0.0.1', 'example.com', '/api', 'GET', '{"X-Real-IP": "10.0.0.2"}');
 
--- Deny entry — no device/address match, deny_reason set, nullable FKs are NULL
+-- Deny entry — no contributors, deny_reason set
 INSERT INTO access_log
-    (client_ip, outcome, device_id, address_id, xff_chain, target_host, target_uri, http_method, headers_json)
-VALUES ('10.9.9.9', 0, NULL, NULL, NULL, 'example.com', '/api', 'GET', '{}');
+    (client_ip, outcome, contributor_count, xff_chain, target_host, target_uri, http_method, headers_json)
+VALUES ('10.9.9.9', 0, 0, NULL, 'example.com', '/api', 'GET', '{}');
 
 -- ── Depend on access_log ──────────────────────────────────────────────────────
+
+INSERT INTO access_log_contributors (access_log_id, device_id, address_id, user_id)
+    SELECT al.id, d.id, a.id, d.owner_id
+    FROM access_log al, devices d
+    JOIN addresses a ON a.device_id = d.id AND a.ip = '192.168.1.1'
+    WHERE d.name = 'seed-router' AND al.outcome = 1;
 
 INSERT INTO access_log_geoip (access_log_id, country_code, country_name, asn)
     SELECT id, 'US', 'United States', 1234 FROM access_log
     WHERE outcome = 1 LIMIT 1;
+
+-- ── Host access control (000018+) ─────────────────────────────────────────────
+-- These tables are new in migration 000018. Their data is lost on rollback
+-- (down migration drops the tables) and the tables are recreated empty on
+-- re-apply. This section ensures INSERT constraints are valid at schema N.
+
+INSERT INTO known_hosts (fqdn) VALUES ('seed.example.com');
+
+INSERT INTO host_groups (name, description) VALUES ('seed-group', 'Seed host group');
+
+INSERT INTO host_group_members (host_group_id, known_host_id)
+    SELECT hg.id, kh.id FROM host_groups hg, known_hosts kh
+    WHERE hg.name = 'seed-group' AND kh.fqdn = 'seed.example.com';
+
+INSERT INTO user_allowed_hosts (user_id, known_host_id)
+    SELECT u.id, kh.id FROM users u, known_hosts kh
+    WHERE u.username = 'seed-user' AND kh.fqdn = 'seed.example.com';
+
+INSERT INTO user_allowed_host_groups (user_id, host_group_id)
+    SELECT u.id, hg.id FROM users u, host_groups hg
+    WHERE u.username = 'seed-user' AND hg.name = 'seed-group';
+
+INSERT INTO ignored_host_suggestions (fqdn) VALUES ('ignored.example.com');

@@ -474,6 +474,44 @@ func TestService_VerifyAccess_HostIntersection_DenyWins(t *testing.T) {
 	is.True(errors.Is(svc.VerifyAccess(context.Background(), req("c.com")), ErrHostNotAllowed))
 }
 
+func TestService_OnHostAccessChanged_RefreshesCache(t *testing.T) {
+	is := is.New(t)
+	provider := &mockProvider{entries: []device.IPEntry{
+		{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1), UserID: auth.UserID(1)},
+	}}
+	hostProvider := &fixedHostProvider{entries: []UserHostAccess{
+		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
+	}}
+	svc, err := NewService(provider, hostProvider, &geoip.Lookup{}, "mysecret", noopLogger(), netip.Addr{})
+	is.NoErr(err)
+	is.NoErr(svc.Initialize(context.Background()))
+
+	aHost := "a.com"
+	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: "1.2.3.4", TargetHost: &aHost}))
+
+	// Change allowed hosts from a.com → b.com
+	hostProvider.entries = []UserHostAccess{
+		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"b.com"}},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = svc.RunListener(ctx)
+	}()
+
+	svc.OnHostAccessChanged(context.Background())
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	<-done
+
+	// a.com should now be denied, b.com allowed
+	is.True(errors.Is(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: "1.2.3.4", TargetHost: &aHost}), ErrHostNotAllowed))
+	bHost := "b.com"
+	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: "1.2.3.4", TargetHost: &bHost}))
+}
+
 func TestService_VerifyAccess_BypassAndNonBypass_SharedIP(t *testing.T) {
 	// Bypass user is intersection-neutral: deny-wins means result follows non-bypass user's grants.
 	is := is.New(t)

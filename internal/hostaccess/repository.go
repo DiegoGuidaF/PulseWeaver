@@ -129,7 +129,7 @@ func (r *Repository) AddHostToGroup(ctx context.Context, groupID HostGroupID, ho
 			return ErrGrantConflict
 		}
 		if isFKViolation(err) {
-			return ErrHostGroupNotFound
+			return ErrReferenceNotFound
 		}
 		return fmt.Errorf("add host to group: %w", err)
 	}
@@ -175,7 +175,7 @@ func (r *Repository) GrantUserHost(ctx context.Context, userID auth.UserID, host
 			return ErrGrantConflict
 		}
 		if isFKViolation(err) {
-			return ErrKnownHostNotFound
+			return ErrReferenceNotFound
 		}
 		return fmt.Errorf("grant user host: %w", err)
 	}
@@ -201,7 +201,7 @@ func (r *Repository) GrantUserHostGroup(ctx context.Context, userID auth.UserID,
 			return ErrGrantConflict
 		}
 		if isFKViolation(err) {
-			return ErrHostGroupNotFound
+			return ErrReferenceNotFound
 		}
 		return fmt.Errorf("grant user host group: %w", err)
 	}

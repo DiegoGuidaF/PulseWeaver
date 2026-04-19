@@ -16,8 +16,3 @@ type HostGroup struct {
 	Description *string     `db:"description"`
 	CreatedAt   time.Time   `db:"created_at"`
 }
-
-type HostGroupMember struct {
-	HostGroupID HostGroupID `db:"host_group_id"`
-	KnownHostID KnownHostID `db:"known_host_id"`
-}

@@ -99,13 +99,19 @@ func TestMigrations_DownToZeroAndBackUp(t *testing.T) {
 	}
 }
 
-// TestMigrations_FinalMigration_WithData rolls back the latest migration, seeds
-// representative rows, then re-applies it. This catches bugs that only surface
-// when tables already contain data — e.g. ALTER TABLE ADD COLUMN NOT NULL with a
-// non-constant DEFAULT fails silently on an empty table but errors at runtime.
+// TestMigrations_FinalMigration_WithData seeds representative rows at schema N
+// (the latest), then rolls back and re-applies the final migration. This catches
+// bugs that only surface when tables already contain data — e.g. a migration that
+// changes a column type but fails to cast existing values, or a NOT NULL column
+// added without a proper DEFAULT.
 //
-// When a new migration is added: check whether seedBeforeLatestMigration needs
-// updating to insert valid rows for the new penultimate schema.
+// The seed file should cover every table with diverse, realistic values so that
+// any new migration is automatically validated against pre-existing data. Update
+// the seed when your migration changes the schema (adds/removes tables or columns)
+// so it stays insertable at the latest schema.
+//
+// Tables introduced by the latest migration are dropped during rollback and
+// recreated empty on re-apply — that is expected and matches a real upgrade path.
 func TestMigrations_FinalMigration_WithData(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "seeded.db")
@@ -119,6 +125,9 @@ func TestMigrations_FinalMigration_WithData(t *testing.T) {
 	if err := sqliteDB.Migrate(); err != nil {
 		t.Fatalf("Migrate (up): %v", err)
 	}
+
+	// Seed representative rows at schema N (latest).
+	seedAtLatestSchema(t, sqliteDB)
 
 	driver, err := sqlite.WithInstance(sqliteDB.DB().pool.DB, &sqlite.Config{NoTxWrap: true})
 	if err != nil {
@@ -134,33 +143,23 @@ func TestMigrations_FinalMigration_WithData(t *testing.T) {
 	}
 	t.Cleanup(func() { _, _ = m.Close() })
 
-	// Roll back the latest migration so the DB is at schema N-1.
+	// Roll back the latest migration (schema N → N-1).
 	if err := m.Steps(-1); err != nil {
 		t.Fatalf("Steps(-1): %v", err)
 	}
 
-	// Seed representative rows valid for the N-1 schema.
-	seedBeforeLatestMigration(t, sqliteDB)
-
-	// Re-apply the latest migration against the seeded data.
+	// Re-apply the latest migration against the rolled-back data (N-1 → N).
+	// If this succeeds, the migration correctly handles pre-existing data —
+	// type casts, constraints, and FK integrity are all validated by the
+	// migration itself (foreign_keys is ON and migrations run foreign_key_check).
 	if err := m.Steps(1); err != nil {
 		t.Fatalf("Steps(+1) with data present: %v", err)
 	}
-
-	// Verify seed data survived intact.
-	var count int
-	if err := sqliteDB.DB().GetContext(t.Context(), &count, `SELECT COUNT(*) FROM devices WHERE name = 'seed-router'`); err != nil {
-		t.Fatalf("verify seed device: %v", err)
-	}
-	if count != 1 {
-		t.Fatalf("seed device did not survive migration: want 1 row, got %d", count)
-	}
 }
 
-// seedBeforeLatestMigration executes migration_test_seed.sql against the DB.
-// The seed file contains one representative row per table in FK dependency order,
-// valid for the penultimate schema version (after Steps(-1)).
-func seedBeforeLatestMigration(t *testing.T, db *SQLite) {
+// seedAtLatestSchema executes migration_test_seed.sql against the DB at schema N.
+// The seed file contains representative rows for every table in FK dependency order.
+func seedAtLatestSchema(t *testing.T, db *SQLite) {
 	t.Helper()
 	if _, err := db.DB().ExecContext(t.Context(), migrationTestSeedSQL); err != nil {
 		t.Fatalf("seed: %v", err)

@@ -11,4 +11,5 @@ var (
 	ErrGrantConflict      = errors.New("grant already exists")
 	ErrSuggestionNotFound = errors.New("ignored suggestion not found")
 	ErrSuggestionConflict = errors.New("suggestion already ignored")
+	ErrReferenceNotFound  = errors.New("referenced entity not found")
 )
