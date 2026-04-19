@@ -55,7 +55,7 @@ typecheck-front:
 	cd frontend && npx tsc --noEmit -p tsconfig.app.json
 
 # Run all linters and type-checks (backend + frontend)
-lint-all: lint lint-front typecheck-front
+lint-all: lint-back lint-front typecheck-front
 
 # Full pre-push check: lint + typecheck + test everything
 check: check-migrations lint-all test test-front
