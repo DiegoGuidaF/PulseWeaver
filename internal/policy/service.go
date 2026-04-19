@@ -220,55 +220,63 @@ func (s *Service) refreshCache(ctx context.Context) error {
 	}
 
 	accessByUser := make(map[auth.UserID]UserHostAccess, len(hostAccess))
+	hostSetByUser := make(map[auth.UserID]map[string]struct{}, len(hostAccess))
+	// Parse and build the list of hosts accessible per user
 	for _, ua := range hostAccess {
 		accessByUser[ua.UserID] = ua
+
+		hosts := make(map[string]struct{}, len(ua.AllowedHosts))
+		for _, h := range ua.AllowedHosts {
+			hosts[h] = struct{}{}
+		}
+		hostSetByUser[ua.UserID] = hosts
 	}
 
 	type accumulator struct {
-		contributors     []IPContributor
-		bypassAll        bool // AND of all users' bypass flags; starts true
-		hostsInitialized bool
-		hosts            map[string]struct{} // running intersection of non-bypass users' sets
+		contributors      []IPContributor
+		allBypass         bool
+		hasRestrictedUser bool
+		allowedHosts      map[string]struct{}
 	}
 
 	byIP := make(map[string]*accumulator, len(ipEntries))
+
 	for _, e := range ipEntries {
-		contrib := IPContributor{DeviceID: e.DeviceID, AddressID: e.AddressID, UserID: e.UserID}
-		acc, exists := byIP[e.IP]
-		if !exists {
-			acc = &accumulator{bypassAll: true}
+		acc := byIP[e.IP]
+		if acc == nil {
+			acc = &accumulator{allBypass: true}
 			byIP[e.IP] = acc
 		}
-		acc.contributors = append(acc.contributors, contrib)
+
+		acc.contributors = append(acc.contributors, IPContributor{
+			DeviceID:  e.DeviceID,
+			AddressID: e.AddressID,
+			UserID:    e.UserID,
+		})
 
 		ua := accessByUser[e.UserID]
-		acc.bypassAll = acc.bypassAll && ua.BypassAllowlist
+		acc.allBypass = acc.allBypass && ua.BypassAllowlist
 
-		if !ua.BypassAllowlist {
-			userHosts := make(map[string]struct{}, len(ua.AllowedHosts))
-			for _, h := range ua.AllowedHosts {
-				userHosts[h] = struct{}{}
-			}
-			if !acc.hostsInitialized {
-				acc.hosts = userHosts
-				acc.hostsInitialized = true
-			} else {
-				for h := range acc.hosts {
-					if _, ok := userHosts[h]; !ok {
-						delete(acc.hosts, h)
-					}
-				}
-			}
+		if ua.BypassAllowlist {
+			continue // bypass users are intersection-neutral
 		}
-		// bypass=true users contribute the universe — intersection-neutral, skip host merge
+
+		userHosts := hostSetByUser[e.UserID]
+		if !acc.hasRestrictedUser {
+			acc.allowedHosts = cloneHostSet(userHosts)
+			acc.hasRestrictedUser = true
+			continue
+		}
+
+		intersectHostSets(acc.allowedHosts, userHosts)
 	}
 
 	newSet := make(map[string]ipSetEntry, len(byIP))
 	for ip, acc := range byIP {
 		newSet[ip] = ipSetEntry{
 			Contributors:    acc.contributors,
-			BypassAllowlist: acc.bypassAll,
-			AllowedHosts:    acc.hosts,
+			BypassAllowlist: acc.allBypass,
+			AllowedHosts:    acc.allowedHosts,
 		}
 	}
 
@@ -278,4 +286,24 @@ func (s *Service) refreshCache(ctx context.Context) error {
 
 	s.logger.DebugContext(ctx, "policy IP cache refreshed", slog.Int(logging.AttrKeyIPCount, len(newSet)))
 	return nil
+}
+
+func cloneHostSet(src map[string]struct{}) map[string]struct{} {
+	if len(src) == 0 {
+		return map[string]struct{}{}
+	}
+	dst := make(map[string]struct{}, len(src))
+	for h := range src {
+		dst[h] = struct{}{}
+	}
+	return dst
+}
+
+// intersectHostSets Removes elements from dsr that are not present in src
+func intersectHostSets(dst, src map[string]struct{}) {
+	for h := range dst {
+		if _, ok := src[h]; !ok {
+			delete(dst, h)
+		}
+	}
 }
