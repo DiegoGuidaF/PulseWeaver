@@ -61,8 +61,9 @@ func TestHandler_GetAccessLog_CorrectFields(t *testing.T) {
 			ClientIP:   "1.2.3.4",
 			Outcome:    false,
 			DenyReason: new(policy.DenyReasonIPNotRegistered),
-			DeviceID:   new(dev.ID),
-			AddressID:  new(addr.ID),
+			IPContributors: []policy.IPContributor{
+				{DeviceID: dev.ID, AddressID: addr.ID, UserID: dev.OwnerID},
+			},
 			CreatedAt:  createdAt,
 			TargetHost: &targetHost,
 			TargetURI:  &targetURI,
@@ -147,17 +148,22 @@ func TestHandler_GetAccessLog_FilterByDeviceID(t *testing.T) {
 
 	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "access-device-filter", nil)
 	is.NoErr(err)
-	devID := dev.ID
+	addr, _, err := testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "10.0.20.1", device.EventSourceManual)
+	is.NoErr(err)
 
 	reason := policy.DenyReasonIPNotRegistered
 	accessRepo := accesslog.NewRepository(testServer.Database.DB())
 	err = accessRepo.BatchInsert(t.Context(), []policy.DecisionEvent{
-		{ClientIP: "1.1.1.1", Outcome: false, DenyReason: &reason, DeviceID: &devID, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
-		{ClientIP: "2.2.2.2", Outcome: false, DenyReason: &reason, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}}, // no device
+		{
+			ClientIP: "1.1.1.1", Outcome: false, DenyReason: &reason,
+			IPContributors: []policy.IPContributor{{DeviceID: dev.ID, AddressID: addr.ID, UserID: dev.OwnerID}},
+			CreatedAt:      time.Now().UTC(), Headers: map[string][]string{},
+		},
+		{ClientIP: "2.2.2.2", Outcome: false, DenyReason: &reason, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}}, // no contributor
 	})
 	is.NoErr(err)
 
-	url := fmt.Sprintf("/api/v1/access-log?device_id=%d", devID)
+	url := fmt.Sprintf("/api/v1/access-log?device_id=%d", dev.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	req.AddCookie(adminCookie)
 	rec := httptest.NewRecorder()
@@ -171,7 +177,7 @@ func TestHandler_GetAccessLog_FilterByDeviceID(t *testing.T) {
 	is.Equal(response.Total, 1)
 	is.Equal(len(response.Rows), 1)
 	is.True(response.Rows[0].DeviceId != nil)
-	is.Equal(*response.Rows[0].DeviceId, int64(devID))
+	is.Equal(*response.Rows[0].DeviceId, int64(dev.ID))
 }
 
 func TestHandler_GetAccessLog_FilterByIPPartialMatch(t *testing.T) {

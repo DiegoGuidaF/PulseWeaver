@@ -8,11 +8,47 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/matryer/is"
 )
+
+// insertTestOwner creates a minimal user row and returns its ID.
+func insertTestOwner(t *testing.T, db *database.DB) auth.UserID {
+	t.Helper()
+	var id auth.UserID
+	err := db.QueryRowxContext(t.Context(),
+		`INSERT INTO users (username, display_name, password_hash, role) VALUES ('owner', 'Owner', NULL, 'admin') RETURNING id`,
+	).Scan(&id)
+	if err != nil {
+		t.Fatalf("insert test owner: %v", err)
+	}
+	return id
+}
+
+// insertTestDevice creates a device and address, returning their IDs.
+func insertTestDevice(t *testing.T, db *database.DB, ownerID auth.UserID) (device.DeviceID, device.AddressID) {
+	t.Helper()
+	var devID device.DeviceID
+	err := db.QueryRowxContext(t.Context(),
+		`INSERT INTO devices (name, owner_id) VALUES ('test-device', ?) RETURNING id`, ownerID,
+	).Scan(&devID)
+	if err != nil {
+		t.Fatalf("insert test device: %v", err)
+	}
+	var addrID device.AddressID
+	err = db.QueryRowxContext(t.Context(),
+		`INSERT INTO addresses (device_id, ip, source, is_enabled) VALUES (?, '1.2.3.4', 'manual', 1) RETURNING id`, devID,
+	).Scan(&addrID)
+	if err != nil {
+		t.Fatalf("insert test address: %v", err)
+	}
+	return devID, addrID
+}
 
 func setupTestRepo(t *testing.T) *accesslog.Repository {
 	t.Helper()
@@ -42,8 +78,6 @@ func TestRepository_BatchInsert_AllowEvent(t *testing.T) {
 			ClientIP:   "1.2.3.4",
 			Outcome:    true,
 			DenyReason: nil,
-			DeviceID:   nil,
-			AddressID:  nil,
 			CreatedAt:  time.Now().UTC(),
 			TargetHost: new("example.com"),
 			TargetURI:  new("/api"),
@@ -295,4 +329,105 @@ func TestRepository_BatchInsert_MixedGeoIP(t *testing.T) {
 	reasons, err := repo.ListDenyReasons(ctx)
 	is.NoErr(err)
 	is.Equal(len(reasons), 0)
+}
+
+// ── Contributor count tests ───────────────────────────────────────────────────
+
+func TestRepository_BatchInsert_ContributorCount_Zero(t *testing.T) {
+	is := is.New(t)
+	dbWrapper, cleanup := testdb.Setup(t)
+	t.Cleanup(cleanup)
+	repo := accesslog.NewRepository(dbWrapper.DB())
+	ctx := context.Background()
+
+	events := []policy.DecisionEvent{
+		{
+			ClientIP:       "10.0.0.1",
+			Outcome:        false,
+			DenyReason:     new(policy.DenyReasonIPNotRegistered),
+			CreatedAt:      time.Now().UTC(),
+			Headers:        map[string][]string{},
+			IPContributors: nil,
+		},
+	}
+	is.NoErr(repo.BatchInsert(ctx, events))
+
+	var contribCount, rowContribCount int
+	is.NoErr(dbWrapper.DB().QueryRowxContext(t.Context(), `SELECT COUNT(*) FROM access_log_contributors`).Scan(&contribCount))
+	is.Equal(contribCount, 0)
+
+	is.NoErr(dbWrapper.DB().QueryRowxContext(t.Context(), `SELECT contributor_count FROM access_log LIMIT 1`).Scan(&rowContribCount))
+	is.Equal(rowContribCount, 0)
+}
+
+func TestRepository_BatchInsert_ContributorCount_Single(t *testing.T) {
+	is := is.New(t)
+	dbWrapper, cleanup := testdb.Setup(t)
+	t.Cleanup(cleanup)
+	repo := accesslog.NewRepository(dbWrapper.DB())
+	ctx := context.Background()
+
+	ownerID := insertTestOwner(t, dbWrapper.DB())
+	devID, addrID := insertTestDevice(t, dbWrapper.DB(), ownerID)
+
+	events := []policy.DecisionEvent{
+		{
+			ClientIP:  "1.2.3.4",
+			Outcome:   true,
+			CreatedAt: time.Now().UTC(),
+			Headers:   map[string][]string{},
+			IPContributors: []policy.IPContributor{
+				{DeviceID: devID, AddressID: addrID, UserID: ownerID},
+			},
+		},
+	}
+	is.NoErr(repo.BatchInsert(ctx, events))
+
+	var contribCount, rowContribCount int
+	is.NoErr(dbWrapper.DB().QueryRowxContext(t.Context(), `SELECT COUNT(*) FROM access_log_contributors`).Scan(&contribCount))
+	is.Equal(contribCount, 1)
+
+	is.NoErr(dbWrapper.DB().QueryRowxContext(t.Context(), `SELECT contributor_count FROM access_log LIMIT 1`).Scan(&rowContribCount))
+	is.Equal(rowContribCount, 1)
+}
+
+func TestRepository_BatchInsert_ContributorCount_Multiple(t *testing.T) {
+	is := is.New(t)
+	dbWrapper, cleanup := testdb.Setup(t)
+	t.Cleanup(cleanup)
+	repo := accesslog.NewRepository(dbWrapper.DB())
+	ctx := context.Background()
+
+	ownerID := insertTestOwner(t, dbWrapper.DB())
+	devID1, addrID1 := insertTestDevice(t, dbWrapper.DB(), ownerID)
+	// Second device needs a distinct address IP.
+	var devID2 device.DeviceID
+	if err := dbWrapper.DB().QueryRowxContext(t.Context(), `INSERT INTO devices (name, owner_id) VALUES ('d2', ?) RETURNING id`, ownerID).Scan(&devID2); err != nil {
+		t.Fatalf("insert d2: %v", err)
+	}
+	var addrID2 device.AddressID
+	if err := dbWrapper.DB().QueryRowxContext(t.Context(), `INSERT INTO addresses (device_id, ip, source, is_enabled) VALUES (?, '5.6.7.8', 'manual', 1) RETURNING id`, devID2).Scan(&addrID2); err != nil {
+		t.Fatalf("insert addr2: %v", err)
+	}
+
+	events := []policy.DecisionEvent{
+		{
+			ClientIP:  "1.2.3.4",
+			Outcome:   true,
+			CreatedAt: time.Now().UTC(),
+			Headers:   map[string][]string{},
+			IPContributors: []policy.IPContributor{
+				{DeviceID: devID1, AddressID: addrID1, UserID: ownerID},
+				{DeviceID: devID2, AddressID: addrID2, UserID: ownerID},
+			},
+		},
+	}
+	is.NoErr(repo.BatchInsert(ctx, events))
+
+	var contribCount, rowContribCount int
+	is.NoErr(dbWrapper.DB().QueryRowxContext(t.Context(), `SELECT COUNT(*) FROM access_log_contributors`).Scan(&contribCount))
+	is.Equal(contribCount, 2)
+
+	is.NoErr(dbWrapper.DB().QueryRowxContext(t.Context(), `SELECT contributor_count FROM access_log LIMIT 1`).Scan(&rowContribCount))
+	is.Equal(rowContribCount, 2)
 }

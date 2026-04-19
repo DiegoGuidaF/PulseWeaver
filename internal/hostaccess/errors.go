@@ -1,0 +1,14 @@
+package hostaccess
+
+import "errors"
+
+var (
+	ErrKnownHostNotFound  = errors.New("known host not found")
+	ErrKnownHostConflict  = errors.New("known host already exists")
+	ErrHostGroupNotFound  = errors.New("host group not found")
+	ErrHostGroupConflict  = errors.New("host group name already exists")
+	ErrGrantNotFound      = errors.New("grant not found")
+	ErrGrantConflict      = errors.New("grant already exists")
+	ErrSuggestionNotFound = errors.New("ignored suggestion not found")
+	ErrSuggestionConflict = errors.New("suggestion already ignored")
+)

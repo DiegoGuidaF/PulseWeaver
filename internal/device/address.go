@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 )
 
@@ -64,12 +65,14 @@ func (id AddressID) String() string {
 	return strconv.FormatInt(int64(id), 10)
 }
 
-// IPEntry associates an enabled IP address with the device and address that last registered it.
-// When multiple devices share the same IP, the most recently active device wins.
+// IPEntry associates an enabled IP address with the device, address, and owning user.
+// All enabled rows are returned (multiple per IP when devices share an address);
+// the policy layer merges them with deny-wins intersection.
 type IPEntry struct {
-	IP        string    `db:"ip"`
-	DeviceID  DeviceID  `db:"device_id"`
-	AddressID AddressID `db:"address_id"`
+	IP        string      `db:"ip"`
+	DeviceID  DeviceID    `db:"device_id"`
+	AddressID AddressID   `db:"address_id"`
+	UserID    auth.UserID `db:"user_id"`
 }
 
 // ParseAndValidateIP parses and validates that the given string is a valid IPv4 or IPv6 address.

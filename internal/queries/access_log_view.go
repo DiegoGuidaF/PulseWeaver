@@ -93,7 +93,8 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 	var countArgs []any
 
 	if q.DeviceID != nil {
-		whereFilters = append(whereFilters, "ral.device_id = ?")
+		// Filter: any contributor row for this access_log entry matches the device.
+		whereFilters = append(whereFilters, "EXISTS (SELECT 1 FROM access_log_contributors c WHERE c.access_log_id = ral.id AND c.device_id = ?)")
 		countArgs = append(countArgs, *q.DeviceID)
 	}
 
@@ -137,11 +138,10 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 		countArgs = append(countArgs, q.To)
 	}
 
-	// Total count
+	// Total count (no contributor join needed for count — filtering uses EXISTS subquery).
 	var total int
 	countQuery := `
 		SELECT COUNT(*) FROM access_log ral
-		LEFT JOIN devices d ON d.id = ral.device_id
 		LEFT JOIN access_log_geoip g ON g.access_log_id = ral.id
 	` + buildWhere(whereFilters)
 	if err := r.db.GetContext(ctx, &total, countQuery, countArgs...); err != nil {
@@ -158,6 +158,7 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 	selectArgs = append(selectArgs, q.Limit)
 
 	var dbRows []dbAccessLogRow
+	// For display, expose the first contributor's device/address (lowest contributor id).
 	selectQuery := `
 		SELECT
 			ral.id,
@@ -169,9 +170,9 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 			ral.target_host,
 			ral.target_uri,
 			ral.http_method,
-			ral.device_id as device_id,
-			ral.address_id as address_id,
-			d.name as device_name,
+			c.device_id  AS device_id,
+			c.address_id AS address_id,
+			d.name       AS device_name,
 			ral.headers_json,
 			ral.duration_us,
 			g.country_code,
@@ -180,7 +181,11 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 			g.asn,
 			g.asn_org
 		FROM access_log ral
-		LEFT JOIN devices d ON d.id = ral.device_id
+		LEFT JOIN (
+			SELECT access_log_id, MIN(id) AS min_id FROM access_log_contributors GROUP BY access_log_id
+		) c_first ON c_first.access_log_id = ral.id
+		LEFT JOIN access_log_contributors c ON c.id = c_first.min_id
+		LEFT JOIN devices d ON d.id = c.device_id
 		LEFT JOIN access_log_geoip g ON g.access_log_id = ral.id
 	` + buildWhere(whereFilters) + ` ORDER BY ral.id DESC LIMIT ?`
 	if err := r.db.SelectContext(ctx, &dbRows, selectQuery, selectArgs...); err != nil {

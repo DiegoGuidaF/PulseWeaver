@@ -14,6 +14,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/hostaccess"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpserver"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
@@ -42,6 +43,7 @@ type App struct {
 	schedulerService    *scheduler.Service
 	accessLogSink       *accesslog.Sink
 	geoipLookup         *geoip.Lookup
+	hostAccessService   *hostaccess.Service
 }
 
 // New initializes the application with configuration loaded from environment variables.
@@ -115,8 +117,12 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		return nil, fmt.Errorf("geoip init: %w", err)
 	}
 
+	// Host access control
+	hostAccessRepo := hostaccess.NewRepository(db.DB())
+	hostAccessService := hostaccess.NewService(hostAccessRepo, logger)
+
 	// Policy forward-auth sidecar
-	policyService, err := policy.NewService(deviceService, geoipLookup, conf.Policy.APISecret, logger, conf.Server.TrustedProxy)
+	policyService, err := policy.NewService(deviceService, hostAccessService, geoipLookup, conf.Policy.APISecret, logger, conf.Server.TrustedProxy)
 	if err != nil {
 		return nil, fmt.Errorf("policy service init: %w", err)
 	}
@@ -147,6 +153,9 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	deviceService.AddAddressObserver(addressLeaseService)
 	deviceService.AddAddressObserver(policyService)
 	deviceService.AddAddressObserver(maxAddrService)
+
+	// Register host access observer
+	hostAccessService.AddObserver(policyService)
 
 	// Register rule change observers
 	ruleService.AddRuleObserver(addressLeaseService)
@@ -199,6 +208,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		schedulerService:    schedulerService,
 		accessLogSink:       accessLogSink,
 		geoipLookup:         geoipLookup,
+		hostAccessService:   hostAccessService,
 	}, nil
 }
 

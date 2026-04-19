@@ -584,7 +584,7 @@ func TestRepository_GetEnabledUniqueIPs(t *testing.T) {
 	is.True(!ipMap["192.168.1.2"])
 }
 
-func TestRepository_GetEnabledUniqueIPs_Deduplicates(t *testing.T) {
+func TestRepository_GetEnabledIPEntries_ReturnsAllRows_SharedIPNotDeduplicated(t *testing.T) {
 	is := is.New(t)
 
 	repos := setupTestDB(t)
@@ -600,14 +600,15 @@ func TestRepository_GetEnabledUniqueIPs_Deduplicates(t *testing.T) {
 
 	ips, err := repos.repo.GetEnabledIPEntries(ctx)
 	is.NoErr(err)
-	is.Equal(len(ips), 2) // 192.168.1.100 appears only once
+	// Both dev1 and dev2 rows for 192.168.1.100 are returned; policy layer merges them.
+	is.Equal(len(ips), 3)
 
-	ipMap := make(map[string]bool)
+	ipCount := make(map[string]int)
 	for _, ip := range ips {
-		ipMap[ip.IP] = true
+		ipCount[ip.IP]++
 	}
-	is.True(ipMap["192.168.1.100"])
-	is.True(ipMap["192.168.1.200"])
+	is.Equal(ipCount["192.168.1.100"], 2)
+	is.Equal(ipCount["192.168.1.200"], 1)
 }
 
 func TestRepository_GetAddressHistory_ReturnsBucketsAndEvents(t *testing.T) {

@@ -139,11 +139,22 @@ func (s *Service) UpdateDevice(ctx context.Context, deviceID DeviceID, input Upd
 		return nil, err
 	}
 
+	ownershipChanged := input.OwnerID != nil && *input.OwnerID != device.OwnerID
+
 	if err := device.Update(input.Name, input.DeviceType, input.Description, input.Icon, input.OwnerID); err != nil {
 		return nil, err
 	}
 
-	return s.repo.UpdateDevice(ctx, device)
+	updated, err := s.repo.UpdateDevice(ctx, device)
+	if err != nil {
+		return nil, err
+	}
+
+	if ownershipChanged {
+		s.notifyObservers(ctx, NewDeviceEvent(deviceID, EventTypeDeviceOwnershipChanged))
+	}
+
+	return updated, nil
 }
 
 func (s *Service) GetAddressHistory(ctx context.Context, query AddressHistoryQuery) (AddressHistory, error) {

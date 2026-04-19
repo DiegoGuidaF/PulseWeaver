@@ -27,16 +27,17 @@ var (
 type Role string
 
 type User struct {
-	ID                 UserID     `db:"id"`
-	Username           string     `db:"username"`
-	DisplayName        string     `db:"display_name"`
-	Email              string     `db:"email"`
-	PasswordHash       []byte     `db:"password_hash"`
-	Role               Role       `db:"role"`
-	MustChangePassword bool       `db:"must_change_password"`
-	CreatedBy          *UserID    `db:"created_by"`
-	CreatedAt          time.Time  `db:"created_at"`
-	DeletedAt          *time.Time `db:"deleted_at"`
+	ID                  UserID     `db:"id"`
+	Username            string     `db:"username"`
+	DisplayName         string     `db:"display_name"`
+	Email               string     `db:"email"`
+	PasswordHash        []byte     `db:"password_hash"`
+	Role                Role       `db:"role"`
+	MustChangePassword  bool       `db:"must_change_password"`
+	BypassHostAllowlist bool       `db:"bypass_host_allowlist"`
+	CreatedBy           *UserID    `db:"created_by"`
+	CreatedAt           time.Time  `db:"created_at"`
+	DeletedAt           *time.Time `db:"deleted_at"`
 }
 
 func NewBootstrappedAdmin(password string) (User, error) {

@@ -8,10 +8,11 @@ import (
 type EventType string
 
 const (
-	EventTypeAddressCreated   EventType = "address_created"
-	EventTypeAddressEnabled   EventType = "address_enabled"
-	EventTypeAddressRefreshed EventType = "address_refreshed"
-	EventTypeAddressDisabled  EventType = "address_disabled"
+	EventTypeAddressCreated         EventType = "address_created"
+	EventTypeAddressEnabled         EventType = "address_enabled"
+	EventTypeAddressRefreshed       EventType = "address_refreshed"
+	EventTypeAddressDisabled        EventType = "address_disabled"
+	EventTypeDeviceOwnershipChanged EventType = "device_ownership_changed"
 )
 
 type AddressEvent struct {
@@ -26,6 +27,14 @@ func NewAddressEvent(address *Address, eventType EventType) AddressEvent {
 		Type:       eventType,
 		AddressID:  address.ID,
 		DeviceID:   address.DeviceID,
+		OccurredAt: time.Now().UTC(),
+	}
+}
+
+func NewDeviceEvent(deviceID DeviceID, eventType EventType) AddressEvent {
+	return AddressEvent{
+		Type:       eventType,
+		DeviceID:   deviceID,
 		OccurredAt: time.Now().UTC(),
 	}
 }

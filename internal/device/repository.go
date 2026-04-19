@@ -276,12 +276,14 @@ func (r *Repository) UpdateDevice(ctx context.Context, device *Device) (*Device,
 func (r *Repository) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error) {
 	var entries []IPEntry
 
+	// Returns ALL enabled rows (multiple per IP when devices share an address).
+	// The policy layer groups by IP and applies deny-wins intersection.
 	query := `
-		SELECT a.ip, a.device_id, a.id AS address_id
+		SELECT a.ip, a.device_id, a.id AS address_id, d.owner_id AS user_id
 		FROM addresses a
+		JOIN devices d ON d.id = a.device_id
 		WHERE a.is_enabled = 1
-		GROUP BY a.ip
-		HAVING a.updated_at = MAX(a.updated_at)
+		ORDER BY a.updated_at DESC
 	`
 
 	err := r.db.SelectContext(ctx, &entries, query)
