@@ -17,6 +17,12 @@ import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { UserRole } from "@/lib/api";
 import { useUpdateDevice } from "@/features/devices/hooks/useUpdateDevice";
 
+function roleBadgeColor(role: UserRole): string {
+  if (role === UserRole.SUPERADMIN) return "violet";
+  if (role === UserRole.ADMIN) return "indigo";
+  return "gray";
+}
+
 export interface DeviceOwnershipCardProps {
   deviceId: number;
   ownerId?: number;
@@ -29,10 +35,9 @@ export function DeviceOwnershipCard({
   ownerName,
 }: DeviceOwnershipCardProps) {
   const { data: currentUser } = useCurrentUser();
-  const isAdmin = currentUser?.role === UserRole.ADMIN;
 
   const { data: users, isLoading: usersLoading } = useListUsers({
-    enabled: isAdmin,
+    enabled: currentUser != null,
   });
 
   const updateDevice = useUpdateDevice(deviceId);
@@ -115,7 +120,7 @@ export function DeviceOwnershipCard({
             <Text size="sm" c="dimmed" w={36}>From</Text>
             <Text size="sm" fw={500}>{ownerName ?? "—"}</Text>
             {prevOwnerRole && (
-              <Badge variant="light" color={prevOwnerRole === UserRole.ADMIN ? "indigo" : "gray"} size="sm">
+              <Badge variant="light" color={prevOwnerRole ? roleBadgeColor(prevOwnerRole) : "gray"} size="sm">
                 {prevOwnerRole}
               </Badge>
             )}
@@ -124,7 +129,7 @@ export function DeviceOwnershipCard({
             <Text size="sm" c="dimmed" w={36}>To</Text>
             <Text size="sm" fw={500}>{pendingOwnerName}</Text>
             {confirmTarget?.ownerRole && (
-              <Badge variant="light" color={confirmTarget.ownerRole === UserRole.ADMIN ? "indigo" : "gray"} size="sm">
+              <Badge variant="light" color={roleBadgeColor(confirmTarget.ownerRole)} size="sm">
                 {confirmTarget.ownerRole}
               </Badge>
             )}
@@ -146,14 +151,7 @@ export function DeviceOwnershipCard({
 
       <Card withBorder>
       <Stack gap="md">
-        {!isAdmin ? (
-          <Group gap="xs">
-            <Text size="sm" c="dimmed">
-              Owned by
-            </Text>
-            <Text size="sm">{ownerName ?? "—"}</Text>
-          </Group>
-        ) : usersLoading ? (
+        {usersLoading ? (
           <Skeleton height={36} width={240} />
         ) : (
           <>

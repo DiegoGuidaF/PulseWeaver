@@ -25,15 +25,21 @@ import { useDeleteUser } from "@/features/auth/hooks/useDeleteUser";
 import { useCreateUser } from "@/features/auth/hooks/useCreateUser";
 import { toApiError, toErrorMessage } from "@/lib/api-client";
 import { UserRole } from "@/lib/api";
-import { zCreateUserRequest } from "@/lib/api/zod.gen";
+import { zCreateUserRequest, zPromoteUserRequest } from "@/lib/api/zod.gen";
 import type { z } from "zod";
 
 const createUserSchema = zCreateUserRequest;
 type CreateUserValues = z.infer<typeof createUserSchema>;
 
+function roleBadgeColor(role: UserRole): string {
+  if (role === UserRole.SUPERADMIN) return "violet";
+  if (role === UserRole.ADMIN) return "indigo";
+  return "gray";
+}
+
 export function UsersTab() {
   const { user } = useAuth();
-  const listUsers = useListUsers({ enabled: user?.role === UserRole.ADMIN });
+  const listUsers = useListUsers({ enabled: user?.role === UserRole.SUPERADMIN });
   const promoteUser = usePromoteUser();
   const demoteUser = useDemoteUser();
   const deleteUser = useDeleteUser();
@@ -45,10 +51,12 @@ export function UsersTab() {
     username: string;
     targetRole: "admin" | "user";
   } | null>(null);
+  const [promotePassword, setPromotePassword] = useState("");
+  const [promotePasswordError, setPromotePasswordError] = useState("");
 
   const createForm = useForm<CreateUserValues>({
     validate: schemaResolver(createUserSchema),
-    initialValues: { username: "", email: "", display_name: "", password: "" },
+    initialValues: { username: "", email: "", display_name: "" },
   });
 
   function handleCreateUser(values: CreateUserValues) {
@@ -80,21 +88,43 @@ export function UsersTab() {
 
   function handleRoleToggle(targetUserId: number, currentRole: string, username: string) {
     const targetRole = currentRole === UserRole.ADMIN ? "user" : "admin";
+    setPromotePassword("");
+    setPromotePasswordError("");
     setPendingRole({ userId: targetUserId, username, targetRole });
   }
 
   function handleConfirmRoleChange() {
     if (!pendingRole) return;
-    const mutation = pendingRole.targetRole === "admin" ? promoteUser : demoteUser;
-    mutation.mutate(
-      { path: { user_id: pendingRole.userId } },
-      {
-        onSuccess: () => notifications.show({ color: "green", message: "User updated" }),
-        onError: (err) =>
-          notifications.show({ color: "red", title: "Failed to update user", message: toErrorMessage(err) }),
-        onSettled: () => setPendingRole(null),
-      },
-    );
+
+    if (pendingRole.targetRole === "admin") {
+      const result = zPromoteUserRequest.safeParse({ password: promotePassword });
+      if (!result.success) {
+        setPromotePasswordError("Password must be at least 8 characters.");
+        return;
+      }
+      promoteUser.mutate(
+        { path: { user_id: pendingRole.userId }, body: { password: promotePassword } },
+        {
+          onSuccess: () => notifications.show({ color: "green", message: "User promoted to admin" }),
+          onError: (err) =>
+            notifications.show({ color: "red", title: "Failed to promote user", message: toErrorMessage(err) }),
+          onSettled: () => {
+            setPendingRole(null);
+            setPromotePassword("");
+          },
+        },
+      );
+    } else {
+      demoteUser.mutate(
+        { path: { user_id: pendingRole.userId } },
+        {
+          onSuccess: () => notifications.show({ color: "green", message: "User demoted" }),
+          onError: (err) =>
+            notifications.show({ color: "red", title: "Failed to demote user", message: toErrorMessage(err) }),
+          onSettled: () => setPendingRole(null),
+        },
+      );
+    }
   }
 
   function confirmDeleteUser() {
@@ -119,21 +149,29 @@ export function UsersTab() {
         closeOnClickOutside={false}
       >
         {pendingRole?.targetRole === "admin" ? (
-          <Text size="sm">
-            Promoting{" "}
-            <Text component="span" fw={600}>{pendingRole.username}</Text> to admin
-            will give them visibility of <Text component="span" fw={500}>all devices</Text> across all
-            users. They will also gain access to admin-only pages: Dashboard,
-            Access Log, and Address History, including server-wide metrics.
-          </Text>
+          <Stack gap="sm">
+            <Text size="sm">
+              Promoting{" "}
+              <Text component="span" fw={600}>{pendingRole.username}</Text> to admin will give
+              them login access and full visibility of all devices. Set an initial password they
+              will use to log in.
+            </Text>
+            <PasswordInput
+              label="Initial password"
+              placeholder="Min. 8 characters"
+              value={promotePassword}
+              onChange={(e) => {
+                setPromotePassword(e.currentTarget.value);
+                setPromotePasswordError("");
+              }}
+              error={promotePasswordError}
+            />
+          </Stack>
         ) : (
           <Text size="sm">
             Demoting{" "}
-            <Text component="span" fw={600}>{pendingRole?.username}</Text> to user
-            will restrict them to seeing <Text component="span" fw={500}>only their own devices</Text>.
-            They will lose access to admin-only pages (Dashboard, Access Log,
-            Address History) and will no longer be able to view server-wide
-            metrics.
+            <Text component="span" fw={600}>{pendingRole?.username}</Text> to user will revoke
+            their login access and invalidate all their active sessions.
           </Text>
         )}
         <Group justify="flex-end" mt="md" gap="sm">
@@ -197,11 +235,6 @@ export function UsersTab() {
               placeholder="e.g. Juan Garcia"
               {...createForm.getInputProps("display_name")}
             />
-            <PasswordInput
-              label="Temporary password"
-              description="The user will be asked to change this on first login."
-              {...createForm.getInputProps("password")}
-            />
             <Group justify="flex-end" mt="xs" gap="sm">
               <Button type="button" variant="outline" onClick={handleCloseCreateModal}>
                 Cancel
@@ -222,7 +255,7 @@ export function UsersTab() {
           </Button>
         </Group>
         <Text c="dimmed" size="sm" mb="md">
-          Promote or demote users between the user and admin roles. Users manage their own profile information.
+          Manage users. Promote a user to admin to grant login access; demote to revoke it.
         </Text>
         <Table.ScrollContainer minWidth={500}>
           <Table>
@@ -237,7 +270,8 @@ export function UsersTab() {
             <Table.Tbody>
               {users.map((adminUser) => {
                 const isSelf = adminUser.id === user?.id;
-                const isAdmin = adminUser.role === UserRole.ADMIN;
+                const isSuperadmin = adminUser.role === UserRole.SUPERADMIN;
+                const isUserRole = adminUser.role === UserRole.USER;
                 return (
                   <Table.Tr key={adminUser.id}>
                     <Table.Td fw={500}>
@@ -248,12 +282,12 @@ export function UsersTab() {
                     </Table.Td>
                     <Table.Td c="dimmed">{adminUser.display_name || "\u2014"}</Table.Td>
                     <Table.Td>
-                      <Badge variant="light" color={isAdmin ? "indigo" : "gray"}>
+                      <Badge variant="light" color={roleBadgeColor(adminUser.role)}>
                         {adminUser.role}
                       </Badge>
                     </Table.Td>
                     <Table.Td>
-                      {!isSelf && (
+                      {!isSelf && !isSuperadmin && (
                         <Group justify="flex-end" gap="sm">
                           <Button
                             type="button"
@@ -262,7 +296,7 @@ export function UsersTab() {
                             disabled={promoteUser.isPending || demoteUser.isPending}
                             onClick={() => handleRoleToggle(adminUser.id, adminUser.role, adminUser.username)}
                           >
-                            {isAdmin ? "Demote to user" : "Promote to admin"}
+                            {isUserRole ? "Promote to admin" : "Demote to user"}
                           </Button>
                           <Tooltip label="Delete user" withArrow>
                             <ActionIcon

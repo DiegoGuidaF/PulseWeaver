@@ -27,6 +27,8 @@ import type { FilterTab } from "./constants";
 import type { PendingRegistration } from "@/lib/api";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { toErrorMessage } from "@/lib/api-client";
+import { useListUsers } from "@/features/auth/hooks/useListUsers";
+import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 
 function isExpiringSoon(row: PendingRegistration): boolean {
   return (
@@ -45,6 +47,15 @@ export function InviteList() {
 
   const formatDateTime = useDateFormatter();
   const deleteMutation = useDeleteRegistration();
+  const { data: currentUser } = useCurrentUser();
+  const { data: users } = useListUsers();
+
+  const ownerLabels = new Map(
+    (users ?? []).map((u) => [
+      u.id,
+      u.id === currentUser?.id ? `${u.display_name} (you)` : u.display_name,
+    ]),
+  );
 
   // 'pending' and 'all' are the two server-side variants.
   // 'used' and 'expired' filter the 'all' result client-side,
@@ -111,8 +122,7 @@ export function InviteList() {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Device name</Table.Th>
-                <Table.Th>Owner ID</Table.Th>
-                <Table.Th>API key prefix</Table.Th>
+                <Table.Th>Owner</Table.Th>
                 <Table.Th>Created</Table.Th>
                 <Table.Th>Expires</Table.Th>
                 <Table.Th>Status</Table.Th>
@@ -134,12 +144,7 @@ export function InviteList() {
                       row.device_name
                     )}
                   </Table.Td>
-                  <Table.Td>{row.owner_id}</Table.Td>
-                  <Table.Td>
-                    <Text component="span" ff="monospace" size="sm">
-                      {row.device_api_key_prefix}
-                    </Text>
-                  </Table.Td>
+                  <Table.Td>{ownerLabels.get(row.owner_id) ?? "Unknown"}</Table.Td>
                   <Table.Td>{formatDateTime(row.created_at)}</Table.Td>
                   <Table.Td c={isExpiringSoon(row) ? "orange" : undefined}>
                     {formatDateTime(row.expires_at)}

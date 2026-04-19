@@ -1,17 +1,16 @@
 import { schemaResolver, useForm } from "@mantine/form";
-import { Button, Fieldset, Group, SegmentedControl, Select, Stack, Switch, Text, TextInput, } from "@mantine/core";
+import { Button, Fieldset, Group, SegmentedControl, Select, Stack, Switch, Text, TextInput } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useCreateRegistration } from "./hooks/useCreateRegistration";
 import { zCreateRegistrationRequest } from "@/lib/api/zod.gen";
 import type { z } from "zod";
 import { type PendingRegistration } from "@/lib/api";
 import { toErrorMessage } from "@/lib/api-client";
-import { useListUsers } from "@/features/auth/hooks/useListUsers.ts";
-import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser.ts";
+import { useListUsers } from "@/features/auth/hooks/useListUsers";
+import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 import { useState } from "react";
 
-const createRegistrationSchema = zCreateRegistrationRequest;
-type CreateRegistrationValues = z.infer<typeof createRegistrationSchema>;
+type CreateRegistrationValues = z.infer<typeof zCreateRegistrationRequest>;
 
 interface InviteCreationFormProps {
   onSuccess: (registration: PendingRegistration) => void;
@@ -28,15 +27,15 @@ export function InviteCreationForm({ onSuccess, onCancel }: InviteCreationFormPr
     label: u.id === currentUser?.id ? `${u.display_name} (you)` : u.display_name,
   }));
 
-  const [selectedOwner, setSelectedOwner] = useState<string | null>(null);
-  // Set to current user by default
-  const effectiveOwner = selectedOwner ?? (currentUser ? String(currentUser.id) : null);
+  const [selectedOwner, setSelectedOwner] = useState<string | null>(
+    currentUser ? String(currentUser.id) : null,
+  );
 
   const form = useForm<CreateRegistrationValues>({
-    validate: schemaResolver(createRegistrationSchema),
+    validate: schemaResolver(zCreateRegistrationRequest),
     initialValues: {
       device_name: "",
-      owner_id: 1,
+      owner_id: BigInt(1),
       heartbeat_server_url: window.location.origin,
       interval_seconds: 900,
       app_biometric_enabled: false,
@@ -46,10 +45,8 @@ export function InviteCreationForm({ onSuccess, onCancel }: InviteCreationFormPr
   });
 
   function onSubmit(values: CreateRegistrationValues) {
-    values.owner_id = Number(effectiveOwner)
-
     mutation.mutate(
-      { body: values },
+      { body: { ...values, owner_id: Number(selectedOwner ?? currentUser?.id) } },
       {
         onSuccess: (data) => onSuccess(data),
         onError: (err) =>
@@ -76,7 +73,7 @@ export function InviteCreationForm({ onSuccess, onCancel }: InviteCreationFormPr
               label="Owner"
               description="User who will own this device."
               data={ownerOptions}
-              value={effectiveOwner}
+              value={selectedOwner}
               onChange={setSelectedOwner}
               searchable
             />

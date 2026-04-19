@@ -34,7 +34,7 @@ describe('usePromoteUser', () => {
         const { result } = renderHook(() => usePromoteUser(), { wrapper: Wrapper });
 
         act(() => {
-            result.current.mutate({ path: { user_id: 2 } });
+            result.current.mutate({ path: { user_id: 2 }, body: { password: "TestPassword1" } });
         });
 
         await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -54,7 +54,7 @@ describe('usePromoteUser', () => {
         const { result } = renderHook(() => usePromoteUser(), { wrapper: Wrapper });
 
         act(() => {
-            result.current.mutate({ path: { user_id: 1 } });
+            result.current.mutate({ path: { user_id: 1 }, body: { password: "TestPassword1" } });
         });
 
         await waitFor(() => expect(result.current.isError).toBe(true));

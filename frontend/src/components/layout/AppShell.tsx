@@ -33,12 +33,12 @@ import { useAutoHeartbeat } from "@/features/devices/hooks/useAutoHeartbeat";
 import { toErrorMessage } from "@/lib/api-client";
 
 const navItems = [
-    { label: "Dashboard", href: "/dashboard", icon: IconChartBar, adminOnly: true },
-    { label: "Devices", href: "/devices", icon: IconServer, adminOnly: false },
-    { label: "Provisioning", href: "/device-provisioning", icon: IconQrcode, adminOnly: true },
-    { label: "Access Log", href: "/access-log", icon: IconList, adminOnly: true },
-    { label: "Address Log", href: "/address-history", icon: IconHistory, adminOnly: true },
-    { label: "Settings", href: "/settings", icon: IconSettings, adminOnly: false },
+    { label: "Dashboard", href: "/dashboard", icon: IconChartBar },
+    { label: "Devices", href: "/devices", icon: IconServer },
+    { label: "Provisioning", href: "/device-provisioning", icon: IconQrcode },
+    { label: "Access Log", href: "/access-log", icon: IconList },
+    { label: "Address Log", href: "/address-history", icon: IconHistory },
+    { label: "Settings", href: "/settings", icon: IconSettings },
 ];
 
 function ColorSchemeToggle() {
@@ -113,7 +113,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {/* Nav items */}
                 <MantineAppShell.Section grow>
                     <Stack gap={4}>
-                        {navItems.filter((item) => !item.adminOnly || user?.role === "admin").map((item) => (
+                        {navItems.map((item) => (
                             <NavLink
                                 key={item.href}
                                 component={Link}

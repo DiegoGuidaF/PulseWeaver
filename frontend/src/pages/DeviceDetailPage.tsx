@@ -11,7 +11,6 @@ import { DeviceHistoryTab } from "@/features/devices/DeviceHistoryTab";
 import { toErrorMessage } from "@/lib/api-client";
 import { getDeviceIcon } from "@/features/devices/deviceTypeConfig";
 import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
-import { UserRole } from "@/lib/api";
 
 type DeviceDetailRouteParams = {
   deviceId?: string;
@@ -27,7 +26,7 @@ export function DeviceDetailPage() {
   const { data: device, isLoading, isError, error } = useDeviceDetail(deviceId, 10_000);
   const { data: leaseRule } = useDeviceAddressLeaseRule(deviceId);
   const { data: currentUser } = useCurrentUser();
-  const isAdmin = currentUser?.role === UserRole.ADMIN;
+  const isAuthenticated = currentUser != null;
 
   if (!deviceIdParam || Number.isNaN(deviceId)) {
     return <Navigate to="/devices" replace />;
@@ -84,7 +83,7 @@ export function DeviceDetailPage() {
           ) : (
             <Text size="sm" c="dimmed">No auto-expiry</Text>
           )}
-          {isAdmin && device.owner_name && (
+          {isAuthenticated && device.owner_name && (
             <>
               <Text size="sm" c="dimmed">·</Text>
               <Text size="sm" c="dimmed">Owner: {device.owner_name}</Text>

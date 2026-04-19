@@ -25,7 +25,7 @@ export function SettingsPage() {
   // Prompt native browser dialog on tab close / refresh when there are unsaved changes
   useUnsavedChangesGuard(accountDirty);
 
-  const isAdmin = user?.role === UserRole.ADMIN && !user.must_change_password;
+  const isAdmin = user?.role === UserRole.SUPERADMIN && !user.must_change_password;
 
   const handleTabChange = useCallback(
     (value: string | null) => {

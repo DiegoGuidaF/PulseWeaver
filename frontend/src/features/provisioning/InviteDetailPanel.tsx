@@ -41,7 +41,7 @@ export function InviteDetailPanel({
         </ActionIcon>
       </Group>
       <Text size="sm" c="dimmed" mt="sm">
-        Key: {registration.device_api_key_prefix} · Expires{" "}
+        Expires{" "}
         {formatDateTime(registration.expires_at)}
       </Text>
       {onCreateAnother && (

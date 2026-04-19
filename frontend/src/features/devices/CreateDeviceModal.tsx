@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useForm, schemaResolver } from "@mantine/form";
+import { schemaResolver, useForm } from "@mantine/form";
 import { z } from "zod";
 import {
   ActionIcon,
@@ -22,17 +22,10 @@ import { useCreateDevice } from "@/features/devices/hooks/useCreateDevice";
 import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { IconPickerPopover } from "@/features/devices/IconPickerPopover";
-import {
-  DEVICE_TYPE_CONFIG,
-  getDeviceIcon,
-} from "@/features/devices/deviceTypeConfig";
 import type { DeviceType } from "@/features/devices/deviceTypeConfig";
+import { DEVICE_TYPE_CONFIG, getDeviceIcon, } from "@/features/devices/deviceTypeConfig";
 import { toApiError, toErrorMessage } from "@/lib/api-client";
-import {
-  updateDeviceMutation,
-  getDevicesQueryKey,
-} from "@/lib/api/@tanstack/react-query.gen";
-import { UserRole } from "@/lib/api";
+import { getDevicesQueryKey, updateDeviceMutation, } from "@/lib/api/@tanstack/react-query.gen";
 import { zCreateDeviceRequest, zUpdateDeviceRequest } from "@/lib/api/zod.gen";
 import { IconX } from "@tabler/icons-react";
 
@@ -52,16 +45,15 @@ interface CreateDeviceModalProps {
 export function CreateDeviceModal({ opened, onClose }: CreateDeviceModalProps) {
   const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
-  const isAdmin = currentUser?.role === UserRole.ADMIN;
-  const { data: users } = useListUsers({ enabled: isAdmin });
+  const { data: users } = useListUsers({ enabled: currentUser != null });
 
   const ownerOptions = (users ?? []).map((u) => ({
-    value: String(u.id),
+    value: u.id,
     label: u.id === currentUser?.id ? `${u.display_name} (you)` : u.display_name,
   }));
 
-  const [selectedOwner, setSelectedOwner] = useState<string | null>(null);
-  const effectiveOwner = selectedOwner ?? (currentUser ? String(currentUser.id) : null);
+  const [selectedOwnerId, setSelectedOwnerId] = useState<number | null>(null);
+  const effectiveOwner = selectedOwnerId ?? (currentUser ? Number(currentUser.id) : null);
 
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
 
@@ -121,22 +113,20 @@ export function CreateDeviceModal({ opened, onClose }: CreateDeviceModalProps) {
       }
 
       form.reset();
-      setSelectedOwner(null);
+      setSelectedOwnerId(null);
       onClose();
     },
   });
 
   function handleClose() {
     form.reset();
-    setSelectedOwner(null);
+    setSelectedOwnerId(null);
     onClose();
   }
 
   function onSubmit(values: FormValues) {
     const body: Record<string, unknown> = { name: values.name };
-    if (isAdmin && effectiveOwner) {
-      body.owner_id = Number(effectiveOwner);
-    }
+    body.owner_id = effectiveOwner;
     createDevice.mutate(
       { body: body as Parameters<typeof createDevice.mutate>[0]["body"] },
       {
@@ -173,16 +163,14 @@ export function CreateDeviceModal({ opened, onClose }: CreateDeviceModalProps) {
               {...form.getInputProps("name")}
             />
 
-            {isAdmin && (
-              <Select
-                label="Owner"
-                description="Admin only — defaults to you."
-                data={ownerOptions}
-                value={effectiveOwner}
-                onChange={setSelectedOwner}
-                searchable
-              />
-            )}
+            <Select
+              label="Owner"
+              description="Defaults to you."
+              data={ownerOptions}
+              value={effectiveOwner}
+              onChange={setSelectedOwnerId}
+              searchable
+            />
 
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
               <div>

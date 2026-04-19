@@ -16,6 +16,7 @@ export const STATUS_BADGE: Record<
   pending: { color: "green", label: "Pending" },
   used: { color: "gray", label: "Used" },
   expired: { color: "red", label: "Expired" },
+  invalidated: { color: "gray", label: "Invalidated" },
 };
 
 export const EXPIRING_SOON_MS = 60 * 60 * 1000;

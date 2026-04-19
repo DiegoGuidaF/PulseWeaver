@@ -36,7 +36,7 @@ function App() {
                   <Route
                     path="/dashboard"
                     element={
-                      <ProtectedRoute adminOnly>
+                      <ProtectedRoute>
                         <AppShell>
                           <TrafficDashboardPage />
                         </AppShell>
@@ -76,7 +76,7 @@ function App() {
                   <Route
                     path="/access-log"
                     element={
-                      <ProtectedRoute adminOnly>
+                      <ProtectedRoute>
                         <AppShell>
                           <AccessLogPage />
                         </AppShell>
@@ -86,7 +86,7 @@ function App() {
                   <Route
                     path="/address-history"
                     element={
-                      <ProtectedRoute adminOnly>
+                      <ProtectedRoute>
                         <AppShell>
                           <AddressHistoryPage />
                         </AppShell>
@@ -96,7 +96,7 @@ function App() {
                   <Route
                     path="/device-provisioning"
                     element={
-                      <ProtectedRoute adminOnly>
+                      <ProtectedRoute>
                         <AppShell>
                           <DeviceProvisioningPage />
                         </AppShell>
