@@ -128,8 +128,7 @@ export const CreateUserRequestSchema = {
     required: [
         'username',
         'display_name',
-        'email',
-        'password'
+        'email'
     ],
     properties: {
         username: {
@@ -142,9 +141,6 @@ export const CreateUserRequestSchema = {
             type: 'string',
             format: 'email',
             example: 'user@example.com'
-        },
-        password: {
-            $ref: '#/components/schemas/Password'
         }
     }
 } as const;
@@ -1116,6 +1112,18 @@ export const ClaimRegistrationResponseSchema = {
         api_key: {
             type: 'string',
             description: 'Plaintext device API key — one time only.'
+        }
+    }
+} as const;
+
+export const PromoteUserRequestSchema = {
+    type: 'object',
+    required: [
+        'password'
+    ],
+    properties: {
+        password: {
+            $ref: '#/components/schemas/Password'
         }
     }
 } as const;

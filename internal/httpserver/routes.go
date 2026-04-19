@@ -75,8 +75,8 @@ func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandle
 		r.Use(auth.PrincipalUserContextMiddleware(authHandler.UserAuthenticator()))
 		// Inject device API key into context if present
 		r.Use(device.PrincipalDeviceContextMiddleware(deviceHandler.APIKeyAuthenticator()))
-		// Enforce device ownership: users can only access their own devices
-		r.Use(deviceHandler.OwnershipMiddleware())
+		// Enforce admin invariant: any user session principal must be an admin
+		r.Use(auth.RequireAdmin)
 
 		// Create custom error handlers with logging
 		errorOptions := httpapi.StrictHTTPServerOptions{

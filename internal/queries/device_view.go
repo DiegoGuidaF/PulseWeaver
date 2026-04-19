@@ -42,6 +42,7 @@ type DeviceDetail struct {
 	OwnerName    string            `db:"owner_name"`
 }
 
+// GetDevices retrieves devices for a specific user or all users when ownerID is nil
 func (r *Repository) GetDevices(ctx context.Context, ownerID *auth.UserID) ([]DeviceView, error) {
 	var devices []DeviceView
 

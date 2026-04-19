@@ -26,7 +26,8 @@ type repository interface {
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
 	GetUserByID(ctx context.Context, userID UserID) (*User, error)
 	UpdateUser(ctx context.Context, user *User) (*User, error)
-	UpdatePasswordHash(ctx context.Context, userID UserID, newHash []byte) error
+	UpdatePasswordHash(ctx context.Context, userID UserID, newHash []byte, mustChangePassword bool) error
+	NullifyPasswordHash(ctx context.Context, userID UserID) error
 	SoftDeleteUser(ctx context.Context, userID UserID) error
 	CreateSession(ctx context.Context, session *Session) (*Session, error)
 	CreateUser(ctx context.Context, user *User) (*User, error)
@@ -65,7 +66,7 @@ func (s *Service) Login(ctx context.Context, username string, password string) (
 			return err
 		}
 
-		if !checkPassword(user.PasswordHash, password) {
+		if user.PasswordHash == nil || !checkPassword(user.PasswordHash, password) {
 			return ErrInvalidCredentials
 		}
 
@@ -107,24 +108,16 @@ func (s *Service) RevokeSession(ctx context.Context, sessionID SessionID) error 
 	return nil
 }
 
-func (s *Service) CreateUser(ctx context.Context, username string, displayName string, email string, password string, principal *Principal) (*User, error) {
-	if !principal.IsAdmin() {
-		return nil, ErrAdminCredentialsRequired
-	}
+func (s *Service) CreateUser(ctx context.Context, username string, displayName string, email string, principal *Principal) (*User, error) {
+	var newUser User
+	var err error
 
-	newUser, err := NewUser(
-		username,
-		displayName,
-		email,
-		password,
-		UserRole,
-		&principal.UserID,
-	)
+	newUser, err = NewUserAccount(username, displayName, email, &principal.UserID)
 	if err != nil {
 		return nil, err
 	}
-	newUser.MustChangePassword = true
-	return s.createUser(s.repo, ctx, &newUser)
+
+	return s.createUser(ctx, &newUser)
 }
 
 func (s *Service) Authenticate(ctx context.Context, rawToken string) (*Principal, error) {
@@ -152,19 +145,11 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 			return nil
 		}
 
-		newUser, err := NewUser(
-			BootstrapAdminUsername,
-			BootstrapAdminDisplayName,
-			BootstrapAdminEmail,
-			password,
-			AdminRole,
-			nil,
-		)
+		newUser, err := NewAdminUser(BootstrapAdminUsername, BootstrapAdminDisplayName, BootstrapAdminEmail, password, nil, false)
 		if err != nil {
 			return err
 		}
-		//TODO: This could be improved maybe with the new transaction management via context
-		user, err := s.createUser(s.repo, ctx, &newUser)
+		user, err := s.createUser(ctx, &newUser)
 		if err != nil {
 			return fmt.Errorf("failed to bootstrap admin: %w", err)
 		}
@@ -179,10 +164,7 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 	return nil
 }
 
-func (s *Service) ListUsers(ctx context.Context, principal *Principal) ([]User, error) {
-	if !principal.IsAdmin() {
-		return nil, ErrAdminCredentialsRequired
-	}
+func (s *Service) ListUsers(ctx context.Context) ([]User, error) {
 	return s.repo.GetAllUsers(ctx)
 }
 
@@ -228,7 +210,7 @@ func (s *Service) ChangePassword(ctx context.Context, userID UserID, sessionID S
 			return err
 		}
 
-		if !checkPassword(user.PasswordHash, currentPassword) {
+		if user.PasswordHash == nil || !checkPassword(user.PasswordHash, currentPassword) {
 			return ErrInvalidCredentials
 		}
 
@@ -241,7 +223,7 @@ func (s *Service) ChangePassword(ctx context.Context, userID UserID, sessionID S
 			return fmt.Errorf("hashing failed: %w", err)
 		}
 
-		err = s.repo.UpdatePasswordHash(ctx, userID, newPasswordHash)
+		err = s.repo.UpdatePasswordHash(ctx, userID, newPasswordHash, false)
 		if err != nil {
 			return err
 		}
@@ -256,25 +238,38 @@ func (s *Service) ChangePassword(ctx context.Context, userID UserID, sessionID S
 	})
 }
 
-func (s *Service) PromoteUser(ctx context.Context, principal *Principal, targetID UserID) (*User, error) {
+func (s *Service) PromoteUser(ctx context.Context, principal *Principal, targetID UserID, newPassword string) (*User, error) {
 	var updatedUser *User
-	if !principal.IsAdmin() {
-		return nil, ErrAdminCredentialsRequired
-	}
-
 	if principal.UserID == targetID {
 		return nil, ErrSelfRoleChangeForbidden
 	}
 
-	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+	if err := ValidatePassword(newPassword); err != nil {
+		return nil, err
+	}
+
+	passwordHash, err := hashPassword(newPassword)
+	if err != nil {
+		return nil, fmt.Errorf("hashing failed: %w", err)
+	}
+
+	err = s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		target, err := s.repo.GetUserByID(ctx, targetID)
 		if err != nil {
 			return err
 		}
 
+		if target.Role == AdminRole {
+			return ErrPromoteAlreadyAdmin
+		}
+
 		target.Role = AdminRole
 		updatedUser, err = s.repo.UpdateUser(ctx, target)
-		return err
+		if err != nil {
+			return err
+		}
+
+		return s.repo.UpdatePasswordHash(ctx, targetID, passwordHash, true)
 	})
 	if err != nil {
 		return nil, err
@@ -286,10 +281,6 @@ func (s *Service) PromoteUser(ctx context.Context, principal *Principal, targetI
 
 func (s *Service) DemoteUser(ctx context.Context, principal *Principal, targetID UserID) (*User, error) {
 	var updatedUser *User
-	if !principal.IsAdmin() {
-		return nil, ErrAdminCredentialsRequired
-	}
-
 	if principal.UserID == targetID {
 		return nil, ErrSelfRoleChangeForbidden
 	}
@@ -302,7 +293,15 @@ func (s *Service) DemoteUser(ctx context.Context, principal *Principal, targetID
 
 		target.Role = UserRole
 		updatedUser, err = s.repo.UpdateUser(ctx, target)
-		return err
+		if err != nil {
+			return err
+		}
+
+		if err = s.repo.NullifyPasswordHash(ctx, targetID); err != nil {
+			return err
+		}
+
+		return s.repo.RevokeAllUserSessions(ctx, targetID)
 	})
 	if err != nil {
 		return nil, err
@@ -313,10 +312,6 @@ func (s *Service) DemoteUser(ctx context.Context, principal *Principal, targetID
 }
 
 func (s *Service) DeleteUser(ctx context.Context, principal *Principal, targetID UserID) error {
-	if !principal.IsAdmin() {
-		return ErrAdminCredentialsRequired
-	}
-
 	if principal.UserID == targetID {
 		return ErrSelfDeleteForbidden
 	}
@@ -345,7 +340,7 @@ func (s *Service) DeleteUser(ctx context.Context, principal *Principal, targetID
 	return err
 }
 
-func (s *Service) createUser(tx repository, ctx context.Context, newUser *User) (*User, error) {
+func (s *Service) createUser(ctx context.Context, newUser *User) (*User, error) {
 	user, err := s.repo.CreateUser(ctx, newUser)
 	if err != nil {
 		return nil, err

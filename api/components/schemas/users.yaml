@@ -76,7 +76,6 @@ CreateUserRequest:
     - username
     - display_name
     - email
-    - password
   properties:
     username:
       $ref: '#/Username'
@@ -86,6 +85,12 @@ CreateUserRequest:
       type: string
       format: email
       example: "user@example.com"
+
+PromoteUserRequest:
+  type: object
+  required:
+    - password
+  properties:
     password:
       $ref: '#/Password'
 

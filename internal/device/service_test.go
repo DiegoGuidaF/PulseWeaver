@@ -597,7 +597,7 @@ func TestService_UpdateDevice_RenamesDevice(t *testing.T) {
 	mockRepo.devices[d.ID] = d
 
 	svc := newService(mockRepo)
-	updated, err := svc.UpdateDevice(ctx, testAdminPrincipal(), d.ID, device.UpdateDeviceInput{Name: new("new-name")})
+	updated, err := svc.UpdateDevice(ctx, d.ID, device.UpdateDeviceInput{Name: new("new-name")})
 
 	is.NoErr(err)
 	is.Equal(updated.Name, "new-name")
@@ -610,7 +610,7 @@ func TestService_UpdateDevice_DeviceNotFound(t *testing.T) {
 	mockRepo := newMockRepository()
 	svc := newService(mockRepo)
 
-	_, err := svc.UpdateDevice(ctx, testAdminPrincipal(), device.DeviceID(99), device.UpdateDeviceInput{})
+	_, err := svc.UpdateDevice(ctx, device.DeviceID(99), device.UpdateDeviceInput{})
 
 	is.True(errors.Is(err, device.ErrDeviceNotFound))
 }
@@ -624,7 +624,7 @@ func TestService_UpdateDevice_InvalidTypePropagated(t *testing.T) {
 	mockRepo.devices[d.ID] = d
 
 	svc := newService(mockRepo)
-	_, err := svc.UpdateDevice(ctx, testAdminPrincipal(), d.ID, device.UpdateDeviceInput{DeviceType: new("robot")})
+	_, err := svc.UpdateDevice(ctx, d.ID, device.UpdateDeviceInput{DeviceType: new("robot")})
 
 	is.True(errors.Is(err, device.ErrInvalidDeviceType))
 }
@@ -640,7 +640,7 @@ func TestService_UpdateDevice_RepoErrorPropagated(t *testing.T) {
 	mockRepo.updateDeviceErr = sentinel
 
 	svc := newService(mockRepo)
-	_, err := svc.UpdateDevice(ctx, testAdminPrincipal(), d.ID, device.UpdateDeviceInput{})
+	_, err := svc.UpdateDevice(ctx, d.ID, device.UpdateDeviceInput{})
 
 	is.True(errors.Is(err, sentinel))
 }

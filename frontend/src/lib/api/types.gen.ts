@@ -59,7 +59,6 @@ export type CreateUserRequest = {
     username: Username;
     display_name: DisplayName;
     email: string;
-    password: Password;
 };
 
 export type UpdateProfileRequest = unknown & {
@@ -434,6 +433,10 @@ export type ClaimRegistrationResponse = {
     api_key: string;
 };
 
+export type PromoteUserRequest = {
+    password: Password;
+};
+
 export type DeviceApiKeyResponse = {
     device: Device;
     /**
@@ -620,7 +623,7 @@ export type DeleteUserResponses = {
 export type DeleteUserResponse = DeleteUserResponses[keyof DeleteUserResponses];
 
 export type PromoteUserData = {
-    body?: never;
+    body: PromoteUserRequest;
     path: {
         user_id: Id;
     };
@@ -629,6 +632,10 @@ export type PromoteUserData = {
 };
 
 export type PromoteUserErrors = {
+    /**
+     * Invalid password
+     */
+    400: ErrorResponse;
     /**
      * Invalid credentials
      */

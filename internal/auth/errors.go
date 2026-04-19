@@ -13,5 +13,6 @@ var (
 	ErrInvalidPassword          = errors.New("invalid password")
 	ErrSelfDeleteForbidden      = errors.New("cannot delete yourself")
 	ErrSelfRoleChangeForbidden  = errors.New("cannot change your own role")
+	ErrPromoteAlreadyAdmin      = errors.New("cannot promote an admin")
 	ErrNoUpdateFields           = errors.New("no fields to update")
 )

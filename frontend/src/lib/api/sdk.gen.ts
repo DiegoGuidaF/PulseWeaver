@@ -20,7 +20,7 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 };
 
 /**
- * List all users (Admin only)
+ * List all users
  *
  * Returns all non-deleted users.
  */
@@ -37,7 +37,7 @@ export const listUsers = <ThrowOnError extends boolean = false>(options?: Option
 });
 
 /**
- * Register a new user (Admin only)
+ * Register a new user. Creation role is always "user", to create an admin promote it after creation
  *
  * Creates a new user account.
  */
@@ -58,7 +58,7 @@ export const createUser = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
- * Delete a user (Admin only)
+ * Delete a user
  *
  * Soft-deletes a user and revokes all user sessions.
  */
@@ -75,9 +75,9 @@ export const deleteUser = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
- * Promote a user to admin (Admin only)
+ * Promote a user to admin
  *
- * Promotes another user to the admin role. Cannot promote oneself.
+ * Promotes another user to the admin role and sets their initial password. Cannot promote oneself.
  */
 export const promoteUser = <ThrowOnError extends boolean = false>(options: Options<PromoteUserData, ThrowOnError>) => (options.client ?? client).post<PromoteUserResponses, PromoteUserErrors, ThrowOnError>({
     requestValidator: async (data) => await zPromoteUserData.parseAsync(data),
@@ -88,11 +88,15 @@ export const promoteUser = <ThrowOnError extends boolean = false>(options: Optio
             type: 'apiKey'
         }],
     url: '/admin/users/{user_id}/promote',
-    ...options
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
- * Demote an admin to regular user (Admin only)
+ * Demote an admin to regular user
  *
  * Demotes another admin to the user role. Cannot demote oneself.
  */
@@ -109,7 +113,7 @@ export const demoteUser = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
- * List devices owned by a user (Admin only)
+ * List devices owned by a user
  *
  * Returns all devices assigned to the specified user.
  */
@@ -197,7 +201,7 @@ export const updateMe = <ThrowOnError extends boolean = false>(options: Options<
 });
 
 /**
- * Change current user password
+ * Change current user password. Only administrators can change their password
  *
  * Validates current password, updates password, and revokes all other sessions.
  */

@@ -51,8 +51,7 @@ export const zAuthRequest = z.object({
 export const zCreateUserRequest = z.object({
     username: zUsername,
     display_name: zDisplayName,
-    email: z.email(),
-    password: zPassword
+    email: z.email()
 });
 
 export const zUpdateProfileRequest = z.intersection(z.unknown(), z.object({
@@ -303,6 +302,10 @@ export const zClaimRegistrationResponse = z.object({
     api_key: z.string()
 });
 
+export const zPromoteUserRequest = z.object({
+    password: zPassword
+});
+
 export const zDeviceApiKeyResponse = z.object({
     device: zDevice,
     api_key: z.string()
@@ -381,7 +384,7 @@ export const zDeleteUserData = z.object({
 export const zDeleteUserResponse = z.void();
 
 export const zPromoteUserData = z.object({
-    body: z.never().optional(),
+    body: zPromoteUserRequest,
     path: z.object({
         user_id: zId
     }),

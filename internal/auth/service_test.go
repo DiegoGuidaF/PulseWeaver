@@ -58,7 +58,7 @@ func TestService_Login_Success(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	u, err := auth.NewUser("testuser", "Test User", "", "Password123", auth.UserRole, nil)
+	u, err := auth.NewAdminUser("testuser", "Test User", "", "Password123", nil, true)
 	is.NoErr(err)
 	u.ID = auth.UserID(1)
 	user := &u
@@ -99,7 +99,7 @@ func TestService_Login_InvalidPassword(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	u, err := auth.NewUser("testuser", "Test User", "", "Password123", auth.UserRole, nil)
+	u, err := auth.NewAdminUser("testuser", "Test User", "", "Password123", nil, true)
 	is.NoErr(err)
 	u.ID = auth.UserID(1)
 	user := &u
@@ -172,27 +172,12 @@ func TestService_CreateUser_Success(t *testing.T) {
 
 	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.AdminRole)
 
-	createdUser, err := service.CreateUser(ctx, "newuser", "New User", "", "Password123", principalFor(admin))
+	createdUser, err := service.CreateUser(ctx, "newuser", "New User", "", principalFor(admin))
 	is.NoErr(err)
 	is.True(createdUser != nil)
 	is.Equal(createdUser.Username, "newuser")
 	is.Equal(createdUser.DisplayName, "New User")
 	is.Equal(createdUser.Role, auth.UserRole)
-}
-
-func TestService_CreateUser_NonAdmin(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	mockRepo := newMockRepository()
-	service := newService(mockRepo)
-
-	regular := givenUser(mockRepo, auth.UserID(1), "regular", auth.UserRole)
-
-	createdUser, err := service.CreateUser(ctx, "newuser", "New User", "", "Password123", principalFor(regular))
-	is.True(err != nil)
-	is.Equal(err, auth.ErrAdminCredentialsRequired)
-	is.True(createdUser == nil)
 }
 
 func TestService_CreateUser_DuplicateUsername(t *testing.T) {
@@ -204,11 +189,11 @@ func TestService_CreateUser_DuplicateUsername(t *testing.T) {
 
 	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.AdminRole)
 
-	_, err := service.CreateUser(ctx, "newuser", "New User", "", "Password123", principalFor(admin))
+	_, err := service.CreateUser(ctx, "newuser", "New User", "", principalFor(admin))
 	is.NoErr(err)
 
 	mockRepo.createUserErr = auth.ErrUsernameTaken
-	createdUser, err := service.CreateUser(ctx, "newuser", "New User", "", "Password123", principalFor(admin))
+	createdUser, err := service.CreateUser(ctx, "newuser", "New User", "", principalFor(admin))
 	is.True(err != nil)
 	is.Equal(err, auth.ErrUsernameTaken)
 	is.True(createdUser == nil)
@@ -238,7 +223,7 @@ func TestService_BootstrapAdmin_CreatesAdminWhenNoAdminsExist(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	eu, err := auth.NewUser("existing", "Existing User", "", "Password123", auth.UserRole, nil)
+	eu, err := auth.NewUserAccount("existing", "Existing User", "", nil)
 	is.NoErr(err)
 	eu.ID = auth.UserID(1)
 	existingUser := &eu
@@ -298,26 +283,12 @@ func TestService_ListUsers_ReturnsAllUsers(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "alice", auth.AdminRole)
+	givenUser(mockRepo, auth.UserID(1), "alice", auth.AdminRole)
 	givenUser(mockRepo, auth.UserID(2), "bob", auth.UserRole)
 
-	users, err := service.ListUsers(ctx, principalFor(admin))
+	users, err := service.ListUsers(ctx)
 	is.NoErr(err)
 	is.Equal(len(users), 2)
-}
-
-func TestService_ListUsers_NonAdminForbidden(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	mockRepo := newMockRepository()
-	service := newService(mockRepo)
-
-	regular := givenUser(mockRepo, auth.UserID(1), "regular", auth.UserRole)
-
-	users, err := service.ListUsers(ctx, principalFor(regular))
-	is.Equal(err, auth.ErrAdminCredentialsRequired)
-	is.True(users == nil)
 }
 
 func TestService_UpdateOwnProfile_UpdatesDisplayName(t *testing.T) {
@@ -381,7 +352,7 @@ func TestService_ChangePassword_Success(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	u, err := auth.NewUser("alice", "Alice", "", "OldPass123!", auth.UserRole, nil)
+	u, err := auth.NewAdminUser("alice", "Alice", "", "OldPass123!", nil, true)
 	is.NoErr(err)
 	u.ID = auth.UserID(1)
 	user := &u
@@ -402,7 +373,7 @@ func TestService_ChangePassword_WrongCurrentPassword(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	u, err := auth.NewUser("alice", "Alice", "", "OldPass123!", auth.UserRole, nil)
+	u, err := auth.NewAdminUser("alice", "Alice", "", "OldPass123!", nil, true)
 	is.NoErr(err)
 	u.ID = auth.UserID(1)
 	user := &u
@@ -420,7 +391,7 @@ func TestService_ChangePassword_RevokesOtherSessions(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	u, err := auth.NewUser("alice", "Alice", "", "OldPass123!", auth.UserRole, nil)
+	u, err := auth.NewAdminUser("alice", "Alice", "", "OldPass123!", nil, true)
 	is.NoErr(err)
 	u.ID = auth.UserID(1)
 	user := &u
@@ -448,24 +419,9 @@ func TestService_PromoteUser_Success(t *testing.T) {
 	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.AdminRole)
 	target := givenUser(mockRepo, auth.UserID(2), "alice", auth.UserRole)
 
-	updated, err := service.PromoteUser(ctx, principalFor(admin), target.ID)
+	updated, err := service.PromoteUser(ctx, principalFor(admin), target.ID, "NewAdminPass123!")
 	is.NoErr(err)
 	is.Equal(updated.Role, auth.AdminRole)
-}
-
-func TestService_PromoteUser_NonAdminForbidden(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	mockRepo := newMockRepository()
-	service := newService(mockRepo)
-
-	regular := givenUser(mockRepo, auth.UserID(1), "regular", auth.UserRole)
-	target := givenUser(mockRepo, auth.UserID(2), "alice", auth.UserRole)
-
-	updated, err := service.PromoteUser(ctx, principalFor(regular), target.ID)
-	is.Equal(err, auth.ErrAdminCredentialsRequired)
-	is.True(updated == nil)
 }
 
 func TestService_PromoteUser_SelfForbidden(t *testing.T) {
@@ -477,8 +433,24 @@ func TestService_PromoteUser_SelfForbidden(t *testing.T) {
 
 	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.AdminRole)
 
-	updated, err := service.PromoteUser(ctx, principalFor(admin), admin.ID)
+	updated, err := service.PromoteUser(ctx, principalFor(admin), admin.ID, "NewAdminPass123!")
 	is.Equal(err, auth.ErrSelfRoleChangeForbidden)
+	is.True(updated == nil)
+}
+
+func TestService_PromoteUser_ErrAlreadyAdmin(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := newService(mockRepo)
+
+	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.AdminRole)
+	target := givenUser(mockRepo, auth.UserID(2), "alice", auth.AdminRole)
+
+	updated, err := service.PromoteUser(ctx, principalFor(admin), target.ID, "NewAdminPass123!")
+
+	is.Equal(err, auth.ErrPromoteAlreadyAdmin)
 	is.True(updated == nil)
 }
 
@@ -495,21 +467,6 @@ func TestService_DemoteUser_Success(t *testing.T) {
 	updated, err := service.DemoteUser(ctx, principalFor(admin), target.ID)
 	is.NoErr(err)
 	is.Equal(updated.Role, auth.UserRole)
-}
-
-func TestService_DemoteUser_NonAdminForbidden(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	mockRepo := newMockRepository()
-	service := newService(mockRepo)
-
-	regular := givenUser(mockRepo, auth.UserID(1), "regular", auth.UserRole)
-	target := givenUser(mockRepo, auth.UserID(2), "admin", auth.AdminRole)
-
-	updated, err := service.DemoteUser(ctx, principalFor(regular), target.ID)
-	is.Equal(err, auth.ErrAdminCredentialsRequired)
-	is.True(updated == nil)
 }
 
 func TestService_DemoteUser_SelfForbidden(t *testing.T) {
@@ -540,20 +497,6 @@ func TestService_DeleteUser_Success(t *testing.T) {
 	is.NoErr(err)
 	_, exists := mockRepo.users[target.ID]
 	is.True(!exists)
-}
-
-func TestService_DeleteUser_NonAdminForbidden(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	mockRepo := newMockRepository()
-	service := newService(mockRepo)
-
-	regular := givenUser(mockRepo, auth.UserID(1), "regular", auth.UserRole)
-	target := givenUser(mockRepo, auth.UserID(2), "alice", auth.UserRole)
-
-	err := service.DeleteUser(ctx, principalFor(regular), target.ID)
-	is.Equal(err, auth.ErrAdminCredentialsRequired)
 }
 
 func TestService_DeleteUser_SelfDeleteForbidden(t *testing.T) {
@@ -709,13 +652,22 @@ func (m *mockRepository) UpdateUser(_ context.Context, user *auth.User) (*auth.U
 	return existing, nil
 }
 
-func (m *mockRepository) UpdatePasswordHash(_ context.Context, userID auth.UserID, newHash []byte) error {
+func (m *mockRepository) UpdatePasswordHash(_ context.Context, userID auth.UserID, newHash []byte, mustChangePassword bool) error {
 	user, ok := m.users[userID]
 	if !ok {
 		return auth.ErrUserNotFound
 	}
 	user.PasswordHash = newHash
-	user.MustChangePassword = false
+	user.MustChangePassword = mustChangePassword
+	return nil
+}
+
+func (m *mockRepository) NullifyPasswordHash(_ context.Context, userID auth.UserID) error {
+	user, ok := m.users[userID]
+	if !ok {
+		return auth.ErrUserNotFound
+	}
+	user.PasswordHash = nil
 	return nil
 }
 

@@ -32,16 +32,10 @@ type User struct {
 	DeletedAt          *time.Time `db:"deleted_at"`
 }
 
-func NewUser(
-	username string,
-	displayName string,
-	email string,
-	password string,
-	role Role,
-	createdByID *UserID,
-) (User, error) {
-	err := ValidatePassword(password)
-	if err != nil {
+// NewAdminUser creates an admin-role user; password is required and hashed.
+// MustChangePassword is set to true so the admin must change the assigned password on first login.
+func NewAdminUser(username, displayName, email, password string, createdByID *UserID, mustChangePassword bool) (User, error) {
+	if err := ValidatePassword(password); err != nil {
 		return User{}, err
 	}
 
@@ -61,11 +55,36 @@ func NewUser(
 	}
 
 	return User{
+		Username:           validUsername,
+		DisplayName:        validDisplayName,
+		Email:              email,
+		PasswordHash:       passwordHash,
+		Role:               AdminRole,
+		MustChangePassword: mustChangePassword,
+		CreatedBy:          createdByID,
+		CreatedAt:          time.Now().UTC(),
+	}, nil
+}
+
+// NewUserAccount creates a user-role account with no password.
+// Non-admin users cannot log in; they exist solely to own devices.
+func NewUserAccount(username, displayName, email string, createdByID *UserID) (User, error) {
+	validUsername, err := ValidateUsername(username)
+	if err != nil {
+		return User{}, err
+	}
+
+	validDisplayName, err := ValidateDisplayName(displayName)
+	if err != nil {
+		return User{}, err
+	}
+
+	return User{
 		Username:     validUsername,
 		DisplayName:  validDisplayName,
 		Email:        email,
-		PasswordHash: passwordHash,
-		Role:         role,
+		PasswordHash: nil,
+		Role:         UserRole,
 		CreatedBy:    createdByID,
 		CreatedAt:    time.Now().UTC(),
 	}, nil

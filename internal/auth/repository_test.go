@@ -21,11 +21,16 @@ func setupAuthTestDB(t *testing.T) *auth.Repository {
 	return auth.NewRepository(db.DB())
 }
 
-//nolint:unparam // role parameter kept for API clarity even though currently always UserRole
 func mustNewUser(t *testing.T, username, displayName string, email string, role auth.Role) *auth.User {
 	t.Helper()
 
-	user, err := auth.NewUser(username, displayName, email, "Password123", role, nil)
+	var user auth.User
+	var err error
+	if role == auth.AdminRole {
+		user, err = auth.NewAdminUser(username, displayName, email, "Password123", nil, true)
+	} else {
+		user, err = auth.NewUserAccount(username, displayName, email, nil)
+	}
 	if err != nil {
 		t.Fatalf("new user: %v", err)
 	}
@@ -219,11 +224,11 @@ func TestRepository_UpdatePasswordHash(t *testing.T) {
 	repo := setupAuthTestDB(t)
 	ctx := context.Background()
 
-	user, err := repo.CreateUser(ctx, mustNewUser(t, "pw_user", "PW User", "", auth.UserRole))
+	user, err := repo.CreateUser(ctx, mustNewUser(t, "pw_user", "PW User", "", auth.AdminRole))
 	is.NoErr(err)
 
 	newHash := []byte("new-bcrypt-hash")
-	err = repo.UpdatePasswordHash(ctx, user.ID, newHash)
+	err = repo.UpdatePasswordHash(ctx, user.ID, newHash, false)
 	is.NoErr(err)
 
 	fetched, err := repo.GetUserByID(ctx, user.ID)

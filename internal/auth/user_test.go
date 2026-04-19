@@ -10,56 +10,61 @@ import (
 	"github.com/matryer/is"
 )
 
-func TestNewUser_ValidInputs(t *testing.T) {
+func TestNewAdminUser_ValidInputs(t *testing.T) {
 	tests := []struct {
 		name        string
 		username    string
 		displayName string
 		email       string
 		password    string
-		role        auth.Role
 	}{
 		{
-			name:        "valid user with email",
+			name:        "admin with email",
 			username:    "john_doe",
 			displayName: "John Doe",
 			email:       "john@example.com",
 			password:    "Password123",
-			role:        auth.UserRole,
 		},
 		{
-			name:        "valid user without email",
+			name:        "admin without email",
 			username:    "jane_doe",
 			displayName: "Jane Doe",
 			email:       "",
 			password:    "Password123",
-			role:        auth.UserRole,
 		},
 		{
-			name:        "valid admin user",
+			name:        "admin with strong password",
 			username:    "admin_user",
 			displayName: "Admin User",
 			email:       "",
 			password:    "AdminPass123!",
-			role:        auth.AdminRole,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			user, err := auth.NewUser(tt.username, tt.displayName, tt.email, tt.password, tt.role, nil)
+			user, err := auth.NewAdminUser(tt.username, tt.displayName, tt.email, tt.password, nil, true)
 			is.NoErr(err)
 			is.Equal(user.Username, tt.username)
 			is.Equal(user.DisplayName, tt.displayName)
 			is.Equal(user.Email, tt.email)
-			is.Equal(user.Role, tt.role)
+			is.Equal(user.Role, auth.AdminRole)
 			is.True(len(user.PasswordHash) > 0)
 		})
 	}
 }
 
-func TestNewUser_InvalidUsername(t *testing.T) {
+func TestNewUserAccount_ValidInputs(t *testing.T) {
+	is := is.New(t)
+	user, err := auth.NewUserAccount("some_user", "Some User", "user@example.com", nil)
+	is.NoErr(err)
+	is.Equal(user.Username, "some_user")
+	is.Equal(user.Role, auth.UserRole)
+	is.True(user.PasswordHash == nil)
+}
+
+func TestNewAdminUser_InvalidUsername(t *testing.T) {
 	tests := []struct {
 		name        string
 		username    string
@@ -107,7 +112,7 @@ func TestNewUser_InvalidUsername(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			user, err := auth.NewUser(tt.username, tt.displayName, "", tt.password, auth.UserRole, nil)
+			user, err := auth.NewAdminUser(tt.username, tt.displayName, "", tt.password, nil, true)
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))
@@ -121,7 +126,7 @@ func TestNewUser_InvalidUsername(t *testing.T) {
 	}
 }
 
-func TestNewUser_InvalidDisplayName(t *testing.T) {
+func TestNewAdminUser_InvalidDisplayName(t *testing.T) {
 	tests := []struct {
 		name        string
 		username    string
@@ -155,7 +160,7 @@ func TestNewUser_InvalidDisplayName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			user, err := auth.NewUser(tt.username, tt.displayName, "", tt.password, auth.UserRole, nil)
+			user, err := auth.NewAdminUser(tt.username, tt.displayName, "", tt.password, nil, true)
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))
@@ -170,7 +175,7 @@ func TestNewUser_InvalidDisplayName(t *testing.T) {
 	}
 }
 
-func TestNewUser_InvalidPassword(t *testing.T) {
+func TestNewAdminUser_InvalidPassword(t *testing.T) {
 	tests := []struct {
 		name        string
 		username    string
@@ -211,7 +216,7 @@ func TestNewUser_InvalidPassword(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			user, err := auth.NewUser(tt.username, tt.displayName, "", tt.password, auth.UserRole, nil)
+			user, err := auth.NewAdminUser(tt.username, tt.displayName, "", tt.password, nil, true)
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))

@@ -48,7 +48,7 @@ password:
     operationId: changePassword
     tags:
       - users
-    summary: Change current user password
+    summary: Change current user password. Only administrators can change their password
     description: Validates current password, updates password, and revokes all other sessions.
     requestBody:
       required: true

@@ -42,7 +42,7 @@ const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions
 export const listUsersQueryKey = (options?: Options<ListUsersData>) => createQueryKey('listUsers', options);
 
 /**
- * List all users (Admin only)
+ * List all users
  *
  * Returns all non-deleted users.
  */
@@ -60,7 +60,7 @@ export const listUsersOptions = (options?: Options<ListUsersData>) => queryOptio
 });
 
 /**
- * Register a new user (Admin only)
+ * Register a new user. Creation role is always "user", to create an admin promote it after creation
  *
  * Creates a new user account.
  */
@@ -79,7 +79,7 @@ export const createUserMutation = (options?: Partial<Options<CreateUserData>>): 
 };
 
 /**
- * Delete a user (Admin only)
+ * Delete a user
  *
  * Soft-deletes a user and revokes all user sessions.
  */
@@ -98,9 +98,9 @@ export const deleteUserMutation = (options?: Partial<Options<DeleteUserData>>): 
 };
 
 /**
- * Promote a user to admin (Admin only)
+ * Promote a user to admin
  *
- * Promotes another user to the admin role. Cannot promote oneself.
+ * Promotes another user to the admin role and sets their initial password. Cannot promote oneself.
  */
 export const promoteUserMutation = (options?: Partial<Options<PromoteUserData>>): UseMutationOptions<PromoteUserResponse, PromoteUserError, Options<PromoteUserData>> => {
     const mutationOptions: UseMutationOptions<PromoteUserResponse, PromoteUserError, Options<PromoteUserData>> = {
@@ -117,7 +117,7 @@ export const promoteUserMutation = (options?: Partial<Options<PromoteUserData>>)
 };
 
 /**
- * Demote an admin to regular user (Admin only)
+ * Demote an admin to regular user
  *
  * Demotes another admin to the user role. Cannot demote oneself.
  */
@@ -138,7 +138,7 @@ export const demoteUserMutation = (options?: Partial<Options<DemoteUserData>>): 
 export const getDevicesByUserQueryKey = (options: Options<GetDevicesByUserData>) => createQueryKey('getDevicesByUser', options);
 
 /**
- * List devices owned by a user (Admin only)
+ * List devices owned by a user
  *
  * Returns all devices assigned to the specified user.
  */
@@ -233,7 +233,7 @@ export const updateMeMutation = (options?: Partial<Options<UpdateMeData>>): UseM
 };
 
 /**
- * Change current user password
+ * Change current user password. Only administrators can change their password
  *
  * Validates current password, updates password, and revokes all other sessions.
  */

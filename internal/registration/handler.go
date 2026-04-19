@@ -50,14 +50,6 @@ func (h *HTTPHandler) CreateRegistration(ctx context.Context, request httpapi.Cr
 	ctx = logging.WithOperation(ctx, "CreateRegistration")
 	logger := h.logger
 
-	principal, ok := auth.PrincipalFromContext(ctx)
-	if !ok {
-		return httpapi.CreateRegistration401Response{}, nil
-	}
-	if !principal.IsAdmin() {
-		return httpapi.CreateRegistration403Response{}, nil
-	}
-
 	body := request.Body
 	appBiometricEnabled := false
 	if body.AppBiometricEnabled != nil {
@@ -89,14 +81,6 @@ func (h *HTTPHandler) ListRegistrations(ctx context.Context, request httpapi.Lis
 	ctx = logging.WithOperation(ctx, "ListRegistrations")
 	logger := h.logger
 
-	principal, ok := auth.PrincipalFromContext(ctx)
-	if !ok {
-		return httpapi.ListRegistrations401Response{}, nil
-	}
-	if !principal.IsAdmin() {
-		return httpapi.ListRegistrations403Response{}, nil
-	}
-
 	filter := InviteFilter{}
 	if request.Params.Status != nil && *request.Params.Status == httpapi.ListRegistrationsParamsStatusAll {
 		filter.IncludeAll = true
@@ -120,14 +104,6 @@ func (h *HTTPHandler) GetRegistration(ctx context.Context, request httpapi.GetRe
 	ctx = logging.WithOperation(ctx, "GetRegistration")
 	logger := h.logger
 
-	principal, ok := auth.PrincipalFromContext(ctx)
-	if !ok {
-		return httpapi.GetRegistration401Response{}, nil
-	}
-	if !principal.IsAdmin() {
-		return httpapi.GetRegistration403Response{}, nil
-	}
-
 	invite, err := h.service.GetInvite(ctx, PendingRegistrationID(request.RegistrationId))
 	if err != nil {
 		if errors.Is(err, ErrInviteNotFound) {
@@ -143,14 +119,6 @@ func (h *HTTPHandler) GetRegistration(ctx context.Context, request httpapi.GetRe
 func (h *HTTPHandler) DeleteRegistration(ctx context.Context, request httpapi.DeleteRegistrationRequestObject) (httpapi.DeleteRegistrationResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "DeleteRegistration")
 	logger := h.logger
-
-	principal, ok := auth.PrincipalFromContext(ctx)
-	if !ok {
-		return httpapi.DeleteRegistration401Response{}, nil
-	}
-	if !principal.IsAdmin() {
-		return httpapi.DeleteRegistration403Response{}, nil
-	}
 
 	err := h.service.InvalidateInvite(ctx, PendingRegistrationID(request.RegistrationId))
 	if err != nil {

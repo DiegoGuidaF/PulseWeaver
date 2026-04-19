@@ -86,18 +86,8 @@ func (h *HTTPHandler) ListUsers(ctx context.Context, _ httpapi.ListUsersRequestO
 	ctx = logging.WithOperation(ctx, "ListUsers")
 	logger := h.logger
 
-	principal, ok := PrincipalFromContext(ctx)
-	if !ok {
-		logger.WarnContext(ctx, "principal not in context")
-		return httpapi.ListUsers401JSONResponse{}, nil
-	}
-
-	users, err := h.service.ListUsers(ctx, principal)
+	users, err := h.service.ListUsers(ctx)
 	if err != nil {
-		if errors.Is(err, ErrAdminCredentialsRequired) {
-			logger.WarnContext(ctx, "admin credentials required")
-			return httpapi.ListUsers403Response{}, nil
-		}
 		logger.ErrorContext(ctx, "failed to list users", slog.Any(AttrKeyError, err))
 		return httpapi.ListUsers500JSONResponse(errorMsgResponse("Failed to list users")), nil
 	}
@@ -124,14 +114,7 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUser
 		return httpapi.CreateUser401JSONResponse{}, nil
 	}
 
-	user, err := h.service.CreateUser(
-		ctx,
-		username,
-		request.Body.DisplayName,
-		string(request.Body.Email),
-		request.Body.Password,
-		principal,
-	)
+	user, err := h.service.CreateUser(ctx, username, request.Body.DisplayName, string(request.Body.Email), principal)
 
 	if err != nil {
 		if errors.Is(err, ErrUsernameTaken) {
@@ -145,10 +128,6 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUser
 		if errors.Is(err, ErrInvalidDisplayName) || errors.Is(err, ErrInvalidUsername) || errors.Is(err, ErrInvalidPassword) {
 			logger.WarnContext(ctx, "invalid input")
 			return httpapi.CreateUser400JSONResponse(errorMsgResponse("Invalid input")), nil
-		}
-		if errors.Is(err, ErrAdminCredentialsRequired) {
-			logger.WarnContext(ctx, "admin credentials required")
-			return httpapi.CreateUser403Response{}, nil
 		}
 		logger.ErrorContext(ctx, "failed to create user", slog.Any(AttrKeyError, err))
 		return httpapi.CreateUser500JSONResponse(errorMsgResponse("Failed to create user")), nil
@@ -231,15 +210,18 @@ func (h *HTTPHandler) PromoteUser(ctx context.Context, request httpapi.PromoteUs
 		return httpapi.PromoteUser401JSONResponse(errorMsgResponse("Not authenticated")), nil
 	}
 
-	user, err := h.service.PromoteUser(ctx, principal, UserID(request.UserId))
+	user, err := h.service.PromoteUser(ctx, principal, UserID(request.UserId), request.Body.Password)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrSelfRoleChangeForbidden):
-			logger.WarnContext(ctx, "forbidden self-promotion")
-			return httpapi.PromoteUser403JSONResponse(errorMsgResponse("Cannot promote yourself")), nil
+		case errors.Is(err, ErrSelfRoleChangeForbidden) || errors.Is(err, ErrPromoteAlreadyAdmin):
+			logger.WarnContext(ctx, "forbidden already an admin or self-promotion")
+			return httpapi.PromoteUser403JSONResponse(errorMsgResponse("Cannot promote an admin or yourself")), nil
 		case errors.Is(err, ErrAdminCredentialsRequired):
 			logger.WarnContext(ctx, "admin credentials required")
 			return httpapi.PromoteUser403JSONResponse(errorMsgResponse("admin credentials required")), nil
+		case errors.Is(err, ErrInvalidPassword):
+			logger.WarnContext(ctx, "invalid password for promotion")
+			return httpapi.PromoteUser400JSONResponse(errorMsgResponse("Invalid password")), nil
 		case errors.Is(err, ErrUserNotFound):
 			logger.WarnContext(ctx, "target user not found")
 			return httpapi.PromoteUser404JSONResponse(errorMsgResponse("User not found")), nil

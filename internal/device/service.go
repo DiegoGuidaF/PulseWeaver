@@ -99,7 +99,7 @@ func (s *Service) GetDevice(ctx context.Context, deviceID DeviceID) (*Device, er
 
 func (s *Service) CreateDevice(ctx context.Context, principal *auth.Principal, name string, requestedOwnerID *auth.UserID) (*Device, error) {
 	ownerID := principal.UserID
-	if principal.IsAdmin() && requestedOwnerID != nil {
+	if requestedOwnerID != nil {
 		ownerID = *requestedOwnerID
 	}
 
@@ -133,11 +133,7 @@ type UpdateDeviceInput struct {
 	OwnerID     *auth.UserID
 }
 
-func (s *Service) UpdateDevice(ctx context.Context, principal *auth.Principal, deviceID DeviceID, input UpdateDeviceInput) (*Device, error) {
-	if input.OwnerID != nil && !principal.IsAdmin() {
-		return nil, auth.ErrAdminCredentialsRequired
-	}
-
+func (s *Service) UpdateDevice(ctx context.Context, deviceID DeviceID, input UpdateDeviceInput) (*Device, error) {
 	device, err := s.repo.GetDevice(ctx, deviceID)
 	if err != nil {
 		return nil, err

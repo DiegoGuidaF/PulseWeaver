@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"embed"
 	"errors"
 	"fmt"
@@ -59,7 +60,7 @@ func NewSQLite(dbConf config.ConfDB) (*SQLite, error) {
 
 	//TODO: These pragmas are only set on this first connection. If Max connections is >1, a hook should be done instead
 	for _, pragma := range pragmas {
-		if _, err := pool.Exec(pragma); err != nil {
+		if _, err := pool.ExecContext(context.Background(), pragma); err != nil {
 			_ = pool.Close()
 			return nil, fmt.Errorf("exec %q: %w", pragma, err)
 		}

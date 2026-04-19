@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
@@ -311,10 +310,6 @@ func (h *HTTPHandler) GetAddressHistory(ctx context.Context, request httpapi.Get
 	ctx = logging.WithOperation(ctx, "GetAddressHistory")
 	logger := h.logger
 
-	principal, ok := auth.PrincipalFromContext(ctx)
-	if !ok || !principal.IsAdmin() {
-		return httpapi.GetAddressHistory403JSONResponse(errorMsgResponse("Admin credentials required")), nil
-	}
 	params := request.Params
 
 	query := AddressHistoryQuery{
@@ -364,11 +359,6 @@ func (h *HTTPHandler) UpdateDevice(ctx context.Context, request httpapi.UpdateDe
 	deviceID := DeviceID(request.DeviceId)
 	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
-	principal, ok := auth.PrincipalFromContext(ctx)
-	if !ok {
-		return httpapi.UpdateDevice500JSONResponse(errorMsgResponse("Not authenticated")), nil
-	}
-
 	body := request.Body
 
 	input := UpdateDeviceInput{
@@ -387,7 +377,7 @@ func (h *HTTPHandler) UpdateDevice(ctx context.Context, request httpapi.UpdateDe
 		input.OwnerID = new(auth.UserID(*body.OwnerId))
 	}
 
-	device, err := h.service.UpdateDevice(ctx, principal, deviceID, input)
+	device, err := h.service.UpdateDevice(ctx, deviceID, input)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrDeviceNotFound):
@@ -428,10 +418,6 @@ func (h *HTTPHandler) ListDeviceTypes(_ context.Context, _ httpapi.ListDeviceTyp
 
 func (h *HTTPHandler) APIKeyAuthenticator() APIKeyAuthenticator {
 	return h.service
-}
-
-func (h *HTTPHandler) OwnershipMiddleware() func(http.Handler) http.Handler {
-	return OwnershipMiddleware(h.service, h.logger)
 }
 
 func toDeviceResponse(d *Device) httpapi.Device {

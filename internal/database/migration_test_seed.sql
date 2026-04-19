@@ -14,7 +14,11 @@
 
 -- ── No FK dependencies ────────────────────────────────────────────────────────
 
--- A user
+-- An admin user (loggable; password_hash non-null)
+INSERT INTO users (username, display_name, email, password_hash, role)
+VALUES ('seed-admin', 'Seed Admin', 'seed-admin@example.com', X'DEADBEEF', 'admin');
+
+-- A regular user (non-loggable; password_hash will be nulled by migration 000016)
 INSERT INTO users (username, display_name, email, password_hash, role)
 VALUES ('seed-user', 'Seed User', 'seed@example.com', X'DEADBEEF', 'user');
 
@@ -69,14 +73,13 @@ INSERT INTO sessions (user_id, token_hash, expires_at)
 
 -- ── Pending registration ──────────────────────────────────────────────────────
 
--- Unclaimed invite (registration_code and device_api_key present).
--- Uses column names from 000014 schema (app_biometric_enabled / app_settings_locked);
--- this seed runs at N-1 (= 000014); migration 000015 drops device_api_key and device_api_key_prefix.
+-- Unclaimed invite. Uses 000015 schema (device_api_key/prefix columns were dropped in 000015).
+-- Seed runs at N-1 (= 000015); migration 000016 makes password_hash nullable.
 INSERT INTO pending_registrations
-    (id, device_name, owner_id, registration_code, device_api_key, device_api_key_prefix,
+    (device_name, owner_id, registration_code,
      heartbeat_server_url, heartbeat_interval_seconds, app_biometric_enabled, app_settings_locked,
      expires_at, created_at)
-    SELECT 0, 'seed-device', u.id, 'code-abc', 'raw-key-abc', 'pw_seed',
+    SELECT 'seed-device', u.id, 'code-abc',
            'https://pulse.example.com', 900, 0, 0,
            '2099-01-01 00:00:00', '2024-01-01 00:00:00'
     FROM users u WHERE u.username = 'seed-user';

@@ -160,11 +160,27 @@ func (r *Repository) UpdateUser(ctx context.Context, user *User) (*User, error) 
 	return updated, nil
 }
 
-func (r *Repository) UpdatePasswordHash(ctx context.Context, userID UserID, newHash []byte) error {
-	const query = `UPDATE users SET password_hash = ?, must_change_password = false WHERE id = ? AND deleted_at IS NULL`
-	res, err := r.db.ExecContext(ctx, query, newHash, userID)
+func (r *Repository) UpdatePasswordHash(ctx context.Context, userID UserID, newHash []byte, mustChangePassword bool) error {
+	const query = `UPDATE users SET password_hash = ?, must_change_password = ? WHERE id = ? AND deleted_at IS NULL`
+	res, err := r.db.ExecContext(ctx, query, newHash, mustChangePassword, userID)
 	if err != nil {
 		return fmt.Errorf("failed to update password hash: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *Repository) NullifyPasswordHash(ctx context.Context, userID UserID) error {
+	const query = `UPDATE users SET password_hash = NULL WHERE id = ? AND deleted_at IS NULL`
+	res, err := r.db.ExecContext(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("failed to nullify password hash: %w", err)
 	}
 	rows, err := res.RowsAffected()
 	if err != nil {

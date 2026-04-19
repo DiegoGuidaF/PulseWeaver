@@ -64,17 +64,7 @@ func (h *HTTPHandler) GetDevices(
 ) (httpapi.GetDevicesResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetDevices")
 
-	principal, ok := auth.PrincipalFromContext(ctx)
-	if !ok {
-		return httpapi.GetDevices500JSONResponse(errorMsgResponse("Not authenticated")), nil
-	}
-
-	var ownerFilter *auth.UserID
-	if !principal.IsAdmin() {
-		ownerFilter = new(principal.UserID)
-	}
-
-	devices, err := h.repo.GetDevices(ctx, ownerFilter)
+	devices, err := h.repo.GetDevices(ctx, nil)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "failed to list devices", slog.Any(logging.AttrKeyError, err))
 		return httpapi.GetDevices500JSONResponse(errorMsgResponse("Failed to list devices")), nil
@@ -92,11 +82,6 @@ func (h *HTTPHandler) GetDevicesByUser(
 	request httpapi.GetDevicesByUserRequestObject,
 ) (httpapi.GetDevicesByUserResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetDevicesByUser")
-
-	principal, ok := auth.PrincipalFromContext(ctx)
-	if !ok || !principal.IsAdmin() {
-		return httpapi.GetDevicesByUser403JSONResponse(errorMsgResponse("Admin credentials required")), nil
-	}
 
 	devices, err := h.repo.GetDevicesByUser(ctx, auth.UserID(request.UserId))
 	if err != nil {
@@ -121,11 +106,6 @@ func (h *HTTPHandler) GetAccessLog(
 	request httpapi.GetAccessLogRequestObject,
 ) (httpapi.GetAccessLogResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetAccessLog")
-
-	principal, ok := auth.PrincipalFromContext(ctx)
-	if !ok || !principal.IsAdmin() {
-		return httpapi.GetAccessLog403JSONResponse(errorMsgResponse("Admin credentials required")), nil
-	}
 
 	params := request.Params
 
@@ -161,11 +141,6 @@ func (h *HTTPHandler) GetAccessLogByCountry(
 	request httpapi.GetAccessLogByCountryRequestObject,
 ) (httpapi.GetAccessLogByCountryResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetAccessLogByCountry")
-
-	principal, ok := auth.PrincipalFromContext(ctx)
-	if !ok || !principal.IsAdmin() {
-		return httpapi.GetAccessLogByCountry403JSONResponse(errorMsgResponse("Admin credentials required")), nil
-	}
 
 	now := time.Now().UTC()
 	from := now.Add(-24 * time.Hour)
