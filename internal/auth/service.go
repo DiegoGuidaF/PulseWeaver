@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -13,15 +14,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const (
-	BootstrapAdminUsername    = "admin"
-	BootstrapAdminDisplayName = "Admin"
-	BootstrapAdminEmail       = "admin@pulseweaver.invalid"
-)
-
 type repository interface {
 	CountUsers(ctx context.Context) (int, error)
-	CountAdminUsers(ctx context.Context) (int, error)
+	FindBootstrappedAdmin(ctx context.Context) (*User, error)
 	GetAllUsers(ctx context.Context) ([]User, error)
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
 	GetUserByID(ctx context.Context, userID UserID) (*User, error)
@@ -111,6 +106,9 @@ func (s *Service) RevokeSession(ctx context.Context, sessionID SessionID) error 
 func (s *Service) CreateUser(ctx context.Context, username string, displayName string, email string, principal *Principal) (*User, error) {
 	var newUser User
 	var err error
+	if !principal.IsSuperAdmin() {
+		return nil, ErrSuperAdminCredentialsRequired
+	}
 
 	newUser, err = NewUserAccount(username, displayName, email, &principal.UserID)
 	if err != nil {
@@ -136,19 +134,20 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 	password := conf.AdminPassword
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
-		count, err := s.repo.CountAdminUsers(ctx)
-		if err != nil {
-			s.logger.ErrorContext(ctx, "database error counting admins", slog.Any(AttrKeyError, err))
+		admin, err := s.repo.FindBootstrappedAdmin(ctx)
+		if err != nil && !errors.Is(err, ErrUserNotFound) {
+			s.logger.ErrorContext(ctx, "database error finding bootstrapped admin", slog.Any(AttrKeyError, err))
 			return err
 		}
-		if count > 0 {
+		if admin != nil {
 			return nil
 		}
 
-		newUser, err := NewAdminUser(BootstrapAdminUsername, BootstrapAdminDisplayName, BootstrapAdminEmail, password, nil, false)
+		newUser, err := NewBootstrappedAdmin(password)
 		if err != nil {
 			return err
 		}
+
 		user, err := s.createUser(ctx, &newUser)
 		if err != nil {
 			return fmt.Errorf("failed to bootstrap admin: %w", err)
@@ -240,6 +239,10 @@ func (s *Service) ChangePassword(ctx context.Context, userID UserID, sessionID S
 
 func (s *Service) PromoteUser(ctx context.Context, principal *Principal, targetID UserID, newPassword string) (*User, error) {
 	var updatedUser *User
+	if !principal.IsSuperAdmin() {
+		return nil, ErrSuperAdminCredentialsRequired
+	}
+
 	if principal.UserID == targetID {
 		return nil, ErrSelfRoleChangeForbidden
 	}
@@ -281,6 +284,10 @@ func (s *Service) PromoteUser(ctx context.Context, principal *Principal, targetI
 
 func (s *Service) DemoteUser(ctx context.Context, principal *Principal, targetID UserID) (*User, error) {
 	var updatedUser *User
+	if !principal.IsSuperAdmin() {
+		return nil, ErrSuperAdminCredentialsRequired
+	}
+
 	if principal.UserID == targetID {
 		return nil, ErrSelfRoleChangeForbidden
 	}
@@ -312,6 +319,10 @@ func (s *Service) DemoteUser(ctx context.Context, principal *Principal, targetID
 }
 
 func (s *Service) DeleteUser(ctx context.Context, principal *Principal, targetID UserID) error {
+	if !principal.IsSuperAdmin() {
+		return ErrSuperAdminCredentialsRequired
+	}
+
 	if principal.UserID == targetID {
 		return ErrSelfDeleteForbidden
 	}

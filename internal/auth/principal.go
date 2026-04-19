@@ -19,5 +19,9 @@ func PrincipalFromSession(session *SessionWithUser) *Principal {
 }
 
 func (principal Principal) IsAdmin() bool {
-	return principal.Role == AdminRole
+	return principal.Role == AdminRole || principal.IsSuperAdmin()
+}
+
+func (principal Principal) IsSuperAdmin() bool {
+	return principal.Role == SuperAdminRole
 }

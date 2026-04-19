@@ -42,7 +42,7 @@ paths:
       operationId: createUser
       tags:
         - admin
-      summary: Register a new user. Creation role is always "user", to create an admin promote it after creation
+      summary: Superadmin only. Register a new user. Creation role is always "user", to create an admin promote it after creation
       description: Creates a new user account.
       requestBody:
         required: true
@@ -89,7 +89,7 @@ paths:
       tags:
         - admin
       summary: Delete a user
-      description: Soft-deletes a user and revokes all user sessions.
+      description: Superadmin only. Soft-deletes a user and revokes all user sessions.
       parameters:
         - name: user_id
           in: path
@@ -128,7 +128,7 @@ paths:
       operationId: promoteUser
       tags:
         - admin
-      summary: Promote a user to admin
+      summary: Superadmin only. Promote a user to admin
       description: Promotes another user to the admin role and sets their initial password. Cannot promote oneself.
       parameters:
         - name: user_id
@@ -184,7 +184,7 @@ paths:
       operationId: demoteUser
       tags:
         - admin
-      summary: Demote an admin to regular user
+      summary: Superadmin only. Demote an admin to regular user
       description: Demotes another admin to the user role. Cannot demote oneself.
       parameters:
         - name: user_id
@@ -1831,9 +1831,10 @@ components:
     UserRole:
       type: string
       enum:
+        - superadmin
         - admin
         - user
-      description: The user's role. Only "admin" users can access admin endpoints.
+      description: The user's role. User role cannot login. Only superadmin can manage users.
     DisplayName:
       type: string
       description: User's public name. Unicode allowed.

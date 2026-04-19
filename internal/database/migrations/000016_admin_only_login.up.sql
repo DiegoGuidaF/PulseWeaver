@@ -1,7 +1,8 @@
 PRAGMA foreign_keys = OFF;
 BEGIN TRANSACTION;
 
-CREATE TABLE users_new (
+CREATE TABLE users_new
+(
     id                   INTEGER PRIMARY KEY,
     username             TEXT      NOT NULL COLLATE NOCASE,
     display_name         TEXT      NOT NULL,
@@ -14,17 +15,27 @@ CREATE TABLE users_new (
     deleted_at           DATETIME
 );
 
-INSERT INTO users_new SELECT * FROM users;
+INSERT INTO users_new
+SELECT *
+FROM users;
 
 UPDATE sessions
 SET revoked_at = CURRENT_TIMESTAMP
 WHERE user_id IN (SELECT id FROM users_new WHERE role = 'user')
   AND revoked_at IS NULL;
 
-UPDATE users_new SET password_hash = NULL WHERE role = 'user';
+UPDATE users_new
+SET password_hash = NULL
+WHERE role = 'user';
+
+-- Set bootstrapped admin to superadmin
+UPDATE users_new
+SET role = 'superadmin'
+WHERE created_by IS NULL;
 
 DROP TABLE users;
-ALTER TABLE users_new RENAME TO users;
+ALTER TABLE users_new
+    RENAME TO users;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_active
     ON users (username COLLATE NOCASE) WHERE deleted_at IS NULL;

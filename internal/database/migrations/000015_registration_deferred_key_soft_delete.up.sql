@@ -23,19 +23,33 @@ CREATE TABLE pending_registrations_new
 );
 
 INSERT INTO pending_registrations_new
-SELECT id,
-       device_name,
-       owner_id,
-       registration_code,
-       heartbeat_server_url,
-       heartbeat_interval_seconds,
-       app_biometric_enabled,
-       app_settings_locked,
-       expires_at,
-       created_at,
-       used_at,
-       NULL,
-       created_device_id
+(
+    device_name,
+    owner_id,
+    registration_code,
+    heartbeat_server_url,
+    heartbeat_interval_seconds,
+    app_biometric_enabled,
+    app_settings_locked,
+    expires_at,
+    created_at,
+    used_at,
+    invalidated_at,
+    created_device_id
+)
+SELECT
+    device_name,
+    owner_id,
+    registration_code,
+    heartbeat_server_url,
+    heartbeat_interval_seconds,
+    app_biometric_enabled,
+    app_settings_locked,
+    expires_at,
+    created_at,
+    used_at,
+    NULL,
+    created_device_id
 FROM pending_registrations;
 
 DROP TABLE pending_registrations;

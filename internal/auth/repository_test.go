@@ -12,13 +12,24 @@ import (
 	"github.com/matryer/is"
 )
 
-func setupAuthTestDB(t *testing.T) *auth.Repository {
+func setupAuthTestDB(t *testing.T, shouldBootstrapAdmin bool) *auth.Repository {
 	t.Helper()
 
 	db, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
 
-	return auth.NewRepository(db.DB())
+	repository := auth.NewRepository(db.DB())
+	if shouldBootstrapAdmin {
+		bootstrapUser, err := auth.NewBootstrappedAdmin("apassword")
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = repository.CreateUser(t.Context(), new(bootstrapUser))
+		if err != nil {
+			return nil
+		}
+	}
+	return repository
 }
 
 func mustNewUser(t *testing.T, username, displayName string, email string, role auth.Role) *auth.User {
@@ -27,9 +38,9 @@ func mustNewUser(t *testing.T, username, displayName string, email string, role 
 	var user auth.User
 	var err error
 	if role == auth.AdminRole {
-		user, err = auth.NewAdminUser(username, displayName, email, "Password123", nil, true)
+		user, err = auth.NewAdminUser(username, displayName, email, "Password123", new(auth.UserID(1)), true)
 	} else {
-		user, err = auth.NewUserAccount(username, displayName, email, nil)
+		user, err = auth.NewUserAccount(username, displayName, email, new(auth.UserID(1)))
 	}
 	if err != nil {
 		t.Fatalf("new user: %v", err)
@@ -40,7 +51,7 @@ func mustNewUser(t *testing.T, username, displayName string, email string, role 
 
 func TestRepository_CreateUser_WithEmail(t *testing.T) {
 	is := is.New(t)
-	repo := setupAuthTestDB(t)
+	repo := setupAuthTestDB(t, true)
 	ctx := context.Background()
 
 	email := "john@example.com"
@@ -52,7 +63,7 @@ func TestRepository_CreateUser_WithEmail(t *testing.T) {
 
 func TestRepository_CreateUser_WithoutEmail(t *testing.T) {
 	is := is.New(t)
-	repo := setupAuthTestDB(t)
+	repo := setupAuthTestDB(t, true)
 	ctx := context.Background()
 
 	created, err := repo.CreateUser(ctx, mustNewUser(t, "jane_doe", "Jane Doe", "", auth.UserRole))
@@ -62,7 +73,7 @@ func TestRepository_CreateUser_WithoutEmail(t *testing.T) {
 
 func TestRepository_CreateUser_DuplicateUsernameCaseVariant(t *testing.T) {
 	is := is.New(t)
-	repo := setupAuthTestDB(t)
+	repo := setupAuthTestDB(t, true)
 	ctx := context.Background()
 
 	_, err := repo.CreateUser(ctx, mustNewUser(t, "john_doe", "John Doe", "", auth.UserRole))
@@ -75,7 +86,7 @@ func TestRepository_CreateUser_DuplicateUsernameCaseVariant(t *testing.T) {
 
 func TestRepository_CreateUser_DuplicateEmail(t *testing.T) {
 	is := is.New(t)
-	repo := setupAuthTestDB(t)
+	repo := setupAuthTestDB(t, true)
 	ctx := context.Background()
 
 	email := "duplicate@example.com"
@@ -89,7 +100,7 @@ func TestRepository_CreateUser_DuplicateEmail(t *testing.T) {
 
 func TestRepository_GetUserByUsername_CaseInsensitiveLookup(t *testing.T) {
 	is := is.New(t)
-	repo := setupAuthTestDB(t)
+	repo := setupAuthTestDB(t, true)
 	ctx := context.Background()
 
 	_, err := repo.CreateUser(ctx, mustNewUser(t, "alice_user", "Alice", "", auth.UserRole))
@@ -102,7 +113,7 @@ func TestRepository_GetUserByUsername_CaseInsensitiveLookup(t *testing.T) {
 
 func TestRepository_SessionCreateAndRead(t *testing.T) {
 	is := is.New(t)
-	repo := setupAuthTestDB(t)
+	repo := setupAuthTestDB(t, true)
 	ctx := context.Background()
 
 	user, err := repo.CreateUser(ctx, mustNewUser(t, "session_user", "Session User", "", auth.UserRole))
@@ -119,55 +130,33 @@ func TestRepository_SessionCreateAndRead(t *testing.T) {
 	is.Equal(foundSession.UserRole, auth.UserRole)
 }
 
-func TestRepository_CountAdminUsers_Empty(t *testing.T) {
+func TestRepository_FindBootstrappedAdmin_Empty(t *testing.T) {
 	is := is.New(t)
-	repo := setupAuthTestDB(t)
+	repo := setupAuthTestDB(t, false)
 	ctx := context.Background()
 
-	count, err := repo.CountAdminUsers(ctx)
-	is.NoErr(err)
-	is.Equal(count, 0)
+	admin, err := repo.FindBootstrappedAdmin(ctx)
+	is.Equal(err, auth.ErrUserNotFound)
+	is.Equal(admin, nil)
 }
 
-func TestRepository_CountAdminUsers_ExcludesRegularUsers(t *testing.T) {
+func TestRepository_FindBootstrappedAdmin_ExcludesUsersWithCreatedBySet(t *testing.T) {
 	is := is.New(t)
-	repo := setupAuthTestDB(t)
+	repo := setupAuthTestDB(t, false)
 	ctx := context.Background()
 
 	_, err := repo.CreateUser(ctx, mustNewUser(t, "regular_user", "Regular", "", auth.UserRole))
+	_, err = repo.CreateUser(ctx, mustNewUser(t, "admin_user", "Admin", "", auth.AdminRole))
+	_, err = repo.CreateUser(ctx, mustNewUser(t, "superadmin_user", "SuperAdmin", "", auth.SuperAdminRole))
 	is.NoErr(err)
 
-	count, err := repo.CountAdminUsers(ctx)
-	is.NoErr(err)
-	is.Equal(count, 0)
-}
-
-func TestRepository_CountAdminUsers_CountsAdminUser(t *testing.T) {
-	is := is.New(t)
-	repo := setupAuthTestDB(t)
-	ctx := context.Background()
-
-	_, err := repo.CreateUser(ctx, mustNewUser(t, "admin_user", "Admin", "", auth.AdminRole))
-	is.NoErr(err)
-
-	count, err := repo.CountAdminUsers(ctx)
-	is.NoErr(err)
-	is.Equal(count, 1)
-}
-
-func TestRepository_GetAllUsers_EmptyByDefault(t *testing.T) {
-	is := is.New(t)
-	repo := setupAuthTestDB(t)
-	ctx := context.Background()
-
-	users, err := repo.GetAllUsers(ctx)
-	is.NoErr(err)
-	is.Equal(len(users), 0)
+	_, err = repo.FindBootstrappedAdmin(ctx)
+	is.Equal(err, auth.ErrUserNotFound)
 }
 
 func TestRepository_GetAllUsers_ReturnsInsertedUsers(t *testing.T) {
 	is := is.New(t)
-	repo := setupAuthTestDB(t)
+	repo := setupAuthTestDB(t, true)
 	ctx := context.Background()
 
 	_, err := repo.CreateUser(ctx, mustNewUser(t, "user_alpha", "User Alpha", "", auth.UserRole))
@@ -177,12 +166,13 @@ func TestRepository_GetAllUsers_ReturnsInsertedUsers(t *testing.T) {
 
 	users, err := repo.GetAllUsers(ctx)
 	is.NoErr(err)
-	is.Equal(len(users), 2)
+	// We need to count bootstrapped admin too
+	is.Equal(len(users), 3)
 }
 
 func TestRepository_UpdateUser_UpdatesFields(t *testing.T) {
 	is := is.New(t)
-	repo := setupAuthTestDB(t)
+	repo := setupAuthTestDB(t, true)
 	ctx := context.Background()
 
 	created, err := repo.CreateUser(ctx, mustNewUser(t, "update_me", "Old Name", "", auth.UserRole))
@@ -198,30 +188,9 @@ func TestRepository_UpdateUser_UpdatesFields(t *testing.T) {
 	is.Equal(fetched.DisplayName, "New Name")
 }
 
-func TestRepository_UpdateUser_RoleChangeUpdatesAdminCount(t *testing.T) {
-	is := is.New(t)
-	repo := setupAuthTestDB(t)
-	ctx := context.Background()
-
-	user, err := repo.CreateUser(ctx, mustNewUser(t, "promote_me", "Promotee", "", auth.UserRole))
-	is.NoErr(err)
-
-	count, err := repo.CountAdminUsers(ctx)
-	is.NoErr(err)
-	is.Equal(count, 0)
-
-	user.Role = auth.AdminRole
-	_, err = repo.UpdateUser(ctx, user)
-	is.NoErr(err)
-
-	count, err = repo.CountAdminUsers(ctx)
-	is.NoErr(err)
-	is.Equal(count, 1)
-}
-
 func TestRepository_UpdatePasswordHash(t *testing.T) {
 	is := is.New(t)
-	repo := setupAuthTestDB(t)
+	repo := setupAuthTestDB(t, true)
 	ctx := context.Background()
 
 	user, err := repo.CreateUser(ctx, mustNewUser(t, "pw_user", "PW User", "", auth.AdminRole))
@@ -238,7 +207,7 @@ func TestRepository_UpdatePasswordHash(t *testing.T) {
 
 func TestRepository_SoftDeleteUser(t *testing.T) {
 	is := is.New(t)
-	repo := setupAuthTestDB(t)
+	repo := setupAuthTestDB(t, true)
 	ctx := context.Background()
 
 	user, err := repo.CreateUser(ctx, mustNewUser(t, "delete_me", "Delete Me", "", auth.UserRole))
@@ -256,7 +225,7 @@ func TestRepository_SoftDeleteUser(t *testing.T) {
 
 func TestRepository_RevokeAllUserSessions(t *testing.T) {
 	is := is.New(t)
-	repo := setupAuthTestDB(t)
+	repo := setupAuthTestDB(t, true)
 	ctx := context.Background()
 
 	user, err := repo.CreateUser(ctx, mustNewUser(t, "multi_session", "Multi Session", "", auth.UserRole))
@@ -278,7 +247,7 @@ func TestRepository_RevokeAllUserSessions(t *testing.T) {
 
 func TestRepository_RevokeAllUserSessionsExcept(t *testing.T) {
 	is := is.New(t)
-	repo := setupAuthTestDB(t)
+	repo := setupAuthTestDB(t, true)
 	ctx := context.Background()
 
 	user, err := repo.CreateUser(ctx, mustNewUser(t, "except_user", "Except User", "", auth.UserRole))

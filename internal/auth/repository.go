@@ -112,16 +112,19 @@ func (r *Repository) CreateSession(ctx context.Context, session *Session) (*Sess
 	return created, nil
 }
 
-func (r *Repository) CountAdminUsers(ctx context.Context) (int, error) {
-	var adminCount int
+func (r *Repository) FindBootstrappedAdmin(ctx context.Context) (*User, error) {
+	admin := new(User)
 
-	query := `SELECT count(*) FROM users WHERE role = ? AND deleted_at IS NULL`
-	err := r.db.GetContext(ctx, &adminCount, query, AdminRole)
+	query := `SELECT * FROM users WHERE created_by IS NULL`
+	err := r.db.GetContext(ctx, admin, query, AdminRole)
 	if err != nil {
-		return -1, fmt.Errorf("failed to get admin count: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to find bootstrapped admin: %w", err)
 	}
 
-	return adminCount, nil
+	return admin, nil
 }
 
 func (r *Repository) GetAllUsers(ctx context.Context) ([]User, error) {

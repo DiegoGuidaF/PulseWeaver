@@ -60,6 +60,7 @@ func (h *HTTPHandler) CreateRegistration(ctx context.Context, request httpapi.Cr
 		appSettingsLocked = *body.AppSettingsLocked
 	}
 
+	//TODO: Move request creation and validation to service
 	invite, err := h.service.CreateInvite(ctx, CreateInviteRequest{
 		DeviceName:          body.DeviceName,
 		OwnerID:             auth.UserID(body.OwnerId),

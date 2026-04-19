@@ -9,9 +9,10 @@ Username:
 UserRole:
   type: string
   enum:
+    - superadmin
     - admin
     - user
-  description: The user's role. Only "admin" users can access admin endpoints.
+  description: The user's role. User role cannot login. Only superadmin can manage users.
 
 DisplayName:
   type: string

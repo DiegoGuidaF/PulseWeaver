@@ -21,12 +21,16 @@ export type IpAddress = string | string;
 export type Username = string;
 
 /**
- * The user's role. Only "admin" users can access admin endpoints.
+ * The user's role. User role cannot login. Only superadmin can manage users.
  */
-export const UserRole = { ADMIN: 'admin', USER: 'user' } as const;
+export const UserRole = {
+    SUPERADMIN: 'superadmin',
+    ADMIN: 'admin',
+    USER: 'user'
+} as const;
 
 /**
- * The user's role. Only "admin" users can access admin endpoints.
+ * The user's role. User role cannot login. Only superadmin can manage users.
  */
 export type UserRole = typeof UserRole[keyof typeof UserRole];
 

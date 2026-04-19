@@ -10,8 +10,15 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const AdminRole Role = "admin"
-const UserRole Role = "user"
+const (
+	BootstrapAdminUsername    = "admin"
+	BootstrapAdminDisplayName = "Admin"
+	BootstrapAdminEmail       = "admin@pulseweaver.invalid"
+
+	SuperAdminRole Role = "superadmin"
+	AdminRole      Role = "admin"
+	UserRole       Role = "user"
+)
 
 var (
 	usernameRegex = regexp.MustCompile(`^[a-z0-9_-]+$`)
@@ -30,6 +37,27 @@ type User struct {
 	CreatedBy          *UserID    `db:"created_by"`
 	CreatedAt          time.Time  `db:"created_at"`
 	DeletedAt          *time.Time `db:"deleted_at"`
+}
+
+func NewBootstrappedAdmin(password string) (User, error) {
+	if err := ValidatePassword(password); err != nil {
+		return User{}, err
+	}
+
+	passwordHash, err := hashPassword(password)
+	if err != nil {
+		return User{}, fmt.Errorf("hashing failed: %w", err)
+	}
+	return User{
+		Username:           BootstrapAdminUsername,
+		DisplayName:        BootstrapAdminDisplayName,
+		Email:              BootstrapAdminEmail,
+		PasswordHash:       passwordHash,
+		Role:               SuperAdminRole,
+		MustChangePassword: false,
+		CreatedBy:          nil,
+		CreatedAt:          time.Now().UTC(),
+	}, nil
 }
 
 // NewAdminUser creates an admin-role user; password is required and hashed.

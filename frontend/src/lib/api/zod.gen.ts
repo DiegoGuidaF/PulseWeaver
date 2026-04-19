@@ -22,9 +22,13 @@ export const zIpAddress = z.union([
 export const zUsername = z.string().min(3).max(32).regex(/^[a-z0-9_-]+$/);
 
 /**
- * The user's role. Only "admin" users can access admin endpoints.
+ * The user's role. User role cannot login. Only superadmin can manage users.
  */
-export const zUserRole = z.enum(['admin', 'user']);
+export const zUserRole = z.enum([
+    'superadmin',
+    'admin',
+    'user'
+]);
 
 /**
  * User's public name. Unicode allowed.
@@ -348,34 +352,20 @@ export const zDeviceApiKeyResponseWritable = z.object({
     api_key: z.string()
 });
 
-export const zListUsersData = z.object({
-    body: z.never().optional(),
-    path: z.never().optional(),
-    query: z.never().optional()
-});
-
 /**
  * Users list
  */
 export const zListUsersResponse = z.array(zUser);
 
-export const zCreateUserData = z.object({
-    body: zCreateUserRequest,
-    path: z.never().optional(),
-    query: z.never().optional()
-});
+export const zCreateUserBody = zCreateUserRequest;
 
 /**
  * User created successfully
  */
 export const zCreateUserResponse = zUser;
 
-export const zDeleteUserData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        user_id: zId
-    }),
-    query: z.never().optional()
+export const zDeleteUserPath = z.object({
+    user_id: zId
 });
 
 /**
@@ -383,12 +373,10 @@ export const zDeleteUserData = z.object({
  */
 export const zDeleteUserResponse = z.void();
 
-export const zPromoteUserData = z.object({
-    body: zPromoteUserRequest,
-    path: z.object({
-        user_id: zId
-    }),
-    query: z.never().optional()
+export const zPromoteUserBody = zPromoteUserRequest;
+
+export const zPromoteUserPath = z.object({
+    user_id: zId
 });
 
 /**
@@ -396,12 +384,8 @@ export const zPromoteUserData = z.object({
  */
 export const zPromoteUserResponse = zUser;
 
-export const zDemoteUserData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        user_id: zId
-    }),
-    query: z.never().optional()
+export const zDemoteUserPath = z.object({
+    user_id: zId
 });
 
 /**
@@ -409,12 +393,8 @@ export const zDemoteUserData = z.object({
  */
 export const zDemoteUserResponse = zUser;
 
-export const zGetDevicesByUserData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        user_id: zId
-    }),
-    query: z.never().optional()
+export const zGetDevicesByUserPath = z.object({
+    user_id: zId
 });
 
 /**
@@ -422,89 +402,54 @@ export const zGetDevicesByUserData = z.object({
  */
 export const zGetDevicesByUserResponse = z.array(zDevice);
 
-export const zLoginData = z.object({
-    body: zAuthRequest,
-    path: z.never().optional(),
-    query: z.never().optional()
-});
+export const zLoginBody = zAuthRequest;
 
 /**
  * Logged in successfully
  */
 export const zLoginResponse = zUser;
 
-export const zLogoutData = z.object({
-    body: z.never().optional(),
-    path: z.never().optional(),
-    query: z.never().optional()
-});
-
 /**
  * Logged out successfully
  */
 export const zLogoutResponse = z.void();
-
-export const zGetCurrentUserData = z.object({
-    body: z.never().optional(),
-    path: z.never().optional(),
-    query: z.never().optional()
-});
 
 /**
  * Current user details
  */
 export const zGetCurrentUserResponse = zUser;
 
-export const zUpdateMeData = z.object({
-    body: zUpdateProfileRequest,
-    path: z.never().optional(),
-    query: z.never().optional()
-});
+export const zUpdateMeBody = zUpdateProfileRequest;
 
 /**
  * User profile updated
  */
 export const zUpdateMeResponse = zUser;
 
-export const zChangePasswordData = z.object({
-    body: zChangePasswordRequest,
-    path: z.never().optional(),
-    query: z.never().optional()
-});
+export const zChangePasswordBody = zChangePasswordRequest;
 
 /**
  * Password changed successfully
  */
 export const zChangePasswordResponse = z.void();
 
-export const zGetDevicesData = z.object({
-    body: z.never().optional(),
-    path: z.never().optional(),
-    query: z.never().optional()
-});
-
 /**
  * OK
  */
 export const zGetDevicesResponse = z.array(zDevice);
 
-export const zCreateDeviceData = z.object({
-    body: zCreateDeviceRequest,
-    path: z.never().optional(),
-    query: z.never().optional()
-});
+/**
+ * Device creation request
+ */
+export const zCreateDeviceBody = zCreateDeviceRequest;
 
 /**
  * Created
  */
 export const zCreateDeviceResponse2 = zCreateDeviceResponse;
 
-export const zDeleteDeviceData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        device_id: zId
-    }),
-    query: z.never().optional()
+export const zDeleteDevicePath = z.object({
+    device_id: zId
 });
 
 /**
@@ -512,12 +457,8 @@ export const zDeleteDeviceData = z.object({
  */
 export const zDeleteDeviceResponse = z.void();
 
-export const zGetDeviceData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        device_id: zId
-    }),
-    query: z.never().optional()
+export const zGetDevicePath = z.object({
+    device_id: zId
 });
 
 /**
@@ -525,12 +466,10 @@ export const zGetDeviceData = z.object({
  */
 export const zGetDeviceResponse = zDevice;
 
-export const zUpdateDeviceData = z.object({
-    body: zUpdateDeviceRequest,
-    path: z.object({
-        device_id: zId
-    }),
-    query: z.never().optional()
+export const zUpdateDeviceBody = zUpdateDeviceRequest;
+
+export const zUpdateDevicePath = z.object({
+    device_id: zId
 });
 
 /**
@@ -538,23 +477,13 @@ export const zUpdateDeviceData = z.object({
  */
 export const zUpdateDeviceResponse = zDevice;
 
-export const zListDeviceTypesData = z.object({
-    body: z.never().optional(),
-    path: z.never().optional(),
-    query: z.never().optional()
-});
-
 /**
  * OK
  */
 export const zListDeviceTypesResponse = z.array(zDeviceTypeItem);
 
-export const zDeleteDeviceApiKeyData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        device_id: zId
-    }),
-    query: z.never().optional()
+export const zDeleteDeviceApiKeyPath = z.object({
+    device_id: zId
 });
 
 /**
@@ -562,12 +491,8 @@ export const zDeleteDeviceApiKeyData = z.object({
  */
 export const zDeleteDeviceApiKeyResponse = z.void();
 
-export const zRegenerateDeviceApiKeyData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        device_id: zId
-    }),
-    query: z.never().optional()
+export const zRegenerateDeviceApiKeyPath = z.object({
+    device_id: zId
 });
 
 /**
@@ -575,12 +500,8 @@ export const zRegenerateDeviceApiKeyData = z.object({
  */
 export const zRegenerateDeviceApiKeyResponse = zDeviceApiKeyResponse;
 
-export const zDeviceHeartbeatData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        device_id: zId
-    }),
-    query: z.never().optional()
+export const zDeviceHeartbeatPath = z.object({
+    device_id: zId
 });
 
 /**
@@ -588,23 +509,15 @@ export const zDeviceHeartbeatData = z.object({
  */
 export const zDeviceHeartbeatResponse = zAddress;
 
-export const zDeviceHeartbeatByApiKeyData = z.object({
-    body: zDeviceHeartbeatByApiKeyRequest.optional(),
-    path: z.never().optional(),
-    query: z.never().optional()
-});
+export const zDeviceHeartbeatByApiKeyBody = zDeviceHeartbeatByApiKeyRequest;
 
 /**
  * Address enabled
  */
 export const zDeviceHeartbeatByApiKeyResponse = zAddress;
 
-export const zGetDeviceAddressesData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        device_id: zId
-    }),
-    query: z.never().optional()
+export const zGetDeviceAddressesPath = z.object({
+    device_id: zId
 });
 
 /**
@@ -612,12 +525,13 @@ export const zGetDeviceAddressesData = z.object({
  */
 export const zGetDeviceAddressesResponse = z.array(zAddress);
 
-export const zAddAddressData = z.object({
-    body: zAddAddressRequest,
-    path: z.object({
-        device_id: zId
-    }),
-    query: z.never().optional()
+/**
+ * Address assignment request
+ */
+export const zAddAddressBody = zAddAddressRequest;
+
+export const zAddAddressPath = z.object({
+    device_id: zId
 });
 
 /**
@@ -625,21 +539,17 @@ export const zAddAddressData = z.object({
  */
 export const zAddAddressResponse = zAddress;
 
-export const zGetAddressHistoryData = z.object({
-    body: z.never().optional(),
-    path: z.never().optional(),
-    query: z.object({
-        device_id: z.array(zId).optional(),
-        from: z.iso.datetime({ offset: true, local: true }).optional(),
-        to: z.iso.datetime({ offset: true, local: true }).optional(),
-        granularity: z.enum(['hour', 'day']).optional(),
-        source: zAddressEventSource.optional(),
-        is_enabled: z.boolean().optional(),
-        ip: z.string().optional(),
-        limit: z.int().lte(200).optional().default(50),
-        before_id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-        include_all: z.boolean().optional().default(false)
-    }).optional()
+export const zGetAddressHistoryQuery = z.object({
+    device_id: z.array(zId).optional(),
+    from: z.iso.datetime({ offset: true, local: true }).optional(),
+    to: z.iso.datetime({ offset: true, local: true }).optional(),
+    granularity: z.enum(['hour', 'day']).optional().default('hour'),
+    source: zAddressEventSource.optional(),
+    is_enabled: z.boolean().optional(),
+    ip: z.string().optional(),
+    limit: z.int().lte(200).optional().default(50),
+    before_id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+    include_all: z.boolean().optional().default(false)
 });
 
 /**
@@ -647,13 +557,9 @@ export const zGetAddressHistoryData = z.object({
  */
 export const zGetAddressHistoryResponse = zAddressHistoryResponse;
 
-export const zDisableAddressData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        device_id: zId,
-        address_id: zId
-    }),
-    query: z.never().optional()
+export const zDisableAddressPath = z.object({
+    device_id: zId,
+    address_id: zId
 });
 
 /**
@@ -661,22 +567,18 @@ export const zDisableAddressData = z.object({
  */
 export const zDisableAddressResponse = zAddress;
 
-export const zGetAccessLogData = z.object({
-    body: z.never().optional(),
-    path: z.never().optional(),
-    query: z.object({
-        device_id: zId.optional(),
-        outcome: z.boolean().optional(),
-        deny_reason: z.string().optional(),
-        ip: z.string().optional(),
-        host: z.string().optional(),
-        country_code: z.string().optional(),
-        continent_code: z.string().optional(),
-        from: z.iso.datetime({ offset: true, local: true }).optional(),
-        to: z.iso.datetime({ offset: true, local: true }).optional(),
-        limit: z.int().lte(200).optional().default(50),
-        before_id: zId.optional()
-    }).optional()
+export const zGetAccessLogQuery = z.object({
+    device_id: zId.optional(),
+    outcome: z.boolean().optional(),
+    deny_reason: z.string().optional(),
+    ip: z.string().optional(),
+    host: z.string().optional(),
+    country_code: z.string().optional(),
+    continent_code: z.string().optional(),
+    from: z.iso.datetime({ offset: true, local: true }).optional(),
+    to: z.iso.datetime({ offset: true, local: true }).optional(),
+    limit: z.int().lte(200).optional().default(50),
+    before_id: zId.optional()
 });
 
 /**
@@ -684,13 +586,9 @@ export const zGetAccessLogData = z.object({
  */
 export const zGetAccessLogResponse = zAccessLogResponse;
 
-export const zGetAccessLogByCountryData = z.object({
-    body: z.never().optional(),
-    path: z.never().optional(),
-    query: z.object({
-        from: z.iso.datetime({ offset: true, local: true }).optional(),
-        to: z.iso.datetime({ offset: true, local: true }).optional()
-    }).optional()
+export const zGetAccessLogByCountryQuery = z.object({
+    from: z.iso.datetime({ offset: true, local: true }).optional(),
+    to: z.iso.datetime({ offset: true, local: true }).optional()
 });
 
 /**
@@ -698,23 +596,13 @@ export const zGetAccessLogByCountryData = z.object({
  */
 export const zGetAccessLogByCountryResponse = z.array(zAccessLogCountryStats);
 
-export const zGetAccessLogDenyReasonsData = z.object({
-    body: z.never().optional(),
-    path: z.never().optional(),
-    query: z.never().optional()
-});
-
 /**
  * List of deny reason values
  */
 export const zGetAccessLogDenyReasonsResponse = z.array(z.string());
 
-export const zDisableDeviceAddressLeaseRuleData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        device_id: zId
-    }),
-    query: z.never().optional()
+export const zDisableDeviceAddressLeaseRulePath = z.object({
+    device_id: zId
 });
 
 /**
@@ -722,12 +610,8 @@ export const zDisableDeviceAddressLeaseRuleData = z.object({
  */
 export const zDisableDeviceAddressLeaseRuleResponse = z.void();
 
-export const zGetDeviceAddressLeaseRuleData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        device_id: zId
-    }),
-    query: z.never().optional()
+export const zGetDeviceAddressLeaseRulePath = z.object({
+    device_id: zId
 });
 
 /**
@@ -735,12 +619,10 @@ export const zGetDeviceAddressLeaseRuleData = z.object({
  */
 export const zGetDeviceAddressLeaseRuleResponse = zDeviceAddressLeaseRule;
 
-export const zPutDeviceAddressLeaseRuleData = z.object({
-    body: zPutDeviceAddressLeaseRuleRequest,
-    path: z.object({
-        device_id: zId
-    }),
-    query: z.never().optional()
+export const zPutDeviceAddressLeaseRuleBody = zPutDeviceAddressLeaseRuleRequest;
+
+export const zPutDeviceAddressLeaseRulePath = z.object({
+    device_id: zId
 });
 
 /**
@@ -748,12 +630,8 @@ export const zPutDeviceAddressLeaseRuleData = z.object({
  */
 export const zPutDeviceAddressLeaseRuleResponse = zDeviceAddressLeaseRule;
 
-export const zDisableMaxActiveAddressesRuleData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        device_id: zId
-    }),
-    query: z.never().optional()
+export const zDisableMaxActiveAddressesRulePath = z.object({
+    device_id: zId
 });
 
 /**
@@ -761,12 +639,8 @@ export const zDisableMaxActiveAddressesRuleData = z.object({
  */
 export const zDisableMaxActiveAddressesRuleResponse = z.void();
 
-export const zGetMaxActiveAddressesRuleData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        device_id: zId
-    }),
-    query: z.never().optional()
+export const zGetMaxActiveAddressesRulePath = z.object({
+    device_id: zId
 });
 
 /**
@@ -774,12 +648,10 @@ export const zGetMaxActiveAddressesRuleData = z.object({
  */
 export const zGetMaxActiveAddressesRuleResponse = zMaxActiveAddressesRule;
 
-export const zPutMaxActiveAddressesRuleData = z.object({
-    body: zPutMaxActiveAddressesRuleRequest,
-    path: z.object({
-        device_id: zId
-    }),
-    query: z.never().optional()
+export const zPutMaxActiveAddressesRuleBody = zPutMaxActiveAddressesRuleRequest;
+
+export const zPutMaxActiveAddressesRulePath = z.object({
+    device_id: zId
 });
 
 /**
@@ -787,13 +659,9 @@ export const zPutMaxActiveAddressesRuleData = z.object({
  */
 export const zPutMaxActiveAddressesRuleResponse = zMaxActiveAddressesRule;
 
-export const zGetDashboardStatsData = z.object({
-    body: z.never().optional(),
-    path: z.never().optional(),
-    query: z.object({
-        from: z.iso.datetime({ offset: true, local: true }).optional(),
-        to: z.iso.datetime({ offset: true, local: true }).optional()
-    }).optional()
+export const zGetDashboardStatsQuery = z.object({
+    from: z.iso.datetime({ offset: true, local: true }).optional(),
+    to: z.iso.datetime({ offset: true, local: true }).optional()
 });
 
 /**
@@ -801,14 +669,10 @@ export const zGetDashboardStatsData = z.object({
  */
 export const zGetDashboardStatsResponse = zDashboardStats;
 
-export const zGetDashboardTrafficData = z.object({
-    body: z.never().optional(),
-    path: z.never().optional(),
-    query: z.object({
-        from: z.iso.datetime({ offset: true, local: true }).optional(),
-        to: z.iso.datetime({ offset: true, local: true }).optional(),
-        granularity: z.enum(['hour', 'day']).optional()
-    }).optional()
+export const zGetDashboardTrafficQuery = z.object({
+    from: z.iso.datetime({ offset: true, local: true }).optional(),
+    to: z.iso.datetime({ offset: true, local: true }).optional(),
+    granularity: z.enum(['hour', 'day']).optional().default('hour')
 });
 
 /**
@@ -816,13 +680,9 @@ export const zGetDashboardTrafficData = z.object({
  */
 export const zGetDashboardTrafficResponse = zDashboardTrafficResponse;
 
-export const zGetDashboardServicesData = z.object({
-    body: z.never().optional(),
-    path: z.never().optional(),
-    query: z.object({
-        from: z.iso.datetime({ offset: true, local: true }).optional(),
-        to: z.iso.datetime({ offset: true, local: true }).optional()
-    }).optional()
+export const zGetDashboardServicesQuery = z.object({
+    from: z.iso.datetime({ offset: true, local: true }).optional(),
+    to: z.iso.datetime({ offset: true, local: true }).optional()
 });
 
 /**
@@ -830,14 +690,10 @@ export const zGetDashboardServicesData = z.object({
  */
 export const zGetDashboardServicesResponse = zDashboardServicesResponse;
 
-export const zGetDashboardTopDeniedIpsData = z.object({
-    body: z.never().optional(),
-    path: z.never().optional(),
-    query: z.object({
-        from: z.iso.datetime({ offset: true, local: true }).optional(),
-        to: z.iso.datetime({ offset: true, local: true }).optional(),
-        limit: z.int().lte(100).optional().default(10)
-    }).optional()
+export const zGetDashboardTopDeniedIpsQuery = z.object({
+    from: z.iso.datetime({ offset: true, local: true }).optional(),
+    to: z.iso.datetime({ offset: true, local: true }).optional(),
+    limit: z.int().lte(100).optional().default(10)
 });
 
 /**
@@ -845,23 +701,15 @@ export const zGetDashboardTopDeniedIpsData = z.object({
  */
 export const zGetDashboardTopDeniedIpsResponse = zDashboardTopDeniedIpsResponse;
 
-export const zClaimRegistrationData = z.object({
-    body: zClaimRegistrationRequest,
-    path: z.never().optional(),
-    query: z.never().optional()
-});
+export const zClaimRegistrationBody = zClaimRegistrationRequest;
 
 /**
  * Registration successful — device created and config returned
  */
 export const zClaimRegistrationResponse2 = zClaimRegistrationResponse;
 
-export const zListRegistrationsData = z.object({
-    body: z.never().optional(),
-    path: z.never().optional(),
-    query: z.object({
-        status: z.enum(['pending', 'all']).optional()
-    }).optional()
+export const zListRegistrationsQuery = z.object({
+    status: z.enum(['pending', 'all']).optional().default('pending')
 });
 
 /**
@@ -869,23 +717,15 @@ export const zListRegistrationsData = z.object({
  */
 export const zListRegistrationsResponse = z.array(zPendingRegistration);
 
-export const zCreateRegistrationData = z.object({
-    body: zCreateRegistrationRequest,
-    path: z.never().optional(),
-    query: z.never().optional()
-});
+export const zCreateRegistrationBody = zCreateRegistrationRequest;
 
 /**
  * Registration invite created — includes registration_code
  */
 export const zCreateRegistrationResponse = zPendingRegistration;
 
-export const zDeleteRegistrationData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        registration_id: zId
-    }),
-    query: z.never().optional()
+export const zDeleteRegistrationPath = z.object({
+    registration_id: zId
 });
 
 /**
@@ -893,12 +733,8 @@ export const zDeleteRegistrationData = z.object({
  */
 export const zDeleteRegistrationResponse = z.void();
 
-export const zGetRegistrationData = z.object({
-    body: z.never().optional(),
-    path: z.object({
-        registration_id: zId
-    }),
-    query: z.never().optional()
+export const zGetRegistrationPath = z.object({
+    registration_id: zId
 });
 
 /**

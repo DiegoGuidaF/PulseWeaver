@@ -43,10 +43,11 @@ export const UsernameSchema = {
 export const UserRoleSchema = {
     type: 'string',
     enum: [
+        'superadmin',
         'admin',
         'user'
     ],
-    description: 'The user\'s role. Only "admin" users can access admin endpoints.'
+    description: 'The user\'s role. User role cannot login. Only superadmin can manage users.'
 } as const;
 
 export const DisplayNameSchema = {

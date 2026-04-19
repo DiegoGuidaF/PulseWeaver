@@ -60,7 +60,7 @@ export const listUsersOptions = (options?: Options<ListUsersData>) => queryOptio
 });
 
 /**
- * Register a new user. Creation role is always "user", to create an admin promote it after creation
+ * Superadmin only. Register a new user. Creation role is always "user", to create an admin promote it after creation
  *
  * Creates a new user account.
  */
@@ -81,7 +81,7 @@ export const createUserMutation = (options?: Partial<Options<CreateUserData>>): 
 /**
  * Delete a user
  *
- * Soft-deletes a user and revokes all user sessions.
+ * Superadmin only. Soft-deletes a user and revokes all user sessions.
  */
 export const deleteUserMutation = (options?: Partial<Options<DeleteUserData>>): UseMutationOptions<DeleteUserResponse, DeleteUserError, Options<DeleteUserData>> => {
     const mutationOptions: UseMutationOptions<DeleteUserResponse, DeleteUserError, Options<DeleteUserData>> = {
@@ -98,7 +98,7 @@ export const deleteUserMutation = (options?: Partial<Options<DeleteUserData>>): 
 };
 
 /**
- * Promote a user to admin
+ * Superadmin only. Promote a user to admin
  *
  * Promotes another user to the admin role and sets their initial password. Cannot promote oneself.
  */
@@ -117,7 +117,7 @@ export const promoteUserMutation = (options?: Partial<Options<PromoteUserData>>)
 };
 
 /**
- * Demote an admin to regular user
+ * Superadmin only. Demote an admin to regular user
  *
  * Demotes another admin to the user role. Cannot demote oneself.
  */
