@@ -120,6 +120,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Host access control
 	hostAccessRepo := hostaccess.NewRepository(db.DB())
 	hostAccessService := hostaccess.NewService(hostAccessRepo, logger)
+	hostAccessHandler := hostaccess.NewHTTPHandler(hostAccessService, logger)
 
 	// Policy forward-auth sidecar
 	policyService, err := policy.NewService(deviceService, hostAccessService, geoipLookup, conf.Policy.APISecret, logger, conf.Server.TrustedProxy)
@@ -191,7 +192,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		logger.Warn("failed to initialize policy IP cache on startup", slog.Any("error", err))
 	}
 
-	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, accessLogHandler, dashboardHandler, registrationHandler, logger, conf.Server.TrustedProxy)
+	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, accessLogHandler, dashboardHandler, registrationHandler, hostAccessHandler, logger, conf.Server.TrustedProxy)
 
 	return &App{
 		Config:              conf,

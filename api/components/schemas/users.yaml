@@ -37,6 +37,7 @@ User:
     - email
     - role
     - must_change_password
+    - bypass_host_allowlist
     - created_at
   properties:
     id:
@@ -55,6 +56,9 @@ User:
       type: boolean
       readOnly: true
       description: When true, the user must change their password before using the app.
+    bypass_host_allowlist:
+      type: boolean
+      description: When true the user bypasses the host allowlist and can reach every known host.
     created_at:
       type: string
       format: date-time

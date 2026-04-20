@@ -51,6 +51,10 @@ export type User = {
      * When true, the user must change their password before using the app.
      */
     readonly must_change_password: boolean;
+    /**
+     * When true the user bypasses the host allowlist and can reach every known host.
+     */
+    bypass_host_allowlist: boolean;
     created_at: string;
 };
 
@@ -437,6 +441,116 @@ export type ClaimRegistrationResponse = {
     api_key: string;
 };
 
+export type KnownHost = {
+    id: Id;
+    /**
+     * Fully-qualified domain name (lowercased).
+     */
+    fqdn: string;
+    /**
+     * Tabler icon name.
+     */
+    icon?: string | null;
+    created_at: string;
+};
+
+export type KnownHostWithStats = {
+    id: Id;
+    fqdn: string;
+    icon?: string | null;
+    created_at: string;
+    /**
+     * Last time this host appeared in the access log.
+     */
+    last_seen?: string | null;
+    /**
+     * Number of distinct users with access to this host.
+     */
+    user_count: number;
+};
+
+export type BulkCreateKnownHostsRequest = {
+    /**
+     * One or more FQDNs to register as known hosts.
+     */
+    fqdns: Array<string>;
+};
+
+export type UpdateKnownHostRequest = {
+    /**
+     * Tabler icon name. Pass null to clear.
+     */
+    icon?: string | null;
+};
+
+export type HostGroup = {
+    id: Id;
+    name: string;
+    description?: string | null;
+    icon?: string | null;
+    created_at: string;
+};
+
+export type HostGroupWithMembers = {
+    id: Id;
+    name: string;
+    description?: string | null;
+    icon?: string | null;
+    created_at: string;
+    host_ids: Array<Id>;
+};
+
+export type CreateHostGroupRequest = {
+    name: string;
+    description?: string | null;
+    icon?: string | null;
+};
+
+export type UpdateHostGroupRequest = {
+    name: string;
+    description?: string | null;
+    icon?: string | null;
+};
+
+export type SetHostGroupMembersRequest = {
+    /**
+     * Complete list of known-host IDs for this group.
+     */
+    host_ids: Array<number>;
+};
+
+export type UserHostGrants = {
+    /**
+     * When true the user can reach every known host.
+     */
+    bypass: boolean;
+    host_ids: Array<Id>;
+    group_ids: Array<Id>;
+};
+
+export type SetUserHostGrantsRequest = {
+    bypass?: boolean;
+    host_ids?: Array<number>;
+    group_ids?: Array<number>;
+};
+
+export type IgnoredHostSuggestion = {
+    id: Id;
+    fqdn: string;
+    created_at: string;
+};
+
+export type HostSuggestion = {
+    fqdn: string;
+    first_seen: string;
+    allowed_hits: number;
+    denied_hits: number;
+};
+
+export type IgnoreSuggestionRequest = {
+    fqdn: string;
+};
+
 export type PromoteUserRequest = {
     password: Password;
 };
@@ -454,6 +568,10 @@ export type UserWritable = {
     username: Username;
     display_name: DisplayName;
     email: string;
+    /**
+     * When true the user bypasses the host allowlist and can reach every known host.
+     */
+    bypass_host_allowlist: boolean;
     created_at: string;
 };
 
@@ -2138,3 +2256,582 @@ export type GetRegistrationResponses = {
 };
 
 export type GetRegistrationResponse = GetRegistrationResponses[keyof GetRegistrationResponses];
+
+export type ListKnownHostsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/admin/hosts';
+};
+
+export type ListKnownHostsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type ListKnownHostsError = ListKnownHostsErrors[keyof ListKnownHostsErrors];
+
+export type ListKnownHostsResponses = {
+    /**
+     * Known hosts list with stats
+     */
+    200: Array<KnownHostWithStats>;
+};
+
+export type ListKnownHostsResponse = ListKnownHostsResponses[keyof ListKnownHostsResponses];
+
+export type CreateKnownHostsData = {
+    body: BulkCreateKnownHostsRequest;
+    path?: never;
+    query?: never;
+    url: '/admin/hosts';
+};
+
+export type CreateKnownHostsErrors = {
+    /**
+     * Bad Request
+     */
+    400: ErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * One or more FQDNs already registered
+     */
+    409: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateKnownHostsError = CreateKnownHostsErrors[keyof CreateKnownHostsErrors];
+
+export type CreateKnownHostsResponses = {
+    /**
+     * Hosts created
+     */
+    201: Array<KnownHost>;
+};
+
+export type CreateKnownHostsResponse = CreateKnownHostsResponses[keyof CreateKnownHostsResponses];
+
+export type DeleteKnownHostData = {
+    body?: never;
+    path: {
+        host_id: Id;
+    };
+    query?: never;
+    url: '/admin/hosts/{host_id}';
+};
+
+export type DeleteKnownHostErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * Host not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteKnownHostError = DeleteKnownHostErrors[keyof DeleteKnownHostErrors];
+
+export type DeleteKnownHostResponses = {
+    /**
+     * Host deleted
+     */
+    204: void;
+};
+
+export type DeleteKnownHostResponse = DeleteKnownHostResponses[keyof DeleteKnownHostResponses];
+
+export type UpdateKnownHostData = {
+    body: UpdateKnownHostRequest;
+    path: {
+        host_id: Id;
+    };
+    query?: never;
+    url: '/admin/hosts/{host_id}';
+};
+
+export type UpdateKnownHostErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * Host not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type UpdateKnownHostError = UpdateKnownHostErrors[keyof UpdateKnownHostErrors];
+
+export type UpdateKnownHostResponses = {
+    /**
+     * Host updated
+     */
+    200: KnownHost;
+};
+
+export type UpdateKnownHostResponse = UpdateKnownHostResponses[keyof UpdateKnownHostResponses];
+
+export type ListHostGroupsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/admin/host-groups';
+};
+
+export type ListHostGroupsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type ListHostGroupsError = ListHostGroupsErrors[keyof ListHostGroupsErrors];
+
+export type ListHostGroupsResponses = {
+    /**
+     * Host groups list
+     */
+    200: Array<HostGroupWithMembers>;
+};
+
+export type ListHostGroupsResponse = ListHostGroupsResponses[keyof ListHostGroupsResponses];
+
+export type CreateHostGroupData = {
+    body: CreateHostGroupRequest;
+    path?: never;
+    query?: never;
+    url: '/admin/host-groups';
+};
+
+export type CreateHostGroupErrors = {
+    /**
+     * Bad Request
+     */
+    400: ErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * Group name already exists
+     */
+    409: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateHostGroupError = CreateHostGroupErrors[keyof CreateHostGroupErrors];
+
+export type CreateHostGroupResponses = {
+    /**
+     * Group created
+     */
+    201: HostGroup;
+};
+
+export type CreateHostGroupResponse = CreateHostGroupResponses[keyof CreateHostGroupResponses];
+
+export type DeleteHostGroupData = {
+    body?: never;
+    path: {
+        group_id: Id;
+    };
+    query?: never;
+    url: '/admin/host-groups/{group_id}';
+};
+
+export type DeleteHostGroupErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * Group not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteHostGroupError = DeleteHostGroupErrors[keyof DeleteHostGroupErrors];
+
+export type DeleteHostGroupResponses = {
+    /**
+     * Group deleted
+     */
+    204: void;
+};
+
+export type DeleteHostGroupResponse = DeleteHostGroupResponses[keyof DeleteHostGroupResponses];
+
+export type UpdateHostGroupData = {
+    body: UpdateHostGroupRequest;
+    path: {
+        group_id: Id;
+    };
+    query?: never;
+    url: '/admin/host-groups/{group_id}';
+};
+
+export type UpdateHostGroupErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * Group not found
+     */
+    404: ErrorResponse;
+    /**
+     * Group name already taken
+     */
+    409: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type UpdateHostGroupError = UpdateHostGroupErrors[keyof UpdateHostGroupErrors];
+
+export type UpdateHostGroupResponses = {
+    /**
+     * Group updated
+     */
+    200: HostGroup;
+};
+
+export type UpdateHostGroupResponse = UpdateHostGroupResponses[keyof UpdateHostGroupResponses];
+
+export type SetHostGroupMembersData = {
+    body: SetHostGroupMembersRequest;
+    path: {
+        group_id: Id;
+    };
+    query?: never;
+    url: '/admin/host-groups/{group_id}/members';
+};
+
+export type SetHostGroupMembersErrors = {
+    /**
+     * Bad Request
+     */
+    400: ErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * Group or one of the hosts not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type SetHostGroupMembersError = SetHostGroupMembersErrors[keyof SetHostGroupMembersErrors];
+
+export type SetHostGroupMembersResponses = {
+    /**
+     * Members updated
+     */
+    204: void;
+};
+
+export type SetHostGroupMembersResponse = SetHostGroupMembersResponses[keyof SetHostGroupMembersResponses];
+
+export type GetUserHostGrantsData = {
+    body?: never;
+    path: {
+        user_id: Id;
+    };
+    query?: never;
+    url: '/admin/users/{user_id}/host-grants';
+};
+
+export type GetUserHostGrantsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * User not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type GetUserHostGrantsError = GetUserHostGrantsErrors[keyof GetUserHostGrantsErrors];
+
+export type GetUserHostGrantsResponses = {
+    /**
+     * User host grants
+     */
+    200: UserHostGrants;
+};
+
+export type GetUserHostGrantsResponse = GetUserHostGrantsResponses[keyof GetUserHostGrantsResponses];
+
+export type SetUserHostGrantsData = {
+    body: SetUserHostGrantsRequest;
+    path: {
+        user_id: Id;
+    };
+    query?: never;
+    url: '/admin/users/{user_id}/host-grants';
+};
+
+export type SetUserHostGrantsErrors = {
+    /**
+     * Bad Request
+     */
+    400: ErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * User or one of the referenced hosts/groups not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type SetUserHostGrantsError = SetUserHostGrantsErrors[keyof SetUserHostGrantsErrors];
+
+export type SetUserHostGrantsResponses = {
+    /**
+     * Grants updated
+     */
+    204: void;
+};
+
+export type SetUserHostGrantsResponse = SetUserHostGrantsResponses[keyof SetUserHostGrantsResponses];
+
+export type ListHostSuggestionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/admin/host-suggestions';
+};
+
+export type ListHostSuggestionsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type ListHostSuggestionsError = ListHostSuggestionsErrors[keyof ListHostSuggestionsErrors];
+
+export type ListHostSuggestionsResponses = {
+    /**
+     * Suggestions list
+     */
+    200: Array<HostSuggestion>;
+};
+
+export type ListHostSuggestionsResponse = ListHostSuggestionsResponses[keyof ListHostSuggestionsResponses];
+
+export type ListIgnoredSuggestionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/admin/host-suggestions/ignore';
+};
+
+export type ListIgnoredSuggestionsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type ListIgnoredSuggestionsError = ListIgnoredSuggestionsErrors[keyof ListIgnoredSuggestionsErrors];
+
+export type ListIgnoredSuggestionsResponses = {
+    /**
+     * Ignored suggestions list
+     */
+    200: Array<IgnoredHostSuggestion>;
+};
+
+export type ListIgnoredSuggestionsResponse = ListIgnoredSuggestionsResponses[keyof ListIgnoredSuggestionsResponses];
+
+export type IgnoreSuggestionData = {
+    body: IgnoreSuggestionRequest;
+    path?: never;
+    query?: never;
+    url: '/admin/host-suggestions/ignore';
+};
+
+export type IgnoreSuggestionErrors = {
+    /**
+     * Bad Request
+     */
+    400: ErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * FQDN already ignored
+     */
+    409: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type IgnoreSuggestionError = IgnoreSuggestionErrors[keyof IgnoreSuggestionErrors];
+
+export type IgnoreSuggestionResponses = {
+    /**
+     * Suggestion ignored
+     */
+    201: IgnoredHostSuggestion;
+};
+
+export type IgnoreSuggestionResponse = IgnoreSuggestionResponses[keyof IgnoreSuggestionResponses];
+
+export type UnignoreSuggestionData = {
+    body?: never;
+    path: {
+        fqdn: string;
+    };
+    query?: never;
+    url: '/admin/host-suggestions/ignore/{fqdn}';
+};
+
+export type UnignoreSuggestionErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * Ignored suggestion not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type UnignoreSuggestionError = UnignoreSuggestionErrors[keyof UnignoreSuggestionErrors];
+
+export type UnignoreSuggestionResponses = {
+    /**
+     * Suggestion unignored
+     */
+    204: void;
+};
+
+export type UnignoreSuggestionResponse = UnignoreSuggestionResponses[keyof UnignoreSuggestionResponses];

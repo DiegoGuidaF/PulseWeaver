@@ -14,5 +14,6 @@ type HostGroup struct {
 	ID          HostGroupID `db:"id"`
 	Name        string      `db:"name"`
 	Description *string     `db:"description"`
+	Icon        *string     `db:"icon"`
 	CreatedAt   time.Time   `db:"created_at"`
 }

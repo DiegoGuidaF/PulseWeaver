@@ -75,6 +75,7 @@ export const UserSchema = {
         'email',
         'role',
         'must_change_password',
+        'bypass_host_allowlist',
         'created_at'
     ],
     properties: {
@@ -99,6 +100,10 @@ export const UserSchema = {
             type: 'boolean',
             readOnly: true,
             description: 'When true, the user must change their password before using the app.'
+        },
+        bypass_host_allowlist: {
+            type: 'boolean',
+            description: 'When true the user bypasses the host allowlist and can reach every known host.'
         },
         created_at: {
             type: 'string',
@@ -1117,6 +1122,344 @@ export const ClaimRegistrationResponseSchema = {
     }
 } as const;
 
+export const KnownHostSchema = {
+    type: 'object',
+    required: [
+        'id',
+        'fqdn',
+        'created_at'
+    ],
+    properties: {
+        id: {
+            $ref: '#/components/schemas/ID'
+        },
+        fqdn: {
+            type: 'string',
+            description: 'Fully-qualified domain name (lowercased).'
+        },
+        icon: {
+            type: 'string',
+            nullable: true,
+            description: 'Tabler icon name.'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime'
+        }
+    }
+} as const;
+
+export const KnownHostWithStatsSchema = {
+    type: 'object',
+    required: [
+        'id',
+        'fqdn',
+        'created_at',
+        'user_count'
+    ],
+    properties: {
+        id: {
+            $ref: '#/components/schemas/ID'
+        },
+        fqdn: {
+            type: 'string'
+        },
+        icon: {
+            type: 'string',
+            nullable: true
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime'
+        },
+        last_seen: {
+            type: 'string',
+            format: 'date-time',
+            nullable: true,
+            description: 'Last time this host appeared in the access log.',
+            'x-go-type': 'UTCTime'
+        },
+        user_count: {
+            type: 'integer',
+            description: 'Number of distinct users with access to this host.'
+        }
+    }
+} as const;
+
+export const BulkCreateKnownHostsRequestSchema = {
+    type: 'object',
+    required: [
+        'fqdns'
+    ],
+    properties: {
+        fqdns: {
+            type: 'array',
+            minItems: 1,
+            items: {
+                type: 'string',
+                minLength: 1
+            },
+            description: 'One or more FQDNs to register as known hosts.'
+        }
+    }
+} as const;
+
+export const UpdateKnownHostRequestSchema = {
+    type: 'object',
+    properties: {
+        icon: {
+            type: 'string',
+            nullable: true,
+            'x-go-type': 'NullableString',
+            'x-go-type-skip-optional-pointer': true,
+            description: 'Tabler icon name. Pass null to clear.'
+        }
+    }
+} as const;
+
+export const HostGroupSchema = {
+    type: 'object',
+    required: [
+        'id',
+        'name',
+        'created_at'
+    ],
+    properties: {
+        id: {
+            $ref: '#/components/schemas/ID'
+        },
+        name: {
+            type: 'string'
+        },
+        description: {
+            type: 'string',
+            nullable: true
+        },
+        icon: {
+            type: 'string',
+            nullable: true
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime'
+        }
+    }
+} as const;
+
+export const HostGroupWithMembersSchema = {
+    type: 'object',
+    required: [
+        'id',
+        'name',
+        'created_at',
+        'host_ids'
+    ],
+    properties: {
+        id: {
+            $ref: '#/components/schemas/ID'
+        },
+        name: {
+            type: 'string'
+        },
+        description: {
+            type: 'string',
+            nullable: true
+        },
+        icon: {
+            type: 'string',
+            nullable: true
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime'
+        },
+        host_ids: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/ID'
+            }
+        }
+    }
+} as const;
+
+export const CreateHostGroupRequestSchema = {
+    type: 'object',
+    required: [
+        'name'
+    ],
+    properties: {
+        name: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 100
+        },
+        description: {
+            type: 'string',
+            nullable: true,
+            maxLength: 500
+        },
+        icon: {
+            type: 'string',
+            nullable: true
+        }
+    }
+} as const;
+
+export const UpdateHostGroupRequestSchema = {
+    type: 'object',
+    required: [
+        'name'
+    ],
+    properties: {
+        name: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 100
+        },
+        description: {
+            type: 'string',
+            nullable: true,
+            'x-go-type': 'NullableString',
+            'x-go-type-skip-optional-pointer': true
+        },
+        icon: {
+            type: 'string',
+            nullable: true,
+            'x-go-type': 'NullableString',
+            'x-go-type-skip-optional-pointer': true
+        }
+    }
+} as const;
+
+export const SetHostGroupMembersRequestSchema = {
+    type: 'object',
+    required: [
+        'host_ids'
+    ],
+    properties: {
+        host_ids: {
+            type: 'array',
+            items: {
+                type: 'integer'
+            },
+            description: 'Complete list of known-host IDs for this group.'
+        }
+    }
+} as const;
+
+export const UserHostGrantsSchema = {
+    type: 'object',
+    required: [
+        'bypass',
+        'host_ids',
+        'group_ids'
+    ],
+    properties: {
+        bypass: {
+            type: 'boolean',
+            description: 'When true the user can reach every known host.'
+        },
+        host_ids: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/ID'
+            }
+        },
+        group_ids: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/ID'
+            }
+        }
+    }
+} as const;
+
+export const SetUserHostGrantsRequestSchema = {
+    type: 'object',
+    properties: {
+        bypass: {
+            type: 'boolean'
+        },
+        host_ids: {
+            type: 'array',
+            items: {
+                type: 'integer'
+            }
+        },
+        group_ids: {
+            type: 'array',
+            items: {
+                type: 'integer'
+            }
+        }
+    }
+} as const;
+
+export const IgnoredHostSuggestionSchema = {
+    type: 'object',
+    required: [
+        'id',
+        'fqdn',
+        'created_at'
+    ],
+    properties: {
+        id: {
+            $ref: '#/components/schemas/ID'
+        },
+        fqdn: {
+            type: 'string'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime'
+        }
+    }
+} as const;
+
+export const HostSuggestionSchema = {
+    type: 'object',
+    required: [
+        'fqdn',
+        'first_seen',
+        'allowed_hits',
+        'denied_hits'
+    ],
+    properties: {
+        fqdn: {
+            type: 'string'
+        },
+        first_seen: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime'
+        },
+        allowed_hits: {
+            type: 'integer'
+        },
+        denied_hits: {
+            type: 'integer'
+        }
+    }
+} as const;
+
+export const IgnoreSuggestionRequestSchema = {
+    type: 'object',
+    required: [
+        'fqdn'
+    ],
+    properties: {
+        fqdn: {
+            type: 'string',
+            minLength: 1
+        }
+    }
+} as const;
+
 export const PromoteUserRequestSchema = {
     type: 'object',
     required: [
@@ -1153,6 +1496,7 @@ export const UserWritableSchema = {
         'username',
         'display_name',
         'email',
+        'bypass_host_allowlist',
         'created_at'
     ],
     properties: {
@@ -1168,6 +1512,10 @@ export const UserWritableSchema = {
         email: {
             type: 'string',
             format: 'email'
+        },
+        bypass_host_allowlist: {
+            type: 'boolean',
+            description: 'When true the user bypasses the host allowlist and can reach every known host.'
         },
         created_at: {
             type: 'string',

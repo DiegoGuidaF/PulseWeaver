@@ -32,6 +32,7 @@ export function createMockUser(overrides?: Partial<User>): User {
     email: 'test@example.com',
     role: UserRole.USER,
     must_change_password: false,
+    bypass_host_allowlist: false,
     created_at: '2024-01-01T00:00:00Z',
     ...overrides,
   };

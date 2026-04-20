@@ -52,6 +52,7 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, req httpapi.CreateDevice
 ## Key rules
 
 - **Error mapping**: match domain sentinel errors (`ErrNotFound`, `ErrConflict`) to HTTP status codes. Return `nil, err` only for unexpected errors (becomes 500).
+  - `ErrBadRequest` (from a Params constructor) → 400. Use `errors.Is(err, ErrBadRequest)` and return the error message directly — it is already user-readable. See service-layer.md for the Params pattern.
 - **Logging**: call `logging.FromCtx(ctx)` to get the request-scoped logger. Set the `operation` attribute at handler entry.
 - **No business logic**: validation beyond "does this field exist" belongs in the service.
 - **Auth**: authentication is handled by middleware (`PrincipalUserContextMiddleware` / `PrincipalDeviceContextMiddleware`). Handlers retrieve the principal from context when needed.

@@ -111,6 +111,28 @@ paths:
   /admin/registrations/{registration_id}:
     $ref: './paths/registration.yaml#/adminRegistrationById'
 
+  # --------------------
+  # Host Access Endpoints
+  # --------------------
+  /admin/hosts:
+    $ref: './paths/host-access.yaml#/hosts'
+  /admin/hosts/{host_id}:
+    $ref: './paths/host-access.yaml#/hostById'
+  /admin/host-groups:
+    $ref: './paths/host-access.yaml#/hostGroups'
+  /admin/host-groups/{group_id}:
+    $ref: './paths/host-access.yaml#/hostGroupById'
+  /admin/host-groups/{group_id}/members:
+    $ref: './paths/host-access.yaml#/hostGroupMembers'
+  /admin/users/{user_id}/host-grants:
+    $ref: './paths/host-access.yaml#/userHostGrants'
+  /admin/host-suggestions:
+    $ref: './paths/host-access.yaml#/hostSuggestions'
+  /admin/host-suggestions/ignore:
+    $ref: './paths/host-access.yaml#/ignoredSuggestions'
+  /admin/host-suggestions/ignore/{fqdn}:
+    $ref: './paths/host-access.yaml#/ignoredSuggestionByFqdn'
+
 components:
   securitySchemes:
     cookieAuth:
@@ -239,3 +261,35 @@ components:
       $ref: './components/schemas/registration.yaml#/ClaimRegistrationRequest'
     ClaimRegistrationResponse:
       $ref: './components/schemas/registration.yaml#/ClaimRegistrationResponse'
+
+    # --------------------
+    # Host Access
+    # --------------------
+    KnownHost:
+      $ref: './components/schemas/host-access.yaml#/KnownHost'
+    KnownHostWithStats:
+      $ref: './components/schemas/host-access.yaml#/KnownHostWithStats'
+    BulkCreateKnownHostsRequest:
+      $ref: './components/schemas/host-access.yaml#/BulkCreateKnownHostsRequest'
+    UpdateKnownHostRequest:
+      $ref: './components/schemas/host-access.yaml#/UpdateKnownHostRequest'
+    HostGroup:
+      $ref: './components/schemas/host-access.yaml#/HostGroup'
+    HostGroupWithMembers:
+      $ref: './components/schemas/host-access.yaml#/HostGroupWithMembers'
+    CreateHostGroupRequest:
+      $ref: './components/schemas/host-access.yaml#/CreateHostGroupRequest'
+    UpdateHostGroupRequest:
+      $ref: './components/schemas/host-access.yaml#/UpdateHostGroupRequest'
+    SetHostGroupMembersRequest:
+      $ref: './components/schemas/host-access.yaml#/SetHostGroupMembersRequest'
+    UserHostGrants:
+      $ref: './components/schemas/host-access.yaml#/UserHostGrants'
+    SetUserHostGrantsRequest:
+      $ref: './components/schemas/host-access.yaml#/SetUserHostGrantsRequest'
+    IgnoredHostSuggestion:
+      $ref: './components/schemas/host-access.yaml#/IgnoredHostSuggestion'
+    HostSuggestion:
+      $ref: './components/schemas/host-access.yaml#/HostSuggestion'
+    IgnoreSuggestionRequest:
+      $ref: './components/schemas/host-access.yaml#/IgnoreSuggestionRequest'

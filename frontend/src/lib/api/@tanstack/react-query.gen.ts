@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addAddress, changePassword, claimRegistration, createDevice, createRegistration, createUser, deleteDevice, deleteDeviceApiKey, deleteRegistration, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, disableMaxActiveAddressesRule, getAccessLog, getAccessLogByCountry, getAccessLogDenyReasons, getAddressHistory, getCurrentUser, getDashboardServices, getDashboardStats, getDashboardTopDeniedIps, getDashboardTraffic, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, getDevicesByUser, getMaxActiveAddressesRule, getRegistration, listDeviceTypes, listRegistrations, listUsers, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, putMaxActiveAddressesRule, regenerateDeviceApiKey, updateDevice, updateMe } from '../sdk.gen';
-import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, ClaimRegistrationData, ClaimRegistrationError, ClaimRegistrationResponse2, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateRegistrationData, CreateRegistrationError, CreateRegistrationResponse, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceApiKeyData, DeleteDeviceApiKeyError, DeleteDeviceApiKeyResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteRegistrationData, DeleteRegistrationError, DeleteRegistrationResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, DisableMaxActiveAddressesRuleData, DisableMaxActiveAddressesRuleError, DisableMaxActiveAddressesRuleResponse, GetAccessLogByCountryData, GetAccessLogByCountryError, GetAccessLogByCountryResponse, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsError, GetAccessLogDenyReasonsResponse, GetAccessLogError, GetAccessLogResponse, GetAddressHistoryData, GetAddressHistoryError, GetAddressHistoryResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDashboardServicesData, GetDashboardServicesError, GetDashboardServicesResponse, GetDashboardStatsData, GetDashboardStatsError, GetDashboardStatsResponse, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsError, GetDashboardTopDeniedIpsResponse, GetDashboardTrafficData, GetDashboardTrafficError, GetDashboardTrafficResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesByUserData, GetDevicesByUserError, GetDevicesByUserResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, GetMaxActiveAddressesRuleData, GetMaxActiveAddressesRuleError, GetMaxActiveAddressesRuleResponse, GetRegistrationData, GetRegistrationError, GetRegistrationResponse, ListDeviceTypesData, ListDeviceTypesResponse, ListRegistrationsData, ListRegistrationsError, ListRegistrationsResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, PutMaxActiveAddressesRuleData, PutMaxActiveAddressesRuleError, PutMaxActiveAddressesRuleResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, UpdateDeviceData, UpdateDeviceError, UpdateDeviceResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
+import { addAddress, changePassword, claimRegistration, createDevice, createHostGroup, createKnownHosts, createRegistration, createUser, deleteDevice, deleteDeviceApiKey, deleteHostGroup, deleteKnownHost, deleteRegistration, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, disableMaxActiveAddressesRule, getAccessLog, getAccessLogByCountry, getAccessLogDenyReasons, getAddressHistory, getCurrentUser, getDashboardServices, getDashboardStats, getDashboardTopDeniedIps, getDashboardTraffic, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, getDevicesByUser, getMaxActiveAddressesRule, getRegistration, getUserHostGrants, ignoreSuggestion, listDeviceTypes, listHostGroups, listHostSuggestions, listIgnoredSuggestions, listKnownHosts, listRegistrations, listUsers, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, putMaxActiveAddressesRule, regenerateDeviceApiKey, setHostGroupMembers, setUserHostGrants, unignoreSuggestion, updateDevice, updateHostGroup, updateKnownHost, updateMe } from '../sdk.gen';
+import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, ClaimRegistrationData, ClaimRegistrationError, ClaimRegistrationResponse2, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateHostGroupData, CreateHostGroupError, CreateHostGroupResponse, CreateKnownHostsData, CreateKnownHostsError, CreateKnownHostsResponse, CreateRegistrationData, CreateRegistrationError, CreateRegistrationResponse, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceApiKeyData, DeleteDeviceApiKeyError, DeleteDeviceApiKeyResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteHostGroupData, DeleteHostGroupError, DeleteHostGroupResponse, DeleteKnownHostData, DeleteKnownHostError, DeleteKnownHostResponse, DeleteRegistrationData, DeleteRegistrationError, DeleteRegistrationResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, DisableMaxActiveAddressesRuleData, DisableMaxActiveAddressesRuleError, DisableMaxActiveAddressesRuleResponse, GetAccessLogByCountryData, GetAccessLogByCountryError, GetAccessLogByCountryResponse, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsError, GetAccessLogDenyReasonsResponse, GetAccessLogError, GetAccessLogResponse, GetAddressHistoryData, GetAddressHistoryError, GetAddressHistoryResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDashboardServicesData, GetDashboardServicesError, GetDashboardServicesResponse, GetDashboardStatsData, GetDashboardStatsError, GetDashboardStatsResponse, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsError, GetDashboardTopDeniedIpsResponse, GetDashboardTrafficData, GetDashboardTrafficError, GetDashboardTrafficResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesByUserData, GetDevicesByUserError, GetDevicesByUserResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, GetMaxActiveAddressesRuleData, GetMaxActiveAddressesRuleError, GetMaxActiveAddressesRuleResponse, GetRegistrationData, GetRegistrationError, GetRegistrationResponse, GetUserHostGrantsData, GetUserHostGrantsError, GetUserHostGrantsResponse, IgnoreSuggestionData, IgnoreSuggestionError, IgnoreSuggestionResponse, ListDeviceTypesData, ListDeviceTypesResponse, ListHostGroupsData, ListHostGroupsError, ListHostGroupsResponse, ListHostSuggestionsData, ListHostSuggestionsError, ListHostSuggestionsResponse, ListIgnoredSuggestionsData, ListIgnoredSuggestionsError, ListIgnoredSuggestionsResponse, ListKnownHostsData, ListKnownHostsError, ListKnownHostsResponse, ListRegistrationsData, ListRegistrationsError, ListRegistrationsResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, PutMaxActiveAddressesRuleData, PutMaxActiveAddressesRuleError, PutMaxActiveAddressesRuleResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, SetHostGroupMembersData, SetHostGroupMembersError, SetHostGroupMembersResponse, SetUserHostGrantsData, SetUserHostGrantsError, SetUserHostGrantsResponse, UnignoreSuggestionData, UnignoreSuggestionError, UnignoreSuggestionResponse, UpdateDeviceData, UpdateDeviceError, UpdateDeviceResponse, UpdateHostGroupData, UpdateHostGroupError, UpdateHostGroupResponse, UpdateKnownHostData, UpdateKnownHostError, UpdateKnownHostResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -885,3 +885,263 @@ export const getRegistrationOptions = (options: Options<GetRegistrationData>) =>
     },
     queryKey: getRegistrationQueryKey(options)
 });
+
+export const listKnownHostsQueryKey = (options?: Options<ListKnownHostsData>) => createQueryKey('listKnownHosts', options);
+
+/**
+ * List known hosts with access stats
+ */
+export const listKnownHostsOptions = (options?: Options<ListKnownHostsData>) => queryOptions<ListKnownHostsResponse, ListKnownHostsError, ListKnownHostsResponse, ReturnType<typeof listKnownHostsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listKnownHosts({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listKnownHostsQueryKey(options)
+});
+
+/**
+ * Register one or more known hosts
+ */
+export const createKnownHostsMutation = (options?: Partial<Options<CreateKnownHostsData>>): UseMutationOptions<CreateKnownHostsResponse, CreateKnownHostsError, Options<CreateKnownHostsData>> => {
+    const mutationOptions: UseMutationOptions<CreateKnownHostsResponse, CreateKnownHostsError, Options<CreateKnownHostsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createKnownHosts({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete a known host
+ */
+export const deleteKnownHostMutation = (options?: Partial<Options<DeleteKnownHostData>>): UseMutationOptions<DeleteKnownHostResponse, DeleteKnownHostError, Options<DeleteKnownHostData>> => {
+    const mutationOptions: UseMutationOptions<DeleteKnownHostResponse, DeleteKnownHostError, Options<DeleteKnownHostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteKnownHost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Update a known host (icon)
+ */
+export const updateKnownHostMutation = (options?: Partial<Options<UpdateKnownHostData>>): UseMutationOptions<UpdateKnownHostResponse, UpdateKnownHostError, Options<UpdateKnownHostData>> => {
+    const mutationOptions: UseMutationOptions<UpdateKnownHostResponse, UpdateKnownHostError, Options<UpdateKnownHostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateKnownHost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listHostGroupsQueryKey = (options?: Options<ListHostGroupsData>) => createQueryKey('listHostGroups', options);
+
+/**
+ * List host groups with their member host IDs
+ */
+export const listHostGroupsOptions = (options?: Options<ListHostGroupsData>) => queryOptions<ListHostGroupsResponse, ListHostGroupsError, ListHostGroupsResponse, ReturnType<typeof listHostGroupsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listHostGroups({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listHostGroupsQueryKey(options)
+});
+
+/**
+ * Create a host group
+ */
+export const createHostGroupMutation = (options?: Partial<Options<CreateHostGroupData>>): UseMutationOptions<CreateHostGroupResponse, CreateHostGroupError, Options<CreateHostGroupData>> => {
+    const mutationOptions: UseMutationOptions<CreateHostGroupResponse, CreateHostGroupError, Options<CreateHostGroupData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createHostGroup({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete a host group
+ */
+export const deleteHostGroupMutation = (options?: Partial<Options<DeleteHostGroupData>>): UseMutationOptions<DeleteHostGroupResponse, DeleteHostGroupError, Options<DeleteHostGroupData>> => {
+    const mutationOptions: UseMutationOptions<DeleteHostGroupResponse, DeleteHostGroupError, Options<DeleteHostGroupData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteHostGroup({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Update a host group's metadata
+ */
+export const updateHostGroupMutation = (options?: Partial<Options<UpdateHostGroupData>>): UseMutationOptions<UpdateHostGroupResponse, UpdateHostGroupError, Options<UpdateHostGroupData>> => {
+    const mutationOptions: UseMutationOptions<UpdateHostGroupResponse, UpdateHostGroupError, Options<UpdateHostGroupData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateHostGroup({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Atomically replace all members of a host group
+ */
+export const setHostGroupMembersMutation = (options?: Partial<Options<SetHostGroupMembersData>>): UseMutationOptions<SetHostGroupMembersResponse, SetHostGroupMembersError, Options<SetHostGroupMembersData>> => {
+    const mutationOptions: UseMutationOptions<SetHostGroupMembersResponse, SetHostGroupMembersError, Options<SetHostGroupMembersData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setHostGroupMembers({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getUserHostGrantsQueryKey = (options: Options<GetUserHostGrantsData>) => createQueryKey('getUserHostGrants', options);
+
+/**
+ * Get a user's current host grants and bypass flag
+ */
+export const getUserHostGrantsOptions = (options: Options<GetUserHostGrantsData>) => queryOptions<GetUserHostGrantsResponse, GetUserHostGrantsError, GetUserHostGrantsResponse, ReturnType<typeof getUserHostGrantsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getUserHostGrants({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getUserHostGrantsQueryKey(options)
+});
+
+/**
+ * Atomically replace a user's host grants and bypass flag
+ */
+export const setUserHostGrantsMutation = (options?: Partial<Options<SetUserHostGrantsData>>): UseMutationOptions<SetUserHostGrantsResponse, SetUserHostGrantsError, Options<SetUserHostGrantsData>> => {
+    const mutationOptions: UseMutationOptions<SetUserHostGrantsResponse, SetUserHostGrantsError, Options<SetUserHostGrantsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setUserHostGrants({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listHostSuggestionsQueryKey = (options?: Options<ListHostSuggestionsData>) => createQueryKey('listHostSuggestions', options);
+
+/**
+ * List FQDNs seen in the access log that are not yet known hosts
+ */
+export const listHostSuggestionsOptions = (options?: Options<ListHostSuggestionsData>) => queryOptions<ListHostSuggestionsResponse, ListHostSuggestionsError, ListHostSuggestionsResponse, ReturnType<typeof listHostSuggestionsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listHostSuggestions({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listHostSuggestionsQueryKey(options)
+});
+
+export const listIgnoredSuggestionsQueryKey = (options?: Options<ListIgnoredSuggestionsData>) => createQueryKey('listIgnoredSuggestions', options);
+
+/**
+ * List ignored host suggestions
+ */
+export const listIgnoredSuggestionsOptions = (options?: Options<ListIgnoredSuggestionsData>) => queryOptions<ListIgnoredSuggestionsResponse, ListIgnoredSuggestionsError, ListIgnoredSuggestionsResponse, ReturnType<typeof listIgnoredSuggestionsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listIgnoredSuggestions({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listIgnoredSuggestionsQueryKey(options)
+});
+
+/**
+ * Ignore a host suggestion
+ */
+export const ignoreSuggestionMutation = (options?: Partial<Options<IgnoreSuggestionData>>): UseMutationOptions<IgnoreSuggestionResponse, IgnoreSuggestionError, Options<IgnoreSuggestionData>> => {
+    const mutationOptions: UseMutationOptions<IgnoreSuggestionResponse, IgnoreSuggestionError, Options<IgnoreSuggestionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await ignoreSuggestion({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Remove a host suggestion from the ignore list
+ */
+export const unignoreSuggestionMutation = (options?: Partial<Options<UnignoreSuggestionData>>): UseMutationOptions<UnignoreSuggestionResponse, UnignoreSuggestionError, Options<UnignoreSuggestionData>> => {
+    const mutationOptions: UseMutationOptions<UnignoreSuggestionResponse, UnignoreSuggestionError, Options<UnignoreSuggestionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await unignoreSuggestion({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};

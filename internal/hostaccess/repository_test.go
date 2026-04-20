@@ -58,7 +58,7 @@ func TestRepository_GetAllUserHostAccess_DirectGrant(t *testing.T) {
 
 	userID := insertUser(t, db, "alice", false, false)
 
-	host, err := repo.CreateKnownHost(ctx, "example.com")
+	host, err := repo.CreateKnownHost(ctx, "example.com", nil)
 	is.NoErr(err)
 	is.NoErr(repo.GrantUserHost(ctx, userID, host.ID))
 
@@ -78,10 +78,10 @@ func TestRepository_GetAllUserHostAccess_GroupGrant(t *testing.T) {
 
 	userID := insertUser(t, db, "bob", false, false)
 
-	host, err := repo.CreateKnownHost(ctx, "group-host.com")
+	host, err := repo.CreateKnownHost(ctx, "group-host.com", nil)
 	is.NoErr(err)
 
-	group, err := repo.CreateHostGroup(ctx, "mygroup", nil)
+	group, err := repo.CreateHostGroup(ctx, "mygroup", nil, nil)
 	is.NoErr(err)
 	is.NoErr(repo.AddHostToGroup(ctx, group.ID, host.ID))
 	is.NoErr(repo.GrantUserHostGroup(ctx, userID, group.ID))
@@ -130,14 +130,14 @@ func TestRepository_GetAllUserHostAccess_DirectAndGroupDeduplication(t *testing.
 
 	userID := insertUser(t, db, "dave", false, false)
 
-	host, err := repo.CreateKnownHost(ctx, "shared.com")
+	host, err := repo.CreateKnownHost(ctx, "shared.com", nil)
 	is.NoErr(err)
 
 	// Direct grant.
 	is.NoErr(repo.GrantUserHost(ctx, userID, host.ID))
 
 	// Group grant for same host.
-	group, err := repo.CreateHostGroup(ctx, "g", nil)
+	group, err := repo.CreateHostGroup(ctx, "g", nil, nil)
 	is.NoErr(err)
 	is.NoErr(repo.AddHostToGroup(ctx, group.ID, host.ID))
 	is.NoErr(repo.GrantUserHostGroup(ctx, userID, group.ID))

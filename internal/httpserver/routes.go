@@ -9,6 +9,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/health"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/hostaccess"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
@@ -28,6 +29,7 @@ type CompositeHandler struct {
 	*AccessLogHandler
 	*DashboardHandler
 	*RegistrationHandler
+	*HostAccessHandler
 }
 
 type RuleHandler = rule.HTTPHandler
@@ -38,8 +40,9 @@ type PolicyHandler = policy.HTTPHandler
 type AccessLogHandler = accesslog.HTTPHandler
 type DashboardHandler = dashboard.HTTPHandler
 type RegistrationHandler = registration.HTTPHandler
+type HostAccessHandler = hostaccess.HTTPHandler
 
-func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, accessLogHandler *AccessLogHandler, dashboardHandler *DashboardHandler, registrationHandler *RegistrationHandler, logger *slog.Logger) {
+func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, accessLogHandler *AccessLogHandler, dashboardHandler *DashboardHandler, registrationHandler *RegistrationHandler, hostAccessHandler *HostAccessHandler, logger *slog.Logger) {
 	routeHandler := &CompositeHandler{
 		DeviceHandler:       deviceHandler,
 		AuthHandler:         authHandler,
@@ -48,6 +51,7 @@ func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandle
 		AccessLogHandler:    accessLogHandler,
 		DashboardHandler:    dashboardHandler,
 		RegistrationHandler: registrationHandler,
+		HostAccessHandler:   hostAccessHandler,
 	}
 
 	r.Get("/health", health.Handler)

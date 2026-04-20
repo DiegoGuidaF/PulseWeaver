@@ -220,6 +220,12 @@ type AuthRequest struct {
 	Username Username `json:"username"`
 }
 
+// BulkCreateKnownHostsRequest defines model for BulkCreateKnownHostsRequest.
+type BulkCreateKnownHostsRequest struct {
+	// Fqdns One or more FQDNs to register as known hosts.
+	Fqdns []string `json:"fqdns"`
+}
+
 // ChangePasswordRequest defines model for ChangePasswordRequest.
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password"`
@@ -254,6 +260,13 @@ type CreateDeviceRequest struct {
 // CreateDeviceResponse defines model for CreateDeviceResponse.
 type CreateDeviceResponse struct {
 	Device Device `json:"device"`
+}
+
+// CreateHostGroupRequest defines model for CreateHostGroupRequest.
+type CreateHostGroupRequest struct {
+	Description *string `json:"description"`
+	Icon        *string `json:"icon"`
+	Name        string  `json:"name"`
 }
 
 // CreateRegistrationRequest defines model for CreateRegistrationRequest.
@@ -403,11 +416,76 @@ type ErrorResponse struct {
 	Error *string `json:"error,omitempty"`
 }
 
+// HostGroup defines model for HostGroup.
+type HostGroup struct {
+	CreatedAt   UTCTime `json:"created_at"`
+	Description *string `json:"description"`
+	Icon        *string `json:"icon"`
+	Id          ID      `json:"id"`
+	Name        string  `json:"name"`
+}
+
+// HostGroupWithMembers defines model for HostGroupWithMembers.
+type HostGroupWithMembers struct {
+	CreatedAt   UTCTime `json:"created_at"`
+	Description *string `json:"description"`
+	HostIds     []ID    `json:"host_ids"`
+	Icon        *string `json:"icon"`
+	Id          ID      `json:"id"`
+	Name        string  `json:"name"`
+}
+
+// HostSuggestion defines model for HostSuggestion.
+type HostSuggestion struct {
+	AllowedHits int     `json:"allowed_hits"`
+	DeniedHits  int     `json:"denied_hits"`
+	FirstSeen   UTCTime `json:"first_seen"`
+	Fqdn        string  `json:"fqdn"`
+}
+
 // ID defines model for ID.
 type ID = int64
 
 // IPAddress IPv4 or IPv6 address
 type IPAddress = string
+
+// IgnoreSuggestionRequest defines model for IgnoreSuggestionRequest.
+type IgnoreSuggestionRequest struct {
+	Fqdn string `json:"fqdn"`
+}
+
+// IgnoredHostSuggestion defines model for IgnoredHostSuggestion.
+type IgnoredHostSuggestion struct {
+	CreatedAt UTCTime `json:"created_at"`
+	Fqdn      string  `json:"fqdn"`
+	Id        ID      `json:"id"`
+}
+
+// KnownHost defines model for KnownHost.
+type KnownHost struct {
+	CreatedAt UTCTime `json:"created_at"`
+
+	// Fqdn Fully-qualified domain name (lowercased).
+	Fqdn string `json:"fqdn"`
+
+	// Icon Tabler icon name.
+	Icon *string `json:"icon"`
+	Id   ID      `json:"id"`
+}
+
+// KnownHostWithStats defines model for KnownHostWithStats.
+type KnownHostWithStats struct {
+	CreatedAt UTCTime `json:"created_at"`
+	Fqdn      string  `json:"fqdn"`
+	Icon      *string `json:"icon"`
+	Id        ID      `json:"id"`
+
+	// LastSeen Last time this host appeared in the access log.
+	LastSeen *UTCTime `json:"last_seen"`
+
+	// UserCount Number of distinct users with access to this host.
+	UserCount int `json:"user_count"`
+}
 
 // MaxActiveAddressesRule defines model for MaxActiveAddressesRule.
 type MaxActiveAddressesRule struct {
@@ -466,6 +544,19 @@ type PutMaxActiveAddressesRuleRequest struct {
 	MaxAddresses int `json:"max_addresses"`
 }
 
+// SetHostGroupMembersRequest defines model for SetHostGroupMembersRequest.
+type SetHostGroupMembersRequest struct {
+	// HostIds Complete list of known-host IDs for this group.
+	HostIds []int `json:"host_ids"`
+}
+
+// SetUserHostGrantsRequest defines model for SetUserHostGrantsRequest.
+type SetUserHostGrantsRequest struct {
+	Bypass   *bool  `json:"bypass,omitempty"`
+	GroupIds *[]int `json:"group_ids,omitempty"`
+	HostIds  *[]int `json:"host_ids,omitempty"`
+}
+
 // UpdateDeviceRequest defines model for UpdateDeviceRequest.
 type UpdateDeviceRequest struct {
 	// Description Free-form note. Pass null to clear.
@@ -487,6 +578,19 @@ type UpdateDeviceRequest struct {
 // UpdateDeviceRequestDeviceType Network behaviour classification.
 type UpdateDeviceRequestDeviceType string
 
+// UpdateHostGroupRequest defines model for UpdateHostGroupRequest.
+type UpdateHostGroupRequest struct {
+	Description NullableString `json:"description"`
+	Icon        NullableString `json:"icon"`
+	Name        string         `json:"name"`
+}
+
+// UpdateKnownHostRequest defines model for UpdateKnownHostRequest.
+type UpdateKnownHostRequest struct {
+	// Icon Tabler icon name. Pass null to clear.
+	Icon NullableString `json:"icon"`
+}
+
 // UpdateProfileRequest defines model for UpdateProfileRequest.
 type UpdateProfileRequest struct {
 	// DisplayName User's public name. Unicode allowed.
@@ -507,7 +611,9 @@ type UpdateProfileRequest2 = interface{}
 
 // User defines model for User.
 type User struct {
-	CreatedAt UTCTime `json:"created_at"`
+	// BypassHostAllowlist When true the user bypasses the host allowlist and can reach every known host.
+	BypassHostAllowlist bool    `json:"bypass_host_allowlist"`
+	CreatedAt           UTCTime `json:"created_at"`
 
 	// DisplayName User's public name. Unicode allowed.
 	DisplayName DisplayName         `json:"display_name"`
@@ -522,6 +628,14 @@ type User struct {
 
 	// Username Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
 	Username Username `json:"username"`
+}
+
+// UserHostGrants defines model for UserHostGrants.
+type UserHostGrants struct {
+	// Bypass When true the user can reach every known host.
+	Bypass   bool `json:"bypass"`
+	GroupIds []ID `json:"group_ids"`
+	HostIds  []ID `json:"host_ids"`
 }
 
 // UserRole The user's role. User role cannot login. Only superadmin can manage users.
@@ -661,11 +775,32 @@ type GetDashboardTrafficParams struct {
 // GetDashboardTrafficParamsGranularity defines parameters for GetDashboardTraffic.
 type GetDashboardTrafficParamsGranularity string
 
+// CreateHostGroupJSONRequestBody defines body for CreateHostGroup for application/json ContentType.
+type CreateHostGroupJSONRequestBody = CreateHostGroupRequest
+
+// UpdateHostGroupJSONRequestBody defines body for UpdateHostGroup for application/json ContentType.
+type UpdateHostGroupJSONRequestBody = UpdateHostGroupRequest
+
+// SetHostGroupMembersJSONRequestBody defines body for SetHostGroupMembers for application/json ContentType.
+type SetHostGroupMembersJSONRequestBody = SetHostGroupMembersRequest
+
+// IgnoreSuggestionJSONRequestBody defines body for IgnoreSuggestion for application/json ContentType.
+type IgnoreSuggestionJSONRequestBody = IgnoreSuggestionRequest
+
+// CreateKnownHostsJSONRequestBody defines body for CreateKnownHosts for application/json ContentType.
+type CreateKnownHostsJSONRequestBody = BulkCreateKnownHostsRequest
+
+// UpdateKnownHostJSONRequestBody defines body for UpdateKnownHost for application/json ContentType.
+type UpdateKnownHostJSONRequestBody = UpdateKnownHostRequest
+
 // CreateRegistrationJSONRequestBody defines body for CreateRegistration for application/json ContentType.
 type CreateRegistrationJSONRequestBody = CreateRegistrationRequest
 
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = CreateUserRequest
+
+// SetUserHostGrantsJSONRequestBody defines body for SetUserHostGrants for application/json ContentType.
+type SetUserHostGrantsJSONRequestBody = SetUserHostGrantsRequest
 
 // PromoteUserJSONRequestBody defines body for PromoteUser for application/json ContentType.
 type PromoteUserJSONRequestBody = PromoteUserRequest
@@ -864,6 +999,45 @@ type ServerInterface interface {
 	// Get address activity history
 	// (GET /address-history)
 	GetAddressHistory(w http.ResponseWriter, r *http.Request, params GetAddressHistoryParams)
+	// List host groups with their member host IDs
+	// (GET /admin/host-groups)
+	ListHostGroups(w http.ResponseWriter, r *http.Request)
+	// Create a host group
+	// (POST /admin/host-groups)
+	CreateHostGroup(w http.ResponseWriter, r *http.Request)
+	// Delete a host group
+	// (DELETE /admin/host-groups/{group_id})
+	DeleteHostGroup(w http.ResponseWriter, r *http.Request, groupId ID)
+	// Update a host group's metadata
+	// (PUT /admin/host-groups/{group_id})
+	UpdateHostGroup(w http.ResponseWriter, r *http.Request, groupId ID)
+	// Atomically replace all members of a host group
+	// (PUT /admin/host-groups/{group_id}/members)
+	SetHostGroupMembers(w http.ResponseWriter, r *http.Request, groupId ID)
+	// List FQDNs seen in the access log that are not yet known hosts
+	// (GET /admin/host-suggestions)
+	ListHostSuggestions(w http.ResponseWriter, r *http.Request)
+	// List ignored host suggestions
+	// (GET /admin/host-suggestions/ignore)
+	ListIgnoredSuggestions(w http.ResponseWriter, r *http.Request)
+	// Ignore a host suggestion
+	// (POST /admin/host-suggestions/ignore)
+	IgnoreSuggestion(w http.ResponseWriter, r *http.Request)
+	// Remove a host suggestion from the ignore list
+	// (DELETE /admin/host-suggestions/ignore/{fqdn})
+	UnignoreSuggestion(w http.ResponseWriter, r *http.Request, fqdn string)
+	// List known hosts with access stats
+	// (GET /admin/hosts)
+	ListKnownHosts(w http.ResponseWriter, r *http.Request)
+	// Register one or more known hosts
+	// (POST /admin/hosts)
+	CreateKnownHosts(w http.ResponseWriter, r *http.Request)
+	// Delete a known host
+	// (DELETE /admin/hosts/{host_id})
+	DeleteKnownHost(w http.ResponseWriter, r *http.Request, hostId ID)
+	// Update a known host (icon)
+	// (PUT /admin/hosts/{host_id})
+	UpdateKnownHost(w http.ResponseWriter, r *http.Request, hostId ID)
 	// List pending registrations (Admin only)
 	// (GET /admin/registrations)
 	ListRegistrations(w http.ResponseWriter, r *http.Request, params ListRegistrationsParams)
@@ -891,6 +1065,12 @@ type ServerInterface interface {
 	// List devices owned by a user
 	// (GET /admin/users/{user_id}/devices)
 	GetDevicesByUser(w http.ResponseWriter, r *http.Request, userId ID)
+	// Get a user's current host grants and bypass flag
+	// (GET /admin/users/{user_id}/host-grants)
+	GetUserHostGrants(w http.ResponseWriter, r *http.Request, userId ID)
+	// Atomically replace a user's host grants and bypass flag
+	// (PUT /admin/users/{user_id}/host-grants)
+	SetUserHostGrants(w http.ResponseWriter, r *http.Request, userId ID)
 	// Superadmin only. Promote a user to admin
 	// (POST /admin/users/{user_id}/promote)
 	PromoteUser(w http.ResponseWriter, r *http.Request, userId ID)
@@ -1011,6 +1191,84 @@ func (_ Unimplemented) GetAddressHistory(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// List host groups with their member host IDs
+// (GET /admin/host-groups)
+func (_ Unimplemented) ListHostGroups(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a host group
+// (POST /admin/host-groups)
+func (_ Unimplemented) CreateHostGroup(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete a host group
+// (DELETE /admin/host-groups/{group_id})
+func (_ Unimplemented) DeleteHostGroup(w http.ResponseWriter, r *http.Request, groupId ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update a host group's metadata
+// (PUT /admin/host-groups/{group_id})
+func (_ Unimplemented) UpdateHostGroup(w http.ResponseWriter, r *http.Request, groupId ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Atomically replace all members of a host group
+// (PUT /admin/host-groups/{group_id}/members)
+func (_ Unimplemented) SetHostGroupMembers(w http.ResponseWriter, r *http.Request, groupId ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List FQDNs seen in the access log that are not yet known hosts
+// (GET /admin/host-suggestions)
+func (_ Unimplemented) ListHostSuggestions(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List ignored host suggestions
+// (GET /admin/host-suggestions/ignore)
+func (_ Unimplemented) ListIgnoredSuggestions(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Ignore a host suggestion
+// (POST /admin/host-suggestions/ignore)
+func (_ Unimplemented) IgnoreSuggestion(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove a host suggestion from the ignore list
+// (DELETE /admin/host-suggestions/ignore/{fqdn})
+func (_ Unimplemented) UnignoreSuggestion(w http.ResponseWriter, r *http.Request, fqdn string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List known hosts with access stats
+// (GET /admin/hosts)
+func (_ Unimplemented) ListKnownHosts(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Register one or more known hosts
+// (POST /admin/hosts)
+func (_ Unimplemented) CreateKnownHosts(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete a known host
+// (DELETE /admin/hosts/{host_id})
+func (_ Unimplemented) DeleteKnownHost(w http.ResponseWriter, r *http.Request, hostId ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update a known host (icon)
+// (PUT /admin/hosts/{host_id})
+func (_ Unimplemented) UpdateKnownHost(w http.ResponseWriter, r *http.Request, hostId ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // List pending registrations (Admin only)
 // (GET /admin/registrations)
 func (_ Unimplemented) ListRegistrations(w http.ResponseWriter, r *http.Request, params ListRegistrationsParams) {
@@ -1062,6 +1320,18 @@ func (_ Unimplemented) DemoteUser(w http.ResponseWriter, r *http.Request, userId
 // List devices owned by a user
 // (GET /admin/users/{user_id}/devices)
 func (_ Unimplemented) GetDevicesByUser(w http.ResponseWriter, r *http.Request, userId ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get a user's current host grants and bypass flag
+// (GET /admin/users/{user_id}/host-grants)
+func (_ Unimplemented) GetUserHostGrants(w http.ResponseWriter, r *http.Request, userId ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Atomically replace a user's host grants and bypass flag
+// (PUT /admin/users/{user_id}/host-grants)
+func (_ Unimplemented) SetUserHostGrants(w http.ResponseWriter, r *http.Request, userId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1533,6 +1803,332 @@ func (siw *ServerInterfaceWrapper) GetAddressHistory(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// ListHostGroups operation middleware
+func (siw *ServerInterfaceWrapper) ListHostGroups(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListHostGroups(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateHostGroup operation middleware
+func (siw *ServerInterfaceWrapper) CreateHostGroup(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateHostGroup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteHostGroup operation middleware
+func (siw *ServerInterfaceWrapper) DeleteHostGroup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "group_id" -------------
+	var groupId ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "group_id", chi.URLParam(r, "group_id"), &groupId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteHostGroup(w, r, groupId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateHostGroup operation middleware
+func (siw *ServerInterfaceWrapper) UpdateHostGroup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "group_id" -------------
+	var groupId ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "group_id", chi.URLParam(r, "group_id"), &groupId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateHostGroup(w, r, groupId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetHostGroupMembers operation middleware
+func (siw *ServerInterfaceWrapper) SetHostGroupMembers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "group_id" -------------
+	var groupId ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "group_id", chi.URLParam(r, "group_id"), &groupId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetHostGroupMembers(w, r, groupId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListHostSuggestions operation middleware
+func (siw *ServerInterfaceWrapper) ListHostSuggestions(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListHostSuggestions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListIgnoredSuggestions operation middleware
+func (siw *ServerInterfaceWrapper) ListIgnoredSuggestions(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListIgnoredSuggestions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// IgnoreSuggestion operation middleware
+func (siw *ServerInterfaceWrapper) IgnoreSuggestion(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.IgnoreSuggestion(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnignoreSuggestion operation middleware
+func (siw *ServerInterfaceWrapper) UnignoreSuggestion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "fqdn" -------------
+	var fqdn string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "fqdn", chi.URLParam(r, "fqdn"), &fqdn, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "fqdn", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnignoreSuggestion(w, r, fqdn)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListKnownHosts operation middleware
+func (siw *ServerInterfaceWrapper) ListKnownHosts(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListKnownHosts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateKnownHosts operation middleware
+func (siw *ServerInterfaceWrapper) CreateKnownHosts(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateKnownHosts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteKnownHost operation middleware
+func (siw *ServerInterfaceWrapper) DeleteKnownHost(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "host_id" -------------
+	var hostId ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "host_id", chi.URLParam(r, "host_id"), &hostId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "host_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteKnownHost(w, r, hostId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateKnownHost operation middleware
+func (siw *ServerInterfaceWrapper) UpdateKnownHost(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "host_id" -------------
+	var hostId ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "host_id", chi.URLParam(r, "host_id"), &hostId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "host_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateKnownHost(w, r, hostId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListRegistrations operation middleware
 func (siw *ServerInterfaceWrapper) ListRegistrations(w http.ResponseWriter, r *http.Request) {
 
@@ -1772,6 +2368,68 @@ func (siw *ServerInterfaceWrapper) GetDevicesByUser(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDevicesByUser(w, r, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUserHostGrants operation middleware
+func (siw *ServerInterfaceWrapper) GetUserHostGrants(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "user_id" -------------
+	var userId ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "user_id", chi.URLParam(r, "user_id"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserHostGrants(w, r, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetUserHostGrants operation middleware
+func (siw *ServerInterfaceWrapper) SetUserHostGrants(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "user_id" -------------
+	var userId ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "user_id", chi.URLParam(r, "user_id"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetUserHostGrants(w, r, userId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2780,6 +3438,45 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/address-history", wrapper.GetAddressHistory)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/host-groups", wrapper.ListHostGroups)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/admin/host-groups", wrapper.CreateHostGroup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/admin/host-groups/{group_id}", wrapper.DeleteHostGroup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/admin/host-groups/{group_id}", wrapper.UpdateHostGroup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/admin/host-groups/{group_id}/members", wrapper.SetHostGroupMembers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/host-suggestions", wrapper.ListHostSuggestions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/host-suggestions/ignore", wrapper.ListIgnoredSuggestions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/admin/host-suggestions/ignore", wrapper.IgnoreSuggestion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/admin/host-suggestions/ignore/{fqdn}", wrapper.UnignoreSuggestion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/hosts", wrapper.ListKnownHosts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/admin/hosts", wrapper.CreateKnownHosts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/admin/hosts/{host_id}", wrapper.DeleteKnownHost)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/admin/hosts/{host_id}", wrapper.UpdateKnownHost)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/admin/registrations", wrapper.ListRegistrations)
 	})
 	r.Group(func(r chi.Router) {
@@ -2805,6 +3502,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/admin/users/{user_id}/devices", wrapper.GetDevicesByUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/users/{user_id}/host-grants", wrapper.GetUserHostGrants)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/admin/users/{user_id}/host-grants", wrapper.SetUserHostGrants)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/admin/users/{user_id}/promote", wrapper.PromoteUser)
@@ -3069,6 +3772,686 @@ func (response GetAddressHistory403JSONResponse) VisitGetAddressHistoryResponse(
 type GetAddressHistory500JSONResponse ErrorResponse
 
 func (response GetAddressHistory500JSONResponse) VisitGetAddressHistoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListHostGroupsRequestObject struct {
+}
+
+type ListHostGroupsResponseObject interface {
+	VisitListHostGroupsResponse(w http.ResponseWriter) error
+}
+
+type ListHostGroups200JSONResponse []HostGroupWithMembers
+
+func (response ListHostGroups200JSONResponse) VisitListHostGroupsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListHostGroups401JSONResponse ErrorResponse
+
+func (response ListHostGroups401JSONResponse) VisitListHostGroupsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListHostGroups403Response struct {
+}
+
+func (response ListHostGroups403Response) VisitListHostGroupsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type ListHostGroups500JSONResponse ErrorResponse
+
+func (response ListHostGroups500JSONResponse) VisitListHostGroupsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateHostGroupRequestObject struct {
+	Body *CreateHostGroupJSONRequestBody
+}
+
+type CreateHostGroupResponseObject interface {
+	VisitCreateHostGroupResponse(w http.ResponseWriter) error
+}
+
+type CreateHostGroup201JSONResponse HostGroup
+
+func (response CreateHostGroup201JSONResponse) VisitCreateHostGroupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateHostGroup400JSONResponse ErrorResponse
+
+func (response CreateHostGroup400JSONResponse) VisitCreateHostGroupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateHostGroup401JSONResponse ErrorResponse
+
+func (response CreateHostGroup401JSONResponse) VisitCreateHostGroupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateHostGroup403Response struct {
+}
+
+func (response CreateHostGroup403Response) VisitCreateHostGroupResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type CreateHostGroup409JSONResponse ErrorResponse
+
+func (response CreateHostGroup409JSONResponse) VisitCreateHostGroupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateHostGroup500JSONResponse ErrorResponse
+
+func (response CreateHostGroup500JSONResponse) VisitCreateHostGroupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteHostGroupRequestObject struct {
+	GroupId ID `json:"group_id"`
+}
+
+type DeleteHostGroupResponseObject interface {
+	VisitDeleteHostGroupResponse(w http.ResponseWriter) error
+}
+
+type DeleteHostGroup204Response struct {
+}
+
+func (response DeleteHostGroup204Response) VisitDeleteHostGroupResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteHostGroup401JSONResponse ErrorResponse
+
+func (response DeleteHostGroup401JSONResponse) VisitDeleteHostGroupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteHostGroup403Response struct {
+}
+
+func (response DeleteHostGroup403Response) VisitDeleteHostGroupResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type DeleteHostGroup404JSONResponse ErrorResponse
+
+func (response DeleteHostGroup404JSONResponse) VisitDeleteHostGroupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteHostGroup500JSONResponse ErrorResponse
+
+func (response DeleteHostGroup500JSONResponse) VisitDeleteHostGroupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateHostGroupRequestObject struct {
+	GroupId ID `json:"group_id"`
+	Body    *UpdateHostGroupJSONRequestBody
+}
+
+type UpdateHostGroupResponseObject interface {
+	VisitUpdateHostGroupResponse(w http.ResponseWriter) error
+}
+
+type UpdateHostGroup200JSONResponse HostGroup
+
+func (response UpdateHostGroup200JSONResponse) VisitUpdateHostGroupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateHostGroup401JSONResponse ErrorResponse
+
+func (response UpdateHostGroup401JSONResponse) VisitUpdateHostGroupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateHostGroup403Response struct {
+}
+
+func (response UpdateHostGroup403Response) VisitUpdateHostGroupResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type UpdateHostGroup404JSONResponse ErrorResponse
+
+func (response UpdateHostGroup404JSONResponse) VisitUpdateHostGroupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateHostGroup409JSONResponse ErrorResponse
+
+func (response UpdateHostGroup409JSONResponse) VisitUpdateHostGroupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateHostGroup500JSONResponse ErrorResponse
+
+func (response UpdateHostGroup500JSONResponse) VisitUpdateHostGroupResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetHostGroupMembersRequestObject struct {
+	GroupId ID `json:"group_id"`
+	Body    *SetHostGroupMembersJSONRequestBody
+}
+
+type SetHostGroupMembersResponseObject interface {
+	VisitSetHostGroupMembersResponse(w http.ResponseWriter) error
+}
+
+type SetHostGroupMembers204Response struct {
+}
+
+func (response SetHostGroupMembers204Response) VisitSetHostGroupMembersResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type SetHostGroupMembers400JSONResponse ErrorResponse
+
+func (response SetHostGroupMembers400JSONResponse) VisitSetHostGroupMembersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetHostGroupMembers401JSONResponse ErrorResponse
+
+func (response SetHostGroupMembers401JSONResponse) VisitSetHostGroupMembersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetHostGroupMembers403Response struct {
+}
+
+func (response SetHostGroupMembers403Response) VisitSetHostGroupMembersResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type SetHostGroupMembers404JSONResponse ErrorResponse
+
+func (response SetHostGroupMembers404JSONResponse) VisitSetHostGroupMembersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetHostGroupMembers500JSONResponse ErrorResponse
+
+func (response SetHostGroupMembers500JSONResponse) VisitSetHostGroupMembersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListHostSuggestionsRequestObject struct {
+}
+
+type ListHostSuggestionsResponseObject interface {
+	VisitListHostSuggestionsResponse(w http.ResponseWriter) error
+}
+
+type ListHostSuggestions200JSONResponse []HostSuggestion
+
+func (response ListHostSuggestions200JSONResponse) VisitListHostSuggestionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListHostSuggestions401JSONResponse ErrorResponse
+
+func (response ListHostSuggestions401JSONResponse) VisitListHostSuggestionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListHostSuggestions403Response struct {
+}
+
+func (response ListHostSuggestions403Response) VisitListHostSuggestionsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type ListHostSuggestions500JSONResponse ErrorResponse
+
+func (response ListHostSuggestions500JSONResponse) VisitListHostSuggestionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListIgnoredSuggestionsRequestObject struct {
+}
+
+type ListIgnoredSuggestionsResponseObject interface {
+	VisitListIgnoredSuggestionsResponse(w http.ResponseWriter) error
+}
+
+type ListIgnoredSuggestions200JSONResponse []IgnoredHostSuggestion
+
+func (response ListIgnoredSuggestions200JSONResponse) VisitListIgnoredSuggestionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListIgnoredSuggestions401JSONResponse ErrorResponse
+
+func (response ListIgnoredSuggestions401JSONResponse) VisitListIgnoredSuggestionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListIgnoredSuggestions403Response struct {
+}
+
+func (response ListIgnoredSuggestions403Response) VisitListIgnoredSuggestionsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type ListIgnoredSuggestions500JSONResponse ErrorResponse
+
+func (response ListIgnoredSuggestions500JSONResponse) VisitListIgnoredSuggestionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type IgnoreSuggestionRequestObject struct {
+	Body *IgnoreSuggestionJSONRequestBody
+}
+
+type IgnoreSuggestionResponseObject interface {
+	VisitIgnoreSuggestionResponse(w http.ResponseWriter) error
+}
+
+type IgnoreSuggestion201JSONResponse IgnoredHostSuggestion
+
+func (response IgnoreSuggestion201JSONResponse) VisitIgnoreSuggestionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type IgnoreSuggestion400JSONResponse ErrorResponse
+
+func (response IgnoreSuggestion400JSONResponse) VisitIgnoreSuggestionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type IgnoreSuggestion401JSONResponse ErrorResponse
+
+func (response IgnoreSuggestion401JSONResponse) VisitIgnoreSuggestionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type IgnoreSuggestion403Response struct {
+}
+
+func (response IgnoreSuggestion403Response) VisitIgnoreSuggestionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type IgnoreSuggestion409JSONResponse ErrorResponse
+
+func (response IgnoreSuggestion409JSONResponse) VisitIgnoreSuggestionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type IgnoreSuggestion500JSONResponse ErrorResponse
+
+func (response IgnoreSuggestion500JSONResponse) VisitIgnoreSuggestionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UnignoreSuggestionRequestObject struct {
+	Fqdn string `json:"fqdn"`
+}
+
+type UnignoreSuggestionResponseObject interface {
+	VisitUnignoreSuggestionResponse(w http.ResponseWriter) error
+}
+
+type UnignoreSuggestion204Response struct {
+}
+
+func (response UnignoreSuggestion204Response) VisitUnignoreSuggestionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type UnignoreSuggestion401JSONResponse ErrorResponse
+
+func (response UnignoreSuggestion401JSONResponse) VisitUnignoreSuggestionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UnignoreSuggestion403Response struct {
+}
+
+func (response UnignoreSuggestion403Response) VisitUnignoreSuggestionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type UnignoreSuggestion404JSONResponse ErrorResponse
+
+func (response UnignoreSuggestion404JSONResponse) VisitUnignoreSuggestionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UnignoreSuggestion500JSONResponse ErrorResponse
+
+func (response UnignoreSuggestion500JSONResponse) VisitUnignoreSuggestionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListKnownHostsRequestObject struct {
+}
+
+type ListKnownHostsResponseObject interface {
+	VisitListKnownHostsResponse(w http.ResponseWriter) error
+}
+
+type ListKnownHosts200JSONResponse []KnownHostWithStats
+
+func (response ListKnownHosts200JSONResponse) VisitListKnownHostsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListKnownHosts401JSONResponse ErrorResponse
+
+func (response ListKnownHosts401JSONResponse) VisitListKnownHostsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListKnownHosts403Response struct {
+}
+
+func (response ListKnownHosts403Response) VisitListKnownHostsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type ListKnownHosts500JSONResponse ErrorResponse
+
+func (response ListKnownHosts500JSONResponse) VisitListKnownHostsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateKnownHostsRequestObject struct {
+	Body *CreateKnownHostsJSONRequestBody
+}
+
+type CreateKnownHostsResponseObject interface {
+	VisitCreateKnownHostsResponse(w http.ResponseWriter) error
+}
+
+type CreateKnownHosts201JSONResponse []KnownHost
+
+func (response CreateKnownHosts201JSONResponse) VisitCreateKnownHostsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateKnownHosts400JSONResponse ErrorResponse
+
+func (response CreateKnownHosts400JSONResponse) VisitCreateKnownHostsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateKnownHosts401JSONResponse ErrorResponse
+
+func (response CreateKnownHosts401JSONResponse) VisitCreateKnownHostsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateKnownHosts403Response struct {
+}
+
+func (response CreateKnownHosts403Response) VisitCreateKnownHostsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type CreateKnownHosts409JSONResponse ErrorResponse
+
+func (response CreateKnownHosts409JSONResponse) VisitCreateKnownHostsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateKnownHosts500JSONResponse ErrorResponse
+
+func (response CreateKnownHosts500JSONResponse) VisitCreateKnownHostsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteKnownHostRequestObject struct {
+	HostId ID `json:"host_id"`
+}
+
+type DeleteKnownHostResponseObject interface {
+	VisitDeleteKnownHostResponse(w http.ResponseWriter) error
+}
+
+type DeleteKnownHost204Response struct {
+}
+
+func (response DeleteKnownHost204Response) VisitDeleteKnownHostResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteKnownHost401JSONResponse ErrorResponse
+
+func (response DeleteKnownHost401JSONResponse) VisitDeleteKnownHostResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteKnownHost403Response struct {
+}
+
+func (response DeleteKnownHost403Response) VisitDeleteKnownHostResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type DeleteKnownHost404JSONResponse ErrorResponse
+
+func (response DeleteKnownHost404JSONResponse) VisitDeleteKnownHostResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteKnownHost500JSONResponse ErrorResponse
+
+func (response DeleteKnownHost500JSONResponse) VisitDeleteKnownHostResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateKnownHostRequestObject struct {
+	HostId ID `json:"host_id"`
+	Body   *UpdateKnownHostJSONRequestBody
+}
+
+type UpdateKnownHostResponseObject interface {
+	VisitUpdateKnownHostResponse(w http.ResponseWriter) error
+}
+
+type UpdateKnownHost200JSONResponse KnownHost
+
+func (response UpdateKnownHost200JSONResponse) VisitUpdateKnownHostResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateKnownHost401JSONResponse ErrorResponse
+
+func (response UpdateKnownHost401JSONResponse) VisitUpdateKnownHostResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateKnownHost403Response struct {
+}
+
+func (response UpdateKnownHost403Response) VisitUpdateKnownHostResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type UpdateKnownHost404JSONResponse ErrorResponse
+
+func (response UpdateKnownHost404JSONResponse) VisitUpdateKnownHostResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateKnownHost500JSONResponse ErrorResponse
+
+func (response UpdateKnownHost500JSONResponse) VisitUpdateKnownHostResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -3515,6 +4898,119 @@ func (response GetDevicesByUser404JSONResponse) VisitGetDevicesByUserResponse(w 
 type GetDevicesByUser500JSONResponse ErrorResponse
 
 func (response GetDevicesByUser500JSONResponse) VisitGetDevicesByUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUserHostGrantsRequestObject struct {
+	UserId ID `json:"user_id"`
+}
+
+type GetUserHostGrantsResponseObject interface {
+	VisitGetUserHostGrantsResponse(w http.ResponseWriter) error
+}
+
+type GetUserHostGrants200JSONResponse UserHostGrants
+
+func (response GetUserHostGrants200JSONResponse) VisitGetUserHostGrantsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUserHostGrants401JSONResponse ErrorResponse
+
+func (response GetUserHostGrants401JSONResponse) VisitGetUserHostGrantsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUserHostGrants403Response struct {
+}
+
+func (response GetUserHostGrants403Response) VisitGetUserHostGrantsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type GetUserHostGrants404JSONResponse ErrorResponse
+
+func (response GetUserHostGrants404JSONResponse) VisitGetUserHostGrantsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUserHostGrants500JSONResponse ErrorResponse
+
+func (response GetUserHostGrants500JSONResponse) VisitGetUserHostGrantsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetUserHostGrantsRequestObject struct {
+	UserId ID `json:"user_id"`
+	Body   *SetUserHostGrantsJSONRequestBody
+}
+
+type SetUserHostGrantsResponseObject interface {
+	VisitSetUserHostGrantsResponse(w http.ResponseWriter) error
+}
+
+type SetUserHostGrants204Response struct {
+}
+
+func (response SetUserHostGrants204Response) VisitSetUserHostGrantsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type SetUserHostGrants400JSONResponse ErrorResponse
+
+func (response SetUserHostGrants400JSONResponse) VisitSetUserHostGrantsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetUserHostGrants401JSONResponse ErrorResponse
+
+func (response SetUserHostGrants401JSONResponse) VisitSetUserHostGrantsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetUserHostGrants403Response struct {
+}
+
+func (response SetUserHostGrants403Response) VisitSetUserHostGrantsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type SetUserHostGrants404JSONResponse ErrorResponse
+
+func (response SetUserHostGrants404JSONResponse) VisitSetUserHostGrantsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetUserHostGrants500JSONResponse ErrorResponse
+
+func (response SetUserHostGrants500JSONResponse) VisitSetUserHostGrantsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -4766,6 +6262,45 @@ type StrictServerInterface interface {
 	// Get address activity history
 	// (GET /address-history)
 	GetAddressHistory(ctx context.Context, request GetAddressHistoryRequestObject) (GetAddressHistoryResponseObject, error)
+	// List host groups with their member host IDs
+	// (GET /admin/host-groups)
+	ListHostGroups(ctx context.Context, request ListHostGroupsRequestObject) (ListHostGroupsResponseObject, error)
+	// Create a host group
+	// (POST /admin/host-groups)
+	CreateHostGroup(ctx context.Context, request CreateHostGroupRequestObject) (CreateHostGroupResponseObject, error)
+	// Delete a host group
+	// (DELETE /admin/host-groups/{group_id})
+	DeleteHostGroup(ctx context.Context, request DeleteHostGroupRequestObject) (DeleteHostGroupResponseObject, error)
+	// Update a host group's metadata
+	// (PUT /admin/host-groups/{group_id})
+	UpdateHostGroup(ctx context.Context, request UpdateHostGroupRequestObject) (UpdateHostGroupResponseObject, error)
+	// Atomically replace all members of a host group
+	// (PUT /admin/host-groups/{group_id}/members)
+	SetHostGroupMembers(ctx context.Context, request SetHostGroupMembersRequestObject) (SetHostGroupMembersResponseObject, error)
+	// List FQDNs seen in the access log that are not yet known hosts
+	// (GET /admin/host-suggestions)
+	ListHostSuggestions(ctx context.Context, request ListHostSuggestionsRequestObject) (ListHostSuggestionsResponseObject, error)
+	// List ignored host suggestions
+	// (GET /admin/host-suggestions/ignore)
+	ListIgnoredSuggestions(ctx context.Context, request ListIgnoredSuggestionsRequestObject) (ListIgnoredSuggestionsResponseObject, error)
+	// Ignore a host suggestion
+	// (POST /admin/host-suggestions/ignore)
+	IgnoreSuggestion(ctx context.Context, request IgnoreSuggestionRequestObject) (IgnoreSuggestionResponseObject, error)
+	// Remove a host suggestion from the ignore list
+	// (DELETE /admin/host-suggestions/ignore/{fqdn})
+	UnignoreSuggestion(ctx context.Context, request UnignoreSuggestionRequestObject) (UnignoreSuggestionResponseObject, error)
+	// List known hosts with access stats
+	// (GET /admin/hosts)
+	ListKnownHosts(ctx context.Context, request ListKnownHostsRequestObject) (ListKnownHostsResponseObject, error)
+	// Register one or more known hosts
+	// (POST /admin/hosts)
+	CreateKnownHosts(ctx context.Context, request CreateKnownHostsRequestObject) (CreateKnownHostsResponseObject, error)
+	// Delete a known host
+	// (DELETE /admin/hosts/{host_id})
+	DeleteKnownHost(ctx context.Context, request DeleteKnownHostRequestObject) (DeleteKnownHostResponseObject, error)
+	// Update a known host (icon)
+	// (PUT /admin/hosts/{host_id})
+	UpdateKnownHost(ctx context.Context, request UpdateKnownHostRequestObject) (UpdateKnownHostResponseObject, error)
 	// List pending registrations (Admin only)
 	// (GET /admin/registrations)
 	ListRegistrations(ctx context.Context, request ListRegistrationsRequestObject) (ListRegistrationsResponseObject, error)
@@ -4793,6 +6328,12 @@ type StrictServerInterface interface {
 	// List devices owned by a user
 	// (GET /admin/users/{user_id}/devices)
 	GetDevicesByUser(ctx context.Context, request GetDevicesByUserRequestObject) (GetDevicesByUserResponseObject, error)
+	// Get a user's current host grants and bypass flag
+	// (GET /admin/users/{user_id}/host-grants)
+	GetUserHostGrants(ctx context.Context, request GetUserHostGrantsRequestObject) (GetUserHostGrantsResponseObject, error)
+	// Atomically replace a user's host grants and bypass flag
+	// (PUT /admin/users/{user_id}/host-grants)
+	SetUserHostGrants(ctx context.Context, request SetUserHostGrantsRequestObject) (SetUserHostGrantsResponseObject, error)
 	// Superadmin only. Promote a user to admin
 	// (POST /admin/users/{user_id}/promote)
 	PromoteUser(ctx context.Context, request PromoteUserRequestObject) (PromoteUserResponseObject, error)
@@ -5009,6 +6550,372 @@ func (sh *strictHandler) GetAddressHistory(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAddressHistoryResponseObject); ok {
 		if err := validResponse.VisitGetAddressHistoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListHostGroups operation middleware
+func (sh *strictHandler) ListHostGroups(w http.ResponseWriter, r *http.Request) {
+	var request ListHostGroupsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListHostGroups(ctx, request.(ListHostGroupsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListHostGroups")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListHostGroupsResponseObject); ok {
+		if err := validResponse.VisitListHostGroupsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateHostGroup operation middleware
+func (sh *strictHandler) CreateHostGroup(w http.ResponseWriter, r *http.Request) {
+	var request CreateHostGroupRequestObject
+
+	var body CreateHostGroupJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateHostGroup(ctx, request.(CreateHostGroupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateHostGroup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateHostGroupResponseObject); ok {
+		if err := validResponse.VisitCreateHostGroupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteHostGroup operation middleware
+func (sh *strictHandler) DeleteHostGroup(w http.ResponseWriter, r *http.Request, groupId ID) {
+	var request DeleteHostGroupRequestObject
+
+	request.GroupId = groupId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteHostGroup(ctx, request.(DeleteHostGroupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteHostGroup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteHostGroupResponseObject); ok {
+		if err := validResponse.VisitDeleteHostGroupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateHostGroup operation middleware
+func (sh *strictHandler) UpdateHostGroup(w http.ResponseWriter, r *http.Request, groupId ID) {
+	var request UpdateHostGroupRequestObject
+
+	request.GroupId = groupId
+
+	var body UpdateHostGroupJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateHostGroup(ctx, request.(UpdateHostGroupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateHostGroup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateHostGroupResponseObject); ok {
+		if err := validResponse.VisitUpdateHostGroupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetHostGroupMembers operation middleware
+func (sh *strictHandler) SetHostGroupMembers(w http.ResponseWriter, r *http.Request, groupId ID) {
+	var request SetHostGroupMembersRequestObject
+
+	request.GroupId = groupId
+
+	var body SetHostGroupMembersJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetHostGroupMembers(ctx, request.(SetHostGroupMembersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetHostGroupMembers")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetHostGroupMembersResponseObject); ok {
+		if err := validResponse.VisitSetHostGroupMembersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListHostSuggestions operation middleware
+func (sh *strictHandler) ListHostSuggestions(w http.ResponseWriter, r *http.Request) {
+	var request ListHostSuggestionsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListHostSuggestions(ctx, request.(ListHostSuggestionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListHostSuggestions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListHostSuggestionsResponseObject); ok {
+		if err := validResponse.VisitListHostSuggestionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListIgnoredSuggestions operation middleware
+func (sh *strictHandler) ListIgnoredSuggestions(w http.ResponseWriter, r *http.Request) {
+	var request ListIgnoredSuggestionsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListIgnoredSuggestions(ctx, request.(ListIgnoredSuggestionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListIgnoredSuggestions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListIgnoredSuggestionsResponseObject); ok {
+		if err := validResponse.VisitListIgnoredSuggestionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// IgnoreSuggestion operation middleware
+func (sh *strictHandler) IgnoreSuggestion(w http.ResponseWriter, r *http.Request) {
+	var request IgnoreSuggestionRequestObject
+
+	var body IgnoreSuggestionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.IgnoreSuggestion(ctx, request.(IgnoreSuggestionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "IgnoreSuggestion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(IgnoreSuggestionResponseObject); ok {
+		if err := validResponse.VisitIgnoreSuggestionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UnignoreSuggestion operation middleware
+func (sh *strictHandler) UnignoreSuggestion(w http.ResponseWriter, r *http.Request, fqdn string) {
+	var request UnignoreSuggestionRequestObject
+
+	request.Fqdn = fqdn
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UnignoreSuggestion(ctx, request.(UnignoreSuggestionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnignoreSuggestion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnignoreSuggestionResponseObject); ok {
+		if err := validResponse.VisitUnignoreSuggestionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListKnownHosts operation middleware
+func (sh *strictHandler) ListKnownHosts(w http.ResponseWriter, r *http.Request) {
+	var request ListKnownHostsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListKnownHosts(ctx, request.(ListKnownHostsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListKnownHosts")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListKnownHostsResponseObject); ok {
+		if err := validResponse.VisitListKnownHostsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateKnownHosts operation middleware
+func (sh *strictHandler) CreateKnownHosts(w http.ResponseWriter, r *http.Request) {
+	var request CreateKnownHostsRequestObject
+
+	var body CreateKnownHostsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateKnownHosts(ctx, request.(CreateKnownHostsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateKnownHosts")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateKnownHostsResponseObject); ok {
+		if err := validResponse.VisitCreateKnownHostsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteKnownHost operation middleware
+func (sh *strictHandler) DeleteKnownHost(w http.ResponseWriter, r *http.Request, hostId ID) {
+	var request DeleteKnownHostRequestObject
+
+	request.HostId = hostId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteKnownHost(ctx, request.(DeleteKnownHostRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteKnownHost")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteKnownHostResponseObject); ok {
+		if err := validResponse.VisitDeleteKnownHostResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateKnownHost operation middleware
+func (sh *strictHandler) UpdateKnownHost(w http.ResponseWriter, r *http.Request, hostId ID) {
+	var request UpdateKnownHostRequestObject
+
+	request.HostId = hostId
+
+	var body UpdateKnownHostJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateKnownHost(ctx, request.(UpdateKnownHostRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateKnownHost")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateKnownHostResponseObject); ok {
+		if err := validResponse.VisitUpdateKnownHostResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -5251,6 +7158,65 @@ func (sh *strictHandler) GetDevicesByUser(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetDevicesByUserResponseObject); ok {
 		if err := validResponse.VisitGetDevicesByUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetUserHostGrants operation middleware
+func (sh *strictHandler) GetUserHostGrants(w http.ResponseWriter, r *http.Request, userId ID) {
+	var request GetUserHostGrantsRequestObject
+
+	request.UserId = userId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetUserHostGrants(ctx, request.(GetUserHostGrantsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetUserHostGrants")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetUserHostGrantsResponseObject); ok {
+		if err := validResponse.VisitGetUserHostGrantsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetUserHostGrants operation middleware
+func (sh *strictHandler) SetUserHostGrants(w http.ResponseWriter, r *http.Request, userId ID) {
+	var request SetUserHostGrantsRequestObject
+
+	request.UserId = userId
+
+	var body SetUserHostGrantsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetUserHostGrants(ctx, request.(SetUserHostGrantsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetUserHostGrants")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetUserHostGrantsResponseObject); ok {
+		if err := validResponse.VisitSetUserHostGrantsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -6099,136 +8065,159 @@ func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"I+kGbSUgAQA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

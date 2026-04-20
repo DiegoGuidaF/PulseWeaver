@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddAddressData, AddAddressErrors, AddAddressResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, ClaimRegistrationData, ClaimRegistrationErrors, ClaimRegistrationResponses, CreateDeviceData, CreateDeviceErrors, CreateDeviceResponses, CreateRegistrationData, CreateRegistrationErrors, CreateRegistrationResponses, CreateUserData, CreateUserErrors, CreateUserResponses, DeleteDeviceApiKeyData, DeleteDeviceApiKeyErrors, DeleteDeviceApiKeyResponses, DeleteDeviceData, DeleteDeviceErrors, DeleteDeviceResponses, DeleteRegistrationData, DeleteRegistrationErrors, DeleteRegistrationResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DemoteUserData, DemoteUserErrors, DemoteUserResponses, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyErrors, DeviceHeartbeatByApiKeyResponses, DeviceHeartbeatData, DeviceHeartbeatErrors, DeviceHeartbeatResponses, DisableAddressData, DisableAddressErrors, DisableAddressResponses, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleErrors, DisableDeviceAddressLeaseRuleResponses, DisableMaxActiveAddressesRuleData, DisableMaxActiveAddressesRuleErrors, DisableMaxActiveAddressesRuleResponses, GetAccessLogByCountryData, GetAccessLogByCountryErrors, GetAccessLogByCountryResponses, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsErrors, GetAccessLogDenyReasonsResponses, GetAccessLogErrors, GetAccessLogResponses, GetAddressHistoryData, GetAddressHistoryErrors, GetAddressHistoryResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetDashboardServicesData, GetDashboardServicesErrors, GetDashboardServicesResponses, GetDashboardStatsData, GetDashboardStatsErrors, GetDashboardStatsResponses, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsErrors, GetDashboardTopDeniedIpsResponses, GetDashboardTrafficData, GetDashboardTrafficErrors, GetDashboardTrafficResponses, GetDeviceAddressesData, GetDeviceAddressesErrors, GetDeviceAddressesResponses, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleErrors, GetDeviceAddressLeaseRuleResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetDevicesByUserData, GetDevicesByUserErrors, GetDevicesByUserResponses, GetDevicesData, GetDevicesErrors, GetDevicesResponses, GetMaxActiveAddressesRuleData, GetMaxActiveAddressesRuleErrors, GetMaxActiveAddressesRuleResponses, GetRegistrationData, GetRegistrationErrors, GetRegistrationResponses, ListDeviceTypesData, ListDeviceTypesResponses, ListRegistrationsData, ListRegistrationsErrors, ListRegistrationsResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, PromoteUserData, PromoteUserErrors, PromoteUserResponses, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleErrors, PutDeviceAddressLeaseRuleResponses, PutMaxActiveAddressesRuleData, PutMaxActiveAddressesRuleErrors, PutMaxActiveAddressesRuleResponses, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyErrors, RegenerateDeviceApiKeyResponses, UpdateDeviceData, UpdateDeviceErrors, UpdateDeviceResponses, UpdateMeData, UpdateMeErrors, UpdateMeResponses } from './types.gen';
-import { zAddAddressBody, zAddAddressPath, zAddAddressResponse, zChangePasswordBody, zChangePasswordResponse, zClaimRegistrationBody, zClaimRegistrationResponse2, zCreateDeviceBody, zCreateDeviceResponse2, zCreateRegistrationBody, zCreateRegistrationResponse, zCreateUserBody, zCreateUserResponse, zDeleteDeviceApiKeyPath, zDeleteDeviceApiKeyResponse, zDeleteDevicePath, zDeleteDeviceResponse, zDeleteRegistrationPath, zDeleteRegistrationResponse, zDeleteUserPath, zDeleteUserResponse, zDemoteUserPath, zDemoteUserResponse, zDeviceHeartbeatByApiKeyBody, zDeviceHeartbeatByApiKeyResponse, zDeviceHeartbeatPath, zDeviceHeartbeatResponse, zDisableAddressPath, zDisableAddressResponse, zDisableDeviceAddressLeaseRulePath, zDisableDeviceAddressLeaseRuleResponse, zDisableMaxActiveAddressesRulePath, zDisableMaxActiveAddressesRuleResponse, zGetAccessLogByCountryQuery, zGetAccessLogByCountryResponse, zGetAccessLogDenyReasonsResponse, zGetAccessLogQuery, zGetAccessLogResponse, zGetAddressHistoryQuery, zGetAddressHistoryResponse, zGetCurrentUserResponse, zGetDashboardServicesQuery, zGetDashboardServicesResponse, zGetDashboardStatsQuery, zGetDashboardStatsResponse, zGetDashboardTopDeniedIpsQuery, zGetDashboardTopDeniedIpsResponse, zGetDashboardTrafficQuery, zGetDashboardTrafficResponse, zGetDeviceAddressesPath, zGetDeviceAddressesResponse, zGetDeviceAddressLeaseRulePath, zGetDeviceAddressLeaseRuleResponse, zGetDevicePath, zGetDeviceResponse, zGetDevicesByUserPath, zGetDevicesByUserResponse, zGetDevicesResponse, zGetMaxActiveAddressesRulePath, zGetMaxActiveAddressesRuleResponse, zGetRegistrationPath, zGetRegistrationResponse, zListDeviceTypesResponse, zListRegistrationsQuery, zListRegistrationsResponse, zListUsersResponse, zLoginBody, zLoginResponse, zLogoutResponse, zPromoteUserBody, zPromoteUserPath, zPromoteUserResponse, zPutDeviceAddressLeaseRuleBody, zPutDeviceAddressLeaseRulePath, zPutDeviceAddressLeaseRuleResponse, zPutMaxActiveAddressesRuleBody, zPutMaxActiveAddressesRulePath, zPutMaxActiveAddressesRuleResponse, zRegenerateDeviceApiKeyPath, zRegenerateDeviceApiKeyResponse, zUpdateDeviceBody, zUpdateDevicePath, zUpdateDeviceResponse, zUpdateMeBody, zUpdateMeResponse } from './zod.gen';
+import type { AddAddressData, AddAddressErrors, AddAddressResponses, ChangePasswordData, ChangePasswordErrors, ChangePasswordResponses, ClaimRegistrationData, ClaimRegistrationErrors, ClaimRegistrationResponses, CreateDeviceData, CreateDeviceErrors, CreateDeviceResponses, CreateHostGroupData, CreateHostGroupErrors, CreateHostGroupResponses, CreateKnownHostsData, CreateKnownHostsErrors, CreateKnownHostsResponses, CreateRegistrationData, CreateRegistrationErrors, CreateRegistrationResponses, CreateUserData, CreateUserErrors, CreateUserResponses, DeleteDeviceApiKeyData, DeleteDeviceApiKeyErrors, DeleteDeviceApiKeyResponses, DeleteDeviceData, DeleteDeviceErrors, DeleteDeviceResponses, DeleteHostGroupData, DeleteHostGroupErrors, DeleteHostGroupResponses, DeleteKnownHostData, DeleteKnownHostErrors, DeleteKnownHostResponses, DeleteRegistrationData, DeleteRegistrationErrors, DeleteRegistrationResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DemoteUserData, DemoteUserErrors, DemoteUserResponses, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyErrors, DeviceHeartbeatByApiKeyResponses, DeviceHeartbeatData, DeviceHeartbeatErrors, DeviceHeartbeatResponses, DisableAddressData, DisableAddressErrors, DisableAddressResponses, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleErrors, DisableDeviceAddressLeaseRuleResponses, DisableMaxActiveAddressesRuleData, DisableMaxActiveAddressesRuleErrors, DisableMaxActiveAddressesRuleResponses, GetAccessLogByCountryData, GetAccessLogByCountryErrors, GetAccessLogByCountryResponses, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsErrors, GetAccessLogDenyReasonsResponses, GetAccessLogErrors, GetAccessLogResponses, GetAddressHistoryData, GetAddressHistoryErrors, GetAddressHistoryResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetDashboardServicesData, GetDashboardServicesErrors, GetDashboardServicesResponses, GetDashboardStatsData, GetDashboardStatsErrors, GetDashboardStatsResponses, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsErrors, GetDashboardTopDeniedIpsResponses, GetDashboardTrafficData, GetDashboardTrafficErrors, GetDashboardTrafficResponses, GetDeviceAddressesData, GetDeviceAddressesErrors, GetDeviceAddressesResponses, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleErrors, GetDeviceAddressLeaseRuleResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetDevicesByUserData, GetDevicesByUserErrors, GetDevicesByUserResponses, GetDevicesData, GetDevicesErrors, GetDevicesResponses, GetMaxActiveAddressesRuleData, GetMaxActiveAddressesRuleErrors, GetMaxActiveAddressesRuleResponses, GetRegistrationData, GetRegistrationErrors, GetRegistrationResponses, GetUserHostGrantsData, GetUserHostGrantsErrors, GetUserHostGrantsResponses, IgnoreSuggestionData, IgnoreSuggestionErrors, IgnoreSuggestionResponses, ListDeviceTypesData, ListDeviceTypesResponses, ListHostGroupsData, ListHostGroupsErrors, ListHostGroupsResponses, ListHostSuggestionsData, ListHostSuggestionsErrors, ListHostSuggestionsResponses, ListIgnoredSuggestionsData, ListIgnoredSuggestionsErrors, ListIgnoredSuggestionsResponses, ListKnownHostsData, ListKnownHostsErrors, ListKnownHostsResponses, ListRegistrationsData, ListRegistrationsErrors, ListRegistrationsResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, PromoteUserData, PromoteUserErrors, PromoteUserResponses, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleErrors, PutDeviceAddressLeaseRuleResponses, PutMaxActiveAddressesRuleData, PutMaxActiveAddressesRuleErrors, PutMaxActiveAddressesRuleResponses, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyErrors, RegenerateDeviceApiKeyResponses, SetHostGroupMembersData, SetHostGroupMembersErrors, SetHostGroupMembersResponses, SetUserHostGrantsData, SetUserHostGrantsErrors, SetUserHostGrantsResponses, UnignoreSuggestionData, UnignoreSuggestionErrors, UnignoreSuggestionResponses, UpdateDeviceData, UpdateDeviceErrors, UpdateDeviceResponses, UpdateHostGroupData, UpdateHostGroupErrors, UpdateHostGroupResponses, UpdateKnownHostData, UpdateKnownHostErrors, UpdateKnownHostResponses, UpdateMeData, UpdateMeErrors, UpdateMeResponses } from './types.gen';
+import { zAddAddressBody, zAddAddressPath, zAddAddressResponse, zChangePasswordBody, zChangePasswordResponse, zClaimRegistrationBody, zClaimRegistrationResponse2, zCreateDeviceBody, zCreateDeviceResponse2, zCreateHostGroupBody, zCreateHostGroupResponse, zCreateKnownHostsBody, zCreateKnownHostsResponse, zCreateRegistrationBody, zCreateRegistrationResponse, zCreateUserBody, zCreateUserResponse, zDeleteDeviceApiKeyPath, zDeleteDeviceApiKeyResponse, zDeleteDevicePath, zDeleteDeviceResponse, zDeleteHostGroupPath, zDeleteHostGroupResponse, zDeleteKnownHostPath, zDeleteKnownHostResponse, zDeleteRegistrationPath, zDeleteRegistrationResponse, zDeleteUserPath, zDeleteUserResponse, zDemoteUserPath, zDemoteUserResponse, zDeviceHeartbeatByApiKeyBody, zDeviceHeartbeatByApiKeyResponse, zDeviceHeartbeatPath, zDeviceHeartbeatResponse, zDisableAddressPath, zDisableAddressResponse, zDisableDeviceAddressLeaseRulePath, zDisableDeviceAddressLeaseRuleResponse, zDisableMaxActiveAddressesRulePath, zDisableMaxActiveAddressesRuleResponse, zGetAccessLogByCountryQuery, zGetAccessLogByCountryResponse, zGetAccessLogDenyReasonsResponse, zGetAccessLogQuery, zGetAccessLogResponse, zGetAddressHistoryQuery, zGetAddressHistoryResponse, zGetCurrentUserResponse, zGetDashboardServicesQuery, zGetDashboardServicesResponse, zGetDashboardStatsQuery, zGetDashboardStatsResponse, zGetDashboardTopDeniedIpsQuery, zGetDashboardTopDeniedIpsResponse, zGetDashboardTrafficQuery, zGetDashboardTrafficResponse, zGetDeviceAddressesPath, zGetDeviceAddressesResponse, zGetDeviceAddressLeaseRulePath, zGetDeviceAddressLeaseRuleResponse, zGetDevicePath, zGetDeviceResponse, zGetDevicesByUserPath, zGetDevicesByUserResponse, zGetDevicesResponse, zGetMaxActiveAddressesRulePath, zGetMaxActiveAddressesRuleResponse, zGetRegistrationPath, zGetRegistrationResponse, zGetUserHostGrantsPath, zGetUserHostGrantsResponse, zIgnoreSuggestionBody, zIgnoreSuggestionResponse, zListDeviceTypesResponse, zListHostGroupsResponse, zListHostSuggestionsResponse, zListIgnoredSuggestionsResponse, zListKnownHostsResponse, zListRegistrationsQuery, zListRegistrationsResponse, zListUsersResponse, zLoginBody, zLoginResponse, zLogoutResponse, zPromoteUserBody, zPromoteUserPath, zPromoteUserResponse, zPutDeviceAddressLeaseRuleBody, zPutDeviceAddressLeaseRulePath, zPutDeviceAddressLeaseRuleResponse, zPutMaxActiveAddressesRuleBody, zPutMaxActiveAddressesRulePath, zPutMaxActiveAddressesRuleResponse, zRegenerateDeviceApiKeyPath, zRegenerateDeviceApiKeyResponse, zSetHostGroupMembersBody, zSetHostGroupMembersPath, zSetHostGroupMembersResponse, zSetUserHostGrantsBody, zSetUserHostGrantsPath, zSetUserHostGrantsResponse, zUnignoreSuggestionPath, zUnignoreSuggestionResponse, zUpdateDeviceBody, zUpdateDevicePath, zUpdateDeviceResponse, zUpdateHostGroupBody, zUpdateHostGroupPath, zUpdateHostGroupResponse, zUpdateKnownHostBody, zUpdateKnownHostPath, zUpdateKnownHostResponse, zUpdateMeBody, zUpdateMeResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -970,5 +970,318 @@ export const getRegistration = <ThrowOnError extends boolean = false>(options: O
             type: 'apiKey'
         }],
     url: '/admin/registrations/{registration_id}',
+    ...options
+});
+
+/**
+ * List known hosts with access stats
+ */
+export const listKnownHosts = <ThrowOnError extends boolean = false>(options?: Options<ListKnownHostsData, ThrowOnError>) => (options?.client ?? client).get<ListKnownHostsResponses, ListKnownHostsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListKnownHostsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/hosts',
+    ...options
+});
+
+/**
+ * Register one or more known hosts
+ */
+export const createKnownHosts = <ThrowOnError extends boolean = false>(options: Options<CreateKnownHostsData, ThrowOnError>) => (options.client ?? client).post<CreateKnownHostsResponses, CreateKnownHostsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zCreateKnownHostsBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zCreateKnownHostsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/hosts',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a known host
+ */
+export const deleteKnownHost = <ThrowOnError extends boolean = false>(options: Options<DeleteKnownHostData, ThrowOnError>) => (options.client ?? client).delete<DeleteKnownHostResponses, DeleteKnownHostErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zDeleteKnownHostPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zDeleteKnownHostResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/hosts/{host_id}',
+    ...options
+});
+
+/**
+ * Update a known host (icon)
+ */
+export const updateKnownHost = <ThrowOnError extends boolean = false>(options: Options<UpdateKnownHostData, ThrowOnError>) => (options.client ?? client).put<UpdateKnownHostResponses, UpdateKnownHostErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zUpdateKnownHostBody,
+        path: zUpdateKnownHostPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zUpdateKnownHostResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/hosts/{host_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List host groups with their member host IDs
+ */
+export const listHostGroups = <ThrowOnError extends boolean = false>(options?: Options<ListHostGroupsData, ThrowOnError>) => (options?.client ?? client).get<ListHostGroupsResponses, ListHostGroupsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListHostGroupsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/host-groups',
+    ...options
+});
+
+/**
+ * Create a host group
+ */
+export const createHostGroup = <ThrowOnError extends boolean = false>(options: Options<CreateHostGroupData, ThrowOnError>) => (options.client ?? client).post<CreateHostGroupResponses, CreateHostGroupErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zCreateHostGroupBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zCreateHostGroupResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/host-groups',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a host group
+ */
+export const deleteHostGroup = <ThrowOnError extends boolean = false>(options: Options<DeleteHostGroupData, ThrowOnError>) => (options.client ?? client).delete<DeleteHostGroupResponses, DeleteHostGroupErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zDeleteHostGroupPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zDeleteHostGroupResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/host-groups/{group_id}',
+    ...options
+});
+
+/**
+ * Update a host group's metadata
+ */
+export const updateHostGroup = <ThrowOnError extends boolean = false>(options: Options<UpdateHostGroupData, ThrowOnError>) => (options.client ?? client).put<UpdateHostGroupResponses, UpdateHostGroupErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zUpdateHostGroupBody,
+        path: zUpdateHostGroupPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zUpdateHostGroupResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/host-groups/{group_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Atomically replace all members of a host group
+ */
+export const setHostGroupMembers = <ThrowOnError extends boolean = false>(options: Options<SetHostGroupMembersData, ThrowOnError>) => (options.client ?? client).put<SetHostGroupMembersResponses, SetHostGroupMembersErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zSetHostGroupMembersBody,
+        path: zSetHostGroupMembersPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zSetHostGroupMembersResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/host-groups/{group_id}/members',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get a user's current host grants and bypass flag
+ */
+export const getUserHostGrants = <ThrowOnError extends boolean = false>(options: Options<GetUserHostGrantsData, ThrowOnError>) => (options.client ?? client).get<GetUserHostGrantsResponses, GetUserHostGrantsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zGetUserHostGrantsPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetUserHostGrantsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/users/{user_id}/host-grants',
+    ...options
+});
+
+/**
+ * Atomically replace a user's host grants and bypass flag
+ */
+export const setUserHostGrants = <ThrowOnError extends boolean = false>(options: Options<SetUserHostGrantsData, ThrowOnError>) => (options.client ?? client).put<SetUserHostGrantsResponses, SetUserHostGrantsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zSetUserHostGrantsBody,
+        path: zSetUserHostGrantsPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zSetUserHostGrantsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/users/{user_id}/host-grants',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List FQDNs seen in the access log that are not yet known hosts
+ */
+export const listHostSuggestions = <ThrowOnError extends boolean = false>(options?: Options<ListHostSuggestionsData, ThrowOnError>) => (options?.client ?? client).get<ListHostSuggestionsResponses, ListHostSuggestionsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListHostSuggestionsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/host-suggestions',
+    ...options
+});
+
+/**
+ * List ignored host suggestions
+ */
+export const listIgnoredSuggestions = <ThrowOnError extends boolean = false>(options?: Options<ListIgnoredSuggestionsData, ThrowOnError>) => (options?.client ?? client).get<ListIgnoredSuggestionsResponses, ListIgnoredSuggestionsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListIgnoredSuggestionsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/host-suggestions/ignore',
+    ...options
+});
+
+/**
+ * Ignore a host suggestion
+ */
+export const ignoreSuggestion = <ThrowOnError extends boolean = false>(options: Options<IgnoreSuggestionData, ThrowOnError>) => (options.client ?? client).post<IgnoreSuggestionResponses, IgnoreSuggestionErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zIgnoreSuggestionBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zIgnoreSuggestionResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/host-suggestions/ignore',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Remove a host suggestion from the ignore list
+ */
+export const unignoreSuggestion = <ThrowOnError extends boolean = false>(options: Options<UnignoreSuggestionData, ThrowOnError>) => (options.client ?? client).delete<UnignoreSuggestionResponses, UnignoreSuggestionErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zUnignoreSuggestionPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zUnignoreSuggestionResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-wdc_session',
+            type: 'apiKey'
+        }],
+    url: '/admin/host-suggestions/ignore/{fqdn}',
     ...options
 });

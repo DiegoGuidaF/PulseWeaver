@@ -2,11 +2,13 @@
 
 > Before implementing a feature, scan this index and read every pattern that applies.
 > After implementing, check the [self-improvement protocol](../../../project/workflow/WORKFLOW.md#pattern-maintenance).
+>
+> **Multi-file tasks?** See `../how-to/_index.md` for end-to-end walkthroughs (add endpoint, wire events, cross-domain queries).
 
 | Pattern | File | Use when | Avoid when | Refs |
 |---------|------|----------|------------|------|
 | Handler structure | `handler-structure.md` | Adding or modifying an HTTP endpoint | Working on business logic (that's the service layer) | `device/handler.go`, `auth/handler.go` |
-| Service layer | `service-layer.md` | Adding business logic, domain validation, cross-domain interfaces | Writing SQL or HTTP-level code | `device/service.go`, `auth/service.go` |
+| Service layer | `service-layer.md` | Adding business logic, domain validation, cross-domain interfaces, batch input normalization (Params pattern) | Writing SQL or HTTP-level code | `device/service.go`, `auth/service.go`, `hostaccess/params.go` |
 | Repository layer | `repository-layer.md` | Adding DB queries, transactions, constraint handling | Writing business logic (that's the service layer) | `device/repository.go`, `lease/repository.go` |
 | Observer pattern | `observer-pattern.md` | Reacting to domain events (address changes, etc.) | Simple request-response flows with no side effects | `device/events.go`, `policy/service.go`, `lease/service.go` |
 | Background service lifecycle | `background-service-lifecycle.md` | Adding a long-running goroutine, listener, or scheduler | One-shot operations that complete in a request | `policy/service.go`, `lease/service.go`, `scheduler/service.go` |

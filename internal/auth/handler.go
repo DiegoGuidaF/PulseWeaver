@@ -309,13 +309,14 @@ func (h *HTTPHandler) UserAuthenticator() UserAuthenticator {
 
 func toUserResponse(d *User) httpapi.User {
 	return httpapi.User{
-		Id:                 d.ID.Int64(),
-		Username:           d.Username,
-		DisplayName:        d.DisplayName,
-		Email:              openapi_types.Email(d.Email),
-		Role:               httpapi.UserRole(d.Role),
-		MustChangePassword: new(d.MustChangePassword),
-		CreatedAt:          httpapi.UTCTime(d.CreatedAt),
+		Id:                  d.ID.Int64(),
+		Username:            d.Username,
+		DisplayName:         d.DisplayName,
+		Email:               openapi_types.Email(d.Email),
+		Role:                httpapi.UserRole(d.Role),
+		MustChangePassword:  new(d.MustChangePassword),
+		BypassHostAllowlist: d.BypassHostAllowlist,
+		CreatedAt:           httpapi.UTCTime(d.CreatedAt),
 	}
 }
 

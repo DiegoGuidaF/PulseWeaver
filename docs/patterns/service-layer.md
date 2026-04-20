@@ -63,12 +63,53 @@ Real examples:
 - `scheduler.ExpiredAddressFinder` ← implemented by `*lease.Service`
 - `scheduler.AddressDisabler` ← implemented by `*device.Service`
 
+## Input validation with Params structs
+
+When a service method requires normalization (trim, lowercase) or deduplication of batch inputs before the repository call, encapsulate both in a `<Entity>Params` struct whose constructor validates on creation:
+
+```go
+// In params.go — same package as the service
+
+var ErrBadRequest = errors.New("bad request")
+
+type BulkCreateKnownHostsParams struct {
+    FQDNs []string
+}
+
+func NewBulkCreateKnownHostsParams(fqdns []string) (BulkCreateKnownHostsParams, error) {
+    if len(fqdns) == 0 {
+        return BulkCreateKnownHostsParams{}, fmt.Errorf("%w: at least one FQDN required", ErrBadRequest)
+    }
+    // trim, lowercase, deduplicate...
+    return BulkCreateKnownHostsParams{FQDNs: out}, nil
+}
+```
+
+The service calls the constructor and propagates the error — it never validates the same input itself:
+
+```go
+func (s *Service) BulkCreateKnownHosts(ctx context.Context, fqdns []string) ([]KnownHost, error) {
+    params, err := NewBulkCreateKnownHostsParams(fqdns)
+    if err != nil {
+        return nil, err  // ErrBadRequest propagates to handler
+    }
+    return s.repo.BulkCreateKnownHosts(ctx, params.FQDNs)
+}
+```
+
+Rules:
+- Only use a Params struct when normalization or deduplication is needed, not for simple field presence checks.
+- Validation errors **must** wrap `ErrBadRequest` (defined in the same package) so the handler can detect them with `errors.Is`.
+- Use this pattern for set-replacement operations (`SetHostGroupMembers`, `SetUserGrants`) where silently deduplicating IDs is the right contract.
+
+Real example: `hostaccess/params.go` — `BulkCreateKnownHostsParams`, `SetHostGroupMembersParams`, `SetUserGrantsParams`.
+
 ## Key rules
 
 - **Domain errors**: define sentinel errors (`var ErrNotFound = errors.New("not found")`) and return them. Handlers map these to HTTP status codes.
 - **No HTTP awareness**: services never import `net/http` or `httpapi`.
 - **No direct DB access**: always go through the repository interface.
-- **Input types**: use dedicated input structs (`CreateDeviceInput`) rather than accepting loose parameters. This makes validation explicit.
+- **Input types**: use dedicated input structs or Params constructors rather than accepting loose parameters. This makes validation and normalization explicit.
 
 ---
 **Verified against:** `internal/device/service.go`, `internal/auth/service.go`, `internal/policy/service.go`

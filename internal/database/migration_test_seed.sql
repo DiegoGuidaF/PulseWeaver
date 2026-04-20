@@ -112,9 +112,11 @@ INSERT INTO access_log_geoip (access_log_id, country_code, country_name, asn)
 -- (down migration drops the tables) and the tables are recreated empty on
 -- re-apply. This section ensures INSERT constraints are valid at schema N.
 
-INSERT INTO known_hosts (fqdn) VALUES ('seed.example.com');
+INSERT INTO known_hosts (fqdn, icon) VALUES ('seed.example.com', 'server');
+INSERT INTO known_hosts (fqdn) VALUES ('seed-no-icon.example.com');
 
-INSERT INTO host_groups (name, description) VALUES ('seed-group', 'Seed host group');
+INSERT INTO host_groups (name, description, icon) VALUES ('seed-group', 'Seed host group', 'folder');
+INSERT INTO host_groups (name) VALUES ('seed-group-no-icon');
 
 INSERT INTO host_group_members (host_group_id, known_host_id)
     SELECT hg.id, kh.id FROM host_groups hg, known_hosts kh

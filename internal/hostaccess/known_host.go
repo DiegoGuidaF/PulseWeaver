@@ -13,5 +13,6 @@ func (id KnownHostID) String() string { return strconv.FormatInt(int64(id), 10) 
 type KnownHost struct {
 	ID        KnownHostID `db:"id"`
 	FQDN      string      `db:"fqdn"`
+	Icon      *string     `db:"icon"`
 	CreatedAt time.Time   `db:"created_at"`
 }

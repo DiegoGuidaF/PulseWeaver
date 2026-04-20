@@ -146,7 +146,9 @@ func TestRepository_FindBootstrappedAdmin_ExcludesUsersWithCreatedBySet(t *testi
 	ctx := context.Background()
 
 	_, err := repo.CreateUser(ctx, mustNewUser(t, "regular_user", "Regular", "", auth.UserRole))
+	is.NoErr(err)
 	_, err = repo.CreateUser(ctx, mustNewUser(t, "admin_user", "Admin", "", auth.AdminRole))
+	is.NoErr(err)
 	_, err = repo.CreateUser(ctx, mustNewUser(t, "superadmin_user", "SuperAdmin", "", auth.SuperAdminRole))
 	is.NoErr(err)
 

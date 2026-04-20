@@ -289,6 +289,61 @@ func toDeviceDetailResponse(d *DeviceDetail) httpapi.Device {
 	}
 }
 
+func (h *HTTPHandler) ListKnownHosts(
+	ctx context.Context,
+	_ httpapi.ListKnownHostsRequestObject,
+) (httpapi.ListKnownHostsResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "ListKnownHosts")
+
+	hosts, err := h.repo.GetKnownHostsWithStats(ctx)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "list known hosts failed", slog.Any(logging.AttrKeyError, err))
+		return httpapi.ListKnownHosts500JSONResponse(errorMsgResponse("Failed to list known hosts")), nil
+	}
+
+	resp := make([]httpapi.KnownHostWithStats, len(hosts))
+	for i, h := range hosts {
+		var lastSeen *httpapi.UTCTime
+		if h.LastSeen != nil {
+			t := httpapi.UTCTime(*h.LastSeen)
+			lastSeen = &t
+		}
+		resp[i] = httpapi.KnownHostWithStats{
+			Id:        h.ID.Int64(),
+			Fqdn:      h.FQDN,
+			Icon:      h.Icon,
+			CreatedAt: httpapi.UTCTime(h.CreatedAt),
+			LastSeen:  lastSeen,
+			UserCount: h.UserCount,
+		}
+	}
+	return httpapi.ListKnownHosts200JSONResponse(resp), nil
+}
+
+func (h *HTTPHandler) ListHostSuggestions(
+	ctx context.Context,
+	_ httpapi.ListHostSuggestionsRequestObject,
+) (httpapi.ListHostSuggestionsResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "ListHostSuggestions")
+
+	suggestions, err := h.repo.GetHostSuggestions(ctx)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "list host suggestions failed", slog.Any(logging.AttrKeyError, err))
+		return httpapi.ListHostSuggestions500JSONResponse(errorMsgResponse("Failed to list host suggestions")), nil
+	}
+
+	resp := make([]httpapi.HostSuggestion, len(suggestions))
+	for i, s := range suggestions {
+		resp[i] = httpapi.HostSuggestion{
+			Fqdn:        s.FQDN,
+			FirstSeen:   httpapi.UTCTime(s.FirstSeen),
+			AllowedHits: s.AllowedHits,
+			DeniedHits:  s.DeniedHits,
+		}
+	}
+	return httpapi.ListHostSuggestions200JSONResponse(resp), nil
+}
+
 func errorMsgResponse(msg string) httpapi.ErrorResponse {
 	return httpapi.ErrorResponse{Error: &msg}
 }

@@ -44,6 +44,7 @@ export const zUser = z.object({
     email: z.email(),
     role: zUserRole,
     must_change_password: z.boolean().readonly(),
+    bypass_host_allowlist: z.boolean(),
     created_at: z.iso.datetime({ offset: true, local: true })
 });
 
@@ -306,6 +307,92 @@ export const zClaimRegistrationResponse = z.object({
     api_key: z.string()
 });
 
+export const zKnownHost = z.object({
+    id: zId,
+    fqdn: z.string(),
+    icon: z.string().nullish(),
+    created_at: z.iso.datetime({ offset: true, local: true })
+});
+
+export const zKnownHostWithStats = z.object({
+    id: zId,
+    fqdn: z.string(),
+    icon: z.string().nullish(),
+    created_at: z.iso.datetime({ offset: true, local: true }),
+    last_seen: z.iso.datetime({ offset: true, local: true }).nullish(),
+    user_count: z.int()
+});
+
+export const zBulkCreateKnownHostsRequest = z.object({
+    fqdns: z.array(z.string().min(1)).min(1)
+});
+
+export const zUpdateKnownHostRequest = z.object({
+    icon: z.string().nullish()
+});
+
+export const zHostGroup = z.object({
+    id: zId,
+    name: z.string(),
+    description: z.string().nullish(),
+    icon: z.string().nullish(),
+    created_at: z.iso.datetime({ offset: true, local: true })
+});
+
+export const zHostGroupWithMembers = z.object({
+    id: zId,
+    name: z.string(),
+    description: z.string().nullish(),
+    icon: z.string().nullish(),
+    created_at: z.iso.datetime({ offset: true, local: true }),
+    host_ids: z.array(zId)
+});
+
+export const zCreateHostGroupRequest = z.object({
+    name: z.string().min(1).max(100),
+    description: z.string().max(500).nullish(),
+    icon: z.string().nullish()
+});
+
+export const zUpdateHostGroupRequest = z.object({
+    name: z.string().min(1).max(100),
+    description: z.string().nullish(),
+    icon: z.string().nullish()
+});
+
+export const zSetHostGroupMembersRequest = z.object({
+    host_ids: z.array(z.int())
+});
+
+export const zUserHostGrants = z.object({
+    bypass: z.boolean(),
+    host_ids: z.array(zId),
+    group_ids: z.array(zId)
+});
+
+export const zSetUserHostGrantsRequest = z.object({
+    bypass: z.boolean().optional(),
+    host_ids: z.array(z.int()).optional(),
+    group_ids: z.array(z.int()).optional()
+});
+
+export const zIgnoredHostSuggestion = z.object({
+    id: zId,
+    fqdn: z.string(),
+    created_at: z.iso.datetime({ offset: true, local: true })
+});
+
+export const zHostSuggestion = z.object({
+    fqdn: z.string(),
+    first_seen: z.iso.datetime({ offset: true, local: true }),
+    allowed_hits: z.int(),
+    denied_hits: z.int()
+});
+
+export const zIgnoreSuggestionRequest = z.object({
+    fqdn: z.string().min(1)
+});
+
 export const zPromoteUserRequest = z.object({
     password: zPassword
 });
@@ -320,6 +407,7 @@ export const zUserWritable = z.object({
     username: zUsername,
     display_name: zDisplayName,
     email: z.email(),
+    bypass_host_allowlist: z.boolean(),
     created_at: z.iso.datetime({ offset: true, local: true })
 });
 
@@ -741,3 +829,124 @@ export const zGetRegistrationPath = z.object({
  * Registration invite
  */
 export const zGetRegistrationResponse = zPendingRegistration;
+
+/**
+ * Known hosts list with stats
+ */
+export const zListKnownHostsResponse = z.array(zKnownHostWithStats);
+
+export const zCreateKnownHostsBody = zBulkCreateKnownHostsRequest;
+
+/**
+ * Hosts created
+ */
+export const zCreateKnownHostsResponse = z.array(zKnownHost);
+
+export const zDeleteKnownHostPath = z.object({
+    host_id: zId
+});
+
+/**
+ * Host deleted
+ */
+export const zDeleteKnownHostResponse = z.void();
+
+export const zUpdateKnownHostBody = zUpdateKnownHostRequest;
+
+export const zUpdateKnownHostPath = z.object({
+    host_id: zId
+});
+
+/**
+ * Host updated
+ */
+export const zUpdateKnownHostResponse = zKnownHost;
+
+/**
+ * Host groups list
+ */
+export const zListHostGroupsResponse = z.array(zHostGroupWithMembers);
+
+export const zCreateHostGroupBody = zCreateHostGroupRequest;
+
+/**
+ * Group created
+ */
+export const zCreateHostGroupResponse = zHostGroup;
+
+export const zDeleteHostGroupPath = z.object({
+    group_id: zId
+});
+
+/**
+ * Group deleted
+ */
+export const zDeleteHostGroupResponse = z.void();
+
+export const zUpdateHostGroupBody = zUpdateHostGroupRequest;
+
+export const zUpdateHostGroupPath = z.object({
+    group_id: zId
+});
+
+/**
+ * Group updated
+ */
+export const zUpdateHostGroupResponse = zHostGroup;
+
+export const zSetHostGroupMembersBody = zSetHostGroupMembersRequest;
+
+export const zSetHostGroupMembersPath = z.object({
+    group_id: zId
+});
+
+/**
+ * Members updated
+ */
+export const zSetHostGroupMembersResponse = z.void();
+
+export const zGetUserHostGrantsPath = z.object({
+    user_id: zId
+});
+
+/**
+ * User host grants
+ */
+export const zGetUserHostGrantsResponse = zUserHostGrants;
+
+export const zSetUserHostGrantsBody = zSetUserHostGrantsRequest;
+
+export const zSetUserHostGrantsPath = z.object({
+    user_id: zId
+});
+
+/**
+ * Grants updated
+ */
+export const zSetUserHostGrantsResponse = z.void();
+
+/**
+ * Suggestions list
+ */
+export const zListHostSuggestionsResponse = z.array(zHostSuggestion);
+
+/**
+ * Ignored suggestions list
+ */
+export const zListIgnoredSuggestionsResponse = z.array(zIgnoredHostSuggestion);
+
+export const zIgnoreSuggestionBody = zIgnoreSuggestionRequest;
+
+/**
+ * Suggestion ignored
+ */
+export const zIgnoreSuggestionResponse = zIgnoredHostSuggestion;
+
+export const zUnignoreSuggestionPath = z.object({
+    fqdn: z.string()
+});
+
+/**
+ * Suggestion unignored
+ */
+export const zUnignoreSuggestionResponse = z.void();
