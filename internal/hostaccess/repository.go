@@ -22,19 +22,6 @@ func NewRepository(db *database.DB) *Repository {
 }
 
 // ── Known hosts ───────────────────────────────────────────────────────────────
-
-func (r *Repository) CreateKnownHost(ctx context.Context, fqdn string, icon *string) (KnownHost, error) {
-	const query = `INSERT INTO known_hosts (fqdn, icon) VALUES (?, ?) RETURNING id, fqdn, icon, created_at`
-	host := new(KnownHost)
-	if err := r.db.GetContext(ctx, host, query, strings.ToLower(fqdn), icon); err != nil {
-		if isUniqueViolation(err) {
-			return KnownHost{}, ErrKnownHostConflict
-		}
-		return KnownHost{}, fmt.Errorf("create known host: %w", err)
-	}
-	return *host, nil
-}
-
 func (r *Repository) GetKnownHost(ctx context.Context, id KnownHostID) (KnownHost, error) {
 	const query = `SELECT id, fqdn, icon, created_at FROM known_hosts WHERE id = ?`
 	host := new(KnownHost)
@@ -59,6 +46,53 @@ func (r *Repository) ListKnownHosts(ctx context.Context) ([]KnownHost, error) {
 	return hosts, nil
 }
 
+func (r *Repository) CreateKnownHost(ctx context.Context, fqdn string, icon *string) (KnownHost, error) {
+	const query = `INSERT INTO known_hosts (fqdn, icon) VALUES (?, ?) RETURNING id, fqdn, icon, created_at`
+	host := new(KnownHost)
+	if err := r.db.GetContext(ctx, host, query, strings.ToLower(fqdn), icon); err != nil {
+		if isUniqueViolation(err) {
+			return KnownHost{}, ErrKnownHostConflict
+		}
+		return KnownHost{}, fmt.Errorf("create known host: %w", err)
+	}
+	return *host, nil
+}
+
+func (r *Repository) UpdateKnownHost(ctx context.Context, id KnownHostID, icon *string) (KnownHost, error) {
+	const query = `UPDATE known_hosts SET icon = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING *`
+	host := new(KnownHost)
+	if err := r.db.GetContext(ctx, host, query, icon, id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return KnownHost{}, ErrKnownHostNotFound
+		}
+		return KnownHost{}, fmt.Errorf("update known host: %w", err)
+	}
+	return *host, nil
+}
+
+func (r *Repository) BulkCreateKnownHosts(ctx context.Context, fqdns []string) ([]KnownHost, error) {
+	hosts := make([]KnownHost, 0, len(fqdns))
+	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
+		const query = `INSERT INTO known_hosts (fqdn) VALUES (?) RETURNING *`
+		for _, fqdn := range fqdns {
+			host := new(KnownHost)
+			if err := r.db.GetContext(ctx, host, query, strings.ToLower(fqdn)); err != nil {
+				//TODO: Should we fail or just ignore this? It is a conflict, but the end result is the right one
+				if isUniqueViolation(err) {
+					return ErrKnownHostConflict
+				}
+				return fmt.Errorf("bulk create known host %q: %w", fqdn, err)
+			}
+			hosts = append(hosts, *host)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
 func (r *Repository) DeleteKnownHost(ctx context.Context, id KnownHostID) error {
 	const query = `DELETE FROM known_hosts WHERE id = ?`
 	res, err := r.db.ExecContext(ctx, query, id)
@@ -72,18 +106,6 @@ func (r *Repository) DeleteKnownHost(ctx context.Context, id KnownHostID) error 
 }
 
 // ── Host groups ───────────────────────────────────────────────────────────────
-
-func (r *Repository) CreateHostGroup(ctx context.Context, name string, description *string, icon *string) (HostGroup, error) {
-	const query = `INSERT INTO host_groups (name, description, icon) VALUES (?, ?, ?) RETURNING id, name, description, icon, created_at`
-	group := new(HostGroup)
-	if err := r.db.GetContext(ctx, group, query, name, description, icon); err != nil {
-		if isUniqueViolation(err) {
-			return HostGroup{}, ErrHostGroupConflict
-		}
-		return HostGroup{}, fmt.Errorf("create host group: %w", err)
-	}
-	return *group, nil
-}
 
 func (r *Repository) GetHostGroup(ctx context.Context, id HostGroupID) (HostGroup, error) {
 	const query = `SELECT id, name, description, icon, created_at FROM host_groups WHERE id = ?`
@@ -109,6 +131,18 @@ func (r *Repository) ListHostGroups(ctx context.Context) ([]HostGroup, error) {
 	return groups, nil
 }
 
+func (r *Repository) CreateHostGroup(ctx context.Context, name string, description *string, icon *string) (HostGroup, error) {
+	const query = `INSERT INTO host_groups (name, description, icon) VALUES (?, ?, ?) RETURNING *`
+	group := new(HostGroup)
+	if err := r.db.GetContext(ctx, group, query, name, description, icon); err != nil {
+		if isUniqueViolation(err) {
+			return HostGroup{}, ErrHostGroupConflict
+		}
+		return HostGroup{}, fmt.Errorf("create host group: %w", err)
+	}
+	return *group, nil
+}
+
 func (r *Repository) DeleteHostGroup(ctx context.Context, id HostGroupID) error {
 	const query = `DELETE FROM host_groups WHERE id = ?`
 	res, err := r.db.ExecContext(ctx, query, id)
@@ -121,7 +155,97 @@ func (r *Repository) DeleteHostGroup(ctx context.Context, id HostGroupID) error 
 	return nil
 }
 
+type HostGroupWithMembers struct {
+	HostGroup
+	HostIDs []KnownHostID
+}
+
+func (r *Repository) ListHostGroupsWithMembers(ctx context.Context) ([]HostGroupWithMembers, error) {
+	type row struct {
+		ID          HostGroupID  `db:"id"`
+		Name        string       `db:"name"`
+		Description *string      `db:"description"`
+		Icon        *string      `db:"icon"`
+		CreatedAt   time.Time    `db:"created_at"`
+		UpdatedAt   time.Time    `db:"updated_at"`
+		HostID      *KnownHostID `db:"known_host_id"`
+	}
+	const query = `
+		SELECT hg.id, hg.name, hg.description, hg.icon, hg.created_at, hgm.known_host_id, hg.updated_at
+		FROM host_groups hg
+		LEFT JOIN host_group_members hgm ON hgm.host_group_id = hg.id
+		ORDER BY hg.name, hgm.known_host_id
+	`
+	var rows []row
+	if err := r.db.SelectContext(ctx, &rows, query); err != nil {
+		return nil, fmt.Errorf("list host groups with members: %w", err)
+	}
+
+	seen := make(map[HostGroupID]int)
+	var groups []HostGroupWithMembers
+	for _, rw := range rows {
+		idx, exists := seen[rw.ID]
+		if !exists {
+			idx = len(groups)
+			seen[rw.ID] = idx
+			groups = append(groups, HostGroupWithMembers{
+				HostGroup: HostGroup{
+					ID:          rw.ID,
+					Name:        rw.Name,
+					Description: rw.Description,
+					Icon:        rw.Icon,
+					CreatedAt:   rw.CreatedAt,
+				},
+				HostIDs: []KnownHostID{},
+			})
+		}
+		if rw.HostID != nil {
+			groups[idx].HostIDs = append(groups[idx].HostIDs, *rw.HostID)
+		}
+	}
+	return groups, nil
+}
+
+func (r *Repository) UpdateHostGroup(ctx context.Context, id HostGroupID, name string, description *string, icon *string) (HostGroup, error) {
+	const query = `
+		UPDATE host_groups SET name = ?, description = ?, icon = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+		RETURNING *
+	`
+	group := new(HostGroup)
+	if err := r.db.GetContext(ctx, group, query, name, description, icon, id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return HostGroup{}, ErrHostGroupNotFound
+		}
+		if isUniqueViolation(err) {
+			return HostGroup{}, ErrHostGroupConflict
+		}
+		return HostGroup{}, fmt.Errorf("update host group: %w", err)
+	}
+	return *group, nil
+}
+
 // ── Host group members ────────────────────────────────────────────────────────
+
+func (r *Repository) SetHostGroupMembers(ctx context.Context, groupID HostGroupID, hostIDs []KnownHostID) error {
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		if _, err := r.db.ExecContext(ctx, `DELETE FROM host_group_members WHERE host_group_id = ?`, groupID); err != nil {
+			return fmt.Errorf("clear host group members: %w", err)
+		}
+		for _, hostID := range hostIDs {
+			if _, err := r.db.ExecContext(ctx,
+				`INSERT INTO host_group_members (host_group_id, known_host_id) VALUES (?, ?)`,
+				groupID, hostID,
+			); err != nil {
+				if isFKViolation(err) {
+					return ErrReferenceNotFound
+				}
+				return fmt.Errorf("insert host group member: %w", err)
+			}
+		}
+		return nil
+	})
+}
 
 func (r *Repository) AddHostToGroup(ctx context.Context, groupID HostGroupID, hostID KnownHostID) error {
 	const query = `INSERT INTO host_group_members (host_group_id, known_host_id) VALUES (?, ?)`
@@ -306,6 +430,7 @@ func (r *Repository) ListIgnoredSuggestions(ctx context.Context) ([]IgnoredHostS
 // GetAllUserHostAccess returns a row for every user that has either bypass access
 // or at least one allowed host grant. Users with neither are not included; the
 // policy layer treats them as deny-all (zero value accumulator).
+// TODO: This method should go to the query package since it is cross domain (users table)
 func (r *Repository) GetAllUserHostAccess(ctx context.Context) ([]policy.UserHostAccess, error) {
 	// Each row represents one (user, fqdn) pair, or one (user, NULL) for bypass-only users.
 	// UNION removes duplicates that arise when a host is granted both directly and via group.
@@ -363,131 +488,6 @@ func (r *Repository) GetAllUserHostAccess(ctx context.Context) ([]policy.UserHos
 		result = append(result, *acc)
 	}
 	return result, nil
-}
-
-// ── New methods ───────────────────────────────────────────────────────────────
-
-func (r *Repository) UpdateKnownHost(ctx context.Context, id KnownHostID, icon *string) (KnownHost, error) {
-	const query = `UPDATE known_hosts SET icon = ? WHERE id = ? RETURNING id, fqdn, icon, created_at`
-	host := new(KnownHost)
-	if err := r.db.GetContext(ctx, host, query, icon, id); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return KnownHost{}, ErrKnownHostNotFound
-		}
-		return KnownHost{}, fmt.Errorf("update known host: %w", err)
-	}
-	return *host, nil
-}
-
-func (r *Repository) BulkCreateKnownHosts(ctx context.Context, fqdns []string) ([]KnownHost, error) {
-	hosts := make([]KnownHost, 0, len(fqdns))
-	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
-		const query = `INSERT INTO known_hosts (fqdn) VALUES (?) RETURNING id, fqdn, icon, created_at`
-		for _, fqdn := range fqdns {
-			host := new(KnownHost)
-			if err := r.db.GetContext(ctx, host, query, strings.ToLower(fqdn)); err != nil {
-				if isUniqueViolation(err) {
-					return ErrKnownHostConflict
-				}
-				return fmt.Errorf("bulk create known host %q: %w", fqdn, err)
-			}
-			hosts = append(hosts, *host)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return hosts, nil
-}
-
-type HostGroupWithMembers struct {
-	HostGroup
-	HostIDs []KnownHostID
-}
-
-func (r *Repository) ListHostGroupsWithMembers(ctx context.Context) ([]HostGroupWithMembers, error) {
-	type row struct {
-		ID          HostGroupID  `db:"id"`
-		Name        string       `db:"name"`
-		Description *string      `db:"description"`
-		Icon        *string      `db:"icon"`
-		CreatedAt   time.Time    `db:"created_at"`
-		HostID      *KnownHostID `db:"known_host_id"`
-	}
-	const query = `
-		SELECT hg.id, hg.name, hg.description, hg.icon, hg.created_at, hgm.known_host_id
-		FROM host_groups hg
-		LEFT JOIN host_group_members hgm ON hgm.host_group_id = hg.id
-		ORDER BY hg.name, hgm.known_host_id
-	`
-	var rows []row
-	if err := r.db.SelectContext(ctx, &rows, query); err != nil {
-		return nil, fmt.Errorf("list host groups with members: %w", err)
-	}
-
-	seen := make(map[HostGroupID]int)
-	var groups []HostGroupWithMembers
-	for _, rw := range rows {
-		idx, exists := seen[rw.ID]
-		if !exists {
-			idx = len(groups)
-			seen[rw.ID] = idx
-			groups = append(groups, HostGroupWithMembers{
-				HostGroup: HostGroup{
-					ID:          rw.ID,
-					Name:        rw.Name,
-					Description: rw.Description,
-					Icon:        rw.Icon,
-					CreatedAt:   rw.CreatedAt,
-				},
-				HostIDs: []KnownHostID{},
-			})
-		}
-		if rw.HostID != nil {
-			groups[idx].HostIDs = append(groups[idx].HostIDs, *rw.HostID)
-		}
-	}
-	return groups, nil
-}
-
-func (r *Repository) UpdateHostGroup(ctx context.Context, id HostGroupID, name string, description *string, icon *string) (HostGroup, error) {
-	const query = `
-		UPDATE host_groups SET name = ?, description = ?, icon = ?
-		WHERE id = ?
-		RETURNING id, name, description, icon, created_at
-	`
-	group := new(HostGroup)
-	if err := r.db.GetContext(ctx, group, query, name, description, icon, id); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return HostGroup{}, ErrHostGroupNotFound
-		}
-		if isUniqueViolation(err) {
-			return HostGroup{}, ErrHostGroupConflict
-		}
-		return HostGroup{}, fmt.Errorf("update host group: %w", err)
-	}
-	return *group, nil
-}
-
-func (r *Repository) SetHostGroupMembers(ctx context.Context, groupID HostGroupID, hostIDs []KnownHostID) error {
-	return r.db.WithinTx(ctx, func(ctx context.Context) error {
-		if _, err := r.db.ExecContext(ctx, `DELETE FROM host_group_members WHERE host_group_id = ?`, groupID); err != nil {
-			return fmt.Errorf("clear host group members: %w", err)
-		}
-		for _, hostID := range hostIDs {
-			if _, err := r.db.ExecContext(ctx,
-				`INSERT INTO host_group_members (host_group_id, known_host_id) VALUES (?, ?)`,
-				groupID, hostID,
-			); err != nil {
-				if isFKViolation(err) {
-					return ErrReferenceNotFound
-				}
-				return fmt.Errorf("insert host group member: %w", err)
-			}
-		}
-		return nil
-	})
 }
 
 func (r *Repository) GetUserBypassAllowlist(ctx context.Context, userID auth.UserID) (bool, error) {

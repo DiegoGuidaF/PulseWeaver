@@ -42,7 +42,19 @@ type DashboardHandler = dashboard.HTTPHandler
 type RegistrationHandler = registration.HTTPHandler
 type HostAccessHandler = hostaccess.HTTPHandler
 
-func addRoutes(r *chi.Mux, deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, accessLogHandler *AccessLogHandler, dashboardHandler *DashboardHandler, registrationHandler *RegistrationHandler, hostAccessHandler *HostAccessHandler, logger *slog.Logger) {
+func addRoutes(
+	r *chi.Mux,
+	deviceHandler *DeviceHandler,
+	authHandler *AuthHandler,
+	ruleHandler *RuleHandler,
+	queriesHandler *QueriesHandler,
+	policyHandler *PolicyHandler,
+	accessLogHandler *AccessLogHandler,
+	dashboardHandler *DashboardHandler,
+	registrationHandler *RegistrationHandler,
+	hostAccessHandler *HostAccessHandler,
+	logger *slog.Logger,
+) {
 	routeHandler := &CompositeHandler{
 		DeviceHandler:       deviceHandler,
 		AuthHandler:         authHandler,

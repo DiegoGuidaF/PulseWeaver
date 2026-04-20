@@ -14,5 +14,6 @@ type KnownHost struct {
 	ID        KnownHostID `db:"id"`
 	FQDN      string      `db:"fqdn"`
 	Icon      *string     `db:"icon"`
+	UpdatedAt time.Time   `db:"updated_at"`
 	CreatedAt time.Time   `db:"created_at"`
 }

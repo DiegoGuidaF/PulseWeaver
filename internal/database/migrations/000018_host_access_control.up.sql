@@ -3,11 +3,13 @@ BEGIN TRANSACTION;
 
 -- ── 1. Users: add bypass_host_allowlist ───────────────────────────────────────
 
-ALTER TABLE users ADD COLUMN bypass_host_allowlist INTEGER NOT NULL DEFAULT 0
-    CHECK (bypass_host_allowlist IN (0, 1));
+ALTER TABLE users
+    ADD COLUMN bypass_host_allowlist INTEGER NOT NULL DEFAULT 0
+        CHECK (bypass_host_allowlist IN (0, 1));
 
 -- Preserve unrestricted behaviour for all existing users.
-UPDATE users SET bypass_host_allowlist = 1;
+UPDATE users
+SET bypass_host_allowlist = 1;
 
 -- ── 2. Host-access domain tables ─────────────────────────────────────────────
 
@@ -15,7 +17,9 @@ CREATE TABLE known_hosts
 (
     id         INTEGER PRIMARY KEY,
     fqdn       TEXT     NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    icon       TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE UNIQUE INDEX idx_known_hosts_fqdn ON known_hosts (fqdn);
@@ -25,7 +29,9 @@ CREATE TABLE host_groups
     id          INTEGER PRIMARY KEY,
     name        TEXT     NOT NULL,
     description TEXT,
-    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    icon        TEXT,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE UNIQUE INDEX idx_host_groups_name ON host_groups (name);
@@ -110,44 +116,44 @@ WHERE al.device_id IS NOT NULL;
 CREATE TABLE access_log_new
 (
     id                INTEGER PRIMARY KEY,
-    client_ip         TEXT    NOT NULL,
-    outcome           INTEGER NOT NULL CHECK (outcome IN (0, 1)),
+    client_ip         TEXT     NOT NULL,
+    outcome           INTEGER  NOT NULL CHECK (outcome IN (0, 1)),
     deny_reason       TEXT,
-    contributor_count INTEGER NOT NULL DEFAULT 0,
+    contributor_count INTEGER  NOT NULL DEFAULT 0,
     created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     xff_chain         TEXT,
     target_host       TEXT,
     target_uri        TEXT,
     http_method       TEXT,
-    headers_json      TEXT    NOT NULL DEFAULT '{}',
-    duration_us       INTEGER NOT NULL DEFAULT 0
+    headers_json      TEXT     NOT NULL DEFAULT '{}',
+    duration_us       INTEGER  NOT NULL DEFAULT 0
 );
 
 INSERT INTO access_log_new
-    (id, client_ip, outcome, deny_reason, contributor_count,
-     created_at, xff_chain, target_host, target_uri, http_method, headers_json, duration_us)
-SELECT
-    id,
-    client_ip,
-    outcome,
-    deny_reason,
-    CASE WHEN device_id IS NOT NULL THEN 1 ELSE 0 END,
-    created_at,
-    xff_chain,
-    target_host,
-    target_uri,
-    http_method,
-    headers_json,
-    duration_us
+(id, client_ip, outcome, deny_reason, contributor_count,
+ created_at, xff_chain, target_host, target_uri, http_method, headers_json, duration_us)
+SELECT id,
+       client_ip,
+       outcome,
+       deny_reason,
+       CASE WHEN device_id IS NOT NULL THEN 1 ELSE 0 END,
+       created_at,
+       xff_chain,
+       target_host,
+       target_uri,
+       http_method,
+       headers_json,
+       duration_us
 FROM access_log;
 
 DROP TABLE access_log;
-ALTER TABLE access_log_new RENAME TO access_log;
+ALTER TABLE access_log_new
+    RENAME TO access_log;
 
 -- Recreate indexes (old names were idx_request_audit_log_* pre-rename in 000005).
 CREATE INDEX idx_access_log_created_at ON access_log (created_at DESC);
-CREATE INDEX idx_access_log_client_ip  ON access_log (client_ip);
-CREATE INDEX idx_access_log_outcome    ON access_log (outcome, created_at DESC);
+CREATE INDEX idx_access_log_client_ip ON access_log (client_ip);
+CREATE INDEX idx_access_log_outcome ON access_log (outcome, created_at DESC);
 
 PRAGMA foreign_key_check;
 COMMIT;

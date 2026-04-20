@@ -79,6 +79,7 @@ func (s *Service) GetAllUserHostAccess(ctx context.Context) ([]policy.UserHostAc
 
 // ── Known hosts ───────────────────────────────────────────────────────────────
 
+// TODO: Not used, can be removed
 func (s *Service) CreateKnownHost(ctx context.Context, fqdn string, icon *string) (KnownHost, error) {
 	host, err := s.repo.CreateKnownHost(ctx, fqdn, icon)
 	if err != nil {

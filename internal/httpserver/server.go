@@ -13,7 +13,19 @@ import (
 	slogchi "github.com/samber/slog-chi"
 )
 
-func NewServer(deviceHandler *DeviceHandler, authHandler *AuthHandler, ruleHandler *RuleHandler, queriesHandler *QueriesHandler, policyHandler *PolicyHandler, accessLogHandler *AccessLogHandler, dashboardHandler *DashboardHandler, registrationHandler *RegistrationHandler, hostAccessHandler *HostAccessHandler, logger *slog.Logger, trustedProxy netip.Addr) http.Handler {
+func NewServer(
+	deviceHandler *DeviceHandler,
+	authHandler *AuthHandler,
+	ruleHandler *RuleHandler,
+	queriesHandler *QueriesHandler,
+	policyHandler *PolicyHandler,
+	accessLogHandler *AccessLogHandler,
+	dashboardHandler *DashboardHandler,
+	registrationHandler *RegistrationHandler,
+	hostAccessHandler *HostAccessHandler,
+	logger *slog.Logger,
+	trustedProxy netip.Addr,
+) http.Handler {
 	r := chi.NewRouter()
 
 	loggerConfig := slogchi.Config{
