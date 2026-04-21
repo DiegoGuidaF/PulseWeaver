@@ -37,9 +37,10 @@ type transactor interface {
 }
 
 type Service struct {
-	repo   repository
-	tx     transactor
-	logger *slog.Logger
+	repo          repository
+	tx            transactor
+	logger        *slog.Logger
+	userObservers []UserObserver
 }
 
 func NewService(repo repository, tx transactor, logger *slog.Logger) *Service {
@@ -47,6 +48,16 @@ func NewService(repo repository, tx transactor, logger *slog.Logger) *Service {
 		repo:   repo,
 		tx:     tx,
 		logger: logger.With(slog.String(logging.AttrKeyComponent, "auth")),
+	}
+}
+
+func (s *Service) AddUserObserver(obs UserObserver) {
+	s.userObservers = append(s.userObservers, obs)
+}
+
+func (s *Service) notifyUserObservers(ctx context.Context, event UserEvent) {
+	for _, obs := range s.userObservers {
+		obs.OnUserEvent(ctx, event)
 	}
 }
 
@@ -344,6 +355,7 @@ func (s *Service) DeleteUser(ctx context.Context, principal *Principal, targetID
 			return err
 		}
 
+		s.notifyUserObservers(ctx, UserEvent{Type: EventTypeUserDeleted, UserID: targetID})
 		s.logger.InfoContext(ctx, "user deleted", slog.Int64(AttrKeyUserID, targetID.Int64()))
 		return nil
 	})
@@ -357,6 +369,7 @@ func (s *Service) createUser(ctx context.Context, newUser *User) (*User, error) 
 		return nil, err
 	}
 
+	s.notifyUserObservers(ctx, UserEvent{Type: EventTypeUserCreated, UserID: user.ID})
 	s.logger.InfoContext(ctx, "user created", slog.Int64(AttrKeyUserID, user.ID.Int64()), slog.String(AttrKeyUsername, user.Username))
 	return user, nil
 }

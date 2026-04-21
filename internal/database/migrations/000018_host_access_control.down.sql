@@ -57,47 +57,15 @@ CREATE INDEX idx_request_audit_log_client_ip  ON access_log (client_ip);
 CREATE INDEX idx_request_audit_log_device_id  ON access_log (device_id, created_at DESC);
 CREATE INDEX idx_request_audit_log_outcome    ON access_log (outcome, created_at DESC);
 
--- ── 2. Drop host-access domain tables ────────────────────────────────────────
+-- ── 2. Drop host-access domain tables and user settings ──────────────────────
 
 DROP TABLE IF EXISTS user_allowed_host_groups;
 DROP TABLE IF EXISTS user_allowed_hosts;
+DROP TABLE IF EXISTS user_host_settings;
 DROP TABLE IF EXISTS host_group_members;
 DROP TABLE IF EXISTS host_groups;
 DROP TABLE IF EXISTS known_hosts;
 DROP TABLE IF EXISTS ignored_host_suggestions;
-
--- ── 3. Remove bypass_host_allowlist from users ────────────────────────────────
-
-CREATE TABLE users_new
-(
-    id                   INTEGER PRIMARY KEY,
-    username             TEXT      NOT NULL COLLATE NOCASE,
-    display_name         TEXT      NOT NULL,
-    email                TEXT      NOT NULL DEFAULT '',
-    password_hash        BLOB,
-    role                 TEXT      NOT NULL DEFAULT 'user',
-    must_change_password BOOLEAN   NOT NULL DEFAULT 0 CHECK (must_change_password IN (0, 1)),
-    created_by           INTEGER   REFERENCES users_new (id) ON DELETE SET NULL,
-    created_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at           DATETIME
-);
-
-INSERT INTO users_new
-    (id, username, display_name, email, password_hash, role, must_change_password,
-     created_by, created_at, deleted_at)
-SELECT
-    id, username, display_name, email, password_hash, role, must_change_password,
-    created_by, created_at, deleted_at
-FROM users;
-
-DROP TABLE users;
-ALTER TABLE users_new RENAME TO users;
-
-CREATE UNIQUE INDEX idx_users_username_active
-    ON users (username COLLATE NOCASE) WHERE deleted_at IS NULL;
-
-CREATE UNIQUE INDEX idx_users_email_active
-    ON users (email) WHERE email != '' AND deleted_at IS NULL;
 
 PRAGMA foreign_key_check;
 COMMIT;

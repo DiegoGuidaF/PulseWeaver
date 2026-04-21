@@ -430,31 +430,28 @@ func (r *Repository) ListIgnoredSuggestions(ctx context.Context) ([]IgnoredHostS
 // GetAllUserHostAccess returns a row for every user that has either bypass access
 // or at least one allowed host grant. Users with neither are not included; the
 // policy layer treats them as deny-all (zero value accumulator).
-// TODO: This method should go to the query package since it is cross domain (users table)
 func (r *Repository) GetAllUserHostAccess(ctx context.Context) ([]policy.UserHostAccess, error) {
 	// Each row represents one (user, fqdn) pair, or one (user, NULL) for bypass-only users.
 	// UNION removes duplicates that arise when a host is granted both directly and via group.
 	const query = `
-		SELECT u.id AS user_id, u.bypass_host_allowlist, kh.fqdn AS fqdn
-		FROM users u
-		JOIN user_allowed_hosts uah ON uah.user_id = u.id
+		SELECT uhs.user_id, uhs.bypass_host_allowlist, kh.fqdn AS fqdn
+		FROM user_host_settings uhs
+		JOIN user_allowed_hosts uah ON uah.user_id = uhs.user_id
 		JOIN known_hosts kh ON kh.id = uah.known_host_id
-		WHERE u.deleted_at IS NULL
 
 		UNION
 
-		SELECT u.id AS user_id, u.bypass_host_allowlist, kh.fqdn AS fqdn
-		FROM users u
-		JOIN user_allowed_host_groups uahg ON uahg.user_id = u.id
+		SELECT uhs.user_id, uhs.bypass_host_allowlist, kh.fqdn AS fqdn
+		FROM user_host_settings uhs
+		JOIN user_allowed_host_groups uahg ON uahg.user_id = uhs.user_id
 		JOIN host_group_members hgm ON hgm.host_group_id = uahg.host_group_id
 		JOIN known_hosts kh ON kh.id = hgm.known_host_id
-		WHERE u.deleted_at IS NULL
 
 		UNION
 
-		SELECT u.id AS user_id, u.bypass_host_allowlist, NULL AS fqdn
-		FROM users u
-		WHERE u.bypass_host_allowlist = 1 AND u.deleted_at IS NULL
+		SELECT uhs.user_id, uhs.bypass_host_allowlist, NULL AS fqdn
+		FROM user_host_settings uhs
+		WHERE uhs.bypass_host_allowlist = 1
 	`
 
 	type row struct {
@@ -491,7 +488,7 @@ func (r *Repository) GetAllUserHostAccess(ctx context.Context) ([]policy.UserHos
 }
 
 func (r *Repository) GetUserBypassAllowlist(ctx context.Context, userID auth.UserID) (bool, error) {
-	const query = `SELECT bypass_host_allowlist FROM users WHERE id = ? AND deleted_at IS NULL`
+	const query = `SELECT bypass_host_allowlist FROM user_host_settings WHERE user_id = ?`
 	var bypass bool
 	if err := r.db.GetContext(ctx, &bypass, query, userID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -503,15 +500,37 @@ func (r *Repository) GetUserBypassAllowlist(ctx context.Context, userID auth.Use
 }
 
 func (r *Repository) SetUserBypassAllowlist(ctx context.Context, userID auth.UserID, bypass bool) error {
-	const query = `UPDATE users SET bypass_host_allowlist = ? WHERE id = ? AND deleted_at IS NULL`
-	res, err := r.db.ExecContext(ctx, query, bypass, userID)
-	if err != nil {
+	const query = `INSERT OR REPLACE INTO user_host_settings (user_id, bypass_host_allowlist) VALUES (?, ?)`
+	if _, err := r.db.ExecContext(ctx, query, userID, bypass); err != nil {
+		if isFKViolation(err) {
+			return auth.ErrUserNotFound
+		}
 		return fmt.Errorf("set user bypass allowlist: %w", err)
 	}
-	if rows, _ := res.RowsAffected(); rows == 0 {
-		return auth.ErrUserNotFound
+	return nil
+}
+
+func (r *Repository) EnsureUserSettings(ctx context.Context, userID auth.UserID) error {
+	const query = `INSERT OR IGNORE INTO user_host_settings (user_id, bypass_host_allowlist) VALUES (?, 0)`
+	if _, err := r.db.ExecContext(ctx, query, userID); err != nil {
+		return fmt.Errorf("ensure user host settings: %w", err)
 	}
 	return nil
+}
+
+func (r *Repository) DeleteUserData(ctx context.Context, userID auth.UserID) error {
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		for _, q := range []string{
+			`DELETE FROM user_host_settings WHERE user_id = ?`,
+			`DELETE FROM user_allowed_hosts WHERE user_id = ?`,
+			`DELETE FROM user_allowed_host_groups WHERE user_id = ?`,
+		} {
+			if _, err := r.db.ExecContext(ctx, q, userID); err != nil {
+				return fmt.Errorf("delete user host data: %w", err)
+			}
+		}
+		return nil
+	})
 }
 
 func (r *Repository) SetUserGrants(ctx context.Context, userID auth.UserID, hostIDs []KnownHostID, groupIDs []HostGroupID) error {
@@ -543,6 +562,18 @@ func (r *Repository) SetUserGrants(ctx context.Context, userID auth.UserID, host
 				}
 				return fmt.Errorf("insert user group grant: %w", err)
 			}
+		}
+		return nil
+	})
+}
+
+func (r *Repository) SetFullUserGrants(ctx context.Context, userID auth.UserID, bypass *bool, hostIDs []KnownHostID, groupIDs []HostGroupID) error {
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		if err := r.SetUserGrants(ctx, userID, hostIDs, groupIDs); err != nil {
+			return err
+		}
+		if bypass != nil {
+			return r.SetUserBypassAllowlist(ctx, userID, *bypass)
 		}
 		return nil
 	})

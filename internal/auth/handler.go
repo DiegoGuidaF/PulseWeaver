@@ -82,24 +82,6 @@ func (h *HTTPHandler) GetCurrentUser(ctx context.Context, _ httpapi.GetCurrentUs
 	return httpapi.GetCurrentUser200JSONResponse(toUserResponse(user)), nil
 }
 
-func (h *HTTPHandler) ListUsers(ctx context.Context, _ httpapi.ListUsersRequestObject) (httpapi.ListUsersResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "ListUsers")
-	logger := h.logger
-
-	users, err := h.service.ListUsers(ctx)
-	if err != nil {
-		logger.ErrorContext(ctx, "failed to list users", slog.Any(AttrKeyError, err))
-		return httpapi.ListUsers500JSONResponse(errorMsgResponse("Failed to list users")), nil
-	}
-
-	response := make(httpapi.ListUsers200JSONResponse, 0, len(users))
-	for _, user := range users {
-		response = append(response, toUserResponse(&user))
-	}
-
-	return response, nil
-}
-
 func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUserRequestObject) (httpapi.CreateUserResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "CreateUser")
 	username := request.Body.Username
@@ -309,14 +291,13 @@ func (h *HTTPHandler) UserAuthenticator() UserAuthenticator {
 
 func toUserResponse(d *User) httpapi.User {
 	return httpapi.User{
-		Id:                  d.ID.Int64(),
-		Username:            d.Username,
-		DisplayName:         d.DisplayName,
-		Email:               openapi_types.Email(d.Email),
-		Role:                httpapi.UserRole(d.Role),
-		MustChangePassword:  new(d.MustChangePassword),
-		BypassHostAllowlist: d.BypassHostAllowlist,
-		CreatedAt:           httpapi.UTCTime(d.CreatedAt),
+		Id:                 d.ID.Int64(),
+		Username:           d.Username,
+		DisplayName:        d.DisplayName,
+		Email:              openapi_types.Email(d.Email),
+		Role:               httpapi.UserRole(d.Role),
+		MustChangePassword: new(d.MustChangePassword),
+		CreatedAt:          httpapi.UTCTime(d.CreatedAt),
 	}
 }
 

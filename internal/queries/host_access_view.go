@@ -13,7 +13,6 @@ type KnownHostStats struct {
 	FQDN      string                 `db:"fqdn"`
 	Icon      *string                `db:"icon"`
 	CreatedAt time.Time              `db:"created_at"`
-	LastSeen  *time.Time             `db:"last_seen"`
 	UserCount int                    `db:"user_count"`
 }
 
@@ -31,7 +30,6 @@ func (r *Repository) GetKnownHostsWithStats(ctx context.Context) ([]KnownHostSta
 			kh.fqdn,
 			kh.icon,
 			kh.created_at,
-			MAX(al.created_at) AS last_seen,
 			(
 				SELECT COUNT(DISTINCT user_id) FROM (
 					SELECT uah.user_id FROM user_allowed_hosts uah WHERE uah.known_host_id = kh.id
@@ -42,7 +40,6 @@ func (r *Repository) GetKnownHostsWithStats(ctx context.Context) ([]KnownHostSta
 				)
 			) AS user_count
 		FROM known_hosts kh
-		LEFT JOIN access_log al ON LOWER(al.target_host) = kh.fqdn
 		GROUP BY kh.id, kh.fqdn, kh.icon, kh.created_at
 		ORDER BY kh.fqdn
 	`

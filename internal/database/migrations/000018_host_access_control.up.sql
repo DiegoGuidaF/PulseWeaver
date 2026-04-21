@@ -1,15 +1,18 @@
 PRAGMA foreign_keys = OFF;
 BEGIN TRANSACTION;
 
--- ── 1. Users: add bypass_host_allowlist ───────────────────────────────────────
+-- ── 1. Host-access user settings (bypass_host_allowlist lives here, not on users) ──
 
-ALTER TABLE users
-    ADD COLUMN bypass_host_allowlist INTEGER NOT NULL DEFAULT 0
-        CHECK (bypass_host_allowlist IN (0, 1));
+CREATE TABLE user_host_settings
+(
+    user_id              INTEGER PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+    bypass_host_allowlist INTEGER NOT NULL DEFAULT 0
+        CHECK (bypass_host_allowlist IN (0, 1))
+);
 
 -- Preserve unrestricted behaviour for all existing users.
-UPDATE users
-SET bypass_host_allowlist = 1;
+INSERT INTO user_host_settings (user_id, bypass_host_allowlist)
+SELECT id, 1 FROM users;
 
 -- ── 2. Host-access domain tables ─────────────────────────────────────────────
 

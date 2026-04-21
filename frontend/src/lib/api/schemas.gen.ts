@@ -1174,13 +1174,6 @@ export const KnownHostWithStatsSchema = {
             format: 'date-time',
             'x-go-type': 'UTCTime'
         },
-        last_seen: {
-            type: 'string',
-            format: 'date-time',
-            nullable: true,
-            description: 'Last time this host appeared in the access log.',
-            'x-go-type': 'UTCTime'
-        },
         user_count: {
             type: 'integer',
             description: 'Number of distinct users with access to this host.'

@@ -319,7 +319,6 @@ export const zKnownHostWithStats = z.object({
     fqdn: z.string(),
     icon: z.string().nullish(),
     created_at: z.iso.datetime({ offset: true, local: true }),
-    last_seen: z.iso.datetime({ offset: true, local: true }).nullish(),
     user_count: z.int()
 });
 

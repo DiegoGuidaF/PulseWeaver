@@ -22,22 +22,32 @@ func setupHostAccessRepo(t *testing.T) (*hostaccess.Repository, *database.DB) {
 }
 
 // insertUser inserts a raw user row and returns its ID.
+// For active users a user_host_settings row is also created (mirroring the observer behaviour).
+// Deleted users intentionally have no settings row, simulating post-observer cleanup.
 func insertUser(t *testing.T, db *database.DB, username string, bypass bool, deleted bool) auth.UserID {
 	t.Helper()
+	ctx := context.Background()
 	var id auth.UserID
+
 	deletedExpr := "NULL"
 	if deleted {
 		deletedExpr = "'2024-01-01 00:00:00'"
 	}
-	bypassVal := 0
-	if bypass {
-		bypassVal = 1
-	}
-	q := `INSERT INTO users (username, display_name, password_hash, role, bypass_host_allowlist, deleted_at)
-	      VALUES (?, ?, NULL, 'user', ?, ` + deletedExpr + `) RETURNING id`
-	err := db.QueryRowxContext(context.Background(), q, username, username, bypassVal).Scan(&id)
-	if err != nil {
+	q := `INSERT INTO users (username, display_name, password_hash, role, deleted_at)
+	      VALUES (?, ?, NULL, 'user', ` + deletedExpr + `) RETURNING id`
+	if err := db.QueryRowxContext(ctx, q, username, username).Scan(&id); err != nil {
 		t.Fatalf("insertUser(%q): %v", username, err)
+	}
+
+	if !deleted {
+		bypassVal := 0
+		if bypass {
+			bypassVal = 1
+		}
+		sq := `INSERT INTO user_host_settings (user_id, bypass_host_allowlist) VALUES (?, ?)`
+		if _, err := db.ExecContext(ctx, sq, id, bypassVal); err != nil {
+			t.Fatalf("insertUser(%q) settings: %v", username, err)
+		}
 	}
 	return id
 }

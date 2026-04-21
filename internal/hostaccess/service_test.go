@@ -126,6 +126,9 @@ func (f *fakeRepo) SetUserGrants(_ context.Context, _ auth.UserID, _ []KnownHost
 func (f *fakeRepo) SetUserBypassAllowlist(_ context.Context, _ auth.UserID, _ bool) error {
 	return f.err
 }
+func (f *fakeRepo) SetFullUserGrants(_ context.Context, _ auth.UserID, _ *bool, _ []KnownHostID, _ []HostGroupID) error {
+	return f.err
+}
 
 func (f *fakeRepo) AddIgnoredSuggestion(_ context.Context, _ string) (IgnoredHostSuggestion, error) {
 	if f.err != nil {
@@ -146,6 +149,8 @@ func (f *fakeRepo) ListIgnoredSuggestions(_ context.Context) ([]IgnoredHostSugge
 func (f *fakeRepo) GetUserBypassAllowlist(_ context.Context, _ auth.UserID) (bool, error) {
 	return false, f.err
 }
+func (f *fakeRepo) EnsureUserSettings(_ context.Context, _ auth.UserID) error { return f.err }
+func (f *fakeRepo) DeleteUserData(_ context.Context, _ auth.UserID) error     { return f.err }
 
 func (f *fakeRepo) GetAllUserHostAccess(_ context.Context) ([]policy.UserHostAccess, error) {
 	return nil, f.err
@@ -244,6 +249,19 @@ func TestService_ListKnownHosts_DoesNotNotify(t *testing.T) {
 
 	is.NoErr(err)
 	is.Equal(obs.calls, 0)
+}
+
+func TestService_SetFullUserGrants_NotifiesObserversOnce(t *testing.T) {
+	is := is.New(t)
+	obs := &mockObserver{}
+	svc := newTestService(&fakeRepo{})
+	svc.AddObserver(obs)
+
+	bypass := true
+	err := svc.SetFullUserGrants(context.Background(), auth.UserID(1), &bypass, nil, nil)
+
+	is.NoErr(err)
+	is.Equal(obs.calls, 1)
 }
 
 func TestService_MultipleObservers_AllNotified(t *testing.T) {

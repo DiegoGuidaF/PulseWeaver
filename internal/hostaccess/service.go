@@ -36,6 +36,7 @@ type repository interface {
 	ListUserGrants(ctx context.Context, userID auth.UserID) (hosts []KnownHost, groups []HostGroup, err error)
 	SetUserGrants(ctx context.Context, userID auth.UserID, hostIDs []KnownHostID, groupIDs []HostGroupID) error
 	SetUserBypassAllowlist(ctx context.Context, userID auth.UserID, bypass bool) error
+	SetFullUserGrants(ctx context.Context, userID auth.UserID, bypass *bool, hostIDs []KnownHostID, groupIDs []HostGroupID) error
 
 	AddIgnoredSuggestion(ctx context.Context, fqdn string) (IgnoredHostSuggestion, error)
 	FindIgnoredSuggestionByFQDN(ctx context.Context, fqdn string) (IgnoredHostSuggestion, error)
@@ -43,6 +44,8 @@ type repository interface {
 	ListIgnoredSuggestions(ctx context.Context) ([]IgnoredHostSuggestion, error)
 
 	GetUserBypassAllowlist(ctx context.Context, userID auth.UserID) (bool, error)
+	EnsureUserSettings(ctx context.Context, userID auth.UserID) error
+	DeleteUserData(ctx context.Context, userID auth.UserID) error
 
 	GetAllUserHostAccess(ctx context.Context) ([]policy.UserHostAccess, error)
 }
@@ -231,6 +234,25 @@ func (s *Service) ListUserGrants(ctx context.Context, userID auth.UserID) (hosts
 	return s.repo.ListUserGrants(ctx, userID)
 }
 
+// UserHostGrants is the combined view of a user's host access configuration.
+type UserHostGrants struct {
+	Bypass bool
+	Hosts  []KnownHost
+	Groups []HostGroup
+}
+
+func (s *Service) GetFullUserGrants(ctx context.Context, userID auth.UserID) (UserHostGrants, error) {
+	bypass, err := s.repo.GetUserBypassAllowlist(ctx, userID)
+	if err != nil {
+		return UserHostGrants{}, err
+	}
+	hosts, groups, err := s.repo.ListUserGrants(ctx, userID)
+	if err != nil {
+		return UserHostGrants{}, err
+	}
+	return UserHostGrants{Bypass: bypass, Hosts: hosts, Groups: groups}, nil
+}
+
 func (s *Service) SetUserGrants(ctx context.Context, userID auth.UserID, hostIDs []KnownHostID, groupIDs []HostGroupID) error {
 	params := NewSetUserGrantsParams(userID, hostIDs, groupIDs)
 	if err := s.repo.SetUserGrants(ctx, params.UserID, params.HostIDs, params.GroupIDs); err != nil {
@@ -242,6 +264,15 @@ func (s *Service) SetUserGrants(ctx context.Context, userID auth.UserID, hostIDs
 
 func (s *Service) SetUserBypassAllowlist(ctx context.Context, userID auth.UserID, bypass bool) error {
 	if err := s.repo.SetUserBypassAllowlist(ctx, userID, bypass); err != nil {
+		return err
+	}
+	s.notifyObservers(ctx)
+	return nil
+}
+
+func (s *Service) SetFullUserGrants(ctx context.Context, userID auth.UserID, bypass *bool, hostIDs []KnownHostID, groupIDs []HostGroupID) error {
+	params := NewSetUserGrantsParams(userID, hostIDs, groupIDs)
+	if err := s.repo.SetFullUserGrants(ctx, userID, bypass, params.HostIDs, params.GroupIDs); err != nil {
 		return err
 	}
 	s.notifyObservers(ctx)
@@ -268,4 +299,25 @@ func (s *Service) RemoveIgnoredSuggestion(ctx context.Context, id int64) error {
 
 func (s *Service) ListIgnoredSuggestions(ctx context.Context) ([]IgnoredHostSuggestion, error) {
 	return s.repo.ListIgnoredSuggestions(ctx)
+}
+
+// OnUserEvent implements auth.UserObserver. Called synchronously within the auth
+// transaction, so settings changes are atomic with the user lifecycle event.
+func (s *Service) OnUserEvent(ctx context.Context, event auth.UserEvent) {
+	switch event.Type {
+	case auth.EventTypeUserCreated:
+		if err := s.repo.EnsureUserSettings(ctx, event.UserID); err != nil {
+			s.logger.ErrorContext(ctx, "failed to initialize user host settings",
+				slog.Int64("user_id", event.UserID.Int64()),
+				slog.Any(logging.AttrKeyError, err),
+			)
+		}
+	case auth.EventTypeUserDeleted:
+		if err := s.repo.DeleteUserData(ctx, event.UserID); err != nil {
+			s.logger.ErrorContext(ctx, "failed to delete user host data",
+				slog.Int64("user_id", event.UserID.Int64()),
+				slog.Any(logging.AttrKeyError, err),
+			)
+		}
+	}
 }

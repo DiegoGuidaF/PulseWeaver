@@ -23,3 +23,4 @@
 | Service tests | `service-tests.md` | Writing tests for service methods | Testing SQL/HTTP (use repository/handler tests) | `device/service_test.go` |
 | Repository tests | `repository-tests.md` | Writing tests for repository methods | Testing business logic (use service tests) | `device/repository_test.go`, `testdb/` |
 | Access log supplemental tables | `access-log-supplemental.md` | Adding optional detail data to access log rows (sparse child tables) | Data that is always present — add a column instead | `accesslog/repository.go`, `access_log_geoip`, `access_log_ip_devices` |
+| Cross-domain queries | `cross-domain-queries.md` | Reading data that spans two or more domain table sets | Any single-domain query (use the domain's own repository) | `queries/`, `hostaccess/repository.go`, `auth/events.go` |

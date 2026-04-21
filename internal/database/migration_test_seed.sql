@@ -112,6 +112,13 @@ INSERT INTO access_log_geoip (access_log_id, country_code, country_name, asn)
 -- (down migration drops the tables) and the tables are recreated empty on
 -- re-apply. This section ensures INSERT constraints are valid at schema N.
 
+-- user_host_settings owns bypass_host_allowlist; every active user needs a row.
+INSERT INTO user_host_settings (user_id, bypass_host_allowlist)
+    SELECT id, 1 FROM users WHERE username = 'seed-admin';
+
+INSERT INTO user_host_settings (user_id, bypass_host_allowlist)
+    SELECT id, 0 FROM users WHERE username = 'seed-user';
+
 INSERT INTO known_hosts (fqdn, icon) VALUES ('seed.example.com', 'server');
 INSERT INTO known_hosts (fqdn) VALUES ('seed-no-icon.example.com');
 

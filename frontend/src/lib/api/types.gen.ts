@@ -460,10 +460,6 @@ export type KnownHostWithStats = {
     icon?: string | null;
     created_at: string;
     /**
-     * Last time this host appeared in the access log.
-     */
-    last_seen?: string | null;
-    /**
      * Number of distinct users with access to this host.
      */
     user_count: number;

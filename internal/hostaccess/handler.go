@@ -194,32 +194,26 @@ func (h *HTTPHandler) GetUserHostGrants(
 	ctx = logging.WithOperation(ctx, "GetUserHostGrants")
 	userID := auth.UserID(req.UserId)
 
-	bypass, err := h.service.GetUserBypassAllowlist(ctx, userID)
+	grants, err := h.service.GetFullUserGrants(ctx, userID)
 	if err != nil {
 		if errors.Is(err, auth.ErrUserNotFound) {
 			return httpapi.GetUserHostGrants404JSONResponse(errResp("User not found")), nil
 		}
-		h.logger.ErrorContext(ctx, "get user bypass failed", slog.Any(logging.AttrKeyError, err))
-		return httpapi.GetUserHostGrants500JSONResponse(errResp("Failed to get user grants")), nil
-	}
-
-	hosts, groups, err := h.service.ListUserGrants(ctx, userID)
-	if err != nil {
 		h.logger.ErrorContext(ctx, "get user host grants failed", slog.Any(logging.AttrKeyError, err))
 		return httpapi.GetUserHostGrants500JSONResponse(errResp("Failed to get user grants")), nil
 	}
 
-	hostIDs := make([]int64, len(hosts))
-	for i, host := range hosts {
+	hostIDs := make([]int64, len(grants.Hosts))
+	for i, host := range grants.Hosts {
 		hostIDs[i] = host.ID.Int64()
 	}
-	groupIDs := make([]int64, len(groups))
-	for i, group := range groups {
+	groupIDs := make([]int64, len(grants.Groups))
+	for i, group := range grants.Groups {
 		groupIDs[i] = group.ID.Int64()
 	}
 
 	return httpapi.GetUserHostGrants200JSONResponse(httpapi.UserHostGrants{
-		Bypass:   bypass,
+		Bypass:   grants.Bypass,
 		HostIds:  hostIDs,
 		GroupIds: groupIDs,
 	}), nil
@@ -248,25 +242,13 @@ func (h *HTTPHandler) SetUserHostGrants(
 		}
 	}
 
-	if err := h.service.SetUserGrants(ctx, userID, hostIDs, groupIDs); err != nil {
+	if err := h.service.SetFullUserGrants(ctx, userID, req.Body.Bypass, hostIDs, groupIDs); err != nil {
 		switch {
-		case errors.Is(err, ErrReferenceNotFound):
+		case errors.Is(err, ErrReferenceNotFound), errors.Is(err, auth.ErrUserNotFound):
 			return httpapi.SetUserHostGrants404JSONResponse(errResp("User or one of the referenced hosts/groups not found")), nil
 		default:
 			h.logger.ErrorContext(ctx, "set user host grants failed", slog.Any(logging.AttrKeyError, err))
 			return httpapi.SetUserHostGrants500JSONResponse(errResp("Failed to set user grants")), nil
-		}
-	}
-
-	if req.Body.Bypass != nil {
-		if err := h.service.SetUserBypassAllowlist(ctx, userID, *req.Body.Bypass); err != nil {
-			switch {
-			case errors.Is(err, auth.ErrUserNotFound):
-				return httpapi.SetUserHostGrants404JSONResponse(errResp("User not found")), nil
-			default:
-				h.logger.ErrorContext(ctx, "set user bypass failed", slog.Any(logging.AttrKeyError, err))
-				return httpapi.SetUserHostGrants500JSONResponse(errResp("Failed to set user bypass")), nil
-			}
 		}
 	}
 
