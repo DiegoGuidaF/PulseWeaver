@@ -1978,7 +1978,7 @@ paths:
       operationId: createHostGroup
       tags:
         - host-access
-      summary: Create a host group
+      summary: Create a host group with optional member hosts
       requestBody:
         required: true
         content:
@@ -1988,10 +1988,6 @@ paths:
       responses:
         '201':
           description: Group created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HostGroup'
         '400':
           description: Bad Request
           content:
@@ -2006,6 +2002,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Forbidden
+        '404':
+          description: One or more host IDs not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Group name already exists
           content:
@@ -2023,7 +2025,7 @@ paths:
       operationId: updateHostGroup
       tags:
         - host-access
-      summary: Update a host group's metadata
+      summary: Update a host group's metadata and optionally replace its members
       parameters:
         - name: group_id
           in: path
@@ -2037,12 +2039,8 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateHostGroupRequest'
       responses:
-        '200':
+        '204':
           description: Group updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HostGroup'
         '401':
           description: Unauthorized
           content:
@@ -2052,7 +2050,7 @@ paths:
         '403':
           description: Forbidden
         '404':
-          description: Group not found
+          description: Group or one of the referenced hosts not found
           content:
             application/json:
               schema:
@@ -2093,53 +2091,6 @@ paths:
           description: Forbidden
         '404':
           description: Group not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /admin/host-groups/{group_id}/members:
-    put:
-      operationId: setHostGroupMembers
-      tags:
-        - host-access
-      summary: Atomically replace all members of a host group
-      parameters:
-        - name: group_id
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/ID'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SetHostGroupMembersRequest'
-      responses:
-        '204':
-          description: Members updated
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-        '404':
-          description: Group or one of the hosts not found
           content:
             application/json:
               schema:
@@ -3265,27 +3216,6 @@ components:
           x-go-type: NullableString
           x-go-type-skip-optional-pointer: true
           description: Tabler icon name. Pass null to clear.
-    HostGroup:
-      type: object
-      required:
-        - id
-        - name
-        - created_at
-      properties:
-        id:
-          $ref: '#/components/schemas/ID'
-        name:
-          type: string
-        description:
-          type: string
-          nullable: true
-        icon:
-          type: string
-          nullable: true
-        created_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
     HostGroupWithMembers:
       type: object
       required:
@@ -3328,6 +3258,11 @@ components:
         icon:
           type: string
           nullable: true
+        host_ids:
+          type: array
+          description: Known-host IDs to include in the group.
+          items:
+            $ref: '#/components/schemas/ID'
     UpdateHostGroupRequest:
       type: object
       required:
@@ -3347,32 +3282,9 @@ components:
           nullable: true
           x-go-type: NullableString
           x-go-type-skip-optional-pointer: true
-    SetHostGroupMembersRequest:
-      type: object
-      required:
-        - host_ids
-      properties:
         host_ids:
           type: array
-          items:
-            type: integer
-          description: Complete list of known-host IDs for this group.
-    UserHostGrants:
-      type: object
-      required:
-        - bypass
-        - host_ids
-        - group_ids
-      properties:
-        bypass:
-          type: boolean
-          description: When true the user can reach every known host.
-        host_ids:
-          type: array
-          items:
-            $ref: '#/components/schemas/ID'
-        group_ids:
-          type: array
+          description: Known-host IDs for this group. Omit to leave members unchanged; pass empty array to clear.
           items:
             $ref: '#/components/schemas/ID'
     SetUserHostGrantsRequest:

@@ -122,8 +122,6 @@ paths:
     $ref: './paths/host-access.yaml#/hostGroups'
   /admin/host-groups/{group_id}:
     $ref: './paths/host-access.yaml#/hostGroupById'
-  /admin/host-groups/{group_id}/members:
-    $ref: './paths/host-access.yaml#/hostGroupMembers'
   /admin/users/{user_id}/host-grants:
     $ref: './paths/host-access.yaml#/userHostGrants'
   /admin/host-suggestions:
@@ -281,18 +279,12 @@ components:
       $ref: './components/schemas/host-access.yaml#/BulkCreateKnownHostsRequest'
     UpdateKnownHostRequest:
       $ref: './components/schemas/host-access.yaml#/UpdateKnownHostRequest'
-    HostGroup:
-      $ref: './components/schemas/host-access.yaml#/HostGroup'
     HostGroupWithMembers:
       $ref: './components/schemas/host-access.yaml#/HostGroupWithMembers'
     CreateHostGroupRequest:
       $ref: './components/schemas/host-access.yaml#/CreateHostGroupRequest'
     UpdateHostGroupRequest:
       $ref: './components/schemas/host-access.yaml#/UpdateHostGroupRequest'
-    SetHostGroupMembersRequest:
-      $ref: './components/schemas/host-access.yaml#/SetHostGroupMembersRequest'
-    UserHostGrants:
-      $ref: './components/schemas/host-access.yaml#/UserHostGrants'
     SetUserHostGrantsRequest:
       $ref: './components/schemas/host-access.yaml#/SetUserHostGrantsRequest'
     IgnoredHostSuggestion:

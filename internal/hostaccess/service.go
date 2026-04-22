@@ -10,40 +10,20 @@ import (
 )
 
 type repository interface {
-	CreateKnownHost(ctx context.Context, fqdn string, icon *string) (KnownHost, error)
 	BulkCreateKnownHosts(ctx context.Context, fqdns []string) ([]KnownHost, error)
-	GetKnownHost(ctx context.Context, id KnownHostID) (KnownHost, error)
-	ListKnownHosts(ctx context.Context) ([]KnownHost, error)
 	UpdateKnownHost(ctx context.Context, id KnownHostID, icon *string) (KnownHost, error)
 	DeleteKnownHost(ctx context.Context, id KnownHostID) error
 
-	CreateHostGroup(ctx context.Context, name string, description *string, icon *string) (HostGroup, error)
-	GetHostGroup(ctx context.Context, id HostGroupID) (HostGroup, error)
-	ListHostGroups(ctx context.Context) ([]HostGroup, error)
-	ListHostGroupsWithMembers(ctx context.Context) ([]HostGroupWithMembers, error)
-	UpdateHostGroup(ctx context.Context, id HostGroupID, name string, description *string, icon *string) (HostGroup, error)
+	CreateHostGroupWithMembers(ctx context.Context, name string, description *string, icon *string, hostIDs []KnownHostID) (HostGroupID, error)
+	UpdateHostGroupWithMembers(ctx context.Context, id HostGroupID, name string, description *string, icon *string, hostIDs []KnownHostID) error
+	UpdateHostGroupMetadata(ctx context.Context, id HostGroupID, name string, description *string, icon *string) error
 	DeleteHostGroup(ctx context.Context, id HostGroupID) error
 
-	AddHostToGroup(ctx context.Context, groupID HostGroupID, hostID KnownHostID) error
-	RemoveHostFromGroup(ctx context.Context, groupID HostGroupID, hostID KnownHostID) error
-	ListHostGroupMembers(ctx context.Context, groupID HostGroupID) ([]KnownHost, error)
-	SetHostGroupMembers(ctx context.Context, groupID HostGroupID, hostIDs []KnownHostID) error
-
-	GrantUserHost(ctx context.Context, userID auth.UserID, hostID KnownHostID) error
-	RevokeUserHost(ctx context.Context, userID auth.UserID, hostID KnownHostID) error
-	GrantUserHostGroup(ctx context.Context, userID auth.UserID, groupID HostGroupID) error
-	RevokeUserHostGroup(ctx context.Context, userID auth.UserID, groupID HostGroupID) error
-	ListUserGrants(ctx context.Context, userID auth.UserID) (hosts []KnownHost, groups []HostGroup, err error)
-	SetUserGrants(ctx context.Context, userID auth.UserID, hostIDs []KnownHostID, groupIDs []HostGroupID) error
-	SetUserBypassAllowlist(ctx context.Context, userID auth.UserID, bypass bool) error
 	SetFullUserGrants(ctx context.Context, userID auth.UserID, bypass *bool, hostIDs []KnownHostID, groupIDs []HostGroupID) error
 
 	AddIgnoredSuggestion(ctx context.Context, fqdn string) (IgnoredHostSuggestion, error)
-	FindIgnoredSuggestionByFQDN(ctx context.Context, fqdn string) (IgnoredHostSuggestion, error)
-	RemoveIgnoredSuggestion(ctx context.Context, id int64) error
-	ListIgnoredSuggestions(ctx context.Context) ([]IgnoredHostSuggestion, error)
+	RemoveIgnoredSuggestionByFQDN(ctx context.Context, fqdn string) error
 
-	GetUserBypassAllowlist(ctx context.Context, userID auth.UserID) (bool, error)
 	EnsureUserSettings(ctx context.Context, userID auth.UserID) error
 	DeleteUserData(ctx context.Context, userID auth.UserID) error
 
@@ -82,16 +62,6 @@ func (s *Service) GetAllUserHostAccess(ctx context.Context) ([]policy.UserHostAc
 
 // ── Known hosts ───────────────────────────────────────────────────────────────
 
-// TODO: Not used, can be removed
-func (s *Service) CreateKnownHost(ctx context.Context, fqdn string, icon *string) (KnownHost, error) {
-	host, err := s.repo.CreateKnownHost(ctx, fqdn, icon)
-	if err != nil {
-		return KnownHost{}, err
-	}
-	s.notifyObservers(ctx)
-	return host, nil
-}
-
 func (s *Service) BulkCreateKnownHosts(ctx context.Context, fqdns []string) ([]KnownHost, error) {
 	params, err := NewBulkCreateKnownHostsParams(fqdns)
 	if err != nil {
@@ -109,14 +79,6 @@ func (s *Service) UpdateKnownHost(ctx context.Context, id KnownHostID, icon *str
 	return s.repo.UpdateKnownHost(ctx, id, icon)
 }
 
-func (s *Service) GetKnownHost(ctx context.Context, id KnownHostID) (KnownHost, error) {
-	return s.repo.GetKnownHost(ctx, id)
-}
-
-func (s *Service) ListKnownHosts(ctx context.Context) ([]KnownHost, error) {
-	return s.repo.ListKnownHosts(ctx)
-}
-
 func (s *Service) DeleteKnownHost(ctx context.Context, id KnownHostID) error {
 	if err := s.repo.DeleteKnownHost(ctx, id); err != nil {
 		return err
@@ -127,24 +89,28 @@ func (s *Service) DeleteKnownHost(ctx context.Context, id KnownHostID) error {
 
 // ── Host groups ───────────────────────────────────────────────────────────────
 
-func (s *Service) CreateHostGroup(ctx context.Context, name string, description *string, icon *string) (HostGroup, error) {
-	return s.repo.CreateHostGroup(ctx, name, description, icon)
+func (s *Service) CreateHostGroup(ctx context.Context, name string, description *string, icon *string, hostIDs []KnownHostID) (HostGroupID, error) {
+	hostIDs = deduplicateHostIDs(hostIDs)
+	groupID, err := s.repo.CreateHostGroupWithMembers(ctx, name, description, icon, hostIDs)
+	if err != nil {
+		return 0, err
+	}
+	s.notifyObservers(ctx)
+	return groupID, nil
 }
 
-func (s *Service) ListHostGroupsWithMembers(ctx context.Context) ([]HostGroupWithMembers, error) {
-	return s.repo.ListHostGroupsWithMembers(ctx)
-}
-
-func (s *Service) UpdateHostGroup(ctx context.Context, id HostGroupID, name string, description *string, icon *string) (HostGroup, error) {
-	return s.repo.UpdateHostGroup(ctx, id, name, description, icon)
-}
-
-func (s *Service) GetHostGroup(ctx context.Context, id HostGroupID) (HostGroup, error) {
-	return s.repo.GetHostGroup(ctx, id)
-}
-
-func (s *Service) ListHostGroups(ctx context.Context) ([]HostGroup, error) {
-	return s.repo.ListHostGroups(ctx)
+// UpdateHostGroup updates a host group's metadata and optionally its members.
+// hostIDs semantics: nil = leave members unchanged; non-nil (even empty) = replace members.
+func (s *Service) UpdateHostGroup(ctx context.Context, id HostGroupID, name string, description *string, icon *string, hostIDs *[]KnownHostID) error {
+	if hostIDs != nil {
+		deduped := deduplicateHostIDs(*hostIDs)
+		if err := s.repo.UpdateHostGroupWithMembers(ctx, id, name, description, icon, deduped); err != nil {
+			return err
+		}
+		s.notifyObservers(ctx)
+		return nil
+	}
+	return s.repo.UpdateHostGroupMetadata(ctx, id, name, description, icon)
 }
 
 func (s *Service) DeleteHostGroup(ctx context.Context, id HostGroupID) error {
@@ -155,114 +121,12 @@ func (s *Service) DeleteHostGroup(ctx context.Context, id HostGroupID) error {
 	return nil
 }
 
-// ── Host group members ────────────────────────────────────────────────────────
-
-func (s *Service) AddHostToGroup(ctx context.Context, groupID HostGroupID, hostID KnownHostID) error {
-	if err := s.repo.AddHostToGroup(ctx, groupID, hostID); err != nil {
-		return err
-	}
-	s.notifyObservers(ctx)
-	return nil
-}
-
-func (s *Service) RemoveHostFromGroup(ctx context.Context, groupID HostGroupID, hostID KnownHostID) error {
-	if err := s.repo.RemoveHostFromGroup(ctx, groupID, hostID); err != nil {
-		return err
-	}
-	s.notifyObservers(ctx)
-	return nil
-}
-
-func (s *Service) ListHostGroupMembers(ctx context.Context, groupID HostGroupID) ([]KnownHost, error) {
-	return s.repo.ListHostGroupMembers(ctx, groupID)
-}
-
-func (s *Service) SetHostGroupMembers(ctx context.Context, groupID HostGroupID, hostIDs []KnownHostID) error {
-	params := NewSetHostGroupMembersParams(groupID, hostIDs)
-	if err := s.repo.SetHostGroupMembers(ctx, params.GroupID, params.HostIDs); err != nil {
-		return err
-	}
-	s.notifyObservers(ctx)
-	return nil
-}
-
 // ── User grants ───────────────────────────────────────────────────────────────
 
-func (s *Service) GrantUserHost(ctx context.Context, userID auth.UserID, hostID KnownHostID) error {
-	if err := s.repo.GrantUserHost(ctx, userID, hostID); err != nil {
-		return err
-	}
-	s.notifyObservers(ctx)
-	return nil
-}
-
-func (s *Service) RevokeUserHost(ctx context.Context, userID auth.UserID, hostID KnownHostID) error {
-	if err := s.repo.RevokeUserHost(ctx, userID, hostID); err != nil {
-		return err
-	}
-	s.notifyObservers(ctx)
-	return nil
-}
-
-func (s *Service) GrantUserHostGroup(ctx context.Context, userID auth.UserID, groupID HostGroupID) error {
-	if err := s.repo.GrantUserHostGroup(ctx, userID, groupID); err != nil {
-		return err
-	}
-	s.notifyObservers(ctx)
-	return nil
-}
-
-func (s *Service) RevokeUserHostGroup(ctx context.Context, userID auth.UserID, groupID HostGroupID) error {
-	if err := s.repo.RevokeUserHostGroup(ctx, userID, groupID); err != nil {
-		return err
-	}
-	s.notifyObservers(ctx)
-	return nil
-}
-
-func (s *Service) ListUserGrants(ctx context.Context, userID auth.UserID) (hosts []KnownHost, groups []HostGroup, err error) {
-	return s.repo.ListUserGrants(ctx, userID)
-}
-
-// UserHostGrants is the combined view of a user's host access configuration.
-type UserHostGrants struct {
-	Bypass bool
-	Hosts  []KnownHost
-	Groups []HostGroup
-}
-
-func (s *Service) GetFullUserGrants(ctx context.Context, userID auth.UserID) (UserHostGrants, error) {
-	bypass, err := s.repo.GetUserBypassAllowlist(ctx, userID)
-	if err != nil {
-		return UserHostGrants{}, err
-	}
-	hosts, groups, err := s.repo.ListUserGrants(ctx, userID)
-	if err != nil {
-		return UserHostGrants{}, err
-	}
-	return UserHostGrants{Bypass: bypass, Hosts: hosts, Groups: groups}, nil
-}
-
-func (s *Service) SetUserGrants(ctx context.Context, userID auth.UserID, hostIDs []KnownHostID, groupIDs []HostGroupID) error {
-	params := NewSetUserGrantsParams(userID, hostIDs, groupIDs)
-	if err := s.repo.SetUserGrants(ctx, params.UserID, params.HostIDs, params.GroupIDs); err != nil {
-		return err
-	}
-	s.notifyObservers(ctx)
-	return nil
-}
-
-func (s *Service) SetUserBypassAllowlist(ctx context.Context, userID auth.UserID, bypass bool) error {
-	if err := s.repo.SetUserBypassAllowlist(ctx, userID, bypass); err != nil {
-		return err
-	}
-	s.notifyObservers(ctx)
-	return nil
-}
-
 func (s *Service) SetFullUserGrants(ctx context.Context, userID auth.UserID, bypass *bool, hostIDs []KnownHostID, groupIDs []HostGroupID) error {
-	params := NewSetUserGrantsParams(userID, hostIDs, groupIDs)
-	if err := s.repo.SetFullUserGrants(ctx, userID, bypass, params.HostIDs, params.GroupIDs); err != nil {
+	hostIDs = deduplicateHostIDs(hostIDs)
+	groupIDs = deduplicateGroupIDs(groupIDs)
+	if err := s.repo.SetFullUserGrants(ctx, userID, bypass, hostIDs, groupIDs); err != nil {
 		return err
 	}
 	s.notifyObservers(ctx)
@@ -275,21 +139,11 @@ func (s *Service) AddIgnoredSuggestion(ctx context.Context, fqdn string) (Ignore
 	return s.repo.AddIgnoredSuggestion(ctx, fqdn)
 }
 
-func (s *Service) FindIgnoredSuggestionByFQDN(ctx context.Context, fqdn string) (IgnoredHostSuggestion, error) {
-	return s.repo.FindIgnoredSuggestionByFQDN(ctx, fqdn)
+func (s *Service) RemoveIgnoredSuggestionByFQDN(ctx context.Context, fqdn string) error {
+	return s.repo.RemoveIgnoredSuggestionByFQDN(ctx, fqdn)
 }
 
-func (s *Service) GetUserBypassAllowlist(ctx context.Context, userID auth.UserID) (bool, error) {
-	return s.repo.GetUserBypassAllowlist(ctx, userID)
-}
-
-func (s *Service) RemoveIgnoredSuggestion(ctx context.Context, id int64) error {
-	return s.repo.RemoveIgnoredSuggestion(ctx, id)
-}
-
-func (s *Service) ListIgnoredSuggestions(ctx context.Context) ([]IgnoredHostSuggestion, error) {
-	return s.repo.ListIgnoredSuggestions(ctx)
-}
+// ── User lifecycle ────────────────────────────────────────────────────────────
 
 // OnUserEvent implements auth.UserObserver. Called synchronously within the auth
 // transaction, so settings changes are atomic with the user lifecycle event.
@@ -310,4 +164,38 @@ func (s *Service) OnUserEvent(ctx context.Context, event auth.UserEvent) {
 			)
 		}
 	}
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+func deduplicateHostIDs(ids []KnownHostID) []KnownHostID {
+	if ids == nil {
+		return nil
+	}
+	seen := make(map[KnownHostID]struct{}, len(ids))
+	out := make([]KnownHostID, 0, len(ids))
+	for _, id := range ids {
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}
+
+func deduplicateGroupIDs(ids []HostGroupID) []HostGroupID {
+	if ids == nil {
+		return nil
+	}
+	seen := make(map[HostGroupID]struct{}, len(ids))
+	out := make([]HostGroupID, 0, len(ids))
+	for _, id := range ids {
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
 }

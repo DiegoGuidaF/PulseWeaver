@@ -187,7 +187,7 @@ hostGroups:
     operationId: createHostGroup
     tags:
       - host-access
-    summary: Create a host group
+    summary: Create a host group with optional member hosts
     requestBody:
       required: true
       content:
@@ -197,10 +197,6 @@ hostGroups:
     responses:
       "201":
         description: Group created
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/host-access.yaml#/HostGroup'
       "400":
         description: Bad Request
         content:
@@ -215,6 +211,12 @@ hostGroups:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
       "403":
         description: Forbidden
+      "404":
+        description: One or more host IDs not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
       "409":
         description: Group name already exists
         content:
@@ -233,7 +235,7 @@ hostGroupById:
     operationId: updateHostGroup
     tags:
       - host-access
-    summary: Update a host group's metadata
+    summary: Update a host group's metadata and optionally replace its members
     parameters:
       - name: group_id
         in: path
@@ -247,12 +249,8 @@ hostGroupById:
           schema:
             $ref: '../components/schemas/host-access.yaml#/UpdateHostGroupRequest'
     responses:
-      "200":
+      "204":
         description: Group updated
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/host-access.yaml#/HostGroup'
       "401":
         description: Unauthorized
         content:
@@ -262,7 +260,7 @@ hostGroupById:
       "403":
         description: Forbidden
       "404":
-        description: Group not found
+        description: Group or one of the referenced hosts not found
         content:
           application/json:
             schema:
@@ -303,54 +301,6 @@ hostGroupById:
         description: Forbidden
       "404":
         description: Group not found
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "500":
-        description: Internal Server Error
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-
-hostGroupMembers:
-  put:
-    operationId: setHostGroupMembers
-    tags:
-      - host-access
-    summary: Atomically replace all members of a host group
-    parameters:
-      - name: group_id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/ID'
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '../components/schemas/host-access.yaml#/SetHostGroupMembersRequest'
-    responses:
-      "204":
-        description: Members updated
-      "400":
-        description: Bad Request
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "401":
-        description: Unauthorized
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "403":
-        description: Forbidden
-      "404":
-        description: Group or one of the hosts not found
         content:
           application/json:
             schema:

@@ -93,6 +93,71 @@ func (r *Repository) GetKnownHostsWithStats(ctx context.Context) ([]KnownHostSta
 	return hosts, nil
 }
 
+// ── Host groups with members ──────────────────────────────────────────────────
+
+type HostGroupWithMembers struct {
+	ID          hostaccess.HostGroupID
+	Name        string
+	Description *string
+	Icon        *string
+	CreatedAt   time.Time
+	Hosts       []hostaccess.KnownHostRef
+}
+
+func (r *Repository) GetHostGroupsWithMembers(ctx context.Context) ([]HostGroupWithMembers, error) {
+	type row struct {
+		ID          hostaccess.HostGroupID  `db:"id"`
+		Name        string                  `db:"name"`
+		Description *string                 `db:"description"`
+		Icon        *string                 `db:"icon"`
+		CreatedAt   time.Time               `db:"created_at"`
+		HostID      *hostaccess.KnownHostID `db:"known_host_id"`
+		HostFQDN    *string                 `db:"host_fqdn"`
+		HostIcon    *string                 `db:"host_icon"`
+	}
+	const query = `
+		SELECT hg.id, hg.name, hg.description, hg.icon, hg.created_at,
+		       hgm.known_host_id, kh.fqdn AS host_fqdn, kh.icon AS host_icon
+		FROM host_groups hg
+		LEFT JOIN host_group_members hgm ON hgm.host_group_id = hg.id
+		LEFT JOIN known_hosts kh ON kh.id = hgm.known_host_id
+		ORDER BY hg.name, kh.fqdn
+	`
+	var rows []row
+	if err := r.db.SelectContext(ctx, &rows, query); err != nil {
+		return nil, fmt.Errorf("get host groups with members: %w", err)
+	}
+
+	seen := make(map[hostaccess.HostGroupID]int)
+	var groups []HostGroupWithMembers
+	for _, rw := range rows {
+		idx, exists := seen[rw.ID]
+		if !exists {
+			idx = len(groups)
+			seen[rw.ID] = idx
+			groups = append(groups, HostGroupWithMembers{
+				ID:          rw.ID,
+				Name:        rw.Name,
+				Description: rw.Description,
+				Icon:        rw.Icon,
+				CreatedAt:   rw.CreatedAt,
+				Hosts:       []hostaccess.KnownHostRef{},
+			})
+		}
+		if rw.HostID != nil && rw.HostFQDN != nil {
+			groups[idx].Hosts = append(groups[idx].Hosts, hostaccess.KnownHostRef{
+				ID:   *rw.HostID,
+				FQDN: *rw.HostFQDN,
+				Icon: rw.HostIcon,
+			})
+		}
+	}
+	if groups == nil {
+		groups = []HostGroupWithMembers{}
+	}
+	return groups, nil
+}
+
 // ── Host suggestions page ─────────────────────────────────────────────────────
 
 type HostSuggestion struct {

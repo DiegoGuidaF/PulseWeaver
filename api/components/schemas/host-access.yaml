@@ -96,28 +96,6 @@ UpdateKnownHostRequest:
       x-go-type-skip-optional-pointer: true
       description: Tabler icon name. Pass null to clear.
 
-HostGroup:
-  type: object
-  required:
-    - id
-    - name
-    - created_at
-  properties:
-    id:
-      $ref: './common.yaml#/ID'
-    name:
-      type: string
-    description:
-      type: string
-      nullable: true
-    icon:
-      type: string
-      nullable: true
-    created_at:
-      type: string
-      format: date-time
-      x-go-type: UTCTime
-
 HostGroupWithMembers:
   type: object
   required:
@@ -161,6 +139,11 @@ CreateHostGroupRequest:
     icon:
       type: string
       nullable: true
+    host_ids:
+      type: array
+      description: Known-host IDs to include in the group.
+      items:
+        $ref: './common.yaml#/ID'
 
 UpdateHostGroupRequest:
   type: object
@@ -181,34 +164,9 @@ UpdateHostGroupRequest:
       nullable: true
       x-go-type: NullableString
       x-go-type-skip-optional-pointer: true
-
-SetHostGroupMembersRequest:
-  type: object
-  required:
-    - host_ids
-  properties:
     host_ids:
       type: array
-      items:
-        type: integer
-      description: Complete list of known-host IDs for this group.
-
-UserHostGrants:
-  type: object
-  required:
-    - bypass
-    - host_ids
-    - group_ids
-  properties:
-    bypass:
-      type: boolean
-      description: When true the user can reach every known host.
-    host_ids:
-      type: array
-      items:
-        $ref: './common.yaml#/ID'
-    group_ids:
-      type: array
+      description: Known-host IDs for this group. Omit to leave members unchanged; pass empty array to clear.
       items:
         $ref: './common.yaml#/ID'
 

@@ -43,8 +43,8 @@ func (h *HTTPHandler) CreateKnownHosts(
 	}
 
 	resp := make([]httpapi.KnownHost, len(hosts))
-	for i, h := range hosts {
-		resp[i] = toKnownHostDTO(h)
+	for i, kh := range hosts {
+		resp[i] = toKnownHostDTO(kh)
 	}
 	return httpapi.CreateKnownHosts201JSONResponse(resp), nil
 }
@@ -86,40 +86,33 @@ func (h *HTTPHandler) DeleteKnownHost(
 
 // ── Host groups ───────────────────────────────────────────────────────────────
 
-func (h *HTTPHandler) ListHostGroups(
-	ctx context.Context,
-	_ httpapi.ListHostGroupsRequestObject,
-) (httpapi.ListHostGroupsResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "ListHostGroups")
-
-	groups, err := h.service.ListHostGroupsWithMembers(ctx)
-	if err != nil {
-		h.logger.ErrorContext(ctx, "list host groups failed", slog.Any(logging.AttrKeyError, err))
-		return httpapi.ListHostGroups500JSONResponse(errResp("Failed to list host groups")), nil
-	}
-
-	resp := make([]httpapi.HostGroupWithMembers, len(groups))
-	for i, g := range groups {
-		resp[i] = toHostGroupWithMembersDTO(g)
-	}
-	return httpapi.ListHostGroups200JSONResponse(resp), nil
-}
-
 func (h *HTTPHandler) CreateHostGroup(
 	ctx context.Context,
 	req httpapi.CreateHostGroupRequestObject,
 ) (httpapi.CreateHostGroupResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "CreateHostGroup")
 
-	group, err := h.service.CreateHostGroup(ctx, req.Body.Name, req.Body.Description, req.Body.Icon)
-	if err != nil {
-		if errors.Is(err, ErrHostGroupConflict) {
-			return httpapi.CreateHostGroup409JSONResponse(errResp("Host group name already exists")), nil
+	var hostIDs []KnownHostID
+	if req.Body.HostIds != nil {
+		hostIDs = make([]KnownHostID, len(*req.Body.HostIds))
+		for i, id := range *req.Body.HostIds {
+			hostIDs[i] = KnownHostID(id)
 		}
-		h.logger.ErrorContext(ctx, "create host group failed", slog.Any(logging.AttrKeyError, err))
-		return httpapi.CreateHostGroup500JSONResponse(errResp("Failed to create host group")), nil
 	}
-	return httpapi.CreateHostGroup201JSONResponse(toHostGroupDTO(group)), nil
+
+	_, err := h.service.CreateHostGroup(ctx, req.Body.Name, req.Body.Description, req.Body.Icon, hostIDs)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrHostGroupConflict):
+			return httpapi.CreateHostGroup409JSONResponse(errResp("Host group name already exists")), nil
+		case errors.Is(err, ErrReferenceNotFound):
+			return httpapi.CreateHostGroup404JSONResponse(errResp("One or more host IDs not found")), nil
+		default:
+			h.logger.ErrorContext(ctx, "create host group failed", slog.Any(logging.AttrKeyError, err))
+			return httpapi.CreateHostGroup500JSONResponse(errResp("Failed to create host group")), nil
+		}
+	}
+	return httpapi.CreateHostGroup201Response{}, nil
 }
 
 func (h *HTTPHandler) UpdateHostGroup(
@@ -129,11 +122,21 @@ func (h *HTTPHandler) UpdateHostGroup(
 	ctx = logging.WithOperation(ctx, "UpdateHostGroup")
 	id := HostGroupID(req.GroupId)
 
-	group, err := h.service.UpdateHostGroup(ctx, id, req.Body.Name, req.Body.Description.Value, req.Body.Icon.Value)
-	if err != nil {
+	var hostIDs *[]KnownHostID
+	if req.Body.HostIds != nil {
+		ids := make([]KnownHostID, len(*req.Body.HostIds))
+		for i, raw := range *req.Body.HostIds {
+			ids[i] = KnownHostID(raw)
+		}
+		hostIDs = &ids
+	}
+
+	if err := h.service.UpdateHostGroup(ctx, id, req.Body.Name, req.Body.Description.Value, req.Body.Icon.Value, hostIDs); err != nil {
 		switch {
 		case errors.Is(err, ErrHostGroupNotFound):
 			return httpapi.UpdateHostGroup404JSONResponse(errResp("Host group not found")), nil
+		case errors.Is(err, ErrReferenceNotFound):
+			return httpapi.UpdateHostGroup404JSONResponse(errResp("One or more host IDs not found")), nil
 		case errors.Is(err, ErrHostGroupConflict):
 			return httpapi.UpdateHostGroup409JSONResponse(errResp("Host group name already taken")), nil
 		default:
@@ -141,7 +144,7 @@ func (h *HTTPHandler) UpdateHostGroup(
 			return httpapi.UpdateHostGroup500JSONResponse(errResp("Failed to update host group")), nil
 		}
 	}
-	return httpapi.UpdateHostGroup200JSONResponse(toHostGroupDTO(group)), nil
+	return httpapi.UpdateHostGroup204Response{}, nil
 }
 
 func (h *HTTPHandler) DeleteHostGroup(
@@ -159,30 +162,6 @@ func (h *HTTPHandler) DeleteHostGroup(
 		return httpapi.DeleteHostGroup500JSONResponse(errResp("Failed to delete host group")), nil
 	}
 	return httpapi.DeleteHostGroup204Response{}, nil
-}
-
-func (h *HTTPHandler) SetHostGroupMembers(
-	ctx context.Context,
-	req httpapi.SetHostGroupMembersRequestObject,
-) (httpapi.SetHostGroupMembersResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "SetHostGroupMembers")
-	groupID := HostGroupID(req.GroupId)
-
-	hostIDs := make([]KnownHostID, len(req.Body.HostIds))
-	for i, id := range req.Body.HostIds {
-		hostIDs[i] = KnownHostID(id)
-	}
-
-	if err := h.service.SetHostGroupMembers(ctx, groupID, hostIDs); err != nil {
-		switch {
-		case errors.Is(err, ErrReferenceNotFound):
-			return httpapi.SetHostGroupMembers404JSONResponse(errResp("Group or one of the hosts not found")), nil
-		default:
-			h.logger.ErrorContext(ctx, "set host group members failed", slog.Any(logging.AttrKeyError, err))
-			return httpapi.SetHostGroupMembers500JSONResponse(errResp("Failed to set host group members")), nil
-		}
-	}
-	return httpapi.SetHostGroupMembers204Response{}, nil
 }
 
 // ── User host grants ──────────────────────────────────────────────────────────
@@ -252,16 +231,10 @@ func (h *HTTPHandler) UnignoreSuggestion(
 ) (httpapi.UnignoreSuggestionResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "UnignoreSuggestion")
 
-	suggestion, err := h.service.FindIgnoredSuggestionByFQDN(ctx, req.Fqdn)
-	if err != nil {
+	if err := h.service.RemoveIgnoredSuggestionByFQDN(ctx, req.Fqdn); err != nil {
 		if errors.Is(err, ErrSuggestionNotFound) {
 			return httpapi.UnignoreSuggestion404JSONResponse(errResp("Ignored suggestion not found")), nil
 		}
-		h.logger.ErrorContext(ctx, "find ignored suggestion failed", slog.Any(logging.AttrKeyError, err))
-		return httpapi.UnignoreSuggestion500JSONResponse(errResp("Failed to unignore suggestion")), nil
-	}
-
-	if err := h.service.RemoveIgnoredSuggestion(ctx, suggestion.ID); err != nil {
 		h.logger.ErrorContext(ctx, "unignore suggestion failed", slog.Any(logging.AttrKeyError, err))
 		return httpapi.UnignoreSuggestion500JSONResponse(errResp("Failed to unignore suggestion")), nil
 	}
@@ -276,35 +249,6 @@ func toKnownHostDTO(h KnownHost) httpapi.KnownHost {
 		Fqdn:      h.FQDN,
 		Icon:      h.Icon,
 		CreatedAt: httpapi.UTCTime(h.CreatedAt),
-	}
-}
-
-func toHostGroupDTO(g HostGroup) httpapi.HostGroup {
-	return httpapi.HostGroup{
-		Id:          g.ID.Int64(),
-		Name:        g.Name,
-		Description: g.Description,
-		Icon:        g.Icon,
-		CreatedAt:   httpapi.UTCTime(g.CreatedAt),
-	}
-}
-
-func toHostGroupWithMembersDTO(g HostGroupWithMembers) httpapi.HostGroupWithMembers {
-	hosts := make([]httpapi.KnownHostRef, len(g.Hosts))
-	for i, h := range g.Hosts {
-		hosts[i] = httpapi.KnownHostRef{
-			Id:   h.ID.Int64(),
-			Fqdn: h.FQDN,
-			Icon: h.Icon,
-		}
-	}
-	return httpapi.HostGroupWithMembers{
-		Id:          g.ID.Int64(),
-		Name:        g.Name,
-		Description: g.Description,
-		Icon:        g.Icon,
-		CreatedAt:   httpapi.UTCTime(g.CreatedAt),
-		Hosts:       hosts,
 	}
 }
 

@@ -68,9 +68,9 @@ func TestRepository_GetAllUserHostAccess_DirectGrant(t *testing.T) {
 
 	userID := insertUser(t, db, "alice", false, false)
 
-	host, err := repo.CreateKnownHost(ctx, "example.com", nil)
+	hosts, err := repo.BulkCreateKnownHosts(ctx, []string{"example.com"})
 	is.NoErr(err)
-	is.NoErr(repo.GrantUserHost(ctx, userID, host.ID))
+	is.NoErr(repo.SetFullUserGrants(ctx, userID, nil, []hostaccess.KnownHostID{hosts[0].ID}, nil))
 
 	result, err := repo.GetAllUserHostAccess(ctx)
 	is.NoErr(err)
@@ -88,13 +88,12 @@ func TestRepository_GetAllUserHostAccess_GroupGrant(t *testing.T) {
 
 	userID := insertUser(t, db, "bob", false, false)
 
-	host, err := repo.CreateKnownHost(ctx, "group-host.com", nil)
+	hosts, err := repo.BulkCreateKnownHosts(ctx, []string{"group-host.com"})
 	is.NoErr(err)
 
-	group, err := repo.CreateHostGroup(ctx, "mygroup", nil, nil)
+	groupID, err := repo.CreateHostGroupWithMembers(ctx, "mygroup", nil, nil, []hostaccess.KnownHostID{hosts[0].ID})
 	is.NoErr(err)
-	is.NoErr(repo.AddHostToGroup(ctx, group.ID, host.ID))
-	is.NoErr(repo.GrantUserHostGroup(ctx, userID, group.ID))
+	is.NoErr(repo.SetFullUserGrants(ctx, userID, nil, nil, []hostaccess.HostGroupID{groupID}))
 
 	result, err := repo.GetAllUserHostAccess(ctx)
 	is.NoErr(err)
@@ -140,17 +139,14 @@ func TestRepository_GetAllUserHostAccess_DirectAndGroupDeduplication(t *testing.
 
 	userID := insertUser(t, db, "dave", false, false)
 
-	host, err := repo.CreateKnownHost(ctx, "shared.com", nil)
+	hosts, err := repo.BulkCreateKnownHosts(ctx, []string{"shared.com"})
 	is.NoErr(err)
 
-	// Direct grant.
-	is.NoErr(repo.GrantUserHost(ctx, userID, host.ID))
-
-	// Group grant for same host.
-	group, err := repo.CreateHostGroup(ctx, "g", nil, nil)
+	groupID, err := repo.CreateHostGroupWithMembers(ctx, "g", nil, nil, []hostaccess.KnownHostID{hosts[0].ID})
 	is.NoErr(err)
-	is.NoErr(repo.AddHostToGroup(ctx, group.ID, host.ID))
-	is.NoErr(repo.GrantUserHostGroup(ctx, userID, group.ID))
+
+	// Grant both direct host and group.
+	is.NoErr(repo.SetFullUserGrants(ctx, userID, nil, []hostaccess.KnownHostID{hosts[0].ID}, []hostaccess.HostGroupID{groupID}))
 
 	result, err := repo.GetAllUserHostAccess(ctx)
 	is.NoErr(err)

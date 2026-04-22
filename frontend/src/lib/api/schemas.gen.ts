@@ -1256,36 +1256,6 @@ export const UpdateKnownHostRequestSchema = {
     }
 } as const;
 
-export const HostGroupSchema = {
-    type: 'object',
-    required: [
-        'id',
-        'name',
-        'created_at'
-    ],
-    properties: {
-        id: {
-            $ref: '#/components/schemas/ID'
-        },
-        name: {
-            type: 'string'
-        },
-        description: {
-            type: 'string',
-            nullable: true
-        },
-        icon: {
-            type: 'string',
-            nullable: true
-        },
-        created_at: {
-            type: 'string',
-            format: 'date-time',
-            'x-go-type': 'UTCTime'
-        }
-    }
-} as const;
-
 export const HostGroupWithMembersSchema = {
     type: 'object',
     required: [
@@ -1342,6 +1312,13 @@ export const CreateHostGroupRequestSchema = {
         icon: {
             type: 'string',
             nullable: true
+        },
+        host_ids: {
+            type: 'array',
+            description: 'Known-host IDs to include in the group.',
+            items: {
+                $ref: '#/components/schemas/ID'
+            }
         }
     }
 } as const;
@@ -1368,46 +1345,10 @@ export const UpdateHostGroupRequestSchema = {
             nullable: true,
             'x-go-type': 'NullableString',
             'x-go-type-skip-optional-pointer': true
-        }
-    }
-} as const;
-
-export const SetHostGroupMembersRequestSchema = {
-    type: 'object',
-    required: [
-        'host_ids'
-    ],
-    properties: {
-        host_ids: {
-            type: 'array',
-            items: {
-                type: 'integer'
-            },
-            description: 'Complete list of known-host IDs for this group.'
-        }
-    }
-} as const;
-
-export const UserHostGrantsSchema = {
-    type: 'object',
-    required: [
-        'bypass',
-        'host_ids',
-        'group_ids'
-    ],
-    properties: {
-        bypass: {
-            type: 'boolean',
-            description: 'When true the user can reach every known host.'
         },
         host_ids: {
             type: 'array',
-            items: {
-                $ref: '#/components/schemas/ID'
-            }
-        },
-        group_ids: {
-            type: 'array',
+            description: 'Known-host IDs for this group. Omit to leave members unchanged; pass empty array to clear.',
             items: {
                 $ref: '#/components/schemas/ID'
             }

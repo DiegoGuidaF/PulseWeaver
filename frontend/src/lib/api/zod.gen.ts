@@ -342,14 +342,6 @@ export const zUpdateKnownHostRequest = z.object({
     icon: z.string().nullish()
 });
 
-export const zHostGroup = z.object({
-    id: zId,
-    name: z.string(),
-    description: z.string().nullish(),
-    icon: z.string().nullish(),
-    created_at: z.iso.datetime({ offset: true, local: true })
-});
-
 export const zHostGroupWithMembers = z.object({
     id: zId,
     name: z.string(),
@@ -362,23 +354,15 @@ export const zHostGroupWithMembers = z.object({
 export const zCreateHostGroupRequest = z.object({
     name: z.string().min(1).max(100),
     description: z.string().max(500).nullish(),
-    icon: z.string().nullish()
+    icon: z.string().nullish(),
+    host_ids: z.array(zId).optional()
 });
 
 export const zUpdateHostGroupRequest = z.object({
     name: z.string().min(1).max(100),
     description: z.string().nullish(),
-    icon: z.string().nullish()
-});
-
-export const zSetHostGroupMembersRequest = z.object({
-    host_ids: z.array(z.int())
-});
-
-export const zUserHostGrants = z.object({
-    bypass: z.boolean(),
-    host_ids: z.array(zId),
-    group_ids: z.array(zId)
+    icon: z.string().nullish(),
+    host_ids: z.array(zId).optional()
 });
 
 export const zSetUserHostGrantsRequest = z.object({
@@ -921,11 +905,6 @@ export const zListHostGroupsResponse = z.array(zHostGroupWithMembers);
 
 export const zCreateHostGroupBody = zCreateHostGroupRequest;
 
-/**
- * Group created
- */
-export const zCreateHostGroupResponse = zHostGroup;
-
 export const zDeleteHostGroupPath = z.object({
     group_id: zId
 });
@@ -944,18 +923,7 @@ export const zUpdateHostGroupPath = z.object({
 /**
  * Group updated
  */
-export const zUpdateHostGroupResponse = zHostGroup;
-
-export const zSetHostGroupMembersBody = zSetHostGroupMembersRequest;
-
-export const zSetHostGroupMembersPath = z.object({
-    group_id: zId
-});
-
-/**
- * Members updated
- */
-export const zSetHostGroupMembersResponse = z.void();
+export const zUpdateHostGroupResponse = z.void();
 
 export const zSetUserHostGrantsBody = zSetUserHostGrantsRequest;
 

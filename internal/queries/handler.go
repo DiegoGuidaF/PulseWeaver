@@ -134,6 +134,36 @@ func (h *HTTPHandler) GetDevicesByUser(
 	return httpapi.GetDevicesByUser200JSONResponse(response), nil
 }
 
+func (h *HTTPHandler) ListHostGroups(
+	ctx context.Context,
+	_ httpapi.ListHostGroupsRequestObject,
+) (httpapi.ListHostGroupsResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "ListHostGroups")
+
+	groups, err := h.repo.GetHostGroupsWithMembers(ctx)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "list host groups failed", slog.Any(logging.AttrKeyError, err))
+		return httpapi.ListHostGroups500JSONResponse(errorMsgResponse("Failed to list host groups")), nil
+	}
+
+	resp := make([]httpapi.HostGroupWithMembers, len(groups))
+	for i, g := range groups {
+		hosts := make([]httpapi.KnownHostRef, len(g.Hosts))
+		for j, host := range g.Hosts {
+			hosts[j] = httpapi.KnownHostRef{Id: host.ID.Int64(), Fqdn: host.FQDN, Icon: host.Icon}
+		}
+		resp[i] = httpapi.HostGroupWithMembers{
+			Id:          g.ID.Int64(),
+			Name:        g.Name,
+			Description: g.Description,
+			Icon:        g.Icon,
+			CreatedAt:   httpapi.UTCTime(g.CreatedAt),
+			Hosts:       hosts,
+		}
+	}
+	return httpapi.ListHostGroups200JSONResponse(resp), nil
+}
+
 func (h *HTTPHandler) GetAccessLog(
 	ctx context.Context,
 	request httpapi.GetAccessLogRequestObject,

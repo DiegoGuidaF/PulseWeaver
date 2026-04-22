@@ -494,14 +494,6 @@ export type UpdateKnownHostRequest = {
     icon?: string | null;
 };
 
-export type HostGroup = {
-    id: Id;
-    name: string;
-    description?: string | null;
-    icon?: string | null;
-    created_at: string;
-};
-
 export type HostGroupWithMembers = {
     id: Id;
     name: string;
@@ -515,28 +507,20 @@ export type CreateHostGroupRequest = {
     name: string;
     description?: string | null;
     icon?: string | null;
+    /**
+     * Known-host IDs to include in the group.
+     */
+    host_ids?: Array<Id>;
 };
 
 export type UpdateHostGroupRequest = {
     name: string;
     description?: string | null;
     icon?: string | null;
-};
-
-export type SetHostGroupMembersRequest = {
     /**
-     * Complete list of known-host IDs for this group.
+     * Known-host IDs for this group. Omit to leave members unchanged; pass empty array to clear.
      */
-    host_ids: Array<number>;
-};
-
-export type UserHostGrants = {
-    /**
-     * When true the user can reach every known host.
-     */
-    bypass: boolean;
-    host_ids: Array<Id>;
-    group_ids: Array<Id>;
+    host_ids?: Array<Id>;
 };
 
 export type SetUserHostGrantsRequest = {
@@ -2530,6 +2514,10 @@ export type CreateHostGroupErrors = {
      */
     403: unknown;
     /**
+     * One or more host IDs not found
+     */
+    404: ErrorResponse;
+    /**
      * Group name already exists
      */
     409: ErrorResponse;
@@ -2545,10 +2533,8 @@ export type CreateHostGroupResponses = {
     /**
      * Group created
      */
-    201: HostGroup;
+    201: unknown;
 };
-
-export type CreateHostGroupResponse = CreateHostGroupResponses[keyof CreateHostGroupResponses];
 
 export type DeleteHostGroupData = {
     body?: never;
@@ -2608,7 +2594,7 @@ export type UpdateHostGroupErrors = {
      */
     403: unknown;
     /**
-     * Group not found
+     * Group or one of the referenced hosts not found
      */
     404: ErrorResponse;
     /**
@@ -2627,53 +2613,10 @@ export type UpdateHostGroupResponses = {
     /**
      * Group updated
      */
-    200: HostGroup;
-};
-
-export type UpdateHostGroupResponse = UpdateHostGroupResponses[keyof UpdateHostGroupResponses];
-
-export type SetHostGroupMembersData = {
-    body: SetHostGroupMembersRequest;
-    path: {
-        group_id: Id;
-    };
-    query?: never;
-    url: '/admin/host-groups/{group_id}/members';
-};
-
-export type SetHostGroupMembersErrors = {
-    /**
-     * Bad Request
-     */
-    400: ErrorResponse;
-    /**
-     * Unauthorized
-     */
-    401: ErrorResponse;
-    /**
-     * Forbidden
-     */
-    403: unknown;
-    /**
-     * Group or one of the hosts not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: ErrorResponse;
-};
-
-export type SetHostGroupMembersError = SetHostGroupMembersErrors[keyof SetHostGroupMembersErrors];
-
-export type SetHostGroupMembersResponses = {
-    /**
-     * Members updated
-     */
     204: void;
 };
 
-export type SetHostGroupMembersResponse = SetHostGroupMembersResponses[keyof SetHostGroupMembersResponses];
+export type UpdateHostGroupResponse = UpdateHostGroupResponses[keyof UpdateHostGroupResponses];
 
 export type SetUserHostGrantsData = {
     body: SetUserHostGrantsRequest;
