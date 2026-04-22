@@ -1,3 +1,28 @@
+GroupRef:
+  type: object
+  required:
+    - id
+    - name
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    name:
+      type: string
+
+KnownHostRef:
+  type: object
+  required:
+    - id
+    - fqdn
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    fqdn:
+      type: string
+    icon:
+      type: string
+      nullable: true
+
 KnownHost:
   type: object
   required:
@@ -26,6 +51,7 @@ KnownHostWithStats:
     - fqdn
     - created_at
     - user_count
+    - groups
   properties:
     id:
       $ref: './common.yaml#/ID'
@@ -41,6 +67,11 @@ KnownHostWithStats:
     user_count:
       type: integer
       description: Number of distinct users with access to this host.
+    groups:
+      type: array
+      items:
+        $ref: '#/GroupRef'
+      description: Host groups this host belongs to.
 
 BulkCreateKnownHostsRequest:
   type: object
@@ -93,7 +124,7 @@ HostGroupWithMembers:
     - id
     - name
     - created_at
-    - host_ids
+    - hosts
   properties:
     id:
       $ref: './common.yaml#/ID'
@@ -109,10 +140,10 @@ HostGroupWithMembers:
       type: string
       format: date-time
       x-go-type: UTCTime
-    host_ids:
+    hosts:
       type: array
       items:
-        $ref: './common.yaml#/ID'
+        $ref: '#/KnownHostRef'
 
 CreateHostGroupRequest:
   type: object
@@ -238,3 +269,126 @@ IgnoreSuggestionRequest:
     fqdn:
       type: string
       minLength: 1
+
+HostSuggestionsPage:
+  type: object
+  required:
+    - suggestions
+    - ignored
+  properties:
+    suggestions:
+      type: array
+      items:
+        $ref: '#/HostSuggestion'
+    ignored:
+      type: array
+      items:
+        $ref: '#/IgnoredHostSuggestion'
+
+UserHostAccessSummary:
+  type: object
+  required:
+    - id
+    - display_name
+    - email
+    - role
+    - bypass
+    - direct_host_count
+    - groups
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    display_name:
+      type: string
+    email:
+      type: string
+      format: email
+    role:
+      $ref: './users.yaml#/UserRole'
+    bypass:
+      type: boolean
+      description: When true the user can reach every known host.
+    direct_host_count:
+      type: integer
+      description: Number of hosts granted directly via user_allowed_hosts.
+    groups:
+      type: array
+      items:
+        $ref: '#/GroupRef'
+
+UserHostDetails:
+  type: object
+  required:
+    - id
+    - display_name
+    - email
+    - role
+    - bypass
+    - groups
+    - hosts
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    display_name:
+      type: string
+    email:
+      type: string
+      format: email
+    role:
+      $ref: './users.yaml#/UserRole'
+    bypass:
+      type: boolean
+    groups:
+      type: array
+      items:
+        $ref: '#/UserHostDetailsGroup'
+    hosts:
+      type: array
+      items:
+        $ref: '#/UserHostDetailsHost'
+
+UserHostDetailsGroup:
+  type: object
+  required:
+    - id
+    - name
+    - granted
+    - hosts
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    name:
+      type: string
+    icon:
+      type: string
+      nullable: true
+    granted:
+      type: boolean
+      description: Whether this group is granted to the user.
+    hosts:
+      type: array
+      items:
+        $ref: '#/KnownHostRef'
+
+UserHostDetailsHost:
+  type: object
+  required:
+    - id
+    - fqdn
+    - directly_granted
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    fqdn:
+      type: string
+    icon:
+      type: string
+      nullable: true
+    directly_granted:
+      type: boolean
+      description: Whether this host is directly granted to the user.
+    via_group:
+      nullable: true
+      allOf:
+        - $ref: '#/GroupRef'
+      description: First (alphabetically) granted group that covers this host, if any.

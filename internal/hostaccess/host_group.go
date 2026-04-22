@@ -18,3 +18,10 @@ type HostGroup struct {
 	UpdatedAt   time.Time   `db:"updated_at"`
 	CreatedAt   time.Time   `db:"created_at"`
 }
+
+// KnownHostRef is a lightweight reference returned inside group member lists.
+type KnownHostRef struct {
+	ID   KnownHostID
+	FQDN string
+	Icon *string
+}

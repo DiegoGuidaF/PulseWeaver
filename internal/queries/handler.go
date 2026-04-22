@@ -335,13 +335,18 @@ func (h *HTTPHandler) ListKnownHosts(
 	}
 
 	resp := make([]httpapi.KnownHostWithStats, len(hosts))
-	for i, h := range hosts {
+	for i, host := range hosts {
+		groups := make([]httpapi.GroupRef, len(host.Groups))
+		for j, g := range host.Groups {
+			groups[j] = httpapi.GroupRef{Id: g.ID.Int64(), Name: g.Name}
+		}
 		resp[i] = httpapi.KnownHostWithStats{
-			Id:        h.ID.Int64(),
-			Fqdn:      h.FQDN,
-			Icon:      h.Icon,
-			CreatedAt: httpapi.UTCTime(h.CreatedAt),
-			UserCount: h.UserCount,
+			Id:        host.ID.Int64(),
+			Fqdn:      host.FQDN,
+			Icon:      host.Icon,
+			CreatedAt: httpapi.UTCTime(host.CreatedAt),
+			UserCount: host.UserCount,
+			Groups:    groups,
 		}
 	}
 	return httpapi.ListKnownHosts200JSONResponse(resp), nil
@@ -353,22 +358,123 @@ func (h *HTTPHandler) ListHostSuggestions(
 ) (httpapi.ListHostSuggestionsResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "ListHostSuggestions")
 
-	suggestions, err := h.repo.GetHostSuggestions(ctx)
+	page, err := h.repo.GetHostSuggestionsPage(ctx)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "list host suggestions failed", slog.Any(logging.AttrKeyError, err))
 		return httpapi.ListHostSuggestions500JSONResponse(errorMsgResponse("Failed to list host suggestions")), nil
 	}
 
-	resp := make([]httpapi.HostSuggestion, len(suggestions))
-	for i, s := range suggestions {
-		resp[i] = httpapi.HostSuggestion{
+	suggestions := make([]httpapi.HostSuggestion, len(page.Suggestions))
+	for i, s := range page.Suggestions {
+		suggestions[i] = httpapi.HostSuggestion{
 			Fqdn:        s.FQDN,
 			FirstSeen:   httpapi.UTCTime(s.FirstSeen),
 			AllowedHits: s.AllowedHits,
 			DeniedHits:  s.DeniedHits,
 		}
 	}
-	return httpapi.ListHostSuggestions200JSONResponse(resp), nil
+
+	ignored := make([]httpapi.IgnoredHostSuggestion, len(page.Ignored))
+	for i, s := range page.Ignored {
+		ignored[i] = httpapi.IgnoredHostSuggestion{
+			Id:        s.ID,
+			Fqdn:      s.FQDN,
+			CreatedAt: httpapi.UTCTime(s.CreatedAt),
+		}
+	}
+
+	return httpapi.ListHostSuggestions200JSONResponse(httpapi.HostSuggestionsPage{
+		Suggestions: suggestions,
+		Ignored:     ignored,
+	}), nil
+}
+
+func (h *HTTPHandler) ListUsersHostAccess(
+	ctx context.Context,
+	_ httpapi.ListUsersHostAccessRequestObject,
+) (httpapi.ListUsersHostAccessResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "ListUsersHostAccess")
+
+	users, err := h.repo.GetUsersHostAccess(ctx)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "list users host access failed", slog.Any(logging.AttrKeyError, err))
+		return httpapi.ListUsersHostAccess500JSONResponse(errorMsgResponse("Failed to list users host access")), nil
+	}
+
+	resp := make([]httpapi.UserHostAccessSummary, len(users))
+	for i, u := range users {
+		groups := make([]httpapi.GroupRef, len(u.Groups))
+		for j, g := range u.Groups {
+			groups[j] = httpapi.GroupRef{Id: g.ID.Int64(), Name: g.Name}
+		}
+		resp[i] = httpapi.UserHostAccessSummary{
+			Id:              u.ID.Int64(),
+			DisplayName:     u.DisplayName,
+			Email:           openapi_types.Email(u.Email),
+			Role:            httpapi.UserRole(u.Role),
+			Bypass:          u.Bypass,
+			DirectHostCount: u.DirectHostCount,
+			Groups:          groups,
+		}
+	}
+	return httpapi.ListUsersHostAccess200JSONResponse(resp), nil
+}
+
+func (h *HTTPHandler) GetUserHostDetails(
+	ctx context.Context,
+	request httpapi.GetUserHostDetailsRequestObject,
+) (httpapi.GetUserHostDetailsResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetUserHostDetails")
+	userID := auth.UserID(request.UserId)
+
+	details, err := h.repo.GetUserHostDetails(ctx, userID)
+	if err != nil {
+		if errors.Is(err, auth.ErrUserNotFound) {
+			return httpapi.GetUserHostDetails404JSONResponse(errorMsgResponse("User not found")), nil
+		}
+		h.logger.ErrorContext(ctx, "get user host details failed", slog.Any(logging.AttrKeyError, err))
+		return httpapi.GetUserHostDetails500JSONResponse(errorMsgResponse("Failed to get user host details")), nil
+	}
+
+	groups := make([]httpapi.UserHostDetailsGroup, len(details.Groups))
+	for i, g := range details.Groups {
+		hosts := make([]httpapi.KnownHostRef, len(g.Hosts))
+		for j, h := range g.Hosts {
+			hosts[j] = httpapi.KnownHostRef{Id: h.ID.Int64(), Fqdn: h.FQDN, Icon: h.Icon}
+		}
+		groups[i] = httpapi.UserHostDetailsGroup{
+			Id:      g.ID.Int64(),
+			Name:    g.Name,
+			Icon:    g.Icon,
+			Granted: g.Granted,
+			Hosts:   hosts,
+		}
+	}
+
+	hosts := make([]httpapi.UserHostDetailsHost, len(details.Hosts))
+	for i, host := range details.Hosts {
+		var viaGroup *httpapi.GroupRef
+		if host.ViaGroup != nil {
+			viaGroup = &httpapi.GroupRef{Id: host.ViaGroup.ID.Int64(), Name: host.ViaGroup.Name}
+		}
+		hosts[i] = httpapi.UserHostDetailsHost{
+			Id:              host.ID.Int64(),
+			Fqdn:            host.FQDN,
+			Icon:            host.Icon,
+			DirectlyGranted: host.DirectlyGranted,
+			ViaGroup:        viaGroup,
+		}
+	}
+
+	return httpapi.GetUserHostDetails200JSONResponse(httpapi.UserHostDetails{
+		Id:          details.ID.Int64(),
+		DisplayName: details.DisplayName,
+		Email:       openapi_types.Email(details.Email),
+		Role:        httpapi.UserRole(details.Role),
+		Bypass:      details.Bypass,
+		Groups:      groups,
+		Hosts:       hosts,
+	}), nil
 }
 
 func errorMsgResponse(msg string) httpapi.ErrorResponse {

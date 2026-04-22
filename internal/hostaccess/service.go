@@ -128,12 +128,7 @@ func (s *Service) DeleteKnownHost(ctx context.Context, id KnownHostID) error {
 // ── Host groups ───────────────────────────────────────────────────────────────
 
 func (s *Service) CreateHostGroup(ctx context.Context, name string, description *string, icon *string) (HostGroup, error) {
-	group, err := s.repo.CreateHostGroup(ctx, name, description, icon)
-	if err != nil {
-		return HostGroup{}, err
-	}
-	s.notifyObservers(ctx)
-	return group, nil
+	return s.repo.CreateHostGroup(ctx, name, description, icon)
 }
 
 func (s *Service) ListHostGroupsWithMembers(ctx context.Context) ([]HostGroupWithMembers, error) {
@@ -141,12 +136,7 @@ func (s *Service) ListHostGroupsWithMembers(ctx context.Context) ([]HostGroupWit
 }
 
 func (s *Service) UpdateHostGroup(ctx context.Context, id HostGroupID, name string, description *string, icon *string) (HostGroup, error) {
-	group, err := s.repo.UpdateHostGroup(ctx, id, name, description, icon)
-	if err != nil {
-		return HostGroup{}, err
-	}
-	s.notifyObservers(ctx)
-	return group, nil
+	return s.repo.UpdateHostGroup(ctx, id, name, description, icon)
 }
 
 func (s *Service) GetHostGroup(ctx context.Context, id HostGroupID) (HostGroup, error) {

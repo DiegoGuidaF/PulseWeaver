@@ -2151,44 +2151,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /admin/users/{user_id}/host-grants:
-    get:
-      operationId: getUserHostGrants
-      tags:
-        - host-access
-      summary: Get a user's current host grants and bypass flag
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/ID'
-      responses:
-        '200':
-          description: User host grants
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserHostGrants'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-        '404':
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: setUserHostGrants
       tags:
@@ -2240,16 +2202,14 @@ paths:
       operationId: listHostSuggestions
       tags:
         - host-access
-      summary: List FQDNs seen in the access log that are not yet known hosts
+      summary: List FQDNs seen in the access log that are not yet known hosts, plus ignored suggestions
       responses:
         '200':
-          description: Suggestions list
+          description: Suggestions page with active and ignored lists
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/HostSuggestion'
+                $ref: '#/components/schemas/HostSuggestionsPage'
         '401':
           description: Unauthorized
           content:
@@ -2265,34 +2225,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /admin/host-suggestions/ignore:
-    get:
-      operationId: listIgnoredSuggestions
-      tags:
-        - host-access
-      summary: List ignored host suggestions
-      responses:
-        '200':
-          description: Ignored suggestions list
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/IgnoredHostSuggestion'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: ignoreSuggestion
       tags:
@@ -2362,6 +2294,74 @@ paths:
           description: Forbidden
         '404':
           description: Ignored suggestion not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /admin/host-access/users:
+    get:
+      operationId: listUsersHostAccess
+      tags:
+        - host-access
+      summary: List all users with host access summary (bypass, direct host count, groups)
+      responses:
+        '200':
+          description: Users host access summary list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserHostAccessSummary'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /admin/host-access/users/{user_id}:
+    get:
+      operationId: getUserHostDetails
+      tags:
+        - host-access
+      summary: Get full host access details for a single user (drawer data)
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        '200':
+          description: Full user host access details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserHostDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: User not found
           content:
             application/json:
               schema:
@@ -3173,6 +3173,29 @@ components:
         api_key:
           type: string
           description: Plaintext device API key — one time only.
+    GroupRef:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        name:
+          type: string
+    KnownHostRef:
+      type: object
+      required:
+        - id
+        - fqdn
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        fqdn:
+          type: string
+        icon:
+          type: string
+          nullable: true
     KnownHost:
       type: object
       required:
@@ -3200,6 +3223,7 @@ components:
         - fqdn
         - created_at
         - user_count
+        - groups
       properties:
         id:
           $ref: '#/components/schemas/ID'
@@ -3215,6 +3239,11 @@ components:
         user_count:
           type: integer
           description: Number of distinct users with access to this host.
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupRef'
+          description: Host groups this host belongs to.
     BulkCreateKnownHostsRequest:
       type: object
       required:
@@ -3263,7 +3292,7 @@ components:
         - id
         - name
         - created_at
-        - host_ids
+        - hosts
       properties:
         id:
           $ref: '#/components/schemas/ID'
@@ -3279,10 +3308,10 @@ components:
           type: string
           format: date-time
           x-go-type: UTCTime
-        host_ids:
+        hosts:
           type: array
           items:
-            $ref: '#/components/schemas/ID'
+            $ref: '#/components/schemas/KnownHostRef'
     CreateHostGroupRequest:
       type: object
       required:
@@ -3400,6 +3429,124 @@ components:
         fqdn:
           type: string
           minLength: 1
+    HostSuggestionsPage:
+      type: object
+      required:
+        - suggestions
+        - ignored
+      properties:
+        suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/HostSuggestion'
+        ignored:
+          type: array
+          items:
+            $ref: '#/components/schemas/IgnoredHostSuggestion'
+    UserHostAccessSummary:
+      type: object
+      required:
+        - id
+        - display_name
+        - email
+        - role
+        - bypass
+        - direct_host_count
+        - groups
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        display_name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/UserRole'
+        bypass:
+          type: boolean
+          description: When true the user can reach every known host.
+        direct_host_count:
+          type: integer
+          description: Number of hosts granted directly via user_allowed_hosts.
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupRef'
+    UserHostDetails:
+      type: object
+      required:
+        - id
+        - display_name
+        - email
+        - role
+        - bypass
+        - groups
+        - hosts
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        display_name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/UserRole'
+        bypass:
+          type: boolean
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserHostDetailsGroup'
+        hosts:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserHostDetailsHost'
+    UserHostDetailsGroup:
+      type: object
+      required:
+        - id
+        - name
+        - granted
+        - hosts
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        name:
+          type: string
+        icon:
+          type: string
+          nullable: true
+        granted:
+          type: boolean
+          description: Whether this group is granted to the user.
+        hosts:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnownHostRef'
+    UserHostDetailsHost:
+      type: object
+      required:
+        - id
+        - fqdn
+        - directly_granted
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        fqdn:
+          type: string
+        icon:
+          type: string
+          nullable: true
+        directly_granted:
+          type: boolean
+          description: Whether this host is directly granted to the user.
+        via_group:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/GroupRef'
+          description: First (alphabetically) granted group that covers this host, if any.
     PromoteUserRequest:
       type: object
       required:

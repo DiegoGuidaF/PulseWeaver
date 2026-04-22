@@ -187,38 +187,6 @@ func (h *HTTPHandler) SetHostGroupMembers(
 
 // ── User host grants ──────────────────────────────────────────────────────────
 
-func (h *HTTPHandler) GetUserHostGrants(
-	ctx context.Context,
-	req httpapi.GetUserHostGrantsRequestObject,
-) (httpapi.GetUserHostGrantsResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "GetUserHostGrants")
-	userID := auth.UserID(req.UserId)
-
-	grants, err := h.service.GetFullUserGrants(ctx, userID)
-	if err != nil {
-		if errors.Is(err, auth.ErrUserNotFound) {
-			return httpapi.GetUserHostGrants404JSONResponse(errResp("User not found")), nil
-		}
-		h.logger.ErrorContext(ctx, "get user host grants failed", slog.Any(logging.AttrKeyError, err))
-		return httpapi.GetUserHostGrants500JSONResponse(errResp("Failed to get user grants")), nil
-	}
-
-	hostIDs := make([]int64, len(grants.Hosts))
-	for i, host := range grants.Hosts {
-		hostIDs[i] = host.ID.Int64()
-	}
-	groupIDs := make([]int64, len(grants.Groups))
-	for i, group := range grants.Groups {
-		groupIDs[i] = group.ID.Int64()
-	}
-
-	return httpapi.GetUserHostGrants200JSONResponse(httpapi.UserHostGrants{
-		Bypass:   grants.Bypass,
-		HostIds:  hostIDs,
-		GroupIds: groupIDs,
-	}), nil
-}
-
 func (h *HTTPHandler) SetUserHostGrants(
 	ctx context.Context,
 	req httpapi.SetUserHostGrantsRequestObject,
@@ -256,29 +224,6 @@ func (h *HTTPHandler) SetUserHostGrants(
 }
 
 // ── Ignored suggestions ───────────────────────────────────────────────────────
-
-func (h *HTTPHandler) ListIgnoredSuggestions(
-	ctx context.Context,
-	_ httpapi.ListIgnoredSuggestionsRequestObject,
-) (httpapi.ListIgnoredSuggestionsResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "ListIgnoredSuggestions")
-
-	suggestions, err := h.service.ListIgnoredSuggestions(ctx)
-	if err != nil {
-		h.logger.ErrorContext(ctx, "list ignored suggestions failed", slog.Any(logging.AttrKeyError, err))
-		return httpapi.ListIgnoredSuggestions500JSONResponse(errResp("Failed to list ignored suggestions")), nil
-	}
-
-	resp := make([]httpapi.IgnoredHostSuggestion, len(suggestions))
-	for i, s := range suggestions {
-		resp[i] = httpapi.IgnoredHostSuggestion{
-			Id:        s.ID,
-			Fqdn:      s.FQDN,
-			CreatedAt: httpapi.UTCTime(s.CreatedAt),
-		}
-	}
-	return httpapi.ListIgnoredSuggestions200JSONResponse(resp), nil
-}
 
 func (h *HTTPHandler) IgnoreSuggestion(
 	ctx context.Context,
@@ -345,9 +290,13 @@ func toHostGroupDTO(g HostGroup) httpapi.HostGroup {
 }
 
 func toHostGroupWithMembersDTO(g HostGroupWithMembers) httpapi.HostGroupWithMembers {
-	hostIDs := make([]int64, len(g.HostIDs))
-	for i, id := range g.HostIDs {
-		hostIDs[i] = id.Int64()
+	hosts := make([]httpapi.KnownHostRef, len(g.Hosts))
+	for i, h := range g.Hosts {
+		hosts[i] = httpapi.KnownHostRef{
+			Id:   h.ID.Int64(),
+			Fqdn: h.FQDN,
+			Icon: h.Icon,
+		}
 	}
 	return httpapi.HostGroupWithMembers{
 		Id:          g.ID.Int64(),
@@ -355,7 +304,7 @@ func toHostGroupWithMembersDTO(g HostGroupWithMembers) httpapi.HostGroupWithMemb
 		Description: g.Description,
 		Icon:        g.Icon,
 		CreatedAt:   httpapi.UTCTime(g.CreatedAt),
-		HostIds:     hostIDs,
+		Hosts:       hosts,
 	}
 }
 

@@ -307,6 +307,17 @@ export const zClaimRegistrationResponse = z.object({
     api_key: z.string()
 });
 
+export const zGroupRef = z.object({
+    id: zId,
+    name: z.string()
+});
+
+export const zKnownHostRef = z.object({
+    id: zId,
+    fqdn: z.string(),
+    icon: z.string().nullish()
+});
+
 export const zKnownHost = z.object({
     id: zId,
     fqdn: z.string(),
@@ -319,7 +330,8 @@ export const zKnownHostWithStats = z.object({
     fqdn: z.string(),
     icon: z.string().nullish(),
     created_at: z.iso.datetime({ offset: true, local: true }),
-    user_count: z.int()
+    user_count: z.int(),
+    groups: z.array(zGroupRef)
 });
 
 export const zBulkCreateKnownHostsRequest = z.object({
@@ -344,7 +356,7 @@ export const zHostGroupWithMembers = z.object({
     description: z.string().nullish(),
     icon: z.string().nullish(),
     created_at: z.iso.datetime({ offset: true, local: true }),
-    host_ids: z.array(zId)
+    hosts: z.array(zKnownHostRef)
 });
 
 export const zCreateHostGroupRequest = z.object({
@@ -390,6 +402,47 @@ export const zHostSuggestion = z.object({
 
 export const zIgnoreSuggestionRequest = z.object({
     fqdn: z.string().min(1)
+});
+
+export const zHostSuggestionsPage = z.object({
+    suggestions: z.array(zHostSuggestion),
+    ignored: z.array(zIgnoredHostSuggestion)
+});
+
+export const zUserHostAccessSummary = z.object({
+    id: zId,
+    display_name: z.string(),
+    email: z.email(),
+    role: zUserRole,
+    bypass: z.boolean(),
+    direct_host_count: z.int(),
+    groups: z.array(zGroupRef)
+});
+
+export const zUserHostDetailsGroup = z.object({
+    id: zId,
+    name: z.string(),
+    icon: z.string().nullish(),
+    granted: z.boolean(),
+    hosts: z.array(zKnownHostRef)
+});
+
+export const zUserHostDetailsHost = z.object({
+    id: zId,
+    fqdn: z.string(),
+    icon: z.string().nullish(),
+    directly_granted: z.boolean(),
+    via_group: zGroupRef.nullish()
+});
+
+export const zUserHostDetails = z.object({
+    id: zId,
+    display_name: z.string(),
+    email: z.email(),
+    role: zUserRole,
+    bypass: z.boolean(),
+    groups: z.array(zUserHostDetailsGroup),
+    hosts: z.array(zUserHostDetailsHost)
 });
 
 export const zPromoteUserRequest = z.object({
@@ -904,15 +957,6 @@ export const zSetHostGroupMembersPath = z.object({
  */
 export const zSetHostGroupMembersResponse = z.void();
 
-export const zGetUserHostGrantsPath = z.object({
-    user_id: zId
-});
-
-/**
- * User host grants
- */
-export const zGetUserHostGrantsResponse = zUserHostGrants;
-
 export const zSetUserHostGrantsBody = zSetUserHostGrantsRequest;
 
 export const zSetUserHostGrantsPath = z.object({
@@ -925,14 +969,9 @@ export const zSetUserHostGrantsPath = z.object({
 export const zSetUserHostGrantsResponse = z.void();
 
 /**
- * Suggestions list
+ * Suggestions page with active and ignored lists
  */
-export const zListHostSuggestionsResponse = z.array(zHostSuggestion);
-
-/**
- * Ignored suggestions list
- */
-export const zListIgnoredSuggestionsResponse = z.array(zIgnoredHostSuggestion);
+export const zListHostSuggestionsResponse = zHostSuggestionsPage;
 
 export const zIgnoreSuggestionBody = zIgnoreSuggestionRequest;
 
@@ -949,3 +988,17 @@ export const zUnignoreSuggestionPath = z.object({
  * Suggestion unignored
  */
 export const zUnignoreSuggestionResponse = z.void();
+
+/**
+ * Users host access summary list
+ */
+export const zListUsersHostAccessResponse = z.array(zUserHostAccessSummary);
+
+export const zGetUserHostDetailsPath = z.object({
+    user_id: zId
+});
+
+/**
+ * Full user host access details
+ */
+export const zGetUserHostDetailsResponse = zUserHostDetails;

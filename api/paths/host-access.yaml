@@ -363,44 +363,6 @@ hostGroupMembers:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
 
 userHostGrants:
-  get:
-    operationId: getUserHostGrants
-    tags:
-      - host-access
-    summary: Get a user's current host grants and bypass flag
-    parameters:
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/ID'
-    responses:
-      "200":
-        description: User host grants
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/host-access.yaml#/UserHostGrants'
-      "401":
-        description: Unauthorized
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "403":
-        description: Forbidden
-      "404":
-        description: User not found
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "500":
-        description: Internal Server Error
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
   put:
     operationId: setUserHostGrants
     tags:
@@ -453,16 +415,14 @@ hostSuggestions:
     operationId: listHostSuggestions
     tags:
       - host-access
-    summary: List FQDNs seen in the access log that are not yet known hosts
+    summary: List FQDNs seen in the access log that are not yet known hosts, plus ignored suggestions
     responses:
       "200":
-        description: Suggestions list
+        description: Suggestions page with active and ignored lists
         content:
           application/json:
             schema:
-              type: array
-              items:
-                $ref: '../components/schemas/host-access.yaml#/HostSuggestion'
+              $ref: '../components/schemas/host-access.yaml#/HostSuggestionsPage'
       "401":
         description: Unauthorized
         content:
@@ -479,34 +439,6 @@ hostSuggestions:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
 
 ignoredSuggestions:
-  get:
-    operationId: listIgnoredSuggestions
-    tags:
-      - host-access
-    summary: List ignored host suggestions
-    responses:
-      "200":
-        description: Ignored suggestions list
-        content:
-          application/json:
-            schema:
-              type: array
-              items:
-                $ref: '../components/schemas/host-access.yaml#/IgnoredHostSuggestion'
-      "401":
-        description: Unauthorized
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "403":
-        description: Forbidden
-      "500":
-        description: Internal Server Error
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
   post:
     operationId: ignoreSuggestion
     tags:
@@ -541,6 +473,76 @@ ignoredSuggestions:
         description: Forbidden
       "409":
         description: FQDN already ignored
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+usersHostAccess:
+  get:
+    operationId: listUsersHostAccess
+    tags:
+      - host-access
+    summary: List all users with host access summary (bypass, direct host count, groups)
+    responses:
+      "200":
+        description: Users host access summary list
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/schemas/host-access.yaml#/UserHostAccessSummary'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+userHostDetails:
+  get:
+    operationId: getUserHostDetails
+    tags:
+      - host-access
+    summary: Get full host access details for a single user (drawer data)
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: Full user host access details
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/host-access.yaml#/UserHostDetails'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "404":
+        description: User not found
         content:
           application/json:
             schema:

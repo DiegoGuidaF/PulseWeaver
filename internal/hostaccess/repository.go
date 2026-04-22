@@ -157,7 +157,7 @@ func (r *Repository) DeleteHostGroup(ctx context.Context, id HostGroupID) error 
 
 type HostGroupWithMembers struct {
 	HostGroup
-	HostIDs []KnownHostID
+	Hosts []KnownHostRef
 }
 
 func (r *Repository) ListHostGroupsWithMembers(ctx context.Context) ([]HostGroupWithMembers, error) {
@@ -169,12 +169,16 @@ func (r *Repository) ListHostGroupsWithMembers(ctx context.Context) ([]HostGroup
 		CreatedAt   time.Time    `db:"created_at"`
 		UpdatedAt   time.Time    `db:"updated_at"`
 		HostID      *KnownHostID `db:"known_host_id"`
+		HostFQDN    *string      `db:"host_fqdn"`
+		HostIcon    *string      `db:"host_icon"`
 	}
 	const query = `
-		SELECT hg.id, hg.name, hg.description, hg.icon, hg.created_at, hgm.known_host_id, hg.updated_at
+		SELECT hg.id, hg.name, hg.description, hg.icon, hg.created_at, hg.updated_at,
+		       hgm.known_host_id, kh.fqdn AS host_fqdn, kh.icon AS host_icon
 		FROM host_groups hg
 		LEFT JOIN host_group_members hgm ON hgm.host_group_id = hg.id
-		ORDER BY hg.name, hgm.known_host_id
+		LEFT JOIN known_hosts kh ON kh.id = hgm.known_host_id
+		ORDER BY hg.name, kh.fqdn
 	`
 	var rows []row
 	if err := r.db.SelectContext(ctx, &rows, query); err != nil {
@@ -196,11 +200,15 @@ func (r *Repository) ListHostGroupsWithMembers(ctx context.Context) ([]HostGroup
 					Icon:        rw.Icon,
 					CreatedAt:   rw.CreatedAt,
 				},
-				HostIDs: []KnownHostID{},
+				Hosts: []KnownHostRef{},
 			})
 		}
-		if rw.HostID != nil {
-			groups[idx].HostIDs = append(groups[idx].HostIDs, *rw.HostID)
+		if rw.HostID != nil && rw.HostFQDN != nil {
+			groups[idx].Hosts = append(groups[idx].Hosts, KnownHostRef{
+				ID:   *rw.HostID,
+				FQDN: *rw.HostFQDN,
+				Icon: rw.HostIcon,
+			})
 		}
 	}
 	return groups, nil

@@ -1122,6 +1122,42 @@ export const ClaimRegistrationResponseSchema = {
     }
 } as const;
 
+export const GroupRefSchema = {
+    type: 'object',
+    required: [
+        'id',
+        'name'
+    ],
+    properties: {
+        id: {
+            $ref: '#/components/schemas/ID'
+        },
+        name: {
+            type: 'string'
+        }
+    }
+} as const;
+
+export const KnownHostRefSchema = {
+    type: 'object',
+    required: [
+        'id',
+        'fqdn'
+    ],
+    properties: {
+        id: {
+            $ref: '#/components/schemas/ID'
+        },
+        fqdn: {
+            type: 'string'
+        },
+        icon: {
+            type: 'string',
+            nullable: true
+        }
+    }
+} as const;
+
 export const KnownHostSchema = {
     type: 'object',
     required: [
@@ -1156,7 +1192,8 @@ export const KnownHostWithStatsSchema = {
         'id',
         'fqdn',
         'created_at',
-        'user_count'
+        'user_count',
+        'groups'
     ],
     properties: {
         id: {
@@ -1177,6 +1214,13 @@ export const KnownHostWithStatsSchema = {
         user_count: {
             type: 'integer',
             description: 'Number of distinct users with access to this host.'
+        },
+        groups: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/GroupRef'
+            },
+            description: 'Host groups this host belongs to.'
         }
     }
 } as const;
@@ -1248,7 +1292,7 @@ export const HostGroupWithMembersSchema = {
         'id',
         'name',
         'created_at',
-        'host_ids'
+        'hosts'
     ],
     properties: {
         id: {
@@ -1270,10 +1314,10 @@ export const HostGroupWithMembersSchema = {
             format: 'date-time',
             'x-go-type': 'UTCTime'
         },
-        host_ids: {
+        hosts: {
             type: 'array',
             items: {
-                $ref: '#/components/schemas/ID'
+                $ref: '#/components/schemas/KnownHostRef'
             }
         }
     }
@@ -1449,6 +1493,179 @@ export const IgnoreSuggestionRequestSchema = {
         fqdn: {
             type: 'string',
             minLength: 1
+        }
+    }
+} as const;
+
+export const HostSuggestionsPageSchema = {
+    type: 'object',
+    required: [
+        'suggestions',
+        'ignored'
+    ],
+    properties: {
+        suggestions: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/HostSuggestion'
+            }
+        },
+        ignored: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/IgnoredHostSuggestion'
+            }
+        }
+    }
+} as const;
+
+export const UserHostAccessSummarySchema = {
+    type: 'object',
+    required: [
+        'id',
+        'display_name',
+        'email',
+        'role',
+        'bypass',
+        'direct_host_count',
+        'groups'
+    ],
+    properties: {
+        id: {
+            $ref: '#/components/schemas/ID'
+        },
+        display_name: {
+            type: 'string'
+        },
+        email: {
+            type: 'string',
+            format: 'email'
+        },
+        role: {
+            $ref: '#/components/schemas/UserRole'
+        },
+        bypass: {
+            type: 'boolean',
+            description: 'When true the user can reach every known host.'
+        },
+        direct_host_count: {
+            type: 'integer',
+            description: 'Number of hosts granted directly via user_allowed_hosts.'
+        },
+        groups: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/GroupRef'
+            }
+        }
+    }
+} as const;
+
+export const UserHostDetailsSchema = {
+    type: 'object',
+    required: [
+        'id',
+        'display_name',
+        'email',
+        'role',
+        'bypass',
+        'groups',
+        'hosts'
+    ],
+    properties: {
+        id: {
+            $ref: '#/components/schemas/ID'
+        },
+        display_name: {
+            type: 'string'
+        },
+        email: {
+            type: 'string',
+            format: 'email'
+        },
+        role: {
+            $ref: '#/components/schemas/UserRole'
+        },
+        bypass: {
+            type: 'boolean'
+        },
+        groups: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/UserHostDetailsGroup'
+            }
+        },
+        hosts: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/UserHostDetailsHost'
+            }
+        }
+    }
+} as const;
+
+export const UserHostDetailsGroupSchema = {
+    type: 'object',
+    required: [
+        'id',
+        'name',
+        'granted',
+        'hosts'
+    ],
+    properties: {
+        id: {
+            $ref: '#/components/schemas/ID'
+        },
+        name: {
+            type: 'string'
+        },
+        icon: {
+            type: 'string',
+            nullable: true
+        },
+        granted: {
+            type: 'boolean',
+            description: 'Whether this group is granted to the user.'
+        },
+        hosts: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/KnownHostRef'
+            }
+        }
+    }
+} as const;
+
+export const UserHostDetailsHostSchema = {
+    type: 'object',
+    required: [
+        'id',
+        'fqdn',
+        'directly_granted'
+    ],
+    properties: {
+        id: {
+            $ref: '#/components/schemas/ID'
+        },
+        fqdn: {
+            type: 'string'
+        },
+        icon: {
+            type: 'string',
+            nullable: true
+        },
+        directly_granted: {
+            type: 'boolean',
+            description: 'Whether this host is directly granted to the user.'
+        },
+        via_group: {
+            nullable: true,
+            allOf: [
+                {
+                    $ref: '#/components/schemas/GroupRef'
+                }
+            ],
+            description: 'First (alphabetically) granted group that covers this host, if any.'
         }
     }
 } as const;

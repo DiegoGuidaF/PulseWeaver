@@ -132,6 +132,10 @@ paths:
     $ref: './paths/host-access.yaml#/ignoredSuggestions'
   /admin/host-suggestions/ignore/{fqdn}:
     $ref: './paths/host-access.yaml#/ignoredSuggestionByFqdn'
+  /admin/host-access/users:
+    $ref: './paths/host-access.yaml#/usersHostAccess'
+  /admin/host-access/users/{user_id}:
+    $ref: './paths/host-access.yaml#/userHostDetails'
 
 components:
   securitySchemes:
@@ -265,6 +269,10 @@ components:
     # --------------------
     # Host Access
     # --------------------
+    GroupRef:
+      $ref: './components/schemas/host-access.yaml#/GroupRef'
+    KnownHostRef:
+      $ref: './components/schemas/host-access.yaml#/KnownHostRef'
     KnownHost:
       $ref: './components/schemas/host-access.yaml#/KnownHost'
     KnownHostWithStats:
@@ -293,3 +301,13 @@ components:
       $ref: './components/schemas/host-access.yaml#/HostSuggestion'
     IgnoreSuggestionRequest:
       $ref: './components/schemas/host-access.yaml#/IgnoreSuggestionRequest'
+    HostSuggestionsPage:
+      $ref: './components/schemas/host-access.yaml#/HostSuggestionsPage'
+    UserHostAccessSummary:
+      $ref: './components/schemas/host-access.yaml#/UserHostAccessSummary'
+    UserHostDetails:
+      $ref: './components/schemas/host-access.yaml#/UserHostDetails'
+    UserHostDetailsGroup:
+      $ref: './components/schemas/host-access.yaml#/UserHostDetailsGroup'
+    UserHostDetailsHost:
+      $ref: './components/schemas/host-access.yaml#/UserHostDetailsHost'

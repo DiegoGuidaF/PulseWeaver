@@ -441,6 +441,17 @@ export type ClaimRegistrationResponse = {
     api_key: string;
 };
 
+export type GroupRef = {
+    id: Id;
+    name: string;
+};
+
+export type KnownHostRef = {
+    id: Id;
+    fqdn: string;
+    icon?: string | null;
+};
+
 export type KnownHost = {
     id: Id;
     /**
@@ -463,6 +474,10 @@ export type KnownHostWithStats = {
      * Number of distinct users with access to this host.
      */
     user_count: number;
+    /**
+     * Host groups this host belongs to.
+     */
+    groups: Array<GroupRef>;
 };
 
 export type BulkCreateKnownHostsRequest = {
@@ -493,7 +508,7 @@ export type HostGroupWithMembers = {
     description?: string | null;
     icon?: string | null;
     created_at: string;
-    host_ids: Array<Id>;
+    hosts: Array<KnownHostRef>;
 };
 
 export type CreateHostGroupRequest = {
@@ -545,6 +560,62 @@ export type HostSuggestion = {
 
 export type IgnoreSuggestionRequest = {
     fqdn: string;
+};
+
+export type HostSuggestionsPage = {
+    suggestions: Array<HostSuggestion>;
+    ignored: Array<IgnoredHostSuggestion>;
+};
+
+export type UserHostAccessSummary = {
+    id: Id;
+    display_name: string;
+    email: string;
+    role: UserRole;
+    /**
+     * When true the user can reach every known host.
+     */
+    bypass: boolean;
+    /**
+     * Number of hosts granted directly via user_allowed_hosts.
+     */
+    direct_host_count: number;
+    groups: Array<GroupRef>;
+};
+
+export type UserHostDetails = {
+    id: Id;
+    display_name: string;
+    email: string;
+    role: UserRole;
+    bypass: boolean;
+    groups: Array<UserHostDetailsGroup>;
+    hosts: Array<UserHostDetailsHost>;
+};
+
+export type UserHostDetailsGroup = {
+    id: Id;
+    name: string;
+    icon?: string | null;
+    /**
+     * Whether this group is granted to the user.
+     */
+    granted: boolean;
+    hosts: Array<KnownHostRef>;
+};
+
+export type UserHostDetailsHost = {
+    id: Id;
+    fqdn: string;
+    icon?: string | null;
+    /**
+     * Whether this host is directly granted to the user.
+     */
+    directly_granted: boolean;
+    /**
+     * First (alphabetically) granted group that covers this host, if any.
+     */
+    via_group?: GroupRef | null;
 };
 
 export type PromoteUserRequest = {
@@ -2604,45 +2675,6 @@ export type SetHostGroupMembersResponses = {
 
 export type SetHostGroupMembersResponse = SetHostGroupMembersResponses[keyof SetHostGroupMembersResponses];
 
-export type GetUserHostGrantsData = {
-    body?: never;
-    path: {
-        user_id: Id;
-    };
-    query?: never;
-    url: '/admin/users/{user_id}/host-grants';
-};
-
-export type GetUserHostGrantsErrors = {
-    /**
-     * Unauthorized
-     */
-    401: ErrorResponse;
-    /**
-     * Forbidden
-     */
-    403: unknown;
-    /**
-     * User not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: ErrorResponse;
-};
-
-export type GetUserHostGrantsError = GetUserHostGrantsErrors[keyof GetUserHostGrantsErrors];
-
-export type GetUserHostGrantsResponses = {
-    /**
-     * User host grants
-     */
-    200: UserHostGrants;
-};
-
-export type GetUserHostGrantsResponse = GetUserHostGrantsResponses[keyof GetUserHostGrantsResponses];
-
 export type SetUserHostGrantsData = {
     body: SetUserHostGrantsRequest;
     path: {
@@ -2712,45 +2744,12 @@ export type ListHostSuggestionsError = ListHostSuggestionsErrors[keyof ListHostS
 
 export type ListHostSuggestionsResponses = {
     /**
-     * Suggestions list
+     * Suggestions page with active and ignored lists
      */
-    200: Array<HostSuggestion>;
+    200: HostSuggestionsPage;
 };
 
 export type ListHostSuggestionsResponse = ListHostSuggestionsResponses[keyof ListHostSuggestionsResponses];
-
-export type ListIgnoredSuggestionsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/admin/host-suggestions/ignore';
-};
-
-export type ListIgnoredSuggestionsErrors = {
-    /**
-     * Unauthorized
-     */
-    401: ErrorResponse;
-    /**
-     * Forbidden
-     */
-    403: unknown;
-    /**
-     * Internal Server Error
-     */
-    500: ErrorResponse;
-};
-
-export type ListIgnoredSuggestionsError = ListIgnoredSuggestionsErrors[keyof ListIgnoredSuggestionsErrors];
-
-export type ListIgnoredSuggestionsResponses = {
-    /**
-     * Ignored suggestions list
-     */
-    200: Array<IgnoredHostSuggestion>;
-};
-
-export type ListIgnoredSuggestionsResponse = ListIgnoredSuggestionsResponses[keyof ListIgnoredSuggestionsResponses];
 
 export type IgnoreSuggestionData = {
     body: IgnoreSuggestionRequest;
@@ -2831,3 +2830,75 @@ export type UnignoreSuggestionResponses = {
 };
 
 export type UnignoreSuggestionResponse = UnignoreSuggestionResponses[keyof UnignoreSuggestionResponses];
+
+export type ListUsersHostAccessData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/admin/host-access/users';
+};
+
+export type ListUsersHostAccessErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type ListUsersHostAccessError = ListUsersHostAccessErrors[keyof ListUsersHostAccessErrors];
+
+export type ListUsersHostAccessResponses = {
+    /**
+     * Users host access summary list
+     */
+    200: Array<UserHostAccessSummary>;
+};
+
+export type ListUsersHostAccessResponse = ListUsersHostAccessResponses[keyof ListUsersHostAccessResponses];
+
+export type GetUserHostDetailsData = {
+    body?: never;
+    path: {
+        user_id: Id;
+    };
+    query?: never;
+    url: '/admin/host-access/users/{user_id}';
+};
+
+export type GetUserHostDetailsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * User not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type GetUserHostDetailsError = GetUserHostDetailsErrors[keyof GetUserHostDetailsErrors];
+
+export type GetUserHostDetailsResponses = {
+    /**
+     * Full user host access details
+     */
+    200: UserHostDetails;
+};
+
+export type GetUserHostDetailsResponse = GetUserHostDetailsResponses[keyof GetUserHostDetailsResponses];
