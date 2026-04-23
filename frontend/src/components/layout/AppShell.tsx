@@ -24,13 +24,16 @@ import {
     IconQrcode,
     IconServer,
     IconSettings,
+    IconShield,
     IconSun,
+    IconUsers,
 } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useLogout } from "@/features/auth/hooks/useLogout";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useAutoHeartbeat } from "@/features/devices/hooks/useAutoHeartbeat";
 import { toErrorMessage } from "@/lib/api-client";
+import { UserRole } from "@/lib/api";
 
 const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: IconChartBar },
@@ -38,6 +41,14 @@ const navItems = [
     { label: "Provisioning", href: "/device-provisioning", icon: IconQrcode },
     { label: "Access Log", href: "/access-log", icon: IconList },
     { label: "Address Log", href: "/address-history", icon: IconHistory },
+];
+
+const adminNavItems = [
+    { label: "Users", href: "/users", icon: IconUsers },
+    { label: "Hosts", href: "/hosts", icon: IconShield },
+];
+
+const bottomNavItems = [
     { label: "Settings", href: "/settings", icon: IconSettings },
 ];
 
@@ -67,6 +78,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const logoutMutation = useLogout();
     const { user } = useAuth();
     const { clientIp, activeDeviceId } = useAutoHeartbeat();
+    const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN;
 
     return (
         <MantineAppShell
@@ -114,6 +126,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <MantineAppShell.Section grow>
                     <Stack gap={4}>
                         {navItems.map((item) => (
+                            <NavLink
+                                key={item.href}
+                                component={Link}
+                                to={item.href}
+                                label={item.label}
+                                leftSection={<item.icon size={18} stroke={1.5} />}
+                                active={location.pathname.startsWith(item.href)}
+                                onClick={closeMobile}
+                            />
+                        ))}
+                        {isAdmin && adminNavItems.map((item) => (
+                            <NavLink
+                                key={item.href}
+                                component={Link}
+                                to={item.href}
+                                label={item.label}
+                                leftSection={<item.icon size={18} stroke={1.5} />}
+                                active={location.pathname.startsWith(item.href)}
+                                onClick={closeMobile}
+                            />
+                        ))}
+                        {bottomNavItems.map((item) => (
                             <NavLink
                                 key={item.href}
                                 component={Link}

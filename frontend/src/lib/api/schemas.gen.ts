@@ -1149,7 +1149,8 @@ export const KnownHostRefSchema = {
             $ref: '#/components/schemas/ID'
         },
         fqdn: {
-            type: 'string'
+            type: 'string',
+            maxLength: 253
         },
         icon: {
             type: 'string',
@@ -1171,6 +1172,7 @@ export const KnownHostSchema = {
         },
         fqdn: {
             type: 'string',
+            maxLength: 253,
             description: 'Fully-qualified domain name (lowercased).'
         },
         icon: {
@@ -1200,7 +1202,8 @@ export const KnownHostWithStatsSchema = {
             $ref: '#/components/schemas/ID'
         },
         fqdn: {
-            type: 'string'
+            type: 'string',
+            maxLength: 253
         },
         icon: {
             type: 'string',
@@ -1236,7 +1239,9 @@ export const BulkCreateKnownHostsRequestSchema = {
             minItems: 1,
             items: {
                 type: 'string',
-                minLength: 1
+                minLength: 3,
+                maxLength: 253,
+                pattern: '^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$'
             },
             description: 'One or more FQDNs to register as known hosts.'
         }
@@ -1389,7 +1394,8 @@ export const IgnoredHostSuggestionSchema = {
             $ref: '#/components/schemas/ID'
         },
         fqdn: {
-            type: 'string'
+            type: 'string',
+            maxLength: 253
         },
         created_at: {
             type: 'string',
@@ -1409,7 +1415,8 @@ export const HostSuggestionSchema = {
     ],
     properties: {
         fqdn: {
-            type: 'string'
+            type: 'string',
+            maxLength: 253
         },
         first_seen: {
             type: 'string',
@@ -1433,7 +1440,10 @@ export const IgnoreSuggestionRequestSchema = {
     properties: {
         fqdn: {
             type: 'string',
-            minLength: 1
+            minLength: 3,
+            maxLength: 253,
+            pattern: '^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$',
+            description: 'FQDN to add to the ignore list.'
         }
     }
 } as const;
@@ -1589,7 +1599,8 @@ export const UserHostDetailsHostSchema = {
             $ref: '#/components/schemas/ID'
         },
         fqdn: {
-            type: 'string'
+            type: 'string',
+            maxLength: 253
         },
         icon: {
             type: 'string',

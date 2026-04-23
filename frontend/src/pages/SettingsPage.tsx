@@ -13,8 +13,6 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { AccountTab } from "@/features/settings/AccountTab";
 import { PreferencesTab } from "@/features/settings/PreferencesTab";
-import { UsersTab } from "@/features/settings/UsersTab";
-import { UserRole } from "@/lib/api";
 
 export function SettingsPage() {
   const { user } = useAuth();
@@ -24,8 +22,6 @@ export function SettingsPage() {
 
   // Prompt native browser dialog on tab close / refresh when there are unsaved changes
   useUnsavedChangesGuard(accountDirty);
-
-  const isAdmin = user?.role === UserRole.SUPERADMIN && !user.must_change_password;
 
   const handleTabChange = useCallback(
     (value: string | null) => {
@@ -73,7 +69,7 @@ export function SettingsPage() {
       <Stack maw={1024} gap="xl">
         <div>
           <Title order={1}>Settings</Title>
-          <Text c="dimmed">Manage your account, preferences, and users.</Text>
+          <Text c="dimmed">Manage your account and preferences.</Text>
         </div>
 
         {user?.must_change_password && (
@@ -89,7 +85,6 @@ export function SettingsPage() {
           <Tabs.List>
             <Tabs.Tab value="account">Account</Tabs.Tab>
             <Tabs.Tab value="preferences">Preferences</Tabs.Tab>
-            {isAdmin && <Tabs.Tab value="users">Users</Tabs.Tab>}
           </Tabs.List>
 
           <Tabs.Panel value="account" pt="md">
@@ -99,12 +94,6 @@ export function SettingsPage() {
           <Tabs.Panel value="preferences" pt="md">
             <PreferencesTab />
           </Tabs.Panel>
-
-          {isAdmin && (
-            <Tabs.Panel value="users" pt="md">
-              <UsersTab />
-            </Tabs.Panel>
-          )}
         </Tabs>
       </Stack>
     </>

@@ -314,20 +314,20 @@ export const zGroupRef = z.object({
 
 export const zKnownHostRef = z.object({
     id: zId,
-    fqdn: z.string(),
+    fqdn: z.string().max(253),
     icon: z.string().nullish()
 });
 
 export const zKnownHost = z.object({
     id: zId,
-    fqdn: z.string(),
+    fqdn: z.string().max(253),
     icon: z.string().nullish(),
     created_at: z.iso.datetime({ offset: true, local: true })
 });
 
 export const zKnownHostWithStats = z.object({
     id: zId,
-    fqdn: z.string(),
+    fqdn: z.string().max(253),
     icon: z.string().nullish(),
     created_at: z.iso.datetime({ offset: true, local: true }),
     user_count: z.int(),
@@ -335,7 +335,7 @@ export const zKnownHostWithStats = z.object({
 });
 
 export const zBulkCreateKnownHostsRequest = z.object({
-    fqdns: z.array(z.string().min(1)).min(1)
+    fqdns: z.array(z.string().min(3).max(253).regex(/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/)).min(1)
 });
 
 export const zUpdateKnownHostRequest = z.object({
@@ -373,19 +373,19 @@ export const zSetUserHostGrantsRequest = z.object({
 
 export const zIgnoredHostSuggestion = z.object({
     id: zId,
-    fqdn: z.string(),
+    fqdn: z.string().max(253),
     created_at: z.iso.datetime({ offset: true, local: true })
 });
 
 export const zHostSuggestion = z.object({
-    fqdn: z.string(),
+    fqdn: z.string().max(253),
     first_seen: z.iso.datetime({ offset: true, local: true }),
     allowed_hits: z.int(),
     denied_hits: z.int()
 });
 
 export const zIgnoreSuggestionRequest = z.object({
-    fqdn: z.string().min(1)
+    fqdn: z.string().min(3).max(253).regex(/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/)
 });
 
 export const zHostSuggestionsPage = z.object({
@@ -413,7 +413,7 @@ export const zUserHostDetailsGroup = z.object({
 
 export const zUserHostDetailsHost = z.object({
     id: zId,
-    fqdn: z.string(),
+    fqdn: z.string().max(253),
     icon: z.string().nullish(),
     directly_granted: z.boolean(),
     via_group: zGroupRef.nullish()

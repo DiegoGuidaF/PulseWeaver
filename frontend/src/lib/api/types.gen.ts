@@ -543,6 +543,9 @@ export type HostSuggestion = {
 };
 
 export type IgnoreSuggestionRequest = {
+    /**
+     * FQDN to add to the ignore list.
+     */
     fqdn: string;
 };
 
