@@ -3,6 +3,8 @@ package hostaccess
 import (
 	"strconv"
 	"time"
+
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 )
 
 type KnownHostID int64
@@ -16,4 +18,16 @@ type KnownHost struct {
 	Icon      *string     `db:"icon"`
 	UpdatedAt time.Time   `db:"updated_at"`
 	CreatedAt time.Time   `db:"created_at"`
+}
+
+// UserHostSetting is the per-user bypass flag from user_host_settings.
+type UserHostSetting struct {
+	UserID          auth.UserID `db:"user_id"`
+	BypassAllowlist bool        `db:"bypass_host_allowlist"`
+}
+
+// UserHostGrant is a resolved (user, fqdn) pair from either direct or group grants.
+type UserHostGrant struct {
+	UserID auth.UserID `db:"user_id"`
+	FQDN   string      `db:"fqdn"`
 }

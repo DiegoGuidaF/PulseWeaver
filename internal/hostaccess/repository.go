@@ -9,7 +9,6 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 )
 
 type Repository struct {
@@ -251,59 +250,42 @@ func (r *Repository) DeleteUserData(ctx context.Context, userID auth.UserID) err
 
 // ── Policy cache feed ─────────────────────────────────────────────────────────
 
-func (r *Repository) GetAllUserHostAccess(ctx context.Context) ([]policy.UserHostAccess, error) {
+func (r *Repository) GetAllUserHostSettings(ctx context.Context) ([]UserHostSetting, error) {
+	const query = `SELECT user_id, bypass_host_allowlist FROM user_host_settings`
+	var settings []UserHostSetting
+	if err := r.db.SelectContext(ctx, &settings, query); err != nil {
+		return nil, fmt.Errorf("get all user host settings: %w", err)
+	}
+	return settings, nil
+}
+
+func (r *Repository) GetAllUserDirectHostGrants(ctx context.Context) ([]UserHostGrant, error) {
 	const query = `
-		SELECT uhs.user_id, uhs.bypass_host_allowlist, kh.fqdn AS fqdn
-		FROM user_host_settings uhs
-		JOIN user_allowed_hosts uah ON uah.user_id = uhs.user_id
+		SELECT uah.user_id, kh.fqdn
+		FROM user_allowed_hosts uah
+		JOIN user_host_settings uhs ON uhs.user_id = uah.user_id
 		JOIN known_hosts kh ON kh.id = uah.known_host_id
+	`
+	var grants []UserHostGrant
+	if err := r.db.SelectContext(ctx, &grants, query); err != nil {
+		return nil, fmt.Errorf("get all user direct host grants: %w", err)
+	}
+	return grants, nil
+}
 
-		UNION
-
-		SELECT uhs.user_id, uhs.bypass_host_allowlist, kh.fqdn AS fqdn
-		FROM user_host_settings uhs
-		JOIN user_allowed_host_groups uahg ON uahg.user_id = uhs.user_id
+func (r *Repository) GetAllUserGroupHostGrants(ctx context.Context) ([]UserHostGrant, error) {
+	const query = `
+		SELECT uahg.user_id, kh.fqdn
+		FROM user_allowed_host_groups uahg
+		JOIN user_host_settings uhs ON uhs.user_id = uahg.user_id
 		JOIN host_group_members hgm ON hgm.host_group_id = uahg.host_group_id
 		JOIN known_hosts kh ON kh.id = hgm.known_host_id
-
-		UNION
-
-		SELECT uhs.user_id, uhs.bypass_host_allowlist, NULL AS fqdn
-		FROM user_host_settings uhs
-		WHERE uhs.bypass_host_allowlist = 1
 	`
-
-	type row struct {
-		UserID          auth.UserID `db:"user_id"`
-		BypassAllowlist bool        `db:"bypass_host_allowlist"`
-		FQDN            *string     `db:"fqdn"`
+	var grants []UserHostGrant
+	if err := r.db.SelectContext(ctx, &grants, query); err != nil {
+		return nil, fmt.Errorf("get all user group host grants: %w", err)
 	}
-
-	var rows []row
-	if err := r.db.SelectContext(ctx, &rows, query); err != nil {
-		return nil, fmt.Errorf("get all user host access: %w", err)
-	}
-
-	byUser := make(map[auth.UserID]*policy.UserHostAccess, len(rows))
-	for _, row := range rows {
-		acc, exists := byUser[row.UserID]
-		if !exists {
-			acc = &policy.UserHostAccess{
-				UserID:          row.UserID,
-				BypassAllowlist: row.BypassAllowlist,
-			}
-			byUser[row.UserID] = acc
-		}
-		if row.FQDN != nil {
-			acc.AllowedHosts = append(acc.AllowedHosts, *row.FQDN)
-		}
-	}
-
-	result := make([]policy.UserHostAccess, 0, len(byUser))
-	for _, acc := range byUser {
-		result = append(result, *acc)
-	}
-	return result, nil
+	return grants, nil
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

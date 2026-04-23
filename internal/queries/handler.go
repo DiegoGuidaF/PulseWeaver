@@ -398,7 +398,7 @@ func (h *HTTPHandler) ListHostSuggestions(
 	for i, s := range page.Suggestions {
 		suggestions[i] = httpapi.HostSuggestion{
 			Fqdn:        s.FQDN,
-			FirstSeen:   httpapi.UTCTime(s.FirstSeen),
+			FirstSeen:   httpapi.UTCTime(s.FirstSeen.Time),
 			AllowedHits: s.AllowedHits,
 			DeniedHits:  s.DeniedHits,
 		}
@@ -425,16 +425,16 @@ func (h *HTTPHandler) ListUsersHostAccess(
 ) (httpapi.ListUsersHostAccessResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "ListUsersHostAccess")
 
-	users, err := h.repo.GetUsersHostAccess(ctx)
+	rows, err := h.repo.ListUserAccessRows(ctx)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "list users host access failed", slog.Any(logging.AttrKeyError, err))
 		return httpapi.ListUsersHostAccess500JSONResponse(errorMsgResponse("Failed to list users host access")), nil
 	}
 
-	resp := make([]httpapi.UserHostAccessSummary, len(users))
-	for i, u := range users {
-		groups := make([]httpapi.GroupRef, len(u.Groups))
-		for j, g := range u.Groups {
+	resp := make([]httpapi.UserHostAccessSummary, len(rows))
+	for i, u := range rows {
+		groups := make([]httpapi.GroupRef, len(u.GrantedGroups))
+		for j, g := range u.GrantedGroups {
 			groups[j] = httpapi.GroupRef{Id: g.ID.Int64(), Name: g.Name}
 		}
 		resp[i] = httpapi.UserHostAccessSummary{
@@ -442,8 +442,8 @@ func (h *HTTPHandler) ListUsersHostAccess(
 			DisplayName:     u.DisplayName,
 			Email:           openapi_types.Email(u.Email),
 			Role:            httpapi.UserRole(u.Role),
-			Bypass:          u.Bypass,
-			DirectHostCount: u.DirectHostCount,
+			Bypass:          u.AllowAllHosts,
+			DirectHostCount: u.EffectiveHostCount,
 			Groups:          groups,
 		}
 	}
@@ -457,7 +457,7 @@ func (h *HTTPHandler) GetUserHostDetails(
 	ctx = logging.WithOperation(ctx, "GetUserHostDetails")
 	userID := auth.UserID(request.UserId)
 
-	details, err := h.repo.GetUserHostDetails(ctx, userID)
+	editor, err := h.repo.GetUserAccessEditor(ctx, userID)
 	if err != nil {
 		if errors.Is(err, auth.ErrUserNotFound) {
 			return httpapi.GetUserHostDetails404JSONResponse(errorMsgResponse("User not found")), nil
@@ -466,42 +466,44 @@ func (h *HTTPHandler) GetUserHostDetails(
 		return httpapi.GetUserHostDetails500JSONResponse(errorMsgResponse("Failed to get user host details")), nil
 	}
 
-	groups := make([]httpapi.UserHostDetailsGroup, len(details.Groups))
-	for i, g := range details.Groups {
+	groups := make([]httpapi.UserHostDetailsGroup, len(editor.GroupOptions))
+	for i, g := range editor.GroupOptions {
 		hosts := make([]httpapi.KnownHostRef, len(g.Hosts))
-		for j, h := range g.Hosts {
-			hosts[j] = httpapi.KnownHostRef{Id: h.ID.Int64(), Fqdn: h.FQDN, Icon: h.Icon}
+		for j, kh := range g.Hosts {
+			hosts[j] = httpapi.KnownHostRef{Id: kh.ID.Int64(), Fqdn: kh.FQDN, Icon: kh.Icon}
 		}
 		groups[i] = httpapi.UserHostDetailsGroup{
 			Id:      g.ID.Int64(),
 			Name:    g.Name,
 			Icon:    g.Icon,
-			Granted: g.Granted,
+			Granted: g.Selected,
 			Hosts:   hosts,
 		}
 	}
 
-	hosts := make([]httpapi.UserHostDetailsHost, len(details.Hosts))
-	for i, host := range details.Hosts {
+	hosts := make([]httpapi.UserHostDetailsHost, len(editor.HostOptions))
+	for i, ho := range editor.HostOptions {
+		// GrantingGroups carries all groups; the API contract holds a single nullable GroupRef.
+		// Surface the first (alphabetically, by Q5 ordering) until the schema is upgraded.
 		var viaGroup *httpapi.GroupRef
-		if host.ViaGroup != nil {
-			viaGroup = &httpapi.GroupRef{Id: host.ViaGroup.ID.Int64(), Name: host.ViaGroup.Name}
+		if len(ho.GrantingGroups) > 0 {
+			viaGroup = &httpapi.GroupRef{Id: ho.GrantingGroups[0].ID.Int64(), Name: ho.GrantingGroups[0].Name}
 		}
 		hosts[i] = httpapi.UserHostDetailsHost{
-			Id:              host.ID.Int64(),
-			Fqdn:            host.FQDN,
-			Icon:            host.Icon,
-			DirectlyGranted: host.DirectlyGranted,
+			Id:              ho.ID.Int64(),
+			Fqdn:            ho.FQDN,
+			Icon:            ho.Icon,
+			DirectlyGranted: ho.DirectSelected,
 			ViaGroup:        viaGroup,
 		}
 	}
 
 	return httpapi.GetUserHostDetails200JSONResponse(httpapi.UserHostDetails{
-		Id:          details.ID.Int64(),
-		DisplayName: details.DisplayName,
-		Email:       openapi_types.Email(details.Email),
-		Role:        httpapi.UserRole(details.Role),
-		Bypass:      details.Bypass,
+		Id:          editor.User.ID.Int64(),
+		DisplayName: editor.User.DisplayName,
+		Email:       openapi_types.Email(editor.User.Email),
+		Role:        httpapi.UserRole(editor.User.Role),
+		Bypass:      editor.AllowAllHosts,
 		Groups:      groups,
 		Hosts:       hosts,
 	}), nil

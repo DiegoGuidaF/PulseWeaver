@@ -3144,6 +3144,7 @@ components:
           $ref: '#/components/schemas/ID'
         fqdn:
           type: string
+          maxLength: 253
         icon:
           type: string
           nullable: true
@@ -3158,6 +3159,7 @@ components:
           $ref: '#/components/schemas/ID'
         fqdn:
           type: string
+          maxLength: 253
           description: Fully-qualified domain name (lowercased).
         icon:
           type: string
@@ -3180,6 +3182,7 @@ components:
           $ref: '#/components/schemas/ID'
         fqdn:
           type: string
+          maxLength: 253
         icon:
           type: string
           nullable: true
@@ -3205,7 +3208,9 @@ components:
           minItems: 1
           items:
             type: string
-            minLength: 1
+            minLength: 3
+            maxLength: 253
+            pattern: ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$
           description: One or more FQDNs to register as known hosts.
     UpdateKnownHostRequest:
       type: object
@@ -3311,6 +3316,7 @@ components:
           $ref: '#/components/schemas/ID'
         fqdn:
           type: string
+          maxLength: 253
         created_at:
           type: string
           format: date-time
@@ -3325,6 +3331,7 @@ components:
       properties:
         fqdn:
           type: string
+          maxLength: 253
         first_seen:
           type: string
           format: date-time
@@ -3340,7 +3347,10 @@ components:
       properties:
         fqdn:
           type: string
-          minLength: 1
+          minLength: 3
+          maxLength: 253
+          pattern: ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$
+          description: FQDN to add to the ignore list.
     HostSuggestionsPage:
       type: object
       required:
@@ -3448,6 +3458,7 @@ components:
           $ref: '#/components/schemas/ID'
         fqdn:
           type: string
+          maxLength: 253
         icon:
           type: string
           nullable: true

@@ -43,7 +43,7 @@ type App struct {
 	schedulerService    *scheduler.Service
 	accessLogSink       *accesslog.Sink
 	geoipLookup         *geoip.Lookup
-	hostAccessService   *hostaccess.Service
+	HostAccessService   *hostaccess.Service
 }
 
 // New initializes the application with configuration loaded from environment variables.
@@ -119,7 +119,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Host access control
 	hostAccessRepo := hostaccess.NewRepository(db.DB())
-	hostAccessService := hostaccess.NewService(hostAccessRepo, logger)
+	hostAccessService := hostaccess.NewService(hostAccessRepo, db.Transactor(), logger)
 	hostAccessHandler := hostaccess.NewHTTPHandler(hostAccessService, logger)
 
 	// Policy forward-auth sidecar
@@ -159,7 +159,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	authService.AddUserObserver(hostAccessService)
 
 	// Register host access observer
-	hostAccessService.AddObserver(policyService)
+	hostAccessService.AddUserHostAccessObserver(policyService)
 
 	// Register rule change observers
 	ruleService.AddRuleObserver(addressLeaseService)
@@ -212,7 +212,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		schedulerService:    schedulerService,
 		accessLogSink:       accessLogSink,
 		geoipLookup:         geoipLookup,
-		hostAccessService:   hostAccessService,
+		HostAccessService:   hostAccessService,
 	}, nil
 }
 

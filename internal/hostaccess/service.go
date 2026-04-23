@@ -2,6 +2,7 @@ package hostaccess
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
@@ -27,37 +28,117 @@ type repository interface {
 	EnsureUserSettings(ctx context.Context, userID auth.UserID) error
 	DeleteUserData(ctx context.Context, userID auth.UserID) error
 
-	GetAllUserHostAccess(ctx context.Context) ([]policy.UserHostAccess, error)
+	GetAllUserHostSettings(ctx context.Context) ([]UserHostSetting, error)
+	GetAllUserDirectHostGrants(ctx context.Context) ([]UserHostGrant, error)
+	GetAllUserGroupHostGrants(ctx context.Context) ([]UserHostGrant, error)
+}
+
+type transactor interface {
+	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
 type Service struct {
-	repo      repository
-	logger    *slog.Logger
-	observers []Observer
+	repo                    repository
+	tx                      transactor
+	logger                  *slog.Logger
+	userHostAccessObservers []Observer
 }
 
-func NewService(repo repository, logger *slog.Logger) *Service {
+func NewService(repo repository, tx transactor, logger *slog.Logger) *Service {
 	return &Service{
 		repo:   repo,
+		tx:     tx,
 		logger: logger.With(slog.String(logging.AttrKeyComponent, "hostaccess")),
 	}
 }
 
-func (s *Service) AddObserver(o Observer) {
+func (s *Service) AddUserHostAccessObserver(o Observer) {
 	if o != nil {
-		s.observers = append(s.observers, o)
+		s.userHostAccessObservers = append(s.userHostAccessObservers, o)
 	}
 }
 
-func (s *Service) notifyObservers(ctx context.Context) {
-	for _, o := range s.observers {
+func (s *Service) notifyUserHostAccessObservers(ctx context.Context) {
+	for _, o := range s.userHostAccessObservers {
 		o.OnHostAccessChanged(ctx)
 	}
 }
 
 // GetAllUserHostAccess implements the policy.HostAccessProvider interface.
+// Queries settings, direct grants, and group grants within a single transaction
+// for a consistent snapshot, then merges them into the policy projection.
 func (s *Service) GetAllUserHostAccess(ctx context.Context) ([]policy.UserHostAccess, error) {
-	return s.repo.GetAllUserHostAccess(ctx)
+	var (
+		settings    []UserHostSetting
+		directHosts []UserHostGrant
+		groupHosts  []UserHostGrant
+	)
+
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		var err error
+		if settings, err = s.repo.GetAllUserHostSettings(ctx); err != nil {
+			return err
+		}
+		if directHosts, err = s.repo.GetAllUserDirectHostGrants(ctx); err != nil {
+			return err
+		}
+		if groupHosts, err = s.repo.GetAllUserGroupHostGrants(ctx); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get all user host access: %w", err)
+	}
+
+	return mergeUserHostAccess(settings, directHosts, groupHosts), nil
+}
+
+// mergeUserHostAccess combines settings and grant rows into the policy projection.
+// Grants are deduplicated per user. Users with bypass=false and no allowed hosts
+// are excluded to match the "relevant users only" contract.
+func mergeUserHostAccess(settings []UserHostSetting, directHosts, groupHosts []UserHostGrant) []policy.UserHostAccess {
+	type entry struct {
+		bypass bool
+		hosts  map[string]struct{}
+	}
+
+	byUser := make(map[auth.UserID]*entry, len(settings))
+	for _, s := range settings {
+		byUser[s.UserID] = &entry{bypass: s.BypassAllowlist}
+	}
+
+	addGrants := func(grants []UserHostGrant) {
+		for _, g := range grants {
+			e := byUser[g.UserID]
+			if e == nil {
+				continue // orphaned grant; user has no settings row
+			}
+			if e.hosts == nil {
+				e.hosts = make(map[string]struct{})
+			}
+			e.hosts[g.FQDN] = struct{}{}
+		}
+	}
+	addGrants(directHosts)
+	addGrants(groupHosts)
+
+	result := make([]policy.UserHostAccess, 0, len(byUser))
+	for userID, e := range byUser {
+		if !e.bypass && len(e.hosts) == 0 {
+			continue
+		}
+		hosts := make([]string, 0, len(e.hosts))
+		for h := range e.hosts {
+			hosts = append(hosts, h)
+		}
+		result = append(result, policy.UserHostAccess{
+			UserID:          userID,
+			BypassAllowlist: e.bypass,
+			AllowedHosts:    hosts,
+		})
+	}
+	return result
 }
 
 // ── Known hosts ───────────────────────────────────────────────────────────────
@@ -71,11 +152,12 @@ func (s *Service) BulkCreateKnownHosts(ctx context.Context, fqdns []string) ([]K
 	if err != nil {
 		return nil, err
 	}
-	s.notifyObservers(ctx)
+	// No need to notify observer since there's no change on user access just by creating the hosts unassigned
 	return hosts, nil
 }
 
 func (s *Service) UpdateKnownHost(ctx context.Context, id KnownHostID, icon *string) (KnownHost, error) {
+	// No need to notify observer since there's no change on user access since only Icon can be updated right now.
 	return s.repo.UpdateKnownHost(ctx, id, icon)
 }
 
@@ -83,7 +165,7 @@ func (s *Service) DeleteKnownHost(ctx context.Context, id KnownHostID) error {
 	if err := s.repo.DeleteKnownHost(ctx, id); err != nil {
 		return err
 	}
-	s.notifyObservers(ctx)
+	s.notifyUserHostAccessObservers(ctx)
 	return nil
 }
 
@@ -95,7 +177,7 @@ func (s *Service) CreateHostGroup(ctx context.Context, name string, description 
 	if err != nil {
 		return 0, err
 	}
-	s.notifyObservers(ctx)
+	// No need to notify since no users are currently assigned to the group
 	return groupID, nil
 }
 
@@ -107,7 +189,7 @@ func (s *Service) UpdateHostGroup(ctx context.Context, id HostGroupID, name stri
 		if err := s.repo.UpdateHostGroupWithMembers(ctx, id, name, description, icon, deduped); err != nil {
 			return err
 		}
-		s.notifyObservers(ctx)
+		s.notifyUserHostAccessObservers(ctx)
 		return nil
 	}
 	return s.repo.UpdateHostGroupMetadata(ctx, id, name, description, icon)
@@ -117,7 +199,7 @@ func (s *Service) DeleteHostGroup(ctx context.Context, id HostGroupID) error {
 	if err := s.repo.DeleteHostGroup(ctx, id); err != nil {
 		return err
 	}
-	s.notifyObservers(ctx)
+	s.notifyUserHostAccessObservers(ctx)
 	return nil
 }
 
@@ -129,14 +211,18 @@ func (s *Service) SetFullUserGrants(ctx context.Context, userID auth.UserID, byp
 	if err := s.repo.SetFullUserGrants(ctx, userID, bypass, hostIDs, groupIDs); err != nil {
 		return err
 	}
-	s.notifyObservers(ctx)
+	s.notifyUserHostAccessObservers(ctx)
 	return nil
 }
 
 // ── Ignored suggestions ───────────────────────────────────────────────────────
 
 func (s *Service) AddIgnoredSuggestion(ctx context.Context, fqdn string) (IgnoredHostSuggestion, error) {
-	return s.repo.AddIgnoredSuggestion(ctx, fqdn)
+	normalised := NormaliseFQDN(fqdn)
+	if err := ValidateFQDN(normalised); err != nil {
+		return IgnoredHostSuggestion{}, err
+	}
+	return s.repo.AddIgnoredSuggestion(ctx, normalised)
 }
 
 func (s *Service) RemoveIgnoredSuggestionByFQDN(ctx context.Context, fqdn string) error {

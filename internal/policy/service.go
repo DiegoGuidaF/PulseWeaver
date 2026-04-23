@@ -206,6 +206,7 @@ func (s *Service) lookupIP(ctx context.Context, ip string) (ipSetEntry, bool) {
 // refreshCache queries enabled IPs and host access grants, then atomically
 // replaces the in-memory set with deny-wins intersection for shared IPs.
 func (s *Service) refreshCache(ctx context.Context) error {
+	//TODO: Log refresh time (start to finish)
 	ipEntries, err := s.ipProvider.GetEnabledIPEntries(ctx)
 	if err != nil {
 		return err

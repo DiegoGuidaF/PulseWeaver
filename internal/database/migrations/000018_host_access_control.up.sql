@@ -5,14 +5,15 @@ BEGIN TRANSACTION;
 
 CREATE TABLE user_host_settings
 (
-    user_id              INTEGER PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+    user_id               INTEGER PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
     bypass_host_allowlist INTEGER NOT NULL DEFAULT 0
         CHECK (bypass_host_allowlist IN (0, 1))
 );
 
 -- Preserve unrestricted behaviour for all existing users.
 INSERT INTO user_host_settings (user_id, bypass_host_allowlist)
-SELECT id, 1 FROM users;
+SELECT id, 1
+FROM users;
 
 -- ── 2. Host-access domain tables ─────────────────────────────────────────────
 
@@ -42,8 +43,9 @@ CREATE UNIQUE INDEX idx_host_groups_name ON host_groups (name);
 CREATE TABLE host_group_members
 (
     id            INTEGER PRIMARY KEY,
-    host_group_id INTEGER NOT NULL REFERENCES host_groups (id) ON DELETE CASCADE,
-    known_host_id INTEGER NOT NULL REFERENCES known_hosts (id) ON DELETE CASCADE
+    host_group_id INTEGER  NOT NULL REFERENCES host_groups (id) ON DELETE CASCADE,
+    known_host_id INTEGER  NOT NULL REFERENCES known_hosts (id) ON DELETE CASCADE,
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE UNIQUE INDEX idx_host_group_members_group_host
@@ -98,7 +100,8 @@ CREATE TABLE access_log_contributors
     access_log_id INTEGER NOT NULL REFERENCES access_log (id) ON DELETE CASCADE,
     device_id     INTEGER NOT NULL REFERENCES devices (id) ON DELETE CASCADE,
     address_id    INTEGER NOT NULL REFERENCES addresses (id) ON DELETE CASCADE,
-    user_id       INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE
+    user_id       INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_access_log_contributors_log_id
@@ -108,8 +111,8 @@ CREATE INDEX idx_access_log_contributors_log_id
 --   Rows with device_id IS NOT NULL get one contributor row.
 --   user_id backfilled from devices.owner_id.
 
-INSERT INTO access_log_contributors (access_log_id, device_id, address_id, user_id)
-SELECT al.id, al.device_id, al.address_id, d.owner_id
+INSERT INTO access_log_contributors (access_log_id, device_id, address_id, user_id, created_at)
+SELECT al.id, al.device_id, al.address_id, d.owner_id, al.created_at
 FROM access_log al
          JOIN devices d ON d.id = al.device_id
 WHERE al.device_id IS NOT NULL;
