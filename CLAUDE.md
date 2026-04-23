@@ -35,7 +35,7 @@ After adding a migration: review `internal/database/migration_test_seed.sql` and
 
 ## Architecture & Conventions
 
-**Pattern library:** Before implementing any feature, read `docs/patterns/_index.md` and load every pattern that applies. The index has "use when" / "avoid when" columns to help you pick the right ones. After implementing, follow the [pattern maintenance protocol](../project/workflow/WORKFLOW.md#pattern-maintenance).
+**Pattern library:** Before implementing any feature, read `../docs/patterns/backend/_index.md` (backend) and `../docs/patterns/frontend/_index.md` (frontend) and load every pattern that applies. The index has "use when" / "avoid when" columns to help you pick the right ones. After implementing, follow the [pattern maintenance protocol](../project/workflow/WORKFLOW.md#pattern-maintenance).
 
 Full reference docs:
 - **Backend:** `CODEBASE-Backend.md` — package map, domain responsibilities, critical files
