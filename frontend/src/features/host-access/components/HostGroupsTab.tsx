@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   ActionIcon,
-  Badge,
   Button,
   Card,
   Group,
@@ -13,10 +12,12 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconFolder, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import type { HostGroupWithMembers, KnownHostWithStats } from "@/lib/api";
 import { useDeleteHostGroup } from "@/features/host-access/hooks/useDeleteHostGroup";
 import { GroupFormModal } from "@/features/host-access/components/GroupFormModal";
+import { groupColor } from "@/features/host-access/utils/groupColor";
+import { getHostIcon } from "@/features/host-access/hostIconConfig";
 import { toErrorMessage } from "@/lib/api-client";
 
 interface Props {
@@ -132,77 +133,80 @@ export function HostGroupsTab({ groups, hosts }: Props) {
       </Group>
 
       <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-        {groups.map((g) => (
-          <Card key={g.id} withBorder padding="md">
-            <Group justify="space-between" align="flex-start" mb="sm">
-              <Group gap="sm">
-                <ActionIcon variant="light" color="indigo" size="lg" radius="md" aria-label="group">
-                  <IconFolder size={18} stroke={1.5} />
-                </ActionIcon>
-                <div>
-                  <Text fw={600}>{g.name}</Text>
-                  <Text size="xs" c="dimmed">
-                    {g.hosts.length} {g.hosts.length === 1 ? "host" : "hosts"}
-                    {g.description && ` · ${g.description}`}
-                  </Text>
-                </div>
-              </Group>
-              <Group gap={4}>
-                <Tooltip label="Edit group" withArrow>
-                  <ActionIcon
-                    variant="subtle"
-                    size="sm"
-                    onClick={() => setEditTarget(g)}
-                    aria-label={`Edit group ${g.name}`}
-                  >
-                    <IconPencil size={14} stroke={1.5} />
+        {groups.map((g) => {
+          const color = groupColor(g.name);
+          const GroupIcon = getHostIcon(g.icon);
+          return (
+            <Card key={g.id} withBorder padding="md">
+              <Group justify="space-between" align="flex-start" mb="sm">
+                <Group gap="sm">
+                  <ActionIcon variant="light" color={color} size="lg" radius="md" aria-label="group">
+                    <GroupIcon size={18} stroke={1.5} />
                   </ActionIcon>
-                </Tooltip>
-                <Tooltip label="Delete group" withArrow>
-                  <ActionIcon
-                    variant="subtle"
-                    color="red"
-                    size="sm"
-                    onClick={() => setDeleteTarget(g)}
-                    aria-label={`Delete group ${g.name}`}
-                  >
-                    <IconTrash size={14} stroke={1.5} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            </Group>
-
-            <Stack gap={4}>
-              {g.hosts.length === 0 ? (
-                <Text size="sm" c="dimmed">
-                  No hosts in this group.
-                </Text>
-              ) : (
-                g.hosts.map((h) => (
-                  <Group
-                    key={h.id}
-                    justify="space-between"
-                    px="xs"
-                    py={6}
-                    style={{
-                      background: "var(--mantine-color-default-hover)",
-                      borderRadius: 4,
-                    }}
-                  >
-                    <Text size="sm" ff="monospace">
-                      {h.fqdn}
+                  <div>
+                    <Text fw={600}>{g.name}</Text>
+                    <Text size="xs" c="dimmed">
+                      {g.hosts.length} {g.hosts.length === 1 ? "host" : "hosts"}
+                      {g.description && ` · ${g.description}`}
                     </Text>
-                    {h.icon && (
-                      <Badge variant="outline" size="xs" color="gray">
-                        {h.icon}
-                      </Badge>
-                    )}
-                  </Group>
-                ))
-              )}
-            </Stack>
-          </Card>
-        ))}
+                  </div>
+                </Group>
+                <Group gap={4}>
+                  <Tooltip label="Edit group" withArrow>
+                    <ActionIcon
+                      variant="subtle"
+                      size="sm"
+                      onClick={() => setEditTarget(g)}
+                      aria-label={`Edit group ${g.name}`}
+                    >
+                      <IconPencil size={14} stroke={1.5} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Delete group" withArrow>
+                    <ActionIcon
+                      variant="subtle"
+                      color="red"
+                      size="sm"
+                      onClick={() => setDeleteTarget(g)}
+                      aria-label={`Delete group ${g.name}`}
+                    >
+                      <IconTrash size={14} stroke={1.5} />
+                    </ActionIcon>
+                  </Tooltip>
+                </Group>
+              </Group>
+
+              <Stack gap={4}>
+                {g.hosts.length === 0 ? (
+                  <Text size="sm" c="dimmed">
+                    No hosts in this group.
+                  </Text>
+                ) : (
+                  g.hosts.map((h) => {
+                    const HostIcon = getHostIcon(h.icon);
+                    return (
+                      <Group
+                        key={h.id}
+                        gap="xs"
+                        px="xs"
+                        py={6}
+                        style={{
+                          background: "var(--mantine-color-default-hover)",
+                          borderRadius: 4,
+                        }}
+                      >
+                        <HostIcon size={14} stroke={1.5} color="var(--mantine-color-dimmed)" />
+                        <Text size="sm" ff="monospace" style={{ flex: 1 }}>
+                          {h.fqdn}
+                        </Text>
+                      </Group>
+                    );
+                  })
+                )}
+              </Stack>
+            </Card>
+          );
+        })}
       </SimpleGrid>
     </>
   );

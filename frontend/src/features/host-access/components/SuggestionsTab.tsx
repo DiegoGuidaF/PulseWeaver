@@ -1,6 +1,9 @@
+import { useState } from "react";
 import {
+  Badge,
   Button,
   Card,
+  Checkbox,
   Group,
   Stack,
   Table,
@@ -24,6 +27,29 @@ export function SuggestionsTab({ data }: Props) {
   const ignoreSuggestion = useIgnoreSuggestion();
   const unignoreSuggestion = useUnignoreSuggestion();
   const createKnownHosts = useCreateKnownHosts();
+
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const allFqdns = data.suggestions.map((s) => s.fqdn);
+  const allSelected = allFqdns.length > 0 && allFqdns.every((f) => selected.has(f));
+  const someSelected = selected.size > 0;
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(allFqdns));
+    }
+  }
+
+  function toggleOne(fqdn: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(fqdn)) next.delete(fqdn);
+      else next.add(fqdn);
+      return next;
+    });
+  }
 
   function handlePromote(fqdn: string) {
     createKnownHosts.mutate(
@@ -61,6 +87,40 @@ export function SuggestionsTab({ data }: Props) {
     );
   }
 
+  function handleBulkAccept() {
+    const fqdns = [...selected];
+    createKnownHosts.mutate(
+      { body: { fqdns } },
+      {
+        onSuccess: () => {
+          notifications.show({ color: "green", message: `${fqdns.length} hosts added to known hosts` });
+          setSelected(new Set());
+        },
+        onError: (err) =>
+          notifications.show({ color: "red", title: "Failed to add hosts", message: toErrorMessage(err) }),
+      },
+    );
+  }
+
+  async function handleBulkIgnore() {
+    const fqdns = [...selected];
+    let failed = 0;
+    for (const fqdn of fqdns) {
+      await new Promise<void>((resolve) => {
+        ignoreSuggestion.mutate(
+          { body: { fqdn } },
+          { onSettled: () => resolve(), onError: () => { failed++; } },
+        );
+      });
+    }
+    if (failed === 0) {
+      notifications.show({ color: "gray", message: `${fqdns.length} hosts ignored` });
+    } else {
+      notifications.show({ color: "orange", message: `${fqdns.length - failed} ignored, ${failed} failed` });
+    }
+    setSelected(new Set());
+  }
+
   if (data.suggestions.length === 0 && data.ignored.length === 0) {
     return (
       <Card withBorder>
@@ -86,11 +146,53 @@ export function SuggestionsTab({ data }: Props) {
             Hosts seen that aren't on your known list. High allowed-hit counts usually mean
             legitimate infrastructure worth promoting.
           </Text>
+
+          {someSelected && (
+            <Group gap="xs" mb="sm">
+              <Badge variant="light" color="indigo" size="sm">
+                {selected.size} selected
+              </Badge>
+              <Button
+                size="xs"
+                onClick={handleBulkAccept}
+                disabled={createKnownHosts.isPending || ignoreSuggestion.isPending}
+                loading={createKnownHosts.isPending}
+              >
+                Accept {selected.size}
+              </Button>
+              <Button
+                size="xs"
+                variant="outline"
+                onClick={handleBulkIgnore}
+                disabled={createKnownHosts.isPending || ignoreSuggestion.isPending}
+                loading={ignoreSuggestion.isPending}
+              >
+                Ignore {selected.size}
+              </Button>
+              <Button
+                size="xs"
+                variant="subtle"
+                color="gray"
+                onClick={() => setSelected(new Set())}
+              >
+                Clear
+              </Button>
+            </Group>
+          )}
+
           <Table.ScrollContainer minWidth={600}>
             <Table>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>FQDN</Table.Th>
+                  <Table.Th style={{ width: 36 }}>
+                    <Checkbox
+                      checked={allSelected}
+                      indeterminate={someSelected && !allSelected}
+                      onChange={toggleAll}
+                      aria-label="Select all"
+                    />
+                  </Table.Th>
+                  <Table.Th>Hostname</Table.Th>
                   <Table.Th>First seen</Table.Th>
                   <Table.Th>Allowed hits</Table.Th>
                   <Table.Th>Denied hits</Table.Th>
@@ -99,7 +201,14 @@ export function SuggestionsTab({ data }: Props) {
               </Table.Thead>
               <Table.Tbody>
                 {data.suggestions.map((s) => (
-                  <Table.Tr key={s.fqdn}>
+                  <Table.Tr key={s.fqdn} data-selected={selected.has(s.fqdn) || undefined}>
+                    <Table.Td>
+                      <Checkbox
+                        checked={selected.has(s.fqdn)}
+                        onChange={() => toggleOne(s.fqdn)}
+                        aria-label={`Select ${s.fqdn}`}
+                      />
+                    </Table.Td>
                     <Table.Td>
                       <Text size="sm" fw={500} ff="monospace">
                         {s.fqdn}
@@ -134,14 +243,14 @@ export function SuggestionsTab({ data }: Props) {
                           size="xs"
                           variant="outline"
                           onClick={() => handleIgnore(s.fqdn)}
-                          disabled={ignoreSuggestion.isPending}
+                          disabled={ignoreSuggestion.isPending || createKnownHosts.isPending}
                         >
                           Ignore
                         </Button>
                         <Button
                           size="xs"
                           onClick={() => handlePromote(s.fqdn)}
-                          disabled={createKnownHosts.isPending}
+                          disabled={createKnownHosts.isPending || ignoreSuggestion.isPending}
                         >
                           Add as known
                         </Button>
@@ -167,7 +276,7 @@ export function SuggestionsTab({ data }: Props) {
             <Table>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>FQDN</Table.Th>
+                  <Table.Th>Hostname</Table.Th>
                   <Table.Th>Ignored at</Table.Th>
                   <Table.Th />
                 </Table.Tr>

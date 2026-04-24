@@ -31,7 +31,7 @@ export function HostsPage() {
           <Tabs.Tab
             value="hosts"
             rightSection={
-              <Badge size="xs" variant="light" color="gray" circle>
+              <Badge size="xs" variant="light" color="gray">
                 {hosts.length}
               </Badge>
             }
@@ -41,7 +41,7 @@ export function HostsPage() {
           <Tabs.Tab
             value="groups"
             rightSection={
-              <Badge size="xs" variant="light" color="gray" circle>
+              <Badge size="xs" variant="light" color="gray">
                 {groups.length}
               </Badge>
             }
@@ -55,7 +55,6 @@ export function HostsPage() {
                 size="xs"
                 variant="light"
                 color={suggestionCount > 0 ? "orange" : "gray"}
-                circle
               >
                 {suggestionCount}
               </Badge>

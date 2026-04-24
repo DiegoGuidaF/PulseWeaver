@@ -5,5 +5,6 @@ export function useUserHostDetails(userId: number | null) {
   return useQuery({
     ...getUserHostDetailsOptions({ path: { user_id: userId ?? 0 } }),
     enabled: userId !== null,
+    staleTime: 0,
   });
 }

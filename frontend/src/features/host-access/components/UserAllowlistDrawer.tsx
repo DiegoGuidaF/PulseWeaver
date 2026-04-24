@@ -19,6 +19,7 @@ import { UserRole } from "@/lib/api";
 import type { UserHostAccessSummary, UserHostDetails } from "@/lib/api";
 import { useUserHostDetails } from "@/features/host-access/hooks/useUserHostDetails";
 import { useSetUserHostGrants } from "@/features/host-access/hooks/useSetUserHostGrants";
+import { GroupBadge } from "@/features/host-access/components/GroupBadge";
 import { toErrorMessage } from "@/lib/api-client";
 
 interface Props {
@@ -210,9 +211,7 @@ function AllowlistForm({ userId, details, userSummary, onClose }: FormProps) {
                       />
                       <div style={{ flex: 1 }}>
                         <Group gap="xs">
-                          <Badge variant="light" color="indigo" size="sm">
-                            {g.name}
-                          </Badge>
+                          <GroupBadge group={g} size="sm" />
                           <Text size="xs" c="dimmed">
                             {g.hosts.length} {g.hosts.length === 1 ? "host" : "hosts"}
                           </Text>
