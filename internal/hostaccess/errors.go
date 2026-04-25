@@ -10,4 +10,6 @@ var (
 	ErrSuggestionNotFound = errors.New("ignored suggestion not found")
 	ErrSuggestionConflict = errors.New("suggestion already ignored")
 	ErrReferenceNotFound  = errors.New("referenced entity not found")
+	ErrGroupNameRequired  = errors.New("group name is required")
+	ErrDuplicateGroupID   = errors.New("duplicate group id")
 )

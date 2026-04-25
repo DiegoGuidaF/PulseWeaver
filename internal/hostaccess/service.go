@@ -18,7 +18,6 @@ type repository interface {
 	CreateHostGroupWithMembers(ctx context.Context, name string, description *string, icon *string, hostIDs []KnownHostID) (HostGroupID, error)
 	UpdateHostGroupWithMembers(ctx context.Context, id HostGroupID, name string, description *string, icon *string, hostIDs []KnownHostID) error
 	UpdateHostGroupMetadata(ctx context.Context, id HostGroupID, name string, description *string, icon *string) error
-	DeleteHostGroup(ctx context.Context, id HostGroupID) error
 
 	SetFullUserGrants(ctx context.Context, userID auth.UserID, bypass *bool, hostIDs []KnownHostID, groupIDs []HostGroupID) error
 
@@ -31,6 +30,14 @@ type repository interface {
 	GetAllUserHostSettings(ctx context.Context) ([]UserHostSetting, error)
 	GetAllUserDirectHostGrants(ctx context.Context) ([]UserHostGrant, error)
 	GetAllUserGroupHostGrants(ctx context.Context) ([]UserHostGrant, error)
+
+	// New methods
+	ListHostGroups(ctx context.Context) ([]HostGroup, error)
+	ListKnownHostsByIDs(ctx context.Context, ids []KnownHostID) ([]KnownHost, error)
+
+	CreateHostGroup(ctx context.Context, draft HostGroupDraft) (HostGroupID, error)
+	UpdateHostGroup(ctx context.Context, group HostGroup) error
+	DeleteHostGroup(ctx context.Context, id HostGroupID) error
 }
 
 type transactor interface {
