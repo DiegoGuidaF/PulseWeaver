@@ -18,6 +18,7 @@ export function useDevices() {
 - **Return type**: TanStack Query result directly. Exceptions are allowed when normalization is needed (e.g., `null` for 404).
 - **`enabled` default**: Query hooks that accept `enabled` default it to `true`.
 - **Cache invalidation**: Mutations invalidate the minimal relevant query key (device-specific where possible).
+- **Drawer/modal queries**: If a query is used inside a component that mounts when a drawer opens and unmounts when it closes, add `staleTime: 0`. Without it, the cached result is served on re-open and the form initialises from stale data. See `useUserHostDetails.ts`.
 
 ## Mutation hooks
 

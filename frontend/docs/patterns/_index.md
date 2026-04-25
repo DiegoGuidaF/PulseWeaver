@@ -15,3 +15,5 @@
 | Type derivation from OpenAPI | `type-derivation-from-openapi.md` | Typing a query param, enum, or any API-derived value | Client-only concepts not in the API spec | `types.gen.ts` |
 | Shared hooks | `shared-hooks.md` | Using clipboard, or adding a cross-feature hook | Hook is used by only one feature (keep it feature-local) | `src/hooks/useClipboard.ts` |
 | Frontend testing | `frontend-testing.md` | Writing component or integration tests | — | `src/test/setup.ts`, `src/test/mocks/handlers.ts` |
+| Entity display config | `entity-display-config.md` | Entities need consistent color+icon across multiple components (groups, tags) | Single-use display, one component only | `features/host-access/hostIconConfig.ts`, `features/host-access/utils/groupColor.ts` |
+| Badge overflow list | `badge-overflow-list.md` | Table cell shows unbounded list of entity badges | List is always small/bounded | `features/host-access/components/GroupBadgeList.tsx` |

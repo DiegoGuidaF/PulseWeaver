@@ -51,6 +51,23 @@ Page layout:
 | Form has many fields / is complex | Modal (reduces visual weight on page) |
 | Form has 1-2 fields | Either works |
 
+## Extracting modals to feature components
+
+When a page file exceeds ~200 lines or has **3 or more modals**, extract each modal to its own component file under `features/<domain>/components/`. The page retains only state declarations and wires the props.
+
+```
+pages/UsersPage.tsx              ← ~150 lines: state + table
+features/auth/components/
+  CreateUserModal.tsx            ← form + validation
+  RoleChangeModal.tsx            ← promote/demote + password
+  DeleteUserModal.tsx            ← destructive confirmation
+```
+
+Each extracted modal:
+- Owns its own mutation hook calls and `notifications.show()` feedback
+- Accepts `opened` (or the target object) + `onClose`
+- Exposes its state types via named exports (e.g., `PendingRole`, `DeleteTarget`) so the page can type its own `useState`
+
 ## Form inside modal conventions
 
 - Add a Cancel button alongside Submit (`Group justify="flex-end"`)
