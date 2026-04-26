@@ -183,74 +183,32 @@ hostGroups:
           application/json:
             schema:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
-  post:
-    operationId: createHostGroup
-    tags:
-      - host-access
-    summary: Create a host group with optional member hosts
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '../components/schemas/host-access.yaml#/CreateHostGroupRequest'
-    responses:
-      "201":
-        description: Group created
-      "400":
-        description: Bad Request
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "401":
-        description: Unauthorized
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "403":
-        description: Forbidden
-      "404":
-        description: One or more host IDs not found
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "409":
-        description: Group name already exists
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "500":
-        description: Internal Server Error
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
 
-hostGroupById:
+hostGroupsReconcile:
   put:
-    operationId: updateHostGroup
+    operationId: reconcileHostGroups
     tags:
       - host-access
-    summary: Update a host group's metadata and optionally replace its members
-    parameters:
-      - name: group_id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/ID'
+    summary: Reconcile the full desired image of host groups and their members
+    description: |
+      Atomically converges the database to the desired image. Sends a single
+      transaction that creates new groups, updates existing ones, and deletes
+      groups absent from the request.
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/host-access.yaml#/UpdateHostGroupRequest'
+            $ref: '../components/schemas/host-access.yaml#/ReconcileHostGroupsRequest'
     responses:
       "204":
-        description: Group updated
+        description: Reconciliation applied
+      "400":
+        description: Bad Request (invalid name, duplicate group ID, etc.)
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
       "401":
         description: Unauthorized
         content:
@@ -260,47 +218,13 @@ hostGroupById:
       "403":
         description: Forbidden
       "404":
-        description: Group or one of the referenced hosts not found
+        description: One or more referenced groups or hosts not found
         content:
           application/json:
             schema:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
       "409":
         description: Group name already taken
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "500":
-        description: Internal Server Error
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-  delete:
-    operationId: deleteHostGroup
-    tags:
-      - host-access
-    summary: Delete a host group
-    parameters:
-      - name: group_id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/ID'
-    responses:
-      "204":
-        description: Group deleted
-      "401":
-        description: Unauthorized
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "403":
-        description: Forbidden
-      "404":
-        description: Group not found
         content:
           application/json:
             schema:

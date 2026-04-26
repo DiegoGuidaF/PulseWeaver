@@ -1267,7 +1267,8 @@ export const HostGroupWithMembersSchema = {
         'id',
         'name',
         'created_at',
-        'hosts'
+        'hosts',
+        'member_ids'
     ],
     properties: {
         id: {
@@ -1275,6 +1276,11 @@ export const HostGroupWithMembersSchema = {
         },
         name: {
             type: 'string'
+        },
+        color: {
+            type: 'string',
+            nullable: true,
+            description: 'UI accent colour for the group. Null means "not chosen".'
         },
         description: {
             type: 'string',
@@ -1291,23 +1297,45 @@ export const HostGroupWithMembersSchema = {
         },
         hosts: {
             type: 'array',
+            description: 'Hydrated member hosts (id + fqdn + icon) for display.',
             items: {
                 $ref: '#/components/schemas/KnownHostRef'
+            }
+        },
+        member_ids: {
+            type: 'array',
+            description: 'Plain list of member host IDs, parallel to `hosts`. Useful to round-trip into a reconcile request.',
+            items: {
+                $ref: '#/components/schemas/ID'
             }
         }
     }
 } as const;
 
-export const CreateHostGroupRequestSchema = {
+export const DesiredHostGroupSchema = {
     type: 'object',
     required: [
         'name'
     ],
+    description: 'A single host group inside a reconcile request. A null `id` marks a\nbrand-new group; a non-null `id` must match an existing group.\n',
     properties: {
+        id: {
+            nullable: true,
+            allOf: [
+                {
+                    $ref: '#/components/schemas/ID'
+                }
+            ]
+        },
         name: {
             type: 'string',
             minLength: 1,
             maxLength: 100
+        },
+        color: {
+            type: 'string',
+            nullable: true,
+            description: 'UI accent colour. Null means "not chosen".'
         },
         description: {
             type: 'string',
@@ -1320,7 +1348,7 @@ export const CreateHostGroupRequestSchema = {
         },
         host_ids: {
             type: 'array',
-            description: 'Known-host IDs to include in the group.',
+            description: 'Known-host IDs that should be members of this group.',
             items: {
                 $ref: '#/components/schemas/ID'
             }
@@ -1328,34 +1356,17 @@ export const CreateHostGroupRequestSchema = {
     }
 } as const;
 
-export const UpdateHostGroupRequestSchema = {
+export const ReconcileHostGroupsRequestSchema = {
     type: 'object',
     required: [
-        'name'
+        'groups'
     ],
+    description: 'Full desired image of all host groups. Groups already in the database whose\nID is absent from `groups` will be deleted; groups with a non-null ID are\nupdated; groups with a null ID are created.\n',
     properties: {
-        name: {
-            type: 'string',
-            minLength: 1,
-            maxLength: 100
-        },
-        description: {
-            type: 'string',
-            nullable: true,
-            'x-go-type': 'NullableString',
-            'x-go-type-skip-optional-pointer': true
-        },
-        icon: {
-            type: 'string',
-            nullable: true,
-            'x-go-type': 'NullableString',
-            'x-go-type-skip-optional-pointer': true
-        },
-        host_ids: {
+        groups: {
             type: 'array',
-            description: 'Known-host IDs for this group. Omit to leave members unchanged; pass empty array to clear.',
             items: {
-                $ref: '#/components/schemas/ID'
+                $ref: '#/components/schemas/DesiredHostGroup'
             }
         }
     }

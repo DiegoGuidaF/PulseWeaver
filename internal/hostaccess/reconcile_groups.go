@@ -6,17 +6,21 @@ import (
 	"strings"
 )
 
-type DesiredGroup struct {
+// DesiredHostGroup is the caller-provided shape of a single host group inside
+// a reconcile request. A nil ID marks a brand-new group; a non-nil ID must
+// match an existing group or the reconcile fails with ErrHostGroupNotFound.
+type DesiredHostGroup struct {
 	ID          *HostGroupID
 	Name        string
-	Color       string
+	Color       *string
 	Description *string
 	Icon        *string
 	HostIDs     []KnownHostID
 }
 
-// prepare Normalizes and validates. Trimming strings, deduplication...
-func (g *DesiredGroup) prepare() error {
+// prepare normalises and validates a single desired group: trims the name,
+// rejects empty names, and dedups host IDs.
+func (g *DesiredHostGroup) prepare() error {
 	g.Name = strings.TrimSpace(g.Name)
 	g.HostIDs = deduplicateHostIDs(g.HostIDs)
 
@@ -27,20 +31,22 @@ func (g *DesiredGroup) prepare() error {
 	return nil
 }
 
-type ReconcileGroupsInput struct {
-	Groups []DesiredGroup
+// ReconcileHostGroupsInput is the full desired image of host_groups that the
+// caller wants the database to converge to.
+type ReconcileHostGroupsInput struct {
+	Groups []DesiredHostGroup
 }
 
-// prepare Normalizes and validates. Normalizes each group as well as checks that group IDs are not duplicated
-func (in *ReconcileGroupsInput) prepare() error {
-	// Prepare each group within
+// prepare normalises every group and rejects requests that reuse the same
+// existing group ID twice (which would make the create/update/delete plan
+// ambiguous).
+func (in *ReconcileHostGroupsInput) prepare() error {
 	for i := range in.Groups {
 		if err := in.Groups[i].prepare(); err != nil {
 			return err
 		}
 	}
 
-	// Ensure groups are not repeated
 	seenIDs := make(map[HostGroupID]struct{}, len(in.Groups))
 	for i := range in.Groups {
 		g := in.Groups[i]
@@ -55,23 +61,34 @@ func (in *ReconcileGroupsInput) prepare() error {
 	return nil
 }
 
+// groupReconcilePlan is the ordered set of write operations needed to converge
+// the current state to the desired state.
 type groupReconcilePlan struct {
 	toCreate []HostGroupDraft
 	toUpdate []HostGroup
 	toDelete []HostGroupID
 }
 
+// HostGroupDraft is the minimum shape needed to insert a new host_groups row
+// plus its members in a single repository call.
 type HostGroupDraft struct {
 	Name        string
-	Color       string
+	Color       *string
 	Description *string
 	Icon        *string
 	HostIDs     []KnownHostID
 }
 
-func (s *Service) ReconcileGroups(ctx context.Context, in ReconcileGroupsInput) error {
-	err := in.prepare()
-	if err != nil {
+// ReconcileHostGroups makes the database converge to the desired image of
+// host_groups + members in a single transaction. Groups present in `in` with a
+// non-nil ID are updated; groups with a nil ID are created; groups currently
+// in the database whose ID is absent from `in` are deleted.
+//
+// All referenced known-host IDs are validated up-front so the transaction can
+// fail fast without partial work. Observers are notified once on success
+// because group membership changes can shift effective per-user host access.
+func (s *Service) ReconcileHostGroups(ctx context.Context, in ReconcileHostGroupsInput) error {
+	if err := in.prepare(); err != nil {
 		return err
 	}
 
@@ -89,9 +106,16 @@ func (s *Service) ReconcileGroups(ctx context.Context, in ReconcileGroupsInput) 
 		return err
 	}
 
-	return s.tx.WithinTx(ctx, func(ctx context.Context) error {
-		for _, draft := range plan.toCreate {
-			if _, err := s.repo.CreateHostGroup(ctx, draft); err != nil {
+	err = s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		// Order matters: deletes first frees unique names (idx_host_groups_name)
+		// that subsequent updates/creates may want to claim. Updates run before
+		// creates so a renamed group can hand its old name off to a new one.
+		// NOTE: this still does NOT handle the rename-swap case where two
+		// existing groups exchange names — that hits the unique index on the
+		// first UPDATE. A two-phase rename-via-temp would be needed; deferred
+		// for now since the UI does not currently allow it.
+		for _, id := range plan.toDelete {
+			if err := s.repo.DeleteHostGroup(ctx, id); err != nil {
 				return err
 			}
 		}
@@ -102,24 +126,33 @@ func (s *Service) ReconcileGroups(ctx context.Context, in ReconcileGroupsInput) 
 			}
 		}
 
-		for _, id := range plan.toDelete {
-			if err := s.repo.DeleteHostGroup(ctx, id); err != nil {
+		for _, draft := range plan.toCreate {
+			if _, err := s.repo.CreateHostGroup(ctx, draft); err != nil {
 				return err
 			}
 		}
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	s.notifyUserHostAccessObservers(ctx)
+	return nil
 }
 
-func buildGroupReconcilePlan(current []HostGroup, desired []DesiredGroup) (groupReconcilePlan, error) {
+// buildGroupReconcilePlan diffs the current persisted groups against the
+// desired image and produces the create/update/delete buckets. A desired
+// group whose ID is unknown returns ErrHostGroupNotFound. A desired group
+// whose definition matches the current one is silently skipped.
+func buildGroupReconcilePlan(current []HostGroup, desired []DesiredHostGroup) (groupReconcilePlan, error) {
 	currentByID := make(map[HostGroupID]HostGroup, len(current))
 	for _, g := range current {
 		currentByID[g.ID] = g
 	}
 
 	desiredIDs := make(map[HostGroupID]struct{})
-
 	var plan groupReconcilePlan
 
 	for _, g := range desired {
@@ -137,7 +170,7 @@ func buildGroupReconcilePlan(current []HostGroup, desired []DesiredGroup) (group
 		id := *g.ID
 		currentGroup, ok := currentByID[id]
 		if !ok {
-			return groupReconcilePlan{}, ErrHostGroupNotFound
+			return groupReconcilePlan{}, fmt.Errorf("%w: id=%d", ErrHostGroupNotFound, id)
 		}
 		desiredIDs[id] = struct{}{}
 
@@ -155,18 +188,20 @@ func buildGroupReconcilePlan(current []HostGroup, desired []DesiredGroup) (group
 		}
 	}
 
-	// Remove all existing groups whose ID is not in the desired list
 	for _, g := range current {
 		if _, ok := desiredIDs[g.ID]; !ok {
 			plan.toDelete = append(plan.toDelete, g.ID)
 		}
 	}
 
-	//TODO: Add logging to this plan
-
 	return plan, nil
 }
-func (s *Service) validateReferencedHosts(ctx context.Context, groups []DesiredGroup) error {
+
+// validateReferencedHosts ensures every host_id mentioned by the desired image
+// exists. Wrapping with ErrReferenceNotFound lets handlers map this to a 404
+// without having to discriminate between "host not found" (data) and
+// "reference not found" (constraint).
+func (s *Service) validateReferencedHosts(ctx context.Context, groups []DesiredHostGroup) error {
 	hostSet := make(map[KnownHostID]struct{})
 	for _, g := range groups {
 		for _, id := range g.HostIDs {
@@ -195,7 +230,7 @@ func (s *Service) validateReferencedHosts(ctx context.Context, groups []DesiredG
 
 	for _, id := range ids {
 		if _, ok := found[id]; !ok {
-			return fmt.Errorf("%w: host_id=%d", ErrKnownHostNotFound, id)
+			return fmt.Errorf("%w: known_host_id=%d", ErrReferenceNotFound, id)
 		}
 	}
 

@@ -101,16 +101,19 @@ func (r *Repository) GetKnownHostsWithStats(ctx context.Context) ([]KnownHostSta
 type HostGroupWithMembers struct {
 	ID          hostaccess.HostGroupID
 	Name        string
+	Color       *string
 	Description *string
 	Icon        *string
 	CreatedAt   time.Time
 	Hosts       []hostaccess.KnownHostRef
+	MemberIDs   []hostaccess.KnownHostID
 }
 
 func (r *Repository) GetHostGroupsWithMembers(ctx context.Context) ([]HostGroupWithMembers, error) {
 	type row struct {
 		ID          hostaccess.HostGroupID  `db:"id"`
 		Name        string                  `db:"name"`
+		Color       *string                 `db:"color"`
 		Description *string                 `db:"description"`
 		Icon        *string                 `db:"icon"`
 		CreatedAt   time.Time               `db:"created_at"`
@@ -119,7 +122,7 @@ func (r *Repository) GetHostGroupsWithMembers(ctx context.Context) ([]HostGroupW
 		HostIcon    *string                 `db:"host_icon"`
 	}
 	const query = `
-		SELECT hg.id, hg.name, hg.description, hg.icon, hg.created_at,
+		SELECT hg.id, hg.name, hg.color, hg.description, hg.icon, hg.created_at,
 		       hgm.known_host_id, kh.fqdn AS host_fqdn, kh.icon AS host_icon
 		FROM host_groups hg
 		LEFT JOIN host_group_members hgm ON hgm.host_group_id = hg.id
@@ -141,10 +144,12 @@ func (r *Repository) GetHostGroupsWithMembers(ctx context.Context) ([]HostGroupW
 			groups = append(groups, HostGroupWithMembers{
 				ID:          rw.ID,
 				Name:        rw.Name,
+				Color:       rw.Color,
 				Description: rw.Description,
 				Icon:        rw.Icon,
 				CreatedAt:   rw.CreatedAt,
 				Hosts:       []hostaccess.KnownHostRef{},
+				MemberIDs:   []hostaccess.KnownHostID{},
 			})
 		}
 		if rw.HostID != nil && rw.HostFQDN != nil {
@@ -153,6 +158,7 @@ func (r *Repository) GetHostGroupsWithMembers(ctx context.Context) ([]HostGroupW
 				FQDN: *rw.HostFQDN,
 				Icon: rw.HostIcon,
 			})
+			groups[idx].MemberIDs = append(groups[idx].MemberIDs, *rw.HostID)
 		}
 	}
 	if groups == nil {

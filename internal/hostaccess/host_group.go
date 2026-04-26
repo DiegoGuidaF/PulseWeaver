@@ -13,16 +13,22 @@ func (id HostGroupID) String() string { return strconv.FormatInt(int64(id), 10) 
 type HostGroup struct {
 	ID          HostGroupID   `db:"id"`
 	Name        string        `db:"name"`
-	HostIDs     []KnownHostID `db:"host_ids"`
-	Color       string        `db:"color"`
+	Color       *string       `db:"color"`
 	Description *string       `db:"description"`
 	Icon        *string       `db:"icon"`
 	UpdatedAt   time.Time     `db:"updated_at"`
 	CreatedAt   time.Time     `db:"created_at"`
+	HostIDs     []KnownHostID `db:"-"`
 }
 
+// SameDefinitionAs reports whether two groups would produce identical rows
+// in host_groups + host_group_members. Used by the reconciler to skip no-op
+// updates and avoid spurious updated_at bumps.
 func (g HostGroup) SameDefinitionAs(other HostGroup) bool {
-	if g.Name != other.Name || g.Color != other.Color {
+	if g.Name != other.Name {
+		return false
+	}
+	if !equalStringPtr(g.Color, other.Color) {
 		return false
 	}
 	if !equalStringPtr(g.Description, other.Description) {
@@ -46,7 +52,6 @@ func sameKnownHostIDs(a, b []KnownHostID) bool {
 	return true
 }
 
-// equalStringPtr safely compares two *string values for equality.
 func equalStringPtr(a, b *string) bool {
 	if a == nil && b == nil {
 		return true

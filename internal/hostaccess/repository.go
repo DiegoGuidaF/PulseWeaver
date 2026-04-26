@@ -68,59 +68,162 @@ func (r *Repository) DeleteKnownHost(ctx context.Context, id KnownHostID) error 
 	return nil
 }
 
+func (r *Repository) ListKnownHostsByIDs(ctx context.Context, ids []KnownHostID) ([]KnownHost, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	query, args, err := sqlx.In(`
+		SELECT id, fqdn, icon, updated_at, created_at
+		FROM known_hosts
+		WHERE id IN (?)
+	`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("build list known hosts query: %w", err)
+	}
+	query = r.db.Rebind(query)
+
+	var hosts []KnownHost
+	if err := r.db.SelectContext(ctx, &hosts, query, args...); err != nil {
+		return nil, fmt.Errorf("list known hosts by ids: %w", err)
+	}
+	return hosts, nil
+}
+
 // ── Host groups ───────────────────────────────────────────────────────────────
 
-func (r *Repository) CreateHostGroupWithMembers(ctx context.Context, name string, description *string, icon *string, hostIDs []KnownHostID) (HostGroupID, error) {
+// ListHostGroups returns every host group with its member host IDs. Members
+// are loaded with a second query and joined in memory so a group with no
+// members still appears in the result (a single LEFT JOIN with GROUP BY is
+// possible but harder to map back to typed slices via sqlx).
+func (r *Repository) ListHostGroups(ctx context.Context) ([]HostGroup, error) {
+	var groups []HostGroup
+	const groupsQuery = `
+		SELECT id, name, description, icon, color
+		FROM host_groups
+	`
+	if err := r.db.SelectContext(ctx, &groups, groupsQuery); err != nil {
+		return nil, fmt.Errorf("list host groups: %w", err)
+	}
+
+	type memberRow struct {
+		GroupID HostGroupID `db:"host_group_id"`
+		HostID  KnownHostID `db:"known_host_id"`
+	}
+
+	var rows []memberRow
+	const membersQuery = `
+		SELECT host_group_id, known_host_id
+		FROM host_group_members
+	`
+	if err := r.db.SelectContext(ctx, &rows, membersQuery); err != nil {
+		return nil, fmt.Errorf("list host group members: %w", err)
+	}
+
+	hostIDsByGroup := make(map[HostGroupID][]KnownHostID, len(groups))
+	for _, row := range rows {
+		hostIDsByGroup[row.GroupID] = append(hostIDsByGroup[row.GroupID], row.HostID)
+	}
+	for i := range groups {
+		groups[i].HostIDs = hostIDsByGroup[groups[i].ID]
+	}
+	return groups, nil
+}
+
+// CreateHostGroup inserts a new host group together with its members in a
+// single transaction. Intended to be called from inside a reconcile flow that
+// already opened a transaction; in that case WithinTx reuses it.
+//
+// CAUTION: when several CreateHostGroup / UpdateHostGroup calls run in the
+// same reconcile transaction, the host_groups.name unique index is checked at
+// each statement. Two existing groups swapping names would therefore fail on
+// the first UPDATE. The reconcile orchestrator deletes before updating before
+// creating to side-step the common cases, but a true rename-swap still needs
+// a two-phase rename-via-temp that is not implemented yet.
+func (r *Repository) CreateHostGroup(ctx context.Context, draft HostGroupDraft) (HostGroupID, error) {
 	var groupID HostGroupID
 	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
-		const insertGroup = `INSERT INTO host_groups (name, description, icon) VALUES (?, ?, ?) RETURNING id`
-		if err := r.db.GetContext(ctx, &groupID, insertGroup, name, description, icon); err != nil {
+		const insertGroup = `
+			INSERT INTO host_groups (name, description, icon, color)
+			VALUES (?, ?, ?, ?)
+			RETURNING id
+		`
+		if err := r.db.GetContext(ctx, &groupID, insertGroup, draft.Name, draft.Description, draft.Icon, draft.Color); err != nil {
 			if isUniqueViolation(err) {
 				return ErrHostGroupConflict
 			}
 			return fmt.Errorf("create host group: %w", err)
 		}
-		return r.replaceHostGroupMembers(ctx, groupID, hostIDs)
+		return r.replaceHostGroupMembers(ctx, groupID, draft.HostIDs)
 	})
 	return groupID, err
 }
 
-func (r *Repository) UpdateHostGroupWithMembers(ctx context.Context, id HostGroupID, name string, description *string, icon *string, hostIDs []KnownHostID) error {
+// UpdateHostGroup replaces a group's metadata and its member set. See
+// CreateHostGroup for the rename-swap caveat.
+func (r *Repository) UpdateHostGroup(ctx context.Context, group HostGroup) error {
 	return r.db.WithinTx(ctx, func(ctx context.Context) error {
-		const updateMeta = `
-			UPDATE host_groups SET name = ?, description = ?, icon = ?, updated_at = CURRENT_TIMESTAMP
+		const query = `
+			UPDATE host_groups
+			SET name = ?, description = ?, icon = ?, color = ?, updated_at = CURRENT_TIMESTAMP
 			WHERE id = ?
 		`
-		res, err := r.db.ExecContext(ctx, updateMeta, name, description, icon, id)
+		res, err := r.db.ExecContext(ctx, query,
+			group.Name,
+			group.Description,
+			group.Icon,
+			group.Color,
+			group.ID,
+		)
 		if err != nil {
 			if isUniqueViolation(err) {
 				return ErrHostGroupConflict
 			}
 			return fmt.Errorf("update host group: %w", err)
 		}
-		if rows, _ := res.RowsAffected(); rows == 0 {
+
+		rows, err := res.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("update host group rows affected: %w", err)
+		}
+		if rows == 0 {
 			return ErrHostGroupNotFound
 		}
-		return r.replaceHostGroupMembers(ctx, id, hostIDs)
+
+		return r.replaceHostGroupMembers(ctx, group.ID, group.HostIDs)
 	})
 }
 
-func (r *Repository) UpdateHostGroupMetadata(ctx context.Context, id HostGroupID, name string, description *string, icon *string) error {
-	const query = `
-		UPDATE host_groups SET name = ?, description = ?, icon = ?, updated_at = CURRENT_TIMESTAMP
-		WHERE id = ?
-	`
-	res, err := r.db.ExecContext(ctx, query, name, description, icon, id)
+func (r *Repository) DeleteHostGroup(ctx context.Context, id HostGroupID) error {
+	const query = `DELETE FROM host_groups WHERE id = ?`
+	res, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
-		if isUniqueViolation(err) {
-			return ErrHostGroupConflict
-		}
-		return fmt.Errorf("update host group metadata: %w", err)
+		return fmt.Errorf("delete host group: %w", err)
 	}
 	if rows, _ := res.RowsAffected(); rows == 0 {
 		return ErrHostGroupNotFound
 	}
 	return nil
+}
+
+func (r *Repository) replaceHostGroupMembers(ctx context.Context, groupID HostGroupID, hostIDs []KnownHostID) error {
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		if _, err := r.db.ExecContext(ctx, `DELETE FROM host_group_members WHERE host_group_id = ?`, groupID); err != nil {
+			return fmt.Errorf("clear host group members: %w", err)
+		}
+		for _, hostID := range hostIDs {
+			if _, err := r.db.ExecContext(ctx,
+				`INSERT INTO host_group_members (host_group_id, known_host_id) VALUES (?, ?)`,
+				groupID, hostID,
+			); err != nil {
+				if isFKViolation(err) {
+					return ErrReferenceNotFound
+				}
+				return fmt.Errorf("insert host group member: %w", err)
+			}
+		}
+		return nil
+	})
 }
 
 // ── User grants ───────────────────────────────────────────────────────────────
@@ -267,159 +370,4 @@ func isUniqueViolation(err error) bool {
 
 func isFKViolation(err error) bool {
 	return strings.Contains(strings.ToLower(err.Error()), "foreign key constraint failed")
-}
-
-// -- new methods ----------------
-
-func (r *Repository) ListHostGroups(ctx context.Context) ([]HostGroup, error) {
-	var groups []HostGroup
-	const groupsQuery = `
-		SELECT id, name, description, icon, color
-		FROM host_groups
-	`
-	if err := r.db.SelectContext(ctx, &groups, groupsQuery); err != nil {
-		return nil, fmt.Errorf("list host groups: %w", err)
-	}
-
-	type memberRow struct {
-		GroupID HostGroupID `db:"host_group_id"`
-		HostID  KnownHostID `db:"known_host_id"`
-	}
-
-	var rows []memberRow
-	const membersQuery = `
-		SELECT host_group_id, known_host_id
-		FROM host_group_members
-	`
-	if err := r.db.SelectContext(ctx, &rows, membersQuery); err != nil {
-		return nil, fmt.Errorf("list host group members: %w", err)
-	}
-
-	hostIDsByGroup := make(map[HostGroupID][]KnownHostID, len(groups))
-	for _, row := range rows {
-		hostIDsByGroup[row.GroupID] = append(hostIDsByGroup[row.GroupID], row.HostID)
-	}
-
-	for i := range groups {
-		groups[i].HostIDs = hostIDsByGroup[groups[i].ID]
-	}
-
-	return groups, nil
-}
-
-func (r *Repository) ListKnownHostsByIDs(ctx context.Context, ids []KnownHostID) ([]KnownHost, error) {
-	if len(ids) == 0 {
-		return nil, nil
-	}
-
-	//TODO: Continue here, the issue comes with the "IN" not being currently implemented. Maybe the DB should have the
-	// rebind method. If doing so, I believe the device/repository.go could be simplified too
-	query, args, err := sqlx.In(`
-		SELECT id, fqdn, icon, updated_at, created_at
-		FROM known_hosts
-		WHERE id IN (?)
-	`, ids)
-	if err != nil {
-		return nil, fmt.Errorf("build list known hosts query: %w", err)
-	}
-
-	query = r.db.Rebind(query)
-
-	var hosts []KnownHost
-	if err := r.db.SelectContext(ctx, &hosts, query, args...); err != nil {
-		return nil, fmt.Errorf("list known hosts by ids: %w", err)
-	}
-
-	return hosts, nil
-}
-
-func (r *Repository) CreateHostGroup(ctx context.Context, draft HostGroupDraft) (HostGroupID, error) {
-	var groupID HostGroupID
-	hostIDs := draft.HostIDs
-	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
-		const insertGroup = `INSERT INTO host_groups (name, description, icon, color) VALUES (?, ?, ?, ?) RETURNING id`
-		if err := r.db.GetContext(ctx, &groupID, insertGroup, draft.Name, draft.Description, draft.Icon, draft.Color); err != nil {
-			if isUniqueViolation(err) {
-				return ErrHostGroupConflict
-			}
-			return fmt.Errorf("create host group: %w", err)
-		}
-		return r.replaceHostGroupMembers(ctx, groupID, hostIDs)
-	})
-	return groupID, err
-}
-
-func (r *Repository) UpdateHostGroup(ctx context.Context, group HostGroup) error {
-	hostIDs := group.HostIDs
-	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
-		const query = `
-			UPDATE host_groups SET name = ?, description = ?, icon = ?, color = ?, updated_at = CURRENT_TIMESTAMP
-				WHERE id = ?
-		`
-		res, err := r.db.ExecContext(ctx, query,
-			group.Name,
-			group.Description,
-			group.Icon,
-			group.Color,
-			group.ID,
-		)
-		if err != nil {
-			if isUniqueViolation(err) {
-				return ErrHostGroupConflict
-			}
-			return fmt.Errorf("update host group: %w", err)
-		}
-
-		rows, err := res.RowsAffected()
-		if err != nil {
-			return fmt.Errorf("update host group rows affected: %w", err)
-		}
-		if rows == 0 {
-			return ErrHostGroupNotFound
-		}
-
-		return r.replaceHostGroupMembers(ctx, group.ID, hostIDs)
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (r *Repository) DeleteHostGroup(ctx context.Context, id HostGroupID) error {
-	const query = `DELETE FROM host_groups WHERE id = ?`
-	res, err := r.db.ExecContext(ctx, query, id)
-	if err != nil {
-		return fmt.Errorf("delete host group: %w", err)
-	}
-	if rows, _ := res.RowsAffected(); rows == 0 {
-		return ErrHostGroupNotFound
-	}
-	return nil
-}
-
-func (r *Repository) replaceHostGroupMembers(ctx context.Context, groupID HostGroupID, hostIDs []KnownHostID) error {
-	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
-		if _, err := r.db.ExecContext(ctx, `DELETE FROM host_group_members WHERE host_group_id = ?`, groupID); err != nil {
-			return fmt.Errorf("clear host group members: %w", err)
-		}
-		for _, hostID := range hostIDs {
-			if _, err := r.db.ExecContext(ctx,
-				`INSERT INTO host_group_members (host_group_id, known_host_id) VALUES (?, ?)`,
-				groupID, hostID,
-			); err != nil {
-				if isFKViolation(err) {
-					return ErrReferenceNotFound
-				}
-				return fmt.Errorf("insert host group member: %w", err)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

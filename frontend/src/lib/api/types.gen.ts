@@ -497,30 +497,51 @@ export type UpdateKnownHostRequest = {
 export type HostGroupWithMembers = {
     id: Id;
     name: string;
+    /**
+     * UI accent colour for the group. Null means "not chosen".
+     */
+    color?: string | null;
     description?: string | null;
     icon?: string | null;
     created_at: string;
+    /**
+     * Hydrated member hosts (id + fqdn + icon) for display.
+     */
     hosts: Array<KnownHostRef>;
+    /**
+     * Plain list of member host IDs, parallel to `hosts`. Useful to round-trip into a reconcile request.
+     */
+    member_ids: Array<Id>;
 };
 
-export type CreateHostGroupRequest = {
+/**
+ * A single host group inside a reconcile request. A null `id` marks a
+ * brand-new group; a non-null `id` must match an existing group.
+ *
+ */
+export type DesiredHostGroup = {
+    id?: Id | null;
     name: string;
+    /**
+     * UI accent colour. Null means "not chosen".
+     */
+    color?: string | null;
     description?: string | null;
     icon?: string | null;
     /**
-     * Known-host IDs to include in the group.
+     * Known-host IDs that should be members of this group.
      */
     host_ids?: Array<Id>;
 };
 
-export type UpdateHostGroupRequest = {
-    name: string;
-    description?: string | null;
-    icon?: string | null;
-    /**
-     * Known-host IDs for this group. Omit to leave members unchanged; pass empty array to clear.
-     */
-    host_ids?: Array<Id>;
+/**
+ * Full desired image of all host groups. Groups already in the database whose
+ * ID is absent from `groups` will be deleted; groups with a non-null ID are
+ * updated; groups with a null ID are created.
+ *
+ */
+export type ReconcileHostGroupsRequest = {
+    groups: Array<DesiredHostGroup>;
 };
 
 export type SetUserHostGrantsRequest = {
@@ -2496,16 +2517,16 @@ export type ListHostGroupsResponses = {
 
 export type ListHostGroupsResponse = ListHostGroupsResponses[keyof ListHostGroupsResponses];
 
-export type CreateHostGroupData = {
-    body: CreateHostGroupRequest;
+export type ReconcileHostGroupsData = {
+    body: ReconcileHostGroupsRequest;
     path?: never;
     query?: never;
-    url: '/admin/host-groups';
+    url: '/admin/host-groups/reconcile';
 };
 
-export type CreateHostGroupErrors = {
+export type ReconcileHostGroupsErrors = {
     /**
-     * Bad Request
+     * Bad Request (invalid name, duplicate group ID, etc.)
      */
     400: ErrorResponse;
     /**
@@ -2517,87 +2538,7 @@ export type CreateHostGroupErrors = {
      */
     403: unknown;
     /**
-     * One or more host IDs not found
-     */
-    404: ErrorResponse;
-    /**
-     * Group name already exists
-     */
-    409: ErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: ErrorResponse;
-};
-
-export type CreateHostGroupError = CreateHostGroupErrors[keyof CreateHostGroupErrors];
-
-export type CreateHostGroupResponses = {
-    /**
-     * Group created
-     */
-    201: unknown;
-};
-
-export type DeleteHostGroupData = {
-    body?: never;
-    path: {
-        group_id: Id;
-    };
-    query?: never;
-    url: '/admin/host-groups/{group_id}';
-};
-
-export type DeleteHostGroupErrors = {
-    /**
-     * Unauthorized
-     */
-    401: ErrorResponse;
-    /**
-     * Forbidden
-     */
-    403: unknown;
-    /**
-     * Group not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: ErrorResponse;
-};
-
-export type DeleteHostGroupError = DeleteHostGroupErrors[keyof DeleteHostGroupErrors];
-
-export type DeleteHostGroupResponses = {
-    /**
-     * Group deleted
-     */
-    204: void;
-};
-
-export type DeleteHostGroupResponse = DeleteHostGroupResponses[keyof DeleteHostGroupResponses];
-
-export type UpdateHostGroupData = {
-    body: UpdateHostGroupRequest;
-    path: {
-        group_id: Id;
-    };
-    query?: never;
-    url: '/admin/host-groups/{group_id}';
-};
-
-export type UpdateHostGroupErrors = {
-    /**
-     * Unauthorized
-     */
-    401: ErrorResponse;
-    /**
-     * Forbidden
-     */
-    403: unknown;
-    /**
-     * Group or one of the referenced hosts not found
+     * One or more referenced groups or hosts not found
      */
     404: ErrorResponse;
     /**
@@ -2610,16 +2551,16 @@ export type UpdateHostGroupErrors = {
     500: ErrorResponse;
 };
 
-export type UpdateHostGroupError = UpdateHostGroupErrors[keyof UpdateHostGroupErrors];
+export type ReconcileHostGroupsError = ReconcileHostGroupsErrors[keyof ReconcileHostGroupsErrors];
 
-export type UpdateHostGroupResponses = {
+export type ReconcileHostGroupsResponses = {
     /**
-     * Group updated
+     * Reconciliation applied
      */
     204: void;
 };
 
-export type UpdateHostGroupResponse = UpdateHostGroupResponses[keyof UpdateHostGroupResponses];
+export type ReconcileHostGroupsResponse = ReconcileHostGroupsResponses[keyof ReconcileHostGroupsResponses];
 
 export type SetUserHostGrantsData = {
     body: SetUserHostGrantsRequest;

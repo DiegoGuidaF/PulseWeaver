@@ -152,13 +152,19 @@ func (h *HTTPHandler) ListHostGroups(
 		for j, host := range g.Hosts {
 			hosts[j] = httpapi.KnownHostRef{Id: host.ID.Int64(), Fqdn: host.FQDN, Icon: host.Icon}
 		}
+		memberIDs := make([]int64, len(g.MemberIDs))
+		for j, id := range g.MemberIDs {
+			memberIDs[j] = id.Int64()
+		}
 		resp[i] = httpapi.HostGroupWithMembers{
 			Id:          g.ID.Int64(),
 			Name:        g.Name,
+			Color:       g.Color,
 			Description: g.Description,
 			Icon:        g.Icon,
 			CreatedAt:   httpapi.UTCTime(g.CreatedAt),
 			Hosts:       hosts,
+			MemberIds:   memberIDs,
 		}
 	}
 	return httpapi.ListHostGroups200JSONResponse(resp), nil

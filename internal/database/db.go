@@ -81,6 +81,13 @@ func (d *DB) SelectContext(ctx context.Context, dest any, query string, args ...
 	return sqlx.SelectContext(ctx, d.exec(ctx), dest, query, args...)
 }
 
+// Rebind translates `?` placeholders to whatever the underlying driver expects.
+// Lets callers compose queries via sqlx.In (e.g. `WHERE id IN (?)`) without
+// having to think about driver-specific bind styles.
+func (d *DB) Rebind(query string) string {
+	return d.pool.Rebind(query)
+}
+
 func (d *DB) NamedExecContext(ctx context.Context, query string, arg any) (sql.Result, error) {
 	q, args, err := sqlx.Named(query, arg)
 	if err != nil {

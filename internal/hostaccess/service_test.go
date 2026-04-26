@@ -21,6 +21,14 @@ type fakeRepo struct {
 	settings     []UserHostSetting
 	directGrants []UserHostGrant
 	groupGrants  []UserHostGrant
+
+	knownHostsByID []KnownHost
+	hostGroups     []HostGroup
+
+	createCalls []HostGroupDraft
+	updateCalls []HostGroup
+	deleteCalls []HostGroupID
+	callOrder   []string
 }
 
 var _ repository = (*fakeRepo)(nil)
@@ -43,19 +51,43 @@ func (f *fakeRepo) UpdateKnownHost(_ context.Context, id KnownHostID, icon *stri
 }
 func (f *fakeRepo) DeleteKnownHost(_ context.Context, _ KnownHostID) error { return f.err }
 
-func (f *fakeRepo) CreateHostGroupWithMembers(_ context.Context, _ string, _ *string, _ *string, _ []KnownHostID) (HostGroupID, error) {
+func (f *fakeRepo) ListKnownHostsByIDs(_ context.Context, _ []KnownHostID) ([]KnownHost, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.knownHostsByID, nil
+}
+
+func (f *fakeRepo) ListHostGroups(_ context.Context) ([]HostGroup, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.hostGroups, nil
+}
+func (f *fakeRepo) CreateHostGroup(_ context.Context, draft HostGroupDraft) (HostGroupID, error) {
 	if f.err != nil {
 		return 0, f.err
 	}
-	return HostGroupID(1), nil
+	f.createCalls = append(f.createCalls, draft)
+	f.callOrder = append(f.callOrder, "create")
+	return HostGroupID(len(f.createCalls) + 100), nil
 }
-func (f *fakeRepo) UpdateHostGroupWithMembers(_ context.Context, _ HostGroupID, _ string, _ *string, _ *string, _ []KnownHostID) error {
-	return f.err
+func (f *fakeRepo) UpdateHostGroup(_ context.Context, group HostGroup) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.updateCalls = append(f.updateCalls, group)
+	f.callOrder = append(f.callOrder, "update")
+	return nil
 }
-func (f *fakeRepo) UpdateHostGroupMetadata(_ context.Context, _ HostGroupID, _ string, _ *string, _ *string) error {
-	return f.err
+func (f *fakeRepo) DeleteHostGroup(_ context.Context, id HostGroupID) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.deleteCalls = append(f.deleteCalls, id)
+	f.callOrder = append(f.callOrder, "delete")
+	return nil
 }
-func (f *fakeRepo) DeleteHostGroup(_ context.Context, _ HostGroupID) error { return f.err }
 
 func (f *fakeRepo) SetFullUserGrants(_ context.Context, _ auth.UserID, _ *bool, _ []KnownHostID, _ []HostGroupID) error {
 	return f.err
@@ -144,53 +176,88 @@ func TestService_DeleteKnownHost_NotifiesObservers(t *testing.T) {
 	is.Equal(obs.calls, 1)
 }
 
-func TestService_CreateHostGroup_DoesNotNotifyObservers(t *testing.T) {
+func TestService_ReconcileHostGroups_NotifiesObserversOnce(t *testing.T) {
 	is := is.New(t)
 	obs := &mockObserver{}
-	svc, _ := newTestService(&fakeRepo{})
+	repo := &fakeRepo{
+		hostGroups:     []HostGroup{{ID: 1, Name: "old"}},
+		knownHostsByID: nil,
+	}
+	svc, _ := newTestService(repo)
 	svc.AddUserHostAccessObserver(obs)
 
-	_, err := svc.CreateHostGroup(context.Background(), "g", nil, nil, nil)
-
-	is.NoErr(err)
-	is.Equal(obs.calls, 0) // no user access change from creating a group with no users
-}
-
-func TestService_UpdateHostGroup_WithMembers_NotifiesObservers(t *testing.T) {
-	is := is.New(t)
-	obs := &mockObserver{}
-	svc, _ := newTestService(&fakeRepo{})
-	svc.AddUserHostAccessObserver(obs)
-
-	hostIDs := []KnownHostID{1, 2}
-	err := svc.UpdateHostGroup(context.Background(), HostGroupID(1), "g", nil, nil, &hostIDs)
+	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
+		Groups: []DesiredHostGroup{{Name: "new"}},
+	})
 
 	is.NoErr(err)
 	is.Equal(obs.calls, 1)
 }
 
-func TestService_UpdateHostGroup_MetadataOnly_NoNotification(t *testing.T) {
+func TestService_ReconcileHostGroups_DeleteThenUpdateThenCreate(t *testing.T) {
 	is := is.New(t)
-	obs := &mockObserver{}
-	svc, _ := newTestService(&fakeRepo{})
-	svc.AddUserHostAccessObserver(obs)
+	repo := &fakeRepo{
+		hostGroups: []HostGroup{
+			{ID: 1, Name: "to-update"},
+			{ID: 2, Name: "to-delete"},
+		},
+	}
+	svc, _ := newTestService(repo)
 
-	err := svc.UpdateHostGroup(context.Background(), HostGroupID(1), "g", nil, nil, nil)
-
+	id1 := HostGroupID(1)
+	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
+		Groups: []DesiredHostGroup{
+			{ID: &id1, Name: "renamed"},
+			{Name: "new-one"},
+		},
+	})
 	is.NoErr(err)
-	is.Equal(obs.calls, 0)
+	is.Equal(repo.callOrder, []string{"delete", "update", "create"})
 }
 
-func TestService_DeleteHostGroup_NotifiesObservers(t *testing.T) {
+func TestService_ReconcileHostGroups_NoOp_NoCalls(t *testing.T) {
 	is := is.New(t)
 	obs := &mockObserver{}
-	svc, _ := newTestService(&fakeRepo{})
+	current := HostGroup{ID: 1, Name: "stable"}
+	repo := &fakeRepo{hostGroups: []HostGroup{current}}
+	svc, _ := newTestService(repo)
 	svc.AddUserHostAccessObserver(obs)
 
-	err := svc.DeleteHostGroup(context.Background(), HostGroupID(1))
+	id := current.ID
+	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
+		Groups: []DesiredHostGroup{{ID: &id, Name: "stable"}},
+	})
 
 	is.NoErr(err)
-	is.Equal(obs.calls, 1)
+	is.Equal(len(repo.callOrder), 0)
+	is.Equal(obs.calls, 1) // observers still notified after a successful tx, even if it was a no-op
+}
+
+func TestService_ReconcileHostGroups_EmptyName_Rejected(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepo{}
+	svc, _ := newTestService(repo)
+
+	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
+		Groups: []DesiredHostGroup{{Name: "  "}},
+	})
+	is.True(errors.Is(err, ErrGroupNameRequired))
+	is.Equal(len(repo.callOrder), 0)
+}
+
+func TestService_ReconcileHostGroups_DuplicateID_Rejected(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepo{}
+	svc, _ := newTestService(repo)
+
+	id := HostGroupID(7)
+	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
+		Groups: []DesiredHostGroup{
+			{ID: &id, Name: "a"},
+			{ID: &id, Name: "b"},
+		},
+	})
+	is.True(errors.Is(err, ErrDuplicateGroupID))
 }
 
 func TestService_SetFullUserGrants_NotifiesObserversOnce(t *testing.T) {
@@ -405,4 +472,74 @@ func TestService_GetAllUserHostAccess_RepoError(t *testing.T) {
 
 	_, err := svc.GetAllUserHostAccess(context.Background())
 	is.True(err != nil)
+}
+
+// ── buildGroupReconcilePlan (pure function) ───────────────────────────────────
+
+func TestBuildGroupReconcilePlan_CreateOnly(t *testing.T) {
+	is := is.New(t)
+	plan, err := buildGroupReconcilePlan(nil, []DesiredHostGroup{{Name: "new"}})
+	is.NoErr(err)
+	is.Equal(len(plan.toCreate), 1)
+	is.Equal(plan.toCreate[0].Name, "new")
+	is.Equal(len(plan.toUpdate), 0)
+	is.Equal(len(plan.toDelete), 0)
+}
+
+func TestBuildGroupReconcilePlan_DeleteOnly(t *testing.T) {
+	is := is.New(t)
+	current := []HostGroup{{ID: 1, Name: "doomed"}}
+	plan, err := buildGroupReconcilePlan(current, nil)
+	is.NoErr(err)
+	is.Equal(plan.toDelete, []HostGroupID{1})
+}
+
+func TestBuildGroupReconcilePlan_UpdateChanged(t *testing.T) {
+	is := is.New(t)
+	current := []HostGroup{{ID: 1, Name: "before"}}
+	id := HostGroupID(1)
+	plan, err := buildGroupReconcilePlan(current, []DesiredHostGroup{{ID: &id, Name: "after"}})
+	is.NoErr(err)
+	is.Equal(len(plan.toUpdate), 1)
+	is.Equal(plan.toUpdate[0].Name, "after")
+}
+
+func TestBuildGroupReconcilePlan_UpdateUnchanged_SkipsUpdate(t *testing.T) {
+	is := is.New(t)
+	current := []HostGroup{{ID: 1, Name: "stable"}}
+	id := HostGroupID(1)
+	plan, err := buildGroupReconcilePlan(current, []DesiredHostGroup{{ID: &id, Name: "stable"}})
+	is.NoErr(err)
+	is.Equal(len(plan.toUpdate), 0)
+	is.Equal(len(plan.toCreate), 0)
+	is.Equal(len(plan.toDelete), 0)
+}
+
+func TestBuildGroupReconcilePlan_UnknownDesiredID_Errors(t *testing.T) {
+	is := is.New(t)
+	id := HostGroupID(42)
+	_, err := buildGroupReconcilePlan(nil, []DesiredHostGroup{{ID: &id, Name: "ghost"}})
+	is.True(errors.Is(err, ErrHostGroupNotFound))
+}
+
+func TestBuildGroupReconcilePlan_Mixed(t *testing.T) {
+	is := is.New(t)
+	current := []HostGroup{
+		{ID: 1, Name: "keep"},
+		{ID: 2, Name: "rename-me"},
+		{ID: 3, Name: "remove-me"},
+	}
+	id1 := HostGroupID(1)
+	id2 := HostGroupID(2)
+	plan, err := buildGroupReconcilePlan(current, []DesiredHostGroup{
+		{ID: &id1, Name: "keep"},
+		{ID: &id2, Name: "renamed"},
+		{Name: "fresh"},
+	})
+	is.NoErr(err)
+	is.Equal(len(plan.toCreate), 1)
+	is.Equal(plan.toCreate[0].Name, "fresh")
+	is.Equal(len(plan.toUpdate), 1)
+	is.Equal(plan.toUpdate[0].ID, HostGroupID(2))
+	is.Equal(plan.toDelete, []HostGroupID{3})
 }

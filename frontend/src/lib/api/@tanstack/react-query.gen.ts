@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addAddress, changePassword, claimRegistration, createDevice, createHostGroup, createKnownHosts, createRegistration, createUser, deleteDevice, deleteDeviceApiKey, deleteHostGroup, deleteKnownHost, deleteRegistration, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, disableMaxActiveAddressesRule, getAccessLog, getAccessLogByCountry, getAccessLogDenyReasons, getAddressHistory, getCurrentUser, getDashboardServices, getDashboardStats, getDashboardTopDeniedIps, getDashboardTraffic, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, getDevicesByUser, getMaxActiveAddressesRule, getRegistration, getUserHostDetails, ignoreSuggestion, listDeviceTypes, listHostGroups, listHostSuggestions, listKnownHosts, listRegistrations, listUsers, listUsersHostAccess, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, putMaxActiveAddressesRule, regenerateDeviceApiKey, setUserHostGrants, unignoreSuggestion, updateDevice, updateHostGroup, updateKnownHost, updateMe } from '../sdk.gen';
-import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, ClaimRegistrationData, ClaimRegistrationError, ClaimRegistrationResponse2, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateHostGroupData, CreateHostGroupError, CreateKnownHostsData, CreateKnownHostsError, CreateKnownHostsResponse, CreateRegistrationData, CreateRegistrationError, CreateRegistrationResponse, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceApiKeyData, DeleteDeviceApiKeyError, DeleteDeviceApiKeyResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteHostGroupData, DeleteHostGroupError, DeleteHostGroupResponse, DeleteKnownHostData, DeleteKnownHostError, DeleteKnownHostResponse, DeleteRegistrationData, DeleteRegistrationError, DeleteRegistrationResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, DisableMaxActiveAddressesRuleData, DisableMaxActiveAddressesRuleError, DisableMaxActiveAddressesRuleResponse, GetAccessLogByCountryData, GetAccessLogByCountryError, GetAccessLogByCountryResponse, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsError, GetAccessLogDenyReasonsResponse, GetAccessLogError, GetAccessLogResponse, GetAddressHistoryData, GetAddressHistoryError, GetAddressHistoryResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDashboardServicesData, GetDashboardServicesError, GetDashboardServicesResponse, GetDashboardStatsData, GetDashboardStatsError, GetDashboardStatsResponse, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsError, GetDashboardTopDeniedIpsResponse, GetDashboardTrafficData, GetDashboardTrafficError, GetDashboardTrafficResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesByUserData, GetDevicesByUserError, GetDevicesByUserResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, GetMaxActiveAddressesRuleData, GetMaxActiveAddressesRuleError, GetMaxActiveAddressesRuleResponse, GetRegistrationData, GetRegistrationError, GetRegistrationResponse, GetUserHostDetailsData, GetUserHostDetailsError, GetUserHostDetailsResponse, IgnoreSuggestionData, IgnoreSuggestionError, IgnoreSuggestionResponse, ListDeviceTypesData, ListDeviceTypesResponse, ListHostGroupsData, ListHostGroupsError, ListHostGroupsResponse, ListHostSuggestionsData, ListHostSuggestionsError, ListHostSuggestionsResponse, ListKnownHostsData, ListKnownHostsError, ListKnownHostsResponse, ListRegistrationsData, ListRegistrationsError, ListRegistrationsResponse, ListUsersData, ListUsersError, ListUsersHostAccessData, ListUsersHostAccessError, ListUsersHostAccessResponse, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, PutMaxActiveAddressesRuleData, PutMaxActiveAddressesRuleError, PutMaxActiveAddressesRuleResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, SetUserHostGrantsData, SetUserHostGrantsError, SetUserHostGrantsResponse, UnignoreSuggestionData, UnignoreSuggestionError, UnignoreSuggestionResponse, UpdateDeviceData, UpdateDeviceError, UpdateDeviceResponse, UpdateHostGroupData, UpdateHostGroupError, UpdateHostGroupResponse, UpdateKnownHostData, UpdateKnownHostError, UpdateKnownHostResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
+import { addAddress, changePassword, claimRegistration, createDevice, createKnownHosts, createRegistration, createUser, deleteDevice, deleteDeviceApiKey, deleteKnownHost, deleteRegistration, deleteUser, demoteUser, deviceHeartbeat, deviceHeartbeatByApiKey, disableAddress, disableDeviceAddressLeaseRule, disableMaxActiveAddressesRule, getAccessLog, getAccessLogByCountry, getAccessLogDenyReasons, getAddressHistory, getCurrentUser, getDashboardServices, getDashboardStats, getDashboardTopDeniedIps, getDashboardTraffic, getDevice, getDeviceAddresses, getDeviceAddressLeaseRule, getDevices, getDevicesByUser, getMaxActiveAddressesRule, getRegistration, getUserHostDetails, ignoreSuggestion, listDeviceTypes, listHostGroups, listHostSuggestions, listKnownHosts, listRegistrations, listUsers, listUsersHostAccess, login, logout, type Options, promoteUser, putDeviceAddressLeaseRule, putMaxActiveAddressesRule, reconcileHostGroups, regenerateDeviceApiKey, setUserHostGrants, unignoreSuggestion, updateDevice, updateKnownHost, updateMe } from '../sdk.gen';
+import type { AddAddressData, AddAddressError, AddAddressResponse, ChangePasswordData, ChangePasswordError, ChangePasswordResponse, ClaimRegistrationData, ClaimRegistrationError, ClaimRegistrationResponse2, CreateDeviceData, CreateDeviceError, CreateDeviceResponse2, CreateKnownHostsData, CreateKnownHostsError, CreateKnownHostsResponse, CreateRegistrationData, CreateRegistrationError, CreateRegistrationResponse, CreateUserData, CreateUserError, CreateUserResponse, DeleteDeviceApiKeyData, DeleteDeviceApiKeyError, DeleteDeviceApiKeyResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeleteKnownHostData, DeleteKnownHostError, DeleteKnownHostResponse, DeleteRegistrationData, DeleteRegistrationError, DeleteRegistrationResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DemoteUserData, DemoteUserError, DemoteUserResponse, DeviceHeartbeatByApiKeyData, DeviceHeartbeatByApiKeyError, DeviceHeartbeatByApiKeyResponse, DeviceHeartbeatData, DeviceHeartbeatError, DeviceHeartbeatResponse, DisableAddressData, DisableAddressError, DisableAddressResponse, DisableDeviceAddressLeaseRuleData, DisableDeviceAddressLeaseRuleError, DisableDeviceAddressLeaseRuleResponse, DisableMaxActiveAddressesRuleData, DisableMaxActiveAddressesRuleError, DisableMaxActiveAddressesRuleResponse, GetAccessLogByCountryData, GetAccessLogByCountryError, GetAccessLogByCountryResponse, GetAccessLogData, GetAccessLogDenyReasonsData, GetAccessLogDenyReasonsError, GetAccessLogDenyReasonsResponse, GetAccessLogError, GetAccessLogResponse, GetAddressHistoryData, GetAddressHistoryError, GetAddressHistoryResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetDashboardServicesData, GetDashboardServicesError, GetDashboardServicesResponse, GetDashboardStatsData, GetDashboardStatsError, GetDashboardStatsResponse, GetDashboardTopDeniedIpsData, GetDashboardTopDeniedIpsError, GetDashboardTopDeniedIpsResponse, GetDashboardTrafficData, GetDashboardTrafficError, GetDashboardTrafficResponse, GetDeviceAddressesData, GetDeviceAddressesError, GetDeviceAddressesResponse, GetDeviceAddressLeaseRuleData, GetDeviceAddressLeaseRuleError, GetDeviceAddressLeaseRuleResponse, GetDeviceData, GetDeviceError, GetDeviceResponse, GetDevicesByUserData, GetDevicesByUserError, GetDevicesByUserResponse, GetDevicesData, GetDevicesError, GetDevicesResponse, GetMaxActiveAddressesRuleData, GetMaxActiveAddressesRuleError, GetMaxActiveAddressesRuleResponse, GetRegistrationData, GetRegistrationError, GetRegistrationResponse, GetUserHostDetailsData, GetUserHostDetailsError, GetUserHostDetailsResponse, IgnoreSuggestionData, IgnoreSuggestionError, IgnoreSuggestionResponse, ListDeviceTypesData, ListDeviceTypesResponse, ListHostGroupsData, ListHostGroupsError, ListHostGroupsResponse, ListHostSuggestionsData, ListHostSuggestionsError, ListHostSuggestionsResponse, ListKnownHostsData, ListKnownHostsError, ListKnownHostsResponse, ListRegistrationsData, ListRegistrationsError, ListRegistrationsResponse, ListUsersData, ListUsersError, ListUsersHostAccessData, ListUsersHostAccessError, ListUsersHostAccessResponse, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, PromoteUserData, PromoteUserError, PromoteUserResponse, PutDeviceAddressLeaseRuleData, PutDeviceAddressLeaseRuleError, PutDeviceAddressLeaseRuleResponse, PutMaxActiveAddressesRuleData, PutMaxActiveAddressesRuleError, PutMaxActiveAddressesRuleResponse, ReconcileHostGroupsData, ReconcileHostGroupsError, ReconcileHostGroupsResponse, RegenerateDeviceApiKeyData, RegenerateDeviceApiKeyError, RegenerateDeviceApiKeyResponse, SetUserHostGrantsData, SetUserHostGrantsError, SetUserHostGrantsResponse, UnignoreSuggestionData, UnignoreSuggestionError, UnignoreSuggestionResponse, UpdateDeviceData, UpdateDeviceError, UpdateDeviceResponse, UpdateKnownHostData, UpdateKnownHostError, UpdateKnownHostResponse, UpdateMeData, UpdateMeError, UpdateMeResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -974,46 +974,17 @@ export const listHostGroupsOptions = (options?: Options<ListHostGroupsData>) => 
 });
 
 /**
- * Create a host group with optional member hosts
+ * Reconcile the full desired image of host groups and their members
+ *
+ * Atomically converges the database to the desired image. Sends a single
+ * transaction that creates new groups, updates existing ones, and deletes
+ * groups absent from the request.
+ *
  */
-export const createHostGroupMutation = (options?: Partial<Options<CreateHostGroupData>>): UseMutationOptions<unknown, CreateHostGroupError, Options<CreateHostGroupData>> => {
-    const mutationOptions: UseMutationOptions<unknown, CreateHostGroupError, Options<CreateHostGroupData>> = {
+export const reconcileHostGroupsMutation = (options?: Partial<Options<ReconcileHostGroupsData>>): UseMutationOptions<ReconcileHostGroupsResponse, ReconcileHostGroupsError, Options<ReconcileHostGroupsData>> => {
+    const mutationOptions: UseMutationOptions<ReconcileHostGroupsResponse, ReconcileHostGroupsError, Options<ReconcileHostGroupsData>> = {
         mutationFn: async (fnOptions) => {
-            const { data } = await createHostGroup({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Delete a host group
- */
-export const deleteHostGroupMutation = (options?: Partial<Options<DeleteHostGroupData>>): UseMutationOptions<DeleteHostGroupResponse, DeleteHostGroupError, Options<DeleteHostGroupData>> => {
-    const mutationOptions: UseMutationOptions<DeleteHostGroupResponse, DeleteHostGroupError, Options<DeleteHostGroupData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await deleteHostGroup({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Update a host group's metadata and optionally replace its members
- */
-export const updateHostGroupMutation = (options?: Partial<Options<UpdateHostGroupData>>): UseMutationOptions<UpdateHostGroupResponse, UpdateHostGroupError, Options<UpdateHostGroupData>> => {
-    const mutationOptions: UseMutationOptions<UpdateHostGroupResponse, UpdateHostGroupError, Options<UpdateHostGroupData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await updateHostGroup({
+            const { data } = await reconcileHostGroups({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

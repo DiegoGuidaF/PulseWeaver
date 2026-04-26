@@ -14,10 +14,12 @@ type repository interface {
 	BulkCreateKnownHosts(ctx context.Context, fqdns []string) ([]KnownHost, error)
 	UpdateKnownHost(ctx context.Context, id KnownHostID, icon *string) (KnownHost, error)
 	DeleteKnownHost(ctx context.Context, id KnownHostID) error
+	ListKnownHostsByIDs(ctx context.Context, ids []KnownHostID) ([]KnownHost, error)
 
-	CreateHostGroupWithMembers(ctx context.Context, name string, description *string, icon *string, hostIDs []KnownHostID) (HostGroupID, error)
-	UpdateHostGroupWithMembers(ctx context.Context, id HostGroupID, name string, description *string, icon *string, hostIDs []KnownHostID) error
-	UpdateHostGroupMetadata(ctx context.Context, id HostGroupID, name string, description *string, icon *string) error
+	ListHostGroups(ctx context.Context) ([]HostGroup, error)
+	CreateHostGroup(ctx context.Context, draft HostGroupDraft) (HostGroupID, error)
+	UpdateHostGroup(ctx context.Context, group HostGroup) error
+	DeleteHostGroup(ctx context.Context, id HostGroupID) error
 
 	SetFullUserGrants(ctx context.Context, userID auth.UserID, bypass *bool, hostIDs []KnownHostID, groupIDs []HostGroupID) error
 
@@ -30,14 +32,6 @@ type repository interface {
 	GetAllUserHostSettings(ctx context.Context) ([]UserHostSetting, error)
 	GetAllUserDirectHostGrants(ctx context.Context) ([]UserHostGrant, error)
 	GetAllUserGroupHostGrants(ctx context.Context) ([]UserHostGrant, error)
-
-	// New methods
-	ListHostGroups(ctx context.Context) ([]HostGroup, error)
-	ListKnownHostsByIDs(ctx context.Context, ids []KnownHostID) ([]KnownHost, error)
-
-	CreateHostGroup(ctx context.Context, draft HostGroupDraft) (HostGroupID, error)
-	UpdateHostGroup(ctx context.Context, group HostGroup) error
-	DeleteHostGroup(ctx context.Context, id HostGroupID) error
 }
 
 type transactor interface {
@@ -72,8 +66,6 @@ func (s *Service) notifyUserHostAccessObservers(ctx context.Context) {
 }
 
 // GetAllUserHostAccess implements the policy.HostAccessProvider interface.
-// Queries settings, direct grants, and group grants within a single transaction
-// for a consistent snapshot, then merges them into the policy projection.
 func (s *Service) GetAllUserHostAccess(ctx context.Context) ([]policy.UserHostAccess, error) {
 	var (
 		settings    []UserHostSetting
@@ -101,9 +93,6 @@ func (s *Service) GetAllUserHostAccess(ctx context.Context) ([]policy.UserHostAc
 	return mergeUserHostAccess(settings, directHosts, groupHosts), nil
 }
 
-// mergeUserHostAccess combines settings and grant rows into the policy projection.
-// Grants are deduplicated per user. Users with bypass=false and no allowed hosts
-// are excluded to match the "relevant users only" contract.
 func mergeUserHostAccess(settings []UserHostSetting, directHosts, groupHosts []UserHostGrant) []policy.UserHostAccess {
 	type entry struct {
 		bypass bool
@@ -119,7 +108,7 @@ func mergeUserHostAccess(settings []UserHostSetting, directHosts, groupHosts []U
 		for _, g := range grants {
 			e := byUser[g.UserID]
 			if e == nil {
-				continue // orphaned grant; user has no settings row
+				continue
 			}
 			if e.hosts == nil {
 				e.hosts = make(map[string]struct{})
@@ -159,12 +148,10 @@ func (s *Service) BulkCreateKnownHosts(ctx context.Context, fqdns []string) ([]K
 	if err != nil {
 		return nil, err
 	}
-	// No need to notify observer since there's no change on user access just by creating the hosts unassigned
 	return hosts, nil
 }
 
 func (s *Service) UpdateKnownHost(ctx context.Context, id KnownHostID, icon *string) (KnownHost, error) {
-	// No need to notify observer since there's no change on user access since only Icon can be updated right now.
 	return s.repo.UpdateKnownHost(ctx, id, icon)
 }
 
@@ -178,36 +165,8 @@ func (s *Service) DeleteKnownHost(ctx context.Context, id KnownHostID) error {
 
 // ── Host groups ───────────────────────────────────────────────────────────────
 
-func (s *Service) CreateHostGroup(ctx context.Context, name string, description *string, icon *string, hostIDs []KnownHostID) (HostGroupID, error) {
-	hostIDs = deduplicateHostIDs(hostIDs)
-	groupID, err := s.repo.CreateHostGroupWithMembers(ctx, name, description, icon, hostIDs)
-	if err != nil {
-		return 0, err
-	}
-	// No need to notify since no users are currently assigned to the group
-	return groupID, nil
-}
-
-// UpdateHostGroup updates a host group's metadata and optionally its members.
-// hostIDs semantics: nil = leave members unchanged; non-nil (even empty) = replace members.
-func (s *Service) UpdateHostGroup(ctx context.Context, id HostGroupID, name string, description *string, icon *string, hostIDs *[]KnownHostID) error {
-	if hostIDs != nil {
-		deduped := deduplicateHostIDs(*hostIDs)
-		if err := s.repo.UpdateHostGroupWithMembers(ctx, id, name, description, icon, deduped); err != nil {
-			return err
-		}
-		s.notifyUserHostAccessObservers(ctx)
-		return nil
-	}
-	return s.repo.UpdateHostGroupMetadata(ctx, id, name, description, icon)
-}
-
-func (s *Service) DeleteHostGroup(ctx context.Context, id HostGroupID) error {
-	if err := s.repo.DeleteHostGroup(ctx, id); err != nil {
-		return err
-	}
-	s.notifyUserHostAccessObservers(ctx)
-	return nil
+func (s *Service) ListHostGroups(ctx context.Context) ([]HostGroup, error) {
+	return s.repo.ListHostGroups(ctx)
 }
 
 // ── User grants ───────────────────────────────────────────────────────────────
@@ -238,8 +197,6 @@ func (s *Service) RemoveIgnoredSuggestionByFQDN(ctx context.Context, fqdn string
 
 // ── User lifecycle ────────────────────────────────────────────────────────────
 
-// OnUserEvent implements auth.UserObserver. Called synchronously within the auth
-// transaction, so settings changes are atomic with the user lifecycle event.
 func (s *Service) OnUserEvent(ctx context.Context, event auth.UserEvent) {
 	switch event.Type {
 	case auth.EventTypeUserCreated:

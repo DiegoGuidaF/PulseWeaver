@@ -22,6 +22,28 @@ func setupHostAccessRepo(t *testing.T) (*hostaccess.Repository, *database.DB) {
 	return hostaccess.NewRepository(db.DB()), db.DB()
 }
 
+// createGroup is a thin helper that adapts the repo's draft-shaped API to the
+// positional shape the legacy repository tests were written against.
+func createGroup(ctx context.Context, repo *hostaccess.Repository, name string, desc *string, _ *string, hostIDs []hostaccess.KnownHostID) (hostaccess.HostGroupID, error) {
+	return repo.CreateHostGroup(ctx, hostaccess.HostGroupDraft{
+		Name:        name,
+		Description: desc,
+		HostIDs:     hostIDs,
+	})
+}
+
+// updateGroup adapts repo.UpdateHostGroup (which takes a full HostGroup) to a
+// positional helper that mirrors the legacy "*WithMembers" / "*Metadata" shape.
+func updateGroup(ctx context.Context, repo *hostaccess.Repository, id hostaccess.HostGroupID, name string, desc *string, icon *string, hostIDs []hostaccess.KnownHostID) error {
+	return repo.UpdateHostGroup(ctx, hostaccess.HostGroup{
+		ID:          id,
+		Name:        name,
+		Description: desc,
+		Icon:        icon,
+		HostIDs:     hostIDs,
+	})
+}
+
 // insertUser inserts a raw user row and returns its ID.
 // For active users a user_host_settings row is also created (mirroring the observer behaviour).
 // Deleted users intentionally have no settings row, simulating post-observer cleanup.
@@ -113,7 +135,7 @@ func TestRepository_CreateHostGroupWithMembers_HappyPath(t *testing.T) {
 	is.NoErr(err)
 
 	desc := "test group"
-	groupID, err := repo.CreateHostGroupWithMembers(ctx, "mygroup", &desc, nil, []hostaccess.KnownHostID{hosts[0].ID, hosts[1].ID})
+	groupID, err := createGroup(ctx, repo, "mygroup", &desc, nil, []hostaccess.KnownHostID{hosts[0].ID, hosts[1].ID})
 	is.NoErr(err)
 	is.True(groupID > 0)
 }
@@ -122,7 +144,7 @@ func TestRepository_CreateHostGroupWithMembers_EmptyMembers(t *testing.T) {
 	is := is.New(t)
 	repo, _ := setupHostAccessRepo(t)
 
-	groupID, err := repo.CreateHostGroupWithMembers(context.Background(), "empty-group", nil, nil, nil)
+	groupID, err := createGroup(context.Background(), repo, "empty-group", nil, nil, nil)
 	is.NoErr(err)
 	is.True(groupID > 0)
 }
@@ -136,11 +158,11 @@ func TestRepository_UpdateHostGroupWithMembers_HappyPath(t *testing.T) {
 	hosts, err := repo.BulkCreateKnownHosts(ctx, []string{"a.com", "b.com"})
 	is.NoErr(err)
 
-	groupID, err := repo.CreateHostGroupWithMembers(ctx, "original", nil, nil, []hostaccess.KnownHostID{hosts[0].ID})
+	groupID, err := createGroup(ctx, repo, "original", nil, nil, []hostaccess.KnownHostID{hosts[0].ID})
 	is.NoErr(err)
 
 	desc := "updated"
-	err = repo.UpdateHostGroupWithMembers(ctx, groupID, "renamed", &desc, nil, []hostaccess.KnownHostID{hosts[1].ID})
+	err = updateGroup(ctx, repo, groupID, "renamed", &desc, nil, []hostaccess.KnownHostID{hosts[1].ID})
 	is.NoErr(err)
 }
 
@@ -150,12 +172,12 @@ func TestRepository_UpdateHostGroupMetadata_HappyPath(t *testing.T) {
 	repo, _ := setupHostAccessRepo(t)
 	ctx := context.Background()
 
-	groupID, err := repo.CreateHostGroupWithMembers(ctx, "original", nil, nil, nil)
+	groupID, err := createGroup(ctx, repo, "original", nil, nil, nil)
 	is.NoErr(err)
 
 	desc := "new desc"
 	icon := "🔒"
-	err = repo.UpdateHostGroupMetadata(ctx, groupID, "renamed", &desc, &icon)
+	err = updateGroup(ctx, repo, groupID, "renamed", &desc, &icon, nil)
 	is.NoErr(err)
 }
 
@@ -165,14 +187,14 @@ func TestRepository_DeleteHostGroup_HappyPath(t *testing.T) {
 	repo, _ := setupHostAccessRepo(t)
 	ctx := context.Background()
 
-	groupID, err := repo.CreateHostGroupWithMembers(ctx, "to-delete", nil, nil, nil)
+	groupID, err := createGroup(ctx, repo, "to-delete", nil, nil, nil)
 	is.NoErr(err)
 
 	err = repo.DeleteHostGroup(ctx, groupID)
 	is.NoErr(err)
 
-	// Verify it's gone.
-	err = repo.UpdateHostGroupMetadata(ctx, groupID, "gone", nil, nil)
+	// Verify it's gone — a follow-up update should fail with NotFound.
+	err = updateGroup(ctx, repo, groupID, "gone", nil, nil, nil)
 	is.True(errors.Is(err, hostaccess.ErrHostGroupNotFound))
 }
 
@@ -185,7 +207,7 @@ func TestRepository_SetFullUserGrants_HappyPath(t *testing.T) {
 	userID := insertUser(t, db, "alice", false, false)
 	hosts, err := repo.BulkCreateKnownHosts(ctx, []string{"a.com", "b.com"})
 	is.NoErr(err)
-	groupID, err := repo.CreateHostGroupWithMembers(ctx, "g", nil, nil, []hostaccess.KnownHostID{hosts[0].ID})
+	groupID, err := createGroup(ctx, repo, "g", nil, nil, []hostaccess.KnownHostID{hosts[0].ID})
 	is.NoErr(err)
 
 	bypass := true
@@ -322,7 +344,7 @@ func TestRepository_DeleteUserData_HappyPath(t *testing.T) {
 	userID := insertUser(t, db, "alice", false, false)
 	hosts, err := repo.BulkCreateKnownHosts(ctx, []string{"a.com"})
 	is.NoErr(err)
-	groupID, err := repo.CreateHostGroupWithMembers(ctx, "g", nil, nil, []hostaccess.KnownHostID{hosts[0].ID})
+	groupID, err := createGroup(ctx, repo, "g", nil, nil, []hostaccess.KnownHostID{hosts[0].ID})
 	is.NoErr(err)
 	is.NoErr(repo.SetFullUserGrants(ctx, userID, nil, []hostaccess.KnownHostID{hosts[0].ID}, []hostaccess.HostGroupID{groupID}))
 
@@ -473,7 +495,7 @@ func TestRepository_GetAllUserGroupHostGrants_ReturnsGrants(t *testing.T) {
 	hosts, err := repo.BulkCreateKnownHosts(ctx, []string{"group-host.com"})
 	is.NoErr(err)
 
-	groupID, err := repo.CreateHostGroupWithMembers(ctx, "mygroup", nil, nil, []hostaccess.KnownHostID{hosts[0].ID})
+	groupID, err := createGroup(ctx, repo, "mygroup", nil, nil, []hostaccess.KnownHostID{hosts[0].ID})
 	is.NoErr(err)
 	is.NoErr(repo.SetFullUserGrants(ctx, userID, nil, nil, []hostaccess.HostGroupID{groupID}))
 
@@ -495,9 +517,9 @@ func TestRepository_GetAllUserGroupHostGrants_MultipleUsers(t *testing.T) {
 	hosts, err := repo.BulkCreateKnownHosts(ctx, []string{"g1.com", "g2.com"})
 	is.NoErr(err)
 
-	group1, err := repo.CreateHostGroupWithMembers(ctx, "group1", nil, nil, []hostaccess.KnownHostID{hosts[0].ID})
+	group1, err := createGroup(ctx, repo, "group1", nil, nil, []hostaccess.KnownHostID{hosts[0].ID})
 	is.NoErr(err)
-	group2, err := repo.CreateHostGroupWithMembers(ctx, "group2", nil, nil, []hostaccess.KnownHostID{hosts[0].ID, hosts[1].ID})
+	group2, err := createGroup(ctx, repo, "group2", nil, nil, []hostaccess.KnownHostID{hosts[0].ID, hosts[1].ID})
 	is.NoErr(err)
 
 	is.NoErr(repo.SetFullUserGrants(ctx, userA, nil, nil, []hostaccess.HostGroupID{group1}))
@@ -524,7 +546,7 @@ func TestRepository_GetAllUserGroupHostGrants_ExcludesDeletedUsers(t *testing.T)
 	hosts, err := repo.BulkCreateKnownHosts(ctx, []string{"group-host.com"})
 	is.NoErr(err)
 
-	groupID, err := repo.CreateHostGroupWithMembers(ctx, "mygroup", nil, nil, []hostaccess.KnownHostID{hosts[0].ID})
+	groupID, err := createGroup(ctx, repo, "mygroup", nil, nil, []hostaccess.KnownHostID{hosts[0].ID})
 	is.NoErr(err)
 	is.NoErr(repo.SetFullUserGrants(ctx, userID, nil, nil, []hostaccess.HostGroupID{groupID}))
 

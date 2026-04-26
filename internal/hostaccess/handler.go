@@ -84,84 +84,51 @@ func (h *HTTPHandler) DeleteKnownHost(
 	return httpapi.DeleteKnownHost204Response{}, nil
 }
 
-// ── Host groups ───────────────────────────────────────────────────────────────
+// ── Host groups (reconcile) ───────────────────────────────────────────────────
 
-func (h *HTTPHandler) CreateHostGroup(
+func (h *HTTPHandler) ReconcileHostGroups(
 	ctx context.Context,
-	req httpapi.CreateHostGroupRequestObject,
-) (httpapi.CreateHostGroupResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "CreateHostGroup")
+	req httpapi.ReconcileHostGroupsRequestObject,
+) (httpapi.ReconcileHostGroupsResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "ReconcileHostGroups")
 
-	var hostIDs []KnownHostID
-	if req.Body.HostIds != nil {
-		hostIDs = make([]KnownHostID, len(*req.Body.HostIds))
-		for i, id := range *req.Body.HostIds {
-			hostIDs[i] = KnownHostID(id)
+	in := ReconcileHostGroupsInput{
+		Groups: make([]DesiredHostGroup, 0, len(req.Body.Groups)),
+	}
+	for _, g := range req.Body.Groups {
+		desired := DesiredHostGroup{
+			Name:        g.Name,
+			Color:       g.Color,
+			Description: g.Description,
+			Icon:        g.Icon,
 		}
+		if g.Id != nil {
+			id := HostGroupID(*g.Id)
+			desired.ID = &id
+		}
+		if g.HostIds != nil {
+			desired.HostIDs = make([]KnownHostID, len(*g.HostIds))
+			for i, raw := range *g.HostIds {
+				desired.HostIDs[i] = KnownHostID(raw)
+			}
+		}
+		in.Groups = append(in.Groups, desired)
 	}
 
-	_, err := h.service.CreateHostGroup(ctx, req.Body.Name, req.Body.Description, req.Body.Icon, hostIDs)
-	if err != nil {
+	if err := h.service.ReconcileHostGroups(ctx, in); err != nil {
 		switch {
+		case errors.Is(err, ErrGroupNameRequired), errors.Is(err, ErrDuplicateGroupID):
+			return httpapi.ReconcileHostGroups400JSONResponse(errResp(err.Error())), nil
+		case errors.Is(err, ErrHostGroupNotFound), errors.Is(err, ErrReferenceNotFound):
+			return httpapi.ReconcileHostGroups404JSONResponse(errResp(err.Error())), nil
 		case errors.Is(err, ErrHostGroupConflict):
-			return httpapi.CreateHostGroup409JSONResponse(errResp("Host group name already exists")), nil
-		case errors.Is(err, ErrReferenceNotFound):
-			return httpapi.CreateHostGroup404JSONResponse(errResp("One or more host IDs not found")), nil
+			return httpapi.ReconcileHostGroups409JSONResponse(errResp("Host group name already taken")), nil
 		default:
-			h.logger.ErrorContext(ctx, "create host group failed", slog.Any(logging.AttrKeyError, err))
-			return httpapi.CreateHostGroup500JSONResponse(errResp("Failed to create host group")), nil
+			h.logger.ErrorContext(ctx, "reconcile host groups failed", slog.Any(logging.AttrKeyError, err))
+			return httpapi.ReconcileHostGroups500JSONResponse(errResp("Failed to reconcile host groups")), nil
 		}
 	}
-	return httpapi.CreateHostGroup201Response{}, nil
-}
-
-func (h *HTTPHandler) UpdateHostGroup(
-	ctx context.Context,
-	req httpapi.UpdateHostGroupRequestObject,
-) (httpapi.UpdateHostGroupResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "UpdateHostGroup")
-	id := HostGroupID(req.GroupId)
-
-	var hostIDs *[]KnownHostID
-	if req.Body.HostIds != nil {
-		ids := make([]KnownHostID, len(*req.Body.HostIds))
-		for i, raw := range *req.Body.HostIds {
-			ids[i] = KnownHostID(raw)
-		}
-		hostIDs = &ids
-	}
-
-	if err := h.service.UpdateHostGroup(ctx, id, req.Body.Name, req.Body.Description.Value, req.Body.Icon.Value, hostIDs); err != nil {
-		switch {
-		case errors.Is(err, ErrHostGroupNotFound):
-			return httpapi.UpdateHostGroup404JSONResponse(errResp("Host group not found")), nil
-		case errors.Is(err, ErrReferenceNotFound):
-			return httpapi.UpdateHostGroup404JSONResponse(errResp("One or more host IDs not found")), nil
-		case errors.Is(err, ErrHostGroupConflict):
-			return httpapi.UpdateHostGroup409JSONResponse(errResp("Host group name already taken")), nil
-		default:
-			h.logger.ErrorContext(ctx, "update host group failed", slog.Any(logging.AttrKeyError, err))
-			return httpapi.UpdateHostGroup500JSONResponse(errResp("Failed to update host group")), nil
-		}
-	}
-	return httpapi.UpdateHostGroup204Response{}, nil
-}
-
-func (h *HTTPHandler) DeleteHostGroup(
-	ctx context.Context,
-	req httpapi.DeleteHostGroupRequestObject,
-) (httpapi.DeleteHostGroupResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "DeleteHostGroup")
-	id := HostGroupID(req.GroupId)
-
-	if err := h.service.DeleteHostGroup(ctx, id); err != nil {
-		if errors.Is(err, ErrHostGroupNotFound) {
-			return httpapi.DeleteHostGroup404JSONResponse(errResp("Host group not found")), nil
-		}
-		h.logger.ErrorContext(ctx, "delete host group failed", slog.Any(logging.AttrKeyError, err))
-		return httpapi.DeleteHostGroup500JSONResponse(errResp("Failed to delete host group")), nil
-	}
-	return httpapi.DeleteHostGroup204Response{}, nil
+	return httpapi.ReconcileHostGroups204Response{}, nil
 }
 
 // ── User host grants ──────────────────────────────────────────────────────────

@@ -17,6 +17,49 @@ import (
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
+// createGroup is a test convenience that reconciles a single new host group
+// on top of the current set and returns its persisted ID. Reconcile is the
+// only mutation entry point after PW-38, so we go through it instead of
+// touching the repo directly.
+func createGroup(t *testing.T, svc *hostaccess.Service, name string, hostIDs []hostaccess.KnownHostID) hostaccess.HostGroupID {
+	t.Helper()
+	ctx := t.Context()
+
+	current, err := svc.ListHostGroups(ctx)
+	if err != nil {
+		t.Fatalf("list groups: %v", err)
+	}
+	desired := make([]hostaccess.DesiredHostGroup, 0, len(current)+1)
+	for _, g := range current {
+		id := g.ID
+		desired = append(desired, hostaccess.DesiredHostGroup{
+			ID:          &id,
+			Name:        g.Name,
+			Color:       g.Color,
+			Description: g.Description,
+			Icon:        g.Icon,
+			HostIDs:     g.HostIDs,
+		})
+	}
+	desired = append(desired, hostaccess.DesiredHostGroup{Name: name, HostIDs: hostIDs})
+
+	if err := svc.ReconcileHostGroups(ctx, hostaccess.ReconcileHostGroupsInput{Groups: desired}); err != nil {
+		t.Fatalf("reconcile create %q: %v", name, err)
+	}
+
+	groups, err := svc.ListHostGroups(ctx)
+	if err != nil {
+		t.Fatalf("list groups after reconcile: %v", err)
+	}
+	for _, g := range groups {
+		if g.Name == name {
+			return g.ID
+		}
+	}
+	t.Fatalf("group %q not found after reconcile", name)
+	return 0
+}
+
 func findUserRow(rows []httpapi.UserHostAccessSummary, id int64) *httpapi.UserHostAccessSummary {
 	for i, r := range rows {
 		if r.Id == id {
@@ -83,8 +126,7 @@ func TestHandler_ListUsersHostAccess_EffectiveCountCombinesDirectAndGroup(t *tes
 	}
 
 	// Create a group containing only h2.
-	groupID, err := srv.HostAccessService.CreateHostGroup(t.Context(), "G1", nil, nil, []hostaccess.KnownHostID{hostByFQDN["h2.example.com"]})
-	is.NoErr(err)
+	groupID := createGroup(t, srv.HostAccessService, "G1", []hostaccess.KnownHostID{hostByFQDN["h2.example.com"]})
 
 	// Create a regular user.
 	user, err := srv.AuthService.CreateUser(t.Context(), "alice", "Alice", "alice@example.com", principal)
@@ -188,8 +230,7 @@ func TestHandler_GetUserHostDetails_DirectAndGroupGrant(t *testing.T) {
 	}
 
 	// Create a group containing only h2.
-	groupID, err := srv.HostAccessService.CreateHostGroup(t.Context(), "G1", nil, nil, []hostaccess.KnownHostID{hostByFQDN["h2.example.com"]})
-	is.NoErr(err)
+	groupID := createGroup(t, srv.HostAccessService, "G1", []hostaccess.KnownHostID{hostByFQDN["h2.example.com"]})
 
 	// Create a user with h1 direct + G1 via group.
 	user, err := srv.AuthService.CreateUser(t.Context(), "bob", "Bob", "bob@example.com", principal)
@@ -236,10 +277,8 @@ func TestHandler_GetUserHostDetails_AllGroupsReturnedRegardlessOfGrant(t *testin
 	principal := testutils.AdminPrincipal(t, srv)
 
 	// Create two groups; only grant one.
-	groupGranted, err := srv.HostAccessService.CreateHostGroup(t.Context(), "Granted", nil, nil, nil)
-	is.NoErr(err)
-	groupUngranted, err := srv.HostAccessService.CreateHostGroup(t.Context(), "Ungranted", nil, nil, nil)
-	is.NoErr(err)
+	groupGranted := createGroup(t, srv.HostAccessService, "Granted", nil)
+	groupUngranted := createGroup(t, srv.HostAccessService, "Ungranted", nil)
 
 	user, err := srv.AuthService.CreateUser(t.Context(), "dana", "Dana", "dana@example.com", principal)
 	is.NoErr(err)

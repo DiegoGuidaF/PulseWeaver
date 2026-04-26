@@ -345,24 +345,36 @@ export const zUpdateKnownHostRequest = z.object({
 export const zHostGroupWithMembers = z.object({
     id: zId,
     name: z.string(),
+    color: z.string().nullish(),
     description: z.string().nullish(),
     icon: z.string().nullish(),
     created_at: z.iso.datetime({ offset: true, local: true }),
-    hosts: z.array(zKnownHostRef)
+    hosts: z.array(zKnownHostRef),
+    member_ids: z.array(zId)
 });
 
-export const zCreateHostGroupRequest = z.object({
+/**
+ * A single host group inside a reconcile request. A null `id` marks a
+ * brand-new group; a non-null `id` must match an existing group.
+ *
+ */
+export const zDesiredHostGroup = z.object({
+    id: zId.nullish(),
     name: z.string().min(1).max(100),
+    color: z.string().nullish(),
     description: z.string().max(500).nullish(),
     icon: z.string().nullish(),
     host_ids: z.array(zId).optional()
 });
 
-export const zUpdateHostGroupRequest = z.object({
-    name: z.string().min(1).max(100),
-    description: z.string().nullish(),
-    icon: z.string().nullish(),
-    host_ids: z.array(zId).optional()
+/**
+ * Full desired image of all host groups. Groups already in the database whose
+ * ID is absent from `groups` will be deleted; groups with a non-null ID are
+ * updated; groups with a null ID are created.
+ *
+ */
+export const zReconcileHostGroupsRequest = z.object({
+    groups: z.array(zDesiredHostGroup)
 });
 
 export const zSetUserHostGrantsRequest = z.object({
@@ -903,27 +915,12 @@ export const zUpdateKnownHostResponse = zKnownHost;
  */
 export const zListHostGroupsResponse = z.array(zHostGroupWithMembers);
 
-export const zCreateHostGroupBody = zCreateHostGroupRequest;
-
-export const zDeleteHostGroupPath = z.object({
-    group_id: zId
-});
+export const zReconcileHostGroupsBody = zReconcileHostGroupsRequest;
 
 /**
- * Group deleted
+ * Reconciliation applied
  */
-export const zDeleteHostGroupResponse = z.void();
-
-export const zUpdateHostGroupBody = zUpdateHostGroupRequest;
-
-export const zUpdateHostGroupPath = z.object({
-    group_id: zId
-});
-
-/**
- * Group updated
- */
-export const zUpdateHostGroupResponse = z.void();
+export const zReconcileHostGroupsResponse = z.void();
 
 export const zSetUserHostGrantsBody = zSetUserHostGrantsRequest;
 

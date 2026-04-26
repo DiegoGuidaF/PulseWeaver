@@ -34,6 +34,7 @@ CREATE TABLE host_groups
     name        TEXT     NOT NULL,
     description TEXT,
     icon        TEXT,
+    color       TEXT,
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
