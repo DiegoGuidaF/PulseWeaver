@@ -21,7 +21,7 @@ func TestHandler_ReconcileKnownHosts(t *testing.T) {
 	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
 
 	body, _ := json.Marshal(map[string]any{
-		"hosts": []map[string]any{{"fqdn": "router.example.com"}},
+		"hosts": []map[string]any{{"fqdn": "router.example.com", "group_ids": []int{}}},
 	})
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/admin/hosts/reconcile", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")

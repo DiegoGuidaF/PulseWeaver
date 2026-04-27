@@ -33,11 +33,15 @@ func (h *HTTPHandler) ReconcileKnownHosts(
 	}
 	for _, h := range req.Body.Hosts {
 		desired := DesiredKnownHost{
-			FQDN: h.Fqdn,
-			Icon: h.Icon,
+			FQDN:     h.Fqdn,
+			Icon:     h.Icon,
+			GroupIDs: make([]HostGroupID, len(h.GroupIds)),
 		}
 		if h.Id != nil {
 			desired.ID = new(KnownHostID(*h.Id))
+		}
+		for i, gid := range h.GroupIds {
+			desired.GroupIDs[i] = HostGroupID(gid)
 		}
 		in.Hosts = append(in.Hosts, desired)
 	}
@@ -49,7 +53,7 @@ func (h *HTTPHandler) ReconcileKnownHosts(
 			errors.Is(err, ErrDuplicateKnownHostFQDN),
 			errors.Is(err, ErrKnownHostFQDNImmutable):
 			return httpapi.ReconcileKnownHosts400JSONResponse(errResp(err.Error())), nil
-		case errors.Is(err, ErrKnownHostNotFound):
+		case errors.Is(err, ErrKnownHostNotFound), errors.Is(err, ErrReferenceNotFound):
 			return httpapi.ReconcileKnownHosts404JSONResponse(errResp(err.Error())), nil
 		case errors.Is(err, ErrKnownHostConflict):
 			return httpapi.ReconcileKnownHosts409JSONResponse(errResp("FQDN already exists")), nil

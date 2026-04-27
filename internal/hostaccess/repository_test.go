@@ -23,33 +23,6 @@ func setupHostAccessRepo(t *testing.T) (*hostaccess.Repository, *database.DB) {
 	return hostaccess.NewRepository(db.DB()), db.DB()
 }
 
-// // createGroup is a thin helper that adapts the repo's draft-shaped API to the
-// // positional shape the legacy repository tests were written against.
-//
-//	func createGroup(ctx context.Context, repo *hostaccess.Repository, name string, desc *string, _ *string, hostIDs []hostaccess.KnownHostID) (hostaccess.HostGroupID, error) {
-//		return repo.CreateHostGroup(ctx, hostaccess.HostGroupDraft{
-//			Name:        name,
-//			Description: desc,
-//			HostIDs:     hostIDs,
-//		})
-//	}
-//
-// // updateGroup adapts repo.UpdateHostGroup (which takes a full HostGroup) to a
-// // positional helper that mirrors the legacy "*WithMembers" / "*Metadata" shape.
-//
-//	func updateGroup(ctx context.Context, repo *hostaccess.Repository, id hostaccess.HostGroupID, name string, desc *string, icon *string, hostIDs []hostaccess.KnownHostID) error {
-//		return repo.UpdateHostGroup(ctx, hostaccess.HostGroup{
-//			ID:          id,
-//			Name:        name,
-//			Description: desc,
-//			Icon:        icon,
-//			HostIDs:     hostIDs,
-//		})
-//	}
-//
-// // insertUser inserts a raw user row and returns its ID.
-// // For active users a user_host_settings row is also created (mirroring the observer behaviour).
-// // Deleted users intentionally have no settings row, simulating post-observer cleanup.
 func insertUser(t *testing.T, db *database.DB, username string, bypass bool, deleted bool) auth.UserID {
 	t.Helper()
 	ctx := context.Background()
@@ -125,6 +98,7 @@ func TestRepository_CreateHostGroup_HappyPath(t *testing.T) {
 	ctx := context.Background()
 
 	hostID1, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "a.com"})
+	is.NoErr(err)
 	hostID2, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "b.com"})
 	is.NoErr(err)
 
@@ -150,6 +124,7 @@ func TestRepository_UpdateHostGroup_HappyPath(t *testing.T) {
 	ctx := context.Background()
 
 	hostID1, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "a.com"})
+	is.NoErr(err)
 	hostID2, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "b.com"})
 	is.NoErr(err)
 
@@ -183,6 +158,56 @@ func TestRepository_DeleteHostGroup_HappyPath(t *testing.T) {
 	is.Equal(len(groups), 0)
 }
 
+// ── SetKnownHostGroupMembership ──────────────────────────────────────────────
+func TestRepository_SetKnownHostGroupMembership_HappyPath(t *testing.T) {
+	is := is.New(t)
+	repo, _ := setupHostAccessRepo(t)
+	ctx := context.Background()
+
+	hostID, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "host.example.com"})
+	is.NoErr(err)
+	groupID1, err := repo.CreateHostGroup(ctx, hostaccess.HostGroupDraft{Name: "g1", HostIDs: []hostaccess.KnownHostID{}})
+	is.NoErr(err)
+	groupID2, err := repo.CreateHostGroup(ctx, hostaccess.HostGroupDraft{Name: "g2", HostIDs: []hostaccess.KnownHostID{}})
+	is.NoErr(err)
+
+	err = repo.SetKnownHostGroupMembership(ctx, hostID, []hostaccess.HostGroupID{groupID1, groupID2})
+	is.NoErr(err)
+
+	groups, err := repo.ListHostGroups(ctx)
+	is.NoErr(err)
+	hostsByGroup := make(map[hostaccess.HostGroupID][]hostaccess.KnownHostID)
+	for _, g := range groups {
+		hostsByGroup[g.ID] = g.HostIDs
+	}
+	is.Equal(hostsByGroup[groupID1], []hostaccess.KnownHostID{hostID})
+	is.Equal(hostsByGroup[groupID2], []hostaccess.KnownHostID{hostID})
+
+	// Replacing with a subset clears the old membership.
+	err = repo.SetKnownHostGroupMembership(ctx, hostID, []hostaccess.HostGroupID{groupID1})
+	is.NoErr(err)
+
+	groups, err = repo.ListHostGroups(ctx)
+	is.NoErr(err)
+	for _, g := range groups {
+		hostsByGroup[g.ID] = g.HostIDs
+	}
+	is.Equal(hostsByGroup[groupID1], []hostaccess.KnownHostID{hostID})
+	is.Equal(len(hostsByGroup[groupID2]), 0)
+}
+
+func TestRepository_SetKnownHostGroupMembership_UnknownGroupID_ReturnsReferenceNotFound(t *testing.T) {
+	is := is.New(t)
+	repo, _ := setupHostAccessRepo(t)
+	ctx := context.Background()
+
+	hostID, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "host.example.com"})
+	is.NoErr(err)
+
+	err = repo.SetKnownHostGroupMembership(ctx, hostID, []hostaccess.HostGroupID{9999})
+	is.True(errors.Is(err, hostaccess.ErrReferenceNotFound))
+}
+
 // ── SetFullUserGrants ────────────────────────────────────────────────────────
 func TestRepository_SetFullUserGrants_HappyPath(t *testing.T) {
 	is := is.New(t)
@@ -190,15 +215,16 @@ func TestRepository_SetFullUserGrants_HappyPath(t *testing.T) {
 	ctx := context.Background()
 
 	userID := insertUser(t, db, "alice", false, false)
-	hostId1, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "a.com"})
-	hostId2, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "b.com"})
+	hostID1, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "a.com"})
+	is.NoErr(err)
+	hostID2, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "b.com"})
 	is.NoErr(err)
 
-	groupID, err := repo.CreateHostGroup(ctx, hostaccess.HostGroupDraft{Name: "g", HostIDs: []hostaccess.KnownHostID{hostId1}})
+	groupID, err := repo.CreateHostGroup(ctx, hostaccess.HostGroupDraft{Name: "g", HostIDs: []hostaccess.KnownHostID{hostID1}})
 	is.NoErr(err)
 
 	err = repo.SetFullUserGrants(ctx, userID, new(true),
-		[]hostaccess.KnownHostID{hostId2},
+		[]hostaccess.KnownHostID{hostID2},
 		[]hostaccess.HostGroupID{groupID},
 	)
 	is.NoErr(err)
@@ -227,6 +253,7 @@ func TestRepository_SetFullUserGrants_ReplacesExistingGrants(t *testing.T) {
 
 	userID := insertUser(t, db, "alice", false, false)
 	hostID1, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "a.com"})
+	is.NoErr(err)
 	hostID2, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "b.com"})
 	is.NoErr(err)
 
@@ -404,6 +431,7 @@ func TestRepository_GetAllUserDirectHostGrants_ReturnsGrants(t *testing.T) {
 	userID := insertUser(t, db, "alice", false, false)
 
 	hostID1, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "example.com"})
+	is.NoErr(err)
 	hostID2, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "test.com"})
 	is.NoErr(err)
 
@@ -431,7 +459,9 @@ func TestRepository_GetAllUserDirectHostGrants_MultipleUsers(t *testing.T) {
 	userB := insertUser(t, db, "bob", false, false)
 
 	hostID1, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "a.com"})
+	is.NoErr(err)
 	hostID2, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "b.com"})
+	is.NoErr(err)
 	hostID3, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "c.com"})
 	is.NoErr(err)
 
@@ -511,6 +541,7 @@ func TestRepository_GetAllUserGroupHostGrants_MultipleUsers(t *testing.T) {
 	userB := insertUser(t, db, "bob", false, false)
 
 	hostID1, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "g1.com"})
+	is.NoErr(err)
 	hostID2, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "g2.com"})
 	is.NoErr(err)
 
@@ -573,6 +604,7 @@ func TestRepository_ListKnownHosts_ReturnsDeterministicOrder(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "b.example.com"})
+	is.NoErr(err)
 	_, err = repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "a.example.com"})
 	is.NoErr(err)
 

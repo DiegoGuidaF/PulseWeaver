@@ -29,6 +29,7 @@ type fakeRepo struct {
 	createHostCalls []KnownHostDraft
 	updateHostCalls []KnownHost
 	deleteHostCalls []KnownHostID
+	setGroupCalls   []knownHostGroupSet
 
 	createCalls []HostGroupDraft
 	updateCalls []HostGroup
@@ -67,6 +68,15 @@ func (f *fakeRepo) DeleteKnownHost(_ context.Context, id KnownHostID) error {
 	}
 	f.deleteHostCalls = append(f.deleteHostCalls, id)
 	f.callOrder = append(f.callOrder, "deleteHost")
+	return nil
+}
+
+func (f *fakeRepo) SetKnownHostGroupMembership(_ context.Context, hostID KnownHostID, groupIDs []HostGroupID) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.setGroupCalls = append(f.setGroupCalls, knownHostGroupSet{HostID: hostID, GroupIDs: groupIDs})
+	f.callOrder = append(f.callOrder, "setHostGroups")
 	return nil
 }
 

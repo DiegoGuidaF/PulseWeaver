@@ -118,8 +118,6 @@ paths:
     $ref: './paths/host-access.yaml#/hosts'
   /admin/hosts/reconcile:
     $ref: './paths/host-access.yaml#/hostsReconcile'
-  #/admin/hosts/{host_id}:
-  #  $ref: './paths/host-access.yaml#/hostById'
   /admin/host-groups:
     $ref: './paths/host-access.yaml#/hostGroups'
   /admin/host-groups/reconcile:

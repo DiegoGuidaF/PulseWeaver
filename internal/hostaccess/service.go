@@ -16,6 +16,7 @@ type repository interface {
 	UpdateKnownHost(ctx context.Context, id KnownHostID, icon *string) (KnownHost, error)
 	DeleteKnownHost(ctx context.Context, id KnownHostID) error
 	ListKnownHostsByIDs(ctx context.Context, ids []KnownHostID) ([]KnownHost, error)
+	SetKnownHostGroupMembership(ctx context.Context, hostID KnownHostID, groupIDs []HostGroupID) error
 
 	ListHostGroups(ctx context.Context) ([]HostGroup, error)
 	CreateHostGroup(ctx context.Context, draft HostGroupDraft) (HostGroupID, error)

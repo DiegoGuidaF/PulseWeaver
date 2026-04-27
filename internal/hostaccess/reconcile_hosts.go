@@ -9,15 +9,17 @@ import (
 // DesiredKnownHost is the caller-provided shape of a single known host inside
 // a reconcile request. A nil ID marks a brand-new host; a non-nil ID must
 // match an existing row. FQDN is immutable on updates — a mismatch returns
-// ErrKnownHostFQDNImmutable.
+// ErrKnownHostFQDNImmutable. GroupIDs replaces the host's full group membership.
 type DesiredKnownHost struct {
-	ID   *KnownHostID
-	FQDN string
-	Icon *string
+	ID       *KnownHostID
+	FQDN     string
+	Icon     *string
+	GroupIDs []HostGroupID
 }
 
 // prepare normalises and validates a single desired host: lowercases and
-// trims FQDN, validates it, and trims Icon (setting it to nil if empty).
+// trims FQDN, validates it, trims Icon (setting it to nil if empty), and
+// deduplicates GroupIDs (host_group_members has a composite PK).
 func (h *DesiredKnownHost) prepare() error {
 	h.FQDN = NormaliseFQDN(h.FQDN)
 	if err := ValidateFQDN(h.FQDN); err != nil {
@@ -30,6 +32,17 @@ func (h *DesiredKnownHost) prepare() error {
 		} else {
 			h.Icon = &trimmed
 		}
+	}
+	if len(h.GroupIDs) > 0 {
+		seen := make(map[HostGroupID]struct{}, len(h.GroupIDs))
+		unique := h.GroupIDs[:0]
+		for _, gid := range h.GroupIDs {
+			if _, ok := seen[gid]; !ok {
+				seen[gid] = struct{}{}
+				unique = append(unique, gid)
+			}
+		}
+		h.GroupIDs = unique
 	}
 	return nil
 }
@@ -75,15 +88,23 @@ func (in *ReconcileKnownHostsInput) prepare() error {
 // knownHostReconcilePlan is the ordered set of write operations needed to
 // converge the current state to the desired state.
 type knownHostReconcilePlan struct {
-	toCreate []KnownHostDraft
-	toUpdate []KnownHost
-	toDelete []KnownHostID
+	toCreate    []KnownHostDraft
+	toUpdate    []KnownHost
+	toDelete    []KnownHostID
+	toSetGroups []knownHostGroupSet // group membership for all non-deleted hosts
+}
+
+// knownHostGroupSet pairs a host with the full set of groups it should belong to.
+type knownHostGroupSet struct {
+	HostID   KnownHostID
+	GroupIDs []HostGroupID
 }
 
 // KnownHostDraft is the minimum shape needed to insert a new known_hosts row.
 type KnownHostDraft struct {
-	FQDN string
-	Icon *string
+	FQDN     string
+	Icon     *string
+	GroupIDs []HostGroupID
 }
 
 // ReconcileKnownHosts makes the database converge to the desired image of
@@ -114,6 +135,7 @@ func (s *Service) ReconcileKnownHosts(ctx context.Context, in ReconcileKnownHost
 		// Order matters: deletes free up FQDNs (unique index on known_hosts.fqdn)
 		// that subsequent creates may want to claim. Updates can't change FQDN
 		// (server-side invariant), so they never cause index collisions.
+		// CASCADE on host_group_members handles group membership for deleted hosts.
 		for _, id := range plan.toDelete {
 			if err := s.repo.DeleteKnownHost(ctx, id); err != nil {
 				return err
@@ -127,7 +149,17 @@ func (s *Service) ReconcileKnownHosts(ctx context.Context, in ReconcileKnownHost
 		}
 
 		for _, draft := range plan.toCreate {
-			if _, err := s.repo.CreateKnownHost(ctx, draft); err != nil {
+			newID, err := s.repo.CreateKnownHost(ctx, draft)
+			if err != nil {
+				return err
+			}
+			if err := s.repo.SetKnownHostGroupMembership(ctx, newID, draft.GroupIDs); err != nil {
+				return err
+			}
+		}
+
+		for _, gs := range plan.toSetGroups {
+			if err := s.repo.SetKnownHostGroupMembership(ctx, gs.HostID, gs.GroupIDs); err != nil {
 				return err
 			}
 		}
@@ -169,7 +201,7 @@ func buildKnownHostReconcilePlan(current []KnownHost, desired []DesiredKnownHost
 			if _, exists := currentByFQDN[h.FQDN]; exists {
 				return knownHostReconcilePlan{}, fmt.Errorf("%w: fqdn=%s", ErrKnownHostConflict, h.FQDN)
 			}
-			plan.toCreate = append(plan.toCreate, KnownHostDraft{FQDN: h.FQDN, Icon: h.Icon})
+			plan.toCreate = append(plan.toCreate, KnownHostDraft{FQDN: h.FQDN, Icon: h.Icon, GroupIDs: h.GroupIDs})
 			continue
 		}
 
@@ -188,6 +220,9 @@ func buildKnownHostReconcilePlan(current []KnownHost, desired []DesiredKnownHost
 		if !iconEqual(existing.Icon, h.Icon) {
 			plan.toUpdate = append(plan.toUpdate, KnownHost{ID: id, FQDN: existing.FQDN, Icon: h.Icon})
 		}
+
+		// Always replace group membership for existing hosts (replace-all semantics).
+		plan.toSetGroups = append(plan.toSetGroups, knownHostGroupSet{HostID: id, GroupIDs: h.GroupIDs})
 	}
 
 	for _, h := range current {

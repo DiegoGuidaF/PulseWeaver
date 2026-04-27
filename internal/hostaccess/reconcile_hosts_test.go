@@ -186,8 +186,9 @@ func TestService_ReconcileKnownHosts_NoOp_StillNotifiesObservers(t *testing.T) {
 		Hosts: []DesiredKnownHost{{ID: new(KnownHostID(1)), FQDN: "stable.example.com"}},
 	})
 	is.NoErr(err)
-	is.Equal(len(repo.callOrder), 0) // no writes
-	is.Equal(obs.calls, 1)           // observer still fired
+	// Icon is unchanged so no host row write, but group membership is always synced.
+	is.Equal(repo.callOrder, []string{"setHostGroups"})
+	is.Equal(obs.calls, 1)
 }
 
 func TestService_ReconcileKnownHosts_DeleteUpdateCreate_Order(t *testing.T) {
@@ -209,7 +210,8 @@ func TestService_ReconcileKnownHosts_DeleteUpdateCreate_Order(t *testing.T) {
 		},
 	})
 	is.NoErr(err)
-	is.Equal(repo.callOrder, []string{"deleteHost", "updateHost", "createHost"})
+	// delete → update icon → create new host → set groups for new host → set groups for existing host 1
+	is.Equal(repo.callOrder, []string{"deleteHost", "updateHost", "createHost", "setHostGroups", "setHostGroups"})
 }
 
 func TestService_ReconcileKnownHosts_EmptyInput_DeletesAll(t *testing.T) {
@@ -246,4 +248,72 @@ func (c *createConflictRepo) CreateKnownHost(_ context.Context, _ KnownHostDraft
 }
 func (c *createConflictRepo) ListKnownHosts(_ context.Context) ([]KnownHost, error) {
 	return nil, nil // empty current list so plan always has creates
+}
+
+// ── Group ID reconciliation ───────────────────────────────────────────────────
+
+func TestService_ReconcileKnownHosts_GroupIDsSetOnCreate(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepo{}
+	svc, _ := newTestService(repo)
+
+	err := svc.ReconcileKnownHosts(context.Background(), ReconcileKnownHostsInput{
+		Hosts: []DesiredKnownHost{
+			{FQDN: "new.example.com", GroupIDs: []HostGroupID{10, 20}},
+		},
+	})
+	is.NoErr(err)
+	is.Equal(len(repo.setGroupCalls), 1)
+	is.Equal(repo.setGroupCalls[0].GroupIDs, []HostGroupID{10, 20})
+}
+
+func TestService_ReconcileKnownHosts_GroupIDsSetOnExisting(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepo{knownHosts: []KnownHost{{ID: 1, FQDN: "host.example.com"}}}
+	svc, _ := newTestService(repo)
+
+	err := svc.ReconcileKnownHosts(context.Background(), ReconcileKnownHostsInput{
+		Hosts: []DesiredKnownHost{
+			{ID: new(KnownHostID(1)), FQDN: "host.example.com", GroupIDs: []HostGroupID{5}},
+		},
+	})
+	is.NoErr(err)
+	is.Equal(len(repo.setGroupCalls), 1)
+	is.Equal(repo.setGroupCalls[0].HostID, KnownHostID(1))
+	is.Equal(repo.setGroupCalls[0].GroupIDs, []HostGroupID{5})
+}
+
+func TestService_ReconcileKnownHosts_GroupIDsDeduplicated(t *testing.T) {
+	is := is.New(t)
+	in := ReconcileKnownHostsInput{
+		Hosts: []DesiredKnownHost{
+			{FQDN: "host.example.com", GroupIDs: []HostGroupID{3, 3, 7}},
+		},
+	}
+	is.NoErr(in.prepare())
+	is.Equal(in.Hosts[0].GroupIDs, []HostGroupID{3, 7})
+}
+
+func TestService_ReconcileKnownHosts_BadGroupID_SurfacesReferenceNotFound(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepo{err: ErrReferenceNotFound}
+	// Override err only for SetKnownHostGroupMembership by using a custom repo.
+	svc, _ := newTestService(&badGroupRepo{fakeRepo: fakeRepo{knownHosts: nil}})
+
+	err := svc.ReconcileKnownHosts(context.Background(), ReconcileKnownHostsInput{
+		Hosts: []DesiredKnownHost{{FQDN: "new.example.com", GroupIDs: []HostGroupID{999}}},
+	})
+	_ = repo
+	is.True(errors.Is(err, ErrReferenceNotFound))
+}
+
+// badGroupRepo is a fakeRepo where SetKnownHostGroupMembership returns ErrReferenceNotFound.
+type badGroupRepo struct{ fakeRepo }
+
+func (b *badGroupRepo) SetKnownHostGroupMembership(_ context.Context, _ KnownHostID, _ []HostGroupID) error {
+	return ErrReferenceNotFound
+}
+func (b *badGroupRepo) ListKnownHosts(_ context.Context) ([]KnownHost, error) { return nil, nil }
+func (b *badGroupRepo) CreateKnownHost(_ context.Context, _ KnownHostDraft) (KnownHostID, error) {
+	return KnownHostID(101), nil
 }

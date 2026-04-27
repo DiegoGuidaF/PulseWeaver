@@ -35,16 +35,16 @@ func (r *Repository) ListKnownHosts(ctx context.Context) ([]KnownHost, error) {
 // CreateKnownHost inserts a single known host row. Translates unique-violation
 // to ErrKnownHostConflict.
 func (r *Repository) CreateKnownHost(ctx context.Context, draft KnownHostDraft) (KnownHostID, error) {
-	var knownHostId KnownHostID
+	var knownHostID KnownHostID
 
 	const query = `INSERT INTO known_hosts (fqdn, icon) VALUES (?, ?) returning id`
-	if err := r.db.GetContext(ctx, &knownHostId, query, draft.FQDN, draft.Icon); err != nil {
+	if err := r.db.GetContext(ctx, &knownHostID, query, draft.FQDN, draft.Icon); err != nil {
 		if isUniqueViolation(err) {
-			return knownHostId, ErrKnownHostConflict
+			return knownHostID, ErrKnownHostConflict
 		}
-		return knownHostId, fmt.Errorf("create known host %q: %w", draft.FQDN, err)
+		return knownHostID, fmt.Errorf("create known host %q: %w", draft.FQDN, err)
 	}
-	return knownHostId, nil
+	return knownHostID, nil
 }
 
 func (r *Repository) UpdateKnownHost(ctx context.Context, id KnownHostID, icon *string) (KnownHost, error) {
@@ -91,6 +91,31 @@ func (r *Repository) ListKnownHostsByIDs(ctx context.Context, ids []KnownHostID)
 		return nil, fmt.Errorf("list known hosts by ids: %w", err)
 	}
 	return hosts, nil
+}
+
+// SetKnownHostGroupMembership replaces the full set of groups that hostID
+// belongs to. It deletes all existing host_group_members rows for hostID then
+// inserts one row per groupID. An unknown groupID is mapped to ErrReferenceNotFound.
+func (r *Repository) SetKnownHostGroupMembership(ctx context.Context, hostID KnownHostID, groupIDs []HostGroupID) error {
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		if _, err := r.db.ExecContext(ctx,
+			`DELETE FROM host_group_members WHERE known_host_id = ?`, hostID,
+		); err != nil {
+			return fmt.Errorf("clear host group memberships for host %d: %w", hostID, err)
+		}
+		for _, groupID := range groupIDs {
+			if _, err := r.db.ExecContext(ctx,
+				`INSERT INTO host_group_members (host_group_id, known_host_id) VALUES (?, ?)`,
+				groupID, hostID,
+			); err != nil {
+				if isFKViolation(err) {
+					return ErrReferenceNotFound
+				}
+				return fmt.Errorf("insert host group membership (host=%d group=%d): %w", hostID, groupID, err)
+			}
+		}
+		return nil
+	})
 }
 
 // ── Host groups ───────────────────────────────────────────────────────────────
