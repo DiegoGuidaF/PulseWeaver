@@ -97,12 +97,10 @@ CREATE UNIQUE INDEX idx_ignored_host_suggestions_fqdn
 
 CREATE TABLE access_log_contributors
 (
-    id            INTEGER PRIMARY KEY,
     access_log_id INTEGER NOT NULL REFERENCES access_log (id) ON DELETE CASCADE,
     device_id     INTEGER NOT NULL REFERENCES devices (id) ON DELETE CASCADE,
     address_id    INTEGER NOT NULL REFERENCES addresses (id) ON DELETE CASCADE,
-    user_id       INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    user_id       INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_access_log_contributors_log_id
@@ -112,8 +110,8 @@ CREATE INDEX idx_access_log_contributors_log_id
 --   Rows with device_id IS NOT NULL get one contributor row.
 --   user_id backfilled from devices.owner_id.
 
-INSERT INTO access_log_contributors (access_log_id, device_id, address_id, user_id, created_at)
-SELECT al.id, al.device_id, al.address_id, d.owner_id, al.created_at
+INSERT INTO access_log_contributors (access_log_id, device_id, address_id, user_id)
+SELECT al.id, al.device_id, al.address_id, d.owner_id
 FROM access_log al
          JOIN devices d ON d.id = al.device_id
 WHERE al.device_id IS NOT NULL;

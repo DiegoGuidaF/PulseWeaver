@@ -44,7 +44,7 @@ LEFT JOIN (
     SELECT access_log_id, device_id, address_id
     FROM access_log_contributors
     GROUP BY access_log_id
-    HAVING id = MIN(id)
+    HAVING user_id = min(user_id)
 ) c ON c.access_log_id = al.id;
 
 DROP TABLE access_log;

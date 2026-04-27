@@ -182,9 +182,9 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 			g.asn_org
 		FROM access_log ral
 		LEFT JOIN (
-			SELECT access_log_id, MIN(id) AS min_id FROM access_log_contributors GROUP BY access_log_id
+			SELECT access_log_id, min(user_id) AS first_user_id FROM access_log_contributors GROUP BY access_log_id
 		) c_first ON c_first.access_log_id = ral.id
-		LEFT JOIN access_log_contributors c ON c.id = c_first.min_id
+		LEFT JOIN access_log_contributors c ON c.user_id = c_first.first_user_id
 		LEFT JOIN devices d ON d.id = c.device_id
 		LEFT JOIN access_log_geoip g ON g.access_log_id = ral.id
 	` + buildWhere(whereFilters) + ` ORDER BY ral.id DESC LIMIT ?`
