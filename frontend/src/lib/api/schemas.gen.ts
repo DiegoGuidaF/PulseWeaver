@@ -1202,9 +1202,10 @@ export const KnownHostWithStatsSchema = {
 export const DesiredKnownHostSchema = {
     type: 'object',
     required: [
-        'fqdn'
+        'fqdn',
+        'group_ids'
     ],
-    description: 'A single known host inside a reconcile request. A null `id` marks a\nbrand-new host; a non-null `id` must match an existing row. `fqdn` is\nimmutable on updates — a mismatch is rejected.\n',
+    description: 'A single known host inside a reconcile request. A null `id` marks a\nbrand-new host; a non-null `id` must match an existing row. `fqdn` is\nimmutable on updates — a mismatch is rejected. `group_ids` replaces the\nhost\'s full group membership.\n',
     properties: {
         id: {
             nullable: true,
@@ -1222,6 +1223,13 @@ export const DesiredKnownHostSchema = {
         icon: {
             type: 'string',
             nullable: true
+        },
+        group_ids: {
+            type: 'array',
+            description: 'Host group IDs this host should belong to. Replaces the host\'s full group membership.',
+            items: {
+                $ref: '#/components/schemas/ID'
+            }
         }
     }
 } as const;

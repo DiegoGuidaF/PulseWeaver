@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import {
   ActionIcon,
+  Alert,
   Badge,
   Button,
   Card,
@@ -16,16 +17,16 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
+  IconAlertCircle,
   IconArrowBackUp,
   IconPlus,
   IconSearch,
   IconTrash,
 } from "@tabler/icons-react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Id, KnownHostWithStats, HostGroupWithMembers } from "@/lib/api";
-import { useCreateKnownHosts } from "@/features/host-access/hooks/useCreateKnownHosts";
-import { useUpdateKnownHost } from "@/features/host-access/hooks/useUpdateKnownHost";
-import { useDeleteKnownHost } from "@/features/host-access/hooks/useDeleteKnownHost";
-import { useUpdateHostGroup } from "@/features/host-access/hooks/useUpdateHostGroup";
+import { listKnownHostsOptions } from "@/lib/api/@tanstack/react-query.gen";
+import { useReconcileKnownHosts } from "@/features/host-access/hooks/useReconcileKnownHosts";
 import { AddHostModal } from "@/features/host-access/components/AddHostModal";
 import { IconPicker } from "@/features/host-access/components/IconPicker";
 import { GroupBadgeList } from "@/features/host-access/components/GroupBadgeList";
@@ -39,22 +40,25 @@ import {
   type HostsDraftAction,
   type HostsDraftState,
 } from "@/features/host-access/drafts/knownHostsDraft";
-import { saveKnownHostsDraft } from "@/features/host-access/drafts/saveKnownHostsDraft";
+import {
+  buildReconcileHostsBody,
+  hostsOriginalMatchesServer,
+} from "@/features/host-access/drafts/saveKnownHostsDraft";
 import { toErrorMessage } from "@/lib/api-client";
 
 interface Props {
   state: HostsDraftState;
   dispatch: React.Dispatch<HostsDraftAction>;
   serverGroups: HostGroupWithMembers[];
+  locked: boolean;
+  onDiscardLock: () => void;
 }
 
 const UNGROUPED = "__ungrouped__";
 
-export function KnownHostsTab({ state, dispatch, serverGroups }: Props) {
-  const createKnownHosts = useCreateKnownHosts();
-  const updateKnownHost = useUpdateKnownHost();
-  const deleteKnownHost = useDeleteKnownHost();
-  const updateHostGroup = useUpdateHostGroup();
+export function KnownHostsTab({ state, dispatch, serverGroups, locked, onDiscardLock }: Props) {
+  const queryClient = useQueryClient();
+  const reconcileKnownHosts = useReconcileKnownHosts();
 
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState<string[]>([]);
@@ -86,14 +90,12 @@ export function KnownHostsTab({ state, dispatch, serverGroups }: Props) {
   const sorted = useMemo(
     () =>
       [...filtered].sort((a, b) => {
-        const groupsA = a.groupIds.map((id) => groupName(id, serverGroups, state.draft)).sort();
-        const groupsB = b.groupIds.map((id) => groupName(id, serverGroups, state.draft)).sort();
-        const ga = groupsA[0] ?? "￿";
-        const gb = groupsB[0] ?? "￿";
+        const ga = a.groupIds.map((id) => groupName(id, serverGroups)).sort()[0] ?? "￿";
+        const gb = b.groupIds.map((id) => groupName(id, serverGroups)).sort()[0] ?? "￿";
         if (ga !== gb) return ga < gb ? -1 : 1;
         return a.fqdn.localeCompare(b.fqdn);
       }),
-    [filtered, serverGroups, state.draft],
+    [filtered, serverGroups],
   );
 
   const diff = diffHosts(state);
@@ -135,30 +137,47 @@ export function KnownHostsTab({ state, dispatch, serverGroups }: Props) {
   async function handleSave() {
     setSaving(true);
     try {
-      const result = await saveKnownHostsDraft(state, serverGroups, {
-        createKnownHostsAsync: async (input) =>
-          (await createKnownHosts.mutateAsync({ body: input.body })) ?? [],
-        updateKnownHostAsync: (input) => updateKnownHost.mutateAsync(input),
-        deleteKnownHostAsync: (input) => deleteKnownHost.mutateAsync(input),
-        updateHostGroupAsync: (input) => updateHostGroup.mutateAsync(input),
+      // Pre-save freshness check: ensure the server hasn't changed under us.
+      const current = await queryClient.fetchQuery({
+        ...listKnownHostsOptions(),
+        staleTime: 0,
       });
-      if (result.failed.length === 0) {
+      if (!hostsOriginalMatchesServer(state.original, current)) {
         notifications.show({
-          color: "green",
-          message: `Saved ${result.succeeded} change${result.succeeded === 1 ? "" : "s"}`,
+          color: "orange",
+          title: "Server data changed",
+          message: "The hosts list was modified externally. Your draft has been reset.",
         });
-      } else {
-        notifications.show({
-          color: "red",
-          title: `Saved ${result.succeeded}, failed ${result.failed.length}`,
-          message: result.failed.map((f) => `${f.label}: ${f.error}`).join("\n"),
-        });
+        dispatch({ type: "reset", hosts: current });
+        return;
       }
+
+      await reconcileKnownHosts.mutateAsync({ body: { hosts: buildReconcileHostsBody(state) } });
+      notifications.show({ color: "green", message: "Hosts saved" });
     } catch (err) {
       notifications.show({ color: "red", message: toErrorMessage(err) });
     } finally {
       setSaving(false);
     }
+  }
+
+  if (locked) {
+    return (
+      <Alert
+        icon={<IconAlertCircle size={16} />}
+        color="orange"
+        title="Groups tab has unsaved changes"
+      >
+        <Stack gap="sm">
+          <Text size="sm">
+            Save or discard your group changes before editing known hosts.
+          </Text>
+          <Button size="xs" variant="outline" color="orange" onClick={onDiscardLock} w="fit-content">
+            Discard group changes
+          </Button>
+        </Stack>
+      </Alert>
+    );
   }
 
   if (drafts.length === 0 && tombstoned.length === 0) {
@@ -179,7 +198,7 @@ export function KnownHostsTab({ state, dispatch, serverGroups }: Props) {
         <AddHostModal
           opened={addOpen}
           onClose={() => setAddOpen(false)}
-          groups={Array.from(state.draft.values()).length > 0 ? [] : []}
+          groups={[]}
           existingFqdns={existingFqdns}
           onSubmit={handleAdd}
         />
@@ -194,7 +213,7 @@ export function KnownHostsTab({ state, dispatch, serverGroups }: Props) {
     );
   }
 
-  const draftGroups = Array.from(serverGroups).map((g) => ({
+  const draftGroups = serverGroups.map((g) => ({
     id: g.id,
     name: g.name,
     icon: g.icon ?? null,
@@ -429,7 +448,6 @@ function HostRow({ draft, diff, serverGroups, onIconClick, onDelete }: HostRowPr
 }
 
 function UserCount({ draft }: { draft: DraftHost }) {
-  // Server stat is only available for persisted hosts.
   const count = typeof draft.id === "number" ? null : null;
   return (
     <Text size="sm" c={count && count > 0 ? "indigo" : "dimmed"}>
@@ -494,14 +512,6 @@ function hostUserImpact(diff: ReturnType<typeof diffHosts>): string | null {
   return `${total} user${total === 1 ? "" : "s"} will lose access on save`;
 }
 
-function groupName(
-  id: Id,
-  serverGroups: HostGroupWithMembers[],
-  drafts: HostsDraftState["draft"],
-): string {
-  const fromServer = serverGroups.find((g) => g.id === id);
-  if (fromServer) return fromServer.name;
-  // Drafts here are hosts not groups, so we can't resolve unsaved group names — fall back.
-  void drafts;
-  return "";
+function groupName(id: Id, serverGroups: HostGroupWithMembers[]): string {
+  return serverGroups.find((g) => g.id === id)?.name ?? "";
 }

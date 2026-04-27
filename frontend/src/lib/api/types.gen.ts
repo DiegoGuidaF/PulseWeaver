@@ -470,13 +470,18 @@ export type KnownHostWithStats = {
 /**
  * A single known host inside a reconcile request. A null `id` marks a
  * brand-new host; a non-null `id` must match an existing row. `fqdn` is
- * immutable on updates — a mismatch is rejected.
+ * immutable on updates — a mismatch is rejected. `group_ids` replaces the
+ * host's full group membership.
  *
  */
 export type DesiredKnownHost = {
     id?: Id | null;
     fqdn: string;
     icon?: string | null;
+    /**
+     * Host group IDs this host should belong to. Replaces the host's full group membership.
+     */
+    group_ids: Array<Id>;
 };
 
 /**

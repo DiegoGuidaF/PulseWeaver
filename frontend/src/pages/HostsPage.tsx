@@ -1,12 +1,12 @@
 import { useEffect, useReducer } from "react";
-import { Stack, Tabs, Text, Title, Badge } from "@mantine/core";
+import { Center, Loader, Stack, Tabs, Text, Title, Badge } from "@mantine/core";
 import { useKnownHosts } from "@/features/host-access/hooks/useKnownHosts";
 import { useHostGroups } from "@/features/host-access/hooks/useHostGroups";
 import { useHostSuggestions } from "@/features/host-access/hooks/useHostSuggestions";
 import { KnownHostsTab } from "@/features/host-access/components/KnownHostsTab";
 import { HostGroupsTab } from "@/features/host-access/components/HostGroupsTab";
 import { SuggestionsTab } from "@/features/host-access/components/SuggestionsTab";
-import { useUnsavedChangesGuard } from "@/features/host-access/hooks/useUnsavedChangesGuard";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import {
   hostsDraftReducer,
   initialHostsDraft,
@@ -50,6 +50,10 @@ export function HostsPage() {
   const suggestionsData = suggestions.data;
   const suggestionCount = suggestionsData?.suggestions.length ?? 0;
 
+  const hostsLoading = knownHosts.isPending;
+  const groupsLoading = hostGroups.isPending;
+  const suggestionsLoading = suggestions.isPending;
+
   return (
     <Stack maw={1100} gap="md" pb={dirty ? 80 : undefined}>
       <div>
@@ -64,9 +68,13 @@ export function HostsPage() {
           <Tabs.Tab
             value="hosts"
             rightSection={
-              <Badge size="xs" variant="light" color={isDirtyHosts(hostsState) ? "orange" : "gray"}>
-                {hosts.length}
-              </Badge>
+              hostsLoading ? (
+                <Loader size="xs" type="dots" />
+              ) : (
+                <Badge size="xs" variant="light" color={isDirtyHosts(hostsState) ? "orange" : "gray"}>
+                  {hosts.length}
+                </Badge>
+              )
             }
           >
             Known hosts
@@ -74,13 +82,17 @@ export function HostsPage() {
           <Tabs.Tab
             value="groups"
             rightSection={
-              <Badge
-                size="xs"
-                variant="light"
-                color={isDirtyGroups(groupsState) ? "orange" : "gray"}
-              >
-                {groups.length}
-              </Badge>
+              groupsLoading ? (
+                <Loader size="xs" type="dots" />
+              ) : (
+                <Badge
+                  size="xs"
+                  variant="light"
+                  color={isDirtyGroups(groupsState) ? "orange" : "gray"}
+                >
+                  {groups.length}
+                </Badge>
+              )
             }
           >
             Groups
@@ -88,13 +100,17 @@ export function HostsPage() {
           <Tabs.Tab
             value="suggestions"
             rightSection={
-              <Badge
-                size="xs"
-                variant="light"
-                color={suggestionCount > 0 ? "orange" : "gray"}
-              >
-                {suggestionCount}
-              </Badge>
+              suggestionsLoading ? (
+                <Loader size="xs" type="dots" />
+              ) : (
+                <Badge
+                  size="xs"
+                  variant="light"
+                  color={suggestionCount > 0 ? "orange" : "gray"}
+                >
+                  {suggestionCount}
+                </Badge>
+              )
             }
           >
             Suggestions
@@ -102,28 +118,57 @@ export function HostsPage() {
         </Tabs.List>
 
         <Tabs.Panel value="hosts" pt="md">
-          <KnownHostsTab
-            state={hostsState}
-            dispatch={hostsDispatch}
-            serverGroups={groups}
-          />
+          {hostsLoading ? (
+            <Center py="xl">
+              <Loader />
+            </Center>
+          ) : (
+            <KnownHostsTab
+              state={hostsState}
+              dispatch={hostsDispatch}
+              serverGroups={groups}
+              locked={isDirtyGroups(groupsState)}
+              onDiscardLock={() => groupsDispatch({ type: "discard" })}
+            />
+          )}
         </Tabs.Panel>
 
         <Tabs.Panel value="groups" pt="md">
-          <HostGroupsTab
-            state={groupsState}
-            dispatch={groupsDispatch}
-            hostsState={hostsState}
-            hostsDispatch={hostsDispatch}
-          />
+          {groupsLoading ? (
+            <Center py="xl">
+              <Loader />
+            </Center>
+          ) : (
+            <HostGroupsTab
+              state={groupsState}
+              dispatch={groupsDispatch}
+              hostsState={hostsState}
+              locked={isDirtyHosts(hostsState)}
+              onDiscardLock={() => hostsDispatch({ type: "discard" })}
+            />
+          )}
         </Tabs.Panel>
 
         <Tabs.Panel value="suggestions" pt="md">
-          {suggestionsData ? (
-            <SuggestionsTab data={suggestionsData} />
+          {suggestionsLoading ? (
+            <Center py="xl">
+              <Loader />
+            </Center>
+          ) : suggestionsData ? (
+            <SuggestionsTab
+              data={suggestionsData}
+              locked={isDirtyGroups(groupsState)}
+              onDiscardLock={() => groupsDispatch({ type: "discard" })}
+              onStageHosts={(fqdns) => {
+                fqdns.forEach((fqdn) => {
+                  const id: `new-${string}` = `new-${crypto.randomUUID()}`;
+                  hostsDispatch({ type: "add", id, host: { fqdn, icon: null, groupIds: [] } });
+                });
+              }}
+            />
           ) : (
             <Text c="dimmed" size="sm">
-              Loading…
+              Failed to load suggestions.
             </Text>
           )}
         </Tabs.Panel>

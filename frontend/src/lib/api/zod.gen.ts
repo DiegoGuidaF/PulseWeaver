@@ -330,13 +330,15 @@ export const zKnownHostWithStats = z.object({
 /**
  * A single known host inside a reconcile request. A null `id` marks a
  * brand-new host; a non-null `id` must match an existing row. `fqdn` is
- * immutable on updates — a mismatch is rejected.
+ * immutable on updates — a mismatch is rejected. `group_ids` replaces the
+ * host's full group membership.
  *
  */
 export const zDesiredKnownHost = z.object({
     id: zId.nullish(),
     fqdn: z.string().min(3).max(253),
-    icon: z.string().nullish()
+    icon: z.string().nullish(),
+    group_ids: z.array(zId)
 });
 
 /**

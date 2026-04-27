@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import {
+  Alert,
   Button,
   Card,
   Grid,
@@ -10,11 +11,11 @@ import {
   Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconPlus } from "@tabler/icons-react";
+import { IconAlertCircle, IconPlus } from "@tabler/icons-react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Id } from "@/lib/api";
-import { useCreateHostGroup } from "@/features/host-access/hooks/useCreateHostGroup";
-import { useUpdateHostGroup } from "@/features/host-access/hooks/useUpdateHostGroup";
-import { useDeleteHostGroup } from "@/features/host-access/hooks/useDeleteHostGroup";
+import { listHostGroupsOptions } from "@/lib/api/@tanstack/react-query.gen";
+import { useReconcileHostGroups } from "@/features/host-access/hooks/useReconcileHostGroups";
 import { GroupMasterList } from "@/features/host-access/components/GroupMasterList";
 import { GroupDetailPanel } from "@/features/host-access/components/GroupDetailPanel";
 import { GroupMetadataModal } from "@/features/host-access/components/GroupMetadataModal";
@@ -29,23 +30,31 @@ import {
 } from "@/features/host-access/drafts/hostGroupsDraft";
 import {
   type DraftHost,
-  type HostsDraftAction,
   type HostsDraftState,
 } from "@/features/host-access/drafts/knownHostsDraft";
-import { saveHostGroupsDraft } from "@/features/host-access/drafts/saveHostGroupsDraft";
+import {
+  buildReconcileGroupsBody,
+  groupsOriginalMatchesServer,
+} from "@/features/host-access/drafts/saveHostGroupsDraft";
 import { toErrorMessage } from "@/lib/api-client";
 
 interface Props {
   state: GroupsDraftState;
   dispatch: React.Dispatch<GroupsDraftAction>;
   hostsState: HostsDraftState;
-  hostsDispatch: React.Dispatch<HostsDraftAction>;
+  locked: boolean;
+  onDiscardLock: () => void;
 }
 
-export function HostGroupsTab({ state, dispatch, hostsState, hostsDispatch }: Props) {
-  const createHostGroup = useCreateHostGroup();
-  const updateHostGroup = useUpdateHostGroup();
-  const deleteHostGroup = useDeleteHostGroup();
+export function HostGroupsTab({
+  state,
+  dispatch,
+  hostsState,
+  locked,
+  onDiscardLock,
+}: Props) {
+  const queryClient = useQueryClient();
+  const reconcileHostGroups = useReconcileHostGroups();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -114,43 +123,54 @@ export function HostGroupsTab({ state, dispatch, hostsState, hostsDispatch }: Pr
   function handleToggleHost(hostId: Id) {
     if (!selected) return;
     dispatch({ type: "toggleHost", id: selected.id, hostId });
-    // Mirror the change on the host draft so both views stay in sync.
-    const host = hostsState.draft.get(hostId);
-    if (!host) return;
-    const inGroup = host.groupIds.includes(typeof selected.id === "number" ? selected.id : -1);
-    const groupIdNum = typeof selected.id === "number" ? selected.id : null;
-    if (groupIdNum === null) return;
-    const nextGroupIds = inGroup
-      ? host.groupIds.filter((g) => g !== groupIdNum)
-      : [...host.groupIds, groupIdNum];
-    hostsDispatch({ type: "update", id: hostId, patch: { groupIds: nextGroupIds } });
   }
 
   async function handleSave() {
     setSaving(true);
     try {
-      const result = await saveHostGroupsDraft(state, {
-        createHostGroupAsync: (input) => createHostGroup.mutateAsync(input),
-        updateHostGroupAsync: (input) => updateHostGroup.mutateAsync(input),
-        deleteHostGroupAsync: (input) => deleteHostGroup.mutateAsync(input),
+      // Pre-save freshness check.
+      const current = await queryClient.fetchQuery({
+        ...listHostGroupsOptions(),
+        staleTime: 0,
       });
-      if (result.failed.length === 0) {
+      if (!groupsOriginalMatchesServer(state.original, current)) {
         notifications.show({
-          color: "green",
-          message: `Saved ${result.succeeded} change${result.succeeded === 1 ? "" : "s"}`,
+          color: "orange",
+          title: "Server data changed",
+          message: "The groups list was modified externally. Your draft has been reset.",
         });
-      } else {
-        notifications.show({
-          color: "red",
-          title: `Saved ${result.succeeded}, failed ${result.failed.length}`,
-          message: result.failed.map((f) => `${f.label}: ${f.error}`).join("\n"),
-        });
+        dispatch({ type: "reset", groups: current });
+        return;
       }
+
+      await reconcileHostGroups.mutateAsync({
+        body: { groups: buildReconcileGroupsBody(state) },
+      });
+      notifications.show({ color: "green", message: "Groups saved" });
     } catch (err) {
       notifications.show({ color: "red", message: toErrorMessage(err) });
     } finally {
       setSaving(false);
     }
+  }
+
+  if (locked) {
+    return (
+      <Alert
+        icon={<IconAlertCircle size={16} />}
+        color="orange"
+        title="Known hosts tab has unsaved changes"
+      >
+        <Stack gap="sm">
+          <Text size="sm">
+            Save or discard your host changes before editing groups.
+          </Text>
+          <Button size="xs" variant="outline" color="orange" onClick={onDiscardLock} w="fit-content">
+            Discard host changes
+          </Button>
+        </Stack>
+      </Alert>
+    );
   }
 
   if (groups.length === 0 && tombstoned.length === 0) {
@@ -289,5 +309,4 @@ function summarizeGroups(diff: ReturnType<typeof diffGroups>): string {
   return parts.length === 0 ? "No staged changes" : parts.join(" · ");
 }
 
-// Discriminator for selectedId narrowing in the panel; not used externally.
 export type _GroupsTabSelected = DraftGroupId | null;

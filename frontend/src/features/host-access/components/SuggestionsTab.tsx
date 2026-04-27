@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Alert,
   Badge,
   Button,
   Card,
@@ -11,22 +12,24 @@ import {
   Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
+import { IconAlertCircle } from "@tabler/icons-react";
 import type { HostSuggestionsPage } from "@/lib/api";
 import { useIgnoreSuggestion } from "@/features/host-access/hooks/useIgnoreSuggestion";
 import { useUnignoreSuggestion } from "@/features/host-access/hooks/useUnignoreSuggestion";
-import { useCreateKnownHosts } from "@/features/host-access/hooks/useCreateKnownHosts";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { toErrorMessage } from "@/lib/api-client";
 
 interface Props {
   data: HostSuggestionsPage;
+  locked: boolean;
+  onDiscardLock: () => void;
+  onStageHosts: (fqdns: string[]) => void;
 }
 
-export function SuggestionsTab({ data }: Props) {
+export function SuggestionsTab({ data, locked, onDiscardLock, onStageHosts }: Props) {
   const formatDateTime = useDateFormatter();
   const ignoreSuggestion = useIgnoreSuggestion();
   const unignoreSuggestion = useUnignoreSuggestion();
-  const createKnownHosts = useCreateKnownHosts();
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -52,15 +55,7 @@ export function SuggestionsTab({ data }: Props) {
   }
 
   function handlePromote(fqdn: string) {
-    createKnownHosts.mutate(
-      { body: { fqdns: [fqdn] } },
-      {
-        onSuccess: () =>
-          notifications.show({ color: "green", message: `${fqdn} added to known hosts` }),
-        onError: (err) =>
-          notifications.show({ color: "red", title: "Failed to add host", message: toErrorMessage(err) }),
-      },
-    );
+    onStageHosts([fqdn]);
   }
 
   function handleIgnore(fqdn: string) {
@@ -69,7 +64,7 @@ export function SuggestionsTab({ data }: Props) {
       {
         onSuccess: () =>
           notifications.show({ color: "gray", message: `${fqdn} ignored` }),
-        onError: (err) =>
+        onError: (err: unknown) =>
           notifications.show({ color: "red", title: "Failed to ignore", message: toErrorMessage(err) }),
       },
     );
@@ -81,7 +76,7 @@ export function SuggestionsTab({ data }: Props) {
       {
         onSuccess: () =>
           notifications.show({ color: "green", message: `${fqdn} removed from ignore list` }),
-        onError: (err) =>
+        onError: (err: unknown) =>
           notifications.show({ color: "red", title: "Failed to unignore", message: toErrorMessage(err) }),
       },
     );
@@ -89,17 +84,8 @@ export function SuggestionsTab({ data }: Props) {
 
   function handleBulkAccept() {
     const fqdns = [...selected];
-    createKnownHosts.mutate(
-      { body: { fqdns } },
-      {
-        onSuccess: () => {
-          notifications.show({ color: "green", message: `${fqdns.length} hosts added to known hosts` });
-          setSelected(new Set());
-        },
-        onError: (err) =>
-          notifications.show({ color: "red", title: "Failed to add hosts", message: toErrorMessage(err) }),
-      },
-    );
+    onStageHosts(fqdns);
+    setSelected(new Set());
   }
 
   async function handleBulkIgnore() {
@@ -119,6 +105,25 @@ export function SuggestionsTab({ data }: Props) {
       notifications.show({ color: "orange", message: `${fqdns.length - failed} ignored, ${failed} failed` });
     }
     setSelected(new Set());
+  }
+
+  if (locked) {
+    return (
+      <Alert
+        icon={<IconAlertCircle size={16} />}
+        color="orange"
+        title="Groups tab has unsaved changes"
+      >
+        <Stack gap="sm">
+          <Text size="sm">
+            Save or discard your group changes before adding hosts from suggestions.
+          </Text>
+          <Button size="xs" variant="outline" color="orange" onClick={onDiscardLock} w="fit-content">
+            Discard group changes
+          </Button>
+        </Stack>
+      </Alert>
+    );
   }
 
   if (data.suggestions.length === 0 && data.ignored.length === 0) {
@@ -155,8 +160,8 @@ export function SuggestionsTab({ data }: Props) {
               <Button
                 size="xs"
                 onClick={handleBulkAccept}
-                disabled={createKnownHosts.isPending || ignoreSuggestion.isPending}
-                loading={createKnownHosts.isPending}
+                disabled={ignoreSuggestion.isPending}
+                loading={false}
               >
                 Accept {selected.size}
               </Button>
@@ -164,7 +169,7 @@ export function SuggestionsTab({ data }: Props) {
                 size="xs"
                 variant="outline"
                 onClick={handleBulkIgnore}
-                disabled={createKnownHosts.isPending || ignoreSuggestion.isPending}
+                disabled={ignoreSuggestion.isPending}
                 loading={ignoreSuggestion.isPending}
               >
                 Ignore {selected.size}
@@ -243,14 +248,14 @@ export function SuggestionsTab({ data }: Props) {
                           size="xs"
                           variant="outline"
                           onClick={() => handleIgnore(s.fqdn)}
-                          disabled={ignoreSuggestion.isPending || createKnownHosts.isPending}
+                          disabled={ignoreSuggestion.isPending}
                         >
                           Ignore
                         </Button>
                         <Button
                           size="xs"
                           onClick={() => handlePromote(s.fqdn)}
-                          disabled={createKnownHosts.isPending || ignoreSuggestion.isPending}
+                          disabled={ignoreSuggestion.isPending}
                         >
                           Add as known
                         </Button>

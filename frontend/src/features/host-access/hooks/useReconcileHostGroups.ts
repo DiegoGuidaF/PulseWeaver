@@ -1,15 +1,15 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  deleteHostGroupMutation,
+  reconcileHostGroupsMutation,
   listHostGroupsQueryKey,
   listKnownHostsQueryKey,
   listUsersHostAccessQueryKey,
 } from "@/lib/api/@tanstack/react-query.gen";
 
-export function useDeleteHostGroup() {
+export function useReconcileHostGroups() {
   const queryClient = useQueryClient();
   return useMutation({
-    ...deleteHostGroupMutation(),
+    ...reconcileHostGroupsMutation(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: listHostGroupsQueryKey() });
       queryClient.invalidateQueries({ queryKey: listKnownHostsQueryKey() });
