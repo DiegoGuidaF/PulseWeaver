@@ -127,7 +127,7 @@ func (s *Service) ReconcileKnownHosts(ctx context.Context, in ReconcileKnownHost
 		}
 
 		for _, draft := range plan.toCreate {
-			if err := s.repo.CreateKnownHost(ctx, draft); err != nil {
+			if _, err := s.repo.CreateKnownHost(ctx, draft); err != nil {
 				return err
 			}
 		}

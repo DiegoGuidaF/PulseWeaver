@@ -1159,35 +1159,6 @@ export const KnownHostRefSchema = {
     }
 } as const;
 
-export const KnownHostSchema = {
-    type: 'object',
-    required: [
-        'id',
-        'fqdn',
-        'created_at'
-    ],
-    properties: {
-        id: {
-            $ref: '#/components/schemas/ID'
-        },
-        fqdn: {
-            type: 'string',
-            maxLength: 253,
-            description: 'Fully-qualified domain name (lowercased).'
-        },
-        icon: {
-            type: 'string',
-            nullable: true,
-            description: 'Tabler icon name.'
-        },
-        created_at: {
-            type: 'string',
-            format: 'date-time',
-            'x-go-type': 'UTCTime'
-        }
-    }
-} as const;
-
 export const KnownHostWithStatsSchema = {
     type: 'object',
     required: [
@@ -1224,39 +1195,6 @@ export const KnownHostWithStatsSchema = {
                 $ref: '#/components/schemas/GroupRef'
             },
             description: 'Host groups this host belongs to.'
-        }
-    }
-} as const;
-
-export const BulkCreateKnownHostsRequestSchema = {
-    type: 'object',
-    required: [
-        'fqdns'
-    ],
-    properties: {
-        fqdns: {
-            type: 'array',
-            minItems: 1,
-            items: {
-                type: 'string',
-                minLength: 3,
-                maxLength: 253,
-                pattern: '^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$'
-            },
-            description: 'One or more FQDNs to register as known hosts.'
-        }
-    }
-} as const;
-
-export const UpdateKnownHostRequestSchema = {
-    type: 'object',
-    properties: {
-        icon: {
-            type: 'string',
-            nullable: true,
-            'x-go-type': 'NullableString',
-            'x-go-type-skip-optional-pointer': true,
-            description: 'Tabler icon name. Pass null to clear.'
         }
     }
 } as const;

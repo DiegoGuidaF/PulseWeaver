@@ -1820,52 +1820,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    post:
-      operationId: createKnownHosts
-      tags:
-        - host-access
-      summary: Register one or more known hosts
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BulkCreateKnownHostsRequest'
-      responses:
-        '201':
-          description: Hosts created
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/KnownHost'
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-        '409':
-          description: One or more FQDNs already registered
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
   /admin/hosts/reconcile:
     put:
       operationId: reconcileKnownHosts
@@ -1908,85 +1862,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: FQDN already exists
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /admin/hosts/{host_id}:
-    put:
-      operationId: updateKnownHost
-      tags:
-        - host-access
-      summary: Update a known host (icon)
-      parameters:
-        - name: host_id
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/ID'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateKnownHostRequest'
-      responses:
-        '200':
-          description: Host updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/KnownHost'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-        '404':
-          description: Host not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      operationId: deleteKnownHost
-      tags:
-        - host-access
-      summary: Delete a known host
-      parameters:
-        - name: host_id
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/ID'
-      responses:
-        '204':
-          description: Host deleted
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-        '404':
-          description: Host not found
           content:
             application/json:
               schema:
@@ -3124,27 +2999,6 @@ components:
         icon:
           type: string
           nullable: true
-    KnownHost:
-      type: object
-      required:
-        - id
-        - fqdn
-        - created_at
-      properties:
-        id:
-          $ref: '#/components/schemas/ID'
-        fqdn:
-          type: string
-          maxLength: 253
-          description: Fully-qualified domain name (lowercased).
-        icon:
-          type: string
-          nullable: true
-          description: Tabler icon name.
-        created_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
     KnownHostWithStats:
       type: object
       required:
@@ -3174,29 +3028,6 @@ components:
           items:
             $ref: '#/components/schemas/GroupRef'
           description: Host groups this host belongs to.
-    BulkCreateKnownHostsRequest:
-      type: object
-      required:
-        - fqdns
-      properties:
-        fqdns:
-          type: array
-          minItems: 1
-          items:
-            type: string
-            minLength: 3
-            maxLength: 253
-            pattern: ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$
-          description: One or more FQDNs to register as known hosts.
-    UpdateKnownHostRequest:
-      type: object
-      properties:
-        icon:
-          type: string
-          nullable: true
-          x-go-type: NullableString
-          x-go-type-skip-optional-pointer: true
-          description: Tabler icon name. Pass null to clear.
     DesiredKnownHost:
       type: object
       required:

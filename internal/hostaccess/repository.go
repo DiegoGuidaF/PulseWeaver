@@ -34,37 +34,17 @@ func (r *Repository) ListKnownHosts(ctx context.Context) ([]KnownHost, error) {
 
 // CreateKnownHost inserts a single known host row. Translates unique-violation
 // to ErrKnownHostConflict.
-func (r *Repository) CreateKnownHost(ctx context.Context, draft KnownHostDraft) error {
-	const query = `INSERT INTO known_hosts (fqdn, icon) VALUES (?, ?)`
-	if _, err := r.db.ExecContext(ctx, query, draft.FQDN, draft.Icon); err != nil {
-		if isUniqueViolation(err) {
-			return ErrKnownHostConflict
-		}
-		return fmt.Errorf("create known host %q: %w", draft.FQDN, err)
-	}
-	return nil
-}
+func (r *Repository) CreateKnownHost(ctx context.Context, draft KnownHostDraft) (KnownHostID, error) {
+	var knownHostId KnownHostID
 
-func (r *Repository) BulkCreateKnownHosts(ctx context.Context, fqdns []string) ([]KnownHost, error) {
-	hosts := make([]KnownHost, 0, len(fqdns))
-	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
-		const query = `INSERT INTO known_hosts (fqdn) VALUES (?) RETURNING *`
-		for _, fqdn := range fqdns {
-			host := new(KnownHost)
-			if err := r.db.GetContext(ctx, host, query, strings.ToLower(fqdn)); err != nil {
-				if isUniqueViolation(err) {
-					return ErrKnownHostConflict
-				}
-				return fmt.Errorf("bulk create known host %q: %w", fqdn, err)
-			}
-			hosts = append(hosts, *host)
+	const query = `INSERT INTO known_hosts (fqdn, icon) VALUES (?, ?) returning id`
+	if err := r.db.GetContext(ctx, &knownHostId, query, draft.FQDN, draft.Icon); err != nil {
+		if isUniqueViolation(err) {
+			return knownHostId, ErrKnownHostConflict
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
+		return knownHostId, fmt.Errorf("create known host %q: %w", draft.FQDN, err)
 	}
-	return hosts, nil
+	return knownHostId, nil
 }
 
 func (r *Repository) UpdateKnownHost(ctx context.Context, id KnownHostID, icon *string) (KnownHost, error) {
@@ -360,7 +340,6 @@ func (r *Repository) GetAllUserDirectHostGrants(ctx context.Context) ([]UserHost
 	const query = `
 		SELECT uah.user_id, kh.fqdn
 		FROM user_allowed_hosts uah
-		JOIN user_host_settings uhs ON uhs.user_id = uah.user_id
 		JOIN known_hosts kh ON kh.id = uah.known_host_id
 	`
 	var grants []UserHostGrant
@@ -374,7 +353,6 @@ func (r *Repository) GetAllUserGroupHostGrants(ctx context.Context) ([]UserHostG
 	const query = `
 		SELECT uahg.user_id, kh.fqdn
 		FROM user_allowed_host_groups uahg
-		JOIN user_host_settings uhs ON uhs.user_id = uahg.user_id
 		JOIN host_group_members hgm ON hgm.host_group_id = uahg.host_group_id
 		JOIN known_hosts kh ON kh.id = hgm.known_host_id
 	`

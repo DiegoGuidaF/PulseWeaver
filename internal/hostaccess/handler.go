@@ -22,70 +22,6 @@ func NewHTTPHandler(service *Service, logger *slog.Logger) *HTTPHandler {
 	}
 }
 
-// ── Known hosts ───────────────────────────────────────────────────────────────
-
-func (h *HTTPHandler) CreateKnownHosts(
-	ctx context.Context,
-	req httpapi.CreateKnownHostsRequestObject,
-) (httpapi.CreateKnownHostsResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "CreateKnownHosts")
-
-	hosts, err := h.service.BulkCreateKnownHosts(ctx, req.Body.Fqdns)
-	if err != nil {
-		if errors.Is(err, ErrKnownHostConflict) {
-			return httpapi.CreateKnownHosts409JSONResponse(errResp("One or more FQDNs are already registered")), nil
-		}
-		if isValidationError(err) {
-			return httpapi.CreateKnownHosts400JSONResponse(errResp(err.Error())), nil
-		}
-		h.logger.ErrorContext(ctx, "bulk create known hosts failed", slog.Any(logging.AttrKeyError, err))
-		return httpapi.CreateKnownHosts500JSONResponse(errResp("Failed to create hosts")), nil
-	}
-
-	resp := make([]httpapi.KnownHost, len(hosts))
-	for i, kh := range hosts {
-		resp[i] = toKnownHostDTO(kh)
-	}
-	return httpapi.CreateKnownHosts201JSONResponse(resp), nil
-}
-
-func (h *HTTPHandler) UpdateKnownHost(
-	ctx context.Context,
-	req httpapi.UpdateKnownHostRequestObject,
-) (httpapi.UpdateKnownHostResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "UpdateKnownHost")
-	id := KnownHostID(req.HostId)
-
-	host, err := h.service.UpdateKnownHost(ctx, id, req.Body.Icon.Value)
-	if err != nil {
-		if errors.Is(err, ErrKnownHostNotFound) {
-			return httpapi.UpdateKnownHost404JSONResponse(errResp("Host not found")), nil
-		}
-		h.logger.ErrorContext(ctx, "update known host failed", slog.Any(logging.AttrKeyError, err))
-		return httpapi.UpdateKnownHost500JSONResponse(errResp("Failed to update host")), nil
-	}
-	return httpapi.UpdateKnownHost200JSONResponse(toKnownHostDTO(host)), nil
-}
-
-func (h *HTTPHandler) DeleteKnownHost(
-	ctx context.Context,
-	req httpapi.DeleteKnownHostRequestObject,
-) (httpapi.DeleteKnownHostResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "DeleteKnownHost")
-	id := KnownHostID(req.HostId)
-
-	if err := h.service.DeleteKnownHost(ctx, id); err != nil {
-		if errors.Is(err, ErrKnownHostNotFound) {
-			return httpapi.DeleteKnownHost404JSONResponse(errResp("Host not found")), nil
-		}
-		h.logger.ErrorContext(ctx, "delete known host failed", slog.Any(logging.AttrKeyError, err))
-		return httpapi.DeleteKnownHost500JSONResponse(errResp("Failed to delete host")), nil
-	}
-	return httpapi.DeleteKnownHost204Response{}, nil
-}
-
-// ── Known hosts (reconcile) ───────────────────────────────────────────────────
-
 func (h *HTTPHandler) ReconcileKnownHosts(
 	ctx context.Context,
 	req httpapi.ReconcileKnownHostsRequestObject,
@@ -125,8 +61,6 @@ func (h *HTTPHandler) ReconcileKnownHosts(
 	return httpapi.ReconcileKnownHosts204Response{}, nil
 }
 
-// ── Host groups (reconcile) ───────────────────────────────────────────────────
-
 func (h *HTTPHandler) ReconcileHostGroups(
 	ctx context.Context,
 	req httpapi.ReconcileHostGroupsRequestObject,
@@ -144,8 +78,7 @@ func (h *HTTPHandler) ReconcileHostGroups(
 			Icon:        g.Icon,
 		}
 		if g.Id != nil {
-			id := HostGroupID(*g.Id)
-			desired.ID = &id
+			desired.ID = new(HostGroupID(*g.Id))
 		}
 		if g.HostIds != nil {
 			desired.HostIDs = make([]KnownHostID, len(*g.HostIds))
@@ -210,8 +143,6 @@ func (h *HTTPHandler) SetUserHostGrants(
 	return httpapi.SetUserHostGrants204Response{}, nil
 }
 
-// ── Ignored suggestions ───────────────────────────────────────────────────────
-
 func (h *HTTPHandler) IgnoreSuggestion(
 	ctx context.Context,
 	req httpapi.IgnoreSuggestionRequestObject,
@@ -250,20 +181,6 @@ func (h *HTTPHandler) UnignoreSuggestion(
 }
 
 // ── DTO mappers ───────────────────────────────────────────────────────────────
-
-func toKnownHostDTO(h KnownHost) httpapi.KnownHost {
-	return httpapi.KnownHost{
-		Id:        h.ID.Int64(),
-		Fqdn:      h.FQDN,
-		Icon:      h.Icon,
-		CreatedAt: httpapi.UTCTime(h.CreatedAt),
-	}
-}
-
 func errResp(msg string) httpapi.ErrorResponse {
 	return httpapi.ErrorResponse{Error: &msg}
-}
-
-func isValidationError(err error) bool {
-	return errors.Is(err, ErrBadRequest)
 }

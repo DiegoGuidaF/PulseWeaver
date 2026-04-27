@@ -236,3 +236,19 @@ func (s *Service) validateReferencedHosts(ctx context.Context, groups []DesiredH
 
 	return nil
 }
+
+func deduplicateHostIDs(ids []KnownHostID) []KnownHostID {
+	if ids == nil {
+		return nil
+	}
+	seen := make(map[KnownHostID]struct{}, len(ids))
+	out := make([]KnownHostID, 0, len(ids))
+	for _, id := range ids {
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}

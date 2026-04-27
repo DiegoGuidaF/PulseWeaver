@@ -178,13 +178,12 @@ func TestService_ReconcileKnownHosts_NotifiesObserversOnce(t *testing.T) {
 func TestService_ReconcileKnownHosts_NoOp_StillNotifiesObservers(t *testing.T) {
 	is := is.New(t)
 	obs := &mockObserver{}
-	id := KnownHostID(1)
 	repo := &fakeRepo{knownHosts: []KnownHost{{ID: 1, FQDN: "stable.example.com"}}}
 	svc, _ := newTestService(repo)
 	svc.AddUserHostAccessObserver(obs)
 
 	err := svc.ReconcileKnownHosts(context.Background(), ReconcileKnownHostsInput{
-		Hosts: []DesiredKnownHost{{ID: &id, FQDN: "stable.example.com"}},
+		Hosts: []DesiredKnownHost{{ID: new(KnownHostID(1)), FQDN: "stable.example.com"}},
 	})
 	is.NoErr(err)
 	is.Equal(len(repo.callOrder), 0) // no writes
@@ -242,8 +241,8 @@ func TestService_ReconcileKnownHosts_ConflictFromCreate_Surfaces(t *testing.T) {
 // createConflictRepo is a minimal fakeRepo where CreateKnownHost always returns ErrKnownHostConflict.
 type createConflictRepo struct{ fakeRepo }
 
-func (c *createConflictRepo) CreateKnownHost(_ context.Context, _ KnownHostDraft) error {
-	return ErrKnownHostConflict
+func (c *createConflictRepo) CreateKnownHost(_ context.Context, _ KnownHostDraft) (KnownHostID, error) {
+	return KnownHostID(0), ErrKnownHostConflict
 }
 func (c *createConflictRepo) ListKnownHosts(_ context.Context) ([]KnownHost, error) {
 	return nil, nil // empty current list so plan always has creates

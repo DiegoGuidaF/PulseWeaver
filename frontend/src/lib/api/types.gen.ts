@@ -452,19 +452,6 @@ export type KnownHostRef = {
     icon?: string | null;
 };
 
-export type KnownHost = {
-    id: Id;
-    /**
-     * Fully-qualified domain name (lowercased).
-     */
-    fqdn: string;
-    /**
-     * Tabler icon name.
-     */
-    icon?: string | null;
-    created_at: string;
-};
-
 export type KnownHostWithStats = {
     id: Id;
     fqdn: string;
@@ -478,20 +465,6 @@ export type KnownHostWithStats = {
      * Host groups this host belongs to.
      */
     groups: Array<GroupRef>;
-};
-
-export type BulkCreateKnownHostsRequest = {
-    /**
-     * One or more FQDNs to register as known hosts.
-     */
-    fqdns: Array<string>;
-};
-
-export type UpdateKnownHostRequest = {
-    /**
-     * Tabler icon name. Pass null to clear.
-     */
-    icon?: string | null;
 };
 
 /**
@@ -2388,47 +2361,6 @@ export type ListKnownHostsResponses = {
 
 export type ListKnownHostsResponse = ListKnownHostsResponses[keyof ListKnownHostsResponses];
 
-export type CreateKnownHostsData = {
-    body: BulkCreateKnownHostsRequest;
-    path?: never;
-    query?: never;
-    url: '/admin/hosts';
-};
-
-export type CreateKnownHostsErrors = {
-    /**
-     * Bad Request
-     */
-    400: ErrorResponse;
-    /**
-     * Unauthorized
-     */
-    401: ErrorResponse;
-    /**
-     * Forbidden
-     */
-    403: unknown;
-    /**
-     * One or more FQDNs already registered
-     */
-    409: ErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: ErrorResponse;
-};
-
-export type CreateKnownHostsError = CreateKnownHostsErrors[keyof CreateKnownHostsErrors];
-
-export type CreateKnownHostsResponses = {
-    /**
-     * Hosts created
-     */
-    201: Array<KnownHost>;
-};
-
-export type CreateKnownHostsResponse = CreateKnownHostsResponses[keyof CreateKnownHostsResponses];
-
 export type ReconcileKnownHostsData = {
     body: ReconcileKnownHostsRequest;
     path?: never;
@@ -2473,84 +2405,6 @@ export type ReconcileKnownHostsResponses = {
 };
 
 export type ReconcileKnownHostsResponse = ReconcileKnownHostsResponses[keyof ReconcileKnownHostsResponses];
-
-export type DeleteKnownHostData = {
-    body?: never;
-    path: {
-        host_id: Id;
-    };
-    query?: never;
-    url: '/admin/hosts/{host_id}';
-};
-
-export type DeleteKnownHostErrors = {
-    /**
-     * Unauthorized
-     */
-    401: ErrorResponse;
-    /**
-     * Forbidden
-     */
-    403: unknown;
-    /**
-     * Host not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: ErrorResponse;
-};
-
-export type DeleteKnownHostError = DeleteKnownHostErrors[keyof DeleteKnownHostErrors];
-
-export type DeleteKnownHostResponses = {
-    /**
-     * Host deleted
-     */
-    204: void;
-};
-
-export type DeleteKnownHostResponse = DeleteKnownHostResponses[keyof DeleteKnownHostResponses];
-
-export type UpdateKnownHostData = {
-    body: UpdateKnownHostRequest;
-    path: {
-        host_id: Id;
-    };
-    query?: never;
-    url: '/admin/hosts/{host_id}';
-};
-
-export type UpdateKnownHostErrors = {
-    /**
-     * Unauthorized
-     */
-    401: ErrorResponse;
-    /**
-     * Forbidden
-     */
-    403: unknown;
-    /**
-     * Host not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: ErrorResponse;
-};
-
-export type UpdateKnownHostError = UpdateKnownHostErrors[keyof UpdateKnownHostErrors];
-
-export type UpdateKnownHostResponses = {
-    /**
-     * Host updated
-     */
-    200: KnownHost;
-};
-
-export type UpdateKnownHostResponse = UpdateKnownHostResponses[keyof UpdateKnownHostResponses];
 
 export type ListHostGroupsData = {
     body?: never;

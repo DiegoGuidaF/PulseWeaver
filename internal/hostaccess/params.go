@@ -67,33 +67,3 @@ func validateLabel(label string) error {
 func NormaliseFQDN(raw string) string {
 	return strings.TrimSuffix(strings.ToLower(strings.TrimSpace(raw)), ".")
 }
-
-// BulkCreateKnownHostsParams holds validated, normalised FQDNs for bulk creation.
-type BulkCreateKnownHostsParams struct {
-	FQDNs []string
-}
-
-// NewBulkCreateKnownHostsParams normalises, validates, and deduplicates the input list.
-// Returns an error if the result is empty or any element is not a valid FQDN.
-func NewBulkCreateKnownHostsParams(fqdns []string) (BulkCreateKnownHostsParams, error) {
-	if len(fqdns) == 0 {
-		return BulkCreateKnownHostsParams{}, fmt.Errorf("%w: at least one FQDN required", ErrBadRequest)
-	}
-	seen := make(map[string]struct{}, len(fqdns))
-	out := make([]string, 0, len(fqdns))
-	for _, raw := range fqdns {
-		f := NormaliseFQDN(raw)
-		if f == "" {
-			return BulkCreateKnownHostsParams{}, fmt.Errorf("%w: blank FQDN in request", ErrBadRequest)
-		}
-		if err := ValidateFQDN(f); err != nil {
-			return BulkCreateKnownHostsParams{}, err
-		}
-		if _, dup := seen[f]; dup {
-			continue // silently deduplicate within a single request
-		}
-		seen[f] = struct{}{}
-		out = append(out, f)
-	}
-	return BulkCreateKnownHostsParams{FQDNs: out}, nil
-}

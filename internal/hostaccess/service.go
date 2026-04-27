@@ -12,8 +12,7 @@ import (
 
 type repository interface {
 	ListKnownHosts(ctx context.Context) ([]KnownHost, error)
-	CreateKnownHost(ctx context.Context, draft KnownHostDraft) error
-	BulkCreateKnownHosts(ctx context.Context, fqdns []string) ([]KnownHost, error)
+	CreateKnownHost(ctx context.Context, draft KnownHostDraft) (KnownHostID, error)
 	UpdateKnownHost(ctx context.Context, id KnownHostID, icon *string) (KnownHost, error)
 	DeleteKnownHost(ctx context.Context, id KnownHostID) error
 	ListKnownHostsByIDs(ctx context.Context, ids []KnownHostID) ([]KnownHost, error)
@@ -139,51 +138,9 @@ func mergeUserHostAccess(settings []UserHostSetting, directHosts, groupHosts []U
 	return result
 }
 
-// ── Known hosts ───────────────────────────────────────────────────────────────
-
-func (s *Service) BulkCreateKnownHosts(ctx context.Context, fqdns []string) ([]KnownHost, error) {
-	params, err := NewBulkCreateKnownHostsParams(fqdns)
-	if err != nil {
-		return nil, err
-	}
-	hosts, err := s.repo.BulkCreateKnownHosts(ctx, params.FQDNs)
-	if err != nil {
-		return nil, err
-	}
-	return hosts, nil
-}
-
-func (s *Service) UpdateKnownHost(ctx context.Context, id KnownHostID, icon *string) (KnownHost, error) {
-	return s.repo.UpdateKnownHost(ctx, id, icon)
-}
-
-func (s *Service) DeleteKnownHost(ctx context.Context, id KnownHostID) error {
-	if err := s.repo.DeleteKnownHost(ctx, id); err != nil {
-		return err
-	}
-	s.notifyUserHostAccessObservers(ctx)
-	return nil
-}
-
-// ── Host groups ───────────────────────────────────────────────────────────────
-
 func (s *Service) ListHostGroups(ctx context.Context) ([]HostGroup, error) {
 	return s.repo.ListHostGroups(ctx)
 }
-
-// ── User grants ───────────────────────────────────────────────────────────────
-
-func (s *Service) SetFullUserGrants(ctx context.Context, userID auth.UserID, bypass *bool, hostIDs []KnownHostID, groupIDs []HostGroupID) error {
-	hostIDs = deduplicateHostIDs(hostIDs)
-	groupIDs = deduplicateGroupIDs(groupIDs)
-	if err := s.repo.SetFullUserGrants(ctx, userID, bypass, hostIDs, groupIDs); err != nil {
-		return err
-	}
-	s.notifyUserHostAccessObservers(ctx)
-	return nil
-}
-
-// ── Ignored suggestions ───────────────────────────────────────────────────────
 
 func (s *Service) AddIgnoredSuggestion(ctx context.Context, fqdn string) (IgnoredHostSuggestion, error) {
 	normalised := NormaliseFQDN(fqdn)
@@ -197,7 +154,15 @@ func (s *Service) RemoveIgnoredSuggestionByFQDN(ctx context.Context, fqdn string
 	return s.repo.RemoveIgnoredSuggestionByFQDN(ctx, fqdn)
 }
 
-// ── User lifecycle ────────────────────────────────────────────────────────────
+func (s *Service) SetFullUserGrants(ctx context.Context, userID auth.UserID, bypass *bool, hostIDs []KnownHostID, groupIDs []HostGroupID) error {
+	hostIDs = deduplicateHostIDs(hostIDs)
+	groupIDs = deduplicateGroupIDs(groupIDs)
+	if err := s.repo.SetFullUserGrants(ctx, userID, bypass, hostIDs, groupIDs); err != nil {
+		return err
+	}
+	s.notifyUserHostAccessObservers(ctx)
+	return nil
+}
 
 func (s *Service) OnUserEvent(ctx context.Context, event auth.UserEvent) {
 	switch event.Type {
@@ -208,6 +173,7 @@ func (s *Service) OnUserEvent(ctx context.Context, event auth.UserEvent) {
 				slog.Any(logging.AttrKeyError, err),
 			)
 		}
+		s.notifyUserHostAccessObservers(ctx)
 	case auth.EventTypeUserDeleted:
 		if err := s.repo.DeleteUserData(ctx, event.UserID); err != nil {
 			s.logger.ErrorContext(ctx, "failed to delete user host data",
@@ -215,25 +181,8 @@ func (s *Service) OnUserEvent(ctx context.Context, event auth.UserEvent) {
 				slog.Any(logging.AttrKeyError, err),
 			)
 		}
+		s.notifyUserHostAccessObservers(ctx)
 	}
-}
-
-// ── helpers ───────────────────────────────────────────────────────────────────
-
-func deduplicateHostIDs(ids []KnownHostID) []KnownHostID {
-	if ids == nil {
-		return nil
-	}
-	seen := make(map[KnownHostID]struct{}, len(ids))
-	out := make([]KnownHostID, 0, len(ids))
-	for _, id := range ids {
-		if _, dup := seen[id]; dup {
-			continue
-		}
-		seen[id] = struct{}{}
-		out = append(out, id)
-	}
-	return out
 }
 
 func deduplicateGroupIDs(ids []HostGroupID) []HostGroupID {

@@ -118,8 +118,8 @@ paths:
     $ref: './paths/host-access.yaml#/hosts'
   /admin/hosts/reconcile:
     $ref: './paths/host-access.yaml#/hostsReconcile'
-  /admin/hosts/{host_id}:
-    $ref: './paths/host-access.yaml#/hostById'
+  #/admin/hosts/{host_id}:
+  #  $ref: './paths/host-access.yaml#/hostById'
   /admin/host-groups:
     $ref: './paths/host-access.yaml#/hostGroups'
   /admin/host-groups/reconcile:
@@ -273,14 +273,8 @@ components:
       $ref: './components/schemas/host-access.yaml#/GroupRef'
     KnownHostRef:
       $ref: './components/schemas/host-access.yaml#/KnownHostRef'
-    KnownHost:
-      $ref: './components/schemas/host-access.yaml#/KnownHost'
     KnownHostWithStats:
       $ref: './components/schemas/host-access.yaml#/KnownHostWithStats'
-    BulkCreateKnownHostsRequest:
-      $ref: './components/schemas/host-access.yaml#/BulkCreateKnownHostsRequest'
-    UpdateKnownHostRequest:
-      $ref: './components/schemas/host-access.yaml#/UpdateKnownHostRequest'
     DesiredKnownHost:
       $ref: './components/schemas/host-access.yaml#/DesiredKnownHost'
     ReconcileKnownHostsRequest:

@@ -318,13 +318,6 @@ export const zKnownHostRef = z.object({
     icon: z.string().nullish()
 });
 
-export const zKnownHost = z.object({
-    id: zId,
-    fqdn: z.string().max(253),
-    icon: z.string().nullish(),
-    created_at: z.iso.datetime({ offset: true, local: true })
-});
-
 export const zKnownHostWithStats = z.object({
     id: zId,
     fqdn: z.string().max(253),
@@ -332,14 +325,6 @@ export const zKnownHostWithStats = z.object({
     created_at: z.iso.datetime({ offset: true, local: true }),
     user_count: z.int(),
     groups: z.array(zGroupRef)
-});
-
-export const zBulkCreateKnownHostsRequest = z.object({
-    fqdns: z.array(z.string().min(3).max(253).regex(/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/)).min(1)
-});
-
-export const zUpdateKnownHostRequest = z.object({
-    icon: z.string().nullish()
 });
 
 /**
@@ -906,39 +891,12 @@ export const zGetRegistrationResponse = zPendingRegistration;
  */
 export const zListKnownHostsResponse = z.array(zKnownHostWithStats);
 
-export const zCreateKnownHostsBody = zBulkCreateKnownHostsRequest;
-
-/**
- * Hosts created
- */
-export const zCreateKnownHostsResponse = z.array(zKnownHost);
-
 export const zReconcileKnownHostsBody = zReconcileKnownHostsRequest;
 
 /**
  * Reconciliation applied
  */
 export const zReconcileKnownHostsResponse = z.void();
-
-export const zDeleteKnownHostPath = z.object({
-    host_id: zId
-});
-
-/**
- * Host deleted
- */
-export const zDeleteKnownHostResponse = z.void();
-
-export const zUpdateKnownHostBody = zUpdateKnownHostRequest;
-
-export const zUpdateKnownHostPath = z.object({
-    host_id: zId
-});
-
-/**
- * Host updated
- */
-export const zUpdateKnownHostResponse = zKnownHost;
 
 /**
  * Host groups list
