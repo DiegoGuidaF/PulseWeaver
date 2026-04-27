@@ -557,3 +557,94 @@ func TestRepository_GetAllUserGroupHostGrants_ExcludesDeletedUsers(t *testing.T)
 	is.NoErr(err)
 	is.Equal(len(result), 0)
 }
+
+// ── ListKnownHosts ────────────────────────────────────────────────────────────
+
+func TestRepository_ListKnownHosts_Empty(t *testing.T) {
+	is := is.New(t)
+	repo, _ := setupHostAccessRepo(t)
+
+	hosts, err := repo.ListKnownHosts(context.Background())
+	is.NoErr(err)
+	is.Equal(len(hosts), 0)
+}
+
+func TestRepository_ListKnownHosts_ReturnsDeterministicOrder(t *testing.T) {
+	is := is.New(t)
+	repo, _ := setupHostAccessRepo(t)
+	ctx := context.Background()
+
+	_, err := repo.BulkCreateKnownHosts(ctx, []string{"b.example.com", "a.example.com"})
+	is.NoErr(err)
+
+	hosts, err := repo.ListKnownHosts(ctx)
+	is.NoErr(err)
+	is.Equal(len(hosts), 2)
+	// ORDER BY id guarantees ascending insertion order.
+	is.True(hosts[0].ID < hosts[1].ID)
+	is.Equal(hosts[0].FQDN, "b.example.com")
+	is.Equal(hosts[1].FQDN, "a.example.com")
+}
+
+// ── CreateKnownHost ───────────────────────────────────────────────────────────
+
+func TestRepository_CreateKnownHost_HappyPath(t *testing.T) {
+	is := is.New(t)
+	repo, _ := setupHostAccessRepo(t)
+	ctx := context.Background()
+
+	icon := "server"
+	err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "new.example.com", Icon: &icon})
+	is.NoErr(err)
+
+	hosts, err := repo.ListKnownHosts(ctx)
+	is.NoErr(err)
+	is.Equal(len(hosts), 1)
+	is.Equal(hosts[0].FQDN, "new.example.com")
+	is.Equal(*hosts[0].Icon, "server")
+}
+
+func TestRepository_CreateKnownHost_UniqueViolation_ErrKnownHostConflict(t *testing.T) {
+	is := is.New(t)
+	repo, _ := setupHostAccessRepo(t)
+	ctx := context.Background()
+
+	err := repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "dup.example.com"})
+	is.NoErr(err)
+
+	err = repo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "dup.example.com"})
+	is.True(errors.Is(err, hostaccess.ErrKnownHostConflict))
+}
+
+// ── FK cascade on delete ──────────────────────────────────────────────────────
+
+func TestRepository_DeleteKnownHost_CascadesToGroupMembersAndUserGrants(t *testing.T) {
+	is := is.New(t)
+	repo, db := setupHostAccessRepo(t)
+	ctx := context.Background()
+
+	hosts, err := repo.BulkCreateKnownHosts(ctx, []string{"cascade.example.com"})
+	is.NoErr(err)
+
+	groupID, err := createGroup(ctx, repo, "g", nil, nil, []hostaccess.KnownHostID{hosts[0].ID})
+	is.NoErr(err)
+
+	userID := insertUser(t, db, "alice", false, false)
+	is.NoErr(repo.SetFullUserGrants(ctx, userID, nil, []hostaccess.KnownHostID{hosts[0].ID}, nil))
+
+	is.NoErr(repo.DeleteKnownHost(ctx, hosts[0].ID))
+
+	// Verify group members cascaded.
+	var memberCount int
+	is.NoErr(db.QueryRowxContext(ctx,
+		`SELECT COUNT(*) FROM host_group_members WHERE host_group_id = ?`, groupID,
+	).Scan(&memberCount))
+	is.Equal(memberCount, 0)
+
+	// Verify user grants cascaded.
+	var grantCount int
+	is.NoErr(db.QueryRowxContext(ctx,
+		`SELECT COUNT(*) FROM user_allowed_hosts WHERE user_id = ?`, userID,
+	).Scan(&grantCount))
+	is.Equal(grantCount, 0)
+}

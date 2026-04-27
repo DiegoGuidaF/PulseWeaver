@@ -154,6 +154,59 @@ hostById:
             schema:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
 
+hostsReconcile:
+  put:
+    operationId: reconcileKnownHosts
+    tags:
+      - host-access
+    summary: Reconcile the full desired image of known hosts
+    description: |
+      Atomically converges the database to the desired image. Sends a single
+      transaction that creates new hosts, updates icons on existing ones, and
+      deletes hosts absent from the request. An empty `hosts` array deletes
+      every known host.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/host-access.yaml#/ReconcileKnownHostsRequest'
+    responses:
+      "204":
+        description: Reconciliation applied
+      "400":
+        description: Bad Request (invalid FQDN, duplicate ID or FQDN, immutable FQDN change)
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "404":
+        description: One or more referenced hosts not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "409":
+        description: FQDN already exists
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
 hostGroups:
   get:
     operationId: listHostGroups

@@ -56,7 +56,7 @@ func validateLabel(label string) error {
 		return fmt.Errorf("%w: FQDN label %q must not start or end with a hyphen", ErrBadRequest, label)
 	}
 	for _, c := range label {
-		if !(c >= 'a' && c <= 'z') && !(c >= 'A' && c <= 'Z') && !(c >= '0' && c <= '9') && c != '-' {
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' {
 			return fmt.Errorf("%w: FQDN contains invalid character %q", ErrBadRequest, c)
 		}
 	}

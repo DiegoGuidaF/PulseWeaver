@@ -1866,6 +1866,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /admin/hosts/reconcile:
+    put:
+      operationId: reconcileKnownHosts
+      tags:
+        - host-access
+      summary: Reconcile the full desired image of known hosts
+      description: |
+        Atomically converges the database to the desired image. Sends a single
+        transaction that creates new hosts, updates icons on existing ones, and
+        deletes hosts absent from the request. An empty `hosts` array deletes
+        every known host.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconcileKnownHostsRequest'
+      responses:
+        '204':
+          description: Reconciliation applied
+        '400':
+          description: Bad Request (invalid FQDN, duplicate ID or FQDN, immutable FQDN change)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: One or more referenced hosts not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: FQDN already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /admin/hosts/{host_id}:
     put:
       operationId: updateKnownHost
@@ -3145,6 +3197,40 @@ components:
           x-go-type: NullableString
           x-go-type-skip-optional-pointer: true
           description: Tabler icon name. Pass null to clear.
+    DesiredKnownHost:
+      type: object
+      required:
+        - fqdn
+      description: |
+        A single known host inside a reconcile request. A null `id` marks a
+        brand-new host; a non-null `id` must match an existing row. `fqdn` is
+        immutable on updates — a mismatch is rejected.
+      properties:
+        id:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ID'
+        fqdn:
+          type: string
+          minLength: 3
+          maxLength: 253
+        icon:
+          type: string
+          nullable: true
+    ReconcileKnownHostsRequest:
+      type: object
+      required:
+        - hosts
+      description: |
+        Full desired image of all known hosts. Hosts already in the database whose
+        ID is absent from `hosts` will be deleted; hosts with a non-null ID are
+        updated (icon only); hosts with a null ID are created. An empty `hosts`
+        array deletes every known host.
+      properties:
+        hosts:
+          type: array
+          items:
+            $ref: '#/components/schemas/DesiredKnownHost'
     HostGroupWithMembers:
       type: object
       required:

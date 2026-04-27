@@ -494,6 +494,29 @@ export type UpdateKnownHostRequest = {
     icon?: string | null;
 };
 
+/**
+ * A single known host inside a reconcile request. A null `id` marks a
+ * brand-new host; a non-null `id` must match an existing row. `fqdn` is
+ * immutable on updates — a mismatch is rejected.
+ *
+ */
+export type DesiredKnownHost = {
+    id?: Id | null;
+    fqdn: string;
+    icon?: string | null;
+};
+
+/**
+ * Full desired image of all known hosts. Hosts already in the database whose
+ * ID is absent from `hosts` will be deleted; hosts with a non-null ID are
+ * updated (icon only); hosts with a null ID are created. An empty `hosts`
+ * array deletes every known host.
+ *
+ */
+export type ReconcileKnownHostsRequest = {
+    hosts: Array<DesiredKnownHost>;
+};
+
 export type HostGroupWithMembers = {
     id: Id;
     name: string;
@@ -2405,6 +2428,51 @@ export type CreateKnownHostsResponses = {
 };
 
 export type CreateKnownHostsResponse = CreateKnownHostsResponses[keyof CreateKnownHostsResponses];
+
+export type ReconcileKnownHostsData = {
+    body: ReconcileKnownHostsRequest;
+    path?: never;
+    query?: never;
+    url: '/admin/hosts/reconcile';
+};
+
+export type ReconcileKnownHostsErrors = {
+    /**
+     * Bad Request (invalid FQDN, duplicate ID or FQDN, immutable FQDN change)
+     */
+    400: ErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * One or more referenced hosts not found
+     */
+    404: ErrorResponse;
+    /**
+     * FQDN already exists
+     */
+    409: ErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type ReconcileKnownHostsError = ReconcileKnownHostsErrors[keyof ReconcileKnownHostsErrors];
+
+export type ReconcileKnownHostsResponses = {
+    /**
+     * Reconciliation applied
+     */
+    204: void;
+};
+
+export type ReconcileKnownHostsResponse = ReconcileKnownHostsResponses[keyof ReconcileKnownHostsResponses];
 
 export type DeleteKnownHostData = {
     body?: never;

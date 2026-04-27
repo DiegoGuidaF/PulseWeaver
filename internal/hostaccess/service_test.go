@@ -22,8 +22,13 @@ type fakeRepo struct {
 	directGrants []UserHostGrant
 	groupGrants  []UserHostGrant
 
+	knownHosts     []KnownHost
 	knownHostsByID []KnownHost
 	hostGroups     []HostGroup
+
+	createHostCalls []KnownHostDraft
+	updateHostCalls []KnownHost
+	deleteHostCalls []KnownHostID
 
 	createCalls []HostGroupDraft
 	updateCalls []HostGroup
@@ -33,6 +38,20 @@ type fakeRepo struct {
 
 var _ repository = (*fakeRepo)(nil)
 
+func (f *fakeRepo) ListKnownHosts(_ context.Context) ([]KnownHost, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.knownHosts, nil
+}
+func (f *fakeRepo) CreateKnownHost(_ context.Context, draft KnownHostDraft) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.createHostCalls = append(f.createHostCalls, draft)
+	f.callOrder = append(f.callOrder, "createHost")
+	return nil
+}
 func (f *fakeRepo) BulkCreateKnownHosts(_ context.Context, fqdns []string) ([]KnownHost, error) {
 	if f.err != nil {
 		return nil, f.err
@@ -47,9 +66,19 @@ func (f *fakeRepo) UpdateKnownHost(_ context.Context, id KnownHostID, icon *stri
 	if f.err != nil {
 		return KnownHost{}, f.err
 	}
-	return KnownHost{ID: id, Icon: icon}, nil
+	h := KnownHost{ID: id, Icon: icon}
+	f.updateHostCalls = append(f.updateHostCalls, h)
+	f.callOrder = append(f.callOrder, "updateHost")
+	return h, nil
 }
-func (f *fakeRepo) DeleteKnownHost(_ context.Context, _ KnownHostID) error { return f.err }
+func (f *fakeRepo) DeleteKnownHost(_ context.Context, id KnownHostID) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.deleteHostCalls = append(f.deleteHostCalls, id)
+	f.callOrder = append(f.callOrder, "deleteHost")
+	return nil
+}
 
 func (f *fakeRepo) ListKnownHostsByIDs(_ context.Context, _ []KnownHostID) ([]KnownHost, error) {
 	if f.err != nil {

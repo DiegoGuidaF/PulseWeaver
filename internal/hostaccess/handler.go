@@ -84,6 +84,47 @@ func (h *HTTPHandler) DeleteKnownHost(
 	return httpapi.DeleteKnownHost204Response{}, nil
 }
 
+// ── Known hosts (reconcile) ───────────────────────────────────────────────────
+
+func (h *HTTPHandler) ReconcileKnownHosts(
+	ctx context.Context,
+	req httpapi.ReconcileKnownHostsRequestObject,
+) (httpapi.ReconcileKnownHostsResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "ReconcileKnownHosts")
+
+	in := ReconcileKnownHostsInput{
+		Hosts: make([]DesiredKnownHost, 0, len(req.Body.Hosts)),
+	}
+	for _, h := range req.Body.Hosts {
+		desired := DesiredKnownHost{
+			FQDN: h.Fqdn,
+			Icon: h.Icon,
+		}
+		if h.Id != nil {
+			desired.ID = new(KnownHostID(*h.Id))
+		}
+		in.Hosts = append(in.Hosts, desired)
+	}
+
+	if err := h.service.ReconcileKnownHosts(ctx, in); err != nil {
+		switch {
+		case errors.Is(err, ErrBadRequest),
+			errors.Is(err, ErrDuplicateKnownHostID),
+			errors.Is(err, ErrDuplicateKnownHostFQDN),
+			errors.Is(err, ErrKnownHostFQDNImmutable):
+			return httpapi.ReconcileKnownHosts400JSONResponse(errResp(err.Error())), nil
+		case errors.Is(err, ErrKnownHostNotFound):
+			return httpapi.ReconcileKnownHosts404JSONResponse(errResp(err.Error())), nil
+		case errors.Is(err, ErrKnownHostConflict):
+			return httpapi.ReconcileKnownHosts409JSONResponse(errResp("FQDN already exists")), nil
+		default:
+			h.logger.ErrorContext(ctx, "reconcile known hosts failed", slog.Any(logging.AttrKeyError, err))
+			return httpapi.ReconcileKnownHosts500JSONResponse(errResp("Failed to reconcile known hosts")), nil
+		}
+	}
+	return httpapi.ReconcileKnownHosts204Response{}, nil
+}
+
 // ── Host groups (reconcile) ───────────────────────────────────────────────────
 
 func (h *HTTPHandler) ReconcileHostGroups(

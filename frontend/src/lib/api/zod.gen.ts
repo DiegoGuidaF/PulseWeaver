@@ -342,6 +342,29 @@ export const zUpdateKnownHostRequest = z.object({
     icon: z.string().nullish()
 });
 
+/**
+ * A single known host inside a reconcile request. A null `id` marks a
+ * brand-new host; a non-null `id` must match an existing row. `fqdn` is
+ * immutable on updates — a mismatch is rejected.
+ *
+ */
+export const zDesiredKnownHost = z.object({
+    id: zId.nullish(),
+    fqdn: z.string().min(3).max(253),
+    icon: z.string().nullish()
+});
+
+/**
+ * Full desired image of all known hosts. Hosts already in the database whose
+ * ID is absent from `hosts` will be deleted; hosts with a non-null ID are
+ * updated (icon only); hosts with a null ID are created. An empty `hosts`
+ * array deletes every known host.
+ *
+ */
+export const zReconcileKnownHostsRequest = z.object({
+    hosts: z.array(zDesiredKnownHost)
+});
+
 export const zHostGroupWithMembers = z.object({
     id: zId,
     name: z.string(),
@@ -889,6 +912,13 @@ export const zCreateKnownHostsBody = zBulkCreateKnownHostsRequest;
  * Hosts created
  */
 export const zCreateKnownHostsResponse = z.array(zKnownHost);
+
+export const zReconcileKnownHostsBody = zReconcileKnownHostsRequest;
+
+/**
+ * Reconciliation applied
+ */
+export const zReconcileKnownHostsResponse = z.void();
 
 export const zDeleteKnownHostPath = z.object({
     host_id: zId

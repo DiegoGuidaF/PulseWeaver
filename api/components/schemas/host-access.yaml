@@ -139,6 +139,42 @@ HostGroupWithMembers:
       items:
         $ref: './common.yaml#/ID'
 
+DesiredKnownHost:
+  type: object
+  required:
+    - fqdn
+  description: |
+    A single known host inside a reconcile request. A null `id` marks a
+    brand-new host; a non-null `id` must match an existing row. `fqdn` is
+    immutable on updates — a mismatch is rejected.
+  properties:
+    id:
+      nullable: true
+      allOf:
+        - $ref: './common.yaml#/ID'
+    fqdn:
+      type: string
+      minLength: 3
+      maxLength: 253
+    icon:
+      type: string
+      nullable: true
+
+ReconcileKnownHostsRequest:
+  type: object
+  required:
+    - hosts
+  description: |
+    Full desired image of all known hosts. Hosts already in the database whose
+    ID is absent from `hosts` will be deleted; hosts with a non-null ID are
+    updated (icon only); hosts with a null ID are created. An empty `hosts`
+    array deletes every known host.
+  properties:
+    hosts:
+      type: array
+      items:
+        $ref: '#/DesiredKnownHost'
+
 DesiredHostGroup:
   type: object
   required:

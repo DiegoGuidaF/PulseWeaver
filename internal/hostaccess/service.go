@@ -11,6 +11,8 @@ import (
 )
 
 type repository interface {
+	ListKnownHosts(ctx context.Context) ([]KnownHost, error)
+	CreateKnownHost(ctx context.Context, draft KnownHostDraft) error
 	BulkCreateKnownHosts(ctx context.Context, fqdns []string) ([]KnownHost, error)
 	UpdateKnownHost(ctx context.Context, id KnownHostID, icon *string) (KnownHost, error)
 	DeleteKnownHost(ctx context.Context, id KnownHostID) error

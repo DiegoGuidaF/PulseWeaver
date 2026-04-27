@@ -1261,6 +1261,49 @@ export const UpdateKnownHostRequestSchema = {
     }
 } as const;
 
+export const DesiredKnownHostSchema = {
+    type: 'object',
+    required: [
+        'fqdn'
+    ],
+    description: 'A single known host inside a reconcile request. A null `id` marks a\nbrand-new host; a non-null `id` must match an existing row. `fqdn` is\nimmutable on updates — a mismatch is rejected.\n',
+    properties: {
+        id: {
+            nullable: true,
+            allOf: [
+                {
+                    $ref: '#/components/schemas/ID'
+                }
+            ]
+        },
+        fqdn: {
+            type: 'string',
+            minLength: 3,
+            maxLength: 253
+        },
+        icon: {
+            type: 'string',
+            nullable: true
+        }
+    }
+} as const;
+
+export const ReconcileKnownHostsRequestSchema = {
+    type: 'object',
+    required: [
+        'hosts'
+    ],
+    description: 'Full desired image of all known hosts. Hosts already in the database whose\nID is absent from `hosts` will be deleted; hosts with a non-null ID are\nupdated (icon only); hosts with a null ID are created. An empty `hosts`\narray deletes every known host.\n',
+    properties: {
+        hosts: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/DesiredKnownHost'
+            }
+        }
+    }
+} as const;
+
 export const HostGroupWithMembersSchema = {
     type: 'object',
     required: [

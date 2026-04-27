@@ -22,6 +22,29 @@ func NewRepository(db *database.DB) *Repository {
 
 // ── Known hosts ───────────────────────────────────────────────────────────────
 
+// ListKnownHosts returns all known hosts ordered by ID.
+func (r *Repository) ListKnownHosts(ctx context.Context) ([]KnownHost, error) {
+	const query = `SELECT id, fqdn, icon, updated_at, created_at FROM known_hosts ORDER BY id`
+	var hosts []KnownHost
+	if err := r.db.SelectContext(ctx, &hosts, query); err != nil {
+		return nil, fmt.Errorf("list known hosts: %w", err)
+	}
+	return hosts, nil
+}
+
+// CreateKnownHost inserts a single known host row. Translates unique-violation
+// to ErrKnownHostConflict.
+func (r *Repository) CreateKnownHost(ctx context.Context, draft KnownHostDraft) error {
+	const query = `INSERT INTO known_hosts (fqdn, icon) VALUES (?, ?)`
+	if _, err := r.db.ExecContext(ctx, query, draft.FQDN, draft.Icon); err != nil {
+		if isUniqueViolation(err) {
+			return ErrKnownHostConflict
+		}
+		return fmt.Errorf("create known host %q: %w", draft.FQDN, err)
+	}
+	return nil
+}
+
 func (r *Repository) BulkCreateKnownHosts(ctx context.Context, fqdns []string) ([]KnownHost, error) {
 	hosts := make([]KnownHost, 0, len(fqdns))
 	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
