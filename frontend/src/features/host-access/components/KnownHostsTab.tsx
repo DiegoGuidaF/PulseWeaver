@@ -1,8 +1,5 @@
 import React, { useMemo, useState } from "react";
 import {
-  ActionIcon,
-  Alert,
-  Badge,
   Button,
   Card,
   Group,
@@ -13,28 +10,24 @@ import {
   Text,
   TextInput,
   Title,
-  Tooltip,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import {
-  IconAlertCircle,
-  IconArrowBackUp,
-  IconPlus,
-  IconSearch,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconPlus, IconSearch } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { Id, KnownHostWithStats, HostGroupWithMembers } from "@/lib/api";
+import type { HostGroupWithMembers } from "@/lib/api";
 import { listKnownHostsOptions } from "@/lib/api/@tanstack/react-query.gen";
 import { useReconcileKnownHosts } from "@/features/host-access/hooks/useReconcileKnownHosts";
 import { AddHostModal } from "@/features/host-access/components/AddHostModal";
 import { IconPicker } from "@/features/host-access/components/IconPicker";
-import { GroupBadgeList } from "@/features/host-access/components/GroupBadgeList";
 import { StagedChangesBar } from "@/features/host-access/components/StagedChangesBar";
-import { resolveHostIcon } from "@/features/host-access/hostIconConfig";
+import { HostRow } from "@/features/host-access/components/HostRow";
+import { TombstonedHostRow } from "@/features/host-access/components/TombstonedHostRow";
+import { TabLockAlert } from "@/features/host-access/components/TabLockAlert";
 import {
   diffHosts,
   isDirtyHosts,
+  summarizeHosts,
+  hostUserImpact,
   type DraftHost,
   type DraftHostId,
   type HostsDraftAction,
@@ -65,7 +58,6 @@ export function KnownHostsTab({ state, dispatch, serverGroups, locked, onDiscard
   const [addOpen, setAddOpen] = useState(false);
   const [iconTargetId, setIconTargetId] = useState<DraftHostId | null>(null);
   const [iconDraftValue, setIconDraftValue] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<DraftHost | null>(null);
   const [saving, setSaving] = useState(false);
 
   const drafts = useMemo(() => Array.from(state.draft.values()), [state]);
@@ -73,7 +65,7 @@ export function KnownHostsTab({ state, dispatch, serverGroups, locked, onDiscard
     () =>
       Array.from(state.tombstoned)
         .map((id) => state.original.get(id))
-        .filter((h): h is KnownHostWithStats => h !== undefined),
+        .filter((h): h is NonNullable<typeof h> => h !== undefined),
     [state],
   );
 
@@ -119,13 +111,7 @@ export function KnownHostsTab({ state, dispatch, serverGroups, locked, onDiscard
     setIconDraftValue(null);
   }
 
-  function handleConfirmDelete() {
-    if (!deleteTarget) return;
-    dispatch({ type: "remove", id: deleteTarget.id });
-    setDeleteTarget(null);
-  }
-
-  function handleAdd(values: { fqdn: string; icon: string | null; groupIds: Id[] }) {
+  function handleAdd(values: { fqdn: string; icon: string | null; groupIds: number[] }) {
     const id: `new-${string}` = `new-${crypto.randomUUID()}`;
     dispatch({
       type: "add",
@@ -137,7 +123,6 @@ export function KnownHostsTab({ state, dispatch, serverGroups, locked, onDiscard
   async function handleSave() {
     setSaving(true);
     try {
-      // Pre-save freshness check: ensure the server hasn't changed under us.
       const current = await queryClient.fetchQuery({
         ...listKnownHostsOptions(),
         staleTime: 0,
@@ -163,20 +148,12 @@ export function KnownHostsTab({ state, dispatch, serverGroups, locked, onDiscard
 
   if (locked) {
     return (
-      <Alert
-        icon={<IconAlertCircle size={16} />}
-        color="orange"
+      <TabLockAlert
         title="Groups tab has unsaved changes"
-      >
-        <Stack gap="sm">
-          <Text size="sm">
-            Save or discard your group changes before editing known hosts.
-          </Text>
-          <Button size="xs" variant="outline" color="orange" onClick={onDiscardLock} w="fit-content">
-            Discard group changes
-          </Button>
-        </Stack>
-      </Alert>
+        message="Save or discard your group changes before editing known hosts."
+        discardLabel="Discard group changes"
+        onDiscard={onDiscardLock}
+      />
     );
   }
 
@@ -239,31 +216,6 @@ export function KnownHostsTab({ state, dispatch, serverGroups, locked, onDiscard
             <Button onClick={handleApplyIcon}>Apply</Button>
           </Group>
         </Stack>
-      </Modal>
-
-      <Modal
-        opened={deleteTarget !== null}
-        onClose={() => setDeleteTarget(null)}
-        title="Stage host removal?"
-        closeOnClickOutside={false}
-        closeOnEscape={false}
-        withCloseButton={false}
-      >
-        <Text size="sm">
-          Mark{" "}
-          <Text component="span" fw={600} ff="monospace">
-            {deleteTarget?.fqdn}
-          </Text>{" "}
-          for removal? It will be deleted when you save.
-        </Text>
-        <Group justify="flex-end" mt="md" gap="xs">
-          <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-            Cancel
-          </Button>
-          <Button color="red" onClick={handleConfirmDelete}>
-            Stage delete
-          </Button>
-        </Group>
       </Modal>
 
       <AddHostModal
@@ -331,11 +283,11 @@ export function KnownHostsTab({ state, dispatch, serverGroups, locked, onDiscard
                       diff={diff}
                       serverGroups={serverGroups}
                       onIconClick={() => handleStartIconEdit(d)}
-                      onDelete={() => setDeleteTarget(d)}
+                      onDelete={() => dispatch({ type: "remove", id: d.id })}
                     />
                   ))}
                   {tombstoned.map((h) => (
-                    <TombstonedRow
+                    <TombstonedHostRow
                       key={`tomb-${h.id}`}
                       host={h}
                       onRestore={() => dispatch({ type: "restore", id: h.id })}
@@ -360,158 +312,6 @@ export function KnownHostsTab({ state, dispatch, serverGroups, locked, onDiscard
   );
 }
 
-interface HostRowProps {
-  draft: DraftHost;
-  diff: ReturnType<typeof diffHosts>;
-  serverGroups: HostGroupWithMembers[];
-  onIconClick: () => void;
-  onDelete: () => void;
-}
-
-function HostRow({ draft, diff, serverGroups, onIconClick, onDelete }: HostRowProps) {
-  const resolved = resolveHostIcon(draft.icon);
-  const isNew = typeof draft.id !== "number";
-  const isIconChanged = diff.iconChanged.some((d) => d.id === draft.id);
-  const isGroupsChanged = diff.groupsChanged.some((d) => d.id === draft.id);
-  const dirty = isNew || isIconChanged || isGroupsChanged;
-
-  const groupRefs = draft.groupIds
-    .map((id) => serverGroups.find((g) => g.id === id))
-    .filter((g): g is HostGroupWithMembers => g !== undefined)
-    .map((g) => ({ id: g.id, name: g.name, icon: g.icon ?? null }));
-
-  return (
-    <Table.Tr>
-      <Table.Td>
-        <Group gap="xs" wrap="nowrap">
-          <Tooltip label="Change icon" withArrow>
-            <ActionIcon
-              variant="subtle"
-              size="sm"
-              color="gray"
-              onClick={onIconClick}
-              aria-label={`Change icon for ${draft.fqdn}`}
-            >
-              {resolved.kind === "tabler" ? (
-                React.createElement(resolved.icon, { size: 14, stroke: 1.5 })
-              ) : (
-                <Text size="sm" span>
-                  {resolved.value}
-                </Text>
-              )}
-            </ActionIcon>
-          </Tooltip>
-          <Text size="sm" fw={500} ff="monospace">
-            {draft.fqdn}
-          </Text>
-          {isNew && (
-            <Badge size="xs" color="teal" variant="light">
-              New
-            </Badge>
-          )}
-          {dirty && !isNew && (
-            <Badge size="xs" color="orange" variant="light">
-              Edited
-            </Badge>
-          )}
-        </Group>
-      </Table.Td>
-      <Table.Td>
-        {groupRefs.length === 0 ? (
-          <Text size="sm" c="dimmed">
-            —
-          </Text>
-        ) : (
-          <GroupBadgeList groups={groupRefs} />
-        )}
-      </Table.Td>
-      <Table.Td>
-        <UserCount draft={draft} />
-      </Table.Td>
-      <Table.Td>
-        <Group gap={4} justify="flex-end">
-          <Tooltip label="Stage delete" withArrow>
-            <ActionIcon
-              variant="subtle"
-              color="red"
-              size="sm"
-              onClick={onDelete}
-              aria-label={`Delete ${draft.fqdn}`}
-            >
-              <IconTrash size={14} stroke={1.5} />
-            </ActionIcon>
-          </Tooltip>
-        </Group>
-      </Table.Td>
-    </Table.Tr>
-  );
-}
-
-function UserCount({ draft }: { draft: DraftHost }) {
-  const count = typeof draft.id === "number" ? null : null;
-  return (
-    <Text size="sm" c={count && count > 0 ? "indigo" : "dimmed"}>
-      {count == null ? "—" : `${count} ${count === 1 ? "user" : "users"}`}
-    </Text>
-  );
-}
-
-interface TombstonedRowProps {
-  host: KnownHostWithStats;
-  onRestore: () => void;
-}
-
-function TombstonedRow({ host, onRestore }: TombstonedRowProps) {
-  return (
-    <Table.Tr style={{ opacity: 0.55 }}>
-      <Table.Td>
-        <Group gap="xs" wrap="nowrap">
-          <Text size="sm" fw={500} ff="monospace" td="line-through">
-            {host.fqdn}
-          </Text>
-          <Badge size="xs" color="red" variant="light">
-            Will delete
-          </Badge>
-        </Group>
-      </Table.Td>
-      <Table.Td colSpan={2}>
-        <Text size="xs" c="dimmed">
-          {host.user_count} {host.user_count === 1 ? "user" : "users"} will lose access
-        </Text>
-      </Table.Td>
-      <Table.Td>
-        <Group gap={4} justify="flex-end">
-          <Tooltip label="Undo delete" withArrow>
-            <ActionIcon
-              variant="subtle"
-              size="sm"
-              onClick={onRestore}
-              aria-label={`Restore ${host.fqdn}`}
-            >
-              <IconArrowBackUp size={14} stroke={1.5} />
-            </ActionIcon>
-          </Tooltip>
-        </Group>
-      </Table.Td>
-    </Table.Tr>
-  );
-}
-
-function summarizeHosts(diff: ReturnType<typeof diffHosts>): string {
-  const parts: string[] = [];
-  if (diff.added.length) parts.push(`${diff.added.length} added`);
-  if (diff.removed.length) parts.push(`${diff.removed.length} removed`);
-  if (diff.iconChanged.length) parts.push(`${diff.iconChanged.length} icon`);
-  if (diff.groupsChanged.length) parts.push(`${diff.groupsChanged.length} re-grouped`);
-  return parts.length === 0 ? "No staged changes" : parts.join(" · ");
-}
-
-function hostUserImpact(diff: ReturnType<typeof diffHosts>): string | null {
-  const total = diff.removed.reduce((acc, h) => acc + h.user_count, 0);
-  if (total === 0) return null;
-  return `${total} user${total === 1 ? "" : "s"} will lose access on save`;
-}
-
-function groupName(id: Id, serverGroups: HostGroupWithMembers[]): string {
+function groupName(id: number, serverGroups: HostGroupWithMembers[]): string {
   return serverGroups.find((g) => g.id === id)?.name ?? "";
 }

@@ -102,8 +102,10 @@ export function groupsDraftReducer(
         typeof action.id === "number"
           ? new Set(state.tombstoned).add(action.id)
           : state.tombstoned;
+      // Persisted groups stay selected so the detail panel shows the restore UI.
+      // New (non-persisted) groups that disappear entirely move selection to the next entry.
       const nextSelected =
-        state.selectedId === action.id
+        state.selectedId === action.id && typeof action.id !== "number"
           ? (draft.keys().next().value ?? null)
           : state.selectedId;
       return { ...state, draft, tombstoned, selectedId: nextSelected };
@@ -224,6 +226,27 @@ function computeGroupDiff(
     hostsAdded,
     hostsRemoved,
   };
+}
+
+export function toDraftFromOriginal(state: GroupsDraftState, id: Id): DraftGroup | null {
+  const original = state.original.get(id);
+  if (!original) return null;
+  return {
+    id,
+    name: original.name,
+    description: original.description ?? null,
+    icon: original.icon ?? null,
+    color: null,
+    hostIds: original.hosts.map((h) => h.id),
+  };
+}
+
+export function summarizeGroups(diff: GroupsDiff): string {
+  const parts: string[] = [];
+  if (diff.added.length) parts.push(`${diff.added.length} added`);
+  if (diff.removed.length) parts.push(`${diff.removed.length} removed`);
+  if (diff.changed.length) parts.push(`${diff.changed.length} changed`);
+  return parts.length === 0 ? "No staged changes" : parts.join(" · ");
 }
 
 function isGroupEntryDirty(e: GroupDiffEntry): boolean {

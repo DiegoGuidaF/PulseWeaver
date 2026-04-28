@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useMemo, useReducer } from "react";
 import { Center, Loader, Stack, Tabs, Text, Title, Badge } from "@mantine/core";
 import { useKnownHosts } from "@/features/host-access/hooks/useKnownHosts";
 import { useHostGroups } from "@/features/host-access/hooks/useHostGroups";
@@ -47,7 +47,20 @@ export function HostsPage() {
 
   const hosts = knownHosts.data ?? [];
   const groups = hostGroups.data ?? [];
-  const suggestionsData = suggestions.data;
+
+  // Exclude any fqdn already staged in the hosts draft so that cache refetches
+  // don't bring suggestions back for hosts the user has already accepted.
+  const draftFqdns = useMemo(
+    () => new Set(Array.from(hostsState.draft.values()).map((h) => h.fqdn)),
+    [hostsState.draft],
+  );
+  const suggestionsData = useMemo(() => {
+    if (!suggestions.data) return undefined;
+    return {
+      ...suggestions.data,
+      suggestions: suggestions.data.suggestions.filter((s) => !draftFqdns.has(s.fqdn)),
+    };
+  }, [suggestions.data, draftFqdns]);
   const suggestionCount = suggestionsData?.suggestions.length ?? 0;
 
   const hostsLoading = knownHosts.isPending;
@@ -162,7 +175,7 @@ export function HostsPage() {
               onStageHosts={(fqdns) => {
                 fqdns.forEach((fqdn) => {
                   const id: `new-${string}` = `new-${crypto.randomUUID()}`;
-                  hostsDispatch({ type: "add", id, host: { fqdn, icon: null, groupIds: [] } });
+                  hostsDispatch({ type: "add", id, host: { fqdn, icon: null, groupIds: [], source: "suggestion" } });
                 });
               }}
             />

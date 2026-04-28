@@ -1,21 +1,20 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
-  Alert,
-  Badge,
   Button,
   Card,
-  Checkbox,
   Group,
   Stack,
   Table,
   Text,
   Title,
+  UnstyledButton,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle } from "@tabler/icons-react";
+import { IconArrowDown, IconArrowUp, IconArrowsSort } from "@tabler/icons-react";
 import type { HostSuggestionsPage } from "@/lib/api";
 import { useIgnoreSuggestion } from "@/features/host-access/hooks/useIgnoreSuggestion";
 import { useUnignoreSuggestion } from "@/features/host-access/hooks/useUnignoreSuggestion";
+import { TabLockAlert } from "@/features/host-access/components/TabLockAlert";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { toErrorMessage } from "@/lib/api-client";
 
@@ -26,103 +25,71 @@ interface Props {
   onStageHosts: (fqdns: string[]) => void;
 }
 
+type SortCol = "allowed_hits" | "denied_hits";
+type SortDir = "asc" | "desc";
+
 export function SuggestionsTab({ data, locked, onDiscardLock, onStageHosts }: Props) {
   const formatDateTime = useDateFormatter();
   const ignoreSuggestion = useIgnoreSuggestion();
   const unignoreSuggestion = useUnignoreSuggestion();
 
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pendingFqdns, setPendingFqdns] = useState<Set<string>>(new Set());
+  const [sort, setSort] = useState<{ col: SortCol; dir: SortDir } | null>(null);
 
-  const allFqdns = data.suggestions.map((s) => s.fqdn);
-  const allSelected = allFqdns.length > 0 && allFqdns.every((f) => selected.has(f));
-  const someSelected = selected.size > 0;
-
-  function toggleAll() {
-    if (allSelected) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(allFqdns));
-    }
-  }
-
-  function toggleOne(fqdn: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(fqdn)) next.delete(fqdn);
-      else next.add(fqdn);
-      return next;
+  function toggleSort(col: SortCol) {
+    setSort((prev) => {
+      if (prev?.col === col) return prev.dir === "desc" ? null : { col, dir: "desc" };
+      return { col, dir: "desc" };
     });
   }
 
-  function handlePromote(fqdn: string) {
-    onStageHosts([fqdn]);
-  }
-
-  function handleIgnore(fqdn: string) {
-    ignoreSuggestion.mutate(
-      { body: { fqdn } },
-      {
-        onSuccess: () =>
-          notifications.show({ color: "gray", message: `${fqdn} ignored` }),
-        onError: (err: unknown) =>
-          notifications.show({ color: "red", title: "Failed to ignore", message: toErrorMessage(err) }),
-      },
+  const sortedSuggestions = useMemo(() => {
+    if (!sort) return data.suggestions;
+    return [...data.suggestions].sort((a, b) =>
+      sort.dir === "desc" ? b[sort.col] - a[sort.col] : a[sort.col] - b[sort.col],
     );
+  }, [data.suggestions, sort]);
+
+  function addPending(fqdn: string) {
+    setPendingFqdns((prev) => new Set([...prev, fqdn]));
   }
 
-  function handleUnignore(fqdn: string) {
-    unignoreSuggestion.mutate(
-      { path: { fqdn } },
-      {
-        onSuccess: () =>
-          notifications.show({ color: "green", message: `${fqdn} removed from ignore list` }),
-        onError: (err: unknown) =>
-          notifications.show({ color: "red", title: "Failed to unignore", message: toErrorMessage(err) }),
-      },
-    );
+  function removePending(fqdn: string) {
+    setPendingFqdns((prev) => { const next = new Set(prev); next.delete(fqdn); return next; });
   }
 
-  function handleBulkAccept() {
-    const fqdns = [...selected];
-    onStageHosts(fqdns);
-    setSelected(new Set());
-  }
-
-  async function handleBulkIgnore() {
-    const fqdns = [...selected];
-    let failed = 0;
-    for (const fqdn of fqdns) {
-      await new Promise<void>((resolve) => {
-        ignoreSuggestion.mutate(
-          { body: { fqdn } },
-          { onSettled: () => resolve(), onError: () => { failed++; } },
-        );
-      });
+  async function handleIgnore(fqdn: string) {
+    addPending(fqdn);
+    try {
+      await ignoreSuggestion.mutateAsync({ body: { fqdn } });
+      notifications.show({ color: "gray", message: `${fqdn} ignored` });
+    } catch (err) {
+      notifications.show({ color: "red", title: "Failed to ignore", message: toErrorMessage(err) });
+    } finally {
+      removePending(fqdn);
     }
-    if (failed === 0) {
-      notifications.show({ color: "gray", message: `${fqdns.length} hosts ignored` });
-    } else {
-      notifications.show({ color: "orange", message: `${fqdns.length - failed} ignored, ${failed} failed` });
+  }
+
+  async function handleUnignore(fqdn: string) {
+    addPending(fqdn);
+    try {
+      await unignoreSuggestion.mutateAsync({ path: { fqdn } });
+      notifications.show({ color: "green", message: `${fqdn} removed from ignore list` });
+    } catch (err) {
+      notifications.show({ color: "red", title: "Failed to unignore", message: toErrorMessage(err) });
+    } finally {
+      removePending(fqdn);
     }
-    setSelected(new Set());
   }
 
   if (locked) {
     return (
-      <Alert
-        icon={<IconAlertCircle size={16} />}
-        color="orange"
+      <TabLockAlert
         title="Groups tab has unsaved changes"
-      >
-        <Stack gap="sm">
-          <Text size="sm">
-            Save or discard your group changes before adding hosts from suggestions.
-          </Text>
-          <Button size="xs" variant="outline" color="orange" onClick={onDiscardLock} w="fit-content">
-            Discard group changes
-          </Button>
-        </Stack>
-      </Alert>
+        message="Save or discard your group changes before adding hosts from suggestions."
+        discardLabel="Discard group changes"
+        onDiscard={onDiscardLock}
+      />
     );
   }
 
@@ -142,7 +109,7 @@ export function SuggestionsTab({ data, locked, onDiscardLock, onStageHosts }: Pr
 
   return (
     <Stack gap="md">
-      {data.suggestions.length > 0 && (
+      {sortedSuggestions.length > 0 && (
         <Card withBorder padding="md">
           <Text fw={600} mb={4}>
             Observed in recent traffic
@@ -152,117 +119,73 @@ export function SuggestionsTab({ data, locked, onDiscardLock, onStageHosts }: Pr
             legitimate infrastructure worth promoting.
           </Text>
 
-          {someSelected && (
-            <Group gap="xs" mb="sm">
-              <Badge variant="light" color="indigo" size="sm">
-                {selected.size} selected
-              </Badge>
-              <Button
-                size="xs"
-                onClick={handleBulkAccept}
-                disabled={ignoreSuggestion.isPending}
-                loading={false}
-              >
-                Accept {selected.size}
-              </Button>
-              <Button
-                size="xs"
-                variant="outline"
-                onClick={handleBulkIgnore}
-                disabled={ignoreSuggestion.isPending}
-                loading={ignoreSuggestion.isPending}
-              >
-                Ignore {selected.size}
-              </Button>
-              <Button
-                size="xs"
-                variant="subtle"
-                color="gray"
-                onClick={() => setSelected(new Set())}
-              >
-                Clear
-              </Button>
-            </Group>
-          )}
-
           <Table.ScrollContainer minWidth={600}>
             <Table>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th style={{ width: 36 }}>
-                    <Checkbox
-                      checked={allSelected}
-                      indeterminate={someSelected && !allSelected}
-                      onChange={toggleAll}
-                      aria-label="Select all"
-                    />
-                  </Table.Th>
                   <Table.Th>Hostname</Table.Th>
                   <Table.Th>First seen</Table.Th>
-                  <Table.Th>Allowed hits</Table.Th>
-                  <Table.Th>Denied hits</Table.Th>
+                  <Table.Th>
+                    <SortableHeader label="Allowed hits" col="allowed_hits" sort={sort} onToggle={toggleSort} />
+                  </Table.Th>
+                  <Table.Th>
+                    <SortableHeader label="Denied hits" col="denied_hits" sort={sort} onToggle={toggleSort} />
+                  </Table.Th>
                   <Table.Th style={{ textAlign: "right" }}>Action</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {data.suggestions.map((s) => (
-                  <Table.Tr key={s.fqdn} data-selected={selected.has(s.fqdn) || undefined}>
-                    <Table.Td>
-                      <Checkbox
-                        checked={selected.has(s.fqdn)}
-                        onChange={() => toggleOne(s.fqdn)}
-                        aria-label={`Select ${s.fqdn}`}
-                      />
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" fw={500} ff="monospace">
-                        {s.fqdn}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" c="dimmed">
-                        {formatDateTime(s.first_seen)}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text
-                        size="sm"
-                        c={s.allowed_hits > 100 ? "green" : s.allowed_hits === 0 ? "dimmed" : undefined}
-                        fw={s.allowed_hits > 100 ? 500 : 400}
-                      >
-                        {s.allowed_hits.toLocaleString()}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text
-                        size="sm"
-                        c={s.denied_hits > 50 ? "orange" : s.denied_hits === 0 ? "dimmed" : undefined}
-                        fw={s.denied_hits > 50 ? 500 : 400}
-                      >
-                        {s.denied_hits.toLocaleString()}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs" justify="flex-end">
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() => handleIgnore(s.fqdn)}
-                          disabled={ignoreSuggestion.isPending}
+                {sortedSuggestions.map((s) => {
+                  const isPending = pendingFqdns.has(s.fqdn);
+                  return (
+                    <Table.Tr key={s.fqdn}>
+                      <Table.Td>
+                        <Text size="sm" fw={500} ff="monospace">{s.fqdn}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm" c="dimmed">{formatDateTime(s.first_seen)}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text
+                          size="sm"
+                          c={s.allowed_hits > 100 ? "green" : s.allowed_hits === 0 ? "dimmed" : undefined}
+                          fw={s.allowed_hits > 100 ? 500 : 400}
                         >
-                          Ignore
-                        </Button>
-                        <Button
-                          size="xs"
-                          onClick={() => handlePromote(s.fqdn)}
-                          disabled={ignoreSuggestion.isPending}
+                          {s.allowed_hits.toLocaleString()}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text
+                          size="sm"
+                          c={s.denied_hits > 50 ? "orange" : s.denied_hits === 0 ? "dimmed" : undefined}
+                          fw={s.denied_hits > 50 ? 500 : 400}
                         >
-                          Add as known
-                        </Button>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
+                          {s.denied_hits.toLocaleString()}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap="xs" justify="flex-end">
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => handleIgnore(s.fqdn)}
+                            loading={isPending}
+                            disabled={isPending}
+                          >
+                            Ignore
+                          </Button>
+                          <Button
+                            size="xs"
+                            onClick={() => onStageHosts([s.fqdn])}
+                            disabled={isPending}
+                          >
+                            Add to known
+                          </Button>
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
               </Table.Tbody>
             </Table>
           </Table.ScrollContainer>
@@ -287,37 +210,58 @@ export function SuggestionsTab({ data, locked, onDiscardLock, onStageHosts }: Pr
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {data.ignored.map((s) => (
-                  <Table.Tr key={s.fqdn}>
-                    <Table.Td>
-                      <Text size="sm" ff="monospace" c="dimmed">
-                        {s.fqdn}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" c="dimmed">
-                        {formatDateTime(s.created_at)}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group justify="flex-end">
-                        <Button
-                          size="xs"
-                          variant="subtle"
-                          onClick={() => handleUnignore(s.fqdn)}
-                          disabled={unignoreSuggestion.isPending}
-                        >
-                          Unignore
-                        </Button>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
+                {data.ignored.map((s) => {
+                  const isPending = pendingFqdns.has(s.fqdn);
+                  return (
+                    <Table.Tr key={s.fqdn}>
+                      <Table.Td>
+                        <Text size="sm" ff="monospace" c="dimmed">{s.fqdn}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm" c="dimmed">{formatDateTime(s.created_at)}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group justify="flex-end">
+                          <Button
+                            size="xs"
+                            variant="subtle"
+                            onClick={() => handleUnignore(s.fqdn)}
+                            loading={isPending}
+                            disabled={isPending}
+                          >
+                            Unignore
+                          </Button>
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
               </Table.Tbody>
             </Table>
           </Table.ScrollContainer>
         </Card>
       )}
     </Stack>
+  );
+}
+
+interface SortableHeaderProps {
+  label: string;
+  col: SortCol;
+  sort: { col: SortCol; dir: SortDir } | null;
+  onToggle: (col: SortCol) => void;
+}
+
+function SortableHeader({ label, col, sort, onToggle }: SortableHeaderProps) {
+  const active = sort?.col === col;
+  const Icon = active ? (sort!.dir === "desc" ? IconArrowDown : IconArrowUp) : IconArrowsSort;
+  return (
+    <UnstyledButton
+      onClick={() => onToggle(col)}
+      style={{ display: "flex", alignItems: "center", gap: 4, fontWeight: 600 }}
+    >
+      {label}
+      <Icon size={13} stroke={active ? 2 : 1.2} style={{ opacity: active ? 1 : 0.4 }} />
+    </UnstyledButton>
   );
 }

@@ -1,17 +1,14 @@
 import React, { useMemo, useState } from "react";
 import {
-  Alert,
   Button,
   Card,
   Grid,
-  Group,
-  Modal,
   Stack,
   Text,
   Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconPlus } from "@tabler/icons-react";
+import { IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Id } from "@/lib/api";
 import { listHostGroupsOptions } from "@/lib/api/@tanstack/react-query.gen";
@@ -20,11 +17,13 @@ import { GroupMasterList } from "@/features/host-access/components/GroupMasterLi
 import { GroupDetailPanel } from "@/features/host-access/components/GroupDetailPanel";
 import { GroupMetadataModal } from "@/features/host-access/components/GroupMetadataModal";
 import { StagedChangesBar } from "@/features/host-access/components/StagedChangesBar";
+import { TabLockAlert } from "@/features/host-access/components/TabLockAlert";
 import {
   diffGroups,
   isDirtyGroups,
+  summarizeGroups,
+  toDraftFromOriginal,
   type DraftGroup,
-  type DraftGroupId,
   type GroupsDraftAction,
   type GroupsDraftState,
 } from "@/features/host-access/drafts/hostGroupsDraft";
@@ -58,15 +57,14 @@ export function HostGroupsTab({
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<DraftGroup | null>(null);
   const [saving, setSaving] = useState(false);
 
   const groups = useMemo(() => Array.from(state.draft.values()), [state]);
-  const tombstoned = useMemo(
+  const tombstonedDrafts = useMemo(
     () =>
       Array.from(state.tombstoned)
-        .map((id) => state.original.get(id))
-        .filter((g): g is NonNullable<typeof g> => g !== undefined),
+        .map((id) => toDraftFromOriginal(state, id))
+        .filter((g): g is DraftGroup => g !== null),
     [state],
   );
 
@@ -75,10 +73,9 @@ export function HostGroupsTab({
     state.selectedId !== null && typeof state.selectedId === "number"
       ? state.tombstoned.has(state.selectedId)
       : false;
-  const tombstonedAsDraft =
-    tombstonedSelected && typeof state.selectedId === "number"
-      ? toDraftFromOriginal(state, state.selectedId)
-      : null;
+  const tombstonedAsDraft = tombstonedSelected && typeof state.selectedId === "number"
+    ? (tombstonedDrafts.find((g) => g.id === state.selectedId) ?? null)
+    : null;
 
   const diff = diffGroups(state);
   const dirty = isDirtyGroups(state);
@@ -114,12 +111,6 @@ export function HostGroupsTab({
     dispatch({ type: "update", id: selected.id, patch: values });
   }
 
-  function handleConfirmDelete() {
-    if (!deleteTarget) return;
-    dispatch({ type: "remove", id: deleteTarget.id });
-    setDeleteTarget(null);
-  }
-
   function handleToggleHost(hostId: Id) {
     if (!selected) return;
     dispatch({ type: "toggleHost", id: selected.id, hostId });
@@ -128,7 +119,6 @@ export function HostGroupsTab({
   async function handleSave() {
     setSaving(true);
     try {
-      // Pre-save freshness check.
       const current = await queryClient.fetchQuery({
         ...listHostGroupsOptions(),
         staleTime: 0,
@@ -156,24 +146,16 @@ export function HostGroupsTab({
 
   if (locked) {
     return (
-      <Alert
-        icon={<IconAlertCircle size={16} />}
-        color="orange"
+      <TabLockAlert
         title="Known hosts tab has unsaved changes"
-      >
-        <Stack gap="sm">
-          <Text size="sm">
-            Save or discard your host changes before editing groups.
-          </Text>
-          <Button size="xs" variant="outline" color="orange" onClick={onDiscardLock} w="fit-content">
-            Discard host changes
-          </Button>
-        </Stack>
-      </Alert>
+        message="Save or discard your host changes before editing groups."
+        discardLabel="Discard host changes"
+        onDiscard={onDiscardLock}
+      />
     );
   }
 
-  if (groups.length === 0 && tombstoned.length === 0) {
+  if (groups.length === 0 && tombstonedDrafts.length === 0) {
     return (
       <>
         <Card withBorder>
@@ -209,31 +191,6 @@ export function HostGroupsTab({
 
   return (
     <>
-      <Modal
-        opened={deleteTarget !== null}
-        onClose={() => setDeleteTarget(null)}
-        title="Stage group removal?"
-        closeOnClickOutside={false}
-        closeOnEscape={false}
-        withCloseButton={false}
-      >
-        <Text size="sm">
-          Mark{" "}
-          <Text component="span" fw={600}>
-            {deleteTarget?.name}
-          </Text>{" "}
-          for deletion? It will be removed when you save. New groups disappear immediately.
-        </Text>
-        <Group justify="flex-end" mt="md" gap="xs">
-          <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-            Cancel
-          </Button>
-          <Button color="red" onClick={handleConfirmDelete}>
-            Stage delete
-          </Button>
-        </Group>
-      </Modal>
-
       <GroupMetadataModal
         opened={createOpen}
         onClose={() => setCreateOpen(false)}
@@ -253,6 +210,7 @@ export function HostGroupsTab({
         <Grid.Col span={{ base: 12, md: 4 }}>
           <GroupMasterList
             groups={groups}
+            tombstoned={tombstonedDrafts}
             selectedId={state.selectedId}
             diff={diff}
             onSelect={(id) => dispatch({ type: "select", id })}
@@ -266,7 +224,7 @@ export function HostGroupsTab({
             diff={diff}
             hosts={hosts}
             onEdit={() => setEditOpen(true)}
-            onDelete={() => selected && setDeleteTarget(selected)}
+            onDelete={() => selected && dispatch({ type: "remove", id: selected.id })}
             onRestore={() => {
               if (typeof state.selectedId === "number") {
                 dispatch({ type: "restore", id: state.selectedId });
@@ -288,25 +246,4 @@ export function HostGroupsTab({
   );
 }
 
-function toDraftFromOriginal(state: GroupsDraftState, id: Id): DraftGroup | null {
-  const original = state.original.get(id);
-  if (!original) return null;
-  return {
-    id,
-    name: original.name,
-    description: original.description ?? null,
-    icon: original.icon ?? null,
-    color: null,
-    hostIds: original.hosts.map((h) => h.id),
-  };
-}
-
-function summarizeGroups(diff: ReturnType<typeof diffGroups>): string {
-  const parts: string[] = [];
-  if (diff.added.length) parts.push(`${diff.added.length} added`);
-  if (diff.removed.length) parts.push(`${diff.removed.length} removed`);
-  if (diff.changed.length) parts.push(`${diff.changed.length} changed`);
-  return parts.length === 0 ? "No staged changes" : parts.join(" · ");
-}
-
-export type _GroupsTabSelected = DraftGroupId | null;
+export type _GroupsTabSelected = import("@/features/host-access/drafts/hostGroupsDraft").DraftGroupId | null;

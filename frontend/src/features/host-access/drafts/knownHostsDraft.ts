@@ -7,6 +7,7 @@ export interface DraftHost {
   fqdn: string;
   icon: string | null;
   groupIds: Id[];
+  source?: "suggestion";
 }
 
 export interface HostsDraftState {
@@ -140,6 +141,21 @@ export function isDirtyHosts(state: HostsDraftState): boolean {
     d.iconChanged.length > 0 ||
     d.groupsChanged.length > 0
   );
+}
+
+export function summarizeHosts(diff: HostsDiff): string {
+  const parts: string[] = [];
+  if (diff.added.length) parts.push(`${diff.added.length} added`);
+  if (diff.removed.length) parts.push(`${diff.removed.length} removed`);
+  if (diff.iconChanged.length) parts.push(`${diff.iconChanged.length} icon`);
+  if (diff.groupsChanged.length) parts.push(`${diff.groupsChanged.length} re-grouped`);
+  return parts.length === 0 ? "No staged changes" : parts.join(" · ");
+}
+
+export function hostUserImpact(diff: HostsDiff): string | null {
+  const total = diff.removed.reduce((acc, h) => acc + h.user_count, 0);
+  if (total === 0) return null;
+  return `${total} user${total === 1 ? "" : "s"} will lose access on save`;
 }
 
 function sameIds(a: Id[], b: Id[]): boolean {
