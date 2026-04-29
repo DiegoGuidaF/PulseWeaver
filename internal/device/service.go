@@ -114,7 +114,38 @@ func (s *Service) CreateDevice(ctx context.Context, principal *auth.Principal, n
 }
 
 func (s *Service) DeleteDevice(ctx context.Context, deviceID DeviceID) error {
-	err := s.repo.DeleteDevice(ctx, deviceID)
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		err := s.repo.DeleteDevice(ctx, deviceID)
+		if err != nil {
+			return err
+		}
+		addresses, err := s.repo.GetEnabledAddressesForDevice(ctx, deviceID)
+		if err != nil {
+			return err
+		}
+		addressesToDisable := make([]AddressID, 0, len(addresses))
+		for _, address := range addresses {
+			addressesToDisable = append(addressesToDisable, address.ID)
+		}
+
+		// Disable currently active addresses
+		_, err = s.repo.DisableAddresses(ctx, addressesToDisable, EventSourceManual)
+		if err != nil {
+			return err
+		}
+
+		// Disable the API to be sure it can't be used
+		err = s.repo.DeleteAPIKey(ctx, deviceID)
+		if err != nil {
+			// No error if there's no API key to delete here
+			if errors.Is(err, ErrNoAPIKey) {
+				return nil
+			}
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
 		return err
 	}

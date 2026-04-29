@@ -339,6 +339,48 @@ func TestService_DeleteDevice_Success(t *testing.T) {
 	is.True(!ok)
 }
 
+func TestService_DeleteDevice_ShouldDisableEnabledAddresses(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	addressIdEnabled := device.AddressID(1)
+	addressIdDisabled := device.AddressID(2)
+
+	d := &device.Device{ID: device.DeviceID(1), Name: "to-delete"}
+	mockRepo.devices[d.ID] = d
+	mockRepo.addresses[addressIdEnabled] = &device.Address{ID: addressIdEnabled, DeviceID: d.ID, IsEnabled: true}
+	mockRepo.addresses[addressIdDisabled] = &device.Address{ID: addressIdDisabled, DeviceID: d.ID, IsEnabled: false}
+	service := newService(mockRepo)
+
+	err := service.DeleteDevice(ctx, d.ID)
+	is.NoErr(err)
+
+	// Mock has disabled enabled addresses
+	is.Equal(mockRepo.addresses[addressIdEnabled].IsEnabled, false)
+	is.Equal(mockRepo.addresses[addressIdDisabled].IsEnabled, false)
+}
+
+func TestService_DeleteDevice_ShouldRemoveAnyAPIKey(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	apiKey := "anapikey"
+
+	d := &device.Device{ID: device.DeviceID(1), Name: "to-delete"}
+	mockRepo.devices[d.ID] = d
+	mockRepo.apiKeysByHash[apiKey] = d
+	service := newService(mockRepo)
+
+	err := service.DeleteDevice(ctx, d.ID)
+	is.NoErr(err)
+
+	// Mock has disabled enabled addresses
+	_, ok := mockRepo.apiKeysByHash[apiKey]
+	is.True(!ok)
+}
+
 func TestService_DeleteDevice_NotFound(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
