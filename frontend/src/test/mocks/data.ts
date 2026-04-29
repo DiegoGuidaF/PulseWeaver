@@ -1,4 +1,4 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, User } from '@/lib/api';
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, HostGroupWithMembers, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, KnownHostWithStats, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, User, UserHostAccessSummary, UserHostDetails, UserHostDetailsGroup, UserHostDetailsHost, GroupRef } from '@/lib/api';
 import { UserRole } from "@/lib/api";
 
 /**
@@ -244,6 +244,135 @@ export function createMockAccessLogCountryStats(
     total: 100,
     allowed: 80,
     denied: 20,
+    ...overrides,
+  };
+}
+
+// ─── Host-access mock data ───────────────────────────────────────────────────
+
+export function createMockGroupRef(overrides?: Partial<GroupRef>): GroupRef {
+  return {
+    id: 1,
+    name: 'default-group',
+    ...overrides,
+  };
+}
+
+export function createMockUserHostAccessSummary(
+  overrides?: Partial<UserHostAccessSummary>,
+): UserHostAccessSummary {
+  return {
+    id: 1,
+    display_name: 'Test User',
+    email: 'test@example.com',
+    role: UserRole.USER,
+    bypass: false,
+    direct_host_count: 0,
+    groups: [],
+    ...overrides,
+  };
+}
+
+export function createMockUserHostDetailsHost(
+  overrides?: Partial<UserHostDetailsHost>,
+): UserHostDetailsHost {
+  return {
+    id: 1,
+    fqdn: 'app.example.com',
+    directly_granted: false,
+    icon: null,
+    via_group: null,
+    ...overrides,
+  };
+}
+
+export function createMockUserHostDetailsGroup(
+  overrides?: Partial<UserHostDetailsGroup>,
+): UserHostDetailsGroup {
+  return {
+    id: 1,
+    name: 'default-group',
+    granted: false,
+    icon: null,
+    hosts: [],
+    ...overrides,
+  };
+}
+
+export function createMockUserHostDetails(
+  overrides?: Partial<UserHostDetails>,
+): UserHostDetails {
+  return {
+    id: 1,
+    display_name: 'Test User',
+    email: 'test@example.com',
+    role: UserRole.USER,
+    bypass: false,
+    groups: [],
+    hosts: [],
+    ...overrides,
+  };
+}
+
+export function createMockKnownHostWithStats(
+  overrides?: Partial<KnownHostWithStats>,
+): KnownHostWithStats {
+  return {
+    id: 1,
+    fqdn: 'host.lan',
+    icon: null,
+    created_at: '2026-01-01T00:00:00Z',
+    user_count: 0,
+    groups: [],
+    ...overrides,
+  };
+}
+
+export function createMockHostGroupWithMembers(
+  overrides?: Partial<HostGroupWithMembers>,
+): HostGroupWithMembers {
+  return {
+    id: 1,
+    name: 'Test Group',
+    description: null,
+    icon: null,
+    color: null,
+    created_at: '2026-01-01T00:00:00Z',
+    hosts: [],
+    member_ids: [],
+    ...overrides,
+  };
+}
+
+export function createMockHostSuggestion(
+  overrides?: Partial<HostSuggestion>,
+): HostSuggestion {
+  return {
+    fqdn: 'unknown.lan',
+    first_seen: '2026-04-01T00:00:00Z',
+    allowed_hits: 5,
+    denied_hits: 0,
+    ...overrides,
+  };
+}
+
+export function createMockIgnoredHostSuggestion(
+  overrides?: Partial<IgnoredHostSuggestion>,
+): IgnoredHostSuggestion {
+  return {
+    id: 1,
+    fqdn: 'ignored.lan',
+    created_at: '2026-04-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+export function createMockHostSuggestionsPage(
+  overrides?: Partial<HostSuggestionsPage>,
+): HostSuggestionsPage {
+  return {
+    suggestions: [],
+    ignored: [],
     ...overrides,
   };
 }

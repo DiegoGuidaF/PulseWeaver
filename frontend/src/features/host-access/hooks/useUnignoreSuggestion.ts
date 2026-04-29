@@ -9,12 +9,11 @@ export function useUnignoreSuggestion() {
   const queryClient = useQueryClient();
   return useMutation({
     ...unignoreSuggestionMutation(),
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: listHostSuggestionsQueryKey() });
-    },
     onSuccess: (_data, variables) => {
-      // Remove from ignored immediately; the background refetch will restore it
-      // to suggestions if applicable.
+      // Patch the cache in place rather than invalidating: the suggestions query is
+      // expensive and should only run on page load or after a hosts/groups save.
+      // The unignored fqdn isn't added back to `suggestions` here — it will reappear
+      // (if still applicable) on the next natural refetch.
       queryClient.setQueryData<HostSuggestionsPage>(
         listHostSuggestionsQueryKey(),
         (old) => {
@@ -25,7 +24,6 @@ export function useUnignoreSuggestion() {
           };
         },
       );
-      // Same rationale as useIgnoreSuggestion — don't start a slow refetch immediately.
     },
   });
 }

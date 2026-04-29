@@ -4,8 +4,6 @@ import type { MantineColor } from "@mantine/core";
 import { IconPicker } from "@/features/host-access/components/IconPicker";
 import { GroupColorPicker } from "@/features/host-access/components/GroupColorPicker";
 import type { DraftGroup, GroupColor } from "@/features/host-access/drafts/hostGroupsDraft";
-import { groupColor } from "@/features/host-access/utils/groupColor";
-
 export type GroupFormValues = {
   name: string;
   description: string | null;
@@ -72,7 +70,7 @@ function GroupMetadataForm({ initial, existingNames, onSubmit, onCancel }: FormP
       (n) => n.toLowerCase() === trimmed.toLowerCase() && n !== initial?.name,
     );
   const canSubmit = trimmed.length > 0 && !nameTaken;
-  const previewColor: MantineColor = color ?? groupColor(trimmed || "preview");
+  const previewColor: MantineColor = color ?? "yellow";
 
   function handleSubmit() {
     if (!canSubmit) return;

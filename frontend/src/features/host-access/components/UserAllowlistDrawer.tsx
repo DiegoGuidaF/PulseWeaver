@@ -9,12 +9,14 @@ import {
   Group,
   Loader,
   ScrollArea,
+  SegmentedControl,
   Stack,
   Switch,
   Text,
+  TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconShieldCheck, IconShieldOff } from "@tabler/icons-react";
+import { IconSearch, IconShieldCheck, IconShieldOff } from "@tabler/icons-react";
 import { UserRole } from "@/lib/api";
 import type { UserHostAccessSummary, UserHostDetails } from "@/lib/api";
 import { useUserHostDetails } from "@/features/host-access/hooks/useUserHostDetails";
@@ -34,6 +36,8 @@ interface FormProps {
   onClose: () => void;
 }
 
+type HostFilter = "all" | "granted" | "not-granted" | "via-group";
+
 function AllowlistForm({ userId, details, userSummary, onClose }: FormProps) {
   const setGrants = useSetUserHostGrants(userId);
 
@@ -44,6 +48,10 @@ function AllowlistForm({ userId, details, userSummary, onClose }: FormProps) {
   const [directHostIds, setDirectHostIds] = useState<Set<number>>(
     () => new Set(details.hosts.filter((h) => h.directly_granted).map((h) => h.id)),
   );
+
+  const [hostSearch, setHostSearch] = useState("");
+  const [hostFilter, setHostFilter] = useState<HostFilter>("all");
+  const [showViaGroupInAll, setShowViaGroupInAll] = useState(false);
 
   const viaGroupHostIds = useMemo(
     () =>
@@ -59,6 +67,35 @@ function AllowlistForm({ userId, details, userSummary, onClose }: FormProps) {
     () => details.hosts.filter((h) => directHostIds.has(h.id) || viaGroupHostIds.has(h.id)).length,
     [details.hosts, directHostIds, viaGroupHostIds],
   );
+
+  const filteredHosts = useMemo(() => {
+    const search = hostSearch.trim().toLowerCase();
+    return details.hosts.filter((h) => {
+      if (search && !h.fqdn.toLowerCase().includes(search)) return false;
+      const isDirect = directHostIds.has(h.id);
+      const isViaGroup = viaGroupHostIds.has(h.id);
+      switch (hostFilter) {
+        case "granted":
+          return isDirect || isViaGroup;
+        case "not-granted":
+          return !isDirect && !isViaGroup;
+        case "via-group":
+          return isViaGroup;
+        case "all":
+          if (isViaGroup && !isDirect && !showViaGroupInAll) return false;
+          return true;
+      }
+    });
+  }, [details.hosts, hostSearch, hostFilter, directHostIds, viaGroupHostIds, showViaGroupInAll]);
+
+  const hiddenViaGroupCount = useMemo(() => {
+    if (hostFilter !== "all" || showViaGroupInAll) return 0;
+    const search = hostSearch.trim().toLowerCase();
+    return details.hosts.filter((h) => {
+      if (search && !h.fqdn.toLowerCase().includes(search)) return false;
+      return viaGroupHostIds.has(h.id) && !directHostIds.has(h.id);
+    }).length;
+  }, [details.hosts, hostFilter, showViaGroupInAll, hostSearch, viaGroupHostIds, directHostIds]);
 
   function toggleGroup(id: number) {
     setGrantedGroupIds((prev) => {
@@ -104,7 +141,7 @@ function AllowlistForm({ userId, details, userSummary, onClose }: FormProps) {
 
   return (
     <Stack gap={0} h="100%">
-      <ScrollArea flex={1} p="md">
+      <ScrollArea flex={1} mih={0} p="md">
         <Stack gap="lg">
           {/* Bypass toggle */}
           <Card
@@ -248,58 +285,103 @@ function AllowlistForm({ userId, details, userSummary, onClose }: FormProps) {
                 No known hosts configured yet.
               </Text>
             ) : (
-              <Stack
-                gap={0}
-                style={{
-                  border: "1px solid var(--mantine-color-default-border)",
-                  borderRadius: 8,
-                  overflow: "hidden",
-                }}
-              >
-                {details.hosts.map((h, i) => {
-                  const isDirect = directHostIds.has(h.id);
-                  const isCoveredByGroup = viaGroupHostIds.has(h.id);
-                  return (
-                    <label
-                      key={h.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        padding: "8px 12px",
-                        borderBottom:
-                          i < details.hosts.length - 1
-                            ? "1px solid var(--mantine-color-default-border)"
-                            : "none",
-                        cursor: isCoveredByGroup && !isDirect ? "default" : "pointer",
-                      }}
-                    >
-                      <Checkbox
-                        checked={isDirect || isCoveredByGroup}
-                        disabled={isCoveredByGroup && !isDirect}
-                        onChange={() => toggleHost(h.id)}
-                        styles={{
-                          input: {
+              <Stack gap="xs">
+                <TextInput
+                  placeholder="Search hosts…"
+                  value={hostSearch}
+                  onChange={(e) => setHostSearch(e.currentTarget.value)}
+                  leftSection={<IconSearch size={14} stroke={1.5} />}
+                  size="xs"
+                />
+                <SegmentedControl
+                  size="xs"
+                  fullWidth
+                  value={hostFilter}
+                  onChange={(v) => setHostFilter(v as HostFilter)}
+                  data={[
+                    { label: "All", value: "all" },
+                    { label: "Granted", value: "granted" },
+                    { label: "Not granted", value: "not-granted" },
+                    { label: "Via group", value: "via-group" },
+                  ]}
+                />
+                {filteredHosts.length === 0 ? (
+                  <Text size="sm" c="dimmed" ta="center" py="md">
+                    No hosts match.
+                  </Text>
+                ) : (
+                  <Stack
+                    gap={0}
+                    style={{
+                      border: "1px solid var(--mantine-color-default-border)",
+                      borderRadius: 8,
+                      overflow: "hidden",
+                    }}
+                  >
+                    {filteredHosts.map((h, i) => {
+                      const isDirect = directHostIds.has(h.id);
+                      const isCoveredByGroup = viaGroupHostIds.has(h.id);
+                      return (
+                        <label
+                          key={h.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 12,
+                            padding: "8px 12px",
+                            borderBottom:
+                              i < filteredHosts.length - 1
+                                ? "1px solid var(--mantine-color-default-border)"
+                                : "none",
                             cursor: isCoveredByGroup && !isDirect ? "default" : "pointer",
-                          },
-                        }}
-                      />
-                      <Text size="sm" ff="monospace" style={{ flex: 1 }}>
-                        {h.fqdn}
-                      </Text>
-                      {isCoveredByGroup && (
-                        <Badge variant="light" color="indigo" size="xs">
-                          via group
-                        </Badge>
-                      )}
-                      {isDirect && !isCoveredByGroup && (
-                        <Badge variant="outline" color="indigo" size="xs">
-                          direct
-                        </Badge>
-                      )}
-                    </label>
-                  );
-                })}
+                          }}
+                        >
+                          <Checkbox
+                            checked={isDirect || isCoveredByGroup}
+                            disabled={isCoveredByGroup && !isDirect}
+                            onChange={() => toggleHost(h.id)}
+                            styles={{
+                              input: {
+                                cursor: isCoveredByGroup && !isDirect ? "default" : "pointer",
+                              },
+                            }}
+                          />
+                          <Text size="sm" ff="monospace" style={{ flex: 1 }}>
+                            {h.fqdn}
+                          </Text>
+                          {isCoveredByGroup && (
+                            <Badge variant="light" color="indigo" size="xs">
+                              via group
+                            </Badge>
+                          )}
+                          {isDirect && !isCoveredByGroup && (
+                            <Badge variant="outline" color="indigo" size="xs">
+                              direct
+                            </Badge>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </Stack>
+                )}
+                {hiddenViaGroupCount > 0 && (
+                  <Button
+                    variant="subtle"
+                    size="xs"
+                    onClick={() => setShowViaGroupInAll(true)}
+                  >
+                    Show {hiddenViaGroupCount} covered by groups
+                  </Button>
+                )}
+                {showViaGroupInAll && hostFilter === "all" && (
+                  <Button
+                    variant="subtle"
+                    size="xs"
+                    onClick={() => setShowViaGroupInAll(false)}
+                  >
+                    Hide via-group rows
+                  </Button>
+                )}
               </Stack>
             )}
           </div>
@@ -348,9 +430,17 @@ export function UserAllowlistDrawer({ user, onClose }: Props) {
           </Group>
         ) : null
       }
-      styles={{ body: { display: "flex", flexDirection: "column", height: "100%", padding: 0 } }}
+      styles={{
+        body: {
+          display: "flex",
+          flexDirection: "column",
+          height: "100%",
+          padding: 0,
+          overflow: "hidden",
+        },
+      }}
     >
-      {details.isLoading || !details.data || !user ? (
+      {details.isFetching || !details.data || !user ? (
         <Stack align="center" justify="center" h="100%" gap="xs">
           <Loader size="sm" />
           <Text size="sm" c="dimmed">

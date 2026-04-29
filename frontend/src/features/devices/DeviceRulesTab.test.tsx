@@ -1,13 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { delay, http } from 'msw';
-import { DeviceRulesTab } from '@/features/devices/DeviceRulesTab';
-import { createMockDeviceAddressLeaseRule } from '@/test/mocks/data';
-import { TEST_TIMEOUTS } from '@/test/constants';
-import { endpoints, responses, ruleHandlers } from '@/test/mocks/handlers';
-import { server } from '@/test/setup';
-import { renderWithProviders } from '@/test/utils';
+import { describe, expect, it } from "vitest";
+import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { delay, http } from "msw";
+import { DeviceRulesTab } from "@/features/devices/DeviceRulesTab";
+import { createMockDeviceAddressLeaseRule } from "@/test/mocks/data";
+import { TEST_TIMEOUTS } from "@/test/constants";
+import { endpoints, responses, ruleHandlers } from "@/test/mocks/handlers";
+import { server } from "@/test/setup";
+import { renderWithProviders } from "@/test/utils";
 
 function renderTab() {
     return renderWithProviders(<DeviceRulesTab deviceId={1} />);
@@ -174,7 +174,7 @@ describe('DeviceRulesTab', () => {
 
 describe('DeviceRulesTab — Max active IPs rule', () => {
     it('shows disabled state when no rule (404)', async () => {
-        // defaultHandlers already returns notFound for max_active_addresses
+        server.use(ruleHandlers.maxActiveAddresses.get.notFound());
         renderTab();
 
         await waitFor(
@@ -206,7 +206,7 @@ describe('DeviceRulesTab — Max active IPs rule', () => {
 
     it('enables rule and shows toast', async () => {
         const user = userEvent.setup();
-        // defaultHandlers: notFound for get, success for put
+        server.use(ruleHandlers.maxActiveAddresses.get.notFound());
 
         renderTab();
 

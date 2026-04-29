@@ -5,13 +5,20 @@ import {
   Button,
   Card,
   Group,
+  Menu,
   Stack,
   Table,
   Text,
   Title,
   Tooltip,
 } from "@mantine/core";
-import { IconEdit, IconTrash } from "@tabler/icons-react";
+import {
+  IconArrowDown,
+  IconArrowUp,
+  IconDotsVertical,
+  IconEdit,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { useUsersHostAccess } from "@/features/host-access/hooks/useUsersHostAccess";
@@ -162,26 +169,38 @@ export function UsersPage() {
                             </Tooltip>
                           )}
                           {!isSelf && !isSuperadmin && (
-                            <>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="xs"
-                                onClick={() => handleRoleToggle(u.id, u.role, u.username)}
-                              >
-                                {isUserRole ? "Promote" : "Demote"}
-                              </Button>
-                              <Tooltip label="Delete user" withArrow>
+                            <Menu position="bottom-end" withArrow shadow="md">
+                              <Menu.Target>
                                 <ActionIcon
                                   variant="subtle"
-                                  color="red"
-                                  onClick={() => setDeleteTarget({ id: u.id, username: u.username })}
-                                  aria-label={`Delete user ${u.username}`}
+                                  aria-label={`More actions for ${u.username}`}
                                 >
-                                  <IconTrash size={16} stroke={1.5} />
+                                  <IconDotsVertical size={16} stroke={1.5} />
                                 </ActionIcon>
-                              </Tooltip>
-                            </>
+                              </Menu.Target>
+                              <Menu.Dropdown>
+                                <Menu.Item
+                                  leftSection={
+                                    isUserRole ? (
+                                      <IconArrowUp size={14} stroke={1.5} />
+                                    ) : (
+                                      <IconArrowDown size={14} stroke={1.5} />
+                                    )
+                                  }
+                                  onClick={() => handleRoleToggle(u.id, u.role, u.username)}
+                                >
+                                  {isUserRole ? "Promote to admin" : "Demote to user"}
+                                </Menu.Item>
+                                <Menu.Divider />
+                                <Menu.Item
+                                  color="red"
+                                  leftSection={<IconTrash size={14} stroke={1.5} />}
+                                  onClick={() => setDeleteTarget({ id: u.id, username: u.username })}
+                                >
+                                  Delete user
+                                </Menu.Item>
+                              </Menu.Dropdown>
+                            </Menu>
                           )}
                         </Group>
                       </Table.Td>

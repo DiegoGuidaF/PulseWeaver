@@ -1,12 +1,15 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceTypeItem, MaxActiveAddressesRule, AccessLogResponse, User } from '@/lib/api';
-import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockUser } from './data';
+import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceTypeItem, HostGroupWithMembers, HostSuggestionsPage, IgnoredHostSuggestion, KnownHostWithStats, MaxActiveAddressesRule, AccessLogResponse, User, UserHostAccessSummary, UserHostDetails } from '@/lib/api';
+import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockUser, createMockUserHostAccessSummary, createMockUserHostDetails } from './data';
 
 const BASE = '/api/v1';
 
 // ─── Endpoint path constants ──────────────────────────────────────────────────
 // All endpoint strings live here. Never hardcode them in test files.
 export const endpoints = {
+    usersHostAccess: `${BASE}/admin/host-access/users`,
+    userHostDetails: `${BASE}/admin/host-access/users/:userId`,
+    setUserHostGrants: `${BASE}/admin/users/:userId/host-grants`,
     devices: `${BASE}/devices`,
     deviceById: `${BASE}/devices/:deviceId`,
     deviceAddresses: `${BASE}/devices/:deviceId/addresses`,
@@ -33,6 +36,13 @@ export const endpoints = {
     dashboardTraffic: `${BASE}/dashboard/traffic`,
     dashboardServices: `${BASE}/dashboard/services`,
     dashboardTopDeniedIps: `${BASE}/dashboard/top-denied-ips`,
+    adminHosts: `${BASE}/admin/hosts`,
+    adminHostsReconcile: `${BASE}/admin/hosts/reconcile`,
+    adminHostGroups: `${BASE}/admin/host-groups`,
+    adminHostGroupsReconcile: `${BASE}/admin/host-groups/reconcile`,
+    adminHostSuggestions: `${BASE}/admin/host-suggestions`,
+    adminHostSuggestionsIgnore: `${BASE}/admin/host-suggestions/ignore`,
+    adminHostSuggestionsIgnoreByFqdn: `${BASE}/admin/host-suggestions/ignore/:fqdn`,
 } as const;
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
@@ -311,6 +321,60 @@ export const dashboardHandlers = {
             })),
 };
 
+// ─── Host-access handlers ──────────────────────────────────────────────────────
+export const hostAccessHandlers = {
+    listUsersHostAccess: {
+        success: (summaries?: UserHostAccessSummary[]) =>
+            http.get(endpoints.usersHostAccess, () =>
+                HttpResponse.json(summaries ?? [createMockUserHostAccessSummary()])),
+    },
+    userHostDetails: {
+        success: (details?: UserHostDetails) =>
+            http.get(endpoints.userHostDetails, () =>
+                HttpResponse.json(details ?? createMockUserHostDetails())),
+    },
+    setUserHostGrants: {
+        success: () =>
+            http.put(endpoints.setUserHostGrants, () => responses.noContent()),
+    },
+    listKnownHosts: {
+        success: (hosts: KnownHostWithStats[] = []) =>
+            http.get(endpoints.adminHosts, () => HttpResponse.json(hosts)),
+        serverError: () =>
+            http.get(endpoints.adminHosts, () => responses.serverError()),
+    },
+    listHostGroups: {
+        success: (groups: HostGroupWithMembers[] = []) =>
+            http.get(endpoints.adminHostGroups, () => HttpResponse.json(groups)),
+        serverError: () =>
+            http.get(endpoints.adminHostGroups, () => responses.serverError()),
+    },
+    listHostSuggestions: {
+        success: (page?: HostSuggestionsPage) =>
+            http.get(endpoints.adminHostSuggestions, () =>
+                HttpResponse.json(page ?? createMockHostSuggestionsPage())),
+        serverError: () =>
+            http.get(endpoints.adminHostSuggestions, () => responses.serverError()),
+    },
+    reconcileKnownHosts: {
+        success: () =>
+            http.put(endpoints.adminHostsReconcile, () => responses.noContent()),
+    },
+    reconcileHostGroups: {
+        success: () =>
+            http.put(endpoints.adminHostGroupsReconcile, () => responses.noContent()),
+    },
+    ignoreSuggestion: {
+        success: (entry?: IgnoredHostSuggestion) =>
+            http.post(endpoints.adminHostSuggestionsIgnore, () =>
+                responses.created(entry ?? createMockIgnoredHostSuggestion())),
+    },
+    unignoreSuggestion: {
+        success: () =>
+            http.delete(endpoints.adminHostSuggestionsIgnoreByFqdn, () => responses.noContent()),
+    },
+};
+
 // ─── Default happy-path handlers (registered globally in setup.ts) ────────────
 // Every test starts in a fully-loaded state. Only call server.use() for deviations.
 export const defaultHandlers = [
@@ -352,4 +416,13 @@ export const defaultHandlers = [
     dashboardHandlers.traffic(),
     dashboardHandlers.services(),
     dashboardHandlers.topDeniedIps(),
+    // Host access
+    hostAccessHandlers.listUsersHostAccess.success(),
+    hostAccessHandlers.userHostDetails.success(),
+    hostAccessHandlers.setUserHostGrants.success(),
+    hostAccessHandlers.listKnownHosts.success(),
+    hostAccessHandlers.listHostGroups.success(),
+    hostAccessHandlers.listHostSuggestions.success(),
+    hostAccessHandlers.reconcileKnownHosts.success(),
+    hostAccessHandlers.reconcileHostGroups.success(),
 ];

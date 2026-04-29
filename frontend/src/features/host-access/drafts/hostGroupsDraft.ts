@@ -102,10 +102,9 @@ export function groupsDraftReducer(
         typeof action.id === "number"
           ? new Set(state.tombstoned).add(action.id)
           : state.tombstoned;
-      // Persisted groups stay selected so the detail panel shows the restore UI.
-      // New (non-persisted) groups that disappear entirely move selection to the next entry.
+      // Move selection to the first remaining draft entry when the selected group is removed.
       const nextSelected =
-        state.selectedId === action.id && typeof action.id !== "number"
+        state.selectedId === action.id
           ? (draft.keys().next().value ?? null)
           : state.selectedId;
       return { ...state, draft, tombstoned, selectedId: nextSelected };

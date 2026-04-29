@@ -63,9 +63,13 @@ export function HostsPage() {
   }, [suggestions.data, draftFqdns]);
   const suggestionCount = suggestionsData?.suggestions.length ?? 0;
 
-  const hostsLoading = knownHosts.isPending;
-  const groupsLoading = hostGroups.isPending;
-  const suggestionsLoading = suggestions.isPending;
+  // Use isFetching (not isPending) so the loader also covers background refetches:
+  // on mount the queries return stale cached data immediately while a fresh GET is
+  // in flight, and after a save the invalidation triggers another refetch. For a
+  // sensitive surface like host access we never want to render stale data.
+  const hostsLoading = knownHosts.isFetching;
+  const groupsLoading = hostGroups.isFetching;
+  const suggestionsLoading = suggestions.isFetching;
 
   return (
     <Stack maw={1100} gap="md" pb={dirty ? 80 : undefined}>
@@ -172,6 +176,7 @@ export function HostsPage() {
               data={suggestionsData}
               locked={isDirtyGroups(groupsState)}
               onDiscardLock={() => groupsDispatch({ type: "discard" })}
+              onRefresh={() => suggestions.refetch()}
               onStageHosts={(fqdns) => {
                 fqdns.forEach((fqdn) => {
                   const id: `new-${string}` = `new-${crypto.randomUUID()}`;

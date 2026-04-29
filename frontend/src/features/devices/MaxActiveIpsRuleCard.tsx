@@ -19,24 +19,14 @@ import { usePutMaxActiveAddressesRule } from "@/features/devices/hooks/usePutMax
 import { useDisableMaxActiveAddressesRule } from "@/features/devices/hooks/useDisableMaxActiveAddressesRule";
 import { zPutMaxActiveAddressesRuleRequest } from "@/lib/api/zod.gen";
 
-// ---------------------------------------------------------------------------
-// Form schema
-// ---------------------------------------------------------------------------
-
 type MaxAddressesFormValues = { max_addresses: string };
 
-// The form stores max_addresses as a string (HTML number input); preprocess
-// coerces it to a number before the generated z.int().gte(1) constraint runs.
 const maxAddressesFormSchema = z.object({
   max_addresses: z.preprocess(
     (v) => Number(v),
     zPutMaxActiveAddressesRuleRequest.shape.max_addresses,
   ),
 });
-
-// ---------------------------------------------------------------------------
-// MaxActiveIpsRuleCard
-// ---------------------------------------------------------------------------
 
 export function MaxActiveIpsRuleCard({ deviceId }: { deviceId: number }) {
   const {

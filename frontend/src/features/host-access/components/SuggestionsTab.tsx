@@ -10,7 +10,7 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconArrowDown, IconArrowUp, IconArrowsSort } from "@tabler/icons-react";
+import { IconArrowDown, IconArrowUp, IconArrowsSort, IconRefresh } from "@tabler/icons-react";
 import type { HostSuggestionsPage } from "@/lib/api";
 import { useIgnoreSuggestion } from "@/features/host-access/hooks/useIgnoreSuggestion";
 import { useUnignoreSuggestion } from "@/features/host-access/hooks/useUnignoreSuggestion";
@@ -22,13 +22,14 @@ interface Props {
   data: HostSuggestionsPage;
   locked: boolean;
   onDiscardLock: () => void;
+  onRefresh: () => void;
   onStageHosts: (fqdns: string[]) => void;
 }
 
 type SortCol = "allowed_hits" | "denied_hits";
 type SortDir = "asc" | "desc";
 
-export function SuggestionsTab({ data, locked, onDiscardLock, onStageHosts }: Props) {
+export function SuggestionsTab({ data, locked, onDiscardLock, onRefresh, onStageHosts }: Props) {
   const formatDateTime = useDateFormatter();
   const ignoreSuggestion = useIgnoreSuggestion();
   const unignoreSuggestion = useUnignoreSuggestion();
@@ -102,6 +103,9 @@ export function SuggestionsTab({ data, locked, onDiscardLock, onStageHosts }: Pr
           <Text c="dimmed" size="sm">
             No unknown hosts in recent traffic.
           </Text>
+          <Button variant="subtle" leftSection={<IconRefresh size={14} />} onClick={onRefresh}>
+            Refresh
+          </Button>
         </Stack>
       </Card>
     );
@@ -109,15 +113,28 @@ export function SuggestionsTab({ data, locked, onDiscardLock, onStageHosts }: Pr
 
   return (
     <Stack gap="md">
-      {sortedSuggestions.length > 0 && (
-        <Card withBorder padding="md">
-          <Text fw={600} mb={4}>
-            Observed in recent traffic
+      <Card withBorder padding="md">
+        <Group justify="space-between" align="flex-start" mb={4}>
+          <Text fw={600}>Observed in recent traffic</Text>
+          <Button
+            size="xs"
+            variant="subtle"
+            leftSection={<IconRefresh size={14} />}
+            onClick={onRefresh}
+          >
+            Refresh
+          </Button>
+        </Group>
+        <Text size="sm" c="dimmed" mb="md">
+          Hosts seen that aren't on your known list. High allowed-hit counts usually mean
+          legitimate infrastructure worth promoting.
+        </Text>
+        {sortedSuggestions.length === 0 ? (
+          <Text size="sm" c="dimmed">
+            No unknown hosts in recent traffic.
           </Text>
-          <Text size="sm" c="dimmed" mb="md">
-            Hosts seen that aren't on your known list. High allowed-hit counts usually mean
-            legitimate infrastructure worth promoting.
-          </Text>
+        ) : (<>
+
 
           <Table.ScrollContainer minWidth={600}>
             <Table>
@@ -189,8 +206,8 @@ export function SuggestionsTab({ data, locked, onDiscardLock, onStageHosts }: Pr
               </Table.Tbody>
             </Table>
           </Table.ScrollContainer>
-        </Card>
-      )}
+        </>)}
+      </Card>
 
       {data.ignored.length > 0 && (
         <Card withBorder padding="md">
