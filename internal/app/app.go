@@ -141,7 +141,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Queries - Manage complex crossdomain queries tailored for the frontend
 	queriesRepo := queries.NewRepository(db.DB())
-	queriesHandler := queries.NewHTTPHandler(queriesRepo, logger)
+	queriesHandler := queries.NewHTTPHandler(queriesRepo, policyService, logger)
 
 	// Address Lease manager
 	addressLeaseRepo := lease.NewRepository(db.DB())

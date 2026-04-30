@@ -135,6 +135,14 @@ paths:
   /admin/host-access/users/{user_id}:
     $ref: './paths/host-access.yaml#/userHostDetails'
 
+  # --------------------
+  # Policy Audit Endpoints
+  # --------------------
+  /admin/policy-map:
+    $ref: './paths/policy-audit.yaml#/policyMap'
+  /admin/policy-simulate:
+    $ref: './paths/policy-audit.yaml#/policySimulate'
+
 components:
   securitySchemes:
     cookieAuth:

@@ -1,0 +1,82 @@
+policyMap:
+  get:
+    operationId: getPolicyMap
+    tags:
+      - admin
+    summary: Get the current policy cache snapshot
+    description: |
+      Returns the in-memory policy cache enriched with device, user, and address
+      metadata. Shows the effective allowed host set for every registered IP,
+      pre-intersection contributor state, and refresh telemetry.
+    responses:
+      "200":
+        description: Policy cache snapshot
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/policy-audit.yaml#/PolicyMapAudit'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+policySimulate:
+  get:
+    operationId: simulatePolicyAccess
+    tags:
+      - admin
+    summary: Simulate an access decision for a given IP and host
+    description: |
+      Runs the same decision logic as the forward-auth verify endpoint against
+      the live cache, without bearer-token verification and without writing to
+      the access log. Useful for validating grants before triggering real traffic.
+    parameters:
+      - name: ip
+        in: query
+        required: true
+        schema:
+          type: string
+        description: Client IP to simulate.
+      - name: host
+        in: query
+        required: true
+        schema:
+          type: string
+        description: Target host FQDN to simulate.
+    responses:
+      "200":
+        description: Decision result
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/policy-audit.yaml#/PolicySimulateResult'
+      "400":
+        description: Bad Request — missing or invalid query parameters
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'

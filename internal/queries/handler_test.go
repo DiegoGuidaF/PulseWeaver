@@ -462,3 +462,178 @@ func TestHandler_GetDevices_AddressCountReflectsEnabledAddresses(t *testing.T) {
 	is.True(devices[0].AddressCount != nil)
 	is.Equal(*devices[0].AddressCount, 1)
 }
+
+// ── Policy Audit ──────────────────────────────────────────────────────────────
+
+func TestHandler_GetPolicyMap_Unauthenticated(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-map", nil)
+	rec := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(rec, req)
+
+	is.True(rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden)
+}
+
+func TestHandler_GetPolicyMap_EmptyCache(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-map", nil)
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(rec, req)
+
+	is.Equal(rec.Code, http.StatusOK)
+
+	var response httpapi.PolicyMapAudit
+	err := json.NewDecoder(rec.Body).Decode(&response)
+	is.NoErr(err)
+	is.Equal(len(response.Entries), 0)
+	is.True(response.RefreshDurationMs >= 0)
+}
+
+func TestHandler_GetPolicyMap_WithEntry(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+
+	// Register a device then force a cache refresh (listener goroutine is not running in tests).
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "policymap-device", nil)
+	is.NoErr(err)
+	_, _, err = testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "5.6.7.8", device.EventSourceManual)
+	is.NoErr(err)
+	is.NoErr(testServer.PolicyService.Initialize(t.Context()))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-map", nil)
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(rec, req)
+
+	is.Equal(rec.Code, http.StatusOK)
+
+	var response httpapi.PolicyMapAudit
+	err = json.NewDecoder(rec.Body).Decode(&response)
+	is.NoErr(err)
+	is.Equal(len(response.Entries), 1)
+	entry := response.Entries[0]
+	is.Equal(entry.Ip, "5.6.7.8")
+	is.Equal(len(entry.Contributors), 1)
+	is.True(entry.Contributors[0].DeviceName != "")
+}
+
+func TestHandler_SimulatePolicyAccess_Unauthenticated(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-simulate?ip=1.2.3.4&host=example.com", nil)
+	rec := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(rec, req)
+
+	is.True(rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden)
+}
+
+func TestHandler_SimulatePolicyAccess_IPNotRegistered(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-simulate?ip=9.9.9.9&host=example.com", nil)
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(rec, req)
+
+	is.Equal(rec.Code, http.StatusOK)
+
+	var result httpapi.PolicySimulateResult
+	err := json.NewDecoder(rec.Body).Decode(&result)
+	is.NoErr(err)
+	is.True(!result.Allowed)
+	is.True(result.DenyReason != nil)
+	is.Equal(string(*result.DenyReason), "ip_not_registered")
+}
+
+func TestHandler_SimulatePolicyAccess_HostNotAllowed(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+
+	// Register a device — admin has no host grants, so any host is denied.
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "sim-device", nil)
+	is.NoErr(err)
+	_, _, err = testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "5.6.7.9", device.EventSourceManual)
+	is.NoErr(err)
+	is.NoErr(testServer.PolicyService.Initialize(t.Context()))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-simulate?ip=5.6.7.9&host=denied.example.com", nil)
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(rec, req)
+
+	is.Equal(rec.Code, http.StatusOK)
+
+	var result httpapi.PolicySimulateResult
+	err = json.NewDecoder(rec.Body).Decode(&result)
+	is.NoErr(err)
+	is.True(!result.Allowed)
+	is.True(result.DenyReason != nil)
+	is.Equal(string(*result.DenyReason), "host_not_allowed")
+}
+
+func TestHandler_SimulatePolicyAccess_AllowedBypass(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+
+	// Grant the admin user bypass before creating the device.
+	principal := testutils.AdminPrincipal(t, testServer)
+	bypassTrue := true
+	is.NoErr(testServer.HostAccessService.SetFullUserGrants(t.Context(), principal.UserID, &bypassTrue, nil, nil))
+
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), principal, "sim-bypass-device", nil)
+	is.NoErr(err)
+	_, _, err = testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "5.6.7.10", device.EventSourceManual)
+	is.NoErr(err)
+	// The listener goroutine is not running in integration tests; force a refresh.
+	is.NoErr(testServer.PolicyService.Initialize(t.Context()))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-simulate?ip=5.6.7.10&host=anything.example.com", nil)
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(rec, req)
+
+	is.Equal(rec.Code, http.StatusOK)
+
+	var result httpapi.PolicySimulateResult
+	err = json.NewDecoder(rec.Body).Decode(&result)
+	is.NoErr(err)
+	is.True(result.Allowed)
+	is.True(result.DenyReason == nil)
+}
+
+func TestHandler_SimulatePolicyAccess_DoesNotWriteAccessLog(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+
+	// Simulate an access check — should NOT appear in access log.
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-simulate?ip=9.9.9.9&host=example.com", nil)
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(rec, req)
+	is.Equal(rec.Code, http.StatusOK)
+
+	// Access log must remain empty.
+	logReq := httptest.NewRequest(http.MethodGet, "/api/v1/access-log", nil)
+	logReq.AddCookie(adminCookie)
+	logRec := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(logRec, logReq)
+	is.Equal(logRec.Code, http.StatusOK)
+
+	var logResp httpapi.AccessLogResponse
+	err := json.NewDecoder(logRec.Body).Decode(&logResp)
+	is.NoErr(err)
+	is.Equal(logResp.Total, 0)
+}

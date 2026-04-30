@@ -15,14 +15,16 @@ import (
 )
 
 type HTTPHandler struct {
-	repo   *Repository
-	logger *slog.Logger
+	repo         *Repository
+	policyReader PolicyMapReader
+	logger       *slog.Logger
 }
 
-func NewHTTPHandler(repo *Repository, logger *slog.Logger) *HTTPHandler {
+func NewHTTPHandler(repo *Repository, policyReader PolicyMapReader, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{
-		repo:   repo,
-		logger: logger.With(slog.String(logging.AttrKeyComponent, "queries")),
+		repo:         repo,
+		policyReader: policyReader,
+		logger:       logger.With(slog.String(logging.AttrKeyComponent, "queries")),
 	}
 }
 

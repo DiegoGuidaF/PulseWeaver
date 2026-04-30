@@ -23,6 +23,16 @@ type IPContributor struct {
 	UserID    auth.UserID
 }
 
+// ContributorAccess extends IPContributor with the per-user pre-intersection host access
+// state stored on each ipSetEntry for audit and simulate purposes.
+type ContributorAccess struct {
+	DeviceID         device.DeviceID
+	AddressID        device.AddressID
+	UserID           auth.UserID
+	UserBypass       bool
+	UserAllowedHosts []string // case-folded; sorted lexicographically
+}
+
 type DecisionEvent struct {
 	ClientIP       string
 	Outcome        bool

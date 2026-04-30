@@ -30,6 +30,7 @@ type CompositeHandler struct {
 	*DashboardHandler
 	*RegistrationHandler
 	*HostAccessHandler
+	*PolicyHandler
 }
 
 type RuleHandler = rule.HTTPHandler
@@ -64,6 +65,7 @@ func addRoutes(
 		DashboardHandler:    dashboardHandler,
 		RegistrationHandler: registrationHandler,
 		HostAccessHandler:   hostAccessHandler,
+		PolicyHandler:       policyHandler,
 	}
 
 	r.Get("/health", health.Handler)
