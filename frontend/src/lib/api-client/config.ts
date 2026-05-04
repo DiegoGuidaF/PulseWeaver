@@ -16,7 +16,7 @@ client.interceptors.error.use((error, response) => {
 
 if (import.meta.env.DEV) {
   client.interceptors.error.use((error, _response, request) => {
-    console.error('[api]', request.method, request.url, error);
+    console.error('[api]', request?.method, request?.url, error);
     return error;
   });
 }

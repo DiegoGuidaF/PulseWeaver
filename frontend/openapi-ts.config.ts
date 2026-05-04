@@ -6,7 +6,6 @@ export default defineConfig({
         path: './src/lib/api',
         postProcess: [
             'prettier',
-            'eslint'
         ],
     },
     plugins: [

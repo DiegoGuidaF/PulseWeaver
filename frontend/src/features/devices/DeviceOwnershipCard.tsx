@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Badge,
   Button,
@@ -41,24 +41,16 @@ export function DeviceOwnershipCard({
   });
 
   const updateDevice = useUpdateDevice(deviceId);
-  const [selectedOwner, setSelectedOwner] = useState(
-    ownerId != null ? String(ownerId) : "",
-  );
+  const [draftOwnerId, setDraftOwnerId] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<{
     ownerId: number;
     ownerName: string;
     ownerRole: UserRole;
   } | null>(null);
 
-  const ownerDirty =
-    selectedOwner !== (ownerId != null ? String(ownerId) : "");
-
-  // Sync with latest server state, but never overwrite an in-progress edit.
-  useEffect(() => {
-    if (ownerDirty) return;
-    setSelectedOwner(ownerId != null ? String(ownerId) : "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownerId]);
+  const serverValue = ownerId != null ? String(ownerId) : "";
+  const selectedOwner = draftOwnerId ?? serverValue;
+  const ownerDirty = draftOwnerId !== null && draftOwnerId !== serverValue;
 
   const pendingOwnerName = confirmTarget?.ownerName;
   const prevOwnerRole = users?.find((u) => u.id === ownerId)?.role;
@@ -81,6 +73,7 @@ export function DeviceOwnershipCard({
       {
         onSuccess: () => {
           setConfirmTarget(null);
+          setDraftOwnerId(null);
           notifications.show({
             color: "green",
             message: "Device ownership updated",
@@ -159,7 +152,7 @@ export function DeviceOwnershipCard({
               label="Owner"
               data={selectData}
               value={selectedOwner}
-              onChange={(val) => setSelectedOwner(val ?? "")}
+              onChange={(val) => setDraftOwnerId(val ?? "")}
               searchable
               w={300}
             />
@@ -168,9 +161,7 @@ export function DeviceOwnershipCard({
                 <Button
                   variant="subtle"
                   size="sm"
-                  onClick={() =>
-                    setSelectedOwner(ownerId != null ? String(ownerId) : "")
-                  }
+                  onClick={() => setDraftOwnerId(null)}
                 >
                   Reset
                 </Button>
