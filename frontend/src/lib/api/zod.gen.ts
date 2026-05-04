@@ -583,11 +583,19 @@ export const zPolicyMapAudit = z.object({
   entries: z.array(zPolicyMapEntry),
 });
 
+/**
+ * Reason for denial.
+ */
+export const zPolicySimulateDenyReason = z.enum([
+  "ip_not_registered",
+  "host_not_allowed",
+]);
+
 export const zPolicySimulateResult = z.object({
   ip: z.string(),
   host: z.string(),
   allowed: z.boolean(),
-  deny_reason: z.enum(["ip_not_registered", "host_not_allowed"]).optional(),
+  deny_reason: zPolicySimulateDenyReason.nullish(),
 });
 
 export const zUserWritable = z.object({

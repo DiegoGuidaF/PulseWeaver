@@ -3516,6 +3516,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PolicyMapEntry'
+    PolicySimulateDenyReason:
+      type: string
+      enum:
+        - ip_not_registered
+        - host_not_allowed
+      description: Reason for denial.
     PolicySimulateResult:
       type: object
       required:
@@ -3530,9 +3536,7 @@ components:
         allowed:
           type: boolean
         deny_reason:
-          type: string
+          allOf:
+            - $ref: '#/components/schemas/PolicySimulateDenyReason'
           nullable: true
-          enum:
-            - ip_not_registered
-            - host_not_allowed
           description: Reason for denial; null when allowed is true.

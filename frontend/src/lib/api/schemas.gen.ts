@@ -1636,6 +1636,12 @@ export const PolicyMapAuditSchema = {
   },
 } as const;
 
+export const PolicySimulateDenyReasonSchema = {
+  type: "string",
+  enum: ["ip_not_registered", "host_not_allowed"],
+  description: "Reason for denial.",
+} as const;
+
 export const PolicySimulateResultSchema = {
   type: "object",
   required: ["ip", "host", "allowed"],
@@ -1650,9 +1656,12 @@ export const PolicySimulateResultSchema = {
       type: "boolean",
     },
     deny_reason: {
-      type: "string",
+      allOf: [
+        {
+          $ref: "#/components/schemas/PolicySimulateDenyReason",
+        },
+      ],
       nullable: true,
-      enum: ["ip_not_registered", "host_not_allowed"],
       description: "Reason for denial; null when allowed is true.",
     },
   },

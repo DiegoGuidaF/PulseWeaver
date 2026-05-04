@@ -329,6 +329,7 @@ export {
   type PolicyMapAudit,
   type PolicyMapContributor,
   type PolicyMapEntry,
+  PolicySimulateDenyReason,
   type PolicySimulateResult,
   type PromoteUserData,
   type PromoteUserError,

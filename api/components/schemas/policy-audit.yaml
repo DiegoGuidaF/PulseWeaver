@@ -90,6 +90,13 @@ PolicyMapContributor:
         Hosts this contributor had pre-intersection that were removed by deny-wins intersection.
         Empty when no trimming occurred.
 
+PolicySimulateDenyReason:
+  type: string
+  enum:
+    - ip_not_registered
+    - host_not_allowed
+  description: Reason for denial.
+
 PolicySimulateResult:
   type: object
   required:
@@ -104,9 +111,7 @@ PolicySimulateResult:
     allowed:
       type: boolean
     deny_reason:
-      type: string
+      allOf:
+        - $ref: '#/PolicySimulateDenyReason'
       nullable: true
-      enum:
-        - ip_not_registered
-        - host_not_allowed
       description: Reason for denial; null when allowed is true.

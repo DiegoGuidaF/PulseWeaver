@@ -697,6 +697,20 @@ export type PolicyMapAudit = {
   entries: Array<PolicyMapEntry>;
 };
 
+/**
+ * Reason for denial.
+ */
+export const PolicySimulateDenyReason = {
+  IP_NOT_REGISTERED: "ip_not_registered",
+  HOST_NOT_ALLOWED: "host_not_allowed",
+} as const;
+
+/**
+ * Reason for denial.
+ */
+export type PolicySimulateDenyReason =
+  (typeof PolicySimulateDenyReason)[keyof typeof PolicySimulateDenyReason];
+
 export type PolicySimulateResult = {
   ip: string;
   host: string;
@@ -704,7 +718,7 @@ export type PolicySimulateResult = {
   /**
    * Reason for denial; null when allowed is true.
    */
-  deny_reason?: "ip_not_registered" | "host_not_allowed";
+  deny_reason?: PolicySimulateDenyReason | null;
 };
 
 export type UserWritable = {
