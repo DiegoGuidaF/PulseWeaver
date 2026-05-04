@@ -640,52 +640,101 @@ export type DeviceApiKeyResponse = {
   api_key: string;
 };
 
-export type PolicyMapContributor = {
+export type PolicyUserAddress = {
+  address_id: Id;
   device_id: Id;
   device_name: string;
-  address_id: Id;
   /**
    * Last heartbeat or manual update time for this address.
    */
-  address_updated_at: string;
+  updated_at: string;
+};
+
+export type PolicyUserIp = {
+  /**
+   * The IP address.
+   */
+  ip: string;
+  /**
+   * Other users (excluding self) that also contribute to this IP. Empty means this user is the sole owner of the IP.
+   *
+   */
+  shared_with_user_ids: Array<Id>;
+  /**
+   * True when the IP entry as a whole bypasses the host allowlist (every contributor at this IP has bypass set). When true, effective_hosts is empty and means "All".
+   *
+   */
+  bypass_at_ip: boolean;
+  /**
+   * Hosts actually allowed for THIS user at THIS IP after deny-wins intersection. Equals user_allowed_hosts when the user is the sole contributor; intersected with other restricted contributors otherwise. Empty when bypass_at_ip is true.
+   *
+   */
+  effective_hosts: Array<string>;
+  /**
+   * Hosts the user had pre-intersection that were removed by intersection at this IP. Empty when no trimming occurred. Always empty when the user has bypass_allowlist true (their grants are not subject to intersection).
+   *
+   */
+  trimmed_hosts: Array<string>;
+  /**
+   * The user's own addresses sitting at this IP. Multiple entries when the same user has several devices behind the same NAT.
+   *
+   */
+  addresses: Array<PolicyUserAddress>;
+};
+
+export type PolicyUserEntry = {
   user_id: Id;
   /**
    * User display name.
    */
   user_name: string;
-  user_bypass: boolean;
   /**
-   * The user's allowed host list before intersection was applied.
-   */
-  user_allowed_hosts: Array<string>;
-  /**
-   * Hosts this contributor had pre-intersection that were removed by deny-wins intersection. Empty when no trimming occurred.
-   *
-   */
-  trimmed_hosts: Array<string>;
-};
-
-export type PolicyMapEntry = {
-  /**
-   * The IP address this entry covers.
-   */
-  ip: string;
-  /**
-   * True when all contributors bypass the host allowlist.
+   * True when this user has the host allowlist bypass enabled.
    */
   bypass_allowlist: boolean;
   /**
-   * Effective allowed FQDNs after deny-wins intersection. Empty when bypass_allowlist is true.
+   * True when at least one of this user's IPs is shared with another user.
+   *
    */
-  allowed_hosts: Array<string>;
+  on_shared_ip: boolean;
   /**
-   * True when the deny-wins intersection reduced the effective host set below at least one contributor's pre-intersection set.
+   * True when at least one of this user's IPs had its effective host set reduced by deny-wins intersection with another user at that IP.
+   *
    */
   intersection_applied: boolean;
-  contributors: Array<PolicyMapContributor>;
+  /**
+   * Distinct devices owned by this user that contribute to the cache. Zero for no-access users.
+   *
+   */
+  device_count: number;
+  /**
+   * Distinct IPs this user currently contributes to. Zero for no-access users.
+   *
+   */
+  ip_count: number;
+  /**
+   * Size of user_allowed_hosts (pre-intersection). Zero when bypass_allowlist is true; the UI should render "All".
+   *
+   */
+  allowed_host_count: number;
+  /**
+   * Most recent address.updated_at across this user's addresses. Null when the user has no enabled IPs.
+   *
+   */
+  last_seen_at?: string | null;
+  /**
+   * Pre-intersection allowed host list for this user. Empty when bypass_allowlist is true.
+   *
+   */
+  user_allowed_hosts: Array<string>;
+  /**
+   * IPs this user currently contributes to. Empty for no-access users (never null — empty array, for client ergonomics).
+   *
+   */
+  ips: Array<PolicyUserIp>;
 };
 
-export type PolicyMapAudit = {
+export type PolicyUserMapAudit = {
   /**
    * When the cache was last fully refreshed.
    */
@@ -694,7 +743,7 @@ export type PolicyMapAudit = {
    * How long the last refresh took in milliseconds.
    */
   refresh_duration_ms: number;
-  entries: Array<PolicyMapEntry>;
+  users: Array<PolicyUserEntry>;
 };
 
 /**
@@ -2879,14 +2928,14 @@ export type GetUserHostDetailsResponses = {
 export type GetUserHostDetailsResponse =
   GetUserHostDetailsResponses[keyof GetUserHostDetailsResponses];
 
-export type GetPolicyMapData = {
+export type GetPolicyUserMapData = {
   body?: never;
   path?: never;
   query?: never;
   url: "/admin/policy-map";
 };
 
-export type GetPolicyMapErrors = {
+export type GetPolicyUserMapErrors = {
   /**
    * Unauthorized
    */
@@ -2901,17 +2950,18 @@ export type GetPolicyMapErrors = {
   500: ErrorResponse;
 };
 
-export type GetPolicyMapError = GetPolicyMapErrors[keyof GetPolicyMapErrors];
+export type GetPolicyUserMapError =
+  GetPolicyUserMapErrors[keyof GetPolicyUserMapErrors];
 
-export type GetPolicyMapResponses = {
+export type GetPolicyUserMapResponses = {
   /**
-   * Policy cache snapshot
+   * Policy cache snapshot (user-pivoted)
    */
-  200: PolicyMapAudit;
+  200: PolicyUserMapAudit;
 };
 
-export type GetPolicyMapResponse =
-  GetPolicyMapResponses[keyof GetPolicyMapResponses];
+export type GetPolicyUserMapResponse =
+  GetPolicyUserMapResponses[keyof GetPolicyUserMapResponses];
 
 export type SimulatePolicyAccessData = {
   body?: never;

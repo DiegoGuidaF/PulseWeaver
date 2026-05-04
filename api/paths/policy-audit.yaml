@@ -1,20 +1,20 @@
 policyMap:
   get:
-    operationId: getPolicyMap
+    operationId: getPolicyUserMap
     tags:
       - admin
-    summary: Get the current policy cache snapshot
+    summary: Get the current policy cache snapshot (user-pivoted)
     description: |
       Returns the in-memory policy cache enriched with device, user, and address
-      metadata. Shows the effective allowed host set for every registered IP,
-      pre-intersection contributor state, and refresh telemetry.
+      metadata. Lists every non-deleted user with their per-IP policy state,
+      effective and trimmed host sets, and refresh telemetry.
     responses:
       "200":
-        description: Policy cache snapshot
+        description: Policy cache snapshot (user-pivoted)
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/policy-audit.yaml#/PolicyMapAudit'
+              $ref: '../components/schemas/policy-audit.yaml#/PolicyUserMapAudit'
       "401":
         description: Unauthorized
         content:

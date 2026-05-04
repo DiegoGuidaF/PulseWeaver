@@ -98,9 +98,9 @@ import type {
   GetMaxActiveAddressesRuleData,
   GetMaxActiveAddressesRuleErrors,
   GetMaxActiveAddressesRuleResponses,
-  GetPolicyMapData,
-  GetPolicyMapErrors,
-  GetPolicyMapResponses,
+  GetPolicyUserMapData,
+  GetPolicyUserMapErrors,
+  GetPolicyUserMapResponses,
   GetRegistrationData,
   GetRegistrationErrors,
   GetRegistrationResponses,
@@ -230,7 +230,7 @@ import {
   zGetDevicesResponse,
   zGetMaxActiveAddressesRulePath,
   zGetMaxActiveAddressesRuleResponse,
-  zGetPolicyMapResponse,
+  zGetPolicyUserMapResponse,
   zGetRegistrationPath,
   zGetRegistrationResponse,
   zGetUserHostDetailsPath,
@@ -2141,19 +2141,19 @@ export const getUserHostDetails = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Get the current policy cache snapshot
+ * Get the current policy cache snapshot (user-pivoted)
  *
  * Returns the in-memory policy cache enriched with device, user, and address
- * metadata. Shows the effective allowed host set for every registered IP,
- * pre-intersection contributor state, and refresh telemetry.
+ * metadata. Lists every non-deleted user with their per-IP policy state,
+ * effective and trimmed host sets, and refresh telemetry.
  *
  */
-export const getPolicyMap = <ThrowOnError extends boolean = false>(
-  options?: Options<GetPolicyMapData, ThrowOnError>,
+export const getPolicyUserMap = <ThrowOnError extends boolean = false>(
+  options?: Options<GetPolicyUserMapData, ThrowOnError>,
 ) =>
   (options?.client ?? client).get<
-    GetPolicyMapResponses,
-    GetPolicyMapErrors,
+    GetPolicyUserMapResponses,
+    GetPolicyUserMapErrors,
     ThrowOnError
   >({
     requestValidator: async (data) =>
@@ -2165,7 +2165,7 @@ export const getPolicyMap = <ThrowOnError extends boolean = false>(
         })
         .parseAsync(data),
     responseValidator: async (data) =>
-      await zGetPolicyMapResponse.parseAsync(data),
+      await zGetPolicyUserMapResponse.parseAsync(data),
     security: [
       {
         in: "cookie",

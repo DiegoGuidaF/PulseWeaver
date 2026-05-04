@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
@@ -25,12 +26,12 @@ type policyEnrichmentRow struct {
 	AddressUpdatedAt time.Time        `db:"address_updated_at"`
 	DeviceID         device.DeviceID  `db:"device_id"`
 	DeviceName       string           `db:"device_name"`
-	UserID           int64            `db:"user_id"`
+	UserID           auth.UserID      `db:"user_id"`
 	UserName         string           `db:"user_name"`
 }
 
-// getPolicyEnrichmentData fetches display metadata for the given address IDs.
-func (r *Repository) getPolicyEnrichmentData(ctx context.Context, addressIDs []device.AddressID) (map[device.AddressID]policyEnrichmentRow, error) {
+// getPolicyAddressEnrichment fetches display metadata for the given address IDs.
+func (r *Repository) getPolicyAddressEnrichment(ctx context.Context, addressIDs []device.AddressID) (map[device.AddressID]policyEnrichmentRow, error) {
 	if len(addressIDs) == 0 {
 		return map[device.AddressID]policyEnrichmentRow{}, nil
 	}
@@ -54,7 +55,7 @@ func (r *Repository) getPolicyEnrichmentData(ctx context.Context, addressIDs []d
 
 	var rows []policyEnrichmentRow
 	if err := r.db.SelectContext(ctx, &rows, query, args...); err != nil {
-		return nil, fmt.Errorf("get policy enrichment data: %w", err)
+		return nil, fmt.Errorf("get policy address enrichment: %w", err)
 	}
 
 	result := make(map[device.AddressID]policyEnrichmentRow, len(rows))
@@ -64,82 +65,100 @@ func (r *Repository) getPolicyEnrichmentData(ctx context.Context, addressIDs []d
 	return result, nil
 }
 
-// GetPolicyMap Allows retrieving the current policy map used for the verify-ip authorization flow
-func (h *HTTPHandler) GetPolicyMap(
-	ctx context.Context,
-	_ httpapi.GetPolicyMapRequestObject,
-) (httpapi.GetPolicyMapResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "GetPolicyMap")
+// getAllUsersForPolicyAudit returns every non-deleted user with their bypass flag,
+// plus a map of pre-intersection allowed FQDNs keyed by user ID.
+// Two queries assembled in Go per queries-read-models.md pattern.
+func (r *Repository) getAllUsersForPolicyAudit(ctx context.Context) ([]policyAuditUserRow, map[auth.UserID][]string, error) {
+	const usersQuery = `
+		SELECT u.id           AS user_id,
+		       u.username     AS username,
+		       u.display_name AS user_name,
+		       u.role IN ('admin', 'superadmin') AS is_admin,
+		       COALESCE(uhs.bypass_host_allowlist, 0) AS bypass_allowlist
+		FROM users u
+		LEFT JOIN user_host_settings uhs ON uhs.user_id = u.id
+		WHERE u.deleted_at IS NULL
+		ORDER BY u.display_name, u.id
+	`
+	var userRows []policyAuditUserRow
+	if err := r.db.SelectContext(ctx, &userRows, usersQuery); err != nil {
+		return nil, nil, fmt.Errorf("list users for policy audit: %w", err)
+	}
 
-	snap := h.policyReader.GetPolicyMap()
+	const hostsQuery = `
+		SELECT uah.user_id, kh.fqdn
+		FROM user_allowed_hosts uah
+		JOIN known_hosts kh ON kh.id = uah.known_host_id
+		ORDER BY uah.user_id, kh.fqdn
+	`
 
-	// Collect unique address IDs for a single enrichment query.
-	var addressIDs []device.AddressID
+	type hostRow struct {
+		UserID auth.UserID `db:"user_id"`
+		FQDN   string      `db:"fqdn"`
+	}
+	var hostRows []hostRow
+	if err := r.db.SelectContext(ctx, &hostRows, hostsQuery); err != nil {
+		return nil, nil, fmt.Errorf("list user allowed hosts for policy audit: %w", err)
+	}
+
+	allowedHostsByUser := make(map[auth.UserID][]string, len(userRows))
+	for _, h := range hostRows {
+		allowedHostsByUser[h.UserID] = append(allowedHostsByUser[h.UserID], h.FQDN)
+	}
+
+	return userRows, allowedHostsByUser, nil
+}
+
+// collectAddressIDs gathers all unique address IDs referenced in a snapshot.
+func collectAddressIDs(snap policy.PolicyMapSnapshot) []device.AddressID {
 	seen := make(map[device.AddressID]struct{})
+	var ids []device.AddressID
 	for _, e := range snap.Entries {
 		for _, c := range e.Contributors {
 			if _, ok := seen[c.AddressID]; !ok {
 				seen[c.AddressID] = struct{}{}
-				addressIDs = append(addressIDs, c.AddressID)
+				ids = append(ids, c.AddressID)
 			}
 		}
 	}
+	return ids
+}
 
-	enrichment, err := h.repo.getPolicyEnrichmentData(ctx, addressIDs)
+// BuildPolicyUserMap is the single business-logic entry point for the user-pivoted
+// policy audit view. The handler is a thin wrapper around it. This is the
+// integration-test target for orchestration; pure assembly is tested separately
+// via assemblePolicyUserMap.
+func (r *Repository) BuildPolicyUserMap(
+	ctx context.Context,
+	reader PolicyMapReader,
+) (httpapi.PolicyUserMapAudit, error) {
+	snap := reader.GetPolicyMap()
+	addressIDs := collectAddressIDs(snap)
+
+	addrEnrichment, err := r.getPolicyAddressEnrichment(ctx, addressIDs)
 	if err != nil {
-		h.logger.ErrorContext(ctx, "failed to enrich policy map", slog.Any(logging.AttrKeyError, err))
-		return httpapi.GetPolicyMap500JSONResponse(errorMsgResponse("Failed to load policy map")), nil
+		return httpapi.PolicyUserMapAudit{}, fmt.Errorf("policy address enrichment: %w", err)
 	}
 
-	entries := make([]httpapi.PolicyMapEntry, len(snap.Entries))
-	for i, e := range snap.Entries {
-		// Build a set of effective hosts for this entry once, used to compute trimmed_hosts per contributor.
-		effectiveHosts := make(map[string]struct{}, len(e.AllowedHosts))
-		for _, h := range e.AllowedHosts {
-			effectiveHosts[h] = struct{}{}
-		}
-
-		contributors := make([]httpapi.PolicyMapContributor, len(e.Contributors))
-		for j, c := range e.Contributors {
-			meta := enrichment[c.AddressID]
-
-			var trimmedHosts []string
-			if !c.UserBypass {
-				for _, h := range c.UserAllowedHosts {
-					if _, ok := effectiveHosts[h]; !ok {
-						trimmedHosts = append(trimmedHosts, h)
-					}
-				}
-			}
-			if trimmedHosts == nil {
-				trimmedHosts = []string{}
-			}
-
-			contributors[j] = httpapi.PolicyMapContributor{
-				DeviceId:         meta.DeviceID.Int64(),
-				DeviceName:       meta.DeviceName,
-				AddressId:        c.AddressID.Int64(),
-				AddressUpdatedAt: httpapi.UTCTime(meta.AddressUpdatedAt),
-				UserId:           meta.UserID,
-				UserName:         meta.UserName,
-				UserBypass:       c.UserBypass,
-				UserAllowedHosts: c.UserAllowedHosts,
-				TrimmedHosts:     trimmedHosts,
-			}
-		}
-		entries[i] = httpapi.PolicyMapEntry{
-			Ip:                  e.IP,
-			BypassAllowlist:     e.BypassAllowlist,
-			AllowedHosts:        e.AllowedHosts,
-			IntersectionApplied: e.IntersectionApplied,
-			Contributors:        contributors,
-		}
+	allUsers, allowedHostsByUser, err := r.getAllUsersForPolicyAudit(ctx)
+	if err != nil {
+		return httpapi.PolicyUserMapAudit{}, fmt.Errorf("policy audit users: %w", err)
 	}
 
-	audit := httpapi.PolicyMapAudit{
-		RefreshedAt:       httpapi.UTCTime(snap.LastRefreshedAt),
-		RefreshDurationMs: int(snap.LastRefreshDurationMs),
-		Entries:           entries,
+	return assemblePolicyUserMap(snap, addrEnrichment, allUsers, allowedHostsByUser), nil
+}
+
+// GetPolicyUserMap returns the user-pivoted policy cache audit view.
+func (h *HTTPHandler) GetPolicyUserMap(
+	ctx context.Context,
+	_ httpapi.GetPolicyUserMapRequestObject,
+) (httpapi.GetPolicyUserMapResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetPolicyUserMap")
+
+	audit, err := h.repo.BuildPolicyUserMap(ctx, h.policyReader)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "failed to build policy user map", slog.Any(logging.AttrKeyError, err))
+		return httpapi.GetPolicyUserMap500JSONResponse(errorMsgResponse("Failed to load policy user map")), nil
 	}
-	return httpapi.GetPolicyMap200JSONResponse(audit), nil
+	return httpapi.GetPolicyUserMap200JSONResponse(audit), nil
 }

@@ -465,7 +465,7 @@ func TestHandler_GetDevices_AddressCountReflectsEnabledAddresses(t *testing.T) {
 
 // ── Policy Audit ──────────────────────────────────────────────────────────────
 
-func TestHandler_GetPolicyMap_Unauthenticated(t *testing.T) {
+func TestHandler_GetPolicyUserMap_Unauthenticated(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 
@@ -476,7 +476,7 @@ func TestHandler_GetPolicyMap_Unauthenticated(t *testing.T) {
 	is.True(rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden)
 }
 
-func TestHandler_GetPolicyMap_EmptyCache(t *testing.T) {
+func TestHandler_GetPolicyUserMap_EmptyCache(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
@@ -488,20 +488,26 @@ func TestHandler_GetPolicyMap_EmptyCache(t *testing.T) {
 
 	is.Equal(rec.Code, http.StatusOK)
 
-	var response httpapi.PolicyMapAudit
+	var response httpapi.PolicyUserMapAudit
 	err := json.NewDecoder(rec.Body).Decode(&response)
 	is.NoErr(err)
-	is.Equal(len(response.Entries), 0)
+	// Empty cache: admin user should appear as a no-access user.
+	is.True(len(response.Users) >= 1)
 	is.True(response.RefreshDurationMs >= 0)
+	// All users should have empty ips (no cache entries).
+	for _, u := range response.Users {
+		is.Equal(len(u.Ips), 0)
+		is.True(u.LastSeenAt == nil)
+	}
 }
 
-func TestHandler_GetPolicyMap_WithEntry(t *testing.T) {
+func TestHandler_GetPolicyUserMap_WithEntry(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
 	// Register a device then force a cache refresh (listener goroutine is not running in tests).
-	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "policymap-device", nil)
+	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "policyusermap-device", nil)
 	is.NoErr(err)
 	_, _, err = testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "5.6.7.8", device.EventSourceManual)
 	is.NoErr(err)
@@ -514,14 +520,26 @@ func TestHandler_GetPolicyMap_WithEntry(t *testing.T) {
 
 	is.Equal(rec.Code, http.StatusOK)
 
-	var response httpapi.PolicyMapAudit
+	var response httpapi.PolicyUserMapAudit
 	err = json.NewDecoder(rec.Body).Decode(&response)
 	is.NoErr(err)
-	is.Equal(len(response.Entries), 1)
-	entry := response.Entries[0]
-	is.Equal(entry.Ip, "5.6.7.8")
-	is.Equal(len(entry.Contributors), 1)
-	is.True(entry.Contributors[0].DeviceName != "")
+	is.True(len(response.Users) >= 1)
+
+	// Find the admin user entry (owner of the device).
+	var adminEntry *httpapi.PolicyUserEntry
+	adminID := testutils.AdminPrincipal(t, testServer).UserID
+	for i := range response.Users {
+		if response.Users[i].UserId == int64(adminID) {
+			adminEntry = &response.Users[i]
+			break
+		}
+	}
+	is.True(adminEntry != nil)
+	is.Equal(len(adminEntry.Ips), 1)
+	is.Equal(adminEntry.Ips[0].Ip, "5.6.7.8")
+	is.Equal(len(adminEntry.Ips[0].Addresses), 1)
+	is.Equal(adminEntry.DeviceCount, 1)
+	is.Equal(adminEntry.IpCount, 1)
 }
 
 func TestHandler_SimulatePolicyAccess_Unauthenticated(t *testing.T) {

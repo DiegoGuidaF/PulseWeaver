@@ -160,6 +160,7 @@ func (r *Repository) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error)
 		FROM addresses a
 		JOIN devices d ON d.id = a.device_id
 		WHERE a.is_enabled = 1
+		AND d.deleted_at is NULL
 		ORDER BY a.updated_at DESC
 	`
 

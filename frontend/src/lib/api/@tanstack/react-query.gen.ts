@@ -39,7 +39,7 @@ import {
   getDevices,
   getDevicesByUser,
   getMaxActiveAddressesRule,
-  getPolicyMap,
+  getPolicyUserMap,
   getRegistration,
   getUserHostDetails,
   ignoreSuggestion,
@@ -159,9 +159,9 @@ import type {
   GetMaxActiveAddressesRuleData,
   GetMaxActiveAddressesRuleError,
   GetMaxActiveAddressesRuleResponse,
-  GetPolicyMapData,
-  GetPolicyMapError,
-  GetPolicyMapResponse,
+  GetPolicyUserMapData,
+  GetPolicyUserMapError,
+  GetPolicyUserMapResponse,
   GetRegistrationData,
   GetRegistrationError,
   GetRegistrationResponse,
@@ -1803,26 +1803,29 @@ export const getUserHostDetailsOptions = (
     queryKey: getUserHostDetailsQueryKey(options),
   });
 
-export const getPolicyMapQueryKey = (options?: Options<GetPolicyMapData>) =>
-  createQueryKey("getPolicyMap", options);
+export const getPolicyUserMapQueryKey = (
+  options?: Options<GetPolicyUserMapData>,
+) => createQueryKey("getPolicyUserMap", options);
 
 /**
- * Get the current policy cache snapshot
+ * Get the current policy cache snapshot (user-pivoted)
  *
  * Returns the in-memory policy cache enriched with device, user, and address
- * metadata. Shows the effective allowed host set for every registered IP,
- * pre-intersection contributor state, and refresh telemetry.
+ * metadata. Lists every non-deleted user with their per-IP policy state,
+ * effective and trimmed host sets, and refresh telemetry.
  *
  */
-export const getPolicyMapOptions = (options?: Options<GetPolicyMapData>) =>
+export const getPolicyUserMapOptions = (
+  options?: Options<GetPolicyUserMapData>,
+) =>
   queryOptions<
-    GetPolicyMapResponse,
-    GetPolicyMapError,
-    GetPolicyMapResponse,
-    ReturnType<typeof getPolicyMapQueryKey>
+    GetPolicyUserMapResponse,
+    GetPolicyUserMapError,
+    GetPolicyUserMapResponse,
+    ReturnType<typeof getPolicyUserMapQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getPolicyMap({
+      const { data } = await getPolicyUserMap({
         ...options,
         ...queryKey[0],
         signal,
@@ -1830,7 +1833,7 @@ export const getPolicyMapOptions = (options?: Options<GetPolicyMapData>) =>
       });
       return data;
     },
-    queryKey: getPolicyMapQueryKey(options),
+    queryKey: getPolicyUserMapQueryKey(options),
   });
 
 export const simulatePolicyAccessQueryKey = (

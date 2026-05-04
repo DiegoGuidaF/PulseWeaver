@@ -73,9 +73,9 @@ func (h *HTTPHandler) SimulatePolicyAccess(
 
 	result := h.service.Decide(ctx, ip, host)
 
-	var denyReason *httpapi.PolicySimulateResultDenyReason
+	var denyReason *httpapi.PolicySimulateDenyReason
 	if result.DenyReason != nil {
-		denyReason = new(httpapi.PolicySimulateResultDenyReason(*result.DenyReason))
+		denyReason = new(httpapi.PolicySimulateDenyReason(*result.DenyReason))
 	}
 
 	return httpapi.SimulatePolicyAccess200JSONResponse(httpapi.PolicySimulateResult{

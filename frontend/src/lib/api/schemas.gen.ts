@@ -1515,52 +1515,63 @@ export const DeviceAPIKeyResponseSchema = {
   },
 } as const;
 
-export const PolicyMapContributorSchema = {
+export const PolicyUserAddressSchema = {
   type: "object",
-  required: [
-    "device_id",
-    "device_name",
-    "address_id",
-    "address_updated_at",
-    "user_id",
-    "user_name",
-    "user_bypass",
-    "user_allowed_hosts",
-    "trimmed_hosts",
-  ],
+  required: ["address_id", "device_id", "device_name", "updated_at"],
   properties: {
+    address_id: {
+      $ref: "#/components/schemas/ID",
+    },
     device_id: {
       $ref: "#/components/schemas/ID",
     },
     device_name: {
       type: "string",
     },
-    address_id: {
-      $ref: "#/components/schemas/ID",
-    },
-    address_updated_at: {
+    updated_at: {
       type: "string",
       format: "date-time",
       "x-go-type": "UTCTime",
       description: "Last heartbeat or manual update time for this address.",
     },
-    user_id: {
-      $ref: "#/components/schemas/ID",
-    },
-    user_name: {
+  },
+} as const;
+
+export const PolicyUserIPSchema = {
+  type: "object",
+  required: [
+    "ip",
+    "shared_with_user_ids",
+    "bypass_at_ip",
+    "effective_hosts",
+    "trimmed_hosts",
+    "addresses",
+  ],
+  properties: {
+    ip: {
       type: "string",
-      description: "User display name.",
+      description: "The IP address.",
     },
-    user_bypass: {
+    shared_with_user_ids: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/ID",
+      },
+      description:
+        "Other users (excluding self) that also contribute to this IP. Empty means this user is the sole owner of the IP.\n",
+    },
+    bypass_at_ip: {
       type: "boolean",
+      description:
+        'True when the IP entry as a whole bypasses the host allowlist (every contributor at this IP has bypass set). When true, effective_hosts is empty and means "All".\n',
     },
-    user_allowed_hosts: {
+    effective_hosts: {
       type: "array",
       items: {
         type: "string",
       },
       description:
-        "The user's allowed host list before intersection was applied.",
+        "Hosts actually allowed for THIS user at THIS IP after deny-wins intersection. Equals user_allowed_hosts when the user is the sole contributor; intersected with other restricted contributors otherwise. Empty when bypass_at_ip is true.\n",
     },
     trimmed_hosts: {
       type: "array",
@@ -1568,54 +1579,100 @@ export const PolicyMapContributorSchema = {
         type: "string",
       },
       description:
-        "Hosts this contributor had pre-intersection that were removed by deny-wins intersection. Empty when no trimming occurred.\n",
+        "Hosts the user had pre-intersection that were removed by intersection at this IP. Empty when no trimming occurred. Always empty when the user has bypass_allowlist true (their grants are not subject to intersection).\n",
+    },
+    addresses: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/PolicyUserAddress",
+      },
+      description:
+        "The user's own addresses sitting at this IP. Multiple entries when the same user has several devices behind the same NAT.\n",
     },
   },
 } as const;
 
-export const PolicyMapEntrySchema = {
+export const PolicyUserEntrySchema = {
   type: "object",
   required: [
-    "ip",
+    "user_id",
+    "user_name",
     "bypass_allowlist",
-    "allowed_hosts",
+    "on_shared_ip",
     "intersection_applied",
-    "contributors",
+    "device_count",
+    "ip_count",
+    "allowed_host_count",
+    "user_allowed_hosts",
+    "ips",
   ],
   properties: {
-    ip: {
+    user_id: {
+      $ref: "#/components/schemas/ID",
+    },
+    user_name: {
       type: "string",
-      description: "The IP address this entry covers.",
+      description: "User display name.",
     },
     bypass_allowlist: {
       type: "boolean",
-      description: "True when all contributors bypass the host allowlist.",
+      description: "True when this user has the host allowlist bypass enabled.",
     },
-    allowed_hosts: {
+    on_shared_ip: {
+      type: "boolean",
+      description:
+        "True when at least one of this user's IPs is shared with another user.\n",
+    },
+    intersection_applied: {
+      type: "boolean",
+      description:
+        "True when at least one of this user's IPs had its effective host set reduced by deny-wins intersection with another user at that IP.\n",
+    },
+    device_count: {
+      type: "integer",
+      description:
+        "Distinct devices owned by this user that contribute to the cache. Zero for no-access users.\n",
+    },
+    ip_count: {
+      type: "integer",
+      description:
+        "Distinct IPs this user currently contributes to. Zero for no-access users.\n",
+    },
+    allowed_host_count: {
+      type: "integer",
+      description:
+        'Size of user_allowed_hosts (pre-intersection). Zero when bypass_allowlist is true; the UI should render "All".\n',
+    },
+    last_seen_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      nullable: true,
+      description:
+        "Most recent address.updated_at across this user's addresses. Null when the user has no enabled IPs.\n",
+    },
+    user_allowed_hosts: {
       type: "array",
       items: {
         type: "string",
       },
       description:
-        "Effective allowed FQDNs after deny-wins intersection. Empty when bypass_allowlist is true.",
+        "Pre-intersection allowed host list for this user. Empty when bypass_allowlist is true.\n",
     },
-    intersection_applied: {
-      type: "boolean",
-      description:
-        "True when the deny-wins intersection reduced the effective host set below at least one contributor's pre-intersection set.",
-    },
-    contributors: {
+    ips: {
       type: "array",
       items: {
-        $ref: "#/components/schemas/PolicyMapContributor",
+        $ref: "#/components/schemas/PolicyUserIP",
       },
+      description:
+        "IPs this user currently contributes to. Empty for no-access users (never null — empty array, for client ergonomics).\n",
     },
   },
 } as const;
 
-export const PolicyMapAuditSchema = {
+export const PolicyUserMapAuditSchema = {
   type: "object",
-  required: ["refreshed_at", "refresh_duration_ms", "entries"],
+  required: ["refreshed_at", "refresh_duration_ms", "users"],
   properties: {
     refreshed_at: {
       type: "string",
@@ -1627,10 +1684,10 @@ export const PolicyMapAuditSchema = {
       type: "integer",
       description: "How long the last refresh took in milliseconds.",
     },
-    entries: {
+    users: {
       type: "array",
       items: {
-        $ref: "#/components/schemas/PolicyMapEntry",
+        $ref: "#/components/schemas/PolicyUserEntry",
       },
     },
   },

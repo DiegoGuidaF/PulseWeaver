@@ -1,9 +1,6 @@
-PolicyMapAudit:
+PolicyUserMapAudit:
   type: object
-  required:
-    - refreshed_at
-    - refresh_duration_ms
-    - entries
+  required: [refreshed_at, refresh_duration_ms, total_ip_count, total_device_count, total_host_count, shared_ip_count, users]
   properties:
     refreshed_at:
       type: string
@@ -13,82 +10,193 @@ PolicyMapAudit:
     refresh_duration_ms:
       type: integer
       description: How long the last refresh took in milliseconds.
-    entries:
+    total_ip_count:
+      type: integer
+      description: Distinct IPs currently in the policy cache.
+    total_device_count:
+      type: integer
+      description: Total distinct device contributors across all IPs in the cache.
+    total_host_count:
+      type: integer
+      description: >
+        Distinct hosts across the union of all users' pre-intersection allowed
+        host lists. Denominator for the allowed_host_count / total_host_count ratio.
+    shared_ip_count:
+      type: integer
+      description: Distinct IPs shared between two or more users.
+    users:
       type: array
       items:
-        $ref: '#/PolicyMapEntry'
+        $ref: '#/PolicyUserEntry'
 
-PolicyMapEntry:
+PolicyUserEntry:
   type: object
   required:
-    - ip
-    - bypass_allowlist
-    - allowed_hosts
-    - intersection_applied
-    - contributors
-  properties:
-    ip:
-      type: string
-      description: The IP address this entry covers.
-    bypass_allowlist:
-      type: boolean
-      description: True when all contributors bypass the host allowlist.
-    allowed_hosts:
-      type: array
-      items:
-        type: string
-      description: Effective allowed FQDNs after deny-wins intersection. Empty when bypass_allowlist is true.
-    intersection_applied:
-      type: boolean
-      description: True when the deny-wins intersection reduced the effective host set below at least one contributor's pre-intersection set.
-    contributors:
-      type: array
-      items:
-        $ref: '#/PolicyMapContributor'
-
-PolicyMapContributor:
-  type: object
-  required:
-    - device_id
-    - device_name
-    - address_id
-    - address_updated_at
     - user_id
     - user_name
-    - user_bypass
+    - is_admin
+    - bypass_allowlist
+    - on_shared_ip
+    - intersection_applied
+    - device_count
+    - ip_count
+    - allowed_host_count
     - user_allowed_hosts
-    - trimmed_hosts
+    - ips
   properties:
-    device_id:
-      $ref: './common.yaml#/ID'
-    device_name:
-      type: string
-    address_id:
-      $ref: './common.yaml#/ID'
-    address_updated_at:
-      type: string
-      format: date-time
-      x-go-type: UTCTime
-      description: Last heartbeat or manual update time for this address.
     user_id:
       $ref: './common.yaml#/ID'
     user_name:
       type: string
       description: User display name.
-    user_bypass:
+    is_admin:
       type: boolean
+      description: True when the user has an admin or superadmin role.
+    bypass_allowlist:
+      type: boolean
+      description: True when this user has the host allowlist bypass enabled.
+    on_shared_ip:
+      type: boolean
+      description: >
+        True when at least one of this user's IPs is shared with another
+        user.
+    intersection_applied:
+      type: boolean
+      description: >
+        True when at least one of this user's IPs had its effective host set
+        reduced by deny-wins intersection with another user at that IP.
+    device_count:
+      type: integer
+      description: >
+        Distinct devices owned by this user that contribute to the cache.
+        Zero for no-access users.
+    ip_count:
+      type: integer
+      description: >
+        Distinct IPs this user currently contributes to. Zero for no-access
+        users.
+    allowed_host_count:
+      type: integer
+      description: >
+        Size of user_allowed_hosts (pre-intersection). Zero when
+        bypass_allowlist is true; the UI should render "All".
+    last_seen_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+      nullable: true
+      description: >
+        Most recent address.updated_at across this user's addresses. Null
+        when the user has no enabled IPs.
     user_allowed_hosts:
       type: array
       items:
         type: string
-      description: The user's allowed host list before intersection was applied.
+      description: >
+        Pre-intersection allowed host list for this user. Empty when
+        bypass_allowlist is true.
+    ips:
+      type: array
+      items:
+        $ref: '#/PolicyUserIP'
+      description: >
+        IPs this user currently contributes to. Empty for no-access users
+        (never null — empty array, for client ergonomics).
+
+PolicyIPDevice:
+  type: object
+  required: [device_id, device_name]
+  properties:
+    device_id:
+      $ref: './common.yaml#/ID'
+    device_name:
+      type: string
+
+PolicyUserIPSharedUser:
+  type: object
+  required: [user_id, username, user_name, devices]
+  properties:
+    user_id:
+      $ref: './common.yaml#/ID'
+    username:
+      type: string
+      description: Login username of the co-located user.
+    user_name:
+      type: string
+      description: Display name of the co-located user.
+    devices:
+      type: array
+      items:
+        $ref: '#/PolicyIPDevice'
+      description: Devices this user has at this IP.
+
+PolicyUserIP:
+  type: object
+  required:
+    - ip
+    - shared_with_users
+    - bypass_at_ip
+    - effective_hosts
+    - trimmed_hosts
+    - addresses
+  properties:
+    ip:
+      type: string
+      description: The IP address.
+    shared_with_users:
+      type: array
+      items:
+        $ref: '#/PolicyUserIPSharedUser'
+      description: >
+        Other users (excluding self) that also contribute to this IP. Empty
+        means this user is the sole owner of the IP.
+    bypass_at_ip:
+      type: boolean
+      description: >
+        True when the IP entry as a whole bypasses the host allowlist (every
+        contributor at this IP has bypass set). When true, effective_hosts
+        is empty and means "All".
+    effective_hosts:
+      type: array
+      items:
+        type: string
+      description: >
+        Hosts actually allowed for THIS user at THIS IP after deny-wins
+        intersection. Equals user_allowed_hosts when the user is the sole
+        contributor; intersected with other restricted contributors
+        otherwise. Empty when bypass_at_ip is true.
     trimmed_hosts:
       type: array
       items:
         type: string
       description: >
-        Hosts this contributor had pre-intersection that were removed by deny-wins intersection.
-        Empty when no trimming occurred.
+        Hosts the user had pre-intersection that were removed by intersection
+        at this IP. Empty when no trimming occurred. Always empty when the
+        user has bypass_allowlist true (their grants are not subject to
+        intersection).
+    addresses:
+      type: array
+      items:
+        $ref: '#/PolicyUserAddress'
+      description: >
+        The user's own addresses sitting at this IP. Multiple entries when
+        the same user has several devices behind the same NAT.
+
+PolicyUserAddress:
+  type: object
+  required: [address_id, device_id, device_name, updated_at]
+  properties:
+    address_id:
+      $ref: './common.yaml#/ID'
+    device_id:
+      $ref: './common.yaml#/ID'
+    device_name:
+      type: string
+    updated_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+      description: Last heartbeat or manual update time for this address.
 
 PolicySimulateDenyReason:
   type: string

@@ -557,30 +557,40 @@ export const zDeviceApiKeyResponse = z.object({
   api_key: z.string(),
 });
 
-export const zPolicyMapContributor = z.object({
+export const zPolicyUserAddress = z.object({
+  address_id: zId,
   device_id: zId,
   device_name: z.string(),
-  address_id: zId,
-  address_updated_at: z.iso.datetime({ offset: true, local: true }),
+  updated_at: z.iso.datetime({ offset: true, local: true }),
+});
+
+export const zPolicyUserIp = z.object({
+  ip: z.string(),
+  shared_with_user_ids: z.array(zId),
+  bypass_at_ip: z.boolean(),
+  effective_hosts: z.array(z.string()),
+  trimmed_hosts: z.array(z.string()),
+  addresses: z.array(zPolicyUserAddress),
+});
+
+export const zPolicyUserEntry = z.object({
   user_id: zId,
   user_name: z.string(),
-  user_bypass: z.boolean(),
-  user_allowed_hosts: z.array(z.string()),
-  trimmed_hosts: z.array(z.string()),
-});
-
-export const zPolicyMapEntry = z.object({
-  ip: z.string(),
   bypass_allowlist: z.boolean(),
-  allowed_hosts: z.array(z.string()),
+  on_shared_ip: z.boolean(),
   intersection_applied: z.boolean(),
-  contributors: z.array(zPolicyMapContributor),
+  device_count: z.int(),
+  ip_count: z.int(),
+  allowed_host_count: z.int(),
+  last_seen_at: z.iso.datetime({ offset: true, local: true }).nullish(),
+  user_allowed_hosts: z.array(z.string()),
+  ips: z.array(zPolicyUserIp),
 });
 
-export const zPolicyMapAudit = z.object({
+export const zPolicyUserMapAudit = z.object({
   refreshed_at: z.iso.datetime({ offset: true, local: true }),
   refresh_duration_ms: z.int(),
-  entries: z.array(zPolicyMapEntry),
+  users: z.array(zPolicyUserEntry),
 });
 
 /**
@@ -1105,9 +1115,9 @@ export const zGetUserHostDetailsPath = z.object({
 export const zGetUserHostDetailsResponse = zUserHostDetails;
 
 /**
- * Policy cache snapshot
+ * Policy cache snapshot (user-pivoted)
  */
-export const zGetPolicyMapResponse = zPolicyMapAudit;
+export const zGetPolicyUserMapResponse = zPolicyUserMapAudit;
 
 export const zSimulatePolicyAccessQuery = z.object({
   ip: z.string(),
