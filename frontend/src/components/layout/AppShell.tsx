@@ -16,6 +16,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { BrandName } from "@/components/BrandName";
 import {
     IconChartBar,
+    IconDatabaseSearch,
     IconHelp,
     IconHistory,
     IconList,
@@ -46,6 +47,7 @@ const navItems = [
 const adminNavItems = [
     { label: "Users", href: "/users", icon: IconUsers },
     { label: "Hosts", href: "/hosts", icon: IconShield },
+    { label: "Policy Cache", href: "/policy-audit", icon: IconDatabaseSearch },
 ];
 
 const bottomNavItems = [

@@ -17,6 +17,7 @@ import { AddressHistoryPage } from "./pages/AddressHistoryPage";
 import { DeviceProvisioningPage } from "./pages/DeviceProvisioningPage";
 import { HostsPage } from "./pages/HostsPage";
 import { UsersPage } from "./pages/UsersPage";
+import { PolicyAuditPage } from "./pages/PolicyAuditPage";
 import { theme } from "./lib/theme";
 import { DateTimePrefsProvider } from "./contexts/DateTimePrefsContext";
 
@@ -121,6 +122,16 @@ function App() {
                       <ProtectedRoute>
                         <AppShell>
                           <UsersPage />
+                        </AppShell>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/policy-audit"
+                    element={
+                      <ProtectedRoute>
+                        <AppShell>
+                          <PolicyAuditPage />
                         </AppShell>
                       </ProtectedRoute>
                     }

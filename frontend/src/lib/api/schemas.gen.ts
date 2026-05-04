@@ -1651,6 +1651,156 @@ export const DeviceAPIKeyResponseSchema = {
     }
 } as const;
 
+export const PolicyMapContributorSchema = {
+    type: 'object',
+    required: [
+        'device_id',
+        'device_name',
+        'address_id',
+        'address_updated_at',
+        'user_id',
+        'user_name',
+        'user_bypass',
+        'user_allowed_hosts',
+        'trimmed_hosts'
+    ],
+    properties: {
+        device_id: {
+            $ref: '#/components/schemas/ID'
+        },
+        device_name: {
+            type: 'string'
+        },
+        address_id: {
+            $ref: '#/components/schemas/ID'
+        },
+        address_updated_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime',
+            description: 'Last heartbeat or manual update time for this address.'
+        },
+        user_id: {
+            $ref: '#/components/schemas/ID'
+        },
+        user_name: {
+            type: 'string',
+            description: 'User display name.'
+        },
+        user_bypass: {
+            type: 'boolean'
+        },
+        user_allowed_hosts: {
+            type: 'array',
+            items: {
+                type: 'string'
+            },
+            description: 'The user\'s allowed host list before intersection was applied.'
+        },
+        trimmed_hosts: {
+            type: 'array',
+            items: {
+                type: 'string'
+            },
+            description: 'Hosts this contributor had pre-intersection that were removed by deny-wins intersection. Empty when no trimming occurred.\n'
+        }
+    }
+} as const;
+
+export const PolicyMapEntrySchema = {
+    type: 'object',
+    required: [
+        'ip',
+        'bypass_allowlist',
+        'allowed_hosts',
+        'intersection_applied',
+        'contributors'
+    ],
+    properties: {
+        ip: {
+            type: 'string',
+            description: 'The IP address this entry covers.'
+        },
+        bypass_allowlist: {
+            type: 'boolean',
+            description: 'True when all contributors bypass the host allowlist.'
+        },
+        allowed_hosts: {
+            type: 'array',
+            items: {
+                type: 'string'
+            },
+            description: 'Effective allowed FQDNs after deny-wins intersection. Empty when bypass_allowlist is true.'
+        },
+        intersection_applied: {
+            type: 'boolean',
+            description: 'True when the deny-wins intersection reduced the effective host set below at least one contributor\'s pre-intersection set.'
+        },
+        contributors: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/PolicyMapContributor'
+            }
+        }
+    }
+} as const;
+
+export const PolicyMapAuditSchema = {
+    type: 'object',
+    required: [
+        'refreshed_at',
+        'refresh_duration_ms',
+        'entries'
+    ],
+    properties: {
+        refreshed_at: {
+            type: 'string',
+            format: 'date-time',
+            'x-go-type': 'UTCTime',
+            description: 'When the cache was last fully refreshed.'
+        },
+        refresh_duration_ms: {
+            type: 'integer',
+            description: 'How long the last refresh took in milliseconds.'
+        },
+        entries: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/PolicyMapEntry'
+            }
+        }
+    }
+} as const;
+
+export const PolicySimulateResultSchema = {
+    type: 'object',
+    required: [
+        'ip',
+        'host',
+        'allowed'
+    ],
+    properties: {
+        ip: {
+            type: 'string'
+        },
+        host: {
+            type: 'string'
+        },
+        allowed: {
+            type: 'boolean'
+        },
+        deny_reason: {
+            type: 'string',
+            nullable: true,
+            enum: [
+                'ip_not_registered',
+                'host_not_allowed'
+            ],
+            description: 'Reason for denial; null when allowed is true.'
+        }
+    }
+} as const;
+
 export const UserWritableSchema = {
     type: 'object',
     required: [

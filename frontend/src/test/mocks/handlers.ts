@@ -404,7 +404,7 @@ export const defaultHandlers = [
     ruleHandlers.addressLease.get.success(),
     ruleHandlers.addressLease.put.success(),
     ruleHandlers.addressLease.delete.success(),
-    ruleHandlers.maxActiveAddresses.get.notFound(),
+    ruleHandlers.maxActiveAddresses.get.success(),
     ruleHandlers.maxActiveAddresses.put.success(),
     ruleHandlers.maxActiveAddresses.delete.success(),
     // Access log

@@ -1,0 +1,80 @@
+import { useState } from "react";
+import { Alert, Button, Group, Text, TextInput } from "@mantine/core";
+import { IconCircleCheck, IconCircleX } from "@tabler/icons-react";
+import { usePolicySimulate } from "../hooks/usePolicySimulate";
+import { DENY_REASON_LABELS } from "../constants";
+
+interface SimulateBarProps {
+  ip: string;
+  onIpChange: (ip: string) => void;
+}
+
+export function SimulateBar({ ip, onIpChange }: SimulateBarProps) {
+  const [host, setHost] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const { result, isFetching, refetch } = usePolicySimulate(ip, host);
+
+  function handleIpChange(value: string) {
+    onIpChange(value);
+    setDirty(true);
+  }
+
+  function handleHostChange(value: string) {
+    setHost(value);
+    setDirty(true);
+  }
+
+  function handleSubmit() {
+    if (ip.trim() && host.trim()) {
+      setDirty(false);
+      void refetch();
+    }
+  }
+
+  const canSubmit = ip.trim().length > 0 && host.trim().length > 0;
+  const showResult = !dirty && result != null;
+
+  return (
+    <div>
+      <Group align="flex-end" gap="sm">
+        <TextInput
+          label="IP address"
+          placeholder="192.168.1.10"
+          value={ip}
+          onChange={(e) => handleIpChange(e.currentTarget.value)}
+          style={{ flex: 1 }}
+          ff="monospace"
+        />
+        <TextInput
+          label="Host"
+          placeholder="api.internal"
+          value={host}
+          onChange={(e) => handleHostChange(e.currentTarget.value)}
+          style={{ flex: 1 }}
+          ff="monospace"
+        />
+        <Button onClick={handleSubmit} loading={isFetching} disabled={!canSubmit}>
+          Check access
+        </Button>
+      </Group>
+
+      {showResult && (
+        <Alert
+          mt="sm"
+          color={result.allowed ? "green" : "red"}
+          icon={result.allowed ? <IconCircleCheck size={18} /> : <IconCircleX size={18} />}
+          title={result.allowed ? "Allowed" : "Denied"}
+        >
+          <Text size="sm" ff="monospace">
+            {result.ip} → {result.host}
+          </Text>
+          {!result.allowed && result.deny_reason && (
+            <Text size="sm" mt={4}>
+              {DENY_REASON_LABELS[result.deny_reason] ?? result.deny_reason}
+            </Text>
+          )}
+        </Alert>
+      )}
+    </div>
+  );
+}

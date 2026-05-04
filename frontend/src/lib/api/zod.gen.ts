@@ -460,6 +460,39 @@ export const zDeviceApiKeyResponse = z.object({
     api_key: z.string()
 });
 
+export const zPolicyMapContributor = z.object({
+    device_id: zId,
+    device_name: z.string(),
+    address_id: zId,
+    address_updated_at: z.iso.datetime({ offset: true, local: true }),
+    user_id: zId,
+    user_name: z.string(),
+    user_bypass: z.boolean(),
+    user_allowed_hosts: z.array(z.string()),
+    trimmed_hosts: z.array(z.string())
+});
+
+export const zPolicyMapEntry = z.object({
+    ip: z.string(),
+    bypass_allowlist: z.boolean(),
+    allowed_hosts: z.array(z.string()),
+    intersection_applied: z.boolean(),
+    contributors: z.array(zPolicyMapContributor)
+});
+
+export const zPolicyMapAudit = z.object({
+    refreshed_at: z.iso.datetime({ offset: true, local: true }),
+    refresh_duration_ms: z.int(),
+    entries: z.array(zPolicyMapEntry)
+});
+
+export const zPolicySimulateResult = z.object({
+    ip: z.string(),
+    host: z.string(),
+    allowed: z.boolean(),
+    deny_reason: z.enum(['ip_not_registered', 'host_not_allowed']).optional()
+});
+
 export const zUserWritable = z.object({
     id: zId,
     username: zUsername,
@@ -957,3 +990,18 @@ export const zGetUserHostDetailsPath = z.object({
  * Full user host access details
  */
 export const zGetUserHostDetailsResponse = zUserHostDetails;
+
+/**
+ * Policy cache snapshot
+ */
+export const zGetPolicyMapResponse = zPolicyMapAudit;
+
+export const zSimulatePolicyAccessQuery = z.object({
+    ip: z.string(),
+    host: z.string()
+});
+
+/**
+ * Decision result
+ */
+export const zSimulatePolicyAccessResponse = zPolicySimulateResult;

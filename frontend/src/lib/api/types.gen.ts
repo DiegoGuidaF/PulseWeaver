@@ -639,6 +639,73 @@ export type DeviceApiKeyResponse = {
     api_key: string;
 };
 
+export type PolicyMapContributor = {
+    device_id: Id;
+    device_name: string;
+    address_id: Id;
+    /**
+     * Last heartbeat or manual update time for this address.
+     */
+    address_updated_at: string;
+    user_id: Id;
+    /**
+     * User display name.
+     */
+    user_name: string;
+    user_bypass: boolean;
+    /**
+     * The user's allowed host list before intersection was applied.
+     */
+    user_allowed_hosts: Array<string>;
+    /**
+     * Hosts this contributor had pre-intersection that were removed by deny-wins intersection. Empty when no trimming occurred.
+     *
+     */
+    trimmed_hosts: Array<string>;
+};
+
+export type PolicyMapEntry = {
+    /**
+     * The IP address this entry covers.
+     */
+    ip: string;
+    /**
+     * True when all contributors bypass the host allowlist.
+     */
+    bypass_allowlist: boolean;
+    /**
+     * Effective allowed FQDNs after deny-wins intersection. Empty when bypass_allowlist is true.
+     */
+    allowed_hosts: Array<string>;
+    /**
+     * True when the deny-wins intersection reduced the effective host set below at least one contributor's pre-intersection set.
+     */
+    intersection_applied: boolean;
+    contributors: Array<PolicyMapContributor>;
+};
+
+export type PolicyMapAudit = {
+    /**
+     * When the cache was last fully refreshed.
+     */
+    refreshed_at: string;
+    /**
+     * How long the last refresh took in milliseconds.
+     */
+    refresh_duration_ms: number;
+    entries: Array<PolicyMapEntry>;
+};
+
+export type PolicySimulateResult = {
+    ip: string;
+    host: string;
+    allowed: boolean;
+    /**
+     * Reason for denial; null when allowed is true.
+     */
+    deny_reason?: 'ip_not_registered' | 'host_not_allowed';
+};
+
 export type UserWritable = {
     id: Id;
     username: Username;
@@ -2716,3 +2783,82 @@ export type GetUserHostDetailsResponses = {
 };
 
 export type GetUserHostDetailsResponse = GetUserHostDetailsResponses[keyof GetUserHostDetailsResponses];
+
+export type GetPolicyMapData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/admin/policy-map';
+};
+
+export type GetPolicyMapErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type GetPolicyMapError = GetPolicyMapErrors[keyof GetPolicyMapErrors];
+
+export type GetPolicyMapResponses = {
+    /**
+     * Policy cache snapshot
+     */
+    200: PolicyMapAudit;
+};
+
+export type GetPolicyMapResponse = GetPolicyMapResponses[keyof GetPolicyMapResponses];
+
+export type SimulatePolicyAccessData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Client IP to simulate.
+         */
+        ip: string;
+        /**
+         * Target host FQDN to simulate.
+         */
+        host: string;
+    };
+    url: '/admin/policy-simulate';
+};
+
+export type SimulatePolicyAccessErrors = {
+    /**
+     * Bad Request — missing or invalid query parameters
+     */
+    400: ErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorResponse;
+};
+
+export type SimulatePolicyAccessError = SimulatePolicyAccessErrors[keyof SimulatePolicyAccessErrors];
+
+export type SimulatePolicyAccessResponses = {
+    /**
+     * Decision result
+     */
+    200: PolicySimulateResult;
+};
+
+export type SimulatePolicyAccessResponse = SimulatePolicyAccessResponses[keyof SimulatePolicyAccessResponses];
