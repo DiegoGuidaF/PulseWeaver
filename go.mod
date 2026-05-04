@@ -3,8 +3,8 @@ module github.com/DiegoGuidaF/PulseWeaver
 go 1.26
 
 require (
-	github.com/caarlos0/env/v11 v11.4.0
-	github.com/getkin/kin-openapi v0.136.0
+	github.com/caarlos0/env/v11 v11.4.1
+	github.com/getkin/kin-openapi v0.137.0
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/go-chi/httprate v0.15.0
 	github.com/golang-migrate/migrate/v4 v4.19.1
@@ -15,7 +15,7 @@ require (
 	github.com/oapi-codegen/nethttp-middleware v1.1.2
 	github.com/oapi-codegen/runtime v1.4.0
 	github.com/oschwald/geoip2-golang v1.13.0
-	github.com/samber/slog-chi v1.19.0
+	github.com/samber/slog-chi v1.19.1
 	golang.org/x/crypto v0.50.0
 	golang.org/x/sync v0.20.0
 	modernc.org/sqlite v1.50.0
