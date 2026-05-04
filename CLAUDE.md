@@ -40,7 +40,7 @@ After adding a migration: review `internal/database/migration_test_seed.sql` and
 
 **Codebase map:** Before exploring or implementing any backend feature, read `CODEBASE-Backend.md`. It tells you which package owns what, where the critical files are, and what the construction order is — read it before opening files or running searches so you go straight to the right place. For frontend work read `CODEBASE-Frontend.md` first for the same reason.
 
-**Pattern library:** Before implementing any feature, read `../docs/patterns/backend/_index.md` (backend) and `../docs/patterns/frontend/_index.md` (frontend) and load every pattern that applies. The index has "use when" / "avoid when" columns to help you pick the right ones. After implementing, follow the [pattern maintenance protocol](../project/workflow/WORKFLOW.md#pattern-maintenance).
+**Pattern library:** Before implementing any feature, read the relevant index — `../docs/patterns/backend/_index.md` (backend) or `../docs/patterns/frontend/_index.md` (frontend) — then load each individual pattern file whose "Use when" column matches your task. For multi-file backend tasks (add endpoint, wire events, cross-domain queries), also read `../docs/how-to/backend/_index.md`. After implementing, follow the [pattern maintenance protocol](../project/workflow/WORKFLOW.md#pattern-maintenance).
 
 Other reference docs:
 - **UI style:** `../project/workflow/ui-style-guide.md` — two-color system, component color assignments
