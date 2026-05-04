@@ -107,6 +107,13 @@ func newHostRestrictedSvc(t *testing.T, userID auth.UserID, ip string, allowedHo
 	return svc
 }
 
+// errHostProvider returns a fixed error from GetAllUserHostAccess.
+type errHostProvider struct{ err error }
+
+func (e *errHostProvider) GetAllUserHostAccess(_ context.Context) ([]UserHostAccess, error) {
+	return nil, e.err
+}
+
 func newRestrictedService(entries []device.IPEntry, hostAccess []UserHostAccess) *Service {
 	provider := &mockProvider{entries: entries}
 	hostProv := &restrictedHostProvider{users: hostAccess}
