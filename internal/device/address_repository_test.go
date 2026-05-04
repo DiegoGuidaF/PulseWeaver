@@ -4,368 +4,14 @@ package device_test
 
 import (
 	"context"
-	"errors"
 	"net/netip"
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 	"github.com/matryer/is"
 )
-
-type testFixture struct {
-	repo    *device.Repository
-	ownerID auth.UserID
-}
-
-func setupTestDB(t *testing.T) testFixture {
-	t.Helper()
-
-	db, cleanup := testdb.Setup(t)
-	t.Cleanup(cleanup)
-
-	sqlxDB := db.DB()
-	var ownerID auth.UserID
-	if err := sqlxDB.QueryRowxContext(t.Context(),
-		`INSERT INTO users (username, display_name, password_hash, role) VALUES ('testadmin', 'Test Admin', 'x', 'admin') RETURNING id`,
-	).Scan(&ownerID); err != nil {
-		t.Fatalf("setupTestDB: insert test user: %v", err)
-	}
-
-	return testFixture{
-		repo:    device.NewRepository(sqlxDB),
-		ownerID: ownerID,
-	}
-}
-
-func createTestDevice(t *testing.T, fix testFixture, ctx context.Context, name string) *device.Device {
-	t.Helper()
-
-	dev, err := fix.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: name, OwnerID: fix.ownerID})
-	if err != nil {
-		t.Fatalf("create device %q: %v", name, err)
-	}
-	return dev
-}
-
-func createTestAddress(t *testing.T, repo *device.Repository, ctx context.Context, deviceID device.DeviceID, ip string) *device.Address {
-	t.Helper()
-
-	params, err := device.NewCreateAddressParams(deviceID, ip, netip.Addr{})
-	if err != nil {
-		t.Fatalf("create address params %q: %v", ip, err)
-	}
-	created, err := repo.CreateAddress(ctx, params, device.EventSourceManual)
-	if err != nil {
-		t.Fatalf("persist address %q: %v", ip, err)
-	}
-	return created
-}
-
-func TestRepository_CreateDevice(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	dev, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "test-device", OwnerID: repos.ownerID})
-	is.NoErr(err)
-	is.Equal(dev.Name, "test-device")
-	is.True(!dev.CreatedAt.IsZero())
-}
-
-func TestRepository_CreateDevice_DuplicateName(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	params := device.CreateDeviceParams{Name: "duplicate-name", OwnerID: repos.ownerID}
-	_, err := repos.repo.CreateDevice(ctx, params)
-	is.NoErr(err)
-
-	// Try to create device with same name (active unique index)
-	_, err = repos.repo.CreateDevice(ctx, params)
-	is.True(err != nil)
-	is.True(errors.Is(err, device.ErrDuplicateDeviceName))
-}
-
-func TestRepository_CreateDevice_SameNameAfterSoftDelete(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	dev := createTestDevice(t, repos, ctx, "reused-name")
-	err := repos.repo.DeleteDevice(ctx, dev.ID)
-	is.NoErr(err)
-
-	// Same name is allowed again
-	second, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "reused-name", OwnerID: repos.ownerID})
-	is.NoErr(err)
-	is.True(second.ID != dev.ID)
-	is.Equal(second.Name, "reused-name")
-}
-
-func TestRepository_DeleteDevice_Success(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	dev := createTestDevice(t, repos, ctx, "to-delete")
-	err := repos.repo.DeleteDevice(ctx, dev.ID)
-	is.NoErr(err)
-
-	// Deleted device is hidden from GetDevice
-	_, err = repos.repo.GetDevice(ctx, dev.ID)
-	is.True(err != nil)
-	is.Equal(err, device.ErrDeviceNotFound)
-}
-
-func TestRepository_DeleteDevice_NotFound(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	err := repos.repo.DeleteDevice(ctx, device.DeviceID(99999))
-	is.True(err != nil)
-	is.Equal(err, device.ErrDeviceNotFound)
-}
-
-func TestRepository_DeleteDevice_AlreadyDeleted(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	dev := createTestDevice(t, repos, ctx, "deleted-once")
-	err := repos.repo.DeleteDevice(ctx, dev.ID)
-	is.NoErr(err)
-
-	// Second delete returns not found (idempotent 404)
-	err = repos.repo.DeleteDevice(ctx, dev.ID)
-	is.True(err != nil)
-	is.Equal(err, device.ErrDeviceNotFound)
-}
-
-func TestRepository_GetDevice_HidesDeleted(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	dev := createTestDevice(t, repos, ctx, "hidden-after-delete")
-	_, err := repos.repo.GetDevice(ctx, dev.ID)
-	is.NoErr(err)
-
-	err = repos.repo.DeleteDevice(ctx, dev.ID)
-	is.NoErr(err)
-
-	_, err = repos.repo.GetDevice(ctx, dev.ID)
-	is.True(err != nil)
-	is.Equal(err, device.ErrDeviceNotFound)
-}
-
-func TestRepository_GetDeviceByAPIKeyHash_HidesDeleted(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	dev, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "apikey-device", OwnerID: repos.ownerID})
-	is.NoErr(err)
-
-	_, keyHash, keyPrefix, err := device.GenerateAPIKey()
-	is.NoErr(err)
-	err = repos.repo.UpsertAPIKey(ctx, dev.ID, keyHash, keyPrefix)
-	is.NoErr(err)
-
-	_, err = repos.repo.GetDeviceByAPIKeyHash(ctx, keyHash)
-	is.NoErr(err)
-
-	err = repos.repo.DeleteDevice(ctx, dev.ID)
-	is.NoErr(err)
-
-	_, err = repos.repo.GetDeviceByAPIKeyHash(ctx, keyHash)
-	is.True(err != nil)
-	is.Equal(err, device.ErrDeviceNotFound)
-}
-
-func TestRepository_GetDevice(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	created, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "test-device", OwnerID: repos.ownerID})
-	is.NoErr(err)
-
-	got, err := repos.repo.GetDevice(ctx, created.ID)
-	is.NoErr(err)
-	is.Equal(got.ID, created.ID)
-	is.Equal(got.Name, "test-device")
-	is.True(!got.CreatedAt.IsZero())
-	is.True(got.KeyPrefix == nil) // new devices have no API key
-}
-
-func TestRepository_GetDevice_NotFound(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	_, err := repos.repo.GetDevice(ctx, device.DeviceID(99999))
-	is.True(err != nil)
-	is.Equal(err, device.ErrDeviceNotFound)
-}
-
-func TestRepository_GetDeviceByAPIKeyHash_Success(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	dev, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "lookup-device", OwnerID: repos.ownerID})
-	is.NoErr(err)
-
-	_, keyHash, keyPrefix, err := device.GenerateAPIKey()
-	is.NoErr(err)
-	err = repos.repo.UpsertAPIKey(ctx, dev.ID, keyHash, keyPrefix)
-	is.NoErr(err)
-
-	found, err := repos.repo.GetDeviceByAPIKeyHash(ctx, keyHash)
-	is.NoErr(err)
-	is.True(found != nil)
-	is.Equal(found.ID, dev.ID)
-	is.Equal(found.Name, "lookup-device")
-}
-
-func TestRepository_GetDeviceByAPIKeyHash_NotFound(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	_, err := repos.repo.GetDeviceByAPIKeyHash(ctx, "nonexistent-hash")
-	is.True(err != nil)
-	is.Equal(err, device.ErrDeviceNotFound)
-}
-
-func TestRepository_CreateDevice_NoAPIKeyRow(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	dev, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "no-api-key", OwnerID: repos.ownerID})
-	is.NoErr(err)
-
-	// Verify CreateDevice does NOT create a key: KeyPrefix must be nil
-	fetched, err := repos.repo.GetDevice(ctx, dev.ID)
-	is.NoErr(err)
-	is.True(fetched.KeyPrefix == nil)
-}
-
-func TestRepository_UpsertAPIKey_Success(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	dev, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "regen-device", OwnerID: repos.ownerID})
-	is.NoErr(err)
-
-	// First call: insert (device has no key yet)
-	_, oldHash, oldPrefix, err := device.GenerateAPIKey()
-	is.NoErr(err)
-	err = repos.repo.UpsertAPIKey(ctx, dev.ID, oldHash, oldPrefix)
-	is.NoErr(err)
-
-	found, err := repos.repo.GetDeviceByAPIKeyHash(ctx, oldHash)
-	is.NoErr(err)
-	is.Equal(found.ID, dev.ID)
-	is.True(found.KeyPrefix != nil)
-	is.Equal(*found.KeyPrefix, oldPrefix)
-
-	// Second call: update (rotate to new key)
-	_, newHash, newPrefix, err := device.GenerateAPIKey()
-	is.NoErr(err)
-	err = repos.repo.UpsertAPIKey(ctx, dev.ID, newHash, newPrefix)
-	is.NoErr(err)
-
-	// Old hash should no longer authenticate
-	_, err = repos.repo.GetDeviceByAPIKeyHash(ctx, oldHash)
-	is.True(err != nil)
-	is.Equal(err, device.ErrDeviceNotFound)
-
-	// New hash should authenticate
-	updated, err := repos.repo.GetDeviceByAPIKeyHash(ctx, newHash)
-	is.NoErr(err)
-	is.Equal(updated.ID, dev.ID)
-	is.True(updated.KeyPrefix != nil)
-	is.Equal(*updated.KeyPrefix, newPrefix)
-}
-
-func TestRepository_UpsertAPIKey_NonExistentDevice(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	_, keyHash, keyPrefix, err := device.GenerateAPIKey()
-	is.NoErr(err)
-
-	err = repos.repo.UpsertAPIKey(ctx, device.DeviceID(99999), keyHash, keyPrefix)
-	is.True(err != nil)
-	is.Equal(err, device.ErrDeviceNotFound)
-}
-
-func TestRepository_DeleteAPIKey_Success(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	dev, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "delete-key-device", OwnerID: repos.ownerID})
-	is.NoErr(err)
-
-	_, keyHash, keyPrefix, err := device.GenerateAPIKey()
-	is.NoErr(err)
-	err = repos.repo.UpsertAPIKey(ctx, dev.ID, keyHash, keyPrefix)
-	is.NoErr(err)
-
-	err = repos.repo.DeleteAPIKey(ctx, dev.ID)
-	is.NoErr(err)
-
-	// Key should no longer authenticate
-	_, err = repos.repo.GetDeviceByAPIKeyHash(ctx, keyHash)
-	is.True(err != nil)
-	is.Equal(err, device.ErrDeviceNotFound)
-
-	// Device's KeyPrefix must be nil after deletion
-	fetched, err := repos.repo.GetDevice(ctx, dev.ID)
-	is.NoErr(err)
-	is.True(fetched.KeyPrefix == nil)
-}
-
-func TestRepository_DeleteAPIKey_NotFound(t *testing.T) {
-	is := is.New(t)
-
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	dev, err := repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "no-key-device", OwnerID: repos.ownerID})
-	is.NoErr(err)
-
-	err = repos.repo.DeleteAPIKey(ctx, dev.ID)
-	is.True(err != nil)
-	is.Equal(err, device.ErrNoAPIKey)
-}
 
 func TestRepository_CreateAddress(t *testing.T) {
 	is := is.New(t)
@@ -391,7 +37,6 @@ func TestRepository_CreateAddress_SetsInitialState(t *testing.T) {
 	dev := createTestDevice(t, repos, ctx, "test-device")
 	addr := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.1")
 
-	// Address should be enabled with the correct source from creation, not from a subsequent update
 	is.True(addr.IsEnabled)
 	is.Equal(string(addr.Source), string(device.EventSourceManual))
 
@@ -595,12 +240,11 @@ func TestRepository_GetEnabledIPEntries_ReturnsAllRows_SharedIPNotDeduplicated(t
 	dev3 := createTestDevice(t, repos, ctx, "device-3")
 
 	_ = createTestAddress(t, repos.repo, ctx, dev1.ID, "192.168.1.100")
-	_ = createTestAddress(t, repos.repo, ctx, dev2.ID, "192.168.1.100") // same IP as dev1
+	_ = createTestAddress(t, repos.repo, ctx, dev2.ID, "192.168.1.100")
 	_ = createTestAddress(t, repos.repo, ctx, dev3.ID, "192.168.1.200")
 
 	ips, err := repos.repo.GetEnabledIPEntries(ctx)
 	is.NoErr(err)
-	// Both dev1 and dev2 rows for 192.168.1.100 are returned; policy layer merges them.
 	is.Equal(len(ips), 3)
 
 	ipCount := make(map[string]int)
@@ -617,15 +261,11 @@ func TestRepository_GetAddressHistory_ReturnsBucketsAndEvents(t *testing.T) {
 	ctx := context.Background()
 
 	dev := createTestDevice(t, repos, ctx, "history-device")
-
-	// Create address → records an enable event
 	addr := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.1")
 
-	// Disable → records a disable event
 	_, err := repos.repo.DisableAddress(ctx, addr.ID)
 	is.NoErr(err)
 
-	// Re-enable → records an enable event
 	_, err = repos.repo.EnableAddress(ctx, addr.ID, device.EventSourceHeartbeat)
 	is.NoErr(err)
 
@@ -641,20 +281,15 @@ func TestRepository_GetAddressHistory_ReturnsBucketsAndEvents(t *testing.T) {
 	})
 	is.NoErr(err)
 
-	// Should have 1 bucket (all events in the same hour)
 	is.True(len(history.Buckets) >= 1)
-
-	// Should have 3 events: create(enable), disable, enable
 	is.Equal(len(history.Events), 3)
 	is.Equal(history.TotalEvents, 3)
 
-	// Events are ordered DESC (most recent first)
-	is.True(history.Events[0].IsEnabled)                                            // re-enable
-	is.Equal(string(history.Events[0].Source), string(device.EventSourceHeartbeat)) // heartbeat source
-	is.True(!history.Events[1].IsEnabled)                                           // disable
-	is.True(history.Events[2].IsEnabled)                                            // initial create
+	is.True(history.Events[0].IsEnabled)
+	is.Equal(string(history.Events[0].Source), string(device.EventSourceHeartbeat))
+	is.True(!history.Events[1].IsEnabled)
+	is.True(history.Events[2].IsEnabled)
 
-	// Events include device info
 	is.Equal(history.Events[0].DeviceID, dev.ID)
 	is.Equal(history.Events[0].DeviceName, "history-device")
 }
@@ -667,7 +302,6 @@ func TestRepository_GetAddressHistory_EmptyRange(t *testing.T) {
 	dev := createTestDevice(t, repos, ctx, "empty-history")
 	createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.1")
 
-	// Query a time range far in the past where no events exist
 	from := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
 
@@ -703,8 +337,6 @@ func TestRepository_GetAddressHistory_DayGranularity(t *testing.T) {
 		Limit:       50,
 	})
 	is.NoErr(err)
-
-	// Should have exactly 1 bucket (all events on the same day)
 	is.Equal(len(history.Buckets), 1)
 	is.True(history.Buckets[0].EventCount >= 1)
 }
@@ -722,7 +354,6 @@ func TestRepository_GetAddressHistory_AllDevices(t *testing.T) {
 	from := time.Now().UTC().Add(-1 * time.Hour)
 	to := time.Now().UTC().Add(1 * time.Hour)
 
-	// No device filter — should return events from both devices
 	history, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
 		From:        from,
 		To:          to,
@@ -730,7 +361,6 @@ func TestRepository_GetAddressHistory_AllDevices(t *testing.T) {
 		Limit:       50,
 	})
 	is.NoErr(err)
-
 	is.Equal(len(history.Events), 2)
 	is.Equal(history.TotalEvents, 2)
 }
@@ -743,7 +373,6 @@ func TestRepository_GetAddressHistory_FilterBySource(t *testing.T) {
 	dev := createTestDevice(t, repos, ctx, "source-filter")
 	addr := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.1")
 
-	// Disable and re-enable to create heartbeat event
 	_, err := repos.repo.DisableAddress(ctx, addr.ID)
 	is.NoErr(err)
 	_, err = repos.repo.EnableAddress(ctx, addr.ID, device.EventSourceHeartbeat)
@@ -760,7 +389,6 @@ func TestRepository_GetAddressHistory_FilterBySource(t *testing.T) {
 	})
 	is.NoErr(err)
 
-	// Only heartbeat events (the re-enable + initial create is "manual", so only 1 heartbeat)
 	for _, e := range history.Events {
 		is.Equal(string(e.Source), string(device.EventSourceHeartbeat))
 	}
@@ -774,7 +402,6 @@ func TestRepository_GetAddressHistory_EventsPagination(t *testing.T) {
 	dev := createTestDevice(t, repos, ctx, "pagination")
 	addr := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.1")
 
-	// Create several events: enable, disable x3
 	for i := 0; i < 3; i++ {
 		_, err := repos.repo.DisableAddress(ctx, addr.ID)
 		is.NoErr(err)
@@ -785,7 +412,6 @@ func TestRepository_GetAddressHistory_EventsPagination(t *testing.T) {
 	from := time.Now().UTC().Add(-1 * time.Hour)
 	to := time.Now().UTC().Add(1 * time.Hour)
 
-	// Page 1: limit 3
 	page1, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
 		From:        from,
 		To:          to,
@@ -794,9 +420,8 @@ func TestRepository_GetAddressHistory_EventsPagination(t *testing.T) {
 	})
 	is.NoErr(err)
 	is.Equal(len(page1.Events), 3)
-	is.True(page1.TotalEvents > 3) // more events exist
+	is.True(page1.TotalEvents > 3)
 
-	// Page 2: use cursor from last event of page 1
 	cursor := page1.Events[len(page1.Events)-1].ID
 	page2, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
 		From:        from,
@@ -808,7 +433,6 @@ func TestRepository_GetAddressHistory_EventsPagination(t *testing.T) {
 	is.NoErr(err)
 	is.True(len(page2.Events) > 0)
 
-	// Page 2 events should have lower IDs than cursor
 	for _, e := range page2.Events {
 		is.True(e.ID < cursor)
 	}
@@ -822,24 +446,20 @@ func TestRepository_GetAddressHistory_StateChangesOnly(t *testing.T) {
 	dev := createTestDevice(t, repos, ctx, "state-changes")
 	addr := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.1")
 
-	// Simulate heartbeat refreshes (enable on already-enabled address)
 	_, err := repos.repo.RefreshAddress(ctx, addr.ID, device.EventSourceHeartbeat)
 	is.NoErr(err)
 	_, err = repos.repo.RefreshAddress(ctx, addr.ID, device.EventSourceHeartbeat)
 	is.NoErr(err)
 
-	// Disable → actual state change
 	_, err = repos.repo.DisableAddress(ctx, addr.ID)
 	is.NoErr(err)
 
-	// Re-enable → actual state change
 	_, err = repos.repo.EnableAddress(ctx, addr.ID, device.EventSourceHeartbeat)
 	is.NoErr(err)
 
 	from := time.Now().UTC().Add(-1 * time.Hour)
 	to := time.Now().UTC().Add(1 * time.Hour)
 
-	// IncludeAll = true → should return all 5 events
 	allHistory, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
 		DeviceIDs:   []device.DeviceID{dev.ID},
 		From:        from,
@@ -849,9 +469,8 @@ func TestRepository_GetAddressHistory_StateChangesOnly(t *testing.T) {
 		IncludeAll:  true,
 	})
 	is.NoErr(err)
-	is.Equal(allHistory.TotalEvents, 5) // create + 2 refreshes + disable + enable
+	is.Equal(allHistory.TotalEvents, 5)
 
-	// IncludeAll = false (default) → should return only state changes
 	changesHistory, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
 		DeviceIDs:   []device.DeviceID{dev.ID},
 		From:        from,
@@ -861,14 +480,12 @@ func TestRepository_GetAddressHistory_StateChangesOnly(t *testing.T) {
 		IncludeAll:  false,
 	})
 	is.NoErr(err)
-	is.Equal(changesHistory.TotalEvents, 3) // create, disable, enable
+	is.Equal(changesHistory.TotalEvents, 3)
 
-	// Verify the state changes are correct (most recent first)
-	is.True(changesHistory.Events[0].IsEnabled)  // re-enable
-	is.True(!changesHistory.Events[1].IsEnabled) // disable
-	is.True(changesHistory.Events[2].IsEnabled)  // initial create
+	is.True(changesHistory.Events[0].IsEnabled)
+	is.True(!changesHistory.Events[1].IsEnabled)
+	is.True(changesHistory.Events[2].IsEnabled)
 
-	// Buckets should still include all events regardless of IncludeAll
 	is.Equal(allHistory.Buckets[0].EventCount, changesHistory.Buckets[0].EventCount)
 }
 
@@ -879,7 +496,6 @@ func TestRepository_GetEnabledAddressesForDevice_ReturnsOnlyEnabled(t *testing.T
 	ctx := context.Background()
 	dev := createTestDevice(t, repos, ctx, "enabled-filter-device")
 
-	// Create two addresses, disable one
 	addr1 := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.1")
 	addr2 := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.2")
 
@@ -902,14 +518,12 @@ func TestRepository_GetEnabledAddressesForDevice_OrderedByUpdatedAtDesc(t *testi
 	addr1 := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.1")
 	addr2 := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.2")
 
-	// Refresh addr1 so it has a more recent updated_at
 	_, err := repos.repo.RefreshAddress(ctx, addr1.ID, device.EventSourceManual)
 	is.NoErr(err)
 
 	enabled, err := repos.repo.GetEnabledAddressesForDevice(ctx, dev.ID)
 	is.NoErr(err)
 	is.Equal(len(enabled), 2)
-	// addr1 was refreshed more recently, should be first
 	is.Equal(enabled[0].ID, addr1.ID)
 	is.Equal(enabled[1].ID, addr2.ID)
 }
@@ -924,103 +538,4 @@ func TestRepository_GetEnabledAddressesForDevice_EmptyWhenNone(t *testing.T) {
 	enabled, err := repos.repo.GetEnabledAddressesForDevice(ctx, dev.ID)
 	is.NoErr(err)
 	is.Equal(len(enabled), 0)
-}
-
-func TestRepository_CreateDevice_DefaultsForNewFields(t *testing.T) {
-	is := is.New(t)
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	dev := createTestDevice(t, repos, ctx, "defaults-device")
-
-	is.Equal(dev.DeviceType, device.DeviceTypeStatic)
-	is.True(dev.Description == nil)
-	is.True(dev.Icon == nil)
-	is.True(!dev.UpdatedAt.IsZero())
-}
-
-func TestRepository_UpdateDevice_Rename(t *testing.T) {
-	is := is.New(t)
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	dev := createTestDevice(t, repos, ctx, "original")
-	originalUpdatedAt := dev.UpdatedAt
-
-	// Give time so updated_at can advance
-	time.Sleep(2 * time.Millisecond)
-
-	dev.Name = "renamed"
-	updated, err := repos.repo.UpdateDevice(ctx, dev)
-
-	is.NoErr(err)
-	is.Equal(updated.Name, "renamed")
-	// Note: SQLite CURRENT_TIMESTAMP has second-level granularity; a sub-second
-	// sleep cannot verify advancement. The assertion checks only that updated_at
-	// was not moved backward.
-	is.True(!updated.UpdatedAt.Before(originalUpdatedAt))
-}
-
-func TestRepository_UpdateDevice_SetAllFields(t *testing.T) {
-	is := is.New(t)
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	dev := createTestDevice(t, repos, ctx, "full-update")
-	dev.DeviceType = device.DeviceTypeMobile
-	dev.Description = new("a note")
-	dev.Icon = new("IconRouter")
-
-	updated, err := repos.repo.UpdateDevice(ctx, dev)
-
-	is.NoErr(err)
-	is.Equal(updated.DeviceType, device.DeviceTypeMobile)
-	is.True(updated.Description != nil)
-	is.Equal(*updated.Description, "a note")
-	is.True(updated.Icon != nil)
-	is.Equal(*updated.Icon, "IconRouter")
-}
-
-func TestRepository_UpdateDevice_ClearDescription(t *testing.T) {
-	is := is.New(t)
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	dev := createTestDevice(t, repos, ctx, "clear-desc")
-	dev.Description = new("initial")
-	dev, err := repos.repo.UpdateDevice(ctx, dev)
-	is.NoErr(err)
-	is.True(dev.Description != nil)
-
-	// Now clear it
-	dev.Description = nil
-	updated, err := repos.repo.UpdateDevice(ctx, dev)
-
-	is.NoErr(err)
-	is.True(updated.Description == nil)
-}
-
-func TestRepository_UpdateDevice_NotFound(t *testing.T) {
-	is := is.New(t)
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	ghost := &device.Device{ID: device.DeviceID(9999), Name: "ghost", DeviceType: device.DeviceTypeStatic}
-	_, err := repos.repo.UpdateDevice(ctx, ghost)
-
-	is.True(errors.Is(err, device.ErrDeviceNotFound))
-}
-
-func TestRepository_UpdateDevice_DuplicateName(t *testing.T) {
-	is := is.New(t)
-	repos := setupTestDB(t)
-	ctx := context.Background()
-
-	createTestDevice(t, repos, ctx, "taken")
-	dev := createTestDevice(t, repos, ctx, "to-rename")
-	dev.Name = "taken"
-
-	_, err := repos.repo.UpdateDevice(ctx, dev)
-
-	is.True(errors.Is(err, device.ErrDuplicateDeviceName))
 }
