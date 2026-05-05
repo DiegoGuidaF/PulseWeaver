@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Alert, Button, Group, Text, TextInput } from "@mantine/core";
-import { IconCircleCheck, IconCircleX } from "@tabler/icons-react";
+import { IconCircleCheck, IconCircleX, IconPlayerPlay } from "@tabler/icons-react";
 import { usePolicySimulate } from "../hooks/usePolicySimulate";
 import { DENY_REASON_LABELS } from "../constants";
 
@@ -38,23 +38,28 @@ export function SimulateBar({ ip, onIpChange }: SimulateBarProps) {
     <div>
       <Group align="flex-end" gap="sm">
         <TextInput
-          label="IP address"
-          placeholder="192.168.1.10"
+          label="Source IP"
+          placeholder="e.g. 192.168.1.148"
           value={ip}
           onChange={(e) => handleIpChange(e.currentTarget.value)}
           style={{ flex: 1 }}
           ff="monospace"
         />
         <TextInput
-          label="Host"
-          placeholder="api.internal"
+          label="Host (FQDN)"
+          placeholder="e.g. immich.myhome.org"
           value={host}
           onChange={(e) => handleHostChange(e.currentTarget.value)}
           style={{ flex: 1 }}
           ff="monospace"
         />
-        <Button onClick={handleSubmit} loading={isFetching} disabled={!canSubmit}>
-          Check access
+        <Button
+          onClick={handleSubmit}
+          loading={isFetching}
+          disabled={!canSubmit}
+          leftSection={<IconPlayerPlay size={14} />}
+        >
+          Test
         </Button>
       </Group>
 

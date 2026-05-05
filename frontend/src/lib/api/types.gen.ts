@@ -640,6 +640,27 @@ export type DeviceApiKeyResponse = {
   api_key: string;
 };
 
+export type PolicyIpDevice = {
+  device_id: Id;
+  device_name: string;
+};
+
+export type PolicyUserIpSharedUser = {
+  user_id: Id;
+  /**
+   * Login username of the co-located user.
+   */
+  username: string;
+  /**
+   * Display name of the co-located user.
+   */
+  user_name: string;
+  /**
+   * Devices this user has at this IP.
+   */
+  devices: Array<PolicyIpDevice>;
+};
+
 export type PolicyUserAddress = {
   address_id: Id;
   device_id: Id;
@@ -659,7 +680,7 @@ export type PolicyUserIp = {
    * Other users (excluding self) that also contribute to this IP. Empty means this user is the sole owner of the IP.
    *
    */
-  shared_with_user_ids: Array<Id>;
+  shared_with_users: Array<PolicyUserIpSharedUser>;
   /**
    * True when the IP entry as a whole bypasses the host allowlist (every contributor at this IP has bypass set). When true, effective_hosts is empty and means "All".
    *
@@ -688,6 +709,10 @@ export type PolicyUserEntry = {
    * User display name.
    */
   user_name: string;
+  /**
+   * True when the user has an admin or superadmin role.
+   */
+  is_admin: boolean;
   /**
    * True when this user has the host allowlist bypass enabled.
    */
@@ -743,6 +768,23 @@ export type PolicyUserMapAudit = {
    * How long the last refresh took in milliseconds.
    */
   refresh_duration_ms: number;
+  /**
+   * Distinct IPs currently in the policy cache.
+   */
+  total_ip_count: number;
+  /**
+   * Total distinct device contributors across all IPs in the cache.
+   */
+  total_device_count: number;
+  /**
+   * Distinct hosts across the union of all users' pre-intersection allowed host lists. Denominator for the allowed_host_count / total_host_count ratio.
+   *
+   */
+  total_host_count: number;
+  /**
+   * Distinct IPs shared between two or more users.
+   */
+  shared_ip_count: number;
   users: Array<PolicyUserEntry>;
 };
 

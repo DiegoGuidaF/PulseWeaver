@@ -1,6 +1,6 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceTypeItem, HostGroupWithMembers, HostSuggestionsPage, IgnoredHostSuggestion, KnownHostWithStats, MaxActiveAddressesRule, AccessLogResponse, User, UserHostAccessSummary, UserHostDetails } from '@/lib/api';
-import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockUser, createMockUserHostAccessSummary, createMockUserHostDetails } from './data';
+import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceTypeItem, HostGroupWithMembers, HostSuggestionsPage, IgnoredHostSuggestion, KnownHostWithStats, MaxActiveAddressesRule, AccessLogResponse, User, UserHostAccessSummary, UserHostDetails, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockUser, createMockUserHostAccessSummary, createMockUserHostDetails, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
 
 const BASE = '/api/v1';
 
@@ -43,6 +43,8 @@ export const endpoints = {
     adminHostSuggestions: `${BASE}/admin/host-suggestions`,
     adminHostSuggestionsIgnore: `${BASE}/admin/host-suggestions/ignore`,
     adminHostSuggestionsIgnoreByFqdn: `${BASE}/admin/host-suggestions/ignore/:fqdn`,
+    policyMap:      `${BASE}/admin/policy-map`,
+    policySimulate: `${BASE}/admin/policy-simulate`,
 } as const;
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
@@ -375,6 +377,28 @@ export const hostAccessHandlers = {
     },
 };
 
+// ─── Policy-audit handlers ────────────────────────────────────────────────────
+export const policyAuditHandlers = {
+    policyMap: {
+        success: (override?: Partial<PolicyUserMapAudit>) =>
+            http.get(endpoints.policyMap, () =>
+                HttpResponse.json(createMockPolicyUserMapAudit(override))),
+        serverError: () =>
+            http.get(endpoints.policyMap, () => responses.serverError()),
+    },
+    simulate: {
+        allowed: (override?: Partial<PolicySimulateResult>) =>
+            http.get(endpoints.policySimulate, () =>
+                HttpResponse.json(createMockPolicySimulateResult({ allowed: true, ...override }))),
+        denied: (denyReason = 'ip_not_registered') =>
+            http.get(endpoints.policySimulate, () =>
+                HttpResponse.json(createMockPolicySimulateResult({
+                    allowed: false,
+                    deny_reason: denyReason as PolicySimulateResult['deny_reason'],
+                }))),
+    },
+};
+
 // ─── Default happy-path handlers (registered globally in setup.ts) ────────────
 // Every test starts in a fully-loaded state. Only call server.use() for deviations.
 export const defaultHandlers = [
@@ -425,4 +449,7 @@ export const defaultHandlers = [
     hostAccessHandlers.listHostSuggestions.success(),
     hostAccessHandlers.reconcileKnownHosts.success(),
     hostAccessHandlers.reconcileHostGroups.success(),
+    // Policy audit
+    policyAuditHandlers.policyMap.success(),
+    policyAuditHandlers.simulate.allowed(),
 ];

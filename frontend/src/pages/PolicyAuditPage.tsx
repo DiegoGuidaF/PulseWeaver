@@ -1,30 +1,138 @@
 import { useState } from "react";
-import { Alert, Card, Center, Loader, Stack, Text, Title } from "@mantine/core";
+import {
+  Alert,
+  Card,
+  Center,
+  Divider,
+  Group,
+  Loader,
+  Stack,
+  Text,
+  ThemeIcon,
+  Title,
+} from "@mantine/core";
+import {
+  IconArrowsExchange,
+  IconBolt,
+  IconClock,
+  IconNetwork,
+  IconUsers,
+  IconWorld,
+} from "@tabler/icons-react";
+import type { PolicyUserMapAudit } from "@/lib/api";
+import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { usePolicyMap } from "@/features/policy-audit/hooks/usePolicyMap";
 import { SimulateBar } from "@/features/policy-audit/components/SimulateBar";
-import { PolicyMapTable } from "@/features/policy-audit/components/PolicyMapTable";
+import { PolicyUserTable } from "@/features/policy-audit/components/PolicyUserTable";
+import { PolicyUserDrawer } from "@/features/policy-audit/components/PolicyUserDrawer";
+import type { PolicyUserEntry } from "@/lib/api";
+
+function relativeTime(dateStr: string): string {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  return `${Math.floor(seconds / 3600)}h ago`;
+}
+
+interface StatTileProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  sub?: string;
+}
+
+function StatTile({ icon, label, value, sub }: StatTileProps) {
+  return (
+    <Stack gap={4} style={{ minWidth: 0 }}>
+      <Group gap={6}>
+        {icon}
+        <Text size="xs" c="dimmed" fw={500}>
+          {label}
+        </Text>
+      </Group>
+      <Text size="xl" fw={700} lh={1}>
+        {value}
+      </Text>
+      {sub && (
+        <Text size="xs" c="dimmed">
+          {sub}
+        </Text>
+      )}
+    </Stack>
+  );
+}
+
+function CacheStatsHeader({ data }: { data: PolicyUserMapAudit }) {
+  const formatDateTime = useDateFormatter();
+
+  return (
+    <Card withBorder p="lg">
+      <Group gap={0} wrap="nowrap" justify="space-between">
+        <StatTile
+          icon={<IconClock size={14} color="var(--mantine-color-dimmed)" />}
+          label="Last refreshed"
+          value={relativeTime(data.refreshed_at)}
+          sub={formatDateTime(data.refreshed_at)}
+        />
+        <Divider orientation="vertical" mx="xl" />
+        <StatTile
+          icon={<IconBolt size={14} color="var(--mantine-color-dimmed)" />}
+          label="Regen time"
+          value={`${data.refresh_duration_ms}ms`}
+        />
+        <Divider orientation="vertical" mx="xl" />
+        <StatTile
+          icon={<IconWorld size={14} color="var(--mantine-color-dimmed)" />}
+          label="Enabled IPs"
+          value={data.total_ip_count}
+          sub={`${data.total_device_count} device${data.total_device_count !== 1 ? "s" : ""}`}
+        />
+        <Divider orientation="vertical" mx="xl" />
+        <StatTile
+          icon={<IconNetwork size={14} color="var(--mantine-color-dimmed)" />}
+          label="Known hosts"
+          value={data.total_host_count}
+        />
+        <Divider orientation="vertical" mx="xl" />
+        <StatTile
+          icon={<IconUsers size={14} color="var(--mantine-color-dimmed)" />}
+          label="Shared IPs"
+          value={data.shared_ip_count}
+        />
+      </Group>
+    </Card>
+  );
+}
 
 export function PolicyAuditPage() {
   const { data, isPending, isError } = usePolicyMap();
   const [simulateIp, setSimulateIp] = useState("");
+  const [selectedUser, setSelectedUser] = useState<PolicyUserEntry | null>(null);
 
   return (
-    <Stack maw={1100} gap="md">
+    <Stack maw={1200} gap="md">
       <div>
         <Title order={1}>Policy Cache</Title>
         <Text c="dimmed" mt={4}>
-          Inspect the live policy engine state and simulate access decisions.
+          Audit the current allow/deny policy. Live IPs, effective hosts, and a request tester.
         </Text>
       </div>
 
+      {data && <CacheStatsHeader data={data} />}
+
       <Card withBorder>
         <Stack gap="xs">
-          <Text size="sm" fw={500}>
-            Simulate access
-          </Text>
+          <Group gap="xs">
+            <ThemeIcon size="sm" variant="transparent" color="indigo">
+              <IconArrowsExchange size={16} />
+            </ThemeIcon>
+            <Text size="sm" fw={500}>
+              Test request
+            </Text>
+          </Group>
           <Text size="xs" c="dimmed">
-            Click an IP in the table below to pre-fill, then enter a host to check the current
-            decision without sending real traffic.
+            Send an (IP, host) pair to the policy endpoint. Same code path the proxy uses to allow
+            or deny.
           </Text>
           <SimulateBar ip={simulateIp} onIpChange={setSimulateIp} />
         </Stack>
@@ -42,7 +150,21 @@ export function PolicyAuditPage() {
         </Alert>
       )}
 
-      {data && <PolicyMapTable data={data} onSelectIp={setSimulateIp} />}
+      {data && (
+        <PolicyUserTable
+          data={data}
+          totalHosts={data.total_host_count}
+          onSelectIp={setSimulateIp}
+          onSelectUser={setSelectedUser}
+        />
+      )}
+
+      <PolicyUserDrawer
+        user={selectedUser}
+        totalHosts={data?.total_host_count ?? 0}
+        onClose={() => setSelectedUser(null)}
+        onSelectIp={setSimulateIp}
+      />
     </Stack>
   );
 }

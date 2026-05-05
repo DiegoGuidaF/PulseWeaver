@@ -1,4 +1,4 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, HostGroupWithMembers, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, KnownHostWithStats, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, User, UserHostAccessSummary, UserHostDetails, UserHostDetailsGroup, UserHostDetailsHost, GroupRef } from '@/lib/api';
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, HostGroupWithMembers, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, KnownHostWithStats, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, User, UserHostAccessSummary, UserHostDetails, UserHostDetailsGroup, UserHostDetailsHost, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import { UserRole } from "@/lib/api";
 
 /**
@@ -373,6 +373,117 @@ export function createMockHostSuggestionsPage(
   return {
     suggestions: [],
     ignored: [],
+    ...overrides,
+  };
+}
+
+// ─── Policy-audit mock data ──────────────────────────────────────────────────
+
+export function createMockPolicyUserAddress(
+  overrides?: Partial<PolicyUserAddress>,
+): PolicyUserAddress {
+  return {
+    address_id: 1,
+    device_id: 1,
+    device_name: 'Test Device',
+    updated_at: '2026-01-01T10:00:00Z',
+    ...overrides,
+  };
+}
+
+export function createMockPolicyUserIpSharedUser(
+  overrides?: Partial<PolicyUserIpSharedUser>,
+): PolicyUserIpSharedUser {
+  return {
+    user_id: 2,
+    username: 'other',
+    user_name: 'Other User',
+    devices: [],
+    ...overrides,
+  };
+}
+
+export function createMockPolicyUserIp(
+  overrides?: Partial<PolicyUserIp>,
+): PolicyUserIp {
+  return {
+    ip: '192.168.1.10',
+    shared_with_users: [],
+    bypass_at_ip: false,
+    effective_hosts: ['app.home.lan', 'media.home.lan'],
+    trimmed_hosts: [],
+    addresses: [createMockPolicyUserAddress()],
+    ...overrides,
+  };
+}
+
+export function createMockPolicyUserEntry(
+  overrides?: Partial<PolicyUserEntry>,
+): PolicyUserEntry {
+  return {
+    user_id: 1,
+    user_name: 'alice',
+    is_admin: false,
+    bypass_allowlist: false,
+    on_shared_ip: false,
+    intersection_applied: false,
+    device_count: 1,
+    ip_count: 1,
+    allowed_host_count: 2,
+    last_seen_at: '2026-01-01T10:00:00Z',
+    user_allowed_hosts: ['app.home.lan', 'media.home.lan'],
+    ips: [createMockPolicyUserIp()],
+    ...overrides,
+  };
+}
+
+// Default audit contains one user of each status so all StatusBadge branches
+// are covered by the happy-path handler without per-test overrides.
+export function createMockPolicyUserMapAudit(
+  overrides?: Partial<PolicyUserMapAudit>,
+): PolicyUserMapAudit {
+  return {
+    refreshed_at: '2026-01-01T09:00:00Z',
+    refresh_duration_ms: 42,
+    total_ip_count: 3,
+    total_device_count: 3,
+    total_host_count: 5,
+    shared_ip_count: 1,
+    users: [
+      createMockPolicyUserEntry({ user_id: 1, user_name: 'alice', bypass_allowlist: false }),
+      createMockPolicyUserEntry({
+        user_id: 2,
+        user_name: 'bob',
+        bypass_allowlist: true,
+        ips: [],
+        ip_count: 0,
+        device_count: 0,
+        allowed_host_count: 0,
+        user_allowed_hosts: [],
+      }),
+      createMockPolicyUserEntry({
+        user_id: 3,
+        user_name: 'carol',
+        bypass_allowlist: false,
+        ips: [],
+        ip_count: 0,
+        device_count: 0,
+        allowed_host_count: 0,
+        user_allowed_hosts: [],
+      }),
+    ],
+    ...overrides,
+  };
+}
+
+export function createMockPolicySimulateResult(
+  overrides?: Partial<PolicySimulateResult>,
+): PolicySimulateResult {
+  return {
+    ip: '192.168.1.10',
+    host: 'app.home.lan',
+    allowed: true,
+    deny_reason: null,
     ...overrides,
   };
 }

@@ -557,6 +557,18 @@ export const zDeviceApiKeyResponse = z.object({
   api_key: z.string(),
 });
 
+export const zPolicyIpDevice = z.object({
+  device_id: zId,
+  device_name: z.string(),
+});
+
+export const zPolicyUserIpSharedUser = z.object({
+  user_id: zId,
+  username: z.string(),
+  user_name: z.string(),
+  devices: z.array(zPolicyIpDevice),
+});
+
 export const zPolicyUserAddress = z.object({
   address_id: zId,
   device_id: zId,
@@ -566,7 +578,7 @@ export const zPolicyUserAddress = z.object({
 
 export const zPolicyUserIp = z.object({
   ip: z.string(),
-  shared_with_user_ids: z.array(zId),
+  shared_with_users: z.array(zPolicyUserIpSharedUser),
   bypass_at_ip: z.boolean(),
   effective_hosts: z.array(z.string()),
   trimmed_hosts: z.array(z.string()),
@@ -576,6 +588,7 @@ export const zPolicyUserIp = z.object({
 export const zPolicyUserEntry = z.object({
   user_id: zId,
   user_name: z.string(),
+  is_admin: z.boolean(),
   bypass_allowlist: z.boolean(),
   on_shared_ip: z.boolean(),
   intersection_applied: z.boolean(),
@@ -590,6 +603,10 @@ export const zPolicyUserEntry = z.object({
 export const zPolicyUserMapAudit = z.object({
   refreshed_at: z.iso.datetime({ offset: true, local: true }),
   refresh_duration_ms: z.int(),
+  total_ip_count: z.int(),
+  total_device_count: z.int(),
+  total_host_count: z.int(),
+  shared_ip_count: z.int(),
   users: z.array(zPolicyUserEntry),
 });
 

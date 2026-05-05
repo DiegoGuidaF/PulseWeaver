@@ -1515,6 +1515,44 @@ export const DeviceAPIKeyResponseSchema = {
   },
 } as const;
 
+export const PolicyIPDeviceSchema = {
+  type: "object",
+  required: ["device_id", "device_name"],
+  properties: {
+    device_id: {
+      $ref: "#/components/schemas/ID",
+    },
+    device_name: {
+      type: "string",
+    },
+  },
+} as const;
+
+export const PolicyUserIPSharedUserSchema = {
+  type: "object",
+  required: ["user_id", "username", "user_name", "devices"],
+  properties: {
+    user_id: {
+      $ref: "#/components/schemas/ID",
+    },
+    username: {
+      type: "string",
+      description: "Login username of the co-located user.",
+    },
+    user_name: {
+      type: "string",
+      description: "Display name of the co-located user.",
+    },
+    devices: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/PolicyIPDevice",
+      },
+      description: "Devices this user has at this IP.",
+    },
+  },
+} as const;
+
 export const PolicyUserAddressSchema = {
   type: "object",
   required: ["address_id", "device_id", "device_name", "updated_at"],
@@ -1541,7 +1579,7 @@ export const PolicyUserIPSchema = {
   type: "object",
   required: [
     "ip",
-    "shared_with_user_ids",
+    "shared_with_users",
     "bypass_at_ip",
     "effective_hosts",
     "trimmed_hosts",
@@ -1552,10 +1590,10 @@ export const PolicyUserIPSchema = {
       type: "string",
       description: "The IP address.",
     },
-    shared_with_user_ids: {
+    shared_with_users: {
       type: "array",
       items: {
-        $ref: "#/components/schemas/ID",
+        $ref: "#/components/schemas/PolicyUserIPSharedUser",
       },
       description:
         "Other users (excluding self) that also contribute to this IP. Empty means this user is the sole owner of the IP.\n",
@@ -1597,6 +1635,7 @@ export const PolicyUserEntrySchema = {
   required: [
     "user_id",
     "user_name",
+    "is_admin",
     "bypass_allowlist",
     "on_shared_ip",
     "intersection_applied",
@@ -1613,6 +1652,10 @@ export const PolicyUserEntrySchema = {
     user_name: {
       type: "string",
       description: "User display name.",
+    },
+    is_admin: {
+      type: "boolean",
+      description: "True when the user has an admin or superadmin role.",
     },
     bypass_allowlist: {
       type: "boolean",
@@ -1672,7 +1715,15 @@ export const PolicyUserEntrySchema = {
 
 export const PolicyUserMapAuditSchema = {
   type: "object",
-  required: ["refreshed_at", "refresh_duration_ms", "users"],
+  required: [
+    "refreshed_at",
+    "refresh_duration_ms",
+    "total_ip_count",
+    "total_device_count",
+    "total_host_count",
+    "shared_ip_count",
+    "users",
+  ],
   properties: {
     refreshed_at: {
       type: "string",
@@ -1683,6 +1734,24 @@ export const PolicyUserMapAuditSchema = {
     refresh_duration_ms: {
       type: "integer",
       description: "How long the last refresh took in milliseconds.",
+    },
+    total_ip_count: {
+      type: "integer",
+      description: "Distinct IPs currently in the policy cache.",
+    },
+    total_device_count: {
+      type: "integer",
+      description:
+        "Total distinct device contributors across all IPs in the cache.",
+    },
+    total_host_count: {
+      type: "integer",
+      description:
+        "Distinct hosts across the union of all users' pre-intersection allowed host lists. Denominator for the allowed_host_count / total_host_count ratio.\n",
+    },
+    shared_ip_count: {
+      type: "integer",
+      description: "Distinct IPs shared between two or more users.",
     },
     users: {
       type: "array",
