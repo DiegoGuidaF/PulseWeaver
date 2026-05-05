@@ -8,6 +8,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/slicex"
 )
 
 type repository interface {
@@ -156,8 +157,8 @@ func (s *Service) RemoveIgnoredSuggestionByFQDN(ctx context.Context, fqdn string
 }
 
 func (s *Service) SetFullUserGrants(ctx context.Context, userID auth.UserID, bypass *bool, hostIDs []KnownHostID, groupIDs []HostGroupID) error {
-	hostIDs = deduplicateHostIDs(hostIDs)
-	groupIDs = deduplicateGroupIDs(groupIDs)
+	hostIDs = slicex.Dedup(hostIDs)
+	groupIDs = slicex.Dedup(groupIDs)
 	if err := s.repo.SetFullUserGrants(ctx, userID, bypass, hostIDs, groupIDs); err != nil {
 		return err
 	}
@@ -184,20 +185,4 @@ func (s *Service) OnUserEvent(ctx context.Context, event auth.UserEvent) {
 		}
 		s.notifyUserHostAccessObservers(ctx)
 	}
-}
-
-func deduplicateGroupIDs(ids []HostGroupID) []HostGroupID {
-	if ids == nil {
-		return nil
-	}
-	seen := make(map[HostGroupID]struct{}, len(ids))
-	out := make([]HostGroupID, 0, len(ids))
-	for _, id := range ids {
-		if _, dup := seen[id]; dup {
-			continue
-		}
-		seen[id] = struct{}{}
-		out = append(out, id)
-	}
-	return out
 }

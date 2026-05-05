@@ -9,6 +9,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/slicex"
 )
 
 // policyAuditUserRow is a single non-deleted user row returned by getAllUsersForPolicyAudit.
@@ -19,6 +20,12 @@ type policyAuditUserRow struct {
 	IsAdmin         bool        `db:"is_admin"`
 	BypassAllowlist bool        `db:"bypass_allowlist"`
 }
+
+// userIPIndex maps userID → ip → ipBucket.
+type userIPIndex map[auth.UserID]map[string]*ipBucket
+
+// ipUsersIndex maps ip → set of userIDs present at that IP.
+type ipUsersIndex map[string]map[auth.UserID]struct{}
 
 // ipBucket holds intermediate state for one (user, IP) cell during index assembly.
 type ipBucket struct {
@@ -42,9 +49,9 @@ type ipBucket struct {
 func buildIPIndex(
 	snap policy.PolicyMapSnapshot,
 	addressEnrichment map[device.AddressID]policyEnrichmentRow,
-) (byUser map[auth.UserID]map[string]*ipBucket, usersAtIP map[string]map[auth.UserID]struct{}) {
-	byUser = make(map[auth.UserID]map[string]*ipBucket)
-	usersAtIP = make(map[string]map[auth.UserID]struct{})
+) (byUser userIPIndex, usersAtIP ipUsersIndex) {
+	byUser = make(userIPIndex)
+	usersAtIP = make(ipUsersIndex)
 
 	for _, entry := range snap.Entries {
 		ip := entry.IP
@@ -91,7 +98,7 @@ func buildIPIndex(
 
 // assemblePolicyUserMap is a pure function — no I/O, no DB, no context.
 // It projects the cache snapshot + enrichment + user list into the user-pivoted
-// PolicyUserMapAudit DTO. This is the unit-test target.
+// PolicyUserMapAudit DTO.
 func assemblePolicyUserMap(
 	snap policy.PolicyMapSnapshot,
 	addressEnrichment map[device.AddressID]policyEnrichmentRow,
@@ -207,8 +214,8 @@ func assemblePolicyUserMap(
 func buildUserIPs(
 	userID auth.UserID,
 	ipMap map[string]*ipBucket,
-	usersAtIP map[string]map[auth.UserID]struct{},
-	byUser map[auth.UserID]map[string]*ipBucket,
+	usersAtIP ipUsersIndex,
+	byUser userIPIndex,
 	userInfoByID map[auth.UserID]policyAuditUserRow,
 ) []httpapi.PolicyUserIP {
 	sortedIPs := make([]string, 0, len(ipMap))
@@ -270,8 +277,8 @@ func buildUserIPs(
 		} else {
 			// effective = user's hosts ∩ entry's post-intersection hosts
 			// trimmed  = user's hosts \ entry's post-intersection hosts
-			effectiveHosts = sortedIntersect(bucket.userAllowedHosts, bucket.entryAllowedHosts)
-			trimmedHosts = sortedDiff(bucket.userAllowedHosts, bucket.entryAllowedHosts)
+			effectiveHosts = slicex.Intersect(bucket.userAllowedHosts, bucket.entryAllowedHosts)
+			trimmedHosts = slicex.Diff(bucket.userAllowedHosts, bucket.entryAllowedHosts)
 		}
 
 		// Sort addresses by address_id for stable diffing.
@@ -341,43 +348,4 @@ func maxLastSeenAt(ipMap map[string]*ipBucket) *httpapi.UTCTime {
 	}
 	v := httpapi.UTCTime(max)
 	return &v
-}
-
-// sortedIntersect returns the elements present in both a and b.
-// Both slices must be sorted lexicographically. The result is sorted.
-func sortedIntersect(a, b []string) []string {
-	result := make([]string, 0)
-	i, j := 0, 0
-	for i < len(a) && j < len(b) {
-		switch {
-		case a[i] == b[j]:
-			result = append(result, a[i])
-			i++
-			j++
-		case a[i] < b[j]:
-			i++
-		default:
-			j++
-		}
-	}
-	return result
-}
-
-// sortedDiff returns elements in a that are NOT present in b.
-// Both slices must be sorted lexicographically. The result is sorted.
-func sortedDiff(a, b []string) []string {
-	result := make([]string, 0)
-	i, j := 0, 0
-	for i < len(a) {
-		if j >= len(b) || a[i] < b[j] {
-			result = append(result, a[i])
-			i++
-		} else if a[i] == b[j] {
-			i++
-			j++
-		} else {
-			j++
-		}
-	}
-	return result
 }

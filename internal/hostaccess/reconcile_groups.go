@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/DiegoGuidaF/PulseWeaver/internal/slicex"
 )
 
 // DesiredHostGroup is the caller-provided shape of a single host group inside
@@ -22,7 +24,7 @@ type DesiredHostGroup struct {
 // rejects empty names, and dedups host IDs.
 func (g *DesiredHostGroup) prepare() error {
 	g.Name = strings.TrimSpace(g.Name)
-	g.HostIDs = deduplicateHostIDs(g.HostIDs)
+	g.HostIDs = slicex.Dedup(g.HostIDs)
 
 	if g.Name == "" {
 		return ErrGroupNameRequired
@@ -235,20 +237,4 @@ func (s *Service) validateReferencedHosts(ctx context.Context, groups []DesiredH
 	}
 
 	return nil
-}
-
-func deduplicateHostIDs(ids []KnownHostID) []KnownHostID {
-	if ids == nil {
-		return nil
-	}
-	seen := make(map[KnownHostID]struct{}, len(ids))
-	out := make([]KnownHostID, 0, len(ids))
-	for _, id := range ids {
-		if _, dup := seen[id]; dup {
-			continue
-		}
-		seen[id] = struct{}{}
-		out = append(out, id)
-	}
-	return out
 }

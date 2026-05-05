@@ -8,6 +8,8 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/hostaccess"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
@@ -118,6 +120,53 @@ func TestBuildPolicyUserMap_CachePresentUser(t *testing.T) {
 	is.Equal(len(u.Ips), 1)
 	is.Equal(u.Ips[0].Ip, "192.168.1.50")
 	is.True(u.LastSeenAt != nil)
+}
+
+// TestBuildPolicyUserMap_GroupHostsIncluded verifies that hosts granted to a user
+// via a host group — but NOT via a direct host grant — appear in UserAllowedHosts
+// for a no-access user (the path that uses the DB fallback, not the cache).
+func TestBuildPolicyUserMap_GroupHostsIncluded(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+
+	srv := testutils.SetupIntegrationServer(t)
+	repo := queries.NewRepository(srv.Database.DB())
+	hostRepo := hostaccess.NewRepository(srv.Database.DB())
+
+	// Create a regular user with no bypass.
+	adminPrincipal := testutils.AdminPrincipal(t, srv)
+	newUser, err := srv.AuthService.CreateUser(ctx, "group-test", "Group Test User", "group@test.local", adminPrincipal)
+	is.NoErr(err)
+
+	// Create a host and a group containing it.
+	hostID, err := hostRepo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "group-only.example.com"})
+	is.NoErr(err)
+	groupID, err := hostRepo.CreateHostGroup(ctx, hostaccess.HostGroupDraft{
+		Name:    "policy-audit-test-group",
+		HostIDs: []hostaccess.KnownHostID{hostID},
+	})
+	is.NoErr(err)
+
+	// Grant the user only via group — no direct host grant.
+	err = hostRepo.SetFullUserGrants(ctx, auth.UserID(newUser.ID), nil, nil, []hostaccess.HostGroupID{groupID})
+	is.NoErr(err)
+
+	// Empty snapshot: the user has no cache presence, so UserAllowedHosts must
+	// come entirely from the DB hostsQuery (the path we're exercising).
+	reader := &stubPolicyMapReader{snap: policy.PolicyMapSnapshot{LastRefreshedAt: time.Now().UTC()}}
+	result, err := repo.BuildPolicyUserMap(ctx, reader)
+	is.NoErr(err)
+
+	var found *httpapi.PolicyUserEntry
+	for i := range result.Users {
+		if result.Users[i].UserId == int64(newUser.ID) {
+			found = &result.Users[i]
+			break
+		}
+	}
+	is.True(found != nil)
+	is.Equal(found.UserAllowedHosts, []string{"group-only.example.com"})
+	is.Equal(found.AllowedHostCount, 1)
 }
 
 // TestBuildPolicyUserMap_UsersSortedAlphabetically verifies that the users array

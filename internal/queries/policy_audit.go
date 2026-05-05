@@ -89,7 +89,12 @@ func (r *Repository) getAllUsersForPolicyAudit(ctx context.Context) ([]policyAud
 		SELECT uah.user_id, kh.fqdn
 		FROM user_allowed_hosts uah
 		JOIN known_hosts kh ON kh.id = uah.known_host_id
-		ORDER BY uah.user_id, kh.fqdn
+		UNION
+		SELECT uahg.user_id, kh.fqdn
+		FROM user_allowed_host_groups uahg
+		JOIN host_group_members hgm ON hgm.host_group_id = uahg.host_group_id
+		JOIN known_hosts kh ON kh.id = hgm.known_host_id
+		ORDER BY 1, 2
 	`
 
 	type hostRow struct {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/DiegoGuidaF/PulseWeaver/internal/slicex"
 )
 
 // DesiredKnownHost is the caller-provided shape of a single known host inside
@@ -33,17 +35,7 @@ func (h *DesiredKnownHost) prepare() error {
 			h.Icon = &trimmed
 		}
 	}
-	if len(h.GroupIDs) > 0 {
-		seen := make(map[HostGroupID]struct{}, len(h.GroupIDs))
-		unique := h.GroupIDs[:0]
-		for _, gid := range h.GroupIDs {
-			if _, ok := seen[gid]; !ok {
-				seen[gid] = struct{}{}
-				unique = append(unique, gid)
-			}
-		}
-		h.GroupIDs = unique
-	}
+	h.GroupIDs = slicex.Dedup(h.GroupIDs)
 	return nil
 }
 
@@ -63,7 +55,6 @@ func (in *ReconcileKnownHostsInput) prepare() error {
 		}
 	}
 
-	// TODO: Extract general deduplication logic into a helper or use a library
 	seenIDs := make(map[KnownHostID]struct{}, len(in.Hosts))
 	for _, h := range in.Hosts {
 		if h.ID != nil {
