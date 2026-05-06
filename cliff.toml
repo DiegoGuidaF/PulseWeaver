@@ -30,6 +30,7 @@ filter_unconventional = true
 split_commits = false
 commit_preprocessors = [
   { pattern = '\(#([0-9]+)\)', replace = "([#${1}](https://github.com/DiegoGuidaF/PulseWeaver/pull/${1}))" },
+  { pattern = '\[PW-([0-9]+)\]:', replace = ": [PW-${1}]" },
 ]
 commit_parsers = [
   { message = "^feat", group = "Features" },
