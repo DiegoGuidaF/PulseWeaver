@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-05-06
+
+### Bug Fixes
+
+- Properly set default address updated_at value for devices (was 1970) ([`6b60ee4`](https://github.com/DiegoGuidaF/PulseWeaver/commit/6b60ee4c70b7978394e296fbd00e30bb77027cfa))
+- Show owner name not id on device provisioning invite creation ([`6bc3236`](https://github.com/DiegoGuidaF/PulseWeaver/commit/6bc3236bee01ec4489e6696f2a332636ee16889e))
+- On device delete ensure addresses are disabled and API keys removed ([`e7614c7`](https://github.com/DiegoGuidaF/PulseWeaver/commit/e7614c754c949c4881702d034c9050dca82f247c))
+
+### Features
+
+- Add device ownership with per-user scoping
+- Add Policy Cache Auditing: Allows reviewing active IPs by User. Source of truth is same one as the authorization endpoint used by the proxy
+- Allow simulating a request to check which response the proxy would see. Added to Policy Cache page (the one added by the feature above)
+- Add device provisioning page: Allows creating a device registration code for use by the heartbeat-client application.
+- Remove non-admin user login. Allow only admin user login. Simplify flows accordingly and ask for password on user -> admin promotion ([`5d7d577`](https://github.com/DiegoGuidaF/PulseWeaver/commit/5d7d5775d4ff904878c3b0bfaa8c41c5c6cd203c))
+    - Only bootstrapped admin (the admin account created on first initialization with superadmin role) can create/promote/demote/delete users ([`bd78411`](https://github.com/DiegoGuidaF/PulseWeaver/commit/bd7841140241d95a16aaa8b39b1f150bd1c08921))
+- Add per user host based authorization: Allows restricting users to only specific hosts either individually and/or via host groups.
+
+### Miscellaneous
+
+- Devices List - Visual improvements
+- AccessLog - The user can now copy the headers shown on the item details side panel
+- Dashboard - Hide country map section when no geo data is available ([`12182b9`](https://github.com/DiegoGuidaF/PulseWeaver/commit/12182b9e0db417f54b68cb7a4207d0e513f1f7a8))
+- Navbar - Add GitHub docs and feedback links ([`53230db`](https://github.com/DiegoGuidaF/PulseWeaver/commit/53230dbb1a1d1c55a3ef3d8471cff6604c56a46a))
+- Requests Traffic charts - Add toggle buttons for Allowed/Denied lines on traffic chart ([`1557e41`](https://github.com/DiegoGuidaF/PulseWeaver/commit/1557e41aec4766ce8406366323bc5480021bb935))
+- AccessLog | AddressLog - Make device name clickable ([`67802a6`](https://github.com/DiegoGuidaF/PulseWeaver/commit/67802a63a25b91ce54f5a98f149e11bb976cf614))
+- Devices - Make device api-key optional. Do not create it by default. ([`70dbd63`](https://github.com/DiegoGuidaF/PulseWeaver/commit/70dbd63d863340d139c4771ab71dddecbf31230c))
+- Device Settings Tab - Split the rules into a separate Rules tab ([`bce29cb`](https://github.com/DiegoGuidaF/PulseWeaver/commit/bce29cb172c65514644ded4ac6c6bdc8ae66787d))
+
+### Under the Hood
+
+- Split openapi.yaml into smaller files to reduce size and context needed for changes. Bundle it into a single file using redocly before sending it to backend or frontend ([`708d78a`](https://github.com/DiegoGuidaF/PulseWeaver/commit/708d78a52c9f93bdb4a0e985ba4c3cc84bc3c47d))
+- Auto-merge dependabot. Pending enable automerge at github repo level, needs public repo. ([`8bf0a31`](https://github.com/DiegoGuidaF/PulseWeaver/commit/8bf0a3106ab0474842ac8263c5b67098b5e13260))
+- DB - Remove unneeded created_at and id columns for access_log_contributors to reduce size since a lot of records will be there usually ([`88bd113`](https://github.com/DiegoGuidaF/PulseWeaver/commit/88bd113d3dda92ee67553e6f9cc3fc6c9c641453))
+- DB - Allow multiple open connections on SQLite DB so that slow queries don't block quick ones. WAL mode already enabled. ([`8ed847e`](https://github.com/DiegoGuidaF/PulseWeaver/commit/8ed847ecb3132ccee4b789e6b145d373268d10b5))
+
 ## [0.2.1] - 2026-04-02
 
 ### Bug Fixes
