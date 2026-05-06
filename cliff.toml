@@ -29,21 +29,26 @@ conventional_commits = true
 filter_unconventional = true
 split_commits = false
 commit_preprocessors = [
-  { pattern = '\(#([0-9]+)\)', replace = "([#${1}](https://github.com/DiegoGuidaF/PulseWeaver/pull/${1}))" },
-  { pattern = '\[PW-([0-9]+)\]:', replace = ": [PW-${1}]" },
+    { pattern = '\(#([0-9]+)\)', replace = "([#${1}](https://github.com/DiegoGuidaF/PulseWeaver/pull/${1}))" },
+    { pattern = '\[PW-([0-9]+)\]:', replace = ": [PW-${1}]" },
 ]
 commit_parsers = [
-  { message = "^feat", group = "Features" },
-  { message = "^fix", group = "Bug Fixes" },
-  { message = "^perf", group = "Performance" },
-  { message = "^refactor", group = "Refactor" },
-  { message = "^docs", group = "Documentation" },
-  { message = "^style", group = "Miscellaneous" },
-  { message = "^test", group = "Miscellaneous" },
-  { message = "^build", group = "Miscellaneous" },
-  { message = "^ci", group = "Miscellaneous" },
-  { message = "^chore", group = "Miscellaneous" },
-  { message = "^revert", group = "Miscellaneous" },
+    # Skip dependabot
+    { message = "^chore\\(deps\\): Bump", skip = true },
+    # User-centric sections (must be easy to read and not too technical)
+    { message = "^feat", group = "Features" },
+    { message = "^fix", group = "Bug Fixes" },
+    { message = "^docs", group = "Documentation" },
+    { message = "^ai", group = "Documentation" },
+    # Tech-centric sections
+    { message = "^refactor", group = "Under the Hood" },
+    { message = "^chore", group = "Under the Hood" },
+    { message = "^test", group = "Under the Hood" },
+    { message = "^build", group = "Under the Hood" },
+    { message = "^ci", group = "Under the Hood" },
+    { message = "^revert", group = "Under the Hood" },
+    # Catch-all
+    { message = ".*", group = "Unmatched commits - REVIEW" }
 ]
 protect_breaking_commits = false
 filter_commits = false

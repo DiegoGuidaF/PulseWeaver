@@ -133,7 +133,7 @@ _release:
 	@echo "Current: v$(VERSION) → Next: v$(V)"
 	@read -p "Confirm? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
 	@if [ "$(SKIP_RELEASE_CHECK)" != "1" ]; then $(MAKE) check; fi
-	git-cliff --tag "v$(V)" -o CHANGELOG.md
+	git-cliff --unreleased --tag "v$(V)" --prepend CHANGELOG.md
 	@echo "Review and edit CHANGELOG.md before continuing"
 	@read -p "Continue? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
 	git add CHANGELOG.md
