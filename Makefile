@@ -9,6 +9,7 @@ VERSION ?= $(shell (git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0) |
 NEXT_PATCH = $(shell echo $(VERSION) | awk -F. '{printf "%d.%d.%d", $$1, $$2, $$3+1}')
 NEXT_MINOR = $(shell echo $(VERSION) | awk -F. '{printf "%d.%d.0", $$1, $$2+1}')
 NEXT_MAJOR = $(shell echo $(VERSION) | awk -F. '{printf "%d.0.0", $$1+1}')
+SKIP_RELEASE_CHECK ?= 0
 
 MIGRATE := go run -tags sqlite github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
 MIGRATIONS_PATH := internal/database/migrations
@@ -129,9 +130,9 @@ release-major: ## Changelog → commit → tag → push (major: X+1.0.0)
 # Internal: run as $(MAKE) _release V=x.y.z — never call directly
 _release:
 	@git diff --quiet && git diff --staged --quiet || (echo "❌ Dirty working tree — commit or stash changes first" && exit 1)
-	@$(MAKE) check
 	@echo "Current: v$(VERSION) → Next: v$(V)"
 	@read -p "Confirm? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
+	@if [ "$(SKIP_RELEASE_CHECK)" != "1" ]; then $(MAKE) check; fi
 	git-cliff --tag "v$(V)" -o CHANGELOG.md
 	@echo "Review and edit CHANGELOG.md before continuing"
 	@read -p "Continue? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
