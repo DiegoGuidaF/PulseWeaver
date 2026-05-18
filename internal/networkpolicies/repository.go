@@ -173,23 +173,16 @@ func (r *Repository) GetEnabledCacheEntries(ctx context.Context) ([]CacheEntry, 
 		FQDN            *string             `db:"fqdn"`
 	}
 
-	// Returns one row per (policy, fqdn); fqdn is NULL when no hosts assigned.
+	// Returns one row per (policy, fqdn); fqdn is NULL when no host groups assigned.
 	const query = `
 		SELECT np.id AS policy_id, np.name AS policy_name, np.cidr, np.bypass_host_check,
-		       allowed.fqdn
+		       h.fqdn
 		FROM network_policies np
-		LEFT JOIN (
-			SELECT npah.policy_id, h.fqdn
-			FROM network_policy_allowed_hosts npah
-			JOIN hosts h ON h.id = npah.host_id
-			UNION
-			SELECT npahg.policy_id, h.fqdn
-			FROM network_policy_allowed_host_groups npahg
-			JOIN host_group_members hgm ON hgm.host_group_id = npahg.host_group_id
-			JOIN hosts h ON h.id = hgm.host_id
-		) allowed ON allowed.policy_id = np.id
+		LEFT JOIN network_policy_allowed_host_groups npahg ON npahg.policy_id = np.id
+		LEFT JOIN host_group_members hgm ON hgm.host_group_id = npahg.host_group_id
+		LEFT JOIN hosts h ON h.id = hgm.host_id
 		WHERE np.enabled = 1
-		ORDER BY np.id, allowed.fqdn
+		ORDER BY np.id, h.fqdn
 	`
 	var rows []policyRow
 	if err := r.db.SelectContext(ctx, &rows, query); err != nil {

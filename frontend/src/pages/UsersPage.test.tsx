@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Route, Routes } from 'react-router-dom';
+import { delay, http } from 'msw';
 import { UsersPage } from '@/pages/UsersPage';
 import { AuthProvider } from '@/features/auth/AuthContext';
 import { TEST_TIMEOUTS } from '@/test/constants';
-import { authHandlers, hostAccessHandlers } from '@/test/mocks/handlers';
+import { authHandlers, endpoints, hostAccessHandlers, responses } from '@/test/mocks/handlers';
 import { server } from '@/test/setup';
 import { renderWithProviders } from '@/test/utils';
 import { createMockUser, createMockUserListItem } from '@/test/mocks/data';
@@ -29,13 +31,13 @@ describe('UsersPage', () => {
             );
         });
 
-        it('renders heading, Create user button, and one row per returned user', async () => {
+        it('renders heading, New user button, and one row per returned user', async () => {
             renderUsersPage();
 
             await waitFor(
                 () => {
                     expect(screen.getByRole('heading', { name: 'Users', level: 1 })).toBeInTheDocument();
-                    expect(screen.getByRole('button', { name: /create user/i })).toBeInTheDocument();
+                    expect(screen.getByRole('button', { name: /new user/i })).toBeInTheDocument();
                     expect(screen.getByText('alice')).toBeInTheDocument();
                     expect(screen.getByText('bob')).toBeInTheDocument();
                 },
@@ -43,16 +45,21 @@ describe('UsersPage', () => {
             );
         });
 
-        it('shows "(you)" suffix on the current authenticated user\'s row', async () => {
+        it('hides action buttons for the current authenticated user\'s own row', async () => {
             renderUsersPage();
 
             await waitFor(
                 () => {
                     expect(screen.getByText('alice')).toBeInTheDocument();
-                    expect(screen.getByText('(you)')).toBeInTheDocument();
+                    // bob (admin, not self) gets a Demote button
+                    expect(screen.getByRole('button', { name: 'Demote to user' })).toBeInTheDocument();
                 },
                 { timeout: TEST_TIMEOUTS.MEDIUM },
             );
+
+            // alice is the authenticated user — no promote/delete buttons on her row
+            expect(screen.queryByRole('button', { name: 'Promote to admin' })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Delete alice' })).not.toBeInTheDocument();
         });
     });
 
@@ -77,7 +84,7 @@ describe('UsersPage', () => {
             );
         });
 
-        it('renders "All hosts allowed" badge when bypass_host_check: true', async () => {
+        it('renders "bypass ✱" badge when bypass_host_check: true', async () => {
             const user = createMockUser({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
             const summary = createMockUserListItem({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER, bypass_host_check: true, host_count: 0 });
 
@@ -91,7 +98,7 @@ describe('UsersPage', () => {
 
             await waitFor(
                 () => {
-                    expect(screen.getByText('All hosts allowed')).toBeInTheDocument();
+                    expect(screen.getByText('bypass ✱')).toBeInTheDocument();
                 },
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
@@ -121,8 +128,8 @@ describe('UsersPage', () => {
         });
     });
 
-    describe('edit pencil opens drawer', () => {
-        it('clicking the edit pencil opens the drawer titled with the user\'s display name', async () => {
+    describe('promote button opens role modal', () => {
+        it('clicking the promote button opens the role confirmation modal', async () => {
             const user = createMockUser({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
             const summary = createMockUserListItem({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER, bypass_host_check: false, host_count: 1 });
 
@@ -136,24 +143,24 @@ describe('UsersPage', () => {
 
             await waitFor(
                 () => {
-                    expect(screen.getByRole('button', { name: 'Edit host access for charlie' })).toBeInTheDocument();
+                    expect(screen.getByRole('button', { name: 'Promote to admin' })).toBeInTheDocument();
                 },
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            await userEvent.click(screen.getByRole('button', { name: 'Edit host access for charlie' }));
+            await userEvent.click(screen.getByRole('button', { name: 'Promote to admin' }));
 
             await waitFor(
                 () => {
-                    expect(screen.getByText('Charlie')).toBeInTheDocument();
+                    expect(screen.getByRole('dialog')).toBeInTheDocument();
                 },
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
         });
     });
 
-    describe('kebab menu', () => {
-        it('shows "Promote to admin" item for a user-role row', async () => {
+    describe('action buttons', () => {
+        it('shows "Promote to admin" button for a user-role row', async () => {
             const user = createMockUser({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
             const summary = createMockUserListItem({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
 
@@ -167,22 +174,13 @@ describe('UsersPage', () => {
 
             await waitFor(
                 () => {
-                    expect(screen.getByRole('button', { name: 'More actions for charlie' })).toBeInTheDocument();
-                },
-                { timeout: TEST_TIMEOUTS.SHORT },
-            );
-
-            await userEvent.click(screen.getByRole('button', { name: 'More actions for charlie' }));
-
-            await waitFor(
-                () => {
-                    expect(screen.getByText('Promote to admin')).toBeInTheDocument();
+                    expect(screen.getByRole('button', { name: 'Promote to admin' })).toBeInTheDocument();
                 },
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
         });
 
-        it('shows "Demote to user" for an admin-role row', async () => {
+        it('shows "Demote to user" button for an admin-role row', async () => {
             const user = createMockUser({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.ADMIN });
             const summary = createMockUserListItem({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.ADMIN });
 
@@ -196,22 +194,13 @@ describe('UsersPage', () => {
 
             await waitFor(
                 () => {
-                    expect(screen.getByRole('button', { name: 'More actions for charlie' })).toBeInTheDocument();
-                },
-                { timeout: TEST_TIMEOUTS.SHORT },
-            );
-
-            await userEvent.click(screen.getByRole('button', { name: 'More actions for charlie' }));
-
-            await waitFor(
-                () => {
-                    expect(screen.getByText('Demote to user')).toBeInTheDocument();
+                    expect(screen.getByRole('button', { name: 'Demote to user' })).toBeInTheDocument();
                 },
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
         });
 
-        it('does NOT render kebab for the current user\'s own row', async () => {
+        it('does NOT render action buttons for the current user\'s own row', async () => {
             const user = createMockUser({ id: 1, username: 'alice', display_name: 'Alice', role: UserRole.ADMIN });
             const summary = createMockUserListItem({ id: 1, username: 'alice', display_name: 'Alice', role: UserRole.ADMIN });
 
@@ -230,10 +219,11 @@ describe('UsersPage', () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            expect(screen.queryByRole('button', { name: 'More actions for alice' })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Demote to user' })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Delete alice' })).not.toBeInTheDocument();
         });
 
-        it('does NOT render kebab for a superadmin row', async () => {
+        it('does NOT render action buttons for a superadmin row', async () => {
             const user = createMockUser({ id: 5, username: 'sa_user', display_name: 'Super Admin', role: UserRole.SUPERADMIN });
             const summary = createMockUserListItem({ id: 5, username: 'sa_user', display_name: 'Super Admin', role: UserRole.SUPERADMIN });
 
@@ -252,10 +242,11 @@ describe('UsersPage', () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            expect(screen.queryByRole('button', { name: 'More actions for sa_user' })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Promote to admin' })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Delete sa_user' })).not.toBeInTheDocument();
         });
 
-        it('clicking "Delete user" inside the kebab opens the delete confirmation modal', async () => {
+        it('clicking the delete button opens the delete confirmation modal', async () => {
             const user = createMockUser({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
             const summary = createMockUserListItem({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
 
@@ -269,21 +260,12 @@ describe('UsersPage', () => {
 
             await waitFor(
                 () => {
-                    expect(screen.getByRole('button', { name: 'More actions for charlie' })).toBeInTheDocument();
+                    expect(screen.getByRole('button', { name: 'Delete charlie' })).toBeInTheDocument();
                 },
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            await userEvent.click(screen.getByRole('button', { name: 'More actions for charlie' }));
-
-            await waitFor(
-                () => {
-                    expect(screen.getByText('Delete user')).toBeInTheDocument();
-                },
-                { timeout: TEST_TIMEOUTS.SHORT },
-            );
-
-            await userEvent.click(screen.getByText('Delete user'));
+            await userEvent.click(screen.getByRole('button', { name: 'Delete charlie' }));
 
             await waitFor(
                 () => {
@@ -291,6 +273,123 @@ describe('UsersPage', () => {
                 },
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
+        });
+    });
+
+    describe('loading and error states', () => {
+        it('shows a loader and hides the table while data is loading', () => {
+            server.use(
+                http.get(endpoints.usersHostAccess, async () => {
+                    await delay('infinite');
+                    return responses.ok([]);
+                }),
+            );
+
+            renderUsersPage();
+
+            expect(screen.queryByRole('heading', { name: 'Users', level: 1 })).not.toBeInTheDocument();
+        });
+
+        it('shows an error message when the user list fails to load', async () => {
+            server.use(hostAccessHandlers.listUsersHostAccess.serverError());
+
+            renderUsersPage();
+
+            await waitFor(
+                () => {
+                    expect(screen.getByText('Failed to load users.')).toBeInTheDocument();
+                },
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+        });
+    });
+
+    describe('create user modal', () => {
+        it('clicking "+ New user" opens the create user modal', async () => {
+            const user = userEvent.setup();
+
+            server.use(
+                authHandlers.me.success({ id: 99, username: 'admin', role: UserRole.ADMIN }),
+                hostAccessHandlers.listUsersHostAccess.success([]),
+            );
+
+            renderUsersPage();
+
+            await waitFor(
+                () => {
+                    expect(screen.getByRole('button', { name: /new user/i })).toBeInTheDocument();
+                },
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            await user.click(screen.getByRole('button', { name: /new user/i }));
+
+            await waitFor(
+                () => {
+                    expect(screen.getByRole('dialog')).toBeInTheDocument();
+                },
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+        });
+    });
+
+    describe('row click navigation', () => {
+        function renderWithRoutes() {
+            function TestApp() {
+                return (
+                    <Routes>
+                        <Route path="/" element={<AuthProvider><UsersPage /></AuthProvider>} />
+                        <Route path="/access/users/:id" element={<div data-testid="user-detail" />} />
+                    </Routes>
+                );
+            }
+            return renderWithProviders(<TestApp />);
+        }
+
+        it('clicking a non-superadmin row navigates to the user detail page', async () => {
+            const user = userEvent.setup();
+            const summary = createMockUserListItem({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
+
+            server.use(
+                authHandlers.me.success({ id: 99, username: 'admin', role: UserRole.ADMIN }),
+                hostAccessHandlers.listUsersHostAccess.success([summary]),
+            );
+
+            renderWithRoutes();
+
+            await waitFor(
+                () => expect(screen.getByText('charlie')).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            await user.click(screen.getByText('charlie'));
+
+            await waitFor(
+                () => expect(screen.getByTestId('user-detail')).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+        });
+
+        it('clicking a superadmin row does not navigate', async () => {
+            const user = userEvent.setup();
+            const summary = createMockUserListItem({ id: 5, username: 'sa_user', display_name: 'Super Admin', role: UserRole.SUPERADMIN });
+
+            server.use(
+                authHandlers.me.success({ id: 99, username: 'admin', role: UserRole.ADMIN }),
+                hostAccessHandlers.listUsersHostAccess.success([summary]),
+            );
+
+            renderWithRoutes();
+
+            await waitFor(
+                () => expect(screen.getByText('sa_user')).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            await user.click(screen.getByText('sa_user'));
+
+            expect(screen.queryByTestId('user-detail')).not.toBeInTheDocument();
+            expect(screen.getByRole('heading', { name: 'Users', level: 1 })).toBeInTheDocument();
         });
     });
 });

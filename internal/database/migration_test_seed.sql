@@ -147,10 +147,6 @@ INSERT INTO network_policy_allowed_host_groups (policy_id, host_group_id)
     SELECT np.id, hg.id FROM network_policies np, host_groups hg
     WHERE np.name = 'Seed VPN' AND hg.name = 'seed-group';
 
-INSERT INTO network_policy_allowed_hosts (policy_id, host_id)
-    SELECT np.id, h.id FROM network_policies np, hosts h
-    WHERE np.name = 'Seed VPN' AND h.fqdn = 'seed.example.com';
-
 -- ── access_log_network_policy_contributors (000020+) ──────────────────────────
 
 INSERT INTO access_log_network_policy_contributors (access_log_id, policy_id, policy_name)

@@ -329,6 +329,8 @@ export const hostAccessHandlers = {
         success: (summaries?: UserListItem[]) =>
             http.get(endpoints.usersHostAccess, () =>
                 HttpResponse.json(summaries ?? [createMockUserListItem()])),
+        serverError: () =>
+            http.get(endpoints.usersHostAccess, () => responses.serverError()),
     },
     userHostDetails: {
         success: (details?: UserAccessDetail) =>

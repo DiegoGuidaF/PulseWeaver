@@ -41,14 +41,6 @@ type PolicyHostRefView struct {
 	FQDN string
 }
 
-// PolicyHostView is a host annotated with its assignment state.
-type PolicyHostView struct {
-	ID       int64
-	FQDN     string
-	Assigned bool
-	ViaGroup bool
-}
-
 // NetworkPolicyDetailView is the full detail read model for a single policy.
 type NetworkPolicyDetailView struct {
 	ID                 ids.NetworkPolicyID
@@ -62,7 +54,6 @@ type NetworkPolicyDetailView struct {
 	EffectiveHostCount int
 	TotalHostCount     int
 	HostGroups         []PolicyHostGroupView
-	IndividualHosts    []PolicyHostView
 }
 
 // GetNetworkPolicySummaries returns all policies enriched with host count metadata.
@@ -101,17 +92,12 @@ func (r *Repository) GetNetworkPolicySummaries(ctx context.Context) ([]NetworkPo
 	}
 
 	effectiveQuery, args, err := sqlx.In(`
-		SELECT policy_id, COUNT(DISTINCT host_id) AS effective_host_count
-		FROM (
-			SELECT policy_id, host_id FROM network_policy_allowed_hosts WHERE policy_id IN (?)
-			UNION
-			SELECT nphg.policy_id, hgm.host_id
-			FROM network_policy_allowed_host_groups nphg
-			JOIN host_group_members hgm ON hgm.host_group_id = nphg.host_group_id
-			WHERE nphg.policy_id IN (?)
-		) combined
-		GROUP BY policy_id
-	`, policyIDs, policyIDs)
+		SELECT nphg.policy_id, COUNT(DISTINCT hgm.host_id) AS effective_host_count
+		FROM network_policy_allowed_host_groups nphg
+		JOIN host_group_members hgm ON hgm.host_group_id = nphg.host_group_id
+		WHERE nphg.policy_id IN (?)
+		GROUP BY nphg.policy_id
+	`, policyIDs)
 	if err != nil {
 		return nil, fmt.Errorf("build effective count query: %w", err)
 	}
@@ -194,11 +180,6 @@ func (r *Repository) GetNetworkPolicyDetail(ctx context.Context, id ids.NetworkP
 		return nil, err
 	}
 
-	hosts, err := r.listHostsForPolicy(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
 	return &NetworkPolicyDetailView{
 		ID:                 p.ID,
 		Name:               p.Name,
@@ -211,7 +192,6 @@ func (r *Repository) GetNetworkPolicyDetail(ctx context.Context, id ids.NetworkP
 		EffectiveHostCount: effectiveHostCount,
 		TotalHostCount:     totalHostCount,
 		HostGroups:         groups,
-		IndividualHosts:    hosts,
 	}, nil
 }
 
@@ -227,18 +207,13 @@ func (r *Repository) totalHostsCount(ctx context.Context) (int, error) {
 
 func (r *Repository) effectiveHostCount(ctx context.Context, id ids.NetworkPolicyID) (int, error) {
 	const query = `
-		SELECT COUNT(DISTINCT host_id)
-		FROM (
-			SELECT host_id FROM network_policy_allowed_hosts WHERE policy_id = ?
-			UNION
-			SELECT hgm.host_id
-			FROM network_policy_allowed_host_groups nphg
-			JOIN host_group_members hgm ON hgm.host_group_id = nphg.host_group_id
-			WHERE nphg.policy_id = ?
-		) combined
+		SELECT COUNT(DISTINCT hgm.host_id)
+		FROM network_policy_allowed_host_groups nphg
+		JOIN host_group_members hgm ON hgm.host_group_id = nphg.host_group_id
+		WHERE nphg.policy_id = ?
 	`
 	var count int
-	if err := r.db.GetContext(ctx, &count, query, id, id); err != nil {
+	if err := r.db.GetContext(ctx, &count, query, id); err != nil {
 		return 0, fmt.Errorf("count effective hosts: %w", err)
 	}
 	return count, nil
@@ -321,39 +296,4 @@ func (r *Repository) listGroupsForPolicy(ctx context.Context, id ids.NetworkPoli
 		}
 	}
 	return groups, nil
-}
-
-func (r *Repository) listHostsForPolicy(ctx context.Context, id ids.NetworkPolicyID) ([]PolicyHostView, error) {
-	const query = `
-		SELECT
-			h.id,
-			h.fqdn,
-			(npah.policy_id IS NOT NULL) AS assigned,
-			EXISTS(
-				SELECT 1 FROM host_group_members hgm
-				JOIN network_policy_allowed_host_groups npahg
-				    ON npahg.host_group_id = hgm.host_group_id
-				WHERE hgm.host_id = h.id AND npahg.policy_id = ?
-			) AS via_group
-		FROM hosts h
-		LEFT JOIN network_policy_allowed_hosts npah
-		    ON npah.host_id = h.id AND npah.policy_id = ?
-		ORDER BY assigned DESC, via_group DESC, h.fqdn ASC
-	`
-	type dbHostRow struct {
-		ID       int64  `db:"id"`
-		FQDN     string `db:"fqdn"`
-		Assigned bool   `db:"assigned"`
-		ViaGroup bool   `db:"via_group"`
-	}
-	var rows []dbHostRow
-	if err := r.db.SelectContext(ctx, &rows, query, id, id); err != nil {
-		return nil, fmt.Errorf("list hosts for policy: %w", err)
-	}
-
-	hosts := make([]PolicyHostView, len(rows))
-	for i, row := range rows {
-		hosts[i] = PolicyHostView(row)
-	}
-	return hosts, nil
 }
