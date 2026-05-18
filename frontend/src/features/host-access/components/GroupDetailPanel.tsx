@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import {
   ActionIcon,
   Anchor,
@@ -14,12 +15,10 @@ import {
   Title,
   Tooltip,
 } from "@mantine/core";
-import type { MantineColor } from "@mantine/core";
 import { IconArrowBackUp, IconPencil, IconTrash } from "@tabler/icons-react";
 import type { GroupDetailWithUsers, Id } from "@/lib/api";
 import type { DraftGroup, GroupsDiff } from "@/features/host-access/drafts/hostGroupsDraft";
 import { GroupMembershipTables } from "@/features/host-access/components/GroupMembershipTables";
-import { groupColor } from "@/features/host-access/utils/groupColor";
 import { resolveHostIcon } from "@/features/host-access/hostIconConfig";
 
 interface HostRef {
@@ -62,7 +61,7 @@ export function GroupDetailPanel({
     );
   }
 
-  const color: MantineColor = group.color ?? groupColor(group.name);
+  const color = group.color;
   const resolved = resolveHostIcon(group.icon);
   const inGroupIds = new Set<Id>(
     group.hostIds.filter((id): id is Id => typeof id === "number"),
@@ -193,7 +192,7 @@ function AccessPanel({ serverGroup }: { serverGroup: GroupDetailWithUsers }) {
                 {users.length > 3 && (
                   <Text size="xs" c="dimmed">…and {users.length - 3} more</Text>
                 )}
-                <Anchor component="a" href="/access/users" size="xs">
+                <Anchor component={Link} to={`/access/users?group_id=${serverGroup.id}`} size="xs">
                   View users →
                 </Anchor>
               </>
@@ -216,7 +215,7 @@ function AccessPanel({ serverGroup }: { serverGroup: GroupDetailWithUsers }) {
                 {policies.length > 3 && (
                   <Text size="xs" c="dimmed">…and {policies.length - 3} more</Text>
                 )}
-                <Anchor component="a" href="/access/network-policies" size="xs">
+                <Anchor component={Link} to={`/access/network-policies?group_id=${serverGroup.id}`} size="xs">
                   View policies →
                 </Anchor>
               </>

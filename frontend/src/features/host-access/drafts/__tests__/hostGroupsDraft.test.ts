@@ -54,7 +54,7 @@ describe("hostGroupsDraft reducer", () => {
         name: "media",
         description: null,
         icon: null,
-        color: null,
+        color: "#4C6EF5",
         hostIds: [],
       },
     });
@@ -71,7 +71,7 @@ describe("hostGroupsDraft reducer", () => {
         name: "media",
         description: null,
         icon: null,
-        color: null,
+        color: "#4C6EF5",
         hostIds: [],
       },
     });
@@ -124,7 +124,7 @@ describe("hostGroupsDraft reducer", () => {
     state = groupsDraftReducer(state, {
       type: "add",
       id: "new-1",
-      group: { name: "c", description: null, icon: null, color: null, hostIds: [] },
+      group: { name: "c", description: null, icon: null, color: "#4C6EF5", hostIds: [] },
     });
 
     const byId = diffGroups(state).byId;

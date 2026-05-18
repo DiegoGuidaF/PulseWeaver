@@ -1,6 +1,6 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceTypeItem, GroupDetailWithUsers, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
-import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
+import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceTypeItem, GroupDetailWithUsers, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
 
 const BASE = '/api/v1';
 
@@ -45,6 +45,8 @@ export const endpoints = {
     adminHostSuggestionsIgnoreByFqdn: `${BASE}/admin/access/host-suggestions/ignore/:fqdn`,
     policyMap:      `${BASE}/admin/policy-map`,
     policySimulate: `${BASE}/admin/policy-simulate`,
+    networkPolicies: `${BASE}/admin/access/network-policies`,
+    devicesByUser: `${BASE}/admin/users/:userId/devices`,
 } as const;
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
@@ -180,6 +182,12 @@ export const deviceHandlers = {
                 { value: 'static', label: 'Static' },
                 { value: 'dynamic', label: 'Dynamic' },
             ])),
+
+    listByUser: {
+        success: (devices?: Device[]) =>
+            http.get(endpoints.devicesByUser, () =>
+                HttpResponse.json(devices ?? [createMockDevice()])),
+    },
 };
 
 // ─── Address handlers ─────────────────────────────────────────────────────────
@@ -401,6 +409,17 @@ export const policyAuditHandlers = {
     },
 };
 
+// ─── Network policy handlers ──────────────────────────────────────────────────
+export const networkPolicyHandlers = {
+    list: {
+        success: (policies?: NetworkPolicyListItem[]) =>
+            http.get(endpoints.networkPolicies, () =>
+                HttpResponse.json(policies ?? [createMockNetworkPolicyListItem()])),
+        serverError: () =>
+            http.get(endpoints.networkPolicies, () => responses.serverError()),
+    },
+};
+
 // ─── Default happy-path handlers (registered globally in setup.ts) ────────────
 // Every test starts in a fully-loaded state. Only call server.use() for deviations.
 export const defaultHandlers = [
@@ -451,6 +470,10 @@ export const defaultHandlers = [
     hostAccessHandlers.listHostSuggestions.success(),
     hostAccessHandlers.reconcileKnownHosts.success(),
     hostAccessHandlers.reconcileHostGroups.success(),
+    // Network policies
+    networkPolicyHandlers.list.success(),
+    // Devices by user (parameterized; used when DeviceList has ownerFilter set)
+    deviceHandlers.listByUser.success(),
     // Policy audit
     policyAuditHandlers.policyMap.success(),
     policyAuditHandlers.simulate.allowed(),

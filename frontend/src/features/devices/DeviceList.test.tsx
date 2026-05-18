@@ -8,6 +8,7 @@ import { DeviceList } from './DeviceList';
 import { createMockDevice } from '@/test/mocks/data';
 import { deviceHandlers, endpoints, responses } from '@/test/mocks/handlers';
 import { TEST_TIMEOUTS } from '@/test/constants';
+import { authHandlers } from '@/test/mocks/handlers';
 
 describe('DeviceList', () => {
     it('renders device table with clickable rows and delete button', async () => {
@@ -155,5 +156,25 @@ describe('DeviceList', () => {
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );
+    });
+
+    it('pre-seeds owner filter from ?user_id, fetching only that user\'s devices', async () => {
+        const userDevice = createMockDevice({ id: 10, name: 'Alice Router' });
+        const otherDevice = createMockDevice({ id: 20, name: 'Global Device' });
+
+        server.use(
+            authHandlers.me.success({ id: 1, username: 'admin' }),
+            deviceHandlers.list([otherDevice]),
+            deviceHandlers.listByUser.success([userDevice]),
+        );
+
+        renderWithProviders(<DeviceList />, { initialEntries: ['/?user_id=42'] });
+
+        await waitFor(
+            () => expect(screen.getByText('Alice Router')).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+
+        expect(screen.queryByText('Global Device')).not.toBeInTheDocument();
     });
 });

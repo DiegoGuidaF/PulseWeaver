@@ -47,6 +47,7 @@ export function HostGroupsTab({ state, dispatch, serverHosts }: Props) {
   const [saving, setSaving] = useState(false);
 
   const groups = useMemo(() => Array.from(state.draft.values()), [state]);
+  const existingColors = useMemo(() => groups.map((g) => g.color), [groups]);
   const tombstonedDrafts = useMemo(
     () =>
       Array.from(state.tombstoned)
@@ -150,6 +151,7 @@ export function HostGroupsTab({ state, dispatch, serverHosts }: Props) {
           onClose={() => setCreateOpen(false)}
           initial={null}
           existingNames={existingNames}
+          existingColors={existingColors}
           onSubmit={handleCreate}
         />
         <StagedChangesBar
@@ -170,6 +172,7 @@ export function HostGroupsTab({ state, dispatch, serverHosts }: Props) {
         onClose={() => setCreateOpen(false)}
         initial={null}
         existingNames={existingNames}
+        existingColors={existingColors}
         onSubmit={handleCreate}
       />
       <GroupMetadataModal
@@ -177,6 +180,7 @@ export function HostGroupsTab({ state, dispatch, serverHosts }: Props) {
         onClose={() => setEditOpen(false)}
         initial={selected}
         existingNames={existingNames}
+        existingColors={existingColors}
         onSubmit={handleEdit}
       />
 

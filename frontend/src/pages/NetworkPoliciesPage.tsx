@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Alert, Button, Center, Group, Loader, Stack, Text, Title } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
 import type { NetworkPolicyDetail } from "@/lib/api";
@@ -9,8 +9,14 @@ import { CreateNetworkPolicyModal } from "@/features/network-policies/components
 
 export function NetworkPoliciesPage() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [createOpen, setCreateOpen] = useState(false);
     const { data, isPending, isError } = useNetworkPolicies();
+
+    const groupIdFilter = searchParams.get("group_id");
+    const displayedPolicies = groupIdFilter && data
+        ? data.filter((p) => p.groups.some((g) => g.id === Number(groupIdFilter)))
+        : data;
 
     function handleCreated(policy: NetworkPolicyDetail) {
         setCreateOpen(false);
@@ -41,9 +47,9 @@ export function NetworkPoliciesPage() {
                 </Alert>
             )}
 
-            {data && (
+            {displayedPolicies && (
                 <NetworkPoliciesTable
-                    policies={data}
+                    policies={displayedPolicies}
                     onNewPolicy={() => setCreateOpen(true)}
                 />
             )}

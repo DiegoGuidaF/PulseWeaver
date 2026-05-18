@@ -2,27 +2,12 @@ import type { GroupDetailWithUsers, Id } from "@/lib/api";
 
 export type DraftGroupId = Id | `new-${string}`;
 
-export const GROUP_COLOR_PALETTE = [
-  "indigo",
-  "violet",
-  "teal",
-  "cyan",
-  "grape",
-  "pink",
-  "lime",
-  "green",
-  "gray",
-] as const;
-
-export type GroupColor = (typeof GROUP_COLOR_PALETTE)[number];
-
 export interface DraftGroup {
   id: DraftGroupId;
   name: string;
   description: string | null;
   icon: string | null;
-  // string | null: holds hex (from server) or Mantine named color (from picker), or null for new unstyled groups
-  color: string | null;
+  color: string;
   hostIds: Id[];
 }
 
@@ -221,7 +206,7 @@ function computeGroupDiff(
     nameChanged: draft.name !== original.name,
     descriptionChanged: (draft.description ?? null) !== (original.description ?? null),
     iconChanged: (draft.icon ?? "") !== original.icon,
-    colorChanged: (draft.color ?? "") !== original.color,
+    colorChanged: draft.color !== original.color,
     hostsAdded,
     hostsRemoved,
   };

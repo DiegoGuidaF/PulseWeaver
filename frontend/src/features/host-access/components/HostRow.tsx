@@ -21,7 +21,7 @@ export function HostRow({ draft, diff, serverGroups, onGroupClick, onDelete }: P
   const groupRefs = draft.groupIds
     .map((id) => serverGroups.find((g) => g.id === id))
     .filter((g): g is GroupDetailWithUsers => g !== undefined)
-    .map((g) => ({ id: g.id, name: g.name, icon: g.icon }));
+    .map((g) => ({ id: g.id, name: g.name, color: g.color, icon: g.icon }));
 
   return (
     <Table.Tr>
@@ -80,7 +80,7 @@ export function HostRow({ draft, diff, serverGroups, onGroupClick, onDelete }: P
 }
 
 interface ClickableGroupBadgeListProps {
-  groups: { id: number; name: string; icon?: string | null }[];
+  groups: { id: number; name: string; color: string; icon?: string | null }[];
   onGroupClick: (groupId: number) => void;
 }
 

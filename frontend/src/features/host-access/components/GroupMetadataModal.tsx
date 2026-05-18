@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { Button, Group, Modal, Stack, TextInput, Textarea } from "@mantine/core";
-import type { MantineColor } from "@mantine/core";
 import { IconPicker } from "@/features/host-access/components/IconPicker";
 import { GroupColorPicker } from "@/features/host-access/components/GroupColorPicker";
-import type { DraftGroup, GroupColor } from "@/features/host-access/drafts/hostGroupsDraft";
+import { getLeastUsedColor } from "@/features/host-access/utils/groupColor";
+import type { DraftGroup } from "@/features/host-access/drafts/hostGroupsDraft";
+
 export type GroupFormValues = {
   name: string;
   description: string | null;
   icon: string | null;
-  // string | null: holds Mantine named colors from picker, or null for no selection
-  color: string | null;
+  color: string;
 };
 
 interface Props {
@@ -17,6 +17,7 @@ interface Props {
   onClose: () => void;
   initial?: DraftGroup | null;
   existingNames: string[];
+  existingColors: string[];
   onSubmit: (values: GroupFormValues) => void;
 }
 
@@ -25,6 +26,7 @@ export function GroupMetadataModal({
   onClose,
   initial,
   existingNames,
+  existingColors,
   onSubmit,
 }: Props) {
   const isEditing = initial !== null && initial !== undefined;
@@ -39,6 +41,7 @@ export function GroupMetadataModal({
         <GroupMetadataForm
           initial={initial ?? null}
           existingNames={existingNames}
+          existingColors={existingColors}
           onSubmit={(values) => {
             onSubmit(values);
             onClose();
@@ -53,17 +56,19 @@ export function GroupMetadataModal({
 interface FormProps {
   initial: DraftGroup | null;
   existingNames: string[];
+  existingColors: string[];
   onSubmit: (values: GroupFormValues) => void;
   onCancel: () => void;
 }
 
-function GroupMetadataForm({ initial, existingNames, onSubmit, onCancel }: FormProps) {
+function GroupMetadataForm({ initial, existingNames, existingColors, onSubmit, onCancel }: FormProps) {
   const isEditing = initial !== null;
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [icon, setIcon] = useState<string | null>(initial?.icon ?? null);
-  // Cast to GroupColor | null for picker: server hex colors won't match palette but are passed through unchanged
-  const [color, setColor] = useState<string | null>(initial?.color ?? null);
+  const [color, setColor] = useState<string>(
+    initial?.color ?? getLeastUsedColor(existingColors),
+  );
 
   const trimmed = name.trim();
   const nameTaken =
@@ -72,7 +77,6 @@ function GroupMetadataForm({ initial, existingNames, onSubmit, onCancel }: FormP
       (n) => n.toLowerCase() === trimmed.toLowerCase() && n !== initial?.name,
     );
   const canSubmit = trimmed.length > 0 && !nameTaken;
-  const previewColor: MantineColor = color ?? "yellow";
 
   function handleSubmit() {
     if (!canSubmit) return;
@@ -102,8 +106,8 @@ function GroupMetadataForm({ initial, existingNames, onSubmit, onCancel }: FormP
         onChange={(e) => setDescription(e.currentTarget.value)}
         rows={2}
       />
-      <GroupColorPicker value={color as GroupColor | null} onChange={setColor} />
-      <IconPicker value={icon} onChange={setIcon} color={previewColor} />
+      <GroupColorPicker value={color} onChange={setColor} />
+      <IconPicker value={icon} onChange={setIcon} color={color} />
 
       <Group justify="flex-end" gap="xs">
         <Button variant="outline" onClick={onCancel}>

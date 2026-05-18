@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ActionIcon,
   Button,
@@ -28,11 +28,15 @@ import { toErrorMessage } from "@/lib/api-client";
 
 export function DeviceList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const formatDateTime = useDateFormatter();
   const { data: currentUser } = useCurrentUser();
 
   const { data: users } = useListUsers({ enabled: currentUser != null });
-  const [ownerFilter, setOwnerFilter] = useState<number | null>(null);
+  const [ownerFilter, setOwnerFilter] = useState<number | null>(() => {
+    const uid = searchParams.get("user_id");
+    return uid ? Number(uid) : null;
+  });
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
   // Both queries run unconditionally to respect Rules of Hooks;

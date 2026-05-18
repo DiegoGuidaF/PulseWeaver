@@ -222,32 +222,46 @@ export function UserDetailPage() {
             {data.devices.length === 0 ? (
               <Text size="sm" c="dimmed">No devices registered.</Text>
             ) : (
-              <Table fz="sm" withRowBorders>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Device name</Table.Th>
-                    <Table.Th>Live IPs</Table.Th>
-                    <Table.Th>API key</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {data.devices.map((device) => (
-                    <Table.Tr key={device.id}>
-                      <Table.Td fw={500}>{device.name}</Table.Td>
-                      <Table.Td c="dimmed">{device.live_ip_count}</Table.Td>
-                      <Table.Td>
-                        {device.api_key_prefix ? (
-                          <Badge size="xs" variant="light" color="orange" ff="monospace">
-                            ● {device.api_key_prefix}…
-                          </Badge>
-                        ) : (
-                          <Text size="sm" c="dimmed">—</Text>
-                        )}
-                      </Table.Td>
+              <Stack gap="sm">
+                <Table fz="sm" withRowBorders highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Device name</Table.Th>
+                      <Table.Th>Live IPs</Table.Th>
+                      <Table.Th>API key</Table.Th>
                     </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {data.devices.map((device) => (
+                      <Table.Tr
+                        key={device.id}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => navigate(`/devices/${device.id}`)}
+                      >
+                        <Table.Td fw={500}>{device.name}</Table.Td>
+                        <Table.Td c="dimmed">{device.live_ip_count}</Table.Td>
+                        <Table.Td>
+                          {device.api_key_prefix ? (
+                            <Badge size="xs" variant="light" color="orange" ff="monospace">
+                              ● {device.api_key_prefix}…
+                            </Badge>
+                          ) : (
+                            <Text size="sm" c="dimmed">—</Text>
+                          )}
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+                <Anchor
+                  component={Link}
+                  to={`/devices?user_id=${data.id}`}
+                  size="xs"
+                  c="dimmed"
+                >
+                  All devices →
+                </Anchor>
+              </Stack>
             )}
           </Tabs.Panel>
         </Tabs>

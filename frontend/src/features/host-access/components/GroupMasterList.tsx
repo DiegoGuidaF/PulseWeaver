@@ -13,13 +13,11 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import { IconPlus, IconSearch } from "@tabler/icons-react";
-import type { MantineColor } from "@mantine/core";
 import type {
   DraftGroup,
   DraftGroupId,
   GroupsDiff,
 } from "@/features/host-access/drafts/hostGroupsDraft";
-import { groupColor } from "@/features/host-access/utils/groupColor";
 import { resolveHostIcon } from "@/features/host-access/hostIconConfig";
 
 interface Props {
@@ -114,7 +112,7 @@ interface RowProps {
 }
 
 function GroupRow({ group, selected, isDirty, isNew, isTombstoned, onClick }: RowProps) {
-  const color: MantineColor = group.color ?? groupColor(group.name);
+  const color = group.color;
   const resolved = resolveHostIcon(group.icon);
   return (
     <UnstyledButton

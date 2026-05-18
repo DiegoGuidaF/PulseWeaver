@@ -1,4 +1,4 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, GroupDetailWithUsers, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, GroupDetailWithUsers, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import { UserRole } from "@/lib/api";
 
 /**
@@ -478,6 +478,33 @@ export function createMockPolicySimulateResult(
     host: 'app.home.lan',
     allowed: true,
     deny_reason: null,
+    ...overrides,
+  };
+}
+
+export function createMockNetworkPolicyListItem(
+  overrides?: Partial<NetworkPolicyListItem>,
+): NetworkPolicyListItem {
+  return {
+    id: 1,
+    name: 'Test Policy',
+    cidr: '10.0.0.0/8',
+    enabled: true,
+    groups: [],
+    host_count: 0,
+    bypass_host_check: false,
+    created_at: '2026-01-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+export function createMockDeviceListItem(
+  overrides?: Partial<DeviceListItem>,
+): DeviceListItem {
+  return {
+    id: 1,
+    name: 'Test Device',
+    live_ip_count: 0,
     ...overrides,
   };
 }

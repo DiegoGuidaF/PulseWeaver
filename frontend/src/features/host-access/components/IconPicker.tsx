@@ -11,7 +11,6 @@ import {
   ThemeIcon,
   Tooltip,
 } from "@mantine/core";
-import type { MantineColor } from "@mantine/core";
 import {
   HOST_ICON_OPTIONS,
   resolveHostIcon,
@@ -21,7 +20,7 @@ import {
 interface Props {
   value: string | null;
   onChange: (next: string | null) => void;
-  color?: MantineColor;
+  color?: string;
   label?: string;
   description?: string;
 }
@@ -102,7 +101,7 @@ export function IconPicker({
 
 interface PreviewTileProps {
   value: string | null;
-  color: MantineColor;
+  color: string;
 }
 
 function PreviewTile({ value, color }: PreviewTileProps) {

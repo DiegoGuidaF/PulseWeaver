@@ -6,6 +6,7 @@ const MAX_VISIBLE = 2;
 interface GroupRef {
   id: number;
   name: string;
+  color: string;
   icon?: string | null;
 }
 

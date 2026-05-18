@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ActionIcon,
   Badge,
@@ -43,13 +43,17 @@ function collectGroups(users: UserListItem[]) {
 
 export function UsersPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user: currentUser } = useAuth();
   const { data, isPending, isError } = useListUsersWithAccess();
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [pendingRole, setPendingRole] = useState<PendingRole | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
-  const [groupFilter, setGroupFilter] = useState<Set<number>>(new Set());
+  const [groupFilter, setGroupFilter] = useState<Set<number>>(() => {
+    const gid = searchParams.get("group_id");
+    return gid ? new Set([Number(gid)]) : new Set();
+  });
   const [sortStatus, setSortStatus] = useState<DataTableSortStatus<UserListItem>>({
     columnAccessor: "display_name",
     direction: "asc",

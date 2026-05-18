@@ -8,7 +8,7 @@ export function buildReconcileGroupsBody(state: GroupsDraftState): GroupWrite[] 
     name: g.name,
     description: g.description ?? null,
     icon: g.icon ?? "",
-    color: g.color ?? "",
+    color: g.color,
     host_ids: g.hostIds,
   }));
 }

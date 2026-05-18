@@ -67,17 +67,17 @@ describe("buildReconcileGroupsBody", () => {
         name: "tagged",
         description: null,
         icon: null,
-        color: "violet",
+        color: "#7950F2",
         hostIds: [],
       },
     });
 
     const body = buildReconcileGroupsBody(state);
 
-    expect(body[0]?.color).toBe("violet");
+    expect(body[0]?.color).toBe("#7950F2");
   });
 
-  it("projects a new draft group with id: null, uses empty string fallbacks for icon/color", () => {
+  it("projects a new draft group with id: null, uses empty string fallback for icon", () => {
     const state = groupsDraftReducer(seed([]), {
       type: "add",
       id: "new-zzz",
@@ -85,7 +85,7 @@ describe("buildReconcileGroupsBody", () => {
         name: "fresh",
         description: null,
         icon: null,
-        color: null,
+        color: "#4C6EF5",
         hostIds: [],
       },
     });
@@ -93,7 +93,7 @@ describe("buildReconcileGroupsBody", () => {
     const body = buildReconcileGroupsBody(state);
 
     expect(body).toEqual([
-      { id: null, name: "fresh", description: null, icon: "", color: "", host_ids: [] },
+      { id: null, name: "fresh", description: null, icon: "", color: "#4C6EF5", host_ids: [] },
     ]);
   });
 

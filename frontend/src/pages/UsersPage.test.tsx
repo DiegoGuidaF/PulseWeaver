@@ -392,4 +392,38 @@ describe('UsersPage', () => {
             expect(screen.getByRole('heading', { name: 'Users', level: 1 })).toBeInTheDocument();
         });
     });
+
+    describe('group_id URL param', () => {
+        it('pre-seeds the group filter, showing only users in that group', async () => {
+            const inGroup = createMockUserListItem({
+                id: 1,
+                username: 'alice',
+                display_name: 'Alice',
+                groups: [{ id: 5, name: 'Engineering' }],
+            });
+            const notInGroup = createMockUserListItem({
+                id: 2,
+                username: 'bob',
+                display_name: 'Bob',
+                groups: [],
+            });
+
+            server.use(
+                authHandlers.me.success({ id: 99, username: 'admin', role: UserRole.ADMIN }),
+                hostAccessHandlers.listUsersHostAccess.success([inGroup, notInGroup]),
+            );
+
+            renderWithProviders(
+                <AuthProvider><UsersPage /></AuthProvider>,
+                { initialEntries: ['/access/users?group_id=5'] },
+            );
+
+            await waitFor(
+                () => expect(screen.getByText('alice')).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.queryByText('bob')).not.toBeInTheDocument();
+        });
+    });
 });
