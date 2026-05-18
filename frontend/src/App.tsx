@@ -16,7 +16,9 @@ import { AccessLogPage } from "./pages/AccessLogPage";
 import { AddressHistoryPage } from "./pages/AddressHistoryPage";
 import { DeviceProvisioningPage } from "./pages/DeviceProvisioningPage";
 import { HostsPage } from "./pages/HostsPage";
+import { HostGroupsPage } from "./pages/HostGroupsPage";
 import { UsersPage } from "./pages/UsersPage";
+import { UserDetailPage } from "./pages/UserDetailPage";
 import { PolicyAuditPage } from "./pages/PolicyAuditPage";
 import { NetworkPoliciesPage } from "./pages/NetworkPoliciesPage";
 import { NetworkPolicyDetailPage } from "./pages/NetworkPolicyDetailPage";
@@ -109,7 +111,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/hosts"
+                    path="/access/hosts"
                     element={
                       <ProtectedRoute>
                         <AppShell>
@@ -119,11 +121,31 @@ function App() {
                     }
                   />
                   <Route
-                    path="/users"
+                    path="/access/host-groups"
+                    element={
+                      <ProtectedRoute>
+                        <AppShell>
+                          <HostGroupsPage />
+                        </AppShell>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/access/users"
                     element={
                       <ProtectedRoute>
                         <AppShell>
                           <UsersPage />
+                        </AppShell>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/access/users/:id"
+                    element={
+                      <ProtectedRoute>
+                        <AppShell>
+                          <UserDetailPage />
                         </AppShell>
                       </ProtectedRoute>
                     }
@@ -139,7 +161,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/network-policies"
+                    path="/access/network-policies"
                     element={
                       <ProtectedRoute>
                         <AppShell>
@@ -149,7 +171,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/network-policies/:id"
+                    path="/access/network-policies/:id"
                     element={
                       <ProtectedRoute>
                         <AppShell>

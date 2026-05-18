@@ -128,7 +128,7 @@ export const AuthRequestSchema = {
 
 export const CreateUserRequestSchema = {
   type: "object",
-  required: ["username", "display_name", "email"],
+  required: ["username", "display_name"],
   properties: {
     username: {
       $ref: "#/components/schemas/Username",
@@ -139,6 +139,7 @@ export const CreateUserRequestSchema = {
     email: {
       type: "string",
       format: "email",
+      nullable: true,
       example: "user@example.com",
     },
   },
@@ -1058,6 +1059,7 @@ export const NetworkPolicyListItemSchema = {
     "groups",
     "host_count",
     "bypass_host_check",
+    "created_at",
   ],
   description: "Network policy summary for the access management list page.",
   properties: {
@@ -1088,6 +1090,11 @@ export const NetworkPolicyListItemSchema = {
     },
     bypass_host_check: {
       type: "boolean",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
     },
   },
 } as const;

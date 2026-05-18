@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { HostGroupWithMembers } from "@/lib/api";
+import type { GroupDetailWithUsers } from "@/lib/api";
 import { fromServerGroups, groupsDraftReducer } from "../hostGroupsDraft";
 import {
   buildReconcileGroupsBody,
@@ -11,40 +11,37 @@ function makeGroup(
   name: string,
   opts: {
     hostIds?: number[];
-    icon?: string | null;
+    icon?: string;
     description?: string | null;
-    color?: string | null;
+    color?: string;
   } = {},
-): HostGroupWithMembers {
+): GroupDetailWithUsers {
   return {
     id,
     name,
     description: opts.description ?? null,
-    icon: opts.icon ?? null,
-    color: opts.color ?? null,
+    icon: opts.icon ?? "server",
+    color: opts.color ?? "#000000",
     created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
     hosts: (opts.hostIds ?? []).map((hid) => ({ id: hid, fqdn: `h${hid}.lan` })),
-    member_ids: opts.hostIds ?? [],
+    network_policies: [],
+    users: [],
   };
 }
 
-function seed(groups: HostGroupWithMembers[] = []) {
-  // Mirrors hostGroupsDraft.test.ts: fromServerGroups returns Omit<..., "selectedId">.
+function seed(groups: GroupDetailWithUsers[] = []) {
   return { ...fromServerGroups(groups), selectedId: null };
 }
 
 describe("buildReconcileGroupsBody", () => {
   it("projects a persisted group with its numeric id and all optional fields", () => {
-    // NOTE: server-side color is currently dropped by fromServerGroups (see the
-    // "persisted once backend adds the column" comment there). Once the column
-    // lands and fromServerGroups starts hydrating it, this test will flip to
-    // expect "indigo" — and that flip is exactly the contract guard we want.
     const state = seed([
       makeGroup(1, "infra", {
         hostIds: [10, 20],
         icon: "🏗️",
         description: "infra hosts",
-        color: "indigo",
+        color: "#336699",
       }),
     ]);
 
@@ -56,13 +53,13 @@ describe("buildReconcileGroupsBody", () => {
         name: "infra",
         description: "infra hosts",
         icon: "🏗️",
-        color: null,
+        color: "#336699",
         host_ids: [10, 20],
       },
     ]);
   });
 
-  it("preserves color picked on a new draft group (the only path color flows through today)", () => {
+  it("preserves color picked on a new draft group", () => {
     const state = groupsDraftReducer(seed([]), {
       type: "add",
       id: "new-color",
@@ -80,7 +77,7 @@ describe("buildReconcileGroupsBody", () => {
     expect(body[0]?.color).toBe("violet");
   });
 
-  it("projects a new draft group with id: null", () => {
+  it("projects a new draft group with id: null, uses empty string fallbacks for icon/color", () => {
     const state = groupsDraftReducer(seed([]), {
       type: "add",
       id: "new-zzz",
@@ -96,16 +93,8 @@ describe("buildReconcileGroupsBody", () => {
     const body = buildReconcileGroupsBody(state);
 
     expect(body).toEqual([
-      { id: null, name: "fresh", description: null, icon: null, color: null, host_ids: [] },
+      { id: null, name: "fresh", description: null, icon: "", color: "", host_ids: [] },
     ]);
-  });
-
-  it("preserves null optional fields verbatim", () => {
-    const state = seed([makeGroup(1, "g", { hostIds: [] })]);
-
-    const body = buildReconcileGroupsBody(state);
-
-    expect(body[0]).toMatchObject({ description: null, icon: null, color: null });
   });
 
   it("omits tombstoned groups (remove drops them from draft)", () => {

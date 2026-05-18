@@ -10,14 +10,13 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { Id } from "@/lib/api";
+import type { GroupDetailWithUsers, Host, Id } from "@/lib/api";
 import { listHostGroupsOptions } from "@/lib/api/@tanstack/react-query.gen";
 import { useReconcileHostGroups } from "@/features/host-access/hooks/useReconcileHostGroups";
 import { GroupMasterList } from "@/features/host-access/components/GroupMasterList";
 import { GroupDetailPanel } from "@/features/host-access/components/GroupDetailPanel";
 import { GroupMetadataModal } from "@/features/host-access/components/GroupMetadataModal";
 import { StagedChangesBar } from "@/features/host-access/components/StagedChangesBar";
-import { TabLockAlert } from "@/features/host-access/components/TabLockAlert";
 import {
   diffGroups,
   isDirtyGroups,
@@ -28,10 +27,6 @@ import {
   type GroupsDraftState,
 } from "@/features/host-access/drafts/hostGroupsDraft";
 import {
-  type DraftHost,
-  type HostsDraftState,
-} from "@/features/host-access/drafts/knownHostsDraft";
-import {
   buildReconcileGroupsBody,
   groupsOriginalMatchesServer,
 } from "@/features/host-access/drafts/saveHostGroupsDraft";
@@ -40,18 +35,10 @@ import { toErrorMessage } from "@/lib/api-client";
 interface Props {
   state: GroupsDraftState;
   dispatch: React.Dispatch<GroupsDraftAction>;
-  hostsState: HostsDraftState;
-  locked: boolean;
-  onDiscardLock: () => void;
+  serverHosts: Host[];
 }
 
-export function HostGroupsTab({
-  state,
-  dispatch,
-  hostsState,
-  locked,
-  onDiscardLock,
-}: Props) {
+export function HostGroupsTab({ state, dispatch, serverHosts }: Props) {
   const queryClient = useQueryClient();
   const reconcileHostGroups = useReconcileHostGroups();
 
@@ -77,14 +64,20 @@ export function HostGroupsTab({
     ? (tombstonedDrafts.find((g) => g.id === state.selectedId) ?? null)
     : null;
 
+  // Resolve the server-side group for the access section (read-only users/policies)
+  const selectedServerGroup: GroupDetailWithUsers | null =
+    state.selectedId !== null && typeof state.selectedId === "number"
+      ? (state.original.get(state.selectedId) ?? null)
+      : null;
+
   const diff = diffGroups(state);
   const dirty = isDirtyGroups(state);
-
   const existingNames = groups.map((g) => g.name);
 
-  const hosts: DraftHost[] = useMemo(
-    () => Array.from(hostsState.draft.values()),
-    [hostsState],
+  // Simple HostRef list for membership tables
+  const hostRefs: { id: Id; fqdn: string }[] = useMemo(
+    () => serverHosts.map((h) => ({ id: h.id, fqdn: h.fqdn })),
+    [serverHosts],
   );
 
   function handleCreate(values: {
@@ -94,11 +87,7 @@ export function HostGroupsTab({
     color: DraftGroup["color"];
   }) {
     const id: `new-${string}` = `new-${crypto.randomUUID()}`;
-    dispatch({
-      type: "add",
-      id,
-      group: { ...values, hostIds: [] },
-    });
+    dispatch({ type: "add", id, group: { ...values, hostIds: [] } });
   }
 
   function handleEdit(values: {
@@ -119,17 +108,14 @@ export function HostGroupsTab({
   async function handleSave() {
     setSaving(true);
     try {
-      const current = await queryClient.fetchQuery({
-        ...listHostGroupsOptions(),
-        staleTime: 0,
-      });
-      if (!groupsOriginalMatchesServer(state.original, current)) {
+      const current = await queryClient.fetchQuery({ ...listHostGroupsOptions(), staleTime: 0 });
+      if (!groupsOriginalMatchesServer(state.original, current.groups)) {
         notifications.show({
           color: "orange",
           title: "Server data changed",
           message: "The groups list was modified externally. Your draft has been reset.",
         });
-        dispatch({ type: "reset", groups: current });
+        dispatch({ type: "reset", groups: current.groups });
         return;
       }
 
@@ -144,17 +130,6 @@ export function HostGroupsTab({
     }
   }
 
-  if (locked) {
-    return (
-      <TabLockAlert
-        title="Known hosts tab has unsaved changes"
-        message="Save or discard your host changes before editing groups."
-        discardLabel="Discard host changes"
-        onDiscard={onDiscardLock}
-      />
-    );
-  }
-
   if (groups.length === 0 && tombstonedDrafts.length === 0) {
     return (
       <>
@@ -163,8 +138,7 @@ export function HostGroupsTab({
             <Text fz={48}>🗂</Text>
             <Title order={3}>No groups yet</Title>
             <Text c="dimmed" size="sm" maw={440} ta="center">
-              Bundle related hosts so you can grant access in one click. Groups are a UX
-              convenience, not an authz concept.
+              Bundle related hosts so you can grant access in one click.
             </Text>
             <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateOpen(true)}>
               New group
@@ -220,9 +194,10 @@ export function HostGroupsTab({
         <Grid.Col span={{ base: 12, md: 8 }}>
           <GroupDetailPanel
             group={selected ?? tombstonedAsDraft}
+            serverGroup={selectedServerGroup}
             isTombstoned={tombstonedSelected}
             diff={diff}
-            hosts={hosts}
+            hosts={hostRefs}
             onEdit={() => setEditOpen(true)}
             onDelete={() => selected && dispatch({ type: "remove", id: selected.id })}
             onRestore={() => {

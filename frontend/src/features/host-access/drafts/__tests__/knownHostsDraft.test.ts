@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { KnownHostWithStats } from "@/lib/api";
+import type { Host } from "@/lib/api";
 import {
   diffHosts,
   fromServerHosts,
@@ -10,15 +10,18 @@ import {
 function makeHost(
   id: number,
   fqdn: string,
-  opts: { icon?: string | null; groupIds?: number[] } = {},
-): KnownHostWithStats {
+  opts: { groupIds?: number[] } = {},
+): Host {
   return {
     id,
     fqdn,
-    icon: opts.icon ?? null,
     created_at: "2026-01-01T00:00:00Z",
-    user_count: 0,
-    groups: (opts.groupIds ?? []).map((gid) => ({ id: gid, name: `g${gid}` })),
+    groups: (opts.groupIds ?? []).map((gid) => ({
+      id: gid,
+      name: `g${gid}`,
+      color: "#000000",
+      icon: "server",
+    })),
   };
 }
 
@@ -30,7 +33,6 @@ describe("knownHostsDraft reducer", () => {
     expect(diffHosts(state)).toEqual({
       added: [],
       removed: [],
-      iconChanged: [],
       groupsChanged: [],
     });
   });
@@ -40,7 +42,7 @@ describe("knownHostsDraft reducer", () => {
     const next = hostsDraftReducer(initial, {
       type: "add",
       id: "new-1",
-      host: { fqdn: "new.lan", icon: null, groupIds: [] },
+      host: { fqdn: "new.lan", groupIds: [] },
     });
     expect(next.draft.size).toBe(1);
     expect(diffHosts(next).added).toHaveLength(1);
@@ -52,7 +54,7 @@ describe("knownHostsDraft reducer", () => {
     state = hostsDraftReducer(state, {
       type: "add",
       id: "new-1",
-      host: { fqdn: "new.lan", icon: null, groupIds: [] },
+      host: { fqdn: "new.lan", groupIds: [] },
     });
     state = hostsDraftReducer(state, { type: "remove", id: "new-1" });
 
@@ -80,26 +82,6 @@ describe("knownHostsDraft reducer", () => {
     expect(isDirtyHosts(state)).toBe(false);
   });
 
-  it("tracks icon changes on persisted hosts", () => {
-    let state = fromServerHosts([makeHost(1, "a.lan", { icon: "IconServer" })]);
-    state = hostsDraftReducer(state, {
-      type: "update",
-      id: 1,
-      patch: { icon: "IconCloud" },
-    });
-    expect(diffHosts(state).iconChanged).toHaveLength(1);
-  });
-
-  it("does not flag icon change when the value is unchanged", () => {
-    let state = fromServerHosts([makeHost(1, "a.lan", { icon: "IconServer" })]);
-    state = hostsDraftReducer(state, {
-      type: "update",
-      id: 1,
-      patch: { icon: "IconServer" },
-    });
-    expect(diffHosts(state).iconChanged).toHaveLength(0);
-  });
-
   it("tracks group-membership changes (order-insensitive)", () => {
     let state = fromServerHosts([
       makeHost(1, "a.lan", { groupIds: [10, 20] }),
@@ -120,16 +102,16 @@ describe("knownHostsDraft reducer", () => {
   });
 
   it("discard reverts every change", () => {
-    let state = fromServerHosts([makeHost(1, "a.lan", { icon: "IconServer" })]);
+    let state = fromServerHosts([makeHost(1, "a.lan", { groupIds: [10] })]);
     state = hostsDraftReducer(state, {
       type: "update",
       id: 1,
-      patch: { icon: "IconCloud" },
+      patch: { groupIds: [20] },
     });
     state = hostsDraftReducer(state, {
       type: "add",
       id: "new-1",
-      host: { fqdn: "new.lan", icon: null, groupIds: [] },
+      host: { fqdn: "new.lan", groupIds: [] },
     });
     state = hostsDraftReducer(state, { type: "remove", id: 1 });
     expect(isDirtyHosts(state)).toBe(true);
@@ -137,6 +119,6 @@ describe("knownHostsDraft reducer", () => {
     state = hostsDraftReducer(state, { type: "discard" });
     expect(isDirtyHosts(state)).toBe(false);
     expect(state.draft.size).toBe(1);
-    expect(state.draft.get(1)?.icon).toBe("IconServer");
+    expect(state.draft.get(1)?.groupIds).toEqual([10]);
   });
 });

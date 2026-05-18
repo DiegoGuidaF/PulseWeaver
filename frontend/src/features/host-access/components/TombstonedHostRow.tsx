@@ -1,9 +1,9 @@
 import { ActionIcon, Badge, Group, Table, Text, Tooltip } from "@mantine/core";
 import { IconArrowBackUp } from "@tabler/icons-react";
-import type { KnownHostWithStats } from "@/lib/api";
+import type { Host } from "@/lib/api";
 
 interface Props {
-  host: KnownHostWithStats;
+  host: Host;
   onRestore: () => void;
 }
 
@@ -20,11 +20,7 @@ export function TombstonedHostRow({ host, onRestore }: Props) {
           </Badge>
         </Group>
       </Table.Td>
-      <Table.Td colSpan={2}>
-        <Text size="xs" c="dimmed">
-          {host.user_count} {host.user_count === 1 ? "user" : "users"} will lose access
-        </Text>
-      </Table.Td>
+      <Table.Td colSpan={2} />
       <Table.Td>
         <Group gap={4} justify="flex-end">
           <Tooltip label="Undo delete" withArrow>

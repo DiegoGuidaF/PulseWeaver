@@ -1,26 +1,22 @@
 import { useState } from "react";
-import { Box, Button, Chip, Group, Modal, Stack, Text, TextInput } from "@mantine/core";
-import { IconPicker } from "@/features/host-access/components/IconPicker";
-import type { DraftGroup } from "@/features/host-access/drafts/hostGroupsDraft";
-import type { Id } from "@/lib/api";
+import { Button, Group, Modal, MultiSelect, Stack, Text, TextInput } from "@mantine/core";
 
 export interface AddHostValues {
   fqdn: string;
-  icon: string | null;
-  groupIds: Id[];
+  groupIds: number[];
 }
 
 interface Props {
   opened: boolean;
   onClose: () => void;
-  groups: DraftGroup[];
+  groups: { id: number; name: string }[];
   existingFqdns: string[];
   onSubmit: (values: AddHostValues) => void;
 }
 
 export function AddHostModal({ opened, onClose, groups, existingFqdns, onSubmit }: Props) {
   return (
-    <Modal opened={opened} onClose={onClose} title="New known host" size="md">
+    <Modal opened={opened} onClose={onClose} title="New host" size="md">
       {opened && (
         <AddHostForm
           groups={groups}
@@ -37,7 +33,7 @@ export function AddHostModal({ opened, onClose, groups, existingFqdns, onSubmit 
 }
 
 interface FormProps {
-  groups: DraftGroup[];
+  groups: { id: number; name: string }[];
   existingFqdns: string[];
   onSubmit: (values: AddHostValues) => void;
   onCancel: () => void;
@@ -45,23 +41,15 @@ interface FormProps {
 
 function AddHostForm({ groups, existingFqdns, onSubmit, onCancel }: FormProps) {
   const [fqdn, setFqdn] = useState("");
-  const [icon, setIcon] = useState<string | null>(null);
   const [groupIds, setGroupIds] = useState<string[]>([]);
 
   const trimmed = fqdn.trim().toLowerCase();
-  const duplicate =
-    trimmed.length > 0 && existingFqdns.some((f) => f.toLowerCase() === trimmed);
+  const duplicate = trimmed.length > 0 && existingFqdns.some((f) => f.toLowerCase() === trimmed);
   const canSubmit = trimmed.length > 0 && !duplicate;
-
-  const assignableGroups = groups.filter((g) => typeof g.id === "number");
 
   function handleSubmit() {
     if (!canSubmit) return;
-    onSubmit({
-      fqdn: trimmed,
-      icon,
-      groupIds: groupIds.map((s) => Number(s)),
-    });
+    onSubmit({ fqdn: trimmed, groupIds: groupIds.map(Number) });
   }
 
   return (
@@ -75,38 +63,20 @@ function AddHostForm({ groups, existingFqdns, onSubmit, onCancel }: FormProps) {
         ff="monospace"
         autoFocus
         error={duplicate ? "This host is already in the list" : null}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") handleSubmit();
-        }}
+        onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
       />
 
-      <IconPicker value={icon} onChange={setIcon} color="gray" />
-
-      {assignableGroups.length > 0 && (
-        <Stack gap={6}>
-          <Box>
-            <Text size="sm" fw={500}>
-              Add to groups
-            </Text>
-            <Text size="xs" c="dimmed">
-              Optional — pick any existing groups this host should join.
-            </Text>
-          </Box>
-          <Chip.Group multiple value={groupIds} onChange={setGroupIds}>
-            <Group gap="xs">
-              {assignableGroups.map((g) => (
-                <Chip
-                  key={g.id}
-                  value={String(g.id)}
-                  color={g.color ?? "yellow"}
-                  size="sm"
-                >
-                  {g.name || "Unnamed group"}
-                </Chip>
-              ))}
-            </Group>
-          </Chip.Group>
-        </Stack>
+      {groups.length > 0 && (
+        <MultiSelect
+          label="Groups"
+          description="Optional — pick any existing groups this host should join."
+          placeholder="Search groups…"
+          data={groups.map((g) => ({ value: String(g.id), label: g.name }))}
+          value={groupIds}
+          onChange={setGroupIds}
+          searchable
+          clearable
+        />
       )}
 
       <Group justify="flex-end" gap="xs">

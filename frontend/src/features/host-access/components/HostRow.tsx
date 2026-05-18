@@ -1,53 +1,38 @@
-import React from "react";
 import { ActionIcon, Badge, Group, Table, Text, Tooltip } from "@mantine/core";
 import { IconTrash } from "@tabler/icons-react";
-import type { HostGroupWithMembers } from "@/lib/api";
+import type { GroupDetailWithUsers } from "@/lib/api";
 import type { DraftHost, HostsDiff } from "@/features/host-access/drafts/knownHostsDraft";
-import { resolveHostIcon } from "@/features/host-access/hostIconConfig";
 import { GroupBadgeList } from "@/features/host-access/components/GroupBadgeList";
 
 interface Props {
   draft: DraftHost;
   diff: HostsDiff;
-  serverGroups: HostGroupWithMembers[];
-  onIconClick: () => void;
+  serverGroups: GroupDetailWithUsers[];
+  onGroupClick: (groupId: number) => void;
   onDelete: () => void;
 }
 
-export function HostRow({ draft, diff, serverGroups, onIconClick, onDelete }: Props) {
-  const resolved = resolveHostIcon(draft.icon);
+export function HostRow({ draft, diff, serverGroups, onGroupClick, onDelete }: Props) {
   const isNew = typeof draft.id !== "number";
-  const isIconChanged = diff.iconChanged.some((d) => d.id === draft.id);
   const isGroupsChanged = diff.groupsChanged.some((d) => d.id === draft.id);
-  const dirty = isNew || isIconChanged || isGroupsChanged;
+  const dirty = isNew || isGroupsChanged;
+  const unassigned = draft.groupIds.length === 0;
 
   const groupRefs = draft.groupIds
     .map((id) => serverGroups.find((g) => g.id === id))
-    .filter((g): g is HostGroupWithMembers => g !== undefined)
-    .map((g) => ({ id: g.id, name: g.name, icon: g.icon ?? null }));
+    .filter((g): g is GroupDetailWithUsers => g !== undefined)
+    .map((g) => ({ id: g.id, name: g.name, icon: g.icon }));
 
   return (
     <Table.Tr>
       <Table.Td>
         <Group gap="xs" wrap="nowrap">
-          <Tooltip label="Change icon" withArrow>
-            <ActionIcon
-              variant="subtle"
-              size="sm"
-              color="gray"
-              onClick={onIconClick}
-              aria-label={`Change icon for ${draft.fqdn}`}
-            >
-              {resolved.kind === "tabler" ? (
-                React.createElement(resolved.icon, { size: 14, stroke: 1.5 })
-              ) : (
-                <Text size="sm" span>
-                  {resolved.value}
-                </Text>
-              )}
-            </ActionIcon>
-          </Tooltip>
-          <Text size="sm" fw={500} ff="monospace">
+          <Text
+            size="sm"
+            fw={500}
+            ff="monospace"
+            c={unassigned && !isNew ? "dimmed" : undefined}
+          >
             {draft.fqdn}
           </Text>
           {isNew && draft.source === "suggestion" ? (
@@ -67,16 +52,13 @@ export function HostRow({ draft, diff, serverGroups, onIconClick, onDelete }: Pr
         </Group>
       </Table.Td>
       <Table.Td>
-        {groupRefs.length === 0 ? (
-          <Text size="sm" c="dimmed">
-            —
+        {unassigned ? (
+          <Text size="sm" c="dimmed" fs="italic">
+            Unassigned
           </Text>
         ) : (
-          <GroupBadgeList groups={groupRefs} />
+          <ClickableGroupBadgeList groups={groupRefs} onGroupClick={onGroupClick} />
         )}
-      </Table.Td>
-      <Table.Td>
-        <UserCount draft={draft} />
       </Table.Td>
       <Table.Td>
         <Group gap={4} justify="flex-end">
@@ -97,11 +79,27 @@ export function HostRow({ draft, diff, serverGroups, onIconClick, onDelete }: Pr
   );
 }
 
-function UserCount({ draft }: { draft: DraftHost }) {
-  const count = typeof draft.id === "number" ? null : null;
+interface ClickableGroupBadgeListProps {
+  groups: { id: number; name: string; icon?: string | null }[];
+  onGroupClick: (groupId: number) => void;
+}
+
+function ClickableGroupBadgeList({ groups, onGroupClick }: ClickableGroupBadgeListProps) {
   return (
-    <Text size="sm" c={count && count > 0 ? "indigo" : "dimmed"}>
-      {count == null ? "—" : `${count} ${count === 1 ? "user" : "users"}`}
-    </Text>
+    <Group gap={4} wrap="nowrap">
+      {groups.map((g) => (
+        <Tooltip key={g.id} label={`Filter by ${g.name}`} withArrow>
+          <span
+            style={{ cursor: "pointer" }}
+            onClick={() => onGroupClick(g.id)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onGroupClick(g.id); }}
+          >
+            <GroupBadgeList groups={[g]} />
+          </span>
+        </Tooltip>
+      ))}
+    </Group>
   );
 }

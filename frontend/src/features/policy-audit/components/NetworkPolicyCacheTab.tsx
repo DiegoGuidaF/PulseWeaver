@@ -8,7 +8,7 @@ interface Props {
 }
 
 function EffectiveHostsCell({ entry, totalHosts }: { entry: PolicyNetworkPolicyEntry; totalHosts: number }) {
-    if (entry.allow_all_hosts) {
+    if (entry.bypass_host_check) {
         return <Text size="sm">All hosts</Text>;
     }
     const pct = totalHosts > 0 ? (entry.effective_host_count / totalHosts) * 100 : 0;

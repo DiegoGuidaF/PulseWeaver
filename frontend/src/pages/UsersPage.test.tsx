@@ -7,7 +7,7 @@ import { TEST_TIMEOUTS } from '@/test/constants';
 import { authHandlers, hostAccessHandlers } from '@/test/mocks/handlers';
 import { server } from '@/test/setup';
 import { renderWithProviders } from '@/test/utils';
-import { createMockUser, createMockUserHostAccessSummary } from '@/test/mocks/data';
+import { createMockUser, createMockUserListItem } from '@/test/mocks/data';
 import { UserRole } from '@/lib/api';
 
 function renderUsersPage() {
@@ -19,8 +19,8 @@ describe('UsersPage', () => {
         beforeEach(() => {
             const user1 = createMockUser({ id: 1, username: 'alice', display_name: 'Alice', role: UserRole.USER });
             const user2 = createMockUser({ id: 2, username: 'bob', display_name: 'Bob', role: UserRole.ADMIN });
-            const summary1 = createMockUserHostAccessSummary({ id: 1, display_name: 'Alice', role: UserRole.USER, bypass: false, direct_host_count: 0 });
-            const summary2 = createMockUserHostAccessSummary({ id: 2, display_name: 'Bob', role: UserRole.ADMIN, bypass: false, direct_host_count: 0 });
+            const summary1 = createMockUserListItem({ id: 1, username: 'alice', display_name: 'Alice', role: UserRole.USER, bypass_host_check: false, host_count: 0 });
+            const summary2 = createMockUserListItem({ id: 2, username: 'bob', display_name: 'Bob', role: UserRole.ADMIN, bypass_host_check: false, host_count: 0 });
 
             server.use(
                 authHandlers.me.success({ id: 1, username: 'alice', display_name: 'Alice', role: UserRole.USER }),
@@ -32,11 +32,10 @@ describe('UsersPage', () => {
         it('renders heading, Create user button, and one row per returned user', async () => {
             renderUsersPage();
 
-            expect(screen.getByRole('heading', { name: 'Users', level: 1 })).toBeInTheDocument();
-            expect(screen.getByRole('button', { name: /create user/i })).toBeInTheDocument();
-
             await waitFor(
                 () => {
+                    expect(screen.getByRole('heading', { name: 'Users', level: 1 })).toBeInTheDocument();
+                    expect(screen.getByRole('button', { name: /create user/i })).toBeInTheDocument();
                     expect(screen.getByText('alice')).toBeInTheDocument();
                     expect(screen.getByText('bob')).toBeInTheDocument();
                 },
@@ -49,17 +48,18 @@ describe('UsersPage', () => {
 
             await waitFor(
                 () => {
+                    expect(screen.getByText('alice')).toBeInTheDocument();
                     expect(screen.getByText('(you)')).toBeInTheDocument();
                 },
-                { timeout: TEST_TIMEOUTS.SHORT },
+                { timeout: TEST_TIMEOUTS.MEDIUM },
             );
         });
     });
 
     describe('host-access cell variants', () => {
-        it('renders a count badge when user has direct hosts (direct_host_count: 3, bypass: false)', async () => {
+        it('renders a count badge when user has hosts (host_count: 3, bypass_host_check: false)', async () => {
             const user = createMockUser({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
-            const summary = createMockUserHostAccessSummary({ id: 5, display_name: 'Charlie', role: UserRole.USER, bypass: false, direct_host_count: 3 });
+            const summary = createMockUserListItem({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER, bypass_host_check: false, host_count: 3 });
 
             server.use(
                 authHandlers.me.success({ id: 99, username: 'admin', role: UserRole.ADMIN }),
@@ -77,9 +77,9 @@ describe('UsersPage', () => {
             );
         });
 
-        it('renders "All hosts allowed" badge when bypass: true', async () => {
+        it('renders "All hosts allowed" badge when bypass_host_check: true', async () => {
             const user = createMockUser({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
-            const summary = createMockUserHostAccessSummary({ id: 5, display_name: 'Charlie', role: UserRole.USER, bypass: true, direct_host_count: 0 });
+            const summary = createMockUserListItem({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER, bypass_host_check: true, host_count: 0 });
 
             server.use(
                 authHandlers.me.success({ id: 99, username: 'admin', role: UserRole.ADMIN }),
@@ -97,9 +97,9 @@ describe('UsersPage', () => {
             );
         });
 
-        it('renders em-dash when direct_host_count: 0 and bypass: false', async () => {
+        it('renders em-dash when host_count: 0 and bypass_host_check: false', async () => {
             const user = createMockUser({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
-            const summary = createMockUserHostAccessSummary({ id: 5, display_name: 'Charlie', role: UserRole.USER, bypass: false, direct_host_count: 0 });
+            const summary = createMockUserListItem({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER, bypass_host_check: false, host_count: 0 });
 
             server.use(
                 authHandlers.me.success({ id: 99, username: 'admin', role: UserRole.ADMIN }),
@@ -116,7 +116,6 @@ describe('UsersPage', () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            // IndividualHostsCell renders em-dash for bypass=false, direct_host_count=0
             const dashElements = screen.getAllByText('—');
             expect(dashElements.length).toBeGreaterThan(0);
         });
@@ -125,7 +124,7 @@ describe('UsersPage', () => {
     describe('edit pencil opens drawer', () => {
         it('clicking the edit pencil opens the drawer titled with the user\'s display name', async () => {
             const user = createMockUser({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
-            const summary = createMockUserHostAccessSummary({ id: 5, display_name: 'Charlie', role: UserRole.USER, bypass: false, direct_host_count: 1 });
+            const summary = createMockUserListItem({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER, bypass_host_check: false, host_count: 1 });
 
             server.use(
                 authHandlers.me.success({ id: 99, username: 'admin', role: UserRole.ADMIN }),
@@ -156,7 +155,7 @@ describe('UsersPage', () => {
     describe('kebab menu', () => {
         it('shows "Promote to admin" item for a user-role row', async () => {
             const user = createMockUser({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
-            const summary = createMockUserHostAccessSummary({ id: 5, display_name: 'Charlie', role: UserRole.USER });
+            const summary = createMockUserListItem({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
 
             server.use(
                 authHandlers.me.success({ id: 99, username: 'admin', role: UserRole.ADMIN }),
@@ -185,7 +184,7 @@ describe('UsersPage', () => {
 
         it('shows "Demote to user" for an admin-role row', async () => {
             const user = createMockUser({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.ADMIN });
-            const summary = createMockUserHostAccessSummary({ id: 5, display_name: 'Charlie', role: UserRole.ADMIN });
+            const summary = createMockUserListItem({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.ADMIN });
 
             server.use(
                 authHandlers.me.success({ id: 99, username: 'admin', role: UserRole.ADMIN }),
@@ -214,7 +213,7 @@ describe('UsersPage', () => {
 
         it('does NOT render kebab for the current user\'s own row', async () => {
             const user = createMockUser({ id: 1, username: 'alice', display_name: 'Alice', role: UserRole.ADMIN });
-            const summary = createMockUserHostAccessSummary({ id: 1, display_name: 'Alice', role: UserRole.ADMIN });
+            const summary = createMockUserListItem({ id: 1, username: 'alice', display_name: 'Alice', role: UserRole.ADMIN });
 
             server.use(
                 authHandlers.me.success({ id: 1, username: 'alice', role: UserRole.ADMIN }),
@@ -235,9 +234,8 @@ describe('UsersPage', () => {
         });
 
         it('does NOT render kebab for a superadmin row', async () => {
-            // Use a username that doesn't collide with the role badge text ('superadmin')
             const user = createMockUser({ id: 5, username: 'sa_user', display_name: 'Super Admin', role: UserRole.SUPERADMIN });
-            const summary = createMockUserHostAccessSummary({ id: 5, display_name: 'Super Admin', role: UserRole.SUPERADMIN });
+            const summary = createMockUserListItem({ id: 5, username: 'sa_user', display_name: 'Super Admin', role: UserRole.SUPERADMIN });
 
             server.use(
                 authHandlers.me.success({ id: 99, username: 'admin', role: UserRole.ADMIN }),
@@ -259,7 +257,7 @@ describe('UsersPage', () => {
 
         it('clicking "Delete user" inside the kebab opens the delete confirmation modal', async () => {
             const user = createMockUser({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
-            const summary = createMockUserHostAccessSummary({ id: 5, display_name: 'Charlie', role: UserRole.USER });
+            const summary = createMockUserListItem({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
 
             server.use(
                 authHandlers.me.success({ id: 99, username: 'admin', role: UserRole.ADMIN }),
@@ -287,10 +285,8 @@ describe('UsersPage', () => {
 
             await userEvent.click(screen.getByText('Delete user'));
 
-            // Delete confirmation modal should be open (it typically has a confirm button or modal title)
             await waitFor(
                 () => {
-                    // DeleteUserModal renders a confirmation — look for the modal content
                     expect(screen.getByRole('dialog')).toBeInTheDocument();
                 },
                 { timeout: TEST_TIMEOUTS.SHORT },

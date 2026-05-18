@@ -341,13 +341,13 @@ export const hostAccessHandlers = {
     },
     listKnownHosts: {
         success: (hosts: Host[] = []) =>
-            http.get(endpoints.adminHosts, () => HttpResponse.json(hosts)),
+            http.get(endpoints.adminHosts, () => HttpResponse.json({ hosts })),
         serverError: () =>
             http.get(endpoints.adminHosts, () => responses.serverError()),
     },
     listHostGroups: {
         success: (groups: GroupDetailWithUsers[] = []) =>
-            http.get(endpoints.adminHostGroups, () => HttpResponse.json(groups)),
+            http.get(endpoints.adminHostGroups, () => HttpResponse.json({ groups })),
         serverError: () =>
             http.get(endpoints.adminHostGroups, () => responses.serverError()),
     },
@@ -360,11 +360,11 @@ export const hostAccessHandlers = {
     },
     reconcileKnownHosts: {
         success: () =>
-            http.put(endpoints.adminHostsReconcile, () => responses.noContent()),
+            http.post(endpoints.adminHostsReconcile, () => responses.noContent()),
     },
     reconcileHostGroups: {
         success: () =>
-            http.put(endpoints.adminHostGroupsReconcile, () => responses.noContent()),
+            http.post(endpoints.adminHostGroupsReconcile, () => responses.noContent()),
     },
     ignoreSuggestion: {
         success: (entry?: IgnoredHostSuggestion) =>

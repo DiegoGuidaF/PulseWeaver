@@ -1,4 +1,4 @@
-import type { Id, HostGroupWithMembers } from "@/lib/api";
+import type { GroupDetailWithUsers, Id } from "@/lib/api";
 
 export type DraftGroupId = Id | `new-${string}`;
 
@@ -21,19 +21,20 @@ export interface DraftGroup {
   name: string;
   description: string | null;
   icon: string | null;
-  color: GroupColor | null;
+  // string | null: holds hex (from server) or Mantine named color (from picker), or null for new unstyled groups
+  color: string | null;
   hostIds: Id[];
 }
 
 export interface GroupsDraftState {
-  original: Map<Id, HostGroupWithMembers>;
+  original: Map<Id, GroupDetailWithUsers>;
   draft: Map<DraftGroupId, DraftGroup>;
   tombstoned: Set<Id>;
   selectedId: DraftGroupId | null;
 }
 
 export type GroupsDraftAction =
-  | { type: "reset"; groups: HostGroupWithMembers[] }
+  | { type: "reset"; groups: GroupDetailWithUsers[] }
   | { type: "add"; id: `new-${string}`; group: Omit<DraftGroup, "id"> }
   | { type: "update"; id: DraftGroupId; patch: Partial<Omit<DraftGroup, "id">> }
   | { type: "remove"; id: DraftGroupId }
@@ -52,9 +53,9 @@ export function initialGroupsDraft(): GroupsDraftState {
 }
 
 export function fromServerGroups(
-  groups: HostGroupWithMembers[],
+  groups: GroupDetailWithUsers[],
 ): Omit<GroupsDraftState, "selectedId"> {
-  const original = new Map<Id, HostGroupWithMembers>();
+  const original = new Map<Id, GroupDetailWithUsers>();
   const draft = new Map<DraftGroupId, DraftGroup>();
   for (const g of groups) {
     original.set(g.id, g);
@@ -62,8 +63,8 @@ export function fromServerGroups(
       id: g.id,
       name: g.name,
       description: g.description ?? null,
-      icon: g.icon ?? null,
-      color: null, // persisted once backend adds the column
+      icon: g.icon,
+      color: g.color,
       hostIds: g.hosts.map((h) => h.id),
     });
   }
@@ -102,7 +103,6 @@ export function groupsDraftReducer(
         typeof action.id === "number"
           ? new Set(state.tombstoned).add(action.id)
           : state.tombstoned;
-      // Move selection to the first remaining draft entry when the selected group is removed.
       const nextSelected =
         state.selectedId === action.id
           ? (draft.keys().next().value ?? null)
@@ -121,8 +121,8 @@ export function groupsDraftReducer(
           id: action.id,
           name: original.name,
           description: original.description ?? null,
-          icon: original.icon ?? null,
-          color: null,
+          icon: original.icon,
+          color: original.color,
           hostIds: original.hosts.map((h) => h.id),
         });
       }
@@ -163,7 +163,7 @@ export interface GroupDiffEntry {
 
 export interface GroupsDiff {
   added: DraftGroup[];
-  removed: HostGroupWithMembers[];
+  removed: GroupDetailWithUsers[];
   changed: GroupDiffEntry[];
   byId: Map<DraftGroupId, GroupDiffEntry | "added" | "removed">;
 }
@@ -188,7 +188,7 @@ export function diffGroups(state: GroupsDraftState): GroupsDiff {
     }
   }
 
-  const removed: HostGroupWithMembers[] = [];
+  const removed: GroupDetailWithUsers[] = [];
   for (const id of state.tombstoned) {
     const original = state.original.get(id);
     if (original) {
@@ -207,7 +207,7 @@ export function isDirtyGroups(state: GroupsDraftState): boolean {
 
 function computeGroupDiff(
   draft: DraftGroup,
-  original: HostGroupWithMembers,
+  original: GroupDetailWithUsers,
 ): GroupDiffEntry {
   const originalHostIds = new Set(original.hosts.map((h) => h.id));
   const draftHostIds = new Set(draft.hostIds);
@@ -220,8 +220,8 @@ function computeGroupDiff(
     group: draft,
     nameChanged: draft.name !== original.name,
     descriptionChanged: (draft.description ?? null) !== (original.description ?? null),
-    iconChanged: (draft.icon ?? null) !== (original.icon ?? null),
-    colorChanged: draft.color !== null,
+    iconChanged: (draft.icon ?? "") !== original.icon,
+    colorChanged: (draft.color ?? "") !== original.color,
     hostsAdded,
     hostsRemoved,
   };
@@ -234,8 +234,8 @@ export function toDraftFromOriginal(state: GroupsDraftState, id: Id): DraftGroup
     id,
     name: original.name,
     description: original.description ?? null,
-    icon: original.icon ?? null,
-    color: null,
+    icon: original.icon,
+    color: original.color,
     hostIds: original.hosts.map((h) => h.id),
   };
 }
@@ -258,4 +258,3 @@ function isGroupEntryDirty(e: GroupDiffEntry): boolean {
     e.hostsRemoved.length > 0
   );
 }
-

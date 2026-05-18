@@ -13,7 +13,7 @@ import {
     Textarea,
 } from "@mantine/core";
 import { IconChevronLeft, IconDots, IconTrash } from "@tabler/icons-react";
-import type { NetworkPolicyDetail, UpdateNetworkPolicyRequest } from "@/lib/api";
+import type { NetworkPolicyDetail, ModifyNetworkPolicyRequest } from "@/lib/api";
 import { CIDR_RE } from "../constants";
 import { DeleteNetworkPolicyModal } from "./DeleteNetworkPolicyModal";
 
@@ -137,7 +137,7 @@ function InlineDescriptionEdit({ value, onSave }: InlineDescriptionEditProps) {
 
 interface Props {
     policy: NetworkPolicyDetail;
-    onUpdate: (fields: UpdateNetworkPolicyRequest) => void;
+    onUpdate: (fields: Partial<ModifyNetworkPolicyRequest>) => void;
     onDelete: () => void;
     isUpdating?: boolean;
     isDeleting?: boolean;
@@ -149,7 +149,7 @@ export function NetworkPolicyHeader({ policy, onUpdate, onDelete, isUpdating, is
     return (
         <>
             <div>
-                <Anchor component={Link} to="/network-policies" size="sm" c="dimmed">
+                <Anchor component={Link} to="/access/network-policies" size="sm" c="dimmed">
                     <Group gap={4}>
                         <IconChevronLeft size={14} />
                         Network Policies
@@ -175,7 +175,7 @@ export function NetworkPolicyHeader({ policy, onUpdate, onDelete, isUpdating, is
                         />
                         <InlineDescriptionEdit
                             value={policy.description ?? null}
-                            onSave={(description) => onUpdate({ description })}
+                            onSave={(description) => onUpdate({ description: description ?? "" })}
                         />
                     </Stack>
 

@@ -80,7 +80,6 @@ CreateUserRequest:
   required:
     - username
     - display_name
-    - email
   properties:
     username:
       $ref: '#/Username'
@@ -89,6 +88,7 @@ CreateUserRequest:
     email:
       type: string
       format: email
+      nullable: true
       example: "user@example.com"
 
 PromoteUserRequest:

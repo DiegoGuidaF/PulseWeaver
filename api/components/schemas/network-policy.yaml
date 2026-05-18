@@ -1,6 +1,6 @@
 NetworkPolicyListItem:
   type: object
-  required: [id, name, cidr, enabled, groups, host_count, bypass_host_check]
+  required: [id, name, cidr, enabled, groups, host_count, bypass_host_check, created_at]
   description: Network policy summary for the access management list page.
   properties:
     id:
@@ -23,6 +23,10 @@ NetworkPolicyListItem:
       description: Total hosts accessible across all assigned groups.
     bypass_host_check:
       type: boolean
+    created_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
 
 NetworkPolicyDetail:
   type: object

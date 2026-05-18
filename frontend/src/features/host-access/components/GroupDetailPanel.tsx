@@ -1,10 +1,13 @@
 import React from "react";
 import {
   ActionIcon,
+  Anchor,
   Badge,
   Button,
+  Divider,
   Group,
   Paper,
+  SimpleGrid,
   Stack,
   Text,
   ThemeIcon,
@@ -13,17 +16,22 @@ import {
 } from "@mantine/core";
 import type { MantineColor } from "@mantine/core";
 import { IconArrowBackUp, IconPencil, IconTrash } from "@tabler/icons-react";
-import type { Id } from "@/lib/api";
+import type { GroupDetailWithUsers, Id } from "@/lib/api";
 import type { DraftGroup, GroupsDiff } from "@/features/host-access/drafts/hostGroupsDraft";
-import type { DraftHost } from "@/features/host-access/drafts/knownHostsDraft";
 import { GroupMembershipTables } from "@/features/host-access/components/GroupMembershipTables";
 import { groupColor } from "@/features/host-access/utils/groupColor";
 import { resolveHostIcon } from "@/features/host-access/hostIconConfig";
 
+interface HostRef {
+  id: Id;
+  fqdn: string;
+}
+
 interface Props {
   group: DraftGroup | null;
+  serverGroup: GroupDetailWithUsers | null;
   diff: GroupsDiff;
-  hosts: DraftHost[];
+  hosts: HostRef[];
   isTombstoned?: boolean;
   onEdit: () => void;
   onDelete: () => void;
@@ -33,6 +41,7 @@ interface Props {
 
 export function GroupDetailPanel({
   group,
+  serverGroup,
   diff,
   hosts,
   isTombstoned,
@@ -144,7 +153,77 @@ export function GroupDetailPanel({
             onToggle={onToggleHost}
           />
         )}
+
+        {serverGroup && !isAdded && (
+          <AccessPanel serverGroup={serverGroup} />
+        )}
       </Stack>
     </Paper>
+  );
+}
+
+function AccessPanel({ serverGroup }: { serverGroup: GroupDetailWithUsers }) {
+  const users = serverGroup.users ?? [];
+  const policies = serverGroup.network_policies;
+
+  if (users.length === 0 && policies.length === 0) return null;
+
+  return (
+    <>
+      <Divider />
+      <Stack gap="xs">
+        <Text size="sm" fw={600} c="dimmed">
+          Access · read-only
+        </Text>
+        <SimpleGrid cols={2} spacing="md">
+          <Stack gap="xs">
+            <Text size="xs" fw={700}>
+              Users · {users.length}
+            </Text>
+            {users.length === 0 ? (
+              <Text size="xs" c="dimmed">None</Text>
+            ) : (
+              <>
+                {users.slice(0, 3).map((u) => (
+                  <Text key={u.id} size="xs">
+                    {u.display_name}{" "}
+                    <Text span c="dimmed" ff="monospace">{u.username}</Text>
+                  </Text>
+                ))}
+                {users.length > 3 && (
+                  <Text size="xs" c="dimmed">…and {users.length - 3} more</Text>
+                )}
+                <Anchor component="a" href="/access/users" size="xs">
+                  View users →
+                </Anchor>
+              </>
+            )}
+          </Stack>
+          <Stack gap="xs">
+            <Text size="xs" fw={700}>
+              Network policies · {policies.length}
+            </Text>
+            {policies.length === 0 ? (
+              <Text size="xs" c="dimmed">None</Text>
+            ) : (
+              <>
+                {policies.slice(0, 3).map((p) => (
+                  <Text key={p.id} size="xs">
+                    {p.name}{" "}
+                    <Text span c="dimmed" ff="monospace">{p.cidr}</Text>
+                  </Text>
+                ))}
+                {policies.length > 3 && (
+                  <Text size="xs" c="dimmed">…and {policies.length - 3} more</Text>
+                )}
+                <Anchor component="a" href="/access/network-policies" size="xs">
+                  View policies →
+                </Anchor>
+              </>
+            )}
+          </Stack>
+        </SimpleGrid>
+      </Stack>
+    </>
   );
 }

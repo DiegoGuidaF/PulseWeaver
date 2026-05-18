@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useReducer } from "react";
 import { Center, Loader, Stack, Tabs, Text, Title, Badge } from "@mantine/core";
-import { useKnownHosts } from "@/features/host-access/hooks/useKnownHosts";
+import { useHosts } from "@/features/host-access/hooks/useHosts";
 import { useHostGroups } from "@/features/host-access/hooks/useHostGroups";
 import { useHostSuggestions } from "@/features/host-access/hooks/useHostSuggestions";
-import { KnownHostsTab } from "@/features/host-access/components/KnownHostsTab";
-import { HostGroupsTab } from "@/features/host-access/components/HostGroupsTab";
+import { HostsTab } from "@/features/host-access/components/HostsTab";
 import { SuggestionsTab } from "@/features/host-access/components/SuggestionsTab";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import {
@@ -12,44 +11,24 @@ import {
   initialHostsDraft,
   isDirtyHosts,
 } from "@/features/host-access/drafts/knownHostsDraft";
-import {
-  groupsDraftReducer,
-  initialGroupsDraft,
-  isDirtyGroups,
-} from "@/features/host-access/drafts/hostGroupsDraft";
 
 export function HostsPage() {
-  const knownHosts = useKnownHosts();
-  const hostGroups = useHostGroups();
+  const hostsQuery = useHosts();
+  const hostGroupsQuery = useHostGroups();
   const suggestions = useHostSuggestions();
 
   const [hostsState, hostsDispatch] = useReducer(hostsDraftReducer, undefined, initialHostsDraft);
-  const [groupsState, groupsDispatch] = useReducer(
-    groupsDraftReducer,
-    undefined,
-    initialGroupsDraft,
-  );
-
-  // Server data → draft sync. Reset whenever server identity changes; this races with
-  // user edits intentionally — the leave guard plus explicit save/discard cover the
-  // intended flows. Background refetches arriving while the user has dirty drafts will
-  // overwrite them, which we accept as a rare edge case.
-  useEffect(() => {
-    if (knownHosts.data) hostsDispatch({ type: "reset", hosts: knownHosts.data });
-  }, [knownHosts.data]);
 
   useEffect(() => {
-    if (hostGroups.data) groupsDispatch({ type: "reset", groups: hostGroups.data });
-  }, [hostGroups.data]);
+    if (hostsQuery.data) hostsDispatch({ type: "reset", hosts: hostsQuery.data.hosts });
+  }, [hostsQuery.data]);
 
-  const dirty = isDirtyHosts(hostsState) || isDirtyGroups(groupsState);
+  const dirty = isDirtyHosts(hostsState);
   useUnsavedChangesGuard(dirty);
 
-  const hosts = knownHosts.data ?? [];
-  const groups = hostGroups.data ?? [];
+  const hosts = hostsQuery.data?.hosts ?? [];
+  const groups = hostGroupsQuery.data?.groups ?? [];
 
-  // Exclude any fqdn already staged in the hosts draft so that cache refetches
-  // don't bring suggestions back for hosts the user has already accepted.
   const draftFqdns = useMemo(
     () => new Set(Array.from(hostsState.draft.values()).map((h) => h.fqdn)),
     [hostsState.draft],
@@ -63,12 +42,7 @@ export function HostsPage() {
   }, [suggestions.data, draftFqdns]);
   const suggestionCount = suggestionsData?.suggestions.length ?? 0;
 
-  // Use isFetching (not isPending) so the loader also covers background refetches:
-  // on mount the queries return stale cached data immediately while a fresh GET is
-  // in flight, and after a save the invalidation triggers another refetch. For a
-  // sensitive surface like host access we never want to render stale data.
-  const hostsLoading = knownHosts.isFetching;
-  const groupsLoading = hostGroups.isFetching;
+  const hostsLoading = hostsQuery.isFetching;
   const suggestionsLoading = suggestions.isFetching;
 
   return (
@@ -94,25 +68,7 @@ export function HostsPage() {
               )
             }
           >
-            Known hosts
-          </Tabs.Tab>
-          <Tabs.Tab
-            value="groups"
-            rightSection={
-              groupsLoading ? (
-                <Loader size="xs" type="dots" />
-              ) : (
-                <Badge
-                  size="xs"
-                  variant="light"
-                  color={isDirtyGroups(groupsState) ? "orange" : "gray"}
-                >
-                  {groups.length}
-                </Badge>
-              )
-            }
-          >
-            Groups
+            Hosts
           </Tabs.Tab>
           <Tabs.Tab
             value="suggestions"
@@ -140,28 +96,10 @@ export function HostsPage() {
               <Loader />
             </Center>
           ) : (
-            <KnownHostsTab
+            <HostsTab
               state={hostsState}
               dispatch={hostsDispatch}
               serverGroups={groups}
-              locked={isDirtyGroups(groupsState)}
-              onDiscardLock={() => groupsDispatch({ type: "discard" })}
-            />
-          )}
-        </Tabs.Panel>
-
-        <Tabs.Panel value="groups" pt="md">
-          {groupsLoading ? (
-            <Center py="xl">
-              <Loader />
-            </Center>
-          ) : (
-            <HostGroupsTab
-              state={groupsState}
-              dispatch={groupsDispatch}
-              hostsState={hostsState}
-              locked={isDirtyHosts(hostsState)}
-              onDiscardLock={() => hostsDispatch({ type: "discard" })}
             />
           )}
         </Tabs.Panel>
@@ -174,13 +112,13 @@ export function HostsPage() {
           ) : suggestionsData ? (
             <SuggestionsTab
               data={suggestionsData}
-              locked={isDirtyGroups(groupsState)}
-              onDiscardLock={() => groupsDispatch({ type: "discard" })}
+              locked={false}
+              onDiscardLock={() => {}}
               onRefresh={() => suggestions.refetch()}
               onStageHosts={(fqdns) => {
                 fqdns.forEach((fqdn) => {
                   const id: `new-${string}` = `new-${crypto.randomUUID()}`;
-                  hostsDispatch({ type: "add", id, host: { fqdn, icon: null, groupIds: [], source: "suggestion" } });
+                  hostsDispatch({ type: "add", id, host: { fqdn, groupIds: [], source: "suggestion" } });
                 });
               }}
             />

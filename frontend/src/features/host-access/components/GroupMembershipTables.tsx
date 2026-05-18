@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Checkbox,
   Group,
@@ -7,16 +7,18 @@ import {
   Stack,
   Text,
   TextInput,
-  ThemeIcon,
   Title,
 } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
 import type { Id } from "@/lib/api";
-import type { DraftHost } from "@/features/host-access/drafts/knownHostsDraft";
-import { resolveHostIcon } from "@/features/host-access/hostIconConfig";
+
+interface HostRef {
+  id: Id;
+  fqdn: string;
+}
 
 interface Props {
-  hosts: DraftHost[];
+  hosts: HostRef[];
   inGroupIds: Set<Id>;
   onToggle: (hostId: Id) => void;
   disabled?: boolean;
@@ -27,10 +29,9 @@ export function GroupMembershipTables({ hosts, inGroupIds, onToggle, disabled }:
   const term = search.toLowerCase().trim();
 
   const { inside, outside } = useMemo(() => {
-    const inside: DraftHost[] = [];
-    const outside: DraftHost[] = [];
+    const inside: HostRef[] = [];
+    const outside: HostRef[] = [];
     for (const h of hosts) {
-      if (typeof h.id !== "number") continue;
       if (term && !h.fqdn.toLowerCase().includes(term)) continue;
       if (inGroupIds.has(h.id)) inside.push(h);
       else outside.push(h);
@@ -71,7 +72,7 @@ export function GroupMembershipTables({ hosts, inGroupIds, onToggle, disabled }:
 
 interface HostListProps {
   title: string;
-  hosts: DraftHost[];
+  hosts: HostRef[];
   checked: boolean;
   emptyText: string;
   onToggle: (id: Id) => void;
@@ -93,45 +94,33 @@ function HostList({ title, hosts, checked, emptyText, onToggle, disabled }: Host
       ) : (
         <ScrollArea.Autosize mah={220}>
           <Stack gap={0}>
-            {hosts.map((h, i) => {
-              const resolved = resolveHostIcon(h.icon);
-              return (
-                <Group
-                  key={h.id}
-                  px="sm"
-                  py={6}
-                  gap="sm"
-                  wrap="nowrap"
-                  style={{
-                    borderTop:
-                      i === 0 ? "1px solid var(--mantine-color-default-border)" : undefined,
-                    borderBottom:
-                      i < hosts.length - 1
-                        ? "1px solid var(--mantine-color-default-border)"
-                        : undefined,
-                  }}
-                >
-                  <Checkbox
-                    checked={checked}
-                    onChange={() => onToggle(h.id as Id)}
-                    disabled={disabled}
-                    aria-label={`Toggle ${h.fqdn} in group`}
-                  />
-                  <ThemeIcon variant="subtle" color="gray" size="sm">
-                    {resolved.kind === "tabler" ? (
-                      React.createElement(resolved.icon, { size: 14, stroke: 1.5 })
-                    ) : (
-                      <Text size="sm" span>
-                        {resolved.value}
-                      </Text>
-                    )}
-                  </ThemeIcon>
-                  <Text size="sm" ff="monospace">
-                    {h.fqdn}
-                  </Text>
-                </Group>
-              );
-            })}
+            {hosts.map((h, i) => (
+              <Group
+                key={h.id}
+                px="sm"
+                py={6}
+                gap="sm"
+                wrap="nowrap"
+                style={{
+                  borderTop:
+                    i === 0 ? "1px solid var(--mantine-color-default-border)" : undefined,
+                  borderBottom:
+                    i < hosts.length - 1
+                      ? "1px solid var(--mantine-color-default-border)"
+                      : undefined,
+                }}
+              >
+                <Checkbox
+                  checked={checked}
+                  onChange={() => onToggle(h.id)}
+                  disabled={disabled}
+                  aria-label={`Toggle ${h.fqdn} in group`}
+                />
+                <Text size="sm" ff="monospace">
+                  {h.fqdn}
+                </Text>
+              </Group>
+            ))}
           </Stack>
         </ScrollArea.Autosize>
       )}

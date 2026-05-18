@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createNetworkPolicyMutation, listNetworkPoliciesQueryKey } from "@/lib/api/@tanstack/react-query.gen";
-import type { NetworkPolicy } from "@/lib/api";
+import type { NetworkPolicyDetail } from "@/lib/api";
 
 export function useCreateNetworkPolicy(options?: {
-    onSuccess?: (data: NetworkPolicy) => void;
+    onSuccess?: (data: NetworkPolicyDetail) => void;
 }) {
     const queryClient = useQueryClient();
 

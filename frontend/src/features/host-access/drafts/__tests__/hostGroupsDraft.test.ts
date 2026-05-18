@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { HostGroupWithMembers } from "@/lib/api";
+import type { GroupDetailWithUsers } from "@/lib/api";
 import {
   diffGroups,
   fromServerGroups,
@@ -10,20 +10,23 @@ import {
 function makeGroup(
   id: number,
   name: string,
-  opts: { hostIds?: number[]; icon?: string | null; description?: string | null } = {},
-): HostGroupWithMembers {
+  opts: { hostIds?: number[]; icon?: string; color?: string; description?: string | null } = {},
+): GroupDetailWithUsers {
   return {
     id,
     name,
     description: opts.description ?? null,
-    icon: opts.icon ?? null,
+    icon: opts.icon ?? "server",
+    color: opts.color ?? "#000000",
     created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
     hosts: (opts.hostIds ?? []).map((hid) => ({ id: hid, fqdn: `h${hid}.lan` })),
-    member_ids: opts.hostIds ?? [],
+    network_policies: [],
+    users: [],
   };
 }
 
-function seed(groups: HostGroupWithMembers[] = []) {
+function seed(groups: GroupDetailWithUsers[] = []) {
   const server = fromServerGroups(groups);
   const firstId = server.draft.keys().next().value ?? null;
   return { ...server, selectedId: firstId };
@@ -34,6 +37,12 @@ describe("hostGroupsDraft reducer", () => {
     const state = seed([makeGroup(1, "a"), makeGroup(2, "b")]);
     expect(state.selectedId).toBe(1);
     expect(isDirtyGroups(state)).toBe(false);
+  });
+
+  it("hydrates icon and color from server data", () => {
+    const state = seed([makeGroup(1, "a", { icon: "database", color: "#ff0000" })]);
+    expect(state.draft.get(1)?.icon).toBe("database");
+    expect(state.draft.get(1)?.color).toBe("#ff0000");
   });
 
   it("adding a new group selects it", () => {
@@ -92,7 +101,7 @@ describe("hostGroupsDraft reducer", () => {
   });
 
   it("tracks metadata changes individually", () => {
-    let state = seed([makeGroup(1, "a", { icon: "IconServer", description: "x" })]);
+    let state = seed([makeGroup(1, "a", { icon: "database", description: "x" })]);
     state = groupsDraftReducer(state, {
       type: "update",
       id: 1,

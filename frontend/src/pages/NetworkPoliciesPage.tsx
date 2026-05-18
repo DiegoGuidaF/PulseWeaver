@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Alert, Button, Center, Group, Loader, Stack, Text, Title } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
-import type { NetworkPolicy } from "@/lib/api";
+import type { NetworkPolicyDetail } from "@/lib/api";
 import { useNetworkPolicies } from "@/features/network-policies/hooks/useNetworkPolicies";
 import { NetworkPoliciesTable } from "@/features/network-policies/components/NetworkPoliciesTable";
 import { CreateNetworkPolicyModal } from "@/features/network-policies/components/CreateNetworkPolicyModal";
@@ -12,9 +12,9 @@ export function NetworkPoliciesPage() {
     const [createOpen, setCreateOpen] = useState(false);
     const { data, isPending, isError } = useNetworkPolicies();
 
-    function handleCreated(policy: NetworkPolicy) {
+    function handleCreated(policy: NetworkPolicyDetail) {
         setCreateOpen(false);
-        navigate(`/network-policies/${policy.id}`);
+        navigate(`/access/network-policies/${policy.id}`);
     }
 
     return (

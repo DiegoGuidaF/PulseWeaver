@@ -6,7 +6,7 @@ import { zCreateNetworkPolicyRequest } from "@/lib/api/zod.gen";
 import { toApiError, toErrorMessage } from "@/lib/api-client";
 import { useCreateNetworkPolicy } from "../hooks/useCreateNetworkPolicy";
 import { CIDR_RE } from "../constants";
-import type { NetworkPolicy } from "@/lib/api";
+import type { NetworkPolicyDetail } from "@/lib/api";
 
 const formSchema = zCreateNetworkPolicyRequest.superRefine((val, ctx) => {
     if (val.cidr && !CIDR_RE.test(val.cidr)) {
@@ -23,7 +23,7 @@ type FormValues = z.infer<typeof formSchema>;
 interface Props {
     opened: boolean;
     onClose: () => void;
-    onCreated: (policy: NetworkPolicy) => void;
+    onCreated: (policy: NetworkPolicyDetail) => void;
 }
 
 export function CreateNetworkPolicyModal({ opened, onClose, onCreated }: Props) {

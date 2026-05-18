@@ -58,6 +58,7 @@ export function CreateUserModal({ opened, onClose }: Props) {
             label="Email"
             type="email"
             placeholder="e.g. juan@example.com"
+            description="Optional"
             {...form.getInputProps("email")}
           />
           <TextInput

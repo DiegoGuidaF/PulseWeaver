@@ -8,7 +8,8 @@ export type GroupFormValues = {
   name: string;
   description: string | null;
   icon: string | null;
-  color: GroupColor | null;
+  // string | null: holds Mantine named colors from picker, or null for no selection
+  color: string | null;
 };
 
 interface Props {
@@ -61,7 +62,8 @@ function GroupMetadataForm({ initial, existingNames, onSubmit, onCancel }: FormP
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [icon, setIcon] = useState<string | null>(initial?.icon ?? null);
-  const [color, setColor] = useState<GroupColor | null>(initial?.color ?? null);
+  // Cast to GroupColor | null for picker: server hex colors won't match palette but are passed through unchanged
+  const [color, setColor] = useState<string | null>(initial?.color ?? null);
 
   const trimmed = name.trim();
   const nameTaken =
@@ -100,7 +102,7 @@ function GroupMetadataForm({ initial, existingNames, onSubmit, onCancel }: FormP
         onChange={(e) => setDescription(e.currentTarget.value)}
         rows={2}
       />
-      <GroupColorPicker value={color} onChange={setColor} />
+      <GroupColorPicker value={color as GroupColor | null} onChange={setColor} />
       <IconPicker value={icon} onChange={setIcon} color={previewColor} />
 
       <Group justify="flex-end" gap="xs">

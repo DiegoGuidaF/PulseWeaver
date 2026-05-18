@@ -60,7 +60,7 @@ export const zAuthRequest = z.object({
 export const zCreateUserRequest = z.object({
   username: zUsername,
   display_name: zDisplayName,
-  email: z.email(),
+  email: z.email().nullish(),
 });
 
 export const zUpdateProfileRequest = z.intersection(
@@ -442,6 +442,7 @@ export const zNetworkPolicyListItem = z.object({
   groups: z.array(zGroupRef),
   host_count: z.int().gte(0),
   bypass_host_check: z.boolean(),
+  created_at: z.iso.datetime({ offset: true, local: true }),
 });
 
 /**

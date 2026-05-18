@@ -3,6 +3,7 @@ import {
   promoteUserMutation,
   getCurrentUserQueryKey,
   listUsersQueryKey,
+  listUsersWithAccessQueryKey,
 } from "@/lib/api/@tanstack/react-query.gen";
 
 export function usePromoteUser() {
@@ -11,6 +12,7 @@ export function usePromoteUser() {
     ...promoteUserMutation(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: listUsersQueryKey() });
+      queryClient.invalidateQueries({ queryKey: listUsersWithAccessQueryKey() });
       queryClient.invalidateQueries({ queryKey: getCurrentUserQueryKey() });
     },
   });

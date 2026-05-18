@@ -66,7 +66,7 @@ export type AuthRequest = {
 export type CreateUserRequest = {
   username: Username;
   display_name: DisplayName;
-  email: string;
+  email?: string | null;
 };
 
 export type UpdateProfileRequest = unknown & {
@@ -468,6 +468,7 @@ export type NetworkPolicyListItem = {
    */
   host_count: number;
   bypass_host_check: boolean;
+  created_at: string;
 };
 
 /**

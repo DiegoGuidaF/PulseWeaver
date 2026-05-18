@@ -21,6 +21,7 @@ import {
     IconChevronLeft,
     IconChevronRight,
     IconDatabaseSearch,
+    IconFolder,
     IconHelp,
     IconHistory,
     IconList,
@@ -67,9 +68,10 @@ const navGroups: NavGroup[] = [
     {
         label: "Access",
         items: [
-            { label: "Hosts", href: "/hosts", icon: IconShield },
-            { label: "Users", href: "/users", icon: IconUsers },
-            { label: "Network Policies", href: "/network-policies", icon: IconNetwork },
+            { label: "Hosts", href: "/access/hosts", icon: IconShield },
+            { label: "Host Groups", href: "/access/host-groups", icon: IconFolder },
+            { label: "Users", href: "/access/users", icon: IconUsers },
+            { label: "Network Policies", href: "/access/network-policies", icon: IconNetwork },
         ],
     },
     {
