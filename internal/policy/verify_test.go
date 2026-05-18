@@ -19,7 +19,7 @@ import (
 func TestService_LookupIP_Empty(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{}}
-	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, "secret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "secret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 	is.True(errors.Is(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "1.2.3.4"}), ErrIPNotEnabled))
@@ -30,7 +30,7 @@ func TestService_LookupIP_RejectsTrustedProxyIP(t *testing.T) {
 	provider := &mockProvider{entries: []device.IPEntry{
 		{IP: "127.0.0.1", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
 	}}
-	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, "secret", noopLogger(), netip.MustParseAddr("127.0.0.1"))
+	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "secret", noopLogger(), netip.MustParseAddr("127.0.0.1"))
 	is.NoErr(err)
 
 	is.NoErr(svc.Initialize(context.Background()))
@@ -44,7 +44,7 @@ func TestService_VerifyAccess_Success(t *testing.T) {
 	provider := &mockProvider{entries: []device.IPEntry{
 		{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
 	}}
-	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, "mysecret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 
@@ -57,7 +57,7 @@ func TestService_VerifyAccess_InvalidToken(t *testing.T) {
 	provider := &mockProvider{entries: []device.IPEntry{
 		{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
 	}}
-	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, "mysecret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 
@@ -70,7 +70,7 @@ func TestService_VerifyAccess_IPNotEnabled(t *testing.T) {
 	provider := &mockProvider{entries: []device.IPEntry{
 		{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
 	}}
-	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, "mysecret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 
@@ -86,7 +86,7 @@ func TestService_VerifyAccess_AttachesGeoIP(t *testing.T) {
 		{IP: "8.8.8.8", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
 	}}
 	resolver := stubResolver{result: geoip.Result{CountryCode: "US", CountryName: "United States", ContinentCode: "NA", ASN: 15169, ASNOrg: "Google LLC"}}
-	svc, err := NewService(provider, &bypassAllHostProvider{}, resolver, "mysecret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, &bypassAllHostProvider{}, resolver, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 
@@ -108,7 +108,7 @@ func TestService_VerifyAccess_NilResolver(t *testing.T) {
 	provider := &mockProvider{entries: []device.IPEntry{
 		{IP: "8.8.8.8", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
 	}}
-	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, "mysecret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 
@@ -128,7 +128,7 @@ func TestService_VerifyAccess_GeoIPOnDeny(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{}}
 	resolver := stubResolver{result: geoip.Result{CountryCode: "DE", ContinentCode: "EU"}}
-	svc, err := NewService(provider, &bypassAllHostProvider{}, resolver, "mysecret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, &bypassAllHostProvider{}, resolver, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 
@@ -197,7 +197,7 @@ func TestService_VerifyAccess_HostDenied_UnconfiguredUser(t *testing.T) {
 	}}
 	// No UserHostAccess entry for user 99 → zero value applied.
 	hostProvider := &fixedHostProvider{entries: []UserHostAccess{}}
-	svc, err := NewService(provider, hostProvider, &geoip.Lookup{}, "mysecret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, hostProvider, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 
@@ -221,7 +221,7 @@ func TestService_VerifyAccess_HostIntersection_DenyWins(t *testing.T) {
 		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
 		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com", "c.com"}},
 	}}
-	svc, err := NewService(provider, hostProvider, &geoip.Lookup{}, "mysecret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, hostProvider, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 
@@ -246,7 +246,7 @@ func TestService_VerifyAccess_BypassAndNonBypass_SharedIP(t *testing.T) {
 		{UserID: auth.UserID(1), BypassAllowlist: true},
 		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"allowed.com"}},
 	}}
-	svc, err := NewService(provider, hostProvider, &geoip.Lookup{}, "mysecret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, hostProvider, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 
@@ -334,7 +334,7 @@ func TestDecide_TrustedProxyRejected(t *testing.T) {
 	provider := &mockProvider{entries: []device.IPEntry{
 		{IP: "10.0.0.1", DeviceID: 1, AddressID: 1, UserID: 1},
 	}}
-	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, "secret", noopLogger(), proxy)
+	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "secret", noopLogger(), proxy)
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 

@@ -8,9 +8,12 @@ import (
 // DecisionResult is returned by Decide. It carries enough information for
 // VerifyAccess to notify observers and for the simulate handler to build its response.
 type DecisionResult struct {
-	Allowed      bool
-	DenyReason   *DenyReason     // nil when Allowed
-	Contributors []IPContributor // nil when IP not in cache; populated for observer notification
+	Allowed           bool
+	DenyReason        *DenyReason     // nil when Allowed
+	Contributors      []IPContributor // nil when IP not in cache; populated for observer notification
+	MatchSource       MatchSource
+	NetworkPolicyID   *int64
+	NetworkPolicyName *string
 }
 
 // UserHostAccess is the per-user projection consumed by refreshCache.

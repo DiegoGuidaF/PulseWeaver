@@ -138,3 +138,27 @@ INSERT INTO user_allowed_host_groups (user_id, host_group_id)
     WHERE u.username = 'seed-user' AND hg.name = 'seed-group';
 
 INSERT INTO ignored_host_suggestions (fqdn) VALUES ('ignored.example.com');
+
+-- ── Network Policies (000019+) ─────────────────────────────────────────────────
+
+INSERT INTO network_policies (name, cidr, description, enabled, allow_all_hosts)
+VALUES ('Seed Home', '192.168.1.0/24', 'Seed home network', 1, 1);
+
+INSERT INTO network_policies (name, cidr, enabled, allow_all_hosts)
+VALUES ('Seed VPN', '10.0.0.0/8', 0, 0);
+
+INSERT INTO network_policy_allowed_host_groups (policy_id, host_group_id)
+    SELECT np.id, hg.id FROM network_policies np, host_groups hg
+    WHERE np.name = 'Seed VPN' AND hg.name = 'seed-group';
+
+INSERT INTO network_policy_allowed_hosts (policy_id, known_host_id)
+    SELECT np.id, kh.id FROM network_policies np, known_hosts kh
+    WHERE np.name = 'Seed VPN' AND kh.fqdn = 'seed.example.com';
+
+-- ── access_log_network_policy_contributors (000020+) ──────────────────────────
+
+INSERT INTO access_log_network_policy_contributors (access_log_id, policy_id, policy_name)
+    SELECT al.id, np.id, np.name
+    FROM access_log al, network_policies np
+    WHERE al.outcome = 0 AND np.name = 'Seed Home'
+    LIMIT 1;

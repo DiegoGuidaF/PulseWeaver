@@ -78,10 +78,19 @@ func (h *HTTPHandler) SimulatePolicyAccess(
 		denyReason = new(httpapi.PolicySimulateDenyReason(*result.DenyReason))
 	}
 
+	var matchSource *httpapi.PolicySimulateResultMatchSource
+	if result.Allowed {
+		ms := httpapi.PolicySimulateResultMatchSource(result.MatchSource)
+		matchSource = &ms
+	}
+
 	return httpapi.SimulatePolicyAccess200JSONResponse(httpapi.PolicySimulateResult{
-		Ip:         ip,
-		Host:       host,
-		Allowed:    result.Allowed,
-		DenyReason: denyReason,
+		Ip:                ip,
+		Host:              host,
+		Allowed:           result.Allowed,
+		DenyReason:        denyReason,
+		MatchSource:       matchSource,
+		NetworkPolicyId:   result.NetworkPolicyID,
+		NetworkPolicyName: result.NetworkPolicyName,
 	}), nil
 }

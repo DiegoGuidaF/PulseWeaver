@@ -76,6 +76,12 @@ accessLog:
         schema:
           $ref: '../components/schemas/common.yaml#/ID'
         description: Cursor; return rows with id < before_id
+      - name: network_policy_id
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+        description: Filter entries authorized by a specific network policy.
     responses:
       "200":
         description: Access log entries

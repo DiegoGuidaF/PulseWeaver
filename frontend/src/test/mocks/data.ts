@@ -449,6 +449,8 @@ export function createMockPolicyUserMapAudit(
     total_device_count: 3,
     total_host_count: 5,
     shared_ip_count: 1,
+    total_network_policy_count: 0,
+    network_policies: [],
     users: [
       createMockPolicyUserEntry({ user_id: 1, user_name: 'alice', bypass_allowlist: false }),
       createMockPolicyUserEntry({

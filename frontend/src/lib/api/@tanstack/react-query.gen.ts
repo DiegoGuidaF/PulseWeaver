@@ -12,10 +12,12 @@ import {
   changePassword,
   claimRegistration,
   createDevice,
+  createPolicy,
   createRegistration,
   createUser,
   deleteDevice,
   deleteDeviceApiKey,
+  deletePolicy,
   deleteRegistration,
   deleteUser,
   demoteUser,
@@ -39,31 +41,35 @@ import {
   getDevices,
   getDevicesByUser,
   getMaxActiveAddressesRule,
+  getPolicy,
   getPolicyUserMap,
   getRegistration,
-  getUserHostDetails,
+  getUserAccessDetail,
   ignoreSuggestion,
   listDeviceTypes,
   listHostGroups,
+  listHosts,
   listHostSuggestions,
-  listKnownHosts,
+  listPolicies,
   listRegistrations,
   listUsers,
-  listUsersHostAccess,
+  listUsersWithAccess,
   login,
   logout,
+  modifyUserAccess,
   type Options,
   promoteUser,
   putDeviceAddressLeaseRule,
   putMaxActiveAddressesRule,
   reconcileHostGroups,
-  reconcileKnownHosts,
+  reconcileHosts,
   regenerateDeviceApiKey,
-  setUserHostGrants,
   simulatePolicyAccess,
   unignoreSuggestion,
   updateDevice,
   updateMe,
+  updatePolicy,
+  updatePolicyAccess,
 } from "../sdk.gen";
 import type {
   AddAddressData,
@@ -78,6 +84,9 @@ import type {
   CreateDeviceData,
   CreateDeviceError,
   CreateDeviceResponse2,
+  CreatePolicyData,
+  CreatePolicyError,
+  CreatePolicyResponse,
   CreateRegistrationData,
   CreateRegistrationError,
   CreateRegistrationResponse,
@@ -90,6 +99,9 @@ import type {
   DeleteDeviceData,
   DeleteDeviceError,
   DeleteDeviceResponse,
+  DeletePolicyData,
+  DeletePolicyError,
+  DeletePolicyResponse,
   DeleteRegistrationData,
   DeleteRegistrationError,
   DeleteRegistrationResponse,
@@ -159,15 +171,18 @@ import type {
   GetMaxActiveAddressesRuleData,
   GetMaxActiveAddressesRuleError,
   GetMaxActiveAddressesRuleResponse,
+  GetPolicyData,
+  GetPolicyError,
+  GetPolicyResponse,
   GetPolicyUserMapData,
   GetPolicyUserMapError,
   GetPolicyUserMapResponse,
   GetRegistrationData,
   GetRegistrationError,
   GetRegistrationResponse,
-  GetUserHostDetailsData,
-  GetUserHostDetailsError,
-  GetUserHostDetailsResponse,
+  GetUserAccessDetailData,
+  GetUserAccessDetailError,
+  GetUserAccessDetailResponse,
   IgnoreSuggestionData,
   IgnoreSuggestionError,
   IgnoreSuggestionResponse,
@@ -176,26 +191,32 @@ import type {
   ListHostGroupsData,
   ListHostGroupsError,
   ListHostGroupsResponse,
+  ListHostsData,
+  ListHostsError,
+  ListHostsResponse,
   ListHostSuggestionsData,
   ListHostSuggestionsError,
   ListHostSuggestionsResponse,
-  ListKnownHostsData,
-  ListKnownHostsError,
-  ListKnownHostsResponse,
+  ListPoliciesData,
+  ListPoliciesError,
+  ListPoliciesResponse,
   ListRegistrationsData,
   ListRegistrationsError,
   ListRegistrationsResponse,
   ListUsersData,
   ListUsersError,
-  ListUsersHostAccessData,
-  ListUsersHostAccessError,
-  ListUsersHostAccessResponse,
   ListUsersResponse,
+  ListUsersWithAccessData,
+  ListUsersWithAccessError,
+  ListUsersWithAccessResponse,
   LoginData,
   LoginError,
   LoginResponse,
   LogoutData,
   LogoutResponse,
+  ModifyUserAccessData,
+  ModifyUserAccessError,
+  ModifyUserAccessResponse,
   PromoteUserData,
   PromoteUserError,
   PromoteUserResponse,
@@ -208,15 +229,12 @@ import type {
   ReconcileHostGroupsData,
   ReconcileHostGroupsError,
   ReconcileHostGroupsResponse,
-  ReconcileKnownHostsData,
-  ReconcileKnownHostsError,
-  ReconcileKnownHostsResponse,
+  ReconcileHostsData,
+  ReconcileHostsError,
+  ReconcileHostsResponse,
   RegenerateDeviceApiKeyData,
   RegenerateDeviceApiKeyError,
   RegenerateDeviceApiKeyResponse,
-  SetUserHostGrantsData,
-  SetUserHostGrantsError,
-  SetUserHostGrantsResponse,
   SimulatePolicyAccessData,
   SimulatePolicyAccessError,
   SimulatePolicyAccessResponse,
@@ -229,6 +247,12 @@ import type {
   UpdateMeData,
   UpdateMeError,
   UpdateMeResponse,
+  UpdatePolicyAccessData,
+  UpdatePolicyAccessError,
+  UpdatePolicyAccessResponse,
+  UpdatePolicyData,
+  UpdatePolicyError,
+  UpdatePolicyResponse,
 } from "../types.gen";
 
 export type QueryKey<TOptions extends Options> = [
@@ -1523,21 +1547,21 @@ export const getRegistrationOptions = (options: Options<GetRegistrationData>) =>
     queryKey: getRegistrationQueryKey(options),
   });
 
-export const listKnownHostsQueryKey = (options?: Options<ListKnownHostsData>) =>
-  createQueryKey("listKnownHosts", options);
+export const listHostsQueryKey = (options?: Options<ListHostsData>) =>
+  createQueryKey("listHosts", options);
 
 /**
- * List known hosts with access stats
+ * List all hosts with group memberships
  */
-export const listKnownHostsOptions = (options?: Options<ListKnownHostsData>) =>
+export const listHostsOptions = (options?: Options<ListHostsData>) =>
   queryOptions<
-    ListKnownHostsResponse,
-    ListKnownHostsError,
-    ListKnownHostsResponse,
-    ReturnType<typeof listKnownHostsQueryKey>
+    ListHostsResponse,
+    ListHostsError,
+    ListHostsResponse,
+    ReturnType<typeof listHostsQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await listKnownHosts({
+      const { data } = await listHosts({
         ...options,
         ...queryKey[0],
         signal,
@@ -1545,116 +1569,30 @@ export const listKnownHostsOptions = (options?: Options<ListKnownHostsData>) =>
       });
       return data;
     },
-    queryKey: listKnownHostsQueryKey(options),
+    queryKey: listHostsQueryKey(options),
   });
 
 /**
- * Reconcile the full desired image of known hosts
+ * Reconcile hosts (full replace)
  *
- * Atomically converges the database to the desired image. Sends a single
- * transaction that creates new hosts, updates icons on existing ones, and
- * deletes hosts absent from the request. An empty `hosts` array deletes
- * every known host.
+ * Atomically converges the database to the desired image. Hosts absent from
+ * the payload are deleted; entries without an id are created.
  *
  */
-export const reconcileKnownHostsMutation = (
-  options?: Partial<Options<ReconcileKnownHostsData>>,
+export const reconcileHostsMutation = (
+  options?: Partial<Options<ReconcileHostsData>>,
 ): UseMutationOptions<
-  ReconcileKnownHostsResponse,
-  ReconcileKnownHostsError,
-  Options<ReconcileKnownHostsData>
+  ReconcileHostsResponse,
+  ReconcileHostsError,
+  Options<ReconcileHostsData>
 > => {
   const mutationOptions: UseMutationOptions<
-    ReconcileKnownHostsResponse,
-    ReconcileKnownHostsError,
-    Options<ReconcileKnownHostsData>
+    ReconcileHostsResponse,
+    ReconcileHostsError,
+    Options<ReconcileHostsData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await reconcileKnownHosts({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-export const listHostGroupsQueryKey = (options?: Options<ListHostGroupsData>) =>
-  createQueryKey("listHostGroups", options);
-
-/**
- * List host groups with their member host IDs
- */
-export const listHostGroupsOptions = (options?: Options<ListHostGroupsData>) =>
-  queryOptions<
-    ListHostGroupsResponse,
-    ListHostGroupsError,
-    ListHostGroupsResponse,
-    ReturnType<typeof listHostGroupsQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await listHostGroups({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: listHostGroupsQueryKey(options),
-  });
-
-/**
- * Reconcile the full desired image of host groups and their members
- *
- * Atomically converges the database to the desired image. Sends a single
- * transaction that creates new groups, updates existing ones, and deletes
- * groups absent from the request.
- *
- */
-export const reconcileHostGroupsMutation = (
-  options?: Partial<Options<ReconcileHostGroupsData>>,
-): UseMutationOptions<
-  ReconcileHostGroupsResponse,
-  ReconcileHostGroupsError,
-  Options<ReconcileHostGroupsData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    ReconcileHostGroupsResponse,
-    ReconcileHostGroupsError,
-    Options<ReconcileHostGroupsData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await reconcileHostGroups({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
- * Atomically replace a user's host grants and bypass flag
- */
-export const setUserHostGrantsMutation = (
-  options?: Partial<Options<SetUserHostGrantsData>>,
-): UseMutationOptions<
-  SetUserHostGrantsResponse,
-  SetUserHostGrantsError,
-  Options<SetUserHostGrantsData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    SetUserHostGrantsResponse,
-    SetUserHostGrantsError,
-    Options<SetUserHostGrantsData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await setUserHostGrants({
+      const { data } = await reconcileHosts({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1747,24 +1685,21 @@ export const unignoreSuggestionMutation = (
   return mutationOptions;
 };
 
-export const listUsersHostAccessQueryKey = (
-  options?: Options<ListUsersHostAccessData>,
-) => createQueryKey("listUsersHostAccess", options);
+export const listHostGroupsQueryKey = (options?: Options<ListHostGroupsData>) =>
+  createQueryKey("listHostGroups", options);
 
 /**
- * List all users with host access summary (bypass, direct host count, groups)
+ * List all host groups with members and subject assignments
  */
-export const listUsersHostAccessOptions = (
-  options?: Options<ListUsersHostAccessData>,
-) =>
+export const listHostGroupsOptions = (options?: Options<ListHostGroupsData>) =>
   queryOptions<
-    ListUsersHostAccessResponse,
-    ListUsersHostAccessError,
-    ListUsersHostAccessResponse,
-    ReturnType<typeof listUsersHostAccessQueryKey>
+    ListHostGroupsResponse,
+    ListHostGroupsError,
+    ListHostGroupsResponse,
+    ReturnType<typeof listHostGroupsQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await listUsersHostAccess({
+      const { data } = await listHostGroups({
         ...options,
         ...queryKey[0],
         signal,
@@ -1772,27 +1707,58 @@ export const listUsersHostAccessOptions = (
       });
       return data;
     },
-    queryKey: listUsersHostAccessQueryKey(options),
+    queryKey: listHostGroupsQueryKey(options),
   });
 
-export const getUserHostDetailsQueryKey = (
-  options: Options<GetUserHostDetailsData>,
-) => createQueryKey("getUserHostDetails", options);
+/**
+ * Reconcile host groups (full replace)
+ *
+ * Atomically converges the database to the desired image. Groups absent from
+ * the payload are deleted; entries without an id are created.
+ *
+ */
+export const reconcileHostGroupsMutation = (
+  options?: Partial<Options<ReconcileHostGroupsData>>,
+): UseMutationOptions<
+  ReconcileHostGroupsResponse,
+  ReconcileHostGroupsError,
+  Options<ReconcileHostGroupsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReconcileHostGroupsResponse,
+    ReconcileHostGroupsError,
+    Options<ReconcileHostGroupsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await reconcileHostGroups({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const listUsersWithAccessQueryKey = (
+  options?: Options<ListUsersWithAccessData>,
+) => createQueryKey("listUsersWithAccess", options);
 
 /**
- * Get full host access details for a single user (drawer data)
+ * List users with host access summary
  */
-export const getUserHostDetailsOptions = (
-  options: Options<GetUserHostDetailsData>,
+export const listUsersWithAccessOptions = (
+  options?: Options<ListUsersWithAccessData>,
 ) =>
   queryOptions<
-    GetUserHostDetailsResponse,
-    GetUserHostDetailsError,
-    GetUserHostDetailsResponse,
-    ReturnType<typeof getUserHostDetailsQueryKey>
+    ListUsersWithAccessResponse,
+    ListUsersWithAccessError,
+    ListUsersWithAccessResponse,
+    ReturnType<typeof listUsersWithAccessQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getUserHostDetails({
+      const { data } = await listUsersWithAccess({
         ...options,
         ...queryKey[0],
         signal,
@@ -1800,8 +1766,65 @@ export const getUserHostDetailsOptions = (
       });
       return data;
     },
-    queryKey: getUserHostDetailsQueryKey(options),
+    queryKey: listUsersWithAccessQueryKey(options),
   });
+
+export const getUserAccessDetailQueryKey = (
+  options: Options<GetUserAccessDetailData>,
+) => createQueryKey("getUserAccessDetail", options);
+
+/**
+ * Get full host access detail for a user
+ */
+export const getUserAccessDetailOptions = (
+  options: Options<GetUserAccessDetailData>,
+) =>
+  queryOptions<
+    GetUserAccessDetailResponse,
+    GetUserAccessDetailError,
+    GetUserAccessDetailResponse,
+    ReturnType<typeof getUserAccessDetailQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getUserAccessDetail({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getUserAccessDetailQueryKey(options),
+  });
+
+/**
+ * Atomically replace a user's access grants
+ *
+ * Replaces bypass_host_check flag and full group assignment list.
+ */
+export const modifyUserAccessMutation = (
+  options?: Partial<Options<ModifyUserAccessData>>,
+): UseMutationOptions<
+  ModifyUserAccessResponse,
+  ModifyUserAccessError,
+  Options<ModifyUserAccessData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ModifyUserAccessResponse,
+    ModifyUserAccessError,
+    Options<ModifyUserAccessData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await modifyUserAccess({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 export const getPolicyUserMapQueryKey = (
   options?: Options<GetPolicyUserMapData>,
@@ -1868,3 +1891,167 @@ export const simulatePolicyAccessOptions = (
     },
     queryKey: simulatePolicyAccessQueryKey(options),
   });
+
+export const listPoliciesQueryKey = (options?: Options<ListPoliciesData>) =>
+  createQueryKey("listPolicies", options);
+
+/**
+ * List all network policies
+ */
+export const listPoliciesOptions = (options?: Options<ListPoliciesData>) =>
+  queryOptions<
+    ListPoliciesResponse,
+    ListPoliciesError,
+    ListPoliciesResponse,
+    ReturnType<typeof listPoliciesQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await listPolicies({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: listPoliciesQueryKey(options),
+  });
+
+/**
+ * Create a network policy
+ *
+ * Policy is created enabled by default with no group assignments.
+ */
+export const createPolicyMutation = (
+  options?: Partial<Options<CreatePolicyData>>,
+): UseMutationOptions<
+  CreatePolicyResponse,
+  CreatePolicyError,
+  Options<CreatePolicyData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    CreatePolicyResponse,
+    CreatePolicyError,
+    Options<CreatePolicyData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await createPolicy({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Delete a network policy
+ */
+export const deletePolicyMutation = (
+  options?: Partial<Options<DeletePolicyData>>,
+): UseMutationOptions<
+  DeletePolicyResponse,
+  DeletePolicyError,
+  Options<DeletePolicyData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    DeletePolicyResponse,
+    DeletePolicyError,
+    Options<DeletePolicyData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await deletePolicy({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const getPolicyQueryKey = (options: Options<GetPolicyData>) =>
+  createQueryKey("getPolicy", options);
+
+/**
+ * Get network policy detail
+ */
+export const getPolicyOptions = (options: Options<GetPolicyData>) =>
+  queryOptions<
+    GetPolicyResponse,
+    GetPolicyError,
+    GetPolicyResponse,
+    ReturnType<typeof getPolicyQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getPolicy({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getPolicyQueryKey(options),
+  });
+
+/**
+ * Update policy metadata
+ *
+ * Updates name, CIDR, description, and/or status. Does not affect group assignments.
+ */
+export const updatePolicyMutation = (
+  options?: Partial<Options<UpdatePolicyData>>,
+): UseMutationOptions<
+  UpdatePolicyResponse,
+  UpdatePolicyError,
+  Options<UpdatePolicyData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    UpdatePolicyResponse,
+    UpdatePolicyError,
+    Options<UpdatePolicyData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await updatePolicy({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Atomically replace a policy's access grants
+ *
+ * Replaces bypass_host_check flag and full group assignment list.
+ */
+export const updatePolicyAccessMutation = (
+  options?: Partial<Options<UpdatePolicyAccessData>>,
+): UseMutationOptions<
+  UpdatePolicyAccessResponse,
+  UpdatePolicyAccessError,
+  Options<UpdatePolicyAccessData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    UpdatePolicyAccessResponse,
+    UpdatePolicyAccessError,
+    Options<UpdatePolicyAccessData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await updatePolicyAccess({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};

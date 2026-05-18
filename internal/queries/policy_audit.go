@@ -10,9 +10,17 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/jmoiron/sqlx"
 )
+
+// AuditNetworkPoliciesProvider is the interface the queries package consumes to
+// load network policy data for the policy audit view. Implemented by
+// networkpolicies.Repository.
+type AuditNetworkPoliciesProvider interface {
+	GetEnabledCacheEntries(ctx context.Context) ([]networkpolicies.CacheEntry, error)
+}
 
 // PolicyMapReader is the cross-domain interface consumed by the queries package.
 // Implemented by policy.Service.
@@ -136,6 +144,7 @@ func collectAddressIDs(snap policy.PolicyMapSnapshot) []device.AddressID {
 func (r *Repository) BuildPolicyUserMap(
 	ctx context.Context,
 	reader PolicyMapReader,
+	npProvider AuditNetworkPoliciesProvider,
 ) (httpapi.PolicyUserMapAudit, error) {
 	snap := reader.GetPolicyMap()
 	addressIDs := collectAddressIDs(snap)
@@ -150,7 +159,39 @@ func (r *Repository) BuildPolicyUserMap(
 		return httpapi.PolicyUserMapAudit{}, fmt.Errorf("policy audit users: %w", err)
 	}
 
-	return assemblePolicyUserMap(snap, addrEnrichment, allUsers, allowedHostsByUser), nil
+	// Load enabled network policy entries for the audit view.
+	var npEntries []networkpolicies.CacheEntry
+	if npProvider != nil {
+		npEntries, err = npProvider.GetEnabledCacheEntries(ctx)
+		if err != nil {
+			return httpapi.PolicyUserMapAudit{}, fmt.Errorf("policy audit network policies: %w", err)
+		}
+	}
+
+	audit := assemblePolicyUserMap(snap, addrEnrichment, allUsers, allowedHostsByUser)
+
+	// Attach network policy data.
+	npAPIEntries := make([]httpapi.PolicyNetworkPolicyEntry, 0, len(npEntries))
+	totalHostCount := audit.TotalHostCount
+	for _, e := range npEntries {
+		effective := len(e.AllowedHostFQDNs)
+		if e.AllowAllHosts {
+			effective = totalHostCount
+		}
+		npAPIEntries = append(npAPIEntries, httpapi.PolicyNetworkPolicyEntry{
+			PolicyId:           e.PolicyID.Int64(),
+			PolicyName:         e.PolicyName,
+			Cidr:               e.CIDR,
+			Enabled:            true,
+			AllowAllHosts:      e.AllowAllHosts,
+			EffectiveHostCount: effective,
+			TotalHostCount:     totalHostCount,
+		})
+	}
+	audit.NetworkPolicies = npAPIEntries
+	audit.TotalNetworkPolicyCount = len(npAPIEntries)
+
+	return audit, nil
 }
 
 // GetPolicyUserMap returns the user-pivoted policy cache audit view.
@@ -160,7 +201,7 @@ func (h *HTTPHandler) GetPolicyUserMap(
 ) (httpapi.GetPolicyUserMapResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetPolicyUserMap")
 
-	audit, err := h.repo.BuildPolicyUserMap(ctx, h.policyReader)
+	audit, err := h.repo.BuildPolicyUserMap(ctx, h.policyReader, h.npProvider)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "failed to build policy user map", slog.Any(logging.AttrKeyError, err))
 		return httpapi.GetPolicyUserMap500JSONResponse(errorMsgResponse("Failed to load policy user map")), nil

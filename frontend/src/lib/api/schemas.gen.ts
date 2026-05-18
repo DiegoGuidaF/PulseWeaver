@@ -637,6 +637,21 @@ export const AccessLogRowSchema = {
         },
       },
     },
+    network_policy_id: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/ID",
+        },
+      ],
+      nullable: true,
+      description:
+        "ID of the network policy that authorized this request, when the match was via CIDR containment rather than a device address. Null for device-matched or denied requests.\n",
+    },
+    network_policy_name: {
+      type: "string",
+      nullable: true,
+      description: "Display name of the matching network policy at log time.",
+    },
   },
 } as const;
 
@@ -1033,202 +1048,371 @@ export const ClaimRegistrationResponseSchema = {
   },
 } as const;
 
-export const GroupRefSchema = {
+export const PolicyListItemSchema = {
   type: "object",
-  required: ["id", "name"],
+  required: [
+    "id",
+    "name",
+    "cidr",
+    "status",
+    "groups",
+    "host_count",
+    "bypass_host_check",
+  ],
+  description: "Network policy summary for the access management list page.",
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
     },
     name: {
       type: "string",
+      example: "Home LAN",
     },
-  },
-} as const;
-
-export const KnownHostRefSchema = {
-  type: "object",
-  required: ["id", "fqdn"],
-  properties: {
-    id: {
-      $ref: "#/components/schemas/ID",
-    },
-    fqdn: {
+    cidr: {
       type: "string",
-      maxLength: 253,
+      description: 'Normalized CIDR notation, e.g. "192.168.1.0/24"',
     },
-    icon: {
+    status: {
       type: "string",
-      nullable: true,
-    },
-  },
-} as const;
-
-export const KnownHostWithStatsSchema = {
-  type: "object",
-  required: ["id", "fqdn", "created_at", "user_count", "groups"],
-  properties: {
-    id: {
-      $ref: "#/components/schemas/ID",
-    },
-    fqdn: {
-      type: "string",
-      maxLength: 253,
-    },
-    icon: {
-      type: "string",
-      nullable: true,
-    },
-    created_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-    },
-    user_count: {
-      type: "integer",
-      description: "Number of distinct users with access to this host.",
+      enum: ["enabled", "disabled"],
     },
     groups: {
       type: "array",
       items: {
         $ref: "#/components/schemas/GroupRef",
       },
-      description: "Host groups this host belongs to.",
+    },
+    host_count: {
+      type: "integer",
+      minimum: 0,
+      description: "Total hosts accessible across all assigned groups.",
+    },
+    bypass_host_check: {
+      type: "boolean",
     },
   },
 } as const;
 
-export const DesiredKnownHostSchema = {
+export const PolicyDetailSchema = {
   type: "object",
-  required: ["fqdn", "group_ids"],
-  description:
-    "A single known host inside a reconcile request. A null `id` marks a\nbrand-new host; a non-null `id` must match an existing row. `fqdn` is\nimmutable on updates — a mismatch is rejected. `group_ids` replaces the\nhost's full group membership.\n",
-  properties: {
-    id: {
-      nullable: true,
-      allOf: [
-        {
-          $ref: "#/components/schemas/ID",
-        },
-      ],
-    },
-    fqdn: {
-      type: "string",
-      minLength: 3,
-      maxLength: 253,
-    },
-    icon: {
-      type: "string",
-      nullable: true,
-    },
-    group_ids: {
-      type: "array",
-      description:
-        "Host group IDs this host should belong to. Replaces the host's full group membership.",
-      items: {
-        $ref: "#/components/schemas/ID",
-      },
-    },
-  },
-} as const;
-
-export const ReconcileKnownHostsRequestSchema = {
-  type: "object",
-  required: ["hosts"],
-  description:
-    "Full desired image of all known hosts. Hosts already in the database whose\nID is absent from `hosts` will be deleted; hosts with a non-null ID are\nupdated (icon only); hosts with a null ID are created. An empty `hosts`\narray deletes every known host.\n",
-  properties: {
-    hosts: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/DesiredKnownHost",
-      },
-    },
-  },
-} as const;
-
-export const HostGroupWithMembersSchema = {
-  type: "object",
-  required: ["id", "name", "created_at", "hosts", "member_ids"],
+  required: ["id", "name", "cidr", "status", "groups", "bypass_host_check"],
+  description: "Full network policy detail including group assignments.",
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
     },
     name: {
       type: "string",
+      example: "Home LAN",
     },
-    color: {
+    cidr: {
       type: "string",
-      nullable: true,
-      description: 'UI accent colour for the group. Null means "not chosen".',
+      description: 'Normalized CIDR notation, e.g. "192.168.1.0/24"',
     },
     description: {
       type: "string",
       nullable: true,
     },
-    icon: {
+    status: {
       type: "string",
-      nullable: true,
+      enum: ["enabled", "disabled"],
     },
-    created_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-    },
-    hosts: {
+    groups: {
       type: "array",
-      description: "Hydrated member hosts (id + fqdn + icon) for display.",
+      description: "All groups with their hosts and assignment status.",
       items: {
-        $ref: "#/components/schemas/KnownHostRef",
+        $ref: "#/components/schemas/SubjectGroupDetail",
       },
     },
-    member_ids: {
-      type: "array",
-      description:
-        "Plain list of member host IDs, parallel to `hosts`. Useful to round-trip into a reconcile request.",
-      items: {
-        $ref: "#/components/schemas/ID",
-      },
+    bypass_host_check: {
+      type: "boolean",
     },
   },
 } as const;
 
-export const DesiredHostGroupSchema = {
+export const CreatePolicyRequestSchema = {
   type: "object",
-  required: ["name"],
-  description:
-    "A single host group inside a reconcile request. A null `id` marks a\nbrand-new group; a non-null `id` must match an existing group.\n",
+  required: ["name", "cidr"],
   properties: {
-    id: {
-      nullable: true,
-      allOf: [
-        {
-          $ref: "#/components/schemas/ID",
-        },
-      ],
-    },
     name: {
       type: "string",
       minLength: 1,
       maxLength: 100,
     },
-    color: {
+    cidr: {
       type: "string",
-      nullable: true,
-      description: 'UI accent colour. Null means "not chosen".',
+      description:
+        "CIDR notation. Host bits are zeroed automatically by the server.",
     },
     description: {
       type: "string",
       nullable: true,
       maxLength: 500,
     },
+  },
+} as const;
+
+export const ModifyPolicyRequestSchema = {
+  type: "object",
+  required: ["name", "cidr", "status"],
+  properties: {
+    name: {
+      type: "string",
+      minLength: 1,
+      maxLength: 100,
+    },
+    cidr: {
+      type: "string",
+    },
+    description: {
+      type: "string",
+      nullable: true,
+      maxLength: 500,
+    },
+    status: {
+      type: "string",
+      enum: ["enabled", "disabled"],
+    },
+  },
+} as const;
+
+export const PolicyNetworkPolicyEntrySchema = {
+  type: "object",
+  required: [
+    "policy_id",
+    "policy_name",
+    "cidr",
+    "enabled",
+    "allow_all_hosts",
+    "effective_host_count",
+    "total_host_count",
+  ],
+  properties: {
+    policy_id: {
+      $ref: "#/components/schemas/ID",
+    },
+    policy_name: {
+      type: "string",
+    },
+    cidr: {
+      type: "string",
+    },
+    enabled: {
+      type: "boolean",
+      description:
+        "False when the policy is present in the snapshot but currently disabled. Disabled policies are cached but bypassed in verify decisions.\n",
+    },
+    allow_all_hosts: {
+      type: "boolean",
+    },
+    effective_host_count: {
+      type: "integer",
+      description:
+        "Hosts reachable through this policy. Equals total_host_count when allow_all_hosts is true.\n",
+    },
+    total_host_count: {
+      type: "integer",
+    },
+  },
+} as const;
+
+export const GroupRefSchema = {
+  type: "object",
+  required: ["id", "name"],
+  description: "Minimal group reference for read responses.",
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    name: {
+      type: "string",
+    },
+  },
+} as const;
+
+export const GroupSummarySchema = {
+  type: "object",
+  required: ["id", "name", "color", "icon"],
+  description:
+    "Group display reference used in host list rows (renders group pills).",
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    name: {
+      type: "string",
+    },
+    color: {
+      type: "string",
+      example: "#6366f1",
+    },
     icon: {
+      type: "string",
+      example: "server",
+    },
+  },
+} as const;
+
+export const GroupDetailSchema = {
+  type: "object",
+  required: [
+    "id",
+    "name",
+    "icon",
+    "color",
+    "hosts",
+    "users",
+    "network_policies",
+  ],
+  description:
+    "Full group representation returned by GET and reconcile responses.",
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    name: {
+      type: "string",
+      example: "Data",
+    },
+    icon: {
+      type: "string",
+      description: 'Icon key (e.g. "database", "film").',
+      example: "database",
+    },
+    color: {
+      type: "string",
+      description: "CSS hex color for the group badge.",
+      example: "#4C6EF5",
+    },
+    description: {
       type: "string",
       nullable: true,
     },
-    host_ids: {
+    hosts: {
       type: "array",
-      description: "Known-host IDs that should be members of this group.",
+      items: {
+        $ref: "#/components/schemas/HostSummary",
+      },
+    },
+    users: {
+      type: "array",
+      description:
+        "Users with access to this group (read-only, managed via subjects).",
+      items: {
+        $ref: "#/components/schemas/UserSummary",
+      },
+    },
+    network_policies: {
+      type: "array",
+      description:
+        "Network policies with access to this group (read-only, managed via subjects).",
+      items: {
+        $ref: "#/components/schemas/NetworkPolicyRef",
+      },
+    },
+  },
+} as const;
+
+export const SubjectGroupDetailSchema = {
+  allOf: [
+    {
+      $ref: "#/components/schemas/GroupDetail",
+    },
+    {
+      type: "object",
+      required: ["granted"],
+      description:
+        "GroupDetail with assignment status, used in user and policy detail responses.",
+      properties: {
+        granted: {
+          type: "boolean",
+          description: "Whether this group is assigned to the subject.",
+        },
+      },
+    },
+  ],
+} as const;
+
+export const GroupWriteSchema = {
+  type: "object",
+  required: ["name", "icon", "color", "hosts"],
+  description:
+    "Group write payload for reconcile. Omit id (or set null) to create; include id to update.\nThe hosts array defines the complete desired membership after the call.\n",
+  properties: {
+    id: {
+      nullable: true,
+      allOf: [
+        {
+          $ref: "#/components/schemas/ID",
+        },
+      ],
+    },
+    name: {
+      type: "string",
+      example: "Data",
+    },
+    icon: {
+      type: "string",
+      example: "database",
+    },
+    color: {
+      type: "string",
+      example: "#4C6EF5",
+    },
+    description: {
+      type: "string",
+      nullable: true,
+    },
+    hosts: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/HostRef",
+      },
+    },
+  },
+} as const;
+
+export const GroupListResponseSchema = {
+  type: "object",
+  required: ["groups"],
+  properties: {
+    groups: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/GroupDetail",
+      },
+    },
+  },
+} as const;
+
+export const ReconcileGroupsRequestSchema = {
+  type: "object",
+  required: ["groups"],
+  description:
+    "Exhaustive list of all desired groups. Groups absent from this list are deleted.",
+  properties: {
+    groups: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/GroupWrite",
+      },
+    },
+  },
+} as const;
+
+export const ModifyAccessRequestSchema = {
+  type: "object",
+  required: ["bypass_host_check", "group_ids"],
+  description:
+    "Atomically replaces bypass flag and full group assignment list. Shared by users and policies.",
+  properties: {
+    bypass_host_check: {
+      type: "boolean",
+      description:
+        "When true, grants access to all hosts regardless of group configuration.",
+    },
+    group_ids: {
+      type: "array",
       items: {
         $ref: "#/components/schemas/ID",
       },
@@ -1236,57 +1420,80 @@ export const DesiredHostGroupSchema = {
   },
 } as const;
 
-export const ReconcileHostGroupsRequestSchema = {
+export const HostSchema = {
   type: "object",
-  required: ["groups"],
-  description:
-    "Full desired image of all host groups. Groups already in the database whose\nID is absent from `groups` will be deleted; groups with a non-null ID are\nupdated; groups with a null ID are created.\n",
-  properties: {
-    groups: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/DesiredHostGroup",
-      },
-    },
-  },
-} as const;
-
-export const SetUserHostGrantsRequestSchema = {
-  type: "object",
-  properties: {
-    bypass: {
-      type: "boolean",
-    },
-    host_ids: {
-      type: "array",
-      items: {
-        type: "integer",
-      },
-    },
-    group_ids: {
-      type: "array",
-      items: {
-        type: "integer",
-      },
-    },
-  },
-} as const;
-
-export const IgnoredHostSuggestionSchema = {
-  type: "object",
-  required: ["id", "fqdn", "created_at"],
+  required: ["id", "fqdn", "groups"],
+  description: "Host record with group memberships.",
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
     },
     fqdn: {
       type: "string",
-      maxLength: 253,
+      example: "immich.home.org",
     },
-    created_at: {
+    groups: {
+      type: "array",
+      description: "Group memberships. Empty array means unassigned.",
+      items: {
+        $ref: "#/components/schemas/GroupSummary",
+      },
+    },
+  },
+} as const;
+
+export const HostInputSchema = {
+  type: "object",
+  required: ["fqdn", "groups"],
+  description:
+    "Host entry in a reconcile request. Omit id to create a new host.",
+  properties: {
+    id: {
+      nullable: true,
+      allOf: [
+        {
+          $ref: "#/components/schemas/ID",
+        },
+      ],
+    },
+    fqdn: {
       type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
+      example: "immich.home.org",
+    },
+    groups: {
+      type: "array",
+      description: "Group memberships by ID. Empty array means unassigned.",
+      items: {
+        $ref: "#/components/schemas/GroupIdRef",
+      },
+    },
+  },
+} as const;
+
+export const HostListResponseSchema = {
+  type: "object",
+  required: ["hosts"],
+  properties: {
+    hosts: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/Host",
+      },
+    },
+  },
+} as const;
+
+export const ReconcileHostsRequestSchema = {
+  type: "object",
+  required: ["hosts"],
+  description:
+    "Exhaustive list of all hosts. Hosts absent from this list are deleted.",
+  properties: {
+    hosts: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/HostInput",
+      },
     },
   },
 } as const;
@@ -1309,6 +1516,25 @@ export const HostSuggestionSchema = {
     },
     denied_hits: {
       type: "integer",
+    },
+  },
+} as const;
+
+export const IgnoredHostSuggestionSchema = {
+  type: "object",
+  required: ["id", "fqdn", "created_at"],
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    fqdn: {
+      type: "string",
+      maxLength: 253,
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
     },
   },
 } as const;
@@ -1347,38 +1573,60 @@ export const HostSuggestionsPageSchema = {
   },
 } as const;
 
-export const UserHostAccessSummarySchema = {
+export const DeviceListItemSchema = {
   type: "object",
-  required: [
-    "id",
-    "display_name",
-    "email",
-    "role",
-    "bypass",
-    "direct_host_count",
-    "groups",
-  ],
+  required: ["id", "name", "live_ip_count"],
+  description: "Device summary shown on user access detail.",
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
     },
+    name: {
+      type: "string",
+      example: "macbook-maya",
+    },
+    icon: {
+      type: "string",
+      nullable: true,
+    },
+    live_ip_count: {
+      type: "integer",
+      minimum: 0,
+    },
+    api_key_prefix: {
+      type: "string",
+      nullable: true,
+      description:
+        "Non-null when an API key is configured; the full key is never returned.",
+      example: "pw_abc123",
+    },
+  },
+} as const;
+
+export const UserListItemSchema = {
+  type: "object",
+  required: [
+    "id",
+    "username",
+    "display_name",
+    "groups",
+    "host_count",
+    "device_count",
+    "live_ip_count",
+    "bypass_host_check",
+  ],
+  description: "User summary for the access management list page.",
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    username: {
+      type: "string",
+      example: "maya.patel",
+    },
     display_name: {
       type: "string",
-    },
-    email: {
-      type: "string",
-      format: "email",
-    },
-    role: {
-      $ref: "#/components/schemas/UserRole",
-    },
-    bypass: {
-      type: "boolean",
-      description: "When true the user can reach every known host.",
-    },
-    direct_host_count: {
-      type: "integer",
-      description: "Number of hosts granted directly via user_allowed_hosts.",
+      example: "Maya Patel",
     },
     groups: {
       type: "array",
@@ -1386,107 +1634,69 @@ export const UserHostAccessSummarySchema = {
         $ref: "#/components/schemas/GroupRef",
       },
     },
+    host_count: {
+      type: "integer",
+      minimum: 0,
+      description: "Total hosts accessible across all assigned groups.",
+    },
+    device_count: {
+      type: "integer",
+      minimum: 0,
+    },
+    live_ip_count: {
+      type: "integer",
+      minimum: 0,
+    },
+    bypass_host_check: {
+      type: "boolean",
+    },
   },
 } as const;
 
-export const UserHostDetailsSchema = {
+export const UserAccessDetailSchema = {
   type: "object",
   required: [
     "id",
+    "username",
     "display_name",
-    "email",
-    "role",
-    "bypass",
+    "devices",
     "groups",
-    "hosts",
+    "bypass_host_check",
   ],
+  description:
+    "Full user access detail including devices and group assignments.",
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
     },
+    username: {
+      type: "string",
+      example: "maya.patel",
+    },
     display_name: {
       type: "string",
+      example: "Maya Patel",
     },
     email: {
       type: "string",
       format: "email",
+      nullable: true,
     },
-    role: {
-      $ref: "#/components/schemas/UserRole",
-    },
-    bypass: {
-      type: "boolean",
+    devices: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/DeviceListItem",
+      },
     },
     groups: {
       type: "array",
+      description: "All groups with their hosts and assignment status.",
       items: {
-        $ref: "#/components/schemas/UserHostDetailsGroup",
+        $ref: "#/components/schemas/SubjectGroupDetail",
       },
     },
-    hosts: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/UserHostDetailsHost",
-      },
-    },
-  },
-} as const;
-
-export const UserHostDetailsGroupSchema = {
-  type: "object",
-  required: ["id", "name", "granted", "hosts"],
-  properties: {
-    id: {
-      $ref: "#/components/schemas/ID",
-    },
-    name: {
-      type: "string",
-    },
-    icon: {
-      type: "string",
-      nullable: true,
-    },
-    granted: {
+    bypass_host_check: {
       type: "boolean",
-      description: "Whether this group is granted to the user.",
-    },
-    hosts: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/KnownHostRef",
-      },
-    },
-  },
-} as const;
-
-export const UserHostDetailsHostSchema = {
-  type: "object",
-  required: ["id", "fqdn", "directly_granted"],
-  properties: {
-    id: {
-      $ref: "#/components/schemas/ID",
-    },
-    fqdn: {
-      type: "string",
-      maxLength: 253,
-    },
-    icon: {
-      type: "string",
-      nullable: true,
-    },
-    directly_granted: {
-      type: "boolean",
-      description: "Whether this host is directly granted to the user.",
-    },
-    via_group: {
-      nullable: true,
-      allOf: [
-        {
-          $ref: "#/components/schemas/GroupRef",
-        },
-      ],
-      description:
-        "First (alphabetically) granted group that covers this host, if any.",
     },
   },
 } as const;
@@ -1511,6 +1721,81 @@ export const DeviceAPIKeyResponseSchema = {
     api_key: {
       type: "string",
       description: "Secret key for the device.",
+    },
+  },
+} as const;
+
+export const GroupIdRefSchema = {
+  type: "object",
+  required: ["id"],
+  description: "Group ID reference used in host write payloads.",
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+  },
+} as const;
+
+export const HostSummarySchema = {
+  type: "object",
+  required: ["id", "fqdn"],
+  description: "Minimal host reference embedded in group responses.",
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    fqdn: {
+      type: "string",
+      example: "immich.home.org",
+    },
+  },
+} as const;
+
+export const UserSummarySchema = {
+  type: "object",
+  required: ["id", "username", "display_name"],
+  description: "Minimal user reference embedded in group responses.",
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    username: {
+      type: "string",
+      example: "maya.patel",
+    },
+    display_name: {
+      type: "string",
+      example: "Maya Patel",
+    },
+  },
+} as const;
+
+export const NetworkPolicyRefSchema = {
+  type: "object",
+  required: ["id", "name", "cidr"],
+  description: "Minimal network policy reference embedded in group responses.",
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    name: {
+      type: "string",
+      example: "Home LAN",
+    },
+    cidr: {
+      type: "string",
+      example: "192.168.1.0/24",
+    },
+  },
+} as const;
+
+export const HostRefSchema = {
+  type: "object",
+  required: ["id"],
+  description: "Host ID reference used in group write payloads.",
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
     },
   },
 } as const;
@@ -1723,6 +2008,8 @@ export const PolicyUserMapAuditSchema = {
     "total_host_count",
     "shared_ip_count",
     "users",
+    "total_network_policy_count",
+    "network_policies",
   ],
   properties: {
     refreshed_at: {
@@ -1759,6 +2046,17 @@ export const PolicyUserMapAuditSchema = {
         $ref: "#/components/schemas/PolicyUserEntry",
       },
     },
+    total_network_policy_count: {
+      type: "integer",
+      description: "Number of enabled network policies currently in the cache.",
+    },
+    network_policies: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/PolicyNetworkPolicyEntry",
+      },
+      description: "All enabled network policies currently in the cache.\n",
+    },
   },
 } as const;
 
@@ -1789,6 +2087,29 @@ export const PolicySimulateResultSchema = {
       ],
       nullable: true,
       description: "Reason for denial; null when allowed is true.",
+    },
+    match_source: {
+      type: "string",
+      enum: ["device", "network_policy"],
+      nullable: true,
+      description:
+        "Which mechanism authorized the request. Null when allowed is false.\n",
+    },
+    network_policy_id: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/ID",
+        },
+      ],
+      nullable: true,
+      description:
+        "ID of the matching policy when match_source is 'network_policy'.",
+    },
+    network_policy_name: {
+      type: "string",
+      nullable: true,
+      description:
+        "Name of the matching policy when match_source is 'network_policy'.",
     },
   },
 } as const;

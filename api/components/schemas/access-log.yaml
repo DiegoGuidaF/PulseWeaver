@@ -89,3 +89,15 @@ AccessLogRow:
         type: array
         items:
           type: string
+    network_policy_id:
+      allOf:
+        - $ref: './common.yaml#/ID'
+      nullable: true
+      description: >
+        ID of the network policy that authorized this request, when the match was
+        via CIDR containment rather than a device address. Null for device-matched
+        or denied requests.
+    network_policy_name:
+      type: string
+      nullable: true
+      description: Display name of the matching network policy at log time.

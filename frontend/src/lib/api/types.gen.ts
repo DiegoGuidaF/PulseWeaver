@@ -308,6 +308,15 @@ export type AccessLogRow = {
   headers: {
     [key: string]: Array<string>;
   };
+  /**
+   * ID of the network policy that authorized this request, when the match was via CIDR containment rather than a device address. Null for device-matched or denied requests.
+   *
+   */
+  network_policy_id?: Id | null;
+  /**
+   * Display name of the matching network policy at log time.
+   */
+  network_policy_name?: string | null;
 };
 
 export type DeviceAddressLeaseRule = {
@@ -442,120 +451,198 @@ export type ClaimRegistrationResponse = {
   api_key: string;
 };
 
+/**
+ * Network policy summary for the access management list page.
+ */
+export type PolicyListItem = {
+  id: Id;
+  name: string;
+  /**
+   * Normalized CIDR notation, e.g. "192.168.1.0/24"
+   */
+  cidr: string;
+  status: "enabled" | "disabled";
+  groups: Array<GroupRef>;
+  /**
+   * Total hosts accessible across all assigned groups.
+   */
+  host_count: number;
+  bypass_host_check: boolean;
+};
+
+/**
+ * Full network policy detail including group assignments.
+ */
+export type PolicyDetail = {
+  id: Id;
+  name: string;
+  /**
+   * Normalized CIDR notation, e.g. "192.168.1.0/24"
+   */
+  cidr: string;
+  description?: string | null;
+  status: "enabled" | "disabled";
+  /**
+   * All groups with their hosts and assignment status.
+   */
+  groups: Array<SubjectGroupDetail>;
+  bypass_host_check: boolean;
+};
+
+export type CreatePolicyRequest = {
+  name: string;
+  /**
+   * CIDR notation. Host bits are zeroed automatically by the server.
+   */
+  cidr: string;
+  description?: string | null;
+};
+
+export type ModifyPolicyRequest = {
+  name: string;
+  cidr: string;
+  description?: string | null;
+  status: "enabled" | "disabled";
+};
+
+export type PolicyNetworkPolicyEntry = {
+  policy_id: Id;
+  policy_name: string;
+  cidr: string;
+  /**
+   * False when the policy is present in the snapshot but currently disabled. Disabled policies are cached but bypassed in verify decisions.
+   *
+   */
+  enabled: boolean;
+  allow_all_hosts: boolean;
+  /**
+   * Hosts reachable through this policy. Equals total_host_count when allow_all_hosts is true.
+   *
+   */
+  effective_host_count: number;
+  total_host_count: number;
+};
+
+/**
+ * Minimal group reference for read responses.
+ */
 export type GroupRef = {
   id: Id;
   name: string;
 };
 
-export type KnownHostRef = {
+/**
+ * Group display reference used in host list rows (renders group pills).
+ */
+export type GroupSummary = {
   id: Id;
-  fqdn: string;
-  icon?: string | null;
-};
-
-export type KnownHostWithStats = {
-  id: Id;
-  fqdn: string;
-  icon?: string | null;
-  created_at: string;
-  /**
-   * Number of distinct users with access to this host.
-   */
-  user_count: number;
-  /**
-   * Host groups this host belongs to.
-   */
-  groups: Array<GroupRef>;
+  name: string;
+  color: string;
+  icon: string;
 };
 
 /**
- * A single known host inside a reconcile request. A null `id` marks a
- * brand-new host; a non-null `id` must match an existing row. `fqdn` is
- * immutable on updates — a mismatch is rejected. `group_ids` replaces the
- * host's full group membership.
+ * Full group representation returned by GET and reconcile responses.
+ */
+export type GroupDetail = {
+  id: Id;
+  name: string;
+  /**
+   * Icon key (e.g. "database", "film").
+   */
+  icon: string;
+  /**
+   * CSS hex color for the group badge.
+   */
+  color: string;
+  description?: string | null;
+  hosts: Array<HostSummary>;
+  /**
+   * Users with access to this group (read-only, managed via subjects).
+   */
+  users: Array<UserSummary>;
+  /**
+   * Network policies with access to this group (read-only, managed via subjects).
+   */
+  network_policies: Array<NetworkPolicyRef>;
+};
+
+export type SubjectGroupDetail = GroupDetail & {
+  /**
+   * Whether this group is assigned to the subject.
+   */
+  granted: boolean;
+};
+
+/**
+ * Group write payload for reconcile. Omit id (or set null) to create; include id to update.
+ * The hosts array defines the complete desired membership after the call.
  *
  */
-export type DesiredKnownHost = {
+export type GroupWrite = {
   id?: Id | null;
-  fqdn: string;
-  icon?: string | null;
+  name: string;
+  icon: string;
+  color: string;
+  description?: string | null;
+  hosts: Array<HostRef>;
+};
+
+export type GroupListResponse = {
+  groups: Array<GroupDetail>;
+};
+
+/**
+ * Exhaustive list of all desired groups. Groups absent from this list are deleted.
+ */
+export type ReconcileGroupsRequest = {
+  groups: Array<GroupWrite>;
+};
+
+/**
+ * Atomically replaces bypass flag and full group assignment list. Shared by users and policies.
+ */
+export type ModifyAccessRequest = {
   /**
-   * Host group IDs this host should belong to. Replaces the host's full group membership.
+   * When true, grants access to all hosts regardless of group configuration.
    */
+  bypass_host_check: boolean;
   group_ids: Array<Id>;
 };
 
 /**
- * Full desired image of all known hosts. Hosts already in the database whose
- * ID is absent from `hosts` will be deleted; hosts with a non-null ID are
- * updated (icon only); hosts with a null ID are created. An empty `hosts`
- * array deletes every known host.
- *
+ * Host record with group memberships.
  */
-export type ReconcileKnownHostsRequest = {
-  hosts: Array<DesiredKnownHost>;
-};
-
-export type HostGroupWithMembers = {
-  id: Id;
-  name: string;
-  /**
-   * UI accent colour for the group. Null means "not chosen".
-   */
-  color?: string | null;
-  description?: string | null;
-  icon?: string | null;
-  created_at: string;
-  /**
-   * Hydrated member hosts (id + fqdn + icon) for display.
-   */
-  hosts: Array<KnownHostRef>;
-  /**
-   * Plain list of member host IDs, parallel to `hosts`. Useful to round-trip into a reconcile request.
-   */
-  member_ids: Array<Id>;
-};
-
-/**
- * A single host group inside a reconcile request. A null `id` marks a
- * brand-new group; a non-null `id` must match an existing group.
- *
- */
-export type DesiredHostGroup = {
-  id?: Id | null;
-  name: string;
-  /**
-   * UI accent colour. Null means "not chosen".
-   */
-  color?: string | null;
-  description?: string | null;
-  icon?: string | null;
-  /**
-   * Known-host IDs that should be members of this group.
-   */
-  host_ids?: Array<Id>;
-};
-
-/**
- * Full desired image of all host groups. Groups already in the database whose
- * ID is absent from `groups` will be deleted; groups with a non-null ID are
- * updated; groups with a null ID are created.
- *
- */
-export type ReconcileHostGroupsRequest = {
-  groups: Array<DesiredHostGroup>;
-};
-
-export type SetUserHostGrantsRequest = {
-  bypass?: boolean;
-  host_ids?: Array<number>;
-  group_ids?: Array<number>;
-};
-
-export type IgnoredHostSuggestion = {
+export type Host = {
   id: Id;
   fqdn: string;
-  created_at: string;
+  /**
+   * Group memberships. Empty array means unassigned.
+   */
+  groups: Array<GroupSummary>;
+};
+
+/**
+ * Host entry in a reconcile request. Omit id to create a new host.
+ */
+export type HostInput = {
+  id?: Id | null;
+  fqdn: string;
+  /**
+   * Group memberships by ID. Empty array means unassigned.
+   */
+  groups: Array<GroupIdRef>;
+};
+
+export type HostListResponse = {
+  hosts: Array<Host>;
+};
+
+/**
+ * Exhaustive list of all hosts. Hosts absent from this list are deleted.
+ */
+export type ReconcileHostsRequest = {
+  hosts: Array<HostInput>;
 };
 
 export type HostSuggestion = {
@@ -563,6 +650,12 @@ export type HostSuggestion = {
   first_seen: string;
   allowed_hits: number;
   denied_hits: number;
+};
+
+export type IgnoredHostSuggestion = {
+  id: Id;
+  fqdn: string;
+  created_at: string;
 };
 
 export type IgnoreSuggestionRequest = {
@@ -577,55 +670,51 @@ export type HostSuggestionsPage = {
   ignored: Array<IgnoredHostSuggestion>;
 };
 
-export type UserHostAccessSummary = {
-  id: Id;
-  display_name: string;
-  email: string;
-  role: UserRole;
-  /**
-   * When true the user can reach every known host.
-   */
-  bypass: boolean;
-  /**
-   * Number of hosts granted directly via user_allowed_hosts.
-   */
-  direct_host_count: number;
-  groups: Array<GroupRef>;
-};
-
-export type UserHostDetails = {
-  id: Id;
-  display_name: string;
-  email: string;
-  role: UserRole;
-  bypass: boolean;
-  groups: Array<UserHostDetailsGroup>;
-  hosts: Array<UserHostDetailsHost>;
-};
-
-export type UserHostDetailsGroup = {
+/**
+ * Device summary shown on user access detail.
+ */
+export type DeviceListItem = {
   id: Id;
   name: string;
   icon?: string | null;
+  live_ip_count: number;
   /**
-   * Whether this group is granted to the user.
+   * Non-null when an API key is configured; the full key is never returned.
    */
-  granted: boolean;
-  hosts: Array<KnownHostRef>;
+  api_key_prefix?: string | null;
 };
 
-export type UserHostDetailsHost = {
+/**
+ * User summary for the access management list page.
+ */
+export type UserListItem = {
   id: Id;
-  fqdn: string;
-  icon?: string | null;
+  username: string;
+  display_name: string;
+  groups: Array<GroupRef>;
   /**
-   * Whether this host is directly granted to the user.
+   * Total hosts accessible across all assigned groups.
    */
-  directly_granted: boolean;
+  host_count: number;
+  device_count: number;
+  live_ip_count: number;
+  bypass_host_check: boolean;
+};
+
+/**
+ * Full user access detail including devices and group assignments.
+ */
+export type UserAccessDetail = {
+  id: Id;
+  username: string;
+  display_name: string;
+  email?: string | null;
+  devices: Array<DeviceListItem>;
   /**
-   * First (alphabetically) granted group that covers this host, if any.
+   * All groups with their hosts and assignment status.
    */
-  via_group?: GroupRef | null;
+  groups: Array<SubjectGroupDetail>;
+  bypass_host_check: boolean;
 };
 
 export type PromoteUserRequest = {
@@ -638,6 +727,46 @@ export type DeviceApiKeyResponse = {
    * Secret key for the device.
    */
   api_key: string;
+};
+
+/**
+ * Group ID reference used in host write payloads.
+ */
+export type GroupIdRef = {
+  id: Id;
+};
+
+/**
+ * Minimal host reference embedded in group responses.
+ */
+export type HostSummary = {
+  id: Id;
+  fqdn: string;
+};
+
+/**
+ * Minimal user reference embedded in group responses.
+ */
+export type UserSummary = {
+  id: Id;
+  username: string;
+  display_name: string;
+};
+
+/**
+ * Minimal network policy reference embedded in group responses.
+ */
+export type NetworkPolicyRef = {
+  id: Id;
+  name: string;
+  cidr: string;
+};
+
+/**
+ * Host ID reference used in group write payloads.
+ */
+export type HostRef = {
+  id: Id;
 };
 
 export type PolicyIpDevice = {
@@ -786,6 +915,15 @@ export type PolicyUserMapAudit = {
    */
   shared_ip_count: number;
   users: Array<PolicyUserEntry>;
+  /**
+   * Number of enabled network policies currently in the cache.
+   */
+  total_network_policy_count: number;
+  /**
+   * All enabled network policies currently in the cache.
+   *
+   */
+  network_policies: Array<PolicyNetworkPolicyEntry>;
 };
 
 /**
@@ -810,6 +948,19 @@ export type PolicySimulateResult = {
    * Reason for denial; null when allowed is true.
    */
   deny_reason?: PolicySimulateDenyReason | null;
+  /**
+   * Which mechanism authorized the request. Null when allowed is false.
+   *
+   */
+  match_source?: "device" | "network_policy";
+  /**
+   * ID of the matching policy when match_source is 'network_policy'.
+   */
+  network_policy_id?: Id | null;
+  /**
+   * Name of the matching policy when match_source is 'network_policy'.
+   */
+  network_policy_name?: string | null;
 };
 
 export type UserWritable = {
@@ -1859,6 +2010,10 @@ export type GetAccessLogData = {
      * Cursor; return rows with id < before_id
      */
     before_id?: Id;
+    /**
+     * Filter entries authorized by a specific network policy.
+     */
+    network_policy_id?: Id;
   };
   url: "/access-log";
 };
@@ -2566,14 +2721,14 @@ export type GetRegistrationResponses = {
 export type GetRegistrationResponse =
   GetRegistrationResponses[keyof GetRegistrationResponses];
 
-export type ListKnownHostsData = {
+export type ListHostsData = {
   body?: never;
   path?: never;
   query?: never;
-  url: "/admin/hosts";
+  url: "/admin/access/hosts";
 };
 
-export type ListKnownHostsErrors = {
+export type ListHostsErrors = {
   /**
    * Unauthorized
    */
@@ -2588,29 +2743,27 @@ export type ListKnownHostsErrors = {
   500: ErrorResponse;
 };
 
-export type ListKnownHostsError =
-  ListKnownHostsErrors[keyof ListKnownHostsErrors];
+export type ListHostsError = ListHostsErrors[keyof ListHostsErrors];
 
-export type ListKnownHostsResponses = {
+export type ListHostsResponses = {
   /**
-   * Known hosts list with stats
+   * Host list.
    */
-  200: Array<KnownHostWithStats>;
+  200: HostListResponse;
 };
 
-export type ListKnownHostsResponse =
-  ListKnownHostsResponses[keyof ListKnownHostsResponses];
+export type ListHostsResponse = ListHostsResponses[keyof ListHostsResponses];
 
-export type ReconcileKnownHostsData = {
-  body: ReconcileKnownHostsRequest;
+export type ReconcileHostsData = {
+  body: ReconcileHostsRequest;
   path?: never;
   query?: never;
-  url: "/admin/hosts/reconcile";
+  url: "/admin/access/hosts/reconcile";
 };
 
-export type ReconcileKnownHostsErrors = {
+export type ReconcileHostsErrors = {
   /**
-   * Bad Request (invalid FQDN, duplicate ID or FQDN, immutable FQDN change)
+   * Bad Request (invalid FQDN, duplicate, etc.)
    */
   400: ErrorResponse;
   /**
@@ -2622,164 +2775,33 @@ export type ReconcileKnownHostsErrors = {
    */
   403: unknown;
   /**
-   * One or more referenced hosts not found
+   * Validation error (unknown group ID, etc.)
    */
-  404: ErrorResponse;
-  /**
-   * FQDN already exists
-   */
-  409: ErrorResponse;
+  422: ErrorResponse;
   /**
    * Internal Server Error
    */
   500: ErrorResponse;
 };
 
-export type ReconcileKnownHostsError =
-  ReconcileKnownHostsErrors[keyof ReconcileKnownHostsErrors];
+export type ReconcileHostsError =
+  ReconcileHostsErrors[keyof ReconcileHostsErrors];
 
-export type ReconcileKnownHostsResponses = {
+export type ReconcileHostsResponses = {
   /**
-   * Reconciliation applied
+   * Updated host list after reconciliation.
    */
-  204: void;
+  200: HostListResponse;
 };
 
-export type ReconcileKnownHostsResponse =
-  ReconcileKnownHostsResponses[keyof ReconcileKnownHostsResponses];
-
-export type ListHostGroupsData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: "/admin/host-groups";
-};
-
-export type ListHostGroupsErrors = {
-  /**
-   * Unauthorized
-   */
-  401: ErrorResponse;
-  /**
-   * Forbidden
-   */
-  403: unknown;
-  /**
-   * Internal Server Error
-   */
-  500: ErrorResponse;
-};
-
-export type ListHostGroupsError =
-  ListHostGroupsErrors[keyof ListHostGroupsErrors];
-
-export type ListHostGroupsResponses = {
-  /**
-   * Host groups list
-   */
-  200: Array<HostGroupWithMembers>;
-};
-
-export type ListHostGroupsResponse =
-  ListHostGroupsResponses[keyof ListHostGroupsResponses];
-
-export type ReconcileHostGroupsData = {
-  body: ReconcileHostGroupsRequest;
-  path?: never;
-  query?: never;
-  url: "/admin/host-groups/reconcile";
-};
-
-export type ReconcileHostGroupsErrors = {
-  /**
-   * Bad Request (invalid name, duplicate group ID, etc.)
-   */
-  400: ErrorResponse;
-  /**
-   * Unauthorized
-   */
-  401: ErrorResponse;
-  /**
-   * Forbidden
-   */
-  403: unknown;
-  /**
-   * One or more referenced groups or hosts not found
-   */
-  404: ErrorResponse;
-  /**
-   * Group name already taken
-   */
-  409: ErrorResponse;
-  /**
-   * Internal Server Error
-   */
-  500: ErrorResponse;
-};
-
-export type ReconcileHostGroupsError =
-  ReconcileHostGroupsErrors[keyof ReconcileHostGroupsErrors];
-
-export type ReconcileHostGroupsResponses = {
-  /**
-   * Reconciliation applied
-   */
-  204: void;
-};
-
-export type ReconcileHostGroupsResponse =
-  ReconcileHostGroupsResponses[keyof ReconcileHostGroupsResponses];
-
-export type SetUserHostGrantsData = {
-  body: SetUserHostGrantsRequest;
-  path: {
-    user_id: Id;
-  };
-  query?: never;
-  url: "/admin/users/{user_id}/host-grants";
-};
-
-export type SetUserHostGrantsErrors = {
-  /**
-   * Bad Request
-   */
-  400: ErrorResponse;
-  /**
-   * Unauthorized
-   */
-  401: ErrorResponse;
-  /**
-   * Forbidden
-   */
-  403: unknown;
-  /**
-   * User or one of the referenced hosts/groups not found
-   */
-  404: ErrorResponse;
-  /**
-   * Internal Server Error
-   */
-  500: ErrorResponse;
-};
-
-export type SetUserHostGrantsError =
-  SetUserHostGrantsErrors[keyof SetUserHostGrantsErrors];
-
-export type SetUserHostGrantsResponses = {
-  /**
-   * Grants updated
-   */
-  204: void;
-};
-
-export type SetUserHostGrantsResponse =
-  SetUserHostGrantsResponses[keyof SetUserHostGrantsResponses];
+export type ReconcileHostsResponse =
+  ReconcileHostsResponses[keyof ReconcileHostsResponses];
 
 export type ListHostSuggestionsData = {
   body?: never;
   path?: never;
   query?: never;
-  url: "/admin/host-suggestions";
+  url: "/admin/access/host-suggestions";
 };
 
 export type ListHostSuggestionsErrors = {
@@ -2802,7 +2824,7 @@ export type ListHostSuggestionsError =
 
 export type ListHostSuggestionsResponses = {
   /**
-   * Suggestions page with active and ignored lists
+   * Suggestions page with active and ignored lists.
    */
   200: HostSuggestionsPage;
 };
@@ -2814,7 +2836,7 @@ export type IgnoreSuggestionData = {
   body: IgnoreSuggestionRequest;
   path?: never;
   query?: never;
-  url: "/admin/host-suggestions/ignore";
+  url: "/admin/access/host-suggestions/ignore";
 };
 
 export type IgnoreSuggestionErrors = {
@@ -2845,7 +2867,7 @@ export type IgnoreSuggestionError =
 
 export type IgnoreSuggestionResponses = {
   /**
-   * Suggestion ignored
+   * Suggestion ignored.
    */
   201: IgnoredHostSuggestion;
 };
@@ -2859,7 +2881,7 @@ export type UnignoreSuggestionData = {
     fqdn: string;
   };
   query?: never;
-  url: "/admin/host-suggestions/ignore/{fqdn}";
+  url: "/admin/access/host-suggestions/ignore/{fqdn}";
 };
 
 export type UnignoreSuggestionErrors = {
@@ -2886,7 +2908,7 @@ export type UnignoreSuggestionError =
 
 export type UnignoreSuggestionResponses = {
   /**
-   * Suggestion unignored
+   * Suggestion unignored.
    */
   204: void;
 };
@@ -2894,14 +2916,14 @@ export type UnignoreSuggestionResponses = {
 export type UnignoreSuggestionResponse =
   UnignoreSuggestionResponses[keyof UnignoreSuggestionResponses];
 
-export type ListUsersHostAccessData = {
+export type ListHostGroupsData = {
   body?: never;
   path?: never;
   query?: never;
-  url: "/admin/host-access/users";
+  url: "/admin/access/host-groups";
 };
 
-export type ListUsersHostAccessErrors = {
+export type ListHostGroupsErrors = {
   /**
    * Unauthorized
    */
@@ -2916,29 +2938,107 @@ export type ListUsersHostAccessErrors = {
   500: ErrorResponse;
 };
 
-export type ListUsersHostAccessError =
-  ListUsersHostAccessErrors[keyof ListUsersHostAccessErrors];
+export type ListHostGroupsError =
+  ListHostGroupsErrors[keyof ListHostGroupsErrors];
 
-export type ListUsersHostAccessResponses = {
+export type ListHostGroupsResponses = {
   /**
-   * Users host access summary list
+   * Group list.
    */
-  200: Array<UserHostAccessSummary>;
+  200: GroupListResponse;
 };
 
-export type ListUsersHostAccessResponse =
-  ListUsersHostAccessResponses[keyof ListUsersHostAccessResponses];
+export type ListHostGroupsResponse =
+  ListHostGroupsResponses[keyof ListHostGroupsResponses];
 
-export type GetUserHostDetailsData = {
+export type ReconcileHostGroupsData = {
+  body: ReconcileGroupsRequest;
+  path?: never;
+  query?: never;
+  url: "/admin/access/host-groups/reconcile";
+};
+
+export type ReconcileHostGroupsErrors = {
+  /**
+   * Bad Request (invalid name, duplicate, etc.)
+   */
+  400: ErrorResponse;
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: unknown;
+  /**
+   * Validation error (unknown host ID, etc.)
+   */
+  422: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type ReconcileHostGroupsError =
+  ReconcileHostGroupsErrors[keyof ReconcileHostGroupsErrors];
+
+export type ReconcileHostGroupsResponses = {
+  /**
+   * Server state after reconcile.
+   */
+  200: GroupListResponse;
+};
+
+export type ReconcileHostGroupsResponse =
+  ReconcileHostGroupsResponses[keyof ReconcileHostGroupsResponses];
+
+export type ListUsersWithAccessData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/admin/access/users";
+};
+
+export type ListUsersWithAccessErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: unknown;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type ListUsersWithAccessError =
+  ListUsersWithAccessErrors[keyof ListUsersWithAccessErrors];
+
+export type ListUsersWithAccessResponses = {
+  /**
+   * User access summary list.
+   */
+  200: Array<UserListItem>;
+};
+
+export type ListUsersWithAccessResponse =
+  ListUsersWithAccessResponses[keyof ListUsersWithAccessResponses];
+
+export type GetUserAccessDetailData = {
   body?: never;
   path: {
     user_id: Id;
   };
   query?: never;
-  url: "/admin/host-access/users/{user_id}";
+  url: "/admin/access/users/{user_id}";
 };
 
-export type GetUserHostDetailsErrors = {
+export type GetUserAccessDetailErrors = {
   /**
    * Unauthorized
    */
@@ -2957,18 +3057,63 @@ export type GetUserHostDetailsErrors = {
   500: ErrorResponse;
 };
 
-export type GetUserHostDetailsError =
-  GetUserHostDetailsErrors[keyof GetUserHostDetailsErrors];
+export type GetUserAccessDetailError =
+  GetUserAccessDetailErrors[keyof GetUserAccessDetailErrors];
 
-export type GetUserHostDetailsResponses = {
+export type GetUserAccessDetailResponses = {
   /**
-   * Full user host access details
+   * User access detail.
    */
-  200: UserHostDetails;
+  200: UserAccessDetail;
 };
 
-export type GetUserHostDetailsResponse =
-  GetUserHostDetailsResponses[keyof GetUserHostDetailsResponses];
+export type GetUserAccessDetailResponse =
+  GetUserAccessDetailResponses[keyof GetUserAccessDetailResponses];
+
+export type ModifyUserAccessData = {
+  body: ModifyAccessRequest;
+  path: {
+    user_id: Id;
+  };
+  query?: never;
+  url: "/admin/access/users/{user_id}/grants";
+};
+
+export type ModifyUserAccessErrors = {
+  /**
+   * Bad Request
+   */
+  400: ErrorResponse;
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: unknown;
+  /**
+   * User or referenced group not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type ModifyUserAccessError =
+  ModifyUserAccessErrors[keyof ModifyUserAccessErrors];
+
+export type ModifyUserAccessResponses = {
+  /**
+   * Updated user access detail.
+   */
+  200: UserAccessDetail;
+};
+
+export type ModifyUserAccessResponse =
+  ModifyUserAccessResponses[keyof ModifyUserAccessResponses];
 
 export type GetPolicyUserMapData = {
   body?: never;
@@ -3052,3 +3197,251 @@ export type SimulatePolicyAccessResponses = {
 
 export type SimulatePolicyAccessResponse =
   SimulatePolicyAccessResponses[keyof SimulatePolicyAccessResponses];
+
+export type ListPoliciesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/admin/access/network-policies";
+};
+
+export type ListPoliciesErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: unknown;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type ListPoliciesError = ListPoliciesErrors[keyof ListPoliciesErrors];
+
+export type ListPoliciesResponses = {
+  /**
+   * Policy list.
+   */
+  200: Array<PolicyListItem>;
+};
+
+export type ListPoliciesResponse =
+  ListPoliciesResponses[keyof ListPoliciesResponses];
+
+export type CreatePolicyData = {
+  body: CreatePolicyRequest;
+  path?: never;
+  query?: never;
+  url: "/admin/access/network-policies";
+};
+
+export type CreatePolicyErrors = {
+  /**
+   * Validation error (invalid CIDR, missing name)
+   */
+  400: ErrorResponse;
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: unknown;
+  /**
+   * A policy with this CIDR already exists
+   */
+  409: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type CreatePolicyError = CreatePolicyErrors[keyof CreatePolicyErrors];
+
+export type CreatePolicyResponses = {
+  /**
+   * Policy created.
+   */
+  201: PolicyDetail;
+};
+
+export type CreatePolicyResponse =
+  CreatePolicyResponses[keyof CreatePolicyResponses];
+
+export type DeletePolicyData = {
+  body?: never;
+  path: {
+    id: Id;
+  };
+  query?: never;
+  url: "/admin/access/network-policies/{id}";
+};
+
+export type DeletePolicyErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: unknown;
+  /**
+   * Not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type DeletePolicyError = DeletePolicyErrors[keyof DeletePolicyErrors];
+
+export type DeletePolicyResponses = {
+  /**
+   * Deleted.
+   */
+  204: void;
+};
+
+export type DeletePolicyResponse =
+  DeletePolicyResponses[keyof DeletePolicyResponses];
+
+export type GetPolicyData = {
+  body?: never;
+  path: {
+    id: Id;
+  };
+  query?: never;
+  url: "/admin/access/network-policies/{id}";
+};
+
+export type GetPolicyErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: unknown;
+  /**
+   * Not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type GetPolicyError = GetPolicyErrors[keyof GetPolicyErrors];
+
+export type GetPolicyResponses = {
+  /**
+   * Policy detail.
+   */
+  200: PolicyDetail;
+};
+
+export type GetPolicyResponse = GetPolicyResponses[keyof GetPolicyResponses];
+
+export type UpdatePolicyData = {
+  body: ModifyPolicyRequest;
+  path: {
+    id: Id;
+  };
+  query?: never;
+  url: "/admin/access/network-policies/{id}";
+};
+
+export type UpdatePolicyErrors = {
+  /**
+   * Validation error
+   */
+  400: ErrorResponse;
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: unknown;
+  /**
+   * Not found
+   */
+  404: ErrorResponse;
+  /**
+   * A policy with this CIDR already exists
+   */
+  409: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type UpdatePolicyError = UpdatePolicyErrors[keyof UpdatePolicyErrors];
+
+export type UpdatePolicyResponses = {
+  /**
+   * Updated.
+   */
+  204: void;
+};
+
+export type UpdatePolicyResponse =
+  UpdatePolicyResponses[keyof UpdatePolicyResponses];
+
+export type UpdatePolicyAccessData = {
+  body: ModifyAccessRequest;
+  path: {
+    id: Id;
+  };
+  query?: never;
+  url: "/admin/access/network-policies/{id}/grants";
+};
+
+export type UpdatePolicyAccessErrors = {
+  /**
+   * Bad Request
+   */
+  400: ErrorResponse;
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: unknown;
+  /**
+   * Policy or referenced group not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type UpdatePolicyAccessError =
+  UpdatePolicyAccessErrors[keyof UpdatePolicyAccessErrors];
+
+export type UpdatePolicyAccessResponses = {
+  /**
+   * Updated policy detail.
+   */
+  200: PolicyDetail;
+};
+
+export type UpdatePolicyAccessResponse =
+  UpdatePolicyAccessResponses[keyof UpdatePolicyAccessResponses];

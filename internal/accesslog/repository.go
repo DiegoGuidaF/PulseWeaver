@@ -27,24 +27,6 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 	}
 
 	return r.db.WithinTx(ctx, func(ctx context.Context) error {
-		const insertAccessLog = `
-            INSERT INTO access_log (
-                client_ip, outcome, deny_reason, contributor_count,
-                created_at, xff_chain, target_host, target_uri, http_method, headers_json,
-                duration_us
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            RETURNING id
-        `
-		const insertGeoIP = `
-            INSERT INTO access_log_geoip
-                (access_log_id, country_code, country_name, continent_code, asn, asn_org)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `
-		const insertContributor = `
-            INSERT INTO access_log_contributors (access_log_id, device_id, address_id, user_id)
-            VALUES (?, ?, ?, ?)
-        `
-
 		for _, e := range events {
 			headers := e.Headers
 			if headers == nil {
@@ -58,27 +40,53 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 			contributorCount := len(e.IPContributors)
 
 			var accessID int64
-			if err := r.db.GetContext(ctx, &accessID, insertAccessLog,
-				e.ClientIP, e.Outcome, e.DenyReason, contributorCount,
+			if err := r.db.GetContext(ctx, &accessID,
+				`
+				INSERT INTO access_log (
+					client_ip, outcome, deny_reason, contributor_count,
+					created_at, xff_chain, target_host, target_uri, http_method, headers_json,
+					duration_us
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+			`, e.ClientIP, e.Outcome, e.DenyReason, contributorCount,
 				e.CreatedAt, e.XFFChain, e.TargetHost, e.TargetURI, e.HTTPMethod,
 				string(headersJSON), e.DurationUs,
 			); err != nil {
 				return fmt.Errorf("insert access event: %w", err)
 			}
 
-			for _, c := range e.IPContributors {
-				if _, err := r.db.ExecContext(ctx, insertContributor,
-					accessID, c.DeviceID, c.AddressID, c.UserID,
-				); err != nil {
-					return fmt.Errorf("insert contributor row: %w", err)
+			switch e.MatchSource {
+			case policy.MatchSourceNetworkPolicy:
+				if e.NetworkPolicyID != nil {
+					if _, err := r.db.ExecContext(ctx,
+						`
+						INSERT INTO access_log_network_policy_contributors (access_log_id, policy_id, policy_name)
+						VALUES (?, ?, ?)
+						`, accessID, *e.NetworkPolicyID, new(e.NetworkPolicyName),
+					); err != nil {
+						return fmt.Errorf("insert network policy contributor: %w", err)
+					}
+				}
+			default:
+				for _, c := range e.IPContributors {
+					if _, err := r.db.ExecContext(ctx,
+						`
+						INSERT INTO access_log_contributors (access_log_id, device_id, address_id, user_id)
+						VALUES (?, ?, ?, ?)
+					`, accessID, c.DeviceID, c.AddressID, c.UserID,
+					); err != nil {
+						return fmt.Errorf("insert contributor row: %w", err)
+					}
 				}
 			}
 
 			if e.GeoIP.IsEmpty() {
 				continue
 			}
-			if _, err := r.db.ExecContext(ctx, insertGeoIP,
-				accessID, e.GeoIP.CountryCode, e.GeoIP.CountryName, e.GeoIP.ContinentCode, e.GeoIP.ASN, e.GeoIP.ASNOrg,
+			if _, err := r.db.ExecContext(ctx,
+				`
+            	INSERT INTO access_log_geoip (access_log_id, country_code, country_name, continent_code, asn, asn_org)
+            	VALUES (?, ?, ?, ?, ?, ?)
+            `, accessID, e.GeoIP.CountryCode, e.GeoIP.CountryName, e.GeoIP.ContinentCode, e.GeoIP.ASN, e.GeoIP.ASNOrg,
 			); err != nil {
 				return fmt.Errorf("insert geoip row: %w", err)
 			}

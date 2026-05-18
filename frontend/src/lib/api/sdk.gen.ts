@@ -17,6 +17,9 @@ import type {
   CreateDeviceData,
   CreateDeviceErrors,
   CreateDeviceResponses,
+  CreatePolicyData,
+  CreatePolicyErrors,
+  CreatePolicyResponses,
   CreateRegistrationData,
   CreateRegistrationErrors,
   CreateRegistrationResponses,
@@ -29,6 +32,9 @@ import type {
   DeleteDeviceData,
   DeleteDeviceErrors,
   DeleteDeviceResponses,
+  DeletePolicyData,
+  DeletePolicyErrors,
+  DeletePolicyResponses,
   DeleteRegistrationData,
   DeleteRegistrationErrors,
   DeleteRegistrationResponses,
@@ -98,15 +104,18 @@ import type {
   GetMaxActiveAddressesRuleData,
   GetMaxActiveAddressesRuleErrors,
   GetMaxActiveAddressesRuleResponses,
+  GetPolicyData,
+  GetPolicyErrors,
+  GetPolicyResponses,
   GetPolicyUserMapData,
   GetPolicyUserMapErrors,
   GetPolicyUserMapResponses,
   GetRegistrationData,
   GetRegistrationErrors,
   GetRegistrationResponses,
-  GetUserHostDetailsData,
-  GetUserHostDetailsErrors,
-  GetUserHostDetailsResponses,
+  GetUserAccessDetailData,
+  GetUserAccessDetailErrors,
+  GetUserAccessDetailResponses,
   IgnoreSuggestionData,
   IgnoreSuggestionErrors,
   IgnoreSuggestionResponses,
@@ -115,26 +124,32 @@ import type {
   ListHostGroupsData,
   ListHostGroupsErrors,
   ListHostGroupsResponses,
+  ListHostsData,
+  ListHostsErrors,
+  ListHostsResponses,
   ListHostSuggestionsData,
   ListHostSuggestionsErrors,
   ListHostSuggestionsResponses,
-  ListKnownHostsData,
-  ListKnownHostsErrors,
-  ListKnownHostsResponses,
+  ListPoliciesData,
+  ListPoliciesErrors,
+  ListPoliciesResponses,
   ListRegistrationsData,
   ListRegistrationsErrors,
   ListRegistrationsResponses,
   ListUsersData,
   ListUsersErrors,
-  ListUsersHostAccessData,
-  ListUsersHostAccessErrors,
-  ListUsersHostAccessResponses,
   ListUsersResponses,
+  ListUsersWithAccessData,
+  ListUsersWithAccessErrors,
+  ListUsersWithAccessResponses,
   LoginData,
   LoginErrors,
   LoginResponses,
   LogoutData,
   LogoutResponses,
+  ModifyUserAccessData,
+  ModifyUserAccessErrors,
+  ModifyUserAccessResponses,
   PromoteUserData,
   PromoteUserErrors,
   PromoteUserResponses,
@@ -147,15 +162,12 @@ import type {
   ReconcileHostGroupsData,
   ReconcileHostGroupsErrors,
   ReconcileHostGroupsResponses,
-  ReconcileKnownHostsData,
-  ReconcileKnownHostsErrors,
-  ReconcileKnownHostsResponses,
+  ReconcileHostsData,
+  ReconcileHostsErrors,
+  ReconcileHostsResponses,
   RegenerateDeviceApiKeyData,
   RegenerateDeviceApiKeyErrors,
   RegenerateDeviceApiKeyResponses,
-  SetUserHostGrantsData,
-  SetUserHostGrantsErrors,
-  SetUserHostGrantsResponses,
   SimulatePolicyAccessData,
   SimulatePolicyAccessErrors,
   SimulatePolicyAccessResponses,
@@ -168,6 +180,12 @@ import type {
   UpdateMeData,
   UpdateMeErrors,
   UpdateMeResponses,
+  UpdatePolicyAccessData,
+  UpdatePolicyAccessErrors,
+  UpdatePolicyAccessResponses,
+  UpdatePolicyData,
+  UpdatePolicyErrors,
+  UpdatePolicyResponses,
 } from "./types.gen";
 import {
   zAddAddressBody,
@@ -179,6 +197,8 @@ import {
   zClaimRegistrationResponse2,
   zCreateDeviceBody,
   zCreateDeviceResponse2,
+  zCreatePolicyBody,
+  zCreatePolicyResponse,
   zCreateRegistrationBody,
   zCreateRegistrationResponse,
   zCreateUserBody,
@@ -187,6 +207,8 @@ import {
   zDeleteDeviceApiKeyResponse,
   zDeleteDevicePath,
   zDeleteDeviceResponse,
+  zDeletePolicyPath,
+  zDeletePolicyResponse,
   zDeleteRegistrationPath,
   zDeleteRegistrationResponse,
   zDeleteUserPath,
@@ -230,24 +252,30 @@ import {
   zGetDevicesResponse,
   zGetMaxActiveAddressesRulePath,
   zGetMaxActiveAddressesRuleResponse,
+  zGetPolicyPath,
+  zGetPolicyResponse,
   zGetPolicyUserMapResponse,
   zGetRegistrationPath,
   zGetRegistrationResponse,
-  zGetUserHostDetailsPath,
-  zGetUserHostDetailsResponse,
+  zGetUserAccessDetailPath,
+  zGetUserAccessDetailResponse,
   zIgnoreSuggestionBody,
   zIgnoreSuggestionResponse,
   zListDeviceTypesResponse,
   zListHostGroupsResponse,
+  zListHostsResponse,
   zListHostSuggestionsResponse,
-  zListKnownHostsResponse,
+  zListPoliciesResponse,
   zListRegistrationsQuery,
   zListRegistrationsResponse,
-  zListUsersHostAccessResponse,
   zListUsersResponse,
+  zListUsersWithAccessResponse,
   zLoginBody,
   zLoginResponse,
   zLogoutResponse,
+  zModifyUserAccessBody,
+  zModifyUserAccessPath,
+  zModifyUserAccessResponse,
   zPromoteUserBody,
   zPromoteUserPath,
   zPromoteUserResponse,
@@ -259,13 +287,10 @@ import {
   zPutMaxActiveAddressesRuleResponse,
   zReconcileHostGroupsBody,
   zReconcileHostGroupsResponse,
-  zReconcileKnownHostsBody,
-  zReconcileKnownHostsResponse,
+  zReconcileHostsBody,
+  zReconcileHostsResponse,
   zRegenerateDeviceApiKeyPath,
   zRegenerateDeviceApiKeyResponse,
-  zSetUserHostGrantsBody,
-  zSetUserHostGrantsPath,
-  zSetUserHostGrantsResponse,
   zSimulatePolicyAccessQuery,
   zSimulatePolicyAccessResponse,
   zUnignoreSuggestionPath,
@@ -275,6 +300,12 @@ import {
   zUpdateDeviceResponse,
   zUpdateMeBody,
   zUpdateMeResponse,
+  zUpdatePolicyAccessBody,
+  zUpdatePolicyAccessPath,
+  zUpdatePolicyAccessResponse,
+  zUpdatePolicyBody,
+  zUpdatePolicyPath,
+  zUpdatePolicyResponse,
 } from "./zod.gen";
 
 export type Options<
@@ -1794,14 +1825,14 @@ export const getRegistration = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * List known hosts with access stats
+ * List all hosts with group memberships
  */
-export const listKnownHosts = <ThrowOnError extends boolean = false>(
-  options?: Options<ListKnownHostsData, ThrowOnError>,
+export const listHosts = <ThrowOnError extends boolean = false>(
+  options?: Options<ListHostsData, ThrowOnError>,
 ) =>
   (options?.client ?? client).get<
-    ListKnownHostsResponses,
-    ListKnownHostsErrors,
+    ListHostsResponses,
+    ListHostsErrors,
     ThrowOnError
   >({
     requestValidator: async (data) =>
@@ -1813,7 +1844,7 @@ export const listKnownHosts = <ThrowOnError extends boolean = false>(
         })
         .parseAsync(data),
     responseValidator: async (data) =>
-      await zListKnownHostsResponse.parseAsync(data),
+      await zListHostsResponse.parseAsync(data),
     security: [
       {
         in: "cookie",
@@ -1821,37 +1852,35 @@ export const listKnownHosts = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/admin/hosts",
+    url: "/admin/access/hosts",
     ...options,
   });
 
 /**
- * Reconcile the full desired image of known hosts
+ * Reconcile hosts (full replace)
  *
- * Atomically converges the database to the desired image. Sends a single
- * transaction that creates new hosts, updates icons on existing ones, and
- * deletes hosts absent from the request. An empty `hosts` array deletes
- * every known host.
+ * Atomically converges the database to the desired image. Hosts absent from
+ * the payload are deleted; entries without an id are created.
  *
  */
-export const reconcileKnownHosts = <ThrowOnError extends boolean = false>(
-  options: Options<ReconcileKnownHostsData, ThrowOnError>,
+export const reconcileHosts = <ThrowOnError extends boolean = false>(
+  options: Options<ReconcileHostsData, ThrowOnError>,
 ) =>
-  (options.client ?? client).put<
-    ReconcileKnownHostsResponses,
-    ReconcileKnownHostsErrors,
+  (options.client ?? client).post<
+    ReconcileHostsResponses,
+    ReconcileHostsErrors,
     ThrowOnError
   >({
     requestValidator: async (data) =>
       await z
         .object({
-          body: zReconcileKnownHostsBody,
+          body: zReconcileHostsBody,
           path: z.never().optional(),
           query: z.never().optional(),
         })
         .parseAsync(data),
     responseValidator: async (data) =>
-      await zReconcileKnownHostsResponse.parseAsync(data),
+      await zReconcileHostsResponse.parseAsync(data),
     security: [
       {
         in: "cookie",
@@ -1859,116 +1888,7 @@ export const reconcileKnownHosts = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/admin/hosts/reconcile",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-
-/**
- * List host groups with their member host IDs
- */
-export const listHostGroups = <ThrowOnError extends boolean = false>(
-  options?: Options<ListHostGroupsData, ThrowOnError>,
-) =>
-  (options?.client ?? client).get<
-    ListHostGroupsResponses,
-    ListHostGroupsErrors,
-    ThrowOnError
-  >({
-    requestValidator: async (data) =>
-      await z
-        .object({
-          body: z.never().optional(),
-          path: z.never().optional(),
-          query: z.never().optional(),
-        })
-        .parseAsync(data),
-    responseValidator: async (data) =>
-      await zListHostGroupsResponse.parseAsync(data),
-    security: [
-      {
-        in: "cookie",
-        name: "__Host-wdc_session",
-        type: "apiKey",
-      },
-    ],
-    url: "/admin/host-groups",
-    ...options,
-  });
-
-/**
- * Reconcile the full desired image of host groups and their members
- *
- * Atomically converges the database to the desired image. Sends a single
- * transaction that creates new groups, updates existing ones, and deletes
- * groups absent from the request.
- *
- */
-export const reconcileHostGroups = <ThrowOnError extends boolean = false>(
-  options: Options<ReconcileHostGroupsData, ThrowOnError>,
-) =>
-  (options.client ?? client).put<
-    ReconcileHostGroupsResponses,
-    ReconcileHostGroupsErrors,
-    ThrowOnError
-  >({
-    requestValidator: async (data) =>
-      await z
-        .object({
-          body: zReconcileHostGroupsBody,
-          path: z.never().optional(),
-          query: z.never().optional(),
-        })
-        .parseAsync(data),
-    responseValidator: async (data) =>
-      await zReconcileHostGroupsResponse.parseAsync(data),
-    security: [
-      {
-        in: "cookie",
-        name: "__Host-wdc_session",
-        type: "apiKey",
-      },
-    ],
-    url: "/admin/host-groups/reconcile",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-
-/**
- * Atomically replace a user's host grants and bypass flag
- */
-export const setUserHostGrants = <ThrowOnError extends boolean = false>(
-  options: Options<SetUserHostGrantsData, ThrowOnError>,
-) =>
-  (options.client ?? client).put<
-    SetUserHostGrantsResponses,
-    SetUserHostGrantsErrors,
-    ThrowOnError
-  >({
-    requestValidator: async (data) =>
-      await z
-        .object({
-          body: zSetUserHostGrantsBody,
-          path: zSetUserHostGrantsPath,
-          query: z.never().optional(),
-        })
-        .parseAsync(data),
-    responseValidator: async (data) =>
-      await zSetUserHostGrantsResponse.parseAsync(data),
-    security: [
-      {
-        in: "cookie",
-        name: "__Host-wdc_session",
-        type: "apiKey",
-      },
-    ],
-    url: "/admin/users/{user_id}/host-grants",
+    url: "/admin/access/hosts/reconcile",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -2004,7 +1924,7 @@ export const listHostSuggestions = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/admin/host-suggestions",
+    url: "/admin/access/host-suggestions",
     ...options,
   });
 
@@ -2036,7 +1956,7 @@ export const ignoreSuggestion = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/admin/host-suggestions/ignore",
+    url: "/admin/access/host-suggestions/ignore",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -2072,19 +1992,19 @@ export const unignoreSuggestion = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/admin/host-suggestions/ignore/{fqdn}",
+    url: "/admin/access/host-suggestions/ignore/{fqdn}",
     ...options,
   });
 
 /**
- * List all users with host access summary (bypass, direct host count, groups)
+ * List all host groups with members and subject assignments
  */
-export const listUsersHostAccess = <ThrowOnError extends boolean = false>(
-  options?: Options<ListUsersHostAccessData, ThrowOnError>,
+export const listHostGroups = <ThrowOnError extends boolean = false>(
+  options?: Options<ListHostGroupsData, ThrowOnError>,
 ) =>
   (options?.client ?? client).get<
-    ListUsersHostAccessResponses,
-    ListUsersHostAccessErrors,
+    ListHostGroupsResponses,
+    ListHostGroupsErrors,
     ThrowOnError
   >({
     requestValidator: async (data) =>
@@ -2096,7 +2016,7 @@ export const listUsersHostAccess = <ThrowOnError extends boolean = false>(
         })
         .parseAsync(data),
     responseValidator: async (data) =>
-      await zListUsersHostAccessResponse.parseAsync(data),
+      await zListHostGroupsResponse.parseAsync(data),
     security: [
       {
         in: "cookie",
@@ -2104,31 +2024,71 @@ export const listUsersHostAccess = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/admin/host-access/users",
+    url: "/admin/access/host-groups",
     ...options,
   });
 
 /**
- * Get full host access details for a single user (drawer data)
+ * Reconcile host groups (full replace)
+ *
+ * Atomically converges the database to the desired image. Groups absent from
+ * the payload are deleted; entries without an id are created.
+ *
  */
-export const getUserHostDetails = <ThrowOnError extends boolean = false>(
-  options: Options<GetUserHostDetailsData, ThrowOnError>,
+export const reconcileHostGroups = <ThrowOnError extends boolean = false>(
+  options: Options<ReconcileHostGroupsData, ThrowOnError>,
 ) =>
-  (options.client ?? client).get<
-    GetUserHostDetailsResponses,
-    GetUserHostDetailsErrors,
+  (options.client ?? client).post<
+    ReconcileHostGroupsResponses,
+    ReconcileHostGroupsErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: zReconcileHostGroupsBody,
+          path: z.never().optional(),
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zReconcileHostGroupsResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/admin/access/host-groups/reconcile",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * List users with host access summary
+ */
+export const listUsersWithAccess = <ThrowOnError extends boolean = false>(
+  options?: Options<ListUsersWithAccessData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    ListUsersWithAccessResponses,
+    ListUsersWithAccessErrors,
     ThrowOnError
   >({
     requestValidator: async (data) =>
       await z
         .object({
           body: z.never().optional(),
-          path: zGetUserHostDetailsPath,
+          path: z.never().optional(),
           query: z.never().optional(),
         })
         .parseAsync(data),
     responseValidator: async (data) =>
-      await zGetUserHostDetailsResponse.parseAsync(data),
+      await zListUsersWithAccessResponse.parseAsync(data),
     security: [
       {
         in: "cookie",
@@ -2136,8 +2096,78 @@ export const getUserHostDetails = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/admin/host-access/users/{user_id}",
+    url: "/admin/access/users",
     ...options,
+  });
+
+/**
+ * Get full host access detail for a user
+ */
+export const getUserAccessDetail = <ThrowOnError extends boolean = false>(
+  options: Options<GetUserAccessDetailData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    GetUserAccessDetailResponses,
+    GetUserAccessDetailErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: zGetUserAccessDetailPath,
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zGetUserAccessDetailResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/admin/access/users/{user_id}",
+    ...options,
+  });
+
+/**
+ * Atomically replace a user's access grants
+ *
+ * Replaces bypass_host_check flag and full group assignment list.
+ */
+export const modifyUserAccess = <ThrowOnError extends boolean = false>(
+  options: Options<ModifyUserAccessData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    ModifyUserAccessResponses,
+    ModifyUserAccessErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: zModifyUserAccessBody,
+          path: zModifyUserAccessPath,
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zModifyUserAccessResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/admin/access/users/{user_id}/grants",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 
 /**
@@ -2212,4 +2242,214 @@ export const simulatePolicyAccess = <ThrowOnError extends boolean = false>(
     ],
     url: "/admin/policy-simulate",
     ...options,
+  });
+
+/**
+ * List all network policies
+ */
+export const listPolicies = <ThrowOnError extends boolean = false>(
+  options?: Options<ListPoliciesData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    ListPoliciesResponses,
+    ListPoliciesErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: z.never().optional(),
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zListPoliciesResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/admin/access/network-policies",
+    ...options,
+  });
+
+/**
+ * Create a network policy
+ *
+ * Policy is created enabled by default with no group assignments.
+ */
+export const createPolicy = <ThrowOnError extends boolean = false>(
+  options: Options<CreatePolicyData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    CreatePolicyResponses,
+    CreatePolicyErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: zCreatePolicyBody,
+          path: z.never().optional(),
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zCreatePolicyResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/admin/access/network-policies",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete a network policy
+ */
+export const deletePolicy = <ThrowOnError extends boolean = false>(
+  options: Options<DeletePolicyData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    DeletePolicyResponses,
+    DeletePolicyErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: zDeletePolicyPath,
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zDeletePolicyResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/admin/access/network-policies/{id}",
+    ...options,
+  });
+
+/**
+ * Get network policy detail
+ */
+export const getPolicy = <ThrowOnError extends boolean = false>(
+  options: Options<GetPolicyData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    GetPolicyResponses,
+    GetPolicyErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: zGetPolicyPath,
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zGetPolicyResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/admin/access/network-policies/{id}",
+    ...options,
+  });
+
+/**
+ * Update policy metadata
+ *
+ * Updates name, CIDR, description, and/or status. Does not affect group assignments.
+ */
+export const updatePolicy = <ThrowOnError extends boolean = false>(
+  options: Options<UpdatePolicyData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    UpdatePolicyResponses,
+    UpdatePolicyErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: zUpdatePolicyBody,
+          path: zUpdatePolicyPath,
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zUpdatePolicyResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/admin/access/network-policies/{id}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Atomically replace a policy's access grants
+ *
+ * Replaces bypass_host_check flag and full group assignment list.
+ */
+export const updatePolicyAccess = <ThrowOnError extends boolean = false>(
+  options: Options<UpdatePolicyAccessData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    UpdatePolicyAccessResponses,
+    UpdatePolicyAccessErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: zUpdatePolicyAccessBody,
+          path: zUpdatePolicyAccessPath,
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zUpdatePolicyAccessResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/admin/access/network-policies/{id}/grants",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });

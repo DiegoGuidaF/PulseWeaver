@@ -1,6 +1,6 @@
 PolicyUserMapAudit:
   type: object
-  required: [refreshed_at, refresh_duration_ms, total_ip_count, total_device_count, total_host_count, shared_ip_count, users]
+  required: [refreshed_at, refresh_duration_ms, total_ip_count, total_device_count, total_host_count, shared_ip_count, users, total_network_policy_count, network_policies]
   properties:
     refreshed_at:
       type: string
@@ -28,6 +28,15 @@ PolicyUserMapAudit:
       type: array
       items:
         $ref: '#/PolicyUserEntry'
+    total_network_policy_count:
+      type: integer
+      description: Number of enabled network policies currently in the cache.
+    network_policies:
+      type: array
+      items:
+        $ref: '#/PolicyNetworkPolicyEntry'
+      description: >
+        All enabled network policies currently in the cache.
 
 PolicyUserEntry:
   type: object
@@ -205,6 +214,32 @@ PolicySimulateDenyReason:
     - host_not_allowed
   description: Reason for denial.
 
+PolicyNetworkPolicyEntry:
+  type: object
+  required: [policy_id, policy_name, cidr, enabled, allow_all_hosts,
+             effective_host_count, total_host_count]
+  properties:
+    policy_id:
+      $ref: './common.yaml#/ID'
+    policy_name:
+      type: string
+    cidr:
+      type: string
+    enabled:
+      type: boolean
+      description: >
+        False when the policy is present in the snapshot but currently disabled.
+        Disabled policies are cached but bypassed in verify decisions.
+    allow_all_hosts:
+      type: boolean
+    effective_host_count:
+      type: integer
+      description: >
+        Hosts reachable through this policy. Equals total_host_count when
+        allow_all_hosts is true.
+    total_host_count:
+      type: integer
+
 PolicySimulateResult:
   type: object
   required:
@@ -223,3 +258,18 @@ PolicySimulateResult:
         - $ref: '#/PolicySimulateDenyReason'
       nullable: true
       description: Reason for denial; null when allowed is true.
+    match_source:
+      type: string
+      enum: [device, network_policy]
+      nullable: true
+      description: >
+        Which mechanism authorized the request. Null when allowed is false.
+    network_policy_id:
+      allOf:
+        - $ref: './common.yaml#/ID'
+      nullable: true
+      description: ID of the matching policy when match_source is 'network_policy'.
+    network_policy_name:
+      type: string
+      nullable: true
+      description: Name of the matching policy when match_source is 'network_policy'.

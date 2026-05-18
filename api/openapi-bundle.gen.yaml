@@ -1087,6 +1087,12 @@ paths:
           schema:
             $ref: '#/components/schemas/ID'
           description: Cursor; return rows with id < before_id
+        - name: network_policy_id
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ID'
+          description: Filter entries authorized by a specific network policy.
       responses:
         '200':
           description: Access log entries
@@ -1791,21 +1797,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /admin/hosts:
+  /admin/access/hosts:
     get:
-      operationId: listKnownHosts
+      operationId: listHosts
       tags:
         - host-access
-      summary: List known hosts with access stats
+      summary: List all hosts with group memberships
       responses:
         '200':
-          description: Known hosts list with stats
+          description: Host list.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/KnownHostWithStats'
+                $ref: '#/components/schemas/HostListResponse'
         '401':
           description: Unauthorized
           content:
@@ -1820,108 +1824,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /admin/hosts/reconcile:
-    put:
-      operationId: reconcileKnownHosts
+  /admin/access/hosts/reconcile:
+    post:
+      operationId: reconcileHosts
       tags:
         - host-access
-      summary: Reconcile the full desired image of known hosts
+      summary: Reconcile hosts (full replace)
       description: |
-        Atomically converges the database to the desired image. Sends a single
-        transaction that creates new hosts, updates icons on existing ones, and
-        deletes hosts absent from the request. An empty `hosts` array deletes
-        every known host.
+        Atomically converges the database to the desired image. Hosts absent from
+        the payload are deleted; entries without an id are created.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReconcileKnownHostsRequest'
-      responses:
-        '204':
-          description: Reconciliation applied
-        '400':
-          description: Bad Request (invalid FQDN, duplicate ID or FQDN, immutable FQDN change)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-        '404':
-          description: One or more referenced hosts not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: FQDN already exists
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /admin/host-groups:
-    get:
-      operationId: listHostGroups
-      tags:
-        - host-access
-      summary: List host groups with their member host IDs
+              $ref: '#/components/schemas/ReconcileHostsRequest'
       responses:
         '200':
-          description: Host groups list
+          description: Updated host list after reconciliation.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/HostGroupWithMembers'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /admin/host-groups/reconcile:
-    put:
-      operationId: reconcileHostGroups
-      tags:
-        - host-access
-      summary: Reconcile the full desired image of host groups and their members
-      description: |
-        Atomically converges the database to the desired image. Sends a single
-        transaction that creates new groups, updates existing ones, and deletes
-        groups absent from the request.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReconcileHostGroupsRequest'
-      responses:
-        '204':
-          description: Reconciliation applied
+                $ref: '#/components/schemas/HostListResponse'
         '400':
-          description: Bad Request (invalid name, duplicate group ID, etc.)
+          description: Bad Request (invalid FQDN, duplicate, etc.)
           content:
             application/json:
               schema:
@@ -1934,14 +1860,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Forbidden
-        '404':
-          description: One or more referenced groups or hosts not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Group name already taken
+        '422':
+          description: Validation error (unknown group ID, etc.)
           content:
             application/json:
               schema:
@@ -1952,54 +1872,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /admin/users/{user_id}/host-grants:
-    put:
-      operationId: setUserHostGrants
-      tags:
-        - host-access
-      summary: Atomically replace a user's host grants and bypass flag
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/ID'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SetUserHostGrantsRequest'
-      responses:
-        '204':
-          description: Grants updated
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-        '404':
-          description: User or one of the referenced hosts/groups not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /admin/host-suggestions:
+  /admin/access/host-suggestions:
     get:
       operationId: listHostSuggestions
       tags:
@@ -2007,7 +1880,7 @@ paths:
       summary: List FQDNs seen in the access log that are not yet known hosts, plus ignored suggestions
       responses:
         '200':
-          description: Suggestions page with active and ignored lists
+          description: Suggestions page with active and ignored lists.
           content:
             application/json:
               schema:
@@ -2026,7 +1899,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /admin/host-suggestions/ignore:
+  /admin/access/host-suggestions/ignore:
     post:
       operationId: ignoreSuggestion
       tags:
@@ -2040,7 +1913,7 @@ paths:
               $ref: '#/components/schemas/IgnoreSuggestionRequest'
       responses:
         '201':
-          description: Suggestion ignored
+          description: Suggestion ignored.
           content:
             application/json:
               schema:
@@ -2071,7 +1944,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /admin/host-suggestions/ignore/{fqdn}:
+  /admin/access/host-suggestions/ignore/{fqdn}:
     delete:
       operationId: unignoreSuggestion
       tags:
@@ -2085,7 +1958,7 @@ paths:
             type: string
       responses:
         '204':
-          description: Suggestion unignored
+          description: Suggestion unignored.
         '401':
           description: Unauthorized
           content:
@@ -2106,21 +1979,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /admin/host-access/users:
+  /admin/access/host-groups:
     get:
-      operationId: listUsersHostAccess
+      operationId: listHostGroups
       tags:
         - host-access
-      summary: List all users with host access summary (bypass, direct host count, groups)
+      summary: List all host groups with members and subject assignments
       responses:
         '200':
-          description: Users host access summary list
+          description: Group list.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UserHostAccessSummary'
+                $ref: '#/components/schemas/GroupListResponse'
         '401':
           description: Unauthorized
           content:
@@ -2135,12 +2006,89 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /admin/host-access/users/{user_id}:
-    get:
-      operationId: getUserHostDetails
+  /admin/access/host-groups/reconcile:
+    post:
+      operationId: reconcileHostGroups
       tags:
         - host-access
-      summary: Get full host access details for a single user (drawer data)
+      summary: Reconcile host groups (full replace)
+      description: |
+        Atomically converges the database to the desired image. Groups absent from
+        the payload are deleted; entries without an id are created.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconcileGroupsRequest'
+      responses:
+        '200':
+          description: Server state after reconcile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupListResponse'
+        '400':
+          description: Bad Request (invalid name, duplicate, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+        '422':
+          description: Validation error (unknown host ID, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /admin/access/users:
+    get:
+      operationId: listUsersWithAccess
+      tags:
+        - host-access
+      summary: List users with host access summary
+      responses:
+        '200':
+          description: User access summary list.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserListItem'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /admin/access/users/{user_id}:
+    get:
+      operationId: getUserAccessDetail
+      tags:
+        - host-access
+      summary: Get full host access detail for a user
       parameters:
         - name: user_id
           in: path
@@ -2149,11 +2097,11 @@ paths:
             $ref: '#/components/schemas/ID'
       responses:
         '200':
-          description: Full user host access details
+          description: User access detail.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserHostDetails'
+                $ref: '#/components/schemas/UserAccessDetail'
         '401':
           description: Unauthorized
           content:
@@ -2164,6 +2112,58 @@ paths:
           description: Forbidden
         '404':
           description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /admin/access/users/{user_id}/grants:
+    put:
+      operationId: modifyUserAccess
+      tags:
+        - host-access
+      summary: Atomically replace a user's access grants
+      description: Replaces bypass_host_check flag and full group assignment list.
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModifyAccessRequest'
+      responses:
+        '200':
+          description: Updated user access detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserAccessDetail'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: User or referenced group not found
           content:
             application/json:
               schema:
@@ -2249,6 +2249,258 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Forbidden
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /admin/access/network-policies:
+    get:
+      operationId: listPolicies
+      tags:
+        - network-policies
+      summary: List all network policies
+      responses:
+        '200':
+          description: Policy list.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PolicyListItem'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createPolicy
+      tags:
+        - network-policies
+      summary: Create a network policy
+      description: Policy is created enabled by default with no group assignments.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePolicyRequest'
+      responses:
+        '201':
+          description: Policy created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyDetail'
+        '400':
+          description: Validation error (invalid CIDR, missing name)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+        '409':
+          description: A policy with this CIDR already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /admin/access/network-policies/{id}:
+    get:
+      operationId: getPolicy
+      tags:
+        - network-policies
+      summary: Get network policy detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        '200':
+          description: Policy detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyDetail'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updatePolicy
+      tags:
+        - network-policies
+      summary: Update policy metadata
+      description: Updates name, CIDR, description, and/or status. Does not affect group assignments.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModifyPolicyRequest'
+      responses:
+        '204':
+          description: Updated.
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: A policy with this CIDR already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deletePolicy
+      tags:
+        - network-policies
+      summary: Delete a network policy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        '204':
+          description: Deleted.
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /admin/access/network-policies/{id}/grants:
+    put:
+      operationId: updatePolicyAccess
+      tags:
+        - network-policies
+      summary: Atomically replace a policy's access grants
+      description: Replaces bypass_host_check flag and full group assignment list.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModifyAccessRequest'
+      responses:
+        '200':
+          description: Updated policy detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyDetail'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: Policy or referenced group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal Server Error
           content:
@@ -2756,6 +3008,16 @@ components:
             type: array
             items:
               type: string
+        network_policy_id:
+          allOf:
+            - $ref: '#/components/schemas/ID'
+          nullable: true
+          description: |
+            ID of the network policy that authorized this request, when the match was via CIDR containment rather than a device address. Null for device-matched or denied requests.
+        network_policy_name:
+          type: string
+          nullable: true
+          description: Display name of the matching network policy at log time.
     DeviceAddressLeaseRule:
       type: object
       required:
@@ -3056,211 +3318,346 @@ components:
         api_key:
           type: string
           description: Plaintext device API key — one time only.
+    PolicyListItem:
+      type: object
+      required:
+        - id
+        - name
+        - cidr
+        - status
+        - groups
+        - host_count
+        - bypass_host_check
+      description: Network policy summary for the access management list page.
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        name:
+          type: string
+          example: Home LAN
+        cidr:
+          type: string
+          description: Normalized CIDR notation, e.g. "192.168.1.0/24"
+        status:
+          type: string
+          enum:
+            - enabled
+            - disabled
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupRef'
+        host_count:
+          type: integer
+          minimum: 0
+          description: Total hosts accessible across all assigned groups.
+        bypass_host_check:
+          type: boolean
+    PolicyDetail:
+      type: object
+      required:
+        - id
+        - name
+        - cidr
+        - status
+        - groups
+        - bypass_host_check
+      description: Full network policy detail including group assignments.
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        name:
+          type: string
+          example: Home LAN
+        cidr:
+          type: string
+          description: Normalized CIDR notation, e.g. "192.168.1.0/24"
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+            - enabled
+            - disabled
+        groups:
+          type: array
+          description: All groups with their hosts and assignment status.
+          items:
+            $ref: '#/components/schemas/SubjectGroupDetail'
+        bypass_host_check:
+          type: boolean
+    CreatePolicyRequest:
+      type: object
+      required:
+        - name
+        - cidr
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        cidr:
+          type: string
+          description: CIDR notation. Host bits are zeroed automatically by the server.
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+    ModifyPolicyRequest:
+      type: object
+      required:
+        - name
+        - cidr
+        - status
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        cidr:
+          type: string
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+        status:
+          type: string
+          enum:
+            - enabled
+            - disabled
+    PolicyNetworkPolicyEntry:
+      type: object
+      required:
+        - policy_id
+        - policy_name
+        - cidr
+        - enabled
+        - allow_all_hosts
+        - effective_host_count
+        - total_host_count
+      properties:
+        policy_id:
+          $ref: '#/components/schemas/ID'
+        policy_name:
+          type: string
+        cidr:
+          type: string
+        enabled:
+          type: boolean
+          description: |
+            False when the policy is present in the snapshot but currently disabled. Disabled policies are cached but bypassed in verify decisions.
+        allow_all_hosts:
+          type: boolean
+        effective_host_count:
+          type: integer
+          description: |
+            Hosts reachable through this policy. Equals total_host_count when allow_all_hosts is true.
+        total_host_count:
+          type: integer
     GroupRef:
       type: object
       required:
         - id
         - name
+      description: Minimal group reference for read responses.
       properties:
         id:
           $ref: '#/components/schemas/ID'
         name:
           type: string
-    KnownHostRef:
+    GroupSummary:
       type: object
       required:
         - id
-        - fqdn
+        - name
+        - color
+        - icon
+      description: Group display reference used in host list rows (renders group pills).
       properties:
         id:
           $ref: '#/components/schemas/ID'
-        fqdn:
+        name:
           type: string
-          maxLength: 253
+        color:
+          type: string
+          example: '#6366f1'
         icon:
           type: string
-          nullable: true
-    KnownHostWithStats:
+          example: server
+    GroupDetail:
       type: object
       required:
         - id
-        - fqdn
-        - created_at
-        - user_count
+        - name
+        - icon
+        - color
+        - hosts
+        - users
+        - network_policies
+      description: Full group representation returned by GET and reconcile responses.
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        name:
+          type: string
+          example: Data
+        icon:
+          type: string
+          description: Icon key (e.g. "database", "film").
+          example: database
+        color:
+          type: string
+          description: CSS hex color for the group badge.
+          example: '#4C6EF5'
+        description:
+          type: string
+          nullable: true
+        hosts:
+          type: array
+          items:
+            $ref: '#/components/schemas/HostSummary'
+        users:
+          type: array
+          description: Users with access to this group (read-only, managed via subjects).
+          items:
+            $ref: '#/components/schemas/UserSummary'
+        network_policies:
+          type: array
+          description: Network policies with access to this group (read-only, managed via subjects).
+          items:
+            $ref: '#/components/schemas/NetworkPolicyRef'
+    SubjectGroupDetail:
+      allOf:
+        - $ref: '#/components/schemas/GroupDetail'
+        - type: object
+          required:
+            - granted
+          description: GroupDetail with assignment status, used in user and policy detail responses.
+          properties:
+            granted:
+              type: boolean
+              description: Whether this group is assigned to the subject.
+    GroupWrite:
+      type: object
+      required:
+        - name
+        - icon
+        - color
+        - hosts
+      description: |
+        Group write payload for reconcile. Omit id (or set null) to create; include id to update.
+        The hosts array defines the complete desired membership after the call.
+      properties:
+        id:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ID'
+        name:
+          type: string
+          example: Data
+        icon:
+          type: string
+          example: database
+        color:
+          type: string
+          example: '#4C6EF5'
+        description:
+          type: string
+          nullable: true
+        hosts:
+          type: array
+          items:
+            $ref: '#/components/schemas/HostRef'
+    GroupListResponse:
+      type: object
+      required:
         - groups
       properties:
-        id:
-          $ref: '#/components/schemas/ID'
-        fqdn:
-          type: string
-          maxLength: 253
-        icon:
-          type: string
-          nullable: true
-        created_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
-        user_count:
-          type: integer
-          description: Number of distinct users with access to this host.
         groups:
           type: array
           items:
-            $ref: '#/components/schemas/GroupRef'
-          description: Host groups this host belongs to.
-    DesiredKnownHost:
+            $ref: '#/components/schemas/GroupDetail'
+    ReconcileGroupsRequest:
       type: object
       required:
-        - fqdn
+        - groups
+      description: Exhaustive list of all desired groups. Groups absent from this list are deleted.
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupWrite'
+    ModifyAccessRequest:
+      type: object
+      required:
+        - bypass_host_check
         - group_ids
-      description: |
-        A single known host inside a reconcile request. A null `id` marks a
-        brand-new host; a non-null `id` must match an existing row. `fqdn` is
-        immutable on updates — a mismatch is rejected. `group_ids` replaces the
-        host's full group membership.
+      description: Atomically replaces bypass flag and full group assignment list. Shared by users and policies.
       properties:
-        id:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/ID'
-        fqdn:
-          type: string
-          minLength: 3
-          maxLength: 253
-        icon:
-          type: string
-          nullable: true
-        group_ids:
-          type: array
-          description: Host group IDs this host should belong to. Replaces the host's full group membership.
-          items:
-            $ref: '#/components/schemas/ID'
-    ReconcileKnownHostsRequest:
-      type: object
-      required:
-        - hosts
-      description: |
-        Full desired image of all known hosts. Hosts already in the database whose
-        ID is absent from `hosts` will be deleted; hosts with a non-null ID are
-        updated (icon only); hosts with a null ID are created. An empty `hosts`
-        array deletes every known host.
-      properties:
-        hosts:
-          type: array
-          items:
-            $ref: '#/components/schemas/DesiredKnownHost'
-    HostGroupWithMembers:
-      type: object
-      required:
-        - id
-        - name
-        - created_at
-        - hosts
-        - member_ids
-      properties:
-        id:
-          $ref: '#/components/schemas/ID'
-        name:
-          type: string
-        color:
-          type: string
-          nullable: true
-          description: UI accent colour for the group. Null means "not chosen".
-        description:
-          type: string
-          nullable: true
-        icon:
-          type: string
-          nullable: true
-        created_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
-        hosts:
-          type: array
-          description: Hydrated member hosts (id + fqdn + icon) for display.
-          items:
-            $ref: '#/components/schemas/KnownHostRef'
-        member_ids:
-          type: array
-          description: Plain list of member host IDs, parallel to `hosts`. Useful to round-trip into a reconcile request.
-          items:
-            $ref: '#/components/schemas/ID'
-    DesiredHostGroup:
-      type: object
-      required:
-        - name
-      description: |
-        A single host group inside a reconcile request. A null `id` marks a
-        brand-new group; a non-null `id` must match an existing group.
-      properties:
-        id:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/ID'
-        name:
-          type: string
-          minLength: 1
-          maxLength: 100
-        color:
-          type: string
-          nullable: true
-          description: UI accent colour. Null means "not chosen".
-        description:
-          type: string
-          nullable: true
-          maxLength: 500
-        icon:
-          type: string
-          nullable: true
-        host_ids:
-          type: array
-          description: Known-host IDs that should be members of this group.
-          items:
-            $ref: '#/components/schemas/ID'
-    ReconcileHostGroupsRequest:
-      type: object
-      required:
-        - groups
-      description: |
-        Full desired image of all host groups. Groups already in the database whose
-        ID is absent from `groups` will be deleted; groups with a non-null ID are
-        updated; groups with a null ID are created.
-      properties:
-        groups:
-          type: array
-          items:
-            $ref: '#/components/schemas/DesiredHostGroup'
-    SetUserHostGrantsRequest:
-      type: object
-      properties:
-        bypass:
+        bypass_host_check:
           type: boolean
-        host_ids:
-          type: array
-          items:
-            type: integer
+          description: When true, grants access to all hosts regardless of group configuration.
         group_ids:
           type: array
           items:
-            type: integer
-    IgnoredHostSuggestion:
+            $ref: '#/components/schemas/ID'
+    Host:
       type: object
       required:
         - id
         - fqdn
-        - created_at
+        - groups
+      description: Host record with group memberships.
       properties:
         id:
           $ref: '#/components/schemas/ID'
         fqdn:
           type: string
-          maxLength: 253
-        created_at:
+          example: immich.home.org
+        groups:
+          type: array
+          description: Group memberships. Empty array means unassigned.
+          items:
+            $ref: '#/components/schemas/GroupSummary'
+    HostInput:
+      type: object
+      required:
+        - fqdn
+        - groups
+      description: Host entry in a reconcile request. Omit id to create a new host.
+      properties:
+        id:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ID'
+        fqdn:
           type: string
-          format: date-time
-          x-go-type: UTCTime
+          example: immich.home.org
+        groups:
+          type: array
+          description: Group memberships by ID. Empty array means unassigned.
+          items:
+            $ref: '#/components/schemas/GroupIdRef'
+    HostListResponse:
+      type: object
+      required:
+        - hosts
+      properties:
+        hosts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Host'
+    ReconcileHostsRequest:
+      type: object
+      required:
+        - hosts
+      description: Exhaustive list of all hosts. Hosts absent from this list are deleted.
+      properties:
+        hosts:
+          type: array
+          items:
+            $ref: '#/components/schemas/HostInput'
     HostSuggestion:
       type: object
       required:
@@ -3280,6 +3677,22 @@ components:
           type: integer
         denied_hits:
           type: integer
+    IgnoredHostSuggestion:
+      type: object
+      required:
+        - id
+        - fqdn
+        - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        fqdn:
+          type: string
+          maxLength: 253
+        created_at:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
     IgnoreSuggestionRequest:
       type: object
       required:
@@ -3305,111 +3718,101 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/IgnoredHostSuggestion'
-    UserHostAccessSummary:
-      type: object
-      required:
-        - id
-        - display_name
-        - email
-        - role
-        - bypass
-        - direct_host_count
-        - groups
-      properties:
-        id:
-          $ref: '#/components/schemas/ID'
-        display_name:
-          type: string
-        email:
-          type: string
-          format: email
-        role:
-          $ref: '#/components/schemas/UserRole'
-        bypass:
-          type: boolean
-          description: When true the user can reach every known host.
-        direct_host_count:
-          type: integer
-          description: Number of hosts granted directly via user_allowed_hosts.
-        groups:
-          type: array
-          items:
-            $ref: '#/components/schemas/GroupRef'
-    UserHostDetails:
-      type: object
-      required:
-        - id
-        - display_name
-        - email
-        - role
-        - bypass
-        - groups
-        - hosts
-      properties:
-        id:
-          $ref: '#/components/schemas/ID'
-        display_name:
-          type: string
-        email:
-          type: string
-          format: email
-        role:
-          $ref: '#/components/schemas/UserRole'
-        bypass:
-          type: boolean
-        groups:
-          type: array
-          items:
-            $ref: '#/components/schemas/UserHostDetailsGroup'
-        hosts:
-          type: array
-          items:
-            $ref: '#/components/schemas/UserHostDetailsHost'
-    UserHostDetailsGroup:
+    DeviceListItem:
       type: object
       required:
         - id
         - name
-        - granted
-        - hosts
+        - live_ip_count
+      description: Device summary shown on user access detail.
       properties:
         id:
           $ref: '#/components/schemas/ID'
         name:
           type: string
+          example: macbook-maya
         icon:
           type: string
           nullable: true
-        granted:
-          type: boolean
-          description: Whether this group is granted to the user.
-        hosts:
-          type: array
-          items:
-            $ref: '#/components/schemas/KnownHostRef'
-    UserHostDetailsHost:
+        live_ip_count:
+          type: integer
+          minimum: 0
+        api_key_prefix:
+          type: string
+          nullable: true
+          description: Non-null when an API key is configured; the full key is never returned.
+          example: pw_abc123
+    UserListItem:
       type: object
       required:
         - id
-        - fqdn
-        - directly_granted
+        - username
+        - display_name
+        - groups
+        - host_count
+        - device_count
+        - live_ip_count
+        - bypass_host_check
+      description: User summary for the access management list page.
       properties:
         id:
           $ref: '#/components/schemas/ID'
-        fqdn:
+        username:
           type: string
-          maxLength: 253
-        icon:
+          example: maya.patel
+        display_name:
           type: string
-          nullable: true
-        directly_granted:
+          example: Maya Patel
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupRef'
+        host_count:
+          type: integer
+          minimum: 0
+          description: Total hosts accessible across all assigned groups.
+        device_count:
+          type: integer
+          minimum: 0
+        live_ip_count:
+          type: integer
+          minimum: 0
+        bypass_host_check:
           type: boolean
-          description: Whether this host is directly granted to the user.
-        via_group:
+    UserAccessDetail:
+      type: object
+      required:
+        - id
+        - username
+        - display_name
+        - devices
+        - groups
+        - bypass_host_check
+      description: Full user access detail including devices and group assignments.
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        username:
+          type: string
+          example: maya.patel
+        display_name:
+          type: string
+          example: Maya Patel
+        email:
+          type: string
+          format: email
           nullable: true
-          allOf:
-            - $ref: '#/components/schemas/GroupRef'
-          description: First (alphabetically) granted group that covers this host, if any.
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceListItem'
+        groups:
+          type: array
+          description: All groups with their hosts and assignment status.
+          items:
+            $ref: '#/components/schemas/SubjectGroupDetail'
+        bypass_host_check:
+          type: boolean
     PromoteUserRequest:
       type: object
       required:
@@ -3428,6 +3831,66 @@ components:
         api_key:
           type: string
           description: Secret key for the device.
+    GroupIdRef:
+      type: object
+      required:
+        - id
+      description: Group ID reference used in host write payloads.
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+    HostSummary:
+      type: object
+      required:
+        - id
+        - fqdn
+      description: Minimal host reference embedded in group responses.
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        fqdn:
+          type: string
+          example: immich.home.org
+    UserSummary:
+      type: object
+      required:
+        - id
+        - username
+        - display_name
+      description: Minimal user reference embedded in group responses.
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        username:
+          type: string
+          example: maya.patel
+        display_name:
+          type: string
+          example: Maya Patel
+    NetworkPolicyRef:
+      type: object
+      required:
+        - id
+        - name
+        - cidr
+      description: Minimal network policy reference embedded in group responses.
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        name:
+          type: string
+          example: Home LAN
+        cidr:
+          type: string
+          example: 192.168.1.0/24
+    HostRef:
+      type: object
+      required:
+        - id
+      description: Host ID reference used in group write payloads.
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
     PolicyIPDevice:
       type: object
       required:
@@ -3594,6 +4057,8 @@ components:
         - total_host_count
         - shared_ip_count
         - users
+        - total_network_policy_count
+        - network_policies
       properties:
         refreshed_at:
           type: string
@@ -3620,6 +4085,15 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PolicyUserEntry'
+        total_network_policy_count:
+          type: integer
+          description: Number of enabled network policies currently in the cache.
+        network_policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/PolicyNetworkPolicyEntry'
+          description: |
+            All enabled network policies currently in the cache.
     PolicySimulateDenyReason:
       type: string
       enum:
@@ -3644,3 +4118,20 @@ components:
             - $ref: '#/components/schemas/PolicySimulateDenyReason'
           nullable: true
           description: Reason for denial; null when allowed is true.
+        match_source:
+          type: string
+          enum:
+            - device
+            - network_policy
+          nullable: true
+          description: |
+            Which mechanism authorized the request. Null when allowed is false.
+        network_policy_id:
+          allOf:
+            - $ref: '#/components/schemas/ID'
+          nullable: true
+          description: ID of the matching policy when match_source is 'network_policy'.
+        network_policy_name:
+          type: string
+          nullable: true
+          description: Name of the matching policy when match_source is 'network_policy'.

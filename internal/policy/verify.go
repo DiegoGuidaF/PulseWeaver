@@ -13,20 +13,50 @@ import (
 // Decide evaluates whether ip can access host against the live cache.
 // It does not notify observers and does not perform bearer-token verification.
 // Safe for concurrent use.
+//
+// Matching order:
+//  1. Exact IP match against device address set (device owner's host policy applies).
+//  2. CIDR containment against enabled network policies (most-specific first).
+//  3. Deny if neither matches.
 func (s *Service) Decide(ctx context.Context, ip, host string) DecisionResult {
 	entry, ok := s.lookupIP(ctx, ip)
-	if !ok {
-		return DecisionResult{DenyReason: new(DenyReasonIPNotRegistered)}
+	if ok {
+		contributors := toIPContributors(entry.Contributors)
+		if entry.BypassAllowlist {
+			return DecisionResult{Allowed: true, MatchSource: MatchSourceDevice, Contributors: contributors}
+		}
+		h := strings.ToLower(host)
+		if _, ok := entry.AllowedHosts[h]; !ok {
+			return DecisionResult{DenyReason: new(DenyReasonHostNotAllowed), MatchSource: MatchSourceDevice, Contributors: contributors}
+		}
+		return DecisionResult{Allowed: true, MatchSource: MatchSourceDevice, Contributors: contributors}
 	}
-	contributors := toIPContributors(entry.Contributors)
-	if entry.BypassAllowlist {
-		return DecisionResult{Allowed: true, Contributors: contributors}
+
+	// CIDR fallback: check network policies in most-specific-first order.
+	addr, err := netip.ParseAddr(ip)
+	if err == nil {
+		s.mu.RLock()
+		policies := s.networkPolicies
+		s.mu.RUnlock()
+
+		h := strings.ToLower(host)
+		for _, np := range policies {
+			if np.Prefix.Contains(addr) {
+				_, hostAllowed := np.AllowedHosts[h]
+				if np.AllowAllHosts || hostAllowed {
+					return DecisionResult{
+						Allowed:           true,
+						MatchSource:       MatchSourceNetworkPolicy,
+						NetworkPolicyID:   &np.PolicyID,
+						NetworkPolicyName: &np.PolicyName,
+					}
+				}
+				return DecisionResult{DenyReason: new(DenyReasonHostNotAllowed)}
+			}
+		}
 	}
-	h := strings.ToLower(host)
-	if _, ok := entry.AllowedHosts[h]; !ok {
-		return DecisionResult{DenyReason: new(DenyReasonHostNotAllowed), Contributors: contributors}
-	}
-	return DecisionResult{Allowed: true, Contributors: contributors}
+
+	return DecisionResult{DenyReason: new(DenyReasonIPNotRegistered)}
 }
 
 // VerifyAccess validates bearer token and verifies that the IP is enabled, emitting a DecisionEvent.
@@ -57,12 +87,12 @@ func (s *Service) VerifyAccess(ctx context.Context, req *VerifyRequest) error {
 			return ErrIPNotEnabled
 		}
 		s.logger.DebugContext(ctx, "host not in allowlist", slog.String("host", strings.ToLower(host)))
-		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, result.DenyReason, result.Contributors, req, geo, time.Since(start).Microseconds()))
+		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, result.DenyReason, &result, req, geo, time.Since(start).Microseconds()))
 		return ErrHostNotAllowed
 	}
 
 	s.logger.DebugContext(ctx, "IP is enabled")
-	s.notifyDecisionObservers(ctx, NewDecisionEvent(true, nil, result.Contributors, req, geo, time.Since(start).Microseconds()))
+	s.notifyDecisionObservers(ctx, NewDecisionEvent(true, nil, &result, req, geo, time.Since(start).Microseconds()))
 
 	return nil
 }

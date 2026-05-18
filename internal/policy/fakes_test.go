@@ -97,7 +97,7 @@ func newHostRestrictedSvc(t *testing.T, userID auth.UserID, ip string, allowedHo
 	hostProvider := &fixedHostProvider{entries: []UserHostAccess{
 		{UserID: userID, BypassAllowlist: false, AllowedHosts: allowedHosts},
 	}}
-	svc, err := NewService(provider, hostProvider, &geoip.Lookup{}, "mysecret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, hostProvider, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
@@ -117,7 +117,7 @@ func (e *errHostProvider) GetAllUserHostAccess(_ context.Context) ([]UserHostAcc
 func newRestrictedService(entries []device.IPEntry, hostAccess []UserHostAccess) *Service {
 	provider := &mockProvider{entries: entries}
 	hostProv := &restrictedHostProvider{users: hostAccess}
-	svc, err := NewService(provider, hostProv, &geoip.Lookup{}, "secret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, hostProv, &geoip.Lookup{}, nil, "secret", noopLogger(), netip.Addr{})
 	if err != nil {
 		panic(err)
 	}

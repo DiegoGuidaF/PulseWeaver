@@ -20,7 +20,7 @@ func TestService_OnAddressEvent_RefreshesCache(t *testing.T) {
 	provider := &mockProvider{entries: []device.IPEntry{
 		{IP: "192.168.1.1", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
 	}}
-	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, "secret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "secret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 
 	is.NoErr(svc.Initialize(context.Background()))
@@ -56,7 +56,7 @@ func TestService_OnHostAccessChanged_RefreshesCache(t *testing.T) {
 	hostProvider := &fixedHostProvider{entries: []UserHostAccess{
 		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
 	}}
-	svc, err := NewService(provider, hostProvider, &geoip.Lookup{}, "mysecret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, hostProvider, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 

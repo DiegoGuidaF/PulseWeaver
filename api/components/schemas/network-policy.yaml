@@ -1,0 +1,87 @@
+PolicyListItem:
+  type: object
+  required: [id, name, cidr, status, groups, host_count, bypass_host_check]
+  description: Network policy summary for the access management list page.
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    name:
+      type: string
+      example: Home LAN
+    cidr:
+      type: string
+      description: Normalized CIDR notation, e.g. "192.168.1.0/24"
+    status:
+      type: string
+      enum: [enabled, disabled]
+    groups:
+      type: array
+      items:
+        $ref: './groups.yaml#/GroupRef'
+    host_count:
+      type: integer
+      minimum: 0
+      description: Total hosts accessible across all assigned groups.
+    bypass_host_check:
+      type: boolean
+
+PolicyDetail:
+  type: object
+  required: [id, name, cidr, status, groups, bypass_host_check]
+  description: Full network policy detail including group assignments.
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    name:
+      type: string
+      example: Home LAN
+    cidr:
+      type: string
+      description: Normalized CIDR notation, e.g. "192.168.1.0/24"
+    description:
+      type: string
+      nullable: true
+    status:
+      type: string
+      enum: [enabled, disabled]
+    groups:
+      type: array
+      description: All groups with their hosts and assignment status.
+      items:
+        $ref: './groups.yaml#/SubjectGroupDetail'
+    bypass_host_check:
+      type: boolean
+
+CreatePolicyRequest:
+  type: object
+  required: [name, cidr]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 100
+    cidr:
+      type: string
+      description: CIDR notation. Host bits are zeroed automatically by the server.
+    description:
+      type: string
+      nullable: true
+      maxLength: 500
+
+ModifyPolicyRequest:
+  type: object
+  required: [name, cidr, status]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 100
+    cidr:
+      type: string
+    description:
+      type: string
+      nullable: true
+      maxLength: 500
+    status:
+      type: string
+      enum: [enabled, disabled]

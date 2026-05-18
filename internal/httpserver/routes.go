@@ -11,6 +11,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/health"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/hostaccess"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/registration"
@@ -31,6 +32,7 @@ type CompositeHandler struct {
 	*RegistrationHandler
 	*HostAccessHandler
 	*PolicyHandler
+	*NetworkPoliciesHandler
 }
 
 type RuleHandler = rule.HTTPHandler
@@ -42,6 +44,7 @@ type AccessLogHandler = accesslog.HTTPHandler
 type DashboardHandler = dashboard.HTTPHandler
 type RegistrationHandler = registration.HTTPHandler
 type HostAccessHandler = hostaccess.HTTPHandler
+type NetworkPoliciesHandler = networkpolicies.HTTPHandler
 
 func addRoutes(
 	r *chi.Mux,
@@ -54,18 +57,20 @@ func addRoutes(
 	dashboardHandler *DashboardHandler,
 	registrationHandler *RegistrationHandler,
 	hostAccessHandler *HostAccessHandler,
+	networkPoliciesHandler *NetworkPoliciesHandler,
 	logger *slog.Logger,
 ) {
 	routeHandler := &CompositeHandler{
-		DeviceHandler:       deviceHandler,
-		AuthHandler:         authHandler,
-		RuleHandler:         ruleHandler,
-		QueriesHandler:      queriesHandler,
-		AccessLogHandler:    accessLogHandler,
-		DashboardHandler:    dashboardHandler,
-		RegistrationHandler: registrationHandler,
-		HostAccessHandler:   hostAccessHandler,
-		PolicyHandler:       policyHandler,
+		DeviceHandler:          deviceHandler,
+		AuthHandler:            authHandler,
+		RuleHandler:            ruleHandler,
+		QueriesHandler:         queriesHandler,
+		AccessLogHandler:       accessLogHandler,
+		DashboardHandler:       dashboardHandler,
+		RegistrationHandler:    registrationHandler,
+		HostAccessHandler:      hostAccessHandler,
+		PolicyHandler:          policyHandler,
+		NetworkPoliciesHandler: networkPoliciesHandler,
 	}
 
 	r.Get("/health", health.Handler)

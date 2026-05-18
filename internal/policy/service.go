@@ -11,7 +11,14 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 )
+
+// NetworkPoliciesProvider is the interface the policy cache consumes to load
+// enabled CIDR ranges. Implemented by networkpolicies.Repository.
+type NetworkPoliciesProvider interface {
+	GetEnabledCacheEntries(ctx context.Context) ([]networkpolicies.CacheEntry, error)
+}
 
 // EnabledIPsProvider is the cross-domain interface the policy service consumes.
 // Implemented by device.Service.
@@ -27,25 +34,27 @@ type HostAccessProvider interface {
 
 // Service maintains an in-memory cache of enabled IPs for fast forward-auth lookups.
 type Service struct {
-	ipProvider            EnabledIPsProvider
-	hostProvider          HostAccessProvider
-	geoResolver           GeoIPResolver
-	apiSecretHash         [32]byte
-	trustedProxy          netip.Addr
-	mu                    sync.RWMutex
-	ipSet                 map[string]ipSetEntry
-	lastRefreshedAt       time.Time
-	lastRefreshDurationMs int64
-	addressChangeSignal   chan struct{} // buffered cap 1
-	hostAccessSignal      chan struct{} // buffered cap 1
-	logger                *slog.Logger
-	observers             []DecisionObserver
+	ipProvider              EnabledIPsProvider
+	hostProvider            HostAccessProvider
+	geoResolver             GeoIPResolver
+	networkPoliciesProvider NetworkPoliciesProvider
+	apiSecretHash           [32]byte
+	trustedProxy            netip.Addr
+	mu                      sync.RWMutex
+	ipSet                   map[string]ipSetEntry
+	networkPolicies         []networkPolicyCacheEntry
+	lastRefreshedAt         time.Time
+	lastRefreshDurationMs   int64
+	refreshSignal           chan struct{} // buffered cap 1
+	logger                  *slog.Logger
+	observers               []DecisionObserver
 }
 
 func NewService(
 	ipProvider EnabledIPsProvider,
 	hostProvider HostAccessProvider,
 	geoResolver GeoIPResolver,
+	networkPoliciesProvider NetworkPoliciesProvider,
 	secret string,
 	logger *slog.Logger,
 	trustedProxy netip.Addr,
@@ -55,15 +64,15 @@ func NewService(
 		return nil, ErrSecretNotConfigured
 	}
 	return &Service{
-		ipProvider:          ipProvider,
-		hostProvider:        hostProvider,
-		geoResolver:         geoResolver,
-		apiSecretHash:       sha256.Sum256([]byte(secret)),
-		trustedProxy:        trustedProxy,
-		ipSet:               make(map[string]ipSetEntry),
-		addressChangeSignal: make(chan struct{}, 1),
-		hostAccessSignal:    make(chan struct{}, 1),
-		logger:              componentLogger,
+		ipProvider:              ipProvider,
+		hostProvider:            hostProvider,
+		geoResolver:             geoResolver,
+		networkPoliciesProvider: networkPoliciesProvider,
+		apiSecretHash:           sha256.Sum256([]byte(secret)),
+		trustedProxy:            trustedProxy,
+		ipSet:                   make(map[string]ipSetEntry),
+		refreshSignal:           make(chan struct{}, 1),
+		logger:                  componentLogger,
 	}, nil
 }
 

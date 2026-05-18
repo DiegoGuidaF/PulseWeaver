@@ -19,6 +19,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/maxaddr"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/registration"
@@ -122,8 +123,13 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	hostAccessService := hostaccess.NewService(hostAccessRepo, db.Transactor(), logger)
 	hostAccessHandler := hostaccess.NewHTTPHandler(hostAccessService, logger)
 
+	// Network Policies
+	networkPoliciesRepo := networkpolicies.NewRepository(db.DB())
+	networkPoliciesService := networkpolicies.NewService(networkPoliciesRepo, db.Transactor(), logger)
+	networkPoliciesHandler := networkpolicies.NewHTTPHandler(networkPoliciesService, logger)
+
 	// Policy forward-auth sidecar
-	policyService, err := policy.NewService(deviceService, hostAccessService, geoipLookup, conf.Policy.APISecret, logger, conf.Server.TrustedProxy)
+	policyService, err := policy.NewService(deviceService, hostAccessService, geoipLookup, networkPoliciesRepo, conf.Policy.APISecret, logger, conf.Server.TrustedProxy)
 	if err != nil {
 		return nil, fmt.Errorf("policy service init: %w", err)
 	}
@@ -141,7 +147,8 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Queries - Manage complex crossdomain queries tailored for the frontend
 	queriesRepo := queries.NewRepository(db.DB())
-	queriesHandler := queries.NewHTTPHandler(queriesRepo, policyService, logger)
+	//TODO: Change networkPoliciesRepo to service
+	queriesHandler := queries.NewHTTPHandler(queriesRepo, policyService, networkPoliciesRepo, logger)
 
 	// Address Lease manager
 	addressLeaseRepo := lease.NewRepository(db.DB())
@@ -167,6 +174,9 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Register policy decision observers
 	policyService.AddDecisionObserver(accessLogSink)
+
+	// Register network policy change observer — policy cache refreshes on any policy mutation.
+	networkPoliciesService.AddObserver(policyService)
 
 	// Dashboard — traffic aggregation
 	dashboardRepo := dashboard.NewRepository(db.DB())
@@ -195,7 +205,20 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		logger.Warn("failed to initialize policy IP cache on startup", slog.Any("error", err))
 	}
 
-	handler := httpserver.NewServer(deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, accessLogHandler, dashboardHandler, registrationHandler, hostAccessHandler, logger, conf.Server.TrustedProxy)
+	handler := httpserver.NewServer(
+		deviceHandler,
+		authHandler,
+		ruleHandler,
+		queriesHandler,
+		policyHandler,
+		accessLogHandler,
+		dashboardHandler,
+		registrationHandler,
+		hostAccessHandler,
+		networkPoliciesHandler,
+		logger,
+		conf.Server.TrustedProxy,
+	)
 
 	return &App{
 		Config:              conf,

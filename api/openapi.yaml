@@ -114,26 +114,26 @@ paths:
   # --------------------
   # Host Access Endpoints
   # --------------------
-  /admin/hosts:
-    $ref: './paths/host-access.yaml#/hosts'
-  /admin/hosts/reconcile:
-    $ref: './paths/host-access.yaml#/hostsReconcile'
-  /admin/host-groups:
-    $ref: './paths/host-access.yaml#/hostGroups'
-  /admin/host-groups/reconcile:
-    $ref: './paths/host-access.yaml#/hostGroupsReconcile'
-  /admin/users/{user_id}/host-grants:
-    $ref: './paths/host-access.yaml#/userHostGrants'
-  /admin/host-suggestions:
-    $ref: './paths/host-access.yaml#/hostSuggestions'
-  /admin/host-suggestions/ignore:
-    $ref: './paths/host-access.yaml#/ignoredSuggestions'
-  /admin/host-suggestions/ignore/{fqdn}:
-    $ref: './paths/host-access.yaml#/ignoredSuggestionByFqdn'
-  /admin/host-access/users:
-    $ref: './paths/host-access.yaml#/usersHostAccess'
-  /admin/host-access/users/{user_id}:
-    $ref: './paths/host-access.yaml#/userHostDetails'
+  /admin/access/hosts:
+    $ref: './paths/admin/access/hosts.yaml#/hosts'
+  /admin/access/hosts/reconcile:
+    $ref: './paths/admin/access/hosts.yaml#/hostsReconcile'
+  /admin/access/host-suggestions:
+    $ref: './paths/admin/access/hosts.yaml#/hostSuggestions'
+  /admin/access/host-suggestions/ignore:
+    $ref: './paths/admin/access/hosts.yaml#/ignoredSuggestions'
+  /admin/access/host-suggestions/ignore/{fqdn}:
+    $ref: './paths/admin/access/hosts.yaml#/ignoredSuggestionByFqdn'
+  /admin/access/host-groups:
+    $ref: './paths/admin/access/host-groups.yaml#/hostGroups'
+  /admin/access/host-groups/reconcile:
+    $ref: './paths/admin/access/host-groups.yaml#/hostGroupsReconcile'
+  /admin/access/users:
+    $ref: './paths/admin/access/users.yaml#/users'
+  /admin/access/users/{user_id}:
+    $ref: './paths/admin/access/users.yaml#/userById'
+  /admin/access/users/{user_id}/grants:
+    $ref: './paths/admin/access/users.yaml#/userGrants'
 
   # --------------------
   # Policy Audit Endpoints
@@ -142,6 +142,16 @@ paths:
     $ref: './paths/policy-audit.yaml#/policyMap'
   /admin/policy-simulate:
     $ref: './paths/policy-audit.yaml#/policySimulate'
+
+  # --------------------
+  # Network Policy Endpoints
+  # --------------------
+  /admin/access/network-policies:
+    $ref: './paths/admin/access/network-policies.yaml#/networkPolicies'
+  /admin/access/network-policies/{id}:
+    $ref: './paths/admin/access/network-policies.yaml#/networkPolicy'
+  /admin/access/network-policies/{id}/grants:
+    $ref: './paths/admin/access/network-policies.yaml#/networkPolicyGrants'
 
 components:
   securitySchemes:
@@ -273,39 +283,69 @@ components:
       $ref: './components/schemas/registration.yaml#/ClaimRegistrationResponse'
 
     # --------------------
-    # Host Access
+    # Network Policies
+    # --------------------
+    PolicyListItem:
+      $ref: './components/schemas/network-policy.yaml#/PolicyListItem'
+    PolicyDetail:
+      $ref: './components/schemas/network-policy.yaml#/PolicyDetail'
+    CreatePolicyRequest:
+      $ref: './components/schemas/network-policy.yaml#/CreatePolicyRequest'
+    ModifyPolicyRequest:
+      $ref: './components/schemas/network-policy.yaml#/ModifyPolicyRequest'
+
+    # --------------------
+    # Policy Audit (extensions)
+    # --------------------
+    PolicyNetworkPolicyEntry:
+      $ref: './components/schemas/policy-audit.yaml#/PolicyNetworkPolicyEntry'
+
+    # --------------------
+    # Groups
     # --------------------
     GroupRef:
-      $ref: './components/schemas/host-access.yaml#/GroupRef'
-    KnownHostRef:
-      $ref: './components/schemas/host-access.yaml#/KnownHostRef'
-    KnownHostWithStats:
-      $ref: './components/schemas/host-access.yaml#/KnownHostWithStats'
-    DesiredKnownHost:
-      $ref: './components/schemas/host-access.yaml#/DesiredKnownHost'
-    ReconcileKnownHostsRequest:
-      $ref: './components/schemas/host-access.yaml#/ReconcileKnownHostsRequest'
-    HostGroupWithMembers:
-      $ref: './components/schemas/host-access.yaml#/HostGroupWithMembers'
-    DesiredHostGroup:
-      $ref: './components/schemas/host-access.yaml#/DesiredHostGroup'
-    ReconcileHostGroupsRequest:
-      $ref: './components/schemas/host-access.yaml#/ReconcileHostGroupsRequest'
-    SetUserHostGrantsRequest:
-      $ref: './components/schemas/host-access.yaml#/SetUserHostGrantsRequest'
-    IgnoredHostSuggestion:
-      $ref: './components/schemas/host-access.yaml#/IgnoredHostSuggestion'
+      $ref: './components/schemas/groups.yaml#/GroupRef'
+    GroupSummary:
+      $ref: './components/schemas/groups.yaml#/GroupSummary'
+    GroupDetail:
+      $ref: './components/schemas/groups.yaml#/GroupDetail'
+    SubjectGroupDetail:
+      $ref: './components/schemas/groups.yaml#/SubjectGroupDetail'
+    GroupWrite:
+      $ref: './components/schemas/groups.yaml#/GroupWrite'
+    GroupListResponse:
+      $ref: './components/schemas/groups.yaml#/GroupListResponse'
+    ReconcileGroupsRequest:
+      $ref: './components/schemas/groups.yaml#/ReconcileGroupsRequest'
+    ModifyAccessRequest:
+      $ref: './components/schemas/groups.yaml#/ModifyAccessRequest'
+
+    # --------------------
+    # Hosts
+    # --------------------
+    Host:
+      $ref: './components/schemas/hosts.yaml#/Host'
+    HostInput:
+      $ref: './components/schemas/hosts.yaml#/HostInput'
+    HostListResponse:
+      $ref: './components/schemas/hosts.yaml#/HostListResponse'
+    ReconcileHostsRequest:
+      $ref: './components/schemas/hosts.yaml#/ReconcileHostsRequest'
     HostSuggestion:
-      $ref: './components/schemas/host-access.yaml#/HostSuggestion'
+      $ref: './components/schemas/hosts.yaml#/HostSuggestion'
+    IgnoredHostSuggestion:
+      $ref: './components/schemas/hosts.yaml#/IgnoredHostSuggestion'
     IgnoreSuggestionRequest:
-      $ref: './components/schemas/host-access.yaml#/IgnoreSuggestionRequest'
+      $ref: './components/schemas/hosts.yaml#/IgnoreSuggestionRequest'
     HostSuggestionsPage:
-      $ref: './components/schemas/host-access.yaml#/HostSuggestionsPage'
-    UserHostAccessSummary:
-      $ref: './components/schemas/host-access.yaml#/UserHostAccessSummary'
-    UserHostDetails:
-      $ref: './components/schemas/host-access.yaml#/UserHostDetails'
-    UserHostDetailsGroup:
-      $ref: './components/schemas/host-access.yaml#/UserHostDetailsGroup'
-    UserHostDetailsHost:
-      $ref: './components/schemas/host-access.yaml#/UserHostDetailsHost'
+      $ref: './components/schemas/hosts.yaml#/HostSuggestionsPage'
+
+    # --------------------
+    # User Access Views
+    # --------------------
+    DeviceListItem:
+      $ref: './components/schemas/users.yaml#/DeviceListItem'
+    UserListItem:
+      $ref: './components/schemas/users.yaml#/UserListItem'
+    UserAccessDetail:
+      $ref: './components/schemas/users.yaml#/UserAccessDetail'

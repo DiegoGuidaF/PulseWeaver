@@ -64,6 +64,12 @@ const (
 	IpNotRegistered PolicySimulateDenyReason = "ip_not_registered"
 )
 
+// Defines values for PolicySimulateResultMatchSource.
+const (
+	PolicySimulateResultMatchSourceDevice        PolicySimulateResultMatchSource = "device"
+	PolicySimulateResultMatchSourceNetworkPolicy PolicySimulateResultMatchSource = "network_policy"
+)
+
 // Defines values for UpdateDeviceRequestDeviceType.
 const (
 	UpdateDeviceRequestDeviceTypeMobile UpdateDeviceRequestDeviceType = "mobile"
@@ -145,10 +151,16 @@ type AccessLogRow struct {
 	Headers    map[string][]string `json:"headers"`
 	HttpMethod *string             `json:"http_method,omitempty"`
 	Id         ID                  `json:"id"`
-	Outcome    bool                `json:"outcome"`
-	TargetHost *string             `json:"target_host,omitempty"`
-	TargetUri  *string             `json:"target_uri,omitempty"`
-	XffChain   *string             `json:"xff_chain,omitempty"`
+
+	// NetworkPolicyId ID of the network policy that authorized this request, when the match was via CIDR containment rather than a device address. Null for device-matched or denied requests.
+	NetworkPolicyId *ID `json:"network_policy_id"`
+
+	// NetworkPolicyName Display name of the matching network policy at log time.
+	NetworkPolicyName *string `json:"network_policy_name"`
+	Outcome           bool    `json:"outcome"`
+	TargetHost        *string `json:"target_host,omitempty"`
+	TargetUri         *string `json:"target_uri,omitempty"`
+	XffChain          *string `json:"xff_chain,omitempty"`
 }
 
 // AddAddressRequest defines model for AddAddressRequest.
@@ -260,6 +272,14 @@ type CreateDeviceRequest struct {
 // CreateDeviceResponse defines model for CreateDeviceResponse.
 type CreateDeviceResponse struct {
 	Device Device `json:"device"`
+}
+
+// CreateNetworkPolicyRequest defines model for CreateNetworkPolicyRequest.
+type CreateNetworkPolicyRequest struct {
+	// Cidr CIDR notation. Host bits are zeroed automatically by the server (e.g. "192.168.1.5/24" is stored as "192.168.1.0/24").
+	Cidr        string  `json:"cidr"`
+	Description *string `json:"description"`
+	Name        string  `json:"name"`
 }
 
 // CreateRegistrationRequest defines model for CreateRegistrationRequest.
@@ -527,6 +547,84 @@ type MaxActiveAddressesRule struct {
 	UpdatedAt    UTCTime `json:"updated_at"`
 }
 
+// NetworkPolicy defines model for NetworkPolicy.
+type NetworkPolicy struct {
+	AllowAllHosts bool `json:"allow_all_hosts"`
+
+	// Cidr Normalized CIDR notation, e.g. "192.168.1.0/24"
+	Cidr        string  `json:"cidr"`
+	CreatedAt   UTCTime `json:"created_at"`
+	Description *string `json:"description"`
+	Enabled     bool    `json:"enabled"`
+	Id          ID      `json:"id"`
+	Name        string  `json:"name"`
+	UpdatedAt   UTCTime `json:"updated_at"`
+}
+
+// NetworkPolicyDetail defines model for NetworkPolicyDetail.
+type NetworkPolicyDetail struct {
+	AllowAllHosts      bool    `json:"allow_all_hosts"`
+	Cidr               string  `json:"cidr"`
+	CreatedAt          UTCTime `json:"created_at"`
+	Description        *string `json:"description"`
+	EffectiveHostCount int     `json:"effective_host_count"`
+	Enabled            bool    `json:"enabled"`
+
+	// HostGroups ALL known host groups, each annotated with whether this policy has it assigned. Ordered: assigned first, then alphabetical.
+	HostGroups []NetworkPolicyHostGroup `json:"host_groups"`
+	Id         ID                       `json:"id"`
+
+	// IndividualHosts ALL known individual hosts, each annotated with assignment state. Ordered: direct-assigned first, then via-group, then unassigned.
+	IndividualHosts []NetworkPolicyHost `json:"individual_hosts"`
+	Name            string              `json:"name"`
+	TotalHostCount  int                 `json:"total_host_count"`
+	UpdatedAt       UTCTime             `json:"updated_at"`
+}
+
+// NetworkPolicyHost defines model for NetworkPolicyHost.
+type NetworkPolicyHost struct {
+	// Assigned True when this host is directly assigned to the policy.
+	Assigned bool    `json:"assigned"`
+	Fqdn     string  `json:"fqdn"`
+	Icon     *string `json:"icon"`
+	Id       ID      `json:"id"`
+
+	// ViaGroup True when this host is reachable through at least one assigned group, regardless of direct assignment.
+	ViaGroup bool `json:"via_group"`
+}
+
+// NetworkPolicyHostGroup defines model for NetworkPolicyHostGroup.
+type NetworkPolicyHostGroup struct {
+	// Assigned True when this policy includes this host group.
+	Assigned bool    `json:"assigned"`
+	Color    *string `json:"color"`
+
+	// Hosts All hosts that belong to this group.
+	Hosts []KnownHostRef `json:"hosts"`
+	Icon  *string        `json:"icon"`
+	Id    ID             `json:"id"`
+	Name  string         `json:"name"`
+}
+
+// NetworkPolicySummary defines model for NetworkPolicySummary.
+type NetworkPolicySummary struct {
+	// AllowAllHosts True when this policy grants access to all hosts regardless of configuration. When true, effective_host_count equals total_host_count.
+	AllowAllHosts bool `json:"allow_all_hosts"`
+
+	// Cidr Normalized CIDR notation, e.g. "192.168.1.0/24"
+	Cidr      string  `json:"cidr"`
+	CreatedAt UTCTime `json:"created_at"`
+
+	// EffectiveHostCount Number of distinct hosts reachable through this policy (groups + direct, deduplicated). Equals total_host_count when allow_all_hosts is true.
+	EffectiveHostCount int    `json:"effective_host_count"`
+	Enabled            bool   `json:"enabled"`
+	Id                 ID     `json:"id"`
+	Name               string `json:"name"`
+
+	// TotalHostCount Total number of known hosts in the system (denominator).
+	TotalHostCount int `json:"total_host_count"`
+}
+
 // Password defines model for Password.
 type Password = string
 
@@ -559,6 +657,21 @@ type PolicyIPDevice struct {
 	DeviceName string `json:"device_name"`
 }
 
+// PolicyNetworkPolicyEntry defines model for PolicyNetworkPolicyEntry.
+type PolicyNetworkPolicyEntry struct {
+	AllowAllHosts bool   `json:"allow_all_hosts"`
+	Cidr          string `json:"cidr"`
+
+	// EffectiveHostCount Hosts reachable through this policy. Equals total_host_count when allow_all_hosts is true.
+	EffectiveHostCount int `json:"effective_host_count"`
+
+	// Enabled False when the policy is present in the snapshot but currently disabled. Disabled policies are cached but bypassed in verify decisions.
+	Enabled        bool   `json:"enabled"`
+	PolicyId       ID     `json:"policy_id"`
+	PolicyName     string `json:"policy_name"`
+	TotalHostCount int    `json:"total_host_count"`
+}
+
 // PolicySimulateDenyReason Reason for denial.
 type PolicySimulateDenyReason string
 
@@ -570,7 +683,19 @@ type PolicySimulateResult struct {
 	DenyReason *PolicySimulateDenyReason `json:"deny_reason"`
 	Host       string                    `json:"host"`
 	Ip         string                    `json:"ip"`
+
+	// MatchSource Which mechanism authorized the request. Null when allowed is false.
+	MatchSource *PolicySimulateResultMatchSource `json:"match_source"`
+
+	// NetworkPolicyId ID of the matching policy when match_source is 'network_policy'.
+	NetworkPolicyId *ID `json:"network_policy_id"`
+
+	// NetworkPolicyName Name of the matching policy when match_source is 'network_policy'.
+	NetworkPolicyName *string `json:"network_policy_name"`
 }
+
+// PolicySimulateResultMatchSource Which mechanism authorized the request. Null when allowed is false.
+type PolicySimulateResultMatchSource string
 
 // PolicyUserAddress defines model for PolicyUserAddress.
 type PolicyUserAddress struct {
@@ -655,6 +780,9 @@ type PolicyUserIPSharedUser struct {
 
 // PolicyUserMapAudit defines model for PolicyUserMapAudit.
 type PolicyUserMapAudit struct {
+	// NetworkPolicies All enabled network policies currently in the cache.
+	NetworkPolicies []PolicyNetworkPolicyEntry `json:"network_policies"`
+
 	// RefreshDurationMs How long the last refresh took in milliseconds.
 	RefreshDurationMs int `json:"refresh_duration_ms"`
 
@@ -671,8 +799,11 @@ type PolicyUserMapAudit struct {
 	TotalHostCount int `json:"total_host_count"`
 
 	// TotalIpCount Distinct IPs currently in the policy cache.
-	TotalIpCount int               `json:"total_ip_count"`
-	Users        []PolicyUserEntry `json:"users"`
+	TotalIpCount int `json:"total_ip_count"`
+
+	// TotalNetworkPolicyCount Number of enabled network policies currently in the cache.
+	TotalNetworkPolicyCount int               `json:"total_network_policy_count"`
+	Users                   []PolicyUserEntry `json:"users"`
 }
 
 // PromoteUserRequest defines model for PromoteUserRequest.
@@ -734,6 +865,21 @@ type UpdateDeviceRequest struct {
 
 // UpdateDeviceRequestDeviceType Network behaviour classification.
 type UpdateDeviceRequestDeviceType string
+
+// UpdateNetworkPolicyHostAccessRequest Complete replacement of host access. When allow_all_hosts is true, host_group_ids and host_ids are ignored by the server but must be present (send empty arrays or valid values).
+type UpdateNetworkPolicyHostAccessRequest struct {
+	AllowAllHosts bool `json:"allow_all_hosts"`
+	HostGroupIds  []ID `json:"host_group_ids"`
+	HostIds       []ID `json:"host_ids"`
+}
+
+// UpdateNetworkPolicyRequest All fields optional; only provided fields are updated.
+type UpdateNetworkPolicyRequest struct {
+	Cidr        *string `json:"cidr,omitempty"`
+	Description *string `json:"description"`
+	Enabled     *bool   `json:"enabled,omitempty"`
+	Name        *string `json:"name,omitempty"`
+}
 
 // UpdateProfileRequest defines model for UpdateProfileRequest.
 type UpdateProfileRequest struct {
@@ -862,6 +1008,9 @@ type GetAccessLogParams struct {
 
 	// BeforeId Cursor; return rows with id < before_id
 	BeforeId *ID `form:"before_id,omitempty" json:"before_id,omitempty"`
+
+	// NetworkPolicyId Filter entries authorized by a specific network policy.
+	NetworkPolicyId *ID `form:"network_policy_id,omitempty" json:"network_policy_id,omitempty"`
 }
 
 // GetAccessLogByCountryParams defines parameters for GetAccessLogByCountry.
@@ -1012,6 +1161,15 @@ type PutMaxActiveAddressesRuleJSONRequestBody = PutMaxActiveAddressesRuleRequest
 
 // DeviceHeartbeatByAPIKeyJSONRequestBody defines body for DeviceHeartbeatByAPIKey for application/json ContentType.
 type DeviceHeartbeatByAPIKeyJSONRequestBody = DeviceHeartbeatByApiKeyRequest
+
+// CreateNetworkPolicyJSONRequestBody defines body for CreateNetworkPolicy for application/json ContentType.
+type CreateNetworkPolicyJSONRequestBody = CreateNetworkPolicyRequest
+
+// UpdateNetworkPolicyJSONRequestBody defines body for UpdateNetworkPolicy for application/json ContentType.
+type UpdateNetworkPolicyJSONRequestBody = UpdateNetworkPolicyRequest
+
+// UpdateNetworkPolicyHostAccessJSONRequestBody defines body for UpdateNetworkPolicyHostAccess for application/json ContentType.
+type UpdateNetworkPolicyHostAccessJSONRequestBody = UpdateNetworkPolicyHostAccessRequest
 
 // ClaimRegistrationJSONRequestBody defines body for ClaimRegistration for application/json ContentType.
 type ClaimRegistrationJSONRequestBody = ClaimRegistrationRequest
@@ -1330,6 +1488,24 @@ type ServerInterface interface {
 	// Performs a heartbeat with the given api key header
 	// (POST /heartbeat)
 	DeviceHeartbeatByAPIKey(w http.ResponseWriter, r *http.Request)
+	// List all network policies
+	// (GET /network-policies)
+	ListNetworkPolicies(w http.ResponseWriter, r *http.Request)
+	// Create a new network policy
+	// (POST /network-policies)
+	CreateNetworkPolicy(w http.ResponseWriter, r *http.Request)
+	// Delete a network policy
+	// (DELETE /network-policies/{id})
+	DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID)
+	// Get network policy detail
+	// (GET /network-policies/{id})
+	GetNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID)
+	// Update policy metadata (direct-save)
+	// (PATCH /network-policies/{id})
+	UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID)
+	// Replace host access configuration (draft-save)
+	// (PUT /network-policies/{id}/host-access)
+	UpdateNetworkPolicyHostAccess(w http.ResponseWriter, r *http.Request, id ID)
 	// Claim a registration code
 	// (POST /register)
 	ClaimRegistration(w http.ResponseWriter, r *http.Request)
@@ -1657,6 +1833,42 @@ func (_ Unimplemented) DeviceHeartbeatByAPIKey(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// List all network policies
+// (GET /network-policies)
+func (_ Unimplemented) ListNetworkPolicies(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a new network policy
+// (POST /network-policies)
+func (_ Unimplemented) CreateNetworkPolicy(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete a network policy
+// (DELETE /network-policies/{id})
+func (_ Unimplemented) DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get network policy detail
+// (GET /network-policies/{id})
+func (_ Unimplemented) GetNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update policy metadata (direct-save)
+// (PATCH /network-policies/{id})
+func (_ Unimplemented) UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Replace host access configuration (draft-save)
+// (PUT /network-policies/{id}/host-access)
+func (_ Unimplemented) UpdateNetworkPolicyHostAccess(w http.ResponseWriter, r *http.Request, id ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Claim a registration code
 // (POST /register)
 func (_ Unimplemented) ClaimRegistration(w http.ResponseWriter, r *http.Request) {
@@ -1783,6 +1995,14 @@ func (siw *ServerInterfaceWrapper) GetAccessLog(w http.ResponseWriter, r *http.R
 	err = runtime.BindQueryParameter("form", true, false, "before_id", r.URL.Query(), &params.BeforeId)
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before_id", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "network_policy_id" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "network_policy_id", r.URL.Query(), &params.NetworkPolicyId)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "network_policy_id", Err: err})
 		return
 	}
 
@@ -3338,6 +3558,170 @@ func (siw *ServerInterfaceWrapper) DeviceHeartbeatByAPIKey(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// ListNetworkPolicies operation middleware
+func (siw *ServerInterfaceWrapper) ListNetworkPolicies(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListNetworkPolicies(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateNetworkPolicy operation middleware
+func (siw *ServerInterfaceWrapper) CreateNetworkPolicy(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateNetworkPolicy(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteNetworkPolicy operation middleware
+func (siw *ServerInterfaceWrapper) DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteNetworkPolicy(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetNetworkPolicy operation middleware
+func (siw *ServerInterfaceWrapper) GetNetworkPolicy(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNetworkPolicy(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateNetworkPolicy operation middleware
+func (siw *ServerInterfaceWrapper) UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateNetworkPolicy(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateNetworkPolicyHostAccess operation middleware
+func (siw *ServerInterfaceWrapper) UpdateNetworkPolicyHostAccess(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateNetworkPolicyHostAccess(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ClaimRegistration operation middleware
 func (siw *ServerInterfaceWrapper) ClaimRegistration(w http.ResponseWriter, r *http.Request) {
 
@@ -3660,6 +4044,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/heartbeat", wrapper.DeviceHeartbeatByAPIKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/network-policies", wrapper.ListNetworkPolicies)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/network-policies", wrapper.CreateNetworkPolicy)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/network-policies/{id}", wrapper.DeleteNetworkPolicy)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/network-policies/{id}", wrapper.GetNetworkPolicy)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/network-policies/{id}", wrapper.UpdateNetworkPolicy)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/network-policies/{id}/host-access", wrapper.UpdateNetworkPolicyHostAccess)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/register", wrapper.ClaimRegistration)
@@ -6020,6 +6422,343 @@ func (response DeviceHeartbeatByAPIKey500JSONResponse) VisitDeviceHeartbeatByAPI
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListNetworkPoliciesRequestObject struct {
+}
+
+type ListNetworkPoliciesResponseObject interface {
+	VisitListNetworkPoliciesResponse(w http.ResponseWriter) error
+}
+
+type ListNetworkPolicies200JSONResponse []NetworkPolicySummary
+
+func (response ListNetworkPolicies200JSONResponse) VisitListNetworkPoliciesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListNetworkPolicies401JSONResponse ErrorResponse
+
+func (response ListNetworkPolicies401JSONResponse) VisitListNetworkPoliciesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListNetworkPolicies403Response struct {
+}
+
+func (response ListNetworkPolicies403Response) VisitListNetworkPoliciesResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type ListNetworkPolicies500JSONResponse ErrorResponse
+
+func (response ListNetworkPolicies500JSONResponse) VisitListNetworkPoliciesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNetworkPolicyRequestObject struct {
+	Body *CreateNetworkPolicyJSONRequestBody
+}
+
+type CreateNetworkPolicyResponseObject interface {
+	VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error
+}
+
+type CreateNetworkPolicy201JSONResponse NetworkPolicy
+
+func (response CreateNetworkPolicy201JSONResponse) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNetworkPolicy400JSONResponse ErrorResponse
+
+func (response CreateNetworkPolicy400JSONResponse) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNetworkPolicy401JSONResponse ErrorResponse
+
+func (response CreateNetworkPolicy401JSONResponse) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNetworkPolicy403Response struct {
+}
+
+func (response CreateNetworkPolicy403Response) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type CreateNetworkPolicy409JSONResponse ErrorResponse
+
+func (response CreateNetworkPolicy409JSONResponse) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNetworkPolicy500JSONResponse ErrorResponse
+
+func (response CreateNetworkPolicy500JSONResponse) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNetworkPolicyRequestObject struct {
+	Id ID `json:"id"`
+}
+
+type DeleteNetworkPolicyResponseObject interface {
+	VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error
+}
+
+type DeleteNetworkPolicy204Response struct {
+}
+
+func (response DeleteNetworkPolicy204Response) VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteNetworkPolicy401JSONResponse ErrorResponse
+
+func (response DeleteNetworkPolicy401JSONResponse) VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNetworkPolicy403Response struct {
+}
+
+func (response DeleteNetworkPolicy403Response) VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type DeleteNetworkPolicy404JSONResponse ErrorResponse
+
+func (response DeleteNetworkPolicy404JSONResponse) VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNetworkPolicy500JSONResponse ErrorResponse
+
+func (response DeleteNetworkPolicy500JSONResponse) VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNetworkPolicyRequestObject struct {
+	Id ID `json:"id"`
+}
+
+type GetNetworkPolicyResponseObject interface {
+	VisitGetNetworkPolicyResponse(w http.ResponseWriter) error
+}
+
+type GetNetworkPolicy200JSONResponse NetworkPolicyDetail
+
+func (response GetNetworkPolicy200JSONResponse) VisitGetNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNetworkPolicy401JSONResponse ErrorResponse
+
+func (response GetNetworkPolicy401JSONResponse) VisitGetNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNetworkPolicy403Response struct {
+}
+
+func (response GetNetworkPolicy403Response) VisitGetNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type GetNetworkPolicy404JSONResponse ErrorResponse
+
+func (response GetNetworkPolicy404JSONResponse) VisitGetNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNetworkPolicy500JSONResponse ErrorResponse
+
+func (response GetNetworkPolicy500JSONResponse) VisitGetNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicyRequestObject struct {
+	Id   ID `json:"id"`
+	Body *UpdateNetworkPolicyJSONRequestBody
+}
+
+type UpdateNetworkPolicyResponseObject interface {
+	VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error
+}
+
+type UpdateNetworkPolicy204Response struct {
+}
+
+func (response UpdateNetworkPolicy204Response) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type UpdateNetworkPolicy400JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicy400JSONResponse) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicy401JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicy401JSONResponse) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicy403Response struct {
+}
+
+func (response UpdateNetworkPolicy403Response) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type UpdateNetworkPolicy404JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicy404JSONResponse) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicy409JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicy409JSONResponse) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicy500JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicy500JSONResponse) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicyHostAccessRequestObject struct {
+	Id   ID `json:"id"`
+	Body *UpdateNetworkPolicyHostAccessJSONRequestBody
+}
+
+type UpdateNetworkPolicyHostAccessResponseObject interface {
+	VisitUpdateNetworkPolicyHostAccessResponse(w http.ResponseWriter) error
+}
+
+type UpdateNetworkPolicyHostAccess204Response struct {
+}
+
+func (response UpdateNetworkPolicyHostAccess204Response) VisitUpdateNetworkPolicyHostAccessResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type UpdateNetworkPolicyHostAccess400JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicyHostAccess400JSONResponse) VisitUpdateNetworkPolicyHostAccessResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicyHostAccess401JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicyHostAccess401JSONResponse) VisitUpdateNetworkPolicyHostAccessResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicyHostAccess403Response struct {
+}
+
+func (response UpdateNetworkPolicyHostAccess403Response) VisitUpdateNetworkPolicyHostAccessResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type UpdateNetworkPolicyHostAccess404JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicyHostAccess404JSONResponse) VisitUpdateNetworkPolicyHostAccessResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicyHostAccess500JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicyHostAccess500JSONResponse) VisitUpdateNetworkPolicyHostAccessResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type ClaimRegistrationRequestObject struct {
 	Body *ClaimRegistrationJSONRequestBody
 }
@@ -6309,6 +7048,24 @@ type StrictServerInterface interface {
 	// Performs a heartbeat with the given api key header
 	// (POST /heartbeat)
 	DeviceHeartbeatByAPIKey(ctx context.Context, request DeviceHeartbeatByAPIKeyRequestObject) (DeviceHeartbeatByAPIKeyResponseObject, error)
+	// List all network policies
+	// (GET /network-policies)
+	ListNetworkPolicies(ctx context.Context, request ListNetworkPoliciesRequestObject) (ListNetworkPoliciesResponseObject, error)
+	// Create a new network policy
+	// (POST /network-policies)
+	CreateNetworkPolicy(ctx context.Context, request CreateNetworkPolicyRequestObject) (CreateNetworkPolicyResponseObject, error)
+	// Delete a network policy
+	// (DELETE /network-policies/{id})
+	DeleteNetworkPolicy(ctx context.Context, request DeleteNetworkPolicyRequestObject) (DeleteNetworkPolicyResponseObject, error)
+	// Get network policy detail
+	// (GET /network-policies/{id})
+	GetNetworkPolicy(ctx context.Context, request GetNetworkPolicyRequestObject) (GetNetworkPolicyResponseObject, error)
+	// Update policy metadata (direct-save)
+	// (PATCH /network-policies/{id})
+	UpdateNetworkPolicy(ctx context.Context, request UpdateNetworkPolicyRequestObject) (UpdateNetworkPolicyResponseObject, error)
+	// Replace host access configuration (draft-save)
+	// (PUT /network-policies/{id}/host-access)
+	UpdateNetworkPolicyHostAccess(ctx context.Context, request UpdateNetworkPolicyHostAccessRequestObject) (UpdateNetworkPolicyHostAccessResponseObject, error)
 	// Claim a registration code
 	// (POST /register)
 	ClaimRegistration(ctx context.Context, request ClaimRegistrationRequestObject) (ClaimRegistrationResponseObject, error)
@@ -7762,6 +8519,179 @@ func (sh *strictHandler) DeviceHeartbeatByAPIKey(w http.ResponseWriter, r *http.
 	}
 }
 
+// ListNetworkPolicies operation middleware
+func (sh *strictHandler) ListNetworkPolicies(w http.ResponseWriter, r *http.Request) {
+	var request ListNetworkPoliciesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListNetworkPolicies(ctx, request.(ListNetworkPoliciesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListNetworkPolicies")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListNetworkPoliciesResponseObject); ok {
+		if err := validResponse.VisitListNetworkPoliciesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateNetworkPolicy operation middleware
+func (sh *strictHandler) CreateNetworkPolicy(w http.ResponseWriter, r *http.Request) {
+	var request CreateNetworkPolicyRequestObject
+
+	var body CreateNetworkPolicyJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateNetworkPolicy(ctx, request.(CreateNetworkPolicyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateNetworkPolicy")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateNetworkPolicyResponseObject); ok {
+		if err := validResponse.VisitCreateNetworkPolicyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteNetworkPolicy operation middleware
+func (sh *strictHandler) DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+	var request DeleteNetworkPolicyRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteNetworkPolicy(ctx, request.(DeleteNetworkPolicyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteNetworkPolicy")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteNetworkPolicyResponseObject); ok {
+		if err := validResponse.VisitDeleteNetworkPolicyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetNetworkPolicy operation middleware
+func (sh *strictHandler) GetNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+	var request GetNetworkPolicyRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetNetworkPolicy(ctx, request.(GetNetworkPolicyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetNetworkPolicy")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetNetworkPolicyResponseObject); ok {
+		if err := validResponse.VisitGetNetworkPolicyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateNetworkPolicy operation middleware
+func (sh *strictHandler) UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+	var request UpdateNetworkPolicyRequestObject
+
+	request.Id = id
+
+	var body UpdateNetworkPolicyJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateNetworkPolicy(ctx, request.(UpdateNetworkPolicyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateNetworkPolicy")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateNetworkPolicyResponseObject); ok {
+		if err := validResponse.VisitUpdateNetworkPolicyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateNetworkPolicyHostAccess operation middleware
+func (sh *strictHandler) UpdateNetworkPolicyHostAccess(w http.ResponseWriter, r *http.Request, id ID) {
+	var request UpdateNetworkPolicyHostAccessRequestObject
+
+	request.Id = id
+
+	var body UpdateNetworkPolicyHostAccessJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateNetworkPolicyHostAccess(ctx, request.(UpdateNetworkPolicyHostAccessRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateNetworkPolicyHostAccess")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateNetworkPolicyHostAccessResponseObject); ok {
+		if err := validResponse.VisitUpdateNetworkPolicyHostAccessResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ClaimRegistration operation middleware
 func (sh *strictHandler) ClaimRegistration(w http.ResponseWriter, r *http.Request) {
 	var request ClaimRegistrationRequestObject
@@ -7858,197 +8788,226 @@ func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"9O7T/wsAAP//P5Kxl/c9AQA=",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

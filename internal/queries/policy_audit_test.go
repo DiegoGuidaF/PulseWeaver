@@ -39,7 +39,7 @@ func TestBuildPolicyUserMap_NoAccessUser(t *testing.T) {
 		LastRefreshDurationMs: 0,
 	}}
 
-	result, err := repo.BuildPolicyUserMap(t.Context(), reader)
+	result, err := repo.BuildPolicyUserMap(t.Context(), reader, nil)
 	is.NoErr(err)
 
 	// At least the seeded admin user must appear.
@@ -102,7 +102,7 @@ func TestBuildPolicyUserMap_CachePresentUser(t *testing.T) {
 		},
 	}
 
-	result, err := repo.BuildPolicyUserMap(t.Context(), &stubPolicyMapReader{snap: snap})
+	result, err := repo.BuildPolicyUserMap(t.Context(), &stubPolicyMapReader{snap: snap}, nil)
 	is.NoErr(err)
 
 	// Find the admin user.
@@ -154,7 +154,7 @@ func TestBuildPolicyUserMap_GroupHostsIncluded(t *testing.T) {
 	// Empty snapshot: the user has no cache presence, so UserAllowedHosts must
 	// come entirely from the DB hostsQuery (the path we're exercising).
 	reader := &stubPolicyMapReader{snap: policy.PolicyMapSnapshot{LastRefreshedAt: time.Now().UTC()}}
-	result, err := repo.BuildPolicyUserMap(ctx, reader)
+	result, err := repo.BuildPolicyUserMap(ctx, reader, nil)
 	is.NoErr(err)
 
 	var found *httpapi.PolicyUserEntry
@@ -184,7 +184,7 @@ func TestBuildPolicyUserMap_UsersSortedAlphabetically(t *testing.T) {
 
 	reader := &stubPolicyMapReader{snap: policy.PolicyMapSnapshot{LastRefreshedAt: time.Now().UTC()}}
 
-	result, err := repo.BuildPolicyUserMap(t.Context(), reader)
+	result, err := repo.BuildPolicyUserMap(t.Context(), reader, nil)
 	is.NoErr(err)
 
 	is.True(len(result.Users) >= 2)

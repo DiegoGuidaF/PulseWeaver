@@ -129,3 +129,86 @@ ChangePasswordRequest:
       type: string
       minLength: 8
       maxLength: 72
+
+# ── Access management views ────────────────────────────────────────────────────
+
+DeviceListItem:
+  type: object
+  required: [id, name, live_ip_count]
+  description: Device summary shown on user access detail.
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    name:
+      type: string
+      example: macbook-maya
+    icon:
+      type: string
+      nullable: true
+    live_ip_count:
+      type: integer
+      minimum: 0
+    api_key_prefix:
+      type: string
+      nullable: true
+      description: Non-null when an API key is configured; the full key is never returned.
+      example: pw_abc123
+
+UserListItem:
+  type: object
+  required: [id, username, display_name, groups, host_count, device_count, live_ip_count, bypass_host_check]
+  description: User summary for the access management list page.
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    username:
+      type: string
+      example: maya.patel
+    display_name:
+      type: string
+      example: Maya Patel
+    groups:
+      type: array
+      items:
+        $ref: './groups.yaml#/GroupRef'
+    host_count:
+      type: integer
+      minimum: 0
+      description: Total hosts accessible across all assigned groups.
+    device_count:
+      type: integer
+      minimum: 0
+    live_ip_count:
+      type: integer
+      minimum: 0
+    bypass_host_check:
+      type: boolean
+
+UserAccessDetail:
+  type: object
+  required: [id, username, display_name, devices, groups, bypass_host_check]
+  description: Full user access detail including devices and group assignments.
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    username:
+      type: string
+      example: maya.patel
+    display_name:
+      type: string
+      example: Maya Patel
+    email:
+      type: string
+      format: email
+      nullable: true
+    devices:
+      type: array
+      items:
+        $ref: '#/DeviceListItem'
+    groups:
+      type: array
+      description: All groups with their hosts and assignment status.
+      items:
+        $ref: './groups.yaml#/SubjectGroupDetail'
+    bypass_host_check:
+      type: boolean

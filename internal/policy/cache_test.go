@@ -6,21 +6,20 @@ import (
 	"context"
 	"errors"
 	"net/netip"
-	"sort"
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/matryer/is"
 )
 
-// ── Deny-wins intersection ────────────────────────────────────────────────────
+// ── buildIPSet: deny-wins intersection ───────────────────────────────────────
 
-func TestDecide_IntersectionApplied_TwoRestrictedUsers(t *testing.T) {
+func TestBuildIPSet_IntersectionApplied_TwoRestrictedUsers(t *testing.T) {
 	is := is.New(t)
-	// Two users share 1.2.3.4; userA allows {a.com, b.com}, userB allows {b.com}.
-	// Intersection → {b.com}; IntersectionApplied must be true.
+	// userA allows {a.com, b.com}, userB allows {b.com} → intersection {b.com}.
 	entries := []device.IPEntry{
 		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
 		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: auth.UserID(2)},
@@ -29,30 +28,25 @@ func TestDecide_IntersectionApplied_TwoRestrictedUsers(t *testing.T) {
 		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
 		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com"}},
 	}
-	svc := newRestrictedService(entries, hostAccess)
-
-	s := svc.GetPolicyMap()
-	is.Equal(len(s.Entries), 1)
-	entry := s.Entries[0]
+	result := buildIPSet(entries, hostAccess)
+	entry := result["1.2.3.4"]
 	is.True(entry.IntersectionApplied)
-	is.Equal(entry.AllowedHosts, []string{"b.com"})
+	is.Equal(sortedKeys(entry.AllowedHosts), []string{"b.com"})
 }
 
-func TestDecide_IntersectionNotApplied_SingleRestrictedUser(t *testing.T) {
+func TestBuildIPSet_IntersectionNotApplied_SingleRestrictedUser(t *testing.T) {
 	is := is.New(t)
 	entries := []device.IPEntry{{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)}}
 	hostAccess := []UserHostAccess{
 		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
 	}
-	svc := newRestrictedService(entries, hostAccess)
-	s := svc.GetPolicyMap()
-	is.Equal(len(s.Entries), 1)
-	is.True(!s.Entries[0].IntersectionApplied)
+	result := buildIPSet(entries, hostAccess)
+	is.True(!result["1.2.3.4"].IntersectionApplied)
 }
 
-func TestDecide_IntersectionNotApplied_BypassUserShared(t *testing.T) {
+func TestBuildIPSet_IntersectionNotApplied_BypassUserShared(t *testing.T) {
 	is := is.New(t)
-	// Bypass user + restricted user on same IP: bypass doesn't intersect, so no shrink.
+	// Bypass users are intersection-neutral; the restricted user's host set is left untouched.
 	entries := []device.IPEntry{
 		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
 		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: auth.UserID(2)},
@@ -61,13 +55,11 @@ func TestDecide_IntersectionNotApplied_BypassUserShared(t *testing.T) {
 		{UserID: auth.UserID(1), BypassAllowlist: true},
 		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
 	}
-	svc := newRestrictedService(entries, hostAccess)
-	s := svc.GetPolicyMap()
-	is.Equal(len(s.Entries), 1)
-	is.True(!s.Entries[0].IntersectionApplied)
+	result := buildIPSet(entries, hostAccess)
+	is.True(!result["1.2.3.4"].IntersectionApplied)
 }
 
-func TestCache_IntersectionApplied_ThreeRestrictedUsers(t *testing.T) {
+func TestBuildIPSet_IntersectionApplied_ThreeRestrictedUsers(t *testing.T) {
 	is := is.New(t)
 	// A∩B narrows to {b,c}, then ∩C narrows to {c}. Intersection is chained.
 	entries := []device.IPEntry{
@@ -80,15 +72,13 @@ func TestCache_IntersectionApplied_ThreeRestrictedUsers(t *testing.T) {
 		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com", "c.com"}},
 		{UserID: auth.UserID(3), BypassAllowlist: false, AllowedHosts: []string{"c.com"}},
 	}
-	svc := newRestrictedService(entries, hostAccess)
-	s := svc.GetPolicyMap()
-	is.Equal(len(s.Entries), 1)
-	entry := s.Entries[0]
+	result := buildIPSet(entries, hostAccess)
+	entry := result["1.2.3.4"]
 	is.True(entry.IntersectionApplied)
-	is.Equal(entry.AllowedHosts, []string{"c.com"})
+	is.Equal(sortedKeys(entry.AllowedHosts), []string{"c.com"})
 }
 
-func TestCache_IntersectionApplied_DisjointSets_EmptyResult(t *testing.T) {
+func TestBuildIPSet_IntersectionApplied_DisjointSets_EmptyResult(t *testing.T) {
 	is := is.New(t)
 	// No host in common: intersection shrinks from size 1 → 0; IntersectionApplied = true.
 	entries := []device.IPEntry{
@@ -99,15 +89,13 @@ func TestCache_IntersectionApplied_DisjointSets_EmptyResult(t *testing.T) {
 		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
 		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com"}},
 	}
-	svc := newRestrictedService(entries, hostAccess)
-	s := svc.GetPolicyMap()
-	is.Equal(len(s.Entries), 1)
-	entry := s.Entries[0]
+	result := buildIPSet(entries, hostAccess)
+	entry := result["1.2.3.4"]
 	is.True(entry.IntersectionApplied)
-	is.Equal(entry.AllowedHosts, []string{})
+	is.Equal(sortedKeys(entry.AllowedHosts), []string{})
 }
 
-func TestCache_IntersectionNotApplied_IdenticalSets(t *testing.T) {
+func TestBuildIPSet_IntersectionNotApplied_IdenticalSets(t *testing.T) {
 	is := is.New(t)
 	// Same host set for both users: intersection doesn't shrink → IntersectionApplied = false.
 	entries := []device.IPEntry{
@@ -118,17 +106,15 @@ func TestCache_IntersectionNotApplied_IdenticalSets(t *testing.T) {
 		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
 		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
 	}
-	svc := newRestrictedService(entries, hostAccess)
-	s := svc.GetPolicyMap()
-	is.Equal(len(s.Entries), 1)
-	entry := s.Entries[0]
+	result := buildIPSet(entries, hostAccess)
+	entry := result["1.2.3.4"]
 	is.True(!entry.IntersectionApplied)
-	is.Equal(entry.AllowedHosts, []string{"a.com", "b.com"})
+	is.Equal(sortedKeys(entry.AllowedHosts), []string{"a.com", "b.com"})
 }
 
-// ── BypassAllowlist entry flag ────────────────────────────────────────────────
+// ── buildIPSet: BypassAllowlist entry flag ───────────────────────────────────
 
-func TestCache_AllBypass_EntryBypassIsTrue(t *testing.T) {
+func TestBuildIPSet_AllBypass_EntryBypassIsTrue(t *testing.T) {
 	is := is.New(t)
 	// allBypass AND-reduces across contributors; unanimous bypass → entry flag true.
 	entries := []device.IPEntry{
@@ -139,16 +125,14 @@ func TestCache_AllBypass_EntryBypassIsTrue(t *testing.T) {
 		{UserID: auth.UserID(1), BypassAllowlist: true},
 		{UserID: auth.UserID(2), BypassAllowlist: true},
 	}
-	svc := newRestrictedService(entries, hostAccess)
-	s := svc.GetPolicyMap()
-	is.Equal(len(s.Entries), 1)
-	entry := s.Entries[0]
+	result := buildIPSet(entries, hostAccess)
+	entry := result["1.2.3.4"]
 	is.True(entry.BypassAllowlist)
-	// Bypass path never sets AllowedHosts — sorted nil map returns empty slice.
-	is.Equal(entry.AllowedHosts, []string{})
+	// Bypass path never populates AllowedHosts.
+	is.Equal(len(entry.AllowedHosts), 0)
 }
 
-func TestCache_MixedBypass_EntryBypassIsFalse(t *testing.T) {
+func TestBuildIPSet_MixedBypass_EntryBypassIsFalse(t *testing.T) {
 	is := is.New(t)
 	// One bypass + one restricted: AND-reduction breaks unanimity → entry flag false.
 	entries := []device.IPEntry{
@@ -159,15 +143,13 @@ func TestCache_MixedBypass_EntryBypassIsFalse(t *testing.T) {
 		{UserID: auth.UserID(1), BypassAllowlist: true},
 		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
 	}
-	svc := newRestrictedService(entries, hostAccess)
-	s := svc.GetPolicyMap()
-	is.Equal(len(s.Entries), 1)
-	is.True(!s.Entries[0].BypassAllowlist)
+	result := buildIPSet(entries, hostAccess)
+	is.True(!result["1.2.3.4"].BypassAllowlist)
 }
 
-// ── Contributors slice ────────────────────────────────────────────────────────
+// ── buildIPSet: Contributors slice ───────────────────────────────────────────
 
-func TestCache_Contributors_SingleUser_FieldsCorrect(t *testing.T) {
+func TestBuildIPSet_Contributors_SingleUser_FieldsCorrect(t *testing.T) {
 	is := is.New(t)
 	entries := []device.IPEntry{
 		{IP: "1.2.3.4", DeviceID: 42, AddressID: 99, UserID: auth.UserID(7)},
@@ -175,11 +157,9 @@ func TestCache_Contributors_SingleUser_FieldsCorrect(t *testing.T) {
 	hostAccess := []UserHostAccess{
 		{UserID: auth.UserID(7), BypassAllowlist: false, AllowedHosts: []string{"z.com", "a.com"}},
 	}
-	svc := newRestrictedService(entries, hostAccess)
-	s := svc.GetPolicyMap()
-	is.Equal(len(s.Entries), 1)
-	is.Equal(len(s.Entries[0].Contributors), 1)
-	c := s.Entries[0].Contributors[0]
+	result := buildIPSet(entries, hostAccess)
+	is.Equal(len(result["1.2.3.4"].Contributors), 1)
+	c := result["1.2.3.4"].Contributors[0]
 	is.Equal(int64(c.DeviceID), int64(42))
 	is.Equal(int64(c.AddressID), int64(99))
 	is.Equal(int64(c.UserID), int64(7))
@@ -188,7 +168,7 @@ func TestCache_Contributors_SingleUser_FieldsCorrect(t *testing.T) {
 	is.Equal(c.UserAllowedHosts, []string{"a.com", "z.com"})
 }
 
-func TestCache_Contributors_BypassUser_UserBypassTrue(t *testing.T) {
+func TestBuildIPSet_Contributors_BypassUser_UserBypassTrue(t *testing.T) {
 	is := is.New(t)
 	entries := []device.IPEntry{
 		{IP: "1.2.3.4", DeviceID: 5, AddressID: 6, UserID: auth.UserID(3)},
@@ -196,15 +176,13 @@ func TestCache_Contributors_BypassUser_UserBypassTrue(t *testing.T) {
 	hostAccess := []UserHostAccess{
 		{UserID: auth.UserID(3), BypassAllowlist: true},
 	}
-	svc := newRestrictedService(entries, hostAccess)
-	s := svc.GetPolicyMap()
-	is.Equal(len(s.Entries[0].Contributors), 1)
-	c := s.Entries[0].Contributors[0]
+	result := buildIPSet(entries, hostAccess)
+	c := result["1.2.3.4"].Contributors[0]
 	is.True(c.UserBypass)
 	is.Equal(c.UserAllowedHosts, []string{})
 }
 
-func TestCache_Contributors_TwoUsers_BothPresent(t *testing.T) {
+func TestBuildIPSet_Contributors_TwoUsers_BothPresent(t *testing.T) {
 	is := is.New(t)
 	entries := []device.IPEntry{
 		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
@@ -214,16 +192,14 @@ func TestCache_Contributors_TwoUsers_BothPresent(t *testing.T) {
 		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
 		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
 	}
-	svc := newRestrictedService(entries, hostAccess)
-	s := svc.GetPolicyMap()
-	is.Equal(len(s.Entries), 1)
-	is.Equal(len(s.Entries[0].Contributors), 2)
+	result := buildIPSet(entries, hostAccess)
+	is.Equal(len(result["1.2.3.4"].Contributors), 2)
 }
 
-func TestCache_Contributors_SameUser_TwoDevices_BothPresent(t *testing.T) {
+func TestBuildIPSet_Contributors_SameUser_TwoDevices_BothPresent(t *testing.T) {
 	is := is.New(t)
 	// Same user, two devices at the same IP. Second intersection with identical set is
-	// a no-op: firstRestrictedSize == len(result) → IntersectionApplied = false.
+	// a no-op: initialHostsLen == len(allowedHosts) → IntersectionApplied = false.
 	entries := []device.IPEntry{
 		{IP: "1.2.3.4", DeviceID: 10, AddressID: 20, UserID: auth.UserID(5)},
 		{IP: "1.2.3.4", DeviceID: 11, AddressID: 21, UserID: auth.UserID(5)},
@@ -231,18 +207,16 @@ func TestCache_Contributors_SameUser_TwoDevices_BothPresent(t *testing.T) {
 	hostAccess := []UserHostAccess{
 		{UserID: auth.UserID(5), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
 	}
-	svc := newRestrictedService(entries, hostAccess)
-	s := svc.GetPolicyMap()
-	is.Equal(len(s.Entries), 1)
-	entry := s.Entries[0]
+	result := buildIPSet(entries, hostAccess)
+	entry := result["1.2.3.4"]
 	is.Equal(len(entry.Contributors), 2)
 	is.True(!entry.IntersectionApplied)
-	is.Equal(entry.AllowedHosts, []string{"a.com"})
+	is.Equal(sortedKeys(entry.AllowedHosts), []string{"a.com"})
 }
 
-// ── UserAllowedHosts is pre-intersection state ────────────────────────────────
+// ── buildIPSet: UserAllowedHosts reflects pre-intersection state ──────────────
 
-func TestCache_ContributorHosts_PreIntersectionState(t *testing.T) {
+func TestBuildIPSet_ContributorHosts_PreIntersectionState(t *testing.T) {
 	is := is.New(t)
 	// After intersection the entry allows only {b.com}, but each contributor's
 	// UserAllowedHosts must still reflect their individual pre-intersection grants.
@@ -254,11 +228,9 @@ func TestCache_ContributorHosts_PreIntersectionState(t *testing.T) {
 		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com", "c.com"}},
 		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com"}},
 	}
-	svc := newRestrictedService(entries, hostAccess)
-	s := svc.GetPolicyMap()
-	is.Equal(len(s.Entries), 1)
-	entry := s.Entries[0]
-	is.Equal(entry.AllowedHosts, []string{"b.com"})
+	result := buildIPSet(entries, hostAccess)
+	entry := result["1.2.3.4"]
+	is.Equal(sortedKeys(entry.AllowedHosts), []string{"b.com"})
 	is.True(entry.IntersectionApplied)
 
 	byUser := make(map[auth.UserID]ContributorAccess, 2)
@@ -269,9 +241,9 @@ func TestCache_ContributorHosts_PreIntersectionState(t *testing.T) {
 	is.Equal(byUser[auth.UserID(2)].UserAllowedHosts, []string{"b.com"})
 }
 
-// ── Multiple independent IPs ──────────────────────────────────────────────────
+// ── buildIPSet: multiple independent IPs ─────────────────────────────────────
 
-func TestCache_MultipleIPs_IndependentEntries(t *testing.T) {
+func TestBuildIPSet_MultipleIPs_IndependentEntries(t *testing.T) {
 	is := is.New(t)
 	entries := []device.IPEntry{
 		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
@@ -281,25 +253,95 @@ func TestCache_MultipleIPs_IndependentEntries(t *testing.T) {
 		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
 		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com"}},
 	}
-	svc := newRestrictedService(entries, hostAccess)
-	s := svc.GetPolicyMap()
-	is.Equal(len(s.Entries), 2)
+	result := buildIPSet(entries, hostAccess)
+	is.Equal(len(result), 2)
 
-	// Sort by IP so assertions are deterministic despite map iteration order.
-	sort.Slice(s.Entries, func(i, j int) bool { return s.Entries[i].IP < s.Entries[j].IP })
+	e1 := result["1.2.3.4"]
+	is.Equal(sortedKeys(e1.AllowedHosts), []string{"a.com"})
+	is.Equal(len(e1.Contributors), 1)
+	is.Equal(int64(e1.Contributors[0].UserID), int64(1))
 
-	is.Equal(s.Entries[0].IP, "1.2.3.4")
-	is.Equal(s.Entries[0].AllowedHosts, []string{"a.com"})
-	is.Equal(len(s.Entries[0].Contributors), 1)
-	is.Equal(int64(s.Entries[0].Contributors[0].UserID), int64(1))
-
-	is.Equal(s.Entries[1].IP, "5.6.7.8")
-	is.Equal(s.Entries[1].AllowedHosts, []string{"b.com"})
-	is.Equal(len(s.Entries[1].Contributors), 1)
-	is.Equal(int64(s.Entries[1].Contributors[0].UserID), int64(2))
+	e2 := result["5.6.7.8"]
+	is.Equal(sortedKeys(e2.AllowedHosts), []string{"b.com"})
+	is.Equal(len(e2.Contributors), 1)
+	is.Equal(int64(e2.Contributors[0].UserID), int64(2))
 }
 
-// ── Error propagation ─────────────────────────────────────────────────────────
+func TestBuildIPSet_NoHostAccess_UserTreatedAsRestricted(t *testing.T) {
+	is := is.New(t)
+	// With no host access data every user maps to zero-value UserHostAccess{BypassAllowlist: false}.
+	entries := []device.IPEntry{
+		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
+	}
+	result := buildIPSet(entries, nil)
+	entry := result["1.2.3.4"]
+	is.True(!entry.BypassAllowlist)
+	is.Equal(len(entry.AllowedHosts), 0)
+}
+
+// ── buildNetworkPolicyCache ───────────────────────────────────────────────────
+
+func TestBuildNetworkPolicyCache_SortedMostSpecificFirst(t *testing.T) {
+	is := is.New(t)
+	entries := []networkpolicies.CacheEntry{
+		{PolicyID: 1, PolicyName: "broad", CIDR: "10.0.0.0/8"},
+		{PolicyID: 2, PolicyName: "specific", CIDR: "10.1.2.0/24"},
+		{PolicyID: 3, PolicyName: "mid", CIDR: "10.1.0.0/16"},
+	}
+	result := buildNetworkPolicyCache(context.Background(), entries, noopLogger())
+	is.Equal(len(result), 3)
+	is.Equal(result[0].Prefix.Bits(), 24)
+	is.Equal(result[1].Prefix.Bits(), 16)
+	is.Equal(result[2].Prefix.Bits(), 8)
+}
+
+func TestBuildNetworkPolicyCache_InvalidCIDR_Skipped(t *testing.T) {
+	is := is.New(t)
+	entries := []networkpolicies.CacheEntry{
+		{PolicyID: 1, CIDR: "not-a-cidr"},
+		{PolicyID: 2, CIDR: "192.168.1.0/24"},
+	}
+	result := buildNetworkPolicyCache(context.Background(), entries, noopLogger())
+	is.Equal(len(result), 1)
+	is.Equal(result[0].PolicyID, int64(2))
+}
+
+func TestBuildNetworkPolicyCache_HostBitsNormalized(t *testing.T) {
+	is := is.New(t)
+	// "192.168.1.5/24" has host bits set; Masked() must normalize it to 192.168.1.0/24.
+	entries := []networkpolicies.CacheEntry{
+		{PolicyID: 1, CIDR: "192.168.1.5/24"},
+	}
+	result := buildNetworkPolicyCache(context.Background(), entries, noopLogger())
+	is.Equal(len(result), 1)
+	is.Equal(result[0].Prefix.String(), "192.168.1.0/24")
+}
+
+func TestBuildNetworkPolicyCache_AllowedHostFQDNs_DeduplicatedToSet(t *testing.T) {
+	is := is.New(t)
+	entries := []networkpolicies.CacheEntry{
+		{PolicyID: 1, CIDR: "10.0.0.0/8", AllowedHostFQDNs: []string{"a.com", "b.com", "a.com"}},
+	}
+	result := buildNetworkPolicyCache(context.Background(), entries, noopLogger())
+	is.Equal(len(result[0].AllowedHosts), 2)
+}
+
+func TestBuildNetworkPolicyCache_AllowAllHosts_Preserved(t *testing.T) {
+	is := is.New(t)
+	entries := []networkpolicies.CacheEntry{
+		{PolicyID: 1, CIDR: "10.0.0.0/8", AllowAllHosts: true},
+		{PolicyID: 2, CIDR: "192.168.0.0/16", AllowAllHosts: false},
+	}
+	result := buildNetworkPolicyCache(context.Background(), entries, noopLogger())
+	is.Equal(len(result), 2)
+	// After sort: /16 is more specific, comes first.
+	is.Equal(result[0].Prefix.Bits(), 16)
+	is.True(!result[0].AllowAllHosts)
+	is.Equal(result[1].Prefix.Bits(), 8)
+	is.True(result[1].AllowAllHosts)
+}
+
+// ── Service-level: error propagation ─────────────────────────────────────────
 
 func TestCache_HostProviderError_Propagated(t *testing.T) {
 	is := is.New(t)
@@ -307,34 +349,13 @@ func TestCache_HostProviderError_Propagated(t *testing.T) {
 		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
 	}}
 	hostProv := &errHostProvider{err: errors.New("db unavailable")}
-	svc, err := NewService(provider, hostProv, &geoip.Lookup{}, "secret", noopLogger(), netip.Addr{})
+	svc, err := NewService(provider, hostProv, &geoip.Lookup{}, nil, "secret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 
 	err = svc.Initialize(context.Background())
 	is.True(err != nil)
 	// Cache must stay empty: the failed refresh must not partially populate it.
 	is.Equal(len(svc.GetPolicyMap().Entries), 0)
-}
-
-// ── Nil hostProvider ──────────────────────────────────────────────────────────
-
-func TestCache_NilHostProvider_AllUsersTreatedAsRestricted(t *testing.T) {
-	is := is.New(t)
-	// With no hostProvider the fetch is skipped, so every user maps to the zero-value
-	// UserHostAccess{BypassAllowlist: false}. The entry is not bypass and has no allowed
-	// hosts, meaning all host checks will be denied.
-	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
-	}}
-	svc, err := NewService(provider, nil, &geoip.Lookup{}, "secret", noopLogger(), netip.Addr{})
-	is.NoErr(err)
-	is.NoErr(svc.Initialize(context.Background()))
-
-	s := svc.GetPolicyMap()
-	is.Equal(len(s.Entries), 1)
-	entry := s.Entries[0]
-	is.True(!entry.BypassAllowlist)
-	is.Equal(entry.AllowedHosts, []string{})
 }
 
 // ── sortedKeys ────────────────────────────────────────────────────────────────
@@ -351,30 +372,6 @@ func TestSortedKeys_MultipleKeys_Sorted(t *testing.T) {
 	m := map[string]struct{}{"z.com": {}, "a.com": {}, "m.com": {}}
 	result := sortedKeys(m)
 	is.Equal(result, []string{"a.com", "m.com", "z.com"})
-}
-
-// ── cloneHostSet ──────────────────────────────────────────────────────────────
-
-func TestCloneHostSet_EmptyMap(t *testing.T) {
-	is := is.New(t)
-	result := cloneHostSet(map[string]struct{}{})
-	is.Equal(len(result), 0)
-	// Must not return nil; callers rely on len/range being safe.
-	is.True(result != nil)
-}
-
-func TestCloneHostSet_Independence(t *testing.T) {
-	is := is.New(t)
-	src := map[string]struct{}{"a.com": {}, "b.com": {}}
-	clone := cloneHostSet(src)
-
-	// Mutating the clone must not affect the source.
-	clone["c.com"] = struct{}{}
-	is.Equal(len(src), 2)
-
-	// Mutating the source must not affect the clone (which now has 3 entries).
-	src["d.com"] = struct{}{}
-	is.Equal(len(clone), 3)
 }
 
 // ── intersectHostSets ─────────────────────────────────────────────────────────
