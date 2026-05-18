@@ -9,15 +9,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/matryer/is"
 )
 
 type testFixture struct {
 	repo    *device.Repository
-	ownerID auth.UserID
+	ownerID ids.UserID
 }
 
 func setupTestDB(t *testing.T) testFixture {
@@ -27,7 +27,7 @@ func setupTestDB(t *testing.T) testFixture {
 	t.Cleanup(cleanup)
 
 	sqlxDB := db.DB()
-	var ownerID auth.UserID
+	var ownerID ids.UserID
 	if err := sqlxDB.QueryRowxContext(t.Context(),
 		`INSERT INTO users (username, display_name, password_hash, role) VALUES ('testadmin', 'Test Admin', 'x', 'admin') RETURNING id`,
 	).Scan(&ownerID); err != nil {
@@ -50,7 +50,7 @@ func createTestDevice(t *testing.T, fix testFixture, ctx context.Context, name s
 	return dev
 }
 
-func createTestAddress(t *testing.T, repo *device.Repository, ctx context.Context, deviceID device.DeviceID, ip string) *device.Address {
+func createTestAddress(t *testing.T, repo *device.Repository, ctx context.Context, deviceID ids.DeviceID, ip string) *device.Address {
 	t.Helper()
 
 	params, err := device.NewCreateAddressParams(deviceID, ip, netip.Addr{})
@@ -128,7 +128,7 @@ func TestRepository_DeleteDevice_NotFound(t *testing.T) {
 	repos := setupTestDB(t)
 	ctx := context.Background()
 
-	err := repos.repo.DeleteDevice(ctx, device.DeviceID(99999))
+	err := repos.repo.DeleteDevice(ctx, ids.DeviceID(99999))
 	is.True(err != nil)
 	is.Equal(err, device.ErrDeviceNotFound)
 }
@@ -214,7 +214,7 @@ func TestRepository_GetDevice_NotFound(t *testing.T) {
 	repos := setupTestDB(t)
 	ctx := context.Background()
 
-	_, err := repos.repo.GetDevice(ctx, device.DeviceID(99999))
+	_, err := repos.repo.GetDevice(ctx, ids.DeviceID(99999))
 	is.True(err != nil)
 	is.Equal(err, device.ErrDeviceNotFound)
 }
@@ -310,7 +310,7 @@ func TestRepository_UpsertAPIKey_NonExistentDevice(t *testing.T) {
 	_, keyHash, keyPrefix, err := device.GenerateAPIKey()
 	is.NoErr(err)
 
-	err = repos.repo.UpsertAPIKey(ctx, device.DeviceID(99999), keyHash, keyPrefix)
+	err = repos.repo.UpsertAPIKey(ctx, ids.DeviceID(99999), keyHash, keyPrefix)
 	is.True(err != nil)
 	is.Equal(err, device.ErrDeviceNotFound)
 }
@@ -433,7 +433,7 @@ func TestRepository_UpdateDevice_NotFound(t *testing.T) {
 	repos := setupTestDB(t)
 	ctx := context.Background()
 
-	ghost := &device.Device{ID: device.DeviceID(9999), Name: "ghost", DeviceType: device.DeviceTypeStatic}
+	ghost := &device.Device{ID: ids.DeviceID(9999), Name: "ghost", DeviceType: device.DeviceTypeStatic}
 	_, err := repos.repo.UpdateDevice(ctx, ghost)
 
 	is.True(errors.Is(err, device.ErrDeviceNotFound))

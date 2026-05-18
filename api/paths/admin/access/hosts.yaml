@@ -1,0 +1,189 @@
+hosts:
+  get:
+    operationId: listHosts
+    tags: [ host-access ]
+    summary: List all hosts with group memberships
+    responses:
+      "200":
+        description: Host list.
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/hosts.yaml#/HostListResponse'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+
+hostsReconcile:
+  post:
+    operationId: reconcileHosts
+    tags: [ host-access ]
+    summary: Reconcile hosts (full replace)
+    description: |
+      Atomically converges the database to the desired image. Hosts absent from
+      the payload are deleted; entries without an id are created.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/hosts.yaml#/ReconcileHostsRequest'
+    responses:
+      "204":
+        description: Updated host list after reconciliation.
+      "400":
+        description: Bad Request (invalid FQDN, duplicate, etc.)
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "404":
+        description: Host not found
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "409":
+        description: Repeated FQDN between different hosts
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "422":
+        description: Validation error (unknown group ID, etc.)
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+
+hostSuggestions:
+  get:
+    operationId: listHostSuggestions
+    tags: [ host-access ]
+    summary: List FQDNs seen in the access log that are not yet known hosts, plus ignored suggestions
+    responses:
+      "200":
+        description: Suggestions page with active and ignored lists.
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/hosts.yaml#/HostSuggestionsPage'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+
+ignoredSuggestions:
+  post:
+    operationId: ignoreSuggestion
+    tags: [ host-access ]
+    summary: Ignore a host suggestion
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/hosts.yaml#/IgnoreSuggestionRequest'
+    responses:
+      "201":
+        description: Suggestion ignored.
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/hosts.yaml#/IgnoredHostSuggestion'
+      "400":
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "409":
+        description: FQDN already ignored
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+
+ignoredSuggestionByFqdn:
+  delete:
+    operationId: unignoreSuggestion
+    tags: [ host-access ]
+    summary: Remove a host suggestion from the ignore list
+    parameters:
+      - name: fqdn
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      "204":
+        description: Suggestion unignored.
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "404":
+        description: Ignored suggestion not found
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'

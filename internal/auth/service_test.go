@@ -10,13 +10,14 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
 
 // givenUser inserts a user into the mock repo with the given ID and role.
 // No password hash is set; use auth.NewUser directly when password verification is needed.
-func givenUser(repo *mockRepository, id auth.UserID, username string, role auth.Role) *auth.User {
+func givenUser(repo *mockRepository, id ids.UserID, username string, role auth.Role) *auth.User {
 	user := &auth.User{
 		ID:          id,
 		Username:    username,
@@ -32,17 +33,17 @@ func givenUser(repo *mockRepository, id auth.UserID, username string, role auth.
 	return user
 }
 
-// principalFor returns a Principal for the given user. The auth.SessionID is a fixed
+// principalFor returns a Principal for the given user. The ids.SessionID is a fixed
 // dummy value sufficient for tests that do not exercise session-specific logic.
 func principalFor(user *auth.User) *auth.Principal {
-	return auth.NewPrincipal(user.ID, auth.SessionID(1), user.Role)
+	return auth.NewPrincipal(user.ID, ids.SessionID(1), user.Role)
 }
 
 // givenSessionFor inserts a session into the mock repo for the given user and
-// returns a Principal whose auth.SessionID matches. Use this when the test must
+// returns a Principal whose ids.SessionID matches. Use this when the test must
 // distinguish sessions (e.g. ChangePassword revokes others but keeps current).
 func givenSessionFor(repo *mockRepository, user *auth.User) *auth.Principal {
-	id := auth.SessionID(len(repo.sessions) + 1)
+	id := ids.SessionID(len(repo.sessions) + 1)
 	tokenHash := user.Username + "-token"
 	session := &auth.Session{ID: id, UserID: user.ID, TokenHash: tokenHash}
 	swu := &auth.SessionWithUser{Session: *session, UserRole: user.Role}
@@ -60,7 +61,7 @@ func TestService_Login_Success(t *testing.T) {
 
 	u, err := auth.NewAdminUser("testuser", "Test User", "", "Password123", nil, true)
 	is.NoErr(err)
-	u.ID = auth.UserID(1)
+	u.ID = ids.UserID(1)
 	user := &u
 	mockRepo.users[user.ID] = user
 	mockRepo.usersByUsername[user.Username] = user
@@ -101,7 +102,7 @@ func TestService_Login_InvalidPassword(t *testing.T) {
 
 	u, err := auth.NewAdminUser("testuser", "Test User", "", "Password123", nil, true)
 	is.NoErr(err)
-	u.ID = auth.UserID(1)
+	u.ID = ids.UserID(1)
 	user := &u
 	mockRepo.users[user.ID] = user
 	mockRepo.usersByUsername[user.Username] = user
@@ -137,7 +138,7 @@ func TestService_GetUserById_Success(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.AdminRole)
+	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.AdminRole)
 	principal := principalFor(admin)
 
 	currentUser, err := service.GetUserFromPrincipal(ctx, principal)
@@ -154,7 +155,7 @@ func TestService_GetUserById_RepositoryError(t *testing.T) {
 	mockRepo.getUserByIDErr = testErr
 	service := newService(mockRepo)
 
-	principal := principalFor(givenUser(mockRepo, auth.UserID(1), "admin", auth.AdminRole))
+	principal := principalFor(givenUser(mockRepo, ids.UserID(1), "admin", auth.AdminRole))
 	mockRepo.getUserByIDErr = testErr // set after givenUser to avoid affecting setup
 
 	currentUser, err := service.GetUserFromPrincipal(ctx, principal)
@@ -170,7 +171,7 @@ func TestService_CreateUser_Success(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.SuperAdminRole)
+	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.SuperAdminRole)
 
 	createdUser, err := service.CreateUser(ctx, "newuser", "New User", "", principalFor(admin))
 	is.NoErr(err)
@@ -187,7 +188,7 @@ func TestService_CreateUser_DuplicateUsername(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.SuperAdminRole)
+	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.SuperAdminRole)
 
 	_, err := service.CreateUser(ctx, "newuser", "New User", "", principalFor(admin))
 	is.NoErr(err)
@@ -206,7 +207,7 @@ func TestService_CreateUser_FailsNotSuperadminRole(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.AdminRole)
+	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.AdminRole)
 
 	createdUser, err := service.CreateUser(ctx, "newuser", "New User", "", principalFor(admin))
 	is.Equal(err, auth.ErrSuperAdminCredentialsRequired)
@@ -239,7 +240,7 @@ func TestService_BootstrapAdmin_CreatesAdminWhenNoAdminsExist(t *testing.T) {
 
 	eu, err := auth.NewUserAccount("existing", "Existing User", "", nil)
 	is.NoErr(err)
-	eu.ID = auth.UserID(1)
+	eu.ID = ids.UserID(1)
 	existingUser := &eu
 	mockRepo.users[existingUser.ID] = existingUser
 	mockRepo.usersByUsername[existingUser.Username] = existingUser
@@ -262,7 +263,7 @@ func TestService_BootstrapAdmin_SkipsWhenAdminExists(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	user := givenUser(mockRepo, auth.UserID(1), "existing_admin", auth.AdminRole)
+	user := givenUser(mockRepo, ids.UserID(1), "existing_admin", auth.AdminRole)
 	mockRepo.bootstrappedAdmin = user
 
 	err := service.BootstrapAdmin(ctx, config.ConfServer{AdminPassword: "AdminPass123!"})
@@ -298,8 +299,8 @@ func TestService_ListUsers_ReturnsAllUsers(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	givenUser(mockRepo, auth.UserID(1), "alice", auth.AdminRole)
-	givenUser(mockRepo, auth.UserID(2), "bob", auth.UserRole)
+	givenUser(mockRepo, ids.UserID(1), "alice", auth.AdminRole)
+	givenUser(mockRepo, ids.UserID(2), "bob", auth.UserRole)
 
 	users, err := service.ListUsers(ctx)
 	is.NoErr(err)
@@ -313,9 +314,9 @@ func TestService_UpdateOwnProfile_UpdatesDisplayName(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	givenUser(mockRepo, auth.UserID(1), "alice", auth.UserRole)
+	givenUser(mockRepo, ids.UserID(1), "alice", auth.UserRole)
 
-	updated, err := service.UpdateOwnProfile(ctx, auth.UserID(1), auth.ProfileUpdates{DisplayName: new("Alice Updated")})
+	updated, err := service.UpdateOwnProfile(ctx, ids.UserID(1), auth.ProfileUpdates{DisplayName: new("Alice Updated")})
 	is.NoErr(err)
 	is.Equal(updated.DisplayName, "Alice Updated")
 }
@@ -327,9 +328,9 @@ func TestService_UpdateOwnProfile_UpdatesUsername(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	givenUser(mockRepo, auth.UserID(1), "alice", auth.UserRole)
+	givenUser(mockRepo, ids.UserID(1), "alice", auth.UserRole)
 
-	updated, err := service.UpdateOwnProfile(ctx, auth.UserID(1), auth.ProfileUpdates{Username: new("alice2")})
+	updated, err := service.UpdateOwnProfile(ctx, ids.UserID(1), auth.ProfileUpdates{Username: new("alice2")})
 	is.NoErr(err)
 	is.Equal(updated.Username, "alice2")
 }
@@ -341,9 +342,9 @@ func TestService_UpdateOwnProfile_NoFieldsReturnsError(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	givenUser(mockRepo, auth.UserID(1), "alice", auth.UserRole)
+	givenUser(mockRepo, ids.UserID(1), "alice", auth.UserRole)
 
-	updated, err := service.UpdateOwnProfile(ctx, auth.UserID(1), auth.ProfileUpdates{})
+	updated, err := service.UpdateOwnProfile(ctx, ids.UserID(1), auth.ProfileUpdates{})
 	is.Equal(err, auth.ErrNoUpdateFields)
 	is.True(updated == nil)
 }
@@ -355,7 +356,7 @@ func TestService_UpdateOwnProfile_UserNotFound(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	updated, err := service.UpdateOwnProfile(ctx, auth.UserID(99), auth.ProfileUpdates{DisplayName: new("Ghost")})
+	updated, err := service.UpdateOwnProfile(ctx, ids.UserID(99), auth.ProfileUpdates{DisplayName: new("Ghost")})
 	is.Equal(err, auth.ErrUserNotFound)
 	is.True(updated == nil)
 }
@@ -369,7 +370,7 @@ func TestService_ChangePassword_Success(t *testing.T) {
 
 	u, err := auth.NewAdminUser("alice", "Alice", "", "OldPass123!", nil, true)
 	is.NoErr(err)
-	u.ID = auth.UserID(1)
+	u.ID = ids.UserID(1)
 	user := &u
 	mockRepo.users[user.ID] = user
 	mockRepo.usersByUsername[user.Username] = user
@@ -390,12 +391,12 @@ func TestService_ChangePassword_WrongCurrentPassword(t *testing.T) {
 
 	u, err := auth.NewAdminUser("alice", "Alice", "", "OldPass123!", nil, true)
 	is.NoErr(err)
-	u.ID = auth.UserID(1)
+	u.ID = ids.UserID(1)
 	user := &u
 	mockRepo.users[user.ID] = user
 	mockRepo.userCount++
 
-	err = service.ChangePassword(ctx, user.ID, auth.SessionID(1), "WrongPass!", "NewPass456!")
+	err = service.ChangePassword(ctx, user.ID, ids.SessionID(1), "WrongPass!", "NewPass456!")
 	is.Equal(err, auth.ErrInvalidCredentials)
 }
 
@@ -408,7 +409,7 @@ func TestService_ChangePassword_RevokesOtherSessions(t *testing.T) {
 
 	u, err := auth.NewAdminUser("alice", "Alice", "", "OldPass123!", nil, true)
 	is.NoErr(err)
-	u.ID = auth.UserID(1)
+	u.ID = ids.UserID(1)
 	user := &u
 	mockRepo.users[user.ID] = user
 	mockRepo.userCount++
@@ -431,8 +432,8 @@ func TestService_PromoteUser_Success(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.SuperAdminRole)
-	target := givenUser(mockRepo, auth.UserID(2), "alice", auth.UserRole)
+	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.SuperAdminRole)
+	target := givenUser(mockRepo, ids.UserID(2), "alice", auth.UserRole)
 
 	updated, err := service.PromoteUser(ctx, principalFor(admin), target.ID, "NewAdminPass123!")
 	is.NoErr(err)
@@ -446,7 +447,7 @@ func TestService_PromoteUser_SelfForbidden(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.SuperAdminRole)
+	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.SuperAdminRole)
 
 	updated, err := service.PromoteUser(ctx, principalFor(admin), admin.ID, "NewAdminPass123!")
 	is.Equal(err, auth.ErrSelfRoleChangeForbidden)
@@ -460,8 +461,8 @@ func TestService_PromoteUser_ErrAlreadyAdmin(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.SuperAdminRole)
-	target := givenUser(mockRepo, auth.UserID(2), "alice", auth.AdminRole)
+	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.SuperAdminRole)
+	target := givenUser(mockRepo, ids.UserID(2), "alice", auth.AdminRole)
 
 	updated, err := service.PromoteUser(ctx, principalFor(admin), target.ID, "NewAdminPass123!")
 
@@ -476,8 +477,8 @@ func TestService_PromoteUser_FailsNotSuperadminRole(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.AdminRole)
-	target := givenUser(mockRepo, auth.UserID(2), "alice", auth.AdminRole)
+	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.AdminRole)
+	target := givenUser(mockRepo, ids.UserID(2), "alice", auth.AdminRole)
 
 	updated, err := service.PromoteUser(ctx, principalFor(admin), target.ID, "NewAdminPass123!")
 
@@ -492,8 +493,8 @@ func TestService_DemoteUser_Success(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "admin1", auth.SuperAdminRole)
-	target := givenUser(mockRepo, auth.UserID(2), "admin2", auth.AdminRole)
+	admin := givenUser(mockRepo, ids.UserID(1), "admin1", auth.SuperAdminRole)
+	target := givenUser(mockRepo, ids.UserID(2), "admin2", auth.AdminRole)
 
 	updated, err := service.DemoteUser(ctx, principalFor(admin), target.ID)
 	is.NoErr(err)
@@ -507,7 +508,7 @@ func TestService_DemoteUser_SelfForbidden(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.SuperAdminRole)
+	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.SuperAdminRole)
 
 	updated, err := service.DemoteUser(ctx, principalFor(admin), admin.ID)
 	is.Equal(err, auth.ErrSelfRoleChangeForbidden)
@@ -521,7 +522,7 @@ func TestService_DemoteUser_FailsNotSuperadminRole(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.AdminRole)
+	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.AdminRole)
 
 	updated, err := service.DemoteUser(ctx, principalFor(admin), admin.ID)
 	is.Equal(err, auth.ErrSuperAdminCredentialsRequired)
@@ -535,8 +536,8 @@ func TestService_DeleteUser_Success(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.SuperAdminRole)
-	target := givenUser(mockRepo, auth.UserID(2), "alice", auth.UserRole)
+	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.SuperAdminRole)
+	target := givenUser(mockRepo, ids.UserID(2), "alice", auth.UserRole)
 
 	err := service.DeleteUser(ctx, principalFor(admin), target.ID)
 	is.NoErr(err)
@@ -551,7 +552,7 @@ func TestService_DeleteUser_SelfDeleteForbidden(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.SuperAdminRole)
+	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.SuperAdminRole)
 
 	err := service.DeleteUser(ctx, principalFor(admin), admin.ID)
 	is.Equal(err, auth.ErrSelfDeleteForbidden)
@@ -564,8 +565,8 @@ func TestService_DeleteUser_RevokesSessionsOnDelete(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.SuperAdminRole)
-	target := givenUser(mockRepo, auth.UserID(2), "alice", auth.UserRole)
+	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.SuperAdminRole)
+	target := givenUser(mockRepo, ids.UserID(2), "alice", auth.UserRole)
 	givenSessionFor(mockRepo, target)
 
 	err := service.DeleteUser(ctx, principalFor(admin), target.ID)
@@ -580,8 +581,8 @@ func TestService_DeleteUser_FailsNotSuperadminRole(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	admin := givenUser(mockRepo, auth.UserID(1), "admin", auth.AdminRole)
-	target := givenUser(mockRepo, auth.UserID(2), "alice", auth.UserRole)
+	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.AdminRole)
+	target := givenUser(mockRepo, ids.UserID(2), "alice", auth.UserRole)
 	givenSessionFor(mockRepo, target)
 
 	err := service.DeleteUser(ctx, principalFor(admin), target.ID)
@@ -589,9 +590,9 @@ func TestService_DeleteUser_FailsNotSuperadminRole(t *testing.T) {
 }
 
 type mockRepository struct {
-	users                map[auth.UserID]*auth.User
+	users                map[ids.UserID]*auth.User
 	usersByUsername      map[string]*auth.User
-	sessions             map[auth.SessionID]*auth.SessionWithUser
+	sessions             map[ids.SessionID]*auth.SessionWithUser
 	sessionsByToken      map[string]*auth.SessionWithUser
 	userCount            int
 	adminCount           int
@@ -606,9 +607,9 @@ type mockRepository struct {
 
 func newMockRepository() *mockRepository {
 	return &mockRepository{
-		users:           make(map[auth.UserID]*auth.User),
+		users:           make(map[ids.UserID]*auth.User),
 		usersByUsername: make(map[string]*auth.User),
-		sessions:        make(map[auth.SessionID]*auth.SessionWithUser),
+		sessions:        make(map[ids.SessionID]*auth.SessionWithUser),
 		sessionsByToken: make(map[string]*auth.SessionWithUser),
 	}
 }
@@ -624,7 +625,7 @@ func (m *mockRepository) GetUserByUsername(_ context.Context, username string) (
 	return user, nil
 }
 
-func (m *mockRepository) GetUserByID(_ context.Context, userID auth.UserID) (*auth.User, error) {
+func (m *mockRepository) GetUserByID(_ context.Context, userID ids.UserID) (*auth.User, error) {
 	if m.getUserByIDErr != nil {
 		return nil, m.getUserByIDErr
 	}
@@ -642,7 +643,7 @@ func (m *mockRepository) CreateUser(_ context.Context, user *auth.User) (*auth.U
 	if m.bootstrappedAdmin == nil {
 		m.bootstrappedAdmin = user
 	}
-	user.ID = auth.UserID(len(m.users) + 1)
+	user.ID = ids.UserID(len(m.users) + 1)
 	m.users[user.ID] = user
 	m.usersByUsername[user.Username] = user
 	m.userCount++
@@ -656,7 +657,7 @@ func (m *mockRepository) CreateSession(_ context.Context, session *auth.Session)
 	if m.createSessionErr != nil {
 		return nil, m.createSessionErr
 	}
-	session.ID = auth.SessionID(len(m.sessions) + 1)
+	session.ID = ids.SessionID(len(m.sessions) + 1)
 	swu := &auth.SessionWithUser{Session: *session, UserRole: m.users[session.UserID].Role}
 	m.sessions[session.ID] = swu
 	m.sessionsByToken[session.TokenHash] = swu
@@ -712,7 +713,7 @@ func (m *mockRepository) UpdateUser(_ context.Context, user *auth.User) (*auth.U
 	return existing, nil
 }
 
-func (m *mockRepository) UpdatePasswordHash(_ context.Context, userID auth.UserID, newHash []byte, mustChangePassword bool) error {
+func (m *mockRepository) UpdatePasswordHash(_ context.Context, userID ids.UserID, newHash []byte, mustChangePassword bool) error {
 	user, ok := m.users[userID]
 	if !ok {
 		return auth.ErrUserNotFound
@@ -722,7 +723,7 @@ func (m *mockRepository) UpdatePasswordHash(_ context.Context, userID auth.UserI
 	return nil
 }
 
-func (m *mockRepository) NullifyPasswordHash(_ context.Context, userID auth.UserID) error {
+func (m *mockRepository) NullifyPasswordHash(_ context.Context, userID ids.UserID) error {
 	user, ok := m.users[userID]
 	if !ok {
 		return auth.ErrUserNotFound
@@ -731,7 +732,7 @@ func (m *mockRepository) NullifyPasswordHash(_ context.Context, userID auth.User
 	return nil
 }
 
-func (m *mockRepository) SoftDeleteUser(_ context.Context, userID auth.UserID) error {
+func (m *mockRepository) SoftDeleteUser(_ context.Context, userID ids.UserID) error {
 	user, ok := m.users[userID]
 	if !ok {
 		return auth.ErrUserNotFound
@@ -745,7 +746,7 @@ func (m *mockRepository) SoftDeleteUser(_ context.Context, userID auth.UserID) e
 	return nil
 }
 
-func (m *mockRepository) RevokeSessionByID(_ context.Context, id auth.SessionID) error {
+func (m *mockRepository) RevokeSessionByID(_ context.Context, id ids.SessionID) error {
 	session, ok := m.sessions[id]
 	if !ok {
 		return errors.New("session not found")
@@ -755,7 +756,7 @@ func (m *mockRepository) RevokeSessionByID(_ context.Context, id auth.SessionID)
 	return nil
 }
 
-func (m *mockRepository) RevokeAllUserSessions(_ context.Context, userID auth.UserID) error {
+func (m *mockRepository) RevokeAllUserSessions(_ context.Context, userID ids.UserID) error {
 	for id, session := range m.sessions {
 		if session.UserID == userID {
 			delete(m.sessionsByToken, session.TokenHash)
@@ -765,7 +766,7 @@ func (m *mockRepository) RevokeAllUserSessions(_ context.Context, userID auth.Us
 	return nil
 }
 
-func (m *mockRepository) RevokeAllUserSessionsExcept(_ context.Context, userID auth.UserID, exceptSessionID auth.SessionID) error {
+func (m *mockRepository) RevokeAllUserSessionsExcept(_ context.Context, userID ids.UserID, exceptSessionID ids.SessionID) error {
 	for id, session := range m.sessions {
 		if session.UserID == userID && id != exceptSessionID {
 			delete(m.sessionsByToken, session.TokenHash)

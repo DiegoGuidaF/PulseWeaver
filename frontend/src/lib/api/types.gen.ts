@@ -454,14 +454,14 @@ export type ClaimRegistrationResponse = {
 /**
  * Network policy summary for the access management list page.
  */
-export type PolicyListItem = {
+export type NetworkPolicyListItem = {
   id: Id;
   name: string;
   /**
    * Normalized CIDR notation, e.g. "192.168.1.0/24"
    */
   cidr: string;
-  status: "enabled" | "disabled";
+  enabled: boolean;
   groups: Array<GroupRef>;
   /**
    * Total hosts accessible across all assigned groups.
@@ -473,7 +473,7 @@ export type PolicyListItem = {
 /**
  * Full network policy detail including group assignments.
  */
-export type PolicyDetail = {
+export type NetworkPolicyDetail = {
   id: Id;
   name: string;
   /**
@@ -481,15 +481,17 @@ export type PolicyDetail = {
    */
   cidr: string;
   description?: string | null;
-  status: "enabled" | "disabled";
+  enabled: boolean;
   /**
    * All groups with their hosts and assignment status.
    */
   groups: Array<SubjectGroupDetail>;
   bypass_host_check: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
-export type CreatePolicyRequest = {
+export type CreateNetworkPolicyRequest = {
   name: string;
   /**
    * CIDR notation. Host bits are zeroed automatically by the server.
@@ -498,11 +500,11 @@ export type CreatePolicyRequest = {
   description?: string | null;
 };
 
-export type ModifyPolicyRequest = {
+export type ModifyNetworkPolicyRequest = {
   name: string;
   cidr: string;
-  description?: string | null;
-  status: "enabled" | "disabled";
+  description: string;
+  enabled: boolean;
 };
 
 export type PolicyNetworkPolicyEntry = {
@@ -558,13 +560,14 @@ export type GroupDetail = {
   description?: string | null;
   hosts: Array<HostSummary>;
   /**
-   * Users with access to this group (read-only, managed via subjects).
-   */
-  users: Array<UserSummary>;
-  /**
    * Network policies with access to this group (read-only, managed via subjects).
    */
   network_policies: Array<NetworkPolicyRef>;
+  created_at: string;
+  /**
+   * Last time the device profile was modified.
+   */
+  updated_at: string;
 };
 
 export type SubjectGroupDetail = GroupDetail & {
@@ -585,11 +588,11 @@ export type GroupWrite = {
   icon: string;
   color: string;
   description?: string | null;
-  hosts: Array<HostRef>;
+  host_ids?: Array<Id>;
 };
 
 export type GroupListResponse = {
-  groups: Array<GroupDetail>;
+  groups: Array<GroupDetailWithUsers>;
 };
 
 /**
@@ -620,6 +623,7 @@ export type Host = {
    * Group memberships. Empty array means unassigned.
    */
   groups: Array<GroupSummary>;
+  created_at: string;
 };
 
 /**
@@ -631,7 +635,7 @@ export type HostInput = {
   /**
    * Group memberships by ID. Empty array means unassigned.
    */
-  groups: Array<GroupIdRef>;
+  group_ids: Array<Id>;
 };
 
 export type HostListResponse = {
@@ -691,6 +695,7 @@ export type UserListItem = {
   id: Id;
   username: string;
   display_name: string;
+  role: UserRole;
   groups: Array<GroupRef>;
   /**
    * Total hosts accessible across all assigned groups.
@@ -708,6 +713,7 @@ export type UserAccessDetail = {
   id: Id;
   username: string;
   display_name: string;
+  role: UserRole;
   email?: string | null;
   devices: Array<DeviceListItem>;
   /**
@@ -730,27 +736,11 @@ export type DeviceApiKeyResponse = {
 };
 
 /**
- * Group ID reference used in host write payloads.
- */
-export type GroupIdRef = {
-  id: Id;
-};
-
-/**
  * Minimal host reference embedded in group responses.
  */
 export type HostSummary = {
   id: Id;
   fqdn: string;
-};
-
-/**
- * Minimal user reference embedded in group responses.
- */
-export type UserSummary = {
-  id: Id;
-  username: string;
-  display_name: string;
 };
 
 /**
@@ -763,10 +753,19 @@ export type NetworkPolicyRef = {
 };
 
 /**
- * Host ID reference used in group write payloads.
+ * Minimal user reference embedded in group responses.
  */
-export type HostRef = {
+export type UserSummary = {
   id: Id;
+  username: string;
+  display_name: string;
+};
+
+export type GroupDetailWithUsers = GroupDetail & {
+  /**
+   * Users with access to this group (read-only, managed via subjects).
+   */
+  users?: Array<UserSummary>;
 };
 
 export type PolicyIpDevice = {
@@ -2775,6 +2774,14 @@ export type ReconcileHostsErrors = {
    */
   403: unknown;
   /**
+   * Host not found
+   */
+  404: ErrorResponse;
+  /**
+   * Repeated FQDN between different hosts
+   */
+  409: ErrorResponse;
+  /**
    * Validation error (unknown group ID, etc.)
    */
   422: ErrorResponse;
@@ -2791,7 +2798,7 @@ export type ReconcileHostsResponses = {
   /**
    * Updated host list after reconciliation.
    */
-  200: HostListResponse;
+  204: void;
 };
 
 export type ReconcileHostsResponse =
@@ -2972,6 +2979,14 @@ export type ReconcileHostGroupsErrors = {
    */
   403: unknown;
   /**
+   * One or more host groups not found
+   */
+  404: ErrorResponse;
+  /**
+   * Host groups with same name
+   */
+  409: ErrorResponse;
+  /**
    * Validation error (unknown host ID, etc.)
    */
   422: ErrorResponse;
@@ -2986,9 +3001,9 @@ export type ReconcileHostGroupsError =
 
 export type ReconcileHostGroupsResponses = {
   /**
-   * Server state after reconcile.
+   * Reconcile successful
    */
-  200: GroupListResponse;
+  204: void;
 };
 
 export type ReconcileHostGroupsResponse =
@@ -3070,7 +3085,7 @@ export type GetUserAccessDetailResponses = {
 export type GetUserAccessDetailResponse =
   GetUserAccessDetailResponses[keyof GetUserAccessDetailResponses];
 
-export type ModifyUserAccessData = {
+export type SetUserAccessData = {
   body: ModifyAccessRequest;
   path: {
     user_id: Id;
@@ -3079,7 +3094,7 @@ export type ModifyUserAccessData = {
   url: "/admin/access/users/{user_id}/grants";
 };
 
-export type ModifyUserAccessErrors = {
+export type SetUserAccessErrors = {
   /**
    * Bad Request
    */
@@ -3102,18 +3117,17 @@ export type ModifyUserAccessErrors = {
   500: ErrorResponse;
 };
 
-export type ModifyUserAccessError =
-  ModifyUserAccessErrors[keyof ModifyUserAccessErrors];
+export type SetUserAccessError = SetUserAccessErrors[keyof SetUserAccessErrors];
 
-export type ModifyUserAccessResponses = {
+export type SetUserAccessResponses = {
   /**
-   * Updated user access detail.
+   * Successfully updated user access detail.
    */
-  200: UserAccessDetail;
+  204: void;
 };
 
-export type ModifyUserAccessResponse =
-  ModifyUserAccessResponses[keyof ModifyUserAccessResponses];
+export type SetUserAccessResponse =
+  SetUserAccessResponses[keyof SetUserAccessResponses];
 
 export type GetPolicyUserMapData = {
   body?: never;
@@ -3198,14 +3212,14 @@ export type SimulatePolicyAccessResponses = {
 export type SimulatePolicyAccessResponse =
   SimulatePolicyAccessResponses[keyof SimulatePolicyAccessResponses];
 
-export type ListPoliciesData = {
+export type ListNetworkPoliciesData = {
   body?: never;
   path?: never;
   query?: never;
   url: "/admin/access/network-policies";
 };
 
-export type ListPoliciesErrors = {
+export type ListNetworkPoliciesErrors = {
   /**
    * Unauthorized
    */
@@ -3220,26 +3234,27 @@ export type ListPoliciesErrors = {
   500: ErrorResponse;
 };
 
-export type ListPoliciesError = ListPoliciesErrors[keyof ListPoliciesErrors];
+export type ListNetworkPoliciesError =
+  ListNetworkPoliciesErrors[keyof ListNetworkPoliciesErrors];
 
-export type ListPoliciesResponses = {
+export type ListNetworkPoliciesResponses = {
   /**
    * Policy list.
    */
-  200: Array<PolicyListItem>;
+  200: Array<NetworkPolicyListItem>;
 };
 
-export type ListPoliciesResponse =
-  ListPoliciesResponses[keyof ListPoliciesResponses];
+export type ListNetworkPoliciesResponse =
+  ListNetworkPoliciesResponses[keyof ListNetworkPoliciesResponses];
 
-export type CreatePolicyData = {
-  body: CreatePolicyRequest;
+export type CreateNetworkPolicyData = {
+  body: CreateNetworkPolicyRequest;
   path?: never;
   query?: never;
   url: "/admin/access/network-policies";
 };
 
-export type CreatePolicyErrors = {
+export type CreateNetworkPolicyErrors = {
   /**
    * Validation error (invalid CIDR, missing name)
    */
@@ -3262,19 +3277,20 @@ export type CreatePolicyErrors = {
   500: ErrorResponse;
 };
 
-export type CreatePolicyError = CreatePolicyErrors[keyof CreatePolicyErrors];
+export type CreateNetworkPolicyError =
+  CreateNetworkPolicyErrors[keyof CreateNetworkPolicyErrors];
 
-export type CreatePolicyResponses = {
+export type CreateNetworkPolicyResponses = {
   /**
    * Policy created.
    */
-  201: PolicyDetail;
+  201: NetworkPolicyDetail;
 };
 
-export type CreatePolicyResponse =
-  CreatePolicyResponses[keyof CreatePolicyResponses];
+export type CreateNetworkPolicyResponse =
+  CreateNetworkPolicyResponses[keyof CreateNetworkPolicyResponses];
 
-export type DeletePolicyData = {
+export type DeleteNetworkPolicyData = {
   body?: never;
   path: {
     id: Id;
@@ -3283,7 +3299,7 @@ export type DeletePolicyData = {
   url: "/admin/access/network-policies/{id}";
 };
 
-export type DeletePolicyErrors = {
+export type DeleteNetworkPolicyErrors = {
   /**
    * Unauthorized
    */
@@ -3302,19 +3318,20 @@ export type DeletePolicyErrors = {
   500: ErrorResponse;
 };
 
-export type DeletePolicyError = DeletePolicyErrors[keyof DeletePolicyErrors];
+export type DeleteNetworkPolicyError =
+  DeleteNetworkPolicyErrors[keyof DeleteNetworkPolicyErrors];
 
-export type DeletePolicyResponses = {
+export type DeleteNetworkPolicyResponses = {
   /**
    * Deleted.
    */
   204: void;
 };
 
-export type DeletePolicyResponse =
-  DeletePolicyResponses[keyof DeletePolicyResponses];
+export type DeleteNetworkPolicyResponse =
+  DeleteNetworkPolicyResponses[keyof DeleteNetworkPolicyResponses];
 
-export type GetPolicyData = {
+export type GetNetworkPolicyData = {
   body?: never;
   path: {
     id: Id;
@@ -3323,7 +3340,7 @@ export type GetPolicyData = {
   url: "/admin/access/network-policies/{id}";
 };
 
-export type GetPolicyErrors = {
+export type GetNetworkPolicyErrors = {
   /**
    * Unauthorized
    */
@@ -3342,19 +3359,21 @@ export type GetPolicyErrors = {
   500: ErrorResponse;
 };
 
-export type GetPolicyError = GetPolicyErrors[keyof GetPolicyErrors];
+export type GetNetworkPolicyError =
+  GetNetworkPolicyErrors[keyof GetNetworkPolicyErrors];
 
-export type GetPolicyResponses = {
+export type GetNetworkPolicyResponses = {
   /**
    * Policy detail.
    */
-  200: PolicyDetail;
+  200: NetworkPolicyDetail;
 };
 
-export type GetPolicyResponse = GetPolicyResponses[keyof GetPolicyResponses];
+export type GetNetworkPolicyResponse =
+  GetNetworkPolicyResponses[keyof GetNetworkPolicyResponses];
 
-export type UpdatePolicyData = {
-  body: ModifyPolicyRequest;
+export type UpdateNetworkPolicyData = {
+  body: ModifyNetworkPolicyRequest;
   path: {
     id: Id;
   };
@@ -3362,7 +3381,7 @@ export type UpdatePolicyData = {
   url: "/admin/access/network-policies/{id}";
 };
 
-export type UpdatePolicyErrors = {
+export type UpdateNetworkPolicyErrors = {
   /**
    * Validation error
    */
@@ -3389,19 +3408,20 @@ export type UpdatePolicyErrors = {
   500: ErrorResponse;
 };
 
-export type UpdatePolicyError = UpdatePolicyErrors[keyof UpdatePolicyErrors];
+export type UpdateNetworkPolicyError =
+  UpdateNetworkPolicyErrors[keyof UpdateNetworkPolicyErrors];
 
-export type UpdatePolicyResponses = {
+export type UpdateNetworkPolicyResponses = {
   /**
    * Updated.
    */
   204: void;
 };
 
-export type UpdatePolicyResponse =
-  UpdatePolicyResponses[keyof UpdatePolicyResponses];
+export type UpdateNetworkPolicyResponse =
+  UpdateNetworkPolicyResponses[keyof UpdateNetworkPolicyResponses];
 
-export type UpdatePolicyAccessData = {
+export type UpdateNetworkPolicyAccessData = {
   body: ModifyAccessRequest;
   path: {
     id: Id;
@@ -3410,7 +3430,7 @@ export type UpdatePolicyAccessData = {
   url: "/admin/access/network-policies/{id}/grants";
 };
 
-export type UpdatePolicyAccessErrors = {
+export type UpdateNetworkPolicyAccessErrors = {
   /**
    * Bad Request
    */
@@ -3433,15 +3453,15 @@ export type UpdatePolicyAccessErrors = {
   500: ErrorResponse;
 };
 
-export type UpdatePolicyAccessError =
-  UpdatePolicyAccessErrors[keyof UpdatePolicyAccessErrors];
+export type UpdateNetworkPolicyAccessError =
+  UpdateNetworkPolicyAccessErrors[keyof UpdateNetworkPolicyAccessErrors];
 
-export type UpdatePolicyAccessResponses = {
+export type UpdateNetworkPolicyAccessResponses = {
   /**
    * Updated policy detail.
    */
-  200: PolicyDetail;
+  204: void;
 };
 
-export type UpdatePolicyAccessResponse =
-  UpdatePolicyAccessResponses[keyof UpdatePolicyAccessResponses];
+export type UpdateNetworkPolicyAccessResponse =
+  UpdateNetworkPolicyAccessResponses[keyof UpdateNetworkPolicyAccessResponses];

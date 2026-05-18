@@ -1,12 +1,14 @@
 package auth
 
+import "github.com/DiegoGuidaF/PulseWeaver/internal/ids"
+
 type Principal struct {
-	UserID    UserID
-	SessionID SessionID
+	UserID    ids.UserID
+	SessionID ids.SessionID
 	Role      Role
 }
 
-func NewPrincipal(userID UserID, sessionID SessionID, role Role) *Principal {
+func NewPrincipal(userID ids.UserID, sessionID ids.SessionID, role Role) *Principal {
 	return &Principal{
 		UserID:    userID,
 		SessionID: sessionID,

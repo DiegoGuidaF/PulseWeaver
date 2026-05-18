@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/matryer/is"
 )
 
@@ -38,28 +39,28 @@ func (m *mockRuleObserver) OnRuleEvent(_ context.Context, event RuleEvent) {
 	m.events = append(m.events, event)
 }
 
-func (f *fakeRepository) GetRuleByDeviceAndType(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error) {
+func (f *fakeRepository) GetRuleByDeviceAndType(ctx context.Context, deviceID ids.DeviceID, ruleType RuleType) (*Rule, error) {
 	if f.getRuleErr != nil {
 		return nil, f.getRuleErr
 	}
 	return f.getRuleResult, nil
 }
 
-func (f *fakeRepository) EnableDeviceAddressLeaseRuleConfig(ctx context.Context, deviceID device.DeviceID, config DeviceAddressLeaseConfig) (*Rule, error) {
+func (f *fakeRepository) EnableDeviceAddressLeaseRuleConfig(ctx context.Context, deviceID ids.DeviceID, config DeviceAddressLeaseConfig) (*Rule, error) {
 	if f.enableErr != nil {
 		return nil, f.enableErr
 	}
 	return f.enableResult, nil
 }
 
-func (f *fakeRepository) EnableMaxActiveAddressesRuleConfig(ctx context.Context, deviceID device.DeviceID, config MaxActiveAddressesConfig) (*Rule, error) {
+func (f *fakeRepository) EnableMaxActiveAddressesRuleConfig(ctx context.Context, deviceID ids.DeviceID, config MaxActiveAddressesConfig) (*Rule, error) {
 	if f.enableErr != nil {
 		return nil, f.enableErr
 	}
 	return f.enableResult, nil
 }
 
-func (f *fakeRepository) DisableRule(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error) {
+func (f *fakeRepository) DisableRule(ctx context.Context, deviceID ids.DeviceID, ruleType RuleType) (*Rule, error) {
 	if f.disableErr != nil {
 		return nil, f.disableErr
 	}
@@ -72,7 +73,7 @@ func TestService_GetDeviceAddressLeaseTTLSeconds_NoRule_ReturnsNilTTL(t *testing
 	is := is.New(t)
 	repo := &fakeRepository{getRuleErr: ErrRuleNotFound}
 	svc := newTestService(repo)
-	ttl, err := svc.GetDeviceAddressLeaseTTLSeconds(context.Background(), device.DeviceID(1))
+	ttl, err := svc.GetDeviceAddressLeaseTTLSeconds(context.Background(), ids.DeviceID(1))
 	is.NoErr(err)
 	is.True(ttl == nil)
 }
@@ -86,7 +87,7 @@ func TestService_GetDeviceAddressLeaseTTLSeconds_DisabledRule_ReturnsNilTTL(t *t
 		},
 	}
 	svc := newTestService(repo)
-	ttl, err := svc.GetDeviceAddressLeaseTTLSeconds(context.Background(), device.DeviceID(1))
+	ttl, err := svc.GetDeviceAddressLeaseTTLSeconds(context.Background(), ids.DeviceID(1))
 	is.NoErr(err)
 	is.True(ttl == nil)
 }
@@ -100,7 +101,7 @@ func TestService_GetDeviceAddressLeaseTTLSeconds_EnabledValidRule_ReturnsTTL(t *
 		},
 	}
 	svc := newTestService(repo)
-	ttl, err := svc.GetDeviceAddressLeaseTTLSeconds(context.Background(), device.DeviceID(1))
+	ttl, err := svc.GetDeviceAddressLeaseTTLSeconds(context.Background(), ids.DeviceID(1))
 	is.NoErr(err)
 	is.True(ttl != nil)
 	is.Equal(*ttl, 300)
@@ -115,7 +116,7 @@ func TestService_GetDeviceAddressLeaseTTLSeconds_InvalidConfig_ReturnsErr(t *tes
 		},
 	}
 	svc := newTestService(repo)
-	ttl, err := svc.GetDeviceAddressLeaseTTLSeconds(context.Background(), device.DeviceID(1))
+	ttl, err := svc.GetDeviceAddressLeaseTTLSeconds(context.Background(), ids.DeviceID(1))
 	is.True(err != nil)
 	is.True(errors.Is(err, ErrInvalidRuleConfig))
 	is.True(ttl == nil)
@@ -126,7 +127,7 @@ func TestService_GetDeviceAddressLeaseTTLSeconds_RepoError_Propagated(t *testing
 	repoErr := errors.New("db error")
 	repo := &fakeRepository{getRuleErr: repoErr}
 	svc := newTestService(repo)
-	ttl, err := svc.GetDeviceAddressLeaseTTLSeconds(context.Background(), device.DeviceID(1))
+	ttl, err := svc.GetDeviceAddressLeaseTTLSeconds(context.Background(), ids.DeviceID(1))
 	is.True(err != nil)
 	is.Equal(err, repoErr)
 	is.True(ttl == nil)
@@ -144,7 +145,7 @@ func TestService_GetDeviceAddressLeaseRule_ReturnsRule(t *testing.T) {
 		},
 	}
 	svc := newTestService(repo)
-	out, err := svc.GetDeviceAddressLeaseRule(context.Background(), device.DeviceID(1))
+	out, err := svc.GetDeviceAddressLeaseRule(context.Background(), ids.DeviceID(1))
 	is.NoErr(err)
 	is.True(out != nil)
 	is.Equal(out.Config.TTLSeconds, 120)
@@ -154,7 +155,7 @@ func TestService_GetDeviceAddressLeaseRule_NotFound(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepository{getRuleErr: ErrRuleNotFound}
 	svc := newTestService(repo)
-	out, err := svc.GetDeviceAddressLeaseRule(context.Background(), device.DeviceID(1))
+	out, err := svc.GetDeviceAddressLeaseRule(context.Background(), ids.DeviceID(1))
 	is.True(err != nil)
 	is.Equal(err, ErrRuleNotFound)
 	is.True(out == nil)
@@ -169,7 +170,7 @@ func TestService_GetDeviceAddressLeaseRule_InvalidConfig_ReturnsErr(t *testing.T
 		},
 	}
 	svc := newTestService(repo)
-	out, err := svc.GetDeviceAddressLeaseRule(context.Background(), device.DeviceID(1))
+	out, err := svc.GetDeviceAddressLeaseRule(context.Background(), ids.DeviceID(1))
 	is.True(err != nil)
 	is.True(errors.Is(err, ErrInvalidRuleConfig))
 	is.True(out == nil)
@@ -187,10 +188,10 @@ func TestService_EnableDeviceAddressLeaseRule_ValidTTL_ReturnsRule(t *testing.T)
 		},
 	}
 	svc := newTestService(repo)
-	out, err := svc.EnableDeviceAddressLeaseRule(context.Background(), device.DeviceID(1), 300)
+	out, err := svc.EnableDeviceAddressLeaseRule(context.Background(), ids.DeviceID(1), 300)
 	is.NoErr(err)
 	is.True(out != nil)
-	is.Equal(out.DeviceID, device.DeviceID(1))
+	is.Equal(out.DeviceID, ids.DeviceID(1))
 	is.Equal(out.Config.TTLSeconds, 300)
 }
 
@@ -198,7 +199,7 @@ func TestService_EnableDeviceAddressLeaseRule_NegativeTTL_ReturnsErr(t *testing.
 	is := is.New(t)
 	repo := &fakeRepository{}
 	svc := newTestService(repo)
-	out, err := svc.EnableDeviceAddressLeaseRule(context.Background(), device.DeviceID(1), -1)
+	out, err := svc.EnableDeviceAddressLeaseRule(context.Background(), ids.DeviceID(1), -1)
 	is.True(err != nil)
 	is.True(errors.Is(err, ErrInvalidRuleConfig))
 	is.True(out == nil)
@@ -208,7 +209,7 @@ func TestService_EnableDeviceAddressLeaseRule_DeviceNotFound_Propagated(t *testi
 	is := is.New(t)
 	repo := &fakeRepository{enableErr: device.ErrDeviceNotFound}
 	svc := newTestService(repo)
-	out, err := svc.EnableDeviceAddressLeaseRule(context.Background(), device.DeviceID(1), 60)
+	out, err := svc.EnableDeviceAddressLeaseRule(context.Background(), ids.DeviceID(1), 60)
 	is.True(err != nil)
 	is.Equal(err, device.ErrDeviceNotFound)
 	is.True(out == nil)
@@ -219,7 +220,7 @@ func TestService_EnableDeviceAddressLeaseRule_RepoError_Propagated(t *testing.T)
 	repoErr := errors.New("db error")
 	repo := &fakeRepository{enableErr: repoErr}
 	svc := newTestService(repo)
-	out, err := svc.EnableDeviceAddressLeaseRule(context.Background(), device.DeviceID(1), 60)
+	out, err := svc.EnableDeviceAddressLeaseRule(context.Background(), ids.DeviceID(1), 60)
 	is.True(err != nil)
 	is.Equal(err, repoErr)
 	is.True(out == nil)
@@ -237,7 +238,7 @@ func TestService_DisableDeviceAddressLeaseRule_ReturnsDisabledRule(t *testing.T)
 		},
 	}
 	svc := newTestService(repo)
-	out, err := svc.DisableDeviceAddressLeaseRule(context.Background(), device.DeviceID(1))
+	out, err := svc.DisableDeviceAddressLeaseRule(context.Background(), ids.DeviceID(1))
 	is.NoErr(err)
 	is.True(out != nil)
 	is.True(!out.Enabled)
@@ -247,7 +248,7 @@ func TestService_DisableDeviceAddressLeaseRule_NotFound(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepository{disableErr: ErrRuleNotFound}
 	svc := newTestService(repo)
-	out, err := svc.DisableDeviceAddressLeaseRule(context.Background(), device.DeviceID(1))
+	out, err := svc.DisableDeviceAddressLeaseRule(context.Background(), ids.DeviceID(1))
 	is.True(err != nil)
 	is.Equal(err, ErrRuleNotFound)
 	is.True(out == nil)
@@ -258,7 +259,7 @@ func TestService_DisableDeviceAddressLeaseRule_RepoError_Propagated(t *testing.T
 	repoErr := errors.New("db error")
 	repo := &fakeRepository{disableErr: repoErr}
 	svc := newTestService(repo)
-	out, err := svc.DisableDeviceAddressLeaseRule(context.Background(), device.DeviceID(1))
+	out, err := svc.DisableDeviceAddressLeaseRule(context.Background(), ids.DeviceID(1))
 	is.True(err != nil)
 	is.Equal(err, repoErr)
 	is.True(out == nil)
@@ -281,12 +282,12 @@ func TestService_EnableDeviceAddressLeaseRule_EmitsRuleEnabledEvent(t *testing.T
 	observer := &mockRuleObserver{}
 	svc.AddRuleObserver(observer)
 
-	_, err := svc.EnableDeviceAddressLeaseRule(ctx, device.DeviceID(55), 300)
+	_, err := svc.EnableDeviceAddressLeaseRule(ctx, ids.DeviceID(55), 300)
 	is.NoErr(err)
 	is.Equal(len(observer.events), 1)
 	is.Equal(observer.events[0].Type, RuleEventTypeEnabled)
 	is.Equal(observer.events[0].RuleType, RuleTypeDeviceAddressLease)
-	is.Equal(observer.events[0].DeviceID, device.DeviceID(55))
+	is.Equal(observer.events[0].DeviceID, ids.DeviceID(55))
 	is.True(observer.events[0].TTLSeconds != nil)
 	is.Equal(*observer.events[0].TTLSeconds, 300)
 }
@@ -306,12 +307,12 @@ func TestService_DisableDeviceAddressLeaseRule_EmitsRuleDisabledEvent(t *testing
 	observer := &mockRuleObserver{}
 	svc.AddRuleObserver(observer)
 
-	_, err := svc.DisableDeviceAddressLeaseRule(ctx, device.DeviceID(55))
+	_, err := svc.DisableDeviceAddressLeaseRule(ctx, ids.DeviceID(55))
 	is.NoErr(err)
 	is.Equal(len(observer.events), 1)
 	is.Equal(observer.events[0].Type, RuleEventTypeDisabled)
 	is.Equal(observer.events[0].RuleType, RuleTypeDeviceAddressLease)
-	is.Equal(observer.events[0].DeviceID, device.DeviceID(55))
+	is.Equal(observer.events[0].DeviceID, ids.DeviceID(55))
 	is.True(observer.events[0].TTLSeconds == nil)
 }
 
@@ -321,7 +322,7 @@ func TestService_GetMaxActiveAddresses_NoRule_ReturnsNil(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepository{getRuleErr: ErrRuleNotFound}
 	svc := newTestService(repo)
-	max, err := svc.GetMaxActiveAddresses(context.Background(), device.DeviceID(1))
+	max, err := svc.GetMaxActiveAddresses(context.Background(), ids.DeviceID(1))
 	is.NoErr(err)
 	is.True(max == nil)
 }
@@ -335,7 +336,7 @@ func TestService_GetMaxActiveAddresses_DisabledRule_ReturnsNil(t *testing.T) {
 		},
 	}
 	svc := newTestService(repo)
-	max, err := svc.GetMaxActiveAddresses(context.Background(), device.DeviceID(1))
+	max, err := svc.GetMaxActiveAddresses(context.Background(), ids.DeviceID(1))
 	is.NoErr(err)
 	is.True(max == nil)
 }
@@ -349,7 +350,7 @@ func TestService_GetMaxActiveAddresses_EnabledRule_ReturnsMaxAddresses(t *testin
 		},
 	}
 	svc := newTestService(repo)
-	max, err := svc.GetMaxActiveAddresses(context.Background(), device.DeviceID(1))
+	max, err := svc.GetMaxActiveAddresses(context.Background(), ids.DeviceID(1))
 	is.NoErr(err)
 	is.True(max != nil)
 	is.Equal(*max, 3)
@@ -364,7 +365,7 @@ func TestService_GetMaxActiveAddresses_InvalidConfig_ReturnsErr(t *testing.T) {
 		},
 	}
 	svc := newTestService(repo)
-	max, err := svc.GetMaxActiveAddresses(context.Background(), device.DeviceID(1))
+	max, err := svc.GetMaxActiveAddresses(context.Background(), ids.DeviceID(1))
 	is.True(err != nil)
 	is.True(errors.Is(err, ErrInvalidRuleConfig))
 	is.True(max == nil)
@@ -382,7 +383,7 @@ func TestService_EnableMaxActiveAddressesRule_Valid(t *testing.T) {
 		},
 	}
 	svc := newTestService(repo)
-	out, err := svc.EnableMaxActiveAddressesRule(context.Background(), device.DeviceID(1), 5)
+	out, err := svc.EnableMaxActiveAddressesRule(context.Background(), ids.DeviceID(1), 5)
 	is.NoErr(err)
 	is.True(out != nil)
 	is.Equal(out.Config.MaxAddresses, 5)
@@ -393,7 +394,7 @@ func TestService_EnableMaxActiveAddressesRule_InvalidMax(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepository{}
 	svc := newTestService(repo)
-	out, err := svc.EnableMaxActiveAddressesRule(context.Background(), device.DeviceID(1), 0)
+	out, err := svc.EnableMaxActiveAddressesRule(context.Background(), ids.DeviceID(1), 0)
 	is.True(err != nil)
 	is.True(errors.Is(err, ErrInvalidMaxAddresses))
 	is.True(out == nil)
@@ -403,7 +404,7 @@ func TestService_EnableMaxActiveAddressesRule_DeviceNotFound(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepository{enableErr: device.ErrDeviceNotFound}
 	svc := newTestService(repo)
-	out, err := svc.EnableMaxActiveAddressesRule(context.Background(), device.DeviceID(1), 3)
+	out, err := svc.EnableMaxActiveAddressesRule(context.Background(), ids.DeviceID(1), 3)
 	is.True(err != nil)
 	is.Equal(err, device.ErrDeviceNotFound)
 	is.True(out == nil)
@@ -421,7 +422,7 @@ func TestService_DisableMaxActiveAddressesRule_ReturnsRule(t *testing.T) {
 		},
 	}
 	svc := newTestService(repo)
-	out, err := svc.DisableMaxActiveAddressesRule(context.Background(), device.DeviceID(1))
+	out, err := svc.DisableMaxActiveAddressesRule(context.Background(), ids.DeviceID(1))
 	is.NoErr(err)
 	is.True(out != nil)
 	is.True(!out.Enabled)
@@ -431,7 +432,7 @@ func TestService_DisableMaxActiveAddressesRule_NotFound(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepository{disableErr: ErrRuleNotFound}
 	svc := newTestService(repo)
-	out, err := svc.DisableMaxActiveAddressesRule(context.Background(), device.DeviceID(1))
+	out, err := svc.DisableMaxActiveAddressesRule(context.Background(), ids.DeviceID(1))
 	is.True(err != nil)
 	is.Equal(err, ErrRuleNotFound)
 	is.True(out == nil)
@@ -454,12 +455,12 @@ func TestService_EnableMaxActiveAddressesRule_FiresObserverEvent(t *testing.T) {
 	observer := &mockRuleObserver{}
 	svc.AddRuleObserver(observer)
 
-	_, err := svc.EnableMaxActiveAddressesRule(ctx, device.DeviceID(55), 3)
+	_, err := svc.EnableMaxActiveAddressesRule(ctx, ids.DeviceID(55), 3)
 	is.NoErr(err)
 	is.Equal(len(observer.events), 1)
 	is.Equal(observer.events[0].Type, RuleEventTypeEnabled)
 	is.Equal(observer.events[0].RuleType, RuleTypeMaxActiveAddresses)
-	is.Equal(observer.events[0].DeviceID, device.DeviceID(55))
+	is.Equal(observer.events[0].DeviceID, ids.DeviceID(55))
 }
 
 func TestService_DisableMaxActiveAddressesRule_NoObserverEvents(t *testing.T) {
@@ -477,7 +478,7 @@ func TestService_DisableMaxActiveAddressesRule_NoObserverEvents(t *testing.T) {
 	observer := &mockRuleObserver{}
 	svc.AddRuleObserver(observer)
 
-	_, err := svc.DisableMaxActiveAddressesRule(ctx, device.DeviceID(55))
+	_, err := svc.DisableMaxActiveAddressesRule(ctx, ids.DeviceID(55))
 	is.NoErr(err)
 	is.Equal(len(observer.events), 0)
 }

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 // Repository handles all database operations for the registration package.
@@ -115,7 +115,7 @@ func (r *Repository) InvalidateInvite(ctx context.Context, id PendingRegistratio
 }
 
 // ClaimInvite Sets an invitation as used and sets the deviceID that it created
-func (r *Repository) ClaimInvite(ctx context.Context, id PendingRegistrationID, deviceID device.DeviceID) (*PendingRegistration, error) {
+func (r *Repository) ClaimInvite(ctx context.Context, id PendingRegistrationID, deviceID ids.DeviceID) (*PendingRegistration, error) {
 	claimedReg := new(PendingRegistration)
 
 	now := time.Now().UTC()

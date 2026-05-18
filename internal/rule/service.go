@@ -6,15 +6,15 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
 type repository interface {
-	GetRuleByDeviceAndType(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error)
-	EnableDeviceAddressLeaseRuleConfig(ctx context.Context, deviceID device.DeviceID, config DeviceAddressLeaseConfig) (*Rule, error)
-	EnableMaxActiveAddressesRuleConfig(ctx context.Context, deviceID device.DeviceID, config MaxActiveAddressesConfig) (*Rule, error)
-	DisableRule(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error)
+	GetRuleByDeviceAndType(ctx context.Context, deviceID ids.DeviceID, ruleType RuleType) (*Rule, error)
+	EnableDeviceAddressLeaseRuleConfig(ctx context.Context, deviceID ids.DeviceID, config DeviceAddressLeaseConfig) (*Rule, error)
+	EnableMaxActiveAddressesRuleConfig(ctx context.Context, deviceID ids.DeviceID, config MaxActiveAddressesConfig) (*Rule, error)
+	DisableRule(ctx context.Context, deviceID ids.DeviceID, ruleType RuleType) (*Rule, error)
 }
 
 type Service struct {
@@ -45,7 +45,7 @@ func (s *Service) notifyRuleObservers(ctx context.Context, event RuleEvent) {
 
 // GetDeviceAddressLeaseTTLSeconds returns the TTL in seconds to apply for address leases
 // for the given device, or nil if no active rule exists.
-func (s *Service) GetDeviceAddressLeaseTTLSeconds(ctx context.Context, deviceID device.DeviceID) (*int, error) {
+func (s *Service) GetDeviceAddressLeaseTTLSeconds(ctx context.Context, deviceID ids.DeviceID) (*int, error) {
 	logger := s.logger.With(
 		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
 		slog.String(AttrKeyRuleType, string(RuleTypeDeviceAddressLease)),
@@ -79,7 +79,7 @@ func (s *Service) GetDeviceAddressLeaseTTLSeconds(ctx context.Context, deviceID 
 
 // GetDeviceAddressLeaseRule returns the device lease rule for the device, or ErrRuleNotFound if none exists.
 // If the rule exists but has invalid config, returns ErrInvalidRuleConfig.
-func (s *Service) GetDeviceAddressLeaseRule(ctx context.Context, deviceID device.DeviceID) (*DeviceAddressLeaseRule, error) {
+func (s *Service) GetDeviceAddressLeaseRule(ctx context.Context, deviceID ids.DeviceID) (*DeviceAddressLeaseRule, error) {
 	rule, err := s.repo.GetRuleByDeviceAndType(ctx, deviceID, RuleTypeDeviceAddressLease)
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func (s *Service) GetDeviceAddressLeaseRule(ctx context.Context, deviceID device
 // ttlSeconds must be positive; enabled controls whether the rule is active.
 func (s *Service) EnableDeviceAddressLeaseRule(
 	ctx context.Context,
-	deviceID device.DeviceID,
+	deviceID ids.DeviceID,
 	ttlSeconds int,
 ) (*DeviceAddressLeaseRule, error) {
 	logger := s.logger.With(
@@ -124,7 +124,7 @@ func (s *Service) EnableDeviceAddressLeaseRule(
 
 // DisableDeviceAddressLeaseRule sets enabled to false for the device lease rule for the device.
 // Returns the updated rule or ErrRuleNotFound if no rule exists.
-func (s *Service) DisableDeviceAddressLeaseRule(ctx context.Context, deviceID device.DeviceID) (*DeviceAddressLeaseRule, error) {
+func (s *Service) DisableDeviceAddressLeaseRule(ctx context.Context, deviceID ids.DeviceID) (*DeviceAddressLeaseRule, error) {
 	logger := s.logger.With(
 		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
 		slog.String(AttrKeyRuleType, string(RuleTypeDeviceAddressLease)),
@@ -147,7 +147,7 @@ func (s *Service) DisableDeviceAddressLeaseRule(ctx context.Context, deviceID de
 }
 
 // GetMaxActiveAddressesRule returns the max active addresses rule for the device, or ErrRuleNotFound if none exists.
-func (s *Service) GetMaxActiveAddressesRule(ctx context.Context, deviceID device.DeviceID) (*MaxActiveAddressesRule, error) {
+func (s *Service) GetMaxActiveAddressesRule(ctx context.Context, deviceID ids.DeviceID) (*MaxActiveAddressesRule, error) {
 	rule, err := s.repo.GetRuleByDeviceAndType(ctx, deviceID, RuleTypeMaxActiveAddresses)
 	if err != nil {
 		return nil, err
@@ -156,7 +156,7 @@ func (s *Service) GetMaxActiveAddressesRule(ctx context.Context, deviceID device
 }
 
 // GetMaxActiveAddresses returns the maximum number of active addresses for the device, or nil if no active rule.
-func (s *Service) GetMaxActiveAddresses(ctx context.Context, deviceID device.DeviceID) (*int, error) {
+func (s *Service) GetMaxActiveAddresses(ctx context.Context, deviceID ids.DeviceID) (*int, error) {
 	logger := s.logger.With(
 		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
 		slog.String(AttrKeyRuleType, string(RuleTypeMaxActiveAddresses)),
@@ -185,7 +185,7 @@ func (s *Service) GetMaxActiveAddresses(ctx context.Context, deviceID device.Dev
 }
 
 // EnableMaxActiveAddressesRule creates or updates the max active addresses rule for the device.
-func (s *Service) EnableMaxActiveAddressesRule(ctx context.Context, deviceID device.DeviceID, maxAddresses int) (*MaxActiveAddressesRule, error) {
+func (s *Service) EnableMaxActiveAddressesRule(ctx context.Context, deviceID ids.DeviceID, maxAddresses int) (*MaxActiveAddressesRule, error) {
 	logger := s.logger.With(
 		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
 		slog.String(AttrKeyRuleType, string(RuleTypeMaxActiveAddresses)),
@@ -213,7 +213,7 @@ func (s *Service) EnableMaxActiveAddressesRule(ctx context.Context, deviceID dev
 }
 
 // DisableMaxActiveAddressesRule sets enabled to false for the max active addresses rule for the device.
-func (s *Service) DisableMaxActiveAddressesRule(ctx context.Context, deviceID device.DeviceID) (*MaxActiveAddressesRule, error) {
+func (s *Service) DisableMaxActiveAddressesRule(ctx context.Context, deviceID ids.DeviceID) (*MaxActiveAddressesRule, error) {
 	logger := s.logger.With(
 		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
 		slog.String(AttrKeyRuleType, string(RuleTypeMaxActiveAddresses)),

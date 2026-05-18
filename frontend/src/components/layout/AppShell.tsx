@@ -9,13 +9,17 @@ import {
     Burger,
     Group,
     Tooltip,
+    ScrollArea,
+    Box,
     useMantineColorScheme,
     useComputedColorScheme,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useLocalStorage, useMediaQuery } from "@mantine/hooks";
 import { BrandName } from "@/components/BrandName";
 import {
     IconChartBar,
+    IconChevronLeft,
+    IconChevronRight,
     IconDatabaseSearch,
     IconHelp,
     IconHistory,
@@ -35,26 +39,58 @@ import { useLogout } from "@/features/auth/hooks/useLogout";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useAutoHeartbeat } from "@/features/devices/hooks/useAutoHeartbeat";
 import { toErrorMessage } from "@/lib/api-client";
-import { UserRole } from "@/lib/api";
+import classes from "./AppShell.module.css";
 
-const navItems = [
-    { label: "Dashboard", href: "/dashboard", icon: IconChartBar },
-    { label: "Devices", href: "/devices", icon: IconServer },
-    { label: "Provisioning", href: "/device-provisioning", icon: IconQrcode },
-    { label: "Access Log", href: "/access-log", icon: IconList },
-    { label: "Address Log", href: "/address-history", icon: IconHistory },
+type NavItem = {
+    label: string;
+    href: string;
+    icon: React.ComponentType<{ size?: number; stroke?: number }>;
+};
+
+type NavGroup = {
+    label: string | null;
+    items: NavItem[];
+};
+
+const navGroups: NavGroup[] = [
+    {
+        label: null,
+        items: [{ label: "Dashboard", href: "/dashboard", icon: IconChartBar }],
+    },
+    {
+        label: "Devices",
+        items: [
+            { label: "Devices", href: "/devices", icon: IconServer },
+            { label: "Provisioning", href: "/device-provisioning", icon: IconQrcode },
+        ],
+    },
+    {
+        label: "Access",
+        items: [
+            { label: "Hosts", href: "/hosts", icon: IconShield },
+            { label: "Users", href: "/users", icon: IconUsers },
+            { label: "Network Policies", href: "/network-policies", icon: IconNetwork },
+        ],
+    },
+    {
+        label: "Auditing",
+        items: [
+            { label: "Access Logs", href: "/access-log", icon: IconList },
+            { label: "IP Address Logs", href: "/address-history", icon: IconHistory },
+            { label: "Access Policy Cache", href: "/policy-audit", icon: IconDatabaseSearch },
+        ],
+    },
+    {
+        label: null,
+        items: [{ label: "Settings", href: "/settings", icon: IconSettings }],
+    },
 ];
 
-const adminNavItems = [
-    { label: "Users", href: "/users", icon: IconUsers },
-    { label: "Hosts", href: "/hosts", icon: IconShield },
-    { label: "Network Policies", href: "/network-policies", icon: IconNetwork },
-    { label: "Policy Cache", href: "/policy-audit", icon: IconDatabaseSearch },
-];
-
-const bottomNavItems = [
-    { label: "Settings", href: "/settings", icon: IconSettings },
-];
+const collapsedItemStyles = {
+    root: { justifyContent: "center" as const, padding: "8px" },
+    body: { display: "none" as const },
+    section: { margin: 0 },
+};
 
 function ColorSchemeToggle() {
     const { setColorScheme } = useMantineColorScheme();
@@ -78,17 +114,25 @@ function ColorSchemeToggle() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
     const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure();
+    const [navCollapsed, setNavCollapsed] = useLocalStorage({
+        key: "pw-nav-collapsed",
+        defaultValue: false,
+        getInitialValueInEffect: false,
+    });
+    // Assume desktop on first render to avoid content/width mismatch for users with stored collapsed state
+    const isMd = useMediaQuery("(min-width: 62em)", true, { getInitialValueInEffect: false });
+    const isCollapsed = navCollapsed && isMd;
+
     const location = useLocation();
     const logoutMutation = useLogout();
     const { user } = useAuth();
     const { clientIp, activeDeviceId } = useAutoHeartbeat();
-    const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN;
 
     return (
         <MantineAppShell
             header={{ height: 60 }}
             navbar={{
-                width: 240,
+                width: { base: 240, md: isCollapsed ? 60 : 240 },
                 breakpoint: "md",
                 collapsed: { mobile: !mobileOpened },
             }}
@@ -125,85 +169,134 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </Group>
             </MantineAppShell.Header>
 
-            <MantineAppShell.Navbar p="md">
-                {/* Nav items */}
-                <MantineAppShell.Section grow>
-                    <Stack gap={4}>
-                        {navItems.map((item) => (
-                            <NavLink
-                                key={item.href}
-                                component={Link}
-                                to={item.href}
-                                label={item.label}
-                                leftSection={<item.icon size={18} stroke={1.5} />}
-                                active={location.pathname.startsWith(item.href)}
-                                onClick={closeMobile}
-                            />
-                        ))}
-                        {isAdmin && adminNavItems.map((item) => (
-                            <NavLink
-                                key={item.href}
-                                component={Link}
-                                to={item.href}
-                                label={item.label}
-                                leftSection={<item.icon size={18} stroke={1.5} />}
-                                active={location.pathname.startsWith(item.href)}
-                                onClick={closeMobile}
-                            />
-                        ))}
-                        {bottomNavItems.map((item) => (
-                            <NavLink
-                                key={item.href}
-                                component={Link}
-                                to={item.href}
-                                label={item.label}
-                                leftSection={<item.icon size={18} stroke={1.5} />}
-                                active={location.pathname.startsWith(item.href)}
-                                onClick={closeMobile}
-                            />
+            <MantineAppShell.Navbar className={classes.navbar} p={0}>
+                {/* Scrollable nav groups */}
+                <MantineAppShell.Section grow component={ScrollArea}>
+                    <Stack gap={2} px="xs" pt="xs" pb="xs">
+                        {navGroups.map((group, groupIdx) => (
+                            <Box key={groupIdx}>
+                                {groupIdx > 0 && !isCollapsed && (
+                                    group.label
+                                        ? <Text className={classes.sectionLabel}>{group.label}</Text>
+                                        : <Divider my={4} />
+                                )}
+                                {group.items.map(item => {
+                                    const isActive = location.pathname.startsWith(item.href);
+                                    if (isCollapsed) {
+                                        return (
+                                            <Tooltip key={item.href} label={item.label} position="right" withArrow>
+                                                <NavLink
+                                                    component={Link}
+                                                    to={item.href}
+                                                    leftSection={<item.icon size={18} stroke={1.5} />}
+                                                    active={isActive}
+                                                    onClick={closeMobile}
+                                                    styles={collapsedItemStyles}
+                                                    aria-label={item.label}
+                                                />
+                                            </Tooltip>
+                                        );
+                                    }
+                                    return (
+                                        <NavLink
+                                            key={item.href}
+                                            component={Link}
+                                            to={item.href}
+                                            label={item.label}
+                                            leftSection={<item.icon size={18} stroke={1.5} />}
+                                            active={isActive}
+                                            onClick={closeMobile}
+                                            className={classes.navItem}
+                                        />
+                                    );
+                                })}
+                            </Box>
                         ))}
                     </Stack>
                 </MantineAppShell.Section>
 
-                {/* Footer: user info, logout, color scheme */}
+                {/* Footer: collapse toggle, user info, logout */}
                 <MantineAppShell.Section>
-                    <Divider mb="sm" />
-                    {user && (
-                        <Text size="sm" c="dimmed" mb="xs" px="sm">
-                            {user.display_name || user.username}
-                        </Text>
-                    )}
-                    {activeDeviceId && clientIp && (
-                        <Group gap="xs" mb="xs" px="sm">
-                            <span
-                                style={{
-                                    display: "inline-block",
-                                    width: 8,
-                                    height: 8,
-                                    borderRadius: "50%",
-                                    background: "var(--mantine-color-green-6)",
-                                    flexShrink: 0,
-                                }}
-                            />
-                            <Text size="xs" c="dimmed" ff="monospace">
-                                {clientIp}
-                            </Text>
+                    <Box px="xs" pb="xs">
+                        {/* Collapse toggle — desktop only */}
+                        <Group justify={isCollapsed ? "center" : "flex-end"} mb="xs" visibleFrom="md">
+                            <Tooltip
+                                label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                                position="right"
+                                withArrow
+                            >
+                                <ActionIcon
+                                    variant="subtle"
+                                    size="sm"
+                                    onClick={() => setNavCollapsed(!navCollapsed)}
+                                    aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                                >
+                                    {navCollapsed
+                                        ? <IconChevronRight size={14} stroke={1.5} />
+                                        : <IconChevronLeft size={14} stroke={1.5} />
+                                    }
+                                </ActionIcon>
+                            </Tooltip>
                         </Group>
-                    )}
-                    <Divider my="xs" />
-                    <NavLink
-                        label={logoutMutation.isPending ? "Logging out…" : "Logout"}
-                        leftSection={<IconLogout size={18} stroke={1.5} />}
-                        onClick={() => logoutMutation.mutate(
-                            {},
-                            {
-                                onError: (err) =>
-                                    notifications.show({ color: "red", title: "Logout failed", message: toErrorMessage(err) }),
-                            },
+
+                        <Divider mb="sm" />
+
+                        {!isCollapsed && user && (
+                            <Text size="sm" c="dimmed" mb="xs" px="sm">
+                                {user.display_name || user.username}
+                            </Text>
                         )}
-                        disabled={logoutMutation.isPending}
-                        color="red"
-                    />
+
+                        {activeDeviceId && clientIp && (
+                            isCollapsed ? (
+                                <Tooltip label={clientIp} position="right" withArrow>
+                                    <Group justify="center" mb="xs" style={{ cursor: "default" }}>
+                                        <span className={classes.heartbeatDot} />
+                                    </Group>
+                                </Tooltip>
+                            ) : (
+                                <Group gap="xs" mb="xs" px="sm">
+                                    <span className={classes.heartbeatDot} />
+                                    <Text size="xs" c="dimmed" ff="monospace">
+                                        {clientIp}
+                                    </Text>
+                                </Group>
+                            )
+                        )}
+
+                        <Divider my="xs" />
+
+                        {isCollapsed ? (
+                            <Tooltip
+                                label={logoutMutation.isPending ? "Logging out…" : "Logout"}
+                                position="right"
+                                withArrow
+                            >
+                                <NavLink
+                                    leftSection={<IconLogout size={18} stroke={1.5} />}
+                                    onClick={() => logoutMutation.mutate({}, {
+                                        onError: (err) =>
+                                            notifications.show({ color: "red", title: "Logout failed", message: toErrorMessage(err) }),
+                                    })}
+                                    disabled={logoutMutation.isPending}
+                                    color="red"
+                                    styles={collapsedItemStyles}
+                                    aria-label={logoutMutation.isPending ? "Logging out…" : "Logout"}
+                                />
+                            </Tooltip>
+                        ) : (
+                            <NavLink
+                                label={logoutMutation.isPending ? "Logging out…" : "Logout"}
+                                leftSection={<IconLogout size={18} stroke={1.5} />}
+                                onClick={() => logoutMutation.mutate({}, {
+                                    onError: (err) =>
+                                        notifications.show({ color: "red", title: "Logout failed", message: toErrorMessage(err) }),
+                                })}
+                                disabled={logoutMutation.isPending}
+                                color="red"
+                            />
+                        )}
+                    </Box>
                 </MantineAppShell.Section>
             </MantineAppShell.Navbar>
 

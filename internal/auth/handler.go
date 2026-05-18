@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -192,7 +193,7 @@ func (h *HTTPHandler) PromoteUser(ctx context.Context, request httpapi.PromoteUs
 		return httpapi.PromoteUser401JSONResponse(errorMsgResponse("Not authenticated")), nil
 	}
 
-	user, err := h.service.PromoteUser(ctx, principal, UserID(request.UserId), request.Body.Password)
+	user, err := h.service.PromoteUser(ctx, principal, ids.UserID(request.UserId), request.Body.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrSelfRoleChangeForbidden) || errors.Is(err, ErrPromoteAlreadyAdmin):
@@ -226,7 +227,7 @@ func (h *HTTPHandler) DemoteUser(ctx context.Context, request httpapi.DemoteUser
 		return httpapi.DemoteUser401JSONResponse(errorMsgResponse("Not authenticated")), nil
 	}
 
-	user, err := h.service.DemoteUser(ctx, principal, UserID(request.UserId))
+	user, err := h.service.DemoteUser(ctx, principal, ids.UserID(request.UserId))
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrSelfRoleChangeForbidden):
@@ -257,7 +258,7 @@ func (h *HTTPHandler) DeleteUser(ctx context.Context, request httpapi.DeleteUser
 		return httpapi.DeleteUser401JSONResponse(errorMsgResponse("Not authenticated")), nil
 	}
 
-	err := h.service.DeleteUser(ctx, principal, UserID(request.UserId))
+	err := h.service.DeleteUser(ctx, principal, ids.UserID(request.UserId))
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrAdminCredentialsRequired), errors.Is(err, ErrSelfDeleteForbidden):

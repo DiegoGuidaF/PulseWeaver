@@ -9,8 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/registration"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
@@ -79,7 +78,7 @@ func (m *mockRepo) InvalidateInvite(_ context.Context, id registration.PendingRe
 	return nil
 }
 
-func (m *mockRepo) ClaimInvite(_ context.Context, id registration.PendingRegistrationID, _ device.DeviceID) (*registration.PendingRegistration, error) {
+func (m *mockRepo) ClaimInvite(_ context.Context, id registration.PendingRegistrationID, _ ids.DeviceID) (*registration.PendingRegistration, error) {
 	return m.invites[id], m.claimErr
 }
 
@@ -91,8 +90,8 @@ func newMockDeviceProvisioner() *mockDeviceProvisioner {
 	return &mockDeviceProvisioner{}
 }
 
-func (mp *mockDeviceProvisioner) CreateDeviceWithAPIKey(ctx context.Context, name string, ownerID auth.UserID) (deviceID device.DeviceID, rawAPIKey string, err error) {
-	return device.DeviceID(1), "an api key", nil
+func (mp *mockDeviceProvisioner) CreateDeviceWithAPIKey(ctx context.Context, name string, ownerID ids.UserID) (deviceID ids.DeviceID, rawAPIKey string, err error) {
+	return ids.DeviceID(1), "an api key", nil
 }
 
 // --- tests ---

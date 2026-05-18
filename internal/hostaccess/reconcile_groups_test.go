@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/matryer/is"
 )
 
@@ -38,7 +39,7 @@ func TestService_ReconcileHostGroups_DeleteThenUpdateThenCreate(t *testing.T) {
 	}
 	svc, _ := newTestService(repo)
 
-	id1 := HostGroupID(1)
+	id1 := ids.HostGroupID(1)
 	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
 		Groups: []DesiredHostGroup{
 			{ID: &id1, Name: "renamed"},
@@ -84,7 +85,7 @@ func TestService_ReconcileHostGroups_DuplicateID_Rejected(t *testing.T) {
 	repo := &fakeRepo{}
 	svc, _ := newTestService(repo)
 
-	id := HostGroupID(7)
+	id := ids.HostGroupID(7)
 	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
 		Groups: []DesiredHostGroup{
 			{ID: &id, Name: "a"},
@@ -109,13 +110,13 @@ func TestBuildGroupReconcilePlan_DeleteOnly(t *testing.T) {
 	current := []HostGroup{{ID: 1, Name: "doomed"}}
 	plan, err := buildGroupReconcilePlan(current, nil)
 	is.NoErr(err)
-	is.Equal(plan.toDelete, []HostGroupID{1})
+	is.Equal(plan.toDelete, []ids.HostGroupID{1})
 }
 
 func TestBuildGroupReconcilePlan_UpdateChanged(t *testing.T) {
 	is := is.New(t)
 	current := []HostGroup{{ID: 1, Name: "before"}}
-	id := HostGroupID(1)
+	id := ids.HostGroupID(1)
 	plan, err := buildGroupReconcilePlan(current, []DesiredHostGroup{{ID: &id, Name: "after"}})
 	is.NoErr(err)
 	is.Equal(len(plan.toUpdate), 1)
@@ -125,7 +126,7 @@ func TestBuildGroupReconcilePlan_UpdateChanged(t *testing.T) {
 func TestBuildGroupReconcilePlan_UpdateUnchanged_SkipsUpdate(t *testing.T) {
 	is := is.New(t)
 	current := []HostGroup{{ID: 1, Name: "stable"}}
-	id := HostGroupID(1)
+	id := ids.HostGroupID(1)
 	plan, err := buildGroupReconcilePlan(current, []DesiredHostGroup{{ID: &id, Name: "stable"}})
 	is.NoErr(err)
 	is.Equal(len(plan.toUpdate), 0)
@@ -135,7 +136,7 @@ func TestBuildGroupReconcilePlan_UpdateUnchanged_SkipsUpdate(t *testing.T) {
 
 func TestBuildGroupReconcilePlan_UnknownDesiredID_Errors(t *testing.T) {
 	is := is.New(t)
-	id := HostGroupID(42)
+	id := ids.HostGroupID(42)
 	_, err := buildGroupReconcilePlan(nil, []DesiredHostGroup{{ID: &id, Name: "ghost"}})
 	is.True(errors.Is(err, ErrHostGroupNotFound))
 }
@@ -147,8 +148,8 @@ func TestBuildGroupReconcilePlan_Mixed(t *testing.T) {
 		{ID: 2, Name: "rename-me"},
 		{ID: 3, Name: "remove-me"},
 	}
-	id1 := HostGroupID(1)
-	id2 := HostGroupID(2)
+	id1 := ids.HostGroupID(1)
+	id2 := ids.HostGroupID(2)
 	plan, err := buildGroupReconcilePlan(current, []DesiredHostGroup{
 		{ID: &id1, Name: "keep"},
 		{ID: &id2, Name: "renamed"},
@@ -158,6 +159,6 @@ func TestBuildGroupReconcilePlan_Mixed(t *testing.T) {
 	is.Equal(len(plan.toCreate), 1)
 	is.Equal(plan.toCreate[0].Name, "fresh")
 	is.Equal(len(plan.toUpdate), 1)
-	is.Equal(plan.toUpdate[0].ID, HostGroupID(2))
-	is.Equal(plan.toDelete, []HostGroupID{3})
+	is.Equal(plan.toUpdate[0].ID, ids.HostGroupID(2))
+	is.Equal(plan.toDelete, []ids.HostGroupID{3})
 }

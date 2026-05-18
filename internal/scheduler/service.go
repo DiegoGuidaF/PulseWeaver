@@ -7,15 +7,16 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
 type AddressDisabler interface {
-	DisableAddresses(ctx context.Context, addressIDs []device.AddressID, source device.EventSource) error
+	DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source device.EventSource) error
 }
 
 type ExpiredAddressFinder interface {
-	GetExpiredAddressIDs(ctx context.Context) ([]device.AddressID, error)
+	GetExpiredAddressIDs(ctx context.Context) ([]ids.AddressID, error)
 }
 
 type Service struct {

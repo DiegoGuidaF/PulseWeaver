@@ -7,6 +7,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
@@ -22,10 +23,10 @@ func NewHTTPHandler(service *Service, logger *slog.Logger) *HTTPHandler {
 	}
 }
 
-func (h *HTTPHandler) ReconcileKnownHosts(
+func (h *HTTPHandler) ReconcileHosts(
 	ctx context.Context,
-	req httpapi.ReconcileKnownHostsRequestObject,
-) (httpapi.ReconcileKnownHostsResponseObject, error) {
+	req httpapi.ReconcileHostsRequestObject,
+) (httpapi.ReconcileHostsResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "ReconcileKnownHosts")
 
 	in := ReconcileKnownHostsInput{
@@ -34,14 +35,13 @@ func (h *HTTPHandler) ReconcileKnownHosts(
 	for _, h := range req.Body.Hosts {
 		desired := DesiredKnownHost{
 			FQDN:     h.Fqdn,
-			Icon:     h.Icon,
-			GroupIDs: make([]HostGroupID, len(h.GroupIds)),
+			GroupIDs: make([]ids.HostGroupID, len(h.GroupIds)),
 		}
 		if h.Id != nil {
-			desired.ID = new(KnownHostID(*h.Id))
+			desired.ID = new(ids.KnownHostID(*h.Id))
 		}
 		for i, gid := range h.GroupIds {
-			desired.GroupIDs[i] = HostGroupID(gid)
+			desired.GroupIDs[i] = ids.HostGroupID(gid)
 		}
 		in.Hosts = append(in.Hosts, desired)
 	}
@@ -52,17 +52,17 @@ func (h *HTTPHandler) ReconcileKnownHosts(
 			errors.Is(err, ErrDuplicateKnownHostID),
 			errors.Is(err, ErrDuplicateKnownHostFQDN),
 			errors.Is(err, ErrKnownHostFQDNImmutable):
-			return httpapi.ReconcileKnownHosts400JSONResponse(errResp(err.Error())), nil
+			return httpapi.ReconcileHosts400JSONResponse(errResp(err.Error())), nil
 		case errors.Is(err, ErrKnownHostNotFound), errors.Is(err, ErrReferenceNotFound):
-			return httpapi.ReconcileKnownHosts404JSONResponse(errResp(err.Error())), nil
+			return httpapi.ReconcileHosts404JSONResponse(errResp(err.Error())), nil
 		case errors.Is(err, ErrKnownHostConflict):
-			return httpapi.ReconcileKnownHosts409JSONResponse(errResp("FQDN already exists")), nil
+			return httpapi.ReconcileHosts409JSONResponse(errResp("FQDN already exists")), nil
 		default:
 			h.logger.ErrorContext(ctx, "reconcile known hosts failed", slog.Any(logging.AttrKeyError, err))
-			return httpapi.ReconcileKnownHosts500JSONResponse(errResp("Failed to reconcile known hosts")), nil
+			return httpapi.ReconcileHosts500JSONResponse(errResp("Failed to reconcile known hosts")), nil
 		}
 	}
-	return httpapi.ReconcileKnownHosts204Response{}, nil
+	return httpapi.ReconcileHosts204Response{}, nil
 }
 
 func (h *HTTPHandler) ReconcileHostGroups(
@@ -82,12 +82,12 @@ func (h *HTTPHandler) ReconcileHostGroups(
 			Icon:        g.Icon,
 		}
 		if g.Id != nil {
-			desired.ID = new(HostGroupID(*g.Id))
+			desired.ID = new(ids.HostGroupID(*g.Id))
 		}
 		if g.HostIds != nil {
-			desired.HostIDs = make([]KnownHostID, len(*g.HostIds))
+			desired.HostIDs = make([]ids.KnownHostID, len(*g.HostIds))
 			for i, raw := range *g.HostIds {
-				desired.HostIDs[i] = KnownHostID(raw)
+				desired.HostIDs[i] = ids.KnownHostID(raw)
 			}
 		}
 		in.Groups = append(in.Groups, desired)
@@ -111,40 +111,29 @@ func (h *HTTPHandler) ReconcileHostGroups(
 
 // ── User host grants ──────────────────────────────────────────────────────────
 
-func (h *HTTPHandler) SetUserHostGrants(
+func (h *HTTPHandler) SetUserAccess(
 	ctx context.Context,
-	req httpapi.SetUserHostGrantsRequestObject,
-) (httpapi.SetUserHostGrantsResponseObject, error) {
+	req httpapi.SetUserAccessRequestObject,
+) (httpapi.SetUserAccessResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "SetUserHostGrants")
-	userID := auth.UserID(req.UserId)
+	userID := ids.UserID(req.UserId)
 
-	var hostIDs []KnownHostID
-	if req.Body.HostIds != nil {
-		hostIDs = make([]KnownHostID, len(*req.Body.HostIds))
-		for i, id := range *req.Body.HostIds {
-			hostIDs[i] = KnownHostID(id)
-		}
+	groupIDs := make([]ids.HostGroupID, len(req.Body.GroupIds))
+	for i, id := range req.Body.GroupIds {
+		groupIDs[i] = ids.HostGroupID(id)
 	}
 
-	var groupIDs []HostGroupID
-	if req.Body.GroupIds != nil {
-		groupIDs = make([]HostGroupID, len(*req.Body.GroupIds))
-		for i, id := range *req.Body.GroupIds {
-			groupIDs[i] = HostGroupID(id)
-		}
-	}
-
-	if err := h.service.SetFullUserGrants(ctx, userID, req.Body.Bypass, hostIDs, groupIDs); err != nil {
+	if err := h.service.SetUserAccess(ctx, userID, req.Body.BypassHostCheck, groupIDs); err != nil {
 		switch {
 		case errors.Is(err, ErrReferenceNotFound), errors.Is(err, auth.ErrUserNotFound):
-			return httpapi.SetUserHostGrants404JSONResponse(errResp("User or one of the referenced hosts/groups not found")), nil
+			return httpapi.SetUserAccess404JSONResponse(errResp("User or one of the referenced hosts/groups not found")), nil
 		default:
 			h.logger.ErrorContext(ctx, "set user host grants failed", slog.Any(logging.AttrKeyError, err))
-			return httpapi.SetUserHostGrants500JSONResponse(errResp("Failed to set user grants")), nil
+			return httpapi.SetUserAccess500JSONResponse(errResp("Failed to set user grants")), nil
 		}
 	}
 
-	return httpapi.SetUserHostGrants204Response{}, nil
+	return httpapi.SetUserAccess204Response{}, nil
 }
 
 func (h *HTTPHandler) IgnoreSuggestion(

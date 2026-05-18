@@ -7,13 +7,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/jmoiron/sqlx"
 )
 
 // NetworkPolicySummaryView is the read model for the policy list page.
 type NetworkPolicySummaryView struct {
-	ID                 networkpolicies.NetworkPolicyID
+	ID                 ids.NetworkPolicyID
 	Name               string
 	CIDR               string
 	Description        *string
@@ -52,7 +53,7 @@ type PolicyHostView struct {
 
 // NetworkPolicyDetailView is the full detail read model for a single policy.
 type NetworkPolicyDetailView struct {
-	ID                 networkpolicies.NetworkPolicyID
+	ID                 ids.NetworkPolicyID
 	Name               string
 	CIDR               string
 	Description        *string
@@ -69,13 +70,13 @@ type NetworkPolicyDetailView struct {
 // GetNetworkPolicySummaries returns all policies enriched with host count metadata.
 func (r *Repository) GetNetworkPolicySummaries(ctx context.Context) ([]NetworkPolicySummaryView, error) {
 	type policyRow struct {
-		ID            networkpolicies.NetworkPolicyID `db:"id"`
-		Name          string                          `db:"name"`
-		CIDR          string                          `db:"cidr"`
-		Description   *string                         `db:"description"`
-		Enabled       bool                            `db:"enabled"`
-		AllowAllHosts bool                            `db:"allow_all_hosts"`
-		CreatedAt     time.Time                       `db:"created_at"`
+		ID            ids.NetworkPolicyID `db:"id"`
+		Name          string              `db:"name"`
+		CIDR          string              `db:"cidr"`
+		Description   *string             `db:"description"`
+		Enabled       bool                `db:"enabled"`
+		AllowAllHosts bool                `db:"allow_all_hosts"`
+		CreatedAt     time.Time           `db:"created_at"`
 	}
 
 	const listQuery = `
@@ -96,9 +97,9 @@ func (r *Repository) GetNetworkPolicySummaries(ctx context.Context) ([]NetworkPo
 		return nil, err
 	}
 
-	ids := make([]any, len(rows))
+	policyIDs := make([]any, len(rows))
 	for i, p := range rows {
-		ids[i] = p.ID
+		policyIDs[i] = p.ID
 	}
 
 	effectiveQuery, args, err := sqlx.In(`
@@ -112,22 +113,22 @@ func (r *Repository) GetNetworkPolicySummaries(ctx context.Context) ([]NetworkPo
 			WHERE nphg.policy_id IN (?)
 		) combined
 		GROUP BY policy_id
-	`, ids, ids)
+	`, policyIDs, policyIDs)
 	if err != nil {
 		return nil, fmt.Errorf("build effective count query: %w", err)
 	}
 	effectiveQuery = r.db.Rebind(effectiveQuery)
 
 	type countRow struct {
-		PolicyID           networkpolicies.NetworkPolicyID `db:"policy_id"`
-		EffectiveHostCount int                             `db:"effective_host_count"`
+		PolicyID           ids.NetworkPolicyID `db:"policy_id"`
+		EffectiveHostCount int                 `db:"effective_host_count"`
 	}
 	var countRows []countRow
 	if err := r.db.SelectContext(ctx, &countRows, effectiveQuery, args...); err != nil {
 		return nil, fmt.Errorf("count effective hosts: %w", err)
 	}
 
-	countByID := make(map[networkpolicies.NetworkPolicyID]int, len(countRows))
+	countByID := make(map[ids.NetworkPolicyID]int, len(countRows))
 	for _, cr := range countRows {
 		countByID[cr.PolicyID] = cr.EffectiveHostCount
 	}
@@ -155,16 +156,16 @@ func (r *Repository) GetNetworkPolicySummaries(ctx context.Context) ([]NetworkPo
 
 // GetNetworkPolicyDetail returns the full detail view for one policy, including all host
 // groups (with their full member lists) and all individual hosts annotated with assignment state.
-func (r *Repository) GetNetworkPolicyDetail(ctx context.Context, id networkpolicies.NetworkPolicyID) (*NetworkPolicyDetailView, error) {
+func (r *Repository) GetNetworkPolicyDetail(ctx context.Context, id ids.NetworkPolicyID) (*NetworkPolicyDetailView, error) {
 	type policyRow struct {
-		ID            networkpolicies.NetworkPolicyID `db:"id"`
-		Name          string                          `db:"name"`
-		CIDR          string                          `db:"cidr"`
-		Description   *string                         `db:"description"`
-		Enabled       bool                            `db:"enabled"`
-		AllowAllHosts bool                            `db:"allow_all_hosts"`
-		CreatedAt     time.Time                       `db:"created_at"`
-		UpdatedAt     time.Time                       `db:"updated_at"`
+		ID            ids.NetworkPolicyID `db:"id"`
+		Name          string              `db:"name"`
+		CIDR          string              `db:"cidr"`
+		Description   *string             `db:"description"`
+		Enabled       bool                `db:"enabled"`
+		AllowAllHosts bool                `db:"allow_all_hosts"`
+		CreatedAt     time.Time           `db:"created_at"`
+		UpdatedAt     time.Time           `db:"updated_at"`
 	}
 
 	var p policyRow
@@ -226,7 +227,7 @@ func (r *Repository) totalKnownHostCount(ctx context.Context) (int, error) {
 	return count, nil
 }
 
-func (r *Repository) effectiveHostCount(ctx context.Context, id networkpolicies.NetworkPolicyID) (int, error) {
+func (r *Repository) effectiveHostCount(ctx context.Context, id ids.NetworkPolicyID) (int, error) {
 	const query = `
 		SELECT COUNT(DISTINCT known_host_id)
 		FROM (
@@ -245,7 +246,7 @@ func (r *Repository) effectiveHostCount(ctx context.Context, id networkpolicies.
 	return count, nil
 }
 
-func (r *Repository) listGroupsForPolicy(ctx context.Context, id networkpolicies.NetworkPolicyID) ([]PolicyHostGroupView, error) {
+func (r *Repository) listGroupsForPolicy(ctx context.Context, id ids.NetworkPolicyID) ([]PolicyHostGroupView, error) {
 	type dbGroupRow struct {
 		ID       int64   `db:"id"`
 		Name     string  `db:"name"`
@@ -326,7 +327,7 @@ func (r *Repository) listGroupsForPolicy(ctx context.Context, id networkpolicies
 	return groups, nil
 }
 
-func (r *Repository) listHostsForPolicy(ctx context.Context, id networkpolicies.NetworkPolicyID) ([]PolicyHostView, error) {
+func (r *Repository) listHostsForPolicy(ctx context.Context, id ids.NetworkPolicyID) ([]PolicyHostView, error) {
 	const query = `
 		SELECT
 			kh.id,

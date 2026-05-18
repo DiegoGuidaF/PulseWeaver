@@ -1,0 +1,32 @@
+.navbar {
+    overflow: hidden;
+}
+
+.navItem {
+    border-left: 3px solid transparent;
+    transition: border-color 150ms ease;
+}
+
+.navItem[data-active] {
+    border-left-color: var(--mantine-color-indigo-4);
+    font-weight: 600;
+}
+
+.sectionLabel {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--mantine-color-dimmed);
+    padding: 10px 12px 4px;
+    user-select: none;
+}
+
+.heartbeatDot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--mantine-color-green-6);
+    flex-shrink: 0;
+}

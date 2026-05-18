@@ -7,14 +7,15 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/matryer/is"
 )
 
 func TestAddressEvent_IsAddressEnabled(t *testing.T) {
 	is := is.New(t)
 	base := device.AddressEvent{
-		AddressID:  device.AddressID(1),
-		DeviceID:   device.DeviceID(1),
+		AddressID:  ids.AddressID(1),
+		DeviceID:   ids.DeviceID(1),
 		OccurredAt: time.Now().UTC(),
 	}
 

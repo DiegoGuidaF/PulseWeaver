@@ -10,6 +10,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -68,7 +69,7 @@ func (h *HTTPHandler) GetDeviceAddresses(
 	request httpapi.GetDeviceAddressesRequestObject,
 ) (httpapi.GetDeviceAddressesResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetDeviceAddresses")
-	deviceID := device.DeviceID(request.DeviceId)
+	deviceID := ids.DeviceID(request.DeviceId)
 	logger := h.logger.With(slog.Int64(device.AttrKeyDeviceID, deviceID.Int64()))
 
 	exists, err := h.repo.DeviceExists(ctx, deviceID)
@@ -121,7 +122,7 @@ func (h *HTTPHandler) GetDevicesByUser(
 ) (httpapi.GetDevicesByUserResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetDevicesByUser")
 
-	devices, err := h.repo.GetDevicesByUser(ctx, auth.UserID(request.UserId))
+	devices, err := h.repo.GetDevicesByUser(ctx, ids.UserID(request.UserId))
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrUserNotFound):
@@ -145,23 +146,23 @@ func (h *HTTPHandler) ListHostGroups(
 ) (httpapi.ListHostGroupsResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "ListHostGroups")
 
-	groups, err := h.repo.GetHostGroupsWithMembers(ctx)
+	groups, err := h.repo.GetHostGroupsDetails(ctx)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "list host groups failed", slog.Any(logging.AttrKeyError, err))
 		return httpapi.ListHostGroups500JSONResponse(errorMsgResponse("Failed to list host groups")), nil
 	}
 
-	resp := make([]httpapi.HostGroupWithMembers, len(groups))
+	groupDetails := make([]httpapi.GroupDetailWithUsers, len(groups))
 	for i, g := range groups {
-		hosts := make([]httpapi.KnownHostRef, len(g.Hosts))
+		hosts := make([]httpapi.HostSummary, len(g.Hosts))
 		for j, host := range g.Hosts {
-			hosts[j] = httpapi.KnownHostRef{Id: host.ID.Int64(), Fqdn: host.FQDN, Icon: host.Icon}
+			hosts[j] = httpapi.HostSummary{Id: host.ID.Int64(), Fqdn: host.FQDN}
 		}
 		memberIDs := make([]int64, len(g.MemberIDs))
 		for j, id := range g.MemberIDs {
 			memberIDs[j] = id.Int64()
 		}
-		resp[i] = httpapi.HostGroupWithMembers{
+		groupDetails[i] = httpapi.GroupDetailWithUsers{
 			Id:          g.ID.Int64(),
 			Name:        g.Name,
 			Color:       g.Color,
@@ -169,10 +170,11 @@ func (h *HTTPHandler) ListHostGroups(
 			Icon:        g.Icon,
 			CreatedAt:   httpapi.UTCTime(g.CreatedAt),
 			Hosts:       hosts,
-			MemberIds:   memberIDs,
+			Users:       nil, //TODO: Add user data
 		}
 	}
-	return httpapi.ListHostGroups200JSONResponse(resp), nil
+
+	return httpapi.ListHostGroups200JSONResponse(httpapi.GroupListResponse{Groups: groupDetails}), nil
 }
 
 func (h *HTTPHandler) GetAccessLog(
@@ -324,9 +326,19 @@ func toDeviceViewResponse(d *DeviceView) httpapi.Device {
 	}
 }
 
+func toDeviceListItem(d *DeviceView) httpapi.DeviceListItem {
+	return httpapi.DeviceListItem{
+		Id:           d.ID.Int64(),
+		Name:         d.Name,
+		ApiKeyPrefix: d.KeyPrefix,
+		Icon:         d.Icon,
+		LiveIpCount:  d.AddressCount,
+	}
+}
+
 func (h *HTTPHandler) GetDevice(ctx context.Context, request httpapi.GetDeviceRequestObject) (httpapi.GetDeviceResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetDevice")
-	deviceID := device.DeviceID(request.DeviceId)
+	deviceID := ids.DeviceID(request.DeviceId)
 	logger := h.logger.With(slog.Int64(device.AttrKeyDeviceID, deviceID.Int64()))
 
 	detail, err := h.repo.GetDeviceDetail(ctx, deviceID)
@@ -365,34 +377,32 @@ func toDeviceDetailResponse(d *DeviceDetail) httpapi.Device {
 	}
 }
 
-func (h *HTTPHandler) ListKnownHosts(
+func (h *HTTPHandler) ListHosts(
 	ctx context.Context,
-	_ httpapi.ListKnownHostsRequestObject,
-) (httpapi.ListKnownHostsResponseObject, error) {
+	_ httpapi.ListHostsRequestObject,
+) (httpapi.ListHostsResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "ListKnownHosts")
 
-	hosts, err := h.repo.GetKnownHostsWithStats(ctx)
+	hosts, err := h.repo.GetAllHostsWithGroups(ctx)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "list known hosts failed", slog.Any(logging.AttrKeyError, err))
-		return httpapi.ListKnownHosts500JSONResponse(errorMsgResponse("Failed to list known hosts")), nil
+		return httpapi.ListHosts500JSONResponse(errorMsgResponse("Failed to list known hosts")), nil
 	}
 
-	resp := make([]httpapi.KnownHostWithStats, len(hosts))
+	resp := make([]httpapi.Host, len(hosts))
 	for i, host := range hosts {
-		groups := make([]httpapi.GroupRef, len(host.Groups))
+		groups := make([]httpapi.GroupSummary, len(host.Groups))
 		for j, g := range host.Groups {
-			groups[j] = httpapi.GroupRef{Id: g.ID.Int64(), Name: g.Name}
+			groups[j] = httpapi.GroupSummary{Id: g.ID.Int64(), Name: g.Name, Color: g.Color}
 		}
-		resp[i] = httpapi.KnownHostWithStats{
+		resp[i] = httpapi.Host{
 			Id:        host.ID.Int64(),
 			Fqdn:      host.FQDN,
-			Icon:      host.Icon,
 			CreatedAt: httpapi.UTCTime(host.CreatedAt),
-			UserCount: host.UserCount,
 			Groups:    groups,
 		}
 	}
-	return httpapi.ListKnownHosts200JSONResponse(resp), nil
+	return httpapi.ListHosts200JSONResponse(httpapi.HostListResponse{Hosts: resp}), nil
 }
 
 func (h *HTTPHandler) ListHostSuggestions(
@@ -432,93 +442,102 @@ func (h *HTTPHandler) ListHostSuggestions(
 	}), nil
 }
 
-func (h *HTTPHandler) ListUsersHostAccess(
+func (h *HTTPHandler) ListUsersWithAccess(
 	ctx context.Context,
-	_ httpapi.ListUsersHostAccessRequestObject,
-) (httpapi.ListUsersHostAccessResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "ListUsersHostAccess")
+	_ httpapi.ListUsersWithAccessRequestObject,
+) (httpapi.ListUsersWithAccessResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "ListUsersWithAccess")
 
 	rows, err := h.repo.ListUserAccessRows(ctx)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "list users host access failed", slog.Any(logging.AttrKeyError, err))
-		return httpapi.ListUsersHostAccess500JSONResponse(errorMsgResponse("Failed to list users host access")), nil
+		return httpapi.ListUsersWithAccess500JSONResponse(errorMsgResponse("Failed to list users host access")), nil
 	}
 
-	resp := make([]httpapi.UserHostAccessSummary, len(rows))
+	resp := make([]httpapi.UserListItem, len(rows))
 	for i, u := range rows {
-		groups := make([]httpapi.GroupRef, len(u.GrantedGroups))
-		for j, g := range u.GrantedGroups {
+		groups := make([]httpapi.GroupRef, len(u.Groups))
+		for j, g := range u.Groups {
 			groups[j] = httpapi.GroupRef{Id: g.ID.Int64(), Name: g.Name}
 		}
-		resp[i] = httpapi.UserHostAccessSummary{
+		resp[i] = httpapi.UserListItem{
 			Id:              u.ID.Int64(),
+			Username:        u.Username,
 			DisplayName:     u.DisplayName,
-			Email:           openapi_types.Email(u.Email),
 			Role:            httpapi.UserRole(u.Role),
-			Bypass:          u.AllowAllHosts,
-			DirectHostCount: u.EffectiveHostCount,
+			BypassHostCheck: u.BypassHostCheck,
+			DeviceCount:     u.DeviceCount,
+			HostCount:       u.HostCount,
+			LiveIpCount:     u.LiveIPCount,
 			Groups:          groups,
 		}
 	}
-	return httpapi.ListUsersHostAccess200JSONResponse(resp), nil
+	return httpapi.ListUsersWithAccess200JSONResponse(resp), nil
 }
 
-func (h *HTTPHandler) GetUserHostDetails(
+func (h *HTTPHandler) GetUserAccessDetail(
 	ctx context.Context,
-	request httpapi.GetUserHostDetailsRequestObject,
-) (httpapi.GetUserHostDetailsResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "GetUserHostDetails")
-	userID := auth.UserID(request.UserId)
+	request httpapi.GetUserAccessDetailRequestObject,
+) (httpapi.GetUserAccessDetailResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetUserAccessDetail")
+	userID := ids.UserID(request.UserId)
 
-	editor, err := h.repo.GetUserAccessEditor(ctx, userID)
+	accessDetail, err := h.repo.GetUserAccessDetail(ctx, userID)
 	if err != nil {
 		if errors.Is(err, auth.ErrUserNotFound) {
-			return httpapi.GetUserHostDetails404JSONResponse(errorMsgResponse("User not found")), nil
+			return httpapi.GetUserAccessDetail404JSONResponse(errorMsgResponse("User not found")), nil
 		}
 		h.logger.ErrorContext(ctx, "get user host details failed", slog.Any(logging.AttrKeyError, err))
-		return httpapi.GetUserHostDetails500JSONResponse(errorMsgResponse("Failed to get user host details")), nil
+		return httpapi.GetUserAccessDetail500JSONResponse(errorMsgResponse("Failed to get user host details")), nil
 	}
 
-	groups := make([]httpapi.UserHostDetailsGroup, len(editor.GroupOptions))
-	for i, g := range editor.GroupOptions {
-		hosts := make([]httpapi.KnownHostRef, len(g.Hosts))
+	groups := make([]httpapi.SubjectGroupDetail, len(accessDetail.GroupOptions))
+	for i, g := range accessDetail.GroupOptions {
+		// Build hosts
+		hosts := make([]httpapi.HostSummary, len(g.Hosts))
 		for j, kh := range g.Hosts {
-			hosts[j] = httpapi.KnownHostRef{Id: kh.ID.Int64(), Fqdn: kh.FQDN, Icon: kh.Icon}
+			hosts[j] = httpapi.HostSummary{Id: kh.ID.Int64(), Fqdn: kh.FQDN}
 		}
-		groups[i] = httpapi.UserHostDetailsGroup{
-			Id:      g.ID.Int64(),
-			Name:    g.Name,
-			Icon:    g.Icon,
-			Granted: g.Selected,
-			Hosts:   hosts,
+
+		// Build network policies
+		networkPolicies := make([]httpapi.NetworkPolicyRef, len(g.NetworkPolicies))
+		for j, np := range g.NetworkPolicies {
+			networkPolicies[j] = httpapi.NetworkPolicyRef{Id: np.ID.Int64(), Cidr: np.CIDR, Name: np.Name}
+		}
+
+		groups[i] = httpapi.SubjectGroupDetail{
+			Color:           g.Color,
+			CreatedAt:       httpapi.UTCTime(g.CreatedAt),
+			Description:     g.Description,
+			Hosts:           hosts,
+			Icon:            g.Icon,
+			Id:              g.ID.Int64(),
+			Name:            g.Name,
+			NetworkPolicies: networkPolicies,
+			UpdatedAt:       httpapi.UTCTime(g.UpdatedAt),
+			Granted:         g.Granted,
 		}
 	}
 
-	hosts := make([]httpapi.UserHostDetailsHost, len(editor.HostOptions))
-	for i, ho := range editor.HostOptions {
-		// GrantingGroups carries all groups; the API contract holds a single nullable GroupRef.
-		// Surface the first (alphabetically, by Q5 ordering) until the schema is upgraded.
-		var viaGroup *httpapi.GroupRef
-		if len(ho.GrantingGroups) > 0 {
-			viaGroup = &httpapi.GroupRef{Id: ho.GrantingGroups[0].ID.Int64(), Name: ho.GrantingGroups[0].Name}
-		}
-		hosts[i] = httpapi.UserHostDetailsHost{
-			Id:              ho.ID.Int64(),
-			Fqdn:            ho.FQDN,
-			Icon:            ho.Icon,
-			DirectlyGranted: ho.DirectSelected,
-			ViaGroup:        viaGroup,
-		}
+	deviceViews, err := h.repo.GetDevicesByUser(ctx, userID)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "get user devices failed", slog.Any(logging.AttrKeyError, err))
+		return httpapi.GetUserAccessDetail500JSONResponse(errorMsgResponse("Failed to get user host details")), nil
+	}
+	devices := make([]httpapi.DeviceListItem, len(deviceViews))
+	for i := range deviceViews {
+		devices[i] = toDeviceListItem(&deviceViews[i])
 	}
 
-	return httpapi.GetUserHostDetails200JSONResponse(httpapi.UserHostDetails{
-		Id:          editor.User.ID.Int64(),
-		DisplayName: editor.User.DisplayName,
-		Email:       openapi_types.Email(editor.User.Email),
-		Role:        httpapi.UserRole(editor.User.Role),
-		Bypass:      editor.AllowAllHosts,
-		Groups:      groups,
-		Hosts:       hosts,
+	return httpapi.GetUserAccessDetail200JSONResponse(httpapi.UserAccessDetail{
+		BypassHostCheck: accessDetail.BypassHostCheck,
+		Devices:         devices,
+		DisplayName:     accessDetail.User.DisplayName,
+		Email:           new(openapi_types.Email(accessDetail.User.Email)),
+		Groups:          groups,
+		Id:              accessDetail.User.ID.Int64(),
+		Role:            httpapi.UserRole(accessDetail.User.Role),
+		Username:        accessDetail.User.Username,
 	}), nil
 }
 
@@ -547,7 +566,7 @@ func (h *HTTPHandler) GetNetworkPolicy(
 ) (httpapi.GetNetworkPolicyResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetNetworkPolicy")
 
-	id := networkpolicies.NetworkPolicyID(request.Id)
+	id := ids.NetworkPolicyID(request.Id)
 	detail, err := h.repo.GetNetworkPolicyDetail(ctx, id)
 	if err != nil {
 		if errors.Is(err, networkpolicies.ErrNotFound) {
@@ -559,64 +578,57 @@ func (h *HTTPHandler) GetNetworkPolicy(
 	return httpapi.GetNetworkPolicy200JSONResponse(toNetworkPolicyDetailResponse(*detail)), nil
 }
 
-func toNetworkPolicySummaryResponse(s NetworkPolicySummaryView) httpapi.NetworkPolicySummary {
-	return httpapi.NetworkPolicySummary{
-		Id:                 s.ID.Int64(),
-		Name:               s.Name,
-		Cidr:               s.CIDR,
-		Enabled:            s.Enabled,
-		AllowAllHosts:      s.AllowAllHosts,
-		EffectiveHostCount: s.EffectiveHostCount,
-		TotalHostCount:     s.TotalHostCount,
-		CreatedAt:          httpapi.UTCTime(s.CreatedAt),
+func toNetworkPolicySummaryResponse(s NetworkPolicySummaryView) httpapi.NetworkPolicyListItem {
+	return httpapi.NetworkPolicyListItem{
+		Id:              s.ID.Int64(),
+		Name:            s.Name,
+		Cidr:            s.CIDR,
+		Enabled:         s.Enabled,
+		BypassHostCheck: s.AllowAllHosts,
+		HostCount:       s.EffectiveHostCount,
+		Groups:          []httpapi.GroupRef{},
 	}
 }
 
 func toNetworkPolicyDetailResponse(d NetworkPolicyDetailView) httpapi.NetworkPolicyDetail {
-	groups := make([]httpapi.NetworkPolicyHostGroup, len(d.HostGroups))
+	groups := make([]httpapi.SubjectGroupDetail, len(d.HostGroups))
 	for i, g := range d.HostGroups {
-		hosts := make([]httpapi.KnownHostRef, len(g.Hosts))
+		hosts := make([]httpapi.HostSummary, len(g.Hosts))
 		for j, h := range g.Hosts {
-			hosts[j] = httpapi.KnownHostRef{
+			hosts[j] = httpapi.HostSummary{
 				Id:   h.ID,
 				Fqdn: h.FQDN,
-				Icon: h.Icon,
 			}
 		}
-		groups[i] = httpapi.NetworkPolicyHostGroup{
-			Id:       g.ID,
-			Name:     g.Name,
-			Color:    g.Color,
-			Icon:     g.Icon,
-			Hosts:    hosts,
-			Assigned: g.Assigned,
+		var color string
+		if g.Color != nil {
+			color = *g.Color
 		}
-	}
-
-	hosts := make([]httpapi.NetworkPolicyHost, len(d.IndividualHosts))
-	for i, h := range d.IndividualHosts {
-		hosts[i] = httpapi.NetworkPolicyHost{
-			Id:       h.ID,
-			Fqdn:     h.FQDN,
-			Icon:     h.Icon,
-			Assigned: h.Assigned,
-			ViaGroup: h.ViaGroup,
+		var icon string
+		if g.Icon != nil {
+			icon = *g.Icon
+		}
+		groups[i] = httpapi.SubjectGroupDetail{
+			Id:              g.ID,
+			Name:            g.Name,
+			Color:           color,
+			Icon:            icon,
+			Hosts:           hosts,
+			Granted:         g.Assigned,
+			NetworkPolicies: []httpapi.NetworkPolicyRef{},
 		}
 	}
 
 	return httpapi.NetworkPolicyDetail{
-		Id:                 d.ID.Int64(),
-		Name:               d.Name,
-		Cidr:               d.CIDR,
-		Description:        d.Description,
-		Enabled:            d.Enabled,
-		AllowAllHosts:      d.AllowAllHosts,
-		EffectiveHostCount: d.EffectiveHostCount,
-		TotalHostCount:     d.TotalHostCount,
-		HostGroups:         groups,
-		IndividualHosts:    hosts,
-		CreatedAt:          httpapi.UTCTime(d.CreatedAt),
-		UpdatedAt:          httpapi.UTCTime(d.UpdatedAt),
+		Id:              d.ID.Int64(),
+		Name:            d.Name,
+		Cidr:            d.CIDR,
+		Description:     d.Description,
+		Enabled:         d.Enabled,
+		BypassHostCheck: d.AllowAllHosts,
+		Groups:          groups,
+		CreatedAt:       httpapi.UTCTime(d.CreatedAt),
+		UpdatedAt:       httpapi.UTCTime(d.UpdatedAt),
 	}
 }
 

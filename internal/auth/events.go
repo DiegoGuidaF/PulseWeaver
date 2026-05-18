@@ -1,6 +1,10 @@
 package auth
 
-import "context"
+import (
+	"context"
+
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
+)
 
 type UserEventType string
 
@@ -11,7 +15,7 @@ const (
 
 type UserEvent struct {
 	Type   UserEventType
-	UserID UserID
+	UserID ids.UserID
 }
 
 // UserObserver is implemented by any service that needs to react to user lifecycle events.

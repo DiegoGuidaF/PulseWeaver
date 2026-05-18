@@ -1,4 +1,4 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, HostGroupWithMembers, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, KnownHostWithStats, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, User, UserHostAccessSummary, UserHostDetails, UserHostDetailsGroup, UserHostDetailsHost, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, GroupDetailWithUsers, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import { UserRole } from "@/lib/api";
 
 /**
@@ -258,88 +258,80 @@ export function createMockGroupRef(overrides?: Partial<GroupRef>): GroupRef {
   };
 }
 
-export function createMockUserHostAccessSummary(
-  overrides?: Partial<UserHostAccessSummary>,
-): UserHostAccessSummary {
+export function createMockUserListItem(
+  overrides?: Partial<UserListItem>,
+): UserListItem {
   return {
     id: 1,
+    username: 'testuser',
     display_name: 'Test User',
-    email: 'test@example.com',
     role: UserRole.USER,
-    bypass: false,
-    direct_host_count: 0,
+    bypass_host_check: false,
+    host_count: 0,
+    device_count: 0,
+    live_ip_count: 0,
     groups: [],
     ...overrides,
   };
 }
 
-export function createMockUserHostDetailsHost(
-  overrides?: Partial<UserHostDetailsHost>,
-): UserHostDetailsHost {
-  return {
-    id: 1,
-    fqdn: 'app.example.com',
-    directly_granted: false,
-    icon: null,
-    via_group: null,
-    ...overrides,
-  };
-}
-
-export function createMockUserHostDetailsGroup(
-  overrides?: Partial<UserHostDetailsGroup>,
-): UserHostDetailsGroup {
+export function createMockSubjectGroupDetail(
+  overrides?: Partial<SubjectGroupDetail>,
+): SubjectGroupDetail {
   return {
     id: 1,
     name: 'default-group',
+    color: '#000000',
+    icon: 'server',
     granted: false,
-    icon: null,
     hosts: [],
+    network_policies: [],
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
   };
 }
 
-export function createMockUserHostDetails(
-  overrides?: Partial<UserHostDetails>,
-): UserHostDetails {
+export function createMockUserAccessDetail(
+  overrides?: Partial<UserAccessDetail>,
+): UserAccessDetail {
   return {
     id: 1,
+    username: 'testuser',
     display_name: 'Test User',
-    email: 'test@example.com',
     role: UserRole.USER,
-    bypass: false,
+    bypass_host_check: false,
+    devices: [],
     groups: [],
-    hosts: [],
     ...overrides,
   };
 }
 
-export function createMockKnownHostWithStats(
-  overrides?: Partial<KnownHostWithStats>,
-): KnownHostWithStats {
+export function createMockHost(
+  overrides?: Partial<Host>,
+): Host {
   return {
     id: 1,
     fqdn: 'host.lan',
-    icon: null,
     created_at: '2026-01-01T00:00:00Z',
-    user_count: 0,
     groups: [],
     ...overrides,
   };
 }
 
-export function createMockHostGroupWithMembers(
-  overrides?: Partial<HostGroupWithMembers>,
-): HostGroupWithMembers {
+export function createMockGroupDetailWithUsers(
+  overrides?: Partial<GroupDetailWithUsers>,
+): GroupDetailWithUsers {
   return {
     id: 1,
     name: 'Test Group',
     description: null,
-    icon: null,
-    color: null,
+    icon: 'server',
+    color: '#000000',
     created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
     hosts: [],
-    member_ids: [],
+    network_policies: [],
     ...overrides,
   };
 }

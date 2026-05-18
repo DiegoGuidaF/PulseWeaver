@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/matryer/is"
 )
 
@@ -73,10 +73,10 @@ func TestRepository_GetDevices_OrderedByCreatedAtDesc(t *testing.T) {
 	olderTime := time.Now().UTC().Add(-2 * time.Second).Truncate(time.Second)
 	newerTime := time.Now().UTC().Add(-1 * time.Second).Truncate(time.Second)
 
-	insertDevice := func(name, prefix, hash string, createdAt time.Time) device.DeviceID {
+	insertDevice := func(name, prefix, hash string, createdAt time.Time) ids.DeviceID {
 		t.Helper()
 
-		var id device.DeviceID
+		var id ids.DeviceID
 		err := repos.db.GetContext(t.Context(), &id,
 			`INSERT INTO devices (name, created_at, owner_id) VALUES (?, ?, ?) RETURNING id`,
 			name, createdAt, 1,

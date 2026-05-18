@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 	"github.com/matryer/is"
 )
@@ -18,7 +19,7 @@ func TestService_RegisterAddressActivity_NewAddress(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	dev := &device.Device{ID: device.DeviceID(1), Name: "test-device"}
+	dev := &device.Device{ID: ids.DeviceID(1), Name: "test-device"}
 	mockRepo.devices[dev.ID] = dev
 
 	service := newService(mockRepo)
@@ -36,11 +37,11 @@ func TestService_RegisterAddressActivity_ExistingAddress(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	dev := &device.Device{ID: device.DeviceID(1), Name: "test-device"}
+	dev := &device.Device{ID: ids.DeviceID(1), Name: "test-device"}
 	mockRepo.devices[dev.ID] = dev
 
 	existingAddr := &device.Address{
-		ID:        device.AddressID(1),
+		ID:        ids.AddressID(1),
 		DeviceID:  dev.ID,
 		IP:        "192.168.1.100",
 		IsEnabled: false,
@@ -64,11 +65,11 @@ func TestService_RegisterAddressActivity_ExistingEnabledAddress(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	dev := &device.Device{ID: device.DeviceID(1), Name: "test-device"}
+	dev := &device.Device{ID: ids.DeviceID(1), Name: "test-device"}
 	mockRepo.devices[dev.ID] = dev
 
 	existingAddr := &device.Address{
-		ID:        device.AddressID(1),
+		ID:        ids.AddressID(1),
 		DeviceID:  dev.ID,
 		IP:        "192.168.1.100",
 		IsEnabled: true, // already enabled
@@ -105,7 +106,7 @@ func TestService_RegisterAddressActivity_DeviceNotFound(t *testing.T) {
 
 	service := newService(mockRepo)
 
-	addr, eventType, err := service.RegisterAddressActivity(ctx, device.DeviceID(999), "192.168.1.100", device.EventSourceManual)
+	addr, eventType, err := service.RegisterAddressActivity(ctx, ids.DeviceID(999), "192.168.1.100", device.EventSourceManual)
 	is.True(err != nil)
 	is.Equal(err, device.ErrDeviceNotFound)
 	is.True(addr == nil)
@@ -117,7 +118,7 @@ func TestService_RegisterAddressActivity_RejectsTrustedProxyIP(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	dev := &device.Device{ID: device.DeviceID(1), Name: "test-device"}
+	dev := &device.Device{ID: ids.DeviceID(1), Name: "test-device"}
 	mockRepo.devices[dev.ID] = dev
 
 	service := newServiceWithTrustedProxy(mockRepo, netip.MustParseAddr("10.1.2.3"))
@@ -133,7 +134,7 @@ func TestService_RegisterAddressActivity_NotifiesObserverOnNewAddress(t *testing
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	dev := &device.Device{ID: device.DeviceID(1), Name: "test-device"}
+	dev := &device.Device{ID: ids.DeviceID(1), Name: "test-device"}
 	mockRepo.devices[dev.ID] = dev
 
 	service := newService(mockRepo)
@@ -158,11 +159,11 @@ func TestService_DisableAddress_Success(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	dev := &device.Device{ID: device.DeviceID(1), Name: "test-device"}
+	dev := &device.Device{ID: ids.DeviceID(1), Name: "test-device"}
 	mockRepo.devices[dev.ID] = dev
 
 	address := &device.Address{
-		ID:        device.AddressID(1),
+		ID:        ids.AddressID(1),
 		DeviceID:  dev.ID,
 		IP:        "192.168.1.100",
 		IsEnabled: true,
@@ -182,13 +183,13 @@ func TestService_DisableAddress_OwnershipValidation(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	device1 := &device.Device{ID: device.DeviceID(1), Name: "device-1"}
-	device2 := &device.Device{ID: device.DeviceID(2), Name: "device-2"}
+	device1 := &device.Device{ID: ids.DeviceID(1), Name: "device-1"}
+	device2 := &device.Device{ID: ids.DeviceID(2), Name: "device-2"}
 	mockRepo.devices[device1.ID] = device1
 	mockRepo.devices[device2.ID] = device2
 
 	address := &device.Address{
-		ID:        device.AddressID(1),
+		ID:        ids.AddressID(1),
 		DeviceID:  device1.ID,
 		IP:        "192.168.1.100",
 		IsEnabled: true,
@@ -209,13 +210,13 @@ func TestService_DisableAddress_AddressNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	dev := &device.Device{ID: device.DeviceID(1), Name: "test-device"}
+	dev := &device.Device{ID: ids.DeviceID(1), Name: "test-device"}
 	mockRepo.devices[dev.ID] = dev
 	mockRepo.checkOwnershipErr = device.ErrAddressNotOwnedByDevice
 
 	service := newService(mockRepo)
 
-	disabledAddr, err := service.DisableAddress(ctx, dev.ID, device.AddressID(999))
+	disabledAddr, err := service.DisableAddress(ctx, dev.ID, ids.AddressID(999))
 	is.True(err != nil)
 	is.Equal(err, device.ErrAddressNotOwnedByDevice)
 	is.True(disabledAddr == nil)
@@ -230,7 +231,7 @@ func TestService_DisableAddress_DeviceDeleted(t *testing.T) {
 	mockRepo.getDeviceErr = device.ErrDeviceNotFound
 	service := newService(mockRepo)
 
-	addr, err := service.DisableAddress(ctx, device.DeviceID(1), device.AddressID(1))
+	addr, err := service.DisableAddress(ctx, ids.DeviceID(1), ids.AddressID(1))
 	is.True(err != nil)
 	is.True(errors.Is(err, device.ErrDeviceNotFound))
 	is.True(addr == nil)
@@ -241,11 +242,11 @@ func TestService_DisableAddress_NotifiesObserver(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	dev := &device.Device{ID: device.DeviceID(1), Name: "test-device"}
+	dev := &device.Device{ID: ids.DeviceID(1), Name: "test-device"}
 	mockRepo.devices[dev.ID] = dev
 
 	address := &device.Address{
-		ID:        device.AddressID(1),
+		ID:        ids.AddressID(1),
 		DeviceID:  dev.ID,
 		IP:        "192.168.1.100",
 		IsEnabled: true,
@@ -275,14 +276,14 @@ func TestService_DisableAddresses_NotifiesObserverPerAddress(t *testing.T) {
 	mockRepo := newMockRepository()
 
 	address1 := &device.Address{
-		ID:        device.AddressID(1),
-		DeviceID:  device.DeviceID(1),
+		ID:        ids.AddressID(1),
+		DeviceID:  ids.DeviceID(1),
 		IP:        "192.168.1.1",
 		IsEnabled: true,
 	}
 	address2 := &device.Address{
-		ID:        device.AddressID(2),
-		DeviceID:  device.DeviceID(2),
+		ID:        ids.AddressID(2),
+		DeviceID:  ids.DeviceID(2),
 		IP:        "192.168.1.2",
 		IsEnabled: true,
 	}
@@ -293,11 +294,11 @@ func TestService_DisableAddresses_NotifiesObserverPerAddress(t *testing.T) {
 	observer := &testAddressObserver{}
 	service.AddAddressObserver(observer)
 
-	err := service.DisableAddresses(ctx, []device.AddressID{address1.ID, address2.ID}, device.EventSourceManual)
+	err := service.DisableAddresses(ctx, []ids.AddressID{address1.ID, address2.ID}, device.EventSourceManual)
 	is.NoErr(err)
 
 	is.Equal(len(observer.events), 2)
-	seen := map[device.AddressID]bool{}
+	seen := map[ids.AddressID]bool{}
 	for _, event := range observer.events {
 		is.Equal(event.Type, device.EventTypeAddressDisabled)
 		seen[event.AddressID] = true
@@ -315,7 +316,7 @@ func TestService_GetAddressHistory_ValidInput(t *testing.T) {
 	service := newService(mockRepo)
 
 	history, err := service.GetAddressHistory(ctx, device.AddressHistoryQuery{
-		DeviceIDs:   []device.DeviceID{1},
+		DeviceIDs:   []ids.DeviceID{1},
 		Granularity: timebucket.GranularityHour,
 	})
 

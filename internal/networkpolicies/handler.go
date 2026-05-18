@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
@@ -43,16 +44,14 @@ func (h *HTTPHandler) UpdateNetworkPolicy(
 ) (httpapi.UpdateNetworkPolicyResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "UpdateNetworkPolicy")
 
-	id := NetworkPolicyID(request.Id)
+	id := ids.NetworkPolicyID(request.Id)
 	body := request.Body
 
 	fields := UpdateFields{
-		Name:    body.Name,
-		CIDR:    body.Cidr,
-		Enabled: body.Enabled,
-	}
-	if body.Description != nil {
-		fields.Description = &body.Description
+		Name:        body.Name,
+		CIDR:        body.Cidr,
+		Enabled:     body.Enabled,
+		Description: body.Description,
 	}
 
 	_, err := h.service.UpdatePolicy(ctx, id, fields)
@@ -68,7 +67,7 @@ func (h *HTTPHandler) DeleteNetworkPolicy(
 ) (httpapi.DeleteNetworkPolicyResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "DeleteNetworkPolicy")
 
-	id := NetworkPolicyID(request.Id)
+	id := ids.NetworkPolicyID(request.Id)
 	err := h.service.DeletePolicy(ctx, id)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
@@ -80,43 +79,43 @@ func (h *HTTPHandler) DeleteNetworkPolicy(
 	return httpapi.DeleteNetworkPolicy204Response{}, nil
 }
 
-func (h *HTTPHandler) UpdateNetworkPolicyHostAccess(
+func (h *HTTPHandler) UpdateNetworkPolicyAccess(
 	ctx context.Context,
-	request httpapi.UpdateNetworkPolicyHostAccessRequestObject,
-) (httpapi.UpdateNetworkPolicyHostAccessResponseObject, error) {
+	request httpapi.UpdateNetworkPolicyAccessRequestObject,
+) (httpapi.UpdateNetworkPolicyAccessResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "UpdateNetworkPolicyHostAccess")
 
-	id := NetworkPolicyID(request.Id)
+	id := ids.NetworkPolicyID(request.Id)
 	body := request.Body
 
-	groupIDs := make([]int64, len(body.HostGroupIds))
-	copy(groupIDs, body.HostGroupIds)
-	hostIDs := make([]int64, len(body.HostIds))
-	copy(hostIDs, body.HostIds)
+	groupIDs := make([]ids.HostGroupID, len(body.GroupIds))
+	for i, groupID := range body.GroupIds {
+		groupIDs[i] = ids.HostGroupID(groupID)
+	}
 
-	err := h.service.SetHostAccess(ctx, id, body.AllowAllHosts, groupIDs, hostIDs)
+	err := h.service.SetHostAccess(ctx, id, body.BypassHostCheck, groupIDs)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return httpapi.UpdateNetworkPolicyHostAccess404JSONResponse(errMsg("Network policy not found")), nil
+			return httpapi.UpdateNetworkPolicyAccess404JSONResponse(errMsg("Network policy not found")), nil
 		}
 		h.logger.ErrorContext(ctx, "failed to update host access", slog.Any(logging.AttrKeyError, err))
-		return httpapi.UpdateNetworkPolicyHostAccess500JSONResponse(errMsg("Failed to update host access")), nil
+		return httpapi.UpdateNetworkPolicyAccess500JSONResponse(errMsg("Failed to update host access")), nil
 	}
-	return httpapi.UpdateNetworkPolicyHostAccess204Response{}, nil
+	return httpapi.UpdateNetworkPolicyAccess204Response{}, nil
 }
 
 // ── mapping helpers ────────────────────────────────────────────────────────────
 
-func toNetworkPolicyResponse(p NetworkPolicy) httpapi.NetworkPolicy {
-	return httpapi.NetworkPolicy{
-		Id:            p.ID.Int64(),
-		Name:          p.Name,
-		Cidr:          p.CIDR,
-		Description:   p.Description,
-		Enabled:       p.Enabled,
-		AllowAllHosts: p.AllowAllHosts,
-		CreatedAt:     httpapi.UTCTime(p.CreatedAt),
-		UpdatedAt:     httpapi.UTCTime(p.UpdatedAt),
+func toNetworkPolicyResponse(p NetworkPolicy) httpapi.NetworkPolicyDetail {
+	return httpapi.NetworkPolicyDetail{
+		Id:              p.ID.Int64(),
+		Name:            p.Name,
+		Cidr:            p.CIDR,
+		Description:     p.Description,
+		Enabled:         p.Enabled,
+		BypassHostCheck: p.BypassHostCheck,
+		CreatedAt:       httpapi.UTCTime(p.CreatedAt),
+		UpdatedAt:       httpapi.UTCTime(p.UpdatedAt),
 	}
 }
 

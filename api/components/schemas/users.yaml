@@ -156,7 +156,7 @@ DeviceListItem:
 
 UserListItem:
   type: object
-  required: [id, username, display_name, groups, host_count, device_count, live_ip_count, bypass_host_check]
+  required: [id, username, display_name, role, groups, host_count, device_count, live_ip_count, bypass_host_check]
   description: User summary for the access management list page.
   properties:
     id:
@@ -167,10 +167,12 @@ UserListItem:
     display_name:
       type: string
       example: Maya Patel
+    role:
+      $ref: '#/UserRole'
     groups:
       type: array
       items:
-        $ref: './groups.yaml#/GroupRef'
+        $ref: './host-groups.yaml#/GroupRef'
     host_count:
       type: integer
       minimum: 0
@@ -186,7 +188,7 @@ UserListItem:
 
 UserAccessDetail:
   type: object
-  required: [id, username, display_name, devices, groups, bypass_host_check]
+  required: [id, username, display_name, role, devices, groups, bypass_host_check]
   description: Full user access detail including devices and group assignments.
   properties:
     id:
@@ -197,6 +199,8 @@ UserAccessDetail:
     display_name:
       type: string
       example: Maya Patel
+    role:
+      $ref: '#/UserRole'
     email:
       type: string
       format: email
@@ -209,6 +213,6 @@ UserAccessDetail:
       type: array
       description: All groups with their hosts and assignment status.
       items:
-        $ref: './groups.yaml#/SubjectGroupDetail'
+        $ref: './host-groups.yaml#/SubjectGroupDetail'
     bypass_host_check:
       type: boolean

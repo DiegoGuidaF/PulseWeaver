@@ -6,8 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
@@ -17,7 +16,7 @@ type repository interface {
 	GetInvite(ctx context.Context, id PendingRegistrationID) (*PendingRegistration, error)
 	ListInvites(ctx context.Context, filter InviteFilter) ([]PendingRegistration, error)
 	InvalidateInvite(ctx context.Context, id PendingRegistrationID) error
-	ClaimInvite(ctx context.Context, id PendingRegistrationID, deviceID device.DeviceID) (*PendingRegistration, error)
+	ClaimInvite(ctx context.Context, id PendingRegistrationID, deviceID ids.DeviceID) (*PendingRegistration, error)
 	GetInviteByCode(ctx context.Context, code string) (*PendingRegistration, error)
 }
 
@@ -27,7 +26,7 @@ type transactor interface {
 
 // deviceProvisioner Allows creating a device with a given apiKey
 type deviceProvisioner interface {
-	CreateDeviceWithAPIKey(ctx context.Context, name string, ownerID auth.UserID) (deviceID device.DeviceID, rawAPIKey string, err error)
+	CreateDeviceWithAPIKey(ctx context.Context, name string, ownerID ids.UserID) (deviceID ids.DeviceID, rawAPIKey string, err error)
 }
 
 // Service contains all business logic for the registration package.
@@ -102,7 +101,7 @@ func (s *Service) ClaimInvite(ctx context.Context, code string) (*ClaimResult, e
 			return ErrInviteExpired
 		}
 
-		var deviceID device.DeviceID
+		var deviceID ids.DeviceID
 		deviceID, rawAPIKey, err = s.deviceProvisioner.CreateDeviceWithAPIKey(ctx, invite.DeviceName, invite.OwnerID)
 		if err != nil {
 			return fmt.Errorf("register device via invitation claim: %w", err)

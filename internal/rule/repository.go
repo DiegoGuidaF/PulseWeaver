@@ -11,6 +11,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 // Repository provides SQL-backed persistence for device rules.
@@ -26,7 +27,7 @@ func NewRepository(db *database.DB) *Repository {
 }
 
 // GetRuleByDeviceAndType returns a single rule for the given device and type.
-func (r *Repository) GetRuleByDeviceAndType(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error) {
+func (r *Repository) GetRuleByDeviceAndType(ctx context.Context, deviceID ids.DeviceID, ruleType RuleType) (*Rule, error) {
 	rule := new(Rule)
 
 	const query = `
@@ -46,7 +47,7 @@ func (r *Repository) GetRuleByDeviceAndType(ctx context.Context, deviceID device
 }
 
 // DisableRule sets enabled=false for the rule identified by (device_id, rule_type).
-func (r *Repository) DisableRule(ctx context.Context, deviceID device.DeviceID, ruleType RuleType) (*Rule, error) {
+func (r *Repository) DisableRule(ctx context.Context, deviceID ids.DeviceID, ruleType RuleType) (*Rule, error) {
 	rule := new(Rule)
 
 	const query = `
@@ -69,7 +70,7 @@ func (r *Repository) DisableRule(ctx context.Context, deviceID device.DeviceID, 
 // EnableDeviceAddressLeaseRuleConfig creates or updates the device lease rule for a device
 // using the structured params. It is responsible for mapping the config into
 // the JSON shape stored in the database.
-func (r *Repository) EnableDeviceAddressLeaseRuleConfig(ctx context.Context, deviceID device.DeviceID, config DeviceAddressLeaseConfig) (*Rule, error) {
+func (r *Repository) EnableDeviceAddressLeaseRuleConfig(ctx context.Context, deviceID ids.DeviceID, config DeviceAddressLeaseConfig) (*Rule, error) {
 	configBytes, err := json.Marshal(config)
 	if err != nil {
 		return nil, fmt.Errorf("marshal rule config: %w", err)
@@ -102,7 +103,7 @@ func (r *Repository) EnableDeviceAddressLeaseRuleConfig(ctx context.Context, dev
 }
 
 // EnableMaxActiveAddressesRuleConfig creates or updates the max active addresses rule for a device.
-func (r *Repository) EnableMaxActiveAddressesRuleConfig(ctx context.Context, deviceID device.DeviceID, config MaxActiveAddressesConfig) (*Rule, error) {
+func (r *Repository) EnableMaxActiveAddressesRuleConfig(ctx context.Context, deviceID ids.DeviceID, config MaxActiveAddressesConfig) (*Rule, error) {
 	configBytes, err := json.Marshal(config)
 	if err != nil {
 		return nil, fmt.Errorf("marshal rule config: %w", err)

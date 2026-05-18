@@ -8,41 +8,42 @@ import (
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/matryer/is"
 )
 
 func TestNewAddress_ValidIPv4(t *testing.T) {
 	tests := []struct {
 		name      string
-		deviceID  device.DeviceID
+		deviceID  ids.DeviceID
 		ipAddress string
 		wantIP    string
 		wantErr   bool
 	}{
 		{
 			name:      "valid IPv4",
-			deviceID:  device.DeviceID(1),
+			deviceID:  ids.DeviceID(1),
 			ipAddress: "192.168.1.100",
 			wantIP:    "192.168.1.100",
 			wantErr:   false,
 		},
 		{
 			name:      "valid IPv4 with port",
-			deviceID:  device.DeviceID(1),
+			deviceID:  ids.DeviceID(1),
 			ipAddress: "192.168.1.100:8080",
 			wantIP:    "192.168.1.100",
 			wantErr:   false,
 		},
 		{
 			name:      "valid IPv4 localhost",
-			deviceID:  device.DeviceID(1),
+			deviceID:  ids.DeviceID(1),
 			ipAddress: "127.0.0.1",
 			wantIP:    "",
 			wantErr:   true,
 		},
 		{
 			name:      "valid IPv4 with port localhost",
-			deviceID:  device.DeviceID(1),
+			deviceID:  ids.DeviceID(1),
 			ipAddress: "127.0.0.1:3000",
 			wantIP:    "",
 			wantErr:   true,
@@ -67,35 +68,35 @@ func TestNewAddress_ValidIPv4(t *testing.T) {
 func TestNewAddress_ValidIPv6(t *testing.T) {
 	tests := []struct {
 		name      string
-		deviceID  device.DeviceID
+		deviceID  ids.DeviceID
 		ipAddress string
 		wantIP    string
 		wantErr   bool
 	}{
 		{
 			name:      "valid IPv6",
-			deviceID:  device.DeviceID(1),
+			deviceID:  ids.DeviceID(1),
 			ipAddress: "2001:db8::1",
 			wantIP:    "2001:db8::1",
 			wantErr:   false,
 		},
 		{
 			name:      "valid IPv6 with port",
-			deviceID:  device.DeviceID(1),
+			deviceID:  ids.DeviceID(1),
 			ipAddress: "[2001:db8::1]:8080",
 			wantIP:    "2001:db8::1",
 			wantErr:   false,
 		},
 		{
 			name:      "valid IPv6 localhost",
-			deviceID:  device.DeviceID(1),
+			deviceID:  ids.DeviceID(1),
 			ipAddress: "::1",
 			wantIP:    "",
 			wantErr:   true,
 		},
 		{
 			name:      "valid IPv6 localhost with port",
-			deviceID:  device.DeviceID(1),
+			deviceID:  ids.DeviceID(1),
 			ipAddress: "[::1]:3000",
 			wantIP:    "",
 			wantErr:   true,
@@ -120,37 +121,37 @@ func TestNewAddress_ValidIPv6(t *testing.T) {
 func TestNewAddress_InvalidIP(t *testing.T) {
 	tests := []struct {
 		name      string
-		deviceID  device.DeviceID
+		deviceID  ids.DeviceID
 		ipAddress string
 		wantErr   error
 	}{
 		{
 			name:      "invalid IP format",
-			deviceID:  device.DeviceID(1),
+			deviceID:  ids.DeviceID(1),
 			ipAddress: "not.an.ip.address",
 			wantErr:   device.ErrInvalidIPFormat,
 		},
 		{
 			name:      "empty string",
-			deviceID:  device.DeviceID(1),
+			deviceID:  ids.DeviceID(1),
 			ipAddress: "",
 			wantErr:   device.ErrInvalidIPFormat,
 		},
 		{
 			name:      "invalid IPv4",
-			deviceID:  device.DeviceID(1),
+			deviceID:  ids.DeviceID(1),
 			ipAddress: "999.999.999.999",
 			wantErr:   device.ErrInvalidIPFormat,
 		},
 		{
 			name:      "invalid IPv6",
-			deviceID:  device.DeviceID(1),
+			deviceID:  ids.DeviceID(1),
 			ipAddress: "gggg::",
 			wantErr:   device.ErrInvalidIPFormat,
 		},
 		{
 			name:      "malformed port",
-			deviceID:  device.DeviceID(1),
+			deviceID:  ids.DeviceID(1),
 			ipAddress: "192.168.1.100:invalid",
 			wantErr:   device.ErrInvalidIPFormat,
 		},
@@ -208,7 +209,7 @@ func TestNewCreateAddressParams_InvalidDeviceIP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			_, err := device.NewCreateAddressParams(device.DeviceID(1), tt.ipAddress, netip.Addr{})
+			_, err := device.NewCreateAddressParams(ids.DeviceID(1), tt.ipAddress, netip.Addr{})
 			is.True(err != nil)
 			is.True(errors.Is(err, device.ErrInvalidDeviceIP))
 		})

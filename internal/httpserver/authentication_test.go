@@ -13,6 +13,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpserver"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/matryer/is"
 )
@@ -55,7 +56,7 @@ func authInput(scheme string, r *http.Request) *openapi3filter.AuthenticationInp
 
 func TestAuthenticationFunc_CookieScheme_ValidToken_ReturnsNil(t *testing.T) {
 	is := is.New(t)
-	sessionAuth := &fakeSessionAuthenticator{principal: auth.NewPrincipal(auth.UserID(1), auth.SessionID(1), auth.UserRole)}
+	sessionAuth := &fakeSessionAuthenticator{principal: auth.NewPrincipal(ids.UserID(1), ids.SessionID(1), auth.UserRole)}
 	fn := httpserver.AuthenticationFunc(sessionAuth, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -92,7 +93,7 @@ func TestAuthenticationFunc_CookieScheme_InvalidToken_ReturnsError(t *testing.T)
 
 func TestAuthenticationFunc_APIKeyScheme_ValidKey_ReturnsNil(t *testing.T) {
 	is := is.New(t)
-	apiKeyAuth := &fakeAPIKeyAuthenticator{principal: &device.Principal{DeviceID: device.DeviceID(1)}}
+	apiKeyAuth := &fakeAPIKeyAuthenticator{principal: &device.Principal{DeviceID: ids.DeviceID(1)}}
 	fn := httpserver.AuthenticationFunc(nil, apiKeyAuth)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

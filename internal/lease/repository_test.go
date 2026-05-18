@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/matryer/is"
@@ -23,10 +23,10 @@ func setupLeaseTestDB(t *testing.T) (*lease.Repository, *database.DB) {
 	return lease.NewRepository(db.DB()), db.DB()
 }
 
-func ensureTestOwner(t *testing.T, db *database.DB) auth.UserID {
+func ensureTestOwner(t *testing.T, db *database.DB) ids.UserID {
 	t.Helper()
 	_, _ = db.ExecContext(t.Context(), `INSERT OR IGNORE INTO users (username, display_name, password_hash, role) VALUES ('testowner', 'Test Owner', 'x', 'admin')`)
-	var id auth.UserID
+	var id ids.UserID
 	if err := db.QueryRowxContext(t.Context(), `SELECT id FROM users WHERE username = 'testowner'`).Scan(&id); err != nil {
 		t.Fatalf("ensureTestOwner: %v", err)
 	}
@@ -43,7 +43,7 @@ func insertDevice(t *testing.T, db *database.DB, name string) *device.Device {
 	return dev
 }
 
-func insertAddress(t *testing.T, db *database.DB, deviceID device.DeviceID, ip string) *device.Address {
+func insertAddress(t *testing.T, db *database.DB, deviceID ids.DeviceID, ip string) *device.Address {
 	t.Helper()
 	params, err := device.NewCreateAddressParams(deviceID, ip, netip.Addr{})
 	if err != nil {

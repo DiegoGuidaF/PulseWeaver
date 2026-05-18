@@ -276,7 +276,7 @@ type CreateDeviceResponse struct {
 
 // CreateNetworkPolicyRequest defines model for CreateNetworkPolicyRequest.
 type CreateNetworkPolicyRequest struct {
-	// Cidr CIDR notation. Host bits are zeroed automatically by the server (e.g. "192.168.1.5/24" is stored as "192.168.1.0/24").
+	// Cidr CIDR notation. Host bits are zeroed automatically by the server.
 	Cidr        string  `json:"cidr"`
 	Description *string `json:"description"`
 	Name        string  `json:"name"`
@@ -352,33 +352,6 @@ type DashboardTrafficResponse struct {
 	Buckets []DashboardTrafficBucket `json:"buckets"`
 }
 
-// DesiredHostGroup A single host group inside a reconcile request. A null `id` marks a
-// brand-new group; a non-null `id` must match an existing group.
-type DesiredHostGroup struct {
-	// Color UI accent colour. Null means "not chosen".
-	Color       *string `json:"color"`
-	Description *string `json:"description"`
-
-	// HostIds Known-host IDs that should be members of this group.
-	HostIds *[]ID   `json:"host_ids,omitempty"`
-	Icon    *string `json:"icon"`
-	Id      *ID     `json:"id"`
-	Name    string  `json:"name"`
-}
-
-// DesiredKnownHost A single known host inside a reconcile request. A null `id` marks a
-// brand-new host; a non-null `id` must match an existing row. `fqdn` is
-// immutable on updates — a mismatch is rejected. `group_ids` replaces the
-// host's full group membership.
-type DesiredKnownHost struct {
-	Fqdn string `json:"fqdn"`
-
-	// GroupIds Host group IDs this host should belong to. Replaces the host's full group membership.
-	GroupIds []ID    `json:"group_ids"`
-	Icon     *string `json:"icon"`
-	Id       *ID     `json:"id"`
-}
-
 // Device defines model for Device.
 type Device struct {
 	// AddressCount Number of currently enabled addresses for this device.
@@ -442,6 +415,16 @@ type DeviceHeartbeatByApiKeyRequest struct {
 	Ip *IPAddress `json:"ip,omitempty"`
 }
 
+// DeviceListItem Device summary shown on user access detail.
+type DeviceListItem struct {
+	// ApiKeyPrefix Non-null when an API key is configured; the full key is never returned.
+	ApiKeyPrefix *string `json:"api_key_prefix"`
+	Icon         *string `json:"icon"`
+	Id           ID      `json:"id"`
+	LiveIpCount  int     `json:"live_ip_count"`
+	Name         string  `json:"name"`
+}
+
 // DeviceTypeItem defines model for DeviceTypeItem.
 type DeviceTypeItem struct {
 	Label string `json:"label"`
@@ -456,27 +439,101 @@ type ErrorResponse struct {
 	Error *string `json:"error,omitempty"`
 }
 
-// GroupRef defines model for GroupRef.
+// GroupDetail Full group representation returned by GET.
+type GroupDetail struct {
+	// Color CSS hex color for the group badge.
+	Color       string        `json:"color"`
+	CreatedAt   UTCTime       `json:"created_at"`
+	Description *string       `json:"description"`
+	Hosts       []HostSummary `json:"hosts"`
+
+	// Icon Icon key (e.g. "database", "film").
+	Icon string `json:"icon"`
+	Id   ID     `json:"id"`
+	Name string `json:"name"`
+
+	// NetworkPolicies Network policies with access to this group (read-only, managed via subjects).
+	NetworkPolicies []NetworkPolicyRef `json:"network_policies"`
+
+	// UpdatedAt Last time the device profile was modified.
+	UpdatedAt UTCTime `json:"updated_at"`
+}
+
+// GroupDetailWithUsers defines model for GroupDetailWithUsers.
+type GroupDetailWithUsers struct {
+	// Color CSS hex color for the group badge.
+	Color       string        `json:"color"`
+	CreatedAt   UTCTime       `json:"created_at"`
+	Description *string       `json:"description"`
+	Hosts       []HostSummary `json:"hosts"`
+
+	// Icon Icon key (e.g. "database", "film").
+	Icon string `json:"icon"`
+	Id   ID     `json:"id"`
+	Name string `json:"name"`
+
+	// NetworkPolicies Network policies with access to this group (read-only, managed via subjects).
+	NetworkPolicies []NetworkPolicyRef `json:"network_policies"`
+
+	// UpdatedAt Last time the device profile was modified.
+	UpdatedAt UTCTime `json:"updated_at"`
+
+	// Users Users with access to this group (read-only, managed via subjects).
+	Users *[]UserSummary `json:"users,omitempty"`
+}
+
+// GroupListResponse defines model for GroupListResponse.
+type GroupListResponse struct {
+	Groups []GroupDetailWithUsers `json:"groups"`
+}
+
+// GroupRef Minimal group reference for read responses.
 type GroupRef struct {
 	Id   ID     `json:"id"`
 	Name string `json:"name"`
 }
 
-// HostGroupWithMembers defines model for HostGroupWithMembers.
-type HostGroupWithMembers struct {
-	// Color UI accent colour for the group. Null means "not chosen".
-	Color       *string `json:"color"`
-	CreatedAt   UTCTime `json:"created_at"`
+// GroupSummary Group display reference used in host list rows (renders group pills).
+type GroupSummary struct {
+	Color string `json:"color"`
+	Icon  string `json:"icon"`
+	Id    ID     `json:"id"`
+	Name  string `json:"name"`
+}
+
+// GroupWrite Group write payload for reconcile. Omit id (or set null) to create; include id to update.
+// The hosts array defines the complete desired membership after the call.
+type GroupWrite struct {
+	Color       string  `json:"color"`
 	Description *string `json:"description"`
+	HostIds     *[]ID   `json:"host_ids,omitempty"`
+	Icon        string  `json:"icon"`
+	Id          *ID     `json:"id"`
+	Name        string  `json:"name"`
+}
 
-	// Hosts Hydrated member hosts (id + fqdn + icon) for display.
-	Hosts []KnownHostRef `json:"hosts"`
-	Icon  *string        `json:"icon"`
-	Id    ID             `json:"id"`
+// Host Host record with group memberships.
+type Host struct {
+	CreatedAt UTCTime `json:"created_at"`
+	Fqdn      string  `json:"fqdn"`
 
-	// MemberIds Plain list of member host IDs, parallel to `hosts`. Useful to round-trip into a reconcile request.
-	MemberIds []ID   `json:"member_ids"`
-	Name      string `json:"name"`
+	// Groups Group memberships. Empty array means unassigned.
+	Groups []GroupSummary `json:"groups"`
+	Id     ID             `json:"id"`
+}
+
+// HostInput Host entry in a reconcile request. Omit id to create a new host.
+type HostInput struct {
+	Fqdn string `json:"fqdn"`
+
+	// GroupIds Group memberships by ID. Empty array means unassigned.
+	GroupIds []ID `json:"group_ids"`
+	Id       *ID  `json:"id"`
+}
+
+// HostListResponse defines model for HostListResponse.
+type HostListResponse struct {
+	Hosts []Host `json:"hosts"`
 }
 
 // HostSuggestion defines model for HostSuggestion.
@@ -491,6 +548,12 @@ type HostSuggestion struct {
 type HostSuggestionsPage struct {
 	Ignored     []IgnoredHostSuggestion `json:"ignored"`
 	Suggestions []HostSuggestion        `json:"suggestions"`
+}
+
+// HostSummary Minimal host reference embedded in group responses.
+type HostSummary struct {
+	Fqdn string `json:"fqdn"`
+	Id   ID     `json:"id"`
 }
 
 // ID defines model for ID.
@@ -512,27 +575,6 @@ type IgnoredHostSuggestion struct {
 	Id        ID      `json:"id"`
 }
 
-// KnownHostRef defines model for KnownHostRef.
-type KnownHostRef struct {
-	Fqdn string  `json:"fqdn"`
-	Icon *string `json:"icon"`
-	Id   ID      `json:"id"`
-}
-
-// KnownHostWithStats defines model for KnownHostWithStats.
-type KnownHostWithStats struct {
-	CreatedAt UTCTime `json:"created_at"`
-	Fqdn      string  `json:"fqdn"`
-
-	// Groups Host groups this host belongs to.
-	Groups []GroupRef `json:"groups"`
-	Icon   *string    `json:"icon"`
-	Id     ID         `json:"id"`
-
-	// UserCount Number of distinct users with access to this host.
-	UserCount int `json:"user_count"`
-}
-
 // MaxActiveAddressesRule defines model for MaxActiveAddressesRule.
 type MaxActiveAddressesRule struct {
 	CreatedAt UTCTime `json:"created_at"`
@@ -547,82 +589,58 @@ type MaxActiveAddressesRule struct {
 	UpdatedAt    UTCTime `json:"updated_at"`
 }
 
-// NetworkPolicy defines model for NetworkPolicy.
-type NetworkPolicy struct {
-	AllowAllHosts bool `json:"allow_all_hosts"`
+// ModifyAccessRequest Atomically replaces bypass flag and full group assignment list. Shared by users and policies.
+type ModifyAccessRequest struct {
+	// BypassHostCheck When true, grants access to all hosts regardless of group configuration.
+	BypassHostCheck bool `json:"bypass_host_check"`
+	GroupIds        []ID `json:"group_ids"`
+}
+
+// ModifyNetworkPolicyRequest defines model for ModifyNetworkPolicyRequest.
+type ModifyNetworkPolicyRequest struct {
+	Cidr        string `json:"cidr"`
+	Description string `json:"description"`
+	Enabled     bool   `json:"enabled"`
+	Name        string `json:"name"`
+}
+
+// NetworkPolicyDetail Full network policy detail including group assignments.
+type NetworkPolicyDetail struct {
+	BypassHostCheck bool `json:"bypass_host_check"`
 
 	// Cidr Normalized CIDR notation, e.g. "192.168.1.0/24"
 	Cidr        string  `json:"cidr"`
 	CreatedAt   UTCTime `json:"created_at"`
 	Description *string `json:"description"`
 	Enabled     bool    `json:"enabled"`
-	Id          ID      `json:"id"`
-	Name        string  `json:"name"`
-	UpdatedAt   UTCTime `json:"updated_at"`
+
+	// Groups All groups with their hosts and assignment status.
+	Groups    []SubjectGroupDetail `json:"groups"`
+	Id        ID                   `json:"id"`
+	Name      string               `json:"name"`
+	UpdatedAt UTCTime              `json:"updated_at"`
 }
 
-// NetworkPolicyDetail defines model for NetworkPolicyDetail.
-type NetworkPolicyDetail struct {
-	AllowAllHosts      bool    `json:"allow_all_hosts"`
-	Cidr               string  `json:"cidr"`
-	CreatedAt          UTCTime `json:"created_at"`
-	Description        *string `json:"description"`
-	EffectiveHostCount int     `json:"effective_host_count"`
-	Enabled            bool    `json:"enabled"`
-
-	// HostGroups ALL known host groups, each annotated with whether this policy has it assigned. Ordered: assigned first, then alphabetical.
-	HostGroups []NetworkPolicyHostGroup `json:"host_groups"`
-	Id         ID                       `json:"id"`
-
-	// IndividualHosts ALL known individual hosts, each annotated with assignment state. Ordered: direct-assigned first, then via-group, then unassigned.
-	IndividualHosts []NetworkPolicyHost `json:"individual_hosts"`
-	Name            string              `json:"name"`
-	TotalHostCount  int                 `json:"total_host_count"`
-	UpdatedAt       UTCTime             `json:"updated_at"`
-}
-
-// NetworkPolicyHost defines model for NetworkPolicyHost.
-type NetworkPolicyHost struct {
-	// Assigned True when this host is directly assigned to the policy.
-	Assigned bool    `json:"assigned"`
-	Fqdn     string  `json:"fqdn"`
-	Icon     *string `json:"icon"`
-	Id       ID      `json:"id"`
-
-	// ViaGroup True when this host is reachable through at least one assigned group, regardless of direct assignment.
-	ViaGroup bool `json:"via_group"`
-}
-
-// NetworkPolicyHostGroup defines model for NetworkPolicyHostGroup.
-type NetworkPolicyHostGroup struct {
-	// Assigned True when this policy includes this host group.
-	Assigned bool    `json:"assigned"`
-	Color    *string `json:"color"`
-
-	// Hosts All hosts that belong to this group.
-	Hosts []KnownHostRef `json:"hosts"`
-	Icon  *string        `json:"icon"`
-	Id    ID             `json:"id"`
-	Name  string         `json:"name"`
-}
-
-// NetworkPolicySummary defines model for NetworkPolicySummary.
-type NetworkPolicySummary struct {
-	// AllowAllHosts True when this policy grants access to all hosts regardless of configuration. When true, effective_host_count equals total_host_count.
-	AllowAllHosts bool `json:"allow_all_hosts"`
+// NetworkPolicyListItem Network policy summary for the access management list page.
+type NetworkPolicyListItem struct {
+	BypassHostCheck bool `json:"bypass_host_check"`
 
 	// Cidr Normalized CIDR notation, e.g. "192.168.1.0/24"
-	Cidr      string  `json:"cidr"`
-	CreatedAt UTCTime `json:"created_at"`
+	Cidr    string     `json:"cidr"`
+	Enabled bool       `json:"enabled"`
+	Groups  []GroupRef `json:"groups"`
 
-	// EffectiveHostCount Number of distinct hosts reachable through this policy (groups + direct, deduplicated). Equals total_host_count when allow_all_hosts is true.
-	EffectiveHostCount int    `json:"effective_host_count"`
-	Enabled            bool   `json:"enabled"`
-	Id                 ID     `json:"id"`
-	Name               string `json:"name"`
+	// HostCount Total hosts accessible across all assigned groups.
+	HostCount int    `json:"host_count"`
+	Id        ID     `json:"id"`
+	Name      string `json:"name"`
+}
 
-	// TotalHostCount Total number of known hosts in the system (denominator).
-	TotalHostCount int `json:"total_host_count"`
+// NetworkPolicyRef Minimal network policy reference embedded in group responses.
+type NetworkPolicyRef struct {
+	Cidr string `json:"cidr"`
+	Id   ID     `json:"id"`
+	Name string `json:"name"`
 }
 
 // Password defines model for Password.
@@ -823,26 +841,37 @@ type PutMaxActiveAddressesRuleRequest struct {
 	MaxAddresses int `json:"max_addresses"`
 }
 
-// ReconcileHostGroupsRequest Full desired image of all host groups. Groups already in the database whose
-// ID is absent from `groups` will be deleted; groups with a non-null ID are
-// updated; groups with a null ID are created.
-type ReconcileHostGroupsRequest struct {
-	Groups []DesiredHostGroup `json:"groups"`
+// ReconcileGroupsRequest Exhaustive list of all desired groups. Groups absent from this list are deleted.
+type ReconcileGroupsRequest struct {
+	Groups []GroupWrite `json:"groups"`
 }
 
-// ReconcileKnownHostsRequest Full desired image of all known hosts. Hosts already in the database whose
-// ID is absent from `hosts` will be deleted; hosts with a non-null ID are
-// updated (icon only); hosts with a null ID are created. An empty `hosts`
-// array deletes every known host.
-type ReconcileKnownHostsRequest struct {
-	Hosts []DesiredKnownHost `json:"hosts"`
+// ReconcileHostsRequest Exhaustive list of all hosts. Hosts absent from this list are deleted.
+type ReconcileHostsRequest struct {
+	Hosts []HostInput `json:"hosts"`
 }
 
-// SetUserHostGrantsRequest defines model for SetUserHostGrantsRequest.
-type SetUserHostGrantsRequest struct {
-	Bypass   *bool  `json:"bypass,omitempty"`
-	GroupIds *[]int `json:"group_ids,omitempty"`
-	HostIds  *[]int `json:"host_ids,omitempty"`
+// SubjectGroupDetail defines model for SubjectGroupDetail.
+type SubjectGroupDetail struct {
+	// Color CSS hex color for the group badge.
+	Color       string  `json:"color"`
+	CreatedAt   UTCTime `json:"created_at"`
+	Description *string `json:"description"`
+
+	// Granted Whether this group is assigned to the subject.
+	Granted bool          `json:"granted"`
+	Hosts   []HostSummary `json:"hosts"`
+
+	// Icon Icon key (e.g. "database", "film").
+	Icon string `json:"icon"`
+	Id   ID     `json:"id"`
+	Name string `json:"name"`
+
+	// NetworkPolicies Network policies with access to this group (read-only, managed via subjects).
+	NetworkPolicies []NetworkPolicyRef `json:"network_policies"`
+
+	// UpdatedAt Last time the device profile was modified.
+	UpdatedAt UTCTime `json:"updated_at"`
 }
 
 // UpdateDeviceRequest defines model for UpdateDeviceRequest.
@@ -865,21 +894,6 @@ type UpdateDeviceRequest struct {
 
 // UpdateDeviceRequestDeviceType Network behaviour classification.
 type UpdateDeviceRequestDeviceType string
-
-// UpdateNetworkPolicyHostAccessRequest Complete replacement of host access. When allow_all_hosts is true, host_group_ids and host_ids are ignored by the server but must be present (send empty arrays or valid values).
-type UpdateNetworkPolicyHostAccessRequest struct {
-	AllowAllHosts bool `json:"allow_all_hosts"`
-	HostGroupIds  []ID `json:"host_group_ids"`
-	HostIds       []ID `json:"host_ids"`
-}
-
-// UpdateNetworkPolicyRequest All fields optional; only provided fields are updated.
-type UpdateNetworkPolicyRequest struct {
-	Cidr        *string `json:"cidr,omitempty"`
-	Description *string `json:"description"`
-	Enabled     *bool   `json:"enabled,omitempty"`
-	Name        *string `json:"name,omitempty"`
-}
 
 // UpdateProfileRequest defines model for UpdateProfileRequest.
 type UpdateProfileRequest struct {
@@ -920,59 +934,48 @@ type User struct {
 	Username Username `json:"username"`
 }
 
-// UserHostAccessSummary defines model for UserHostAccessSummary.
-type UserHostAccessSummary struct {
-	// Bypass When true the user can reach every known host.
-	Bypass bool `json:"bypass"`
+// UserAccessDetail Full user access detail including devices and group assignments.
+type UserAccessDetail struct {
+	BypassHostCheck bool                 `json:"bypass_host_check"`
+	Devices         []DeviceListItem     `json:"devices"`
+	DisplayName     string               `json:"display_name"`
+	Email           *openapi_types.Email `json:"email"`
 
-	// DirectHostCount Number of hosts granted directly via user_allowed_hosts.
-	DirectHostCount int                 `json:"direct_host_count"`
-	DisplayName     string              `json:"display_name"`
-	Email           openapi_types.Email `json:"email"`
-	Groups          []GroupRef          `json:"groups"`
-	Id              ID                  `json:"id"`
-
-	// Role The user's role. User role cannot login. Only superadmin can manage users.
-	Role UserRole `json:"role"`
-}
-
-// UserHostDetails defines model for UserHostDetails.
-type UserHostDetails struct {
-	Bypass      bool                   `json:"bypass"`
-	DisplayName string                 `json:"display_name"`
-	Email       openapi_types.Email    `json:"email"`
-	Groups      []UserHostDetailsGroup `json:"groups"`
-	Hosts       []UserHostDetailsHost  `json:"hosts"`
-	Id          ID                     `json:"id"`
+	// Groups All groups with their hosts and assignment status.
+	Groups []SubjectGroupDetail `json:"groups"`
+	Id     ID                   `json:"id"`
 
 	// Role The user's role. User role cannot login. Only superadmin can manage users.
-	Role UserRole `json:"role"`
+	Role     UserRole `json:"role"`
+	Username string   `json:"username"`
 }
 
-// UserHostDetailsGroup defines model for UserHostDetailsGroup.
-type UserHostDetailsGroup struct {
-	// Granted Whether this group is granted to the user.
-	Granted bool           `json:"granted"`
-	Hosts   []KnownHostRef `json:"hosts"`
-	Icon    *string        `json:"icon"`
-	Id      ID             `json:"id"`
-	Name    string         `json:"name"`
-}
+// UserListItem User summary for the access management list page.
+type UserListItem struct {
+	BypassHostCheck bool       `json:"bypass_host_check"`
+	DeviceCount     int        `json:"device_count"`
+	DisplayName     string     `json:"display_name"`
+	Groups          []GroupRef `json:"groups"`
 
-// UserHostDetailsHost defines model for UserHostDetailsHost.
-type UserHostDetailsHost struct {
-	// DirectlyGranted Whether this host is directly granted to the user.
-	DirectlyGranted bool    `json:"directly_granted"`
-	Fqdn            string  `json:"fqdn"`
-	Icon            *string `json:"icon"`
-	Id              ID      `json:"id"`
+	// HostCount Total hosts accessible across all assigned groups.
+	HostCount   int `json:"host_count"`
+	Id          ID  `json:"id"`
+	LiveIpCount int `json:"live_ip_count"`
 
-	// ViaGroup First (alphabetically) granted group that covers this host, if any.
-	ViaGroup *GroupRef `json:"via_group"`
+	// Role The user's role. User role cannot login. Only superadmin can manage users.
+	Role     UserRole `json:"role"`
+	Username string   `json:"username"`
 }
 
 // UserRole The user's role. User role cannot login. Only superadmin can manage users.
 type UserRole string
+
+// UserSummary Minimal user reference embedded in group responses.
+type UserSummary struct {
+	DisplayName string `json:"display_name"`
+	Id          ID     `json:"id"`
+	Username    string `json:"username"`
+}
 
 // Username Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
 type Username = string
@@ -1121,22 +1124,31 @@ type GetDashboardTrafficParams struct {
 type GetDashboardTrafficParamsGranularity string
 
 // ReconcileHostGroupsJSONRequestBody defines body for ReconcileHostGroups for application/json ContentType.
-type ReconcileHostGroupsJSONRequestBody = ReconcileHostGroupsRequest
+type ReconcileHostGroupsJSONRequestBody = ReconcileGroupsRequest
 
 // IgnoreSuggestionJSONRequestBody defines body for IgnoreSuggestion for application/json ContentType.
 type IgnoreSuggestionJSONRequestBody = IgnoreSuggestionRequest
 
-// ReconcileKnownHostsJSONRequestBody defines body for ReconcileKnownHosts for application/json ContentType.
-type ReconcileKnownHostsJSONRequestBody = ReconcileKnownHostsRequest
+// ReconcileHostsJSONRequestBody defines body for ReconcileHosts for application/json ContentType.
+type ReconcileHostsJSONRequestBody = ReconcileHostsRequest
+
+// CreateNetworkPolicyJSONRequestBody defines body for CreateNetworkPolicy for application/json ContentType.
+type CreateNetworkPolicyJSONRequestBody = CreateNetworkPolicyRequest
+
+// UpdateNetworkPolicyJSONRequestBody defines body for UpdateNetworkPolicy for application/json ContentType.
+type UpdateNetworkPolicyJSONRequestBody = ModifyNetworkPolicyRequest
+
+// UpdateNetworkPolicyAccessJSONRequestBody defines body for UpdateNetworkPolicyAccess for application/json ContentType.
+type UpdateNetworkPolicyAccessJSONRequestBody = ModifyAccessRequest
+
+// SetUserAccessJSONRequestBody defines body for SetUserAccess for application/json ContentType.
+type SetUserAccessJSONRequestBody = ModifyAccessRequest
 
 // CreateRegistrationJSONRequestBody defines body for CreateRegistration for application/json ContentType.
 type CreateRegistrationJSONRequestBody = CreateRegistrationRequest
 
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = CreateUserRequest
-
-// SetUserHostGrantsJSONRequestBody defines body for SetUserHostGrants for application/json ContentType.
-type SetUserHostGrantsJSONRequestBody = SetUserHostGrantsRequest
 
 // PromoteUserJSONRequestBody defines body for PromoteUser for application/json ContentType.
 type PromoteUserJSONRequestBody = PromoteUserRequest
@@ -1161,15 +1173,6 @@ type PutMaxActiveAddressesRuleJSONRequestBody = PutMaxActiveAddressesRuleRequest
 
 // DeviceHeartbeatByAPIKeyJSONRequestBody defines body for DeviceHeartbeatByAPIKey for application/json ContentType.
 type DeviceHeartbeatByAPIKeyJSONRequestBody = DeviceHeartbeatByApiKeyRequest
-
-// CreateNetworkPolicyJSONRequestBody defines body for CreateNetworkPolicy for application/json ContentType.
-type CreateNetworkPolicyJSONRequestBody = CreateNetworkPolicyRequest
-
-// UpdateNetworkPolicyJSONRequestBody defines body for UpdateNetworkPolicy for application/json ContentType.
-type UpdateNetworkPolicyJSONRequestBody = UpdateNetworkPolicyRequest
-
-// UpdateNetworkPolicyHostAccessJSONRequestBody defines body for UpdateNetworkPolicyHostAccess for application/json ContentType.
-type UpdateNetworkPolicyHostAccessJSONRequestBody = UpdateNetworkPolicyHostAccessRequest
 
 // ClaimRegistrationJSONRequestBody defines body for ClaimRegistration for application/json ContentType.
 type ClaimRegistrationJSONRequestBody = ClaimRegistrationRequest
@@ -1344,33 +1347,54 @@ type ServerInterface interface {
 	// Get address activity history
 	// (GET /address-history)
 	GetAddressHistory(w http.ResponseWriter, r *http.Request, params GetAddressHistoryParams)
-	// List all users with host access summary (bypass, direct host count, groups)
-	// (GET /admin/host-access/users)
-	ListUsersHostAccess(w http.ResponseWriter, r *http.Request)
-	// Get full host access details for a single user (drawer data)
-	// (GET /admin/host-access/users/{user_id})
-	GetUserHostDetails(w http.ResponseWriter, r *http.Request, userId ID)
-	// List host groups with their member host IDs
-	// (GET /admin/host-groups)
+	// List all host groups with members and subject assignments
+	// (GET /admin/access/host-groups)
 	ListHostGroups(w http.ResponseWriter, r *http.Request)
-	// Reconcile the full desired image of host groups and their members
-	// (PUT /admin/host-groups/reconcile)
+	// Reconcile host groups (full replace)
+	// (POST /admin/access/host-groups/reconcile)
 	ReconcileHostGroups(w http.ResponseWriter, r *http.Request)
 	// List FQDNs seen in the access log that are not yet known hosts, plus ignored suggestions
-	// (GET /admin/host-suggestions)
+	// (GET /admin/access/host-suggestions)
 	ListHostSuggestions(w http.ResponseWriter, r *http.Request)
 	// Ignore a host suggestion
-	// (POST /admin/host-suggestions/ignore)
+	// (POST /admin/access/host-suggestions/ignore)
 	IgnoreSuggestion(w http.ResponseWriter, r *http.Request)
 	// Remove a host suggestion from the ignore list
-	// (DELETE /admin/host-suggestions/ignore/{fqdn})
+	// (DELETE /admin/access/host-suggestions/ignore/{fqdn})
 	UnignoreSuggestion(w http.ResponseWriter, r *http.Request, fqdn string)
-	// List known hosts with access stats
-	// (GET /admin/hosts)
-	ListKnownHosts(w http.ResponseWriter, r *http.Request)
-	// Reconcile the full desired image of known hosts
-	// (PUT /admin/hosts/reconcile)
-	ReconcileKnownHosts(w http.ResponseWriter, r *http.Request)
+	// List all hosts with group memberships
+	// (GET /admin/access/hosts)
+	ListHosts(w http.ResponseWriter, r *http.Request)
+	// Reconcile hosts (full replace)
+	// (POST /admin/access/hosts/reconcile)
+	ReconcileHosts(w http.ResponseWriter, r *http.Request)
+	// List all network policies
+	// (GET /admin/access/network-policies)
+	ListNetworkPolicies(w http.ResponseWriter, r *http.Request)
+	// Create a network policy
+	// (POST /admin/access/network-policies)
+	CreateNetworkPolicy(w http.ResponseWriter, r *http.Request)
+	// Delete a network policy
+	// (DELETE /admin/access/network-policies/{id})
+	DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID)
+	// Get network policy detail
+	// (GET /admin/access/network-policies/{id})
+	GetNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID)
+	// Update policy metadata
+	// (PUT /admin/access/network-policies/{id})
+	UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID)
+	// Atomically replace a policy's access grants
+	// (PUT /admin/access/network-policies/{id}/grants)
+	UpdateNetworkPolicyAccess(w http.ResponseWriter, r *http.Request, id ID)
+	// List users with host access summary
+	// (GET /admin/access/users)
+	ListUsersWithAccess(w http.ResponseWriter, r *http.Request)
+	// Get full host access detail for a user
+	// (GET /admin/access/users/{user_id})
+	GetUserAccessDetail(w http.ResponseWriter, r *http.Request, userId ID)
+	// Atomically replace a user's access grants
+	// (PUT /admin/access/users/{user_id}/grants)
+	SetUserAccess(w http.ResponseWriter, r *http.Request, userId ID)
 	// Get the current policy cache snapshot (user-pivoted)
 	// (GET /admin/policy-map)
 	GetPolicyUserMap(w http.ResponseWriter, r *http.Request)
@@ -1404,9 +1428,6 @@ type ServerInterface interface {
 	// List devices owned by a user
 	// (GET /admin/users/{user_id}/devices)
 	GetDevicesByUser(w http.ResponseWriter, r *http.Request, userId ID)
-	// Atomically replace a user's host grants and bypass flag
-	// (PUT /admin/users/{user_id}/host-grants)
-	SetUserHostGrants(w http.ResponseWriter, r *http.Request, userId ID)
 	// Superadmin only. Promote a user to admin
 	// (POST /admin/users/{user_id}/promote)
 	PromoteUser(w http.ResponseWriter, r *http.Request, userId ID)
@@ -1488,24 +1509,6 @@ type ServerInterface interface {
 	// Performs a heartbeat with the given api key header
 	// (POST /heartbeat)
 	DeviceHeartbeatByAPIKey(w http.ResponseWriter, r *http.Request)
-	// List all network policies
-	// (GET /network-policies)
-	ListNetworkPolicies(w http.ResponseWriter, r *http.Request)
-	// Create a new network policy
-	// (POST /network-policies)
-	CreateNetworkPolicy(w http.ResponseWriter, r *http.Request)
-	// Delete a network policy
-	// (DELETE /network-policies/{id})
-	DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID)
-	// Get network policy detail
-	// (GET /network-policies/{id})
-	GetNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID)
-	// Update policy metadata (direct-save)
-	// (PATCH /network-policies/{id})
-	UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID)
-	// Replace host access configuration (draft-save)
-	// (PUT /network-policies/{id}/host-access)
-	UpdateNetworkPolicyHostAccess(w http.ResponseWriter, r *http.Request, id ID)
 	// Claim a registration code
 	// (POST /register)
 	ClaimRegistration(w http.ResponseWriter, r *http.Request)
@@ -1545,57 +1548,99 @@ func (_ Unimplemented) GetAddressHistory(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// List all users with host access summary (bypass, direct host count, groups)
-// (GET /admin/host-access/users)
-func (_ Unimplemented) ListUsersHostAccess(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Get full host access details for a single user (drawer data)
-// (GET /admin/host-access/users/{user_id})
-func (_ Unimplemented) GetUserHostDetails(w http.ResponseWriter, r *http.Request, userId ID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// List host groups with their member host IDs
-// (GET /admin/host-groups)
+// List all host groups with members and subject assignments
+// (GET /admin/access/host-groups)
 func (_ Unimplemented) ListHostGroups(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Reconcile the full desired image of host groups and their members
-// (PUT /admin/host-groups/reconcile)
+// Reconcile host groups (full replace)
+// (POST /admin/access/host-groups/reconcile)
 func (_ Unimplemented) ReconcileHostGroups(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // List FQDNs seen in the access log that are not yet known hosts, plus ignored suggestions
-// (GET /admin/host-suggestions)
+// (GET /admin/access/host-suggestions)
 func (_ Unimplemented) ListHostSuggestions(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Ignore a host suggestion
-// (POST /admin/host-suggestions/ignore)
+// (POST /admin/access/host-suggestions/ignore)
 func (_ Unimplemented) IgnoreSuggestion(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Remove a host suggestion from the ignore list
-// (DELETE /admin/host-suggestions/ignore/{fqdn})
+// (DELETE /admin/access/host-suggestions/ignore/{fqdn})
 func (_ Unimplemented) UnignoreSuggestion(w http.ResponseWriter, r *http.Request, fqdn string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// List known hosts with access stats
-// (GET /admin/hosts)
-func (_ Unimplemented) ListKnownHosts(w http.ResponseWriter, r *http.Request) {
+// List all hosts with group memberships
+// (GET /admin/access/hosts)
+func (_ Unimplemented) ListHosts(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Reconcile the full desired image of known hosts
-// (PUT /admin/hosts/reconcile)
-func (_ Unimplemented) ReconcileKnownHosts(w http.ResponseWriter, r *http.Request) {
+// Reconcile hosts (full replace)
+// (POST /admin/access/hosts/reconcile)
+func (_ Unimplemented) ReconcileHosts(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List all network policies
+// (GET /admin/access/network-policies)
+func (_ Unimplemented) ListNetworkPolicies(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a network policy
+// (POST /admin/access/network-policies)
+func (_ Unimplemented) CreateNetworkPolicy(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete a network policy
+// (DELETE /admin/access/network-policies/{id})
+func (_ Unimplemented) DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get network policy detail
+// (GET /admin/access/network-policies/{id})
+func (_ Unimplemented) GetNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update policy metadata
+// (PUT /admin/access/network-policies/{id})
+func (_ Unimplemented) UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Atomically replace a policy's access grants
+// (PUT /admin/access/network-policies/{id}/grants)
+func (_ Unimplemented) UpdateNetworkPolicyAccess(w http.ResponseWriter, r *http.Request, id ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List users with host access summary
+// (GET /admin/access/users)
+func (_ Unimplemented) ListUsersWithAccess(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get full host access detail for a user
+// (GET /admin/access/users/{user_id})
+func (_ Unimplemented) GetUserAccessDetail(w http.ResponseWriter, r *http.Request, userId ID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Atomically replace a user's access grants
+// (PUT /admin/access/users/{user_id}/grants)
+func (_ Unimplemented) SetUserAccess(w http.ResponseWriter, r *http.Request, userId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1662,12 +1707,6 @@ func (_ Unimplemented) DemoteUser(w http.ResponseWriter, r *http.Request, userId
 // List devices owned by a user
 // (GET /admin/users/{user_id}/devices)
 func (_ Unimplemented) GetDevicesByUser(w http.ResponseWriter, r *http.Request, userId ID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Atomically replace a user's host grants and bypass flag
-// (PUT /admin/users/{user_id}/host-grants)
-func (_ Unimplemented) SetUserHostGrants(w http.ResponseWriter, r *http.Request, userId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1830,42 +1869,6 @@ func (_ Unimplemented) PutMaxActiveAddressesRule(w http.ResponseWriter, r *http.
 // Performs a heartbeat with the given api key header
 // (POST /heartbeat)
 func (_ Unimplemented) DeviceHeartbeatByAPIKey(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// List all network policies
-// (GET /network-policies)
-func (_ Unimplemented) ListNetworkPolicies(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Create a new network policy
-// (POST /network-policies)
-func (_ Unimplemented) CreateNetworkPolicy(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Delete a network policy
-// (DELETE /network-policies/{id})
-func (_ Unimplemented) DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Get network policy detail
-// (GET /network-policies/{id})
-func (_ Unimplemented) GetNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Update policy metadata (direct-save)
-// (PATCH /network-policies/{id})
-func (_ Unimplemented) UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Replace host access configuration (draft-save)
-// (PUT /network-policies/{id}/host-access)
-func (_ Unimplemented) UpdateNetworkPolicyHostAccess(w http.ResponseWriter, r *http.Request, id ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2183,57 +2186,6 @@ func (siw *ServerInterfaceWrapper) GetAddressHistory(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
-// ListUsersHostAccess operation middleware
-func (siw *ServerInterfaceWrapper) ListUsersHostAccess(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListUsersHostAccess(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetUserHostDetails operation middleware
-func (siw *ServerInterfaceWrapper) GetUserHostDetails(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "user_id" -------------
-	var userId ID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "user_id", chi.URLParam(r, "user_id"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_id", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetUserHostDetails(w, r, userId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // ListHostGroups operation middleware
 func (siw *ServerInterfaceWrapper) ListHostGroups(w http.ResponseWriter, r *http.Request) {
 
@@ -2345,8 +2297,8 @@ func (siw *ServerInterfaceWrapper) UnignoreSuggestion(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
-// ListKnownHosts operation middleware
-func (siw *ServerInterfaceWrapper) ListKnownHosts(w http.ResponseWriter, r *http.Request) {
+// ListHosts operation middleware
+func (siw *ServerInterfaceWrapper) ListHosts(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
@@ -2355,7 +2307,7 @@ func (siw *ServerInterfaceWrapper) ListKnownHosts(w http.ResponseWriter, r *http
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListKnownHosts(w, r)
+		siw.Handler.ListHosts(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2365,8 +2317,8 @@ func (siw *ServerInterfaceWrapper) ListKnownHosts(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
-// ReconcileKnownHosts operation middleware
-func (siw *ServerInterfaceWrapper) ReconcileKnownHosts(w http.ResponseWriter, r *http.Request) {
+// ReconcileHosts operation middleware
+func (siw *ServerInterfaceWrapper) ReconcileHosts(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
@@ -2375,7 +2327,253 @@ func (siw *ServerInterfaceWrapper) ReconcileKnownHosts(w http.ResponseWriter, r 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ReconcileKnownHosts(w, r)
+		siw.Handler.ReconcileHosts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListNetworkPolicies operation middleware
+func (siw *ServerInterfaceWrapper) ListNetworkPolicies(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListNetworkPolicies(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateNetworkPolicy operation middleware
+func (siw *ServerInterfaceWrapper) CreateNetworkPolicy(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateNetworkPolicy(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteNetworkPolicy operation middleware
+func (siw *ServerInterfaceWrapper) DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteNetworkPolicy(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetNetworkPolicy operation middleware
+func (siw *ServerInterfaceWrapper) GetNetworkPolicy(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNetworkPolicy(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateNetworkPolicy operation middleware
+func (siw *ServerInterfaceWrapper) UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateNetworkPolicy(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateNetworkPolicyAccess operation middleware
+func (siw *ServerInterfaceWrapper) UpdateNetworkPolicyAccess(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateNetworkPolicyAccess(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListUsersWithAccess operation middleware
+func (siw *ServerInterfaceWrapper) ListUsersWithAccess(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListUsersWithAccess(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUserAccessDetail operation middleware
+func (siw *ServerInterfaceWrapper) GetUserAccessDetail(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "user_id" -------------
+	var userId ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "user_id", chi.URLParam(r, "user_id"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserAccessDetail(w, r, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetUserAccess operation middleware
+func (siw *ServerInterfaceWrapper) SetUserAccess(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "user_id" -------------
+	var userId ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "user_id", chi.URLParam(r, "user_id"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetUserAccess(w, r, userId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2699,37 +2897,6 @@ func (siw *ServerInterfaceWrapper) GetDevicesByUser(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDevicesByUser(w, r, userId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// SetUserHostGrants operation middleware
-func (siw *ServerInterfaceWrapper) SetUserHostGrants(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "user_id" -------------
-	var userId ID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "user_id", chi.URLParam(r, "user_id"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_id", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SetUserHostGrants(w, r, userId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3558,170 +3725,6 @@ func (siw *ServerInterfaceWrapper) DeviceHeartbeatByAPIKey(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
-// ListNetworkPolicies operation middleware
-func (siw *ServerInterfaceWrapper) ListNetworkPolicies(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListNetworkPolicies(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// CreateNetworkPolicy operation middleware
-func (siw *ServerInterfaceWrapper) CreateNetworkPolicy(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateNetworkPolicy(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// DeleteNetworkPolicy operation middleware
-func (siw *ServerInterfaceWrapper) DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "id" -------------
-	var id ID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteNetworkPolicy(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetNetworkPolicy operation middleware
-func (siw *ServerInterfaceWrapper) GetNetworkPolicy(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "id" -------------
-	var id ID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetNetworkPolicy(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// UpdateNetworkPolicy operation middleware
-func (siw *ServerInterfaceWrapper) UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "id" -------------
-	var id ID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateNetworkPolicy(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// UpdateNetworkPolicyHostAccess operation middleware
-func (siw *ServerInterfaceWrapper) UpdateNetworkPolicyHostAccess(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "id" -------------
-	var id ID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateNetworkPolicyHostAccess(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // ClaimRegistration operation middleware
 func (siw *ServerInterfaceWrapper) ClaimRegistration(w http.ResponseWriter, r *http.Request) {
 
@@ -3902,31 +3905,52 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/address-history", wrapper.GetAddressHistory)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/admin/host-access/users", wrapper.ListUsersHostAccess)
+		r.Get(options.BaseURL+"/admin/access/host-groups", wrapper.ListHostGroups)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/admin/host-access/users/{user_id}", wrapper.GetUserHostDetails)
+		r.Post(options.BaseURL+"/admin/access/host-groups/reconcile", wrapper.ReconcileHostGroups)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/admin/host-groups", wrapper.ListHostGroups)
+		r.Get(options.BaseURL+"/admin/access/host-suggestions", wrapper.ListHostSuggestions)
 	})
 	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/admin/host-groups/reconcile", wrapper.ReconcileHostGroups)
+		r.Post(options.BaseURL+"/admin/access/host-suggestions/ignore", wrapper.IgnoreSuggestion)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/admin/host-suggestions", wrapper.ListHostSuggestions)
+		r.Delete(options.BaseURL+"/admin/access/host-suggestions/ignore/{fqdn}", wrapper.UnignoreSuggestion)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/admin/host-suggestions/ignore", wrapper.IgnoreSuggestion)
+		r.Get(options.BaseURL+"/admin/access/hosts", wrapper.ListHosts)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/admin/host-suggestions/ignore/{fqdn}", wrapper.UnignoreSuggestion)
+		r.Post(options.BaseURL+"/admin/access/hosts/reconcile", wrapper.ReconcileHosts)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/admin/hosts", wrapper.ListKnownHosts)
+		r.Get(options.BaseURL+"/admin/access/network-policies", wrapper.ListNetworkPolicies)
 	})
 	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/admin/hosts/reconcile", wrapper.ReconcileKnownHosts)
+		r.Post(options.BaseURL+"/admin/access/network-policies", wrapper.CreateNetworkPolicy)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/admin/access/network-policies/{id}", wrapper.DeleteNetworkPolicy)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/access/network-policies/{id}", wrapper.GetNetworkPolicy)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/admin/access/network-policies/{id}", wrapper.UpdateNetworkPolicy)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/admin/access/network-policies/{id}/grants", wrapper.UpdateNetworkPolicyAccess)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/access/users", wrapper.ListUsersWithAccess)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/access/users/{user_id}", wrapper.GetUserAccessDetail)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/admin/access/users/{user_id}/grants", wrapper.SetUserAccess)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/admin/policy-map", wrapper.GetPolicyUserMap)
@@ -3960,9 +3984,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/admin/users/{user_id}/devices", wrapper.GetDevicesByUser)
-	})
-	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/admin/users/{user_id}/host-grants", wrapper.SetUserHostGrants)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/admin/users/{user_id}/promote", wrapper.PromoteUser)
@@ -4044,24 +4065,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/heartbeat", wrapper.DeviceHeartbeatByAPIKey)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/network-policies", wrapper.ListNetworkPolicies)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/network-policies", wrapper.CreateNetworkPolicy)
-	})
-	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/network-policies/{id}", wrapper.DeleteNetworkPolicy)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/network-policies/{id}", wrapper.GetNetworkPolicy)
-	})
-	r.Group(func(r chi.Router) {
-		r.Patch(options.BaseURL+"/network-policies/{id}", wrapper.UpdateNetworkPolicy)
-	})
-	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/network-policies/{id}/host-access", wrapper.UpdateNetworkPolicyHostAccess)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/register", wrapper.ClaimRegistration)
@@ -4251,100 +4254,6 @@ func (response GetAddressHistory500JSONResponse) VisitGetAddressHistoryResponse(
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListUsersHostAccessRequestObject struct {
-}
-
-type ListUsersHostAccessResponseObject interface {
-	VisitListUsersHostAccessResponse(w http.ResponseWriter) error
-}
-
-type ListUsersHostAccess200JSONResponse []UserHostAccessSummary
-
-func (response ListUsersHostAccess200JSONResponse) VisitListUsersHostAccessResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListUsersHostAccess401JSONResponse ErrorResponse
-
-func (response ListUsersHostAccess401JSONResponse) VisitListUsersHostAccessResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListUsersHostAccess403Response struct {
-}
-
-func (response ListUsersHostAccess403Response) VisitListUsersHostAccessResponse(w http.ResponseWriter) error {
-	w.WriteHeader(403)
-	return nil
-}
-
-type ListUsersHostAccess500JSONResponse ErrorResponse
-
-func (response ListUsersHostAccess500JSONResponse) VisitListUsersHostAccessResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetUserHostDetailsRequestObject struct {
-	UserId ID `json:"user_id"`
-}
-
-type GetUserHostDetailsResponseObject interface {
-	VisitGetUserHostDetailsResponse(w http.ResponseWriter) error
-}
-
-type GetUserHostDetails200JSONResponse UserHostDetails
-
-func (response GetUserHostDetails200JSONResponse) VisitGetUserHostDetailsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetUserHostDetails401JSONResponse ErrorResponse
-
-func (response GetUserHostDetails401JSONResponse) VisitGetUserHostDetailsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetUserHostDetails403Response struct {
-}
-
-func (response GetUserHostDetails403Response) VisitGetUserHostDetailsResponse(w http.ResponseWriter) error {
-	w.WriteHeader(403)
-	return nil
-}
-
-type GetUserHostDetails404JSONResponse ErrorResponse
-
-func (response GetUserHostDetails404JSONResponse) VisitGetUserHostDetailsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetUserHostDetails500JSONResponse ErrorResponse
-
-func (response GetUserHostDetails500JSONResponse) VisitGetUserHostDetailsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type ListHostGroupsRequestObject struct {
 }
 
@@ -4352,7 +4261,7 @@ type ListHostGroupsResponseObject interface {
 	VisitListHostGroupsResponse(w http.ResponseWriter) error
 }
 
-type ListHostGroups200JSONResponse []HostGroupWithMembers
+type ListHostGroups200JSONResponse GroupListResponse
 
 func (response ListHostGroups200JSONResponse) VisitListHostGroupsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -4443,6 +4352,15 @@ type ReconcileHostGroups409JSONResponse ErrorResponse
 func (response ReconcileHostGroups409JSONResponse) VisitReconcileHostGroupsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ReconcileHostGroups422JSONResponse ErrorResponse
+
+func (response ReconcileHostGroups422JSONResponse) VisitReconcileHostGroupsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -4610,111 +4528,612 @@ func (response UnignoreSuggestion500JSONResponse) VisitUnignoreSuggestionRespons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListKnownHostsRequestObject struct {
+type ListHostsRequestObject struct {
 }
 
-type ListKnownHostsResponseObject interface {
-	VisitListKnownHostsResponse(w http.ResponseWriter) error
+type ListHostsResponseObject interface {
+	VisitListHostsResponse(w http.ResponseWriter) error
 }
 
-type ListKnownHosts200JSONResponse []KnownHostWithStats
+type ListHosts200JSONResponse HostListResponse
 
-func (response ListKnownHosts200JSONResponse) VisitListKnownHostsResponse(w http.ResponseWriter) error {
+func (response ListHosts200JSONResponse) VisitListHostsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListKnownHosts401JSONResponse ErrorResponse
+type ListHosts401JSONResponse ErrorResponse
 
-func (response ListKnownHosts401JSONResponse) VisitListKnownHostsResponse(w http.ResponseWriter) error {
+func (response ListHosts401JSONResponse) VisitListHostsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListKnownHosts403Response struct {
+type ListHosts403Response struct {
 }
 
-func (response ListKnownHosts403Response) VisitListKnownHostsResponse(w http.ResponseWriter) error {
+func (response ListHosts403Response) VisitListHostsResponse(w http.ResponseWriter) error {
 	w.WriteHeader(403)
 	return nil
 }
 
-type ListKnownHosts500JSONResponse ErrorResponse
+type ListHosts500JSONResponse ErrorResponse
 
-func (response ListKnownHosts500JSONResponse) VisitListKnownHostsResponse(w http.ResponseWriter) error {
+func (response ListHosts500JSONResponse) VisitListHostsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ReconcileKnownHostsRequestObject struct {
-	Body *ReconcileKnownHostsJSONRequestBody
+type ReconcileHostsRequestObject struct {
+	Body *ReconcileHostsJSONRequestBody
 }
 
-type ReconcileKnownHostsResponseObject interface {
-	VisitReconcileKnownHostsResponse(w http.ResponseWriter) error
+type ReconcileHostsResponseObject interface {
+	VisitReconcileHostsResponse(w http.ResponseWriter) error
 }
 
-type ReconcileKnownHosts204Response struct {
+type ReconcileHosts204Response struct {
 }
 
-func (response ReconcileKnownHosts204Response) VisitReconcileKnownHostsResponse(w http.ResponseWriter) error {
+func (response ReconcileHosts204Response) VisitReconcileHostsResponse(w http.ResponseWriter) error {
 	w.WriteHeader(204)
 	return nil
 }
 
-type ReconcileKnownHosts400JSONResponse ErrorResponse
+type ReconcileHosts400JSONResponse ErrorResponse
 
-func (response ReconcileKnownHosts400JSONResponse) VisitReconcileKnownHostsResponse(w http.ResponseWriter) error {
+func (response ReconcileHosts400JSONResponse) VisitReconcileHostsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ReconcileKnownHosts401JSONResponse ErrorResponse
+type ReconcileHosts401JSONResponse ErrorResponse
 
-func (response ReconcileKnownHosts401JSONResponse) VisitReconcileKnownHostsResponse(w http.ResponseWriter) error {
+func (response ReconcileHosts401JSONResponse) VisitReconcileHostsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ReconcileKnownHosts403Response struct {
+type ReconcileHosts403Response struct {
 }
 
-func (response ReconcileKnownHosts403Response) VisitReconcileKnownHostsResponse(w http.ResponseWriter) error {
+func (response ReconcileHosts403Response) VisitReconcileHostsResponse(w http.ResponseWriter) error {
 	w.WriteHeader(403)
 	return nil
 }
 
-type ReconcileKnownHosts404JSONResponse ErrorResponse
+type ReconcileHosts404JSONResponse ErrorResponse
 
-func (response ReconcileKnownHosts404JSONResponse) VisitReconcileKnownHostsResponse(w http.ResponseWriter) error {
+func (response ReconcileHosts404JSONResponse) VisitReconcileHostsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ReconcileKnownHosts409JSONResponse ErrorResponse
+type ReconcileHosts409JSONResponse ErrorResponse
 
-func (response ReconcileKnownHosts409JSONResponse) VisitReconcileKnownHostsResponse(w http.ResponseWriter) error {
+func (response ReconcileHosts409JSONResponse) VisitReconcileHostsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(409)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ReconcileKnownHosts500JSONResponse ErrorResponse
+type ReconcileHosts422JSONResponse ErrorResponse
 
-func (response ReconcileKnownHosts500JSONResponse) VisitReconcileKnownHostsResponse(w http.ResponseWriter) error {
+func (response ReconcileHosts422JSONResponse) VisitReconcileHostsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ReconcileHosts500JSONResponse ErrorResponse
+
+func (response ReconcileHosts500JSONResponse) VisitReconcileHostsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListNetworkPoliciesRequestObject struct {
+}
+
+type ListNetworkPoliciesResponseObject interface {
+	VisitListNetworkPoliciesResponse(w http.ResponseWriter) error
+}
+
+type ListNetworkPolicies200JSONResponse []NetworkPolicyListItem
+
+func (response ListNetworkPolicies200JSONResponse) VisitListNetworkPoliciesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListNetworkPolicies401JSONResponse ErrorResponse
+
+func (response ListNetworkPolicies401JSONResponse) VisitListNetworkPoliciesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListNetworkPolicies403Response struct {
+}
+
+func (response ListNetworkPolicies403Response) VisitListNetworkPoliciesResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type ListNetworkPolicies500JSONResponse ErrorResponse
+
+func (response ListNetworkPolicies500JSONResponse) VisitListNetworkPoliciesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNetworkPolicyRequestObject struct {
+	Body *CreateNetworkPolicyJSONRequestBody
+}
+
+type CreateNetworkPolicyResponseObject interface {
+	VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error
+}
+
+type CreateNetworkPolicy201JSONResponse NetworkPolicyDetail
+
+func (response CreateNetworkPolicy201JSONResponse) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNetworkPolicy400JSONResponse ErrorResponse
+
+func (response CreateNetworkPolicy400JSONResponse) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNetworkPolicy401JSONResponse ErrorResponse
+
+func (response CreateNetworkPolicy401JSONResponse) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNetworkPolicy403Response struct {
+}
+
+func (response CreateNetworkPolicy403Response) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type CreateNetworkPolicy409JSONResponse ErrorResponse
+
+func (response CreateNetworkPolicy409JSONResponse) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNetworkPolicy500JSONResponse ErrorResponse
+
+func (response CreateNetworkPolicy500JSONResponse) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNetworkPolicyRequestObject struct {
+	Id ID `json:"id"`
+}
+
+type DeleteNetworkPolicyResponseObject interface {
+	VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error
+}
+
+type DeleteNetworkPolicy204Response struct {
+}
+
+func (response DeleteNetworkPolicy204Response) VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteNetworkPolicy401JSONResponse ErrorResponse
+
+func (response DeleteNetworkPolicy401JSONResponse) VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNetworkPolicy403Response struct {
+}
+
+func (response DeleteNetworkPolicy403Response) VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type DeleteNetworkPolicy404JSONResponse ErrorResponse
+
+func (response DeleteNetworkPolicy404JSONResponse) VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNetworkPolicy500JSONResponse ErrorResponse
+
+func (response DeleteNetworkPolicy500JSONResponse) VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNetworkPolicyRequestObject struct {
+	Id ID `json:"id"`
+}
+
+type GetNetworkPolicyResponseObject interface {
+	VisitGetNetworkPolicyResponse(w http.ResponseWriter) error
+}
+
+type GetNetworkPolicy200JSONResponse NetworkPolicyDetail
+
+func (response GetNetworkPolicy200JSONResponse) VisitGetNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNetworkPolicy401JSONResponse ErrorResponse
+
+func (response GetNetworkPolicy401JSONResponse) VisitGetNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNetworkPolicy403Response struct {
+}
+
+func (response GetNetworkPolicy403Response) VisitGetNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type GetNetworkPolicy404JSONResponse ErrorResponse
+
+func (response GetNetworkPolicy404JSONResponse) VisitGetNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNetworkPolicy500JSONResponse ErrorResponse
+
+func (response GetNetworkPolicy500JSONResponse) VisitGetNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicyRequestObject struct {
+	Id   ID `json:"id"`
+	Body *UpdateNetworkPolicyJSONRequestBody
+}
+
+type UpdateNetworkPolicyResponseObject interface {
+	VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error
+}
+
+type UpdateNetworkPolicy204Response struct {
+}
+
+func (response UpdateNetworkPolicy204Response) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type UpdateNetworkPolicy400JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicy400JSONResponse) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicy401JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicy401JSONResponse) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicy403Response struct {
+}
+
+func (response UpdateNetworkPolicy403Response) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type UpdateNetworkPolicy404JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicy404JSONResponse) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicy409JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicy409JSONResponse) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicy500JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicy500JSONResponse) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicyAccessRequestObject struct {
+	Id   ID `json:"id"`
+	Body *UpdateNetworkPolicyAccessJSONRequestBody
+}
+
+type UpdateNetworkPolicyAccessResponseObject interface {
+	VisitUpdateNetworkPolicyAccessResponse(w http.ResponseWriter) error
+}
+
+type UpdateNetworkPolicyAccess204Response struct {
+}
+
+func (response UpdateNetworkPolicyAccess204Response) VisitUpdateNetworkPolicyAccessResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type UpdateNetworkPolicyAccess400JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicyAccess400JSONResponse) VisitUpdateNetworkPolicyAccessResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicyAccess401JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicyAccess401JSONResponse) VisitUpdateNetworkPolicyAccessResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicyAccess403Response struct {
+}
+
+func (response UpdateNetworkPolicyAccess403Response) VisitUpdateNetworkPolicyAccessResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type UpdateNetworkPolicyAccess404JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicyAccess404JSONResponse) VisitUpdateNetworkPolicyAccessResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNetworkPolicyAccess500JSONResponse ErrorResponse
+
+func (response UpdateNetworkPolicyAccess500JSONResponse) VisitUpdateNetworkPolicyAccessResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListUsersWithAccessRequestObject struct {
+}
+
+type ListUsersWithAccessResponseObject interface {
+	VisitListUsersWithAccessResponse(w http.ResponseWriter) error
+}
+
+type ListUsersWithAccess200JSONResponse []UserListItem
+
+func (response ListUsersWithAccess200JSONResponse) VisitListUsersWithAccessResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListUsersWithAccess401JSONResponse ErrorResponse
+
+func (response ListUsersWithAccess401JSONResponse) VisitListUsersWithAccessResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListUsersWithAccess403Response struct {
+}
+
+func (response ListUsersWithAccess403Response) VisitListUsersWithAccessResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type ListUsersWithAccess500JSONResponse ErrorResponse
+
+func (response ListUsersWithAccess500JSONResponse) VisitListUsersWithAccessResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUserAccessDetailRequestObject struct {
+	UserId ID `json:"user_id"`
+}
+
+type GetUserAccessDetailResponseObject interface {
+	VisitGetUserAccessDetailResponse(w http.ResponseWriter) error
+}
+
+type GetUserAccessDetail200JSONResponse UserAccessDetail
+
+func (response GetUserAccessDetail200JSONResponse) VisitGetUserAccessDetailResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUserAccessDetail401JSONResponse ErrorResponse
+
+func (response GetUserAccessDetail401JSONResponse) VisitGetUserAccessDetailResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUserAccessDetail403Response struct {
+}
+
+func (response GetUserAccessDetail403Response) VisitGetUserAccessDetailResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type GetUserAccessDetail404JSONResponse ErrorResponse
+
+func (response GetUserAccessDetail404JSONResponse) VisitGetUserAccessDetailResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUserAccessDetail500JSONResponse ErrorResponse
+
+func (response GetUserAccessDetail500JSONResponse) VisitGetUserAccessDetailResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetUserAccessRequestObject struct {
+	UserId ID `json:"user_id"`
+	Body   *SetUserAccessJSONRequestBody
+}
+
+type SetUserAccessResponseObject interface {
+	VisitSetUserAccessResponse(w http.ResponseWriter) error
+}
+
+type SetUserAccess204Response struct {
+}
+
+func (response SetUserAccess204Response) VisitSetUserAccessResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type SetUserAccess400JSONResponse ErrorResponse
+
+func (response SetUserAccess400JSONResponse) VisitSetUserAccessResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetUserAccess401JSONResponse ErrorResponse
+
+func (response SetUserAccess401JSONResponse) VisitSetUserAccessResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetUserAccess403Response struct {
+}
+
+func (response SetUserAccess403Response) VisitSetUserAccessResponse(w http.ResponseWriter) error {
+	w.WriteHeader(403)
+	return nil
+}
+
+type SetUserAccess404JSONResponse ErrorResponse
+
+func (response SetUserAccess404JSONResponse) VisitSetUserAccessResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetUserAccess500JSONResponse ErrorResponse
+
+func (response SetUserAccess500JSONResponse) VisitSetUserAccessResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -5255,67 +5674,6 @@ func (response GetDevicesByUser404JSONResponse) VisitGetDevicesByUserResponse(w 
 type GetDevicesByUser500JSONResponse ErrorResponse
 
 func (response GetDevicesByUser500JSONResponse) VisitGetDevicesByUserResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type SetUserHostGrantsRequestObject struct {
-	UserId ID `json:"user_id"`
-	Body   *SetUserHostGrantsJSONRequestBody
-}
-
-type SetUserHostGrantsResponseObject interface {
-	VisitSetUserHostGrantsResponse(w http.ResponseWriter) error
-}
-
-type SetUserHostGrants204Response struct {
-}
-
-func (response SetUserHostGrants204Response) VisitSetUserHostGrantsResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type SetUserHostGrants400JSONResponse ErrorResponse
-
-func (response SetUserHostGrants400JSONResponse) VisitSetUserHostGrantsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type SetUserHostGrants401JSONResponse ErrorResponse
-
-func (response SetUserHostGrants401JSONResponse) VisitSetUserHostGrantsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type SetUserHostGrants403Response struct {
-}
-
-func (response SetUserHostGrants403Response) VisitSetUserHostGrantsResponse(w http.ResponseWriter) error {
-	w.WriteHeader(403)
-	return nil
-}
-
-type SetUserHostGrants404JSONResponse ErrorResponse
-
-func (response SetUserHostGrants404JSONResponse) VisitSetUserHostGrantsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type SetUserHostGrants500JSONResponse ErrorResponse
-
-func (response SetUserHostGrants500JSONResponse) VisitSetUserHostGrantsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -6422,343 +6780,6 @@ func (response DeviceHeartbeatByAPIKey500JSONResponse) VisitDeviceHeartbeatByAPI
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListNetworkPoliciesRequestObject struct {
-}
-
-type ListNetworkPoliciesResponseObject interface {
-	VisitListNetworkPoliciesResponse(w http.ResponseWriter) error
-}
-
-type ListNetworkPolicies200JSONResponse []NetworkPolicySummary
-
-func (response ListNetworkPolicies200JSONResponse) VisitListNetworkPoliciesResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListNetworkPolicies401JSONResponse ErrorResponse
-
-func (response ListNetworkPolicies401JSONResponse) VisitListNetworkPoliciesResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListNetworkPolicies403Response struct {
-}
-
-func (response ListNetworkPolicies403Response) VisitListNetworkPoliciesResponse(w http.ResponseWriter) error {
-	w.WriteHeader(403)
-	return nil
-}
-
-type ListNetworkPolicies500JSONResponse ErrorResponse
-
-func (response ListNetworkPolicies500JSONResponse) VisitListNetworkPoliciesResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateNetworkPolicyRequestObject struct {
-	Body *CreateNetworkPolicyJSONRequestBody
-}
-
-type CreateNetworkPolicyResponseObject interface {
-	VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error
-}
-
-type CreateNetworkPolicy201JSONResponse NetworkPolicy
-
-func (response CreateNetworkPolicy201JSONResponse) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateNetworkPolicy400JSONResponse ErrorResponse
-
-func (response CreateNetworkPolicy400JSONResponse) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateNetworkPolicy401JSONResponse ErrorResponse
-
-func (response CreateNetworkPolicy401JSONResponse) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateNetworkPolicy403Response struct {
-}
-
-func (response CreateNetworkPolicy403Response) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.WriteHeader(403)
-	return nil
-}
-
-type CreateNetworkPolicy409JSONResponse ErrorResponse
-
-func (response CreateNetworkPolicy409JSONResponse) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateNetworkPolicy500JSONResponse ErrorResponse
-
-func (response CreateNetworkPolicy500JSONResponse) VisitCreateNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type DeleteNetworkPolicyRequestObject struct {
-	Id ID `json:"id"`
-}
-
-type DeleteNetworkPolicyResponseObject interface {
-	VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error
-}
-
-type DeleteNetworkPolicy204Response struct {
-}
-
-func (response DeleteNetworkPolicy204Response) VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type DeleteNetworkPolicy401JSONResponse ErrorResponse
-
-func (response DeleteNetworkPolicy401JSONResponse) VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type DeleteNetworkPolicy403Response struct {
-}
-
-func (response DeleteNetworkPolicy403Response) VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.WriteHeader(403)
-	return nil
-}
-
-type DeleteNetworkPolicy404JSONResponse ErrorResponse
-
-func (response DeleteNetworkPolicy404JSONResponse) VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type DeleteNetworkPolicy500JSONResponse ErrorResponse
-
-func (response DeleteNetworkPolicy500JSONResponse) VisitDeleteNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetNetworkPolicyRequestObject struct {
-	Id ID `json:"id"`
-}
-
-type GetNetworkPolicyResponseObject interface {
-	VisitGetNetworkPolicyResponse(w http.ResponseWriter) error
-}
-
-type GetNetworkPolicy200JSONResponse NetworkPolicyDetail
-
-func (response GetNetworkPolicy200JSONResponse) VisitGetNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetNetworkPolicy401JSONResponse ErrorResponse
-
-func (response GetNetworkPolicy401JSONResponse) VisitGetNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetNetworkPolicy403Response struct {
-}
-
-func (response GetNetworkPolicy403Response) VisitGetNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.WriteHeader(403)
-	return nil
-}
-
-type GetNetworkPolicy404JSONResponse ErrorResponse
-
-func (response GetNetworkPolicy404JSONResponse) VisitGetNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetNetworkPolicy500JSONResponse ErrorResponse
-
-func (response GetNetworkPolicy500JSONResponse) VisitGetNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdateNetworkPolicyRequestObject struct {
-	Id   ID `json:"id"`
-	Body *UpdateNetworkPolicyJSONRequestBody
-}
-
-type UpdateNetworkPolicyResponseObject interface {
-	VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error
-}
-
-type UpdateNetworkPolicy204Response struct {
-}
-
-func (response UpdateNetworkPolicy204Response) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type UpdateNetworkPolicy400JSONResponse ErrorResponse
-
-func (response UpdateNetworkPolicy400JSONResponse) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdateNetworkPolicy401JSONResponse ErrorResponse
-
-func (response UpdateNetworkPolicy401JSONResponse) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdateNetworkPolicy403Response struct {
-}
-
-func (response UpdateNetworkPolicy403Response) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.WriteHeader(403)
-	return nil
-}
-
-type UpdateNetworkPolicy404JSONResponse ErrorResponse
-
-func (response UpdateNetworkPolicy404JSONResponse) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdateNetworkPolicy409JSONResponse ErrorResponse
-
-func (response UpdateNetworkPolicy409JSONResponse) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdateNetworkPolicy500JSONResponse ErrorResponse
-
-func (response UpdateNetworkPolicy500JSONResponse) VisitUpdateNetworkPolicyResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdateNetworkPolicyHostAccessRequestObject struct {
-	Id   ID `json:"id"`
-	Body *UpdateNetworkPolicyHostAccessJSONRequestBody
-}
-
-type UpdateNetworkPolicyHostAccessResponseObject interface {
-	VisitUpdateNetworkPolicyHostAccessResponse(w http.ResponseWriter) error
-}
-
-type UpdateNetworkPolicyHostAccess204Response struct {
-}
-
-func (response UpdateNetworkPolicyHostAccess204Response) VisitUpdateNetworkPolicyHostAccessResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type UpdateNetworkPolicyHostAccess400JSONResponse ErrorResponse
-
-func (response UpdateNetworkPolicyHostAccess400JSONResponse) VisitUpdateNetworkPolicyHostAccessResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdateNetworkPolicyHostAccess401JSONResponse ErrorResponse
-
-func (response UpdateNetworkPolicyHostAccess401JSONResponse) VisitUpdateNetworkPolicyHostAccessResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdateNetworkPolicyHostAccess403Response struct {
-}
-
-func (response UpdateNetworkPolicyHostAccess403Response) VisitUpdateNetworkPolicyHostAccessResponse(w http.ResponseWriter) error {
-	w.WriteHeader(403)
-	return nil
-}
-
-type UpdateNetworkPolicyHostAccess404JSONResponse ErrorResponse
-
-func (response UpdateNetworkPolicyHostAccess404JSONResponse) VisitUpdateNetworkPolicyHostAccessResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdateNetworkPolicyHostAccess500JSONResponse ErrorResponse
-
-func (response UpdateNetworkPolicyHostAccess500JSONResponse) VisitUpdateNetworkPolicyHostAccessResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type ClaimRegistrationRequestObject struct {
 	Body *ClaimRegistrationJSONRequestBody
 }
@@ -6904,33 +6925,54 @@ type StrictServerInterface interface {
 	// Get address activity history
 	// (GET /address-history)
 	GetAddressHistory(ctx context.Context, request GetAddressHistoryRequestObject) (GetAddressHistoryResponseObject, error)
-	// List all users with host access summary (bypass, direct host count, groups)
-	// (GET /admin/host-access/users)
-	ListUsersHostAccess(ctx context.Context, request ListUsersHostAccessRequestObject) (ListUsersHostAccessResponseObject, error)
-	// Get full host access details for a single user (drawer data)
-	// (GET /admin/host-access/users/{user_id})
-	GetUserHostDetails(ctx context.Context, request GetUserHostDetailsRequestObject) (GetUserHostDetailsResponseObject, error)
-	// List host groups with their member host IDs
-	// (GET /admin/host-groups)
+	// List all host groups with members and subject assignments
+	// (GET /admin/access/host-groups)
 	ListHostGroups(ctx context.Context, request ListHostGroupsRequestObject) (ListHostGroupsResponseObject, error)
-	// Reconcile the full desired image of host groups and their members
-	// (PUT /admin/host-groups/reconcile)
+	// Reconcile host groups (full replace)
+	// (POST /admin/access/host-groups/reconcile)
 	ReconcileHostGroups(ctx context.Context, request ReconcileHostGroupsRequestObject) (ReconcileHostGroupsResponseObject, error)
 	// List FQDNs seen in the access log that are not yet known hosts, plus ignored suggestions
-	// (GET /admin/host-suggestions)
+	// (GET /admin/access/host-suggestions)
 	ListHostSuggestions(ctx context.Context, request ListHostSuggestionsRequestObject) (ListHostSuggestionsResponseObject, error)
 	// Ignore a host suggestion
-	// (POST /admin/host-suggestions/ignore)
+	// (POST /admin/access/host-suggestions/ignore)
 	IgnoreSuggestion(ctx context.Context, request IgnoreSuggestionRequestObject) (IgnoreSuggestionResponseObject, error)
 	// Remove a host suggestion from the ignore list
-	// (DELETE /admin/host-suggestions/ignore/{fqdn})
+	// (DELETE /admin/access/host-suggestions/ignore/{fqdn})
 	UnignoreSuggestion(ctx context.Context, request UnignoreSuggestionRequestObject) (UnignoreSuggestionResponseObject, error)
-	// List known hosts with access stats
-	// (GET /admin/hosts)
-	ListKnownHosts(ctx context.Context, request ListKnownHostsRequestObject) (ListKnownHostsResponseObject, error)
-	// Reconcile the full desired image of known hosts
-	// (PUT /admin/hosts/reconcile)
-	ReconcileKnownHosts(ctx context.Context, request ReconcileKnownHostsRequestObject) (ReconcileKnownHostsResponseObject, error)
+	// List all hosts with group memberships
+	// (GET /admin/access/hosts)
+	ListHosts(ctx context.Context, request ListHostsRequestObject) (ListHostsResponseObject, error)
+	// Reconcile hosts (full replace)
+	// (POST /admin/access/hosts/reconcile)
+	ReconcileHosts(ctx context.Context, request ReconcileHostsRequestObject) (ReconcileHostsResponseObject, error)
+	// List all network policies
+	// (GET /admin/access/network-policies)
+	ListNetworkPolicies(ctx context.Context, request ListNetworkPoliciesRequestObject) (ListNetworkPoliciesResponseObject, error)
+	// Create a network policy
+	// (POST /admin/access/network-policies)
+	CreateNetworkPolicy(ctx context.Context, request CreateNetworkPolicyRequestObject) (CreateNetworkPolicyResponseObject, error)
+	// Delete a network policy
+	// (DELETE /admin/access/network-policies/{id})
+	DeleteNetworkPolicy(ctx context.Context, request DeleteNetworkPolicyRequestObject) (DeleteNetworkPolicyResponseObject, error)
+	// Get network policy detail
+	// (GET /admin/access/network-policies/{id})
+	GetNetworkPolicy(ctx context.Context, request GetNetworkPolicyRequestObject) (GetNetworkPolicyResponseObject, error)
+	// Update policy metadata
+	// (PUT /admin/access/network-policies/{id})
+	UpdateNetworkPolicy(ctx context.Context, request UpdateNetworkPolicyRequestObject) (UpdateNetworkPolicyResponseObject, error)
+	// Atomically replace a policy's access grants
+	// (PUT /admin/access/network-policies/{id}/grants)
+	UpdateNetworkPolicyAccess(ctx context.Context, request UpdateNetworkPolicyAccessRequestObject) (UpdateNetworkPolicyAccessResponseObject, error)
+	// List users with host access summary
+	// (GET /admin/access/users)
+	ListUsersWithAccess(ctx context.Context, request ListUsersWithAccessRequestObject) (ListUsersWithAccessResponseObject, error)
+	// Get full host access detail for a user
+	// (GET /admin/access/users/{user_id})
+	GetUserAccessDetail(ctx context.Context, request GetUserAccessDetailRequestObject) (GetUserAccessDetailResponseObject, error)
+	// Atomically replace a user's access grants
+	// (PUT /admin/access/users/{user_id}/grants)
+	SetUserAccess(ctx context.Context, request SetUserAccessRequestObject) (SetUserAccessResponseObject, error)
 	// Get the current policy cache snapshot (user-pivoted)
 	// (GET /admin/policy-map)
 	GetPolicyUserMap(ctx context.Context, request GetPolicyUserMapRequestObject) (GetPolicyUserMapResponseObject, error)
@@ -6964,9 +7006,6 @@ type StrictServerInterface interface {
 	// List devices owned by a user
 	// (GET /admin/users/{user_id}/devices)
 	GetDevicesByUser(ctx context.Context, request GetDevicesByUserRequestObject) (GetDevicesByUserResponseObject, error)
-	// Atomically replace a user's host grants and bypass flag
-	// (PUT /admin/users/{user_id}/host-grants)
-	SetUserHostGrants(ctx context.Context, request SetUserHostGrantsRequestObject) (SetUserHostGrantsResponseObject, error)
 	// Superadmin only. Promote a user to admin
 	// (POST /admin/users/{user_id}/promote)
 	PromoteUser(ctx context.Context, request PromoteUserRequestObject) (PromoteUserResponseObject, error)
@@ -7048,24 +7087,6 @@ type StrictServerInterface interface {
 	// Performs a heartbeat with the given api key header
 	// (POST /heartbeat)
 	DeviceHeartbeatByAPIKey(ctx context.Context, request DeviceHeartbeatByAPIKeyRequestObject) (DeviceHeartbeatByAPIKeyResponseObject, error)
-	// List all network policies
-	// (GET /network-policies)
-	ListNetworkPolicies(ctx context.Context, request ListNetworkPoliciesRequestObject) (ListNetworkPoliciesResponseObject, error)
-	// Create a new network policy
-	// (POST /network-policies)
-	CreateNetworkPolicy(ctx context.Context, request CreateNetworkPolicyRequestObject) (CreateNetworkPolicyResponseObject, error)
-	// Delete a network policy
-	// (DELETE /network-policies/{id})
-	DeleteNetworkPolicy(ctx context.Context, request DeleteNetworkPolicyRequestObject) (DeleteNetworkPolicyResponseObject, error)
-	// Get network policy detail
-	// (GET /network-policies/{id})
-	GetNetworkPolicy(ctx context.Context, request GetNetworkPolicyRequestObject) (GetNetworkPolicyResponseObject, error)
-	// Update policy metadata (direct-save)
-	// (PATCH /network-policies/{id})
-	UpdateNetworkPolicy(ctx context.Context, request UpdateNetworkPolicyRequestObject) (UpdateNetworkPolicyResponseObject, error)
-	// Replace host access configuration (draft-save)
-	// (PUT /network-policies/{id}/host-access)
-	UpdateNetworkPolicyHostAccess(ctx context.Context, request UpdateNetworkPolicyHostAccessRequestObject) (UpdateNetworkPolicyHostAccessResponseObject, error)
 	// Claim a registration code
 	// (POST /register)
 	ClaimRegistration(ctx context.Context, request ClaimRegistrationRequestObject) (ClaimRegistrationResponseObject, error)
@@ -7201,56 +7222,6 @@ func (sh *strictHandler) GetAddressHistory(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAddressHistoryResponseObject); ok {
 		if err := validResponse.VisitGetAddressHistoryResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// ListUsersHostAccess operation middleware
-func (sh *strictHandler) ListUsersHostAccess(w http.ResponseWriter, r *http.Request) {
-	var request ListUsersHostAccessRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListUsersHostAccess(ctx, request.(ListUsersHostAccessRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListUsersHostAccess")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListUsersHostAccessResponseObject); ok {
-		if err := validResponse.VisitListUsersHostAccessResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetUserHostDetails operation middleware
-func (sh *strictHandler) GetUserHostDetails(w http.ResponseWriter, r *http.Request, userId ID) {
-	var request GetUserHostDetailsRequestObject
-
-	request.UserId = userId
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetUserHostDetails(ctx, request.(GetUserHostDetailsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetUserHostDetails")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetUserHostDetailsResponseObject); ok {
-		if err := validResponse.VisitGetUserHostDetailsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -7394,23 +7365,23 @@ func (sh *strictHandler) UnignoreSuggestion(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// ListKnownHosts operation middleware
-func (sh *strictHandler) ListKnownHosts(w http.ResponseWriter, r *http.Request) {
-	var request ListKnownHostsRequestObject
+// ListHosts operation middleware
+func (sh *strictHandler) ListHosts(w http.ResponseWriter, r *http.Request) {
+	var request ListHostsRequestObject
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListKnownHosts(ctx, request.(ListKnownHostsRequestObject))
+		return sh.ssi.ListHosts(ctx, request.(ListHostsRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListKnownHosts")
+		handler = middleware(handler, "ListHosts")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListKnownHostsResponseObject); ok {
-		if err := validResponse.VisitListKnownHostsResponse(w); err != nil {
+	} else if validResponse, ok := response.(ListHostsResponseObject); ok {
+		if err := validResponse.VisitListHostsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -7418,11 +7389,11 @@ func (sh *strictHandler) ListKnownHosts(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// ReconcileKnownHosts operation middleware
-func (sh *strictHandler) ReconcileKnownHosts(w http.ResponseWriter, r *http.Request) {
-	var request ReconcileKnownHostsRequestObject
+// ReconcileHosts operation middleware
+func (sh *strictHandler) ReconcileHosts(w http.ResponseWriter, r *http.Request) {
+	var request ReconcileHostsRequestObject
 
-	var body ReconcileKnownHostsJSONRequestBody
+	var body ReconcileHostsJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
 		return
@@ -7430,18 +7401,274 @@ func (sh *strictHandler) ReconcileKnownHosts(w http.ResponseWriter, r *http.Requ
 	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ReconcileKnownHosts(ctx, request.(ReconcileKnownHostsRequestObject))
+		return sh.ssi.ReconcileHosts(ctx, request.(ReconcileHostsRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ReconcileKnownHosts")
+		handler = middleware(handler, "ReconcileHosts")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ReconcileKnownHostsResponseObject); ok {
-		if err := validResponse.VisitReconcileKnownHostsResponse(w); err != nil {
+	} else if validResponse, ok := response.(ReconcileHostsResponseObject); ok {
+		if err := validResponse.VisitReconcileHostsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListNetworkPolicies operation middleware
+func (sh *strictHandler) ListNetworkPolicies(w http.ResponseWriter, r *http.Request) {
+	var request ListNetworkPoliciesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListNetworkPolicies(ctx, request.(ListNetworkPoliciesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListNetworkPolicies")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListNetworkPoliciesResponseObject); ok {
+		if err := validResponse.VisitListNetworkPoliciesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateNetworkPolicy operation middleware
+func (sh *strictHandler) CreateNetworkPolicy(w http.ResponseWriter, r *http.Request) {
+	var request CreateNetworkPolicyRequestObject
+
+	var body CreateNetworkPolicyJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateNetworkPolicy(ctx, request.(CreateNetworkPolicyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateNetworkPolicy")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateNetworkPolicyResponseObject); ok {
+		if err := validResponse.VisitCreateNetworkPolicyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteNetworkPolicy operation middleware
+func (sh *strictHandler) DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+	var request DeleteNetworkPolicyRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteNetworkPolicy(ctx, request.(DeleteNetworkPolicyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteNetworkPolicy")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteNetworkPolicyResponseObject); ok {
+		if err := validResponse.VisitDeleteNetworkPolicyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetNetworkPolicy operation middleware
+func (sh *strictHandler) GetNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+	var request GetNetworkPolicyRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetNetworkPolicy(ctx, request.(GetNetworkPolicyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetNetworkPolicy")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetNetworkPolicyResponseObject); ok {
+		if err := validResponse.VisitGetNetworkPolicyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateNetworkPolicy operation middleware
+func (sh *strictHandler) UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+	var request UpdateNetworkPolicyRequestObject
+
+	request.Id = id
+
+	var body UpdateNetworkPolicyJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateNetworkPolicy(ctx, request.(UpdateNetworkPolicyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateNetworkPolicy")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateNetworkPolicyResponseObject); ok {
+		if err := validResponse.VisitUpdateNetworkPolicyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateNetworkPolicyAccess operation middleware
+func (sh *strictHandler) UpdateNetworkPolicyAccess(w http.ResponseWriter, r *http.Request, id ID) {
+	var request UpdateNetworkPolicyAccessRequestObject
+
+	request.Id = id
+
+	var body UpdateNetworkPolicyAccessJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateNetworkPolicyAccess(ctx, request.(UpdateNetworkPolicyAccessRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateNetworkPolicyAccess")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateNetworkPolicyAccessResponseObject); ok {
+		if err := validResponse.VisitUpdateNetworkPolicyAccessResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListUsersWithAccess operation middleware
+func (sh *strictHandler) ListUsersWithAccess(w http.ResponseWriter, r *http.Request) {
+	var request ListUsersWithAccessRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListUsersWithAccess(ctx, request.(ListUsersWithAccessRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListUsersWithAccess")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListUsersWithAccessResponseObject); ok {
+		if err := validResponse.VisitListUsersWithAccessResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetUserAccessDetail operation middleware
+func (sh *strictHandler) GetUserAccessDetail(w http.ResponseWriter, r *http.Request, userId ID) {
+	var request GetUserAccessDetailRequestObject
+
+	request.UserId = userId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetUserAccessDetail(ctx, request.(GetUserAccessDetailRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetUserAccessDetail")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetUserAccessDetailResponseObject); ok {
+		if err := validResponse.VisitGetUserAccessDetailResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetUserAccess operation middleware
+func (sh *strictHandler) SetUserAccess(w http.ResponseWriter, r *http.Request, userId ID) {
+	var request SetUserAccessRequestObject
+
+	request.UserId = userId
+
+	var body SetUserAccessJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetUserAccess(ctx, request.(SetUserAccessRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetUserAccess")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetUserAccessResponseObject); ok {
+		if err := validResponse.VisitSetUserAccessResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -7734,39 +7961,6 @@ func (sh *strictHandler) GetDevicesByUser(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetDevicesByUserResponseObject); ok {
 		if err := validResponse.VisitGetDevicesByUserResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// SetUserHostGrants operation middleware
-func (sh *strictHandler) SetUserHostGrants(w http.ResponseWriter, r *http.Request, userId ID) {
-	var request SetUserHostGrantsRequestObject
-
-	request.UserId = userId
-
-	var body SetUserHostGrantsJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.SetUserHostGrants(ctx, request.(SetUserHostGrantsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "SetUserHostGrants")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(SetUserHostGrantsResponseObject); ok {
-		if err := validResponse.VisitSetUserHostGrantsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8519,179 +8713,6 @@ func (sh *strictHandler) DeviceHeartbeatByAPIKey(w http.ResponseWriter, r *http.
 	}
 }
 
-// ListNetworkPolicies operation middleware
-func (sh *strictHandler) ListNetworkPolicies(w http.ResponseWriter, r *http.Request) {
-	var request ListNetworkPoliciesRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListNetworkPolicies(ctx, request.(ListNetworkPoliciesRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListNetworkPolicies")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListNetworkPoliciesResponseObject); ok {
-		if err := validResponse.VisitListNetworkPoliciesResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// CreateNetworkPolicy operation middleware
-func (sh *strictHandler) CreateNetworkPolicy(w http.ResponseWriter, r *http.Request) {
-	var request CreateNetworkPolicyRequestObject
-
-	var body CreateNetworkPolicyJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateNetworkPolicy(ctx, request.(CreateNetworkPolicyRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateNetworkPolicy")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(CreateNetworkPolicyResponseObject); ok {
-		if err := validResponse.VisitCreateNetworkPolicyResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// DeleteNetworkPolicy operation middleware
-func (sh *strictHandler) DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
-	var request DeleteNetworkPolicyRequestObject
-
-	request.Id = id
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.DeleteNetworkPolicy(ctx, request.(DeleteNetworkPolicyRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeleteNetworkPolicy")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(DeleteNetworkPolicyResponseObject); ok {
-		if err := validResponse.VisitDeleteNetworkPolicyResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetNetworkPolicy operation middleware
-func (sh *strictHandler) GetNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
-	var request GetNetworkPolicyRequestObject
-
-	request.Id = id
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetNetworkPolicy(ctx, request.(GetNetworkPolicyRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetNetworkPolicy")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetNetworkPolicyResponseObject); ok {
-		if err := validResponse.VisitGetNetworkPolicyResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// UpdateNetworkPolicy operation middleware
-func (sh *strictHandler) UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
-	var request UpdateNetworkPolicyRequestObject
-
-	request.Id = id
-
-	var body UpdateNetworkPolicyJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.UpdateNetworkPolicy(ctx, request.(UpdateNetworkPolicyRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UpdateNetworkPolicy")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(UpdateNetworkPolicyResponseObject); ok {
-		if err := validResponse.VisitUpdateNetworkPolicyResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// UpdateNetworkPolicyHostAccess operation middleware
-func (sh *strictHandler) UpdateNetworkPolicyHostAccess(w http.ResponseWriter, r *http.Request, id ID) {
-	var request UpdateNetworkPolicyHostAccessRequestObject
-
-	request.Id = id
-
-	var body UpdateNetworkPolicyHostAccessJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.UpdateNetworkPolicyHostAccess(ctx, request.(UpdateNetworkPolicyHostAccessRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UpdateNetworkPolicyHostAccess")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(UpdateNetworkPolicyHostAccessResponseObject); ok {
-		if err := validResponse.VisitUpdateNetworkPolicyHostAccessResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // ClaimRegistration operation middleware
 func (sh *strictHandler) ClaimRegistration(w http.ResponseWriter, r *http.Request) {
 	var request ClaimRegistrationRequestObject
@@ -8788,226 +8809,217 @@ func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

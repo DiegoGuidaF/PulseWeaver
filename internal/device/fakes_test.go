@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 type testAddressObserver struct {
@@ -20,8 +21,8 @@ func (o *testAddressObserver) OnAddressEvent(_ context.Context, event device.Add
 
 // mockRepository is a hand-rolled mock implementation of the repository interface
 type mockRepository struct {
-	devices           map[device.DeviceID]*device.Device
-	addresses         map[device.AddressID]*device.Address
+	devices           map[ids.DeviceID]*device.Device
+	addresses         map[ids.AddressID]*device.Address
 	deviceAddressByIP map[string]*device.Address
 	apiKeysByHash     map[string]*device.Device
 	getDeviceErr      error
@@ -37,14 +38,14 @@ type mockRepository struct {
 
 func newMockRepository() *mockRepository {
 	return &mockRepository{
-		devices:           make(map[device.DeviceID]*device.Device),
-		addresses:         make(map[device.AddressID]*device.Address),
+		devices:           make(map[ids.DeviceID]*device.Device),
+		addresses:         make(map[ids.AddressID]*device.Address),
 		deviceAddressByIP: make(map[string]*device.Address),
 		apiKeysByHash:     make(map[string]*device.Device),
 	}
 }
 
-func (m *mockRepository) GetDevice(ctx context.Context, id device.DeviceID) (*device.Device, error) {
+func (m *mockRepository) GetDevice(ctx context.Context, id ids.DeviceID) (*device.Device, error) {
 	if m.getDeviceErr != nil {
 		return nil, m.getDeviceErr
 	}
@@ -60,7 +61,7 @@ func (m *mockRepository) CreateDevice(ctx context.Context, params device.CreateD
 		return nil, m.createDeviceErr
 	}
 	dev := &device.Device{
-		ID:   device.DeviceID(len(m.devices) + 1),
+		ID:   ids.DeviceID(len(m.devices) + 1),
 		Name: params.Name,
 		// No API key on creation — must be generated separately via UpsertAPIKey.
 	}
@@ -68,7 +69,7 @@ func (m *mockRepository) CreateDevice(ctx context.Context, params device.CreateD
 	return dev, nil
 }
 
-func (m *mockRepository) DeleteDevice(ctx context.Context, id device.DeviceID) error {
+func (m *mockRepository) DeleteDevice(ctx context.Context, id ids.DeviceID) error {
 	if _, ok := m.devices[id]; !ok {
 		return device.ErrDeviceNotFound
 	}
@@ -96,7 +97,7 @@ func (m *mockRepository) CreateAddress(ctx context.Context, params device.Create
 	}
 	now := time.Now().UTC()
 	address := &device.Address{
-		ID:        device.AddressID(len(m.addresses) + 1),
+		ID:        ids.AddressID(len(m.addresses) + 1),
 		DeviceID:  params.DeviceID,
 		IP:        params.IP.String(),
 		IsEnabled: true,
@@ -112,7 +113,7 @@ func (m *mockRepository) CreateAddress(ctx context.Context, params device.Create
 	return address, nil
 }
 
-func (m *mockRepository) GetAddressForDeviceByIP(ctx context.Context, deviceID device.DeviceID, ip netip.Addr) (*device.Address, error) {
+func (m *mockRepository) GetAddressForDeviceByIP(ctx context.Context, deviceID ids.DeviceID, ip netip.Addr) (*device.Address, error) {
 	if m.getAddressByIPErr != nil {
 		return nil, m.getAddressByIPErr
 	}
@@ -125,7 +126,7 @@ func (m *mockRepository) GetAddressForDeviceByIP(ctx context.Context, deviceID d
 	return addr, nil
 }
 
-func (m *mockRepository) DisableAddress(ctx context.Context, addressID device.AddressID) (*device.Address, error) {
+func (m *mockRepository) DisableAddress(ctx context.Context, addressID ids.AddressID) (*device.Address, error) {
 	if m.disableAddressErr != nil {
 		return nil, m.disableAddressErr
 	}
@@ -137,7 +138,7 @@ func (m *mockRepository) DisableAddress(ctx context.Context, addressID device.Ad
 	return addr, nil
 }
 
-func (m *mockRepository) DisableAddresses(ctx context.Context, addressIDs []device.AddressID, source device.EventSource) ([]device.Address, error) {
+func (m *mockRepository) DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source device.EventSource) ([]device.Address, error) {
 	result := make([]device.Address, 0, len(addressIDs))
 	for _, addressID := range addressIDs {
 		addr, err := m.DisableAddress(ctx, addressID)
@@ -150,7 +151,7 @@ func (m *mockRepository) DisableAddresses(ctx context.Context, addressIDs []devi
 	return result, nil
 }
 
-func (m *mockRepository) EnableAddress(ctx context.Context, addressID device.AddressID, source device.EventSource) (*device.Address, error) {
+func (m *mockRepository) EnableAddress(ctx context.Context, addressID ids.AddressID, source device.EventSource) (*device.Address, error) {
 	if m.enableAddressErr != nil {
 		return nil, m.enableAddressErr
 	}
@@ -163,11 +164,11 @@ func (m *mockRepository) EnableAddress(ctx context.Context, addressID device.Add
 	return addr, nil
 }
 
-func (m *mockRepository) RefreshAddress(ctx context.Context, addressID device.AddressID, source device.EventSource) (*device.Address, error) {
+func (m *mockRepository) RefreshAddress(ctx context.Context, addressID ids.AddressID, source device.EventSource) (*device.Address, error) {
 	return m.EnableAddress(ctx, addressID, source)
 }
 
-func (m *mockRepository) CheckAddressOwnership(ctx context.Context, deviceID device.DeviceID, addressID device.AddressID) error {
+func (m *mockRepository) CheckAddressOwnership(ctx context.Context, deviceID ids.DeviceID, addressID ids.AddressID) error {
 	if m.checkOwnershipErr != nil {
 		return m.checkOwnershipErr
 	}
@@ -178,7 +179,7 @@ func (m *mockRepository) CheckAddressOwnership(ctx context.Context, deviceID dev
 	return nil
 }
 
-func (m *mockRepository) UpsertAPIKey(ctx context.Context, deviceID device.DeviceID, keyHash string, keyPrefix string) error {
+func (m *mockRepository) UpsertAPIKey(ctx context.Context, deviceID ids.DeviceID, keyHash string, keyPrefix string) error {
 	if m.updateAPIKeyErr != nil {
 		return m.updateAPIKeyErr
 	}
@@ -199,7 +200,7 @@ func (m *mockRepository) UpsertAPIKey(ctx context.Context, deviceID device.Devic
 	return nil
 }
 
-func (m *mockRepository) DeleteAPIKey(ctx context.Context, deviceID device.DeviceID) error {
+func (m *mockRepository) DeleteAPIKey(ctx context.Context, deviceID ids.DeviceID) error {
 	dev, ok := m.devices[deviceID]
 	if !ok {
 		return device.ErrNoAPIKey
@@ -245,7 +246,7 @@ func (m *mockRepository) UpdateDevice(_ context.Context, dev *device.Device) (*d
 	return dev, nil
 }
 
-func (m *mockRepository) GetEnabledAddressesForDevice(_ context.Context, deviceID device.DeviceID) ([]device.Address, error) {
+func (m *mockRepository) GetEnabledAddressesForDevice(_ context.Context, deviceID ids.DeviceID) ([]device.Address, error) {
 	var result []device.Address
 	for _, addr := range m.addresses {
 		if addr.DeviceID == deviceID && addr.IsEnabled {

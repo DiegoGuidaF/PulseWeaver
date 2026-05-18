@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/registration"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
@@ -22,7 +22,7 @@ import (
 func defaultCreateInviteRequest() registration.CreateInviteRequest {
 	return registration.CreateInviteRequest{
 		DeviceName:         "Dad's Phone",
-		OwnerID:            auth.UserID(1),
+		OwnerID:            ids.UserID(1),
 		HeartbeatServerURL: "https://pulse.home.lan",
 		IntervalSeconds:    900,
 		ExpiresInHours:     24,
@@ -96,7 +96,7 @@ func TestHandler_ListRegistrations_DefaultPendingOnly(t *testing.T) {
 	is.NoErr(err)
 	_, err = ts.RegistrationService.CreateInvite(context.Background(), registration.CreateInviteRequest{
 		DeviceName:         "Mom's Phone",
-		OwnerID:            auth.UserID(1),
+		OwnerID:            ids.UserID(1),
 		HeartbeatServerURL: "https://pulse.home.lan",
 		IntervalSeconds:    300,
 		ExpiresInHours:     1,

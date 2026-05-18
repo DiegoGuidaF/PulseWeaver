@@ -400,17 +400,17 @@ export const zClaimRegistrationResponse = z.object({
   api_key: z.string(),
 });
 
-export const zCreatePolicyRequest = z.object({
+export const zCreateNetworkPolicyRequest = z.object({
   name: z.string().min(1).max(100),
   cidr: z.string(),
   description: z.string().max(500).nullish(),
 });
 
-export const zModifyPolicyRequest = z.object({
+export const zModifyNetworkPolicyRequest = z.object({
   name: z.string().min(1).max(100),
   cidr: z.string(),
-  description: z.string().max(500).nullish(),
-  status: z.enum(["enabled", "disabled"]),
+  description: z.string().max(500),
+  enabled: z.boolean(),
 });
 
 export const zPolicyNetworkPolicyEntry = z.object({
@@ -434,11 +434,11 @@ export const zGroupRef = z.object({
 /**
  * Network policy summary for the access management list page.
  */
-export const zPolicyListItem = z.object({
+export const zNetworkPolicyListItem = z.object({
   id: zId,
   name: z.string(),
   cidr: z.string(),
-  status: z.enum(["enabled", "disabled"]),
+  enabled: z.boolean(),
   groups: z.array(zGroupRef),
   host_count: z.int().gte(0),
   bypass_host_check: z.boolean(),
@@ -452,6 +452,27 @@ export const zGroupSummary = z.object({
   name: z.string(),
   color: z.string(),
   icon: z.string(),
+});
+
+/**
+ * Group write payload for reconcile. Omit id (or set null) to create; include id to update.
+ * The hosts array defines the complete desired membership after the call.
+ *
+ */
+export const zGroupWrite = z.object({
+  id: zId.nullish(),
+  name: z.string(),
+  icon: z.string(),
+  color: z.string(),
+  description: z.string().nullish(),
+  host_ids: z.array(zId).optional(),
+});
+
+/**
+ * Exhaustive list of all desired groups. Groups absent from this list are deleted.
+ */
+export const zReconcileGroupsRequest = z.object({
+  groups: z.array(zGroupWrite),
 });
 
 /**
@@ -469,10 +490,27 @@ export const zHost = z.object({
   id: zId,
   fqdn: z.string(),
   groups: z.array(zGroupSummary),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+});
+
+/**
+ * Host entry in a reconcile request. Omit id to create a new host.
+ */
+export const zHostInput = z.object({
+  id: zId.nullish(),
+  fqdn: z.string(),
+  group_ids: z.array(zId),
 });
 
 export const zHostListResponse = z.object({
   hosts: z.array(zHost),
+});
+
+/**
+ * Exhaustive list of all hosts. Hosts absent from this list are deleted.
+ */
+export const zReconcileHostsRequest = z.object({
+  hosts: z.array(zHostInput),
 });
 
 export const zHostSuggestion = z.object({
@@ -521,6 +559,7 @@ export const zUserListItem = z.object({
   id: zId,
   username: z.string(),
   display_name: z.string(),
+  role: zUserRole,
   groups: z.array(zGroupRef),
   host_count: z.int().gte(0),
   device_count: z.int().gte(0),
@@ -538,43 +577,11 @@ export const zDeviceApiKeyResponse = z.object({
 });
 
 /**
- * Group ID reference used in host write payloads.
- */
-export const zGroupIdRef = z.object({
-  id: zId,
-});
-
-/**
- * Host entry in a reconcile request. Omit id to create a new host.
- */
-export const zHostInput = z.object({
-  id: zId.nullish(),
-  fqdn: z.string(),
-  groups: z.array(zGroupIdRef),
-});
-
-/**
- * Exhaustive list of all hosts. Hosts absent from this list are deleted.
- */
-export const zReconcileHostsRequest = z.object({
-  hosts: z.array(zHostInput),
-});
-
-/**
  * Minimal host reference embedded in group responses.
  */
 export const zHostSummary = z.object({
   id: zId,
   fqdn: z.string(),
-});
-
-/**
- * Minimal user reference embedded in group responses.
- */
-export const zUserSummary = z.object({
-  id: zId,
-  username: z.string(),
-  display_name: z.string(),
 });
 
 /**
@@ -596,8 +603,9 @@ export const zGroupDetail = z.object({
   color: z.string(),
   description: z.string().nullish(),
   hosts: z.array(zHostSummary),
-  users: z.array(zUserSummary),
   network_policies: z.array(zNetworkPolicyRef),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  updated_at: z.iso.datetime({ offset: true, local: true }),
 });
 
 export const zSubjectGroupDetail = zGroupDetail.and(
@@ -609,18 +617,16 @@ export const zSubjectGroupDetail = zGroupDetail.and(
 /**
  * Full network policy detail including group assignments.
  */
-export const zPolicyDetail = z.object({
+export const zNetworkPolicyDetail = z.object({
   id: zId,
   name: z.string(),
   cidr: z.string(),
   description: z.string().nullish(),
-  status: z.enum(["enabled", "disabled"]),
+  enabled: z.boolean(),
   groups: z.array(zSubjectGroupDetail),
   bypass_host_check: z.boolean(),
-});
-
-export const zGroupListResponse = z.object({
-  groups: z.array(zGroupDetail),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  updated_at: z.iso.datetime({ offset: true, local: true }),
 });
 
 /**
@@ -630,6 +636,7 @@ export const zUserAccessDetail = z.object({
   id: zId,
   username: z.string(),
   display_name: z.string(),
+  role: zUserRole,
   email: z.email().nullish(),
   devices: z.array(zDeviceListItem),
   groups: z.array(zSubjectGroupDetail),
@@ -637,31 +644,22 @@ export const zUserAccessDetail = z.object({
 });
 
 /**
- * Host ID reference used in group write payloads.
+ * Minimal user reference embedded in group responses.
  */
-export const zHostRef = z.object({
+export const zUserSummary = z.object({
   id: zId,
+  username: z.string(),
+  display_name: z.string(),
 });
 
-/**
- * Group write payload for reconcile. Omit id (or set null) to create; include id to update.
- * The hosts array defines the complete desired membership after the call.
- *
- */
-export const zGroupWrite = z.object({
-  id: zId.nullish(),
-  name: z.string(),
-  icon: z.string(),
-  color: z.string(),
-  description: z.string().nullish(),
-  hosts: z.array(zHostRef),
-});
+export const zGroupDetailWithUsers = zGroupDetail.and(
+  z.object({
+    users: z.array(zUserSummary).optional(),
+  }),
+);
 
-/**
- * Exhaustive list of all desired groups. Groups absent from this list are deleted.
- */
-export const zReconcileGroupsRequest = z.object({
-  groups: z.array(zGroupWrite),
+export const zGroupListResponse = z.object({
+  groups: z.array(zGroupDetailWithUsers),
 });
 
 export const zPolicyIpDevice = z.object({
@@ -1184,7 +1182,7 @@ export const zReconcileHostsBody = zReconcileHostsRequest;
 /**
  * Updated host list after reconciliation.
  */
-export const zReconcileHostsResponse = zHostListResponse;
+export const zReconcileHostsResponse = z.void();
 
 /**
  * Suggestions page with active and ignored lists.
@@ -1215,9 +1213,9 @@ export const zListHostGroupsResponse = zGroupListResponse;
 export const zReconcileHostGroupsBody = zReconcileGroupsRequest;
 
 /**
- * Server state after reconcile.
+ * Reconcile successful
  */
-export const zReconcileHostGroupsResponse = zGroupListResponse;
+export const zReconcileHostGroupsResponse = z.void();
 
 /**
  * User access summary list.
@@ -1233,16 +1231,16 @@ export const zGetUserAccessDetailPath = z.object({
  */
 export const zGetUserAccessDetailResponse = zUserAccessDetail;
 
-export const zModifyUserAccessBody = zModifyAccessRequest;
+export const zSetUserAccessBody = zModifyAccessRequest;
 
-export const zModifyUserAccessPath = z.object({
+export const zSetUserAccessPath = z.object({
   user_id: zId,
 });
 
 /**
- * Updated user access detail.
+ * Successfully updated user access detail.
  */
-export const zModifyUserAccessResponse = zUserAccessDetail;
+export const zSetUserAccessResponse = z.void();
 
 /**
  * Policy cache snapshot (user-pivoted)
@@ -1262,51 +1260,51 @@ export const zSimulatePolicyAccessResponse = zPolicySimulateResult;
 /**
  * Policy list.
  */
-export const zListPoliciesResponse = z.array(zPolicyListItem);
+export const zListNetworkPoliciesResponse = z.array(zNetworkPolicyListItem);
 
-export const zCreatePolicyBody = zCreatePolicyRequest;
+export const zCreateNetworkPolicyBody = zCreateNetworkPolicyRequest;
 
 /**
  * Policy created.
  */
-export const zCreatePolicyResponse = zPolicyDetail;
+export const zCreateNetworkPolicyResponse = zNetworkPolicyDetail;
 
-export const zDeletePolicyPath = z.object({
+export const zDeleteNetworkPolicyPath = z.object({
   id: zId,
 });
 
 /**
  * Deleted.
  */
-export const zDeletePolicyResponse = z.void();
+export const zDeleteNetworkPolicyResponse = z.void();
 
-export const zGetPolicyPath = z.object({
+export const zGetNetworkPolicyPath = z.object({
   id: zId,
 });
 
 /**
  * Policy detail.
  */
-export const zGetPolicyResponse = zPolicyDetail;
+export const zGetNetworkPolicyResponse = zNetworkPolicyDetail;
 
-export const zUpdatePolicyBody = zModifyPolicyRequest;
+export const zUpdateNetworkPolicyBody = zModifyNetworkPolicyRequest;
 
-export const zUpdatePolicyPath = z.object({
+export const zUpdateNetworkPolicyPath = z.object({
   id: zId,
 });
 
 /**
  * Updated.
  */
-export const zUpdatePolicyResponse = z.void();
+export const zUpdateNetworkPolicyResponse = z.void();
 
-export const zUpdatePolicyAccessBody = zModifyAccessRequest;
+export const zUpdateNetworkPolicyAccessBody = zModifyAccessRequest;
 
-export const zUpdatePolicyAccessPath = z.object({
+export const zUpdateNetworkPolicyAccessPath = z.object({
   id: zId,
 });
 
 /**
  * Updated policy detail.
  */
-export const zUpdatePolicyAccessResponse = zPolicyDetail;
+export const zUpdateNetworkPolicyAccessResponse = z.void();

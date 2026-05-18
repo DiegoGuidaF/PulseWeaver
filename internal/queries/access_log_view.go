@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 type AccessLogView struct {
@@ -16,9 +16,9 @@ type AccessLogView struct {
 	ClientIP          string
 	Outcome           bool
 	DenyReason        *string
-	DeviceID          *device.DeviceID
+	DeviceID          *ids.DeviceID
 	DeviceName        *string
-	AddressID         *device.AddressID
+	AddressID         *ids.AddressID
 	CreatedAt         time.Time
 	DurationUs        int64
 	XFFChain          *string
@@ -42,8 +42,8 @@ type AccessLogQuery struct {
 	ClientIP        *string
 	Outcome         *bool
 	DenyReason      *string
-	DeviceID        *device.DeviceID
-	NetworkPolicyID *int64
+	DeviceID        *ids.DeviceID
+	NetworkPolicyID *ids.NetworkPolicyID
 	TargetHost      *string
 	CountryCode     *string
 	ContinentCode   *string
@@ -74,21 +74,15 @@ func NewAccessLogQuery(params httpapi.GetAccessLogParams) AccessLogQuery {
 		limit = 200
 	}
 
-	var networkPolicyID *int64
-	if params.NetworkPolicyId != nil {
-		v := int64(*params.NetworkPolicyId)
-		networkPolicyID = &v
-	}
-
 	return AccessLogQuery{
-		DeviceID:        (*device.DeviceID)(params.DeviceId),
+		DeviceID:        (*ids.DeviceID)(params.DeviceId),
 		Outcome:         params.Outcome,
 		DenyReason:      params.DenyReason,
 		ClientIP:        params.Ip,
 		TargetHost:      params.Host,
 		CountryCode:     params.CountryCode,
 		ContinentCode:   params.ContinentCode,
-		NetworkPolicyID: networkPolicyID,
+		NetworkPolicyID: (*ids.NetworkPolicyID)(params.NetworkPolicyId),
 		From:            from,
 		To:              to,
 		Limit:           limit,
@@ -294,27 +288,27 @@ func (r *Repository) ListAccessLogStatsByCountry(ctx context.Context, from, to t
 
 // Page of rows.
 type dbAccessLogRow struct {
-	ID                int64             `db:"id"`
-	ClientIP          string            `db:"client_ip"`
-	Outcome           bool              `db:"outcome"`
-	DenyReason        *string           `db:"deny_reason"`
-	DeviceID          *device.DeviceID  `db:"device_id"`
-	DeviceName        *string           `db:"device_name"`
-	AddressID         *device.AddressID `db:"address_id"`
-	CreatedAt         time.Time         `db:"created_at"`
-	DurationUs        int64             `db:"duration_us"`
-	XFFChain          *string           `db:"xff_chain"`
-	TargetHost        *string           `db:"target_host"`
-	TargetURI         *string           `db:"target_uri"`
-	HTTPMethod        *string           `db:"http_method"`
-	HeadersRaw        string            `db:"headers_json"`
-	CountryCode       *string           `db:"country_code"`
-	CountryName       *string           `db:"country_name"`
-	ContinentCode     *string           `db:"continent_code"`
-	ASN               *int64            `db:"asn"`
-	ASNOrg            *string           `db:"asn_org"`
-	NetworkPolicyID   *int64            `db:"network_policy_id"`
-	NetworkPolicyName *string           `db:"network_policy_name"`
+	ID                int64          `db:"id"`
+	ClientIP          string         `db:"client_ip"`
+	Outcome           bool           `db:"outcome"`
+	DenyReason        *string        `db:"deny_reason"`
+	DeviceID          *ids.DeviceID  `db:"device_id"`
+	DeviceName        *string        `db:"device_name"`
+	AddressID         *ids.AddressID `db:"address_id"`
+	CreatedAt         time.Time      `db:"created_at"`
+	DurationUs        int64          `db:"duration_us"`
+	XFFChain          *string        `db:"xff_chain"`
+	TargetHost        *string        `db:"target_host"`
+	TargetURI         *string        `db:"target_uri"`
+	HTTPMethod        *string        `db:"http_method"`
+	HeadersRaw        string         `db:"headers_json"`
+	CountryCode       *string        `db:"country_code"`
+	CountryName       *string        `db:"country_name"`
+	ContinentCode     *string        `db:"continent_code"`
+	ASN               *int64         `db:"asn"`
+	ASNOrg            *string        `db:"asn_org"`
+	NetworkPolicyID   *int64         `db:"network_policy_id"`
+	NetworkPolicyName *string        `db:"network_policy_name"`
 }
 
 type dbCountryStatsRow struct {

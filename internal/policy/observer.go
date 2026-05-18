@@ -4,9 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 // DecisionObserver is implemented by any component that wants to react to
@@ -18,17 +17,17 @@ type DecisionObserver interface {
 // IPContributor records one device/address/user triple that contributed to the
 // IP set entry used for an access decision.
 type IPContributor struct {
-	DeviceID  device.DeviceID
-	AddressID device.AddressID
-	UserID    auth.UserID
+	DeviceID  ids.DeviceID
+	AddressID ids.AddressID
+	UserID    ids.UserID
 }
 
 // ContributorAccess extends IPContributor with the per-user pre-intersection host access
 // state stored on each ipSetEntry for audit and simulate purposes.
 type ContributorAccess struct {
-	DeviceID         device.DeviceID
-	AddressID        device.AddressID
-	UserID           auth.UserID
+	DeviceID         ids.DeviceID
+	AddressID        ids.AddressID
+	UserID           ids.UserID
 	UserBypass       bool
 	UserAllowedHosts []string // case-folded; sorted lexicographically
 }

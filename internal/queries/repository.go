@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 type Repository struct {
@@ -16,7 +16,7 @@ func NewRepository(db *database.DB) *Repository {
 	return &Repository{db: db}
 }
 
-func (r *Repository) DeviceExists(ctx context.Context, deviceID device.DeviceID) (bool, error) {
+func (r *Repository) DeviceExists(ctx context.Context, deviceID ids.DeviceID) (bool, error) {
 	const query = `
 		SELECT EXISTS(
 			SELECT 1

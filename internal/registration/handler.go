@@ -5,8 +5,8 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
@@ -63,7 +63,7 @@ func (h *HTTPHandler) CreateRegistration(ctx context.Context, request httpapi.Cr
 	//TODO: Move request creation and validation to service
 	invite, err := h.service.CreateInvite(ctx, CreateInviteRequest{
 		DeviceName:          body.DeviceName,
-		OwnerID:             auth.UserID(body.OwnerId),
+		OwnerID:             ids.UserID(body.OwnerId),
 		HeartbeatServerURL:  body.HeartbeatServerUrl,
 		IntervalSeconds:     body.IntervalSeconds,
 		AppBiometricEnabled: appBiometricEnabled,

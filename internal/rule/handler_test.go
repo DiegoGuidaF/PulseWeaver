@@ -13,6 +13,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/app"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
@@ -28,7 +29,7 @@ func createTestDevice(t *testing.T, testServer *app.App, name string) *device.De
 	return dev
 }
 
-func createDeviceAddressLeaseRule(t *testing.T, testServer *app.App, deviceID device.DeviceID, ttlSeconds int) *rule.DeviceAddressLeaseRule {
+func createDeviceAddressLeaseRule(t *testing.T, testServer *app.App, deviceID ids.DeviceID, ttlSeconds int) *rule.DeviceAddressLeaseRule {
 	t.Helper()
 
 	r, err := testServer.RuleService.EnableDeviceAddressLeaseRule(t.Context(), deviceID, ttlSeconds)
@@ -147,7 +148,7 @@ func TestHandler_PutDeviceAddressLeaseRule_DeviceNotFound(t *testing.T) {
 		"ttl_seconds": 300,
 	})
 
-	nonExistentDeviceID := device.DeviceID(999999)
+	nonExistentDeviceID := ids.DeviceID(999999)
 	url := fmt.Sprintf("/api/v1/devices/%d/rules/address_lease", nonExistentDeviceID)
 	req := httptest.NewRequest(http.MethodPut, url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -200,7 +201,7 @@ func TestHandler_DisableDeviceAddressLeaseRule_IdempotentWhenMissing(t *testing.
 	is.Equal(res.Code, http.StatusNoContent)
 }
 
-func createMaxActiveAddressesRule(t *testing.T, testServer *app.App, deviceID device.DeviceID, maxAddresses int) *rule.MaxActiveAddressesRule {
+func createMaxActiveAddressesRule(t *testing.T, testServer *app.App, deviceID ids.DeviceID, maxAddresses int) *rule.MaxActiveAddressesRule {
 	t.Helper()
 
 	r, err := testServer.RuleService.EnableMaxActiveAddressesRule(t.Context(), deviceID, maxAddresses)
@@ -323,7 +324,7 @@ func TestHandler_PutMaxActiveAddressesRule_DeviceNotFound(t *testing.T) {
 		"max_addresses": 3,
 	})
 
-	nonExistentDeviceID := device.DeviceID(999999)
+	nonExistentDeviceID := ids.DeviceID(999999)
 	url := fmt.Sprintf("/api/v1/devices/%d/rules/max_active_addresses", nonExistentDeviceID)
 	req := httptest.NewRequest(http.MethodPut, url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 	"github.com/matryer/is"
 )
@@ -145,7 +146,7 @@ func TestRepository_GetAddress_NotFound(t *testing.T) {
 	repos := setupTestDB(t)
 	ctx := context.Background()
 
-	_, err := repos.repo.GetAddress(ctx, device.AddressID(99999))
+	_, err := repos.repo.GetAddress(ctx, ids.AddressID(99999))
 	is.True(err != nil)
 	is.Equal(err, device.ErrAddressNotFound)
 }
@@ -186,7 +187,7 @@ func TestRepository_CheckAddressOwnership_AddressNotFound(t *testing.T) {
 
 	dev := createTestDevice(t, repos, ctx, "test-device")
 
-	err := repos.repo.CheckAddressOwnership(ctx, dev.ID, device.AddressID(99999))
+	err := repos.repo.CheckAddressOwnership(ctx, dev.ID, ids.AddressID(99999))
 	is.True(err != nil)
 	is.Equal(err, device.ErrAddressNotOwnedByDevice)
 }
@@ -273,7 +274,7 @@ func TestRepository_GetAddressHistory_ReturnsBucketsAndEvents(t *testing.T) {
 	to := time.Now().UTC().Add(1 * time.Hour)
 
 	history, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
-		DeviceIDs:   []device.DeviceID{dev.ID},
+		DeviceIDs:   []ids.DeviceID{dev.ID},
 		From:        from,
 		To:          to,
 		Granularity: timebucket.GranularityHour,
@@ -306,7 +307,7 @@ func TestRepository_GetAddressHistory_EmptyRange(t *testing.T) {
 	to := time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
 
 	history, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
-		DeviceIDs:   []device.DeviceID{dev.ID},
+		DeviceIDs:   []ids.DeviceID{dev.ID},
 		From:        from,
 		To:          to,
 		Granularity: timebucket.GranularityHour,
@@ -330,7 +331,7 @@ func TestRepository_GetAddressHistory_DayGranularity(t *testing.T) {
 	to := time.Now().UTC().Add(1 * time.Hour)
 
 	history, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
-		DeviceIDs:   []device.DeviceID{dev.ID},
+		DeviceIDs:   []ids.DeviceID{dev.ID},
 		From:        from,
 		To:          to,
 		Granularity: timebucket.GranularityDay,
@@ -461,7 +462,7 @@ func TestRepository_GetAddressHistory_StateChangesOnly(t *testing.T) {
 	to := time.Now().UTC().Add(1 * time.Hour)
 
 	allHistory, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
-		DeviceIDs:   []device.DeviceID{dev.ID},
+		DeviceIDs:   []ids.DeviceID{dev.ID},
 		From:        from,
 		To:          to,
 		Granularity: timebucket.GranularityHour,
@@ -472,7 +473,7 @@ func TestRepository_GetAddressHistory_StateChangesOnly(t *testing.T) {
 	is.Equal(allHistory.TotalEvents, 5)
 
 	changesHistory, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
-		DeviceIDs:   []device.DeviceID{dev.ID},
+		DeviceIDs:   []ids.DeviceID{dev.ID},
 		From:        from,
 		To:          to,
 		Granularity: timebucket.GranularityHour,

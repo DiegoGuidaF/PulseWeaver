@@ -5,11 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
-
-// RuleID represents the primary key of a row in the device_rules table.
-type RuleID int64
 
 // RuleType is a string identifier for a rule kind (e.g. "device_lease").
 type RuleType string
@@ -24,8 +21,8 @@ const (
 
 // Rule maps to a row in the device_rules table.
 type Rule struct {
-	ID        RuleID          `db:"id"`
-	DeviceID  device.DeviceID `db:"device_id"`
+	ID        ids.RuleID      `db:"id"`
+	DeviceID  ids.DeviceID    `db:"device_id"`
 	RuleType  RuleType        `db:"rule_type"`
 	Enabled   bool            `db:"enabled"`
 	Config    json.RawMessage `db:"config"`
@@ -35,8 +32,8 @@ type Rule struct {
 
 // DeviceAddressLeaseRule represents the domain model for the device lease rule.
 type DeviceAddressLeaseRule struct {
-	ID        RuleID
-	DeviceID  device.DeviceID
+	ID        ids.RuleID
+	DeviceID  ids.DeviceID
 	Enabled   bool
 	Config    DeviceAddressLeaseConfig
 	CreatedAt time.Time
@@ -97,8 +94,8 @@ func NewDeviceAddressLeaseConfig(addressTTLSeconds int) (DeviceAddressLeaseConfi
 
 // MaxActiveAddressesRule represents the domain model for the max active addresses rule.
 type MaxActiveAddressesRule struct {
-	ID        RuleID
-	DeviceID  device.DeviceID
+	ID        ids.RuleID
+	DeviceID  ids.DeviceID
 	Enabled   bool
 	Config    MaxActiveAddressesConfig
 	CreatedAt time.Time

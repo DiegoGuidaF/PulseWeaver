@@ -1048,13 +1048,13 @@ export const ClaimRegistrationResponseSchema = {
   },
 } as const;
 
-export const PolicyListItemSchema = {
+export const NetworkPolicyListItemSchema = {
   type: "object",
   required: [
     "id",
     "name",
     "cidr",
-    "status",
+    "enabled",
     "groups",
     "host_count",
     "bypass_host_check",
@@ -1072,9 +1072,8 @@ export const PolicyListItemSchema = {
       type: "string",
       description: 'Normalized CIDR notation, e.g. "192.168.1.0/24"',
     },
-    status: {
-      type: "string",
-      enum: ["enabled", "disabled"],
+    enabled: {
+      type: "boolean",
     },
     groups: {
       type: "array",
@@ -1093,9 +1092,18 @@ export const PolicyListItemSchema = {
   },
 } as const;
 
-export const PolicyDetailSchema = {
+export const NetworkPolicyDetailSchema = {
   type: "object",
-  required: ["id", "name", "cidr", "status", "groups", "bypass_host_check"],
+  required: [
+    "id",
+    "name",
+    "cidr",
+    "enabled",
+    "groups",
+    "bypass_host_check",
+    "created_at",
+    "updated_at",
+  ],
   description: "Full network policy detail including group assignments.",
   properties: {
     id: {
@@ -1113,9 +1121,8 @@ export const PolicyDetailSchema = {
       type: "string",
       nullable: true,
     },
-    status: {
-      type: "string",
-      enum: ["enabled", "disabled"],
+    enabled: {
+      type: "boolean",
     },
     groups: {
       type: "array",
@@ -1127,10 +1134,20 @@ export const PolicyDetailSchema = {
     bypass_host_check: {
       type: "boolean",
     },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+    },
+    updated_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+    },
   },
 } as const;
 
-export const CreatePolicyRequestSchema = {
+export const CreateNetworkPolicyRequestSchema = {
   type: "object",
   required: ["name", "cidr"],
   properties: {
@@ -1152,9 +1169,9 @@ export const CreatePolicyRequestSchema = {
   },
 } as const;
 
-export const ModifyPolicyRequestSchema = {
+export const ModifyNetworkPolicyRequestSchema = {
   type: "object",
-  required: ["name", "cidr", "status"],
+  required: ["name", "cidr", "enabled", "description"],
   properties: {
     name: {
       type: "string",
@@ -1166,12 +1183,10 @@ export const ModifyPolicyRequestSchema = {
     },
     description: {
       type: "string",
-      nullable: true,
       maxLength: 500,
     },
-    status: {
-      type: "string",
-      enum: ["enabled", "disabled"],
+    enabled: {
+      type: "boolean",
     },
   },
 } as const;
@@ -1263,6 +1278,8 @@ export const GroupDetailSchema = {
     "hosts",
     "users",
     "network_policies",
+    "created_at",
+    "updated_at",
   ],
   description:
     "Full group representation returned by GET and reconcile responses.",
@@ -1294,14 +1311,6 @@ export const GroupDetailSchema = {
         $ref: "#/components/schemas/HostSummary",
       },
     },
-    users: {
-      type: "array",
-      description:
-        "Users with access to this group (read-only, managed via subjects).",
-      items: {
-        $ref: "#/components/schemas/UserSummary",
-      },
-    },
     network_policies: {
       type: "array",
       description:
@@ -1309,6 +1318,17 @@ export const GroupDetailSchema = {
       items: {
         $ref: "#/components/schemas/NetworkPolicyRef",
       },
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+    },
+    updated_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      description: "Last time the device profile was modified.",
     },
   },
 } as const;
@@ -1363,10 +1383,10 @@ export const GroupWriteSchema = {
       type: "string",
       nullable: true,
     },
-    hosts: {
+    host_ids: {
       type: "array",
       items: {
-        $ref: "#/components/schemas/HostRef",
+        $ref: "#/components/schemas/ID",
       },
     },
   },
@@ -1379,7 +1399,7 @@ export const GroupListResponseSchema = {
     groups: {
       type: "array",
       items: {
-        $ref: "#/components/schemas/GroupDetail",
+        $ref: "#/components/schemas/GroupDetailWithUsers",
       },
     },
   },
@@ -1422,7 +1442,7 @@ export const ModifyAccessRequestSchema = {
 
 export const HostSchema = {
   type: "object",
-  required: ["id", "fqdn", "groups"],
+  required: ["id", "fqdn", "groups", "created_at"],
   description: "Host record with group memberships.",
   properties: {
     id: {
@@ -1439,12 +1459,17 @@ export const HostSchema = {
         $ref: "#/components/schemas/GroupSummary",
       },
     },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+    },
   },
 } as const;
 
 export const HostInputSchema = {
   type: "object",
-  required: ["fqdn", "groups"],
+  required: ["fqdn", "group_ids"],
   description:
     "Host entry in a reconcile request. Omit id to create a new host.",
   properties: {
@@ -1460,11 +1485,11 @@ export const HostInputSchema = {
       type: "string",
       example: "immich.home.org",
     },
-    groups: {
+    group_ids: {
       type: "array",
       description: "Group memberships by ID. Empty array means unassigned.",
       items: {
-        $ref: "#/components/schemas/GroupIdRef",
+        $ref: "#/components/schemas/ID",
       },
     },
   },
@@ -1609,6 +1634,7 @@ export const UserListItemSchema = {
     "id",
     "username",
     "display_name",
+    "role",
     "groups",
     "host_count",
     "device_count",
@@ -1627,6 +1653,9 @@ export const UserListItemSchema = {
     display_name: {
       type: "string",
       example: "Maya Patel",
+    },
+    role: {
+      $ref: "#/components/schemas/UserRole",
     },
     groups: {
       type: "array",
@@ -1659,6 +1688,7 @@ export const UserAccessDetailSchema = {
     "id",
     "username",
     "display_name",
+    "role",
     "devices",
     "groups",
     "bypass_host_check",
@@ -1676,6 +1706,9 @@ export const UserAccessDetailSchema = {
     display_name: {
       type: "string",
       example: "Maya Patel",
+    },
+    role: {
+      $ref: "#/components/schemas/UserRole",
     },
     email: {
       type: "string",
@@ -1725,17 +1758,6 @@ export const DeviceAPIKeyResponseSchema = {
   },
 } as const;
 
-export const GroupIdRefSchema = {
-  type: "object",
-  required: ["id"],
-  description: "Group ID reference used in host write payloads.",
-  properties: {
-    id: {
-      $ref: "#/components/schemas/ID",
-    },
-  },
-} as const;
-
 export const HostSummarySchema = {
   type: "object",
   required: ["id", "fqdn"],
@@ -1747,25 +1769,6 @@ export const HostSummarySchema = {
     fqdn: {
       type: "string",
       example: "immich.home.org",
-    },
-  },
-} as const;
-
-export const UserSummarySchema = {
-  type: "object",
-  required: ["id", "username", "display_name"],
-  description: "Minimal user reference embedded in group responses.",
-  properties: {
-    id: {
-      $ref: "#/components/schemas/ID",
-    },
-    username: {
-      type: "string",
-      example: "maya.patel",
-    },
-    display_name: {
-      type: "string",
-      example: "Maya Patel",
     },
   },
 } as const;
@@ -1789,15 +1792,44 @@ export const NetworkPolicyRefSchema = {
   },
 } as const;
 
-export const HostRefSchema = {
+export const UserSummarySchema = {
   type: "object",
-  required: ["id"],
-  description: "Host ID reference used in group write payloads.",
+  required: ["id", "username", "display_name"],
+  description: "Minimal user reference embedded in group responses.",
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
     },
+    username: {
+      type: "string",
+      example: "maya.patel",
+    },
+    display_name: {
+      type: "string",
+      example: "Maya Patel",
+    },
   },
+} as const;
+
+export const GroupDetailWithUsersSchema = {
+  allOf: [
+    {
+      $ref: "#/components/schemas/GroupDetail",
+    },
+    {
+      type: "object",
+      properties: {
+        users: {
+          type: "array",
+          description:
+            "Users with access to this group (read-only, managed via subjects).",
+          items: {
+            $ref: "#/components/schemas/UserSummary",
+          },
+        },
+      },
+    },
+  ],
 } as const;
 
 export const PolicyIPDeviceSchema = {

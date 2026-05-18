@@ -10,8 +10,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 )
@@ -75,8 +75,8 @@ func (s *Service) refreshCache(ctx context.Context) error {
 // intersection for IPs shared by multiple restricted users. Pure function;
 // safe to call without holding any lock.
 func buildIPSet(ipEntries []device.IPEntry, hostAccess []UserHostAccess) map[string]ipSetEntry {
-	accessByUser := make(map[auth.UserID]UserHostAccess, len(hostAccess))
-	hostSetByUser := make(map[auth.UserID]map[string]struct{}, len(hostAccess))
+	accessByUser := make(map[ids.UserID]UserHostAccess, len(hostAccess))
+	hostSetByUser := make(map[ids.UserID]map[string]struct{}, len(hostAccess))
 	for _, ua := range hostAccess {
 		accessByUser[ua.UserID] = ua
 

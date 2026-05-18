@@ -10,29 +10,30 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/scheduler"
 	"github.com/matryer/is"
 )
 
 // fakeExpiredFinder returns a preset list of expired address IDs.
 type fakeExpiredFinder struct {
-	ids []device.AddressID
+	ids []ids.AddressID
 	err error
 }
 
-func (f *fakeExpiredFinder) GetExpiredAddressIDs(_ context.Context) ([]device.AddressID, error) {
+func (f *fakeExpiredFinder) GetExpiredAddressIDs(_ context.Context) ([]ids.AddressID, error) {
 	return f.ids, f.err
 }
 
 // fakeAddressDisabler records the last DisableAddresses call.
 type fakeAddressDisabler struct {
-	calledWith []device.AddressID
+	calledWith []ids.AddressID
 	source     device.EventSource
 	err        error
 	calls      int
 }
 
-func (f *fakeAddressDisabler) DisableAddresses(_ context.Context, ids []device.AddressID, source device.EventSource) error {
+func (f *fakeAddressDisabler) DisableAddresses(_ context.Context, ids []ids.AddressID, source device.EventSource) error {
 	f.calls++
 	f.calledWith = ids
 	f.source = source
@@ -62,7 +63,7 @@ func TestNewService_NilDisabler_ReturnsError(t *testing.T) {
 
 func TestService_ExecuteScheduledRules_NoExpiredAddresses_SkipsDisabler(t *testing.T) {
 	is := is.New(t)
-	finder := &fakeExpiredFinder{ids: []device.AddressID{}}
+	finder := &fakeExpiredFinder{ids: []ids.AddressID{}}
 	disabler := &fakeAddressDisabler{}
 	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
 	is.NoErr(err)
@@ -75,7 +76,7 @@ func TestService_ExecuteScheduledRules_NoExpiredAddresses_SkipsDisabler(t *testi
 
 func TestService_ExecuteScheduledRules_ExpiredAddressesFound_DisablesAll(t *testing.T) {
 	is := is.New(t)
-	finder := &fakeExpiredFinder{ids: []device.AddressID{device.AddressID(1), device.AddressID(2)}}
+	finder := &fakeExpiredFinder{ids: []ids.AddressID{ids.AddressID(1), ids.AddressID(2)}}
 	disabler := &fakeAddressDisabler{}
 	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
 	is.NoErr(err)
@@ -85,8 +86,8 @@ func TestService_ExecuteScheduledRules_ExpiredAddressesFound_DisablesAll(t *test
 	is.NoErr(err)
 	is.Equal(disabler.calls, 1)
 	is.Equal(len(disabler.calledWith), 2)
-	is.Equal(disabler.calledWith[0], device.AddressID(1))
-	is.Equal(disabler.calledWith[1], device.AddressID(2))
+	is.Equal(disabler.calledWith[0], ids.AddressID(1))
+	is.Equal(disabler.calledWith[1], ids.AddressID(2))
 	is.Equal(disabler.source, device.EventSourceExpiry)
 }
 
@@ -107,7 +108,7 @@ func TestService_ExecuteScheduledRules_FinderError_Propagates(t *testing.T) {
 func TestService_ExecuteScheduledRules_DisablerError_Propagates(t *testing.T) {
 	is := is.New(t)
 	disablerErr := errors.New("disable error")
-	finder := &fakeExpiredFinder{ids: []device.AddressID{device.AddressID(1)}}
+	finder := &fakeExpiredFinder{ids: []ids.AddressID{ids.AddressID(1)}}
 	disabler := &fakeAddressDisabler{err: disablerErr}
 	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
 	is.NoErr(err)
@@ -121,7 +122,7 @@ func TestService_ExecuteScheduledRules_DisablerError_Propagates(t *testing.T) {
 
 func TestService_RunSchedule_ContextCancellation_ExitsCleanly(t *testing.T) {
 	is := is.New(t)
-	finder := &fakeExpiredFinder{ids: []device.AddressID{}}
+	finder := &fakeExpiredFinder{ids: []ids.AddressID{}}
 	disabler := &fakeAddressDisabler{}
 	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
 	is.NoErr(err)
@@ -145,7 +146,7 @@ func TestService_RunSchedule_ContextCancellation_ExitsCleanly(t *testing.T) {
 
 func TestService_RunSchedule_TickFiresExecuteScheduledRules(t *testing.T) {
 	is := is.New(t)
-	finder := &fakeExpiredFinder{ids: []device.AddressID{device.AddressID(42)}}
+	finder := &fakeExpiredFinder{ids: []ids.AddressID{ids.AddressID(42)}}
 	disabler := &fakeAddressDisabler{}
 	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
 	is.NoErr(err)

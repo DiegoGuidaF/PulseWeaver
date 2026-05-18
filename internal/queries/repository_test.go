@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
@@ -23,7 +23,7 @@ type testRepos struct {
 	leases      *lease.Repository
 	accessLog   *accesslog.Repository
 	db          *database.DB
-	testOwnerID auth.UserID
+	testOwnerID ids.UserID
 }
 
 // setupRepos creates an in-memory SQLite DB and returns all repositories sharing it.
@@ -36,7 +36,7 @@ func setupRepos(t *testing.T) testRepos {
 	sqlxDB := dbWrapper.DB()
 
 	// Insert a test owner user (all devices need an owner since migration 000010).
-	var ownerID auth.UserID
+	var ownerID ids.UserID
 	err := sqlxDB.QueryRowxContext(
 		t.Context(),
 		`INSERT INTO users (username, display_name, password_hash, role) VALUES ('testadmin', 'Test Admin', 'x', 'admin') RETURNING id`,
@@ -67,7 +67,7 @@ func createDevice(t *testing.T, repos testRepos, name string) *device.Device {
 }
 
 // createAddress is a test helper that inserts an address for a device using the device repository.
-func createAddress(t *testing.T, repo *device.Repository, deviceID device.DeviceID, ip string) *device.Address {
+func createAddress(t *testing.T, repo *device.Repository, deviceID ids.DeviceID, ip string) *device.Address {
 	t.Helper()
 
 	params, err := device.NewCreateAddressParams(deviceID, ip, netip.Addr{})
@@ -96,7 +96,7 @@ func TestRepository_DeviceExists_NonExistentDevice(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)
 
-	exists, err := repos.queries.DeviceExists(t.Context(), device.DeviceID(99999))
+	exists, err := repos.queries.DeviceExists(t.Context(), ids.DeviceID(99999))
 	is.NoErr(err)
 	is.True(!exists)
 }

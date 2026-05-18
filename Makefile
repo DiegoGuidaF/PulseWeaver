@@ -91,13 +91,16 @@ build-backend: api-back
 	@echo "🔨 Building Go binary..."
 	go build -tags=prod -o bin/pulseweaver ./cmd/api
 
-api-back:
+api-back: api-bundle
 	go generate ./cmd/... ./internal/...
 
-api-front:
+api-front: api-bundle
 	cd frontend && npm run generate:api
 
-api: api-back api-front
+api-bundle:
+	npm run bundle:api
+
+api: api-bundle api-back api-front
 
 gh-auto-merge-dependabot:
 	gh pr list --repo DiegoGuidaF/PulseWeaver --author "app/dependabot" --state open --json number,title,statusCheckRollup --jq '.[] | select([.statusCheckRollup[].conclusion] | all(. == "SUCCESS" or . == "SKIPPED")) | .number' | xargs -I{} gh pr merge {} --squash --delete-branch --repo DiegoGuidaF/PulseWeaver

@@ -11,6 +11,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
@@ -24,7 +25,7 @@ func newServiceWithTrustedProxy(mockRepo *mockRepository, proxy netip.Addr) *dev
 }
 
 func testAdminPrincipal() *auth.Principal {
-	return auth.NewPrincipal(auth.UserID(1), auth.SessionID(0), auth.AdminRole)
+	return auth.NewPrincipal(ids.UserID(1), ids.SessionID(0), auth.AdminRole)
 }
 
 func TestService_CreateDevice_ReturnsDevice(t *testing.T) {
@@ -99,7 +100,7 @@ func TestService_GetDevice_Success(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	dev := &device.Device{ID: device.DeviceID(1), Name: "single-device"}
+	dev := &device.Device{ID: ids.DeviceID(1), Name: "single-device"}
 	mockRepo.devices[dev.ID] = dev
 	service := newService(mockRepo)
 
@@ -118,7 +119,7 @@ func TestService_GetDevice_NotFound(t *testing.T) {
 	mockRepo.getDeviceErr = device.ErrDeviceNotFound
 	service := newService(mockRepo)
 
-	got, err := service.GetDevice(ctx, device.DeviceID(999))
+	got, err := service.GetDevice(ctx, ids.DeviceID(999))
 	is.True(err != nil)
 	is.Equal(err, device.ErrDeviceNotFound)
 	is.True(got == nil)
@@ -133,7 +134,7 @@ func TestService_GetDevice_RepoError(t *testing.T) {
 	mockRepo.getDeviceErr = repoErr
 	service := newService(mockRepo)
 
-	got, err := service.GetDevice(ctx, device.DeviceID(1))
+	got, err := service.GetDevice(ctx, ids.DeviceID(1))
 	is.True(err != nil)
 	is.Equal(err, repoErr)
 	is.True(got == nil)
@@ -144,13 +145,13 @@ func TestService_DeleteDevice_Success(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	mockRepo.devices[device.DeviceID(1)] = &device.Device{ID: device.DeviceID(1), Name: "to-delete"}
+	mockRepo.devices[ids.DeviceID(1)] = &device.Device{ID: ids.DeviceID(1), Name: "to-delete"}
 	service := newService(mockRepo)
 
-	err := service.DeleteDevice(ctx, device.DeviceID(1))
+	err := service.DeleteDevice(ctx, ids.DeviceID(1))
 	is.NoErr(err)
 	// Mock removes from map
-	_, ok := mockRepo.devices[device.DeviceID(1)]
+	_, ok := mockRepo.devices[ids.DeviceID(1)]
 	is.True(!ok)
 }
 
@@ -159,10 +160,10 @@ func TestService_DeleteDevice_ShouldDisableEnabledAddresses(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	addressIDEnabled := device.AddressID(1)
-	addressIDDisabled := device.AddressID(2)
+	addressIDEnabled := ids.AddressID(1)
+	addressIDDisabled := ids.AddressID(2)
 
-	d := &device.Device{ID: device.DeviceID(1), Name: "to-delete"}
+	d := &device.Device{ID: ids.DeviceID(1), Name: "to-delete"}
 	mockRepo.devices[d.ID] = d
 	mockRepo.addresses[addressIDEnabled] = &device.Address{ID: addressIDEnabled, DeviceID: d.ID, IsEnabled: true}
 	mockRepo.addresses[addressIDDisabled] = &device.Address{ID: addressIDDisabled, DeviceID: d.ID, IsEnabled: false}
@@ -183,7 +184,7 @@ func TestService_DeleteDevice_ShouldRemoveAnyAPIKey(t *testing.T) {
 	mockRepo := newMockRepository()
 	apiKey := "anapikey"
 
-	d := &device.Device{ID: device.DeviceID(1), Name: "to-delete"}
+	d := &device.Device{ID: ids.DeviceID(1), Name: "to-delete"}
 	mockRepo.devices[d.ID] = d
 	mockRepo.apiKeysByHash[apiKey] = d
 	service := newService(mockRepo)
@@ -203,7 +204,7 @@ func TestService_DeleteDevice_NotFound(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	err := service.DeleteDevice(ctx, device.DeviceID(999))
+	err := service.DeleteDevice(ctx, ids.DeviceID(999))
 	is.True(err != nil)
 	is.True(errors.Is(err, device.ErrDeviceNotFound))
 }
@@ -228,7 +229,7 @@ func TestService_RegenerateAPIKey_Success(t *testing.T) {
 
 	oldPrefix := "wdk_oldpre"
 	mockRepo := newMockRepository()
-	dev := &device.Device{ID: device.DeviceID(1), Name: "regen-device", KeyPrefix: &oldPrefix}
+	dev := &device.Device{ID: ids.DeviceID(1), Name: "regen-device", KeyPrefix: &oldPrefix}
 	mockRepo.devices[dev.ID] = dev
 	service := newService(mockRepo)
 
@@ -250,7 +251,7 @@ func TestService_RegenerateAPIKey_DeviceNotFound(t *testing.T) {
 	mockRepo.getDeviceErr = device.ErrDeviceNotFound
 	service := newService(mockRepo)
 
-	updatedDevice, rawKey, err := service.RegenerateAPIKey(ctx, device.DeviceID(999))
+	updatedDevice, rawKey, err := service.RegenerateAPIKey(ctx, ids.DeviceID(999))
 	is.True(err != nil)
 	is.True(errors.Is(err, device.ErrDeviceNotFound))
 	is.True(updatedDevice == nil)
@@ -272,7 +273,7 @@ func TestService_RegenerateAPIKey_OldKeyInvalidated(t *testing.T) {
 	is.True(oldRawKey != "")
 
 	// Get the device
-	var deviceID device.DeviceID
+	var deviceID ids.DeviceID
 	for id := range mockRepo.devices {
 		deviceID = id
 		break
@@ -299,7 +300,7 @@ func TestService_UpdateDevice_RenamesDevice(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	d := &device.Device{ID: device.DeviceID(1), Name: "old", DeviceType: device.DeviceTypeStatic}
+	d := &device.Device{ID: ids.DeviceID(1), Name: "old", DeviceType: device.DeviceTypeStatic}
 	mockRepo.devices[d.ID] = d
 
 	svc := newService(mockRepo)
@@ -316,7 +317,7 @@ func TestService_UpdateDevice_DeviceNotFound(t *testing.T) {
 	mockRepo := newMockRepository()
 	svc := newService(mockRepo)
 
-	_, err := svc.UpdateDevice(ctx, device.DeviceID(99), device.UpdateDeviceInput{})
+	_, err := svc.UpdateDevice(ctx, ids.DeviceID(99), device.UpdateDeviceInput{})
 
 	is.True(errors.Is(err, device.ErrDeviceNotFound))
 }
@@ -326,7 +327,7 @@ func TestService_UpdateDevice_InvalidTypePropagated(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	d := &device.Device{ID: device.DeviceID(1), Name: "d", DeviceType: device.DeviceTypeStatic}
+	d := &device.Device{ID: ids.DeviceID(1), Name: "d", DeviceType: device.DeviceTypeStatic}
 	mockRepo.devices[d.ID] = d
 
 	svc := newService(mockRepo)
@@ -341,7 +342,7 @@ func TestService_UpdateDevice_RepoErrorPropagated(t *testing.T) {
 
 	sentinel := errors.New("db gone")
 	mockRepo := newMockRepository()
-	d := &device.Device{ID: device.DeviceID(1), Name: "d", DeviceType: device.DeviceTypeStatic}
+	d := &device.Device{ID: ids.DeviceID(1), Name: "d", DeviceType: device.DeviceTypeStatic}
 	mockRepo.devices[d.ID] = d
 	mockRepo.updateDeviceErr = sentinel
 

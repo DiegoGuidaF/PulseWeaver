@@ -10,6 +10,7 @@ import (
 	"log/slog"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -19,17 +20,17 @@ type repository interface {
 	FindBootstrappedAdmin(ctx context.Context) (*User, error)
 	GetAllUsers(ctx context.Context) ([]User, error)
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
-	GetUserByID(ctx context.Context, userID UserID) (*User, error)
+	GetUserByID(ctx context.Context, userID ids.UserID) (*User, error)
 	UpdateUser(ctx context.Context, user *User) (*User, error)
-	UpdatePasswordHash(ctx context.Context, userID UserID, newHash []byte, mustChangePassword bool) error
-	NullifyPasswordHash(ctx context.Context, userID UserID) error
-	SoftDeleteUser(ctx context.Context, userID UserID) error
+	UpdatePasswordHash(ctx context.Context, userID ids.UserID, newHash []byte, mustChangePassword bool) error
+	NullifyPasswordHash(ctx context.Context, userID ids.UserID) error
+	SoftDeleteUser(ctx context.Context, userID ids.UserID) error
 	CreateSession(ctx context.Context, session *Session) (*Session, error)
 	CreateUser(ctx context.Context, user *User) (*User, error)
 	GetSessionWithRoleByTokenHash(ctx context.Context, tokenHash string) (*SessionWithUser, error)
-	RevokeSessionByID(ctx context.Context, id SessionID) error
-	RevokeAllUserSessions(ctx context.Context, userID UserID) error
-	RevokeAllUserSessionsExcept(ctx context.Context, userID UserID, exceptSessionID SessionID) error
+	RevokeSessionByID(ctx context.Context, id ids.SessionID) error
+	RevokeAllUserSessions(ctx context.Context, userID ids.UserID) error
+	RevokeAllUserSessionsExcept(ctx context.Context, userID ids.UserID, exceptSessionID ids.SessionID) error
 }
 
 type transactor interface {
@@ -105,7 +106,7 @@ func (s *Service) GetUserFromPrincipal(ctx context.Context, principal *Principal
 	return user, nil
 }
 
-func (s *Service) RevokeSession(ctx context.Context, sessionID SessionID) error {
+func (s *Service) RevokeSession(ctx context.Context, sessionID ids.SessionID) error {
 	err := s.repo.RevokeSessionByID(ctx, sessionID)
 	if err != nil {
 		return err
@@ -184,7 +185,7 @@ type ProfileUpdates struct {
 	Email       *string
 }
 
-func (s *Service) UpdateOwnProfile(ctx context.Context, userID UserID, updates ProfileUpdates) (*User, error) {
+func (s *Service) UpdateOwnProfile(ctx context.Context, userID ids.UserID, updates ProfileUpdates) (*User, error) {
 	var updatedUser *User
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
@@ -212,7 +213,7 @@ func (s *Service) UpdateOwnProfile(ctx context.Context, userID UserID, updates P
 	return updatedUser, nil
 }
 
-func (s *Service) ChangePassword(ctx context.Context, userID UserID, sessionID SessionID, currentPassword string, newPassword string) error {
+func (s *Service) ChangePassword(ctx context.Context, userID ids.UserID, sessionID ids.SessionID, currentPassword string, newPassword string) error {
 	return s.tx.WithinTx(ctx, func(ctx context.Context) error {
 
 		user, err := s.repo.GetUserByID(ctx, userID)
@@ -248,7 +249,7 @@ func (s *Service) ChangePassword(ctx context.Context, userID UserID, sessionID S
 	})
 }
 
-func (s *Service) PromoteUser(ctx context.Context, principal *Principal, targetID UserID, newPassword string) (*User, error) {
+func (s *Service) PromoteUser(ctx context.Context, principal *Principal, targetID ids.UserID, newPassword string) (*User, error) {
 	var updatedUser *User
 	if !principal.IsSuperAdmin() {
 		return nil, ErrSuperAdminCredentialsRequired
@@ -293,7 +294,7 @@ func (s *Service) PromoteUser(ctx context.Context, principal *Principal, targetI
 	return updatedUser, nil
 }
 
-func (s *Service) DemoteUser(ctx context.Context, principal *Principal, targetID UserID) (*User, error) {
+func (s *Service) DemoteUser(ctx context.Context, principal *Principal, targetID ids.UserID) (*User, error) {
 	var updatedUser *User
 	if !principal.IsSuperAdmin() {
 		return nil, ErrSuperAdminCredentialsRequired
@@ -329,7 +330,7 @@ func (s *Service) DemoteUser(ctx context.Context, principal *Principal, targetID
 	return updatedUser, nil
 }
 
-func (s *Service) DeleteUser(ctx context.Context, principal *Principal, targetID UserID) error {
+func (s *Service) DeleteUser(ctx context.Context, principal *Principal, targetID ids.UserID) error {
 	if !principal.IsSuperAdmin() {
 		return ErrSuperAdminCredentialsRequired
 	}

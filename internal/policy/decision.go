@@ -1,8 +1,8 @@
 package policy
 
 import (
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 // DecisionResult is returned by Decide. It carries enough information for
@@ -18,7 +18,7 @@ type DecisionResult struct {
 
 // UserHostAccess is the per-user projection consumed by refreshCache.
 type UserHostAccess struct {
-	UserID          auth.UserID
+	UserID          ids.UserID
 	BypassAllowlist bool
 	AllowedHosts    []string // case-folded FQDNs; pre-union of direct + group grants
 }

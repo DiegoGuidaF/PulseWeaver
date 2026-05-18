@@ -1,15 +1,15 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceTypeItem, HostGroupWithMembers, HostSuggestionsPage, IgnoredHostSuggestion, KnownHostWithStats, MaxActiveAddressesRule, AccessLogResponse, User, UserHostAccessSummary, UserHostDetails, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
-import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockUser, createMockUserHostAccessSummary, createMockUserHostDetails, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
+import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceTypeItem, GroupDetailWithUsers, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
 
 const BASE = '/api/v1';
 
 // ─── Endpoint path constants ──────────────────────────────────────────────────
 // All endpoint strings live here. Never hardcode them in test files.
 export const endpoints = {
-    usersHostAccess: `${BASE}/admin/host-access/users`,
-    userHostDetails: `${BASE}/admin/host-access/users/:userId`,
-    setUserHostGrants: `${BASE}/admin/users/:userId/host-grants`,
+    usersHostAccess: `${BASE}/admin/access/users`,
+    userHostDetails: `${BASE}/admin/access/users/:userId`,
+    setUserHostGrants: `${BASE}/admin/access/users/:userId/grants`,
     devices: `${BASE}/devices`,
     deviceById: `${BASE}/devices/:deviceId`,
     deviceAddresses: `${BASE}/devices/:deviceId/addresses`,
@@ -36,13 +36,13 @@ export const endpoints = {
     dashboardTraffic: `${BASE}/dashboard/traffic`,
     dashboardServices: `${BASE}/dashboard/services`,
     dashboardTopDeniedIps: `${BASE}/dashboard/top-denied-ips`,
-    adminHosts: `${BASE}/admin/hosts`,
-    adminHostsReconcile: `${BASE}/admin/hosts/reconcile`,
-    adminHostGroups: `${BASE}/admin/host-groups`,
-    adminHostGroupsReconcile: `${BASE}/admin/host-groups/reconcile`,
-    adminHostSuggestions: `${BASE}/admin/host-suggestions`,
-    adminHostSuggestionsIgnore: `${BASE}/admin/host-suggestions/ignore`,
-    adminHostSuggestionsIgnoreByFqdn: `${BASE}/admin/host-suggestions/ignore/:fqdn`,
+    adminHosts: `${BASE}/admin/access/hosts`,
+    adminHostsReconcile: `${BASE}/admin/access/hosts/reconcile`,
+    adminHostGroups: `${BASE}/admin/access/host-groups`,
+    adminHostGroupsReconcile: `${BASE}/admin/access/host-groups/reconcile`,
+    adminHostSuggestions: `${BASE}/admin/access/host-suggestions`,
+    adminHostSuggestionsIgnore: `${BASE}/admin/access/host-suggestions/ignore`,
+    adminHostSuggestionsIgnoreByFqdn: `${BASE}/admin/access/host-suggestions/ignore/:fqdn`,
     policyMap:      `${BASE}/admin/policy-map`,
     policySimulate: `${BASE}/admin/policy-simulate`,
 } as const;
@@ -326,27 +326,27 @@ export const dashboardHandlers = {
 // ─── Host-access handlers ──────────────────────────────────────────────────────
 export const hostAccessHandlers = {
     listUsersHostAccess: {
-        success: (summaries?: UserHostAccessSummary[]) =>
+        success: (summaries?: UserListItem[]) =>
             http.get(endpoints.usersHostAccess, () =>
-                HttpResponse.json(summaries ?? [createMockUserHostAccessSummary()])),
+                HttpResponse.json(summaries ?? [createMockUserListItem()])),
     },
     userHostDetails: {
-        success: (details?: UserHostDetails) =>
+        success: (details?: UserAccessDetail) =>
             http.get(endpoints.userHostDetails, () =>
-                HttpResponse.json(details ?? createMockUserHostDetails())),
+                HttpResponse.json(details ?? createMockUserAccessDetail())),
     },
     setUserHostGrants: {
         success: () =>
             http.put(endpoints.setUserHostGrants, () => responses.noContent()),
     },
     listKnownHosts: {
-        success: (hosts: KnownHostWithStats[] = []) =>
+        success: (hosts: Host[] = []) =>
             http.get(endpoints.adminHosts, () => HttpResponse.json(hosts)),
         serverError: () =>
             http.get(endpoints.adminHosts, () => responses.serverError()),
     },
     listHostGroups: {
-        success: (groups: HostGroupWithMembers[] = []) =>
+        success: (groups: GroupDetailWithUsers[] = []) =>
             http.get(endpoints.adminHostGroups, () => HttpResponse.json(groups)),
         serverError: () =>
             http.get(endpoints.adminHostGroups, () => responses.serverError()),

@@ -6,9 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
@@ -30,18 +29,18 @@ type PolicyMapReader interface {
 
 // policyEnrichmentRow holds SQL-joined metadata for a single address contributor.
 type policyEnrichmentRow struct {
-	AddressID        device.AddressID `db:"address_id"`
-	AddressUpdatedAt time.Time        `db:"address_updated_at"`
-	DeviceID         device.DeviceID  `db:"device_id"`
-	DeviceName       string           `db:"device_name"`
-	UserID           auth.UserID      `db:"user_id"`
-	UserName         string           `db:"user_name"`
+	AddressID        ids.AddressID `db:"address_id"`
+	AddressUpdatedAt time.Time     `db:"address_updated_at"`
+	DeviceID         ids.DeviceID  `db:"device_id"`
+	DeviceName       string        `db:"device_name"`
+	UserID           ids.UserID    `db:"user_id"`
+	UserName         string        `db:"user_name"`
 }
 
 // getPolicyAddressEnrichment fetches display metadata for the given address IDs.
-func (r *Repository) getPolicyAddressEnrichment(ctx context.Context, addressIDs []device.AddressID) (map[device.AddressID]policyEnrichmentRow, error) {
+func (r *Repository) getPolicyAddressEnrichment(ctx context.Context, addressIDs []ids.AddressID) (map[ids.AddressID]policyEnrichmentRow, error) {
 	if len(addressIDs) == 0 {
-		return map[device.AddressID]policyEnrichmentRow{}, nil
+		return map[ids.AddressID]policyEnrichmentRow{}, nil
 	}
 
 	query, args, err := sqlx.In(`
@@ -66,7 +65,7 @@ func (r *Repository) getPolicyAddressEnrichment(ctx context.Context, addressIDs 
 		return nil, fmt.Errorf("get policy address enrichment: %w", err)
 	}
 
-	result := make(map[device.AddressID]policyEnrichmentRow, len(rows))
+	result := make(map[ids.AddressID]policyEnrichmentRow, len(rows))
 	for _, row := range rows {
 		result[row.AddressID] = row
 	}
@@ -76,7 +75,7 @@ func (r *Repository) getPolicyAddressEnrichment(ctx context.Context, addressIDs 
 // getAllUsersForPolicyAudit returns every non-deleted user with their bypass flag,
 // plus a map of pre-intersection allowed FQDNs keyed by user ID.
 // Two queries assembled in Go per queries-read-models.md pattern.
-func (r *Repository) getAllUsersForPolicyAudit(ctx context.Context) ([]policyAuditUserRow, map[auth.UserID][]string, error) {
+func (r *Repository) getAllUsersForPolicyAudit(ctx context.Context) ([]policyAuditUserRow, map[ids.UserID][]string, error) {
 	const usersQuery = `
 		SELECT u.id           AS user_id,
 		       u.username     AS username,
@@ -106,15 +105,15 @@ func (r *Repository) getAllUsersForPolicyAudit(ctx context.Context) ([]policyAud
 	`
 
 	type hostRow struct {
-		UserID auth.UserID `db:"user_id"`
-		FQDN   string      `db:"fqdn"`
+		UserID ids.UserID `db:"user_id"`
+		FQDN   string     `db:"fqdn"`
 	}
 	var hostRows []hostRow
 	if err := r.db.SelectContext(ctx, &hostRows, hostsQuery); err != nil {
 		return nil, nil, fmt.Errorf("list user allowed hosts for policy audit: %w", err)
 	}
 
-	allowedHostsByUser := make(map[auth.UserID][]string, len(userRows))
+	allowedHostsByUser := make(map[ids.UserID][]string, len(userRows))
 	for _, h := range hostRows {
 		allowedHostsByUser[h.UserID] = append(allowedHostsByUser[h.UserID], h.FQDN)
 	}
@@ -123,9 +122,9 @@ func (r *Repository) getAllUsersForPolicyAudit(ctx context.Context) ([]policyAud
 }
 
 // collectAddressIDs gathers all unique address IDs referenced in a snapshot.
-func collectAddressIDs(snap policy.PolicyMapSnapshot) []device.AddressID {
-	seen := make(map[device.AddressID]struct{})
-	var ids []device.AddressID
+func collectAddressIDs(snap policy.PolicyMapSnapshot) []ids.AddressID {
+	seen := make(map[ids.AddressID]struct{})
+	var ids []ids.AddressID
 	for _, e := range snap.Entries {
 		for _, c := range e.Contributors {
 			if _, ok := seen[c.AddressID]; !ok {

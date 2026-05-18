@@ -8,9 +8,11 @@ import (
 	"net/netip"
 	"strings"
 	"time"
+
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
-func (r *Repository) GetAddress(ctx context.Context, addressID AddressID) (*Address, error) {
+func (r *Repository) GetAddress(ctx context.Context, addressID ids.AddressID) (*Address, error) {
 	state := new(Address)
 
 	query := `
@@ -46,7 +48,7 @@ func (r *Repository) CreateAddress(ctx context.Context, params CreateAddressPara
 		INSERT INTO addresses (device_id, ip, is_enabled, source, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?) RETURNING id
 	`
-		var addressID AddressID
+		var addressID ids.AddressID
 		err := r.db.GetContext(ctx, &addressID, query, params.DeviceID, params.IP.String(), true, source, now, now)
 		if err != nil {
 			return err
@@ -69,7 +71,7 @@ func (r *Repository) CreateAddress(ctx context.Context, params CreateAddressPara
 	return address, nil
 }
 
-func (r *Repository) GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip netip.Addr) (*Address, error) {
+func (r *Repository) GetAddressForDeviceByIP(ctx context.Context, deviceID ids.DeviceID, ip netip.Addr) (*Address, error) {
 	address := new(Address)
 
 	query := `
@@ -97,7 +99,7 @@ func (r *Repository) GetAddressForDeviceByIP(ctx context.Context, deviceID Devic
 	return address, nil
 }
 
-func (r *Repository) CheckAddressOwnership(ctx context.Context, deviceID DeviceID, addressID AddressID) error {
+func (r *Repository) CheckAddressOwnership(ctx context.Context, deviceID ids.DeviceID, addressID ids.AddressID) error {
 	var dummy int
 
 	query := `SELECT 1 FROM addresses WHERE id = ? AND device_id = ?`
@@ -112,11 +114,11 @@ func (r *Repository) CheckAddressOwnership(ctx context.Context, deviceID DeviceI
 	return nil
 }
 
-func (r *Repository) DisableAddress(ctx context.Context, addressID AddressID) (*Address, error) {
+func (r *Repository) DisableAddress(ctx context.Context, addressID ids.AddressID) (*Address, error) {
 	return r.recordAddressEvent(ctx, addressID, false, EventSourceManual)
 }
 
-func (r *Repository) DisableAddresses(ctx context.Context, addressIDs []AddressID, source EventSource) ([]Address, error) {
+func (r *Repository) DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source EventSource) ([]Address, error) {
 	if len(addressIDs) == 0 {
 		return []Address{}, nil
 	}
@@ -141,12 +143,12 @@ func (r *Repository) DisableAddresses(ctx context.Context, addressIDs []AddressI
 	return disabledAddresses, nil
 }
 
-func (r *Repository) EnableAddress(ctx context.Context, addressID AddressID, source EventSource) (*Address, error) {
+func (r *Repository) EnableAddress(ctx context.Context, addressID ids.AddressID, source EventSource) (*Address, error) {
 	return r.recordAddressEvent(ctx, addressID, true, source)
 }
 
 // RefreshAddress records activity for an already-enabled address
-func (r *Repository) RefreshAddress(ctx context.Context, addressID AddressID, source EventSource) (*Address, error) {
+func (r *Repository) RefreshAddress(ctx context.Context, addressID ids.AddressID, source EventSource) (*Address, error) {
 	return r.EnableAddress(ctx, addressID, source)
 }
 
@@ -177,7 +179,7 @@ func (r *Repository) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error)
 }
 
 // GetEnabledAddressesForDevice returns all enabled addresses for a device, ordered by updated_at DESC.
-func (r *Repository) GetEnabledAddressesForDevice(ctx context.Context, deviceID DeviceID) ([]Address, error) {
+func (r *Repository) GetEnabledAddressesForDevice(ctx context.Context, deviceID ids.DeviceID) ([]Address, error) {
 	var addresses []Address
 
 	const query = `
@@ -195,7 +197,7 @@ func (r *Repository) GetEnabledAddressesForDevice(ctx context.Context, deviceID 
 }
 
 // insertAddressEvent records an event in the address_events audit table without modifying the address itself.
-func (r *Repository) insertAddressEvent(ctx context.Context, addressID AddressID, isEnabled bool, source EventSource, at time.Time) error {
+func (r *Repository) insertAddressEvent(ctx context.Context, addressID ids.AddressID, isEnabled bool, source EventSource, at time.Time) error {
 	query := `
 		INSERT INTO address_events (address_id, is_enabled, source, created_at)
 		VALUES (?, ?, ?, ?)
@@ -207,7 +209,7 @@ func (r *Repository) insertAddressEvent(ctx context.Context, addressID AddressID
 	return nil
 }
 
-func (r *Repository) recordAddressEvent(ctx context.Context, addressID AddressID, isEnabled bool, source EventSource) (*Address, error) {
+func (r *Repository) recordAddressEvent(ctx context.Context, addressID ids.AddressID, isEnabled bool, source EventSource) (*Address, error) {
 	var finalAddress *Address
 	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
 		now := time.Now().UTC()
@@ -240,7 +242,7 @@ func (r *Repository) recordAddressEvent(ctx context.Context, addressID AddressID
 }
 
 // deviceIDPlaceholders builds an IN clause fragment and args for a slice of device IDs.
-func deviceIDPlaceholders(ids []DeviceID) (string, []any) {
+func deviceIDPlaceholders(ids []ids.DeviceID) (string, []any) {
 	placeholders := make([]string, len(ids))
 	args := make([]any, len(ids))
 	for i, id := range ids {

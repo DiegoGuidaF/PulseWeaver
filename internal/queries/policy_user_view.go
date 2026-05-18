@@ -5,27 +5,26 @@ import (
 	"slices"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/slicex"
 )
 
 // policyAuditUserRow is a single non-deleted user row returned by getAllUsersForPolicyAudit.
 type policyAuditUserRow struct {
-	UserID          auth.UserID `db:"user_id"`
-	UserName        string      `db:"user_name"`
-	Username        string      `db:"username"`
-	IsAdmin         bool        `db:"is_admin"`
-	BypassAllowlist bool        `db:"bypass_allowlist"`
+	UserID          ids.UserID `db:"user_id"`
+	UserName        string     `db:"user_name"`
+	Username        string     `db:"username"`
+	IsAdmin         bool       `db:"is_admin"`
+	BypassAllowlist bool       `db:"bypass_allowlist"`
 }
 
 // userIPIndex maps userID → ip → ipBucket.
-type userIPIndex map[auth.UserID]map[string]*ipBucket
+type userIPIndex map[ids.UserID]map[string]*ipBucket
 
 // ipUsersIndex maps ip → set of userIDs present at that IP.
-type ipUsersIndex map[string]map[auth.UserID]struct{}
+type ipUsersIndex map[string]map[ids.UserID]struct{}
 
 // ipBucket holds intermediate state for one (user, IP) cell during index assembly.
 type ipBucket struct {
@@ -48,7 +47,7 @@ type ipBucket struct {
 // Addresses absent from addressEnrichment (deleted / unknown) are skipped.
 func buildIPIndex(
 	snap policy.PolicyMapSnapshot,
-	addressEnrichment map[device.AddressID]policyEnrichmentRow,
+	addressEnrichment map[ids.AddressID]policyEnrichmentRow,
 ) (byUser userIPIndex, usersAtIP ipUsersIndex) {
 	byUser = make(userIPIndex)
 	usersAtIP = make(ipUsersIndex)
@@ -56,7 +55,7 @@ func buildIPIndex(
 	for _, entry := range snap.Entries {
 		ip := entry.IP
 		if usersAtIP[ip] == nil {
-			usersAtIP[ip] = make(map[auth.UserID]struct{})
+			usersAtIP[ip] = make(map[ids.UserID]struct{})
 		}
 
 		for _, c := range entry.Contributors {
@@ -101,14 +100,14 @@ func buildIPIndex(
 // PolicyUserMapAudit DTO.
 func assemblePolicyUserMap(
 	snap policy.PolicyMapSnapshot,
-	addressEnrichment map[device.AddressID]policyEnrichmentRow,
+	addressEnrichment map[ids.AddressID]policyEnrichmentRow,
 	allUsers []policyAuditUserRow, // all non-deleted users, ORDER BY display_name, id
-	allowedHostsByUser map[auth.UserID][]string, // fallback host list for users absent from the cache
+	allowedHostsByUser map[ids.UserID][]string, // fallback host list for users absent from the cache
 ) httpapi.PolicyUserMapAudit {
 	byUser, usersAtIP := buildIPIndex(snap, addressEnrichment)
 
 	// Build a lookup so buildUserIPs can annotate shared-user entries with names.
-	userInfoByID := make(map[auth.UserID]policyAuditUserRow, len(allUsers))
+	userInfoByID := make(map[ids.UserID]policyAuditUserRow, len(allUsers))
 	for _, ur := range allUsers {
 		userInfoByID[ur.UserID] = ur
 	}
@@ -212,11 +211,11 @@ func assemblePolicyUserMap(
 // buildUserIPs converts one user's ipMap into a sorted []PolicyUserIP slice.
 // IPs are sorted lexicographically; addresses within each IP are sorted by address_id.
 func buildUserIPs(
-	userID auth.UserID,
+	userID ids.UserID,
 	ipMap map[string]*ipBucket,
 	usersAtIP ipUsersIndex,
 	byUser userIPIndex,
-	userInfoByID map[auth.UserID]policyAuditUserRow,
+	userInfoByID map[ids.UserID]policyAuditUserRow,
 ) []httpapi.PolicyUserIP {
 	sortedIPs := make([]string, 0, len(ipMap))
 	for ip := range ipMap {
@@ -230,13 +229,13 @@ func buildUserIPs(
 
 		// Build enriched shared-user entries: one entry per co-located user (excl. self),
 		// sorted by user_id for stability, each carrying their devices at this IP.
-		sharedUserIDs := make([]auth.UserID, 0)
+		sharedUserIDs := make([]ids.UserID, 0)
 		for uid := range usersAtIP[ip] {
 			if uid != userID {
 				sharedUserIDs = append(sharedUserIDs, uid)
 			}
 		}
-		slices.SortFunc(sharedUserIDs, func(a, b auth.UserID) int {
+		slices.SortFunc(sharedUserIDs, func(a, b ids.UserID) int {
 			return cmp.Compare(a, b)
 		})
 

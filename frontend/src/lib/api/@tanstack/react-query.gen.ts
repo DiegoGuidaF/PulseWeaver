@@ -12,12 +12,12 @@ import {
   changePassword,
   claimRegistration,
   createDevice,
-  createPolicy,
+  createNetworkPolicy,
   createRegistration,
   createUser,
   deleteDevice,
   deleteDeviceApiKey,
-  deletePolicy,
+  deleteNetworkPolicy,
   deleteRegistration,
   deleteUser,
   demoteUser,
@@ -41,7 +41,7 @@ import {
   getDevices,
   getDevicesByUser,
   getMaxActiveAddressesRule,
-  getPolicy,
+  getNetworkPolicy,
   getPolicyUserMap,
   getRegistration,
   getUserAccessDetail,
@@ -50,13 +50,12 @@ import {
   listHostGroups,
   listHosts,
   listHostSuggestions,
-  listPolicies,
+  listNetworkPolicies,
   listRegistrations,
   listUsers,
   listUsersWithAccess,
   login,
   logout,
-  modifyUserAccess,
   type Options,
   promoteUser,
   putDeviceAddressLeaseRule,
@@ -64,12 +63,13 @@ import {
   reconcileHostGroups,
   reconcileHosts,
   regenerateDeviceApiKey,
+  setUserAccess,
   simulatePolicyAccess,
   unignoreSuggestion,
   updateDevice,
   updateMe,
-  updatePolicy,
-  updatePolicyAccess,
+  updateNetworkPolicy,
+  updateNetworkPolicyAccess,
 } from "../sdk.gen";
 import type {
   AddAddressData,
@@ -84,9 +84,9 @@ import type {
   CreateDeviceData,
   CreateDeviceError,
   CreateDeviceResponse2,
-  CreatePolicyData,
-  CreatePolicyError,
-  CreatePolicyResponse,
+  CreateNetworkPolicyData,
+  CreateNetworkPolicyError,
+  CreateNetworkPolicyResponse,
   CreateRegistrationData,
   CreateRegistrationError,
   CreateRegistrationResponse,
@@ -99,9 +99,9 @@ import type {
   DeleteDeviceData,
   DeleteDeviceError,
   DeleteDeviceResponse,
-  DeletePolicyData,
-  DeletePolicyError,
-  DeletePolicyResponse,
+  DeleteNetworkPolicyData,
+  DeleteNetworkPolicyError,
+  DeleteNetworkPolicyResponse,
   DeleteRegistrationData,
   DeleteRegistrationError,
   DeleteRegistrationResponse,
@@ -171,9 +171,9 @@ import type {
   GetMaxActiveAddressesRuleData,
   GetMaxActiveAddressesRuleError,
   GetMaxActiveAddressesRuleResponse,
-  GetPolicyData,
-  GetPolicyError,
-  GetPolicyResponse,
+  GetNetworkPolicyData,
+  GetNetworkPolicyError,
+  GetNetworkPolicyResponse,
   GetPolicyUserMapData,
   GetPolicyUserMapError,
   GetPolicyUserMapResponse,
@@ -197,9 +197,9 @@ import type {
   ListHostSuggestionsData,
   ListHostSuggestionsError,
   ListHostSuggestionsResponse,
-  ListPoliciesData,
-  ListPoliciesError,
-  ListPoliciesResponse,
+  ListNetworkPoliciesData,
+  ListNetworkPoliciesError,
+  ListNetworkPoliciesResponse,
   ListRegistrationsData,
   ListRegistrationsError,
   ListRegistrationsResponse,
@@ -214,9 +214,6 @@ import type {
   LoginResponse,
   LogoutData,
   LogoutResponse,
-  ModifyUserAccessData,
-  ModifyUserAccessError,
-  ModifyUserAccessResponse,
   PromoteUserData,
   PromoteUserError,
   PromoteUserResponse,
@@ -235,6 +232,9 @@ import type {
   RegenerateDeviceApiKeyData,
   RegenerateDeviceApiKeyError,
   RegenerateDeviceApiKeyResponse,
+  SetUserAccessData,
+  SetUserAccessError,
+  SetUserAccessResponse,
   SimulatePolicyAccessData,
   SimulatePolicyAccessError,
   SimulatePolicyAccessResponse,
@@ -247,12 +247,12 @@ import type {
   UpdateMeData,
   UpdateMeError,
   UpdateMeResponse,
-  UpdatePolicyAccessData,
-  UpdatePolicyAccessError,
-  UpdatePolicyAccessResponse,
-  UpdatePolicyData,
-  UpdatePolicyError,
-  UpdatePolicyResponse,
+  UpdateNetworkPolicyAccessData,
+  UpdateNetworkPolicyAccessError,
+  UpdateNetworkPolicyAccessResponse,
+  UpdateNetworkPolicyData,
+  UpdateNetworkPolicyError,
+  UpdateNetworkPolicyResponse,
 } from "../types.gen";
 
 export type QueryKey<TOptions extends Options> = [
@@ -1802,20 +1802,20 @@ export const getUserAccessDetailOptions = (
  *
  * Replaces bypass_host_check flag and full group assignment list.
  */
-export const modifyUserAccessMutation = (
-  options?: Partial<Options<ModifyUserAccessData>>,
+export const setUserAccessMutation = (
+  options?: Partial<Options<SetUserAccessData>>,
 ): UseMutationOptions<
-  ModifyUserAccessResponse,
-  ModifyUserAccessError,
-  Options<ModifyUserAccessData>
+  SetUserAccessResponse,
+  SetUserAccessError,
+  Options<SetUserAccessData>
 > => {
   const mutationOptions: UseMutationOptions<
-    ModifyUserAccessResponse,
-    ModifyUserAccessError,
-    Options<ModifyUserAccessData>
+    SetUserAccessResponse,
+    SetUserAccessError,
+    Options<SetUserAccessData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await modifyUserAccess({
+      const { data } = await setUserAccess({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1892,21 +1892,24 @@ export const simulatePolicyAccessOptions = (
     queryKey: simulatePolicyAccessQueryKey(options),
   });
 
-export const listPoliciesQueryKey = (options?: Options<ListPoliciesData>) =>
-  createQueryKey("listPolicies", options);
+export const listNetworkPoliciesQueryKey = (
+  options?: Options<ListNetworkPoliciesData>,
+) => createQueryKey("listNetworkPolicies", options);
 
 /**
  * List all network policies
  */
-export const listPoliciesOptions = (options?: Options<ListPoliciesData>) =>
+export const listNetworkPoliciesOptions = (
+  options?: Options<ListNetworkPoliciesData>,
+) =>
   queryOptions<
-    ListPoliciesResponse,
-    ListPoliciesError,
-    ListPoliciesResponse,
-    ReturnType<typeof listPoliciesQueryKey>
+    ListNetworkPoliciesResponse,
+    ListNetworkPoliciesError,
+    ListNetworkPoliciesResponse,
+    ReturnType<typeof listNetworkPoliciesQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await listPolicies({
+      const { data } = await listNetworkPolicies({
         ...options,
         ...queryKey[0],
         signal,
@@ -1914,7 +1917,7 @@ export const listPoliciesOptions = (options?: Options<ListPoliciesData>) =>
       });
       return data;
     },
-    queryKey: listPoliciesQueryKey(options),
+    queryKey: listNetworkPoliciesQueryKey(options),
   });
 
 /**
@@ -1922,20 +1925,20 @@ export const listPoliciesOptions = (options?: Options<ListPoliciesData>) =>
  *
  * Policy is created enabled by default with no group assignments.
  */
-export const createPolicyMutation = (
-  options?: Partial<Options<CreatePolicyData>>,
+export const createNetworkPolicyMutation = (
+  options?: Partial<Options<CreateNetworkPolicyData>>,
 ): UseMutationOptions<
-  CreatePolicyResponse,
-  CreatePolicyError,
-  Options<CreatePolicyData>
+  CreateNetworkPolicyResponse,
+  CreateNetworkPolicyError,
+  Options<CreateNetworkPolicyData>
 > => {
   const mutationOptions: UseMutationOptions<
-    CreatePolicyResponse,
-    CreatePolicyError,
-    Options<CreatePolicyData>
+    CreateNetworkPolicyResponse,
+    CreateNetworkPolicyError,
+    Options<CreateNetworkPolicyData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await createPolicy({
+      const { data } = await createNetworkPolicy({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1949,20 +1952,20 @@ export const createPolicyMutation = (
 /**
  * Delete a network policy
  */
-export const deletePolicyMutation = (
-  options?: Partial<Options<DeletePolicyData>>,
+export const deleteNetworkPolicyMutation = (
+  options?: Partial<Options<DeleteNetworkPolicyData>>,
 ): UseMutationOptions<
-  DeletePolicyResponse,
-  DeletePolicyError,
-  Options<DeletePolicyData>
+  DeleteNetworkPolicyResponse,
+  DeleteNetworkPolicyError,
+  Options<DeleteNetworkPolicyData>
 > => {
   const mutationOptions: UseMutationOptions<
-    DeletePolicyResponse,
-    DeletePolicyError,
-    Options<DeletePolicyData>
+    DeleteNetworkPolicyResponse,
+    DeleteNetworkPolicyError,
+    Options<DeleteNetworkPolicyData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await deletePolicy({
+      const { data } = await deleteNetworkPolicy({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1973,21 +1976,24 @@ export const deletePolicyMutation = (
   return mutationOptions;
 };
 
-export const getPolicyQueryKey = (options: Options<GetPolicyData>) =>
-  createQueryKey("getPolicy", options);
+export const getNetworkPolicyQueryKey = (
+  options: Options<GetNetworkPolicyData>,
+) => createQueryKey("getNetworkPolicy", options);
 
 /**
  * Get network policy detail
  */
-export const getPolicyOptions = (options: Options<GetPolicyData>) =>
+export const getNetworkPolicyOptions = (
+  options: Options<GetNetworkPolicyData>,
+) =>
   queryOptions<
-    GetPolicyResponse,
-    GetPolicyError,
-    GetPolicyResponse,
-    ReturnType<typeof getPolicyQueryKey>
+    GetNetworkPolicyResponse,
+    GetNetworkPolicyError,
+    GetNetworkPolicyResponse,
+    ReturnType<typeof getNetworkPolicyQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getPolicy({
+      const { data } = await getNetworkPolicy({
         ...options,
         ...queryKey[0],
         signal,
@@ -1995,7 +2001,7 @@ export const getPolicyOptions = (options: Options<GetPolicyData>) =>
       });
       return data;
     },
-    queryKey: getPolicyQueryKey(options),
+    queryKey: getNetworkPolicyQueryKey(options),
   });
 
 /**
@@ -2003,20 +2009,20 @@ export const getPolicyOptions = (options: Options<GetPolicyData>) =>
  *
  * Updates name, CIDR, description, and/or status. Does not affect group assignments.
  */
-export const updatePolicyMutation = (
-  options?: Partial<Options<UpdatePolicyData>>,
+export const updateNetworkPolicyMutation = (
+  options?: Partial<Options<UpdateNetworkPolicyData>>,
 ): UseMutationOptions<
-  UpdatePolicyResponse,
-  UpdatePolicyError,
-  Options<UpdatePolicyData>
+  UpdateNetworkPolicyResponse,
+  UpdateNetworkPolicyError,
+  Options<UpdateNetworkPolicyData>
 > => {
   const mutationOptions: UseMutationOptions<
-    UpdatePolicyResponse,
-    UpdatePolicyError,
-    Options<UpdatePolicyData>
+    UpdateNetworkPolicyResponse,
+    UpdateNetworkPolicyError,
+    Options<UpdateNetworkPolicyData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await updatePolicy({
+      const { data } = await updateNetworkPolicy({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -2032,20 +2038,20 @@ export const updatePolicyMutation = (
  *
  * Replaces bypass_host_check flag and full group assignment list.
  */
-export const updatePolicyAccessMutation = (
-  options?: Partial<Options<UpdatePolicyAccessData>>,
+export const updateNetworkPolicyAccessMutation = (
+  options?: Partial<Options<UpdateNetworkPolicyAccessData>>,
 ): UseMutationOptions<
-  UpdatePolicyAccessResponse,
-  UpdatePolicyAccessError,
-  Options<UpdatePolicyAccessData>
+  UpdateNetworkPolicyAccessResponse,
+  UpdateNetworkPolicyAccessError,
+  Options<UpdateNetworkPolicyAccessData>
 > => {
   const mutationOptions: UseMutationOptions<
-    UpdatePolicyAccessResponse,
-    UpdatePolicyAccessError,
-    Options<UpdatePolicyAccessData>
+    UpdateNetworkPolicyAccessResponse,
+    UpdateNetworkPolicyAccessError,
+    Options<UpdateNetworkPolicyAccessData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await updatePolicyAccess({
+      const { data } = await updateNetworkPolicyAccess({
         ...options,
         ...fnOptions,
         throwOnError: true,

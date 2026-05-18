@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 type Repository struct {
@@ -62,7 +63,7 @@ func (r *Repository) GetUserByUsername(ctx context.Context, username string) (*U
 	return user, nil
 }
 
-func (r *Repository) GetUserByID(ctx context.Context, userID UserID) (*User, error) {
+func (r *Repository) GetUserByID(ctx context.Context, userID ids.UserID) (*User, error) {
 	user := new(User)
 
 	query := `SELECT * FROM users WHERE id = ? AND deleted_at IS NULL`
@@ -163,7 +164,7 @@ func (r *Repository) UpdateUser(ctx context.Context, user *User) (*User, error) 
 	return updated, nil
 }
 
-func (r *Repository) UpdatePasswordHash(ctx context.Context, userID UserID, newHash []byte, mustChangePassword bool) error {
+func (r *Repository) UpdatePasswordHash(ctx context.Context, userID ids.UserID, newHash []byte, mustChangePassword bool) error {
 	const query = `UPDATE users SET password_hash = ?, must_change_password = ? WHERE id = ? AND deleted_at IS NULL`
 	res, err := r.db.ExecContext(ctx, query, newHash, mustChangePassword, userID)
 	if err != nil {
@@ -179,7 +180,7 @@ func (r *Repository) UpdatePasswordHash(ctx context.Context, userID UserID, newH
 	return nil
 }
 
-func (r *Repository) NullifyPasswordHash(ctx context.Context, userID UserID) error {
+func (r *Repository) NullifyPasswordHash(ctx context.Context, userID ids.UserID) error {
 	const query = `UPDATE users SET password_hash = NULL WHERE id = ? AND deleted_at IS NULL`
 	res, err := r.db.ExecContext(ctx, query, userID)
 	if err != nil {
@@ -195,7 +196,7 @@ func (r *Repository) NullifyPasswordHash(ctx context.Context, userID UserID) err
 	return nil
 }
 
-func (r *Repository) SoftDeleteUser(ctx context.Context, userID UserID) error {
+func (r *Repository) SoftDeleteUser(ctx context.Context, userID ids.UserID) error {
 	query := `UPDATE users SET deleted_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL`
 
 	result, err := r.db.ExecContext(ctx, query, userID)
@@ -214,7 +215,7 @@ func (r *Repository) SoftDeleteUser(ctx context.Context, userID UserID) error {
 	return nil
 }
 
-func (r *Repository) RevokeAllUserSessions(ctx context.Context, userID UserID) error {
+func (r *Repository) RevokeAllUserSessions(ctx context.Context, userID ids.UserID) error {
 	query := `
 		UPDATE sessions
 		SET revoked_at = CURRENT_TIMESTAMP
@@ -230,7 +231,7 @@ func (r *Repository) RevokeAllUserSessions(ctx context.Context, userID UserID) e
 	return nil
 }
 
-func (r *Repository) RevokeAllUserSessionsExcept(ctx context.Context, userID UserID, exceptSessionID SessionID) error {
+func (r *Repository) RevokeAllUserSessionsExcept(ctx context.Context, userID ids.UserID, exceptSessionID ids.SessionID) error {
 	query := `
 		UPDATE sessions
 		SET revoked_at = CURRENT_TIMESTAMP
@@ -271,7 +272,7 @@ func (r *Repository) GetSessionWithRoleByTokenHash(ctx context.Context, tokenHas
 	return session, nil
 }
 
-func (r *Repository) RevokeSessionByID(ctx context.Context, id SessionID) error {
+func (r *Repository) RevokeSessionByID(ctx context.Context, id ids.SessionID) error {
 	query := `UPDATE sessions SET revoked_at = CURRENT_TIMESTAMP WHERE id = ?`
 
 	_, err := r.db.ExecContext(ctx, query, id)

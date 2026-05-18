@@ -3,21 +3,21 @@ package lease
 import (
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 type AddressLease struct {
-	ID        AddressLeaseID   `db:"id"`
-	DeviceID  device.DeviceID  `db:"device_id"`
-	AddressID device.AddressID `db:"address_id"`
-	ExpiresAt *time.Time       `db:"expires_at"`
-	UpdatedAt time.Time        `db:"updated_at"`
-	CreatedAt time.Time        `db:"created_at"`
+	ID        ids.AddressLeaseID `db:"id"`
+	DeviceID  ids.DeviceID       `db:"device_id"`
+	AddressID ids.AddressID      `db:"address_id"`
+	ExpiresAt *time.Time         `db:"expires_at"`
+	UpdatedAt time.Time          `db:"updated_at"`
+	CreatedAt time.Time          `db:"created_at"`
 }
 
 // NewAddressLease builds an AddressLease.
 // expiresAt is nil when no addressTTL is nil.
-func NewAddressLease(addressID device.AddressID, deviceID device.DeviceID, addressTTL *int) AddressLease {
+func NewAddressLease(addressID ids.AddressID, deviceID ids.DeviceID, addressTTL *int) AddressLease {
 	now := time.Now().UTC()
 	return AddressLease{
 		AddressID: addressID,
@@ -38,6 +38,3 @@ func expiresAtFromTTL(now time.Time, addressTTL *int) *time.Time {
 	return nil
 
 }
-
-// AddressLeaseID represents the primary key of a row in the address_leases table.
-type AddressLeaseID int64

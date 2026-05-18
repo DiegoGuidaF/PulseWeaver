@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
-func (r *Repository) GetDevice(ctx context.Context, id DeviceID) (*Device, error) {
+func (r *Repository) GetDevice(ctx context.Context, id ids.DeviceID) (*Device, error) {
 	device := new(Device)
 
 	query := `
@@ -65,7 +67,7 @@ func (r *Repository) CreateDevice(ctx context.Context, params CreateDeviceParams
 	return createdDevice, nil
 }
 
-func (r *Repository) UpsertAPIKey(ctx context.Context, deviceID DeviceID, keyHash string, keyPrefix string) error {
+func (r *Repository) UpsertAPIKey(ctx context.Context, deviceID ids.DeviceID, keyHash string, keyPrefix string) error {
 	query := `
 		INSERT INTO device_api_keys (device_id, key_prefix, key_hash, created_at)
 		VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -83,7 +85,7 @@ func (r *Repository) UpsertAPIKey(ctx context.Context, deviceID DeviceID, keyHas
 	return nil
 }
 
-func (r *Repository) DeleteAPIKey(ctx context.Context, deviceID DeviceID) error {
+func (r *Repository) DeleteAPIKey(ctx context.Context, deviceID ids.DeviceID) error {
 	query := `DELETE FROM device_api_keys WHERE device_id = ?`
 	result, err := r.db.ExecContext(ctx, query, deviceID)
 	if err != nil {
@@ -122,7 +124,7 @@ func (r *Repository) GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) 
 	return device, nil
 }
 
-func (r *Repository) DeleteDevice(ctx context.Context, deviceID DeviceID) error {
+func (r *Repository) DeleteDevice(ctx context.Context, deviceID ids.DeviceID) error {
 	query := `UPDATE devices SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`
 	result, err := r.db.ExecContext(ctx, query, time.Now().UTC(), deviceID)
 	if err != nil {

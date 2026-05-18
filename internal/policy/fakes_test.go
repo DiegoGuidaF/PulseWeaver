@@ -9,9 +9,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 // fakeObserver records every DecisionEvent it receives.
@@ -89,10 +89,10 @@ func noopLogger() *slog.Logger {
 
 // newHostRestrictedSvc builds a Service where userID owns the given IP and
 // is restricted to allowedHosts (empty slice = no hosts granted).
-func newHostRestrictedSvc(t *testing.T, userID auth.UserID, ip string, allowedHosts []string) *Service {
+func newHostRestrictedSvc(t *testing.T, userID ids.UserID, ip string, allowedHosts []string) *Service {
 	t.Helper()
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: ip, DeviceID: device.DeviceID(1), AddressID: device.AddressID(1), UserID: userID},
+		{IP: ip, DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1), UserID: userID},
 	}}
 	hostProvider := &fixedHostProvider{entries: []UserHostAccess{
 		{UserID: userID, BypassAllowlist: false, AllowedHosts: allowedHosts},

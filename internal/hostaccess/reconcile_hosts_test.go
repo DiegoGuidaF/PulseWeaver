@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/matryer/is"
 )
 
@@ -27,7 +28,7 @@ func TestBuildKnownHostReconcilePlan_DeleteOnly(t *testing.T) {
 	current := []KnownHost{{ID: 1, FQDN: "doomed.com"}}
 	plan, err := buildKnownHostReconcilePlan(current, nil)
 	is.NoErr(err)
-	is.Equal(plan.toDelete, []KnownHostID{1})
+	is.Equal(plan.toDelete, []ids.KnownHostID{1})
 	is.Equal(len(plan.toCreate), 0)
 	is.Equal(len(plan.toUpdate), 0)
 }
@@ -36,11 +37,11 @@ func TestBuildKnownHostReconcilePlan_IconUpdateOnly(t *testing.T) {
 	is := is.New(t)
 	current := []KnownHost{{ID: 1, FQDN: "host.example.com", Icon: nil}}
 	icon := "server"
-	id := KnownHostID(1)
+	id := ids.KnownHostID(1)
 	plan, err := buildKnownHostReconcilePlan(current, []DesiredKnownHost{{ID: &id, FQDN: "host.example.com", Icon: &icon}})
 	is.NoErr(err)
 	is.Equal(len(plan.toUpdate), 1)
-	is.Equal(plan.toUpdate[0].ID, KnownHostID(1))
+	is.Equal(plan.toUpdate[0].ID, ids.KnownHostID(1))
 	is.Equal(*plan.toUpdate[0].Icon, "server")
 	is.Equal(len(plan.toCreate), 0)
 	is.Equal(len(plan.toDelete), 0)
@@ -50,7 +51,7 @@ func TestBuildKnownHostReconcilePlan_IconNoOp_Skipped(t *testing.T) {
 	is := is.New(t)
 	icon := "server"
 	current := []KnownHost{{ID: 1, FQDN: "host.example.com", Icon: &icon}}
-	id := KnownHostID(1)
+	id := ids.KnownHostID(1)
 	plan, err := buildKnownHostReconcilePlan(current, []DesiredKnownHost{{ID: &id, FQDN: "host.example.com", Icon: &icon}})
 	is.NoErr(err)
 	is.Equal(len(plan.toUpdate), 0)
@@ -60,7 +61,7 @@ func TestBuildKnownHostReconcilePlan_IconNoOp_Skipped(t *testing.T) {
 
 func TestBuildKnownHostReconcilePlan_UnknownDesiredID_Errors(t *testing.T) {
 	is := is.New(t)
-	id := KnownHostID(42)
+	id := ids.KnownHostID(42)
 	_, err := buildKnownHostReconcilePlan(nil, []DesiredKnownHost{{ID: &id, FQDN: "ghost.example.com"}})
 	is.True(errors.Is(err, ErrKnownHostNotFound))
 }
@@ -68,7 +69,7 @@ func TestBuildKnownHostReconcilePlan_UnknownDesiredID_Errors(t *testing.T) {
 func TestBuildKnownHostReconcilePlan_FQDNChangeOnExistingID_Errors(t *testing.T) {
 	is := is.New(t)
 	current := []KnownHost{{ID: 1, FQDN: "original.com"}}
-	id := KnownHostID(1)
+	id := ids.KnownHostID(1)
 	_, err := buildKnownHostReconcilePlan(current, []DesiredKnownHost{{ID: &id, FQDN: "changed.com"}})
 	is.True(errors.Is(err, ErrKnownHostFQDNImmutable))
 }
@@ -88,8 +89,8 @@ func TestBuildKnownHostReconcilePlan_Mixed(t *testing.T) {
 		{ID: 2, FQDN: "update-me.com"},
 		{ID: 3, FQDN: "remove-me.com"},
 	}
-	id1 := KnownHostID(1)
-	id2 := KnownHostID(2)
+	id1 := ids.KnownHostID(1)
+	id2 := ids.KnownHostID(2)
 	plan, err := buildKnownHostReconcilePlan(current, []DesiredKnownHost{
 		{ID: &id1, FQDN: "keep.com"},                   // no-op
 		{ID: &id2, FQDN: "update-me.com", Icon: &icon}, // update icon
@@ -100,15 +101,15 @@ func TestBuildKnownHostReconcilePlan_Mixed(t *testing.T) {
 	is.Equal(len(plan.toCreate), 1)
 	is.Equal(plan.toCreate[0].FQDN, "fresh.com")
 	is.Equal(len(plan.toUpdate), 1)
-	is.Equal(plan.toUpdate[0].ID, KnownHostID(2))
-	is.Equal(plan.toDelete, []KnownHostID{3})
+	is.Equal(plan.toUpdate[0].ID, ids.KnownHostID(2))
+	is.Equal(plan.toDelete, []ids.KnownHostID{3})
 }
 
 // ── ReconcileKnownHostsInput.prepare() ───────────────────────────────────────
 
 func TestReconcileKnownHostsInput_DuplicateID_Rejected(t *testing.T) {
 	is := is.New(t)
-	id := KnownHostID(7)
+	id := ids.KnownHostID(7)
 	in := ReconcileKnownHostsInput{
 		Hosts: []DesiredKnownHost{
 			{ID: &id, FQDN: "a.example.com"},
@@ -183,7 +184,7 @@ func TestService_ReconcileKnownHosts_NoOp_StillNotifiesObservers(t *testing.T) {
 	svc.AddUserHostAccessObserver(obs)
 
 	err := svc.ReconcileKnownHosts(context.Background(), ReconcileKnownHostsInput{
-		Hosts: []DesiredKnownHost{{ID: new(KnownHostID(1)), FQDN: "stable.example.com"}},
+		Hosts: []DesiredKnownHost{{ID: new(ids.KnownHostID(1)), FQDN: "stable.example.com"}},
 	})
 	is.NoErr(err)
 	// Icon is unchanged so no host row write, but group membership is always synced.
@@ -202,7 +203,7 @@ func TestService_ReconcileKnownHosts_DeleteUpdateCreate_Order(t *testing.T) {
 	}
 	svc, _ := newTestService(repo)
 
-	id1 := KnownHostID(1)
+	id1 := ids.KnownHostID(1)
 	err := svc.ReconcileKnownHosts(context.Background(), ReconcileKnownHostsInput{
 		Hosts: []DesiredKnownHost{
 			{ID: &id1, FQDN: "update-me.example.com", Icon: &icon},
@@ -243,8 +244,8 @@ func TestService_ReconcileKnownHosts_ConflictFromCreate_Surfaces(t *testing.T) {
 // createConflictRepo is a minimal fakeRepo where CreateKnownHost always returns ErrKnownHostConflict.
 type createConflictRepo struct{ fakeRepo }
 
-func (c *createConflictRepo) CreateKnownHost(_ context.Context, _ KnownHostDraft) (KnownHostID, error) {
-	return KnownHostID(0), ErrKnownHostConflict
+func (c *createConflictRepo) CreateKnownHost(_ context.Context, _ KnownHostDraft) (ids.KnownHostID, error) {
+	return ids.KnownHostID(0), ErrKnownHostConflict
 }
 func (c *createConflictRepo) ListKnownHosts(_ context.Context) ([]KnownHost, error) {
 	return nil, nil // empty current list so plan always has creates
@@ -259,12 +260,12 @@ func TestService_ReconcileKnownHosts_GroupIDsSetOnCreate(t *testing.T) {
 
 	err := svc.ReconcileKnownHosts(context.Background(), ReconcileKnownHostsInput{
 		Hosts: []DesiredKnownHost{
-			{FQDN: "new.example.com", GroupIDs: []HostGroupID{10, 20}},
+			{FQDN: "new.example.com", GroupIDs: []ids.HostGroupID{10, 20}},
 		},
 	})
 	is.NoErr(err)
 	is.Equal(len(repo.setGroupCalls), 1)
-	is.Equal(repo.setGroupCalls[0].GroupIDs, []HostGroupID{10, 20})
+	is.Equal(repo.setGroupCalls[0].GroupIDs, []ids.HostGroupID{10, 20})
 }
 
 func TestService_ReconcileKnownHosts_GroupIDsSetOnExisting(t *testing.T) {
@@ -274,24 +275,24 @@ func TestService_ReconcileKnownHosts_GroupIDsSetOnExisting(t *testing.T) {
 
 	err := svc.ReconcileKnownHosts(context.Background(), ReconcileKnownHostsInput{
 		Hosts: []DesiredKnownHost{
-			{ID: new(KnownHostID(1)), FQDN: "host.example.com", GroupIDs: []HostGroupID{5}},
+			{ID: new(ids.KnownHostID(1)), FQDN: "host.example.com", GroupIDs: []ids.HostGroupID{5}},
 		},
 	})
 	is.NoErr(err)
 	is.Equal(len(repo.setGroupCalls), 1)
-	is.Equal(repo.setGroupCalls[0].HostID, KnownHostID(1))
-	is.Equal(repo.setGroupCalls[0].GroupIDs, []HostGroupID{5})
+	is.Equal(repo.setGroupCalls[0].HostID, ids.KnownHostID(1))
+	is.Equal(repo.setGroupCalls[0].GroupIDs, []ids.HostGroupID{5})
 }
 
 func TestService_ReconcileKnownHosts_GroupIDsDeduplicated(t *testing.T) {
 	is := is.New(t)
 	in := ReconcileKnownHostsInput{
 		Hosts: []DesiredKnownHost{
-			{FQDN: "host.example.com", GroupIDs: []HostGroupID{3, 3, 7}},
+			{FQDN: "host.example.com", GroupIDs: []ids.HostGroupID{3, 3, 7}},
 		},
 	}
 	is.NoErr(in.prepare())
-	is.Equal(in.Hosts[0].GroupIDs, []HostGroupID{3, 7})
+	is.Equal(in.Hosts[0].GroupIDs, []ids.HostGroupID{3, 7})
 }
 
 func TestService_ReconcileKnownHosts_BadGroupID_SurfacesReferenceNotFound(t *testing.T) {
@@ -301,7 +302,7 @@ func TestService_ReconcileKnownHosts_BadGroupID_SurfacesReferenceNotFound(t *tes
 	svc, _ := newTestService(&badGroupRepo{fakeRepo: fakeRepo{knownHosts: nil}})
 
 	err := svc.ReconcileKnownHosts(context.Background(), ReconcileKnownHostsInput{
-		Hosts: []DesiredKnownHost{{FQDN: "new.example.com", GroupIDs: []HostGroupID{999}}},
+		Hosts: []DesiredKnownHost{{FQDN: "new.example.com", GroupIDs: []ids.HostGroupID{999}}},
 	})
 	_ = repo
 	is.True(errors.Is(err, ErrReferenceNotFound))
@@ -310,10 +311,10 @@ func TestService_ReconcileKnownHosts_BadGroupID_SurfacesReferenceNotFound(t *tes
 // badGroupRepo is a fakeRepo where SetKnownHostGroupMembership returns ErrReferenceNotFound.
 type badGroupRepo struct{ fakeRepo }
 
-func (b *badGroupRepo) SetKnownHostGroupMembership(_ context.Context, _ KnownHostID, _ []HostGroupID) error {
+func (b *badGroupRepo) SetKnownHostGroupMembership(_ context.Context, _ ids.KnownHostID, _ []ids.HostGroupID) error {
 	return ErrReferenceNotFound
 }
 func (b *badGroupRepo) ListKnownHosts(_ context.Context) ([]KnownHost, error) { return nil, nil }
-func (b *badGroupRepo) CreateKnownHost(_ context.Context, _ KnownHostDraft) (KnownHostID, error) {
-	return KnownHostID(101), nil
+func (b *badGroupRepo) CreateKnownHost(_ context.Context, _ KnownHostDraft) (ids.KnownHostID, error) {
+	return ids.KnownHostID(101), nil
 }

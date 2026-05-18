@@ -8,9 +8,9 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/matryer/is"
 )
 
@@ -28,7 +28,7 @@ func TestService_LookupIP_Empty(t *testing.T) {
 func TestService_LookupIP_RejectsTrustedProxyIP(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "127.0.0.1", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+		{IP: "127.0.0.1", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
 	}}
 	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "secret", noopLogger(), netip.MustParseAddr("127.0.0.1"))
 	is.NoErr(err)
@@ -42,7 +42,7 @@ func TestService_LookupIP_RejectsTrustedProxyIP(t *testing.T) {
 func TestService_VerifyAccess_Success(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+		{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
 	}}
 	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
@@ -55,7 +55,7 @@ func TestService_VerifyAccess_Success(t *testing.T) {
 func TestService_VerifyAccess_InvalidToken(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+		{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
 	}}
 	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
@@ -68,7 +68,7 @@ func TestService_VerifyAccess_InvalidToken(t *testing.T) {
 func TestService_VerifyAccess_IPNotEnabled(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+		{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
 	}}
 	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
@@ -83,7 +83,7 @@ func TestService_VerifyAccess_IPNotEnabled(t *testing.T) {
 func TestService_VerifyAccess_AttachesGeoIP(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "8.8.8.8", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+		{IP: "8.8.8.8", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
 	}}
 	resolver := stubResolver{result: geoip.Result{CountryCode: "US", CountryName: "United States", ContinentCode: "NA", ASN: 15169, ASNOrg: "Google LLC"}}
 	svc, err := NewService(provider, &bypassAllHostProvider{}, resolver, nil, "mysecret", noopLogger(), netip.Addr{})
@@ -106,7 +106,7 @@ func TestService_VerifyAccess_AttachesGeoIP(t *testing.T) {
 func TestService_VerifyAccess_NilResolver(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "8.8.8.8", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+		{IP: "8.8.8.8", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
 	}}
 	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
@@ -149,7 +149,7 @@ func TestService_VerifyAccess_GeoIPOnDeny(t *testing.T) {
 
 func TestService_VerifyAccess_HostAllowed(t *testing.T) {
 	is := is.New(t)
-	svc := newHostRestrictedSvc(t, auth.UserID(1), "1.2.3.4", []string{"example.com"})
+	svc := newHostRestrictedSvc(t, ids.UserID(1), "1.2.3.4", []string{"example.com"})
 
 	host := "example.com"
 	err := svc.VerifyAccess(context.Background(), &VerifyRequest{
@@ -162,7 +162,7 @@ func TestService_VerifyAccess_HostAllowed(t *testing.T) {
 
 func TestService_VerifyAccess_HostDenied_WrongHost(t *testing.T) {
 	is := is.New(t)
-	svc := newHostRestrictedSvc(t, auth.UserID(1), "1.2.3.4", []string{"example.com"})
+	svc := newHostRestrictedSvc(t, ids.UserID(1), "1.2.3.4", []string{"example.com"})
 
 	obs := &fakeObserver{}
 	svc.AddDecisionObserver(obs)
@@ -193,7 +193,7 @@ func TestService_VerifyAccess_HostDenied_UnconfiguredUser(t *testing.T) {
 	// → any host denied.
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1), UserID: auth.UserID(99)},
+		{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1), UserID: ids.UserID(99)},
 	}}
 	// No UserHostAccess entry for user 99 → zero value applied.
 	hostProvider := &fixedHostProvider{entries: []UserHostAccess{}}
@@ -214,12 +214,12 @@ func TestService_VerifyAccess_HostIntersection_DenyWins(t *testing.T) {
 	// Two users share same IP. Intersection of allowed hosts applies.
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1), UserID: auth.UserID(1)},
-		{IP: "1.2.3.4", DeviceID: device.DeviceID(2), AddressID: device.AddressID(2), UserID: auth.UserID(2)},
+		{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1), UserID: ids.UserID(1)},
+		{IP: "1.2.3.4", DeviceID: ids.DeviceID(2), AddressID: ids.AddressID(2), UserID: ids.UserID(2)},
 	}}
 	hostProvider := &fixedHostProvider{entries: []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
-		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com", "c.com"}},
+		{UserID: ids.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
+		{UserID: ids.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com", "c.com"}},
 	}}
 	svc, err := NewService(provider, hostProvider, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
@@ -239,12 +239,12 @@ func TestService_VerifyAccess_BypassAndNonBypass_SharedIP(t *testing.T) {
 	// Bypass user is intersection-neutral: deny-wins means result follows non-bypass user's grants.
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1), UserID: auth.UserID(1)},
-		{IP: "1.2.3.4", DeviceID: device.DeviceID(2), AddressID: device.AddressID(2), UserID: auth.UserID(2)},
+		{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1), UserID: ids.UserID(1)},
+		{IP: "1.2.3.4", DeviceID: ids.DeviceID(2), AddressID: ids.AddressID(2), UserID: ids.UserID(2)},
 	}}
 	hostProvider := &fixedHostProvider{entries: []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: true},
-		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"allowed.com"}},
+		{UserID: ids.UserID(1), BypassAllowlist: true},
+		{UserID: ids.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"allowed.com"}},
 	}}
 	svc, err := NewService(provider, hostProvider, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)

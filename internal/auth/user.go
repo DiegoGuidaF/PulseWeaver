@@ -3,10 +3,10 @@ package auth
 import (
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -27,16 +27,16 @@ var (
 type Role string
 
 type User struct {
-	ID                 UserID     `db:"id"`
-	Username           string     `db:"username"`
-	DisplayName        string     `db:"display_name"`
-	Email              string     `db:"email"`
-	PasswordHash       []byte     `db:"password_hash"`
-	Role               Role       `db:"role"`
-	MustChangePassword bool       `db:"must_change_password"`
-	CreatedBy          *UserID    `db:"created_by"`
-	CreatedAt          time.Time  `db:"created_at"`
-	DeletedAt          *time.Time `db:"deleted_at"`
+	ID                 ids.UserID  `db:"id"`
+	Username           string      `db:"username"`
+	DisplayName        string      `db:"display_name"`
+	Email              string      `db:"email"`
+	PasswordHash       []byte      `db:"password_hash"`
+	Role               Role        `db:"role"`
+	MustChangePassword bool        `db:"must_change_password"`
+	CreatedBy          *ids.UserID `db:"created_by"`
+	CreatedAt          time.Time   `db:"created_at"`
+	DeletedAt          *time.Time  `db:"deleted_at"`
 }
 
 func NewBootstrappedAdmin(password string) (User, error) {
@@ -62,7 +62,7 @@ func NewBootstrappedAdmin(password string) (User, error) {
 
 // NewAdminUser creates an admin-role user; password is required and hashed.
 // MustChangePassword is set to true so the admin must change the assigned password on first login.
-func NewAdminUser(username, displayName, email, password string, createdByID *UserID, mustChangePassword bool) (User, error) {
+func NewAdminUser(username, displayName, email, password string, createdByID *ids.UserID, mustChangePassword bool) (User, error) {
 	if err := ValidatePassword(password); err != nil {
 		return User{}, err
 	}
@@ -96,7 +96,7 @@ func NewAdminUser(username, displayName, email, password string, createdByID *Us
 
 // NewUserAccount creates a user-role account with no password.
 // Non-admin users cannot log in; they exist solely to own devices.
-func NewUserAccount(username, displayName, email string, createdByID *UserID) (User, error) {
+func NewUserAccount(username, displayName, email string, createdByID *ids.UserID) (User, error) {
 	validUsername, err := ValidateUsername(username)
 	if err != nil {
 		return User{}, err
@@ -144,16 +144,6 @@ func (u *User) Update(up ProfileUpdates) error {
 	}
 
 	return nil
-}
-
-type UserID int64
-
-func (id UserID) Int64() int64 {
-	return int64(id)
-}
-
-func (id UserID) String() string {
-	return strconv.FormatInt(int64(id), 10)
 }
 
 func (r Role) String() string {

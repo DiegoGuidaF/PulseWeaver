@@ -11,6 +11,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/matryer/is"
 )
 
@@ -62,7 +63,7 @@ func TestTokenFromRequest_EmptyCookieValue_ReturnsError(t *testing.T) {
 
 func TestPrincipalUserContextMiddleware_ValidToken_InjectsPrincipal(t *testing.T) {
 	is := is.New(t)
-	principal := auth.NewPrincipal(auth.UserID(1), auth.SessionID(1), auth.UserRole)
+	principal := auth.NewPrincipal(ids.UserID(1), ids.SessionID(1), auth.UserRole)
 	authenticator := &fakeUserAuthenticator{principal: principal}
 
 	var captured *auth.Principal
@@ -81,12 +82,12 @@ func TestPrincipalUserContextMiddleware_ValidToken_InjectsPrincipal(t *testing.T
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 
 	is.True(captured != nil)
-	is.Equal(captured.UserID, auth.UserID(1))
+	is.Equal(captured.UserID, ids.UserID(1))
 }
 
 func TestPrincipalUserContextMiddleware_MissingCookie_PassesThrough(t *testing.T) {
 	is := is.New(t)
-	authenticator := &fakeUserAuthenticator{principal: auth.NewPrincipal(auth.UserID(1), auth.SessionID(1), auth.UserRole)}
+	authenticator := &fakeUserAuthenticator{principal: auth.NewPrincipal(ids.UserID(1), ids.SessionID(1), auth.UserRole)}
 
 	reached := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

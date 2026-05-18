@@ -1,10 +1,12 @@
 package device
 
+import "github.com/DiegoGuidaF/PulseWeaver/internal/ids"
+
 type Principal struct {
-	DeviceID DeviceID
+	DeviceID ids.DeviceID
 }
 
-func NewPrincipal(deviceID DeviceID) *Principal {
+func NewPrincipal(deviceID ids.DeviceID) *Principal {
 	return &Principal{
 		DeviceID: deviceID,
 	}

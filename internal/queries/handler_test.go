@@ -607,8 +607,7 @@ func TestHandler_SimulatePolicyAccess_AllowedBypass(t *testing.T) {
 
 	// Grant the admin user bypass before creating the device.
 	principal := testutils.AdminPrincipal(t, testServer)
-	bypassTrue := true
-	is.NoErr(testServer.HostAccessService.SetFullUserGrants(t.Context(), principal.UserID, &bypassTrue, nil, nil))
+	is.NoErr(testServer.HostAccessService.SetUserAccess(t.Context(), principal.UserID, true, nil))
 
 	dev, err := testServer.DeviceService.CreateDevice(t.Context(), principal, "sim-bypass-device", nil)
 	is.NoErr(err)

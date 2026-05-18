@@ -1,0 +1,244 @@
+networkPolicies:
+  get:
+    operationId: listNetworkPolicies
+    tags: [network-policies]
+    summary: List all network policies
+    responses:
+      "200":
+        description: Policy list.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../../../components/schemas/network-policy.yaml#/NetworkPolicyListItem'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+  post:
+    operationId: createNetworkPolicy
+    tags: [network-policies]
+    summary: Create a network policy
+    description: Policy is created enabled by default with no group assignments.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/network-policy.yaml#/CreateNetworkPolicyRequest'
+    responses:
+      "201":
+        description: Policy created.
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/network-policy.yaml#/NetworkPolicyDetail'
+      "400":
+        description: Validation error (invalid CIDR, missing name)
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "409":
+        description: A policy with this CIDR already exists
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+
+networkPolicy:
+  get:
+    operationId: getNetworkPolicy
+    tags: [network-policies]
+    summary: Get network policy detail
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../../../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: Policy detail.
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/network-policy.yaml#/NetworkPolicyDetail'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "404":
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+  put:
+    operationId: updateNetworkPolicy
+    tags: [network-policies]
+    summary: Update policy metadata
+    description: Updates name, CIDR, description, and/or status. Does not affect group assignments.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../../../components/schemas/common.yaml#/ID'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/network-policy.yaml#/ModifyNetworkPolicyRequest'
+    responses:
+      "204":
+        description: Updated.
+      "400":
+        description: Validation error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "404":
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "409":
+        description: A policy with this CIDR already exists
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+  delete:
+    operationId: deleteNetworkPolicy
+    tags: [network-policies]
+    summary: Delete a network policy
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../../../components/schemas/common.yaml#/ID'
+    responses:
+      "204":
+        description: Deleted.
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "404":
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+
+networkPolicyGrants:
+  put:
+    operationId: updateNetworkPolicyAccess
+    tags: [network-policies]
+    summary: Atomically replace a policy's access grants
+    description: Replaces bypass_host_check flag and full group assignment list.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../../../components/schemas/common.yaml#/ID'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/host-groups.yaml#/ModifyAccessRequest'
+    responses:
+      "204":
+        description: Updated policy detail.
+      "400":
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "404":
+        description: Policy or referenced group not found
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'

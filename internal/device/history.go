@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 )
 
@@ -18,13 +19,13 @@ type AddressEventBucket struct {
 
 // AddressStateChange represents a single recorded state change from the address_events audit table.
 type AddressStateChange struct {
-	ID         int64       `db:"id"`
-	CreatedAt  time.Time   `db:"created_at"`
-	IP         string      `db:"ip"`
-	IsEnabled  bool        `db:"is_enabled"`
-	Source     EventSource `db:"source"`
-	DeviceID   DeviceID    `db:"device_id"`
-	DeviceName string      `db:"device_name"`
+	ID         int64        `db:"id"`
+	CreatedAt  time.Time    `db:"created_at"`
+	IP         string       `db:"ip"`
+	IsEnabled  bool         `db:"is_enabled"`
+	Source     EventSource  `db:"source"`
+	DeviceID   ids.DeviceID `db:"device_id"`
+	DeviceName string       `db:"device_name"`
 }
 
 // AddressHistory holds the complete history response.
@@ -40,7 +41,7 @@ type AddressHistoryQuery struct {
 	From        time.Time
 	To          time.Time
 	Granularity timebucket.Granularity
-	DeviceIDs   []DeviceID // empty = all devices
+	DeviceIDs   []ids.DeviceID // empty = all devices
 	Source      *string
 	IsEnabled   *bool
 	IP          *string

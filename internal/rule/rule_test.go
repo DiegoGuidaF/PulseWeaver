@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/matryer/is"
 )
 
@@ -87,8 +87,8 @@ func TestRule_ToDeviceAddressLeaseRule_InvalidType(t *testing.T) {
 	is := is.New(t)
 
 	rule := &Rule{
-		ID:       RuleID(1),
-		DeviceID: device.DeviceID(42),
+		ID:       ids.RuleID(1),
+		DeviceID: ids.DeviceID(42),
 		RuleType: RuleType("other_type"),
 		Enabled:  true,
 		Config:   json.RawMessage(`{"ttl_seconds":60}`),
@@ -104,8 +104,8 @@ func TestRule_ToDeviceAddressLeaseRule_InvalidConfig(t *testing.T) {
 	is := is.New(t)
 
 	rule := &Rule{
-		ID:       RuleID(1),
-		DeviceID: device.DeviceID(42),
+		ID:       ids.RuleID(1),
+		DeviceID: ids.DeviceID(42),
 		RuleType: RuleTypeDeviceAddressLease,
 		Enabled:  true,
 		Config:   json.RawMessage(`{"ttl_seconds":-10}`),
@@ -126,8 +126,8 @@ func TestRule_ToDeviceAddressLeaseRule_ValidRule(t *testing.T) {
 
 	now := time.Now().UTC()
 	rule := &Rule{
-		ID:        RuleID(1),
-		DeviceID:  device.DeviceID(42),
+		ID:        ids.RuleID(1),
+		DeviceID:  ids.DeviceID(42),
 		RuleType:  RuleTypeDeviceAddressLease,
 		Enabled:   true,
 		Config:    json.RawMessage(configBytes),
@@ -223,8 +223,8 @@ func TestRule_ToMaxActiveAddressesRule_WrongType(t *testing.T) {
 	is := is.New(t)
 
 	r := &Rule{
-		ID:       RuleID(1),
-		DeviceID: device.DeviceID(42),
+		ID:       ids.RuleID(1),
+		DeviceID: ids.DeviceID(42),
 		RuleType: RuleTypeDeviceAddressLease,
 		Enabled:  true,
 		Config:   json.RawMessage(`{"max_addresses":3}`),
@@ -240,8 +240,8 @@ func TestRule_ToMaxActiveAddressesRule_InvalidConfig(t *testing.T) {
 	is := is.New(t)
 
 	r := &Rule{
-		ID:       RuleID(1),
-		DeviceID: device.DeviceID(42),
+		ID:       ids.RuleID(1),
+		DeviceID: ids.DeviceID(42),
 		RuleType: RuleTypeMaxActiveAddresses,
 		Enabled:  true,
 		Config:   json.RawMessage(`{"max_addresses":0}`),
@@ -258,8 +258,8 @@ func TestRule_ToMaxActiveAddressesRule_Valid(t *testing.T) {
 
 	now := time.Now().UTC()
 	r := &Rule{
-		ID:        RuleID(7),
-		DeviceID:  device.DeviceID(99),
+		ID:        ids.RuleID(7),
+		DeviceID:  ids.DeviceID(99),
 		RuleType:  RuleTypeMaxActiveAddresses,
 		Enabled:   true,
 		Config:    json.RawMessage(`{"max_addresses":5}`),

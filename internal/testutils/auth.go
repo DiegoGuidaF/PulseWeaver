@@ -12,6 +12,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/app"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 // AdminPrincipal returns an admin Principal for the bootstrap admin user, for use in direct service calls.
@@ -21,7 +22,7 @@ func AdminPrincipal(t *testing.T, a *app.App) *auth.Principal {
 	if err != nil {
 		t.Fatalf("AdminPrincipal: login failed: %v", err)
 	}
-	return auth.NewPrincipal(user.ID, auth.SessionID(0), user.Role)
+	return auth.NewPrincipal(user.ID, ids.SessionID(0), user.Role)
 }
 
 // LoginCookie performs a login request and returns the session cookie.

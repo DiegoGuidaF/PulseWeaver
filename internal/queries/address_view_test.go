@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
 	"github.com/matryer/is"
 )
@@ -95,9 +96,9 @@ func TestRepository_GetDeviceAddresses_OrderedByCreatedAtDesc(t *testing.T) {
 	middle := time.Now().UTC().Add(-1 * time.Second).Truncate(time.Second)
 	newest := time.Now().UTC().Truncate(time.Second)
 
-	insertAddr := func(ip string, createdAt time.Time) device.AddressID {
+	insertAddr := func(ip string, createdAt time.Time) ids.AddressID {
 		t.Helper()
-		var id device.AddressID
+		var id ids.AddressID
 		err := repos.db.GetContext(t.Context(), &id,
 			`INSERT INTO addresses (device_id, ip, created_at, is_enabled, source, updated_at) VALUES (?, ?, ?, 1, 'manual', ?) RETURNING id`,
 			dev.ID, ip, createdAt, createdAt,

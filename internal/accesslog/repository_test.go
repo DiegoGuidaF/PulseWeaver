@@ -8,19 +8,18 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/matryer/is"
 )
 
 // insertTestOwner creates a minimal user row and returns its ID.
-func insertTestOwner(t *testing.T, db *database.DB) auth.UserID {
+func insertTestOwner(t *testing.T, db *database.DB) ids.UserID {
 	t.Helper()
-	var id auth.UserID
+	var id ids.UserID
 	err := db.QueryRowxContext(t.Context(),
 		`INSERT INTO users (username, display_name, password_hash, role) VALUES ('owner', 'Owner', NULL, 'admin') RETURNING id`,
 	).Scan(&id)
@@ -31,16 +30,16 @@ func insertTestOwner(t *testing.T, db *database.DB) auth.UserID {
 }
 
 // insertTestDevice creates a device and address, returning their IDs.
-func insertTestDevice(t *testing.T, db *database.DB, ownerID auth.UserID) (device.DeviceID, device.AddressID) {
+func insertTestDevice(t *testing.T, db *database.DB, ownerID ids.UserID) (ids.DeviceID, ids.AddressID) {
 	t.Helper()
-	var devID device.DeviceID
+	var devID ids.DeviceID
 	err := db.QueryRowxContext(t.Context(),
 		`INSERT INTO devices (name, owner_id) VALUES ('test-device', ?) RETURNING id`, ownerID,
 	).Scan(&devID)
 	if err != nil {
 		t.Fatalf("insert test device: %v", err)
 	}
-	var addrID device.AddressID
+	var addrID ids.AddressID
 	err = db.QueryRowxContext(t.Context(),
 		`INSERT INTO addresses (device_id, ip, source, is_enabled) VALUES (?, '1.2.3.4', 'manual', 1) RETURNING id`, devID,
 	).Scan(&addrID)
@@ -401,11 +400,11 @@ func TestRepository_BatchInsert_ContributorCount_Multiple(t *testing.T) {
 	ownerID := insertTestOwner(t, dbWrapper.DB())
 	devID1, addrID1 := insertTestDevice(t, dbWrapper.DB(), ownerID)
 	// Second device needs a distinct address IP.
-	var devID2 device.DeviceID
+	var devID2 ids.DeviceID
 	if err := dbWrapper.DB().QueryRowxContext(t.Context(), `INSERT INTO devices (name, owner_id) VALUES ('d2', ?) RETURNING id`, ownerID).Scan(&devID2); err != nil {
 		t.Fatalf("insert d2: %v", err)
 	}
-	var addrID2 device.AddressID
+	var addrID2 ids.AddressID
 	if err := dbWrapper.DB().QueryRowxContext(t.Context(), `INSERT INTO addresses (device_id, ip, source, is_enabled) VALUES (?, '5.6.7.8', 'manual', 1) RETURNING id`, devID2).Scan(&addrID2); err != nil {
 		t.Fatalf("insert addr2: %v", err)
 	}

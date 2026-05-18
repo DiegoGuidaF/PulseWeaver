@@ -6,11 +6,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"strconv"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 const APIKeyPrefix = "wdk_"
@@ -38,7 +37,7 @@ var DeviceTypeLabels = map[DeviceType]string{
 }
 
 type Device struct {
-	ID          DeviceID         `db:"id"`
+	ID          ids.DeviceID     `db:"id"`
 	Name        string           `db:"name"`
 	DeviceType  DeviceType       `db:"device_type"`
 	Description *string          `db:"description"`
@@ -48,7 +47,7 @@ type Device struct {
 	DeletedAt   *time.Time       `db:"deleted_at"`
 	KeyPrefix   *string          `db:"key_prefix"`
 	LastSeenAt  *database.DBTime `db:"last_seen_at"`
-	OwnerID     auth.UserID      `db:"owner_id"`
+	OwnerID     ids.UserID       `db:"owner_id"`
 }
 
 // Update applies patch inputs to the device in-place, validating each field.
@@ -59,7 +58,7 @@ type Device struct {
 //   - deviceType:  nil = keep current; non-nil = set type (validated)
 //   - description: nil = keep current; non-nil ptr to nil = clear; non-nil ptr to value = set
 //   - icon:        same semantics as description
-func (d *Device) Update(name *string, deviceType *string, description **string, icon **string, ownerID *auth.UserID) error {
+func (d *Device) Update(name *string, deviceType *string, description **string, icon **string, ownerID *ids.UserID) error {
 	// Validate all fields before mutating any of them.
 	var parsedType DeviceType
 	if name != nil {
@@ -112,18 +111,8 @@ func parseDeviceType(t string) (DeviceType, error) {
 
 type CreateDeviceParams struct {
 	Name       string
-	OwnerID    auth.UserID
+	OwnerID    ids.UserID
 	DeviceType string // optional; defaults to "static" when empty
-}
-
-type DeviceID int64
-
-func (id DeviceID) Int64() int64 {
-	return int64(id)
-}
-
-func (id DeviceID) String() string {
-	return strconv.FormatInt(int64(id), 10)
 }
 
 // GenerateAPIKey generates a new API key and returns the raw key (to send to user),

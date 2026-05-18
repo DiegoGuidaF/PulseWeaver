@@ -9,7 +9,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/matryer/is"
 )
@@ -28,12 +28,12 @@ type fakeRepo struct {
 
 	createHostCalls []KnownHostDraft
 	updateHostCalls []KnownHost
-	deleteHostCalls []KnownHostID
+	deleteHostCalls []ids.KnownHostID
 	setGroupCalls   []knownHostGroupSet
 
 	createCalls []HostGroupDraft
 	updateCalls []HostGroup
-	deleteCalls []HostGroupID
+	deleteCalls []ids.HostGroupID
 	callOrder   []string
 }
 
@@ -45,15 +45,15 @@ func (f *fakeRepo) ListKnownHosts(_ context.Context) ([]KnownHost, error) {
 	}
 	return f.knownHosts, nil
 }
-func (f *fakeRepo) CreateKnownHost(_ context.Context, draft KnownHostDraft) (KnownHostID, error) {
+func (f *fakeRepo) CreateKnownHost(_ context.Context, draft KnownHostDraft) (ids.KnownHostID, error) {
 	if f.err != nil {
-		return KnownHostID(1), f.err
+		return ids.KnownHostID(1), f.err
 	}
 	f.createHostCalls = append(f.createHostCalls, draft)
 	f.callOrder = append(f.callOrder, "createHost")
-	return KnownHostID(len(f.createHostCalls) + 100), nil
+	return ids.KnownHostID(len(f.createHostCalls) + 100), nil
 }
-func (f *fakeRepo) UpdateKnownHost(_ context.Context, id KnownHostID, icon *string) (KnownHost, error) {
+func (f *fakeRepo) UpdateKnownHost(_ context.Context, id ids.KnownHostID, icon *string) (KnownHost, error) {
 	if f.err != nil {
 		return KnownHost{}, f.err
 	}
@@ -62,7 +62,7 @@ func (f *fakeRepo) UpdateKnownHost(_ context.Context, id KnownHostID, icon *stri
 	f.callOrder = append(f.callOrder, "updateHost")
 	return h, nil
 }
-func (f *fakeRepo) DeleteKnownHost(_ context.Context, id KnownHostID) error {
+func (f *fakeRepo) DeleteKnownHost(_ context.Context, id ids.KnownHostID) error {
 	if f.err != nil {
 		return f.err
 	}
@@ -71,7 +71,7 @@ func (f *fakeRepo) DeleteKnownHost(_ context.Context, id KnownHostID) error {
 	return nil
 }
 
-func (f *fakeRepo) SetKnownHostGroupMembership(_ context.Context, hostID KnownHostID, groupIDs []HostGroupID) error {
+func (f *fakeRepo) SetKnownHostGroupMembership(_ context.Context, hostID ids.KnownHostID, groupIDs []ids.HostGroupID) error {
 	if f.err != nil {
 		return f.err
 	}
@@ -80,7 +80,7 @@ func (f *fakeRepo) SetKnownHostGroupMembership(_ context.Context, hostID KnownHo
 	return nil
 }
 
-func (f *fakeRepo) ListKnownHostsByIDs(_ context.Context, _ []KnownHostID) ([]KnownHost, error) {
+func (f *fakeRepo) ListKnownHostsByIDs(_ context.Context, _ []ids.KnownHostID) ([]KnownHost, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -93,13 +93,13 @@ func (f *fakeRepo) ListHostGroups(_ context.Context) ([]HostGroup, error) {
 	}
 	return f.hostGroups, nil
 }
-func (f *fakeRepo) CreateHostGroup(_ context.Context, draft HostGroupDraft) (HostGroupID, error) {
+func (f *fakeRepo) CreateHostGroup(_ context.Context, draft HostGroupDraft) (ids.HostGroupID, error) {
 	if f.err != nil {
 		return 0, f.err
 	}
 	f.createCalls = append(f.createCalls, draft)
 	f.callOrder = append(f.callOrder, "create")
-	return HostGroupID(len(f.createCalls) + 100), nil
+	return ids.HostGroupID(len(f.createCalls) + 100), nil
 }
 func (f *fakeRepo) UpdateHostGroup(_ context.Context, group HostGroup) error {
 	if f.err != nil {
@@ -109,7 +109,7 @@ func (f *fakeRepo) UpdateHostGroup(_ context.Context, group HostGroup) error {
 	f.callOrder = append(f.callOrder, "update")
 	return nil
 }
-func (f *fakeRepo) DeleteHostGroup(_ context.Context, id HostGroupID) error {
+func (f *fakeRepo) DeleteHostGroup(_ context.Context, id ids.HostGroupID) error {
 	if f.err != nil {
 		return f.err
 	}
@@ -118,7 +118,7 @@ func (f *fakeRepo) DeleteHostGroup(_ context.Context, id HostGroupID) error {
 	return nil
 }
 
-func (f *fakeRepo) SetFullUserGrants(_ context.Context, _ auth.UserID, _ *bool, _ []KnownHostID, _ []HostGroupID) error {
+func (f *fakeRepo) SetUserAccess(_ context.Context, _ ids.UserID, _ bool, _ []ids.HostGroupID) error {
 	return f.err
 }
 
@@ -130,8 +130,8 @@ func (f *fakeRepo) AddIgnoredSuggestion(_ context.Context, _ string) (IgnoredHos
 }
 func (f *fakeRepo) RemoveIgnoredSuggestionByFQDN(_ context.Context, _ string) error { return f.err }
 
-func (f *fakeRepo) EnsureUserSettings(_ context.Context, _ auth.UserID) error { return f.err }
-func (f *fakeRepo) DeleteUserData(_ context.Context, _ auth.UserID) error     { return f.err }
+func (f *fakeRepo) EnsureUserSettings(_ context.Context, _ ids.UserID) error { return f.err }
+func (f *fakeRepo) DeleteUserData(_ context.Context, _ ids.UserID) error     { return f.err }
 
 func (f *fakeRepo) GetAllUserHostSettings(_ context.Context) ([]UserHostSetting, error) {
 	return f.settings, f.err
@@ -173,8 +173,7 @@ func TestService_SetFullUserGrants_NotifiesObserversOnce(t *testing.T) {
 	svc, _ := newTestService(&fakeRepo{})
 	svc.AddUserHostAccessObserver(obs)
 
-	bypass := true
-	err := svc.SetFullUserGrants(context.Background(), auth.UserID(1), &bypass, nil, nil)
+	err := svc.SetUserAccess(context.Background(), ids.UserID(1), true, nil)
 
 	is.NoErr(err)
 	is.Equal(obs.calls, 1)
@@ -210,7 +209,7 @@ func TestService_GetAllUserHostAccess_DirectGrant(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(tx.calls, 1)
 	is.Equal(len(result), 1)
-	is.Equal(result[0].UserID, auth.UserID(1))
+	is.Equal(result[0].UserID, ids.UserID(1))
 	is.True(!result[0].BypassAllowlist)
 	is.Equal(result[0].AllowedHosts, []string{"example.com"})
 }
@@ -239,7 +238,7 @@ func TestService_GetAllUserHostAccess_BypassOnly(t *testing.T) {
 	result, err := svc.GetAllUserHostAccess(context.Background())
 	is.NoErr(err)
 	is.Equal(len(result), 1)
-	is.Equal(result[0].UserID, auth.UserID(1))
+	is.Equal(result[0].UserID, ids.UserID(1))
 	is.True(result[0].BypassAllowlist)
 	is.Equal(len(result[0].AllowedHosts), 0)
 }
@@ -344,16 +343,16 @@ func TestService_GetAllUserHostAccess_MultipleUsers(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(len(result), 3)
 
-	byUser := make(map[auth.UserID]policy.UserHostAccess)
+	byUser := make(map[ids.UserID]policy.UserHostAccess)
 	for _, r := range result {
 		sort.Strings(r.AllowedHosts)
 		byUser[r.UserID] = r
 	}
 
-	is.Equal(byUser[auth.UserID(1)].AllowedHosts, []string{"a.com", "c.com"})
-	is.True(byUser[auth.UserID(2)].BypassAllowlist)
-	is.Equal(len(byUser[auth.UserID(2)].AllowedHosts), 0)
-	is.Equal(byUser[auth.UserID(3)].AllowedHosts, []string{"b.com"})
+	is.Equal(byUser[ids.UserID(1)].AllowedHosts, []string{"a.com", "c.com"})
+	is.True(byUser[ids.UserID(2)].BypassAllowlist)
+	is.Equal(len(byUser[ids.UserID(2)].AllowedHosts), 0)
+	is.Equal(byUser[ids.UserID(3)].AllowedHosts, []string{"b.com"})
 }
 
 func TestService_GetAllUserHostAccess_RepoError(t *testing.T) {

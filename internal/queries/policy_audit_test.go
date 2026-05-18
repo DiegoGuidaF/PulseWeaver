@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/hostaccess"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
@@ -93,7 +93,7 @@ func TestBuildPolicyUserMap_CachePresentUser(t *testing.T) {
 					{
 						DeviceID:         dev.ID,
 						AddressID:        addr.ID,
-						UserID:           auth.UserID(adminID),
+						UserID:           ids.UserID(adminID),
 						UserBypass:       false,
 						UserAllowedHosts: []string{},
 					},
@@ -143,12 +143,12 @@ func TestBuildPolicyUserMap_GroupHostsIncluded(t *testing.T) {
 	is.NoErr(err)
 	groupID, err := hostRepo.CreateHostGroup(ctx, hostaccess.HostGroupDraft{
 		Name:    "policy-audit-test-group",
-		HostIDs: []hostaccess.KnownHostID{hostID},
+		HostIDs: []ids.KnownHostID{hostID},
 	})
 	is.NoErr(err)
 
 	// Grant the user only via group — no direct host grant.
-	err = hostRepo.SetFullUserGrants(ctx, auth.UserID(newUser.ID), nil, nil, []hostaccess.HostGroupID{groupID})
+	err = hostRepo.SetUserAccess(ctx, ids.UserID(newUser.ID), false, []ids.HostGroupID{groupID})
 	is.NoErr(err)
 
 	// Empty snapshot: the user has no cache presence, so UserAllowedHosts must

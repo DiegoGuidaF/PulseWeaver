@@ -8,6 +8,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 )
@@ -34,9 +35,9 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 		return httpapi.CreateDevice500JSONResponse(errorMsgResponse("Not authenticated")), nil
 	}
 
-	var ownerID *auth.UserID
+	var ownerID *ids.UserID
 	if request.Body.OwnerId != nil {
-		ownerID = new(auth.UserID(*request.Body.OwnerId))
+		ownerID = new(ids.UserID(*request.Body.OwnerId))
 	}
 
 	device, err := h.service.CreateDevice(ctx, principal, deviceName, ownerID)
@@ -62,7 +63,7 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 
 func (h *HTTPHandler) DeleteDevice(ctx context.Context, request httpapi.DeleteDeviceRequestObject) (httpapi.DeleteDeviceResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "DeleteDevice")
-	deviceID := DeviceID(request.DeviceId)
+	deviceID := ids.DeviceID(request.DeviceId)
 	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	err := h.service.DeleteDevice(ctx, deviceID)
@@ -83,7 +84,7 @@ func (h *HTTPHandler) DeleteDevice(ctx context.Context, request httpapi.DeleteDe
 
 func (h *HTTPHandler) RegenerateDeviceAPIKey(ctx context.Context, request httpapi.RegenerateDeviceAPIKeyRequestObject) (httpapi.RegenerateDeviceAPIKeyResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "RegenerateDeviceAPIKey")
-	deviceID := DeviceID(request.DeviceId)
+	deviceID := ids.DeviceID(request.DeviceId)
 	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	device, rawAPIKey, err := h.service.RegenerateAPIKey(ctx, deviceID)
@@ -107,7 +108,7 @@ func (h *HTTPHandler) RegenerateDeviceAPIKey(ctx context.Context, request httpap
 
 func (h *HTTPHandler) DeleteDeviceAPIKey(ctx context.Context, request httpapi.DeleteDeviceAPIKeyRequestObject) (httpapi.DeleteDeviceAPIKeyResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "DeleteDeviceAPIKey")
-	deviceID := DeviceID(request.DeviceId)
+	deviceID := ids.DeviceID(request.DeviceId)
 	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	err := h.service.DeleteAPIKey(ctx, deviceID)
@@ -131,7 +132,7 @@ func (h *HTTPHandler) DeleteDeviceAPIKey(ctx context.Context, request httpapi.De
 
 func (h *HTTPHandler) AddAddress(ctx context.Context, request httpapi.AddAddressRequestObject) (httpapi.AddAddressResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "AddAddress")
-	deviceID := DeviceID(request.DeviceId)
+	deviceID := ids.DeviceID(request.DeviceId)
 	ipAddress := request.Body.Ip
 	logger := h.logger.With(
 		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
@@ -173,7 +174,7 @@ func (h *HTTPHandler) AddAddress(ctx context.Context, request httpapi.AddAddress
 
 func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request httpapi.DeviceHeartbeatRequestObject) (httpapi.DeviceHeartbeatResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "DeviceHeartbeat")
-	deviceID := DeviceID(request.DeviceId)
+	deviceID := ids.DeviceID(request.DeviceId)
 	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	clientIP, ok := httpapi.ClientIPFromContext(ctx)
@@ -280,8 +281,8 @@ func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, request httpa
 
 func (h *HTTPHandler) DisableAddress(ctx context.Context, request httpapi.DisableAddressRequestObject) (httpapi.DisableAddressResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "DisableAddress")
-	deviceID := DeviceID(request.DeviceId)
-	addressID := AddressID(request.AddressId)
+	deviceID := ids.DeviceID(request.DeviceId)
+	addressID := ids.AddressID(request.AddressId)
 	logger := h.logger.With(
 		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
 		slog.Int64(AttrKeyAddressID, addressID.Int64()),
@@ -329,7 +330,7 @@ func (h *HTTPHandler) GetAddressHistory(ctx context.Context, request httpapi.Get
 	}
 	if params.DeviceId != nil {
 		for _, id := range *params.DeviceId {
-			query.DeviceIDs = append(query.DeviceIDs, DeviceID(id))
+			query.DeviceIDs = append(query.DeviceIDs, ids.DeviceID(id))
 		}
 	}
 	if params.Limit != nil {
@@ -356,7 +357,7 @@ func (h *HTTPHandler) GetAddressHistory(ctx context.Context, request httpapi.Get
 
 func (h *HTTPHandler) UpdateDevice(ctx context.Context, request httpapi.UpdateDeviceRequestObject) (httpapi.UpdateDeviceResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "UpdateDevice")
-	deviceID := DeviceID(request.DeviceId)
+	deviceID := ids.DeviceID(request.DeviceId)
 	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	body := request.Body
@@ -374,7 +375,7 @@ func (h *HTTPHandler) UpdateDevice(ctx context.Context, request httpapi.UpdateDe
 		input.Icon = &body.Icon.Value
 	}
 	if body.OwnerId != nil {
-		input.OwnerID = new(auth.UserID(*body.OwnerId))
+		input.OwnerID = new(ids.UserID(*body.OwnerId))
 	}
 
 	device, err := h.service.UpdateDevice(ctx, deviceID, input)

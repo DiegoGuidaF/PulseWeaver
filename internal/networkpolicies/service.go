@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
 type repository interface {
 	CreatePolicy(ctx context.Context, p NetworkPolicy) (NetworkPolicy, error)
-	GetPolicy(ctx context.Context, id NetworkPolicyID) (*NetworkPolicy, error)
+	GetPolicy(ctx context.Context, id ids.NetworkPolicyID) (*NetworkPolicy, error)
 	UpdatePolicy(ctx context.Context, p NetworkPolicy) (*NetworkPolicy, error)
-	DeletePolicy(ctx context.Context, id NetworkPolicyID) error
-	SetHostAccess(ctx context.Context, id NetworkPolicyID, allowAll bool, groupIDs []int64, hostIDs []int64) error
+	DeletePolicy(ctx context.Context, id ids.NetworkPolicyID) error
+	SetHostAccess(ctx context.Context, id ids.NetworkPolicyID, allowAll bool, groupIDs []ids.HostGroupID) error
 }
 
 type transactor interface {
@@ -67,7 +68,7 @@ func (s *Service) CreatePolicy(ctx context.Context, name, cidr string, descripti
 	return p, nil
 }
 
-func (s *Service) UpdatePolicy(ctx context.Context, id NetworkPolicyID, fields UpdateFields) (NetworkPolicy, error) {
+func (s *Service) UpdatePolicy(ctx context.Context, id ids.NetworkPolicyID, fields UpdateFields) (NetworkPolicy, error) {
 	updatedPolicy := NetworkPolicy{}
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		existing, err := s.repo.GetPolicy(ctx, id)
@@ -96,7 +97,7 @@ func (s *Service) UpdatePolicy(ctx context.Context, id NetworkPolicyID, fields U
 	return updatedPolicy, nil
 }
 
-func (s *Service) DeletePolicy(ctx context.Context, id NetworkPolicyID) error {
+func (s *Service) DeletePolicy(ctx context.Context, id ids.NetworkPolicyID) error {
 	if err := s.repo.DeletePolicy(ctx, id); err != nil {
 		return err
 	}
@@ -104,18 +105,10 @@ func (s *Service) DeletePolicy(ctx context.Context, id NetworkPolicyID) error {
 	return nil
 }
 
-func (s *Service) SetHostAccess(ctx context.Context, id NetworkPolicyID, allowAll bool, groupIDs, hostIDs []int64) error {
+func (s *Service) SetHostAccess(ctx context.Context, id ids.NetworkPolicyID, bypassHostCheck bool, groupIDs []ids.HostGroupID) error {
 	actualGroupIDs := groupIDs
-	actualHostIDs := hostIDs
-	//TODO: We shouldn't remove the hostIds and groups, they should be ignored when set in the cache since the allow_all already sets all hosts
-	// However if a user sets that and then removes it, the previous groups and hosts should remain
-	// Check that the same happens currently for the hosts
-	if allowAll {
-		actualGroupIDs = nil
-		actualHostIDs = nil
-	}
 
-	if err := s.repo.SetHostAccess(ctx, id, allowAll, actualGroupIDs, actualHostIDs); err != nil {
+	if err := s.repo.SetHostAccess(ctx, id, bypassHostCheck, actualGroupIDs); err != nil {
 		return err
 	}
 

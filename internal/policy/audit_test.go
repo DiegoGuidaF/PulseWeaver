@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/matryer/is"
 )
 
@@ -27,10 +27,10 @@ func TestGetPolicyMap_RefreshMetadata(t *testing.T) {
 func TestGetPolicyMap_ContributorPreIntersectionState(t *testing.T) {
 	is := is.New(t)
 	entries := []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1), UserID: auth.UserID(1)},
+		{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1), UserID: ids.UserID(1)},
 	}
 	hostAccess := []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"b.com", "a.com"}},
+		{UserID: ids.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"b.com", "a.com"}},
 	}
 	svc := newRestrictedService(entries, hostAccess)
 	snap := svc.GetPolicyMap()

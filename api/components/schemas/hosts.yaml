@@ -1,0 +1,112 @@
+Host:
+  type: object
+  required: [id, fqdn, groups, created_at]
+  description: Host record with group memberships.
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    fqdn:
+      type: string
+      example: immich.home.org
+    groups:
+      type: array
+      description: Group memberships. Empty array means unassigned.
+      items:
+        $ref: './host-groups.yaml#/GroupSummary'
+    created_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+
+HostInput:
+  type: object
+  required: [fqdn, group_ids]
+  description: Host entry in a reconcile request. Omit id to create a new host.
+  properties:
+    id:
+      nullable: true
+      allOf:
+        - $ref: './common.yaml#/ID'
+    fqdn:
+      type: string
+      example: immich.home.org
+    group_ids:
+      type: array
+      description: Group memberships by ID. Empty array means unassigned.
+      items:
+        $ref: './common.yaml#/ID'
+
+HostListResponse:
+  type: object
+  required: [hosts]
+  properties:
+    hosts:
+      type: array
+      items:
+        $ref: '#/Host'
+
+ReconcileHostsRequest:
+  type: object
+  required: [hosts]
+  description: Exhaustive list of all hosts. Hosts absent from this list are deleted.
+  properties:
+    hosts:
+      type: array
+      items:
+        $ref: '#/HostInput'
+
+# ── Suggestions ────────────────────────────────────────────────────────────────
+
+HostSuggestion:
+  type: object
+  required: [fqdn, first_seen, allowed_hits, denied_hits]
+  properties:
+    fqdn:
+      type: string
+      maxLength: 253
+    first_seen:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+    allowed_hits:
+      type: integer
+    denied_hits:
+      type: integer
+
+IgnoredHostSuggestion:
+  type: object
+  required: [id, fqdn, created_at]
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    fqdn:
+      type: string
+      maxLength: 253
+    created_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+
+IgnoreSuggestionRequest:
+  type: object
+  required: [fqdn]
+  properties:
+    fqdn:
+      type: string
+      minLength: 3
+      maxLength: 253
+      pattern: '^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$'
+      description: FQDN to add to the ignore list.
+
+HostSuggestionsPage:
+  type: object
+  required: [suggestions, ignored]
+  properties:
+    suggestions:
+      type: array
+      items:
+        $ref: '#/HostSuggestion'
+    ignored:
+      type: array
+      items:
+        $ref: '#/IgnoredHostSuggestion'

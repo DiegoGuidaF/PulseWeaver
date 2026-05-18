@@ -1,0 +1,187 @@
+GroupRef:
+  type: object
+  required: [ id, name ]
+  description: Minimal group reference for read responses.
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    name:
+      type: string
+
+GroupSummary:
+  type: object
+  required: [ id, name, color, icon ]
+  description: Group display reference used in host list rows (renders group pills).
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    name:
+      type: string
+    color:
+      type: string
+      example: "#6366f1"
+    icon:
+      type: string
+      example: server
+
+HostSummary:
+  type: object
+  required: [ id, fqdn ]
+  description: Minimal host reference embedded in group responses.
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    fqdn:
+      type: string
+      example: immich.home.org
+
+UserSummary:
+  type: object
+  required: [ id, username, display_name ]
+  description: Minimal user reference embedded in group responses.
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    username:
+      type: string
+      example: maya.patel
+    display_name:
+      type: string
+      example: Maya Patel
+
+NetworkPolicyRef:
+  type: object
+  required: [ id, name, cidr ]
+  description: Minimal network policy reference embedded in group responses.
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    name:
+      type: string
+      example: Home LAN
+    cidr:
+      type: string
+      example: 192.168.1.0/24
+
+GroupDetail:
+  type: object
+  required: [ id, name, icon, color, hosts, network_policies, created_at, updated_at ]
+  description: Full group representation returned by GET.
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    name:
+      type: string
+      example: Data
+    icon:
+      type: string
+      description: Icon key (e.g. "database", "film").
+      example: database
+    color:
+      type: string
+      description: CSS hex color for the group badge.
+      example: "#4C6EF5"
+    description:
+      type: string
+      nullable: true
+    hosts:
+      type: array
+      items:
+        $ref: '#/HostSummary'
+    network_policies:
+      type: array
+      description: Network policies with access to this group (read-only, managed via subjects).
+      items:
+        $ref: '#/NetworkPolicyRef'
+    created_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+    updated_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+      description: Last time the device profile was modified.
+
+SubjectGroupDetail:
+  allOf:
+    - $ref: '#/GroupDetail'
+    - type: object
+      required: [ granted ]
+      description: GroupDetail with assignment status, used in user and policy detail responses.
+      properties:
+        granted:
+          type: boolean
+          description: Whether this group is assigned to the subject.
+
+GroupWrite:
+  type: object
+  required: [ name, icon, color, hosts ]
+  description: |
+    Group write payload for reconcile. Omit id (or set null) to create; include id to update.
+    The hosts array defines the complete desired membership after the call.
+  properties:
+    id:
+      nullable: true
+      allOf:
+        - $ref: './common.yaml#/ID'
+    name:
+      type: string
+      example: Data
+    icon:
+      type: string
+      example: database
+    color:
+      type: string
+      example: "#4C6EF5"
+    description:
+      type: string
+      nullable: true
+    host_ids:
+      type: array
+      items:
+        $ref: './common.yaml#/ID'
+
+GroupListResponse:
+  type: object
+  required: [ groups ]
+  properties:
+    groups:
+      type: array
+      items:
+        $ref: '#/GroupDetailWithUsers'
+
+GroupDetailWithUsers:
+  allOf:
+    - $ref: '#/GroupDetail'
+    - type: object
+      properties:
+        users:
+          type: array
+          description: Users with access to this group (read-only, managed via subjects).
+          items:
+            $ref: '#/UserSummary'
+
+
+ReconcileGroupsRequest:
+  type: object
+  required: [ groups ]
+  description: Exhaustive list of all desired groups. Groups absent from this list are deleted.
+  properties:
+    groups:
+      type: array
+      items:
+        $ref: '#/GroupWrite'
+
+ModifyAccessRequest:
+  type: object
+  required: [ bypass_host_check, group_ids ]
+  description: Atomically replaces bypass flag and full group assignment list. Shared by users and policies.
+  properties:
+    bypass_host_check:
+      type: boolean
+      description: When true, grants access to all hosts regardless of group configuration.
+    group_ids:
+      type: array
+      items:
+        $ref: './common.yaml#/ID'

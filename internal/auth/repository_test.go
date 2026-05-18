@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/matryer/is"
 )
@@ -38,9 +39,9 @@ func mustNewUser(t *testing.T, username, displayName string, email string, role 
 	var user auth.User
 	var err error
 	if role == auth.AdminRole {
-		user, err = auth.NewAdminUser(username, displayName, email, "Password123", new(auth.UserID(1)), true)
+		user, err = auth.NewAdminUser(username, displayName, email, "Password123", new(ids.UserID(1)), true)
 	} else {
-		user, err = auth.NewUserAccount(username, displayName, email, new(auth.UserID(1)))
+		user, err = auth.NewUserAccount(username, displayName, email, new(ids.UserID(1)))
 	}
 	if err != nil {
 		t.Fatalf("new user: %v", err)

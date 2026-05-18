@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 // Repository owns all DB access for network policies.
@@ -22,27 +23,18 @@ func NewRepository(db *database.DB) *Repository {
 
 // dbNetworkPolicy is the raw DB row for network_policies.
 type dbNetworkPolicy struct {
-	ID            NetworkPolicyID `db:"id"`
-	Name          string          `db:"name"`
-	CIDR          string          `db:"cidr"`
-	Description   *string         `db:"description"`
-	Enabled       bool            `db:"enabled"`
-	AllowAllHosts bool            `db:"allow_all_hosts"`
-	CreatedAt     time.Time       `db:"created_at"`
-	UpdatedAt     time.Time       `db:"updated_at"`
+	ID              ids.NetworkPolicyID `db:"id"`
+	Name            string              `db:"name"`
+	CIDR            string              `db:"cidr"`
+	Description     *string             `db:"description"`
+	Enabled         bool                `db:"enabled"`
+	BypassHostCheck bool                `db:"allow_all_hosts"` //TODO: Rename column in DB
+	CreatedAt       time.Time           `db:"created_at"`
+	UpdatedAt       time.Time           `db:"updated_at"`
 }
 
 func (r dbNetworkPolicy) toPolicy() NetworkPolicy {
-	return NetworkPolicy{
-		ID:            r.ID,
-		Name:          r.Name,
-		CIDR:          r.CIDR,
-		Description:   r.Description,
-		Enabled:       r.Enabled,
-		AllowAllHosts: r.AllowAllHosts,
-		CreatedAt:     r.CreatedAt,
-		UpdatedAt:     r.UpdatedAt,
-	}
+	return NetworkPolicy(r)
 }
 
 func (r *Repository) CreatePolicy(ctx context.Context, p NetworkPolicy) (NetworkPolicy, error) {
@@ -53,7 +45,7 @@ func (r *Repository) CreatePolicy(ctx context.Context, p NetworkPolicy) (Network
 	`
 	var row dbNetworkPolicy
 	err := r.db.GetContext(ctx, &row, query,
-		p.Name, p.CIDR, p.Description, p.Enabled, p.AllowAllHosts,
+		p.Name, p.CIDR, p.Description, p.Enabled, p.BypassHostCheck,
 	)
 	if err != nil {
 		if isUniqueConstraint(err) {
@@ -64,7 +56,7 @@ func (r *Repository) CreatePolicy(ctx context.Context, p NetworkPolicy) (Network
 	return row.toPolicy(), nil
 }
 
-func (r *Repository) GetPolicy(ctx context.Context, id NetworkPolicyID) (*NetworkPolicy, error) {
+func (r *Repository) GetPolicy(ctx context.Context, id ids.NetworkPolicyID) (*NetworkPolicy, error) {
 	const query = `
 		SELECT *
 		FROM network_policies
@@ -90,7 +82,7 @@ func (r *Repository) UpdatePolicy(ctx context.Context, p NetworkPolicy) (*Networ
 	`
 	var row dbNetworkPolicy
 	err := r.db.GetContext(ctx, &row, query,
-		p.Name, p.CIDR, p.Description, p.Enabled, p.AllowAllHosts, p.ID,
+		p.Name, p.CIDR, p.Description, p.Enabled, p.BypassHostCheck, p.ID,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -105,7 +97,7 @@ func (r *Repository) UpdatePolicy(ctx context.Context, p NetworkPolicy) (*Networ
 	return &result, nil
 }
 
-func (r *Repository) DeletePolicy(ctx context.Context, id NetworkPolicyID) error {
+func (r *Repository) DeletePolicy(ctx context.Context, id ids.NetworkPolicyID) error {
 	const query = `DELETE FROM network_policies WHERE id = ?`
 	res, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
@@ -118,8 +110,13 @@ func (r *Repository) DeletePolicy(ctx context.Context, id NetworkPolicyID) error
 	return nil
 }
 
-// SetHostAccess atomically replaces the M2M rows and allow_all_hosts flag for this policy.
-func (r *Repository) SetHostAccess(ctx context.Context, id NetworkPolicyID, allowAll bool, groupIDs []int64, hostIDs []int64) error {
+// SetHostAccess atomically replaces the M2M rows and bypass_host_check flag for this policy.
+func (r *Repository) SetHostAccess(
+	ctx context.Context,
+	id ids.NetworkPolicyID,
+	bypassHostCheck bool,
+	groupIDs []ids.HostGroupID,
+) error {
 	return r.db.WithinTx(ctx, func(ctx context.Context) error {
 		var exists bool
 		if err := r.db.GetContext(ctx, &exists,
@@ -134,10 +131,6 @@ func (r *Repository) SetHostAccess(ctx context.Context, id NetworkPolicyID, allo
 			`DELETE FROM network_policy_allowed_host_groups WHERE policy_id = ?`, id); err != nil {
 			return fmt.Errorf("delete host groups: %w", err)
 		}
-		if _, err := r.db.ExecContext(ctx,
-			`DELETE FROM network_policy_allowed_hosts WHERE policy_id = ?`, id); err != nil {
-			return fmt.Errorf("delete hosts: %w", err)
-		}
 
 		for _, gid := range groupIDs {
 			if _, err := r.db.ExecContext(ctx,
@@ -146,17 +139,10 @@ func (r *Repository) SetHostAccess(ctx context.Context, id NetworkPolicyID, allo
 				return fmt.Errorf("insert host group: %w", err)
 			}
 		}
-		for _, hid := range hostIDs {
-			if _, err := r.db.ExecContext(ctx,
-				`INSERT INTO network_policy_allowed_hosts (policy_id, known_host_id) VALUES (?, ?)`,
-				id, hid); err != nil {
-				return fmt.Errorf("insert host: %w", err)
-			}
-		}
 
 		if _, err := r.db.ExecContext(ctx,
 			`UPDATE network_policies SET allow_all_hosts = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`,
-			allowAll, id); err != nil {
+			bypassHostCheck, id); err != nil {
 			return fmt.Errorf("update host access: %w", err)
 		}
 		return nil
@@ -168,11 +154,11 @@ func (r *Repository) SetHostAccess(ctx context.Context, id NetworkPolicyID, allo
 // crossing into the hosts domain tables.
 func (r *Repository) GetEnabledCacheEntries(ctx context.Context) ([]CacheEntry, error) {
 	type policyRow struct {
-		PolicyID      NetworkPolicyID `db:"policy_id"`
-		PolicyName    string          `db:"policy_name"`
-		CIDR          string          `db:"cidr"`
-		AllowAllHosts bool            `db:"allow_all_hosts"`
-		FQDN          *string         `db:"fqdn"`
+		PolicyID      ids.NetworkPolicyID `db:"policy_id"`
+		PolicyName    string              `db:"policy_name"`
+		CIDR          string              `db:"cidr"`
+		AllowAllHosts bool                `db:"allow_all_hosts"`
+		FQDN          *string             `db:"fqdn"`
 	}
 
 	// Returns one row per (policy, fqdn); fqdn is NULL when no hosts assigned.
@@ -198,7 +184,7 @@ func (r *Repository) GetEnabledCacheEntries(ctx context.Context) ([]CacheEntry, 
 		return nil, fmt.Errorf("get enabled cache entries: %w", err)
 	}
 
-	seen := make(map[NetworkPolicyID]int)
+	seen := make(map[ids.NetworkPolicyID]int)
 	var result []CacheEntry
 	for _, row := range rows {
 		idx, ok := seen[row.PolicyID]

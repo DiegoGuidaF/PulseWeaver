@@ -10,53 +10,40 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/hostaccess"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
-// ── GroupRef ──────────────────────────────────────────────────────────────────
-
 type GroupRef struct {
-	ID   hostaccess.HostGroupID
-	Name string
+	ID    ids.HostGroupID
+	Name  string
+	Color string
 }
 
-// ── Known hosts with stats ────────────────────────────────────────────────────
-
-type KnownHostStats struct {
-	ID        hostaccess.KnownHostID `db:"id"`
-	FQDN      string                 `db:"fqdn"`
-	Icon      *string                `db:"icon"`
-	CreatedAt time.Time              `db:"created_at"`
-	UserCount int                    `db:"user_count"`
+type HostWithGroups struct {
+	ID        ids.KnownHostID `db:"id"`
+	FQDN      string          `db:"fqdn"`
+	CreatedAt time.Time       `db:"created_at"`
+	UserCount int             `db:"user_count"`
 	Groups    []GroupRef
 }
 
-func (r *Repository) GetKnownHostsWithStats(ctx context.Context) ([]KnownHostStats, error) {
+func (r *Repository) GetAllHostsWithGroups(ctx context.Context) ([]HostWithGroups, error) {
 	type row struct {
-		ID        hostaccess.KnownHostID  `db:"id"`
-		FQDN      string                  `db:"fqdn"`
-		Icon      *string                 `db:"icon"`
-		CreatedAt time.Time               `db:"created_at"`
-		UserCount int                     `db:"user_count"`
-		GroupID   *hostaccess.HostGroupID `db:"group_id"`
-		GroupName *string                 `db:"group_name"`
+		ID         ids.KnownHostID  `db:"id"`
+		FQDN       string           `db:"fqdn"`
+		CreatedAt  time.Time        `db:"created_at"`
+		GroupID    *ids.HostGroupID `db:"group_id"`
+		GroupName  *string          `db:"group_name"`
+		GroupColor *string          `db:"group_color"`
 	}
 	const query = `
 		SELECT
 			kh.id          AS id,
 			kh.fqdn        AS fqdn,
-			kh.icon        AS icon,
 			kh.created_at  AS created_at,
-			(
-				SELECT COUNT(DISTINCT user_id) FROM (
-					SELECT uah.user_id FROM user_allowed_hosts uah WHERE uah.known_host_id = kh.id
-					UNION
-					SELECT uahg.user_id FROM user_allowed_host_groups uahg
-					JOIN host_group_members hgm2 ON hgm2.host_group_id = uahg.host_group_id
-					WHERE hgm2.known_host_id = kh.id
-				)
-			) AS user_count,
 			hg.id   AS group_id,
-			hg.name AS group_name
+			hg.name AS group_name,
+			hg.color AS group_color
 		FROM known_hosts kh
 		LEFT JOIN host_group_members hgm ON hgm.known_host_id = kh.id
 		LEFT JOIN host_groups hg ON hg.id = hgm.host_group_id
@@ -67,59 +54,56 @@ func (r *Repository) GetKnownHostsWithStats(ctx context.Context) ([]KnownHostSta
 		return nil, fmt.Errorf("get known hosts with stats: %w", err)
 	}
 
-	seen := make(map[hostaccess.KnownHostID]int)
-	var hosts []KnownHostStats
+	seen := make(map[ids.KnownHostID]int)
+	var hosts []HostWithGroups
 	for _, rw := range rows {
 		idx, exists := seen[rw.ID]
 		if !exists {
 			idx = len(hosts)
 			seen[rw.ID] = idx
-			hosts = append(hosts, KnownHostStats{
+			hosts = append(hosts, HostWithGroups{
 				ID:        rw.ID,
 				FQDN:      rw.FQDN,
-				Icon:      rw.Icon,
 				CreatedAt: rw.CreatedAt,
-				UserCount: rw.UserCount,
 				Groups:    []GroupRef{},
 			})
 		}
 		if rw.GroupID != nil && rw.GroupName != nil {
 			hosts[idx].Groups = append(hosts[idx].Groups, GroupRef{
-				ID:   *rw.GroupID,
-				Name: *rw.GroupName,
+				ID:    *rw.GroupID,
+				Name:  *rw.GroupName,
+				Color: *rw.GroupColor,
 			})
 		}
 	}
 	if hosts == nil {
-		hosts = []KnownHostStats{}
+		hosts = []HostWithGroups{}
 	}
 	return hosts, nil
 }
 
-// ── Host groups with members ──────────────────────────────────────────────────
-
-type HostGroupWithMembers struct {
-	ID          hostaccess.HostGroupID
+type HostGroupDetails struct {
+	ID          ids.HostGroupID
 	Name        string
-	Color       *string
+	Color       string
+	Icon        string
 	Description *string
-	Icon        *string
 	CreatedAt   time.Time
-	Hosts       []hostaccess.KnownHostRef
-	MemberIDs   []hostaccess.KnownHostID
+	Hosts       []KnownHostRef
+	MemberIDs   []ids.KnownHostID
 }
 
-func (r *Repository) GetHostGroupsWithMembers(ctx context.Context) ([]HostGroupWithMembers, error) {
+func (r *Repository) GetHostGroupsDetails(ctx context.Context) ([]HostGroupDetails, error) {
 	type row struct {
-		ID          hostaccess.HostGroupID  `db:"id"`
-		Name        string                  `db:"name"`
-		Color       *string                 `db:"color"`
-		Description *string                 `db:"description"`
-		Icon        *string                 `db:"icon"`
-		CreatedAt   time.Time               `db:"created_at"`
-		HostID      *hostaccess.KnownHostID `db:"known_host_id"`
-		HostFQDN    *string                 `db:"host_fqdn"`
-		HostIcon    *string                 `db:"host_icon"`
+		ID          ids.HostGroupID  `db:"id"`
+		Name        string           `db:"name"`
+		Color       string           `db:"color"`
+		Icon        string           `db:"icon"`
+		Description *string          `db:"description"`
+		CreatedAt   time.Time        `db:"created_at"`
+		HostID      *ids.KnownHostID `db:"known_host_id"`
+		HostFQDN    *string          `db:"host_fqdn"`
+		HostIcon    *string          `db:"host_icon"`
 	}
 	const query = `
 		SELECT hg.id, hg.name, hg.color, hg.description, hg.icon, hg.created_at,
@@ -134,40 +118,35 @@ func (r *Repository) GetHostGroupsWithMembers(ctx context.Context) ([]HostGroupW
 		return nil, fmt.Errorf("get host groups with members: %w", err)
 	}
 
-	seen := make(map[hostaccess.HostGroupID]int)
-	var groups []HostGroupWithMembers
+	seen := make(map[ids.HostGroupID]int)
+	var groups []HostGroupDetails
 	for _, rw := range rows {
 		idx, exists := seen[rw.ID]
 		if !exists {
 			idx = len(groups)
 			seen[rw.ID] = idx
-			groups = append(groups, HostGroupWithMembers{
+			groups = append(groups, HostGroupDetails{
 				ID:          rw.ID,
 				Name:        rw.Name,
 				Color:       rw.Color,
 				Description: rw.Description,
 				Icon:        rw.Icon,
 				CreatedAt:   rw.CreatedAt,
-				Hosts:       []hostaccess.KnownHostRef{},
-				MemberIDs:   []hostaccess.KnownHostID{},
+				Hosts:       []KnownHostRef{},
 			})
 		}
 		if rw.HostID != nil && rw.HostFQDN != nil {
-			groups[idx].Hosts = append(groups[idx].Hosts, hostaccess.KnownHostRef{
+			groups[idx].Hosts = append(groups[idx].Hosts, KnownHostRef{
 				ID:   *rw.HostID,
 				FQDN: *rw.HostFQDN,
-				Icon: rw.HostIcon,
 			})
-			groups[idx].MemberIDs = append(groups[idx].MemberIDs, *rw.HostID)
 		}
 	}
 	if groups == nil {
-		groups = []HostGroupWithMembers{}
+		groups = []HostGroupDetails{}
 	}
 	return groups, nil
 }
-
-// ── Host suggestions page ─────────────────────────────────────────────────────
 
 type HostSuggestion struct {
 	FQDN        string          `db:"fqdn"`
@@ -229,45 +208,61 @@ func (r *Repository) GetHostSuggestionsPage(ctx context.Context) (HostSuggestion
 // ── User access table (list view) ─────────────────────────────────────────────
 
 type UserAccessRow struct {
-	ID                 auth.UserID
-	DisplayName        string
-	Email              string
-	Role               auth.Role
-	AllowAllHosts      bool
-	EffectiveHostCount int
-	GrantedGroups      []GroupRef
+	ID              ids.UserID
+	Username        string
+	DisplayName     string
+	Role            auth.Role
+	BypassHostCheck bool
+	DeviceCount     int
+	HostCount       int
+	LiveIPCount     int
+	Groups          []GroupRef
 }
 
 func (r *Repository) ListUserAccessRows(ctx context.Context) ([]UserAccessRow, error) {
 	type userRow struct {
-		ID                 auth.UserID `db:"id"`
-		DisplayName        string      `db:"display_name"`
-		Email              string      `db:"email"`
-		Role               auth.Role   `db:"role"`
-		AllowAllHosts      bool        `db:"allow_all_hosts"`
-		EffectiveHostCount int         `db:"effective_host_count"`
+		ID              ids.UserID `db:"id"`
+		DisplayName     string     `db:"display_name"`
+		UserName        string     `db:"username"`
+		Email           string     `db:"email"`
+		Role            auth.Role  `db:"role"`
+		BypassHostCheck bool       `db:"bypass_host_check"`
+		HostCount       int        `db:"host_count"`
+		DeviceCount     int        `db:"device_count"`
+		LiveIPCount     int        `db:"live_ip_count"`
 	}
 	const userQuery = `
 		SELECT
 			u.id,
 			u.display_name,
+			u.username,
 			u.email,
 			u.role,
-			COALESCE(uhs.bypass_host_allowlist, 0) AS allow_all_hosts,
-			CASE
-				WHEN COALESCE(uhs.bypass_host_allowlist, 0) = 1 THEN (SELECT COUNT(*) FROM known_hosts)
-				ELSE (
+			uhs.bypass_host_allowlist as bypass_host_check,
+			CASE WHEN COALESCE(uhs.bypass_host_allowlist, 0) = 1 THEN
+				(SELECT COUNT(*) FROM known_hosts)
+			ELSE
+				(
 					SELECT COUNT(DISTINCT kh.id)
 					FROM known_hosts kh
 					WHERE kh.id IN (
-						SELECT uah.known_host_id FROM user_allowed_hosts uah WHERE uah.user_id = u.id
-						UNION
 						SELECT hgm.known_host_id FROM host_group_members hgm
 						JOIN user_allowed_host_groups uahg ON uahg.host_group_id = hgm.host_group_id
 						WHERE uahg.user_id = u.id
 					)
 				)
-			END AS effective_host_count
+			END as host_count,
+			(
+				SELECT count(d.id) FROM devices d
+				WHERE d.owner_id = u.id
+				AND d.deleted_at is NULL
+			) as device_count,
+			(
+				SELECT count(a.id) FROM addresses a
+				JOIN devices d on a.device_id = d.id
+				WHERE d.owner_id = u.id
+				and a.device_id = d.id
+			) as live_ip_count
 		FROM users u
 		LEFT JOIN user_host_settings uhs ON uhs.user_id = u.id
 		WHERE u.deleted_at IS NULL
@@ -279,9 +274,9 @@ func (r *Repository) ListUserAccessRows(ctx context.Context) ([]UserAccessRow, e
 	}
 
 	type grantRow struct {
-		UserID    auth.UserID            `db:"user_id"`
-		GroupID   hostaccess.HostGroupID `db:"group_id"`
-		GroupName string                 `db:"group_name"`
+		UserID    ids.UserID      `db:"user_id"`
+		GroupID   ids.HostGroupID `db:"group_id"`
+		GroupName string          `db:"group_name"`
 	}
 	const grantQuery = `
 		SELECT uahg.user_id, hg.id AS group_id, hg.name AS group_name
@@ -294,7 +289,7 @@ func (r *Repository) ListUserAccessRows(ctx context.Context) ([]UserAccessRow, e
 		return nil, fmt.Errorf("list user access rows groups: %w", err)
 	}
 
-	grantsByUser := make(map[auth.UserID][]GroupRef)
+	grantsByUser := make(map[ids.UserID][]GroupRef)
 	for _, gr := range grantRows {
 		grantsByUser[gr.UserID] = append(grantsByUser[gr.UserID], GroupRef{ID: gr.GroupID, Name: gr.GroupName})
 	}
@@ -306,13 +301,15 @@ func (r *Repository) ListUserAccessRows(ctx context.Context) ([]UserAccessRow, e
 			groups = []GroupRef{}
 		}
 		rows[i] = UserAccessRow{
-			ID:                 ur.ID,
-			DisplayName:        ur.DisplayName,
-			Email:              ur.Email,
-			Role:               ur.Role,
-			AllowAllHosts:      ur.AllowAllHosts,
-			EffectiveHostCount: ur.EffectiveHostCount,
-			GrantedGroups:      groups,
+			ID:              ur.ID,
+			Username:        ur.UserName,
+			DisplayName:     ur.DisplayName,
+			Role:            ur.Role,
+			BypassHostCheck: ur.BypassHostCheck,
+			DeviceCount:     ur.DeviceCount,
+			HostCount:       ur.HostCount,
+			LiveIPCount:     ur.LiveIPCount,
+			Groups:          groups,
 		}
 	}
 	return rows, nil
@@ -321,66 +318,51 @@ func (r *Repository) ListUserAccessRows(ctx context.Context) ([]UserAccessRow, e
 // ── User access editor (drawer view) ─────────────────────────────────────────
 
 type UserSummary struct {
-	ID          auth.UserID
+	ID          ids.UserID
 	DisplayName string
+	Username    string
 	Email       string
 	Role        auth.Role
 }
 
-type UserAccessSummary struct {
-	TotalHosts     int
-	EffectiveHosts int
-	DirectHosts    int
-	// GroupOnlyHosts counts hosts reachable exclusively via a granted group (not also directly).
-	// Useful for "you would lose access to N hosts if all groups were revoked."
-	GroupOnlyHosts int
-}
-
-// HostAccessKind is the computed access state for a single host in the drawer.
-type HostAccessKind string
-
-const (
-	HostAccessNone         HostAccessKind = "none"
-	HostAccessDirect       HostAccessKind = "direct"
-	HostAccessViaGroup     HostAccessKind = "via_group"
-	HostAccessDirectAndVia HostAccessKind = "direct_and_via_group"
-	HostAccessAllowAll     HostAccessKind = "allow_all"
-)
-
 type UserAccessGroupOption struct {
-	ID       hostaccess.HostGroupID
-	Name     string
-	Icon     *string
-	Selected bool
-	Hosts    []hostaccess.KnownHostRef
+	ID              ids.HostGroupID
+	Name            string
+	Description     *string
+	Icon            string
+	Color           string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	Granted         bool
+	Hosts           []KnownHostRef
+	NetworkPolicies []NetworkPolicyRef
 }
 
-type UserAccessHostOption struct {
-	ID             hostaccess.KnownHostID
-	FQDN           string
-	Icon           *string
-	DirectSelected bool
-	Effective      bool
-	GrantingGroups []GroupRef
-	AccessKind     HostAccessKind
+type KnownHostRef struct {
+	ID   ids.KnownHostID
+	FQDN string
 }
 
-type UserAccessEditor struct {
-	User          UserSummary
-	AllowAllHosts bool
-	Summary       UserAccessSummary
-	GroupOptions  []UserAccessGroupOption
-	HostOptions   []UserAccessHostOption
+type NetworkPolicyRef struct {
+	ID   ids.NetworkPolicyID
+	Name string
+	CIDR string
 }
 
-func (r *Repository) GetUserAccessEditor(ctx context.Context, userID auth.UserID) (UserAccessEditor, error) {
+type UserAccessDetails struct {
+	User            UserSummary
+	BypassHostCheck bool
+	GroupOptions    []UserAccessGroupOption
+}
+
+func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID) (UserAccessDetails, error) {
 	// Q1: user base info + allow_all_hosts
 	type userRow struct {
-		ID            auth.UserID `db:"id"`
-		DisplayName   string      `db:"display_name"`
-		Email         string      `db:"email"`
-		Role          auth.Role   `db:"role"`
-		AllowAllHosts bool        `db:"allow_all_hosts"`
+		ID            ids.UserID `db:"id"`
+		DisplayName   string     `db:"display_name"`
+		Email         string     `db:"email"`
+		Role          auth.Role  `db:"role"`
+		AllowAllHosts bool       `db:"allow_all_hosts"`
 	}
 	const userQuery = `
 		SELECT u.id, u.display_name, u.email, u.role,
@@ -392,27 +374,35 @@ func (r *Repository) GetUserAccessEditor(ctx context.Context, userID auth.UserID
 	var ur userRow
 	if err := r.db.GetContext(ctx, &ur, userQuery, userID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return UserAccessEditor{}, auth.ErrUserNotFound
+			return UserAccessDetails{}, auth.ErrUserNotFound
 		}
-		return UserAccessEditor{}, fmt.Errorf("get user access editor user: %w", err)
+		return UserAccessDetails{}, fmt.Errorf("get user access editor user: %w", err)
 	}
 
 	// Q2: all groups with selected flag and their member hosts
 	type groupRow struct {
-		GroupID   hostaccess.HostGroupID  `db:"group_id"`
-		GroupName string                  `db:"group_name"`
-		GroupIcon *string                 `db:"group_icon"`
-		Selected  bool                    `db:"selected"`
-		HostID    *hostaccess.KnownHostID `db:"host_id"`
-		HostFQDN  *string                 `db:"host_fqdn"`
-		HostIcon  *string                 `db:"host_icon"`
+		GroupID          ids.HostGroupID  `db:"group_id"`
+		GroupName        string           `db:"group_name"`
+		GroupIcon        string           `db:"group_icon"`
+		GroupColor       string           `db:"group_color"`
+		GroupDescription *string          `db:"group_description"`
+		GroupCreatedAt   time.Time        `db:"group_created_at"`
+		GroupUpdatedAt   time.Time        `db:"group_updated_at"`
+		Granted          bool             `db:"granted"`
+		HostID           *ids.KnownHostID `db:"host_id"`
+		HostFQDN         *string          `db:"host_fqdn"`
+		HostIcon         *string          `db:"host_icon"`
 	}
 	const groupQuery = `
 		SELECT
 			hg.id   AS group_id,
 			hg.name AS group_name,
 			hg.icon AS group_icon,
-			CASE WHEN uahg.user_id IS NOT NULL THEN 1 ELSE 0 END AS selected,
+			hg.color AS group_color,
+			hg.description AS group_description,
+			hg.created_at AS group_created_at,
+			hg.updated_at AS group_updated_at,
+			CASE WHEN uahg.user_id IS NOT NULL THEN 1 ELSE 0 END AS granted,
 			kh.id   AS host_id,
 			kh.fqdn AS host_fqdn,
 			kh.icon AS host_icon
@@ -424,10 +414,10 @@ func (r *Repository) GetUserAccessEditor(ctx context.Context, userID auth.UserID
 	`
 	var groupRows []groupRow
 	if err := r.db.SelectContext(ctx, &groupRows, groupQuery, userID); err != nil {
-		return UserAccessEditor{}, fmt.Errorf("get user access editor groups: %w", err)
+		return UserAccessDetails{}, fmt.Errorf("get user access editor groups: %w", err)
 	}
 
-	seenGroups := make(map[hostaccess.HostGroupID]int)
+	seenGroups := make(map[ids.HostGroupID]int)
 	groupOptions := []UserAccessGroupOption{}
 	for _, gr := range groupRows {
 		idx, exists := seenGroups[gr.GroupID]
@@ -435,129 +425,33 @@ func (r *Repository) GetUserAccessEditor(ctx context.Context, userID auth.UserID
 			idx = len(groupOptions)
 			seenGroups[gr.GroupID] = idx
 			groupOptions = append(groupOptions, UserAccessGroupOption{
-				ID:       gr.GroupID,
-				Name:     gr.GroupName,
-				Icon:     gr.GroupIcon,
-				Selected: gr.Selected,
-				Hosts:    []hostaccess.KnownHostRef{},
+				ID:          gr.GroupID,
+				Name:        gr.GroupName,
+				Icon:        gr.GroupIcon,
+				Color:       gr.GroupColor,
+				Description: gr.GroupDescription,
+				CreatedAt:   gr.GroupCreatedAt,
+				UpdatedAt:   gr.GroupUpdatedAt,
+				Granted:     gr.Granted,
+				Hosts:       []KnownHostRef{},
 			})
 		}
 		if gr.HostID != nil && gr.HostFQDN != nil {
-			groupOptions[idx].Hosts = append(groupOptions[idx].Hosts, hostaccess.KnownHostRef{
+			groupOptions[idx].Hosts = append(groupOptions[idx].Hosts, KnownHostRef{
 				ID:   *gr.HostID,
 				FQDN: *gr.HostFQDN,
-				Icon: gr.HostIcon,
 			})
 		}
 	}
 
-	// Q3: all known hosts
-	type hostRow struct {
-		ID   hostaccess.KnownHostID `db:"id"`
-		FQDN string                 `db:"fqdn"`
-		Icon *string                `db:"icon"`
-	}
-	const hostsQuery = `SELECT id, fqdn, icon FROM known_hosts ORDER BY fqdn`
-	var hostRows []hostRow
-	if err := r.db.SelectContext(ctx, &hostRows, hostsQuery); err != nil {
-		return UserAccessEditor{}, fmt.Errorf("get user access editor hosts: %w", err)
-	}
-
-	// Q4: direct host grants for this user
-	const directGrantQuery = `SELECT known_host_id FROM user_allowed_hosts WHERE user_id = ?`
-	var directGrantIDs []hostaccess.KnownHostID
-	if err := r.db.SelectContext(ctx, &directGrantIDs, directGrantQuery, userID); err != nil {
-		return UserAccessEditor{}, fmt.Errorf("get user access editor direct grants: %w", err)
-	}
-	directGrantSet := make(map[hostaccess.KnownHostID]struct{}, len(directGrantIDs))
-	for _, id := range directGrantIDs {
-		directGrantSet[id] = struct{}{}
-	}
-
-	// Q5: all groups granting each host to this user (no order dependency)
-	type grantingGroupRow struct {
-		KnownHostID hostaccess.KnownHostID `db:"known_host_id"`
-		GroupID     hostaccess.HostGroupID `db:"group_id"`
-		GroupName   string                 `db:"group_name"`
-	}
-	const grantingGroupQuery = `
-		SELECT hgm.known_host_id, hg.id AS group_id, hg.name AS group_name
-		FROM host_group_members hgm
-		JOIN host_groups hg ON hg.id = hgm.host_group_id
-		JOIN user_allowed_host_groups uahg ON uahg.host_group_id = hgm.host_group_id AND uahg.user_id = ?
-		ORDER BY hgm.known_host_id, hg.name
-	`
-	var grantingGroupRows []grantingGroupRow
-	if err := r.db.SelectContext(ctx, &grantingGroupRows, grantingGroupQuery, userID); err != nil {
-		return UserAccessEditor{}, fmt.Errorf("get user access editor granting groups: %w", err)
-	}
-	grantingGroupsByHost := make(map[hostaccess.KnownHostID][]GroupRef)
-	for _, gg := range grantingGroupRows {
-		grantingGroupsByHost[gg.KnownHostID] = append(grantingGroupsByHost[gg.KnownHostID], GroupRef{ID: gg.GroupID, Name: gg.GroupName})
-	}
-
-	// Assemble host options and compute summary counts.
-	hostOptions := make([]UserAccessHostOption, len(hostRows))
-	var directHosts, groupOnlyHosts, effectiveHosts int
-	for i, hr := range hostRows {
-		_, directSelected := directGrantSet[hr.ID]
-		grantingGroups := grantingGroupsByHost[hr.ID]
-		if grantingGroups == nil {
-			grantingGroups = []GroupRef{}
-		}
-		effective := ur.AllowAllHosts || directSelected || len(grantingGroups) > 0
-		accessKind := hostAccessKind(ur.AllowAllHosts, directSelected, grantingGroups)
-		hostOptions[i] = UserAccessHostOption{
-			ID:             hr.ID,
-			FQDN:           hr.FQDN,
-			Icon:           hr.Icon,
-			DirectSelected: directSelected,
-			Effective:      effective,
-			GrantingGroups: grantingGroups,
-			AccessKind:     accessKind,
-		}
-		if directSelected {
-			directHosts++
-		}
-		if len(grantingGroups) > 0 && !directSelected {
-			groupOnlyHosts++
-		}
-		if effective {
-			effectiveHosts++
-		}
-	}
-
-	return UserAccessEditor{
+	return UserAccessDetails{
 		User: UserSummary{
 			ID:          ur.ID,
 			DisplayName: ur.DisplayName,
 			Email:       ur.Email,
 			Role:        ur.Role,
 		},
-		AllowAllHosts: ur.AllowAllHosts,
-		Summary: UserAccessSummary{
-			TotalHosts:     len(hostRows),
-			EffectiveHosts: effectiveHosts,
-			DirectHosts:    directHosts,
-			GroupOnlyHosts: groupOnlyHosts,
-		},
-		GroupOptions: groupOptions,
-		HostOptions:  hostOptions,
+		BypassHostCheck: ur.AllowAllHosts,
+		GroupOptions:    groupOptions,
 	}, nil
-}
-
-func hostAccessKind(allowAll, directSelected bool, grantingGroups []GroupRef) HostAccessKind {
-	if allowAll {
-		return HostAccessAllowAll
-	}
-	if directSelected && len(grantingGroups) > 0 {
-		return HostAccessDirectAndVia
-	}
-	if directSelected {
-		return HostAccessDirect
-	}
-	if len(grantingGroups) > 0 {
-		return HostAccessViaGroup
-	}
-	return HostAccessNone
 }

@@ -1,0 +1,82 @@
+hostGroups:
+  get:
+    operationId: listHostGroups
+    tags: [host-access]
+    summary: List all host groups with members and subject assignments
+    responses:
+      "200":
+        description: Group list.
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/host-groups.yaml#/GroupListResponse'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+
+hostGroupsReconcile:
+  post:
+    operationId: reconcileHostGroups
+    tags: [host-access]
+    summary: Reconcile host groups (full replace)
+    description: |
+      Atomically converges the database to the desired image. Groups absent from
+      the payload are deleted; entries without an id are created.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/host-groups.yaml#/ReconcileGroupsRequest'
+    responses:
+      "204":
+        description: Reconcile successful
+      "400":
+        description: Bad Request (invalid name, duplicate, etc.)
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "404":
+        description: One or more host groups not found
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "409":
+        description: Host groups with same name
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "422":
+        description: Validation error (unknown host ID, etc.)
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'

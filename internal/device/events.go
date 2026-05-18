@@ -3,6 +3,8 @@ package device
 import (
 	"log/slog"
 	"time"
+
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 type EventType string
@@ -17,8 +19,8 @@ const (
 
 type AddressEvent struct {
 	Type       EventType
-	AddressID  AddressID
-	DeviceID   DeviceID
+	AddressID  ids.AddressID
+	DeviceID   ids.DeviceID
 	OccurredAt time.Time
 }
 
@@ -31,7 +33,7 @@ func NewAddressEvent(address *Address, eventType EventType) AddressEvent {
 	}
 }
 
-func NewDeviceEvent(deviceID DeviceID, eventType EventType) AddressEvent {
+func NewDeviceEvent(deviceID ids.DeviceID, eventType EventType) AddressEvent {
 	return AddressEvent{
 		Type:       eventType,
 		DeviceID:   deviceID,

@@ -15,6 +15,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/matryer/is"
 )
@@ -79,7 +80,7 @@ func TestHandler_WrongToken_Returns403(t *testing.T) {
 
 func TestNewService_EmptySecret_ReturnsError(t *testing.T) {
 	is := is.New(t)
-	provider := &testMockProvider{entries: []device.IPEntry{{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)}}}
+	provider := &testMockProvider{entries: []device.IPEntry{{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)}}}
 
 	_, err := policy.NewService(provider, &testBypassAllHostProvider{}, &geoip.Lookup{}, nil, "", slog.New(slog.DiscardHandler), netip.Addr{})
 	is.True(errors.Is(err, policy.ErrSecretNotConfigured))
@@ -190,7 +191,7 @@ func newTestHandler(enabledIPs []string) *policy.HTTPHandler {
 func newTestHandlerWithProxy(enabledIPs []string, secret, trustedProxy string) *policy.HTTPHandler {
 	entries := make([]device.IPEntry, len(enabledIPs))
 	for i, ip := range enabledIPs {
-		entries[i] = device.IPEntry{IP: ip, DeviceID: device.DeviceID(int64(i + 1)), AddressID: device.AddressID(int64(i + 1))}
+		entries[i] = device.IPEntry{IP: ip, DeviceID: ids.DeviceID(int64(i + 1)), AddressID: ids.AddressID(int64(i + 1))}
 	}
 	provider := &testMockProvider{entries: entries}
 	var proxyAddr netip.Addr
@@ -208,7 +209,7 @@ func newTestHandlerWithProxy(enabledIPs []string, secret, trustedProxy string) *
 func newTestHandlerWithObserver(enabledIPs []string, obs policy.DecisionObserver) *policy.HTTPHandler {
 	entries := make([]device.IPEntry, len(enabledIPs))
 	for i, ip := range enabledIPs {
-		entries[i] = device.IPEntry{IP: ip, DeviceID: device.DeviceID(int64(i + 1)), AddressID: device.AddressID(int64(i + 1))}
+		entries[i] = device.IPEntry{IP: ip, DeviceID: ids.DeviceID(int64(i + 1)), AddressID: ids.AddressID(int64(i + 1))}
 	}
 	provider := &testMockProvider{entries: entries}
 	svc, err := policy.NewService(provider, &testBypassAllHostProvider{}, &geoip.Lookup{}, nil, "mysecret", slog.New(slog.DiscardHandler), netip.Addr{})

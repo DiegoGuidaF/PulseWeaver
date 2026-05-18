@@ -8,27 +8,28 @@ import (
 	"net/netip"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
 type repository interface {
-	GetDevice(ctx context.Context, id DeviceID) (*Device, error)
+	GetDevice(ctx context.Context, id ids.DeviceID) (*Device, error)
 	CreateDevice(ctx context.Context, params CreateDeviceParams) (*Device, error)
-	DeleteDevice(ctx context.Context, id DeviceID) error
+	DeleteDevice(ctx context.Context, id ids.DeviceID) error
 	UpdateDevice(ctx context.Context, device *Device) (*Device, error)
-	UpsertAPIKey(ctx context.Context, deviceID DeviceID, keyHash string, keyPrefix string) error
-	DeleteAPIKey(ctx context.Context, deviceID DeviceID) error
+	UpsertAPIKey(ctx context.Context, deviceID ids.DeviceID, keyHash string, keyPrefix string) error
+	DeleteAPIKey(ctx context.Context, deviceID ids.DeviceID) error
 	CreateAddress(ctx context.Context, params CreateAddressParams, source EventSource) (*Address, error)
-	GetAddressForDeviceByIP(ctx context.Context, deviceID DeviceID, ip netip.Addr) (*Address, error)
-	DisableAddress(ctx context.Context, addressID AddressID) (*Address, error)
-	DisableAddresses(ctx context.Context, addressIDs []AddressID, source EventSource) ([]Address, error)
-	EnableAddress(ctx context.Context, addressID AddressID, source EventSource) (*Address, error)
-	RefreshAddress(ctx context.Context, addressID AddressID, source EventSource) (*Address, error)
-	CheckAddressOwnership(ctx context.Context, deviceID DeviceID, addressID AddressID) error
+	GetAddressForDeviceByIP(ctx context.Context, deviceID ids.DeviceID, ip netip.Addr) (*Address, error)
+	DisableAddress(ctx context.Context, addressID ids.AddressID) (*Address, error)
+	DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source EventSource) ([]Address, error)
+	EnableAddress(ctx context.Context, addressID ids.AddressID, source EventSource) (*Address, error)
+	RefreshAddress(ctx context.Context, addressID ids.AddressID, source EventSource) (*Address, error)
+	CheckAddressOwnership(ctx context.Context, deviceID ids.DeviceID, addressID ids.AddressID) error
 	GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) (*Device, error)
 	GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error)
 	GetAddressHistory(ctx context.Context, query AddressHistoryQuery) (AddressHistory, error)
-	GetEnabledAddressesForDevice(ctx context.Context, deviceID DeviceID) ([]Address, error)
+	GetEnabledAddressesForDevice(ctx context.Context, deviceID ids.DeviceID) ([]Address, error)
 }
 
 type AddressObserver interface {
@@ -75,7 +76,7 @@ func (s *Service) Authenticate(ctx context.Context, rawKey string) (*Principal, 
 	return PrincipalFromDevice(device), nil
 }
 
-func (s *Service) GetDevice(ctx context.Context, deviceID DeviceID) (*Device, error) {
+func (s *Service) GetDevice(ctx context.Context, deviceID ids.DeviceID) (*Device, error) {
 	device, err := s.repo.GetDevice(ctx, deviceID)
 	if err != nil {
 		return nil, err
@@ -84,7 +85,7 @@ func (s *Service) GetDevice(ctx context.Context, deviceID DeviceID) (*Device, er
 	return device, nil
 }
 
-func (s *Service) CreateDevice(ctx context.Context, principal *auth.Principal, name string, requestedOwnerID *auth.UserID) (*Device, error) {
+func (s *Service) CreateDevice(ctx context.Context, principal *auth.Principal, name string, requestedOwnerID *ids.UserID) (*Device, error) {
 	ownerID := principal.UserID
 	if requestedOwnerID != nil {
 		ownerID = *requestedOwnerID
@@ -100,7 +101,7 @@ func (s *Service) CreateDevice(ctx context.Context, principal *auth.Principal, n
 	return createdDevice, nil
 }
 
-func (s *Service) DeleteDevice(ctx context.Context, deviceID DeviceID) error {
+func (s *Service) DeleteDevice(ctx context.Context, deviceID ids.DeviceID) error {
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		err := s.repo.DeleteDevice(ctx, deviceID)
 		if err != nil {
@@ -110,7 +111,7 @@ func (s *Service) DeleteDevice(ctx context.Context, deviceID DeviceID) error {
 		if err != nil {
 			return err
 		}
-		addressesToDisable := make([]AddressID, 0, len(addresses))
+		addressesToDisable := make([]ids.AddressID, 0, len(addresses))
 		for _, address := range addresses {
 			addressesToDisable = append(addressesToDisable, address.ID)
 		}
@@ -148,10 +149,10 @@ type UpdateDeviceInput struct {
 	DeviceType  *string
 	Description **string
 	Icon        **string
-	OwnerID     *auth.UserID
+	OwnerID     *ids.UserID
 }
 
-func (s *Service) UpdateDevice(ctx context.Context, deviceID DeviceID, input UpdateDeviceInput) (*Device, error) {
+func (s *Service) UpdateDevice(ctx context.Context, deviceID ids.DeviceID, input UpdateDeviceInput) (*Device, error) {
 	device, err := s.repo.GetDevice(ctx, deviceID)
 	if err != nil {
 		return nil, err
@@ -175,7 +176,7 @@ func (s *Service) UpdateDevice(ctx context.Context, deviceID DeviceID, input Upd
 	return updated, nil
 }
 
-func (s *Service) RegenerateAPIKey(ctx context.Context, deviceID DeviceID) (*Device, string, error) {
+func (s *Service) RegenerateAPIKey(ctx context.Context, deviceID ids.DeviceID) (*Device, string, error) {
 	rawKey, keyHash, keyPrefix, err := GenerateAPIKey()
 	if err != nil {
 		return nil, "", fmt.Errorf("generate api key: %w", err)
@@ -203,7 +204,7 @@ func (s *Service) RegenerateAPIKey(ctx context.Context, deviceID DeviceID) (*Dev
 	return device, rawKey, nil
 }
 
-func (s *Service) DeleteAPIKey(ctx context.Context, deviceID DeviceID) error {
+func (s *Service) DeleteAPIKey(ctx context.Context, deviceID ids.DeviceID) error {
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		// Validate device exists before attempting key deletion.
 		if _, err := s.repo.GetDevice(ctx, deviceID); err != nil {
@@ -221,8 +222,8 @@ func (s *Service) DeleteAPIKey(ctx context.Context, deviceID DeviceID) error {
 // CreateDeviceWithAPIKey creates a new device and assigns it an API key, all within a single
 // transaction. It is the entry point for the registration domain when claiming an invite.
 // Returns the new device ID and the plaintext API key (one-time; never stored after this call).
-func (s *Service) CreateDeviceWithAPIKey(ctx context.Context, name string, ownerID auth.UserID) (DeviceID, string, error) {
-	var deviceID DeviceID
+func (s *Service) CreateDeviceWithAPIKey(ctx context.Context, name string, ownerID ids.UserID) (ids.DeviceID, string, error) {
+	var deviceID ids.DeviceID
 	var rawAPIKey string
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {

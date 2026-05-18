@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 func (s *Service) AddAddressObserver(o AddressObserver) {
@@ -19,7 +21,7 @@ func (s *Service) notifyObservers(ctx context.Context, event AddressEvent) {
 	}
 }
 
-func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID DeviceID, inputIP string, source EventSource) (*Address, EventType, error) {
+func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID ids.DeviceID, inputIP string, source EventSource) (*Address, EventType, error) {
 	createAddressParams, err := NewCreateAddressParams(deviceID, inputIP, s.trustedProxy)
 	if err != nil {
 		return nil, "", err
@@ -75,7 +77,7 @@ func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID DeviceID
 	return address, eventType, nil
 }
 
-func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, addressID AddressID) (*Address, error) {
+func (s *Service) DisableAddress(ctx context.Context, deviceID ids.DeviceID, addressID ids.AddressID) (*Address, error) {
 	var disabledAddress *Address
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
@@ -110,7 +112,7 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID DeviceID, address
 	return disabledAddress, nil
 }
 
-func (s *Service) DisableAddresses(ctx context.Context, addressIDs []AddressID, source EventSource) error {
+func (s *Service) DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source EventSource) error {
 	disabledAddresses, err := s.repo.DisableAddresses(ctx, addressIDs, source)
 	if err != nil {
 		return err
@@ -144,6 +146,6 @@ func (s *Service) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error) {
 }
 
 // GetEnabledAddressesForDevice returns all enabled addresses for a device, ordered by updated_at DESC.
-func (s *Service) GetEnabledAddressesForDevice(ctx context.Context, deviceID DeviceID) ([]Address, error) {
+func (s *Service) GetEnabledAddressesForDevice(ctx context.Context, deviceID ids.DeviceID) ([]Address, error) {
 	return s.repo.GetEnabledAddressesForDevice(ctx, deviceID)
 }

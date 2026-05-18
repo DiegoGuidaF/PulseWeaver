@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 // PendingRegistrationID is the primary key of a pending registration.
@@ -23,8 +23,8 @@ func (id PendingRegistrationID) String() string {
 type PendingRegistration struct {
 	ID PendingRegistrationID `db:"id"`
 
-	DeviceName string      `db:"device_name"`
-	OwnerID    auth.UserID `db:"owner_id"`
+	DeviceName string     `db:"device_name"`
+	OwnerID    ids.UserID `db:"owner_id"`
 
 	// RegistrationCode is the full base64url-encoded code delivered to the app.
 	// Nulled after claim.
@@ -84,7 +84,7 @@ const (
 // CreateInviteRequest carries the admin-provided fields for a new invite.
 type CreateInviteRequest struct {
 	DeviceName          string
-	OwnerID             auth.UserID
+	OwnerID             ids.UserID
 	HeartbeatServerURL  string
 	IntervalSeconds     int
 	AppBiometricEnabled bool

@@ -8,9 +8,9 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/matryer/is"
 )
@@ -21,12 +21,12 @@ func TestBuildIPSet_IntersectionApplied_TwoRestrictedUsers(t *testing.T) {
 	is := is.New(t)
 	// userA allows {a.com, b.com}, userB allows {b.com} → intersection {b.com}.
 	entries := []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
-		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: auth.UserID(2)},
+		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: ids.UserID(1)},
+		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: ids.UserID(2)},
 	}
 	hostAccess := []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
-		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com"}},
+		{UserID: ids.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
+		{UserID: ids.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com"}},
 	}
 	result := buildIPSet(entries, hostAccess)
 	entry := result["1.2.3.4"]
@@ -36,9 +36,9 @@ func TestBuildIPSet_IntersectionApplied_TwoRestrictedUsers(t *testing.T) {
 
 func TestBuildIPSet_IntersectionNotApplied_SingleRestrictedUser(t *testing.T) {
 	is := is.New(t)
-	entries := []device.IPEntry{{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)}}
+	entries := []device.IPEntry{{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: ids.UserID(1)}}
 	hostAccess := []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
+		{UserID: ids.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
 	}
 	result := buildIPSet(entries, hostAccess)
 	is.True(!result["1.2.3.4"].IntersectionApplied)
@@ -48,12 +48,12 @@ func TestBuildIPSet_IntersectionNotApplied_BypassUserShared(t *testing.T) {
 	is := is.New(t)
 	// Bypass users are intersection-neutral; the restricted user's host set is left untouched.
 	entries := []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
-		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: auth.UserID(2)},
+		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: ids.UserID(1)},
+		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: ids.UserID(2)},
 	}
 	hostAccess := []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: true},
-		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
+		{UserID: ids.UserID(1), BypassAllowlist: true},
+		{UserID: ids.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
 	}
 	result := buildIPSet(entries, hostAccess)
 	is.True(!result["1.2.3.4"].IntersectionApplied)
@@ -63,14 +63,14 @@ func TestBuildIPSet_IntersectionApplied_ThreeRestrictedUsers(t *testing.T) {
 	is := is.New(t)
 	// A∩B narrows to {b,c}, then ∩C narrows to {c}. Intersection is chained.
 	entries := []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
-		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: auth.UserID(2)},
-		{IP: "1.2.3.4", DeviceID: 3, AddressID: 3, UserID: auth.UserID(3)},
+		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: ids.UserID(1)},
+		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: ids.UserID(2)},
+		{IP: "1.2.3.4", DeviceID: 3, AddressID: 3, UserID: ids.UserID(3)},
 	}
 	hostAccess := []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com", "c.com"}},
-		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com", "c.com"}},
-		{UserID: auth.UserID(3), BypassAllowlist: false, AllowedHosts: []string{"c.com"}},
+		{UserID: ids.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com", "c.com"}},
+		{UserID: ids.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com", "c.com"}},
+		{UserID: ids.UserID(3), BypassAllowlist: false, AllowedHosts: []string{"c.com"}},
 	}
 	result := buildIPSet(entries, hostAccess)
 	entry := result["1.2.3.4"]
@@ -82,12 +82,12 @@ func TestBuildIPSet_IntersectionApplied_DisjointSets_EmptyResult(t *testing.T) {
 	is := is.New(t)
 	// No host in common: intersection shrinks from size 1 → 0; IntersectionApplied = true.
 	entries := []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
-		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: auth.UserID(2)},
+		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: ids.UserID(1)},
+		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: ids.UserID(2)},
 	}
 	hostAccess := []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
-		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com"}},
+		{UserID: ids.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
+		{UserID: ids.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com"}},
 	}
 	result := buildIPSet(entries, hostAccess)
 	entry := result["1.2.3.4"]
@@ -99,12 +99,12 @@ func TestBuildIPSet_IntersectionNotApplied_IdenticalSets(t *testing.T) {
 	is := is.New(t)
 	// Same host set for both users: intersection doesn't shrink → IntersectionApplied = false.
 	entries := []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
-		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: auth.UserID(2)},
+		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: ids.UserID(1)},
+		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: ids.UserID(2)},
 	}
 	hostAccess := []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
-		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
+		{UserID: ids.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
+		{UserID: ids.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
 	}
 	result := buildIPSet(entries, hostAccess)
 	entry := result["1.2.3.4"]
@@ -118,12 +118,12 @@ func TestBuildIPSet_AllBypass_EntryBypassIsTrue(t *testing.T) {
 	is := is.New(t)
 	// allBypass AND-reduces across contributors; unanimous bypass → entry flag true.
 	entries := []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
-		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: auth.UserID(2)},
+		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: ids.UserID(1)},
+		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: ids.UserID(2)},
 	}
 	hostAccess := []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: true},
-		{UserID: auth.UserID(2), BypassAllowlist: true},
+		{UserID: ids.UserID(1), BypassAllowlist: true},
+		{UserID: ids.UserID(2), BypassAllowlist: true},
 	}
 	result := buildIPSet(entries, hostAccess)
 	entry := result["1.2.3.4"]
@@ -136,12 +136,12 @@ func TestBuildIPSet_MixedBypass_EntryBypassIsFalse(t *testing.T) {
 	is := is.New(t)
 	// One bypass + one restricted: AND-reduction breaks unanimity → entry flag false.
 	entries := []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
-		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: auth.UserID(2)},
+		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: ids.UserID(1)},
+		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: ids.UserID(2)},
 	}
 	hostAccess := []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: true},
-		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
+		{UserID: ids.UserID(1), BypassAllowlist: true},
+		{UserID: ids.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
 	}
 	result := buildIPSet(entries, hostAccess)
 	is.True(!result["1.2.3.4"].BypassAllowlist)
@@ -152,10 +152,10 @@ func TestBuildIPSet_MixedBypass_EntryBypassIsFalse(t *testing.T) {
 func TestBuildIPSet_Contributors_SingleUser_FieldsCorrect(t *testing.T) {
 	is := is.New(t)
 	entries := []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 42, AddressID: 99, UserID: auth.UserID(7)},
+		{IP: "1.2.3.4", DeviceID: 42, AddressID: 99, UserID: ids.UserID(7)},
 	}
 	hostAccess := []UserHostAccess{
-		{UserID: auth.UserID(7), BypassAllowlist: false, AllowedHosts: []string{"z.com", "a.com"}},
+		{UserID: ids.UserID(7), BypassAllowlist: false, AllowedHosts: []string{"z.com", "a.com"}},
 	}
 	result := buildIPSet(entries, hostAccess)
 	is.Equal(len(result["1.2.3.4"].Contributors), 1)
@@ -171,10 +171,10 @@ func TestBuildIPSet_Contributors_SingleUser_FieldsCorrect(t *testing.T) {
 func TestBuildIPSet_Contributors_BypassUser_UserBypassTrue(t *testing.T) {
 	is := is.New(t)
 	entries := []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 5, AddressID: 6, UserID: auth.UserID(3)},
+		{IP: "1.2.3.4", DeviceID: 5, AddressID: 6, UserID: ids.UserID(3)},
 	}
 	hostAccess := []UserHostAccess{
-		{UserID: auth.UserID(3), BypassAllowlist: true},
+		{UserID: ids.UserID(3), BypassAllowlist: true},
 	}
 	result := buildIPSet(entries, hostAccess)
 	c := result["1.2.3.4"].Contributors[0]
@@ -185,12 +185,12 @@ func TestBuildIPSet_Contributors_BypassUser_UserBypassTrue(t *testing.T) {
 func TestBuildIPSet_Contributors_TwoUsers_BothPresent(t *testing.T) {
 	is := is.New(t)
 	entries := []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
-		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: auth.UserID(2)},
+		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: ids.UserID(1)},
+		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: ids.UserID(2)},
 	}
 	hostAccess := []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
-		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
+		{UserID: ids.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
+		{UserID: ids.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com"}},
 	}
 	result := buildIPSet(entries, hostAccess)
 	is.Equal(len(result["1.2.3.4"].Contributors), 2)
@@ -201,11 +201,11 @@ func TestBuildIPSet_Contributors_SameUser_TwoDevices_BothPresent(t *testing.T) {
 	// Same user, two devices at the same IP. Second intersection with identical set is
 	// a no-op: initialHostsLen == len(allowedHosts) → IntersectionApplied = false.
 	entries := []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 10, AddressID: 20, UserID: auth.UserID(5)},
-		{IP: "1.2.3.4", DeviceID: 11, AddressID: 21, UserID: auth.UserID(5)},
+		{IP: "1.2.3.4", DeviceID: 10, AddressID: 20, UserID: ids.UserID(5)},
+		{IP: "1.2.3.4", DeviceID: 11, AddressID: 21, UserID: ids.UserID(5)},
 	}
 	hostAccess := []UserHostAccess{
-		{UserID: auth.UserID(5), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
+		{UserID: ids.UserID(5), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
 	}
 	result := buildIPSet(entries, hostAccess)
 	entry := result["1.2.3.4"]
@@ -221,24 +221,24 @@ func TestBuildIPSet_ContributorHosts_PreIntersectionState(t *testing.T) {
 	// After intersection the entry allows only {b.com}, but each contributor's
 	// UserAllowedHosts must still reflect their individual pre-intersection grants.
 	entries := []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
-		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: auth.UserID(2)},
+		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: ids.UserID(1)},
+		{IP: "1.2.3.4", DeviceID: 2, AddressID: 2, UserID: ids.UserID(2)},
 	}
 	hostAccess := []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com", "c.com"}},
-		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com"}},
+		{UserID: ids.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com", "b.com", "c.com"}},
+		{UserID: ids.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com"}},
 	}
 	result := buildIPSet(entries, hostAccess)
 	entry := result["1.2.3.4"]
 	is.Equal(sortedKeys(entry.AllowedHosts), []string{"b.com"})
 	is.True(entry.IntersectionApplied)
 
-	byUser := make(map[auth.UserID]ContributorAccess, 2)
+	byUser := make(map[ids.UserID]ContributorAccess, 2)
 	for _, c := range entry.Contributors {
 		byUser[c.UserID] = c
 	}
-	is.Equal(byUser[auth.UserID(1)].UserAllowedHosts, []string{"a.com", "b.com", "c.com"})
-	is.Equal(byUser[auth.UserID(2)].UserAllowedHosts, []string{"b.com"})
+	is.Equal(byUser[ids.UserID(1)].UserAllowedHosts, []string{"a.com", "b.com", "c.com"})
+	is.Equal(byUser[ids.UserID(2)].UserAllowedHosts, []string{"b.com"})
 }
 
 // ── buildIPSet: multiple independent IPs ─────────────────────────────────────
@@ -246,12 +246,12 @@ func TestBuildIPSet_ContributorHosts_PreIntersectionState(t *testing.T) {
 func TestBuildIPSet_MultipleIPs_IndependentEntries(t *testing.T) {
 	is := is.New(t)
 	entries := []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
-		{IP: "5.6.7.8", DeviceID: 2, AddressID: 2, UserID: auth.UserID(2)},
+		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: ids.UserID(1)},
+		{IP: "5.6.7.8", DeviceID: 2, AddressID: 2, UserID: ids.UserID(2)},
 	}
 	hostAccess := []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
-		{UserID: auth.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com"}},
+		{UserID: ids.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
+		{UserID: ids.UserID(2), BypassAllowlist: false, AllowedHosts: []string{"b.com"}},
 	}
 	result := buildIPSet(entries, hostAccess)
 	is.Equal(len(result), 2)
@@ -271,7 +271,7 @@ func TestBuildIPSet_NoHostAccess_UserTreatedAsRestricted(t *testing.T) {
 	is := is.New(t)
 	// With no host access data every user maps to zero-value UserHostAccess{BypassAllowlist: false}.
 	entries := []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
+		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: ids.UserID(1)},
 	}
 	result := buildIPSet(entries, nil)
 	entry := result["1.2.3.4"]
@@ -346,7 +346,7 @@ func TestBuildNetworkPolicyCache_AllowAllHosts_Preserved(t *testing.T) {
 func TestCache_HostProviderError_Propagated(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: auth.UserID(1)},
+		{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: ids.UserID(1)},
 	}}
 	hostProv := &errHostProvider{err: errors.New("db unavailable")}
 	svc, err := NewService(provider, hostProv, &geoip.Lookup{}, nil, "secret", noopLogger(), netip.Addr{})

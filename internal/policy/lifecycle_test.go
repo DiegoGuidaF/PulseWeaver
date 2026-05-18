@@ -9,16 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/matryer/is"
 )
 
 func TestService_OnAddressEvent_RefreshesCache(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "192.168.1.1", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+		{IP: "192.168.1.1", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
 	}}
 	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "secret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
@@ -28,7 +28,7 @@ func TestService_OnAddressEvent_RefreshesCache(t *testing.T) {
 
 	// Update provider to return different IPs
 	provider.entries = []device.IPEntry{
-		{IP: "10.0.0.2", DeviceID: device.DeviceID(3), AddressID: device.AddressID(3)},
+		{IP: "10.0.0.2", DeviceID: ids.DeviceID(3), AddressID: ids.AddressID(3)},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -51,10 +51,10 @@ func TestService_OnAddressEvent_RefreshesCache(t *testing.T) {
 func TestService_OnHostAccessChanged_RefreshesCache(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1), UserID: auth.UserID(1)},
+		{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1), UserID: ids.UserID(1)},
 	}}
 	hostProvider := &fixedHostProvider{entries: []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
+		{UserID: ids.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"a.com"}},
 	}}
 	svc, err := NewService(provider, hostProvider, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
@@ -65,7 +65,7 @@ func TestService_OnHostAccessChanged_RefreshesCache(t *testing.T) {
 
 	// Change allowed hosts from a.com → b.com
 	hostProvider.entries = []UserHostAccess{
-		{UserID: auth.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"b.com"}},
+		{UserID: ids.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"b.com"}},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

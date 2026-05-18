@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/slicex"
 )
 
@@ -13,10 +14,10 @@ import (
 // match an existing row. FQDN is immutable on updates — a mismatch returns
 // ErrKnownHostFQDNImmutable. GroupIDs replaces the host's full group membership.
 type DesiredKnownHost struct {
-	ID       *KnownHostID
+	ID       *ids.KnownHostID
 	FQDN     string
 	Icon     *string
-	GroupIDs []HostGroupID
+	GroupIDs []ids.HostGroupID
 }
 
 // prepare normalises and validates a single desired host: lowercases and
@@ -55,7 +56,7 @@ func (in *ReconcileKnownHostsInput) prepare() error {
 		}
 	}
 
-	seenIDs := make(map[KnownHostID]struct{}, len(in.Hosts))
+	seenIDs := make(map[ids.KnownHostID]struct{}, len(in.Hosts))
 	for _, h := range in.Hosts {
 		if h.ID != nil {
 			if _, ok := seenIDs[*h.ID]; ok {
@@ -81,21 +82,21 @@ func (in *ReconcileKnownHostsInput) prepare() error {
 type knownHostReconcilePlan struct {
 	toCreate    []KnownHostDraft
 	toUpdate    []KnownHost
-	toDelete    []KnownHostID
+	toDelete    []ids.KnownHostID
 	toSetGroups []knownHostGroupSet // group membership for all non-deleted hosts
 }
 
 // knownHostGroupSet pairs a host with the full set of groups it should belong to.
 type knownHostGroupSet struct {
-	HostID   KnownHostID
-	GroupIDs []HostGroupID
+	HostID   ids.KnownHostID
+	GroupIDs []ids.HostGroupID
 }
 
 // KnownHostDraft is the minimum shape needed to insert a new known_hosts row.
 type KnownHostDraft struct {
 	FQDN     string
 	Icon     *string
-	GroupIDs []HostGroupID
+	GroupIDs []ids.HostGroupID
 }
 
 // ReconcileKnownHosts makes the database converge to the desired image of
@@ -176,14 +177,14 @@ func (s *Service) ListKnownHosts(ctx context.Context) ([]KnownHost, error) {
 // host whose FQDN differs from the current row's FQDN returns
 // ErrKnownHostFQDNImmutable. Icon-only no-ops (icon unchanged) are skipped.
 func buildKnownHostReconcilePlan(current []KnownHost, desired []DesiredKnownHost) (knownHostReconcilePlan, error) {
-	currentByID := make(map[KnownHostID]KnownHost, len(current))
+	currentByID := make(map[ids.KnownHostID]KnownHost, len(current))
 	currentByFQDN := make(map[string]struct{}, len(current))
 	for _, h := range current {
 		currentByID[h.ID] = h
 		currentByFQDN[h.FQDN] = struct{}{}
 	}
 
-	desiredIDs := make(map[KnownHostID]struct{})
+	desiredIDs := make(map[ids.KnownHostID]struct{})
 	var plan knownHostReconcilePlan
 
 	for _, h := range desired {

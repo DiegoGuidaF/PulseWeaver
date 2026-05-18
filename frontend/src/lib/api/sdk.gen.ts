@@ -17,9 +17,9 @@ import type {
   CreateDeviceData,
   CreateDeviceErrors,
   CreateDeviceResponses,
-  CreatePolicyData,
-  CreatePolicyErrors,
-  CreatePolicyResponses,
+  CreateNetworkPolicyData,
+  CreateNetworkPolicyErrors,
+  CreateNetworkPolicyResponses,
   CreateRegistrationData,
   CreateRegistrationErrors,
   CreateRegistrationResponses,
@@ -32,9 +32,9 @@ import type {
   DeleteDeviceData,
   DeleteDeviceErrors,
   DeleteDeviceResponses,
-  DeletePolicyData,
-  DeletePolicyErrors,
-  DeletePolicyResponses,
+  DeleteNetworkPolicyData,
+  DeleteNetworkPolicyErrors,
+  DeleteNetworkPolicyResponses,
   DeleteRegistrationData,
   DeleteRegistrationErrors,
   DeleteRegistrationResponses,
@@ -104,9 +104,9 @@ import type {
   GetMaxActiveAddressesRuleData,
   GetMaxActiveAddressesRuleErrors,
   GetMaxActiveAddressesRuleResponses,
-  GetPolicyData,
-  GetPolicyErrors,
-  GetPolicyResponses,
+  GetNetworkPolicyData,
+  GetNetworkPolicyErrors,
+  GetNetworkPolicyResponses,
   GetPolicyUserMapData,
   GetPolicyUserMapErrors,
   GetPolicyUserMapResponses,
@@ -130,9 +130,9 @@ import type {
   ListHostSuggestionsData,
   ListHostSuggestionsErrors,
   ListHostSuggestionsResponses,
-  ListPoliciesData,
-  ListPoliciesErrors,
-  ListPoliciesResponses,
+  ListNetworkPoliciesData,
+  ListNetworkPoliciesErrors,
+  ListNetworkPoliciesResponses,
   ListRegistrationsData,
   ListRegistrationsErrors,
   ListRegistrationsResponses,
@@ -147,9 +147,6 @@ import type {
   LoginResponses,
   LogoutData,
   LogoutResponses,
-  ModifyUserAccessData,
-  ModifyUserAccessErrors,
-  ModifyUserAccessResponses,
   PromoteUserData,
   PromoteUserErrors,
   PromoteUserResponses,
@@ -168,6 +165,9 @@ import type {
   RegenerateDeviceApiKeyData,
   RegenerateDeviceApiKeyErrors,
   RegenerateDeviceApiKeyResponses,
+  SetUserAccessData,
+  SetUserAccessErrors,
+  SetUserAccessResponses,
   SimulatePolicyAccessData,
   SimulatePolicyAccessErrors,
   SimulatePolicyAccessResponses,
@@ -180,12 +180,12 @@ import type {
   UpdateMeData,
   UpdateMeErrors,
   UpdateMeResponses,
-  UpdatePolicyAccessData,
-  UpdatePolicyAccessErrors,
-  UpdatePolicyAccessResponses,
-  UpdatePolicyData,
-  UpdatePolicyErrors,
-  UpdatePolicyResponses,
+  UpdateNetworkPolicyAccessData,
+  UpdateNetworkPolicyAccessErrors,
+  UpdateNetworkPolicyAccessResponses,
+  UpdateNetworkPolicyData,
+  UpdateNetworkPolicyErrors,
+  UpdateNetworkPolicyResponses,
 } from "./types.gen";
 import {
   zAddAddressBody,
@@ -197,8 +197,8 @@ import {
   zClaimRegistrationResponse2,
   zCreateDeviceBody,
   zCreateDeviceResponse2,
-  zCreatePolicyBody,
-  zCreatePolicyResponse,
+  zCreateNetworkPolicyBody,
+  zCreateNetworkPolicyResponse,
   zCreateRegistrationBody,
   zCreateRegistrationResponse,
   zCreateUserBody,
@@ -207,8 +207,8 @@ import {
   zDeleteDeviceApiKeyResponse,
   zDeleteDevicePath,
   zDeleteDeviceResponse,
-  zDeletePolicyPath,
-  zDeletePolicyResponse,
+  zDeleteNetworkPolicyPath,
+  zDeleteNetworkPolicyResponse,
   zDeleteRegistrationPath,
   zDeleteRegistrationResponse,
   zDeleteUserPath,
@@ -252,8 +252,8 @@ import {
   zGetDevicesResponse,
   zGetMaxActiveAddressesRulePath,
   zGetMaxActiveAddressesRuleResponse,
-  zGetPolicyPath,
-  zGetPolicyResponse,
+  zGetNetworkPolicyPath,
+  zGetNetworkPolicyResponse,
   zGetPolicyUserMapResponse,
   zGetRegistrationPath,
   zGetRegistrationResponse,
@@ -265,7 +265,7 @@ import {
   zListHostGroupsResponse,
   zListHostsResponse,
   zListHostSuggestionsResponse,
-  zListPoliciesResponse,
+  zListNetworkPoliciesResponse,
   zListRegistrationsQuery,
   zListRegistrationsResponse,
   zListUsersResponse,
@@ -273,9 +273,6 @@ import {
   zLoginBody,
   zLoginResponse,
   zLogoutResponse,
-  zModifyUserAccessBody,
-  zModifyUserAccessPath,
-  zModifyUserAccessResponse,
   zPromoteUserBody,
   zPromoteUserPath,
   zPromoteUserResponse,
@@ -291,6 +288,9 @@ import {
   zReconcileHostsResponse,
   zRegenerateDeviceApiKeyPath,
   zRegenerateDeviceApiKeyResponse,
+  zSetUserAccessBody,
+  zSetUserAccessPath,
+  zSetUserAccessResponse,
   zSimulatePolicyAccessQuery,
   zSimulatePolicyAccessResponse,
   zUnignoreSuggestionPath,
@@ -300,12 +300,12 @@ import {
   zUpdateDeviceResponse,
   zUpdateMeBody,
   zUpdateMeResponse,
-  zUpdatePolicyAccessBody,
-  zUpdatePolicyAccessPath,
-  zUpdatePolicyAccessResponse,
-  zUpdatePolicyBody,
-  zUpdatePolicyPath,
-  zUpdatePolicyResponse,
+  zUpdateNetworkPolicyAccessBody,
+  zUpdateNetworkPolicyAccessPath,
+  zUpdateNetworkPolicyAccessResponse,
+  zUpdateNetworkPolicyBody,
+  zUpdateNetworkPolicyPath,
+  zUpdateNetworkPolicyResponse,
 } from "./zod.gen";
 
 export type Options<
@@ -2137,24 +2137,24 @@ export const getUserAccessDetail = <ThrowOnError extends boolean = false>(
  *
  * Replaces bypass_host_check flag and full group assignment list.
  */
-export const modifyUserAccess = <ThrowOnError extends boolean = false>(
-  options: Options<ModifyUserAccessData, ThrowOnError>,
+export const setUserAccess = <ThrowOnError extends boolean = false>(
+  options: Options<SetUserAccessData, ThrowOnError>,
 ) =>
   (options.client ?? client).put<
-    ModifyUserAccessResponses,
-    ModifyUserAccessErrors,
+    SetUserAccessResponses,
+    SetUserAccessErrors,
     ThrowOnError
   >({
     requestValidator: async (data) =>
       await z
         .object({
-          body: zModifyUserAccessBody,
-          path: zModifyUserAccessPath,
+          body: zSetUserAccessBody,
+          path: zSetUserAccessPath,
           query: z.never().optional(),
         })
         .parseAsync(data),
     responseValidator: async (data) =>
-      await zModifyUserAccessResponse.parseAsync(data),
+      await zSetUserAccessResponse.parseAsync(data),
     security: [
       {
         in: "cookie",
@@ -2247,12 +2247,12 @@ export const simulatePolicyAccess = <ThrowOnError extends boolean = false>(
 /**
  * List all network policies
  */
-export const listPolicies = <ThrowOnError extends boolean = false>(
-  options?: Options<ListPoliciesData, ThrowOnError>,
+export const listNetworkPolicies = <ThrowOnError extends boolean = false>(
+  options?: Options<ListNetworkPoliciesData, ThrowOnError>,
 ) =>
   (options?.client ?? client).get<
-    ListPoliciesResponses,
-    ListPoliciesErrors,
+    ListNetworkPoliciesResponses,
+    ListNetworkPoliciesErrors,
     ThrowOnError
   >({
     requestValidator: async (data) =>
@@ -2264,7 +2264,7 @@ export const listPolicies = <ThrowOnError extends boolean = false>(
         })
         .parseAsync(data),
     responseValidator: async (data) =>
-      await zListPoliciesResponse.parseAsync(data),
+      await zListNetworkPoliciesResponse.parseAsync(data),
     security: [
       {
         in: "cookie",
@@ -2281,24 +2281,24 @@ export const listPolicies = <ThrowOnError extends boolean = false>(
  *
  * Policy is created enabled by default with no group assignments.
  */
-export const createPolicy = <ThrowOnError extends boolean = false>(
-  options: Options<CreatePolicyData, ThrowOnError>,
+export const createNetworkPolicy = <ThrowOnError extends boolean = false>(
+  options: Options<CreateNetworkPolicyData, ThrowOnError>,
 ) =>
   (options.client ?? client).post<
-    CreatePolicyResponses,
-    CreatePolicyErrors,
+    CreateNetworkPolicyResponses,
+    CreateNetworkPolicyErrors,
     ThrowOnError
   >({
     requestValidator: async (data) =>
       await z
         .object({
-          body: zCreatePolicyBody,
+          body: zCreateNetworkPolicyBody,
           path: z.never().optional(),
           query: z.never().optional(),
         })
         .parseAsync(data),
     responseValidator: async (data) =>
-      await zCreatePolicyResponse.parseAsync(data),
+      await zCreateNetworkPolicyResponse.parseAsync(data),
     security: [
       {
         in: "cookie",
@@ -2317,24 +2317,24 @@ export const createPolicy = <ThrowOnError extends boolean = false>(
 /**
  * Delete a network policy
  */
-export const deletePolicy = <ThrowOnError extends boolean = false>(
-  options: Options<DeletePolicyData, ThrowOnError>,
+export const deleteNetworkPolicy = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteNetworkPolicyData, ThrowOnError>,
 ) =>
   (options.client ?? client).delete<
-    DeletePolicyResponses,
-    DeletePolicyErrors,
+    DeleteNetworkPolicyResponses,
+    DeleteNetworkPolicyErrors,
     ThrowOnError
   >({
     requestValidator: async (data) =>
       await z
         .object({
           body: z.never().optional(),
-          path: zDeletePolicyPath,
+          path: zDeleteNetworkPolicyPath,
           query: z.never().optional(),
         })
         .parseAsync(data),
     responseValidator: async (data) =>
-      await zDeletePolicyResponse.parseAsync(data),
+      await zDeleteNetworkPolicyResponse.parseAsync(data),
     security: [
       {
         in: "cookie",
@@ -2349,24 +2349,24 @@ export const deletePolicy = <ThrowOnError extends boolean = false>(
 /**
  * Get network policy detail
  */
-export const getPolicy = <ThrowOnError extends boolean = false>(
-  options: Options<GetPolicyData, ThrowOnError>,
+export const getNetworkPolicy = <ThrowOnError extends boolean = false>(
+  options: Options<GetNetworkPolicyData, ThrowOnError>,
 ) =>
   (options.client ?? client).get<
-    GetPolicyResponses,
-    GetPolicyErrors,
+    GetNetworkPolicyResponses,
+    GetNetworkPolicyErrors,
     ThrowOnError
   >({
     requestValidator: async (data) =>
       await z
         .object({
           body: z.never().optional(),
-          path: zGetPolicyPath,
+          path: zGetNetworkPolicyPath,
           query: z.never().optional(),
         })
         .parseAsync(data),
     responseValidator: async (data) =>
-      await zGetPolicyResponse.parseAsync(data),
+      await zGetNetworkPolicyResponse.parseAsync(data),
     security: [
       {
         in: "cookie",
@@ -2383,24 +2383,24 @@ export const getPolicy = <ThrowOnError extends boolean = false>(
  *
  * Updates name, CIDR, description, and/or status. Does not affect group assignments.
  */
-export const updatePolicy = <ThrowOnError extends boolean = false>(
-  options: Options<UpdatePolicyData, ThrowOnError>,
+export const updateNetworkPolicy = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateNetworkPolicyData, ThrowOnError>,
 ) =>
   (options.client ?? client).put<
-    UpdatePolicyResponses,
-    UpdatePolicyErrors,
+    UpdateNetworkPolicyResponses,
+    UpdateNetworkPolicyErrors,
     ThrowOnError
   >({
     requestValidator: async (data) =>
       await z
         .object({
-          body: zUpdatePolicyBody,
-          path: zUpdatePolicyPath,
+          body: zUpdateNetworkPolicyBody,
+          path: zUpdateNetworkPolicyPath,
           query: z.never().optional(),
         })
         .parseAsync(data),
     responseValidator: async (data) =>
-      await zUpdatePolicyResponse.parseAsync(data),
+      await zUpdateNetworkPolicyResponse.parseAsync(data),
     security: [
       {
         in: "cookie",
@@ -2421,24 +2421,24 @@ export const updatePolicy = <ThrowOnError extends boolean = false>(
  *
  * Replaces bypass_host_check flag and full group assignment list.
  */
-export const updatePolicyAccess = <ThrowOnError extends boolean = false>(
-  options: Options<UpdatePolicyAccessData, ThrowOnError>,
+export const updateNetworkPolicyAccess = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateNetworkPolicyAccessData, ThrowOnError>,
 ) =>
   (options.client ?? client).put<
-    UpdatePolicyAccessResponses,
-    UpdatePolicyAccessErrors,
+    UpdateNetworkPolicyAccessResponses,
+    UpdateNetworkPolicyAccessErrors,
     ThrowOnError
   >({
     requestValidator: async (data) =>
       await z
         .object({
-          body: zUpdatePolicyAccessBody,
-          path: zUpdatePolicyAccessPath,
+          body: zUpdateNetworkPolicyAccessBody,
+          path: zUpdateNetworkPolicyAccessPath,
           query: z.never().optional(),
         })
         .parseAsync(data),
     responseValidator: async (data) =>
-      await zUpdatePolicyAccessResponse.parseAsync(data),
+      await zUpdateNetworkPolicyAccessResponse.parseAsync(data),
     security: [
       {
         in: "cookie",

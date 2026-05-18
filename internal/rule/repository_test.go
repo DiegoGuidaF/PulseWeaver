@@ -6,9 +6,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/matryer/is"
@@ -22,10 +22,10 @@ func setupRuleTestDB(t *testing.T) (*rule.Repository, *database.DB) {
 	return rule.NewRepository(sqlDB), sqlDB
 }
 
-func ensureTestOwner(t *testing.T, db *database.DB, ctx context.Context) auth.UserID {
+func ensureTestOwner(t *testing.T, db *database.DB, ctx context.Context) ids.UserID {
 	t.Helper()
 	_, _ = db.ExecContext(ctx, `INSERT OR IGNORE INTO users (username, display_name, password_hash, role) VALUES ('testowner', 'Test Owner', 'x', 'admin')`)
-	var id auth.UserID
+	var id ids.UserID
 	if err := db.QueryRowxContext(ctx, `SELECT id FROM users WHERE username = 'testowner'`).Scan(&id); err != nil {
 		t.Fatalf("ensureTestOwner: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestRepository_GetRuleByDeviceAndType_NotFound(t *testing.T) {
 	repo, _ := setupRuleTestDB(t)
 	ctx := context.Background()
 
-	r, err := repo.GetRuleByDeviceAndType(ctx, device.DeviceID(99999), rule.RuleTypeDeviceAddressLease)
+	r, err := repo.GetRuleByDeviceAndType(ctx, ids.DeviceID(99999), rule.RuleTypeDeviceAddressLease)
 
 	is.True(err != nil)
 	is.Equal(err, rule.ErrRuleNotFound)
@@ -99,7 +99,7 @@ func TestRepository_EnableDeviceAddressLeaseRuleConfig_NonExistentDevice(t *test
 	cfg, err := rule.NewDeviceAddressLeaseConfig(90)
 	is.NoErr(err)
 
-	r, err := repo.EnableDeviceAddressLeaseRuleConfig(ctx, device.DeviceID(99999), cfg)
+	r, err := repo.EnableDeviceAddressLeaseRuleConfig(ctx, ids.DeviceID(99999), cfg)
 
 	is.True(err != nil)
 	is.Equal(err, device.ErrDeviceNotFound)
@@ -111,7 +111,7 @@ func TestRepository_DisableRule_NotFound(t *testing.T) {
 	repo, _ := setupRuleTestDB(t)
 	ctx := context.Background()
 
-	r, err := repo.DisableRule(ctx, device.DeviceID(12345), rule.RuleTypeDeviceAddressLease)
+	r, err := repo.DisableRule(ctx, ids.DeviceID(12345), rule.RuleTypeDeviceAddressLease)
 
 	is.True(err != nil)
 	is.Equal(err, rule.ErrRuleNotFound)
@@ -184,7 +184,7 @@ func TestRepository_EnableMaxActiveAddressesRuleConfig_NonExistentDevice(t *test
 	ctx := context.Background()
 	cfg, _ := rule.NewMaxActiveAddressesConfig(3)
 
-	r, err := repo.EnableMaxActiveAddressesRuleConfig(ctx, device.DeviceID(99999), cfg)
+	r, err := repo.EnableMaxActiveAddressesRuleConfig(ctx, ids.DeviceID(99999), cfg)
 
 	is.True(err != nil)
 	is.Equal(err, device.ErrDeviceNotFound)

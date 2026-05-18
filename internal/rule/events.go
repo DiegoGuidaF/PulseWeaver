@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 type RuleEventType string
@@ -16,7 +16,7 @@ const (
 
 type RuleEvent struct {
 	Type       RuleEventType
-	DeviceID   device.DeviceID
+	DeviceID   ids.DeviceID
 	RuleType   RuleType
 	TTLSeconds *int
 	OccurredAt time.Time

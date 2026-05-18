@@ -5,23 +5,24 @@ import (
 	"log/slog"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 )
 
 // MaxAddressesProvider is implemented by *rule.Service.
 type MaxAddressesProvider interface {
-	GetMaxActiveAddresses(ctx context.Context, deviceID device.DeviceID) (*int, error)
+	GetMaxActiveAddresses(ctx context.Context, deviceID ids.DeviceID) (*int, error)
 }
 
 // EnabledAddressFetcher is implemented by *device.Service.
 type EnabledAddressFetcher interface {
-	GetEnabledAddressesForDevice(ctx context.Context, deviceID device.DeviceID) ([]device.Address, error)
+	GetEnabledAddressesForDevice(ctx context.Context, deviceID ids.DeviceID) ([]device.Address, error)
 }
 
 // AddressDisabler is implemented by *device.Service.
 type AddressDisabler interface {
-	DisableAddresses(ctx context.Context, addressIDs []device.AddressID, source device.EventSource) error
+	DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source device.EventSource) error
 }
 
 // Service listens for address events and enforces the max active addresses rule asynchronously.
@@ -95,7 +96,7 @@ func (s *Service) RunListener(ctx context.Context) error {
 
 // enforce applies the max active addresses rule for the given device, evicting the
 // least-recently-updated addresses while protecting justRegisteredID.
-func (s *Service) enforce(ctx context.Context, deviceID device.DeviceID, justRegisteredID device.AddressID) {
+func (s *Service) enforce(ctx context.Context, deviceID ids.DeviceID, justRegisteredID ids.AddressID) {
 	maxAddresses, err := s.provider.GetMaxActiveAddresses(ctx, deviceID)
 	if err != nil {
 		s.logger.WarnContext(ctx, "failed to get max active addresses rule", slog.Any("error", err))
@@ -116,7 +117,7 @@ func (s *Service) enforce(ctx context.Context, deviceID device.DeviceID, justReg
 		return
 	}
 
-	toDisable := make([]device.AddressID, 0, excess)
+	toDisable := make([]ids.AddressID, 0, excess)
 
 	// Traverse from oldest (end of slice) to newest.
 	for i := len(enabledAddresses) - 1; i >= 0; i-- {

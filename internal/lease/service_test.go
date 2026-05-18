@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/matryer/is"
 )
@@ -23,8 +24,8 @@ func TestService_AddAddressLease_Success(t *testing.T) {
 
 	service := NewService(mockRepo, mockTTL, slog.Default())
 
-	deviceID := device.DeviceID(1)
-	addressID := device.AddressID(10)
+	deviceID := ids.DeviceID(1)
+	addressID := ids.AddressID(10)
 
 	lease, err := service.AddAddressLease(ctx, deviceID, addressID)
 	is.NoErr(err)
@@ -49,7 +50,7 @@ func TestService_AddAddressLease_NoTTLConfigured(t *testing.T) {
 
 	service := NewService(mockRepo, mockTTL, slog.Default())
 
-	lease, err := service.AddAddressLease(ctx, device.DeviceID(1), device.AddressID(10))
+	lease, err := service.AddAddressLease(ctx, ids.DeviceID(1), ids.AddressID(10))
 	is.NoErr(err)
 	is.True(lease != nil)
 	is.True(lease.ExpiresAt == nil)
@@ -66,7 +67,7 @@ func TestService_AddAddressLease_TTLConfigError(t *testing.T) {
 
 	service := NewService(mockRepo, mockTTL, slog.Default())
 
-	lease, err := service.AddAddressLease(ctx, device.DeviceID(1), device.AddressID(10))
+	lease, err := service.AddAddressLease(ctx, ids.DeviceID(1), ids.AddressID(10))
 	is.True(err != nil)
 	is.Equal(err, cfgErr)
 	is.True(lease == nil)
@@ -78,8 +79,8 @@ func TestService_ClearAddressLease_Success(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	deviceID := device.DeviceID(1)
-	addressID := device.AddressID(10)
+	deviceID := ids.DeviceID(1)
+	addressID := ids.AddressID(10)
 	mockRepo.leases[addressID] = &AddressLease{AddressID: addressID, DeviceID: deviceID, ExpiresAt: new(time.Now().UTC().Add(1 * time.Minute))}
 
 	service := NewService(mockRepo, &mockTTLConfigRetriever{}, slog.Default())
@@ -97,15 +98,15 @@ func TestService_GetExpiredAddressIDs(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	mockRepo.expiredAddressIDs = []device.AddressID{device.AddressID(1), device.AddressID(2)}
+	mockRepo.expiredAddressIDs = []ids.AddressID{ids.AddressID(1), ids.AddressID(2)}
 
 	service := NewService(mockRepo, &mockTTLConfigRetriever{}, slog.Default())
 
-	ids, err := service.GetExpiredAddressIDs(ctx)
+	addressIDs, err := service.GetExpiredAddressIDs(ctx)
 	is.NoErr(err)
-	is.Equal(len(ids), 2)
-	is.Equal(ids[0], device.AddressID(1))
-	is.Equal(ids[1], device.AddressID(2))
+	is.Equal(len(addressIDs), 2)
+	is.Equal(addressIDs[0], ids.AddressID(1))
+	is.Equal(addressIDs[1], ids.AddressID(2))
 }
 
 func TestService_OnAddressEvent_CreatedEventProcessedByRunListener(t *testing.T) {
@@ -126,8 +127,8 @@ func TestService_OnAddressEvent_CreatedEventProcessedByRunListener(t *testing.T)
 
 	event := device.AddressEvent{
 		Type:      device.EventTypeAddressCreated,
-		DeviceID:  device.DeviceID(1),
-		AddressID: device.AddressID(42),
+		DeviceID:  ids.DeviceID(1),
+		AddressID: ids.AddressID(42),
 	}
 
 	service.OnAddressEvent(ctx, event)
@@ -161,8 +162,8 @@ func TestService_OnAddressEvent_DisabledEventProcessedByRunListener(t *testing.T
 
 	event := device.AddressEvent{
 		Type:      device.EventTypeAddressDisabled,
-		DeviceID:  device.DeviceID(1),
-		AddressID: device.AddressID(100),
+		DeviceID:  ids.DeviceID(1),
+		AddressID: ids.AddressID(100),
 	}
 
 	mockRepo.leases[event.AddressID] = &AddressLease{AddressID: event.AddressID}
@@ -225,7 +226,7 @@ func TestService_handleLeaseRuleEvent_EnabledRuleUpdatesDeviceLeases(t *testing.
 
 	event := rule.RuleEvent{
 		Type:       rule.RuleEventTypeEnabled,
-		DeviceID:   device.DeviceID(99),
+		DeviceID:   ids.DeviceID(99),
 		RuleType:   rule.RuleTypeDeviceAddressLease,
 		TTLSeconds: new(300),
 		OccurredAt: time.Now().UTC(),
@@ -247,7 +248,7 @@ func TestService_handleLeaseRuleEvent_DisabledRuleClearsDeviceLeases(t *testing.
 
 	event := rule.RuleEvent{
 		Type:       rule.RuleEventTypeDisabled,
-		DeviceID:   device.DeviceID(99),
+		DeviceID:   ids.DeviceID(99),
 		RuleType:   rule.RuleTypeDeviceAddressLease,
 		TTLSeconds: nil,
 		OccurredAt: time.Now().UTC(),
@@ -269,7 +270,7 @@ func TestService_handleLeaseRuleEvent_WrongRuleTypeIgnored(t *testing.T) {
 
 	event := rule.RuleEvent{
 		Type:       rule.RuleEventTypeEnabled,
-		DeviceID:   device.DeviceID(99),
+		DeviceID:   ids.DeviceID(99),
 		RuleType:   rule.RuleType("other_rule"),
 		TTLSeconds: new(60),
 		OccurredAt: time.Now().UTC(),
@@ -297,7 +298,7 @@ func TestService_OnRuleEvent_EnabledEventProcessedByRunListener(t *testing.T) {
 
 	event := rule.RuleEvent{
 		Type:       rule.RuleEventTypeEnabled,
-		DeviceID:   device.DeviceID(99),
+		DeviceID:   ids.DeviceID(99),
 		RuleType:   rule.RuleTypeDeviceAddressLease,
 		TTLSeconds: new(300),
 		OccurredAt: time.Now().UTC(),
@@ -344,11 +345,11 @@ func TestService_RunListener_ContextCancellationExitsCleanly(t *testing.T) {
 type mockTTLConfigRetriever struct {
 	ttl          *int
 	err          error
-	lastDeviceID device.DeviceID
+	lastDeviceID ids.DeviceID
 	calls        int
 }
 
-func (m *mockTTLConfigRetriever) GetDeviceAddressLeaseTTLSeconds(_ context.Context, deviceID device.DeviceID) (*int, error) {
+func (m *mockTTLConfigRetriever) GetDeviceAddressLeaseTTLSeconds(_ context.Context, deviceID ids.DeviceID) (*int, error) {
 	m.calls++
 	m.lastDeviceID = deviceID
 	if m.err != nil {
@@ -358,17 +359,17 @@ func (m *mockTTLConfigRetriever) GetDeviceAddressLeaseTTLSeconds(_ context.Conte
 }
 
 type mockRepository struct {
-	leases            map[device.AddressID]*AddressLease
+	leases            map[ids.AddressID]*AddressLease
 	upsertErr         error
 	getExpiredErr     error
-	expiredAddressIDs []device.AddressID
+	expiredAddressIDs []ids.AddressID
 	setExpiryErr      error
 
 	upsertCalls                int
 	setDeviceLeasesExpiryCalls int
 
 	lastUpsertLease  *AddressLease
-	lastSetDeviceID  device.DeviceID
+	lastSetDeviceID  ids.DeviceID
 	lastSetExpiresAt *time.Time
 
 	upsertCalledCh    chan struct{}
@@ -379,7 +380,7 @@ var _ repository = (*mockRepository)(nil)
 
 func newMockRepository() *mockRepository {
 	return &mockRepository{
-		leases: make(map[device.AddressID]*AddressLease),
+		leases: make(map[ids.AddressID]*AddressLease),
 	}
 }
 
@@ -399,26 +400,26 @@ func (m *mockRepository) UpsertAddressLease(_ context.Context, lease *AddressLea
 	}
 
 	if m.leases == nil {
-		m.leases = make(map[device.AddressID]*AddressLease)
+		m.leases = make(map[ids.AddressID]*AddressLease)
 	}
 	m.leases[lease.AddressID] = lease
 
 	return lease, nil
 }
 
-func (m *mockRepository) GetExpiredAddressIDs(_ context.Context) ([]device.AddressID, error) {
+func (m *mockRepository) GetExpiredAddressIDs(_ context.Context) ([]ids.AddressID, error) {
 	if m.getExpiredErr != nil {
 		return nil, m.getExpiredErr
 	}
 
 	if m.expiredAddressIDs == nil {
-		return []device.AddressID{}, nil
+		return []ids.AddressID{}, nil
 	}
 
 	return m.expiredAddressIDs, nil
 }
 
-func (m *mockRepository) SetDeviceAddressLeasesExpiry(_ context.Context, deviceID device.DeviceID, expiresAt *time.Time, updatedAt time.Time) error {
+func (m *mockRepository) SetDeviceAddressLeasesExpiry(_ context.Context, deviceID ids.DeviceID, expiresAt *time.Time, updatedAt time.Time) error {
 	m.setDeviceLeasesExpiryCalls++
 	m.lastSetDeviceID = deviceID
 	m.lastSetExpiresAt = expiresAt

@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 type DeviceView struct {
-	ID           device.DeviceID   `db:"id"`
+	ID           ids.DeviceID      `db:"id"`
 	Name         string            `db:"name"`
 	DeviceType   device.DeviceType `db:"device_type"`
 	Description  *string           `db:"description"`
@@ -23,12 +23,12 @@ type DeviceView struct {
 	KeyPrefix    *string           `db:"key_prefix"`
 	AddressCount int               `db:"address_count"`
 	LastSeenAt   *database.DBTime  `db:"last_seen_at"`
-	OwnerID      auth.UserID       `db:"owner_id"`
+	OwnerID      ids.UserID        `db:"owner_id"`
 	OwnerName    string            `db:"owner_name"`
 }
 
 type DeviceDetail struct {
-	ID           device.DeviceID   `db:"id"`
+	ID           ids.DeviceID      `db:"id"`
 	Name         string            `db:"name"`
 	DeviceType   device.DeviceType `db:"device_type"`
 	Description  *string           `db:"description"`
@@ -38,12 +38,12 @@ type DeviceDetail struct {
 	KeyPrefix    *string           `db:"key_prefix"`
 	AddressCount int               `db:"address_count"`
 	LastSeenAt   *database.DBTime  `db:"last_seen_at"`
-	OwnerID      auth.UserID       `db:"owner_id"`
+	OwnerID      ids.UserID        `db:"owner_id"`
 	OwnerName    string            `db:"owner_name"`
 }
 
 // GetDevices retrieves devices for a specific user or all users when ownerID is nil
-func (r *Repository) GetDevices(ctx context.Context, ownerID *auth.UserID) ([]DeviceView, error) {
+func (r *Repository) GetDevices(ctx context.Context, ownerID *ids.UserID) ([]DeviceView, error) {
 	var devices []DeviceView
 
 	query := `
@@ -86,11 +86,11 @@ func (r *Repository) GetDevices(ctx context.Context, ownerID *auth.UserID) ([]De
 	return devices, nil
 }
 
-func (r *Repository) GetDevicesByUser(ctx context.Context, targetUserID auth.UserID) ([]DeviceView, error) {
+func (r *Repository) GetDevicesByUser(ctx context.Context, targetUserID ids.UserID) ([]DeviceView, error) {
 	return r.GetDevices(ctx, &targetUserID)
 }
 
-func (r *Repository) GetDeviceDetail(ctx context.Context, id device.DeviceID) (*DeviceDetail, error) {
+func (r *Repository) GetDeviceDetail(ctx context.Context, id ids.DeviceID) (*DeviceDetail, error) {
 	detail := new(DeviceDetail)
 
 	query := `

@@ -285,14 +285,14 @@ components:
     # --------------------
     # Network Policies
     # --------------------
-    PolicyListItem:
-      $ref: './components/schemas/network-policy.yaml#/PolicyListItem'
-    PolicyDetail:
-      $ref: './components/schemas/network-policy.yaml#/PolicyDetail'
-    CreatePolicyRequest:
-      $ref: './components/schemas/network-policy.yaml#/CreatePolicyRequest'
-    ModifyPolicyRequest:
-      $ref: './components/schemas/network-policy.yaml#/ModifyPolicyRequest'
+    NetworkPolicyListItem:
+      $ref: './components/schemas/network-policy.yaml#/NetworkPolicyListItem'
+    NetworkPolicyDetail:
+      $ref: './components/schemas/network-policy.yaml#/NetworkPolicyDetail'
+    CreateNetworkPolicyRequest:
+      $ref: './components/schemas/network-policy.yaml#/CreateNetworkPolicyRequest'
+    ModifyNetworkPolicyRequest:
+      $ref: './components/schemas/network-policy.yaml#/ModifyNetworkPolicyRequest'
 
     # --------------------
     # Policy Audit (extensions)
@@ -304,21 +304,21 @@ components:
     # Groups
     # --------------------
     GroupRef:
-      $ref: './components/schemas/groups.yaml#/GroupRef'
+      $ref: './components/schemas/host-groups.yaml#/GroupRef'
     GroupSummary:
-      $ref: './components/schemas/groups.yaml#/GroupSummary'
+      $ref: './components/schemas/host-groups.yaml#/GroupSummary'
     GroupDetail:
-      $ref: './components/schemas/groups.yaml#/GroupDetail'
+      $ref: './components/schemas/host-groups.yaml#/GroupDetail'
     SubjectGroupDetail:
-      $ref: './components/schemas/groups.yaml#/SubjectGroupDetail'
+      $ref: './components/schemas/host-groups.yaml#/SubjectGroupDetail'
     GroupWrite:
-      $ref: './components/schemas/groups.yaml#/GroupWrite'
+      $ref: './components/schemas/host-groups.yaml#/GroupWrite'
     GroupListResponse:
-      $ref: './components/schemas/groups.yaml#/GroupListResponse'
+      $ref: './components/schemas/host-groups.yaml#/GroupListResponse'
     ReconcileGroupsRequest:
-      $ref: './components/schemas/groups.yaml#/ReconcileGroupsRequest'
+      $ref: './components/schemas/host-groups.yaml#/ReconcileGroupsRequest'
     ModifyAccessRequest:
-      $ref: './components/schemas/groups.yaml#/ModifyAccessRequest'
+      $ref: './components/schemas/host-groups.yaml#/ModifyAccessRequest'
 
     # --------------------
     # Hosts

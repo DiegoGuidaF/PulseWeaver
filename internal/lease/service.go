@@ -6,17 +6,18 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 )
 
 type TTLConfigRetriever interface {
-	GetDeviceAddressLeaseTTLSeconds(ctx context.Context, deviceID device.DeviceID) (*int, error)
+	GetDeviceAddressLeaseTTLSeconds(ctx context.Context, deviceID ids.DeviceID) (*int, error)
 }
 type repository interface {
 	UpsertAddressLease(ctx context.Context, addressLease *AddressLease) (*AddressLease, error)
-	GetExpiredAddressIDs(ctx context.Context) ([]device.AddressID, error)
-	SetDeviceAddressLeasesExpiry(ctx context.Context, deviceID device.DeviceID, expiresAt *time.Time, updatedAt time.Time) error
+	GetExpiredAddressIDs(ctx context.Context) ([]ids.AddressID, error)
+	SetDeviceAddressLeasesExpiry(ctx context.Context, deviceID ids.DeviceID, expiresAt *time.Time, updatedAt time.Time) error
 }
 
 type Service struct {
@@ -38,7 +39,7 @@ func NewService(repository repository, ttlConfigRetriever TTLConfigRetriever, lo
 	}
 }
 
-func (s *Service) AddAddressLease(ctx context.Context, deviceID device.DeviceID, addressID device.AddressID) (*AddressLease, error) {
+func (s *Service) AddAddressLease(ctx context.Context, deviceID ids.DeviceID, addressID ids.AddressID) (*AddressLease, error) {
 	ctx = logging.WithOperation(ctx, "AddAddressLease")
 
 	addressTTL, err := s.ttlConfigRetriever.GetDeviceAddressLeaseTTLSeconds(ctx, deviceID)
@@ -54,12 +55,12 @@ func (s *Service) AddAddressLease(ctx context.Context, deviceID device.DeviceID,
 	return addressLease, nil
 }
 
-func (s *Service) ClearAddressLease(ctx context.Context, deviceID device.DeviceID, addressID device.AddressID) (*AddressLease, error) {
+func (s *Service) ClearAddressLease(ctx context.Context, deviceID ids.DeviceID, addressID ids.AddressID) (*AddressLease, error) {
 	ctx = logging.WithOperation(ctx, "ClearAddressLease")
 	return s.repository.UpsertAddressLease(ctx, new(NewAddressLease(addressID, deviceID, nil)))
 }
 
-func (s *Service) GetExpiredAddressIDs(ctx context.Context) ([]device.AddressID, error) {
+func (s *Service) GetExpiredAddressIDs(ctx context.Context) ([]ids.AddressID, error) {
 	ctx = logging.WithOperation(ctx, "GetExpiredAddressIDs")
 	return s.repository.GetExpiredAddressIDs(ctx)
 }

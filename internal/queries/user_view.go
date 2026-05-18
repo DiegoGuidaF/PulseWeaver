@@ -6,18 +6,19 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 type UserView struct {
-	ID                  auth.UserID  `db:"id"`
-	Username            string       `db:"username"`
-	DisplayName         string       `db:"display_name"`
-	Email               string       `db:"email"`
-	Role                auth.Role    `db:"role"`
-	MustChangePassword  bool         `db:"must_change_password"`
-	BypassHostAllowlist bool         `db:"bypass_host_allowlist"`
-	CreatedBy           *auth.UserID `db:"created_by"`
-	CreatedAt           time.Time    `db:"created_at"`
+	ID                  ids.UserID  `db:"id"`
+	Username            string      `db:"username"`
+	DisplayName         string      `db:"display_name"`
+	Email               string      `db:"email"`
+	Role                auth.Role   `db:"role"`
+	MustChangePassword  bool        `db:"must_change_password"`
+	BypassHostAllowlist bool        `db:"bypass_host_allowlist"`
+	CreatedBy           *ids.UserID `db:"created_by"`
+	CreatedAt           time.Time   `db:"created_at"`
 }
 
 func (r *Repository) GetAllUsers(ctx context.Context) ([]UserView, error) {

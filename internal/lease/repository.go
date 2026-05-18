@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 // Repository provides SQL-backed persistence for address leases.
@@ -47,8 +47,8 @@ func (r *Repository) UpsertAddressLease(ctx context.Context, addressLease *Addre
 	return created, nil
 }
 
-func (r *Repository) GetExpiredAddressIDs(ctx context.Context) ([]device.AddressID, error) {
-	var addressIDs []device.AddressID
+func (r *Repository) GetExpiredAddressIDs(ctx context.Context) ([]ids.AddressID, error) {
+	var addressIDs []ids.AddressID
 	now := time.Now().UTC()
 	const query = `
 		SELECT address_id FROM address_leases
@@ -62,13 +62,13 @@ func (r *Repository) GetExpiredAddressIDs(ctx context.Context) ([]device.Address
 	}
 
 	if len(addressIDs) == 0 {
-		return []device.AddressID{}, nil
+		return []ids.AddressID{}, nil
 	}
 
 	return addressIDs, nil
 }
 
-func (r *Repository) SetDeviceAddressLeasesExpiry(ctx context.Context, deviceID device.DeviceID, expiresAt *time.Time, updatedAt time.Time) error {
+func (r *Repository) SetDeviceAddressLeasesExpiry(ctx context.Context, deviceID ids.DeviceID, expiresAt *time.Time, updatedAt time.Time) error {
 	const query = `
 		UPDATE address_leases SET expires_at = ?, updated_at = ?
 		WHERE device_id = ?

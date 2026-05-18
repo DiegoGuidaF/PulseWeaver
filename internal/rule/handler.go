@@ -8,6 +8,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
@@ -28,7 +29,7 @@ func NewHTTPHandler(ruleService *Service, logger *slog.Logger) *HTTPHandler {
 // GetDeviceAddressLeaseRule returns the device address lease rule for the device.
 func (h *HTTPHandler) GetDeviceAddressLeaseRule(ctx context.Context, request httpapi.GetDeviceAddressLeaseRuleRequestObject) (httpapi.GetDeviceAddressLeaseRuleResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetDeviceAddressLeaseRule")
-	deviceID := device.DeviceID(request.DeviceId)
+	deviceID := ids.DeviceID(request.DeviceId)
 	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	addressLeaseRule, err := h.ruleService.GetDeviceAddressLeaseRule(ctx, deviceID)
@@ -52,7 +53,7 @@ func (h *HTTPHandler) GetDeviceAddressLeaseRule(ctx context.Context, request htt
 // PutDeviceAddressLeaseRule creates or updates the device address lease rule for the device.
 func (h *HTTPHandler) PutDeviceAddressLeaseRule(ctx context.Context, request httpapi.PutDeviceAddressLeaseRuleRequestObject) (httpapi.PutDeviceAddressLeaseRuleResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "PutDeviceAddressLeaseRule")
-	deviceID := device.DeviceID(request.DeviceId)
+	deviceID := ids.DeviceID(request.DeviceId)
 	ttlSeconds := request.Body.TtlSeconds
 	logger := h.logger.With(
 		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
@@ -82,7 +83,7 @@ func (h *HTTPHandler) PutDeviceAddressLeaseRule(ctx context.Context, request htt
 // DisableDeviceAddressLeaseRule disables the device address lease rule for the device.
 func (h *HTTPHandler) DisableDeviceAddressLeaseRule(ctx context.Context, request httpapi.DisableDeviceAddressLeaseRuleRequestObject) (httpapi.DisableDeviceAddressLeaseRuleResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "DisableDeviceAddressLeaseRule")
-	deviceID := device.DeviceID(request.DeviceId)
+	deviceID := ids.DeviceID(request.DeviceId)
 	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	rule, err := h.ruleService.DisableDeviceAddressLeaseRule(ctx, deviceID)
@@ -115,7 +116,7 @@ func (r *DeviceAddressLeaseRule) toResponse() httpapi.DeviceAddressLeaseRule {
 // GetMaxActiveAddressesRule returns the max active addresses rule for the device.
 func (h *HTTPHandler) GetMaxActiveAddressesRule(ctx context.Context, request httpapi.GetMaxActiveAddressesRuleRequestObject) (httpapi.GetMaxActiveAddressesRuleResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetMaxActiveAddressesRule")
-	deviceID := device.DeviceID(request.DeviceId)
+	deviceID := ids.DeviceID(request.DeviceId)
 	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	rule, err := h.ruleService.GetMaxActiveAddressesRule(ctx, deviceID)
@@ -139,7 +140,7 @@ func (h *HTTPHandler) GetMaxActiveAddressesRule(ctx context.Context, request htt
 // PutMaxActiveAddressesRule creates or updates the max active addresses rule for the device.
 func (h *HTTPHandler) PutMaxActiveAddressesRule(ctx context.Context, request httpapi.PutMaxActiveAddressesRuleRequestObject) (httpapi.PutMaxActiveAddressesRuleResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "PutMaxActiveAddressesRule")
-	deviceID := device.DeviceID(request.DeviceId)
+	deviceID := ids.DeviceID(request.DeviceId)
 	maxAddresses := request.Body.MaxAddresses
 	logger := h.logger.With(
 		slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
@@ -169,7 +170,7 @@ func (h *HTTPHandler) PutMaxActiveAddressesRule(ctx context.Context, request htt
 // DisableMaxActiveAddressesRule disables the max active addresses rule for the device.
 func (h *HTTPHandler) DisableMaxActiveAddressesRule(ctx context.Context, request httpapi.DisableMaxActiveAddressesRuleRequestObject) (httpapi.DisableMaxActiveAddressesRuleResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "DisableMaxActiveAddressesRule")
-	deviceID := device.DeviceID(request.DeviceId)
+	deviceID := ids.DeviceID(request.DeviceId)
 	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	rule, err := h.ruleService.DisableMaxActiveAddressesRule(ctx, deviceID)

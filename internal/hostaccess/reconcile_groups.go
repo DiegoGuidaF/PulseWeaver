@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/slicex"
 )
 
@@ -12,12 +13,12 @@ import (
 // a reconcile request. A nil ID marks a brand-new group; a non-nil ID must
 // match an existing group or the reconcile fails with ErrHostGroupNotFound.
 type DesiredHostGroup struct {
-	ID          *HostGroupID
+	ID          *ids.HostGroupID
 	Name        string
-	Color       *string
+	Color       string
+	Icon        string
 	Description *string
-	Icon        *string
-	HostIDs     []KnownHostID
+	HostIDs     []ids.KnownHostID
 }
 
 // prepare normalises and validates a single desired group: trims the name,
@@ -49,7 +50,7 @@ func (in *ReconcileHostGroupsInput) prepare() error {
 		}
 	}
 
-	seenIDs := make(map[HostGroupID]struct{}, len(in.Groups))
+	seenIDs := make(map[ids.HostGroupID]struct{}, len(in.Groups))
 	for i := range in.Groups {
 		g := in.Groups[i]
 		if g.ID != nil {
@@ -68,17 +69,17 @@ func (in *ReconcileHostGroupsInput) prepare() error {
 type groupReconcilePlan struct {
 	toCreate []HostGroupDraft
 	toUpdate []HostGroup
-	toDelete []HostGroupID
+	toDelete []ids.HostGroupID
 }
 
 // HostGroupDraft is the minimum shape needed to insert a new host_groups row
 // plus its members in a single repository call.
 type HostGroupDraft struct {
 	Name        string
-	Color       *string
+	Color       string
+	Icon        string
 	Description *string
-	Icon        *string
-	HostIDs     []KnownHostID
+	HostIDs     []ids.KnownHostID
 }
 
 // ReconcileHostGroups makes the database converge to the desired image of
@@ -149,12 +150,12 @@ func (s *Service) ReconcileHostGroups(ctx context.Context, in ReconcileHostGroup
 // group whose ID is unknown returns ErrHostGroupNotFound. A desired group
 // whose definition matches the current one is silently skipped.
 func buildGroupReconcilePlan(current []HostGroup, desired []DesiredHostGroup) (groupReconcilePlan, error) {
-	currentByID := make(map[HostGroupID]HostGroup, len(current))
+	currentByID := make(map[ids.HostGroupID]HostGroup, len(current))
 	for _, g := range current {
 		currentByID[g.ID] = g
 	}
 
-	desiredIDs := make(map[HostGroupID]struct{})
+	desiredIDs := make(map[ids.HostGroupID]struct{})
 	var plan groupReconcilePlan
 
 	for _, g := range desired {
@@ -204,7 +205,7 @@ func buildGroupReconcilePlan(current []HostGroup, desired []DesiredHostGroup) (g
 // without having to discriminate between "host not found" (data) and
 // "reference not found" (constraint).
 func (s *Service) validateReferencedHosts(ctx context.Context, groups []DesiredHostGroup) error {
-	hostSet := make(map[KnownHostID]struct{})
+	hostSet := make(map[ids.KnownHostID]struct{})
 	for _, g := range groups {
 		for _, id := range g.HostIDs {
 			hostSet[id] = struct{}{}
@@ -215,22 +216,22 @@ func (s *Service) validateReferencedHosts(ctx context.Context, groups []DesiredH
 		return nil
 	}
 
-	ids := make([]KnownHostID, 0, len(hostSet))
+	hostIDs := make([]ids.KnownHostID, 0, len(hostSet))
 	for id := range hostSet {
-		ids = append(ids, id)
+		hostIDs = append(hostIDs, id)
 	}
 
-	hosts, err := s.repo.ListKnownHostsByIDs(ctx, ids)
+	hosts, err := s.repo.ListKnownHostsByIDs(ctx, hostIDs)
 	if err != nil {
 		return err
 	}
 
-	found := make(map[KnownHostID]struct{}, len(hosts))
+	found := make(map[ids.KnownHostID]struct{}, len(hosts))
 	for _, h := range hosts {
 		found[h.ID] = struct{}{}
 	}
 
-	for _, id := range ids {
+	for _, id := range hostIDs {
 		if _, ok := found[id]; !ok {
 			return fmt.Errorf("%w: known_host_id=%d", ErrReferenceNotFound, id)
 		}

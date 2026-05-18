@@ -10,14 +10,15 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/matryer/is"
 )
 
 func TestService_Initialize_PopulatesCache(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "192.168.1.1", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
-		{IP: "10.0.0.1", DeviceID: device.DeviceID(2), AddressID: device.AddressID(2)},
+		{IP: "192.168.1.1", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
+		{IP: "10.0.0.1", DeviceID: ids.DeviceID(2), AddressID: ids.AddressID(2)},
 	}}
 	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "secret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
@@ -42,7 +43,7 @@ func TestService_Initialize_PropagatesError(t *testing.T) {
 func TestService_AddDecisionObserver_NilIgnored(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+		{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
 	}}
 	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
@@ -54,7 +55,7 @@ func TestService_AddDecisionObserver_NilIgnored(t *testing.T) {
 func TestService_NotifyDecisionObservers_AllowEvent(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: device.DeviceID(10), AddressID: device.AddressID(20)},
+		{IP: "1.2.3.4", DeviceID: ids.DeviceID(10), AddressID: ids.AddressID(20)},
 	}}
 	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
@@ -86,7 +87,7 @@ func TestService_NotifyDecisionObservers_AllowEvent(t *testing.T) {
 func TestService_NotifyDecisionObservers_DenyInvalidToken(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+		{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
 	}}
 	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
@@ -114,7 +115,7 @@ func TestService_NotifyDecisionObservers_DenyInvalidToken(t *testing.T) {
 func TestService_NotifyDecisionObservers_DenyIPNotRegistered(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
-		{IP: "1.2.3.4", DeviceID: device.DeviceID(1), AddressID: device.AddressID(1)},
+		{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
 	}}
 	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)

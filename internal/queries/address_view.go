@@ -5,21 +5,21 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 type AddressView struct {
-	ID        device.AddressID `db:"id"`
-	DeviceID  device.DeviceID  `db:"device_id"`
-	IP        string           `db:"ip"`
-	IsEnabled bool             `db:"is_enabled"`
-	Source    string           `db:"source"`
-	UpdatedAt time.Time        `db:"updated_at"`
-	CreatedAt time.Time        `db:"created_at"`
-	ExpiresAt *time.Time       `db:"expires_at"`
+	ID        ids.AddressID `db:"id"`
+	DeviceID  ids.DeviceID  `db:"device_id"`
+	IP        string        `db:"ip"`
+	IsEnabled bool          `db:"is_enabled"`
+	Source    string        `db:"source"`
+	UpdatedAt time.Time     `db:"updated_at"`
+	CreatedAt time.Time     `db:"created_at"`
+	ExpiresAt *time.Time    `db:"expires_at"`
 }
 
-func (r *Repository) GetDeviceAddresses(ctx context.Context, deviceID device.DeviceID) ([]AddressView, error) {
+func (r *Repository) GetDeviceAddresses(ctx context.Context, deviceID ids.DeviceID) ([]AddressView, error) {
 	var addresses []AddressView
 
 	const query = `

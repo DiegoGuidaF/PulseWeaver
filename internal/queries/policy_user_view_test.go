@@ -6,8 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/matryer/is"
 )
@@ -15,21 +14,21 @@ import (
 // ── helpers ────────────────────────────────────────────────────────────────────
 
 var (
-	userAlice   = auth.UserID(1)
-	userBob     = auth.UserID(2)
-	userCharlie = auth.UserID(3) // no-access user
+	userAlice   = ids.UserID(1)
+	userBob     = ids.UserID(2)
+	userCharlie = ids.UserID(3) // no-access user
 
-	devAlice1  = device.DeviceID(10)
-	devAlice2  = device.DeviceID(11)
-	devBob1    = device.DeviceID(20)
-	addrAlice1 = device.AddressID(100)
-	addrAlice2 = device.AddressID(101)
-	addrBob1   = device.AddressID(200)
+	devAlice1  = ids.DeviceID(10)
+	devAlice2  = ids.DeviceID(11)
+	devBob1    = ids.DeviceID(20)
+	addrAlice1 = ids.AddressID(100)
+	addrAlice2 = ids.AddressID(101)
+	addrBob1   = ids.AddressID(200)
 
 	baseTime = time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 )
 
-func makeEnrichment(addressID device.AddressID, deviceID device.DeviceID, deviceName string, userID auth.UserID, userName string, updatedAt time.Time) policyEnrichmentRow {
+func makeEnrichment(addressID ids.AddressID, deviceID ids.DeviceID, deviceName string, userID ids.UserID, userName string, updatedAt time.Time) policyEnrichmentRow {
 	return policyEnrichmentRow{
 		AddressID:        addressID,
 		AddressUpdatedAt: updatedAt,
@@ -68,7 +67,7 @@ func TestAssemblePolicyUserMap_SingleUser(t *testing.T) {
 		},
 	}
 
-	enrichment := map[device.AddressID]policyEnrichmentRow{
+	enrichment := map[ids.AddressID]policyEnrichmentRow{
 		addrAlice1: makeEnrichment(addrAlice1, devAlice1, "alice-device", userAlice, "Alice", baseTime),
 	}
 
@@ -76,7 +75,7 @@ func TestAssemblePolicyUserMap_SingleUser(t *testing.T) {
 		{UserID: userAlice, UserName: "Alice", BypassAllowlist: false},
 	}
 
-	allowedHosts := map[auth.UserID][]string{
+	allowedHosts := map[ids.UserID][]string{
 		userAlice: {"a.com", "b.com"},
 	}
 
@@ -129,7 +128,7 @@ func TestAssemblePolicyUserMap_TwoDevicesSameNAT(t *testing.T) {
 		},
 	}
 
-	enrichment := map[device.AddressID]policyEnrichmentRow{
+	enrichment := map[ids.AddressID]policyEnrichmentRow{
 		addrAlice1: makeEnrichment(addrAlice1, devAlice1, "alice-dev-1", userAlice, "Alice", baseTime),
 		addrAlice2: makeEnrichment(addrAlice2, devAlice2, "alice-dev-2", userAlice, "Alice", baseTime.Add(time.Minute)),
 	}
@@ -138,7 +137,7 @@ func TestAssemblePolicyUserMap_TwoDevicesSameNAT(t *testing.T) {
 		{UserID: userAlice, UserName: "Alice"},
 	}
 
-	result := assemblePolicyUserMap(snap, enrichment, allUsers, map[auth.UserID][]string{
+	result := assemblePolicyUserMap(snap, enrichment, allUsers, map[ids.UserID][]string{
 		userAlice: {"a.com"},
 	})
 
@@ -179,7 +178,7 @@ func TestAssemblePolicyUserMap_TwoUsersSharedIP_IntersectionTrims(t *testing.T) 
 		},
 	}
 
-	enrichment := map[device.AddressID]policyEnrichmentRow{
+	enrichment := map[ids.AddressID]policyEnrichmentRow{
 		addrAlice1: makeEnrichment(addrAlice1, devAlice1, "alice-dev", userAlice, "Alice", baseTime),
 		addrBob1:   makeEnrichment(addrBob1, devBob1, "bob-dev", userBob, "Bob", baseTime),
 	}
@@ -190,7 +189,7 @@ func TestAssemblePolicyUserMap_TwoUsersSharedIP_IntersectionTrims(t *testing.T) 
 		{UserID: userBob, UserName: "Bob", Username: "bob"},
 	}
 
-	allowedHosts := map[auth.UserID][]string{
+	allowedHosts := map[ids.UserID][]string{
 		userAlice: {"a.com", "b.com"},
 		userBob:   {"a.com"},
 	}
@@ -248,7 +247,7 @@ func TestAssemblePolicyUserMap_BypassUserOnSharedIP(t *testing.T) {
 		},
 	}
 
-	enrichment := map[device.AddressID]policyEnrichmentRow{
+	enrichment := map[ids.AddressID]policyEnrichmentRow{
 		addrAlice1: makeEnrichment(addrAlice1, devAlice1, "alice-dev", userAlice, "Alice", baseTime),
 		addrBob1:   makeEnrichment(addrBob1, devBob1, "bob-dev", userBob, "Bob", baseTime),
 	}
@@ -258,7 +257,7 @@ func TestAssemblePolicyUserMap_BypassUserOnSharedIP(t *testing.T) {
 		{UserID: userBob, UserName: "Bob", BypassAllowlist: false},
 	}
 
-	result := assemblePolicyUserMap(snap, enrichment, allUsers, map[auth.UserID][]string{
+	result := assemblePolicyUserMap(snap, enrichment, allUsers, map[ids.UserID][]string{
 		userAlice: {},
 		userBob:   {"a.com"},
 	})
@@ -297,11 +296,11 @@ func TestAssemblePolicyUserMap_NoAccessUser(t *testing.T) {
 		{UserID: userCharlie, UserName: "Charlie", BypassAllowlist: false},
 	}
 
-	allowedHosts := map[auth.UserID][]string{
+	allowedHosts := map[ids.UserID][]string{
 		userCharlie: {"x.com", "y.com"},
 	}
 
-	result := assemblePolicyUserMap(snap, map[device.AddressID]policyEnrichmentRow{}, allUsers, allowedHosts)
+	result := assemblePolicyUserMap(snap, map[ids.AddressID]policyEnrichmentRow{}, allUsers, allowedHosts)
 
 	is.Equal(len(result.Users), 1)
 	charlie := result.Users[0]
@@ -321,8 +320,8 @@ func TestAssemblePolicyUserMap_NoAccessUser(t *testing.T) {
 func TestAssemblePolicyUserMap_SortOrder(t *testing.T) {
 	is := is.New(t)
 
-	addrZ := device.AddressID(300)
-	addrA := device.AddressID(301)
+	addrZ := ids.AddressID(300)
+	addrA := ids.AddressID(301)
 
 	snap := policy.PolicyMapSnapshot{
 		Entries: []policy.PolicyMapEntry{
@@ -335,7 +334,7 @@ func TestAssemblePolicyUserMap_SortOrder(t *testing.T) {
 		},
 	}
 
-	enrichment := map[device.AddressID]policyEnrichmentRow{
+	enrichment := map[ids.AddressID]policyEnrichmentRow{
 		addrZ: makeEnrichment(addrZ, devAlice1, "dev-z", userAlice, "Alice", baseTime),
 		addrA: makeEnrichment(addrA, devAlice2, "dev-a", userAlice, "Alice", baseTime),
 	}
@@ -346,7 +345,7 @@ func TestAssemblePolicyUserMap_SortOrder(t *testing.T) {
 		{UserID: userBob, UserName: "Bob"},
 	}
 
-	result := assemblePolicyUserMap(snap, enrichment, allUsers, map[auth.UserID][]string{})
+	result := assemblePolicyUserMap(snap, enrichment, allUsers, map[ids.UserID][]string{})
 
 	// Users sorted alphabetically.
 	is.Equal(result.Users[0].UserName, "Alice")
@@ -378,13 +377,13 @@ func TestAssemblePolicyUserMap_FullIPBypass(t *testing.T) {
 		},
 	}
 
-	enrichment := map[device.AddressID]policyEnrichmentRow{
+	enrichment := map[ids.AddressID]policyEnrichmentRow{
 		addrAlice1: makeEnrichment(addrAlice1, devAlice1, "alice-dev", userAlice, "Alice", baseTime),
 	}
 
 	result := assemblePolicyUserMap(snap, enrichment,
 		[]policyAuditUserRow{{UserID: userAlice, UserName: "Alice"}},
-		map[auth.UserID][]string{},
+		map[ids.UserID][]string{},
 	)
 
 	is.Equal(len(result.Users), 1)
@@ -399,7 +398,7 @@ func TestAssemblePolicyUserMap_FullIPBypass(t *testing.T) {
 func TestAssemblePolicyUserMap_DeviceDeduplicationAcrossIPs(t *testing.T) {
 	is := is.New(t)
 
-	addrAlice3 := device.AddressID(102) // second address for devAlice1, different IP
+	addrAlice3 := ids.AddressID(102) // second address for devAlice1, different IP
 
 	snap := policy.PolicyMapSnapshot{
 		Entries: []policy.PolicyMapEntry{
@@ -412,14 +411,14 @@ func TestAssemblePolicyUserMap_DeviceDeduplicationAcrossIPs(t *testing.T) {
 		},
 	}
 
-	enrichment := map[device.AddressID]policyEnrichmentRow{
+	enrichment := map[ids.AddressID]policyEnrichmentRow{
 		addrAlice1: makeEnrichment(addrAlice1, devAlice1, "alice-dev", userAlice, "Alice", baseTime),
 		addrAlice3: makeEnrichment(addrAlice3, devAlice1, "alice-dev", userAlice, "Alice", baseTime),
 	}
 
 	result := assemblePolicyUserMap(snap, enrichment,
 		[]policyAuditUserRow{{UserID: userAlice, UserName: "Alice"}},
-		map[auth.UserID][]string{},
+		map[ids.UserID][]string{},
 	)
 
 	alice := result.Users[0]
@@ -434,9 +433,9 @@ func TestAssemblePolicyUserMap_NoAccessBypassUser(t *testing.T) {
 
 	result := assemblePolicyUserMap(
 		policy.PolicyMapSnapshot{},
-		map[device.AddressID]policyEnrichmentRow{},
+		map[ids.AddressID]policyEnrichmentRow{},
 		[]policyAuditUserRow{{UserID: userCharlie, UserName: "Charlie", BypassAllowlist: true}},
-		map[auth.UserID][]string{userCharlie: {"x.com", "y.com"}},
+		map[ids.UserID][]string{userCharlie: {"x.com", "y.com"}},
 	)
 
 	charlie := result.Users[0]
@@ -475,7 +474,7 @@ func TestAssemblePolicyUserMap_Aggregates(t *testing.T) {
 		},
 	}
 
-	enrichment := map[device.AddressID]policyEnrichmentRow{
+	enrichment := map[ids.AddressID]policyEnrichmentRow{
 		addrAlice1: makeEnrichment(addrAlice1, devAlice1, "alice-dev-1", userAlice, "Alice", baseTime),
 		addrAlice2: makeEnrichment(addrAlice2, devAlice2, "alice-dev-2", userAlice, "Alice", baseTime),
 		addrBob1:   makeEnrichment(addrBob1, devBob1, "bob-dev", userBob, "Bob", baseTime),
@@ -486,7 +485,7 @@ func TestAssemblePolicyUserMap_Aggregates(t *testing.T) {
 		{UserID: userBob, UserName: "Bob", Username: "bob", IsAdmin: false},
 	}
 
-	result := assemblePolicyUserMap(snap, enrichment, allUsers, map[auth.UserID][]string{})
+	result := assemblePolicyUserMap(snap, enrichment, allUsers, map[ids.UserID][]string{})
 
 	// Aggregate assertions.
 	is.Equal(result.TotalIpCount, 2)     // "10.0.0.1" and "10.0.0.2"
@@ -524,7 +523,7 @@ func TestBuildIPIndex_SkipsAbsentEnrichment(t *testing.T) {
 		},
 	}
 
-	byUser, usersAtIP := buildIPIndex(snap, map[device.AddressID]policyEnrichmentRow{})
+	byUser, usersAtIP := buildIPIndex(snap, map[ids.AddressID]policyEnrichmentRow{})
 
 	is.Equal(len(byUser), 0)
 	is.Equal(len(usersAtIP["1.2.3.4"]), 0)
@@ -544,7 +543,7 @@ func TestBuildIPIndex_UsersAtIPTracking(t *testing.T) {
 		},
 	}
 
-	enrichment := map[device.AddressID]policyEnrichmentRow{
+	enrichment := map[ids.AddressID]policyEnrichmentRow{
 		addrAlice1: makeEnrichment(addrAlice1, devAlice1, "alice-dev", userAlice, "Alice", baseTime),
 		addrBob1:   makeEnrichment(addrBob1, devBob1, "bob-dev", userBob, "Bob", baseTime),
 	}
@@ -579,7 +578,7 @@ func TestBuildIPIndex_MultipleAddressesSameUserIP(t *testing.T) {
 		},
 	}
 
-	enrichment := map[device.AddressID]policyEnrichmentRow{
+	enrichment := map[ids.AddressID]policyEnrichmentRow{
 		addrAlice1: makeEnrichment(addrAlice1, devAlice1, "alice-dev-1", userAlice, "Alice", baseTime),
 		addrAlice2: makeEnrichment(addrAlice2, devAlice2, "alice-dev-2", userAlice, "Alice", baseTime.Add(time.Minute)),
 	}

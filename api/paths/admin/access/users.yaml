@@ -1,0 +1,115 @@
+users:
+  get:
+    operationId: listUsersWithAccess
+    tags: [host-access]
+    summary: List users with host access summary
+    responses:
+      "200":
+        description: User access summary list.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../../../components/schemas/users.yaml#/UserListItem'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+
+userById:
+  get:
+    operationId: getUserAccessDetail
+    tags: [host-access]
+    summary: Get full host access detail for a user
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          $ref: '../../../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: User access detail.
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/users.yaml#/UserAccessDetail'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "404":
+        description: User not found
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+
+userGrants:
+  put:
+    operationId: setUserAccess
+    tags: [host-access]
+    summary: Atomically replace a user's access grants
+    description: Replaces bypass_host_check flag and full group assignment list.
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          $ref: '../../../components/schemas/common.yaml#/ID'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/host-groups.yaml#/ModifyAccessRequest'
+    responses:
+      "204":
+        description: Successfully updated user access detail.
+      "400":
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "404":
+        description: User or referenced group not found
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
