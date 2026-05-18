@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/hostaccess"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
@@ -16,7 +16,7 @@ import (
 
 type repoFixture struct {
 	repo   *networkpolicies.Repository
-	haRepo *hostaccess.Repository
+	haRepo *hosts.Repository
 }
 
 func setupRepoTest(t *testing.T) repoFixture {
@@ -26,7 +26,7 @@ func setupRepoTest(t *testing.T) repoFixture {
 	db := sqlite.DB()
 	return repoFixture{
 		repo:   networkpolicies.NewRepository(db),
-		haRepo: hostaccess.NewRepository(db),
+		haRepo: hosts.NewRepository(db),
 	}
 }
 
@@ -43,18 +43,18 @@ func insertPolicy(t *testing.T, repo *networkpolicies.Repository, name, cidr str
 	return p
 }
 
-func insertHostGroup(t *testing.T, repo *hostaccess.Repository, name string) ids.HostGroupID {
+func insertHostGroup(t *testing.T, repo *hosts.Repository, name string) ids.HostGroupID {
 	t.Helper()
-	id, err := repo.CreateHostGroup(context.Background(), hostaccess.HostGroupDraft{Name: name})
+	id, err := repo.CreateHostGroup(context.Background(), hosts.HostGroupDraft{Name: name})
 	if err != nil {
 		t.Fatalf("insertHostGroup %q: %v", name, err)
 	}
 	return id
 }
 
-func insertHostInGroup(t *testing.T, repo *hostaccess.Repository, fqdn string, groupID ids.HostGroupID) ids.HostID {
+func insertHostInGroup(t *testing.T, repo *hosts.Repository, fqdn string, groupID ids.HostGroupID) ids.HostID {
 	t.Helper()
-	hostID, err := repo.CreateHost(context.Background(), hostaccess.HostDraft{FQDN: fqdn})
+	hostID, err := repo.CreateHost(context.Background(), hosts.HostDraft{FQDN: fqdn})
 	if err != nil {
 		t.Fatalf("insertHost %q: %v", fqdn, err)
 	}

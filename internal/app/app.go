@@ -14,7 +14,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/hostaccess"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpserver"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
@@ -25,6 +25,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/registration"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/scheduler"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/useraccess"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -44,7 +45,8 @@ type App struct {
 	schedulerService       *scheduler.Service
 	accessLogSink          *accesslog.Sink
 	geoipLookup            *geoip.Lookup
-	HostAccessService      *hostaccess.Service
+	HostsService           *hosts.Service
+	UserAccessService      *useraccess.Service
 	NetworkPoliciesService *networkpolicies.Service
 }
 
@@ -119,10 +121,15 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		return nil, fmt.Errorf("geoip init: %w", err)
 	}
 
-	// Host access control
-	hostAccessRepo := hostaccess.NewRepository(db.DB())
-	hostAccessService := hostaccess.NewService(hostAccessRepo, db.Transactor(), logger)
-	hostAccessHandler := hostaccess.NewHTTPHandler(hostAccessService, logger)
+	// Hosts and host groups
+	hostsRepo := hosts.NewRepository(db.DB())
+	hostsService := hosts.NewService(hostsRepo, db.Transactor(), logger)
+	hostsHandler := hosts.NewHTTPHandler(hostsService, logger)
+
+	// User host-access grants
+	userAccessRepo := useraccess.NewRepository(db.DB())
+	userAccessService := useraccess.NewService(userAccessRepo, db.Transactor(), logger)
+	userAccessHandler := useraccess.NewHTTPHandler(userAccessService, logger)
 
 	// Network Policies
 	networkPoliciesRepo := networkpolicies.NewRepository(db.DB())
@@ -130,7 +137,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	networkPoliciesHandler := networkpolicies.NewHTTPHandler(networkPoliciesService, logger)
 
 	// Policy forward-auth sidecar
-	policyService, err := policy.NewService(deviceService, hostAccessService, geoipLookup, networkPoliciesRepo, conf.Policy.APISecret, logger, conf.Server.TrustedProxy)
+	policyService, err := policy.NewService(deviceService, userAccessService, geoipLookup, networkPoliciesRepo, conf.Policy.APISecret, logger, conf.Server.TrustedProxy)
 	if err != nil {
 		return nil, fmt.Errorf("policy service init: %w", err)
 	}
@@ -164,10 +171,11 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	deviceService.AddAddressObserver(maxAddrService)
 
 	// Register user lifecycle observer
-	authService.AddUserObserver(hostAccessService)
+	authService.AddUserObserver(userAccessService)
 
-	// Register host access observer
-	hostAccessService.AddUserHostAccessObserver(policyService)
+	// Register host/group and user-access change observers → policy cache refresh
+	hostsService.AddObserver(policyService)
+	userAccessService.AddObserver(policyService)
 
 	// Register rule change observers
 	ruleService.AddRuleObserver(addressLeaseService)
@@ -215,7 +223,8 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		accessLogHandler,
 		dashboardHandler,
 		registrationHandler,
-		hostAccessHandler,
+		hostsHandler,
+		userAccessHandler,
 		networkPoliciesHandler,
 		logger,
 		conf.Server.TrustedProxy,
@@ -236,7 +245,8 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		schedulerService:       schedulerService,
 		accessLogSink:          accessLogSink,
 		geoipLookup:            geoipLookup,
-		HostAccessService:      hostAccessService,
+		HostsService:           hostsService,
+		UserAccessService:      userAccessService,
 		NetworkPoliciesService: networkPoliciesService,
 	}, nil
 }

@@ -1,11 +1,10 @@
-package hostaccess
+package hosts
 
 import (
 	"context"
 	"errors"
 	"log/slog"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
@@ -19,7 +18,7 @@ type HTTPHandler struct {
 func NewHTTPHandler(service *Service, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{
 		service: service,
-		logger:  logger.With(slog.String(logging.AttrKeyComponent, "hostaccess")),
+		logger:  logger.With(slog.String(logging.AttrKeyComponent, "hosts")),
 	}
 }
 
@@ -32,15 +31,15 @@ func (h *HTTPHandler) ReconcileHosts(
 	in := ReconcileHostsInput{
 		Hosts: make([]DesiredHost, 0, len(req.Body.Hosts)),
 	}
-	for _, h := range req.Body.Hosts {
+	for _, item := range req.Body.Hosts {
 		desired := DesiredHost{
-			FQDN:     h.Fqdn,
-			GroupIDs: make([]ids.HostGroupID, len(h.GroupIds)),
+			FQDN:     item.Fqdn,
+			GroupIDs: make([]ids.HostGroupID, len(item.GroupIds)),
 		}
-		if h.Id != nil {
-			desired.ID = new(ids.HostID(*h.Id))
+		if item.Id != nil {
+			desired.ID = new(ids.HostID(*item.Id))
 		}
-		for i, gid := range h.GroupIds {
+		for i, gid := range item.GroupIds {
 			desired.GroupIDs[i] = ids.HostGroupID(gid)
 		}
 		in.Hosts = append(in.Hosts, desired)
@@ -109,33 +108,6 @@ func (h *HTTPHandler) ReconcileHostGroups(
 	return httpapi.ReconcileHostGroups204Response{}, nil
 }
 
-// ── User host grants ──────────────────────────────────────────────────────────
-
-func (h *HTTPHandler) SetUserAccess(
-	ctx context.Context,
-	req httpapi.SetUserAccessRequestObject,
-) (httpapi.SetUserAccessResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "SetUserHostGrants")
-	userID := ids.UserID(req.UserId)
-
-	groupIDs := make([]ids.HostGroupID, len(req.Body.GroupIds))
-	for i, id := range req.Body.GroupIds {
-		groupIDs[i] = ids.HostGroupID(id)
-	}
-
-	if err := h.service.SetUserAccess(ctx, userID, req.Body.BypassHostCheck, groupIDs); err != nil {
-		switch {
-		case errors.Is(err, ErrReferenceNotFound), errors.Is(err, auth.ErrUserNotFound):
-			return httpapi.SetUserAccess404JSONResponse(errResp("User or one of the referenced hosts/groups not found")), nil
-		default:
-			h.logger.ErrorContext(ctx, "set user host grants failed", slog.Any(logging.AttrKeyError, err))
-			return httpapi.SetUserAccess500JSONResponse(errResp("Failed to set user grants")), nil
-		}
-	}
-
-	return httpapi.SetUserAccess204Response{}, nil
-}
-
 func (h *HTTPHandler) IgnoreSuggestion(
 	ctx context.Context,
 	req httpapi.IgnoreSuggestionRequestObject,
@@ -173,7 +145,6 @@ func (h *HTTPHandler) UnignoreSuggestion(
 	return httpapi.UnignoreSuggestion204Response{}, nil
 }
 
-// ── DTO mappers ───────────────────────────────────────────────────────────────
 func errResp(msg string) httpapi.ErrorResponse {
 	return httpapi.ErrorResponse{Error: &msg}
 }

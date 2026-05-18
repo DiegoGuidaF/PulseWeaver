@@ -22,7 +22,8 @@ func NewServer(
 	accessLogHandler *AccessLogHandler,
 	dashboardHandler *DashboardHandler,
 	registrationHandler *RegistrationHandler,
-	hostAccessHandler *HostAccessHandler,
+	hostsHandler *HostsHandler,
+	userAccessHandler *UserAccessHandler,
 	networkPoliciesHandler *NetworkPoliciesHandler,
 	logger *slog.Logger,
 	trustedProxy netip.Addr,
@@ -54,7 +55,7 @@ func NewServer(
 	r.Use(middleware.SetHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()"))
 	r.Use(MaxBodySizeMiddleware(256 * 1024)) // 256KB
 
-	addRoutes(r, deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, accessLogHandler, dashboardHandler, registrationHandler, hostAccessHandler, networkPoliciesHandler, logger)
+	addRoutes(r, deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, accessLogHandler, dashboardHandler, registrationHandler, hostsHandler, userAccessHandler, networkPoliciesHandler, logger)
 
 	return r
 }

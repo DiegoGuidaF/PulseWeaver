@@ -1,4 +1,4 @@
-package hostaccess
+package hosts
 
 import "time"
 

@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/hostaccess"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
@@ -66,17 +66,17 @@ func TestHandler_ListUsersHostAccess_EffectiveCountCombinesDirectAndGroup(t *tes
 	adminCookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
 	principal := testutils.AdminPrincipal(t, srv)
 
-	createHostInput := hostaccess.ReconcileHostsInput{Hosts: []hostaccess.DesiredHost{
+	createHostInput := hosts.ReconcileHostsInput{Hosts: []hosts.DesiredHost{
 		{FQDN: "h1.example.com"}, // Should get ID 1
 		{FQDN: "h2.example.com"}, // Should get ID 2
 	}}
 
 	// Create two hosts.
-	err := srv.HostAccessService.ReconcileHosts(t.Context(), createHostInput)
+	err := srv.HostsService.ReconcileHosts(t.Context(), createHostInput)
 	is.NoErr(err)
 
 	// Create a group containing only h2.
-	err = srv.HostAccessService.ReconcileHostGroups(t.Context(), hostaccess.ReconcileHostGroupsInput{Groups: []hostaccess.DesiredHostGroup{
+	err = srv.HostsService.ReconcileHostGroups(t.Context(), hosts.ReconcileHostGroupsInput{Groups: []hosts.DesiredHostGroup{
 		{Name: "G1", HostIDs: []ids.HostID{2}},
 	}})
 	is.NoErr(err)
@@ -86,7 +86,7 @@ func TestHandler_ListUsersHostAccess_EffectiveCountCombinesDirectAndGroup(t *tes
 	is.NoErr(err)
 
 	// Grant alice group G1 (which contains h2).
-	err = srv.HostAccessService.SetUserAccess(t.Context(), user.ID, false, []ids.HostGroupID{1})
+	err = srv.UserAccessService.SetUserAccess(t.Context(), user.ID, false, []ids.HostGroupID{1})
 	is.NoErr(err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/users", nil)
@@ -115,19 +115,19 @@ func TestHandler_ListUsersHostAccess_BypassShowsAllHostsAsEffective(t *testing.T
 	principal := testutils.AdminPrincipal(t, srv)
 
 	// Create three hosts.
-	createHostInput := hostaccess.ReconcileHostsInput{Hosts: []hostaccess.DesiredHost{
+	createHostInput := hosts.ReconcileHostsInput{Hosts: []hosts.DesiredHost{
 		{FQDN: "a.example.com"},
 		{FQDN: "b.example.com"},
 		{FQDN: "c.example.com"},
 	}}
-	err := srv.HostAccessService.ReconcileHosts(t.Context(), createHostInput)
+	err := srv.HostsService.ReconcileHosts(t.Context(), createHostInput)
 	is.NoErr(err)
 
 	// Create a bypass user with no explicit grants.
 	user, err := srv.AuthService.CreateUser(t.Context(), "charlie", "Charlie", "charlie@example.com", principal)
 	is.NoErr(err)
 
-	err = srv.HostAccessService.SetUserAccess(t.Context(), user.ID, true, nil)
+	err = srv.UserAccessService.SetUserAccess(t.Context(), user.ID, true, nil)
 	is.NoErr(err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/users", nil)
@@ -180,7 +180,7 @@ func TestHandler_GetUserHostDetails_AllGroupsReturnedRegardlessOfGrant(t *testin
 	principal := testutils.AdminPrincipal(t, srv)
 
 	// Create two groups; only grant one.
-	err := srv.HostAccessService.ReconcileHostGroups(t.Context(), hostaccess.ReconcileHostGroupsInput{Groups: []hostaccess.DesiredHostGroup{
+	err := srv.HostsService.ReconcileHostGroups(t.Context(), hosts.ReconcileHostGroupsInput{Groups: []hosts.DesiredHostGroup{
 		{Name: "Granted"},
 		{Name: "Ungranted"},
 	}})
@@ -188,7 +188,7 @@ func TestHandler_GetUserHostDetails_AllGroupsReturnedRegardlessOfGrant(t *testin
 
 	user, err := srv.AuthService.CreateUser(t.Context(), "dana", "Dana", "dana@example.com", principal)
 	is.NoErr(err)
-	err = srv.HostAccessService.SetUserAccess(t.Context(), user.ID, false, []ids.HostGroupID{1})
+	err = srv.UserAccessService.SetUserAccess(t.Context(), user.ID, false, []ids.HostGroupID{1})
 	is.NoErr(err)
 
 	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/admin/access/users/%d", user.ID), nil)
@@ -230,19 +230,19 @@ func TestHandler_ListHostGroups_HappyPath(t *testing.T) {
 	adminCookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
 	principal := testutils.AdminPrincipal(t, srv)
 
-	err := srv.HostAccessService.ReconcileHosts(t.Context(), hostaccess.ReconcileHostsInput{
-		Hosts: []hostaccess.DesiredHost{{FQDN: "app.example.com"}},
+	err := srv.HostsService.ReconcileHosts(t.Context(), hosts.ReconcileHostsInput{
+		Hosts: []hosts.DesiredHost{{FQDN: "app.example.com"}},
 	})
 	is.NoErr(err)
 
-	err = srv.HostAccessService.ReconcileHostGroups(t.Context(), hostaccess.ReconcileHostGroupsInput{
-		Groups: []hostaccess.DesiredHostGroup{{Name: "backend", HostIDs: []ids.HostID{1}}},
+	err = srv.HostsService.ReconcileHostGroups(t.Context(), hosts.ReconcileHostGroupsInput{
+		Groups: []hosts.DesiredHostGroup{{Name: "backend", HostIDs: []ids.HostID{1}}},
 	})
 	is.NoErr(err)
 
 	user, err := srv.AuthService.CreateUser(t.Context(), "alice", "Alice", "alice@example.com", principal)
 	is.NoErr(err)
-	err = srv.HostAccessService.SetUserAccess(t.Context(), user.ID, false, []ids.HostGroupID{1})
+	err = srv.UserAccessService.SetUserAccess(t.Context(), user.ID, false, []ids.HostGroupID{1})
 	is.NoErr(err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/host-groups", nil)

@@ -1,6 +1,6 @@
 //go:build test
 
-package hostaccess
+package hosts
 
 import (
 	"context"
@@ -18,8 +18,8 @@ func TestService_ReconcileHostGroups_NotifiesObserversOnce(t *testing.T) {
 		hostGroups: []HostGroup{{ID: 1, Name: "old"}},
 		hostsByID:  nil,
 	}
-	svc, _ := newTestService(repo)
-	svc.AddUserHostAccessObserver(obs)
+	svc := newTestService(repo)
+	svc.AddObserver(obs)
 
 	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
 		Groups: []DesiredHostGroup{{Name: "new"}},
@@ -37,7 +37,7 @@ func TestService_ReconcileHostGroups_DeleteThenUpdateThenCreate(t *testing.T) {
 			{ID: 2, Name: "to-delete"},
 		},
 	}
-	svc, _ := newTestService(repo)
+	svc := newTestService(repo)
 
 	id1 := ids.HostGroupID(1)
 	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
@@ -55,8 +55,8 @@ func TestService_ReconcileHostGroups_NoOp_NoCalls(t *testing.T) {
 	obs := &mockObserver{}
 	current := HostGroup{ID: 1, Name: "stable"}
 	repo := &fakeRepo{hostGroups: []HostGroup{current}}
-	svc, _ := newTestService(repo)
-	svc.AddUserHostAccessObserver(obs)
+	svc := newTestService(repo)
+	svc.AddObserver(obs)
 
 	id := current.ID
 	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
@@ -71,7 +71,7 @@ func TestService_ReconcileHostGroups_NoOp_NoCalls(t *testing.T) {
 func TestService_ReconcileHostGroups_EmptyName_Rejected(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepo{}
-	svc, _ := newTestService(repo)
+	svc := newTestService(repo)
 
 	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
 		Groups: []DesiredHostGroup{{Name: "  "}},
@@ -83,7 +83,7 @@ func TestService_ReconcileHostGroups_EmptyName_Rejected(t *testing.T) {
 func TestService_ReconcileHostGroups_DuplicateID_Rejected(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepo{}
-	svc, _ := newTestService(repo)
+	svc := newTestService(repo)
 
 	id := ids.HostGroupID(7)
 	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{

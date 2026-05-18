@@ -27,7 +27,7 @@ type EnabledIPsProvider interface {
 }
 
 // HostAccessProvider is the cross-domain interface for host-level access grants.
-// Implemented by hostaccess.Service.
+// Implemented by useraccess.Service.
 type HostAccessProvider interface {
 	GetAllUserHostAccess(ctx context.Context) ([]UserHostAccess, error)
 }

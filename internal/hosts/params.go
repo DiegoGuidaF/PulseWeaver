@@ -1,13 +1,9 @@
-package hostaccess
+package hosts
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
-
-// ErrBadRequest is a sentinel wrapping input-validation failures that handlers should map to HTTP 400.
-var ErrBadRequest = errors.New("bad request")
 
 // ValidateFQDN checks that s is a well-formed hostname per RFC 1123.
 // It expects the input to already be lowercased/trimmed (NormaliseFQDN does this).

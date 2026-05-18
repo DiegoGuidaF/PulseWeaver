@@ -1,6 +1,6 @@
 //go:build test
 
-package hostaccess
+package hosts
 
 import (
 	"context"
@@ -61,9 +61,8 @@ func TestBuildHostReconcilePlan_Mixed(t *testing.T) {
 	}
 	id1 := ids.HostID(1)
 	plan, err := buildHostReconcilePlan(current, []DesiredHost{
-		{ID: &id1, FQDN: "keep.com"}, // no-op for content; sets groups
-		{FQDN: "fresh.com"},          // create
-		// ID 3 absent → delete
+		{ID: &id1, FQDN: "keep.com"},
+		{FQDN: "fresh.com"},
 	})
 	is.NoErr(err)
 	is.Equal(len(plan.toCreate), 1)
@@ -122,8 +121,8 @@ func TestService_ReconcileHosts_NotifiesObserversOnce(t *testing.T) {
 	is := is.New(t)
 	obs := &mockObserver{}
 	repo := &fakeRepo{hosts: []Host{{ID: 1, FQDN: "old.com"}}}
-	svc, _ := newTestService(repo)
-	svc.AddUserHostAccessObserver(obs)
+	svc := newTestService(repo)
+	svc.AddObserver(obs)
 
 	err := svc.ReconcileHosts(context.Background(), ReconcileHostsInput{
 		Hosts: []DesiredHost{{FQDN: "new.example.com"}},
@@ -136,14 +135,13 @@ func TestService_ReconcileHosts_NoOp_StillNotifiesObservers(t *testing.T) {
 	is := is.New(t)
 	obs := &mockObserver{}
 	repo := &fakeRepo{hosts: []Host{{ID: 1, FQDN: "stable.example.com"}}}
-	svc, _ := newTestService(repo)
-	svc.AddUserHostAccessObserver(obs)
+	svc := newTestService(repo)
+	svc.AddObserver(obs)
 
 	err := svc.ReconcileHosts(context.Background(), ReconcileHostsInput{
 		Hosts: []DesiredHost{{ID: new(ids.HostID(1)), FQDN: "stable.example.com"}},
 	})
 	is.NoErr(err)
-	// No content to update; group membership is always synced.
 	is.Equal(repo.callOrder, []string{"setHostGroups"})
 	is.Equal(obs.calls, 1)
 }
@@ -155,7 +153,7 @@ func TestService_ReconcileHosts_DeleteAndCreate_Order(t *testing.T) {
 			{ID: 2, FQDN: "delete-me.example.com"},
 		},
 	}
-	svc, _ := newTestService(repo)
+	svc := newTestService(repo)
 
 	err := svc.ReconcileHosts(context.Background(), ReconcileHostsInput{
 		Hosts: []DesiredHost{
@@ -163,7 +161,6 @@ func TestService_ReconcileHosts_DeleteAndCreate_Order(t *testing.T) {
 		},
 	})
 	is.NoErr(err)
-	// delete → create new host → set groups for new host
 	is.Equal(repo.callOrder, []string{"deleteHost", "createHost", "setHostGroups"})
 }
 
@@ -175,7 +172,7 @@ func TestService_ReconcileHosts_EmptyInput_DeletesAll(t *testing.T) {
 			{ID: 2, FQDN: "b.example.com"},
 		},
 	}
-	svc, _ := newTestService(repo)
+	svc := newTestService(repo)
 
 	err := svc.ReconcileHosts(context.Background(), ReconcileHostsInput{})
 	is.NoErr(err)
@@ -185,7 +182,7 @@ func TestService_ReconcileHosts_EmptyInput_DeletesAll(t *testing.T) {
 
 func TestService_ReconcileHosts_ConflictFromCreate_Surfaces(t *testing.T) {
 	is := is.New(t)
-	svc, _ := newTestService(&createConflictRepo{})
+	svc := newTestService(&createConflictRepo{})
 
 	err := svc.ReconcileHosts(context.Background(), ReconcileHostsInput{
 		Hosts: []DesiredHost{{FQDN: "conflict.example.com"}},
@@ -193,22 +190,19 @@ func TestService_ReconcileHosts_ConflictFromCreate_Surfaces(t *testing.T) {
 	is.True(errors.Is(err, ErrHostConflict))
 }
 
-// createConflictRepo is a minimal fakeRepo where CreateHost always returns ErrHostConflict.
 type createConflictRepo struct{ fakeRepo }
 
 func (c *createConflictRepo) CreateHost(_ context.Context, _ HostDraft) (ids.HostID, error) {
 	return ids.HostID(0), ErrHostConflict
 }
-func (c *createConflictRepo) ListHosts(_ context.Context) ([]Host, error) {
-	return nil, nil // empty current list so plan always has creates
-}
+func (c *createConflictRepo) ListHosts(_ context.Context) ([]Host, error) { return nil, nil }
 
 // ── Group ID reconciliation ───────────────────────────────────────────────────
 
 func TestService_ReconcileHosts_GroupIDsSetOnCreate(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepo{}
-	svc, _ := newTestService(repo)
+	svc := newTestService(repo)
 
 	err := svc.ReconcileHosts(context.Background(), ReconcileHostsInput{
 		Hosts: []DesiredHost{
@@ -223,7 +217,7 @@ func TestService_ReconcileHosts_GroupIDsSetOnCreate(t *testing.T) {
 func TestService_ReconcileHosts_GroupIDsSetOnExisting(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepo{hosts: []Host{{ID: 1, FQDN: "host.example.com"}}}
-	svc, _ := newTestService(repo)
+	svc := newTestService(repo)
 
 	err := svc.ReconcileHosts(context.Background(), ReconcileHostsInput{
 		Hosts: []DesiredHost{
@@ -249,7 +243,7 @@ func TestService_ReconcileHosts_GroupIDsDeduplicated(t *testing.T) {
 
 func TestService_ReconcileHosts_BadGroupID_SurfacesReferenceNotFound(t *testing.T) {
 	is := is.New(t)
-	svc, _ := newTestService(&badGroupRepo{fakeRepo: fakeRepo{hosts: nil}})
+	svc := newTestService(&badGroupRepo{fakeRepo: fakeRepo{hosts: nil}})
 
 	err := svc.ReconcileHosts(context.Background(), ReconcileHostsInput{
 		Hosts: []DesiredHost{{FQDN: "new.example.com", GroupIDs: []ids.HostGroupID{999}}},
@@ -257,7 +251,6 @@ func TestService_ReconcileHosts_BadGroupID_SurfacesReferenceNotFound(t *testing.
 	is.True(errors.Is(err, ErrReferenceNotFound))
 }
 
-// badGroupRepo is a fakeRepo where SetHostGroupMembership returns ErrReferenceNotFound.
 type badGroupRepo struct{ fakeRepo }
 
 func (b *badGroupRepo) SetHostGroupMembership(_ context.Context, _ ids.HostID, _ []ids.HostGroupID) error {

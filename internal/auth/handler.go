@@ -97,7 +97,11 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUser
 		return httpapi.CreateUser401JSONResponse{}, nil
 	}
 
-	user, err := h.service.CreateUser(ctx, username, request.Body.DisplayName, string(request.Body.Email), principal)
+	email := ""
+	if request.Body.Email != nil {
+		email = string(*request.Body.Email)
+	}
+	user, err := h.service.CreateUser(ctx, username, request.Body.DisplayName, email, principal)
 
 	if err != nil {
 		if errors.Is(err, ErrUsernameTaken) {

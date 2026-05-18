@@ -25,7 +25,7 @@ func (s *Service) OnAddressEvent(_ context.Context, e device.AddressEvent) {
 	s.triggerRefresh()
 }
 
-// OnHostAccessChanged implements hostaccess.Observer.
+// OnHostAccessChanged implements hosts.Observer and useraccess.Observer.
 func (s *Service) OnHostAccessChanged(_ context.Context) {
 	s.triggerRefresh()
 }

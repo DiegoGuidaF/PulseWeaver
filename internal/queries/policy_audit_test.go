@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/hostaccess"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
@@ -131,7 +131,8 @@ func TestBuildPolicyUserMap_GroupHostsIncluded(t *testing.T) {
 
 	srv := testutils.SetupIntegrationServer(t)
 	repo := queries.NewRepository(srv.Database.DB())
-	hostRepo := hostaccess.NewRepository(srv.Database.DB())
+	hostRepo := hosts.NewRepository(srv.Database.DB())
+	userAccessRepo := srv.UserAccessService
 
 	// Create a regular user with no bypass.
 	adminPrincipal := testutils.AdminPrincipal(t, srv)
@@ -139,16 +140,16 @@ func TestBuildPolicyUserMap_GroupHostsIncluded(t *testing.T) {
 	is.NoErr(err)
 
 	// Create a host and a group containing it.
-	hostID, err := hostRepo.CreateHost(ctx, hostaccess.HostDraft{FQDN: "group-only.example.com"})
+	hostID, err := hostRepo.CreateHost(ctx, hosts.HostDraft{FQDN: "group-only.example.com"})
 	is.NoErr(err)
-	groupID, err := hostRepo.CreateHostGroup(ctx, hostaccess.HostGroupDraft{
+	groupID, err := hostRepo.CreateHostGroup(ctx, hosts.HostGroupDraft{
 		Name:    "policy-audit-test-group",
 		HostIDs: []ids.HostID{hostID},
 	})
 	is.NoErr(err)
 
 	// Grant the user only via group — no direct host grant.
-	err = hostRepo.SetUserAccess(ctx, ids.UserID(newUser.ID), false, []ids.HostGroupID{groupID})
+	err = userAccessRepo.SetUserAccess(ctx, ids.UserID(newUser.ID), false, []ids.HostGroupID{groupID})
 	is.NoErr(err)
 
 	// Empty snapshot: the user has no cache presence, so UserAllowedHosts must

@@ -1,4 +1,4 @@
-package hostaccess
+package hosts
 
 import (
 	"context"
@@ -21,16 +21,12 @@ type DesiredHostGroup struct {
 	HostIDs     []ids.HostID
 }
 
-// prepare normalises and validates a single desired group: trims the name,
-// rejects empty names, and dedups host IDs.
 func (g *DesiredHostGroup) prepare() error {
 	g.Name = strings.TrimSpace(g.Name)
 	g.HostIDs = slicex.Dedup(g.HostIDs)
-
 	if g.Name == "" {
 		return ErrGroupNameRequired
 	}
-
 	return nil
 }
 
@@ -40,16 +36,12 @@ type ReconcileHostGroupsInput struct {
 	Groups []DesiredHostGroup
 }
 
-// prepare normalises every group and rejects requests that reuse the same
-// existing group ID twice (which would make the create/update/delete plan
-// ambiguous).
 func (in *ReconcileHostGroupsInput) prepare() error {
 	for i := range in.Groups {
 		if err := in.Groups[i].prepare(); err != nil {
 			return err
 		}
 	}
-
 	seenIDs := make(map[ids.HostGroupID]struct{}, len(in.Groups))
 	for i := range in.Groups {
 		g := in.Groups[i]
@@ -60,12 +52,9 @@ func (in *ReconcileHostGroupsInput) prepare() error {
 			seenIDs[*g.ID] = struct{}{}
 		}
 	}
-
 	return nil
 }
 
-// groupReconcilePlan is the ordered set of write operations needed to converge
-// the current state to the desired state.
 type groupReconcilePlan struct {
 	toCreate []HostGroupDraft
 	toUpdate []HostGroup
@@ -122,26 +111,23 @@ func (s *Service) ReconcileHostGroups(ctx context.Context, in ReconcileHostGroup
 				return err
 			}
 		}
-
 		for _, group := range plan.toUpdate {
 			if err := s.repo.UpdateHostGroup(ctx, group); err != nil {
 				return err
 			}
 		}
-
 		for _, draft := range plan.toCreate {
 			if _, err := s.repo.CreateHostGroup(ctx, draft); err != nil {
 				return err
 			}
 		}
-
 		return nil
 	})
 	if err != nil {
 		return err
 	}
 
-	s.notifyUserHostAccessObservers(ctx)
+	s.notifyObservers(ctx)
 	return nil
 }
 
@@ -211,7 +197,6 @@ func (s *Service) validateReferencedHosts(ctx context.Context, groups []DesiredH
 			hostSet[id] = struct{}{}
 		}
 	}
-
 	if len(hostSet) == 0 {
 		return nil
 	}
@@ -221,13 +206,13 @@ func (s *Service) validateReferencedHosts(ctx context.Context, groups []DesiredH
 		hostIDs = append(hostIDs, id)
 	}
 
-	hosts, err := s.repo.ListHostsByIDs(ctx, hostIDs)
+	foundHosts, err := s.repo.ListHostsByIDs(ctx, hostIDs)
 	if err != nil {
 		return err
 	}
 
-	found := make(map[ids.HostID]struct{}, len(hosts))
-	for _, h := range hosts {
+	found := make(map[ids.HostID]struct{}, len(foundHosts))
+	for _, h := range foundHosts {
 		found[h.ID] = struct{}{}
 	}
 

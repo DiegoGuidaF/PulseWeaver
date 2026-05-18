@@ -9,7 +9,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/health"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/hostaccess"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
@@ -17,6 +17,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/registration"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ui"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/useraccess"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
@@ -30,7 +31,8 @@ type CompositeHandler struct {
 	*AccessLogHandler
 	*DashboardHandler
 	*RegistrationHandler
-	*HostAccessHandler
+	*HostsHandler
+	*UserAccessHandler
 	*PolicyHandler
 	*NetworkPoliciesHandler
 }
@@ -43,7 +45,8 @@ type PolicyHandler = policy.HTTPHandler
 type AccessLogHandler = accesslog.HTTPHandler
 type DashboardHandler = dashboard.HTTPHandler
 type RegistrationHandler = registration.HTTPHandler
-type HostAccessHandler = hostaccess.HTTPHandler
+type HostsHandler = hosts.HTTPHandler
+type UserAccessHandler = useraccess.HTTPHandler
 type NetworkPoliciesHandler = networkpolicies.HTTPHandler
 
 func addRoutes(
@@ -56,7 +59,8 @@ func addRoutes(
 	accessLogHandler *AccessLogHandler,
 	dashboardHandler *DashboardHandler,
 	registrationHandler *RegistrationHandler,
-	hostAccessHandler *HostAccessHandler,
+	hostsHandler *HostsHandler,
+	userAccessHandler *UserAccessHandler,
 	networkPoliciesHandler *NetworkPoliciesHandler,
 	logger *slog.Logger,
 ) {
@@ -68,7 +72,8 @@ func addRoutes(
 		AccessLogHandler:       accessLogHandler,
 		DashboardHandler:       dashboardHandler,
 		RegistrationHandler:    registrationHandler,
-		HostAccessHandler:      hostAccessHandler,
+		HostsHandler:           hostsHandler,
+		UserAccessHandler:      userAccessHandler,
 		PolicyHandler:          policyHandler,
 		NetworkPoliciesHandler: networkPoliciesHandler,
 	}

@@ -306,8 +306,8 @@ func TestHandler_CreateUser_WithEmail(t *testing.T) {
 	is.Equal(raw["email"], "new_user@example.com")
 }
 
-func TestHandler_CreateUser_WithoutEmail_Returns400(t *testing.T) {
-	// Email is now required; omitting it must be rejected by the generated request validator.
+func TestHandler_CreateUser_WithoutEmail_Succeeds(t *testing.T) {
+	// Email is optional; omitting it must be accepted.
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	server := testServer.HTTPServer
@@ -325,7 +325,7 @@ func TestHandler_CreateUser_WithoutEmail_Returns400(t *testing.T) {
 	res := httptest.NewRecorder()
 	server.ServeHTTP(res, req)
 
-	is.Equal(res.Code, http.StatusBadRequest)
+	is.Equal(res.Code, http.StatusCreated)
 }
 
 // getSelfID returns the numeric ID of the currently authenticated user.

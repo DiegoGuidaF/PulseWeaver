@@ -1,4 +1,4 @@
-package hostaccess
+package useraccess
 
 import (
 	"context"
@@ -13,25 +13,9 @@ import (
 )
 
 type repository interface {
-	ListHosts(ctx context.Context) ([]Host, error)
-	CreateHost(ctx context.Context, draft HostDraft) (ids.HostID, error)
-	DeleteHost(ctx context.Context, id ids.HostID) error
-	ListHostsByIDs(ctx context.Context, ids []ids.HostID) ([]Host, error)
-	SetHostGroupMembership(ctx context.Context, hostID ids.HostID, groupIDs []ids.HostGroupID) error
-
-	ListHostGroups(ctx context.Context) ([]HostGroup, error)
-	CreateHostGroup(ctx context.Context, draft HostGroupDraft) (ids.HostGroupID, error)
-	UpdateHostGroup(ctx context.Context, group HostGroup) error
-	DeleteHostGroup(ctx context.Context, id ids.HostGroupID) error
-
 	SetUserAccess(ctx context.Context, userID ids.UserID, bypassHostCheck bool, groupIDs []ids.HostGroupID) error
-
-	AddIgnoredSuggestion(ctx context.Context, fqdn string) (IgnoredHostSuggestion, error)
-	RemoveIgnoredSuggestionByFQDN(ctx context.Context, fqdn string) error
-
 	EnsureUserSettings(ctx context.Context, userID ids.UserID) error
 	DeleteUserData(ctx context.Context, userID ids.UserID) error
-
 	GetAllUserHostSettings(ctx context.Context) ([]UserHostSetting, error)
 	GetAllUserHostGrants(ctx context.Context) ([]UserHostGrant, error)
 }
@@ -41,28 +25,28 @@ type transactor interface {
 }
 
 type Service struct {
-	repo                    repository
-	tx                      transactor
-	logger                  *slog.Logger
-	userHostAccessObservers []Observer
+	repo      repository
+	tx        transactor
+	logger    *slog.Logger
+	observers []Observer
 }
 
 func NewService(repo repository, tx transactor, logger *slog.Logger) *Service {
 	return &Service{
 		repo:   repo,
 		tx:     tx,
-		logger: logger.With(slog.String(logging.AttrKeyComponent, "hostaccess")),
+		logger: logger.With(slog.String(logging.AttrKeyComponent, "useraccess")),
 	}
 }
 
-func (s *Service) AddUserHostAccessObserver(o Observer) {
+func (s *Service) AddObserver(o Observer) {
 	if o != nil {
-		s.userHostAccessObservers = append(s.userHostAccessObservers, o)
+		s.observers = append(s.observers, o)
 	}
 }
 
-func (s *Service) notifyUserHostAccessObservers(ctx context.Context) {
-	for _, o := range s.userHostAccessObservers {
+func (s *Service) notifyObservers(ctx context.Context) {
+	for _, o := range s.observers {
 		o.OnHostAccessChanged(ctx)
 	}
 }
@@ -131,28 +115,12 @@ func mergeUserHostAccess(settings []UserHostSetting, groupHosts []UserHostGrant)
 	return result
 }
 
-func (s *Service) ListHostGroups(ctx context.Context) ([]HostGroup, error) {
-	return s.repo.ListHostGroups(ctx)
-}
-
-func (s *Service) AddIgnoredSuggestion(ctx context.Context, fqdn string) (IgnoredHostSuggestion, error) {
-	normalised := NormaliseFQDN(fqdn)
-	if err := ValidateFQDN(normalised); err != nil {
-		return IgnoredHostSuggestion{}, err
-	}
-	return s.repo.AddIgnoredSuggestion(ctx, normalised)
-}
-
-func (s *Service) RemoveIgnoredSuggestionByFQDN(ctx context.Context, fqdn string) error {
-	return s.repo.RemoveIgnoredSuggestionByFQDN(ctx, fqdn)
-}
-
 func (s *Service) SetUserAccess(ctx context.Context, userID ids.UserID, bypassHostCheck bool, groupIDs []ids.HostGroupID) error {
 	groupIDs = slicex.Dedup(groupIDs)
 	if err := s.repo.SetUserAccess(ctx, userID, bypassHostCheck, groupIDs); err != nil {
 		return err
 	}
-	s.notifyUserHostAccessObservers(ctx)
+	s.notifyObservers(ctx)
 	return nil
 }
 
@@ -165,7 +133,7 @@ func (s *Service) OnUserEvent(ctx context.Context, event auth.UserEvent) {
 				slog.Any(logging.AttrKeyError, err),
 			)
 		}
-		s.notifyUserHostAccessObservers(ctx)
+		s.notifyObservers(ctx)
 	case auth.EventTypeUserDeleted:
 		if err := s.repo.DeleteUserData(ctx, event.UserID); err != nil {
 			s.logger.ErrorContext(ctx, "failed to delete user host data",
@@ -173,6 +141,6 @@ func (s *Service) OnUserEvent(ctx context.Context, event auth.UserEvent) {
 				slog.Any(logging.AttrKeyError, err),
 			)
 		}
-		s.notifyUserHostAccessObservers(ctx)
+		s.notifyObservers(ctx)
 	}
 }

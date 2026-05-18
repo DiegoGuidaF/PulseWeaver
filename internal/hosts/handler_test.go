@@ -1,11 +1,10 @@
 //go:build test
 
-package hostaccess_test
+package hosts_test
 
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -49,24 +48,6 @@ func TestHandler_ReconcileHostGroups(t *testing.T) {
 	is.Equal(res.Code, http.StatusNoContent)
 }
 
-func TestHandler_SetUserHostGrants(t *testing.T) {
-	is := is.New(t)
-	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
-
-	adminID := testutils.AdminPrincipal(t, srv).UserID
-	url := fmt.Sprintf("/api/v1/admin/access/users/%d/grants", adminID)
-
-	body, _ := json.Marshal(map[string]any{"bypass_host_check": false, "group_ids": []int{}})
-	req := httptest.NewRequest(http.MethodPut, url, bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
-	res := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusNoContent)
-}
-
 func TestHandler_IgnoreSuggestion(t *testing.T) {
 	is := is.New(t)
 	srv := testutils.SetupIntegrationServer(t)
@@ -91,7 +72,7 @@ func TestHandler_UnignoreSuggestion(t *testing.T) {
 	srv := testutils.SetupIntegrationServer(t)
 	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	_, err := srv.HostAccessService.AddIgnoredSuggestion(t.Context(), "ignored.example.com")
+	_, err := srv.HostsService.AddIgnoredSuggestion(t.Context(), "ignored.example.com")
 	is.NoErr(err)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/access/host-suggestions/ignore/ignored.example.com", nil)

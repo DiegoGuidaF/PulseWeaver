@@ -1,4 +1,4 @@
-package hostaccess
+package hosts
 
 import (
 	"context"
@@ -18,8 +18,6 @@ type DesiredHost struct {
 	GroupIDs []ids.HostGroupID
 }
 
-// prepare normalises and validates a single desired host: lowercases and
-// trims FQDN, validates it, and deduplicates GroupIDs.
 func (h *DesiredHost) prepare() error {
 	h.FQDN = NormaliseFQDN(h.FQDN)
 	if err := ValidateFQDN(h.FQDN); err != nil {
@@ -35,8 +33,6 @@ type ReconcileHostsInput struct {
 	Hosts []DesiredHost
 }
 
-// prepare normalises every host entry and rejects duplicate IDs or FQDNs
-// across the desired list (which would make the create/delete plan ambiguous).
 func (in *ReconcileHostsInput) prepare() error {
 	for i := range in.Hosts {
 		if err := in.Hosts[i].prepare(); err != nil {
@@ -65,15 +61,12 @@ func (in *ReconcileHostsInput) prepare() error {
 	return nil
 }
 
-// hostReconcilePlan is the ordered set of write operations needed to converge
-// the current state to the desired state.
 type hostReconcilePlan struct {
 	toCreate    []HostDraft
 	toDelete    []ids.HostID
-	toSetGroups []hostGroupSet // group membership for all non-deleted hosts
+	toSetGroups []hostGroupSet
 }
 
-// hostGroupSet pairs a host with the full set of groups it should belong to.
 type hostGroupSet struct {
 	HostID   ids.HostID
 	GroupIDs []ids.HostGroupID
@@ -117,7 +110,6 @@ func (s *Service) ReconcileHosts(ctx context.Context, in ReconcileHostsInput) er
 				return err
 			}
 		}
-
 		for _, draft := range plan.toCreate {
 			newID, err := s.repo.CreateHost(ctx, draft)
 			if err != nil {
@@ -127,20 +119,18 @@ func (s *Service) ReconcileHosts(ctx context.Context, in ReconcileHostsInput) er
 				return err
 			}
 		}
-
 		for _, gs := range plan.toSetGroups {
 			if err := s.repo.SetHostGroupMembership(ctx, gs.HostID, gs.GroupIDs); err != nil {
 				return err
 			}
 		}
-
 		return nil
 	})
 	if err != nil {
 		return err
 	}
 
-	s.notifyUserHostAccessObservers(ctx)
+	s.notifyObservers(ctx)
 	return nil
 }
 
@@ -166,7 +156,6 @@ func buildHostReconcilePlan(current []Host, desired []DesiredHost) (hostReconcil
 
 	for _, h := range desired {
 		if h.ID == nil {
-			// Create: reject if a current row already has that FQDN.
 			if _, exists := currentByFQDN[h.FQDN]; exists {
 				return hostReconcilePlan{}, fmt.Errorf("%w: fqdn=%s", ErrHostConflict, h.FQDN)
 			}

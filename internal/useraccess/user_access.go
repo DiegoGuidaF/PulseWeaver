@@ -1,17 +1,6 @@
-package hostaccess
+package useraccess
 
-import (
-	"time"
-
-	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
-)
-
-type Host struct {
-	ID        ids.HostID `db:"id"`
-	FQDN      string     `db:"fqdn"`
-	UpdatedAt time.Time  `db:"updated_at"`
-	CreatedAt time.Time  `db:"created_at"`
-}
+import "github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 
 // UserHostSetting is the per-user bypass flag from user_host_settings.
 type UserHostSetting struct {

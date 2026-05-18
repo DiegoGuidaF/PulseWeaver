@@ -11,7 +11,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/hostaccess"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
@@ -183,7 +183,7 @@ func (r *Repository) GetHostSuggestionsPage(ctx context.Context) (httpapi.HostSu
 
 	suggestions := make([]httpapi.HostSuggestion, 0, len(rawSuggestions))
 	for _, s := range rawSuggestions {
-		if hostaccess.ValidateFQDN(s.FQDN) != nil {
+		if hosts.ValidateFQDN(s.FQDN) != nil {
 			continue
 		}
 		suggestions = append(suggestions, httpapi.HostSuggestion{
@@ -199,7 +199,7 @@ func (r *Repository) GetHostSuggestionsPage(ctx context.Context) (httpapi.HostSu
 		FROM ignored_host_suggestions
 		ORDER BY fqdn
 	`
-	var rawIgnored []hostaccess.IgnoredHostSuggestion
+	var rawIgnored []hosts.IgnoredHostSuggestion
 	if err := r.db.SelectContext(ctx, &rawIgnored, ignoredQuery); err != nil {
 		return httpapi.HostSuggestionsPage{}, fmt.Errorf("get ignored suggestions: %w", err)
 	}
