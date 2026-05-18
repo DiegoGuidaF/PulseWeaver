@@ -3,11 +3,14 @@ package hosts
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/slicex"
 )
+
+var hexColorRE = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 // DesiredHostGroup is the caller-provided shape of a single host group inside
 // a reconcile request. A nil ID marks a brand-new group; a non-nil ID must
@@ -26,6 +29,9 @@ func (g *DesiredHostGroup) prepare() error {
 	g.HostIDs = slicex.Dedup(g.HostIDs)
 	if g.Name == "" {
 		return ErrGroupNameRequired
+	}
+	if !hexColorRE.MatchString(g.Color) {
+		return ErrInvalidGroupColor
 	}
 	return nil
 }

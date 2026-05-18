@@ -122,8 +122,8 @@ INSERT INTO user_host_settings (user_id, bypass_host_check)
 INSERT INTO hosts (fqdn) VALUES ('seed.example.com');
 INSERT INTO hosts (fqdn) VALUES ('seed-no-fqdn.example.com');
 
-INSERT INTO host_groups (name, description, icon) VALUES ('seed-group', 'Seed host group', 'folder');
-INSERT INTO host_groups (name) VALUES ('seed-group-no-icon');
+INSERT INTO host_groups (name, description, icon, color) VALUES ('seed-group', 'Seed host group', 'folder', '#4C6EF5');
+INSERT INTO host_groups (name, color) VALUES ('seed-group-no-icon', '#7950F2');
 
 INSERT INTO host_group_members (host_group_id, host_id)
     SELECT hg.id, h.id FROM host_groups hg, hosts h

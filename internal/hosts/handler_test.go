@@ -48,6 +48,23 @@ func TestHandler_ReconcileHostGroups(t *testing.T) {
 	is.Equal(res.Code, http.StatusNoContent)
 }
 
+func TestHandler_ReconcileHostGroups_InvalidColor_Returns400(t *testing.T) {
+	is := is.New(t)
+	srv := testutils.SetupIntegrationServer(t)
+	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+
+	body, _ := json.Marshal(map[string]any{
+		"groups": []map[string]any{{"name": "infra", "color": "notahex", "icon": "server", "host_ids": []int{}}},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/access/host-groups/reconcile", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(cookie)
+	res := httptest.NewRecorder()
+	srv.HTTPServer.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusBadRequest)
+}
+
 func TestHandler_IgnoreSuggestion(t *testing.T) {
 	is := is.New(t)
 	srv := testutils.SetupIntegrationServer(t)

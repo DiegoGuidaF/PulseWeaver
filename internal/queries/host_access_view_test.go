@@ -77,7 +77,7 @@ func TestHandler_ListUsersHostAccess_EffectiveCountCombinesDirectAndGroup(t *tes
 
 	// Create a group containing only h2.
 	err = srv.HostsService.ReconcileHostGroups(t.Context(), hosts.ReconcileHostGroupsInput{Groups: []hosts.DesiredHostGroup{
-		{Name: "G1", HostIDs: []ids.HostID{2}},
+		{Name: "G1", Color: "#4C6EF5", HostIDs: []ids.HostID{2}},
 	}})
 	is.NoErr(err)
 
@@ -181,8 +181,8 @@ func TestHandler_GetUserHostDetails_AllGroupsReturnedRegardlessOfGrant(t *testin
 
 	// Create two groups; only grant one.
 	err := srv.HostsService.ReconcileHostGroups(t.Context(), hosts.ReconcileHostGroupsInput{Groups: []hosts.DesiredHostGroup{
-		{Name: "Granted"},
-		{Name: "Ungranted"},
+		{Name: "Granted", Color: "#4C6EF5"},
+		{Name: "Ungranted", Color: "#7950F2"},
 	}})
 	is.NoErr(err)
 
@@ -236,7 +236,7 @@ func TestHandler_ListHostGroups_HappyPath(t *testing.T) {
 	is.NoErr(err)
 
 	err = srv.HostsService.ReconcileHostGroups(t.Context(), hosts.ReconcileHostGroupsInput{
-		Groups: []hosts.DesiredHostGroup{{Name: "backend", HostIDs: []ids.HostID{1}}},
+		Groups: []hosts.DesiredHostGroup{{Name: "backend", Color: "#4C6EF5", HostIDs: []ids.HostID{1}}},
 	})
 	is.NoErr(err)
 

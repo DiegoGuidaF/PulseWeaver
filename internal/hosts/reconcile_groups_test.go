@@ -22,7 +22,7 @@ func TestService_ReconcileHostGroups_NotifiesObserversOnce(t *testing.T) {
 	svc.AddObserver(obs)
 
 	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
-		Groups: []DesiredHostGroup{{Name: "new"}},
+		Groups: []DesiredHostGroup{{Name: "new", Color: "#4C6EF5"}},
 	})
 
 	is.NoErr(err)
@@ -42,8 +42,8 @@ func TestService_ReconcileHostGroups_DeleteThenUpdateThenCreate(t *testing.T) {
 	id1 := ids.HostGroupID(1)
 	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
 		Groups: []DesiredHostGroup{
-			{ID: &id1, Name: "renamed"},
-			{Name: "new-one"},
+			{ID: &id1, Name: "renamed", Color: "#4C6EF5"},
+			{Name: "new-one", Color: "#7950F2"},
 		},
 	})
 	is.NoErr(err)
@@ -53,14 +53,14 @@ func TestService_ReconcileHostGroups_DeleteThenUpdateThenCreate(t *testing.T) {
 func TestService_ReconcileHostGroups_NoOp_NoCalls(t *testing.T) {
 	is := is.New(t)
 	obs := &mockObserver{}
-	current := HostGroup{ID: 1, Name: "stable"}
+	current := HostGroup{ID: 1, Name: "stable", Color: "#4C6EF5"}
 	repo := &fakeRepo{hostGroups: []HostGroup{current}}
 	svc := newTestService(repo)
 	svc.AddObserver(obs)
 
 	id := current.ID
 	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
-		Groups: []DesiredHostGroup{{ID: &id, Name: "stable"}},
+		Groups: []DesiredHostGroup{{ID: &id, Name: "stable", Color: "#4C6EF5"}},
 	})
 
 	is.NoErr(err)
@@ -74,7 +74,7 @@ func TestService_ReconcileHostGroups_EmptyName_Rejected(t *testing.T) {
 	svc := newTestService(repo)
 
 	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
-		Groups: []DesiredHostGroup{{Name: "  "}},
+		Groups: []DesiredHostGroup{{Name: "  ", Color: "#4C6EF5"}},
 	})
 	is.True(errors.Is(err, ErrGroupNameRequired))
 	is.Equal(len(repo.callOrder), 0)
@@ -88,11 +88,25 @@ func TestService_ReconcileHostGroups_DuplicateID_Rejected(t *testing.T) {
 	id := ids.HostGroupID(7)
 	err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
 		Groups: []DesiredHostGroup{
-			{ID: &id, Name: "a"},
-			{ID: &id, Name: "b"},
+			{ID: &id, Name: "a", Color: "#4C6EF5"},
+			{ID: &id, Name: "b", Color: "#4C6EF5"},
 		},
 	})
 	is.True(errors.Is(err, ErrDuplicateGroupID))
+}
+
+func TestService_ReconcileHostGroups_InvalidColor_Rejected(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepo{}
+	svc := newTestService(repo)
+
+	for _, bad := range []string{"", "red", "#GGG", "#12345", "4C6EF5"} {
+		err := svc.ReconcileHostGroups(context.Background(), ReconcileHostGroupsInput{
+			Groups: []DesiredHostGroup{{Name: "x", Color: bad}},
+		})
+		is.True(errors.Is(err, ErrInvalidGroupColor))
+		is.Equal(len(repo.callOrder), 0)
+	}
 }
 
 func TestBuildGroupReconcilePlan_CreateOnly(t *testing.T) {

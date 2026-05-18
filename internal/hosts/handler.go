@@ -94,7 +94,9 @@ func (h *HTTPHandler) ReconcileHostGroups(
 
 	if err := h.service.ReconcileHostGroups(ctx, in); err != nil {
 		switch {
-		case errors.Is(err, ErrGroupNameRequired), errors.Is(err, ErrDuplicateGroupID):
+		case errors.Is(err, ErrGroupNameRequired),
+			errors.Is(err, ErrInvalidGroupColor),
+			errors.Is(err, ErrDuplicateGroupID):
 			return httpapi.ReconcileHostGroups400JSONResponse(errResp(err.Error())), nil
 		case errors.Is(err, ErrHostGroupNotFound), errors.Is(err, ErrReferenceNotFound):
 			return httpapi.ReconcileHostGroups404JSONResponse(errResp(err.Error())), nil
