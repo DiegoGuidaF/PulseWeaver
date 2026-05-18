@@ -30,21 +30,22 @@ import (
 
 // App holds all initialized application components.
 type App struct {
-	Config              *config.Conf
-	Logger              *slog.Logger
-	Database            *database.SQLite
-	HTTPServer          http.Handler
-	DeviceService       *device.Service
-	AuthService         *auth.Service
-	PolicyService       *policy.Service
-	RuleService         *rule.Service
-	RegistrationService *registration.Service
-	addressLeaseService *lease.Service
-	maxAddrService      *maxaddr.Service
-	schedulerService    *scheduler.Service
-	accessLogSink       *accesslog.Sink
-	geoipLookup         *geoip.Lookup
-	HostAccessService   *hostaccess.Service
+	Config                 *config.Conf
+	Logger                 *slog.Logger
+	Database               *database.SQLite
+	HTTPServer             http.Handler
+	DeviceService          *device.Service
+	AuthService            *auth.Service
+	PolicyService          *policy.Service
+	RuleService            *rule.Service
+	RegistrationService    *registration.Service
+	addressLeaseService    *lease.Service
+	maxAddrService         *maxaddr.Service
+	schedulerService       *scheduler.Service
+	accessLogSink          *accesslog.Sink
+	geoipLookup            *geoip.Lookup
+	HostAccessService      *hostaccess.Service
+	NetworkPoliciesService *networkpolicies.Service
 }
 
 // New initializes the application with configuration loaded from environment variables.
@@ -221,21 +222,22 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	)
 
 	return &App{
-		Config:              conf,
-		Logger:              logger,
-		Database:            db,
-		HTTPServer:          handler,
-		DeviceService:       deviceService,
-		AuthService:         authService,
-		PolicyService:       policyService,
-		RuleService:         ruleService,
-		RegistrationService: registrationService,
-		addressLeaseService: addressLeaseService,
-		maxAddrService:      maxAddrService,
-		schedulerService:    schedulerService,
-		accessLogSink:       accessLogSink,
-		geoipLookup:         geoipLookup,
-		HostAccessService:   hostAccessService,
+		Config:                 conf,
+		Logger:                 logger,
+		Database:               db,
+		HTTPServer:             handler,
+		DeviceService:          deviceService,
+		AuthService:            authService,
+		PolicyService:          policyService,
+		RuleService:            ruleService,
+		RegistrationService:    registrationService,
+		addressLeaseService:    addressLeaseService,
+		maxAddrService:         maxAddrService,
+		schedulerService:       schedulerService,
+		accessLogSink:          accessLogSink,
+		geoipLookup:            geoipLookup,
+		HostAccessService:      hostAccessService,
+		NetworkPoliciesService: networkPoliciesService,
 	}, nil
 }
 

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
@@ -21,30 +20,30 @@ func NewRepository(db *database.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// dbNetworkPolicy is the raw DB row for network_policies.
-type dbNetworkPolicy struct {
-	ID              ids.NetworkPolicyID `db:"id"`
-	Name            string              `db:"name"`
-	CIDR            string              `db:"cidr"`
-	Description     *string             `db:"description"`
-	Enabled         bool                `db:"enabled"`
-	BypassHostCheck bool                `db:"bypass_host_check"`
-	CreatedAt       time.Time           `db:"created_at"`
-	UpdatedAt       time.Time           `db:"updated_at"`
-}
-
-func (r dbNetworkPolicy) toPolicy() NetworkPolicy {
-	return NetworkPolicy{
-		ID:              r.ID,
-		Name:            r.Name,
-		CIDR:            r.CIDR,
-		Description:     r.Description,
-		Enabled:         r.Enabled,
-		BypassHostCheck: r.BypassHostCheck,
-		CreatedAt:       r.CreatedAt,
-		UpdatedAt:       r.UpdatedAt,
-	}
-}
+//// dbNetworkPolicy is the raw DB row for network_policies.
+//type dbNetworkPolicy struct {
+//	ID              ids.NetworkPolicyID `db:"id"`
+//	Name            string              `db:"name"`
+//	CIDR            string              `db:"cidr"`
+//	Description     *string             `db:"description"`
+//	Enabled         bool                `db:"enabled"`
+//	BypassHostCheck bool                `db:"bypass_host_check"`
+//	CreatedAt       time.Time           `db:"created_at"`
+//	UpdatedAt       time.Time           `db:"updated_at"`
+//}
+//
+//func (r dbNetworkPolicy) toPolicy() NetworkPolicy {
+//	return NetworkPolicy{
+//		ID:              r.ID,
+//		Name:            r.Name,
+//		CIDR:            r.CIDR,
+//		Description:     r.Description,
+//		Enabled:         r.Enabled,
+//		BypassHostCheck: r.BypassHostCheck,
+//		CreatedAt:       r.CreatedAt,
+//		UpdatedAt:       r.UpdatedAt,
+//	}
+//}
 
 func (r *Repository) CreatePolicy(ctx context.Context, p NetworkPolicy) (NetworkPolicy, error) {
 	const query = `
@@ -52,7 +51,7 @@ func (r *Repository) CreatePolicy(ctx context.Context, p NetworkPolicy) (Network
 		VALUES (?, ?, ?, ?, ?)
 		RETURNING *
 	`
-	var row dbNetworkPolicy
+	var row NetworkPolicy
 	err := r.db.GetContext(ctx, &row, query,
 		p.Name, p.CIDR, p.Description, p.Enabled, p.BypassHostCheck,
 	)
@@ -62,26 +61,26 @@ func (r *Repository) CreatePolicy(ctx context.Context, p NetworkPolicy) (Network
 		}
 		return NetworkPolicy{}, fmt.Errorf("create network policy: %w", err)
 	}
-	return row.toPolicy(), nil
+	return row, nil
 }
 
-func (r *Repository) GetPolicy(ctx context.Context, id ids.NetworkPolicyID) (*NetworkPolicy, error) {
+func (r *Repository) GetPolicy(ctx context.Context, id ids.NetworkPolicyID) (NetworkPolicy, error) {
 	const query = `
 		SELECT *
 		FROM network_policies
 		WHERE id = ?
 	`
-	var row dbNetworkPolicy
+	var row NetworkPolicy
 	if err := r.db.GetContext(ctx, &row, query, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
+			return NetworkPolicy{}, ErrNotFound
 		}
-		return nil, fmt.Errorf("get network policy: %w", err)
+		return NetworkPolicy{}, fmt.Errorf("get network policy: %w", err)
 	}
-	return new(row.toPolicy()), nil
+	return row, nil
 }
 
-func (r *Repository) UpdatePolicy(ctx context.Context, p NetworkPolicy) (*NetworkPolicy, error) {
+func (r *Repository) UpdatePolicy(ctx context.Context, p NetworkPolicy) (NetworkPolicy, error) {
 	const query = `
 		UPDATE network_policies
 		SET name = ?, cidr = ?, description = ?, enabled = ?, bypass_host_check = ?,
@@ -89,21 +88,20 @@ func (r *Repository) UpdatePolicy(ctx context.Context, p NetworkPolicy) (*Networ
 		WHERE id = ?
 		RETURNING id, name, cidr, description, enabled, bypass_host_check, created_at, updated_at
 	`
-	var row dbNetworkPolicy
+	var row NetworkPolicy
 	err := r.db.GetContext(ctx, &row, query,
 		p.Name, p.CIDR, p.Description, p.Enabled, p.BypassHostCheck, p.ID,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
+			return NetworkPolicy{}, ErrNotFound
 		}
 		if isUniqueConstraint(err) {
-			return nil, ErrCIDRConflict
+			return NetworkPolicy{}, ErrCIDRConflict
 		}
-		return nil, fmt.Errorf("update network policy: %w", err)
+		return NetworkPolicy{}, fmt.Errorf("update network policy: %w", err)
 	}
-	result := row.toPolicy()
-	return &result, nil
+	return row, nil
 }
 
 func (r *Repository) DeletePolicy(ctx context.Context, id ids.NetworkPolicyID) error {
@@ -159,8 +157,13 @@ func (r *Repository) SetHostAccess(
 }
 
 // GetEnabledCacheEntries returns all enabled policies with their allowed host FQDNs,
-// used to populate the policy cache. Kept here as an internal-cache exception despite
-// crossing into the hosts domain tables.
+// used to populate the policy cache.
+//
+// NOTE: this query intentionally crosses into the hosts domain tables
+// (hosts, host_group_members), which violates the cross-domain-queries pattern
+// (docs/patterns/backend/cross-domain-queries.md). It is kept here because this
+// data is tightly coupled to the policy cache lifecycle, which lives in this package.
+// If this query grows or is reused outside of cache population, move it to internal/queries/.
 func (r *Repository) GetEnabledCacheEntries(ctx context.Context) ([]CacheEntry, error) {
 	type policyRow struct {
 		PolicyID        ids.NetworkPolicyID `db:"policy_id"`

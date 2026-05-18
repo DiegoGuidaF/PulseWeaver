@@ -221,3 +221,55 @@ func TestHandler_GetUserHostDetails_Unauthenticated(t *testing.T) {
 
 	is.Equal(rec.Code, http.StatusUnauthorized)
 }
+
+// ── ListHostGroups ────────────────────────────────────────────────────────────
+
+func TestHandler_ListHostGroups_HappyPath(t *testing.T) {
+	is := is.New(t)
+	srv := testutils.SetupIntegrationServer(t)
+	adminCookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	principal := testutils.AdminPrincipal(t, srv)
+
+	err := srv.HostAccessService.ReconcileHosts(t.Context(), hostaccess.ReconcileHostsInput{
+		Hosts: []hostaccess.DesiredHost{{FQDN: "app.example.com"}},
+	})
+	is.NoErr(err)
+
+	err = srv.HostAccessService.ReconcileHostGroups(t.Context(), hostaccess.ReconcileHostGroupsInput{
+		Groups: []hostaccess.DesiredHostGroup{{Name: "backend", HostIDs: []ids.HostID{1}}},
+	})
+	is.NoErr(err)
+
+	user, err := srv.AuthService.CreateUser(t.Context(), "alice", "Alice", "alice@example.com", principal)
+	is.NoErr(err)
+	err = srv.HostAccessService.SetUserAccess(t.Context(), user.ID, false, []ids.HostGroupID{1})
+	is.NoErr(err)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/host-groups", nil)
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	srv.HTTPServer.ServeHTTP(rec, req)
+
+	is.Equal(rec.Code, http.StatusOK)
+
+	var resp httpapi.GroupListResponse
+	is.NoErr(json.NewDecoder(rec.Body).Decode(&resp))
+	is.Equal(len(resp.Groups), 1)
+	g := resp.Groups[0]
+	is.Equal(g.Name, "backend")
+	is.Equal(len(g.Hosts), 1)
+	is.True(g.Users != nil)
+	is.Equal(len(*g.Users), 1)
+	is.Equal((*g.Users)[0].Username, "alice")
+}
+
+func TestHandler_ListHostGroups_Unauthenticated(t *testing.T) {
+	is := is.New(t)
+	srv := testutils.SetupIntegrationServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/host-groups", nil)
+	rec := httptest.NewRecorder()
+	srv.HTTPServer.ServeHTTP(rec, req)
+
+	is.Equal(rec.Code, http.StatusUnauthorized)
+}

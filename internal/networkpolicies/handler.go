@@ -51,7 +51,7 @@ func (h *HTTPHandler) UpdateNetworkPolicy(
 		Name:        body.Name,
 		CIDR:        body.Cidr,
 		Enabled:     body.Enabled,
-		Description: body.Description,
+		Description: &body.Description,
 	}
 
 	_, err := h.service.UpdatePolicy(ctx, id, fields)
@@ -83,7 +83,7 @@ func (h *HTTPHandler) UpdateNetworkPolicyAccess(
 	ctx context.Context,
 	request httpapi.UpdateNetworkPolicyAccessRequestObject,
 ) (httpapi.UpdateNetworkPolicyAccessResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "UpdateNetworkPolicyHostAccess")
+	ctx = logging.WithOperation(ctx, "UpdateNetworkPolicyAccess")
 
 	id := ids.NetworkPolicyID(request.Id)
 	body := request.Body

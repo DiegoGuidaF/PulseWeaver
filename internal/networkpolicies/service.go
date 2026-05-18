@@ -11,8 +11,8 @@ import (
 
 type repository interface {
 	CreatePolicy(ctx context.Context, p NetworkPolicy) (NetworkPolicy, error)
-	GetPolicy(ctx context.Context, id ids.NetworkPolicyID) (*NetworkPolicy, error)
-	UpdatePolicy(ctx context.Context, p NetworkPolicy) (*NetworkPolicy, error)
+	GetPolicy(ctx context.Context, id ids.NetworkPolicyID) (NetworkPolicy, error)
+	UpdatePolicy(ctx context.Context, p NetworkPolicy) (NetworkPolicy, error)
 	DeletePolicy(ctx context.Context, id ids.NetworkPolicyID) error
 	SetHostAccess(ctx context.Context, id ids.NetworkPolicyID, bypassHostCheck bool, groupIDs []ids.HostGroupID) error
 }
@@ -62,9 +62,7 @@ func (s *Service) CreatePolicy(ctx context.Context, name, cidr string, descripti
 		return NetworkPolicy{}, err
 	}
 
-	// TODO: Since when creating a policy there are no configured hosts, it won't affect the policy cache, I don't
-	// believe we should notify here
-	//s.notifyObservers(ctx)
+	// TODO: notify observers once a newly-created policy can have hosts pre-assigned
 	return p, nil
 }
 
@@ -85,7 +83,7 @@ func (s *Service) UpdatePolicy(ctx context.Context, id ids.NetworkPolicyID, fiel
 		if err != nil {
 			return err
 		}
-		updatedPolicy = *p
+		updatedPolicy = p
 		return nil
 	})
 	if err != nil {
@@ -106,9 +104,7 @@ func (s *Service) DeletePolicy(ctx context.Context, id ids.NetworkPolicyID) erro
 }
 
 func (s *Service) SetHostAccess(ctx context.Context, id ids.NetworkPolicyID, bypassHostCheck bool, groupIDs []ids.HostGroupID) error {
-	actualGroupIDs := groupIDs
-
-	if err := s.repo.SetHostAccess(ctx, id, bypassHostCheck, actualGroupIDs); err != nil {
+	if err := s.repo.SetHostAccess(ctx, id, bypassHostCheck, groupIDs); err != nil {
 		return err
 	}
 

@@ -7,27 +7,16 @@ import (
 	"fmt"
 	"time"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/hostaccess"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
-type GroupRef struct {
-	ID    ids.HostGroupID
-	Name  string
-	Color string
-}
-
-type HostWithGroups struct {
-	ID        ids.HostID `db:"id"`
-	FQDN      string     `db:"fqdn"`
-	CreatedAt time.Time  `db:"created_at"`
-	UserCount int        `db:"user_count"`
-	Groups    []GroupRef
-}
-
-func (r *Repository) GetAllHostsWithGroups(ctx context.Context) ([]HostWithGroups, error) {
+func (r *Repository) GetAllHostsWithGroups(ctx context.Context) (httpapi.HostListResponse, error) {
 	type row struct {
 		ID         ids.HostID       `db:"id"`
 		FQDN       string           `db:"fqdn"`
@@ -51,115 +40,129 @@ func (r *Repository) GetAllHostsWithGroups(ctx context.Context) ([]HostWithGroup
 	`
 	var rows []row
 	if err := r.db.SelectContext(ctx, &rows, query); err != nil {
-		return nil, fmt.Errorf("get hosts with groups: %w", err)
+		return httpapi.HostListResponse{}, fmt.Errorf("get hosts with groups: %w", err)
 	}
 
 	seen := make(map[ids.HostID]int)
-	var hosts []HostWithGroups
+	hosts := []httpapi.Host{}
 	for _, rw := range rows {
 		idx, exists := seen[rw.ID]
 		if !exists {
 			idx = len(hosts)
 			seen[rw.ID] = idx
-			hosts = append(hosts, HostWithGroups{
-				ID:        rw.ID,
-				FQDN:      rw.FQDN,
-				CreatedAt: rw.CreatedAt,
-				Groups:    []GroupRef{},
+			hosts = append(hosts, httpapi.Host{
+				Id:        rw.ID.Int64(),
+				Fqdn:      rw.FQDN,
+				CreatedAt: httpapi.UTCTime(rw.CreatedAt),
+				Groups:    []httpapi.GroupSummary{},
 			})
 		}
 		if rw.GroupID != nil && rw.GroupName != nil {
-			hosts[idx].Groups = append(hosts[idx].Groups, GroupRef{
-				ID:    *rw.GroupID,
+			hosts[idx].Groups = append(hosts[idx].Groups, httpapi.GroupSummary{
+				Id:    (*rw.GroupID).Int64(),
 				Name:  *rw.GroupName,
 				Color: *rw.GroupColor,
 			})
 		}
 	}
-	if hosts == nil {
-		hosts = []HostWithGroups{}
-	}
-	return hosts, nil
+	return httpapi.HostListResponse{Hosts: hosts}, nil
 }
 
-type HostGroupDetails struct {
-	ID          ids.HostGroupID
-	Name        string
-	Color       string
-	Icon        string
-	Description *string
-	CreatedAt   time.Time
-	Hosts       []HostRef
-	MemberIDs   []ids.HostID
-}
-
-func (r *Repository) GetHostGroupsDetails(ctx context.Context) ([]HostGroupDetails, error) {
-	type row struct {
+func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupListResponse, error) {
+	// Q1: groups with their member hosts
+	type groupRow struct {
 		ID          ids.HostGroupID `db:"id"`
 		Name        string          `db:"name"`
 		Color       string          `db:"color"`
 		Icon        string          `db:"icon"`
 		Description *string         `db:"description"`
 		CreatedAt   time.Time       `db:"created_at"`
+		UpdatedAt   time.Time       `db:"updated_at"`
 		HostID      *ids.HostID     `db:"host_id"`
 		HostFQDN    *string         `db:"host_fqdn"`
 	}
-	const query = `
-		SELECT hg.id, hg.name, hg.color, hg.description, hg.icon, hg.created_at,
+	const groupQuery = `
+		SELECT hg.id, hg.name, hg.color, hg.description, hg.icon, hg.created_at, hg.updated_at,
 		       hgm.host_id, h.fqdn AS host_fqdn
 		FROM host_groups hg
 		LEFT JOIN host_group_members hgm ON hgm.host_group_id = hg.id
 		LEFT JOIN hosts h ON h.id = hgm.host_id
 		ORDER BY hg.name, h.fqdn
 	`
-	var rows []row
-	if err := r.db.SelectContext(ctx, &rows, query); err != nil {
-		return nil, fmt.Errorf("get host groups with members: %w", err)
+	var groupRows []groupRow
+	if err := r.db.SelectContext(ctx, &groupRows, groupQuery); err != nil {
+		return httpapi.GroupListResponse{}, fmt.Errorf("get host groups with members: %w", err)
+	}
+
+	// Q2: users granted access to each group
+	type userRow struct {
+		GroupID     ids.HostGroupID `db:"host_group_id"`
+		UserID      ids.UserID      `db:"user_id"`
+		Username    string          `db:"username"`
+		DisplayName string          `db:"display_name"`
+	}
+	const usersQuery = `
+		SELECT uahg.host_group_id, u.id AS user_id, u.username, u.display_name
+		FROM user_allowed_host_groups uahg
+		JOIN users u ON u.id = uahg.user_id
+		WHERE u.deleted_at IS NULL
+		ORDER BY uahg.host_group_id, u.display_name
+	`
+	var userRows []userRow
+	if err := r.db.SelectContext(ctx, &userRows, usersQuery); err != nil {
+		return httpapi.GroupListResponse{}, fmt.Errorf("get host group users: %w", err)
+	}
+
+	usersByGroup := make(map[ids.HostGroupID][]httpapi.UserSummary)
+	for _, ur := range userRows {
+		usersByGroup[ur.GroupID] = append(usersByGroup[ur.GroupID], httpapi.UserSummary{
+			Id:          ur.UserID.Int64(),
+			Username:    ur.Username,
+			DisplayName: ur.DisplayName,
+		})
 	}
 
 	seen := make(map[ids.HostGroupID]int)
-	var groups []HostGroupDetails
-	for _, rw := range rows {
+	groups := []httpapi.GroupDetailWithUsers{}
+	for _, rw := range groupRows {
 		idx, exists := seen[rw.ID]
 		if !exists {
 			idx = len(groups)
 			seen[rw.ID] = idx
-			groups = append(groups, HostGroupDetails{
-				ID:          rw.ID,
-				Name:        rw.Name,
-				Color:       rw.Color,
-				Description: rw.Description,
-				Icon:        rw.Icon,
-				CreatedAt:   rw.CreatedAt,
-				Hosts:       []HostRef{},
+			users := usersByGroup[rw.ID]
+			if users == nil {
+				users = []httpapi.UserSummary{}
+			}
+			groups = append(groups, httpapi.GroupDetailWithUsers{
+				Id:              rw.ID.Int64(),
+				Name:            rw.Name,
+				Color:           rw.Color,
+				Description:     rw.Description,
+				Icon:            rw.Icon,
+				CreatedAt:       httpapi.UTCTime(rw.CreatedAt),
+				UpdatedAt:       httpapi.UTCTime(rw.UpdatedAt),
+				Hosts:           []httpapi.HostSummary{},
+				Users:           &users,
+				NetworkPolicies: []httpapi.NetworkPolicyRef{}, // TODO: populate
 			})
 		}
 		if rw.HostID != nil && rw.HostFQDN != nil {
-			groups[idx].Hosts = append(groups[idx].Hosts, HostRef{
-				ID:   *rw.HostID,
-				FQDN: *rw.HostFQDN,
+			groups[idx].Hosts = append(groups[idx].Hosts, httpapi.HostSummary{
+				Id:   (*rw.HostID).Int64(),
+				Fqdn: *rw.HostFQDN,
 			})
 		}
 	}
-	if groups == nil {
-		groups = []HostGroupDetails{}
+	return httpapi.GroupListResponse{Groups: groups}, nil
+}
+
+func (r *Repository) GetHostSuggestionsPage(ctx context.Context) (httpapi.HostSuggestionsPage, error) {
+	type suggestionRow struct {
+		FQDN        string          `db:"fqdn"`
+		FirstSeen   database.DBTime `db:"first_seen"`
+		AllowedHits int             `db:"allowed_hits"`
+		DeniedHits  int             `db:"denied_hits"`
 	}
-	return groups, nil
-}
-
-type HostSuggestion struct {
-	FQDN        string          `db:"fqdn"`
-	FirstSeen   database.DBTime `db:"first_seen"`
-	AllowedHits int             `db:"allowed_hits"`
-	DeniedHits  int             `db:"denied_hits"`
-}
-
-type HostSuggestionsPage struct {
-	Suggestions []HostSuggestion
-	Ignored     []hostaccess.IgnoredHostSuggestion
-}
-
-func (r *Repository) GetHostSuggestionsPage(ctx context.Context) (HostSuggestionsPage, error) {
 	const suggestionsQuery = `
 		SELECT
 			LOWER(al.target_host) AS fqdn,
@@ -173,52 +176,49 @@ func (r *Repository) GetHostSuggestionsPage(ctx context.Context) (HostSuggestion
 		GROUP BY LOWER(al.target_host)
 		ORDER BY denied_hits DESC, allowed_hits DESC
 	`
-	var suggestions []HostSuggestion
-	if err := r.db.SelectContext(ctx, &suggestions, suggestionsQuery); err != nil {
-		return HostSuggestionsPage{}, fmt.Errorf("get host suggestions: %w", err)
+	var rawSuggestions []suggestionRow
+	if err := r.db.SelectContext(ctx, &rawSuggestions, suggestionsQuery); err != nil {
+		return httpapi.HostSuggestionsPage{}, fmt.Errorf("get host suggestions: %w", err)
 	}
 
-	// Filter out entries that aren't valid FQDNs (e.g. bare IPs, host:port, garbage).
-	// This ensures any suggestion can be directly added as a host.
-	valid := make([]HostSuggestion, 0, len(suggestions))
-	for _, s := range suggestions {
-		if hostaccess.ValidateFQDN(s.FQDN) == nil {
-			valid = append(valid, s)
+	suggestions := make([]httpapi.HostSuggestion, 0, len(rawSuggestions))
+	for _, s := range rawSuggestions {
+		if hostaccess.ValidateFQDN(s.FQDN) != nil {
+			continue
 		}
+		suggestions = append(suggestions, httpapi.HostSuggestion{
+			Fqdn:        s.FQDN,
+			FirstSeen:   httpapi.UTCTime(s.FirstSeen.Time),
+			AllowedHits: s.AllowedHits,
+			DeniedHits:  s.DeniedHits,
+		})
 	}
-	suggestions = valid
 
 	const ignoredQuery = `
 		SELECT id, fqdn, created_at
 		FROM ignored_host_suggestions
 		ORDER BY fqdn
 	`
-	var ignored []hostaccess.IgnoredHostSuggestion
-	if err := r.db.SelectContext(ctx, &ignored, ignoredQuery); err != nil {
-		return HostSuggestionsPage{}, fmt.Errorf("get ignored suggestions: %w", err)
-	}
-	if ignored == nil {
-		ignored = []hostaccess.IgnoredHostSuggestion{}
+	var rawIgnored []hostaccess.IgnoredHostSuggestion
+	if err := r.db.SelectContext(ctx, &rawIgnored, ignoredQuery); err != nil {
+		return httpapi.HostSuggestionsPage{}, fmt.Errorf("get ignored suggestions: %w", err)
 	}
 
-	return HostSuggestionsPage{Suggestions: suggestions, Ignored: ignored}, nil
+	ignored := make([]httpapi.IgnoredHostSuggestion, len(rawIgnored))
+	for i, s := range rawIgnored {
+		ignored[i] = httpapi.IgnoredHostSuggestion{
+			Id:        s.ID,
+			Fqdn:      s.FQDN,
+			CreatedAt: httpapi.UTCTime(s.CreatedAt),
+		}
+	}
+
+	return httpapi.HostSuggestionsPage{Suggestions: suggestions, Ignored: ignored}, nil
 }
 
 // ── User access table (list view) ─────────────────────────────────────────────
 
-type UserAccessRow struct {
-	ID              ids.UserID
-	Username        string
-	DisplayName     string
-	Role            auth.Role
-	BypassHostCheck bool
-	DeviceCount     int
-	HostCount       int
-	LiveIPCount     int
-	Groups          []GroupRef
-}
-
-func (r *Repository) ListUserAccessRows(ctx context.Context) ([]UserAccessRow, error) {
+func (r *Repository) ListUserAccessRows(ctx context.Context) ([]httpapi.UserListItem, error) {
 	type userRow struct {
 		ID              ids.UserID `db:"id"`
 		DisplayName     string     `db:"display_name"`
@@ -288,26 +288,29 @@ func (r *Repository) ListUserAccessRows(ctx context.Context) ([]UserAccessRow, e
 		return nil, fmt.Errorf("list user access rows groups: %w", err)
 	}
 
-	grantsByUser := make(map[ids.UserID][]GroupRef)
+	grantsByUser := make(map[ids.UserID][]httpapi.GroupRef)
 	for _, gr := range grantRows {
-		grantsByUser[gr.UserID] = append(grantsByUser[gr.UserID], GroupRef{ID: gr.GroupID, Name: gr.GroupName})
+		grantsByUser[gr.UserID] = append(grantsByUser[gr.UserID], httpapi.GroupRef{
+			Id:   gr.GroupID.Int64(),
+			Name: gr.GroupName,
+		})
 	}
 
-	rows := make([]UserAccessRow, len(userRows))
+	rows := make([]httpapi.UserListItem, len(userRows))
 	for i, ur := range userRows {
 		groups := grantsByUser[ur.ID]
 		if groups == nil {
-			groups = []GroupRef{}
+			groups = []httpapi.GroupRef{}
 		}
-		rows[i] = UserAccessRow{
-			ID:              ur.ID,
+		rows[i] = httpapi.UserListItem{
+			Id:              ur.ID.Int64(),
 			Username:        ur.UserName,
 			DisplayName:     ur.DisplayName,
-			Role:            ur.Role,
+			Role:            httpapi.UserRole(ur.Role),
 			BypassHostCheck: ur.BypassHostCheck,
 			DeviceCount:     ur.DeviceCount,
 			HostCount:       ur.HostCount,
-			LiveIPCount:     ur.LiveIPCount,
+			LiveIpCount:     ur.LiveIPCount,
 			Groups:          groups,
 		}
 	}
@@ -316,55 +319,18 @@ func (r *Repository) ListUserAccessRows(ctx context.Context) ([]UserAccessRow, e
 
 // ── User access editor (drawer view) ─────────────────────────────────────────
 
-type UserSummary struct {
-	ID          ids.UserID
-	DisplayName string
-	Username    string
-	Email       string
-	Role        auth.Role
-}
-
-type UserAccessGroupDetails struct {
-	ID              ids.HostGroupID
-	Name            string
-	Description     *string
-	Icon            string
-	Color           string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	Granted         bool
-	Hosts           []HostRef
-	NetworkPolicies []NetworkPolicyRef
-}
-
-type HostRef struct {
-	ID   ids.HostID
-	FQDN string
-}
-
-type NetworkPolicyRef struct {
-	ID   ids.NetworkPolicyID
-	Name string
-	CIDR string
-}
-
-type UserAccessDetails struct {
-	User            UserSummary
-	BypassHostCheck bool
-	GroupDetails    []UserAccessGroupDetails
-}
-
-func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID) (UserAccessDetails, error) {
-	// Q1: user base info + bypass_host_check
+func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID) (httpapi.UserAccessDetail, error) {
+	// Q1: user base info + bypass flag
 	type userRow struct {
 		ID              ids.UserID `db:"id"`
 		DisplayName     string     `db:"display_name"`
+		Username        string     `db:"username"`
 		Email           string     `db:"email"`
 		Role            auth.Role  `db:"role"`
 		BypassHostCheck bool       `db:"bypass_host_check"`
 	}
 	const userQuery = `
-		SELECT u.id, u.display_name, u.email, u.role,
+		SELECT u.id, u.display_name, u.username, u.email, u.role,
 		       COALESCE(uhs.bypass_host_check, 0) AS bypass_host_check
 		FROM users u
 		LEFT JOIN user_host_settings uhs ON uhs.user_id = u.id
@@ -373,12 +339,12 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 	var ur userRow
 	if err := r.db.GetContext(ctx, &ur, userQuery, userID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return UserAccessDetails{}, auth.ErrUserNotFound
+			return httpapi.UserAccessDetail{}, auth.ErrUserNotFound
 		}
-		return UserAccessDetails{}, fmt.Errorf("get user access editor user: %w", err)
+		return httpapi.UserAccessDetail{}, fmt.Errorf("get user access detail user: %w", err)
 	}
 
-	// Q2: all groups with selected flag and their member hosts
+	// Q2: all groups with grant flag and their member hosts
 	type groupRow struct {
 		GroupID          ids.HostGroupID `db:"group_id"`
 		GroupName        string          `db:"group_name"`
@@ -411,44 +377,62 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 	`
 	var groupRows []groupRow
 	if err := r.db.SelectContext(ctx, &groupRows, groupQuery, userID); err != nil {
-		return UserAccessDetails{}, fmt.Errorf("get user access editor groups: %w", err)
+		return httpapi.UserAccessDetail{}, fmt.Errorf("get user access detail groups: %w", err)
 	}
 
 	seenGroups := make(map[ids.HostGroupID]int)
-	groupDetails := []UserAccessGroupDetails{}
+	groups := []httpapi.SubjectGroupDetail{}
 	for _, gr := range groupRows {
 		idx, exists := seenGroups[gr.GroupID]
 		if !exists {
-			idx = len(groupDetails)
+			idx = len(groups)
 			seenGroups[gr.GroupID] = idx
-			groupDetails = append(groupDetails, UserAccessGroupDetails{
-				ID:          gr.GroupID,
-				Name:        gr.GroupName,
-				Icon:        gr.GroupIcon,
-				Color:       gr.GroupColor,
-				Description: gr.GroupDescription,
-				CreatedAt:   gr.GroupCreatedAt,
-				UpdatedAt:   gr.GroupUpdatedAt,
-				Granted:     gr.Granted,
-				Hosts:       []HostRef{},
+			groups = append(groups, httpapi.SubjectGroupDetail{
+				Id:              gr.GroupID.Int64(),
+				Name:            gr.GroupName,
+				Icon:            gr.GroupIcon,
+				Color:           gr.GroupColor,
+				Description:     gr.GroupDescription,
+				CreatedAt:       httpapi.UTCTime(gr.GroupCreatedAt),
+				UpdatedAt:       httpapi.UTCTime(gr.GroupUpdatedAt),
+				Granted:         gr.Granted,
+				Hosts:           []httpapi.HostSummary{},
+				NetworkPolicies: []httpapi.NetworkPolicyRef{}, // TODO: populate
 			})
 		}
 		if gr.HostID != nil && gr.HostFQDN != nil {
-			groupDetails[idx].Hosts = append(groupDetails[idx].Hosts, HostRef{
-				ID:   *gr.HostID,
-				FQDN: *gr.HostFQDN,
+			groups[idx].Hosts = append(groups[idx].Hosts, httpapi.HostSummary{
+				Id:   (*gr.HostID).Int64(),
+				Fqdn: *gr.HostFQDN,
 			})
 		}
 	}
 
-	return UserAccessDetails{
-		User: UserSummary{
-			ID:          ur.ID,
-			DisplayName: ur.DisplayName,
-			Email:       ur.Email,
-			Role:        ur.Role,
-		},
+	// Q3: devices owned by the user
+	deviceViews, err := r.GetDevicesByUser(ctx, userID)
+	if err != nil {
+		return httpapi.UserAccessDetail{}, fmt.Errorf("get user access detail devices: %w", err)
+	}
+	devices := make([]httpapi.DeviceListItem, len(deviceViews))
+	for i := range deviceViews {
+		devices[i] = httpapi.DeviceListItem{
+			Id:           deviceViews[i].ID.Int64(),
+			Name:         deviceViews[i].Name,
+			ApiKeyPrefix: deviceViews[i].KeyPrefix,
+			Icon:         deviceViews[i].Icon,
+			LiveIpCount:  deviceViews[i].AddressCount,
+		}
+	}
+
+	email := openapi_types.Email(ur.Email)
+	return httpapi.UserAccessDetail{
+		Id:              ur.ID.Int64(),
+		Username:        ur.Username,
+		DisplayName:     ur.DisplayName,
 		BypassHostCheck: ur.BypassHostCheck,
-		GroupDetails:    groupDetails,
+		Role:            httpapi.UserRole(ur.Role),
+		Email:           &email,
+		Groups:          groups,
+		Devices:         devices,
 	}, nil
 }

@@ -11,14 +11,14 @@ import (
 
 // NetworkPolicy is the core entity.
 type NetworkPolicy struct {
-	ID              ids.NetworkPolicyID
-	Name            string
-	CIDR            string // normalized ("192.168.1.0/24"), never raw user input
-	Description     *string
-	Enabled         bool
-	BypassHostCheck bool
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID              ids.NetworkPolicyID `db:"id"`
+	Name            string              `db:"name"`
+	CIDR            string              `db:"cidr"` // normalized ("192.168.1.0/24"), never raw user input
+	Description     *string             `db:"description"`
+	Enabled         bool                `db:"enabled"`
+	BypassHostCheck bool                `db:"bypass_host_check"`
+	CreatedAt       time.Time           `db:"created_at"`
+	UpdatedAt       time.Time           `db:"updated_at"`
 }
 
 // CacheEntry is consumed by the policy package via its NetworkPoliciesProvider interface.
@@ -30,12 +30,12 @@ type CacheEntry struct {
 	AllowedHostFQDNs []string // empty = deny-all (only meaningful when BypassHostCheck=false)
 }
 
-// UpdateFields contains only the fields to update; nil means "unchanged".
-// Description uses **string so callers can express "set to null" vs "not provided".
+// UpdateFields contains the fields to update.
+// Description uses *string so callers can express "set to null" (nil) vs "keep as empty string".
 type UpdateFields struct {
 	Name        string
 	CIDR        string
-	Description string
+	Description *string
 	Enabled     bool
 }
 
@@ -48,7 +48,7 @@ func (p NetworkPolicy) Apply(fields UpdateFields) (NetworkPolicy, error) {
 		return NetworkPolicy{}, fmt.Errorf("%w: %s", ErrInvalidCIDR, fields.CIDR)
 	}
 	updated.CIDR = normalized
-	updated.Description = new(fields.Description)
+	updated.Description = fields.Description
 	updated.Enabled = fields.Enabled
 	return updated, nil
 }
