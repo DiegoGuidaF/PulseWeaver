@@ -193,10 +193,9 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 			anpc.policy_id   AS network_policy_id,
 			anpc.policy_name AS network_policy_name
 		FROM access_log ral
-		LEFT JOIN (
-			SELECT access_log_id, min(user_id) AS first_user_id FROM access_log_contributors GROUP BY access_log_id
-		) c_first ON c_first.access_log_id = ral.id
-		LEFT JOIN access_log_contributors c ON c.user_id = c_first.first_user_id
+		LEFT JOIN access_log_contributors c ON c.rowid = (
+			SELECT c2.rowid FROM access_log_contributors c2 WHERE c2.access_log_id = ral.id LIMIT 1
+		)
 		LEFT JOIN devices d ON d.id = c.device_id
 		LEFT JOIN access_log_geoip g ON g.access_log_id = ral.id
 		LEFT JOIN access_log_network_policy_contributors anpc ON anpc.access_log_id = ral.id
