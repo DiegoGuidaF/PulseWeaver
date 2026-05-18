@@ -28,18 +28,27 @@ type dbNetworkPolicy struct {
 	CIDR            string              `db:"cidr"`
 	Description     *string             `db:"description"`
 	Enabled         bool                `db:"enabled"`
-	BypassHostCheck bool                `db:"allow_all_hosts"` //TODO: Rename column in DB
+	BypassHostCheck bool                `db:"bypass_host_check"`
 	CreatedAt       time.Time           `db:"created_at"`
 	UpdatedAt       time.Time           `db:"updated_at"`
 }
 
 func (r dbNetworkPolicy) toPolicy() NetworkPolicy {
-	return NetworkPolicy(r)
+	return NetworkPolicy{
+		ID:              r.ID,
+		Name:            r.Name,
+		CIDR:            r.CIDR,
+		Description:     r.Description,
+		Enabled:         r.Enabled,
+		BypassHostCheck: r.BypassHostCheck,
+		CreatedAt:       r.CreatedAt,
+		UpdatedAt:       r.UpdatedAt,
+	}
 }
 
 func (r *Repository) CreatePolicy(ctx context.Context, p NetworkPolicy) (NetworkPolicy, error) {
 	const query = `
-		INSERT INTO network_policies (name, cidr, description, enabled, allow_all_hosts)
+		INSERT INTO network_policies (name, cidr, description, enabled, bypass_host_check)
 		VALUES (?, ?, ?, ?, ?)
 		RETURNING *
 	`
@@ -75,10 +84,10 @@ func (r *Repository) GetPolicy(ctx context.Context, id ids.NetworkPolicyID) (*Ne
 func (r *Repository) UpdatePolicy(ctx context.Context, p NetworkPolicy) (*NetworkPolicy, error) {
 	const query = `
 		UPDATE network_policies
-		SET name = ?, cidr = ?, description = ?, enabled = ?, allow_all_hosts = ?,
+		SET name = ?, cidr = ?, description = ?, enabled = ?, bypass_host_check = ?,
 		    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
 		WHERE id = ?
-		RETURNING id, name, cidr, description, enabled, allow_all_hosts, created_at, updated_at
+		RETURNING id, name, cidr, description, enabled, bypass_host_check, created_at, updated_at
 	`
 	var row dbNetworkPolicy
 	err := r.db.GetContext(ctx, &row, query,
@@ -141,7 +150,7 @@ func (r *Repository) SetHostAccess(
 		}
 
 		if _, err := r.db.ExecContext(ctx,
-			`UPDATE network_policies SET allow_all_hosts = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`,
+			`UPDATE network_policies SET bypass_host_check = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`,
 			bypassHostCheck, id); err != nil {
 			return fmt.Errorf("update host access: %w", err)
 		}
@@ -154,27 +163,27 @@ func (r *Repository) SetHostAccess(
 // crossing into the hosts domain tables.
 func (r *Repository) GetEnabledCacheEntries(ctx context.Context) ([]CacheEntry, error) {
 	type policyRow struct {
-		PolicyID      ids.NetworkPolicyID `db:"policy_id"`
-		PolicyName    string              `db:"policy_name"`
-		CIDR          string              `db:"cidr"`
-		AllowAllHosts bool                `db:"allow_all_hosts"`
-		FQDN          *string             `db:"fqdn"`
+		PolicyID        ids.NetworkPolicyID `db:"policy_id"`
+		PolicyName      string              `db:"policy_name"`
+		CIDR            string              `db:"cidr"`
+		BypassHostCheck bool                `db:"bypass_host_check"`
+		FQDN            *string             `db:"fqdn"`
 	}
 
 	// Returns one row per (policy, fqdn); fqdn is NULL when no hosts assigned.
 	const query = `
-		SELECT np.id AS policy_id, np.name AS policy_name, np.cidr, np.allow_all_hosts,
+		SELECT np.id AS policy_id, np.name AS policy_name, np.cidr, np.bypass_host_check,
 		       allowed.fqdn
 		FROM network_policies np
 		LEFT JOIN (
-			SELECT npah.policy_id, kh.fqdn
+			SELECT npah.policy_id, h.fqdn
 			FROM network_policy_allowed_hosts npah
-			JOIN known_hosts kh ON kh.id = npah.known_host_id
+			JOIN hosts h ON h.id = npah.host_id
 			UNION
-			SELECT npahg.policy_id, kh.fqdn
+			SELECT npahg.policy_id, h.fqdn
 			FROM network_policy_allowed_host_groups npahg
 			JOIN host_group_members hgm ON hgm.host_group_id = npahg.host_group_id
-			JOIN known_hosts kh ON kh.id = hgm.known_host_id
+			JOIN hosts h ON h.id = hgm.host_id
 		) allowed ON allowed.policy_id = np.id
 		WHERE np.enabled = 1
 		ORDER BY np.id, allowed.fqdn
@@ -192,10 +201,10 @@ func (r *Repository) GetEnabledCacheEntries(ctx context.Context) ([]CacheEntry, 
 			idx = len(result)
 			seen[row.PolicyID] = idx
 			result = append(result, CacheEntry{
-				PolicyID:      row.PolicyID,
-				PolicyName:    row.PolicyName,
-				CIDR:          row.CIDR,
-				AllowAllHosts: row.AllowAllHosts,
+				PolicyID:        row.PolicyID,
+				PolicyName:      row.PolicyName,
+				CIDR:            row.CIDR,
+				BypassHostCheck: row.BypassHostCheck,
 			})
 		}
 		if row.FQDN != nil {

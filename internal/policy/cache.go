@@ -19,11 +19,11 @@ import (
 // networkPolicyCacheEntry holds a parsed CIDR prefix and its access config
 // for fast in-loop CIDR containment checks.
 type networkPolicyCacheEntry struct {
-	PolicyID      int64
-	PolicyName    string
-	Prefix        netip.Prefix
-	AllowAllHosts bool
-	AllowedHosts  map[string]struct{}
+	PolicyID        int64
+	PolicyName      string
+	Prefix          netip.Prefix
+	BypassHostCheck bool
+	AllowedHosts    map[string]struct{}
 }
 
 // refreshCache queries all providers and atomically replaces both in-memory
@@ -164,11 +164,11 @@ func buildNetworkPolicyCache(ctx context.Context, entries []networkpolicies.Cach
 		}
 
 		result = append(result, networkPolicyCacheEntry{
-			PolicyID:      e.PolicyID.Int64(),
-			PolicyName:    e.PolicyName,
-			Prefix:        prefix,
-			AllowAllHosts: e.AllowAllHosts,
-			AllowedHosts:  allowedHosts,
+			PolicyID:        e.PolicyID.Int64(),
+			PolicyName:      e.PolicyName,
+			Prefix:          prefix,
+			BypassHostCheck: e.BypassHostCheck,
+			AllowedHosts:    allowedHosts,
 		})
 	}
 

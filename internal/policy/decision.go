@@ -20,7 +20,7 @@ type DecisionResult struct {
 type UserHostAccess struct {
 	UserID          ids.UserID
 	BypassAllowlist bool
-	AllowedHosts    []string // case-folded FQDNs; pre-union of direct + group grants
+	AllowedHosts    []string // case-folded FQDNs
 }
 
 // GeoIPResolver resolves an IP to geographic and ASN data.

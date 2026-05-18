@@ -15,8 +15,8 @@ func TestService_ReconcileHostGroups_NotifiesObserversOnce(t *testing.T) {
 	is := is.New(t)
 	obs := &mockObserver{}
 	repo := &fakeRepo{
-		hostGroups:     []HostGroup{{ID: 1, Name: "old"}},
-		knownHostsByID: nil,
+		hostGroups: []HostGroup{{ID: 1, Name: "old"}},
+		hostsByID:  nil,
 	}
 	svc, _ := newTestService(repo)
 	svc.AddUserHostAccessObserver(obs)

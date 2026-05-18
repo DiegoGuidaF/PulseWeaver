@@ -326,19 +326,19 @@ func TestBuildNetworkPolicyCache_AllowedHostFQDNs_DeduplicatedToSet(t *testing.T
 	is.Equal(len(result[0].AllowedHosts), 2)
 }
 
-func TestBuildNetworkPolicyCache_AllowAllHosts_Preserved(t *testing.T) {
+func TestBuildNetworkPolicyCache_BypassHostCheck_Preserved(t *testing.T) {
 	is := is.New(t)
 	entries := []networkpolicies.CacheEntry{
-		{PolicyID: 1, CIDR: "10.0.0.0/8", AllowAllHosts: true},
-		{PolicyID: 2, CIDR: "192.168.0.0/16", AllowAllHosts: false},
+		{PolicyID: 1, CIDR: "10.0.0.0/8", BypassHostCheck: true},
+		{PolicyID: 2, CIDR: "192.168.0.0/16", BypassHostCheck: false},
 	}
 	result := buildNetworkPolicyCache(context.Background(), entries, noopLogger())
 	is.Equal(len(result), 2)
 	// After sort: /16 is more specific, comes first.
 	is.Equal(result[0].Prefix.Bits(), 16)
-	is.True(!result[0].AllowAllHosts)
+	is.True(!result[0].BypassHostCheck)
 	is.Equal(result[1].Prefix.Bits(), 8)
-	is.True(result[1].AllowAllHosts)
+	is.True(result[1].BypassHostCheck)
 }
 
 // ── Service-level: error propagation ─────────────────────────────────────────

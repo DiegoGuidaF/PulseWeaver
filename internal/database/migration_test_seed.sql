@@ -107,31 +107,27 @@ INSERT INTO access_log_geoip (access_log_id, country_code, country_name, asn)
     SELECT id, 'US', 'United States', 1234 FROM access_log
     WHERE outcome = 1 LIMIT 1;
 
--- ── Host access control (000018+) ─────────────────────────────────────────────
+-- ── Host access control (000018+, simplified in 000021) ──────────────────────
 -- These tables are new in migration 000018. Their data is lost on rollback
 -- (down migration drops the tables) and the tables are recreated empty on
 -- re-apply. This section ensures INSERT constraints are valid at schema N.
 
--- user_host_settings owns bypass_host_allowlist; every active user needs a row.
-INSERT INTO user_host_settings (user_id, bypass_host_allowlist)
+-- user_host_settings owns bypass_host_check; every active user needs a row.
+INSERT INTO user_host_settings (user_id, bypass_host_check)
     SELECT id, 1 FROM users WHERE username = 'seed-admin';
 
-INSERT INTO user_host_settings (user_id, bypass_host_allowlist)
+INSERT INTO user_host_settings (user_id, bypass_host_check)
     SELECT id, 0 FROM users WHERE username = 'seed-user';
 
-INSERT INTO known_hosts (fqdn, icon) VALUES ('seed.example.com', 'server');
-INSERT INTO known_hosts (fqdn) VALUES ('seed-no-icon.example.com');
+INSERT INTO hosts (fqdn) VALUES ('seed.example.com');
+INSERT INTO hosts (fqdn) VALUES ('seed-no-fqdn.example.com');
 
 INSERT INTO host_groups (name, description, icon) VALUES ('seed-group', 'Seed host group', 'folder');
 INSERT INTO host_groups (name) VALUES ('seed-group-no-icon');
 
-INSERT INTO host_group_members (host_group_id, known_host_id)
-    SELECT hg.id, kh.id FROM host_groups hg, known_hosts kh
-    WHERE hg.name = 'seed-group' AND kh.fqdn = 'seed.example.com';
-
-INSERT INTO user_allowed_hosts (user_id, known_host_id)
-    SELECT u.id, kh.id FROM users u, known_hosts kh
-    WHERE u.username = 'seed-user' AND kh.fqdn = 'seed.example.com';
+INSERT INTO host_group_members (host_group_id, host_id)
+    SELECT hg.id, h.id FROM host_groups hg, hosts h
+    WHERE hg.name = 'seed-group' AND h.fqdn = 'seed.example.com';
 
 INSERT INTO user_allowed_host_groups (user_id, host_group_id)
     SELECT u.id, hg.id FROM users u, host_groups hg
@@ -139,21 +135,21 @@ INSERT INTO user_allowed_host_groups (user_id, host_group_id)
 
 INSERT INTO ignored_host_suggestions (fqdn) VALUES ('ignored.example.com');
 
--- ── Network Policies (000019+) ─────────────────────────────────────────────────
+-- ── Network Policies (000019+, column renamed in 000021) ──────────────────────
 
-INSERT INTO network_policies (name, cidr, description, enabled, allow_all_hosts)
+INSERT INTO network_policies (name, cidr, description, enabled, bypass_host_check)
 VALUES ('Seed Home', '192.168.1.0/24', 'Seed home network', 1, 1);
 
-INSERT INTO network_policies (name, cidr, enabled, allow_all_hosts)
+INSERT INTO network_policies (name, cidr, enabled, bypass_host_check)
 VALUES ('Seed VPN', '10.0.0.0/8', 0, 0);
 
 INSERT INTO network_policy_allowed_host_groups (policy_id, host_group_id)
     SELECT np.id, hg.id FROM network_policies np, host_groups hg
     WHERE np.name = 'Seed VPN' AND hg.name = 'seed-group';
 
-INSERT INTO network_policy_allowed_hosts (policy_id, known_host_id)
-    SELECT np.id, kh.id FROM network_policies np, known_hosts kh
-    WHERE np.name = 'Seed VPN' AND kh.fqdn = 'seed.example.com';
+INSERT INTO network_policy_allowed_hosts (policy_id, host_id)
+    SELECT np.id, h.id FROM network_policies np, hosts h
+    WHERE np.name = 'Seed VPN' AND h.fqdn = 'seed.example.com';
 
 -- ── access_log_network_policy_contributors (000020+) ──────────────────────────
 

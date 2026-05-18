@@ -13,12 +13,11 @@ import (
 )
 
 type repository interface {
-	ListKnownHosts(ctx context.Context) ([]KnownHost, error)
-	CreateKnownHost(ctx context.Context, draft KnownHostDraft) (ids.KnownHostID, error)
-	UpdateKnownHost(ctx context.Context, id ids.KnownHostID, icon *string) (KnownHost, error)
-	DeleteKnownHost(ctx context.Context, id ids.KnownHostID) error
-	ListKnownHostsByIDs(ctx context.Context, ids []ids.KnownHostID) ([]KnownHost, error)
-	SetKnownHostGroupMembership(ctx context.Context, hostID ids.KnownHostID, groupIDs []ids.HostGroupID) error
+	ListHosts(ctx context.Context) ([]Host, error)
+	CreateHost(ctx context.Context, draft HostDraft) (ids.HostID, error)
+	DeleteHost(ctx context.Context, id ids.HostID) error
+	ListHostsByIDs(ctx context.Context, ids []ids.HostID) ([]Host, error)
+	SetHostGroupMembership(ctx context.Context, hostID ids.HostID, groupIDs []ids.HostGroupID) error
 
 	ListHostGroups(ctx context.Context) ([]HostGroup, error)
 	CreateHostGroup(ctx context.Context, draft HostGroupDraft) (ids.HostGroupID, error)
@@ -34,8 +33,7 @@ type repository interface {
 	DeleteUserData(ctx context.Context, userID ids.UserID) error
 
 	GetAllUserHostSettings(ctx context.Context) ([]UserHostSetting, error)
-	GetAllUserDirectHostGrants(ctx context.Context) ([]UserHostGrant, error)
-	GetAllUserGroupHostGrants(ctx context.Context) ([]UserHostGrant, error)
+	GetAllUserHostGrants(ctx context.Context) ([]UserHostGrant, error)
 }
 
 type transactor interface {
@@ -72,9 +70,8 @@ func (s *Service) notifyUserHostAccessObservers(ctx context.Context) {
 // GetAllUserHostAccess implements the policy.HostAccessProvider interface.
 func (s *Service) GetAllUserHostAccess(ctx context.Context) ([]policy.UserHostAccess, error) {
 	var (
-		settings    []UserHostSetting
-		directHosts []UserHostGrant
-		groupHosts  []UserHostGrant
+		settings []UserHostSetting
+		grants   []UserHostGrant
 	)
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
@@ -82,10 +79,7 @@ func (s *Service) GetAllUserHostAccess(ctx context.Context) ([]policy.UserHostAc
 		if settings, err = s.repo.GetAllUserHostSettings(ctx); err != nil {
 			return err
 		}
-		if directHosts, err = s.repo.GetAllUserDirectHostGrants(ctx); err != nil {
-			return err
-		}
-		if groupHosts, err = s.repo.GetAllUserGroupHostGrants(ctx); err != nil {
+		if grants, err = s.repo.GetAllUserHostGrants(ctx); err != nil {
 			return err
 		}
 		return nil
@@ -94,10 +88,10 @@ func (s *Service) GetAllUserHostAccess(ctx context.Context) ([]policy.UserHostAc
 		return nil, fmt.Errorf("get all user host access: %w", err)
 	}
 
-	return mergeUserHostAccess(settings, directHosts, groupHosts), nil
+	return mergeUserHostAccess(settings, grants), nil
 }
 
-func mergeUserHostAccess(settings []UserHostSetting, directHosts, groupHosts []UserHostGrant) []policy.UserHostAccess {
+func mergeUserHostAccess(settings []UserHostSetting, groupHosts []UserHostGrant) []policy.UserHostAccess {
 	type entry struct {
 		bypass bool
 		hosts  map[string]struct{}
@@ -105,23 +99,19 @@ func mergeUserHostAccess(settings []UserHostSetting, directHosts, groupHosts []U
 
 	byUser := make(map[ids.UserID]*entry, len(settings))
 	for _, s := range settings {
-		byUser[s.UserID] = &entry{bypass: s.BypassAllowlist}
+		byUser[s.UserID] = &entry{bypass: s.BypassHostCheck}
 	}
 
-	addGrants := func(grants []UserHostGrant) {
-		for _, g := range grants {
-			e := byUser[g.UserID]
-			if e == nil {
-				continue
-			}
-			if e.hosts == nil {
-				e.hosts = make(map[string]struct{})
-			}
-			e.hosts[g.FQDN] = struct{}{}
+	for _, g := range groupHosts {
+		e := byUser[g.UserID]
+		if e == nil {
+			continue
 		}
+		if e.hosts == nil {
+			e.hosts = make(map[string]struct{})
+		}
+		e.hosts[g.FQDN] = struct{}{}
 	}
-	addGrants(directHosts)
-	addGrants(groupHosts)
 
 	result := make([]policy.UserHostAccess, 0, len(byUser))
 	for userID, e := range byUser {

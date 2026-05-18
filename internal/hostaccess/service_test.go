@@ -17,19 +17,17 @@ import (
 // ── Fakes ─────────────────────────────────────────────────────────────────────
 
 type fakeRepo struct {
-	err          error
-	settings     []UserHostSetting
-	directGrants []UserHostGrant
-	groupGrants  []UserHostGrant
+	err      error
+	settings []UserHostSetting
+	grants   []UserHostGrant
 
-	knownHosts     []KnownHost
-	knownHostsByID []KnownHost
-	hostGroups     []HostGroup
+	hosts      []Host
+	hostsByID  []Host
+	hostGroups []HostGroup
 
-	createHostCalls []KnownHostDraft
-	updateHostCalls []KnownHost
-	deleteHostCalls []ids.KnownHostID
-	setGroupCalls   []knownHostGroupSet
+	createHostCalls []HostDraft
+	deleteHostCalls []ids.HostID
+	setGroupCalls   []hostGroupSet
 
 	createCalls []HostGroupDraft
 	updateCalls []HostGroup
@@ -39,30 +37,21 @@ type fakeRepo struct {
 
 var _ repository = (*fakeRepo)(nil)
 
-func (f *fakeRepo) ListKnownHosts(_ context.Context) ([]KnownHost, error) {
+func (f *fakeRepo) ListHosts(_ context.Context) ([]Host, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
-	return f.knownHosts, nil
+	return f.hosts, nil
 }
-func (f *fakeRepo) CreateKnownHost(_ context.Context, draft KnownHostDraft) (ids.KnownHostID, error) {
+func (f *fakeRepo) CreateHost(_ context.Context, draft HostDraft) (ids.HostID, error) {
 	if f.err != nil {
-		return ids.KnownHostID(1), f.err
+		return ids.HostID(1), f.err
 	}
 	f.createHostCalls = append(f.createHostCalls, draft)
 	f.callOrder = append(f.callOrder, "createHost")
-	return ids.KnownHostID(len(f.createHostCalls) + 100), nil
+	return ids.HostID(len(f.createHostCalls) + 100), nil
 }
-func (f *fakeRepo) UpdateKnownHost(_ context.Context, id ids.KnownHostID, icon *string) (KnownHost, error) {
-	if f.err != nil {
-		return KnownHost{}, f.err
-	}
-	h := KnownHost{ID: id, Icon: icon}
-	f.updateHostCalls = append(f.updateHostCalls, h)
-	f.callOrder = append(f.callOrder, "updateHost")
-	return h, nil
-}
-func (f *fakeRepo) DeleteKnownHost(_ context.Context, id ids.KnownHostID) error {
+func (f *fakeRepo) DeleteHost(_ context.Context, id ids.HostID) error {
 	if f.err != nil {
 		return f.err
 	}
@@ -71,20 +60,20 @@ func (f *fakeRepo) DeleteKnownHost(_ context.Context, id ids.KnownHostID) error 
 	return nil
 }
 
-func (f *fakeRepo) SetKnownHostGroupMembership(_ context.Context, hostID ids.KnownHostID, groupIDs []ids.HostGroupID) error {
+func (f *fakeRepo) SetHostGroupMembership(_ context.Context, hostID ids.HostID, groupIDs []ids.HostGroupID) error {
 	if f.err != nil {
 		return f.err
 	}
-	f.setGroupCalls = append(f.setGroupCalls, knownHostGroupSet{HostID: hostID, GroupIDs: groupIDs})
+	f.setGroupCalls = append(f.setGroupCalls, hostGroupSet{HostID: hostID, GroupIDs: groupIDs})
 	f.callOrder = append(f.callOrder, "setHostGroups")
 	return nil
 }
 
-func (f *fakeRepo) ListKnownHostsByIDs(_ context.Context, _ []ids.KnownHostID) ([]KnownHost, error) {
+func (f *fakeRepo) ListHostsByIDs(_ context.Context, _ []ids.HostID) ([]Host, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
-	return f.knownHostsByID, nil
+	return f.hostsByID, nil
 }
 
 func (f *fakeRepo) ListHostGroups(_ context.Context) ([]HostGroup, error) {
@@ -136,11 +125,8 @@ func (f *fakeRepo) DeleteUserData(_ context.Context, _ ids.UserID) error     { r
 func (f *fakeRepo) GetAllUserHostSettings(_ context.Context) ([]UserHostSetting, error) {
 	return f.settings, f.err
 }
-func (f *fakeRepo) GetAllUserDirectHostGrants(_ context.Context) ([]UserHostGrant, error) {
-	return f.directGrants, f.err
-}
-func (f *fakeRepo) GetAllUserGroupHostGrants(_ context.Context) ([]UserHostGrant, error) {
-	return f.groupGrants, f.err
+func (f *fakeRepo) GetAllUserHostGrants(_ context.Context) ([]UserHostGrant, error) {
+	return f.grants, f.err
 }
 
 // fakeTransactor executes fn directly and records whether it was called.
@@ -167,7 +153,7 @@ func newTestService(repo repository) (*Service, *fakeTransactor) {
 	return NewService(repo, tx, slog.New(slog.DiscardHandler)), tx
 }
 
-func TestService_SetFullUserGrants_NotifiesObserversOnce(t *testing.T) {
+func TestService_SetUserAccess_NotifiesObserver(t *testing.T) {
 	is := is.New(t)
 	obs := &mockObserver{}
 	svc, _ := newTestService(&fakeRepo{})
@@ -197,11 +183,11 @@ func TestService_GetAllUserHostAccess_Empty(t *testing.T) {
 	is.Equal(tx.calls, 1)
 }
 
-func TestService_GetAllUserHostAccess_DirectGrant(t *testing.T) {
+func TestService_GetAllUserHostAccess_GroupGrant(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepo{
-		settings:     []UserHostSetting{{UserID: 1, BypassAllowlist: false}},
-		directGrants: []UserHostGrant{{UserID: 1, FQDN: "example.com"}},
+		settings: []UserHostSetting{{UserID: 1, BypassHostCheck: false}},
+		grants:   []UserHostGrant{{UserID: 1, FQDN: "group-host.com"}},
 	}
 	svc, tx := newTestService(repo)
 
@@ -211,27 +197,13 @@ func TestService_GetAllUserHostAccess_DirectGrant(t *testing.T) {
 	is.Equal(len(result), 1)
 	is.Equal(result[0].UserID, ids.UserID(1))
 	is.True(!result[0].BypassAllowlist)
-	is.Equal(result[0].AllowedHosts, []string{"example.com"})
-}
-
-func TestService_GetAllUserHostAccess_GroupGrant(t *testing.T) {
-	is := is.New(t)
-	repo := &fakeRepo{
-		settings:    []UserHostSetting{{UserID: 1, BypassAllowlist: false}},
-		groupGrants: []UserHostGrant{{UserID: 1, FQDN: "group-host.com"}},
-	}
-	svc, _ := newTestService(repo)
-
-	result, err := svc.GetAllUserHostAccess(context.Background())
-	is.NoErr(err)
-	is.Equal(len(result), 1)
 	is.Equal(result[0].AllowedHosts, []string{"group-host.com"})
 }
 
 func TestService_GetAllUserHostAccess_BypassOnly(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepo{
-		settings: []UserHostSetting{{UserID: 1, BypassAllowlist: true}},
+		settings: []UserHostSetting{{UserID: 1, BypassHostCheck: true}},
 	}
 	svc, _ := newTestService(repo)
 
@@ -246,9 +218,8 @@ func TestService_GetAllUserHostAccess_BypassOnly(t *testing.T) {
 func TestService_GetAllUserHostAccess_BypassWithHosts(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepo{
-		settings:     []UserHostSetting{{UserID: 1, BypassAllowlist: true}},
-		directGrants: []UserHostGrant{{UserID: 1, FQDN: "a.com"}},
-		groupGrants:  []UserHostGrant{{UserID: 1, FQDN: "b.com"}},
+		settings: []UserHostSetting{{UserID: 1, BypassHostCheck: true}},
+		grants:   []UserHostGrant{{UserID: 1, FQDN: "b.com"}},
 	}
 	svc, _ := newTestService(repo)
 
@@ -256,14 +227,13 @@ func TestService_GetAllUserHostAccess_BypassWithHosts(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(len(result), 1)
 	is.True(result[0].BypassAllowlist)
-	sort.Strings(result[0].AllowedHosts)
-	is.Equal(result[0].AllowedHosts, []string{"a.com", "b.com"})
+	is.Equal(result[0].AllowedHosts, []string{"b.com"})
 }
 
 func TestService_GetAllUserHostAccess_ExcludesDenyAllUsers(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepo{
-		settings: []UserHostSetting{{UserID: 1, BypassAllowlist: false}},
+		settings: []UserHostSetting{{UserID: 1, BypassHostCheck: false}},
 	}
 	svc, _ := newTestService(repo)
 
@@ -272,26 +242,11 @@ func TestService_GetAllUserHostAccess_ExcludesDenyAllUsers(t *testing.T) {
 	is.Equal(len(result), 0)
 }
 
-func TestService_GetAllUserHostAccess_DeduplicatesDirectAndGroup(t *testing.T) {
+func TestService_GetAllUserHostAccess_DeduplicatesAcrossGroups(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepo{
-		settings:     []UserHostSetting{{UserID: 1, BypassAllowlist: false}},
-		directGrants: []UserHostGrant{{UserID: 1, FQDN: "shared.com"}},
-		groupGrants:  []UserHostGrant{{UserID: 1, FQDN: "shared.com"}},
-	}
-	svc, _ := newTestService(repo)
-
-	result, err := svc.GetAllUserHostAccess(context.Background())
-	is.NoErr(err)
-	is.Equal(len(result), 1)
-	is.Equal(result[0].AllowedHosts, []string{"shared.com"})
-}
-
-func TestService_GetAllUserHostAccess_DeduplicatesMultipleGroups(t *testing.T) {
-	is := is.New(t)
-	repo := &fakeRepo{
-		settings: []UserHostSetting{{UserID: 1, BypassAllowlist: false}},
-		groupGrants: []UserHostGrant{
+		settings: []UserHostSetting{{UserID: 1, BypassHostCheck: false}},
+		grants: []UserHostGrant{
 			{UserID: 1, FQDN: "shared.com"},
 			{UserID: 1, FQDN: "shared.com"},
 			{UserID: 1, FQDN: "unique.com"},
@@ -307,34 +262,18 @@ func TestService_GetAllUserHostAccess_DeduplicatesMultipleGroups(t *testing.T) {
 	is.Equal(result[0].AllowedHosts, []string{"shared.com", "unique.com"})
 }
 
-func TestService_GetAllUserHostAccess_IgnoresOrphanedGrants(t *testing.T) {
-	is := is.New(t)
-	repo := &fakeRepo{
-		settings:     []UserHostSetting{{UserID: 1, BypassAllowlist: false}},
-		directGrants: []UserHostGrant{{UserID: 99, FQDN: "orphan.com"}},
-	}
-	svc, _ := newTestService(repo)
-
-	result, err := svc.GetAllUserHostAccess(context.Background())
-	is.NoErr(err)
-	// User 1 has no hosts → excluded. User 99 is orphaned → ignored.
-	is.Equal(len(result), 0)
-}
-
 func TestService_GetAllUserHostAccess_MultipleUsers(t *testing.T) {
 	is := is.New(t)
 	repo := &fakeRepo{
 		settings: []UserHostSetting{
-			{UserID: 1, BypassAllowlist: false},
-			{UserID: 2, BypassAllowlist: true},
-			{UserID: 3, BypassAllowlist: false},
+			{UserID: 1, BypassHostCheck: false},
+			{UserID: 2, BypassHostCheck: true},
+			{UserID: 3, BypassHostCheck: false},
 		},
-		directGrants: []UserHostGrant{
+		grants: []UserHostGrant{
 			{UserID: 1, FQDN: "a.com"},
-			{UserID: 3, FQDN: "b.com"},
-		},
-		groupGrants: []UserHostGrant{
 			{UserID: 1, FQDN: "c.com"},
+			{UserID: 3, FQDN: "b.com"},
 		},
 	}
 	svc, _ := newTestService(repo)

@@ -15,7 +15,7 @@ import (
 	"github.com/matryer/is"
 )
 
-func TestHandler_ReconcileKnownHosts(t *testing.T) {
+func TestHandler_ReconcileHosts(t *testing.T) {
 	is := is.New(t)
 	srv := testutils.SetupIntegrationServer(t)
 	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)

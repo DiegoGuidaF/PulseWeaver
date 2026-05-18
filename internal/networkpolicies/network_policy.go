@@ -26,8 +26,8 @@ type CacheEntry struct {
 	PolicyID         ids.NetworkPolicyID
 	PolicyName       string
 	CIDR             string
-	AllowAllHosts    bool
-	AllowedHostFQDNs []string // empty = deny-all (only meaningful when AllowAllHosts=false)
+	BypassHostCheck  bool
+	AllowedHostFQDNs []string // empty = deny-all (only meaningful when BypassHostCheck=false)
 }
 
 // UpdateFields contains only the fields to update; nil means "unchanged".

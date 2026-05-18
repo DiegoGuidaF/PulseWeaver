@@ -216,7 +216,7 @@ PolicySimulateDenyReason:
 
 PolicyNetworkPolicyEntry:
   type: object
-  required: [policy_id, policy_name, cidr, enabled, allow_all_hosts,
+  required: [policy_id, policy_name, cidr, enabled, bypass_host_check,
              effective_host_count, total_host_count]
   properties:
     policy_id:
@@ -230,13 +230,13 @@ PolicyNetworkPolicyEntry:
       description: >
         False when the policy is present in the snapshot but currently disabled.
         Disabled policies are cached but bypassed in verify decisions.
-    allow_all_hosts:
+    bypass_host_check:
       type: boolean
     effective_host_count:
       type: integer
       description: >
         Hosts reachable through this policy. Equals total_host_count when
-        allow_all_hosts is true.
+        bypass_host_check is true.
     total_host_count:
       type: integer
 

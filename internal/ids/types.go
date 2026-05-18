@@ -47,10 +47,10 @@ func (id DeviceID) String() string {
 	return strconv.FormatInt(int64(id), 10)
 }
 
-type KnownHostID int64
+type HostID int64
 
-func (id KnownHostID) Int64() int64   { return int64(id) }
-func (id KnownHostID) String() string { return strconv.FormatInt(int64(id), 10) }
+func (id HostID) Int64() int64   { return int64(id) }
+func (id HostID) String() string { return strconv.FormatInt(int64(id), 10) }
 
 // AddressLeaseID represents the primary key of a row in the address_leases table.
 type AddressLeaseID int64

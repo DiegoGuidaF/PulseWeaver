@@ -27,18 +27,18 @@ func (h *HTTPHandler) ReconcileHosts(
 	ctx context.Context,
 	req httpapi.ReconcileHostsRequestObject,
 ) (httpapi.ReconcileHostsResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "ReconcileKnownHosts")
+	ctx = logging.WithOperation(ctx, "ReconcileHosts")
 
-	in := ReconcileKnownHostsInput{
-		Hosts: make([]DesiredKnownHost, 0, len(req.Body.Hosts)),
+	in := ReconcileHostsInput{
+		Hosts: make([]DesiredHost, 0, len(req.Body.Hosts)),
 	}
 	for _, h := range req.Body.Hosts {
-		desired := DesiredKnownHost{
+		desired := DesiredHost{
 			FQDN:     h.Fqdn,
 			GroupIDs: make([]ids.HostGroupID, len(h.GroupIds)),
 		}
 		if h.Id != nil {
-			desired.ID = new(ids.KnownHostID(*h.Id))
+			desired.ID = new(ids.HostID(*h.Id))
 		}
 		for i, gid := range h.GroupIds {
 			desired.GroupIDs[i] = ids.HostGroupID(gid)
@@ -46,20 +46,20 @@ func (h *HTTPHandler) ReconcileHosts(
 		in.Hosts = append(in.Hosts, desired)
 	}
 
-	if err := h.service.ReconcileKnownHosts(ctx, in); err != nil {
+	if err := h.service.ReconcileHosts(ctx, in); err != nil {
 		switch {
 		case errors.Is(err, ErrBadRequest),
-			errors.Is(err, ErrDuplicateKnownHostID),
-			errors.Is(err, ErrDuplicateKnownHostFQDN),
-			errors.Is(err, ErrKnownHostFQDNImmutable):
+			errors.Is(err, ErrDuplicateHostID),
+			errors.Is(err, ErrDuplicateHostFQDN),
+			errors.Is(err, ErrHostFQDNImmutable):
 			return httpapi.ReconcileHosts400JSONResponse(errResp(err.Error())), nil
-		case errors.Is(err, ErrKnownHostNotFound), errors.Is(err, ErrReferenceNotFound):
+		case errors.Is(err, ErrHostNotFound), errors.Is(err, ErrReferenceNotFound):
 			return httpapi.ReconcileHosts404JSONResponse(errResp(err.Error())), nil
-		case errors.Is(err, ErrKnownHostConflict):
+		case errors.Is(err, ErrHostConflict):
 			return httpapi.ReconcileHosts409JSONResponse(errResp("FQDN already exists")), nil
 		default:
-			h.logger.ErrorContext(ctx, "reconcile known hosts failed", slog.Any(logging.AttrKeyError, err))
-			return httpapi.ReconcileHosts500JSONResponse(errResp("Failed to reconcile known hosts")), nil
+			h.logger.ErrorContext(ctx, "reconcile hosts failed", slog.Any(logging.AttrKeyError, err))
+			return httpapi.ReconcileHosts500JSONResponse(errResp("Failed to reconcile hosts")), nil
 		}
 	}
 	return httpapi.ReconcileHosts204Response{}, nil
@@ -85,9 +85,9 @@ func (h *HTTPHandler) ReconcileHostGroups(
 			desired.ID = new(ids.HostGroupID(*g.Id))
 		}
 		if g.HostIds != nil {
-			desired.HostIDs = make([]ids.KnownHostID, len(*g.HostIds))
+			desired.HostIDs = make([]ids.HostID, len(*g.HostIds))
 			for i, raw := range *g.HostIds {
-				desired.HostIDs[i] = ids.KnownHostID(raw)
+				desired.HostIDs[i] = ids.HostID(raw)
 			}
 		}
 		in.Groups = append(in.Groups, desired)

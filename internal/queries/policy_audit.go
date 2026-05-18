@@ -81,7 +81,7 @@ func (r *Repository) getAllUsersForPolicyAudit(ctx context.Context) ([]policyAud
 		       u.username     AS username,
 		       u.display_name AS user_name,
 		       u.role IN ('admin', 'superadmin') AS is_admin,
-		       COALESCE(uhs.bypass_host_allowlist, 0) AS bypass_allowlist
+		       COALESCE(uhs.bypass_host_check, 0) AS bypass_allowlist
 		FROM users u
 		LEFT JOIN user_host_settings uhs ON uhs.user_id = u.id
 		WHERE u.deleted_at IS NULL
@@ -93,14 +93,10 @@ func (r *Repository) getAllUsersForPolicyAudit(ctx context.Context) ([]policyAud
 	}
 
 	const hostsQuery = `
-		SELECT uah.user_id, kh.fqdn
-		FROM user_allowed_hosts uah
-		JOIN known_hosts kh ON kh.id = uah.known_host_id
-		UNION
-		SELECT uahg.user_id, kh.fqdn
+		SELECT uahg.user_id, h.fqdn
 		FROM user_allowed_host_groups uahg
 		JOIN host_group_members hgm ON hgm.host_group_id = uahg.host_group_id
-		JOIN known_hosts kh ON kh.id = hgm.known_host_id
+		JOIN hosts h ON h.id = hgm.host_id
 		ORDER BY 1, 2
 	`
 
@@ -174,7 +170,7 @@ func (r *Repository) BuildPolicyUserMap(
 	totalHostCount := audit.TotalHostCount
 	for _, e := range npEntries {
 		effective := len(e.AllowedHostFQDNs)
-		if e.AllowAllHosts {
+		if e.BypassHostCheck {
 			effective = totalHostCount
 		}
 		npAPIEntries = append(npAPIEntries, httpapi.PolicyNetworkPolicyEntry{
@@ -182,7 +178,7 @@ func (r *Repository) BuildPolicyUserMap(
 			PolicyName:         e.PolicyName,
 			Cidr:               e.CIDR,
 			Enabled:            true,
-			AllowAllHosts:      e.AllowAllHosts,
+			BypassHostCheck:    e.BypassHostCheck,
 			EffectiveHostCount: effective,
 			TotalHostCount:     totalHostCount,
 		})

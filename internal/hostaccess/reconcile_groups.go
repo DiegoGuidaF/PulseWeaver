@@ -18,7 +18,7 @@ type DesiredHostGroup struct {
 	Color       string
 	Icon        string
 	Description *string
-	HostIDs     []ids.KnownHostID
+	HostIDs     []ids.HostID
 }
 
 // prepare normalises and validates a single desired group: trims the name,
@@ -79,7 +79,7 @@ type HostGroupDraft struct {
 	Color       string
 	Icon        string
 	Description *string
-	HostIDs     []ids.KnownHostID
+	HostIDs     []ids.HostID
 }
 
 // ReconcileHostGroups makes the database converge to the desired image of
@@ -87,7 +87,7 @@ type HostGroupDraft struct {
 // non-nil ID are updated; groups with a nil ID are created; groups currently
 // in the database whose ID is absent from `in` are deleted.
 //
-// All referenced known-host IDs are validated up-front so the transaction can
+// All referenced host IDs are validated up-front so the transaction can
 // fail fast without partial work. Observers are notified once on success
 // because group membership changes can shift effective per-user host access.
 func (s *Service) ReconcileHostGroups(ctx context.Context, in ReconcileHostGroupsInput) error {
@@ -205,7 +205,7 @@ func buildGroupReconcilePlan(current []HostGroup, desired []DesiredHostGroup) (g
 // without having to discriminate between "host not found" (data) and
 // "reference not found" (constraint).
 func (s *Service) validateReferencedHosts(ctx context.Context, groups []DesiredHostGroup) error {
-	hostSet := make(map[ids.KnownHostID]struct{})
+	hostSet := make(map[ids.HostID]struct{})
 	for _, g := range groups {
 		for _, id := range g.HostIDs {
 			hostSet[id] = struct{}{}
@@ -216,24 +216,24 @@ func (s *Service) validateReferencedHosts(ctx context.Context, groups []DesiredH
 		return nil
 	}
 
-	hostIDs := make([]ids.KnownHostID, 0, len(hostSet))
+	hostIDs := make([]ids.HostID, 0, len(hostSet))
 	for id := range hostSet {
 		hostIDs = append(hostIDs, id)
 	}
 
-	hosts, err := s.repo.ListKnownHostsByIDs(ctx, hostIDs)
+	hosts, err := s.repo.ListHostsByIDs(ctx, hostIDs)
 	if err != nil {
 		return err
 	}
 
-	found := make(map[ids.KnownHostID]struct{}, len(hosts))
+	found := make(map[ids.HostID]struct{}, len(hosts))
 	for _, h := range hosts {
 		found[h.ID] = struct{}{}
 	}
 
 	for _, id := range hostIDs {
 		if _, ok := found[id]; !ok {
-			return fmt.Errorf("%w: known_host_id=%d", ErrReferenceNotFound, id)
+			return fmt.Errorf("%w: host_id=%d", ErrReferenceNotFound, id)
 		}
 	}
 

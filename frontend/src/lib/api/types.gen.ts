@@ -52,9 +52,9 @@ export type User = {
    */
   readonly must_change_password: boolean;
   /**
-   * When true the user bypasses the host allowlist and can reach every known host.
+   * When true the user bypasses the host check and can reach every host.
    */
-  bypass_host_allowlist: boolean;
+  bypass_host_check: boolean;
   created_at: string;
 };
 
@@ -516,9 +516,9 @@ export type PolicyNetworkPolicyEntry = {
    *
    */
   enabled: boolean;
-  allow_all_hosts: boolean;
+  bypass_host_check: boolean;
   /**
-   * Hosts reachable through this policy. Equals total_host_count when allow_all_hosts is true.
+   * Hosts reachable through this policy. Equals total_host_count when bypass_host_check is true.
    *
    */
   effective_host_count: number;
@@ -544,7 +544,7 @@ export type GroupSummary = {
 };
 
 /**
- * Full group representation returned by GET and reconcile responses.
+ * Full group representation returned by GET.
  */
 export type GroupDetail = {
   id: Id;
@@ -968,9 +968,9 @@ export type UserWritable = {
   display_name: DisplayName;
   email: string;
   /**
-   * When true the user bypasses the host allowlist and can reach every known host.
+   * When true the user bypasses the host check and can reach every host.
    */
-  bypass_host_allowlist: boolean;
+  bypass_host_check: boolean;
   created_at: string;
 };
 

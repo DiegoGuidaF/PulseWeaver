@@ -43,7 +43,7 @@ func (s *Service) Decide(ctx context.Context, ip, host string) DecisionResult {
 		for _, np := range policies {
 			if np.Prefix.Contains(addr) {
 				_, hostAllowed := np.AllowedHosts[h]
-				if np.AllowAllHosts || hostAllowed {
+				if np.BypassHostCheck || hostAllowed {
 					return DecisionResult{
 						Allowed:           true,
 						MatchSource:       MatchSourceNetworkPolicy,

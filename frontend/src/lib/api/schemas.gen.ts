@@ -73,7 +73,7 @@ export const UserSchema = {
     "email",
     "role",
     "must_change_password",
-    "bypass_host_allowlist",
+    "bypass_host_check",
     "created_at",
   ],
   properties: {
@@ -100,10 +100,10 @@ export const UserSchema = {
       description:
         "When true, the user must change their password before using the app.",
     },
-    bypass_host_allowlist: {
+    bypass_host_check: {
       type: "boolean",
       description:
-        "When true the user bypasses the host allowlist and can reach every known host.",
+        "When true the user bypasses the host check and can reach every host.",
     },
     created_at: {
       type: "string",
@@ -1198,7 +1198,7 @@ export const PolicyNetworkPolicyEntrySchema = {
     "policy_name",
     "cidr",
     "enabled",
-    "allow_all_hosts",
+    "bypass_host_check",
     "effective_host_count",
     "total_host_count",
   ],
@@ -1217,13 +1217,13 @@ export const PolicyNetworkPolicyEntrySchema = {
       description:
         "False when the policy is present in the snapshot but currently disabled. Disabled policies are cached but bypassed in verify decisions.\n",
     },
-    allow_all_hosts: {
+    bypass_host_check: {
       type: "boolean",
     },
     effective_host_count: {
       type: "integer",
       description:
-        "Hosts reachable through this policy. Equals total_host_count when allow_all_hosts is true.\n",
+        "Hosts reachable through this policy. Equals total_host_count when bypass_host_check is true.\n",
     },
     total_host_count: {
       type: "integer",
@@ -1276,13 +1276,11 @@ export const GroupDetailSchema = {
     "icon",
     "color",
     "hosts",
-    "users",
     "network_policies",
     "created_at",
     "updated_at",
   ],
-  description:
-    "Full group representation returned by GET and reconcile responses.",
+  description: "Full group representation returned by GET.",
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
@@ -2153,7 +2151,7 @@ export const UserWritableSchema = {
     "username",
     "display_name",
     "email",
-    "bypass_host_allowlist",
+    "bypass_host_check",
     "created_at",
   ],
   properties: {
@@ -2170,10 +2168,10 @@ export const UserWritableSchema = {
       type: "string",
       format: "email",
     },
-    bypass_host_allowlist: {
+    bypass_host_check: {
       type: "boolean",
       description:
-        "When true the user bypasses the host allowlist and can reach every known host.",
+        "When true the user bypasses the host check and can reach every host.",
     },
     created_at: {
       type: "string",

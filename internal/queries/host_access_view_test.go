@@ -66,18 +66,18 @@ func TestHandler_ListUsersHostAccess_EffectiveCountCombinesDirectAndGroup(t *tes
 	adminCookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
 	principal := testutils.AdminPrincipal(t, srv)
 
-	createHostInput := hostaccess.ReconcileKnownHostsInput{Hosts: []hostaccess.DesiredKnownHost{
+	createHostInput := hostaccess.ReconcileHostsInput{Hosts: []hostaccess.DesiredHost{
 		{FQDN: "h1.example.com"}, // Should get ID 1
 		{FQDN: "h2.example.com"}, // Should get ID 2
 	}}
 
-	// Create two known hosts.
-	err := srv.HostAccessService.ReconcileKnownHosts(t.Context(), createHostInput)
+	// Create two hosts.
+	err := srv.HostAccessService.ReconcileHosts(t.Context(), createHostInput)
 	is.NoErr(err)
 
 	// Create a group containing only h2.
 	err = srv.HostAccessService.ReconcileHostGroups(t.Context(), hostaccess.ReconcileHostGroupsInput{Groups: []hostaccess.DesiredHostGroup{
-		{Name: "G1", HostIDs: []ids.KnownHostID{2}},
+		{Name: "G1", HostIDs: []ids.HostID{2}},
 	}})
 	is.NoErr(err)
 
@@ -114,13 +114,13 @@ func TestHandler_ListUsersHostAccess_BypassShowsAllHostsAsEffective(t *testing.T
 	adminCookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
 	principal := testutils.AdminPrincipal(t, srv)
 
-	// Create three known hosts.
-	createHostInput := hostaccess.ReconcileKnownHostsInput{Hosts: []hostaccess.DesiredKnownHost{
+	// Create three hosts.
+	createHostInput := hostaccess.ReconcileHostsInput{Hosts: []hostaccess.DesiredHost{
 		{FQDN: "a.example.com"},
 		{FQDN: "b.example.com"},
 		{FQDN: "c.example.com"},
 	}}
-	err := srv.HostAccessService.ReconcileKnownHosts(t.Context(), createHostInput)
+	err := srv.HostAccessService.ReconcileHosts(t.Context(), createHostInput)
 	is.NoErr(err)
 
 	// Create a bypass user with no explicit grants.
@@ -143,7 +143,7 @@ func TestHandler_ListUsersHostAccess_BypassShowsAllHostsAsEffective(t *testing.T
 	charlie := findUserRow(rows, user.ID.Int64())
 	is.True(charlie != nil)
 	is.Equal(charlie.BypassHostCheck, true)
-	is.Equal(charlie.HostCount, 3) // all 3 known hosts are effectively accessible
+	is.Equal(charlie.HostCount, 3) // all 3 hosts are effectively accessible
 	is.Equal(len(charlie.Groups), 0)
 }
 

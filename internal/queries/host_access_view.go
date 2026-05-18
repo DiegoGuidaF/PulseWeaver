@@ -20,16 +20,16 @@ type GroupRef struct {
 }
 
 type HostWithGroups struct {
-	ID        ids.KnownHostID `db:"id"`
-	FQDN      string          `db:"fqdn"`
-	CreatedAt time.Time       `db:"created_at"`
-	UserCount int             `db:"user_count"`
+	ID        ids.HostID `db:"id"`
+	FQDN      string     `db:"fqdn"`
+	CreatedAt time.Time  `db:"created_at"`
+	UserCount int        `db:"user_count"`
 	Groups    []GroupRef
 }
 
 func (r *Repository) GetAllHostsWithGroups(ctx context.Context) ([]HostWithGroups, error) {
 	type row struct {
-		ID         ids.KnownHostID  `db:"id"`
+		ID         ids.HostID       `db:"id"`
 		FQDN       string           `db:"fqdn"`
 		CreatedAt  time.Time        `db:"created_at"`
 		GroupID    *ids.HostGroupID `db:"group_id"`
@@ -44,17 +44,17 @@ func (r *Repository) GetAllHostsWithGroups(ctx context.Context) ([]HostWithGroup
 			hg.id   AS group_id,
 			hg.name AS group_name,
 			hg.color AS group_color
-		FROM known_hosts kh
-		LEFT JOIN host_group_members hgm ON hgm.known_host_id = kh.id
+		FROM hosts kh
+		LEFT JOIN host_group_members hgm ON hgm.host_id = kh.id
 		LEFT JOIN host_groups hg ON hg.id = hgm.host_group_id
 		ORDER BY kh.fqdn, hg.name
 	`
 	var rows []row
 	if err := r.db.SelectContext(ctx, &rows, query); err != nil {
-		return nil, fmt.Errorf("get known hosts with stats: %w", err)
+		return nil, fmt.Errorf("get hosts with groups: %w", err)
 	}
 
-	seen := make(map[ids.KnownHostID]int)
+	seen := make(map[ids.HostID]int)
 	var hosts []HostWithGroups
 	for _, rw := range rows {
 		idx, exists := seen[rw.ID]
@@ -89,29 +89,28 @@ type HostGroupDetails struct {
 	Icon        string
 	Description *string
 	CreatedAt   time.Time
-	Hosts       []KnownHostRef
-	MemberIDs   []ids.KnownHostID
+	Hosts       []HostRef
+	MemberIDs   []ids.HostID
 }
 
 func (r *Repository) GetHostGroupsDetails(ctx context.Context) ([]HostGroupDetails, error) {
 	type row struct {
-		ID          ids.HostGroupID  `db:"id"`
-		Name        string           `db:"name"`
-		Color       string           `db:"color"`
-		Icon        string           `db:"icon"`
-		Description *string          `db:"description"`
-		CreatedAt   time.Time        `db:"created_at"`
-		HostID      *ids.KnownHostID `db:"known_host_id"`
-		HostFQDN    *string          `db:"host_fqdn"`
-		HostIcon    *string          `db:"host_icon"`
+		ID          ids.HostGroupID `db:"id"`
+		Name        string          `db:"name"`
+		Color       string          `db:"color"`
+		Icon        string          `db:"icon"`
+		Description *string         `db:"description"`
+		CreatedAt   time.Time       `db:"created_at"`
+		HostID      *ids.HostID     `db:"host_id"`
+		HostFQDN    *string         `db:"host_fqdn"`
 	}
 	const query = `
 		SELECT hg.id, hg.name, hg.color, hg.description, hg.icon, hg.created_at,
-		       hgm.known_host_id, kh.fqdn AS host_fqdn, kh.icon AS host_icon
+		       hgm.host_id, h.fqdn AS host_fqdn
 		FROM host_groups hg
 		LEFT JOIN host_group_members hgm ON hgm.host_group_id = hg.id
-		LEFT JOIN known_hosts kh ON kh.id = hgm.known_host_id
-		ORDER BY hg.name, kh.fqdn
+		LEFT JOIN hosts h ON h.id = hgm.host_id
+		ORDER BY hg.name, h.fqdn
 	`
 	var rows []row
 	if err := r.db.SelectContext(ctx, &rows, query); err != nil {
@@ -132,11 +131,11 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) ([]HostGroupDetai
 				Description: rw.Description,
 				Icon:        rw.Icon,
 				CreatedAt:   rw.CreatedAt,
-				Hosts:       []KnownHostRef{},
+				Hosts:       []HostRef{},
 			})
 		}
 		if rw.HostID != nil && rw.HostFQDN != nil {
-			groups[idx].Hosts = append(groups[idx].Hosts, KnownHostRef{
+			groups[idx].Hosts = append(groups[idx].Hosts, HostRef{
 				ID:   *rw.HostID,
 				FQDN: *rw.HostFQDN,
 			})
@@ -169,7 +168,7 @@ func (r *Repository) GetHostSuggestionsPage(ctx context.Context) (HostSuggestion
 			SUM(CASE WHEN al.outcome = 0 THEN 1 ELSE 0 END) AS denied_hits
 		FROM access_log al
 		WHERE al.target_host IS NOT NULL
-		  AND LOWER(al.target_host) NOT IN (SELECT fqdn FROM known_hosts)
+		  AND LOWER(al.target_host) NOT IN (SELECT fqdn FROM hosts)
 		  AND LOWER(al.target_host) NOT IN (SELECT fqdn FROM ignored_host_suggestions)
 		GROUP BY LOWER(al.target_host)
 		ORDER BY denied_hits DESC, allowed_hits DESC
@@ -180,7 +179,7 @@ func (r *Repository) GetHostSuggestionsPage(ctx context.Context) (HostSuggestion
 	}
 
 	// Filter out entries that aren't valid FQDNs (e.g. bare IPs, host:port, garbage).
-	// This ensures any suggestion can be directly added as a known host.
+	// This ensures any suggestion can be directly added as a host.
 	valid := make([]HostSuggestion, 0, len(suggestions))
 	for _, s := range suggestions {
 		if hostaccess.ValidateFQDN(s.FQDN) == nil {
@@ -238,15 +237,15 @@ func (r *Repository) ListUserAccessRows(ctx context.Context) ([]UserAccessRow, e
 			u.username,
 			u.email,
 			u.role,
-			uhs.bypass_host_allowlist as bypass_host_check,
-			CASE WHEN COALESCE(uhs.bypass_host_allowlist, 0) = 1 THEN
-				(SELECT COUNT(*) FROM known_hosts)
+			uhs.bypass_host_check as bypass_host_check,
+			CASE WHEN COALESCE(uhs.bypass_host_check, 0) = 1 THEN
+				(SELECT COUNT(*) FROM hosts)
 			ELSE
 				(
-					SELECT COUNT(DISTINCT kh.id)
-					FROM known_hosts kh
-					WHERE kh.id IN (
-						SELECT hgm.known_host_id FROM host_group_members hgm
+					SELECT COUNT(DISTINCT h.id)
+					FROM hosts h
+					WHERE h.id IN (
+						SELECT hgm.host_id FROM host_group_members hgm
 						JOIN user_allowed_host_groups uahg ON uahg.host_group_id = hgm.host_group_id
 						WHERE uahg.user_id = u.id
 					)
@@ -325,7 +324,7 @@ type UserSummary struct {
 	Role        auth.Role
 }
 
-type UserAccessGroupOption struct {
+type UserAccessGroupDetails struct {
 	ID              ids.HostGroupID
 	Name            string
 	Description     *string
@@ -334,12 +333,12 @@ type UserAccessGroupOption struct {
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	Granted         bool
-	Hosts           []KnownHostRef
+	Hosts           []HostRef
 	NetworkPolicies []NetworkPolicyRef
 }
 
-type KnownHostRef struct {
-	ID   ids.KnownHostID
+type HostRef struct {
+	ID   ids.HostID
 	FQDN string
 }
 
@@ -352,21 +351,21 @@ type NetworkPolicyRef struct {
 type UserAccessDetails struct {
 	User            UserSummary
 	BypassHostCheck bool
-	GroupOptions    []UserAccessGroupOption
+	GroupDetails    []UserAccessGroupDetails
 }
 
 func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID) (UserAccessDetails, error) {
-	// Q1: user base info + allow_all_hosts
+	// Q1: user base info + bypass_host_check
 	type userRow struct {
-		ID            ids.UserID `db:"id"`
-		DisplayName   string     `db:"display_name"`
-		Email         string     `db:"email"`
-		Role          auth.Role  `db:"role"`
-		AllowAllHosts bool       `db:"allow_all_hosts"`
+		ID              ids.UserID `db:"id"`
+		DisplayName     string     `db:"display_name"`
+		Email           string     `db:"email"`
+		Role            auth.Role  `db:"role"`
+		BypassHostCheck bool       `db:"bypass_host_check"`
 	}
 	const userQuery = `
 		SELECT u.id, u.display_name, u.email, u.role,
-		       COALESCE(uhs.bypass_host_allowlist, 0) AS allow_all_hosts
+		       COALESCE(uhs.bypass_host_check, 0) AS bypass_host_check
 		FROM users u
 		LEFT JOIN user_host_settings uhs ON uhs.user_id = u.id
 		WHERE u.id = ? AND u.deleted_at IS NULL
@@ -381,17 +380,16 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 
 	// Q2: all groups with selected flag and their member hosts
 	type groupRow struct {
-		GroupID          ids.HostGroupID  `db:"group_id"`
-		GroupName        string           `db:"group_name"`
-		GroupIcon        string           `db:"group_icon"`
-		GroupColor       string           `db:"group_color"`
-		GroupDescription *string          `db:"group_description"`
-		GroupCreatedAt   time.Time        `db:"group_created_at"`
-		GroupUpdatedAt   time.Time        `db:"group_updated_at"`
-		Granted          bool             `db:"granted"`
-		HostID           *ids.KnownHostID `db:"host_id"`
-		HostFQDN         *string          `db:"host_fqdn"`
-		HostIcon         *string          `db:"host_icon"`
+		GroupID          ids.HostGroupID `db:"group_id"`
+		GroupName        string          `db:"group_name"`
+		GroupIcon        string          `db:"group_icon"`
+		GroupColor       string          `db:"group_color"`
+		GroupDescription *string         `db:"group_description"`
+		GroupCreatedAt   time.Time       `db:"group_created_at"`
+		GroupUpdatedAt   time.Time       `db:"group_updated_at"`
+		Granted          bool            `db:"granted"`
+		HostID           *ids.HostID     `db:"host_id"`
+		HostFQDN         *string         `db:"host_fqdn"`
 	}
 	const groupQuery = `
 		SELECT
@@ -403,14 +401,13 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 			hg.created_at AS group_created_at,
 			hg.updated_at AS group_updated_at,
 			CASE WHEN uahg.user_id IS NOT NULL THEN 1 ELSE 0 END AS granted,
-			kh.id   AS host_id,
-			kh.fqdn AS host_fqdn,
-			kh.icon AS host_icon
+			h.id   AS host_id,
+			h.fqdn AS host_fqdn
 		FROM host_groups hg
 		LEFT JOIN user_allowed_host_groups uahg ON uahg.host_group_id = hg.id AND uahg.user_id = ?
 		LEFT JOIN host_group_members hgm ON hgm.host_group_id = hg.id
-		LEFT JOIN known_hosts kh ON kh.id = hgm.known_host_id
-		ORDER BY hg.name, kh.fqdn
+		LEFT JOIN hosts h ON h.id = hgm.host_id
+		ORDER BY hg.name, h.fqdn
 	`
 	var groupRows []groupRow
 	if err := r.db.SelectContext(ctx, &groupRows, groupQuery, userID); err != nil {
@@ -418,13 +415,13 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 	}
 
 	seenGroups := make(map[ids.HostGroupID]int)
-	groupOptions := []UserAccessGroupOption{}
+	groupDetails := []UserAccessGroupDetails{}
 	for _, gr := range groupRows {
 		idx, exists := seenGroups[gr.GroupID]
 		if !exists {
-			idx = len(groupOptions)
+			idx = len(groupDetails)
 			seenGroups[gr.GroupID] = idx
-			groupOptions = append(groupOptions, UserAccessGroupOption{
+			groupDetails = append(groupDetails, UserAccessGroupDetails{
 				ID:          gr.GroupID,
 				Name:        gr.GroupName,
 				Icon:        gr.GroupIcon,
@@ -433,11 +430,11 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 				CreatedAt:   gr.GroupCreatedAt,
 				UpdatedAt:   gr.GroupUpdatedAt,
 				Granted:     gr.Granted,
-				Hosts:       []KnownHostRef{},
+				Hosts:       []HostRef{},
 			})
 		}
 		if gr.HostID != nil && gr.HostFQDN != nil {
-			groupOptions[idx].Hosts = append(groupOptions[idx].Hosts, KnownHostRef{
+			groupDetails[idx].Hosts = append(groupDetails[idx].Hosts, HostRef{
 				ID:   *gr.HostID,
 				FQDN: *gr.HostFQDN,
 			})
@@ -451,7 +448,7 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 			Email:       ur.Email,
 			Role:        ur.Role,
 		},
-		BypassHostCheck: ur.AllowAllHosts,
-		GroupOptions:    groupOptions,
+		BypassHostCheck: ur.BypassHostCheck,
+		GroupDetails:    groupDetails,
 	}, nil
 }

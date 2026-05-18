@@ -2580,7 +2580,7 @@ components:
         - email
         - role
         - must_change_password
-        - bypass_host_allowlist
+        - bypass_host_check
         - created_at
       properties:
         id:
@@ -2599,9 +2599,9 @@ components:
           type: boolean
           readOnly: true
           description: When true, the user must change their password before using the app.
-        bypass_host_allowlist:
+        bypass_host_check:
           type: boolean
-          description: When true the user bypasses the host allowlist and can reach every known host.
+          description: When true the user bypasses the host check and can reach every host.
         created_at:
           type: string
           format: date-time
@@ -3442,7 +3442,7 @@ components:
         - policy_name
         - cidr
         - enabled
-        - allow_all_hosts
+        - bypass_host_check
         - effective_host_count
         - total_host_count
       properties:
@@ -3456,12 +3456,12 @@ components:
           type: boolean
           description: |
             False when the policy is present in the snapshot but currently disabled. Disabled policies are cached but bypassed in verify decisions.
-        allow_all_hosts:
+        bypass_host_check:
           type: boolean
         effective_host_count:
           type: integer
           description: |
-            Hosts reachable through this policy. Equals total_host_count when allow_all_hosts is true.
+            Hosts reachable through this policy. Equals total_host_count when bypass_host_check is true.
         total_host_count:
           type: integer
     GroupRef:

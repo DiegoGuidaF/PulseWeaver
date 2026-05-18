@@ -139,11 +139,11 @@ func TestBuildPolicyUserMap_GroupHostsIncluded(t *testing.T) {
 	is.NoErr(err)
 
 	// Create a host and a group containing it.
-	hostID, err := hostRepo.CreateKnownHost(ctx, hostaccess.KnownHostDraft{FQDN: "group-only.example.com"})
+	hostID, err := hostRepo.CreateHost(ctx, hostaccess.HostDraft{FQDN: "group-only.example.com"})
 	is.NoErr(err)
 	groupID, err := hostRepo.CreateHostGroup(ctx, hostaccess.HostGroupDraft{
 		Name:    "policy-audit-test-group",
-		HostIDs: []ids.KnownHostID{hostID},
+		HostIDs: []ids.HostID{hostID},
 	})
 	is.NoErr(err)
 

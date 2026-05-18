@@ -7,14 +7,14 @@ import (
 )
 
 type HostGroup struct {
-	ID          ids.HostGroupID   `db:"id"`
-	Name        string            `db:"name"`
-	Color       string            `db:"color"`
-	Icon        string            `db:"icon"`
-	Description *string           `db:"description"`
-	UpdatedAt   time.Time         `db:"updated_at"`
-	CreatedAt   time.Time         `db:"created_at"`
-	HostIDs     []ids.KnownHostID `db:"-"`
+	ID          ids.HostGroupID `db:"id"`
+	Name        string          `db:"name"`
+	Color       string          `db:"color"`
+	Icon        string          `db:"icon"`
+	Description *string         `db:"description"`
+	UpdatedAt   time.Time       `db:"updated_at"`
+	CreatedAt   time.Time       `db:"created_at"`
+	HostIDs     []ids.HostID    `db:"-"`
 }
 
 // SameDefinitionAs reports whether two groups would produce identical rows
@@ -33,10 +33,10 @@ func (g HostGroup) SameDefinitionAs(other HostGroup) bool {
 	if !equalStringPtr(g.Description, other.Description) {
 		return false
 	}
-	return sameKnownHostIDs(g.HostIDs, other.HostIDs)
+	return sameHostIDs(g.HostIDs, other.HostIDs)
 }
 
-func sameKnownHostIDs(a, b []ids.KnownHostID) bool {
+func sameHostIDs(a, b []ids.HostID) bool {
 	if len(a) != len(b) {
 		return false
 	}

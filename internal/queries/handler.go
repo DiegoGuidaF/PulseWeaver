@@ -53,14 +53,14 @@ func (h *HTTPHandler) ListUsers(
 
 func toUserViewResponse(u *UserView) httpapi.User {
 	return httpapi.User{
-		Id:                  u.ID.Int64(),
-		Username:            u.Username,
-		DisplayName:         u.DisplayName,
-		Email:               openapi_types.Email(u.Email),
-		Role:                httpapi.UserRole(u.Role),
-		MustChangePassword:  new(u.MustChangePassword),
-		BypassHostAllowlist: u.BypassHostAllowlist,
-		CreatedAt:           httpapi.UTCTime(u.CreatedAt),
+		Id:                 u.ID.Int64(),
+		Username:           u.Username,
+		DisplayName:        u.DisplayName,
+		Email:              openapi_types.Email(u.Email),
+		Role:               httpapi.UserRole(u.Role),
+		MustChangePassword: new(u.MustChangePassword),
+		BypassHostCheck:    u.BypassHostCheck,
+		CreatedAt:          httpapi.UTCTime(u.CreatedAt),
 	}
 }
 
@@ -381,12 +381,12 @@ func (h *HTTPHandler) ListHosts(
 	ctx context.Context,
 	_ httpapi.ListHostsRequestObject,
 ) (httpapi.ListHostsResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "ListKnownHosts")
+	ctx = logging.WithOperation(ctx, "ListHosts")
 
 	hosts, err := h.repo.GetAllHostsWithGroups(ctx)
 	if err != nil {
-		h.logger.ErrorContext(ctx, "list known hosts failed", slog.Any(logging.AttrKeyError, err))
-		return httpapi.ListHosts500JSONResponse(errorMsgResponse("Failed to list known hosts")), nil
+		h.logger.ErrorContext(ctx, "list hosts failed", slog.Any(logging.AttrKeyError, err))
+		return httpapi.ListHosts500JSONResponse(errorMsgResponse("Failed to list hosts")), nil
 	}
 
 	resp := make([]httpapi.Host, len(hosts))
@@ -491,8 +491,8 @@ func (h *HTTPHandler) GetUserAccessDetail(
 		return httpapi.GetUserAccessDetail500JSONResponse(errorMsgResponse("Failed to get user host details")), nil
 	}
 
-	groups := make([]httpapi.SubjectGroupDetail, len(accessDetail.GroupOptions))
-	for i, g := range accessDetail.GroupOptions {
+	groups := make([]httpapi.SubjectGroupDetail, len(accessDetail.GroupDetails))
+	for i, g := range accessDetail.GroupDetails {
 		// Build hosts
 		hosts := make([]httpapi.HostSummary, len(g.Hosts))
 		for j, kh := range g.Hosts {
@@ -506,16 +506,16 @@ func (h *HTTPHandler) GetUserAccessDetail(
 		}
 
 		groups[i] = httpapi.SubjectGroupDetail{
-			Color:           g.Color,
-			CreatedAt:       httpapi.UTCTime(g.CreatedAt),
-			Description:     g.Description,
-			Hosts:           hosts,
-			Icon:            g.Icon,
 			Id:              g.ID.Int64(),
 			Name:            g.Name,
+			Hosts:           hosts,
 			NetworkPolicies: networkPolicies,
-			UpdatedAt:       httpapi.UTCTime(g.UpdatedAt),
 			Granted:         g.Granted,
+			Description:     g.Description,
+			Color:           g.Color,
+			Icon:            g.Icon,
+			UpdatedAt:       httpapi.UTCTime(g.UpdatedAt),
+			CreatedAt:       httpapi.UTCTime(g.CreatedAt),
 		}
 	}
 
@@ -530,14 +530,14 @@ func (h *HTTPHandler) GetUserAccessDetail(
 	}
 
 	return httpapi.GetUserAccessDetail200JSONResponse(httpapi.UserAccessDetail{
-		BypassHostCheck: accessDetail.BypassHostCheck,
-		Devices:         devices,
-		DisplayName:     accessDetail.User.DisplayName,
-		Email:           new(openapi_types.Email(accessDetail.User.Email)),
-		Groups:          groups,
 		Id:              accessDetail.User.ID.Int64(),
-		Role:            httpapi.UserRole(accessDetail.User.Role),
 		Username:        accessDetail.User.Username,
+		DisplayName:     accessDetail.User.DisplayName,
+		BypassHostCheck: accessDetail.BypassHostCheck,
+		Role:            httpapi.UserRole(accessDetail.User.Role),
+		Groups:          groups,
+		Devices:         devices,
+		Email:           new(openapi_types.Email(accessDetail.User.Email)),
 	}), nil
 }
 
@@ -584,7 +584,7 @@ func toNetworkPolicySummaryResponse(s NetworkPolicySummaryView) httpapi.NetworkP
 		Name:            s.Name,
 		Cidr:            s.CIDR,
 		Enabled:         s.Enabled,
-		BypassHostCheck: s.AllowAllHosts,
+		BypassHostCheck: s.BypassHostCheck,
 		HostCount:       s.EffectiveHostCount,
 		Groups:          []httpapi.GroupRef{},
 	}
@@ -625,7 +625,7 @@ func toNetworkPolicyDetailResponse(d NetworkPolicyDetailView) httpapi.NetworkPol
 		Cidr:            d.CIDR,
 		Description:     d.Description,
 		Enabled:         d.Enabled,
-		BypassHostCheck: d.AllowAllHosts,
+		BypassHostCheck: d.BypassHostCheck,
 		Groups:          groups,
 		CreatedAt:       httpapi.UTCTime(d.CreatedAt),
 		UpdatedAt:       httpapi.UTCTime(d.UpdatedAt),

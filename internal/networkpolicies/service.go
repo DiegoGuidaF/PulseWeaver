@@ -14,7 +14,7 @@ type repository interface {
 	GetPolicy(ctx context.Context, id ids.NetworkPolicyID) (*NetworkPolicy, error)
 	UpdatePolicy(ctx context.Context, p NetworkPolicy) (*NetworkPolicy, error)
 	DeletePolicy(ctx context.Context, id ids.NetworkPolicyID) error
-	SetHostAccess(ctx context.Context, id ids.NetworkPolicyID, allowAll bool, groupIDs []ids.HostGroupID) error
+	SetHostAccess(ctx context.Context, id ids.NetworkPolicyID, bypassHostCheck bool, groupIDs []ids.HostGroupID) error
 }
 
 type transactor interface {

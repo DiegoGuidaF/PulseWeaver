@@ -48,7 +48,7 @@ export const zUser = z.object({
   email: z.email(),
   role: zUserRole,
   must_change_password: z.boolean().readonly(),
-  bypass_host_allowlist: z.boolean(),
+  bypass_host_check: z.boolean(),
   created_at: z.iso.datetime({ offset: true, local: true }),
 });
 
@@ -418,7 +418,7 @@ export const zPolicyNetworkPolicyEntry = z.object({
   policy_name: z.string(),
   cidr: z.string(),
   enabled: z.boolean(),
-  allow_all_hosts: z.boolean(),
+  bypass_host_check: z.boolean(),
   effective_host_count: z.int(),
   total_host_count: z.int(),
 });
@@ -594,7 +594,7 @@ export const zNetworkPolicyRef = z.object({
 });
 
 /**
- * Full group representation returned by GET and reconcile responses.
+ * Full group representation returned by GET.
  */
 export const zGroupDetail = z.object({
   id: zId,
@@ -740,7 +740,7 @@ export const zUserWritable = z.object({
   username: zUsername,
   display_name: zDisplayName,
   email: z.email(),
-  bypass_host_allowlist: z.boolean(),
+  bypass_host_check: z.boolean(),
   created_at: z.iso.datetime({ offset: true, local: true }),
 });
 
