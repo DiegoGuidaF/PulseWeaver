@@ -1,4 +1,6 @@
 import { Affix, Button, Group, Paper, Stack, Text, Transition } from "@mantine/core";
+
+export const STAGED_BAR_HEIGHT = 80;
 import { IconAlertCircle } from "@tabler/icons-react";
 
 interface Props {

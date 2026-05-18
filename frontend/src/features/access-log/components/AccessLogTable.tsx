@@ -18,6 +18,7 @@ import { toErrorMessage } from "@/lib/api-client";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
 import { useDevices } from "@/features/devices/hooks/useDevices";
 import { useAccessLogDenyReasons } from "../hooks/useAccessLogDenyReasons";
+import { useNetworkPolicies } from "@/features/network-policies/hooks/useNetworkPolicies";
 
 interface AccessLogTableProps {
     filters: AccessLogFilters;
@@ -45,6 +46,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
 
     const { data: devices } = useDevices();
     const { data: denyReasons } = useAccessLogDenyReasons();
+    const { data: networkPolicies } = useNetworkPolicies();
 
     const { data, isPending, error } = useAccessLog(
         { ...filters.queryParams, before_id: cursor ? Number(cursor) : undefined, limit: PAGE_SIZE },
@@ -65,6 +67,10 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         value: r,
         label: DENY_REASON_LABELS[r] ?? r,
     }));
+    const networkPolicyOptions = (networkPolicies ?? []).map((p) => ({
+        value: String(p.id),
+        label: `${p.name} (${p.cidr})`,
+    }));
 
     const columns = getAccessLogColumns({
         formatDateTime,
@@ -75,13 +81,16 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         ipLocal: filters.ipLocal,
         ipDebounced: filters.ipDebounced,
         deviceIdStr: filters.deviceIdStr,
+        networkPolicyIdStr: filters.networkPolicyIdStr,
         outcomeStr: filters.outcomeStr,
         denyReason: filters.denyReason,
         countryCodeLocal: filters.countryCodeLocal,
         countryCodeDebounced: filters.countryCodeDebounced,
         deviceOptions,
         denyReasonOptions,
+        networkPolicyOptions,
         setParam: filters.setParam,
+        setNetworkPolicyId: filters.setNetworkPolicyId,
         setIpLocal: filters.setIpLocal,
         setCountryCodeLocal: filters.setCountryCodeLocal,
         setSearchParams: filters.setSearchParams,
@@ -90,6 +99,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
             setDrawerOpened(true);
         },
         onDeviceClick: (deviceId) => navigate(`/devices/${deviceId}`),
+        onNetworkPolicyClick: (id) => navigate(`/network-policies/${id}`),
     });
 
     const filterChips = useMemo(() => {
@@ -122,9 +132,18 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         if (filters.deviceIdStr) {
             const device = deviceOptions.find((d) => d.value === filters.deviceIdStr);
             chips.push({
-                label: "Device",
+                label: "Authorized by",
                 value: device?.label ?? filters.deviceIdStr,
                 onRemove: () => filters.setParam("device_id", null),
+            });
+        }
+
+        if (filters.networkPolicyIdStr) {
+            const policy = networkPolicyOptions.find((p) => p.value === filters.networkPolicyIdStr);
+            chips.push({
+                label: "Authorized by",
+                value: policy?.label ?? filters.networkPolicyIdStr,
+                onRemove: () => filters.setNetworkPolicyId(null),
             });
         }
 
@@ -159,7 +178,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         }
 
         return chips;
-    }, [filters, formatDateTime, deviceOptions]);
+    }, [filters, formatDateTime, deviceOptions, networkPolicyOptions]);
 
     if ((isPending || !data) && !error && rows.length === 0) {
         return (

@@ -22,6 +22,7 @@ import {
     IconList,
     IconLogout,
     IconMoon,
+    IconNetwork,
     IconQrcode,
     IconServer,
     IconSettings,
@@ -47,6 +48,7 @@ const navItems = [
 const adminNavItems = [
     { label: "Users", href: "/users", icon: IconUsers },
     { label: "Hosts", href: "/hosts", icon: IconShield },
+    { label: "Network Policies", href: "/network-policies", icon: IconNetwork },
     { label: "Policy Cache", href: "/policy-audit", icon: IconDatabaseSearch },
 ];
 

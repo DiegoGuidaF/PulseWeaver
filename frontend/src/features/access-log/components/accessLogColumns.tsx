@@ -2,6 +2,7 @@ import {
     ActionIcon,
     Anchor,
     Badge,
+    Group,
     SegmentedControl,
     Select,
     Stack,
@@ -9,7 +10,7 @@ import {
     TextInput,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { IconChevronRight, IconHome, IconSearch } from "@tabler/icons-react";
+import { IconChevronRight, IconHome, IconHexagon, IconSearch } from "@tabler/icons-react";
 import type { DataTableColumn } from "mantine-datatable";
 import type { AccessLogRow } from "@/lib/api";
 import type { AccessLogFilters } from "../hooks/useAccessLogFilters";
@@ -35,6 +36,7 @@ export interface AccessLogColumnDeps {
     ipLocal: string;
     ipDebounced: string;
     deviceIdStr: string | null;
+    networkPolicyIdStr: string | null;
     outcomeStr: string | null;
     denyReason: string | null;
     countryCodeLocal: string;
@@ -43,9 +45,11 @@ export interface AccessLogColumnDeps {
     // Options
     deviceOptions: { value: string; label: string }[];
     denyReasonOptions: { value: string; label: string }[];
+    networkPolicyOptions: { value: string; label: string }[];
 
     // Setters
     setParam: (key: string, value: string | null) => void;
+    setNetworkPolicyId: (val: string | null) => void;
     setIpLocal: (value: string) => void;
     setCountryCodeLocal: (value: string) => void;
     setSearchParams: AccessLogFilters["setSearchParams"];
@@ -53,6 +57,7 @@ export interface AccessLogColumnDeps {
     // Actions
     onRowClick: (row: AccessLogRow) => void;
     onDeviceClick: (deviceId: number) => void;
+    onNetworkPolicyClick: (id: number) => void;
 }
 
 export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<AccessLogRow>[] {
@@ -177,32 +182,63 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
         },
         {
             accessor: "device_name",
-            title: "Device",
+            title: "Authorized by",
             filter: ({ close }) => (
-                <Select
-                    placeholder="All devices"
-                    data={deps.deviceOptions}
-                    value={deps.deviceIdStr}
-                    onChange={(val) => { deps.setParam("device_id", val); close(); }}
-                    clearable
-                    comboboxProps={{ withinPortal: false }}
-                    m="xs"
-                    w={200}
-                />
+                <Stack gap="xs" p="xs">
+                    <Text size="xs" c="dimmed" fw={500}>By device</Text>
+                    <Select
+                        placeholder="All devices"
+                        data={deps.deviceOptions}
+                        value={deps.deviceIdStr}
+                        onChange={(val) => {
+                            deps.setParam("network_policy_id", null);
+                            deps.setParam("device_id", val);
+                            close();
+                        }}
+                        clearable
+                        comboboxProps={{ withinPortal: false }}
+                        w={220}
+                    />
+                    <Text size="xs" c="dimmed" fw={500}>By network policy</Text>
+                    <Select
+                        placeholder="All policies"
+                        data={deps.networkPolicyOptions}
+                        value={deps.networkPolicyIdStr}
+                        onChange={(val) => { deps.setNetworkPolicyId(val); close(); }}
+                        clearable
+                        comboboxProps={{ withinPortal: false }}
+                        w={220}
+                    />
+                </Stack>
             ),
-            filtering: !!deps.deviceIdStr,
-            render: (row) => (
-                row.device_name && row.device_id != null
-                    ? (
+            filtering: !!(deps.deviceIdStr || deps.networkPolicyIdStr),
+            render: (row) => {
+                if (row.network_policy_id != null) {
+                    return (
+                        <Anchor
+                            size="sm"
+                            c="teal.5"
+                            onClick={(e) => { e.stopPropagation(); deps.onNetworkPolicyClick(row.network_policy_id!); }}
+                        >
+                            <Group gap={4} wrap="nowrap">
+                                <IconHexagon size={14} />
+                                <Text size="sm" inherit>{row.network_policy_name ?? "Unknown policy"}</Text>
+                            </Group>
+                        </Anchor>
+                    );
+                }
+                if (row.device_name && row.device_id != null) {
+                    return (
                         <Anchor
                             size="sm"
                             onClick={(e) => { e.stopPropagation(); deps.onDeviceClick(row.device_id!); }}
                         >
                             {row.device_name}
                         </Anchor>
-                    )
-                    : <Text size="sm" c="dimmed">Unknown</Text>
-            ),
+                    );
+                }
+                return <Text size="sm" c="dimmed">—</Text>;
+            },
         },
         {
             accessor: "outcome",

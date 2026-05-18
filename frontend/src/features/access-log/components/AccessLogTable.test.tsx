@@ -334,7 +334,7 @@ describe("AccessLogTable", () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            await user.click(getFilterButton("Device"));
+            await user.click(getFilterButton("Authorized by"));
 
             expect(
                 await screen.findByPlaceholderText("All devices"),
@@ -423,7 +423,7 @@ describe("AccessLogTable", () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            expect(screen.getByText("Device:")).toBeInTheDocument();
+            expect(screen.getByText("Authorized by:")).toBeInTheDocument();
             expect(screen.getByText(/Test Device/)).toBeInTheDocument();
         });
 
@@ -492,7 +492,7 @@ describe("AccessLogTable", () => {
 
             expect(screen.queryByText("Time:")).not.toBeInTheDocument();
             expect(screen.queryByText("IP:")).not.toBeInTheDocument();
-            expect(screen.queryByText("Device:")).not.toBeInTheDocument();
+            expect(screen.queryByText("Authorized by:")).not.toBeInTheDocument();
             expect(screen.queryByText("Outcome:")).not.toBeInTheDocument();
         });
     });

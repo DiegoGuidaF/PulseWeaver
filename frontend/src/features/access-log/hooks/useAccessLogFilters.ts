@@ -22,6 +22,7 @@ export interface AccessLogFilters {
     // Individual values for UI widgets
     presetStr: string | null;
     deviceIdStr: string | null;
+    networkPolicyIdStr: string | null;
     outcomeStr: string | null;
     denyReason: string | null;
     fromStr: string | null;
@@ -39,6 +40,7 @@ export interface AccessLogFilters {
     // Setters
     setPreset: (key: string | null) => void;
     setParam: (key: string, value: string | null) => void;
+    setNetworkPolicyId: (val: string | null) => void;
     setIpLocal: (value: string) => void;
     setCountryCodeLocal: (value: string) => void;
     setSearchParams: (updater: URLSearchParams | ((prev: URLSearchParams) => URLSearchParams)) => void;
@@ -73,6 +75,7 @@ export function useAccessLogFilters(): AccessLogFilters {
     // URL-derived filter values
     const presetStr = searchParams.get("preset");
     const deviceIdStr = searchParams.get("device_id");
+    const networkPolicyIdStr = searchParams.get("network_policy_id");
     const outcomeStr = searchParams.get("outcome");
     const denyReason = searchParams.get("deny_reason") ?? null;
     const fromStr = searchParams.get("from");
@@ -137,10 +140,21 @@ export function useAccessLogFilters(): AccessLogFilters {
         });
     }
 
+    // Device and network policy filters are mutually exclusive — selecting one clears the other
+    function setNetworkPolicyId(val: string | null) {
+        setSearchParams((prev) => {
+            prev.delete("device_id");
+            if (val) prev.set("network_policy_id", val);
+            else prev.delete("network_policy_id");
+            return prev;
+        });
+    }
+
     // Compute query params: preset takes precedence over raw from/to
     const presetMs = presetStr ? PRESET_MS[presetStr] : undefined;
     const queryParams: GetAccessLogData["query"] = {
         device_id: deviceIdStr ? Number(deviceIdStr) : undefined,
+        network_policy_id: networkPolicyIdStr ? Number(networkPolicyIdStr) : undefined,
         outcome: outcomeStr === "allow" ? true : outcomeStr === "deny" ? false : undefined,
         ip: ipDebounced || undefined,
         deny_reason: denyReason || undefined,
@@ -152,7 +166,7 @@ export function useAccessLogFilters(): AccessLogFilters {
     };
 
     const hasCustomTo = !!toStr && presetMs === undefined;
-    const hasActiveFilters = !!(fromStr || toStr || deviceIdStr || outcomeStr || denyReason || ipDebounced || countryCodeDebounced);
+    const hasActiveFilters = !!(fromStr || toStr || deviceIdStr || networkPolicyIdStr || outcomeStr || denyReason || ipDebounced || countryCodeDebounced);
 
     function clearAll() {
         setIpLocalRaw("");
@@ -168,13 +182,14 @@ export function useAccessLogFilters(): AccessLogFilters {
     }
 
     // Changes whenever any filter value changes — used to reset pagination.
-    const filterKey = `${presetStr}|${deviceIdStr}|${outcomeStr}|${denyReason}|${fromStr}|${toStr}|${ipDebounced}|${countryCodeDebounced}`;
+    const filterKey = `${presetStr}|${deviceIdStr}|${networkPolicyIdStr}|${outcomeStr}|${denyReason}|${fromStr}|${toStr}|${ipDebounced}|${countryCodeDebounced}`;
 
     return {
         queryParams,
         filterKey,
         presetStr,
         deviceIdStr,
+        networkPolicyIdStr,
         outcomeStr,
         denyReason,
         fromStr,
@@ -187,6 +202,7 @@ export function useAccessLogFilters(): AccessLogFilters {
         hasActiveFilters,
         setPreset,
         setParam,
+        setNetworkPolicyId,
         setIpLocal,
         setCountryCodeLocal,
         setSearchParams,

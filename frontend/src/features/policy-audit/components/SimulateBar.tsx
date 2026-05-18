@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Alert, Button, Group, Text, TextInput } from "@mantine/core";
+import { Link } from "react-router-dom";
+import { Alert, Anchor, Button, Group, Text, TextInput } from "@mantine/core";
 import { IconCircleCheck, IconCircleX, IconPlayerPlay } from "@tabler/icons-react";
 import { usePolicySimulate } from "../hooks/usePolicySimulate";
 import { DENY_REASON_LABELS } from "../constants";
@@ -73,6 +74,17 @@ export function SimulateBar({ ip, onIpChange }: SimulateBarProps) {
           <Text size="sm" ff="monospace">
             {result.ip} → {result.host}
           </Text>
+          {result.allowed && result.match_source === "network_policy" && result.network_policy_name && (
+            <Text size="sm" mt={4}>
+              Matched by Network Policy:{" "}
+              <Anchor component={Link} to={`/network-policies/${result.network_policy_id}`}>
+                {result.network_policy_name}
+              </Anchor>
+            </Text>
+          )}
+          {result.allowed && result.match_source === "device" && (
+            <Text size="sm" mt={4} c="dimmed">Matched by device address</Text>
+          )}
           {!result.allowed && result.deny_reason && (
             <Text size="sm" mt={4}>
               {DENY_REASON_LABELS[result.deny_reason] ?? result.deny_reason}

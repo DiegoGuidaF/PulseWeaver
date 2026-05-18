@@ -18,6 +18,8 @@ import { DeviceProvisioningPage } from "./pages/DeviceProvisioningPage";
 import { HostsPage } from "./pages/HostsPage";
 import { UsersPage } from "./pages/UsersPage";
 import { PolicyAuditPage } from "./pages/PolicyAuditPage";
+import { NetworkPoliciesPage } from "./pages/NetworkPoliciesPage";
+import { NetworkPolicyDetailPage } from "./pages/NetworkPolicyDetailPage";
 import { theme } from "./lib/theme";
 import { DateTimePrefsProvider } from "./contexts/DateTimePrefsContext";
 
@@ -132,6 +134,26 @@ function App() {
                       <ProtectedRoute>
                         <AppShell>
                           <PolicyAuditPage />
+                        </AppShell>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/network-policies"
+                    element={
+                      <ProtectedRoute>
+                        <AppShell>
+                          <NetworkPoliciesPage />
+                        </AppShell>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/network-policies/:id"
+                    element={
+                      <ProtectedRoute>
+                        <AppShell>
+                          <NetworkPolicyDetailPage />
                         </AppShell>
                       </ProtectedRoute>
                     }

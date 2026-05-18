@@ -7,6 +7,7 @@ import {
   Group,
   Loader,
   Stack,
+  Tabs,
   Text,
   ThemeIcon,
   Title,
@@ -19,13 +20,13 @@ import {
   IconUsers,
   IconWorld,
 } from "@tabler/icons-react";
-import type { PolicyUserMapAudit } from "@/lib/api";
+import type { PolicyUserMapAudit, PolicyUserEntry } from "@/lib/api";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { usePolicyMap } from "@/features/policy-audit/hooks/usePolicyMap";
 import { SimulateBar } from "@/features/policy-audit/components/SimulateBar";
 import { PolicyUserTable } from "@/features/policy-audit/components/PolicyUserTable";
 import { PolicyUserDrawer } from "@/features/policy-audit/components/PolicyUserDrawer";
-import type { PolicyUserEntry } from "@/lib/api";
+import { NetworkPolicyCacheTab } from "@/features/policy-audit/components/NetworkPolicyCacheTab";
 
 function relativeTime(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -99,6 +100,12 @@ function CacheStatsHeader({ data }: { data: PolicyUserMapAudit }) {
           label="Shared IPs"
           value={data.shared_ip_count}
         />
+        <Divider orientation="vertical" mx="xl" />
+        <StatTile
+          icon={<IconNetwork size={14} color="var(--mantine-color-dimmed)" />}
+          label="Network policies"
+          value={data.total_network_policy_count}
+        />
       </Group>
     </Card>
   );
@@ -151,12 +158,26 @@ export function PolicyAuditPage() {
       )}
 
       {data && (
-        <PolicyUserTable
-          data={data}
-          totalHosts={data.total_host_count}
-          onSelectIp={setSimulateIp}
-          onSelectUser={setSelectedUser}
-        />
+        <Tabs defaultValue="devices">
+          <Tabs.List>
+            <Tabs.Tab value="devices">Device entries</Tabs.Tab>
+            <Tabs.Tab value="network-policies">Network policies</Tabs.Tab>
+          </Tabs.List>
+          <Tabs.Panel value="devices" pt="md">
+            <PolicyUserTable
+              data={data}
+              totalHosts={data.total_host_count}
+              onSelectIp={setSimulateIp}
+              onSelectUser={setSelectedUser}
+            />
+          </Tabs.Panel>
+          <Tabs.Panel value="network-policies" pt="md">
+            <NetworkPolicyCacheTab
+              entries={data.network_policies}
+              totalHosts={data.total_host_count}
+            />
+          </Tabs.Panel>
+        </Tabs>
       )}
 
       <PolicyUserDrawer
