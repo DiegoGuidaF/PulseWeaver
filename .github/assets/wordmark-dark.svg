@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="380" height="64" viewBox="0 0 380 64" fill="none">
+  <defs>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap');</style>
+  </defs>
+  <svg x="0" y="0" width="64" height="64" viewBox="0 0 64 64">
+<g stroke="#ffffff" stroke-width="1.4" stroke-linejoin="miter" fill="none">
+    <polygon points="32,4 56.25,18 56.25,46 32,60 7.75,46 7.75,18"/>
+    <polygon points="32,14.6 47,23.3 47,40.7 32,49.4 17,40.7 17,23.3" opacity="0.55"/>
+    <polygon points="32,23 39.8,27.5 39.8,36.5 32,41 24.2,36.5 24.2,27.5" opacity="0.35"/>
+    <line x1="32" y1="32" x2="32"    y2="4"  opacity="0.55"/>
+    <line x1="32" y1="32" x2="56.25" y2="18" opacity="0.55"/>
+    <line x1="32" y1="32" x2="56.25" y2="46" opacity="0.55"/>
+    <line x1="32" y1="32" x2="32"    y2="60" opacity="0.55"/>
+    <line x1="32" y1="32" x2="7.75"  y2="46" opacity="0.55"/>
+    <line x1="32" y1="32" x2="7.75"  y2="18" opacity="0.55"/>
+  </g>
+  <path d="M 40 10 L 14 34 L 26 34 L 24 52 L 50 30 L 34 30 Z" fill="#ffa94d"/>
+  </svg>
+  <text x="86" y="50"
+        font-family="'Space Grotesk', system-ui, -apple-system, sans-serif"
+        font-weight="700" font-size="40" letter-spacing="-0.02em">
+    <tspan fill="#ffa94d">Pulse</tspan><tspan fill="#ffffff">Weaver</tspan>
+  </text>
+</svg>

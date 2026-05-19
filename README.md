@@ -1,4 +1,7 @@
-# PulseWeaver
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/wordmark-dark.svg">
+  <img src=".github/assets/wordmark-light.svg" alt="PulseWeaver" height="48">
+</picture>
 
 [![CI](https://github.com/diegoguidaf/pulseweaver/actions/workflows/ci.yml/badge.svg)](https://github.com/diegoguidaf/pulseweaver/actions/workflows/ci.yml)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io%2Fdiegoguidaf%2Fpulseweaver-2496ED?logo=docker&logoColor=white)](https://github.com/diegoguidaf/pulseweaver/pkgs/container/pulseweaver)
