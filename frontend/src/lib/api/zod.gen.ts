@@ -1104,10 +1104,6 @@ export const zGetDashboardStatsResponse = zDashboardStats;
 export const zGetDashboardTrafficQuery = z.object({
   from: z.iso.datetime({ offset: true, local: true }).optional(),
   to: z.iso.datetime({ offset: true, local: true }).optional(),
-  granularity: z
-    .enum(["minute", "5min", "hour", "day"])
-    .optional()
-    .default("hour"),
 });
 
 /**

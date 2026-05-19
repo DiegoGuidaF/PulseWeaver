@@ -2408,20 +2408,11 @@ export type GetDashboardTrafficData = {
      * RFC3339 end of time window (default now)
      */
     to?: string;
-    /**
-     * Time bucket granularity (default hour). 'minute' and '5min' are only valid for windows ≤ 24h. 'day' is only valid for windows > 24h. 'hour' is valid for any window.
-     *
-     */
-    granularity?: "minute" | "5min" | "hour" | "day";
   };
   url: "/dashboard/traffic";
 };
 
 export type GetDashboardTrafficErrors = {
-  /**
-   * Invalid query parameters (e.g. incompatible granularity and window)
-   */
-  400: ErrorResponse;
   /**
    * Not authenticated
    */

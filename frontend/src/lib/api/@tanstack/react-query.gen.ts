@@ -1312,7 +1312,7 @@ export const getDashboardTrafficQueryKey = (
 /**
  * Dashboard traffic time series
  *
- * Returns time-bucketed allow/deny counts for the stacked area chart.
+ * Returns time-bucketed allow/deny counts for the stacked area chart. The bucket granularity is chosen automatically from the window size: ≤5m → minute, ≤1h → 5min, ≤7d → hour, >7d → day.
  *
  */
 export const getDashboardTrafficOptions = (

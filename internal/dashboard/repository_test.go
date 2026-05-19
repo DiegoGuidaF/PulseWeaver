@@ -10,7 +10,6 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 	"github.com/matryer/is"
 )
 
@@ -141,8 +140,8 @@ func TestGetTrafficSeries_MultiHour(t *testing.T) {
 	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", hour1.Add(10*time.Minute))
 	seedAccessLogRow(t, db, "10.0.0.2", "app.example.com", true, "", hour2.Add(5*time.Minute))
 
-	// 2h window → raw path; RunRollup not needed.
-	buckets, err := repo.GetTrafficSeries(ctx, from, to, timebucket.GranularityHour)
+	// 2h window → raw path, auto-selects hour granularity.
+	buckets, err := repo.GetTrafficSeries(ctx, from, to)
 	is.NoErr(err)
 	is.Equal(len(buckets), 2)
 	is.Equal(buckets[0].AllowCount, int64(1))
@@ -156,18 +155,15 @@ func TestGetTrafficSeries_DayGranularity(t *testing.T) {
 	repo, db := setupTestRepo(t)
 	ctx := context.Background()
 
-	day1Hour1 := time.Date(2025, 3, 15, 10, 0, 0, 0, time.UTC)
-	day1Hour2 := time.Date(2025, 3, 15, 14, 0, 0, 0, time.UTC)
-	day2Hour1 := time.Date(2025, 3, 16, 8, 0, 0, 0, time.UTC)
-	from := day1Hour1
-	to := day2Hour1.Add(time.Hour)
+	day1 := time.Date(2025, 3, 15, 0, 0, 0, 0, time.UTC)
+	day2 := time.Date(2025, 3, 16, 0, 0, 0, 0, time.UTC)
+	from := day1
+	to := day1.Add(15 * 24 * time.Hour) // 15d window → aggregate path, auto-selects day granularity
 
-	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", true, "", day1Hour1.Add(5*time.Minute))
-	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", true, "", day1Hour2.Add(5*time.Minute))
-	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", false, "ip_not_registered", day2Hour1.Add(5*time.Minute))
+	seedAggregateRow(t, db, day1.Add(10*time.Hour), "10.0.0.1", "app.example.com", true, 2)
+	seedAggregateRow(t, db, day2.Add(8*time.Hour), "10.0.0.1", "app.example.com", false, 1)
 
-	// 23h window → raw path; day granularity still works via BucketExpr.
-	buckets, err := repo.GetTrafficSeries(ctx, from, to, timebucket.GranularityDay)
+	buckets, err := repo.GetTrafficSeries(ctx, from, to)
 	is.NoErr(err)
 	is.Equal(len(buckets), 2) // two days collapsed
 	is.Equal(buckets[0].AllowCount, int64(2))
@@ -184,7 +180,7 @@ func TestGetTrafficSeries_Empty(t *testing.T) {
 	from := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)
 
-	buckets, err := repo.GetTrafficSeries(ctx, from, to, timebucket.GranularityHour)
+	buckets, err := repo.GetTrafficSeries(ctx, from, to)
 	is.NoErr(err)
 	is.Equal(len(buckets), 0)
 }
@@ -415,7 +411,8 @@ func TestGetTrafficSeries_MinuteGranularity(t *testing.T) {
 	seedAccessLogRow(t, db, "10.0.0.2", "svc", true, "", base.Add(45*time.Second))
 	seedAccessLogRow(t, db, "10.0.0.3", "svc", false, "denied", base.Add(90*time.Second))
 
-	buckets, err := repo.GetTrafficSeries(ctx, from, to, timebucket.GranularityMinute)
+	// 5min window → auto-selects GranularityMinute.
+	buckets, err := repo.GetTrafficSeries(ctx, from, to)
 	is.NoErr(err)
 	is.Equal(len(buckets), 2) // minute 0 and minute 1
 	is.Equal(buckets[0].AllowCount, int64(2))
@@ -442,7 +439,8 @@ func TestGetTrafficSeries_5minGranularity(t *testing.T) {
 	// 10:10 window (bucket 10:10): one deny
 	seedAccessLogRow(t, db, "10.0.0.4", "svc", false, "denied", base.Add(11*time.Minute))
 
-	buckets, err := repo.GetTrafficSeries(ctx, from, to, timebucket.Granularity5Min)
+	// 15min window → auto-selects Granularity5Min.
+	buckets, err := repo.GetTrafficSeries(ctx, from, to)
 	is.NoErr(err)
 	is.Equal(len(buckets), 3) // 10:00, 10:05, 10:10
 	is.Equal(buckets[0].AllowCount, int64(1))

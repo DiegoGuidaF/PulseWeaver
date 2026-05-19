@@ -1466,7 +1466,7 @@ paths:
         - dashboard
       summary: Dashboard traffic time series
       description: |
-        Returns time-bucketed allow/deny counts for the stacked area chart.
+        Returns time-bucketed allow/deny counts for the stacked area chart. The bucket granularity is chosen automatically from the window size: ≤5m → minute, ≤1h → 5min, ≤7d → hour, >7d → day.
       parameters:
         - name: from
           in: query
@@ -1482,19 +1482,6 @@ paths:
             type: string
             format: date-time
           description: RFC3339 end of time window (default now)
-        - name: granularity
-          in: query
-          required: false
-          schema:
-            type: string
-            enum:
-              - minute
-              - 5min
-              - hour
-              - day
-            default: hour
-          description: |
-            Time bucket granularity (default hour). 'minute' and '5min' are only valid for windows ≤ 24h. 'day' is only valid for windows > 24h. 'hour' is valid for any window.
       responses:
         '200':
           description: Traffic time series
@@ -1502,12 +1489,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DashboardTrafficResponse'
-        '400':
-          description: Invalid query parameters (e.g. incompatible granularity and window)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Not authenticated
           content:

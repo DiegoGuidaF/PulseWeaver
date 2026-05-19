@@ -7,12 +7,11 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 )
 
 type readRepo interface {
 	GetSummaryStats(ctx context.Context, from, to time.Time) (SummaryStats, error)
-	GetTrafficSeries(ctx context.Context, from, to time.Time, granularity timebucket.Granularity) ([]TrafficBucket, error)
+	GetTrafficSeries(ctx context.Context, from, to time.Time) ([]TrafficBucket, error)
 	GetTopDeniedIPs(ctx context.Context, from, to time.Time, limit int) ([]IPCount, error)
 	GetServiceSplit(ctx context.Context, from, to time.Time) ([]ServiceCount, error)
 }
@@ -59,28 +58,8 @@ func (h *HTTPHandler) GetDashboardTraffic(
 	ctx = logging.WithOperation(ctx, "GetDashboardTraffic")
 
 	from, to := parseTimeRange(request.Params.From, request.Params.To)
-	window := to.Sub(from)
 
-	granularity := timebucket.GranularityHour
-	if request.Params.Granularity != nil {
-		granularity = timebucket.Granularity(*request.Params.Granularity)
-	}
-
-	// Validate that the requested granularity is compatible with the window size.
-	// minute/5min require raw access_log (≤ 24h); day requires aggregate path (> 24h).
-	switch granularity {
-	case timebucket.GranularityMinute, timebucket.Granularity5Min:
-		if window > rawThreshold {
-			msg := "granularity '" + string(granularity) + "' is only valid for windows ≤ 24h"
-			return httpapi.GetDashboardTraffic400JSONResponse(errorMsgResponse(msg)), nil
-		}
-	case timebucket.GranularityDay:
-		if window <= rawThreshold {
-			return httpapi.GetDashboardTraffic400JSONResponse(errorMsgResponse("granularity 'day' requires a window > 24h")), nil
-		}
-	}
-
-	buckets, err := h.repo.GetTrafficSeries(ctx, from, to, granularity)
+	buckets, err := h.repo.GetTrafficSeries(ctx, from, to)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "failed to get traffic series", slog.Any(AttrKeyError, err))
 		return httpapi.GetDashboardTraffic500JSONResponse(errorMsgResponse("Failed to get traffic data")), nil

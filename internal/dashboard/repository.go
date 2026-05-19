@@ -66,13 +66,30 @@ func (r *Repository) GetSummaryStats(ctx context.Context, from, to time.Time) (S
 }
 
 // GetTrafficSeries returns time-bucketed allow/deny counts.
-// granularity must be "minute", "5min", "hour", or "day".
+// Granularity is chosen automatically from the window size (see granularityForWindow).
 // Uses access_log directly for windows ≤ 24h; hourly_traffic_aggregates for longer windows.
-func (r *Repository) GetTrafficSeries(ctx context.Context, from, to time.Time, granularity timebucket.Granularity) ([]TrafficBucket, error) {
-	if to.Sub(from) <= rawThreshold {
+func (r *Repository) GetTrafficSeries(ctx context.Context, from, to time.Time) ([]TrafficBucket, error) {
+	window := to.Sub(from)
+	granularity := granularityForWindow(window)
+	if window <= rawThreshold {
 		return r.getRawTrafficSeries(ctx, from, to, granularity)
 	}
 	return r.getAggregateTrafficSeries(ctx, from, to, granularity)
+}
+
+// granularityForWindow maps a query window to the appropriate bucket size.
+// ≤5m → minute, ≤1h → 5min, ≤7d → hour, >7d → day.
+func granularityForWindow(d time.Duration) timebucket.Granularity {
+	switch {
+	case d <= 5*time.Minute:
+		return timebucket.GranularityMinute
+	case d <= time.Hour:
+		return timebucket.Granularity5Min
+	case d <= 7*24*time.Hour:
+		return timebucket.GranularityHour
+	default:
+		return timebucket.GranularityDay
+	}
 }
 
 // GetTopDeniedIPs returns the top denied IPs by total denied request count.

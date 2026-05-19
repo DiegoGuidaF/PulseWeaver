@@ -8,18 +8,16 @@ import { TrafficLineChart } from "@/components/TrafficLineChart";
 import { ServiceBarChart } from "./ServiceBarChart";
 import { TopDeniedIPsTable } from "./TopDeniedIPsTable";
 import { CountryStatsSection } from "./CountryStatsSection";
-import type { GetDashboardTrafficData } from "@/lib/api";
 
 interface DashboardViewProps {
     from?: string;
     to?: string;
     timeRangeMs: number;
-    granularity?: NonNullable<GetDashboardTrafficData["query"]>["granularity"];
 }
 
-export function DashboardView({ from, to, timeRangeMs, granularity }: DashboardViewProps) {
+export function DashboardView({ from, to, timeRangeMs }: DashboardViewProps) {
     const stats = useDashboardStats(from, to);
-    const traffic = useDashboardTraffic(from, to, granularity);
+    const traffic = useDashboardTraffic(from, to);
     const services = useDashboardServices(from, to);
     const topDenied = useTopDeniedIPs(from, to);
 
