@@ -4,8 +4,8 @@ on:
   workflow_call:
 
 jobs:
-  test:
-    name: Run Tests
+  test-backend:
+    name: Backend (lint + test)
     runs-on: ubuntu-latest
 
     steps:
@@ -26,35 +26,67 @@ jobs:
         with:
           node-version: '25.8'
           cache: 'npm'
-          cache-dependency-path: |
-            package-lock.json
-            frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install Go dependencies
         run: |
           go mod download
           go mod download -modfile=tools/go.mod
 
-      - name: Install root dependencies
+      - name: Install root npm dependencies
+        run: npm ci
+
+      - name: Bundle API spec
+        run: npm run bundle:api
+
+      - name: Generate Go types
+        run: go generate ./cmd/... ./internal/...
+
+      - name: Check migrations
+        run: bash scripts/check-migrations.sh
+
+      - name: Lint
+        run: go tool -modfile=tools/go.mod golangci-lint run ./cmd/... ./internal/...
+
+      - name: Run tests
+        run: go test -tags=test ./cmd/... ./internal/...
+
+  test-frontend:
+    name: Frontend (lint + test)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '25.8'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
+      - name: Install root npm dependencies
         run: npm ci
 
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
 
-      - name: Bundle API spec and generate frontend types
+      - name: Generate frontend API types
         working-directory: frontend
         run: npm run generate:api
 
-      - name: backend-lint
-        run: make lint-back
+      - name: Lint
+        working-directory: frontend
+        run: npx eslint .
 
-      - name: frontend-lint
-        run: make lint-front typecheck-front
+      - name: Type-check
+        working-directory: frontend
+        run: npx tsc --noEmit -p tsconfig.app.json
 
-      - name: Run backend tests
-        run: make test
-
-      - name: Run frontend tests
+      - name: Run tests
         working-directory: frontend
         run: npm test
