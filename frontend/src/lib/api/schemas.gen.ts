@@ -446,7 +446,7 @@ export const AddressHistoryResponseSchema = {
 
 export const AddressHistoryBucketSchema = {
   type: "object",
-  required: ["timestamp", "active_count", "event_count"],
+  required: ["timestamp", "active_count", "gap_count", "event_count"],
   properties: {
     timestamp: {
       type: "string",
@@ -455,7 +455,13 @@ export const AddressHistoryBucketSchema = {
     },
     active_count: {
       type: "integer",
-      description: "Maximum active IPs seen in this time bucket",
+      description:
+        "Count of addresses whose last event in this bucket was enabled (active at end of period)",
+    },
+    gap_count: {
+      type: "integer",
+      description:
+        "Count of addresses that had at least one expiry event in this bucket",
     },
     event_count: {
       type: "integer",

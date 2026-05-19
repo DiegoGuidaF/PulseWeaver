@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { http } from "msw";
 import { server } from "@/test/setup";
 import { renderWithProviders } from "@/test/utils";
-import { AccessLogPage } from "@/pages/AccessLogPage";
+import { AccessLogPage } from "@/pages/access-log/AccessLogPage";
 import {
     createMockAccessLogRow,
     createMockAccessLogResponse,

@@ -3,7 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
 import { delay, http } from 'msw';
-import { UsersPage } from '@/pages/UsersPage';
+import { UsersPage } from '@/pages/access/users/UsersPage';
 import { AuthProvider } from '@/features/auth/AuthContext';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { authHandlers, endpoints, hostAccessHandlers, responses } from '@/test/mocks/handlers';

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http } from 'msw';
-import { DeviceDetailPage } from '@/pages/DeviceDetailPage';
+import { DeviceDetailPage } from '@/pages/devices/DeviceDetailPage';
 import { createMockDevice } from '@/test/mocks/data';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { addressHandlers, deviceHandlers, endpoints, responses } from '@/test/mocks/handlers';

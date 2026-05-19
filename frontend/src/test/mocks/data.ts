@@ -125,6 +125,7 @@ export function createMockAddressHistoryBucket(
   return {
     timestamp: '2024-01-01T12:00:00Z',
     active_count: 2,
+    gap_count: 0,
     event_count: 3,
     ...overrides,
   };

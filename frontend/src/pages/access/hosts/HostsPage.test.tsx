@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { HostsPage } from '@/pages/HostsPage';
+import { HostsPage } from '@/pages/access/hosts/HostsPage';
 import { AuthProvider } from '@/features/auth/AuthContext';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { endpoints, hostAccessHandlers } from '@/test/mocks/handlers';

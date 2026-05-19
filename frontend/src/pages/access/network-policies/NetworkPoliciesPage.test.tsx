@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import { NetworkPoliciesPage } from '@/pages/NetworkPoliciesPage';
+import { NetworkPoliciesPage } from '@/pages/access/network-policies/NetworkPoliciesPage';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { networkPolicyHandlers } from '@/test/mocks/handlers';
 import { server } from '@/test/setup';

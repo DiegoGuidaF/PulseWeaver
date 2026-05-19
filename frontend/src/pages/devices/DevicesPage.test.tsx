@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import { DevicesPage } from '@/pages/DevicesPage';
+import { DevicesPage } from '@/pages/devices/DevicesPage';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { deviceHandlers } from '@/test/mocks/handlers';
 import { server } from '@/test/setup';

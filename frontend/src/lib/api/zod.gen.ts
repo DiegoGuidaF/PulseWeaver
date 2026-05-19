@@ -146,6 +146,7 @@ export const zAddress = z.object({
 export const zAddressHistoryBucket = z.object({
   timestamp: z.iso.datetime({ offset: true, local: true }),
   active_count: z.int(),
+  gap_count: z.int(),
   event_count: z.int(),
 });
 
@@ -1103,7 +1104,10 @@ export const zGetDashboardStatsResponse = zDashboardStats;
 export const zGetDashboardTrafficQuery = z.object({
   from: z.iso.datetime({ offset: true, local: true }).optional(),
   to: z.iso.datetime({ offset: true, local: true }).optional(),
-  granularity: z.enum(["hour", "day"]).optional().default("hour"),
+  granularity: z
+    .enum(["minute", "5min", "hour", "day"])
+    .optional()
+    .default("hour"),
 });
 
 /**

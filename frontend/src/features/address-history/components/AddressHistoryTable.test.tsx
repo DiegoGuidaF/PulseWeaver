@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { http } from "msw";
 import { server } from "@/test/setup";
 import { renderWithProviders } from "@/test/utils";
-import { AddressHistoryPage } from "@/pages/AddressHistoryPage";
+import { AddressHistoryPage } from "@/pages/address-history/AddressHistoryPage";
 import {
     createMockAddressHistoryResponse,
 } from "@/test/mocks/data";

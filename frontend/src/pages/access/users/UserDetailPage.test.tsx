@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
-import { UserDetailPage } from '@/pages/UserDetailPage';
+import { UserDetailPage } from '@/pages/access/users/UserDetailPage';
 import { AuthProvider } from '@/features/auth/AuthContext';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { authHandlers, hostAccessHandlers } from '@/test/mocks/handlers';

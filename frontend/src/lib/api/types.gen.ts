@@ -206,9 +206,13 @@ export type AddressHistoryResponse = {
 export type AddressHistoryBucket = {
   timestamp: string;
   /**
-   * Maximum active IPs seen in this time bucket
+   * Count of addresses whose last event in this bucket was enabled (active at end of period)
    */
   active_count: number;
+  /**
+   * Count of addresses that had at least one expiry event in this bucket
+   */
+  gap_count: number;
   /**
    * Total address events in this time bucket
    */
@@ -2405,14 +2409,19 @@ export type GetDashboardTrafficData = {
      */
     to?: string;
     /**
-     * Time bucket granularity (default hour)
+     * Time bucket granularity (default hour). 'minute' and '5min' are only valid for windows ≤ 24h. 'day' is only valid for windows > 24h. 'hour' is valid for any window.
+     *
      */
-    granularity?: "hour" | "day";
+    granularity?: "minute" | "5min" | "hour" | "day";
   };
   url: "/dashboard/traffic";
 };
 
 export type GetDashboardTrafficErrors = {
+  /**
+   * Invalid query parameters (e.g. incompatible granularity and window)
+   */
+  400: ErrorResponse;
   /**
    * Not authenticated
    */

@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { server } from '@/test/setup';
 import { renderWithProviders } from '@/test/utils';
 import { authHandlers } from '@/test/mocks/handlers';
-import { SettingsPage } from '@/pages/SettingsPage';
+import { SettingsPage } from '@/pages/settings/SettingsPage';
 import { AuthProvider } from '@/features/auth/AuthContext';
 import { DATETIME_PREFS_KEY } from '@/lib/userPreferences';
 import { TEST_TIMEOUTS } from '@/test/constants';
