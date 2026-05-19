@@ -121,9 +121,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         defaultValue: false,
         getInitialValueInEffect: false,
     });
+    const [navWidth, setNavWidth] = useLocalStorage({
+        key: "pw-nav-width",
+        defaultValue: 240,
+        getInitialValueInEffect: false,
+    });
     // Assume desktop on first render to avoid content/width mismatch for users with stored collapsed state
     const isMd = useMediaQuery("(min-width: 62em)", true, { getInitialValueInEffect: false });
     const isCollapsed = navCollapsed && isMd;
+
+    const handleResizeMouseDown = (e: React.MouseEvent) => {
+        if (!isMd) return;
+        e.preventDefault();
+        const startX = e.clientX;
+        const startWidth = navWidth;
+        let wasDragging = false;
+
+        const onMove = (ev: MouseEvent) => {
+            const delta = ev.clientX - startX;
+            if (!wasDragging && Math.abs(delta) > 5) wasDragging = true;
+            if (wasDragging) {
+                setNavWidth(Math.max(160, Math.min(400, startWidth + delta)));
+                if (navCollapsed) setNavCollapsed(false);
+            }
+        };
+
+        const onUp = () => {
+            if (!wasDragging) setNavCollapsed(!navCollapsed);
+            document.removeEventListener("mousemove", onMove);
+            document.removeEventListener("mouseup", onUp);
+        };
+
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+    };
 
     const location = useLocation();
     const logoutMutation = useLogout();
@@ -134,7 +165,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <MantineAppShell
             header={{ height: 60 }}
             navbar={{
-                width: { base: 240, md: isCollapsed ? 60 : 240 },
+                width: { base: 240, md: isCollapsed ? 60 : navWidth },
                 breakpoint: "md",
                 collapsed: { mobile: !mobileOpened },
             }}
@@ -172,15 +203,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </MantineAppShell.Header>
 
             <MantineAppShell.Navbar className={classes.navbar} p={0}>
+                <Box
+                    className={classes.resizeHandle}
+                    visibleFrom="md"
+                    onMouseDown={handleResizeMouseDown}
+                />
                 {/* Scrollable nav groups */}
                 <MantineAppShell.Section grow component={ScrollArea}>
                     <Stack gap={2} px="xs" pt="xs" pb="xs">
                         {navGroups.map((group, groupIdx) => (
                             <Box key={groupIdx}>
-                                {groupIdx > 0 && !isCollapsed && (
-                                    group.label
-                                        ? <Text className={classes.sectionLabel}>{group.label}</Text>
-                                        : <Divider my={4} />
+                                {groupIdx > 0 && (
+                                    isCollapsed
+                                        ? <Divider my={6} mx="sm" />
+                                        : group.label
+                                            ? <Text className={classes.sectionLabel}>{group.label}</Text>
+                                            : <Divider my={4} />
                                 )}
                                 {group.items.map(item => {
                                     const isActive = location.pathname.startsWith(item.href);
