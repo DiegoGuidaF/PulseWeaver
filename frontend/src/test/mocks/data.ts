@@ -1,4 +1,4 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, GroupDetailWithUsers, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, GroupDetailWithUsers, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, PendingRegistration, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import { UserRole } from "@/lib/api";
 
 /**
@@ -506,6 +506,42 @@ export function createMockDeviceListItem(
     id: 1,
     name: 'Test Device',
     live_ip_count: 0,
+    ...overrides,
+  };
+}
+
+export function createMockNetworkPolicyDetail(
+  overrides?: Partial<NetworkPolicyDetail>,
+): NetworkPolicyDetail {
+  return {
+    id: 1,
+    name: 'Test Policy',
+    cidr: '10.0.0.0/8',
+    description: null,
+    enabled: true,
+    groups: [],
+    bypass_host_check: false,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+export function createMockPendingRegistration(
+  overrides?: Partial<PendingRegistration>,
+): PendingRegistration {
+  return {
+    id: 1,
+    device_name: 'My Phone',
+    owner_id: 1,
+    registration_code: 'ABC123XYZ',
+    heartbeat_server_url: 'https://pulseweaver.example.com',
+    interval_seconds: 900,
+    app_biometric_enabled: false,
+    app_settings_locked: false,
+    expires_at: '2026-06-01T00:00:00Z',
+    created_at: '2026-01-01T00:00:00Z',
+    status: 'pending',
     ...overrides,
   };
 }

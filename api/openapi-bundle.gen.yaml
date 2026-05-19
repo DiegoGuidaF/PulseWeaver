@@ -1488,10 +1488,13 @@ paths:
           schema:
             type: string
             enum:
+              - minute
+              - 5min
               - hour
               - day
             default: hour
-          description: Time bucket granularity (default hour)
+          description: |
+            Time bucket granularity (default hour). 'minute' and '5min' are only valid for windows ≤ 24h. 'day' is only valid for windows > 24h. 'hour' is valid for any window.
       responses:
         '200':
           description: Traffic time series
@@ -1499,6 +1502,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DashboardTrafficResponse'
+        '400':
+          description: Invalid query parameters (e.g. incompatible granularity and window)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Not authenticated
           content:
@@ -2868,6 +2877,7 @@ components:
       required:
         - timestamp
         - active_count
+        - gap_count
         - event_count
       properties:
         timestamp:
@@ -2876,7 +2886,10 @@ components:
           x-go-type: UTCTime
         active_count:
           type: integer
-          description: Maximum active IPs seen in this time bucket
+          description: Count of addresses whose last event in this bucket was enabled (active at end of period)
+        gap_count:
+          type: integer
+          description: Count of addresses that had at least one expiry event in this bucket
         event_count:
           type: integer
           description: Total address events in this time bucket

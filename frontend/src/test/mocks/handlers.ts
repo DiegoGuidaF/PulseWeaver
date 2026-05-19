@@ -1,6 +1,6 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceTypeItem, GroupDetailWithUsers, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
-import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
+import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceTypeItem, GroupDetailWithUsers, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, PendingRegistration, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockPendingRegistration, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
 
 const BASE = '/api/v1';
 
@@ -46,6 +46,10 @@ export const endpoints = {
     policyMap:      `${BASE}/admin/policy-map`,
     policySimulate: `${BASE}/admin/policy-simulate`,
     networkPolicies: `${BASE}/admin/access/network-policies`,
+    networkPolicyById: `${BASE}/admin/access/network-policies/:id`,
+    networkPolicyGrants: `${BASE}/admin/access/network-policies/:id/grants`,
+    adminRegistrations: `${BASE}/admin/registrations`,
+    adminRegistrationById: `${BASE}/admin/registrations/:registrationId`,
     devicesByUser: `${BASE}/admin/users/:userId/devices`,
 } as const;
 
@@ -418,6 +422,45 @@ export const networkPolicyHandlers = {
         serverError: () =>
             http.get(endpoints.networkPolicies, () => responses.serverError()),
     },
+    get: {
+        success: (override?: Partial<NetworkPolicyDetail>) =>
+            http.get(endpoints.networkPolicyById, () =>
+                HttpResponse.json(createMockNetworkPolicyDetail(override))),
+        notFound: () =>
+            http.get(endpoints.networkPolicyById, () => responses.notFound()),
+    },
+    update: {
+        success: () =>
+            http.put(endpoints.networkPolicyById, () => responses.noContent()),
+    },
+    delete: {
+        success: () =>
+            http.delete(endpoints.networkPolicyById, () => responses.noContent()),
+    },
+    updateGrants: {
+        success: () =>
+            http.put(endpoints.networkPolicyGrants, () => responses.noContent()),
+    },
+};
+
+// ─── Provisioning handlers ────────────────────────────────────────────────────
+export const provisioningHandlers = {
+    list: {
+        success: (registrations?: PendingRegistration[]) =>
+            http.get(endpoints.adminRegistrations, () =>
+                HttpResponse.json(registrations ?? [createMockPendingRegistration()])),
+        empty: () =>
+            http.get(endpoints.adminRegistrations, () => HttpResponse.json([])),
+    },
+    create: {
+        success: (override?: Partial<PendingRegistration>) =>
+            http.post(endpoints.adminRegistrations, () =>
+                responses.created(createMockPendingRegistration(override))),
+    },
+    delete: {
+        success: () =>
+            http.delete(endpoints.adminRegistrationById, () => responses.noContent()),
+    },
 };
 
 // ─── Default happy-path handlers (registered globally in setup.ts) ────────────
@@ -472,6 +515,14 @@ export const defaultHandlers = [
     hostAccessHandlers.reconcileHostGroups.success(),
     // Network policies
     networkPolicyHandlers.list.success(),
+    networkPolicyHandlers.get.success(),
+    networkPolicyHandlers.update.success(),
+    networkPolicyHandlers.delete.success(),
+    networkPolicyHandlers.updateGrants.success(),
+    // Provisioning
+    provisioningHandlers.list.success(),
+    provisioningHandlers.create.success(),
+    provisioningHandlers.delete.success(),
     // Devices by user (parameterized; used when DeviceList has ownerFilter set)
     deviceHandlers.listByUser.success(),
     // Policy audit

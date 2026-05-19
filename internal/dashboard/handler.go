@@ -59,10 +59,25 @@ func (h *HTTPHandler) GetDashboardTraffic(
 	ctx = logging.WithOperation(ctx, "GetDashboardTraffic")
 
 	from, to := parseTimeRange(request.Params.From, request.Params.To)
+	window := to.Sub(from)
 
 	granularity := timebucket.GranularityHour
 	if request.Params.Granularity != nil {
 		granularity = timebucket.Granularity(*request.Params.Granularity)
+	}
+
+	// Validate that the requested granularity is compatible with the window size.
+	// minute/5min require raw access_log (≤ 24h); day requires aggregate path (> 24h).
+	switch granularity {
+	case timebucket.GranularityMinute, timebucket.Granularity5Min:
+		if window > rawThreshold {
+			msg := "granularity '" + string(granularity) + "' is only valid for windows ≤ 24h"
+			return httpapi.GetDashboardTraffic400JSONResponse(errorMsgResponse(msg)), nil
+		}
+	case timebucket.GranularityDay:
+		if window <= rawThreshold {
+			return httpapi.GetDashboardTraffic400JSONResponse(errorMsgResponse("granularity 'day' requires a window > 24h")), nil
+		}
 	}
 
 	buckets, err := h.repo.GetTrafficSeries(ctx, from, to, granularity)

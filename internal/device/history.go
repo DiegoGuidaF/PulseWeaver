@@ -14,6 +14,7 @@ import (
 type AddressEventBucket struct {
 	Timestamp   database.DBTime `db:"bucket"`
 	ActiveCount int             `db:"active_count"`
+	GapCount    int             `db:"gap_count"`
 	EventCount  int             `db:"event_count"`
 }
 

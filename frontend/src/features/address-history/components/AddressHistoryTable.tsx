@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Alert, Button, Card, Group, Skeleton, Stack, Text } from "@mantine/core";
+import { Alert, Button, Card, Group, Paper, Skeleton, Stack, Text } from "@mantine/core";
 import { LineChart } from "@mantine/charts";
 import { DataTable } from "mantine-datatable";
 import { IconAlertCircle, IconFilterOff } from "@tabler/icons-react";
+import type { TooltipContentProps } from "recharts";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
 import { CursorPagination } from "@/components/CursorPagination";
 import { useAddressHistory } from "../hooks/useAddressHistory";
@@ -17,6 +18,24 @@ import { useDevices } from "@/features/devices/hooks/useDevices";
 import dayjs from "dayjs";
 
 const PAGE_SIZE = 25;
+
+function GapTooltip({ active, payload, label }: TooltipContentProps<number, string>) {
+    if (!active || !payload?.length) return null;
+    const item = payload[0];
+    if (!item) return null;
+    const gapCount = (item.payload as { gap_count?: number }).gap_count ?? 0;
+    return (
+        <Paper withBorder shadow="sm" p={6} radius="sm">
+            <Text size="xs" c="dimmed" mb={2}>{label}</Text>
+            <Text size="sm">{item.value} distinct IP{item.value !== 1 ? "s" : ""}</Text>
+            {gapCount > 0 && (
+                <Text size="xs" c="orange.6" mt={2}>
+                    {gapCount} address{gapCount !== 1 ? "es" : ""} expired this period
+                </Text>
+            )}
+        </Paper>
+    );
+}
 
 interface AddressHistoryTableProps {
     filters: AddressHistoryFilters;
@@ -134,6 +153,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         return data.buckets.map((b) => ({
             timestamp: formatChartLabel(b.timestamp, timeRangeMs),
             active_count: b.active_count,
+            gap_count: b.gap_count,
         }));
     }, [data, timeRangeMs]);
 
@@ -174,6 +194,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                         curveType="monotone"
                         tooltipAnimationDuration={150}
                         yAxisProps={{ allowDecimals: false }}
+                        tooltipProps={{ content: GapTooltip }}
                     />
                 ) : (
                     <Text size="sm" c="dimmed" ta="center" py="xl">

@@ -457,6 +457,7 @@ func toAddressHistoryResponse(h AddressHistory, queryLimit int) httpapi.AddressH
 		buckets[i] = httpapi.AddressHistoryBucket{
 			Timestamp:   httpapi.UTCTime(b.Timestamp.Time),
 			ActiveCount: b.ActiveCount,
+			GapCount:    b.GapCount,
 			EventCount:  b.EventCount,
 		}
 	}

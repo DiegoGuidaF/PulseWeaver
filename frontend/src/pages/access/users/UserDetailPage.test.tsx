@@ -75,12 +75,15 @@ describe('UserDetailPage', () => {
         });
 
         it('"All devices →" link points to /devices?user_id=<userId>', async () => {
+            const user = userEvent.setup();
             renderUserDetailPage(5);
 
+            // Wait for data, then activate the Devices tab so the panel leaves aria-hidden
             await waitFor(
                 () => expect(screen.getByText('Charlie Laptop')).toBeInTheDocument(),
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
+            await user.click(screen.getByRole('tab', { name: /devices/i }));
 
             const allDevicesLink = screen.getByRole('link', { name: /all devices/i });
             expect(allDevicesLink).toHaveAttribute('href', '/devices?user_id=5');

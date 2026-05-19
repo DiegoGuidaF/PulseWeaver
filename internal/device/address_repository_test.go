@@ -540,3 +540,140 @@ func TestRepository_GetEnabledAddressesForDevice_EmptyWhenNone(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(len(enabled), 0)
 }
+
+// --- Bucket active_count and gap_count semantics ---
+
+// TestGetAddressHistory_BucketActiveCount_EndOfBucketState verifies that
+// active_count reflects the state at the END of the bucket (last event per
+// address), not "was ever enabled in the bucket".
+func TestGetAddressHistory_BucketActiveCount_EndOfBucketState(t *testing.T) {
+	is := is.New(t)
+	repos := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repos, ctx, "gap-test-device")
+	addr := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.1") // creates heartbeat event
+
+	// Expiry after creation → last event in bucket is disabled.
+	_, err := repos.repo.DisableAddress(ctx, addr.ID)
+	is.NoErr(err)
+
+	from := time.Now().UTC().Add(-1 * time.Hour)
+	to := time.Now().UTC().Add(1 * time.Hour)
+
+	history, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
+		DeviceIDs:   []ids.DeviceID{dev.ID},
+		From:        from,
+		To:          to,
+		Granularity: timebucket.GranularityHour,
+		Limit:       50,
+		IncludeAll:  true,
+	})
+	is.NoErr(err)
+	is.True(len(history.Buckets) >= 1)
+	// Last event was is_enabled=0 (DisableAddress) → active_count must be 0.
+	is.Equal(history.Buckets[0].ActiveCount, 0)
+	// An expiry occurred → gap_count must be 1.
+	is.Equal(history.Buckets[0].GapCount, 1)
+}
+
+// TestGetAddressHistory_BucketActiveCount_RecoveredAddress verifies that when an
+// address goes heartbeat→expiry→heartbeat in the same bucket, active_count=1
+// (recovered) and gap_count=1 (the expiry happened).
+func TestGetAddressHistory_BucketActiveCount_RecoveredAddress(t *testing.T) {
+	is := is.New(t)
+	repos := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repos, ctx, "recovered-device")
+	addr := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.2") // heartbeat
+
+	_, err := repos.repo.DisableAddress(ctx, addr.ID) // expiry
+	is.NoErr(err)
+	_, err = repos.repo.EnableAddress(ctx, addr.ID, device.EventSourceHeartbeat) // heartbeat recovery
+	is.NoErr(err)
+
+	from := time.Now().UTC().Add(-1 * time.Hour)
+	to := time.Now().UTC().Add(1 * time.Hour)
+
+	history, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
+		DeviceIDs:   []ids.DeviceID{dev.ID},
+		From:        from,
+		To:          to,
+		Granularity: timebucket.GranularityHour,
+		Limit:       50,
+		IncludeAll:  true,
+	})
+	is.NoErr(err)
+	is.True(len(history.Buckets) >= 1)
+	// Last event was is_enabled=1 (recovery) → active_count=1.
+	is.Equal(history.Buckets[0].ActiveCount, 1)
+	// Expiry occurred → gap_count=1.
+	is.Equal(history.Buckets[0].GapCount, 1)
+}
+
+// TestGetAddressHistory_BucketGapCount_NoGapWhenOnlyHeartbeats verifies that
+// gap_count=0 when an address only has heartbeat events in the bucket.
+func TestGetAddressHistory_BucketGapCount_NoGapWhenOnlyHeartbeats(t *testing.T) {
+	is := is.New(t)
+	repos := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repos, ctx, "heartbeat-only-device")
+	addr := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.3") // heartbeat
+
+	_, err := repos.repo.RefreshAddress(ctx, addr.ID, device.EventSourceHeartbeat) // another heartbeat
+	is.NoErr(err)
+
+	from := time.Now().UTC().Add(-1 * time.Hour)
+	to := time.Now().UTC().Add(1 * time.Hour)
+
+	history, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
+		DeviceIDs:   []ids.DeviceID{dev.ID},
+		From:        from,
+		To:          to,
+		Granularity: timebucket.GranularityHour,
+		Limit:       50,
+		IncludeAll:  true,
+	})
+	is.NoErr(err)
+	is.True(len(history.Buckets) >= 1)
+	// Only heartbeats → active at end, no gap.
+	is.Equal(history.Buckets[0].ActiveCount, 1)
+	is.Equal(history.Buckets[0].GapCount, 0)
+}
+
+// TestGetAddressHistory_BucketCounts_MultipleAddresses verifies that
+// active_count and gap_count are computed independently per address.
+func TestGetAddressHistory_BucketCounts_MultipleAddresses(t *testing.T) {
+	is := is.New(t)
+	repos := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repos, ctx, "multi-addr-device")
+	addrA := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.1.1") // heartbeat only
+	addrB := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.1.2") // heartbeat + expiry
+
+	_, err := repos.repo.RefreshAddress(ctx, addrA.ID, device.EventSourceHeartbeat)
+	is.NoErr(err)
+	_, err = repos.repo.DisableAddress(ctx, addrB.ID)
+	is.NoErr(err)
+
+	from := time.Now().UTC().Add(-1 * time.Hour)
+	to := time.Now().UTC().Add(1 * time.Hour)
+
+	history, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
+		DeviceIDs:   []ids.DeviceID{dev.ID},
+		From:        from,
+		To:          to,
+		Granularity: timebucket.GranularityHour,
+		Limit:       50,
+		IncludeAll:  true,
+	})
+	is.NoErr(err)
+	is.True(len(history.Buckets) >= 1)
+	// addrA: active at end; addrB: disabled at end.
+	is.Equal(history.Buckets[0].ActiveCount, 1)
+	// Only addrB had an expiry.
+	is.Equal(history.Buckets[0].GapCount, 1)
+}

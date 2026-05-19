@@ -323,10 +323,29 @@ func (r *Repository) GetAddressHistory(ctx context.Context, q AddressHistoryQuer
 	filters, baseArgs := buildHistoryWhere(q)
 
 	// ── Buckets ──────────────────────────────────────────────────────────
+	// active_count = addresses whose last event in the bucket was is_enabled=1.
+	//   "Last event" = no later event exists for the same address in the same bucket.
+	//   Detected via NOT EXISTS on address_events directly (avoids CTE self-ref).
+	// gap_count = addresses that had any is_enabled=0 (expiry) event in the bucket.
+	//
+	// The strftime format string appears 3 times: once in the outer GROUP BY
+	// expression (?) and twice inside the NOT EXISTS correlated subquery (?/?).
+	// bucketArgs therefore passes the format string 3 times: first, then after
+	// baseArgs, then once more. See arg layout below.
 	bucketsQuery := `
 		SELECT
 			strftime(?, aev.created_at) AS bucket,
-			COUNT(DISTINCT CASE WHEN aev.is_enabled THEN aev.address_id END) AS active_count,
+			COUNT(DISTINCT CASE
+				WHEN aev.is_enabled = 1
+				 AND NOT EXISTS (
+					 SELECT 1 FROM address_events later
+					 WHERE later.address_id = aev.address_id
+					   AND later.id > aev.id
+					   AND strftime(?, later.created_at) = strftime(?, aev.created_at)
+				 )
+				THEN aev.address_id
+			END) AS active_count,
+			COUNT(DISTINCT CASE WHEN aev.is_enabled = 0 THEN aev.address_id END) AS gap_count,
 			COUNT(*) AS event_count
 		FROM address_events aev
 		JOIN addresses a ON a.id = aev.address_id
@@ -336,8 +355,13 @@ func (r *Repository) GetAddressHistory(ctx context.Context, q AddressHistoryQuer
 		ORDER BY bucket ASC
 	`
 
-	bucketArgs := make([]any, 0, 1+len(baseArgs))
-	bucketArgs = append(bucketArgs, q.Granularity.StrftimeISO())
+	// arg layout: [fmt, fmt, fmt, baseArgs...]
+	// The 3 strftime `?` are in the SELECT clause (before the WHERE), so they
+	// must come first: #1 outer bucket expression, #2 and #3 the NOT EXISTS pair.
+	// baseArgs (device_id, from, to, …) follow and map to the WHERE `?`s.
+	bucketArgs := make([]any, 0, 3+len(baseArgs))
+	bucketFmt := q.Granularity.StrftimeISO()
+	bucketArgs = append(bucketArgs, bucketFmt, bucketFmt, bucketFmt)
 	bucketArgs = append(bucketArgs, baseArgs...)
 
 	var buckets []AddressEventBucket
