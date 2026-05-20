@@ -2,44 +2,31 @@ package scheduler
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
-type AddressDisabler interface {
-	DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source device.EventSource) error
-}
-
-type ExpiredAddressFinder interface {
-	GetExpiredAddressIDs(ctx context.Context) ([]ids.AddressID, error)
+// Job is a unit of work the scheduler executes on every tick.
+type Job interface {
+	Run(ctx context.Context) error
 }
 
 type Service struct {
-	expiredAddressFinder ExpiredAddressFinder
-	addressDisabler      AddressDisabler
-	rollupExecutor       RollupExecutor
-	lastRollupHour       time.Time
-	logger               *slog.Logger
+	jobs   []Job
+	logger *slog.Logger
 }
 
-func NewService(expiredAddressFinder ExpiredAddressFinder, addressDisabler AddressDisabler, rollupExecutor RollupExecutor, logger *slog.Logger) (*Service, error) {
-	if expiredAddressFinder == nil {
-		return nil, errors.New("expired address finder not configured")
-	}
-	if addressDisabler == nil {
-		return nil, errors.New("address disabler not configured")
-	}
+func NewService(logger *slog.Logger) *Service {
 	return &Service{
-		expiredAddressFinder: expiredAddressFinder,
-		addressDisabler:      addressDisabler,
-		rollupExecutor:       rollupExecutor,
-		logger:               logger.With(slog.String(logging.AttrKeyComponent, "rule_scheduler")),
-	}, nil
+		logger: logger.With(slog.String(logging.AttrKeyComponent, "rule_scheduler")),
+	}
+}
+
+// AddJob registers a job to be executed on every scheduler tick.
+func (s *Service) AddJob(job Job) {
+	s.jobs = append(s.jobs, job)
 }
 
 // RunSchedule starts the background worker that evaluates time-based rules.
@@ -61,15 +48,12 @@ func (s *Service) RunSchedule(ctx context.Context, interval time.Duration) error
 	}
 }
 
-// ExecuteScheduledRules runs all rules that require periodic background checks.
+// ExecuteScheduledRules runs all registered jobs in order.
 func (s *Service) ExecuteScheduledRules(ctx context.Context) error {
-	if err := s.executeAutoExpiry(ctx); err != nil {
-		s.logger.ErrorContext(ctx, "auto-expiry rule execution failed", slog.Any(AttrKeyError, err))
-		return err
-	}
-	if err := s.executeRollup(ctx); err != nil {
-		s.logger.ErrorContext(ctx, "traffic rollup execution failed", slog.Any(AttrKeyError, err))
-		return err
+	for _, job := range s.jobs {
+		if err := job.Run(ctx); err != nil {
+			return err
+		}
 	}
 	return nil
 }

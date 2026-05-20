@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
@@ -17,16 +18,17 @@ import (
 
 type testFixture struct {
 	repo    *device.Repository
+	db      *database.DB
 	ownerID ids.UserID
 }
 
 func setupTestDB(t *testing.T) testFixture {
 	t.Helper()
 
-	db, cleanup := testdb.Setup(t)
+	sqlite, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
 
-	sqlxDB := db.DB()
+	sqlxDB := sqlite.DB()
 	var ownerID ids.UserID
 	if err := sqlxDB.QueryRowxContext(t.Context(),
 		`INSERT INTO users (username, display_name, password_hash, role) VALUES ('testadmin', 'Test Admin', 'x', 'admin') RETURNING id`,
@@ -36,6 +38,7 @@ func setupTestDB(t *testing.T) testFixture {
 
 	return testFixture{
 		repo:    device.NewRepository(sqlxDB),
+		db:      sqlxDB,
 		ownerID: ownerID,
 	}
 }

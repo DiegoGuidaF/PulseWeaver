@@ -42,7 +42,8 @@ type ConfPolicy struct {
 
 // ConfRules holds configuration for background rule/scheduler behaviour.
 type ConfRules struct {
-	CheckInterval time.Duration `env:"RULE_CHECK_INTERVAL" envDefault:"1m"`
+	CheckInterval     time.Duration `env:"RULE_CHECK_INTERVAL" envDefault:"1m"`
+	DataRetentionDays int           `env:"DATA_RETENTION_DAYS" envDefault:"30"`
 }
 
 // ConfGeoIP holds configuration for the GeoIP enrichment feature.
