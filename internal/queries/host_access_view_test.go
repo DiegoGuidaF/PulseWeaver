@@ -3,273 +3,186 @@
 package queries_test
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"testing"
+	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+// ── GetHostGroupsDetails helpers ──────────────────────────────────────────────
 
-func findUserRow(rows []httpapi.UserListItem, id int64) *httpapi.UserListItem {
-	for i, r := range rows {
-		if r.Id == id {
-			return &rows[i]
-		}
+func insertTestHostGroup(t *testing.T, db *database.DB, name string) ids.HostGroupID {
+	t.Helper()
+	var id ids.HostGroupID
+	if err := db.QueryRowxContext(t.Context(),
+		`INSERT INTO host_groups (name, color, icon) VALUES (?, '', '') RETURNING id`, name,
+	).Scan(&id); err != nil {
+		t.Fatalf("insertTestHostGroup(%q): %v", name, err)
 	}
-	return nil
+	return id
 }
 
-func findDetailsGroup(groups []httpapi.SubjectGroupDetail, id int64) *httpapi.SubjectGroupDetail {
-	for i, g := range groups {
-		if g.Id == id {
-			return &groups[i]
-		}
+func insertTestHost(t *testing.T, db *database.DB, fqdn string) ids.HostID {
+	t.Helper()
+	var id ids.HostID
+	if err := db.QueryRowxContext(t.Context(),
+		`INSERT INTO hosts (fqdn) VALUES (?) RETURNING id`, fqdn,
+	).Scan(&id); err != nil {
+		t.Fatalf("insertTestHost(%q): %v", fqdn, err)
 	}
-	return nil
+	return id
 }
 
-// ── ListUsersHostAccess ───────────────────────────────────────────────────────
-
-func TestHandler_ListUsersHostAccess_AdminHasNoGrantsByDefault(t *testing.T) {
-	is := is.New(t)
-	srv := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/users", nil)
-	req.AddCookie(adminCookie)
-	rec := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusOK)
-
-	var rows []httpapi.UserListItem
-	is.NoErr(json.NewDecoder(rec.Body).Decode(&rows))
-	is.Equal(len(rows), 1)
-
-	admin := rows[0]
-	is.Equal(admin.BypassHostCheck, false)
-	is.Equal(admin.HostCount, 0)
-	is.Equal(len(admin.Groups), 0)
+func insertTestUserRaw(t *testing.T, db *database.DB, username string, deleted bool) ids.UserID {
+	t.Helper()
+	var id ids.UserID
+	deletedExpr := "NULL"
+	if deleted {
+		deletedExpr = "'2024-01-01 00:00:00'"
+	}
+	q := fmt.Sprintf(
+		`INSERT INTO users (username, display_name, password_hash, role, deleted_at) VALUES (?, ?, NULL, 'user', %s) RETURNING id`,
+		deletedExpr,
+	)
+	if err := db.QueryRowxContext(t.Context(), q, username, username).Scan(&id); err != nil {
+		t.Fatalf("insertTestUserRaw(%q): %v", username, err)
+	}
+	return id
 }
 
-func TestHandler_ListUsersHostAccess_EffectiveCountCombinesDirectAndGroup(t *testing.T) {
-	is := is.New(t)
-	srv := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
-	principal := testutils.AdminPrincipal(t, srv)
-
-	createHostInput := hosts.ReconcileHostsInput{Hosts: []hosts.DesiredHost{
-		{FQDN: "h1.example.com"}, // Should get ID 1
-		{FQDN: "h2.example.com"}, // Should get ID 2
-	}}
-
-	// Create two hosts.
-	err := srv.HostsService.ReconcileHosts(t.Context(), createHostInput)
-	is.NoErr(err)
-
-	// Create a group containing only h2.
-	err = srv.HostsService.ReconcileHostGroups(t.Context(), hosts.ReconcileHostGroupsInput{Groups: []hosts.DesiredHostGroup{
-		{Name: "G1", Color: "#4C6EF5", HostIDs: []ids.HostID{2}},
-	}})
-	is.NoErr(err)
-
-	// Create a regular user.
-	user, err := srv.AuthService.CreateUser(t.Context(), "alice", "Alice", "alice@example.com", principal)
-	is.NoErr(err)
-
-	// Grant alice group G1 (which contains h2).
-	err = srv.UserAccessService.SetUserAccess(t.Context(), user.ID, false, []ids.HostGroupID{1})
-	is.NoErr(err)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/users", nil)
-	req.AddCookie(adminCookie)
-	rec := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusOK)
-
-	var rows []httpapi.UserListItem
-	is.NoErr(json.NewDecoder(rec.Body).Decode(&rows))
-
-	alice := findUserRow(rows, user.ID.Int64())
-	is.True(alice != nil)
-	is.Equal(alice.BypassHostCheck, false)
-	is.Equal(alice.HostCount, 1) // h2 via G1 = 1 effective
-	is.Equal(len(alice.Groups), 1)
-	is.Equal(alice.Groups[0].Id, int64(1))
-	is.Equal(alice.Groups[0].Name, "G1")
+func addHostToGroup(t *testing.T, db *database.DB, groupID ids.HostGroupID, hostID ids.HostID) {
+	t.Helper()
+	if _, err := db.ExecContext(t.Context(),
+		`INSERT INTO host_group_members (host_group_id, host_id) VALUES (?, ?)`, groupID, hostID,
+	); err != nil {
+		t.Fatalf("addHostToGroup: %v", err)
+	}
 }
 
-func TestHandler_ListUsersHostAccess_BypassShowsAllHostsAsEffective(t *testing.T) {
-	is := is.New(t)
-	srv := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
-	principal := testutils.AdminPrincipal(t, srv)
-
-	// Create three hosts.
-	createHostInput := hosts.ReconcileHostsInput{Hosts: []hosts.DesiredHost{
-		{FQDN: "a.example.com"},
-		{FQDN: "b.example.com"},
-		{FQDN: "c.example.com"},
-	}}
-	err := srv.HostsService.ReconcileHosts(t.Context(), createHostInput)
-	is.NoErr(err)
-
-	// Create a bypass user with no explicit grants.
-	user, err := srv.AuthService.CreateUser(t.Context(), "charlie", "Charlie", "charlie@example.com", principal)
-	is.NoErr(err)
-
-	err = srv.UserAccessService.SetUserAccess(t.Context(), user.ID, true, nil)
-	is.NoErr(err)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/users", nil)
-	req.AddCookie(adminCookie)
-	rec := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusOK)
-
-	var rows []httpapi.UserListItem
-	is.NoErr(json.NewDecoder(rec.Body).Decode(&rows))
-
-	charlie := findUserRow(rows, user.ID.Int64())
-	is.True(charlie != nil)
-	is.Equal(charlie.BypassHostCheck, true)
-	is.Equal(charlie.HostCount, 3) // all 3 hosts are effectively accessible
-	is.Equal(len(charlie.Groups), 0)
+func grantUserToGroup(t *testing.T, db *database.DB, userID ids.UserID, groupID ids.HostGroupID) {
+	t.Helper()
+	if _, err := db.ExecContext(t.Context(),
+		`INSERT INTO user_allowed_host_groups (user_id, host_group_id) VALUES (?, ?)`, userID, groupID,
+	); err != nil {
+		t.Fatalf("grantUserToGroup: %v", err)
+	}
 }
 
-func TestHandler_ListUsersHostAccess_Unauthenticated(t *testing.T) {
+// ── GetHostGroupsDetails ──────────────────────────────────────────────────────
+
+func TestRepository_GetHostGroupsDetails_EmptyGroups(t *testing.T) {
 	is := is.New(t)
-	srv := testutils.SetupIntegrationServer(t)
+	repos := setupRepos(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/users", nil)
-	rec := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusUnauthorized)
+	result, err := repos.queries.GetHostGroupsDetails(t.Context())
+	is.NoErr(err)
+	is.Equal(len(result.Groups), 0)
 }
 
-// ── GetUserHostDetails ────────────────────────────────────────────────────────
-
-func TestHandler_GetUserHostDetails_UserNotFound(t *testing.T) {
+func TestRepository_GetHostGroupsDetails_GroupWithHosts(t *testing.T) {
 	is := is.New(t)
-	srv := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	repos := setupRepos(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/users/99999", nil)
-	req.AddCookie(adminCookie)
-	rec := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(rec, req)
+	groupID := insertTestHostGroup(t, repos.db, "backend")
+	h1 := insertTestHost(t, repos.db, "api.example.com")
+	h2 := insertTestHost(t, repos.db, "db.example.com")
+	addHostToGroup(t, repos.db, groupID, h1)
+	addHostToGroup(t, repos.db, groupID, h2)
 
-	is.Equal(rec.Code, http.StatusNotFound)
-}
-
-func TestHandler_GetUserHostDetails_AllGroupsReturnedRegardlessOfGrant(t *testing.T) {
-	is := is.New(t)
-	srv := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
-	principal := testutils.AdminPrincipal(t, srv)
-
-	// Create two groups; only grant one.
-	err := srv.HostsService.ReconcileHostGroups(t.Context(), hosts.ReconcileHostGroupsInput{Groups: []hosts.DesiredHostGroup{
-		{Name: "Granted", Color: "#4C6EF5"},
-		{Name: "Ungranted", Color: "#7950F2"},
-	}})
+	result, err := repos.queries.GetHostGroupsDetails(t.Context())
 	is.NoErr(err)
+	is.Equal(len(result.Groups), 1)
 
-	user, err := srv.AuthService.CreateUser(t.Context(), "dana", "Dana", "dana@example.com", principal)
-	is.NoErr(err)
-	err = srv.UserAccessService.SetUserAccess(t.Context(), user.ID, false, []ids.HostGroupID{1})
-	is.NoErr(err)
-
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/admin/access/users/%d", user.ID), nil)
-	req.AddCookie(adminCookie)
-	rec := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusOK)
-
-	var resp httpapi.UserAccessDetail
-	is.NoErr(json.NewDecoder(rec.Body).Decode(&resp))
-
-	// Both groups are present; only the granted one has granted=true.
-	granted := findDetailsGroup(resp.Groups, int64(1))
-	is.True(granted != nil)
-	is.Equal(granted.Granted, true)
-
-	ungranted := findDetailsGroup(resp.Groups, int64(2))
-	is.True(ungranted != nil)
-	is.Equal(ungranted.Granted, false)
-}
-
-func TestHandler_GetUserHostDetails_Unauthenticated(t *testing.T) {
-	is := is.New(t)
-	srv := testutils.SetupIntegrationServer(t)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/users/1", nil)
-	rec := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusUnauthorized)
-}
-
-// ── ListHostGroups ────────────────────────────────────────────────────────────
-
-func TestHandler_ListHostGroups_HappyPath(t *testing.T) {
-	is := is.New(t)
-	srv := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
-	principal := testutils.AdminPrincipal(t, srv)
-
-	err := srv.HostsService.ReconcileHosts(t.Context(), hosts.ReconcileHostsInput{
-		Hosts: []hosts.DesiredHost{{FQDN: "app.example.com"}},
-	})
-	is.NoErr(err)
-
-	err = srv.HostsService.ReconcileHostGroups(t.Context(), hosts.ReconcileHostGroupsInput{
-		Groups: []hosts.DesiredHostGroup{{Name: "backend", Color: "#4C6EF5", HostIDs: []ids.HostID{1}}},
-	})
-	is.NoErr(err)
-
-	user, err := srv.AuthService.CreateUser(t.Context(), "alice", "Alice", "alice@example.com", principal)
-	is.NoErr(err)
-	err = srv.UserAccessService.SetUserAccess(t.Context(), user.ID, false, []ids.HostGroupID{1})
-	is.NoErr(err)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/host-groups", nil)
-	req.AddCookie(adminCookie)
-	rec := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusOK)
-
-	var resp httpapi.GroupListResponse
-	is.NoErr(json.NewDecoder(rec.Body).Decode(&resp))
-	is.Equal(len(resp.Groups), 1)
-	g := resp.Groups[0]
+	g := result.Groups[0]
 	is.Equal(g.Name, "backend")
-	is.Equal(len(g.Hosts), 1)
+	is.Equal(len(g.Hosts), 2)
 	is.True(g.Users != nil)
-	is.Equal(len(*g.Users), 1)
-	is.Equal((*g.Users)[0].Username, "alice")
+	is.Equal(len(*g.Users), 0)
 }
 
-func TestHandler_ListHostGroups_Unauthenticated(t *testing.T) {
+func TestRepository_GetHostGroupsDetails_GroupWithUsers(t *testing.T) {
 	is := is.New(t)
-	srv := testutils.SetupIntegrationServer(t)
+	repos := setupRepos(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/host-groups", nil)
-	rec := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(rec, req)
+	groupID := insertTestHostGroup(t, repos.db, "devs")
+	alice := insertTestUserRaw(t, repos.db, "alice", false)
+	bob := insertTestUserRaw(t, repos.db, "bob", false)
+	grantUserToGroup(t, repos.db, alice, groupID)
+	grantUserToGroup(t, repos.db, bob, groupID)
 
-	is.Equal(rec.Code, http.StatusUnauthorized)
+	result, err := repos.queries.GetHostGroupsDetails(t.Context())
+	is.NoErr(err)
+	is.Equal(len(result.Groups), 1)
+
+	g := result.Groups[0]
+	is.Equal(len(g.Hosts), 0)
+	is.True(g.Users != nil)
+	is.Equal(len(*g.Users), 2)
+}
+
+func TestRepository_GetHostGroupsDetails_DeletedUserExcluded(t *testing.T) {
+	is := is.New(t)
+	repos := setupRepos(t)
+
+	groupID := insertTestHostGroup(t, repos.db, "mixed")
+	active := insertTestUserRaw(t, repos.db, "active-user", false)
+	deleted := insertTestUserRaw(t, repos.db, "deleted-user", true)
+	grantUserToGroup(t, repos.db, active, groupID)
+	grantUserToGroup(t, repos.db, deleted, groupID)
+
+	result, err := repos.queries.GetHostGroupsDetails(t.Context())
+	is.NoErr(err)
+	is.Equal(len(result.Groups), 1)
+
+	users := *result.Groups[0].Users
+	is.Equal(len(users), 1)
+	is.Equal(users[0].Username, "active-user")
+}
+
+func TestRepository_GetHostGroupsDetails_MultipleGroupsIsolated(t *testing.T) {
+	is := is.New(t)
+	repos := setupRepos(t)
+
+	g1 := insertTestHostGroup(t, repos.db, "group-hosts")
+	g2 := insertTestHostGroup(t, repos.db, "group-users")
+	host := insertTestHost(t, repos.db, "host.example.com")
+	user := insertTestUserRaw(t, repos.db, "charlie", false)
+
+	addHostToGroup(t, repos.db, g1, host)
+	grantUserToGroup(t, repos.db, user, g2)
+
+	result, err := repos.queries.GetHostGroupsDetails(t.Context())
+	is.NoErr(err)
+	is.Equal(len(result.Groups), 2)
+
+	byName := make(map[string]int)
+	for i, g := range result.Groups {
+		byName[g.Name] = i
+	}
+
+	g1Result := result.Groups[byName["group-hosts"]]
+	is.Equal(len(g1Result.Hosts), 1)
+	is.Equal(g1Result.Hosts[0].Fqdn, "host.example.com")
+	is.Equal(len(*g1Result.Users), 0)
+
+	g2Result := result.Groups[byName["group-users"]]
+	is.Equal(len(g2Result.Hosts), 0)
+	is.Equal(len(*g2Result.Users), 1)
+	is.Equal((*g2Result.Users)[0].Username, "charlie")
+}
+
+func TestRepository_GetHostGroupsDetails_UpdatedAtPopulated(t *testing.T) {
+	is := is.New(t)
+	repos := setupRepos(t)
+
+	insertTestHostGroup(t, repos.db, "timestamped")
+
+	result, err := repos.queries.GetHostGroupsDetails(t.Context())
+	is.NoErr(err)
+	is.Equal(len(result.Groups), 1)
+	is.True(!time.Time(result.Groups[0].UpdatedAt).IsZero())
+	is.True(!time.Time(result.Groups[0].CreatedAt).IsZero())
 }
