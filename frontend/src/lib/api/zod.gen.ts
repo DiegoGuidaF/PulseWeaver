@@ -585,7 +585,7 @@ export const zDeviceListOwner = z.object({
   id: zId,
   username: z.string(),
   display_name: z.string(),
-  role: z.enum(["user", "admin"]),
+  role: zUserRole,
   bypass_hosts_check: z.boolean(),
   host_groups: z.array(zHostGroupSummary),
   device_count: z.int().gte(0),

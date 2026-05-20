@@ -1,0 +1,12 @@
+@keyframes rowHighlight {
+  from {
+    background: var(--mantine-color-indigo-9);
+  }
+  to {
+    background: transparent;
+  }
+}
+
+.rowHighlight {
+  animation: rowHighlight 1.2s ease-out forwards;
+}

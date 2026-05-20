@@ -40,7 +40,7 @@ export function DeviceOwnershipCard({
     enabled: currentUser != null,
   });
 
-  const updateDevice = useUpdateDevice(deviceId);
+  const updateDevice = useUpdateDevice();
   const [draftOwnerId, setDraftOwnerId] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<{
     ownerId: number;

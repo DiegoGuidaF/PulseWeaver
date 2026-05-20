@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   regenerateDeviceApiKeyMutation,
-  getDeviceQueryKey,
+  getDevicesQueryKey,
 } from "@/lib/api/@tanstack/react-query.gen";
 
 export function useRegenerateApiKey() {
@@ -9,11 +9,8 @@ export function useRegenerateApiKey() {
 
   return useMutation({
     ...regenerateDeviceApiKeyMutation(),
-    onSuccess: (data, variables) => {
-      queryClient.setQueryData(
-        getDeviceQueryKey({ path: { device_id: variables.path.device_id } }),
-        data.device,
-      );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getDevicesQueryKey() });
     },
   });
 }

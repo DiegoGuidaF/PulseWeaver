@@ -251,8 +251,7 @@ DeviceListOwner:
     display_name:
       type: string
     role:
-      type: string
-      enum: [user, admin]
+      $ref: './users.yaml#/UserRole'
     bypass_hosts_check:
       type: boolean
     host_groups:

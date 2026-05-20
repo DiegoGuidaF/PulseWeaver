@@ -38,7 +38,6 @@ import {
 import { notifications } from "@mantine/notifications";
 import { useLogout } from "@/features/auth/hooks/useLogout";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { useAutoHeartbeat } from "@/features/devices/hooks/useAutoHeartbeat";
 import { toErrorMessage } from "@/lib/api-client";
 import classes from "./AppShell.module.css";
 
@@ -61,7 +60,7 @@ const navGroups: NavGroup[] = [
     {
         label: "Devices",
         items: [
-            { label: "Devices", href: "/devices", icon: IconServer },
+            { label: "Devices", href: "/user-devices", icon: IconServer },
             { label: "Provisioning", href: "/device-provisioning", icon: IconQrcode },
         ],
     },
@@ -159,7 +158,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const location = useLocation();
     const logoutMutation = useLogout();
     const { user } = useAuth();
-    const { clientIp, activeDeviceId } = useAutoHeartbeat();
 
     return (
         <MantineAppShell
@@ -285,23 +283,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             <Text size="sm" c="dimmed" mb="xs" px="sm">
                                 {user.display_name || user.username}
                             </Text>
-                        )}
-
-                        {activeDeviceId && clientIp && (
-                            isCollapsed ? (
-                                <Tooltip label={clientIp} position="right" withArrow>
-                                    <Group justify="center" mb="xs" style={{ cursor: "default" }}>
-                                        <span className={classes.heartbeatDot} />
-                                    </Group>
-                                </Tooltip>
-                            ) : (
-                                <Group gap="xs" mb="xs" px="sm">
-                                    <span className={classes.heartbeatDot} />
-                                    <Text size="xs" c="dimmed" ff="monospace">
-                                        {clientIp}
-                                    </Text>
-                                </Group>
-                            )
                         )}
 
                         <Divider my="xs" />

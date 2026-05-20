@@ -14,7 +14,7 @@ import { SOURCE_LABELS } from "../constants";
 import { toErrorMessage } from "@/lib/api-client";
 import { formatChartLabel, presetToMs } from "@/lib/formatChartLabel";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
-import { useDevices } from "@/features/devices/hooks/useDevices";
+import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
 import dayjs from "dayjs";
 
 const PAGE_SIZE = 25;
@@ -54,7 +54,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         setCursor(null);
     }
 
-    const { data: devices } = useDevices();
+    const { data: ownerGroups } = useDeviceList();
 
     const { data, isPending, error } = useAddressHistory(
         { ...filters.queryParams, before_id: cursor ? Number(cursor) : undefined, limit: PAGE_SIZE },
@@ -63,7 +63,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
 
     const rows = data?.events ?? [];
 
-    const deviceOptions = (devices ?? []).map((d) => ({ value: String(d.id), label: d.name }));
+    const deviceOptions = (ownerGroups ?? []).flatMap((g) => g.devices).map((d) => ({ value: String(d.id), label: d.name }));
 
     const columns = getAddressHistoryColumns({
         formatDateTime,
@@ -81,7 +81,12 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         setParam: filters.setParam,
         setIpLocal: filters.setIpLocal,
         setSearchParams: filters.setSearchParams,
-        onDeviceClick: (deviceId) => navigate(`/devices/${deviceId}`),
+        onDeviceClick: (deviceId) => {
+          const ownerId = (ownerGroups ?? []).find((g) =>
+            g.devices.some((d) => d.id === deviceId)
+          )?.owner.id;
+          if (ownerId !== undefined) navigate(`/user-devices/${ownerId}?device=${deviceId}`);
+        },
     });
 
     const filterChips = useMemo(() => {

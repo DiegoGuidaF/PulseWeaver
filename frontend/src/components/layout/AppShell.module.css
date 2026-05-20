@@ -47,12 +47,3 @@
 .resizeHandle:hover::after {
     opacity: 0.4;
 }
-
-.heartbeatDot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--mantine-color-green-6);
-    flex-shrink: 0;
-}

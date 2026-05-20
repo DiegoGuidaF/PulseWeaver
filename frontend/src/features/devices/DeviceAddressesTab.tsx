@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
-import { useForm, schemaResolver } from "@mantine/form";
-import { z } from "zod";
-import { isPast } from "@/lib/dates";
-import { useDateFormatter } from "@/contexts/useDateTimePrefs";
+import { useEffect, useMemo, useRef, useState } from "react";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
 import {
   ActionIcon,
+  Box,
   Button,
-  Card,
+  Collapse,
   Group,
+  Progress,
   SegmentedControl,
   Skeleton,
   Stack,
@@ -15,91 +15,152 @@ import {
   Table,
   Text,
   TextInput,
-  Title,
   Tooltip,
 } from "@mantine/core";
-import { AutoRefreshSelect } from "@/components/AutoRefreshSelect";
-import { IconPlayerPlay, IconPlayerStop } from "@tabler/icons-react";
+import { IconSearch, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { toErrorMessage } from "@/lib/api-client";
-import { zAddAddressRequest } from "@/lib/api/zod.gen";
+import { useDateFormatter } from "@/contexts/useDateTimePrefs";
+import { AddressEventSource, type Address } from "@/lib/api";
 import { useDeviceAddresses } from "@/features/devices/hooks/useDeviceAddresses";
 import { useAddDeviceAddress } from "@/features/devices/hooks/useAddDeviceAddress";
 import { useDisableDeviceAddress } from "@/features/devices/hooks/useDisableDeviceAddress";
 import { useDeviceHeartbeat } from "@/features/devices/hooks/useDeviceHeartbeat";
-import {
-  getAutoHeartbeatSettings,
-  setAutoHeartbeatSettings,
-  clearAutoHeartbeatSettings,
-  getStoredClientIp,
-  CLIENT_IP_EVENT,
-  SETTINGS_EVENT,
-} from "@/lib/autoHeartbeat";
+import classes from "./DeviceAddressesTab.module.css";
 
-const AUTO_HB_INTERVAL_OPTIONS = [
-  { label: "30s", value: 30 },
-  { label: "1m", value: 60 },
-  { label: "5m", value: 300 },
-  { label: "15m", value: 900 },
-] as const;
+dayjs.extend(relativeTime);
 
-const addressSchema = zAddAddressRequest;
+const STALE_THRESHOLD_DAYS = 7;
 
-const RegisterMode = {
-  MyIp: "my-ip",
-  Custom: "custom",
-} as const;
-type RegisterMode = (typeof RegisterMode)[keyof typeof RegisterMode];
+function isStale(address: Address): boolean {
+  return !address.is_enabled && dayjs().diff(dayjs(address.updated_at), "day") > STALE_THRESHOLD_DAYS;
+}
 
-function StatusDot({ color, size = 8 }: { color: string; size?: number }) {
+function isActive(address: Address): boolean {
+  return !isStale(address);
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  [AddressEventSource.HEARTBEAT]: "heartbeat",
+  [AddressEventSource.MANUAL]: "manual",
+  [AddressEventSource.EXPIRY]: "expired",
+  [AddressEventSource.LIMIT_EXCEEDED]: "evicted",
+};
+
+function formatDuration(fromIso: string, toIso: string): string {
+  const mins = dayjs(toIso).diff(dayjs(fromIso), "minute");
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function TtlBar({ address }: { address: Address }) {
+  if (!address.is_enabled) {
+    if (!address.updated_at) return null;
+    return (
+      <Text size="xs" c="dimmed">
+        inactive {dayjs(address.updated_at).fromNow(true)} ago
+      </Text>
+    );
+  }
+  if (!address.expires_at) return null;
+
+  const now = dayjs();
+  const expiresAt = dayjs(address.expires_at);
+  const updatedAt = dayjs(address.updated_at);
+  const total = expiresAt.diff(updatedAt, "second");
+  const remaining = expiresAt.diff(now, "second");
+  const pct = total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 0;
+  const color = pct < 15 ? "red" : pct < 40 ? "orange" : "indigo";
+
   return (
-    <span
-      aria-hidden
-      style={{
-        display: "inline-block",
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        flexShrink: 0,
-        background: `var(--mantine-color-${color}-6)`,
-      }}
-    />
+    <Box style={{ minWidth: 60 }}>
+      <Progress value={pct} size="xs" color={color} style={{ marginBottom: 2 }} />
+      <Text size="xs" c="dimmed">
+        {remaining > 0 ? `${Math.round(remaining / 60)}m left` : "expired"}
+      </Text>
+    </Box>
   );
 }
 
-function useAutoHeartbeat(deviceId: number) {
-  const [settings, setSettings] = useState(getAutoHeartbeatSettings);
-  const [clientIp, setClientIp] = useState<string | null>(getStoredClientIp);
+function StateDot({ enabled }: { enabled: boolean }) {
+  return (
+    <Tooltip label={enabled ? "live" : "inactive"} withArrow>
+      <Box
+        component="span"
+        style={{
+          display: "inline-block",
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          flexShrink: 0,
+          background: enabled
+            ? "var(--mantine-color-orange-4)"
+            : "var(--mantine-color-dimmed)",
+        }}
+      />
+    </Tooltip>
+  );
+}
+
+function AddressRow({
+  address,
+  formatDateTime,
+  onToggle,
+  togglePending,
+}: {
+  address: Address;
+  formatDateTime: (iso: string) => string;
+  onToggle: (a: Address) => void;
+  togglePending: boolean;
+}) {
+  const prevEnabled = useRef(address.is_enabled);
+  const [highlight, setHighlight] = useState(false);
 
   useEffect(() => {
-    const onSettings = () => setSettings(getAutoHeartbeatSettings());
-    const onClientIp = (e: Event) => setClientIp((e as CustomEvent<string>).detail);
-    window.addEventListener(SETTINGS_EVENT, onSettings);
-    window.addEventListener("storage", onSettings);
-    window.addEventListener(CLIENT_IP_EVENT, onClientIp);
-    return () => {
-      window.removeEventListener(SETTINGS_EVENT, onSettings);
-      window.removeEventListener("storage", onSettings);
-      window.removeEventListener(CLIENT_IP_EVENT, onClientIp);
-    };
-  }, []);
-
-  const isActive = settings?.deviceId === deviceId;
-  const intervalSeconds = isActive ? (settings?.intervalSeconds ?? 60) : 60;
-
-  function toggle(checked: boolean) {
-    if (checked) {
-      setAutoHeartbeatSettings({ deviceId, intervalSeconds });
-    } else {
-      clearAutoHeartbeatSettings();
+    if (!prevEnabled.current && address.is_enabled) {
+      setHighlight(true);
     }
-  }
+    prevEnabled.current = address.is_enabled;
+  }, [address.is_enabled]);
 
-  function changeInterval(seconds: number) {
-    setAutoHeartbeatSettings({ deviceId, intervalSeconds: seconds });
-  }
-
-  return { isActive, intervalSeconds, clientIp, toggle, changeInterval };
+  return (
+    <Table.Tr
+      key={address.id}
+      className={highlight ? classes.rowHighlight : undefined}
+      onAnimationEnd={() => setHighlight(false)}
+    >
+      <Table.Td ff="monospace" fz="sm">{address.ip}</Table.Td>
+      <Table.Td>
+        <Group gap={6} wrap="nowrap">
+          <StateDot enabled={address.is_enabled} />
+          <Text size="xs" c="dimmed">{address.is_enabled ? "live" : "inactive"}</Text>
+        </Group>
+      </Table.Td>
+      <Table.Td>
+        <Text size="xs" c="dimmed">
+          {formatDateTime(address.updated_at)} · {SOURCE_LABELS[address.source] ?? address.source}
+        </Text>
+      </Table.Td>
+      <Table.Td>
+        <Text size="xs" c="dimmed">
+          {formatDuration(address.created_at, dayjs().toISOString())}
+        </Text>
+      </Table.Td>
+      <Table.Td>
+        <TtlBar address={address} />
+      </Table.Td>
+      <Table.Td>
+        <Switch
+          size="xs"
+          checked={address.is_enabled}
+          onChange={() => onToggle(address)}
+          disabled={togglePending}
+        />
+      </Table.Td>
+    </Table.Tr>
+  );
 }
 
 interface DeviceAddressesTabProps {
@@ -108,46 +169,40 @@ interface DeviceAddressesTabProps {
 
 export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
   const formatDateTime = useDateFormatter();
-  const [refreshInterval, setRefreshInterval] = useState<number>(5_000);
-  const { data: addresses, isLoading } = useDeviceAddresses(
-    deviceId,
-    true,
-    refreshInterval === 0 ? false : refreshInterval,
-  );
+  const { data: addresses, isLoading } = useDeviceAddresses(deviceId, true, 10_000);
+
+  const addMutation = useAddDeviceAddress();
+  const disableMutation = useDisableDeviceAddress();
   const heartbeatMutation = useDeviceHeartbeat();
-  const form = useForm<z.infer<typeof addressSchema>>({
-    validate: schemaResolver(addressSchema),
-    initialValues: { ip: "" },
-  });
-  const addAddressMutation = useAddDeviceAddress({
-    onSuccess: () => form.reset(),
-  });
-  const disableAddressMutation = useDisableDeviceAddress();
 
-  const [registerMode, setRegisterMode] = useState<RegisterMode>(RegisterMode.MyIp);
-  const autoHeartbeat = useAutoHeartbeat(deviceId);
+  const [view, setView] = useState<"active" | "stale">("active");
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customIp, setCustomIp] = useState("");
+  const [addressSearch, setAddressSearch] = useState("");
 
-  function handleAddAddressSubmit(values: z.infer<typeof addressSchema>) {
-    addAddressMutation.mutate(
-      { path: { device_id: deviceId }, body: { ip: values.ip } },
-      {
-        onSuccess: () => notifications.show({ color: "green", message: "Address added" }),
-        onError: (err) =>
-          notifications.show({ color: "red", title: "Error adding address", message: toErrorMessage(err) }),
-      },
-    );
-  }
+  const activeAddresses = useMemo(
+    () =>
+      (addresses ?? [])
+        .filter(isActive)
+        .sort((a, b) => Number(b.is_enabled) - Number(a.is_enabled)),
+    [addresses],
+  );
+  const staleAddresses = useMemo(
+    () => (addresses ?? []).filter(isStale),
+    [addresses],
+  );
 
-  function handleDisable(addressId: number) {
-    disableAddressMutation.mutate(
-      { path: { device_id: deviceId, address_id: addressId } },
-      {
-        onSuccess: () => notifications.show({ color: "green", message: "Address disabled" }),
-        onError: (err) =>
-          notifications.show({ color: "red", title: "Error disabling address", message: toErrorMessage(err) }),
-      },
-    );
-  }
+  const filteredActive = useMemo(() => {
+    if (!addressSearch.trim()) return activeAddresses;
+    const q = addressSearch.toLowerCase();
+    return activeAddresses.filter((a) => a.ip.toLowerCase().includes(q));
+  }, [activeAddresses, addressSearch]);
+
+  const filteredStale = useMemo(() => {
+    if (!addressSearch.trim()) return staleAddresses;
+    const q = addressSearch.toLowerCase();
+    return staleAddresses.filter((a) => a.ip.toLowerCase().includes(q));
+  }, [staleAddresses, addressSearch]);
 
   function handleHeartbeat() {
     heartbeatMutation.mutate(
@@ -156,199 +211,224 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
         onSuccess: (address) =>
           notifications.show({ color: "green", message: `IP ${address.ip} registered` }),
         onError: (err) =>
-          notifications.show({ color: "red", title: "Heartbeat failed", message: toErrorMessage(err) }),
+          notifications.show({ color: "red", message: toErrorMessage(err) }),
       },
     );
   }
 
-  function handleReEnable(ip: string) {
-    addAddressMutation.mutate(
-      { path: { device_id: deviceId }, body: { ip } },
+  function handleCustomSubmit() {
+    if (!customIp.trim()) return;
+    addMutation.mutate(
+      { path: { device_id: deviceId }, body: { ip: customIp.trim() } },
       {
-        onSuccess: () => notifications.show({ color: "green", message: "Address enabled" }),
+        onSuccess: () => {
+          notifications.show({ color: "green", message: "Address added" });
+          setCustomIp("");
+          setCustomOpen(false);
+        },
         onError: (err) =>
-          notifications.show({ color: "red", title: "Error", message: toErrorMessage(err) }),
+          notifications.show({ color: "red", title: "Error adding address", message: toErrorMessage(err) }),
       },
     );
   }
+
+  function handleToggle(address: Address) {
+    if (address.is_enabled) {
+      disableMutation.mutate(
+        { path: { device_id: deviceId, address_id: address.id } },
+        {
+          onError: (err) =>
+            notifications.show({ color: "red", message: toErrorMessage(err) }),
+        },
+      );
+    } else {
+      addMutation.mutate(
+        { path: { device_id: deviceId }, body: { ip: address.ip } },
+        {
+          onError: (err) =>
+            notifications.show({ color: "red", message: toErrorMessage(err) }),
+        },
+      );
+    }
+  }
+
+  function handleReEnable(address: Address) {
+    addMutation.mutate(
+      { path: { device_id: deviceId }, body: { ip: address.ip } },
+      {
+        onSuccess: () =>
+          notifications.show({ color: "green", message: "Address re-enabled" }),
+        onError: (err) =>
+          notifications.show({ color: "red", message: toErrorMessage(err) }),
+      },
+    );
+  }
+
+  const togglePending = disableMutation.isPending || addMutation.isPending;
 
   return (
     <Stack gap="md">
-      {/* Register IP address — unified card */}
-      <Card withBorder>
-        <Title order={4} mb="md">Register IP address</Title>
-        <Stack gap="md">
+      {/* Register actions */}
+      <Group gap="xs">
+        <Button
+          size="xs"
+          onClick={handleHeartbeat}
+          loading={heartbeatMutation.isPending}
+        >
+          ＋ Register my IP
+        </Button>
+        <Button
+          size="xs"
+          variant="subtle"
+          onClick={() => setCustomOpen((o) => !o)}
+        >
+          ＋ Custom IP…
+        </Button>
+      </Group>
+
+      <Collapse expanded={customOpen}>
+        <Group gap="xs" align="flex-end">
+          <TextInput
+            size="xs"
+            placeholder="192.168.1.100"
+            value={customIp}
+            onChange={(e) => setCustomIp(e.currentTarget.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleCustomSubmit()}
+            style={{ width: 200 }}
+            autoFocus
+          />
+          <Button size="xs" onClick={handleCustomSubmit} loading={addMutation.isPending}>
+            Add
+          </Button>
+          <ActionIcon
+            size="xs"
+            variant="subtle"
+            color="gray"
+            onClick={() => { setCustomOpen(false); setCustomIp(""); }}
+          >
+            <IconX size={12} />
+          </ActionIcon>
+        </Group>
+      </Collapse>
+
+      {/* Active / Stale toggle */}
+      {isLoading ? (
+        <Skeleton height={32} width={180} />
+      ) : (
+        <Stack gap={6}>
           <SegmentedControl
             size="xs"
-            value={registerMode}
-            onChange={(v) => setRegisterMode(v as RegisterMode)}
+            value={view}
+            onChange={(v) => setView(v as "active" | "stale")}
             data={[
-              { label: "My current IP", value: RegisterMode.MyIp },
-              { label: "Custom IP", value: RegisterMode.Custom },
+              { label: `Active · ${activeAddresses.length}`, value: "active" },
+              { label: `Stale · ${staleAddresses.length}`, value: "stale" },
             ]}
           />
-
-          {registerMode === RegisterMode.MyIp ? (
-            <Stack gap="md">
-              <Group gap="md">
-                <Button
-                  type="button"
-                  onClick={handleHeartbeat}
-                  disabled={heartbeatMutation.isPending}
-                >
-                  {heartbeatMutation.isPending ? "Registering..." : "Register my IP"}
-                </Button>
-                {heartbeatMutation.data && (
-                  <Text size="sm" c="dimmed">
-                    Your IP:{" "}
-                    <Text component="span" ff="monospace">{heartbeatMutation.data.ip}</Text>
-                  </Text>
-                )}
-              </Group>
-
-              <Switch
-                label="Auto-register while this tab is open"
-                checked={autoHeartbeat.isActive}
-                onChange={(event) => autoHeartbeat.toggle(event.currentTarget.checked)}
-              />
-              {autoHeartbeat.isActive && (
-                <Group gap="lg">
-                  <Group gap="sm">
-                    <Text size="sm" c="dimmed" style={{ whiteSpace: "nowrap" }}>
-                      Interval:
-                    </Text>
-                    <SegmentedControl
-                      size="xs"
-                      value={String(autoHeartbeat.intervalSeconds)}
-                      onChange={(v) => autoHeartbeat.changeInterval(Number(v))}
-                      data={AUTO_HB_INTERVAL_OPTIONS.map((opt) => ({
-                        label: opt.label,
-                        value: String(opt.value),
-                      }))}
-                    />
-                  </Group>
-                  {autoHeartbeat.clientIp && (
-                    <Group gap={6}>
-                      <StatusDot color="green" />
-                      <Text size="sm" c="dimmed">
-                        IP:{" "}
-                        <Text component="span" ff="monospace">{autoHeartbeat.clientIp}</Text>
-                      </Text>
-                    </Group>
-                  )}
-                </Group>
-              )}
-            </Stack>
-          ) : (
-            <form onSubmit={form.onSubmit(handleAddAddressSubmit)}>
-              <Group align="flex-end" gap="md">
-                <TextInput
-                  label="IP address"
-                  placeholder="192.168.1.100"
-                  autoComplete="off"
-                  style={{ flex: 1 }}
-                  {...form.getInputProps("ip")}
-                />
-                <Button type="submit" disabled={addAddressMutation.isPending}>
-                  {addAddressMutation.isPending ? "Adding..." : "Add IP"}
-                </Button>
-              </Group>
-            </form>
+          {view === "stale" && (
+            <Text size="xs" c="dimmed">
+              Addresses with no activity for more than {STALE_THRESHOLD_DAYS} days — re-enable to make them live again.
+            </Text>
           )}
         </Stack>
-      </Card>
+      )}
 
-      {/* Assigned addresses */}
-      <Card withBorder>
-        <Group justify="space-between" mb="md">
-          <Title order={4}>Assigned addresses</Title>
-          <Group gap="xs">
-            <Text size="sm" c="dimmed">Refresh:</Text>
-            <AutoRefreshSelect value={refreshInterval} onChange={setRefreshInterval} />
-          </Group>
-        </Group>
+      {/* Shared IP filter */}
+      <TextInput
+        size="xs"
+        placeholder="Filter by IP…"
+        leftSection={<IconSearch size={12} />}
+        value={addressSearch}
+        onChange={(e) => setAddressSearch(e.currentTarget.value)}
+        style={{ maxWidth: 240 }}
+      />
 
-        {isLoading ? (
-          <Stack gap={8}>
-            <Skeleton height={16} />
-            <Skeleton height={16} />
-            <Skeleton height={16} width="66%" />
-          </Stack>
-        ) : !addresses || addresses.length === 0 ? (
-          <Text size="sm" c="dimmed">No addresses assigned yet.</Text>
+      {/* Address table */}
+      {isLoading ? (
+        <Stack gap={8}>
+          <Skeleton height={16} />
+          <Skeleton height={16} />
+          <Skeleton height={16} width="60%" />
+        </Stack>
+      ) : view === "active" ? (
+        filteredActive.length === 0 ? (
+          <Text size="sm" c="dimmed">
+            {addressSearch ? "No addresses match." : "No active addresses."}
+          </Text>
         ) : (
-          <Table>
+          <Table highlightOnHover>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>IP</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Updated</Table.Th>
-                <Table.Th>Expires</Table.Th>
+                <Table.Th>State</Table.Th>
+                <Table.Th>Updated · via</Table.Th>
+                <Table.Th>Lifetime</Table.Th>
+                <Table.Th>Expires in</Table.Th>
                 <Table.Th w={48} />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {addresses.map((address) => (
-                <Table.Tr key={address.id}>
-                  <Table.Td ff="monospace" fz="sm">{address.ip}</Table.Td>
+              {filteredActive.map((a) => (
+                <AddressRow
+                  key={a.id}
+                  address={a}
+                  formatDateTime={formatDateTime}
+                  onToggle={handleToggle}
+                  togglePending={togglePending}
+                />
+              ))}
+            </Table.Tbody>
+          </Table>
+        )
+      ) : (
+        filteredStale.length === 0 ? (
+          <Text size="sm" c="dimmed">
+            {addressSearch ? "No addresses match." : "No stale addresses."}
+          </Text>
+        ) : (
+          <Table highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>IP</Table.Th>
+                <Table.Th>Last seen · via</Table.Th>
+                <Table.Th>Inactive since</Table.Th>
+                <Table.Th>Lifetime</Table.Th>
+                <Table.Th w={90} />
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {filteredStale.map((a) => (
+                <Table.Tr key={a.id}>
+                  <Table.Td ff="monospace" fz="sm">{a.ip}</Table.Td>
                   <Table.Td>
-                    <Group gap={8} title={address.is_enabled ? "Active" : "Inactive"}>
-                      <StatusDot color={address.is_enabled ? "green" : "red"} size={10} />
-                      <Text size="sm" c="dimmed">
-                        {address.is_enabled ? "Active" : "Inactive"}
-                      </Text>
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="sm" c="dimmed">
-                      {formatDateTime(address.updated_at)}
+                    <Text size="xs" c="dimmed">
+                      {formatDateTime(a.updated_at)} · {SOURCE_LABELS[a.source] ?? a.source}
                     </Text>
                   </Table.Td>
                   <Table.Td>
-                    {address.expires_at && address.is_enabled ? (
-                      <Text
-                        size="sm"
-                        c={isPast(address.expires_at) ? "red" : "dimmed"}
-                      >
-                        {formatDateTime(address.expires_at)}
-                      </Text>
-                    ) : (
-                      <Text size="sm" c="dimmed" style={{ opacity: 0.5 }}>No expiry</Text>
-                    )}
+                    <Text size="xs" c="dimmed">{formatDateTime(a.updated_at)}</Text>
                   </Table.Td>
                   <Table.Td>
-                    {address.is_enabled ? (
-                      <Tooltip label="Disable address" withArrow>
-                        <ActionIcon
-                          variant="subtle"
-                          color="red"
-                          onClick={() => handleDisable(address.id)}
-                          disabled={disableAddressMutation.isPending}
-                          aria-label="Disable address"
-                        >
-                          <IconPlayerStop size={16} stroke={1.5} />
-                        </ActionIcon>
-                      </Tooltip>
-                    ) : (
-                      <Tooltip label="Re-enable address" withArrow>
-                        <ActionIcon
-                          variant="subtle"
-                          color="green"
-                          onClick={() => handleReEnable(address.ip)}
-                          disabled={addAddressMutation.isPending}
-                          aria-label="Enable address"
-                        >
-                          <IconPlayerPlay size={16} stroke={1.5} />
-                        </ActionIcon>
-                      </Tooltip>
-                    )}
+                    <Text size="xs" c="dimmed">
+                      {formatDuration(a.created_at, a.updated_at)}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Button
+                      size="xs"
+                      variant="subtle"
+                      onClick={() => handleReEnable(a)}
+                      loading={addMutation.isPending}
+                    >
+                      Re-enable
+                    </Button>
                   </Table.Td>
                 </Table.Tr>
               ))}
             </Table.Tbody>
           </Table>
-        )}
-      </Card>
+        )
+      )}
     </Stack>
   );
 }

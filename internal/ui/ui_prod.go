@@ -24,26 +24,22 @@ func Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+
 		// API routes handled by main router, but double check safety
-		if strings.HasPrefix(path, "/api") {
+		if strings.HasPrefix(path, "/api/") {
 			http.NotFound(w, r)
 			return
 		}
 
-		// Check if file exists in the FS
-		// We use a small hack: try to open it. If it fails, serve index.html
+		// Check if file exists in the FS; if so, serve it directly.
+		// If not (or it's a directory), fall back to index.html for SPA routing.
 		f, err := dist.Open(strings.TrimPrefix(path, "/"))
 		if err == nil {
-			// File exists (e.g. assets/main.js), close it and let fileServer serve it
-			defer func() {
-				//nolint:staticcheck // Empty branch is intentional - file is already being served
-				if err := f.Close(); err != nil {
-					// Log error if possible, but file is already being served
-				}
-			}()
-			// Ensure we don't serve directory listings
-			stat, _ := f.Stat()
-			if !stat.IsDir() {
+			stat, statErr := f.Stat()
+			_ = f.Close()
+			if statErr == nil && !stat.IsDir() {
 				if strings.HasPrefix(path, "/assets/") {
 					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 				}
@@ -54,7 +50,10 @@ func Handler() http.Handler {
 
 		// Fallback to index.html for SPA routing
 		w.Header().Set("Cache-Control", "no-cache")
-		r.URL.Path = "/"
-		fileServer.ServeHTTP(w, r)
+		r2 := *r
+		u2 := *r.URL
+		u2.Path = "/"
+		r2.URL = &u2
+		fileServer.ServeHTTP(w, &r2)
 	})
 }

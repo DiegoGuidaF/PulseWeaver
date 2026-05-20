@@ -1811,8 +1811,7 @@ export const DeviceListOwnerSchema = {
       type: "string",
     },
     role: {
-      type: "string",
-      enum: ["user", "admin"],
+      $ref: "#/components/schemas/UserRole",
     },
     bypass_hosts_check: {
       type: "boolean",

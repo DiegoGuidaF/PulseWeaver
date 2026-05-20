@@ -63,7 +63,7 @@ export function DeviceProfileCard({
   device,
   deviceTypes,
 }: DeviceProfileCardProps) {
-  const updateDevice = useUpdateDevice(deviceId);
+  const updateDevice = useUpdateDevice();
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
 
   const form = useForm<ProfileFormValues>({

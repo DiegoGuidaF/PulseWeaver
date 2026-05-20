@@ -28,7 +28,7 @@ function renderWithRoutes(userId = 5) {
         return (
             <Routes>
                 <Route path="/access/users/:id" element={<AuthProvider><UserDetailPage /></AuthProvider>} />
-                <Route path="/devices/:deviceId" element={<div data-testid="device-detail" />} />
+                <Route path="/user-devices/:userId" element={<div data-testid="device-detail" />} />
             </Routes>
         );
     }
@@ -74,7 +74,7 @@ describe('UserDetailPage', () => {
             );
         });
 
-        it('"All devices →" link points to /devices?user_id=<userId>', async () => {
+        it('"All devices →" link points to /user-devices/<userId>', async () => {
             const user = userEvent.setup();
             renderUserDetailPage(5);
 
@@ -86,7 +86,7 @@ describe('UserDetailPage', () => {
             await user.click(screen.getByRole('tab', { name: /devices/i }));
 
             const allDevicesLink = screen.getByRole('link', { name: /all devices/i });
-            expect(allDevicesLink).toHaveAttribute('href', '/devices?user_id=5');
+            expect(allDevicesLink).toHaveAttribute('href', '/user-devices/5');
         });
     });
 });
