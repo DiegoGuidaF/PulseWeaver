@@ -130,19 +130,6 @@ export const zAddAddressRequest = z.object({
   ip: zIpAddress,
 });
 
-export const zAddress = z.object({
-  id: zId,
-  device_id: zId,
-  ip: zIpAddress,
-  is_enabled: z.boolean(),
-  created_at: z.iso.datetime({ offset: true, local: true }),
-  updated_at: z.iso.datetime({ offset: true, local: true }),
-  expires_at: z.iso
-    .datetime({ offset: true, local: true })
-    .readonly()
-    .nullish(),
-});
-
 export const zAddressHistoryBucket = z.object({
   timestamp: z.iso.datetime({ offset: true, local: true }),
   active_count: z.int(),
@@ -159,6 +146,20 @@ export const zAddressEventSource = z.enum([
   "expiry",
   "limit_exceeded",
 ]);
+
+export const zAddress = z.object({
+  id: zId,
+  device_id: zId,
+  ip: zIpAddress,
+  is_enabled: z.boolean(),
+  source: zAddressEventSource,
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  updated_at: z.iso.datetime({ offset: true, local: true }),
+  expires_at: z.iso
+    .datetime({ offset: true, local: true })
+    .readonly()
+    .nullish(),
+});
 
 export const zAddressHistoryEvent = z.object({
   id: zId,
@@ -573,6 +574,64 @@ export const zPromoteUserRequest = z.object({
   password: zPassword,
 });
 
+export const zHostGroupSummary = z.object({
+  id: zId,
+  name: z.string(),
+  color: z.string(),
+  icon: z.string(),
+});
+
+export const zDeviceListOwner = z.object({
+  id: zId,
+  username: z.string(),
+  display_name: z.string(),
+  role: z.enum(["user", "admin"]),
+  bypass_hosts_check: z.boolean(),
+  host_groups: z.array(zHostGroupSummary),
+  device_count: z.int().gte(0),
+  live_address_count: z.int().gte(0),
+});
+
+/**
+ * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+ *
+ */
+export const zDeviceState = z.enum([
+  "healthy",
+  "stale",
+  "pending-claim",
+  "expired-claim",
+]);
+
+export const zDeviceRuleSummary = z.object({
+  type: z.enum(["auto_expiry", "max_active"]),
+  enabled: z.boolean(),
+  ttl_seconds: z.int().nullish(),
+  limit: z.int().nullish(),
+});
+
+export const zDevicePairingSummary = z.object({
+  expires_at: z.iso.datetime({ offset: true, local: true }),
+});
+
+export const zDeviceListEntry = z.object({
+  id: zId,
+  name: z.string(),
+  icon: z.string().nullish(),
+  key_prefix: z.string().nullish(),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  last_seen_at: z.iso.datetime({ offset: true, local: true }).nullish(),
+  state: zDeviceState,
+  live_address_count: z.int().gte(0),
+  rules: z.array(zDeviceRuleSummary),
+  pairing: zDevicePairingSummary.nullish(),
+});
+
+export const zDeviceOwnerGroup = z.object({
+  owner: zDeviceListOwner,
+  devices: z.array(zDeviceListEntry),
+});
+
 export const zDeviceApiKeyResponse = z.object({
   device: zDevice,
   api_key: z.string(),
@@ -766,6 +825,7 @@ export const zAddressWritable = z.object({
   device_id: zId,
   ip: zIpAddress,
   is_enabled: z.boolean(),
+  source: zAddressEventSource,
   created_at: z.iso.datetime({ offset: true, local: true }),
   updated_at: z.iso.datetime({ offset: true, local: true }),
 });
@@ -816,15 +876,6 @@ export const zDemoteUserPath = z.object({
  */
 export const zDemoteUserResponse = zUser;
 
-export const zGetDevicesByUserPath = z.object({
-  user_id: zId,
-});
-
-/**
- * OK
- */
-export const zGetDevicesByUserResponse = z.array(zDevice);
-
 export const zLoginBody = zAuthRequest;
 
 /**
@@ -859,7 +910,7 @@ export const zChangePasswordResponse = z.void();
 /**
  * OK
  */
-export const zGetDevicesResponse = z.array(zDevice);
+export const zGetDevicesResponse = z.array(zDeviceOwnerGroup);
 
 /**
  * Device creation request
@@ -879,15 +930,6 @@ export const zDeleteDevicePath = z.object({
  * No Content - Device deleted successfully
  */
 export const zDeleteDeviceResponse = z.void();
-
-export const zGetDevicePath = z.object({
-  device_id: zId,
-});
-
-/**
- * OK
- */
-export const zGetDeviceResponse = zDevice;
 
 export const zUpdateDeviceBody = zUpdateDeviceRequest;
 

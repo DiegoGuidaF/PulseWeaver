@@ -374,7 +374,15 @@ export const AddAddressRequestSchema = {
 
 export const AddressSchema = {
   type: "object",
-  required: ["id", "device_id", "ip", "is_enabled", "created_at", "updated_at"],
+  required: [
+    "id",
+    "device_id",
+    "ip",
+    "is_enabled",
+    "source",
+    "created_at",
+    "updated_at",
+  ],
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
@@ -388,6 +396,10 @@ export const AddressSchema = {
     is_enabled: {
       type: "boolean",
       description: "The latest state of this address, enabled or disabled",
+    },
+    source: {
+      $ref: "#/components/schemas/AddressEventSource",
+      description: "What triggered the last state change.",
     },
     created_at: {
       type: "string",
@@ -1755,6 +1767,202 @@ export const PromoteUserRequestSchema = {
   },
 } as const;
 
+export const HostGroupSummarySchema = {
+  type: "object",
+  required: ["id", "name", "color", "icon"],
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    name: {
+      type: "string",
+    },
+    color: {
+      type: "string",
+      description: 'Hex color string (e.g. "#4C6EF5").',
+    },
+    icon: {
+      type: "string",
+      description: "Tabler icon name.",
+    },
+  },
+} as const;
+
+export const DeviceListOwnerSchema = {
+  type: "object",
+  required: [
+    "id",
+    "username",
+    "display_name",
+    "role",
+    "bypass_hosts_check",
+    "host_groups",
+    "device_count",
+    "live_address_count",
+  ],
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    username: {
+      type: "string",
+    },
+    display_name: {
+      type: "string",
+    },
+    role: {
+      type: "string",
+      enum: ["user", "admin"],
+    },
+    bypass_hosts_check: {
+      type: "boolean",
+    },
+    host_groups: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/HostGroupSummary",
+      },
+      description:
+        "Host groups the owner belongs to. Always returned; frontend hides them when bypass_hosts_check is true.",
+    },
+    device_count: {
+      type: "integer",
+      minimum: 0,
+    },
+    live_address_count: {
+      type: "integer",
+      minimum: 0,
+      description:
+        "Aggregate count of live addresses across all owner's devices.",
+    },
+  },
+} as const;
+
+export const DeviceStateSchema = {
+  type: "string",
+  enum: ["healthy", "stale", "pending-claim", "expired-claim"],
+  description:
+    "Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).\n",
+} as const;
+
+export const DeviceRuleSummarySchema = {
+  type: "object",
+  required: ["type", "enabled"],
+  properties: {
+    type: {
+      type: "string",
+      enum: ["auto_expiry", "max_active"],
+    },
+    enabled: {
+      type: "boolean",
+    },
+    ttl_seconds: {
+      type: "integer",
+      nullable: true,
+      description: "TTL in seconds. Present for auto_expiry rules.",
+    },
+    limit: {
+      type: "integer",
+      nullable: true,
+      description:
+        "Maximum allowed live-address count. Present for max_active rules.",
+    },
+  },
+} as const;
+
+export const DevicePairingSummarySchema = {
+  type: "object",
+  required: ["expires_at"],
+  properties: {
+    expires_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      description: "When the pairing code expires.",
+    },
+  },
+} as const;
+
+export const DeviceListEntrySchema = {
+  type: "object",
+  required: [
+    "id",
+    "name",
+    "created_at",
+    "state",
+    "live_address_count",
+    "rules",
+  ],
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    name: {
+      type: "string",
+    },
+    icon: {
+      type: "string",
+      nullable: true,
+      description: "Tabler icon name override.",
+    },
+    key_prefix: {
+      type: "string",
+      nullable: true,
+      description: "First characters of the API key (display only).",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      description: "When the device was created.",
+    },
+    last_seen_at: {
+      type: "string",
+      format: "date-time",
+      nullable: true,
+      "x-go-type": "UTCTime",
+      description: "Most recent address heartbeat for this device.",
+    },
+    state: {
+      $ref: "#/components/schemas/DeviceState",
+    },
+    live_address_count: {
+      type: "integer",
+      minimum: 0,
+    },
+    rules: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/DeviceRuleSummary",
+      },
+    },
+    pairing: {
+      nullable: true,
+      allOf: [
+        {
+          $ref: "#/components/schemas/DevicePairingSummary",
+        },
+      ],
+    },
+  },
+} as const;
+
+export const DeviceOwnerGroupSchema = {
+  type: "object",
+  required: ["owner", "devices"],
+  properties: {
+    owner: {
+      $ref: "#/components/schemas/DeviceListOwner",
+    },
+    devices: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/DeviceListEntry",
+      },
+    },
+  },
+} as const;
+
 export const DeviceAPIKeyResponseSchema = {
   type: "object",
   required: ["device", "api_key"],
@@ -2256,7 +2464,15 @@ export const DeviceWritableSchema = {
 
 export const AddressWritableSchema = {
   type: "object",
-  required: ["id", "device_id", "ip", "is_enabled", "created_at", "updated_at"],
+  required: [
+    "id",
+    "device_id",
+    "ip",
+    "is_enabled",
+    "source",
+    "created_at",
+    "updated_at",
+  ],
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
@@ -2270,6 +2486,10 @@ export const AddressWritableSchema = {
     is_enabled: {
       type: "boolean",
       description: "The latest state of this address, enabled or disabled",
+    },
+    source: {
+      $ref: "#/components/schemas/AddressEventSource",
+      description: "What triggered the last state change.",
     },
     created_at: {
       type: "string",

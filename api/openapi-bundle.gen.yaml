@@ -223,46 +223,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /admin/users/{user_id}/devices:
-    get:
-      operationId: getDevicesByUser
-      tags:
-        - admin
-      summary: List devices owned by a user
-      description: Returns all devices assigned to the specified user.
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/ID'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Device'
-        '403':
-          description: Forbidden - admin credentials required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
   /auth/login:
     post:
       operationId: login
@@ -423,8 +383,8 @@ paths:
       operationId: getDevices
       tags:
         - devices
-      summary: List all devices
-      description: Get all devices belonging to the authenticated user.
+      summary: List all devices grouped by owner
+      description: Returns all devices grouped by their owning user. Each group includes owner metadata (host groups, bypass flag, aggregate counts) and the devices' live-address counts, rule summaries, and derived state.
       responses:
         '200':
           description: OK
@@ -433,7 +393,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Device'
+                  $ref: '#/components/schemas/DeviceOwnerGroup'
         '500':
           description: Internal Server Error
           content:
@@ -479,38 +439,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /devices/{device_id}:
-    get:
-      operationId: getDevice
-      tags:
-        - devices
-      summary: Get a device
-      description: Get a single device by its id.
-      parameters:
-        - name: device_id
-          in: path
-          description: Device id
-          required: true
-          schema:
-            $ref: '#/components/schemas/ID'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Device'
-        '404':
-          description: Device not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteDevice
       tags:
@@ -2802,6 +2730,7 @@ components:
         - device_id
         - ip
         - is_enabled
+        - source
         - created_at
         - updated_at
       properties:
@@ -2814,6 +2743,9 @@ components:
         is_enabled:
           type: boolean
           description: The latest state of this address, enabled or disabled
+        source:
+          $ref: '#/components/schemas/AddressEventSource'
+          description: What triggered the last state change.
         created_at:
           type: string
           format: date-time
@@ -3844,6 +3776,159 @@ components:
       properties:
         password:
           $ref: '#/components/schemas/Password'
+    HostGroupSummary:
+      type: object
+      required:
+        - id
+        - name
+        - color
+        - icon
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        name:
+          type: string
+        color:
+          type: string
+          description: Hex color string (e.g. "#4C6EF5").
+        icon:
+          type: string
+          description: Tabler icon name.
+    DeviceListOwner:
+      type: object
+      required:
+        - id
+        - username
+        - display_name
+        - role
+        - bypass_hosts_check
+        - host_groups
+        - device_count
+        - live_address_count
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        username:
+          type: string
+        display_name:
+          type: string
+        role:
+          type: string
+          enum:
+            - user
+            - admin
+        bypass_hosts_check:
+          type: boolean
+        host_groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/HostGroupSummary'
+          description: Host groups the owner belongs to. Always returned; frontend hides them when bypass_hosts_check is true.
+        device_count:
+          type: integer
+          minimum: 0
+        live_address_count:
+          type: integer
+          minimum: 0
+          description: Aggregate count of live addresses across all owner's devices.
+    DeviceState:
+      type: string
+      enum:
+        - healthy
+        - stale
+        - pending-claim
+        - expired-claim
+      description: |
+        Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+    DeviceRuleSummary:
+      type: object
+      required:
+        - type
+        - enabled
+      properties:
+        type:
+          type: string
+          enum:
+            - auto_expiry
+            - max_active
+        enabled:
+          type: boolean
+        ttl_seconds:
+          type: integer
+          nullable: true
+          description: TTL in seconds. Present for auto_expiry rules.
+        limit:
+          type: integer
+          nullable: true
+          description: Maximum allowed live-address count. Present for max_active rules.
+    DevicePairingSummary:
+      type: object
+      required:
+        - expires_at
+      properties:
+        expires_at:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+          description: When the pairing code expires.
+    DeviceListEntry:
+      type: object
+      required:
+        - id
+        - name
+        - created_at
+        - state
+        - live_address_count
+        - rules
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        name:
+          type: string
+        icon:
+          type: string
+          nullable: true
+          description: Tabler icon name override.
+        key_prefix:
+          type: string
+          nullable: true
+          description: First characters of the API key (display only).
+        created_at:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+          description: When the device was created.
+        last_seen_at:
+          type: string
+          format: date-time
+          nullable: true
+          x-go-type: UTCTime
+          description: Most recent address heartbeat for this device.
+        state:
+          $ref: '#/components/schemas/DeviceState'
+        live_address_count:
+          type: integer
+          minimum: 0
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceRuleSummary'
+        pairing:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/DevicePairingSummary'
+    DeviceOwnerGroup:
+      type: object
+      required:
+        - owner
+        - devices
+      properties:
+        owner:
+          $ref: '#/components/schemas/DeviceListOwner'
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceListEntry'
     DeviceAPIKeyResponse:
       type: object
       required:

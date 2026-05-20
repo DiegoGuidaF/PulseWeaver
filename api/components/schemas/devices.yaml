@@ -146,3 +146,135 @@ DeviceHeartbeatByApiKeyRequest:
   properties:
     ip:
       $ref: './common.yaml#/IPAddress'
+
+DeviceState:
+  type: string
+  enum: [healthy, stale, pending-claim, expired-claim]
+  description: >
+    Derived lifecycle state of a device.
+    healthy: has at least one live address.
+    stale: no live addresses.
+    pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+
+HostGroupSummary:
+  type: object
+  required: [id, name, color, icon]
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    name:
+      type: string
+    color:
+      type: string
+      description: Hex color string (e.g. "#4C6EF5").
+    icon:
+      type: string
+      description: Tabler icon name.
+
+DeviceRuleSummary:
+  type: object
+  required: [type, enabled]
+  properties:
+    type:
+      type: string
+      enum: [auto_expiry, max_active]
+    enabled:
+      type: boolean
+    ttl_seconds:
+      type: integer
+      nullable: true
+      description: TTL in seconds. Present for auto_expiry rules.
+    limit:
+      type: integer
+      nullable: true
+      description: Maximum allowed live-address count. Present for max_active rules.
+
+DevicePairingSummary:
+  type: object
+  required: [expires_at]
+  properties:
+    expires_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+      description: When the pairing code expires.
+
+DeviceListEntry:
+  type: object
+  required: [id, name, created_at, state, live_address_count, rules]
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    name:
+      type: string
+    icon:
+      type: string
+      nullable: true
+      description: Tabler icon name override.
+    key_prefix:
+      type: string
+      nullable: true
+      description: First characters of the API key (display only).
+    created_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+      description: When the device was created.
+    last_seen_at:
+      type: string
+      format: date-time
+      nullable: true
+      x-go-type: UTCTime
+      description: Most recent address heartbeat for this device.
+    state:
+      $ref: '#/DeviceState'
+    live_address_count:
+      type: integer
+      minimum: 0
+    rules:
+      type: array
+      items:
+        $ref: '#/DeviceRuleSummary'
+    pairing:
+      nullable: true
+      allOf:
+        - $ref: '#/DevicePairingSummary'
+
+DeviceListOwner:
+  type: object
+  required: [id, username, display_name, role, bypass_hosts_check, host_groups, device_count, live_address_count]
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    username:
+      type: string
+    display_name:
+      type: string
+    role:
+      type: string
+      enum: [user, admin]
+    bypass_hosts_check:
+      type: boolean
+    host_groups:
+      type: array
+      items:
+        $ref: '#/HostGroupSummary'
+      description: Host groups the owner belongs to. Always returned; frontend hides them when bypass_hosts_check is true.
+    device_count:
+      type: integer
+      minimum: 0
+    live_address_count:
+      type: integer
+      minimum: 0
+      description: Aggregate count of live addresses across all owner's devices.
+
+DeviceOwnerGroup:
+  type: object
+  required: [owner, devices]
+  properties:
+    owner:
+      $ref: '#/DeviceListOwner'
+    devices:
+      type: array
+      items:
+        $ref: '#/DeviceListEntry'

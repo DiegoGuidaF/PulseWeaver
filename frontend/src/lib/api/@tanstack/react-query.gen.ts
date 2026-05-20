@@ -35,11 +35,9 @@ import {
   getDashboardStats,
   getDashboardTopDeniedIps,
   getDashboardTraffic,
-  getDevice,
   getDeviceAddresses,
   getDeviceAddressLeaseRule,
   getDevices,
-  getDevicesByUser,
   getMaxActiveAddressesRule,
   getNetworkPolicy,
   getPolicyUserMap,
@@ -159,12 +157,6 @@ import type {
   GetDeviceAddressLeaseRuleData,
   GetDeviceAddressLeaseRuleError,
   GetDeviceAddressLeaseRuleResponse,
-  GetDeviceData,
-  GetDeviceError,
-  GetDeviceResponse,
-  GetDevicesByUserData,
-  GetDevicesByUserError,
-  GetDevicesByUserResponse,
   GetDevicesData,
   GetDevicesError,
   GetDevicesResponse,
@@ -438,36 +430,6 @@ export const demoteUserMutation = (
   return mutationOptions;
 };
 
-export const getDevicesByUserQueryKey = (
-  options: Options<GetDevicesByUserData>,
-) => createQueryKey("getDevicesByUser", options);
-
-/**
- * List devices owned by a user
- *
- * Returns all devices assigned to the specified user.
- */
-export const getDevicesByUserOptions = (
-  options: Options<GetDevicesByUserData>,
-) =>
-  queryOptions<
-    GetDevicesByUserResponse,
-    GetDevicesByUserError,
-    GetDevicesByUserResponse,
-    ReturnType<typeof getDevicesByUserQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getDevicesByUser({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getDevicesByUserQueryKey(options),
-  });
-
 /**
  * Login user
  *
@@ -607,9 +569,9 @@ export const getDevicesQueryKey = (options?: Options<GetDevicesData>) =>
   createQueryKey("getDevices", options);
 
 /**
- * List all devices
+ * List all devices grouped by owner
  *
- * Get all devices belonging to the authenticated user.
+ * Returns all devices grouped by their owning user. Each group includes owner metadata (host groups, bypass flag, aggregate counts) and the devices' live-address counts, rule summaries, and derived state.
  */
 export const getDevicesOptions = (options?: Options<GetDevicesData>) =>
   queryOptions<
@@ -687,33 +649,6 @@ export const deleteDeviceMutation = (
   };
   return mutationOptions;
 };
-
-export const getDeviceQueryKey = (options: Options<GetDeviceData>) =>
-  createQueryKey("getDevice", options);
-
-/**
- * Get a device
- *
- * Get a single device by its id.
- */
-export const getDeviceOptions = (options: Options<GetDeviceData>) =>
-  queryOptions<
-    GetDeviceResponse,
-    GetDeviceError,
-    GetDeviceResponse,
-    ReturnType<typeof getDeviceQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getDevice({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getDeviceQueryKey(options),
-  });
 
 /**
  * Update device profile

@@ -13,6 +13,7 @@ Address:
     - device_id
     - ip
     - is_enabled
+    - source
     - created_at
     - updated_at
   properties:
@@ -25,6 +26,9 @@ Address:
     is_enabled:
       type: boolean
       description: The latest state of this address, enabled or disabled
+    source:
+      $ref: '#/AddressEventSource'
+      description: What triggered the last state change.
     created_at:
       type: string
       format: date-time
