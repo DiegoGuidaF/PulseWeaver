@@ -96,6 +96,37 @@ func TestRepository_GetNetworkPolicySummaries_NoGroupAssignment_ZeroEffective(t 
 	is.NoErr(err)
 	is.Equal(len(summaries), 1)
 	is.Equal(summaries[0].EffectiveHostCount, 0)
+	is.Equal(len(summaries[0].Groups), 0) // no assignment → empty group list
+}
+
+func TestRepository_GetNetworkPolicySummaries_GroupsPopulated(t *testing.T) {
+	is := is.New(t)
+	repos := setupRepos(t)
+
+	policyID := insertTestPolicy(t, repos.db, "home", "192.168.1.0/24", false)
+	groupID := insertTestHostGroup(t, repos.db, "lan")
+	assignGroupToPolicy(t, repos.db, policyID, groupID)
+
+	summaries, err := repos.queries.GetNetworkPolicySummaries(t.Context())
+
+	is.NoErr(err)
+	is.Equal(len(summaries), 1)
+	is.Equal(len(summaries[0].Groups), 1)
+	is.Equal(summaries[0].Groups[0].ID, groupID)
+	is.Equal(summaries[0].Groups[0].Name, "lan")
+}
+
+func TestRepository_GetNetworkPolicySummaries_CreatedAtNonZero(t *testing.T) {
+	is := is.New(t)
+	repos := setupRepos(t)
+
+	insertTestPolicy(t, repos.db, "ts-check", "10.0.0.0/8", false)
+
+	summaries, err := repos.queries.GetNetworkPolicySummaries(t.Context())
+
+	is.NoErr(err)
+	is.Equal(len(summaries), 1)
+	is.True(!summaries[0].CreatedAt.IsZero())
 }
 
 // ── GetNetworkPolicyDetail ───────────────────────────────────────────────────

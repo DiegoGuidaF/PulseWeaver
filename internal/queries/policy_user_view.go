@@ -2,11 +2,14 @@ package queries
 
 import (
 	"cmp"
+	"context"
+	"fmt"
 	"slices"
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/slicex"
 )
@@ -347,4 +350,61 @@ func maxLastSeenAt(ipMap map[string]*ipBucket) *httpapi.UTCTime {
 	}
 	v := httpapi.UTCTime(max)
 	return &v
+}
+
+// BuildPolicyUserMap is the single business-logic entry point for the user-pivoted
+// policy audit view. The handler is a thin wrapper around it. This is the
+// integration-test target for orchestration; pure assembly is tested separately
+// via assemblePolicyUserMap.
+func (r *Repository) BuildPolicyUserMap(
+	ctx context.Context,
+	reader PolicyMapReader,
+	npProvider AuditNetworkPoliciesProvider,
+) (httpapi.PolicyUserMapAudit, error) {
+	snap := reader.GetPolicyMap()
+	addressIDs := collectAddressIDs(snap)
+
+	addrEnrichment, err := r.getPolicyAddressEnrichment(ctx, addressIDs)
+	if err != nil {
+		return httpapi.PolicyUserMapAudit{}, fmt.Errorf("policy address enrichment: %w", err)
+	}
+
+	allUsers, allowedHostsByUser, err := r.getAllUsersForPolicyAudit(ctx)
+	if err != nil {
+		return httpapi.PolicyUserMapAudit{}, fmt.Errorf("policy audit users: %w", err)
+	}
+
+	// Load enabled network policy entries for the audit view.
+	var npEntries []networkpolicies.CacheEntry
+	if npProvider != nil {
+		npEntries, err = npProvider.GetEnabledCacheEntries(ctx)
+		if err != nil {
+			return httpapi.PolicyUserMapAudit{}, fmt.Errorf("policy audit network policies: %w", err)
+		}
+	}
+
+	audit := assemblePolicyUserMap(snap, addrEnrichment, allUsers, allowedHostsByUser)
+
+	// Attach network policy data.
+	npAPIEntries := make([]httpapi.PolicyNetworkPolicyEntry, 0, len(npEntries))
+	totalHostCount := audit.TotalHostCount
+	for _, e := range npEntries {
+		effective := len(e.AllowedHostFQDNs)
+		if e.BypassHostCheck {
+			effective = totalHostCount
+		}
+		npAPIEntries = append(npAPIEntries, httpapi.PolicyNetworkPolicyEntry{
+			PolicyId:           e.PolicyID.Int64(),
+			PolicyName:         e.PolicyName,
+			Cidr:               e.CIDR,
+			Enabled:            true,
+			BypassHostCheck:    e.BypassHostCheck,
+			EffectiveHostCount: effective,
+			TotalHostCount:     totalHostCount,
+		})
+	}
+	audit.NetworkPolicies = npAPIEntries
+	audit.TotalNetworkPolicyCount = len(npAPIEntries)
+
+	return audit, nil
 }

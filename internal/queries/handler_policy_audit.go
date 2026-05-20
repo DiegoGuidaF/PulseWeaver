@@ -27,14 +27,13 @@ type PolicyMapReader interface {
 	GetPolicyMap() policy.PolicyMapSnapshot
 }
 
-// policyEnrichmentRow holds SQL-joined metadata for a single address contributor.
+// policyEnrichmentRow holds the address metadata fetched by getPolicyAddressEnrichment.
+// DeviceID and UserID are sourced from the policy snapshot's ContributorAccess and are
+// not re-fetched here.
 type policyEnrichmentRow struct {
 	AddressID        ids.AddressID `db:"address_id"`
 	AddressUpdatedAt time.Time     `db:"address_updated_at"`
-	DeviceID         ids.DeviceID  `db:"device_id"`
 	DeviceName       string        `db:"device_name"`
-	UserID           ids.UserID    `db:"user_id"`
-	UserName         string        `db:"user_name"`
 }
 
 // getPolicyAddressEnrichment fetches display metadata for the given address IDs.
@@ -45,15 +44,11 @@ func (r *Repository) getPolicyAddressEnrichment(ctx context.Context, addressIDs 
 
 	query, args, err := sqlx.In(`
 		SELECT
-			a.id           AS address_id,
-			a.updated_at   AS address_updated_at,
-			d.id           AS device_id,
-			d.name         AS device_name,
-			u.id           AS user_id,
-			u.display_name AS user_name
+			a.id         AS address_id,
+			a.updated_at AS address_updated_at,
+			d.name       AS device_name
 		FROM addresses a
 		JOIN devices d ON d.id = a.device_id
-		JOIN users u ON u.id = d.owner_id
 		WHERE a.id IN (?)`, addressIDs)
 	if err != nil {
 		return nil, fmt.Errorf("build policy audit enrichment query: %w", err)
@@ -130,63 +125,6 @@ func collectAddressIDs(snap policy.PolicyMapSnapshot) []ids.AddressID {
 		}
 	}
 	return ids
-}
-
-// BuildPolicyUserMap is the single business-logic entry point for the user-pivoted
-// policy audit view. The handler is a thin wrapper around it. This is the
-// integration-test target for orchestration; pure assembly is tested separately
-// via assemblePolicyUserMap.
-func (r *Repository) BuildPolicyUserMap(
-	ctx context.Context,
-	reader PolicyMapReader,
-	npProvider AuditNetworkPoliciesProvider,
-) (httpapi.PolicyUserMapAudit, error) {
-	snap := reader.GetPolicyMap()
-	addressIDs := collectAddressIDs(snap)
-
-	addrEnrichment, err := r.getPolicyAddressEnrichment(ctx, addressIDs)
-	if err != nil {
-		return httpapi.PolicyUserMapAudit{}, fmt.Errorf("policy address enrichment: %w", err)
-	}
-
-	allUsers, allowedHostsByUser, err := r.getAllUsersForPolicyAudit(ctx)
-	if err != nil {
-		return httpapi.PolicyUserMapAudit{}, fmt.Errorf("policy audit users: %w", err)
-	}
-
-	// Load enabled network policy entries for the audit view.
-	var npEntries []networkpolicies.CacheEntry
-	if npProvider != nil {
-		npEntries, err = npProvider.GetEnabledCacheEntries(ctx)
-		if err != nil {
-			return httpapi.PolicyUserMapAudit{}, fmt.Errorf("policy audit network policies: %w", err)
-		}
-	}
-
-	audit := assemblePolicyUserMap(snap, addrEnrichment, allUsers, allowedHostsByUser)
-
-	// Attach network policy data.
-	npAPIEntries := make([]httpapi.PolicyNetworkPolicyEntry, 0, len(npEntries))
-	totalHostCount := audit.TotalHostCount
-	for _, e := range npEntries {
-		effective := len(e.AllowedHostFQDNs)
-		if e.BypassHostCheck {
-			effective = totalHostCount
-		}
-		npAPIEntries = append(npAPIEntries, httpapi.PolicyNetworkPolicyEntry{
-			PolicyId:           e.PolicyID.Int64(),
-			PolicyName:         e.PolicyName,
-			Cidr:               e.CIDR,
-			Enabled:            true,
-			BypassHostCheck:    e.BypassHostCheck,
-			EffectiveHostCount: effective,
-			TotalHostCount:     totalHostCount,
-		})
-	}
-	audit.NetworkPolicies = npAPIEntries
-	audit.TotalNetworkPolicyCount = len(npAPIEntries)
-
-	return audit, nil
 }
 
 // GetPolicyUserMap returns the user-pivoted policy cache audit view.
