@@ -122,6 +122,33 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 		})
 	}
 
+	// Q3: network policies assigned to each group
+	type groupPolicyRow struct {
+		GroupID    ids.HostGroupID     `db:"host_group_id"`
+		PolicyID   ids.NetworkPolicyID `db:"policy_id"`
+		PolicyName string              `db:"policy_name"`
+		PolicyCIDR string              `db:"policy_cidr"`
+	}
+	const groupPoliciesQuery = `
+		SELECT nphg.host_group_id, np.id AS policy_id, np.name AS policy_name, np.cidr AS policy_cidr
+		FROM network_policy_allowed_host_groups nphg
+		JOIN network_policies np ON np.id = nphg.policy_id
+		ORDER BY nphg.host_group_id, np.name
+	`
+	var groupPolicyRows []groupPolicyRow
+	if err := r.db.SelectContext(ctx, &groupPolicyRows, groupPoliciesQuery); err != nil {
+		return httpapi.GroupListResponse{}, fmt.Errorf("get host group network policies: %w", err)
+	}
+
+	policiesByGroup := make(map[ids.HostGroupID][]httpapi.NetworkPolicyRef)
+	for _, pr := range groupPolicyRows {
+		policiesByGroup[pr.GroupID] = append(policiesByGroup[pr.GroupID], httpapi.NetworkPolicyRef{
+			Id:   pr.PolicyID.Int64(),
+			Name: pr.PolicyName,
+			Cidr: pr.PolicyCIDR,
+		})
+	}
+
 	seen := make(map[ids.HostGroupID]int)
 	groups := []httpapi.GroupDetailWithUsers{}
 	for _, rw := range groupRows {
@@ -133,6 +160,10 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 			if users == nil {
 				users = []httpapi.UserSummary{}
 			}
+			policies := policiesByGroup[rw.ID]
+			if policies == nil {
+				policies = []httpapi.NetworkPolicyRef{}
+			}
 			groups = append(groups, httpapi.GroupDetailWithUsers{
 				Id:              rw.ID.Int64(),
 				Name:            rw.Name,
@@ -143,7 +174,7 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 				UpdatedAt:       httpapi.UTCTime(rw.UpdatedAt),
 				Hosts:           []httpapi.HostSummary{},
 				Users:           &users,
-				NetworkPolicies: []httpapi.NetworkPolicyRef{}, // TODO: populate
+				NetworkPolicies: policies,
 			})
 		}
 		if rw.HostID != nil && rw.HostFQDN != nil {
@@ -380,6 +411,33 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 		return httpapi.UserAccessDetail{}, fmt.Errorf("get user access detail groups: %w", err)
 	}
 
+	// Q3: network policies assigned to each group
+	type userDetailPolicyRow struct {
+		GroupID    ids.HostGroupID     `db:"host_group_id"`
+		PolicyID   ids.NetworkPolicyID `db:"policy_id"`
+		PolicyName string              `db:"policy_name"`
+		PolicyCIDR string              `db:"policy_cidr"`
+	}
+	const userDetailPoliciesQuery = `
+		SELECT nphg.host_group_id, np.id AS policy_id, np.name AS policy_name, np.cidr AS policy_cidr
+		FROM network_policy_allowed_host_groups nphg
+		JOIN network_policies np ON np.id = nphg.policy_id
+		ORDER BY nphg.host_group_id, np.name
+	`
+	var userDetailPolicyRows []userDetailPolicyRow
+	if err := r.db.SelectContext(ctx, &userDetailPolicyRows, userDetailPoliciesQuery); err != nil {
+		return httpapi.UserAccessDetail{}, fmt.Errorf("get user access detail network policies: %w", err)
+	}
+
+	policiesByGroupForUser := make(map[ids.HostGroupID][]httpapi.NetworkPolicyRef)
+	for _, pr := range userDetailPolicyRows {
+		policiesByGroupForUser[pr.GroupID] = append(policiesByGroupForUser[pr.GroupID], httpapi.NetworkPolicyRef{
+			Id:   pr.PolicyID.Int64(),
+			Name: pr.PolicyName,
+			Cidr: pr.PolicyCIDR,
+		})
+	}
+
 	seenGroups := make(map[ids.HostGroupID]int)
 	groups := []httpapi.SubjectGroupDetail{}
 	for _, gr := range groupRows {
@@ -387,6 +445,10 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 		if !exists {
 			idx = len(groups)
 			seenGroups[gr.GroupID] = idx
+			policies := policiesByGroupForUser[gr.GroupID]
+			if policies == nil {
+				policies = []httpapi.NetworkPolicyRef{}
+			}
 			groups = append(groups, httpapi.SubjectGroupDetail{
 				Id:              gr.GroupID.Int64(),
 				Name:            gr.GroupName,
@@ -397,7 +459,7 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 				UpdatedAt:       httpapi.UTCTime(gr.GroupUpdatedAt),
 				Granted:         gr.Granted,
 				Hosts:           []httpapi.HostSummary{},
-				NetworkPolicies: []httpapi.NetworkPolicyRef{}, // TODO: populate
+				NetworkPolicies: policies,
 			})
 		}
 		if gr.HostID != nil && gr.HostFQDN != nil {
