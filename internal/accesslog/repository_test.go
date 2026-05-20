@@ -430,3 +430,47 @@ func TestRepository_BatchInsert_ContributorCount_Multiple(t *testing.T) {
 	is.NoErr(dbWrapper.DB().QueryRowxContext(t.Context(), `SELECT contributor_count FROM access_log LIMIT 1`).Scan(&rowContribCount))
 	is.Equal(rowContribCount, 2)
 }
+
+// DeleteOlderThan
+
+func TestRepository_DeleteOlderThan_RemovesOldRows(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestRepo(t)
+	ctx := context.Background()
+
+	old := time.Now().UTC().Add(-48 * time.Hour)
+	recent := time.Now().UTC()
+	cutoff := time.Now().UTC().Add(-24 * time.Hour)
+
+	r1 := policy.DenyReasonIPNotRegistered
+	r2 := policy.DenyReasonNoDeviceMatch
+
+	err := repo.BatchInsert(ctx, []policy.DecisionEvent{
+		{ClientIP: "1.0.0.1", Outcome: false, DenyReason: &r1, CreatedAt: old, Headers: map[string][]string{}},
+		{ClientIP: "1.0.0.2", Outcome: false, DenyReason: &r1, CreatedAt: old, Headers: map[string][]string{}},
+	})
+	is.NoErr(err)
+	err = repo.BatchInsert(ctx, []policy.DecisionEvent{
+		{ClientIP: "2.0.0.1", Outcome: false, DenyReason: &r2, CreatedAt: recent, Headers: map[string][]string{}},
+	})
+	is.NoErr(err)
+
+	deleted, err := repo.DeleteOlderThan(ctx, cutoff)
+	is.NoErr(err)
+	is.Equal(deleted, int64(2))
+
+	// Only the recent deny reason should survive.
+	reasons, err := repo.ListDenyReasons(ctx)
+	is.NoErr(err)
+	is.Equal(len(reasons), 1)
+	is.Equal(reasons[0], string(r2))
+}
+
+func TestRepository_DeleteOlderThan_EmptyTable_ReturnsZero(t *testing.T) {
+	is := is.New(t)
+	repo := setupTestRepo(t)
+
+	deleted, err := repo.DeleteOlderThan(context.Background(), time.Now())
+	is.NoErr(err)
+	is.Equal(deleted, int64(0))
+}

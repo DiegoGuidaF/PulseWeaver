@@ -12,6 +12,16 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
+// DeleteAddressEventsOlderThan removes address_events rows with created_at before the given time.
+// Returns the number of rows deleted.
+func (r *Repository) DeleteAddressEventsOlderThan(ctx context.Context, before time.Time) (int64, error) {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM address_events WHERE created_at < ?`, before)
+	if err != nil {
+		return 0, fmt.Errorf("delete address_events older than %s: %w", before.Format(time.RFC3339), err)
+	}
+	return result.RowsAffected()
+}
+
 func (r *Repository) GetAddress(ctx context.Context, addressID ids.AddressID) (*Address, error) {
 	state := new(Address)
 

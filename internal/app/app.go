@@ -191,11 +191,11 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	dashboardRepo := dashboard.NewRepository(db.DB())
 	dashboardHandler := dashboard.NewHTTPHandler(dashboardRepo, logger)
 
-	// Runs scheduled jobs - Address leasing, traffic aggregates for the dashboard...
-	schedulerService, err := scheduler.NewService(addressLeaseService, deviceService, dashboardRepo, logger)
-	if err != nil {
-		return nil, fmt.Errorf("scheduler service init: %w", err)
-	}
+	// Runs scheduled jobs - Address leasing, traffic aggregates for the dashboard, data retention...
+	schedulerService := scheduler.NewService(logger)
+	schedulerService.AddJob(addressLeaseService.NewExpiryJob(deviceService))
+	schedulerService.AddJob(dashboardRepo.NewRollupJob(logger))
+	schedulerService.AddJob(scheduler.NewRetentionJob(accessLogRepo, deviceRepo, conf.Rules.DataRetentionDays, logger))
 
 	// Fire the rules on start to ensure we disable no longer valid addresses before letting them through
 	err = schedulerService.ExecuteScheduledRules(ctx)

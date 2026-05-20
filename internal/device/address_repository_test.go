@@ -643,6 +643,48 @@ func TestGetAddressHistory_BucketGapCount_NoGapWhenOnlyHeartbeats(t *testing.T) 
 	is.Equal(history.Buckets[0].GapCount, 0)
 }
 
+// DeleteAddressEventsOlderThan
+
+func TestRepository_DeleteAddressEventsOlderThan_RemovesOldRows(t *testing.T) {
+	is := is.New(t)
+	repos := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repos, ctx, "retention-device")
+	addr := createTestAddress(t, repos.repo, ctx, dev.ID, "10.99.0.1")
+
+	// Insert two extra address_events backdated to 48 hours ago.
+	old := time.Now().UTC().Add(-48 * time.Hour)
+	for i := 0; i < 2; i++ {
+		if _, err := repos.db.ExecContext(ctx,
+			`INSERT INTO address_events (address_id, is_enabled, source, created_at) VALUES (?, 1, 'manual', ?)`,
+			addr.ID, old,
+		); err != nil {
+			t.Fatalf("insert old event: %v", err)
+		}
+	}
+
+	cutoff := time.Now().UTC().Add(-24 * time.Hour)
+
+	deleted, err := repos.repo.DeleteAddressEventsOlderThan(ctx, cutoff)
+	is.NoErr(err)
+	is.Equal(deleted, int64(2))
+
+	// A second call with the same cutoff should delete nothing.
+	deleted2, err := repos.repo.DeleteAddressEventsOlderThan(ctx, cutoff)
+	is.NoErr(err)
+	is.Equal(deleted2, int64(0))
+}
+
+func TestRepository_DeleteAddressEventsOlderThan_EmptyTable_ReturnsZero(t *testing.T) {
+	is := is.New(t)
+	repos := setupTestDB(t)
+
+	deleted, err := repos.repo.DeleteAddressEventsOlderThan(context.Background(), time.Now())
+	is.NoErr(err)
+	is.Equal(deleted, int64(0))
+}
+
 // TestGetAddressHistory_BucketCounts_MultipleAddresses verifies that
 // active_count and gap_count are computed independently per address.
 func TestGetAddressHistory_BucketCounts_MultipleAddresses(t *testing.T) {

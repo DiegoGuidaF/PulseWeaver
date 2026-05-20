@@ -6,134 +6,124 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/scheduler"
 	"github.com/matryer/is"
 )
 
-// fakeExpiredFinder returns a preset list of expired address IDs.
-type fakeExpiredFinder struct {
-	ids []ids.AddressID
-	err error
-}
-
-func (f *fakeExpiredFinder) GetExpiredAddressIDs(_ context.Context) ([]ids.AddressID, error) {
-	return f.ids, f.err
-}
-
-// fakeAddressDisabler records the last DisableAddresses call.
-type fakeAddressDisabler struct {
-	calledWith []ids.AddressID
-	source     device.EventSource
-	err        error
-	calls      int
-}
-
-func (f *fakeAddressDisabler) DisableAddresses(_ context.Context, ids []ids.AddressID, source device.EventSource) error {
-	f.calls++
-	f.calledWith = ids
-	f.source = source
-	return f.err
-}
-
-var _ scheduler.ExpiredAddressFinder = (*fakeExpiredFinder)(nil)
-var _ scheduler.AddressDisabler = (*fakeAddressDisabler)(nil)
-
 func noopLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
-// NewService
+// RetentionJob
 
-func TestNewService_NilFinder_ReturnsError(t *testing.T) {
-	is := is.New(t)
-	_, err := scheduler.NewService(nil, &fakeAddressDisabler{}, nil, noopLogger())
-	is.True(err != nil)
+type fakeAccessLogPruner struct {
+	deleted int64
+	err     error
+	calls   int
 }
 
-func TestNewService_NilDisabler_ReturnsError(t *testing.T) {
-	is := is.New(t)
-	_, err := scheduler.NewService(&fakeExpiredFinder{}, nil, nil, noopLogger())
-	is.True(err != nil)
+func (f *fakeAccessLogPruner) DeleteOlderThan(_ context.Context, _ time.Time) (int64, error) {
+	f.calls++
+	return f.deleted, f.err
 }
 
-// ExecuteScheduledRules
-
-func TestService_ExecuteScheduledRules_NoExpiredAddresses_SkipsDisabler(t *testing.T) {
-	is := is.New(t)
-	finder := &fakeExpiredFinder{ids: []ids.AddressID{}}
-	disabler := &fakeAddressDisabler{}
-	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
-	is.NoErr(err)
-
-	err = svc.ExecuteScheduledRules(context.Background())
-
-	is.NoErr(err)
-	is.Equal(disabler.calls, 0)
+type fakeAddressEventPruner struct {
+	deleted int64
+	err     error
+	calls   int
 }
 
-func TestService_ExecuteScheduledRules_ExpiredAddressesFound_DisablesAll(t *testing.T) {
-	is := is.New(t)
-	finder := &fakeExpiredFinder{ids: []ids.AddressID{ids.AddressID(1), ids.AddressID(2)}}
-	disabler := &fakeAddressDisabler{}
-	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
-	is.NoErr(err)
-
-	err = svc.ExecuteScheduledRules(context.Background())
-
-	is.NoErr(err)
-	is.Equal(disabler.calls, 1)
-	is.Equal(len(disabler.calledWith), 2)
-	is.Equal(disabler.calledWith[0], ids.AddressID(1))
-	is.Equal(disabler.calledWith[1], ids.AddressID(2))
-	is.Equal(disabler.source, device.EventSourceExpiry)
+func (f *fakeAddressEventPruner) DeleteAddressEventsOlderThan(_ context.Context, _ time.Time) (int64, error) {
+	f.calls++
+	return f.deleted, f.err
 }
 
-func TestService_ExecuteScheduledRules_FinderError_Propagates(t *testing.T) {
+var _ scheduler.AccessLogPruner = (*fakeAccessLogPruner)(nil)
+var _ scheduler.AddressEventPruner = (*fakeAddressEventPruner)(nil)
+
+func TestRetentionJob_ZeroRetentionDays_SkipsBothPruners(t *testing.T) {
 	is := is.New(t)
-	finderErr := errors.New("db error")
-	finder := &fakeExpiredFinder{err: finderErr}
-	disabler := &fakeAddressDisabler{}
-	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
+	alp := &fakeAccessLogPruner{}
+	aep := &fakeAddressEventPruner{}
+	job := scheduler.NewRetentionJob(alp, aep, 0, noopLogger())
+
+	err := job.Run(context.Background())
+
 	is.NoErr(err)
-
-	err = svc.ExecuteScheduledRules(context.Background())
-
-	is.True(errors.Is(err, finderErr))
-	is.Equal(disabler.calls, 0)
+	is.Equal(alp.calls, 0)
+	is.Equal(aep.calls, 0)
 }
 
-func TestService_ExecuteScheduledRules_DisablerError_Propagates(t *testing.T) {
+func TestRetentionJob_CallsBothPrunersOnFirstRun(t *testing.T) {
 	is := is.New(t)
-	disablerErr := errors.New("disable error")
-	finder := &fakeExpiredFinder{ids: []ids.AddressID{ids.AddressID(1)}}
-	disabler := &fakeAddressDisabler{err: disablerErr}
-	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
+	alp := &fakeAccessLogPruner{deleted: 5}
+	aep := &fakeAddressEventPruner{deleted: 3}
+	job := scheduler.NewRetentionJob(alp, aep, 30, noopLogger())
+
+	err := job.Run(context.Background())
+
 	is.NoErr(err)
+	is.Equal(alp.calls, 1)
+	is.Equal(aep.calls, 1)
+}
 
-	err = svc.ExecuteScheduledRules(context.Background())
+func TestRetentionJob_DailyGuard_DoesNotRunTwiceInSameDay(t *testing.T) {
+	is := is.New(t)
+	alp := &fakeAccessLogPruner{}
+	aep := &fakeAddressEventPruner{}
+	job := scheduler.NewRetentionJob(alp, aep, 30, noopLogger())
 
-	is.True(errors.Is(err, disablerErr))
+	_ = job.Run(context.Background())
+	err := job.Run(context.Background())
+
+	is.NoErr(err)
+	is.Equal(alp.calls, 1)
+	is.Equal(aep.calls, 1)
+}
+
+func TestRetentionJob_AccessLogPrunerError_Propagates(t *testing.T) {
+	is := is.New(t)
+	pruneErr := errors.New("db error")
+	alp := &fakeAccessLogPruner{err: pruneErr}
+	aep := &fakeAddressEventPruner{}
+	job := scheduler.NewRetentionJob(alp, aep, 30, noopLogger())
+
+	err := job.Run(context.Background())
+
+	is.True(errors.Is(err, pruneErr))
+	is.Equal(aep.calls, 0)
+}
+
+func TestRetentionJob_AddressEventPrunerError_Propagates(t *testing.T) {
+	is := is.New(t)
+	pruneErr := errors.New("db error")
+	alp := &fakeAccessLogPruner{}
+	aep := &fakeAddressEventPruner{err: pruneErr}
+	job := scheduler.NewRetentionJob(alp, aep, 30, noopLogger())
+
+	err := job.Run(context.Background())
+
+	is.True(errors.Is(err, pruneErr))
 }
 
 // RunSchedule
 
+type countingJob struct{ runs atomic.Int32 }
+
+func (j *countingJob) Run(_ context.Context) error {
+	j.runs.Add(1)
+	return nil
+}
+
 func TestService_RunSchedule_ContextCancellation_ExitsCleanly(t *testing.T) {
 	is := is.New(t)
-	finder := &fakeExpiredFinder{ids: []ids.AddressID{}}
-	disabler := &fakeAddressDisabler{}
-	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
-	is.NoErr(err)
+	svc := scheduler.NewService(noopLogger())
 
 	ctx, cancel := context.WithCancel(context.Background())
-
 	done := make(chan error, 1)
-	go func() {
-		done <- svc.RunSchedule(ctx, time.Hour) // long interval: tick never fires in test
-	}()
-
+	go func() { done <- svc.RunSchedule(ctx, time.Hour) }()
 	cancel()
 
 	select {
@@ -146,25 +136,21 @@ func TestService_RunSchedule_ContextCancellation_ExitsCleanly(t *testing.T) {
 
 func TestService_RunSchedule_TickFiresExecuteScheduledRules(t *testing.T) {
 	is := is.New(t)
-	finder := &fakeExpiredFinder{ids: []ids.AddressID{ids.AddressID(42)}}
-	disabler := &fakeAddressDisabler{}
-	svc, err := scheduler.NewService(finder, disabler, nil, noopLogger())
-	is.NoErr(err)
+	job := &countingJob{}
+	svc := scheduler.NewService(noopLogger())
+	svc.AddJob(job)
 
 	ctx, cancel := context.WithCancel(context.Background())
-
 	go func() { _ = svc.RunSchedule(ctx, 10*time.Millisecond) }()
 
-	// Wait for at least one tick to fire and call the disabler.
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if disabler.calls > 0 {
+		if job.runs.Load() > 0 {
 			break
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
 	cancel()
 
-	is.True(disabler.calls > 0)
-	is.Equal(disabler.source, device.EventSourceExpiry)
+	is.True(job.runs.Load() > 0)
 }

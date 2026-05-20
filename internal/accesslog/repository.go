@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
@@ -93,6 +94,16 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 		}
 		return nil
 	})
+}
+
+// DeleteOlderThan removes access_log rows (and their children via CASCADE) with created_at before the given time.
+// Returns the number of rows deleted from access_log.
+func (r *Repository) DeleteOlderThan(ctx context.Context, before time.Time) (int64, error) {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM access_log WHERE created_at < ?`, before)
+	if err != nil {
+		return 0, fmt.Errorf("delete access_log older than %s: %w", before.Format(time.RFC3339), err)
+	}
+	return result.RowsAffected()
 }
 
 func (r *Repository) ListDenyReasons(ctx context.Context) ([]string, error) {
