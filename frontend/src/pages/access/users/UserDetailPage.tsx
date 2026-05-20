@@ -236,7 +236,7 @@ export function UserDetailPage() {
                       <Table.Tr
                         key={device.id}
                         style={{ cursor: "pointer" }}
-                        onClick={() => navigate(`/devices/${device.id}`)}
+                        onClick={() => navigate(`/user-devices/${data.id}?device=${device.id}`)}
                       >
                         <Table.Td fw={500}>{device.name}</Table.Td>
                         <Table.Td c="dimmed">{device.live_ip_count}</Table.Td>
@@ -255,7 +255,7 @@ export function UserDetailPage() {
                 </Table>
                 <Anchor
                   component={Link}
-                  to={`/devices?user_id=${data.id}`}
+                  to={`/user-devices/${data.id}`}
                   size="xs"
                   c="dimmed"
                 >

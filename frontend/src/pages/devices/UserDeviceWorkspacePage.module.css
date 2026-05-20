@@ -1,0 +1,25 @@
+.resizeHandle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+}
+
+.resizeHandle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--mantine-color-indigo-4);
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.resizeHandle:hover::after {
+  opacity: 0.4;
+}

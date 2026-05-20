@@ -1,23 +1,30 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useForm, schemaResolver } from "@mantine/form";
 import { z } from "zod";
 import {
+  ActionIcon,
   Badge,
   Button,
   Card,
+  Divider,
   Group,
+  NumberInput,
   Skeleton,
   Stack,
+  Switch,
   Text,
-  TextInput,
-  Title,
+  ThemeIcon,
+  Tooltip,
 } from "@mantine/core";
+import { IconLayersSubtract, IconMinus, IconPlus } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { toErrorMessage } from "@/lib/api-client";
 import { useMaxActiveAddressesRule } from "@/features/devices/hooks/useMaxActiveAddressesRule";
 import { usePutMaxActiveAddressesRule } from "@/features/devices/hooks/usePutMaxActiveAddressesRule";
 import { useDisableMaxActiveAddressesRule } from "@/features/devices/hooks/useDisableMaxActiveAddressesRule";
 import { zPutMaxActiveAddressesRuleRequest } from "@/lib/api/zod.gen";
+
+const DEFAULT_LIMIT = 2;
 
 type MaxAddressesFormValues = { max_addresses: string };
 
@@ -28,7 +35,12 @@ const maxAddressesFormSchema = z.object({
   ),
 });
 
-export function MaxActiveIpsRuleCard({ deviceId }: { deviceId: number }) {
+interface MaxActiveIpsRuleCardProps {
+  deviceId: number;
+  liveAddressCount: number;
+}
+
+export function MaxActiveIpsRuleCard({ deviceId, liveAddressCount }: MaxActiveIpsRuleCardProps) {
   const {
     data: maxAddressesRule,
     isLoading,
@@ -40,166 +52,195 @@ export function MaxActiveIpsRuleCard({ deviceId }: { deviceId: number }) {
 
   const form = useForm<MaxAddressesFormValues>({
     validate: schemaResolver(maxAddressesFormSchema),
-    initialValues: { max_addresses: "2" },
+    initialValues: { max_addresses: String(DEFAULT_LIMIT) },
   });
   const { setValues } = form;
-  const [editing, setEditing] = useState(false);
 
   const isOn = Boolean(maxAddressesRule?.enabled);
+  const savedLimit = maxAddressesRule?.max_addresses ?? null;
+  const currentLimit = Number(form.values.max_addresses);
+  const isDirty = isOn && savedLimit !== null && currentLimit !== savedLimit;
+  const atLimit = isOn && savedLimit !== null && liveAddressCount >= savedLimit;
+  const chipColor = isOn ? (atLimit ? "orange" : "teal") : "gray";
+  const evictionCount = liveAddressCount > currentLimit ? liveAddressCount - currentLimit : 0;
 
-  // When the rule is disabled, keep the form in sync with the server's last
-  // known limit so the user sees the current value if they re-enable.
   useEffect(() => {
-    if (maxAddressesRule?.enabled) return;
-    if (!maxAddressesRule) return;
+    if (!maxAddressesRule || isDirty) return;
     setValues({ max_addresses: String(maxAddressesRule.max_addresses) });
-  }, [maxAddressesRule, setValues]);
+  }, [maxAddressesRule, setValues, isDirty]);
 
-  function handleStartEditing() {
-    if (!maxAddressesRule) return;
-    setValues({ max_addresses: String(maxAddressesRule.max_addresses) });
-    setEditing(true);
+  function handleToggleOn() {
+    if (form.validate().hasErrors) return;
+    putRuleMutation.mutate(
+      { path: { device_id: deviceId }, body: { max_addresses: currentLimit } },
+      {
+        onSuccess: () =>
+          notifications.show({ color: "green", message: "Max active IPs rule enabled" }),
+        onError: (err) =>
+          notifications.show({ color: "red", title: "Error", message: toErrorMessage(err) }),
+      },
+    );
   }
 
-  function handleDisable() {
+  function handleToggleOff() {
     disableRuleMutation.mutate(
       { path: { device_id: deviceId } },
       {
         onSuccess: () =>
-          notifications.show({
-            color: "green",
-            message: "Max active IPs rule disabled",
-          }),
+          notifications.show({ color: "green", message: "Max active IPs rule disabled" }),
         onError: (err) =>
-          notifications.show({
-            color: "red",
-            title: "Error",
-            message: toErrorMessage(err),
-          }),
+          notifications.show({ color: "red", title: "Error", message: toErrorMessage(err) }),
       },
     );
   }
 
-  function handleSubmit(values: MaxAddressesFormValues) {
+  function handleSave() {
+    if (form.validate().hasErrors) return;
     putRuleMutation.mutate(
+      { path: { device_id: deviceId }, body: { max_addresses: currentLimit } },
       {
-        path: { device_id: deviceId },
-        body: { max_addresses: Number(values.max_addresses) },
-      },
-      {
-        onSuccess: () => {
-          setEditing(false);
-          notifications.show({
-            color: "green",
-            message: "Max active IPs rule saved",
-          });
-        },
+        onSuccess: () =>
+          notifications.show({ color: "green", message: "Max active IPs rule saved" }),
         onError: (err) =>
-          notifications.show({
-            color: "red",
-            title: "Error",
-            message: toErrorMessage(err),
-          }),
+          notifications.show({ color: "red", title: "Error", message: toErrorMessage(err) }),
       },
     );
+  }
+
+  function handleCancel() {
+    if (!maxAddressesRule) return;
+    setValues({ max_addresses: String(maxAddressesRule.max_addresses) });
+  }
+
+  function stepLimit(delta: number) {
+    const next = Math.max(1, currentLimit + delta);
+    setValues({ max_addresses: String(next) });
   }
 
   return (
     <Card withBorder>
-      <Title order={4} mb="md">
-        Max active IPs rule
-      </Title>
+      {/* Header */}
+      <Group justify="space-between" align="flex-start">
+        <Group gap="xs" align="flex-start">
+          <ThemeIcon size="sm" variant="light" color={chipColor} mt={2}>
+            <IconLayersSubtract size={12} />
+          </ThemeIcon>
+          <Stack gap={2}>
+            <Text fw={600} size="sm">Max active IPs</Text>
+            <Text size="xs" c="dimmed">
+              Once exceeded, the oldest active address is evicted
+            </Text>
+          </Stack>
+        </Group>
+        {isLoading ? (
+          <Skeleton height={20} width={72} />
+        ) : (
+          <Switch
+            size="sm"
+            checked={isOn}
+            disabled={putRuleMutation.isPending || disableRuleMutation.isPending}
+            onChange={(e) => {
+              if (e.currentTarget.checked) handleToggleOn();
+              else handleToggleOff();
+            }}
+            label={isOn ? "Enabled" : "Disabled"}
+            aria-label={isOn ? "Disable max-IP rule" : "Enable max-IP rule"}
+          />
+        )}
+      </Group>
+
       {isLoading ? (
-        <Stack gap={8}>
+        <Stack gap={8} mt="md">
           <Skeleton height={16} width={160} />
           <Skeleton height={16} width={256} />
         </Stack>
       ) : isError ? (
-        <Text size="sm" c="red">
+        <Text size="sm" c="red" mt="md">
           Error loading rule: {toErrorMessage(error)}
         </Text>
       ) : (
-        <Stack gap="md">
-          {isOn ? (
-            <Stack gap={4}>
-              <Group gap="sm">
-                <Text size="sm">Status:</Text>
-                <Badge color="green" variant="light" size="sm">
-                  Enabled
-                </Badge>
-              </Group>
-              <Group gap="sm">
-                <Text size="sm">Max IPs:</Text>
-                <Text size="sm" fw={600}>
-                  {maxAddressesRule?.max_addresses}
-                </Text>
-              </Group>
-            </Stack>
-          ) : (
-            <Group gap="sm">
-              <Text size="sm">Status:</Text>
-              <Badge color="red" variant="light" size="sm">
-                Disabled
-              </Badge>
-              <Text size="sm" c="dimmed">
-                Turn it on to limit the number of simultaneously active IPs.
-              </Text>
+        <>
+          <Divider my="sm" />
+          {/* Controls always visible; dimmed when disabled so the user can
+              preview and adjust the value before enabling */}
+          <Stack gap="sm" style={{ opacity: isOn ? 1 : 0.5 }}>
+            <Group gap="xs" align="center">
+              <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>Limit</Text>
+              <ActionIcon
+                variant="default"
+                size="sm"
+                onClick={() => stepLimit(-1)}
+                disabled={currentLimit <= 1}
+                aria-label="Decrease limit"
+              >
+                <IconMinus size={12} />
+              </ActionIcon>
+              <NumberInput
+                aria-label="Max active IPs"
+                min={1}
+                step={1}
+                w={72}
+                hideControls
+                styles={{ input: { textAlign: "center" } }}
+                {...form.getInputProps("max_addresses")}
+              />
+              <ActionIcon
+                variant="default"
+                size="sm"
+                onClick={() => stepLimit(1)}
+                aria-label="Increase limit"
+              >
+                <IconPlus size={12} />
+              </ActionIcon>
+              {isOn && savedLimit !== null && (
+                <Tooltip
+                  label={
+                    atLimit
+                      ? `Max active IPs · at limit (${liveAddressCount}/${savedLimit}) · next IP will evict oldest`
+                      : `Max active IPs · ${liveAddressCount} of ${savedLimit}`
+                  }
+                  withArrow
+                >
+                  <Badge
+                    color={chipColor}
+                    variant={atLimit ? "filled" : "light"}
+                    leftSection={<IconLayersSubtract size={10} stroke={1.5} />}
+                    style={{ flexShrink: 0 }}
+                  >
+                    {liveAddressCount}/{savedLimit}
+                  </Badge>
+                </Tooltip>
+              )}
             </Group>
-          )}
-          {(!isOn || editing) && (
-            <form onSubmit={form.onSubmit(handleSubmit)}>
-              <Group align="flex-end" gap="md" wrap="wrap">
-                <TextInput
-                  label="Max active IPs"
-                  type="number"
-                  min={1}
-                  step={1}
-                  placeholder="3"
-                  w={128}
-                  {...form.getInputProps("max_addresses")}
-                />
+
+            {atLimit && evictionCount === 0 && (
+              <Text size="xs" c="orange">
+                At limit · next new IP will evict the oldest active address
+              </Text>
+            )}
+            {evictionCount > 0 && (
+              <Text size="xs" c="orange">
+                {evictionCount} active {evictionCount === 1 ? "address" : "addresses"} will be evicted when this limit is applied
+              </Text>
+            )}
+
+            {isDirty && (
+              <Group gap="sm">
                 <Button
-                  type="submit"
+                  size="xs"
+                  onClick={handleSave}
                   disabled={putRuleMutation.isPending}
                   loading={putRuleMutation.isPending}
                 >
-                  {isOn ? "Save" : "Enable max-IP rule"}
+                  Save
                 </Button>
-                {editing && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setEditing(false)}
-                  >
-                    Cancel
-                  </Button>
-                )}
+                <Button size="xs" variant="subtle" onClick={handleCancel}>
+                  Cancel
+                </Button>
               </Group>
-            </form>
-          )}
-          {isOn && !editing && (
-            <Group gap="sm" wrap="wrap">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleStartEditing}
-              >
-                Change limit
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleDisable}
-                disabled={disableRuleMutation.isPending}
-                loading={disableRuleMutation.isPending}
-              >
-                Turn off max-IP rule
-              </Button>
-            </Group>
-          )}
-        </Stack>
+            )}
+          </Stack>
+        </>
       )}
     </Card>
   );

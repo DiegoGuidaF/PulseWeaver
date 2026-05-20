@@ -1,18 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useForm, schemaResolver } from "@mantine/form";
 import { z } from "zod";
 import {
   Badge,
   Button,
   Card,
+  Divider,
   Group,
   NativeSelect,
+  NumberInput,
+  SegmentedControl,
   Skeleton,
   Stack,
+  Switch,
   Text,
-  TextInput,
-  Title,
+  ThemeIcon,
+  Tooltip,
 } from "@mantine/core";
+import { IconClock } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { toErrorMessage } from "@/lib/api-client";
 import { useDeviceAddressLeaseRule } from "@/features/devices/hooks/useDeviceAddressLeaseRule";
@@ -30,6 +35,20 @@ const SECONDS_PER_HOUR = 3600;
 const SECONDS_PER_DAY = 86400;
 
 type TtlUnit = (typeof TTL_UNITS)[number];
+
+const TTL_PRESETS = [
+  { label: "30s", value: "30" },
+  { label: "5m", value: "300" },
+  { label: "15m", value: "900" },
+  { label: "1h", value: "3600" },
+  { label: "6h", value: "21600" },
+  { label: "24h", value: "86400" },
+  { label: "Custom…", value: "custom" },
+] as const;
+
+const PRESET_VALUES = new Set<string>(TTL_PRESETS.filter((p) => p.value !== "custom").map((p) => p.value));
+
+const DEFAULT_TTL = 3600;
 
 function toSeconds(value: number, unit: TtlUnit): number {
   switch (unit) {
@@ -61,37 +80,31 @@ function fromSeconds(ttlSeconds: number): { value: string; unit: TtlUnit } {
   return { value: String(ttlSeconds), unit: "seconds" };
 }
 
-function formatTtlLabel(ttlSeconds: number): string {
-  if (ttlSeconds % SECONDS_PER_DAY === 0) {
-    const days = ttlSeconds / SECONDS_PER_DAY;
-    return days === 1 ? "1 day" : `${days} days`;
-  }
-  if (ttlSeconds % SECONDS_PER_MINUTE === 0) {
-    const minutes = ttlSeconds / SECONDS_PER_MINUTE;
-    if (minutes % 60 === 0) {
-      const hours = minutes / 60;
-      return hours === 1 ? "1 hour" : `${hours} hours`;
-    }
-    return minutes === 1 ? "1 minute" : `${minutes} minutes`;
-  }
-  return ttlSeconds === 1 ? "1 second" : `${ttlSeconds} seconds`;
+function formatTtlBadge(ttlSeconds: number): string {
+  if (ttlSeconds < 60) return `${ttlSeconds}s`;
+  if (ttlSeconds < 3600) return `${Math.round(ttlSeconds / 60)}m`;
+  if (ttlSeconds < SECONDS_PER_DAY) return `${Math.round(ttlSeconds / 3600)}h`;
+  return `${Math.round(ttlSeconds / SECONDS_PER_DAY)}d`;
+}
+
+function presetFromTtl(ttlSeconds: number): string {
+  const key = String(ttlSeconds);
+  return PRESET_VALUES.has(key) ? key : "custom";
 }
 
 // ---------------------------------------------------------------------------
 // Form schema
 // ---------------------------------------------------------------------------
 
-type LeaseRuleFormValues = { value: string; unit: TtlUnit };
+type LeaseRuleFormValues = { value: string; unit: TtlUnit; preset: string };
 
-// value represents the human-readable count for the chosen unit (e.g. "5" for
-// "5 minutes"). We borrow the gte(1) constraint from the generated ttl_seconds
-// field: any value >= 1 with any unit satisfies ttl_seconds >= 1.
 const leaseRuleFormSchema = z.object({
   value: z.preprocess(
     (v) => Number(v),
     zPutDeviceAddressLeaseRuleRequest.shape.ttl_seconds,
   ),
   unit: z.enum(TTL_UNITS),
+  preset: z.string(),
 });
 
 // ---------------------------------------------------------------------------
@@ -110,178 +123,183 @@ export function AddressLeaseRuleCard({ deviceId }: { deviceId: number }) {
 
   const form = useForm<LeaseRuleFormValues>({
     validate: schemaResolver(leaseRuleFormSchema),
-    initialValues: { value: "5", unit: "minutes" },
+    initialValues: { value: "1", unit: "hours", preset: String(DEFAULT_TTL) },
   });
   const { setValues } = form;
-  const [editing, setEditing] = useState(false);
 
   const isOn = Boolean(addressLeaseRule?.enabled);
+  const preset = form.values.preset;
 
-  // When the rule is disabled, keep the form in sync with the server's last
-  // known TTL so the user sees the current value if they re-enable.
+  // Dirty only matters when enabled: controls shown to change the active value
+  const savedTtl = addressLeaseRule?.ttl_seconds;
+  const currentTtl =
+    preset === "custom"
+      ? toSeconds(Number(form.values.value), form.values.unit)
+      : Number(preset);
+  const isDirty = isOn && savedTtl !== undefined && currentTtl !== savedTtl;
+
   useEffect(() => {
-    if (addressLeaseRule?.enabled) return;
-    if (!addressLeaseRule) return;
-    setValues(fromSeconds(addressLeaseRule.ttl_seconds));
-  }, [addressLeaseRule, setValues]);
+    if (!addressLeaseRule || isDirty) return;
+    const parsed = fromSeconds(addressLeaseRule.ttl_seconds);
+    setValues({ ...parsed, preset: presetFromTtl(addressLeaseRule.ttl_seconds) });
+  }, [addressLeaseRule, setValues, isDirty]);
 
-  function handleStartEditing() {
-    if (!addressLeaseRule) return;
-    setValues(fromSeconds(addressLeaseRule.ttl_seconds));
-    setEditing(true);
+  function handleToggleOn() {
+    if (preset === "custom" && form.validate().hasErrors) return;
+    const ttlSeconds =
+      preset === "custom"
+        ? toSeconds(Number(form.values.value), form.values.unit)
+        : Number(preset);
+    putRuleMutation.mutate(
+      { path: { device_id: deviceId }, body: { ttl_seconds: ttlSeconds } },
+      {
+        onSuccess: () =>
+          notifications.show({ color: "green", message: "Address lease rule enabled" }),
+        onError: (err) =>
+          notifications.show({ color: "red", title: "Error", message: toErrorMessage(err) }),
+      },
+    );
   }
 
-  function handleDisable() {
+  function handleToggleOff() {
     disableRuleMutation.mutate(
       { path: { device_id: deviceId } },
       {
         onSuccess: () =>
-          notifications.show({
-            color: "green",
-            message: "Address lease rule disabled",
-          }),
+          notifications.show({ color: "green", message: "Address lease rule disabled" }),
         onError: (err) =>
-          notifications.show({
-            color: "red",
-            title: "Error",
-            message: toErrorMessage(err),
-          }),
+          notifications.show({ color: "red", title: "Error", message: toErrorMessage(err) }),
       },
     );
   }
 
-  function handleSubmit(values: LeaseRuleFormValues) {
+  function handleSave() {
+    if (preset === "custom" && form.validate().hasErrors) return;
     putRuleMutation.mutate(
+      { path: { device_id: deviceId }, body: { ttl_seconds: currentTtl } },
       {
-        path: { device_id: deviceId },
-        body: { ttl_seconds: toSeconds(Number(values.value), values.unit) },
-      },
-      {
-        onSuccess: () => {
-          setEditing(false);
-          notifications.show({
-            color: "green",
-            message: "Address lease rule saved",
-          });
-        },
+        onSuccess: () =>
+          notifications.show({ color: "green", message: "Address lease rule saved" }),
         onError: (err) =>
-          notifications.show({
-            color: "red",
-            title: "Error",
-            message: toErrorMessage(err),
-          }),
+          notifications.show({ color: "red", title: "Error", message: toErrorMessage(err) }),
       },
     );
   }
 
-  const ttlLabel = addressLeaseRule?.ttl_seconds
-    ? formatTtlLabel(addressLeaseRule.ttl_seconds)
-    : null;
+  function handleCancel() {
+    if (!addressLeaseRule) return;
+    setValues({ ...fromSeconds(addressLeaseRule.ttl_seconds), preset: presetFromTtl(addressLeaseRule.ttl_seconds) });
+  }
+
+  function handlePresetChange(value: string) {
+    if (value !== "custom") {
+      setValues({ ...fromSeconds(Number(value)), preset: value });
+    } else {
+      form.setFieldValue("preset", "custom");
+    }
+  }
 
   return (
     <Card withBorder>
-      <Title order={4} mb="md">
-        Auto-expiry rule
-      </Title>
+      {/* Header */}
+      <Group justify="space-between" align="flex-start">
+        <Group gap="xs" align="flex-start">
+          <ThemeIcon size="sm" variant="light" color={isOn ? "teal" : "gray"} mt={2}>
+            <IconClock size={12} />
+          </ThemeIcon>
+          <Stack gap={2}>
+            <Text fw={600} size="sm">Auto-expiry</Text>
+            <Text size="xs" c="dimmed">
+              Active addresses expire after this long without activity
+            </Text>
+          </Stack>
+        </Group>
+        {isLoading ? (
+          <Skeleton height={20} width={72} />
+        ) : (
+          <Switch
+            size="sm"
+            checked={isOn}
+            disabled={putRuleMutation.isPending || disableRuleMutation.isPending}
+            onChange={(e) => {
+              if (e.currentTarget.checked) handleToggleOn();
+              else handleToggleOff();
+            }}
+            label={isOn ? "Enabled" : "Disabled"}
+            aria-label={isOn ? "Disable auto-expiry" : "Enable auto-expiry"}
+          />
+        )}
+      </Group>
+
       {isLoading ? (
-        <Stack gap={8}>
+        <Stack gap={8} mt="md">
           <Skeleton height={16} width={160} />
           <Skeleton height={16} width={256} />
         </Stack>
       ) : isError ? (
-        <Text size="sm" c="red">
+        <Text size="sm" c="red" mt="md">
           Error loading rule: {toErrorMessage(error)}
         </Text>
       ) : (
-        <Stack gap="md">
-          {isOn ? (
-            <Stack gap={4}>
-              <Group gap="sm">
-                <Text size="sm">Status:</Text>
-                <Badge color="green" variant="light" size="sm">
-                  Enabled
-                </Badge>
-              </Group>
-              {ttlLabel && (
-                <Group gap="sm">
-                  <Text size="sm">TTL:</Text>
-                  <Text size="sm" fw={600}>
-                    {ttlLabel}
-                  </Text>
-                </Group>
+        <>
+          <Divider my="sm" />
+          {/* Controls always visible; dimmed when disabled so the user can
+              preview and adjust the value before enabling */}
+          <Stack gap="sm" style={{ opacity: isOn ? 1 : 0.5 }}>
+            <Group gap="sm" align="center" wrap="nowrap">
+              <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>TTL</Text>
+              <SegmentedControl
+                size="xs"
+                value={preset}
+                onChange={handlePresetChange}
+                data={TTL_PRESETS.map((p) => ({ label: p.label, value: p.value }))}
+                style={{ width: "fit-content" }}
+              />
+              {isOn && addressLeaseRule && (
+                <Tooltip label={`Auto-expiry · TTL ${formatTtlBadge(addressLeaseRule.ttl_seconds)}`} withArrow>
+                  <Badge color="teal" variant="light" leftSection={<IconClock size={10} stroke={1.5} />} style={{ flexShrink: 0 }}>
+                    {formatTtlBadge(addressLeaseRule.ttl_seconds)}
+                  </Badge>
+                </Tooltip>
               )}
-            </Stack>
-          ) : (
-            <Group gap="sm">
-              <Text size="sm">Status:</Text>
-              <Badge color="red" variant="light" size="sm">
-                Disabled
-              </Badge>
-              <Text size="sm" c="dimmed">
-                Turn it on to automatically revoke stale addresses.
-              </Text>
             </Group>
-          )}
-          {(!isOn || editing) && (
-            <form onSubmit={form.onSubmit(handleSubmit)}>
-              <Group align="flex-end" gap="md" wrap="wrap">
-                <TextInput
-                  label="Expires after"
-                  type="number"
+
+            {preset === "custom" && (
+              <Group align="flex-end" gap="sm" wrap="wrap">
+                <NumberInput
+                  label="Value"
                   min={1}
                   step={1}
                   placeholder="1"
-                  w={128}
+                  w={100}
                   {...form.getInputProps("value")}
                 />
                 <NativeSelect
                   label="Unit"
-                  w={128}
+                  w={120}
                   data={TTL_UNITS.map((unit) => ({ label: unit, value: unit }))}
                   {...form.getInputProps("unit")}
                 />
+              </Group>
+            )}
+
+            {isDirty && (
+              <Group gap="sm">
                 <Button
-                  type="submit"
+                  size="xs"
+                  onClick={handleSave}
                   disabled={putRuleMutation.isPending}
                   loading={putRuleMutation.isPending}
                 >
-                  {isOn ? "Save" : "Enable auto-expiry"}
+                  Save
                 </Button>
-                {editing && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setEditing(false)}
-                  >
-                    Cancel
-                  </Button>
-                )}
+                <Button size="xs" variant="subtle" onClick={handleCancel}>
+                  Cancel
+                </Button>
               </Group>
-            </form>
-          )}
-          {isOn && !editing && (
-            <Group gap="sm" wrap="wrap">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleStartEditing}
-              >
-                Change TTL
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleDisable}
-                disabled={disableRuleMutation.isPending}
-                loading={disableRuleMutation.isPending}
-              >
-                Turn off auto-expiry
-              </Button>
-            </Group>
-          )}
-        </Stack>
+            )}
+          </Stack>
+        </>
       )}
     </Card>
   );

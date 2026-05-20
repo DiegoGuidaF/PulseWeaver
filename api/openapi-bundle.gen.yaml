@@ -3813,10 +3813,7 @@ components:
         display_name:
           type: string
         role:
-          type: string
-          enum:
-            - user
-            - admin
+          $ref: '#/components/schemas/UserRole'
         bypass_hosts_check:
           type: boolean
         host_groups:

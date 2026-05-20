@@ -1,5 +1,5 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, GroupDetailWithUsers, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, PendingRegistration, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
-import { UserRole } from "@/lib/api";
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DeviceOwnerGroup, GroupDetailWithUsers, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, PendingRegistration, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import { AddressEventSource, DeviceState, UserRole } from "@/lib/api";
 
 /**
  * Creates a mock Device object with realistic defaults.
@@ -49,6 +49,7 @@ export function createMockAddress(overrides?: Partial<Address>): Address {
     device_id: 1,
     ip: '192.168.1.100',
     is_enabled: true,
+    source: AddressEventSource.HEARTBEAT,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
     ...overrides,
@@ -542,6 +543,34 @@ export function createMockPendingRegistration(
     expires_at: '2026-06-01T00:00:00Z',
     created_at: '2026-01-01T00:00:00Z',
     status: 'pending',
+    ...overrides,
+  };
+}
+
+export function createMockDeviceOwnerGroup(
+  overrides?: Partial<DeviceOwnerGroup>,
+): DeviceOwnerGroup {
+  return {
+    owner: {
+      id: 1,
+      username: 'testuser',
+      display_name: 'Test User',
+      role: UserRole.USER,
+      bypass_hosts_check: false,
+      host_groups: [],
+      device_count: 1,
+      live_address_count: 0,
+    },
+    devices: [
+      {
+        id: 1,
+        name: 'Test Device',
+        state: DeviceState.HEALTHY,
+        live_address_count: 0,
+        rules: [],
+        created_at: '2024-01-01T00:00:00Z',
+      },
+    ],
     ...overrides,
   };
 }

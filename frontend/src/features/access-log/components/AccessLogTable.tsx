@@ -16,7 +16,7 @@ import { getAccessLogColumns } from "./accessLogColumns";
 import { DENY_REASON_LABELS } from "../constants";
 import { toErrorMessage } from "@/lib/api-client";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
-import { useDevices } from "@/features/devices/hooks/useDevices";
+import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
 import { useAccessLogDenyReasons } from "../hooks/useAccessLogDenyReasons";
 import { useNetworkPolicies } from "@/features/network-policies/hooks/useNetworkPolicies";
 
@@ -44,7 +44,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
     const [selectedRow, setSelectedRow] = useState<AccessLogRow | null>(null);
     const [drawerOpened, setDrawerOpened] = useState(false);
 
-    const { data: devices } = useDevices();
+    const { data: ownerGroups } = useDeviceList();
     const { data: denyReasons } = useAccessLogDenyReasons();
     const { data: networkPolicies } = useNetworkPolicies();
 
@@ -62,7 +62,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
 
     const rows = data?.rows ?? [];
 
-    const deviceOptions = (devices ?? []).map((d) => ({ value: String(d.id), label: d.name }));
+    const deviceOptions = (ownerGroups ?? []).flatMap((g) => g.devices).map((d) => ({ value: String(d.id), label: d.name }));
     const denyReasonOptions = (denyReasons ?? []).map((r) => ({
         value: r,
         label: DENY_REASON_LABELS[r] ?? r,
@@ -98,7 +98,12 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
             setSelectedRow(row);
             setDrawerOpened(true);
         },
-        onDeviceClick: (deviceId) => navigate(`/devices/${deviceId}`),
+        onDeviceClick: (deviceId) => {
+          const ownerId = (ownerGroups ?? []).find((g) =>
+            g.devices.some((d) => d.id === deviceId)
+          )?.owner.id;
+          if (ownerId !== undefined) navigate(`/user-devices/${ownerId}?device=${deviceId}`);
+        },
         onNetworkPolicyClick: (id) => navigate(`/network-policies/${id}`),
     });
 

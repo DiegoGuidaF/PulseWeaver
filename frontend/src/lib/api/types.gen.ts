@@ -750,7 +750,7 @@ export type DeviceListOwner = {
   id: Id;
   username: string;
   display_name: string;
-  role: "user" | "admin";
+  role: UserRole;
   bypass_hosts_check: boolean;
   /**
    * Host groups the owner belongs to. Always returned; frontend hides them when bypass_hosts_check is true.
