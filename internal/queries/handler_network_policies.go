@@ -49,6 +49,10 @@ func (h *HTTPHandler) GetNetworkPolicy(
 }
 
 func toNetworkPolicySummaryResponse(s NetworkPolicySummaryView) httpapi.NetworkPolicyListItem {
+	groups := make([]httpapi.GroupRef, len(s.Groups))
+	for i, g := range s.Groups {
+		groups[i] = httpapi.GroupRef{Id: g.ID.Int64(), Name: g.Name}
+	}
 	return httpapi.NetworkPolicyListItem{
 		Id:              s.ID.Int64(),
 		Name:            s.Name,
@@ -56,7 +60,8 @@ func toNetworkPolicySummaryResponse(s NetworkPolicySummaryView) httpapi.NetworkP
 		Enabled:         s.Enabled,
 		BypassHostCheck: s.BypassHostCheck,
 		HostCount:       s.EffectiveHostCount,
-		Groups:          []httpapi.GroupRef{},
+		CreatedAt:       httpapi.UTCTime(s.CreatedAt),
+		Groups:          groups,
 	}
 }
 

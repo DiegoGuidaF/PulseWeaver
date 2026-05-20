@@ -23,6 +23,13 @@ type NetworkPolicySummaryView struct {
 	CreatedAt          time.Time
 	EffectiveHostCount int
 	TotalHostCount     int
+	Groups             []PolicyGroupRef
+}
+
+// PolicyGroupRef is a minimal group reference (id + name) used in list views.
+type PolicyGroupRef struct {
+	ID   ids.HostGroupID
+	Name string
 }
 
 // PolicyHostGroupView is a host group annotated with its assignment state and full host list.
@@ -117,11 +124,45 @@ func (r *Repository) GetNetworkPolicySummaries(ctx context.Context) ([]NetworkPo
 		countByID[cr.PolicyID] = cr.EffectiveHostCount
 	}
 
+	groupsQuery, groupArgs, err := sqlx.In(`
+		SELECT nphg.policy_id, hg.id AS group_id, hg.name
+		FROM network_policy_allowed_host_groups nphg
+		JOIN host_groups hg ON hg.id = nphg.host_group_id
+		WHERE nphg.policy_id IN (?)
+		ORDER BY hg.name ASC
+	`, policyIDs)
+	if err != nil {
+		return nil, fmt.Errorf("build groups query: %w", err)
+	}
+	groupsQuery = r.db.Rebind(groupsQuery)
+
+	type groupRow struct {
+		PolicyID ids.NetworkPolicyID `db:"policy_id"`
+		GroupID  ids.HostGroupID     `db:"group_id"`
+		Name     string              `db:"name"`
+	}
+	var groupRows []groupRow
+	if err := r.db.SelectContext(ctx, &groupRows, groupsQuery, groupArgs...); err != nil {
+		return nil, fmt.Errorf("list policy groups: %w", err)
+	}
+
+	groupsByPolicy := make(map[ids.NetworkPolicyID][]PolicyGroupRef, len(rows))
+	for _, gr := range groupRows {
+		groupsByPolicy[gr.PolicyID] = append(groupsByPolicy[gr.PolicyID], PolicyGroupRef{
+			ID:   gr.GroupID,
+			Name: gr.Name,
+		})
+	}
+
 	summaries := make([]NetworkPolicySummaryView, len(rows))
 	for i, p := range rows {
 		effective := countByID[p.ID]
 		if p.BypassHostCheck {
 			effective = totalHostCount
+		}
+		groups := groupsByPolicy[p.ID]
+		if groups == nil {
+			groups = []PolicyGroupRef{}
 		}
 		summaries[i] = NetworkPolicySummaryView{
 			ID:                 p.ID,
@@ -133,6 +174,7 @@ func (r *Repository) GetNetworkPolicySummaries(ctx context.Context) ([]NetworkPo
 			CreatedAt:          p.CreatedAt,
 			EffectiveHostCount: effective,
 			TotalHostCount:     totalHostCount,
+			Groups:             groups,
 		}
 	}
 	return summaries, nil
