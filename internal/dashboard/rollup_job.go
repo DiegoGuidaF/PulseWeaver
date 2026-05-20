@@ -10,9 +10,11 @@ import (
 
 // RollupJob computes the previous complete hour boundary and runs the rollup.
 // It is a no-op if the rollup already ran for the current hour.
+// lastRollupAt is seeded from the DB on the first run so the guard survives restarts.
 type RollupJob struct {
 	repo         *Repository
 	lastRollupAt time.Time
+	initialized  bool
 	logger       *slog.Logger
 }
 
@@ -26,6 +28,15 @@ func (r *Repository) NewRollupJob(logger *slog.Logger) *RollupJob {
 func (j *RollupJob) Run(ctx context.Context) error {
 	now := time.Now()
 	currentHour := now.Truncate(time.Hour)
+
+	if !j.initialized {
+		last, err := j.repo.LastRollupAt(ctx)
+		if err != nil {
+			return err
+		}
+		j.lastRollupAt = last
+		j.initialized = true
+	}
 
 	if j.lastRollupAt.Equal(currentHour) {
 		j.logger.DebugContext(ctx, "rollup already executed for current hour, skipping")

@@ -26,6 +26,17 @@ func NewRepository(db *database.DB) *Repository {
 	}
 }
 
+// LastRollupAt returns the most recent bucket_at stored in hourly_traffic_aggregates,
+// or a zero time.Time if the table is empty.
+func (r *Repository) LastRollupAt(ctx context.Context) (time.Time, error) {
+	var t database.DBTime
+	const query = `SELECT MAX(bucket_at) FROM hourly_traffic_aggregates`
+	if err := r.db.GetContext(ctx, &t, query); err != nil {
+		return time.Time{}, fmt.Errorf("last rollup at: %w", err)
+	}
+	return t.UTC(), nil
+}
+
 // RunRollup aggregates access_log rows in [from, to) into hourly_traffic_aggregates.
 // Idempotent via INSERT OR REPLACE on the unique index.
 //

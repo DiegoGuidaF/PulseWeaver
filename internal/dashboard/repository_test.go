@@ -421,6 +421,46 @@ func TestGetTrafficSeries_MinuteGranularity(t *testing.T) {
 	is.Equal(buckets[1].DenyCount, int64(1))
 }
 
+// --- LastRollupAt ---
+
+func TestLastRollupAt_EmptyTable_ReturnsZeroTime(t *testing.T) {
+	is := is.New(t)
+	repo, _ := setupTestRepo(t)
+
+	result, err := repo.LastRollupAt(context.Background())
+
+	is.NoErr(err)
+	is.True(result.IsZero())
+}
+
+func TestLastRollupAt_SingleRow_ReturnsBucketTime(t *testing.T) {
+	is := is.New(t)
+	repo, db := setupTestRepo(t)
+
+	bucket := time.Date(2025, 3, 15, 14, 0, 0, 0, time.UTC)
+	seedAggregateRow(t, db, bucket, "10.0.0.1", "svc", true, 1)
+
+	result, err := repo.LastRollupAt(context.Background())
+
+	is.NoErr(err)
+	is.True(result.Equal(bucket))
+}
+
+func TestLastRollupAt_MultipleRows_ReturnsMostRecentBucket(t *testing.T) {
+	is := is.New(t)
+	repo, db := setupTestRepo(t)
+
+	older := time.Date(2025, 3, 15, 12, 0, 0, 0, time.UTC)
+	newer := time.Date(2025, 3, 15, 15, 0, 0, 0, time.UTC)
+	seedAggregateRow(t, db, older, "10.0.0.1", "svc", true, 1)
+	seedAggregateRow(t, db, newer, "10.0.0.1", "svc", true, 2)
+
+	result, err := repo.LastRollupAt(context.Background())
+
+	is.NoErr(err)
+	is.True(result.Equal(newer))
+}
+
 // TestGetTrafficSeries_5minGranularity verifies 5-minute-snapped buckets from access_log.
 func TestGetTrafficSeries_5minGranularity(t *testing.T) {
 	is := is.New(t)
