@@ -96,6 +96,33 @@ func TestHandler_GetDeviceAddresses_ExpiresAtPopulatedWithLease(t *testing.T) {
 	is.True(time.Time(*addresses[0].ExpiresAt).UTC().Truncate(time.Second).Equal(futureExpiry))
 }
 
+// TestHandler_GetDeviceAddresses_SourceFieldPopulated verifies that the source field
+// is present and non-empty in address responses.
+func TestHandler_GetDeviceAddresses_SourceFieldPopulated(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+
+	seed := testutils.NewSeeder(t, testServer).
+		WithUser(testutils.UserFixture{Name: "source-user"}).
+		WithDevice(testutils.DeviceFixture{Name: "source-device", OwnerUser: "source-user"}).
+		WithAddress(testutils.AddressFixture{Device: "source-device", IP: "10.0.9.1"}).
+		Build()
+
+	url := fmt.Sprintf("/api/v1/devices/%d/addresses", seed.Device("source-device"))
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(rec, req)
+
+	is.Equal(rec.Code, http.StatusOK)
+
+	var addresses []httpapi.Address
+	is.NoErr(json.NewDecoder(rec.Body).Decode(&addresses))
+	is.Equal(len(addresses), 1)
+	is.True(string(addresses[0].Source) != "") // source must not be the zero value
+}
+
 func TestHandler_GetDeviceAddresses_DeviceNotFound(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
@@ -147,170 +174,144 @@ func TestHandler_GetDevices_EmptyArray(t *testing.T) {
 
 	is.Equal(rec.Code, http.StatusOK)
 
-	var devices []httpapi.Device
-	err := json.NewDecoder(rec.Body).Decode(&devices)
+	var groups []httpapi.DeviceOwnerGroup
+	err := json.NewDecoder(rec.Body).Decode(&groups)
 	is.NoErr(err)
-	is.Equal(len(devices), 0)
+	is.Equal(len(groups), 0)
 }
 
-func TestHandler_GetDevices_AddressCountReflectsEnabledAddresses(t *testing.T) {
+// TestHandler_GetDevices_GroupsDevicesByOwner is the primary happy-path test for the
+// owner-grouped device list. Verifies owner metadata (host groups, bypass flag, counts),
+// per-device state derivation, live-address count, and rule summaries.
+func TestHandler_GetDevices_GroupsDevicesByOwner(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
-	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+
+	testutils.SeedFullWorld(t, testServer).Build()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(rec, req)
+
+	is.Equal(rec.Code, http.StatusOK)
+
+	var groups []httpapi.DeviceOwnerGroup
+	is.NoErr(json.NewDecoder(rec.Body).Decode(&groups))
+	is.Equal(len(groups), 3) // alice + bob + charlie
+
+	// ── alice ───────────────────────────────────────────────────────────────────
+	alice := findOwnerGroup(groups, testutils.FixtureUserWithAccess.Name)
+	is.True(alice != nil)
+	is.Equal(alice.Owner.BypassHostsCheck, false)
+	is.Equal(len(alice.Owner.HostGroups), 2) // backend + frontend
+	is.Equal(alice.Owner.DeviceCount, 1)
+	is.Equal(alice.Owner.LiveAddressCount, 1) // FixtureAddressAlice
+
+	aliceLaptop := findDeviceEntry(alice.Devices, testutils.FixtureDeviceWithOwnerAccess.Name)
+	is.True(aliceLaptop != nil)
+	is.Equal(aliceLaptop.LiveAddressCount, 1)
+	is.Equal(string(aliceLaptop.State), string(httpapi.Healthy))
+	is.True(aliceLaptop.Pairing == nil)
+
+	// alice-laptop has lease (1h) and max-active (2) rules from SeedFullWorld
+	is.Equal(len(aliceLaptop.Rules), 2) // FixtureLeaseRuleAliceLaptop + FixtureMaxActiveRuleAliceLaptop
+	leaseRule := findRule(aliceLaptop.Rules, httpapi.AutoExpiry)
+	is.True(leaseRule != nil)
+	is.True(leaseRule.Enabled)
+	is.True(leaseRule.TtlSeconds != nil)
+	is.Equal(*leaseRule.TtlSeconds, testutils.FixtureLeaseRuleAliceLaptop.TTLSeconds) // 3600s
+	maxRule := findRule(aliceLaptop.Rules, httpapi.MaxActive)
+	is.True(maxRule != nil)
+	is.True(maxRule.Enabled)
+	is.True(maxRule.Limit != nil)
+	is.Equal(*maxRule.Limit, testutils.FixtureMaxActiveRuleAliceLaptop.MaxAddresses) // 2
+
+	// ── bob ─────────────────────────────────────────────────────────────────────
+	bob := findOwnerGroup(groups, testutils.FixtureUserNoAccess.Name)
+	is.True(bob != nil)
+	is.Equal(bob.Owner.BypassHostsCheck, false)
+	is.Equal(len(bob.Owner.HostGroups), 0) // no groups assigned
+	is.Equal(bob.Owner.DeviceCount, 1)
+	is.Equal(bob.Owner.LiveAddressCount, 1) // FixtureAddressBob
+
+	bobPhone := findDeviceEntry(bob.Devices, testutils.FixtureDeviceWithoutOwnerAccess.Name)
+	is.True(bobPhone != nil)
+	is.Equal(bobPhone.LiveAddressCount, 1)
+	is.Equal(string(bobPhone.State), string(httpapi.Healthy))
+	is.Equal(len(bobPhone.Rules), 0) // no rules seeded
+
+	// ── charlie ──────────────────────────────────────────────────────────────────
+	charlie := findOwnerGroup(groups, testutils.FixtureUserBypassAccess.Name)
+	is.True(charlie != nil)
+	is.Equal(charlie.Owner.BypassHostsCheck, true)
+	// host groups are still returned even for bypass users; frontend decides rendering
+	is.Equal(len(charlie.Owner.HostGroups), 1) // backend
+	is.Equal(charlie.Owner.DeviceCount, 1)
+	is.Equal(charlie.Owner.LiveAddressCount, 1) // FixtureAddressShared
+
+	charlieDesktop := findDeviceEntry(charlie.Devices, testutils.FixtureDeviceBypassAccess.Name)
+	is.True(charlieDesktop != nil)
+	is.Equal(charlieDesktop.LiveAddressCount, 1)
+	is.Equal(string(charlieDesktop.State), string(httpapi.Healthy))
+}
+
+// TestHandler_GetDevices_StaleState verifies that a device with no live addresses
+// is reported as stale.
+func TestHandler_GetDevices_StaleState(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
 	testutils.NewSeeder(t, testServer).
-		WithUser(testutils.UserFixture{Name: "count-user"}).
-		WithDevice(testutils.DeviceFixture{Name: "count-device", OwnerUser: "count-user"}).
-		WithAddress(testutils.AddressFixture{Device: "count-device", IP: "10.0.4.1", Disabled: true}).
-		WithAddress(testutils.AddressFixture{Device: "count-device", IP: "10.0.4.2"}).
+		WithUser(testutils.UserFixture{Name: "stale-user"}).
+		WithDevice(testutils.DeviceFixture{Name: "stale-device", OwnerUser: "stale-user"}).
+		WithAddress(testutils.AddressFixture{Device: "stale-device", IP: "10.0.5.1", Disabled: true}).
 		Build()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
-	req.AddCookie(sessionCookie)
-	rec := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusOK)
-
-	var devices []httpapi.Device
-	is.NoErr(json.NewDecoder(rec.Body).Decode(&devices))
-	is.Equal(len(devices), 1)
-	is.True(devices[0].AddressCount != nil)
-	is.Equal(*devices[0].AddressCount, 1)
-}
-
-// TestHandler_GetDevices_ReturnsWorldDevices verifies that the admin device list
-// returns all seeded devices with populated owner names and per-device address counts.
-// This exercises the LEFT JOIN with users and addresses in the underlying query.
-func TestHandler_GetDevices_ReturnsWorldDevices(t *testing.T) {
-	is := is.New(t)
-	testServer := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
-
-	seed := testutils.SeedFullWorld(t, testServer).Build()
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
 	req.AddCookie(adminCookie)
 	rec := httptest.NewRecorder()
 	testServer.HTTPServer.ServeHTTP(rec, req)
 
 	is.Equal(rec.Code, http.StatusOK)
 
-	var devices []httpapi.Device
-	is.NoErr(json.NewDecoder(rec.Body).Decode(&devices))
-	is.Equal(len(devices), 3) // alice-laptop + bob-phone + charlie-desktop
+	var groups []httpapi.DeviceOwnerGroup
+	is.NoErr(json.NewDecoder(rec.Body).Decode(&groups))
+	is.Equal(len(groups), 1)
 
-	aliceLaptop := findDevice(devices, testutils.FixtureDeviceWithOwnerAccess.Name)
-	is.True(aliceLaptop != nil)
-	is.Equal(aliceLaptop.OwnerId, seed.User(testutils.FixtureUserWithAccess.Name).Int64())
-	is.True(aliceLaptop.OwnerName != nil)
-	is.Equal(*aliceLaptop.OwnerName, testutils.FixtureUserWithAccess.Name)
-	is.True(aliceLaptop.AddressCount != nil)
-	is.Equal(*aliceLaptop.AddressCount, 1) // FixtureAddressAlice
-
-	bobPhone := findDevice(devices, testutils.FixtureDeviceWithoutOwnerAccess.Name)
-	is.True(bobPhone != nil)
-	is.True(bobPhone.AddressCount != nil)
-	is.Equal(*bobPhone.AddressCount, 1) // FixtureAddressBob
-
-	charlieDesktop := findDevice(devices, testutils.FixtureDeviceBypassAccess.Name)
-	is.True(charlieDesktop != nil)
-	is.True(charlieDesktop.AddressCount != nil)
-	is.Equal(*charlieDesktop.AddressCount, 1) // FixtureAddressShared
+	d := findDeviceEntry(groups[0].Devices, "stale-device")
+	is.True(d != nil)
+	is.Equal(d.LiveAddressCount, 0)
+	is.Equal(string(d.State), string(httpapi.Stale))
 }
 
-// ── GetDevice ────────────────────────────────────────────────────────────────
-
-func TestHandler_GetDevice_ReturnsCorrectDetail(t *testing.T) {
-	is := is.New(t)
-	testServer := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
-
-	seed := testutils.SeedFullWorld(t, testServer).Build()
-	deviceID := seed.Device(testutils.FixtureDeviceWithOwnerAccess.Name) // alice-laptop
-
-	url := fmt.Sprintf("/api/v1/devices/%d", deviceID)
-	req := httptest.NewRequest(http.MethodGet, url, nil)
-	req.AddCookie(adminCookie)
-	rec := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusOK)
-
-	var d httpapi.Device
-	is.NoErr(json.NewDecoder(rec.Body).Decode(&d))
-	is.Equal(d.Id, deviceID.Int64())
-	is.Equal(d.Name, testutils.FixtureDeviceWithOwnerAccess.Name)
-	is.Equal(d.OwnerId, seed.User(testutils.FixtureUserWithAccess.Name).Int64())
-	is.True(d.OwnerName != nil)
-	is.Equal(*d.OwnerName, testutils.FixtureUserWithAccess.Name)
-	is.True(d.AddressCount != nil)
-	is.Equal(*d.AddressCount, 1) // FixtureAddressAlice
+// findOwnerGroup returns the DeviceOwnerGroup whose owner username matches, or nil.
+func findOwnerGroup(groups []httpapi.DeviceOwnerGroup, username string) *httpapi.DeviceOwnerGroup {
+	for i := range groups {
+		if groups[i].Owner.Username == username {
+			return &groups[i]
+		}
+	}
+	return nil
 }
 
-func TestHandler_GetDevice_NotFound(t *testing.T) {
-	is := is.New(t)
-	testServer := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
-
-	url := fmt.Sprintf("/api/v1/devices/%d", 99999)
-	req := httptest.NewRequest(http.MethodGet, url, nil)
-	req.AddCookie(adminCookie)
-	rec := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusNotFound)
-}
-
-// ── GetDevicesByUser ─────────────────────────────────────────────────────────
-
-func TestHandler_GetDevicesByUser_Unauthenticated(t *testing.T) {
-	is := is.New(t)
-	testServer := testutils.SetupIntegrationServer(t)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/users/1/devices", nil)
-	rec := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(rec, req)
-
-	is.True(rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden)
-}
-
-// TestHandler_GetDevicesByUser_ReturnsUserDevices verifies that the per-user
-// device list filters correctly to the requested owner.
-func TestHandler_GetDevicesByUser_ReturnsUserDevices(t *testing.T) {
-	is := is.New(t)
-	testServer := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
-
-	seed := testutils.SeedFullWorld(t, testServer).Build()
-	aliceID := seed.User(testutils.FixtureUserWithAccess.Name)
-
-	url := fmt.Sprintf("/api/v1/admin/users/%d/devices", aliceID)
-	req := httptest.NewRequest(http.MethodGet, url, nil)
-	req.AddCookie(adminCookie)
-	rec := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusOK)
-
-	var devices []httpapi.Device
-	is.NoErr(json.NewDecoder(rec.Body).Decode(&devices))
-	is.Equal(len(devices), 1) // alice-laptop only
-
-	d := devices[0]
-	is.Equal(d.Name, testutils.FixtureDeviceWithOwnerAccess.Name)
-	is.Equal(d.OwnerId, aliceID.Int64())
-	is.True(d.OwnerName != nil)
-	is.Equal(*d.OwnerName, testutils.FixtureUserWithAccess.Name)
-	is.True(d.AddressCount != nil)
-	is.Equal(*d.AddressCount, 1) // FixtureAddressAlice
-}
-
-// findDevice returns a pointer to the first Device whose Name matches, or nil.
-func findDevice(devices []httpapi.Device, name string) *httpapi.Device {
+// findDeviceEntry returns the DeviceListEntry with the given name, or nil.
+func findDeviceEntry(devices []httpapi.DeviceListEntry, name string) *httpapi.DeviceListEntry {
 	for i := range devices {
 		if devices[i].Name == name {
 			return &devices[i]
+		}
+	}
+	return nil
+}
+
+// findRule returns the DeviceRuleSummary with the given type, or nil.
+func findRule(rules []httpapi.DeviceRuleSummary, ruleType httpapi.DeviceRuleSummaryType) *httpapi.DeviceRuleSummary {
+	for i := range rules {
+		if rules[i].Type == ruleType {
+			return &rules[i]
 		}
 	}
 	return nil

@@ -3,8 +3,8 @@ devices:
     operationId: getDevices
     tags:
       - devices
-    summary: List all devices
-    description: Get all devices belonging to the authenticated user.
+    summary: List all devices grouped by owner
+    description: Returns all devices grouped by their owning user. Each group includes owner metadata (host groups, bypass flag, aggregate counts) and the devices' live-address counts, rule summaries, and derived state.
     responses:
       "200":
         description: OK
@@ -13,7 +13,7 @@ devices:
             schema:
               type: array
               items:
-                $ref: '../components/schemas/devices.yaml#/Device'
+                $ref: '../components/schemas/devices.yaml#/DeviceOwnerGroup'
       "500":
         description: Internal Server Error
         content:
@@ -60,38 +60,6 @@ devices:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
 
 deviceById:
-  get:
-    operationId: getDevice
-    tags:
-      - devices
-    summary: Get a device
-    description: Get a single device by its id.
-    parameters:
-      - name: device_id
-        in: path
-        description: Device id
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/ID'
-    responses:
-      "200":
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/devices.yaml#/Device'
-      "404":
-        description: Device not found
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "500":
-        description: Internal Server Error
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
   delete:
     operationId: deleteDevice
     tags:
@@ -202,7 +170,7 @@ regenerateApiKey:
       Generates a new API key for the device. If a key already exists, it is immediately
       invalidated and replaced. Works as both the first-time generation and rotation endpoint.
       The raw key is returned once and cannot be retrieved again. Admin-only.
-    tags: [devices]
+    tags: [ devices ]
     parameters:
       - name: device_id
         in: path
@@ -237,7 +205,7 @@ deleteApiKey:
     description: >
       Permanently removes the API key for the device. Any currently connected device
       using this key will immediately stop being able to send heartbeats.
-    tags: [devices]
+    tags: [ devices ]
     parameters:
       - name: device_id
         in: path
@@ -313,7 +281,7 @@ heartbeat:
     tags:
       - devices
     security:
-      - apiKeyAuth: []
+      - apiKeyAuth: [ ]
     summary: Performs a heartbeat with the given api key header
     description: Same as /devices/{device_id}/heartbeat but authentication is provided via api-key for the device to update
     requestBody:

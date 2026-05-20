@@ -92,12 +92,6 @@ import type {
   GetDeviceAddressLeaseRuleData,
   GetDeviceAddressLeaseRuleErrors,
   GetDeviceAddressLeaseRuleResponses,
-  GetDeviceData,
-  GetDeviceErrors,
-  GetDeviceResponses,
-  GetDevicesByUserData,
-  GetDevicesByUserErrors,
-  GetDevicesByUserResponses,
   GetDevicesData,
   GetDevicesErrors,
   GetDevicesResponses,
@@ -245,10 +239,6 @@ import {
   zGetDeviceAddressesResponse,
   zGetDeviceAddressLeaseRulePath,
   zGetDeviceAddressLeaseRuleResponse,
-  zGetDevicePath,
-  zGetDeviceResponse,
-  zGetDevicesByUserPath,
-  zGetDevicesByUserResponse,
   zGetDevicesResponse,
   zGetMaxActiveAddressesRulePath,
   zGetMaxActiveAddressesRuleResponse,
@@ -505,40 +495,6 @@ export const demoteUser = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * List devices owned by a user
- *
- * Returns all devices assigned to the specified user.
- */
-export const getDevicesByUser = <ThrowOnError extends boolean = false>(
-  options: Options<GetDevicesByUserData, ThrowOnError>,
-) =>
-  (options.client ?? client).get<
-    GetDevicesByUserResponses,
-    GetDevicesByUserErrors,
-    ThrowOnError
-  >({
-    requestValidator: async (data) =>
-      await z
-        .object({
-          body: z.never().optional(),
-          path: zGetDevicesByUserPath,
-          query: z.never().optional(),
-        })
-        .parseAsync(data),
-    responseValidator: async (data) =>
-      await zGetDevicesByUserResponse.parseAsync(data),
-    security: [
-      {
-        in: "cookie",
-        name: "__Host-wdc_session",
-        type: "apiKey",
-      },
-    ],
-    url: "/admin/users/{user_id}/devices",
-    ...options,
-  });
-
-/**
  * Login user
  *
  * Authenticates user and sets a strict HTTP-only session cookie.
@@ -703,9 +659,9 @@ export const changePassword = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * List all devices
+ * List all devices grouped by owner
  *
- * Get all devices belonging to the authenticated user.
+ * Returns all devices grouped by their owning user. Each group includes owner metadata (host groups, bypass flag, aggregate counts) and the devices' live-address counts, rule summaries, and derived state.
  */
 export const getDevices = <ThrowOnError extends boolean = false>(
   options?: Options<GetDevicesData, ThrowOnError>,
@@ -797,40 +753,6 @@ export const deleteDevice = <ThrowOnError extends boolean = false>(
         .parseAsync(data),
     responseValidator: async (data) =>
       await zDeleteDeviceResponse.parseAsync(data),
-    security: [
-      {
-        in: "cookie",
-        name: "__Host-wdc_session",
-        type: "apiKey",
-      },
-    ],
-    url: "/devices/{device_id}",
-    ...options,
-  });
-
-/**
- * Get a device
- *
- * Get a single device by its id.
- */
-export const getDevice = <ThrowOnError extends boolean = false>(
-  options: Options<GetDeviceData, ThrowOnError>,
-) =>
-  (options.client ?? client).get<
-    GetDeviceResponses,
-    GetDeviceErrors,
-    ThrowOnError
-  >({
-    requestValidator: async (data) =>
-      await z
-        .object({
-          body: z.never().optional(),
-          path: zGetDevicePath,
-          query: z.never().optional(),
-        })
-        .parseAsync(data),
-    responseValidator: async (data) =>
-      await zGetDeviceResponse.parseAsync(data),
     security: [
       {
         in: "cookie",

@@ -46,6 +46,20 @@ type UserFixture struct {
 	Name string
 }
 
+// DeviceLeaseRuleFixture describes an address-lease rule to enable on a device.
+// Device must match the Name of a DeviceFixture seeded in the same Build call.
+type DeviceLeaseRuleFixture struct {
+	Device     string
+	TTLSeconds int
+}
+
+// DeviceMaxActiveRuleFixture describes a max-active-addresses rule to enable on a device.
+// Device must match the Name of a DeviceFixture seeded in the same Build call.
+type DeviceMaxActiveRuleFixture struct {
+	Device       string
+	MaxAddresses int
+}
+
 // DeviceFixture describes the seeder inputs for a device.
 // OwnerUser must match the Name of a UserFixture seeded in the same Build call.
 type DeviceFixture struct {
@@ -110,6 +124,10 @@ var (
 	FixtureDeviceWithOwnerAccess    = DeviceFixture{Name: "alice-laptop", OwnerUser: FixtureUserWithAccess.Name}
 	FixtureDeviceWithoutOwnerAccess = DeviceFixture{Name: "bob-phone", OwnerUser: FixtureUserNoAccess.Name}
 	FixtureDeviceBypassAccess       = DeviceFixture{Name: "charlie-desktop", OwnerUser: FixtureUserBypassAccess.Name}
+
+	// Rules seeded on alice-laptop by SeedFullWorld.
+	FixtureLeaseRuleAliceLaptop     = DeviceLeaseRuleFixture{Device: FixtureDeviceWithOwnerAccess.Name, TTLSeconds: 3600}
+	FixtureMaxActiveRuleAliceLaptop = DeviceMaxActiveRuleFixture{Device: FixtureDeviceWithOwnerAccess.Name, MaxAddresses: 2}
 
 	FixtureAddressAlice  = AddressFixture{Device: FixtureDeviceWithOwnerAccess.Name, IP: "10.1.0.1"}
 	FixtureAddressBob    = AddressFixture{Device: FixtureDeviceWithoutOwnerAccess.Name, IP: "10.2.0.1"}
@@ -232,6 +250,8 @@ type Seeder struct {
 	users            []UserFixture
 	userAccesses     []userAccessSpec
 	devices          []DeviceFixture
+	leaseRules       []DeviceLeaseRuleFixture
+	maxActiveRules   []DeviceMaxActiveRuleFixture
 	addresses        []AddressFixture
 	accessLogEntries []AccessLogEntryFixture
 	initPolicy       bool
@@ -317,6 +337,34 @@ func (s *Seeder) WithDevice(f DeviceFixture) *Seeder {
 		s.t.Fatalf("Seeder.WithDevice: OwnerUser is required (name=%q)", f.Name)
 	}
 	s.devices = append(s.devices, f)
+	return s
+}
+
+// WithDeviceLeaseRule declares an address-lease rule to enable on a device after it is created.
+// Device must match the Name of a preceding WithDevice call.
+func (s *Seeder) WithDeviceLeaseRule(f DeviceLeaseRuleFixture) *Seeder {
+	s.t.Helper()
+	if f.Device == "" {
+		s.t.Fatalf("Seeder.WithDeviceLeaseRule: Device is required")
+	}
+	if f.TTLSeconds <= 0 {
+		s.t.Fatalf("Seeder.WithDeviceLeaseRule: TTLSeconds must be positive (device=%q)", f.Device)
+	}
+	s.leaseRules = append(s.leaseRules, f)
+	return s
+}
+
+// WithDeviceMaxActiveRule declares a max-active-addresses rule to enable on a device after it is created.
+// Device must match the Name of a preceding WithDevice call.
+func (s *Seeder) WithDeviceMaxActiveRule(f DeviceMaxActiveRuleFixture) *Seeder {
+	s.t.Helper()
+	if f.Device == "" {
+		s.t.Fatalf("Seeder.WithDeviceMaxActiveRule: Device is required")
+	}
+	if f.MaxAddresses <= 0 {
+		s.t.Fatalf("Seeder.WithDeviceMaxActiveRule: MaxAddresses must be positive (device=%q)", f.Device)
+	}
+	s.maxActiveRules = append(s.maxActiveRules, f)
 	return s
 }
 
@@ -524,6 +572,26 @@ func (s *Seeder) Build() *SeedResult {
 		result.devices[f.Name] = deviceID
 	}
 
+	// 7b. Device rules (applied after devices, before addresses)
+	for _, f := range s.leaseRules {
+		deviceID, ok := result.devices[f.Device]
+		if !ok {
+			s.t.Fatalf("Seeder: lease rule references unknown device %q", f.Device)
+		}
+		if _, err := s.srv.RuleService.EnableDeviceAddressLeaseRule(ctx, deviceID, f.TTLSeconds); err != nil {
+			s.t.Fatalf("Seeder: enable lease rule for device %q: %v", f.Device, err)
+		}
+	}
+	for _, f := range s.maxActiveRules {
+		deviceID, ok := result.devices[f.Device]
+		if !ok {
+			s.t.Fatalf("Seeder: max-active rule references unknown device %q", f.Device)
+		}
+		if _, err := s.srv.RuleService.EnableMaxActiveAddressesRule(ctx, deviceID, f.MaxAddresses); err != nil {
+			s.t.Fatalf("Seeder: enable max-active rule for device %q: %v", f.Device, err)
+		}
+	}
+
 	// 8. Device addresses
 	var leaseRepo *lease.Repository // created lazily on first ExpiresAt use
 	for _, f := range s.addresses {
@@ -642,6 +710,7 @@ func (s *Seeder) Build() *SeedResult {
 //	Users:       FixtureUserWithAccess (backend+frontend), FixtureUserNoAccess, FixtureUserBypassAccess (backend, bypass)
 //	Policies:    FixturePolicyWithGroups (backend+frontend), FixturePolicyNoGroups (no groups)
 //	Devices:     FixtureDeviceWithOwnerAccess (alice), FixtureDeviceWithoutOwnerAccess (bob), FixtureDeviceBypassAccess (charlie)
+//	Rules:       FixtureLeaseRuleAliceLaptop (1h TTL), FixtureMaxActiveRuleAliceLaptop (max 2) — alice-laptop only
 //	Addresses:   FixtureAddressAlice (10.1.0.1), FixtureAddressBob (10.2.0.1),
 //	             FixtureAddressShared (charlie-desktop at 10.1.0.1 — shared with alice)
 //	Policy cache: initialized; SharedIpCount=1 (10.1.0.1 owned by alice and charlie)
@@ -671,6 +740,8 @@ func SeedFullWorld(t *testing.T, srv *app.App) *Seeder {
 		WithDevice(FixtureDeviceWithOwnerAccess).
 		WithDevice(FixtureDeviceWithoutOwnerAccess).
 		WithDevice(FixtureDeviceBypassAccess).
+		WithDeviceLeaseRule(FixtureLeaseRuleAliceLaptop).
+		WithDeviceMaxActiveRule(FixtureMaxActiveRuleAliceLaptop).
 		WithAddress(FixtureAddressAlice).
 		WithAddress(FixtureAddressBob).
 		WithAddress(FixtureAddressShared).

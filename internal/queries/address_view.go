@@ -2,9 +2,12 @@ package queries
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
@@ -20,6 +23,14 @@ type AddressView struct {
 }
 
 func (r *Repository) GetDeviceAddresses(ctx context.Context, deviceID ids.DeviceID) ([]AddressView, error) {
+	var exists bool
+	if err := r.db.GetContext(ctx, &exists, `SELECT 1 FROM devices WHERE id = ? AND deleted_at IS NULL`, deviceID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, device.ErrDeviceNotFound
+		}
+		return nil, fmt.Errorf("check device existence: %w", err)
+	}
+
 	var addresses []AddressView
 
 	const query = `

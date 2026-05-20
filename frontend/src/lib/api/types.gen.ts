@@ -181,6 +181,7 @@ export type Address = {
    * The latest state of this address, enabled or disabled
    */
   is_enabled: boolean;
+  source: AddressEventSource;
   created_at: string;
   /**
    * Last time it was enabled or disabled
@@ -732,6 +733,103 @@ export type PromoteUserRequest = {
   password: Password;
 };
 
+export type HostGroupSummary = {
+  id: Id;
+  name: string;
+  /**
+   * Hex color string (e.g. "#4C6EF5").
+   */
+  color: string;
+  /**
+   * Tabler icon name.
+   */
+  icon: string;
+};
+
+export type DeviceListOwner = {
+  id: Id;
+  username: string;
+  display_name: string;
+  role: "user" | "admin";
+  bypass_hosts_check: boolean;
+  /**
+   * Host groups the owner belongs to. Always returned; frontend hides them when bypass_hosts_check is true.
+   */
+  host_groups: Array<HostGroupSummary>;
+  device_count: number;
+  /**
+   * Aggregate count of live addresses across all owner's devices.
+   */
+  live_address_count: number;
+};
+
+/**
+ * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+ *
+ */
+export const DeviceState = {
+  HEALTHY: "healthy",
+  STALE: "stale",
+  PENDING_CLAIM: "pending-claim",
+  EXPIRED_CLAIM: "expired-claim",
+} as const;
+
+/**
+ * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+ *
+ */
+export type DeviceState = (typeof DeviceState)[keyof typeof DeviceState];
+
+export type DeviceRuleSummary = {
+  type: "auto_expiry" | "max_active";
+  enabled: boolean;
+  /**
+   * TTL in seconds. Present for auto_expiry rules.
+   */
+  ttl_seconds?: number | null;
+  /**
+   * Maximum allowed live-address count. Present for max_active rules.
+   */
+  limit?: number | null;
+};
+
+export type DevicePairingSummary = {
+  /**
+   * When the pairing code expires.
+   */
+  expires_at: string;
+};
+
+export type DeviceListEntry = {
+  id: Id;
+  name: string;
+  /**
+   * Tabler icon name override.
+   */
+  icon?: string | null;
+  /**
+   * First characters of the API key (display only).
+   */
+  key_prefix?: string | null;
+  /**
+   * When the device was created.
+   */
+  created_at: string;
+  /**
+   * Most recent address heartbeat for this device.
+   */
+  last_seen_at?: string | null;
+  state: DeviceState;
+  live_address_count: number;
+  rules: Array<DeviceRuleSummary>;
+  pairing?: DevicePairingSummary | null;
+};
+
+export type DeviceOwnerGroup = {
+  owner: DeviceListOwner;
+  devices: Array<DeviceListEntry>;
+};
+
 export type DeviceApiKeyResponse = {
   device: Device;
   /**
@@ -1020,6 +1118,7 @@ export type AddressWritable = {
    * The latest state of this address, enabled or disabled
    */
   is_enabled: boolean;
+  source: AddressEventSource;
   created_at: string;
   /**
    * Last time it was enabled or disabled
@@ -1231,43 +1330,6 @@ export type DemoteUserResponses = {
 
 export type DemoteUserResponse = DemoteUserResponses[keyof DemoteUserResponses];
 
-export type GetDevicesByUserData = {
-  body?: never;
-  path: {
-    user_id: Id;
-  };
-  query?: never;
-  url: "/admin/users/{user_id}/devices";
-};
-
-export type GetDevicesByUserErrors = {
-  /**
-   * Forbidden - admin credentials required
-   */
-  403: ErrorResponse;
-  /**
-   * User not found
-   */
-  404: ErrorResponse;
-  /**
-   * Internal Server Error
-   */
-  500: ErrorResponse;
-};
-
-export type GetDevicesByUserError =
-  GetDevicesByUserErrors[keyof GetDevicesByUserErrors];
-
-export type GetDevicesByUserResponses = {
-  /**
-   * OK
-   */
-  200: Array<Device>;
-};
-
-export type GetDevicesByUserResponse =
-  GetDevicesByUserResponses[keyof GetDevicesByUserResponses];
-
 export type LoginData = {
   body: AuthRequest;
   path?: never;
@@ -1436,7 +1498,7 @@ export type GetDevicesResponses = {
   /**
    * OK
    */
-  200: Array<Device>;
+  200: Array<DeviceOwnerGroup>;
 };
 
 export type GetDevicesResponse = GetDevicesResponses[keyof GetDevicesResponses];
@@ -1512,40 +1574,6 @@ export type DeleteDeviceResponses = {
 
 export type DeleteDeviceResponse =
   DeleteDeviceResponses[keyof DeleteDeviceResponses];
-
-export type GetDeviceData = {
-  body?: never;
-  path: {
-    /**
-     * Device id
-     */
-    device_id: Id;
-  };
-  query?: never;
-  url: "/devices/{device_id}";
-};
-
-export type GetDeviceErrors = {
-  /**
-   * Device not found
-   */
-  404: ErrorResponse;
-  /**
-   * Internal Server Error
-   */
-  500: ErrorResponse;
-};
-
-export type GetDeviceError = GetDeviceErrors[keyof GetDeviceErrors];
-
-export type GetDeviceResponses = {
-  /**
-   * OK
-   */
-  200: Device;
-};
-
-export type GetDeviceResponse = GetDeviceResponses[keyof GetDeviceResponses];
 
 export type UpdateDeviceData = {
   body: UpdateDeviceRequest;

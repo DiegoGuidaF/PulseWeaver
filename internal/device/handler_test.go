@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
@@ -109,43 +108,6 @@ func TestHandler_CreateDevice(t *testing.T) {
 	is.True(resp.Device.Id != 0)
 	// No API key returned on device creation — must be generated separately.
 	is.True(resp.Device.ApiKeyPrefix == nil)
-}
-
-func TestHandler_GetDevice_200(t *testing.T) {
-	is := is.New(t)
-	testServer := testutils.SetupIntegrationServer(t)
-	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
-
-	device, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "single-device", nil)
-	is.NoErr(err)
-
-	getURL := fmt.Sprintf("/api/v1/devices/%d", device.ID)
-	getReq := httptest.NewRequest(http.MethodGet, getURL, nil)
-	getReq.AddCookie(sessionCookie)
-	getRes := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(getRes, getReq)
-	is.Equal(getRes.Code, http.StatusOK)
-
-	var resp httpapi.Device
-	err = json.NewDecoder(getRes.Body).Decode(&resp)
-	is.NoErr(err)
-	is.Equal(resp.Id, int64(device.ID))
-	is.Equal(resp.Name, device.Name)
-	// No API key yet on newly created device.
-	is.True(resp.ApiKeyPrefix == nil)
-}
-
-func TestHandler_GetDevice_404(t *testing.T) {
-	is := is.New(t)
-	testServer := testutils.SetupIntegrationServer(t)
-	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
-
-	getURL := fmt.Sprintf("/api/v1/devices/%d", 99999)
-	getReq := httptest.NewRequest(http.MethodGet, getURL, nil)
-	getReq.AddCookie(sessionCookie)
-	getRes := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(getRes, getReq)
-	is.Equal(getRes.Code, http.StatusNotFound)
 }
 
 func TestHandler_DeviceHeartbeatByApiKey_NoBody(t *testing.T) {
@@ -263,10 +225,10 @@ func TestHandler_DeleteDevice_204(t *testing.T) {
 	listRes := httptest.NewRecorder()
 	testServer.HTTPServer.ServeHTTP(listRes, listReq)
 	is.Equal(listRes.Code, http.StatusOK)
-	var devices []httpapi.Device
-	err = json.NewDecoder(listRes.Body).Decode(&devices)
+	var groups []httpapi.DeviceOwnerGroup
+	err = json.NewDecoder(listRes.Body).Decode(&groups)
 	is.NoErr(err)
-	is.Equal(len(devices), 0)
+	is.Equal(len(groups), 0)
 }
 
 func TestHandler_DeleteDevice_404(t *testing.T) {
@@ -642,26 +604,4 @@ func TestHandler_ListDeviceTypes(t *testing.T) {
 	is.Equal(types[0].Value, "static")
 	is.Equal(types[0].Label, "Static")
 	is.Equal(types[1].Value, "mobile")
-}
-
-func TestHandler_GetDevices_ContainsUpdatedAt(t *testing.T) {
-	is := is.New(t)
-	testServer := testutils.SetupIntegrationServer(t)
-	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", "AdminPass123!")
-
-	_, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "list-device", nil)
-	is.NoErr(err)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
-	req.AddCookie(sessionCookie)
-	res := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusOK)
-
-	var devices []httpapi.Device
-	err = json.NewDecoder(res.Body).Decode(&devices)
-	is.NoErr(err)
-	is.Equal(len(devices), 1)
-	is.True(!time.Time(devices[0].UpdatedAt).IsZero())
 }

@@ -22,8 +22,6 @@ paths:
     $ref: './paths/admin.yaml#/promoteUser'
   /admin/users/{user_id}/demote:
     $ref: './paths/admin.yaml#/demoteUser'
-  /admin/users/{user_id}/devices:
-    $ref: './paths/admin.yaml#/userDevices'
 
   # --------------------
   # Auth Endpoints
