@@ -180,7 +180,7 @@ func TestBuildPolicyUserMap_NoAccessUser(t *testing.T) {
 // or nil if not found. Mirrors findPolicy/findGroup helpers in the package.
 func findUser(users []httpapi.PolicyUserEntry, name string) *httpapi.PolicyUserEntry {
 	for i := range users {
-		if users[i].UserName == name {
+		if users[i].DisplayName == name {
 			return &users[i]
 		}
 	}

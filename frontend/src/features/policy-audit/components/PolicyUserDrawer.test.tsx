@@ -29,7 +29,7 @@ function renderDrawer(
 
 const ALLOWLISTED_USER = createMockPolicyUserEntry({
     user_id: 1,
-    user_name: "alice",
+    display_name: "alice",
     bypass_allowlist: false,
     on_shared_ip: false,
     is_admin: false,
@@ -49,7 +49,7 @@ const ALLOWLISTED_USER = createMockPolicyUserEntry({
 
 const BYPASS_USER = createMockPolicyUserEntry({
     user_id: 2,
-    user_name: "bob",
+    display_name: "bob",
     bypass_allowlist: true,
     on_shared_ip: false,
     ips: [],
@@ -61,7 +61,7 @@ const BYPASS_USER = createMockPolicyUserEntry({
 
 const NO_ACCESS_USER = createMockPolicyUserEntry({
     user_id: 3,
-    user_name: "carol",
+    display_name: "carol",
     bypass_allowlist: false,
     ips: [],
     ip_count: 0,
@@ -113,7 +113,7 @@ describe("PolicyUserDrawer", () => {
     it("shows Admin badge for admin users", async () => {
         const admin = createMockPolicyUserEntry({
             ...ALLOWLISTED_USER,
-            user_name: "dana",
+            display_name: "dana",
             is_admin: true,
         });
         renderDrawer(admin);
@@ -129,7 +129,7 @@ describe("PolicyUserDrawer", () => {
     it("shows Shared IP badge and alert for users on a shared IP", async () => {
         const shared = createMockPolicyUserEntry({
             ...ALLOWLISTED_USER,
-            user_name: "eve",
+            display_name: "eve",
             on_shared_ip: true,
         });
         renderDrawer(shared);
@@ -278,7 +278,7 @@ describe("PolicyUserDrawer", () => {
         // that Mantine always renders in the DOM even for inactive tab panels.
         const partialUser = createMockPolicyUserEntry({
             user_id: 10,
-            user_name: "frank",
+            display_name: "frank",
             bypass_allowlist: false,
             user_allowed_hosts: ["app.home.lan", "media.home.lan"],
             allowed_host_count: 2,

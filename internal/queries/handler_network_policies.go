@@ -36,7 +36,7 @@ func (h *HTTPHandler) GetNetworkPolicy(
 ) (httpapi.GetNetworkPolicyResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetNetworkPolicy")
 
-	id := ids.NetworkPolicyID(request.Id)
+	id := ids.NetworkPolicyID(request.PolicyId)
 	detail, err := h.repo.GetNetworkPolicyDetail(ctx, id)
 	if err != nil {
 		if errors.Is(err, networkpolicies.ErrNotFound) {

@@ -45,14 +45,6 @@ UpdateDeviceRequest:
       nullable: true
       description: "Admin only. Reassign device ownership to another user."
 
-CreateDeviceResponse:
-  type: object
-  required:
-    - device
-  properties:
-    device:
-      $ref: '#/Device'
-
 DeviceAPIKeyResponse:
   type: object
   required:
@@ -109,7 +101,7 @@ Device:
       type: string
       nullable: true
       description: Prefix of the device API key (for display only). Null if no API key has been generated yet.
-    address_count:
+    live_address_count:
       type: integer
       minimum: 0
       readOnly: true
@@ -156,21 +148,6 @@ DeviceState:
     stale: no live addresses.
     pending-claim / expired-claim: awaiting or failed device pairing (future feature).
 
-HostGroupSummary:
-  type: object
-  required: [id, name, color, icon]
-  properties:
-    id:
-      $ref: './common.yaml#/ID'
-    name:
-      type: string
-    color:
-      type: string
-      description: Hex color string (e.g. "#4C6EF5").
-    icon:
-      type: string
-      description: Tabler icon name.
-
 DeviceRuleSummary:
   type: object
   required: [type, enabled]
@@ -211,7 +188,7 @@ DeviceListEntry:
       type: string
       nullable: true
       description: Tabler icon name override.
-    key_prefix:
+    api_key_prefix:
       type: string
       nullable: true
       description: First characters of the API key (display only).
@@ -242,7 +219,7 @@ DeviceListEntry:
 
 DeviceListOwner:
   type: object
-  required: [id, username, display_name, role, bypass_hosts_check, host_groups, device_count, live_address_count]
+  required: [id, username, display_name, role, bypass_host_check, host_groups, device_count, live_address_count]
   properties:
     id:
       $ref: './common.yaml#/ID'
@@ -252,13 +229,13 @@ DeviceListOwner:
       type: string
     role:
       $ref: './users.yaml#/UserRole'
-    bypass_hosts_check:
+    bypass_host_check:
       type: boolean
     host_groups:
       type: array
       items:
-        $ref: '#/HostGroupSummary'
-      description: Host groups the owner belongs to. Always returned; frontend hides them when bypass_hosts_check is true.
+        $ref: './host-groups.yaml#/GroupSummary'
+      description: Host groups the owner belongs to. Always returned; frontend hides them when bypass_host_check is true.
     device_count:
       type: integer
       minimum: 0

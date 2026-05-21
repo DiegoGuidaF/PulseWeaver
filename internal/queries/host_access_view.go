@@ -334,15 +334,15 @@ func (r *Repository) ListUserAccessRows(ctx context.Context) ([]httpapi.UserList
 			groups = []httpapi.GroupRef{}
 		}
 		rows[i] = httpapi.UserListItem{
-			Id:              ur.ID.Int64(),
-			Username:        ur.UserName,
-			DisplayName:     ur.DisplayName,
-			Role:            httpapi.UserRole(ur.Role),
-			BypassHostCheck: ur.BypassHostCheck,
-			DeviceCount:     ur.DeviceCount,
-			HostCount:       ur.HostCount,
-			LiveIpCount:     ur.LiveIPCount,
-			Groups:          groups,
+			Id:               ur.ID.Int64(),
+			Username:         ur.UserName,
+			DisplayName:      ur.DisplayName,
+			Role:             httpapi.UserRole(ur.Role),
+			BypassHostCheck:  ur.BypassHostCheck,
+			DeviceCount:      ur.DeviceCount,
+			HostCount:        ur.HostCount,
+			LiveAddressCount: ur.LiveIPCount,
+			Groups:           groups,
 		}
 	}
 	return rows, nil
@@ -478,11 +478,11 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 	devices := make([]httpapi.DeviceListItem, len(deviceViews))
 	for i := range deviceViews {
 		devices[i] = httpapi.DeviceListItem{
-			Id:           deviceViews[i].ID.Int64(),
-			Name:         deviceViews[i].Name,
-			ApiKeyPrefix: deviceViews[i].KeyPrefix,
-			Icon:         deviceViews[i].Icon,
-			LiveIpCount:  deviceViews[i].AddressCount,
+			Id:               deviceViews[i].ID.Int64(),
+			Name:             deviceViews[i].Name,
+			ApiKeyPrefix:     deviceViews[i].KeyPrefix,
+			Icon:             deviceViews[i].Icon,
+			LiveAddressCount: deviceViews[i].AddressCount,
 		}
 	}
 

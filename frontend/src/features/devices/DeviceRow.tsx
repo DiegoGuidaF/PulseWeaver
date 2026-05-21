@@ -90,8 +90,8 @@ export function DeviceRow({ entry, ownerId }: Props) {
             </Text>
             <Group gap={6} wrap="nowrap">
               <Text size="xs" c="dimmed" truncate>{lastSeenText}</Text>
-              {entry.key_prefix && (
-                <Text size="xs" c="dimmed" ff="monospace">{entry.key_prefix}</Text>
+              {entry.api_key_prefix && (
+                <Text size="xs" c="dimmed" ff="monospace">{entry.api_key_prefix}</Text>
               )}
             </Group>
           </Box>

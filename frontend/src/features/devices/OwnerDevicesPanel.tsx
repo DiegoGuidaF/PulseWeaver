@@ -157,7 +157,7 @@ export function OwnerDevicesPanel({
             )}
           </Group>
           <Group gap={4} align="center" wrap="nowrap">
-            {owner.bypass_hosts_check ? (
+            {owner.bypass_host_check ? (
               <Badge size="xs" color="orange" variant="filled">bypass</Badge>
             ) : owner.host_groups.length > 0 ? (
               <GroupBadgeList groups={owner.host_groups} size="xs" />

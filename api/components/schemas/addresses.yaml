@@ -120,8 +120,7 @@ AddressHistoryEvent:
       format: date-time
       x-go-type: UTCTime
     ip:
-      type: string
-      description: IP address
+      $ref: './common.yaml#/IPAddress'
     is_enabled:
       type: boolean
       description: Whether the address was enabled or disabled

@@ -63,16 +63,15 @@ export const zCreateUserRequest = z.object({
   email: z.email().nullish(),
 });
 
+export const zPromoteUserRequest = z.object({
+  password: zPassword,
+});
+
 export const zUpdateProfileRequest = z.intersection(
   z.unknown(),
   z.object({
     display_name: zDisplayName.optional(),
-    username: z
-      .string()
-      .min(3)
-      .max(32)
-      .regex(/^[a-z0-9_-]+$/)
-      .optional(),
+    username: zUsername.optional(),
     email: z.email().optional(),
   }),
 );
@@ -104,17 +103,13 @@ export const zDevice = z.object({
   description: z.string().max(200).nullish(),
   icon: z.string().max(80).nullish(),
   api_key_prefix: z.string().nullish(),
-  address_count: z.int().gte(0).readonly().optional(),
+  live_address_count: z.int().gte(0).readonly().optional(),
   last_seen_at: z.iso
     .datetime({ offset: true, local: true })
     .readonly()
     .nullish(),
   owner_id: zId,
   owner_name: z.string().readonly().optional(),
-});
-
-export const zCreateDeviceResponse = z.object({
-  device: zDevice,
 });
 
 export const zDeviceTypeItem = z.object({
@@ -124,6 +119,46 @@ export const zDeviceTypeItem = z.object({
 
 export const zDeviceHeartbeatByApiKeyRequest = z.object({
   ip: zIpAddress.optional(),
+});
+
+export const zDeviceApiKeyResponse = z.object({
+  device: zDevice,
+  api_key: z.string(),
+});
+
+/**
+ * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+ *
+ */
+export const zDeviceState = z.enum([
+  "healthy",
+  "stale",
+  "pending-claim",
+  "expired-claim",
+]);
+
+export const zDeviceRuleSummary = z.object({
+  type: z.enum(["auto_expiry", "max_active"]),
+  enabled: z.boolean(),
+  ttl_seconds: z.int().nullish(),
+  limit: z.int().nullish(),
+});
+
+export const zDevicePairingSummary = z.object({
+  expires_at: z.iso.datetime({ offset: true, local: true }),
+});
+
+export const zDeviceListEntry = z.object({
+  id: zId,
+  name: z.string(),
+  icon: z.string().nullish(),
+  api_key_prefix: z.string().nullish(),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  last_seen_at: z.iso.datetime({ offset: true, local: true }).nullish(),
+  state: zDeviceState,
+  live_address_count: z.int().gte(0),
+  rules: z.array(zDeviceRuleSummary),
+  pairing: zDevicePairingSummary.nullish(),
 });
 
 export const zAddAddressRequest = z.object({
@@ -164,7 +199,7 @@ export const zAddress = z.object({
 export const zAddressHistoryEvent = z.object({
   id: zId,
   timestamp: z.iso.datetime({ offset: true, local: true }),
-  ip: z.string(),
+  ip: zIpAddress,
   is_enabled: z.boolean(),
   source: zAddressEventSource,
   device_id: zId,
@@ -191,7 +226,7 @@ export const zAccessLogRow = z.object({
   id: zId,
   client_ip: zIpAddress,
   outcome: z.boolean(),
-  deny_reason: z.string().optional(),
+  deny_reason: z.string().nullish(),
   device_id: zId.optional(),
   device_name: z.string().optional(),
   address_id: zId.optional(),
@@ -260,7 +295,7 @@ export const zDashboardStats = z.object({
     .max(BigInt("9223372036854775807"), {
       error: "Invalid value: Expected int64 to be <= 9223372036854775807",
     }),
-  allowed_count: z.coerce
+  allow_count: z.coerce
     .bigint()
     .min(BigInt("-9223372036854775808"), {
       error: "Invalid value: Expected int64 to be >= -9223372036854775808",
@@ -268,7 +303,7 @@ export const zDashboardStats = z.object({
     .max(BigInt("9223372036854775807"), {
       error: "Invalid value: Expected int64 to be <= 9223372036854775807",
     }),
-  denied_count: z.coerce
+  deny_count: z.coerce
     .bigint()
     .min(BigInt("-9223372036854775808"), {
       error: "Invalid value: Expected int64 to be >= -9223372036854775808",
@@ -343,7 +378,7 @@ export const zDashboardServicesResponse = z.object({
 });
 
 export const zDashboardTopDeniedIp = z.object({
-  ip: z.string(),
+  ip: zIpAddress,
   count: z.coerce
     .bigint()
     .min(BigInt("-9223372036854775808"), {
@@ -411,8 +446,69 @@ export const zCreateNetworkPolicyRequest = z.object({
 export const zModifyNetworkPolicyRequest = z.object({
   name: z.string().min(1).max(100),
   cidr: z.string(),
-  description: z.string().max(500),
+  description: z.string().max(500).nullable(),
   enabled: z.boolean(),
+});
+
+export const zPolicyIpDevice = z.object({
+  device_id: zId,
+  device_name: z.string(),
+});
+
+export const zPolicyUserIpSharedUser = z.object({
+  user_id: zId,
+  username: z.string(),
+  user_name: z.string(),
+  devices: z.array(zPolicyIpDevice),
+});
+
+export const zPolicyUserAddress = z.object({
+  address_id: zId,
+  device_id: zId,
+  device_name: z.string(),
+  updated_at: z.iso.datetime({ offset: true, local: true }),
+});
+
+export const zPolicyUserIp = z.object({
+  ip: zIpAddress,
+  shared_with_users: z.array(zPolicyUserIpSharedUser),
+  bypass_at_ip: z.boolean(),
+  effective_hosts: z.array(z.string()),
+  trimmed_hosts: z.array(z.string()),
+  addresses: z.array(zPolicyUserAddress),
+});
+
+export const zPolicyUserEntry = z.object({
+  user_id: zId,
+  display_name: z.string(),
+  is_admin: z.boolean(),
+  bypass_allowlist: z.boolean(),
+  on_shared_ip: z.boolean(),
+  intersection_applied: z.boolean(),
+  device_count: z.int(),
+  ip_count: z.int(),
+  allowed_host_count: z.int(),
+  last_seen_at: z.iso.datetime({ offset: true, local: true }).nullish(),
+  user_allowed_hosts: z.array(z.string()),
+  ips: z.array(zPolicyUserIp),
+});
+
+/**
+ * Reason for denial.
+ */
+export const zPolicySimulateDenyReason = z.enum([
+  "ip_not_registered",
+  "host_not_allowed",
+]);
+
+export const zPolicySimulateResult = z.object({
+  ip: zIpAddress,
+  host: z.string(),
+  allowed: z.boolean(),
+  deny_reason: zPolicySimulateDenyReason.nullish(),
+  match_source: z.enum(["device", "network_policy"]).optional(),
+  network_policy_id: zId.nullish(),
+  network_policy_name: z.string().nullish(),
 });
 
 export const zPolicyNetworkPolicyEntry = z.object({
@@ -423,6 +519,18 @@ export const zPolicyNetworkPolicyEntry = z.object({
   bypass_host_check: z.boolean(),
   effective_host_count: z.int(),
   total_host_count: z.int(),
+});
+
+export const zPolicyUserMapAudit = z.object({
+  refreshed_at: z.iso.datetime({ offset: true, local: true }),
+  refresh_duration_ms: z.int(),
+  total_ip_count: z.int(),
+  total_device_count: z.int(),
+  total_host_count: z.int(),
+  shared_ip_count: z.int(),
+  users: z.array(zPolicyUserEntry),
+  total_network_policy_count: z.int(),
+  network_policies: z.array(zPolicyNetworkPolicyEntry),
 });
 
 /**
@@ -457,6 +565,90 @@ export const zGroupSummary = z.object({
   icon: z.string(),
 });
 
+export const zDeviceListOwner = z.object({
+  id: zId,
+  username: z.string(),
+  display_name: z.string(),
+  role: zUserRole,
+  bypass_host_check: z.boolean(),
+  host_groups: z.array(zGroupSummary),
+  device_count: z.int().gte(0),
+  live_address_count: z.int().gte(0),
+});
+
+export const zDeviceOwnerGroup = z.object({
+  owner: zDeviceListOwner,
+  devices: z.array(zDeviceListEntry),
+});
+
+/**
+ * Minimal host reference embedded in group responses.
+ */
+export const zHostSummary = z.object({
+  id: zId,
+  fqdn: z.string(),
+});
+
+/**
+ * Minimal user reference embedded in group responses.
+ */
+export const zUserSummary = z.object({
+  id: zId,
+  username: z.string(),
+  display_name: z.string(),
+});
+
+/**
+ * Minimal network policy reference embedded in group responses.
+ */
+export const zNetworkPolicyRef = z.object({
+  id: zId,
+  name: z.string(),
+  cidr: z.string(),
+});
+
+/**
+ * Full group representation returned by GET.
+ */
+export const zGroupDetail = z.object({
+  id: zId,
+  name: z.string(),
+  icon: z.string(),
+  color: z.string(),
+  description: z.string().nullish(),
+  hosts: z.array(zHostSummary),
+  network_policies: z.array(zNetworkPolicyRef),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  updated_at: z.iso.datetime({ offset: true, local: true }),
+});
+
+export const zGroupDetailWithUsers = zGroupDetail.and(
+  z.object({
+    users: z.array(zUserSummary).optional(),
+  }),
+);
+
+export const zSubjectGroupDetail = zGroupDetail.and(
+  z.object({
+    granted: z.boolean(),
+  }),
+);
+
+/**
+ * Full network policy detail including group assignments.
+ */
+export const zNetworkPolicyDetail = z.object({
+  id: zId,
+  name: z.string(),
+  cidr: z.string(),
+  description: z.string().nullish(),
+  enabled: z.boolean(),
+  groups: z.array(zSubjectGroupDetail),
+  bypass_host_check: z.boolean(),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  updated_at: z.iso.datetime({ offset: true, local: true }),
+});
+
 /**
  * Group write payload for reconcile. Omit id (or set null) to create; include id to update.
  * The hosts array defines the complete desired membership after the call.
@@ -469,6 +661,10 @@ export const zGroupWrite = z.object({
   color: z.string(),
   description: z.string().nullish(),
   host_ids: z.array(zId).optional(),
+});
+
+export const zGroupListResponse = z.object({
+  groups: z.array(zGroupDetailWithUsers),
 });
 
 /**
@@ -551,7 +747,7 @@ export const zDeviceListItem = z.object({
   id: zId,
   name: z.string(),
   icon: z.string().nullish(),
-  live_ip_count: z.int().gte(0),
+  live_address_count: z.int().gte(0),
   api_key_prefix: z.string().nullish(),
 });
 
@@ -566,128 +762,8 @@ export const zUserListItem = z.object({
   groups: z.array(zGroupRef),
   host_count: z.int().gte(0),
   device_count: z.int().gte(0),
-  live_ip_count: z.int().gte(0),
-  bypass_host_check: z.boolean(),
-});
-
-export const zPromoteUserRequest = z.object({
-  password: zPassword,
-});
-
-export const zHostGroupSummary = z.object({
-  id: zId,
-  name: z.string(),
-  color: z.string(),
-  icon: z.string(),
-});
-
-export const zDeviceListOwner = z.object({
-  id: zId,
-  username: z.string(),
-  display_name: z.string(),
-  role: zUserRole,
-  bypass_hosts_check: z.boolean(),
-  host_groups: z.array(zHostGroupSummary),
-  device_count: z.int().gte(0),
   live_address_count: z.int().gte(0),
-});
-
-/**
- * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
- *
- */
-export const zDeviceState = z.enum([
-  "healthy",
-  "stale",
-  "pending-claim",
-  "expired-claim",
-]);
-
-export const zDeviceRuleSummary = z.object({
-  type: z.enum(["auto_expiry", "max_active"]),
-  enabled: z.boolean(),
-  ttl_seconds: z.int().nullish(),
-  limit: z.int().nullish(),
-});
-
-export const zDevicePairingSummary = z.object({
-  expires_at: z.iso.datetime({ offset: true, local: true }),
-});
-
-export const zDeviceListEntry = z.object({
-  id: zId,
-  name: z.string(),
-  icon: z.string().nullish(),
-  key_prefix: z.string().nullish(),
-  created_at: z.iso.datetime({ offset: true, local: true }),
-  last_seen_at: z.iso.datetime({ offset: true, local: true }).nullish(),
-  state: zDeviceState,
-  live_address_count: z.int().gte(0),
-  rules: z.array(zDeviceRuleSummary),
-  pairing: zDevicePairingSummary.nullish(),
-});
-
-export const zDeviceOwnerGroup = z.object({
-  owner: zDeviceListOwner,
-  devices: z.array(zDeviceListEntry),
-});
-
-export const zDeviceApiKeyResponse = z.object({
-  device: zDevice,
-  api_key: z.string(),
-});
-
-/**
- * Minimal host reference embedded in group responses.
- */
-export const zHostSummary = z.object({
-  id: zId,
-  fqdn: z.string(),
-});
-
-/**
- * Minimal network policy reference embedded in group responses.
- */
-export const zNetworkPolicyRef = z.object({
-  id: zId,
-  name: z.string(),
-  cidr: z.string(),
-});
-
-/**
- * Full group representation returned by GET.
- */
-export const zGroupDetail = z.object({
-  id: zId,
-  name: z.string(),
-  icon: z.string(),
-  color: z.string(),
-  description: z.string().nullish(),
-  hosts: z.array(zHostSummary),
-  network_policies: z.array(zNetworkPolicyRef),
-  created_at: z.iso.datetime({ offset: true, local: true }),
-  updated_at: z.iso.datetime({ offset: true, local: true }),
-});
-
-export const zSubjectGroupDetail = zGroupDetail.and(
-  z.object({
-    granted: z.boolean(),
-  }),
-);
-
-/**
- * Full network policy detail including group assignments.
- */
-export const zNetworkPolicyDetail = z.object({
-  id: zId,
-  name: z.string(),
-  cidr: z.string(),
-  description: z.string().nullish(),
-  enabled: z.boolean(),
-  groups: z.array(zSubjectGroupDetail),
   bypass_host_check: z.boolean(),
-  created_at: z.iso.datetime({ offset: true, local: true }),
-  updated_at: z.iso.datetime({ offset: true, local: true }),
 });
 
 /**
@@ -702,98 +778,6 @@ export const zUserAccessDetail = z.object({
   devices: z.array(zDeviceListItem),
   groups: z.array(zSubjectGroupDetail),
   bypass_host_check: z.boolean(),
-});
-
-/**
- * Minimal user reference embedded in group responses.
- */
-export const zUserSummary = z.object({
-  id: zId,
-  username: z.string(),
-  display_name: z.string(),
-});
-
-export const zGroupDetailWithUsers = zGroupDetail.and(
-  z.object({
-    users: z.array(zUserSummary).optional(),
-  }),
-);
-
-export const zGroupListResponse = z.object({
-  groups: z.array(zGroupDetailWithUsers),
-});
-
-export const zPolicyIpDevice = z.object({
-  device_id: zId,
-  device_name: z.string(),
-});
-
-export const zPolicyUserIpSharedUser = z.object({
-  user_id: zId,
-  username: z.string(),
-  user_name: z.string(),
-  devices: z.array(zPolicyIpDevice),
-});
-
-export const zPolicyUserAddress = z.object({
-  address_id: zId,
-  device_id: zId,
-  device_name: z.string(),
-  updated_at: z.iso.datetime({ offset: true, local: true }),
-});
-
-export const zPolicyUserIp = z.object({
-  ip: z.string(),
-  shared_with_users: z.array(zPolicyUserIpSharedUser),
-  bypass_at_ip: z.boolean(),
-  effective_hosts: z.array(z.string()),
-  trimmed_hosts: z.array(z.string()),
-  addresses: z.array(zPolicyUserAddress),
-});
-
-export const zPolicyUserEntry = z.object({
-  user_id: zId,
-  user_name: z.string(),
-  is_admin: z.boolean(),
-  bypass_allowlist: z.boolean(),
-  on_shared_ip: z.boolean(),
-  intersection_applied: z.boolean(),
-  device_count: z.int(),
-  ip_count: z.int(),
-  allowed_host_count: z.int(),
-  last_seen_at: z.iso.datetime({ offset: true, local: true }).nullish(),
-  user_allowed_hosts: z.array(z.string()),
-  ips: z.array(zPolicyUserIp),
-});
-
-export const zPolicyUserMapAudit = z.object({
-  refreshed_at: z.iso.datetime({ offset: true, local: true }),
-  refresh_duration_ms: z.int(),
-  total_ip_count: z.int(),
-  total_device_count: z.int(),
-  total_host_count: z.int(),
-  shared_ip_count: z.int(),
-  users: z.array(zPolicyUserEntry),
-  total_network_policy_count: z.int(),
-  network_policies: z.array(zPolicyNetworkPolicyEntry),
-});
-
-/**
- * Reason for denial.
- */
-export const zPolicySimulateDenyReason = z.enum([
-  "ip_not_registered",
-  "host_not_allowed",
-]);
-
-export const zPolicySimulateResult = z.object({
-  ip: z.string(),
-  host: z.string(),
-  allowed: z.boolean(),
-  deny_reason: zPolicySimulateDenyReason.nullish(),
-  match_source: z.enum(["device", "network_policy"]).optional(),
-  network_policy_id: zId.nullish(),
-  network_policy_name: z.string().nullish(),
 });
 
 export const zUserWritable = z.object({
@@ -816,8 +800,9 @@ export const zDeviceWritable = z.object({
   api_key_prefix: z.string().nullish(),
 });
 
-export const zCreateDeviceResponseWritable = z.object({
+export const zDeviceApiKeyResponseWritable = z.object({
   device: zDeviceWritable,
+  api_key: z.string(),
 });
 
 export const zAddressWritable = z.object({
@@ -828,11 +813,6 @@ export const zAddressWritable = z.object({
   source: zAddressEventSource,
   created_at: z.iso.datetime({ offset: true, local: true }),
   updated_at: z.iso.datetime({ offset: true, local: true }),
-});
-
-export const zDeviceApiKeyResponseWritable = z.object({
-  device: zDeviceWritable,
-  api_key: z.string(),
 });
 
 /**
@@ -920,7 +900,7 @@ export const zCreateDeviceBody = zCreateDeviceRequest;
 /**
  * Created
  */
-export const zCreateDeviceResponse2 = zCreateDeviceResponse;
+export const zCreateDeviceResponse = zDevice;
 
 export const zDeleteDevicePath = z.object({
   device_id: zId,
@@ -1313,7 +1293,7 @@ export const zCreateNetworkPolicyBody = zCreateNetworkPolicyRequest;
 export const zCreateNetworkPolicyResponse = zNetworkPolicyDetail;
 
 export const zDeleteNetworkPolicyPath = z.object({
-  id: zId,
+  policy_id: zId,
 });
 
 /**
@@ -1322,7 +1302,7 @@ export const zDeleteNetworkPolicyPath = z.object({
 export const zDeleteNetworkPolicyResponse = z.void();
 
 export const zGetNetworkPolicyPath = z.object({
-  id: zId,
+  policy_id: zId,
 });
 
 /**
@@ -1333,7 +1313,7 @@ export const zGetNetworkPolicyResponse = zNetworkPolicyDetail;
 export const zUpdateNetworkPolicyBody = zModifyNetworkPolicyRequest;
 
 export const zUpdateNetworkPolicyPath = z.object({
-  id: zId,
+  policy_id: zId,
 });
 
 /**
@@ -1344,7 +1324,7 @@ export const zUpdateNetworkPolicyResponse = z.void();
 export const zUpdateNetworkPolicyAccessBody = zModifyAccessRequest;
 
 export const zUpdateNetworkPolicyAccessPath = z.object({
-  id: zId,
+  policy_id: zId,
 });
 
 /**

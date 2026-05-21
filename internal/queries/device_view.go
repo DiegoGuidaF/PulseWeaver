@@ -113,7 +113,7 @@ func (r *Repository) GetDeviceList(ctx context.Context) ([]httpapi.DeviceOwnerGr
 		Color  string     `db:"group_color"`
 		Icon   string     `db:"group_icon"`
 	}
-	groupsByOwner := make(map[ids.UserID][]httpapi.HostGroupSummary, len(ownerOrder))
+	groupsByOwner := make(map[ids.UserID][]httpapi.GroupSummary, len(ownerOrder))
 
 	hgQuery, hgArgs, err := sqlx.In(`
 		SELECT
@@ -137,7 +137,7 @@ func (r *Repository) GetDeviceList(ctx context.Context) ([]httpapi.DeviceOwnerGr
 		return nil, fmt.Errorf("get owner host groups: %w", err)
 	}
 	for _, hg := range hgRows {
-		groupsByOwner[hg.UserID] = append(groupsByOwner[hg.UserID], httpapi.HostGroupSummary{
+		groupsByOwner[hg.UserID] = append(groupsByOwner[hg.UserID], httpapi.GroupSummary{
 			Id:    hg.ID,
 			Name:  hg.Name,
 			Color: hg.Color,
@@ -160,7 +160,7 @@ func (r *Repository) GetDeviceList(ctx context.Context) ([]httpapi.DeviceOwnerGr
 			Id:               row.DeviceID.Int64(),
 			Name:             row.DeviceName,
 			Icon:             row.DeviceIcon,
-			KeyPrefix:        row.KeyPrefix,
+			ApiKeyPrefix:     row.KeyPrefix,
 			CreatedAt:        httpapi.UTCTime(row.DeviceCreatedAt),
 			LiveAddressCount: row.LiveAddressCount,
 			State:            deviceListState(row.LiveAddressCount),
@@ -180,7 +180,7 @@ func (r *Repository) GetDeviceList(ctx context.Context) ([]httpapi.DeviceOwnerGr
 		a := acc[ownerID]
 		hgs := groupsByOwner[ownerID]
 		if hgs == nil {
-			hgs = []httpapi.HostGroupSummary{}
+			hgs = []httpapi.GroupSummary{}
 		}
 		groups = append(groups, httpapi.DeviceOwnerGroup{
 			Owner: httpapi.DeviceListOwner{
@@ -188,7 +188,7 @@ func (r *Repository) GetDeviceList(ctx context.Context) ([]httpapi.DeviceOwnerGr
 				Username:         a.meta.OwnerUsername,
 				DisplayName:      a.meta.OwnerDisplayName,
 				Role:             httpapi.UserRole(a.meta.OwnerRole),
-				BypassHostsCheck: a.meta.OwnerBypassHostCheck,
+				BypassHostCheck:  a.meta.OwnerBypassHostCheck,
 				HostGroups:       hgs,
 				DeviceCount:      len(a.devices),
 				LiveAddressCount: a.liveSum,

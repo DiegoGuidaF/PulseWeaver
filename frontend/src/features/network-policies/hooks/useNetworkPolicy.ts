@@ -3,7 +3,7 @@ import { getNetworkPolicyOptions } from "@/lib/api/@tanstack/react-query.gen";
 
 export function useNetworkPolicy(id: number) {
     return useQuery({
-        ...getNetworkPolicyOptions({ path: { id } }),
+        ...getNetworkPolicyOptions({ path: { policy_id: id } }),
         enabled: !isNaN(id),
     });
 }

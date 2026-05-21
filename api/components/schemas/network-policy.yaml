@@ -90,6 +90,7 @@ ModifyNetworkPolicyRequest:
       type: string
     description:
       type: string
+      nullable: true
       maxLength: 500
     enabled:
       type: boolean

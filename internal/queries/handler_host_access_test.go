@@ -291,17 +291,17 @@ func TestHandler_ListUsersWithAccess_HappyPath(t *testing.T) {
 	alice := findUserRow(rows, seed.User(testutils.FixtureUserWithAccess.Name).Int64())
 	is.True(alice != nil)
 	is.Equal(alice.BypassHostCheck, false)
-	is.Equal(alice.HostCount, 4)   // FixtureGroupBackend(2) + FixtureGroupFrontend(2)
-	is.Equal(alice.DeviceCount, 1) // FixtureDeviceWithOwnerAccess
-	is.Equal(alice.LiveIpCount, 1) // FixtureAddressAlice
-	is.Equal(len(alice.Groups), 2) // FixtureGroupBackend + FixtureGroupFrontend
+	is.Equal(alice.HostCount, 4)        // FixtureGroupBackend(2) + FixtureGroupFrontend(2)
+	is.Equal(alice.DeviceCount, 1)      // FixtureDeviceWithOwnerAccess
+	is.Equal(alice.LiveAddressCount, 1) // FixtureAddressAlice
+	is.Equal(len(alice.Groups), 2)      // FixtureGroupBackend + FixtureGroupFrontend
 
 	bob := findUserRow(rows, seed.User(testutils.FixtureUserNoAccess.Name).Int64())
 	is.True(bob != nil)
 	is.Equal(bob.BypassHostCheck, false)
 	is.Equal(bob.HostCount, 0)
-	is.Equal(bob.DeviceCount, 1) // FixtureDeviceWithoutOwnerAccess
-	is.Equal(bob.LiveIpCount, 1) // FixtureAddressBob
+	is.Equal(bob.DeviceCount, 1)      // FixtureDeviceWithoutOwnerAccess
+	is.Equal(bob.LiveAddressCount, 1) // FixtureAddressBob
 	is.Equal(len(bob.Groups), 0)
 
 	charlie := findUserRow(rows, seed.User(testutils.FixtureUserBypassAccess.Name).Int64())

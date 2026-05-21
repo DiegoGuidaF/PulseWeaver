@@ -204,7 +204,7 @@ func TestHandler_GetDevices_GroupsDevicesByOwner(t *testing.T) {
 	// ── alice ───────────────────────────────────────────────────────────────────
 	alice := findOwnerGroup(groups, testutils.FixtureUserWithAccess.Name)
 	is.True(alice != nil)
-	is.Equal(alice.Owner.BypassHostsCheck, false)
+	is.Equal(alice.Owner.BypassHostCheck, false)
 	is.Equal(len(alice.Owner.HostGroups), 2) // backend + frontend
 	is.Equal(alice.Owner.DeviceCount, 1)
 	is.Equal(alice.Owner.LiveAddressCount, 1) // FixtureAddressAlice
@@ -231,7 +231,7 @@ func TestHandler_GetDevices_GroupsDevicesByOwner(t *testing.T) {
 	// ── bob ─────────────────────────────────────────────────────────────────────
 	bob := findOwnerGroup(groups, testutils.FixtureUserNoAccess.Name)
 	is.True(bob != nil)
-	is.Equal(bob.Owner.BypassHostsCheck, false)
+	is.Equal(bob.Owner.BypassHostCheck, false)
 	is.Equal(len(bob.Owner.HostGroups), 0) // no groups assigned
 	is.Equal(bob.Owner.DeviceCount, 1)
 	is.Equal(bob.Owner.LiveAddressCount, 1) // FixtureAddressBob
@@ -245,7 +245,7 @@ func TestHandler_GetDevices_GroupsDevicesByOwner(t *testing.T) {
 	// ── charlie ──────────────────────────────────────────────────────────────────
 	charlie := findOwnerGroup(groups, testutils.FixtureUserBypassAccess.Name)
 	is.True(charlie != nil)
-	is.Equal(charlie.Owner.BypassHostsCheck, true)
+	is.Equal(charlie.Owner.BypassHostCheck, true)
 	// host groups are still returned even for bypass users; frontend decides rendering
 	is.Equal(len(charlie.Owner.HostGroups), 1) // backend
 	is.Equal(charlie.Owner.DeviceCount, 1)

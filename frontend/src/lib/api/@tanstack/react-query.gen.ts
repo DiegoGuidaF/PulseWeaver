@@ -81,7 +81,7 @@ import type {
   ClaimRegistrationResponse2,
   CreateDeviceData,
   CreateDeviceError,
-  CreateDeviceResponse2,
+  CreateDeviceResponse,
   CreateNetworkPolicyData,
   CreateNetworkPolicyError,
   CreateNetworkPolicyResponse,
@@ -600,12 +600,12 @@ export const getDevicesOptions = (options?: Options<GetDevicesData>) =>
 export const createDeviceMutation = (
   options?: Partial<Options<CreateDeviceData>>,
 ): UseMutationOptions<
-  CreateDeviceResponse2,
+  CreateDeviceResponse,
   CreateDeviceError,
   Options<CreateDeviceData>
 > => {
   const mutationOptions: UseMutationOptions<
-    CreateDeviceResponse2,
+    CreateDeviceResponse,
     CreateDeviceError,
     Options<CreateDeviceData>
   > = {

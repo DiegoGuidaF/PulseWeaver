@@ -101,7 +101,7 @@ export function UserDeviceWorkspacePage() {
     if (!selectedDevice || !group) return undefined;
     return {
       name: selectedDevice.name,
-      api_key_prefix: selectedDevice.key_prefix ?? null,
+      api_key_prefix: selectedDevice.api_key_prefix ?? null,
       device_type: "static",
       description: null,
       icon: selectedDevice.icon ?? null,
@@ -216,10 +216,10 @@ export function UserDeviceWorkspacePage() {
                   <Text size="xs" c="dimmed">seen {dayjs(selectedDevice.last_seen_at).fromNow()}</Text>
                 </>
               )}
-              {selectedDevice.key_prefix && (
+              {selectedDevice.api_key_prefix && (
                 <>
                   <Text size="xs" c="dimmed">·</Text>
-                  <Text size="xs" c="dimmed" ff="monospace">{selectedDevice.key_prefix}…</Text>
+                  <Text size="xs" c="dimmed" ff="monospace">{selectedDevice.api_key_prefix}…</Text>
                 </>
               )}
               {selectedDevice.created_at && (

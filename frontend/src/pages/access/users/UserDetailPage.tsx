@@ -239,7 +239,7 @@ export function UserDetailPage() {
                         onClick={() => navigate(`/user-devices/${data.id}?device=${device.id}`)}
                       >
                         <Table.Td fw={500}>{device.name}</Table.Td>
-                        <Table.Td c="dimmed">{device.live_ip_count}</Table.Td>
+                        <Table.Td c="dimmed">{device.live_address_count}</Table.Td>
                         <Table.Td>
                           {device.api_key_prefix ? (
                             <Badge size="xs" variant="light" color="orange" ff="monospace">

@@ -109,10 +109,7 @@ UpdateProfileRequest:
     display_name:
       $ref: '#/DisplayName'
     username:
-      type: string
-      minLength: 3
-      maxLength: 32
-      pattern: '^[a-z0-9_-]+$'
+      $ref: '#/Username'
     email:
       type: string
       format: email
@@ -134,7 +131,7 @@ ChangePasswordRequest:
 
 DeviceListItem:
   type: object
-  required: [id, name, live_ip_count]
+  required: [id, name, live_address_count]
   description: Device summary shown on user access detail.
   properties:
     id:
@@ -145,7 +142,7 @@ DeviceListItem:
     icon:
       type: string
       nullable: true
-    live_ip_count:
+    live_address_count:
       type: integer
       minimum: 0
     api_key_prefix:
@@ -156,7 +153,7 @@ DeviceListItem:
 
 UserListItem:
   type: object
-  required: [id, username, display_name, role, groups, host_count, device_count, live_ip_count, bypass_host_check]
+  required: [id, username, display_name, role, groups, host_count, device_count, live_address_count, bypass_host_check]
   description: User summary for the access management list page.
   properties:
     id:
@@ -180,7 +177,7 @@ UserListItem:
     device_count:
       type: integer
       minimum: 0
-    live_ip_count:
+    live_address_count:
       type: integer
       minimum: 0
     bypass_host_check:

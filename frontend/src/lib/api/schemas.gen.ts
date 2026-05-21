@@ -145,6 +145,16 @@ export const CreateUserRequestSchema = {
   },
 } as const;
 
+export const PromoteUserRequestSchema = {
+  type: "object",
+  required: ["password"],
+  properties: {
+    password: {
+      $ref: "#/components/schemas/Password",
+    },
+  },
+} as const;
+
 export const UpdateProfileRequestSchema = {
   type: "object",
   anyOf: [
@@ -163,10 +173,7 @@ export const UpdateProfileRequestSchema = {
       $ref: "#/components/schemas/DisplayName",
     },
     username: {
-      type: "string",
-      minLength: 3,
-      maxLength: 32,
-      pattern: "^[a-z0-9_-]+$",
+      $ref: "#/components/schemas/Username",
     },
     email: {
       type: "string",
@@ -248,16 +255,6 @@ export const UpdateDeviceRequestSchema = {
   },
 } as const;
 
-export const CreateDeviceResponseSchema = {
-  type: "object",
-  required: ["device"],
-  properties: {
-    device: {
-      $ref: "#/components/schemas/Device",
-    },
-  },
-} as const;
-
 export const DeviceSchema = {
   type: "object",
   required: [
@@ -312,7 +309,7 @@ export const DeviceSchema = {
       description:
         "Prefix of the device API key (for display only). Null if no API key has been generated yet.",
     },
-    address_count: {
+    live_address_count: {
       type: "integer",
       minimum: 0,
       readOnly: true,
@@ -358,6 +355,194 @@ export const DeviceHeartbeatByApiKeyRequestSchema = {
   properties: {
     ip: {
       $ref: "#/components/schemas/IPAddress",
+    },
+  },
+} as const;
+
+export const DeviceAPIKeyResponseSchema = {
+  type: "object",
+  required: ["device", "api_key"],
+  properties: {
+    device: {
+      $ref: "#/components/schemas/Device",
+    },
+    api_key: {
+      type: "string",
+      description: "Secret key for the device.",
+    },
+  },
+} as const;
+
+export const DeviceStateSchema = {
+  type: "string",
+  enum: ["healthy", "stale", "pending-claim", "expired-claim"],
+  description:
+    "Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).\n",
+} as const;
+
+export const DeviceRuleSummarySchema = {
+  type: "object",
+  required: ["type", "enabled"],
+  properties: {
+    type: {
+      type: "string",
+      enum: ["auto_expiry", "max_active"],
+    },
+    enabled: {
+      type: "boolean",
+    },
+    ttl_seconds: {
+      type: "integer",
+      nullable: true,
+      description: "TTL in seconds. Present for auto_expiry rules.",
+    },
+    limit: {
+      type: "integer",
+      nullable: true,
+      description:
+        "Maximum allowed live-address count. Present for max_active rules.",
+    },
+  },
+} as const;
+
+export const DevicePairingSummarySchema = {
+  type: "object",
+  required: ["expires_at"],
+  properties: {
+    expires_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      description: "When the pairing code expires.",
+    },
+  },
+} as const;
+
+export const DeviceListEntrySchema = {
+  type: "object",
+  required: [
+    "id",
+    "name",
+    "created_at",
+    "state",
+    "live_address_count",
+    "rules",
+  ],
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    name: {
+      type: "string",
+    },
+    icon: {
+      type: "string",
+      nullable: true,
+      description: "Tabler icon name override.",
+    },
+    api_key_prefix: {
+      type: "string",
+      nullable: true,
+      description: "First characters of the API key (display only).",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      description: "When the device was created.",
+    },
+    last_seen_at: {
+      type: "string",
+      format: "date-time",
+      nullable: true,
+      "x-go-type": "UTCTime",
+      description: "Most recent address heartbeat for this device.",
+    },
+    state: {
+      $ref: "#/components/schemas/DeviceState",
+    },
+    live_address_count: {
+      type: "integer",
+      minimum: 0,
+    },
+    rules: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/DeviceRuleSummary",
+      },
+    },
+    pairing: {
+      nullable: true,
+      allOf: [
+        {
+          $ref: "#/components/schemas/DevicePairingSummary",
+        },
+      ],
+    },
+  },
+} as const;
+
+export const DeviceListOwnerSchema = {
+  type: "object",
+  required: [
+    "id",
+    "username",
+    "display_name",
+    "role",
+    "bypass_host_check",
+    "host_groups",
+    "device_count",
+    "live_address_count",
+  ],
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    username: {
+      type: "string",
+    },
+    display_name: {
+      type: "string",
+    },
+    role: {
+      $ref: "#/components/schemas/UserRole",
+    },
+    bypass_host_check: {
+      type: "boolean",
+    },
+    host_groups: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/GroupSummary",
+      },
+      description:
+        "Host groups the owner belongs to. Always returned; frontend hides them when bypass_host_check is true.",
+    },
+    device_count: {
+      type: "integer",
+      minimum: 0,
+    },
+    live_address_count: {
+      type: "integer",
+      minimum: 0,
+      description:
+        "Aggregate count of live addresses across all owner's devices.",
+    },
+  },
+} as const;
+
+export const DeviceOwnerGroupSchema = {
+  type: "object",
+  required: ["owner", "devices"],
+  properties: {
+    owner: {
+      $ref: "#/components/schemas/DeviceListOwner",
+    },
+    devices: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/DeviceListEntry",
+      },
     },
   },
 } as const;
@@ -509,8 +694,7 @@ export const AddressHistoryEventSchema = {
       "x-go-type": "UTCTime",
     },
     ip: {
-      type: "string",
-      description: "IP address",
+      $ref: "#/components/schemas/IPAddress",
     },
     is_enabled: {
       type: "boolean",
@@ -595,6 +779,7 @@ export const AccessLogRowSchema = {
     },
     deny_reason: {
       type: "string",
+      nullable: true,
     },
     device_id: {
       $ref: "#/components/schemas/ID",
@@ -782,8 +967,8 @@ export const DashboardStatsSchema = {
   type: "object",
   required: [
     "total_requests",
-    "allowed_count",
-    "denied_count",
+    "allow_count",
+    "deny_count",
     "unique_ips",
     "avg_duration_us",
   ],
@@ -792,11 +977,11 @@ export const DashboardStatsSchema = {
       type: "integer",
       format: "int64",
     },
-    allowed_count: {
+    allow_count: {
       type: "integer",
       format: "int64",
     },
-    denied_count: {
+    deny_count: {
       type: "integer",
       format: "int64",
     },
@@ -882,7 +1067,7 @@ export const DashboardTopDeniedIpSchema = {
   required: ["ip", "count"],
   properties: {
     ip: {
-      type: "string",
+      $ref: "#/components/schemas/IPAddress",
     },
     count: {
       type: "integer",
@@ -1208,10 +1393,324 @@ export const ModifyNetworkPolicyRequestSchema = {
     },
     description: {
       type: "string",
+      nullable: true,
       maxLength: 500,
     },
     enabled: {
       type: "boolean",
+    },
+  },
+} as const;
+
+export const PolicyUserMapAuditSchema = {
+  type: "object",
+  required: [
+    "refreshed_at",
+    "refresh_duration_ms",
+    "total_ip_count",
+    "total_device_count",
+    "total_host_count",
+    "shared_ip_count",
+    "users",
+    "total_network_policy_count",
+    "network_policies",
+  ],
+  properties: {
+    refreshed_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      description: "When the cache was last fully refreshed.",
+    },
+    refresh_duration_ms: {
+      type: "integer",
+      description: "How long the last refresh took in milliseconds.",
+    },
+    total_ip_count: {
+      type: "integer",
+      description: "Distinct IPs currently in the policy cache.",
+    },
+    total_device_count: {
+      type: "integer",
+      description:
+        "Total distinct device contributors across all IPs in the cache.",
+    },
+    total_host_count: {
+      type: "integer",
+      description:
+        "Distinct hosts across the union of all users' pre-intersection allowed host lists. Denominator for the allowed_host_count / total_host_count ratio.\n",
+    },
+    shared_ip_count: {
+      type: "integer",
+      description: "Distinct IPs shared between two or more users.",
+    },
+    users: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/PolicyUserEntry",
+      },
+    },
+    total_network_policy_count: {
+      type: "integer",
+      description: "Number of enabled network policies currently in the cache.",
+    },
+    network_policies: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/PolicyNetworkPolicyEntry",
+      },
+      description: "All enabled network policies currently in the cache.\n",
+    },
+  },
+} as const;
+
+export const PolicyUserEntrySchema = {
+  type: "object",
+  required: [
+    "user_id",
+    "display_name",
+    "is_admin",
+    "bypass_allowlist",
+    "on_shared_ip",
+    "intersection_applied",
+    "device_count",
+    "ip_count",
+    "allowed_host_count",
+    "user_allowed_hosts",
+    "ips",
+  ],
+  properties: {
+    user_id: {
+      $ref: "#/components/schemas/ID",
+    },
+    display_name: {
+      type: "string",
+      description: "User display name.",
+    },
+    is_admin: {
+      type: "boolean",
+      description: "True when the user has an admin or superadmin role.",
+    },
+    bypass_allowlist: {
+      type: "boolean",
+      description: "True when this user has the host allowlist bypass enabled.",
+    },
+    on_shared_ip: {
+      type: "boolean",
+      description:
+        "True when at least one of this user's IPs is shared with another user.\n",
+    },
+    intersection_applied: {
+      type: "boolean",
+      description:
+        "True when at least one of this user's IPs had its effective host set reduced by deny-wins intersection with another user at that IP.\n",
+    },
+    device_count: {
+      type: "integer",
+      description:
+        "Distinct devices owned by this user that contribute to the cache. Zero for no-access users.\n",
+    },
+    ip_count: {
+      type: "integer",
+      description:
+        "Distinct IPs this user currently contributes to. Zero for no-access users.\n",
+    },
+    allowed_host_count: {
+      type: "integer",
+      description:
+        'Size of user_allowed_hosts (pre-intersection). Zero when bypass_allowlist is true; the UI should render "All".\n',
+    },
+    last_seen_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      nullable: true,
+      description:
+        "Most recent address.updated_at across this user's addresses. Null when the user has no enabled IPs.\n",
+    },
+    user_allowed_hosts: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      description:
+        "Pre-intersection allowed host list for this user. Empty when bypass_allowlist is true.\n",
+    },
+    ips: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/PolicyUserIP",
+      },
+      description:
+        "IPs this user currently contributes to. Empty for no-access users (never null — empty array, for client ergonomics).\n",
+    },
+  },
+} as const;
+
+export const PolicyIPDeviceSchema = {
+  type: "object",
+  required: ["device_id", "device_name"],
+  properties: {
+    device_id: {
+      $ref: "#/components/schemas/ID",
+    },
+    device_name: {
+      type: "string",
+    },
+  },
+} as const;
+
+export const PolicyUserIPSharedUserSchema = {
+  type: "object",
+  required: ["user_id", "username", "user_name", "devices"],
+  properties: {
+    user_id: {
+      $ref: "#/components/schemas/ID",
+    },
+    username: {
+      type: "string",
+      description: "Login username of the co-located user.",
+    },
+    user_name: {
+      type: "string",
+      description: "Display name of the co-located user.",
+    },
+    devices: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/PolicyIPDevice",
+      },
+      description: "Devices this user has at this IP.",
+    },
+  },
+} as const;
+
+export const PolicyUserIPSchema = {
+  type: "object",
+  required: [
+    "ip",
+    "shared_with_users",
+    "bypass_at_ip",
+    "effective_hosts",
+    "trimmed_hosts",
+    "addresses",
+  ],
+  properties: {
+    ip: {
+      $ref: "#/components/schemas/IPAddress",
+    },
+    shared_with_users: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/PolicyUserIPSharedUser",
+      },
+      description:
+        "Other users (excluding self) that also contribute to this IP. Empty means this user is the sole owner of the IP.\n",
+    },
+    bypass_at_ip: {
+      type: "boolean",
+      description:
+        'True when the IP entry as a whole bypasses the host allowlist (every contributor at this IP has bypass set). When true, effective_hosts is empty and means "All".\n',
+    },
+    effective_hosts: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      description:
+        "Hosts actually allowed for THIS user at THIS IP after deny-wins intersection. Equals user_allowed_hosts when the user is the sole contributor; intersected with other restricted contributors otherwise. Empty when bypass_at_ip is true.\n",
+    },
+    trimmed_hosts: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      description:
+        "Hosts the user had pre-intersection that were removed by intersection at this IP. Empty when no trimming occurred. Always empty when the user has bypass_allowlist true (their grants are not subject to intersection).\n",
+    },
+    addresses: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/PolicyUserAddress",
+      },
+      description:
+        "The user's own addresses sitting at this IP. Multiple entries when the same user has several devices behind the same NAT.\n",
+    },
+  },
+} as const;
+
+export const PolicyUserAddressSchema = {
+  type: "object",
+  required: ["address_id", "device_id", "device_name", "updated_at"],
+  properties: {
+    address_id: {
+      $ref: "#/components/schemas/ID",
+    },
+    device_id: {
+      $ref: "#/components/schemas/ID",
+    },
+    device_name: {
+      type: "string",
+    },
+    updated_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      description: "Last heartbeat or manual update time for this address.",
+    },
+  },
+} as const;
+
+export const PolicySimulateDenyReasonSchema = {
+  type: "string",
+  enum: ["ip_not_registered", "host_not_allowed"],
+  description: "Reason for denial.",
+} as const;
+
+export const PolicySimulateResultSchema = {
+  type: "object",
+  required: ["ip", "host", "allowed"],
+  properties: {
+    ip: {
+      $ref: "#/components/schemas/IPAddress",
+    },
+    host: {
+      type: "string",
+    },
+    allowed: {
+      type: "boolean",
+    },
+    deny_reason: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/PolicySimulateDenyReason",
+        },
+      ],
+      nullable: true,
+      description: "Reason for denial; null when allowed is true.",
+    },
+    match_source: {
+      type: "string",
+      enum: ["device", "network_policy"],
+      nullable: true,
+      description:
+        "Which mechanism authorized the request. Null when allowed is false.\n",
+    },
+    network_policy_id: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/ID",
+        },
+      ],
+      nullable: true,
+      description:
+        "ID of the matching policy when match_source is 'network_policy'.",
+    },
+    network_policy_name: {
+      type: "string",
+      nullable: true,
+      description:
+        "Name of the matching policy when match_source is 'network_policy'.",
     },
   },
 } as const;
@@ -1293,6 +1792,59 @@ export const GroupSummarySchema = {
   },
 } as const;
 
+export const HostSummarySchema = {
+  type: "object",
+  required: ["id", "fqdn"],
+  description: "Minimal host reference embedded in group responses.",
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    fqdn: {
+      type: "string",
+      example: "immich.home.org",
+    },
+  },
+} as const;
+
+export const UserSummarySchema = {
+  type: "object",
+  required: ["id", "username", "display_name"],
+  description: "Minimal user reference embedded in group responses.",
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    username: {
+      type: "string",
+      example: "maya.patel",
+    },
+    display_name: {
+      type: "string",
+      example: "Maya Patel",
+    },
+  },
+} as const;
+
+export const NetworkPolicyRefSchema = {
+  type: "object",
+  required: ["id", "name", "cidr"],
+  description: "Minimal network policy reference embedded in group responses.",
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    name: {
+      type: "string",
+      example: "Home LAN",
+    },
+    cidr: {
+      type: "string",
+      example: "192.168.1.0/24",
+    },
+  },
+} as const;
+
 export const GroupDetailSchema = {
   type: "object",
   required: [
@@ -1354,6 +1906,27 @@ export const GroupDetailSchema = {
       description: "Last time the device profile was modified.",
     },
   },
+} as const;
+
+export const GroupDetailWithUsersSchema = {
+  allOf: [
+    {
+      $ref: "#/components/schemas/GroupDetail",
+    },
+    {
+      type: "object",
+      properties: {
+        users: {
+          type: "array",
+          description:
+            "Users with access to this group (read-only, managed via subjects).",
+          items: {
+            $ref: "#/components/schemas/UserSummary",
+          },
+        },
+      },
+    },
+  ],
 } as const;
 
 export const SubjectGroupDetailSchema = {
@@ -1623,7 +2196,7 @@ export const HostSuggestionsPageSchema = {
 
 export const DeviceListItemSchema = {
   type: "object",
-  required: ["id", "name", "live_ip_count"],
+  required: ["id", "name", "live_address_count"],
   description: "Device summary shown on user access detail.",
   properties: {
     id: {
@@ -1637,7 +2210,7 @@ export const DeviceListItemSchema = {
       type: "string",
       nullable: true,
     },
-    live_ip_count: {
+    live_address_count: {
       type: "integer",
       minimum: 0,
     },
@@ -1661,7 +2234,7 @@ export const UserListItemSchema = {
     "groups",
     "host_count",
     "device_count",
-    "live_ip_count",
+    "live_address_count",
     "bypass_host_check",
   ],
   description: "User summary for the access management list page.",
@@ -1695,7 +2268,7 @@ export const UserListItemSchema = {
       type: "integer",
       minimum: 0,
     },
-    live_ip_count: {
+    live_address_count: {
       type: "integer",
       minimum: 0,
     },
@@ -1757,613 +2330,6 @@ export const UserAccessDetailSchema = {
   },
 } as const;
 
-export const PromoteUserRequestSchema = {
-  type: "object",
-  required: ["password"],
-  properties: {
-    password: {
-      $ref: "#/components/schemas/Password",
-    },
-  },
-} as const;
-
-export const HostGroupSummarySchema = {
-  type: "object",
-  required: ["id", "name", "color", "icon"],
-  properties: {
-    id: {
-      $ref: "#/components/schemas/ID",
-    },
-    name: {
-      type: "string",
-    },
-    color: {
-      type: "string",
-      description: 'Hex color string (e.g. "#4C6EF5").',
-    },
-    icon: {
-      type: "string",
-      description: "Tabler icon name.",
-    },
-  },
-} as const;
-
-export const DeviceListOwnerSchema = {
-  type: "object",
-  required: [
-    "id",
-    "username",
-    "display_name",
-    "role",
-    "bypass_hosts_check",
-    "host_groups",
-    "device_count",
-    "live_address_count",
-  ],
-  properties: {
-    id: {
-      $ref: "#/components/schemas/ID",
-    },
-    username: {
-      type: "string",
-    },
-    display_name: {
-      type: "string",
-    },
-    role: {
-      $ref: "#/components/schemas/UserRole",
-    },
-    bypass_hosts_check: {
-      type: "boolean",
-    },
-    host_groups: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/HostGroupSummary",
-      },
-      description:
-        "Host groups the owner belongs to. Always returned; frontend hides them when bypass_hosts_check is true.",
-    },
-    device_count: {
-      type: "integer",
-      minimum: 0,
-    },
-    live_address_count: {
-      type: "integer",
-      minimum: 0,
-      description:
-        "Aggregate count of live addresses across all owner's devices.",
-    },
-  },
-} as const;
-
-export const DeviceStateSchema = {
-  type: "string",
-  enum: ["healthy", "stale", "pending-claim", "expired-claim"],
-  description:
-    "Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).\n",
-} as const;
-
-export const DeviceRuleSummarySchema = {
-  type: "object",
-  required: ["type", "enabled"],
-  properties: {
-    type: {
-      type: "string",
-      enum: ["auto_expiry", "max_active"],
-    },
-    enabled: {
-      type: "boolean",
-    },
-    ttl_seconds: {
-      type: "integer",
-      nullable: true,
-      description: "TTL in seconds. Present for auto_expiry rules.",
-    },
-    limit: {
-      type: "integer",
-      nullable: true,
-      description:
-        "Maximum allowed live-address count. Present for max_active rules.",
-    },
-  },
-} as const;
-
-export const DevicePairingSummarySchema = {
-  type: "object",
-  required: ["expires_at"],
-  properties: {
-    expires_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-      description: "When the pairing code expires.",
-    },
-  },
-} as const;
-
-export const DeviceListEntrySchema = {
-  type: "object",
-  required: [
-    "id",
-    "name",
-    "created_at",
-    "state",
-    "live_address_count",
-    "rules",
-  ],
-  properties: {
-    id: {
-      $ref: "#/components/schemas/ID",
-    },
-    name: {
-      type: "string",
-    },
-    icon: {
-      type: "string",
-      nullable: true,
-      description: "Tabler icon name override.",
-    },
-    key_prefix: {
-      type: "string",
-      nullable: true,
-      description: "First characters of the API key (display only).",
-    },
-    created_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-      description: "When the device was created.",
-    },
-    last_seen_at: {
-      type: "string",
-      format: "date-time",
-      nullable: true,
-      "x-go-type": "UTCTime",
-      description: "Most recent address heartbeat for this device.",
-    },
-    state: {
-      $ref: "#/components/schemas/DeviceState",
-    },
-    live_address_count: {
-      type: "integer",
-      minimum: 0,
-    },
-    rules: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/DeviceRuleSummary",
-      },
-    },
-    pairing: {
-      nullable: true,
-      allOf: [
-        {
-          $ref: "#/components/schemas/DevicePairingSummary",
-        },
-      ],
-    },
-  },
-} as const;
-
-export const DeviceOwnerGroupSchema = {
-  type: "object",
-  required: ["owner", "devices"],
-  properties: {
-    owner: {
-      $ref: "#/components/schemas/DeviceListOwner",
-    },
-    devices: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/DeviceListEntry",
-      },
-    },
-  },
-} as const;
-
-export const DeviceAPIKeyResponseSchema = {
-  type: "object",
-  required: ["device", "api_key"],
-  properties: {
-    device: {
-      $ref: "#/components/schemas/Device",
-    },
-    api_key: {
-      type: "string",
-      description: "Secret key for the device.",
-    },
-  },
-} as const;
-
-export const HostSummarySchema = {
-  type: "object",
-  required: ["id", "fqdn"],
-  description: "Minimal host reference embedded in group responses.",
-  properties: {
-    id: {
-      $ref: "#/components/schemas/ID",
-    },
-    fqdn: {
-      type: "string",
-      example: "immich.home.org",
-    },
-  },
-} as const;
-
-export const NetworkPolicyRefSchema = {
-  type: "object",
-  required: ["id", "name", "cidr"],
-  description: "Minimal network policy reference embedded in group responses.",
-  properties: {
-    id: {
-      $ref: "#/components/schemas/ID",
-    },
-    name: {
-      type: "string",
-      example: "Home LAN",
-    },
-    cidr: {
-      type: "string",
-      example: "192.168.1.0/24",
-    },
-  },
-} as const;
-
-export const UserSummarySchema = {
-  type: "object",
-  required: ["id", "username", "display_name"],
-  description: "Minimal user reference embedded in group responses.",
-  properties: {
-    id: {
-      $ref: "#/components/schemas/ID",
-    },
-    username: {
-      type: "string",
-      example: "maya.patel",
-    },
-    display_name: {
-      type: "string",
-      example: "Maya Patel",
-    },
-  },
-} as const;
-
-export const GroupDetailWithUsersSchema = {
-  allOf: [
-    {
-      $ref: "#/components/schemas/GroupDetail",
-    },
-    {
-      type: "object",
-      properties: {
-        users: {
-          type: "array",
-          description:
-            "Users with access to this group (read-only, managed via subjects).",
-          items: {
-            $ref: "#/components/schemas/UserSummary",
-          },
-        },
-      },
-    },
-  ],
-} as const;
-
-export const PolicyIPDeviceSchema = {
-  type: "object",
-  required: ["device_id", "device_name"],
-  properties: {
-    device_id: {
-      $ref: "#/components/schemas/ID",
-    },
-    device_name: {
-      type: "string",
-    },
-  },
-} as const;
-
-export const PolicyUserIPSharedUserSchema = {
-  type: "object",
-  required: ["user_id", "username", "user_name", "devices"],
-  properties: {
-    user_id: {
-      $ref: "#/components/schemas/ID",
-    },
-    username: {
-      type: "string",
-      description: "Login username of the co-located user.",
-    },
-    user_name: {
-      type: "string",
-      description: "Display name of the co-located user.",
-    },
-    devices: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/PolicyIPDevice",
-      },
-      description: "Devices this user has at this IP.",
-    },
-  },
-} as const;
-
-export const PolicyUserAddressSchema = {
-  type: "object",
-  required: ["address_id", "device_id", "device_name", "updated_at"],
-  properties: {
-    address_id: {
-      $ref: "#/components/schemas/ID",
-    },
-    device_id: {
-      $ref: "#/components/schemas/ID",
-    },
-    device_name: {
-      type: "string",
-    },
-    updated_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-      description: "Last heartbeat or manual update time for this address.",
-    },
-  },
-} as const;
-
-export const PolicyUserIPSchema = {
-  type: "object",
-  required: [
-    "ip",
-    "shared_with_users",
-    "bypass_at_ip",
-    "effective_hosts",
-    "trimmed_hosts",
-    "addresses",
-  ],
-  properties: {
-    ip: {
-      type: "string",
-      description: "The IP address.",
-    },
-    shared_with_users: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/PolicyUserIPSharedUser",
-      },
-      description:
-        "Other users (excluding self) that also contribute to this IP. Empty means this user is the sole owner of the IP.\n",
-    },
-    bypass_at_ip: {
-      type: "boolean",
-      description:
-        'True when the IP entry as a whole bypasses the host allowlist (every contributor at this IP has bypass set). When true, effective_hosts is empty and means "All".\n',
-    },
-    effective_hosts: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-      description:
-        "Hosts actually allowed for THIS user at THIS IP after deny-wins intersection. Equals user_allowed_hosts when the user is the sole contributor; intersected with other restricted contributors otherwise. Empty when bypass_at_ip is true.\n",
-    },
-    trimmed_hosts: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-      description:
-        "Hosts the user had pre-intersection that were removed by intersection at this IP. Empty when no trimming occurred. Always empty when the user has bypass_allowlist true (their grants are not subject to intersection).\n",
-    },
-    addresses: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/PolicyUserAddress",
-      },
-      description:
-        "The user's own addresses sitting at this IP. Multiple entries when the same user has several devices behind the same NAT.\n",
-    },
-  },
-} as const;
-
-export const PolicyUserEntrySchema = {
-  type: "object",
-  required: [
-    "user_id",
-    "user_name",
-    "is_admin",
-    "bypass_allowlist",
-    "on_shared_ip",
-    "intersection_applied",
-    "device_count",
-    "ip_count",
-    "allowed_host_count",
-    "user_allowed_hosts",
-    "ips",
-  ],
-  properties: {
-    user_id: {
-      $ref: "#/components/schemas/ID",
-    },
-    user_name: {
-      type: "string",
-      description: "User display name.",
-    },
-    is_admin: {
-      type: "boolean",
-      description: "True when the user has an admin or superadmin role.",
-    },
-    bypass_allowlist: {
-      type: "boolean",
-      description: "True when this user has the host allowlist bypass enabled.",
-    },
-    on_shared_ip: {
-      type: "boolean",
-      description:
-        "True when at least one of this user's IPs is shared with another user.\n",
-    },
-    intersection_applied: {
-      type: "boolean",
-      description:
-        "True when at least one of this user's IPs had its effective host set reduced by deny-wins intersection with another user at that IP.\n",
-    },
-    device_count: {
-      type: "integer",
-      description:
-        "Distinct devices owned by this user that contribute to the cache. Zero for no-access users.\n",
-    },
-    ip_count: {
-      type: "integer",
-      description:
-        "Distinct IPs this user currently contributes to. Zero for no-access users.\n",
-    },
-    allowed_host_count: {
-      type: "integer",
-      description:
-        'Size of user_allowed_hosts (pre-intersection). Zero when bypass_allowlist is true; the UI should render "All".\n',
-    },
-    last_seen_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-      nullable: true,
-      description:
-        "Most recent address.updated_at across this user's addresses. Null when the user has no enabled IPs.\n",
-    },
-    user_allowed_hosts: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-      description:
-        "Pre-intersection allowed host list for this user. Empty when bypass_allowlist is true.\n",
-    },
-    ips: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/PolicyUserIP",
-      },
-      description:
-        "IPs this user currently contributes to. Empty for no-access users (never null — empty array, for client ergonomics).\n",
-    },
-  },
-} as const;
-
-export const PolicyUserMapAuditSchema = {
-  type: "object",
-  required: [
-    "refreshed_at",
-    "refresh_duration_ms",
-    "total_ip_count",
-    "total_device_count",
-    "total_host_count",
-    "shared_ip_count",
-    "users",
-    "total_network_policy_count",
-    "network_policies",
-  ],
-  properties: {
-    refreshed_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-      description: "When the cache was last fully refreshed.",
-    },
-    refresh_duration_ms: {
-      type: "integer",
-      description: "How long the last refresh took in milliseconds.",
-    },
-    total_ip_count: {
-      type: "integer",
-      description: "Distinct IPs currently in the policy cache.",
-    },
-    total_device_count: {
-      type: "integer",
-      description:
-        "Total distinct device contributors across all IPs in the cache.",
-    },
-    total_host_count: {
-      type: "integer",
-      description:
-        "Distinct hosts across the union of all users' pre-intersection allowed host lists. Denominator for the allowed_host_count / total_host_count ratio.\n",
-    },
-    shared_ip_count: {
-      type: "integer",
-      description: "Distinct IPs shared between two or more users.",
-    },
-    users: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/PolicyUserEntry",
-      },
-    },
-    total_network_policy_count: {
-      type: "integer",
-      description: "Number of enabled network policies currently in the cache.",
-    },
-    network_policies: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/PolicyNetworkPolicyEntry",
-      },
-      description: "All enabled network policies currently in the cache.\n",
-    },
-  },
-} as const;
-
-export const PolicySimulateDenyReasonSchema = {
-  type: "string",
-  enum: ["ip_not_registered", "host_not_allowed"],
-  description: "Reason for denial.",
-} as const;
-
-export const PolicySimulateResultSchema = {
-  type: "object",
-  required: ["ip", "host", "allowed"],
-  properties: {
-    ip: {
-      type: "string",
-    },
-    host: {
-      type: "string",
-    },
-    allowed: {
-      type: "boolean",
-    },
-    deny_reason: {
-      allOf: [
-        {
-          $ref: "#/components/schemas/PolicySimulateDenyReason",
-        },
-      ],
-      nullable: true,
-      description: "Reason for denial; null when allowed is true.",
-    },
-    match_source: {
-      type: "string",
-      enum: ["device", "network_policy"],
-      nullable: true,
-      description:
-        "Which mechanism authorized the request. Null when allowed is false.\n",
-    },
-    network_policy_id: {
-      allOf: [
-        {
-          $ref: "#/components/schemas/ID",
-        },
-      ],
-      nullable: true,
-      description:
-        "ID of the matching policy when match_source is 'network_policy'.",
-    },
-    network_policy_name: {
-      type: "string",
-      nullable: true,
-      description:
-        "Name of the matching policy when match_source is 'network_policy'.",
-    },
-  },
-} as const;
-
 export const UserWritableSchema = {
   type: "object",
   required: [
@@ -2397,16 +2363,6 @@ export const UserWritableSchema = {
       type: "string",
       format: "date-time",
       "x-go-type": "UTCTime",
-    },
-  },
-} as const;
-
-export const CreateDeviceResponseWritableSchema = {
-  type: "object",
-  required: ["device"],
-  properties: {
-    device: {
-      $ref: "#/components/schemas/DeviceWritable",
     },
   },
 } as const;
@@ -2461,6 +2417,20 @@ export const DeviceWritableSchema = {
   },
 } as const;
 
+export const DeviceAPIKeyResponseWritableSchema = {
+  type: "object",
+  required: ["device", "api_key"],
+  properties: {
+    device: {
+      $ref: "#/components/schemas/DeviceWritable",
+    },
+    api_key: {
+      type: "string",
+      description: "Secret key for the device.",
+    },
+  },
+} as const;
+
 export const AddressWritableSchema = {
   type: "object",
   required: [
@@ -2500,20 +2470,6 @@ export const AddressWritableSchema = {
       format: "date-time",
       "x-go-type": "UTCTime",
       description: "Last time it was enabled or disabled",
-    },
-  },
-} as const;
-
-export const DeviceAPIKeyResponseWritableSchema = {
-  type: "object",
-  required: ["device", "api_key"],
-  properties: {
-    device: {
-      $ref: "#/components/schemas/DeviceWritable",
-    },
-    api_key: {
-      type: "string",
-      description: "Secret key for the device.",
     },
   },
 } as const;

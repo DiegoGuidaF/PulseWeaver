@@ -48,7 +48,7 @@ func TestHandler_GetDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 	dev := createTestDevice(t, testServer, "lease-device-get")
 	r := createDeviceAddressLeaseRule(t, testServer, dev.ID, 300)
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/address_lease", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/rules/address-lease", dev.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	req.AddCookie(adminCookie)
 	res := httptest.NewRecorder()
@@ -74,7 +74,7 @@ func TestHandler_GetDeviceAddressLeaseRule_NotFound(t *testing.T) {
 
 	dev := createTestDevice(t, testServer, "lease-device-no-rule")
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/address_lease", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/rules/address-lease", dev.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	req.AddCookie(adminCookie)
 	res := httptest.NewRecorder()
@@ -101,7 +101,7 @@ func TestHandler_PutDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 		"ttl_seconds": 600,
 	})
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/address_lease", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/rules/address-lease", dev.ID)
 	req := httptest.NewRequest(http.MethodPut, url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(adminCookie)
@@ -127,7 +127,7 @@ func TestHandler_PutDeviceAddressLeaseRule_InvalidBody(t *testing.T) {
 
 	dev := createTestDevice(t, testServer, "lease-device-bad-body")
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/address_lease", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/rules/address-lease", dev.ID)
 	req := httptest.NewRequest(http.MethodPut, url, nil)
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(adminCookie)
@@ -149,7 +149,7 @@ func TestHandler_PutDeviceAddressLeaseRule_DeviceNotFound(t *testing.T) {
 	})
 
 	nonExistentDeviceID := ids.DeviceID(999999)
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/address_lease", nonExistentDeviceID)
+	url := fmt.Sprintf("/api/v1/devices/%d/rules/address-lease", nonExistentDeviceID)
 	req := httptest.NewRequest(http.MethodPut, url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(adminCookie)
@@ -169,7 +169,7 @@ func TestHandler_DisableDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 	dev := createTestDevice(t, testServer, "lease-device-disable")
 	createDeviceAddressLeaseRule(t, testServer, dev.ID, 120)
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/address_lease", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/rules/address-lease", dev.ID)
 	req := httptest.NewRequest(http.MethodDelete, url, nil)
 	req.AddCookie(adminCookie)
 	res := httptest.NewRecorder()
@@ -191,7 +191,7 @@ func TestHandler_DisableDeviceAddressLeaseRule_IdempotentWhenMissing(t *testing.
 
 	dev := createTestDevice(t, testServer, "lease-device-disable-missing")
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/address_lease", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/rules/address-lease", dev.ID)
 	req := httptest.NewRequest(http.MethodDelete, url, nil)
 	req.AddCookie(adminCookie)
 	res := httptest.NewRecorder()
@@ -220,7 +220,7 @@ func TestHandler_GetMaxActiveAddressesRule_HappyPath(t *testing.T) {
 	dev := createTestDevice(t, testServer, "max-active-get-device")
 	r := createMaxActiveAddressesRule(t, testServer, dev.ID, 3)
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/max_active_addresses", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/rules/max-active-addresses", dev.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	req.AddCookie(adminCookie)
 	res := httptest.NewRecorder()
@@ -246,7 +246,7 @@ func TestHandler_GetMaxActiveAddressesRule_NotFound(t *testing.T) {
 
 	dev := createTestDevice(t, testServer, "max-active-get-notfound")
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/max_active_addresses", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/rules/max-active-addresses", dev.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	req.AddCookie(adminCookie)
 	res := httptest.NewRecorder()
@@ -273,7 +273,7 @@ func TestHandler_PutMaxActiveAddressesRule_HappyPath(t *testing.T) {
 		"max_addresses": 5,
 	})
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/max_active_addresses", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/rules/max-active-addresses", dev.ID)
 	req := httptest.NewRequest(http.MethodPut, url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(adminCookie)
@@ -303,7 +303,7 @@ func TestHandler_PutMaxActiveAddressesRule_InvalidBody(t *testing.T) {
 		"max_addresses": 0,
 	})
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/max_active_addresses", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/rules/max-active-addresses", dev.ID)
 	req := httptest.NewRequest(http.MethodPut, url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(adminCookie)
@@ -325,7 +325,7 @@ func TestHandler_PutMaxActiveAddressesRule_DeviceNotFound(t *testing.T) {
 	})
 
 	nonExistentDeviceID := ids.DeviceID(999999)
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/max_active_addresses", nonExistentDeviceID)
+	url := fmt.Sprintf("/api/v1/devices/%d/rules/max-active-addresses", nonExistentDeviceID)
 	req := httptest.NewRequest(http.MethodPut, url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(adminCookie)
@@ -345,7 +345,7 @@ func TestHandler_DisableMaxActiveAddressesRule_HappyPath(t *testing.T) {
 	dev := createTestDevice(t, testServer, "max-active-disable-device")
 	createMaxActiveAddressesRule(t, testServer, dev.ID, 2)
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/max_active_addresses", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/rules/max-active-addresses", dev.ID)
 	req := httptest.NewRequest(http.MethodDelete, url, nil)
 	req.AddCookie(adminCookie)
 	res := httptest.NewRecorder()
@@ -367,7 +367,7 @@ func TestHandler_DisableMaxActiveAddressesRule_IdempotentWhenMissing(t *testing.
 
 	dev := createTestDevice(t, testServer, "max-active-disable-missing")
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/max_active_addresses", dev.ID)
+	url := fmt.Sprintf("/api/v1/devices/%d/rules/max-active-addresses", dev.ID)
 	req := httptest.NewRequest(http.MethodDelete, url, nil)
 	req.AddCookie(adminCookie)
 	res := httptest.NewRecorder()

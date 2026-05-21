@@ -187,7 +187,7 @@ export function NetworkPoliciesTable({ policies, onNewPolicy }: Props) {
         onConfirm={() => {
           if (!deleteTarget) return;
           deleteMutation.mutate(
-            { path: { id: deleteTarget.id } },
+            { path: { policy_id: deleteTarget.id } },
             {
               onError: (err) =>
                 notifications.show({ color: "red", message: toErrorMessage(err) }),

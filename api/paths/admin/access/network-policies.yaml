@@ -77,7 +77,7 @@ networkPolicy:
     tags: [network-policies]
     summary: Get network policy detail
     parameters:
-      - name: id
+      - name: policy_id
         in: path
         required: true
         schema:
@@ -115,7 +115,7 @@ networkPolicy:
     summary: Update policy metadata
     description: Updates name, CIDR, description, and/or status. Does not affect group assignments.
     parameters:
-      - name: id
+      - name: policy_id
         in: path
         required: true
         schema:
@@ -166,7 +166,7 @@ networkPolicy:
     tags: [network-policies]
     summary: Delete a network policy
     parameters:
-      - name: id
+      - name: policy_id
         in: path
         required: true
         schema:
@@ -202,7 +202,7 @@ networkPolicyGrants:
     summary: Atomically replace a policy's access grants
     description: Replaces bypass_host_check flag and full group assignment list.
     parameters:
-      - name: id
+      - name: policy_id
         in: path
         required: true
         schema:

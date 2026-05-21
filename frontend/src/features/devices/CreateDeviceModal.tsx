@@ -89,7 +89,6 @@ export function CreateDeviceModal({ opened, onClose }: CreateDeviceModalProps) {
 
   const createDevice = useCreateDevice({
     onSuccess: (data) => {
-      const { device } = data;
       const patchBody: Record<string, unknown> = {};
       if (form.values.device_type !== "static")
         patchBody.device_type = form.values.device_type;
@@ -100,7 +99,7 @@ export function CreateDeviceModal({ opened, onClose }: CreateDeviceModalProps) {
 
       if (Object.keys(patchBody).length > 0) {
         updateDevice.mutate(
-          { path: { device_id: device.id }, body: patchBody },
+          { path: { device_id: data.id }, body: patchBody },
           {
             onError: () =>
               notifications.show({

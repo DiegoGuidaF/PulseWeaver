@@ -101,13 +101,13 @@ func TestHandler_CreateDevice(t *testing.T) {
 	testServer.HTTPServer.ServeHTTP(createRes, createReq)
 	is.Equal(createRes.Code, http.StatusCreated)
 
-	var resp httpapi.CreateDeviceResponse
+	var resp httpapi.Device
 	err := json.NewDecoder(createRes.Body).Decode(&resp)
 	is.NoErr(err)
-	is.Equal(resp.Device.Name, "sensor-1")
-	is.True(resp.Device.Id != 0)
+	is.Equal(resp.Name, "sensor-1")
+	is.True(resp.Id != 0)
 	// No API key returned on device creation — must be generated separately.
-	is.True(resp.Device.ApiKeyPrefix == nil)
+	is.True(resp.ApiKeyPrefix == nil)
 }
 
 func TestHandler_DeviceHeartbeatByApiKey_NoBody(t *testing.T) {

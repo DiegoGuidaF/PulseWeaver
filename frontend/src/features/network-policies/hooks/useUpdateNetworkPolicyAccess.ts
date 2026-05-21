@@ -13,7 +13,7 @@ export function useUpdateNetworkPolicyAccess() {
     ...updateNetworkPolicyAccessMutation(),
     onSuccess: (_data, variables: Options<UpdateNetworkPolicyAccessData>) => {
       queryClient.invalidateQueries({
-        queryKey: getNetworkPolicyQueryKey({ path: { id: variables.path!.id } }),
+        queryKey: getNetworkPolicyQueryKey({ path: { policy_id: variables.path!.policy_id } }),
       });
       queryClient.invalidateQueries({ queryKey: listNetworkPoliciesQueryKey() });
     },

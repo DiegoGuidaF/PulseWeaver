@@ -82,9 +82,9 @@ paths:
   # --------------------
   # Rules Endpoints
   # --------------------
-  /devices/{device_id}/rules/address_lease:
+  /devices/{device_id}/rules/address-lease:
     $ref: './paths/rules.yaml#/addressLeaseRule'
-  /devices/{device_id}/rules/max_active_addresses:
+  /devices/{device_id}/rules/max-active-addresses:
     $ref: './paths/rules.yaml#/maxActiveAddressesRule'
 
   # --------------------
@@ -146,9 +146,9 @@ paths:
   # --------------------
   /admin/access/network-policies:
     $ref: './paths/admin/access/network-policies.yaml#/networkPolicies'
-  /admin/access/network-policies/{id}:
+  /admin/access/network-policies/{policy_id}:
     $ref: './paths/admin/access/network-policies.yaml#/networkPolicy'
-  /admin/access/network-policies/{id}/grants:
+  /admin/access/network-policies/{policy_id}/grants:
     $ref: './paths/admin/access/network-policies.yaml#/networkPolicyGrants'
 
 components:
@@ -191,6 +191,8 @@ components:
       $ref: './components/schemas/users.yaml#/AuthRequest'
     CreateUserRequest:
       $ref: './components/schemas/users.yaml#/CreateUserRequest'
+    PromoteUserRequest:
+      $ref: './components/schemas/users.yaml#/PromoteUserRequest'
     UpdateProfileRequest:
       $ref: './components/schemas/users.yaml#/UpdateProfileRequest'
     ChangePasswordRequest:
@@ -203,14 +205,26 @@ components:
       $ref: './components/schemas/devices.yaml#/CreateDeviceRequest'
     UpdateDeviceRequest:
       $ref: './components/schemas/devices.yaml#/UpdateDeviceRequest'
-    CreateDeviceResponse:
-      $ref: './components/schemas/devices.yaml#/CreateDeviceResponse'
     Device:
       $ref: './components/schemas/devices.yaml#/Device'
     DeviceTypeItem:
       $ref: './components/schemas/devices.yaml#/DeviceTypeItem'
     DeviceHeartbeatByApiKeyRequest:
       $ref: './components/schemas/devices.yaml#/DeviceHeartbeatByApiKeyRequest'
+    DeviceAPIKeyResponse:
+      $ref: './components/schemas/devices.yaml#/DeviceAPIKeyResponse'
+    DeviceState:
+      $ref: './components/schemas/devices.yaml#/DeviceState'
+    DeviceRuleSummary:
+      $ref: './components/schemas/devices.yaml#/DeviceRuleSummary'
+    DevicePairingSummary:
+      $ref: './components/schemas/devices.yaml#/DevicePairingSummary'
+    DeviceListEntry:
+      $ref: './components/schemas/devices.yaml#/DeviceListEntry'
+    DeviceListOwner:
+      $ref: './components/schemas/devices.yaml#/DeviceListOwner'
+    DeviceOwnerGroup:
+      $ref: './components/schemas/devices.yaml#/DeviceOwnerGroup'
 
     # --------------------
     # Addresses
@@ -293,8 +307,24 @@ components:
       $ref: './components/schemas/network-policy.yaml#/ModifyNetworkPolicyRequest'
 
     # --------------------
-    # Policy Audit (extensions)
+    # Policy Audit
     # --------------------
+    PolicyUserMapAudit:
+      $ref: './components/schemas/policy-audit.yaml#/PolicyUserMapAudit'
+    PolicyUserEntry:
+      $ref: './components/schemas/policy-audit.yaml#/PolicyUserEntry'
+    PolicyIPDevice:
+      $ref: './components/schemas/policy-audit.yaml#/PolicyIPDevice'
+    PolicyUserIPSharedUser:
+      $ref: './components/schemas/policy-audit.yaml#/PolicyUserIPSharedUser'
+    PolicyUserIP:
+      $ref: './components/schemas/policy-audit.yaml#/PolicyUserIP'
+    PolicyUserAddress:
+      $ref: './components/schemas/policy-audit.yaml#/PolicyUserAddress'
+    PolicySimulateDenyReason:
+      $ref: './components/schemas/policy-audit.yaml#/PolicySimulateDenyReason'
+    PolicySimulateResult:
+      $ref: './components/schemas/policy-audit.yaml#/PolicySimulateResult'
     PolicyNetworkPolicyEntry:
       $ref: './components/schemas/policy-audit.yaml#/PolicyNetworkPolicyEntry'
 
@@ -305,8 +335,16 @@ components:
       $ref: './components/schemas/host-groups.yaml#/GroupRef'
     GroupSummary:
       $ref: './components/schemas/host-groups.yaml#/GroupSummary'
+    HostSummary:
+      $ref: './components/schemas/host-groups.yaml#/HostSummary'
+    UserSummary:
+      $ref: './components/schemas/host-groups.yaml#/UserSummary'
+    NetworkPolicyRef:
+      $ref: './components/schemas/host-groups.yaml#/NetworkPolicyRef'
     GroupDetail:
       $ref: './components/schemas/host-groups.yaml#/GroupDetail'
+    GroupDetailWithUsers:
+      $ref: './components/schemas/host-groups.yaml#/GroupDetailWithUsers'
     SubjectGroupDetail:
       $ref: './components/schemas/host-groups.yaml#/SubjectGroupDetail'
     GroupWrite:

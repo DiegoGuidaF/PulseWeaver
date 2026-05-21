@@ -14,7 +14,7 @@ export function useUpdateNetworkPolicy() {
         onSuccess: (_data, variables: Options<UpdateNetworkPolicyData>) => {
             // PATCH returns 204 — invalidate to refetch detail and list
             queryClient.invalidateQueries({
-                queryKey: getNetworkPolicyQueryKey({ path: { id: variables.path!.id } }),
+                queryKey: getNetworkPolicyQueryKey({ path: { policy_id: variables.path!.policy_id } }),
             });
             queryClient.invalidateQueries({ queryKey: listNetworkPoliciesQueryKey() });
         },
