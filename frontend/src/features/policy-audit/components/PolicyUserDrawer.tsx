@@ -51,7 +51,7 @@ interface DeviceInfo {
   device_id: number;
   device_name: string;
   last_seen_at: string;
-  live_ip_count: number;
+  live_address_count: number;
 }
 
 function computeDevices(user: PolicyUserEntry): DeviceInfo[] {
@@ -64,10 +64,10 @@ function computeDevices(user: PolicyUserEntry): DeviceInfo[] {
           device_id: addr.device_id,
           device_name: addr.device_name,
           last_seen_at: addr.updated_at,
-          live_ip_count: 1,
+          live_address_count: 1,
         });
       } else {
-        existing.live_ip_count++;
+        existing.live_address_count++;
         if (dayjs(addr.updated_at).isAfter(dayjs(existing.last_seen_at))) {
           existing.last_seen_at = addr.updated_at;
         }
@@ -86,11 +86,11 @@ function DrawerIdentity({ user }: { user: PolicyUserEntry }) {
   return (
     <Group gap="sm" wrap="nowrap" mb="xs">
       <Avatar size="lg" color="indigo" variant="filled" radius="xl">
-        {user.user_name[0]?.toUpperCase() ?? "?"}
+        {user.display_name[0]?.toUpperCase() ?? "?"}
       </Avatar>
       <Group gap="xs" align="center" wrap="wrap">
         <Text size="xl" fw={700}>
-          {user.user_name}
+          {user.display_name}
         </Text>
         {isBypass && (
           <Badge variant="light" color="orange" leftSection={<IconShieldOff size={12} />}>
@@ -425,7 +425,7 @@ function DevicesTab({ user }: { user: PolicyUserEntry }) {
               </Text>
             </Stack>
             <Text size="sm" c="dimmed" style={{ whiteSpace: "nowrap" }}>
-              {d.live_ip_count} live IP{d.live_ip_count !== 1 ? "s" : ""}
+              {d.live_address_count} live IP{d.live_address_count !== 1 ? "s" : ""}
             </Text>
           </Group>
         </Card>

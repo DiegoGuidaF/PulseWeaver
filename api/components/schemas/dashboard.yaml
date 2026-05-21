@@ -2,18 +2,18 @@ DashboardStats:
   type: object
   required:
     - total_requests
-    - allowed_count
-    - denied_count
+    - allow_count
+    - deny_count
     - unique_ips
     - avg_duration_us
   properties:
     total_requests:
       type: integer
       format: int64
-    allowed_count:
+    allow_count:
       type: integer
       format: int64
-    denied_count:
+    deny_count:
       type: integer
       format: int64
     unique_ips:
@@ -85,7 +85,7 @@ DashboardTopDeniedIp:
     - count
   properties:
     ip:
-      type: string
+      $ref: './common.yaml#/IPAddress'
     count:
       type: integer
       format: int64

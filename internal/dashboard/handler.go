@@ -44,8 +44,8 @@ func (h *HTTPHandler) GetDashboardStats(
 
 	return httpapi.GetDashboardStats200JSONResponse{
 		TotalRequests: stats.TotalRequests,
-		AllowedCount:  stats.AllowedCount,
-		DeniedCount:   stats.DeniedCount,
+		AllowCount:    stats.AllowedCount,
+		DenyCount:     stats.DeniedCount,
 		UniqueIps:     stats.UniqueIPs,
 		AvgDurationUs: stats.AvgDurationUs,
 	}, nil

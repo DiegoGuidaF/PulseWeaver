@@ -39,7 +39,7 @@ devices:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/devices.yaml#/CreateDeviceResponse'
+              $ref: '../components/schemas/devices.yaml#/Device'
       "400":
         description: Bad Request
         content:

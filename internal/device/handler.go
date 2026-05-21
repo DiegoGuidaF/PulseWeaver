@@ -56,9 +56,7 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 	}
 	logger.InfoContext(ctx, "device created", slog.Int64(AttrKeyDeviceID, device.ID.Int64()))
 
-	return httpapi.CreateDevice201JSONResponse(httpapi.CreateDeviceResponse{
-		Device: toDeviceResponse(device),
-	}), nil
+	return httpapi.CreateDevice201JSONResponse(toDeviceResponse(device)), nil
 }
 
 func (h *HTTPHandler) DeleteDevice(ctx context.Context, request httpapi.DeleteDeviceRequestObject) (httpapi.DeleteDeviceResponseObject, error) {

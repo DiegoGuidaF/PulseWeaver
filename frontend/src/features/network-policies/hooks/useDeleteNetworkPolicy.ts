@@ -13,7 +13,7 @@ export function useDeleteNetworkPolicy(options?: { onSuccess?: () => void }) {
         ...deleteNetworkPolicyMutation(),
         onSuccess: (_data, variables: Options<DeleteNetworkPolicyData>) => {
             queryClient.removeQueries({
-                queryKey: getNetworkPolicyQueryKey({ path: { id: variables.path!.id } }),
+                queryKey: getNetworkPolicyQueryKey({ path: { policy_id: variables.path!.policy_id } }),
             });
             queryClient.invalidateQueries({ queryKey: listNetworkPoliciesQueryKey() });
             options?.onSuccess?.();

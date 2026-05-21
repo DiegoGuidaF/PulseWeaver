@@ -196,8 +196,8 @@ export function createMockDashboardStats(
 ): DashboardStats {
   return {
     total_requests: 150,
-    allowed_count: 120,
-    denied_count: 30,
+    allow_count: 120,
+    deny_count: 30,
     unique_ips: 8,
     avg_duration_us: 1250,
     ...overrides,
@@ -271,7 +271,7 @@ export function createMockUserListItem(
     bypass_host_check: false,
     host_count: 0,
     device_count: 0,
-    live_ip_count: 0,
+    live_address_count: 0,
     groups: [],
     ...overrides,
   };
@@ -416,7 +416,7 @@ export function createMockPolicyUserEntry(
 ): PolicyUserEntry {
   return {
     user_id: 1,
-    user_name: 'alice',
+    display_name: 'alice',
     is_admin: false,
     bypass_allowlist: false,
     on_shared_ip: false,
@@ -446,10 +446,10 @@ export function createMockPolicyUserMapAudit(
     total_network_policy_count: 0,
     network_policies: [],
     users: [
-      createMockPolicyUserEntry({ user_id: 1, user_name: 'alice', bypass_allowlist: false }),
+      createMockPolicyUserEntry({ user_id: 1, display_name: 'alice', bypass_allowlist: false }),
       createMockPolicyUserEntry({
         user_id: 2,
-        user_name: 'bob',
+        display_name: 'bob',
         bypass_allowlist: true,
         ips: [],
         ip_count: 0,
@@ -459,7 +459,7 @@ export function createMockPolicyUserMapAudit(
       }),
       createMockPolicyUserEntry({
         user_id: 3,
-        user_name: 'carol',
+        display_name: 'carol',
         bypass_allowlist: false,
         ips: [],
         ip_count: 0,
@@ -506,7 +506,7 @@ export function createMockDeviceListItem(
   return {
     id: 1,
     name: 'Test Device',
-    live_ip_count: 0,
+    live_address_count: 0,
     ...overrides,
   };
 }
@@ -556,7 +556,7 @@ export function createMockDeviceOwnerGroup(
       username: 'testuser',
       display_name: 'Test User',
       role: UserRole.USER,
-      bypass_hosts_check: false,
+      bypass_host_check: false,
       host_groups: [],
       device_count: 1,
       live_address_count: 0,

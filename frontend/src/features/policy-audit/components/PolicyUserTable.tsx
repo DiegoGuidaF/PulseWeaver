@@ -36,7 +36,7 @@ function matchesSearch(user: PolicyUserEntry, q: string): boolean {
   if (!q) return true;
   const lower = q.toLowerCase();
   return (
-    user.user_name.toLowerCase().includes(lower) ||
+    user.display_name.toLowerCase().includes(lower) ||
     user.ips.some(
       (ip) =>
         ip.ip.toLowerCase().includes(lower) ||
@@ -158,11 +158,11 @@ function UserRow({
       <Table.Td>
         <Group gap="sm" wrap="nowrap">
           <Avatar size="md" color="indigo" variant="filled" radius="xl">
-            {user.user_name[0]?.toUpperCase() ?? "?"}
+            {user.display_name[0]?.toUpperCase() ?? "?"}
           </Avatar>
           <Group gap="xs" wrap="nowrap">
             <Text size="sm" fw={500}>
-              {user.user_name}
+              {user.display_name}
             </Text>
             {user.is_admin && (
               <Badge variant="light" color="indigo" size="xs">

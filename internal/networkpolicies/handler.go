@@ -44,14 +44,14 @@ func (h *HTTPHandler) UpdateNetworkPolicy(
 ) (httpapi.UpdateNetworkPolicyResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "UpdateNetworkPolicy")
 
-	id := ids.NetworkPolicyID(request.Id)
+	id := ids.NetworkPolicyID(request.PolicyId)
 	body := request.Body
 
 	fields := UpdateFields{
 		Name:        body.Name,
 		CIDR:        body.Cidr,
 		Enabled:     body.Enabled,
-		Description: &body.Description,
+		Description: body.Description,
 	}
 
 	_, err := h.service.UpdatePolicy(ctx, id, fields)
@@ -67,7 +67,7 @@ func (h *HTTPHandler) DeleteNetworkPolicy(
 ) (httpapi.DeleteNetworkPolicyResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "DeleteNetworkPolicy")
 
-	id := ids.NetworkPolicyID(request.Id)
+	id := ids.NetworkPolicyID(request.PolicyId)
 	err := h.service.DeletePolicy(ctx, id)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
@@ -85,7 +85,7 @@ func (h *HTTPHandler) UpdateNetworkPolicyAccess(
 ) (httpapi.UpdateNetworkPolicyAccessResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "UpdateNetworkPolicyAccess")
 
-	id := ids.NetworkPolicyID(request.Id)
+	id := ids.NetworkPolicyID(request.PolicyId)
 	body := request.Body
 
 	groupIDs := make([]ids.HostGroupID, len(body.GroupIds))

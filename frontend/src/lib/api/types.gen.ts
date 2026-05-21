@@ -69,9 +69,13 @@ export type CreateUserRequest = {
   email?: string | null;
 };
 
+export type PromoteUserRequest = {
+  password: Password;
+};
+
 export type UpdateProfileRequest = unknown & {
   display_name?: DisplayName;
-  username?: string;
+  username?: Username;
   email?: string;
 };
 
@@ -114,10 +118,6 @@ export type UpdateDeviceRequest = {
   owner_id?: number | null;
 };
 
-export type CreateDeviceResponse = {
-  device: Device;
-};
-
 export type Device = {
   created_at: string;
   /**
@@ -148,7 +148,7 @@ export type Device = {
   /**
    * Number of currently enabled addresses for this device.
    */
-  readonly address_count?: number;
+  readonly live_address_count?: number;
   /**
    * Most recent address activity for this device (heartbeat or manual update).
    */
@@ -167,6 +167,98 @@ export type DeviceTypeItem = {
 
 export type DeviceHeartbeatByApiKeyRequest = {
   ip?: IpAddress;
+};
+
+export type DeviceApiKeyResponse = {
+  device: Device;
+  /**
+   * Secret key for the device.
+   */
+  api_key: string;
+};
+
+/**
+ * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+ *
+ */
+export const DeviceState = {
+  HEALTHY: "healthy",
+  STALE: "stale",
+  PENDING_CLAIM: "pending-claim",
+  EXPIRED_CLAIM: "expired-claim",
+} as const;
+
+/**
+ * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+ *
+ */
+export type DeviceState = (typeof DeviceState)[keyof typeof DeviceState];
+
+export type DeviceRuleSummary = {
+  type: "auto_expiry" | "max_active";
+  enabled: boolean;
+  /**
+   * TTL in seconds. Present for auto_expiry rules.
+   */
+  ttl_seconds?: number | null;
+  /**
+   * Maximum allowed live-address count. Present for max_active rules.
+   */
+  limit?: number | null;
+};
+
+export type DevicePairingSummary = {
+  /**
+   * When the pairing code expires.
+   */
+  expires_at: string;
+};
+
+export type DeviceListEntry = {
+  id: Id;
+  name: string;
+  /**
+   * Tabler icon name override.
+   */
+  icon?: string | null;
+  /**
+   * First characters of the API key (display only).
+   */
+  api_key_prefix?: string | null;
+  /**
+   * When the device was created.
+   */
+  created_at: string;
+  /**
+   * Most recent address heartbeat for this device.
+   */
+  last_seen_at?: string | null;
+  state: DeviceState;
+  live_address_count: number;
+  rules: Array<DeviceRuleSummary>;
+  pairing?: DevicePairingSummary | null;
+};
+
+export type DeviceListOwner = {
+  id: Id;
+  username: string;
+  display_name: string;
+  role: UserRole;
+  bypass_host_check: boolean;
+  /**
+   * Host groups the owner belongs to. Always returned; frontend hides them when bypass_host_check is true.
+   */
+  host_groups: Array<GroupSummary>;
+  device_count: number;
+  /**
+   * Aggregate count of live addresses across all owner's devices.
+   */
+  live_address_count: number;
+};
+
+export type DeviceOwnerGroup = {
+  owner: DeviceListOwner;
+  devices: Array<DeviceListEntry>;
 };
 
 export type AddAddressRequest = {
@@ -239,10 +331,7 @@ export type AddressEventSource =
 export type AddressHistoryEvent = {
   id: Id;
   timestamp: string;
-  /**
-   * IP address
-   */
-  ip: string;
+  ip: IpAddress;
   /**
    * Whether the address was enabled or disabled
    */
@@ -277,7 +366,7 @@ export type AccessLogRow = {
   id: Id;
   client_ip: IpAddress;
   outcome: boolean;
-  deny_reason?: string;
+  deny_reason?: string | null;
   device_id?: Id;
   device_name?: string;
   address_id?: Id;
@@ -370,8 +459,8 @@ export type PutMaxActiveAddressesRuleRequest = {
 
 export type DashboardStats = {
   total_requests: number;
-  allowed_count: number;
-  denied_count: number;
+  allow_count: number;
+  deny_count: number;
   unique_ips: number;
   /**
    * Average request processing duration in microseconds over the time window
@@ -400,7 +489,7 @@ export type DashboardServicesResponse = {
 };
 
 export type DashboardTopDeniedIp = {
-  ip: string;
+  ip: IpAddress;
   count: number;
 };
 
@@ -509,8 +598,199 @@ export type CreateNetworkPolicyRequest = {
 export type ModifyNetworkPolicyRequest = {
   name: string;
   cidr: string;
-  description: string;
+  description: string | null;
   enabled: boolean;
+};
+
+export type PolicyUserMapAudit = {
+  /**
+   * When the cache was last fully refreshed.
+   */
+  refreshed_at: string;
+  /**
+   * How long the last refresh took in milliseconds.
+   */
+  refresh_duration_ms: number;
+  /**
+   * Distinct IPs currently in the policy cache.
+   */
+  total_ip_count: number;
+  /**
+   * Total distinct device contributors across all IPs in the cache.
+   */
+  total_device_count: number;
+  /**
+   * Distinct hosts across the union of all users' pre-intersection allowed host lists. Denominator for the allowed_host_count / total_host_count ratio.
+   *
+   */
+  total_host_count: number;
+  /**
+   * Distinct IPs shared between two or more users.
+   */
+  shared_ip_count: number;
+  users: Array<PolicyUserEntry>;
+  /**
+   * Number of enabled network policies currently in the cache.
+   */
+  total_network_policy_count: number;
+  /**
+   * All enabled network policies currently in the cache.
+   *
+   */
+  network_policies: Array<PolicyNetworkPolicyEntry>;
+};
+
+export type PolicyUserEntry = {
+  user_id: Id;
+  /**
+   * User display name.
+   */
+  display_name: string;
+  /**
+   * True when the user has an admin or superadmin role.
+   */
+  is_admin: boolean;
+  /**
+   * True when this user has the host allowlist bypass enabled.
+   */
+  bypass_allowlist: boolean;
+  /**
+   * True when at least one of this user's IPs is shared with another user.
+   *
+   */
+  on_shared_ip: boolean;
+  /**
+   * True when at least one of this user's IPs had its effective host set reduced by deny-wins intersection with another user at that IP.
+   *
+   */
+  intersection_applied: boolean;
+  /**
+   * Distinct devices owned by this user that contribute to the cache. Zero for no-access users.
+   *
+   */
+  device_count: number;
+  /**
+   * Distinct IPs this user currently contributes to. Zero for no-access users.
+   *
+   */
+  ip_count: number;
+  /**
+   * Size of user_allowed_hosts (pre-intersection). Zero when bypass_allowlist is true; the UI should render "All".
+   *
+   */
+  allowed_host_count: number;
+  /**
+   * Most recent address.updated_at across this user's addresses. Null when the user has no enabled IPs.
+   *
+   */
+  last_seen_at?: string | null;
+  /**
+   * Pre-intersection allowed host list for this user. Empty when bypass_allowlist is true.
+   *
+   */
+  user_allowed_hosts: Array<string>;
+  /**
+   * IPs this user currently contributes to. Empty for no-access users (never null — empty array, for client ergonomics).
+   *
+   */
+  ips: Array<PolicyUserIp>;
+};
+
+export type PolicyIpDevice = {
+  device_id: Id;
+  device_name: string;
+};
+
+export type PolicyUserIpSharedUser = {
+  user_id: Id;
+  /**
+   * Login username of the co-located user.
+   */
+  username: string;
+  /**
+   * Display name of the co-located user.
+   */
+  user_name: string;
+  /**
+   * Devices this user has at this IP.
+   */
+  devices: Array<PolicyIpDevice>;
+};
+
+export type PolicyUserIp = {
+  ip: IpAddress;
+  /**
+   * Other users (excluding self) that also contribute to this IP. Empty means this user is the sole owner of the IP.
+   *
+   */
+  shared_with_users: Array<PolicyUserIpSharedUser>;
+  /**
+   * True when the IP entry as a whole bypasses the host allowlist (every contributor at this IP has bypass set). When true, effective_hosts is empty and means "All".
+   *
+   */
+  bypass_at_ip: boolean;
+  /**
+   * Hosts actually allowed for THIS user at THIS IP after deny-wins intersection. Equals user_allowed_hosts when the user is the sole contributor; intersected with other restricted contributors otherwise. Empty when bypass_at_ip is true.
+   *
+   */
+  effective_hosts: Array<string>;
+  /**
+   * Hosts the user had pre-intersection that were removed by intersection at this IP. Empty when no trimming occurred. Always empty when the user has bypass_allowlist true (their grants are not subject to intersection).
+   *
+   */
+  trimmed_hosts: Array<string>;
+  /**
+   * The user's own addresses sitting at this IP. Multiple entries when the same user has several devices behind the same NAT.
+   *
+   */
+  addresses: Array<PolicyUserAddress>;
+};
+
+export type PolicyUserAddress = {
+  address_id: Id;
+  device_id: Id;
+  device_name: string;
+  /**
+   * Last heartbeat or manual update time for this address.
+   */
+  updated_at: string;
+};
+
+/**
+ * Reason for denial.
+ */
+export const PolicySimulateDenyReason = {
+  IP_NOT_REGISTERED: "ip_not_registered",
+  HOST_NOT_ALLOWED: "host_not_allowed",
+} as const;
+
+/**
+ * Reason for denial.
+ */
+export type PolicySimulateDenyReason =
+  (typeof PolicySimulateDenyReason)[keyof typeof PolicySimulateDenyReason];
+
+export type PolicySimulateResult = {
+  ip: IpAddress;
+  host: string;
+  allowed: boolean;
+  /**
+   * Reason for denial; null when allowed is true.
+   */
+  deny_reason?: PolicySimulateDenyReason | null;
+  /**
+   * Which mechanism authorized the request. Null when allowed is false.
+   *
+   */
+  match_source?: "device" | "network_policy";
+  /**
+   * ID of the matching policy when match_source is 'network_policy'.
+   */
+  network_policy_id?: Id | null;
+  /**
+   * Name of the matching policy when match_source is 'network_policy'.
+   */
+  network_policy_name?: string | null;
 };
 
 export type PolicyNetworkPolicyEntry = {
@@ -550,6 +830,32 @@ export type GroupSummary = {
 };
 
 /**
+ * Minimal host reference embedded in group responses.
+ */
+export type HostSummary = {
+  id: Id;
+  fqdn: string;
+};
+
+/**
+ * Minimal user reference embedded in group responses.
+ */
+export type UserSummary = {
+  id: Id;
+  username: string;
+  display_name: string;
+};
+
+/**
+ * Minimal network policy reference embedded in group responses.
+ */
+export type NetworkPolicyRef = {
+  id: Id;
+  name: string;
+  cidr: string;
+};
+
+/**
  * Full group representation returned by GET.
  */
 export type GroupDetail = {
@@ -574,6 +880,13 @@ export type GroupDetail = {
    * Last time the device profile was modified.
    */
   updated_at: string;
+};
+
+export type GroupDetailWithUsers = GroupDetail & {
+  /**
+   * Users with access to this group (read-only, managed via subjects).
+   */
+  users?: Array<UserSummary>;
 };
 
 export type SubjectGroupDetail = GroupDetail & {
@@ -687,7 +1000,7 @@ export type DeviceListItem = {
   id: Id;
   name: string;
   icon?: string | null;
-  live_ip_count: number;
+  live_address_count: number;
   /**
    * Non-null when an API key is configured; the full key is never returned.
    */
@@ -708,7 +1021,7 @@ export type UserListItem = {
    */
   host_count: number;
   device_count: number;
-  live_ip_count: number;
+  live_address_count: number;
   bypass_host_check: boolean;
 };
 
@@ -729,342 +1042,6 @@ export type UserAccessDetail = {
   bypass_host_check: boolean;
 };
 
-export type PromoteUserRequest = {
-  password: Password;
-};
-
-export type HostGroupSummary = {
-  id: Id;
-  name: string;
-  /**
-   * Hex color string (e.g. "#4C6EF5").
-   */
-  color: string;
-  /**
-   * Tabler icon name.
-   */
-  icon: string;
-};
-
-export type DeviceListOwner = {
-  id: Id;
-  username: string;
-  display_name: string;
-  role: UserRole;
-  bypass_hosts_check: boolean;
-  /**
-   * Host groups the owner belongs to. Always returned; frontend hides them when bypass_hosts_check is true.
-   */
-  host_groups: Array<HostGroupSummary>;
-  device_count: number;
-  /**
-   * Aggregate count of live addresses across all owner's devices.
-   */
-  live_address_count: number;
-};
-
-/**
- * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
- *
- */
-export const DeviceState = {
-  HEALTHY: "healthy",
-  STALE: "stale",
-  PENDING_CLAIM: "pending-claim",
-  EXPIRED_CLAIM: "expired-claim",
-} as const;
-
-/**
- * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
- *
- */
-export type DeviceState = (typeof DeviceState)[keyof typeof DeviceState];
-
-export type DeviceRuleSummary = {
-  type: "auto_expiry" | "max_active";
-  enabled: boolean;
-  /**
-   * TTL in seconds. Present for auto_expiry rules.
-   */
-  ttl_seconds?: number | null;
-  /**
-   * Maximum allowed live-address count. Present for max_active rules.
-   */
-  limit?: number | null;
-};
-
-export type DevicePairingSummary = {
-  /**
-   * When the pairing code expires.
-   */
-  expires_at: string;
-};
-
-export type DeviceListEntry = {
-  id: Id;
-  name: string;
-  /**
-   * Tabler icon name override.
-   */
-  icon?: string | null;
-  /**
-   * First characters of the API key (display only).
-   */
-  key_prefix?: string | null;
-  /**
-   * When the device was created.
-   */
-  created_at: string;
-  /**
-   * Most recent address heartbeat for this device.
-   */
-  last_seen_at?: string | null;
-  state: DeviceState;
-  live_address_count: number;
-  rules: Array<DeviceRuleSummary>;
-  pairing?: DevicePairingSummary | null;
-};
-
-export type DeviceOwnerGroup = {
-  owner: DeviceListOwner;
-  devices: Array<DeviceListEntry>;
-};
-
-export type DeviceApiKeyResponse = {
-  device: Device;
-  /**
-   * Secret key for the device.
-   */
-  api_key: string;
-};
-
-/**
- * Minimal host reference embedded in group responses.
- */
-export type HostSummary = {
-  id: Id;
-  fqdn: string;
-};
-
-/**
- * Minimal network policy reference embedded in group responses.
- */
-export type NetworkPolicyRef = {
-  id: Id;
-  name: string;
-  cidr: string;
-};
-
-/**
- * Minimal user reference embedded in group responses.
- */
-export type UserSummary = {
-  id: Id;
-  username: string;
-  display_name: string;
-};
-
-export type GroupDetailWithUsers = GroupDetail & {
-  /**
-   * Users with access to this group (read-only, managed via subjects).
-   */
-  users?: Array<UserSummary>;
-};
-
-export type PolicyIpDevice = {
-  device_id: Id;
-  device_name: string;
-};
-
-export type PolicyUserIpSharedUser = {
-  user_id: Id;
-  /**
-   * Login username of the co-located user.
-   */
-  username: string;
-  /**
-   * Display name of the co-located user.
-   */
-  user_name: string;
-  /**
-   * Devices this user has at this IP.
-   */
-  devices: Array<PolicyIpDevice>;
-};
-
-export type PolicyUserAddress = {
-  address_id: Id;
-  device_id: Id;
-  device_name: string;
-  /**
-   * Last heartbeat or manual update time for this address.
-   */
-  updated_at: string;
-};
-
-export type PolicyUserIp = {
-  /**
-   * The IP address.
-   */
-  ip: string;
-  /**
-   * Other users (excluding self) that also contribute to this IP. Empty means this user is the sole owner of the IP.
-   *
-   */
-  shared_with_users: Array<PolicyUserIpSharedUser>;
-  /**
-   * True when the IP entry as a whole bypasses the host allowlist (every contributor at this IP has bypass set). When true, effective_hosts is empty and means "All".
-   *
-   */
-  bypass_at_ip: boolean;
-  /**
-   * Hosts actually allowed for THIS user at THIS IP after deny-wins intersection. Equals user_allowed_hosts when the user is the sole contributor; intersected with other restricted contributors otherwise. Empty when bypass_at_ip is true.
-   *
-   */
-  effective_hosts: Array<string>;
-  /**
-   * Hosts the user had pre-intersection that were removed by intersection at this IP. Empty when no trimming occurred. Always empty when the user has bypass_allowlist true (their grants are not subject to intersection).
-   *
-   */
-  trimmed_hosts: Array<string>;
-  /**
-   * The user's own addresses sitting at this IP. Multiple entries when the same user has several devices behind the same NAT.
-   *
-   */
-  addresses: Array<PolicyUserAddress>;
-};
-
-export type PolicyUserEntry = {
-  user_id: Id;
-  /**
-   * User display name.
-   */
-  user_name: string;
-  /**
-   * True when the user has an admin or superadmin role.
-   */
-  is_admin: boolean;
-  /**
-   * True when this user has the host allowlist bypass enabled.
-   */
-  bypass_allowlist: boolean;
-  /**
-   * True when at least one of this user's IPs is shared with another user.
-   *
-   */
-  on_shared_ip: boolean;
-  /**
-   * True when at least one of this user's IPs had its effective host set reduced by deny-wins intersection with another user at that IP.
-   *
-   */
-  intersection_applied: boolean;
-  /**
-   * Distinct devices owned by this user that contribute to the cache. Zero for no-access users.
-   *
-   */
-  device_count: number;
-  /**
-   * Distinct IPs this user currently contributes to. Zero for no-access users.
-   *
-   */
-  ip_count: number;
-  /**
-   * Size of user_allowed_hosts (pre-intersection). Zero when bypass_allowlist is true; the UI should render "All".
-   *
-   */
-  allowed_host_count: number;
-  /**
-   * Most recent address.updated_at across this user's addresses. Null when the user has no enabled IPs.
-   *
-   */
-  last_seen_at?: string | null;
-  /**
-   * Pre-intersection allowed host list for this user. Empty when bypass_allowlist is true.
-   *
-   */
-  user_allowed_hosts: Array<string>;
-  /**
-   * IPs this user currently contributes to. Empty for no-access users (never null — empty array, for client ergonomics).
-   *
-   */
-  ips: Array<PolicyUserIp>;
-};
-
-export type PolicyUserMapAudit = {
-  /**
-   * When the cache was last fully refreshed.
-   */
-  refreshed_at: string;
-  /**
-   * How long the last refresh took in milliseconds.
-   */
-  refresh_duration_ms: number;
-  /**
-   * Distinct IPs currently in the policy cache.
-   */
-  total_ip_count: number;
-  /**
-   * Total distinct device contributors across all IPs in the cache.
-   */
-  total_device_count: number;
-  /**
-   * Distinct hosts across the union of all users' pre-intersection allowed host lists. Denominator for the allowed_host_count / total_host_count ratio.
-   *
-   */
-  total_host_count: number;
-  /**
-   * Distinct IPs shared between two or more users.
-   */
-  shared_ip_count: number;
-  users: Array<PolicyUserEntry>;
-  /**
-   * Number of enabled network policies currently in the cache.
-   */
-  total_network_policy_count: number;
-  /**
-   * All enabled network policies currently in the cache.
-   *
-   */
-  network_policies: Array<PolicyNetworkPolicyEntry>;
-};
-
-/**
- * Reason for denial.
- */
-export const PolicySimulateDenyReason = {
-  IP_NOT_REGISTERED: "ip_not_registered",
-  HOST_NOT_ALLOWED: "host_not_allowed",
-} as const;
-
-/**
- * Reason for denial.
- */
-export type PolicySimulateDenyReason =
-  (typeof PolicySimulateDenyReason)[keyof typeof PolicySimulateDenyReason];
-
-export type PolicySimulateResult = {
-  ip: string;
-  host: string;
-  allowed: boolean;
-  /**
-   * Reason for denial; null when allowed is true.
-   */
-  deny_reason?: PolicySimulateDenyReason | null;
-  /**
-   * Which mechanism authorized the request. Null when allowed is false.
-   *
-   */
-  match_source?: "device" | "network_policy";
-  /**
-   * ID of the matching policy when match_source is 'network_policy'.
-   */
-  network_policy_id?: Id | null;
-  /**
-   * Name of the matching policy when match_source is 'network_policy'.
-   */
-  network_policy_name?: string | null;
-};
-
 export type UserWritable = {
   id: Id;
   username: Username;
@@ -1075,10 +1052,6 @@ export type UserWritable = {
    */
   bypass_host_check: boolean;
   created_at: string;
-};
-
-export type CreateDeviceResponseWritable = {
-  device: DeviceWritable;
 };
 
 export type DeviceWritable = {
@@ -1110,6 +1083,14 @@ export type DeviceWritable = {
   api_key_prefix?: string | null;
 };
 
+export type DeviceApiKeyResponseWritable = {
+  device: DeviceWritable;
+  /**
+   * Secret key for the device.
+   */
+  api_key: string;
+};
+
 export type AddressWritable = {
   id: Id;
   device_id: Id;
@@ -1124,14 +1105,6 @@ export type AddressWritable = {
    * Last time it was enabled or disabled
    */
   updated_at: string;
-};
-
-export type DeviceApiKeyResponseWritable = {
-  device: DeviceWritable;
-  /**
-   * Secret key for the device.
-   */
-  api_key: string;
 };
 
 export type ListUsersData = {
@@ -1534,10 +1507,10 @@ export type CreateDeviceResponses = {
   /**
    * Created
    */
-  201: CreateDeviceResponse;
+  201: Device;
 };
 
-export type CreateDeviceResponse2 =
+export type CreateDeviceResponse =
   CreateDeviceResponses[keyof CreateDeviceResponses];
 
 export type DeleteDeviceData = {
@@ -2165,7 +2138,7 @@ export type DisableDeviceAddressLeaseRuleData = {
     device_id: Id;
   };
   query?: never;
-  url: "/devices/{device_id}/rules/address_lease";
+  url: "/devices/{device_id}/rules/address-lease";
 };
 
 export type DisableDeviceAddressLeaseRuleErrors = {
@@ -2201,7 +2174,7 @@ export type GetDeviceAddressLeaseRuleData = {
     device_id: Id;
   };
   query?: never;
-  url: "/devices/{device_id}/rules/address_lease";
+  url: "/devices/{device_id}/rules/address-lease";
 };
 
 export type GetDeviceAddressLeaseRuleErrors = {
@@ -2237,7 +2210,7 @@ export type PutDeviceAddressLeaseRuleData = {
     device_id: Id;
   };
   query?: never;
-  url: "/devices/{device_id}/rules/address_lease";
+  url: "/devices/{device_id}/rules/address-lease";
 };
 
 export type PutDeviceAddressLeaseRuleErrors = {
@@ -2277,7 +2250,7 @@ export type DisableMaxActiveAddressesRuleData = {
     device_id: Id;
   };
   query?: never;
-  url: "/devices/{device_id}/rules/max_active_addresses";
+  url: "/devices/{device_id}/rules/max-active-addresses";
 };
 
 export type DisableMaxActiveAddressesRuleErrors = {
@@ -2313,7 +2286,7 @@ export type GetMaxActiveAddressesRuleData = {
     device_id: Id;
   };
   query?: never;
-  url: "/devices/{device_id}/rules/max_active_addresses";
+  url: "/devices/{device_id}/rules/max-active-addresses";
 };
 
 export type GetMaxActiveAddressesRuleErrors = {
@@ -2349,7 +2322,7 @@ export type PutMaxActiveAddressesRuleData = {
     device_id: Id;
   };
   query?: never;
-  url: "/devices/{device_id}/rules/max_active_addresses";
+  url: "/devices/{device_id}/rules/max-active-addresses";
 };
 
 export type PutMaxActiveAddressesRuleErrors = {
@@ -3322,10 +3295,10 @@ export type CreateNetworkPolicyResponse =
 export type DeleteNetworkPolicyData = {
   body?: never;
   path: {
-    id: Id;
+    policy_id: Id;
   };
   query?: never;
-  url: "/admin/access/network-policies/{id}";
+  url: "/admin/access/network-policies/{policy_id}";
 };
 
 export type DeleteNetworkPolicyErrors = {
@@ -3363,10 +3336,10 @@ export type DeleteNetworkPolicyResponse =
 export type GetNetworkPolicyData = {
   body?: never;
   path: {
-    id: Id;
+    policy_id: Id;
   };
   query?: never;
-  url: "/admin/access/network-policies/{id}";
+  url: "/admin/access/network-policies/{policy_id}";
 };
 
 export type GetNetworkPolicyErrors = {
@@ -3404,10 +3377,10 @@ export type GetNetworkPolicyResponse =
 export type UpdateNetworkPolicyData = {
   body: ModifyNetworkPolicyRequest;
   path: {
-    id: Id;
+    policy_id: Id;
   };
   query?: never;
-  url: "/admin/access/network-policies/{id}";
+  url: "/admin/access/network-policies/{policy_id}";
 };
 
 export type UpdateNetworkPolicyErrors = {
@@ -3453,10 +3426,10 @@ export type UpdateNetworkPolicyResponse =
 export type UpdateNetworkPolicyAccessData = {
   body: ModifyAccessRequest;
   path: {
-    id: Id;
+    policy_id: Id;
   };
   query?: never;
-  url: "/admin/access/network-policies/{id}/grants";
+  url: "/admin/access/network-policies/{policy_id}/grants";
 };
 
 export type UpdateNetworkPolicyAccessErrors = {

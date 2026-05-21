@@ -46,6 +46,7 @@ AccessLogRow:
       type: boolean
     deny_reason:
       type: string
+      nullable: true
     device_id:
       $ref: './common.yaml#/ID'
     device_name:

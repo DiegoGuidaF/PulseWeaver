@@ -33,13 +33,13 @@ function renderTable(
 
 const ALLOWLISTED = createMockPolicyUserEntry({
     user_id: 1,
-    user_name: "alice",
+    display_name: "alice",
     bypass_allowlist: false,
     ips: [createMockPolicyUserIp({ ip: "192.168.1.10" })],
 });
 const BYPASS = createMockPolicyUserEntry({
     user_id: 2,
-    user_name: "bob",
+    display_name: "bob",
     bypass_allowlist: true,
     ips: [],
     ip_count: 0,
@@ -49,7 +49,7 @@ const BYPASS = createMockPolicyUserEntry({
 });
 const NO_ACCESS = createMockPolicyUserEntry({
     user_id: 3,
-    user_name: "carol",
+    display_name: "carol",
     bypass_allowlist: false,
     ips: [],
     ip_count: 0,
@@ -99,7 +99,7 @@ describe("PolicyUserTable", () => {
         const user = userEvent.setup();
         const withDevice = createMockPolicyUserEntry({
             user_id: 1,
-            user_name: "alice",
+            display_name: "alice",
             ips: [
                 createMockPolicyUserIp({
                     addresses: [
@@ -150,7 +150,7 @@ describe("PolicyUserTable", () => {
         const user = userEvent.setup();
         const sharedUser = createMockPolicyUserEntry({
             user_id: 4,
-            user_name: "dave",
+            display_name: "dave",
             on_shared_ip: true,
         });
         renderTable([ALLOWLISTED, sharedUser]);
@@ -205,14 +205,14 @@ describe("PolicyUserTable", () => {
         await user.click(nameCell);
 
         expect(onSelectUser).toHaveBeenCalledWith(
-            expect.objectContaining({ user_name: "alice" }),
+            expect.objectContaining({ display_name: "alice" }),
         );
     });
 
     it("renders Admin badge for admin users", () => {
         const admin = createMockPolicyUserEntry({
             user_id: 5,
-            user_name: "superadmin",
+            display_name: "superadmin",
             is_admin: true,
         });
         renderTable([admin]);
@@ -223,7 +223,7 @@ describe("PolicyUserTable", () => {
     it("renders Shared IP badge for users on a shared IP", () => {
         const shared = createMockPolicyUserEntry({
             user_id: 6,
-            user_name: "shared-user",
+            display_name: "shared-user",
             on_shared_ip: true,
         });
         renderTable([shared]);
@@ -234,7 +234,7 @@ describe("PolicyUserTable", () => {
     it("overflow badge appears when a user has more than 3 IPs", () => {
         const manyIps = createMockPolicyUserEntry({
             user_id: 7,
-            user_name: "multiip",
+            display_name: "multiip",
             ips: [
                 createMockPolicyUserIp({ ip: "10.0.0.1" }),
                 createMockPolicyUserIp({ ip: "10.0.0.2" }),

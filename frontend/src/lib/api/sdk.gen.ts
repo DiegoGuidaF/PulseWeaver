@@ -190,7 +190,7 @@ import {
   zClaimRegistrationBody,
   zClaimRegistrationResponse2,
   zCreateDeviceBody,
-  zCreateDeviceResponse2,
+  zCreateDeviceResponse,
   zCreateNetworkPolicyBody,
   zCreateNetworkPolicyResponse,
   zCreateRegistrationBody,
@@ -714,7 +714,7 @@ export const createDevice = <ThrowOnError extends boolean = false>(
         })
         .parseAsync(data),
     responseValidator: async (data) =>
-      await zCreateDeviceResponse2.parseAsync(data),
+      await zCreateDeviceResponse.parseAsync(data),
     security: [
       {
         in: "cookie",
@@ -1247,7 +1247,7 @@ export const disableDeviceAddressLeaseRule = <
         type: "apiKey",
       },
     ],
-    url: "/devices/{device_id}/rules/address_lease",
+    url: "/devices/{device_id}/rules/address-lease",
     ...options,
   });
 
@@ -1281,7 +1281,7 @@ export const getDeviceAddressLeaseRule = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/devices/{device_id}/rules/address_lease",
+    url: "/devices/{device_id}/rules/address-lease",
     ...options,
   });
 
@@ -1315,7 +1315,7 @@ export const putDeviceAddressLeaseRule = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/devices/{device_id}/rules/address_lease",
+    url: "/devices/{device_id}/rules/address-lease",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1355,7 +1355,7 @@ export const disableMaxActiveAddressesRule = <
         type: "apiKey",
       },
     ],
-    url: "/devices/{device_id}/rules/max_active_addresses",
+    url: "/devices/{device_id}/rules/max-active-addresses",
     ...options,
   });
 
@@ -1389,7 +1389,7 @@ export const getMaxActiveAddressesRule = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/devices/{device_id}/rules/max_active_addresses",
+    url: "/devices/{device_id}/rules/max-active-addresses",
     ...options,
   });
 
@@ -1423,7 +1423,7 @@ export const putMaxActiveAddressesRule = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/devices/{device_id}/rules/max_active_addresses",
+    url: "/devices/{device_id}/rules/max-active-addresses",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -2264,7 +2264,7 @@ export const deleteNetworkPolicy = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/admin/access/network-policies/{id}",
+    url: "/admin/access/network-policies/{policy_id}",
     ...options,
   });
 
@@ -2296,7 +2296,7 @@ export const getNetworkPolicy = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/admin/access/network-policies/{id}",
+    url: "/admin/access/network-policies/{policy_id}",
     ...options,
   });
 
@@ -2330,7 +2330,7 @@ export const updateNetworkPolicy = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/admin/access/network-policies/{id}",
+    url: "/admin/access/network-policies/{policy_id}",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -2368,7 +2368,7 @@ export const updateNetworkPolicyAccess = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/admin/access/network-policies/{id}/grants",
+    url: "/admin/access/network-policies/{policy_id}/grants",
     ...options,
     headers: {
       "Content-Type": "application/json",

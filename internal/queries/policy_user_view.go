@@ -154,7 +154,7 @@ func assemblePolicyUserMap(
 		if !present {
 			users = append(users, httpapi.PolicyUserEntry{
 				UserId:              userID.Int64(),
-				UserName:            ur.UserName,
+				DisplayName:         ur.UserName,
 				IsAdmin:             ur.IsAdmin,
 				BypassAllowlist:     ur.BypassAllowlist,
 				OnSharedIp:          false,
@@ -173,7 +173,7 @@ func assemblePolicyUserMap(
 
 		users = append(users, httpapi.PolicyUserEntry{
 			UserId:              userID.Int64(),
-			UserName:            ur.UserName,
+			DisplayName:         ur.UserName,
 			IsAdmin:             ur.IsAdmin,
 			BypassAllowlist:     ur.BypassAllowlist,
 			OnSharedIp:          anySharedIP(ips),

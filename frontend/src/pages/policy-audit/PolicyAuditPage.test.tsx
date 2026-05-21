@@ -105,7 +105,7 @@ describe("PolicyAuditPage", () => {
                 users: [
                     createMockPolicyUserEntry({
                         user_id: 1,
-                        user_name: "alice",
+                        display_name: "alice",
                         ips: [createMockPolicyUserIp({ ip: "10.0.1.99" })],
                     }),
                 ],

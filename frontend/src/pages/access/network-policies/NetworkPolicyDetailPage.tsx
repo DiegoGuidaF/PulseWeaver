@@ -57,7 +57,7 @@ export function NetworkPolicyDetailPage() {
         if (!data) return;
         updateMutation.mutate(
             {
-                path: { id: policyId },
+                path: { policy_id: policyId },
                 body: {
                     name: data.name,
                     cidr: data.cidr,
@@ -75,7 +75,7 @@ export function NetworkPolicyDetailPage() {
 
     function handleDelete() {
         deleteMutation.mutate(
-            { path: { id: policyId } },
+            { path: { policy_id: policyId } },
             {
                 onSuccess: () => navigate("/access/network-policies"),
                 onError: (err) =>
@@ -86,7 +86,7 @@ export function NetworkPolicyDetailPage() {
 
     function handleSaveAccess() {
         accessMutation.mutate(
-            { path: { id: policyId }, body: buildModifyAccessRequest(draft) },
+            { path: { policy_id: policyId }, body: buildModifyAccessRequest(draft) },
             {
                 onError: (err) =>
                     notifications.show({ color: "red", message: toErrorMessage(err) }),

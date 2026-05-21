@@ -79,7 +79,7 @@ export function UsersPage() {
         case "display_name": return mult * a.display_name.localeCompare(b.display_name);
         case "host_count": return mult * (a.host_count - b.host_count);
         case "device_count": return mult * (a.device_count - b.device_count);
-        case "live_ip_count": return mult * (a.live_ip_count - b.live_ip_count);
+        case "live_address_count": return mult * (a.live_address_count - b.live_address_count);
         default: return 0;
       }
     });
@@ -219,10 +219,10 @@ export function UsersPage() {
               render: (u) => <Text size="sm" c="dimmed">{u.device_count}</Text>,
             },
             {
-              accessor: "live_ip_count",
+              accessor: "live_address_count",
               title: "Live IPs",
               sortable: true,
-              render: (u) => <Text size="sm" c="dimmed">{u.live_ip_count}</Text>,
+              render: (u) => <Text size="sm" c="dimmed">{u.live_address_count}</Text>,
             },
             {
               accessor: "actions",

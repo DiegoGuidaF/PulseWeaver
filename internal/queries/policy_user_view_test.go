@@ -87,7 +87,7 @@ func TestAssemblePolicyUserMap_SingleUser(t *testing.T) {
 
 	u := result.Users[0]
 	is.Equal(u.UserId, int64(userAlice))
-	is.Equal(u.UserName, "Alice")
+	is.Equal(u.DisplayName, "Alice")
 	is.Equal(u.IsAdmin, false)
 	is.Equal(u.BypassAllowlist, false)
 	is.Equal(u.DeviceCount, 1)
@@ -197,7 +197,7 @@ func TestAssemblePolicyUserMap_TwoUsersSharedIP_IntersectionTrims(t *testing.T) 
 
 	// Alice: effective = {a.com}, trimmed = {b.com}
 	alice := result.Users[0]
-	is.Equal(alice.UserName, "Alice")
+	is.Equal(alice.DisplayName, "Alice")
 	is.Equal(alice.IntersectionApplied, true)
 	is.Equal(alice.OnSharedIp, true)
 	is.Equal(len(alice.Ips), 1)
@@ -211,7 +211,7 @@ func TestAssemblePolicyUserMap_TwoUsersSharedIP_IntersectionTrims(t *testing.T) 
 
 	// Bob: effective = {a.com}, trimmed = {} (his set wasn't trimmed)
 	bob := result.Users[1]
-	is.Equal(bob.UserName, "Bob")
+	is.Equal(bob.DisplayName, "Bob")
 	is.Equal(bob.IntersectionApplied, false)
 	is.Equal(bob.OnSharedIp, true)
 	is.Equal(len(bob.Ips), 1)
@@ -302,7 +302,7 @@ func TestAssemblePolicyUserMap_NoAccessUser(t *testing.T) {
 	is.Equal(len(result.Users), 1)
 	charlie := result.Users[0]
 	is.Equal(charlie.UserId, int64(userCharlie))
-	is.Equal(charlie.UserName, "Charlie")
+	is.Equal(charlie.DisplayName, "Charlie")
 	is.Equal(charlie.BypassAllowlist, false)
 	is.Equal(charlie.DeviceCount, 0)
 	is.Equal(charlie.IpCount, 0)
@@ -345,8 +345,8 @@ func TestAssemblePolicyUserMap_SortOrder(t *testing.T) {
 	result := assemblePolicyUserMap(snap, enrichment, allUsers, map[ids.UserID][]string{})
 
 	// Users sorted alphabetically.
-	is.Equal(result.Users[0].UserName, "Alice")
-	is.Equal(result.Users[1].UserName, "Bob")
+	is.Equal(result.Users[0].DisplayName, "Alice")
+	is.Equal(result.Users[1].DisplayName, "Bob")
 
 	// Alice's IPs sorted lexicographically.
 	alice := result.Users[0]

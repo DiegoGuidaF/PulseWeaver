@@ -38,7 +38,7 @@ describe('UserDevicesPage', () => {
                         username: 'dguida',
                         display_name: 'Diego Guida',
                         role: 'user',
-                        bypass_hosts_check: false,
+                        bypass_host_check: false,
                         host_groups: [],
                         device_count: 1,
                         live_address_count: 1,

@@ -16,7 +16,7 @@ const defaultOwner: DeviceListOwner = {
     username: 'testuser',
     display_name: 'Test User',
     role: UserRole.USER,
-    bypass_hosts_check: false,
+    bypass_host_check: false,
     host_groups: [],
     device_count: 1,
     live_address_count: 0,
@@ -76,7 +76,7 @@ const secondOwnerGroup = createMockDeviceOwnerGroup({
         username: 'other',
         display_name: 'Other User',
         role: UserRole.USER,
-        bypass_hosts_check: false,
+        bypass_host_check: false,
         host_groups: [],
         device_count: 1,
         live_address_count: 0,
@@ -117,8 +117,8 @@ describe('OwnerDevicesPanel', () => {
             expect(screen.queryByText('admin')).not.toBeInTheDocument();
         });
 
-        it('shows bypass badge when bypass_hosts_check is true', () => {
-            renderPanel({ owner: { ...defaultOwner, bypass_hosts_check: true } });
+        it('shows bypass badge when bypass_host_check is true', () => {
+            renderPanel({ owner: { ...defaultOwner, bypass_host_check: true } });
             expect(screen.getByText('bypass')).toBeInTheDocument();
         });
 

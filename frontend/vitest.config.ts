@@ -11,7 +11,7 @@ export default defineConfig({
     css: true,
     testTimeout: 15000,
     pool: "forks",
-    maxWorkers: '50%',
+    maxWorkers: '80%',
   },
   resolve: {
     alias: {

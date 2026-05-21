@@ -42,7 +42,7 @@ PolicyUserEntry:
   type: object
   required:
     - user_id
-    - user_name
+    - display_name
     - is_admin
     - bypass_allowlist
     - on_shared_ip
@@ -55,7 +55,7 @@ PolicyUserEntry:
   properties:
     user_id:
       $ref: './common.yaml#/ID'
-    user_name:
+    display_name:
       type: string
       description: User display name.
     is_admin:
@@ -150,8 +150,7 @@ PolicyUserIP:
     - addresses
   properties:
     ip:
-      type: string
-      description: The IP address.
+      $ref: './common.yaml#/IPAddress'
     shared_with_users:
       type: array
       items:
@@ -248,7 +247,7 @@ PolicySimulateResult:
     - allowed
   properties:
     ip:
-      type: string
+      $ref: './common.yaml#/IPAddress'
     host:
       type: string
     allowed:
