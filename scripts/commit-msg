@@ -1,15 +1,20 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 # Validates that commit messages follow the Conventional Commits spec.
-# Install: make install-hooks
 
 MSG_FILE="$1"
-FIRST_LINE=$(head -n1 "$MSG_FILE")
+MSG=$(cat "$MSG_FILE")
 
+# Pass through merge commits, reverts, and fixups
+case "$MSG" in
+  Merge*|Revert*|fixup!*|squash!*) exit 0 ;;
+esac
+
+FIRST_LINE=$(printf '%s\n' "$MSG" | head -n1)
 
 # Pattern: type[(scope)][[PW-N]][!]: description
-PATTERN='^(build|chore|ci|docs|feat|fix|refactor|revert|style|test)(\([a-z0-9,/-]+\))?(\[PW-[0-9]+\])?!?: .{1,}'
+PATTERN='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9,/-]+\))?(\[PW-[0-9]+\])?!?: .{1,}'
 
-if ! [[ "$FIRST_LINE" =~ $PATTERN ]]; then
+if ! echo "$FIRST_LINE" | grep -qE "$PATTERN"; then
   echo ""
   echo "❌ Invalid commit message format."
   echo ""
