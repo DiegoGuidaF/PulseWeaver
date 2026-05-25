@@ -303,7 +303,7 @@ func TestBuildNetworkPolicyCache_InvalidCIDR_Skipped(t *testing.T) {
 	}
 	result := buildNetworkPolicyCache(context.Background(), entries, noopLogger())
 	is.Equal(len(result), 1)
-	is.Equal(result[0].PolicyID, int64(2))
+	is.Equal(result[0].PolicyID.Int64(), int64(2))
 }
 
 func TestBuildNetworkPolicyCache_HostBitsNormalized(t *testing.T) {

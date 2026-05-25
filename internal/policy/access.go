@@ -59,7 +59,7 @@ func (s *Service) Decide(ctx context.Context, ip, host string) DecisionResult {
 	return DecisionResult{DenyReason: new(DenyReasonIPNotRegistered)}
 }
 
-// VerifyAccess validates bearer token and verifies that the IP is enabled, emitting a DecisionEvent.
+// VerifyAccess validates the bearer token and verifies that the IP is enabled, emitting a DecisionEvent.
 func (s *Service) VerifyAccess(ctx context.Context, req *VerifyRequest) error {
 	s.logger.DebugContext(ctx, "Verify access for ip")
 	start := time.Now()
@@ -113,4 +113,16 @@ func (s *Service) lookupIP(ctx context.Context, ip string) (ipSetEntry, bool) {
 	entry, ok := s.ipSet[ip]
 	s.logger.DebugContext(ctx, "found IP", slog.String(AttrKeyRequestIP, ip))
 	return entry, ok
+}
+
+// toIPContributors projects ContributorAccess down to IPContributor for observer notification.
+func toIPContributors(cs []ContributorAccess) []IPContributor {
+	if len(cs) == 0 {
+		return nil
+	}
+	out := make([]IPContributor, len(cs))
+	for i, c := range cs {
+		out[i] = IPContributor{DeviceID: c.DeviceID, AddressID: c.AddressID, UserID: c.UserID}
+	}
+	return out
 }

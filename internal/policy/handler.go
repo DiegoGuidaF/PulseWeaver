@@ -80,8 +80,12 @@ func (h *HTTPHandler) SimulatePolicyAccess(
 
 	var matchSource *httpapi.PolicySimulateResultMatchSource
 	if result.Allowed {
-		ms := httpapi.PolicySimulateResultMatchSource(result.MatchSource)
-		matchSource = &ms
+		matchSource = new(httpapi.PolicySimulateResultMatchSource(result.MatchSource))
+	}
+
+	var networkPolicyIDInt *int64
+	if result.NetworkPolicyID != nil {
+		networkPolicyIDInt = new(result.NetworkPolicyID.Int64())
 	}
 
 	return httpapi.SimulatePolicyAccess200JSONResponse(httpapi.PolicySimulateResult{
@@ -90,7 +94,7 @@ func (h *HTTPHandler) SimulatePolicyAccess(
 		Allowed:           result.Allowed,
 		DenyReason:        denyReason,
 		MatchSource:       matchSource,
-		NetworkPolicyId:   result.NetworkPolicyID,
+		NetworkPolicyId:   networkPolicyIDInt,
 		NetworkPolicyName: result.NetworkPolicyName,
 	}), nil
 }

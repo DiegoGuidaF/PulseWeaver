@@ -16,10 +16,24 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 )
 
+// UserHostAccess is the per-user projection consumed by refreshCache.
+type UserHostAccess struct {
+	UserID          ids.UserID
+	BypassAllowlist bool
+	AllowedHosts    []string // case-folded FQDNs
+}
+
+type ipSetEntry struct {
+	Contributors        []ContributorAccess // all devices at this IP with pre-intersection state
+	BypassAllowlist     bool
+	AllowedHosts        map[string]struct{} // case-folded FQDNs; nil when all contributors bypass
+	IntersectionApplied bool                // true when deny-wins trimmed at least one contributor's host set
+}
+
 // networkPolicyCacheEntry holds a parsed CIDR prefix and its access config
 // for fast in-loop CIDR containment checks.
 type networkPolicyCacheEntry struct {
-	PolicyID        int64
+	PolicyID        ids.NetworkPolicyID
 	PolicyName      string
 	Prefix          netip.Prefix
 	BypassHostCheck bool
@@ -164,7 +178,7 @@ func buildNetworkPolicyCache(ctx context.Context, entries []networkpolicies.Cach
 		}
 
 		result = append(result, networkPolicyCacheEntry{
-			PolicyID:        e.PolicyID.Int64(),
+			PolicyID:        e.PolicyID,
 			PolicyName:      e.PolicyName,
 			Prefix:          prefix,
 			BypassHostCheck: e.BypassHostCheck,
