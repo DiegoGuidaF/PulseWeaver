@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
@@ -25,6 +26,8 @@ func TestHandler_AddressLifecycle(t *testing.T) {
 
 	addBody, _ := json.Marshal(map[string]string{"ip": "192.168.1.100"})
 	addURL := fmt.Sprintf("/api/v1/devices/%d/addresses", dev.ID)
+
+	// Create — 201, all fields populated
 	addReq := httptest.NewRequest(http.MethodPost, addURL, bytes.NewReader(addBody))
 	addReq.Header.Set("Content-Type", "application/json")
 	addReq.AddCookie(sessionCookie)
@@ -32,11 +35,19 @@ func TestHandler_AddressLifecycle(t *testing.T) {
 	testServer.HTTPServer.ServeHTTP(addRes, addReq)
 	is.Equal(addRes.Code, http.StatusCreated)
 
-	var createdAddress httpapi.Address
-	err = json.NewDecoder(addRes.Body).Decode(&createdAddress)
+	var created httpapi.Address
+	err = json.NewDecoder(addRes.Body).Decode(&created)
 	is.NoErr(err)
-	is.True(createdAddress.IsEnabled)
+	is.True(created.Id != 0)
+	is.Equal(created.DeviceId, dev.ID.Int64())
+	is.Equal(created.Ip, "192.168.1.100")
+	is.True(created.IsEnabled)
+	is.Equal(string(created.Source), "manual")
+	is.True(!time.Time(created.CreatedAt).IsZero())
+	is.True(!time.Time(created.UpdatedAt).IsZero())
+	is.True(created.ExpiresAt == nil)
 
+	// List — address appears with same fields
 	listReq := httptest.NewRequest(http.MethodGet, addURL, nil)
 	listReq.AddCookie(sessionCookie)
 	listRes := httptest.NewRecorder()
@@ -47,10 +58,13 @@ func TestHandler_AddressLifecycle(t *testing.T) {
 	err = json.NewDecoder(listRes.Body).Decode(&addresses)
 	is.NoErr(err)
 	is.Equal(len(addresses), 1)
+	is.Equal(addresses[0].Id, created.Id)
 	is.Equal(addresses[0].Ip, "192.168.1.100")
 	is.True(addresses[0].IsEnabled)
+	is.Equal(string(addresses[0].Source), "manual")
 
-	disableURL := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", dev.ID, createdAddress.Id)
+	// Disable — 200, same id, is_enabled=false, source=manual
+	disableURL := fmt.Sprintf("/api/v1/devices/%d/addresses/%d", dev.ID, created.Id)
 	disableReq := httptest.NewRequest(http.MethodDelete, disableURL, nil)
 	disableReq.AddCookie(sessionCookie)
 	disableRes := httptest.NewRecorder()
@@ -60,7 +74,24 @@ func TestHandler_AddressLifecycle(t *testing.T) {
 	var disabled httpapi.Address
 	err = json.NewDecoder(disableRes.Body).Decode(&disabled)
 	is.NoErr(err)
+	is.Equal(disabled.Id, created.Id)
 	is.True(!disabled.IsEnabled)
+	is.Equal(string(disabled.Source), "manual")
+
+	// Re-enable same IP — 200 (update, not create), same id, is_enabled=true, source=manual
+	addReq2 := httptest.NewRequest(http.MethodPost, addURL, bytes.NewReader(addBody))
+	addReq2.Header.Set("Content-Type", "application/json")
+	addReq2.AddCookie(sessionCookie)
+	addRes2 := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(addRes2, addReq2)
+	is.Equal(addRes2.Code, http.StatusOK)
+
+	var reenabled httpapi.Address
+	err = json.NewDecoder(addRes2.Body).Decode(&reenabled)
+	is.NoErr(err)
+	is.Equal(reenabled.Id, created.Id)
+	is.True(reenabled.IsEnabled)
+	is.Equal(string(reenabled.Source), "manual")
 }
 
 func TestHandler_DeviceHeartbeat(t *testing.T) {
@@ -73,6 +104,7 @@ func TestHandler_DeviceHeartbeat(t *testing.T) {
 
 	heartbeatURL := fmt.Sprintf("/api/v1/devices/%d/heartbeat", dev.ID)
 
+	// First heartbeat — creates address, 201, source=heartbeat
 	firstReq := httptest.NewRequest(http.MethodPost, heartbeatURL, nil)
 	firstReq.RemoteAddr = "192.168.1.50:12345"
 	firstReq.AddCookie(sessionCookie)
@@ -80,12 +112,31 @@ func TestHandler_DeviceHeartbeat(t *testing.T) {
 	testServer.HTTPServer.ServeHTTP(firstRes, firstReq)
 	is.Equal(firstRes.Code, http.StatusCreated)
 
+	var created httpapi.Address
+	err = json.NewDecoder(firstRes.Body).Decode(&created)
+	is.NoErr(err)
+	is.True(created.Id != 0)
+	is.Equal(created.DeviceId, dev.ID.Int64())
+	is.Equal(created.Ip, "192.168.1.50")
+	is.True(created.IsEnabled)
+	is.Equal(string(created.Source), "heartbeat")
+	is.True(!time.Time(created.CreatedAt).IsZero())
+	is.True(!time.Time(created.UpdatedAt).IsZero())
+
+	// Second heartbeat — refreshes same address, 200, source=heartbeat
 	secondReq := httptest.NewRequest(http.MethodPost, heartbeatURL, nil)
 	secondReq.RemoteAddr = "192.168.1.50:54321"
 	secondReq.AddCookie(sessionCookie)
 	secondRes := httptest.NewRecorder()
 	testServer.HTTPServer.ServeHTTP(secondRes, secondReq)
 	is.Equal(secondRes.Code, http.StatusOK)
+
+	var refreshed httpapi.Address
+	err = json.NewDecoder(secondRes.Body).Decode(&refreshed)
+	is.NoErr(err)
+	is.Equal(refreshed.Id, created.Id)
+	is.True(refreshed.IsEnabled)
+	is.Equal(string(refreshed.Source), "heartbeat")
 }
 
 func TestHandler_CreateDevice(t *testing.T) {
@@ -119,8 +170,7 @@ func TestHandler_DeviceHeartbeatByApiKey_NoBody(t *testing.T) {
 	_, apiKey, err := testServer.DeviceService.RegenerateAPIKey(t.Context(), dev.ID)
 	is.NoErr(err)
 
-	// POST /heartbeat with X-API-Key (no session cookie needed)
-	// Send empty JSON body, should use client ip from request context
+	// POST /heartbeat with X-API-Key, no body — IP comes from RemoteAddr
 	emptyBody, _ := json.Marshal(map[string]interface{}{})
 	heartbeatReq := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", bytes.NewReader(emptyBody))
 	heartbeatReq.Header.Set("Content-Type", "application/json")
@@ -133,8 +183,13 @@ func TestHandler_DeviceHeartbeatByApiKey_NoBody(t *testing.T) {
 	var addr httpapi.Address
 	err = json.NewDecoder(heartbeatRes.Body).Decode(&addr)
 	is.NoErr(err)
+	is.True(addr.Id != 0)
+	is.Equal(addr.DeviceId, dev.ID.Int64())
 	is.Equal(addr.Ip, "192.168.1.99")
 	is.True(addr.IsEnabled)
+	is.Equal(string(addr.Source), "heartbeat")
+	is.True(!time.Time(addr.CreatedAt).IsZero())
+	is.True(!time.Time(addr.UpdatedAt).IsZero())
 }
 
 func TestHandler_DeviceHeartbeatByApiKey_WithBodyIP(t *testing.T) {
