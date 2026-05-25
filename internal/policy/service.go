@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 )
@@ -18,6 +19,13 @@ import (
 // enabled CIDR ranges. Implemented by networkpolicies.Repository.
 type NetworkPoliciesProvider interface {
 	GetEnabledCacheEntries(ctx context.Context) ([]networkpolicies.CacheEntry, error)
+}
+
+// GeoIPResolver resolves an IP to geographic and ASN data.
+// Implementations must be safe for concurrent use and fail-open.
+// A nil GeoIPResolver is valid — the service skips enrichment.
+type GeoIPResolver interface {
+	Resolve(ip string) geoip.Result
 }
 
 // EnabledIPsProvider is the cross-domain interface the policy service consumes.

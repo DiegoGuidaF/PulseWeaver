@@ -649,11 +649,9 @@ func (s *Seeder) Build() *SeedResult {
 				if !ok {
 					s.t.Fatalf("Seeder: access log entry references unknown policy %q", f.PolicyName)
 				}
-				policyIDInt := int64(policyID)
-				name := f.PolicyName
 				e.MatchSource = policy.MatchSourceNetworkPolicy
-				e.NetworkPolicyID = &policyIDInt
-				e.NetworkPolicyName = &name
+				e.NetworkPolicyID = new(policyID)
+				e.NetworkPolicyName = new(f.PolicyName)
 			case len(f.Devices) > 0:
 				contributors := make([]policy.IPContributor, 0, len(f.Devices))
 				for _, devName := range f.Devices {

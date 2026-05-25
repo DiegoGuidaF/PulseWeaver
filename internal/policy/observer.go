@@ -32,21 +32,13 @@ type ContributorAccess struct {
 	UserAllowedHosts []string // case-folded; sorted lexicographically
 }
 
-// MatchSource identifies which mechanism authorized a verify request.
-type MatchSource string
-
-const (
-	MatchSourceDevice        MatchSource = "device"
-	MatchSourceNetworkPolicy MatchSource = "network_policy"
-)
-
 type DecisionEvent struct {
 	ClientIP          string
 	Outcome           bool
 	DenyReason        *DenyReason
 	IPContributors    []IPContributor // nil if IP not found; ≥1 on allow or host-denied
 	MatchSource       MatchSource
-	NetworkPolicyID   *int64
+	NetworkPolicyID   *ids.NetworkPolicyID
 	NetworkPolicyName *string
 	CreatedAt         time.Time
 	DurationUs        int64
@@ -57,15 +49,6 @@ type DecisionEvent struct {
 	Headers           map[string][]string
 	GeoIP             geoip.Result
 }
-
-type DenyReason string
-
-const (
-	DenyReasonNoDeviceMatch   DenyReason = "no_device_match"
-	DenyReasonIPNotRegistered DenyReason = "ip_not_registered"
-	DenyReasonInvalidToken    DenyReason = "invalid_token"
-	DenyReasonHostNotAllowed  DenyReason = "host_not_allowed"
-)
 
 func NewDecisionEvent(outcome bool, denyReason *DenyReason, result *DecisionResult, req *VerifyRequest, geo geoip.Result, durationUs int64) DecisionEvent {
 	headers := req.Headers
