@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import { Center, Stack, Text, Paper, Loader } from "@mantine/core";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { LoginForm } from "@/features/auth/components/LoginForm";
+import { ROUTES } from "@/lib/routes";
 import { BrandName } from "@/components/BrandName";
 
 export function LoginPage() {
@@ -19,7 +20,7 @@ export function LoginPage() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to={user?.must_change_password ? "/settings" : "/devices"} replace />;
+    return <Navigate to={user?.must_change_password ? ROUTES.settings : ROUTES.dashboard} replace />;
   }
 
   return (

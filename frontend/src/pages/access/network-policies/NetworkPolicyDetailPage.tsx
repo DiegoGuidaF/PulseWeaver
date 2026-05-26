@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { ROUTES } from "@/lib/routes";
 import { Alert, Center, Divider, Grid, Loader, Stack } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
@@ -77,7 +78,7 @@ export function NetworkPolicyDetailPage() {
         deleteMutation.mutate(
             { path: { policy_id: policyId } },
             {
-                onSuccess: () => navigate("/access/network-policies"),
+                onSuccess: () => navigate(ROUTES.accessNetworkPolicies),
                 onError: (err) =>
                     notifications.show({ color: "red", message: toErrorMessage(err) }),
             },
