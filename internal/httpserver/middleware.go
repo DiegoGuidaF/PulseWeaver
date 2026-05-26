@@ -27,10 +27,10 @@ func HeartbeatRateLimitMiddleware(requests int, window time.Duration) func(http.
 		"Too many heartbeat requests. Try again later.")
 }
 
-// RegistrationRateLimitMiddleware rate limits POST /api/v1/register by client IP.
-func RegistrationRateLimitMiddleware(requests int, window time.Duration) func(http.Handler) http.Handler {
-	return ipRateLimitMiddleware(httpapi.RegisterEndpoint, http.MethodPost, requests, window,
-		"Too many registration attempts. Try again later.")
+// DevicePairingRateLimitMiddleware rate limits POST /api/v1/device-pair by client IP.
+func DevicePairingRateLimitMiddleware(requests int, window time.Duration) func(http.Handler) http.Handler {
+	return ipRateLimitMiddleware(httpapi.DevicePairEndpoint, http.MethodPost, requests, window,
+		"Too many pairing attempts. Try again later.")
 }
 
 // ipRateLimitMiddleware creates a middleware that rate limits a specific path+method by client IP.

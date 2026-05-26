@@ -3,12 +3,15 @@
 package testutils
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/app"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/devicepairing"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
@@ -77,6 +80,16 @@ type AddressFixture struct {
 	Disabled  bool       // if true, the address is disabled after registration
 }
 
+// PairingFixture describes a device pairing to seed.
+// Device must match the Name of a DeviceFixture seeded in the same Build call.
+// Status is one of: pending, used, invalidated, expired.
+// Expired pairings are inserted via the repository directly with a past expiry
+// since the service always sets a future expiry.
+type PairingFixture struct {
+	Device string
+	Status string // "pending" | "used" | "invalidated" | "expired"
+}
+
 // AccessLogEntryFixture describes a policy decision event to be inserted into the
 // access log.
 //
@@ -105,8 +118,9 @@ type AccessLogEntryFixture struct {
 // tests that need to assert against the seeded values without hardcoding strings.
 
 var (
-	FixturePolicyWithGroups = PolicyFixture{Name: "corp-vpn", CIDR: "10.0.0.0/8", Desc: "Corporate VPN access"}
-	FixturePolicyNoGroups   = PolicyFixture{Name: "isolated", CIDR: "172.16.0.0/12"}
+	FixturePolicyWithGroups      = PolicyFixture{Name: "corp-vpn", CIDR: "10.0.0.0/8", Desc: "Corporate VPN access"}
+	FixturePolicyNoGroups        = PolicyFixture{Name: "isolated", CIDR: "172.16.0.0/12"}
+	FixturePolicyBypassHostCheck = PolicyFixture{Name: "ops-network", CIDR: "192.168.0.0/16"}
 
 	FixtureGroupBackend  = GroupFixture{Name: "backend"}
 	FixtureGroupFrontend = GroupFixture{Name: "frontend"}
@@ -133,17 +147,30 @@ var (
 	FixtureAddressBob    = AddressFixture{Device: FixtureDeviceWithoutOwnerAccess.Name, IP: "10.2.0.1"}
 	FixtureAddressShared = AddressFixture{Device: FixtureDeviceBypassAccess.Name, IP: "10.1.0.1"} // charlie shares alice's IP
 
-	// Five canonical access-log paths exercised by SeedFullWorld:
+	// diana owns two devices seeded purely to exercise the pairing summary statuses.
+	FixtureUserPairing          = UserFixture{Name: "diana"}
+	FixtureDevicePairingUsed    = DeviceFixture{Name: "diana-used-device", OwnerUser: FixtureUserPairing.Name}
+	FixtureDevicePairingExpired = DeviceFixture{Name: "diana-expired-device", OwnerUser: FixtureUserPairing.Name}
+
+	// Pairing fixtures covering all four non-nil last_pairing statuses.
+	FixturePairingBobPending         = PairingFixture{Device: FixtureDeviceWithoutOwnerAccess.Name, Status: "pending"}
+	FixturePairingCharlieInvalidated = PairingFixture{Device: FixtureDeviceBypassAccess.Name, Status: "invalidated"}
+	FixturePairingDianaUsed          = PairingFixture{Device: FixtureDevicePairingUsed.Name, Status: "used"}
+	FixturePairingDianaExpired       = PairingFixture{Device: FixtureDevicePairingExpired.Name, Status: "expired"}
+
+	// Six canonical access-log paths exercised by SeedFullWorld:
 	// 1. allow — single contributor (device+user link)
 	// 2. deny  — single contributor (host not allowed)
 	// 3. deny  — no contributor (IP not registered)
 	// 4. allow — multiple contributors for one entry (shared IP, two users)
 	// 5. allow — network policy CIDR match (no device contributors)
+	// 6. allow — bypass network policy CIDR match (no device contributors, any host)
 	FixtureAccessLogAliceAllow         = AccessLogEntryFixture{ClientIP: "10.1.0.1", Outcome: true, Devices: []string{FixtureDeviceWithOwnerAccess.Name}}
 	FixtureAccessLogBobHostDeny        = AccessLogEntryFixture{ClientIP: "10.2.0.1", Outcome: false, DenyReason: new(policy.DenyReasonHostNotAllowed), Devices: []string{FixtureDeviceWithoutOwnerAccess.Name}}
 	FixtureAccessLogUnknownDeny        = AccessLogEntryFixture{ClientIP: "9.9.9.9", Outcome: false, DenyReason: new(policy.DenyReasonIPNotRegistered)}
 	FixtureAccessLogSharedIPAllow      = AccessLogEntryFixture{ClientIP: "10.1.0.1", Outcome: true, Devices: []string{FixtureDeviceWithOwnerAccess.Name, FixtureDeviceBypassAccess.Name}}
 	FixtureAccessLogNetworkPolicyAllow = AccessLogEntryFixture{ClientIP: "10.3.0.1", Outcome: true, PolicyName: FixturePolicyWithGroups.Name}
+	FixtureAccessLogBypassAllow        = AccessLogEntryFixture{ClientIP: "192.168.1.50", Outcome: true, PolicyName: FixturePolicyBypassHostCheck.Name}
 )
 
 // ── relational spec types (internal) ─────────────────────────────────────────
@@ -151,6 +178,7 @@ var (
 type policyAccessSpec struct {
 	policy string
 	groups []string
+	bypass bool
 }
 
 type userAccessSpec struct {
@@ -253,6 +281,7 @@ type Seeder struct {
 	leaseRules       []DeviceLeaseRuleFixture
 	maxActiveRules   []DeviceMaxActiveRuleFixture
 	addresses        []AddressFixture
+	pairings         []PairingFixture
 	accessLogEntries []AccessLogEntryFixture
 	initPolicy       bool
 }
@@ -303,6 +332,13 @@ func (s *Seeder) WithHost(f HostFixture) *Seeder {
 // the named policy. Group and policy names must match preceding declarations.
 func (s *Seeder) AssignGroupsToPolicy(policy string, groups ...string) *Seeder {
 	s.assignments = append(s.assignments, policyAccessSpec{policy: policy, groups: groups})
+	return s
+}
+
+// WithPolicyBypassHostCheck records that the named policy should have bypass_host_check=true
+// with no group restrictions. Policy name must match a preceding WithPolicy call.
+func (s *Seeder) WithPolicyBypassHostCheck(policy string) *Seeder {
+	s.assignments = append(s.assignments, policyAccessSpec{policy: policy, bypass: true})
 	return s
 }
 
@@ -379,6 +415,21 @@ func (s *Seeder) WithAddress(f AddressFixture) *Seeder {
 		s.t.Fatalf("Seeder.WithAddress: IP is required (device=%q)", f.Device)
 	}
 	s.addresses = append(s.addresses, f)
+	return s
+}
+
+// WithPairing declares a device pairing to seed after devices are created.
+// Device must match the Name of a preceding WithDevice call.
+// Status must be one of: pending, used, invalidated, expired.
+func (s *Seeder) WithPairing(f PairingFixture) *Seeder {
+	s.t.Helper()
+	if f.Device == "" {
+		s.t.Fatalf("Seeder.WithPairing: Device is required")
+	}
+	if f.Status == "" {
+		s.t.Fatalf("Seeder.WithPairing: Status is required (device=%q)", f.Device)
+	}
+	s.pairings = append(s.pairings, f)
 	return s
 }
 
@@ -535,7 +586,7 @@ func (s *Seeder) Build() *SeedResult {
 			}
 			groupIDs = append(groupIDs, gid)
 		}
-		if err := s.srv.NetworkPoliciesService.SetHostAccess(ctx, policyID, false, groupIDs); err != nil {
+		if err := s.srv.NetworkPoliciesService.SetHostAccess(ctx, policyID, a.bypass, groupIDs); err != nil {
 			s.t.Fatalf("Seeder: assign groups to policy %q: %v", a.policy, err)
 		}
 	}
@@ -565,11 +616,11 @@ func (s *Seeder) Build() *SeedResult {
 		if !ok {
 			s.t.Fatalf("Seeder: device %q references unknown user %q", f.Name, f.OwnerUser)
 		}
-		deviceID, _, err := s.srv.DeviceService.CreateDeviceWithAPIKey(ctx, f.Name, ownerID)
+		dev, err := s.srv.DeviceService.CreateDevice(ctx, &auth.Principal{UserID: ownerID}, f.Name, nil)
 		if err != nil {
 			s.t.Fatalf("Seeder: create device %q: %v", f.Name, err)
 		}
-		result.devices[f.Name] = deviceID
+		result.devices[f.Name] = dev.ID
 	}
 
 	// 7b. Device rules (applied after devices, before addresses)
@@ -620,6 +671,63 @@ func (s *Seeder) Build() *SeedResult {
 				ExpiresAt: f.ExpiresAt,
 			}); err != nil {
 				s.t.Fatalf("Seeder: upsert lease for address %q device %q: %v", f.IP, f.Device, err)
+			}
+		}
+	}
+
+	// 8b. Device pairings
+	if len(s.pairings) > 0 {
+		pairingRepo := devicepairing.NewRepository(s.srv.Database.DB())
+		for _, f := range s.pairings {
+			deviceID, ok := result.devices[f.Device]
+			if !ok {
+				s.t.Fatalf("Seeder: pairing references unknown device %q", f.Device)
+			}
+			switch f.Status {
+			case "pending":
+				_, err := s.srv.DevicePairingService.CreatePairing(ctx, devicepairing.CreatePairingRequest{
+					DeviceID: deviceID, HeartbeatServerURL: "https://pulse.example.com",
+					IntervalSeconds: 900, ExpiresInHours: 24,
+				})
+				if err != nil {
+					s.t.Fatalf("Seeder: create pending pairing for device %q: %v", f.Device, err)
+				}
+			case "used":
+				pairing, err := s.srv.DevicePairingService.CreatePairing(ctx, devicepairing.CreatePairingRequest{
+					DeviceID: deviceID, HeartbeatServerURL: "https://pulse.example.com",
+					IntervalSeconds: 900, ExpiresInHours: 24,
+				})
+				if err != nil {
+					s.t.Fatalf("Seeder: create pairing for used device %q: %v", f.Device, err)
+				}
+				if _, err := s.srv.DevicePairingService.ClaimPairing(ctx, pairing.PairingCode); err != nil {
+					s.t.Fatalf("Seeder: claim pairing for device %q: %v", f.Device, err)
+				}
+			case "invalidated":
+				pairing, err := s.srv.DevicePairingService.CreatePairing(ctx, devicepairing.CreatePairingRequest{
+					DeviceID: deviceID, HeartbeatServerURL: "https://pulse.example.com",
+					IntervalSeconds: 900, ExpiresInHours: 24,
+				})
+				if err != nil {
+					s.t.Fatalf("Seeder: create pairing for invalidated device %q: %v", f.Device, err)
+				}
+				if err := s.srv.DevicePairingService.InvalidatePairing(ctx, deviceID, pairing.ID); err != nil {
+					s.t.Fatalf("Seeder: invalidate pairing for device %q: %v", f.Device, err)
+				}
+			case "expired":
+				// Service always sets a future expiry so we bypass it and insert via the repo directly.
+				_, err := pairingRepo.CreatePairing(ctx, devicepairing.CreatePairingRequest{
+					DeviceID:           deviceID,
+					PairingCode:        fmt.Sprintf("test-expired-pairing-%d", deviceID),
+					HeartbeatServerURL: "https://pulse.example.com",
+					IntervalSeconds:    900,
+					ExpiresAt:          time.Now().Add(-1 * time.Hour),
+				})
+				if err != nil {
+					s.t.Fatalf("Seeder: create expired pairing for device %q: %v", f.Device, err)
+				}
+			default:
+				s.t.Fatalf("Seeder.WithPairing: unknown status %q for device %q", f.Status, f.Device)
 			}
 		}
 	}
@@ -705,18 +813,28 @@ func (s *Seeder) Build() *SeedResult {
 //
 //	Groups:      FixtureGroupEmpty, FixtureGroupBackend, FixtureGroupFrontend
 //	Hosts:       FixtureHostBackend1+2 (backend); FixtureHostFrontend1+2 (frontend)
-//	Users:       FixtureUserWithAccess (backend+frontend), FixtureUserNoAccess, FixtureUserBypassAccess (backend, bypass)
-//	Policies:    FixturePolicyWithGroups (backend+frontend), FixturePolicyNoGroups (no groups)
-//	Devices:     FixtureDeviceWithOwnerAccess (alice), FixtureDeviceWithoutOwnerAccess (bob), FixtureDeviceBypassAccess (charlie)
+//	Users:       FixtureUserWithAccess (alice, backend+frontend), FixtureUserNoAccess (bob),
+//	             FixtureUserBypassAccess (charlie, backend bypass), FixtureUserPairing (diana)
+//	Policies:    FixturePolicyWithGroups (backend+frontend), FixturePolicyNoGroups (no groups),
+//	             FixturePolicyBypassHostCheck (ops-network, bypass_host_check=true, 192.168.0.0/16)
+//	Devices:     FixtureDeviceWithOwnerAccess (alice-laptop), FixtureDeviceWithoutOwnerAccess (bob-phone),
+//	             FixtureDeviceBypassAccess (charlie-desktop),
+//	             FixtureDevicePairingUsed (diana-used-device), FixtureDevicePairingExpired (diana-expired-device)
 //	Rules:       FixtureLeaseRuleAliceLaptop (1h TTL), FixtureMaxActiveRuleAliceLaptop (max 2) — alice-laptop only
 //	Addresses:   FixtureAddressAlice (10.1.0.1), FixtureAddressBob (10.2.0.1),
 //	             FixtureAddressShared (charlie-desktop at 10.1.0.1 — shared with alice)
+//	Pairings:    FixturePairingBobPending (bob-phone, pending),
+//	             FixturePairingCharlieInvalidated (charlie-desktop, invalidated),
+//	             FixturePairingDianaUsed (diana-used-device, used),
+//	             FixturePairingDianaExpired (diana-expired-device, expired)
+//	             alice-laptop has no pairing (nil last_pairing)
 //	Policy cache: initialized; SharedIpCount=1 (10.1.0.1 owned by alice and charlie)
 //	Access log:  FixtureAccessLogAliceAllow (allow, single contributor)
 //	             FixtureAccessLogBobHostDeny (deny host_not_allowed, single contributor)
 //	             FixtureAccessLogUnknownDeny (deny ip_not_registered, no contributor)
 //	             FixtureAccessLogSharedIPAllow (allow, two contributors — shared IP path)
 //	             FixtureAccessLogNetworkPolicyAllow (allow via network policy CIDR, no device contributors)
+//	             FixtureAccessLogBypassAllow (allow via bypass CIDR, no device contributors)
 func SeedFullWorld(t *testing.T, srv *app.App) *Seeder {
 	t.Helper()
 	return NewSeeder(t, srv).
@@ -734,19 +852,29 @@ func SeedFullWorld(t *testing.T, srv *app.App) *Seeder {
 		SetUserAccess(FixtureUserBypassAccess.Name, true, FixtureGroupBackend.Name).
 		WithPolicy(FixturePolicyWithGroups).
 		WithPolicy(FixturePolicyNoGroups).
+		WithPolicy(FixturePolicyBypassHostCheck).
 		AssignGroupsToPolicy(FixturePolicyWithGroups.Name, FixtureGroupBackend.Name, FixtureGroupFrontend.Name).
+		WithPolicyBypassHostCheck(FixturePolicyBypassHostCheck.Name).
+		WithUser(FixtureUserPairing).
 		WithDevice(FixtureDeviceWithOwnerAccess).
 		WithDevice(FixtureDeviceWithoutOwnerAccess).
 		WithDevice(FixtureDeviceBypassAccess).
+		WithDevice(FixtureDevicePairingUsed).
+		WithDevice(FixtureDevicePairingExpired).
 		WithDeviceLeaseRule(FixtureLeaseRuleAliceLaptop).
 		WithDeviceMaxActiveRule(FixtureMaxActiveRuleAliceLaptop).
 		WithAddress(FixtureAddressAlice).
 		WithAddress(FixtureAddressBob).
 		WithAddress(FixtureAddressShared).
+		WithPairing(FixturePairingBobPending).
+		WithPairing(FixturePairingCharlieInvalidated).
+		WithPairing(FixturePairingDianaUsed).
+		WithPairing(FixturePairingDianaExpired).
 		WithPolicyInitialize().
 		WithAccessLogEntry(FixtureAccessLogAliceAllow).
 		WithAccessLogEntry(FixtureAccessLogBobHostDeny).
 		WithAccessLogEntry(FixtureAccessLogUnknownDeny).
 		WithAccessLogEntry(FixtureAccessLogSharedIPAllow).
-		WithAccessLogEntry(FixtureAccessLogNetworkPolicyAllow)
+		WithAccessLogEntry(FixtureAccessLogNetworkPolicyAllow).
+		WithAccessLogEntry(FixtureAccessLogBypassAllow)
 }

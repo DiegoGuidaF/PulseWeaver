@@ -8,9 +8,11 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/devicepairing"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/slicex"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -29,31 +31,69 @@ type DeviceView struct {
 	OwnerName    string            `db:"owner_name"`
 }
 
+// deviceListRow is the scan target for the main device+owner query.
+type deviceListRow struct {
+	DeviceID             ids.DeviceID     `db:"id"`
+	DeviceName           string           `db:"name"`
+	DeviceIcon           *string          `db:"icon"`
+	KeyPrefix            *string          `db:"key_prefix"`
+	DeviceCreatedAt      time.Time        `db:"created_at"`
+	LiveAddressCount     int              `db:"live_address_count"`
+	LastSeenAt           *database.DBTime `db:"last_seen_at"`
+	OwnerID              ids.UserID       `db:"owner_id"`
+	OwnerUsername        string           `db:"owner_username"`
+	OwnerDisplayName     string           `db:"owner_display_name"`
+	OwnerRole            string           `db:"owner_role"`
+	OwnerBypassHostCheck bool             `db:"owner_bypass_hosts_check"`
+	LeaseEnabled         *bool            `db:"lease_rule_enabled"`
+	LeaseConfig          *string          `db:"lease_rule_config"`
+	MaxEnabled           *bool            `db:"max_rule_enabled"`
+	MaxConfig            *string          `db:"max_rule_config"`
+}
+
+// hostGroupListRow is the scan target for the owner host-group query.
+type hostGroupListRow struct {
+	UserID ids.UserID `db:"user_id"`
+	ID     int64      `db:"group_id"`
+	Name   string     `db:"group_name"`
+	Color  string     `db:"group_color"`
+	Icon   string     `db:"group_icon"`
+}
+
+// latestPairingRow is the scan target for the latest-pairing-per-device query.
+type latestPairingRow struct {
+	DeviceID  ids.DeviceID `db:"device_id"`
+	Status    string       `db:"status"`
+	ExpiresAt time.Time    `db:"expires_at"`
+	UpdatedAt time.Time    `db:"updated_at"`
+}
+
 // GetDeviceList returns all non-deleted devices grouped by their owning user.
-// Each group carries owner metadata (host groups, bypass flag, aggregate live-address count)
-// and per-device rule summaries and state. Two SQL round trips: one for devices+owners,
-// one for host-group memberships.
 func (r *Repository) GetDeviceList(ctx context.Context) ([]httpapi.DeviceOwnerGroup, error) {
-	type deviceRow struct {
-		DeviceID             ids.DeviceID     `db:"id"`
-		DeviceName           string           `db:"name"`
-		DeviceIcon           *string          `db:"icon"`
-		KeyPrefix            *string          `db:"key_prefix"`
-		DeviceCreatedAt      time.Time        `db:"created_at"`
-		LiveAddressCount     int              `db:"live_address_count"`
-		LastSeenAt           *database.DBTime `db:"last_seen_at"`
-		OwnerID              ids.UserID       `db:"owner_id"`
-		OwnerUsername        string           `db:"owner_username"`
-		OwnerDisplayName     string           `db:"owner_display_name"`
-		OwnerRole            string           `db:"owner_role"`
-		OwnerBypassHostCheck bool             `db:"owner_bypass_hosts_check"`
-		LeaseEnabled         *bool            `db:"lease_rule_enabled"`
-		LeaseConfig          *string          `db:"lease_rule_config"`
-		MaxEnabled           *bool            `db:"max_rule_enabled"`
-		MaxConfig            *string          `db:"max_rule_config"`
+	rows, err := r.fetchDeviceListRows(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return []httpapi.DeviceOwnerGroup{}, nil
 	}
 
-	const deviceQuery = `
+	ownerIDs := uniqueOwnerIDs(rows)
+	groupsByOwner, err := r.fetchOwnerHostGroups(ctx, ownerIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	pairingsByDevice, err := r.fetchLatestPairings(ctx, uniqueDeviceIDs(rows))
+	if err != nil {
+		return nil, err
+	}
+
+	return assembleDeviceGroups(rows, ownerIDs, groupsByOwner, pairingsByDevice), nil
+}
+
+func (r *Repository) fetchDeviceListRows(ctx context.Context) ([]deviceListRow, error) {
+	const query = `
 		SELECT
 			d.id,
 			d.name,
@@ -86,36 +126,17 @@ func (r *Repository) GetDeviceList(ctx context.Context) ([]httpapi.DeviceOwnerGr
 		         dr_lease.enabled, dr_lease.config, dr_max.enabled, dr_max.config
 		ORDER BY u.display_name, d.name ASC
 	`
-
-	var rows []deviceRow
-	if err := r.db.SelectContext(ctx, &rows, deviceQuery); err != nil {
+	var rows []deviceListRow
+	if err := r.db.SelectContext(ctx, &rows, query); err != nil {
 		return nil, fmt.Errorf("get device list: %w", err)
 	}
-	if len(rows) == 0 {
-		return []httpapi.DeviceOwnerGroup{}, nil
-	}
+	return rows, nil
+}
 
-	// Collect unique owner IDs preserving ORDER BY order.
-	ownerOrder := make([]ids.UserID, 0, len(rows))
-	seenOwner := make(map[ids.UserID]bool, len(rows))
-	for _, row := range rows {
-		if !seenOwner[row.OwnerID] {
-			ownerOrder = append(ownerOrder, row.OwnerID)
-			seenOwner[row.OwnerID] = true
-		}
-	}
+func (r *Repository) fetchOwnerHostGroups(ctx context.Context, ownerIDs []ids.UserID) (map[ids.UserID][]httpapi.GroupSummary, error) {
+	result := make(map[ids.UserID][]httpapi.GroupSummary, len(ownerIDs))
 
-	// Query 2: host groups for the returned owners.
-	type hostGroupRow struct {
-		UserID ids.UserID `db:"user_id"`
-		ID     int64      `db:"group_id"`
-		Name   string     `db:"group_name"`
-		Color  string     `db:"group_color"`
-		Icon   string     `db:"group_icon"`
-	}
-	groupsByOwner := make(map[ids.UserID][]httpapi.GroupSummary, len(ownerOrder))
-
-	hgQuery, hgArgs, err := sqlx.In(`
+	q, args, err := sqlx.In(`
 		SELECT
 			uahg.user_id,
 			hg.id    AS group_id,
@@ -126,31 +147,66 @@ func (r *Repository) GetDeviceList(ctx context.Context) ([]httpapi.DeviceOwnerGr
 		JOIN host_groups hg ON hg.id = uahg.host_group_id
 		WHERE uahg.user_id IN (?)
 		ORDER BY uahg.user_id, hg.name
-	`, ownerOrder)
+	`, ownerIDs)
 	if err != nil {
 		return nil, fmt.Errorf("build host groups query: %w", err)
 	}
-	hgQuery = r.db.Rebind(hgQuery)
 
-	var hgRows []hostGroupRow
-	if err := r.db.SelectContext(ctx, &hgRows, hgQuery, hgArgs...); err != nil {
+	var rows []hostGroupListRow
+	if err := r.db.SelectContext(ctx, &rows, r.db.Rebind(q), args...); err != nil {
 		return nil, fmt.Errorf("get owner host groups: %w", err)
 	}
-	for _, hg := range hgRows {
-		groupsByOwner[hg.UserID] = append(groupsByOwner[hg.UserID], httpapi.GroupSummary{
+	for _, hg := range rows {
+		result[hg.UserID] = append(result[hg.UserID], httpapi.GroupSummary{
 			Id:    hg.ID,
 			Name:  hg.Name,
 			Color: hg.Color,
 			Icon:  hg.Icon,
 		})
 	}
+	return result, nil
+}
 
-	// Assemble groups in owner order.
+func (r *Repository) fetchLatestPairings(ctx context.Context, deviceIDs []ids.DeviceID) (map[ids.DeviceID]latestPairingRow, error) {
+	result := make(map[ids.DeviceID]latestPairingRow, len(deviceIDs))
+
+	q, args, err := sqlx.In(`
+		SELECT dp.device_id, dp.status, dp.expires_at, dp.updated_at
+		FROM device_pairings dp
+		WHERE dp.device_id IN (?)
+		  AND dp.id = (
+		    SELECT id FROM device_pairings dp2
+		    WHERE dp2.device_id = dp.device_id
+		    ORDER BY dp2.created_at DESC
+		    LIMIT 1
+		  )
+	`, deviceIDs)
+	if err != nil {
+		return nil, fmt.Errorf("build pairings query: %w", err)
+	}
+
+	var rows []latestPairingRow
+	if err := r.db.SelectContext(ctx, &rows, r.db.Rebind(q), args...); err != nil {
+		return nil, fmt.Errorf("get device pairings: %w", err)
+	}
+	for _, pr := range rows {
+		result[pr.DeviceID] = pr
+	}
+	return result, nil
+}
+
+func assembleDeviceGroups(
+	rows []deviceListRow,
+	ownerOrder []ids.UserID,
+	groupsByOwner map[ids.UserID][]httpapi.GroupSummary,
+	pairingsByDevice map[ids.DeviceID]latestPairingRow,
+) []httpapi.DeviceOwnerGroup {
 	type ownerAcc struct {
-		meta    deviceRow
+		meta    deviceListRow
 		devices []httpapi.DeviceListEntry
 		liveSum int
 	}
+
 	acc := make(map[ids.UserID]*ownerAcc, len(ownerOrder))
 	for _, row := range rows {
 		if _, exists := acc[row.OwnerID]; !exists {
@@ -165,10 +221,17 @@ func (r *Repository) GetDeviceList(ctx context.Context) ([]httpapi.DeviceOwnerGr
 			LiveAddressCount: row.LiveAddressCount,
 			State:            deviceListState(row.LiveAddressCount),
 			Rules:            parseRuleSummaries(row.LeaseEnabled, row.LeaseConfig, row.MaxEnabled, row.MaxConfig),
-			Pairing:          nil,
 		}
 		if row.LastSeenAt != nil {
 			entry.LastSeenAt = new(httpapi.UTCTime(row.LastSeenAt.Time))
+		}
+		if pr, ok := pairingsByDevice[row.DeviceID]; ok {
+			status := devicepairing.EvalStatus(pr.Status, pr.ExpiresAt)
+			entry.Pairing = &httpapi.DevicePairingSummary{
+				Status:    httpapi.DevicePairingStatus(status),
+				ExpiresAt: httpapi.UTCTime(pr.ExpiresAt),
+				UpdatedAt: httpapi.UTCTime(pr.UpdatedAt),
+			}
 		}
 		a := acc[row.OwnerID]
 		a.devices = append(a.devices, entry)
@@ -196,7 +259,23 @@ func (r *Repository) GetDeviceList(ctx context.Context) ([]httpapi.DeviceOwnerGr
 			Devices: a.devices,
 		})
 	}
-	return groups, nil
+	return groups
+}
+
+func uniqueOwnerIDs(rows []deviceListRow) []ids.UserID {
+	ids := make([]ids.UserID, len(rows))
+	for i, row := range rows {
+		ids[i] = row.OwnerID
+	}
+	return slicex.Dedup(ids)
+}
+
+func uniqueDeviceIDs(rows []deviceListRow) []ids.DeviceID {
+	ids := make([]ids.DeviceID, len(rows))
+	for i, row := range rows {
+		ids[i] = row.DeviceID
+	}
+	return slicex.Dedup(ids)
 }
 
 // GetDevicesByUser returns all non-deleted devices owned by the given user.

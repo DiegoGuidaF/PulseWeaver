@@ -6,7 +6,6 @@ export const ROUTES = {
   settings: "/settings",
   accessLog: "/access-log",
   addressHistory: "/address-history",
-  deviceProvisioning: "/device-provisioning",
   accessHosts: "/access/hosts",
   accessHostGroups: "/access/host-groups",
   accessUsers: "/access/users",

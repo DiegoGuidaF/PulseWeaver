@@ -36,10 +36,12 @@ interface PanelProps {
     devices?: DeviceListEntry[];
     selectedDeviceId?: number;
     onSelectDevice?: (id: number) => void;
+    onAddDevice?: () => void;
 }
 
 function renderPanel(props: PanelProps = {}) {
     const onSelectDevice = props.onSelectDevice ?? vi.fn();
+    const onAddDevice = props.onAddDevice ?? vi.fn();
     const {
         owner = defaultOwner,
         devices = [defaultDevice],
@@ -57,10 +59,10 @@ function renderPanel(props: PanelProps = {}) {
                             devices={devices}
                             selectedDeviceId={selectedDeviceId}
                             onSelectDevice={onSelectDevice}
+                            onAddDevice={onAddDevice}
                         />
                     }
                 />
-                <Route path="/device-provisioning" element={<div data-testid="provisioning-page" />} />
                 <Route path="/user-devices/:userId" element={<div data-testid="owner-workspace" />} />
             </Routes>
         );
@@ -180,16 +182,14 @@ describe('OwnerDevicesPanel', () => {
     // ─── Add device ──────────────────────────────────────────────────────────────
 
     describe('add device', () => {
-        it('navigates to /device-provisioning when "add device" is clicked', async () => {
+        it('calls onAddDevice when "add device" is clicked', async () => {
             const user = userEvent.setup();
-            renderPanel();
+            const onAddDevice = vi.fn();
+            renderPanel({ onAddDevice });
 
             await user.click(screen.getByRole('button', { name: /add device/i }));
 
-            await waitFor(
-                () => expect(screen.getByTestId('provisioning-page')).toBeInTheDocument(),
-                { timeout: TEST_TIMEOUTS.SHORT },
-            );
+            expect(onAddDevice).toHaveBeenCalledOnce();
         });
     });
 

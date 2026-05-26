@@ -39,6 +39,8 @@ const formSchema = z.object({
   icon: z.string().max(80),
 });
 
+const formValidator = schemaResolver(formSchema);
+
 type FormValues = z.infer<typeof formSchema>;
 interface CreateDeviceModalProps {
   opened: boolean;
@@ -69,7 +71,7 @@ export function CreateDeviceModal({ opened, onClose, defaultOwnerId }: CreateDev
   const [iconAutoSuggested, setIconAutoSuggested] = useState(true);
 
   const form = useForm<FormValues>({
-    validate: schemaResolver(formSchema),
+    validate: formValidator,
     initialValues: {
       name: "",
       device_type: "static" as DeviceType,

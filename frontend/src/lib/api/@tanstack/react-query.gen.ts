@@ -10,15 +10,15 @@ import { client } from "../client.gen";
 import {
   addAddress,
   changePassword,
-  claimRegistration,
+  claimPairing,
   createDevice,
+  createDevicePairing,
   createNetworkPolicy,
-  createRegistration,
   createUser,
   deleteDevice,
   deleteDeviceApiKey,
+  deleteDevicePairing,
   deleteNetworkPolicy,
-  deleteRegistration,
   deleteUser,
   demoteUser,
   deviceHeartbeat,
@@ -37,19 +37,19 @@ import {
   getDashboardTraffic,
   getDeviceAddresses,
   getDeviceAddressLeaseRule,
+  getDevicePairing,
   getDevices,
   getMaxActiveAddressesRule,
   getNetworkPolicy,
   getPolicyUserMap,
-  getRegistration,
   getUserAccessDetail,
   ignoreSuggestion,
+  listDevicePairings,
   listDeviceTypes,
   listHostGroups,
   listHosts,
   listHostSuggestions,
   listNetworkPolicies,
-  listRegistrations,
   listUsers,
   listUsersWithAccess,
   login,
@@ -76,18 +76,18 @@ import type {
   ChangePasswordData,
   ChangePasswordError,
   ChangePasswordResponse,
-  ClaimRegistrationData,
-  ClaimRegistrationError,
-  ClaimRegistrationResponse2,
+  ClaimPairingData,
+  ClaimPairingError,
+  ClaimPairingResponse2,
   CreateDeviceData,
   CreateDeviceError,
+  CreateDevicePairingData,
+  CreateDevicePairingError,
+  CreateDevicePairingResponse,
   CreateDeviceResponse,
   CreateNetworkPolicyData,
   CreateNetworkPolicyError,
   CreateNetworkPolicyResponse,
-  CreateRegistrationData,
-  CreateRegistrationError,
-  CreateRegistrationResponse,
   CreateUserData,
   CreateUserError,
   CreateUserResponse,
@@ -96,13 +96,13 @@ import type {
   DeleteDeviceApiKeyResponse,
   DeleteDeviceData,
   DeleteDeviceError,
+  DeleteDevicePairingData,
+  DeleteDevicePairingError,
+  DeleteDevicePairingResponse,
   DeleteDeviceResponse,
   DeleteNetworkPolicyData,
   DeleteNetworkPolicyError,
   DeleteNetworkPolicyResponse,
-  DeleteRegistrationData,
-  DeleteRegistrationError,
-  DeleteRegistrationResponse,
   DeleteUserData,
   DeleteUserError,
   DeleteUserResponse,
@@ -157,6 +157,9 @@ import type {
   GetDeviceAddressLeaseRuleData,
   GetDeviceAddressLeaseRuleError,
   GetDeviceAddressLeaseRuleResponse,
+  GetDevicePairingData,
+  GetDevicePairingError,
+  GetDevicePairingResponse,
   GetDevicesData,
   GetDevicesError,
   GetDevicesResponse,
@@ -169,15 +172,15 @@ import type {
   GetPolicyUserMapData,
   GetPolicyUserMapError,
   GetPolicyUserMapResponse,
-  GetRegistrationData,
-  GetRegistrationError,
-  GetRegistrationResponse,
   GetUserAccessDetailData,
   GetUserAccessDetailError,
   GetUserAccessDetailResponse,
   IgnoreSuggestionData,
   IgnoreSuggestionError,
   IgnoreSuggestionResponse,
+  ListDevicePairingsData,
+  ListDevicePairingsError,
+  ListDevicePairingsResponse,
   ListDeviceTypesData,
   ListDeviceTypesResponse,
   ListHostGroupsData,
@@ -192,9 +195,6 @@ import type {
   ListNetworkPoliciesData,
   ListNetworkPoliciesError,
   ListNetworkPoliciesResponse,
-  ListRegistrationsData,
-  ListRegistrationsError,
-  ListRegistrationsResponse,
   ListUsersData,
   ListUsersError,
   ListUsersResponse,
@@ -1334,27 +1334,27 @@ export const getDashboardTopDeniedIpsOptions = (
   });
 
 /**
- * Claim a registration code
+ * Claim a pairing code
  *
- * Public endpoint — no auth required. The registration code is the credential.
- * Validates and claims a pending registration, creates the device, and returns
- * the full configuration payload including the device API key (one-time only).
+ * Public endpoint — no auth required. The pairing code is the credential.
+ * Validates and claims a pending pairing, regenerates the device API key,
+ * and returns the full configuration payload including the API key (one-time only).
  *
  */
-export const claimRegistrationMutation = (
-  options?: Partial<Options<ClaimRegistrationData>>,
+export const claimPairingMutation = (
+  options?: Partial<Options<ClaimPairingData>>,
 ): UseMutationOptions<
-  ClaimRegistrationResponse2,
-  ClaimRegistrationError,
-  Options<ClaimRegistrationData>
+  ClaimPairingResponse2,
+  ClaimPairingError,
+  Options<ClaimPairingData>
 > => {
   const mutationOptions: UseMutationOptions<
-    ClaimRegistrationResponse2,
-    ClaimRegistrationError,
-    Options<ClaimRegistrationData>
+    ClaimPairingResponse2,
+    ClaimPairingError,
+    Options<ClaimPairingData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await claimRegistration({
+      const { data } = await claimPairing({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1365,29 +1365,29 @@ export const claimRegistrationMutation = (
   return mutationOptions;
 };
 
-export const listRegistrationsQueryKey = (
-  options?: Options<ListRegistrationsData>,
-) => createQueryKey("listRegistrations", options);
+export const listDevicePairingsQueryKey = (
+  options: Options<ListDevicePairingsData>,
+) => createQueryKey("listDevicePairings", options);
 
 /**
- * List pending registrations (Admin only)
+ * List pairings for a device (Admin only)
  *
- * Returns registration invites. By default returns only pending (unclaimed,
- * non-expired) invites. Pass `?status=all` to include used and expired.
- * Never returns device_api_key.
+ * Returns pairing records for the given device. By default returns only pending
+ * (unclaimed, non-expired) pairings. Pass `?status=all` to include used and expired.
+ * Never returns the pairing_code after it has been claimed.
  *
  */
-export const listRegistrationsOptions = (
-  options?: Options<ListRegistrationsData>,
+export const listDevicePairingsOptions = (
+  options: Options<ListDevicePairingsData>,
 ) =>
   queryOptions<
-    ListRegistrationsResponse,
-    ListRegistrationsError,
-    ListRegistrationsResponse,
-    ReturnType<typeof listRegistrationsQueryKey>
+    ListDevicePairingsResponse,
+    ListDevicePairingsError,
+    ListDevicePairingsResponse,
+    ReturnType<typeof listDevicePairingsQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await listRegistrations({
+      const { data } = await listDevicePairings({
         ...options,
         ...queryKey[0],
         signal,
@@ -1395,26 +1395,26 @@ export const listRegistrationsOptions = (
       });
       return data;
     },
-    queryKey: listRegistrationsQueryKey(options),
+    queryKey: listDevicePairingsQueryKey(options),
   });
 
 /**
- * Create a registration invite (Admin only)
+ * Create a pairing for a device (Admin only)
  */
-export const createRegistrationMutation = (
-  options?: Partial<Options<CreateRegistrationData>>,
+export const createDevicePairingMutation = (
+  options?: Partial<Options<CreateDevicePairingData>>,
 ): UseMutationOptions<
-  CreateRegistrationResponse,
-  CreateRegistrationError,
-  Options<CreateRegistrationData>
+  CreateDevicePairingResponse,
+  CreateDevicePairingError,
+  Options<CreateDevicePairingData>
 > => {
   const mutationOptions: UseMutationOptions<
-    CreateRegistrationResponse,
-    CreateRegistrationError,
-    Options<CreateRegistrationData>
+    CreateDevicePairingResponse,
+    CreateDevicePairingError,
+    Options<CreateDevicePairingData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await createRegistration({
+      const { data } = await createDevicePairing({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1426,24 +1426,24 @@ export const createRegistrationMutation = (
 };
 
 /**
- * Invalidate and delete an unclaimed invite (Admin only)
+ * Invalidate an unclaimed pairing (Admin only)
  *
- * Hard-deletes an unclaimed registration invite. Returns 404 if already used or not found.
+ * Soft-deletes an unclaimed device pairing. Returns 404 if already used or not found.
  */
-export const deleteRegistrationMutation = (
-  options?: Partial<Options<DeleteRegistrationData>>,
+export const deleteDevicePairingMutation = (
+  options?: Partial<Options<DeleteDevicePairingData>>,
 ): UseMutationOptions<
-  DeleteRegistrationResponse,
-  DeleteRegistrationError,
-  Options<DeleteRegistrationData>
+  DeleteDevicePairingResponse,
+  DeleteDevicePairingError,
+  Options<DeleteDevicePairingData>
 > => {
   const mutationOptions: UseMutationOptions<
-    DeleteRegistrationResponse,
-    DeleteRegistrationError,
-    Options<DeleteRegistrationData>
+    DeleteDevicePairingResponse,
+    DeleteDevicePairingError,
+    Options<DeleteDevicePairingData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await deleteRegistration({
+      const { data } = await deleteDevicePairing({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1454,24 +1454,24 @@ export const deleteRegistrationMutation = (
   return mutationOptions;
 };
 
-export const getRegistrationQueryKey = (
-  options: Options<GetRegistrationData>,
-) => createQueryKey("getRegistration", options);
+export const getDevicePairingQueryKey = (
+  options: Options<GetDevicePairingData>,
+) => createQueryKey("getDevicePairing", options);
 
 /**
- * Get a single registration invite (Admin only)
- *
- * Returns the invite including registration_code if not yet claimed.
+ * Get a single device pairing (Admin only)
  */
-export const getRegistrationOptions = (options: Options<GetRegistrationData>) =>
+export const getDevicePairingOptions = (
+  options: Options<GetDevicePairingData>,
+) =>
   queryOptions<
-    GetRegistrationResponse,
-    GetRegistrationError,
-    GetRegistrationResponse,
-    ReturnType<typeof getRegistrationQueryKey>
+    GetDevicePairingResponse,
+    GetDevicePairingError,
+    GetDevicePairingResponse,
+    ReturnType<typeof getDevicePairingQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getRegistration({
+      const { data } = await getDevicePairing({
         ...options,
         ...queryKey[0],
         signal,
@@ -1479,7 +1479,7 @@ export const getRegistrationOptions = (options: Options<GetRegistrationData>) =>
       });
       return data;
     },
-    queryKey: getRegistrationQueryKey(options),
+    queryKey: getDevicePairingQueryKey(options),
   });
 
 export const listHostsQueryKey = (options?: Options<ListHostsData>) =>

@@ -208,10 +208,15 @@ export type DeviceRuleSummary = {
 };
 
 export type DevicePairingSummary = {
+  status: DevicePairingStatus;
   /**
-   * When the pairing code expires.
+   * When the pairing code expires (or expired).
    */
   expires_at: string;
+  /**
+   * When the status last changed.
+   */
+  updated_at: string;
 };
 
 export type DeviceListEntry = {
@@ -497,9 +502,7 @@ export type DashboardTopDeniedIpsResponse = {
   ips: Array<DashboardTopDeniedIp>;
 };
 
-export type CreateRegistrationRequest = {
-  owner_id: Id;
-  device_name: string;
+export type CreatePairingRequest = {
   heartbeat_server_url: string;
   interval_seconds: number;
   app_biometric_enabled?: boolean;
@@ -507,34 +510,34 @@ export type CreateRegistrationRequest = {
   expires_in_hours: 1 | 24 | 48 | 168;
 };
 
-export type PendingRegistration = {
+export type DevicePairing = {
   id: Id;
-  device_name: string;
-  owner_id: Id;
+  device_id: Id;
   /**
-   * Present only while unclaimed. Null after the invite is used.
+   * The pairing code delivered to the app. Always present; status is the single-use guard.
    */
-  registration_code?: string | null;
+  pairing_code: string;
   heartbeat_server_url: string;
   interval_seconds: number;
   app_biometric_enabled: boolean;
   app_settings_locked: boolean;
   expires_at: string;
   created_at: string;
-  used_at?: string | null;
-  invalidated_at?: string | null;
-  created_device_id?: Id;
-  status: "pending" | "used" | "expired" | "invalidated";
+  /**
+   * When the status last changed (equals created_at for pending pairings).
+   */
+  updated_at: string;
+  status: DevicePairingStatus;
 };
 
-export type ClaimRegistrationRequest = {
+export type ClaimPairingRequest = {
   /**
-   * The full registration code as received (not decoded).
+   * The full pairing code as received (not decoded).
    */
   code: string;
 };
 
-export type ClaimRegistrationResponse = {
+export type ClaimPairingResponse = {
   server_url: string;
   interval_seconds: number;
   app_biometric_enabled: boolean;
@@ -1041,6 +1044,25 @@ export type UserAccessDetail = {
   groups: Array<SubjectGroupDetail>;
   bypass_host_check: boolean;
 };
+
+/**
+ * Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.
+ *
+ */
+export const DevicePairingStatus = {
+  PENDING: "pending",
+  USED: "used",
+  EXPIRED: "expired",
+  INVALIDATED: "invalidated",
+  REPLACED: "replaced",
+} as const;
+
+/**
+ * Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.
+ *
+ */
+export type DevicePairingStatus =
+  (typeof DevicePairingStatus)[keyof typeof DevicePairingStatus];
 
 export type UserWritable = {
   id: Id;
@@ -2533,14 +2555,14 @@ export type GetDashboardTopDeniedIpsResponses = {
 export type GetDashboardTopDeniedIpsResponse =
   GetDashboardTopDeniedIpsResponses[keyof GetDashboardTopDeniedIpsResponses];
 
-export type ClaimRegistrationData = {
-  body: ClaimRegistrationRequest;
+export type ClaimPairingData = {
+  body: ClaimPairingRequest;
   path?: never;
   query?: never;
-  url: "/register";
+  url: "/device-pair";
 };
 
-export type ClaimRegistrationErrors = {
+export type ClaimPairingErrors = {
   /**
    * Code not found, already used, or expired (deliberately vague)
    */
@@ -2551,29 +2573,30 @@ export type ClaimRegistrationErrors = {
   500: ErrorResponse;
 };
 
-export type ClaimRegistrationError =
-  ClaimRegistrationErrors[keyof ClaimRegistrationErrors];
+export type ClaimPairingError = ClaimPairingErrors[keyof ClaimPairingErrors];
 
-export type ClaimRegistrationResponses = {
+export type ClaimPairingResponses = {
   /**
-   * Registration successful — device created and config returned
+   * Pairing successful — config and one-time API key returned
    */
-  200: ClaimRegistrationResponse;
+  200: ClaimPairingResponse;
 };
 
-export type ClaimRegistrationResponse2 =
-  ClaimRegistrationResponses[keyof ClaimRegistrationResponses];
+export type ClaimPairingResponse2 =
+  ClaimPairingResponses[keyof ClaimPairingResponses];
 
-export type ListRegistrationsData = {
+export type ListDevicePairingsData = {
   body?: never;
-  path?: never;
+  path: {
+    id: Id;
+  };
   query?: {
     status?: "pending" | "all";
   };
-  url: "/admin/registrations";
+  url: "/devices/{id}/pairings";
 };
 
-export type ListRegistrationsErrors = {
+export type ListDevicePairingsErrors = {
   /**
    * Not authenticated
    */
@@ -2588,27 +2611,29 @@ export type ListRegistrationsErrors = {
   500: ErrorResponse;
 };
 
-export type ListRegistrationsError =
-  ListRegistrationsErrors[keyof ListRegistrationsErrors];
+export type ListDevicePairingsError =
+  ListDevicePairingsErrors[keyof ListDevicePairingsErrors];
 
-export type ListRegistrationsResponses = {
+export type ListDevicePairingsResponses = {
   /**
-   * List of registrations
+   * List of device pairings
    */
-  200: Array<PendingRegistration>;
+  200: Array<DevicePairing>;
 };
 
-export type ListRegistrationsResponse =
-  ListRegistrationsResponses[keyof ListRegistrationsResponses];
+export type ListDevicePairingsResponse =
+  ListDevicePairingsResponses[keyof ListDevicePairingsResponses];
 
-export type CreateRegistrationData = {
-  body: CreateRegistrationRequest;
-  path?: never;
+export type CreateDevicePairingData = {
+  body: CreatePairingRequest;
+  path: {
+    id: Id;
+  };
   query?: never;
-  url: "/admin/registrations";
+  url: "/devices/{id}/pairings";
 };
 
-export type CreateRegistrationErrors = {
+export type CreateDevicePairingErrors = {
   /**
    * Invalid request body
    */
@@ -2627,29 +2652,30 @@ export type CreateRegistrationErrors = {
   500: ErrorResponse;
 };
 
-export type CreateRegistrationError =
-  CreateRegistrationErrors[keyof CreateRegistrationErrors];
+export type CreateDevicePairingError =
+  CreateDevicePairingErrors[keyof CreateDevicePairingErrors];
 
-export type CreateRegistrationResponses = {
+export type CreateDevicePairingResponses = {
   /**
-   * Registration invite created — includes registration_code
+   * Pairing created — includes pairing_code
    */
-  201: PendingRegistration;
+  201: DevicePairing;
 };
 
-export type CreateRegistrationResponse =
-  CreateRegistrationResponses[keyof CreateRegistrationResponses];
+export type CreateDevicePairingResponse =
+  CreateDevicePairingResponses[keyof CreateDevicePairingResponses];
 
-export type DeleteRegistrationData = {
+export type DeleteDevicePairingData = {
   body?: never;
   path: {
-    registration_id: Id;
+    id: Id;
+    pairingId: Id;
   };
   query?: never;
-  url: "/admin/registrations/{registration_id}";
+  url: "/devices/{id}/pairings/{pairingId}";
 };
 
-export type DeleteRegistrationErrors = {
+export type DeleteDevicePairingErrors = {
   /**
    * Not authenticated
    */
@@ -2668,29 +2694,30 @@ export type DeleteRegistrationErrors = {
   500: ErrorResponse;
 };
 
-export type DeleteRegistrationError =
-  DeleteRegistrationErrors[keyof DeleteRegistrationErrors];
+export type DeleteDevicePairingError =
+  DeleteDevicePairingErrors[keyof DeleteDevicePairingErrors];
 
-export type DeleteRegistrationResponses = {
+export type DeleteDevicePairingResponses = {
   /**
-   * Invite deleted
+   * Pairing invalidated
    */
   204: void;
 };
 
-export type DeleteRegistrationResponse =
-  DeleteRegistrationResponses[keyof DeleteRegistrationResponses];
+export type DeleteDevicePairingResponse =
+  DeleteDevicePairingResponses[keyof DeleteDevicePairingResponses];
 
-export type GetRegistrationData = {
+export type GetDevicePairingData = {
   body?: never;
   path: {
-    registration_id: Id;
+    id: Id;
+    pairingId: Id;
   };
   query?: never;
-  url: "/admin/registrations/{registration_id}";
+  url: "/devices/{id}/pairings/{pairingId}";
 };
 
-export type GetRegistrationErrors = {
+export type GetDevicePairingErrors = {
   /**
    * Not authenticated
    */
@@ -2709,18 +2736,18 @@ export type GetRegistrationErrors = {
   500: ErrorResponse;
 };
 
-export type GetRegistrationError =
-  GetRegistrationErrors[keyof GetRegistrationErrors];
+export type GetDevicePairingError =
+  GetDevicePairingErrors[keyof GetDevicePairingErrors];
 
-export type GetRegistrationResponses = {
+export type GetDevicePairingResponses = {
   /**
-   * Registration invite
+   * Device pairing
    */
-  200: PendingRegistration;
+  200: DevicePairing;
 };
 
-export type GetRegistrationResponse =
-  GetRegistrationResponses[keyof GetRegistrationResponses];
+export type GetDevicePairingResponse =
+  GetDevicePairingResponses[keyof GetDevicePairingResponses];
 
 export type ListHostsData = {
   body?: never;

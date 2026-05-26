@@ -8,13 +8,13 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/devicepairing"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/health"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/registration"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ui"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/useraccess"
@@ -30,7 +30,7 @@ type CompositeHandler struct {
 	*QueriesHandler
 	*AccessLogHandler
 	*DashboardHandler
-	*RegistrationHandler
+	*DevicePairingHandler
 	*HostsHandler
 	*UserAccessHandler
 	*PolicyHandler
@@ -44,7 +44,7 @@ type AuthHandler = auth.HTTPHandler
 type PolicyHandler = policy.HTTPHandler
 type AccessLogHandler = accesslog.HTTPHandler
 type DashboardHandler = dashboard.HTTPHandler
-type RegistrationHandler = registration.HTTPHandler
+type DevicePairingHandler = devicepairing.HTTPHandler
 type HostsHandler = hosts.HTTPHandler
 type UserAccessHandler = useraccess.HTTPHandler
 type NetworkPoliciesHandler = networkpolicies.HTTPHandler
@@ -58,7 +58,7 @@ func addRoutes(
 	policyHandler *PolicyHandler,
 	accessLogHandler *AccessLogHandler,
 	dashboardHandler *DashboardHandler,
-	registrationHandler *RegistrationHandler,
+	pairingHandler *DevicePairingHandler,
 	hostsHandler *HostsHandler,
 	userAccessHandler *UserAccessHandler,
 	networkPoliciesHandler *NetworkPoliciesHandler,
@@ -71,7 +71,7 @@ func addRoutes(
 		QueriesHandler:         queriesHandler,
 		AccessLogHandler:       accessLogHandler,
 		DashboardHandler:       dashboardHandler,
-		RegistrationHandler:    registrationHandler,
+		DevicePairingHandler:   pairingHandler,
 		HostsHandler:           hostsHandler,
 		UserAccessHandler:      userAccessHandler,
 		PolicyHandler:          policyHandler,
@@ -95,7 +95,7 @@ func addRoutes(
 		// Rate limit unauthenticated endpoints by IP
 		r.Use(LoginRateLimitMiddleware(5, time.Minute))
 		r.Use(HeartbeatRateLimitMiddleware(30, time.Minute))
-		r.Use(RegistrationRateLimitMiddleware(10, time.Minute))
+		r.Use(DevicePairingRateLimitMiddleware(10, time.Minute))
 
 		// OpenApi request input validators
 		r.Use(nethttpmiddleware.OapiRequestValidatorWithOptions(swagger, validatorOptions))
