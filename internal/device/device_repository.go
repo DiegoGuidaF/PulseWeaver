@@ -25,7 +25,6 @@ func (r *Repository) GetDevice(ctx context.Context, id ids.DeviceID) (*Device, e
 				d.updated_at,
 				d.deleted_at,
 				k.key_prefix,
-				(SELECT MAX(a.updated_at) FROM addresses a WHERE a.device_id = d.id) AS last_seen_at,
 				d.owner_id AS owner_id
 			FROM devices d
 			LEFT JOIN device_api_keys k ON d.id = k.device_id

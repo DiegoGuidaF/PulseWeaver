@@ -8,7 +8,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
@@ -37,17 +36,16 @@ var DeviceTypeLabels = map[DeviceType]string{
 }
 
 type Device struct {
-	ID          ids.DeviceID     `db:"id"`
-	Name        string           `db:"name"`
-	DeviceType  DeviceType       `db:"device_type"`
-	Description *string          `db:"description"`
-	Icon        *string          `db:"icon"`
-	CreatedAt   time.Time        `db:"created_at"`
-	UpdatedAt   time.Time        `db:"updated_at"`
-	DeletedAt   *time.Time       `db:"deleted_at"`
-	KeyPrefix   *string          `db:"key_prefix"`
-	LastSeenAt  *database.DBTime `db:"last_seen_at"`
-	OwnerID     ids.UserID       `db:"owner_id"`
+	ID          ids.DeviceID `db:"id"`
+	Name        string       `db:"name"`
+	DeviceType  DeviceType   `db:"device_type"`
+	Description *string      `db:"description"`
+	Icon        *string      `db:"icon"`
+	CreatedAt   time.Time    `db:"created_at"`
+	UpdatedAt   time.Time    `db:"updated_at"`
+	DeletedAt   *time.Time   `db:"deleted_at"`
+	KeyPrefix   *string      `db:"key_prefix"`
+	OwnerID     ids.UserID   `db:"owner_id"`
 }
 
 // Update applies patch inputs to the device in-place, validating each field.
