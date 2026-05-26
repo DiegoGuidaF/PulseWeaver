@@ -870,14 +870,7 @@ export const AccessLogRowSchema = {
 
 export const DeviceAddressLeaseRuleSchema = {
   type: "object",
-  required: [
-    "id",
-    "device_id",
-    "enabled",
-    "ttl_seconds",
-    "created_at",
-    "updated_at",
-  ],
+  required: ["device_id", "enabled"],
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
@@ -893,7 +886,7 @@ export const DeviceAddressLeaseRuleSchema = {
       type: "integer",
       minimum: 1,
       description:
-        "Seconds after which an enabled device address lease expires",
+        "Seconds after which an enabled device address lease expires; absent when disabled and never configured",
     },
     created_at: {
       type: "string",
@@ -923,14 +916,7 @@ export const PutDeviceAddressLeaseRuleRequestSchema = {
 
 export const MaxActiveAddressesRuleSchema = {
   type: "object",
-  required: [
-    "id",
-    "device_id",
-    "enabled",
-    "max_addresses",
-    "created_at",
-    "updated_at",
-  ],
+  required: ["device_id", "enabled"],
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
@@ -945,7 +931,8 @@ export const MaxActiveAddressesRuleSchema = {
     max_addresses: {
       type: "integer",
       minimum: 1,
-      description: "Maximum number of simultaneously enabled IP addresses",
+      description:
+        "Maximum number of simultaneously enabled IP addresses; absent when disabled and never configured",
     },
     created_at: {
       type: "string",

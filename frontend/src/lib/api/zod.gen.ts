@@ -244,12 +244,12 @@ export const zAccessLogResponse = z.object({
 });
 
 export const zDeviceAddressLeaseRule = z.object({
-  id: zId,
+  id: zId.optional(),
   device_id: zId,
   enabled: z.boolean(),
-  ttl_seconds: z.int().gte(1),
-  created_at: z.iso.datetime({ offset: true, local: true }),
-  updated_at: z.iso.datetime({ offset: true, local: true }),
+  ttl_seconds: z.int().gte(1).optional(),
+  created_at: z.iso.datetime({ offset: true, local: true }).optional(),
+  updated_at: z.iso.datetime({ offset: true, local: true }).optional(),
 });
 
 export const zPutDeviceAddressLeaseRuleRequest = z.object({
@@ -257,12 +257,12 @@ export const zPutDeviceAddressLeaseRuleRequest = z.object({
 });
 
 export const zMaxActiveAddressesRule = z.object({
-  id: zId,
+  id: zId.optional(),
   device_id: zId,
   enabled: z.boolean(),
-  max_addresses: z.int().gte(1),
-  created_at: z.iso.datetime({ offset: true, local: true }),
-  updated_at: z.iso.datetime({ offset: true, local: true }),
+  max_addresses: z.int().gte(1).optional(),
+  created_at: z.iso.datetime({ offset: true, local: true }).optional(),
+  updated_at: z.iso.datetime({ offset: true, local: true }).optional(),
 });
 
 export const zPutMaxActiveAddressesRuleRequest = z.object({

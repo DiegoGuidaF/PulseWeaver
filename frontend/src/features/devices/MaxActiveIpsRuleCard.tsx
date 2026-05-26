@@ -69,6 +69,7 @@ export function MaxActiveIpsRuleCard({ deviceId, liveAddressCount }: MaxActiveIp
   const syncedLimitRef = useRef<number | null>(null);
   useEffect(() => {
     if (!maxAddressesRule) return;
+    if (maxAddressesRule.max_addresses == null) return;
     if (syncedLimitRef.current === maxAddressesRule.max_addresses) return;
     syncedLimitRef.current = maxAddressesRule.max_addresses;
     setValues({ max_addresses: String(maxAddressesRule.max_addresses) });
