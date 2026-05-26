@@ -74,8 +74,12 @@ migrate-down:
 migrate-reapply-latest: migrate-down migrate-up
 
 migrate-create:
-	@read -p "Migration name: " name; \
-	$(MIGRATE) create -ext sql -dir $(MIGRATIONS_PATH) -seq $$name
+	@if [ -n "$(NAME)" ]; then \
+		$(MIGRATE) create -ext sql -dir $(MIGRATIONS_PATH) -seq $(NAME); \
+	else \
+		read -p "Migration name: " name; \
+		$(MIGRATE) create -ext sql -dir $(MIGRATIONS_PATH) -seq $$name; \
+	fi
 
 check-migrations: ## Verify all migration files have explicit BEGIN TRANSACTION / COMMIT
 	@bash scripts/check-migrations.sh
