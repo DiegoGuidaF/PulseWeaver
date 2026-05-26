@@ -57,6 +57,28 @@ func (f *testFakeObserver) received() []policy.DecisionEvent {
 	return out
 }
 
+func TestHandler_EarlyData_Returns425(t *testing.T) {
+	is := is.New(t)
+	h := newTestHandler([]string{"1.2.3.4"})
+	r := httptest.NewRequest(http.MethodGet, "/api/policy-engine/verify-ip", nil)
+	r.Header.Set("Early-Data", "1")
+	w := httptest.NewRecorder()
+	h.HandleForwardAuthIP(w, r)
+	is.Equal(w.Code, http.StatusTooEarly)
+}
+
+func TestHandler_SimulatePolicyAccess_DeviceAllow(t *testing.T) {
+	is := is.New(t)
+	h := newTestHandler([]string{"1.2.3.4"})
+	resp, err := h.SimulatePolicyAccess(context.Background(), httpapi.SimulatePolicyAccessRequestObject{
+		Params: httpapi.SimulatePolicyAccessParams{Ip: "1.2.3.4", Host: "example.com"},
+	})
+	is.NoErr(err)
+	result, ok := resp.(httpapi.SimulatePolicyAccess200JSONResponse)
+	is.True(ok)
+	is.True(result.Allowed)
+}
+
 func TestHandler_MissingAuthHeader_Returns403(t *testing.T) {
 	is := is.New(t)
 	h := newTestHandler([]string{"1.2.3.4"})

@@ -12,6 +12,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 )
 
 // fakeObserver records every DecisionEvent it receives.
@@ -112,6 +113,39 @@ type errHostProvider struct{ err error }
 
 func (e *errHostProvider) GetAllUserHostAccess(_ context.Context) ([]UserHostAccess, error) {
 	return nil, e.err
+}
+
+// mockNetworkPoliciesProvider returns a fixed list of CacheEntry rows.
+type mockNetworkPoliciesProvider struct {
+	entries []networkpolicies.CacheEntry
+	err     error
+}
+
+var _ NetworkPoliciesProvider = (*mockNetworkPoliciesProvider)(nil)
+
+func (m *mockNetworkPoliciesProvider) GetEnabledCacheEntries(_ context.Context) ([]networkpolicies.CacheEntry, error) {
+	return m.entries, m.err
+}
+
+// newServiceWithNetworkPolicies builds a Service pre-populated with the given IP entries,
+// host access grants, and network policy CIDR entries. hostAccess may be nil (deny-all for
+// every user). The service is fully initialized before returning.
+func newServiceWithNetworkPolicies(
+	ipEntries []device.IPEntry,
+	hostAccess []UserHostAccess,
+	networkPolicyCacheEntries []networkpolicies.CacheEntry,
+) *Service {
+	provider := &mockProvider{entries: ipEntries}
+	hostProv := &restrictedHostProvider{users: hostAccess}
+	netProv := &mockNetworkPoliciesProvider{entries: networkPolicyCacheEntries}
+	svc, err := NewService(provider, hostProv, &geoip.Lookup{}, netProv, "secret", noopLogger(), netip.Addr{})
+	if err != nil {
+		panic(err)
+	}
+	if err := svc.Initialize(context.Background()); err != nil {
+		panic(err)
+	}
+	return svc
 }
 
 func newRestrictedService(entries []device.IPEntry, hostAccess []UserHostAccess) *Service {

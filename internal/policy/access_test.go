@@ -11,8 +11,110 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/matryer/is"
 )
+
+// ── Decide: network policy CIDR path ─────────────────────────────────────────
+
+func TestDecide_NetworkPolicy_BypassHostCheck_AnyHostAllowed(t *testing.T) {
+	is := is.New(t)
+	svc := newServiceWithNetworkPolicies(nil, nil, []networkpolicies.CacheEntry{
+		{PolicyID: ids.NetworkPolicyID(1), PolicyName: "ops", CIDR: "10.0.0.0/8", BypassHostCheck: true},
+	})
+	result := svc.Decide(context.Background(), "10.1.2.3", "any.host.example")
+	is.True(result.Allowed)
+	is.Equal(result.MatchSource, MatchSourceNetworkPolicy)
+	is.Equal(*result.NetworkPolicyName, "ops")
+	is.True(result.Contributors == nil)
+}
+
+func TestDecide_NetworkPolicy_HostInAllowlist_Allowed(t *testing.T) {
+	is := is.New(t)
+	svc := newServiceWithNetworkPolicies(nil, nil, []networkpolicies.CacheEntry{
+		{PolicyID: ids.NetworkPolicyID(1), PolicyName: "corp", CIDR: "10.0.0.0/8", AllowedHostFQDNs: []string{"allowed.com"}},
+	})
+	result := svc.Decide(context.Background(), "10.0.0.5", "allowed.com")
+	is.True(result.Allowed)
+	is.Equal(result.MatchSource, MatchSourceNetworkPolicy)
+}
+
+func TestDecide_NetworkPolicy_HostNotInAllowlist_Denied(t *testing.T) {
+	is := is.New(t)
+	svc := newServiceWithNetworkPolicies(nil, nil, []networkpolicies.CacheEntry{
+		{PolicyID: ids.NetworkPolicyID(1), PolicyName: "corp", CIDR: "10.0.0.0/8", AllowedHostFQDNs: []string{"allowed.com"}},
+	})
+	result := svc.Decide(context.Background(), "10.0.0.5", "other.com")
+	is.True(!result.Allowed)
+	is.Equal(*result.DenyReason, DenyReasonHostNotAllowed)
+}
+
+func TestDecide_NetworkPolicy_MostSpecificFirst_NarrowerWins(t *testing.T) {
+	is := is.New(t)
+	// /8 allows a.com, /16 allows b.com; 10.1.2.3 falls in both — narrower /16 must decide.
+	svc := newServiceWithNetworkPolicies(nil, nil, []networkpolicies.CacheEntry{
+		{PolicyID: ids.NetworkPolicyID(1), PolicyName: "broad", CIDR: "10.0.0.0/8", AllowedHostFQDNs: []string{"a.com"}},
+		{PolicyID: ids.NetworkPolicyID(2), PolicyName: "narrow", CIDR: "10.1.0.0/16", AllowedHostFQDNs: []string{"b.com"}},
+	})
+	is.True(svc.Decide(context.Background(), "10.1.2.3", "b.com").Allowed)
+	denyResult := svc.Decide(context.Background(), "10.1.2.3", "a.com")
+	is.True(!denyResult.Allowed)
+	is.Equal(*denyResult.DenyReason, DenyReasonHostNotAllowed)
+}
+
+func TestDecide_DeviceBeatsNetworkPolicy(t *testing.T) {
+	is := is.New(t)
+	// Device at 10.0.0.5 restricted to x.com; CIDR 10.0.0.0/8 would allow y.com.
+	// Device path must take priority.
+	entries := []device.IPEntry{{IP: "10.0.0.5", DeviceID: 1, AddressID: 1, UserID: ids.UserID(1)}}
+	hostAccess := []UserHostAccess{{UserID: ids.UserID(1), BypassAllowlist: false, AllowedHosts: []string{"x.com"}}}
+	svc := newServiceWithNetworkPolicies(entries, hostAccess, []networkpolicies.CacheEntry{
+		{PolicyID: ids.NetworkPolicyID(1), PolicyName: "broad", CIDR: "10.0.0.0/8", AllowedHostFQDNs: []string{"y.com"}},
+	})
+
+	xResult := svc.Decide(context.Background(), "10.0.0.5", "x.com")
+	is.True(xResult.Allowed)
+	is.Equal(xResult.MatchSource, MatchSourceDevice)
+	is.True(xResult.NetworkPolicyID == nil)
+
+	yResult := svc.Decide(context.Background(), "10.0.0.5", "y.com")
+	is.True(!yResult.Allowed)
+	is.Equal(*yResult.DenyReason, DenyReasonHostNotAllowed)
+	is.Equal(yResult.MatchSource, MatchSourceDevice)
+}
+
+func TestDecide_NetworkPolicy_IPNotInAnyCIDR_Denied(t *testing.T) {
+	is := is.New(t)
+	svc := newServiceWithNetworkPolicies(nil, nil, []networkpolicies.CacheEntry{
+		{PolicyID: ids.NetworkPolicyID(1), CIDR: "10.0.0.0/8", BypassHostCheck: true},
+	})
+	result := svc.Decide(context.Background(), "192.168.1.1", "any.com")
+	is.True(!result.Allowed)
+	is.Equal(*result.DenyReason, DenyReasonIPNotRegistered)
+}
+
+func TestVerifyAccess_NetworkPolicy_ObserverEvent(t *testing.T) {
+	is := is.New(t)
+	svc := newServiceWithNetworkPolicies(nil, nil, []networkpolicies.CacheEntry{
+		{PolicyID: ids.NetworkPolicyID(42), PolicyName: "corp-vpn", CIDR: "10.0.0.0/8", AllowedHostFQDNs: []string{"api.internal"}},
+	})
+	obs := &fakeObserver{}
+	svc.AddDecisionObserver(obs)
+
+	host := "api.internal"
+	err := svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "10.5.0.1", TargetHost: &host})
+	is.NoErr(err)
+
+	events := obs.received()
+	is.Equal(len(events), 1)
+	e := events[0]
+	is.True(e.Outcome)
+	is.Equal(e.MatchSource, MatchSourceNetworkPolicy)
+	is.True(e.NetworkPolicyID != nil)
+	is.Equal(e.NetworkPolicyID.Int64(), int64(42))
+	is.Equal(*e.NetworkPolicyName, "corp-vpn")
+	is.True(e.IPContributors == nil)
+}
 
 // ── lookupIP ──────────────────────────────────────────────────────────────────
 
