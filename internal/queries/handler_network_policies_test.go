@@ -55,7 +55,7 @@ func TestHandler_ListNetworkPolicies_ReturnsPolicySummary(t *testing.T) {
 	is.Equal(w.Code, http.StatusOK)
 	var resp []httpapi.NetworkPolicyListItem
 	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
-	is.Equal(len(resp), 2) // FixturePolicyWithGroups + FixturePolicyNoGroups
+	is.Equal(len(resp), 3) // FixturePolicyWithGroups + FixturePolicyNoGroups + FixturePolicyBypassHostCheck
 
 	corpVPN := findPolicy(resp, testutils.FixturePolicyWithGroups.Name)
 	is.True(corpVPN != nil)
@@ -70,6 +70,12 @@ func TestHandler_ListNetworkPolicies_ReturnsPolicySummary(t *testing.T) {
 	isolated := findPolicy(resp, testutils.FixturePolicyNoGroups.Name)
 	is.True(isolated != nil)
 	is.Equal(len(isolated.Groups), 0)
+
+	// FixturePolicyBypassHostCheck has bypass_host_check=true and no group assignments
+	opsNetwork := findPolicy(resp, testutils.FixturePolicyBypassHostCheck.Name)
+	is.True(opsNetwork != nil)
+	is.Equal(opsNetwork.BypassHostCheck, true)
+	is.Equal(len(opsNetwork.Groups), 0)
 	is.Equal(isolated.HostCount, 0)
 }
 
