@@ -1,7 +1,7 @@
 import { Alert, Skeleton, Stack, Text } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
-import { DeviceOwnerCard } from "@/features/devices/DeviceOwnerCard";
+import { OwnerCard } from "@/features/devices/OwnerCard";
 import { toErrorMessage } from "@/lib/api-client";
 
 function LoadingSkeleton() {
@@ -18,7 +18,7 @@ function LoadingSkeleton() {
   );
 }
 
-export function DeviceOwnerGroupList() {
+export function OwnerGroupList() {
   const { data: groups, isLoading, error } = useDeviceList();
 
   if (isLoading) return <LoadingSkeleton />;
@@ -42,7 +42,7 @@ export function DeviceOwnerGroupList() {
   return (
     <Stack gap="md">
       {groups.map((group) => (
-        <DeviceOwnerCard
+        <OwnerCard
           key={group.owner.id}
           owner={group.owner}
           devices={group.devices}

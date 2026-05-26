@@ -143,7 +143,7 @@ export function CreateDeviceModal({ opened, onClose, defaultOwnerId }: CreateDev
       onClose();
       if (effectiveOwner) {
         navigate(
-          `${buildRoute.userDeviceWorkspace(effectiveOwner)}?device=${data.id}&tab=addresses`,
+          `${buildRoute.userDevices(effectiveOwner)}?device=${data.id}&tab=addresses`,
         );
       }
     },

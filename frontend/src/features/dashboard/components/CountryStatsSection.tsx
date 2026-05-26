@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { Stack, Grid } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
+import { ROUTES } from "@/lib/routes";
 import { useCountryStats } from "../hooks/useCountryStats";
 import { useCountryLookup } from "../hooks/useCountryLookup";
 import { useMapColorScale } from "../hooks/useMapColorScale";
@@ -23,7 +24,7 @@ export function CountryStatsSection({ from, to }: CountryStatsSectionProps) {
     const colorFn = useMapColorScale(data, metric);
 
     const handleCountryClick = useCallback(
-        (code: string) => navigate(`/access-log?country_code=${code}`),
+        (code: string) => navigate(`${ROUTES.accessLog}?country_code=${code}`),
         [navigate],
     );
 

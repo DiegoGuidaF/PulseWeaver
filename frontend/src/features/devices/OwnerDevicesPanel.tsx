@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { buildRoute } from "@/lib/routes";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import {
@@ -128,7 +129,7 @@ export function OwnerDevicesPanel({
     const found = (allGroups ?? []).find(
       (g) => g.owner.display_name === displayName && g.owner.id !== owner.id,
     );
-    if (found) navigate(`/user-devices/${found.owner.id}`);
+    if (found) navigate(buildRoute.userDevices(found.owner.id));
   }
 
   const ownerFirstName = owner.display_name.split(" ")[0];

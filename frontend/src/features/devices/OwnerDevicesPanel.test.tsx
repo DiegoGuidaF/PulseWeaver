@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
+import { ROUTES } from '@/lib/routes';
 import { OwnerDevicesPanel } from '@/features/devices/OwnerDevicesPanel';
 import type { DeviceListEntry, DeviceListOwner } from '@/lib/api';
 import { DeviceState, UserRole } from '@/lib/api';
@@ -63,7 +64,7 @@ function renderPanel(props: PanelProps = {}) {
                         />
                     }
                 />
-                <Route path="/user-devices/:userId" element={<div data-testid="owner-workspace" />} />
+                <Route path={ROUTES.userDevices} element={<div data-testid="owner-workspace" />} />
             </Routes>
         );
     }

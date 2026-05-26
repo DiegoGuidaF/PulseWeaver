@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { buildRoute } from "@/lib/routes";
 import {
   ActionIcon,
   Badge,
@@ -132,7 +133,7 @@ export function UsersPage() {
           highlightOnHover
           onRowClick={({ record }) => {
             if (record.role !== UserRole.SUPERADMIN) {
-              navigate(`/access/users/${record.id}`);
+              navigate(buildRoute.accessUserDetail(record.id));
             }
           }}
           sortStatus={sortStatus}

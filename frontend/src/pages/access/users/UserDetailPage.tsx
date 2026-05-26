@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ROUTES } from "@/lib/routes";
+import { ROUTES, buildRoute } from "@/lib/routes";
 import {
   Alert,
   Anchor,
@@ -237,7 +237,7 @@ export function UserDetailPage() {
                       <Table.Tr
                         key={device.id}
                         style={{ cursor: "pointer" }}
-                        onClick={() => navigate(`/user-devices/${data.id}?device=${device.id}`)}
+                        onClick={() => navigate(`${buildRoute.userDevices(data.id)}?device=${device.id}`)}
                       >
                         <Table.Td fw={500}>{device.name}</Table.Td>
                         <Table.Td c="dimmed">{device.live_address_count}</Table.Td>
@@ -256,7 +256,7 @@ export function UserDetailPage() {
                 </Table>
                 <Anchor
                   component={Link}
-                  to={`/user-devices/${data.id}`}
+                  to={buildRoute.userDevices(data.id)}
                   size="xs"
                   c="dimmed"
                 >

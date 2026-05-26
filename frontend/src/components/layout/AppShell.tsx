@@ -60,7 +60,7 @@ const navGroups: NavGroup[] = [
     {
         label: "Devices",
         items: [
-            { label: "Devices", href: ROUTES.userDevices, icon: IconServer },
+            { label: "Devices", href: ROUTES.devices, icon: IconServer },
         ],
     },
     {

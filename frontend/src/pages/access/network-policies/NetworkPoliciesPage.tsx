@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { buildRoute } from "@/lib/routes";
 import { Alert, Button, Center, Group, Loader, Stack, Text, Title } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
 import type { NetworkPolicyDetail } from "@/lib/api";
@@ -20,7 +21,7 @@ export function NetworkPoliciesPage() {
 
     function handleCreated(policy: NetworkPolicyDetail) {
         setCreateOpen(false);
-        navigate(`/access/network-policies/${policy.id}`);
+        navigate(buildRoute.accessNetworkPolicyDetail(policy.id));
     }
 
     return (

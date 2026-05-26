@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { buildRoute } from "@/lib/routes";
 import { useNavigate } from "react-router-dom";
 import { Alert, Anchor, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
 import { DataTable } from "mantine-datatable";
@@ -102,9 +103,9 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
           const ownerId = (ownerGroups ?? []).find((g) =>
             g.devices.some((d) => d.id === deviceId)
           )?.owner.id;
-          if (ownerId !== undefined) navigate(`/user-devices/${ownerId}?device=${deviceId}`);
+          if (ownerId !== undefined) navigate(`${buildRoute.userDevices(ownerId)}?device=${deviceId}`);
         },
-        onNetworkPolicyClick: (id) => navigate(`/network-policies/${id}`),
+        onNetworkPolicyClick: (id) => navigate(buildRoute.accessNetworkPolicyDetail(id)),
     });
 
     const filterChips = useMemo(() => {

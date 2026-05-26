@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
+import { ROUTES, buildRoute } from '@/lib/routes';
 import { UserDetailPage } from '@/pages/access/users/UserDetailPage';
 import { AuthProvider } from '@/features/auth/AuthContext';
 import { TEST_TIMEOUTS } from '@/test/constants';
@@ -28,7 +29,7 @@ function renderWithRoutes(userId = 5) {
         return (
             <Routes>
                 <Route path="/access/users/:id" element={<AuthProvider><UserDetailPage /></AuthProvider>} />
-                <Route path="/user-devices/:userId" element={<div data-testid="device-detail" />} />
+                <Route path={ROUTES.userDevices} element={<div data-testid="device-detail" />} />
             </Routes>
         );
     }
@@ -74,7 +75,7 @@ describe('UserDetailPage', () => {
             );
         });
 
-        it('"All devices →" link points to /user-devices/<userId>', async () => {
+        it('"All devices →" link points to the owner device workspace', async () => {
             const user = userEvent.setup();
             renderUserDetailPage(5);
 
@@ -86,7 +87,7 @@ describe('UserDetailPage', () => {
             await user.click(screen.getByRole('tab', { name: /devices/i }));
 
             const allDevicesLink = screen.getByRole('link', { name: /all devices/i });
-            expect(allDevicesLink).toHaveAttribute('href', '/user-devices/5');
+            expect(allDevicesLink).toHaveAttribute('href', buildRoute.userDevices(5));
         });
     });
 });

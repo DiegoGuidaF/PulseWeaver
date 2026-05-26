@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Badge, Card, Group, Progress, Table, Text } from "@mantine/core";
+import { buildRoute } from "@/lib/routes";
 import type { PolicyNetworkPolicyEntry } from "@/lib/api";
 
 interface Props {
@@ -53,7 +54,7 @@ export function NetworkPolicyCacheTab({ entries, totalHosts }: Props) {
                                     opacity: entry.enabled ? 1 : 0.5,
                                     cursor: "pointer",
                                 }}
-                                onClick={() => navigate(`/network-policies/${entry.policy_id}`)}
+                                onClick={() => navigate(buildRoute.accessNetworkPolicyDetail(entry.policy_id))}
                             >
                                 <Table.Td>
                                     <Text size="sm" fw={500}>{entry.policy_name}</Text>

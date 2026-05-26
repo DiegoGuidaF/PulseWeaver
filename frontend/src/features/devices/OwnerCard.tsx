@@ -21,7 +21,7 @@ interface Props {
   devices: DeviceListEntry[];
 }
 
-export function DeviceOwnerCard({ owner, devices }: Props) {
+export function OwnerCard({ owner, devices }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
 
   return (

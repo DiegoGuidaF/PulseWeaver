@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { buildRoute } from "@/lib/routes";
 import { Badge, Button, Center, Group, Stack, Text, ThemeIcon, Tooltip } from "@mantine/core";
 import { IconNetwork } from "@tabler/icons-react";
 import { DataTable, type DataTableSortStatus } from "mantine-datatable";
@@ -90,7 +91,7 @@ export function NetworkPoliciesTable({ policies, onNewPolicy }: Props) {
       <DataTable
         records={displayedPolicies}
         highlightOnHover
-        onRowClick={({ record }) => navigate(`/access/network-policies/${record.id}`)}
+        onRowClick={({ record }) => navigate(buildRoute.accessNetworkPolicyDetail(record.id))}
         sortStatus={sortStatus}
         onSortStatusChange={setSortStatus}
         rowStyle={(r) => (!r.enabled ? { opacity: 0.55 } : undefined)}

@@ -6,8 +6,8 @@ import { AppShell } from "./components/layout/AppShell";
 import { AppErrorBoundary } from "./components/ErrorBoundary";
 import { AuthProvider } from "./features/auth/AuthContext";
 import { ProtectedRoute } from "./features/auth/ProtectedRoute";
+import { DevicesPage } from "./pages/devices/DevicesPage";
 import { UserDevicesPage } from "./pages/devices/UserDevicesPage";
-import { UserDeviceWorkspacePage } from "./pages/devices/UserDeviceWorkspacePage";
 import { TrafficDashboardPage } from "./pages/dashboard/TrafficDashboardPage";
 import { LoginPage } from "./pages/login/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -51,21 +51,21 @@ function App() {
                     }
                   />
                   <Route
-                    path={ROUTES.userDevices}
+                    path={ROUTES.devices}
                     element={
                       <ProtectedRoute>
                         <AppShell>
-                          <UserDevicesPage />
+                          <DevicesPage />
                         </AppShell>
                       </ProtectedRoute>
                     }
                   />
                   <Route
-                    path={ROUTES.userDeviceWorkspace}
+                    path={ROUTES.userDevices}
                     element={
                       <ProtectedRoute>
                         <AppShell>
-                          <UserDeviceWorkspacePage />
+                          <UserDevicesPage />
                         </AppShell>
                       </ProtectedRoute>
                     }

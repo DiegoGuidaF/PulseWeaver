@@ -1,8 +1,8 @@
 export const ROUTES = {
   login: "/login",
   dashboard: "/dashboard",
-  userDevices: "/user-devices",
-  userDeviceWorkspace: "/user-devices/:userId",
+  devices: "/devices",
+  userDevices: "/devices/owners/:ownerId",
   settings: "/settings",
   accessLog: "/access-log",
   addressHistory: "/address-history",
@@ -16,7 +16,7 @@ export const ROUTES = {
 } as const;
 
 export const buildRoute = {
-  userDeviceWorkspace: (userId: string | number) => `/user-devices/${userId}`,
+  userDevices: (ownerId: string | number) => `/devices/owners/${ownerId}`,
   accessUserDetail: (id: string | number) => `/access/users/${id}`,
   accessNetworkPolicyDetail: (id: string | number) => `/access/network-policies/${id}`,
 };

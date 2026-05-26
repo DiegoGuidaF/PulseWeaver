@@ -110,7 +110,7 @@ describe('CreateDeviceModal', () => {
         await waitFor(
             () => {
                 const loc = screen.getByTestId('location').textContent ?? '';
-                expect(loc).toContain('/user-devices/');
+                expect(loc).toContain('/devices/owners/');
                 expect(loc).toContain('device=42');
                 expect(loc).toContain('tab=addresses');
             },

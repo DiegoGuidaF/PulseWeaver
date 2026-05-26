@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { buildRoute } from "@/lib/routes";
 import { Box, Group, ThemeIcon, UnstyledButton, Text } from "@mantine/core";
 import { IconChevronRight } from "@tabler/icons-react";
 import dayjs from "dayjs";
@@ -65,7 +66,7 @@ export function DeviceRow({ entry, ownerId }: Props) {
     <Box style={getRowContainerStyle(entry.state)}>
       <UnstyledButton
         w="100%"
-        onClick={() => navigate(`/user-devices/${ownerId}?device=${entry.id}`)}
+        onClick={() => navigate(`${buildRoute.userDevices(ownerId)}?device=${entry.id}`)}
         style={{ display: "block" }}
       >
         <Group gap="sm" align="center" wrap="nowrap" px="xs" py={8}>

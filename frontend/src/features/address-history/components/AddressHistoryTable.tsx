@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { buildRoute } from "@/lib/routes";
 import { useNavigate } from "react-router-dom";
 import { Alert, Button, Card, Group, Paper, Skeleton, Stack, Text } from "@mantine/core";
 import { LineChart } from "@mantine/charts";
@@ -85,7 +86,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
           const ownerId = (ownerGroups ?? []).find((g) =>
             g.devices.some((d) => d.id === deviceId)
           )?.owner.id;
-          if (ownerId !== undefined) navigate(`/user-devices/${ownerId}?device=${deviceId}`);
+          if (ownerId !== undefined) navigate(`${buildRoute.userDevices(ownerId)}?device=${deviceId}`);
         },
     });
 
