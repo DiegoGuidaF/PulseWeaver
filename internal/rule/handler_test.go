@@ -60,13 +60,15 @@ func TestHandler_GetDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 	var resp httpapi.DeviceAddressLeaseRule
 	err := json.NewDecoder(res.Body).Decode(&resp)
 	is.NoErr(err)
-	is.Equal(resp.Id, int64(r.ID))
+	is.True(resp.Id != nil)
+	is.Equal(*resp.Id, int64(r.ID))
 	is.Equal(resp.DeviceId, int64(dev.ID))
 	is.Equal(resp.Enabled, r.Enabled)
-	is.Equal(resp.TtlSeconds, r.Config.TTLSeconds)
+	is.True(resp.TtlSeconds != nil)
+	is.Equal(*resp.TtlSeconds, r.Config.TTLSeconds)
 }
 
-func TestHandler_GetDeviceAddressLeaseRule_NotFound(t *testing.T) {
+func TestHandler_GetDeviceAddressLeaseRule_NotConfigured_ReturnsDisabled(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	server := testServer.HTTPServer
@@ -81,12 +83,15 @@ func TestHandler_GetDeviceAddressLeaseRule_NotFound(t *testing.T) {
 
 	server.ServeHTTP(res, req)
 
-	is.Equal(res.Code, http.StatusNotFound)
+	is.Equal(res.Code, http.StatusOK)
 
-	var errResp httpapi.ErrorResponse
-	err := json.NewDecoder(res.Body).Decode(&errResp)
+	var resp httpapi.DeviceAddressLeaseRule
+	err := json.NewDecoder(res.Body).Decode(&resp)
 	is.NoErr(err)
-	is.True(errResp.Error != nil)
+	is.True(!resp.Enabled)
+	is.Equal(resp.DeviceId, int64(dev.ID))
+	is.True(resp.Id == nil)
+	is.True(resp.TtlSeconds == nil)
 }
 
 func TestHandler_PutDeviceAddressLeaseRule_HappyPath(t *testing.T) {
@@ -115,7 +120,8 @@ func TestHandler_PutDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 	err := json.NewDecoder(res.Body).Decode(&resp)
 	is.NoErr(err)
 	is.Equal(resp.DeviceId, int64(dev.ID))
-	is.Equal(resp.TtlSeconds, 600)
+	is.True(resp.TtlSeconds != nil)
+	is.Equal(*resp.TtlSeconds, 600)
 	is.True(resp.Enabled)
 }
 
@@ -232,13 +238,15 @@ func TestHandler_GetMaxActiveAddressesRule_HappyPath(t *testing.T) {
 	var resp httpapi.MaxActiveAddressesRule
 	err := json.NewDecoder(res.Body).Decode(&resp)
 	is.NoErr(err)
-	is.Equal(resp.Id, int64(r.ID))
+	is.True(resp.Id != nil)
+	is.Equal(*resp.Id, int64(r.ID))
 	is.Equal(resp.DeviceId, int64(dev.ID))
 	is.Equal(resp.Enabled, r.Enabled)
-	is.Equal(resp.MaxAddresses, r.Config.MaxAddresses)
+	is.True(resp.MaxAddresses != nil)
+	is.Equal(*resp.MaxAddresses, r.Config.MaxAddresses)
 }
 
-func TestHandler_GetMaxActiveAddressesRule_NotFound(t *testing.T) {
+func TestHandler_GetMaxActiveAddressesRule_NotConfigured_ReturnsDisabled(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
 	server := testServer.HTTPServer
@@ -253,12 +261,15 @@ func TestHandler_GetMaxActiveAddressesRule_NotFound(t *testing.T) {
 
 	server.ServeHTTP(res, req)
 
-	is.Equal(res.Code, http.StatusNotFound)
+	is.Equal(res.Code, http.StatusOK)
 
-	var errResp httpapi.ErrorResponse
-	err := json.NewDecoder(res.Body).Decode(&errResp)
+	var resp httpapi.MaxActiveAddressesRule
+	err := json.NewDecoder(res.Body).Decode(&resp)
 	is.NoErr(err)
-	is.True(errResp.Error != nil)
+	is.True(!resp.Enabled)
+	is.Equal(resp.DeviceId, int64(dev.ID))
+	is.True(resp.Id == nil)
+	is.True(resp.MaxAddresses == nil)
 }
 
 func TestHandler_PutMaxActiveAddressesRule_HappyPath(t *testing.T) {
@@ -287,7 +298,8 @@ func TestHandler_PutMaxActiveAddressesRule_HappyPath(t *testing.T) {
 	err := json.NewDecoder(res.Body).Decode(&resp)
 	is.NoErr(err)
 	is.Equal(resp.DeviceId, int64(dev.ID))
-	is.Equal(resp.MaxAddresses, 5)
+	is.True(resp.MaxAddresses != nil)
+	is.Equal(*resp.MaxAddresses, 5)
 	is.True(resp.Enabled)
 }
 

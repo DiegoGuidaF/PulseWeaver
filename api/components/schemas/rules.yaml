@@ -1,12 +1,8 @@
 DeviceAddressLeaseRule:
   type: object
   required:
-    - id
     - device_id
     - enabled
-    - ttl_seconds
-    - created_at
-    - updated_at
   properties:
     id:
       $ref: './common.yaml#/ID'
@@ -18,7 +14,7 @@ DeviceAddressLeaseRule:
     ttl_seconds:
       type: integer
       minimum: 1
-      description: Seconds after which an enabled device address lease expires
+      description: Seconds after which an enabled device address lease expires; absent when disabled and never configured
     created_at:
       type: string
       format: date-time
@@ -41,12 +37,8 @@ PutDeviceAddressLeaseRuleRequest:
 MaxActiveAddressesRule:
   type: object
   required:
-    - id
     - device_id
     - enabled
-    - max_addresses
-    - created_at
-    - updated_at
   properties:
     id:
       $ref: './common.yaml#/ID'
@@ -58,7 +50,7 @@ MaxActiveAddressesRule:
     max_addresses:
       type: integer
       minimum: 1
-      description: Maximum number of simultaneously enabled IP addresses
+      description: Maximum number of simultaneously enabled IP addresses; absent when disabled and never configured
     created_at:
       type: string
       format: date-time

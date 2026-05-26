@@ -77,11 +77,15 @@ func (s *Service) GetDeviceAddressLeaseTTLSeconds(ctx context.Context, deviceID 
 	return &addressLeaseRule.Config.TTLSeconds, nil
 }
 
-// GetDeviceAddressLeaseRule returns the device lease rule for the device, or ErrRuleNotFound if none exists.
+// GetDeviceAddressLeaseRule returns the device lease rule for the device.
+// If no row exists, returns a disabled default (enabled=false, no config).
 // If the rule exists but has invalid config, returns ErrInvalidRuleConfig.
 func (s *Service) GetDeviceAddressLeaseRule(ctx context.Context, deviceID ids.DeviceID) (*DeviceAddressLeaseRule, error) {
 	rule, err := s.repo.GetRuleByDeviceAndType(ctx, deviceID, RuleTypeDeviceAddressLease)
 	if err != nil {
+		if errors.Is(err, ErrRuleNotFound) {
+			return &DeviceAddressLeaseRule{DeviceID: deviceID, Enabled: false}, nil
+		}
 		return nil, err
 	}
 
@@ -146,10 +150,14 @@ func (s *Service) DisableDeviceAddressLeaseRule(ctx context.Context, deviceID id
 	return rule.ToDeviceAddressLeaseRule()
 }
 
-// GetMaxActiveAddressesRule returns the max active addresses rule for the device, or ErrRuleNotFound if none exists.
+// GetMaxActiveAddressesRule returns the max active addresses rule for the device.
+// If no row exists, returns a disabled default (enabled=false, no config).
 func (s *Service) GetMaxActiveAddressesRule(ctx context.Context, deviceID ids.DeviceID) (*MaxActiveAddressesRule, error) {
 	rule, err := s.repo.GetRuleByDeviceAndType(ctx, deviceID, RuleTypeMaxActiveAddresses)
 	if err != nil {
+		if errors.Is(err, ErrRuleNotFound) {
+			return &MaxActiveAddressesRule{DeviceID: deviceID, Enabled: false}, nil
+		}
 		return nil, err
 	}
 	return rule.ToMaxActiveAddressesRule()
