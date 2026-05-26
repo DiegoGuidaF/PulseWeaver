@@ -2,6 +2,14 @@
 
 import * as z from "zod";
 
+import {
+  AddressEventSource,
+  DevicePairingStatus,
+  DeviceState,
+  PolicySimulateDenyReason,
+  UserRole,
+} from "./types.gen";
+
 export const zErrorResponse = z.object({
   error: z.string().optional(),
 });
@@ -32,7 +40,7 @@ export const zUsername = z
 /**
  * The user's role. User role cannot login. Only superadmin can manage users.
  */
-export const zUserRole = z.enum(["superadmin", "admin", "user"]);
+export const zUserRole = z.enum(UserRole);
 
 /**
  * User's public name. Unicode allowed.
@@ -130,12 +138,7 @@ export const zDeviceApiKeyResponse = z.object({
  * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
  *
  */
-export const zDeviceState = z.enum([
-  "healthy",
-  "stale",
-  "pending-claim",
-  "expired-claim",
-]);
+export const zDeviceState = z.enum(DeviceState);
 
 export const zDeviceRuleSummary = z.object({
   type: z.enum(["auto_expiry", "max_active"]),
@@ -158,12 +161,7 @@ export const zAddressHistoryBucket = z.object({
 /**
  * What triggered an address state change
  */
-export const zAddressEventSource = z.enum([
-  "heartbeat",
-  "manual",
-  "expiry",
-  "limit_exceeded",
-]);
+export const zAddressEventSource = z.enum(AddressEventSource);
 
 export const zAddress = z.object({
   id: zId,
@@ -460,10 +458,7 @@ export const zPolicyUserEntry = z.object({
 /**
  * Reason for denial.
  */
-export const zPolicySimulateDenyReason = z.enum([
-  "ip_not_registered",
-  "host_not_allowed",
-]);
+export const zPolicySimulateDenyReason = z.enum(PolicySimulateDenyReason);
 
 export const zPolicySimulateResult = z.object({
   ip: zIpAddress,
@@ -743,13 +738,7 @@ export const zUserAccessDetail = z.object({
  * Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.
  *
  */
-export const zDevicePairingStatus = z.enum([
-  "pending",
-  "used",
-  "expired",
-  "invalidated",
-  "replaced",
-]);
+export const zDevicePairingStatus = z.enum(DevicePairingStatus);
 
 export const zDevicePairingSummary = z.object({
   status: zDevicePairingStatus,
