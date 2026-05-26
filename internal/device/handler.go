@@ -420,10 +420,6 @@ func (h *HTTPHandler) APIKeyAuthenticator() APIKeyAuthenticator {
 }
 
 func toDeviceResponse(d *Device) httpapi.Device {
-	var lastSeenAt *httpapi.UTCTime
-	if d.LastSeenAt != nil {
-		lastSeenAt = new(httpapi.UTCTime(d.LastSeenAt.Time))
-	}
 	return httpapi.Device{
 		Id:           d.ID.Int64(),
 		Name:         d.Name,
@@ -433,7 +429,6 @@ func toDeviceResponse(d *Device) httpapi.Device {
 		CreatedAt:    httpapi.UTCTime(d.CreatedAt),
 		UpdatedAt:    httpapi.UTCTime(d.UpdatedAt),
 		ApiKeyPrefix: d.KeyPrefix,
-		LastSeenAt:   lastSeenAt,
 		OwnerId:      d.OwnerID.Int64(),
 	}
 }
