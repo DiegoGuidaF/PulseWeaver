@@ -482,7 +482,7 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 			Name:             deviceViews[i].Name,
 			ApiKeyPrefix:     deviceViews[i].KeyPrefix,
 			Icon:             deviceViews[i].Icon,
-			LiveAddressCount: deviceViews[i].AddressCount,
+			LiveAddressCount: deviceViews[i].LiveAddressCount,
 		}
 	}
 
