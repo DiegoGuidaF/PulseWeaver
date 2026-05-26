@@ -19,12 +19,6 @@ addressLeaseRule:
           application/json:
             schema:
               $ref: '../components/schemas/rules.yaml#/DeviceAddressLeaseRule'
-      "404":
-        description: Device or rule not found
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
       "500":
         description: Internal Server Error
         content:
@@ -125,12 +119,6 @@ maxActiveAddressesRule:
           application/json:
             schema:
               $ref: '../components/schemas/rules.yaml#/MaxActiveAddressesRule'
-      "404":
-        description: Device or rule not found
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
       "500":
         description: Internal Server Error
         content:

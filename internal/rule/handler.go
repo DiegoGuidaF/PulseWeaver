@@ -35,9 +35,6 @@ func (h *HTTPHandler) GetDeviceAddressLeaseRule(ctx context.Context, request htt
 	addressLeaseRule, err := h.ruleService.GetDeviceAddressLeaseRule(ctx, deviceID)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrRuleNotFound):
-			logger.WarnContext(ctx, "rule not found")
-			return httpapi.GetDeviceAddressLeaseRule404JSONResponse(errorMsgResponse("Rule not found")), nil
 		case errors.Is(err, ErrInvalidRuleConfig):
 			logger.ErrorContext(ctx, "invalid rule config detected in db", slog.Any(AttrKeyError, err))
 			return httpapi.GetDeviceAddressLeaseRule500JSONResponse(errorMsgResponse("Rule config parsing error")), nil
@@ -103,14 +100,17 @@ func (h *HTTPHandler) DisableDeviceAddressLeaseRule(ctx context.Context, request
 }
 
 func (r *DeviceAddressLeaseRule) toResponse() httpapi.DeviceAddressLeaseRule {
-	return httpapi.DeviceAddressLeaseRule{
-		Id:         httpapi.ID(r.ID),
-		DeviceId:   httpapi.ID(r.DeviceID),
-		Enabled:    r.Enabled,
-		TtlSeconds: r.Config.TTLSeconds,
-		CreatedAt:  httpapi.UTCTime(r.CreatedAt),
-		UpdatedAt:  httpapi.UTCTime(r.UpdatedAt),
+	resp := httpapi.DeviceAddressLeaseRule{
+		DeviceId: httpapi.ID(r.DeviceID),
+		Enabled:  r.Enabled,
 	}
+	if r.ID != 0 {
+		resp.Id = new(httpapi.ID(r.ID))
+		resp.TtlSeconds = new(r.Config.TTLSeconds)
+		resp.CreatedAt = new(httpapi.UTCTime(r.CreatedAt))
+		resp.UpdatedAt = new(httpapi.UTCTime(r.UpdatedAt))
+	}
+	return resp
 }
 
 // GetMaxActiveAddressesRule returns the max active addresses rule for the device.
@@ -122,9 +122,6 @@ func (h *HTTPHandler) GetMaxActiveAddressesRule(ctx context.Context, request htt
 	rule, err := h.ruleService.GetMaxActiveAddressesRule(ctx, deviceID)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrRuleNotFound):
-			logger.WarnContext(ctx, "rule not found")
-			return httpapi.GetMaxActiveAddressesRule404JSONResponse(errorMsgResponse("Rule not found")), nil
 		case errors.Is(err, ErrInvalidRuleConfig):
 			logger.ErrorContext(ctx, "invalid rule config detected in db", slog.Any(AttrKeyError, err))
 			return httpapi.GetMaxActiveAddressesRule500JSONResponse(errorMsgResponse("Rule config parsing error")), nil
@@ -190,14 +187,21 @@ func (h *HTTPHandler) DisableMaxActiveAddressesRule(ctx context.Context, request
 }
 
 func (r *MaxActiveAddressesRule) toResponse() httpapi.MaxActiveAddressesRule {
-	return httpapi.MaxActiveAddressesRule{
-		Id:           httpapi.ID(r.ID),
-		DeviceId:     httpapi.ID(r.DeviceID),
-		Enabled:      r.Enabled,
-		MaxAddresses: r.Config.MaxAddresses,
-		CreatedAt:    httpapi.UTCTime(r.CreatedAt),
-		UpdatedAt:    httpapi.UTCTime(r.UpdatedAt),
+	resp := httpapi.MaxActiveAddressesRule{
+		DeviceId: httpapi.ID(r.DeviceID),
+		Enabled:  r.Enabled,
 	}
+	if r.ID != 0 {
+		id := httpapi.ID(r.ID)
+		maxAddr := r.Config.MaxAddresses
+		createdAt := httpapi.UTCTime(r.CreatedAt)
+		updatedAt := httpapi.UTCTime(r.UpdatedAt)
+		resp.Id = &id
+		resp.MaxAddresses = &maxAddr
+		resp.CreatedAt = &createdAt
+		resp.UpdatedAt = &updatedAt
+	}
+	return resp
 }
 
 func errorMsgResponse(msg string) httpapi.ErrorResponse {

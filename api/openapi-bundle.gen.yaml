@@ -1150,12 +1150,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeviceAddressLeaseRule'
-        '404':
-          description: Device or rule not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal Server Error
           content:
@@ -1255,12 +1249,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MaxActiveAddressesRule'
-        '404':
-          description: Device or rule not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal Server Error
           content:
@@ -3124,12 +3112,8 @@ components:
     DeviceAddressLeaseRule:
       type: object
       required:
-        - id
         - device_id
         - enabled
-        - ttl_seconds
-        - created_at
-        - updated_at
       properties:
         id:
           $ref: '#/components/schemas/ID'
@@ -3141,7 +3125,7 @@ components:
         ttl_seconds:
           type: integer
           minimum: 1
-          description: Seconds after which an enabled device address lease expires
+          description: Seconds after which an enabled device address lease expires; absent when disabled and never configured
         created_at:
           type: string
           format: date-time
@@ -3162,12 +3146,8 @@ components:
     MaxActiveAddressesRule:
       type: object
       required:
-        - id
         - device_id
         - enabled
-        - max_addresses
-        - created_at
-        - updated_at
       properties:
         id:
           $ref: '#/components/schemas/ID'
@@ -3179,7 +3159,7 @@ components:
         max_addresses:
           type: integer
           minimum: 1
-          description: Maximum number of simultaneously enabled IP addresses
+          description: Maximum number of simultaneously enabled IP addresses; absent when disabled and never configured
         created_at:
           type: string
           format: date-time
