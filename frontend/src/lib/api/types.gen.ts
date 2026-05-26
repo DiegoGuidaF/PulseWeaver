@@ -419,18 +419,18 @@ export type AccessLogRow = {
 };
 
 export type DeviceAddressLeaseRule = {
-  id: Id;
+  id?: Id;
   device_id: Id;
   /**
    * Whether the lease rule is active
    */
   enabled: boolean;
   /**
-   * Seconds after which an enabled device address lease expires
+   * Seconds after which an enabled device address lease expires; absent when disabled and never configured
    */
-  ttl_seconds: number;
-  created_at: string;
-  updated_at: string;
+  ttl_seconds?: number;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type PutDeviceAddressLeaseRuleRequest = {
@@ -441,18 +441,18 @@ export type PutDeviceAddressLeaseRuleRequest = {
 };
 
 export type MaxActiveAddressesRule = {
-  id: Id;
+  id?: Id;
   device_id: Id;
   /**
    * Whether the max active addresses rule is active
    */
   enabled: boolean;
   /**
-   * Maximum number of simultaneously enabled IP addresses
+   * Maximum number of simultaneously enabled IP addresses; absent when disabled and never configured
    */
-  max_addresses: number;
-  created_at: string;
-  updated_at: string;
+  max_addresses?: number;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type PutMaxActiveAddressesRuleRequest = {
@@ -2201,10 +2201,6 @@ export type GetDeviceAddressLeaseRuleData = {
 
 export type GetDeviceAddressLeaseRuleErrors = {
   /**
-   * Device or rule not found
-   */
-  404: ErrorResponse;
-  /**
    * Internal Server Error
    */
   500: ErrorResponse;
@@ -2312,10 +2308,6 @@ export type GetMaxActiveAddressesRuleData = {
 };
 
 export type GetMaxActiveAddressesRuleErrors = {
-  /**
-   * Device or rule not found
-   */
-  404: ErrorResponse;
   /**
    * Internal Server Error
    */

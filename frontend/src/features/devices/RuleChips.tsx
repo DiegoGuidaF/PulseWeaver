@@ -1,8 +1,7 @@
 import dayjs from "dayjs";
 import { Badge, Tooltip } from "@mantine/core";
-import { IconClock, IconStack2 } from "@tabler/icons-react";
+import { IconClock, IconPlugConnected, IconPlugConnectedX, IconStack2 } from "@tabler/icons-react";
 import type { DeviceListEntry, DeviceRuleSummary } from "@/lib/api";
-import { DeviceState } from "@/lib/api";
 
 function formatTtl(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -23,35 +22,40 @@ interface Props {
 }
 
 export function RuleChips({ entry, size = "xs" }: Props) {
-  if (entry.state === DeviceState.EXPIRED_CLAIM) {
-    return (
-      <Tooltip label="Pairing code expired — regenerate required" withArrow>
-        <Badge
-          size={size}
-          color="red"
-          variant="light"
-          leftSection={<IconClock size={10} stroke={1.5} />}
-        >
-          expired
-        </Badge>
-      </Tooltip>
-    );
-  }
+  const pairingStatus = entry.pairing?.status;
 
-  if (entry.state === DeviceState.PENDING_CLAIM && entry.pairing) {
-    const label = formatPairingExpiry(entry.pairing.expires_at);
+  if (pairingStatus === "pending") {
+    const label = formatPairingExpiry(entry.pairing!.expires_at);
     return (
       <Tooltip label={`Pairing pending · ${label}`} withArrow>
         <Badge
           size={size}
           color="indigo"
           variant="light"
-          leftSection={<IconClock size={10} stroke={1.5} />}
+          leftSection={<IconPlugConnected size={10} stroke={1.5} />}
         >
           {label}
         </Badge>
       </Tooltip>
     );
+  }
+
+  if (pairingStatus === "expired") {
+    const expiredDaysAgo = dayjs().diff(dayjs(entry.pairing!.expires_at), "day");
+    if (expiredDaysAgo < 7) {
+      return (
+        <Tooltip label="Pairing code expired — regenerate required" withArrow>
+          <Badge
+            size={size}
+            color="red"
+            variant="light"
+            leftSection={<IconPlugConnectedX size={10} stroke={1.5} />}
+          >
+            expired
+          </Badge>
+        </Tooltip>
+      );
+    }
   }
 
   return (

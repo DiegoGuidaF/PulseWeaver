@@ -140,8 +140,8 @@ export function AddressLeaseRuleCard({ deviceId }: { deviceId: number }) {
 
   useEffect(() => {
     if (!addressLeaseRule || isDirty) return;
-    const parsed = fromSeconds(addressLeaseRule.ttl_seconds);
-    setValues({ ...parsed, preset: presetFromTtl(addressLeaseRule.ttl_seconds) });
+    const ttl = addressLeaseRule.ttl_seconds ?? DEFAULT_TTL;
+    setValues({ ...fromSeconds(ttl), preset: presetFromTtl(ttl) });
   }, [addressLeaseRule, setValues, isDirty]);
 
   function handleToggleOn() {
@@ -188,7 +188,8 @@ export function AddressLeaseRuleCard({ deviceId }: { deviceId: number }) {
 
   function handleCancel() {
     if (!addressLeaseRule) return;
-    setValues({ ...fromSeconds(addressLeaseRule.ttl_seconds), preset: presetFromTtl(addressLeaseRule.ttl_seconds) });
+    const ttl = addressLeaseRule.ttl_seconds ?? DEFAULT_TTL;
+    setValues({ ...fromSeconds(ttl), preset: presetFromTtl(ttl) });
   }
 
   function handlePresetChange(value: string) {
@@ -255,7 +256,7 @@ export function AddressLeaseRuleCard({ deviceId }: { deviceId: number }) {
                 data={TTL_PRESETS.map((p) => ({ label: p.label, value: p.value }))}
                 style={{ width: "fit-content" }}
               />
-              {isOn && addressLeaseRule && (
+              {isOn && addressLeaseRule?.ttl_seconds != null && (
                 <Tooltip label={`Auto-expiry · TTL ${formatTtlBadge(addressLeaseRule.ttl_seconds)}`} withArrow>
                   <Badge color="teal" variant="light" leftSection={<IconClock size={10} stroke={1.5} />} style={{ flexShrink: 0 }}>
                     {formatTtlBadge(addressLeaseRule.ttl_seconds)}

@@ -541,8 +541,7 @@ export function createMockDevicePairing(
     app_settings_locked: false,
     expires_at: '2026-06-02T00:00:00Z',
     created_at: '2026-06-01T00:00:00Z',
-    used_at: null,
-    invalidated_at: null,
+    updated_at: '2026-06-01T00:00:00Z',
     status: 'pending',
     ...overrides,
   };

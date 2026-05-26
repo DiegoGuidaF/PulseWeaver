@@ -29,6 +29,7 @@ const STATUS_BADGE: Record<DevicePairing["status"], { label: string; color: stri
   used: { label: "claimed", color: "green" },
   expired: { label: "expired", color: "red" },
   invalidated: { label: "revoked", color: "gray" },
+  replaced: { label: "replaced", color: "gray" },
 };
 
 interface Props {
@@ -48,7 +49,7 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
   const regenMutation = useCreateDevicePairing(deviceId);
 
   const pendingPairing = pendingQuery.data?.[0];
-  const historyItems = (historyQuery.data ?? []).slice(0, 5);
+  const historyItems = (historyQuery.data ?? []).filter((p) => p.status !== "pending").slice(0, 5);
 
   const formatDateTime = useDateFormatter();
 
@@ -101,7 +102,7 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
   return (
     <Stack gap="lg">
       {/* Active code display (pending state) */}
-      {(isPending || justCreated) && displayPairing ? (
+      {displayPairing ? (
         <Stack gap="md">
           <Group justify="space-between" align="center">
             <Title order={5}>Active pairing code</Title>
@@ -149,10 +150,10 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
                   <Group gap={4} style={{ flexShrink: 0 }}>
                     <IconClock size={11} style={{ color: "var(--mantine-color-dimmed)" }} />
                     <Text size="xs" c="dimmed">
-                      {item.used_at
-                        ? `claimed ${dayjs(item.used_at).fromNow()}`
-                        : item.status === "expired" || item.status === "invalidated"
-                          ? formatDateTime(item.expires_at)
+                      {item.status === "used"
+                        ? `claimed ${dayjs(item.updated_at).fromNow()}`
+                        : item.status === "expired" || item.status === "invalidated" || item.status === "replaced"
+                          ? formatDateTime(item.updated_at)
                           : formatDateTime(item.created_at)}
                     </Text>
                   </Group>
