@@ -1,4 +1,4 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DeviceOwnerGroup, GroupDetailWithUsers, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, PendingRegistration, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceOwnerGroup, GroupDetailWithUsers, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import { AddressEventSource, DeviceState, UserRole } from "@/lib/api";
 
 /**
@@ -528,20 +528,21 @@ export function createMockNetworkPolicyDetail(
   };
 }
 
-export function createMockPendingRegistration(
-  overrides?: Partial<PendingRegistration>,
-): PendingRegistration {
+export function createMockDevicePairing(
+  overrides?: Partial<DevicePairing>,
+): DevicePairing {
   return {
     id: 1,
-    device_name: 'My Phone',
-    owner_id: 1,
-    registration_code: 'ABC123XYZ',
+    device_id: 1,
+    pairing_code: 'PW-K7F2-N9XR',
     heartbeat_server_url: 'https://pulseweaver.example.com',
-    interval_seconds: 900,
-    app_biometric_enabled: false,
+    interval_seconds: 1800,
+    app_biometric_enabled: true,
     app_settings_locked: false,
-    expires_at: '2026-06-01T00:00:00Z',
-    created_at: '2026-01-01T00:00:00Z',
+    expires_at: '2026-06-02T00:00:00Z',
+    created_at: '2026-06-01T00:00:00Z',
+    used_at: null,
+    invalidated_at: null,
     status: 'pending',
     ...overrides,
   };

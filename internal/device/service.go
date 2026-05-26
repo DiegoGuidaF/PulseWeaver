@@ -218,39 +218,3 @@ func (s *Service) DeleteAPIKey(ctx context.Context, deviceID ids.DeviceID) error
 	s.logger.InfoContext(ctx, "device api key deleted", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 	return nil
 }
-
-// CreateDeviceWithAPIKey creates a new device and assigns it an API key, all within a single
-// transaction. It is the entry point for the registration domain when claiming an invite.
-// Returns the new device ID and the plaintext API key (one-time; never stored after this call).
-func (s *Service) CreateDeviceWithAPIKey(ctx context.Context, name string, ownerID ids.UserID) (ids.DeviceID, string, error) {
-	var deviceID ids.DeviceID
-	var rawAPIKey string
-
-	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
-		rawKey, keyHash, keyPrefix, err := GenerateAPIKey()
-		if err != nil {
-			return fmt.Errorf("generate api key: %w", err)
-		}
-
-		dev, err := s.repo.CreateDevice(ctx, CreateDeviceParams{
-			Name:       name,
-			OwnerID:    ownerID,
-			DeviceType: "mobile",
-		})
-		if err != nil {
-			return err
-		}
-
-		if err := s.repo.UpsertAPIKey(ctx, dev.ID, keyHash, keyPrefix); err != nil {
-			return err
-		}
-
-		deviceID = dev.ID
-		rawAPIKey = rawKey
-		return nil
-	})
-	if err != nil {
-		return 0, "", err
-	}
-	return deviceID, rawAPIKey, nil
-}

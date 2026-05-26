@@ -63,3 +63,9 @@ func (id NetworkPolicyID) String() string { return strconv.FormatInt(int64(id), 
 
 // RuleID represents the primary key of a row in the device_rules table.
 type RuleID int64
+
+// DevicePairingID is the primary key of a row in the device_pairings table.
+type DevicePairingID int64
+
+func (id DevicePairingID) Int64() int64   { return int64(id) }
+func (id DevicePairingID) String() string { return strconv.FormatInt(int64(id), 10) }

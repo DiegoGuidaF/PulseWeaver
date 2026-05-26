@@ -11,18 +11,18 @@ import type {
   ChangePasswordData,
   ChangePasswordErrors,
   ChangePasswordResponses,
-  ClaimRegistrationData,
-  ClaimRegistrationErrors,
-  ClaimRegistrationResponses,
+  ClaimPairingData,
+  ClaimPairingErrors,
+  ClaimPairingResponses,
   CreateDeviceData,
   CreateDeviceErrors,
+  CreateDevicePairingData,
+  CreateDevicePairingErrors,
+  CreateDevicePairingResponses,
   CreateDeviceResponses,
   CreateNetworkPolicyData,
   CreateNetworkPolicyErrors,
   CreateNetworkPolicyResponses,
-  CreateRegistrationData,
-  CreateRegistrationErrors,
-  CreateRegistrationResponses,
   CreateUserData,
   CreateUserErrors,
   CreateUserResponses,
@@ -31,13 +31,13 @@ import type {
   DeleteDeviceApiKeyResponses,
   DeleteDeviceData,
   DeleteDeviceErrors,
+  DeleteDevicePairingData,
+  DeleteDevicePairingErrors,
+  DeleteDevicePairingResponses,
   DeleteDeviceResponses,
   DeleteNetworkPolicyData,
   DeleteNetworkPolicyErrors,
   DeleteNetworkPolicyResponses,
-  DeleteRegistrationData,
-  DeleteRegistrationErrors,
-  DeleteRegistrationResponses,
   DeleteUserData,
   DeleteUserErrors,
   DeleteUserResponses,
@@ -92,6 +92,9 @@ import type {
   GetDeviceAddressLeaseRuleData,
   GetDeviceAddressLeaseRuleErrors,
   GetDeviceAddressLeaseRuleResponses,
+  GetDevicePairingData,
+  GetDevicePairingErrors,
+  GetDevicePairingResponses,
   GetDevicesData,
   GetDevicesErrors,
   GetDevicesResponses,
@@ -104,15 +107,15 @@ import type {
   GetPolicyUserMapData,
   GetPolicyUserMapErrors,
   GetPolicyUserMapResponses,
-  GetRegistrationData,
-  GetRegistrationErrors,
-  GetRegistrationResponses,
   GetUserAccessDetailData,
   GetUserAccessDetailErrors,
   GetUserAccessDetailResponses,
   IgnoreSuggestionData,
   IgnoreSuggestionErrors,
   IgnoreSuggestionResponses,
+  ListDevicePairingsData,
+  ListDevicePairingsErrors,
+  ListDevicePairingsResponses,
   ListDeviceTypesData,
   ListDeviceTypesResponses,
   ListHostGroupsData,
@@ -127,9 +130,6 @@ import type {
   ListNetworkPoliciesData,
   ListNetworkPoliciesErrors,
   ListNetworkPoliciesResponses,
-  ListRegistrationsData,
-  ListRegistrationsErrors,
-  ListRegistrationsResponses,
   ListUsersData,
   ListUsersErrors,
   ListUsersResponses,
@@ -187,24 +187,25 @@ import {
   zAddAddressResponse,
   zChangePasswordBody,
   zChangePasswordResponse,
-  zClaimRegistrationBody,
-  zClaimRegistrationResponse2,
+  zClaimPairingBody,
+  zClaimPairingResponse2,
   zCreateDeviceBody,
+  zCreateDevicePairingBody,
+  zCreateDevicePairingPath,
+  zCreateDevicePairingResponse,
   zCreateDeviceResponse,
   zCreateNetworkPolicyBody,
   zCreateNetworkPolicyResponse,
-  zCreateRegistrationBody,
-  zCreateRegistrationResponse,
   zCreateUserBody,
   zCreateUserResponse,
   zDeleteDeviceApiKeyPath,
   zDeleteDeviceApiKeyResponse,
+  zDeleteDevicePairingPath,
+  zDeleteDevicePairingResponse,
   zDeleteDevicePath,
   zDeleteDeviceResponse,
   zDeleteNetworkPolicyPath,
   zDeleteNetworkPolicyResponse,
-  zDeleteRegistrationPath,
-  zDeleteRegistrationResponse,
   zDeleteUserPath,
   zDeleteUserResponse,
   zDemoteUserPath,
@@ -239,25 +240,26 @@ import {
   zGetDeviceAddressesResponse,
   zGetDeviceAddressLeaseRulePath,
   zGetDeviceAddressLeaseRuleResponse,
+  zGetDevicePairingPath,
+  zGetDevicePairingResponse,
   zGetDevicesResponse,
   zGetMaxActiveAddressesRulePath,
   zGetMaxActiveAddressesRuleResponse,
   zGetNetworkPolicyPath,
   zGetNetworkPolicyResponse,
   zGetPolicyUserMapResponse,
-  zGetRegistrationPath,
-  zGetRegistrationResponse,
   zGetUserAccessDetailPath,
   zGetUserAccessDetailResponse,
   zIgnoreSuggestionBody,
   zIgnoreSuggestionResponse,
+  zListDevicePairingsPath,
+  zListDevicePairingsQuery,
+  zListDevicePairingsResponse,
   zListDeviceTypesResponse,
   zListHostGroupsResponse,
   zListHostsResponse,
   zListHostSuggestionsResponse,
   zListNetworkPoliciesResponse,
-  zListRegistrationsQuery,
-  zListRegistrationsResponse,
   zListUsersResponse,
   zListUsersWithAccessResponse,
   zLoginBody,
@@ -1572,32 +1574,32 @@ export const getDashboardTopDeniedIps = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Claim a registration code
+ * Claim a pairing code
  *
- * Public endpoint — no auth required. The registration code is the credential.
- * Validates and claims a pending registration, creates the device, and returns
- * the full configuration payload including the device API key (one-time only).
+ * Public endpoint — no auth required. The pairing code is the credential.
+ * Validates and claims a pending pairing, regenerates the device API key,
+ * and returns the full configuration payload including the API key (one-time only).
  *
  */
-export const claimRegistration = <ThrowOnError extends boolean = false>(
-  options: Options<ClaimRegistrationData, ThrowOnError>,
+export const claimPairing = <ThrowOnError extends boolean = false>(
+  options: Options<ClaimPairingData, ThrowOnError>,
 ) =>
   (options.client ?? client).post<
-    ClaimRegistrationResponses,
-    ClaimRegistrationErrors,
+    ClaimPairingResponses,
+    ClaimPairingErrors,
     ThrowOnError
   >({
     requestValidator: async (data) =>
       await z
         .object({
-          body: zClaimRegistrationBody,
+          body: zClaimPairingBody,
           path: z.never().optional(),
           query: z.never().optional(),
         })
         .parseAsync(data),
     responseValidator: async (data) =>
-      await zClaimRegistrationResponse2.parseAsync(data),
-    url: "/register",
+      await zClaimPairingResponse2.parseAsync(data),
+    url: "/device-pair",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1606,135 +1608,31 @@ export const claimRegistration = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * List pending registrations (Admin only)
+ * List pairings for a device (Admin only)
  *
- * Returns registration invites. By default returns only pending (unclaimed,
- * non-expired) invites. Pass `?status=all` to include used and expired.
- * Never returns device_api_key.
+ * Returns pairing records for the given device. By default returns only pending
+ * (unclaimed, non-expired) pairings. Pass `?status=all` to include used and expired.
+ * Never returns the pairing_code after it has been claimed.
  *
  */
-export const listRegistrations = <ThrowOnError extends boolean = false>(
-  options?: Options<ListRegistrationsData, ThrowOnError>,
-) =>
-  (options?.client ?? client).get<
-    ListRegistrationsResponses,
-    ListRegistrationsErrors,
-    ThrowOnError
-  >({
-    requestValidator: async (data) =>
-      await z
-        .object({
-          body: z.never().optional(),
-          path: z.never().optional(),
-          query: zListRegistrationsQuery.optional(),
-        })
-        .parseAsync(data),
-    responseValidator: async (data) =>
-      await zListRegistrationsResponse.parseAsync(data),
-    security: [
-      {
-        in: "cookie",
-        name: "__Host-wdc_session",
-        type: "apiKey",
-      },
-    ],
-    url: "/admin/registrations",
-    ...options,
-  });
-
-/**
- * Create a registration invite (Admin only)
- */
-export const createRegistration = <ThrowOnError extends boolean = false>(
-  options: Options<CreateRegistrationData, ThrowOnError>,
-) =>
-  (options.client ?? client).post<
-    CreateRegistrationResponses,
-    CreateRegistrationErrors,
-    ThrowOnError
-  >({
-    requestValidator: async (data) =>
-      await z
-        .object({
-          body: zCreateRegistrationBody,
-          path: z.never().optional(),
-          query: z.never().optional(),
-        })
-        .parseAsync(data),
-    responseValidator: async (data) =>
-      await zCreateRegistrationResponse.parseAsync(data),
-    security: [
-      {
-        in: "cookie",
-        name: "__Host-wdc_session",
-        type: "apiKey",
-      },
-    ],
-    url: "/admin/registrations",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-
-/**
- * Invalidate and delete an unclaimed invite (Admin only)
- *
- * Hard-deletes an unclaimed registration invite. Returns 404 if already used or not found.
- */
-export const deleteRegistration = <ThrowOnError extends boolean = false>(
-  options: Options<DeleteRegistrationData, ThrowOnError>,
-) =>
-  (options.client ?? client).delete<
-    DeleteRegistrationResponses,
-    DeleteRegistrationErrors,
-    ThrowOnError
-  >({
-    requestValidator: async (data) =>
-      await z
-        .object({
-          body: z.never().optional(),
-          path: zDeleteRegistrationPath,
-          query: z.never().optional(),
-        })
-        .parseAsync(data),
-    responseValidator: async (data) =>
-      await zDeleteRegistrationResponse.parseAsync(data),
-    security: [
-      {
-        in: "cookie",
-        name: "__Host-wdc_session",
-        type: "apiKey",
-      },
-    ],
-    url: "/admin/registrations/{registration_id}",
-    ...options,
-  });
-
-/**
- * Get a single registration invite (Admin only)
- *
- * Returns the invite including registration_code if not yet claimed.
- */
-export const getRegistration = <ThrowOnError extends boolean = false>(
-  options: Options<GetRegistrationData, ThrowOnError>,
+export const listDevicePairings = <ThrowOnError extends boolean = false>(
+  options: Options<ListDevicePairingsData, ThrowOnError>,
 ) =>
   (options.client ?? client).get<
-    GetRegistrationResponses,
-    GetRegistrationErrors,
+    ListDevicePairingsResponses,
+    ListDevicePairingsErrors,
     ThrowOnError
   >({
     requestValidator: async (data) =>
       await z
         .object({
           body: z.never().optional(),
-          path: zGetRegistrationPath,
-          query: z.never().optional(),
+          path: zListDevicePairingsPath,
+          query: zListDevicePairingsQuery.optional(),
         })
         .parseAsync(data),
     responseValidator: async (data) =>
-      await zGetRegistrationResponse.parseAsync(data),
+      await zListDevicePairingsResponse.parseAsync(data),
     security: [
       {
         in: "cookie",
@@ -1742,7 +1640,109 @@ export const getRegistration = <ThrowOnError extends boolean = false>(
         type: "apiKey",
       },
     ],
-    url: "/admin/registrations/{registration_id}",
+    url: "/devices/{id}/pairings",
+    ...options,
+  });
+
+/**
+ * Create a pairing for a device (Admin only)
+ */
+export const createDevicePairing = <ThrowOnError extends boolean = false>(
+  options: Options<CreateDevicePairingData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    CreateDevicePairingResponses,
+    CreateDevicePairingErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: zCreateDevicePairingBody,
+          path: zCreateDevicePairingPath,
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zCreateDevicePairingResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/devices/{id}/pairings",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Invalidate an unclaimed pairing (Admin only)
+ *
+ * Soft-deletes an unclaimed device pairing. Returns 404 if already used or not found.
+ */
+export const deleteDevicePairing = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteDevicePairingData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    DeleteDevicePairingResponses,
+    DeleteDevicePairingErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: zDeleteDevicePairingPath,
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zDeleteDevicePairingResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/devices/{id}/pairings/{pairingId}",
+    ...options,
+  });
+
+/**
+ * Get a single device pairing (Admin only)
+ */
+export const getDevicePairing = <ThrowOnError extends boolean = false>(
+  options: Options<GetDevicePairingData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    GetDevicePairingResponses,
+    GetDevicePairingErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: zGetDevicePairingPath,
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zGetDevicePairingResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/devices/{id}/pairings/{pairingId}",
     ...options,
   });
 

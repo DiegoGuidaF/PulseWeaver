@@ -168,13 +168,20 @@ DeviceRuleSummary:
 
 DevicePairingSummary:
   type: object
-  required: [expires_at]
+  required: [status, expires_at, updated_at]
   properties:
+    status:
+      $ref: './device-pairing.yaml#/DevicePairingStatus'
     expires_at:
       type: string
       format: date-time
       x-go-type: UTCTime
-      description: When the pairing code expires.
+      description: When the pairing code expires (or expired).
+    updated_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+      description: When the status last changed.
 
 DeviceListEntry:
   type: object

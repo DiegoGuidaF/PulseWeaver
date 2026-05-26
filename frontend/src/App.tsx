@@ -14,7 +14,6 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { SettingsPage } from "./pages/settings/SettingsPage";
 import { AccessLogPage } from "./pages/access-log/AccessLogPage";
 import { AddressHistoryPage } from "./pages/address-history/AddressHistoryPage";
-import { DeviceProvisioningPage } from "./pages/devices/DeviceProvisioningPage";
 import { HostsPage } from "./pages/access/hosts/HostsPage";
 import { HostGroupsPage } from "./pages/access/host-groups/HostGroupsPage";
 import { UsersPage } from "./pages/access/users/UsersPage";
@@ -97,16 +96,6 @@ function App() {
                       <ProtectedRoute>
                         <AppShell>
                           <AddressHistoryPage />
-                        </AppShell>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path={ROUTES.deviceProvisioning}
-                    element={
-                      <ProtectedRoute>
-                        <AppShell>
-                          <DeviceProvisioningPage />
                         </AppShell>
                       </ProtectedRoute>
                     }

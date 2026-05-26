@@ -72,16 +72,16 @@ INSERT INTO address_leases (device_id, address_id)
 INSERT INTO sessions (user_id, token_hash, expires_at)
     SELECT id, X'CAFEBABE', '2099-01-01 00:00:00' FROM users WHERE username = 'seed-user';
 
--- ── Pending registration ──────────────────────────────────────────────────────
+-- ── Device pairing ───────────────────────────────────────────────────────────
 
-INSERT INTO pending_registrations
-    (device_name, owner_id, registration_code,
+INSERT INTO device_pairings
+    (device_id, pairing_code,
      heartbeat_server_url, heartbeat_interval_seconds, app_biometric_enabled, app_settings_locked,
      expires_at, created_at)
-    SELECT 'seed-device', u.id, 'code-abc',
+    SELECT d.id, 'code-abc',
            'https://pulse.example.com', 900, 0, 0,
            '2099-01-01 00:00:00', '2024-01-01 00:00:00'
-    FROM users u WHERE u.username = 'seed-user';
+    FROM devices d WHERE d.name = 'seed-router';
 
 -- ── access_log (000018+: no device_id/address_id, uses contributor_count) ─────
 

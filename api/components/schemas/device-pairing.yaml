@@ -1,0 +1,113 @@
+DevicePairingStatus:
+  type: string
+  enum: [pending, used, expired, invalidated, replaced]
+  description: >
+    Lifecycle state of a device pairing.
+    pending: issued and not yet redeemed (expires_at in the future).
+    expired: issued but the expiry window passed before it was claimed (derived, never stored).
+    used: successfully redeemed by the heartbeat app.
+    invalidated: explicitly cancelled by an administrator.
+    replaced: superseded when a new pairing was issued for the same device.
+
+CreatePairingRequest:
+  type: object
+  required:
+    - heartbeat_server_url
+    - interval_seconds
+    - expires_in_hours
+  properties:
+    heartbeat_server_url:
+      type: string
+      format: uri
+      example: "https://pulse.home.lan"
+    interval_seconds:
+      type: integer
+      minimum: 60
+      example: 900
+    app_biometric_enabled:
+      type: boolean
+      default: false
+    app_settings_locked:
+      type: boolean
+      default: false
+    expires_in_hours:
+      type: integer
+      enum: [1, 24, 48, 168]
+      example: 24
+
+DevicePairing:
+  type: object
+  required:
+    - id
+    - device_id
+    - pairing_code
+    - heartbeat_server_url
+    - interval_seconds
+    - app_biometric_enabled
+    - app_settings_locked
+    - expires_at
+    - created_at
+    - updated_at
+    - status
+  properties:
+    id:
+      $ref: 'common.yaml#/ID'
+    device_id:
+      $ref: 'common.yaml#/ID'
+      description: ID of the device this pairing belongs to.
+    pairing_code:
+      type: string
+      description: The pairing code delivered to the app. Always present; status is the single-use guard.
+    heartbeat_server_url:
+      type: string
+    interval_seconds:
+      type: integer
+    app_biometric_enabled:
+      type: boolean
+    app_settings_locked:
+      type: boolean
+    expires_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+    created_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+    updated_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+      description: When the status last changed (equals created_at for pending pairings).
+    status:
+      $ref: '#/DevicePairingStatus'
+
+ClaimPairingRequest:
+  type: object
+  required:
+    - code
+  properties:
+    code:
+      type: string
+      description: The full pairing code as received (not decoded).
+
+ClaimPairingResponse:
+  type: object
+  required:
+    - server_url
+    - interval_seconds
+    - app_biometric_enabled
+    - app_settings_locked
+    - api_key
+  properties:
+    server_url:
+      type: string
+    interval_seconds:
+      type: integer
+    app_biometric_enabled:
+      type: boolean
+    app_settings_locked:
+      type: boolean
+    api_key:
+      type: string
+      description: Plaintext device API key — one time only.

@@ -407,13 +407,22 @@ export const DeviceRuleSummarySchema = {
 
 export const DevicePairingSummarySchema = {
   type: "object",
-  required: ["expires_at"],
+  required: ["status", "expires_at", "updated_at"],
   properties: {
+    status: {
+      $ref: "#/components/schemas/DevicePairingStatus",
+    },
     expires_at: {
       type: "string",
       format: "date-time",
       "x-go-type": "UTCTime",
-      description: "When the pairing code expires.",
+      description: "When the pairing code expires (or expired).",
+    },
+    updated_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      description: "When the status last changed.",
     },
   },
 } as const;
@@ -1089,26 +1098,10 @@ export const DashboardTopDeniedIpsResponseSchema = {
   },
 } as const;
 
-export const CreateRegistrationRequestSchema = {
+export const CreatePairingRequestSchema = {
   type: "object",
-  required: [
-    "device_name",
-    "heartbeat_server_url",
-    "interval_seconds",
-    "expires_in_hours",
-    "owner_id",
-  ],
+  required: ["heartbeat_server_url", "interval_seconds", "expires_in_hours"],
   properties: {
-    owner_id: {
-      $ref: "#/components/schemas/ID",
-      description: "ID of the user who will own the registered device.",
-    },
-    device_name: {
-      type: "string",
-      minLength: 1,
-      maxLength: 100,
-      example: "Dad's Phone",
-    },
     heartbeat_server_url: {
       type: "string",
       format: "uri",
@@ -1135,36 +1128,33 @@ export const CreateRegistrationRequestSchema = {
   },
 } as const;
 
-export const PendingRegistrationSchema = {
+export const DevicePairingSchema = {
   type: "object",
   required: [
     "id",
-    "device_name",
-    "owner_id",
+    "device_id",
+    "pairing_code",
     "heartbeat_server_url",
     "interval_seconds",
     "app_biometric_enabled",
     "app_settings_locked",
     "expires_at",
     "created_at",
+    "updated_at",
     "status",
   ],
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
     },
-    device_name: {
-      type: "string",
-    },
-    owner_id: {
+    device_id: {
       $ref: "#/components/schemas/ID",
-      description: "ID of the user who owns the registered device.",
+      description: "ID of the device this pairing belongs to.",
     },
-    registration_code: {
+    pairing_code: {
       type: "string",
-      nullable: true,
       description:
-        "Present only while unclaimed. Null after the invite is used.",
+        "The pairing code delivered to the app. Always present; status is the single-use guard.",
     },
     heartbeat_server_url: {
       type: "string",
@@ -1188,42 +1178,31 @@ export const PendingRegistrationSchema = {
       format: "date-time",
       "x-go-type": "UTCTime",
     },
-    used_at: {
+    updated_at: {
       type: "string",
       format: "date-time",
       "x-go-type": "UTCTime",
-      nullable: true,
-    },
-    invalidated_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-      nullable: true,
-    },
-    created_device_id: {
-      $ref: "#/components/schemas/ID",
-      nullable: true,
-      description: "Set after the invite is claimed and the device is created.",
+      description:
+        "When the status last changed (equals created_at for pending pairings).",
     },
     status: {
-      type: "string",
-      enum: ["pending", "used", "expired", "invalidated"],
+      $ref: "#/components/schemas/DevicePairingStatus",
     },
   },
 } as const;
 
-export const ClaimRegistrationRequestSchema = {
+export const ClaimPairingRequestSchema = {
   type: "object",
   required: ["code"],
   properties: {
     code: {
       type: "string",
-      description: "The full registration code as received (not decoded).",
+      description: "The full pairing code as received (not decoded).",
     },
   },
 } as const;
 
-export const ClaimRegistrationResponseSchema = {
+export const ClaimPairingResponseSchema = {
   type: "object",
   required: [
     "server_url",
@@ -2328,6 +2307,13 @@ export const UserAccessDetailSchema = {
       type: "boolean",
     },
   },
+} as const;
+
+export const DevicePairingStatusSchema = {
+  type: "string",
+  enum: ["pending", "used", "expired", "invalidated", "replaced"],
+  description:
+    "Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.\n",
 } as const;
 
 export const UserWritableSchema = {

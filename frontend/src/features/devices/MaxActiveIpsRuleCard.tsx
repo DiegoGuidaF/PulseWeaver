@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useForm, schemaResolver } from "@mantine/form";
 import { z } from "zod";
 import {
@@ -64,10 +64,15 @@ export function MaxActiveIpsRuleCard({ deviceId, liveAddressCount }: MaxActiveIp
   const chipColor = isOn ? (atLimit ? "orange" : "teal") : "gray";
   const evictionCount = liveAddressCount > currentLimit ? liveAddressCount - currentLimit : 0;
 
+  // Track the last server-side value we synced to avoid overwriting user edits,
+  // while still syncing on first load and after a successful save.
+  const syncedLimitRef = useRef<number | null>(null);
   useEffect(() => {
-    if (!maxAddressesRule || isDirty) return;
+    if (!maxAddressesRule) return;
+    if (syncedLimitRef.current === maxAddressesRule.max_addresses) return;
+    syncedLimitRef.current = maxAddressesRule.max_addresses;
     setValues({ max_addresses: String(maxAddressesRule.max_addresses) });
-  }, [maxAddressesRule, setValues, isDirty]);
+  }, [maxAddressesRule, setValues]);
 
   function handleToggleOn() {
     if (form.validate().hasErrors) return;

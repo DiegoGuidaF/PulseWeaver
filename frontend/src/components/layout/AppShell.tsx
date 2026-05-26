@@ -28,7 +28,6 @@ import {
     IconLogout,
     IconMoon,
     IconNetwork,
-    IconQrcode,
     IconServer,
     IconSettings,
     IconShield,
@@ -62,7 +61,6 @@ const navGroups: NavGroup[] = [
         label: "Devices",
         items: [
             { label: "Devices", href: ROUTES.userDevices, icon: IconServer },
-            { label: "Provisioning", href: ROUTES.deviceProvisioning, icon: IconQrcode },
         ],
     },
     {

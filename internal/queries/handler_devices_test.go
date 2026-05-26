@@ -199,7 +199,7 @@ func TestHandler_GetDevices_GroupsDevicesByOwner(t *testing.T) {
 
 	var groups []httpapi.DeviceOwnerGroup
 	is.NoErr(json.NewDecoder(rec.Body).Decode(&groups))
-	is.Equal(len(groups), 3) // alice + bob + charlie
+	is.Equal(len(groups), 4) // alice + bob + charlie + diana
 
 	// ── alice ───────────────────────────────────────────────────────────────────
 	alice := findOwnerGroup(groups, testutils.FixtureUserWithAccess.Name)
@@ -285,6 +285,53 @@ func TestHandler_GetDevices_StaleState(t *testing.T) {
 	is.True(d != nil)
 	is.Equal(d.LiveAddressCount, 0)
 	is.Equal(string(d.State), string(httpapi.Stale))
+}
+
+// TestHandler_GetDevices_PairingSummary verifies that the last_pairing field on
+// DeviceListEntry reflects the correct derived status for each possible pairing case
+// seeded by SeedFullWorld.
+func TestHandler_GetDevices_PairingSummary(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+
+	testutils.SeedFullWorld(t, testServer).Build()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(rec, req)
+	is.Equal(rec.Code, http.StatusOK)
+
+	var groups []httpapi.DeviceOwnerGroup
+	is.NoErr(json.NewDecoder(rec.Body).Decode(&groups))
+
+	alice := findOwnerGroup(groups, testutils.FixtureUserWithAccess.Name)
+	aliceLaptop := findDeviceEntry(alice.Devices, testutils.FixtureDeviceWithOwnerAccess.Name)
+	is.True(aliceLaptop.Pairing == nil) // no pairing seeded for alice-laptop
+
+	bob := findOwnerGroup(groups, testutils.FixtureUserNoAccess.Name)
+	bobPhone := findDeviceEntry(bob.Devices, testutils.FixtureDeviceWithoutOwnerAccess.Name)
+	is.True(bobPhone.Pairing != nil)
+	is.Equal(string(bobPhone.Pairing.Status), "pending")
+	is.True(time.Time(bobPhone.Pairing.ExpiresAt).After(time.Now()))
+
+	charlie := findOwnerGroup(groups, testutils.FixtureUserBypassAccess.Name)
+	charlieDesktop := findDeviceEntry(charlie.Devices, testutils.FixtureDeviceBypassAccess.Name)
+	is.True(charlieDesktop.Pairing != nil)
+	is.Equal(string(charlieDesktop.Pairing.Status), "invalidated")
+
+	diana := findOwnerGroup(groups, testutils.FixtureUserPairing.Name)
+	is.True(diana != nil)
+
+	dianaUsed := findDeviceEntry(diana.Devices, testutils.FixtureDevicePairingUsed.Name)
+	is.True(dianaUsed.Pairing != nil)
+	is.Equal(string(dianaUsed.Pairing.Status), "used")
+
+	dianaExpired := findDeviceEntry(diana.Devices, testutils.FixtureDevicePairingExpired.Name)
+	is.True(dianaExpired.Pairing != nil)
+	is.Equal(string(dianaExpired.Pairing.Status), "expired")
+	is.True(time.Time(dianaExpired.Pairing.ExpiresAt).Before(time.Now()))
 }
 
 // findOwnerGroup returns the DeviceOwnerGroup whose owner username matches, or nil.

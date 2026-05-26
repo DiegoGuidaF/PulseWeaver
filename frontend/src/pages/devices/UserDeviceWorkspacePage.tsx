@@ -8,6 +8,7 @@ import {
   Anchor,
   Box,
   Group,
+  Indicator,
   Skeleton,
   Stack,
   Tabs,
@@ -28,6 +29,9 @@ import { DeviceRulesTab } from "@/features/devices/DeviceRulesTab";
 import { DeviceHistoryTab } from "@/features/devices/DeviceHistoryTab";
 import { DeviceSettingsTab, type DeviceData } from "@/features/devices/DeviceSettingsTab";
 import { CreateDeviceModal } from "@/features/devices/CreateDeviceModal";
+import { DevicePairingBanner } from "@/features/device-pairing/DevicePairingBanner";
+import { DevicePairingTab } from "@/features/device-pairing/DevicePairingTab";
+import { DeviceState } from "@/lib/api";
 
 dayjs.extend(relativeTime);
 
@@ -39,6 +43,7 @@ function formatCreatedAt(iso: string): string {
 const DeviceTab = {
   ADDRESSES: "addresses",
   RULES: "rules",
+  PAIRING: "pairing",
   HISTORY: "history",
   SETTINGS: "settings",
 } as const;
@@ -234,6 +239,19 @@ export function UserDeviceWorkspacePage() {
           </Stack>
         ) : null}
 
+        {/* Pairing banner — shown when a code is outstanding */}
+        {selectedDevice?.state === DeviceState.PENDING_CLAIM && selectedDevice.pairing && (
+          <DevicePairingBanner
+            expiresAt={selectedDevice.pairing.expires_at}
+            onViewPairing={() =>
+              setSearchParams((prev) => {
+                prev.set("tab", DeviceTab.PAIRING);
+                return prev;
+              })
+            }
+          />
+        )}
+
         {/* Tabs — only rendered when a valid device is selected */}
         {selectedDevice && (
           <Tabs
@@ -250,6 +268,19 @@ export function UserDeviceWorkspacePage() {
             <Tabs.List>
               <Tabs.Tab value={DeviceTab.ADDRESSES}>Addresses</Tabs.Tab>
               <Tabs.Tab value={DeviceTab.RULES}>Rules</Tabs.Tab>
+              <Tabs.Tab value={DeviceTab.PAIRING}>
+                <Indicator
+                  disabled={
+                    selectedDevice.state !== DeviceState.PENDING_CLAIM &&
+                    selectedDevice.state !== DeviceState.EXPIRED_CLAIM
+                  }
+                  color={selectedDevice.state === DeviceState.EXPIRED_CLAIM ? "red" : "indigo"}
+                  size={6}
+                  offset={-2}
+                >
+                  Pairing
+                </Indicator>
+              </Tabs.Tab>
               <Tabs.Tab value={DeviceTab.HISTORY}>History</Tabs.Tab>
               <Tabs.Tab value={DeviceTab.SETTINGS}>Settings</Tabs.Tab>
             </Tabs.List>
@@ -258,6 +289,9 @@ export function UserDeviceWorkspacePage() {
             </Tabs.Panel>
             <Tabs.Panel value={DeviceTab.RULES} pt="md">
               <DeviceRulesTab deviceId={selectedDevice.id} liveAddressCount={selectedDevice.live_address_count} />
+            </Tabs.Panel>
+            <Tabs.Panel value={DeviceTab.PAIRING} pt="md">
+              <DevicePairingTab deviceId={selectedDevice.id} deviceState={selectedDevice.state} />
             </Tabs.Panel>
             <Tabs.Panel value={DeviceTab.HISTORY} pt="md">
               <DeviceHistoryTab deviceId={selectedDevice.id} />

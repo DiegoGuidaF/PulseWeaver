@@ -23,6 +23,21 @@ interface Props {
 }
 
 export function RuleChips({ entry, size = "xs" }: Props) {
+  if (entry.state === DeviceState.EXPIRED_CLAIM) {
+    return (
+      <Tooltip label="Pairing code expired — regenerate required" withArrow>
+        <Badge
+          size={size}
+          color="red"
+          variant="light"
+          leftSection={<IconClock size={10} stroke={1.5} />}
+        >
+          expired
+        </Badge>
+      </Tooltip>
+    );
+  }
+
   if (entry.state === DeviceState.PENDING_CLAIM && entry.pairing) {
     const label = formatPairingExpiry(entry.pairing.expires_at);
     return (

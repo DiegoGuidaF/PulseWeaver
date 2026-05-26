@@ -1,6 +1,6 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceOwnerGroup, DeviceTypeItem, GroupDetailWithUsers, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, PendingRegistration, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
-import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceOwnerGroup, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockPendingRegistration, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
+import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceOwnerGroup, DevicePairing, DeviceTypeItem, GroupDetailWithUsers, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceOwnerGroup, createMockDevicePairing, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
 
 const BASE = '/api/v1';
 
@@ -48,8 +48,8 @@ export const endpoints = {
     networkPolicies: `${BASE}/admin/access/network-policies`,
     networkPolicyById: `${BASE}/admin/access/network-policies/:id`,
     networkPolicyGrants: `${BASE}/admin/access/network-policies/:id/grants`,
-    adminRegistrations: `${BASE}/admin/registrations`,
-    adminRegistrationById: `${BASE}/admin/registrations/:registrationId`,
+    devicePairings: `${BASE}/devices/:id/pairings`,
+    devicePairingById: `${BASE}/devices/:id/pairings/:pairingId`,
 } as const;
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
@@ -437,23 +437,23 @@ export const networkPolicyHandlers = {
     },
 };
 
-// ─── Provisioning handlers ────────────────────────────────────────────────────
-export const provisioningHandlers = {
+// ─── Device pairing handlers ──────────────────────────────────────────────────
+export const devicePairingHandlers = {
     list: {
-        success: (registrations?: PendingRegistration[]) =>
-            http.get(endpoints.adminRegistrations, () =>
-                HttpResponse.json(registrations ?? [createMockPendingRegistration()])),
+        success: (pairings?: DevicePairing[]) =>
+            http.get(endpoints.devicePairings, () =>
+                HttpResponse.json(pairings ?? [createMockDevicePairing()])),
         empty: () =>
-            http.get(endpoints.adminRegistrations, () => HttpResponse.json([])),
+            http.get(endpoints.devicePairings, () => HttpResponse.json([])),
     },
     create: {
-        success: (override?: Partial<PendingRegistration>) =>
-            http.post(endpoints.adminRegistrations, () =>
-                responses.created(createMockPendingRegistration(override))),
+        success: (override?: Partial<DevicePairing>) =>
+            http.post(endpoints.devicePairings, () =>
+                responses.created(createMockDevicePairing(override))),
     },
     delete: {
         success: () =>
-            http.delete(endpoints.adminRegistrationById, () => responses.noContent()),
+            http.delete(endpoints.devicePairingById, () => responses.noContent()),
     },
 };
 
@@ -513,10 +513,10 @@ export const defaultHandlers = [
     networkPolicyHandlers.update.success(),
     networkPolicyHandlers.delete.success(),
     networkPolicyHandlers.updateGrants.success(),
-    // Provisioning
-    provisioningHandlers.list.success(),
-    provisioningHandlers.create.success(),
-    provisioningHandlers.delete.success(),
+    // Device pairing
+    devicePairingHandlers.list.success(),
+    devicePairingHandlers.create.success(),
+    devicePairingHandlers.delete.success(),
     // Policy audit
     policyAuditHandlers.policyMap.success(),
     policyAuditHandlers.simulate.allowed(),

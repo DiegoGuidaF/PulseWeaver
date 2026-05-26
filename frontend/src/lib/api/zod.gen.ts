@@ -144,23 +144,6 @@ export const zDeviceRuleSummary = z.object({
   limit: z.int().nullish(),
 });
 
-export const zDevicePairingSummary = z.object({
-  expires_at: z.iso.datetime({ offset: true, local: true }),
-});
-
-export const zDeviceListEntry = z.object({
-  id: zId,
-  name: z.string(),
-  icon: z.string().nullish(),
-  api_key_prefix: z.string().nullish(),
-  created_at: z.iso.datetime({ offset: true, local: true }),
-  last_seen_at: z.iso.datetime({ offset: true, local: true }).nullish(),
-  state: zDeviceState,
-  live_address_count: z.int().gte(0),
-  rules: z.array(zDeviceRuleSummary),
-  pairing: zDevicePairingSummary.nullish(),
-});
-
 export const zAddAddressRequest = z.object({
   ip: zIpAddress,
 });
@@ -393,9 +376,7 @@ export const zDashboardTopDeniedIpsResponse = z.object({
   ips: z.array(zDashboardTopDeniedIp),
 });
 
-export const zCreateRegistrationRequest = z.object({
-  owner_id: zId,
-  device_name: z.string().min(1).max(100),
+export const zCreatePairingRequest = z.object({
   heartbeat_server_url: z.url(),
   interval_seconds: z.int().gte(60),
   app_biometric_enabled: z.boolean().optional().default(false),
@@ -408,28 +389,11 @@ export const zCreateRegistrationRequest = z.object({
   ]),
 });
 
-export const zPendingRegistration = z.object({
-  id: zId,
-  device_name: z.string(),
-  owner_id: zId,
-  registration_code: z.string().nullish(),
-  heartbeat_server_url: z.string(),
-  interval_seconds: z.int(),
-  app_biometric_enabled: z.boolean(),
-  app_settings_locked: z.boolean(),
-  expires_at: z.iso.datetime({ offset: true, local: true }),
-  created_at: z.iso.datetime({ offset: true, local: true }),
-  used_at: z.iso.datetime({ offset: true, local: true }).nullish(),
-  invalidated_at: z.iso.datetime({ offset: true, local: true }).nullish(),
-  created_device_id: zId.optional(),
-  status: z.enum(["pending", "used", "expired", "invalidated"]),
-});
-
-export const zClaimRegistrationRequest = z.object({
+export const zClaimPairingRequest = z.object({
   code: z.string(),
 });
 
-export const zClaimRegistrationResponse = z.object({
+export const zClaimPairingResponse = z.object({
   server_url: z.string(),
   interval_seconds: z.int(),
   app_biometric_enabled: z.boolean(),
@@ -574,11 +538,6 @@ export const zDeviceListOwner = z.object({
   host_groups: z.array(zGroupSummary),
   device_count: z.int().gte(0),
   live_address_count: z.int().gte(0),
-});
-
-export const zDeviceOwnerGroup = z.object({
-  owner: zDeviceListOwner,
-  devices: z.array(zDeviceListEntry),
 });
 
 /**
@@ -778,6 +737,56 @@ export const zUserAccessDetail = z.object({
   devices: z.array(zDeviceListItem),
   groups: z.array(zSubjectGroupDetail),
   bypass_host_check: z.boolean(),
+});
+
+/**
+ * Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.
+ *
+ */
+export const zDevicePairingStatus = z.enum([
+  "pending",
+  "used",
+  "expired",
+  "invalidated",
+  "replaced",
+]);
+
+export const zDevicePairingSummary = z.object({
+  status: zDevicePairingStatus,
+  expires_at: z.iso.datetime({ offset: true, local: true }),
+  updated_at: z.iso.datetime({ offset: true, local: true }),
+});
+
+export const zDeviceListEntry = z.object({
+  id: zId,
+  name: z.string(),
+  icon: z.string().nullish(),
+  api_key_prefix: z.string().nullish(),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  last_seen_at: z.iso.datetime({ offset: true, local: true }).nullish(),
+  state: zDeviceState,
+  live_address_count: z.int().gte(0),
+  rules: z.array(zDeviceRuleSummary),
+  pairing: zDevicePairingSummary.nullish(),
+});
+
+export const zDeviceOwnerGroup = z.object({
+  owner: zDeviceListOwner,
+  devices: z.array(zDeviceListEntry),
+});
+
+export const zDevicePairing = z.object({
+  id: zId,
+  device_id: zId,
+  pairing_code: z.string(),
+  heartbeat_server_url: z.string(),
+  interval_seconds: z.int(),
+  app_biometric_enabled: z.boolean(),
+  app_settings_locked: z.boolean(),
+  expires_at: z.iso.datetime({ offset: true, local: true }),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  updated_at: z.iso.datetime({ offset: true, local: true }),
+  status: zDevicePairingStatus,
 });
 
 export const zUserWritable = z.object({
@@ -1154,46 +1163,56 @@ export const zGetDashboardTopDeniedIpsQuery = z.object({
  */
 export const zGetDashboardTopDeniedIpsResponse = zDashboardTopDeniedIpsResponse;
 
-export const zClaimRegistrationBody = zClaimRegistrationRequest;
+export const zClaimPairingBody = zClaimPairingRequest;
 
 /**
- * Registration successful — device created and config returned
+ * Pairing successful — config and one-time API key returned
  */
-export const zClaimRegistrationResponse2 = zClaimRegistrationResponse;
+export const zClaimPairingResponse2 = zClaimPairingResponse;
 
-export const zListRegistrationsQuery = z.object({
+export const zListDevicePairingsPath = z.object({
+  id: zId,
+});
+
+export const zListDevicePairingsQuery = z.object({
   status: z.enum(["pending", "all"]).optional().default("pending"),
 });
 
 /**
- * List of registrations
+ * List of device pairings
  */
-export const zListRegistrationsResponse = z.array(zPendingRegistration);
+export const zListDevicePairingsResponse = z.array(zDevicePairing);
 
-export const zCreateRegistrationBody = zCreateRegistrationRequest;
+export const zCreateDevicePairingBody = zCreatePairingRequest;
 
-/**
- * Registration invite created — includes registration_code
- */
-export const zCreateRegistrationResponse = zPendingRegistration;
-
-export const zDeleteRegistrationPath = z.object({
-  registration_id: zId,
+export const zCreateDevicePairingPath = z.object({
+  id: zId,
 });
 
 /**
- * Invite deleted
+ * Pairing created — includes pairing_code
  */
-export const zDeleteRegistrationResponse = z.void();
+export const zCreateDevicePairingResponse = zDevicePairing;
 
-export const zGetRegistrationPath = z.object({
-  registration_id: zId,
+export const zDeleteDevicePairingPath = z.object({
+  id: zId,
+  pairingId: zId,
 });
 
 /**
- * Registration invite
+ * Pairing invalidated
  */
-export const zGetRegistrationResponse = zPendingRegistration;
+export const zDeleteDevicePairingResponse = z.void();
+
+export const zGetDevicePairingPath = z.object({
+  id: zId,
+  pairingId: zId,
+});
+
+/**
+ * Device pairing
+ */
+export const zGetDevicePairingResponse = zDevicePairing;
 
 /**
  * Host list.

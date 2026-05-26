@@ -100,14 +100,14 @@ paths:
     $ref: './paths/dashboard.yaml#/topDeniedIps'
 
   # --------------------
-  # Registration Endpoints
+  # Device Pairing Endpoints
   # --------------------
-  /register:
-    $ref: './paths/registration.yaml#/claimRegistration'
-  /admin/registrations:
-    $ref: './paths/registration.yaml#/adminRegistrations'
-  /admin/registrations/{registration_id}:
-    $ref: './paths/registration.yaml#/adminRegistrationById'
+  /device-pair:
+    $ref: './paths/device-pairing.yaml#/claimPairing'
+  /devices/{id}/pairings:
+    $ref: './paths/device-pairing.yaml#/devicePairings'
+  /devices/{id}/pairings/{pairingId}:
+    $ref: './paths/device-pairing.yaml#/devicePairingById'
 
   # --------------------
   # Host Access Endpoints
@@ -283,16 +283,16 @@ components:
       $ref: './components/schemas/dashboard.yaml#/DashboardTopDeniedIpsResponse'
 
     # --------------------
-    # Registration
+    # Device Pairing
     # --------------------
-    CreateRegistrationRequest:
-      $ref: './components/schemas/registration.yaml#/CreateRegistrationRequest'
-    PendingRegistration:
-      $ref: './components/schemas/registration.yaml#/PendingRegistration'
-    ClaimRegistrationRequest:
-      $ref: './components/schemas/registration.yaml#/ClaimRegistrationRequest'
-    ClaimRegistrationResponse:
-      $ref: './components/schemas/registration.yaml#/ClaimRegistrationResponse'
+    CreatePairingRequest:
+      $ref: './components/schemas/device-pairing.yaml#/CreatePairingRequest'
+    DevicePairing:
+      $ref: './components/schemas/device-pairing.yaml#/DevicePairing'
+    ClaimPairingRequest:
+      $ref: './components/schemas/device-pairing.yaml#/ClaimPairingRequest'
+    ClaimPairingResponse:
+      $ref: './components/schemas/device-pairing.yaml#/ClaimPairingResponse'
 
     # --------------------
     # Network Policies

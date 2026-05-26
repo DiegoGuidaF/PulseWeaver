@@ -13,6 +13,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/devicepairing"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpserver"
@@ -22,7 +23,6 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/registration"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/scheduler"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/useraccess"
@@ -39,7 +39,7 @@ type App struct {
 	AuthService            *auth.Service
 	PolicyService          *policy.Service
 	RuleService            *rule.Service
-	RegistrationService    *registration.Service
+	DevicePairingService   *devicepairing.Service
 	addressLeaseService    *lease.Service
 	maxAddrService         *maxaddr.Service
 	schedulerService       *scheduler.Service
@@ -110,10 +110,10 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	deviceService := device.NewService(deviceRepo, db.Transactor(), logger, conf.Server.TrustedProxy)
 	deviceHandler := device.NewHTTPHandler(deviceService, logger)
 
-	// Device provisioner
-	registrationRepo := registration.NewRepository(db.DB(), deviceService)
-	registrationService := registration.NewService(registrationRepo, db.Transactor(), deviceService, logger)
-	registrationHandler := registration.NewHTTPHandler(registrationService, logger)
+	// Device pairing
+	pairingRepo := devicepairing.NewRepository(db.DB())
+	pairingService := devicepairing.NewService(pairingRepo, db.Transactor(), deviceService, logger)
+	pairingHandler := devicepairing.NewHTTPHandler(pairingService, logger)
 
 	// GeoIP enrichment
 	geoipLookup, err := geoip.New(ctx, conf.GeoIP, logger)
@@ -222,7 +222,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		policyHandler,
 		accessLogHandler,
 		dashboardHandler,
-		registrationHandler,
+		pairingHandler,
 		hostsHandler,
 		userAccessHandler,
 		networkPoliciesHandler,
@@ -239,7 +239,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		AuthService:            authService,
 		PolicyService:          policyService,
 		RuleService:            ruleService,
-		RegistrationService:    registrationService,
+		DevicePairingService:   pairingService,
 		addressLeaseService:    addressLeaseService,
 		maxAddrService:         maxAddrService,
 		schedulerService:       schedulerService,

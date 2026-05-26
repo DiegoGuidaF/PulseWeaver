@@ -286,7 +286,7 @@ func TestHandler_ListUsersWithAccess_HappyPath(t *testing.T) {
 	is.Equal(w.Code, http.StatusOK)
 	var rows []httpapi.UserListItem
 	is.NoErr(json.NewDecoder(w.Body).Decode(&rows))
-	is.Equal(len(rows), 4) // admin + FixtureUserWithAccess + FixtureUserNoAccess + FixtureUserBypassAccess
+	is.Equal(len(rows), 5) // admin + FixtureUserWithAccess + FixtureUserNoAccess + FixtureUserBypassAccess + FixtureUserPairing
 
 	alice := findUserRow(rows, seed.User(testutils.FixtureUserWithAccess.Name).Int64())
 	is.True(alice != nil)

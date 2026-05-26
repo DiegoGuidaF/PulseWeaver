@@ -1,0 +1,196 @@
+claimPairing:
+  post:
+    operationId: claimPairing
+    tags:
+      - device-pairing
+    security: []
+    summary: Claim a pairing code
+    description: |
+      Public endpoint — no auth required. The pairing code is the credential.
+      Validates and claims a pending pairing, regenerates the device API key,
+      and returns the full configuration payload including the API key (one-time only).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/device-pairing.yaml#/ClaimPairingRequest'
+    responses:
+      "200":
+        description: Pairing successful — config and one-time API key returned
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/device-pairing.yaml#/ClaimPairingResponse'
+      "404":
+        description: Code not found, already used, or expired (deliberately vague)
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+devicePairings:
+  get:
+    operationId: listDevicePairings
+    tags:
+      - device-pairing
+    summary: List pairings for a device (Admin only)
+    description: |
+      Returns pairing records for the given device. By default returns only pending
+      (unclaimed, non-expired) pairings. Pass `?status=all` to include used and expired.
+      Never returns the pairing_code after it has been claimed.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [pending, all]
+          default: pending
+    responses:
+      "200":
+        description: List of device pairings
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/schemas/device-pairing.yaml#/DevicePairing'
+      "401":
+        description: Not authenticated
+      "403":
+        description: Admin credentials required
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+  post:
+    operationId: createDevicePairing
+    tags:
+      - device-pairing
+    summary: Create a pairing for a device (Admin only)
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/device-pairing.yaml#/CreatePairingRequest'
+    responses:
+      "201":
+        description: Pairing created — includes pairing_code
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/device-pairing.yaml#/DevicePairing'
+      "400":
+        description: Invalid request body
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "401":
+        description: Not authenticated
+      "403":
+        description: Admin credentials required
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+devicePairingById:
+  get:
+    operationId: getDevicePairing
+    tags:
+      - device-pairing
+    summary: Get a single device pairing (Admin only)
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+      - name: pairingId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: Device pairing
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/device-pairing.yaml#/DevicePairing'
+      "401":
+        description: Not authenticated
+      "403":
+        description: Admin credentials required
+      "404":
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+  delete:
+    operationId: deleteDevicePairing
+    tags:
+      - device-pairing
+    summary: Invalidate an unclaimed pairing (Admin only)
+    description: Soft-deletes an unclaimed device pairing. Returns 404 if already used or not found.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+      - name: pairingId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "204":
+        description: Pairing invalidated
+      "401":
+        description: Not authenticated
+      "403":
+        description: Admin credentials required
+      "404":
+        description: Not found or already used
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
