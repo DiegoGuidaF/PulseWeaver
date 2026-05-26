@@ -1,4 +1,3 @@
-import React from "react";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -15,24 +14,14 @@ import {
   ThemeIcon,
   UnstyledButton,
 } from "@mantine/core";
-import { IconDevices, IconPlus } from "@tabler/icons-react";
+import { IconPlus } from "@tabler/icons-react";
 import type { DeviceListEntry, DeviceListOwner } from "@/lib/api";
 import { DeviceState } from "@/lib/api";
-import { ICON_PICKER_OPTIONS } from "@/features/devices/deviceTypeConfig";
+import { resolveDeviceIcon } from "@/features/devices/deviceTypeConfig";
 import { GroupBadgeList } from "@/features/host-access/components/GroupBadgeList";
 import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
 
 dayjs.extend(relativeTime);
-
-const ICON_MAP = new Map(ICON_PICKER_OPTIONS.map(({ name, icon }) => [name, icon]));
-
-function getPanelDeviceIcon(icon?: string | null) {
-  if (icon) {
-    const resolved = ICON_MAP.get(icon);
-    if (resolved) return resolved;
-  }
-  return IconDevices;
-}
 
 function getInitials(name: string): string {
   return name
@@ -63,7 +52,7 @@ function DevicePanelItem({
   isSelected: boolean;
   onSelect: () => void;
 }) {
-  const Icon = getPanelDeviceIcon(entry.icon);
+  const renderIcon = resolveDeviceIcon(entry.icon);
   const isStale = entry.state === DeviceState.STALE;
   const isLive = entry.live_address_count > 0;
 
@@ -80,7 +69,7 @@ function DevicePanelItem({
     >
       <Group px="sm" py={6} gap="sm" align="center" wrap="nowrap">
         <ThemeIcon variant="transparent" size="sm" c={isStale ? "dimmed" : undefined}>
-          {React.createElement(Icon, { size: 16, stroke: 1.5 })}
+          {renderIcon({ size: 16 })}
         </ThemeIcon>
         <Box style={{ flex: 1, minWidth: 0 }}>
           <Text
@@ -118,6 +107,7 @@ export interface OwnerDevicesPanelProps {
   devices: DeviceListEntry[];
   selectedDeviceId: number | undefined;
   onSelectDevice: (id: number) => void;
+  onAddDevice?: () => void;
 }
 
 export function OwnerDevicesPanel({
@@ -125,6 +115,7 @@ export function OwnerDevicesPanel({
   devices,
   selectedDeviceId,
   onSelectDevice,
+  onAddDevice,
 }: OwnerDevicesPanelProps) {
   const navigate = useNavigate();
   const { data: allGroups } = useDeviceList();
@@ -193,7 +184,7 @@ export function OwnerDevicesPanel({
         variant="subtle"
         size="xs"
         leftSection={<IconPlus size={14} />}
-        onClick={() => navigate("/device-provisioning")}
+        onClick={onAddDevice}
         justify="flex-start"
         c="dimmed"
       >

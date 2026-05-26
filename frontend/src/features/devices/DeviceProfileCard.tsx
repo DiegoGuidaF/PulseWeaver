@@ -86,7 +86,7 @@ export function DeviceProfileCard({
           label: v.charAt(0).toUpperCase() + v.slice(1),
         }));
 
-  const { Icon: CurrentIcon, color: currentColor } = getDeviceIcon({
+  const renderIcon = getDeviceIcon({
     device_type: form.values.device_type,
     icon: form.values.icon || null,
   });
@@ -184,15 +184,7 @@ export function DeviceProfileCard({
                           cursor: "pointer",
                         }}
                       >
-                        <CurrentIcon
-                          size={20}
-                          style={{
-                            color:
-                              currentColor === "dimmed"
-                                ? "var(--mantine-color-dimmed)"
-                                : `var(--mantine-color-${currentColor}-filled)`,
-                          }}
-                        />
+                        {renderIcon({ size: 20 })}
                       </UnstyledButton>
                     </Tooltip>
                   }

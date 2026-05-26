@@ -1,4 +1,3 @@
-import React from "react";
 import { Link } from "react-router-dom";
 import {
   ActionIcon,
@@ -62,7 +61,7 @@ export function GroupDetailPanel({
   }
 
   const color = group.color;
-  const resolved = resolveHostIcon(group.icon);
+  const renderIcon = resolveHostIcon(group.icon);
   const inGroupIds = new Set<Id>(
     group.hostIds.filter((id): id is Id => typeof id === "number"),
   );
@@ -75,13 +74,7 @@ export function GroupDetailPanel({
         <Group justify="space-between" align="flex-start" wrap="nowrap">
           <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
             <ThemeIcon variant="light" color={color} size={48} radius="md">
-              {resolved.kind === "tabler" ? (
-                React.createElement(resolved.icon, { size: 24, stroke: 1.5 })
-              ) : (
-                <Text size="xl" span>
-                  {resolved.value}
-                </Text>
-              )}
+              {renderIcon({ size: 24 })}
             </ThemeIcon>
             <Stack gap={2} style={{ minWidth: 0 }}>
               <Group gap="xs" wrap="nowrap">

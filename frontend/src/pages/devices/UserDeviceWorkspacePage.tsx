@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { ROUTES } from "@/lib/routes";
 import dayjs from "dayjs";
@@ -16,10 +16,10 @@ import {
   Title,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
-import { IconAlertCircle, IconChevronLeft, IconDevices } from "@tabler/icons-react";
+import { IconAlertCircle, IconChevronLeft } from "@tabler/icons-react";
 import classes from "./UserDeviceWorkspacePage.module.css";
 import { toErrorMessage } from "@/lib/api-client";
-import { ICON_PICKER_OPTIONS } from "@/features/devices/deviceTypeConfig";
+import { resolveDeviceIcon } from "@/features/devices/deviceTypeConfig";
 import { RuleChips } from "@/features/devices/RuleChips";
 import { useOwnerGroup } from "@/features/devices/hooks/useOwnerGroup";
 import { OwnerDevicesPanel } from "@/features/devices/OwnerDevicesPanel";
@@ -27,18 +27,10 @@ import { DeviceAddressesTab } from "@/features/devices/DeviceAddressesTab";
 import { DeviceRulesTab } from "@/features/devices/DeviceRulesTab";
 import { DeviceHistoryTab } from "@/features/devices/DeviceHistoryTab";
 import { DeviceSettingsTab, type DeviceData } from "@/features/devices/DeviceSettingsTab";
+import { CreateDeviceModal } from "@/features/devices/CreateDeviceModal";
 
 dayjs.extend(relativeTime);
 
-const ICON_MAP = new Map(ICON_PICKER_OPTIONS.map(({ name, icon }) => [name, icon]));
-
-function getDeviceIcon(icon?: string | null) {
-  if (icon) {
-    const resolved = ICON_MAP.get(icon);
-    if (resolved) return resolved;
-  }
-  return IconDevices;
-}
 
 function formatCreatedAt(iso: string): string {
   return dayjs(iso).format("D MMM YYYY");
@@ -84,6 +76,8 @@ export function UserDeviceWorkspacePage() {
     document.addEventListener("mouseup", onUp);
   }
 
+  const [createOpen, setCreateOpen] = useState(false);
+
   const userId = userIdParam ? Number.parseInt(userIdParam, 10) : Number.NaN;
   const deviceIdStr = searchParams.get("device");
   const deviceId = deviceIdStr ? Number.parseInt(deviceIdStr, 10) : undefined;
@@ -118,13 +112,19 @@ export function UserDeviceWorkspacePage() {
     }
   }, [deviceId, group, setSearchParams]);
 
-  const DeviceIcon = getDeviceIcon(selectedDevice?.icon);
+  const renderDeviceIcon = resolveDeviceIcon(selectedDevice?.icon);
 
   if (!userIdParam || Number.isNaN(userId)) {
     return <Navigate to={ROUTES.userDevices} replace />;
   }
 
   return (
+    <>
+    <CreateDeviceModal
+      opened={createOpen}
+      onClose={() => setCreateOpen(false)}
+      defaultOwnerId={group?.owner.id ?? null}
+    />
     <Group
       align="stretch"
       gap={0}
@@ -178,6 +178,7 @@ export function UserDeviceWorkspacePage() {
               devices={group.devices}
               selectedDeviceId={deviceId}
               onSelectDevice={(id) => setSearchParams({ device: String(id) })}
+              onAddDevice={() => setCreateOpen(true)}
             />
           ) : (
             <Text size="sm" c="dimmed">
@@ -200,7 +201,7 @@ export function UserDeviceWorkspacePage() {
           <Stack gap={4}>
             <Group gap="xs" align="center">
               <ThemeIcon variant="transparent" size="md" c="dimmed">
-                {React.createElement(DeviceIcon, { size: 22, stroke: 1.5 })}
+                {renderDeviceIcon({ size: 22 })}
               </ThemeIcon>
               <Title order={3}>{selectedDevice.name}</Title>
               <RuleChips entry={selectedDevice} size="xs" />
@@ -268,5 +269,6 @@ export function UserDeviceWorkspacePage() {
         )}
       </Stack>
     </Group>
+    </>
   );
 }

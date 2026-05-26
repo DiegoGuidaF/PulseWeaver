@@ -150,7 +150,7 @@ type AccessLogRow struct {
 	// CountryName e.g. "Germany"
 	CountryName *string `json:"country_name,omitempty"`
 	CreatedAt   UTCTime `json:"created_at"`
-	DenyReason  *string `json:"deny_reason,omitempty"`
+	DenyReason  *string `json:"deny_reason"`
 	DeviceId    *ID     `json:"device_id,omitempty"`
 	DeviceName  *string `json:"device_name,omitempty"`
 
@@ -192,6 +192,9 @@ type Address struct {
 	// IsEnabled The latest state of this address, enabled or disabled
 	IsEnabled bool `json:"is_enabled"`
 
+	// Source What triggered an address state change
+	Source AddressEventSource `json:"source"`
+
 	// UpdatedAt Last time it was enabled or disabled
 	UpdatedAt UTCTime `json:"updated_at"`
 }
@@ -220,8 +223,8 @@ type AddressHistoryEvent struct {
 	DeviceName string `json:"device_name"`
 	Id         ID     `json:"id"`
 
-	// Ip IP address
-	Ip string `json:"ip"`
+	// Ip IPv4 or IPv6 address
+	Ip IPAddress `json:"ip"`
 
 	// IsEnabled Whether the address was enabled or disabled
 	IsEnabled bool `json:"is_enabled"`
@@ -280,11 +283,6 @@ type CreateDeviceRequest struct {
 	OwnerId *int `json:"owner_id"`
 }
 
-// CreateDeviceResponse defines model for CreateDeviceResponse.
-type CreateDeviceResponse struct {
-	Device Device `json:"device"`
-}
-
 // CreateNetworkPolicyRequest defines model for CreateNetworkPolicyRequest.
 type CreateNetworkPolicyRequest struct {
 	// Cidr CIDR notation. Host bits are zeroed automatically by the server.
@@ -331,19 +329,21 @@ type DashboardServicesResponse struct {
 
 // DashboardStats defines model for DashboardStats.
 type DashboardStats struct {
-	AllowedCount int64 `json:"allowed_count"`
+	AllowCount int64 `json:"allow_count"`
 
 	// AvgDurationUs Average request processing duration in microseconds over the time window
 	AvgDurationUs int64 `json:"avg_duration_us"`
-	DeniedCount   int64 `json:"denied_count"`
+	DenyCount     int64 `json:"deny_count"`
 	TotalRequests int64 `json:"total_requests"`
 	UniqueIps     int64 `json:"unique_ips"`
 }
 
 // DashboardTopDeniedIp defines model for DashboardTopDeniedIp.
 type DashboardTopDeniedIp struct {
-	Count int64  `json:"count"`
-	Ip    string `json:"ip"`
+	Count int64 `json:"count"`
+
+	// Ip IPv4 or IPv6 address
+	Ip IPAddress `json:"ip"`
 }
 
 // DashboardTopDeniedIpsResponse defines model for DashboardTopDeniedIpsResponse.
@@ -365,9 +365,6 @@ type DashboardTrafficResponse struct {
 
 // Device defines model for Device.
 type Device struct {
-	// AddressCount Number of currently enabled addresses for this device.
-	AddressCount *int `json:"address_count,omitempty"`
-
 	// ApiKeyPrefix Prefix of the device API key (for display only). Null if no API key has been generated yet.
 	ApiKeyPrefix *string `json:"api_key_prefix"`
 	CreatedAt    UTCTime `json:"created_at"`
@@ -384,6 +381,9 @@ type Device struct {
 
 	// LastSeenAt Most recent address activity for this device (heartbeat or manual update).
 	LastSeenAt *UTCTime `json:"last_seen_at"`
+
+	// LiveAddressCount Number of currently enabled addresses for this device.
+	LiveAddressCount *int `json:"live_address_count,omitempty"`
 
 	// Name User-friendly name for the device
 	Name    string `json:"name"`
@@ -428,12 +428,15 @@ type DeviceHeartbeatByApiKeyRequest struct {
 
 // DeviceListEntry defines model for DeviceListEntry.
 type DeviceListEntry struct {
+	// ApiKeyPrefix First characters of the API key (display only).
+	ApiKeyPrefix *string `json:"api_key_prefix"`
+
+	// CreatedAt When the device was created.
+	CreatedAt UTCTime `json:"created_at"`
+
 	// Icon Tabler icon name override.
 	Icon *string `json:"icon"`
 	Id   ID      `json:"id"`
-
-	// KeyPrefix First characters of the API key (display only).
-	KeyPrefix *string `json:"key_prefix"`
 
 	// LastSeenAt Most recent address heartbeat for this device.
 	LastSeenAt       *UTCTime              `json:"last_seen_at"`
@@ -449,22 +452,22 @@ type DeviceListEntry struct {
 // DeviceListItem Device summary shown on user access detail.
 type DeviceListItem struct {
 	// ApiKeyPrefix Non-null when an API key is configured; the full key is never returned.
-	ApiKeyPrefix *string `json:"api_key_prefix"`
-	Icon         *string `json:"icon"`
-	Id           ID      `json:"id"`
-	LiveIpCount  int     `json:"live_ip_count"`
-	Name         string  `json:"name"`
+	ApiKeyPrefix     *string `json:"api_key_prefix"`
+	Icon             *string `json:"icon"`
+	Id               ID      `json:"id"`
+	LiveAddressCount int     `json:"live_address_count"`
+	Name             string  `json:"name"`
 }
 
 // DeviceListOwner defines model for DeviceListOwner.
 type DeviceListOwner struct {
-	BypassHostsCheck bool   `json:"bypass_hosts_check"`
-	DeviceCount      int    `json:"device_count"`
-	DisplayName      string `json:"display_name"`
+	BypassHostCheck bool   `json:"bypass_host_check"`
+	DeviceCount     int    `json:"device_count"`
+	DisplayName     string `json:"display_name"`
 
-	// HostGroups Host groups the owner belongs to. Always returned; frontend hides them when bypass_hosts_check is true.
-	HostGroups []HostGroupSummary `json:"host_groups"`
-	Id         ID                 `json:"id"`
+	// HostGroups Host groups the owner belongs to. Always returned; frontend hides them when bypass_host_check is true.
+	HostGroups []GroupSummary `json:"host_groups"`
+	Id         ID             `json:"id"`
 
 	// LiveAddressCount Aggregate count of live addresses across all owner's devices.
 	LiveAddressCount int `json:"live_address_count"`
@@ -601,17 +604,6 @@ type Host struct {
 	Id     ID             `json:"id"`
 }
 
-// HostGroupSummary defines model for HostGroupSummary.
-type HostGroupSummary struct {
-	// Color Hex color string (e.g. "#4C6EF5").
-	Color string `json:"color"`
-
-	// Icon Tabler icon name.
-	Icon string `json:"icon"`
-	Id   ID     `json:"id"`
-	Name string `json:"name"`
-}
-
 // HostInput Host entry in a reconcile request. Omit id to create a new host.
 type HostInput struct {
 	Fqdn string `json:"fqdn"`
@@ -688,10 +680,10 @@ type ModifyAccessRequest struct {
 
 // ModifyNetworkPolicyRequest defines model for ModifyNetworkPolicyRequest.
 type ModifyNetworkPolicyRequest struct {
-	Cidr        string `json:"cidr"`
-	Description string `json:"description"`
-	Enabled     bool   `json:"enabled"`
-	Name        string `json:"name"`
+	Cidr        string  `json:"cidr"`
+	Description *string `json:"description"`
+	Enabled     bool    `json:"enabled"`
+	Name        string  `json:"name"`
 }
 
 // NetworkPolicyDetail Full network policy detail including group assignments.
@@ -791,7 +783,9 @@ type PolicySimulateResult struct {
 	// DenyReason Reason for denial; null when allowed is true.
 	DenyReason *PolicySimulateDenyReason `json:"deny_reason"`
 	Host       string                    `json:"host"`
-	Ip         string                    `json:"ip"`
+
+	// Ip IPv4 or IPv6 address
+	Ip IPAddress `json:"ip"`
 
 	// MatchSource Which mechanism authorized the request. Null when allowed is false.
 	MatchSource *PolicySimulateResultMatchSource `json:"match_source"`
@@ -827,6 +821,9 @@ type PolicyUserEntry struct {
 	// DeviceCount Distinct devices owned by this user that contribute to the cache. Zero for no-access users.
 	DeviceCount int `json:"device_count"`
 
+	// DisplayName User display name.
+	DisplayName string `json:"display_name"`
+
 	// IntersectionApplied True when at least one of this user's IPs had its effective host set reduced by deny-wins intersection with another user at that IP.
 	IntersectionApplied bool `json:"intersection_applied"`
 
@@ -848,9 +845,6 @@ type PolicyUserEntry struct {
 	// UserAllowedHosts Pre-intersection allowed host list for this user. Empty when bypass_allowlist is true.
 	UserAllowedHosts []string `json:"user_allowed_hosts"`
 	UserId           ID       `json:"user_id"`
-
-	// UserName User display name.
-	UserName string `json:"user_name"`
 }
 
 // PolicyUserIP defines model for PolicyUserIP.
@@ -864,8 +858,8 @@ type PolicyUserIP struct {
 	// EffectiveHosts Hosts actually allowed for THIS user at THIS IP after deny-wins intersection. Equals user_allowed_hosts when the user is the sole contributor; intersected with other restricted contributors otherwise. Empty when bypass_at_ip is true.
 	EffectiveHosts []string `json:"effective_hosts"`
 
-	// Ip The IP address.
-	Ip string `json:"ip"`
+	// Ip IPv4 or IPv6 address
+	Ip IPAddress `json:"ip"`
 
 	// SharedWithUsers Other users (excluding self) that also contribute to this IP. Empty means this user is the sole owner of the IP.
 	SharedWithUsers []PolicyUserIPSharedUser `json:"shared_with_users"`
@@ -991,8 +985,10 @@ type UpdateProfileRequest struct {
 	// DisplayName User's public name. Unicode allowed.
 	DisplayName *DisplayName         `json:"display_name,omitempty"`
 	Email       *openapi_types.Email `json:"email,omitempty"`
-	Username    *string              `json:"username,omitempty"`
-	union       json.RawMessage
+
+	// Username Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
+	Username *Username `json:"username,omitempty"`
+	union    json.RawMessage
 }
 
 // UpdateProfileRequest0 defines model for .
@@ -1049,9 +1045,9 @@ type UserListItem struct {
 	Groups          []GroupRef `json:"groups"`
 
 	// HostCount Total hosts accessible across all assigned groups.
-	HostCount   int `json:"host_count"`
-	Id          ID  `json:"id"`
-	LiveIpCount int `json:"live_ip_count"`
+	HostCount        int `json:"host_count"`
+	Id               ID  `json:"id"`
+	LiveAddressCount int `json:"live_address_count"`
 
 	// Role The user's role. User role cannot login. Only superadmin can manage users.
 	Role     UserRole `json:"role"`
@@ -1460,17 +1456,17 @@ type ServerInterface interface {
 	// (POST /admin/access/network-policies)
 	CreateNetworkPolicy(w http.ResponseWriter, r *http.Request)
 	// Delete a network policy
-	// (DELETE /admin/access/network-policies/{id})
-	DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID)
+	// (DELETE /admin/access/network-policies/{policy_id})
+	DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request, policyId ID)
 	// Get network policy detail
-	// (GET /admin/access/network-policies/{id})
-	GetNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID)
+	// (GET /admin/access/network-policies/{policy_id})
+	GetNetworkPolicy(w http.ResponseWriter, r *http.Request, policyId ID)
 	// Update policy metadata
-	// (PUT /admin/access/network-policies/{id})
-	UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID)
+	// (PUT /admin/access/network-policies/{policy_id})
+	UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request, policyId ID)
 	// Atomically replace a policy's access grants
-	// (PUT /admin/access/network-policies/{id}/grants)
-	UpdateNetworkPolicyAccess(w http.ResponseWriter, r *http.Request, id ID)
+	// (PUT /admin/access/network-policies/{policy_id}/grants)
+	UpdateNetworkPolicyAccess(w http.ResponseWriter, r *http.Request, policyId ID)
 	// List users with host access summary
 	// (GET /admin/access/users)
 	ListUsersWithAccess(w http.ResponseWriter, r *http.Request)
@@ -1510,9 +1506,6 @@ type ServerInterface interface {
 	// Superadmin only. Demote an admin to regular user
 	// (POST /admin/users/{user_id}/demote)
 	DemoteUser(w http.ResponseWriter, r *http.Request, userId ID)
-	// List devices owned by a user
-	// (GET /admin/users/{user_id}/devices)
-	GetDevicesByUser(w http.ResponseWriter, r *http.Request, userId ID)
 	// Superadmin only. Promote a user to admin
 	// (POST /admin/users/{user_id}/promote)
 	PromoteUser(w http.ResponseWriter, r *http.Request, userId ID)
@@ -1549,9 +1542,6 @@ type ServerInterface interface {
 	// Delete a device
 	// (DELETE /devices/{device_id})
 	DeleteDevice(w http.ResponseWriter, r *http.Request, deviceId ID)
-	// Get a device
-	// (GET /devices/{device_id})
-	GetDevice(w http.ResponseWriter, r *http.Request, deviceId ID)
 	// Update device profile
 	// (PATCH /devices/{device_id})
 	UpdateDevice(w http.ResponseWriter, r *http.Request, deviceId ID)
@@ -1574,22 +1564,22 @@ type ServerInterface interface {
 	// (POST /devices/{device_id}/heartbeat)
 	DeviceHeartbeat(w http.ResponseWriter, r *http.Request, deviceId ID)
 	// Disable device lease rule for a device
-	// (DELETE /devices/{device_id}/rules/address_lease)
+	// (DELETE /devices/{device_id}/rules/address-lease)
 	DisableDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request, deviceId ID)
 	// Get address lease rule for a device
-	// (GET /devices/{device_id}/rules/address_lease)
+	// (GET /devices/{device_id}/rules/address-lease)
 	GetDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request, deviceId ID)
 	// Create or update IP auto-expiry rule for a device
-	// (PUT /devices/{device_id}/rules/address_lease)
+	// (PUT /devices/{device_id}/rules/address-lease)
 	PutDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request, deviceId ID)
 	// Disable max active addresses rule for a device
-	// (DELETE /devices/{device_id}/rules/max_active_addresses)
+	// (DELETE /devices/{device_id}/rules/max-active-addresses)
 	DisableMaxActiveAddressesRule(w http.ResponseWriter, r *http.Request, deviceId ID)
 	// Get max active addresses rule for a device
-	// (GET /devices/{device_id}/rules/max_active_addresses)
+	// (GET /devices/{device_id}/rules/max-active-addresses)
 	GetMaxActiveAddressesRule(w http.ResponseWriter, r *http.Request, deviceId ID)
 	// Create or update max active addresses rule for a device
-	// (PUT /devices/{device_id}/rules/max_active_addresses)
+	// (PUT /devices/{device_id}/rules/max-active-addresses)
 	PutMaxActiveAddressesRule(w http.ResponseWriter, r *http.Request, deviceId ID)
 	// Performs a heartbeat with the given api key header
 	// (POST /heartbeat)
@@ -1688,26 +1678,26 @@ func (_ Unimplemented) CreateNetworkPolicy(w http.ResponseWriter, r *http.Reques
 }
 
 // Delete a network policy
-// (DELETE /admin/access/network-policies/{id})
-func (_ Unimplemented) DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+// (DELETE /admin/access/network-policies/{policy_id})
+func (_ Unimplemented) DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request, policyId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get network policy detail
-// (GET /admin/access/network-policies/{id})
-func (_ Unimplemented) GetNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+// (GET /admin/access/network-policies/{policy_id})
+func (_ Unimplemented) GetNetworkPolicy(w http.ResponseWriter, r *http.Request, policyId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Update policy metadata
-// (PUT /admin/access/network-policies/{id})
-func (_ Unimplemented) UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+// (PUT /admin/access/network-policies/{policy_id})
+func (_ Unimplemented) UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request, policyId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Atomically replace a policy's access grants
-// (PUT /admin/access/network-policies/{id}/grants)
-func (_ Unimplemented) UpdateNetworkPolicyAccess(w http.ResponseWriter, r *http.Request, id ID) {
+// (PUT /admin/access/network-policies/{policy_id}/grants)
+func (_ Unimplemented) UpdateNetworkPolicyAccess(w http.ResponseWriter, r *http.Request, policyId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1789,12 +1779,6 @@ func (_ Unimplemented) DemoteUser(w http.ResponseWriter, r *http.Request, userId
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// List devices owned by a user
-// (GET /admin/users/{user_id}/devices)
-func (_ Unimplemented) GetDevicesByUser(w http.ResponseWriter, r *http.Request, userId ID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // Superadmin only. Promote a user to admin
 // (POST /admin/users/{user_id}/promote)
 func (_ Unimplemented) PromoteUser(w http.ResponseWriter, r *http.Request, userId ID) {
@@ -1867,12 +1851,6 @@ func (_ Unimplemented) DeleteDevice(w http.ResponseWriter, r *http.Request, devi
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Get a device
-// (GET /devices/{device_id})
-func (_ Unimplemented) GetDevice(w http.ResponseWriter, r *http.Request, deviceId ID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // Update device profile
 // (PATCH /devices/{device_id})
 func (_ Unimplemented) UpdateDevice(w http.ResponseWriter, r *http.Request, deviceId ID) {
@@ -1916,37 +1894,37 @@ func (_ Unimplemented) DeviceHeartbeat(w http.ResponseWriter, r *http.Request, d
 }
 
 // Disable device lease rule for a device
-// (DELETE /devices/{device_id}/rules/address_lease)
+// (DELETE /devices/{device_id}/rules/address-lease)
 func (_ Unimplemented) DisableDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get address lease rule for a device
-// (GET /devices/{device_id}/rules/address_lease)
+// (GET /devices/{device_id}/rules/address-lease)
 func (_ Unimplemented) GetDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Create or update IP auto-expiry rule for a device
-// (PUT /devices/{device_id}/rules/address_lease)
+// (PUT /devices/{device_id}/rules/address-lease)
 func (_ Unimplemented) PutDeviceAddressLeaseRule(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Disable max active addresses rule for a device
-// (DELETE /devices/{device_id}/rules/max_active_addresses)
+// (DELETE /devices/{device_id}/rules/max-active-addresses)
 func (_ Unimplemented) DisableMaxActiveAddressesRule(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get max active addresses rule for a device
-// (GET /devices/{device_id}/rules/max_active_addresses)
+// (GET /devices/{device_id}/rules/max-active-addresses)
 func (_ Unimplemented) GetMaxActiveAddressesRule(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Create or update max active addresses rule for a device
-// (PUT /devices/{device_id}/rules/max_active_addresses)
+// (PUT /devices/{device_id}/rules/max-active-addresses)
 func (_ Unimplemented) PutMaxActiveAddressesRule(w http.ResponseWriter, r *http.Request, deviceId ID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
@@ -2467,12 +2445,12 @@ func (siw *ServerInterfaceWrapper) DeleteNetworkPolicy(w http.ResponseWriter, r 
 
 	var err error
 
-	// ------------- Path parameter "id" -------------
-	var id ID
+	// ------------- Path parameter "policy_id" -------------
+	var policyId ID
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "policy_id", chi.URLParam(r, "policy_id"), &policyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "policy_id", Err: err})
 		return
 	}
 
@@ -2483,7 +2461,7 @@ func (siw *ServerInterfaceWrapper) DeleteNetworkPolicy(w http.ResponseWriter, r 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteNetworkPolicy(w, r, id)
+		siw.Handler.DeleteNetworkPolicy(w, r, policyId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2498,12 +2476,12 @@ func (siw *ServerInterfaceWrapper) GetNetworkPolicy(w http.ResponseWriter, r *ht
 
 	var err error
 
-	// ------------- Path parameter "id" -------------
-	var id ID
+	// ------------- Path parameter "policy_id" -------------
+	var policyId ID
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "policy_id", chi.URLParam(r, "policy_id"), &policyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "policy_id", Err: err})
 		return
 	}
 
@@ -2514,7 +2492,7 @@ func (siw *ServerInterfaceWrapper) GetNetworkPolicy(w http.ResponseWriter, r *ht
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetNetworkPolicy(w, r, id)
+		siw.Handler.GetNetworkPolicy(w, r, policyId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2529,12 +2507,12 @@ func (siw *ServerInterfaceWrapper) UpdateNetworkPolicy(w http.ResponseWriter, r 
 
 	var err error
 
-	// ------------- Path parameter "id" -------------
-	var id ID
+	// ------------- Path parameter "policy_id" -------------
+	var policyId ID
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "policy_id", chi.URLParam(r, "policy_id"), &policyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "policy_id", Err: err})
 		return
 	}
 
@@ -2545,7 +2523,7 @@ func (siw *ServerInterfaceWrapper) UpdateNetworkPolicy(w http.ResponseWriter, r 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateNetworkPolicy(w, r, id)
+		siw.Handler.UpdateNetworkPolicy(w, r, policyId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2560,12 +2538,12 @@ func (siw *ServerInterfaceWrapper) UpdateNetworkPolicyAccess(w http.ResponseWrit
 
 	var err error
 
-	// ------------- Path parameter "id" -------------
-	var id ID
+	// ------------- Path parameter "policy_id" -------------
+	var policyId ID
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "policy_id", chi.URLParam(r, "policy_id"), &policyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "policy_id", Err: err})
 		return
 	}
 
@@ -2576,7 +2554,7 @@ func (siw *ServerInterfaceWrapper) UpdateNetworkPolicyAccess(w http.ResponseWrit
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateNetworkPolicyAccess(w, r, id)
+		siw.Handler.UpdateNetworkPolicyAccess(w, r, policyId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2960,37 +2938,6 @@ func (siw *ServerInterfaceWrapper) DemoteUser(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
-// GetDevicesByUser operation middleware
-func (siw *ServerInterfaceWrapper) GetDevicesByUser(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "user_id" -------------
-	var userId ID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "user_id", chi.URLParam(r, "user_id"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_id", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetDevicesByUser(w, r, userId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // PromoteUser operation middleware
 func (siw *ServerInterfaceWrapper) PromoteUser(w http.ResponseWriter, r *http.Request) {
 
@@ -3330,37 +3277,6 @@ func (siw *ServerInterfaceWrapper) DeleteDevice(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteDevice(w, r, deviceId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetDevice operation middleware
-func (siw *ServerInterfaceWrapper) GetDevice(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "device_id" -------------
-	var deviceId ID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "device_id", chi.URLParam(r, "device_id"), &deviceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "device_id", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetDevice(w, r, deviceId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4009,16 +3925,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/admin/access/network-policies", wrapper.CreateNetworkPolicy)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/admin/access/network-policies/{id}", wrapper.DeleteNetworkPolicy)
+		r.Delete(options.BaseURL+"/admin/access/network-policies/{policy_id}", wrapper.DeleteNetworkPolicy)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/admin/access/network-policies/{id}", wrapper.GetNetworkPolicy)
+		r.Get(options.BaseURL+"/admin/access/network-policies/{policy_id}", wrapper.GetNetworkPolicy)
 	})
 	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/admin/access/network-policies/{id}", wrapper.UpdateNetworkPolicy)
+		r.Put(options.BaseURL+"/admin/access/network-policies/{policy_id}", wrapper.UpdateNetworkPolicy)
 	})
 	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/admin/access/network-policies/{id}/grants", wrapper.UpdateNetworkPolicyAccess)
+		r.Put(options.BaseURL+"/admin/access/network-policies/{policy_id}/grants", wrapper.UpdateNetworkPolicyAccess)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/admin/access/users", wrapper.ListUsersWithAccess)
@@ -4060,9 +3976,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/admin/users/{user_id}/demote", wrapper.DemoteUser)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/admin/users/{user_id}/devices", wrapper.GetDevicesByUser)
-	})
-	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/admin/users/{user_id}/promote", wrapper.PromoteUser)
 	})
 	r.Group(func(r chi.Router) {
@@ -4099,9 +4012,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/devices/{device_id}", wrapper.DeleteDevice)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/devices/{device_id}", wrapper.GetDevice)
-	})
-	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/devices/{device_id}", wrapper.UpdateDevice)
 	})
 	r.Group(func(r chi.Router) {
@@ -4123,22 +4033,22 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/devices/{device_id}/heartbeat", wrapper.DeviceHeartbeat)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/devices/{device_id}/rules/address_lease", wrapper.DisableDeviceAddressLeaseRule)
+		r.Delete(options.BaseURL+"/devices/{device_id}/rules/address-lease", wrapper.DisableDeviceAddressLeaseRule)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/devices/{device_id}/rules/address_lease", wrapper.GetDeviceAddressLeaseRule)
+		r.Get(options.BaseURL+"/devices/{device_id}/rules/address-lease", wrapper.GetDeviceAddressLeaseRule)
 	})
 	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/devices/{device_id}/rules/address_lease", wrapper.PutDeviceAddressLeaseRule)
+		r.Put(options.BaseURL+"/devices/{device_id}/rules/address-lease", wrapper.PutDeviceAddressLeaseRule)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/devices/{device_id}/rules/max_active_addresses", wrapper.DisableMaxActiveAddressesRule)
+		r.Delete(options.BaseURL+"/devices/{device_id}/rules/max-active-addresses", wrapper.DisableMaxActiveAddressesRule)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/devices/{device_id}/rules/max_active_addresses", wrapper.GetMaxActiveAddressesRule)
+		r.Get(options.BaseURL+"/devices/{device_id}/rules/max-active-addresses", wrapper.GetMaxActiveAddressesRule)
 	})
 	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/devices/{device_id}/rules/max_active_addresses", wrapper.PutMaxActiveAddressesRule)
+		r.Put(options.BaseURL+"/devices/{device_id}/rules/max-active-addresses", wrapper.PutMaxActiveAddressesRule)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/heartbeat", wrapper.DeviceHeartbeatByAPIKey)
@@ -4829,7 +4739,7 @@ func (response CreateNetworkPolicy500JSONResponse) VisitCreateNetworkPolicyRespo
 }
 
 type DeleteNetworkPolicyRequestObject struct {
-	Id ID `json:"id"`
+	PolicyId ID `json:"policy_id"`
 }
 
 type DeleteNetworkPolicyResponseObject interface {
@@ -4880,7 +4790,7 @@ func (response DeleteNetworkPolicy500JSONResponse) VisitDeleteNetworkPolicyRespo
 }
 
 type GetNetworkPolicyRequestObject struct {
-	Id ID `json:"id"`
+	PolicyId ID `json:"policy_id"`
 }
 
 type GetNetworkPolicyResponseObject interface {
@@ -4932,8 +4842,8 @@ func (response GetNetworkPolicy500JSONResponse) VisitGetNetworkPolicyResponse(w 
 }
 
 type UpdateNetworkPolicyRequestObject struct {
-	Id   ID `json:"id"`
-	Body *UpdateNetworkPolicyJSONRequestBody
+	PolicyId ID `json:"policy_id"`
+	Body     *UpdateNetworkPolicyJSONRequestBody
 }
 
 type UpdateNetworkPolicyResponseObject interface {
@@ -5002,8 +4912,8 @@ func (response UpdateNetworkPolicy500JSONResponse) VisitUpdateNetworkPolicyRespo
 }
 
 type UpdateNetworkPolicyAccessRequestObject struct {
-	Id   ID `json:"id"`
-	Body *UpdateNetworkPolicyAccessJSONRequestBody
+	PolicyId ID `json:"policy_id"`
+	Body     *UpdateNetworkPolicyAccessJSONRequestBody
 }
 
 type UpdateNetworkPolicyAccessResponseObject interface {
@@ -5713,50 +5623,6 @@ func (response DemoteUser500JSONResponse) VisitDemoteUserResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetDevicesByUserRequestObject struct {
-	UserId ID `json:"user_id"`
-}
-
-type GetDevicesByUserResponseObject interface {
-	VisitGetDevicesByUserResponse(w http.ResponseWriter) error
-}
-
-type GetDevicesByUser200JSONResponse []Device
-
-func (response GetDevicesByUser200JSONResponse) VisitGetDevicesByUserResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetDevicesByUser403JSONResponse ErrorResponse
-
-func (response GetDevicesByUser403JSONResponse) VisitGetDevicesByUserResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(403)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetDevicesByUser404JSONResponse ErrorResponse
-
-func (response GetDevicesByUser404JSONResponse) VisitGetDevicesByUserResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetDevicesByUser500JSONResponse ErrorResponse
-
-func (response GetDevicesByUser500JSONResponse) VisitGetDevicesByUserResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type PromoteUserRequestObject struct {
 	UserId ID `json:"user_id"`
 	Body   *PromoteUserJSONRequestBody
@@ -6143,7 +6009,7 @@ type CreateDeviceResponseObject interface {
 	VisitCreateDeviceResponse(w http.ResponseWriter) error
 }
 
-type CreateDevice201JSONResponse CreateDeviceResponse
+type CreateDevice201JSONResponse Device
 
 func (response CreateDevice201JSONResponse) VisitCreateDeviceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -6207,41 +6073,6 @@ func (response DeleteDevice404JSONResponse) VisitDeleteDeviceResponse(w http.Res
 type DeleteDevice500JSONResponse ErrorResponse
 
 func (response DeleteDevice500JSONResponse) VisitDeleteDeviceResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetDeviceRequestObject struct {
-	DeviceId ID `json:"device_id"`
-}
-
-type GetDeviceResponseObject interface {
-	VisitGetDeviceResponse(w http.ResponseWriter) error
-}
-
-type GetDevice200JSONResponse Device
-
-func (response GetDevice200JSONResponse) VisitGetDeviceResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetDevice404JSONResponse ErrorResponse
-
-func (response GetDevice404JSONResponse) VisitGetDeviceResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetDevice500JSONResponse ErrorResponse
-
-func (response GetDevice500JSONResponse) VisitGetDeviceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -7030,16 +6861,16 @@ type StrictServerInterface interface {
 	// (POST /admin/access/network-policies)
 	CreateNetworkPolicy(ctx context.Context, request CreateNetworkPolicyRequestObject) (CreateNetworkPolicyResponseObject, error)
 	// Delete a network policy
-	// (DELETE /admin/access/network-policies/{id})
+	// (DELETE /admin/access/network-policies/{policy_id})
 	DeleteNetworkPolicy(ctx context.Context, request DeleteNetworkPolicyRequestObject) (DeleteNetworkPolicyResponseObject, error)
 	// Get network policy detail
-	// (GET /admin/access/network-policies/{id})
+	// (GET /admin/access/network-policies/{policy_id})
 	GetNetworkPolicy(ctx context.Context, request GetNetworkPolicyRequestObject) (GetNetworkPolicyResponseObject, error)
 	// Update policy metadata
-	// (PUT /admin/access/network-policies/{id})
+	// (PUT /admin/access/network-policies/{policy_id})
 	UpdateNetworkPolicy(ctx context.Context, request UpdateNetworkPolicyRequestObject) (UpdateNetworkPolicyResponseObject, error)
 	// Atomically replace a policy's access grants
-	// (PUT /admin/access/network-policies/{id}/grants)
+	// (PUT /admin/access/network-policies/{policy_id}/grants)
 	UpdateNetworkPolicyAccess(ctx context.Context, request UpdateNetworkPolicyAccessRequestObject) (UpdateNetworkPolicyAccessResponseObject, error)
 	// List users with host access summary
 	// (GET /admin/access/users)
@@ -7080,9 +6911,6 @@ type StrictServerInterface interface {
 	// Superadmin only. Demote an admin to regular user
 	// (POST /admin/users/{user_id}/demote)
 	DemoteUser(ctx context.Context, request DemoteUserRequestObject) (DemoteUserResponseObject, error)
-	// List devices owned by a user
-	// (GET /admin/users/{user_id}/devices)
-	GetDevicesByUser(ctx context.Context, request GetDevicesByUserRequestObject) (GetDevicesByUserResponseObject, error)
 	// Superadmin only. Promote a user to admin
 	// (POST /admin/users/{user_id}/promote)
 	PromoteUser(ctx context.Context, request PromoteUserRequestObject) (PromoteUserResponseObject, error)
@@ -7119,9 +6947,6 @@ type StrictServerInterface interface {
 	// Delete a device
 	// (DELETE /devices/{device_id})
 	DeleteDevice(ctx context.Context, request DeleteDeviceRequestObject) (DeleteDeviceResponseObject, error)
-	// Get a device
-	// (GET /devices/{device_id})
-	GetDevice(ctx context.Context, request GetDeviceRequestObject) (GetDeviceResponseObject, error)
 	// Update device profile
 	// (PATCH /devices/{device_id})
 	UpdateDevice(ctx context.Context, request UpdateDeviceRequestObject) (UpdateDeviceResponseObject, error)
@@ -7144,22 +6969,22 @@ type StrictServerInterface interface {
 	// (POST /devices/{device_id}/heartbeat)
 	DeviceHeartbeat(ctx context.Context, request DeviceHeartbeatRequestObject) (DeviceHeartbeatResponseObject, error)
 	// Disable device lease rule for a device
-	// (DELETE /devices/{device_id}/rules/address_lease)
+	// (DELETE /devices/{device_id}/rules/address-lease)
 	DisableDeviceAddressLeaseRule(ctx context.Context, request DisableDeviceAddressLeaseRuleRequestObject) (DisableDeviceAddressLeaseRuleResponseObject, error)
 	// Get address lease rule for a device
-	// (GET /devices/{device_id}/rules/address_lease)
+	// (GET /devices/{device_id}/rules/address-lease)
 	GetDeviceAddressLeaseRule(ctx context.Context, request GetDeviceAddressLeaseRuleRequestObject) (GetDeviceAddressLeaseRuleResponseObject, error)
 	// Create or update IP auto-expiry rule for a device
-	// (PUT /devices/{device_id}/rules/address_lease)
+	// (PUT /devices/{device_id}/rules/address-lease)
 	PutDeviceAddressLeaseRule(ctx context.Context, request PutDeviceAddressLeaseRuleRequestObject) (PutDeviceAddressLeaseRuleResponseObject, error)
 	// Disable max active addresses rule for a device
-	// (DELETE /devices/{device_id}/rules/max_active_addresses)
+	// (DELETE /devices/{device_id}/rules/max-active-addresses)
 	DisableMaxActiveAddressesRule(ctx context.Context, request DisableMaxActiveAddressesRuleRequestObject) (DisableMaxActiveAddressesRuleResponseObject, error)
 	// Get max active addresses rule for a device
-	// (GET /devices/{device_id}/rules/max_active_addresses)
+	// (GET /devices/{device_id}/rules/max-active-addresses)
 	GetMaxActiveAddressesRule(ctx context.Context, request GetMaxActiveAddressesRuleRequestObject) (GetMaxActiveAddressesRuleResponseObject, error)
 	// Create or update max active addresses rule for a device
-	// (PUT /devices/{device_id}/rules/max_active_addresses)
+	// (PUT /devices/{device_id}/rules/max-active-addresses)
 	PutMaxActiveAddressesRule(ctx context.Context, request PutMaxActiveAddressesRuleRequestObject) (PutMaxActiveAddressesRuleResponseObject, error)
 	// Performs a heartbeat with the given api key header
 	// (POST /heartbeat)
@@ -7553,10 +7378,10 @@ func (sh *strictHandler) CreateNetworkPolicy(w http.ResponseWriter, r *http.Requ
 }
 
 // DeleteNetworkPolicy operation middleware
-func (sh *strictHandler) DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+func (sh *strictHandler) DeleteNetworkPolicy(w http.ResponseWriter, r *http.Request, policyId ID) {
 	var request DeleteNetworkPolicyRequestObject
 
-	request.Id = id
+	request.PolicyId = policyId
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteNetworkPolicy(ctx, request.(DeleteNetworkPolicyRequestObject))
@@ -7579,10 +7404,10 @@ func (sh *strictHandler) DeleteNetworkPolicy(w http.ResponseWriter, r *http.Requ
 }
 
 // GetNetworkPolicy operation middleware
-func (sh *strictHandler) GetNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+func (sh *strictHandler) GetNetworkPolicy(w http.ResponseWriter, r *http.Request, policyId ID) {
 	var request GetNetworkPolicyRequestObject
 
-	request.Id = id
+	request.PolicyId = policyId
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.GetNetworkPolicy(ctx, request.(GetNetworkPolicyRequestObject))
@@ -7605,10 +7430,10 @@ func (sh *strictHandler) GetNetworkPolicy(w http.ResponseWriter, r *http.Request
 }
 
 // UpdateNetworkPolicy operation middleware
-func (sh *strictHandler) UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request, id ID) {
+func (sh *strictHandler) UpdateNetworkPolicy(w http.ResponseWriter, r *http.Request, policyId ID) {
 	var request UpdateNetworkPolicyRequestObject
 
-	request.Id = id
+	request.PolicyId = policyId
 
 	var body UpdateNetworkPolicyJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -7638,10 +7463,10 @@ func (sh *strictHandler) UpdateNetworkPolicy(w http.ResponseWriter, r *http.Requ
 }
 
 // UpdateNetworkPolicyAccess operation middleware
-func (sh *strictHandler) UpdateNetworkPolicyAccess(w http.ResponseWriter, r *http.Request, id ID) {
+func (sh *strictHandler) UpdateNetworkPolicyAccess(w http.ResponseWriter, r *http.Request, policyId ID) {
 	var request UpdateNetworkPolicyAccessRequestObject
 
-	request.Id = id
+	request.PolicyId = policyId
 
 	var body UpdateNetworkPolicyAccessJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -8019,32 +7844,6 @@ func (sh *strictHandler) DemoteUser(w http.ResponseWriter, r *http.Request, user
 	}
 }
 
-// GetDevicesByUser operation middleware
-func (sh *strictHandler) GetDevicesByUser(w http.ResponseWriter, r *http.Request, userId ID) {
-	var request GetDevicesByUserRequestObject
-
-	request.UserId = userId
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetDevicesByUser(ctx, request.(GetDevicesByUserRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetDevicesByUser")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetDevicesByUserResponseObject); ok {
-		if err := validResponse.VisitGetDevicesByUserResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // PromoteUser operation middleware
 func (sh *strictHandler) PromoteUser(w http.ResponseWriter, r *http.Request, userId ID) {
 	var request PromoteUserRequestObject
@@ -8359,32 +8158,6 @@ func (sh *strictHandler) DeleteDevice(w http.ResponseWriter, r *http.Request, de
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DeleteDeviceResponseObject); ok {
 		if err := validResponse.VisitDeleteDeviceResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetDevice operation middleware
-func (sh *strictHandler) GetDevice(w http.ResponseWriter, r *http.Request, deviceId ID) {
-	var request GetDeviceRequestObject
-
-	request.DeviceId = deviceId
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetDevice(ctx, request.(GetDeviceRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetDevice")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetDeviceResponseObject); ok {
-		if err := validResponse.VisitGetDeviceResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8886,229 +8659,226 @@ func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"AP//EQdoyBR3AQA=",
+	"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",
+	"Pn75fwEAAP//XAOu8qZwAQA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

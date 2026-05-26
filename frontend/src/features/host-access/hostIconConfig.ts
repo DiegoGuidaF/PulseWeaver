@@ -23,6 +23,13 @@ import {
   IconWorldWww,
 } from "@tabler/icons-react";
 import type { Icon as TablerIcon } from "@tabler/icons-react";
+import {
+  EMOJI_RE,
+  makeEmojiRenderer,
+  makeTablerRenderer,
+  validateIconWithMap,
+} from "@/lib/iconUtils";
+export type { IconRenderer, IconValidation } from "@/lib/iconUtils";
 
 export const HOST_ICON_OPTIONS: { name: string; icon: TablerIcon }[] = [
   { name: "IconServer", icon: IconServer },
@@ -51,41 +58,15 @@ export const HOST_ICON_OPTIONS: { name: string; icon: TablerIcon }[] = [
 
 const HOST_ICON_MAP = new Map(HOST_ICON_OPTIONS.map(({ name, icon }) => [name, icon]));
 
-export function getHostIcon(icon?: string | null): TablerIcon {
-  if (icon) {
-    const resolved = HOST_ICON_MAP.get(icon);
-    if (resolved) return resolved;
-  }
-  return IconServer;
-}
-
-export type ResolvedHostIcon =
-  | { kind: "tabler"; icon: TablerIcon }
-  | { kind: "emoji"; value: string };
-
-// A single grapheme cluster whose first codepoint is an Extended_Pictographic.
-// Allows VS16 (U+FE0F) and ZWJ sequences (U+200D) — covers emoji like 👨‍👩‍👧.
-const EMOJI_RE =
-  /^\p{Extended_Pictographic}(️|‍\p{Extended_Pictographic}️?)*$/u;
-
-export function resolveHostIcon(icon: string | null | undefined): ResolvedHostIcon {
+export function resolveHostIcon(icon?: string | null) {
   if (icon) {
     const tabler = HOST_ICON_MAP.get(icon);
-    if (tabler) return { kind: "tabler", icon: tabler };
-    if (EMOJI_RE.test(icon)) return { kind: "emoji", value: icon };
+    if (tabler) return makeTablerRenderer(tabler);
+    if (EMOJI_RE.test(icon)) return makeEmojiRenderer(icon);
   }
-  return { kind: "tabler", icon: IconServer };
+  return makeTablerRenderer(IconServer);
 }
 
-export type IconValidation = { ok: true } | { ok: false; reason: string };
-
-export function validateIconInput(raw: string): IconValidation {
-  const trimmed = raw.trim();
-  if (trimmed === "") return { ok: true };
-  if (HOST_ICON_MAP.has(trimmed)) return { ok: true };
-  if (EMOJI_RE.test(trimmed)) return { ok: true };
-  return {
-    ok: false,
-    reason: "Enter a single emoji or pick an icon from the suggestions.",
-  };
+export function validateIconInput(raw: string) {
+  return validateIconWithMap(HOST_ICON_MAP, raw);
 }
