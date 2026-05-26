@@ -17,18 +17,18 @@ import (
 )
 
 type DeviceView struct {
-	ID           ids.DeviceID      `db:"id"`
-	Name         string            `db:"name"`
-	DeviceType   device.DeviceType `db:"device_type"`
-	Description  *string           `db:"description"`
-	Icon         *string           `db:"icon"`
-	CreatedAt    time.Time         `db:"created_at"`
-	UpdatedAt    time.Time         `db:"updated_at"`
-	KeyPrefix    *string           `db:"key_prefix"`
-	AddressCount int               `db:"address_count"`
-	LastSeenAt   *database.DBTime  `db:"last_seen_at"`
-	OwnerID      ids.UserID        `db:"owner_id"`
-	OwnerName    string            `db:"owner_name"`
+	ID               ids.DeviceID      `db:"id"`
+	Name             string            `db:"name"`
+	DeviceType       device.DeviceType `db:"device_type"`
+	Description      *string           `db:"description"`
+	Icon             *string           `db:"icon"`
+	CreatedAt        time.Time         `db:"created_at"`
+	UpdatedAt        time.Time         `db:"updated_at"`
+	KeyPrefix        *string           `db:"key_prefix"`
+	LiveAddressCount int               `db:"live_address_count"`
+	LastSeenAt       *database.DBTime  `db:"last_seen_at"`
+	OwnerID          ids.UserID        `db:"owner_id"`
+	OwnerName        string            `db:"owner_name"`
 }
 
 // deviceListRow is the scan target for the main device+owner query.
@@ -100,8 +100,8 @@ func (r *Repository) fetchDeviceListRows(ctx context.Context) ([]deviceListRow, 
 			d.icon,
 			dk.key_prefix,
 			d.created_at,
-			COUNT(a.id)                        AS live_address_count,
-			MAX(a.updated_at)                  AS last_seen_at,
+			COUNT(CASE WHEN a.is_enabled = 1 THEN a.id END) AS live_address_count,
+			MAX(a.updated_at)                              AS last_seen_at,
 			u.id                               AS owner_id,
 			u.username                         AS owner_username,
 			u.display_name                     AS owner_display_name,
@@ -115,7 +115,7 @@ func (r *Repository) fetchDeviceListRows(ctx context.Context) ([]deviceListRow, 
 		JOIN  users u ON u.id = d.owner_id
 		LEFT JOIN user_host_settings uhs ON uhs.user_id = u.id
 		LEFT JOIN device_api_keys dk     ON dk.device_id = d.id
-		LEFT JOIN addresses a            ON a.device_id = d.id AND a.is_enabled = 1
+		LEFT JOIN addresses a            ON a.device_id = d.id
 		LEFT JOIN device_rules dr_lease  ON dr_lease.device_id = d.id
 		                                 AND dr_lease.rule_type = 'device_lease'
 		LEFT JOIN device_rules dr_max    ON dr_max.device_id = d.id
@@ -290,14 +290,14 @@ func (r *Repository) GetDevicesByUser(ctx context.Context, userID ids.UserID) ([
 			d.created_at,
 			d.updated_at,
 			dk.key_prefix,
-			COUNT(a.id)       AS address_count,
-			MAX(a.updated_at) AS last_seen_at,
+			COUNT(CASE WHEN a.is_enabled = 1 THEN a.id END) AS live_address_count,
+			MAX(a.updated_at)                              AS last_seen_at,
 			d.owner_id,
 			u.display_name    AS owner_name
 		FROM devices d
 		JOIN  users u             ON u.id = d.owner_id
 		LEFT JOIN device_api_keys dk ON dk.device_id = d.id
-		LEFT JOIN addresses a        ON a.device_id = d.id AND a.is_enabled = 1
+		LEFT JOIN addresses a        ON a.device_id = d.id
 		WHERE d.deleted_at IS NULL AND d.owner_id = ?
 		GROUP BY d.id, d.name, d.device_type, d.description, d.icon,
 		         d.created_at, d.updated_at, dk.key_prefix, d.owner_id, u.display_name
