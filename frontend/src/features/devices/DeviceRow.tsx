@@ -1,25 +1,14 @@
-import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Group, Text, ThemeIcon, UnstyledButton } from "@mantine/core";
-import { IconChevronRight, IconDevices } from "@tabler/icons-react";
+import { Box, Group, ThemeIcon, UnstyledButton, Text } from "@mantine/core";
+import { IconChevronRight } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import type { DeviceListEntry } from "@/lib/api";
-import { ICON_PICKER_OPTIONS } from "@/features/devices/deviceTypeConfig";
+import { resolveDeviceIcon } from "@/features/devices/deviceTypeConfig";
 import { DeviceState } from "@/lib/api";
 import { RuleChips } from "@/features/devices/RuleChips";
 
 dayjs.extend(relativeTime);
-
-const ICON_MAP = new Map(ICON_PICKER_OPTIONS.map(({ name, icon }) => [name, icon]));
-
-function getDeviceListIcon(icon?: string | null) {
-  if (icon) {
-    const resolved = ICON_MAP.get(icon);
-    if (resolved) return resolved;
-  }
-  return IconDevices;
-}
 
 const MAX_PIPS = 3;
 
@@ -65,7 +54,7 @@ interface Props {
 
 export function DeviceRow({ entry, ownerId }: Props) {
   const navigate = useNavigate();
-  const Icon = getDeviceListIcon(entry.icon);
+  const renderIcon = resolveDeviceIcon(entry.icon);
   const lastSeenText = entry.last_seen_at
     ? dayjs(entry.last_seen_at).fromNow()
     : "never seen";
@@ -81,7 +70,7 @@ export function DeviceRow({ entry, ownerId }: Props) {
       >
         <Group gap="sm" align="center" wrap="nowrap" px="xs" py={8}>
           <ThemeIcon variant="transparent" size="md" c={isStale ? "dimmed" : undefined}>
-            {React.createElement(Icon, { size: 18, stroke: 1.5 })}
+            {renderIcon({ size: 18 })}
           </ThemeIcon>
 
           <Box style={{ flex: 1, minWidth: 0 }}>

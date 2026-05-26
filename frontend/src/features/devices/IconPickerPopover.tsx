@@ -1,5 +1,9 @@
-import { ActionIcon, Popover, SimpleGrid } from "@mantine/core";
-import { ICON_PICKER_OPTIONS } from "@/features/devices/deviceTypeConfig";
+import React, { useState } from "react";
+import { ActionIcon, Input, Popover, SimpleGrid } from "@mantine/core";
+import {
+  ICON_PICKER_OPTIONS,
+  validateDeviceIconInput,
+} from "@/features/devices/deviceTypeConfig";
 
 export interface IconPickerPopoverProps {
   opened: boolean;
@@ -16,6 +20,21 @@ export function IconPickerPopover({
   selectedIcon,
   onSelect,
 }: IconPickerPopoverProps) {
+  const isEmoji = selectedIcon !== "" && !ICON_PICKER_OPTIONS.some((o) => o.name === selectedIcon);
+  const [draft, setDraft] = useState(isEmoji ? selectedIcon : "");
+
+  const validation = validateDeviceIconInput(draft);
+  const errorMsg = validation.ok ? null : validation.reason;
+
+  function commitDraft(next: string) {
+    setDraft(next);
+    const trimmed = next.trim();
+    const v = validateDeviceIconInput(trimmed);
+    if (!v.ok || trimmed === "") return;
+    const isTabler = ICON_PICKER_OPTIONS.some((o) => o.name === trimmed);
+    if (!isTabler) onSelect(trimmed);
+  }
+
   return (
     <Popover
       opened={opened}
@@ -34,14 +53,25 @@ export function IconPickerPopover({
               size="lg"
               aria-label={name}
               onClick={() => {
+                setDraft("");
                 onSelect(name);
                 onClose();
               }}
             >
-              <Icon size={18} />
+              {React.createElement(Icon, { size: 18 })}
             </ActionIcon>
           ))}
         </SimpleGrid>
+
+        <Input.Wrapper error={errorMsg} mt={8}>
+          <Input
+            value={draft}
+            onChange={(e) => commitDraft(e.currentTarget.value)}
+            placeholder="or paste an emoji"
+            size="xs"
+            error={errorMsg !== null}
+          />
+        </Input.Wrapper>
       </Popover.Dropdown>
     </Popover>
   );

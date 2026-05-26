@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { schemaResolver, useForm } from "@mantine/form";
 import { z } from "zod";
 import {
   ActionIcon,
+  Anchor,
   Button,
   Group,
   Modal,
@@ -23,9 +25,10 @@ import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { IconPickerPopover } from "@/features/devices/IconPickerPopover";
 import type { DeviceType } from "@/features/devices/deviceTypeConfig";
-import { DEVICE_TYPE_CONFIG, getDeviceIcon, } from "@/features/devices/deviceTypeConfig";
+import { DEVICE_TYPE_CONFIG, getDeviceIcon, suggestIcon } from "@/features/devices/deviceTypeConfig";
 import { toApiError, toErrorMessage } from "@/lib/api-client";
-import { getDevicesQueryKey, updateDeviceMutation, } from "@/lib/api/@tanstack/react-query.gen";
+import { buildRoute } from "@/lib/routes";
+import { getDevicesQueryKey, updateDeviceMutation } from "@/lib/api/@tanstack/react-query.gen";
 import { zCreateDeviceRequest, zUpdateDeviceRequest } from "@/lib/api/zod.gen";
 import { IconX } from "@tabler/icons-react";
 
@@ -40,9 +43,11 @@ type FormValues = z.infer<typeof formSchema>;
 interface CreateDeviceModalProps {
   opened: boolean;
   onClose: () => void;
+  defaultOwnerId?: number | null;
 }
 
-export function CreateDeviceModal({ opened, onClose }: CreateDeviceModalProps) {
+export function CreateDeviceModal({ opened, onClose, defaultOwnerId }: CreateDeviceModalProps) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
   const { data: users } = useListUsers({ enabled: currentUser != null });
@@ -52,10 +57,16 @@ export function CreateDeviceModal({ opened, onClose }: CreateDeviceModalProps) {
     label: u.id === currentUser?.id ? `${u.display_name} (you)` : u.display_name,
   }));
 
-  const [selectedOwnerId, setSelectedOwnerId] = useState<number | null>(null);
+  const [selectedOwnerId, setSelectedOwnerId] = useState<number | null>(defaultOwnerId ?? null);
   const effectiveOwner = selectedOwnerId ?? (currentUser ? Number(currentUser.id) : null);
+  const [ownerEditing, setOwnerEditing] = useState(!defaultOwnerId);
+
+  const effectiveOwnerName = (users ?? []).find(
+    (u) => Number(u.id) === effectiveOwner,
+  )?.display_name ?? null;
 
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [iconAutoSuggested, setIconAutoSuggested] = useState(true);
 
   const form = useForm<FormValues>({
     validate: schemaResolver(formSchema),
@@ -67,10 +78,18 @@ export function CreateDeviceModal({ opened, onClose }: CreateDeviceModalProps) {
     },
   });
 
-  const { Icon: CurrentIcon, color: currentColor } = getDeviceIcon({
+  const { setFieldValue } = form;
+  const nameValue = form.values.name;
+  useEffect(() => {
+    if (!iconAutoSuggested) return;
+    setFieldValue("icon", suggestIcon(nameValue));
+  }, [nameValue, iconAutoSuggested, setFieldValue]);
+
+  const renderIcon = getDeviceIcon({
     device_type: form.values.device_type,
     icon: form.values.icon || null,
   });
+  const isIconAutoSuggested = iconAutoSuggested && !!form.values.icon;
 
   const segmentedData = (Object.keys(DEVICE_TYPE_CONFIG) as DeviceType[]).map(
     (v) => ({
@@ -86,6 +105,13 @@ export function CreateDeviceModal({ opened, onClose }: CreateDeviceModalProps) {
       queryClient.invalidateQueries({ queryKey: getDevicesQueryKey() });
     },
   });
+
+  function resetForm() {
+    form.reset();
+    setSelectedOwnerId(defaultOwnerId ?? null);
+    setOwnerEditing(!defaultOwnerId);
+    setIconAutoSuggested(true);
+  }
 
   const createDevice = useCreateDevice({
     onSuccess: (data) => {
@@ -111,15 +137,18 @@ export function CreateDeviceModal({ opened, onClose }: CreateDeviceModalProps) {
         );
       }
 
-      form.reset();
-      setSelectedOwnerId(null);
+      resetForm();
       onClose();
+      if (effectiveOwner) {
+        navigate(
+          `${buildRoute.userDeviceWorkspace(effectiveOwner)}?device=${data.id}&tab=addresses`,
+        );
+      }
     },
   });
 
   function handleClose() {
-    form.reset();
-    setSelectedOwnerId(null);
+    resetForm();
     onClose();
   }
 
@@ -162,14 +191,35 @@ export function CreateDeviceModal({ opened, onClose }: CreateDeviceModalProps) {
               {...form.getInputProps("name")}
             />
 
-            <Select
-              label="Owner"
-              description="Defaults to you."
-              data={ownerOptions}
-              value={effectiveOwner}
-              onChange={setSelectedOwnerId}
-              searchable
-            />
+            {ownerEditing ? (
+              <Select
+                label="Owner"
+                data={ownerOptions}
+                value={effectiveOwner}
+                onChange={(val) => {
+                  setSelectedOwnerId(val as unknown as number | null);
+                  if (val) setOwnerEditing(false);
+                }}
+                searchable
+                autoFocus
+              />
+            ) : (
+              <div>
+                <Text size="sm" fw={500} mb={4}>Owner</Text>
+                <Group gap="xs" align="center">
+                  <Text size="sm">{effectiveOwnerName ?? "—"}</Text>
+                  <Anchor
+                    component="button"
+                    type="button"
+                    size="xs"
+                    c="dimmed"
+                    onClick={() => setOwnerEditing(true)}
+                  >
+                    change
+                  </Anchor>
+                </Group>
+              </div>
+            )}
 
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
               <div>
@@ -194,7 +244,10 @@ export function CreateDeviceModal({ opened, onClose }: CreateDeviceModalProps) {
                     opened={iconPickerOpen}
                     onClose={() => setIconPickerOpen(false)}
                     selectedIcon={form.values.icon}
-                    onSelect={(name) => form.setFieldValue("icon", name)}
+                    onSelect={(name) => {
+                      setIconAutoSuggested(false);
+                      form.setFieldValue("icon", name);
+                    }}
                     target={
                       <Tooltip label={form.values.icon || "Type default"} withArrow>
                         <UnstyledButton
@@ -211,15 +264,7 @@ export function CreateDeviceModal({ opened, onClose }: CreateDeviceModalProps) {
                             cursor: "pointer",
                           }}
                         >
-                          <CurrentIcon
-                            size={20}
-                            style={{
-                              color:
-                                currentColor === "dimmed"
-                                  ? "var(--mantine-color-dimmed)"
-                                  : `var(--mantine-color-${currentColor}-filled)`,
-                            }}
-                          />
+                            {renderIcon({ size: 20 })}
                         </UnstyledButton>
                       </Tooltip>
                     }
@@ -230,12 +275,20 @@ export function CreateDeviceModal({ opened, onClose }: CreateDeviceModalProps) {
                       color="dimmed"
                       size="sm"
                       aria-label="Clear icon override"
-                      onClick={() => form.setFieldValue("icon", "")}
+                      onClick={() => {
+                        setIconAutoSuggested(true);
+                        form.setFieldValue("icon", suggestIcon(form.values.name));
+                      }}
                     >
                       <IconX size={14} />
                     </ActionIcon>
                   )}
                 </Group>
+                {isIconAutoSuggested && (
+                  <Text size="xs" c="dimmed" mt={4}>
+                    suggested from name
+                  </Text>
+                )}
               </div>
             </SimpleGrid>
 

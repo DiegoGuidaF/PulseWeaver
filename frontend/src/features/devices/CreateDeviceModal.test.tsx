@@ -1,21 +1,36 @@
 import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { delay, http } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
+import { useLocation } from 'react-router-dom';
 import { server } from '@/test/setup';
 import { renderWithProviders } from '@/test/utils';
 import { CreateDeviceModal } from './CreateDeviceModal';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { deviceHandlers, endpoints, responses } from '@/test/mocks/handlers';
 import { createMockDevice } from '@/test/mocks/data';
+import type { ComponentProps } from 'react';
 
-function renderModal(onClose: () => void = vi.fn()) {
-    return renderWithProviders(<CreateDeviceModal opened={true} onClose={onClose} />);
+type ModalProps = Partial<ComponentProps<typeof CreateDeviceModal>>;
+
+function LocationDisplay() {
+    const loc = useLocation();
+    return <div data-testid="location">{loc.pathname}{loc.search}</div>;
+}
+
+function renderModal(props: ModalProps = {}) {
+    const onClose = props.onClose ?? vi.fn();
+    return renderWithProviders(
+        <>
+            <CreateDeviceModal opened={true} onClose={onClose} {...props} />
+            <LocationDisplay />
+        </>
+    );
 }
 
 describe('CreateDeviceModal', () => {
     it('renders form with name input and submit button', () => {
-        renderModal();
+        renderModal({});
 
         expect(screen.getByLabelText('Name')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /create device/i })).toBeInTheDocument();
@@ -23,7 +38,7 @@ describe('CreateDeviceModal', () => {
 
     it('shows validation error for empty name', async () => {
         const user = userEvent.setup();
-        renderModal();
+        renderModal({});
 
         const input = screen.getByLabelText('Name');
         await user.click(screen.getByRole('button', { name: /create device/i }));
@@ -47,7 +62,7 @@ describe('CreateDeviceModal', () => {
             })
         );
 
-        renderModal();
+        renderModal({});
 
         await user.type(screen.getByLabelText('Name'), 'Test Device');
         await user.click(screen.getByRole('button', { name: /create device/i }));
@@ -59,9 +74,13 @@ describe('CreateDeviceModal', () => {
         const user = userEvent.setup();
         const onClose = vi.fn();
 
-        // defaultHandlers provides create.success() — no server.use() needed
+        server.use(
+            http.post(endpoints.devices, () =>
+                HttpResponse.json(createMockDevice(), { status: 201 })
+            )
+        );
 
-        renderModal(onClose);
+        renderModal({ onClose });
 
         await user.type(screen.getByLabelText('Name'), 'New Device');
         await user.click(screen.getByRole('button', { name: /create device/i }));
@@ -74,6 +93,31 @@ describe('CreateDeviceModal', () => {
         );
     });
 
+    it('navigates to the new device workspace after successful creation', async () => {
+        const user = userEvent.setup();
+
+        server.use(
+            http.post(endpoints.devices, () =>
+                HttpResponse.json(createMockDevice({ id: 42 }), { status: 201 })
+            )
+        );
+
+        renderModal({});
+
+        await user.type(screen.getByLabelText('Name'), 'My New Device');
+        await user.click(screen.getByRole('button', { name: /create device/i }));
+
+        await waitFor(
+            () => {
+                const loc = screen.getByTestId('location').textContent ?? '';
+                expect(loc).toContain('/user-devices/');
+                expect(loc).toContain('device=42');
+                expect(loc).toContain('tab=addresses');
+            },
+            { timeout: TEST_TIMEOUTS.MEDIUM }
+        );
+    });
+
     it('shows error toast on API error', async () => {
         const user = userEvent.setup();
 
@@ -81,7 +125,7 @@ describe('CreateDeviceModal', () => {
             http.post(endpoints.devices, () => responses.serverError())
         );
 
-        renderModal();
+        renderModal({});
 
         const input = screen.getByLabelText('Name');
         await user.type(input, 'Test Device');
@@ -103,7 +147,7 @@ describe('CreateDeviceModal', () => {
 
         server.use(deviceHandlers.create.conflict());
 
-        renderModal();
+        renderModal({});
 
         const input = screen.getByLabelText('Name');
         await user.type(input, 'Duplicate Name');

@@ -1,4 +1,3 @@
-import React from "react";
 import { useState } from "react";
 import {
   ActionIcon,
@@ -105,31 +104,10 @@ interface PreviewTileProps {
 }
 
 function PreviewTile({ value, color }: PreviewTileProps) {
-  const resolved = resolveHostIcon(value);
-  if (resolved.kind === "tabler") {
-    return (
-      <ThemeIcon
-        variant="light"
-        color={color}
-        size={36}
-        radius="md"
-        aria-label="Icon preview"
-      >
-        {React.createElement(resolved.icon, { size: 20, stroke: 1.5 })}
-      </ThemeIcon>
-    );
-  }
+  const renderIcon = resolveHostIcon(value);
   return (
-    <ThemeIcon
-      variant="light"
-      color={color}
-      size={36}
-      radius="md"
-      aria-label="Icon preview"
-    >
-      <Text size="lg" span>
-        {resolved.value}
-      </Text>
+    <ThemeIcon variant="light" color={color} size={36} radius="md" aria-label="Icon preview">
+      {renderIcon({ size: 20 })}
     </ThemeIcon>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActionIcon,
   Badge,
@@ -113,7 +113,7 @@ interface RowProps {
 
 function GroupRow({ group, selected, isDirty, isNew, isTombstoned, onClick }: RowProps) {
   const color = group.color;
-  const resolved = resolveHostIcon(group.icon);
+  const renderIcon = resolveHostIcon(group.icon);
   return (
     <UnstyledButton
       onClick={onClick}
@@ -130,13 +130,7 @@ function GroupRow({ group, selected, isDirty, isNew, isTombstoned, onClick }: Ro
       <Group gap="sm" wrap="nowrap" justify="space-between">
         <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
           <ThemeIcon variant="light" color={isTombstoned ? "red" : color} size="md" radius="md">
-            {resolved.kind === "tabler" ? (
-              React.createElement(resolved.icon, { size: 14, stroke: 1.5 })
-            ) : (
-              <Text size="sm" span>
-                {resolved.value}
-              </Text>
-            )}
+            {renderIcon({ size: 14 })}
           </ThemeIcon>
           <Box style={{ minWidth: 0 }}>
             <Group gap={4} wrap="nowrap">
