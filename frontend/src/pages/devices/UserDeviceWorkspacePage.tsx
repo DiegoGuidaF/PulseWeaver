@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { ROUTES } from "@/lib/routes";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import {
@@ -120,7 +121,7 @@ export function UserDeviceWorkspacePage() {
   const DeviceIcon = getDeviceIcon(selectedDevice?.icon);
 
   if (!userIdParam || Number.isNaN(userId)) {
-    return <Navigate to="/user-devices" replace />;
+    return <Navigate to={ROUTES.userDevices} replace />;
   }
 
   return (
@@ -144,7 +145,7 @@ export function UserDeviceWorkspacePage() {
         <Stack gap="lg">
           <Anchor
             component={Link}
-            to="/user-devices"
+            to={ROUTES.userDevices}
             c="dimmed"
             size="sm"
             style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
@@ -181,7 +182,7 @@ export function UserDeviceWorkspacePage() {
           ) : (
             <Text size="sm" c="dimmed">
               User not found.{" "}
-              <Anchor component={Link} to="/user-devices">Back to devices</Anchor>
+              <Anchor component={Link} to={ROUTES.userDevices}>Back to devices</Anchor>
             </Text>
           )}
         </Stack>

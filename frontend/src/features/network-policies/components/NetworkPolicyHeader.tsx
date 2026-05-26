@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { ROUTES } from "@/lib/routes";
 import {
     ActionIcon,
     Anchor,
@@ -149,7 +150,7 @@ export function NetworkPolicyHeader({ policy, onUpdate, onDelete, isUpdating, is
     return (
         <>
             <div>
-                <Anchor component={Link} to="/access/network-policies" size="sm" c="dimmed">
+                <Anchor component={Link} to={ROUTES.accessNetworkPolicies} size="sm" c="dimmed">
                     <Group gap={4}>
                         <IconChevronLeft size={14} />
                         Network Policies

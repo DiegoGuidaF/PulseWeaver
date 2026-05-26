@@ -37,6 +37,7 @@ import {
 } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useLogout } from "@/features/auth/hooks/useLogout";
+import { ROUTES } from "@/lib/routes";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { toErrorMessage } from "@/lib/api-client";
 import classes from "./AppShell.module.css";
@@ -55,35 +56,35 @@ type NavGroup = {
 const navGroups: NavGroup[] = [
     {
         label: null,
-        items: [{ label: "Dashboard", href: "/dashboard", icon: IconChartBar }],
+        items: [{ label: "Dashboard", href: ROUTES.dashboard, icon: IconChartBar }],
     },
     {
         label: "Devices",
         items: [
-            { label: "Devices", href: "/user-devices", icon: IconServer },
-            { label: "Provisioning", href: "/device-provisioning", icon: IconQrcode },
+            { label: "Devices", href: ROUTES.userDevices, icon: IconServer },
+            { label: "Provisioning", href: ROUTES.deviceProvisioning, icon: IconQrcode },
         ],
     },
     {
         label: "Access",
         items: [
-            { label: "Hosts", href: "/access/hosts", icon: IconShield },
-            { label: "Host Groups", href: "/access/host-groups", icon: IconFolder },
-            { label: "Users", href: "/access/users", icon: IconUsers },
-            { label: "Network Policies", href: "/access/network-policies", icon: IconNetwork },
+            { label: "Hosts", href: ROUTES.accessHosts, icon: IconShield },
+            { label: "Host Groups", href: ROUTES.accessHostGroups, icon: IconFolder },
+            { label: "Users", href: ROUTES.accessUsers, icon: IconUsers },
+            { label: "Network Policies", href: ROUTES.accessNetworkPolicies, icon: IconNetwork },
         ],
     },
     {
         label: "Auditing",
         items: [
-            { label: "Access Logs", href: "/access-log", icon: IconList },
-            { label: "IP Address Logs", href: "/address-history", icon: IconHistory },
-            { label: "Access Policy Cache", href: "/policy-audit", icon: IconDatabaseSearch },
+            { label: "Access Logs", href: ROUTES.accessLog, icon: IconList },
+            { label: "IP Address Logs", href: ROUTES.addressHistory, icon: IconHistory },
+            { label: "Access Policy Cache", href: ROUTES.policyAudit, icon: IconDatabaseSearch },
         ],
     },
     {
         label: null,
-        items: [{ label: "Settings", href: "/settings", icon: IconSettings }],
+        items: [{ label: "Settings", href: ROUTES.settings, icon: IconSettings }],
     },
 ];
 

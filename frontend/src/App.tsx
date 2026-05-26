@@ -23,6 +23,7 @@ import { PolicyAuditPage } from "./pages/policy-audit/PolicyAuditPage";
 import { NetworkPoliciesPage } from "./pages/access/network-policies/NetworkPoliciesPage";
 import { NetworkPolicyDetailPage } from "./pages/access/network-policies/NetworkPolicyDetailPage";
 import { theme } from "./lib/theme";
+import { ROUTES } from "./lib/routes";
 import { DateTimePrefsProvider } from "./contexts/DateTimePrefsContext";
 
 function App() {
@@ -35,13 +36,13 @@ function App() {
             <AuthProvider>
               <AppErrorBoundary>
                 <Routes>
-                  <Route path="/login" element={<LoginPage />} />
+                  <Route path={ROUTES.login} element={<LoginPage />} />
                   <Route
                     path="/"
-                    element={<Navigate to="/dashboard" replace />}
+                    element={<Navigate to={ROUTES.dashboard} replace />}
                   />
                   <Route
-                    path="/dashboard"
+                    path={ROUTES.dashboard}
                     element={
                       <ProtectedRoute>
                         <AppShell>
@@ -51,7 +52,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/user-devices"
+                    path={ROUTES.userDevices}
                     element={
                       <ProtectedRoute>
                         <AppShell>
@@ -61,7 +62,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/user-devices/:userId"
+                    path={ROUTES.userDeviceWorkspace}
                     element={
                       <ProtectedRoute>
                         <AppShell>
@@ -71,7 +72,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/settings"
+                    path={ROUTES.settings}
                     element={
                       <ProtectedRoute>
                         <AppShell>
@@ -81,7 +82,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/access-log"
+                    path={ROUTES.accessLog}
                     element={
                       <ProtectedRoute>
                         <AppShell>
@@ -91,7 +92,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/address-history"
+                    path={ROUTES.addressHistory}
                     element={
                       <ProtectedRoute>
                         <AppShell>
@@ -101,7 +102,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/device-provisioning"
+                    path={ROUTES.deviceProvisioning}
                     element={
                       <ProtectedRoute>
                         <AppShell>
@@ -111,7 +112,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/access/hosts"
+                    path={ROUTES.accessHosts}
                     element={
                       <ProtectedRoute>
                         <AppShell>
@@ -121,7 +122,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/access/host-groups"
+                    path={ROUTES.accessHostGroups}
                     element={
                       <ProtectedRoute>
                         <AppShell>
@@ -131,7 +132,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/access/users"
+                    path={ROUTES.accessUsers}
                     element={
                       <ProtectedRoute>
                         <AppShell>
@@ -141,7 +142,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/access/users/:id"
+                    path={ROUTES.accessUserDetail}
                     element={
                       <ProtectedRoute>
                         <AppShell>
@@ -151,7 +152,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/policy-audit"
+                    path={ROUTES.policyAudit}
                     element={
                       <ProtectedRoute>
                         <AppShell>
@@ -161,7 +162,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/access/network-policies"
+                    path={ROUTES.accessNetworkPolicies}
                     element={
                       <ProtectedRoute>
                         <AppShell>
@@ -171,7 +172,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/access/network-policies/:id"
+                    path={ROUTES.accessNetworkPolicyDetail}
                     element={
                       <ProtectedRoute>
                         <AppShell>

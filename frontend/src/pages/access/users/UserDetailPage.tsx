@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { ROUTES } from "@/lib/routes";
 import {
   Alert,
   Anchor,
@@ -124,7 +125,7 @@ export function UserDetailPage() {
         deleteTarget={deleteTarget}
         onClose={() => {
           setDeleteTarget(null);
-          if (deleteTarget) navigate("/access/users");
+          if (deleteTarget) navigate(ROUTES.accessUsers);
         }}
       />
       <RoleChangeModal pendingRole={pendingRole} onClose={() => setPendingRole(null)} />
@@ -132,7 +133,7 @@ export function UserDetailPage() {
       <Stack maw={1200} gap="lg" pb={dirty ? STAGED_BAR_HEIGHT : undefined}>
         {/* Header */}
         <div>
-          <Anchor component={Link} to="/access/users" size="sm" c="dimmed">
+          <Anchor component={Link} to={ROUTES.accessUsers} size="sm" c="dimmed">
             <Group gap={4}>
               <IconChevronLeft size={14} />
               Users

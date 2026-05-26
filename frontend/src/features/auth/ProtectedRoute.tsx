@@ -1,4 +1,5 @@
 import { Navigate, useLocation } from "react-router-dom";
+import { ROUTES } from "@/lib/routes";
 import { Center, Loader, Stack, Text } from "@mantine/core";
 import { useAuth } from "./hooks/useAuth";
 import React from "react";
@@ -27,8 +28,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to={`/login?returnTo=${encodeURIComponent(returnTo)}`} replace />;
   }
 
-  if (isAuthenticated && user?.must_change_password && location.pathname !== "/settings") {
-    return <Navigate to="/settings" replace />;
+  if (isAuthenticated && user?.must_change_password && location.pathname !== ROUTES.settings) {
+    return <Navigate to={ROUTES.settings} replace />;
   }
 
   return <>{children}</>;
