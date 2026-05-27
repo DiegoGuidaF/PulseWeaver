@@ -79,14 +79,16 @@ the attack surface without touching how the application itself authenticates use
 
 ### Docker Compose (recommended)
 
-The easiest way to run PulseWeaver alongside Caddy. The key points are:
+The easiest way to run PulseWeaver alongside Caddy. Three values must stay in sync:
 
-- Both services must be on the same Docker network so `pulseweaver:8080` resolves.
-- `POLICY_ENGINE_API_SECRET` is defined once in your `.env` and injected into both containers.
-- `TRUSTED_PROXY` must be set to Caddy's container IP so PulseWeaver can correctly extract the real
-  client IP on both the heartbeat and forward-auth endpoints.
-  See [Understanding TRUSTED_PROXY](docs/Understanding-TRUSTED_PROXY.md)
-  for the full explanation.
+- **`ipv4_address`** pins Caddy to a fixed IP on the shared Docker network.
+- **`CADDY_IP`** in `.env` holds that same address.
+- **`TRUSTED_PROXY`** in PulseWeaver's environment is set to `${CADDY_IP}`.
+
+Together they tell PulseWeaver which connection peer is the trusted proxy, so it reads the real
+client IP from forwarded requests rather than treating Caddy's own IP as the source. See
+[Understanding TRUSTED_PROXY](docs/Understanding-TRUSTED_PROXY.md) for the full explanation.
+`POLICY_ENGINE_API_SECRET` is defined once in `.env` and injected into both containers.
 
 ```yaml
 # docker-compose.yml
@@ -137,6 +139,8 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/24
+          gateway: 172.20.0.1
+          ip_range: 172.20.0.128/25  # Restrict auto-assigned IPs to upper half (.128–.254)
 ```
 
 A minimal `.env` alongside it:
@@ -144,14 +148,25 @@ A minimal `.env` alongside it:
 ```dotenv
 PULSEWEAVER_POLICY_ENGINE_API_SECRET=a-very-long-random-secret-at-least-32-chars
 PULSEWEAVER_ADMIN_PASSWORD=a-strong-admin-password
-CADDY_IP=172.20.0.2   # Caddy's fixed IP on the proxy network (single IP, no CIDR)
+CADDY_IP=172.20.0.2   # Fixed IP for Caddy — must be in the lower half of the subnet (see note below)
 TZ=Europe/Madrid
 ```
 
 > [!TIP]
-> Give Caddy a fixed `ipv4_address` on the shared docker network and set `TRUSTED_PROXY` to that exact IP.
-> `TRUSTED_PROXY` accepts a **single IP address only** — CIDR ranges are not supported. Pinning Caddy's IP is the
-> simplest way to keep this stable.
+> Generate strong values for the two secrets with OpenSSL:
+> ```bash
+> openssl rand -base64 32   # PULSEWEAVER_POLICY_ENGINE_API_SECRET
+> openssl rand -base64 24   # PULSEWEAVER_ADMIN_PASSWORD
+> ```
+
+> [!NOTE]
+> **Choosing `CADDY_IP`:** Pick an IP in the lower half of your subnet (e.g. `172.20.0.2`). The
+> `ip_range` entry in the IPAM config above restricts Docker's auto-assigned IPs to the upper half
+> (`172.20.0.128/25`), so no container joining the network without a fixed IP can accidentally
+> receive Caddy's address and silently become a trusted proxy.
+>
+> **`TRUSTED_PROXY` accepts a single IP only** — CIDR ranges are not supported. Pinning Caddy's IP
+> with `ipv4_address` is the simplest way to keep it stable across container restarts.
 
 ### First-run admin account
 
@@ -177,32 +192,31 @@ unique password and store it securely (e.g. in your `.env` file with restricted 
 
 ## Proxy integration
 
-### Caddy (forward_auth)
+PulseWeaver works with any reverse proxy that supports forward auth — the integration requirements
+are the same regardless of which proxy you use. Currently only Caddy has a tested and validated
+configuration. If you have a working setup with nginx, Traefik, or another proxy,
+[open an issue or PR](https://github.com/diegoguidaf/pulseweaver/issues) and community-validated
+configurations will be added to the documentation.
+
+### Caddy
 
 Add the `forward_auth` block to any site you want to protect:
 
 ```caddy
 your-service.example.com {
-    forward_auth http://pulseweaver:8080 {
+    forward_auth pulseweaver:8080 {
         uri /api/policy-engine/verify-ip
         header_up X-Real-IP {http.request.remote.host}
         header_up Authorization "Bearer {$PULSEWEAVER_POLICY_ENGINE_API_SECRET}"
     }
-
     reverse_proxy your-service:port
 }
 ```
 
-PulseWeaver's verify-ip endpoint is **fail-closed**: any missing header, invalid secret, or inactive IP returns `403`.
+PulseWeaver's verify-ip endpoint is **fail-closed**: missing header, wrong secret, or unregistered IP → `403`.
 
-### Other reverse proxies
-
-Any proxy that supports forward auth can work. The requirements are:
-
-1. Call `GET http://pulseweaver:8080/api/policy-engine/verify-ip` before forwarding the request.
-2. Pass the real client IP in the `X-Real-IP` header.
-3. Pass `Authorization: Bearer <POLICY_ENGINE_API_SECRET>` to authenticate the proxy-to-PulseWeaver call.
-4. Allow the request through on `200`; block on anything else.
+📖 [Full Caddy setup guide →](docs/Caddy-Setup.md) — device endpoints, admin UI configuration,
+troubleshooting, and other proxy support.
 
 ---
 
@@ -217,8 +231,9 @@ Devices send periodic heartbeats to keep their current IP active. There are seve
 | **[Tasker](docs/Heartbeat-Endpoint-Setup.md#android-tasker)**                       | Android (DIY)                          | HTTP request on a timer or network change event.                                      |
 | **Manual**                                                                          | Static IP devices                      | Add addresses directly in the PulseWeaver UI — no heartbeat needed.                   |
 
-The heartbeat endpoint (`POST /api/v1/heartbeat`) must be exposed **without** the forward-auth gate — see
-[Heartbeat Endpoint Setup](docs/Heartbeat-Endpoint-Setup.md) for the Caddy configuration.
+The heartbeat (`POST /api/v1/heartbeat`) and device pairing (`POST /api/v1/device-pairing`) endpoints
+must be exposed **without** the forward-auth gate — see [Caddy setup guide](docs/Caddy-Setup.md) or
+[Heartbeat Endpoint Setup](docs/Heartbeat-Endpoint-Setup.md) for configuration details.
 
 ---
 
@@ -249,33 +264,17 @@ key are deleted from the database; an audit trail (timestamp, device link, key p
 
 Device provisioning adds a second endpoint that must be reachable from devices without the forward-auth gate:
 
-| Endpoint                 | Purpose                      | Auth                      |
-|--------------------------|------------------------------|---------------------------|
-| `POST /api/v1/heartbeat` | Ongoing heartbeats           | `X-API-Key` header        |
-| `POST /api/v1/register`  | One-time device registration | Registration code in body |
+| Endpoint                        | Purpose                    | Auth                    |
+|---------------------------------|----------------------------|-------------------------|
+| `POST /api/v1/heartbeat`        | Ongoing heartbeats         | `X-API-Key` header      |
+| `POST /api/v1/device-pairing`   | One-time device pairing    | Pairing code in body    |
 
-### Proxy configuration
-
-If you prefer not to expose the full PulseWeaver API publicly, configure your reverse proxy to only allow the two
-device-facing endpoints. A single public domain with path-based filtering is the simplest approach:
-
-```caddy
-# Only expose heartbeat + registration — everything else returns 404
-device.example.com {
-    @device-endpoints path /api/v1/heartbeat /api/v1/register
-    handle @device-endpoints {
-        reverse_proxy pulseweaver:8080
-    }
-    respond 404
-}
-```
-
-This keeps your admin panel and all other API endpoints accessible only from trusted networks (e.g. via a separate
-site with the `forward_auth` gate), while devices can reach exactly the two endpoints they need.
+📖 [Caddy setup guide →](docs/Caddy-Setup.md) — covers the recommended two-domain configuration that
+exposes only these endpoints publicly while keeping the admin UI off the internet.
 
 > [!TIP]
-> Set the **Heartbeat server URL** in the invite to `https://device.example.com`. The heartbeat client will use that
-> URL for both the initial registration and all subsequent heartbeats.
+> Set the **Heartbeat server URL** in the device invite to `https://pw-device.example.com`. The
+> heartbeat client uses that URL for both the initial pairing and all subsequent heartbeats.
 
 ---
 
