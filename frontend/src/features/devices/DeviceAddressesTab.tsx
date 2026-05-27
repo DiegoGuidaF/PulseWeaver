@@ -3,8 +3,11 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import {
   ActionIcon,
+  Alert,
+  Anchor,
   Box,
   Button,
+  Code,
   Collapse,
   Group,
   Progress,
@@ -17,7 +20,7 @@ import {
   TextInput,
   Tooltip,
 } from "@mantine/core";
-import { IconSearch, IconX } from "@tabler/icons-react";
+import { IconAlertTriangle, IconSearch, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { toErrorMessage } from "@/lib/api-client";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
@@ -179,6 +182,7 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
   const [customOpen, setCustomOpen] = useState(false);
   const [customIp, setCustomIp] = useState("");
   const [addressSearch, setAddressSearch] = useState("");
+  const [proxyConflict, setProxyConflict] = useState(false);
 
   const activeAddresses = useMemo(
     () =>
@@ -208,10 +212,18 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
     heartbeatMutation.mutate(
       { path: { device_id: deviceId } },
       {
-        onSuccess: (address) =>
-          notifications.show({ color: "green", message: `IP ${address.ip} registered` }),
-        onError: (err) =>
-          notifications.show({ color: "red", message: toErrorMessage(err) }),
+        onSuccess: (address) => {
+          setProxyConflict(false);
+          notifications.show({ color: "green", message: `IP ${address.ip} registered` });
+        },
+        onError: (err) => {
+          const message = toErrorMessage(err);
+          if (message.includes("Trusted proxy")) {
+            setProxyConflict(true);
+          } else {
+            notifications.show({ color: "red", message });
+          }
+        },
       },
     );
   }
@@ -222,12 +234,19 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
       { path: { device_id: deviceId }, body: { ip: customIp.trim() } },
       {
         onSuccess: () => {
+          setProxyConflict(false);
           notifications.show({ color: "green", message: "Address added" });
           setCustomIp("");
           setCustomOpen(false);
         },
-        onError: (err) =>
-          notifications.show({ color: "red", title: "Error adding address", message: toErrorMessage(err) }),
+        onError: (err) => {
+          const message = toErrorMessage(err);
+          if (message.includes("Trusted proxy")) {
+            setProxyConflict(true);
+          } else {
+            notifications.show({ color: "red", title: "Error adding address", message });
+          }
+        },
       },
     );
   }
@@ -285,6 +304,29 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
           ＋ Custom IP…
         </Button>
       </Group>
+
+      {proxyConflict && (
+        <Alert
+          icon={<IconAlertTriangle size={16} />}
+          title="Reverse proxy IP detected"
+          color="orange"
+          withCloseButton
+          onClose={() => setProxyConflict(false)}
+        >
+          <Text size="xs">
+            PulseWeaver received your reverse proxy's IP instead of yours. This usually means{" "}
+            <Code>X-Real-IP</Code> is not being forwarded to PulseWeaver by your proxy.{" "}
+            <Anchor
+              href="https://github.com/diegoguidaf/pulseweaver/blob/main/docs/Caddy-Setup.md#trusted-proxy-ip-addresses-cannot-be-registered"
+              target="_blank"
+              rel="noopener noreferrer"
+              size="xs"
+            >
+              How to fix your proxy configuration →
+            </Anchor>
+          </Text>
+        </Alert>
+      )}
 
       <Collapse expanded={customOpen}>
         <Group gap="xs" align="flex-end">
