@@ -32,12 +32,18 @@ import { CreateDeviceModal } from "@/features/devices/CreateDeviceModal";
 import { DevicePairingBanner } from "@/features/device-pairing/DevicePairingBanner";
 import { DevicePairingTab } from "@/features/device-pairing/DevicePairingTab";
 import { DeviceState } from "@/lib/api";
+import type { DeviceRuleSummary } from "@/lib/api";
+import { DeviceApiKeyRuleHintBanner } from "@/features/devices/DeviceApiKeyRuleHintBanner";
 
 dayjs.extend(relativeTime);
 
 
 function formatCreatedAt(iso: string): string {
   return dayjs(iso).format("D MMM YYYY");
+}
+
+function hasActiveLimitRule(rules: Array<DeviceRuleSummary>): boolean {
+  return rules.some((r) => r.enabled);
 }
 
 const DeviceTab = {
@@ -252,6 +258,25 @@ export function UserDevicesPage() {
             onViewPairing={() =>
               setSearchParams((prev) => {
                 prev.set("tab", DeviceTab.PAIRING);
+                return prev;
+              })
+            }
+          />
+        )}
+
+        {/* API key + no-limits hint banner */}
+        {selectedDevice?.api_key_prefix && !hasActiveLimitRule(selectedDevice.rules) && (
+          <DeviceApiKeyRuleHintBanner
+            deviceId={selectedDevice.id}
+            onGoToRules={() =>
+              setSearchParams((prev) => {
+                prev.set("tab", DeviceTab.RULES);
+                return prev;
+              })
+            }
+            onGoToSettings={() =>
+              setSearchParams((prev) => {
+                prev.set("tab", DeviceTab.SETTINGS);
                 return prev;
               })
             }
