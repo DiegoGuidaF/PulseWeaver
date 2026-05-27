@@ -25,6 +25,7 @@ export function AutoRefreshSelect({ value, onChange }: AutoRefreshSelectProps) {
             <NativeSelect
                 value={value}
                 onChange={(e) => onChange(Number(e.target.value))}
+                aria-label="Auto-refresh interval"
                 data={REFRESH_OPTIONS.map((opt) => ({
                     label: opt.label,
                     value: String(opt.value),

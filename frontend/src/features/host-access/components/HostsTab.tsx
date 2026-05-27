@@ -172,7 +172,7 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
         <Card withBorder>
           <Stack gap="md" align="center" py="xl">
             <Text fz={48}>📡</Text>
-            <Title order={3}>No hosts yet</Title>
+            <Title order={2}>No hosts yet</Title>
             <Text c="dimmed" size="sm" maw={440} ta="center">
               Stage one or more hosts; nothing is sent to the server until you click Save.
             </Text>
@@ -248,7 +248,7 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
                 <Table.Th>
                   <SortableHeader label="Groups" col="groups" sort={sort} onToggle={toggleSort} />
                 </Table.Th>
-                <Table.Th />
+                <Table.Th aria-label="Actions" />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>

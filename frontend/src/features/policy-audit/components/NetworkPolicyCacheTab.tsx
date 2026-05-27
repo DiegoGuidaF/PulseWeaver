@@ -18,7 +18,13 @@ function EffectiveHostsCell({ entry, totalHosts }: { entry: PolicyNetworkPolicyE
             <Text size="sm" style={{ whiteSpace: "nowrap" }}>
                 {entry.effective_host_count} / {totalHosts}
             </Text>
-            <Progress value={pct} size="xs" style={{ flex: 1, minWidth: 40 }} color="indigo" />
+            <Progress.Root size="xs" style={{ flex: 1, minWidth: 40 }}>
+                <Progress.Section
+                    value={pct}
+                    color="indigo"
+                    aria-label={`${entry.effective_host_count} of ${totalHosts} hosts accessible`}
+                />
+            </Progress.Root>
         </Group>
     );
 }

@@ -20,6 +20,7 @@ import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePr
 import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
 import { useAccessLogDenyReasons } from "../hooks/useAccessLogDenyReasons";
 import { useNetworkPolicies } from "@/features/network-policies/hooks/useNetworkPolicies";
+import { useFilterButtonLabels } from "@/hooks/useFilterButtonLabels";
 
 interface AccessLogTableProps {
     filters: AccessLogFilters;
@@ -44,6 +45,15 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
 
     const [selectedRow, setSelectedRow] = useState<AccessLogRow | null>(null);
     const [drawerOpened, setDrawerOpened] = useState(false);
+
+    const tableRef = useFilterButtonLabels({
+        created_at: "Filter by time",
+        client_ip: "Filter by IP address",
+        country_code: "Filter by country",
+        device_name: "Filter by authorized device or policy",
+        outcome: "Filter by outcome",
+        deny_reason: "Filter by deny reason",
+    });
 
     const { data: ownerGroups } = useDeviceList();
     const { data: denyReasons } = useAccessLogDenyReasons();
@@ -232,13 +242,15 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
 
                 <ActiveFilterChips chips={filterChips} />
 
-                <DataTable
-                    records={rows}
-                    highlightOnHover
-                    minHeight={150}
-                    noRecordsText="No matching log entries."
-                    columns={columns}
-                />
+                <div ref={tableRef} aria-busy={isPending}>
+                    <DataTable
+                        records={rows}
+                        highlightOnHover
+                        minHeight={150}
+                        noRecordsText="No matching log entries."
+                        columns={columns}
+                    />
+                </div>
 
                 <CursorPagination
                     total={total}

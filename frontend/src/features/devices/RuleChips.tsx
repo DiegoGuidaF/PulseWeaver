@@ -26,13 +26,15 @@ export function RuleChips({ entry, size = "xs" }: Props) {
 
   if (pairingStatus === "pending") {
     const label = formatPairingExpiry(entry.pairing!.expires_at);
+    const tooltipLabel = `Pairing pending · ${label}`;
     return (
-      <Tooltip label={`Pairing pending · ${label}`} withArrow>
+      <Tooltip label={tooltipLabel} withArrow>
         <Badge
           size={size}
           color="indigo"
           variant="light"
-          leftSection={<IconPlugConnected size={10} stroke={1.5} />}
+          aria-label={tooltipLabel}
+          leftSection={<IconPlugConnected size={10} stroke={1.5} aria-hidden="true" />}
         >
           {label}
         </Badge>
@@ -43,13 +45,15 @@ export function RuleChips({ entry, size = "xs" }: Props) {
   if (pairingStatus === "expired") {
     const expiredDaysAgo = dayjs().diff(dayjs(entry.pairing!.expires_at), "day");
     if (expiredDaysAgo < 7) {
+      const tooltipLabel = "Pairing code expired — regenerate required";
       return (
-        <Tooltip label="Pairing code expired — regenerate required" withArrow>
+        <Tooltip label={tooltipLabel} withArrow>
           <Badge
             size={size}
             color="red"
             variant="light"
-            leftSection={<IconPlugConnectedX size={10} stroke={1.5} />}
+            aria-label={tooltipLabel}
+            leftSection={<IconPlugConnectedX size={10} stroke={1.5} aria-hidden="true" />}
           >
             expired
           </Badge>
@@ -64,17 +68,19 @@ export function RuleChips({ entry, size = "xs" }: Props) {
         .filter((r: DeviceRuleSummary) => r.enabled)
         .map((r: DeviceRuleSummary) => {
           if (r.type === "auto_expiry" && r.ttl_seconds != null) {
+            const tooltipLabel = `Auto-expiry · TTL ${formatTtl(r.ttl_seconds)}`;
             return (
               <Tooltip
                 key="auto_expiry"
-                label={`Auto-expiry · TTL ${formatTtl(r.ttl_seconds)}`}
+                label={tooltipLabel}
                 withArrow
               >
                 <Badge
                   size={size}
                   color="teal"
                   variant="light"
-                  leftSection={<IconClock size={10} stroke={1.5} />}
+                  aria-label={tooltipLabel}
+                  leftSection={<IconClock size={10} stroke={1.5} aria-hidden="true" />}
                 >
                   {formatTtl(r.ttl_seconds)}
                 </Badge>
@@ -93,7 +99,8 @@ export function RuleChips({ entry, size = "xs" }: Props) {
                   size={size}
                   color={atLimit ? "orange" : "teal"}
                   variant={atLimit ? "filled" : "light"}
-                  leftSection={<IconStack2 size={10} stroke={1.5} />}
+                  aria-label={tooltipLabel}
+                  leftSection={<IconStack2 size={10} stroke={1.5} aria-hidden="true" />}
                 >
                   {current}/{r.limit}
                 </Badge>

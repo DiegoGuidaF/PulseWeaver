@@ -18,6 +18,7 @@ export function TimeRangePresetSelect({ value, onChange }: TimeRangePresetSelect
             <NativeSelect
                 value={value ?? ""}
                 onChange={(e) => onChange(e.target.value || null)}
+                aria-label="Time range"
                 data={OPTIONS}
             />
         </Group>

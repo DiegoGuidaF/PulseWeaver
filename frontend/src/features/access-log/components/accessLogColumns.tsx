@@ -8,6 +8,7 @@ import {
     Stack,
     Text,
     TextInput,
+    VisuallyHidden,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { IconChevronRight, IconHome, IconHexagon, IconSearch } from "@tabler/icons-react";
@@ -316,7 +317,7 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
         },
         {
             accessor: "actions",
-            title: "",
+            title: <VisuallyHidden>Actions</VisuallyHidden>,
             width: 48,
             render: (row) => (
                 <ActionIcon

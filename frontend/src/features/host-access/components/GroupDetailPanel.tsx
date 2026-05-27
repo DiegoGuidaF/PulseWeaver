@@ -78,7 +78,7 @@ export function GroupDetailPanel({
             </ThemeIcon>
             <Stack gap={2} style={{ minWidth: 0 }}>
               <Group gap="xs" wrap="nowrap">
-                <Title order={3} style={{ wordBreak: "break-word" }}>
+                <Title order={2} style={{ wordBreak: "break-word" }}>
                   {group.name || "Unnamed group"}
                 </Title>
                 {isAdded && (

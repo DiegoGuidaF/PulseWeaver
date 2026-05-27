@@ -85,6 +85,8 @@ export function TrafficLineChart({ data, isLoading, timeRangeMs, h = 300 }: Traf
                 />
             ) : (
                 <LineChart
+                    role="img"
+                    aria-label="Traffic over time: line chart showing allowed and denied request counts"
                     h={h}
                     data={chartData}
                     dataKey="timestamp"

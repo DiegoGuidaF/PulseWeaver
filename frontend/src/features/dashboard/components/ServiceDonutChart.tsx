@@ -29,6 +29,8 @@ export function ServiceDonutChart({ data, isLoading }: ServiceDonutChartProps) {
             ) : (
                 <Stack gap="sm">
                     <DonutChart
+                        role="img"
+                        aria-label="Requests by service: donut chart"
                         h={260}
                         data={chartData}
                         withTooltip

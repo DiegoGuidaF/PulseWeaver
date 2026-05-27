@@ -137,7 +137,7 @@ export function HostGroupsTab({ state, dispatch, serverHosts }: Props) {
         <Card withBorder>
           <Stack gap="md" align="center" py="xl">
             <Text fz={48}>🗂</Text>
-            <Title order={3}>No groups yet</Title>
+            <Title order={2}>No groups yet</Title>
             <Text c="dimmed" size="sm" maw={440} ta="center">
               Bundle related hosts so you can grant access in one click.
             </Text>

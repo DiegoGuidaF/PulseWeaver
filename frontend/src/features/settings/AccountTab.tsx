@@ -145,7 +145,7 @@ export function AccountTab({ onDirtyChange }: AccountTabProps) {
   return (
     <Stack gap="xl">
       <Card withBorder>
-        <Title order={3} mb="md">My profile</Title>
+        <Title order={2} mb="md">My profile</Title>
         <form onSubmit={profileForm.onSubmit(submitProfile)}>
           <Stack gap="md">
             <TextInput
@@ -180,7 +180,7 @@ export function AccountTab({ onDirtyChange }: AccountTabProps) {
       </Card>
 
       <Card withBorder>
-        <Title order={3} mb="md">Change password</Title>
+        <Title order={2} mb="md">Change password</Title>
         <form onSubmit={passwordForm.onSubmit(submitPassword)}>
           <Stack gap="md">
             {/* Hidden username field for password manager accessibility */}

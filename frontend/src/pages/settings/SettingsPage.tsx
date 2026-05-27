@@ -74,7 +74,7 @@ export function SettingsPage() {
 
         {user?.must_change_password && (
           <Card withBorder style={{ borderColor: "var(--mantine-color-yellow-6)" }}>
-            <Title order={4} mb="xs">Password change required</Title>
+            <Title order={2} mb="xs">Password change required</Title>
             <Text size="sm" c="dimmed">
               You must set a new password before using the rest of the application.
             </Text>

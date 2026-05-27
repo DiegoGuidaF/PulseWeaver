@@ -83,7 +83,7 @@ function HostList({ title, hosts, checked, emptyText, onToggle, disabled }: Host
   return (
     <Paper withBorder radius="md" p={0}>
       <Group p="sm" justify="space-between">
-        <Title order={6} fw={600}>
+        <Title order={3} fw={600}>
           {title}
         </Title>
       </Group>

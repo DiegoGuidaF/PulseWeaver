@@ -20,7 +20,7 @@ export function PreferencesTab() {
 
   return (
     <Card withBorder maw={600}>
-      <Title order={3} mb="md">Date & Time</Title>
+      <Title order={2} mb="md">Date & Time</Title>
       <Stack gap="md">
         <div>
           <Text size="sm" fw={500} mb={4}>Date format</Text>

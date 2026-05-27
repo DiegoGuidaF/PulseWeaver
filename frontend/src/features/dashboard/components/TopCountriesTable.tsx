@@ -41,7 +41,7 @@ export function TopCountriesTable({
                     title="No geographic data in this period"
                 />
             ) : (
-                <Table striped highlightOnHover>
+                <Table striped highlightOnHover aria-label="Top countries by access requests">
                     <Table.Thead>
                         <Table.Tr>
                             <Table.Th>#</Table.Th>

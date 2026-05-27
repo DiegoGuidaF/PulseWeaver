@@ -49,13 +49,13 @@ export function ServiceBarChart({ data, isLoading }: ServiceBarChartProps) {
                             <Text size="sm" w={140} truncate="end" title={entry.name}>
                                 {entry.name}
                             </Text>
-                            <Progress
-                                value={(entry.value / max) * 100}
-                                color={entry.color}
-                                size="lg"
-                                radius="sm"
-                                style={{ flex: 1 }}
-                            />
+                            <Progress.Root size="lg" radius="sm" style={{ flex: 1 }}>
+                                <Progress.Section
+                                    value={(entry.value / max) * 100}
+                                    color={entry.color}
+                                    aria-label={`${entry.name}: ${entry.value.toLocaleString()} requests`}
+                                />
+                            </Progress.Root>
                             <Text size="sm" ff="monospace" w={70} ta="right">
                                 {entry.value.toLocaleString()}
                             </Text>

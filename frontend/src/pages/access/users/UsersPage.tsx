@@ -12,6 +12,7 @@ import {
   Text,
   Title,
   Tooltip,
+  VisuallyHidden,
 } from "@mantine/core";
 import { IconArrowDown, IconArrowUp, IconTrash } from "@tabler/icons-react";
 import { DataTable, type DataTableSortStatus } from "mantine-datatable";
@@ -227,7 +228,7 @@ export function UsersPage() {
             },
             {
               accessor: "actions",
-              title: "",
+              title: <VisuallyHidden>Actions</VisuallyHidden>,
               width: 80,
               render: (u) => {
                 const isSelf = u.id === currentUser?.id;

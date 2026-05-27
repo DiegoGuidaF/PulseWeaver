@@ -135,7 +135,13 @@ function EffectiveHostsCell({
       <Text size="sm" style={{ whiteSpace: "nowrap" }}>
         {user.allowed_host_count} / {totalHosts}
       </Text>
-      <Progress value={pct} size="xs" style={{ flex: 1, minWidth: 40 }} color="indigo" />
+      <Progress.Root size="xs" style={{ flex: 1, minWidth: 40 }}>
+        <Progress.Section
+          value={pct}
+          color="indigo"
+          aria-label={`${user.allowed_host_count} of ${totalHosts} hosts accessible`}
+        />
+      </Progress.Root>
     </Group>
   );
 }
@@ -292,7 +298,7 @@ export function PolicyUserTable({
                 <Table.Th>Live IPs</Table.Th>
                 <Table.Th>Effective hosts</Table.Th>
                 <Table.Th>Devices</Table.Th>
-                <Table.Th />
+                <Table.Th aria-label="Actions" />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>

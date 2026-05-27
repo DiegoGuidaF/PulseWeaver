@@ -139,7 +139,7 @@ export function AccessMap({
                         viewBox={`0 0 ${w} ${MAP_HEIGHT}`}
                         role="img"
                         style={{ width: "100%", height: "auto", display: "block" }}
-                        aria-label="World access map"
+                        aria-label="World access map — geographic distribution of requests. See the Top Countries table for detailed data."
                     >
                         {countries.features.map((geo) => {
                             const rawId = geo.id;

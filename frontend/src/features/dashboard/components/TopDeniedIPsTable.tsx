@@ -20,7 +20,7 @@ export function TopDeniedIPsTable({ data, isLoading }: TopDeniedIPsTableProps) {
                     title="No denied requests in this period"
                 />
             ) : (
-                <Table striped highlightOnHover>
+                <Table striped highlightOnHover aria-label="Top denied IP addresses">
                     <Table.Thead>
                         <Table.Tr>
                             <Table.Th>IP Address</Table.Th>

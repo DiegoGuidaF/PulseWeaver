@@ -53,7 +53,10 @@ export function GroupFilterBar({ availableGroups, selected, onChange }: Props) {
       {(unselectedGroups.length > 0 || selected.size === 0) && (
         <Menu opened={menuOpen} onChange={setMenuOpen} position="bottom-start">
           <Menu.Target>
+            {/* Badge rendered as <button> so Menu.Target's aria-haspopup/aria-expanded are valid */}
             <Badge
+              component="button"
+              type="button"
               variant="outline"
               color="gray"
               size="sm"

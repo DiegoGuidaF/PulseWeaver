@@ -16,6 +16,7 @@ import { toErrorMessage } from "@/lib/api-client";
 import { formatChartLabel, presetToMs } from "@/lib/formatChartLabel";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
 import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
+import { useFilterButtonLabels } from "@/hooks/useFilterButtonLabels";
 import dayjs from "dayjs";
 
 const PAGE_SIZE = 25;
@@ -54,6 +55,14 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         setFilterKey(filters.filterKey);
         setCursor(null);
     }
+
+    const tableRef = useFilterButtonLabels({
+        timestamp: "Filter by time",
+        device_name: "Filter by device",
+        ip: "Filter by IP address",
+        is_enabled: "Filter by status",
+        source: "Filter by source",
+    });
 
     const { data: ownerGroups } = useDeviceList();
 
@@ -224,14 +233,16 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
 
             <ActiveFilterChips chips={filterChips} />
 
-            <DataTable
-                records={rows}
-                idAccessor="id"
-                highlightOnHover
-                minHeight={150}
-                noRecordsText="No address events found."
-                columns={columns}
-            />
+            <div ref={tableRef} aria-busy={isPending}>
+                <DataTable
+                    records={rows}
+                    idAccessor="id"
+                    highlightOnHover
+                    minHeight={150}
+                    noRecordsText="No address events found."
+                    columns={columns}
+                />
+            </div>
 
             <CursorPagination
                 total={total}
