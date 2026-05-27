@@ -13,7 +13,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconClock } from "@tabler/icons-react";
+import { IconAlertCircle, IconClock, IconRefresh } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import type { DevicePairing, DeviceState as DeviceStateType } from "@/lib/api";
 import { DeviceState } from "@/lib/api";
@@ -38,7 +38,6 @@ interface Props {
 }
 
 export function DevicePairingTab({ deviceId, deviceState }: Props) {
-  const [createOpen, { open: openCreate, close: closeCreate }] = useDisclosure(false);
   const [regenOpen, { open: openRegen, close: closeRegen }] = useDisclosure(false);
 
   const isPending = deviceState === DeviceState.PENDING_CLAIM;
@@ -60,7 +59,6 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
 
   function handleCreateSuccess(pairing: DevicePairing) {
     setJustCreated(pairing);
-    closeCreate();
   }
 
   function handleRevoke() {
@@ -106,7 +104,13 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
         <Stack gap="md">
           <Group justify="space-between" align="center">
             <Title order={5}>Active pairing code</Title>
-            <Button variant="subtle" size="xs" color="orange" onClick={openRegen}>
+            <Button
+              variant="light"
+              size="xs"
+              color="orange"
+              leftSection={<IconRefresh size={13} />}
+              onClick={openRegen}
+            >
               Regenerate
             </Button>
           </Group>
@@ -117,15 +121,22 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
           />
         </Stack>
       ) : (
-        <Stack gap="sm">
+        <Stack gap="md">
           {isExpired && (
             <Alert color="orange" icon={<IconAlertCircle size={16} />}>
               The previous pairing code expired before it was claimed. Generate a new one below.
             </Alert>
           )}
-          <Group>
-            <Button onClick={openCreate}>Generate pairing code</Button>
-          </Group>
+          <div>
+            <Title order={5} mb={4}>
+              Generate a pairing code
+            </Title>
+            <Text size="sm" c="dimmed">
+              Create a one-time code to link the companion app to this device. Once claimed, the
+              app sends heartbeats and PulseWeaver tracks the device's IP automatically.
+            </Text>
+          </div>
+          <PairingCreationForm deviceId={deviceId} onSuccess={handleCreateSuccess} />
         </Stack>
       )}
 
@@ -141,7 +152,7 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
               const badge = STATUS_BADGE[item.status];
               return (
                 <Group key={item.id} gap="sm" wrap="nowrap">
-                  <Text size="xs" ff="monospace" style={{ flex: 1, minWidth: 0 }}>
+                  <Text size="xs" ff="monospace" c="dimmed" truncate style={{ flex: 1, minWidth: 0 }}>
                     {item.pairing_code}
                   </Text>
                   <Badge size="xs" color={badge.color} variant="light" style={{ flexShrink: 0 }}>
@@ -163,21 +174,6 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
           </Stack>
         </>
       )}
-
-      {/* Create modal */}
-      <Modal
-        opened={createOpen}
-        onClose={closeCreate}
-        title="Generate pairing code"
-        size="md"
-        closeOnClickOutside={false}
-      >
-        <PairingCreationForm
-          deviceId={deviceId}
-          onSuccess={handleCreateSuccess}
-          onCancel={closeCreate}
-        />
-      </Modal>
 
       {/* Regenerate confirm modal */}
       <Modal

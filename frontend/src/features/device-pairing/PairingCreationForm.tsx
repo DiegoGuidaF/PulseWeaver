@@ -1,6 +1,7 @@
 import { schemaResolver, useForm } from "@mantine/form";
 import {
   Button,
+  Code,
   Fieldset,
   Group,
   SegmentedControl,
@@ -8,7 +9,9 @@ import {
   Switch,
   Text,
   TextInput,
+  Tooltip,
 } from "@mantine/core";
+import { IconInfoCircle } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { zCreatePairingRequest } from "@/lib/api/zod.gen";
 import type { z } from "zod";
@@ -23,7 +26,7 @@ type FormValues = z.infer<typeof zCreatePairingRequest>;
 interface Props {
   deviceId: number;
   onSuccess: (pairing: DevicePairing) => void;
-  onCancel: () => void;
+  onCancel?: () => void;
 }
 
 export function PairingCreationForm({ deviceId, onSuccess, onCancel }: Props) {
@@ -61,26 +64,42 @@ export function PairingCreationForm({ deviceId, onSuccess, onCancel }: Props) {
   return (
     <form onSubmit={form.onSubmit(onSubmit)}>
       <Stack>
-        <TextInput
-          label="Heartbeat server URL"
-          description="URL the companion app uses to send heartbeats. Defaults to this browser's origin."
-          required
-          {...form.getInputProps("heartbeat_server_url")}
-        />
-
         <div>
-          <Text size="sm" fw={500} mb={4}>
-            Heartbeat interval
-          </Text>
-          <SegmentedControl
-            data={[
-              { value: "900", label: "15 min" },
-              { value: "1800", label: "30 min" },
-              { value: "3600", label: "1 hour" },
-            ]}
-            value={String(form.values.interval_seconds)}
-            onChange={(val) => form.setFieldValue("interval_seconds", Number(val))}
+          <TextInput
+            label={
+              <Group gap={4} align="center">
+                <span>Device server URL</span>
+                <Tooltip
+                  label="Base URL only — no path. Typically a dedicated public device domain (e.g. https://pw-device.example.com), but if the device endpoints are exposed on the same host as this admin panel you can use the same origin."
+                  multiline
+                  w={300}
+                  withArrow
+                  bg="dark.7"
+                  c="gray.1"
+                >
+                  <IconInfoCircle
+                    size={14}
+                    style={{ color: "var(--mantine-color-dimmed)", cursor: "help" }}
+                  />
+                </Tooltip>
+              </Group>
+            }
+            description="Base URL only — no path."
+            placeholder="https://pw-device.example.com"
+            withAsterisk={false}
+            {...form.getInputProps("heartbeat_server_url")}
           />
+          {form.values.heartbeat_server_url && (
+            <Stack gap={2} mt="xs">
+              <Text size="xs" c="dimmed">
+                The companion app will call:
+              </Text>
+              <Code block style={{ fontSize: "var(--mantine-font-size-xs)" }}>
+                {form.values.heartbeat_server_url}/api/v1/device-pairing{"\n"}
+                {form.values.heartbeat_server_url}/api/v1/heartbeat
+              </Code>
+            </Stack>
+          )}
         </div>
 
         <Fieldset legend="Companion app initial config">
@@ -88,6 +107,22 @@ export function PairingCreationForm({ deviceId, onSuccess, onCancel }: Props) {
             <Text size="sm" c="dimmed">
               These settings are pushed to the app at claim time and cannot be changed afterwards.
             </Text>
+
+            <div>
+              <Text size="sm" fw={500} mb={4}>
+                Heartbeat interval
+              </Text>
+              <SegmentedControl
+                data={[
+                  { value: "900", label: "15 min" },
+                  { value: "1800", label: "30 min" },
+                  { value: "3600", label: "1 hour" },
+                ]}
+                value={String(form.values.interval_seconds)}
+                onChange={(val) => form.setFieldValue("interval_seconds", Number(val))}
+              />
+            </div>
+
             <Switch
               label="Biometric unlock"
               description="FaceID / fingerprint required to open the app"
@@ -123,9 +158,11 @@ export function PairingCreationForm({ deviceId, onSuccess, onCancel }: Props) {
         </div>
 
         <Group justify="flex-end" gap="sm">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
           <Button type="submit" loading={mutation.isPending}>
             Generate code →
           </Button>
