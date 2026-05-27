@@ -3,13 +3,13 @@ import { buildRoute } from "@/lib/routes";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import {
-  Autocomplete,
   Avatar,
   Badge,
   Box,
   Button,
   Divider,
   Group,
+  Select,
   Stack,
   Text,
   ThemeIcon,
@@ -200,10 +200,12 @@ export function OwnerDevicesPanel({
             <Text size="xs" c="dimmed" fw={600} tt="uppercase" style={{ letterSpacing: "0.05em" }}>
               Jump
             </Text>
-            <Autocomplete
+            <Select
+              value={null}
+              onChange={(val) => val && handleJump(val)}
               placeholder="other owner..."
               data={jumpData}
-              onOptionSubmit={handleJump}
+              searchable
               size="xs"
               maxDropdownHeight={200}
             />

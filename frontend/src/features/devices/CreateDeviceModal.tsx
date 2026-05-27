@@ -250,6 +250,7 @@ export function CreateDeviceModal({ opened, onClose, defaultOwnerId }: CreateDev
                       setIconAutoSuggested(false);
                       form.setFieldValue("icon", name);
                     }}
+                    deviceName={form.values.name}
                     target={
                       <Tooltip label={form.values.icon || "Type default"} withArrow>
                         <UnstyledButton

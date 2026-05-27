@@ -166,6 +166,7 @@ export function DeviceProfileCard({
                   onClose={() => setIconPickerOpen(false)}
                   selectedIcon={form.values.icon}
                   onSelect={(name) => form.setFieldValue("icon", name)}
+                  deviceName={form.values.name}
                   target={
                     <Tooltip
                       label={form.values.icon || "Type default"}

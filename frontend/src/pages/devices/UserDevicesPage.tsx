@@ -107,6 +107,7 @@ export function UserDevicesPage() {
       icon: selectedDevice.icon ?? null,
       owner_id: group.owner.id,
       owner_name: group.owner.display_name,
+      created_at: selectedDevice.created_at ?? null,
     };
   }, [selectedDevice, group]);
 
@@ -182,7 +183,12 @@ export function UserDevicesPage() {
               owner={group.owner}
               devices={group.devices}
               selectedDeviceId={deviceId}
-              onSelectDevice={(id) => setSearchParams({ device: String(id) })}
+              onSelectDevice={(id) =>
+                setSearchParams((prev) => {
+                  prev.set("device", String(id));
+                  return prev;
+                })
+              }
               onAddDevice={() => setCreateOpen(true)}
             />
           ) : (
@@ -297,7 +303,17 @@ export function UserDevicesPage() {
               <DeviceHistoryTab deviceId={selectedDevice.id} />
             </Tabs.Panel>
             <Tabs.Panel value={DeviceTab.SETTINGS} pt="md">
-              <DeviceSettingsTab deviceId={selectedDevice.id} device={deviceData} />
+              <DeviceSettingsTab
+                deviceId={selectedDevice.id}
+                device={deviceData}
+                onDeviceDeleted={() =>
+                  setSearchParams((prev) => {
+                    prev.delete("device");
+                    prev.delete("tab");
+                    return prev;
+                  })
+                }
+              />
             </Tabs.Panel>
           </Tabs>
         )}

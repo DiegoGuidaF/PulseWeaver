@@ -19,6 +19,17 @@ export function makeEmojiRenderer(value: string): IconRenderer {
     React.createElement("span", { style: { fontSize: size - 2, lineHeight: 1, ...style } }, value);
 }
 
+export function makeUrlRenderer(url: string): IconRenderer {
+  return ({ size, style }) =>
+    React.createElement("img", {
+      src: url,
+      width: size,
+      height: size,
+      alt: "",
+      style: { objectFit: "cover" as const, borderRadius: 2, display: "block", ...style },
+    });
+}
+
 export function validateIconWithMap(map: Map<string, unknown>, raw: string): IconValidation {
   const trimmed = raw.trim();
   if (trimmed === "") return { ok: true };
