@@ -1,6 +1,6 @@
 # Frontend Codebase Reference
 
-> Last updated: 2026-04-15
+> Last updated: 2026-05-29
 
 This document is the **map** of the frontend codebase — what exists and where. For implementation conventions, hook patterns, testing scaffolds, and OpenAPI layering, see [`docs/patterns/_index.md`](frontend/docs/patterns/_index.md).
 
@@ -73,3 +73,34 @@ This document is the **map** of the frontend codebase — what exists and where.
 **Users tab** (`UsersTab`)
 - Allows viewing existing users as well as creating a new one
 - Allows promoting/demoting users (to admin or normal user)
+
+### Access management (`/access/*`)
+
+> Catalogued during the PW-64 audit (structural — owning components confirmed, detailed
+> behaviours not yet documented here). Lives under `pages/access/` + the `host-access`,
+> `network-policies`, `subjects` features.
+
+- **HostsPage** (`/access/hosts`) — manages hosts/host-groups; tabbed UI (`HostsTab`,
+  `HostGroupsTab`, `SuggestionsTab`) with a staged-changes bar for bulk reconcile.
+- **HostGroupsPage** (`/access/host-groups`) — host group listing/membership
+  (`GroupMembershipTables`, `GroupMetadataModal`).
+- **NetworkPoliciesPage** (`/access/network-policies`) + **NetworkPolicyDetailPage** —
+  list network policies (filterable by group) and a per-policy detail page.
+- **UsersPage** (`/access/users`) + **UserDetailPage** — user administration list + detail.
+
+### PolicyAuditPage (`/policy-audit`)
+- Policy decision audit / simulation surface (`SimulateBar`).
+
+### UserDevicesPage (`/devices` for non-admin scope)
+- User-scoped device listing (composes `OwnerGroupList`, as does the admin `DevicesPage`).
+
+## Shared components (`src/components/`)
+
+Cross-cutting building blocks reused across surfaces:
+
+- `EmptyState` — centered icon + title + description for zero-result views.
+- `ErrorState` — inline `isError` branch for failed data loads (Alert + `toErrorMessage`,
+  optional retry). Use where `ErrorBoundary` (crashes) and notifications (mutations) don't apply.
+- `ErrorBoundary` — catches render crashes.
+- `PageToolbar`, `ActiveFilterChips`, `CursorPagination`, `TimeRangePresetSelect`,
+  `AutoRefreshSelect`, `TrafficLineChart`, `BrandName`, `layout/` (AppShell etc.).
