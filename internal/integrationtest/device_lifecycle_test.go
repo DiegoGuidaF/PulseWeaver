@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
@@ -80,4 +81,66 @@ func TestDeviceDelete_EvictsIPFromPolicyCache(t *testing.T) {
 	// with the key row deleted, it returns ErrDeviceNotFound.
 	_, err = srv.DeviceService.Authenticate(ctx, rawKey)
 	is.True(errors.Is(err, device.ErrDeviceNotFound))
+}
+
+// TestDeviceOwnershipChange_RefreshesHostAccessInPolicyCache is a cross-domain
+// integration test that verifies ownership reassignment correctly swaps which
+// hosts the device's IP may reach:
+//
+//  1. alice-laptop (owned by alice, backend access) has IP 10.0.0.1, which is
+//     allowed for api.internal (backend) and denied for web.internal (frontend).
+//  2. Reassigning ownership to bob (frontend access only) via the HTTP API fires
+//     an EventTypeDeviceOwnershipChanged event that triggers an async cache refresh.
+//  3. After the refresh the IP is denied for api.internal and allowed for web.internal.
+//
+// Background services start AFTER seeding to avoid SQLite lock contention.
+func TestDeviceOwnershipChange_RefreshesHostAccessInPolicyCache(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+
+	srv, seed := testutils.SetupRunningIntegrationServer(t,
+		testutils.NewSeeder(t).
+			WithGroup(testutils.GroupFixture{Name: "backend"}).
+			WithGroup(testutils.GroupFixture{Name: "frontend"}).
+			WithHost(testutils.HostFixture{FQDN: "api.internal", Groups: []string{"backend"}}).
+			WithHost(testutils.HostFixture{FQDN: "web.internal", Groups: []string{"frontend"}}).
+			WithUser(testutils.UserFixture{Name: "alice"}).
+			WithUser(testutils.UserFixture{Name: "bob"}).
+			SetUserAccess("alice", false, "backend").
+			SetUserAccess("bob", false, "frontend").
+			WithDevice(testutils.DeviceFixture{Name: "alice-laptop", OwnerUser: "alice"}).
+			WithAddress(testutils.AddressFixture{Device: "alice-laptop", IP: "10.0.0.1"}).
+			WithPolicyInitialize(),
+	)
+
+	deviceID := seed.Device("alice-laptop")
+	client := testutils.NewAdminAPIClient(t, srv)
+
+	// Pre-condition: IP is routed by alice's grants — backend allowed, frontend denied.
+	w := verifyIP(t, srv, "10.0.0.1", "api.internal")
+	is.Equal(w.Code, http.StatusOK)
+	w = verifyIP(t, srv, "10.0.0.1", "web.internal")
+	is.Equal(w.Code, http.StatusForbidden)
+
+	// Reassign ownership to bob via the HTTP API — this is the action under test.
+	updateResp, err := client.UpdateDeviceWithResponse(ctx, deviceID.Int64(), httpapi.UpdateDeviceJSONRequestBody{
+		OwnerId: new(int(seed.User("bob").Int64())),
+	})
+	is.NoErr(err)
+	is.Equal(updateResp.StatusCode(), http.StatusOK)
+
+	// The policy cache refresh is async (EventTypeDeviceOwnershipChanged →
+	// policy.OnAddressEvent → triggerRefresh → RunListener → refreshCache).
+	time.Sleep(50 * time.Millisecond)
+
+	// Policy cache assertion: access is now determined by bob's grants.
+	w = verifyIP(t, srv, "10.0.0.1", "api.internal")
+	is.Equal(w.Code, http.StatusForbidden)
+	w = verifyIP(t, srv, "10.0.0.1", "web.internal")
+	is.Equal(w.Code, http.StatusOK)
+
+	// Service-layer assertion: device owner reflects the update.
+	dev, err := srv.DeviceService.GetDevice(ctx, deviceID)
+	is.NoErr(err)
+	is.Equal(dev.OwnerID, seed.User("bob"))
 }
