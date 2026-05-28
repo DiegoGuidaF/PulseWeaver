@@ -23,7 +23,7 @@ describe('DevicesPage', () => {
 
         await waitFor(
             () => {
-                expect(screen.getByText('No devices found.')).toBeInTheDocument();
+                expect(screen.getByText('No devices yet')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );

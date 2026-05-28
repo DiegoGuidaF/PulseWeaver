@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { buildRoute } from "@/lib/routes";
-import { Badge, Button, Center, Group, Stack, Text, ThemeIcon, Tooltip } from "@mantine/core";
+import { Badge, Button, Group, Text, ThemeIcon, Tooltip } from "@mantine/core";
 import { IconNetwork } from "@tabler/icons-react";
 import { DataTable, type DataTableSortStatus } from "mantine-datatable";
 import { notifications } from "@mantine/notifications";
 import type { NetworkPolicyListItem } from "@/lib/api";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { toErrorMessage } from "@/lib/api-client";
+import { EmptyState } from "@/components/EmptyState";
 import { formatEffectiveAccess } from "@/features/subjects/constants";
 import { GroupFilterBar } from "@/features/subjects/components/GroupFilterBar";
 import { useDeleteNetworkPolicy } from "../hooks/useDeleteNetworkPolicy";
@@ -66,17 +67,12 @@ export function NetworkPoliciesTable({ policies, onNewPolicy }: Props) {
 
   if (policies.length === 0) {
     return (
-      <Center py="xl">
-        <Stack align="center" gap="sm">
-          <IconNetwork size={40} color="var(--mantine-color-dimmed)" />
-          <Text fw={500}>No network policies configured.</Text>
-          <Text size="sm" c="dimmed" ta="center" maw={380}>
-            Add a policy to allow traffic from an IP range without registering individual device
-            addresses.
-          </Text>
-          <Button onClick={onNewPolicy}>+ New policy</Button>
-        </Stack>
-      </Center>
+      <EmptyState
+        icon={IconNetwork}
+        title="No network policies configured"
+        description="Add a policy to allow traffic from an IP range without registering individual device addresses."
+        action={<Button onClick={onNewPolicy}>+ New policy</Button>}
+      />
     );
   }
 

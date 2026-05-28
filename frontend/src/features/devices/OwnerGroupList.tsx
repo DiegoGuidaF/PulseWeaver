@@ -1,7 +1,8 @@
-import { Alert, Skeleton, Stack, Text } from "@mantine/core";
-import { IconAlertCircle } from "@tabler/icons-react";
+import { Alert, Skeleton, Stack } from "@mantine/core";
+import { IconAlertCircle, IconDevices } from "@tabler/icons-react";
 import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
 import { OwnerCard } from "@/features/devices/OwnerCard";
+import { EmptyState } from "@/components/EmptyState";
 import { toErrorMessage } from "@/lib/api-client";
 
 function LoadingSkeleton() {
@@ -33,9 +34,11 @@ export function OwnerGroupList() {
 
   if (!groups || groups.length === 0) {
     return (
-      <Text c="dimmed" ta="center" py="xl">
-        No devices found.
-      </Text>
+      <EmptyState
+        icon={IconDevices}
+        title="No devices yet"
+        description="Devices appear here, grouped by owner, once they have been registered."
+      />
     );
   }
 
