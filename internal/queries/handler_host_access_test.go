@@ -59,7 +59,7 @@ func TestHandler_ListHosts_HappyPath(t *testing.T) {
 	srv := testutils.SetupIntegrationServer(t)
 	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	testutils.SeedFullWorld(t, srv).Build()
+	testutils.SeedFullWorld(t).Build(srv)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/hosts", nil)
 	req.AddCookie(cookie)
@@ -129,7 +129,7 @@ func TestHandler_ListHostGroups_HappyPath(t *testing.T) {
 	srv := testutils.SetupIntegrationServer(t)
 	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	testutils.SeedFullWorld(t, srv).Build()
+	testutils.SeedFullWorld(t).Build(srv)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/host-groups", nil)
 	req.AddCookie(cookie)
@@ -210,12 +210,12 @@ func TestHandler_ListHostSuggestions_HappyPath(t *testing.T) {
 	suggestedHost := "new-app.internal"
 	ignoredHost := "ignored-app.internal"
 
-	testutils.NewSeeder(t, srv).
+	testutils.NewSeeder(t).
 		WithHost(testutils.HostFixture{FQDN: knownHost}).
 		WithAccessLogEntry(testutils.AccessLogEntryFixture{ClientIP: "9.9.9.9", Outcome: true, TargetHost: &knownHost}).
 		WithAccessLogEntry(testutils.AccessLogEntryFixture{ClientIP: "9.9.9.9", Outcome: false, TargetHost: &suggestedHost}).
 		WithAccessLogEntry(testutils.AccessLogEntryFixture{ClientIP: "9.9.9.9", Outcome: false, TargetHost: &ignoredHost}).
-		Build()
+		Build(srv)
 
 	_, err := srv.HostsService.AddIgnoredSuggestion(t.Context(), ignoredHost)
 	is.NoErr(err)
@@ -276,7 +276,7 @@ func TestHandler_ListUsersWithAccess_HappyPath(t *testing.T) {
 	srv := testutils.SetupIntegrationServer(t)
 	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	seed := testutils.SeedFullWorld(t, srv).Build()
+	seed := testutils.SeedFullWorld(t).Build(srv)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/users", nil)
 	req.AddCookie(cookie)
@@ -351,7 +351,7 @@ func TestHandler_GetUserAccessDetail_HappyPath(t *testing.T) {
 	srv := testutils.SetupIntegrationServer(t)
 	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	seed := testutils.SeedFullWorld(t, srv).Build()
+	seed := testutils.SeedFullWorld(t).Build(srv)
 	aliceID := seed.User(testutils.FixtureUserWithAccess.Name)
 
 	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/admin/access/users/%d", aliceID), nil)

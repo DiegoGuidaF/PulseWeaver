@@ -32,12 +32,13 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 			TrustedProxy:  netip.MustParseAddr("127.0.0.1"),
 		},
 		DB: config.ConfDB{
-			// cache=shared is required so that multiple connections from the pool
-			// share the same named in-memory database. Without it, each new
-			// connection gets a fresh empty database — harmless for single-threaded
-			// tests but breaks SetupRunningIntegrationServer which opens concurrent
-			// connections from background service goroutines.
-			Dsn: fmt.Sprintf("file:%s?mode=memory&cache=shared&_loc=auto", t.Name()),
+			// cache=shared: all pool connections share the same named in-memory DB.
+			// Without it each new connection gets its own empty database, which
+			// breaks SetupRunningIntegrationServer (concurrent background goroutines).
+			// foreign_keys: enforce FK constraints, matching production behaviour.
+			// busy_timeout: retry on SQLITE_BUSY instead of immediately failing under
+			// light contention (e.g. background goroutines during seeding).
+			Dsn: fmt.Sprintf("file:%s?mode=memory&cache=shared&_loc=auto&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", t.Name()),
 		},
 		Rules: config.ConfRules{
 			CheckInterval: time.Minute,
@@ -68,24 +69,35 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 	return application
 }
 
-// SetupRunningIntegrationServer creates a complete integration test server and
-// starts all background services (policy listener, lease runner, max-addr enforcer,
-// scheduler, access log sink), matching the production startup of app.Run minus
-// the HTTP server. The services stop when the test ends via t.Cleanup.
+// StartBackground starts all background services (policy listener, lease runner,
+// max-addr enforcer, scheduler, access log sink) for srv, tying their lifetime
+// to t. Matches the production startup of app.Run minus the HTTP server.
 //
-// Use this for cross-domain integration tests that exercise the reactive event
-// pipeline (e.g. policy cache eviction after device deletion). For static-state
-// tests that only assert on the outcome of a single operation, SetupIntegrationServer
-// is sufficient and avoids the async-refresh concern entirely.
-func SetupRunningIntegrationServer(t *testing.T) *app.App {
+// Call this AFTER seeding to avoid SQLite lock contention: background goroutines
+// perform DB reads immediately on start, which can deadlock with concurrent seeder
+// writes under SQLite's shared-cache locking model.
+func StartBackground(t *testing.T, srv *app.App) {
 	t.Helper()
-	srv := SetupIntegrationServer(t)
 	go func() {
 		if err := srv.RunBackground(t.Context()); err != nil {
 			t.Errorf("background services error: %v", err)
 		}
 	}()
-	return srv
+}
+
+// SetupRunningIntegrationServer creates a server, seeds via the provided Seeder,
+// then starts all background services. This ordering prevents SQLite lock
+// contention between the seeder and the background goroutines.
+//
+// Use this for cross-domain integration tests that exercise the reactive event
+// pipeline (e.g. policy cache eviction after device deletion). For static-state
+// tests, SetupIntegrationServer is sufficient.
+func SetupRunningIntegrationServer(t *testing.T, seeder *Seeder) (*app.App, *SeedResult) {
+	t.Helper()
+	srv := SetupIntegrationServer(t)
+	seed := seeder.Build(srv)
+	StartBackground(t, srv)
+	return srv, seed
 }
 
 type testWriter struct{ t testing.TB }

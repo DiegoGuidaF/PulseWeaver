@@ -45,7 +45,7 @@ func TestHandler_ListNetworkPolicies_ReturnsPolicySummary(t *testing.T) {
 	srv := testutils.SetupIntegrationServer(t)
 	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	testutils.SeedFullWorld(t, srv).Build()
+	testutils.SeedFullWorld(t).Build(srv)
 
 	req := httptest.NewRequest(http.MethodGet, networkPoliciesURL(), nil)
 	req.AddCookie(cookie)
@@ -106,7 +106,7 @@ func TestHandler_GetNetworkPolicy_ReturnsDetail(t *testing.T) {
 	srv := testutils.SetupIntegrationServer(t)
 	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	seed := testutils.SeedFullWorld(t, srv).Build()
+	seed := testutils.SeedFullWorld(t).Build(srv)
 
 	req := httptest.NewRequest(http.MethodGet, networkPolicyURL(seed.Policy(testutils.FixturePolicyWithGroups.Name)), nil)
 	req.AddCookie(cookie)

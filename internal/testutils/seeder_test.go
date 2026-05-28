@@ -13,7 +13,7 @@ func TestSeedFullWorld_AllEntitiesCreated(t *testing.T) {
 	is := is.New(t)
 	srv := testutils.SetupIntegrationServer(t)
 
-	seed := testutils.SeedFullWorld(t, srv).Build()
+	seed := testutils.SeedFullWorld(t).Build(srv)
 
 	// Groups
 	is.True(seed.Group(testutils.FixtureGroupEmpty.Name) != 0)

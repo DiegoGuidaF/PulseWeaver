@@ -31,13 +31,13 @@ func verifyIPRequest(clientIP, targetHost string) *http.Request {
 func TestHandlerIntegration_ForwardAuth_XRealIPMiddleware(t *testing.T) {
 	is := is.New(t)
 	srv := testutils.SetupIntegrationServer(t)
-	testutils.NewSeeder(t, srv).
+	testutils.NewSeeder(t).
 		WithUser(testutils.UserFixture{Name: "alice"}).
 		SetUserAccess("alice", true).
 		WithDevice(testutils.DeviceFixture{Name: "alice-laptop", OwnerUser: "alice"}).
 		WithAddress(testutils.AddressFixture{Device: "alice-laptop", IP: "10.0.0.1"}).
 		WithPolicyInitialize().
-		Build()
+		Build(srv)
 
 	w := httptest.NewRecorder()
 	srv.HTTPServer.ServeHTTP(w, verifyIPRequest("10.0.0.1", ""))
@@ -48,7 +48,7 @@ func TestHandlerIntegration_ForwardAuth_XRealIPMiddleware(t *testing.T) {
 // decision path present in the full seeded world via real HTTP calls.
 func TestHandlerIntegration_ForwardAuth_FullWorldDecisionTour(t *testing.T) {
 	srv := testutils.SetupIntegrationServer(t)
-	testutils.SeedFullWorld(t, srv).Build()
+	testutils.SeedFullWorld(t).Build(srv)
 
 	cases := []struct {
 		ip     string
@@ -88,7 +88,7 @@ func TestHandlerIntegration_ForwardAuth_MostSpecificCIDRWins(t *testing.T) {
 	srv := testutils.SetupIntegrationServer(t)
 
 	// /8 allows a.com; /16 allows b.com. IP 10.1.2.3 is in both — /16 must win.
-	testutils.NewSeeder(t, srv).
+	testutils.NewSeeder(t).
 		WithGroup(testutils.GroupFixture{Name: "group-a"}).
 		WithGroup(testutils.GroupFixture{Name: "group-b"}).
 		WithHost(testutils.HostFixture{FQDN: "a.com", Groups: []string{"group-a"}}).
@@ -98,7 +98,7 @@ func TestHandlerIntegration_ForwardAuth_MostSpecificCIDRWins(t *testing.T) {
 		AssignGroupsToPolicy("broad", "group-a").
 		AssignGroupsToPolicy("narrow", "group-b").
 		WithPolicyInitialize().
-		Build()
+		Build(srv)
 
 	w1 := httptest.NewRecorder()
 	srv.HTTPServer.ServeHTTP(w1, verifyIPRequest("10.1.2.3", "b.com"))
@@ -118,7 +118,7 @@ func TestHandlerIntegration_ForwardAuth_DeviceBeatsNetworkPolicy(t *testing.T) {
 
 	// alice's device at 10.0.0.5 is restricted to x.com via x-group.
 	// CIDR 10.0.0.0/8 would allow y.com, but the device path must win.
-	testutils.NewSeeder(t, srv).
+	testutils.NewSeeder(t).
 		WithGroup(testutils.GroupFixture{Name: "x-group"}).
 		WithGroup(testutils.GroupFixture{Name: "y-group"}).
 		WithHost(testutils.HostFixture{FQDN: "x.com", Groups: []string{"x-group"}}).
@@ -130,7 +130,7 @@ func TestHandlerIntegration_ForwardAuth_DeviceBeatsNetworkPolicy(t *testing.T) {
 		WithPolicy(testutils.PolicyFixture{Name: "broad", CIDR: "10.0.0.0/8"}).
 		AssignGroupsToPolicy("broad", "y-group").
 		WithPolicyInitialize().
-		Build()
+		Build(srv)
 
 	w1 := httptest.NewRecorder()
 	srv.HTTPServer.ServeHTTP(w1, verifyIPRequest("10.0.0.5", "x.com"))

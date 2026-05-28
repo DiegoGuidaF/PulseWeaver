@@ -62,7 +62,7 @@ func TestHandler_GetPolicyUserMap(t *testing.T) {
 
 	// Seed groups, hosts, users (alice/bob/charlie), policies, devices,
 	// addresses, policy cache, and access log entries.
-	testutils.SeedFullWorld(t, testServer).Build()
+	testutils.SeedFullWorld(t).Build(testServer)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-map", nil)
 	req.AddCookie(adminCookie)

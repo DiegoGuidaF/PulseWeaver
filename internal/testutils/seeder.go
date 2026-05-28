@@ -268,8 +268,7 @@ func addressKey(device, ip string) string { return device + ":" + ip }
 // single ReconcileHosts call, so the full-replace semantics of those operations
 // are handled correctly regardless of how many entities are declared.
 type Seeder struct {
-	t   *testing.T
-	srv *app.App
+	t *testing.T
 
 	policies         []PolicyFixture
 	groups           []GroupFixture
@@ -286,10 +285,11 @@ type Seeder struct {
 	initPolicy       bool
 }
 
-// NewSeeder returns a fresh Seeder bound to t and srv.
-func NewSeeder(t *testing.T, srv *app.App) *Seeder {
+// NewSeeder returns a fresh Seeder. Call With* methods to declare fixtures, then
+// Build(srv) to materialise them against a specific app instance.
+func NewSeeder(t *testing.T) *Seeder {
 	t.Helper()
-	return &Seeder{t: t, srv: srv}
+	return &Seeder{t: t}
 }
 
 // WithPolicy declares a network policy. Name and CIDR are required.
@@ -470,7 +470,7 @@ func (s *Seeder) WithPolicyInitialize() *Seeder {
 // 10. Insert access log entries
 //
 // Any failure calls t.Fatalf, so the test stops immediately.
-func (s *Seeder) Build() *SeedResult {
+func (s *Seeder) Build(srv *app.App) *SeedResult {
 	s.t.Helper()
 	ctx := s.t.Context()
 
@@ -492,9 +492,9 @@ func (s *Seeder) Build() *SeedResult {
 
 	// 1. Users — CreateUser requires a super-admin principal
 	if len(s.users) > 0 {
-		adminPrincipal := AdminPrincipal(s.t, s.srv)
+		adminPrincipal := AdminPrincipal(s.t, srv)
 		for _, f := range s.users {
-			u, err := s.srv.AuthService.CreateUser(ctx, f.Name, f.Name, f.Name+"@test.local", adminPrincipal)
+			u, err := srv.AuthService.CreateUser(ctx, f.Name, f.Name, f.Name+"@test.local", adminPrincipal)
 			if err != nil {
 				s.t.Fatalf("Seeder: create user %q: %v", f.Name, err)
 			}
@@ -516,12 +516,12 @@ func (s *Seeder) Build() *SeedResult {
 			}
 			desired[i] = hosts.DesiredHostGroup{Name: f.Name, Color: color, Icon: icon}
 		}
-		if err := s.srv.HostsService.ReconcileHostGroups(ctx, hosts.ReconcileHostGroupsInput{
+		if err := srv.HostsService.ReconcileHostGroups(ctx, hosts.ReconcileHostGroupsInput{
 			Groups: desired,
 		}); err != nil {
 			s.t.Fatalf("Seeder: reconcile groups: %v", err)
 		}
-		all, err := s.srv.HostsService.ListHostGroups(ctx)
+		all, err := srv.HostsService.ListHostGroups(ctx)
 		if err != nil {
 			s.t.Fatalf("Seeder: list groups: %v", err)
 		}
@@ -544,12 +544,12 @@ func (s *Seeder) Build() *SeedResult {
 			}
 			desired[i] = hosts.DesiredHost{FQDN: f.FQDN, GroupIDs: groupIDs}
 		}
-		if err := s.srv.HostsService.ReconcileHosts(ctx, hosts.ReconcileHostsInput{
+		if err := srv.HostsService.ReconcileHosts(ctx, hosts.ReconcileHostsInput{
 			Hosts: desired,
 		}); err != nil {
 			s.t.Fatalf("Seeder: reconcile hosts: %v", err)
 		}
-		all, err := s.srv.HostsService.ListHosts(ctx)
+		all, err := srv.HostsService.ListHosts(ctx)
 		if err != nil {
 			s.t.Fatalf("Seeder: list hosts: %v", err)
 		}
@@ -565,7 +565,7 @@ func (s *Seeder) Build() *SeedResult {
 			d := f.Desc
 			desc = &d
 		}
-		p, err := s.srv.NetworkPoliciesService.CreatePolicy(ctx, f.Name, f.CIDR, desc)
+		p, err := srv.NetworkPoliciesService.CreatePolicy(ctx, f.Name, f.CIDR, desc)
 		if err != nil {
 			s.t.Fatalf("Seeder: create policy %q: %v", f.Name, err)
 		}
@@ -586,7 +586,7 @@ func (s *Seeder) Build() *SeedResult {
 			}
 			groupIDs = append(groupIDs, gid)
 		}
-		if err := s.srv.NetworkPoliciesService.SetHostAccess(ctx, policyID, a.bypass, groupIDs); err != nil {
+		if err := srv.NetworkPoliciesService.SetHostAccess(ctx, policyID, a.bypass, groupIDs); err != nil {
 			s.t.Fatalf("Seeder: assign groups to policy %q: %v", a.policy, err)
 		}
 	}
@@ -605,7 +605,7 @@ func (s *Seeder) Build() *SeedResult {
 			}
 			groupIDs = append(groupIDs, gid)
 		}
-		if err := s.srv.UserAccessService.SetUserAccess(ctx, userID, a.bypass, groupIDs); err != nil {
+		if err := srv.UserAccessService.SetUserAccess(ctx, userID, a.bypass, groupIDs); err != nil {
 			s.t.Fatalf("Seeder: set access for user %q: %v", a.user, err)
 		}
 	}
@@ -616,7 +616,7 @@ func (s *Seeder) Build() *SeedResult {
 		if !ok {
 			s.t.Fatalf("Seeder: device %q references unknown user %q", f.Name, f.OwnerUser)
 		}
-		dev, err := s.srv.DeviceService.CreateDevice(ctx, &auth.Principal{UserID: ownerID}, f.Name, nil)
+		dev, err := srv.DeviceService.CreateDevice(ctx, &auth.Principal{UserID: ownerID}, f.Name, nil)
 		if err != nil {
 			s.t.Fatalf("Seeder: create device %q: %v", f.Name, err)
 		}
@@ -629,7 +629,7 @@ func (s *Seeder) Build() *SeedResult {
 		if !ok {
 			s.t.Fatalf("Seeder: lease rule references unknown device %q", f.Device)
 		}
-		if _, err := s.srv.RuleService.EnableDeviceAddressLeaseRule(ctx, deviceID, f.TTLSeconds); err != nil {
+		if _, err := srv.RuleService.EnableDeviceAddressLeaseRule(ctx, deviceID, f.TTLSeconds); err != nil {
 			s.t.Fatalf("Seeder: enable lease rule for device %q: %v", f.Device, err)
 		}
 	}
@@ -638,7 +638,7 @@ func (s *Seeder) Build() *SeedResult {
 		if !ok {
 			s.t.Fatalf("Seeder: max-active rule references unknown device %q", f.Device)
 		}
-		if _, err := s.srv.RuleService.EnableMaxActiveAddressesRule(ctx, deviceID, f.MaxAddresses); err != nil {
+		if _, err := srv.RuleService.EnableMaxActiveAddressesRule(ctx, deviceID, f.MaxAddresses); err != nil {
 			s.t.Fatalf("Seeder: enable max-active rule for device %q: %v", f.Device, err)
 		}
 	}
@@ -650,20 +650,20 @@ func (s *Seeder) Build() *SeedResult {
 		if !ok {
 			s.t.Fatalf("Seeder: address %q references unknown device %q", f.IP, f.Device)
 		}
-		addr, _, err := s.srv.DeviceService.RegisterAddressActivity(ctx, deviceID, f.IP, device.EventSourceManual)
+		addr, _, err := srv.DeviceService.RegisterAddressActivity(ctx, deviceID, f.IP, device.EventSourceManual)
 		if err != nil {
 			s.t.Fatalf("Seeder: register address %q for device %q: %v", f.IP, f.Device, err)
 		}
 		result.addresses[addressKey(f.Device, f.IP)] = addr.ID
 
 		if f.Disabled {
-			if _, err := s.srv.DeviceService.DisableAddress(ctx, deviceID, addr.ID); err != nil {
+			if _, err := srv.DeviceService.DisableAddress(ctx, deviceID, addr.ID); err != nil {
 				s.t.Fatalf("Seeder: disable address %q for device %q: %v", f.IP, f.Device, err)
 			}
 		}
 		if f.ExpiresAt != nil {
 			if leaseRepo == nil {
-				leaseRepo = lease.NewRepository(s.srv.Database.DB())
+				leaseRepo = lease.NewRepository(srv.Database.DB())
 			}
 			if _, err := leaseRepo.UpsertAddressLease(ctx, &lease.AddressLease{
 				AddressID: addr.ID,
@@ -677,7 +677,7 @@ func (s *Seeder) Build() *SeedResult {
 
 	// 8b. Device pairings
 	if len(s.pairings) > 0 {
-		pairingRepo := devicepairing.NewRepository(s.srv.Database.DB())
+		pairingRepo := devicepairing.NewRepository(srv.Database.DB())
 		for _, f := range s.pairings {
 			deviceID, ok := result.devices[f.Device]
 			if !ok {
@@ -685,7 +685,7 @@ func (s *Seeder) Build() *SeedResult {
 			}
 			switch f.Status {
 			case "pending":
-				_, err := s.srv.DevicePairingService.CreatePairing(ctx, devicepairing.CreatePairingRequest{
+				_, err := srv.DevicePairingService.CreatePairing(ctx, devicepairing.CreatePairingRequest{
 					DeviceID: deviceID, HeartbeatServerURL: "https://pulse.example.com",
 					IntervalSeconds: 900, ExpiresInHours: 24,
 				})
@@ -693,25 +693,25 @@ func (s *Seeder) Build() *SeedResult {
 					s.t.Fatalf("Seeder: create pending pairing for device %q: %v", f.Device, err)
 				}
 			case "used":
-				pairing, err := s.srv.DevicePairingService.CreatePairing(ctx, devicepairing.CreatePairingRequest{
+				pairing, err := srv.DevicePairingService.CreatePairing(ctx, devicepairing.CreatePairingRequest{
 					DeviceID: deviceID, HeartbeatServerURL: "https://pulse.example.com",
 					IntervalSeconds: 900, ExpiresInHours: 24,
 				})
 				if err != nil {
 					s.t.Fatalf("Seeder: create pairing for used device %q: %v", f.Device, err)
 				}
-				if _, err := s.srv.DevicePairingService.ClaimPairing(ctx, pairing.PairingCode); err != nil {
+				if _, err := srv.DevicePairingService.ClaimPairing(ctx, pairing.PairingCode); err != nil {
 					s.t.Fatalf("Seeder: claim pairing for device %q: %v", f.Device, err)
 				}
 			case "invalidated":
-				pairing, err := s.srv.DevicePairingService.CreatePairing(ctx, devicepairing.CreatePairingRequest{
+				pairing, err := srv.DevicePairingService.CreatePairing(ctx, devicepairing.CreatePairingRequest{
 					DeviceID: deviceID, HeartbeatServerURL: "https://pulse.example.com",
 					IntervalSeconds: 900, ExpiresInHours: 24,
 				})
 				if err != nil {
 					s.t.Fatalf("Seeder: create pairing for invalidated device %q: %v", f.Device, err)
 				}
-				if err := s.srv.DevicePairingService.InvalidatePairing(ctx, deviceID, pairing.ID); err != nil {
+				if err := srv.DevicePairingService.InvalidatePairing(ctx, deviceID, pairing.ID); err != nil {
 					s.t.Fatalf("Seeder: invalidate pairing for device %q: %v", f.Device, err)
 				}
 			case "expired":
@@ -734,7 +734,7 @@ func (s *Seeder) Build() *SeedResult {
 
 	// 9. Policy cache initialization
 	if s.initPolicy {
-		if err := s.srv.PolicyService.Initialize(ctx); err != nil {
+		if err := srv.PolicyService.Initialize(ctx); err != nil {
 			s.t.Fatalf("Seeder: initialize policy cache: %v", err)
 		}
 	}
@@ -788,7 +788,7 @@ func (s *Seeder) Build() *SeedResult {
 			}
 			events = append(events, e)
 		}
-		accessLogRepo := accesslog.NewRepository(s.srv.Database.DB())
+		accessLogRepo := accesslog.NewRepository(srv.Database.DB())
 		if err := accessLogRepo.BatchInsert(ctx, events); err != nil {
 			s.t.Fatalf("Seeder: insert access log entries: %v", err)
 		}
@@ -835,9 +835,9 @@ func (s *Seeder) Build() *SeedResult {
 //	             FixtureAccessLogSharedIPAllow (allow, two contributors — shared IP path)
 //	             FixtureAccessLogNetworkPolicyAllow (allow via network policy CIDR, no device contributors)
 //	             FixtureAccessLogBypassAllow (allow via bypass CIDR, no device contributors)
-func SeedFullWorld(t *testing.T, srv *app.App) *Seeder {
+func SeedFullWorld(t *testing.T) *Seeder {
 	t.Helper()
-	return NewSeeder(t, srv).
+	return NewSeeder(t).
 		WithGroup(FixtureGroupEmpty).
 		WithGroup(FixtureGroupBackend).
 		WithGroup(FixtureGroupFrontend).

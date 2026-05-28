@@ -22,24 +22,21 @@ import (
 //  3. The IP is denied after the refresh, and service-layer state reflects the
 //     full cleanup: device soft-deleted, addresses disabled, API key revoked.
 //
-// This test uses SetupRunningIntegrationServer, which starts all background
-// services (including policy RunListener) so the event pipeline runs exactly
-// as it does in production.
+// Background services start AFTER seeding to avoid SQLite lock contention.
 func TestDeviceDelete_EvictsIPFromPolicyCache(t *testing.T) {
 	is := is.New(t)
 	ctx := t.Context()
 
-	srv := testutils.SetupRunningIntegrationServer(t)
-
-	seed := testutils.NewSeeder(t, srv).
-		WithGroup(testutils.GroupFixture{Name: "backend"}).
-		WithHost(testutils.HostFixture{FQDN: "api.internal", Groups: []string{"backend"}}).
-		WithUser(testutils.UserFixture{Name: "alice"}).
-		SetUserAccess("alice", false, "backend").
-		WithDevice(testutils.DeviceFixture{Name: "alice-laptop", OwnerUser: "alice"}).
-		WithAddress(testutils.AddressFixture{Device: "alice-laptop", IP: "10.0.0.1"}).
-		WithPolicyInitialize().
-		Build()
+	srv, seed := testutils.SetupRunningIntegrationServer(t,
+		testutils.NewSeeder(t).
+			WithGroup(testutils.GroupFixture{Name: "backend"}).
+			WithHost(testutils.HostFixture{FQDN: "api.internal", Groups: []string{"backend"}}).
+			WithUser(testutils.UserFixture{Name: "alice"}).
+			SetUserAccess("alice", false, "backend").
+			WithDevice(testutils.DeviceFixture{Name: "alice-laptop", OwnerUser: "alice"}).
+			WithAddress(testutils.AddressFixture{Device: "alice-laptop", IP: "10.0.0.1"}).
+			WithPolicyInitialize(),
+	)
 
 	deviceID := seed.Device("alice-laptop")
 	client := testutils.NewAdminAPIClient(t, srv)

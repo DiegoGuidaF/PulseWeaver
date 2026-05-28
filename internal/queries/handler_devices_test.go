@@ -45,7 +45,7 @@ func TestHandler_GetDeviceAddresses_ReturnsDeviceAddresses(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	seed := testutils.SeedFullWorld(t, testServer).Build()
+	seed := testutils.SeedFullWorld(t).Build(testServer)
 	deviceID := seed.Device(testutils.FixtureDeviceWithOwnerAccess.Name) // alice-laptop
 
 	url := fmt.Sprintf("/api/v1/devices/%d/addresses", deviceID)
@@ -75,11 +75,11 @@ func TestHandler_GetDeviceAddresses_ExpiresAtPopulatedWithLease(t *testing.T) {
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
 	futureExpiry := time.Now().UTC().Add(time.Hour).Truncate(time.Second)
-	seed := testutils.NewSeeder(t, testServer).
+	seed := testutils.NewSeeder(t).
 		WithUser(testutils.UserFixture{Name: "lease-user"}).
 		WithDevice(testutils.DeviceFixture{Name: "lease-device", OwnerUser: "lease-user"}).
 		WithAddress(testutils.AddressFixture{Device: "lease-device", IP: "10.0.2.1", ExpiresAt: &futureExpiry}).
-		Build()
+		Build(testServer)
 
 	url := fmt.Sprintf("/api/v1/devices/%d/addresses", seed.Device("lease-device"))
 	req := httptest.NewRequest(http.MethodGet, url, nil)
@@ -103,11 +103,11 @@ func TestHandler_GetDeviceAddresses_SourceFieldPopulated(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	seed := testutils.NewSeeder(t, testServer).
+	seed := testutils.NewSeeder(t).
 		WithUser(testutils.UserFixture{Name: "source-user"}).
 		WithDevice(testutils.DeviceFixture{Name: "source-device", OwnerUser: "source-user"}).
 		WithAddress(testutils.AddressFixture{Device: "source-device", IP: "10.0.9.1"}).
-		Build()
+		Build(testServer)
 
 	url := fmt.Sprintf("/api/v1/devices/%d/addresses", seed.Device("source-device"))
 	req := httptest.NewRequest(http.MethodGet, url, nil)
@@ -142,11 +142,11 @@ func TestHandler_GetDeviceAddresses_ExpiresAtNullWhenNoLease(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	sessionCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	seed := testutils.NewSeeder(t, testServer).
+	seed := testutils.NewSeeder(t).
 		WithUser(testutils.UserFixture{Name: "no-lease-user"}).
 		WithDevice(testutils.DeviceFixture{Name: "no-lease-device", OwnerUser: "no-lease-user"}).
 		WithAddress(testutils.AddressFixture{Device: "no-lease-device", IP: "10.0.3.1"}).
-		Build()
+		Build(testServer)
 
 	url := fmt.Sprintf("/api/v1/devices/%d/addresses", seed.Device("no-lease-device"))
 	req := httptest.NewRequest(http.MethodGet, url, nil)
@@ -188,7 +188,7 @@ func TestHandler_GetDevices_GroupsDevicesByOwner(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	testutils.SeedFullWorld(t, testServer).Build()
+	testutils.SeedFullWorld(t).Build(testServer)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
 	req.AddCookie(adminCookie)
@@ -264,11 +264,11 @@ func TestHandler_GetDevices_StaleState(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	testutils.NewSeeder(t, testServer).
+	testutils.NewSeeder(t).
 		WithUser(testutils.UserFixture{Name: "stale-user"}).
 		WithDevice(testutils.DeviceFixture{Name: "stale-device", OwnerUser: "stale-user"}).
 		WithAddress(testutils.AddressFixture{Device: "stale-device", IP: "10.0.5.1", Disabled: true}).
-		Build()
+		Build(testServer)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
 	req.AddCookie(adminCookie)
@@ -295,7 +295,7 @@ func TestHandler_GetDevices_PairingSummary(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	testutils.SeedFullWorld(t, testServer).Build()
+	testutils.SeedFullWorld(t).Build(testServer)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
 	req.AddCookie(adminCookie)
