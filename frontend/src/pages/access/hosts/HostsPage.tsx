@@ -42,8 +42,13 @@ export function HostsPage() {
   }, [suggestions.data, draftFqdns]);
   const suggestionCount = suggestionsData?.suggestions.length ?? 0;
 
-  const hostsLoading = hostsQuery.isFetching;
-  const suggestionsLoading = suggestions.isFetching;
+  // Panels gate on isPending (initial load only) so the table is not replaced by a
+  // spinner on every background refetch; the tab badges use isFetching as a subtle
+  // refetch indicator.
+  const hostsLoading = hostsQuery.isPending;
+  const suggestionsLoading = suggestions.isPending;
+  const hostsFetching = hostsQuery.isFetching;
+  const suggestionsFetching = suggestions.isFetching;
 
   return (
     <Stack maw={1100} gap="md" pb={dirty ? 80 : undefined}>
@@ -59,7 +64,7 @@ export function HostsPage() {
           <Tabs.Tab
             value="hosts"
             rightSection={
-              hostsLoading ? (
+              hostsFetching ? (
                 <Loader size="xs" type="dots" />
               ) : (
                 <Badge size="xs" variant="light" color={isDirtyHosts(hostsState) ? "orange" : "gray"}>
@@ -73,7 +78,7 @@ export function HostsPage() {
           <Tabs.Tab
             value="suggestions"
             rightSection={
-              suggestionsLoading ? (
+              suggestionsFetching ? (
                 <Loader size="xs" type="dots" />
               ) : (
                 <Badge
