@@ -130,7 +130,7 @@ describe('UserDevicesPage', () => {
 
         await waitFor(
             () => {
-                expect(screen.getByRole('heading', { name: 'Device profile' })).toBeInTheDocument();
+                expect(screen.getByRole('heading', { name: 'Profile' })).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );

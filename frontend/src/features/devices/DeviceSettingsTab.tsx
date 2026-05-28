@@ -18,6 +18,7 @@ import dayjs from "dayjs";
 import { toErrorMessage } from "@/lib/api-client";
 import { useClipboard } from "@/hooks/useClipboard";
 import { useRegenerateApiKey } from "@/features/devices/hooks/useRegenerateApiKey";
+import { useDeleteApiKey } from "@/features/devices/hooks/useDeleteApiKey";
 import { useDeleteDevice } from "@/features/devices/hooks/useDeleteDevice";
 import { useDeviceTypes } from "@/features/devices/hooks/useDeviceTypes";
 import { useUpdateDevice } from "@/features/devices/hooks/useUpdateDevice";
@@ -54,6 +55,7 @@ export function DeviceSettingsTab({
 }: DeviceSettingsTabProps) {
   const { data: deviceTypes } = useDeviceTypes();
   const regenerateApiKey = useRegenerateApiKey();
+  const deleteApiKey = useDeleteApiKey();
   const deleteDevice = useDeleteDevice();
   const updateDevice = useUpdateDevice();
   const { copy } = useClipboard();
@@ -67,6 +69,7 @@ export function DeviceSettingsTab({
 
   // API key modals
   const [confirmRegenOpen, setConfirmRegenOpen] = useState(false);
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
   const [revealedApiKey, setRevealedApiKey] = useState<string | null>(null);
   const [wasRegenerated, setWasRegenerated] = useState(false);
 
@@ -99,6 +102,20 @@ export function DeviceSettingsTab({
           setConfirmRegenOpen(false);
           setWasRegenerated(true);
           setRevealedApiKey(data.api_key);
+        },
+        onError: (err) =>
+          notifications.show({ color: "red", message: toErrorMessage(err) }),
+      },
+    );
+  }
+
+  function handleConfirmRemove() {
+    deleteApiKey.mutate(
+      { path: { device_id: deviceId } },
+      {
+        onSuccess: () => {
+          setConfirmRemoveOpen(false);
+          notifications.show({ color: "green", message: "API key removed" });
         },
         onError: (err) =>
           notifications.show({ color: "red", message: toErrorMessage(err) }),
@@ -206,14 +223,25 @@ export function DeviceSettingsTab({
                 <Text ff="monospace" size="sm" c="dimmed">
                   {device.api_key_prefix}&hellip;
                 </Text>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={regenerateApiKey.isPending}
-                  onClick={() => setConfirmRegenOpen(true)}
-                >
-                  ↻ Regenerate…
-                </Button>
+                <Group gap="xs" wrap="nowrap">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={regenerateApiKey.isPending}
+                    onClick={() => setConfirmRegenOpen(true)}
+                  >
+                    ↻ Regenerate…
+                  </Button>
+                  <Button
+                    variant="subtle"
+                    color="red"
+                    size="sm"
+                    disabled={deleteApiKey.isPending}
+                    onClick={() => setConfirmRemoveOpen(true)}
+                  >
+                    Remove key
+                  </Button>
+                </Group>
               </Group>
               <Text size="xs" c="dimmed">
                 Full key shown once at creation · store it securely.
@@ -316,6 +344,40 @@ export function DeviceSettingsTab({
               loading={regenerateApiKey.isPending}
             >
               Regenerate
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* ── Remove API key confirm ── */}
+      <Modal
+        opened={confirmRemoveOpen}
+        onClose={() => setConfirmRemoveOpen(false)}
+        title={`Remove API key for "${device?.name}"?`}
+        closeOnClickOutside={false}
+        closeOnEscape={false}
+        withCloseButton={false}
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            The current key (
+            <Text component="span" ff="monospace">
+              {device?.api_key_prefix}&hellip;
+            </Text>
+            ) will stop working immediately and this device will no longer be able to receive
+            heartbeats. You can generate a new key later.
+          </Text>
+          <Group justify="flex-end" gap="sm">
+            <Button variant="outline" onClick={() => setConfirmRemoveOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              color="red"
+              onClick={handleConfirmRemove}
+              disabled={deleteApiKey.isPending}
+              loading={deleteApiKey.isPending}
+            >
+              Delete key
             </Button>
           </Group>
         </Stack>

@@ -23,34 +23,35 @@ function renderTabNoKey() {
 }
 
 describe('DeviceSettingsTab', () => {
-    it('shows disabled Generate API key button when device is not yet loaded', () => {
+    it('shows no API key action before the device is loaded', () => {
         renderTab();
 
-        expect(screen.getByRole('button', { name: 'Generate API key' })).toBeDisabled();
+        expect(screen.queryByRole('button', { name: 'Generate key' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Regenerate/i })).not.toBeInTheDocument();
     });
 
-    it('shows Generate API key button when device has no key', () => {
+    it('shows the Generate key button when the device has no key', () => {
         renderTabNoKey();
 
-        expect(screen.getByRole('button', { name: 'Generate API key' })).not.toBeDisabled();
-        expect(screen.queryByRole('button', { name: 'Regenerate API key' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Generate key' })).not.toBeDisabled();
+        expect(screen.queryByRole('button', { name: /Regenerate/i })).not.toBeInTheDocument();
     });
 
-    it('shows Regenerate and Remove buttons when device has a key', () => {
+    it('shows the Regenerate and Remove buttons when the device has a key', () => {
         renderTabWithKey();
 
-        expect(screen.getByRole('button', { name: 'Regenerate API key' })).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Remove API key' })).toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: 'Generate API key' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Regenerate/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Remove key' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Generate key' })).not.toBeInTheDocument();
     });
 
-    it('opens confirmation dialog when Regenerate API key is clicked', async () => {
+    it('opens the confirmation dialog when Regenerate is clicked', async () => {
         const user = userEvent.setup();
         // deviceHandlers.regenerateApiKey.success() is in defaultHandlers
 
         renderTabWithKey();
 
-        await user.click(screen.getByRole('button', { name: 'Regenerate API key' }));
+        await user.click(screen.getByRole('button', { name: /Regenerate/i }));
 
         expect(screen.getByRole('dialog')).toBeInTheDocument();
         expect(screen.getByText(/Regenerate API key for/i)).toBeInTheDocument();
@@ -62,7 +63,7 @@ describe('DeviceSettingsTab', () => {
 
         renderTabWithKey();
 
-        await user.click(screen.getByRole('button', { name: 'Regenerate API key' }));
+        await user.click(screen.getByRole('button', { name: /Regenerate/i }));
         await user.click(screen.getByRole('button', { name: 'Regenerate' }));
 
         await waitFor(
@@ -74,24 +75,24 @@ describe('DeviceSettingsTab', () => {
         expect(screen.getByDisplayValue('regenerated_key_abc123xyz789')).toBeInTheDocument();
     });
 
-    it('opens delete confirmation dialog when Remove API key is clicked', async () => {
+    it('opens the delete confirmation dialog when Remove key is clicked', async () => {
         const user = userEvent.setup();
 
         renderTabWithKey();
 
-        await user.click(screen.getByRole('button', { name: 'Remove API key' }));
+        await user.click(screen.getByRole('button', { name: 'Remove key' }));
 
         expect(screen.getByRole('dialog')).toBeInTheDocument();
         expect(screen.getByText(/Remove API key for/i)).toBeInTheDocument();
     });
 
-    it('calls delete API on confirm and closes modal', async () => {
+    it('calls delete API on confirm and closes the modal', async () => {
         const user = userEvent.setup();
         server.use(deviceHandlers.deleteApiKey.success());
 
         renderTabWithKey();
 
-        await user.click(screen.getByRole('button', { name: 'Remove API key' }));
+        await user.click(screen.getByRole('button', { name: 'Remove key' }));
         await user.click(screen.getByRole('button', { name: 'Delete key' }));
 
         await waitFor(
