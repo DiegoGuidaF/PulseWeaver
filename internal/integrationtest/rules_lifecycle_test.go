@@ -106,7 +106,7 @@ func TestMaxActiveAddressesRule_EvictsOldestAddressFromPolicyCache(t *testing.T)
 	// EventSourceLimitExceeded, confirming the maxaddr enforcer was responsible.
 	historyQuery := device.AddressHistoryQuery{
 		DeviceIDs: []ids.DeviceID{deviceID},
-		Source:    strPtr(string(device.EventSourceLimitExceeded)),
+		Source:    new(string(device.EventSourceLimitExceeded)),
 	}
 	is.NoErr(historyQuery.Validate())
 	history, err := srv.DeviceService.GetAddressHistory(ctx, historyQuery)
@@ -115,5 +115,3 @@ func TestMaxActiveAddressesRule_EvictsOldestAddressFromPolicyCache(t *testing.T)
 	is.Equal(history.Events[0].IP, evictedIP)
 	is.Equal(history.Events[0].Source, device.EventSourceLimitExceeded)
 }
-
-func strPtr(s string) *string { return &s }

@@ -351,3 +351,64 @@ func TestService_UpdateDevice_RepoErrorPropagated(t *testing.T) {
 
 	is.True(errors.Is(err, sentinel))
 }
+
+func TestService_OnUserEvent_UserDeleted_DeletesOwnedDevices(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	ownerID := ids.UserID(42)
+	mockRepo := newMockRepository()
+	mockRepo.devices[ids.DeviceID(1)] = &device.Device{ID: ids.DeviceID(1), Name: "d1", OwnerID: ownerID, DeviceType: device.DeviceTypeStatic}
+	mockRepo.devices[ids.DeviceID(2)] = &device.Device{ID: ids.DeviceID(2), Name: "d2", OwnerID: ownerID, DeviceType: device.DeviceTypeStatic}
+	svc := newService(mockRepo)
+
+	svc.OnUserEvent(ctx, auth.UserEvent{Type: auth.EventTypeUserDeleted, UserID: ownerID})
+
+	is.Equal(len(mockRepo.devices), 0)
+}
+
+func TestService_OnUserEvent_UserDeleted_NoDevices(t *testing.T) {
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	svc := newService(mockRepo)
+
+	// Should complete without error or panic.
+	svc.OnUserEvent(ctx, auth.UserEvent{Type: auth.EventTypeUserDeleted, UserID: ids.UserID(99)})
+}
+
+func TestService_OnUserEvent_NonDeletionEvent_DoesNothing(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	ownerID := ids.UserID(1)
+	mockRepo := newMockRepository()
+	mockRepo.devices[ids.DeviceID(1)] = &device.Device{ID: ids.DeviceID(1), Name: "d1", OwnerID: ownerID, DeviceType: device.DeviceTypeStatic}
+	svc := newService(mockRepo)
+
+	svc.OnUserEvent(ctx, auth.UserEvent{Type: auth.EventTypeUserCreated, UserID: ownerID})
+
+	is.Equal(len(mockRepo.devices), 1)
+}
+
+func TestService_OnUserEvent_UserDeleted_DisablesAddressesAndNotifiesObservers(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	ownerID := ids.UserID(1)
+	mockRepo := newMockRepository()
+	d := &device.Device{ID: ids.DeviceID(1), Name: "d1", OwnerID: ownerID, DeviceType: device.DeviceTypeStatic}
+	mockRepo.devices[d.ID] = d
+	mockRepo.addresses[ids.AddressID(1)] = &device.Address{ID: ids.AddressID(1), DeviceID: d.ID, IsEnabled: true}
+
+	observer := &testAddressObserver{}
+	svc := newService(mockRepo)
+	svc.AddAddressObserver(observer)
+
+	svc.OnUserEvent(ctx, auth.UserEvent{Type: auth.EventTypeUserDeleted, UserID: ownerID})
+
+	is.Equal(len(mockRepo.devices), 0)
+	is.Equal(mockRepo.addresses[ids.AddressID(1)].IsEnabled, false)
+	is.Equal(len(observer.events), 1)
+	is.Equal(observer.events[0].Type, device.EventTypeAddressDisabled)
+}

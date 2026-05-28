@@ -170,8 +170,9 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	deviceService.AddAddressObserver(policyService)
 	deviceService.AddAddressObserver(maxAddrService)
 
-	// Register user lifecycle observer
+	// Register user lifecycle observers
 	authService.AddUserObserver(userAccessService)
+	authService.AddUserObserver(deviceService)
 
 	// Register host/group and user-access change observers → policy cache refresh
 	hostsService.AddObserver(policyService)

@@ -123,6 +123,16 @@ func (r *Repository) GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) 
 	return device, nil
 }
 
+func (r *Repository) GetDeviceIDsByOwner(ctx context.Context, ownerID ids.UserID) ([]ids.DeviceID, error) {
+	var deviceIDs []ids.DeviceID
+
+	const query = `SELECT id FROM devices WHERE owner_id = ? AND deleted_at IS NULL`
+	if err := r.db.SelectContext(ctx, &deviceIDs, query, ownerID); err != nil {
+		return nil, fmt.Errorf("get device IDs by owner: %w", err)
+	}
+	return deviceIDs, nil
+}
+
 func (r *Repository) DeleteDevice(ctx context.Context, deviceID ids.DeviceID) error {
 	query := `UPDATE devices SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`
 	result, err := r.db.ExecContext(ctx, query, time.Now().UTC(), deviceID)

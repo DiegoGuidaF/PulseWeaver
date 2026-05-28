@@ -3,9 +3,11 @@
 package integrationtest_test
 
 import (
+	"errors"
 	"net/http"
 	"testing"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
@@ -43,6 +45,7 @@ func TestUserDelete_EvictsDeviceIPsFromPolicyCache(t *testing.T) {
 	)
 
 	aliceID := seed.User("alice")
+	deviceID := seed.Device("alice-laptop")
 	client := testutils.NewAdminAPIClient(t, srv)
 
 	// Pre-condition: alice's device address is hot in the policy cache.
@@ -70,4 +73,13 @@ func TestUserDelete_EvictsDeviceIPsFromPolicyCache(t *testing.T) {
 	for _, u := range users {
 		is.True(u.ID != aliceID)
 	}
+
+	// Service-layer assertions: alice's device must be soft-deleted and its
+	// addresses disabled — deleting a user should cascade to owned devices.
+	_, err = srv.DeviceService.GetDevice(ctx, deviceID)
+	is.True(errors.Is(err, device.ErrDeviceNotFound))
+
+	addrs, err := srv.DeviceService.GetEnabledAddressesForDevice(ctx, deviceID)
+	is.NoErr(err)
+	is.Equal(len(addrs), 0)
 }

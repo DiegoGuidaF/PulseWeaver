@@ -14,6 +14,7 @@ import (
 
 type repository interface {
 	GetDevice(ctx context.Context, id ids.DeviceID) (*Device, error)
+	GetDeviceIDsByOwner(ctx context.Context, ownerID ids.UserID) ([]ids.DeviceID, error)
 	CreateDevice(ctx context.Context, params CreateDeviceParams) (*Device, error)
 	DeleteDevice(ctx context.Context, id ids.DeviceID) error
 	UpdateDevice(ctx context.Context, device *Device) (*Device, error)
@@ -223,4 +224,31 @@ func (s *Service) DeleteAPIKey(ctx context.Context, deviceID ids.DeviceID) error
 	}
 	s.logger.InfoContext(ctx, "device api key deleted", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 	return nil
+}
+
+// OnUserEvent implements auth.UserObserver. On deletion it soft-deletes every
+// device owned by the user and disables their addresses, firing the
+// AddressDisabled events that trigger a policy cache refresh.
+func (s *Service) OnUserEvent(ctx context.Context, event auth.UserEvent) {
+	if event.Type != auth.EventTypeUserDeleted {
+		return
+	}
+	_ = s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		deviceIDs, err := s.repo.GetDeviceIDsByOwner(ctx, event.UserID)
+		if err != nil {
+			s.logger.ErrorContext(ctx, "failed to get devices for deleted user",
+				slog.Int64("user_id", event.UserID.Int64()),
+				slog.Any(logging.AttrKeyError, err),
+			)
+		}
+		for _, deviceID := range deviceIDs {
+			if err := s.DeleteDevice(ctx, deviceID); err != nil {
+				s.logger.ErrorContext(ctx, "failed to delete device for deleted user",
+					slog.Int64(AttrKeyDeviceID, deviceID.Int64()),
+					slog.Any(logging.AttrKeyError, err),
+				)
+			}
+		}
+		return nil
+	})
 }

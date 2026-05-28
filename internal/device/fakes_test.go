@@ -263,3 +263,13 @@ func (m *mockRepository) GetEnabledAddressesForDevice(_ context.Context, deviceI
 	}
 	return result, nil
 }
+
+func (m *mockRepository) GetDeviceIDsByOwner(_ context.Context, ownerID ids.UserID) ([]ids.DeviceID, error) {
+	var result []ids.DeviceID
+	for _, dev := range m.devices {
+		if dev.OwnerID == ownerID {
+			result = append(result, dev.ID)
+		}
+	}
+	return result, nil
+}

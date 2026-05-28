@@ -95,8 +95,6 @@ func TestDeviceDelete_EvictsIPFromPolicyCache(t *testing.T) {
 //  2. Reassigning ownership to bob (frontend access only) via the HTTP API fires
 //     an EventTypeDeviceOwnershipChanged event that triggers an async cache refresh.
 //  3. After the refresh the IP is denied for api.internal and allowed for web.internal.
-//
-// Background services start AFTER seeding to avoid SQLite lock contention.
 func TestDeviceOwnershipChange_RefreshesHostAccessInPolicyCache(t *testing.T) {
 	is := is.New(t)
 	ctx := t.Context()

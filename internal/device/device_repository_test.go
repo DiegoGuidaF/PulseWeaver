@@ -455,3 +455,66 @@ func TestRepository_UpdateDevice_DuplicateName(t *testing.T) {
 
 	is.True(errors.Is(err, device.ErrDuplicateDeviceName))
 }
+
+func TestRepository_GetDeviceIDsByOwner_ReturnsOwnedDevices(t *testing.T) {
+	is := is.New(t)
+	repos := setupTestDB(t)
+	ctx := context.Background()
+
+	dev1 := createTestDevice(t, repos, ctx, "device-a")
+	dev2 := createTestDevice(t, repos, ctx, "device-b")
+
+	deviceIDs, err := repos.repo.GetDeviceIDsByOwner(ctx, repos.ownerID)
+	is.NoErr(err)
+	is.Equal(len(deviceIDs), 2)
+
+	got := map[ids.DeviceID]bool{deviceIDs[0]: true, deviceIDs[1]: true}
+	is.True(got[dev1.ID])
+	is.True(got[dev2.ID])
+}
+
+func TestRepository_GetDeviceIDsByOwner_ExcludesOtherOwners(t *testing.T) {
+	is := is.New(t)
+	repos := setupTestDB(t)
+	ctx := context.Background()
+
+	var otherOwnerID ids.UserID
+	err := repos.db.QueryRowxContext(ctx,
+		`INSERT INTO users (username, display_name, password_hash, role) VALUES ('other', 'Other', 'x', 'user') RETURNING id`,
+	).Scan(&otherOwnerID)
+	is.NoErr(err)
+
+	createTestDevice(t, repos, ctx, "main-device")
+	_, err = repos.repo.CreateDevice(ctx, device.CreateDeviceParams{Name: "other-device", OwnerID: otherOwnerID})
+	is.NoErr(err)
+
+	deviceIDs, err := repos.repo.GetDeviceIDsByOwner(ctx, repos.ownerID)
+	is.NoErr(err)
+	is.Equal(len(deviceIDs), 1)
+}
+
+func TestRepository_GetDeviceIDsByOwner_ExcludesDeleted(t *testing.T) {
+	is := is.New(t)
+	repos := setupTestDB(t)
+	ctx := context.Background()
+
+	active := createTestDevice(t, repos, ctx, "active")
+	deleted := createTestDevice(t, repos, ctx, "to-delete")
+	err := repos.repo.DeleteDevice(ctx, deleted.ID)
+	is.NoErr(err)
+
+	deviceIDs, err := repos.repo.GetDeviceIDsByOwner(ctx, repos.ownerID)
+	is.NoErr(err)
+	is.Equal(len(deviceIDs), 1)
+	is.Equal(deviceIDs[0], active.ID)
+}
+
+func TestRepository_GetDeviceIDsByOwner_EmptyWhenNoDevices(t *testing.T) {
+	is := is.New(t)
+	repos := setupTestDB(t)
+	ctx := context.Background()
+
+	deviceIDs, err := repos.repo.GetDeviceIDsByOwner(ctx, repos.ownerID)
+	is.NoErr(err)
+	is.Equal(len(deviceIDs), 0)
+}
