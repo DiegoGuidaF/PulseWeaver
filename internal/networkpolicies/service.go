@@ -62,7 +62,6 @@ func (s *Service) CreatePolicy(ctx context.Context, name, cidr string, descripti
 		return NetworkPolicy{}, err
 	}
 
-	// TODO: notify observers once a newly-created policy can have hosts pre-assigned
 	return p, nil
 }
 
@@ -90,7 +89,6 @@ func (s *Service) UpdatePolicy(ctx context.Context, id ids.NetworkPolicyID, fiel
 		return NetworkPolicy{}, err
 	}
 
-	//TODO: Maybe we should only notify if the "enabled" changed?
 	s.notifyObservers(ctx)
 	return updatedPolicy, nil
 }

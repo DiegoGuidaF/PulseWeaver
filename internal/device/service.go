@@ -102,6 +102,7 @@ func (s *Service) CreateDevice(ctx context.Context, principal *auth.Principal, n
 }
 
 func (s *Service) DeleteDevice(ctx context.Context, deviceID ids.DeviceID) error {
+	var disabledAddresses []Address
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		err := s.repo.DeleteDevice(ctx, deviceID)
 		if err != nil {
@@ -117,7 +118,7 @@ func (s *Service) DeleteDevice(ctx context.Context, deviceID ids.DeviceID) error
 		}
 
 		// Disable currently active addresses
-		_, err = s.repo.DisableAddresses(ctx, addressesToDisable, EventSourceManual)
+		disabledAddresses, err = s.repo.DisableAddresses(ctx, addressesToDisable, EventSourceManual)
 		if err != nil {
 			return err
 		}
@@ -137,6 +138,11 @@ func (s *Service) DeleteDevice(ctx context.Context, deviceID ids.DeviceID) error
 	if err != nil {
 		return err
 	}
+
+	for _, disabledAddress := range disabledAddresses {
+		s.notifyObservers(ctx, NewAddressEvent(&disabledAddress, EventTypeAddressDisabled))
+	}
+
 	s.logger.InfoContext(ctx, "device deleted", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 	return nil
 }

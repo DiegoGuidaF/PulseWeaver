@@ -251,9 +251,9 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	}, nil
 }
 
-// Run starts all application background services and the HTTP server.
-// It blocks until shutdown or the first non-cancelled error.
-func (a *App) Run(ctx context.Context) error {
+// RunBackground starts all application background services except the HTTP server.
+// Blocks until ctx is cancelled or the first non-cancelled error.
+func (a *App) RunBackground(ctx context.Context) error {
 	g, gCtx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
@@ -279,6 +279,16 @@ func (a *App) Run(ctx context.Context) error {
 	g.Go(func() error {
 		return ignoreContextCanceled(a.geoipLookup.RunUpdater(gCtx, a.Logger))
 	})
+
+	return ignoreContextCanceled(g.Wait())
+}
+
+// Run starts all application background services and the HTTP server.
+// It blocks until shutdown or the first non-cancelled error.
+func (a *App) Run(ctx context.Context) error {
+	g, gCtx := errgroup.WithContext(ctx)
+
+	g.Go(func() error { return a.RunBackground(gCtx) })
 
 	serverConfig := httpserver.DefaultServerConfigFromConf(a.Config.Server.Port)
 	g.Go(func() error {
