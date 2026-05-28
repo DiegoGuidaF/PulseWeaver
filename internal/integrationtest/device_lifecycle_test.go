@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
@@ -28,14 +27,19 @@ func TestDeviceDelete_EvictsIPFromPolicyCache(t *testing.T) {
 	is := is.New(t)
 	ctx := t.Context()
 
+	const (
+		deviceIP    = "10.0.0.1"
+		backendHost = "api.internal"
+	)
+
 	srv, seed := testutils.SetupRunningIntegrationServer(t,
 		testutils.NewSeeder(t).
 			WithGroup(testutils.GroupFixture{Name: "backend"}).
-			WithHost(testutils.HostFixture{FQDN: "api.internal", Groups: []string{"backend"}}).
+			WithHost(testutils.HostFixture{FQDN: backendHost, Groups: []string{"backend"}}).
 			WithUser(testutils.UserFixture{Name: "alice"}).
 			SetUserAccess("alice", false, "backend").
 			WithDevice(testutils.DeviceFixture{Name: "alice-laptop", OwnerUser: "alice"}).
-			WithAddress(testutils.AddressFixture{Device: "alice-laptop", IP: "10.0.0.1"}).
+			WithAddress(testutils.AddressFixture{Device: "alice-laptop", IP: deviceIP}).
 			WithPolicyInitialize(),
 	)
 
@@ -43,7 +47,7 @@ func TestDeviceDelete_EvictsIPFromPolicyCache(t *testing.T) {
 	client := testutils.NewAdminAPIClient(t, srv)
 
 	// Pre-condition: device address is hot in the policy cache.
-	w := verifyIP(t, srv, "10.0.0.1", "api.internal")
+	w := verifyIP(t, srv, deviceIP, backendHost)
 	is.Equal(w.Code, http.StatusOK)
 
 	// Give the device an API key so we can verify it is revoked after deletion.
@@ -53,17 +57,16 @@ func TestDeviceDelete_EvictsIPFromPolicyCache(t *testing.T) {
 	rawKey := keyResp.JSON200.ApiKey
 
 	// Delete the device via the HTTP API — this is the action under test.
+	before := srv.PolicyService.LastRefreshedAt()
 	deleteResp, err := client.DeleteDeviceWithResponse(ctx, deviceID.Int64())
 	is.NoErr(err)
 	is.Equal(deleteResp.StatusCode(), http.StatusNoContent)
 
 	// The policy cache refresh is async (event → RunListener → refreshCache).
-	// 50 ms is consistent with the unit-level lifecycle tests and sufficient
-	// for an in-process SQLite refresh.
-	time.Sleep(50 * time.Millisecond)
+	testutils.WaitForPolicyRefresh(ctx, t, srv, before)
 
 	// Policy cache assertion: the IP must now be denied.
-	w = verifyIP(t, srv, "10.0.0.1", "api.internal")
+	w = verifyIP(t, srv, deviceIP, backendHost)
 	is.Equal(w.Code, http.StatusForbidden)
 
 	// Service-layer assertions — verify the full cleanup cascade.
@@ -98,49 +101,57 @@ func TestDeviceOwnershipChange_RefreshesHostAccessInPolicyCache(t *testing.T) {
 	is := is.New(t)
 	ctx := t.Context()
 
+	const (
+		deviceIP     = "10.0.0.1"
+		backendHost  = "api.internal"
+		frontendHost = "web.internal"
+	)
+
 	srv, seed := testutils.SetupRunningIntegrationServer(t,
 		testutils.NewSeeder(t).
 			WithGroup(testutils.GroupFixture{Name: "backend"}).
 			WithGroup(testutils.GroupFixture{Name: "frontend"}).
-			WithHost(testutils.HostFixture{FQDN: "api.internal", Groups: []string{"backend"}}).
-			WithHost(testutils.HostFixture{FQDN: "web.internal", Groups: []string{"frontend"}}).
+			WithHost(testutils.HostFixture{FQDN: backendHost, Groups: []string{"backend"}}).
+			WithHost(testutils.HostFixture{FQDN: frontendHost, Groups: []string{"frontend"}}).
 			WithUser(testutils.UserFixture{Name: "alice"}).
 			WithUser(testutils.UserFixture{Name: "bob"}).
 			SetUserAccess("alice", false, "backend").
 			SetUserAccess("bob", false, "frontend").
 			WithDevice(testutils.DeviceFixture{Name: "alice-laptop", OwnerUser: "alice"}).
-			WithAddress(testutils.AddressFixture{Device: "alice-laptop", IP: "10.0.0.1"}).
+			WithAddress(testutils.AddressFixture{Device: "alice-laptop", IP: deviceIP}).
 			WithPolicyInitialize(),
 	)
 
 	deviceID := seed.Device("alice-laptop")
+	bobID := seed.User("bob")
 	client := testutils.NewAdminAPIClient(t, srv)
 
 	// Pre-condition: IP is routed by alice's grants — backend allowed, frontend denied.
-	w := verifyIP(t, srv, "10.0.0.1", "api.internal")
+	w := verifyIP(t, srv, deviceIP, backendHost)
 	is.Equal(w.Code, http.StatusOK)
-	w = verifyIP(t, srv, "10.0.0.1", "web.internal")
+	w = verifyIP(t, srv, deviceIP, frontendHost)
 	is.Equal(w.Code, http.StatusForbidden)
 
 	// Reassign ownership to bob via the HTTP API — this is the action under test.
+	before := srv.PolicyService.LastRefreshedAt()
 	updateResp, err := client.UpdateDeviceWithResponse(ctx, deviceID.Int64(), httpapi.UpdateDeviceJSONRequestBody{
-		OwnerId: new(int(seed.User("bob").Int64())),
+		OwnerId: new(int(bobID.Int64())),
 	})
 	is.NoErr(err)
 	is.Equal(updateResp.StatusCode(), http.StatusOK)
 
 	// The policy cache refresh is async (EventTypeDeviceOwnershipChanged →
 	// policy.OnAddressEvent → triggerRefresh → RunListener → refreshCache).
-	time.Sleep(50 * time.Millisecond)
+	testutils.WaitForPolicyRefresh(ctx, t, srv, before)
 
 	// Policy cache assertion: access is now determined by bob's grants.
-	w = verifyIP(t, srv, "10.0.0.1", "api.internal")
+	w = verifyIP(t, srv, deviceIP, backendHost)
 	is.Equal(w.Code, http.StatusForbidden)
-	w = verifyIP(t, srv, "10.0.0.1", "web.internal")
+	w = verifyIP(t, srv, deviceIP, frontendHost)
 	is.Equal(w.Code, http.StatusOK)
 
 	// Service-layer assertion: device owner reflects the update.
 	dev, err := srv.DeviceService.GetDevice(ctx, deviceID)
 	is.NoErr(err)
-	is.Equal(dev.OwnerID, seed.User("bob"))
+	is.Equal(dev.OwnerID, bobID)
 }

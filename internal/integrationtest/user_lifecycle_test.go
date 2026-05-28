@@ -5,7 +5,6 @@ package integrationtest_test
 import (
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
@@ -27,14 +26,19 @@ func TestUserDelete_EvictsDeviceIPsFromPolicyCache(t *testing.T) {
 	is := is.New(t)
 	ctx := t.Context()
 
+	const (
+		deviceIP    = "10.0.0.1"
+		backendHost = "api.internal"
+	)
+
 	srv, seed := testutils.SetupRunningIntegrationServer(t,
 		testutils.NewSeeder(t).
 			WithGroup(testutils.GroupFixture{Name: "backend"}).
-			WithHost(testutils.HostFixture{FQDN: "api.internal", Groups: []string{"backend"}}).
+			WithHost(testutils.HostFixture{FQDN: backendHost, Groups: []string{"backend"}}).
 			WithUser(testutils.UserFixture{Name: "alice"}).
 			SetUserAccess("alice", false, "backend").
 			WithDevice(testutils.DeviceFixture{Name: "alice-laptop", OwnerUser: "alice"}).
-			WithAddress(testutils.AddressFixture{Device: "alice-laptop", IP: "10.0.0.1"}).
+			WithAddress(testutils.AddressFixture{Device: "alice-laptop", IP: deviceIP}).
 			WithPolicyInitialize(),
 	)
 
@@ -42,10 +46,11 @@ func TestUserDelete_EvictsDeviceIPsFromPolicyCache(t *testing.T) {
 	client := testutils.NewAdminAPIClient(t, srv)
 
 	// Pre-condition: alice's device address is hot in the policy cache.
-	w := verifyIP(t, srv, "10.0.0.1", "api.internal")
+	w := verifyIP(t, srv, deviceIP, backendHost)
 	is.Equal(w.Code, http.StatusOK)
 
 	// Delete alice via the HTTP API — this is the action under test.
+	before := srv.PolicyService.LastRefreshedAt()
 	deleteResp, err := client.DeleteUserWithResponse(ctx, aliceID.Int64())
 	is.NoErr(err)
 	is.Equal(deleteResp.StatusCode(), http.StatusNoContent)
@@ -53,10 +58,10 @@ func TestUserDelete_EvictsDeviceIPsFromPolicyCache(t *testing.T) {
 	// The policy cache refresh is async: DeleteUser → userAccessService removes
 	// alice's host-access grants → policy.OnHostAccessChanged → RunListener
 	// rebuilds cache with an empty host set for alice's device's IPs.
-	time.Sleep(50 * time.Millisecond)
+	testutils.WaitForPolicyRefresh(ctx, t, srv, before)
 
 	// Policy cache assertion: the IP must now be denied.
-	w = verifyIP(t, srv, "10.0.0.1", "api.internal")
+	w = verifyIP(t, srv, deviceIP, backendHost)
 	is.Equal(w.Code, http.StatusForbidden)
 
 	// Service-layer assertion: alice is no longer in the active user list.

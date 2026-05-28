@@ -5,7 +5,6 @@ package integrationtest_test
 import (
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
@@ -32,15 +31,16 @@ func TestMaxActiveAddressesRule_EvictsOldestAddressFromPolicyCache(t *testing.T)
 	ctx := t.Context()
 
 	const (
-		ip1 = "10.0.0.1"
-		ip2 = "10.0.0.2"
-		ip3 = "10.0.0.3"
+		ip1         = "10.0.0.1"
+		ip2         = "10.0.0.2"
+		ip3         = "10.0.0.3"
+		backendHost = "api.internal"
 	)
 
 	srv, seed := testutils.SetupRunningIntegrationServer(t,
 		testutils.NewSeeder(t).
 			WithGroup(testutils.GroupFixture{Name: "backend"}).
-			WithHost(testutils.HostFixture{FQDN: "api.internal", Groups: []string{"backend"}}).
+			WithHost(testutils.HostFixture{FQDN: backendHost, Groups: []string{"backend"}}).
 			WithUser(testutils.UserFixture{Name: "alice"}).
 			SetUserAccess("alice", false, "backend").
 			WithDevice(testutils.DeviceFixture{Name: "alice-laptop", OwnerUser: "alice"}).
@@ -55,7 +55,7 @@ func TestMaxActiveAddressesRule_EvictsOldestAddressFromPolicyCache(t *testing.T)
 
 	// Pre-condition: all three IPs are in the cache and allowed.
 	for _, ip := range []string{ip1, ip2, ip3} {
-		w := verifyIP(t, srv, ip, "api.internal")
+		w := verifyIP(t, srv, ip, backendHost)
 		is.Equal(w.Code, http.StatusOK)
 	}
 
@@ -64,6 +64,7 @@ func TestMaxActiveAddressesRule_EvictsOldestAddressFromPolicyCache(t *testing.T)
 	//       RunListener.enforce → DisableAddresses(EventSourceLimitExceeded) →
 	//       AddressDisabled → policy.OnAddressEvent → triggerRefresh → refreshCache.
 	maxAddresses := 2
+	before := srv.PolicyService.LastRefreshedAt()
 	ruleResp, err := client.PutMaxActiveAddressesRuleWithResponse(ctx, deviceID.Int64(), httpapi.PutMaxActiveAddressesRuleJSONRequestBody{
 		MaxAddresses: maxAddresses,
 	})
@@ -71,7 +72,7 @@ func TestMaxActiveAddressesRule_EvictsOldestAddressFromPolicyCache(t *testing.T)
 	is.Equal(ruleResp.StatusCode(), http.StatusOK)
 
 	// Two async hops: rule event → enforce → address event → cache refresh.
-	time.Sleep(50 * time.Millisecond)
+	testutils.WaitForPolicyRefresh(ctx, t, srv, before)
 
 	// Service-layer assertion: exactly two addresses remain enabled.
 	enabledAfter, err := srv.DeviceService.GetEnabledAddressesForDevice(ctx, deviceID)
@@ -93,11 +94,11 @@ func TestMaxActiveAddressesRule_EvictsOldestAddressFromPolicyCache(t *testing.T)
 	is.True(evictedIP != "") // exactly one address must have been evicted
 
 	// Policy cache assertions: evicted IP denied; remaining two allowed.
-	w := verifyIP(t, srv, evictedIP, "api.internal")
+	w := verifyIP(t, srv, evictedIP, backendHost)
 	is.Equal(w.Code, http.StatusForbidden)
 
 	for ip := range enabledIPs {
-		w := verifyIP(t, srv, ip, "api.internal")
+		w := verifyIP(t, srv, ip, backendHost)
 		is.Equal(w.Code, http.StatusOK)
 	}
 

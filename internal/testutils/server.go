@@ -15,6 +15,23 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
 )
 
+// WaitForPolicyRefresh polls until the policy cache has been refreshed at least
+// once after `after`, or until ctx is cancelled.
+func WaitForPolicyRefresh(ctx context.Context, t *testing.T, srv *app.App, after time.Time) {
+	t.Helper()
+	for {
+		if srv.PolicyService.LastRefreshedAt().After(after) {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal("WaitForPolicyRefresh: context cancelled before cache refresh")
+			return
+		case <-time.After(time.Millisecond):
+		}
+	}
+}
+
 const (
 	TestAdminPassword = "AdminPass123!"
 	TestPolicySecret  = "test-policy-secret"

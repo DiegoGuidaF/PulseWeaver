@@ -89,6 +89,13 @@ func (s *Service) Initialize(ctx context.Context) error {
 	return s.refreshCache(ctx)
 }
 
+// LastRefreshedAt returns the time of the most recent successful cache refresh.
+func (s *Service) LastRefreshedAt() time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.lastRefreshedAt
+}
+
 func (s *Service) AddDecisionObserver(o DecisionObserver) {
 	if o == nil {
 		return
