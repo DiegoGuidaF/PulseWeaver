@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
@@ -43,21 +42,22 @@ func TestDeviceDelete_EvictsIPFromPolicyCache(t *testing.T) {
 		Build()
 
 	deviceID := seed.Device("alice-laptop")
-	client := newAdminClient(t, srv)
+	client := testutils.NewAdminAPIClient(t, srv)
 
 	// Pre-condition: device address is hot in the policy cache.
-	w := client.verifyIP("10.0.0.1", "api.internal")
+	w := verifyIP(t, srv, "10.0.0.1", "api.internal")
 	is.Equal(w.Code, http.StatusOK)
 
 	// Give the device an API key so we can verify it is revoked after deletion.
-	w = client.regenerateAPIKey(deviceID.Int64())
-	is.Equal(w.Code, http.StatusOK)
-	keyResp := decodeJSON[httpapi.DeviceAPIKeyResponse](t, w)
-	rawKey := keyResp.ApiKey
+	keyResp, err := client.RegenerateDeviceAPIKeyWithResponse(ctx, deviceID.Int64())
+	is.NoErr(err)
+	is.Equal(keyResp.StatusCode(), http.StatusOK)
+	rawKey := keyResp.JSON200.ApiKey
 
 	// Delete the device via the HTTP API — this is the action under test.
-	w = client.deleteDevice(deviceID.Int64())
-	is.Equal(w.Code, http.StatusNoContent)
+	deleteResp, err := client.DeleteDeviceWithResponse(ctx, deviceID.Int64())
+	is.NoErr(err)
+	is.Equal(deleteResp.StatusCode(), http.StatusNoContent)
 
 	// The policy cache refresh is async (event → RunListener → refreshCache).
 	// 50 ms is consistent with the unit-level lifecycle tests and sufficient
@@ -65,13 +65,13 @@ func TestDeviceDelete_EvictsIPFromPolicyCache(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Policy cache assertion: the IP must now be denied.
-	w = client.verifyIP("10.0.0.1", "api.internal")
+	w = verifyIP(t, srv, "10.0.0.1", "api.internal")
 	is.Equal(w.Code, http.StatusForbidden)
 
 	// Service-layer assertions — verify the full cleanup cascade.
 
 	// Device is soft-deleted: GetDevice filters WHERE deleted_at IS NULL.
-	_, err := srv.DeviceService.GetDevice(ctx, deviceID)
+	_, err = srv.DeviceService.GetDevice(ctx, deviceID)
 	is.True(errors.Is(err, device.ErrDeviceNotFound))
 
 	// All addresses were disabled by the delete transaction.

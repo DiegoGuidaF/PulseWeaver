@@ -15,7 +15,10 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
 )
 
-const TestAdminPassword = "AdminPass123!"
+const (
+	TestAdminPassword = "AdminPass123!"
+	TestPolicySecret  = "test-policy-secret"
+)
 
 // SetupIntegrationServer creates a complete integration test server with database,
 // services, and handlers configured.

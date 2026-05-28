@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/oapi-codegen/oapi-codegen/HEAD/configuration-schema.json
+package: httpapi
+generate:
+  client: true
+  models: false
+  embedded-spec: false
+output: client.gen.go
+output-options:
+  # Avoids collision with OpenAPI schema model "ClaimPairingResponse" —
+  # the client wrapper for that operation would otherwise share the name.
+  response-type-suffix: TestClientResponse
+

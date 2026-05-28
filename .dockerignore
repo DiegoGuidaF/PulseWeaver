@@ -6,6 +6,9 @@
 frontend/node_modules/
 vendor/
 
+# Test-only generated code (not needed in production image)
+internal/httpapi/client.gen.go
+
 # Build outputs (rebuilt in Docker)
 bin/
 frontend/dist/
