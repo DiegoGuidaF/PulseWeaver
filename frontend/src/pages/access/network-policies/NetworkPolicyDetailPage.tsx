@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useReducer } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ROUTES } from "@/lib/routes";
-import { Alert, Center, Divider, Grid, Loader, Stack } from "@mantine/core";
-import { IconAlertCircle } from "@tabler/icons-react";
+import { Center, Divider, Grid, Loader, Stack } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
+import { ErrorState } from "@/components/ErrorState";
 import { useNetworkPolicy } from "@/features/network-policies/hooks/useNetworkPolicy";
 import { useUpdateNetworkPolicy } from "@/features/network-policies/hooks/useUpdateNetworkPolicy";
 import { useDeleteNetworkPolicy } from "@/features/network-policies/hooks/useDeleteNetworkPolicy";
@@ -29,7 +29,7 @@ export function NetworkPolicyDetailPage() {
     const navigate = useNavigate();
     const policyId = Number(id);
 
-    const { data, isPending, isError } = useNetworkPolicy(policyId);
+    const { data, isPending, isError, error, refetch } = useNetworkPolicy(policyId);
     const updateMutation = useUpdateNetworkPolicy();
     const deleteMutation = useDeleteNetworkPolicy();
     const accessMutation = useUpdateNetworkPolicyAccess();
@@ -109,9 +109,12 @@ export function NetworkPolicyDetailPage() {
 
     if (isError || !data) {
         return (
-            <Alert icon={<IconAlertCircle size={16} />} color="red" title="Not found">
-                This network policy could not be loaded.
-            </Alert>
+            <ErrorState
+                error={error}
+                title="Could not load policy"
+                message={error ? undefined : "This network policy could not be loaded."}
+                onRetry={() => refetch()}
+            />
         );
     }
 

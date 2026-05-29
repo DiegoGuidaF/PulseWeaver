@@ -297,7 +297,8 @@ describe('UsersPage', () => {
 
             await waitFor(
                 () => {
-                    expect(screen.getByText('Failed to load users.')).toBeInTheDocument();
+                    expect(screen.getByText('Failed to load users')).toBeInTheDocument();
+                    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
                 },
                 { timeout: TEST_TIMEOUTS.SHORT },
             );

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Alert,
   Card,
   Center,
   Divider,
@@ -23,6 +22,7 @@ import {
 import type { PolicyUserMapAudit, PolicyUserEntry } from "@/lib/api";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { usePolicyMap } from "@/features/policy-audit/hooks/usePolicyMap";
+import { ErrorState } from "@/components/ErrorState";
 import { SimulateBar } from "@/features/policy-audit/components/SimulateBar";
 import { PolicyUserTable } from "@/features/policy-audit/components/PolicyUserTable";
 import { PolicyUserDrawer } from "@/features/policy-audit/components/PolicyUserDrawer";
@@ -112,7 +112,7 @@ function CacheStatsHeader({ data }: { data: PolicyUserMapAudit }) {
 }
 
 export function PolicyAuditPage() {
-  const { data, isPending, isError } = usePolicyMap();
+  const { data, isPending, isError, refetch } = usePolicyMap();
   const [simulateIp, setSimulateIp] = useState("");
   const [selectedUser, setSelectedUser] = useState<PolicyUserEntry | null>(null);
 
@@ -152,9 +152,11 @@ export function PolicyAuditPage() {
       )}
 
       {isError && (
-        <Alert color="red" title="Failed to load policy cache">
-          Could not fetch the policy map snapshot. Make sure you have admin access.
-        </Alert>
+        <ErrorState
+          title="Failed to load policy cache"
+          message="Could not fetch the policy map snapshot. Make sure you have admin access."
+          onRetry={() => refetch()}
+        />
       )}
 
       {data && (

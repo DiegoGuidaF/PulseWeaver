@@ -20,6 +20,7 @@ import type { UserListItem } from "@/lib/api";
 import { UserRole } from "@/lib/api";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useListUsersWithAccess } from "@/features/subjects/hooks/useListUsersWithAccess";
+import { ErrorState } from "@/components/ErrorState";
 import { GroupFilterBar } from "@/features/subjects/components/GroupFilterBar";
 import { formatEffectiveAccess } from "@/features/subjects/constants";
 import { CreateUserModal } from "@/features/auth/components/CreateUserModal";
@@ -47,7 +48,7 @@ export function UsersPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user: currentUser } = useAuth();
-  const { data, isPending, isError } = useListUsersWithAccess();
+  const { data, isPending, isError, error, refetch } = useListUsersWithAccess();
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [pendingRole, setPendingRole] = useState<PendingRole | null>(null);
@@ -120,7 +121,7 @@ export function UsersPage() {
         </Group>
 
         {isError && (
-          <Text c="red" size="sm">Failed to load users.</Text>
+          <ErrorState error={error} title="Failed to load users" onRetry={() => refetch()} />
         )}
 
         <GroupFilterBar

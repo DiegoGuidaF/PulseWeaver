@@ -84,7 +84,8 @@ describe('NetworkPolicyDetailPage', () => {
             renderPage();
 
             await waitFor(() => {
-                expect(screen.getByText(/network policy could not be loaded/i)).toBeInTheDocument();
+                expect(screen.getByText('Could not load policy')).toBeInTheDocument();
+                expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
             }, { timeout: TEST_TIMEOUTS.MEDIUM });
         });
     });

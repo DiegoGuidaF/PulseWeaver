@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { buildRoute } from "@/lib/routes";
-import { Alert, Button, Center, Group, Loader, Stack, Text, Title } from "@mantine/core";
-import { IconAlertCircle } from "@tabler/icons-react";
+import { Button, Center, Group, Loader, Stack, Text, Title } from "@mantine/core";
 import type { NetworkPolicyDetail } from "@/lib/api";
+import { ErrorState } from "@/components/ErrorState";
 import { useNetworkPolicies } from "@/features/network-policies/hooks/useNetworkPolicies";
 import { NetworkPoliciesTable } from "@/features/network-policies/components/NetworkPoliciesTable";
 import { CreateNetworkPolicyModal } from "@/features/network-policies/components/CreateNetworkPolicyModal";
@@ -12,7 +12,7 @@ export function NetworkPoliciesPage() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [createOpen, setCreateOpen] = useState(false);
-    const { data, isPending, isError } = useNetworkPolicies();
+    const { data, isPending, isError, error, refetch } = useNetworkPolicies();
 
     const groupIdFilter = searchParams.get("group_id");
     const displayedPolicies = groupIdFilter && data
@@ -43,9 +43,11 @@ export function NetworkPoliciesPage() {
             )}
 
             {isError && (
-                <Alert icon={<IconAlertCircle size={16} />} color="red" title="Failed to load">
-                    Could not fetch network policies.
-                </Alert>
+                <ErrorState
+                    error={error}
+                    title="Failed to load network policies"
+                    onRetry={() => refetch()}
+                />
             )}
 
             {displayedPolicies && (

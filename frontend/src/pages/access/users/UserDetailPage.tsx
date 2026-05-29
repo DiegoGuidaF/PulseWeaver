@@ -2,7 +2,6 @@ import { useEffect, useMemo, useReducer, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ROUTES, buildRoute } from "@/lib/routes";
 import {
-  Alert,
   Anchor,
   Badge,
   Center,
@@ -15,9 +14,10 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import { IconAlertCircle, IconChevronLeft } from "@tabler/icons-react";
+import { IconChevronLeft } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { UserRole } from "@/lib/api";
+import { ErrorState } from "@/components/ErrorState";
 import { useUserAccessDetail } from "@/features/subjects/hooks/useUserAccessDetail";
 import { useSetUserAccess } from "@/features/subjects/hooks/useSetUserAccess";
 import { SubjectGroupsPanel } from "@/features/subjects/components/SubjectGroupsPanel";
@@ -48,7 +48,7 @@ export function UserDetailPage() {
   const navigate = useNavigate();
   const userId = Number(id);
 
-  const { data, isPending, isError } = useUserAccessDetail(userId);
+  const { data, isPending, isError, error, refetch } = useUserAccessDetail(userId);
   const saveMutation = useSetUserAccess();
 
   const [draft, dispatch] = useReducer(
@@ -111,9 +111,12 @@ export function UserDetailPage() {
 
   if (isError || !data) {
     return (
-      <Alert icon={<IconAlertCircle size={16} />} color="red" title="Not found">
-        This user could not be loaded.
-      </Alert>
+      <ErrorState
+        error={error}
+        title="Could not load user"
+        message={error ? undefined : "This user could not be loaded."}
+        onRetry={() => refetch()}
+      />
     );
   }
 
