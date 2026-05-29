@@ -125,10 +125,6 @@ export const zDeviceTypeItem = z.object({
   label: z.string(),
 });
 
-export const zDeviceHeartbeatByApiKeyRequest = z.object({
-  ip: zIpAddress.optional(),
-});
-
 export const zDeviceApiKeyResponse = z.object({
   device: zDevice,
   api_key: z.string(),
@@ -951,8 +947,6 @@ export const zDeviceHeartbeatPath = z.object({
  * Address enabled
  */
 export const zDeviceHeartbeatResponse = zAddress;
-
-export const zDeviceHeartbeatByApiKeyBody = zDeviceHeartbeatByApiKeyRequest;
 
 /**
  * Address enabled

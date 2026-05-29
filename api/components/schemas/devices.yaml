@@ -133,12 +133,6 @@ DeviceTypeItem:
     label:
       type: string
 
-DeviceHeartbeatByApiKeyRequest:
-  type: object
-  properties:
-    ip:
-      $ref: './common.yaml#/IPAddress'
-
 DeviceState:
   type: string
   enum: [healthy, stale, pending-claim, expired-claim]

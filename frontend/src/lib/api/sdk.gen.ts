@@ -210,7 +210,6 @@ import {
   zDeleteUserResponse,
   zDemoteUserPath,
   zDemoteUserResponse,
-  zDeviceHeartbeatByApiKeyBody,
   zDeviceHeartbeatByApiKeyResponse,
   zDeviceHeartbeatPath,
   zDeviceHeartbeatResponse,
@@ -958,7 +957,7 @@ export const deviceHeartbeatByApiKey = <ThrowOnError extends boolean = false>(
     requestValidator: async (data) =>
       await z
         .object({
-          body: zDeviceHeartbeatByApiKeyBody.optional(),
+          body: z.never().optional(),
           path: z.never().optional(),
           query: z.never().optional(),
         })
@@ -968,10 +967,6 @@ export const deviceHeartbeatByApiKey = <ThrowOnError extends boolean = false>(
     security: [{ name: "X-API-Key", type: "apiKey" }],
     url: "/heartbeat",
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
   });
 
 /**

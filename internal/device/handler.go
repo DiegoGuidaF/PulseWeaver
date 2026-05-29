@@ -229,30 +229,22 @@ func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, request httpa
 	deviceID := principal.DeviceID
 	logger = logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
-	// Determine IP to use: prefer body IP, fallback to context IP if not provided
-	var ipToUse string
-	requestBody := request.Body
-	if requestBody != nil && requestBody.Ip != nil && *requestBody.Ip != "" {
-		ipToUse = *requestBody.Ip
-	} else {
-		var ok bool
-		ipToUse, ok = httpapi.ClientIPFromContext(ctx)
-		if !ok {
-			logger.ErrorContext(ctx, "client IP not in context and no IP provided in body")
-			return httpapi.DeviceHeartbeatByAPIKey500JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
-		}
+	clientIP, ok := httpapi.ClientIPFromContext(ctx)
+	if !ok {
+		logger.ErrorContext(ctx, "client IP not in context")
+		return httpapi.DeviceHeartbeatByAPIKey500JSONResponse(errorMsgResponse("Failed to extract client IP address")), nil
 	}
-	logger = logger.With(slog.String(AttrKeyAddressIP, ipToUse))
+	logger = logger.With(slog.String(AttrKeyClientIP, clientIP))
 
-	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, ipToUse, EventSourceHeartbeat)
+	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, clientIP, EventSourceHeartbeat)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
 			logger.WarnContext(ctx, "invalid request body")
-			return httpapi.DeviceHeartbeatByAPIKey400JSONResponse(errorMsgResponse(fmt.Sprintf("Received address %s is not a valid IPv4 or IPv6 address", ipToUse))), nil
+			return httpapi.DeviceHeartbeatByAPIKey400JSONResponse(errorMsgResponse(fmt.Sprintf("Received address %s is not a valid IPv4 or IPv6 address", clientIP))), nil
 		case errors.Is(err, ErrInvalidDeviceIP):
 			logger.WarnContext(ctx, "invalid device IP address rejected")
-			return httpapi.DeviceHeartbeatByAPIKey400JSONResponse(errorMsgResponse(fmt.Sprintf("Address %s cannot be registered (loopback, multicast, unspecified, or link-local addresses are not allowed)", ipToUse))), nil
+			return httpapi.DeviceHeartbeatByAPIKey400JSONResponse(errorMsgResponse(fmt.Sprintf("Address %s cannot be registered (loopback, multicast, unspecified, or link-local addresses are not allowed)", clientIP))), nil
 		case errors.Is(err, ErrTrustedProxyIPRejected):
 			logger.WarnContext(ctx, "trusted proxy IP address rejected")
 			return httpapi.DeviceHeartbeatByAPIKey400JSONResponse(errorMsgResponse("Trusted proxy IP addresses cannot be registered")), nil

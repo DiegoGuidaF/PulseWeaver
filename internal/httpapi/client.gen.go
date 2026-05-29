@@ -291,10 +291,8 @@ type ClientInterface interface {
 	// GetDevicePairing request
 	GetDevicePairing(ctx context.Context, id ID, pairingId ID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DeviceHeartbeatByAPIKeyWithBody request with any body
-	DeviceHeartbeatByAPIKeyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	DeviceHeartbeatByAPIKey(ctx context.Context, body DeviceHeartbeatByAPIKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// DeviceHeartbeatByAPIKey request
+	DeviceHeartbeatByAPIKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateMeWithBody request with any body
 	UpdateMeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1183,20 +1181,8 @@ func (c *Client) GetDevicePairing(ctx context.Context, id ID, pairingId ID, reqE
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeviceHeartbeatByAPIKeyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeviceHeartbeatByAPIKeyRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeviceHeartbeatByAPIKey(ctx context.Context, body DeviceHeartbeatByAPIKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeviceHeartbeatByAPIKeyRequest(c.Server, body)
+func (c *Client) DeviceHeartbeatByAPIKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeviceHeartbeatByAPIKeyRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -3827,19 +3813,8 @@ func NewGetDevicePairingRequest(server string, id ID, pairingId ID) (*http.Reque
 	return req, nil
 }
 
-// NewDeviceHeartbeatByAPIKeyRequest calls the generic DeviceHeartbeatByAPIKey builder with application/json body
-func NewDeviceHeartbeatByAPIKeyRequest(server string, body DeviceHeartbeatByAPIKeyJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewDeviceHeartbeatByAPIKeyRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewDeviceHeartbeatByAPIKeyRequestWithBody generates requests for DeviceHeartbeatByAPIKey with any type of body
-func NewDeviceHeartbeatByAPIKeyRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewDeviceHeartbeatByAPIKeyRequest generates requests for DeviceHeartbeatByAPIKey
+func NewDeviceHeartbeatByAPIKeyRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -3857,12 +3832,10 @@ func NewDeviceHeartbeatByAPIKeyRequestWithBody(server string, contentType string
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", queryURL.String(), body)
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -4192,10 +4165,8 @@ type ClientWithResponsesInterface interface {
 	// GetDevicePairingWithResponse request
 	GetDevicePairingWithResponse(ctx context.Context, id ID, pairingId ID, reqEditors ...RequestEditorFn) (*GetDevicePairingTestClientResponse, error)
 
-	// DeviceHeartbeatByAPIKeyWithBodyWithResponse request with any body
-	DeviceHeartbeatByAPIKeyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeviceHeartbeatByAPIKeyTestClientResponse, error)
-
-	DeviceHeartbeatByAPIKeyWithResponse(ctx context.Context, body DeviceHeartbeatByAPIKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*DeviceHeartbeatByAPIKeyTestClientResponse, error)
+	// DeviceHeartbeatByAPIKeyWithResponse request
+	DeviceHeartbeatByAPIKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*DeviceHeartbeatByAPIKeyTestClientResponse, error)
 
 	// UpdateMeWithBodyWithResponse request with any body
 	UpdateMeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMeTestClientResponse, error)
@@ -6299,17 +6270,9 @@ func (c *ClientWithResponses) GetDevicePairingWithResponse(ctx context.Context, 
 	return ParseGetDevicePairingTestClientResponse(rsp)
 }
 
-// DeviceHeartbeatByAPIKeyWithBodyWithResponse request with arbitrary body returning *DeviceHeartbeatByAPIKeyTestClientResponse
-func (c *ClientWithResponses) DeviceHeartbeatByAPIKeyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeviceHeartbeatByAPIKeyTestClientResponse, error) {
-	rsp, err := c.DeviceHeartbeatByAPIKeyWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeviceHeartbeatByAPIKeyTestClientResponse(rsp)
-}
-
-func (c *ClientWithResponses) DeviceHeartbeatByAPIKeyWithResponse(ctx context.Context, body DeviceHeartbeatByAPIKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*DeviceHeartbeatByAPIKeyTestClientResponse, error) {
-	rsp, err := c.DeviceHeartbeatByAPIKey(ctx, body, reqEditors...)
+// DeviceHeartbeatByAPIKeyWithResponse request returning *DeviceHeartbeatByAPIKeyTestClientResponse
+func (c *ClientWithResponses) DeviceHeartbeatByAPIKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*DeviceHeartbeatByAPIKeyTestClientResponse, error) {
+	rsp, err := c.DeviceHeartbeatByAPIKey(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

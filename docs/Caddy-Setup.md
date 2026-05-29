@@ -122,6 +122,7 @@ devices with a registered address can reach it.
 
 ```caddy
 pulseweaver.example.com {
+    encode zstd gzip
     forward_auth pulseweaver:8080 {
         uri /api/policy-engine/verify-ip
         header_up X-Real-IP {http.request.remote.host}

@@ -350,15 +350,6 @@ export const DeviceTypeItemSchema = {
   },
 } as const;
 
-export const DeviceHeartbeatByApiKeyRequestSchema = {
-  type: "object",
-  properties: {
-    ip: {
-      $ref: "#/components/schemas/IPAddress",
-    },
-  },
-} as const;
-
 export const DeviceAPIKeyResponseSchema = {
   type: "object",
   required: ["device", "api_key"],

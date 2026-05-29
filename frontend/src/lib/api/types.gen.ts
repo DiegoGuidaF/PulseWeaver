@@ -165,10 +165,6 @@ export type DeviceTypeItem = {
   label: string;
 };
 
-export type DeviceHeartbeatByApiKeyRequest = {
-  ip?: IpAddress;
-};
-
 export type DeviceApiKeyResponse = {
   device: Device;
   /**
@@ -1751,7 +1747,7 @@ export type DeviceHeartbeatResponse =
   DeviceHeartbeatResponses[keyof DeviceHeartbeatResponses];
 
 export type DeviceHeartbeatByApiKeyData = {
-  body?: DeviceHeartbeatByApiKeyRequest;
+  body?: never;
   path?: never;
   query?: never;
   url: "/heartbeat";

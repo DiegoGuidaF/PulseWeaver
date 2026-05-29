@@ -209,8 +209,6 @@ components:
       $ref: './components/schemas/devices.yaml#/Device'
     DeviceTypeItem:
       $ref: './components/schemas/devices.yaml#/DeviceTypeItem'
-    DeviceHeartbeatByApiKeyRequest:
-      $ref: './components/schemas/devices.yaml#/DeviceHeartbeatByApiKeyRequest'
     DeviceAPIKeyResponse:
       $ref: './components/schemas/devices.yaml#/DeviceAPIKeyResponse'
     DeviceState:

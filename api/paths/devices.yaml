@@ -284,12 +284,6 @@ heartbeat:
       - apiKeyAuth: [ ]
     summary: Performs a heartbeat with the given api key header
     description: Same as /devices/{device_id}/heartbeat but authentication is provided via api-key for the device to update
-    requestBody:
-      required: false
-      content:
-        application/json:
-          schema:
-            $ref: '../components/schemas/devices.yaml#/DeviceHeartbeatByApiKeyRequest'
     responses:
       "200":
         description: Address enabled

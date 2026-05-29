@@ -161,7 +161,6 @@ export {
   type DeviceHeartbeatByApiKeyData,
   type DeviceHeartbeatByApiKeyError,
   type DeviceHeartbeatByApiKeyErrors,
-  type DeviceHeartbeatByApiKeyRequest,
   type DeviceHeartbeatByApiKeyResponse,
   type DeviceHeartbeatByApiKeyResponses,
   type DeviceHeartbeatData,

@@ -192,34 +192,6 @@ func TestHandler_DeviceHeartbeatByApiKey_NoBody(t *testing.T) {
 	is.True(!time.Time(addr.UpdatedAt).IsZero())
 }
 
-func TestHandler_DeviceHeartbeatByApiKey_WithBodyIP(t *testing.T) {
-	is := is.New(t)
-	testServer := testutils.SetupIntegrationServer(t)
-
-	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "apikey-heartbeat-with-body-ip", nil)
-	is.NoErr(err)
-	_, apiKey, err := testServer.DeviceService.RegenerateAPIKey(t.Context(), dev.ID)
-	is.NoErr(err)
-
-	// POST /heartbeat with X-API-Key and IP in request body
-	// The IP in body should be used instead of RemoteAddr
-	heartbeatBody, _ := json.Marshal(map[string]string{"ip": "10.0.0.42"})
-	heartbeatReq := httptest.NewRequest(http.MethodPost, "/api/v1/heartbeat", bytes.NewReader(heartbeatBody))
-	heartbeatReq.Header.Set("Content-Type", "application/json")
-	heartbeatReq.RemoteAddr = "192.168.1.99:12345" // This should be ignored when body IP is provided
-	heartbeatReq.Header.Set("X-API-Key", apiKey)
-	heartbeatRes := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(heartbeatRes, heartbeatReq)
-	is.Equal(heartbeatRes.Code, http.StatusCreated)
-
-	var addr httpapi.Address
-	err = json.NewDecoder(heartbeatRes.Body).Decode(&addr)
-	is.NoErr(err)
-	// Verify the IP from body is used, not RemoteAddr
-	is.Equal(addr.Ip, "10.0.0.42")
-	is.True(addr.IsEnabled)
-}
-
 func TestHandler_DeviceHeartbeatByApiKey_401_NoKey(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)
