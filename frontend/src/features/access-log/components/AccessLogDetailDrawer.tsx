@@ -31,7 +31,7 @@ export function AccessLogDetailDrawer({
             onClose={onClose}
             position="right"
             size="lg"
-            title={<Text fw={600}>Request Detail</Text>}
+            title={<Title order={2} size="h4">Request Detail</Title>}
         >
             {row && (
                 <Stack gap="md">
@@ -47,7 +47,7 @@ export function AccessLogDetailDrawer({
                     </Group>
 
                     <Stack gap="xs">
-                        <Title order={5}>Request</Title>
+                        <Title order={3} size="h5">Request</Title>
                         <Divider />
                         <LabelValue label="Time" value={formatDateTime(row.created_at)} />
                         <LabelValue label="Client IP" value={row.client_ip} mono />
@@ -66,7 +66,7 @@ export function AccessLogDetailDrawer({
                     </Stack>
 
                     <Stack gap="xs">
-                        <Title order={5}>Device</Title>
+                        <Title order={3} size="h5">Device</Title>
                         <Divider />
                         {row.device_name ? (
                             <LabelValue label="Device" value={row.device_name} />
@@ -79,7 +79,7 @@ export function AccessLogDetailDrawer({
 
                     {row.country_code && (
                       <Stack gap="xs">
-                        <Title order={5}>Location</Title>
+                        <Title order={3} size="h5">Location</Title>
                         <Divider />
                         <LabelValue
                           label="Country"
@@ -100,7 +100,7 @@ export function AccessLogDetailDrawer({
                     {headersJson && (
                         <Stack gap="xs">
                             <Group justify="space-between">
-                                <Title order={5}>Headers</Title>
+                                <Title order={3} size="h5">Headers</Title>
                                 <Tooltip label="Copy headers">
                                     <ActionIcon
                                         variant="subtle"

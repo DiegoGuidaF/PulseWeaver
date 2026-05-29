@@ -180,7 +180,7 @@ export function DeviceSettingsTab({
     <Stack gap="xl">
       {/* ── 1. Profile ── */}
       <Stack gap="xs">
-        <Title order={5}>Profile</Title>
+        <Title order={2} size="h5">Profile</Title>
         {device ? (
           <DeviceProfileCard
             deviceId={deviceId}
@@ -213,7 +213,7 @@ export function DeviceSettingsTab({
 
       {/* ── 2. API key ── */}
       <Stack gap="xs">
-        <Title order={5}>API key</Title>
+        <Title order={2} size="h5">API key</Title>
         <Card withBorder>
           {!device ? (
             <Skeleton height={36} />
@@ -267,7 +267,7 @@ export function DeviceSettingsTab({
 
       {/* ── 3. Danger zone ── */}
       <Stack gap="xs">
-        <Title order={5} c="red.7">Danger zone</Title>
+        <Title order={2} size="h5" c="red.7">Danger zone</Title>
         <Card
           withBorder
           p={0}

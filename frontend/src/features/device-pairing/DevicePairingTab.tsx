@@ -114,7 +114,7 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
       {displayPairing ? (
         <Stack gap="md">
           <Group justify="space-between" align="center">
-            <Title order={5}>Active pairing code</Title>
+            <Title order={2} size="h5">Active pairing code</Title>
             <Button
               variant="light"
               size="xs"
@@ -139,7 +139,7 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
             </Alert>
           )}
           <div>
-            <Title order={5} mb={4}>
+            <Title order={2} size="h5" mb={4}>
               Generate a pairing code
             </Title>
             <Text size="sm" c="dimmed">
@@ -156,7 +156,7 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
         <>
           <Divider />
           <Stack gap="xs">
-            <Title order={6} c="dimmed">
+            <Title order={2} size="h6" c="dimmed">
               Recent codes
             </Title>
             {historyItems.map((item) => {
