@@ -1,11 +1,14 @@
 import { Group, Paper, Text, Skeleton, Progress, Stack } from "@mantine/core";
 import { IconWorldOff } from "@tabler/icons-react";
 import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import type { DashboardServiceCount } from "@/lib/api";
 
 interface ServiceBarChartProps {
     data: DashboardServiceCount[] | undefined;
     isLoading: boolean;
+    error?: unknown;
+    onRetry?: () => void;
 }
 
 const COLORS = [
@@ -13,7 +16,7 @@ const COLORS = [
     "cyan", "lime", "grape", "indigo", "yellow",
 ];
 
-export function ServiceBarChart({ data, isLoading }: ServiceBarChartProps) {
+export function ServiceBarChart({ data, isLoading, error, onRetry }: ServiceBarChartProps) {
     const entries = (data ?? [])
         .map((s, i) => ({
             name: s.host || "(unknown)",
@@ -29,7 +32,7 @@ export function ServiceBarChart({ data, isLoading }: ServiceBarChartProps) {
         <Paper withBorder p="md" radius="md">
             <Group justify="space-between" mb="md">
                 <Text fw={500}>Requests by Service</Text>
-                {!isLoading && entries.length > 0 && (
+                {!isLoading && !error && entries.length > 0 && (
                     <Text size="sm" c="dimmed">
                         {total.toLocaleString()} total
                     </Text>
@@ -37,6 +40,8 @@ export function ServiceBarChart({ data, isLoading }: ServiceBarChartProps) {
             </Group>
             {isLoading ? (
                 <Skeleton h={300} />
+            ) : error ? (
+                <ErrorState error={error} title="Failed to load services" onRetry={onRetry} />
             ) : entries.length === 0 ? (
                 <EmptyState
                     icon={IconWorldOff}

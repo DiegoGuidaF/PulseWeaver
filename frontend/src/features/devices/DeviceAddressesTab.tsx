@@ -23,6 +23,7 @@ import {
 import { IconAlertTriangle, IconSearch, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { toErrorMessage } from "@/lib/api-client";
+import { ErrorState } from "@/components/ErrorState";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { AddressEventSource, type Address } from "@/lib/api";
 import { useDeviceAddresses } from "@/features/devices/hooks/useDeviceAddresses";
@@ -172,7 +173,7 @@ interface DeviceAddressesTabProps {
 
 export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
   const formatDateTime = useDateFormatter();
-  const { data: addresses, isLoading } = useDeviceAddresses(deviceId, true, 10_000);
+  const { data: addresses, isLoading, isError, error, refetch } = useDeviceAddresses(deviceId, true, 10_000);
 
   const addMutation = useAddDeviceAddress();
   const disableMutation = useDisableDeviceAddress();
@@ -353,6 +354,10 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
         </Group>
       </Collapse>
 
+      {isError ? (
+        <ErrorState error={error} title="Failed to load addresses" onRetry={() => refetch()} />
+      ) : (
+        <>
       {/* Active / Stale toggle */}
       {isLoading ? (
         <Skeleton height={32} width={180} />
@@ -470,6 +475,8 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
             </Table.Tbody>
           </Table>
         )
+      )}
+        </>
       )}
     </Stack>
   );

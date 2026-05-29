@@ -7,6 +7,7 @@ import { useCountryLookup } from "../hooks/useCountryLookup";
 import { useMapColorScale } from "../hooks/useMapColorScale";
 import { AccessMap } from "./AccessMap";
 import { TopCountriesTable } from "./TopCountriesTable";
+import { ErrorState } from "@/components/ErrorState";
 
 type Metric = "denied" | "total";
 
@@ -19,7 +20,7 @@ export function CountryStatsSection({ from, to }: CountryStatsSectionProps) {
     const [metric, setMetric] = useState<Metric>("denied");
     const navigate = useNavigate();
 
-    const { data, isLoading } = useCountryStats(from, to);
+    const { data, isLoading, error, refetch } = useCountryStats(from, to);
     const lookup = useCountryLookup(data);
     const colorFn = useMapColorScale(data, metric);
 
@@ -27,6 +28,10 @@ export function CountryStatsSection({ from, to }: CountryStatsSectionProps) {
         (code: string) => navigate(`${ROUTES.accessLog}?country_code=${code}`),
         [navigate],
     );
+
+    if (error) {
+        return <ErrorState error={error} title="Failed to load country stats" onRetry={() => refetch()} />;
+    }
 
     // Hide the entire section when geo data is unavailable (GeoIP disabled or no enriched records).
     if (!isLoading && (data?.length ?? 0) === 0) return null;

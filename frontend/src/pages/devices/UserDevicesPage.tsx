@@ -4,7 +4,6 @@ import { ROUTES } from "@/lib/routes";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import {
-  Alert,
   Anchor,
   Box,
   Group,
@@ -17,9 +16,9 @@ import {
   Title,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
-import { IconAlertCircle, IconChevronLeft } from "@tabler/icons-react";
+import { IconChevronLeft } from "@tabler/icons-react";
 import classes from "./UserDevicesPage.module.css";
-import { toErrorMessage } from "@/lib/api-client";
+import { ErrorState } from "@/components/ErrorState";
 import { resolveDeviceIcon } from "@/features/devices/deviceTypeConfig";
 import { RuleChips } from "@/features/devices/RuleChips";
 import { useOwnerGroup } from "@/features/devices/hooks/useOwnerGroup";
@@ -93,7 +92,7 @@ export function UserDevicesPage() {
   const deviceIdStr = searchParams.get("device");
   const deviceId = deviceIdStr ? Number.parseInt(deviceIdStr, 10) : undefined;
 
-  const { data: group, isLoading, error } = useOwnerGroup(ownerId);
+  const { data: group, isLoading, error, refetch } = useOwnerGroup(ownerId);
 
   const selectedDevice = useMemo(
     () => (deviceId !== undefined ? group?.devices.find((d) => d.id === deviceId) : undefined),
@@ -181,9 +180,7 @@ export function UserDevicesPage() {
               <Skeleton height={36} radius="sm" />
             </Stack>
           ) : error ? (
-            <Alert color="red" icon={<IconAlertCircle size={16} />} title="Could not load devices">
-              {toErrorMessage(error)}
-            </Alert>
+            <ErrorState error={error} title="Could not load devices" onRetry={() => refetch()} />
           ) : group ? (
             <OwnerDevicesPanel
               owner={group.owner}

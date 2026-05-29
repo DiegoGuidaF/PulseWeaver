@@ -1,19 +1,24 @@
 import { Paper, Text, Table, Skeleton } from "@mantine/core";
 import { IconShieldOff } from "@tabler/icons-react";
 import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import type { DashboardTopDeniedIp } from "@/lib/api";
 
 interface TopDeniedIPsTableProps {
     data: DashboardTopDeniedIp[] | undefined;
     isLoading: boolean;
+    error?: unknown;
+    onRetry?: () => void;
 }
 
-export function TopDeniedIPsTable({ data, isLoading }: TopDeniedIPsTableProps) {
+export function TopDeniedIPsTable({ data, isLoading, error, onRetry }: TopDeniedIPsTableProps) {
     return (
         <Paper withBorder p="md" radius="md">
             <Text fw={500} mb="md">Top Denied IPs</Text>
             {isLoading ? (
                 <Skeleton h={200} />
+            ) : error ? (
+                <ErrorState error={error} title="Failed to load denied IPs" onRetry={onRetry} />
             ) : !data || data.length === 0 ? (
                 <EmptyState
                     icon={IconShieldOff}

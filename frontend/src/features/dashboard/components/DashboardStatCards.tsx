@@ -6,11 +6,14 @@ import {
     IconUsers,
     IconClock,
 } from "@tabler/icons-react";
+import { ErrorState } from "@/components/ErrorState";
 import type { DashboardStats } from "@/lib/api";
 
 interface DashboardStatCardsProps {
     data: DashboardStats | undefined;
     isLoading: boolean;
+    error?: unknown;
+    onRetry?: () => void;
 }
 
 function pct(count: number, total: number): string {
@@ -22,7 +25,11 @@ function formatDuration(us: number): string {
     return `${(us / 1000).toFixed(2)} ms`;
 }
 
-export function DashboardStatCards({ data, isLoading }: DashboardStatCardsProps) {
+export function DashboardStatCards({ data, isLoading, error, onRetry }: DashboardStatCardsProps) {
+    if (error) {
+        return <ErrorState error={error} title="Failed to load stats" onRetry={onRetry} />;
+    }
+
     const cards = [
         {
             label: "Total Requests",

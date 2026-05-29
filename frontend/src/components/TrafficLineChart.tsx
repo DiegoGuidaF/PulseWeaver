@@ -4,6 +4,7 @@ import { LineChart } from "@mantine/charts";
 import { IconChartLine } from "@tabler/icons-react";
 import { formatChartLabel } from "@/lib/formatChartLabel";
 import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import type { DashboardTrafficBucket } from "@/lib/api";
 
 const SERIES: { name: string; color: string }[] = [
@@ -22,9 +23,11 @@ interface TrafficLineChartProps {
     isLoading: boolean;
     timeRangeMs: number;
     h?: number;
+    error?: unknown;
+    onRetry?: () => void;
 }
 
-export function TrafficLineChart({ data, isLoading, timeRangeMs, h = 300 }: TrafficLineChartProps) {
+export function TrafficLineChart({ data, isLoading, timeRangeMs, h = 300, error, onRetry }: TrafficLineChartProps) {
     const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
 
     const chartData = (data ?? []).map((b) => ({
@@ -77,6 +80,8 @@ export function TrafficLineChart({ data, isLoading, timeRangeMs, h = 300 }: Traf
             </Group>
             {isLoading ? (
                 <Skeleton h={h} />
+            ) : error ? (
+                <ErrorState error={error} title="Failed to load traffic" onRetry={onRetry} />
             ) : chartData.length === 0 ? (
                 <EmptyState
                     icon={IconChartLine}

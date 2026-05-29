@@ -18,6 +18,7 @@ import dayjs from "dayjs";
 import type { DevicePairing, DeviceState as DeviceStateType } from "@/lib/api";
 import { DeviceState } from "@/lib/api";
 import { toErrorMessage } from "@/lib/api-client";
+import { ErrorState } from "@/components/ErrorState";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { useListDevicePairings } from "./hooks/useListDevicePairings";
 import { useCreateDevicePairing } from "./hooks/useCreateDevicePairing";
@@ -95,6 +96,16 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
 
   if (isPending && pendingQuery.isLoading && !justCreated) {
     return <Loader size="sm" />;
+  }
+
+  if (isPending && pendingQuery.isError && !justCreated) {
+    return (
+      <ErrorState
+        error={pendingQuery.error}
+        title="Failed to load pairing code"
+        onRetry={() => pendingQuery.refetch()}
+      />
+    );
   }
 
   return (

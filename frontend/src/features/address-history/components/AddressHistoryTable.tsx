@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
 import { buildRoute } from "@/lib/routes";
 import { useNavigate } from "react-router-dom";
-import { Alert, Button, Card, Group, Paper, Skeleton, Stack, Text } from "@mantine/core";
+import { Button, Card, Group, Paper, Skeleton, Stack, Text } from "@mantine/core";
 import { LineChart } from "@mantine/charts";
 import { DataTable } from "mantine-datatable";
-import { IconAlertCircle, IconFilterOff } from "@tabler/icons-react";
+import { IconFilterOff } from "@tabler/icons-react";
 import type { TooltipContentProps } from "recharts";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
 import { CursorPagination } from "@/components/CursorPagination";
@@ -12,7 +12,7 @@ import { useAddressHistory } from "../hooks/useAddressHistory";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
 import { getAddressHistoryColumns } from "./addressHistoryColumns";
 import { SOURCE_LABELS } from "../constants";
-import { toErrorMessage } from "@/lib/api-client";
+import { ErrorState } from "@/components/ErrorState";
 import { formatChartLabel, presetToMs } from "@/lib/formatChartLabel";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
 import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
@@ -66,7 +66,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
 
     const { data: ownerGroups } = useDeviceList();
 
-    const { data, isPending, error } = useAddressHistory(
+    const { data, isPending, error, refetch } = useAddressHistory(
         { ...filters.queryParams, before_id: cursor ? Number(cursor) : undefined, limit: PAGE_SIZE },
         refreshInterval === 0 ? false : refreshInterval,
     );
@@ -186,11 +186,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
     }
 
     if (error) {
-        return (
-            <Alert icon={<IconAlertCircle size={16} />} color="red" title="Failed to load">
-                {toErrorMessage(error)}
-            </Alert>
-        );
+        return <ErrorState error={error} onRetry={() => refetch()} />;
     }
 
     const total = data?.total_events ?? 0;

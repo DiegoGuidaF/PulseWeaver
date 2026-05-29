@@ -23,16 +23,37 @@ export function DashboardView({ from, to, timeRangeMs }: DashboardViewProps) {
 
     return (
         <Stack gap="lg">
-            <DashboardStatCards data={stats.data} isLoading={stats.isLoading} />
+            <DashboardStatCards
+                data={stats.data}
+                isLoading={stats.isLoading}
+                error={stats.error}
+                onRetry={() => stats.refetch()}
+            />
 
             <SimpleGrid cols={{ base: 1, md: 2 }}>
-                <TrafficLineChart data={traffic.data?.buckets} isLoading={traffic.isLoading} timeRangeMs={timeRangeMs} />
-                <ServiceBarChart data={services.data?.services} isLoading={services.isLoading} />
+                <TrafficLineChart
+                    data={traffic.data?.buckets}
+                    isLoading={traffic.isLoading}
+                    timeRangeMs={timeRangeMs}
+                    error={traffic.error}
+                    onRetry={() => traffic.refetch()}
+                />
+                <ServiceBarChart
+                    data={services.data?.services}
+                    isLoading={services.isLoading}
+                    error={services.error}
+                    onRetry={() => services.refetch()}
+                />
             </SimpleGrid>
 
             <CountryStatsSection from={from} to={to} />
 
-            <TopDeniedIPsTable data={topDenied.data?.ips} isLoading={topDenied.isLoading} />
+            <TopDeniedIPsTable
+                data={topDenied.data?.ips}
+                isLoading={topDenied.isLoading}
+                error={topDenied.error}
+                onRetry={() => topDenied.refetch()}
+            />
         </Stack>
     );
 }
