@@ -217,7 +217,7 @@ export function UserDevicesPage() {
               <ThemeIcon variant="transparent" size="md" c="dimmed">
                 {renderDeviceIcon({ size: 22 })}
               </ThemeIcon>
-              <Title order={3}>{selectedDevice.name}</Title>
+              <Title order={1} size="h3">{selectedDevice.name}</Title>
               <RuleChips entry={selectedDevice} size="xs" />
             </Group>
             <Group gap={6} wrap="wrap">

@@ -6,7 +6,7 @@ export function DevicesPage() {
     <Stack maw={1024} gap="xl">
       <div>
         <Title order={1}>Devices</Title>
-        <Text c="dimmed" size="sm">All devices, grouped by owner.</Text>
+        <Text c="dimmed" mt={4}>All devices, grouped by owner.</Text>
       </div>
       <OwnerGroupList />
     </Stack>

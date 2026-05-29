@@ -69,7 +69,7 @@ export function SettingsPage() {
       <Stack maw={1024} gap="xl">
         <div>
           <Title order={1}>Settings</Title>
-          <Text c="dimmed">Manage your account and preferences.</Text>
+          <Text c="dimmed" mt={4}>Manage your account and preferences.</Text>
         </div>
 
         {user?.must_change_password && (
