@@ -2,105 +2,115 @@
 
 > Last updated: 2026-05-29
 
-This document is the **map** of the frontend codebase — what exists and where. For implementation conventions, hook patterns, testing scaffolds, and OpenAPI layering, see [`docs/patterns/_index.md`](frontend/docs/patterns/_index.md).
+This document is the **map** of the frontend codebase — what exists and where. For implementation
+conventions, hook patterns, testing scaffolds, and OpenAPI layering, see the pattern library at
+[`../docs/patterns/frontend/_index.md`](../docs/patterns/frontend/_index.md).
+
+## Routing & layout
+
+Routes are defined in `lib/routes.ts` (`ROUTES` map + `buildRoute` helpers) and wired in `App.tsx`.
+Every route except `/login` is wrapped in `ProtectedRoute` + `AppShell`.
+
+| Route | Page component | Notes |
+|-------|----------------|-------|
+| `/login` | `LoginPage` | unauthenticated |
+| `/` | → redirect to `/dashboard` | |
+| `/dashboard` | `TrafficDashboardPage` | |
+| `/devices` | `DevicesPage` | all devices grouped by owner |
+| `/devices/owners/:ownerId` | `UserDevicesPage` | owner-scoped device workspace (the device-detail surface) |
+| `/access/hosts` | `HostsPage` | |
+| `/access/host-groups` | `HostGroupsPage` | |
+| `/access/users` + `/access/users/:id` | `UsersPage`, `UserDetailPage` | |
+| `/access/network-policies` + `/:id` | `NetworkPoliciesPage`, `NetworkPolicyDetailPage` | |
+| `/access-log` | `AccessLogPage` | |
+| `/address-history` | `AddressHistoryPage` | |
+| `/policy-audit` | `PolicyAuditPage` | nav label is "Access Policy Cache" |
+| `/settings` | `SettingsPage` | |
+| `*` | `NotFoundPage` | |
+
+**Nav (`components/layout/AppShell.tsx`, `navGroups`):** Dashboard · Devices (Devices) ·
+Access (Hosts, Host Groups, Users, Network Policies) · Auditing (Access Logs, IP Address Logs,
+Access Policy Cache) · Settings.
 
 ## Auth Flow
 
-- `useCurrentUser` → `AuthContext (AuthProvider)` → `useAuth()` hook consumed by `ProtectedRoute` and `AppShell`
-- `LoginForm` owns login form validation/submission and is rendered by `LoginPage`
-- Login: POST /auth/login → invalidate `getCurrentUserQueryKey` → navigate (awaits invalidation)
-- Logout: POST /auth/logout → `removeQueries()` (clear all) → navigate to /login
+- `useCurrentUser` → `AuthContext` (`AuthProvider`) → `useAuth()` hook consumed by `ProtectedRoute`
+  and `AppShell`. Lives in `features/auth/` (`AuthContext.tsx`, `auth-context.ts`, `ProtectedRoute.tsx`).
+- `LoginForm` owns login validation/submission, rendered by `LoginPage`.
+- Login: POST `/auth/login` → invalidate `getCurrentUserQueryKey` → navigate (awaits invalidation).
+- Logout: POST `/auth/logout` → `removeQueries()` (clear all) → navigate to `/login`.
+- Global 401 handling lives in `main.tsx` `QueryCache.onError` (see `error-handling.md`).
 
 ## UX Surfaces
 
-### TrafficDashboardPage(`/dashboard`)
-- Shows aggregated metrics for requests received, accepted/denied, response time, traffic over-time requests per service...
-- Mostly a condensed centralized read-only overview of what has happened.
+### TrafficDashboardPage (`/dashboard`)
+- Condensed read-only overview: requests received, accepted/denied, response time, traffic
+  over time, per-service breakdown, top denied IPs, geographic stats.
+- Feature: `features/dashboard/` — `DashboardView` composes `DashboardStatCards`, `TrafficLineChart`,
+  `ServiceBarChart`/`ServiceDonutChart`, `TopCountriesTable`, `TopDeniedIPsTable`, `CountryStatsSection`,
+  `AccessMap`.
 
 ### DevicesPage (`/devices`)
-- Create new device via modal
-- List all devices (table with name, ID, key prefix, created date; manage link; delete with confirmation)
+- Admin-facing list of all devices grouped by owner — renders `OwnerGroupList`.
+- Create new device via `CreateDeviceModal`.
 
-### DeviceDetailPage (`/devices/:deviceId`)
-- Device dedicated page to show the addreses along with settings and rules of the device.
-- Linked from the DevicesPage along with some links on tabs that mention the device name
-**Addresses tab** (`DeviceAddressesTab`):
-- Add new IP address (form; submit re-enables if IP already exists and was disabled)
-- View all assigned addresses (table: IP, status dot, last updated, actions)
-- Disable an active address (confirmation dialog)
-- Re-enable an inactive address (click Enable in table row)
-- 
-**Rules tab** (`DeviceRulesTab`):
-- Manage device rules config and status (enabled/disabled)
-- Auto-expiry rule: set a TTL (seconds/minutes/days) after which addresses auto-expire
-- Max active IPs: Number of allowed active IPs (ie 2)
- 
-**History tab** (`DeviceHistoryTab`):
-- Shows the device address log. Allowing to track the enable/disable status of the addresses for this device
-- Same information as in AddressLogPage but device scoped
-
-**Settings** (`DeviceSettingsTab`):
-- Allows changing device name, icon, type (mobile/static), description
-- Allows changing ownership (user)
-- Allows seeing API key prefix and regenerating it
-
-### DeviceProvisioningPage (`/device-provisioning`)
-- Allows generation invitation codes for devices to be used in the heartbeat-client application (android/desktop app)
-- Lists pending/used invitations
-- Allows viewing an invitation code or invalidating the invitation
+### UserDevicesPage (`/devices/owners/:ownerId`)
+- Owner-scoped device workspace; the device-detail surface. A sidebar device list + a per-device
+  tabbed panel. Tab is tracked in the `?tab=` search param.
+- **Addresses** (`DeviceAddressesTab`) — add/disable/re-enable IPs; table of assigned addresses.
+- **Rules** (`DeviceRulesTab`) — `AddressLeaseRuleCard` (auto-expiry TTL) + `MaxActiveIpsRuleCard`
+  (cap on active IPs); each toggle-gated.
+- **Pairing** (`DevicePairingTab`) — generate/revoke a one-time pairing code for the heartbeat
+  client (`PairingCreationForm`, `PairingCodeDisplay`); recent-codes history. Tab shows an
+  indicator when the device is in `PENDING_CLAIM`/`EXPIRED_CLAIM`.
+- **History** (`DeviceHistoryTab`) — device-scoped address event log.
+- **Settings** (`DeviceSettingsTab`) — profile (name/icon/type/description via `DeviceProfileCard`),
+  API key prefix + regenerate/remove, transfer ownership, delete device (danger zone).
 
 ### AccessLogPage (`/access-log`)
-- Shows traffic over time (plot)
-- Lists each request and allows filtering on them
-- Allows checking a request details (headers)
-- The intention is to be able to answer which IPs have requested verification and what was the result of it
+- Traffic-over-time plot + filterable per-request list; row opens `AccessLogDetailDrawer`
+  (request/device/location/headers). Answers "which IPs requested verification and the outcome".
 
 ### AddressHistoryPage (`/address-history`)
-- Shows active address IP over time (plot)
-- Lists each address update and allows filtering on it
-
-### Settings (`/settings`)
-- Allows viewing and changing user/server settings
-- Has tabs to organize content
-
-**Account tab** (`AccountTab`)
-- View and change user profile (name, username and email)
-- Changing current password
-
-**Preferences tab** (`PreferencesTab`)
-- Allows setting date-time locale preference
-
-**Users tab** (`UsersTab`)
-- Allows viewing existing users as well as creating a new one
-- Allows promoting/demoting users (to admin or normal user)
+- Active-address-over-time plot + filterable list of address update events.
 
 ### Access management (`/access/*`)
+- **HostsPage** (`/access/hosts`) — tabbed (`HostsTab`, `SuggestionsTab`) with a staged-changes bar
+  (`StagedChangesBar`) for bulk reconcile; drafts live in `features/host-access/drafts/`.
+- **HostGroupsPage** (`/access/host-groups`) — group master/detail + membership
+  (`GroupMasterList`, `GroupDetailPanel`, `GroupMembershipTables`, `GroupMetadataModal`).
+- **UsersPage** + **UserDetailPage** — user administration list + per-user detail (effective host
+  access via the shared `features/subjects/` panels).
+- **NetworkPoliciesPage** + **NetworkPolicyDetailPage** — list (filterable by group) + per-policy
+  detail; `CreateNetworkPolicyModal`, `DeleteNetworkPolicyModal`, `NetworkPoliciesTable`.
 
-> Catalogued during the PW-64 audit (structural — owning components confirmed, detailed
-> behaviours not yet documented here). Lives under `pages/access/` + the `host-access`,
-> `network-policies`, `subjects` features.
+### PolicyAuditPage (`/policy-audit`, nav "Access Policy Cache")
+- Policy decision cache / simulation surface — `SimulateBar`, `NetworkPolicyCacheTab`,
+  `PolicyUserTable`, `PolicyUserDrawer`.
 
-- **HostsPage** (`/access/hosts`) — manages hosts/host-groups; tabbed UI (`HostsTab`,
-  `HostGroupsTab`, `SuggestionsTab`) with a staged-changes bar for bulk reconcile.
-- **HostGroupsPage** (`/access/host-groups`) — host group listing/membership
-  (`GroupMembershipTables`, `GroupMetadataModal`).
-- **NetworkPoliciesPage** (`/access/network-policies`) + **NetworkPolicyDetailPage** —
-  list network policies (filterable by group) and a per-policy detail page.
-- **UsersPage** (`/access/users`) + **UserDetailPage** — user administration list + detail.
+### Settings (`/settings`)
+- Tabbed (`SettingsPage`); user/server settings.
+- **Account** (`AccountTab`) — view/change profile (name, username, email) + change password.
+- **Preferences** (`PreferencesTab`) — date-time locale preference.
+- _Note: user administration moved to Access › Users (`/access/users`); Settings no longer has a Users tab._
 
-### PolicyAuditPage (`/policy-audit`)
-- Policy decision audit / simulation surface (`SimulateBar`).
+## Features map (`src/features/`)
 
-### UserDevicesPage (`/devices` for non-admin scope)
-- User-scoped device listing (composes `OwnerGroupList`, as does the admin `DevicesPage`).
+`auth` · `dashboard` · `devices` · `device-pairing` · `host-access` · `network-policies` ·
+`subjects` (shared access-subject panels: effective hosts, subject groups, group filter) ·
+`policy-audit` · `access-log` · `address-history` · `settings`. Each owns its components, hooks,
+and (where relevant) `constants.ts`, `drafts/`, and config files.
 
 ## Shared components (`src/components/`)
 
 Cross-cutting building blocks reused across surfaces:
 
-- `EmptyState` — centered icon + title + description for zero-result views.
-- `ErrorState` — inline `isError` branch for failed data loads (Alert + `toErrorMessage`,
-  optional retry). Use where `ErrorBoundary` (crashes) and notifications (mutations) don't apply.
+- `EmptyState` — centered icon + title + optional description, with an optional `action` slot
+  (e.g. a first-run CTA button) for zero-result views.
+- `ErrorState` — inline `isError` branch for failed data loads (Alert + `toErrorMessage`, optional
+  `message`/`title` overrides and `onRetry`). Use where `ErrorBoundary` (crashes) and notifications
+  (mutations) don't apply. See `loading-empty-error-states.md` for the full loading→error→empty→data
+  convention.
 - `ErrorBoundary` — catches render crashes.
 - `PageToolbar`, `ActiveFilterChips`, `CursorPagination`, `TimeRangePresetSelect`,
-  `AutoRefreshSelect`, `TrafficLineChart`, `BrandName`, `layout/` (AppShell etc.).
+  `AutoRefreshSelect`, `TrafficLineChart`, `BrandName`, and `layout/` (`AppShell` etc.).
