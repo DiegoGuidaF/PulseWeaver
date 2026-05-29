@@ -163,7 +163,8 @@ describe('HostsPage', () => {
             await userEvent.click(screen.getByRole('tab', { name: /suggestions/i }));
 
             await waitFor(() => {
-                expect(screen.getByText('Failed to load suggestions.')).toBeInTheDocument();
+                expect(screen.getByText('Failed to load suggestions')).toBeInTheDocument();
+                expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
             }, { timeout: TEST_TIMEOUTS.MEDIUM });
         });
     });

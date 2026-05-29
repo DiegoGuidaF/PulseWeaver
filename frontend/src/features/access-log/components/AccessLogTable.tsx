@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { buildRoute } from "@/lib/routes";
 import { useNavigate } from "react-router-dom";
-import { Alert, Anchor, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
+import { Anchor, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
 import { DataTable } from "mantine-datatable";
-import { IconAlertCircle, IconFilterOff } from "@tabler/icons-react";
+import { IconFilterOff } from "@tabler/icons-react";
 import type { AccessLogRow } from "@/lib/api";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
 import { CursorPagination } from "@/components/CursorPagination";
@@ -15,7 +15,7 @@ import type { AccessLogFilters } from "../hooks/useAccessLogFilters";
 import { AccessLogDetailDrawer } from "./AccessLogDetailDrawer";
 import { getAccessLogColumns } from "./accessLogColumns";
 import { DENY_REASON_LABELS } from "../constants";
-import { toErrorMessage } from "@/lib/api-client";
+import { ErrorState } from "@/components/ErrorState";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
 import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
 import { useAccessLogDenyReasons } from "../hooks/useAccessLogDenyReasons";
@@ -59,7 +59,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
     const { data: denyReasons } = useAccessLogDenyReasons();
     const { data: networkPolicies } = useNetworkPolicies();
 
-    const { data, isPending, error } = useAccessLog(
+    const { data, isPending, error, refetch } = useAccessLog(
         { ...filters.queryParams, before_id: cursor ? Number(cursor) : undefined, limit: PAGE_SIZE },
         refreshInterval === 0 ? false : refreshInterval,
     );
@@ -207,11 +207,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
     }
 
     if (error) {
-        return (
-            <Alert icon={<IconAlertCircle size={16} />} color="red" title="Failed to load">
-                {toErrorMessage(error)}
-            </Alert>
-        );
+        return <ErrorState error={error} onRetry={() => refetch()} />;
     }
 
     const total = data?.total ?? 0;

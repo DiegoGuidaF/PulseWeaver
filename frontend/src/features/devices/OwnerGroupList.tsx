@@ -1,9 +1,9 @@
-import { Alert, Skeleton, Stack } from "@mantine/core";
-import { IconAlertCircle, IconDevices } from "@tabler/icons-react";
+import { Skeleton, Stack } from "@mantine/core";
+import { IconDevices } from "@tabler/icons-react";
 import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
 import { OwnerCard } from "@/features/devices/OwnerCard";
 import { EmptyState } from "@/components/EmptyState";
-import { toErrorMessage } from "@/lib/api-client";
+import { ErrorState } from "@/components/ErrorState";
 
 function LoadingSkeleton() {
   return (
@@ -20,16 +20,12 @@ function LoadingSkeleton() {
 }
 
 export function OwnerGroupList() {
-  const { data: groups, isLoading, error } = useDeviceList();
+  const { data: groups, isLoading, error, refetch } = useDeviceList();
 
   if (isLoading) return <LoadingSkeleton />;
 
   if (error) {
-    return (
-      <Alert color="red" icon={<IconAlertCircle size={16} />} title="Could not load devices">
-        {toErrorMessage(error)}
-      </Alert>
-    );
+    return <ErrorState error={error} title="Could not load devices" onRetry={() => refetch()} />;
   }
 
   if (!groups || groups.length === 0) {

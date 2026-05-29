@@ -5,6 +5,7 @@ import { useHostGroups } from "@/features/host-access/hooks/useHostGroups";
 import { useHostSuggestions } from "@/features/host-access/hooks/useHostSuggestions";
 import { HostsTab } from "@/features/host-access/components/HostsTab";
 import { SuggestionsTab } from "@/features/host-access/components/SuggestionsTab";
+import { ErrorState } from "@/components/ErrorState";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import {
   hostsDraftReducer,
@@ -96,7 +97,13 @@ export function HostsPage() {
         </Tabs.List>
 
         <Tabs.Panel value="hosts" pt="md">
-          {hostsLoading ? (
+          {hostsQuery.isError ? (
+            <ErrorState
+              error={hostsQuery.error}
+              title="Failed to load hosts"
+              onRetry={() => hostsQuery.refetch()}
+            />
+          ) : hostsLoading ? (
             <Center py="xl">
               <Loader />
             </Center>
@@ -110,7 +117,13 @@ export function HostsPage() {
         </Tabs.Panel>
 
         <Tabs.Panel value="suggestions" pt="md">
-          {suggestionsLoading ? (
+          {suggestions.isError ? (
+            <ErrorState
+              error={suggestions.error}
+              title="Failed to load suggestions"
+              onRetry={() => suggestions.refetch()}
+            />
+          ) : suggestionsLoading ? (
             <Center py="xl">
               <Loader />
             </Center>
@@ -128,9 +141,7 @@ export function HostsPage() {
               }}
             />
           ) : (
-            <Text c="dimmed" size="sm">
-              Failed to load suggestions.
-            </Text>
+            <ErrorState title="Failed to load suggestions" onRetry={() => suggestions.refetch()} />
           )}
         </Tabs.Panel>
       </Tabs>
