@@ -16,6 +16,7 @@ interface Props {
 export function CreateUserModal({ opened, onClose }: Props) {
   const createUser = useCreateUser();
   const form = useForm<CreateUserValues>({
+    validateInputOnBlur: true,
     validate: schemaResolver(zCreateUserRequest),
     initialValues: { username: "", email: "", display_name: "" },
   });
@@ -52,6 +53,7 @@ export function CreateUserModal({ opened, onClose }: Props) {
             label="Username"
             placeholder="e.g. jgarcia"
             description="Lowercase letters, numbers, hyphens, and underscores only"
+            withAsterisk
             {...form.getInputProps("username")}
           />
           <TextInput
@@ -64,6 +66,7 @@ export function CreateUserModal({ opened, onClose }: Props) {
           <TextInput
             label="Display name"
             placeholder="e.g. Juan Garcia"
+            withAsterisk
             {...form.getInputProps("display_name")}
           />
           <Group justify="flex-end" mt="xs" gap="sm">

@@ -41,6 +41,7 @@ export function AccountTab({ onDirtyChange }: AccountTabProps) {
   const changePassword = useChangePassword();
 
   const profileForm = useForm<z.infer<typeof profileSchema>>({
+    validateInputOnBlur: true,
     validate: schemaResolver(profileSchema),
     initialValues: {
       display_name: user?.display_name ?? "",
@@ -50,6 +51,7 @@ export function AccountTab({ onDirtyChange }: AccountTabProps) {
   });
 
   const passwordForm = useForm<z.infer<typeof passwordSchema>>({
+    validateInputOnBlur: true,
     validate: schemaResolver(passwordSchema),
     initialValues: {
       current_password: "",
@@ -166,8 +168,8 @@ export function AccountTab({ onDirtyChange }: AccountTabProps) {
             <Group gap="sm">
               {isDirty && (
                 <>
-                  <Button type="submit" disabled={updateMe.isPending}>
-                    {updateMe.isPending ? "Saving..." : "Save profile"}
+                  <Button type="submit" loading={updateMe.isPending}>
+                    Save profile
                   </Button>
                   <Button variant="outline" onClick={() => profileForm.reset()}>
                     Discard changes
@@ -194,21 +196,28 @@ export function AccountTab({ onDirtyChange }: AccountTabProps) {
             <PasswordInput
               label="Current password"
               autoComplete="current-password"
+              withAsterisk
               {...passwordForm.getInputProps("current_password")}
             />
             <PasswordInput
               label="New password"
               autoComplete="new-password"
+              withAsterisk
               {...passwordForm.getInputProps("password")}
             />
             <PasswordInput
               label="Confirm new password"
               autoComplete="new-password"
+              withAsterisk
               {...passwordForm.getInputProps("confirm_password")}
             />
             <div>
-              <Button type="submit" disabled={changePassword.isPending || !passwordHasContent}>
-                {changePassword.isPending ? "Updating..." : "Update password"}
+              <Button
+                type="submit"
+                loading={changePassword.isPending}
+                disabled={changePassword.isPending || !passwordHasContent}
+              >
+                Update password
               </Button>
             </div>
           </Stack>

@@ -32,7 +32,7 @@ describe('CreateDeviceModal', () => {
     it('renders form with name input and submit button', () => {
         renderModal({});
 
-        expect(screen.getByLabelText('Name')).toBeInTheDocument();
+        expect(screen.getByLabelText(/Name/)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /create device/i })).toBeInTheDocument();
     });
 
@@ -40,7 +40,7 @@ describe('CreateDeviceModal', () => {
         const user = userEvent.setup();
         renderModal({});
 
-        const input = screen.getByLabelText('Name');
+        const input = screen.getByLabelText(/Name/);
         await user.click(screen.getByRole('button', { name: /create device/i }));
 
         await waitFor(
@@ -64,7 +64,7 @@ describe('CreateDeviceModal', () => {
 
         renderModal({});
 
-        await user.type(screen.getByLabelText('Name'), 'Test Device');
+        await user.type(screen.getByLabelText(/Name/), 'Test Device');
         await user.click(screen.getByRole('button', { name: /create device/i }));
 
         expect(screen.getByRole('button', { name: /create device/i })).toBeDisabled();
@@ -82,7 +82,7 @@ describe('CreateDeviceModal', () => {
 
         renderModal({ onClose });
 
-        await user.type(screen.getByLabelText('Name'), 'New Device');
+        await user.type(screen.getByLabelText(/Name/), 'New Device');
         await user.click(screen.getByRole('button', { name: /create device/i }));
 
         await waitFor(
@@ -104,7 +104,7 @@ describe('CreateDeviceModal', () => {
 
         renderModal({});
 
-        await user.type(screen.getByLabelText('Name'), 'My New Device');
+        await user.type(screen.getByLabelText(/Name/), 'My New Device');
         await user.click(screen.getByRole('button', { name: /create device/i }));
 
         await waitFor(
@@ -127,7 +127,7 @@ describe('CreateDeviceModal', () => {
 
         renderModal({});
 
-        const input = screen.getByLabelText('Name');
+        const input = screen.getByLabelText(/Name/);
         await user.type(input, 'Test Device');
         await user.click(screen.getByRole('button', { name: /create device/i }));
 
@@ -149,7 +149,7 @@ describe('CreateDeviceModal', () => {
 
         renderModal({});
 
-        const input = screen.getByLabelText('Name');
+        const input = screen.getByLabelText(/Name/);
         await user.type(input, 'Duplicate Name');
         await user.click(screen.getByRole('button', { name: /create device/i }));
 

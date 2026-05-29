@@ -28,6 +28,7 @@ interface Props {
 
 export function CreateNetworkPolicyModal({ opened, onClose, onCreated }: Props) {
     const form = useForm<FormValues>({
+        validateInputOnBlur: true,
         validate: schemaResolver(formSchema),
         initialValues: { name: "", cidr: "", description: null },
     });
@@ -74,6 +75,7 @@ export function CreateNetworkPolicyModal({ opened, onClose, onCreated }: Props) 
                         label="Name"
                         placeholder="e.g. Home Office"
                         data-autofocus
+                        withAsterisk
                         {...form.getInputProps("name")}
                     />
                     <div>
@@ -81,6 +83,7 @@ export function CreateNetworkPolicyModal({ opened, onClose, onCreated }: Props) 
                             label="CIDR range"
                             placeholder="e.g. 192.168.1.0/24"
                             ff="monospace"
+                            withAsterisk
                             {...form.getInputProps("cidr")}
                         />
                         <Text size="xs" c="dimmed" mt={4}>

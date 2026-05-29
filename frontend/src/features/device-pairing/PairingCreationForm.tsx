@@ -33,6 +33,7 @@ export function PairingCreationForm({ deviceId, onSuccess, onCancel }: Props) {
   const mutation = useCreateDevicePairing(deviceId);
 
   const form = useForm<FormValues>({
+    validateInputOnBlur: true,
     validate: schemaResolver(zCreatePairingRequest),
     initialValues: {
       heartbeat_server_url: localStorage.getItem(LS_SERVER_URL_KEY) ?? window.location.origin,

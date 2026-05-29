@@ -122,6 +122,7 @@ export function AddressLeaseRuleCard({ deviceId }: { deviceId: number }) {
   const disableRuleMutation = useDisableDeviceAddressLeaseRule(deviceId);
 
   const form = useForm<LeaseRuleFormValues>({
+    validateInputOnBlur: true,
     validate: schemaResolver(leaseRuleFormSchema),
     initialValues: { value: "1", unit: "hours", preset: String(DEFAULT_TTL) },
   });

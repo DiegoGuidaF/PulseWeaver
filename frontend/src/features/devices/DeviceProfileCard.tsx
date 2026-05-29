@@ -67,6 +67,7 @@ export function DeviceProfileCard({
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
 
   const form = useForm<ProfileFormValues>({
+    validateInputOnBlur: true,
     validate: schemaResolver(profileFormSchema),
     initialValues: deviceToFormValues(device),
   });
@@ -139,6 +140,7 @@ export function DeviceProfileCard({
           <TextInput
             label="Name"
             placeholder="My device"
+            withAsterisk
             {...form.getInputProps("name")}
           />
 

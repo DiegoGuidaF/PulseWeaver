@@ -71,6 +71,7 @@ export function CreateDeviceModal({ opened, onClose, defaultOwnerId }: CreateDev
   const [iconAutoSuggested, setIconAutoSuggested] = useState(true);
 
   const form = useForm<FormValues>({
+    validateInputOnBlur: true,
     validate: formValidator,
     initialValues: {
       name: "",
@@ -190,6 +191,7 @@ export function CreateDeviceModal({ opened, onClose, defaultOwnerId }: CreateDev
               label="Name"
               placeholder="e.g. Office Printer"
               data-autofocus
+              withAsterisk
               {...form.getInputProps("name")}
             />
 

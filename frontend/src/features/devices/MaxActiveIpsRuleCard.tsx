@@ -51,6 +51,7 @@ export function MaxActiveIpsRuleCard({ deviceId, liveAddressCount }: MaxActiveIp
   const disableRuleMutation = useDisableMaxActiveAddressesRule(deviceId);
 
   const form = useForm<MaxAddressesFormValues>({
+    validateInputOnBlur: true,
     validate: schemaResolver(maxAddressesFormSchema),
     initialValues: { max_addresses: String(DEFAULT_LIMIT) },
   });

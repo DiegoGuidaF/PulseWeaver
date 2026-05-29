@@ -12,6 +12,7 @@ export function LoginForm() {
   const loginMutation = useLogin();
 
   const form = useForm<z.infer<typeof loginSchema>>({
+    validateInputOnBlur: true,
     validate: schemaResolver(loginSchema),
     initialValues: {
       username: "",
@@ -35,12 +36,14 @@ export function LoginForm() {
         <TextInput
           label="Username"
           placeholder="Enter your username"
+          withAsterisk
           {...form.getInputProps("username")}
         />
         <TextInput
           label="Password"
           type="password"
           placeholder="Enter your password"
+          withAsterisk
           {...form.getInputProps("password")}
         />
         <Button type="submit" fullWidth disabled={loginMutation.isPending}>
