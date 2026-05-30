@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
-	"strings"
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
+
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
@@ -251,66 +253,39 @@ func (r *Repository) recordAddressEvent(ctx context.Context, addressID ids.Addre
 	return finalAddress, nil
 }
 
-// deviceIDPlaceholders builds an IN clause fragment and args for a slice of device IDs.
-func deviceIDPlaceholders(ids []ids.DeviceID) (string, []any) {
-	placeholders := make([]string, len(ids))
-	args := make([]any, len(ids))
-	for i, id := range ids {
-		placeholders[i] = "?"
-		args[i] = id
-	}
-	return strings.Join(placeholders, ", "), args
-}
-
-// escapeLIKE escapes SQL LIKE wildcards (% and _) in user input.
-func escapeLIKE(s string) string {
-	s = strings.ReplaceAll(s, `\`, `\\`)
-	s = strings.ReplaceAll(s, `%`, `\%`)
-	s = strings.ReplaceAll(s, `_`, `\_`)
-	return s
-}
-
-// buildHistoryWhere builds the shared WHERE clause for both buckets and events queries.
-// Returns the filter strings and args. The caller is responsible for joining them.
-func buildHistoryWhere(q AddressHistoryQuery) ([]string, []any) {
-	filters := []string{"d.deleted_at IS NULL"}
-	var args []any
+// addressHistoryFilters builds the shared WHERE conditions for the buckets, count, and
+// events queries so the three can never drift. Column references are fixed constants;
+// callers supply only values, which squirrel parameterises. A device-ID slice expands
+// to an IN clause (empty slice is omitted).
+func addressHistoryFilters(q AddressHistoryQuery) sq.And {
+	cond := sq.And{sq.Expr("d.deleted_at IS NULL")}
 
 	if len(q.DeviceIDs) > 0 {
-		in, idArgs := deviceIDPlaceholders(q.DeviceIDs)
-		filters = append(filters, "a.device_id IN ("+in+")")
-		args = append(args, idArgs...)
+		cond = append(cond, sq.Eq{"a.device_id": q.DeviceIDs})
 	}
-
 	if !q.From.IsZero() {
-		filters = append(filters, "aev.created_at >= ?")
-		args = append(args, q.From)
+		cond = append(cond, sq.GtOrEq{"aev.created_at": q.From})
 	}
 	if !q.To.IsZero() {
-		filters = append(filters, "aev.created_at <= ?")
-		args = append(args, q.To)
+		cond = append(cond, sq.LtOrEq{"aev.created_at": q.To})
 	}
-
 	if q.Source != nil {
-		filters = append(filters, "aev.source = ?")
-		args = append(args, *q.Source)
+		cond = append(cond, sq.Eq{"aev.source": *q.Source})
 	}
 	if q.IsEnabled != nil {
-		filters = append(filters, "aev.is_enabled = ?")
-		args = append(args, *q.IsEnabled)
+		cond = append(cond, sq.Eq{"aev.is_enabled": *q.IsEnabled})
 	}
 	if q.IP != nil {
-		filters = append(filters, "a.ip LIKE ? ESCAPE '\\'")
-		args = append(args, "%"+escapeLIKE(*q.IP)+"%")
+		cond = append(cond, sq.Expr(`a.ip LIKE ? ESCAPE '\'`, "%"+database.EscapeLIKE(*q.IP)+"%"))
 	}
 
-	return filters, args
+	return cond
 }
 
-// stateChangeFilter returns a SQL clause that keeps only state-change events
-// (creation, enable↔disable transitions) by comparing each event's is_enabled
-// with the immediately preceding event for the same address.
-const stateChangeFilter = ` AND (
+// stateChangeCond keeps only state-change events (creation, enable↔disable
+// transitions) by comparing each event's is_enabled with the immediately preceding
+// event for the same address. Added as a WHERE condition when IncludeAll is false.
+const stateChangeCond = `(
 	NOT EXISTS (
 		SELECT 1 FROM address_events prev
 		WHERE prev.address_id = aev.address_id AND prev.id < aev.id
@@ -322,15 +297,8 @@ const stateChangeFilter = ` AND (
 	)
 )`
 
-func joinWhere(filters []string) string {
-	if len(filters) == 0 {
-		return ""
-	}
-	return " WHERE " + strings.Join(filters, " AND ")
-}
-
 func (r *Repository) GetAddressHistory(ctx context.Context, q AddressHistoryQuery) (AddressHistory, error) {
-	filters, baseArgs := buildHistoryWhere(q)
+	cond := addressHistoryFilters(q)
 
 	// ── Buckets ──────────────────────────────────────────────────────────
 	// active_count = addresses whose last event in the bucket was is_enabled=1.
@@ -338,44 +306,37 @@ func (r *Repository) GetAddressHistory(ctx context.Context, q AddressHistoryQuer
 	//   Detected via NOT EXISTS on address_events directly (avoids CTE self-ref).
 	// gap_count = addresses that had any is_enabled=0 (expiry) event in the bucket.
 	//
-	// The strftime format string appears 3 times: once in the outer GROUP BY
-	// expression (?) and twice inside the NOT EXISTS correlated subquery (?/?).
-	// bucketArgs therefore passes the format string 3 times: first, then after
-	// baseArgs, then once more. See arg layout below.
-	bucketsQuery := `
-		SELECT
-			strftime(?, aev.created_at) AS bucket,
-			COUNT(DISTINCT CASE
-				WHEN aev.is_enabled = 1
-				 AND NOT EXISTS (
-					 SELECT 1 FROM address_events later
-					 WHERE later.address_id = aev.address_id
-					   AND later.id > aev.id
-					   AND strftime(?, later.created_at) = strftime(?, aev.created_at)
-				 )
-				THEN aev.address_id
-			END) AS active_count,
-			COUNT(DISTINCT CASE WHEN aev.is_enabled = 0 THEN aev.address_id END) AS gap_count,
-			COUNT(*) AS event_count
-		FROM address_events aev
-		JOIN addresses a ON a.id = aev.address_id
-		JOIN devices d ON d.id = a.device_id
-	` + joinWhere(filters) + `
-		GROUP BY bucket
-		ORDER BY bucket ASC
-	`
-
-	// arg layout: [fmt, fmt, fmt, baseArgs...]
-	// The 3 strftime `?` are in the SELECT clause (before the WHERE), so they
-	// must come first: #1 outer bucket expression, #2 and #3 the NOT EXISTS pair.
-	// baseArgs (device_id, from, to, …) follow and map to the WHERE `?`s.
-	bucketArgs := make([]any, 0, 3+len(baseArgs))
+	// The strftime format string is a column-level placeholder, so squirrel emits its
+	// args before the WHERE args automatically — no manual arg layout required.
 	bucketFmt := q.Granularity.StrftimeISO()
-	bucketArgs = append(bucketArgs, bucketFmt, bucketFmt, bucketFmt)
-	bucketArgs = append(bucketArgs, baseArgs...)
+	bucketsSQL, bucketArgs, err := sq.
+		Select().
+		Column("strftime(?, aev.created_at) AS bucket", bucketFmt).
+		Column(`COUNT(DISTINCT CASE
+			WHEN aev.is_enabled = 1
+			 AND NOT EXISTS (
+				 SELECT 1 FROM address_events later
+				 WHERE later.address_id = aev.address_id
+				   AND later.id > aev.id
+				   AND strftime(?, later.created_at) = strftime(?, aev.created_at)
+			 )
+			THEN aev.address_id
+		END) AS active_count`, bucketFmt, bucketFmt).
+		Column("COUNT(DISTINCT CASE WHEN aev.is_enabled = 0 THEN aev.address_id END) AS gap_count").
+		Column("COUNT(*) AS event_count").
+		From("address_events aev").
+		Join("addresses a ON a.id = aev.address_id").
+		Join("devices d ON d.id = a.device_id").
+		Where(cond).
+		GroupBy("bucket").
+		OrderBy("bucket ASC").
+		ToSql()
+	if err != nil {
+		return AddressHistory{}, fmt.Errorf("build history buckets query: %w", err)
+	}
 
 	var buckets []AddressEventBucket
-	if err := r.db.SelectContext(ctx, &buckets, bucketsQuery, bucketArgs...); err != nil {
+	if err := r.db.SelectContext(ctx, &buckets, bucketsSQL, bucketArgs...); err != nil {
 		return AddressHistory{}, fmt.Errorf("get history buckets: %w", err)
 	}
 	if buckets == nil {
@@ -383,52 +344,46 @@ func (r *Repository) GetAddressHistory(ctx context.Context, q AddressHistoryQuer
 	}
 
 	// ── Events (paginated) ───────────────────────────────────────────────
-	// When IncludeAll is false, append a correlated subquery that keeps only
-	// state-change events (first event per address, or is_enabled differs from
-	// the immediately preceding event for the same address).
-	var scFilter string
+	// Shared base for the count and the page query. When IncludeAll is false, restrict
+	// to state-change events (first event per address, or is_enabled differs from the
+	// immediately preceding event for the same address).
+	base := sq.
+		Select().
+		From("address_events aev").
+		Join("addresses a ON a.id = aev.address_id").
+		Join("devices d ON d.id = a.device_id").
+		Where(cond)
 	if !q.IncludeAll {
-		scFilter = stateChangeFilter
+		base = base.Where(sq.Expr(stateChangeCond))
 	}
 
-	// Count total (without cursor)
-	countQuery := `
-		SELECT COUNT(*)
-		FROM address_events aev
-		JOIN addresses a ON a.id = aev.address_id
-		JOIN devices d ON d.id = a.device_id
-	` + joinWhere(filters) + scFilter
-
+	// Count (without cursor).
+	countSQL, countArgs, err := base.Column("COUNT(*)").ToSql()
+	if err != nil {
+		return AddressHistory{}, fmt.Errorf("build history count query: %w", err)
+	}
 	var totalEvents int
-	if err := r.db.GetContext(ctx, &totalEvents, countQuery, baseArgs...); err != nil {
+	if err := r.db.GetContext(ctx, &totalEvents, countSQL, countArgs...); err != nil {
 		return AddressHistory{}, fmt.Errorf("count history events: %w", err)
 	}
 
-	// Select with cursor + limit
-	eventFilters := make([]string, len(filters))
-	copy(eventFilters, filters)
-	eventArgs := make([]any, len(baseArgs))
-	copy(eventArgs, baseArgs)
-
+	// Events page (cursor + limit).
+	eventsB := base.Columns(
+		"aev.id", "aev.created_at", "a.ip", "aev.is_enabled", "aev.source",
+		"a.device_id", "d.name AS device_name",
+	)
 	if q.BeforeID != nil {
-		eventFilters = append(eventFilters, "aev.id < ?")
-		eventArgs = append(eventArgs, *q.BeforeID)
+		eventsB = eventsB.Where(sq.Lt{"aev.id": *q.BeforeID})
 	}
-	eventArgs = append(eventArgs, q.Limit)
+	eventsB = eventsB.OrderBy("aev.id DESC").Limit(uint64(q.Limit))
 
-	eventsQuery := `
-		SELECT aev.id, aev.created_at, a.ip, aev.is_enabled, aev.source,
-		       a.device_id, d.name AS device_name
-		FROM address_events aev
-		JOIN addresses a ON a.id = aev.address_id
-		JOIN devices d ON d.id = a.device_id
-	` + joinWhere(eventFilters) + scFilter + `
-		ORDER BY aev.id DESC
-		LIMIT ?
-	`
+	eventsSQL, eventArgs, err := eventsB.ToSql()
+	if err != nil {
+		return AddressHistory{}, fmt.Errorf("build history events query: %w", err)
+	}
 
 	var events []AddressStateChange
-	if err := r.db.SelectContext(ctx, &events, eventsQuery, eventArgs...); err != nil {
+	if err := r.db.SelectContext(ctx, &events, eventsSQL, eventArgs...); err != nil {
 		return AddressHistory{}, fmt.Errorf("get history events: %w", err)
 	}
 	if events == nil {

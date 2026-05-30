@@ -395,6 +395,48 @@ func TestRepository_GetAddressHistory_FilterBySource(t *testing.T) {
 	}
 }
 
+// TestRepository_GetAddressHistory_FilterIPEscapesWildcards verifies the IP filter
+// escapes LIKE wildcards (ADR-007 / PW-65): a `_` in the input must match literally
+// rather than as a single-char wildcard. Without escaping, "0_1" would match the
+// "0.1" substring of a stored IP.
+func TestRepository_GetAddressHistory_FilterIPEscapesWildcards(t *testing.T) {
+	is := is.New(t)
+	repos := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repos, ctx, "ip-escape")
+	_ = createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.1.2")
+
+	from := time.Now().UTC().Add(-1 * time.Hour)
+	to := time.Now().UTC().Add(1 * time.Hour)
+
+	// Literal substring matches the stored IP.
+	literal := "0.1"
+	history, err := repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
+		From:        from,
+		To:          to,
+		Granularity: timebucket.GranularityHour,
+		IP:          &literal,
+		IncludeAll:  true,
+		Limit:       50,
+	})
+	is.NoErr(err)
+	is.True(len(history.Events) > 0)
+
+	// "0_1" must NOT act as a wildcard (would otherwise match the "0.1" substring).
+	wildcard := "0_1"
+	history, err = repos.repo.GetAddressHistory(ctx, device.AddressHistoryQuery{
+		From:        from,
+		To:          to,
+		Granularity: timebucket.GranularityHour,
+		IP:          &wildcard,
+		IncludeAll:  true,
+		Limit:       50,
+	})
+	is.NoErr(err)
+	is.Equal(len(history.Events), 0)
+}
+
 func TestRepository_GetAddressHistory_EventsPagination(t *testing.T) {
 	is := is.New(t)
 	repos := setupTestDB(t)

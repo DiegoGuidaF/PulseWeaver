@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
@@ -299,7 +299,7 @@ func accessLogFilters(q AccessLogQuery) sq.And {
 	}
 	if q.ClientIP != nil {
 		// Substring match; wildcards in the input are escaped so they match literally.
-		cond = append(cond, sq.Expr(`ral.client_ip LIKE ? ESCAPE '\'`, "%"+escapeLIKE(*q.ClientIP)+"%"))
+		cond = append(cond, sq.Expr(`ral.client_ip LIKE ? ESCAPE '\'`, "%"+database.EscapeLIKE(*q.ClientIP)+"%"))
 	}
 	if q.TargetHost != nil {
 		cond = append(cond, sq.Eq{"ral.target_host": *q.TargetHost})
@@ -321,14 +321,4 @@ func accessLogFilters(q AccessLogQuery) sq.And {
 	}
 
 	return cond
-}
-
-// escapeLIKE escapes SQL LIKE wildcards (% and _) so user input matches literally;
-// pair it with an `ESCAPE '\'` clause. Mirrors device.escapeLIKE — consolidate into a
-// shared helper when PW-65 routes address history through the same builder.
-func escapeLIKE(s string) string {
-	s = strings.ReplaceAll(s, `\`, `\\`)
-	s = strings.ReplaceAll(s, `%`, `\%`)
-	s = strings.ReplaceAll(s, `_`, `\_`)
-	return s
 }
