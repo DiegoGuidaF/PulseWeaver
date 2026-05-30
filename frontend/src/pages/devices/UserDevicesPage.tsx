@@ -222,7 +222,7 @@ export function UserDevicesPage() {
             </Group>
             <Group gap={6} wrap="wrap">
               {selectedDevice.live_address_count > 0 && (
-                <Text size="xs" c="orange.4">
+                <Text size="xs" c="var(--pw-amber-text)">
                   live · {selectedDevice.live_address_count} IP{selectedDevice.live_address_count !== 1 ? "s" : ""}
                 </Text>
               )}

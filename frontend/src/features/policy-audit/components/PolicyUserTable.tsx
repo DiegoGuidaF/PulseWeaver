@@ -112,7 +112,7 @@ function EffectiveHostsCell({
     return (
       <Group gap={4} wrap="nowrap">
         <IconShield size={14} color="var(--mantine-color-orange-5)" />
-        <Text size="sm" c="orange.5" style={{ whiteSpace: "nowrap" }}>
+        <Text size="sm" c="var(--pw-amber-text)" style={{ whiteSpace: "nowrap" }}>
           Any host
         </Text>
       </Group>

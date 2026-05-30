@@ -21,13 +21,13 @@ import { UserDetailPage } from "./pages/access/users/UserDetailPage";
 import { PolicyAuditPage } from "./pages/policy-audit/PolicyAuditPage";
 import { NetworkPoliciesPage } from "./pages/access/network-policies/NetworkPoliciesPage";
 import { NetworkPolicyDetailPage } from "./pages/access/network-policies/NetworkPolicyDetailPage";
-import { theme } from "./lib/theme";
+import { theme, cssVariablesResolver } from "./lib/theme";
 import { ROUTES } from "./lib/routes";
 import { DateTimePrefsProvider } from "./contexts/DateTimePrefsContext";
 
 function App() {
   return (
-    <MantineProvider theme={theme} defaultColorScheme="auto">
+    <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} defaultColorScheme="auto">
       <Notifications />
       <DateTimePrefsProvider>
         <DatesProvider settings={{ locale: 'en' }}>

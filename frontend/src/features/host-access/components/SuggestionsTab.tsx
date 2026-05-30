@@ -174,7 +174,7 @@ export function SuggestionsTab({ data, locked, onDiscardLock, onRefresh, onStage
                       <Table.Td>
                         <Text
                           size="sm"
-                          c={s.denied_hits > 50 ? "orange" : s.denied_hits === 0 ? "dimmed" : undefined}
+                          c={s.denied_hits > 50 ? "var(--pw-amber-text)" : s.denied_hits === 0 ? "dimmed" : undefined}
                           fw={s.denied_hits > 50 ? 500 : 400}
                         >
                           {s.denied_hits.toLocaleString()}

@@ -221,12 +221,12 @@ export function MaxActiveIpsRuleCard({ deviceId, liveAddressCount }: MaxActiveIp
             </Group>
 
             {atLimit && evictionCount === 0 && (
-              <Text size="xs" c="orange">
+              <Text size="xs" c="var(--pw-amber-text)">
                 At limit · next new IP will evict the oldest active address
               </Text>
             )}
             {evictionCount > 0 && (
-              <Text size="xs" c="orange">
+              <Text size="xs" c="var(--pw-amber-text)">
                 {evictionCount} active {evictionCount === 1 ? "address" : "addresses"} will be evicted when this limit is applied
               </Text>
             )}

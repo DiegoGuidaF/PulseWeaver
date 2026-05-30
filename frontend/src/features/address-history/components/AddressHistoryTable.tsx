@@ -31,7 +31,7 @@ function GapTooltip({ active, payload, label }: TooltipContentProps<number, stri
             <Text size="xs" c="dimmed" mb={2}>{label}</Text>
             <Text size="sm">{item.value} distinct IP{item.value !== 1 ? "s" : ""}</Text>
             {gapCount > 0 && (
-                <Text size="xs" c="orange.6" mt={2}>
+                <Text size="xs" c="var(--pw-amber-text)" mt={2}>
                     {gapCount} address{gapCount !== 1 ? "es" : ""} expired this period
                 </Text>
             )}

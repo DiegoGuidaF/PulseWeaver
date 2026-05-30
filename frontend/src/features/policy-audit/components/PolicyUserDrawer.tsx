@@ -220,7 +220,7 @@ function HostsTab({ user }: { user: PolicyUserEntry }) {
     return (
       <Group gap="xs" mt="sm">
         <IconShield size={16} color="var(--mantine-color-orange-5)" />
-        <Text c="orange.5" size="sm">
+        <Text c="var(--pw-amber-text)" size="sm">
           Bypass enabled — all system hosts accessible from any live IP
         </Text>
       </Group>
@@ -310,7 +310,7 @@ function IpCard({
               <Text fw={700} ff="monospace">
                 {ip.ip}
               </Text>
-              <Text size="xs" c="orange.4">
+              <Text size="xs" c="var(--pw-amber-text)">
                 heartbeat {heartbeatAgo(ip)}
               </Text>
             </Group>
