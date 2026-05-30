@@ -381,3 +381,55 @@ func TestListAccessLog_PaginationBeforeID(t *testing.T) {
 		is.True(row.ID < cursor)
 	}
 }
+
+func TestListAccessLog_FilterClientIP(t *testing.T) {
+	is := is.New(t)
+	repos := setupRepos(t)
+	ctx := t.Context()
+
+	err := repos.accessLog.BatchInsert(ctx, []policy.DecisionEvent{
+		{ClientIP: "203.0.113.7", Outcome: true, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
+		{ClientIP: "198.51.100.4", Outcome: true, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
+	})
+	is.NoErr(err)
+
+	ip := "203.0.113"
+	rows, total, err := repos.queries.ListAccessLog(ctx, queries.AccessLogQuery{
+		ClientIP: &ip,
+		From:     time.Now().UTC().Add(-time.Hour),
+		To:       time.Now().UTC(),
+		Limit:    50,
+	})
+	is.NoErr(err)
+	is.Equal(total, 1) // substring match on a single row
+	is.Equal(len(rows), 1)
+	is.Equal(rows[0].ClientIP, "203.0.113.7")
+}
+
+// TestListAccessLog_FilterClientIP_EscapesWildcards is the regression test for the
+// LIKE-wildcard escaping fix introduced with the squirrel refactor (ADR-007 / PW-65):
+// a `_` (single-char wildcard) in the filter input must match literally. Before the
+// refactor the access-log filter passed raw input to LIKE, so "5_1" also matched "5.1".
+func TestListAccessLog_FilterClientIP_EscapesWildcards(t *testing.T) {
+	is := is.New(t)
+	repos := setupRepos(t)
+	ctx := t.Context()
+
+	err := repos.accessLog.BatchInsert(ctx, []policy.DecisionEvent{
+		{ClientIP: "10.5.1.7", Outcome: true, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
+		{ClientIP: "10.5_1.7", Outcome: true, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
+	})
+	is.NoErr(err)
+
+	ip := "5_1"
+	rows, total, err := repos.queries.ListAccessLog(ctx, queries.AccessLogQuery{
+		ClientIP: &ip,
+		From:     time.Now().UTC().Add(-time.Hour),
+		To:       time.Now().UTC(),
+		Limit:    50,
+	})
+	is.NoErr(err)
+	is.Equal(total, 1) // only the literal "5_1" row matches, not "10.5.1.7"
+	is.Equal(len(rows), 1)
+	is.Equal(rows[0].ClientIP, "10.5_1.7")
+}

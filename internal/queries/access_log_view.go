@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
@@ -92,115 +94,72 @@ func NewAccessLogQuery(params httpapi.GetAccessLogParams) AccessLogQuery {
 }
 
 func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]AccessLogView, int, error) {
+	// Shared filter conditions, applied to both the count and the page query so the
+	// two can never drift. Columns are fixed constants (not caller-supplied), so this
+	// set is the allowlist; richer per-column operators arrive with PW-24.
+	cond := accessLogFilters(q)
 
-	whereFilters := []string{"1=1"}
-	var countArgs []any
-
-	if q.DeviceID != nil {
-		// Filter: any contributor row for this access_log entry matches the device.
-		whereFilters = append(whereFilters, "EXISTS (SELECT 1 FROM access_log_contributors c WHERE c.access_log_id = ral.id AND c.device_id = ?)")
-		countArgs = append(countArgs, *q.DeviceID)
-	}
-
-	if q.Outcome != nil {
-		whereFilters = append(whereFilters, "ral.outcome = ?")
-		countArgs = append(countArgs, *q.Outcome)
-	}
-
-	if q.DenyReason != nil {
-		whereFilters = append(whereFilters, "ral.deny_reason = ?")
-		countArgs = append(countArgs, *q.DenyReason)
-	}
-
-	if q.ClientIP != nil {
-		whereFilters = append(whereFilters, "ral.client_ip LIKE ?")
-		countArgs = append(countArgs, "%"+*q.ClientIP+"%")
-	}
-
-	if q.TargetHost != nil {
-		whereFilters = append(whereFilters, "ral.target_host = ?")
-		countArgs = append(countArgs, *q.TargetHost)
-	}
-
-	if q.CountryCode != nil {
-		whereFilters = append(whereFilters, "g.country_code = ?")
-		countArgs = append(countArgs, *q.CountryCode)
-	}
-
-	if q.ContinentCode != nil {
-		whereFilters = append(whereFilters, "g.continent_code = ?")
-		countArgs = append(countArgs, *q.ContinentCode)
-	}
-
-	if q.NetworkPolicyID != nil {
-		whereFilters = append(whereFilters, "anpc.policy_id = ?")
-		countArgs = append(countArgs, *q.NetworkPolicyID)
-	}
-
-	if !q.From.IsZero() {
-		whereFilters = append(whereFilters, "ral.created_at >= ?")
-		countArgs = append(countArgs, q.From)
-	}
-
-	if !q.To.IsZero() {
-		whereFilters = append(whereFilters, "ral.created_at <= ?")
-		countArgs = append(countArgs, q.To)
-	}
-
-	// Total count (no contributor join needed for count — filtering uses EXISTS subquery).
+	// Total count (no contributor join needed — device filtering uses an EXISTS subquery).
 	var total int
-	countQuery := `
-		SELECT COUNT(*) FROM access_log ral
-		LEFT JOIN access_log_geoip g ON g.access_log_id = ral.id
-		LEFT JOIN access_log_network_policy_contributors anpc ON anpc.access_log_id = ral.id
-	` + buildWhere(whereFilters)
-	if err := r.db.GetContext(ctx, &total, countQuery, countArgs...); err != nil {
+	countSQL, countArgs, err := sq.
+		Select("COUNT(*)").
+		From("access_log ral").
+		LeftJoin("access_log_geoip g ON g.access_log_id = ral.id").
+		LeftJoin("access_log_network_policy_contributors anpc ON anpc.access_log_id = ral.id").
+		Where(cond).
+		ToSql()
+	if err != nil {
+		return nil, 0, fmt.Errorf("build access log count query: %w", err)
+	}
+	if err := r.db.GetContext(ctx, &total, countSQL, countArgs...); err != nil {
 		return nil, 0, fmt.Errorf("count access log: %w", err)
 	}
 
-	selectArgs := countArgs
+	// For display, expose the first contributor's device/address (lowest contributor id).
+	page := sq.
+		Select(
+			"ral.id",
+			"ral.created_at",
+			"ral.outcome",
+			"ral.deny_reason",
+			"ral.client_ip",
+			"ral.xff_chain",
+			"ral.target_host",
+			"ral.target_uri",
+			"ral.http_method",
+			"c.device_id  AS device_id",
+			"c.address_id AS address_id",
+			"d.name       AS device_name",
+			"ral.headers_json",
+			"ral.duration_us",
+			"g.country_code",
+			"g.country_name",
+			"g.continent_code",
+			"g.asn",
+			"g.asn_org",
+			"anpc.policy_id   AS network_policy_id",
+			"anpc.policy_name AS network_policy_name",
+		).
+		From("access_log ral").
+		LeftJoin("access_log_contributors c ON c.rowid = (SELECT c2.rowid FROM access_log_contributors c2 WHERE c2.access_log_id = ral.id LIMIT 1)").
+		LeftJoin("devices d ON d.id = c.device_id").
+		LeftJoin("access_log_geoip g ON g.access_log_id = ral.id").
+		LeftJoin("access_log_network_policy_contributors anpc ON anpc.access_log_id = ral.id").
+		Where(cond)
 
-	// Append Cursor for pagination: rows with id < BeforeID
+	// Cursor pagination: rows with id < BeforeID (nil for the first page).
 	if q.BeforeID != nil {
-		whereFilters = append(whereFilters, "ral.id < ?")
-		selectArgs = append(selectArgs, *q.BeforeID)
+		page = page.Where(sq.Lt{"ral.id": *q.BeforeID})
 	}
-	selectArgs = append(selectArgs, q.Limit)
+	page = page.OrderBy("ral.id DESC").Limit(uint64(q.Limit))
+
+	selectSQL, selectArgs, err := page.ToSql()
+	if err != nil {
+		return nil, 0, fmt.Errorf("build access log query: %w", err)
+	}
 
 	var dbRows []dbAccessLogRow
-	// For display, expose the first contributor's device/address (lowest contributor id).
-	selectQuery := `
-		SELECT
-			ral.id,
-			ral.created_at,
-			ral.outcome,
-			ral.deny_reason,
-			ral.client_ip,
-			ral.xff_chain,
-			ral.target_host,
-			ral.target_uri,
-			ral.http_method,
-			c.device_id  AS device_id,
-			c.address_id AS address_id,
-			d.name       AS device_name,
-			ral.headers_json,
-			ral.duration_us,
-			g.country_code,
-			g.country_name,
-			g.continent_code,
-			g.asn,
-			g.asn_org,
-			anpc.policy_id   AS network_policy_id,
-			anpc.policy_name AS network_policy_name
-		FROM access_log ral
-		LEFT JOIN access_log_contributors c ON c.rowid = (
-			SELECT c2.rowid FROM access_log_contributors c2 WHERE c2.access_log_id = ral.id LIMIT 1
-		)
-		LEFT JOIN devices d ON d.id = c.device_id
-		LEFT JOIN access_log_geoip g ON g.access_log_id = ral.id
-		LEFT JOIN access_log_network_policy_contributors anpc ON anpc.access_log_id = ral.id
-	` + buildWhere(whereFilters) + ` ORDER BY ral.id DESC LIMIT ?`
-	if err := r.db.SelectContext(ctx, &dbRows, selectQuery, selectArgs...); err != nil {
+	if err := r.db.SelectContext(ctx, &dbRows, selectSQL, selectArgs...); err != nil {
 		return nil, 0, fmt.Errorf("list access log: %w", err)
 	}
 
@@ -319,10 +278,57 @@ type dbCountryStatsRow struct {
 	Denied        int64  `db:"denied"`
 }
 
-// Helper to format WHERE clause from a list of filters
-func buildWhere(w []string) string {
-	if len(w) == 0 {
-		return ""
+// accessLogFilters builds the shared WHERE conditions for the access log list and
+// count queries. Column references are fixed constants — callers supply only values,
+// which squirrel parameterises. An empty set renders to no WHERE clause.
+func accessLogFilters(q AccessLogQuery) sq.And {
+	cond := sq.And{}
+
+	if q.DeviceID != nil {
+		// Any contributor row for this access_log entry matches the device.
+		cond = append(cond, sq.Expr(
+			"EXISTS (SELECT 1 FROM access_log_contributors c WHERE c.access_log_id = ral.id AND c.device_id = ?)",
+			*q.DeviceID,
+		))
 	}
-	return " WHERE " + strings.Join(w, " AND ")
+	if q.Outcome != nil {
+		cond = append(cond, sq.Eq{"ral.outcome": *q.Outcome})
+	}
+	if q.DenyReason != nil {
+		cond = append(cond, sq.Eq{"ral.deny_reason": *q.DenyReason})
+	}
+	if q.ClientIP != nil {
+		// Substring match; wildcards in the input are escaped so they match literally.
+		cond = append(cond, sq.Expr(`ral.client_ip LIKE ? ESCAPE '\'`, "%"+escapeLIKE(*q.ClientIP)+"%"))
+	}
+	if q.TargetHost != nil {
+		cond = append(cond, sq.Eq{"ral.target_host": *q.TargetHost})
+	}
+	if q.CountryCode != nil {
+		cond = append(cond, sq.Eq{"g.country_code": *q.CountryCode})
+	}
+	if q.ContinentCode != nil {
+		cond = append(cond, sq.Eq{"g.continent_code": *q.ContinentCode})
+	}
+	if q.NetworkPolicyID != nil {
+		cond = append(cond, sq.Eq{"anpc.policy_id": *q.NetworkPolicyID})
+	}
+	if !q.From.IsZero() {
+		cond = append(cond, sq.GtOrEq{"ral.created_at": q.From})
+	}
+	if !q.To.IsZero() {
+		cond = append(cond, sq.LtOrEq{"ral.created_at": q.To})
+	}
+
+	return cond
+}
+
+// escapeLIKE escapes SQL LIKE wildcards (% and _) so user input matches literally;
+// pair it with an `ESCAPE '\'` clause. Mirrors device.escapeLIKE — consolidate into a
+// shared helper when PW-65 routes address history through the same builder.
+func escapeLIKE(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
 }
