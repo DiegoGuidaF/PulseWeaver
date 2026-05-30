@@ -335,6 +335,70 @@ func TestHeartbeatRateLimit_DifferentIPsIndependent(t *testing.T) {
 	is.Equal(res2.Code, http.StatusOK)
 }
 
+func TestVerifyIPRateLimit_429AfterLimit(t *testing.T) {
+	is := is.New(t)
+
+	limit := 3
+	handler := httpserver.VerifyIPRateLimitMiddleware(limit, time.Minute, testLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden) // mimic forward-auth fail-closed
+	}))
+
+	for i := 0; i < limit; i++ {
+		req := httptest.NewRequest(http.MethodGet, httpapi.VerifyIPEndpoint, nil)
+		req.RemoteAddr = "192.0.2.10:12345"
+		req.Header.Set("Authorization", "Bearer badtoken123")
+		res := httptest.NewRecorder()
+		handler.ServeHTTP(res, req)
+		is.Equal(res.Code, http.StatusForbidden)
+	}
+
+	// The next request from the same IP must be throttled with 429.
+	req := httptest.NewRequest(http.MethodGet, httpapi.VerifyIPEndpoint, nil)
+	req.RemoteAddr = "192.0.2.10:12345"
+	req.Header.Set("Authorization", "Bearer badtoken123")
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusTooManyRequests)
+
+	var errorResp httpapi.ErrorResponse
+	err := json.NewDecoder(res.Body).Decode(&errorResp)
+	is.NoErr(err)
+	is.True(errorResp.Error != nil)
+	is.Equal(*errorResp.Error, "Too many verification requests. Try again later.")
+}
+
+func TestVerifyIPRateLimit_DifferentIPsIndependent(t *testing.T) {
+	is := is.New(t)
+
+	limit := 2
+	handler := httpserver.VerifyIPRateLimitMiddleware(limit, time.Minute, testLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+
+	for i := 0; i < limit; i++ {
+		req := httptest.NewRequest(http.MethodGet, httpapi.VerifyIPEndpoint, nil)
+		req.RemoteAddr = "192.0.2.10:12345"
+		res := httptest.NewRecorder()
+		handler.ServeHTTP(res, req)
+		is.Equal(res.Code, http.StatusForbidden)
+	}
+
+	// IP1 is now throttled.
+	req1 := httptest.NewRequest(http.MethodGet, httpapi.VerifyIPEndpoint, nil)
+	req1.RemoteAddr = "192.0.2.10:12345"
+	res1 := httptest.NewRecorder()
+	handler.ServeHTTP(res1, req1)
+	is.Equal(res1.Code, http.StatusTooManyRequests)
+
+	// IP2 retains its own budget.
+	req2 := httptest.NewRequest(http.MethodGet, httpapi.VerifyIPEndpoint, nil)
+	req2.RemoteAddr = "192.0.2.20:12345"
+	res2 := httptest.NewRecorder()
+	handler.ServeHTTP(res2, req2)
+	is.Equal(res2.Code, http.StatusForbidden)
+}
+
 func TestLoginRateLimit_429AfterLimit(t *testing.T) {
 	is := is.New(t)
 	testServer := testutils.SetupIntegrationServer(t)

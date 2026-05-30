@@ -33,6 +33,73 @@ func DevicePairingRateLimitMiddleware(requests int, window time.Duration) func(h
 		"Too many pairing attempts. Try again later.")
 }
 
+// VerifyIPRateLimitMiddleware rate limits GET /api/policy-engine/verify-ip by client IP.
+//
+// The forward-auth endpoint is registered outside /api/v1 and so bypasses the
+// other rate limiters; this guards it against unbounded bearer-token enumeration.
+// When the limit fires it logs the source IP, the rate-limited path, and the
+// bearer-token prefix (if present) at WARN so scanning is visible in container logs.
+func VerifyIPRateLimitMiddleware(requests int, window time.Duration, logger *slog.Logger) func(http.Handler) http.Handler {
+	const path = httpapi.VerifyIPEndpoint
+	const method = http.MethodGet
+	msg := "Too many verification requests. Try again later."
+
+	clientIP := func(r *http.Request) string {
+		if ip, ok := httpapi.ClientIPFromContext(r.Context()); ok && ip != "" {
+			return ip
+		}
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			return r.RemoteAddr
+		}
+		return host
+	}
+
+	limiter := httprate.NewRateLimiter(requests, window,
+		httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
+			if logger != nil {
+				attrs := []any{
+					slog.String("source_ip", clientIP(r)),
+					slog.String("path", path),
+				}
+				if prefix := bearerTokenPrefix(r); prefix != "" {
+					attrs = append(attrs, slog.String("token_prefix", prefix))
+				}
+				logger.WarnContext(r.Context(), "verify-ip rate limit exceeded", attrs...)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_ = json.NewEncoder(w).Encode(httpapi.ErrorResponse{Error: &msg})
+		}),
+	)
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == path && r.Method == method {
+				if limiter.RespondOnLimit(w, r, clientIP(r)) {
+					return
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// bearerTokenPrefix returns a short, non-sensitive prefix of the bearer token
+// from the Authorization header for correlation in logs. It never logs the full
+// token. Returns "" when no bearer token is present.
+func bearerTokenPrefix(r *http.Request) string {
+	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if !ok || token == "" {
+		return ""
+	}
+	const maxPrefix = 6
+	if len(token) > maxPrefix {
+		return token[:maxPrefix]
+	}
+	return token
+}
+
 // ipRateLimitMiddleware creates a middleware that rate limits a specific path+method by client IP.
 // The key is read from the request context (set by the IP middleware) with a fallback to RemoteAddr.
 // When the limit is exceeded, a JSON 429 response is returned with the given message.

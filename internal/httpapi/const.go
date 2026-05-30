@@ -4,6 +4,7 @@ package httpapi
 const LoginEndpoint = "/api/v1/auth/login"
 const HeartbeatEndpoint = "/api/v1/heartbeat"
 const DevicePairEndpoint = "/api/v1/device-pair"
+const VerifyIPEndpoint = "/api/policy-engine/verify-ip"
 
 // Headers
 const SessionCookieName = "__Host-wdc_session"

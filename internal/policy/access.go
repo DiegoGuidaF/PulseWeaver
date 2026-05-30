@@ -35,6 +35,15 @@ func (s *Service) Decide(ctx context.Context, ip, host string) DecisionResult {
 	// CIDR fallback: check network policies in most-specific-first order.
 	addr, err := netip.ParseAddr(ip)
 	if err == nil {
+		// Reject the trusted proxy IP before evaluating any CIDR policy, mirroring
+		// the lookupIP guard. Otherwise a network policy whose prefix covers the
+		// proxy's own address (e.g. when X-Real-IP is absent/malformed and the
+		// request falls back to the proxy IP) would grant blanket access.
+		if s.trustedProxy.IsValid() && s.trustedProxy.Compare(addr) == 0 {
+			s.logger.WarnContext(ctx, "rejected trusted proxy IP authorization", slog.String(AttrKeyRequestIP, ip))
+			return DecisionResult{DenyReason: new(DenyReasonIPNotRegistered)}
+		}
+
 		s.mu.RLock()
 		policies := s.networkPolicies
 		s.mu.RUnlock()

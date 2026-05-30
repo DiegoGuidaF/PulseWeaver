@@ -93,6 +93,31 @@ func TestDecide_NetworkPolicy_IPNotInAnyCIDR_Denied(t *testing.T) {
 	is.Equal(*result.DenyReason, DenyReasonIPNotRegistered)
 }
 
+func TestDecide_NetworkPolicy_TrustedProxyInCIDR_Denied(t *testing.T) {
+	// EXT-03 regression: a CIDR policy (172.20.0.0/24, bypass_host_check) covers
+	// the trusted proxy's own IP. A request that resolves to the proxy IP must be
+	// DENIED — never granted blanket access via the CIDR fallback.
+	is := is.New(t)
+	proxy := netip.MustParseAddr("172.20.0.2")
+	provider := &mockProvider{}
+	netProv := &mockNetworkPoliciesProvider{entries: []networkpolicies.CacheEntry{
+		{PolicyID: ids.NetworkPolicyID(1), PolicyName: "docker-net", CIDR: "172.20.0.0/24", BypassHostCheck: true},
+	}}
+	svc, err := NewService(provider, &restrictedHostProvider{}, &geoip.Lookup{}, netProv, "secret", noopLogger(), proxy)
+	is.NoErr(err)
+	is.NoErr(svc.Initialize(context.Background()))
+
+	result := svc.Decide(context.Background(), "172.20.0.2", "any.host.example")
+	is.True(!result.Allowed)
+	is.True(result.DenyReason != nil)
+	is.Equal(*result.DenyReason, DenyReasonIPNotRegistered)
+
+	// A different IP inside the same CIDR is still granted — the guard is proxy-specific.
+	other := svc.Decide(context.Background(), "172.20.0.50", "any.host.example")
+	is.True(other.Allowed)
+	is.Equal(other.MatchSource, MatchSourceNetworkPolicy)
+}
+
 func TestVerifyAccess_NetworkPolicy_ObserverEvent(t *testing.T) {
 	is := is.New(t)
 	svc := newServiceWithNetworkPolicies(nil, nil, []networkpolicies.CacheEntry{
