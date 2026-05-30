@@ -10,6 +10,7 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/collate"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
@@ -43,28 +44,28 @@ func (r *Repository) GetAllHostsWithGroups(ctx context.Context) (httpapi.HostLis
 		return httpapi.HostListResponse{}, fmt.Errorf("get hosts with groups: %w", err)
 	}
 
-	seen := make(map[ids.HostID]int)
-	hosts := []httpapi.Host{}
-	for _, rw := range rows {
-		idx, exists := seen[rw.ID]
-		if !exists {
-			idx = len(hosts)
-			seen[rw.ID] = idx
-			hosts = append(hosts, httpapi.Host{
+	hosts := collate.Collapse(rows,
+		func(rw row) ids.HostID { return rw.ID },
+		func(rw row) httpapi.Host {
+			return httpapi.Host{
 				Id:        rw.ID.Int64(),
 				Fqdn:      rw.FQDN,
 				CreatedAt: httpapi.UTCTime(rw.CreatedAt),
 				Groups:    []httpapi.GroupSummary{},
-			})
-		}
-		if rw.GroupID != nil && rw.GroupName != nil {
-			hosts[idx].Groups = append(hosts[idx].Groups, httpapi.GroupSummary{
+			}
+		},
+		func(rw row) (httpapi.GroupSummary, bool) {
+			if rw.GroupID == nil || rw.GroupName == nil {
+				return httpapi.GroupSummary{}, false
+			}
+			return httpapi.GroupSummary{
 				Id:    (*rw.GroupID).Int64(),
 				Name:  *rw.GroupName,
 				Color: *rw.GroupColor,
-			})
-		}
-	}
+			}, true
+		},
+		func(h *httpapi.Host, g httpapi.GroupSummary) { h.Groups = append(h.Groups, g) },
+	)
 	return httpapi.HostListResponse{Hosts: hosts}, nil
 }
 
@@ -113,14 +114,16 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 		return httpapi.GroupListResponse{}, fmt.Errorf("get host group users: %w", err)
 	}
 
-	usersByGroup := make(map[ids.HostGroupID][]httpapi.UserSummary)
-	for _, ur := range userRows {
-		usersByGroup[ur.GroupID] = append(usersByGroup[ur.GroupID], httpapi.UserSummary{
-			Id:          ur.UserID.Int64(),
-			Username:    ur.Username,
-			DisplayName: ur.DisplayName,
-		})
-	}
+	usersByGroup := collate.GroupByMap(userRows,
+		func(ur userRow) ids.HostGroupID { return ur.GroupID },
+		func(ur userRow) httpapi.UserSummary {
+			return httpapi.UserSummary{
+				Id:          ur.UserID.Int64(),
+				Username:    ur.Username,
+				DisplayName: ur.DisplayName,
+			}
+		},
+	)
 
 	// Q3: network policies assigned to each group
 	type groupPolicyRow struct {
@@ -140,31 +143,22 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 		return httpapi.GroupListResponse{}, fmt.Errorf("get host group network policies: %w", err)
 	}
 
-	policiesByGroup := make(map[ids.HostGroupID][]httpapi.NetworkPolicyRef)
-	for _, pr := range groupPolicyRows {
-		policiesByGroup[pr.GroupID] = append(policiesByGroup[pr.GroupID], httpapi.NetworkPolicyRef{
-			Id:   pr.PolicyID.Int64(),
-			Name: pr.PolicyName,
-			Cidr: pr.PolicyCIDR,
-		})
-	}
+	policiesByGroup := collate.GroupByMap(groupPolicyRows,
+		func(pr groupPolicyRow) ids.HostGroupID { return pr.GroupID },
+		func(pr groupPolicyRow) httpapi.NetworkPolicyRef {
+			return httpapi.NetworkPolicyRef{
+				Id:   pr.PolicyID.Int64(),
+				Name: pr.PolicyName,
+				Cidr: pr.PolicyCIDR,
+			}
+		},
+	)
 
-	seen := make(map[ids.HostGroupID]int)
-	groups := []httpapi.GroupDetailWithUsers{}
-	for _, rw := range groupRows {
-		idx, exists := seen[rw.ID]
-		if !exists {
-			idx = len(groups)
-			seen[rw.ID] = idx
-			users := usersByGroup[rw.ID]
-			if users == nil {
-				users = []httpapi.UserSummary{}
-			}
-			policies := policiesByGroup[rw.ID]
-			if policies == nil {
-				policies = []httpapi.NetworkPolicyRef{}
-			}
-			groups = append(groups, httpapi.GroupDetailWithUsers{
+	groups := collate.Collapse(groupRows,
+		func(rw groupRow) ids.HostGroupID { return rw.ID },
+		func(rw groupRow) httpapi.GroupDetailWithUsers {
+			users := collate.OrEmpty(usersByGroup[rw.ID])
+			return httpapi.GroupDetailWithUsers{
 				Id:              rw.ID.Int64(),
 				Name:            rw.Name,
 				Color:           rw.Color,
@@ -174,16 +168,20 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 				UpdatedAt:       httpapi.UTCTime(rw.UpdatedAt),
 				Hosts:           []httpapi.HostSummary{},
 				Users:           &users,
-				NetworkPolicies: policies,
-			})
-		}
-		if rw.HostID != nil && rw.HostFQDN != nil {
-			groups[idx].Hosts = append(groups[idx].Hosts, httpapi.HostSummary{
+				NetworkPolicies: collate.OrEmpty(policiesByGroup[rw.ID]),
+			}
+		},
+		func(rw groupRow) (httpapi.HostSummary, bool) {
+			if rw.HostID == nil || rw.HostFQDN == nil {
+				return httpapi.HostSummary{}, false
+			}
+			return httpapi.HostSummary{
 				Id:   (*rw.HostID).Int64(),
 				Fqdn: *rw.HostFQDN,
-			})
-		}
-	}
+			}, true
+		},
+		func(g *httpapi.GroupDetailWithUsers, h httpapi.HostSummary) { g.Hosts = append(g.Hosts, h) },
+	)
 	return httpapi.GroupListResponse{Groups: groups}, nil
 }
 
@@ -319,20 +317,18 @@ func (r *Repository) ListUserAccessRows(ctx context.Context) ([]httpapi.UserList
 		return nil, fmt.Errorf("list user access rows groups: %w", err)
 	}
 
-	grantsByUser := make(map[ids.UserID][]httpapi.GroupRef)
-	for _, gr := range grantRows {
-		grantsByUser[gr.UserID] = append(grantsByUser[gr.UserID], httpapi.GroupRef{
-			Id:   gr.GroupID.Int64(),
-			Name: gr.GroupName,
-		})
-	}
+	grantsByUser := collate.GroupByMap(grantRows,
+		func(gr grantRow) ids.UserID { return gr.UserID },
+		func(gr grantRow) httpapi.GroupRef {
+			return httpapi.GroupRef{
+				Id:   gr.GroupID.Int64(),
+				Name: gr.GroupName,
+			}
+		},
+	)
 
 	rows := make([]httpapi.UserListItem, len(userRows))
 	for i, ur := range userRows {
-		groups := grantsByUser[ur.ID]
-		if groups == nil {
-			groups = []httpapi.GroupRef{}
-		}
 		rows[i] = httpapi.UserListItem{
 			Id:               ur.ID.Int64(),
 			Username:         ur.UserName,
@@ -342,7 +338,7 @@ func (r *Repository) ListUserAccessRows(ctx context.Context) ([]httpapi.UserList
 			DeviceCount:      ur.DeviceCount,
 			HostCount:        ur.HostCount,
 			LiveAddressCount: ur.LiveIPCount,
-			Groups:           groups,
+			Groups:           collate.OrEmpty(grantsByUser[ur.ID]),
 		}
 	}
 	return rows, nil
@@ -429,27 +425,21 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 		return httpapi.UserAccessDetail{}, fmt.Errorf("get user access detail network policies: %w", err)
 	}
 
-	policiesByGroupForUser := make(map[ids.HostGroupID][]httpapi.NetworkPolicyRef)
-	for _, pr := range userDetailPolicyRows {
-		policiesByGroupForUser[pr.GroupID] = append(policiesByGroupForUser[pr.GroupID], httpapi.NetworkPolicyRef{
-			Id:   pr.PolicyID.Int64(),
-			Name: pr.PolicyName,
-			Cidr: pr.PolicyCIDR,
-		})
-	}
-
-	seenGroups := make(map[ids.HostGroupID]int)
-	groups := []httpapi.SubjectGroupDetail{}
-	for _, gr := range groupRows {
-		idx, exists := seenGroups[gr.GroupID]
-		if !exists {
-			idx = len(groups)
-			seenGroups[gr.GroupID] = idx
-			policies := policiesByGroupForUser[gr.GroupID]
-			if policies == nil {
-				policies = []httpapi.NetworkPolicyRef{}
+	policiesByGroupForUser := collate.GroupByMap(userDetailPolicyRows,
+		func(pr userDetailPolicyRow) ids.HostGroupID { return pr.GroupID },
+		func(pr userDetailPolicyRow) httpapi.NetworkPolicyRef {
+			return httpapi.NetworkPolicyRef{
+				Id:   pr.PolicyID.Int64(),
+				Name: pr.PolicyName,
+				Cidr: pr.PolicyCIDR,
 			}
-			groups = append(groups, httpapi.SubjectGroupDetail{
+		},
+	)
+
+	groups := collate.Collapse(groupRows,
+		func(gr groupRow) ids.HostGroupID { return gr.GroupID },
+		func(gr groupRow) httpapi.SubjectGroupDetail {
+			return httpapi.SubjectGroupDetail{
 				Id:              gr.GroupID.Int64(),
 				Name:            gr.GroupName,
 				Icon:            gr.GroupIcon,
@@ -459,16 +449,20 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 				UpdatedAt:       httpapi.UTCTime(gr.GroupUpdatedAt),
 				Granted:         gr.Granted,
 				Hosts:           []httpapi.HostSummary{},
-				NetworkPolicies: policies,
-			})
-		}
-		if gr.HostID != nil && gr.HostFQDN != nil {
-			groups[idx].Hosts = append(groups[idx].Hosts, httpapi.HostSummary{
+				NetworkPolicies: collate.OrEmpty(policiesByGroupForUser[gr.GroupID]),
+			}
+		},
+		func(gr groupRow) (httpapi.HostSummary, bool) {
+			if gr.HostID == nil || gr.HostFQDN == nil {
+				return httpapi.HostSummary{}, false
+			}
+			return httpapi.HostSummary{
 				Id:   (*gr.HostID).Int64(),
 				Fqdn: *gr.HostFQDN,
-			})
-		}
-	}
+			}, true
+		},
+		func(g *httpapi.SubjectGroupDetail, h httpapi.HostSummary) { g.Hosts = append(g.Hosts, h) },
+	)
 
 	// Q3: devices owned by the user
 	deviceViews, err := r.GetDevicesByUser(ctx, userID)
