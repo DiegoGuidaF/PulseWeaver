@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
-	"github.com/jmoiron/sqlx"
 )
 
 // NetworkPolicySummaryView is the read model for the policy list page.
@@ -93,22 +94,24 @@ func (r *Repository) GetNetworkPolicySummaries(ctx context.Context) ([]NetworkPo
 		return nil, err
 	}
 
-	policyIDs := make([]any, len(rows))
+	policyIDs := make([]ids.NetworkPolicyID, len(rows))
 	for i, p := range rows {
 		policyIDs[i] = p.ID
 	}
 
-	effectiveQuery, args, err := sqlx.In(`
-		SELECT nphg.policy_id, COUNT(DISTINCT hgm.host_id) AS effective_host_count
-		FROM network_policy_allowed_host_groups nphg
-		JOIN host_group_members hgm ON hgm.host_group_id = nphg.host_group_id
-		WHERE nphg.policy_id IN (?)
-		GROUP BY nphg.policy_id
-	`, policyIDs)
+	// sq.Eq expands the typed slice into an IN clause and parameterises each
+	// element — no []any conversion or Rebind needed (see
+	// docs/patterns/backend/dynamic-query-filtering.md). rows is non-empty here.
+	effectiveQuery, args, err := sq.
+		Select("nphg.policy_id", "COUNT(DISTINCT hgm.host_id) AS effective_host_count").
+		From("network_policy_allowed_host_groups nphg").
+		Join("host_group_members hgm ON hgm.host_group_id = nphg.host_group_id").
+		Where(sq.Eq{"nphg.policy_id": policyIDs}).
+		GroupBy("nphg.policy_id").
+		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build effective count query: %w", err)
 	}
-	effectiveQuery = r.db.Rebind(effectiveQuery)
 
 	type countRow struct {
 		PolicyID           ids.NetworkPolicyID `db:"policy_id"`
@@ -124,17 +127,16 @@ func (r *Repository) GetNetworkPolicySummaries(ctx context.Context) ([]NetworkPo
 		countByID[cr.PolicyID] = cr.EffectiveHostCount
 	}
 
-	groupsQuery, groupArgs, err := sqlx.In(`
-		SELECT nphg.policy_id, hg.id AS group_id, hg.name
-		FROM network_policy_allowed_host_groups nphg
-		JOIN host_groups hg ON hg.id = nphg.host_group_id
-		WHERE nphg.policy_id IN (?)
-		ORDER BY hg.name ASC
-	`, policyIDs)
+	groupsQuery, groupArgs, err := sq.
+		Select("nphg.policy_id", "hg.id AS group_id", "hg.name").
+		From("network_policy_allowed_host_groups nphg").
+		Join("host_groups hg ON hg.id = nphg.host_group_id").
+		Where(sq.Eq{"nphg.policy_id": policyIDs}).
+		OrderBy("hg.name ASC").
+		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build groups query: %w", err)
 	}
-	groupsQuery = r.db.Rebind(groupsQuery)
 
 	type groupRow struct {
 		PolicyID ids.NetworkPolicyID `db:"policy_id"`
@@ -286,23 +288,24 @@ func (r *Repository) listGroupsForPolicy(ctx context.Context, id ids.NetworkPoli
 		return []PolicyHostGroupView{}, nil
 	}
 
-	groupIDs := make([]any, len(groupRows))
+	groupIDs := make([]int64, len(groupRows))
 	for i, g := range groupRows {
 		groupIDs[i] = g.ID
 	}
 
-	// Fetch full host list for all groups in one query.
-	hostQuery, args, err := sqlx.In(`
-		SELECT hgm.host_group_id, h.id AS host_id, h.fqdn
-		FROM host_group_members hgm
-		JOIN hosts h ON h.id = hgm.host_id
-		WHERE hgm.host_group_id IN (?)
-		ORDER BY hgm.host_group_id, h.fqdn
-	`, groupIDs)
+	// Fetch full host list for all groups in one query. sq.Eq expands the slice
+	// into an IN clause (see docs/patterns/backend/dynamic-query-filtering.md);
+	// groupRows is non-empty here.
+	hostQuery, args, err := sq.
+		Select("hgm.host_group_id", "h.id AS host_id", "h.fqdn").
+		From("host_group_members hgm").
+		Join("hosts h ON h.id = hgm.host_id").
+		Where(sq.Eq{"hgm.host_group_id": groupIDs}).
+		OrderBy("hgm.host_group_id", "h.fqdn").
+		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build group hosts query: %w", err)
 	}
-	hostQuery = r.db.Rebind(hostQuery)
 
 	type hostRow struct {
 		GroupID int64  `db:"host_group_id"`

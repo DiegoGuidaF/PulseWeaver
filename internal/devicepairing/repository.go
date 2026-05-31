@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
@@ -75,16 +77,25 @@ func (r *Repository) GetPairingByCode(ctx context.Context, code string) (*Device
 // ListPairings returns device pairings for a device, filtered by the given options.
 // When filter.IncludeAll is false, only claimable (pending, not yet expired) pairings are returned.
 func (r *Repository) ListPairings(ctx context.Context, filter PairingFilter) ([]DevicePairing, error) {
-	var rows []pairingRow
-
-	query := `SELECT * FROM device_pairings WHERE device_id = ?`
-	args := []any{filter.DeviceID}
+	// Conditions vary at runtime, so build with squirrel rather than concatenating
+	// SQL by hand — see docs/patterns/backend/dynamic-query-filtering.md.
+	q := sq.
+		Select("*").
+		From("device_pairings").
+		Where(sq.Eq{"device_id": filter.DeviceID})
 	if !filter.IncludeAll {
-		query += ` AND status = ? AND expires_at > CURRENT_TIMESTAMP`
-		args = append(args, storedPending)
+		// Only claimable pairings: still pending and not yet expired.
+		q = q.
+			Where(sq.Eq{"status": storedPending}).
+			Where(sq.Expr("expires_at > CURRENT_TIMESTAMP"))
 	}
-	query += ` ORDER BY created_at DESC`
 
+	query, args, err := q.OrderBy("created_at DESC").ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build list pairings query: %w", err)
+	}
+
+	var rows []pairingRow
 	if err := r.db.SelectContext(ctx, &rows, query, args...); err != nil {
 		return nil, fmt.Errorf("list pairings: %w", err)
 	}
