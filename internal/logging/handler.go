@@ -13,7 +13,7 @@ type contextHandler struct {
 }
 
 // NewContextHandler wraps inner with a handler that reads request-scoped values
-// from context (request_id, client_ip, component, operation) and stamps them on
+// from context (request_id, client_ip, operation, user_id) and stamps them on
 // every log record when present.
 func NewContextHandler(inner slog.Handler) slog.Handler {
 	return &contextHandler{inner: inner}
@@ -32,6 +32,9 @@ func (h *contextHandler) Handle(ctx context.Context, r slog.Record) error {
 	}
 	if operation, ok := OperationFromCtx(ctx); ok {
 		r.AddAttrs(slog.String(AttrKeyOperation, operation))
+	}
+	if userID, ok := UserIDFromCtx(ctx); ok {
+		r.AddAttrs(slog.Int64(AttrKeyUserID, userID))
 	}
 	return h.inner.Handle(ctx, r)
 }

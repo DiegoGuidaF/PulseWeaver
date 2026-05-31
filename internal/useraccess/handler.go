@@ -44,7 +44,7 @@ func (h *HTTPHandler) SetUserAccess(
 			return httpapi.SetUserAccess500JSONResponse(errResp("Failed to set user grants")), nil
 		}
 	}
-
+	h.logger.InfoContext(ctx, "user group assignment updated", slog.Int64("target_user_id", userID.Int64()))
 	return httpapi.SetUserAccess204Response{}, nil
 }
 

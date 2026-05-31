@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
 // UserAuthenticator defines the interface for authenticating user sessions.
@@ -25,6 +26,7 @@ func PrincipalUserContextMiddleware(auth UserAuthenticator) func(http.Handler) h
 				principal, authErr := auth.Authenticate(r.Context(), token)
 				if authErr == nil {
 					ctx := WithPrincipal(r.Context(), *principal)
+					ctx = logging.WithUserID(ctx, principal.UserID.Int64())
 					r = r.WithContext(ctx)
 				}
 			}

@@ -16,28 +16,34 @@ import (
 )
 
 // LoginRateLimitMiddleware rate limits POST /api/v1/auth/login by client IP.
-func LoginRateLimitMiddleware(requests int, window time.Duration) func(http.Handler) http.Handler {
+// When the limit fires a WARN is emitted with the client IP and path so
+// brute-force attempts are visible in container logs.
+func LoginRateLimitMiddleware(requests int, window time.Duration, logger *slog.Logger) func(http.Handler) http.Handler {
 	return ipRateLimitMiddleware(httpapi.LoginEndpoint, http.MethodPost, requests, window,
-		"Too many login attempts. Try again later.")
+		"Too many login attempts. Try again later.", logger)
 }
 
 // HeartbeatRateLimitMiddleware rate limits POST /api/v1/heartbeat by client IP.
-func HeartbeatRateLimitMiddleware(requests int, window time.Duration) func(http.Handler) http.Handler {
+// When the limit fires a WARN is emitted with the client IP and path so
+// scanning is visible in container logs.
+func HeartbeatRateLimitMiddleware(requests int, window time.Duration, logger *slog.Logger) func(http.Handler) http.Handler {
 	return ipRateLimitMiddleware(httpapi.HeartbeatEndpoint, http.MethodPost, requests, window,
-		"Too many heartbeat requests. Try again later.")
+		"Too many heartbeat requests. Try again later.", logger)
 }
 
 // DevicePairingRateLimitMiddleware rate limits POST /api/v1/device-pair by client IP.
-func DevicePairingRateLimitMiddleware(requests int, window time.Duration) func(http.Handler) http.Handler {
+// When the limit fires a WARN is emitted with the client IP and path so
+// scanning is visible in container logs.
+func DevicePairingRateLimitMiddleware(requests int, window time.Duration, logger *slog.Logger) func(http.Handler) http.Handler {
 	return ipRateLimitMiddleware(httpapi.DevicePairEndpoint, http.MethodPost, requests, window,
-		"Too many pairing attempts. Try again later.")
+		"Too many pairing attempts. Try again later.", logger)
 }
 
 // VerifyIPRateLimitMiddleware rate limits GET /api/policy-engine/verify-ip by client IP.
 //
 // The forward-auth endpoint is registered outside /api/v1 and so bypasses the
 // other rate limiters; this guards it against unbounded bearer-token enumeration.
-// When the limit fires it logs the source IP, the rate-limited path, and the
+// When the limit fires it logs the client IP, the rate-limited path, and the
 // bearer-token prefix (if present) at WARN so scanning is visible in container logs.
 func VerifyIPRateLimitMiddleware(requests int, window time.Duration, logger *slog.Logger) func(http.Handler) http.Handler {
 	const path = httpapi.VerifyIPEndpoint
@@ -58,10 +64,8 @@ func VerifyIPRateLimitMiddleware(requests int, window time.Duration, logger *slo
 	limiter := httprate.NewRateLimiter(requests, window,
 		httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
 			if logger != nil {
-				attrs := []any{
-					slog.String("source_ip", clientIP(r)),
-					slog.String("path", path),
-				}
+				// client_ip is auto-stamped on the record by the context handler.
+				attrs := []any{slog.String("path", path)}
 				if prefix := bearerTokenPrefix(r); prefix != "" {
 					attrs = append(attrs, slog.String("token_prefix", prefix))
 				}
@@ -103,7 +107,8 @@ func bearerTokenPrefix(r *http.Request) string {
 // ipRateLimitMiddleware creates a middleware that rate limits a specific path+method by client IP.
 // The key is read from the request context (set by the IP middleware) with a fallback to RemoteAddr.
 // When the limit is exceeded, a JSON 429 response is returned with the given message.
-func ipRateLimitMiddleware(path, method string, requests int, window time.Duration, msg string) func(http.Handler) http.Handler {
+// If logger is non-nil a WARN is emitted on every 429 so rate-limit events are visible in logs.
+func ipRateLimitMiddleware(path, method string, requests int, window time.Duration, msg string, logger *slog.Logger) func(http.Handler) http.Handler {
 	clientIP := func(r *http.Request) string {
 		if ip, ok := httpapi.ClientIPFromContext(r.Context()); ok && ip != "" {
 			return ip
@@ -117,6 +122,11 @@ func ipRateLimitMiddleware(path, method string, requests int, window time.Durati
 
 	limiter := httprate.NewRateLimiter(requests, window,
 		httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
+			if logger != nil {
+				// client_ip is auto-stamped on the record by the context handler;
+				// only path needs to be added here.
+				logger.WarnContext(r.Context(), "rate limit exceeded", slog.String("path", path))
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusTooManyRequests)
 			_ = json.NewEncoder(w).Encode(httpapi.ErrorResponse{Error: &msg})

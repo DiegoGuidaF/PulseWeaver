@@ -97,9 +97,9 @@ func addRoutes(
 		}
 
 		// Rate limit unauthenticated endpoints by IP
-		r.Use(LoginRateLimitMiddleware(5, time.Minute))
-		r.Use(HeartbeatRateLimitMiddleware(30, time.Minute))
-		r.Use(DevicePairingRateLimitMiddleware(10, time.Minute))
+		r.Use(LoginRateLimitMiddleware(5, time.Minute, logger))
+		r.Use(HeartbeatRateLimitMiddleware(30, time.Minute, logger))
+		r.Use(DevicePairingRateLimitMiddleware(10, time.Minute, logger))
 
 		// OpenApi request input validators
 		r.Use(nethttpmiddleware.OapiRequestValidatorWithOptions(swagger, validatorOptions))

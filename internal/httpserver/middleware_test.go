@@ -245,7 +245,7 @@ func TestHeartbeatRateLimit_429AfterLimit(t *testing.T) {
 	is := is.New(t)
 
 	limit := 2
-	handler := httpserver.HeartbeatRateLimitMiddleware(limit, time.Minute)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpserver.HeartbeatRateLimitMiddleware(limit, time.Minute, testLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -276,7 +276,7 @@ func TestHeartbeatRateLimit_OnlyAffectsHeartbeatEndpoint(t *testing.T) {
 
 	limit := 2
 	called := 0
-	handler := httpserver.HeartbeatRateLimitMiddleware(limit, time.Minute)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpserver.HeartbeatRateLimitMiddleware(limit, time.Minute, testLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called++
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -307,7 +307,7 @@ func TestHeartbeatRateLimit_DifferentIPsIndependent(t *testing.T) {
 	is := is.New(t)
 
 	limit := 2
-	handler := httpserver.HeartbeatRateLimitMiddleware(limit, time.Minute)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpserver.HeartbeatRateLimitMiddleware(limit, time.Minute, testLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 

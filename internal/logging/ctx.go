@@ -39,6 +39,24 @@ func ClientIPFromCtx(ctx context.Context) (string, bool) {
 	return ip, ok
 }
 
+// userIDKeyType is an unexported type for the user ID context key.
+type userIDKeyType struct{}
+
+var userIDKey = userIDKeyType{}
+
+// WithUserID stores the authenticated user's ID in the context for the slog
+// handler to stamp automatically on every record produced during the request.
+func WithUserID(ctx context.Context, id int64) context.Context {
+	return context.WithValue(ctx, userIDKey, id)
+}
+
+// UserIDFromCtx retrieves the user ID stored by WithUserID.
+// Returns 0 and false if not present.
+func UserIDFromCtx(ctx context.Context) (int64, bool) {
+	id, ok := ctx.Value(userIDKey).(int64)
+	return id, ok
+}
+
 // operationKeyType is an unexported type for the operation context key.
 type operationKeyType struct{}
 

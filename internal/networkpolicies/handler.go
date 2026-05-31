@@ -35,6 +35,7 @@ func (h *HTTPHandler) CreateNetworkPolicy(
 	if err != nil {
 		return h.mapCreateError(ctx, err), nil
 	}
+	h.logger.InfoContext(ctx, "network policy created", slog.Int64("policy_id", p.ID.Int64()))
 	return httpapi.CreateNetworkPolicy201JSONResponse(toNetworkPolicyResponse(p)), nil
 }
 
@@ -58,6 +59,7 @@ func (h *HTTPHandler) UpdateNetworkPolicy(
 	if err != nil {
 		return h.mapUpdateError(ctx, err), nil
 	}
+	h.logger.InfoContext(ctx, "network policy updated", slog.Int64("policy_id", id.Int64()))
 	return httpapi.UpdateNetworkPolicy204Response{}, nil
 }
 
@@ -76,6 +78,7 @@ func (h *HTTPHandler) DeleteNetworkPolicy(
 		h.logger.ErrorContext(ctx, "failed to delete network policy", slog.Any(logging.AttrKeyError, err))
 		return httpapi.DeleteNetworkPolicy500JSONResponse(errMsg("Failed to delete network policy")), nil
 	}
+	h.logger.InfoContext(ctx, "network policy deleted", slog.Int64("policy_id", id.Int64()))
 	return httpapi.DeleteNetworkPolicy204Response{}, nil
 }
 
@@ -101,6 +104,7 @@ func (h *HTTPHandler) UpdateNetworkPolicyAccess(
 		h.logger.ErrorContext(ctx, "failed to update host access", slog.Any(logging.AttrKeyError, err))
 		return httpapi.UpdateNetworkPolicyAccess500JSONResponse(errMsg("Failed to update host access")), nil
 	}
+	h.logger.InfoContext(ctx, "network policy access updated", slog.Int64("policy_id", id.Int64()))
 	return httpapi.UpdateNetworkPolicyAccess204Response{}, nil
 }
 

@@ -61,6 +61,7 @@ func (h *HTTPHandler) ReconcileHosts(
 			return httpapi.ReconcileHosts500JSONResponse(errResp("Failed to reconcile hosts")), nil
 		}
 	}
+	h.logger.InfoContext(ctx, "hosts reconciled", slog.Int("host_count", len(in.Hosts)))
 	return httpapi.ReconcileHosts204Response{}, nil
 }
 
@@ -107,6 +108,7 @@ func (h *HTTPHandler) ReconcileHostGroups(
 			return httpapi.ReconcileHostGroups500JSONResponse(errResp("Failed to reconcile host groups")), nil
 		}
 	}
+	h.logger.InfoContext(ctx, "host groups reconciled", slog.Int("group_count", len(in.Groups)))
 	return httpapi.ReconcileHostGroups204Response{}, nil
 }
 
@@ -124,6 +126,7 @@ func (h *HTTPHandler) IgnoreSuggestion(
 		h.logger.ErrorContext(ctx, "ignore suggestion failed", slog.Any(logging.AttrKeyError, err))
 		return httpapi.IgnoreSuggestion500JSONResponse(errResp("Failed to ignore suggestion")), nil
 	}
+	h.logger.InfoContext(ctx, "host suggestion ignored", slog.Int64("suggestion_id", s.ID))
 	return httpapi.IgnoreSuggestion201JSONResponse(httpapi.IgnoredHostSuggestion{
 		Id:        s.ID,
 		Fqdn:      s.FQDN,
@@ -144,6 +147,7 @@ func (h *HTTPHandler) UnignoreSuggestion(
 		h.logger.ErrorContext(ctx, "unignore suggestion failed", slog.Any(logging.AttrKeyError, err))
 		return httpapi.UnignoreSuggestion500JSONResponse(errResp("Failed to unignore suggestion")), nil
 	}
+	h.logger.InfoContext(ctx, "host suggestion unignored", slog.String("fqdn", req.Fqdn))
 	return httpapi.UnignoreSuggestion204Response{}, nil
 }
 
