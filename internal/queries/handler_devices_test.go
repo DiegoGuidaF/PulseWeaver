@@ -199,7 +199,7 @@ func TestHandler_GetDevices_GroupsDevicesByOwner(t *testing.T) {
 
 	var groups []httpapi.DeviceOwnerGroup
 	is.NoErr(json.NewDecoder(rec.Body).Decode(&groups))
-	is.Equal(len(groups), 4) // alice + bob + charlie + diana
+	is.Equal(len(groups), 8) // alice + bob + charlie + diana + erin + grace + frank + bootstrap admin (superadmin)
 
 	// ── alice ───────────────────────────────────────────────────────────────────
 	alice := findOwnerGroup(groups, testutils.FixtureUserWithAccess.Name)

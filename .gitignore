@@ -18,6 +18,8 @@ scratch_test.go
 *.db-shm
 # Default DB folder
 /data
+# Generated seed-DB artifacts (make seed-db); *.db already covers the files
+/db-test-seeds
 
 # Environment variables (Secrets)
 .env

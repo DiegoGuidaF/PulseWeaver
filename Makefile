@@ -1,4 +1,4 @@
-.PHONY: dev run test test-front clean fix lint lint-front typecheck-front lint-all check migrate-up migrate-down migrate-create api \
+.PHONY: dev run test test-front seed-db clean fix lint lint-front typecheck-front lint-all check migrate-up migrate-down migrate-create api \
         install-hooks version release-patch release-minor release-major _release check-migrations
 
 # Disable Go workspace mode so -modfile (used by tools/go.mod) works correctly
@@ -36,6 +36,14 @@ clean:
 
 test: api-back
 	go test -tags=test ./cmd/... ./internal/...
+
+# Generate a clean, fully-seeded latest-schema SQLite DB → db-test-seeds/seed-<ts>.db.
+# Reusable fixture for security audits, UX/manual testing and demos: copy the file
+# to a stack's data/data.db (no migrations needed). Append-only; never deletes.
+# Override row volume with SEED_ACCESS_LOG_VOLUME (default 250).
+seed-db: api-back
+	SEED_OUT_DIR=$(CURDIR)/db-test-seeds \
+		go test -tags='test dbseed' -run TestGenerateSeedDB -count=1 ./internal/database/
 
 # Run frontend tests using the Node version from frontend/.nvmrc
 test-front:

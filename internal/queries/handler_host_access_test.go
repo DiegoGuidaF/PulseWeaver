@@ -139,7 +139,7 @@ func TestHandler_ListHostGroups_HappyPath(t *testing.T) {
 	is.Equal(w.Code, http.StatusOK)
 	var resp httpapi.GroupListResponse
 	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
-	is.Equal(len(resp.Groups), 3) // FixtureGroupBackend, FixtureGroupFrontend, FixtureGroupEmpty
+	is.Equal(len(resp.Groups), 4) // FixtureGroupBackend, FixtureGroupFrontend, FixtureGroupEmpty, FixtureGroupAdversarial
 
 	// backend: 2 hosts, 2 users (alice+charlie), 1 network policy (corp-vpn)
 	backend := findGroupWithUsers(resp.Groups, testutils.FixtureGroupBackend.Name)
@@ -286,7 +286,7 @@ func TestHandler_ListUsersWithAccess_HappyPath(t *testing.T) {
 	is.Equal(w.Code, http.StatusOK)
 	var rows []httpapi.UserListItem
 	is.NoErr(json.NewDecoder(w.Body).Decode(&rows))
-	is.Equal(len(rows), 5) // admin + FixtureUserWithAccess + FixtureUserNoAccess + FixtureUserBypassAccess + FixtureUserPairing
+	is.Equal(len(rows), 8) // admin (superadmin) + alice + bob + charlie + diana + erin + grace + frank
 
 	alice := findUserRow(rows, seed.User(testutils.FixtureUserWithAccess.Name).Int64())
 	is.True(alice != nil)
@@ -366,8 +366,8 @@ func TestHandler_GetUserAccessDetail_HappyPath(t *testing.T) {
 	is.Equal(resp.Username, testutils.FixtureUserWithAccess.Name)
 	is.Equal(resp.BypassHostCheck, false)
 
-	// all 3 groups are returned; only backend and frontend are granted
-	is.Equal(len(resp.Groups), 3)
+	// all 4 groups are returned; only backend and frontend are granted
+	is.Equal(len(resp.Groups), 4)
 
 	backend := findGroup(resp.Groups, testutils.FixtureGroupBackend.Name)
 	is.True(backend != nil)

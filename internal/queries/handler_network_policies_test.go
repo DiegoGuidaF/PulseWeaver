@@ -55,7 +55,7 @@ func TestHandler_ListNetworkPolicies_ReturnsPolicySummary(t *testing.T) {
 	is.Equal(w.Code, http.StatusOK)
 	var resp []httpapi.NetworkPolicyListItem
 	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
-	is.Equal(len(resp), 3) // FixturePolicyWithGroups + FixturePolicyNoGroups + FixturePolicyBypassHostCheck
+	is.Equal(len(resp), 4) // FixturePolicyWithGroups + FixturePolicyNoGroups + FixturePolicyBypassHostCheck + FixturePolicyAdversarial
 
 	corpVPN := findPolicy(resp, testutils.FixturePolicyWithGroups.Name)
 	is.True(corpVPN != nil)
@@ -124,8 +124,8 @@ func TestHandler_GetNetworkPolicy_ReturnsDetail(t *testing.T) {
 	is.Equal(resp.BypassHostCheck, false)
 	is.True(!time.Time(resp.CreatedAt).IsZero())
 	is.True(!time.Time(resp.UpdatedAt).IsZero())
-	// All 3 groups returned (FixtureGroupEmpty + FixtureGroupBackend + FixtureGroupFrontend); 2 are granted
-	is.Equal(len(resp.Groups), 3)
+	// All 4 groups returned (FixtureGroupEmpty + FixtureGroupBackend + FixtureGroupFrontend + FixtureGroupAdversarial); 2 are granted
+	is.Equal(len(resp.Groups), 4)
 	backend := findGroup(resp.Groups, testutils.FixtureGroupBackend.Name)
 	is.True(backend != nil)
 	is.True(backend.Granted)

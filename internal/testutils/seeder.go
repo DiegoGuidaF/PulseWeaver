@@ -43,10 +43,19 @@ type HostFixture struct {
 	Groups []string
 }
 
-// UserFixture describes the seeder inputs for a regular (non-admin) user.
+// UserFixture describes the seeder inputs for a user.
 // Name is used as username, display name, and email prefix (<name>@test.local).
+//
+// Role selects the account's privilege level. The zero value seeds a plain
+// user-role account (no password, exists only to own devices). AdminRole seeds
+// a login-ready admin: the user is promoted via the real service path and its
+// must_change_password flag is cleared, leaving SeededAdminPassword as a known,
+// usable credential. SuperAdminRole is not seeded as a new row (there is no
+// service path to a second superadmin) — reference the bootstrap admin instead
+// via auth.BootstrapAdminUsername, which SeedResult.User resolves.
 type UserFixture struct {
 	Name string
+	Role auth.Role
 }
 
 // DeviceLeaseRuleFixture describes an address-lease rule to enable on a device.
@@ -173,6 +182,63 @@ var (
 	FixtureAccessLogBypassAllow        = AccessLogEntryFixture{ClientIP: "192.168.1.50", Outcome: true, PolicyName: FixturePolicyBypassHostCheck.Name}
 )
 
+// SeededAdminPassword is the known, login-ready password assigned to every
+// AdminRole UserFixture (see UserFixture.Role). The bootstrap superadmin keeps
+// TestPassword/TestAdminPassword. Both are exported so security audits and
+// manual-testing scenarios can authenticate against a generated seed DB.
+const SeededAdminPassword = TestAdminPassword
+
+// ── PW-66 enrichment fixtures ─────────────────────────────────────────────────
+//
+// These broaden SeedFullWorld into a genuinely complete/complex DB: every role
+// owns a device+address, plus edge/NULL entities and adversarial-string names.
+// They serve both the cross-domain query tests and the PW-66 security audit.
+
+var (
+	// Role coverage: a login-ready admin (erin) and the bootstrap superadmin,
+	// each owning a device with one address. The plain user role is already
+	// covered by FixtureUserWithAccess (alice).
+	FixtureUserAdmin         = UserFixture{Name: "erin", Role: auth.AdminRole}
+	FixtureDeviceAdmin       = DeviceFixture{Name: "erin-laptop", OwnerUser: FixtureUserAdmin.Name}
+	FixtureAddressAdmin      = AddressFixture{Device: FixtureDeviceAdmin.Name, IP: "10.4.0.1"}
+	FixtureDeviceSuperAdmin  = DeviceFixture{Name: "admin-laptop", OwnerUser: auth.BootstrapAdminUsername}
+	FixtureAddressSuperAdmin = AddressFixture{Device: FixtureDeviceSuperAdmin.Name, IP: "10.5.0.1"}
+
+	// Edge / NULL entities are owned by a dedicated user (grace) so they do not
+	// perturb the per-owner assertions of the alice/bob/charlie/diana fixtures.
+	// grace has no group access.
+	FixtureUserEdge = UserFixture{Name: "grace"}
+	// Orphan device: created with no address (no WithAddress call).
+	FixtureDeviceOrphan = DeviceFixture{Name: "grace-orphan", OwnerUser: FixtureUserEdge.Name}
+	// Device with multiple addresses.
+	FixtureDeviceMultiAddr = DeviceFixture{Name: "grace-multi", OwnerUser: FixtureUserEdge.Name}
+	FixtureAddressMultiA   = AddressFixture{Device: FixtureDeviceMultiAddr.Name, IP: "10.6.0.1"}
+	FixtureAddressMultiB   = AddressFixture{Device: FixtureDeviceMultiAddr.Name, IP: "10.6.0.2"}
+	// Disabled address.
+	FixtureDeviceDisabledAddr = DeviceFixture{Name: "grace-disabled", OwnerUser: FixtureUserEdge.Name}
+	FixtureAddressDisabled    = AddressFixture{Device: FixtureDeviceDisabledAddr.Name, IP: "10.7.0.1", Disabled: true}
+
+	// Third contributor on the shared IP 10.1.0.1: alice-laptop + charlie-desktop
+	// + frank-laptop. frank is a bypass user (host check bypassed, no group
+	// membership), so it contributes "all hosts" to the contributor intersection —
+	// the shared-IP allow path is unchanged and frank does not perturb the
+	// per-group user-count assertions, while the IP now exercises the
+	// 3+-contributor query/cache paths.
+	FixtureUserSharedExtra    = UserFixture{Name: "frank"}
+	FixtureDeviceSharedThird  = DeviceFixture{Name: "frank-laptop", OwnerUser: FixtureUserSharedExtra.Name}
+	FixtureAddressSharedThird = AddressFixture{Device: FixtureDeviceSharedThird.Name, IP: "10.1.0.1"}
+
+	// Adversarial-string names — escaping/encoding paths and the stored-XSS
+	// render precondition for the audit. Only group names and policy
+	// name/description carry these: host FQDNs are rejected by hosts.ValidateFQDN.
+	FixtureGroupAdversarial  = GroupFixture{Name: `<script>alert('xss')</script>`}
+	FixturePolicyAdversarial = PolicyFixture{
+		Name: `"; DROP TABLE policies;-- ☠ 测试`,
+		CIDR: "10.99.0.0/16",
+		Desc: `<img src=x onerror=alert(1)>`,
+	}
+)
+
 // ── relational spec types (internal) ─────────────────────────────────────────
 
 type policyAccessSpec struct {
@@ -282,6 +348,7 @@ type Seeder struct {
 	addresses        []AddressFixture
 	pairings         []PairingFixture
 	accessLogEntries []AccessLogEntryFixture
+	accessLogVolume  int
 	initPolicy       bool
 }
 
@@ -447,12 +514,38 @@ func (s *Seeder) WithAccessLogEntry(f AccessLogEntryFixture) *Seeder {
 	return s
 }
 
+// WithAccessLogVolume instructs Build to insert n additional synthetic access-log
+// rows (denied, no contributors, spread over distinct client IPs) after the
+// explicit WithAccessLogEntry rows. This is an opt-in volume builder — it is NOT
+// part of SeedFullWorld, so it does not slow every integration test that
+// materialises the world. Pagination cases and the seed-DB generator opt in.
+func (s *Seeder) WithAccessLogVolume(n int) *Seeder {
+	s.t.Helper()
+	if n < 0 {
+		s.t.Fatalf("Seeder.WithAccessLogVolume: n must be non-negative (got %d)", n)
+	}
+	s.accessLogVolume = n
+	return s
+}
+
 // WithPolicyInitialize instructs Build to call PolicyService.Initialize after
 // registering addresses, loading all enabled addresses into the in-memory cache.
 // Required whenever a test needs the policy engine to reflect seeded addresses.
 func (s *Seeder) WithPolicyInitialize() *Seeder {
 	s.initPolicy = true
 	return s
+}
+
+// referencesBootstrapAdmin reports whether any declared device is owned by the
+// bootstrap admin, so Build knows to register that account even when no regular
+// users are seeded.
+func (s *Seeder) referencesBootstrapAdmin() bool {
+	for _, d := range s.devices {
+		if d.OwnerUser == auth.BootstrapAdminUsername {
+			return true
+		}
+	}
+	return false
 }
 
 // Build materialises all declared entities in dependency order:
@@ -490,15 +583,38 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 		deviceOwnerByName[d.Name] = d.OwnerUser
 	}
 
-	// 1. Users — CreateUser requires a super-admin principal
-	if len(s.users) > 0 {
+	// 1. Users — CreateUser requires a super-admin principal. The bootstrap admin
+	// (itself a superadmin) is registered under its username so fixtures can own
+	// devices as the superadmin and SeedResult.User(auth.BootstrapAdminUsername)
+	// resolves it.
+	if len(s.users) > 0 || s.referencesBootstrapAdmin() {
 		adminPrincipal := AdminPrincipal(s.t, srv)
+		result.users[auth.BootstrapAdminUsername] = adminPrincipal.UserID
 		for _, f := range s.users {
 			u, err := srv.AuthService.CreateUser(ctx, f.Name, f.Name, f.Name+"@test.local", adminPrincipal)
 			if err != nil {
 				s.t.Fatalf("Seeder: create user %q: %v", f.Name, err)
 			}
 			result.users[f.Name] = u.ID
+
+			switch f.Role {
+			case "", auth.UserRole:
+				// Plain user-role account (no password); nothing further.
+			case auth.AdminRole:
+				// Promote via the real service path, then clear must_change_password
+				// through ChangePassword so the admin is login-ready with the known
+				// SeededAdminPassword.
+				if _, err := srv.AuthService.PromoteUser(ctx, adminPrincipal, u.ID, SeededAdminPassword); err != nil {
+					s.t.Fatalf("Seeder: promote user %q to admin: %v", f.Name, err)
+				}
+				if err := srv.AuthService.ChangePassword(ctx, u.ID, ids.SessionID(0), SeededAdminPassword, SeededAdminPassword); err != nil {
+					s.t.Fatalf("Seeder: clear must_change_password for %q: %v", f.Name, err)
+				}
+			case auth.SuperAdminRole:
+				s.t.Fatalf("Seeder: UserFixture %q requests SuperAdminRole, which has no seed path; reference auth.BootstrapAdminUsername instead", f.Name)
+			default:
+				s.t.Fatalf("Seeder: UserFixture %q has unknown role %q", f.Name, f.Role)
+			}
 		}
 	}
 
@@ -739,9 +855,9 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 		}
 	}
 
-	// 10. Access log entries
-	if len(s.accessLogEntries) > 0 {
-		events := make([]policy.DecisionEvent, 0, len(s.accessLogEntries))
+	// 10. Access log entries (explicit fixtures + opt-in synthetic volume)
+	if len(s.accessLogEntries) > 0 || s.accessLogVolume > 0 {
+		events := make([]policy.DecisionEvent, 0, len(s.accessLogEntries)+s.accessLogVolume)
 		for _, f := range s.accessLogEntries {
 			e := policy.DecisionEvent{
 				ClientIP:   f.ClientIP,
@@ -788,6 +904,16 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 			}
 			events = append(events, e)
 		}
+		// Synthetic volume: cheap denied, no-contributor rows over distinct IPs.
+		for i := 0; i < s.accessLogVolume; i++ {
+			events = append(events, policy.DecisionEvent{
+				ClientIP:   fmt.Sprintf("100.64.%d.%d", (i/256)%256, i%256),
+				Outcome:    false,
+				DenyReason: new(policy.DenyReasonIPNotRegistered),
+				CreatedAt:  time.Now().UTC(),
+				Headers:    map[string][]string{},
+			})
+		}
 		accessLogRepo := accesslog.NewRepository(srv.Database.DB())
 		if err := accessLogRepo.BatchInsert(ctx, events); err != nil {
 			s.t.Fatalf("Seeder: insert access log entries: %v", err)
@@ -811,24 +937,38 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 //
 // What is created:
 //
-//	Groups:      FixtureGroupEmpty, FixtureGroupBackend, FixtureGroupFrontend
+//	Groups:      FixtureGroupEmpty, FixtureGroupBackend, FixtureGroupFrontend,
+//	             FixtureGroupAdversarial (<script> name — escaping/XSS-render precondition)
 //	Hosts:       FixtureHostBackend1+2 (backend); FixtureHostFrontend1+2 (frontend)
 //	Users:       FixtureUserWithAccess (alice, backend+frontend), FixtureUserNoAccess (bob),
-//	             FixtureUserBypassAccess (charlie, backend bypass), FixtureUserPairing (diana)
+//	             FixtureUserBypassAccess (charlie, backend bypass), FixtureUserPairing (diana),
+//	             FixtureUserAdmin (erin, admin role, login-ready via SeededAdminPassword),
+//	             FixtureUserEdge (grace, owns the NULL/edge devices, no access),
+//	             FixtureUserSharedExtra (frank, bypass user, third contributor on 10.1.0.1);
+//	             the bootstrap admin (auth.BootstrapAdminUsername) is the superadmin and is
+//	             registered in SeedResult so it can own devices
 //	Policies:    FixturePolicyWithGroups (backend+frontend), FixturePolicyNoGroups (no groups),
-//	             FixturePolicyBypassHostCheck (ops-network, bypass_host_check=true, 192.168.0.0/16)
+//	             FixturePolicyBypassHostCheck (ops-network, bypass_host_check=true, 192.168.0.0/16),
+//	             FixturePolicyAdversarial (quote/unicode name + <img onerror> desc, 10.99.0.0/16)
 //	Devices:     FixtureDeviceWithOwnerAccess (alice-laptop), FixtureDeviceWithoutOwnerAccess (bob-phone),
 //	             FixtureDeviceBypassAccess (charlie-desktop),
-//	             FixtureDevicePairingUsed (diana-used-device), FixtureDevicePairingExpired (diana-expired-device)
+//	             FixtureDevicePairingUsed (diana-used-device), FixtureDevicePairingExpired (diana-expired-device),
+//	             FixtureDeviceAdmin (erin-laptop), FixtureDeviceSuperAdmin (admin-laptop, owned by bootstrap admin),
+//	             FixtureDeviceOrphan (grace-orphan, no address), FixtureDeviceMultiAddr (grace-multi, two addresses),
+//	             FixtureDeviceSharedThird (frank-laptop, third contributor on 10.1.0.1),
+//	             FixtureDeviceDisabledAddr (grace-disabled, one disabled address)
 //	Rules:       FixtureLeaseRuleAliceLaptop (1h TTL), FixtureMaxActiveRuleAliceLaptop (max 2) — alice-laptop only
 //	Addresses:   FixtureAddressAlice (10.1.0.1), FixtureAddressBob (10.2.0.1),
-//	             FixtureAddressShared (charlie-desktop at 10.1.0.1 — shared with alice)
+//	             FixtureAddressShared (charlie-desktop at 10.1.0.1 — shared with alice),
+//	             FixtureAddressAdmin (erin 10.4.0.1), FixtureAddressSuperAdmin (admin 10.5.0.1),
+//	             FixtureAddressMultiA/B (grace-multi 10.6.0.1/2), FixtureAddressSharedThird (frank-laptop 10.1.0.1),
+//	             FixtureAddressDisabled (grace-disabled 10.7.0.1, disabled)
 //	Pairings:    FixturePairingBobPending (bob-phone, pending),
 //	             FixturePairingCharlieInvalidated (charlie-desktop, invalidated),
 //	             FixturePairingDianaUsed (diana-used-device, used),
 //	             FixturePairingDianaExpired (diana-expired-device, expired)
 //	             alice-laptop has no pairing (nil last_pairing)
-//	Policy cache: initialized; SharedIpCount=1 (10.1.0.1 owned by alice and charlie)
+//	Policy cache: initialized; SharedIpCount=1 (10.1.0.1 owned by alice, charlie and frank)
 //	Access log:  FixtureAccessLogAliceAllow (allow, single contributor)
 //	             FixtureAccessLogBobHostDeny (deny host_not_allowed, single contributor)
 //	             FixtureAccessLogUnknownDeny (deny ip_not_registered, no contributor)
@@ -841,6 +981,7 @@ func SeedFullWorld(t *testing.T) *Seeder {
 		WithGroup(FixtureGroupEmpty).
 		WithGroup(FixtureGroupBackend).
 		WithGroup(FixtureGroupFrontend).
+		WithGroup(FixtureGroupAdversarial).
 		WithHost(FixtureHostBackend1).
 		WithHost(FixtureHostBackend2).
 		WithHost(FixtureHostFrontend1).
@@ -853,19 +994,36 @@ func SeedFullWorld(t *testing.T) *Seeder {
 		WithPolicy(FixturePolicyWithGroups).
 		WithPolicy(FixturePolicyNoGroups).
 		WithPolicy(FixturePolicyBypassHostCheck).
+		WithPolicy(FixturePolicyAdversarial).
 		AssignGroupsToPolicy(FixturePolicyWithGroups.Name, FixtureGroupBackend.Name, FixtureGroupFrontend.Name).
 		WithPolicyBypassHostCheck(FixturePolicyBypassHostCheck.Name).
 		WithUser(FixtureUserPairing).
+		WithUser(FixtureUserAdmin).
+		WithUser(FixtureUserEdge).
+		WithUser(FixtureUserSharedExtra).
+		SetUserAccess(FixtureUserSharedExtra.Name, true).
 		WithDevice(FixtureDeviceWithOwnerAccess).
 		WithDevice(FixtureDeviceWithoutOwnerAccess).
 		WithDevice(FixtureDeviceBypassAccess).
 		WithDevice(FixtureDevicePairingUsed).
 		WithDevice(FixtureDevicePairingExpired).
+		WithDevice(FixtureDeviceAdmin).
+		WithDevice(FixtureDeviceSuperAdmin).
+		WithDevice(FixtureDeviceOrphan).
+		WithDevice(FixtureDeviceMultiAddr).
+		WithDevice(FixtureDeviceSharedThird).
+		WithDevice(FixtureDeviceDisabledAddr).
 		WithDeviceLeaseRule(FixtureLeaseRuleAliceLaptop).
 		WithDeviceMaxActiveRule(FixtureMaxActiveRuleAliceLaptop).
 		WithAddress(FixtureAddressAlice).
 		WithAddress(FixtureAddressBob).
 		WithAddress(FixtureAddressShared).
+		WithAddress(FixtureAddressAdmin).
+		WithAddress(FixtureAddressSuperAdmin).
+		WithAddress(FixtureAddressMultiA).
+		WithAddress(FixtureAddressMultiB).
+		WithAddress(FixtureAddressSharedThird).
+		WithAddress(FixtureAddressDisabled).
 		WithPairing(FixturePairingBobPending).
 		WithPairing(FixturePairingCharlieInvalidated).
 		WithPairing(FixturePairingDianaUsed).

@@ -74,9 +74,14 @@ func TestHandler_GetPolicyUserMap(t *testing.T) {
 	is.NoErr(json.NewDecoder(rec.Body).Decode(&response))
 
 	// ─── top-level aggregates ─────────────────────────────────────────────────
-	is.Equal(response.TotalIpCount, 2)     // 10.1.0.1 (alice+charlie shared) + 10.2.0.1 (bob)
-	is.Equal(response.TotalDeviceCount, 3) // alice-laptop + bob-phone + charlie-desktop
-	is.Equal(response.SharedIpCount, 1)    // 10.1.0.1 is shared by alice and charlie
+	// Distinct enabled IPs: 10.1.0.1 (alice+charlie+frank shared), 10.2.0.1 (bob),
+	// 10.4.0.1 (erin), 10.5.0.1 (superadmin), 10.6.0.1 + 10.6.0.2 (grace-multi).
+	// grace-disabled's 10.7.0.1 is disabled and excluded.
+	is.Equal(response.TotalIpCount, 6)
+	// Devices with at least one enabled address: alice-laptop, bob-phone,
+	// charlie-desktop, erin-laptop, admin-laptop, grace-multi, frank-laptop.
+	is.Equal(response.TotalDeviceCount, 7)
+	is.Equal(response.SharedIpCount, 1) // only 10.1.0.1 is shared (alice + charlie + frank)
 	// alice contributes api1+api2+web1+web2 via backend+frontend groups; charlie
 	// contributes api1+api2 via backend (bypass, but counted before override);
 	// union is the same 4 hosts.
