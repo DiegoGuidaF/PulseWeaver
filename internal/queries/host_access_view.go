@@ -44,7 +44,7 @@ func (r *Repository) GetAllHostsWithGroups(ctx context.Context) (httpapi.HostLis
 		return httpapi.HostListResponse{}, fmt.Errorf("get hosts with groups: %w", err)
 	}
 
-	hosts := collate.Collapse(rows,
+	hostsList := collate.Collapse(rows,
 		func(rw row) ids.HostID { return rw.ID },
 		func(rw row) httpapi.Host {
 			return httpapi.Host{
@@ -66,7 +66,7 @@ func (r *Repository) GetAllHostsWithGroups(ctx context.Context) (httpapi.HostLis
 		},
 		func(h *httpapi.Host, g httpapi.GroupSummary) { h.Groups = append(h.Groups, g) },
 	)
-	return httpapi.HostListResponse{Hosts: hosts}, nil
+	return httpapi.HostListResponse{Hosts: hostsList}, nil
 }
 
 func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupListResponse, error) {

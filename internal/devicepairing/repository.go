@@ -77,8 +77,6 @@ func (r *Repository) GetPairingByCode(ctx context.Context, code string) (*Device
 // ListPairings returns device pairings for a device, filtered by the given options.
 // When filter.IncludeAll is false, only claimable (pending, not yet expired) pairings are returned.
 func (r *Repository) ListPairings(ctx context.Context, filter PairingFilter) ([]DevicePairing, error) {
-	// Conditions vary at runtime, so build with squirrel rather than concatenating
-	// SQL by hand — see docs/patterns/backend/dynamic-query-filtering.md.
 	q := sq.
 		Select("*").
 		From("device_pairings").

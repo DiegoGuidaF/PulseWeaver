@@ -99,9 +99,6 @@ func (r *Repository) GetNetworkPolicySummaries(ctx context.Context) ([]NetworkPo
 		policyIDs[i] = p.ID
 	}
 
-	// sq.Eq expands the typed slice into an IN clause and parameterises each
-	// element — no []any conversion or Rebind needed (see
-	// docs/patterns/backend/dynamic-query-filtering.md). rows is non-empty here.
 	effectiveQuery, args, err := sq.
 		Select("nphg.policy_id", "COUNT(DISTINCT hgm.host_id) AS effective_host_count").
 		From("network_policy_allowed_host_groups nphg").
@@ -293,9 +290,7 @@ func (r *Repository) listGroupsForPolicy(ctx context.Context, id ids.NetworkPoli
 		groupIDs[i] = g.ID
 	}
 
-	// Fetch full host list for all groups in one query. sq.Eq expands the slice
-	// into an IN clause (see docs/patterns/backend/dynamic-query-filtering.md);
-	// groupRows is non-empty here.
+	// Fetch full host list for all groups in one query.
 	hostQuery, args, err := sq.
 		Select("hgm.host_group_id", "h.id AS host_id", "h.fqdn").
 		From("host_group_members hgm").
