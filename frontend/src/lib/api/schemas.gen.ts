@@ -1908,9 +1908,9 @@ export const SubjectGroupDetailSchema = {
 
 export const GroupWriteSchema = {
   type: "object",
-  required: ["name", "icon", "color", "hosts"],
+  required: ["name", "icon", "color", "host_ids"],
   description:
-    "Group write payload for reconcile. Omit id (or set null) to create; include id to update.\nThe hosts array defines the complete desired membership after the call.\n",
+    "Group write payload for reconcile. Omit id (or set null) to create; include id to update.\nThe host_ids array defines the complete desired membership after the call.\n",
   properties: {
     id: {
       nullable: true,

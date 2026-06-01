@@ -897,7 +897,7 @@ export type SubjectGroupDetail = GroupDetail & {
 
 /**
  * Group write payload for reconcile. Omit id (or set null) to create; include id to update.
- * The hosts array defines the complete desired membership after the call.
+ * The host_ids array defines the complete desired membership after the call.
  *
  */
 export type GroupWrite = {
@@ -906,7 +906,7 @@ export type GroupWrite = {
   icon: string;
   color: string;
   description?: string | null;
-  host_ids?: Array<Id>;
+  host_ids: Array<Id>;
 };
 
 export type GroupListResponse = {

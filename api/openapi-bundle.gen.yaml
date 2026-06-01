@@ -3899,10 +3899,10 @@ components:
         - name
         - icon
         - color
-        - hosts
+        - host_ids
       description: |
         Group write payload for reconcile. Omit id (or set null) to create; include id to update.
-        The hosts array defines the complete desired membership after the call.
+        The host_ids array defines the complete desired membership after the call.
       properties:
         id:
           nullable: true

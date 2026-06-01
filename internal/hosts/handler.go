@@ -84,11 +84,9 @@ func (h *HTTPHandler) ReconcileHostGroups(
 		if g.Id != nil {
 			desired.ID = new(ids.HostGroupID(*g.Id))
 		}
-		if g.HostIds != nil {
-			desired.HostIDs = make([]ids.HostID, len(*g.HostIds))
-			for i, raw := range *g.HostIds {
-				desired.HostIDs[i] = ids.HostID(raw)
-			}
+		desired.HostIDs = make([]ids.HostID, len(g.HostIds))
+		for i, raw := range g.HostIds {
+			desired.HostIDs[i] = ids.HostID(raw)
 		}
 		in.Groups = append(in.Groups, desired)
 	}

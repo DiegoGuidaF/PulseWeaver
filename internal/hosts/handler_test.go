@@ -3,10 +3,7 @@
 package hosts_test
 
 import (
-	"bytes"
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
@@ -16,86 +13,75 @@ import (
 
 func TestHandler_ReconcileHosts(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	body, _ := json.Marshal(map[string]any{
-		"hosts": []map[string]any{{"fqdn": "router.example.com", "group_ids": []int{}}},
+	resp, err := client.ReconcileHostsWithResponse(ctx, httpapi.ReconcileHostsJSONRequestBody{
+		Hosts: []httpapi.HostInput{
+			{Fqdn: "router.example.com", GroupIds: []httpapi.ID{}},
+		},
 	})
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/access/hosts/reconcile", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
-	res := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusNoContent)
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNoContent)
 }
 
 func TestHandler_ReconcileHostGroups(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	body, _ := json.Marshal(map[string]any{
-		"groups": []map[string]any{{"name": "infra", "color": "#000000", "icon": "server", "hosts": []int{}}},
+	resp, err := client.ReconcileHostGroupsWithResponse(ctx, httpapi.ReconcileHostGroupsJSONRequestBody{
+		Groups: []httpapi.GroupWrite{
+			{Name: "infra", Color: "#000000", Icon: "server", HostIds: []httpapi.ID{}},
+		},
 	})
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/access/host-groups/reconcile", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
-	res := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusNoContent)
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNoContent)
 }
 
 func TestHandler_ReconcileHostGroups_InvalidColor_Returns400(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	body, _ := json.Marshal(map[string]any{
-		"groups": []map[string]any{{"name": "infra", "color": "notahex", "icon": "server", "host_ids": []int{}}},
+	// "notahex" triggers the color validation → 400.
+	resp, err := client.ReconcileHostGroupsWithResponse(ctx, httpapi.ReconcileHostGroupsJSONRequestBody{
+		Groups: []httpapi.GroupWrite{
+			{Name: "infra", Color: "notahex", Icon: "server", HostIds: []httpapi.ID{}},
+		},
 	})
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/access/host-groups/reconcile", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
-	res := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusBadRequest)
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusBadRequest)
 }
 
 func TestHandler_IgnoreSuggestion(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	body, _ := json.Marshal(map[string]string{"fqdn": "ignored.example.com"})
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/access/host-suggestions/ignore", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
-	res := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusCreated)
-	var resp httpapi.IgnoredHostSuggestion
-	is.NoErr(json.NewDecoder(res.Body).Decode(&resp))
-	is.Equal(resp.Fqdn, "ignored.example.com")
-	is.True(resp.Id != 0)
+	resp, err := client.IgnoreSuggestionWithResponse(ctx, httpapi.IgnoreSuggestionJSONRequestBody{
+		Fqdn: "ignored.example.com",
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusCreated)
+	is.Equal(resp.JSON201.Fqdn, "ignored.example.com")
+	is.True(resp.JSON201.Id != 0)
 }
 
 func TestHandler_UnignoreSuggestion(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	_, err := srv.HostsService.AddIgnoredSuggestion(t.Context(), "ignored.example.com")
+	_, err := srv.HostsService.AddIgnoredSuggestion(ctx, "ignored.example.com")
 	is.NoErr(err)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/access/host-suggestions/ignore/ignored.example.com", nil)
-	req.AddCookie(cookie)
-	res := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusNoContent)
+	resp, err := client.UnignoreSuggestionWithResponse(ctx, "ignored.example.com")
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNoContent)
 }

@@ -601,7 +601,7 @@ export const zNetworkPolicyDetail = z.object({
 
 /**
  * Group write payload for reconcile. Omit id (or set null) to create; include id to update.
- * The hosts array defines the complete desired membership after the call.
+ * The host_ids array defines the complete desired membership after the call.
  *
  */
 export const zGroupWrite = z.object({
@@ -610,7 +610,7 @@ export const zGroupWrite = z.object({
   icon: z.string(),
   color: z.string(),
   description: z.string().nullish(),
-  host_ids: z.array(zId).optional(),
+  host_ids: z.array(zId),
 });
 
 export const zGroupListResponse = z.object({
