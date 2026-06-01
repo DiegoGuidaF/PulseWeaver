@@ -3,12 +3,8 @@
 package devicepairing_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/app"
@@ -40,70 +36,45 @@ func defaultCreatePairingRequest(deviceID ids.DeviceID) devicepairing.CreatePair
 	}
 }
 
-func pairingsURL(deviceID ids.DeviceID) string {
-	return fmt.Sprintf("/api/v1/devices/%d/pairings", deviceID)
-}
-
-func pairingByIDURL(deviceID ids.DeviceID, pairingID int64) string {
-	return fmt.Sprintf("/api/v1/devices/%d/pairings/%d", deviceID, pairingID)
-}
-
-func claimPairing(t *testing.T, server http.Handler, code string) *httptest.ResponseRecorder {
-	t.Helper()
-	b, _ := json.Marshal(map[string]string{"code": code})
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/device-pair", bytes.NewReader(b))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
-	return w
-}
-
 func TestHandler_CreateDevicePairing_AdminCreatesPairing(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	ts := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, ts.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, ts)
 	devID := createSeedDevice(t, ts)
 
-	body, _ := json.Marshal(map[string]any{
-		"heartbeat_server_url": "https://pulse.home.lan",
-		"interval_seconds":     900,
-		"expires_in_hours":     24,
+	resp, err := client.CreateDevicePairingWithResponse(ctx, devID.Int64(), httpapi.CreateDevicePairingJSONRequestBody{
+		HeartbeatServerUrl: "https://pulse.home.lan",
+		IntervalSeconds:    900,
+		ExpiresInHours:     24,
 	})
-	req := httptest.NewRequest(http.MethodPost, pairingsURL(devID), bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	ts.HTTPServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusCreated)
-	var resp httpapi.DevicePairing
-	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
-	is.Equal(resp.DeviceId, devID.Int64())
-	is.True(resp.PairingCode != "")
-	is.Equal(resp.Status, httpapi.DevicePairingStatusPending)
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusCreated)
+	is.Equal(resp.JSON201.DeviceId, devID.Int64())
+	is.True(resp.JSON201.PairingCode != "")
+	is.Equal(resp.JSON201.Status, httpapi.DevicePairingStatusPending)
 }
 
 func TestHandler_CreateDevicePairing_RequiresAdmin(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	ts := testutils.SetupIntegrationServer(t)
 	devID := createSeedDevice(t, ts)
 
-	body, _ := json.Marshal(map[string]any{
-		"heartbeat_server_url": "https://pulse.home.lan",
-		"interval_seconds":     900,
-		"expires_in_hours":     24,
+	resp, err := testutils.NewAPIClient(t, ts).CreateDevicePairingWithResponse(ctx, devID.Int64(), httpapi.CreateDevicePairingJSONRequestBody{
+		HeartbeatServerUrl: "https://pulse.home.lan",
+		IntervalSeconds:    900,
+		ExpiresInHours:     24,
 	})
-	req := httptest.NewRequest(http.MethodPost, pairingsURL(devID), bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	ts.HTTPServer.ServeHTTP(w, req)
-	is.True(w.Code == http.StatusUnauthorized || w.Code == http.StatusForbidden)
+	is.NoErr(err)
+	is.True(resp.StatusCode() == http.StatusUnauthorized || resp.StatusCode() == http.StatusForbidden)
 }
 
 func TestHandler_ListDevicePairings_DefaultPendingOnly(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	ts := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, ts.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, ts)
 	devID := createSeedDevice(t, ts)
 
 	// Second CreatePairing replaces the first, so only 1 pending remains.
@@ -117,52 +88,42 @@ func TestHandler_ListDevicePairings_DefaultPendingOnly(t *testing.T) {
 	})
 	is.NoErr(err)
 
-	req := httptest.NewRequest(http.MethodGet, pairingsURL(devID), nil)
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	ts.HTTPServer.ServeHTTP(w, req)
-	is.Equal(w.Code, http.StatusOK)
-
-	var resp []httpapi.DevicePairing
-	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
-	is.Equal(len(resp), 1)
+	resp, err := client.ListDevicePairingsWithResponse(ctx, devID.Int64(), nil)
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	is.Equal(len(*resp.JSON200), 1)
 }
 
 func TestHandler_GetDevicePairing_ReturnsWithCode(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	ts := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, ts.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, ts)
 	devID := createSeedDevice(t, ts)
 
 	pairing, err := ts.DevicePairingService.CreatePairing(context.Background(), defaultCreatePairingRequest(devID))
 	is.NoErr(err)
 
-	req := httptest.NewRequest(http.MethodGet, pairingByIDURL(devID, pairing.ID.Int64()), nil)
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	ts.HTTPServer.ServeHTTP(w, req)
-	is.Equal(w.Code, http.StatusOK)
-
-	var fetched httpapi.DevicePairing
-	is.NoErr(json.NewDecoder(w.Body).Decode(&fetched))
-	is.Equal(fetched.Id, pairing.ID.Int64())
-	is.True(fetched.PairingCode == pairing.PairingCode)
+	resp, err := client.GetDevicePairingWithResponse(ctx, devID.Int64(), pairing.ID.Int64())
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	is.Equal(resp.JSON200.Id, pairing.ID.Int64())
+	is.True(resp.JSON200.PairingCode == pairing.PairingCode)
 }
 
 func TestHandler_DeleteDevicePairing_InvalidatesPendingPairing(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	ts := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, ts.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, ts)
 	devID := createSeedDevice(t, ts)
 
 	pairing, err := ts.DevicePairingService.CreatePairing(context.Background(), defaultCreatePairingRequest(devID))
 	is.NoErr(err)
 
-	req := httptest.NewRequest(http.MethodDelete, pairingByIDURL(devID, pairing.ID.Int64()), nil)
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	ts.HTTPServer.ServeHTTP(w, req)
-	is.Equal(w.Code, http.StatusNoContent)
+	resp, err := client.DeleteDevicePairingWithResponse(ctx, devID.Int64(), pairing.ID.Int64())
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNoContent)
 
 	fetched, err := ts.DevicePairingService.GetPairing(context.Background(), pairing.ID)
 	is.NoErr(err)
@@ -171,20 +132,21 @@ func TestHandler_DeleteDevicePairing_InvalidatesPendingPairing(t *testing.T) {
 
 func TestHandler_ClaimPairing_SuccessfulClaim(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	ts := testutils.SetupIntegrationServer(t)
 	devID := createSeedDevice(t, ts)
 
 	pairing, err := ts.DevicePairingService.CreatePairing(context.Background(), defaultCreatePairingRequest(devID))
 	is.NoErr(err)
 
-	w := claimPairing(t, ts.HTTPServer, pairing.PairingCode)
-	is.Equal(w.Code, http.StatusOK)
-
-	var result httpapi.ClaimPairingResponse
-	is.NoErr(json.NewDecoder(w.Body).Decode(&result))
-	is.Equal(result.ServerUrl, "https://pulse.home.lan")
-	is.Equal(result.IntervalSeconds, 900)
-	is.True(result.ApiKey != "")
+	resp, err := testutils.NewAPIClient(t, ts).ClaimPairingWithResponse(ctx, httpapi.ClaimPairingJSONRequestBody{
+		Code: pairing.PairingCode,
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	is.Equal(resp.JSON200.ServerUrl, "https://pulse.home.lan")
+	is.Equal(resp.JSON200.IntervalSeconds, 900)
+	is.True(resp.JSON200.ApiKey != "")
 
 	fetched, err := ts.DevicePairingService.GetPairing(context.Background(), pairing.ID)
 	is.NoErr(err)
@@ -193,14 +155,19 @@ func TestHandler_ClaimPairing_SuccessfulClaim(t *testing.T) {
 
 func TestHandler_ClaimPairing_UnknownCodeReturns404(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	ts := testutils.SetupIntegrationServer(t)
 
-	w := claimPairing(t, ts.HTTPServer, "totallyinvalidcode")
-	is.Equal(w.Code, http.StatusNotFound)
+	resp, err := testutils.NewAPIClient(t, ts).ClaimPairingWithResponse(ctx, httpapi.ClaimPairingJSONRequestBody{
+		Code: "totallyinvalidcode",
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNotFound)
 }
 
 func TestHandler_ClaimPairing_CodeUsedTwiceReturns404(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	ts := testutils.SetupIntegrationServer(t)
 	devID := createSeedDevice(t, ts)
 
@@ -209,12 +176,16 @@ func TestHandler_ClaimPairing_CodeUsedTwiceReturns404(t *testing.T) {
 	_, err = ts.DevicePairingService.ClaimPairing(context.Background(), pairing.PairingCode)
 	is.NoErr(err)
 
-	w := claimPairing(t, ts.HTTPServer, pairing.PairingCode)
-	is.Equal(w.Code, http.StatusNotFound)
+	resp, err := testutils.NewAPIClient(t, ts).ClaimPairingWithResponse(ctx, httpapi.ClaimPairingJSONRequestBody{
+		Code: pairing.PairingCode,
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNotFound)
 }
 
 func TestHandler_ClaimPairing_InvalidatedCodeReturns404(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	ts := testutils.SetupIntegrationServer(t)
 	devID := createSeedDevice(t, ts)
 
@@ -223,23 +194,27 @@ func TestHandler_ClaimPairing_InvalidatedCodeReturns404(t *testing.T) {
 	err = ts.DevicePairingService.InvalidatePairing(context.Background(), devID, pairing.ID)
 	is.NoErr(err)
 
-	w := claimPairing(t, ts.HTTPServer, pairing.PairingCode)
-	is.Equal(w.Code, http.StatusNotFound)
+	resp, err := testutils.NewAPIClient(t, ts).ClaimPairingWithResponse(ctx, httpapi.ClaimPairingJSONRequestBody{
+		Code: pairing.PairingCode,
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNotFound)
 }
 
 func TestHandler_ClaimPairing_RegeneratedKeyHasCorrectPrefix(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	ts := testutils.SetupIntegrationServer(t)
 	devID := createSeedDevice(t, ts)
 
 	pairing, err := ts.DevicePairingService.CreatePairing(context.Background(), defaultCreatePairingRequest(devID))
 	is.NoErr(err)
 
-	w := claimPairing(t, ts.HTTPServer, pairing.PairingCode)
-	is.Equal(w.Code, http.StatusOK)
-
-	var result httpapi.ClaimPairingResponse
-	is.NoErr(json.NewDecoder(w.Body).Decode(&result))
-	is.True(len(result.ApiKey) > len(device.APIKeyPrefix))
-	is.Equal(result.ApiKey[:len(device.APIKeyPrefix)], device.APIKeyPrefix)
+	resp, err := testutils.NewAPIClient(t, ts).ClaimPairingWithResponse(ctx, httpapi.ClaimPairingJSONRequestBody{
+		Code: pairing.PairingCode,
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	is.True(len(resp.JSON200.ApiKey) > len(device.APIKeyPrefix))
+	is.Equal(resp.JSON200.ApiKey[:len(device.APIKeyPrefix)], device.APIKeyPrefix)
 }

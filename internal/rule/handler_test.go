@@ -3,11 +3,7 @@
 package rule_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/app"
@@ -41,148 +37,102 @@ func createDeviceAddressLeaseRule(t *testing.T, testServer *app.App, deviceID id
 
 func TestHandler_GetDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	server := testServer.HTTPServer
-	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
+	client := testutils.NewAdminAPIClient(t, testServer)
 
 	dev := createTestDevice(t, testServer, "lease-device-get")
 	r := createDeviceAddressLeaseRule(t, testServer, dev.ID, 300)
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/address-lease", dev.ID)
-	req := httptest.NewRequest(http.MethodGet, url, nil)
-	req.AddCookie(adminCookie)
-	res := httptest.NewRecorder()
-
-	server.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusOK)
-
-	var resp httpapi.DeviceAddressLeaseRule
-	err := json.NewDecoder(res.Body).Decode(&resp)
+	resp, err := client.GetDeviceAddressLeaseRuleWithResponse(ctx, dev.ID.Int64())
 	is.NoErr(err)
-	is.True(resp.Id != nil)
-	is.Equal(*resp.Id, int64(r.ID))
-	is.Equal(resp.DeviceId, int64(dev.ID))
-	is.Equal(resp.Enabled, r.Enabled)
-	is.True(resp.TtlSeconds != nil)
-	is.Equal(*resp.TtlSeconds, r.Config.TTLSeconds)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	is.True(resp.JSON200.Id != nil)
+	is.Equal(*resp.JSON200.Id, int64(r.ID))
+	is.Equal(resp.JSON200.DeviceId, int64(dev.ID))
+	is.Equal(resp.JSON200.Enabled, r.Enabled)
+	is.True(resp.JSON200.TtlSeconds != nil)
+	is.Equal(*resp.JSON200.TtlSeconds, r.Config.TTLSeconds)
 }
 
 func TestHandler_GetDeviceAddressLeaseRule_NotConfigured_ReturnsDisabled(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	server := testServer.HTTPServer
-	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
+	client := testutils.NewAdminAPIClient(t, testServer)
 
 	dev := createTestDevice(t, testServer, "lease-device-no-rule")
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/address-lease", dev.ID)
-	req := httptest.NewRequest(http.MethodGet, url, nil)
-	req.AddCookie(adminCookie)
-	res := httptest.NewRecorder()
-
-	server.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusOK)
-
-	var resp httpapi.DeviceAddressLeaseRule
-	err := json.NewDecoder(res.Body).Decode(&resp)
+	resp, err := client.GetDeviceAddressLeaseRuleWithResponse(ctx, dev.ID.Int64())
 	is.NoErr(err)
-	is.True(!resp.Enabled)
-	is.Equal(resp.DeviceId, int64(dev.ID))
-	is.True(resp.Id == nil)
-	is.True(resp.TtlSeconds == nil)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	is.True(!resp.JSON200.Enabled)
+	is.Equal(resp.JSON200.DeviceId, int64(dev.ID))
+	is.True(resp.JSON200.Id == nil)
+	is.True(resp.JSON200.TtlSeconds == nil)
 }
 
 func TestHandler_PutDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	server := testServer.HTTPServer
-	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
+	client := testutils.NewAdminAPIClient(t, testServer)
 
 	dev := createTestDevice(t, testServer, "lease-device-put")
 
-	body, _ := json.Marshal(map[string]int{
-		"ttl_seconds": 600,
+	resp, err := client.PutDeviceAddressLeaseRuleWithResponse(ctx, dev.ID.Int64(), httpapi.PutDeviceAddressLeaseRuleJSONRequestBody{
+		TtlSeconds: 600,
 	})
-
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/address-lease", dev.ID)
-	req := httptest.NewRequest(http.MethodPut, url, bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(adminCookie)
-	res := httptest.NewRecorder()
-
-	server.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusOK)
-
-	var resp httpapi.DeviceAddressLeaseRule
-	err := json.NewDecoder(res.Body).Decode(&resp)
 	is.NoErr(err)
-	is.Equal(resp.DeviceId, int64(dev.ID))
-	is.True(resp.TtlSeconds != nil)
-	is.Equal(*resp.TtlSeconds, 600)
-	is.True(resp.Enabled)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	is.Equal(resp.JSON200.DeviceId, int64(dev.ID))
+	is.True(resp.JSON200.TtlSeconds != nil)
+	is.Equal(*resp.JSON200.TtlSeconds, 600)
+	is.True(resp.JSON200.Enabled)
 }
 
 func TestHandler_PutDeviceAddressLeaseRule_InvalidBody(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	server := testServer.HTTPServer
-	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
+	client := testutils.NewAdminAPIClient(t, testServer)
 
 	dev := createTestDevice(t, testServer, "lease-device-bad-body")
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/address-lease", dev.ID)
-	req := httptest.NewRequest(http.MethodPut, url, nil)
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(adminCookie)
-	res := httptest.NewRecorder()
-
-	server.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusBadRequest)
+	// TtlSeconds=0 fails handler validation (must be >= 1) → 400.
+	resp, err := client.PutDeviceAddressLeaseRuleWithResponse(ctx, dev.ID.Int64(), httpapi.PutDeviceAddressLeaseRuleJSONRequestBody{
+		TtlSeconds: 0,
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusBadRequest)
 }
 
 func TestHandler_PutDeviceAddressLeaseRule_DeviceNotFound(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	server := testServer.HTTPServer
-	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
-
-	body, _ := json.Marshal(map[string]int{
-		"ttl_seconds": 300,
-	})
+	client := testutils.NewAdminAPIClient(t, testServer)
 
 	nonExistentDeviceID := ids.DeviceID(999999)
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/address-lease", nonExistentDeviceID)
-	req := httptest.NewRequest(http.MethodPut, url, bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(adminCookie)
-	res := httptest.NewRecorder()
-
-	server.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusNotFound)
+	resp, err := client.PutDeviceAddressLeaseRuleWithResponse(ctx, int64(nonExistentDeviceID), httpapi.PutDeviceAddressLeaseRuleJSONRequestBody{
+		TtlSeconds: 300,
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNotFound)
 }
 
 func TestHandler_DisableDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	server := testServer.HTTPServer
-	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
+	client := testutils.NewAdminAPIClient(t, testServer)
 
 	dev := createTestDevice(t, testServer, "lease-device-disable")
 	createDeviceAddressLeaseRule(t, testServer, dev.ID, 120)
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/address-lease", dev.ID)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
-	req.AddCookie(adminCookie)
-	res := httptest.NewRecorder()
-
-	server.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusNoContent)
+	resp, err := client.DisableDeviceAddressLeaseRuleWithResponse(ctx, dev.ID.Int64())
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNoContent)
 
 	ttl, err := testServer.RuleService.GetDeviceAddressLeaseTTLSeconds(t.Context(), dev.ID)
 	is.NoErr(err)
@@ -191,20 +141,15 @@ func TestHandler_DisableDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 
 func TestHandler_DisableDeviceAddressLeaseRule_IdempotentWhenMissing(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	server := testServer.HTTPServer
-	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
+	client := testutils.NewAdminAPIClient(t, testServer)
 
 	dev := createTestDevice(t, testServer, "lease-device-disable-missing")
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/address-lease", dev.ID)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
-	req.AddCookie(adminCookie)
-	res := httptest.NewRecorder()
-
-	server.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusNoContent)
+	resp, err := client.DisableDeviceAddressLeaseRuleWithResponse(ctx, dev.ID.Int64())
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNoContent)
 }
 
 func createMaxActiveAddressesRule(t *testing.T, testServer *app.App, deviceID ids.DeviceID, maxAddresses int) *rule.MaxActiveAddressesRule {
@@ -219,152 +164,101 @@ func createMaxActiveAddressesRule(t *testing.T, testServer *app.App, deviceID id
 
 func TestHandler_GetMaxActiveAddressesRule_HappyPath(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	server := testServer.HTTPServer
-	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
+	client := testutils.NewAdminAPIClient(t, testServer)
 
 	dev := createTestDevice(t, testServer, "max-active-get-device")
 	r := createMaxActiveAddressesRule(t, testServer, dev.ID, 3)
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/max-active-addresses", dev.ID)
-	req := httptest.NewRequest(http.MethodGet, url, nil)
-	req.AddCookie(adminCookie)
-	res := httptest.NewRecorder()
-
-	server.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusOK)
-
-	var resp httpapi.MaxActiveAddressesRule
-	err := json.NewDecoder(res.Body).Decode(&resp)
+	resp, err := client.GetMaxActiveAddressesRuleWithResponse(ctx, dev.ID.Int64())
 	is.NoErr(err)
-	is.True(resp.Id != nil)
-	is.Equal(*resp.Id, int64(r.ID))
-	is.Equal(resp.DeviceId, int64(dev.ID))
-	is.Equal(resp.Enabled, r.Enabled)
-	is.True(resp.MaxAddresses != nil)
-	is.Equal(*resp.MaxAddresses, r.Config.MaxAddresses)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	is.True(resp.JSON200.Id != nil)
+	is.Equal(*resp.JSON200.Id, int64(r.ID))
+	is.Equal(resp.JSON200.DeviceId, int64(dev.ID))
+	is.Equal(resp.JSON200.Enabled, r.Enabled)
+	is.True(resp.JSON200.MaxAddresses != nil)
+	is.Equal(*resp.JSON200.MaxAddresses, r.Config.MaxAddresses)
 }
 
 func TestHandler_GetMaxActiveAddressesRule_NotConfigured_ReturnsDisabled(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	server := testServer.HTTPServer
-	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
+	client := testutils.NewAdminAPIClient(t, testServer)
 
 	dev := createTestDevice(t, testServer, "max-active-get-notfound")
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/max-active-addresses", dev.ID)
-	req := httptest.NewRequest(http.MethodGet, url, nil)
-	req.AddCookie(adminCookie)
-	res := httptest.NewRecorder()
-
-	server.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusOK)
-
-	var resp httpapi.MaxActiveAddressesRule
-	err := json.NewDecoder(res.Body).Decode(&resp)
+	resp, err := client.GetMaxActiveAddressesRuleWithResponse(ctx, dev.ID.Int64())
 	is.NoErr(err)
-	is.True(!resp.Enabled)
-	is.Equal(resp.DeviceId, int64(dev.ID))
-	is.True(resp.Id == nil)
-	is.True(resp.MaxAddresses == nil)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	is.True(!resp.JSON200.Enabled)
+	is.Equal(resp.JSON200.DeviceId, int64(dev.ID))
+	is.True(resp.JSON200.Id == nil)
+	is.True(resp.JSON200.MaxAddresses == nil)
 }
 
 func TestHandler_PutMaxActiveAddressesRule_HappyPath(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	server := testServer.HTTPServer
-	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
+	client := testutils.NewAdminAPIClient(t, testServer)
 
 	dev := createTestDevice(t, testServer, "max-active-put-device")
 
-	body, _ := json.Marshal(map[string]int{
-		"max_addresses": 5,
+	resp, err := client.PutMaxActiveAddressesRuleWithResponse(ctx, dev.ID.Int64(), httpapi.PutMaxActiveAddressesRuleJSONRequestBody{
+		MaxAddresses: 5,
 	})
-
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/max-active-addresses", dev.ID)
-	req := httptest.NewRequest(http.MethodPut, url, bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(adminCookie)
-	res := httptest.NewRecorder()
-
-	server.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusOK)
-
-	var resp httpapi.MaxActiveAddressesRule
-	err := json.NewDecoder(res.Body).Decode(&resp)
 	is.NoErr(err)
-	is.Equal(resp.DeviceId, int64(dev.ID))
-	is.True(resp.MaxAddresses != nil)
-	is.Equal(*resp.MaxAddresses, 5)
-	is.True(resp.Enabled)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	is.Equal(resp.JSON200.DeviceId, int64(dev.ID))
+	is.True(resp.JSON200.MaxAddresses != nil)
+	is.Equal(*resp.JSON200.MaxAddresses, 5)
+	is.True(resp.JSON200.Enabled)
 }
 
 func TestHandler_PutMaxActiveAddressesRule_InvalidBody(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	server := testServer.HTTPServer
-	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
+	client := testutils.NewAdminAPIClient(t, testServer)
 
 	dev := createTestDevice(t, testServer, "max-active-put-invalid")
 
-	body, _ := json.Marshal(map[string]int{
-		"max_addresses": 0,
+	resp, err := client.PutMaxActiveAddressesRuleWithResponse(ctx, dev.ID.Int64(), httpapi.PutMaxActiveAddressesRuleJSONRequestBody{
+		MaxAddresses: 0,
 	})
-
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/max-active-addresses", dev.ID)
-	req := httptest.NewRequest(http.MethodPut, url, bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(adminCookie)
-	res := httptest.NewRecorder()
-
-	server.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusBadRequest)
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusBadRequest)
 }
 
 func TestHandler_PutMaxActiveAddressesRule_DeviceNotFound(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	server := testServer.HTTPServer
-	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
-
-	body, _ := json.Marshal(map[string]int{
-		"max_addresses": 3,
-	})
+	client := testutils.NewAdminAPIClient(t, testServer)
 
 	nonExistentDeviceID := ids.DeviceID(999999)
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/max-active-addresses", nonExistentDeviceID)
-	req := httptest.NewRequest(http.MethodPut, url, bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(adminCookie)
-	res := httptest.NewRecorder()
-
-	server.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusNotFound)
+	resp, err := client.PutMaxActiveAddressesRuleWithResponse(ctx, int64(nonExistentDeviceID), httpapi.PutMaxActiveAddressesRuleJSONRequestBody{
+		MaxAddresses: 3,
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNotFound)
 }
 
 func TestHandler_DisableMaxActiveAddressesRule_HappyPath(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	server := testServer.HTTPServer
-	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
+	client := testutils.NewAdminAPIClient(t, testServer)
 
 	dev := createTestDevice(t, testServer, "max-active-disable-device")
 	createMaxActiveAddressesRule(t, testServer, dev.ID, 2)
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/max-active-addresses", dev.ID)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
-	req.AddCookie(adminCookie)
-	res := httptest.NewRecorder()
-
-	server.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusNoContent)
+	resp, err := client.DisableMaxActiveAddressesRuleWithResponse(ctx, dev.ID.Int64())
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNoContent)
 
 	max, err := testServer.RuleService.GetMaxActiveAddresses(t.Context(), dev.ID)
 	is.NoErr(err)
@@ -373,18 +267,13 @@ func TestHandler_DisableMaxActiveAddressesRule_HappyPath(t *testing.T) {
 
 func TestHandler_DisableMaxActiveAddressesRule_IdempotentWhenMissing(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	server := testServer.HTTPServer
-	adminCookie := testutils.LoginCookie(t, server, "admin", "AdminPass123!")
+	client := testutils.NewAdminAPIClient(t, testServer)
 
 	dev := createTestDevice(t, testServer, "max-active-disable-missing")
 
-	url := fmt.Sprintf("/api/v1/devices/%d/rules/max-active-addresses", dev.ID)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
-	req.AddCookie(adminCookie)
-	res := httptest.NewRecorder()
-
-	server.ServeHTTP(res, req)
-
-	is.Equal(res.Code, http.StatusNoContent)
+	resp, err := client.DisableMaxActiveAddressesRuleWithResponse(ctx, dev.ID.Int64())
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNoContent)
 }

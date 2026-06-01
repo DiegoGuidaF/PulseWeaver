@@ -3,9 +3,7 @@
 package queries_test
 
 import (
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
@@ -20,30 +18,31 @@ import (
 
 func TestHandler_SimulatePolicyAccess_Unauthenticated(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-simulate?ip=1.2.3.4&host=example.com", nil)
-	rec := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(rec, req)
-
-	is.True(rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden)
+	resp, err := testutils.NewAPIClient(t, testServer).SimulatePolicyAccessWithResponse(ctx, &httpapi.SimulatePolicyAccessParams{
+		Ip:   "1.2.3.4",
+		Host: "example.com",
+	})
+	is.NoErr(err)
+	is.True(resp.StatusCode() == http.StatusUnauthorized || resp.StatusCode() == http.StatusForbidden)
 }
 
 func TestHandler_SimulatePolicyAccess_IPNotRegistered(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, testServer)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-simulate?ip=9.9.9.9&host=example.com", nil)
-	req.AddCookie(adminCookie)
-	rec := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusOK)
-
-	var result httpapi.PolicySimulateResult
-	err := json.NewDecoder(rec.Body).Decode(&result)
+	resp, err := client.SimulatePolicyAccessWithResponse(ctx, &httpapi.SimulatePolicyAccessParams{
+		Ip:   "9.9.9.9",
+		Host: "example.com",
+	})
 	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+
+	result := *resp.JSON200
 	is.True(!result.Allowed)
 	is.True(result.DenyReason != nil)
 	is.Equal(string(*result.DenyReason), "ip_not_registered")
@@ -51,25 +50,24 @@ func TestHandler_SimulatePolicyAccess_IPNotRegistered(t *testing.T) {
 
 func TestHandler_SimulatePolicyAccess_HostNotAllowed(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, testServer)
 
-	dev, err := testServer.DeviceService.CreateDevice(t.Context(), testutils.AdminPrincipal(t, testServer), "sim-device", nil)
+	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "sim-device", nil)
 	is.NoErr(err)
-	_, _, err = testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "5.6.7.9", device.EventSourceManual)
+	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "5.6.7.9", device.EventSourceManual)
 	is.NoErr(err)
-	is.NoErr(testServer.PolicyService.Initialize(t.Context()))
+	is.NoErr(testServer.PolicyService.Initialize(ctx))
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-simulate?ip=5.6.7.9&host=denied.example.com", nil)
-	req.AddCookie(adminCookie)
-	rec := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusOK)
-
-	var result httpapi.PolicySimulateResult
-	err = json.NewDecoder(rec.Body).Decode(&result)
+	resp, err := client.SimulatePolicyAccessWithResponse(ctx, &httpapi.SimulatePolicyAccessParams{
+		Ip:   "5.6.7.9",
+		Host: "denied.example.com",
+	})
 	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+
+	result := *resp.JSON200
 	is.True(!result.Allowed)
 	is.True(result.DenyReason != nil)
 	is.Equal(string(*result.DenyReason), "host_not_allowed")
@@ -77,52 +75,47 @@ func TestHandler_SimulatePolicyAccess_HostNotAllowed(t *testing.T) {
 
 func TestHandler_SimulatePolicyAccess_AllowedBypass(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, testServer)
 
 	principal := testutils.AdminPrincipal(t, testServer)
-	is.NoErr(testServer.UserAccessService.SetUserAccess(t.Context(), principal.UserID, true, nil))
+	is.NoErr(testServer.UserAccessService.SetUserAccess(ctx, principal.UserID, true, nil))
 
-	dev, err := testServer.DeviceService.CreateDevice(t.Context(), principal, "sim-bypass-device", nil)
+	dev, err := testServer.DeviceService.CreateDevice(ctx, principal, "sim-bypass-device", nil)
 	is.NoErr(err)
-	_, _, err = testServer.DeviceService.RegisterAddressActivity(t.Context(), dev.ID, "5.6.7.10", device.EventSourceManual)
+	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "5.6.7.10", device.EventSourceManual)
 	is.NoErr(err)
-	is.NoErr(testServer.PolicyService.Initialize(t.Context()))
+	is.NoErr(testServer.PolicyService.Initialize(ctx))
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-simulate?ip=5.6.7.10&host=anything.example.com", nil)
-	req.AddCookie(adminCookie)
-	rec := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusOK)
-
-	var result httpapi.PolicySimulateResult
-	err = json.NewDecoder(rec.Body).Decode(&result)
+	resp, err := client.SimulatePolicyAccessWithResponse(ctx, &httpapi.SimulatePolicyAccessParams{
+		Ip:   "5.6.7.10",
+		Host: "anything.example.com",
+	})
 	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+
+	result := *resp.JSON200
 	is.True(result.Allowed)
 	is.True(result.DenyReason == nil)
 }
 
 func TestHandler_SimulatePolicyAccess_DoesNotWriteAccessLog(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, testServer)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-simulate?ip=9.9.9.9&host=example.com", nil)
-	req.AddCookie(adminCookie)
-	rec := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(rec, req)
-	is.Equal(rec.Code, http.StatusOK)
+	resp, err := client.SimulatePolicyAccessWithResponse(ctx, &httpapi.SimulatePolicyAccessParams{
+		Ip:   "9.9.9.9",
+		Host: "example.com",
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
 
 	// Access log must remain empty.
-	logReq := httptest.NewRequest(http.MethodGet, "/api/v1/access-log", nil)
-	logReq.AddCookie(adminCookie)
-	logRec := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(logRec, logReq)
-	is.Equal(logRec.Code, http.StatusOK)
-
-	var logResp httpapi.AccessLogResponse
-	err := json.NewDecoder(logRec.Body).Decode(&logResp)
+	logResp, err := client.GetAccessLogWithResponse(ctx, &httpapi.GetAccessLogParams{})
 	is.NoErr(err)
-	is.Equal(logResp.Total, 0)
+	is.Equal(logResp.StatusCode(), http.StatusOK)
+	is.Equal((*logResp.JSON200).Total, 0)
 }

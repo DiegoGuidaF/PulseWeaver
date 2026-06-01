@@ -59,14 +59,37 @@ func NewAPIClient(t *testing.T, srv *app.App, opts ...httpapi.ClientOption) *htt
 }
 
 // NewAdminAPIClient returns a ClientWithResponses authenticated as the
-// bootstrap admin user via a session cookie.
-func NewAdminAPIClient(t *testing.T, srv *app.App) *httpapi.ClientWithResponses {
+// bootstrap admin user via a session cookie. Extra options (e.g.
+// WithRealIP) are appended after the auth editor.
+func NewAdminAPIClient(t *testing.T, srv *app.App, opts ...httpapi.ClientOption) *httpapi.ClientWithResponses {
 	t.Helper()
 	cookie := LoginCookie(t, srv.HTTPServer, "admin", TestAdminPassword)
-	return NewAPIClient(t, srv, httpapi.WithRequestEditorFn(
+	withCookie := httpapi.WithRequestEditorFn(
 		func(_ context.Context, req *http.Request) error {
 			req.AddCookie(cookie)
 			return nil
 		},
-	))
+	)
+	return NewAPIClient(t, srv, append([]httpapi.ClientOption{withCookie}, opts...)...)
+}
+
+// WithRealIP returns a ClientOption that sets the X-Real-IP header on every
+// request. The test transport pins RemoteAddr to the trusted proxy, so the
+// middleware honours X-Real-IP as the client IP. Use it whenever a test's
+// outcome depends on the source IP (e.g. heartbeat endpoints, which reject a
+// loopback source with 400).
+func WithRealIP(ip string) httpapi.ClientOption {
+	return httpapi.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
+		req.Header.Set(httpapi.XRealIP, ip)
+		return nil
+	})
+}
+
+// WithAPIKey returns a ClientOption that sets the X-API-Key header, used by
+// device-authenticated endpoints (heartbeat-by-key, pairing claim).
+func WithAPIKey(key string) httpapi.ClientOption {
+	return httpapi.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
+		req.Header.Set(httpapi.APIKeyHeaderName, key)
+		return nil
+	})
 }

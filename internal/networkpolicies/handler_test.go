@@ -3,239 +3,214 @@
 package networkpolicies_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/app"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
-
-func seedPolicy(t *testing.T, srv *app.App, name, cidr string) networkpolicies.NetworkPolicy {
-	t.Helper()
-	p, err := srv.NetworkPoliciesService.CreatePolicy(t.Context(), name, cidr, nil)
-	if err != nil {
-		t.Fatalf("seedPolicy %q: %v", name, err)
-	}
-	return p
-}
-
-func policiesURL() string     { return "/api/v1/admin/access/network-policies" }
-func policyURL(id any) string { return fmt.Sprintf("/api/v1/admin/access/network-policies/%v", id) }
-func policyGrantsURL(id any) string {
-	return fmt.Sprintf("/api/v1/admin/access/network-policies/%v/grants", id)
-}
 
 // ── CreateNetworkPolicy ───────────────────────────────────────────────────────
 
 func TestHandler_CreateNetworkPolicy(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	body, _ := json.Marshal(map[string]any{"name": "home", "cidr": "192.168.1.5/24"})
-	req := httptest.NewRequest(http.MethodPost, policiesURL(), bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusCreated)
-	var resp httpapi.NetworkPolicyDetail
-	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
-	is.Equal(resp.Name, "home")
-	is.Equal(resp.Cidr, "192.168.1.0/24") // host bits zeroed
-	is.True(resp.Enabled)
+	resp, err := client.CreateNetworkPolicyWithResponse(ctx, httpapi.CreateNetworkPolicyJSONRequestBody{
+		Name: "home",
+		Cidr: "192.168.1.5/24",
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusCreated)
+	is.Equal(resp.JSON201.Name, "home")
+	is.Equal(resp.JSON201.Cidr, "192.168.1.0/24") // host bits zeroed
+	is.True(resp.JSON201.Enabled)
 }
 
 func TestHandler_CreateNetworkPolicy_InvalidCIDR(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	body, _ := json.Marshal(map[string]any{"name": "bad", "cidr": "not-a-cidr"})
-	req := httptest.NewRequest(http.MethodPost, policiesURL(), bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusBadRequest)
+	resp, err := client.CreateNetworkPolicyWithResponse(ctx, httpapi.CreateNetworkPolicyJSONRequestBody{
+		Name: "bad",
+		Cidr: "not-a-cidr",
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusBadRequest)
 }
 
 func TestHandler_CreateNetworkPolicy_DuplicateCIDR(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	seedPolicy(t, srv, "first", "10.0.0.0/8")
+	_, err := srv.NetworkPoliciesService.CreatePolicy(ctx, "first", "10.0.0.0/8", nil)
+	is.NoErr(err)
 
-	body, _ := json.Marshal(map[string]any{"name": "second", "cidr": "10.0.0.0/8"})
-	req := httptest.NewRequest(http.MethodPost, policiesURL(), bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusConflict)
+	resp, err := client.CreateNetworkPolicyWithResponse(ctx, httpapi.CreateNetworkPolicyJSONRequestBody{
+		Name: "second",
+		Cidr: "10.0.0.0/8",
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusConflict)
 }
 
 func TestHandler_CreateNetworkPolicy_Unauthenticated(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
 
-	body, _ := json.Marshal(map[string]any{"name": "home", "cidr": "10.0.0.0/8"})
-	req := httptest.NewRequest(http.MethodPost, policiesURL(), bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusUnauthorized)
+	resp, err := testutils.NewAPIClient(t, srv).CreateNetworkPolicyWithResponse(ctx, httpapi.CreateNetworkPolicyJSONRequestBody{
+		Name: "home",
+		Cidr: "10.0.0.0/8",
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusUnauthorized)
 }
 
 // ── UpdateNetworkPolicy ───────────────────────────────────────────────────────
 
 func TestHandler_UpdateNetworkPolicy(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	p := seedPolicy(t, srv, "original", "10.1.0.0/16")
+	p, err := srv.NetworkPoliciesService.CreatePolicy(ctx, "original", "10.1.0.0/16", nil)
+	is.NoErr(err)
 
-	body, _ := json.Marshal(map[string]any{
-		"name": "renamed", "cidr": "10.1.0.0/16", "enabled": false, "description": "",
+	descEmpty := ""
+	resp, err := client.UpdateNetworkPolicyWithResponse(ctx, p.ID.Int64(), httpapi.UpdateNetworkPolicyJSONRequestBody{
+		Name:        "renamed",
+		Cidr:        "10.1.0.0/16",
+		Enabled:     false,
+		Description: &descEmpty,
 	})
-	req := httptest.NewRequest(http.MethodPut, policyURL(p.ID), bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusNoContent)
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNoContent)
 }
 
 func TestHandler_UpdateNetworkPolicy_NotFound(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	body, _ := json.Marshal(map[string]any{
-		"name": "ghost", "cidr": "10.2.0.0/16", "enabled": true, "description": "",
+	descEmpty := ""
+	resp, err := client.UpdateNetworkPolicyWithResponse(ctx, httpapi.ID(99999), httpapi.UpdateNetworkPolicyJSONRequestBody{
+		Name:        "ghost",
+		Cidr:        "10.2.0.0/16",
+		Enabled:     true,
+		Description: &descEmpty,
 	})
-	req := httptest.NewRequest(http.MethodPut, policyURL(99999), bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusNotFound)
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNotFound)
 }
 
 func TestHandler_UpdateNetworkPolicy_InvalidCIDR(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	p := seedPolicy(t, srv, "p", "10.3.0.0/16")
+	p, err := srv.NetworkPoliciesService.CreatePolicy(ctx, "p", "10.3.0.0/16", nil)
+	is.NoErr(err)
 
-	body, _ := json.Marshal(map[string]any{
-		"name": "p", "cidr": "bad-cidr", "enabled": true, "description": "",
+	descEmpty := ""
+	resp, err := client.UpdateNetworkPolicyWithResponse(ctx, p.ID.Int64(), httpapi.UpdateNetworkPolicyJSONRequestBody{
+		Name:        "p",
+		Cidr:        "bad-cidr",
+		Enabled:     true,
+		Description: &descEmpty,
 	})
-	req := httptest.NewRequest(http.MethodPut, policyURL(p.ID), bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusBadRequest)
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusBadRequest)
 }
 
 func TestHandler_UpdateNetworkPolicy_DuplicateCIDR(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	seedPolicy(t, srv, "taken", "10.4.0.0/16")
-	p := seedPolicy(t, srv, "target", "10.5.0.0/16")
+	_, err := srv.NetworkPoliciesService.CreatePolicy(ctx, "taken", "10.4.0.0/16", nil)
+	is.NoErr(err)
+	p, err := srv.NetworkPoliciesService.CreatePolicy(ctx, "target", "10.5.0.0/16", nil)
+	is.NoErr(err)
 
-	body, _ := json.Marshal(map[string]any{
-		"name": "target", "cidr": "10.4.0.0/16", "enabled": true, "description": "",
+	descEmpty := ""
+	resp, err := client.UpdateNetworkPolicyWithResponse(ctx, p.ID.Int64(), httpapi.UpdateNetworkPolicyJSONRequestBody{
+		Name:        "target",
+		Cidr:        "10.4.0.0/16",
+		Enabled:     true,
+		Description: &descEmpty,
 	})
-	req := httptest.NewRequest(http.MethodPut, policyURL(p.ID), bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusConflict)
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusConflict)
 }
 
 // ── DeleteNetworkPolicy ───────────────────────────────────────────────────────
 
 func TestHandler_DeleteNetworkPolicy(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	p := seedPolicy(t, srv, "to-delete", "10.6.0.0/16")
+	p, err := srv.NetworkPoliciesService.CreatePolicy(ctx, "to-delete", "10.6.0.0/16", nil)
+	is.NoErr(err)
 
-	req := httptest.NewRequest(http.MethodDelete, policyURL(p.ID), nil)
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusNoContent)
+	resp, err := client.DeleteNetworkPolicyWithResponse(ctx, p.ID.Int64())
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNoContent)
 }
 
 func TestHandler_DeleteNetworkPolicy_NotFound(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	req := httptest.NewRequest(http.MethodDelete, policyURL(99999), nil)
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusNotFound)
+	resp, err := client.DeleteNetworkPolicyWithResponse(ctx, httpapi.ID(99999))
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNotFound)
 }
 
 // ── UpdateNetworkPolicyAccess ─────────────────────────────────────────────────
 
 func TestHandler_UpdateNetworkPolicyAccess(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	p := seedPolicy(t, srv, "access-target", "10.7.0.0/16")
+	p, err := srv.NetworkPoliciesService.CreatePolicy(ctx, "access-target", "10.7.0.0/16", nil)
+	is.NoErr(err)
 
-	body, _ := json.Marshal(map[string]any{"bypass_host_check": true, "group_ids": []int{}})
-	req := httptest.NewRequest(http.MethodPut, policyGrantsURL(p.ID), bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusNoContent)
+	resp, err := client.UpdateNetworkPolicyAccessWithResponse(ctx, p.ID.Int64(), httpapi.UpdateNetworkPolicyAccessJSONRequestBody{
+		BypassHostCheck: true,
+		GroupIds:        []httpapi.ID{},
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNoContent)
 }
 
 func TestHandler_UpdateNetworkPolicyAccess_NotFound(t *testing.T) {
 	is := is.New(t)
+	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
-	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	body, _ := json.Marshal(map[string]any{"bypass_host_check": false, "group_ids": []int{}})
-	req := httptest.NewRequest(http.MethodPut, policyGrantsURL(99999), bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	srv.HTTPServer.ServeHTTP(w, req)
-
-	is.Equal(w.Code, http.StatusNotFound)
+	resp, err := client.UpdateNetworkPolicyAccessWithResponse(ctx, httpapi.ID(99999), httpapi.UpdateNetworkPolicyAccessJSONRequestBody{
+		BypassHostCheck: false,
+		GroupIds:        []httpapi.ID{},
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNotFound)
 }
