@@ -93,7 +93,6 @@ export type CreateDeviceRequest = {
    * Admin only. Owner to assign the device to. Ignored for regular users (always assigned to self). When omitted by an admin, defaults to the calling admin's own ID.
    */
   owner_id?: number | null;
-  device_type?: DeviceType;
   /**
    * Free-form note about the device.
    */
@@ -121,7 +120,6 @@ export type UpdateDeviceRequest = {
    * New name for the device
    */
   name?: string;
-  device_type?: DeviceType;
   /**
    * Free-form note. Pass null to clear.
    */
@@ -147,7 +145,6 @@ export type Device = {
    * User-friendly name for the device
    */
   name: string;
-  device_type: DeviceType;
   /**
    * Free-form note about the device.
    */
@@ -177,23 +174,6 @@ export type Device = {
    * Display name of the owning user (for display only).
    */
   readonly owner_name?: string;
-};
-
-/**
- * Network behaviour classification, derived from the credential. static: manually-managed, stable IP (no credential). mobile: updates its own addresses via the API (API key or pairing). Defaults to "static".
- *
- */
-export const DeviceType = { STATIC: "static", MOBILE: "mobile" } as const;
-
-/**
- * Network behaviour classification, derived from the credential. static: manually-managed, stable IP (no credential). mobile: updates its own addresses via the API (API key or pairing). Defaults to "static".
- *
- */
-export type DeviceType = (typeof DeviceType)[keyof typeof DeviceType];
-
-export type DeviceTypeItem = {
-  value: string;
-  label: string;
 };
 
 export type DeviceApiKeyResponse = {
@@ -1159,7 +1139,6 @@ export type DeviceWritable = {
    * User-friendly name for the device
    */
   name: string;
-  device_type: DeviceType;
   /**
    * Free-form note about the device.
    */
@@ -1685,23 +1664,6 @@ export type UpdateDeviceResponses = {
 
 export type UpdateDeviceResponse =
   UpdateDeviceResponses[keyof UpdateDeviceResponses];
-
-export type ListDeviceTypesData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: "/device-types";
-};
-
-export type ListDeviceTypesResponses = {
-  /**
-   * OK
-   */
-  200: Array<DeviceTypeItem>;
-};
-
-export type ListDeviceTypesResponse =
-  ListDeviceTypesResponses[keyof ListDeviceTypesResponses];
 
 export type DeleteDeviceApiKeyData = {
   body?: never;

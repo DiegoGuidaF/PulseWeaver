@@ -11,9 +11,9 @@ import (
 
 func TestDevice_Update_Rename(t *testing.T) {
 	is := is.New(t)
-	d := &device.Device{Name: "old-name", DeviceType: device.DeviceTypeStatic}
+	d := &device.Device{Name: "old-name"}
 
-	err := d.Update(new("new-name"), nil, nil, nil, nil)
+	err := d.Update(new("new-name"), nil, nil, nil)
 
 	is.NoErr(err)
 	is.Equal(d.Name, "new-name")
@@ -21,9 +21,9 @@ func TestDevice_Update_Rename(t *testing.T) {
 
 func TestDevice_Update_NameUnchangedWhenNil(t *testing.T) {
 	is := is.New(t)
-	d := &device.Device{Name: "original", DeviceType: device.DeviceTypeStatic}
+	d := &device.Device{Name: "original"}
 
-	err := d.Update(nil, nil, nil, nil, nil)
+	err := d.Update(nil, nil, nil, nil)
 
 	is.NoErr(err)
 	is.Equal(d.Name, "original")
@@ -31,8 +31,8 @@ func TestDevice_Update_NameUnchangedWhenNil(t *testing.T) {
 
 func TestDevice_Update_InvalidNameEmpty(t *testing.T) {
 	is := is.New(t)
-	d := &device.Device{Name: "original", DeviceType: device.DeviceTypeStatic}
-	err := d.Update(new(""), nil, nil, nil, nil)
+	d := &device.Device{Name: "original"}
+	err := d.Update(new(""), nil, nil, nil)
 
 	is.True(err != nil)
 	is.Equal(d.Name, "original") // not mutated on validation error
@@ -40,49 +40,19 @@ func TestDevice_Update_InvalidNameEmpty(t *testing.T) {
 
 func TestDevice_Update_InvalidNameTooLong(t *testing.T) {
 	is := is.New(t)
-	d := &device.Device{Name: "original", DeviceType: device.DeviceTypeStatic}
-	err := d.Update(new(string(make([]rune, 51))), nil, nil, nil, nil)
+	d := &device.Device{Name: "original"}
+	err := d.Update(new(string(make([]rune, 51))), nil, nil, nil)
 
 	is.True(err != nil)
 	is.Equal(d.Name, "original")
 }
 
-func TestDevice_Update_SetDeviceType(t *testing.T) {
-	is := is.New(t)
-	d := &device.Device{Name: "d", DeviceType: device.DeviceTypeStatic}
-
-	err := d.Update(nil, new("mobile"), nil, nil, nil)
-
-	is.NoErr(err)
-	is.Equal(d.DeviceType, device.DeviceTypeMobile)
-}
-
-func TestDevice_Update_DeviceTypeUnchangedWhenNil(t *testing.T) {
-	is := is.New(t)
-	d := &device.Device{Name: "d", DeviceType: device.DeviceTypeMobile}
-
-	err := d.Update(nil, nil, nil, nil, nil)
-
-	is.NoErr(err)
-	is.Equal(d.DeviceType, device.DeviceTypeMobile)
-}
-
-func TestDevice_Update_InvalidDeviceType(t *testing.T) {
-	is := is.New(t)
-	d := &device.Device{Name: "d", DeviceType: device.DeviceTypeStatic}
-
-	err := d.Update(nil, new("invalid"), nil, nil, nil)
-
-	is.True(err != nil)
-	is.Equal(d.DeviceType, device.DeviceTypeStatic) // not mutated
-}
-
 func TestDevice_Update_SetDescription(t *testing.T) {
 	is := is.New(t)
-	d := &device.Device{Name: "d", DeviceType: device.DeviceTypeStatic}
+	d := &device.Device{Name: "d"}
 	desc := new("my server")
 
-	err := d.Update(nil, nil, &desc, nil, nil)
+	err := d.Update(nil, &desc, nil, nil)
 
 	is.NoErr(err)
 	is.True(d.Description != nil)
@@ -91,10 +61,10 @@ func TestDevice_Update_SetDescription(t *testing.T) {
 
 func TestDevice_Update_ClearDescription(t *testing.T) {
 	is := is.New(t)
-	d := &device.Device{Name: "d", DeviceType: device.DeviceTypeStatic, Description: new("has a description")}
+	d := &device.Device{Name: "d", Description: new("has a description")}
 	var nilPtr *string
 
-	err := d.Update(nil, nil, &nilPtr, nil, nil)
+	err := d.Update(nil, &nilPtr, nil, nil)
 
 	is.NoErr(err)
 	is.True(d.Description == nil)
@@ -102,9 +72,9 @@ func TestDevice_Update_ClearDescription(t *testing.T) {
 
 func TestDevice_Update_DescriptionUnchangedWhenNil(t *testing.T) {
 	is := is.New(t)
-	d := &device.Device{Name: "d", DeviceType: device.DeviceTypeStatic, Description: new("keep me")}
+	d := &device.Device{Name: "d", Description: new("keep me")}
 
-	err := d.Update(nil, nil, nil, nil, nil)
+	err := d.Update(nil, nil, nil, nil)
 
 	is.NoErr(err)
 	is.True(d.Description != nil)
@@ -113,10 +83,10 @@ func TestDevice_Update_DescriptionUnchangedWhenNil(t *testing.T) {
 
 func TestDevice_Update_DescriptionTooLong(t *testing.T) {
 	is := is.New(t)
-	d := &device.Device{Name: "d", DeviceType: device.DeviceTypeStatic}
+	d := &device.Device{Name: "d"}
 	longPtr := new(string(make([]rune, 201)))
 
-	err := d.Update(nil, nil, &longPtr, nil, nil)
+	err := d.Update(nil, &longPtr, nil, nil)
 
 	is.True(err != nil)
 	is.True(d.Description == nil)
@@ -124,10 +94,10 @@ func TestDevice_Update_DescriptionTooLong(t *testing.T) {
 
 func TestDevice_Update_SetIcon(t *testing.T) {
 	is := is.New(t)
-	d := &device.Device{Name: "d", DeviceType: device.DeviceTypeStatic}
+	d := &device.Device{Name: "d"}
 	icon := new("IconRouter")
 
-	err := d.Update(nil, nil, nil, &icon, nil)
+	err := d.Update(nil, nil, &icon, nil)
 
 	is.NoErr(err)
 	is.True(d.Icon != nil)
@@ -136,10 +106,10 @@ func TestDevice_Update_SetIcon(t *testing.T) {
 
 func TestDevice_Update_ClearIcon(t *testing.T) {
 	is := is.New(t)
-	d := &device.Device{Name: "d", DeviceType: device.DeviceTypeStatic, Icon: new("IconServer")}
+	d := &device.Device{Name: "d", Icon: new("IconServer")}
 	var nilPtr *string
 
-	err := d.Update(nil, nil, nil, &nilPtr, nil)
+	err := d.Update(nil, nil, &nilPtr, nil)
 
 	is.NoErr(err)
 	is.True(d.Icon == nil)
@@ -147,10 +117,10 @@ func TestDevice_Update_ClearIcon(t *testing.T) {
 
 func TestDevice_Update_IconTooLong(t *testing.T) {
 	is := is.New(t)
-	d := &device.Device{Name: "d", DeviceType: device.DeviceTypeStatic}
+	d := &device.Device{Name: "d"}
 	longPtr := new(string(make([]rune, 81)))
 
-	err := d.Update(nil, nil, nil, &longPtr, nil)
+	err := d.Update(nil, nil, &longPtr, nil)
 
 	is.True(err != nil)
 	is.True(d.Icon == nil)
@@ -158,11 +128,11 @@ func TestDevice_Update_IconTooLong(t *testing.T) {
 
 func TestDevice_Update_NameNotMutatedWhenLaterFieldInvalid(t *testing.T) {
 	is := is.New(t)
-	d := &device.Device{Name: "original", DeviceType: device.DeviceTypeStatic}
+	d := &device.Device{Name: "original"}
+	longIcon := new(string(make([]rune, 81)))
 
-	err := d.Update(new("new-name"), new("robot"), nil, nil, nil)
+	err := d.Update(new("new-name"), nil, &longIcon, nil)
 
 	is.True(err != nil)
-	is.Equal(d.Name, "original")                    // name must not be written on validation failure
-	is.Equal(d.DeviceType, device.DeviceTypeStatic) // type must not be written either
+	is.Equal(d.Name, "original") // name must not be written on validation failure
 }

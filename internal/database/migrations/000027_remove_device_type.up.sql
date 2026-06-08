@@ -1,0 +1,5 @@
+BEGIN TRANSACTION;
+
+ALTER TABLE devices DROP COLUMN device_type;
+
+COMMIT;

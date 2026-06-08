@@ -129,12 +129,10 @@ func TestHandler_CreateDevice_WithApiKey(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	client := testutils.NewAdminAPIClient(t, testServer)
 
-	mobile := httpapi.Mobile
 	genKey := true
 	desc := "Juan's work phone"
 	resp, err := client.CreateDeviceWithResponse(ctx, httpapi.CreateDeviceJSONRequestBody{
 		Name:           "bob-phone",
-		DeviceType:     &mobile,
 		GenerateApiKey: &genKey,
 		Description:    httpapi.NullableString{Set: true, Value: &desc},
 	})
@@ -144,8 +142,7 @@ func TestHandler_CreateDevice_WithApiKey(t *testing.T) {
 	is.True(resp.JSON201.ApiKey != nil)
 	is.True(*resp.JSON201.ApiKey != "")
 	dev := resp.JSON201.Device
-	is.Equal(string(dev.DeviceType), "mobile") // derived type stored
-	is.True(dev.ApiKeyPrefix != nil)           // key reflected on the device
+	is.True(dev.ApiKeyPrefix != nil) // key reflected on the device
 	is.True(dev.Description != nil && *dev.Description == desc)
 }
 
@@ -489,7 +486,7 @@ func TestHandler_GetAddressHistory_Pagination(t *testing.T) {
 	is.Equal(len(page2.Events), 2)
 }
 
-func TestHandler_UpdateDevice_RenameAndSetType(t *testing.T) {
+func TestHandler_UpdateDevice_Rename(t *testing.T) {
 	is := is.New(t)
 	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
@@ -498,16 +495,13 @@ func TestHandler_UpdateDevice_RenameAndSetType(t *testing.T) {
 	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "sensor", nil)
 	is.NoErr(err)
 
-	deviceType := httpapi.Mobile
 	resp, err := client.UpdateDeviceWithResponse(ctx, dev.ID.Int64(), httpapi.UpdateDeviceJSONRequestBody{
-		Name:       new("sensor-renamed"),
-		DeviceType: &deviceType,
+		Name: new("sensor-renamed"),
 	})
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusOK)
 	updated := *resp.JSON200
 	is.Equal(updated.Name, "sensor-renamed")
-	is.Equal(string(updated.DeviceType), "mobile")
 	is.True(updated.Description == nil)
 }
 
@@ -541,25 +535,6 @@ func TestHandler_UpdateDevice_SetAndClearDescription(t *testing.T) {
 	is.True(cleared.Description == nil)
 }
 
-func TestHandler_UpdateDevice_InvalidType_Returns400(t *testing.T) {
-	is := is.New(t)
-	ctx := t.Context()
-	testServer := testutils.SetupIntegrationServer(t)
-	client := testutils.NewAdminAPIClient(t, testServer)
-
-	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "type-test", nil)
-	is.NoErr(err)
-
-	// "robot" is not a valid DeviceType enum value. The typed struct cannot
-	// express invalid enum values, so we inject the bad value directly.
-	robotType := httpapi.DeviceType("robot")
-	resp, err := client.UpdateDeviceWithResponse(ctx, dev.ID.Int64(), httpapi.UpdateDeviceJSONRequestBody{
-		DeviceType: &robotType,
-	})
-	is.NoErr(err)
-	is.Equal(resp.StatusCode(), http.StatusBadRequest)
-}
-
 func TestHandler_UpdateDevice_DuplicateName_Returns409(t *testing.T) {
 	is := is.New(t)
 	ctx := t.Context()
@@ -589,20 +564,4 @@ func TestHandler_UpdateDevice_NotFound_Returns404(t *testing.T) {
 	})
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusNotFound)
-}
-
-func TestHandler_ListDeviceTypes(t *testing.T) {
-	is := is.New(t)
-	ctx := t.Context()
-	testServer := testutils.SetupIntegrationServer(t)
-	client := testutils.NewAdminAPIClient(t, testServer)
-
-	resp, err := client.ListDeviceTypesWithResponse(ctx)
-	is.NoErr(err)
-	is.Equal(resp.StatusCode(), http.StatusOK)
-	types := *resp.JSON200
-	is.Equal(len(types), 2)
-	is.Equal(types[0].Value, "static")
-	is.Equal(types[0].Label, "Static")
-	is.Equal(types[1].Value, "mobile")
 }

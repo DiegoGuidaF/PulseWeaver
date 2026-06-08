@@ -6,7 +6,6 @@ import {
   AddressEventSource,
   DevicePairingStatus,
   DeviceState,
-  DeviceType,
   PolicySimulateDenyReason,
   PolicyUserStatus,
   UserRole,
@@ -91,16 +90,9 @@ export const zChangePasswordRequest = z.object({
   password: z.string().min(8).max(72),
 });
 
-/**
- * Network behaviour classification, derived from the credential. static: manually-managed, stable IP (no credential). mobile: updates its own addresses via the API (API key or pairing). Defaults to "static".
- *
- */
-export const zDeviceType = z.enum(DeviceType);
-
 export const zCreateDeviceRequest = z.object({
   name: z.string().min(1).max(50),
   owner_id: z.int().nullish(),
-  device_type: zDeviceType.optional(),
   description: z.string().max(200).nullish(),
   icon: z.string().max(80).nullish(),
   generate_api_key: z.boolean().optional(),
@@ -108,7 +100,6 @@ export const zCreateDeviceRequest = z.object({
 
 export const zUpdateDeviceRequest = z.object({
   name: z.string().min(1).max(50).optional(),
-  device_type: zDeviceType.optional(),
   description: z.string().max(200).nullish(),
   icon: z.string().max(80).nullish(),
   owner_id: z.int().nullish(),
@@ -119,7 +110,6 @@ export const zDevice = z.object({
   updated_at: z.iso.datetime({ offset: true, local: true }),
   id: zId,
   name: z.string().min(1).max(50),
-  device_type: zDeviceType,
   description: z.string().max(200).nullish(),
   icon: z.string().max(80).nullish(),
   api_key_prefix: z.string().nullish(),
@@ -139,11 +129,6 @@ export const zDevice = z.object({
 export const zCreateDeviceResult = z.object({
   device: zDevice,
   api_key: z.string().nullish(),
-});
-
-export const zDeviceTypeItem = z.object({
-  value: z.string(),
-  label: z.string(),
 });
 
 export const zDeviceApiKeyResponse = z.object({
@@ -822,7 +807,6 @@ export const zDeviceWritable = z.object({
   updated_at: z.iso.datetime({ offset: true, local: true }),
   id: zId,
   name: z.string().min(1).max(50),
-  device_type: zDeviceType,
   description: z.string().max(200).nullish(),
   icon: z.string().max(80).nullish(),
   api_key_prefix: z.string().nullish(),
@@ -954,11 +938,6 @@ export const zUpdateDevicePath = z.object({
  * OK
  */
 export const zUpdateDeviceResponse = zDevice;
-
-/**
- * OK
- */
-export const zListDeviceTypesResponse = z.array(zDeviceTypeItem);
 
 export const zDeleteDeviceApiKeyPath = z.object({
   device_id: zId,

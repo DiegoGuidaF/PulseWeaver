@@ -18,7 +18,6 @@ func (r *Repository) GetDevice(ctx context.Context, id ids.DeviceID) (*Device, e
 			SELECT
 				d.id,
 				d.name,
-				d.device_type,
 				d.description,
 				d.icon,
 				d.created_at,
@@ -46,14 +45,9 @@ func (r *Repository) CreateDevice(ctx context.Context, params CreateDeviceParams
 	now := time.Now().UTC()
 	createdDevice := new(Device)
 
-	deviceType := params.DeviceType
-	if deviceType == "" {
-		deviceType = "static"
-	}
+	deviceQuery := `INSERT INTO devices (name, owner_id, description, icon, created_at) VALUES (?, ?, ?, ?, ?) RETURNING *`
 
-	deviceQuery := `INSERT INTO devices (name, owner_id, device_type, description, icon, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *`
-
-	err := r.db.GetContext(ctx, createdDevice, deviceQuery, params.Name, params.OwnerID, deviceType, params.Description, params.Icon, now)
+	err := r.db.GetContext(ctx, createdDevice, deviceQuery, params.Name, params.OwnerID, params.Description, params.Icon, now)
 	if err != nil {
 		if domainErr, ok := mapDeviceNameUniqueConstraintError(err); ok {
 			return nil, domainErr
@@ -105,7 +99,7 @@ func (r *Repository) GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) 
 	device := new(Device)
 
 	query := `
-			SELECT d.id, d.name, d.device_type, d.description, d.icon, d.created_at, d.updated_at, d.deleted_at,
+			SELECT d.id, d.name, d.description, d.icon, d.created_at, d.updated_at, d.deleted_at,
 				   d.disabled_at,
 				   k.key_prefix,
 				   d.owner_id AS owner_id
@@ -177,11 +171,11 @@ func (r *Repository) SetDeviceDisabled(ctx context.Context, deviceID ids.DeviceI
 func (r *Repository) UpdateDevice(ctx context.Context, device *Device) (*Device, error) {
 	query := `
 		UPDATE devices
-		SET name = ?, device_type = ?, description = ?, icon = ?, owner_id = ?, updated_at = CURRENT_TIMESTAMP
+		SET name = ?, description = ?, icon = ?, owner_id = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ? AND deleted_at IS NULL
 	`
 	result, err := r.db.ExecContext(ctx, query,
-		device.Name, string(device.DeviceType), device.Description, device.Icon, device.OwnerID, device.ID,
+		device.Name, device.Description, device.Icon, device.OwnerID, device.ID,
 	)
 	if err != nil {
 		if domainErr, ok := mapDeviceNameUniqueConstraintError(err); ok {

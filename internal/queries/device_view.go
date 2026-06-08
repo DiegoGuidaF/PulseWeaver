@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/devicepairing"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
@@ -17,18 +16,17 @@ import (
 )
 
 type DeviceView struct {
-	ID               ids.DeviceID      `db:"id"`
-	Name             string            `db:"name"`
-	DeviceType       device.DeviceType `db:"device_type"`
-	Description      *string           `db:"description"`
-	Icon             *string           `db:"icon"`
-	CreatedAt        time.Time         `db:"created_at"`
-	UpdatedAt        time.Time         `db:"updated_at"`
-	KeyPrefix        *string           `db:"key_prefix"`
-	LiveAddressCount int               `db:"live_address_count"`
-	LastSeenAt       *database.DBTime  `db:"last_seen_at"`
-	OwnerID          ids.UserID        `db:"owner_id"`
-	OwnerName        string            `db:"owner_name"`
+	ID               ids.DeviceID     `db:"id"`
+	Name             string           `db:"name"`
+	Description      *string          `db:"description"`
+	Icon             *string          `db:"icon"`
+	CreatedAt        time.Time        `db:"created_at"`
+	UpdatedAt        time.Time        `db:"updated_at"`
+	KeyPrefix        *string          `db:"key_prefix"`
+	LiveAddressCount int              `db:"live_address_count"`
+	LastSeenAt       *database.DBTime `db:"last_seen_at"`
+	OwnerID          ids.UserID       `db:"owner_id"`
+	OwnerName        string           `db:"owner_name"`
 }
 
 // deviceListRow is the scan target for the main device+owner query.
@@ -286,7 +284,6 @@ func (r *Repository) GetDevicesByUser(ctx context.Context, userID ids.UserID) ([
 		SELECT
 			d.id,
 			d.name,
-			d.device_type,
 			d.description,
 			d.icon,
 			d.created_at,
@@ -301,7 +298,7 @@ func (r *Repository) GetDevicesByUser(ctx context.Context, userID ids.UserID) ([
 		LEFT JOIN device_api_keys dk ON dk.device_id = d.id
 		LEFT JOIN addresses a        ON a.device_id = d.id
 		WHERE d.deleted_at IS NULL AND d.owner_id = ?
-		GROUP BY d.id, d.name, d.device_type, d.description, d.icon,
+		GROUP BY d.id, d.name, d.description, d.icon,
 		         d.created_at, d.updated_at, dk.key_prefix, d.owner_id, u.display_name
 		ORDER BY d.name ASC
 	`

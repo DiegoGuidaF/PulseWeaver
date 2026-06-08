@@ -214,9 +214,6 @@ export const CreateDeviceRequestSchema = {
       description:
         "Admin only. Owner to assign the device to. Ignored for regular users (always assigned to self). When omitted by an admin, defaults to the calling admin's own ID.",
     },
-    device_type: {
-      $ref: "#/components/schemas/DeviceType",
-    },
     description: {
       type: "string",
       nullable: true,
@@ -266,9 +263,6 @@ export const UpdateDeviceRequestSchema = {
       maxLength: 50,
       description: "New name for the device",
     },
-    device_type: {
-      $ref: "#/components/schemas/DeviceType",
-    },
     description: {
       type: "string",
       nullable: true,
@@ -295,14 +289,7 @@ export const UpdateDeviceRequestSchema = {
 
 export const DeviceSchema = {
   type: "object",
-  required: [
-    "id",
-    "name",
-    "created_at",
-    "device_type",
-    "updated_at",
-    "owner_id",
-  ],
+  required: ["id", "name", "created_at", "updated_at", "owner_id"],
   properties: {
     created_at: {
       type: "string",
@@ -323,9 +310,6 @@ export const DeviceSchema = {
       type: "string",
       minLength: 1,
       maxLength: 50,
-    },
-    device_type: {
-      $ref: "#/components/schemas/DeviceType",
     },
     description: {
       type: "string",
@@ -378,26 +362,6 @@ export const DeviceSchema = {
       type: "string",
       readOnly: true,
       description: "Display name of the owning user (for display only).",
-    },
-  },
-} as const;
-
-export const DeviceTypeSchema = {
-  type: "string",
-  enum: ["static", "mobile"],
-  description:
-    'Network behaviour classification, derived from the credential. static: manually-managed, stable IP (no credential). mobile: updates its own addresses via the API (API key or pairing). Defaults to "static".\n',
-} as const;
-
-export const DeviceTypeItemSchema = {
-  type: "object",
-  required: ["value", "label"],
-  properties: {
-    value: {
-      type: "string",
-    },
-    label: {
-      type: "string",
     },
   },
 } as const;
@@ -2424,7 +2388,7 @@ export const CreateDeviceResultWritableSchema = {
 
 export const DeviceWritableSchema = {
   type: "object",
-  required: ["id", "name", "created_at", "device_type", "updated_at"],
+  required: ["id", "name", "created_at", "updated_at"],
   properties: {
     created_at: {
       type: "string",
@@ -2445,9 +2409,6 @@ export const DeviceWritableSchema = {
       type: "string",
       minLength: 1,
       maxLength: 50,
-    },
-    device_type: {
-      $ref: "#/components/schemas/DeviceType",
     },
     description: {
       type: "string",

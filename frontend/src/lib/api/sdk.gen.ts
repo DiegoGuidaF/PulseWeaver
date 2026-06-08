@@ -119,8 +119,6 @@ import type {
   ListDevicePairingsData,
   ListDevicePairingsErrors,
   ListDevicePairingsResponses,
-  ListDeviceTypesData,
-  ListDeviceTypesResponses,
   ListHostGroupsData,
   ListHostGroupsErrors,
   ListHostGroupsResponses,
@@ -259,7 +257,6 @@ import {
   zListDevicePairingsPath,
   zListDevicePairingsQuery,
   zListDevicePairingsResponse,
-  zListDeviceTypesResponse,
   zListHostGroupsResponse,
   zListHostsResponse,
   zListHostSuggestionsResponse,
@@ -806,40 +803,6 @@ export const updateDevice = <ThrowOnError extends boolean = false>(
       "Content-Type": "application/json",
       ...options.headers,
     },
-  });
-
-/**
- * List device types
- *
- * Returns the valid device type values and their display labels.
- */
-export const listDeviceTypes = <ThrowOnError extends boolean = false>(
-  options?: Options<ListDeviceTypesData, ThrowOnError>,
-) =>
-  (options?.client ?? client).get<
-    ListDeviceTypesResponses,
-    unknown,
-    ThrowOnError
-  >({
-    requestValidator: async (data) =>
-      await z
-        .object({
-          body: z.never().optional(),
-          path: z.never().optional(),
-          query: z.never().optional(),
-        })
-        .parseAsync(data),
-    responseValidator: async (data) =>
-      await zListDeviceTypesResponse.parseAsync(data),
-    security: [
-      {
-        in: "cookie",
-        name: "__Host-wdc_session",
-        type: "apiKey",
-      },
-    ],
-    url: "/device-types",
-    ...options,
   });
 
 /**

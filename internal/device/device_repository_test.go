@@ -365,7 +365,6 @@ func TestRepository_CreateDevice_DefaultsForNewFields(t *testing.T) {
 
 	dev := createTestDevice(t, repos, ctx, "defaults-device")
 
-	is.Equal(dev.DeviceType, device.DeviceTypeStatic)
 	is.True(dev.Description == nil)
 	is.True(dev.Icon == nil)
 	is.True(!dev.UpdatedAt.IsZero())
@@ -399,14 +398,12 @@ func TestRepository_UpdateDevice_SetAllFields(t *testing.T) {
 	ctx := context.Background()
 
 	dev := createTestDevice(t, repos, ctx, "full-update")
-	dev.DeviceType = device.DeviceTypeMobile
 	dev.Description = new("a note")
 	dev.Icon = new("IconRouter")
 
 	updated, err := repos.repo.UpdateDevice(ctx, dev)
 
 	is.NoErr(err)
-	is.Equal(updated.DeviceType, device.DeviceTypeMobile)
 	is.True(updated.Description != nil)
 	is.Equal(*updated.Description, "a note")
 	is.True(updated.Icon != nil)
@@ -436,7 +433,7 @@ func TestRepository_UpdateDevice_NotFound(t *testing.T) {
 	repos := setupTestDB(t)
 	ctx := context.Background()
 
-	ghost := &device.Device{ID: ids.DeviceID(9999), Name: "ghost", DeviceType: device.DeviceTypeStatic}
+	ghost := &device.Device{ID: ids.DeviceID(9999), Name: "ghost"}
 	_, err := repos.repo.UpdateDevice(ctx, ghost)
 
 	is.True(errors.Is(err, device.ErrDeviceNotFound))

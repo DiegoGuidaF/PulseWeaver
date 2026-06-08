@@ -523,22 +523,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /device-types:
-    get:
-      operationId: listDeviceTypes
-      tags:
-        - devices
-      summary: List device types
-      description: Returns the valid device type values and their display labels.
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DeviceTypeItem'
   /devices/{device_id}/api-key:
     delete:
       operationId: deleteDeviceAPIKey
@@ -2636,8 +2620,6 @@ components:
           type: integer
           nullable: true
           description: Admin only. Owner to assign the device to. Ignored for regular users (always assigned to self). When omitted by an admin, defaults to the calling admin's own ID.
-        device_type:
-          $ref: '#/components/schemas/DeviceType'
         description:
           type: string
           nullable: true
@@ -2674,8 +2656,6 @@ components:
           minLength: 1
           maxLength: 50
           description: New name for the device
-        device_type:
-          $ref: '#/components/schemas/DeviceType'
         description:
           type: string
           nullable: true
@@ -2700,7 +2680,6 @@ components:
         - id
         - name
         - created_at
-        - device_type
         - updated_at
         - owner_id
       properties:
@@ -2720,8 +2699,6 @@ components:
           type: string
           minLength: 1
           maxLength: 50
-        device_type:
-          $ref: '#/components/schemas/DeviceType'
         description:
           type: string
           nullable: true
@@ -2763,23 +2740,6 @@ components:
           type: string
           readOnly: true
           description: Display name of the owning user (for display only).
-    DeviceType:
-      type: string
-      enum:
-        - static
-        - mobile
-      description: |
-        Network behaviour classification, derived from the credential. static: manually-managed, stable IP (no credential). mobile: updates its own addresses via the API (API key or pairing). Defaults to "static".
-    DeviceTypeItem:
-      type: object
-      required:
-        - value
-        - label
-      properties:
-        value:
-          type: string
-        label:
-          type: string
     DeviceAPIKeyResponse:
       type: object
       required:

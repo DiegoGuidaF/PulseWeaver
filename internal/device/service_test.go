@@ -401,7 +401,7 @@ func TestService_UpdateDevice_RenamesDevice(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
-	d := &device.Device{ID: ids.DeviceID(1), Name: "old", DeviceType: device.DeviceTypeStatic}
+	d := &device.Device{ID: ids.DeviceID(1), Name: "old"}
 	mockRepo.devices[d.ID] = d
 
 	svc := newService(mockRepo)
@@ -423,27 +423,13 @@ func TestService_UpdateDevice_DeviceNotFound(t *testing.T) {
 	is.True(errors.Is(err, device.ErrDeviceNotFound))
 }
 
-func TestService_UpdateDevice_InvalidTypePropagated(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	mockRepo := newMockRepository()
-	d := &device.Device{ID: ids.DeviceID(1), Name: "d", DeviceType: device.DeviceTypeStatic}
-	mockRepo.devices[d.ID] = d
-
-	svc := newService(mockRepo)
-	_, err := svc.UpdateDevice(ctx, d.ID, device.UpdateDeviceInput{DeviceType: new("robot")})
-
-	is.True(errors.Is(err, device.ErrInvalidDeviceType))
-}
-
 func TestService_UpdateDevice_RepoErrorPropagated(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
 	sentinel := errors.New("db gone")
 	mockRepo := newMockRepository()
-	d := &device.Device{ID: ids.DeviceID(1), Name: "d", DeviceType: device.DeviceTypeStatic}
+	d := &device.Device{ID: ids.DeviceID(1), Name: "d"}
 	mockRepo.devices[d.ID] = d
 	mockRepo.updateDeviceErr = sentinel
 
@@ -459,8 +445,8 @@ func TestService_OnUserEvent_UserDeleted_DeletesOwnedDevices(t *testing.T) {
 
 	ownerID := ids.UserID(42)
 	mockRepo := newMockRepository()
-	mockRepo.devices[ids.DeviceID(1)] = &device.Device{ID: ids.DeviceID(1), Name: "d1", OwnerID: ownerID, DeviceType: device.DeviceTypeStatic}
-	mockRepo.devices[ids.DeviceID(2)] = &device.Device{ID: ids.DeviceID(2), Name: "d2", OwnerID: ownerID, DeviceType: device.DeviceTypeStatic}
+	mockRepo.devices[ids.DeviceID(1)] = &device.Device{ID: ids.DeviceID(1), Name: "d1", OwnerID: ownerID}
+	mockRepo.devices[ids.DeviceID(2)] = &device.Device{ID: ids.DeviceID(2), Name: "d2", OwnerID: ownerID}
 	svc := newService(mockRepo)
 
 	svc.OnUserEvent(ctx, auth.UserEvent{Type: auth.EventTypeUserDeleted, UserID: ownerID})
@@ -484,7 +470,7 @@ func TestService_OnUserEvent_NonDeletionEvent_DoesNothing(t *testing.T) {
 
 	ownerID := ids.UserID(1)
 	mockRepo := newMockRepository()
-	mockRepo.devices[ids.DeviceID(1)] = &device.Device{ID: ids.DeviceID(1), Name: "d1", OwnerID: ownerID, DeviceType: device.DeviceTypeStatic}
+	mockRepo.devices[ids.DeviceID(1)] = &device.Device{ID: ids.DeviceID(1), Name: "d1", OwnerID: ownerID}
 	svc := newService(mockRepo)
 
 	svc.OnUserEvent(ctx, auth.UserEvent{Type: auth.EventTypeUserCreated, UserID: ownerID})
@@ -498,7 +484,7 @@ func TestService_OnUserEvent_UserDeleted_DisablesAddressesAndNotifiesObservers(t
 
 	ownerID := ids.UserID(1)
 	mockRepo := newMockRepository()
-	d := &device.Device{ID: ids.DeviceID(1), Name: "d1", OwnerID: ownerID, DeviceType: device.DeviceTypeStatic}
+	d := &device.Device{ID: ids.DeviceID(1), Name: "d1", OwnerID: ownerID}
 	mockRepo.devices[d.ID] = d
 	mockRepo.addresses[ids.AddressID(1)] = &device.Address{ID: ids.AddressID(1), DeviceID: d.ID, IsEnabled: true}
 

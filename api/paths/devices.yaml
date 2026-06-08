@@ -145,23 +145,6 @@ deviceById:
             schema:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
 
-deviceTypes:
-  get:
-    operationId: listDeviceTypes
-    tags:
-      - devices
-    summary: List device types
-    description: Returns the valid device type values and their display labels.
-    responses:
-      "200":
-        description: OK
-        content:
-          application/json:
-            schema:
-              type: array
-              items:
-                $ref: '../components/schemas/devices.yaml#/DeviceTypeItem'
-
 regenerateApiKey:
   post:
     operationId: regenerateDeviceAPIKey

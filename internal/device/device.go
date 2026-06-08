@@ -13,32 +13,9 @@ import (
 
 const APIKeyPrefix = "wdk_"
 
-// DeviceType describes the network behaviour of a device. Keeping it really simple, in the future rules could be created
-// on top of it. Main usage now is for filtering.
-// For example static devices do not need address lease but mobile do, static ones can have different geoip rules...
-type DeviceType string
-
-const (
-	DeviceTypeStatic DeviceType = "static"
-	DeviceTypeMobile DeviceType = "mobile"
-)
-
-// AllowedDeviceTypes is the canonical ordered list of valid device types.
-var AllowedDeviceTypes = []DeviceType{
-	DeviceTypeStatic,
-	DeviceTypeMobile,
-}
-
-// DeviceTypeLabels maps each device type to its display label.
-var DeviceTypeLabels = map[DeviceType]string{
-	DeviceTypeStatic: "Static",
-	DeviceTypeMobile: "Mobile",
-}
-
 type Device struct {
 	ID          ids.DeviceID `db:"id"`
 	Name        string       `db:"name"`
-	DeviceType  DeviceType   `db:"device_type"`
 	Description *string      `db:"description"`
 	Icon        *string      `db:"icon"`
 	CreatedAt   time.Time    `db:"created_at"`
@@ -54,23 +31,14 @@ type Device struct {
 // unless all validations pass.
 //
 //   - name:        nil = keep current; non-nil = rename (validated)
-//   - deviceType:  nil = keep current; non-nil = set type (validated)
 //   - description: nil = keep current; non-nil ptr to nil = clear; non-nil ptr to value = set
 //   - icon:        same semantics as description
-func (d *Device) Update(name *string, deviceType *string, description **string, icon **string, ownerID *ids.UserID) error {
+func (d *Device) Update(name *string, description **string, icon **string, ownerID *ids.UserID) error {
 	// Validate all fields before mutating any of them.
-	var parsedType DeviceType
 	if name != nil {
 		if len(*name) < 1 || len(*name) > 50 {
 			return ErrInvalidDeviceName
 		}
-	}
-	if deviceType != nil {
-		dt, err := parseDeviceType(*deviceType)
-		if err != nil {
-			return err
-		}
-		parsedType = dt
 	}
 	if description != nil && *description != nil && len(**description) > 200 {
 		return ErrDescriptionTooLong
@@ -82,9 +50,6 @@ func (d *Device) Update(name *string, deviceType *string, description **string, 
 	// All validations passed — apply mutations.
 	if name != nil {
 		d.Name = *name
-	}
-	if deviceType != nil {
-		d.DeviceType = parsedType
 	}
 	if description != nil {
 		d.Description = *description
@@ -99,19 +64,9 @@ func (d *Device) Update(name *string, deviceType *string, description **string, 
 	return nil
 }
 
-func parseDeviceType(t string) (DeviceType, error) {
-	for _, allowed := range AllowedDeviceTypes {
-		if DeviceType(t) == allowed {
-			return DeviceType(t), nil
-		}
-	}
-	return "", ErrInvalidDeviceType
-}
-
 type CreateDeviceParams struct {
 	Name        string
 	OwnerID     ids.UserID
-	DeviceType  string // optional; defaults to "static" when empty
 	Description *string
 	Icon        *string
 }

@@ -39,9 +39,6 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 	if request.Body.OwnerId != nil {
 		input.OwnerID = new(ids.UserID(*request.Body.OwnerId))
 	}
-	if request.Body.DeviceType != nil {
-		input.DeviceType = string(*request.Body.DeviceType)
-	}
 	if request.Body.Description.Set {
 		input.Description = request.Body.Description.Value
 	}
@@ -392,9 +389,6 @@ func (h *HTTPHandler) UpdateDevice(ctx context.Context, request httpapi.UpdateDe
 	input := UpdateDeviceInput{
 		Name: body.Name,
 	}
-	if body.DeviceType != nil {
-		input.DeviceType = new(string(*body.DeviceType))
-	}
 	if body.Description.Set {
 		input.Description = &body.Description.Value
 	}
@@ -414,7 +408,7 @@ func (h *HTTPHandler) UpdateDevice(ctx context.Context, request httpapi.UpdateDe
 		case errors.Is(err, ErrDuplicateDeviceName):
 			logger.WarnContext(ctx, "duplicate device name")
 			return httpapi.UpdateDevice409JSONResponse(errorMsgResponse("Device name already in use")), nil
-		case errors.Is(err, ErrInvalidDeviceType), errors.Is(err, ErrInvalidDeviceName),
+		case errors.Is(err, ErrInvalidDeviceName),
 			errors.Is(err, ErrDescriptionTooLong), errors.Is(err, ErrIconTooLong),
 			errors.Is(err, ErrOwnerNotFound):
 			logger.WarnContext(ctx, "invalid update request", slog.Any(AttrKeyError, err))
@@ -432,18 +426,6 @@ func (h *HTTPHandler) UpdateDevice(ctx context.Context, request httpapi.UpdateDe
 	return httpapi.UpdateDevice200JSONResponse(toDeviceResponse(device)), nil
 }
 
-func (h *HTTPHandler) ListDeviceTypes(_ context.Context, _ httpapi.ListDeviceTypesRequestObject) (httpapi.ListDeviceTypesResponseObject, error) {
-	result := make([]httpapi.DeviceTypeItem, 0, len(AllowedDeviceTypes))
-	for _, dt := range AllowedDeviceTypes {
-		label := DeviceTypeLabels[dt]
-		result = append(result, httpapi.DeviceTypeItem{
-			Value: string(dt),
-			Label: label,
-		})
-	}
-	return httpapi.ListDeviceTypes200JSONResponse(result), nil
-}
-
 func (h *HTTPHandler) APIKeyAuthenticator() APIKeyAuthenticator {
 	return h.service
 }
@@ -452,7 +434,6 @@ func toDeviceResponse(d *Device) httpapi.Device {
 	resp := httpapi.Device{
 		Id:           d.ID.Int64(),
 		Name:         d.Name,
-		DeviceType:   httpapi.DeviceType(d.DeviceType),
 		Description:  d.Description,
 		Icon:         d.Icon,
 		CreatedAt:    httpapi.UTCTime(d.CreatedAt),

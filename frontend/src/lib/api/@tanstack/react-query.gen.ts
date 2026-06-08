@@ -46,7 +46,6 @@ import {
   getUserAccessDetail,
   ignoreSuggestion,
   listDevicePairings,
-  listDeviceTypes,
   listHostGroups,
   listHosts,
   listHostSuggestions,
@@ -185,8 +184,6 @@ import type {
   ListDevicePairingsData,
   ListDevicePairingsError,
   ListDevicePairingsResponse,
-  ListDeviceTypesData,
-  ListDeviceTypesResponse,
   ListHostGroupsData,
   ListHostGroupsError,
   ListHostGroupsResponse,
@@ -682,36 +679,6 @@ export const updateDeviceMutation = (
   };
   return mutationOptions;
 };
-
-export const listDeviceTypesQueryKey = (
-  options?: Options<ListDeviceTypesData>,
-) => createQueryKey("listDeviceTypes", options);
-
-/**
- * List device types
- *
- * Returns the valid device type values and their display labels.
- */
-export const listDeviceTypesOptions = (
-  options?: Options<ListDeviceTypesData>,
-) =>
-  queryOptions<
-    ListDeviceTypesResponse,
-    DefaultError,
-    ListDeviceTypesResponse,
-    ReturnType<typeof listDeviceTypesQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await listDeviceTypes({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: listDeviceTypesQueryKey(options),
-  });
 
 /**
  * Delete device API key

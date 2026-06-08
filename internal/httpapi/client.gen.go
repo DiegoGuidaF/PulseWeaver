@@ -216,9 +216,6 @@ type ClientInterface interface {
 
 	ClaimPairing(ctx context.Context, body ClaimPairingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListDeviceTypes request
-	ListDeviceTypes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetDevices request
 	GetDevices(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -850,18 +847,6 @@ func (c *Client) ClaimPairingWithBody(ctx context.Context, contentType string, b
 
 func (c *Client) ClaimPairing(ctx context.Context, body ClaimPairingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewClaimPairingRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListDeviceTypes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListDeviceTypesRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -3014,33 +2999,6 @@ func NewClaimPairingRequestWithBody(server string, contentType string, body io.R
 	return req, nil
 }
 
-// NewListDeviceTypesRequest generates requests for ListDeviceTypes
-func NewListDeviceTypesRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/device-types")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewGetDevicesRequest generates requests for GetDevices
 func NewGetDevicesRequest(server string) (*http.Request, error) {
 	var err error
@@ -4139,9 +4097,6 @@ type ClientWithResponsesInterface interface {
 
 	ClaimPairingWithResponse(ctx context.Context, body ClaimPairingJSONRequestBody, reqEditors ...RequestEditorFn) (*ClaimPairingTestClientResponse, error)
 
-	// ListDeviceTypesWithResponse request
-	ListDeviceTypesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceTypesTestClientResponse, error)
-
 	// GetDevicesWithResponse request
 	GetDevicesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDevicesTestClientResponse, error)
 
@@ -5095,28 +5050,6 @@ func (r ClaimPairingTestClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ClaimPairingTestClientResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ListDeviceTypesTestClientResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *[]DeviceTypeItem
-}
-
-// Status returns HTTPResponse.Status
-func (r ListDeviceTypesTestClientResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListDeviceTypesTestClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6107,15 +6040,6 @@ func (c *ClientWithResponses) ClaimPairingWithResponse(ctx context.Context, body
 		return nil, err
 	}
 	return ParseClaimPairingTestClientResponse(rsp)
-}
-
-// ListDeviceTypesWithResponse request returning *ListDeviceTypesTestClientResponse
-func (c *ClientWithResponses) ListDeviceTypesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceTypesTestClientResponse, error) {
-	rsp, err := c.ListDeviceTypes(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListDeviceTypesTestClientResponse(rsp)
 }
 
 // GetDevicesWithResponse request returning *GetDevicesTestClientResponse
@@ -7999,32 +7923,6 @@ func ParseClaimPairingTestClientResponse(rsp *http.Response) (*ClaimPairingTestC
 			return nil, err
 		}
 		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListDeviceTypesTestClientResponse parses an HTTP response from a ListDeviceTypesWithResponse call
-func ParseListDeviceTypesTestClientResponse(rsp *http.Response) (*ListDeviceTypesTestClientResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListDeviceTypesTestClientResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []DeviceTypeItem
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
 
 	}
 

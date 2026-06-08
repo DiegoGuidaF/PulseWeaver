@@ -93,7 +93,6 @@ func (s *Service) GetDevice(ctx context.Context, deviceID ids.DeviceID) (*Device
 type CreateDeviceInput struct {
 	Name           string
 	OwnerID        *ids.UserID // nil = owned by the calling principal
-	DeviceType     string      // "" defaults to static
 	Description    *string
 	Icon           *string
 	GenerateAPIKey bool // mint an API key in the same transaction, returned once
@@ -124,7 +123,6 @@ func (s *Service) CreateDeviceWithOptions(ctx context.Context, principal *auth.P
 		createdDevice, err = s.repo.CreateDevice(ctx, CreateDeviceParams{
 			Name:        input.Name,
 			OwnerID:     ownerID,
-			DeviceType:  input.DeviceType,
 			Description: input.Description,
 			Icon:        input.Icon,
 		})
@@ -260,7 +258,6 @@ func (s *Service) DisableDevice(ctx context.Context, deviceID ids.DeviceID) (*De
 // For Description and Icon, **string semantics apply: nil = absent, *nil = clear, *&s = set.
 type UpdateDeviceInput struct {
 	Name        *string
-	DeviceType  *string
 	Description **string
 	Icon        **string
 	OwnerID     *ids.UserID
@@ -274,7 +271,7 @@ func (s *Service) UpdateDevice(ctx context.Context, deviceID ids.DeviceID, input
 
 	ownershipChanged := input.OwnerID != nil && *input.OwnerID != device.OwnerID
 
-	if err := device.Update(input.Name, input.DeviceType, input.Description, input.Icon, input.OwnerID); err != nil {
+	if err := device.Update(input.Name, input.Description, input.Icon, input.OwnerID); err != nil {
 		return nil, err
 	}
 
