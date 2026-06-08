@@ -21,6 +21,7 @@ import { DeviceState } from "@/lib/api";
 import { resolveDeviceIcon } from "@/features/devices/deviceTypeConfig";
 import { GroupBadgeList } from "@/features/host-access/components/GroupBadgeList";
 import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
+import { isInactiveState } from "@/features/devices/constants";
 
 dayjs.extend(relativeTime);
 
@@ -35,12 +36,13 @@ function getInitials(name: string): string {
 }
 
 function deviceStatusText(entry: DeviceListEntry): string {
-  const isLive = entry.live_address_count > 0;
-  const isStale = entry.state === DeviceState.STALE;
   const ago = entry.last_seen_at ? ` · ${dayjs(entry.last_seen_at).fromNow()}` : "";
 
-  if (isLive) return `${entry.live_address_count} live${ago}`;
-  if (isStale) return `stale${ago}`;
+  if (entry.state === DeviceState.DISABLED) return `disabled${ago}`;
+  if (entry.live_address_count > 0) return `${entry.live_address_count} live${ago}`;
+  if (entry.state === DeviceState.PENDING_CLAIM) return "pairing pending";
+  if (entry.state === DeviceState.EXPIRED_CLAIM) return "code expired";
+  if (entry.state === DeviceState.STALE) return `stale${ago}`;
   return entry.last_seen_at ? `seen ${dayjs(entry.last_seen_at).fromNow()}` : "never seen";
 }
 
@@ -54,7 +56,7 @@ function DevicePanelItem({
   onSelect: () => void;
 }) {
   const renderIcon = resolveDeviceIcon(entry.icon);
-  const isStale = entry.state === DeviceState.STALE;
+  const isMuted = isInactiveState(entry.state);
   const isLive = entry.live_address_count > 0;
 
   return (
@@ -69,13 +71,13 @@ function DevicePanelItem({
       }}
     >
       <Group px="sm" py={6} gap="sm" align="center" wrap="nowrap">
-        <ThemeIcon variant="transparent" size="sm" c={isStale ? "dimmed" : undefined}>
+        <ThemeIcon variant="transparent" size="sm" c={isMuted ? "dimmed" : undefined}>
           {renderIcon({ size: 16 })}
         </ThemeIcon>
         <Box style={{ flex: 1, minWidth: 0 }}>
           <Text
             size="sm"
-            c={isStale ? "dimmed" : undefined}
+            c={isMuted ? "dimmed" : undefined}
             fw={isSelected ? 500 : undefined}
             truncate
           >

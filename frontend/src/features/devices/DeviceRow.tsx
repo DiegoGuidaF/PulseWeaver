@@ -8,6 +8,8 @@ import type { DeviceListEntry } from "@/lib/api";
 import { resolveDeviceIcon } from "@/features/devices/deviceTypeConfig";
 import { DeviceState } from "@/lib/api";
 import { RuleChips } from "@/features/devices/RuleChips";
+import { DeviceStatusBadge } from "@/features/devices/DeviceStatusBadge";
+import { isInactiveState } from "@/features/devices/constants";
 
 dayjs.extend(relativeTime);
 
@@ -30,7 +32,7 @@ function LivePips({ count }: { count: number }) {
 }
 
 function getRowContainerStyle(state: DeviceState): React.CSSProperties {
-  if (state === DeviceState.STALE) {
+  if (state === DeviceState.STALE || state === DeviceState.DISABLED) {
     return {
       border: "1px dashed var(--mantine-color-default-border)",
       borderRadius: 6,
@@ -60,7 +62,7 @@ export function DeviceRow({ entry, ownerId }: Props) {
     ? dayjs(entry.last_seen_at).fromNow()
     : "never seen";
 
-  const isStale = entry.state === DeviceState.STALE;
+  const isMuted = isInactiveState(entry.state);
 
   return (
     <Box style={getRowContainerStyle(entry.state)}>
@@ -70,14 +72,17 @@ export function DeviceRow({ entry, ownerId }: Props) {
         style={{ display: "block" }}
       >
         <Group gap="sm" align="center" wrap="nowrap" px="xs" py={8}>
-          <ThemeIcon variant="transparent" size="md" c={isStale ? "dimmed" : undefined}>
+          <ThemeIcon variant="transparent" size="md" c={isMuted ? "dimmed" : undefined}>
             {renderIcon({ size: 18 })}
           </ThemeIcon>
 
           <Box style={{ flex: 1, minWidth: 0 }}>
-            <Text fw={500} size="sm" c={isStale ? "dimmed" : undefined} truncate>
-              {entry.name}
-            </Text>
+            <Group gap={6} wrap="nowrap">
+              <Text fw={500} size="sm" c={isMuted ? "dimmed" : undefined} truncate>
+                {entry.name}
+              </Text>
+              <DeviceStatusBadge state={entry.state} />
+            </Group>
             <Group gap={6} wrap="nowrap">
               <Text size="xs" c="dimmed" truncate>{lastSeenText}</Text>
               {entry.api_key_prefix && (

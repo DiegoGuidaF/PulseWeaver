@@ -28,6 +28,7 @@ import { DeviceRulesTab } from "@/features/devices/DeviceRulesTab";
 import { DeviceHistoryTab } from "@/features/devices/DeviceHistoryTab";
 import { DeviceSettingsTab, type DeviceData } from "@/features/devices/DeviceSettingsTab";
 import { CreateDeviceModal } from "@/features/devices/CreateDeviceModal";
+import { DeviceStatusBadge } from "@/features/devices/DeviceStatusBadge";
 import { DevicePairingBanner } from "@/features/device-pairing/DevicePairingBanner";
 import { DevicePairingTab } from "@/features/device-pairing/DevicePairingTab";
 import { DeviceState } from "@/lib/api";
@@ -217,6 +218,7 @@ export function UserDevicesPage() {
                 {renderDeviceIcon({ size: 22 })}
               </ThemeIcon>
               <Title order={1} size="h3">{selectedDevice.name}</Title>
+              <DeviceStatusBadge state={selectedDevice.state} size="sm" />
               <RuleChips entry={selectedDevice} size="xs" />
             </Group>
             <Group gap={6} wrap="wrap">
