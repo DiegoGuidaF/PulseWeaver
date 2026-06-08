@@ -1428,6 +1428,7 @@ export const PolicyUserEntrySchema = {
     "display_name",
     "is_admin",
     "bypass_allowlist",
+    "status",
     "on_shared_ip",
     "intersection_applied",
     "device_count",
@@ -1451,6 +1452,15 @@ export const PolicyUserEntrySchema = {
     bypass_allowlist: {
       type: "boolean",
       description: "True when this user has the host allowlist bypass enabled.",
+    },
+    status: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/PolicyUserStatus",
+        },
+      ],
+      description:
+        "Effective access classification, computed server-side from bypass_allowlist, ip_count and allowed_host_count.\n",
     },
     on_shared_ip: {
       type: "boolean",
@@ -2292,6 +2302,19 @@ export const DevicePairingStatusSchema = {
   enum: ["pending", "used", "expired", "invalidated", "replaced"],
   description:
     "Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.\n",
+} as const;
+
+export const PolicyUserStatusSchema = {
+  type: "string",
+  enum: [
+    "bypass",
+    "live_with_access",
+    "live_no_host_access",
+    "no_live_ips",
+    "no_access",
+  ],
+  description:
+    "Effective access classification along two orthogonal axes: reachability (does the user have live IPs in the cache?) and authorization (does the user have host grants?).\n  - bypass: host allowlist is bypassed; the host check does not apply.\n  - live_with_access: has live IPs and host grants.\n  - live_no_host_access: has live IPs but no host grants — the device is\n    active yet every request is denied.\n  - no_live_ips: no live IPs, but host grants exist.\n  - no_access: no live IPs and no host grants.\n",
 } as const;
 
 export const UserWritableSchema = {

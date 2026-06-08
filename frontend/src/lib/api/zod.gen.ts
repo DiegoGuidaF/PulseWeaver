@@ -7,6 +7,7 @@ import {
   DevicePairingStatus,
   DeviceState,
   PolicySimulateDenyReason,
+  PolicyUserStatus,
   UserRole,
 } from "./types.gen";
 
@@ -436,21 +437,6 @@ export const zPolicyUserIp = z.object({
   addresses: z.array(zPolicyUserAddress),
 });
 
-export const zPolicyUserEntry = z.object({
-  user_id: zId,
-  display_name: z.string(),
-  is_admin: z.boolean(),
-  bypass_allowlist: z.boolean(),
-  on_shared_ip: z.boolean(),
-  intersection_applied: z.boolean(),
-  device_count: z.int(),
-  ip_count: z.int(),
-  allowed_host_count: z.int(),
-  last_seen_at: z.iso.datetime({ offset: true, local: true }).nullish(),
-  user_allowed_hosts: z.array(z.string()),
-  ips: z.array(zPolicyUserIp),
-});
-
 /**
  * Reason for denial.
  */
@@ -474,18 +460,6 @@ export const zPolicyNetworkPolicyEntry = z.object({
   bypass_host_check: z.boolean(),
   effective_host_count: z.int(),
   total_host_count: z.int(),
-});
-
-export const zPolicyUserMapAudit = z.object({
-  refreshed_at: z.iso.datetime({ offset: true, local: true }),
-  refresh_duration_ms: z.int(),
-  total_ip_count: z.int(),
-  total_device_count: z.int(),
-  total_host_count: z.int(),
-  shared_ip_count: z.int(),
-  users: z.array(zPolicyUserEntry),
-  total_network_policy_count: z.int(),
-  network_policies: z.array(zPolicyNetworkPolicyEntry),
 });
 
 /**
@@ -772,6 +746,46 @@ export const zDevicePairing = z.object({
   created_at: z.iso.datetime({ offset: true, local: true }),
   updated_at: z.iso.datetime({ offset: true, local: true }),
   status: zDevicePairingStatus,
+});
+
+/**
+ * Effective access classification along two orthogonal axes: reachability (does the user have live IPs in the cache?) and authorization (does the user have host grants?).
+ * - bypass: host allowlist is bypassed; the host check does not apply.
+ * - live_with_access: has live IPs and host grants.
+ * - live_no_host_access: has live IPs but no host grants — the device is
+ * active yet every request is denied.
+ * - no_live_ips: no live IPs, but host grants exist.
+ * - no_access: no live IPs and no host grants.
+ *
+ */
+export const zPolicyUserStatus = z.enum(PolicyUserStatus);
+
+export const zPolicyUserEntry = z.object({
+  user_id: zId,
+  display_name: z.string(),
+  is_admin: z.boolean(),
+  bypass_allowlist: z.boolean(),
+  status: zPolicyUserStatus,
+  on_shared_ip: z.boolean(),
+  intersection_applied: z.boolean(),
+  device_count: z.int(),
+  ip_count: z.int(),
+  allowed_host_count: z.int(),
+  last_seen_at: z.iso.datetime({ offset: true, local: true }).nullish(),
+  user_allowed_hosts: z.array(z.string()),
+  ips: z.array(zPolicyUserIp),
+});
+
+export const zPolicyUserMapAudit = z.object({
+  refreshed_at: z.iso.datetime({ offset: true, local: true }),
+  refresh_duration_ms: z.int(),
+  total_ip_count: z.int(),
+  total_device_count: z.int(),
+  total_host_count: z.int(),
+  shared_ip_count: z.int(),
+  users: z.array(zPolicyUserEntry),
+  total_network_policy_count: z.int(),
+  network_policies: z.array(zPolicyNetworkPolicyEntry),
 });
 
 export const zUserWritable = z.object({

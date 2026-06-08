@@ -1,5 +1,5 @@
 import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceOwnerGroup, GroupDetailWithUsers, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
-import { AddressEventSource, DeviceState, UserRole } from "@/lib/api";
+import { AddressEventSource, DeviceState, PolicyUserStatus, UserRole } from "@/lib/api";
 
 /**
  * Creates a mock Device object with realistic defaults.
@@ -411,10 +411,25 @@ export function createMockPolicyUserIp(
   };
 }
 
+// Mirrors the backend's deriveUserStatus so a mock built from raw fields gets a
+// consistent status without every caller having to spell it out. An explicit
+// `status` override always wins.
+function deriveMockUserStatus(
+  e: Pick<PolicyUserEntry, 'bypass_allowlist' | 'ips' | 'allowed_host_count'>,
+): PolicyUserStatus {
+  if (e.bypass_allowlist) return PolicyUserStatus.BYPASS;
+  const hasLiveIps = e.ips.length > 0;
+  const hasHostGrants = e.allowed_host_count > 0;
+  if (hasLiveIps && hasHostGrants) return PolicyUserStatus.LIVE_WITH_ACCESS;
+  if (hasLiveIps && !hasHostGrants) return PolicyUserStatus.LIVE_NO_HOST_ACCESS;
+  if (!hasLiveIps && hasHostGrants) return PolicyUserStatus.NO_LIVE_IPS;
+  return PolicyUserStatus.NO_ACCESS;
+}
+
 export function createMockPolicyUserEntry(
   overrides?: Partial<PolicyUserEntry>,
 ): PolicyUserEntry {
-  return {
+  const merged = {
     user_id: 1,
     display_name: 'alice',
     is_admin: false,
@@ -429,6 +444,7 @@ export function createMockPolicyUserEntry(
     ips: [createMockPolicyUserIp()],
     ...overrides,
   };
+  return { ...merged, status: overrides?.status ?? deriveMockUserStatus(merged) };
 }
 
 // Default audit contains one user of each status so all StatusBadge branches

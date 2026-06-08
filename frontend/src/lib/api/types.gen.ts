@@ -654,6 +654,11 @@ export type PolicyUserEntry = {
    */
   bypass_allowlist: boolean;
   /**
+   * Effective access classification, computed server-side from bypass_allowlist, ip_count and allowed_host_count.
+   *
+   */
+  status: PolicyUserStatus;
+  /**
    * True when at least one of this user's IPs is shared with another user.
    *
    */
@@ -1059,6 +1064,37 @@ export const DevicePairingStatus = {
  */
 export type DevicePairingStatus =
   (typeof DevicePairingStatus)[keyof typeof DevicePairingStatus];
+
+/**
+ * Effective access classification along two orthogonal axes: reachability (does the user have live IPs in the cache?) and authorization (does the user have host grants?).
+ * - bypass: host allowlist is bypassed; the host check does not apply.
+ * - live_with_access: has live IPs and host grants.
+ * - live_no_host_access: has live IPs but no host grants — the device is
+ * active yet every request is denied.
+ * - no_live_ips: no live IPs, but host grants exist.
+ * - no_access: no live IPs and no host grants.
+ *
+ */
+export const PolicyUserStatus = {
+  BYPASS: "bypass",
+  LIVE_WITH_ACCESS: "live_with_access",
+  LIVE_NO_HOST_ACCESS: "live_no_host_access",
+  NO_LIVE_IPS: "no_live_ips",
+  NO_ACCESS: "no_access",
+} as const;
+
+/**
+ * Effective access classification along two orthogonal axes: reachability (does the user have live IPs in the cache?) and authorization (does the user have host grants?).
+ * - bypass: host allowlist is bypassed; the host check does not apply.
+ * - live_with_access: has live IPs and host grants.
+ * - live_no_host_access: has live IPs but no host grants — the device is
+ * active yet every request is denied.
+ * - no_live_ips: no live IPs, but host grants exist.
+ * - no_access: no live IPs and no host grants.
+ *
+ */
+export type PolicyUserStatus =
+  (typeof PolicyUserStatus)[keyof typeof PolicyUserStatus];
 
 export type UserWritable = {
   id: Id;

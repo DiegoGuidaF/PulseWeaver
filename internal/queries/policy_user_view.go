@@ -157,6 +157,7 @@ func assemblePolicyUserMap(
 				DisplayName:         ur.UserName,
 				IsAdmin:             ur.IsAdmin,
 				BypassAllowlist:     ur.BypassAllowlist,
+				Status:              deriveUserStatus(ur.BypassAllowlist, 0, allowedHostCount),
 				OnSharedIp:          false,
 				IntersectionApplied: false,
 				DeviceCount:         0,
@@ -176,6 +177,7 @@ func assemblePolicyUserMap(
 			DisplayName:         ur.UserName,
 			IsAdmin:             ur.IsAdmin,
 			BypassAllowlist:     ur.BypassAllowlist,
+			Status:              deriveUserStatus(ur.BypassAllowlist, len(ips), allowedHostCount),
 			OnSharedIp:          anySharedIP(ips),
 			IntersectionApplied: anyIntersection(ips),
 			DeviceCount:         countDistinctDevices(ipMap),
@@ -300,6 +302,27 @@ func buildUserIPs(
 		})
 	}
 	return result
+}
+
+// deriveUserStatus classifies a user along two orthogonal axes — reachability
+// (live IPs in the cache) and authorization (host grants) — into the status the
+// audit view renders. Bypass short-circuits: the host allowlist does not apply.
+func deriveUserStatus(bypass bool, ipCount, allowedHostCount int) httpapi.PolicyUserStatus {
+	if bypass {
+		return httpapi.Bypass
+	}
+	hasLiveIPs := ipCount > 0
+	hasHostGrants := allowedHostCount > 0
+	switch {
+	case hasLiveIPs && hasHostGrants:
+		return httpapi.LiveWithAccess
+	case hasLiveIPs && !hasHostGrants:
+		return httpapi.LiveNoHostAccess
+	case !hasLiveIPs && hasHostGrants:
+		return httpapi.NoLiveIps
+	default:
+		return httpapi.NoAccess
+	}
 }
 
 // countDistinctDevices counts distinct device IDs across all addresses for a user.

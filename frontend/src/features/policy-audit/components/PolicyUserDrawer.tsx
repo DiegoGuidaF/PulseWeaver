@@ -26,7 +26,7 @@ import {
   IconWifiOff,
 } from "@tabler/icons-react";
 import type { PolicyUserEntry, PolicyUserIp } from "@/lib/api";
-import { deriveUserStatus } from "../userStatus";
+import { PolicyUserStatus } from "@/lib/api";
 
 dayjs.extend(relativeTime);
 
@@ -84,9 +84,11 @@ function computeDevices(user: PolicyUserEntry): DeviceInfo[] {
 // ─── identity header ────────────────────────────────────────────────────────
 
 function DrawerIdentity({ user }: { user: PolicyUserEntry }) {
-  const status = deriveUserStatus(user);
-  const hasLiveIps = status === "live_with_access" || status === "live_no_host_access";
-  const hasHostAccess = status === "live_with_access" || status === "no_live_ips";
+  const status = user.status;
+  const hasLiveIps =
+    status === PolicyUserStatus.LIVE_WITH_ACCESS || status === PolicyUserStatus.LIVE_NO_HOST_ACCESS;
+  const hasHostAccess =
+    status === PolicyUserStatus.LIVE_WITH_ACCESS || status === PolicyUserStatus.NO_LIVE_IPS;
 
   return (
     <Group gap="sm" wrap="nowrap" mb="xs">
@@ -97,7 +99,7 @@ function DrawerIdentity({ user }: { user: PolicyUserEntry }) {
         <Text size="xl" fw={700}>
           {user.display_name}
         </Text>
-        {status === "bypass" ? (
+        {status === PolicyUserStatus.BYPASS ? (
           <Badge variant="light" color="orange" leftSection={<IconShieldOff size={12} />}>
             Bypass
           </Badge>

@@ -364,6 +364,7 @@ export {
   type PolicyUserIp,
   type PolicyUserIpSharedUser,
   type PolicyUserMapAudit,
+  PolicyUserStatus,
   type PromoteUserData,
   type PromoteUserError,
   type PromoteUserErrors,

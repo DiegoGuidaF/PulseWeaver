@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/matryer/is"
@@ -93,6 +94,7 @@ func TestAssemblePolicyUserMap_SingleUser(t *testing.T) {
 	is.Equal(u.DeviceCount, 1)
 	is.Equal(u.IpCount, 1)
 	is.Equal(u.AllowedHostCount, 2)
+	is.Equal(u.Status, httpapi.LiveWithAccess)
 	is.Equal(u.OnSharedIp, false)
 	is.Equal(u.IntersectionApplied, false)
 	is.True(u.LastSeenAt != nil)
@@ -265,6 +267,7 @@ func TestAssemblePolicyUserMap_BypassUserOnSharedIP(t *testing.T) {
 	alice := result.Users[0]
 	is.Equal(alice.BypassAllowlist, true)
 	is.Equal(alice.AllowedHostCount, 0)
+	is.Equal(alice.Status, httpapi.Bypass)
 	aliceIP := alice.Ips[0]
 	is.Equal(aliceIP.BypassAtIp, false) // not full-IP bypass
 	is.Equal(len(aliceIP.EffectiveHosts), 0)
@@ -307,9 +310,34 @@ func TestAssemblePolicyUserMap_NoAccessUser(t *testing.T) {
 	is.Equal(charlie.DeviceCount, 0)
 	is.Equal(charlie.IpCount, 0)
 	is.Equal(charlie.AllowedHostCount, 2)
+	// Host grants exist but no device is live: no_live_ips, not no_access.
+	is.Equal(charlie.Status, httpapi.NoLiveIps)
 	is.Equal(charlie.UserAllowedHosts, []string{"x.com", "y.com"})
 	is.True(charlie.LastSeenAt == nil)
 	is.Equal(len(charlie.Ips), 0)
+}
+
+func TestDeriveUserStatus(t *testing.T) {
+	cases := []struct {
+		name             string
+		bypass           bool
+		ipCount          int
+		allowedHostCount int
+		want             httpapi.PolicyUserStatus
+	}{
+		{"bypass wins over everything", true, 5, 9, httpapi.Bypass},
+		{"bypass with no IPs or grants", true, 0, 0, httpapi.Bypass},
+		{"live IPs and host grants", false, 2, 3, httpapi.LiveWithAccess},
+		{"live IPs but no grants (revoked)", false, 1, 0, httpapi.LiveNoHostAccess},
+		{"grants but no live IPs", false, 0, 4, httpapi.NoLiveIps},
+		{"no IPs and no grants", false, 0, 0, httpapi.NoAccess},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			is := is.New(t)
+			is.Equal(deriveUserStatus(tc.bypass, tc.ipCount, tc.allowedHostCount), tc.want)
+		})
+	}
 }
 
 // TestAssemblePolicyUserMap_SortOrder verifies alphabetic user ordering

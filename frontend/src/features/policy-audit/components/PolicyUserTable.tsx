@@ -23,11 +23,11 @@ import {
   IconWifiOff,
 } from "@tabler/icons-react";
 import type { PolicyUserEntry, PolicyUserMapAudit } from "@/lib/api";
-import { deriveUserStatus, type UserStatus } from "../userStatus";
+import { PolicyUserStatus } from "@/lib/api";
 
 const MAX_VISIBLE_IPS = 3;
 
-type StatusFilter = "all" | "live_with_access" | "live_no_host_access" | "bypass" | "no_live_ips" | "no_access";
+type StatusFilter = "all" | PolicyUserStatus;
 
 function matchesSearch(user: PolicyUserEntry, q: string): boolean {
   if (!q) return true;
@@ -46,8 +46,8 @@ function matchesSearch(user: PolicyUserEntry, q: string): boolean {
  * Two-badge layout: one for reachability (live IPs), one for host authorization.
  * Bypass users get a single combined badge since the host check doesn't apply.
  */
-function StatusBadges({ status }: { status: UserStatus }) {
-  if (status === "bypass") {
+function StatusBadges({ status }: { status: PolicyUserStatus }) {
+  if (status === PolicyUserStatus.BYPASS) {
     return (
       <Badge variant="light" color="orange" size="sm" leftSection={<IconShieldOff size={12} />}>
         Bypass
@@ -55,8 +55,10 @@ function StatusBadges({ status }: { status: UserStatus }) {
     );
   }
 
-  const hasLiveIps = status === "live_with_access" || status === "live_no_host_access";
-  const hasHostAccess = status === "live_with_access" || status === "no_live_ips";
+  const hasLiveIps =
+    status === PolicyUserStatus.LIVE_WITH_ACCESS || status === PolicyUserStatus.LIVE_NO_HOST_ACCESS;
+  const hasHostAccess =
+    status === PolicyUserStatus.LIVE_WITH_ACCESS || status === PolicyUserStatus.NO_LIVE_IPS;
 
   return (
     <Group gap={4} wrap="nowrap">
@@ -135,9 +137,9 @@ function EffectiveHostsCell({
 }: {
   user: PolicyUserEntry;
   totalHosts: number;
-  status: UserStatus;
+  status: PolicyUserStatus;
 }) {
-  if (status === "bypass") {
+  if (status === PolicyUserStatus.BYPASS) {
     return (
       <Group gap={4} wrap="nowrap">
         <IconShield size={14} color="var(--mantine-color-orange-5)" />
@@ -148,9 +150,9 @@ function EffectiveHostsCell({
     );
   }
 
-  if (status === "no_access" || status === "no_live_ips") {
+  if (status === PolicyUserStatus.NO_ACCESS || status === PolicyUserStatus.NO_LIVE_IPS) {
     const label =
-      status === "no_live_ips" ? "No live IPs" : "No live IPs, no grants";
+      status === PolicyUserStatus.NO_LIVE_IPS ? "No live IPs" : "No live IPs, no grants";
     return (
       <Tooltip label={label} withArrow>
         <Text size="sm" c="dimmed" style={{ cursor: "default" }}>
@@ -169,7 +171,7 @@ function EffectiveHostsCell({
       <Progress.Root size="xs" style={{ flex: 1, minWidth: 40 }}>
         <Progress.Section
           value={pct}
-          color={status === "live_no_host_access" ? "red" : "indigo"}
+          color={status === PolicyUserStatus.LIVE_NO_HOST_ACCESS ? "red" : "indigo"}
           aria-label={`${user.allowed_host_count} of ${totalHosts} hosts accessible`}
         />
       </Progress.Root>
@@ -188,7 +190,7 @@ function UserRow({
   onSelectIp: (ip: string) => void;
   onSelect: () => void;
 }) {
-  const status = deriveUserStatus(user);
+  const status = user.status;
 
   return (
     <Table.Tr style={{ cursor: "pointer" }} onClick={onSelect}>
@@ -265,22 +267,22 @@ export function PolicyUserTable({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sharedOnly, setSharedOnly] = useState(false);
 
-  const counts = useMemo(
-    () => ({
+  const counts = useMemo(() => {
+    const by = (s: PolicyUserStatus) => data.users.filter((u) => u.status === s).length;
+    return {
       all: data.users.length,
-      live_with_access: data.users.filter((u) => deriveUserStatus(u) === "live_with_access").length,
-      live_no_host_access: data.users.filter((u) => deriveUserStatus(u) === "live_no_host_access").length,
-      bypass: data.users.filter((u) => u.bypass_allowlist).length,
-      no_live_ips: data.users.filter((u) => deriveUserStatus(u) === "no_live_ips").length,
-      no_access: data.users.filter((u) => deriveUserStatus(u) === "no_access").length,
-    }),
-    [data.users],
-  );
+      live_with_access: by(PolicyUserStatus.LIVE_WITH_ACCESS),
+      live_no_host_access: by(PolicyUserStatus.LIVE_NO_HOST_ACCESS),
+      bypass: by(PolicyUserStatus.BYPASS),
+      no_live_ips: by(PolicyUserStatus.NO_LIVE_IPS),
+      no_access: by(PolicyUserStatus.NO_ACCESS),
+    };
+  }, [data.users]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return data.users.filter((user) => {
-      if (statusFilter !== "all" && deriveUserStatus(user) !== statusFilter) return false;
+      if (statusFilter !== "all" && user.status !== statusFilter) return false;
       if (sharedOnly && !user.on_shared_ip) return false;
       return matchesSearch(user, q);
     });
@@ -304,11 +306,11 @@ export function PolicyUserTable({
             onChange={(v) => setStatusFilter(v as StatusFilter)}
             data={[
               { label: `All (${counts.all})`, value: "all" },
-              { label: `Live + access (${counts.live_with_access})`, value: "live_with_access" },
-              { label: `Live, no access (${counts.live_no_host_access})`, value: "live_no_host_access" },
-              { label: `Bypass (${counts.bypass})`, value: "bypass" },
-              { label: `No live IPs (${counts.no_live_ips})`, value: "no_live_ips" },
-              { label: `No access (${counts.no_access})`, value: "no_access" },
+              { label: `Live + access (${counts.live_with_access})`, value: PolicyUserStatus.LIVE_WITH_ACCESS },
+              { label: `Live, no access (${counts.live_no_host_access})`, value: PolicyUserStatus.LIVE_NO_HOST_ACCESS },
+              { label: `Bypass (${counts.bypass})`, value: PolicyUserStatus.BYPASS },
+              { label: `No live IPs (${counts.no_live_ips})`, value: PolicyUserStatus.NO_LIVE_IPS },
+              { label: `No access (${counts.no_access})`, value: PolicyUserStatus.NO_ACCESS },
             ]}
           />
           <Checkbox
