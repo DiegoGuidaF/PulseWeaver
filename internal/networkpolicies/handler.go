@@ -35,7 +35,7 @@ func (h *HTTPHandler) CreateNetworkPolicy(
 	if err != nil {
 		return h.mapCreateError(ctx, err), nil
 	}
-	h.logger.InfoContext(ctx, "network policy created", slog.Int64("policy_id", p.ID.Int64()))
+	h.logger.InfoContext(ctx, "network policy created", policyLogAttrs(p)...)
 	return httpapi.CreateNetworkPolicy201JSONResponse(toNetworkPolicyResponse(p)), nil
 }
 
@@ -55,11 +55,11 @@ func (h *HTTPHandler) UpdateNetworkPolicy(
 		Description: body.Description,
 	}
 
-	_, err := h.service.UpdatePolicy(ctx, id, fields)
+	updated, err := h.service.UpdatePolicy(ctx, id, fields)
 	if err != nil {
 		return h.mapUpdateError(ctx, err), nil
 	}
-	h.logger.InfoContext(ctx, "network policy updated", slog.Int64("policy_id", id.Int64()))
+	h.logger.InfoContext(ctx, "network policy updated", policyLogAttrs(updated)...)
 	return httpapi.UpdateNetworkPolicy204Response{}, nil
 }
 
@@ -110,6 +110,16 @@ func (h *HTTPHandler) UpdateNetworkPolicyAccess(
 
 // ── mapping helpers ────────────────────────────────────────────────────────────
 
+// policyLogAttrs builds the audit-log attributes for a policy mutation, flagging
+// large-but-allowed CIDRs with broad_cidr=true so they stay distinguishable.
+func policyLogAttrs(p NetworkPolicy) []any {
+	attrs := []any{slog.Int64("policy_id", p.ID.Int64())}
+	if broadCIDR(p.CIDR) {
+		attrs = append(attrs, slog.Bool("broad_cidr", true))
+	}
+	return attrs
+}
+
 func toNetworkPolicyResponse(p NetworkPolicy) httpapi.NetworkPolicyDetail {
 	return httpapi.NetworkPolicyDetail{
 		Id:              p.ID.Int64(),
@@ -127,7 +137,7 @@ func (h *HTTPHandler) mapCreateError(ctx context.Context, err error) httpapi.Cre
 	switch {
 	case errors.Is(err, ErrCIDRConflict):
 		return httpapi.CreateNetworkPolicy409JSONResponse(errMsg("A policy with this CIDR already exists"))
-	case errors.Is(err, ErrInvalidCIDR):
+	case errors.Is(err, ErrInvalidCIDR), errors.Is(err, ErrCIDRTooBroad):
 		return httpapi.CreateNetworkPolicy400JSONResponse(errMsg(err.Error()))
 	default:
 		h.logger.ErrorContext(ctx, "failed to create network policy", slog.Any(logging.AttrKeyError, err))
@@ -141,7 +151,7 @@ func (h *HTTPHandler) mapUpdateError(ctx context.Context, err error) httpapi.Upd
 		return httpapi.UpdateNetworkPolicy404JSONResponse(errMsg("Network policy not found"))
 	case errors.Is(err, ErrCIDRConflict):
 		return httpapi.UpdateNetworkPolicy409JSONResponse(errMsg("A policy with this CIDR already exists"))
-	case errors.Is(err, ErrInvalidCIDR):
+	case errors.Is(err, ErrInvalidCIDR), errors.Is(err, ErrCIDRTooBroad):
 		return httpapi.UpdateNetworkPolicy400JSONResponse(errMsg(err.Error()))
 	default:
 		h.logger.ErrorContext(ctx, "failed to update network policy", slog.Any(logging.AttrKeyError, err))

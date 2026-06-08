@@ -127,7 +127,7 @@ type AccessLogEntryFixture struct {
 // tests that need to assert against the seeded values without hardcoding strings.
 
 var (
-	FixturePolicyWithGroups      = PolicyFixture{Name: "corp-vpn", CIDR: "10.0.0.0/8", Desc: "Corporate VPN access"}
+	FixturePolicyWithGroups      = PolicyFixture{Name: "corp-vpn", CIDR: "10.0.0.0/12", Desc: "Corporate VPN access"}
 	FixturePolicyNoGroups        = PolicyFixture{Name: "isolated", CIDR: "172.16.0.0/12"}
 	FixturePolicyBypassHostCheck = PolicyFixture{Name: "ops-network", CIDR: "192.168.0.0/16"}
 

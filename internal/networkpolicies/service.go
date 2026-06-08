@@ -2,7 +2,6 @@ package networkpolicies
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
@@ -49,7 +48,7 @@ func (s *Service) notifyObservers(ctx context.Context) {
 func (s *Service) CreatePolicy(ctx context.Context, name, cidr string, description *string) (NetworkPolicy, error) {
 	normalized, err := normalizeCIDR(cidr)
 	if err != nil {
-		return NetworkPolicy{}, fmt.Errorf("%w: %s", ErrInvalidCIDR, cidr)
+		return NetworkPolicy{}, err
 	}
 
 	p, err := s.repo.CreatePolicy(ctx, NetworkPolicy{

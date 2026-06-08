@@ -123,7 +123,7 @@ func TestService_CreatePolicy_DoesNotNotifyObservers(t *testing.T) {
 	svc := newService(newFakeRepo())
 	svc.AddObserver(obs)
 
-	_, err := svc.CreatePolicy(context.Background(), "home", "10.0.0.0/8", nil)
+	_, err := svc.CreatePolicy(context.Background(), "home", "10.0.0.0/16", nil)
 
 	is.NoErr(err)
 	is.Equal(obs.calls, 0)
@@ -135,9 +135,63 @@ func TestService_CreatePolicy_RepoError_Propagated(t *testing.T) {
 	repo.createErr = networkpolicies.ErrCIDRConflict
 	svc := newService(repo)
 
-	_, err := svc.CreatePolicy(context.Background(), "dup", "10.1.0.0/8", nil)
+	_, err := svc.CreatePolicy(context.Background(), "dup", "10.1.0.0/16", nil)
 
 	is.True(errors.Is(err, networkpolicies.ErrCIDRConflict))
+}
+
+func TestService_CreatePolicy_TooBroadCIDR_Rejected(t *testing.T) {
+	cases := []struct {
+		name string
+		cidr string
+	}{
+		{"v4 default route", "0.0.0.0/0"},
+		{"v4 class-A /8", "10.0.0.0/8"},
+		{"v6 default route", "::/0"},
+		{"v6 ISP allocation /32", "2001:db8::/32"},
+		{"4-in-6 of v4 /8", "::ffff:10.0.0.0/104"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			is := is.New(t)
+			svc := newService(newFakeRepo())
+
+			_, err := svc.CreatePolicy(context.Background(), "p", tc.cidr, nil)
+
+			is.True(errors.Is(err, networkpolicies.ErrCIDRTooBroad))
+		})
+	}
+}
+
+func TestService_CreatePolicy_BroadButAllowedCIDR_Succeeds(t *testing.T) {
+	cases := []string{"10.0.0.0/9", "10.0.0.0/16", "2001:db8::/33", "2001:db8::/47"}
+	for _, cidr := range cases {
+		t.Run(cidr, func(t *testing.T) {
+			is := is.New(t)
+			svc := newService(newFakeRepo())
+
+			_, err := svc.CreatePolicy(context.Background(), "p", cidr, nil)
+
+			is.NoErr(err)
+		})
+	}
+}
+
+func TestService_UpdatePolicy_WidenToTooBroad_Rejected(t *testing.T) {
+	is := is.New(t)
+	repo := newFakeRepo()
+	svc := newService(repo)
+
+	_, err := repo.CreatePolicy(context.Background(), networkpolicies.NetworkPolicy{
+		ID: 1, Name: "p", CIDR: "10.0.0.0/24", Enabled: true,
+	})
+	is.NoErr(err)
+
+	_, err = svc.UpdatePolicy(context.Background(), ids.NetworkPolicyID(1), networkpolicies.UpdateFields{
+		Name: "p", CIDR: "10.0.0.0/8",
+	})
+
+	is.True(errors.Is(err, networkpolicies.ErrCIDRTooBroad))
 }
 
 // ── UpdatePolicy ─────────────────────────────────────────────────────────────
@@ -157,7 +211,7 @@ func TestService_UpdatePolicy_AppliesFieldsAndNotifiesObserver(t *testing.T) {
 	desc := "updated desc"
 	updated, err := svc.UpdatePolicy(context.Background(), created.ID, networkpolicies.UpdateFields{
 		Name:        "renamed",
-		CIDR:        "10.0.0.0/8",
+		CIDR:        "10.0.0.0/16",
 		Description: &desc,
 		Enabled:     false,
 	})

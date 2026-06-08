@@ -17,7 +17,7 @@ import (
 // IP that matches no device address but falls inside an enabled network policy's
 // prefix is authorized via that policy.
 //
-//  1. A bypass-host-check policy covers 2001:db8::/32.
+//  1. A bypass-host-check policy covers 2001:db8::/48.
 //  2. A v6 source inside the prefix is allowed for any host (bypass_host_check).
 //  3. A v6 source outside the prefix is denied.
 //
@@ -33,7 +33,7 @@ func TestVerifyIP_NativeV6_NetworkPolicyCIDR(t *testing.T) {
 
 	srv, _ := testutils.SetupRunningIntegrationServer(t,
 		testutils.NewSeeder(t).
-			WithPolicy(testutils.PolicyFixture{Name: "v6-net", CIDR: "2001:db8::/32"}).
+			WithPolicy(testutils.PolicyFixture{Name: "v6-net", CIDR: "2001:db8::/48"}).
 			WithPolicyBypassHostCheck("v6-net").
 			WithPolicyInitialize(),
 	)

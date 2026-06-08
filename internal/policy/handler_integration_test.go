@@ -61,7 +61,7 @@ func TestHandlerIntegration_ForwardAuth_FullWorldDecisionTour(t *testing.T) {
 		{"10.1.0.1", testutils.FixtureHostBackend1.FQDN, http.StatusOK, "device allow shared IP"},
 		// device path — bob has no group access; any host is denied.
 		{"10.2.0.1", testutils.FixtureHostBackend1.FQDN, http.StatusForbidden, "device deny no groups"},
-		// CIDR path — corp-vpn (10.0.0.0/8) covers 10.3.0.1; backend host allowed.
+		// CIDR path — corp-vpn (10.0.0.0/12) covers 10.3.0.1; backend host allowed.
 		{"10.3.0.1", testutils.FixtureHostBackend1.FQDN, http.StatusOK, "CIDR allow corp-vpn"},
 		// CIDR path — same corp-vpn policy but host not in any assigned group.
 		{"10.3.0.1", "unknown.internal", http.StatusForbidden, "CIDR deny unknown host"},
@@ -87,13 +87,13 @@ func TestHandlerIntegration_ForwardAuth_MostSpecificCIDRWins(t *testing.T) {
 	is := is.New(t)
 	srv := testutils.SetupIntegrationServer(t)
 
-	// /8 allows a.com; /16 allows b.com. IP 10.1.2.3 is in both — /16 must win.
+	// /12 allows a.com; /16 allows b.com. IP 10.1.2.3 is in both — /16 must win.
 	testutils.NewSeeder(t).
 		WithGroup(testutils.GroupFixture{Name: "group-a"}).
 		WithGroup(testutils.GroupFixture{Name: "group-b"}).
 		WithHost(testutils.HostFixture{FQDN: "a.com", Groups: []string{"group-a"}}).
 		WithHost(testutils.HostFixture{FQDN: "b.com", Groups: []string{"group-b"}}).
-		WithPolicy(testutils.PolicyFixture{Name: "broad", CIDR: "10.0.0.0/8"}).
+		WithPolicy(testutils.PolicyFixture{Name: "broad", CIDR: "10.0.0.0/12"}).
 		WithPolicy(testutils.PolicyFixture{Name: "narrow", CIDR: "10.1.0.0/16"}).
 		AssignGroupsToPolicy("broad", "group-a").
 		AssignGroupsToPolicy("narrow", "group-b").
@@ -117,7 +117,7 @@ func TestHandlerIntegration_ForwardAuth_DeviceBeatsNetworkPolicy(t *testing.T) {
 	srv := testutils.SetupIntegrationServer(t)
 
 	// alice's device at 10.0.0.5 is restricted to x.com via x-group.
-	// CIDR 10.0.0.0/8 would allow y.com, but the device path must win.
+	// CIDR 10.0.0.0/12 would allow y.com, but the device path must win.
 	testutils.NewSeeder(t).
 		WithGroup(testutils.GroupFixture{Name: "x-group"}).
 		WithGroup(testutils.GroupFixture{Name: "y-group"}).
@@ -127,7 +127,7 @@ func TestHandlerIntegration_ForwardAuth_DeviceBeatsNetworkPolicy(t *testing.T) {
 		SetUserAccess("alice", false, "x-group").
 		WithDevice(testutils.DeviceFixture{Name: "alice-laptop", OwnerUser: "alice"}).
 		WithAddress(testutils.AddressFixture{Device: "alice-laptop", IP: "10.0.0.5"}).
-		WithPolicy(testutils.PolicyFixture{Name: "broad", CIDR: "10.0.0.0/8"}).
+		WithPolicy(testutils.PolicyFixture{Name: "broad", CIDR: "10.0.0.0/12"}).
 		AssignGroupsToPolicy("broad", "y-group").
 		WithPolicyInitialize().
 		Build(srv)

@@ -44,18 +44,32 @@ func TestHandler_CreateNetworkPolicy_InvalidCIDR(t *testing.T) {
 	is.Equal(resp.StatusCode(), http.StatusBadRequest)
 }
 
+func TestHandler_CreateNetworkPolicy_TooBroadCIDR(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	srv := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, srv)
+
+	resp, err := client.CreateNetworkPolicyWithResponse(ctx, httpapi.CreateNetworkPolicyJSONRequestBody{
+		Name: "allow-all",
+		Cidr: "0.0.0.0/0",
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusBadRequest)
+}
+
 func TestHandler_CreateNetworkPolicy_DuplicateCIDR(t *testing.T) {
 	is := is.New(t)
 	ctx := t.Context()
 	srv := testutils.SetupIntegrationServer(t)
 	client := testutils.NewAdminAPIClient(t, srv)
 
-	_, err := srv.NetworkPoliciesService.CreatePolicy(ctx, "first", "10.0.0.0/8", nil)
+	_, err := srv.NetworkPoliciesService.CreatePolicy(ctx, "first", "10.0.0.0/16", nil)
 	is.NoErr(err)
 
 	resp, err := client.CreateNetworkPolicyWithResponse(ctx, httpapi.CreateNetworkPolicyJSONRequestBody{
 		Name: "second",
-		Cidr: "10.0.0.0/8",
+		Cidr: "10.0.0.0/16",
 	})
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusConflict)
@@ -68,7 +82,7 @@ func TestHandler_CreateNetworkPolicy_Unauthenticated(t *testing.T) {
 
 	resp, err := testutils.NewAPIClient(t, srv).CreateNetworkPolicyWithResponse(ctx, httpapi.CreateNetworkPolicyJSONRequestBody{
 		Name: "home",
-		Cidr: "10.0.0.0/8",
+		Cidr: "10.0.0.0/16",
 	})
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusUnauthorized)
