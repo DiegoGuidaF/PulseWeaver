@@ -6,9 +6,15 @@ import { TEST_TIMEOUTS } from '@/test/constants';
 import { renderWithProviders } from '@/test/utils';
 import { server } from '@/test/setup';
 import { deviceHandlers } from '@/test/mocks/handlers';
+import { DeviceState } from '@/lib/api';
 
 const mockDeviceWithKey = { name: 'My Router', api_key_prefix: 'rtr_' };
 const mockDeviceNoKey = { name: 'My Router', api_key_prefix: null };
+const mockDeviceDisabled = {
+    name: 'My Router',
+    api_key_prefix: null,
+    state: DeviceState.DISABLED,
+};
 
 function renderTab() {
     return renderWithProviders(<DeviceSettingsTab deviceId={1} />);
@@ -101,5 +107,31 @@ describe('DeviceSettingsTab', () => {
             },
             { timeout: TEST_TIMEOUTS.MEDIUM }
         );
+    });
+
+    it('offers Disable for a credentialed device and confirms it', async () => {
+        const user = userEvent.setup();
+        // deviceHandlers.disable.success() is in defaultHandlers
+
+        renderTabWithKey();
+
+        await user.click(screen.getByRole('button', { name: 'Disable…' }));
+        expect(screen.getByText(/Disable "My Router"\?/i)).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Disable device' }));
+
+        await waitFor(
+            () => {
+                expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.MEDIUM }
+        );
+    });
+
+    it('offers Re-enable instead of Disable for a disabled device', () => {
+        renderWithProviders(<DeviceSettingsTab deviceId={1} device={mockDeviceDisabled} />);
+
+        expect(screen.getByRole('button', { name: 'Re-enable' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Disable…' })).not.toBeInTheDocument();
     });
 });

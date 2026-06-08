@@ -20,6 +20,7 @@ export const endpoints = {
     maxActiveAddressesRule: `${BASE}/devices/:deviceId/rules/max-active-addresses`,
     regenerateApiKey: `${BASE}/devices/:deviceId/api-key/regenerate`,
     deleteApiKey: `${BASE}/devices/:deviceId/api-key`,
+    disableDevice: `${BASE}/devices/:deviceId/disable`,
     authMe: `${BASE}/auth/me`,
     authLogin: `${BASE}/auth/login`,
     adminUsers: `${BASE}/admin/users`,
@@ -176,6 +177,20 @@ export const deviceHandlers = {
             http.delete(endpoints.deleteApiKey, () => responses.noContent()),
         notFound: () =>
             http.delete(endpoints.deleteApiKey, () => responses.notFound()),
+    },
+
+    disable: {
+        success: () =>
+            http.post(endpoints.disableDevice, ({ params }) =>
+                HttpResponse.json(
+                    createMockDevice({
+                        id: Number(params.deviceId),
+                        api_key_prefix: null,
+                        disabled_at: '2024-02-01T00:00:00Z',
+                    }),
+                )),
+        notFound: () =>
+            http.post(endpoints.disableDevice, () => responses.notFound()),
     },
 
 };
@@ -474,6 +489,7 @@ export const defaultHandlers = [
     deviceHandlers.create.success(),
     deviceHandlers.delete.success(),
     deviceHandlers.regenerateApiKey.success(),
+    deviceHandlers.disable.success(),
     // Addresses
     addressHandlers.list(),
     addressHandlers.create.success(),

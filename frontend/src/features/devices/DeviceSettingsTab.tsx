@@ -20,16 +20,19 @@ import { useClipboard } from "@/hooks/useClipboard";
 import { useRegenerateApiKey } from "@/features/devices/hooks/useRegenerateApiKey";
 import { useDeleteApiKey } from "@/features/devices/hooks/useDeleteApiKey";
 import { useDeleteDevice } from "@/features/devices/hooks/useDeleteDevice";
+import { useDisableDevice } from "@/features/devices/hooks/useDisableDevice";
 import { useUpdateDevice } from "@/features/devices/hooks/useUpdateDevice";
 import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { DeviceProfileCard } from "@/features/devices/DeviceProfileCard";
+import { DeviceState } from "@/lib/api";
 
 export interface DeviceData {
   name: string;
   api_key_prefix?: string | null;
   description?: string | null;
   icon?: string | null;
+  state?: DeviceState;
   owner_id?: number;
   owner_name?: string;
   created_at?: string | null;
@@ -53,6 +56,7 @@ export function DeviceSettingsTab({
   const regenerateApiKey = useRegenerateApiKey();
   const deleteApiKey = useDeleteApiKey();
   const deleteDevice = useDeleteDevice();
+  const disableDevice = useDisableDevice();
   const updateDevice = useUpdateDevice();
   const { copy } = useClipboard();
 
@@ -62,6 +66,7 @@ export function DeviceSettingsTab({
   });
 
   const hasApiKey = Boolean(device?.api_key_prefix);
+  const isDisabled = device?.state === DeviceState.DISABLED;
 
   // API key modals
   const [confirmRegenOpen, setConfirmRegenOpen] = useState(false);
@@ -75,6 +80,9 @@ export function DeviceSettingsTab({
 
   // Delete device modal
   const [deleteDeviceOpen, setDeleteDeviceOpen] = useState(false);
+
+  // Disable device modal
+  const [disableDeviceOpen, setDisableDeviceOpen] = useState(false);
 
   function handleGenerate() {
     regenerateApiKey.mutate(
@@ -146,6 +154,23 @@ export function DeviceSettingsTab({
                 : toErrorMessage(err),
           });
         },
+      },
+    );
+  }
+
+  function handleConfirmDisable() {
+    disableDevice.mutate(
+      { path: { device_id: deviceId } },
+      {
+        onSuccess: () => {
+          setDisableDeviceOpen(false);
+          notifications.show({
+            color: "green",
+            message: "Device disabled — API key revoked and addresses turned off",
+          });
+        },
+        onError: (err) =>
+          notifications.show({ color: "red", message: toErrorMessage(err) }),
       },
     );
   }
@@ -271,6 +296,46 @@ export function DeviceSettingsTab({
             background: "color-mix(in srgb, var(--mantine-color-red-9) 8%, transparent)",
           }}
         >
+          {(isDisabled || hasApiKey) && (
+            <>
+              <Group justify="space-between" align="flex-start" p="md" wrap="nowrap" gap="xl">
+                <Stack gap={2}>
+                  <Text size="sm" fw={500}>
+                    {isDisabled ? "Re-enable device" : "Disable device"}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {isDisabled
+                      ? "This device is disabled: its API key was revoked and all addresses were turned off. Re-enabling mints a new API key — set it on the device, or re-pair instead."
+                      : "Revoke the API key and turn off all addresses in one step. Reversible — regenerate the key or re-pair to bring it back. Use this for a lost or compromised device."}
+                  </Text>
+                </Stack>
+                {isDisabled ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    style={{ flexShrink: 0 }}
+                    disabled={regenerateApiKey.isPending}
+                    loading={regenerateApiKey.isPending}
+                    onClick={handleGenerate}
+                  >
+                    Re-enable
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    style={{ flexShrink: 0 }}
+                    onClick={() => setDisableDeviceOpen(true)}
+                  >
+                    Disable…
+                  </Button>
+                )}
+              </Group>
+
+              <Divider variant="dashed" color="red.3" />
+            </>
+          )}
+
           <Group justify="space-between" align="flex-start" p="md" wrap="nowrap" gap="xl">
             <Stack gap={2}>
               <Text size="sm" fw={500}>Transfer ownership</Text>
@@ -520,6 +585,45 @@ export function DeviceSettingsTab({
               loading={deleteDevice.isPending}
             >
               Delete device
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* ── Disable device ── */}
+      <Modal
+        opened={disableDeviceOpen}
+        onClose={() => setDisableDeviceOpen(false)}
+        title={`Disable "${device?.name}"?`}
+        closeOnClickOutside={false}
+        closeOnEscape={false}
+        withCloseButton={false}
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            The API key (
+            <Text component="span" ff="monospace">
+              {device?.api_key_prefix}&hellip;
+            </Text>
+            ) will be revoked and all of this device&apos;s addresses turned off immediately, so
+            it stops reaching any host. This is reversible — regenerate the key or re-pair the
+            device to bring it back.
+          </Text>
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="outline"
+              disabled={disableDevice.isPending}
+              onClick={() => setDisableDeviceOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              color="red"
+              onClick={handleConfirmDisable}
+              disabled={disableDevice.isPending}
+              loading={disableDevice.isPending}
+            >
+              Disable device
             </Button>
           </Group>
         </Stack>

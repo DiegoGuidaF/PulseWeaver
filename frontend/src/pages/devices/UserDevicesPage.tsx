@@ -110,6 +110,7 @@ export function UserDevicesPage() {
       api_key_prefix: selectedDevice.api_key_prefix ?? null,
       description: null,
       icon: selectedDevice.icon ?? null,
+      state: selectedDevice.state,
       owner_id: group.owner.id,
       owner_name: group.owner.display_name,
       created_at: selectedDevice.created_at ?? null,
