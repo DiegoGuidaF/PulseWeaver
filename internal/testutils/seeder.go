@@ -174,12 +174,12 @@ var (
 	// 4. allow — multiple contributors for one entry (shared IP, two users)
 	// 5. allow — network policy CIDR match (no device contributors)
 	// 6. allow — bypass network policy CIDR match (no device contributors, any host)
-	FixtureAccessLogAliceAllow         = AccessLogEntryFixture{ClientIP: "10.1.0.1", Outcome: true, Devices: []string{FixtureDeviceWithOwnerAccess.Name}}
-	FixtureAccessLogBobHostDeny        = AccessLogEntryFixture{ClientIP: "10.2.0.1", Outcome: false, DenyReason: new(policy.DenyReasonHostNotAllowed), Devices: []string{FixtureDeviceWithoutOwnerAccess.Name}}
-	FixtureAccessLogUnknownDeny        = AccessLogEntryFixture{ClientIP: "9.9.9.9", Outcome: false, DenyReason: new(policy.DenyReasonIPNotRegistered)}
-	FixtureAccessLogSharedIPAllow      = AccessLogEntryFixture{ClientIP: "10.1.0.1", Outcome: true, Devices: []string{FixtureDeviceWithOwnerAccess.Name, FixtureDeviceBypassAccess.Name}}
-	FixtureAccessLogNetworkPolicyAllow = AccessLogEntryFixture{ClientIP: "10.3.0.1", Outcome: true, PolicyName: FixturePolicyWithGroups.Name}
-	FixtureAccessLogBypassAllow        = AccessLogEntryFixture{ClientIP: "192.168.1.50", Outcome: true, PolicyName: FixturePolicyBypassHostCheck.Name}
+	FixtureAccessLogAliceAllow         = AccessLogEntryFixture{ClientIP: "10.1.0.1", Outcome: true, Devices: []string{FixtureDeviceWithOwnerAccess.Name}, TargetHost: new(FixtureHostBackend1.FQDN)}
+	FixtureAccessLogBobHostDeny        = AccessLogEntryFixture{ClientIP: "10.2.0.1", Outcome: false, DenyReason: new(policy.DenyReasonHostNotAllowed), Devices: []string{FixtureDeviceWithoutOwnerAccess.Name}, TargetHost: new(FixtureHostBackend2.FQDN)}
+	FixtureAccessLogUnknownDeny        = AccessLogEntryFixture{ClientIP: "9.9.9.9", Outcome: false, DenyReason: new(policy.DenyReasonIPNotRegistered), TargetHost: new(FixtureHostFrontend1.FQDN)}
+	FixtureAccessLogSharedIPAllow      = AccessLogEntryFixture{ClientIP: "10.1.0.1", Outcome: true, Devices: []string{FixtureDeviceWithOwnerAccess.Name, FixtureDeviceBypassAccess.Name}, TargetHost: new(FixtureHostFrontend2.FQDN)}
+	FixtureAccessLogNetworkPolicyAllow = AccessLogEntryFixture{ClientIP: "10.3.0.1", Outcome: true, PolicyName: FixturePolicyWithGroups.Name, TargetHost: new(FixtureHostBackend1.FQDN)}
+	FixtureAccessLogBypassAllow        = AccessLogEntryFixture{ClientIP: "192.168.1.50", Outcome: true, PolicyName: FixturePolicyBypassHostCheck.Name, TargetHost: new(FixtureHostFrontend1.FQDN)}
 )
 
 // SeededAdminPassword is the known, login-ready password assigned to every
