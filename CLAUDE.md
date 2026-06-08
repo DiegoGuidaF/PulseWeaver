@@ -54,3 +54,4 @@ Critical rules:
 - Mutation hooks own cache invalidation only — `notifications.show()` calls belong in component callbacks
 - No Tailwind classes; no `cn()` — use Mantine's `style` prop or CSS modules
 - Handlers set `operation` in the logger; services only read via `logging.FromCtx`
+- Comments explain what a future reader needs to understand the code — its intent, a non-obvious constraint, a "why". Do not write comments tied to the moment of authoring: no story/ticket IDs, no "newly added", no "changed from X" / "this used to". Prefer timeless rationale over change-narration; the git history records when and why something changed
