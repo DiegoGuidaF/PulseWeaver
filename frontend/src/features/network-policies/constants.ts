@@ -32,18 +32,15 @@ const MAPPED_V4_RE = /^::ffff:\d{1,3}(\.\d{1,3}){3}$/i;
 
 export type CidrBand = "normal" | "warn" | "reject";
 
-/** Error shown when a CIDR is broad enough to be rejected by the server. */
-export const CIDR_TOO_BROAD_ERROR =
-    "This range is too broad — it covers an entire network operator's address space. " +
-    "The broadest allowed prefix is /9 (IPv4) or /33 (IPv6).";
+interface ParsedCidr {
+    /** IPv4 (or 4-in-6 mapped) ranges measure host bits on the 32-bit scale. */
+    isV4: boolean;
+    /** Prefix length, normalized to the IPv4 scale for mapped addresses. */
+    bits: number;
+}
 
-/**
- * Classifies how much address space a CIDR covers, mirroring the backend.
- * Returns "normal" for anything invalid so callers can rely on isValidCidr
- * separately for the malformed case.
- */
-export function classifyCidr(value: string): CidrBand {
-    if (!isValidCidr(value)) return "normal";
+function parseCidr(value: string): ParsedCidr | null {
+    if (!isValidCidr(value)) return null;
 
     const slash = value.lastIndexOf("/");
     const addr = value.slice(0, slash);
@@ -54,11 +51,48 @@ export function classifyCidr(value: string): CidrBand {
     const isV4 = !addr.includes(":") || mapped;
     if (mapped) bits -= 96;
 
-    const rejectMax = isV4 ? REJECT_MAX_BITS_V4 : REJECT_MAX_BITS_V6;
-    const warnMax = isV4 ? WARN_MAX_BITS_V4 : WARN_MAX_BITS_V6;
+    return { isV4, bits };
+}
 
-    if (bits <= rejectMax) return "reject";
-    if (bits <= warnMax) return "warn";
+/** Abbreviates a large count to a short K/M/B form, exact below 1000. */
+function abbreviateCount(n: number): string {
+    if (n < 1_000) return n.toLocaleString();
+    const trim = (x: number) => x.toFixed(1).replace(/\.0$/, "");
+    if (n < 1_000_000) return `~${trim(n / 1_000)}K`;
+    if (n < 1_000_000_000) return `~${trim(n / 1_000_000)}M`;
+    return `~${trim(n / 1_000_000_000)}B`;
+}
+
+/**
+ * Short, human address-space size for a CIDR — e.g. "256 addresses",
+ * "~16.8M addresses", or "2^96 addresses" for IPv6 (whose counts are
+ * astronomically large). Null when the range is invalid.
+ */
+export function formatAddressCount(value: string): string | null {
+    const parsed = parseCidr(value);
+    if (!parsed) return null;
+
+    if (parsed.isV4) {
+        const count = 2 ** (32 - parsed.bits);
+        return `${abbreviateCount(count)} ${count === 1 ? "address" : "addresses"}`;
+    }
+    return `2^${128 - parsed.bits} addresses`;
+}
+
+/**
+ * Classifies how much address space a CIDR covers, mirroring the backend.
+ * Returns "normal" for anything invalid so callers can rely on isValidCidr
+ * separately for the malformed case.
+ */
+export function classifyCidr(value: string): CidrBand {
+    const parsed = parseCidr(value);
+    if (!parsed) return "normal";
+
+    const rejectMax = parsed.isV4 ? REJECT_MAX_BITS_V4 : REJECT_MAX_BITS_V6;
+    const warnMax = parsed.isV4 ? WARN_MAX_BITS_V4 : WARN_MAX_BITS_V6;
+
+    if (parsed.bits <= rejectMax) return "reject";
+    if (parsed.bits <= warnMax) return "warn";
     return "normal";
 }
 
@@ -68,17 +102,26 @@ export function classifyCidr(value: string): CidrBand {
  */
 export function broadCidrWarning(value: string): string | null {
     if (classifyCidr(value) !== "warn") return null;
+    return `Covers ${formatAddressCount(value)} — everyone in it will match this policy once it is granted hosts or bypass.`;
+}
 
-    const slash = value.lastIndexOf("/");
-    const addr = value.slice(0, slash);
-    const mapped = MAPPED_V4_RE.test(addr);
-    const isV4 = !addr.includes(":") || mapped;
-    const tail = " Everyone in it will match this policy once it is granted hosts or bypass.";
+/**
+ * Error shown when a CIDR is broad enough to be rejected by the server. Quantifies
+ * the range so its voice matches the warn-band copy.
+ */
+export function cidrTooBroadError(value: string): string {
+    const count = formatAddressCount(value);
+    const size = count ? `covers ${count}` : "covers an entire network operator's address space";
+    return `Too broad: ${size}. The broadest allowed prefix is /9 (IPv4) or /33 (IPv6).`;
+}
 
-    if (isV4) {
-        const bits = Number(value.slice(slash + 1)) - (mapped ? 96 : 0);
-        const count = 2 ** (32 - bits);
-        return `This range covers ~${count.toLocaleString()} addresses.${tail}`;
-    }
-    return `This range spans many subnets — well beyond a single site.${tail}`;
+/**
+ * Informational size note for a narrow (normal-band) CIDR — e.g. "Covers 256
+ * addresses." Null when the range is invalid, broad, or too broad (those surface
+ * their own warning/error instead).
+ */
+export function normalCidrNote(value: string): string | null {
+    if (classifyCidr(value) !== "normal") return null;
+    const count = formatAddressCount(value);
+    return count ? `Covers ${count}.` : null;
 }

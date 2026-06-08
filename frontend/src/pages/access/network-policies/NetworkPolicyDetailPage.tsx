@@ -54,7 +54,10 @@ export function NetworkPolicyDetailPage() {
 
     useUnsavedChangesGuard(dirty);
 
-    function handleUpdate(partial: Partial<ModifyNetworkPolicyRequest>) {
+    function handleUpdate(
+        partial: Partial<ModifyNetworkPolicyRequest>,
+        opts?: { onSuccess?: () => void },
+    ) {
         if (!data) return;
         updateMutation.mutate(
             {
@@ -68,6 +71,7 @@ export function NetworkPolicyDetailPage() {
                 },
             },
             {
+                onSuccess: () => opts?.onSuccess?.(),
                 onError: (err) =>
                     notifications.show({ color: "red", message: toErrorMessage(err) }),
             },

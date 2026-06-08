@@ -31,6 +31,37 @@ describe('NetworkPoliciesPage', () => {
         });
     });
 
+    describe('bypass badge breadth', () => {
+        it('flags a broad bypass range as "broad" but leaves a narrow one plain', async () => {
+            server.use(
+                networkPolicyHandlers.list.success([
+                    createMockNetworkPolicyListItem({
+                        id: 1,
+                        name: 'Wide Net',
+                        cidr: '10.0.0.0/8',
+                        bypass_host_check: true,
+                    }),
+                    createMockNetworkPolicyListItem({
+                        id: 2,
+                        name: 'Tight Net',
+                        cidr: '192.168.1.0/24',
+                        bypass_host_check: true,
+                    }),
+                ]),
+            );
+
+            renderWithProviders(<NetworkPoliciesPage />);
+
+            await waitFor(
+                () => expect(screen.getByText('Wide Net')).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            // Exactly one badge carries the "broad" flag — the /8 range.
+            expect(screen.getByText(/· broad/i)).toBeInTheDocument();
+        });
+    });
+
     describe('with ?group_id URL param', () => {
         it('shows only policies belonging to that group', async () => {
             server.use(

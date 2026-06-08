@@ -63,6 +63,25 @@ describe('CreateNetworkPolicyModal — CIDR validation', () => {
         expect(onCreated).not.toHaveBeenCalled();
     });
 
+    it('shows a quantified size note for a normal range', async () => {
+        const user = userEvent.setup();
+        renderModal();
+
+        await user.type(screen.getByLabelText(/cidr range/i), '192.168.1.0/24');
+
+        expect(await screen.findByText(/covers 256 addresses/i)).toBeInTheDocument();
+    });
+
+    it('flags a too-broad CIDR while typing, before submit', async () => {
+        const user = userEvent.setup();
+        renderModal();
+
+        await user.type(screen.getByLabelText(/cidr range/i), '0.0.0.0/0');
+
+        // No submit click — inline validation surfaces the error on change.
+        expect(await screen.findByText(/too broad/i)).toBeInTheDocument();
+    });
+
     it('warns but allows a large-but-permitted CIDR', async () => {
         const user = userEvent.setup();
         server.use(networkPolicyHandlers.create.success());

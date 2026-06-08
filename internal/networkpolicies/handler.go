@@ -128,8 +128,12 @@ func toNetworkPolicyResponse(p NetworkPolicy) httpapi.NetworkPolicyDetail {
 		Description:     p.Description,
 		Enabled:         p.Enabled,
 		BypassHostCheck: p.BypassHostCheck,
-		CreatedAt:       httpapi.UTCTime(p.CreatedAt),
-		UpdatedAt:       httpapi.UTCTime(p.UpdatedAt),
+		// A freshly created policy has no group assignments; the detail view
+		// refetch populates the authoritative all-groups list. Stay non-nil so the
+		// response serializes "groups": [] rather than null (a required array field).
+		Groups:    []httpapi.SubjectGroupDetail{},
+		CreatedAt: httpapi.UTCTime(p.CreatedAt),
+		UpdatedAt: httpapi.UTCTime(p.UpdatedAt),
 	}
 }
 

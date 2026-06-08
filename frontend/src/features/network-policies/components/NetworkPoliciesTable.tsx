@@ -11,6 +11,7 @@ import { toErrorMessage } from "@/lib/api-client";
 import { EmptyState } from "@/components/EmptyState";
 import { formatEffectiveAccess } from "@/features/subjects/constants";
 import { GroupFilterBar } from "@/features/subjects/components/GroupFilterBar";
+import { classifyCidr, formatAddressCount } from "../constants";
 import { useDeleteNetworkPolicy } from "../hooks/useDeleteNetworkPolicy";
 import { DeleteNetworkPolicyModal } from "./DeleteNetworkPolicyModal";
 
@@ -162,6 +163,19 @@ export function NetworkPoliciesTable({ policies, onNewPolicy }: Props) {
             render: (p) => {
               const text = formatEffectiveAccess(p);
               if (p.bypass_host_check) {
+                // A broad bypass grants the whole range unconditionally — flag it
+                // red with the address count so it can't hide among narrow ones.
+                if (classifyCidr(p.cidr) !== "normal") {
+                  const count = formatAddressCount(p.cidr);
+                  return (
+                    <Tooltip
+                      label={`Bypass over a broad range${count ? ` — ${count}` : ""}`}
+                      withArrow
+                    >
+                      <Badge size="sm" color="red" variant="light">{text} · broad</Badge>
+                    </Tooltip>
+                  );
+                }
                 return <Badge size="sm" color="orange" variant="light">{text}</Badge>;
               }
               return <Text size="sm" c={p.host_count === 0 ? "dimmed" : undefined}>{text}</Text>;

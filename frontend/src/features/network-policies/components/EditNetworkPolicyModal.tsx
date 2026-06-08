@@ -3,64 +3,53 @@ import { z } from "zod";
 import { Alert, Button, Group, Modal, Stack, Text, Textarea, TextInput } from "@mantine/core";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
-import { zCreateNetworkPolicyRequest } from "@/lib/api/zod.gen";
-import { toApiError, toErrorMessage } from "@/lib/api-client";
-import { useCreateNetworkPolicy } from "../hooks/useCreateNetworkPolicy";
+import { zModifyNetworkPolicyRequest } from "@/lib/api/zod.gen";
 import { broadCidrWarning, cidrTooBroadError, CIDR_ERROR, CIDR_EXAMPLE, classifyCidr, isValidCidr, normalCidrNote } from "../constants";
-import type { NetworkPolicyDetail } from "@/lib/api";
+import type { ModifyNetworkPolicyRequest, NetworkPolicyDetail } from "@/lib/api";
 
-const formSchema = zCreateNetworkPolicyRequest.superRefine((val, ctx) => {
-    if (!val.cidr) return;
-    if (!isValidCidr(val.cidr)) {
-        ctx.addIssue({ code: "custom", path: ["cidr"], message: CIDR_ERROR });
-    } else if (classifyCidr(val.cidr) === "reject") {
-        ctx.addIssue({ code: "custom", path: ["cidr"], message: cidrTooBroadError(val.cidr) });
-    }
-});
+const formSchema = zModifyNetworkPolicyRequest
+    .pick({ name: true, cidr: true, description: true })
+    .superRefine((val, ctx) => {
+        if (!val.cidr) return;
+        if (!isValidCidr(val.cidr)) {
+            ctx.addIssue({ code: "custom", path: ["cidr"], message: CIDR_ERROR });
+        } else if (classifyCidr(val.cidr) === "reject") {
+            ctx.addIssue({ code: "custom", path: ["cidr"], message: cidrTooBroadError(val.cidr) });
+        }
+    });
 
 type FormValues = z.infer<typeof formSchema>;
 
 interface Props {
+    policy: NetworkPolicyDetail;
     opened: boolean;
     onClose: () => void;
-    onCreated: (policy: NetworkPolicyDetail) => void;
+    onUpdate: (fields: Partial<ModifyNetworkPolicyRequest>, opts?: { onSuccess?: () => void }) => void;
+    isUpdating?: boolean;
 }
 
-export function CreateNetworkPolicyModal({ opened, onClose, onCreated }: Props) {
+export function EditNetworkPolicyModal({ policy, opened, onClose, onUpdate, isUpdating }: Props) {
     const form = useForm<FormValues>({
         validateInputOnBlur: true,
         validateInputOnChange: ["cidr"],
         validate: schemaResolver(formSchema),
-        initialValues: { name: "", cidr: "", description: null },
-    });
-
-    const createMutation = useCreateNetworkPolicy({
-        onSuccess: (data) => {
-            form.reset();
-            notifications.show({ color: "green", message: `Policy "${data.name}" created.` });
-            onCreated(data);
+        initialValues: {
+            name: policy.name,
+            cidr: policy.cidr,
+            description: policy.description ?? null,
         },
     });
 
     const cidrWarning = broadCidrWarning(form.values.cidr);
     const cidrNote = normalCidrNote(form.values.cidr);
 
-    function handleClose() {
-        form.reset();
-        onClose();
-    }
-
     function onSubmit(values: FormValues) {
-        createMutation.mutate(
-            { body: { name: values.name, cidr: values.cidr, description: values.description ?? null } },
+        onUpdate(
+            { name: values.name, cidr: values.cidr, description: values.description ?? "" },
             {
-                onError: (err) => {
-                    const status = toApiError(err).status;
-                    if (status === 409) {
-                        form.setFieldError("cidr", "A policy with this CIDR already exists.");
-                    } else {
-                        notifications.show({ color: "red", title: "Error creating policy", message: toErrorMessage(err) });
-                    }
+                onSuccess: () => {
+                    notifications.show({ color: "green", message: "Policy updated." });
+                    onClose();
                 },
             },
         );
@@ -69,8 +58,8 @@ export function CreateNetworkPolicyModal({ opened, onClose, onCreated }: Props) 
     return (
         <Modal
             opened={opened}
-            onClose={handleClose}
-            title="New network policy"
+            onClose={onClose}
+            title="Edit network policy"
             size="md"
             closeOnClickOutside={false}
         >
@@ -117,15 +106,12 @@ export function CreateNetworkPolicyModal({ opened, onClose, onCreated }: Props) 
                         }
                         error={form.errors.description}
                     />
-                    <Text size="xs" c="dimmed">
-                        You&apos;ll assign host access on the next screen.
-                    </Text>
                     <Group justify="flex-end" gap="sm">
-                        <Button variant="outline" onClick={handleClose} disabled={createMutation.isPending}>
+                        <Button variant="outline" onClick={onClose} disabled={isUpdating}>
                             Cancel
                         </Button>
-                        <Button type="submit" loading={createMutation.isPending}>
-                            Create policy
+                        <Button type="submit" loading={isUpdating}>
+                            Save changes
                         </Button>
                     </Group>
                 </Stack>

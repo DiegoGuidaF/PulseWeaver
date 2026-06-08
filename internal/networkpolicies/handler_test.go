@@ -28,6 +28,7 @@ func TestHandler_CreateNetworkPolicy(t *testing.T) {
 	is.Equal(resp.JSON201.Name, "home")
 	is.Equal(resp.JSON201.Cidr, "192.168.1.0/24") // host bits zeroed
 	is.True(resp.JSON201.Enabled)
+	is.True(resp.JSON201.Groups != nil) // must serialize as [] not null for the SDK's array contract
 }
 
 func TestHandler_CreateNetworkPolicy_InvalidCIDR(t *testing.T) {
