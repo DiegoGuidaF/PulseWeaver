@@ -1,20 +1,20 @@
 import { schemaResolver, useForm } from "@mantine/form";
 import { z } from "zod";
-import { Button, Group, Modal, Stack, Text, Textarea, TextInput } from "@mantine/core";
+import { Alert, Button, Group, Modal, Stack, Text, Textarea, TextInput } from "@mantine/core";
+import { IconAlertTriangle } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { zCreateNetworkPolicyRequest } from "@/lib/api/zod.gen";
 import { toApiError, toErrorMessage } from "@/lib/api-client";
 import { useCreateNetworkPolicy } from "../hooks/useCreateNetworkPolicy";
-import { CIDR_ERROR, CIDR_EXAMPLE, isValidCidr } from "../constants";
+import { broadCidrWarning, CIDR_ERROR, CIDR_EXAMPLE, CIDR_TOO_BROAD_ERROR, classifyCidr, isValidCidr } from "../constants";
 import type { NetworkPolicyDetail } from "@/lib/api";
 
 const formSchema = zCreateNetworkPolicyRequest.superRefine((val, ctx) => {
-    if (val.cidr && !isValidCidr(val.cidr)) {
-        ctx.addIssue({
-            code: "custom",
-            path: ["cidr"],
-            message: CIDR_ERROR,
-        });
+    if (!val.cidr) return;
+    if (!isValidCidr(val.cidr)) {
+        ctx.addIssue({ code: "custom", path: ["cidr"], message: CIDR_ERROR });
+    } else if (classifyCidr(val.cidr) === "reject") {
+        ctx.addIssue({ code: "custom", path: ["cidr"], message: CIDR_TOO_BROAD_ERROR });
     }
 });
 
@@ -39,6 +39,8 @@ export function CreateNetworkPolicyModal({ opened, onClose, onCreated }: Props) 
             onCreated(data);
         },
     });
+
+    const cidrWarning = broadCidrWarning(form.values.cidr);
 
     function handleClose() {
         form.reset();
@@ -89,6 +91,17 @@ export function CreateNetworkPolicyModal({ opened, onClose, onCreated }: Props) 
                         <Text size="xs" c="dimmed" mt={4}>
                             Host bits are zeroed automatically
                         </Text>
+                        {cidrWarning && (
+                            <Alert
+                                variant="light"
+                                color="yellow"
+                                icon={<IconAlertTriangle size={16} />}
+                                mt="xs"
+                                p="xs"
+                            >
+                                {cidrWarning}
+                            </Alert>
+                        )}
                     </div>
                     <Textarea
                         label="Description"

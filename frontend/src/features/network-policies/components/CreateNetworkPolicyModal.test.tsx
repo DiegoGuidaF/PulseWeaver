@@ -23,7 +23,7 @@ describe('CreateNetworkPolicyModal — CIDR validation', () => {
         const { onCreated } = renderModal();
 
         await user.type(screen.getByLabelText(/name/i), 'IPv6 Net');
-        await user.type(screen.getByLabelText(/cidr range/i), '2001:db8::/32');
+        await user.type(screen.getByLabelText(/cidr range/i), '2001:db8::/48');
         await user.click(screen.getByRole('button', { name: /create policy/i }));
 
         await waitFor(
@@ -46,5 +46,38 @@ describe('CreateNetworkPolicyModal — CIDR validation', () => {
             { timeout: TEST_TIMEOUTS.MEDIUM },
         );
         expect(onCreated).not.toHaveBeenCalled();
+    });
+
+    it('blocks submit for a too-broad CIDR', async () => {
+        const user = userEvent.setup();
+        const { onCreated } = renderModal();
+
+        await user.type(screen.getByLabelText(/name/i), 'Allow All');
+        await user.type(screen.getByLabelText(/cidr range/i), '0.0.0.0/0');
+        await user.click(screen.getByRole('button', { name: /create policy/i }));
+
+        await waitFor(
+            () => expect(screen.getByText(/too broad/i)).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.MEDIUM },
+        );
+        expect(onCreated).not.toHaveBeenCalled();
+    });
+
+    it('warns but allows a large-but-permitted CIDR', async () => {
+        const user = userEvent.setup();
+        server.use(networkPolicyHandlers.create.success());
+        const { onCreated } = renderModal();
+
+        await user.type(screen.getByLabelText(/name/i), 'Big Net');
+        await user.type(screen.getByLabelText(/cidr range/i), '10.0.0.0/12');
+
+        // Non-blocking blast-radius warning surfaces live.
+        expect(await screen.findByText(/everyone in it will match/i)).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: /create policy/i }));
+        await waitFor(
+            () => expect(onCreated).toHaveBeenCalledTimes(1),
+            { timeout: TEST_TIMEOUTS.MEDIUM },
+        );
     });
 });
