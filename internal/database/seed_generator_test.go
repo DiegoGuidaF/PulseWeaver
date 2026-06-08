@@ -75,8 +75,16 @@ func TestGenerateSeedDB(t *testing.T) {
 	}
 
 	// No background services started — generation is a synchronous seed + flush.
+	// SeedFullWorld plus extras the base world lacks: observed host suggestions
+	// and an IPv6 grant + address. Chained here rather than added to SeedFullWorld
+	// so the cross-domain query tests' entity-count assertions stay stable.
 	testutils.SeedFullWorld(t).
 		WithAccessLogVolume(accessLogVolume(t)).
+		WithObservedHost("photos.internal", 3).        // real service to promote
+		WithObservedHost("crawler-bot.junk", 2).       // crawler noise to ignore
+		WithObservedHost("wp-login.php.scan.test", 1). // attack scan noise
+		WithPolicy(testutils.FixturePolicyIPv6).
+		WithAddress(testutils.FixtureAddressIPv6).
 		Build(application)
 
 	if err := application.Close(); err != nil {

@@ -239,6 +239,19 @@ var (
 	}
 )
 
+// ── IPv6 fixtures (seed-generator only) ───────────────────────────────────────
+//
+// Kept out of SeedFullWorld so it does not shift the entity counts the
+// cross-domain query tests assert. The seed-DB generator chains these on so the
+// generated artifact exercises IPv6 grants and addresses.
+var (
+	// IPv6 site allocation in the "normal" band (/48 is narrower than the /47 warn
+	// line), so it is accepted without the broad-CIDR flag.
+	FixturePolicyIPv6 = PolicyFixture{Name: "home-ipv6", CIDR: "2001:db8::/48", Desc: "IPv6 home LAN"}
+	// An IPv6 address making grace-multi dual-stack, for IPv6 rendering.
+	FixtureAddressIPv6 = AddressFixture{Device: FixtureDeviceMultiAddr.Name, IP: "2001:db8::1"}
+)
+
 // ── relational spec types (internal) ─────────────────────────────────────────
 
 type policyAccessSpec struct {
@@ -349,7 +362,16 @@ type Seeder struct {
 	pairings         []PairingFixture
 	accessLogEntries []AccessLogEntryFixture
 	accessLogVolume  int
+	observedHosts    []observedHostSpec
 	initPolicy       bool
+}
+
+// observedHostSpec records an FQDN that should appear in the access log as
+// observed traffic (denied, no-contributor rows), surfacing it as a host
+// suggestion. count controls how many rows, so suggestion ordering can be exercised.
+type observedHostSpec struct {
+	fqdn  string
+	count int
 }
 
 // NewSeeder returns a fresh Seeder. Call With* methods to declare fixtures, then
@@ -525,6 +547,23 @@ func (s *Seeder) WithAccessLogVolume(n int) *Seeder {
 		s.t.Fatalf("Seeder.WithAccessLogVolume: n must be non-negative (got %d)", n)
 	}
 	s.accessLogVolume = n
+	return s
+}
+
+// WithObservedHost appends `count` denied, no-contributor access-log rows whose
+// target_host is fqdn, spread over distinct client IPs. Because host suggestions
+// are derived from access_log.target_host (for FQDNs that are neither a known
+// host nor ignored), this surfaces fqdn as a suggestion; varying count across
+// calls exercises the frequency-based ordering.
+func (s *Seeder) WithObservedHost(fqdn string, count int) *Seeder {
+	s.t.Helper()
+	if fqdn == "" {
+		s.t.Fatalf("Seeder.WithObservedHost: fqdn is required")
+	}
+	if count <= 0 {
+		s.t.Fatalf("Seeder.WithObservedHost: count must be positive (fqdn=%q)", fqdn)
+	}
+	s.observedHosts = append(s.observedHosts, observedHostSpec{fqdn: fqdn, count: count})
 	return s
 }
 
@@ -856,7 +895,7 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 	}
 
 	// 10. Access log entries (explicit fixtures + opt-in synthetic volume)
-	if len(s.accessLogEntries) > 0 || s.accessLogVolume > 0 {
+	if len(s.accessLogEntries) > 0 || s.accessLogVolume > 0 || len(s.observedHosts) > 0 {
 		events := make([]policy.DecisionEvent, 0, len(s.accessLogEntries)+s.accessLogVolume)
 		for _, f := range s.accessLogEntries {
 			e := policy.DecisionEvent{
@@ -913,6 +952,24 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 				CreatedAt:  time.Now().UTC(),
 				Headers:    map[string][]string{},
 			})
+		}
+		// Observed-but-unknown hosts: denied, no-contributor rows carrying a
+		// target_host, which surfaces the FQDN as a host suggestion. Distinct
+		// client IPs in TEST-NET-3 (203.0.113.0/24) keep rows independent.
+		obsIP := 1
+		for _, oh := range s.observedHosts {
+			for i := 0; i < oh.count; i++ {
+				host := oh.fqdn
+				events = append(events, policy.DecisionEvent{
+					ClientIP:   fmt.Sprintf("203.0.113.%d", obsIP),
+					Outcome:    false,
+					DenyReason: new(policy.DenyReasonIPNotRegistered),
+					CreatedAt:  time.Now().UTC(),
+					Headers:    map[string][]string{},
+					TargetHost: &host,
+				})
+				obsIP++
+			}
 		}
 		accessLogRepo := accesslog.NewRepository(srv.Database.DB())
 		if err := accessLogRepo.BatchInsert(ctx, events); err != nil {
