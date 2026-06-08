@@ -419,7 +419,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Device'
+                $ref: '#/components/schemas/CreateDeviceResult'
         '400':
           description: Bad Request
           content:
@@ -591,6 +591,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeviceAPIKeyResponse'
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /devices/{device_id}/disable:
+    post:
+      operationId: disableDevice
+      summary: Disable a device
+      description: |
+        Reversibly disables a device: revokes its API key and disables all active addresses in one call, then marks the device "Disabled". Distinct from delete (which is permanent) — re-credentialing the device (a pairing claim or an API key regenerate) re-enables it. Admin-only.
+      tags:
+        - devices
+      parameters:
+        - name: device_id
+          in: path
+          description: Device id
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        '200':
+          description: Device disabled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
         '404':
           description: Device not found
           content:
@@ -2602,6 +2636,36 @@ components:
           type: integer
           nullable: true
           description: Admin only. Owner to assign the device to. Ignored for regular users (always assigned to self). When omitted by an admin, defaults to the calling admin's own ID.
+        device_type:
+          $ref: '#/components/schemas/DeviceType'
+        description:
+          type: string
+          nullable: true
+          maxLength: 200
+          x-go-type: NullableString
+          x-go-type-skip-optional-pointer: true
+          description: Free-form note about the device.
+        icon:
+          type: string
+          nullable: true
+          maxLength: 80
+          x-go-type: NullableString
+          x-go-type-skip-optional-pointer: true
+          description: Tabler icon name override (e.g. "IconRouter").
+        generate_api_key:
+          type: boolean
+          description: When true, an API key is minted in the same transaction and returned once in the response. Use for the "API key" credential choice; pairing-code devices are created without a key (the key is minted on claim).
+    CreateDeviceResult:
+      type: object
+      required:
+        - device
+      properties:
+        device:
+          $ref: '#/components/schemas/Device'
+        api_key:
+          type: string
+          nullable: true
+          description: The raw device API key. Present once, only when generate_api_key was set; cannot be retrieved again.
     UpdateDeviceRequest:
       type: object
       properties:
@@ -2611,11 +2675,7 @@ components:
           maxLength: 50
           description: New name for the device
         device_type:
-          type: string
-          enum:
-            - static
-            - mobile
-          description: Network behaviour classification.
+          $ref: '#/components/schemas/DeviceType'
         description:
           type: string
           nullable: true
@@ -2661,11 +2721,7 @@ components:
           minLength: 1
           maxLength: 50
         device_type:
-          type: string
-          enum:
-            - static
-            - mobile
-          description: Network behaviour classification. Defaults to "static".
+          $ref: '#/components/schemas/DeviceType'
         description:
           type: string
           nullable: true
@@ -2680,6 +2736,13 @@ components:
           type: string
           nullable: true
           description: Prefix of the device API key (for display only). Null if no API key has been generated yet.
+        disabled_at:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          x-go-type: UTCTime
+          description: When the device was disabled, or null if active. A disabled device has its API key revoked and all addresses disabled until it is re-credentialed.
         live_address_count:
           type: integer
           minimum: 0
@@ -2700,6 +2763,13 @@ components:
           type: string
           readOnly: true
           description: Display name of the owning user (for display only).
+    DeviceType:
+      type: string
+      enum:
+        - static
+        - mobile
+      description: |
+        Network behaviour classification, derived from the credential. static: manually-managed, stable IP (no credential). mobile: updates its own addresses via the API (API key or pairing). Defaults to "static".
     DeviceTypeItem:
       type: object
       required:
@@ -2726,10 +2796,11 @@ components:
       enum:
         - healthy
         - stale
+        - disabled
         - pending-claim
         - expired-claim
       description: |
-        Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+        Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: API key revoked and all addresses disabled; recoverable by re-credentialing. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
     DeviceRuleSummary:
       type: object
       required:

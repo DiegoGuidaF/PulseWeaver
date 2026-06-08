@@ -39,7 +39,7 @@ devices:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/devices.yaml#/Device'
+              $ref: '../components/schemas/devices.yaml#/CreateDeviceResult'
       "400":
         description: Bad Request
         content:
@@ -192,6 +192,43 @@ regenerateApiKey:
             schema:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
       '500':
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+disableDevice:
+  post:
+    operationId: disableDevice
+    summary: Disable a device
+    description: >
+      Reversibly disables a device: revokes its API key and disables all active
+      addresses in one call, then marks the device "Disabled". Distinct from delete
+      (which is permanent) — re-credentialing the device (a pairing claim or an API
+      key regenerate) re-enables it. Admin-only.
+    tags: [ devices ]
+    parameters:
+      - name: device_id
+        in: path
+        description: Device id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: Device disabled successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/devices.yaml#/Device'
+      "404":
+        description: Device not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
         description: Internal Server Error
         content:
           application/json:

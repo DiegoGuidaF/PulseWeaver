@@ -1,0 +1,5 @@
+BEGIN TRANSACTION;
+
+ALTER TABLE devices DROP COLUMN disabled_at;
+
+COMMIT;

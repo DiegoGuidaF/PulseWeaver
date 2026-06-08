@@ -252,6 +252,9 @@ type ClientInterface interface {
 	// RegenerateDeviceAPIKey request
 	RegenerateDeviceAPIKey(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DisableDevice request
+	DisableDevice(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeviceHeartbeat request
 	DeviceHeartbeat(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1003,6 +1006,18 @@ func (c *Client) DeleteDeviceAPIKey(ctx context.Context, deviceId ID, reqEditors
 
 func (c *Client) RegenerateDeviceAPIKey(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRegenerateDeviceAPIKeyRequest(c.Server, deviceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DisableDevice(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDisableDeviceRequest(c.Server, deviceId)
 	if err != nil {
 		return nil, err
 	}
@@ -3364,6 +3379,40 @@ func NewRegenerateDeviceAPIKeyRequest(server string, deviceId ID) (*http.Request
 	return req, nil
 }
 
+// NewDisableDeviceRequest generates requests for DisableDevice
+func NewDisableDeviceRequest(server string, deviceId ID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "device_id", runtime.ParamLocationPath, deviceId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/devices/%s/disable", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeviceHeartbeatRequest generates requests for DeviceHeartbeat
 func NewDeviceHeartbeatRequest(server string, deviceId ID) (*http.Request, error) {
 	var err error
@@ -4125,6 +4174,9 @@ type ClientWithResponsesInterface interface {
 
 	// RegenerateDeviceAPIKeyWithResponse request
 	RegenerateDeviceAPIKeyWithResponse(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*RegenerateDeviceAPIKeyTestClientResponse, error)
+
+	// DisableDeviceWithResponse request
+	DisableDeviceWithResponse(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*DisableDeviceTestClientResponse, error)
 
 	// DeviceHeartbeatWithResponse request
 	DeviceHeartbeatWithResponse(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*DeviceHeartbeatTestClientResponse, error)
@@ -5097,7 +5149,7 @@ func (r GetDevicesTestClientResponse) StatusCode() int {
 type CreateDeviceTestClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *Device
+	JSON201      *CreateDeviceResult
 	JSON400      *ErrorResponse
 	JSON409      *ErrorResponse
 	JSON500      *ErrorResponse
@@ -5286,6 +5338,30 @@ func (r RegenerateDeviceAPIKeyTestClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r RegenerateDeviceAPIKeyTestClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DisableDeviceTestClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Device
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DisableDeviceTestClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DisableDeviceTestClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6145,6 +6221,15 @@ func (c *ClientWithResponses) RegenerateDeviceAPIKeyWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseRegenerateDeviceAPIKeyTestClientResponse(rsp)
+}
+
+// DisableDeviceWithResponse request returning *DisableDeviceTestClientResponse
+func (c *ClientWithResponses) DisableDeviceWithResponse(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*DisableDeviceTestClientResponse, error) {
+	rsp, err := c.DisableDevice(ctx, deviceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDisableDeviceTestClientResponse(rsp)
 }
 
 // DeviceHeartbeatWithResponse request returning *DeviceHeartbeatTestClientResponse
@@ -7994,7 +8079,7 @@ func ParseCreateDeviceTestClientResponse(rsp *http.Response) (*CreateDeviceTestC
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest Device
+		var dest CreateDeviceResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -8317,6 +8402,46 @@ func ParseRegenerateDeviceAPIKeyTestClientResponse(rsp *http.Response) (*Regener
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest DeviceAPIKeyResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDisableDeviceTestClientResponse parses an HTTP response from a DisableDeviceWithResponse call
+func ParseDisableDeviceTestClientResponse(rsp *http.Response) (*DisableDeviceTestClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DisableDeviceTestClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Device
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

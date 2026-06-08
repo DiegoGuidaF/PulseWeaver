@@ -56,6 +56,9 @@ import type {
   DisableDeviceAddressLeaseRuleData,
   DisableDeviceAddressLeaseRuleErrors,
   DisableDeviceAddressLeaseRuleResponses,
+  DisableDeviceData,
+  DisableDeviceErrors,
+  DisableDeviceResponses,
   DisableMaxActiveAddressesRuleData,
   DisableMaxActiveAddressesRuleErrors,
   DisableMaxActiveAddressesRuleResponses,
@@ -217,6 +220,8 @@ import {
   zDisableAddressResponse,
   zDisableDeviceAddressLeaseRulePath,
   zDisableDeviceAddressLeaseRuleResponse,
+  zDisableDevicePath,
+  zDisableDeviceResponse,
   zDisableMaxActiveAddressesRulePath,
   zDisableMaxActiveAddressesRuleResponse,
   zGetAccessLogByCountryQuery,
@@ -904,6 +909,41 @@ export const regenerateDeviceApiKey = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/devices/{device_id}/api-key/regenerate",
+    ...options,
+  });
+
+/**
+ * Disable a device
+ *
+ * Reversibly disables a device: revokes its API key and disables all active addresses in one call, then marks the device "Disabled". Distinct from delete (which is permanent) — re-credentialing the device (a pairing claim or an API key regenerate) re-enables it. Admin-only.
+ *
+ */
+export const disableDevice = <ThrowOnError extends boolean = false>(
+  options: Options<DisableDeviceData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    DisableDeviceResponses,
+    DisableDeviceErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: zDisableDevicePath,
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zDisableDeviceResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/devices/{device_id}/disable",
     ...options,
   });
 

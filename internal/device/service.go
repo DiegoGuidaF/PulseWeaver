@@ -17,6 +17,7 @@ type repository interface {
 	GetDeviceIDsByOwner(ctx context.Context, ownerID ids.UserID) ([]ids.DeviceID, error)
 	CreateDevice(ctx context.Context, params CreateDeviceParams) (*Device, error)
 	DeleteDevice(ctx context.Context, id ids.DeviceID) error
+	SetDeviceDisabled(ctx context.Context, id ids.DeviceID, disabled bool) error
 	UpdateDevice(ctx context.Context, device *Device) (*Device, error)
 	UpsertAPIKey(ctx context.Context, deviceID ids.DeviceID, keyHash string, keyPrefix string) error
 	DeleteAPIKey(ctx context.Context, deviceID ids.DeviceID) error
@@ -86,20 +87,75 @@ func (s *Service) GetDevice(ctx context.Context, deviceID ids.DeviceID) (*Device
 	return device, nil
 }
 
+// CreateDeviceInput carries the full set of create-time choices. Profile fields
+// and the credential are optional — a device is valid with only a name and owner,
+// so the bare CreateDevice below is just this with everything else zero.
+type CreateDeviceInput struct {
+	Name           string
+	OwnerID        *ids.UserID // nil = owned by the calling principal
+	DeviceType     string      // "" defaults to static
+	Description    *string
+	Icon           *string
+	GenerateAPIKey bool // mint an API key in the same transaction, returned once
+}
+
+// CreateDevice creates a bare device (name + owner only). It is the primitive a
+// device needs to exist; richer creation goes through CreateDeviceWithOptions.
 func (s *Service) CreateDevice(ctx context.Context, principal *auth.Principal, name string, requestedOwnerID *ids.UserID) (*Device, error) {
+	device, _, err := s.CreateDeviceWithOptions(ctx, principal, CreateDeviceInput{Name: name, OwnerID: requestedOwnerID})
+	return device, err
+}
+
+// CreateDeviceWithOptions creates a device and, when requested, mints its API key
+// in the same transaction so a "shown once" key is never stranded on a
+// half-created device. The raw key is returned only when GenerateAPIKey is set.
+// Pairing codes and address rules are provisioned separately on their own
+// endpoints (a credential-less device is perfectly valid).
+func (s *Service) CreateDeviceWithOptions(ctx context.Context, principal *auth.Principal, input CreateDeviceInput) (*Device, string, error) {
 	ownerID := principal.UserID
-	if requestedOwnerID != nil {
-		ownerID = *requestedOwnerID
+	if input.OwnerID != nil {
+		ownerID = *input.OwnerID
 	}
 
-	createdDevice, err := s.repo.CreateDevice(ctx, CreateDeviceParams{Name: name, OwnerID: ownerID})
+	var createdDevice *Device
+	var rawKey string
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		var err error
+		createdDevice, err = s.repo.CreateDevice(ctx, CreateDeviceParams{
+			Name:        input.Name,
+			OwnerID:     ownerID,
+			DeviceType:  input.DeviceType,
+			Description: input.Description,
+			Icon:        input.Icon,
+		})
+		if err != nil {
+			return err
+		}
+
+		if input.GenerateAPIKey {
+			var keyHash, keyPrefix string
+			rawKey, keyHash, keyPrefix, err = GenerateAPIKey()
+			if err != nil {
+				return fmt.Errorf("generate api key: %w", err)
+			}
+			if err = s.repo.UpsertAPIKey(ctx, createdDevice.ID, keyHash, keyPrefix); err != nil {
+				return err
+			}
+			// Re-fetch inside the tx so KeyPrefix reflects the minted key.
+			createdDevice, err = s.repo.GetDevice(ctx, createdDevice.ID)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	s.logger.InfoContext(ctx, "device created", slog.Int64(AttrKeyDeviceID, createdDevice.ID.Int64()))
 
-	return createdDevice, nil
+	return createdDevice, rawKey, nil
 }
 
 func (s *Service) DeleteDevice(ctx context.Context, deviceID ids.DeviceID) error {
@@ -146,6 +202,57 @@ func (s *Service) DeleteDevice(ctx context.Context, deviceID ids.DeviceID) error
 
 	s.logger.InfoContext(ctx, "device deleted", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 	return nil
+}
+
+// DisableDevice makes a device unusable without deleting it: it revokes the API
+// key and disables every active address in one transaction, then stamps
+// disabled_at. The device is recoverable — re-credentialing (RegenerateAPIKey,
+// reached by a pairing claim or a manual regenerate) clears the flag.
+func (s *Service) DisableDevice(ctx context.Context, deviceID ids.DeviceID) (*Device, error) {
+	var disabledAddresses []Address
+	var device *Device
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		// Existence check (also covers deleted_at) before mutating anything.
+		if _, err := s.repo.GetDevice(ctx, deviceID); err != nil {
+			return err
+		}
+
+		addresses, err := s.repo.GetEnabledAddressesForDevice(ctx, deviceID)
+		if err != nil {
+			return err
+		}
+		addressesToDisable := make([]ids.AddressID, 0, len(addresses))
+		for _, address := range addresses {
+			addressesToDisable = append(addressesToDisable, address.ID)
+		}
+		disabledAddresses, err = s.repo.DisableAddresses(ctx, addressesToDisable, EventSourceManual)
+		if err != nil {
+			return err
+		}
+
+		// Revoke the API key so the device can no longer heartbeat itself back in.
+		if err := s.repo.DeleteAPIKey(ctx, deviceID); err != nil && !errors.Is(err, ErrNoAPIKey) {
+			return err
+		}
+
+		if err := s.repo.SetDeviceDisabled(ctx, deviceID, true); err != nil {
+			return err
+		}
+		// Fetch fresh inside the transaction so the result reflects the revoked
+		// key and stamped disabled_at.
+		device, err = s.repo.GetDevice(ctx, deviceID)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, disabledAddress := range disabledAddresses {
+		s.notifyObservers(ctx, NewAddressEvent(&disabledAddress, EventTypeAddressDisabled))
+	}
+
+	s.logger.InfoContext(ctx, "device disabled", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
+	return device, nil
 }
 
 // UpdateDeviceInput carries the raw nullable API values for a device profile update.
@@ -198,6 +305,11 @@ func (s *Service) RegenerateAPIKey(ctx context.Context, deviceID ids.DeviceID) (
 			return err
 		}
 		if err = s.repo.UpsertAPIKey(ctx, deviceID, keyHash, keyPrefix); err != nil {
+			return err
+		}
+		// Re-credentialing re-enables a disabled device (a pairing claim reaches
+		// here too), so clear the disabled flag in the same transaction.
+		if err = s.repo.SetDeviceDisabled(ctx, deviceID, false); err != nil {
 			return err
 		}
 		// Fetch fresh device inside the transaction so KeyPrefix reflects the upsert.

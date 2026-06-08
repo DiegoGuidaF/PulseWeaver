@@ -214,6 +214,46 @@ export const CreateDeviceRequestSchema = {
       description:
         "Admin only. Owner to assign the device to. Ignored for regular users (always assigned to self). When omitted by an admin, defaults to the calling admin's own ID.",
     },
+    device_type: {
+      $ref: "#/components/schemas/DeviceType",
+    },
+    description: {
+      type: "string",
+      nullable: true,
+      maxLength: 200,
+      "x-go-type": "NullableString",
+      "x-go-type-skip-optional-pointer": true,
+      description: "Free-form note about the device.",
+    },
+    icon: {
+      type: "string",
+      nullable: true,
+      maxLength: 80,
+      "x-go-type": "NullableString",
+      "x-go-type-skip-optional-pointer": true,
+      description: 'Tabler icon name override (e.g. "IconRouter").',
+    },
+    generate_api_key: {
+      type: "boolean",
+      description:
+        'When true, an API key is minted in the same transaction and returned once in the response. Use for the "API key" credential choice; pairing-code devices are created without a key (the key is minted on claim).',
+    },
+  },
+} as const;
+
+export const CreateDeviceResultSchema = {
+  type: "object",
+  required: ["device"],
+  properties: {
+    device: {
+      $ref: "#/components/schemas/Device",
+    },
+    api_key: {
+      type: "string",
+      nullable: true,
+      description:
+        "The raw device API key. Present once, only when generate_api_key was set; cannot be retrieved again.",
+    },
   },
 } as const;
 
@@ -227,9 +267,7 @@ export const UpdateDeviceRequestSchema = {
       description: "New name for the device",
     },
     device_type: {
-      type: "string",
-      enum: ["static", "mobile"],
-      description: "Network behaviour classification.",
+      $ref: "#/components/schemas/DeviceType",
     },
     description: {
       type: "string",
@@ -287,9 +325,7 @@ export const DeviceSchema = {
       maxLength: 50,
     },
     device_type: {
-      type: "string",
-      enum: ["static", "mobile"],
-      description: 'Network behaviour classification. Defaults to "static".',
+      $ref: "#/components/schemas/DeviceType",
     },
     description: {
       type: "string",
@@ -308,6 +344,15 @@ export const DeviceSchema = {
       nullable: true,
       description:
         "Prefix of the device API key (for display only). Null if no API key has been generated yet.",
+    },
+    disabled_at: {
+      type: "string",
+      format: "date-time",
+      nullable: true,
+      readOnly: true,
+      "x-go-type": "UTCTime",
+      description:
+        "When the device was disabled, or null if active. A disabled device has its API key revoked and all addresses disabled until it is re-credentialed.",
     },
     live_address_count: {
       type: "integer",
@@ -335,6 +380,13 @@ export const DeviceSchema = {
       description: "Display name of the owning user (for display only).",
     },
   },
+} as const;
+
+export const DeviceTypeSchema = {
+  type: "string",
+  enum: ["static", "mobile"],
+  description:
+    'Network behaviour classification, derived from the credential. static: manually-managed, stable IP (no credential). mobile: updates its own addresses via the API (API key or pairing). Defaults to "static".\n',
 } as const;
 
 export const DeviceTypeItemSchema = {
@@ -366,9 +418,9 @@ export const DeviceAPIKeyResponseSchema = {
 
 export const DeviceStateSchema = {
   type: "string",
-  enum: ["healthy", "stale", "pending-claim", "expired-claim"],
+  enum: ["healthy", "stale", "disabled", "pending-claim", "expired-claim"],
   description:
-    "Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).\n",
+    "Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: API key revoked and all addresses disabled; recoverable by re-credentialing. pending-claim / expired-claim: awaiting or failed device pairing (future feature).\n",
 } as const;
 
 export const DeviceRuleSummarySchema = {
@@ -2354,6 +2406,22 @@ export const UserWritableSchema = {
   },
 } as const;
 
+export const CreateDeviceResultWritableSchema = {
+  type: "object",
+  required: ["device"],
+  properties: {
+    device: {
+      $ref: "#/components/schemas/DeviceWritable",
+    },
+    api_key: {
+      type: "string",
+      nullable: true,
+      description:
+        "The raw device API key. Present once, only when generate_api_key was set; cannot be retrieved again.",
+    },
+  },
+} as const;
+
 export const DeviceWritableSchema = {
   type: "object",
   required: ["id", "name", "created_at", "device_type", "updated_at"],
@@ -2379,9 +2447,7 @@ export const DeviceWritableSchema = {
       maxLength: 50,
     },
     device_type: {
-      type: "string",
-      enum: ["static", "mobile"],
-      description: 'Network behaviour classification. Defaults to "static".',
+      $ref: "#/components/schemas/DeviceType",
     },
     description: {
       type: "string",

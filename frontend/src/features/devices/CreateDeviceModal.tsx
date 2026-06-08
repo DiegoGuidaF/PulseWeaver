@@ -128,7 +128,7 @@ export function CreateDeviceModal({ opened, onClose, defaultOwnerId }: CreateDev
 
       if (Object.keys(patchBody).length > 0) {
         updateDevice.mutate(
-          { path: { device_id: data.id }, body: patchBody },
+          { path: { device_id: data.device.id }, body: patchBody },
           {
             onError: () =>
               notifications.show({
@@ -144,7 +144,7 @@ export function CreateDeviceModal({ opened, onClose, defaultOwnerId }: CreateDev
       onClose();
       if (effectiveOwner) {
         navigate(
-          `${buildRoute.userDevices(effectiveOwner)}?device=${data.id}&tab=addresses`,
+          `${buildRoute.userDevices(effectiveOwner)}?device=${data.device.id}&tab=addresses`,
         );
       }
     },

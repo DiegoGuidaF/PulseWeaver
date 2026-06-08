@@ -24,6 +24,7 @@ import {
   deviceHeartbeat,
   deviceHeartbeatByApiKey,
   disableAddress,
+  disableDevice,
   disableDeviceAddressLeaseRule,
   disableMaxActiveAddressesRule,
   getAccessLog,
@@ -121,6 +122,9 @@ import type {
   DisableDeviceAddressLeaseRuleData,
   DisableDeviceAddressLeaseRuleError,
   DisableDeviceAddressLeaseRuleResponse,
+  DisableDeviceData,
+  DisableDeviceError,
+  DisableDeviceResponse,
   DisableMaxActiveAddressesRuleData,
   DisableMaxActiveAddressesRuleError,
   DisableMaxActiveAddressesRuleResponse,
@@ -759,6 +763,36 @@ export const regenerateDeviceApiKeyMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await regenerateDeviceApiKey({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Disable a device
+ *
+ * Reversibly disables a device: revokes its API key and disables all active addresses in one call, then marks the device "Disabled". Distinct from delete (which is permanent) — re-credentialing the device (a pairing claim or an API key regenerate) re-enables it. Admin-only.
+ *
+ */
+export const disableDeviceMutation = (
+  options?: Partial<Options<DisableDeviceData>>,
+): UseMutationOptions<
+  DisableDeviceResponse,
+  DisableDeviceError,
+  Options<DisableDeviceData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    DisableDeviceResponse,
+    DisableDeviceError,
+    Options<DisableDeviceData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await disableDevice({
         ...options,
         ...fnOptions,
         throwOnError: true,

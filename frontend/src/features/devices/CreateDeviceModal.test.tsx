@@ -58,7 +58,7 @@ describe('CreateDeviceModal', () => {
         server.use(
             http.post(endpoints.devices, async () => {
                 await delay('infinite');
-                return responses.created(createMockDevice());
+                return responses.created({ device: createMockDevice() });
             })
         );
 
@@ -76,7 +76,7 @@ describe('CreateDeviceModal', () => {
 
         server.use(
             http.post(endpoints.devices, () =>
-                HttpResponse.json(createMockDevice(), { status: 201 })
+                HttpResponse.json({ device: createMockDevice() }, { status: 201 })
             )
         );
 
@@ -98,7 +98,7 @@ describe('CreateDeviceModal', () => {
 
         server.use(
             http.post(endpoints.devices, () =>
-                HttpResponse.json(createMockDevice({ id: 42 }), { status: 201 })
+                HttpResponse.json({ device: createMockDevice({ id: 42 }) }, { status: 201 })
             )
         );
 

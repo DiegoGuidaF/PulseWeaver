@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"testing"
+	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
@@ -207,6 +208,106 @@ func TestService_DeleteDevice_NotFound(t *testing.T) {
 	err := service.DeleteDevice(ctx, ids.DeviceID(999))
 	is.True(err != nil)
 	is.True(errors.Is(err, device.ErrDeviceNotFound))
+}
+
+func TestService_DisableDevice_Success(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	keyPrefix := "wdk_pref"
+	enabledAddr := ids.AddressID(1)
+	d := &device.Device{ID: ids.DeviceID(1), Name: "lost-phone", KeyPrefix: &keyPrefix}
+	mockRepo.devices[d.ID] = d
+	mockRepo.apiKeysByHash["somehash"] = d
+	mockRepo.addresses[enabledAddr] = &device.Address{ID: enabledAddr, DeviceID: d.ID, IsEnabled: true}
+
+	observer := &testAddressObserver{}
+	service := newService(mockRepo)
+	service.AddAddressObserver(observer)
+
+	disabled, err := service.DisableDevice(ctx, d.ID)
+	is.NoErr(err)
+	is.True(disabled != nil)
+	is.True(disabled.DisabledAt != nil)                        // flag stamped
+	is.True(disabled.KeyPrefix == nil)                         // key revoked
+	is.Equal(mockRepo.addresses[enabledAddr].IsEnabled, false) // address disabled
+	is.Equal(len(observer.events), 1)                          // observers fired after commit
+	is.Equal(observer.events[0].Type, device.EventTypeAddressDisabled)
+}
+
+func TestService_DisableDevice_NoAPIKey_StillDisables(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	d := &device.Device{ID: ids.DeviceID(1), Name: "static-thing"}
+	mockRepo.devices[d.ID] = d
+	service := newService(mockRepo)
+
+	disabled, err := service.DisableDevice(ctx, d.ID)
+	is.NoErr(err)
+	is.True(disabled.DisabledAt != nil)
+}
+
+func TestService_DisableDevice_NotFound(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := newService(mockRepo)
+
+	disabled, err := service.DisableDevice(ctx, ids.DeviceID(999))
+	is.True(errors.Is(err, device.ErrDeviceNotFound))
+	is.True(disabled == nil)
+}
+
+func TestService_RegenerateAPIKey_ReenablesDisabledDevice(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	now := time.Now().UTC()
+	d := &device.Device{ID: ids.DeviceID(1), Name: "re-pair-me", DisabledAt: &now}
+	mockRepo.devices[d.ID] = d
+	service := newService(mockRepo)
+
+	updated, _, err := service.RegenerateAPIKey(ctx, d.ID)
+	is.NoErr(err)
+	is.True(updated.DisabledAt == nil) // re-credentialing clears the disabled flag
+}
+
+func TestService_CreateDeviceWithOptions_NoKey(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := newService(mockRepo)
+
+	dev, rawKey, err := service.CreateDeviceWithOptions(ctx, testAdminPrincipal(), device.CreateDeviceInput{
+		Name: "no-cred",
+	})
+	is.NoErr(err)
+	is.True(dev != nil)
+	is.Equal(rawKey, "")          // no key minted
+	is.True(dev.KeyPrefix == nil) // none stored
+}
+
+func TestService_CreateDeviceWithOptions_WithKey(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	service := newService(mockRepo)
+
+	dev, rawKey, err := service.CreateDeviceWithOptions(ctx, testAdminPrincipal(), device.CreateDeviceInput{
+		Name:           "with-key",
+		GenerateAPIKey: true,
+	})
+	is.NoErr(err)
+	is.True(len(rawKey) > len(device.APIKeyPrefix))
+	is.Equal(rawKey[:len(device.APIKeyPrefix)], device.APIKeyPrefix)
+	is.True(dev.KeyPrefix != nil) // minted key reflected on the returned device
 }
 
 func TestService_CreateDevice_DuplicateName(t *testing.T) {

@@ -6,6 +6,7 @@ import {
   AddressEventSource,
   DevicePairingStatus,
   DeviceState,
+  DeviceType,
   PolicySimulateDenyReason,
   PolicyUserStatus,
   UserRole,
@@ -90,14 +91,24 @@ export const zChangePasswordRequest = z.object({
   password: z.string().min(8).max(72),
 });
 
+/**
+ * Network behaviour classification, derived from the credential. static: manually-managed, stable IP (no credential). mobile: updates its own addresses via the API (API key or pairing). Defaults to "static".
+ *
+ */
+export const zDeviceType = z.enum(DeviceType);
+
 export const zCreateDeviceRequest = z.object({
   name: z.string().min(1).max(50),
   owner_id: z.int().nullish(),
+  device_type: zDeviceType.optional(),
+  description: z.string().max(200).nullish(),
+  icon: z.string().max(80).nullish(),
+  generate_api_key: z.boolean().optional(),
 });
 
 export const zUpdateDeviceRequest = z.object({
   name: z.string().min(1).max(50).optional(),
-  device_type: z.enum(["static", "mobile"]).optional(),
+  device_type: zDeviceType.optional(),
   description: z.string().max(200).nullish(),
   icon: z.string().max(80).nullish(),
   owner_id: z.int().nullish(),
@@ -108,10 +119,14 @@ export const zDevice = z.object({
   updated_at: z.iso.datetime({ offset: true, local: true }),
   id: zId,
   name: z.string().min(1).max(50),
-  device_type: z.enum(["static", "mobile"]),
+  device_type: zDeviceType,
   description: z.string().max(200).nullish(),
   icon: z.string().max(80).nullish(),
   api_key_prefix: z.string().nullish(),
+  disabled_at: z.iso
+    .datetime({ offset: true, local: true })
+    .readonly()
+    .nullish(),
   live_address_count: z.int().gte(0).readonly().optional(),
   last_seen_at: z.iso
     .datetime({ offset: true, local: true })
@@ -119,6 +134,11 @@ export const zDevice = z.object({
     .nullish(),
   owner_id: zId,
   owner_name: z.string().readonly().optional(),
+});
+
+export const zCreateDeviceResult = z.object({
+  device: zDevice,
+  api_key: z.string().nullish(),
 });
 
 export const zDeviceTypeItem = z.object({
@@ -132,7 +152,7 @@ export const zDeviceApiKeyResponse = z.object({
 });
 
 /**
- * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+ * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: API key revoked and all addresses disabled; recoverable by re-credentialing. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
  *
  */
 export const zDeviceState = z.enum(DeviceState);
@@ -802,10 +822,15 @@ export const zDeviceWritable = z.object({
   updated_at: z.iso.datetime({ offset: true, local: true }),
   id: zId,
   name: z.string().min(1).max(50),
-  device_type: z.enum(["static", "mobile"]),
+  device_type: zDeviceType,
   description: z.string().max(200).nullish(),
   icon: z.string().max(80).nullish(),
   api_key_prefix: z.string().nullish(),
+});
+
+export const zCreateDeviceResultWritable = z.object({
+  device: zDeviceWritable,
+  api_key: z.string().nullish(),
 });
 
 export const zDeviceApiKeyResponseWritable = z.object({
@@ -908,7 +933,7 @@ export const zCreateDeviceBody = zCreateDeviceRequest;
 /**
  * Created
  */
-export const zCreateDeviceResponse = zDevice;
+export const zCreateDeviceResponse = zCreateDeviceResult;
 
 export const zDeleteDevicePath = z.object({
   device_id: zId,
@@ -952,6 +977,15 @@ export const zRegenerateDeviceApiKeyPath = z.object({
  * API key generated or regenerated successfully
  */
 export const zRegenerateDeviceApiKeyResponse = zDeviceApiKeyResponse;
+
+export const zDisableDevicePath = z.object({
+  device_id: zId,
+});
+
+/**
+ * Device disabled successfully
+ */
+export const zDisableDeviceResponse = zDevice;
 
 export const zDeviceHeartbeatPath = z.object({
   device_id: zId,

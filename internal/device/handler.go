@@ -35,12 +35,24 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 		return httpapi.CreateDevice500JSONResponse(errorMsgResponse("Not authenticated")), nil
 	}
 
-	var ownerID *ids.UserID
+	input := CreateDeviceInput{Name: deviceName}
 	if request.Body.OwnerId != nil {
-		ownerID = new(ids.UserID(*request.Body.OwnerId))
+		input.OwnerID = new(ids.UserID(*request.Body.OwnerId))
+	}
+	if request.Body.DeviceType != nil {
+		input.DeviceType = string(*request.Body.DeviceType)
+	}
+	if request.Body.Description.Set {
+		input.Description = request.Body.Description.Value
+	}
+	if request.Body.Icon.Set {
+		input.Icon = request.Body.Icon.Value
+	}
+	if request.Body.GenerateApiKey != nil {
+		input.GenerateAPIKey = *request.Body.GenerateApiKey
 	}
 
-	device, err := h.service.CreateDevice(ctx, principal, deviceName, ownerID)
+	device, rawKey, err := h.service.CreateDeviceWithOptions(ctx, principal, input)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrDuplicateDeviceName):
@@ -56,7 +68,11 @@ func (h *HTTPHandler) CreateDevice(ctx context.Context, request httpapi.CreateDe
 	}
 	logger.InfoContext(ctx, "device created", slog.Int64(AttrKeyDeviceID, device.ID.Int64()))
 
-	return httpapi.CreateDevice201JSONResponse(toDeviceResponse(device)), nil
+	result := httpapi.CreateDeviceResult{Device: toDeviceResponse(device)}
+	if rawKey != "" {
+		result.ApiKey = &rawKey
+	}
+	return httpapi.CreateDevice201JSONResponse(result), nil
 }
 
 func (h *HTTPHandler) DeleteDevice(ctx context.Context, request httpapi.DeleteDeviceRequestObject) (httpapi.DeleteDeviceResponseObject, error) {
@@ -78,6 +94,27 @@ func (h *HTTPHandler) DeleteDevice(ctx context.Context, request httpapi.DeleteDe
 	logger.InfoContext(ctx, "device deleted", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 
 	return httpapi.DeleteDevice204Response{}, nil
+}
+
+func (h *HTTPHandler) DisableDevice(ctx context.Context, request httpapi.DisableDeviceRequestObject) (httpapi.DisableDeviceResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "DisableDevice")
+	deviceID := ids.DeviceID(request.DeviceId)
+	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
+
+	device, err := h.service.DisableDevice(ctx, deviceID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrDeviceNotFound):
+			logger.WarnContext(ctx, "device not found")
+			return httpapi.DisableDevice404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
+		default:
+			logger.ErrorContext(ctx, "failed to disable device", slog.Any(AttrKeyError, err))
+			return httpapi.DisableDevice500JSONResponse(errorMsgResponse("Failed to disable device")), nil
+		}
+	}
+	logger.InfoContext(ctx, "device disabled")
+
+	return httpapi.DisableDevice200JSONResponse(toDeviceResponse(device)), nil
 }
 
 func (h *HTTPHandler) RegenerateDeviceAPIKey(ctx context.Context, request httpapi.RegenerateDeviceAPIKeyRequestObject) (httpapi.RegenerateDeviceAPIKeyResponseObject, error) {
@@ -412,10 +449,10 @@ func (h *HTTPHandler) APIKeyAuthenticator() APIKeyAuthenticator {
 }
 
 func toDeviceResponse(d *Device) httpapi.Device {
-	return httpapi.Device{
+	resp := httpapi.Device{
 		Id:           d.ID.Int64(),
 		Name:         d.Name,
-		DeviceType:   httpapi.DeviceDeviceType(d.DeviceType),
+		DeviceType:   httpapi.DeviceType(d.DeviceType),
 		Description:  d.Description,
 		Icon:         d.Icon,
 		CreatedAt:    httpapi.UTCTime(d.CreatedAt),
@@ -423,6 +460,10 @@ func toDeviceResponse(d *Device) httpapi.Device {
 		ApiKeyPrefix: d.KeyPrefix,
 		OwnerId:      d.OwnerID.Int64(),
 	}
+	if d.DisabledAt != nil {
+		resp.DisabledAt = new(httpapi.UTCTime(*d.DisabledAt))
+	}
+	return resp
 }
 
 func toAddressResponse(a *Address) httpapi.Address {

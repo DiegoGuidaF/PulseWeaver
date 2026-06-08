@@ -115,11 +115,38 @@ func TestHandler_CreateDevice(t *testing.T) {
 	})
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusCreated)
-	created := *resp.JSON201
+	created := resp.JSON201.Device
 	is.Equal(created.Name, "sensor-1")
 	is.True(created.Id != 0)
-	// No API key returned on device creation — must be generated separately.
+	// No credential requested — no key minted, none returned.
 	is.True(created.ApiKeyPrefix == nil)
+	is.True(resp.JSON201.ApiKey == nil)
+}
+
+func TestHandler_CreateDevice_WithApiKey(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	testServer := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, testServer)
+
+	mobile := httpapi.Mobile
+	genKey := true
+	desc := "Juan's work phone"
+	resp, err := client.CreateDeviceWithResponse(ctx, httpapi.CreateDeviceJSONRequestBody{
+		Name:           "bob-phone",
+		DeviceType:     &mobile,
+		GenerateApiKey: &genKey,
+		Description:    httpapi.NullableString{Set: true, Value: &desc},
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusCreated)
+	// Key minted atomically and returned once.
+	is.True(resp.JSON201.ApiKey != nil)
+	is.True(*resp.JSON201.ApiKey != "")
+	dev := resp.JSON201.Device
+	is.Equal(string(dev.DeviceType), "mobile") // derived type stored
+	is.True(dev.ApiKeyPrefix != nil)           // key reflected on the device
+	is.True(dev.Description != nil && *dev.Description == desc)
 }
 
 func TestHandler_DeviceHeartbeatByApiKey_NoBody(t *testing.T) {
@@ -240,6 +267,49 @@ func TestHandler_RegenerateDeviceApiKey_404(t *testing.T) {
 	client := testutils.NewAdminAPIClient(t, testServer)
 
 	resp, err := client.RegenerateDeviceAPIKeyWithResponse(ctx, int64(99999))
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNotFound)
+}
+
+func TestHandler_DisableDevice_200(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	testServer := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, testServer)
+
+	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "lost-phone", nil)
+	is.NoErr(err)
+	_, _, err = testServer.DeviceService.RegenerateAPIKey(ctx, dev.ID)
+	is.NoErr(err)
+
+	resp, err := client.DisableDeviceWithResponse(ctx, dev.ID.Int64())
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	body := *resp.JSON200
+	is.True(body.DisabledAt != nil)   // flag stamped
+	is.True(body.ApiKeyPrefix == nil) // key revoked
+
+	// Device shows as disabled in the list.
+	listResp, err := client.GetDevicesWithResponse(ctx)
+	is.NoErr(err)
+	groups := *listResp.JSON200
+	is.Equal(groups[0].Devices[0].State, httpapi.Disabled)
+
+	// Re-credentialing re-enables it.
+	_, _, err = testServer.DeviceService.RegenerateAPIKey(ctx, dev.ID)
+	is.NoErr(err)
+	listResp2, err := client.GetDevicesWithResponse(ctx)
+	is.NoErr(err)
+	is.True((*listResp2.JSON200)[0].Devices[0].State != httpapi.Disabled)
+}
+
+func TestHandler_DisableDevice_404(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	testServer := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, testServer)
+
+	resp, err := client.DisableDeviceWithResponse(ctx, int64(99999))
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusNotFound)
 }
@@ -428,7 +498,7 @@ func TestHandler_UpdateDevice_RenameAndSetType(t *testing.T) {
 	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "sensor", nil)
 	is.NoErr(err)
 
-	deviceType := httpapi.UpdateDeviceRequestDeviceTypeMobile
+	deviceType := httpapi.Mobile
 	resp, err := client.UpdateDeviceWithResponse(ctx, dev.ID.Int64(), httpapi.UpdateDeviceJSONRequestBody{
 		Name:       new("sensor-renamed"),
 		DeviceType: &deviceType,
@@ -480,13 +550,9 @@ func TestHandler_UpdateDevice_InvalidType_Returns400(t *testing.T) {
 	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "type-test", nil)
 	is.NoErr(err)
 
-	// "robot" is not a valid UpdateDeviceRequestDeviceType enum value.
-	// The typed struct cannot express invalid enum values, so we inject the
-	// bad value via a request editor that rewrites the query string — but for
-	// a body field we fall back to the body manipulation approach via a raw
-	// request editor on the body.  The simplest alternative: use
-	// UpdateDeviceWithBodyWithResponse with raw JSON.
-	robotType := httpapi.UpdateDeviceRequestDeviceType("robot")
+	// "robot" is not a valid DeviceType enum value. The typed struct cannot
+	// express invalid enum values, so we inject the bad value directly.
+	robotType := httpapi.DeviceType("robot")
 	resp, err := client.UpdateDeviceWithResponse(ctx, dev.ID.Int64(), httpapi.UpdateDeviceJSONRequestBody{
 		DeviceType: &robotType,
 	})

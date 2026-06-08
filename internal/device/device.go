@@ -44,6 +44,7 @@ type Device struct {
 	CreatedAt   time.Time    `db:"created_at"`
 	UpdatedAt   time.Time    `db:"updated_at"`
 	DeletedAt   *time.Time   `db:"deleted_at"`
+	DisabledAt  *time.Time   `db:"disabled_at"`
 	KeyPrefix   *string      `db:"key_prefix"`
 	OwnerID     ids.UserID   `db:"owner_id"`
 }
@@ -108,9 +109,11 @@ func parseDeviceType(t string) (DeviceType, error) {
 }
 
 type CreateDeviceParams struct {
-	Name       string
-	OwnerID    ids.UserID
-	DeviceType string // optional; defaults to "static" when empty
+	Name        string
+	OwnerID     ids.UserID
+	DeviceType  string // optional; defaults to "static" when empty
+	Description *string
+	Icon        *string
 }
 
 // GenerateAPIKey generates a new API key and returns the raw key (to send to user),

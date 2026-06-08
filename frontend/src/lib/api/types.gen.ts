@@ -93,6 +93,27 @@ export type CreateDeviceRequest = {
    * Admin only. Owner to assign the device to. Ignored for regular users (always assigned to self). When omitted by an admin, defaults to the calling admin's own ID.
    */
   owner_id?: number | null;
+  device_type?: DeviceType;
+  /**
+   * Free-form note about the device.
+   */
+  description?: string | null;
+  /**
+   * Tabler icon name override (e.g. "IconRouter").
+   */
+  icon?: string | null;
+  /**
+   * When true, an API key is minted in the same transaction and returned once in the response. Use for the "API key" credential choice; pairing-code devices are created without a key (the key is minted on claim).
+   */
+  generate_api_key?: boolean;
+};
+
+export type CreateDeviceResult = {
+  device: Device;
+  /**
+   * The raw device API key. Present once, only when generate_api_key was set; cannot be retrieved again.
+   */
+  api_key?: string | null;
 };
 
 export type UpdateDeviceRequest = {
@@ -100,10 +121,7 @@ export type UpdateDeviceRequest = {
    * New name for the device
    */
   name?: string;
-  /**
-   * Network behaviour classification.
-   */
-  device_type?: "static" | "mobile";
+  device_type?: DeviceType;
   /**
    * Free-form note. Pass null to clear.
    */
@@ -129,10 +147,7 @@ export type Device = {
    * User-friendly name for the device
    */
   name: string;
-  /**
-   * Network behaviour classification. Defaults to "static".
-   */
-  device_type: "static" | "mobile";
+  device_type: DeviceType;
   /**
    * Free-form note about the device.
    */
@@ -145,6 +160,10 @@ export type Device = {
    * Prefix of the device API key (for display only). Null if no API key has been generated yet.
    */
   api_key_prefix?: string | null;
+  /**
+   * When the device was disabled, or null if active. A disabled device has its API key revoked and all addresses disabled until it is re-credentialed.
+   */
+  readonly disabled_at?: string | null;
   /**
    * Number of currently enabled addresses for this device.
    */
@@ -160,6 +179,18 @@ export type Device = {
   readonly owner_name?: string;
 };
 
+/**
+ * Network behaviour classification, derived from the credential. static: manually-managed, stable IP (no credential). mobile: updates its own addresses via the API (API key or pairing). Defaults to "static".
+ *
+ */
+export const DeviceType = { STATIC: "static", MOBILE: "mobile" } as const;
+
+/**
+ * Network behaviour classification, derived from the credential. static: manually-managed, stable IP (no credential). mobile: updates its own addresses via the API (API key or pairing). Defaults to "static".
+ *
+ */
+export type DeviceType = (typeof DeviceType)[keyof typeof DeviceType];
+
 export type DeviceTypeItem = {
   value: string;
   label: string;
@@ -174,18 +205,19 @@ export type DeviceApiKeyResponse = {
 };
 
 /**
- * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+ * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: API key revoked and all addresses disabled; recoverable by re-credentialing. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
  *
  */
 export const DeviceState = {
   HEALTHY: "healthy",
   STALE: "stale",
+  DISABLED: "disabled",
   PENDING_CLAIM: "pending-claim",
   EXPIRED_CLAIM: "expired-claim",
 } as const;
 
 /**
- * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+ * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: API key revoked and all addresses disabled; recoverable by re-credentialing. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
  *
  */
 export type DeviceState = (typeof DeviceState)[keyof typeof DeviceState];
@@ -1108,6 +1140,14 @@ export type UserWritable = {
   created_at: string;
 };
 
+export type CreateDeviceResultWritable = {
+  device: DeviceWritable;
+  /**
+   * The raw device API key. Present once, only when generate_api_key was set; cannot be retrieved again.
+   */
+  api_key?: string | null;
+};
+
 export type DeviceWritable = {
   created_at: string;
   /**
@@ -1119,10 +1159,7 @@ export type DeviceWritable = {
    * User-friendly name for the device
    */
   name: string;
-  /**
-   * Network behaviour classification. Defaults to "static".
-   */
-  device_type: "static" | "mobile";
+  device_type: DeviceType;
   /**
    * Free-form note about the device.
    */
@@ -1561,7 +1598,7 @@ export type CreateDeviceResponses = {
   /**
    * Created
    */
-  201: Device;
+  201: CreateDeviceResult;
 };
 
 export type CreateDeviceResponse =
@@ -1737,6 +1774,41 @@ export type RegenerateDeviceApiKeyResponses = {
 
 export type RegenerateDeviceApiKeyResponse =
   RegenerateDeviceApiKeyResponses[keyof RegenerateDeviceApiKeyResponses];
+
+export type DisableDeviceData = {
+  body?: never;
+  path: {
+    /**
+     * Device id
+     */
+    device_id: Id;
+  };
+  query?: never;
+  url: "/devices/{device_id}/disable";
+};
+
+export type DisableDeviceErrors = {
+  /**
+   * Device not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type DisableDeviceError = DisableDeviceErrors[keyof DisableDeviceErrors];
+
+export type DisableDeviceResponses = {
+  /**
+   * Device disabled successfully
+   */
+  200: Device;
+};
+
+export type DisableDeviceResponse =
+  DisableDeviceResponses[keyof DisableDeviceResponses];
 
 export type DeviceHeartbeatData = {
   body?: never;

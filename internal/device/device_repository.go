@@ -24,6 +24,7 @@ func (r *Repository) GetDevice(ctx context.Context, id ids.DeviceID) (*Device, e
 				d.created_at,
 				d.updated_at,
 				d.deleted_at,
+				d.disabled_at,
 				k.key_prefix,
 				d.owner_id AS owner_id
 			FROM devices d
@@ -50,9 +51,9 @@ func (r *Repository) CreateDevice(ctx context.Context, params CreateDeviceParams
 		deviceType = "static"
 	}
 
-	deviceQuery := `INSERT INTO devices (name, owner_id, device_type, created_at) VALUES (?, ?, ?, ?) RETURNING *`
+	deviceQuery := `INSERT INTO devices (name, owner_id, device_type, description, icon, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *`
 
-	err := r.db.GetContext(ctx, createdDevice, deviceQuery, params.Name, params.OwnerID, deviceType, now)
+	err := r.db.GetContext(ctx, createdDevice, deviceQuery, params.Name, params.OwnerID, deviceType, params.Description, params.Icon, now)
 	if err != nil {
 		if domainErr, ok := mapDeviceNameUniqueConstraintError(err); ok {
 			return nil, domainErr
@@ -105,6 +106,7 @@ func (r *Repository) GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) 
 
 	query := `
 			SELECT d.id, d.name, d.device_type, d.description, d.icon, d.created_at, d.updated_at, d.deleted_at,
+				   d.disabled_at,
 				   k.key_prefix,
 				   d.owner_id AS owner_id
 			FROM devices d
@@ -142,6 +144,29 @@ func (r *Repository) DeleteDevice(ctx context.Context, deviceID ids.DeviceID) er
 	rows, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("delete device check rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrDeviceNotFound
+	}
+	return nil
+}
+
+// SetDeviceDisabled flips a device's disabled state. When disabled is true the
+// disabled_at timestamp is stamped; when false it is cleared (re-enabled).
+func (r *Repository) SetDeviceDisabled(ctx context.Context, deviceID ids.DeviceID, disabled bool) error {
+	var disabledAt *time.Time
+	if disabled {
+		now := time.Now().UTC()
+		disabledAt = &now
+	}
+	query := `UPDATE devices SET disabled_at = ? WHERE id = ? AND deleted_at IS NULL`
+	result, err := r.db.ExecContext(ctx, query, disabledAt, deviceID)
+	if err != nil {
+		return fmt.Errorf("set device disabled: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("set device disabled rows affected: %w", err)
 	}
 	if rows == 0 {
 		return ErrDeviceNotFound

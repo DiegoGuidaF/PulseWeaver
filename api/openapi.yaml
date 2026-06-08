@@ -54,6 +54,8 @@ paths:
     $ref: './paths/devices.yaml#/deleteApiKey'
   /devices/{device_id}/api-key/regenerate:
     $ref: './paths/devices.yaml#/regenerateApiKey'
+  /devices/{device_id}/disable:
+    $ref: './paths/devices.yaml#/disableDevice'
   /devices/{device_id}/heartbeat:
     $ref: './paths/devices.yaml#/heartbeatById'
   /heartbeat:
@@ -203,10 +205,14 @@ components:
     # --------------------
     CreateDeviceRequest:
       $ref: './components/schemas/devices.yaml#/CreateDeviceRequest'
+    CreateDeviceResult:
+      $ref: './components/schemas/devices.yaml#/CreateDeviceResult'
     UpdateDeviceRequest:
       $ref: './components/schemas/devices.yaml#/UpdateDeviceRequest'
     Device:
       $ref: './components/schemas/devices.yaml#/Device'
+    DeviceType:
+      $ref: './components/schemas/devices.yaml#/DeviceType'
     DeviceTypeItem:
       $ref: './components/schemas/devices.yaml#/DeviceTypeItem'
     DeviceAPIKeyResponse:

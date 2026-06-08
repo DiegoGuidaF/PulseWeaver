@@ -83,6 +83,20 @@ func (m *mockRepository) DeleteDevice(ctx context.Context, id ids.DeviceID) erro
 	return nil
 }
 
+func (m *mockRepository) SetDeviceDisabled(ctx context.Context, id ids.DeviceID, disabled bool) error {
+	dev, ok := m.devices[id]
+	if !ok {
+		return device.ErrDeviceNotFound
+	}
+	if disabled {
+		now := time.Now().UTC()
+		dev.DisabledAt = &now
+	} else {
+		dev.DisabledAt = nil
+	}
+	return nil
+}
+
 func (m *mockRepository) GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) (*device.Device, error) {
 	dev, ok := m.apiKeysByHash[keyHash]
 	if !ok {

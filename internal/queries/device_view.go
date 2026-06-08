@@ -38,6 +38,7 @@ type deviceListRow struct {
 	DeviceIcon           *string          `db:"icon"`
 	KeyPrefix            *string          `db:"key_prefix"`
 	DeviceCreatedAt      time.Time        `db:"created_at"`
+	DisabledAt           *database.DBTime `db:"disabled_at"`
 	LiveAddressCount     int              `db:"live_address_count"`
 	LastSeenAt           *database.DBTime `db:"last_seen_at"`
 	OwnerID              ids.UserID       `db:"owner_id"`
@@ -100,6 +101,7 @@ func (r *Repository) fetchDeviceListRows(ctx context.Context) ([]deviceListRow, 
 			d.icon,
 			dk.key_prefix,
 			d.created_at,
+			d.disabled_at,
 			COUNT(CASE WHEN a.is_enabled = 1 THEN a.id END) AS live_address_count,
 			MAX(a.updated_at)                              AS last_seen_at,
 			u.id                               AS owner_id,
@@ -121,7 +123,7 @@ func (r *Repository) fetchDeviceListRows(ctx context.Context) ([]deviceListRow, 
 		LEFT JOIN device_rules dr_max    ON dr_max.device_id = d.id
 		                                 AND dr_max.rule_type = 'max_active_addresses'
 		WHERE d.deleted_at IS NULL
-		GROUP BY d.id, d.name, d.icon, dk.key_prefix, d.created_at,
+		GROUP BY d.id, d.name, d.icon, dk.key_prefix, d.created_at, d.disabled_at,
 		         u.id, u.username, u.display_name, u.role, uhs.bypass_host_check,
 		         dr_lease.enabled, dr_lease.config, dr_max.enabled, dr_max.config
 		ORDER BY u.display_name, d.name ASC
@@ -219,7 +221,7 @@ func assembleDeviceGroups(
 			ApiKeyPrefix:     row.KeyPrefix,
 			CreatedAt:        httpapi.UTCTime(row.DeviceCreatedAt),
 			LiveAddressCount: row.LiveAddressCount,
-			State:            deviceListState(row.LiveAddressCount),
+			State:            deviceListState(row.LiveAddressCount, row.DisabledAt != nil),
 			Rules:            parseRuleSummaries(row.LeaseEnabled, row.LeaseConfig, row.MaxEnabled, row.MaxConfig),
 		}
 		if row.LastSeenAt != nil {
@@ -313,7 +315,10 @@ func (r *Repository) GetDevicesByUser(ctx context.Context, userID ids.UserID) ([
 	return rows, nil
 }
 
-func deviceListState(liveAddressCount int) httpapi.DeviceState {
+func deviceListState(liveAddressCount int, disabled bool) httpapi.DeviceState {
+	if disabled {
+		return httpapi.Disabled
+	}
 	if liveAddressCount > 0 {
 		return httpapi.Healthy
 	}
