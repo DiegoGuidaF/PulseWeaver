@@ -7,8 +7,8 @@ import { renderWithProviders } from '@/test/utils';
 import { server } from '@/test/setup';
 import { deviceHandlers } from '@/test/mocks/handlers';
 
-const mockDeviceWithKey = { name: 'My Router', api_key_prefix: 'rtr_', device_type: 'static' as const };
-const mockDeviceNoKey = { name: 'My Router', api_key_prefix: null, device_type: 'static' as const };
+const mockDeviceWithKey = { name: 'My Router', api_key_prefix: 'rtr_' };
+const mockDeviceNoKey = { name: 'My Router', api_key_prefix: null };
 
 function renderTab() {
     return renderWithProviders(<DeviceSettingsTab deviceId={1} />);

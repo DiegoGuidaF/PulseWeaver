@@ -2,7 +2,6 @@ import {
   IconDeviceMobile,
   IconDevices,
 } from "@tabler/icons-react";
-import type { MantineColor } from "@mantine/core";
 import type { Icon as TablerIcon } from "@tabler/icons-react";
 import {
   // Keep Tabler imports that were only used for backward-compat ICON_MAP entries.
@@ -29,16 +28,6 @@ import {
   validateIconWithMap,
 } from "@/lib/iconUtils";
 export type { IconRenderer, IconValidation } from "@/lib/iconUtils";
-
-export type DeviceType = "static" | "mobile";
-
-export const DEVICE_TYPE_CONFIG: Record<
-  DeviceType,
-  { icon: TablerIcon; color: MantineColor }
-> = {
-  static: { icon: IconDevices, color: "dimmed" },
-  mobile: { icon: IconDeviceMobile, color: "blue" },
-};
 
 // ─── Backward-compat map: Tabler icon names stored in the DB before the emoji
 // picker migration.  Kept private — the picker no longer emits these names.
@@ -156,27 +145,6 @@ export function resolveDeviceIcon(icon?: string | null) {
     if (isHttpsUrl(icon)) return makeUrlRenderer(icon);
   }
   return makeTablerRenderer(IconDevices);
-}
-
-export function getDeviceIcon(device: {
-  device_type: string;
-  icon?: string | null;
-}) {
-  if (device.icon) {
-    const legacy = LEGACY_ICON_MAP.get(device.icon);
-    if (legacy) return makeTablerRenderer(legacy, { color: "var(--mantine-color-dimmed)" });
-    if (EMOJI_RE.test(device.icon)) return makeEmojiRenderer(device.icon);
-    if (isHttpsUrl(device.icon)) return makeUrlRenderer(device.icon);
-  }
-  const typeConfig = DEVICE_TYPE_CONFIG[device.device_type as DeviceType];
-  if (typeConfig) {
-    const colorStyle =
-      typeConfig.color === "dimmed"
-        ? { color: "var(--mantine-color-dimmed)" }
-        : { color: `var(--mantine-color-${typeConfig.color}-filled)` };
-    return makeTablerRenderer(typeConfig.icon, colorStyle);
-  }
-  return makeTablerRenderer(IconDevices, { color: "var(--mantine-color-dimmed)" });
 }
 
 // ─── Validation ──────────────────────────────────────────────────────────────

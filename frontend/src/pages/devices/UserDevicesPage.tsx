@@ -99,15 +99,14 @@ export function UserDevicesPage() {
     [deviceId, group],
   );
 
-  // TODO: device_type and description are absent from DeviceListEntry; using safe defaults
-  // until the API spec is extended. The profile card won't send device_type on save unless
-  // the user explicitly changes it, so the default cannot silently overwrite the real value.
+  // description is absent from DeviceListEntry; defaulted to null until the list
+  // entry carries it. The profile card sends description on save only when changed,
+  // so the default cannot silently overwrite the real value.
   const deviceData = useMemo<DeviceData | undefined>(() => {
     if (!selectedDevice || !group) return undefined;
     return {
       name: selectedDevice.name,
       api_key_prefix: selectedDevice.api_key_prefix ?? null,
-      device_type: "static",
       description: null,
       icon: selectedDevice.icon ?? null,
       owner_id: group.owner.id,

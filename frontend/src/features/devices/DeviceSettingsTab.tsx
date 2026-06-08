@@ -20,17 +20,14 @@ import { useClipboard } from "@/hooks/useClipboard";
 import { useRegenerateApiKey } from "@/features/devices/hooks/useRegenerateApiKey";
 import { useDeleteApiKey } from "@/features/devices/hooks/useDeleteApiKey";
 import { useDeleteDevice } from "@/features/devices/hooks/useDeleteDevice";
-import { useDeviceTypes } from "@/features/devices/hooks/useDeviceTypes";
 import { useUpdateDevice } from "@/features/devices/hooks/useUpdateDevice";
 import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { DeviceProfileCard } from "@/features/devices/DeviceProfileCard";
-import type { DeviceType } from "@/features/devices/deviceTypeConfig";
 
 export interface DeviceData {
   name: string;
   api_key_prefix?: string | null;
-  device_type: DeviceType;
   description?: string | null;
   icon?: string | null;
   owner_id?: number;
@@ -53,7 +50,6 @@ export function DeviceSettingsTab({
   device,
   onDeviceDeleted,
 }: DeviceSettingsTabProps) {
-  const { data: deviceTypes } = useDeviceTypes();
   const regenerateApiKey = useRegenerateApiKey();
   const deleteApiKey = useDeleteApiKey();
   const deleteDevice = useDeleteDevice();
@@ -185,7 +181,6 @@ export function DeviceSettingsTab({
           <DeviceProfileCard
             deviceId={deviceId}
             device={device}
-            deviceTypes={deviceTypes ?? []}
           />
         ) : (
           <Card withBorder>

@@ -8,7 +8,6 @@ import {
   Button,
   Group,
   Modal,
-  SegmentedControl,
   Select,
   SimpleGrid,
   Stack,
@@ -24,17 +23,15 @@ import { useCreateDevice } from "@/features/devices/hooks/useCreateDevice";
 import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { IconPickerPopover } from "@/features/devices/IconPickerPopover";
-import type { DeviceType } from "@/features/devices/deviceTypeConfig";
-import { DEVICE_TYPE_CONFIG, getDeviceIcon, suggestIcon } from "@/features/devices/deviceTypeConfig";
+import { resolveDeviceIcon, suggestIcon } from "@/features/devices/deviceTypeConfig";
 import { toApiError, toErrorMessage } from "@/lib/api-client";
 import { buildRoute } from "@/lib/routes";
 import { getDevicesQueryKey, updateDeviceMutation } from "@/lib/api/@tanstack/react-query.gen";
-import { zCreateDeviceRequest, zUpdateDeviceRequest } from "@/lib/api/zod.gen";
+import { zCreateDeviceRequest } from "@/lib/api/zod.gen";
 import { IconX } from "@tabler/icons-react";
 
 const formSchema = z.object({
   name: zCreateDeviceRequest.shape.name,
-  device_type: zUpdateDeviceRequest.shape.device_type.unwrap(),
   description: z.string().max(200),
   icon: z.string().max(80),
 });
@@ -75,7 +72,6 @@ export function CreateDeviceModal({ opened, onClose, defaultOwnerId }: CreateDev
     validate: formValidator,
     initialValues: {
       name: "",
-      device_type: "static" as DeviceType,
       description: "",
       icon: "",
     },
@@ -88,18 +84,8 @@ export function CreateDeviceModal({ opened, onClose, defaultOwnerId }: CreateDev
     setFieldValue("icon", suggestIcon(nameValue));
   }, [nameValue, iconAutoSuggested, setFieldValue]);
 
-  const renderIcon = getDeviceIcon({
-    device_type: form.values.device_type,
-    icon: form.values.icon || null,
-  });
+  const renderIcon = resolveDeviceIcon(form.values.icon || null);
   const isIconAutoSuggested = iconAutoSuggested && !!form.values.icon;
-
-  const segmentedData = (Object.keys(DEVICE_TYPE_CONFIG) as DeviceType[]).map(
-    (v) => ({
-      value: v,
-      label: v.charAt(0).toUpperCase() + v.slice(1),
-    }),
-  );
 
   // Used only for patching optional profile fields after creation.
   const updateDevice = useMutation({
@@ -119,8 +105,6 @@ export function CreateDeviceModal({ opened, onClose, defaultOwnerId }: CreateDev
   const createDevice = useCreateDevice({
     onSuccess: (data) => {
       const patchBody: Record<string, unknown> = {};
-      if (form.values.device_type !== "static")
-        patchBody.device_type = form.values.device_type;
       const desc = form.values.description || null;
       if (desc) patchBody.description = desc;
       const icon = form.values.icon || null;
@@ -226,19 +210,6 @@ export function CreateDeviceModal({ opened, onClose, defaultOwnerId }: CreateDev
             )}
 
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
-              <div>
-                <Text size="sm" fw={500} mb={4}>
-                  Type
-                </Text>
-                <SegmentedControl
-                  data={segmentedData}
-                  value={form.values.device_type}
-                  onChange={(val) =>
-                    form.setFieldValue("device_type", val as DeviceType)
-                  }
-                />
-              </div>
-
               <div>
                 <Text size="sm" fw={500} mb={4}>
                   Icon

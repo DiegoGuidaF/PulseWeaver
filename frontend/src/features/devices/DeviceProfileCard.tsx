@@ -6,7 +6,6 @@ import {
   Button,
   Card,
   Group,
-  SegmentedControl,
   Stack,
   Text,
   Textarea,
@@ -19,24 +18,17 @@ import { IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { toErrorMessage } from "@/lib/api-client";
 import { useUpdateDevice } from "@/features/devices/hooks/useUpdateDevice";
-import {
-  DEVICE_TYPE_CONFIG,
-  getDeviceIcon,
-} from "@/features/devices/deviceTypeConfig";
-import type { DeviceType } from "@/features/devices/deviceTypeConfig";
-import type { DeviceTypeItem } from "@/lib/api";
+import { resolveDeviceIcon } from "@/features/devices/deviceTypeConfig";
 import { zUpdateDeviceRequest } from "@/lib/api/zod.gen";
 
 export interface DeviceForProfile {
   name: string;
-  device_type: DeviceType;
   description?: string | null;
   icon?: string | null;
 }
 
 const profileFormSchema = z.object({
   name: zUpdateDeviceRequest.shape.name.unwrap(),
-  device_type: zUpdateDeviceRequest.shape.device_type.unwrap(),
   description: z.string().max(200),
   icon: z.string().max(80),
 });
@@ -46,7 +38,6 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 function deviceToFormValues(d: DeviceForProfile): ProfileFormValues {
   return {
     name: d.name,
-    device_type: d.device_type,
     description: d.description ?? "",
     icon: d.icon ?? "",
   };
@@ -55,13 +46,11 @@ function deviceToFormValues(d: DeviceForProfile): ProfileFormValues {
 export interface DeviceProfileCardProps {
   deviceId: number;
   device: DeviceForProfile;
-  deviceTypes: DeviceTypeItem[];
 }
 
 export function DeviceProfileCard({
   deviceId,
   device,
-  deviceTypes,
 }: DeviceProfileCardProps) {
   const updateDevice = useUpdateDevice();
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
@@ -79,18 +68,7 @@ export function DeviceProfileCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device]);
 
-  const segmentedData =
-    deviceTypes.length > 0
-      ? deviceTypes.map((t) => ({ value: t.value, label: t.label }))
-      : (Object.keys(DEVICE_TYPE_CONFIG) as DeviceType[]).map((v) => ({
-          value: v,
-          label: v.charAt(0).toUpperCase() + v.slice(1),
-        }));
-
-  const renderIcon = getDeviceIcon({
-    device_type: form.values.device_type,
-    icon: form.values.icon || null,
-  });
+  const renderIcon = resolveDeviceIcon(form.values.icon || null);
 
   const isDirty = form.isDirty();
   const descLen = form.values.description.length;
@@ -104,8 +82,6 @@ export function DeviceProfileCard({
   function handleSubmit(values: ProfileFormValues) {
     const body: Record<string, unknown> = {};
     if (values.name !== device.name) body.name = values.name;
-    if (values.device_type !== device.device_type)
-      body.device_type = values.device_type;
     const newDesc = values.description || null;
     if (newDesc !== (device.description ?? null)) body.description = newDesc;
     const newIcon = values.icon || null;
@@ -145,19 +121,6 @@ export function DeviceProfileCard({
           />
 
           <Group gap="lg" align="flex-end">
-            <div>
-              <Text size="sm" fw={500} mb={4}>
-                Type
-              </Text>
-              <SegmentedControl
-                data={segmentedData}
-                value={form.values.device_type}
-                onChange={(val) =>
-                  form.setFieldValue("device_type", val as DeviceType)
-                }
-              />
-            </div>
-
             <div>
               <Text size="sm" fw={500} mb={4}>
                 Icon
