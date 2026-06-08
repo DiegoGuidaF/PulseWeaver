@@ -43,7 +43,7 @@ describe("PolicyAuditPage", () => {
         await waitFor(
             () =>
                 expect(
-                    screen.getByText("Failed to load policy cache"),
+                    screen.getByText("Failed to load access data"),
                 ).toBeInTheDocument(),
             { timeout: TEST_TIMEOUTS.SHORT },
         );
@@ -59,7 +59,7 @@ describe("PolicyAuditPage", () => {
         await waitFor(
             () =>
                 expect(
-                    screen.getByText("Failed to load policy cache"),
+                    screen.getByText("Failed to load access data"),
                 ).toBeInTheDocument(),
             { timeout: TEST_TIMEOUTS.SHORT },
         );

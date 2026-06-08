@@ -14,6 +14,7 @@ import {
   Tabs,
   Text,
   TextInput,
+  Tooltip,
 } from "@mantine/core";
 import {
   IconPlayerPlay,
@@ -21,8 +22,11 @@ import {
   IconShield,
   IconShieldOff,
   IconUsers,
+  IconWifi,
+  IconWifiOff,
 } from "@tabler/icons-react";
 import type { PolicyUserEntry, PolicyUserIp } from "@/lib/api";
+import { deriveUserStatus } from "../userStatus";
 
 dayjs.extend(relativeTime);
 
@@ -80,8 +84,9 @@ function computeDevices(user: PolicyUserEntry): DeviceInfo[] {
 // ─── identity header ────────────────────────────────────────────────────────
 
 function DrawerIdentity({ user }: { user: PolicyUserEntry }) {
-  const isBypass = user.bypass_allowlist;
-  const isNoAccess = !isBypass && user.ips.length === 0;
+  const status = deriveUserStatus(user);
+  const hasLiveIps = status === "live_with_access" || status === "live_no_host_access";
+  const hasHostAccess = status === "live_with_access" || status === "no_live_ips";
 
   return (
     <Group gap="sm" wrap="nowrap" mb="xs">
@@ -92,20 +97,37 @@ function DrawerIdentity({ user }: { user: PolicyUserEntry }) {
         <Text size="xl" fw={700}>
           {user.display_name}
         </Text>
-        {isBypass && (
+        {status === "bypass" ? (
           <Badge variant="light" color="orange" leftSection={<IconShieldOff size={12} />}>
             Bypass
           </Badge>
-        )}
-        {isNoAccess && (
-          <Badge variant="light" color="gray">
-            No access
-          </Badge>
-        )}
-        {!isBypass && !isNoAccess && (
-          <Badge variant="light" color="green">
-            Allowlisted
-          </Badge>
+        ) : (
+          <>
+            <Tooltip
+              label={hasLiveIps ? "At least one live IP in the cache" : "No live IPs in the cache"}
+              withArrow
+            >
+              <Badge
+                variant="light"
+                color={hasLiveIps ? "orange" : "gray"}
+                leftSection={hasLiveIps ? <IconWifi size={12} /> : <IconWifiOff size={12} />}
+              >
+                {hasLiveIps ? "Live" : "Offline"}
+              </Badge>
+            </Tooltip>
+            <Tooltip
+              label={hasHostAccess ? "Has host grants in the allowlist" : "No host grants — all requests will be denied"}
+              withArrow
+            >
+              <Badge
+                variant="light"
+                color={hasHostAccess ? "green" : "red"}
+                leftSection={hasHostAccess ? <IconShield size={12} /> : <IconShieldOff size={12} />}
+              >
+                {hasHostAccess ? "Has access" : "No host access"}
+              </Badge>
+            </Tooltip>
+          </>
         )}
         {user.on_shared_ip && (
           <Badge variant="light" color="yellow" leftSection={<IconUsers size={12} />}>

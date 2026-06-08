@@ -27,12 +27,13 @@ function renderDrawer(
     );
 }
 
-const ALLOWLISTED_USER = createMockPolicyUserEntry({
+const LIVE_WITH_ACCESS_USER = createMockPolicyUserEntry({
     user_id: 1,
     display_name: "alice",
     bypass_allowlist: false,
     on_shared_ip: false,
     is_admin: false,
+    allowed_host_count: 2,
     user_allowed_hosts: ["app.home.lan", "media.home.lan"],
     ips: [
         createMockPolicyUserIp({
@@ -44,7 +45,6 @@ const ALLOWLISTED_USER = createMockPolicyUserEntry({
         }),
     ],
     device_count: 1,
-    allowed_host_count: 2,
 });
 
 const BYPASS_USER = createMockPolicyUserEntry({
@@ -70,6 +70,18 @@ const NO_ACCESS_USER = createMockPolicyUserEntry({
     user_allowed_hosts: [],
 });
 
+// Live IPs present but allowlist is empty (e.g. after revoking all groups)
+const LIVE_NO_HOST_ACCESS_USER = createMockPolicyUserEntry({
+    user_id: 4,
+    display_name: "diana",
+    bypass_allowlist: false,
+    on_shared_ip: false,
+    allowed_host_count: 0,
+    user_allowed_hosts: [],
+    ips: [createMockPolicyUserIp({ ip: "10.0.0.9" })],
+    device_count: 1,
+});
+
 describe("PolicyUserDrawer", () => {
     it("is not visible when user is null", () => {
         renderDrawer(null);
@@ -77,15 +89,16 @@ describe("PolicyUserDrawer", () => {
         expect(screen.queryByText("User · Policy")).not.toBeInTheDocument();
     });
 
-    it("shows username and Allowlisted badge for an allowlisted user", async () => {
-        renderDrawer(ALLOWLISTED_USER);
+    it("shows Live + Has access badges for a user with live IPs and host grants", async () => {
+        renderDrawer(LIVE_WITH_ACCESS_USER);
 
         await waitFor(
             () => expect(screen.getByText("alice")).toBeInTheDocument(),
             { timeout: TEST_TIMEOUTS.SHORT },
         );
 
-        expect(screen.getByText("Allowlisted")).toBeInTheDocument();
+        expect(screen.getByText("Live")).toBeInTheDocument();
+        expect(screen.getByText("Has access")).toBeInTheDocument();
     });
 
     it("shows Bypass badge for a bypass user", async () => {
@@ -99,7 +112,7 @@ describe("PolicyUserDrawer", () => {
         expect(screen.getByText("Bypass")).toBeInTheDocument();
     });
 
-    it("shows No access badge for a no-access user", async () => {
+    it("shows Offline + No host access badges for a user with no live IPs and no grants", async () => {
         renderDrawer(NO_ACCESS_USER);
 
         await waitFor(
@@ -107,12 +120,27 @@ describe("PolicyUserDrawer", () => {
             { timeout: TEST_TIMEOUTS.SHORT },
         );
 
-        expect(screen.getByText("No access")).toBeInTheDocument();
+        expect(screen.getByText("Offline")).toBeInTheDocument();
+        expect(screen.getByText("No host access")).toBeInTheDocument();
+    });
+
+    it("shows Live + No host access for a revoked user who still has a live device", async () => {
+        // After revoking all group grants, the device is still active (live IP in cache)
+        // but the user cannot reach any host. Must not read as "access granted".
+        renderDrawer(LIVE_NO_HOST_ACCESS_USER);
+
+        await waitFor(
+            () => expect(screen.getByText("diana")).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+
+        expect(screen.getByText("Live")).toBeInTheDocument();
+        expect(screen.getByText("No host access")).toBeInTheDocument();
     });
 
     it("shows Admin badge for admin users", async () => {
         const admin = createMockPolicyUserEntry({
-            ...ALLOWLISTED_USER,
+            ...LIVE_WITH_ACCESS_USER,
             display_name: "dana",
             is_admin: true,
         });
@@ -128,7 +156,7 @@ describe("PolicyUserDrawer", () => {
 
     it("shows Shared IP badge and alert for users on a shared IP", async () => {
         const shared = createMockPolicyUserEntry({
-            ...ALLOWLISTED_USER,
+            ...LIVE_WITH_ACCESS_USER,
             display_name: "eve",
             on_shared_ip: true,
         });
@@ -145,8 +173,8 @@ describe("PolicyUserDrawer", () => {
         ).toBeInTheDocument();
     });
 
-    it("Hosts tab renders allowed host FQDNs for allowlisted user", async () => {
-        renderDrawer(ALLOWLISTED_USER);
+    it("Hosts tab renders allowed host FQDNs for a user with access", async () => {
+        renderDrawer(LIVE_WITH_ACCESS_USER);
 
         await waitFor(
             () => expect(screen.getByText("app.home.lan")).toBeInTheDocument(),
@@ -170,7 +198,7 @@ describe("PolicyUserDrawer", () => {
 
     it("Live IPs tab shows the user's IP card", async () => {
         const user = userEvent.setup();
-        renderDrawer(ALLOWLISTED_USER);
+        renderDrawer(LIVE_WITH_ACCESS_USER);
 
         await waitFor(
             () => expect(screen.getByText("alice")).toBeInTheDocument(),
@@ -209,7 +237,7 @@ describe("PolicyUserDrawer", () => {
         const user = userEvent.setup();
         const onSelectIp = vi.fn();
         const onClose = vi.fn();
-        renderDrawer(ALLOWLISTED_USER, 5, onClose, onSelectIp);
+        renderDrawer(LIVE_WITH_ACCESS_USER, 5, onClose, onSelectIp);
 
         await waitFor(
             () => expect(screen.getByText("alice")).toBeInTheDocument(),
@@ -229,7 +257,7 @@ describe("PolicyUserDrawer", () => {
 
     it("Devices tab shows device name", async () => {
         const user = userEvent.setup();
-        renderDrawer(ALLOWLISTED_USER);
+        renderDrawer(LIVE_WITH_ACCESS_USER);
 
         await waitFor(
             () => expect(screen.getByText("alice")).toBeInTheDocument(),

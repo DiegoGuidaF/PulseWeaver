@@ -77,7 +77,7 @@ const navGroups: NavGroup[] = [
         items: [
             { label: "Access Logs", href: ROUTES.accessLog, icon: IconList },
             { label: "IP Address Logs", href: ROUTES.addressHistory, icon: IconHistory },
-            { label: "Access Policy Cache", href: ROUTES.policyAudit, icon: IconDatabaseSearch },
+            { label: "Access Verification", href: ROUTES.policyAudit, icon: IconDatabaseSearch },
         ],
     },
     {

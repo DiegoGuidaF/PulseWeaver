@@ -31,12 +31,16 @@ function renderTable(
     );
 }
 
-const ALLOWLISTED = createMockPolicyUserEntry({
+// live IPs + host grants → "live_with_access"
+const LIVE_WITH_ACCESS = createMockPolicyUserEntry({
     user_id: 1,
     display_name: "alice",
     bypass_allowlist: false,
+    allowed_host_count: 2,
     ips: [createMockPolicyUserIp({ ip: "192.168.1.10" })],
 });
+
+// bypass
 const BYPASS = createMockPolicyUserEntry({
     user_id: 2,
     display_name: "bob",
@@ -47,6 +51,8 @@ const BYPASS = createMockPolicyUserEntry({
     allowed_host_count: 0,
     user_allowed_hosts: [],
 });
+
+// no live IPs, no grants → "no_access"
 const NO_ACCESS = createMockPolicyUserEntry({
     user_id: 3,
     display_name: "carol",
@@ -58,18 +64,49 @@ const NO_ACCESS = createMockPolicyUserEntry({
     user_allowed_hosts: [],
 });
 
-describe("PolicyUserTable", () => {
-    it("renders all three status badges", () => {
-        renderTable([ALLOWLISTED, BYPASS, NO_ACCESS]);
+// live IPs, but zero host grants → "live_no_host_access" (the key bug case)
+const LIVE_NO_HOST_ACCESS = createMockPolicyUserEntry({
+    user_id: 4,
+    display_name: "dan",
+    bypass_allowlist: false,
+    allowed_host_count: 0,
+    user_allowed_hosts: [],
+    ips: [createMockPolicyUserIp({ ip: "10.0.0.5" })],
+});
 
-        expect(screen.getByText("Allowlisted")).toBeInTheDocument();
+describe("PolicyUserTable", () => {
+    it("renders Live + Has access badges for a user with live IPs and host grants", () => {
+        renderTable([LIVE_WITH_ACCESS]);
+
+        expect(screen.getByText("Live")).toBeInTheDocument();
+        expect(screen.getByText("Has access")).toBeInTheDocument();
+    });
+
+    it("renders Bypass badge for bypass users", () => {
+        renderTable([BYPASS]);
+
         expect(screen.getByText("Bypass")).toBeInTheDocument();
-        expect(screen.getByText("No access")).toBeInTheDocument();
+    });
+
+    it("renders Offline + No host access badges for users with no live IPs and no grants", () => {
+        renderTable([NO_ACCESS]);
+
+        expect(screen.getByText("Offline")).toBeInTheDocument();
+        expect(screen.getByText("No host access")).toBeInTheDocument();
+    });
+
+    it("renders Live + No host access badges for a revoked user who still has a live IP", () => {
+        // Critical case: device is active but allowlist is empty (e.g. after revoke).
+        // This must NOT read as "access granted" — it shows live device but no host access.
+        renderTable([LIVE_NO_HOST_ACCESS]);
+
+        expect(screen.getByText("Live")).toBeInTheDocument();
+        expect(screen.getByText("No host access")).toBeInTheDocument();
     });
 
     it("search by username filters rows", async () => {
         const user = userEvent.setup();
-        renderTable([ALLOWLISTED, BYPASS, NO_ACCESS]);
+        renderTable([LIVE_WITH_ACCESS, BYPASS, NO_ACCESS]);
 
         await user.type(
             screen.getByPlaceholderText(/search by ip, user, or device/i),
@@ -84,7 +121,7 @@ describe("PolicyUserTable", () => {
 
     it("search by IP filters rows", async () => {
         const user = userEvent.setup();
-        renderTable([ALLOWLISTED, BYPASS, NO_ACCESS]);
+        renderTable([LIVE_WITH_ACCESS, BYPASS, NO_ACCESS]);
 
         await user.type(
             screen.getByPlaceholderText(/search by ip, user, or device/i),
@@ -126,7 +163,7 @@ describe("PolicyUserTable", () => {
 
     it("status filter — bypass shows only bypass users", async () => {
         const user = userEvent.setup();
-        renderTable([ALLOWLISTED, BYPASS, NO_ACCESS]);
+        renderTable([LIVE_WITH_ACCESS, BYPASS, NO_ACCESS]);
 
         await user.click(screen.getByRole("radio", { name: /^bypass/i }));
 
@@ -135,25 +172,38 @@ describe("PolicyUserTable", () => {
         expect(screen.queryByText("carol")).not.toBeInTheDocument();
     });
 
-    it("status filter — no access shows only no-access users", async () => {
+    it("status filter — no access shows only users with no live IPs and no grants", async () => {
         const user = userEvent.setup();
-        renderTable([ALLOWLISTED, BYPASS, NO_ACCESS]);
+        renderTable([LIVE_WITH_ACCESS, BYPASS, NO_ACCESS, LIVE_NO_HOST_ACCESS]);
 
         await user.click(screen.getByRole("radio", { name: /^no access/i }));
 
         expect(screen.queryByText("alice")).not.toBeInTheDocument();
         expect(screen.queryByText("bob")).not.toBeInTheDocument();
         expect(screen.getByText("carol")).toBeInTheDocument();
+        expect(screen.queryByText("dan")).not.toBeInTheDocument();
+    });
+
+    it("status filter — live no access shows only revoked/empty-allowlist users with live IPs", async () => {
+        const user = userEvent.setup();
+        renderTable([LIVE_WITH_ACCESS, BYPASS, NO_ACCESS, LIVE_NO_HOST_ACCESS]);
+
+        await user.click(screen.getByRole("radio", { name: /live, no access/i }));
+
+        expect(screen.queryByText("alice")).not.toBeInTheDocument();
+        expect(screen.queryByText("bob")).not.toBeInTheDocument();
+        expect(screen.queryByText("carol")).not.toBeInTheDocument();
+        expect(screen.getByText("dan")).toBeInTheDocument();
     });
 
     it("shared IPs checkbox filters to shared-only users", async () => {
         const user = userEvent.setup();
         const sharedUser = createMockPolicyUserEntry({
-            user_id: 4,
+            user_id: 10,
             display_name: "dave",
             on_shared_ip: true,
         });
-        renderTable([ALLOWLISTED, sharedUser]);
+        renderTable([LIVE_WITH_ACCESS, sharedUser]);
 
         await user.click(screen.getByRole("checkbox", { name: /shared ips only/i }));
 
@@ -163,7 +213,7 @@ describe("PolicyUserTable", () => {
 
     it("shows filter empty state when no users match", async () => {
         const user = userEvent.setup();
-        renderTable([ALLOWLISTED]);
+        renderTable([LIVE_WITH_ACCESS]);
 
         await user.type(
             screen.getByPlaceholderText(/search by ip, user, or device/i),
@@ -185,7 +235,7 @@ describe("PolicyUserTable", () => {
         const user = userEvent.setup();
         const onSelectIp = vi.fn();
         const onSelectUser = vi.fn();
-        renderTable([ALLOWLISTED], {}, onSelectIp, onSelectUser);
+        renderTable([LIVE_WITH_ACCESS], {}, onSelectIp, onSelectUser);
 
         const ipBadge = screen.getByText(/192\.168\.1\.10/);
         await user.click(ipBadge);
@@ -197,7 +247,7 @@ describe("PolicyUserTable", () => {
     it("row click calls onSelectUser with the correct user", async () => {
         const user = userEvent.setup();
         const onSelectUser = vi.fn();
-        renderTable([ALLOWLISTED], {}, vi.fn(), onSelectUser);
+        renderTable([LIVE_WITH_ACCESS], {}, vi.fn(), onSelectUser);
 
         // Click the row via the user name cell to avoid triggering the IP badge
         const row = screen.getByText("alice").closest("tr")!;

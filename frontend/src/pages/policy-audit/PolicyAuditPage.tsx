@@ -119,9 +119,10 @@ export function PolicyAuditPage() {
   return (
     <Stack maw={1200} gap="md">
       <div>
-        <Title order={1}>Policy Cache</Title>
+        <Title order={1}>Access Verification</Title>
         <Text c="dimmed" mt={4}>
-          Audit the current allow/deny policy. Live IPs, effective hosts, and a request tester.
+          Verify who can reach what. Check live IPs, effective host grants, and simulate a request
+          using the same policy the proxy evaluates.
         </Text>
       </div>
 
@@ -153,7 +154,7 @@ export function PolicyAuditPage() {
 
       {isError && (
         <ErrorState
-          title="Failed to load policy cache"
+          title="Failed to load access data"
           message="Could not fetch the policy map snapshot. Make sure you have admin access."
           onRetry={() => refetch()}
         />
