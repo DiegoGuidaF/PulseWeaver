@@ -194,6 +194,43 @@ describe('OwnerDevicesPanel', () => {
         });
     });
 
+    // ─── Name filter ───────────────────────────────────────────────────────────────
+
+    describe('name filter', () => {
+        const manyDevices: DeviceListEntry[] = [
+            { ...defaultDevice, id: 1, name: 'Living room TV' },
+            { ...defaultDevice, id: 2, name: 'Bob Phone' },
+            { ...defaultDevice, id: 3, name: 'Work Laptop' },
+            { ...defaultDevice, id: 4, name: 'Spare Phone' },
+        ];
+
+        it('hides the filter for short lists', () => {
+            renderPanel({ devices: manyDevices.slice(0, 3) });
+            expect(screen.queryByPlaceholderText('Filter by name…')).not.toBeInTheDocument();
+        });
+
+        it('filters devices by name, case-insensitively', async () => {
+            const user = userEvent.setup();
+            renderPanel({ devices: manyDevices });
+
+            await user.type(screen.getByPlaceholderText('Filter by name…'), 'phone');
+
+            expect(screen.getByText('Bob Phone')).toBeInTheDocument();
+            expect(screen.getByText('Spare Phone')).toBeInTheDocument();
+            expect(screen.queryByText('Living room TV')).not.toBeInTheDocument();
+            expect(screen.queryByText('Work Laptop')).not.toBeInTheDocument();
+        });
+
+        it('shows a no-match message when nothing matches', async () => {
+            const user = userEvent.setup();
+            renderPanel({ devices: manyDevices });
+
+            await user.type(screen.getByPlaceholderText('Filter by name…'), 'zzz');
+
+            expect(screen.getByText(/No devices match/i)).toBeInTheDocument();
+        });
+    });
+
     // ─── JUMP section ────────────────────────────────────────────────────────────
 
     describe('jump section', () => {

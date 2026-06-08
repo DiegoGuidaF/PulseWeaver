@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { buildRoute } from "@/lib/routes";
 import dayjs from "dayjs";
@@ -7,15 +8,17 @@ import {
   Badge,
   Box,
   Button,
+  CloseButton,
   Divider,
   Group,
   Select,
   Stack,
   Text,
+  TextInput,
   ThemeIcon,
   UnstyledButton,
 } from "@mantine/core";
-import { IconPlus } from "@tabler/icons-react";
+import { IconPlus, IconSearch } from "@tabler/icons-react";
 import type { DeviceListEntry, DeviceListOwner } from "@/lib/api";
 import { DeviceState } from "@/lib/api";
 import { resolveDeviceIcon } from "@/features/devices/deviceTypeConfig";
@@ -123,6 +126,15 @@ export function OwnerDevicesPanel({
   const navigate = useNavigate();
   const { data: allGroups } = useDeviceList();
 
+  const [query, setQuery] = useState("");
+  const trimmed = query.trim().toLowerCase();
+  const filtered = useMemo(
+    () => (trimmed ? devices.filter((d) => d.name.toLowerCase().includes(trimmed)) : devices),
+    [devices, trimmed],
+  );
+  // Only worth a search box once the list is long enough to scan poorly.
+  const showFilter = devices.length > 3;
+
   const jumpData = (allGroups ?? [])
     .filter((g) => g.owner.id !== owner.id)
     .map((g) => g.owner.display_name);
@@ -173,14 +185,39 @@ export function OwnerDevicesPanel({
         <Text size="xs" c="dimmed" fw={600} tt="uppercase" mb="xs" style={{ letterSpacing: "0.05em" }}>
           {ownerFirstName}&apos;s devices · {devices.length}
         </Text>
-        {devices.map((entry) => (
-          <DevicePanelItem
-            key={entry.id}
-            entry={entry}
-            isSelected={entry.id === selectedDeviceId}
-            onSelect={() => onSelectDevice(entry.id)}
+        {showFilter && (
+          <TextInput
+            size="xs"
+            mb="xs"
+            placeholder="Filter by name…"
+            value={query}
+            onChange={(e) => setQuery(e.currentTarget.value)}
+            leftSection={<IconSearch size={13} />}
+            rightSection={
+              query ? (
+                <CloseButton
+                  size="sm"
+                  aria-label="Clear filter"
+                  onClick={() => setQuery("")}
+                />
+              ) : null
+            }
           />
-        ))}
+        )}
+        {filtered.length > 0 ? (
+          filtered.map((entry) => (
+            <DevicePanelItem
+              key={entry.id}
+              entry={entry}
+              isSelected={entry.id === selectedDeviceId}
+              onSelect={() => onSelectDevice(entry.id)}
+            />
+          ))
+        ) : (
+          <Text size="xs" c="dimmed" px="sm" py={6}>
+            No devices match “{query}”.
+          </Text>
+        )}
       </Stack>
 
       <Button
