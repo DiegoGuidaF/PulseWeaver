@@ -43,6 +43,11 @@ func (r *Repository) LastRollupAt(ctx context.Context) (time.Time, error) {
 // The strftime output is concatenated with '+00:00' so that bucket_at stores
 // values in the same format the driver produces for time.Time parameters
 // ("2006-01-02 15:04:05+00:00"), keeping WHERE comparisons consistent.
+//
+// Rows whose created_at strftime cannot parse (e.g. a stray Go time.Time.String()
+// value, "… +0000 UTC") are skipped rather than yielding a NULL bucket_at — a
+// single malformed row must never violate the NOT NULL constraint and abort the
+// init rollup, which would crash-loop the app on restart (PW-68).
 func (r *Repository) RunRollup(ctx context.Context, from, to time.Time) error {
 	const query = `
 		INSERT OR REPLACE INTO hourly_traffic_aggregates
@@ -59,6 +64,7 @@ func (r *Repository) RunRollup(ctx context.Context, from, to time.Time) error {
 		FROM access_log
 		WHERE created_at >= ?
 		  AND created_at <  ?
+		  AND strftime('%Y-%m-%d %H:00:00', created_at) IS NOT NULL
 		GROUP BY bucket_at, client_ip, target_host, outcome, deny_reason
 		`
 	if _, err := r.db.ExecContext(ctx, query, from.UTC(), to.UTC()); err != nil {

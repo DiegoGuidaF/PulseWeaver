@@ -124,6 +124,40 @@ func TestRunRollup_Idempotent(t *testing.T) {
 	is.Equal(stats.TotalRequests, int64(1))
 }
 
+// TestRunRollup_SkipsUnparseableCreatedAt is the PW-68 defence-in-depth guard:
+// a row whose created_at strftime cannot parse (a stray Go time.Time.String()
+// value, "… +0000 UTC") must be skipped, not turned into a NULL bucket_at that
+// violates the NOT NULL constraint and crashes the init rollup.
+func TestRunRollup_SkipsUnparseableCreatedAt(t *testing.T) {
+	is := is.New(t)
+	repo, db := setupTestRepo(t)
+	ctx := context.Background()
+
+	hour := time.Date(2025, 3, 15, 14, 0, 0, 0, time.UTC)
+	from := hour
+	to := hour.Add(time.Hour)
+
+	// One well-formed row (written via the driver) ...
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", true, "", hour.Add(5*time.Minute))
+	// ... and one malformed row stored verbatim in Go's time.Time.String() format.
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO access_log (client_ip, target_host, outcome, deny_reason, created_at, headers_json)
+		VALUES (?, ?, ?, ?, ?, '{}')
+	`, "10.0.0.9", "app.example.com", 1, "", "2025-03-15 14:30:00.123456 +0000 UTC")
+	is.NoErr(err)
+
+	// Must not error (was: bucket_at NOT NULL constraint failed).
+	is.NoErr(repo.RunRollup(ctx, from, to))
+
+	// The malformed row is skipped: exactly one non-NULL bucket from the good row,
+	// and no NULL bucket_at was ever inserted.
+	var totalBuckets, nullBuckets int
+	is.NoErr(db.GetContext(ctx, &totalBuckets, `SELECT COUNT(*) FROM hourly_traffic_aggregates`))
+	is.NoErr(db.GetContext(ctx, &nullBuckets, `SELECT COUNT(*) FROM hourly_traffic_aggregates WHERE bucket_at IS NULL`))
+	is.Equal(totalBuckets, 1)
+	is.Equal(nullBuckets, 0)
+}
+
 // --- GetTrafficSeries ---
 
 func TestGetTrafficSeries_MultiHour(t *testing.T) {

@@ -56,9 +56,9 @@ func TestGenerateSeedDB(t *testing.T) {
 			TrustedProxy:  netip.MustParseAddr("127.0.0.1"),
 		},
 		DB: config.ConfDB{
-			// journal_mode(DELETE): one self-contained file (no WAL sidecars).
-			// foreign_keys(1): enforce FK constraints, matching production.
-			Dsn: fmt.Sprintf("file:%s?_loc=auto&_pragma=foreign_keys(1)&_pragma=journal_mode(DELETE)&_pragma=busy_timeout(5000)", outPath),
+			// seedDBDSN carries the production time-format params so seeded
+			// timestamps are SQLite-parseable (see seed_dsn_test.go, PW-68).
+			Dsn: seedDBDSN(outPath),
 		},
 		Rules:  config.ConfRules{CheckInterval: time.Minute},
 		Policy: config.ConfPolicy{APISecret: testutils.TestPolicySecret},
