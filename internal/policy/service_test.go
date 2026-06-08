@@ -25,9 +25,9 @@ func TestService_Initialize_PopulatesCache(t *testing.T) {
 
 	err = svc.Initialize(context.Background())
 	is.NoErr(err)
-	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "192.168.1.1"}))
-	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "10.0.0.1"}))
-	is.True(errors.Is(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "1.2.3.4"}), ErrIPNotEnabled))
+	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: mustAddr("192.168.1.1")}))
+	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: mustAddr("10.0.0.1")}))
+	is.True(errors.Is(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: mustAddr("1.2.3.4")}), ErrIPNotEnabled))
 }
 
 func TestService_Initialize_PropagatesError(t *testing.T) {

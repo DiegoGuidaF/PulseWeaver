@@ -69,59 +69,78 @@ func TestAddressDisable_EvictsIPFromPolicyCache(t *testing.T) {
 }
 
 // TestAddressEnable_AddsIPToPolicyCache is a cross-domain integration test that
-// verifies adding a new address makes it accessible through the policy forward-auth:
+// verifies adding a new address makes it accessible through the policy forward-auth,
+// across IPv4, native IPv6, and IPv4-mapped-IPv6 representations (PW-67):
 //
 //  1. A device with no registered address is denied at the policy forward-auth.
 //  2. Adding an address via the HTTP API fires an AddressCreated event that
 //     triggers an async policy cache refresh.
 //  3. The IP is allowed after the refresh.
-//  4. The service layer confirms the enabled address exists for the device.
+//  4. The service layer confirms the address is stored in canonical (unmapped) form.
+//
+// The representation matrix exercises both canonicalization boundaries: a mapped form
+// presented at write time must be stored as its plain IPv4 twin, and a mapped form
+// presented at verify time must decide identically to that twin.
 //
 // Background services start AFTER seeding to avoid SQLite lock contention.
 func TestAddressEnable_AddsIPToPolicyCache(t *testing.T) {
-	is := is.New(t)
-	ctx := t.Context()
+	const backendHost = "api.internal"
 
-	const (
-		deviceIP    = "10.0.0.1"
-		backendHost = "api.internal"
-	)
+	cases := []struct {
+		name     string
+		addIP    string // representation sent to AddAddress
+		storedIP string // canonical form expected in the DB / service layer
+		verifyIP string // representation presented at forward-auth time
+	}{
+		{"ipv4", "10.0.0.1", "10.0.0.1", "10.0.0.1"},
+		{"ipv4_mapped_at_write", "::ffff:10.0.0.1", "10.0.0.1", "10.0.0.1"},
+		{"ipv4_mapped_at_verify", "10.0.0.1", "10.0.0.1", "::ffff:10.0.0.1"},
+		{"ipv6_native", "2001:db8::1", "2001:db8::1", "2001:db8::1"},
+	}
 
-	srv, seed := testutils.SetupRunningIntegrationServer(t,
-		testutils.NewSeeder(t).
-			WithGroup(testutils.GroupFixture{Name: "backend"}).
-			WithHost(testutils.HostFixture{FQDN: backendHost, Groups: []string{"backend"}}).
-			WithUser(testutils.UserFixture{Name: "alice"}).
-			SetUserAccess("alice", false, "backend").
-			WithDevice(testutils.DeviceFixture{Name: "alice-laptop", OwnerUser: "alice"}).
-			WithPolicyInitialize(),
-	)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			is := is.New(t)
+			ctx := t.Context()
 
-	deviceID := seed.Device("alice-laptop")
-	client := testutils.NewAdminAPIClient(t, srv)
+			srv, seed := testutils.SetupRunningIntegrationServer(t,
+				testutils.NewSeeder(t).
+					WithGroup(testutils.GroupFixture{Name: "backend"}).
+					WithHost(testutils.HostFixture{FQDN: backendHost, Groups: []string{"backend"}}).
+					WithUser(testutils.UserFixture{Name: "alice"}).
+					SetUserAccess("alice", false, "backend").
+					WithDevice(testutils.DeviceFixture{Name: "alice-laptop", OwnerUser: "alice"}).
+					WithPolicyInitialize(),
+			)
 
-	// Pre-condition: IP is unknown to the cache (no address registered).
-	w := verifyIP(t, srv, deviceIP, backendHost)
-	is.Equal(w.Code, http.StatusForbidden)
+			deviceID := seed.Device("alice-laptop")
+			client := testutils.NewAdminAPIClient(t, srv)
 
-	// Add the address via the HTTP API — this is the action under test.
-	before := srv.PolicyService.LastRefreshedAt()
-	addResp, err := client.AddAddressWithResponse(ctx, deviceID.Int64(), httpapi.AddAddressJSONRequestBody{
-		Ip: deviceIP,
-	})
-	is.NoErr(err)
-	is.True(addResp.StatusCode() == http.StatusCreated || addResp.StatusCode() == http.StatusOK)
+			// Pre-condition: IP is unknown to the cache (no address registered).
+			w := verifyIP(t, srv, tc.verifyIP, backendHost)
+			is.Equal(w.Code, http.StatusForbidden)
 
-	// The policy cache refresh is async (AddressCreated event → RunListener → refreshCache).
-	testutils.WaitForPolicyRefresh(ctx, t, srv, before)
+			// Add the address via the HTTP API — this is the action under test.
+			before := srv.PolicyService.LastRefreshedAt()
+			addResp, err := client.AddAddressWithResponse(ctx, deviceID.Int64(), httpapi.AddAddressJSONRequestBody{
+				Ip: tc.addIP,
+			})
+			is.NoErr(err)
+			is.True(addResp.StatusCode() == http.StatusCreated || addResp.StatusCode() == http.StatusOK)
 
-	// Policy cache assertion: the IP must now be allowed.
-	w = verifyIP(t, srv, deviceIP, backendHost)
-	is.Equal(w.Code, http.StatusOK)
+			// The policy cache refresh is async (AddressCreated event → RunListener → refreshCache).
+			testutils.WaitForPolicyRefresh(ctx, t, srv, before)
 
-	// Service-layer assertion: the address is enabled for the device.
-	addrs, err := srv.DeviceService.GetEnabledAddressesForDevice(ctx, deviceID)
-	is.NoErr(err)
-	is.Equal(len(addrs), 1)
-	is.Equal(addrs[0].IP, deviceIP)
+			// Policy cache assertion: the IP must now be allowed, regardless of the
+			// representation it is presented in.
+			w = verifyIP(t, srv, tc.verifyIP, backendHost)
+			is.Equal(w.Code, http.StatusOK)
+
+			// Service-layer assertion: the address is enabled and stored canonical.
+			addrs, err := srv.DeviceService.GetEnabledAddressesForDevice(ctx, deviceID)
+			is.NoErr(err)
+			is.Equal(len(addrs), 1)
+			is.Equal(addrs[0].IP, tc.storedIP)
+		})
+	}
 }

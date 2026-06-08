@@ -88,6 +88,12 @@ func noopLogger() *slog.Logger {
 	return slog.New(slog.DiscardHandler)
 }
 
+// mustAddr parses s into a canonical (unmapped) netip.Addr for tests, mirroring
+// how the engine keys its IP set. Panics on invalid input.
+func mustAddr(s string) netip.Addr {
+	return netip.MustParseAddr(s).Unmap()
+}
+
 // newHostRestrictedSvc builds a Service where userID owns the given IP and
 // is restricted to allowedHosts (empty slice = no hosts granted).
 func newHostRestrictedSvc(t *testing.T, userID ids.UserID, ip string, allowedHosts []string) *Service {

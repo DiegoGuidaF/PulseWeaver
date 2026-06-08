@@ -98,6 +98,33 @@ func TestClientIPFromRealIP_TrustedProxyExtractsClientIP(t *testing.T) {
 	is.Equal(capturedIP, "192.0.2.100")
 }
 
+func TestClientIPFromRealIP_MappedV4HeaderCanonicalized(t *testing.T) {
+	is := is.New(t)
+
+	trustedProxy := netip.MustParseAddr("127.0.0.1")
+
+	var capturedIP string
+	handler := httpserver.ClientIPFromRealIPMiddleware(trustedProxy, testLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip, ok := httpapi.ClientIPFromContext(r.Context())
+		if ok {
+			capturedIP = ip
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// X-Real-IP arrives as an IPv4-mapped IPv6 address; the context must hold the
+	// canonical (unmapped) plain IPv4 form so policy lookups are representation-stable.
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.RemoteAddr = "127.0.0.1:12345"
+	req.Header.Set(httpapi.XRealIP, "::ffff:192.0.2.100")
+	res := httptest.NewRecorder()
+
+	handler.ServeHTTP(res, req)
+
+	is.Equal(res.Code, http.StatusOK)
+	is.Equal(capturedIP, "192.0.2.100")
+}
+
 func TestClientIPFromRealIP_UntrustedProxyIgnoresHeader(t *testing.T) {
 	is := is.New(t)
 

@@ -49,7 +49,7 @@ type Service struct {
 	apiSecretHash           [32]byte
 	trustedProxy            netip.Addr
 	mu                      sync.RWMutex
-	ipSet                   map[string]ipSetEntry
+	ipSet                   map[netip.Addr]ipSetEntry
 	networkPolicies         []networkPolicyCacheEntry
 	lastRefreshedAt         time.Time
 	lastRefreshDurationMs   int64
@@ -78,7 +78,7 @@ func NewService(
 		networkPoliciesProvider: networkPoliciesProvider,
 		apiSecretHash:           sha256.Sum256([]byte(secret)),
 		trustedProxy:            trustedProxy,
-		ipSet:                   make(map[string]ipSetEntry),
+		ipSet:                   make(map[netip.Addr]ipSetEntry),
 		refreshSignal:           make(chan struct{}, 1),
 		logger:                  componentLogger,
 	}, nil

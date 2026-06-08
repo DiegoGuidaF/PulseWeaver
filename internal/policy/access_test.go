@@ -22,7 +22,7 @@ func TestDecide_NetworkPolicy_BypassHostCheck_AnyHostAllowed(t *testing.T) {
 	svc := newServiceWithNetworkPolicies(nil, nil, []networkpolicies.CacheEntry{
 		{PolicyID: ids.NetworkPolicyID(1), PolicyName: "ops", CIDR: "10.0.0.0/8", BypassHostCheck: true},
 	})
-	result := svc.Decide(context.Background(), "10.1.2.3", "any.host.example")
+	result := svc.Decide(context.Background(), mustAddr("10.1.2.3"), "any.host.example")
 	is.True(result.Allowed)
 	is.Equal(result.MatchSource, MatchSourceNetworkPolicy)
 	is.Equal(*result.NetworkPolicyName, "ops")
@@ -34,7 +34,7 @@ func TestDecide_NetworkPolicy_HostInAllowlist_Allowed(t *testing.T) {
 	svc := newServiceWithNetworkPolicies(nil, nil, []networkpolicies.CacheEntry{
 		{PolicyID: ids.NetworkPolicyID(1), PolicyName: "corp", CIDR: "10.0.0.0/8", AllowedHostFQDNs: []string{"allowed.com"}},
 	})
-	result := svc.Decide(context.Background(), "10.0.0.5", "allowed.com")
+	result := svc.Decide(context.Background(), mustAddr("10.0.0.5"), "allowed.com")
 	is.True(result.Allowed)
 	is.Equal(result.MatchSource, MatchSourceNetworkPolicy)
 }
@@ -44,7 +44,7 @@ func TestDecide_NetworkPolicy_HostNotInAllowlist_Denied(t *testing.T) {
 	svc := newServiceWithNetworkPolicies(nil, nil, []networkpolicies.CacheEntry{
 		{PolicyID: ids.NetworkPolicyID(1), PolicyName: "corp", CIDR: "10.0.0.0/8", AllowedHostFQDNs: []string{"allowed.com"}},
 	})
-	result := svc.Decide(context.Background(), "10.0.0.5", "other.com")
+	result := svc.Decide(context.Background(), mustAddr("10.0.0.5"), "other.com")
 	is.True(!result.Allowed)
 	is.Equal(*result.DenyReason, DenyReasonHostNotAllowed)
 }
@@ -56,8 +56,8 @@ func TestDecide_NetworkPolicy_MostSpecificFirst_NarrowerWins(t *testing.T) {
 		{PolicyID: ids.NetworkPolicyID(1), PolicyName: "broad", CIDR: "10.0.0.0/8", AllowedHostFQDNs: []string{"a.com"}},
 		{PolicyID: ids.NetworkPolicyID(2), PolicyName: "narrow", CIDR: "10.1.0.0/16", AllowedHostFQDNs: []string{"b.com"}},
 	})
-	is.True(svc.Decide(context.Background(), "10.1.2.3", "b.com").Allowed)
-	denyResult := svc.Decide(context.Background(), "10.1.2.3", "a.com")
+	is.True(svc.Decide(context.Background(), mustAddr("10.1.2.3"), "b.com").Allowed)
+	denyResult := svc.Decide(context.Background(), mustAddr("10.1.2.3"), "a.com")
 	is.True(!denyResult.Allowed)
 	is.Equal(*denyResult.DenyReason, DenyReasonHostNotAllowed)
 }
@@ -72,12 +72,12 @@ func TestDecide_DeviceBeatsNetworkPolicy(t *testing.T) {
 		{PolicyID: ids.NetworkPolicyID(1), PolicyName: "broad", CIDR: "10.0.0.0/8", AllowedHostFQDNs: []string{"y.com"}},
 	})
 
-	xResult := svc.Decide(context.Background(), "10.0.0.5", "x.com")
+	xResult := svc.Decide(context.Background(), mustAddr("10.0.0.5"), "x.com")
 	is.True(xResult.Allowed)
 	is.Equal(xResult.MatchSource, MatchSourceDevice)
 	is.True(xResult.NetworkPolicyID == nil)
 
-	yResult := svc.Decide(context.Background(), "10.0.0.5", "y.com")
+	yResult := svc.Decide(context.Background(), mustAddr("10.0.0.5"), "y.com")
 	is.True(!yResult.Allowed)
 	is.Equal(*yResult.DenyReason, DenyReasonHostNotAllowed)
 	is.Equal(yResult.MatchSource, MatchSourceDevice)
@@ -88,7 +88,7 @@ func TestDecide_NetworkPolicy_IPNotInAnyCIDR_Denied(t *testing.T) {
 	svc := newServiceWithNetworkPolicies(nil, nil, []networkpolicies.CacheEntry{
 		{PolicyID: ids.NetworkPolicyID(1), CIDR: "10.0.0.0/8", BypassHostCheck: true},
 	})
-	result := svc.Decide(context.Background(), "192.168.1.1", "any.com")
+	result := svc.Decide(context.Background(), mustAddr("192.168.1.1"), "any.com")
 	is.True(!result.Allowed)
 	is.Equal(*result.DenyReason, DenyReasonIPNotRegistered)
 }
@@ -107,13 +107,13 @@ func TestDecide_NetworkPolicy_TrustedProxyInCIDR_Denied(t *testing.T) {
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 
-	result := svc.Decide(context.Background(), "172.20.0.2", "any.host.example")
+	result := svc.Decide(context.Background(), mustAddr("172.20.0.2"), "any.host.example")
 	is.True(!result.Allowed)
 	is.True(result.DenyReason != nil)
 	is.Equal(*result.DenyReason, DenyReasonIPNotRegistered)
 
 	// A different IP inside the same CIDR is still granted — the guard is proxy-specific.
-	other := svc.Decide(context.Background(), "172.20.0.50", "any.host.example")
+	other := svc.Decide(context.Background(), mustAddr("172.20.0.50"), "any.host.example")
 	is.True(other.Allowed)
 	is.Equal(other.MatchSource, MatchSourceNetworkPolicy)
 }
@@ -127,7 +127,7 @@ func TestVerifyAccess_NetworkPolicy_ObserverEvent(t *testing.T) {
 	svc.AddDecisionObserver(obs)
 
 	host := "api.internal"
-	err := svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "10.5.0.1", TargetHost: &host})
+	err := svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: mustAddr("10.5.0.1"), TargetHost: &host})
 	is.NoErr(err)
 
 	events := obs.received()
@@ -146,7 +146,7 @@ func TestVerifyAccess_NetworkPolicy_ObserverEvent(t *testing.T) {
 func TestLookupIP_EmptySet(t *testing.T) {
 	is := is.New(t)
 	svc := newRestrictedService(nil, nil)
-	_, ok := svc.lookupIP(context.Background(), "1.2.3.4")
+	_, ok := svc.lookupIP(context.Background(), mustAddr("1.2.3.4"))
 	is.True(!ok)
 }
 
@@ -155,7 +155,7 @@ func TestLookupIP_IPFound(t *testing.T) {
 	entries := []device.IPEntry{{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: 1}}
 	hostAccess := []UserHostAccess{{UserID: 1, BypassAllowlist: true}}
 	svc := newRestrictedService(entries, hostAccess)
-	entry, ok := svc.lookupIP(context.Background(), "1.2.3.4")
+	entry, ok := svc.lookupIP(context.Background(), mustAddr("1.2.3.4"))
 	is.True(ok)
 	is.True(entry.BypassAllowlist)
 }
@@ -164,7 +164,7 @@ func TestLookupIP_IPNotFound(t *testing.T) {
 	is := is.New(t)
 	entries := []device.IPEntry{{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: 1}}
 	svc := newRestrictedService(entries, nil)
-	_, ok := svc.lookupIP(context.Background(), "9.9.9.9")
+	_, ok := svc.lookupIP(context.Background(), mustAddr("9.9.9.9"))
 	is.True(!ok)
 }
 
@@ -177,7 +177,7 @@ func TestLookupIP_RejectsTrustedProxy(t *testing.T) {
 	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "secret", noopLogger(), proxy)
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
-	_, ok := svc.lookupIP(context.Background(), "10.0.0.1")
+	_, ok := svc.lookupIP(context.Background(), mustAddr("10.0.0.1"))
 	is.True(!ok)
 }
 
@@ -210,7 +210,7 @@ func TestToIPContributors_ProjectsFields(t *testing.T) {
 func TestDecide_IPNotRegistered(t *testing.T) {
 	is := is.New(t)
 	svc := newRestrictedService(nil, nil)
-	result := svc.Decide(context.Background(), "1.2.3.4", "example.com")
+	result := svc.Decide(context.Background(), mustAddr("1.2.3.4"), "example.com")
 	is.True(!result.Allowed)
 	is.True(result.DenyReason != nil)
 	is.Equal(*result.DenyReason, DenyReasonIPNotRegistered)
@@ -222,7 +222,7 @@ func TestDecide_BypassAllowlist(t *testing.T) {
 	entries := []device.IPEntry{{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: 10}}
 	hostAccess := []UserHostAccess{{UserID: 10, BypassAllowlist: true}}
 	svc := newRestrictedService(entries, hostAccess)
-	result := svc.Decide(context.Background(), "1.2.3.4", "anything.example.com")
+	result := svc.Decide(context.Background(), mustAddr("1.2.3.4"), "anything.example.com")
 	is.True(result.Allowed)
 	is.True(result.DenyReason == nil)
 	is.Equal(len(result.Contributors), 1)
@@ -233,7 +233,7 @@ func TestDecide_HostAllowed(t *testing.T) {
 	entries := []device.IPEntry{{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: 10}}
 	hostAccess := []UserHostAccess{{UserID: 10, BypassAllowlist: false, AllowedHosts: []string{"allowed.example.com"}}}
 	svc := newRestrictedService(entries, hostAccess)
-	result := svc.Decide(context.Background(), "1.2.3.4", "allowed.example.com")
+	result := svc.Decide(context.Background(), mustAddr("1.2.3.4"), "allowed.example.com")
 	is.True(result.Allowed)
 	is.True(result.DenyReason == nil)
 }
@@ -243,7 +243,7 @@ func TestDecide_HostNotAllowed(t *testing.T) {
 	entries := []device.IPEntry{{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: 10}}
 	hostAccess := []UserHostAccess{{UserID: 10, BypassAllowlist: false, AllowedHosts: []string{"allowed.example.com"}}}
 	svc := newRestrictedService(entries, hostAccess)
-	result := svc.Decide(context.Background(), "1.2.3.4", "denied.example.com")
+	result := svc.Decide(context.Background(), mustAddr("1.2.3.4"), "denied.example.com")
 	is.True(!result.Allowed)
 	is.Equal(*result.DenyReason, DenyReasonHostNotAllowed)
 	is.Equal(len(result.Contributors), 1)
@@ -254,7 +254,7 @@ func TestDecide_HostCaseFolding(t *testing.T) {
 	entries := []device.IPEntry{{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: 10}}
 	hostAccess := []UserHostAccess{{UserID: 10, BypassAllowlist: false, AllowedHosts: []string{"allowed.example.com"}}}
 	svc := newRestrictedService(entries, hostAccess)
-	result := svc.Decide(context.Background(), "1.2.3.4", "ALLOWED.EXAMPLE.COM")
+	result := svc.Decide(context.Background(), mustAddr("1.2.3.4"), "ALLOWED.EXAMPLE.COM")
 	is.True(result.Allowed)
 }
 
@@ -266,7 +266,7 @@ func TestDecide_UnconfiguredUser(t *testing.T) {
 		{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1), UserID: ids.UserID(99)},
 	}
 	svc := newRestrictedService(entries, nil)
-	result := svc.Decide(context.Background(), "1.2.3.4", "example.com")
+	result := svc.Decide(context.Background(), mustAddr("1.2.3.4"), "example.com")
 	is.True(!result.Allowed)
 	is.Equal(*result.DenyReason, DenyReasonHostNotAllowed)
 }
@@ -285,9 +285,9 @@ func TestDecide_HostIntersection_DenyWins(t *testing.T) {
 	svc := newRestrictedService(entries, hostAccess)
 
 	// Only "b.com" survives the intersection.
-	is.True(svc.Decide(context.Background(), "1.2.3.4", "b.com").Allowed)
-	is.Equal(*svc.Decide(context.Background(), "1.2.3.4", "a.com").DenyReason, DenyReasonHostNotAllowed)
-	is.Equal(*svc.Decide(context.Background(), "1.2.3.4", "c.com").DenyReason, DenyReasonHostNotAllowed)
+	is.True(svc.Decide(context.Background(), mustAddr("1.2.3.4"), "b.com").Allowed)
+	is.Equal(*svc.Decide(context.Background(), mustAddr("1.2.3.4"), "a.com").DenyReason, DenyReasonHostNotAllowed)
+	is.Equal(*svc.Decide(context.Background(), mustAddr("1.2.3.4"), "c.com").DenyReason, DenyReasonHostNotAllowed)
 }
 
 func TestDecide_BypassAndNonBypass_SharedIP(t *testing.T) {
@@ -303,8 +303,8 @@ func TestDecide_BypassAndNonBypass_SharedIP(t *testing.T) {
 	}
 	svc := newRestrictedService(entries, hostAccess)
 
-	is.True(svc.Decide(context.Background(), "1.2.3.4", "allowed.com").Allowed)
-	is.Equal(*svc.Decide(context.Background(), "1.2.3.4", "other.com").DenyReason, DenyReasonHostNotAllowed)
+	is.True(svc.Decide(context.Background(), mustAddr("1.2.3.4"), "allowed.com").Allowed)
+	is.Equal(*svc.Decide(context.Background(), mustAddr("1.2.3.4"), "other.com").DenyReason, DenyReasonHostNotAllowed)
 }
 
 func TestDecide_DoesNotNotifyObservers(t *testing.T) {
@@ -315,8 +315,8 @@ func TestDecide_DoesNotNotifyObservers(t *testing.T) {
 	svc := newRestrictedService(entries, hostAccess)
 	svc.AddDecisionObserver(obs)
 
-	_ = svc.Decide(context.Background(), "1.2.3.4", "example.com")
-	_ = svc.Decide(context.Background(), "9.9.9.9", "example.com")
+	_ = svc.Decide(context.Background(), mustAddr("1.2.3.4"), "example.com")
+	_ = svc.Decide(context.Background(), mustAddr("9.9.9.9"), "example.com")
 
 	is.Equal(len(obs.received()), 0)
 }
@@ -332,7 +332,7 @@ func TestVerifyAccess_Success(t *testing.T) {
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 
-	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: "1.2.3.4"})
+	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: mustAddr("1.2.3.4")})
 	is.NoErr(err)
 }
 
@@ -345,7 +345,7 @@ func TestVerifyAccess_InvalidToken(t *testing.T) {
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 
-	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "wrong", ClientIP: "1.2.3.4"})
+	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "wrong", ClientIP: mustAddr("1.2.3.4")})
 	is.True(errors.Is(err, ErrInvalidBearerToken))
 }
 
@@ -358,7 +358,7 @@ func TestVerifyAccess_IPNotEnabled(t *testing.T) {
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 
-	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: "9.9.9.9"})
+	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: mustAddr("9.9.9.9")})
 	is.True(errors.Is(err, ErrIPNotEnabled))
 }
 
@@ -372,7 +372,7 @@ func TestVerifyAccess_HostDenied_EmitsEvent(t *testing.T) {
 	host := "other.com"
 	err := svc.VerifyAccess(context.Background(), &VerifyRequest{
 		Token:      "mysecret",
-		ClientIP:   "1.2.3.4",
+		ClientIP:   mustAddr("1.2.3.4"),
 		TargetHost: &host,
 	})
 	is.True(errors.Is(err, ErrHostNotAllowed))
@@ -396,7 +396,7 @@ func TestVerifyAccess_EmitsAllowEvent(t *testing.T) {
 	obs := &fakeObserver{}
 	svc.AddDecisionObserver(obs)
 
-	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: "1.2.3.4", TargetHost: new("example.com")})
+	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: mustAddr("1.2.3.4"), TargetHost: new("example.com")})
 	is.NoErr(err)
 
 	events := obs.received()
@@ -423,7 +423,7 @@ func TestVerifyAccess_EmitsInvalidTokenEvent(t *testing.T) {
 	obs := &fakeObserver{}
 	svc.AddDecisionObserver(obs)
 
-	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "wrongtoken", ClientIP: "1.2.3.4"})
+	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "wrongtoken", ClientIP: mustAddr("1.2.3.4")})
 	is.True(errors.Is(err, ErrInvalidBearerToken))
 
 	events := obs.received()
@@ -446,7 +446,7 @@ func TestVerifyAccess_EmitsIPNotRegisteredEvent(t *testing.T) {
 	obs := &fakeObserver{}
 	svc.AddDecisionObserver(obs)
 
-	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: "9.9.9.9"})
+	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: mustAddr("9.9.9.9")})
 	is.True(errors.Is(err, ErrIPNotEnabled))
 
 	events := obs.received()
@@ -470,7 +470,7 @@ func TestVerifyAccess_AttachesGeoIP(t *testing.T) {
 	obs := &fakeObserver{}
 	svc.AddDecisionObserver(obs)
 
-	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: "8.8.8.8"})
+	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: mustAddr("8.8.8.8")})
 	is.NoErr(err)
 
 	events := obs.received()
@@ -493,7 +493,7 @@ func TestVerifyAccess_NilResolver(t *testing.T) {
 	svc.AddDecisionObserver(obs)
 
 	// Must not panic; GeoIP must be zero value.
-	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: "8.8.8.8"})
+	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: mustAddr("8.8.8.8")})
 	is.NoErr(err)
 
 	events := obs.received()
@@ -513,7 +513,7 @@ func TestVerifyAccess_GeoIPOnDeny(t *testing.T) {
 	svc.AddDecisionObserver(obs)
 
 	// IP not in set → denied, but GeoIP must still be attached.
-	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: "9.9.9.9"})
+	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: mustAddr("9.9.9.9")})
 	is.True(errors.Is(err, ErrIPNotEnabled))
 
 	events := obs.received()

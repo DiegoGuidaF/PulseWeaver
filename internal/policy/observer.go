@@ -56,7 +56,7 @@ func NewDecisionEvent(outcome bool, denyReason *DenyReason, result *DecisionResu
 		headers = make(map[string][]string)
 	}
 	e := DecisionEvent{
-		ClientIP:   req.ClientIP,
+		ClientIP:   req.ClientIP.String(),
 		Outcome:    outcome,
 		DenyReason: denyReason,
 		CreatedAt:  time.Now().UTC(),

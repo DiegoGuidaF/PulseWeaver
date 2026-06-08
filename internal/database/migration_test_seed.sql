@@ -47,6 +47,11 @@ INSERT INTO addresses (device_id, ip, source, is_enabled)
 INSERT INTO addresses (device_id, ip, source, is_enabled)
     SELECT id, '192.168.1.2', 'heartbeat', 0 FROM devices WHERE name = 'seed-router';
 
+-- Native IPv6 address — exercises IPv6 storage/lookup (PW-67). Stored canonical
+-- (unmapped), so migration 000025's 4-in-6 normalization must leave it untouched.
+INSERT INTO addresses (device_id, ip, source, is_enabled)
+    SELECT id, '2001:db8::1', 'manual', 1 FROM devices WHERE name = 'seed-router';
+
 INSERT INTO device_api_keys (device_id, key_prefix, key_hash)
     SELECT id, 'pw_test', 'hash-seed' FROM devices WHERE name = 'seed-router';
 

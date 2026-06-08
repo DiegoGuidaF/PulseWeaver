@@ -66,17 +66,18 @@ type IPEntry struct {
 
 // ParseAndValidateIP parses and validates that the given string is a valid IPv4 or IPv6 address.
 // It ignores the port if present and only cares about the IP component.
+// The result is always canonical: an IPv4-mapped IPv6 address (::ffff:a.b.c.d) is
+// unmapped to its plain IPv4 form so stored addresses never depend on representation.
 // TODO: Make private once the address_test go through the NewCreateAddressParams
 func ParseAndValidateIP(ipInput string) (netip.Addr, error) {
 	// Try to parse as IP without port
 	if parsedIP, err := netip.ParseAddr(ipInput); err == nil {
-		return parsedIP, nil
+		return parsedIP.Unmap(), nil
 	}
 
 	// If that fails, try to parse as IP with port
 	if ap, err := netip.ParseAddrPort(ipInput); err == nil {
-		ipAddr := ap.Addr()
-		return ipAddr, nil
+		return ap.Addr().Unmap(), nil
 	}
 
 	// If both fail, return error

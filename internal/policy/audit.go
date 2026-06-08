@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"net/netip"
 	"time"
 )
 
@@ -39,14 +40,14 @@ func (s *Service) GetPolicyMap() PolicyMapSnapshot {
 }
 
 // toPolicyMapEntry converts an internal ipSetEntry to its exported form.
-func toPolicyMapEntry(ip string, e ipSetEntry) PolicyMapEntry {
+func toPolicyMapEntry(ip netip.Addr, e ipSetEntry) PolicyMapEntry {
 	hosts := sortedKeys(e.AllowedHosts)
 
 	contributors := make([]ContributorAccess, len(e.Contributors))
 	copy(contributors, e.Contributors)
 
 	return PolicyMapEntry{
-		IP:                  ip,
+		IP:                  ip.String(),
 		BypassAllowlist:     e.BypassAllowlist,
 		AllowedHosts:        hosts,
 		IntersectionApplied: e.IntersectionApplied,

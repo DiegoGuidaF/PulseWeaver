@@ -18,7 +18,15 @@ import (
 //  1. Exact IP match against device address set (device owner's host policy applies).
 //  2. CIDR containment against enabled network policies (most-specific first).
 //  3. Deny if neither matches.
-func (s *Service) Decide(ctx context.Context, ip, host string) DecisionResult {
+func (s *Service) Decide(ctx context.Context, ip netip.Addr, host string) DecisionResult {
+	// Fail closed on an invalid address (e.g. an unparseable IP at the boundary).
+	if !ip.IsValid() {
+		return DecisionResult{DenyReason: new(DenyReasonIPNotRegistered)}
+	}
+	// Defensive: callers pass canonical addresses, but unmapping here guarantees a
+	// 4-in-6 address is evaluated identically to its plain IPv4 form (idempotent).
+	ip = ip.Unmap()
+
 	entry, ok := s.lookupIP(ctx, ip)
 	if ok {
 		contributors := toIPContributors(entry.Contributors)
@@ -33,35 +41,32 @@ func (s *Service) Decide(ctx context.Context, ip, host string) DecisionResult {
 	}
 
 	// CIDR fallback: check network policies in most-specific-first order.
-	addr, err := netip.ParseAddr(ip)
-	if err == nil {
-		// Reject the trusted proxy IP before evaluating any CIDR policy, mirroring
-		// the lookupIP guard. Otherwise a network policy whose prefix covers the
-		// proxy's own address (e.g. when X-Real-IP is absent/malformed and the
-		// request falls back to the proxy IP) would grant blanket access.
-		if s.trustedProxy.IsValid() && s.trustedProxy.Compare(addr) == 0 {
-			s.logger.WarnContext(ctx, "rejected trusted proxy IP authorization", slog.String(AttrKeyRequestIP, ip))
-			return DecisionResult{DenyReason: new(DenyReasonIPNotRegistered)}
-		}
+	// Reject the trusted proxy IP before evaluating any CIDR policy, mirroring
+	// the lookupIP guard. Otherwise a network policy whose prefix covers the
+	// proxy's own address (e.g. when X-Real-IP is absent/malformed and the
+	// request falls back to the proxy IP) would grant blanket access.
+	if s.trustedProxy.IsValid() && s.trustedProxy.Compare(ip) == 0 {
+		s.logger.WarnContext(ctx, "rejected trusted proxy IP authorization", slog.String(AttrKeyRequestIP, ip.String()))
+		return DecisionResult{DenyReason: new(DenyReasonIPNotRegistered)}
+	}
 
-		s.mu.RLock()
-		policies := s.networkPolicies
-		s.mu.RUnlock()
+	s.mu.RLock()
+	policies := s.networkPolicies
+	s.mu.RUnlock()
 
-		h := strings.ToLower(host)
-		for _, np := range policies {
-			if np.Prefix.Contains(addr) {
-				_, hostAllowed := np.AllowedHosts[h]
-				if np.BypassHostCheck || hostAllowed {
-					return DecisionResult{
-						Allowed:           true,
-						MatchSource:       MatchSourceNetworkPolicy,
-						NetworkPolicyID:   &np.PolicyID,
-						NetworkPolicyName: &np.PolicyName,
-					}
+	h := strings.ToLower(host)
+	for _, np := range policies {
+		if np.Prefix.Contains(ip) {
+			_, hostAllowed := np.AllowedHosts[h]
+			if np.BypassHostCheck || hostAllowed {
+				return DecisionResult{
+					Allowed:           true,
+					MatchSource:       MatchSourceNetworkPolicy,
+					NetworkPolicyID:   &np.PolicyID,
+					NetworkPolicyName: &np.PolicyName,
 				}
-				return DecisionResult{DenyReason: new(DenyReasonHostNotAllowed)}
 			}
+			return DecisionResult{DenyReason: new(DenyReasonHostNotAllowed)}
 		}
 	}
 
@@ -73,7 +78,7 @@ func (s *Service) VerifyAccess(ctx context.Context, req *VerifyRequest) error {
 	s.logger.DebugContext(ctx, "Verify access for ip")
 	start := time.Now()
 
-	geo := s.geoResolver.Resolve(req.ClientIP)
+	geo := s.geoResolver.Resolve(req.ClientIP.String())
 
 	tokenHash := sha256.Sum256([]byte(req.Token))
 	if subtle.ConstantTimeCompare(tokenHash[:], s.apiSecretHash[:]) != 1 {
@@ -108,19 +113,16 @@ func (s *Service) VerifyAccess(ctx context.Context, req *VerifyRequest) error {
 
 // lookupIP returns the ipSetEntry for ip if it is currently in the enabled set.
 // It rejects the trusted proxy IP regardless of registration status. Thread-safe.
-func (s *Service) lookupIP(ctx context.Context, ip string) (ipSetEntry, bool) {
-	if s.trustedProxy.IsValid() {
-		addr, err := netip.ParseAddr(ip)
-		if err == nil && s.trustedProxy.Compare(addr) == 0 {
-			s.logger.WarnContext(ctx, "rejected trusted proxy IP authorization", slog.String(AttrKeyRequestIP, ip))
-			return ipSetEntry{}, false
-		}
+func (s *Service) lookupIP(ctx context.Context, ip netip.Addr) (ipSetEntry, bool) {
+	if s.trustedProxy.IsValid() && s.trustedProxy.Compare(ip) == 0 {
+		s.logger.WarnContext(ctx, "rejected trusted proxy IP authorization", slog.String(AttrKeyRequestIP, ip.String()))
+		return ipSetEntry{}, false
 	}
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	entry, ok := s.ipSet[ip]
-	s.logger.DebugContext(ctx, "found IP", slog.String(AttrKeyRequestIP, ip))
+	s.logger.DebugContext(ctx, "found IP", slog.String(AttrKeyRequestIP, ip.String()))
 	return entry, ok
 }
 

@@ -88,7 +88,11 @@ func (s *Service) refreshCache(ctx context.Context) error {
 // buildIPSet joins IP entries with host-access grants and applies deny-wins
 // intersection for IPs shared by multiple restricted users. Pure function;
 // safe to call without holding any lock.
-func buildIPSet(ipEntries []device.IPEntry, hostAccess []UserHostAccess) map[string]ipSetEntry {
+//
+// Entries are keyed by canonical (unmapped) netip.Addr, so a stored IPv4-mapped
+// IPv6 address and its plain IPv4 twin collapse onto the same key. Rows whose IP
+// fails to parse are skipped defensively (the write path validates before storing).
+func buildIPSet(ipEntries []device.IPEntry, hostAccess []UserHostAccess) map[netip.Addr]ipSetEntry {
 	accessByUser := make(map[ids.UserID]UserHostAccess, len(hostAccess))
 	hostSetByUser := make(map[ids.UserID]map[string]struct{}, len(hostAccess))
 	for _, ua := range hostAccess {
@@ -109,13 +113,19 @@ func buildIPSet(ipEntries []device.IPEntry, hostAccess []UserHostAccess) map[str
 		initialHostsLen   int // size of first restricted user's host set; used to detect whether intersection shrank it
 	}
 
-	byIP := make(map[string]*accumulator, len(ipEntries))
+	byIP := make(map[netip.Addr]*accumulator, len(ipEntries))
 
 	for _, e := range ipEntries {
-		acc := byIP[e.IP]
+		addr, err := netip.ParseAddr(e.IP)
+		if err != nil {
+			continue
+		}
+		addr = addr.Unmap()
+
+		acc := byIP[addr]
 		if acc == nil {
 			acc = &accumulator{allBypass: true}
-			byIP[e.IP] = acc
+			byIP[addr] = acc
 		}
 
 		ua := accessByUser[e.UserID]
@@ -145,7 +155,7 @@ func buildIPSet(ipEntries []device.IPEntry, hostAccess []UserHostAccess) map[str
 		intersectHostSets(acc.allowedHosts, userHosts)
 	}
 
-	newIPSet := make(map[string]ipSetEntry, len(byIP))
+	newIPSet := make(map[netip.Addr]ipSetEntry, len(byIP))
 	for ip, acc := range byIP {
 		newIPSet[ip] = ipSetEntry{
 			Contributors:        acc.contributors,
@@ -168,6 +178,11 @@ func buildNetworkPolicyCache(ctx context.Context, entries []networkpolicies.Cach
 				slog.String("cidr", e.CIDR),
 				slog.Int64("policy_id", e.PolicyID.Int64()))
 			continue
+		}
+		// Unmap an IPv4-mapped IPv6 prefix (e.g. ::ffff:10.0.0.0/104) down to its
+		// plain IPv4 form so it matches the canonical (unmapped) client address.
+		if prefix.Addr().Is4In6() {
+			prefix = netip.PrefixFrom(prefix.Addr().Unmap(), prefix.Bits()-96)
 		}
 		// Normalize the host bits regardless of what the provider stored.
 		prefix = prefix.Masked()

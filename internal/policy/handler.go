@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"strings"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
@@ -53,7 +54,16 @@ func (h *HTTPHandler) HandleForwardAuthIP(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := h.service.VerifyAccess(ctx, new(NewVerifyRequest(token, clientIP, r))); err != nil {
+	// The middleware stores a canonical (unmapped) address; parse it once here so
+	// the engine works on netip.Addr. A value that fails to parse fails closed.
+	addr, err := netip.ParseAddr(clientIP)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "invalid client IP in context", slog.String(logging.AttrKeyClientIP, clientIP))
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	if err := h.service.VerifyAccess(ctx, new(NewVerifyRequest(token, addr.Unmap(), r))); err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -71,7 +81,15 @@ func (h *HTTPHandler) SimulatePolicyAccess(
 	ip := request.Params.Ip
 	host := request.Params.Host
 
-	result := h.service.Decide(ctx, ip, host)
+	// Parse the operator-supplied IP into a canonical address. An unparseable
+	// value yields the zero Addr, which Decide treats as a fail-closed deny.
+	addr, _ := netip.ParseAddr(ip)
+	addr = addr.Unmap()
+	if addr.IsValid() {
+		ip = addr.String() // echo the canonical form that was actually evaluated
+	}
+
+	result := h.service.Decide(ctx, addr, host)
 
 	var denyReason *httpapi.PolicySimulateDenyReason
 	if result.DenyReason != nil {

@@ -2,12 +2,13 @@ package policy
 
 import (
 	"net/http"
+	"net/netip"
 	"strings"
 )
 
 type VerifyRequest struct {
 	Token      string
-	ClientIP   string
+	ClientIP   netip.Addr
 	TargetHost *string
 	TargetURI  *string
 	HTTPMethod *string
@@ -15,7 +16,7 @@ type VerifyRequest struct {
 	Headers    map[string][]string
 }
 
-func NewVerifyRequest(token string, clientIP string, r *http.Request) VerifyRequest {
+func NewVerifyRequest(token string, clientIP netip.Addr, r *http.Request) VerifyRequest {
 	return VerifyRequest{
 		Token:      token,
 		ClientIP:   clientIP,

@@ -24,7 +24,7 @@ func TestService_OnAddressEvent_RefreshesCache(t *testing.T) {
 	is.NoErr(err)
 
 	is.NoErr(svc.Initialize(context.Background()))
-	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "192.168.1.1"}))
+	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: mustAddr("192.168.1.1")}))
 
 	// Update provider to return different IPs
 	provider.entries = []device.IPEntry{
@@ -44,8 +44,8 @@ func TestService_OnAddressEvent_RefreshesCache(t *testing.T) {
 	cancel()
 	<-done
 
-	is.True(errors.Is(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "192.168.1.1"}), ErrIPNotEnabled))
-	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: "10.0.0.2"}))
+	is.True(errors.Is(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: mustAddr("192.168.1.1")}), ErrIPNotEnabled))
+	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: mustAddr("10.0.0.2")}))
 }
 
 func TestService_OnHostAccessChanged_RefreshesCache(t *testing.T) {
@@ -61,7 +61,7 @@ func TestService_OnHostAccessChanged_RefreshesCache(t *testing.T) {
 	is.NoErr(svc.Initialize(context.Background()))
 
 	aHost := "a.com"
-	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: "1.2.3.4", TargetHost: &aHost}))
+	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: mustAddr("1.2.3.4"), TargetHost: &aHost}))
 
 	// Change allowed hosts from a.com → b.com
 	hostProvider.entries = []UserHostAccess{
@@ -81,7 +81,7 @@ func TestService_OnHostAccessChanged_RefreshesCache(t *testing.T) {
 	<-done
 
 	// a.com should now be denied, b.com allowed
-	is.True(errors.Is(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: "1.2.3.4", TargetHost: &aHost}), ErrHostNotAllowed))
+	is.True(errors.Is(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: mustAddr("1.2.3.4"), TargetHost: &aHost}), ErrHostNotAllowed))
 	bHost := "b.com"
-	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: "1.2.3.4", TargetHost: &bHost}))
+	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: mustAddr("1.2.3.4"), TargetHost: &bHost}))
 }

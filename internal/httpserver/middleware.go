@@ -248,8 +248,12 @@ func extractIPFromRemoteAddr(r *http.Request) string {
 	return clientIP
 }
 
-// setClientIPInContext sets the client IP in the request context.
+// setClientIPInContext canonicalizes ip (unmapping IPv4-mapped IPv6 to plain IPv4)
+// and stores it in the request context. Unparseable values pass through unchanged.
 func setClientIPInContext(r *http.Request, ip string) *http.Request {
+	if addr, err := netip.ParseAddr(ip); err == nil {
+		ip = addr.Unmap().String()
+	}
 	ctx := httpapi.WithClientIP(r.Context(), ip)
 	ctx = logging.WithClientIP(ctx, ip)
 	return r.WithContext(ctx)

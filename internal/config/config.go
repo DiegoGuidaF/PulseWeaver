@@ -107,7 +107,9 @@ func parseIPAddressFunc(rawIP string) (any, error) {
 		return netip.Addr{}, fmt.Errorf("invalid IP '%s': %w", rawIP, err)
 	}
 
-	return addr, nil
+	// Unmap so an IPv4-mapped IPv6 trusted proxy still compares equal to the
+	// canonical client address the policy engine evaluates.
+	return addr.Unmap(), nil
 }
 
 func validateWritableDir(dir string) error {
