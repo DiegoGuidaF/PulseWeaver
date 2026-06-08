@@ -136,7 +136,7 @@ describe('DeviceAddressesTab', () => {
 
         await user.click(screen.getByRole('button', { name: /Custom IP/i }));
 
-        const input = await screen.findByPlaceholderText('192.168.1.100');
+        const input = await screen.findByPlaceholderText('192.168.1.100 or 2001:db8::1');
         await user.type(input, '10.1.2.3');
         await user.click(screen.getByRole('button', { name: 'Add' }));
 
@@ -164,7 +164,7 @@ describe('DeviceAddressesTab', () => {
         );
 
         await user.click(screen.getByRole('button', { name: /Custom IP/i }));
-        await user.type(screen.getByPlaceholderText('192.168.1.100'), '10.1.2.3');
+        await user.type(screen.getByPlaceholderText('192.168.1.100 or 2001:db8::1'), '10.1.2.3');
         await user.click(screen.getByRole('button', { name: 'Add' }));
 
         await waitFor(

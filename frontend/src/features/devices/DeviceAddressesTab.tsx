@@ -333,7 +333,7 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
         <Group gap="xs" align="flex-end">
           <TextInput
             size="xs"
-            placeholder="192.168.1.100"
+            placeholder="192.168.1.100 or 2001:db8::1"
             value={customIp}
             onChange={(e) => setCustomIp(e.currentTarget.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCustomSubmit()}

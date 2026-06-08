@@ -423,6 +423,13 @@ export const networkPolicyHandlers = {
         notFound: () =>
             http.get(endpoints.networkPolicyById, () => responses.notFound()),
     },
+    create: {
+        success: (override?: Partial<NetworkPolicyDetail>) =>
+            http.post(endpoints.networkPolicies, async ({ request }) => {
+                const body = (await request.json()) as Partial<NetworkPolicyDetail>;
+                return responses.created(createMockNetworkPolicyDetail({ ...body, ...override }));
+            }),
+    },
     update: {
         success: () =>
             http.put(endpoints.networkPolicyById, () => responses.noContent()),

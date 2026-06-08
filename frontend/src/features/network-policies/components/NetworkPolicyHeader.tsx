@@ -15,7 +15,7 @@ import {
 } from "@mantine/core";
 import { IconChevronLeft, IconDots, IconTrash } from "@tabler/icons-react";
 import type { NetworkPolicyDetail, ModifyNetworkPolicyRequest } from "@/lib/api";
-import { CIDR_RE } from "../constants";
+import { CIDR_ERROR, isValidCidr } from "../constants";
 import { DeleteNetworkPolicyModal } from "./DeleteNetworkPolicyModal";
 
 interface InlineEditProps {
@@ -169,7 +169,7 @@ export function NetworkPolicyHeader({ policy, onUpdate, onDelete, isUpdating, is
                         <InlineEdit
                             value={policy.cidr}
                             onSave={(cidr) => onUpdate({ cidr })}
-                            validate={(v) => CIDR_RE.test(v) ? null : "Enter a valid CIDR range, e.g. 192.168.1.0/24"}
+                            validate={(v) => isValidCidr(v) ? null : CIDR_ERROR}
                             monospace
                             size="sm"
                             c="dimmed"

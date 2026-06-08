@@ -5,15 +5,15 @@ import { notifications } from "@mantine/notifications";
 import { zCreateNetworkPolicyRequest } from "@/lib/api/zod.gen";
 import { toApiError, toErrorMessage } from "@/lib/api-client";
 import { useCreateNetworkPolicy } from "../hooks/useCreateNetworkPolicy";
-import { CIDR_RE } from "../constants";
+import { CIDR_ERROR, CIDR_EXAMPLE, isValidCidr } from "../constants";
 import type { NetworkPolicyDetail } from "@/lib/api";
 
 const formSchema = zCreateNetworkPolicyRequest.superRefine((val, ctx) => {
-    if (val.cidr && !CIDR_RE.test(val.cidr)) {
+    if (val.cidr && !isValidCidr(val.cidr)) {
         ctx.addIssue({
             code: "custom",
             path: ["cidr"],
-            message: "Enter a valid CIDR range, e.g. 192.168.1.0/24",
+            message: CIDR_ERROR,
         });
     }
 });
@@ -81,7 +81,7 @@ export function CreateNetworkPolicyModal({ opened, onClose, onCreated }: Props) 
                     <div>
                         <TextInput
                             label="CIDR range"
-                            placeholder="e.g. 192.168.1.0/24"
+                            placeholder={`e.g. ${CIDR_EXAMPLE}`}
                             ff="monospace"
                             withAsterisk
                             {...form.getInputProps("cidr")}
