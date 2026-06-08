@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
-import { ROUTES } from "@/lib/routes";
+import React, { useEffect, useMemo } from "react";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ROUTES, buildRoute } from "@/lib/routes";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import {
@@ -27,7 +27,10 @@ import { DeviceAddressesTab } from "@/features/devices/DeviceAddressesTab";
 import { DeviceRulesTab } from "@/features/devices/DeviceRulesTab";
 import { DeviceHistoryTab } from "@/features/devices/DeviceHistoryTab";
 import { DeviceSettingsTab, type DeviceData } from "@/features/devices/DeviceSettingsTab";
-import { CreateDeviceModal } from "@/features/devices/CreateDeviceModal";
+import {
+  DeviceCreatePane,
+  DeviceCreateEmptyState,
+} from "@/features/devices/DeviceCreatePane";
 import { DeviceStatusBadge } from "@/features/devices/DeviceStatusBadge";
 import { DevicePairingBanner } from "@/features/device-pairing/DevicePairingBanner";
 import { DevicePairingTab } from "@/features/device-pairing/DevicePairingTab";
@@ -62,8 +65,14 @@ function resolveTab(raw: string | null): DeviceTabValue {
 
 type RouteParams = { ownerId?: string };
 
-export function UserDevicesPage() {
+interface UserDevicesPageProps {
+  /** Rendered at /devices/owners/:id/new — shows the in-pane create form. */
+  createMode?: boolean;
+}
+
+export function UserDevicesPage({ createMode = false }: UserDevicesPageProps) {
   const { ownerId: ownerIdParam } = useParams<RouteParams>();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [sidebarWidth, setSidebarWidth] = useLocalStorage({
     key: "pw-device-sidebar-width",
@@ -86,8 +95,6 @@ export function UserDevicesPage() {
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   }
-
-  const [createOpen, setCreateOpen] = useState(false);
 
   const ownerId = ownerIdParam ? Number.parseInt(ownerIdParam, 10) : Number.NaN;
   const deviceIdStr = searchParams.get("device");
@@ -117,26 +124,26 @@ export function UserDevicesPage() {
     };
   }, [selectedDevice, group]);
 
-  // Auto-select first device when no ?device= param is present
+  // Auto-select first device when no ?device= param is present (not while creating)
   useEffect(() => {
-    if (deviceId === undefined && group?.devices.length) {
+    if (!createMode && deviceId === undefined && group?.devices.length) {
       setSearchParams({ device: String(group.devices[0].id) }, { replace: true });
     }
-  }, [deviceId, group, setSearchParams]);
+  }, [createMode, deviceId, group, setSearchParams]);
 
   const renderDeviceIcon = resolveDeviceIcon(selectedDevice?.icon);
+
+  function goToDevice(id: number, tab: "addresses" | "pairing") {
+    navigate(`${buildRoute.userDevices(ownerId)}?device=${id}&tab=${tab}`);
+  }
+
+  const hasNoDevices = Boolean(group) && group?.devices.length === 0;
 
   if (!ownerIdParam || Number.isNaN(ownerId)) {
     return <Navigate to={ROUTES.devices} replace />;
   }
 
   return (
-    <>
-    <CreateDeviceModal
-      opened={createOpen}
-      onClose={() => setCreateOpen(false)}
-      defaultOwnerId={group?.owner.id ?? null}
-    />
     <Group
       align="stretch"
       gap={0}
@@ -193,7 +200,7 @@ export function UserDevicesPage() {
                   return prev;
                 })
               }
-              onAddDevice={() => setCreateOpen(true)}
+              onAddDevice={() => navigate(buildRoute.userDevicesNew(ownerId))}
             />
           ) : (
             <Text size="sm" c="dimmed">
@@ -206,6 +213,20 @@ export function UserDevicesPage() {
 
       {/* Right main content */}
       <Stack pl="xl" gap="lg" style={{ flex: 1, minWidth: 0 }}>
+        {createMode && group ? (
+          <DeviceCreatePane
+            ownerId={ownerId}
+            ownerName={group.owner.display_name}
+            onCancel={() => navigate(buildRoute.userDevices(ownerId))}
+            onCreated={goToDevice}
+          />
+        ) : hasNoDevices && group ? (
+          <DeviceCreateEmptyState
+            ownerName={group.owner.display_name}
+            onCreate={() => navigate(buildRoute.userDevicesNew(ownerId))}
+          />
+        ) : (
+          <>
         {/* Device header */}
         {isLoading && !selectedDevice ? (
           <Stack gap={6}>
@@ -341,8 +362,9 @@ export function UserDevicesPage() {
             </Tabs.Panel>
           </Tabs>
         )}
+          </>
+        )}
       </Stack>
     </Group>
-    </>
   );
 }

@@ -3,6 +3,7 @@ export const ROUTES = {
   dashboard: "/dashboard",
   devices: "/devices",
   userDevices: "/devices/owners/:ownerId",
+  userDevicesNew: "/devices/owners/:ownerId/new",
   settings: "/settings",
   accessLog: "/access-log",
   addressHistory: "/address-history",
@@ -17,6 +18,7 @@ export const ROUTES = {
 
 export const buildRoute = {
   userDevices: (ownerId: string | number) => `/devices/owners/${ownerId}`,
+  userDevicesNew: (ownerId: string | number) => `/devices/owners/${ownerId}/new`,
   accessUserDetail: (id: string | number) => `/access/users/${id}`,
   accessNetworkPolicyDetail: (id: string | number) => `/access/network-policies/${id}`,
 };

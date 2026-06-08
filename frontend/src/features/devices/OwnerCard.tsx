@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Avatar, Badge, Button, Card, Divider, Group, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
+import { buildRoute } from "@/lib/routes";
 import { GroupBadgeList } from "@/features/host-access/components/GroupBadgeList";
 import { DeviceRow } from "@/features/devices/DeviceRow";
-import { CreateDeviceModal } from "@/features/devices/CreateDeviceModal";
 import type { DeviceListEntry, DeviceListOwner } from "@/lib/api";
 
 function getInitials(name: string): string {
@@ -22,16 +22,10 @@ interface Props {
 }
 
 export function OwnerCard({ owner, devices }: Props) {
-  const [modalOpen, setModalOpen] = useState(false);
+  const navigate = useNavigate();
+  const goCreate = () => navigate(buildRoute.userDevicesNew(owner.id));
 
   return (
-    <>
-      <CreateDeviceModal
-        opened={modalOpen}
-        onClose={() => setModalOpen(false)}
-        defaultOwnerId={owner.id}
-      />
-
       <Card withBorder radius="md" p="md">
         <Group justify="space-between" align="flex-start" mb="sm">
           <Group gap="sm" align="flex-start">
@@ -65,7 +59,7 @@ export function OwnerCard({ owner, devices }: Props) {
             variant="default"
             size="xs"
             leftSection={<IconPlus size={13} />}
-            onClick={() => setModalOpen(true)}
+            onClick={goCreate}
           >
             Add device
           </Button>
@@ -84,7 +78,7 @@ export function OwnerCard({ owner, devices }: Props) {
           <>
             <Divider mb="xs" />
             <UnstyledButton
-              onClick={() => setModalOpen(true)}
+              onClick={goCreate}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -103,6 +97,5 @@ export function OwnerCard({ owner, devices }: Props) {
           </>
         )}
       </Card>
-    </>
   );
 }

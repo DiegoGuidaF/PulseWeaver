@@ -71,6 +71,16 @@ function App() {
                     }
                   />
                   <Route
+                    path={ROUTES.userDevicesNew}
+                    element={
+                      <ProtectedRoute>
+                        <AppShell>
+                          <UserDevicesPage createMode />
+                        </AppShell>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
                     path={ROUTES.settings}
                     element={
                       <ProtectedRoute>
