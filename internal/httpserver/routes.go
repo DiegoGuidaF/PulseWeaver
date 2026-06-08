@@ -116,7 +116,8 @@ func addRoutes(
 			ResponseErrorHandlerFunc: createResponseErrorHandler(logger),
 		}
 
-		strictHandler := httpapi.NewStrictHandlerWithOptions(routeHandler, nil, errorOptions)
+		middlewares := []httpapi.StrictMiddlewareFunc{contentionMiddleware}
+		strictHandler := httpapi.NewStrictHandlerWithOptions(routeHandler, middlewares, errorOptions)
 		httpapi.HandlerFromMux(strictHandler, r)
 	})
 

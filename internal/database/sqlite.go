@@ -40,6 +40,15 @@ func NewSQLite(dbConf config.ConfDB) (*SQLite, error) {
 		params.Add("_texttotime", "1")
 		params.Add("_timezone", "UTC")
 
+		// Take the write lock up front (BEGIN IMMEDIATE) for every read-write
+		// transaction. WAL allows many readers but a single writer; a deferred
+		// transaction that reads then upgrades to a write gets SQLITE_BUSY_SNAPSHOT
+		// (517) returned immediately — busy_timeout cannot wait that out. Acquiring
+		// the write lock at BEGIN turns that un-waitable error into a plain
+		// SQLITE_BUSY (5) that busy_timeout absorbs. Read-only transactions
+		// (sql.TxOptions{ReadOnly:true}) stay deferred and keep their concurrency.
+		params.Add("_txlock", "immediate")
+
 		// SQLite Pragmas
 		params.Add("_pragma", "foreign_keys(1)")
 		params.Add("_pragma", "journal_mode(WAL)")

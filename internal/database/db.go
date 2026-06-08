@@ -30,11 +30,20 @@ func (d *DB) WithinTx(ctx context.Context, fn func(context.Context) error) error
 
 // WithinTx runs fn inside a transaction. If ctx already carries a tx, fn is
 // run with that tx — no new tx is started (savepoints are deliberately not used).
-func withinTx(ctx context.Context, pool *sqlx.DB, fn func(ctx context.Context) error) (err error) {
+// Lock contention surfacing from any stage (BEGIN, fn, commit) is mapped to
+// ErrContended at this single outermost boundary so callers see one sentinel.
+func withinTx(ctx context.Context, pool *sqlx.DB, fn func(ctx context.Context) error) error {
 	if _, ok := txFromCtx(ctx); ok {
 		return fn(ctx)
 	}
+	err := mapBusyErr(execTx(ctx, pool, fn))
+	if errors.Is(err, ErrContended) {
+		markContended(ctx)
+	}
+	return err
+}
 
+func execTx(ctx context.Context, pool *sqlx.DB, fn func(ctx context.Context) error) (err error) {
 	tx, err := pool.BeginTxx(ctx, nil)
 	if err != nil {
 		return err

@@ -2,10 +2,12 @@ package httpserver
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/netip"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 	"github.com/go-chi/chi/v5"
@@ -110,6 +112,26 @@ func createRequestErrorHandler(logger *slog.Logger) func(http.ResponseWriter, *h
 // and returns proper JSON error responses.
 func createResponseErrorHandler(logger *slog.Logger) func(http.ResponseWriter, *http.Request, error) {
 	return func(w http.ResponseWriter, r *http.Request, err error) {
+		// Database write contention is a transient availability condition, not a
+		// server fault: degrade to 503 + Retry-After so clients retry instead of
+		// treating it as a 500. Logged at Warn — it is expected under write bursts.
+		if errors.Is(err, database.ErrContended) {
+			logger.WarnContext(r.Context(), "write contention, responding 503",
+				slog.String("method", r.Method),
+				slog.String("path", r.URL.Path),
+				slog.Any(logging.AttrKeyError, err),
+			)
+			w.Header().Set("Retry-After", "1")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			if encodeErr := json.NewEncoder(w).Encode(httpapi.ErrorResponse{
+				Error: new("Service temporarily unavailable, please retry"),
+			}); encodeErr != nil {
+				http.Error(w, "failed to encode response", http.StatusInternalServerError)
+			}
+			return
+		}
+
 		logger.ErrorContext(r.Context(), "response error",
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
