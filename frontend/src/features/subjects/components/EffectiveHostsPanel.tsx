@@ -2,11 +2,19 @@ import { useMemo, useState } from "react";
 import { Badge, Group, Stack, Table, Text, TextInput } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
 import type { SubjectGroupDetail } from "@/lib/api";
+import { GroupBadge } from "@/features/host-access/components/GroupBadge";
+
+interface ViaGroup {
+  id: number;
+  name: string;
+  color: string;
+  icon: string;
+}
 
 interface EffectiveHost {
   id: number;
   fqdn: string;
-  viaGroups: Array<{ id: number; name: string }>;
+  viaGroups: ViaGroup[];
 }
 
 interface Props {
@@ -24,14 +32,20 @@ export function EffectiveHostsPanel({ groups, assignedGroupIds, bypassHostCheck 
     for (const group of groups) {
       if (!assignedGroupIds.has(group.id)) continue;
       for (const host of group.hosts) {
+        const via: ViaGroup = {
+          id: group.id,
+          name: group.name,
+          color: group.color,
+          icon: group.icon,
+        };
         const existing = hostMap.get(host.id);
         if (existing) {
-          existing.viaGroups.push({ id: group.id, name: group.name });
+          existing.viaGroups.push(via);
         } else {
           hostMap.set(host.id, {
             id: host.id,
             fqdn: host.fqdn,
-            viaGroups: [{ id: group.id, name: group.name }],
+            viaGroups: [via],
           });
         }
       }
@@ -166,9 +180,7 @@ export function EffectiveHostsPanel({ groups, assignedGroupIds, bypassHostCheck 
                 <Table.Td>
                   <Group gap={4} wrap="wrap">
                     {host.viaGroups.map((g) => (
-                      <Badge key={g.id} size="xs" variant="light" color="indigo">
-                        {g.name}
-                      </Badge>
+                      <GroupBadge key={g.id} group={g} size="xs" />
                     ))}
                   </Group>
                 </Table.Td>

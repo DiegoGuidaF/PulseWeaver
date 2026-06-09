@@ -12,7 +12,7 @@ import {
 } from "@mantine/core";
 import {
   HOST_ICON_OPTIONS,
-  resolveHostIcon,
+  resolveGroupIcon,
   validateIconInput,
 } from "@/features/host-access/hostIconConfig";
 
@@ -104,7 +104,7 @@ interface PreviewTileProps {
 }
 
 function PreviewTile({ value, color }: PreviewTileProps) {
-  const renderIcon = resolveHostIcon(value);
+  const renderIcon = resolveGroupIcon(value);
   return (
     <ThemeIcon variant="light" color={color} size={36} radius="md" aria-label="Icon preview">
       {renderIcon({ size: 20 })}

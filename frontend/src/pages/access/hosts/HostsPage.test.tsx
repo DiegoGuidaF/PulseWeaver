@@ -29,14 +29,15 @@ describe('HostsPage', () => {
     // ─── B1: Happy path ──────────────────────────────────────────────────────────
 
     describe('happy path', () => {
-        it('renders the page heading and two tabs', () => {
+        it('renders the page heading, the known-hosts area and the suggestions section together', () => {
             renderHostsPage();
             expect(screen.getByRole('heading', { name: 'Hosts', level: 1 })).toBeInTheDocument();
-            expect(screen.getByRole('tab', { name: /^hosts/i })).toBeInTheDocument();
-            expect(screen.getByRole('tab', { name: /suggestions/i })).toBeInTheDocument();
+            expect(
+                screen.getByRole('button', { name: /observed in recent traffic/i }),
+            ).toBeInTheDocument();
         });
 
-        it('shows correct count badges in each tab after data loads', async () => {
+        it('shows known hosts and the suggestions count badge together after data loads', async () => {
             server.use(
                 hostAccessHandlers.listKnownHosts.success([
                     createMockHost({ id: 1, fqdn: 'app.lan' }),
@@ -51,8 +52,11 @@ describe('HostsPage', () => {
             renderHostsPage();
 
             await waitFor(() => {
-                expect(within(screen.getByRole('tab', { name: /^hosts/i })).getByText('2')).toBeInTheDocument();
-                expect(within(screen.getByRole('tab', { name: /suggestions/i })).getByText('1')).toBeInTheDocument();
+                expect(screen.getByText('app.lan')).toBeInTheDocument();
+                expect(screen.getByText('db.lan')).toBeInTheDocument();
+                expect(screen.getByText('unknown.lan')).toBeInTheDocument();
+                const suggestionsToggle = screen.getByRole('button', { name: /observed in recent traffic/i });
+                expect(within(suggestionsToggle).getByText('1')).toBeInTheDocument();
             }, { timeout: TEST_TIMEOUTS.MEDIUM });
         });
 
@@ -107,7 +111,6 @@ describe('HostsPage', () => {
             );
             renderHostsPage();
 
-            await userEvent.click(screen.getByRole('tab', { name: /suggestions/i }));
             await waitFor(() => {
                 expect(screen.getByText('foo.lan')).toBeInTheDocument();
                 expect(screen.getByText('bar.lan')).toBeInTheDocument();
@@ -116,9 +119,12 @@ describe('HostsPage', () => {
             const fooRow = screen.getAllByRole('row').find((row) => within(row).queryByText('foo.lan'));
             await userEvent.click(within(fooRow!).getByRole('button', { name: /add to known/i }));
 
+            // A staged host moves into the known-hosts draft table, so scope the removal
+            // assertion to the suggestions table (it has the "Allowed hits" column).
             await waitFor(() => {
-                expect(screen.queryByText('foo.lan')).not.toBeInTheDocument();
-                expect(screen.getByText('bar.lan')).toBeInTheDocument();
+                const suggestionsTable = screen.getByText('Allowed hits').closest('table')!;
+                expect(within(suggestionsTable).queryByText('foo.lan')).not.toBeInTheDocument();
+                expect(within(suggestionsTable).getByText('bar.lan')).toBeInTheDocument();
             }, { timeout: TEST_TIMEOUTS.SHORT });
         });
 
@@ -135,19 +141,17 @@ describe('HostsPage', () => {
             );
             renderHostsPage();
 
-            await userEvent.click(screen.getByRole('tab', { name: /suggestions/i }));
             await waitFor(() => {
-                expect(within(screen.getByRole('tab', { name: /suggestions/i })).getByText('2')).toBeInTheDocument();
+                const suggestionsToggle = screen.getByRole('button', { name: /observed in recent traffic/i });
+                expect(within(suggestionsToggle).getByText('2')).toBeInTheDocument();
             }, { timeout: TEST_TIMEOUTS.MEDIUM });
 
             const fooRow = screen.getAllByRole('row').find((row) => within(row).queryByText('foo.lan'));
             await userEvent.click(within(fooRow!).getByRole('button', { name: /add to known/i }));
 
             await waitFor(() => {
-                expect(within(screen.getByRole('tab', { name: /suggestions/i })).getByText('1')).toBeInTheDocument();
-            }, { timeout: TEST_TIMEOUTS.SHORT });
-            await userEvent.click(screen.getByRole('tab', { name: /^hosts/i }));
-            await waitFor(() => {
+                const suggestionsToggle = screen.getByRole('button', { name: /observed in recent traffic/i });
+                expect(within(suggestionsToggle).getByText('1')).toBeInTheDocument();
                 expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument();
             }, { timeout: TEST_TIMEOUTS.MEDIUM });
         });
@@ -159,8 +163,6 @@ describe('HostsPage', () => {
         it('shows error message when the suggestions query fails', async () => {
             server.use(hostAccessHandlers.listHostSuggestions.serverError());
             renderHostsPage();
-
-            await userEvent.click(screen.getByRole('tab', { name: /suggestions/i }));
 
             await waitFor(() => {
                 expect(screen.getByText('Failed to load suggestions')).toBeInTheDocument();
@@ -231,7 +233,6 @@ describe('HostsPage', () => {
                 expect(mockGuard).toHaveBeenCalledWith(false);
             }, { timeout: TEST_TIMEOUTS.SHORT });
 
-            await userEvent.click(screen.getByRole('tab', { name: /suggestions/i }));
             await waitFor(() => expect(screen.getByText('guard-test.lan')).toBeInTheDocument(), { timeout: TEST_TIMEOUTS.MEDIUM });
             await userEvent.click(screen.getByRole('button', { name: /add to known/i }));
 

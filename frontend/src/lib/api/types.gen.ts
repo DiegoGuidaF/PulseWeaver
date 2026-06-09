@@ -1031,7 +1031,7 @@ export type UserListItem = {
   username: string;
   display_name: string;
   role: UserRole;
-  groups: Array<GroupRef>;
+  groups: Array<GroupSummary>;
   /**
    * Total hosts accessible across all assigned groups.
    */

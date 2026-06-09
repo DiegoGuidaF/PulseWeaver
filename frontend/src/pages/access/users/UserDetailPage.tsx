@@ -4,6 +4,7 @@ import { ROUTES, buildRoute } from "@/lib/routes";
 import {
   Anchor,
   Badge,
+  Button,
   Center,
   Grid,
   Group,
@@ -14,7 +15,8 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import { IconChevronLeft } from "@tabler/icons-react";
+import { IconChevronLeft, IconDevices } from "@tabler/icons-react";
+import { EmptyState } from "@/components/EmptyState";
 import { notifications } from "@mantine/notifications";
 import { UserRole } from "@/lib/api";
 import { ErrorState } from "@/components/ErrorState";
@@ -224,7 +226,20 @@ export function UserDetailPage() {
 
           <Tabs.Panel value="devices" pt="md">
             {data.devices.length === 0 ? (
-              <Text size="sm" c="dimmed">No devices registered.</Text>
+              <EmptyState
+                icon={IconDevices}
+                title="No devices yet."
+                description="Set one up on the device page — create it now and provision a credential (API key or pairing code) whenever the user's ready."
+                action={
+                  <Button
+                    component={Link}
+                    to={buildRoute.userDevicesNew(data.id)}
+                    variant="light"
+                  >
+                    Set up a device
+                  </Button>
+                }
+              />
             ) : (
               <Stack gap="sm">
                 <Table fz="sm" withRowBorders highlightOnHover>

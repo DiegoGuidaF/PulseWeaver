@@ -14,11 +14,12 @@ import {
   Title,
   Tooltip,
 } from "@mantine/core";
-import { IconArrowBackUp, IconPencil, IconTrash } from "@tabler/icons-react";
+import { IconArrowBackUp, IconArrowRight, IconPencil, IconTrash } from "@tabler/icons-react";
 import type { GroupDetailWithUsers, Id } from "@/lib/api";
+import { ROUTES } from "@/lib/routes";
 import type { DraftGroup, GroupsDiff } from "@/features/host-access/drafts/hostGroupsDraft";
 import { GroupMembershipTables } from "@/features/host-access/components/GroupMembershipTables";
-import { resolveHostIcon } from "@/features/host-access/hostIconConfig";
+import { resolveGroupIcon } from "@/features/host-access/hostIconConfig";
 
 interface HostRef {
   id: Id;
@@ -61,7 +62,7 @@ export function GroupDetailPanel({
   }
 
   const color = group.color;
-  const renderIcon = resolveHostIcon(group.icon);
+  const renderIcon = resolveGroupIcon(group.icon);
   const inGroupIds = new Set<Id>(
     group.hostIds.filter((id): id is Id => typeof id === "number"),
   );
@@ -136,6 +137,21 @@ export function GroupDetailPanel({
             </Text>
             <Button variant="outline" size="xs" onClick={onRestore}>
               Restore
+            </Button>
+          </Stack>
+        ) : hosts.length === 0 ? (
+          <Stack gap="xs" py="sm">
+            <Text size="sm" c="dimmed">
+              No hosts in the catalog yet — add some before populating this group.
+            </Text>
+            <Button
+              component={Link}
+              to={ROUTES.accessHosts}
+              variant="light"
+              size="xs"
+              rightSection={<IconArrowRight size={14} />}
+            >
+              Go to Hosts
             </Button>
           </Stack>
         ) : (

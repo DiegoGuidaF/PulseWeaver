@@ -371,7 +371,7 @@ describe('UsersPage', () => {
             );
         });
 
-        it('clicking a superadmin row does not navigate', async () => {
+        it('clicking a superadmin row navigates to the user detail page', async () => {
             const user = userEvent.setup();
             const summary = createMockUserListItem({ id: 5, username: 'sa_user', display_name: 'Super Admin', role: UserRole.SUPERADMIN });
 
@@ -389,8 +389,10 @@ describe('UsersPage', () => {
 
             await user.click(screen.getByText('sa_user'));
 
-            expect(screen.queryByTestId('user-detail')).not.toBeInTheDocument();
-            expect(screen.getByRole('heading', { name: 'Users', level: 1 })).toBeInTheDocument();
+            await waitFor(
+                () => expect(screen.getByTestId('user-detail')).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
         });
     });
 
@@ -400,7 +402,7 @@ describe('UsersPage', () => {
                 id: 1,
                 username: 'alice',
                 display_name: 'Alice',
-                groups: [{ id: 5, name: 'Engineering' }],
+                groups: [{ id: 5, name: 'Engineering', color: '#4C6EF5', icon: 'server' }],
             });
             const notInGroup = createMockUserListItem({
                 id: 2,

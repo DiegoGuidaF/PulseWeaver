@@ -58,7 +58,7 @@ export const HOST_ICON_OPTIONS: { name: string; icon: TablerIcon }[] = [
 
 const HOST_ICON_MAP = new Map(HOST_ICON_OPTIONS.map(({ name, icon }) => [name, icon]));
 
-export function resolveHostIcon(icon?: string | null) {
+export function resolveGroupIcon(icon?: string | null) {
   if (icon) {
     const tabler = HOST_ICON_MAP.get(icon);
     if (tabler) return makeTablerRenderer(tabler);

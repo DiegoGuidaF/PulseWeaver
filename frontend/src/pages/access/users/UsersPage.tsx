@@ -22,6 +22,7 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useListUsersWithAccess } from "@/features/subjects/hooks/useListUsersWithAccess";
 import { ErrorState } from "@/components/ErrorState";
 import { GroupFilterBar } from "@/features/subjects/components/GroupFilterBar";
+import { GroupBadgeList } from "@/features/host-access/components/GroupBadgeList";
 import { formatEffectiveAccess } from "@/features/subjects/constants";
 import { CreateUserModal } from "@/features/auth/components/CreateUserModal";
 import { RoleChangeModal } from "@/features/auth/components/RoleChangeModal";
@@ -72,12 +73,9 @@ export function UsersPage() {
       list = list.filter((u) => u.groups.some((g) => groupFilter.has(g.id)));
     }
 
-    const superadmins = list.filter((u) => u.role === UserRole.SUPERADMIN);
-    const rest = list.filter((u) => u.role !== UserRole.SUPERADMIN);
-
     const { columnAccessor, direction } = sortStatus;
     const mult = direction === "asc" ? 1 : -1;
-    const sorted = [...rest].sort((a, b) => {
+    return [...list].sort((a, b) => {
       switch (columnAccessor) {
         case "display_name": return mult * a.display_name.localeCompare(b.display_name);
         case "host_count": return mult * (a.host_count - b.host_count);
@@ -86,8 +84,6 @@ export function UsersPage() {
         default: return 0;
       }
     });
-
-    return [...superadmins, ...sorted];
   }, [users, groupFilter, sortStatus]);
 
   function handleRoleToggle(userId: number, currentRole: string, username: string) {
@@ -133,14 +129,9 @@ export function UsersPage() {
         <DataTable
           records={displayedUsers}
           highlightOnHover
-          onRowClick={({ record }) => {
-            if (record.role !== UserRole.SUPERADMIN) {
-              navigate(buildRoute.accessUserDetail(record.id));
-            }
-          }}
+          onRowClick={({ record }) => navigate(buildRoute.accessUserDetail(record.id))}
           sortStatus={sortStatus}
           onSortStatusChange={setSortStatus}
-          rowStyle={(r) => (r.role === UserRole.SUPERADMIN ? { opacity: 0.7 } : undefined)}
           columns={[
             {
               accessor: "display_name",
@@ -174,26 +165,7 @@ export function UsersPage() {
                 u.groups.length === 0 ? (
                   <Text size="sm" c="dimmed">—</Text>
                 ) : (
-                  <Group gap={4} wrap="wrap">
-                    {u.groups.map((g) => (
-                      <Badge
-                        key={g.id}
-                        size="xs"
-                        variant={groupFilter.has(g.id) ? "filled" : "outline"}
-                        color="indigo"
-                        style={{ cursor: "pointer" }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const next = new Set(groupFilter);
-                          if (next.has(g.id)) next.delete(g.id);
-                          else next.add(g.id);
-                          setGroupFilter(next);
-                        }}
-                      >
-                        {g.name}
-                      </Badge>
-                    ))}
-                  </Group>
+                  <GroupBadgeList groups={u.groups} size="xs" />
                 ),
             },
             {

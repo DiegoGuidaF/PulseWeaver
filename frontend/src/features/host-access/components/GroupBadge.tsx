@@ -1,5 +1,5 @@
 import { Badge, Tooltip } from "@mantine/core";
-import { resolveHostIcon } from "@/features/host-access/hostIconConfig";
+import { resolveGroupIcon } from "@/features/host-access/hostIconConfig";
 
 const MAX_LABEL_LEN = 18;
 
@@ -26,7 +26,7 @@ export function GroupBadge({ group, size = "sm" }: Props) {
       variant="light"
       color={group.color}
       size={size}
-      leftSection={resolveHostIcon(group.icon)({ size: 10 })}
+      leftSection={resolveGroupIcon(group.icon)({ size: 10 })}
     >
       {truncated}
     </Badge>

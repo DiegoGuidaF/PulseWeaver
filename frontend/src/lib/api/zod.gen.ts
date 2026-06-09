@@ -688,7 +688,7 @@ export const zUserListItem = z.object({
   username: z.string(),
   display_name: z.string(),
   role: zUserRole,
-  groups: z.array(zGroupRef),
+  groups: z.array(zGroupSummary),
   host_count: z.int().gte(0),
   device_count: z.int().gte(0),
   live_address_count: z.int().gte(0),

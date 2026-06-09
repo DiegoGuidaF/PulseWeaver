@@ -18,7 +18,7 @@ import type {
   DraftGroupId,
   GroupsDiff,
 } from "@/features/host-access/drafts/hostGroupsDraft";
-import { resolveHostIcon } from "@/features/host-access/hostIconConfig";
+import { resolveGroupIcon } from "@/features/host-access/hostIconConfig";
 
 interface Props {
   groups: DraftGroup[];
@@ -113,7 +113,7 @@ interface RowProps {
 
 function GroupRow({ group, selected, isDirty, isNew, isTombstoned, onClick }: RowProps) {
   const color = group.color;
-  const renderIcon = resolveHostIcon(group.icon);
+  const renderIcon = resolveGroupIcon(group.icon);
   return (
     <UnstyledButton
       onClick={onClick}

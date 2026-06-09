@@ -14,14 +14,11 @@ import { IconArrowDown, IconArrowUp, IconArrowsSort, IconRefresh } from "@tabler
 import type { HostSuggestionsPage } from "@/lib/api";
 import { useIgnoreSuggestion } from "@/features/host-access/hooks/useIgnoreSuggestion";
 import { useUnignoreSuggestion } from "@/features/host-access/hooks/useUnignoreSuggestion";
-import { TabLockAlert } from "@/features/host-access/components/TabLockAlert";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { toErrorMessage } from "@/lib/api-client";
 
 interface Props {
   data: HostSuggestionsPage;
-  locked: boolean;
-  onDiscardLock: () => void;
   onRefresh: () => void;
   onStageHosts: (fqdns: string[]) => void;
 }
@@ -29,7 +26,7 @@ interface Props {
 type SortCol = "allowed_hits" | "denied_hits";
 type SortDir = "asc" | "desc";
 
-export function SuggestionsTab({ data, locked, onDiscardLock, onRefresh, onStageHosts }: Props) {
+export function SuggestionsTab({ data, onRefresh, onStageHosts }: Props) {
   const formatDateTime = useDateFormatter();
   const ignoreSuggestion = useIgnoreSuggestion();
   const unignoreSuggestion = useUnignoreSuggestion();
@@ -83,17 +80,6 @@ export function SuggestionsTab({ data, locked, onDiscardLock, onRefresh, onStage
     }
   }
 
-  if (locked) {
-    return (
-      <TabLockAlert
-        title="Groups tab has unsaved changes"
-        message="Save or discard your group changes before adding hosts from suggestions."
-        discardLabel="Discard group changes"
-        onDiscard={onDiscardLock}
-      />
-    );
-  }
-
   if (data.suggestions.length === 0 && data.ignored.length === 0) {
     return (
       <Card withBorder>
@@ -114,21 +100,6 @@ export function SuggestionsTab({ data, locked, onDiscardLock, onRefresh, onStage
   return (
     <Stack gap="md">
       <Card withBorder padding="md">
-        <Group justify="space-between" align="flex-start" mb={4}>
-          <Text fw={600}>Observed in recent traffic</Text>
-          <Button
-            size="xs"
-            variant="subtle"
-            leftSection={<IconRefresh size={14} />}
-            onClick={onRefresh}
-          >
-            Refresh
-          </Button>
-        </Group>
-        <Text size="sm" c="dimmed" mb="md">
-          Hosts seen that aren't on your known list. High allowed-hit counts usually mean
-          legitimate infrastructure worth promoting.
-        </Text>
         {sortedSuggestions.length === 0 ? (
           <Text size="sm" c="dimmed">
             No unknown hosts in recent traffic.

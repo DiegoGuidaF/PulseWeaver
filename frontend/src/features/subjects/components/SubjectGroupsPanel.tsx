@@ -1,5 +1,9 @@
-import { Checkbox, Divider, Stack, Switch, Text } from "@mantine/core";
+import { Button, Checkbox, Divider, Stack, Switch, Text, ThemeIcon } from "@mantine/core";
+import { Link } from "react-router-dom";
+import { IconArrowRight } from "@tabler/icons-react";
 import type { SubjectGroupDetail } from "@/lib/api";
+import { resolveGroupIcon } from "@/features/host-access/hostIconConfig";
+import { ROUTES } from "@/lib/routes";
 import type { SubjectAccessDraft, SubjectAccessAction } from "../drafts/subjectAccessDraft";
 
 interface Props {
@@ -50,9 +54,20 @@ export function SubjectGroupsPanel({ groups, draft, dispatch, disabled }: Props)
           }}
         >
           {groups.length === 0 ? (
-            <Text size="sm" c="dimmed" p="sm">
-              No host groups configured.
-            </Text>
+            <Stack gap="xs" p="sm" align="flex-start">
+              <Text size="sm" c="dimmed">
+                No host groups yet — create at least one to start assigning access.
+              </Text>
+              <Button
+                component={Link}
+                to={ROUTES.accessHostGroups}
+                variant="light"
+                size="xs"
+                rightSection={<IconArrowRight size={14} />}
+              >
+                Go to Host Groups
+              </Button>
+            </Stack>
           ) : (
             groups.map((group, i) => {
               const isAssigned = draft.assignedGroupIds.has(group.id);
@@ -81,17 +96,9 @@ export function SubjectGroupsPanel({ groups, draft, dispatch, disabled }: Props)
                       })
                     }
                   />
-                  {group.color && (
-                    <div
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: group.color,
-                        flexShrink: 0,
-                      }}
-                    />
-                  )}
+                  <ThemeIcon variant="light" color={group.color} size="sm" radius="sm">
+                    {resolveGroupIcon(group.icon)({ size: 12 })}
+                  </ThemeIcon>
                   <Text size="sm" style={{ flex: 1 }}>
                     {group.name}
                   </Text>
