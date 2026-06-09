@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/netip"
 	"testing"
+	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
@@ -111,6 +112,25 @@ func TestService_RegisterAddressActivity_DeviceNotFound(t *testing.T) {
 	is.Equal(err, device.ErrDeviceNotFound)
 	is.True(addr == nil)
 	is.Equal(eventType, device.EventType(""))
+}
+
+func TestService_RegisterAddressActivity_DisabledDeviceRejected(t *testing.T) {
+	is := is.New(t)
+	ctx := context.Background()
+
+	mockRepo := newMockRepository()
+	now := time.Now().UTC()
+	dev := &device.Device{ID: ids.DeviceID(1), Name: "test-device", DisabledAt: &now}
+	mockRepo.devices[dev.ID] = dev
+
+	service := newService(mockRepo)
+
+	addr, eventType, err := service.RegisterAddressActivity(ctx, dev.ID, "192.168.1.100", device.EventSourceManual)
+	is.True(errors.Is(err, device.ErrDeviceDisabled))
+	is.True(addr == nil)
+	is.Equal(eventType, device.EventType(""))
+	// No address should have been created for the disabled device.
+	is.Equal(len(mockRepo.addresses), 0)
 }
 
 func TestService_RegisterAddressActivity_RejectsTrustedProxyIP(t *testing.T) {

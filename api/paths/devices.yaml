@@ -288,6 +288,12 @@ heartbeatById:
           application/json:
             schema:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "409":
+        description: Device is disabled; addresses cannot be enabled
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
       "500":
         description: Internal Server Error
         content:
@@ -325,6 +331,12 @@ heartbeat:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
       "404":
         description: Device not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "409":
+        description: Device is disabled; addresses cannot be enabled
         content:
           application/json:
             schema:

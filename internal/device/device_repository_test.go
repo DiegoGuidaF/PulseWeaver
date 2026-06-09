@@ -125,6 +125,43 @@ func TestRepository_DeleteDevice_Success(t *testing.T) {
 	is.Equal(err, device.ErrDeviceNotFound)
 }
 
+func TestRepository_IsDeviceDisabled(t *testing.T) {
+	is := is.New(t)
+
+	repos := setupTestDB(t)
+	ctx := context.Background()
+
+	dev := createTestDevice(t, repos, ctx, "disable-me")
+
+	disabled, err := repos.repo.IsDeviceDisabled(ctx, dev.ID)
+	is.NoErr(err)
+	is.True(!disabled) // freshly created device is enabled
+
+	err = repos.repo.SetDeviceDisabled(ctx, dev.ID, true)
+	is.NoErr(err)
+
+	disabled, err = repos.repo.IsDeviceDisabled(ctx, dev.ID)
+	is.NoErr(err)
+	is.True(disabled)
+}
+
+func TestRepository_IsDeviceDisabled_NotFound(t *testing.T) {
+	is := is.New(t)
+
+	repos := setupTestDB(t)
+	ctx := context.Background()
+
+	_, err := repos.repo.IsDeviceDisabled(ctx, ids.DeviceID(99999))
+	is.True(errors.Is(err, device.ErrDeviceNotFound))
+
+	dev := createTestDevice(t, repos, ctx, "deleted")
+	err = repos.repo.DeleteDevice(ctx, dev.ID)
+	is.NoErr(err)
+
+	_, err = repos.repo.IsDeviceDisabled(ctx, dev.ID)
+	is.True(errors.Is(err, device.ErrDeviceNotFound)) // soft-deleted device is treated as not found
+}
+
 func TestRepository_DeleteDevice_NotFound(t *testing.T) {
 	is := is.New(t)
 

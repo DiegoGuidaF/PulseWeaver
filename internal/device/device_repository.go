@@ -41,6 +41,25 @@ func (r *Repository) GetDevice(ctx context.Context, id ids.DeviceID) (*Device, e
 	return device, nil
 }
 
+// IsDeviceDisabled reports whether a device has been disabled (disabled_at set).
+// A missing or soft-deleted device returns ErrDeviceNotFound, so callers can use
+// this as both an existence and a state check.
+func (r *Repository) IsDeviceDisabled(ctx context.Context, id ids.DeviceID) (bool, error) {
+	var disabledAt *time.Time
+
+	query := `SELECT disabled_at FROM devices WHERE id = ? AND deleted_at IS NULL`
+
+	err := r.db.GetContext(ctx, &disabledAt, query, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, ErrDeviceNotFound
+		}
+		return false, fmt.Errorf("check device disabled: %w", err)
+	}
+
+	return disabledAt != nil, nil
+}
+
 func (r *Repository) CreateDevice(ctx context.Context, params CreateDeviceParams) (*Device, error) {
 	now := time.Now().UTC()
 	createdDevice := new(Device)

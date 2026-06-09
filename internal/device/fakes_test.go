@@ -56,6 +56,17 @@ func (m *mockRepository) GetDevice(ctx context.Context, id ids.DeviceID) (*devic
 	return dev, nil
 }
 
+func (m *mockRepository) IsDeviceDisabled(ctx context.Context, id ids.DeviceID) (bool, error) {
+	if m.getDeviceErr != nil {
+		return false, m.getDeviceErr
+	}
+	dev, ok := m.devices[id]
+	if !ok {
+		return false, device.ErrDeviceNotFound
+	}
+	return dev.DisabledAt != nil, nil
+}
+
 func (m *mockRepository) CreateDevice(ctx context.Context, params device.CreateDeviceParams) (*device.Device, error) {
 	if m.createDeviceErr != nil {
 		return nil, m.createDeviceErr

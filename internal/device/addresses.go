@@ -31,9 +31,15 @@ func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID ids.Devi
 	var eventType EventType
 
 	err = s.tx.WithinTx(ctx, func(ctx context.Context) error {
-		_, err := s.repo.GetDevice(ctx, deviceID)
+		// A disabled device may only have its addresses disabled — no address can be
+		// created, enabled, or refreshed on it. This also validates existence
+		// (ErrDeviceNotFound for a missing or deleted device).
+		disabled, err := s.repo.IsDeviceDisabled(ctx, deviceID)
 		if err != nil {
 			return err
+		}
+		if disabled {
+			return ErrDeviceDisabled
 		}
 
 		existingAddress, err := s.repo.GetAddressForDeviceByIP(ctx, deviceID, createAddressParams.IP)

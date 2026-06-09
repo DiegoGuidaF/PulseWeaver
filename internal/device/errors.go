@@ -4,6 +4,7 @@ import "errors"
 
 var (
 	ErrDeviceNotFound          = errors.New("device not found")
+	ErrDeviceDisabled          = errors.New("device is disabled")
 	ErrOwnerNotFound           = errors.New("device owner not found")
 	ErrNoAPIKey                = errors.New("device has no API key")
 	ErrDuplicateDeviceName     = errors.New("device name already in use")

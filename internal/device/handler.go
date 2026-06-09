@@ -183,6 +183,9 @@ func (h *HTTPHandler) AddAddress(ctx context.Context, request httpapi.AddAddress
 		case errors.Is(err, ErrTrustedProxyIPRejected):
 			logger.WarnContext(ctx, "trusted proxy IP address rejected")
 			return httpapi.AddAddress400JSONResponse(errorMsgResponse("Trusted proxy IP addresses cannot be registered")), nil
+		case errors.Is(err, ErrDeviceDisabled):
+			logger.WarnContext(ctx, "device is disabled")
+			return httpapi.AddAddress409JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s is disabled; addresses cannot be enabled", deviceID))), nil
 		case errors.Is(err, ErrDeviceNotFound):
 			logger.WarnContext(ctx, "device not found")
 			return httpapi.AddAddress404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
@@ -228,6 +231,9 @@ func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request httpapi.Devic
 		case errors.Is(err, ErrTrustedProxyIPRejected):
 			logger.WarnContext(ctx, "trusted proxy IP address rejected")
 			return httpapi.DeviceHeartbeat400JSONResponse(errorMsgResponse("Trusted proxy IP addresses cannot be registered")), nil
+		case errors.Is(err, ErrDeviceDisabled):
+			logger.WarnContext(ctx, "device is disabled")
+			return httpapi.DeviceHeartbeat409JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s is disabled; addresses cannot be enabled", deviceID))), nil
 		case errors.Is(err, ErrDeviceNotFound):
 			logger.WarnContext(ctx, "device not found")
 			return httpapi.DeviceHeartbeat404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
@@ -282,6 +288,9 @@ func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, request httpa
 		case errors.Is(err, ErrTrustedProxyIPRejected):
 			logger.WarnContext(ctx, "trusted proxy IP address rejected")
 			return httpapi.DeviceHeartbeatByAPIKey400JSONResponse(errorMsgResponse("Trusted proxy IP addresses cannot be registered")), nil
+		case errors.Is(err, ErrDeviceDisabled):
+			logger.WarnContext(ctx, "device is disabled")
+			return httpapi.DeviceHeartbeatByAPIKey409JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s is disabled; addresses cannot be enabled", deviceID))), nil
 		case errors.Is(err, ErrDeviceNotFound):
 			logger.WarnContext(ctx, "device not found")
 			return httpapi.DeviceHeartbeatByAPIKey404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil

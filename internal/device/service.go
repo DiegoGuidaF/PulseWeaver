@@ -14,6 +14,7 @@ import (
 
 type repository interface {
 	GetDevice(ctx context.Context, id ids.DeviceID) (*Device, error)
+	IsDeviceDisabled(ctx context.Context, id ids.DeviceID) (bool, error)
 	GetDeviceIDsByOwner(ctx context.Context, ownerID ids.UserID) ([]ids.DeviceID, error)
 	CreateDevice(ctx context.Context, params CreateDeviceParams) (*Device, error)
 	DeleteDevice(ctx context.Context, id ids.DeviceID) error

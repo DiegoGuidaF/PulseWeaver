@@ -1794,6 +1794,10 @@ export type DeviceHeartbeatErrors = {
    */
   404: ErrorResponse;
   /**
+   * Device is disabled; addresses cannot be enabled
+   */
+  409: ErrorResponse;
+  /**
    * Internal Server Error
    */
   500: ErrorResponse;
@@ -1832,6 +1836,10 @@ export type DeviceHeartbeatByApiKeyErrors = {
    * Device not found
    */
   404: ErrorResponse;
+  /**
+   * Device is disabled; addresses cannot be enabled
+   */
+  409: ErrorResponse;
   /**
    * Internal Server Error
    */
@@ -1919,6 +1927,10 @@ export type AddAddressErrors = {
    * Device not found
    */
   404: ErrorResponse;
+  /**
+   * Device is disabled; addresses cannot be enabled
+   */
+  409: ErrorResponse;
   /**
    * Internal Server Error
    */
