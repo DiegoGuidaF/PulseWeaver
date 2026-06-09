@@ -169,7 +169,7 @@ UserListItem:
     groups:
       type: array
       items:
-        $ref: './host-groups.yaml#/GroupRef'
+        $ref: './host-groups.yaml#/GroupSummary'
     host_count:
       type: integer
       minimum: 0

@@ -302,12 +302,15 @@ func (r *Repository) ListUserAccessRows(ctx context.Context) ([]httpapi.UserList
 	}
 
 	type grantRow struct {
-		UserID    ids.UserID      `db:"user_id"`
-		GroupID   ids.HostGroupID `db:"group_id"`
-		GroupName string          `db:"group_name"`
+		UserID     ids.UserID      `db:"user_id"`
+		GroupID    ids.HostGroupID `db:"group_id"`
+		GroupName  string          `db:"group_name"`
+		GroupColor string          `db:"group_color"`
+		GroupIcon  string          `db:"group_icon"`
 	}
 	const grantQuery = `
-		SELECT uahg.user_id, hg.id AS group_id, hg.name AS group_name
+		SELECT uahg.user_id, hg.id AS group_id, hg.name AS group_name,
+		       hg.color AS group_color, COALESCE(hg.icon, '') AS group_icon
 		FROM user_allowed_host_groups uahg
 		JOIN host_groups hg ON hg.id = uahg.host_group_id
 		ORDER BY uahg.user_id, hg.name
@@ -319,10 +322,12 @@ func (r *Repository) ListUserAccessRows(ctx context.Context) ([]httpapi.UserList
 
 	grantsByUser := collate.GroupByMap(grantRows,
 		func(gr grantRow) ids.UserID { return gr.UserID },
-		func(gr grantRow) httpapi.GroupRef {
-			return httpapi.GroupRef{
-				Id:   gr.GroupID.Int64(),
-				Name: gr.GroupName,
+		func(gr grantRow) httpapi.GroupSummary {
+			return httpapi.GroupSummary{
+				Id:    gr.GroupID.Int64(),
+				Name:  gr.GroupName,
+				Color: gr.GroupColor,
+				Icon:  gr.GroupIcon,
 			}
 		},
 	)
