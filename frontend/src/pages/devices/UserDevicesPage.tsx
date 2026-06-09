@@ -37,6 +37,7 @@ import { DevicePairingTab } from "@/features/device-pairing/DevicePairingTab";
 import { DeviceState } from "@/lib/api";
 import type { DeviceRuleSummary } from "@/lib/api";
 import { DeviceApiKeyRuleHintBanner } from "@/features/devices/DeviceApiKeyRuleHintBanner";
+import { DeviceDisabledBanner } from "@/features/devices/DeviceDisabledBanner";
 
 dayjs.extend(relativeTime);
 
@@ -284,6 +285,11 @@ export function UserDevicesPage({ createMode = false }: UserDevicesPageProps) {
           />
         )}
 
+        {/* Disabled banner */}
+        {selectedDevice?.state === DeviceState.DISABLED && (
+          <DeviceDisabledBanner deviceId={selectedDevice.id} />
+        )}
+
         {/* API key + no-limits hint banner */}
         {selectedDevice?.api_key_prefix && !hasActiveLimitRule(selectedDevice.rules) && (
           <DeviceApiKeyRuleHintBanner
@@ -336,7 +342,10 @@ export function UserDevicesPage({ createMode = false }: UserDevicesPageProps) {
               <Tabs.Tab value={DeviceTab.SETTINGS}>Settings</Tabs.Tab>
             </Tabs.List>
             <Tabs.Panel value={DeviceTab.ADDRESSES} pt="md">
-              <DeviceAddressesTab deviceId={selectedDevice.id} />
+              <DeviceAddressesTab
+                deviceId={selectedDevice.id}
+                isDisabled={selectedDevice.state === DeviceState.DISABLED}
+              />
             </Tabs.Panel>
             <Tabs.Panel value={DeviceTab.RULES} pt="md">
               <DeviceRulesTab deviceId={selectedDevice.id} liveAddressCount={selectedDevice.live_address_count} />

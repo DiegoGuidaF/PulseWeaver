@@ -32,7 +32,14 @@ function LivePips({ count }: { count: number }) {
 }
 
 function getRowContainerStyle(state: DeviceState): React.CSSProperties {
-  if (state === DeviceState.STALE || state === DeviceState.DISABLED) {
+  if (state === DeviceState.DISABLED) {
+    return {
+      border: "1px dashed var(--mantine-color-default-border)",
+      borderRadius: 6,
+      background: "color-mix(in srgb, var(--mantine-color-gray-5) 11%, transparent)",
+    };
+  }
+  if (state === DeviceState.STALE) {
     return {
       border: "1px dashed var(--mantine-color-default-border)",
       borderRadius: 6,

@@ -21,6 +21,7 @@ import { useRegenerateApiKey } from "@/features/devices/hooks/useRegenerateApiKe
 import { useDeleteApiKey } from "@/features/devices/hooks/useDeleteApiKey";
 import { useDeleteDevice } from "@/features/devices/hooks/useDeleteDevice";
 import { useDisableDevice } from "@/features/devices/hooks/useDisableDevice";
+import { useEnableDevice } from "@/features/devices/hooks/useEnableDevice";
 import { useUpdateDevice } from "@/features/devices/hooks/useUpdateDevice";
 import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 import { useListUsers } from "@/features/auth/hooks/useListUsers";
@@ -57,6 +58,7 @@ export function DeviceSettingsTab({
   const deleteApiKey = useDeleteApiKey();
   const deleteDevice = useDeleteDevice();
   const disableDevice = useDisableDevice();
+  const enableDevice = useEnableDevice();
   const updateDevice = useUpdateDevice();
   const { copy } = useClipboard();
 
@@ -166,7 +168,7 @@ export function DeviceSettingsTab({
           setDisableDeviceOpen(false);
           notifications.show({
             color: "green",
-            message: "Device disabled — API key revoked and addresses turned off",
+            message: "Device frozen — all active addresses turned off and updates blocked. Re-enable anytime to lift it.",
           });
         },
         onError: (err) =>
@@ -296,8 +298,6 @@ export function DeviceSettingsTab({
             background: "color-mix(in srgb, var(--mantine-color-red-9) 8%, transparent)",
           }}
         >
-          {(isDisabled || hasApiKey) && (
-            <>
               <Group justify="space-between" align="flex-start" p="md" wrap="nowrap" gap="xl">
                 <Stack gap={2}>
                   <Text size="sm" fw={500}>
@@ -305,8 +305,8 @@ export function DeviceSettingsTab({
                   </Text>
                   <Text size="xs" c="dimmed">
                     {isDisabled
-                      ? "This device is disabled: its API key was revoked and all addresses were turned off. Re-enabling mints a new API key — set it on the device, or re-pair instead."
-                      : "Revoke the API key and turn off all addresses in one step. Reversible — regenerate the key or re-pair to bring it back. Use this for a lost or compromised device."}
+                      ? "This device is frozen — no address updates are allowed. Re-enabling clears the freeze and allows addresses to be enabled and refreshed again."
+                      : "Freeze this device — blocks all address updates. Use for a lost or compromised device."}
                   </Text>
                 </Stack>
                 {isDisabled ? (
@@ -314,9 +314,22 @@ export function DeviceSettingsTab({
                     variant="outline"
                     size="sm"
                     style={{ flexShrink: 0 }}
-                    disabled={regenerateApiKey.isPending}
-                    loading={regenerateApiKey.isPending}
-                    onClick={handleGenerate}
+                    disabled={enableDevice.isPending}
+                    loading={enableDevice.isPending}
+                    onClick={() =>
+                      enableDevice.mutate(
+                        { path: { device_id: deviceId } },
+                        {
+                          onSuccess: () =>
+                            notifications.show({
+                              color: "green",
+                              message: "Device re-enabled — addresses will resume on the device's next check-in.",
+                            }),
+                          onError: (err) =>
+                            notifications.show({ color: "red", message: toErrorMessage(err) }),
+                        },
+                      )
+                    }
                   >
                     Re-enable
                   </Button>
@@ -333,8 +346,6 @@ export function DeviceSettingsTab({
               </Group>
 
               <Divider variant="dashed" color="red.3" />
-            </>
-          )}
 
           <Group justify="space-between" align="flex-start" p="md" wrap="nowrap" gap="xl">
             <Stack gap={2}>
@@ -601,13 +612,8 @@ export function DeviceSettingsTab({
       >
         <Stack gap="md">
           <Text size="sm">
-            The API key (
-            <Text component="span" ff="monospace">
-              {device?.api_key_prefix}&hellip;
-            </Text>
-            ) will be revoked and all of this device&apos;s addresses turned off immediately, so
-            it stops reaching any host. This is reversible — regenerate the key or re-pair the
-            device to bring it back.
+            All active addresses will be turned off and further address updates blocked.
+            This is a temporary freeze — re-enable anytime to lift it.
           </Text>
           <Group justify="flex-end" gap="sm">
             <Button

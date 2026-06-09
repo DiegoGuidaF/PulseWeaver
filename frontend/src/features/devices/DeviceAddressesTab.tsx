@@ -169,9 +169,10 @@ function AddressRow({
 
 interface DeviceAddressesTabProps {
   deviceId: number;
+  isDisabled?: boolean;
 }
 
-export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
+export function DeviceAddressesTab({ deviceId, isDisabled = false }: DeviceAddressesTabProps) {
   const formatDateTime = useDateFormatter();
   const { data: addresses, isLoading, isError, error, refetch } = useDeviceAddresses(deviceId, true, 10_000);
 
@@ -294,6 +295,7 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
           size="xs"
           onClick={handleHeartbeat}
           loading={heartbeatMutation.isPending}
+          disabled={isDisabled}
         >
           ＋ Register my IP
         </Button>
@@ -301,6 +303,7 @@ export function DeviceAddressesTab({ deviceId }: DeviceAddressesTabProps) {
           size="xs"
           variant="subtle"
           onClick={() => setCustomOpen((o) => !o)}
+          disabled={isDisabled}
         >
           ＋ Custom IP…
         </Button>
