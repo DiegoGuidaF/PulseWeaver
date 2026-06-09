@@ -122,7 +122,7 @@ describe('OwnerDevicesPanel', () => {
 
         it('shows bypass badge when bypass_host_check is true', () => {
             renderPanel({ owner: { ...defaultOwner, bypass_host_check: true } });
-            expect(screen.getByText('bypass')).toBeInTheDocument();
+            expect(screen.getByText('All hosts')).toBeInTheDocument();
         });
 
         it('shows device count', () => {
@@ -132,7 +132,7 @@ describe('OwnerDevicesPanel', () => {
 
         it('appends live count when owner has live addresses', () => {
             renderPanel({ owner: { ...defaultOwner, live_address_count: 2 } });
-            expect(screen.getByText(/2 live/)).toBeInTheDocument();
+            expect(screen.getByText(/2 IPs live/)).toBeInTheDocument();
         });
     });
 

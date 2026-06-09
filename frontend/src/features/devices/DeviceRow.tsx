@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { buildRoute } from "@/lib/routes";
-import { Box, Group, ThemeIcon, UnstyledButton, Text } from "@mantine/core";
+import { Box, Group, ThemeIcon, Tooltip, UnstyledButton, Text } from "@mantine/core";
 import { IconChevronRight } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -20,14 +20,16 @@ function LivePips({ count }: { count: number }) {
   const pips = Math.min(count, MAX_PIPS);
   const overflow = count > MAX_PIPS ? count - MAX_PIPS : 0;
   return (
-    <Group gap={4} wrap="nowrap">
-      {Array.from({ length: pips }).map((_, i) => (
-        <Box key={i} w={8} h={8} bg="orange.4" style={{ borderRadius: "50%", flexShrink: 0 }} />
-      ))}
-      {overflow > 0 && (
-        <Text size="xs" c="dimmed">+{overflow}</Text>
-      )}
-    </Group>
+    <Tooltip label={`${count} live IP address${count !== 1 ? "es" : ""}`} withArrow>
+      <Group gap={4} wrap="nowrap">
+        {Array.from({ length: pips }).map((_, i) => (
+          <Box key={i} w={8} h={8} bg="orange.4" style={{ borderRadius: "50%", flexShrink: 0 }} />
+        ))}
+        {overflow > 0 && (
+          <Text size="xs" c="dimmed">+{overflow}</Text>
+        )}
+      </Group>
+    </Tooltip>
   );
 }
 
@@ -36,7 +38,7 @@ function getRowContainerStyle(state: DeviceState): React.CSSProperties {
     return {
       border: "1px dashed var(--mantine-color-default-border)",
       borderRadius: 6,
-      background: "color-mix(in srgb, var(--mantine-color-gray-5) 11%, transparent)",
+      background: "light-dark(color-mix(in srgb, var(--mantine-color-gray-5) 11%, transparent), color-mix(in srgb, var(--mantine-color-dark-3) 20%, transparent))",
     };
   }
   if (state === DeviceState.STALE) {
@@ -80,7 +82,7 @@ export function DeviceRow({ entry, ownerId }: Props) {
       >
         <Group gap="sm" align="center" wrap="nowrap" px="xs" py={8}>
           <ThemeIcon variant="transparent" size="md" c={isMuted ? "dimmed" : undefined}>
-            {renderIcon({ size: 18 })}
+            {renderIcon({ size: 22 })}
           </ThemeIcon>
 
           <Box style={{ flex: 1, minWidth: 0 }}>

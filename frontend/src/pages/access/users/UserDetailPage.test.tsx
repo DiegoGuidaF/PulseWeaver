@@ -75,7 +75,7 @@ describe('UserDetailPage', () => {
             );
         });
 
-        it('"All devices →" link points to the owner device workspace', async () => {
+        it('"User devices →" link points to the owner device workspace', async () => {
             const user = userEvent.setup();
             renderUserDetailPage(5);
 
@@ -86,7 +86,7 @@ describe('UserDetailPage', () => {
             );
             await user.click(screen.getByRole('tab', { name: /devices/i }));
 
-            const allDevicesLink = screen.getByRole('link', { name: /all devices/i });
+            const allDevicesLink = screen.getByRole('link', { name: /user devices/i });
             expect(allDevicesLink).toHaveAttribute('href', buildRoute.userDevices(5));
         });
     });

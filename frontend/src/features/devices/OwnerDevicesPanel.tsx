@@ -16,6 +16,7 @@ import {
   Text,
   TextInput,
   ThemeIcon,
+  Tooltip,
   UnstyledButton,
 } from "@mantine/core";
 import { IconPlus, IconSearch } from "@tabler/icons-react";
@@ -151,30 +152,36 @@ export function OwnerDevicesPanel({
   return (
     <Stack gap="md">
       {/* Owner card */}
-      <Group gap="sm" align="flex-start">
-        <Avatar radius="xl" size="md" color="indigo">
+      <Group gap="sm" align="flex-start" wrap="nowrap">
+        <Avatar radius="xl" size="md" color="indigo" style={{ flexShrink: 0 }}>
           {getInitials(owner.display_name)}
         </Avatar>
-        <Stack gap={2}>
-          <Group gap="xs" align="center">
+        <Stack gap={6}>
+          <Stack gap={2}>
             <Text fw={600} size="sm">{owner.display_name}</Text>
             {owner.role === "admin" && (
-              <Badge size="xs" color="indigo" variant="light">admin</Badge>
+              <Box>
+                <Badge size="xs" color="indigo" variant="light">admin</Badge>
+              </Box>
             )}
-          </Group>
-          <Group gap={4} align="center" wrap="nowrap">
+          </Stack>
+          <Stack gap={4}>
             {owner.bypass_host_check ? (
-              <Badge size="xs" color="orange" variant="filled">bypass</Badge>
+              <Box>
+                <Tooltip label="Host check bypassed — this user's devices can access any configured host" withArrow>
+                  <Badge size="xs" color="orange" variant="filled">All hosts</Badge>
+                </Tooltip>
+              </Box>
             ) : owner.host_groups.length > 0 ? (
               <GroupBadgeList groups={owner.host_groups} size="xs" />
             ) : null}
             <Text size="xs" c="dimmed">
               {owner.device_count} device{owner.device_count !== 1 ? "s" : ""}
               {owner.live_address_count > 0
-                ? ` · ${owner.live_address_count} live`
+                ? ` · ${owner.live_address_count} IPs live`
                 : ""}
             </Text>
-          </Group>
+          </Stack>
         </Stack>
       </Group>
 

@@ -263,7 +263,7 @@ export function UserDetailPage() {
                   size="xs"
                   c="dimmed"
                 >
-                  All devices →
+                  User devices →
                 </Anchor>
               </Stack>
             )}

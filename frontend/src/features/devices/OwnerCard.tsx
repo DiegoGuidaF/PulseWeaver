@@ -1,6 +1,6 @@
-import { useNavigate } from "react-router-dom";
-import { Avatar, Badge, Button, Card, Divider, Group, Stack, Text, UnstyledButton } from "@mantine/core";
-import { IconPlus } from "@tabler/icons-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Avatar, Badge, Button, Card, Divider, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { IconArrowRight, IconPlus } from "@tabler/icons-react";
 import { buildRoute } from "@/lib/routes";
 import { GroupBadgeList } from "@/features/host-access/components/GroupBadgeList";
 import { DeviceRow } from "@/features/devices/DeviceRow";
@@ -41,28 +41,42 @@ export function OwnerCard({ owner, devices }: Props) {
               </Group>
               <Group gap={4} align="center" wrap="nowrap">
                 {owner.bypass_host_check ? (
-                  <Badge size="xs" color="orange" variant="filled">bypass</Badge>
+                  <Tooltip label="Host check bypassed — this user's devices can access any configured host" withArrow>
+                    <Badge size="xs" color="orange" variant="filled">All hosts</Badge>
+                  </Tooltip>
                 ) : owner.host_groups.length > 0 ? (
                   <GroupBadgeList groups={owner.host_groups} size="xs" />
                 ) : null}
                 <Text size="xs" c="dimmed">
                   {owner.device_count} device{owner.device_count !== 1 ? "s" : ""}
                   {owner.live_address_count > 0
-                    ? ` · ${owner.live_address_count} live`
+                    ? ` · ${owner.live_address_count} IPs live`
                     : ""}
                 </Text>
               </Group>
             </Stack>
           </Group>
 
-          <Button
-            variant="default"
-            size="xs"
-            leftSection={<IconPlus size={13} />}
-            onClick={goCreate}
-          >
-            Add device
-          </Button>
+          <Group gap="xs">
+            <Button
+              component={Link}
+              to={buildRoute.accessUserDetail(owner.id)}
+              variant="subtle"
+              size="xs"
+              rightSection={<IconArrowRight size={13} />}
+              c="dimmed"
+            >
+              User settings
+            </Button>
+            <Button
+              variant="default"
+              size="xs"
+              leftSection={<IconPlus size={13} />}
+              onClick={goCreate}
+            >
+              Add device
+            </Button>
+          </Group>
         </Group>
 
         {devices.length > 0 ? (
