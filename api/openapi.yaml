@@ -54,6 +54,8 @@ paths:
     $ref: './paths/devices.yaml#/regenerateApiKey'
   /devices/{device_id}/disable:
     $ref: './paths/devices.yaml#/disableDevice'
+  /devices/{device_id}/enable:
+    $ref: './paths/devices.yaml#/enableDevice'
   /devices/{device_id}/heartbeat:
     $ref: './paths/devices.yaml#/heartbeatById'
   /heartbeat:

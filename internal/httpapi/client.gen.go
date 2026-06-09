@@ -252,6 +252,9 @@ type ClientInterface interface {
 	// DisableDevice request
 	DisableDevice(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// EnableDevice request
+	EnableDevice(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeviceHeartbeat request
 	DeviceHeartbeat(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1003,6 +1006,18 @@ func (c *Client) RegenerateDeviceAPIKey(ctx context.Context, deviceId ID, reqEdi
 
 func (c *Client) DisableDevice(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDisableDeviceRequest(c.Server, deviceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) EnableDevice(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnableDeviceRequest(c.Server, deviceId)
 	if err != nil {
 		return nil, err
 	}
@@ -3371,6 +3386,40 @@ func NewDisableDeviceRequest(server string, deviceId ID) (*http.Request, error) 
 	return req, nil
 }
 
+// NewEnableDeviceRequest generates requests for EnableDevice
+func NewEnableDeviceRequest(server string, deviceId ID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "device_id", runtime.ParamLocationPath, deviceId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/devices/%s/enable", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeviceHeartbeatRequest generates requests for DeviceHeartbeat
 func NewDeviceHeartbeatRequest(server string, deviceId ID) (*http.Request, error) {
 	var err error
@@ -4132,6 +4181,9 @@ type ClientWithResponsesInterface interface {
 
 	// DisableDeviceWithResponse request
 	DisableDeviceWithResponse(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*DisableDeviceTestClientResponse, error)
+
+	// EnableDeviceWithResponse request
+	EnableDeviceWithResponse(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*EnableDeviceTestClientResponse, error)
 
 	// DeviceHeartbeatWithResponse request
 	DeviceHeartbeatWithResponse(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*DeviceHeartbeatTestClientResponse, error)
@@ -5302,6 +5354,30 @@ func (r DisableDeviceTestClientResponse) StatusCode() int {
 	return 0
 }
 
+type EnableDeviceTestClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Device
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r EnableDeviceTestClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnableDeviceTestClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeviceHeartbeatTestClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6157,6 +6233,15 @@ func (c *ClientWithResponses) DisableDeviceWithResponse(ctx context.Context, dev
 		return nil, err
 	}
 	return ParseDisableDeviceTestClientResponse(rsp)
+}
+
+// EnableDeviceWithResponse request returning *EnableDeviceTestClientResponse
+func (c *ClientWithResponses) EnableDeviceWithResponse(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*EnableDeviceTestClientResponse, error) {
+	rsp, err := c.EnableDevice(ctx, deviceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnableDeviceTestClientResponse(rsp)
 }
 
 // DeviceHeartbeatWithResponse request returning *DeviceHeartbeatTestClientResponse
@@ -8343,6 +8428,46 @@ func ParseDisableDeviceTestClientResponse(rsp *http.Response) (*DisableDeviceTes
 	}
 
 	response := &DisableDeviceTestClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Device
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEnableDeviceTestClientResponse parses an HTTP response from a EnableDeviceWithResponse call
+func ParseEnableDeviceTestClientResponse(rsp *http.Response) (*EnableDeviceTestClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnableDeviceTestClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

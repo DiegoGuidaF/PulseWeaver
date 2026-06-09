@@ -27,6 +27,7 @@ import {
   disableDevice,
   disableDeviceAddressLeaseRule,
   disableMaxActiveAddressesRule,
+  enableDevice,
   getAccessLog,
   getAccessLogByCountry,
   getAccessLogDenyReasons,
@@ -127,6 +128,9 @@ import type {
   DisableMaxActiveAddressesRuleData,
   DisableMaxActiveAddressesRuleError,
   DisableMaxActiveAddressesRuleResponse,
+  EnableDeviceData,
+  EnableDeviceError,
+  EnableDeviceResponse,
   GetAccessLogByCountryData,
   GetAccessLogByCountryError,
   GetAccessLogByCountryResponse,
@@ -743,7 +747,7 @@ export const regenerateDeviceApiKeyMutation = (
 /**
  * Disable a device
  *
- * Reversibly disables a device: revokes its API key and disables all active addresses in one call, then marks the device "Disabled". Distinct from delete (which is permanent) — re-credentialing the device (a pairing claim or an API key regenerate) re-enables it. Admin-only.
+ * Reversibly freezes a device: disables all active addresses (removing its IPs from the access allowlist) and marks the device "Disabled", which blocks address enable/refresh until it is re-enabled via the enable endpoint. The API key is kept — disable is a safety toggle, not a de-credentialing (use the delete-api-key endpoint for that). Distinct from delete (permanent). Admin-only.
  *
  */
 export const disableDeviceMutation = (
@@ -760,6 +764,36 @@ export const disableDeviceMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await disableDevice({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Re-enable a disabled device
+ *
+ * Clears the "Disabled" flag set by disableDevice, re-permitting address enable/refresh. The API key was never removed, so the device heartbeats its addresses back to enabled on its next check-in; addresses disabled at freeze time are not re-enabled by this call. Admin-only.
+ *
+ */
+export const enableDeviceMutation = (
+  options?: Partial<Options<EnableDeviceData>>,
+): UseMutationOptions<
+  EnableDeviceResponse,
+  EnableDeviceError,
+  Options<EnableDeviceData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    EnableDeviceResponse,
+    EnableDeviceError,
+    Options<EnableDeviceData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await enableDevice({
         ...options,
         ...fnOptions,
         throwOnError: true,

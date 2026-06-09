@@ -186,10 +186,11 @@ disableDevice:
     operationId: disableDevice
     summary: Disable a device
     description: >
-      Reversibly disables a device: revokes its API key and disables all active
-      addresses in one call, then marks the device "Disabled". Distinct from delete
-      (which is permanent) — re-credentialing the device (a pairing claim or an API
-      key regenerate) re-enables it. Admin-only.
+      Reversibly freezes a device: disables all active addresses (removing its IPs
+      from the access allowlist) and marks the device "Disabled", which blocks
+      address enable/refresh until it is re-enabled via the enable endpoint. The
+      API key is kept — disable is a safety toggle, not a de-credentialing (use the
+      delete-api-key endpoint for that). Distinct from delete (permanent). Admin-only.
     tags: [ devices ]
     parameters:
       - name: device_id
@@ -201,6 +202,43 @@ disableDevice:
     responses:
       "200":
         description: Device disabled successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/devices.yaml#/Device'
+      "404":
+        description: Device not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+enableDevice:
+  post:
+    operationId: enableDevice
+    summary: Re-enable a disabled device
+    description: >
+      Clears the "Disabled" flag set by disableDevice, re-permitting address
+      enable/refresh. The API key was never removed, so the device heartbeats its
+      addresses back to enabled on its next check-in; addresses disabled at freeze
+      time are not re-enabled by this call. Admin-only.
+    tags: [ devices ]
+    parameters:
+      - name: device_id
+        in: path
+        description: Device id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: Device enabled successfully
         content:
           application/json:
             schema:

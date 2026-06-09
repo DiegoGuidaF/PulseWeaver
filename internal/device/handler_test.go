@@ -284,20 +284,13 @@ func TestHandler_DisableDevice_200(t *testing.T) {
 	is.Equal(resp.StatusCode(), http.StatusOK)
 	body := *resp.JSON200
 	is.True(body.DisabledAt != nil)   // flag stamped
-	is.True(body.ApiKeyPrefix == nil) // key revoked
+	is.True(body.ApiKeyPrefix != nil) // API key is kept — disable is a freeze, not a de-credentialing
 
 	// Device shows as disabled in the list.
 	listResp, err := client.GetDevicesWithResponse(ctx)
 	is.NoErr(err)
 	groups := *listResp.JSON200
 	is.Equal(groups[0].Devices[0].State, httpapi.Disabled)
-
-	// Re-credentialing re-enables it.
-	_, _, err = testServer.DeviceService.RegenerateAPIKey(ctx, dev.ID)
-	is.NoErr(err)
-	listResp2, err := client.GetDevicesWithResponse(ctx)
-	is.NoErr(err)
-	is.True((*listResp2.JSON200)[0].Devices[0].State != httpapi.Disabled)
 }
 
 func TestHandler_DisableDevice_404(t *testing.T) {
@@ -307,6 +300,48 @@ func TestHandler_DisableDevice_404(t *testing.T) {
 	client := testutils.NewAdminAPIClient(t, testServer)
 
 	resp, err := client.DisableDeviceWithResponse(ctx, int64(99999))
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNotFound)
+}
+
+func TestHandler_EnableDevice_200(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	testServer := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, testServer)
+
+	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "recovered-phone", nil)
+	is.NoErr(err)
+	_, _, err = testServer.DeviceService.RegenerateAPIKey(ctx, dev.ID)
+	is.NoErr(err)
+
+	_, err = client.DisableDeviceWithResponse(ctx, dev.ID.Int64())
+	is.NoErr(err)
+
+	// Address enable/refresh is blocked while disabled.
+	addResp, err := client.AddAddressWithResponse(ctx, dev.ID.Int64(), httpapi.AddAddressJSONRequestBody{Ip: "192.168.1.50"})
+	is.NoErr(err)
+	is.Equal(addResp.StatusCode(), http.StatusConflict)
+
+	resp, err := client.EnableDeviceWithResponse(ctx, dev.ID.Int64())
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	is.True(resp.JSON200.DisabledAt == nil)   // disabled flag cleared
+	is.True(resp.JSON200.ApiKeyPrefix != nil) // key preserved across the freeze
+
+	// After re-enabling, address registration works again.
+	addResp2, err := client.AddAddressWithResponse(ctx, dev.ID.Int64(), httpapi.AddAddressJSONRequestBody{Ip: "192.168.1.50"})
+	is.NoErr(err)
+	is.Equal(addResp2.StatusCode(), http.StatusCreated)
+}
+
+func TestHandler_EnableDevice_404(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	testServer := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, testServer)
+
+	resp, err := client.EnableDeviceWithResponse(ctx, int64(99999))
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusNotFound)
 }

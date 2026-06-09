@@ -203,10 +203,11 @@ func (s *Service) DeleteDevice(ctx context.Context, deviceID ids.DeviceID) error
 	return nil
 }
 
-// DisableDevice makes a device unusable without deleting it: it revokes the API
-// key and disables every active address in one transaction, then stamps
-// disabled_at. The device is recoverable — re-credentialing (RegenerateAPIKey,
-// reached by a pairing claim or a manual regenerate) clears the flag.
+// DisableDevice is a reversible freeze: it disables every active address in one
+// transaction (removing the device's IPs from the access allowlist) and stamps
+// disabled_at, which blocks address enable/refresh until the device is re-enabled.
+// The API key is deliberately kept — disable is a safety toggle, not a
+// de-credentialing (use DeleteAPIKey for that). EnableDevice reverses it.
 func (s *Service) DisableDevice(ctx context.Context, deviceID ids.DeviceID) (*Device, error) {
 	var disabledAddresses []Address
 	var device *Device
@@ -229,16 +230,11 @@ func (s *Service) DisableDevice(ctx context.Context, deviceID ids.DeviceID) (*De
 			return err
 		}
 
-		// Revoke the API key so the device can no longer heartbeat itself back in.
-		if err := s.repo.DeleteAPIKey(ctx, deviceID); err != nil && !errors.Is(err, ErrNoAPIKey) {
-			return err
-		}
-
 		if err := s.repo.SetDeviceDisabled(ctx, deviceID, true); err != nil {
 			return err
 		}
-		// Fetch fresh inside the transaction so the result reflects the revoked
-		// key and stamped disabled_at.
+		// Fetch fresh inside the transaction so the result reflects the stamped
+		// disabled_at.
 		device, err = s.repo.GetDevice(ctx, deviceID)
 		return err
 	})
@@ -251,6 +247,29 @@ func (s *Service) DisableDevice(ctx context.Context, deviceID ids.DeviceID) (*De
 	}
 
 	s.logger.InfoContext(ctx, "device disabled", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
+	return device, nil
+}
+
+// EnableDevice reverses DisableDevice by clearing the disabled_at flag, which
+// re-permits address enable/refresh. The device's API key was never removed, so
+// it can heartbeat its addresses back to enabled on its next check-in; addresses
+// disabled at freeze time are not re-enabled here.
+func (s *Service) EnableDevice(ctx context.Context, deviceID ids.DeviceID) (*Device, error) {
+	var device *Device
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		// SetDeviceDisabled returns ErrDeviceNotFound when no active device matches.
+		if err := s.repo.SetDeviceDisabled(ctx, deviceID, false); err != nil {
+			return err
+		}
+		var err error
+		device, err = s.repo.GetDevice(ctx, deviceID)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	s.logger.InfoContext(ctx, "device enabled", slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
 	return device, nil
 }
 
@@ -298,16 +317,12 @@ func (s *Service) RegenerateAPIKey(ctx context.Context, deviceID ids.DeviceID) (
 	err = s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		var err error
 		// Validate device exists (also checks deleted_at) inside the transaction
-		// so the existence check and key upsert are atomic.
+		// so the existence check and key upsert are atomic. Key rotation is allowed
+		// regardless of disabled state — disable does not touch the API key.
 		if _, err = s.repo.GetDevice(ctx, deviceID); err != nil {
 			return err
 		}
 		if err = s.repo.UpsertAPIKey(ctx, deviceID, keyHash, keyPrefix); err != nil {
-			return err
-		}
-		// Re-credentialing re-enables a disabled device (a pairing claim reaches
-		// here too), so clear the disabled flag in the same transaction.
-		if err = s.repo.SetDeviceDisabled(ctx, deviceID, false); err != nil {
 			return err
 		}
 		// Fetch fresh device inside the transaction so KeyPrefix reflects the upsert.

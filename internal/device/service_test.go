@@ -230,7 +230,7 @@ func TestService_DisableDevice_Success(t *testing.T) {
 	is.NoErr(err)
 	is.True(disabled != nil)
 	is.True(disabled.DisabledAt != nil)                        // flag stamped
-	is.True(disabled.KeyPrefix == nil)                         // key revoked
+	is.True(disabled.KeyPrefix != nil)                         // API key kept — disable is a freeze
 	is.Equal(mockRepo.addresses[enabledAddr].IsEnabled, false) // address disabled
 	is.Equal(len(observer.events), 1)                          // observers fired after commit
 	is.Equal(observer.events[0].Type, device.EventTypeAddressDisabled)
@@ -262,19 +262,21 @@ func TestService_DisableDevice_NotFound(t *testing.T) {
 	is.True(disabled == nil)
 }
 
-func TestService_RegenerateAPIKey_ReenablesDisabledDevice(t *testing.T) {
+func TestService_RegenerateAPIKey_AllowedOnDisabledDevice(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()
 
 	mockRepo := newMockRepository()
 	now := time.Now().UTC()
-	d := &device.Device{ID: ids.DeviceID(1), Name: "re-pair-me", DisabledAt: &now}
+	d := &device.Device{ID: ids.DeviceID(1), Name: "disabled", DisabledAt: &now}
 	mockRepo.devices[d.ID] = d
 	service := newService(mockRepo)
 
-	updated, _, err := service.RegenerateAPIKey(ctx, d.ID)
+	// Key rotation is independent of disabled state and does not re-enable the device.
+	updated, rawKey, err := service.RegenerateAPIKey(ctx, d.ID)
 	is.NoErr(err)
-	is.True(updated.DisabledAt == nil) // re-credentialing clears the disabled flag
+	is.True(rawKey != "")
+	is.True(updated.DisabledAt != nil) // still disabled
 }
 
 func TestService_CreateDeviceWithOptions_NoKey(t *testing.T) {

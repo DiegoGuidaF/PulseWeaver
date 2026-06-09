@@ -592,7 +592,7 @@ paths:
       operationId: disableDevice
       summary: Disable a device
       description: |
-        Reversibly disables a device: revokes its API key and disables all active addresses in one call, then marks the device "Disabled". Distinct from delete (which is permanent) — re-credentialing the device (a pairing claim or an API key regenerate) re-enables it. Admin-only.
+        Reversibly freezes a device: disables all active addresses (removing its IPs from the access allowlist) and marks the device "Disabled", which blocks address enable/refresh until it is re-enabled via the enable endpoint. The API key is kept — disable is a safety toggle, not a de-credentialing (use the delete-api-key endpoint for that). Distinct from delete (permanent). Admin-only.
       tags:
         - devices
       parameters:
@@ -605,6 +605,40 @@ paths:
       responses:
         '200':
           description: Device disabled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /devices/{device_id}/enable:
+    post:
+      operationId: enableDevice
+      summary: Re-enable a disabled device
+      description: |
+        Clears the "Disabled" flag set by disableDevice, re-permitting address enable/refresh. The API key was never removed, so the device heartbeats its addresses back to enabled on its next check-in; addresses disabled at freeze time are not re-enabled by this call. Admin-only.
+      tags:
+        - devices
+      parameters:
+        - name: device_id
+          in: path
+          description: Device id
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        '200':
+          description: Device enabled successfully
           content:
             application/json:
               schema:
@@ -2737,7 +2771,7 @@ components:
           nullable: true
           readOnly: true
           x-go-type: UTCTime
-          description: When the device was disabled, or null if active. A disabled device has its API key revoked and all addresses disabled until it is re-credentialed.
+          description: When the device was disabled, or null if active. A disabled device has all its addresses disabled and cannot enable/refresh addresses until it is re-enabled. Its API key is kept.
         live_address_count:
           type: integer
           minimum: 0
@@ -2778,7 +2812,7 @@ components:
         - pending-claim
         - expired-claim
       description: |
-        Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: API key revoked and all addresses disabled; recoverable by re-credentialing. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+        Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
     DeviceRuleSummary:
       type: object
       required:

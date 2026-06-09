@@ -336,7 +336,7 @@ export const DeviceSchema = {
       readOnly: true,
       "x-go-type": "UTCTime",
       description:
-        "When the device was disabled, or null if active. A disabled device has its API key revoked and all addresses disabled until it is re-credentialed.",
+        "When the device was disabled, or null if active. A disabled device has all its addresses disabled and cannot enable/refresh addresses until it is re-enabled. Its API key is kept.",
     },
     live_address_count: {
       type: "integer",
@@ -384,7 +384,7 @@ export const DeviceStateSchema = {
   type: "string",
   enum: ["healthy", "stale", "disabled", "pending-claim", "expired-claim"],
   description:
-    "Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: API key revoked and all addresses disabled; recoverable by re-credentialing. pending-claim / expired-claim: awaiting or failed device pairing (future feature).\n",
+    "Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept. pending-claim / expired-claim: awaiting or failed device pairing (future feature).\n",
 } as const;
 
 export const DeviceRuleSummarySchema = {

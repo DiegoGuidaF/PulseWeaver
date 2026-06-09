@@ -62,6 +62,9 @@ import type {
   DisableMaxActiveAddressesRuleData,
   DisableMaxActiveAddressesRuleErrors,
   DisableMaxActiveAddressesRuleResponses,
+  EnableDeviceData,
+  EnableDeviceErrors,
+  EnableDeviceResponses,
   GetAccessLogByCountryData,
   GetAccessLogByCountryErrors,
   GetAccessLogByCountryResponses,
@@ -222,6 +225,8 @@ import {
   zDisableDeviceResponse,
   zDisableMaxActiveAddressesRulePath,
   zDisableMaxActiveAddressesRuleResponse,
+  zEnableDevicePath,
+  zEnableDeviceResponse,
   zGetAccessLogByCountryQuery,
   zGetAccessLogByCountryResponse,
   zGetAccessLogDenyReasonsResponse,
@@ -878,7 +883,7 @@ export const regenerateDeviceApiKey = <ThrowOnError extends boolean = false>(
 /**
  * Disable a device
  *
- * Reversibly disables a device: revokes its API key and disables all active addresses in one call, then marks the device "Disabled". Distinct from delete (which is permanent) — re-credentialing the device (a pairing claim or an API key regenerate) re-enables it. Admin-only.
+ * Reversibly freezes a device: disables all active addresses (removing its IPs from the access allowlist) and marks the device "Disabled", which blocks address enable/refresh until it is re-enabled via the enable endpoint. The API key is kept — disable is a safety toggle, not a de-credentialing (use the delete-api-key endpoint for that). Distinct from delete (permanent). Admin-only.
  *
  */
 export const disableDevice = <ThrowOnError extends boolean = false>(
@@ -907,6 +912,41 @@ export const disableDevice = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/devices/{device_id}/disable",
+    ...options,
+  });
+
+/**
+ * Re-enable a disabled device
+ *
+ * Clears the "Disabled" flag set by disableDevice, re-permitting address enable/refresh. The API key was never removed, so the device heartbeats its addresses back to enabled on its next check-in; addresses disabled at freeze time are not re-enabled by this call. Admin-only.
+ *
+ */
+export const enableDevice = <ThrowOnError extends boolean = false>(
+  options: Options<EnableDeviceData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    EnableDeviceResponses,
+    EnableDeviceErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: zEnableDevicePath,
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zEnableDeviceResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/devices/{device_id}/enable",
     ...options,
   });
 

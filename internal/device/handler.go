@@ -114,6 +114,27 @@ func (h *HTTPHandler) DisableDevice(ctx context.Context, request httpapi.Disable
 	return httpapi.DisableDevice200JSONResponse(toDeviceResponse(device)), nil
 }
 
+func (h *HTTPHandler) EnableDevice(ctx context.Context, request httpapi.EnableDeviceRequestObject) (httpapi.EnableDeviceResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "EnableDevice")
+	deviceID := ids.DeviceID(request.DeviceId)
+	logger := h.logger.With(slog.Int64(AttrKeyDeviceID, deviceID.Int64()))
+
+	device, err := h.service.EnableDevice(ctx, deviceID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrDeviceNotFound):
+			logger.WarnContext(ctx, "device not found")
+			return httpapi.EnableDevice404JSONResponse(errorMsgResponse(fmt.Sprintf("Device with id %s not found", deviceID))), nil
+		default:
+			logger.ErrorContext(ctx, "failed to enable device", slog.Any(AttrKeyError, err))
+			return httpapi.EnableDevice500JSONResponse(errorMsgResponse("Failed to enable device")), nil
+		}
+	}
+	logger.InfoContext(ctx, "device enabled")
+
+	return httpapi.EnableDevice200JSONResponse(toDeviceResponse(device)), nil
+}
+
 func (h *HTTPHandler) RegenerateDeviceAPIKey(ctx context.Context, request httpapi.RegenerateDeviceAPIKeyRequestObject) (httpapi.RegenerateDeviceAPIKeyResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "RegenerateDeviceAPIKey")
 	deviceID := ids.DeviceID(request.DeviceId)

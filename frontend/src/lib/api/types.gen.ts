@@ -158,7 +158,7 @@ export type Device = {
    */
   api_key_prefix?: string | null;
   /**
-   * When the device was disabled, or null if active. A disabled device has its API key revoked and all addresses disabled until it is re-credentialed.
+   * When the device was disabled, or null if active. A disabled device has all its addresses disabled and cannot enable/refresh addresses until it is re-enabled. Its API key is kept.
    */
   readonly disabled_at?: string | null;
   /**
@@ -185,7 +185,7 @@ export type DeviceApiKeyResponse = {
 };
 
 /**
- * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: API key revoked and all addresses disabled; recoverable by re-credentialing. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+ * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
  *
  */
 export const DeviceState = {
@@ -197,7 +197,7 @@ export const DeviceState = {
 } as const;
 
 /**
- * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: API key revoked and all addresses disabled; recoverable by re-credentialing. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+ * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
  *
  */
 export type DeviceState = (typeof DeviceState)[keyof typeof DeviceState];
@@ -1771,6 +1771,41 @@ export type DisableDeviceResponses = {
 
 export type DisableDeviceResponse =
   DisableDeviceResponses[keyof DisableDeviceResponses];
+
+export type EnableDeviceData = {
+  body?: never;
+  path: {
+    /**
+     * Device id
+     */
+    device_id: Id;
+  };
+  query?: never;
+  url: "/devices/{device_id}/enable";
+};
+
+export type EnableDeviceErrors = {
+  /**
+   * Device not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type EnableDeviceError = EnableDeviceErrors[keyof EnableDeviceErrors];
+
+export type EnableDeviceResponses = {
+  /**
+   * Device enabled successfully
+   */
+  200: Device;
+};
+
+export type EnableDeviceResponse =
+  EnableDeviceResponses[keyof EnableDeviceResponses];
 
 export type DeviceHeartbeatData = {
   body?: never;

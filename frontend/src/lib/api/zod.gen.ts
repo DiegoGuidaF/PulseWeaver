@@ -137,7 +137,7 @@ export const zDeviceApiKeyResponse = z.object({
 });
 
 /**
- * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: API key revoked and all addresses disabled; recoverable by re-credentialing. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+ * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
  *
  */
 export const zDeviceState = z.enum(DeviceState);
@@ -965,6 +965,15 @@ export const zDisableDevicePath = z.object({
  * Device disabled successfully
  */
 export const zDisableDeviceResponse = zDevice;
+
+export const zEnableDevicePath = z.object({
+  device_id: zId,
+});
+
+/**
+ * Device enabled successfully
+ */
+export const zEnableDeviceResponse = zDevice;
 
 export const zDeviceHeartbeatPath = z.object({
   device_id: zId,
