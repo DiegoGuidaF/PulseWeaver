@@ -177,7 +177,9 @@ func TestHandler_GetDevices_EmptyArray(t *testing.T) {
 	var groups []httpapi.DeviceOwnerGroup
 	err := json.NewDecoder(rec.Body).Decode(&groups)
 	is.NoErr(err)
-	is.Equal(len(groups), 0)
+	// The endpoint now returns all users; only the bootstrap admin exists with no devices.
+	is.Equal(len(groups), 1)
+	is.Equal(len(groups[0].Devices), 0)
 }
 
 // TestHandler_GetDevices_GroupsDevicesByOwner is the primary happy-path test for the
@@ -279,9 +281,12 @@ func TestHandler_GetDevices_StaleState(t *testing.T) {
 
 	var groups []httpapi.DeviceOwnerGroup
 	is.NoErr(json.NewDecoder(rec.Body).Decode(&groups))
-	is.Equal(len(groups), 1)
+	// Two users exist: bootstrap admin (no devices) and stale-user.
+	is.Equal(len(groups), 2)
 
-	d := findDeviceEntry(groups[0].Devices, "stale-device")
+	staleGroup := findOwnerGroup(groups, "stale-user")
+	is.True(staleGroup != nil)
+	d := findDeviceEntry(staleGroup.Devices, "stale-device")
 	is.True(d != nil)
 	is.Equal(d.LiveAddressCount, 0)
 	is.Equal(string(d.State), string(httpapi.Stale))

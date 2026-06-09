@@ -220,12 +220,13 @@ func TestHandler_DeleteDevice_204(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(deleteResp.StatusCode(), http.StatusNoContent)
 
-	// Device no longer in list
+	// Device no longer in list; admin owner remains with zero devices.
 	listResp, err := client.GetDevicesWithResponse(ctx)
 	is.NoErr(err)
 	is.Equal(listResp.StatusCode(), http.StatusOK)
 	groups := *listResp.JSON200
-	is.Equal(len(groups), 0)
+	is.Equal(len(groups), 1)
+	is.Equal(len(groups[0].Devices), 0)
 }
 
 func TestHandler_DeleteDevice_404(t *testing.T) {

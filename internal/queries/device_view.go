@@ -67,28 +67,69 @@ type latestPairingRow struct {
 	UpdatedAt time.Time    `db:"updated_at"`
 }
 
-// GetDeviceList returns all non-deleted devices grouped by their owning user.
+// userStub is the minimal user data needed to render owner rows that have no devices.
+type userStub struct {
+	ID              ids.UserID `db:"id"`
+	Username        string     `db:"username"`
+	DisplayName     string     `db:"display_name"`
+	Role            string     `db:"role"`
+	BypassHostCheck bool       `db:"bypass_host_check"`
+}
+
+func (r *Repository) fetchAllUserStubs(ctx context.Context) ([]userStub, error) {
+	const query = `
+		SELECT
+			u.id,
+			u.username,
+			u.display_name,
+			u.role,
+			COALESCE(uhs.bypass_host_check, 0) AS bypass_host_check
+		FROM users u
+		LEFT JOIN user_host_settings uhs ON uhs.user_id = u.id
+		WHERE u.deleted_at IS NULL
+		ORDER BY u.display_name ASC
+	`
+	var users []userStub
+	if err := r.db.SelectContext(ctx, &users, query); err != nil {
+		return nil, fmt.Errorf("fetch all user stubs: %w", err)
+	}
+	return users, nil
+}
+
+// GetDeviceList returns all non-deleted users grouped with their devices (empty list for users with no devices).
 func (r *Repository) GetDeviceList(ctx context.Context) ([]httpapi.DeviceOwnerGroup, error) {
 	rows, err := r.fetchDeviceListRows(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if len(rows) == 0 {
+
+	allUsers, err := r.fetchAllUserStubs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(allUsers) == 0 {
 		return []httpapi.DeviceOwnerGroup{}, nil
 	}
 
-	ownerIDs := uniqueOwnerIDs(rows)
-	groupsByOwner, err := r.fetchOwnerHostGroups(ctx, ownerIDs)
+	allUserIDs := make([]ids.UserID, len(allUsers))
+	for i, u := range allUsers {
+		allUserIDs[i] = u.ID
+	}
+
+	groupsByOwner, err := r.fetchOwnerHostGroups(ctx, allUserIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	pairingsByDevice, err := r.fetchLatestPairings(ctx, uniqueDeviceIDs(rows))
-	if err != nil {
-		return nil, err
+	pairingsByDevice := make(map[ids.DeviceID]latestPairingRow)
+	if deviceIDs := uniqueDeviceIDs(rows); len(deviceIDs) > 0 {
+		pairingsByDevice, err = r.fetchLatestPairings(ctx, deviceIDs)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return assembleDeviceGroups(rows, ownerIDs, groupsByOwner, pairingsByDevice), nil
+	return assembleDeviceGroups(rows, allUsers, groupsByOwner, pairingsByDevice), nil
 }
 
 func (r *Repository) fetchDeviceListRows(ctx context.Context) ([]deviceListRow, error) {
@@ -197,20 +238,19 @@ func (r *Repository) fetchLatestPairings(ctx context.Context, deviceIDs []ids.De
 
 func assembleDeviceGroups(
 	rows []deviceListRow,
-	ownerOrder []ids.UserID,
+	allUsers []userStub,
 	groupsByOwner map[ids.UserID][]httpapi.GroupSummary,
 	pairingsByDevice map[ids.DeviceID]latestPairingRow,
 ) []httpapi.DeviceOwnerGroup {
 	type ownerAcc struct {
-		meta    deviceListRow
 		devices []httpapi.DeviceListEntry
 		liveSum int
 	}
 
-	acc := make(map[ids.UserID]*ownerAcc, len(ownerOrder))
+	acc := make(map[ids.UserID]*ownerAcc, len(allUsers))
 	for _, row := range rows {
-		if _, exists := acc[row.OwnerID]; !exists {
-			acc[row.OwnerID] = &ownerAcc{meta: row}
+		if acc[row.OwnerID] == nil {
+			acc[row.OwnerID] = &ownerAcc{}
 		}
 		entry := httpapi.DeviceListEntry{
 			Id:               row.DeviceID.Int64(),
@@ -238,36 +278,34 @@ func assembleDeviceGroups(
 		a.liveSum += row.LiveAddressCount
 	}
 
-	groups := make([]httpapi.DeviceOwnerGroup, 0, len(ownerOrder))
-	for _, ownerID := range ownerOrder {
-		a := acc[ownerID]
-		hgs := groupsByOwner[ownerID]
+	groups := make([]httpapi.DeviceOwnerGroup, 0, len(allUsers))
+	for _, u := range allUsers {
+		a := acc[u.ID]
+		devices := []httpapi.DeviceListEntry{}
+		var liveSum int
+		if a != nil {
+			devices = a.devices
+			liveSum = a.liveSum
+		}
+		hgs := groupsByOwner[u.ID]
 		if hgs == nil {
 			hgs = []httpapi.GroupSummary{}
 		}
 		groups = append(groups, httpapi.DeviceOwnerGroup{
 			Owner: httpapi.DeviceListOwner{
-				Id:               a.meta.OwnerID.Int64(),
-				Username:         a.meta.OwnerUsername,
-				DisplayName:      a.meta.OwnerDisplayName,
-				Role:             httpapi.UserRole(a.meta.OwnerRole),
-				BypassHostCheck:  a.meta.OwnerBypassHostCheck,
+				Id:               u.ID.Int64(),
+				Username:         u.Username,
+				DisplayName:      u.DisplayName,
+				Role:             httpapi.UserRole(u.Role),
+				BypassHostCheck:  u.BypassHostCheck,
 				HostGroups:       hgs,
-				DeviceCount:      len(a.devices),
-				LiveAddressCount: a.liveSum,
+				DeviceCount:      len(devices),
+				LiveAddressCount: liveSum,
 			},
-			Devices: a.devices,
+			Devices: devices,
 		})
 	}
 	return groups
-}
-
-func uniqueOwnerIDs(rows []deviceListRow) []ids.UserID {
-	ids := make([]ids.UserID, len(rows))
-	for i, row := range rows {
-		ids[i] = row.OwnerID
-	}
-	return slicex.Dedup(ids)
 }
 
 func uniqueDeviceIDs(rows []deviceListRow) []ids.DeviceID {
