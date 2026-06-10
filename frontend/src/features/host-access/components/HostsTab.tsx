@@ -229,6 +229,7 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
           </Group>
           <MultiSelect
             placeholder="Filter by group"
+            size="md"
             data={groupSelectOptions}
             value={groupFilter}
             onChange={(v) => { setGroupFilter(v); setPage(1); }}

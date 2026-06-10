@@ -111,6 +111,7 @@ function HostList({ title, hosts, checked, emptyText, onToggle, disabled }: Host
                 }}
               >
                 <Checkbox
+                  size="md"
                   checked={checked}
                   onChange={() => onToggle(h.id)}
                   disabled={disabled}

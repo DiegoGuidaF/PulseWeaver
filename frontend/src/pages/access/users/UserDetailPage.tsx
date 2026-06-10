@@ -91,10 +91,7 @@ export function UserDetailPage() {
   const dirty = savedDraft != null && isSubjectAccessDirty(draft, savedDraft);
 
   // Bypass grants this user's devices access to every host (including future
-  // ones), so the off→on transition gets a danger-toned save bar that names
-  // the blast radius and must be explicitly acknowledged before saving. Other
-  // edits to an already-bypassed user don't re-trigger this — the admin
-  // already accepted that risk when they first turned it on.
+  // ones), warn about this and ensure user confirms
   const bypassJustEnabled = savedDraft != null && isBypassJustEnabled(savedDraft, draft);
   const bypassAckRequired = savedDraft != null && requiresBypassAcknowledgement(savedDraft, draft);
 
@@ -154,7 +151,13 @@ export function UserDetailPage() {
       <Stack maw={1200} gap="lg" pb={dirty ? STAGED_BAR_HEIGHT : undefined}>
         {/* Header */}
         <div>
-          <Anchor component={Link} to={ROUTES.accessUsers} size="sm" c="dimmed">
+          <Anchor
+            component={Link}
+            to={ROUTES.accessUsers}
+            size="sm"
+            c="dimmed"
+            style={{ display: "inline-flex", alignItems: "center", minHeight: 24 }}
+          >
             <Group gap={4}>
               <IconChevronLeft size={14} />
               Users

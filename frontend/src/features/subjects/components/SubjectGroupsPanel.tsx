@@ -16,13 +16,6 @@ interface Props {
 export function SubjectGroupsPanel({ groups, draft, dispatch, disabled }: Props) {
   return (
     <Stack gap="md">
-      {/*
-        Bypass gets its own visually distinct "danger" treatment — a bordered,
-        warning-toned panel with an icon — so it reads as fundamentally
-        different from the benign "Enabled" switches elsewhere in the UI
-        (previously the two were visually identical, which is exactly what let
-        admins flip total-exposure on without registering the risk).
-      */}
       <div
         style={{
           border: "1px solid var(--mantine-color-yellow-7)",
@@ -113,6 +106,7 @@ export function SubjectGroupsPanel({ groups, draft, dispatch, disabled }: Props)
                   }}
                 >
                   <Checkbox
+                    size="md"
                     checked={isAssigned}
                     disabled={disabled || draft.bypassHostCheck}
                     onChange={(e) =>

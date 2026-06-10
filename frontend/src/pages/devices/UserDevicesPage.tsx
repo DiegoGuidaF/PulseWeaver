@@ -168,7 +168,7 @@ export function UserDevicesPage({ createMode = false }: UserDevicesPageProps) {
             to={ROUTES.devices}
             c="dimmed"
             size="sm"
-            style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 4, minHeight: 24 }}
           >
             <IconChevronLeft size={16} stroke={1.5} />
             <span>Devices · all owners</span>

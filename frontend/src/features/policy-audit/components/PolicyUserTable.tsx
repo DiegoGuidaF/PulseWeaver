@@ -330,7 +330,7 @@ export function PolicyUserTable({
           />
           <Checkbox
             label="Shared IPs only"
-            size="sm"
+            size="md"
             checked={sharedOnly}
             onChange={(e) => setSharedOnly(e.currentTarget.checked)}
           />

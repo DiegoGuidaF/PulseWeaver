@@ -60,6 +60,7 @@ export function TrafficLineChart({ data, isLoading, timeRangeMs, h = 300, error,
                                 display: "flex",
                                 alignItems: "center",
                                 gap: 6,
+                                minHeight: 24,
                                 opacity: hiddenSeries.has(s.name) ? 0.35 : 1,
                             }}
                         >

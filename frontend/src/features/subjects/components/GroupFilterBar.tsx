@@ -60,7 +60,7 @@ export function GroupFilterBar({ availableGroups, selected, onChange }: Props) {
               variant="outline"
               color="gray"
               size="sm"
-              style={{ cursor: "pointer" }}
+              style={{ cursor: "pointer", minHeight: 24 }}
               rightSection={<IconChevronDown size={10} />}
             >
               {selected.size === 0 ? "Group" : "+ group"}

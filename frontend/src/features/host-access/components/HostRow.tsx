@@ -66,7 +66,7 @@ export function HostRow({ draft, diff, serverGroups, onGroupClick, onDelete }: P
             <ActionIcon
               variant="subtle"
               color="red"
-              size="sm"
+              size="md"
               onClick={onDelete}
               aria-label={`Delete ${draft.fqdn}`}
             >
@@ -90,7 +90,7 @@ function ClickableGroupBadgeList({ groups, onGroupClick }: ClickableGroupBadgeLi
       {groups.map((g) => (
         <Tooltip key={g.id} label={`Filter by ${g.name}`} withArrow>
           <span
-            style={{ cursor: "pointer" }}
+            style={{ display: "inline-flex", alignItems: "center", minHeight: 24, cursor: "pointer" }}
             onClick={() => onGroupClick(g.id)}
             role="button"
             tabIndex={0}

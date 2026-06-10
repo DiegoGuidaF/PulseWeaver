@@ -217,7 +217,7 @@ export function UsersPage() {
                     >
                       <ActionIcon
                         variant="subtle"
-                        size="sm"
+                        size="md"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleRoleToggle(u.id, u.role, u.username);
@@ -235,7 +235,7 @@ export function UsersPage() {
                       <ActionIcon
                         variant="subtle"
                         color="red"
-                        size="sm"
+                        size="md"
                         onClick={(e) => {
                           e.stopPropagation();
                           setDeleteTarget({ id: u.id, username: u.username });
