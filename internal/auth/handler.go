@@ -97,9 +97,9 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUser
 		return httpapi.CreateUser401JSONResponse{}, nil
 	}
 
-	email := ""
+	var email *string
 	if request.Body.Email != nil {
-		email = string(*request.Body.Email)
+		email = new(string(*request.Body.Email))
 	}
 	user, err := h.service.CreateUser(ctx, username, request.Body.DisplayName, email, principal)
 
@@ -138,7 +138,9 @@ func (h *HTTPHandler) UpdateMe(ctx context.Context, request httpapi.UpdateMeRequ
 	updates := ProfileUpdates{
 		Username:    request.Body.Username,
 		DisplayName: request.Body.DisplayName,
-		Email:       (*string)(request.Body.Email),
+	}
+	if request.Body.Email.Set {
+		updates.Email = &request.Body.Email.Value
 	}
 
 	user, err := h.service.UpdateOwnProfile(ctx, principal.UserID, updates)
@@ -295,15 +297,18 @@ func (h *HTTPHandler) UserAuthenticator() UserAuthenticator {
 }
 
 func toUserResponse(d *User) httpapi.User {
-	return httpapi.User{
+	resp := httpapi.User{
 		Id:                 d.ID.Int64(),
 		Username:           d.Username,
 		DisplayName:        d.DisplayName,
-		Email:              openapi_types.Email(d.Email),
 		Role:               httpapi.UserRole(d.Role),
 		MustChangePassword: new(d.MustChangePassword),
 		CreatedAt:          httpapi.UTCTime(d.CreatedAt),
 	}
+	if d.Email != nil {
+		resp.Email = new(openapi_types.Email(*d.Email))
+	}
+	return resp
 }
 
 func errorMsgResponse(errorMsg string) httpapi.ErrorResponse {

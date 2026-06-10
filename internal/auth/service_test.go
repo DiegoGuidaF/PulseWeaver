@@ -59,7 +59,7 @@ func TestService_Login_Success(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	u, err := auth.NewAdminUser("testuser", "Test User", "", "Password123", nil, true)
+	u, err := auth.NewAdminUser("testuser", "Test User", "Password123", nil, nil, true)
 	is.NoErr(err)
 	u.ID = ids.UserID(1)
 	user := &u
@@ -100,7 +100,7 @@ func TestService_Login_InvalidPassword(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	u, err := auth.NewAdminUser("testuser", "Test User", "", "Password123", nil, true)
+	u, err := auth.NewAdminUser("testuser", "Test User", "Password123", nil, nil, true)
 	is.NoErr(err)
 	u.ID = ids.UserID(1)
 	user := &u
@@ -173,7 +173,7 @@ func TestService_CreateUser_Success(t *testing.T) {
 
 	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.SuperAdminRole)
 
-	createdUser, err := service.CreateUser(ctx, "newuser", "New User", "", principalFor(admin))
+	createdUser, err := service.CreateUser(ctx, "newuser", "New User", nil, principalFor(admin))
 	is.NoErr(err)
 	is.True(createdUser != nil)
 	is.Equal(createdUser.Username, "newuser")
@@ -190,11 +190,11 @@ func TestService_CreateUser_DuplicateUsername(t *testing.T) {
 
 	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.SuperAdminRole)
 
-	_, err := service.CreateUser(ctx, "newuser", "New User", "", principalFor(admin))
+	_, err := service.CreateUser(ctx, "newuser", "New User", nil, principalFor(admin))
 	is.NoErr(err)
 
 	mockRepo.createUserErr = auth.ErrUsernameTaken
-	createdUser, err := service.CreateUser(ctx, "newuser", "New User", "", principalFor(admin))
+	createdUser, err := service.CreateUser(ctx, "newuser", "New User", nil, principalFor(admin))
 	is.True(err != nil)
 	is.Equal(err, auth.ErrUsernameTaken)
 	is.True(createdUser == nil)
@@ -209,7 +209,7 @@ func TestService_CreateUser_FailsNotSuperadminRole(t *testing.T) {
 
 	admin := givenUser(mockRepo, ids.UserID(1), "admin", auth.AdminRole)
 
-	createdUser, err := service.CreateUser(ctx, "newuser", "New User", "", principalFor(admin))
+	createdUser, err := service.CreateUser(ctx, "newuser", "New User", nil, principalFor(admin))
 	is.Equal(err, auth.ErrSuperAdminCredentialsRequired)
 	is.True(createdUser == nil)
 }
@@ -238,7 +238,7 @@ func TestService_BootstrapAdmin_CreatesAdminWhenNoAdminsExist(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	eu, err := auth.NewUserAccount("existing", "Existing User", "", nil)
+	eu, err := auth.NewUserAccount("existing", "Existing User", nil, nil)
 	is.NoErr(err)
 	eu.ID = ids.UserID(1)
 	existingUser := &eu
@@ -368,7 +368,7 @@ func TestService_ChangePassword_Success(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	u, err := auth.NewAdminUser("alice", "Alice", "", "OldPass123!", nil, true)
+	u, err := auth.NewAdminUser("alice", "Alice", "OldPass123!", nil, nil, true)
 	is.NoErr(err)
 	u.ID = ids.UserID(1)
 	user := &u
@@ -389,7 +389,7 @@ func TestService_ChangePassword_WrongCurrentPassword(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	u, err := auth.NewAdminUser("alice", "Alice", "", "OldPass123!", nil, true)
+	u, err := auth.NewAdminUser("alice", "Alice", "OldPass123!", nil, nil, true)
 	is.NoErr(err)
 	u.ID = ids.UserID(1)
 	user := &u
@@ -407,7 +407,7 @@ func TestService_ChangePassword_RevokesOtherSessions(t *testing.T) {
 	mockRepo := newMockRepository()
 	service := newService(mockRepo)
 
-	u, err := auth.NewAdminUser("alice", "Alice", "", "OldPass123!", nil, true)
+	u, err := auth.NewAdminUser("alice", "Alice", "OldPass123!", nil, nil, true)
 	is.NoErr(err)
 	u.ID = ids.UserID(1)
 	user := &u

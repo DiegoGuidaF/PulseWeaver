@@ -70,7 +70,6 @@ export const UserSchema = {
     "id",
     "username",
     "display_name",
-    "email",
     "role",
     "must_change_password",
     "bypass_host_check",
@@ -89,6 +88,7 @@ export const UserSchema = {
     email: {
       type: "string",
       format: "email",
+      nullable: true,
     },
     role: {
       $ref: "#/components/schemas/UserRole",
@@ -178,6 +178,10 @@ export const UpdateProfileRequestSchema = {
     email: {
       type: "string",
       format: "email",
+      nullable: true,
+      "x-go-type": "NullableString",
+      "x-go-type-skip-optional-pointer": true,
+      description: "New email. Pass null to clear.",
     },
   },
 } as const;
@@ -2405,7 +2409,6 @@ export const UserWritableSchema = {
     "id",
     "username",
     "display_name",
-    "email",
     "bypass_host_check",
     "created_at",
   ],
@@ -2422,6 +2425,7 @@ export const UserWritableSchema = {
     email: {
       type: "string",
       format: "email",
+      nullable: true,
     },
     bypass_host_check: {
       type: "boolean",

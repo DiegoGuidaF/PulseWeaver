@@ -45,7 +45,7 @@ export type User = {
   id: Id;
   username: Username;
   display_name: DisplayName;
-  email: string;
+  email?: string | null;
   role: UserRole;
   /**
    * When true, the user must change their password before using the app.
@@ -76,7 +76,10 @@ export type PromoteUserRequest = {
 export type UpdateProfileRequest = unknown & {
   display_name?: DisplayName;
   username?: Username;
-  email?: string;
+  /**
+   * New email. Pass null to clear.
+   */
+  email?: string | null;
 };
 
 export type ChangePasswordRequest = {
@@ -1152,7 +1155,7 @@ export type UserWritable = {
   id: Id;
   username: Username;
   display_name: DisplayName;
-  email: string;
+  email?: string | null;
   /**
    * When true the user bypasses the host check and can reach every host.
    */

@@ -5,6 +5,7 @@ package auth_test
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -64,16 +65,17 @@ func TestHandler_UpdateMe_UpdatesDisplayName(t *testing.T) {
 	srv := testutils.SetupIntegrationServer(t)
 	client := testutils.NewAdminAPIClient(t, srv)
 
-	displayName := httpapi.DisplayName("Updated Admin")
-	resp, err := client.UpdateMeWithResponse(ctx, httpapi.UpdateMeJSONRequestBody{
-		DisplayName: &displayName,
-	})
+	// Send raw JSON omitting "email" entirely: the generated client cannot
+	// represent an absent NullableString field, and an absent email must leave
+	// the stored value untouched.
+	resp, err := client.UpdateMeWithBodyWithResponse(ctx, "application/json",
+		strings.NewReader(`{"display_name":"Updated Admin"}`))
 	is.NoErr(err)
 
 	is.Equal(resp.StatusCode(), http.StatusOK)
 	is.Equal(resp.JSON200.DisplayName, "Updated Admin")
 	is.Equal(resp.JSON200.Username, auth.BootstrapAdminUsername)
-	is.Equal(string(resp.JSON200.Email), auth.BootstrapAdminEmail)
+	is.Equal(string(*resp.JSON200.Email), auth.BootstrapAdminEmail)
 }
 
 func TestHandler_UpdateMe_ConflictOnDuplicateUsername(t *testing.T) {
@@ -246,7 +248,7 @@ func TestHandler_CreateUser_WithEmail(t *testing.T) {
 
 	is.Equal(resp.StatusCode(), http.StatusCreated)
 	is.Equal(resp.JSON201.Username, "new_user_with_email")
-	is.Equal(string(resp.JSON201.Email), "new_user@example.com")
+	is.Equal(string(*resp.JSON201.Email), "new_user@example.com")
 }
 
 func TestHandler_CreateUser_WithoutEmail_Succeeds(t *testing.T) {

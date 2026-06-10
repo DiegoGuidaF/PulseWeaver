@@ -2567,7 +2567,6 @@ components:
         - id
         - username
         - display_name
-        - email
         - role
         - must_change_password
         - bypass_host_check
@@ -2582,6 +2581,7 @@ components:
         email:
           type: string
           format: email
+          nullable: true
         role:
           $ref: '#/components/schemas/UserRole'
           readOnly: true
@@ -2645,6 +2645,10 @@ components:
         email:
           type: string
           format: email
+          nullable: true
+          x-go-type: NullableString
+          x-go-type-skip-optional-pointer: true
+          description: New email. Pass null to clear.
     ChangePasswordRequest:
       type: object
       required:

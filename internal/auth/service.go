@@ -115,7 +115,7 @@ func (s *Service) RevokeSession(ctx context.Context, sessionID ids.SessionID) er
 	return nil
 }
 
-func (s *Service) CreateUser(ctx context.Context, username string, displayName string, email string, principal *Principal) (*User, error) {
+func (s *Service) CreateUser(ctx context.Context, username string, displayName string, email *string, principal *Principal) (*User, error) {
 	var newUser User
 	var err error
 	if !principal.IsSuperAdmin() {
@@ -179,10 +179,13 @@ func (s *Service) ListUsers(ctx context.Context) ([]User, error) {
 	return s.repo.GetAllUsers(ctx)
 }
 
+// ProfileUpdates carries the raw nullable API values for a profile update.
+// nil pointer = field was absent in the request (leave unchanged).
+// For Email, **string semantics apply: nil = absent, *nil = clear, *&s = set.
 type ProfileUpdates struct {
 	DisplayName *string
 	Username    *string
-	Email       *string
+	Email       **string
 }
 
 func (s *Service) UpdateOwnProfile(ctx context.Context, userID ids.UserID, updates ProfileUpdates) (*User, error) {

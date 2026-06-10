@@ -54,7 +54,7 @@ export const zUser = z.object({
   id: zId,
   username: zUsername,
   display_name: zDisplayName,
-  email: z.email(),
+  email: z.email().nullish(),
   role: zUserRole,
   must_change_password: z.boolean().readonly(),
   bypass_host_check: z.boolean(),
@@ -81,7 +81,7 @@ export const zUpdateProfileRequest = z.intersection(
   z.object({
     display_name: zDisplayName.optional(),
     username: zUsername.optional(),
-    email: z.email().optional(),
+    email: z.email().nullish(),
   }),
 );
 
@@ -826,7 +826,7 @@ export const zUserWritable = z.object({
   id: zId,
   username: zUsername,
   display_name: zDisplayName,
-  email: z.email(),
+  email: z.email().nullish(),
   bypass_host_check: z.boolean(),
   created_at: z.iso.datetime({ offset: true, local: true }),
 });

@@ -15,28 +15,28 @@ func TestNewAdminUser_ValidInputs(t *testing.T) {
 		name        string
 		username    string
 		displayName string
-		email       string
+		email       *string
 		password    string
 	}{
 		{
 			name:        "admin with email",
 			username:    "john_doe",
 			displayName: "John Doe",
-			email:       "john@example.com",
+			email:       new("john@example.com"),
 			password:    "Password123",
 		},
 		{
 			name:        "admin without email",
 			username:    "jane_doe",
 			displayName: "Jane Doe",
-			email:       "",
+			email:       nil,
 			password:    "Password123",
 		},
 		{
 			name:        "admin with strong password",
 			username:    "admin_user",
 			displayName: "Admin User",
-			email:       "",
+			email:       nil,
 			password:    "AdminPass123!",
 		},
 	}
@@ -44,7 +44,7 @@ func TestNewAdminUser_ValidInputs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			user, err := auth.NewAdminUser(tt.username, tt.displayName, tt.email, tt.password, nil, true)
+			user, err := auth.NewAdminUser(tt.username, tt.displayName, tt.password, tt.email, nil, true)
 			is.NoErr(err)
 			is.Equal(user.Username, tt.username)
 			is.Equal(user.DisplayName, tt.displayName)
@@ -57,7 +57,7 @@ func TestNewAdminUser_ValidInputs(t *testing.T) {
 
 func TestNewUserAccount_ValidInputs(t *testing.T) {
 	is := is.New(t)
-	user, err := auth.NewUserAccount("some_user", "Some User", "user@example.com", nil)
+	user, err := auth.NewUserAccount("some_user", "Some User", new("user@example.com"), nil)
 	is.NoErr(err)
 	is.Equal(user.Username, "some_user")
 	is.Equal(user.Role, auth.UserRole)
@@ -112,7 +112,7 @@ func TestNewAdminUser_InvalidUsername(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			user, err := auth.NewAdminUser(tt.username, tt.displayName, "", tt.password, nil, true)
+			user, err := auth.NewAdminUser(tt.username, tt.displayName, tt.password, nil, nil, true)
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))
@@ -160,7 +160,7 @@ func TestNewAdminUser_InvalidDisplayName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			user, err := auth.NewAdminUser(tt.username, tt.displayName, "", tt.password, nil, true)
+			user, err := auth.NewAdminUser(tt.username, tt.displayName, tt.password, nil, nil, true)
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))
@@ -216,7 +216,7 @@ func TestNewAdminUser_InvalidPassword(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			is := is.New(t)
-			user, err := auth.NewAdminUser(tt.username, tt.displayName, "", tt.password, nil, true)
+			user, err := auth.NewAdminUser(tt.username, tt.displayName, tt.password, nil, nil, true)
 			if tt.wantErr != nil {
 				is.True(err != nil)
 				is.True(errors.Is(err, tt.wantErr))

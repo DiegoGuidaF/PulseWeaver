@@ -631,7 +631,7 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 		adminPrincipal := AdminPrincipal(s.t, srv)
 		result.users[auth.BootstrapAdminUsername] = adminPrincipal.UserID
 		for _, f := range s.users {
-			u, err := srv.AuthService.CreateUser(ctx, f.Name, f.Name, f.Name+"@test.local", adminPrincipal)
+			u, err := srv.AuthService.CreateUser(ctx, f.Name, f.Name, new(f.Name+"@test.local"), adminPrincipal)
 			if err != nil {
 				s.t.Fatalf("Seeder: create user %q: %v", f.Name, err)
 			}

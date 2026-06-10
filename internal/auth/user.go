@@ -30,7 +30,7 @@ type User struct {
 	ID                 ids.UserID  `db:"id"`
 	Username           string      `db:"username"`
 	DisplayName        string      `db:"display_name"`
-	Email              string      `db:"email"`
+	Email              *string     `db:"email"`
 	PasswordHash       []byte      `db:"password_hash"`
 	Role               Role        `db:"role"`
 	MustChangePassword bool        `db:"must_change_password"`
@@ -51,7 +51,7 @@ func NewBootstrappedAdmin(password string) (User, error) {
 	return User{
 		Username:           BootstrapAdminUsername,
 		DisplayName:        BootstrapAdminDisplayName,
-		Email:              BootstrapAdminEmail,
+		Email:              new(BootstrapAdminEmail),
 		PasswordHash:       passwordHash,
 		Role:               SuperAdminRole,
 		MustChangePassword: false,
@@ -62,7 +62,7 @@ func NewBootstrappedAdmin(password string) (User, error) {
 
 // NewAdminUser creates an admin-role user; password is required and hashed.
 // MustChangePassword is set to true so the admin must change the assigned password on first login.
-func NewAdminUser(username, displayName, email, password string, createdByID *ids.UserID, mustChangePassword bool) (User, error) {
+func NewAdminUser(username, displayName, password string, email *string, createdByID *ids.UserID, mustChangePassword bool) (User, error) {
 	if err := ValidatePassword(password); err != nil {
 		return User{}, err
 	}
@@ -96,7 +96,7 @@ func NewAdminUser(username, displayName, email, password string, createdByID *id
 
 // NewUserAccount creates a user-role account with no password.
 // Non-admin users cannot log in; they exist solely to own devices.
-func NewUserAccount(username, displayName, email string, createdByID *ids.UserID) (User, error) {
+func NewUserAccount(username, displayName string, email *string, createdByID *ids.UserID) (User, error) {
 	validUsername, err := ValidateUsername(username)
 	if err != nil {
 		return User{}, err
@@ -123,6 +123,10 @@ func (u *User) Update(up ProfileUpdates) error {
 		return ErrNoUpdateFields
 	}
 
+	if up.Email != nil {
+		u.Email = *up.Email
+	}
+
 	if up.DisplayName != nil {
 		validDisplayName, err := ValidateDisplayName(*up.DisplayName)
 		if err != nil {
@@ -137,10 +141,6 @@ func (u *User) Update(up ProfileUpdates) error {
 			return err
 		}
 		u.Username = validUsername
-	}
-
-	if up.Email != nil {
-		u.Email = *up.Email
 	}
 
 	return nil

@@ -69,7 +69,7 @@ func toUserViewResponse(u *UserView) httpapi.User {
 		Id:                 u.ID.Int64(),
 		Username:           u.Username,
 		DisplayName:        u.DisplayName,
-		Email:              openapi_types.Email(u.Email),
+		Email:              new(openapi_types.Email(u.Email)),
 		Role:               httpapi.UserRole(u.Role),
 		MustChangePassword: new(u.MustChangePassword),
 		BypassHostCheck:    u.BypassHostCheck,

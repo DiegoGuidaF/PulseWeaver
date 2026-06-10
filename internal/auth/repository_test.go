@@ -36,12 +36,17 @@ func setupAuthTestDB(t *testing.T, shouldBootstrapAdmin bool) *auth.Repository {
 func mustNewUser(t *testing.T, username, displayName string, email string, role auth.Role) *auth.User {
 	t.Helper()
 
+	var emailPtr *string
+	if email != "" {
+		emailPtr = &email
+	}
+
 	var user auth.User
 	var err error
 	if role == auth.AdminRole {
-		user, err = auth.NewAdminUser(username, displayName, email, "Password123", new(ids.UserID(1)), true)
+		user, err = auth.NewAdminUser(username, displayName, "Password123", emailPtr, new(ids.UserID(1)), true)
 	} else {
-		user, err = auth.NewUserAccount(username, displayName, email, new(ids.UserID(1)))
+		user, err = auth.NewUserAccount(username, displayName, emailPtr, new(ids.UserID(1)))
 	}
 	if err != nil {
 		t.Fatalf("new user: %v", err)
@@ -59,7 +64,7 @@ func TestRepository_CreateUser_WithEmail(t *testing.T) {
 	created, err := repo.CreateUser(ctx, mustNewUser(t, "john_doe", "John Doe", email, auth.UserRole))
 	is.NoErr(err)
 	is.Equal(created.Username, "john_doe")
-	is.Equal(created.Email, email)
+	is.Equal(*created.Email, email)
 }
 
 func TestRepository_CreateUser_WithoutEmail(t *testing.T) {
@@ -69,7 +74,7 @@ func TestRepository_CreateUser_WithoutEmail(t *testing.T) {
 
 	created, err := repo.CreateUser(ctx, mustNewUser(t, "jane_doe", "Jane Doe", "", auth.UserRole))
 	is.NoErr(err)
-	is.Equal(created.Email, "")
+	is.Equal(created.Email, (*string)(nil))
 }
 
 func TestRepository_CreateUser_DuplicateUsernameCaseVariant(t *testing.T) {
