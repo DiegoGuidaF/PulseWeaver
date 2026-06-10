@@ -89,7 +89,7 @@ export function HostsPage() {
       {/* Observed in recent traffic — promoting a suggestion stages a host into the
           same draft above; nothing is committed until Save. */}
       <div>
-        <Group justify="space-between" wrap="nowrap" align="center">
+        <Group justify="space-between" wrap="wrap" gap="xs" align="center">
           <UnstyledButton
             onClick={() => setSuggestionsOpen((open) => !open)}
             aria-expanded={suggestionsOpen}

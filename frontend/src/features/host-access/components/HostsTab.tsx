@@ -210,33 +210,33 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
       />
 
       <Card withBorder>
-        <Group justify="space-between" mb="sm" wrap="nowrap">
-          <Group gap="xs" wrap="nowrap">
+        <Stack gap="xs" mb="sm">
+          <Group justify="space-between" wrap="wrap" gap="xs">
             <TextInput
               placeholder="Search hosts…"
               value={search}
               onChange={(e) => { setSearch(e.currentTarget.value); setPage(1); }}
               leftSection={<IconSearch size={14} />}
-              w={240}
+              style={{ flex: 1, minWidth: 200 }}
             />
-            <MultiSelect
-              placeholder="Filter by group"
-              data={groupSelectOptions}
-              value={groupFilter}
-              onChange={(v) => { setGroupFilter(v); setPage(1); }}
-              clearable
-              searchable
-              w={280}
-            />
+            <Button
+              size="xs"
+              leftSection={<IconPlus size={14} />}
+              onClick={() => setAddOpen(true)}
+            >
+              New host
+            </Button>
           </Group>
-          <Button
-            size="xs"
-            leftSection={<IconPlus size={14} />}
-            onClick={() => setAddOpen(true)}
-          >
-            New host
-          </Button>
-        </Group>
+          <MultiSelect
+            placeholder="Filter by group"
+            data={groupSelectOptions}
+            value={groupFilter}
+            onChange={(v) => { setGroupFilter(v); setPage(1); }}
+            clearable
+            searchable
+            maw={320}
+          />
+        </Stack>
 
         <Table.ScrollContainer minWidth={480}>
           <Table verticalSpacing="xs">
