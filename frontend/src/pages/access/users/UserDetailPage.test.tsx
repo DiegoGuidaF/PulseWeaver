@@ -138,9 +138,10 @@ describe('UserDetailPage', () => {
             renderUserDetailPage(5);
 
             const bypassSwitch = await screen.findByRole('switch', { name: /bypass host check/i });
-            // Toggle off then on to dirty the draft without leaving the bypass-on state —
-            // groups are inert under bypass, so the toggle is the only lever here.
-            await user.click(bypassSwitch);
+            // Turn bypass off: a real edit to an already-bypassed user. Groups are inert
+            // under bypass, so the switch is the only lever — and turning it off dirties
+            // the draft without being an off→on enable, so the acknowledge warning must
+            // not appear.
             await user.click(bypassSwitch);
 
             const saveButton = await screen.findByRole('button', { name: /save changes/i });

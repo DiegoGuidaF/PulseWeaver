@@ -34,7 +34,7 @@ import {
 } from "@/features/subjects/drafts/subjectAccessDraft";
 import { buildModifyAccessRequest } from "@/features/subjects/drafts/saveSubjectAccessDraft";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
-import { StagedChangesBar, STAGED_BAR_HEIGHT } from "@/features/host-access/components/StagedChangesBar";
+import { StagedChangesBar } from "@/features/host-access/components/StagedChangesBar";
 import { DeleteUserModal } from "@/features/auth/components/DeleteUserModal";
 import { RoleChangeModal } from "@/features/auth/components/RoleChangeModal";
 import type { PendingRole } from "@/features/auth/components/RoleChangeModal";
@@ -149,7 +149,7 @@ export function UserDetailPage() {
       />
       <RoleChangeModal pendingRole={pendingRole} onClose={() => setPendingRole(null)} />
 
-      <Stack maw={1200} gap="lg" pb={dirty ? STAGED_BAR_HEIGHT : undefined}>
+      <Stack maw={1200} gap="lg">
         {/* Header */}
         <div>
           <Anchor
@@ -211,6 +211,29 @@ export function UserDetailPage() {
             )}
           </Group>
         </div>
+
+        <StagedChangesBar
+          inline
+          visible={dirty}
+          summary={
+            bypassJustEnabled
+              ? "You're about to enable host-check bypass."
+              : "You have unsaved access changes."
+          }
+          saving={saveMutation.isPending}
+          onSave={handleSaveAccess}
+          onDiscard={handleDiscardAccess}
+          warning={
+            bypassJustEnabled
+              ? {
+                  detail: `Enabling bypass lets ${data.display_name} reach all hosts, including future ones, from ${liveAddressCount} live ${liveAddressCount === 1 ? "address" : "addresses"} across their devices.`,
+                  acknowledgeLabel: "I understand this exposes every host to this user.",
+                  acknowledged: draft.bypassAcknowledged,
+                  onAcknowledgeChange: (value) => dispatch({ type: "acknowledgeBypass", value }),
+                }
+              : undefined
+          }
+        />
 
         {/* Tabs */}
         <Tabs defaultValue="access">
@@ -304,28 +327,6 @@ export function UserDetailPage() {
             )}
           </Tabs.Panel>
         </Tabs>
-
-        <StagedChangesBar
-          visible={dirty}
-          summary={
-            bypassJustEnabled
-              ? "You're about to enable host-check bypass."
-              : "You have unsaved access changes."
-          }
-          saving={saveMutation.isPending}
-          onSave={handleSaveAccess}
-          onDiscard={handleDiscardAccess}
-          warning={
-            bypassJustEnabled
-              ? {
-                  detail: `Enabling bypass lets ${data.display_name} reach all hosts, including future ones, from ${liveAddressCount} live ${liveAddressCount === 1 ? "address" : "addresses"} across their devices.`,
-                  acknowledgeLabel: "I understand this exposes every host to this user.",
-                  acknowledged: draft.bypassAcknowledged,
-                  onAcknowledgeChange: (value) => dispatch({ type: "acknowledgeBypass", value }),
-                }
-              : undefined
-          }
-        />
       </Stack>
     </>
   );

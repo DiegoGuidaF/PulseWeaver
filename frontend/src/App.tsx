@@ -1,5 +1,6 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet, RouterProvider } from "react-router-dom";
 import { MantineProvider } from "@mantine/core";
+import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
 import { DatesProvider } from "@mantine/dates";
 import { AppShell } from "./components/layout/AppShell";
@@ -25,166 +26,63 @@ import { theme, cssVariablesResolver } from "./lib/theme";
 import { ROUTES } from "./lib/routes";
 import { DateTimePrefsProvider } from "./contexts/DateTimePrefsContext";
 
+/**
+ * Renders the providers that need to live inside the router around an
+ * `<Outlet/>`. Using a layout route (rather than wrapping `<RouterProvider>`)
+ * is what lets pages call `useBlocker` to guard unsaved changes.
+ */
+function RootLayout() {
+  return (
+    <AuthProvider>
+      <AppErrorBoundary>
+        <Outlet />
+      </AppErrorBoundary>
+    </AuthProvider>
+  );
+}
+
+function protectedPage(page: React.ReactNode) {
+  return (
+    <ProtectedRoute>
+      <AppShell>{page}</AppShell>
+    </ProtectedRoute>
+  );
+}
+
+const router = createBrowserRouter([
+  {
+    element: <RootLayout />,
+    children: [
+      { path: ROUTES.login, element: <LoginPage /> },
+      { path: "/", element: <Navigate to={ROUTES.dashboard} replace /> },
+      { path: ROUTES.dashboard, element: protectedPage(<TrafficDashboardPage />) },
+      { path: ROUTES.devices, element: protectedPage(<DevicesPage />) },
+      { path: ROUTES.userDevices, element: protectedPage(<UserDevicesPage />) },
+      { path: ROUTES.userDevicesNew, element: protectedPage(<UserDevicesPage createMode />) },
+      { path: ROUTES.settings, element: protectedPage(<SettingsPage />) },
+      { path: ROUTES.accessLog, element: protectedPage(<AccessLogPage />) },
+      { path: ROUTES.addressHistory, element: protectedPage(<AddressHistoryPage />) },
+      { path: ROUTES.accessHosts, element: protectedPage(<HostsPage />) },
+      { path: ROUTES.accessHostGroups, element: protectedPage(<HostGroupsPage />) },
+      { path: ROUTES.accessUsers, element: protectedPage(<UsersPage />) },
+      { path: ROUTES.accessUserDetail, element: protectedPage(<UserDetailPage />) },
+      { path: ROUTES.policyAudit, element: protectedPage(<PolicyAuditPage />) },
+      { path: ROUTES.accessNetworkPolicies, element: protectedPage(<NetworkPoliciesPage />) },
+      { path: ROUTES.accessNetworkPolicyDetail, element: protectedPage(<NetworkPolicyDetailPage />) },
+      { path: "*", element: <NotFoundPage /> },
+    ],
+  },
+]);
+
 function App() {
   return (
     <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} defaultColorScheme="auto">
       <Notifications />
       <DateTimePrefsProvider>
         <DatesProvider settings={{ locale: 'en' }}>
-          <BrowserRouter>
-            <AuthProvider>
-              <AppErrorBoundary>
-                <Routes>
-                  <Route path={ROUTES.login} element={<LoginPage />} />
-                  <Route
-                    path="/"
-                    element={<Navigate to={ROUTES.dashboard} replace />}
-                  />
-                  <Route
-                    path={ROUTES.dashboard}
-                    element={
-                      <ProtectedRoute>
-                        <AppShell>
-                          <TrafficDashboardPage />
-                        </AppShell>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path={ROUTES.devices}
-                    element={
-                      <ProtectedRoute>
-                        <AppShell>
-                          <DevicesPage />
-                        </AppShell>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path={ROUTES.userDevices}
-                    element={
-                      <ProtectedRoute>
-                        <AppShell>
-                          <UserDevicesPage />
-                        </AppShell>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path={ROUTES.userDevicesNew}
-                    element={
-                      <ProtectedRoute>
-                        <AppShell>
-                          <UserDevicesPage createMode />
-                        </AppShell>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path={ROUTES.settings}
-                    element={
-                      <ProtectedRoute>
-                        <AppShell>
-                          <SettingsPage />
-                        </AppShell>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path={ROUTES.accessLog}
-                    element={
-                      <ProtectedRoute>
-                        <AppShell>
-                          <AccessLogPage />
-                        </AppShell>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path={ROUTES.addressHistory}
-                    element={
-                      <ProtectedRoute>
-                        <AppShell>
-                          <AddressHistoryPage />
-                        </AppShell>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path={ROUTES.accessHosts}
-                    element={
-                      <ProtectedRoute>
-                        <AppShell>
-                          <HostsPage />
-                        </AppShell>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path={ROUTES.accessHostGroups}
-                    element={
-                      <ProtectedRoute>
-                        <AppShell>
-                          <HostGroupsPage />
-                        </AppShell>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path={ROUTES.accessUsers}
-                    element={
-                      <ProtectedRoute>
-                        <AppShell>
-                          <UsersPage />
-                        </AppShell>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path={ROUTES.accessUserDetail}
-                    element={
-                      <ProtectedRoute>
-                        <AppShell>
-                          <UserDetailPage />
-                        </AppShell>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path={ROUTES.policyAudit}
-                    element={
-                      <ProtectedRoute>
-                        <AppShell>
-                          <PolicyAuditPage />
-                        </AppShell>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path={ROUTES.accessNetworkPolicies}
-                    element={
-                      <ProtectedRoute>
-                        <AppShell>
-                          <NetworkPoliciesPage />
-                        </AppShell>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path={ROUTES.accessNetworkPolicyDetail}
-                    element={
-                      <ProtectedRoute>
-                        <AppShell>
-                          <NetworkPolicyDetailPage />
-                        </AppShell>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route path="*" element={<NotFoundPage />} />
-                </Routes>
-              </AppErrorBoundary>
-            </AuthProvider>
-          </BrowserRouter>
+          <ModalsProvider>
+            <RouterProvider router={router} />
+          </ModalsProvider>
         </DatesProvider>
       </DateTimePrefsProvider>
     </MantineProvider>
