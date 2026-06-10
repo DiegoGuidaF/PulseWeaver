@@ -107,6 +107,7 @@ export function UserDetailPage() {
     saveMutation.mutate(
       { path: { user_id: userId }, body: buildModifyAccessRequest(draft) },
       {
+        onSuccess: () => notifications.show({ color: "green", message: "Access updated" }),
         onError: (err) => notifications.show({ color: "red", message: toErrorMessage(err) }),
       },
     );

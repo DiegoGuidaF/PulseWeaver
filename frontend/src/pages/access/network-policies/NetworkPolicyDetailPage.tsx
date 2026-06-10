@@ -103,6 +103,7 @@ export function NetworkPolicyDetailPage() {
         accessMutation.mutate(
             { path: { policy_id: policyId }, body: buildModifyAccessRequest(draft) },
             {
+                onSuccess: () => notifications.show({ color: "green", message: "Access updated" }),
                 onError: (err) =>
                     notifications.show({ color: "red", message: toErrorMessage(err) }),
             },
