@@ -50,6 +50,7 @@ export function HostGroupsPage() {
           state={groupsState}
           dispatch={groupsDispatch}
           serverHosts={serverHosts}
+          bypassSubjectCount={hostGroupsQuery.data?.bypass_subject_count ?? 0}
         />
       )}
     </Stack>

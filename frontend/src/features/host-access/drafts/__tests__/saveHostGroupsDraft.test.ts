@@ -27,7 +27,6 @@ function makeGroup(
     hosts: (opts.hostIds ?? []).map((hid) => ({ id: hid, fqdn: `h${hid}.lan` })),
     network_policies: [],
     users: [],
-    bypass_subject_count: 0,
   };
 }
 

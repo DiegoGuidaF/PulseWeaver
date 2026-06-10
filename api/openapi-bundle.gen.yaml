@@ -3987,21 +3987,12 @@ components:
       allOf:
         - $ref: '#/components/schemas/GroupDetail'
         - type: object
-          required:
-            - bypass_subject_count
           properties:
             users:
               type: array
               description: Users with access to this group (read-only, managed via subjects).
               items:
                 $ref: '#/components/schemas/UserSummary'
-            bypass_subject_count:
-              type: integer
-              description: |
-                Count of users and network policies that reach this group's hosts via
-                bypass_host_check (allow-all-hosts), beyond the explicit grants listed in
-                users/network_policies above. Reflects effective reach, not just configured grants.
-              example: 2
     SubjectGroupDetail:
       allOf:
         - $ref: '#/components/schemas/GroupDetail'
@@ -4048,11 +4039,19 @@ components:
       type: object
       required:
         - groups
+        - bypass_subject_count
       properties:
         groups:
           type: array
           items:
             $ref: '#/components/schemas/GroupDetailWithUsers'
+        bypass_subject_count:
+          type: integer
+          description: |
+            Count of users and network policies that bypass the host check entirely
+            (bypass_host_check). These subjects reach every group's hosts regardless
+            of group membership — the figure is global, not specific to any one group.
+          example: 2
     ReconcileGroupsRequest:
       type: object
       required:

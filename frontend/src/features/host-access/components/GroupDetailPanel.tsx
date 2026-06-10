@@ -35,6 +35,7 @@ interface HostRef {
 interface Props {
   group: DraftGroup | null;
   serverGroup: GroupDetailWithUsers | null;
+  bypassSubjectCount: number;
   diff: GroupsDiff;
   hosts: HostRef[];
   isTombstoned?: boolean;
@@ -47,6 +48,7 @@ interface Props {
 export function GroupDetailPanel({
   group,
   serverGroup,
+  bypassSubjectCount,
   diff,
   hosts,
   isTombstoned,
@@ -169,49 +171,50 @@ export function GroupDetailPanel({
         )}
 
         {serverGroup && !isAdded && (
-          <AccessPanel serverGroup={serverGroup} />
+          <AccessPanel serverGroup={serverGroup} bypassSubjectCount={bypassSubjectCount} />
         )}
       </Stack>
     </Paper>
   );
 }
 
-function AccessPanel({ serverGroup }: { serverGroup: GroupDetailWithUsers }) {
+function AccessPanel({
+  serverGroup,
+  bypassSubjectCount,
+}: {
+  serverGroup: GroupDetailWithUsers;
+  bypassSubjectCount: number;
+}) {
   const users = serverGroup.users ?? [];
   const policies = serverGroup.network_policies;
-  const bypassCount = serverGroup.bypass_subject_count;
 
-  if (users.length === 0 && policies.length === 0 && bypassCount === 0) return null;
+  if (users.length === 0 && policies.length === 0 && bypassSubjectCount === 0) return null;
 
   return (
     <>
       <Divider />
       <Stack gap="xs">
-        <Group gap="xs" wrap="wrap">
-          <Text size="sm" fw={600} c="dimmed">
-            Access · read-only
-          </Text>
-          {bypassCount > 0 && (
-            <Tooltip
-              label="Subjects with bypass enabled reach every host, including this group's — regardless of group membership"
-              withArrow
-              multiline
-              maw={280}
-            >
-              <Badge
-                variant="light"
-                color="yellow"
-                size="sm"
-                leftSection={<IconShieldOff size={12} />}
-              >
-                +{bypassCount} via bypass
-              </Badge>
-            </Tooltip>
-          )}
-        </Group>
-        <Text size="xs" c="dimmed">
-          Effective reach = group grants below + subjects bypassing the host allowlist.
+        <Text size="sm" fw={600} c="dimmed">
+          Access · read-only
         </Text>
+        {bypassSubjectCount > 0 && (
+          <Tooltip
+            label="These subjects have host checking turned off entirely — they reach this group's hosts (and every other group's) regardless of membership or grants"
+            withArrow
+            multiline
+            maw={280}
+          >
+            <Badge
+              variant="light"
+              color="yellow"
+              size="sm"
+              leftSection={<IconShieldOff size={12} />}
+              style={{ alignSelf: "flex-start" }}
+            >
+              +{bypassSubjectCount} bypass host checking entirely
+            </Badge>
+          </Tooltip>
+        )}
         <SimpleGrid cols={2} spacing="md">
           <Stack gap="xs">
             <Text size="xs" fw={700}>

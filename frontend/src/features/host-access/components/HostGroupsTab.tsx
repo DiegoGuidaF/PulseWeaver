@@ -36,9 +36,10 @@ interface Props {
   state: GroupsDraftState;
   dispatch: React.Dispatch<GroupsDraftAction>;
   serverHosts: Host[];
+  bypassSubjectCount: number;
 }
 
-export function HostGroupsTab({ state, dispatch, serverHosts }: Props) {
+export function HostGroupsTab({ state, dispatch, serverHosts, bypassSubjectCount }: Props) {
   const queryClient = useQueryClient();
   const reconcileHostGroups = useReconcileHostGroups();
 
@@ -199,6 +200,7 @@ export function HostGroupsTab({ state, dispatch, serverHosts }: Props) {
           <GroupDetailPanel
             group={selected ?? tombstonedAsDraft}
             serverGroup={selectedServerGroup}
+            bypassSubjectCount={bypassSubjectCount}
             isTombstoned={tombstonedSelected}
             diff={diff}
             hosts={hostRefs}

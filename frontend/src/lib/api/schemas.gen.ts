@@ -1924,7 +1924,6 @@ export const GroupDetailWithUsersSchema = {
     },
     {
       type: "object",
-      required: ["bypass_subject_count"],
       properties: {
         users: {
           type: "array",
@@ -1933,12 +1932,6 @@ export const GroupDetailWithUsersSchema = {
           items: {
             $ref: "#/components/schemas/UserSummary",
           },
-        },
-        bypass_subject_count: {
-          type: "integer",
-          description:
-            "Count of users and network policies that reach this group's hosts via\nbypass_host_check (allow-all-hosts), beyond the explicit grants listed in\nusers/network_policies above. Reflects effective reach, not just configured grants.\n",
-          example: 2,
         },
       },
     },
@@ -2006,13 +1999,19 @@ export const GroupWriteSchema = {
 
 export const GroupListResponseSchema = {
   type: "object",
-  required: ["groups"],
+  required: ["groups", "bypass_subject_count"],
   properties: {
     groups: {
       type: "array",
       items: {
         $ref: "#/components/schemas/GroupDetailWithUsers",
       },
+    },
+    bypass_subject_count: {
+      type: "integer",
+      description:
+        "Count of users and network policies that bypass the host check entirely\n(bypass_host_check). These subjects reach every group's hosts regardless\nof group membership — the figure is global, not specific to any one group.\n",
+      example: 2,
     },
   },
 } as const;

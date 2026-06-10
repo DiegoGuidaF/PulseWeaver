@@ -140,6 +140,9 @@ func TestHandler_ListHostGroups_HappyPath(t *testing.T) {
 	var resp httpapi.GroupListResponse
 	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
 	is.Equal(len(resp.Groups), 4) // FixtureGroupBackend, FixtureGroupFrontend, FixtureGroupEmpty, FixtureGroupAdversarial
+	// bypass subjects reach every group's hosts regardless of membership, so this is
+	// reported once for the whole list: charlie + frank (bypass users) + ops-network (bypass policy).
+	is.Equal(resp.BypassSubjectCount, 3)
 
 	// backend: 2 hosts, 2 users (alice+charlie), 1 network policy (corp-vpn)
 	backend := findGroupWithUsers(resp.Groups, testutils.FixtureGroupBackend.Name)
@@ -151,9 +154,6 @@ func TestHandler_ListHostGroups_HappyPath(t *testing.T) {
 	backendPolicy := findNetworkPolicyRef(backend.NetworkPolicies, testutils.FixturePolicyWithGroups.Name)
 	is.True(backendPolicy != nil)
 	is.Equal(backendPolicy.Cidr, testutils.FixturePolicyWithGroups.CIDR)
-	// bypass reach beyond explicit grants: frank (bypass user, no groups) + ops-network
-	// (bypass policy, no groups). Charlie is already counted in Users above.
-	is.Equal(backend.BypassSubjectCount, 2)
 
 	// frontend: 2 hosts, 1 user (alice only), 1 network policy (corp-vpn)
 	frontend := findGroupWithUsers(resp.Groups, testutils.FixtureGroupFrontend.Name)
@@ -163,17 +163,14 @@ func TestHandler_ListHostGroups_HappyPath(t *testing.T) {
 	is.Equal(len(*frontend.Users), 1) // FixtureUserWithAccess only
 	is.Equal(len(frontend.NetworkPolicies), 1)
 	is.True(findNetworkPolicyRef(frontend.NetworkPolicies, testutils.FixturePolicyWithGroups.Name) != nil)
-	// charlie is not explicitly granted to frontend but reaches it via bypass
-	is.Equal(frontend.BypassSubjectCount, 3) // charlie + frank + ops-network
 
-	// empty-group: no hosts, no users, no network policies — bypass subjects still reach it
+	// empty-group: no hosts, no users, no network policies
 	emptyGroup := findGroupWithUsers(resp.Groups, testutils.FixtureGroupEmpty.Name)
 	is.True(emptyGroup != nil)
 	is.Equal(len(emptyGroup.Hosts), 0)
 	is.True(emptyGroup.Users != nil)
 	is.Equal(len(*emptyGroup.Users), 0)
 	is.Equal(len(emptyGroup.NetworkPolicies), 0)
-	is.Equal(emptyGroup.BypassSubjectCount, 3) // charlie + frank + ops-network
 }
 
 func TestHandler_ListHostGroups_Empty(t *testing.T) {

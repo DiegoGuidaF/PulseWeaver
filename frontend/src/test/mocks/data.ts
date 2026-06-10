@@ -335,7 +335,6 @@ export function createMockGroupDetailWithUsers(
     updated_at: '2026-01-01T00:00:00Z',
     hosts: [],
     network_policies: [],
-    bypass_subject_count: 0,
     ...overrides,
   };
 }

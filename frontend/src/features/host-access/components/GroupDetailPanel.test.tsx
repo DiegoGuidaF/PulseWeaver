@@ -17,7 +17,10 @@ const draftGroup: DraftGroup = {
   hostIds: [10],
 };
 
-function renderPanel(overrides?: Parameters<typeof createMockGroupDetailWithUsers>[0]) {
+function renderPanel(
+  bypassSubjectCount: number,
+  overrides?: Parameters<typeof createMockGroupDetailWithUsers>[0],
+) {
   const serverGroup = createMockGroupDetailWithUsers({
     id: 1,
     name: "Media",
@@ -31,6 +34,7 @@ function renderPanel(overrides?: Parameters<typeof createMockGroupDetailWithUser
         <GroupDetailPanel
           group={draftGroup}
           serverGroup={serverGroup}
+          bypassSubjectCount={bypassSubjectCount}
           diff={emptyDiff}
           hosts={[{ id: 10, fqdn: "media.lan" }]}
           onEdit={vi.fn()}
@@ -43,45 +47,41 @@ function renderPanel(overrides?: Parameters<typeof createMockGroupDetailWithUser
   );
 }
 
-describe("GroupDetailPanel — Access · read-only / bypass reach", () => {
-  it("does not show a bypass badge when bypass_subject_count is zero", () => {
-    renderPanel({
+describe("GroupDetailPanel — Access · read-only / bypass subjects", () => {
+  it("does not show a bypass badge when the global bypass count is zero", () => {
+    renderPanel(0, {
       users: [{ id: 1, username: "alice", display_name: "Alice" }],
-      bypass_subject_count: 0,
     });
 
-    expect(screen.queryByText(/via bypass/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/bypass host checking/)).not.toBeInTheDocument();
   });
 
-  it("shows '+N via bypass' alongside group-scoped grants when bypass reach exists", () => {
-    renderPanel({
+  it("shows the global bypass count alongside group-scoped grants", () => {
+    renderPanel(3, {
       users: [{ id: 1, username: "alice", display_name: "Alice" }],
       network_policies: [{ id: 5, name: "corp-vpn", cidr: "10.0.0.0/8" }],
-      bypass_subject_count: 3,
     });
 
-    expect(screen.getByText("+3 via bypass")).toBeInTheDocument();
+    expect(screen.getByText("+3 bypass host checking entirely")).toBeInTheDocument();
     // Group-scoped grants remain visible alongside the bypass note
     expect(screen.getByText("Users · 1")).toBeInTheDocument();
     expect(screen.getByText("Network policies · 1")).toBeInTheDocument();
   });
 
-  it("renders the panel for bypass-only reach even with no group-scoped grants", () => {
-    renderPanel({
+  it("renders the panel for bypass subjects even with no group-scoped grants", () => {
+    renderPanel(2, {
       users: [],
       network_policies: [],
-      bypass_subject_count: 2,
     });
 
-    expect(screen.getByText("+2 via bypass")).toBeInTheDocument();
+    expect(screen.getByText("+2 bypass host checking entirely")).toBeInTheDocument();
     expect(screen.getByText("Access · read-only")).toBeInTheDocument();
   });
 
-  it("hides the panel entirely when there are no grants and no bypass reach", () => {
-    renderPanel({
+  it("hides the panel entirely when there are no grants and no bypass subjects", () => {
+    renderPanel(0, {
       users: [],
       network_policies: [],
-      bypass_subject_count: 0,
     });
 
     expect(screen.queryByText("Access · read-only")).not.toBeInTheDocument();
