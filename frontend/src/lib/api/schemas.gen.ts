@@ -1939,23 +1939,63 @@ export const GroupDetailWithUsersSchema = {
 } as const;
 
 export const SubjectGroupDetailSchema = {
-  allOf: [
-    {
-      $ref: "#/components/schemas/GroupDetail",
+  type: "object",
+  required: [
+    "id",
+    "name",
+    "icon",
+    "color",
+    "hosts",
+    "granted",
+    "created_at",
+    "updated_at",
+  ],
+  description:
+    "Group representation with assignment status, used in user and policy detail responses.",
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
     },
-    {
-      type: "object",
-      required: ["granted"],
-      description:
-        "GroupDetail with assignment status, used in user and policy detail responses.",
-      properties: {
-        granted: {
-          type: "boolean",
-          description: "Whether this group is assigned to the subject.",
-        },
+    name: {
+      type: "string",
+      example: "Data",
+    },
+    icon: {
+      type: "string",
+      description: 'Icon key (e.g. "database", "film").',
+      example: "database",
+    },
+    color: {
+      type: "string",
+      description: "CSS hex color for the group badge.",
+      example: "#4C6EF5",
+    },
+    description: {
+      type: "string",
+      nullable: true,
+    },
+    hosts: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/HostSummary",
       },
     },
-  ],
+    granted: {
+      type: "boolean",
+      description: "Whether this group is assigned to the subject.",
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+    },
+    updated_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      description: "Last time the device profile was modified.",
+    },
+  },
 } as const;
 
 export const GroupWriteSchema = {

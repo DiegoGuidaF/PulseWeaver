@@ -925,11 +925,31 @@ export type GroupDetailWithUsers = GroupDetail & {
   users?: Array<UserSummary>;
 };
 
-export type SubjectGroupDetail = GroupDetail & {
+/**
+ * Group representation with assignment status, used in user and policy detail responses.
+ */
+export type SubjectGroupDetail = {
+  id: Id;
+  name: string;
+  /**
+   * Icon key (e.g. "database", "film").
+   */
+  icon: string;
+  /**
+   * CSS hex color for the group badge.
+   */
+  color: string;
+  description?: string | null;
+  hosts: Array<HostSummary>;
   /**
    * Whether this group is assigned to the subject.
    */
   granted: boolean;
+  created_at: string;
+  /**
+   * Last time the device profile was modified.
+   */
+  updated_at: string;
 };
 
 /**

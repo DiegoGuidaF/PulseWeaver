@@ -93,20 +93,16 @@ func TestHandler_GetUserAccessDetail_HappyPath(t *testing.T) {
 	is.True(backend != nil)
 	is.Equal(backend.Granted, true)
 	is.Equal(len(backend.Hosts), 2) // FixtureHostBackend1+2
-	is.Equal(len(backend.NetworkPolicies), 1)
-	is.True(findNetworkPolicyRef(backend.NetworkPolicies, testutils.FixturePolicyWithGroups.Name) != nil)
 
 	frontend := findGroup(resp.Groups, testutils.FixtureGroupFrontend.Name)
 	is.True(frontend != nil)
 	is.Equal(frontend.Granted, true)
 	is.Equal(len(frontend.Hosts), 2) // FixtureHostFrontend1+2
-	is.Equal(len(frontend.NetworkPolicies), 1)
 
 	emptyGroup := findGroup(resp.Groups, testutils.FixtureGroupEmpty.Name)
 	is.True(emptyGroup != nil)
 	is.Equal(emptyGroup.Granted, false)
 	is.Equal(len(emptyGroup.Hosts), 0)
-	is.Equal(len(emptyGroup.NetworkPolicies), 0)
 
 	// alice owns 1 device
 	is.Equal(len(resp.Devices), 1)

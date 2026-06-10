@@ -577,11 +577,20 @@ export const zGroupDetailWithUsers = zGroupDetail.and(
   }),
 );
 
-export const zSubjectGroupDetail = zGroupDetail.and(
-  z.object({
-    granted: z.boolean(),
-  }),
-);
+/**
+ * Group representation with assignment status, used in user and policy detail responses.
+ */
+export const zSubjectGroupDetail = z.object({
+  id: zId,
+  name: z.string(),
+  icon: z.string(),
+  color: z.string(),
+  description: z.string().nullish(),
+  hosts: z.array(zHostSummary),
+  granted: z.boolean(),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  updated_at: z.iso.datetime({ offset: true, local: true }),
+});
 
 /**
  * Full network policy detail including group assignments.

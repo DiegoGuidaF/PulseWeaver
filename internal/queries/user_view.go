@@ -211,35 +211,6 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 		return httpapi.UserAccessDetail{}, fmt.Errorf("get user access detail groups: %w", err)
 	}
 
-	// Q3: network policies assigned to each group
-	type userDetailPolicyRow struct {
-		GroupID    ids.HostGroupID     `db:"host_group_id"`
-		PolicyID   ids.NetworkPolicyID `db:"policy_id"`
-		PolicyName string              `db:"policy_name"`
-		PolicyCIDR string              `db:"policy_cidr"`
-	}
-	const userDetailPoliciesQuery = `
-		SELECT nphg.host_group_id, np.id AS policy_id, np.name AS policy_name, np.cidr AS policy_cidr
-		FROM network_policy_allowed_host_groups nphg
-		JOIN network_policies np ON np.id = nphg.policy_id
-		ORDER BY nphg.host_group_id, np.name
-	`
-	var userDetailPolicyRows []userDetailPolicyRow
-	if err := r.db.SelectContext(ctx, &userDetailPolicyRows, userDetailPoliciesQuery); err != nil {
-		return httpapi.UserAccessDetail{}, fmt.Errorf("get user access detail network policies: %w", err)
-	}
-
-	policiesByGroupForUser := collate.GroupByMap(userDetailPolicyRows,
-		func(pr userDetailPolicyRow) ids.HostGroupID { return pr.GroupID },
-		func(pr userDetailPolicyRow) httpapi.NetworkPolicyRef {
-			return httpapi.NetworkPolicyRef{
-				Id:   pr.PolicyID.Int64(),
-				Name: pr.PolicyName,
-				Cidr: pr.PolicyCIDR,
-			}
-		},
-	)
-
 	groups := collate.Collapse(groupRows,
 		func(gr groupRow) ids.HostGroupID { return gr.GroupID },
 		func(gr groupRow) httpapi.SubjectGroupDetail {
@@ -253,7 +224,6 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 				UpdatedAt:       httpapi.UTCTime(gr.GroupUpdatedAt),
 				Granted:         gr.Granted,
 				Hosts:           []httpapi.HostSummary{},
-				NetworkPolicies: collate.OrEmpty(policiesByGroupForUser[gr.GroupID]),
 			}
 		},
 		func(gr groupRow) (httpapi.HostSummary, bool) {

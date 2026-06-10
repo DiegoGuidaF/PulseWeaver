@@ -84,13 +84,12 @@ func toNetworkPolicyDetailResponse(d NetworkPolicyDetailView) httpapi.NetworkPol
 			icon = *g.Icon
 		}
 		groups[i] = httpapi.SubjectGroupDetail{
-			Id:              g.ID,
-			Name:            g.Name,
-			Color:           color,
-			Icon:            icon,
-			Hosts:           hosts,
-			Granted:         g.Assigned,
-			NetworkPolicies: []httpapi.NetworkPolicyRef{},
+			Id:      g.ID,
+			Name:    g.Name,
+			Color:   color,
+			Icon:    icon,
+			Hosts:   hosts,
+			Granted: g.Assigned,
 		}
 	}
 
