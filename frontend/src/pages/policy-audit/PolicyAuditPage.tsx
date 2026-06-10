@@ -2,9 +2,9 @@ import { useState } from "react";
 import {
   Card,
   Center,
-  Divider,
   Group,
   Loader,
+  SimpleGrid,
   Stack,
   Tabs,
   Text,
@@ -55,7 +55,7 @@ function StatTile({ icon, label, value, sub }: StatTileProps) {
         {value}
       </Text>
       {sub && (
-        <Text size="xs" c="dimmed">
+        <Text size="xs" c="dimmed" truncate="end">
           {sub}
         </Text>
       )}
@@ -68,45 +68,40 @@ function CacheStatsHeader({ data }: { data: PolicyUserMapAudit }) {
 
   return (
     <Card withBorder p="lg">
-      <Group gap={0} wrap="nowrap" justify="space-between">
+      <SimpleGrid cols={{ base: 2, sm: 3, lg: 6 }} spacing="lg">
         <StatTile
           icon={<IconClock size={14} color="var(--mantine-color-dimmed)" />}
           label="Last refreshed"
           value={relativeTime(data.refreshed_at)}
           sub={formatDateTime(data.refreshed_at)}
         />
-        <Divider orientation="vertical" mx="xl" />
         <StatTile
           icon={<IconBolt size={14} color="var(--mantine-color-dimmed)" />}
           label="Regen time"
           value={`${data.refresh_duration_ms}ms`}
         />
-        <Divider orientation="vertical" mx="xl" />
         <StatTile
           icon={<IconWorld size={14} color="var(--mantine-color-dimmed)" />}
           label="Enabled IPs"
           value={data.total_ip_count}
           sub={`${data.total_device_count} device${data.total_device_count !== 1 ? "s" : ""}`}
         />
-        <Divider orientation="vertical" mx="xl" />
         <StatTile
           icon={<IconNetwork size={14} color="var(--mantine-color-dimmed)" />}
           label="Known hosts"
           value={data.total_host_count}
         />
-        <Divider orientation="vertical" mx="xl" />
         <StatTile
           icon={<IconUsers size={14} color="var(--mantine-color-dimmed)" />}
           label="Shared IPs"
           value={data.shared_ip_count}
         />
-        <Divider orientation="vertical" mx="xl" />
         <StatTile
           icon={<IconNetwork size={14} color="var(--mantine-color-dimmed)" />}
           label="Network policies"
           value={data.total_network_policy_count}
         />
-      </Group>
+      </SimpleGrid>
     </Card>
   );
 }

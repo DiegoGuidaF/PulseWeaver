@@ -7,6 +7,7 @@ import {
   Group,
   Progress,
   SegmentedControl,
+  Select,
   Stack,
   Table,
   Text,
@@ -285,30 +286,47 @@ export function PolicyUserTable({
     });
   }, [data.users, search, statusFilter, sharedOnly]);
 
+  const statusOptions = [
+    { label: `All (${counts.all})`, value: "all" },
+    { label: `Live + access (${counts.live_with_access})`, value: PolicyUserStatus.LIVE_WITH_ACCESS },
+    { label: `Live, no access (${counts.live_no_host_access})`, value: PolicyUserStatus.LIVE_NO_HOST_ACCESS },
+    { label: `Bypass (${counts.bypass})`, value: PolicyUserStatus.BYPASS },
+    { label: `No live IPs (${counts.no_live_ips})`, value: PolicyUserStatus.NO_LIVE_IPS },
+    { label: `No access (${counts.no_access})`, value: PolicyUserStatus.NO_ACCESS },
+  ];
+
   return (
     <Stack gap="sm">
-      <Group justify="space-between" wrap="nowrap">
-        <TextInput
-          placeholder="Search by IP, user, or device..."
-          value={search}
-          onChange={(e) => setSearch(e.currentTarget.value)}
-          leftSection={<IconSearch size={14} />}
-          size="sm"
-          style={{ width: 280 }}
-        />
-        <Group gap="sm" wrap="nowrap">
+      <Stack gap="xs">
+        <Group justify="space-between" wrap="wrap" gap="xs">
+          <TextInput
+            placeholder="Search by IP, user, or device..."
+            value={search}
+            onChange={(e) => setSearch(e.currentTarget.value)}
+            leftSection={<IconSearch size={14} />}
+            size="sm"
+            style={{ flex: 1, minWidth: 220 }}
+          />
+          <Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>
+            {filtered.length} of {data.users.length}
+          </Text>
+        </Group>
+        <Group gap="sm" wrap="wrap">
           <SegmentedControl
+            visibleFrom="sm"
             size="xs"
             value={statusFilter}
             onChange={(v) => setStatusFilter(v as StatusFilter)}
-            data={[
-              { label: `All (${counts.all})`, value: "all" },
-              { label: `Live + access (${counts.live_with_access})`, value: PolicyUserStatus.LIVE_WITH_ACCESS },
-              { label: `Live, no access (${counts.live_no_host_access})`, value: PolicyUserStatus.LIVE_NO_HOST_ACCESS },
-              { label: `Bypass (${counts.bypass})`, value: PolicyUserStatus.BYPASS },
-              { label: `No live IPs (${counts.no_live_ips})`, value: PolicyUserStatus.NO_LIVE_IPS },
-              { label: `No access (${counts.no_access})`, value: PolicyUserStatus.NO_ACCESS },
-            ]}
+            data={statusOptions}
+          />
+          <Select
+            hiddenFrom="sm"
+            size="sm"
+            value={statusFilter}
+            onChange={(v) => setStatusFilter((v ?? "all") as StatusFilter)}
+            data={statusOptions}
+            allowDeselect={false}
+            style={{ flex: 1, minWidth: 160 }}
           />
           <Checkbox
             label="Shared IPs only"
@@ -316,11 +334,8 @@ export function PolicyUserTable({
             checked={sharedOnly}
             onChange={(e) => setSharedOnly(e.currentTarget.checked)}
           />
-          <Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>
-            {filtered.length} of {data.users.length}
-          </Text>
         </Group>
-      </Group>
+      </Stack>
 
       <Card withBorder p={0}>
         <Table.ScrollContainer minWidth={720}>
