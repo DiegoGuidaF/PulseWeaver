@@ -21,7 +21,7 @@ import {
 } from "@/features/subjects/drafts/subjectAccessDraft";
 import { buildModifyAccessRequest } from "@/features/subjects/drafts/saveSubjectAccessDraft";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
-import { StagedChangesBar } from "@/features/host-access/components/StagedChangesBar";
+import { StagedChangesBar, STAGED_BAR_HEIGHT } from "@/features/host-access/components/StagedChangesBar";
 import { formatAddressCount } from "@/features/network-policies/constants";
 import { toErrorMessage } from "@/lib/api-client";
 import type { ModifyNetworkPolicyRequest } from "@/lib/api";
@@ -133,36 +133,13 @@ export function NetworkPolicyDetailPage() {
     }
 
     return (
-        <Stack maw={1200} gap="lg">
+        <Stack maw={1200} gap="lg" pb={dirty ? STAGED_BAR_HEIGHT : undefined}>
             <NetworkPolicyHeader
                 policy={data}
                 onUpdate={handleUpdate}
                 onDelete={handleDelete}
                 isUpdating={updateMutation.isPending}
                 isDeleting={deleteMutation.isPending}
-            />
-
-            <StagedChangesBar
-                inline
-                visible={dirty}
-                summary={
-                    bypassJustEnabled
-                        ? "You're about to enable host-check bypass."
-                        : "You have unsaved access changes."
-                }
-                saving={accessMutation.isPending}
-                onSave={handleSaveAccess}
-                onDiscard={handleDiscardAccess}
-                warning={
-                    bypassJustEnabled
-                        ? {
-                              detail: `Enabling bypass lets ${formatAddressCount(data.cidr) ?? "every address"} in ${data.cidr} reach all hosts, including future ones.`,
-                              acknowledgeLabel: "I understand this exposes every host in this range to the whole CIDR.",
-                              acknowledged: draft.bypassAcknowledged,
-                              onAcknowledgeChange: (value) => dispatch({ type: "acknowledgeBypass", value }),
-                          }
-                        : undefined
-                }
             />
 
             <Divider />
@@ -184,6 +161,28 @@ export function NetworkPolicyDetailPage() {
                     />
                 </Grid.Col>
             </Grid>
+
+            <StagedChangesBar
+                visible={dirty}
+                summary={
+                    bypassJustEnabled
+                        ? "You're about to enable host-check bypass."
+                        : "You have unsaved access changes."
+                }
+                saving={accessMutation.isPending}
+                onSave={handleSaveAccess}
+                onDiscard={handleDiscardAccess}
+                warning={
+                    bypassJustEnabled
+                        ? {
+                              detail: `Enabling bypass lets ${formatAddressCount(data.cidr) ?? "every address"} in ${data.cidr} reach all hosts, including future ones.`,
+                              acknowledgeLabel: "I understand this exposes every host in this range to the whole CIDR.",
+                              acknowledged: draft.bypassAcknowledged,
+                              onAcknowledgeChange: (value) => dispatch({ type: "acknowledgeBypass", value }),
+                          }
+                        : undefined
+                }
+            />
         </Stack>
     );
 }
