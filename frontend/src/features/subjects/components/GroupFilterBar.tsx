@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { Badge, Group, Menu, Text, UnstyledButton } from "@mantine/core";
 import { IconChevronDown } from "@tabler/icons-react";
-import type { GroupRef } from "@/lib/api";
+import { GroupBadge } from "@/features/host-access/components/GroupBadge";
+
+interface FilterableGroup {
+  id: number;
+  name: string;
+  color?: string | null;
+  icon?: string | null;
+}
 
 interface Props {
-  availableGroups: GroupRef[];
+  availableGroups: FilterableGroup[];
   selected: Set<number>;
   onChange: (next: Set<number>) => void;
 }
@@ -31,11 +38,11 @@ export function GroupFilterBar({ availableGroups, selected, onChange }: Props) {
   return (
     <Group gap="xs" wrap="wrap">
       {selectedGroups.map((g) => (
-        <Badge
+        <GroupBadge
           key={g.id}
-          variant="filled"
-          color="indigo"
+          group={g}
           size="sm"
+          variant="filled"
           rightSection={
             <UnstyledButton
               onClick={() => removeGroup(g.id)}
@@ -45,9 +52,7 @@ export function GroupFilterBar({ availableGroups, selected, onChange }: Props) {
               <Text size="xs" lh={1}>×</Text>
             </UnstyledButton>
           }
-        >
-          {g.name}
-        </Badge>
+        />
       ))}
 
       {(unselectedGroups.length > 0 || selected.size === 0) && (

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Badge, Tooltip } from "@mantine/core";
 import { resolveGroupIcon } from "@/features/host-access/hostIconConfig";
 
@@ -6,16 +7,18 @@ const MAX_LABEL_LEN = 18;
 interface GroupRef {
   id: number;
   name: string;
-  color: string;
+  color?: string | null;
   icon?: string | null;
 }
 
 interface Props {
   group: GroupRef;
   size?: "sm" | "xs";
+  variant?: "light" | "filled" | "outline";
+  rightSection?: ReactNode;
 }
 
-export function GroupBadge({ group, size = "sm" }: Props) {
+export function GroupBadge({ group, size = "sm", variant = "light", rightSection }: Props) {
   const truncated = group.name.length > MAX_LABEL_LEN
     ? group.name.slice(0, MAX_LABEL_LEN) + "…"
     : group.name;
@@ -23,10 +26,11 @@ export function GroupBadge({ group, size = "sm" }: Props) {
 
   const badge = (
     <Badge
-      variant="light"
-      color={group.color}
+      variant={variant}
+      color={group.color ?? "gray"}
       size={size}
       leftSection={resolveGroupIcon(group.icon)({ size: 10 })}
+      rightSection={rightSection}
     >
       {truncated}
     </Badge>

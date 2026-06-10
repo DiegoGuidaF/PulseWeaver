@@ -12,7 +12,7 @@ import {
   Title,
 } from "@mantine/core";
 import { DataTable, type DataTableSortStatus } from "mantine-datatable";
-import type { UserListItem } from "@/lib/api";
+import type { GroupSummary, UserListItem } from "@/lib/api";
 import { UserRole } from "@/lib/api";
 import { useListUsersWithAccess } from "@/features/subjects/hooks/useListUsersWithAccess";
 import { ErrorState } from "@/components/ErrorState";
@@ -28,7 +28,7 @@ function roleBadgeColor(role: UserRole): string {
 }
 
 function collectGroups(users: UserListItem[]) {
-  const seen = new Map<number, { id: number; name: string }>();
+  const seen = new Map<number, GroupSummary>();
   for (const u of users) {
     for (const g of u.groups) {
       if (!seen.has(g.id)) seen.set(g.id, g);
