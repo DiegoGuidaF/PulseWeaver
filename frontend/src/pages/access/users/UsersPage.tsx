@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { buildRoute } from "@/lib/routes";
 import {
-  ActionIcon,
   Badge,
   Button,
   Center,
@@ -11,14 +10,10 @@ import {
   Stack,
   Text,
   Title,
-  Tooltip,
-  VisuallyHidden,
 } from "@mantine/core";
-import { IconArrowDown, IconArrowUp, IconTrash } from "@tabler/icons-react";
 import { DataTable, type DataTableSortStatus } from "mantine-datatable";
 import type { UserListItem } from "@/lib/api";
 import { UserRole } from "@/lib/api";
-import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useListUsersWithAccess } from "@/features/subjects/hooks/useListUsersWithAccess";
 import { ErrorState } from "@/components/ErrorState";
 import { GroupFilterBar } from "@/features/subjects/components/GroupFilterBar";
@@ -26,10 +21,6 @@ import { GroupBadgeList } from "@/features/host-access/components/GroupBadgeList
 import { formatEffectiveAccess } from "@/features/subjects/constants";
 import { AllHostsBypassPill } from "@/features/subjects/components/AllHostsBypassPill";
 import { CreateUserModal } from "@/features/auth/components/CreateUserModal";
-import { RoleChangeModal } from "@/features/auth/components/RoleChangeModal";
-import { DeleteUserModal } from "@/features/auth/components/DeleteUserModal";
-import type { PendingRole } from "@/features/auth/components/RoleChangeModal";
-import type { DeleteTarget } from "@/features/auth/components/DeleteUserModal";
 function roleBadgeColor(role: UserRole): string {
   if (role === UserRole.SUPERADMIN) return "violet";
   if (role === UserRole.ADMIN) return "indigo";
@@ -49,12 +40,9 @@ function collectGroups(users: UserListItem[]) {
 export function UsersPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user: currentUser } = useAuth();
   const { data, isPending, isError, error, refetch } = useListUsersWithAccess();
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [pendingRole, setPendingRole] = useState<PendingRole | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [groupFilter, setGroupFilter] = useState<Set<number>>(() => {
     const gid = searchParams.get("group_id");
     return gid ? new Set([Number(gid)]) : new Set();
@@ -87,11 +75,6 @@ export function UsersPage() {
     });
   }, [users, groupFilter, sortStatus]);
 
-  function handleRoleToggle(userId: number, currentRole: string, username: string) {
-    const targetRole = currentRole === UserRole.ADMIN ? "user" : "admin";
-    setPendingRole({ userId, username, targetRole });
-  }
-
   if (isPending) {
     return (
       <Center py="xl">
@@ -103,9 +86,6 @@ export function UsersPage() {
   return (
     <>
       <CreateUserModal opened={createModalOpen} onClose={() => setCreateModalOpen(false)} />
-      <RoleChangeModal pendingRole={pendingRole} onClose={() => setPendingRole(null)} />
-      <DeleteUserModal deleteTarget={deleteTarget} onClose={() => setDeleteTarget(null)} />
-
       <Stack maw={1200} gap="md">
         <Group justify="space-between" align="flex-start">
           <div>
@@ -140,12 +120,7 @@ export function UsersPage() {
               sortable: true,
               render: (u) => (
                 <div>
-                  <Group gap="xs" wrap="nowrap" align="baseline">
-                    <Text size="sm" fw={600}>{u.display_name}</Text>
-                    {u.role === UserRole.SUPERADMIN && (
-                      <Badge size="xs" color="violet" variant="outline">superadmin</Badge>
-                    )}
-                  </Group>
+                  <Text size="sm" fw={600}>{u.display_name}</Text>
                   <Text size="xs" c="dimmed">{u.username}</Text>
                 </div>
               ),
@@ -174,9 +149,6 @@ export function UsersPage() {
               title: "Effective access",
               sortable: true,
               render: (u) => {
-                if (u.role === UserRole.SUPERADMIN) {
-                  return <Text size="sm" c="dimmed">—</Text>;
-                }
                 if (u.bypass_host_check) {
                   return <AllHostsBypassPill />;
                 }
@@ -199,55 +171,6 @@ export function UsersPage() {
               title: "Live IPs",
               sortable: true,
               render: (u) => <Text size="sm" c="dimmed">{u.live_address_count}</Text>,
-            },
-            {
-              accessor: "actions",
-              title: <VisuallyHidden>Actions</VisuallyHidden>,
-              width: 80,
-              render: (u) => {
-                const isSelf = u.id === currentUser?.id;
-                const isSuperadmin = u.role === UserRole.SUPERADMIN;
-                if (isSelf || isSuperadmin) return null;
-                const isUserRole = u.role === UserRole.USER;
-                return (
-                  <Group gap="xs" wrap="nowrap" justify="flex-end">
-                    <Tooltip
-                      label={isUserRole ? "Promote to admin" : "Demote to user"}
-                      withArrow
-                    >
-                      <ActionIcon
-                        variant="subtle"
-                        size="md"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRoleToggle(u.id, u.role, u.username);
-                        }}
-                        aria-label={isUserRole ? "Promote to admin" : "Demote to user"}
-                      >
-                        {isUserRole ? (
-                          <IconArrowUp size={14} stroke={1.5} />
-                        ) : (
-                          <IconArrowDown size={14} stroke={1.5} />
-                        )}
-                      </ActionIcon>
-                    </Tooltip>
-                    <Tooltip label="Delete user" withArrow>
-                      <ActionIcon
-                        variant="subtle"
-                        color="red"
-                        size="md"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTarget({ id: u.id, username: u.username });
-                        }}
-                        aria-label={`Delete ${u.username}`}
-                      >
-                        <IconTrash size={14} stroke={1.5} />
-                      </ActionIcon>
-                    </Tooltip>
-                  </Group>
-                );
-              },
             },
           ]}
         />
