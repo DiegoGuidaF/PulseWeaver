@@ -355,6 +355,26 @@ export type AddressHistoryEvent = {
    * Name of the device
    */
   device_name: string;
+  /**
+   * Seconds since the previous address event for this device, across all of its addresses. Null when there is no prior event in the queried range.
+   *
+   */
+  time_gap_seconds?: number | null;
+  /**
+   * Whether the IP differs from the previous address event for this device. False for the first event in the queried range.
+   *
+   */
+  ip_changed: boolean;
+  /**
+   * Whether this event repeats the previous one for this device with no change in IP or enabled state (a pure heartbeat refresh).
+   *
+   */
+  is_refresh: boolean;
+  /**
+   * The device's configured address-lease TTL in seconds, if an auto-expiry rule is enabled for the device. Null otherwise.
+   *
+   */
+  ttl_seconds?: number | null;
 };
 
 export type AccessLogResponse = {

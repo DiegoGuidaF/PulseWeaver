@@ -135,18 +135,6 @@ func (s *Service) DisableAddresses(ctx context.Context, addressIDs []ids.Address
 	return nil
 }
 
-func (s *Service) GetAddressHistory(ctx context.Context, query AddressHistoryQuery) (AddressHistory, error) {
-	if err := query.Validate(); err != nil {
-		return AddressHistory{}, err
-	}
-	history, err := s.repo.GetAddressHistory(ctx, query)
-	if err != nil {
-		return AddressHistory{}, err
-	}
-	history.QueryLimit = query.Limit
-	return history, nil
-}
-
 func (s *Service) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error) {
 	return s.repo.GetEnabledIPEntries(ctx)
 }

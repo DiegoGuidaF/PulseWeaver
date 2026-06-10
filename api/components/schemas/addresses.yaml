@@ -112,6 +112,8 @@ AddressHistoryEvent:
     - source
     - device_id
     - device_name
+    - ip_changed
+    - is_refresh
   properties:
     id:
       $ref: './common.yaml#/ID'
@@ -131,3 +133,27 @@ AddressHistoryEvent:
     device_name:
       type: string
       description: Name of the device
+    time_gap_seconds:
+      type: integer
+      format: int64
+      nullable: true
+      description: >
+        Seconds since the previous address event for this device, across all of
+        its addresses. Null when there is no prior event in the queried range.
+    ip_changed:
+      type: boolean
+      description: >
+        Whether the IP differs from the previous address event for this device.
+        False for the first event in the queried range.
+    is_refresh:
+      type: boolean
+      description: >
+        Whether this event repeats the previous one for this device with no
+        change in IP or enabled state (a pure heartbeat refresh).
+    ttl_seconds:
+      type: integer
+      format: int64
+      nullable: true
+      description: >
+        The device's configured address-lease TTL in seconds, if an auto-expiry
+        rule is enabled for the device. Null otherwise.

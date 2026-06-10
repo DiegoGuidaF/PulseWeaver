@@ -256,10 +256,6 @@ func (m *mockRepository) GetEnabledIPEntries(_ context.Context) ([]device.IPEntr
 	return entries, nil
 }
 
-func (m *mockRepository) GetAddressHistory(_ context.Context, _ device.AddressHistoryQuery) (device.AddressHistory, error) {
-	return device.AddressHistory{Buckets: []device.AddressEventBucket{}, Events: []device.AddressStateChange{}}, nil
-}
-
 func (m *mockRepository) UpdateDevice(_ context.Context, dev *device.Device) (*device.Device, error) {
 	if m.updateDeviceErr != nil {
 		return nil, m.updateDeviceErr

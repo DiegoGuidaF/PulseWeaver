@@ -11,7 +11,6 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 	"github.com/matryer/is"
 )
 
@@ -326,36 +325,4 @@ func TestService_DisableAddresses_NotifiesObserverPerAddress(t *testing.T) {
 	}
 	is.True(seen[address1.ID])
 	is.True(seen[address2.ID])
-}
-
-func TestService_GetAddressHistory_ValidInput(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	mockRepo := newMockRepository()
-	service := newService(mockRepo)
-
-	history, err := service.GetAddressHistory(ctx, device.AddressHistoryQuery{
-		DeviceIDs:   []ids.DeviceID{1},
-		Granularity: timebucket.GranularityHour,
-	})
-
-	is.NoErr(err)
-	is.True(history.Buckets != nil)
-	is.True(history.Events != nil)
-}
-
-func TestService_GetAddressHistory_DefaultParams(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	mockRepo := newMockRepository()
-	service := newService(mockRepo)
-
-	// Empty query — Validate() should apply defaults
-	history, err := service.GetAddressHistory(ctx, device.AddressHistoryQuery{})
-
-	is.NoErr(err)
-	is.True(history.Buckets != nil)
-	is.True(history.Events != nil)
 }

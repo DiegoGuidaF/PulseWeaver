@@ -187,6 +187,26 @@ export const zAddressHistoryEvent = z.object({
   source: zAddressEventSource,
   device_id: zId,
   device_name: z.string(),
+  time_gap_seconds: z.coerce
+    .bigint()
+    .min(BigInt("-9223372036854775808"), {
+      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
+    })
+    .max(BigInt("9223372036854775807"), {
+      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
+    })
+    .nullish(),
+  ip_changed: z.boolean(),
+  is_refresh: z.boolean(),
+  ttl_seconds: z.coerce
+    .bigint()
+    .min(BigInt("-9223372036854775808"), {
+      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
+    })
+    .max(BigInt("9223372036854775807"), {
+      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
+    })
+    .nullish(),
 });
 
 export const zAddressHistoryResponse = z.object({

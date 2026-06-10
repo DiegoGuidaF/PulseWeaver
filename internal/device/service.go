@@ -31,7 +31,6 @@ type repository interface {
 	CheckAddressOwnership(ctx context.Context, deviceID ids.DeviceID, addressID ids.AddressID) error
 	GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) (*Device, error)
 	GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error)
-	GetAddressHistory(ctx context.Context, query AddressHistoryQuery) (AddressHistory, error)
 	GetEnabledAddressesForDevice(ctx context.Context, deviceID ids.DeviceID) ([]Address, error)
 }
 
