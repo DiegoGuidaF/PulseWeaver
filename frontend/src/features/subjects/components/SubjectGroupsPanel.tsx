@@ -1,6 +1,6 @@
 import { Button, Checkbox, Divider, Stack, Switch, Text, ThemeIcon } from "@mantine/core";
 import { Link } from "react-router-dom";
-import { IconArrowRight } from "@tabler/icons-react";
+import { IconAlertTriangle, IconArrowRight } from "@tabler/icons-react";
 import type { SubjectGroupDetail } from "@/lib/api";
 import { resolveGroupIcon } from "@/features/host-access/hostIconConfig";
 import { ROUTES } from "@/lib/routes";
@@ -16,18 +16,45 @@ interface Props {
 export function SubjectGroupsPanel({ groups, draft, dispatch, disabled }: Props) {
   return (
     <Stack gap="md">
-      <div>
+      {/*
+        Bypass gets its own visually distinct "danger" treatment — a bordered,
+        warning-toned panel with an icon — so it reads as fundamentally
+        different from the benign "Enabled" switches elsewhere in the UI
+        (previously the two were visually identical, which is exactly what let
+        admins flip total-exposure on without registering the risk).
+      */}
+      <div
+        style={{
+          border: "1px solid var(--mantine-color-yellow-7)",
+          borderRadius: "var(--mantine-radius-sm)",
+          padding: "12px",
+          backgroundColor: "var(--mantine-color-yellow-light)",
+        }}
+      >
         <Switch
-          label={<Text size="sm" fw={600}>Bypass host check</Text>}
+          label={
+            <Stack gap={2}>
+              <Text size="sm" fw={700} c="yellow.5">
+                Bypass host check
+              </Text>
+              <Text size="xs" c="dimmed">
+                Grants access to ALL hosts, including those not yet in the catalog —
+                this overrides every group assignment below.
+              </Text>
+            </Stack>
+          }
+          color="yellow"
+          thumbIcon={
+            draft.bypassHostCheck ? (
+              <IconAlertTriangle size={12} color="var(--mantine-color-yellow-9)" stroke={3} />
+            ) : undefined
+          }
           checked={draft.bypassHostCheck}
           onChange={(e) =>
             dispatch({ type: "setBypass", value: e.currentTarget.checked })
           }
           disabled={disabled}
         />
-        <Text size="xs" c="dimmed" mt={4} ml={46}>
-          Grants access to ALL hosts, including those not yet in the catalog
-        </Text>
       </div>
 
       <Divider />

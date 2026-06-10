@@ -29,6 +29,8 @@ import {
   initialSubjectAccessDraft,
   initDraftFromGroups,
   isSubjectAccessDirty,
+  isBypassJustEnabled,
+  requiresBypassAcknowledgement,
 } from "@/features/subjects/drafts/subjectAccessDraft";
 import { buildModifyAccessRequest } from "@/features/subjects/drafts/saveSubjectAccessDraft";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
@@ -88,9 +90,23 @@ export function UserDetailPage() {
   );
   const dirty = savedDraft != null && isSubjectAccessDirty(draft, savedDraft);
 
+  // Bypass grants this user's devices access to every host (including future
+  // ones), so the off→on transition gets a danger-toned save bar that names
+  // the blast radius and must be explicitly acknowledged before saving. Other
+  // edits to an already-bypassed user don't re-trigger this — the admin
+  // already accepted that risk when they first turned it on.
+  const bypassJustEnabled = savedDraft != null && isBypassJustEnabled(savedDraft, draft);
+  const bypassAckRequired = savedDraft != null && requiresBypassAcknowledgement(savedDraft, draft);
+
+  const liveAddressCount = useMemo(
+    () => data?.devices.reduce((sum, d) => sum + d.live_address_count, 0) ?? 0,
+    [data],
+  );
+
   useUnsavedChangesGuard(dirty);
 
   function handleSaveAccess() {
+    if (bypassAckRequired) return;
     saveMutation.mutate(
       { path: { user_id: userId }, body: buildModifyAccessRequest(draft) },
       {
@@ -287,10 +303,24 @@ export function UserDetailPage() {
 
         <StagedChangesBar
           visible={dirty}
-          summary="You have unsaved access changes."
+          summary={
+            bypassJustEnabled
+              ? "You're about to enable host-check bypass."
+              : "You have unsaved access changes."
+          }
           saving={saveMutation.isPending}
           onSave={handleSaveAccess}
           onDiscard={handleDiscardAccess}
+          warning={
+            bypassJustEnabled
+              ? {
+                  detail: `Enabling bypass lets ${data.display_name} reach all hosts, including future ones, from ${liveAddressCount} live ${liveAddressCount === 1 ? "address" : "addresses"} across their devices.`,
+                  acknowledgeLabel: "I understand this exposes every host to this user.",
+                  acknowledged: draft.bypassAcknowledged,
+                  onAcknowledgeChange: (value) => dispatch({ type: "acknowledgeBypass", value }),
+                }
+              : undefined
+          }
         />
       </Stack>
     </>

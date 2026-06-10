@@ -3,11 +3,20 @@ import type { SubjectGroupDetail } from "@/lib/api";
 export interface SubjectAccessDraft {
   bypassHostCheck: boolean;
   assignedGroupIds: Set<number>;
+  /**
+   * True once the admin has explicitly acknowledged the blast radius of an
+   * off→on bypass transition in the current editing session. Reset whenever
+   * bypass goes back to off, so re-enabling it later requires a fresh
+   * acknowledgement. Never part of the dirty/diff comparison — it is editing
+   *-session UI state, not a value that round-trips to the server.
+   */
+  bypassAcknowledged: boolean;
 }
 
 export type SubjectAccessAction =
   | { type: "reset"; groups: SubjectGroupDetail[]; bypassHostCheck: boolean }
   | { type: "setBypass"; value: boolean }
+  | { type: "acknowledgeBypass"; value: boolean }
   | { type: "toggleGroup"; id: number; assigned: boolean };
 
 export function subjectAccessReducer(
@@ -18,7 +27,14 @@ export function subjectAccessReducer(
     case "reset":
       return initDraftFromGroups(action.groups, action.bypassHostCheck);
     case "setBypass":
-      return { ...state, bypassHostCheck: action.value };
+      // Any flip of the toggle clears a prior acknowledgement: turning bypass
+      // off then back on must re-arm the gate (it's a fresh off→on transition),
+      // and turning it off makes the flag moot until the next on-transition.
+      // `requiresBypassAcknowledgement` only consults this flag for off→on, so
+      // clearing it unconditionally here keeps the reducer simple and correct.
+      return { ...state, bypassHostCheck: action.value, bypassAcknowledged: false };
+    case "acknowledgeBypass":
+      return { ...state, bypassAcknowledged: action.value };
     case "toggleGroup": {
       const next = new Set(state.assignedGroupIds);
       if (action.assigned) next.add(action.id);
@@ -29,7 +45,7 @@ export function subjectAccessReducer(
 }
 
 export function initialSubjectAccessDraft(): SubjectAccessDraft {
-  return { bypassHostCheck: false, assignedGroupIds: new Set() };
+  return { bypassHostCheck: false, assignedGroupIds: new Set(), bypassAcknowledged: false };
 }
 
 export function initDraftFromGroups(
@@ -39,6 +55,11 @@ export function initDraftFromGroups(
   return {
     bypassHostCheck,
     assignedGroupIds: new Set(groups.filter((g) => g.granted).map((g) => g.id)),
+    // The "saved" draft always starts acknowledged: a previously-saved bypass
+    // state is not a pending action that needs confirming, and a previously-off
+    // state has nothing to acknowledge. `isBypassJustEnabled` below is what
+    // decides whether the *current* session needs a fresh acknowledgement.
+    bypassAcknowledged: true,
   };
 }
 
@@ -58,4 +79,30 @@ export function isSubjectAccessDirty(
     a.bypassHostCheck !== b.bypassHostCheck ||
     !setsEqual(a.assignedGroupIds, b.assignedGroupIds)
   );
+}
+
+/**
+ * True when the draft turns bypass on while the saved (server) state has it
+ * off — the only transition that exposes new blast radius and therefore the
+ * only one gated by an explicit acknowledgement. Editing an already-bypassed
+ * subject in other ways (group assignments, which are inert while bypass is
+ * active, or toggling bypass off) does not require re-confirming a danger the
+ * admin already accepted — that would be alert fatigue for no safety gain.
+ */
+export function isBypassJustEnabled(
+  saved: SubjectAccessDraft,
+  draft: SubjectAccessDraft,
+): boolean {
+  return !saved.bypassHostCheck && draft.bypassHostCheck;
+}
+
+/**
+ * True when the pending change set requires the admin to acknowledge the
+ * bypass blast radius before saving is allowed.
+ */
+export function requiresBypassAcknowledgement(
+  saved: SubjectAccessDraft,
+  draft: SubjectAccessDraft,
+): boolean {
+  return isBypassJustEnabled(saved, draft) && !draft.bypassAcknowledged;
 }

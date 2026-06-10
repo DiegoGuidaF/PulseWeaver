@@ -174,4 +174,53 @@ describe('NetworkPolicyDetailPage', () => {
             }, { timeout: TEST_TIMEOUTS.SHORT });
         });
     });
+
+    // ─── Bypass acknowledge gate (off→on transition) ─────────────────────────────
+
+    describe('bypass acknowledge gate', () => {
+        it('switches the save bar to a warning and disables Save until acknowledged on off→on', async () => {
+            const user = userEvent.setup();
+            server.use(
+                networkPolicyHandlers.get.success({ cidr: '192.168.1.0/24', bypass_host_check: false }),
+            );
+            renderPage();
+
+            const bypassSwitch = await screen.findByRole('switch', { name: /bypass host check/i });
+            await user.click(bypassSwitch);
+
+            const saveButton = await screen.findByRole('button', { name: /save changes/i });
+            expect(saveButton).toHaveAttribute('data-disabled', 'true');
+            expect(screen.getByText(/enabling bypass lets/i)).toBeInTheDocument();
+
+            const ackCheckbox = screen.getByRole('checkbox', { name: /i understand this exposes/i });
+            await user.click(ackCheckbox);
+
+            expect(saveButton).not.toHaveAttribute('data-disabled', 'true');
+        });
+
+        it('does not show the warning bar for an already-bypassed policy', async () => {
+            server.use(
+                networkPolicyHandlers.get.success({
+                    cidr: '192.168.1.0/24',
+                    bypass_host_check: true,
+                    groups: [createMockSubjectGroupDetail({ id: 1, name: 'Dev Team', granted: false })],
+                }),
+            );
+            renderPage();
+
+            await waitFor(() => {
+                expect(screen.getByText('Test Policy')).toBeInTheDocument();
+            }, { timeout: TEST_TIMEOUTS.MEDIUM });
+
+            // Toggling bypass off and back on is the only way to dirty the draft here
+            // (groups are inert while bypass is active); turning it off doesn't warn.
+            const user = userEvent.setup();
+            const bypassSwitch = screen.getByRole('switch', { name: /bypass host check/i });
+            await user.click(bypassSwitch);
+
+            const saveButton = await screen.findByRole('button', { name: /save changes/i });
+            expect(saveButton).not.toHaveAttribute('data-disabled', 'true');
+            expect(screen.queryByText(/enabling bypass lets/i)).not.toBeInTheDocument();
+        });
+    });
 });

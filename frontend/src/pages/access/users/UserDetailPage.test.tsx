@@ -90,4 +90,62 @@ describe('UserDetailPage', () => {
             expect(allDevicesLink).toHaveAttribute('href', buildRoute.userDevices(5));
         });
     });
+
+    describe('bypass acknowledge gate', () => {
+        beforeEach(() => {
+            server.use(authHandlers.me.success({ id: 99, username: 'admin', role: UserRole.ADMIN }));
+        });
+
+        it('switches the save bar to a warning and disables Save until acknowledged on off→on', async () => {
+            const user = userEvent.setup();
+            server.use(
+                hostAccessHandlers.userHostDetails.success(
+                    createMockUserAccessDetail({
+                        id: 5,
+                        display_name: 'Charlie',
+                        bypass_host_check: false,
+                        devices: [createMockDeviceListItem({ id: 10, name: 'Charlie Laptop', live_address_count: 3 })],
+                    }),
+                ),
+            );
+            renderUserDetailPage(5);
+
+            const bypassSwitch = await screen.findByRole('switch', { name: /bypass host check/i });
+            await user.click(bypassSwitch);
+
+            const saveButton = await screen.findByRole('button', { name: /save changes/i });
+            expect(saveButton).toHaveAttribute('data-disabled', 'true');
+            expect(screen.getByText(/enabling bypass lets charlie reach all hosts/i)).toBeInTheDocument();
+
+            const ackCheckbox = screen.getByRole('checkbox', { name: /i understand this exposes/i });
+            await user.click(ackCheckbox);
+
+            expect(saveButton).not.toHaveAttribute('data-disabled', 'true');
+        });
+
+        it('does not show the warning bar for an already-bypassed user', async () => {
+            const user = userEvent.setup();
+            server.use(
+                hostAccessHandlers.userHostDetails.success(
+                    createMockUserAccessDetail({
+                        id: 5,
+                        display_name: 'Charlie',
+                        bypass_host_check: true,
+                        devices: [createMockDeviceListItem({ id: 10, name: 'Charlie Laptop' })],
+                    }),
+                ),
+            );
+            renderUserDetailPage(5);
+
+            const bypassSwitch = await screen.findByRole('switch', { name: /bypass host check/i });
+            // Toggle off then on to dirty the draft without leaving the bypass-on state —
+            // groups are inert under bypass, so the toggle is the only lever here.
+            await user.click(bypassSwitch);
+            await user.click(bypassSwitch);
+
+            const saveButton = await screen.findByRole('button', { name: /save changes/i });
+            expect(saveButton).not.toHaveAttribute('data-disabled', 'true');
+            expect(screen.queryByText(/enabling bypass lets/i)).not.toBeInTheDocument();
+        });
+    });
 });

@@ -16,11 +16,14 @@ import {
   initialSubjectAccessDraft,
   initDraftFromGroups,
   isSubjectAccessDirty,
+  isBypassJustEnabled,
+  requiresBypassAcknowledgement,
 } from "@/features/subjects/drafts/subjectAccessDraft";
 import { buildModifyAccessRequest } from "@/features/subjects/drafts/saveSubjectAccessDraft";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { STAGED_BAR_HEIGHT } from "@/features/host-access/components/StagedChangesBar";
 import { StagedChangesBar } from "@/features/host-access/components/StagedChangesBar";
+import { formatAddressCount } from "@/features/network-policies/constants";
 import { toErrorMessage } from "@/lib/api-client";
 import type { ModifyNetworkPolicyRequest } from "@/lib/api";
 
@@ -51,6 +54,15 @@ export function NetworkPolicyDetailPage() {
         [data],
     );
     const dirty = savedDraft != null && isSubjectAccessDirty(draft, savedDraft);
+
+    // Bypass grants the whole CIDR access to every host (including future
+    // ones), so the off→on transition gets a danger-toned save bar that names
+    // the blast radius and must be explicitly acknowledged before saving.
+    // Re-edits of an already-bypassed policy don't re-trigger this — the admin
+    // already accepted that risk when they first turned it on.
+    const bypassJustEnabled = savedDraft != null && isBypassJustEnabled(savedDraft, draft);
+    const bypassAckRequired =
+        savedDraft != null && requiresBypassAcknowledgement(savedDraft, draft);
 
     useUnsavedChangesGuard(dirty);
 
@@ -90,6 +102,7 @@ export function NetworkPolicyDetailPage() {
     }
 
     function handleSaveAccess() {
+        if (bypassAckRequired) return;
         accessMutation.mutate(
             { path: { policy_id: policyId }, body: buildModifyAccessRequest(draft) },
             {
@@ -154,10 +167,24 @@ export function NetworkPolicyDetailPage() {
 
             <StagedChangesBar
                 visible={dirty}
-                summary="You have unsaved access changes."
+                summary={
+                    bypassJustEnabled
+                        ? "You're about to enable host-check bypass."
+                        : "You have unsaved access changes."
+                }
                 saving={accessMutation.isPending}
                 onSave={handleSaveAccess}
                 onDiscard={handleDiscardAccess}
+                warning={
+                    bypassJustEnabled
+                        ? {
+                              detail: `Enabling bypass lets ${formatAddressCount(data.cidr) ?? "every address"} in ${data.cidr} reach all hosts, including future ones.`,
+                              acknowledgeLabel: "I understand this exposes every host in this range to the whole CIDR.",
+                              acknowledged: draft.bypassAcknowledged,
+                              onAcknowledgeChange: (value) => dispatch({ type: "acknowledgeBypass", value }),
+                          }
+                        : undefined
+                }
             />
         </Stack>
     );
