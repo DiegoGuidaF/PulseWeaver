@@ -12,6 +12,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/devicepairing"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
@@ -118,6 +119,12 @@ type AccessLogEntryFixture struct {
 	Devices    []string // optional device names for access_log_contributors
 	PolicyName string   // optional; mutually exclusive with Devices
 	TargetHost *string  // optional
+	TargetURI  *string  // optional
+	HTTPMethod *string  // optional
+	DurationUs int64    // optional; request processing duration in microseconds
+	// GeoIP, when set, populates the access_log_geoip child row. Leave nil for
+	// requests with no geolocation (country_code resolves to NULL).
+	GeoIP *geoip.Result
 }
 
 // ── world fixture variables ───────────────────────────────────────────────────
@@ -181,6 +188,20 @@ var (
 	FixtureAccessLogSharedIPAllow      = AccessLogEntryFixture{ClientIP: "10.1.0.1", Outcome: true, Devices: []string{FixtureDeviceWithOwnerAccess.Name, FixtureDeviceBypassAccess.Name}, TargetHost: new(FixtureHostFrontend2.FQDN)}
 	FixtureAccessLogNetworkPolicyAllow = AccessLogEntryFixture{ClientIP: "10.3.0.1", Outcome: true, PolicyName: FixturePolicyWithGroups.Name, TargetHost: new(FixtureHostBackend1.FQDN)}
 	FixtureAccessLogBypassAllow        = AccessLogEntryFixture{ClientIP: "192.168.1.50", Outcome: true, PolicyName: FixturePolicyBypassHostCheck.Name, TargetHost: new(FixtureHostFrontend1.FQDN)}
+
+	// Geolocated external traffic: denied (unregistered) requests from public IPs
+	// carrying GeoIP, distinct durations, HTTP methods, and (some) target URIs.
+	// These exercise the country/continent, http_method, target_uri, and
+	// duration-sort filters; the six entries above have no GeoIP (country NULL),
+	// so together they cover the is_null / NULL-inclusion paths too.
+	FixtureGeoGermany = geoip.Result{CountryCode: "DE", CountryName: "Germany", ContinentCode: "EU", ASN: 3320, ASNOrg: "Deutsche Telekom"}
+	FixtureGeoUSA     = geoip.Result{CountryCode: "US", CountryName: "United States", ContinentCode: "NA", ASN: 15169, ASNOrg: "Google LLC"}
+	FixtureGeoSpain   = geoip.Result{CountryCode: "ES", CountryName: "Spain", ContinentCode: "EU", ASN: 12479, ASNOrg: "Orange Espagne"}
+
+	FixtureAccessLogGeoGermanyAPI   = AccessLogEntryFixture{ClientIP: "198.51.100.10", Outcome: false, DenyReason: new(policy.DenyReasonIPNotRegistered), TargetHost: new(FixtureHostBackend1.FQDN), TargetURI: new("/api/users"), HTTPMethod: new("GET"), DurationUs: 30, GeoIP: &FixtureGeoGermany}
+	FixtureAccessLogGeoGermanyLogin = AccessLogEntryFixture{ClientIP: "198.51.100.11", Outcome: false, DenyReason: new(policy.DenyReasonIPNotRegistered), TargetHost: new(FixtureHostBackend2.FQDN), TargetURI: new("/api/login"), HTTPMethod: new("POST"), DurationUs: 220, GeoIP: &FixtureGeoGermany}
+	FixtureAccessLogGeoUSA          = AccessLogEntryFixture{ClientIP: "198.51.100.20", Outcome: false, DenyReason: new(policy.DenyReasonIPNotRegistered), TargetHost: new(FixtureHostFrontend1.FQDN), HTTPMethod: new("GET"), DurationUs: 150, GeoIP: &FixtureGeoUSA}
+	FixtureAccessLogGeoSpain        = AccessLogEntryFixture{ClientIP: "198.51.100.30", Outcome: false, DenyReason: new(policy.DenyReasonIPNotRegistered), TargetHost: new(FixtureHostFrontend2.FQDN), HTTPMethod: new("DELETE"), DurationUs: 90, GeoIP: &FixtureGeoSpain}
 )
 
 // SeededAdminPassword is the known, login-ready password assigned to every
@@ -906,6 +927,12 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 				CreatedAt:  time.Now().UTC(),
 				Headers:    map[string][]string{},
 				TargetHost: f.TargetHost,
+				TargetURI:  f.TargetURI,
+				HTTPMethod: f.HTTPMethod,
+				DurationUs: f.DurationUs,
+			}
+			if f.GeoIP != nil {
+				e.GeoIP = *f.GeoIP
 			}
 			switch {
 			case f.PolicyName != "":
@@ -1030,9 +1057,12 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 //	Access log:  FixtureAccessLogAliceAllow (allow, single contributor)
 //	             FixtureAccessLogBobHostDeny (deny host_not_allowed, single contributor)
 //	             FixtureAccessLogUnknownDeny (deny ip_not_registered, no contributor)
-//	             FixtureAccessLogSharedIPAllow (allow, two contributors — shared IP path)
+//	             FixtureAccessLogSharedIPAllow (allow, two contributors — shared IP path, ambiguous)
 //	             FixtureAccessLogNetworkPolicyAllow (allow via network policy CIDR, no device contributors)
 //	             FixtureAccessLogBypassAllow (allow via bypass CIDR, no device contributors)
+//	             FixtureAccessLogGeoGermanyAPI/Login, GeoUSA, GeoSpain (geolocated external
+//	               traffic with GeoIP, distinct durations/methods/URIs — the six above have
+//	               no GeoIP, so country_code is NULL on them)
 func SeedFullWorld(t *testing.T) *Seeder {
 	t.Helper()
 	return NewSeeder(t).
@@ -1093,5 +1123,9 @@ func SeedFullWorld(t *testing.T) *Seeder {
 		WithAccessLogEntry(FixtureAccessLogUnknownDeny).
 		WithAccessLogEntry(FixtureAccessLogSharedIPAllow).
 		WithAccessLogEntry(FixtureAccessLogNetworkPolicyAllow).
-		WithAccessLogEntry(FixtureAccessLogBypassAllow)
+		WithAccessLogEntry(FixtureAccessLogBypassAllow).
+		WithAccessLogEntry(FixtureAccessLogGeoGermanyAPI).
+		WithAccessLogEntry(FixtureAccessLogGeoGermanyLogin).
+		WithAccessLogEntry(FixtureAccessLogGeoUSA).
+		WithAccessLogEntry(FixtureAccessLogGeoSpain)
 }

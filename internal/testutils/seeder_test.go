@@ -46,14 +46,15 @@ func TestSeedFullWorld_AllEntitiesCreated(t *testing.T) {
 	is.True(seed.Address(testutils.FixtureAddressBob.Device, testutils.FixtureAddressBob.IP) != 0)
 	is.True(seed.Address(testutils.FixtureAddressShared.Device, testutils.FixtureAddressShared.IP) != 0)
 
-	// Access log rows: 6 entries seeded
+	// Access log rows: 10 entries seeded (6 canonical paths + 4 geolocated)
 	// access_log_contributors: 4 rows (alice allow:1, bob deny:1, shared allow:2)
 	// access_log_network_policy_contributors: 2 rows (corp-vpn allow + ops-network bypass allow)
+	// The 4 geolocated entries are no-contributor denies, so only logCount grows.
 	var logCount, contribCount, policyContribCount int
 	is.NoErr(srv.Database.DB().QueryRowxContext(t.Context(), `SELECT COUNT(*) FROM access_log`).Scan(&logCount))
 	is.NoErr(srv.Database.DB().QueryRowxContext(t.Context(), `SELECT COUNT(*) FROM access_log_contributors`).Scan(&contribCount))
 	is.NoErr(srv.Database.DB().QueryRowxContext(t.Context(), `SELECT COUNT(*) FROM access_log_network_policy_contributors`).Scan(&policyContribCount))
-	is.Equal(logCount, 6)
+	is.Equal(logCount, 10)
 	is.Equal(contribCount, 4)
 	is.Equal(policyContribCount, 2)
 

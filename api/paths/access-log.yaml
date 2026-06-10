@@ -8,46 +8,164 @@ accessLog:
       Returns paginated request log entries to review access-control decisions.
       Admin-only.
     parameters:
+      # --- Value filters: repeated params + sibling {field}_op operator. ---
+      # Values are repeated (?country_code=DE&country_code=US), not comma-joined,
+      # so values containing commas are safe and codegen yields typed arrays.
+      # {field}_op defaults to `in`; allowed operators vary per column.
+      - name: client_ip
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            type: string
+        description: Client IP filter values (operators in, not_in, contains, not_contains).
+      - name: client_ip_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/access-log.yaml#/AccessLogFilterOperator'
+      - name: target_host
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            type: string
+        description: Target host filter values (in, not_in, contains, not_contains, is_null, not_null).
+      - name: target_host_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/access-log.yaml#/AccessLogFilterOperator'
+      - name: target_uri
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            type: string
+        description: Target URI filter values (in, not_in, contains, not_contains, is_null, not_null).
+      - name: target_uri_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/access-log.yaml#/AccessLogFilterOperator'
+      - name: http_method
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            type: string
+        description: HTTP method filter values (in, not_in).
+      - name: http_method_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/access-log.yaml#/AccessLogFilterOperator'
+      - name: deny_reason
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            type: string
+        description: Deny reason filter values (in, not_in, is_null, not_null). See GET /access-log/deny-reasons.
+      - name: deny_reason_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/access-log.yaml#/AccessLogFilterOperator'
+      - name: country_code
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            type: string
+        description: ISO 3166-1 alpha-2 country codes (in, not_in, is_null, not_null). is_null = no GeoIP row.
+      - name: country_code_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/access-log.yaml#/AccessLogFilterOperator'
+      - name: continent_code
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            type: string
+        description: Continent codes e.g. "EU" (in, not_in, is_null, not_null).
+      - name: continent_code_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/access-log.yaml#/AccessLogFilterOperator'
       - name: device_id
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/common.yaml#/ID'
+          type: array
+          maxItems: 200
+          items:
+            $ref: '../components/schemas/common.yaml#/ID'
+        description: Device IDs that contributed to the request (in, not_in, is_null, not_null).
+      - name: device_id_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/access-log.yaml#/AccessLogFilterOperator'
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '../components/schemas/common.yaml#/ID'
+        description: Owning user IDs of contributing devices (in, not_in).
+      - name: user_id_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/access-log.yaml#/AccessLogFilterOperator'
+      - name: network_policy_id
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '../components/schemas/common.yaml#/ID'
+        description: Authorizing network policy IDs (in, not_in, is_null, not_null).
+      - name: network_policy_id_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/access-log.yaml#/AccessLogFilterOperator'
+      # --- Simple filters ---
       - name: outcome
         in: query
         required: false
         schema:
           type: boolean
-      - name: deny_reason
+        description: Filter by allow (true) / deny (false).
+      - name: ambiguous
         in: query
         required: false
         schema:
-          type: string
-        description: Filter by deny reason (see GET /access-log/deny-reasons for valid values)
-      - name: ip
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Exact client IP match
-      - name: host
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Exact target host match
-      - name: country_code
-        in: query
-        required: false
-        schema:
-          type: string
-        description: ISO 3166-1 alpha-2 country code filter (e.g. "DE")
-      - name: continent_code
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Continent code filter (e.g. "EU")
+          type: boolean
+        description: When true, return only entries whose IP resolved to more than one contributor.
+      # --- Time window ---
       - name: from
         in: query
         required: false
@@ -62,6 +180,23 @@ accessLog:
           type: string
           format: date-time
         description: RFC3339 end of time window (default now)
+      # --- Sort & pagination ---
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          default: created_at
+          enum: [created_at, client_ip, target_host, http_method, country_code, deny_reason, duration_us, outcome]
+        description: Sort column (default created_at). Join-derived columns are not sortable.
+      - name: order
+        in: query
+        required: false
+        schema:
+          type: string
+          default: desc
+          enum: [asc, desc]
+        description: Sort direction (default desc).
       - name: limit
         in: query
         required: false
@@ -70,18 +205,14 @@ accessLog:
           default: 50
           maximum: 200
         description: Page size (default 50, max 200)
-      - name: before_id
+      - name: cursor
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/common.yaml#/ID'
-        description: Cursor; return rows with id < before_id
-      - name: network_policy_id
-        in: query
-        required: false
-        schema:
-          $ref: '../components/schemas/common.yaml#/ID'
-        description: Filter entries authorized by a specific network policy.
+          type: string
+        description: >
+          Opaque pagination token from a previous response's next_cursor. Pass it
+          back verbatim; do not construct it. Encodes the active sort.
     responses:
       "200":
         description: Access log entries
@@ -89,6 +220,12 @@ accessLog:
           application/json:
             schema:
               $ref: '../components/schemas/access-log.yaml#/AccessLogResponse'
+      "400":
+        description: Invalid filter, sort, operator, or cursor
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
       "401":
         description: Not authenticated
         content:

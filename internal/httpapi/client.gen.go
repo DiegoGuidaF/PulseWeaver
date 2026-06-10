@@ -1278,9 +1278,9 @@ func NewGetAccessLogRequest(server string, params *GetAccessLogParams) (*http.Re
 	if params != nil {
 		queryValues := queryURL.Query()
 
-		if params.DeviceId != nil {
+		if params.ClientIp != nil {
 
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "device_id", runtime.ParamLocationQuery, *params.DeviceId); err != nil {
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "client_ip", runtime.ParamLocationQuery, *params.ClientIp); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -1294,9 +1294,105 @@ func NewGetAccessLogRequest(server string, params *GetAccessLogParams) (*http.Re
 
 		}
 
-		if params.Outcome != nil {
+		if params.ClientIpOp != nil {
 
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "outcome", runtime.ParamLocationQuery, *params.Outcome); err != nil {
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "client_ip_op", runtime.ParamLocationQuery, *params.ClientIpOp); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.TargetHost != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "target_host", runtime.ParamLocationQuery, *params.TargetHost); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.TargetHostOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "target_host_op", runtime.ParamLocationQuery, *params.TargetHostOp); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.TargetUri != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "target_uri", runtime.ParamLocationQuery, *params.TargetUri); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.TargetUriOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "target_uri_op", runtime.ParamLocationQuery, *params.TargetUriOp); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.HttpMethod != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "http_method", runtime.ParamLocationQuery, *params.HttpMethod); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.HttpMethodOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "http_method_op", runtime.ParamLocationQuery, *params.HttpMethodOp); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -1326,25 +1422,9 @@ func NewGetAccessLogRequest(server string, params *GetAccessLogParams) (*http.Re
 
 		}
 
-		if params.Ip != nil {
+		if params.DenyReasonOp != nil {
 
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "ip", runtime.ParamLocationQuery, *params.Ip); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Host != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "host", runtime.ParamLocationQuery, *params.Host); err != nil {
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "deny_reason_op", runtime.ParamLocationQuery, *params.DenyReasonOp); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -1374,9 +1454,169 @@ func NewGetAccessLogRequest(server string, params *GetAccessLogParams) (*http.Re
 
 		}
 
+		if params.CountryCodeOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "country_code_op", runtime.ParamLocationQuery, *params.CountryCodeOp); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		if params.ContinentCode != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "continent_code", runtime.ParamLocationQuery, *params.ContinentCode); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.ContinentCodeOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "continent_code_op", runtime.ParamLocationQuery, *params.ContinentCodeOp); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.DeviceId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "device_id", runtime.ParamLocationQuery, *params.DeviceId); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.DeviceIdOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "device_id_op", runtime.ParamLocationQuery, *params.DeviceIdOp); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.UserId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "user_id", runtime.ParamLocationQuery, *params.UserId); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.UserIdOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "user_id_op", runtime.ParamLocationQuery, *params.UserIdOp); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.NetworkPolicyId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "network_policy_id", runtime.ParamLocationQuery, *params.NetworkPolicyId); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.NetworkPolicyIdOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "network_policy_id_op", runtime.ParamLocationQuery, *params.NetworkPolicyIdOp); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Outcome != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "outcome", runtime.ParamLocationQuery, *params.Outcome); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Ambiguous != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "ambiguous", runtime.ParamLocationQuery, *params.Ambiguous); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -1422,6 +1662,38 @@ func NewGetAccessLogRequest(server string, params *GetAccessLogParams) (*http.Re
 
 		}
 
+		if params.Sort != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "sort", runtime.ParamLocationQuery, *params.Sort); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Order != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "order", runtime.ParamLocationQuery, *params.Order); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		if params.Limit != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
@@ -1438,25 +1710,9 @@ func NewGetAccessLogRequest(server string, params *GetAccessLogParams) (*http.Re
 
 		}
 
-		if params.BeforeId != nil {
+		if params.Cursor != nil {
 
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "before_id", runtime.ParamLocationQuery, *params.BeforeId); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.NetworkPolicyId != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "network_policy_id", runtime.ParamLocationQuery, *params.NetworkPolicyId); err != nil {
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -4242,6 +4498,7 @@ type GetAccessLogTestClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *AccessLogResponse
+	JSON400      *ErrorResponse
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON500      *ErrorResponse
@@ -6430,6 +6687,13 @@ func ParseGetAccessLogTestClientResponse(rsp *http.Response) (*GetAccessLogTestC
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorResponse

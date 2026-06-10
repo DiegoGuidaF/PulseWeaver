@@ -9,13 +9,46 @@ AccessLogResponse:
       type: integer
       description: Total rows matching the current filters (excludes cursor, useful for "N results" UI)
     next_cursor:
-      allOf:
-        - $ref: './common.yaml#/ID'
+      type: string
       nullable: true
+      description: >
+        Opaque, server-issued pagination token. Pass it back verbatim as the
+        `cursor` param to fetch the next page. Null when there are no more rows.
+        Encodes the active sort, so it is only valid for the sort it was issued under.
     rows:
       type: array
       items:
         $ref: '#/AccessLogRow'
+
+AccessLogFilterOperator:
+  type: string
+  description: >
+    Filter operator for a value column. Supplied as the sibling `{field}_op` query
+    param; defaults to `in` when omitted. Allowed operators vary per column.
+  enum:
+    - in
+    - not_in
+    - contains
+    - not_contains
+    - is_null
+    - not_null
+
+AccessLogContributor:
+  type: object
+  description: >
+    One device/user/address that the request's client IP resolved to. A single IP
+    (shared router/home network) can resolve to several, so each entry carries a list.
+  properties:
+    device_id:
+      $ref: './common.yaml#/ID'
+    device_name:
+      type: string
+    user_id:
+      $ref: './common.yaml#/ID'
+    user_name:
+      type: string
+    address_id:
+      $ref: './common.yaml#/ID'
 
 AccessLogCountryStats:
   type: object
@@ -36,7 +69,7 @@ AccessLogCountryStats:
 
 AccessLogRow:
   type: object
-  required: [id, created_at, outcome, client_ip, headers]
+  required: [id, created_at, outcome, client_ip, headers, contributors, contributor_count]
   properties:
     id:
       $ref: './common.yaml#/ID'
@@ -47,12 +80,18 @@ AccessLogRow:
     deny_reason:
       type: string
       nullable: true
-    device_id:
-      $ref: './common.yaml#/ID'
-    device_name:
-      type: string
-    address_id:
-      $ref: './common.yaml#/ID'
+    contributors:
+      type: array
+      description: >
+        All devices/users/addresses this request's client IP resolved to. Empty
+        when no device matched (e.g. a denied request from an unknown IP).
+      items:
+        $ref: '#/AccessLogContributor'
+    contributor_count:
+      type: integer
+      description: >
+        Denormalized count of contributor rows (device×address×user tuples). The
+        coarse "is this ambiguous?" signal; > 1 means the IP resolved to several.
     created_at:
       type: string
       format: date-time

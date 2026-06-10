@@ -3,6 +3,7 @@
 import * as z from "zod";
 
 import {
+  AccessLogFilterOperator,
   AddressEventSource,
   DevicePairingStatus,
   DeviceState,
@@ -223,44 +224,6 @@ export const zAccessLogCountryStats = z.object({
   total: z.int(),
   allowed: z.int(),
   denied: z.int(),
-});
-
-export const zAccessLogRow = z.object({
-  id: zId,
-  client_ip: zIpAddress,
-  outcome: z.boolean(),
-  deny_reason: z.string().nullish(),
-  device_id: zId.optional(),
-  device_name: z.string().optional(),
-  address_id: zId.optional(),
-  created_at: z.iso.datetime({ offset: true, local: true }),
-  xff_chain: z.string().optional(),
-  target_host: z.string().optional(),
-  target_uri: z.string().optional(),
-  http_method: z.string().optional(),
-  country_code: z.string().optional(),
-  country_name: z.string().optional(),
-  continent_code: z.string().optional(),
-  asn: z.int().optional(),
-  asn_org: z.string().optional(),
-  duration_us: z.coerce
-    .bigint()
-    .min(BigInt("-9223372036854775808"), {
-      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
-    })
-    .max(BigInt("9223372036854775807"), {
-      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
-    })
-    .optional(),
-  headers: z.record(z.string(), z.array(z.string())),
-  network_policy_id: zId.nullish(),
-  network_policy_name: z.string().nullish(),
-});
-
-export const zAccessLogResponse = z.object({
-  total: z.int(),
-  next_cursor: zId.nullable(),
-  rows: z.array(zAccessLogRow),
 });
 
 export const zDeviceAddressLeaseRule = z.object({
@@ -783,6 +746,61 @@ export const zDevicePairing = z.object({
 });
 
 /**
+ * Filter operator for a value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.
+ *
+ */
+export const zAccessLogFilterOperator = z.enum(AccessLogFilterOperator);
+
+/**
+ * One device/user/address that the request's client IP resolved to. A single IP (shared router/home network) can resolve to several, so each entry carries a list.
+ *
+ */
+export const zAccessLogContributor = z.object({
+  device_id: zId.optional(),
+  device_name: z.string().optional(),
+  user_id: zId.optional(),
+  user_name: z.string().optional(),
+  address_id: zId.optional(),
+});
+
+export const zAccessLogRow = z.object({
+  id: zId,
+  client_ip: zIpAddress,
+  outcome: z.boolean(),
+  deny_reason: z.string().nullish(),
+  contributors: z.array(zAccessLogContributor),
+  contributor_count: z.int(),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  xff_chain: z.string().optional(),
+  target_host: z.string().optional(),
+  target_uri: z.string().optional(),
+  http_method: z.string().optional(),
+  country_code: z.string().optional(),
+  country_name: z.string().optional(),
+  continent_code: z.string().optional(),
+  asn: z.int().optional(),
+  asn_org: z.string().optional(),
+  duration_us: z.coerce
+    .bigint()
+    .min(BigInt("-9223372036854775808"), {
+      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
+    })
+    .max(BigInt("9223372036854775807"), {
+      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
+    })
+    .optional(),
+  headers: z.record(z.string(), z.array(z.string())),
+  network_policy_id: zId.nullish(),
+  network_policy_name: z.string().nullish(),
+});
+
+export const zAccessLogResponse = z.object({
+  total: z.int(),
+  next_cursor: z.string().nullable(),
+  rows: z.array(zAccessLogRow),
+});
+
+/**
  * Effective access classification along two orthogonal axes: reachability (does the user have live IPs in the cache?) and authorization (does the user have host grants?).
  * - bypass: host allowlist is bypassed; the host check does not apply.
  * - live_with_access: has live IPs and host grants.
@@ -1078,18 +1096,46 @@ export const zDisableAddressPath = z.object({
 export const zDisableAddressResponse = zAddress;
 
 export const zGetAccessLogQuery = z.object({
-  device_id: zId.optional(),
+  client_ip: z.array(z.string()).max(200).optional(),
+  client_ip_op: zAccessLogFilterOperator.optional(),
+  target_host: z.array(z.string()).max(200).optional(),
+  target_host_op: zAccessLogFilterOperator.optional(),
+  target_uri: z.array(z.string()).max(200).optional(),
+  target_uri_op: zAccessLogFilterOperator.optional(),
+  http_method: z.array(z.string()).max(200).optional(),
+  http_method_op: zAccessLogFilterOperator.optional(),
+  deny_reason: z.array(z.string()).max(200).optional(),
+  deny_reason_op: zAccessLogFilterOperator.optional(),
+  country_code: z.array(z.string()).max(200).optional(),
+  country_code_op: zAccessLogFilterOperator.optional(),
+  continent_code: z.array(z.string()).max(200).optional(),
+  continent_code_op: zAccessLogFilterOperator.optional(),
+  device_id: z.array(zId).max(200).optional(),
+  device_id_op: zAccessLogFilterOperator.optional(),
+  user_id: z.array(zId).max(200).optional(),
+  user_id_op: zAccessLogFilterOperator.optional(),
+  network_policy_id: z.array(zId).max(200).optional(),
+  network_policy_id_op: zAccessLogFilterOperator.optional(),
   outcome: z.boolean().optional(),
-  deny_reason: z.string().optional(),
-  ip: z.string().optional(),
-  host: z.string().optional(),
-  country_code: z.string().optional(),
-  continent_code: z.string().optional(),
+  ambiguous: z.boolean().optional(),
   from: z.iso.datetime({ offset: true, local: true }).optional(),
   to: z.iso.datetime({ offset: true, local: true }).optional(),
+  sort: z
+    .enum([
+      "created_at",
+      "client_ip",
+      "target_host",
+      "http_method",
+      "country_code",
+      "deny_reason",
+      "duration_us",
+      "outcome",
+    ])
+    .optional()
+    .default("created_at"),
+  order: z.enum(["asc", "desc"]).optional().default("desc"),
   limit: z.int().lte(200).optional().default(50),
-  before_id: zId.optional(),
-  network_policy_id: zId.optional(),
+  cursor: z.string().optional(),
 });
 
 /**

@@ -215,15 +215,15 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 		func(gr groupRow) ids.HostGroupID { return gr.GroupID },
 		func(gr groupRow) httpapi.SubjectGroupDetail {
 			return httpapi.SubjectGroupDetail{
-				Id:              gr.GroupID.Int64(),
-				Name:            gr.GroupName,
-				Icon:            gr.GroupIcon,
-				Color:           gr.GroupColor,
-				Description:     gr.GroupDescription,
-				CreatedAt:       httpapi.UTCTime(gr.GroupCreatedAt),
-				UpdatedAt:       httpapi.UTCTime(gr.GroupUpdatedAt),
-				Granted:         gr.Granted,
-				Hosts:           []httpapi.HostSummary{},
+				Id:          gr.GroupID.Int64(),
+				Name:        gr.GroupName,
+				Icon:        gr.GroupIcon,
+				Color:       gr.GroupColor,
+				Description: gr.GroupDescription,
+				CreatedAt:   httpapi.UTCTime(gr.GroupCreatedAt),
+				UpdatedAt:   httpapi.UTCTime(gr.GroupUpdatedAt),
+				Granted:     gr.Granted,
+				Hosts:       []httpapi.HostSummary{},
 			}
 		},
 		func(gr groupRow) (httpapi.HostSummary, bool) {

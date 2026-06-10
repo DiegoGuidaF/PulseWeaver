@@ -769,12 +769,10 @@ export const AccessLogResponseSchema = {
         'Total rows matching the current filters (excludes cursor, useful for "N results" UI)',
     },
     next_cursor: {
-      allOf: [
-        {
-          $ref: "#/components/schemas/ID",
-        },
-      ],
+      type: "string",
       nullable: true,
+      description:
+        "Opaque, server-issued pagination token. Pass it back verbatim as the `cursor` param to fetch the next page. Null when there are no more rows. Encodes the active sort, so it is only valid for the sort it was issued under.\n",
     },
     rows: {
       type: "array",
@@ -812,7 +810,15 @@ export const AccessLogCountryStatsSchema = {
 
 export const AccessLogRowSchema = {
   type: "object",
-  required: ["id", "created_at", "outcome", "client_ip", "headers"],
+  required: [
+    "id",
+    "created_at",
+    "outcome",
+    "client_ip",
+    "headers",
+    "contributors",
+    "contributor_count",
+  ],
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
@@ -827,14 +833,18 @@ export const AccessLogRowSchema = {
       type: "string",
       nullable: true,
     },
-    device_id: {
-      $ref: "#/components/schemas/ID",
+    contributors: {
+      type: "array",
+      description:
+        "All devices/users/addresses this request's client IP resolved to. Empty when no device matched (e.g. a denied request from an unknown IP).\n",
+      items: {
+        $ref: "#/components/schemas/AccessLogContributor",
+      },
     },
-    device_name: {
-      type: "string",
-    },
-    address_id: {
-      $ref: "#/components/schemas/ID",
+    contributor_count: {
+      type: "integer",
+      description:
+        'Denormalized count of contributor rows (device×address×user tuples). The coarse "is this ambiguous?" signal; > 1 means the IP resolved to several.\n',
     },
     created_at: {
       type: "string",
@@ -2388,6 +2398,36 @@ export const DevicePairingStatusSchema = {
   enum: ["pending", "used", "expired", "invalidated", "replaced"],
   description:
     "Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.\n",
+} as const;
+
+export const AccessLogFilterOperatorSchema = {
+  type: "string",
+  description:
+    "Filter operator for a value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.\n",
+  enum: ["in", "not_in", "contains", "not_contains", "is_null", "not_null"],
+} as const;
+
+export const AccessLogContributorSchema = {
+  type: "object",
+  description:
+    "One device/user/address that the request's client IP resolved to. A single IP (shared router/home network) can resolve to several, so each entry carries a list.\n",
+  properties: {
+    device_id: {
+      $ref: "#/components/schemas/ID",
+    },
+    device_name: {
+      type: "string",
+    },
+    user_id: {
+      $ref: "#/components/schemas/ID",
+    },
+    user_name: {
+      type: "string",
+    },
+    address_id: {
+      $ref: "#/components/schemas/ID",
+    },
+  },
 } as const;
 
 export const PolicyUserStatusSchema = {

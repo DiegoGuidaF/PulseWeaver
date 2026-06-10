@@ -64,7 +64,9 @@ export {
   updateNetworkPolicyAccess,
 } from "./sdk.gen";
 export {
+  type AccessLogContributor,
   type AccessLogCountryStats,
+  AccessLogFilterOperator,
   type AccessLogResponse,
   type AccessLogRow,
   type AddAddressData,

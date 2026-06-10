@@ -385,7 +385,11 @@ export type AccessLogResponse = {
    * Total rows matching the current filters (excludes cursor, useful for "N results" UI)
    */
   total: number;
-  next_cursor: Id | null;
+  /**
+   * Opaque, server-issued pagination token. Pass it back verbatim as the `cursor` param to fetch the next page. Null when there are no more rows. Encodes the active sort, so it is only valid for the sort it was issued under.
+   *
+   */
+  next_cursor: string | null;
   rows: Array<AccessLogRow>;
 };
 
@@ -403,9 +407,16 @@ export type AccessLogRow = {
   client_ip: IpAddress;
   outcome: boolean;
   deny_reason?: string | null;
-  device_id?: Id;
-  device_name?: string;
-  address_id?: Id;
+  /**
+   * All devices/users/addresses this request's client IP resolved to. Empty when no device matched (e.g. a denied request from an unknown IP).
+   *
+   */
+  contributors: Array<AccessLogContributor>;
+  /**
+   * Denormalized count of contributor rows (device×address×user tuples). The coarse "is this ambiguous?" signal; > 1 means the IP resolved to several.
+   *
+   */
+  contributor_count: number;
   created_at: string;
   xff_chain?: string;
   target_host?: string;
@@ -1119,6 +1130,38 @@ export const DevicePairingStatus = {
  */
 export type DevicePairingStatus =
   (typeof DevicePairingStatus)[keyof typeof DevicePairingStatus];
+
+/**
+ * Filter operator for a value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.
+ *
+ */
+export const AccessLogFilterOperator = {
+  IN: "in",
+  NOT_IN: "not_in",
+  CONTAINS: "contains",
+  NOT_CONTAINS: "not_contains",
+  IS_NULL: "is_null",
+  NOT_NULL: "not_null",
+} as const;
+
+/**
+ * Filter operator for a value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.
+ *
+ */
+export type AccessLogFilterOperator =
+  (typeof AccessLogFilterOperator)[keyof typeof AccessLogFilterOperator];
+
+/**
+ * One device/user/address that the request's client IP resolved to. A single IP (shared router/home network) can resolve to several, so each entry carries a list.
+ *
+ */
+export type AccessLogContributor = {
+  device_id?: Id;
+  device_name?: string;
+  user_id?: Id;
+  user_name?: string;
+  address_id?: Id;
+};
 
 /**
  * Effective access classification along two orthogonal axes: reachability (does the user have live IPs in the cache?) and authorization (does the user have host grants?).
@@ -2155,28 +2198,64 @@ export type GetAccessLogData = {
   body?: never;
   path?: never;
   query?: {
-    device_id?: Id;
+    /**
+     * Client IP filter values (operators in, not_in, contains, not_contains).
+     */
+    client_ip?: Array<string>;
+    client_ip_op?: AccessLogFilterOperator;
+    /**
+     * Target host filter values (in, not_in, contains, not_contains, is_null, not_null).
+     */
+    target_host?: Array<string>;
+    target_host_op?: AccessLogFilterOperator;
+    /**
+     * Target URI filter values (in, not_in, contains, not_contains, is_null, not_null).
+     */
+    target_uri?: Array<string>;
+    target_uri_op?: AccessLogFilterOperator;
+    /**
+     * HTTP method filter values (in, not_in).
+     */
+    http_method?: Array<string>;
+    http_method_op?: AccessLogFilterOperator;
+    /**
+     * Deny reason filter values (in, not_in, is_null, not_null). See GET /access-log/deny-reasons.
+     */
+    deny_reason?: Array<string>;
+    deny_reason_op?: AccessLogFilterOperator;
+    /**
+     * ISO 3166-1 alpha-2 country codes (in, not_in, is_null, not_null). is_null = no GeoIP row.
+     */
+    country_code?: Array<string>;
+    country_code_op?: AccessLogFilterOperator;
+    /**
+     * Continent codes e.g. "EU" (in, not_in, is_null, not_null).
+     */
+    continent_code?: Array<string>;
+    continent_code_op?: AccessLogFilterOperator;
+    /**
+     * Device IDs that contributed to the request (in, not_in, is_null, not_null).
+     */
+    device_id?: Array<Id>;
+    device_id_op?: AccessLogFilterOperator;
+    /**
+     * Owning user IDs of contributing devices (in, not_in).
+     */
+    user_id?: Array<Id>;
+    user_id_op?: AccessLogFilterOperator;
+    /**
+     * Authorizing network policy IDs (in, not_in, is_null, not_null).
+     */
+    network_policy_id?: Array<Id>;
+    network_policy_id_op?: AccessLogFilterOperator;
+    /**
+     * Filter by allow (true) / deny (false).
+     */
     outcome?: boolean;
     /**
-     * Filter by deny reason (see GET /access-log/deny-reasons for valid values)
+     * When true, return only entries whose IP resolved to more than one contributor.
      */
-    deny_reason?: string;
-    /**
-     * Exact client IP match
-     */
-    ip?: string;
-    /**
-     * Exact target host match
-     */
-    host?: string;
-    /**
-     * ISO 3166-1 alpha-2 country code filter (e.g. "DE")
-     */
-    country_code?: string;
-    /**
-     * Continent code filter (e.g. "EU")
-     */
-    continent_code?: string;
+    ambiguous?: boolean;
     /**
      * RFC3339 start of time window (default 24h ago)
      */
@@ -2186,22 +2265,39 @@ export type GetAccessLogData = {
      */
     to?: string;
     /**
+     * Sort column (default created_at). Join-derived columns are not sortable.
+     */
+    sort?:
+      | "created_at"
+      | "client_ip"
+      | "target_host"
+      | "http_method"
+      | "country_code"
+      | "deny_reason"
+      | "duration_us"
+      | "outcome";
+    /**
+     * Sort direction (default desc).
+     */
+    order?: "asc" | "desc";
+    /**
      * Page size (default 50, max 200)
      */
     limit?: number;
     /**
-     * Cursor; return rows with id < before_id
+     * Opaque pagination token from a previous response's next_cursor. Pass it back verbatim; do not construct it. Encodes the active sort.
+     *
      */
-    before_id?: Id;
-    /**
-     * Filter entries authorized by a specific network policy.
-     */
-    network_policy_id?: Id;
+    cursor?: string;
   };
   url: "/access-log";
 };
 
 export type GetAccessLogErrors = {
+  /**
+   * Invalid filter, sort, operator, or cursor
+   */
+  400: ErrorResponse;
   /**
    * Not authenticated
    */

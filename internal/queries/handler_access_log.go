@@ -2,11 +2,13 @@ package queries
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/queries/filterx"
 )
 
 func (h *HTTPHandler) GetAccessLog(
@@ -15,7 +17,14 @@ func (h *HTTPHandler) GetAccessLog(
 ) (httpapi.GetAccessLogResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetAccessLog")
 
-	query := NewAccessLogQuery(request.Params)
+	query, err := NewAccessLogQuery(request.Params)
+	if err != nil {
+		if errors.Is(err, filterx.ErrInvalidFilter) {
+			return httpapi.GetAccessLog400JSONResponse(errorMsgResponse(err.Error())), nil
+		}
+		h.logger.ErrorContext(ctx, "failed to build access log query", slog.Any(logging.AttrKeyError, err))
+		return httpapi.GetAccessLog500JSONResponse(errorMsgResponse("Failed to list access log")), nil
+	}
 
 	rows, total, err := h.repo.ListAccessLog(ctx, query)
 	if err != nil {
@@ -28,9 +37,15 @@ func (h *HTTPHandler) GetAccessLog(
 		httpRows[i] = toAccessLogRow(rows[i])
 	}
 
-	var nextCursor *int64
+	var nextCursor *string
 	if len(rows) == query.Limit {
-		nextCursor = &rows[len(rows)-1].ID
+		last := rows[len(rows)-1]
+		token, err := accessLogRegistry.EncodeCursor(query.Sort, query.Order, accessLogSortValue(last, query.Sort), last.ID)
+		if err != nil {
+			h.logger.ErrorContext(ctx, "failed to encode access log cursor", slog.Any(logging.AttrKeyError, err))
+			return httpapi.GetAccessLog500JSONResponse(errorMsgResponse("Failed to list access log")), nil
+		}
+		nextCursor = &token
 	}
 
 	return httpapi.GetAccessLog200JSONResponse(httpapi.AccessLogResponse{
@@ -78,17 +93,14 @@ func (h *HTTPHandler) GetAccessLogByCountry(
 }
 
 func toAccessLogRow(r AccessLogView) httpapi.AccessLogRow {
-	var deviceID *int64
-	if r.DeviceID != nil {
-		deviceID = new(r.DeviceID.Int64())
-	}
-	var addressID *int64
-	if r.AddressID != nil {
-		addressID = new(r.AddressID.Int64())
-	}
 	var asn *int
 	if r.ASN != nil {
 		asn = new(int(*r.ASN))
+	}
+
+	contributors := make([]httpapi.AccessLogContributor, len(r.Contributors))
+	for i, c := range r.Contributors {
+		contributors[i] = toAccessLogContributor(c)
 	}
 
 	return httpapi.AccessLogRow{
@@ -97,9 +109,8 @@ func toAccessLogRow(r AccessLogView) httpapi.AccessLogRow {
 		Outcome:           r.Outcome,
 		ClientIp:          r.ClientIP,
 		DenyReason:        r.DenyReason,
-		DeviceId:          deviceID,
-		DeviceName:        r.DeviceName,
-		AddressId:         addressID,
+		Contributors:      contributors,
+		ContributorCount:  r.ContributorCount,
 		XffChain:          r.XFFChain,
 		TargetHost:        r.TargetHost,
 		TargetUri:         r.TargetURI,
@@ -113,5 +124,28 @@ func toAccessLogRow(r AccessLogView) httpapi.AccessLogRow {
 		DurationUs:        &r.DurationUs,
 		NetworkPolicyId:   r.NetworkPolicyID,
 		NetworkPolicyName: r.NetworkPolicyName,
+	}
+}
+
+func toAccessLogContributor(c AccessLogContributor) httpapi.AccessLogContributor {
+	var deviceID *httpapi.ID
+	if c.DeviceID != nil {
+		deviceID = new(c.DeviceID.Int64())
+	}
+	var userID *httpapi.ID
+	if c.UserID != nil {
+		userID = new(c.UserID.Int64())
+	}
+	var addressID *httpapi.ID
+	if c.AddressID != nil {
+		addressID = new(c.AddressID.Int64())
+	}
+
+	return httpapi.AccessLogContributor{
+		DeviceId:   deviceID,
+		DeviceName: c.DeviceName,
+		UserId:     userID,
+		UserName:   c.UserName,
+		AddressId:  addressID,
 	}
 }
