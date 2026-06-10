@@ -71,6 +71,17 @@ func grantUserToGroup(t *testing.T, db *database.DB, userID ids.UserID, groupID 
 	}
 }
 
+func setUserBypass(t *testing.T, db *database.DB, userID ids.UserID, bypass bool) {
+	t.Helper()
+	if _, err := db.ExecContext(t.Context(),
+		`INSERT INTO user_host_settings (user_id, bypass_host_check) VALUES (?, ?)
+		 ON CONFLICT (user_id) DO UPDATE SET bypass_host_check = excluded.bypass_host_check`,
+		userID, bypass,
+	); err != nil {
+		t.Fatalf("setUserBypass: %v", err)
+	}
+}
+
 // ── GetHostGroupsDetails ──────────────────────────────────────────────────────
 
 func TestRepository_GetHostGroupsDetails_EmptyGroups(t *testing.T) {
@@ -185,4 +196,79 @@ func TestRepository_GetHostGroupsDetails_UpdatedAtPopulated(t *testing.T) {
 	is.Equal(len(result.Groups), 1)
 	is.True(!time.Time(result.Groups[0].UpdatedAt).IsZero())
 	is.True(!time.Time(result.Groups[0].CreatedAt).IsZero())
+}
+
+// ── GetHostGroupsDetails: bypass reach (effective access beyond explicit grants) ──────────────
+
+func TestRepository_GetHostGroupsDetails_BypassSubjectCount_UsersAndPolicies(t *testing.T) {
+	is := is.New(t)
+	repos := setupRepos(t)
+
+	groupID := insertTestHostGroup(t, repos.db, "media")
+
+	// alice: explicit group grant, no bypass — counted in users, not in bypass
+	alice := insertTestUserRaw(t, repos.db, "alice", false)
+	grantUserToGroup(t, repos.db, alice, groupID)
+
+	// charlie & diana: reach every host via bypass, regardless of group membership
+	charlie := insertTestUserRaw(t, repos.db, "charlie", false)
+	setUserBypass(t, repos.db, charlie, true)
+	diana := insertTestUserRaw(t, repos.db, "diana", false)
+	setUserBypass(t, repos.db, diana, true)
+
+	// corp-vpn: bypass policy, reaches every host regardless of group assignment
+	insertTestPolicy(t, repos.db, "corp-vpn", "10.0.0.0/8", true)
+	// scoped-net: non-bypass policy, explicitly assigned to this group
+	scoped := insertTestPolicy(t, repos.db, "scoped-net", "192.168.1.0/24", false)
+	assignGroupToPolicy(t, repos.db, scoped, groupID)
+
+	result, err := repos.queries.GetHostGroupsDetails(t.Context())
+	is.NoErr(err)
+	is.Equal(len(result.Groups), 1)
+
+	g := result.Groups[0]
+	is.Equal(len(*g.Users), 1)          // alice only (explicit grant)
+	is.Equal(len(g.NetworkPolicies), 1) // scoped-net only (explicit assignment)
+	is.Equal(g.BypassSubjectCount, 3)   // charlie + diana + corp-vpn
+}
+
+func TestRepository_GetHostGroupsDetails_BypassSubjectCount_ExcludesAlreadyGranted(t *testing.T) {
+	is := is.New(t)
+	repos := setupRepos(t)
+
+	groupID := insertTestHostGroup(t, repos.db, "shared")
+
+	// charlie has both an explicit group grant AND bypass — must not be double counted.
+	charlie := insertTestUserRaw(t, repos.db, "charlie", false)
+	grantUserToGroup(t, repos.db, charlie, groupID)
+	setUserBypass(t, repos.db, charlie, true)
+
+	// corp-vpn is both assigned to the group AND a bypass policy — must not be double counted.
+	corpVPN := insertTestPolicy(t, repos.db, "corp-vpn", "10.0.0.0/8", true)
+	assignGroupToPolicy(t, repos.db, corpVPN, groupID)
+
+	result, err := repos.queries.GetHostGroupsDetails(t.Context())
+	is.NoErr(err)
+	is.Equal(len(result.Groups), 1)
+
+	g := result.Groups[0]
+	is.Equal(len(*g.Users), 1)
+	is.Equal(len(g.NetworkPolicies), 1)
+	is.Equal(g.BypassSubjectCount, 0) // both bypass subjects already listed as explicit grants
+}
+
+func TestRepository_GetHostGroupsDetails_BypassSubjectCount_ZeroWhenNoBypass(t *testing.T) {
+	is := is.New(t)
+	repos := setupRepos(t)
+
+	groupID := insertTestHostGroup(t, repos.db, "plain")
+	alice := insertTestUserRaw(t, repos.db, "alice", false)
+	grantUserToGroup(t, repos.db, alice, groupID)
+	setUserBypass(t, repos.db, alice, false)
+	insertTestPolicy(t, repos.db, "scoped-net", "192.168.1.0/24", false)
+
+	result, err := repos.queries.GetHostGroupsDetails(t.Context())
+	is.NoErr(err)
+	is.Equal(len(result.Groups), 1)
+	is.Equal(result.Groups[0].BypassSubjectCount, 0)
 }

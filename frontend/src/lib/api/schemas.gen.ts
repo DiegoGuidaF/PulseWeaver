@@ -1924,6 +1924,7 @@ export const GroupDetailWithUsersSchema = {
     },
     {
       type: "object",
+      required: ["bypass_subject_count"],
       properties: {
         users: {
           type: "array",
@@ -1932,6 +1933,12 @@ export const GroupDetailWithUsersSchema = {
           items: {
             $ref: "#/components/schemas/UserSummary",
           },
+        },
+        bypass_subject_count: {
+          type: "integer",
+          description:
+            "Count of users and network policies that reach this group's hosts via\nbypass_host_check (allow-all-hosts), beyond the explicit grants listed in\nusers/network_policies above. Reflects effective reach, not just configured grants.\n",
+          example: 2,
         },
       },
     },

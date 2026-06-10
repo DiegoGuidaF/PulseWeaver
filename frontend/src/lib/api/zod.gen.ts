@@ -574,6 +574,7 @@ export const zGroupDetail = z.object({
 export const zGroupDetailWithUsers = zGroupDetail.and(
   z.object({
     users: z.array(zUserSummary).optional(),
+    bypass_subject_count: z.int(),
   }),
 );
 

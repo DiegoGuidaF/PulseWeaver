@@ -154,21 +154,58 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 		},
 	)
 
+	// Q4: subjects that reach every host (including this group's) via bypass_host_check —
+	// independent of group membership, since bypass ignores group scoping entirely.
+	type bypassUserRow struct {
+		UserID ids.UserID `db:"id"`
+	}
+	const bypassUsersQuery = `
+		SELECT u.id
+		FROM users u
+		JOIN user_host_settings uhs ON uhs.user_id = u.id
+		WHERE u.deleted_at IS NULL AND uhs.bypass_host_check = 1
+	`
+	var bypassUserRows []bypassUserRow
+	if err := r.db.SelectContext(ctx, &bypassUserRows, bypassUsersQuery); err != nil {
+		return httpapi.GroupListResponse{}, fmt.Errorf("get bypass users: %w", err)
+	}
+	bypassUserIDs := make(map[ids.UserID]struct{}, len(bypassUserRows))
+	for _, ur := range bypassUserRows {
+		bypassUserIDs[ur.UserID] = struct{}{}
+	}
+
+	type bypassPolicyRow struct {
+		PolicyID ids.NetworkPolicyID `db:"id"`
+	}
+	const bypassPoliciesQuery = `
+		SELECT id FROM network_policies WHERE bypass_host_check = 1
+	`
+	var bypassPolicyRows []bypassPolicyRow
+	if err := r.db.SelectContext(ctx, &bypassPolicyRows, bypassPoliciesQuery); err != nil {
+		return httpapi.GroupListResponse{}, fmt.Errorf("get bypass network policies: %w", err)
+	}
+	bypassPolicyIDs := make(map[ids.NetworkPolicyID]struct{}, len(bypassPolicyRows))
+	for _, pr := range bypassPolicyRows {
+		bypassPolicyIDs[pr.PolicyID] = struct{}{}
+	}
+
 	groups := collate.Collapse(groupRows,
 		func(rw groupRow) ids.HostGroupID { return rw.ID },
 		func(rw groupRow) httpapi.GroupDetailWithUsers {
 			users := collate.OrEmpty(usersByGroup[rw.ID])
+			policies := collate.OrEmpty(policiesByGroup[rw.ID])
 			return httpapi.GroupDetailWithUsers{
-				Id:              rw.ID.Int64(),
-				Name:            rw.Name,
-				Color:           rw.Color,
-				Description:     rw.Description,
-				Icon:            rw.Icon,
-				CreatedAt:       httpapi.UTCTime(rw.CreatedAt),
-				UpdatedAt:       httpapi.UTCTime(rw.UpdatedAt),
-				Hosts:           []httpapi.HostSummary{},
-				Users:           &users,
-				NetworkPolicies: collate.OrEmpty(policiesByGroup[rw.ID]),
+				Id:                 rw.ID.Int64(),
+				Name:               rw.Name,
+				Color:              rw.Color,
+				Description:        rw.Description,
+				Icon:               rw.Icon,
+				CreatedAt:          httpapi.UTCTime(rw.CreatedAt),
+				UpdatedAt:          httpapi.UTCTime(rw.UpdatedAt),
+				Hosts:              []httpapi.HostSummary{},
+				Users:              &users,
+				NetworkPolicies:    policies,
+				BypassSubjectCount: bypassReachCount(bypassUserIDs, users, bypassPolicyIDs, policies),
 			}
 		},
 		func(rw groupRow) (httpapi.HostSummary, bool) {
@@ -183,6 +220,30 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 		func(g *httpapi.GroupDetailWithUsers, h httpapi.HostSummary) { g.Hosts = append(g.Hosts, h) },
 	)
 	return httpapi.GroupListResponse{Groups: groups}, nil
+}
+
+// bypassReachCount counts subjects (users and network policies) that reach this group's
+// hosts via bypass_host_check, excluding any already present in the group's explicit
+// grant lists — bypass ignores group scoping, so the same subject must not be counted twice.
+func bypassReachCount(
+	bypassUserIDs map[ids.UserID]struct{}, grantedUsers []httpapi.UserSummary,
+	bypassPolicyIDs map[ids.NetworkPolicyID]struct{}, grantedPolicies []httpapi.NetworkPolicyRef,
+) int {
+	extraUsers := len(bypassUserIDs)
+	for _, u := range grantedUsers {
+		if _, ok := bypassUserIDs[ids.UserID(u.Id)]; ok {
+			extraUsers--
+		}
+	}
+
+	extraPolicies := len(bypassPolicyIDs)
+	for _, p := range grantedPolicies {
+		if _, ok := bypassPolicyIDs[ids.NetworkPolicyID(p.Id)]; ok {
+			extraPolicies--
+		}
+	}
+
+	return extraUsers + extraPolicies
 }
 
 func (r *Repository) GetHostSuggestionsPage(ctx context.Context) (httpapi.HostSuggestionsPage, error) {

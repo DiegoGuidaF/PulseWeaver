@@ -923,6 +923,13 @@ export type GroupDetailWithUsers = GroupDetail & {
    * Users with access to this group (read-only, managed via subjects).
    */
   users?: Array<UserSummary>;
+  /**
+   * Count of users and network policies that reach this group's hosts via
+   * bypass_host_check (allow-all-hosts), beyond the explicit grants listed in
+   * users/network_policies above. Reflects effective reach, not just configured grants.
+   *
+   */
+  bypass_subject_count: number;
 };
 
 export type SubjectGroupDetail = GroupDetail & {

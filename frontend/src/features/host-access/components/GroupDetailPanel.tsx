@@ -14,7 +14,13 @@ import {
   Title,
   Tooltip,
 } from "@mantine/core";
-import { IconArrowBackUp, IconArrowRight, IconPencil, IconTrash } from "@tabler/icons-react";
+import {
+  IconArrowBackUp,
+  IconArrowRight,
+  IconPencil,
+  IconShieldOff,
+  IconTrash,
+} from "@tabler/icons-react";
 import type { GroupDetailWithUsers, Id } from "@/lib/api";
 import { ROUTES } from "@/lib/routes";
 import type { DraftGroup, GroupsDiff } from "@/features/host-access/drafts/hostGroupsDraft";
@@ -173,15 +179,38 @@ export function GroupDetailPanel({
 function AccessPanel({ serverGroup }: { serverGroup: GroupDetailWithUsers }) {
   const users = serverGroup.users ?? [];
   const policies = serverGroup.network_policies;
+  const bypassCount = serverGroup.bypass_subject_count;
 
-  if (users.length === 0 && policies.length === 0) return null;
+  if (users.length === 0 && policies.length === 0 && bypassCount === 0) return null;
 
   return (
     <>
       <Divider />
       <Stack gap="xs">
-        <Text size="sm" fw={600} c="dimmed">
-          Access · read-only
+        <Group gap="xs" wrap="wrap">
+          <Text size="sm" fw={600} c="dimmed">
+            Access · read-only
+          </Text>
+          {bypassCount > 0 && (
+            <Tooltip
+              label="Subjects with bypass enabled reach every host, including this group's — regardless of group membership"
+              withArrow
+              multiline
+              maw={280}
+            >
+              <Badge
+                variant="light"
+                color="yellow"
+                size="sm"
+                leftSection={<IconShieldOff size={12} />}
+              >
+                +{bypassCount} via bypass
+              </Badge>
+            </Tooltip>
+          )}
+        </Group>
+        <Text size="xs" c="dimmed">
+          Effective reach = group grants below + subjects bypassing the host allowlist.
         </Text>
         <SimpleGrid cols={2} spacing="md">
           <Stack gap="xs">
