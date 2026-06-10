@@ -145,6 +145,8 @@ export function createMockAddressHistoryEvent(
     source: 'heartbeat',
     device_id: 1,
     device_name: 'Test Device',
+    ip_changed: false,
+    is_refresh: false,
     ...overrides,
   };
 }

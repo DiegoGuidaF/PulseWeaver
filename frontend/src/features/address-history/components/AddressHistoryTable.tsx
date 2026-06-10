@@ -237,6 +237,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                     minHeight={150}
                     noRecordsText="No address events found."
                     columns={columns}
+                    rowStyle={(r) => (r.is_refresh ? { opacity: 0.55 } : undefined)}
                 />
             </div>
 

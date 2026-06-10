@@ -1,18 +1,21 @@
 import {
     Anchor,
     Badge,
+    Group,
     SegmentedControl,
     Select,
     Stack,
     Text,
     TextInput,
+    ThemeIcon,
+    Tooltip,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { IconSearch } from "@tabler/icons-react";
+import { IconArrowsRightLeft, IconSearch } from "@tabler/icons-react";
 import type { DataTableColumn } from "mantine-datatable";
 import type { AddressHistoryEvent } from "@/lib/api";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
-import { SOURCE_LABELS } from "../constants";
+import { SOURCE_LABELS, formatGapDuration } from "../constants";
 import dayjs from "dayjs";
 
 const refDateStyle = {
@@ -20,6 +23,50 @@ const refDateStyle = {
     outlineOffset: -1.5,
     borderRadius: "var(--mantine-radius-sm)",
 } as const;
+
+function renderGapCell({ gapSeconds, ttlSeconds }: { gapSeconds: number | null | undefined; ttlSeconds: number | null | undefined }) {
+    if (gapSeconds == null) {
+        return <Text size="sm" ff="monospace" c="dimmed">—</Text>;
+    }
+
+    const ratio = ttlSeconds ? gapSeconds / ttlSeconds : null;
+    let color: string | undefined;
+    let status: string | null = null;
+  if (ratio != null && ratio >= 1) {
+    color = "red";
+    status = "Above the TTL — Device lost access, consider raising the auto-expiry TTL or heartbeat frequency";
+  }else if (ratio != null && ratio > 0.9) {
+        color = "red";
+        status = "Too close to the TTL — consider raising the auto-expiry TTL or heartbeat frequency";
+    } else if (ratio != null && ratio > 0.7) {
+        color = "yellow";
+        status = "Approaching the TTL — keep an eye on heartbeat regularity";
+    }
+
+    const label = (
+        <Text size="sm" ff="monospace" c={color ?? "dimmed"}>
+            {formatGapDuration(gapSeconds)}
+        </Text>
+    );
+
+    if (ttlSeconds == null) return label;
+
+    return (
+        <Tooltip
+            label={
+                <Stack gap={2}>
+                    <Text size="xs">Device TTL: {formatGapDuration(ttlSeconds)}</Text>
+                    {status && <Text size="xs" c={color}>{status}</Text>}
+                </Stack>
+            }
+            withArrow
+            multiline
+            w={230}
+        >
+            {label}
+        </Tooltip>
+    );
+}
 
 function sourceBadgeColor(source: string): string {
     switch (source) {
@@ -129,6 +176,11 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
             ),
         },
         {
+            accessor: "time_gap_seconds",
+            title: "Δ prev",
+            render: (row) => renderGapCell({ gapSeconds: row.time_gap_seconds, ttlSeconds: row.ttl_seconds }),
+        },
+        {
             accessor: "device_name",
             title: "Device",
             filter: ({ close }) => (
@@ -166,9 +218,18 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
             ),
             filtering: !!deps.ipDebounced,
             render: (row) => (
-                <Text size="sm" ff="monospace">
-                    {row.ip}
-                </Text>
+                <Group gap={6} wrap="nowrap">
+                    <Text size="sm" ff="monospace">
+                        {row.ip}
+                    </Text>
+                    {row.ip_changed && (
+                        <Tooltip label="IP changed from this device's previous event" withArrow>
+                            <ThemeIcon size="xs" variant="transparent" color="indigo">
+                                <IconArrowsRightLeft size={12} />
+                            </ThemeIcon>
+                        </Tooltip>
+                    )}
+                </Group>
             ),
         },
         {
