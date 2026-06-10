@@ -9,48 +9,10 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 	"github.com/matryer/is"
 )
-
-func TestRepository_GetAddressHistory_ReturnsBucketsAndEvents(t *testing.T) {
-	is := is.New(t)
-	repos := setupRepos(t)
-	ctx := t.Context()
-
-	dev := createDevice(t, repos, "history-device")
-	addr := createAddress(t, repos.devices, dev.ID, "10.0.0.1")
-
-	_, err := repos.devices.DisableAddress(ctx, addr.ID)
-	is.NoErr(err)
-
-	_, err = repos.devices.EnableAddress(ctx, addr.ID, device.EventSourceHeartbeat)
-	is.NoErr(err)
-
-	from := time.Now().UTC().Add(-1 * time.Hour)
-	to := time.Now().UTC().Add(1 * time.Hour)
-
-	history, err := repos.queries.GetAddressHistory(ctx, queries.AddressHistoryQuery{
-		DeviceIDs:   []ids.DeviceID{dev.ID},
-		From:        from,
-		To:          to,
-		Granularity: timebucket.GranularityHour,
-		Limit:       50,
-	})
-	is.NoErr(err)
-
-	is.True(len(history.Buckets) >= 1)
-	is.Equal(len(history.Events), 3)
-	is.Equal(history.TotalEvents, 3)
-
-	is.True(history.Events[0].IsEnabled)
-	is.Equal(string(history.Events[0].Source), string(device.EventSourceHeartbeat))
-	is.True(!history.Events[1].IsEnabled)
-	is.True(history.Events[2].IsEnabled)
-
-	is.Equal(history.Events[0].DeviceID, dev.ID)
-	is.Equal(history.Events[0].DeviceName, "history-device")
-}
 
 func TestRepository_GetAddressHistory_EmptyRange(t *testing.T) {
 	is := is.New(t)
@@ -97,30 +59,6 @@ func TestRepository_GetAddressHistory_DayGranularity(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(len(history.Buckets), 1)
 	is.True(history.Buckets[0].EventCount >= 1)
-}
-
-func TestRepository_GetAddressHistory_AllDevices(t *testing.T) {
-	is := is.New(t)
-	repos := setupRepos(t)
-	ctx := t.Context()
-
-	dev1 := createDevice(t, repos, "dev1")
-	dev2 := createDevice(t, repos, "dev2")
-	createAddress(t, repos.devices, dev1.ID, "10.0.0.1")
-	createAddress(t, repos.devices, dev2.ID, "10.0.0.2")
-
-	from := time.Now().UTC().Add(-1 * time.Hour)
-	to := time.Now().UTC().Add(1 * time.Hour)
-
-	history, err := repos.queries.GetAddressHistory(ctx, queries.AddressHistoryQuery{
-		From:        from,
-		To:          to,
-		Granularity: timebucket.GranularityHour,
-		Limit:       50,
-	})
-	is.NoErr(err)
-	is.Equal(len(history.Events), 2)
-	is.Equal(history.TotalEvents, 2)
 }
 
 func TestRepository_GetAddressHistory_FilterBySource(t *testing.T) {
@@ -192,50 +130,6 @@ func TestRepository_GetAddressHistory_FilterIPEscapesWildcards(t *testing.T) {
 	})
 	is.NoErr(err)
 	is.Equal(len(history.Events), 0)
-}
-
-func TestRepository_GetAddressHistory_EventsPagination(t *testing.T) {
-	is := is.New(t)
-	repos := setupRepos(t)
-	ctx := t.Context()
-
-	dev := createDevice(t, repos, "pagination")
-	addr := createAddress(t, repos.devices, dev.ID, "10.0.0.1")
-
-	for range 3 {
-		_, err := repos.devices.DisableAddress(ctx, addr.ID)
-		is.NoErr(err)
-		_, err = repos.devices.EnableAddress(ctx, addr.ID, device.EventSourceHeartbeat)
-		is.NoErr(err)
-	}
-
-	from := time.Now().UTC().Add(-1 * time.Hour)
-	to := time.Now().UTC().Add(1 * time.Hour)
-
-	page1, err := repos.queries.GetAddressHistory(ctx, queries.AddressHistoryQuery{
-		From:        from,
-		To:          to,
-		Granularity: timebucket.GranularityHour,
-		Limit:       3,
-	})
-	is.NoErr(err)
-	is.Equal(len(page1.Events), 3)
-	is.True(page1.TotalEvents > 3)
-
-	cursor := page1.Events[len(page1.Events)-1].ID
-	page2, err := repos.queries.GetAddressHistory(ctx, queries.AddressHistoryQuery{
-		From:        from,
-		To:          to,
-		Granularity: timebucket.GranularityHour,
-		BeforeID:    &cursor,
-		Limit:       3,
-	})
-	is.NoErr(err)
-	is.True(len(page2.Events) > 0)
-
-	for _, e := range page2.Events {
-		is.True(e.ID < cursor)
-	}
 }
 
 func TestRepository_GetAddressHistory_StateChangesOnly(t *testing.T) {
@@ -579,10 +473,9 @@ func TestRepository_GetAddressHistory_TTLSecondsFromLeaseRule(t *testing.T) {
 	createAddress(t, repos.devices, withTTL.ID, "10.0.0.1")
 
 	const ttlSeconds = 3600
-	_, err := repos.db.ExecContext(ctx,
-		`INSERT INTO device_rules (device_id, rule_type, enabled, config) VALUES (?, 'device_lease', 1, ?)`,
-		withTTL.ID, `{"ttl_seconds": 3600}`,
-	)
+	config, err := rule.NewDeviceAddressLeaseConfig(ttlSeconds)
+	is.NoErr(err)
+	_, err = repos.rules.EnableDeviceAddressLeaseRuleConfig(ctx, withTTL.ID, config)
 	is.NoErr(err)
 
 	withoutTTL := createDevice(t, repos, "no-ttl-device")

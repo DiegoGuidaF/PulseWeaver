@@ -132,4 +132,8 @@ func TestHandler_GetAddressHistory_Pagination(t *testing.T) {
 	is.Equal(page2Resp.StatusCode(), http.StatusOK)
 	page2 := *page2Resp.JSON200
 	is.Equal(len(page2.Events), 2)
+
+	for _, e := range page2.Events {
+		is.True(e.Id < *page1.NextCursor)
+	}
 }

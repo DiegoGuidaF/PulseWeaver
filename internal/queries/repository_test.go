@@ -12,6 +12,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/matryer/is"
 )
@@ -21,6 +22,7 @@ type testRepos struct {
 	queries     *queries.Repository
 	devices     *device.Repository
 	leases      *lease.Repository
+	rules       *rule.Repository
 	accessLog   *accesslog.Repository
 	db          *database.DB
 	testOwnerID ids.UserID
@@ -49,6 +51,7 @@ func setupRepos(t *testing.T) testRepos {
 		queries:     queries.NewRepository(sqlxDB),
 		devices:     device.NewRepository(sqlxDB),
 		leases:      lease.NewRepository(sqlxDB),
+		rules:       rule.NewRepository(sqlxDB),
 		accessLog:   accesslog.NewRepository(sqlxDB),
 		db:          sqlxDB,
 		testOwnerID: ownerID,
