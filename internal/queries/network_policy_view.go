@@ -27,10 +27,12 @@ type NetworkPolicySummaryView struct {
 	Groups             []PolicyGroupRef
 }
 
-// PolicyGroupRef is a minimal group reference (id + name) used in list views.
+// PolicyGroupRef is a group display reference (id, name, color, icon) used in list views.
 type PolicyGroupRef struct {
-	ID   ids.HostGroupID
-	Name string
+	ID    ids.HostGroupID
+	Name  string
+	Color string
+	Icon  string
 }
 
 // PolicyHostGroupView is a host group annotated with its assignment state and full host list.
@@ -125,7 +127,7 @@ func (r *Repository) GetNetworkPolicySummaries(ctx context.Context) ([]NetworkPo
 	}
 
 	groupsQuery, groupArgs, err := sq.
-		Select("nphg.policy_id", "hg.id AS group_id", "hg.name").
+		Select("nphg.policy_id", "hg.id AS group_id", "hg.name", "hg.color", "hg.icon").
 		From("network_policy_allowed_host_groups nphg").
 		Join("host_groups hg ON hg.id = nphg.host_group_id").
 		Where(sq.Eq{"nphg.policy_id": policyIDs}).
@@ -139,6 +141,8 @@ func (r *Repository) GetNetworkPolicySummaries(ctx context.Context) ([]NetworkPo
 		PolicyID ids.NetworkPolicyID `db:"policy_id"`
 		GroupID  ids.HostGroupID     `db:"group_id"`
 		Name     string              `db:"name"`
+		Color    string              `db:"color"`
+		Icon     string              `db:"icon"`
 	}
 	var groupRows []groupRow
 	if err := r.db.SelectContext(ctx, &groupRows, groupsQuery, groupArgs...); err != nil {
@@ -148,8 +152,10 @@ func (r *Repository) GetNetworkPolicySummaries(ctx context.Context) ([]NetworkPo
 	groupsByPolicy := make(map[ids.NetworkPolicyID][]PolicyGroupRef, len(rows))
 	for _, gr := range groupRows {
 		groupsByPolicy[gr.PolicyID] = append(groupsByPolicy[gr.PolicyID], PolicyGroupRef{
-			ID:   gr.GroupID,
-			Name: gr.Name,
+			ID:    gr.GroupID,
+			Name:  gr.Name,
+			Color: gr.Color,
+			Icon:  gr.Icon,
 		})
 	}
 

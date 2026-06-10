@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { buildRoute } from "@/lib/routes";
-import { Badge, Button, Group, Text, ThemeIcon, Tooltip } from "@mantine/core";
+import { Badge, Button, Text, ThemeIcon, Tooltip } from "@mantine/core";
 import { IconNetwork } from "@tabler/icons-react";
 import { DataTable, type DataTableSortStatus } from "mantine-datatable";
 import { notifications } from "@mantine/notifications";
@@ -11,6 +11,7 @@ import { toErrorMessage } from "@/lib/api-client";
 import { EmptyState } from "@/components/EmptyState";
 import { formatEffectiveAccess } from "@/features/subjects/constants";
 import { GroupFilterBar } from "@/features/subjects/components/GroupFilterBar";
+import { GroupBadgeList } from "@/features/host-access/components/GroupBadgeList";
 import { classifyCidr, formatAddressCount } from "../constants";
 import { useDeleteNetworkPolicy } from "../hooks/useDeleteNetworkPolicy";
 import { DeleteNetworkPolicyModal } from "./DeleteNetworkPolicyModal";
@@ -21,7 +22,7 @@ interface Props {
 }
 
 function collectGroups(policies: NetworkPolicyListItem[]) {
-  const seen = new Map<number, { id: number; name: string }>();
+  const seen = new Map<number, NetworkPolicyListItem["groups"][number]>();
   for (const p of policies) {
     for (const g of p.groups) {
       if (!seen.has(g.id)) seen.set(g.id, g);
@@ -41,6 +42,15 @@ export function NetworkPoliciesTable({ policies, onNewPolicy }: Props) {
   });
 
   const deleteMutation = useDeleteNetworkPolicy({ onSuccess: () => setDeleteTarget(null) });
+
+  function toggleGroupFilter(groupId: number) {
+    setGroupFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  }
 
   const allGroups = useMemo(() => collectGroups(policies), [policies]);
 
@@ -134,26 +144,12 @@ export function NetworkPoliciesTable({ policies, onNewPolicy }: Props) {
               p.groups.length === 0 ? (
                 <Text size="sm" c="dimmed">—</Text>
               ) : (
-                <Group gap={4} wrap="wrap">
-                  {p.groups.map((g) => (
-                    <Badge
-                      key={g.id}
-                      size="xs"
-                      variant={groupFilter.has(g.id) ? "filled" : "outline"}
-                      color="indigo"
-                      style={{ cursor: "pointer" }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const next = new Set(groupFilter);
-                        if (next.has(g.id)) next.delete(g.id);
-                        else next.add(g.id);
-                        setGroupFilter(next);
-                      }}
-                    >
-                      {g.name}
-                    </Badge>
-                  ))}
-                </Group>
+                <GroupBadgeList
+                  groups={p.groups}
+                  size="xs"
+                  selected={groupFilter}
+                  onGroupClick={toggleGroupFilter}
+                />
               ),
           },
           {

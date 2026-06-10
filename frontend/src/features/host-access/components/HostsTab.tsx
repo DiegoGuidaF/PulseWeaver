@@ -3,7 +3,6 @@ import {
   Button,
   Card,
   Group,
-  MultiSelect,
   Pagination,
   Stack,
   Table,
@@ -17,6 +16,7 @@ import { IconArrowDown, IconArrowUp, IconArrowsSort, IconPlus, IconSearch } from
 import { useQueryClient } from "@tanstack/react-query";
 import type { GroupDetailWithUsers } from "@/lib/api";
 import { listHostsOptions } from "@/lib/api/@tanstack/react-query.gen";
+import { GroupFilterBar, UNGROUPED_GROUP_ID } from "@/features/subjects/components/GroupFilterBar";
 import { useReconcileHosts } from "@/features/host-access/hooks/useReconcileHosts";
 import { AddHostModal } from "@/features/host-access/components/AddHostModal";
 import { StagedChangesBar } from "@/features/host-access/components/StagedChangesBar";
@@ -42,7 +42,6 @@ interface Props {
   serverGroups: GroupDetailWithUsers[];
 }
 
-const UNGROUPED = "__ungrouped__";
 const PAGE_SIZE = 25;
 
 type SortCol = "fqdn" | "groups";
@@ -53,7 +52,7 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
   const reconcileHosts = useReconcileHosts();
 
   const [search, setSearch] = useState("");
-  const [groupFilter, setGroupFilter] = useState<string[]>([]);
+  const [groupFilter, setGroupFilter] = useState<Set<number>>(new Set());
   const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [page, setPage] = useState(1);
@@ -72,9 +71,9 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
     const term = search.toLowerCase().trim();
     return drafts.filter((d) => {
       if (term && !d.fqdn.toLowerCase().includes(term)) return false;
-      if (groupFilter.length === 0) return true;
-      if (groupFilter.includes(UNGROUPED) && d.groupIds.length === 0) return true;
-      return d.groupIds.some((id) => groupFilter.includes(String(id)));
+      if (groupFilter.size === 0) return true;
+      if (groupFilter.has(UNGROUPED_GROUP_ID) && d.groupIds.length === 0) return true;
+      return d.groupIds.some((id) => groupFilter.has(id));
     });
   }, [drafts, search, groupFilter]);
 
@@ -120,10 +119,12 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
   }
 
   function handleGroupClick(groupId: number) {
-    const key = String(groupId);
-    setGroupFilter((prev) =>
-      prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key],
-    );
+    setGroupFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
     setPage(1);
   }
 
@@ -131,12 +132,7 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
   const dirty = isDirtyHosts(state);
   const existingFqdns = drafts.map((d) => d.fqdn);
 
-  const groupSelectOptions = [
-    { value: UNGROUPED, label: "No group (unassigned)" },
-    ...serverGroups.map((g) => ({ value: String(g.id), label: g.name })),
-  ];
-
-  const addModalGroups = serverGroups.map((g) => ({ id: g.id, name: g.name }));
+  const addModalGroups = serverGroups.map((g) => ({ id: g.id, name: g.name, color: g.color, icon: g.icon }));
 
   function handleAdd(values: { fqdn: string; groupIds: number[] }) {
     const id: `new-${string}` = `new-${crypto.randomUUID()}`;
@@ -227,15 +223,11 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
               New host
             </Button>
           </Group>
-          <MultiSelect
-            placeholder="Filter by group"
-            size="md"
-            data={groupSelectOptions}
-            value={groupFilter}
-            onChange={(v) => { setGroupFilter(v); setPage(1); }}
-            clearable
-            searchable
-            maw={320}
+          <GroupFilterBar
+            availableGroups={serverGroups}
+            selected={groupFilter}
+            onChange={(next) => { setGroupFilter(next); setPage(1); }}
+            showUngrouped
           />
         </Stack>
 
@@ -269,6 +261,7 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
                       draft={d}
                       diff={diff}
                       serverGroups={serverGroups}
+                      groupFilter={groupFilter}
                       onGroupClick={handleGroupClick}
                       onDelete={() => dispatch({ type: "remove", id: d.id })}
                     />

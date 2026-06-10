@@ -1,7 +1,10 @@
-import { useState } from "react";
-import { Badge, Group, Menu, Text, UnstyledButton } from "@mantine/core";
-import { IconChevronDown } from "@tabler/icons-react";
-import { GroupBadge } from "@/features/host-access/components/GroupBadge";
+import { Group, UnstyledButton } from "@mantine/core";
+import { GroupChipPicker } from "@/features/host-access/components/GroupChipPicker";
+
+/** Sentinel id for the "no group assigned" pseudo-entry; real group ids are always positive. */
+export const UNGROUPED_GROUP_ID = -1;
+
+const UNGROUPED_ENTRY: FilterableGroup = { id: UNGROUPED_GROUP_ID, name: "Ungrouped" };
 
 interface FilterableGroup {
   id: number;
@@ -14,74 +17,23 @@ interface Props {
   availableGroups: FilterableGroup[];
   selected: Set<number>;
   onChange: (next: Set<number>) => void;
+  /** Adds an "Ungrouped" entry (id UNGROUPED_GROUP_ID) for filtering items with no group assigned. */
+  showUngrouped?: boolean;
 }
 
-export function GroupFilterBar({ availableGroups, selected, onChange }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const selectedGroups = availableGroups.filter((g) => selected.has(g.id));
-  const unselectedGroups = availableGroups.filter((g) => !selected.has(g.id));
-
-  function removeGroup(id: number) {
-    const next = new Set(selected);
-    next.delete(id);
-    onChange(next);
-  }
-
-  function addGroup(id: number) {
-    const next = new Set(selected);
-    next.add(id);
-    onChange(next);
-    setMenuOpen(false);
-  }
+export function GroupFilterBar({ availableGroups, selected, onChange, showUngrouped }: Props) {
+  const entries = showUngrouped ? [...availableGroups, UNGROUPED_ENTRY] : availableGroups;
 
   return (
     <Group gap="xs" wrap="wrap">
-      {selectedGroups.map((g) => (
-        <GroupBadge
-          key={g.id}
-          group={g}
-          size="sm"
-          variant="filled"
-          rightSection={
-            <UnstyledButton
-              onClick={() => removeGroup(g.id)}
-              style={{ display: "flex", alignItems: "center", marginLeft: 2 }}
-              aria-label={`Remove ${g.name} filter`}
-            >
-              <Text size="xs" lh={1}>×</Text>
-            </UnstyledButton>
-          }
-        />
-      ))}
-
-      {(unselectedGroups.length > 0 || selected.size === 0) && (
-        <Menu opened={menuOpen} onChange={setMenuOpen} position="bottom-start">
-          <Menu.Target>
-            {/* Badge rendered as <button> so Menu.Target's aria-haspopup/aria-expanded are valid */}
-            <Badge
-              component="button"
-              type="button"
-              variant="outline"
-              color="gray"
-              size="sm"
-              style={{ cursor: "pointer", minHeight: 24 }}
-              rightSection={<IconChevronDown size={10} />}
-            >
-              {selected.size === 0 ? "Group" : "+ group"}
-            </Badge>
-          </Menu.Target>
-          {unselectedGroups.length > 0 && (
-            <Menu.Dropdown>
-              {unselectedGroups.map((g) => (
-                <Menu.Item key={g.id} onClick={() => addGroup(g.id)}>
-                  {g.name}
-                </Menu.Item>
-              ))}
-            </Menu.Dropdown>
-          )}
-        </Menu>
-      )}
+      <GroupChipPicker
+        availableGroups={entries}
+        selected={selected}
+        onChange={onChange}
+        emptyLabel="Group"
+        addLabel="+ group"
+        removeAriaLabel={(name) => `Remove ${name} filter`}
+      />
 
       {selected.size > 0 && (
         <UnstyledButton

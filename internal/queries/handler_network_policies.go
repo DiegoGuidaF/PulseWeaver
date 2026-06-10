@@ -49,9 +49,9 @@ func (h *HTTPHandler) GetNetworkPolicy(
 }
 
 func toNetworkPolicySummaryResponse(s NetworkPolicySummaryView) httpapi.NetworkPolicyListItem {
-	groups := make([]httpapi.GroupRef, len(s.Groups))
+	groups := make([]httpapi.GroupSummary, len(s.Groups))
 	for i, g := range s.Groups {
-		groups[i] = httpapi.GroupRef{Id: g.ID.Int64(), Name: g.Name}
+		groups[i] = httpapi.GroupSummary{Id: g.ID.Int64(), Name: g.Name, Color: g.Color, Icon: g.Icon}
 	}
 	return httpapi.NetworkPolicyListItem{
 		Id:              s.ID.Int64(),

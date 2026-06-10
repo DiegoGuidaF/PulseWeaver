@@ -52,6 +52,15 @@ export function UsersPage() {
     direction: "asc",
   });
 
+  function toggleGroupFilter(groupId: number) {
+    setGroupFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  }
+
   const users = useMemo(() => data ?? [], [data]);
   const allGroups = useMemo(() => collectGroups(users), [users]);
 
@@ -141,7 +150,12 @@ export function UsersPage() {
                 u.groups.length === 0 ? (
                   <Text size="sm" c="dimmed">—</Text>
                 ) : (
-                  <GroupBadgeList groups={u.groups} size="xs" />
+                  <GroupBadgeList
+                    groups={u.groups}
+                    size="xs"
+                    selected={groupFilter}
+                    onGroupClick={toggleGroupFilter}
+                  />
                 ),
             },
             {

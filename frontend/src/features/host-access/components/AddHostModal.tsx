@@ -1,15 +1,23 @@
 import { useState } from "react";
-import { Button, Group, Modal, MultiSelect, Stack, Text, TextInput } from "@mantine/core";
+import { Button, Group, Modal, Stack, Text, TextInput } from "@mantine/core";
+import { GroupChipPicker } from "@/features/host-access/components/GroupChipPicker";
 
 export interface AddHostValues {
   fqdn: string;
   groupIds: number[];
 }
 
+interface PickableGroup {
+  id: number;
+  name: string;
+  color?: string | null;
+  icon?: string | null;
+}
+
 interface Props {
   opened: boolean;
   onClose: () => void;
-  groups: { id: number; name: string }[];
+  groups: PickableGroup[];
   existingFqdns: string[];
   onSubmit: (values: AddHostValues) => void;
 }
@@ -33,7 +41,7 @@ export function AddHostModal({ opened, onClose, groups, existingFqdns, onSubmit 
 }
 
 interface FormProps {
-  groups: { id: number; name: string }[];
+  groups: PickableGroup[];
   existingFqdns: string[];
   onSubmit: (values: AddHostValues) => void;
   onCancel: () => void;
@@ -41,7 +49,7 @@ interface FormProps {
 
 function AddHostForm({ groups, existingFqdns, onSubmit, onCancel }: FormProps) {
   const [fqdn, setFqdn] = useState("");
-  const [groupIds, setGroupIds] = useState<string[]>([]);
+  const [groupIds, setGroupIds] = useState<Set<number>>(new Set());
 
   const trimmed = fqdn.trim().toLowerCase();
   const duplicate = trimmed.length > 0 && existingFqdns.some((f) => f.toLowerCase() === trimmed);
@@ -49,7 +57,7 @@ function AddHostForm({ groups, existingFqdns, onSubmit, onCancel }: FormProps) {
 
   function handleSubmit() {
     if (!canSubmit) return;
-    onSubmit({ fqdn: trimmed, groupIds: groupIds.map(Number) });
+    onSubmit({ fqdn: trimmed, groupIds: [...groupIds] });
   }
 
   return (
@@ -67,16 +75,22 @@ function AddHostForm({ groups, existingFqdns, onSubmit, onCancel }: FormProps) {
       />
 
       {groups.length > 0 && (
-        <MultiSelect
-          label="Groups"
-          description="Optional — pick any existing groups this host should join."
-          placeholder="Search groups…"
-          data={groups.map((g) => ({ value: String(g.id), label: g.name }))}
-          value={groupIds}
-          onChange={setGroupIds}
-          searchable
-          clearable
-        />
+        <Stack gap={4}>
+          <Text size="sm" fw={500}>Groups</Text>
+          <Text size="xs" c="dimmed" mt={-4}>
+            Optional — pick any existing groups this host should join.
+          </Text>
+          <Group gap="xs" wrap="wrap">
+            <GroupChipPicker
+              availableGroups={groups}
+              selected={groupIds}
+              onChange={setGroupIds}
+              emptyLabel="Add group"
+              addLabel="+ group"
+              removeAriaLabel={(name) => `Remove ${name}`}
+            />
+          </Group>
+        </Stack>
       )}
 
       <Group justify="flex-end" gap="xs">

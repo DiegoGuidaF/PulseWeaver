@@ -69,7 +69,7 @@ describe('NetworkPoliciesPage', () => {
                     createMockNetworkPolicyListItem({
                         id: 1,
                         name: 'Policy In Group',
-                        groups: [{ id: 5, name: 'Engineering' }],
+                        groups: [{ id: 5, name: 'Engineering', color: '#000000', icon: 'server' }],
                     }),
                     createMockNetworkPolicyListItem({
                         id: 2,

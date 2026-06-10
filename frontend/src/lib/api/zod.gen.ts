@@ -496,20 +496,6 @@ export const zGroupRef = z.object({
 });
 
 /**
- * Network policy summary for the access management list page.
- */
-export const zNetworkPolicyListItem = z.object({
-  id: zId,
-  name: z.string(),
-  cidr: z.string(),
-  enabled: z.boolean(),
-  groups: z.array(zGroupRef),
-  host_count: z.int().gte(0),
-  bypass_host_check: z.boolean(),
-  created_at: z.iso.datetime({ offset: true, local: true }),
-});
-
-/**
  * Group display reference used in host list rows (renders group pills).
  */
 export const zGroupSummary = z.object({
@@ -528,6 +514,20 @@ export const zDeviceListOwner = z.object({
   host_groups: z.array(zGroupSummary),
   device_count: z.int().gte(0),
   live_address_count: z.int().gte(0),
+});
+
+/**
+ * Network policy summary for the access management list page.
+ */
+export const zNetworkPolicyListItem = z.object({
+  id: zId,
+  name: z.string(),
+  cidr: z.string(),
+  enabled: z.boolean(),
+  groups: z.array(zGroupSummary),
+  host_count: z.int().gte(0),
+  bypass_host_check: z.boolean(),
+  created_at: z.iso.datetime({ offset: true, local: true }),
 });
 
 /**

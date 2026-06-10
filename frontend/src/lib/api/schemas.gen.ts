@@ -1282,7 +1282,7 @@ export const NetworkPolicyListItemSchema = {
     groups: {
       type: "array",
       items: {
-        $ref: "#/components/schemas/GroupRef",
+        $ref: "#/components/schemas/GroupSummary",
       },
     },
     host_count: {

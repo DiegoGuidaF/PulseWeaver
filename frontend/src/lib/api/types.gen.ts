@@ -587,7 +587,7 @@ export type NetworkPolicyListItem = {
    */
   cidr: string;
   enabled: boolean;
-  groups: Array<GroupRef>;
+  groups: Array<GroupSummary>;
   /**
    * Total hosts accessible across all assigned groups.
    */
