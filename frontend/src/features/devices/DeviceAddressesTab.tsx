@@ -406,29 +406,31 @@ export function DeviceAddressesTab({ deviceId, isDisabled = false }: DeviceAddre
             {addressSearch ? "No addresses match." : "No active addresses."}
           </Text>
         ) : (
-          <Table highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>IP</Table.Th>
-                <Table.Th>State</Table.Th>
-                <Table.Th>Updated · via</Table.Th>
-                <Table.Th>Lifetime</Table.Th>
-                <Table.Th>Expires in</Table.Th>
-                <Table.Th w={48} />
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {filteredActive.map((a) => (
-                <AddressRow
-                  key={a.id}
-                  address={a}
-                  formatDateTime={formatDateTime}
-                  onToggle={handleToggle}
-                  togglePending={togglePending}
-                />
-              ))}
-            </Table.Tbody>
-          </Table>
+          <Table.ScrollContainer minWidth={480}>
+            <Table highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>IP</Table.Th>
+                  <Table.Th>State</Table.Th>
+                  <Table.Th>Updated · via</Table.Th>
+                  <Table.Th>Lifetime</Table.Th>
+                  <Table.Th>Expires in</Table.Th>
+                  <Table.Th w={48} />
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {filteredActive.map((a) => (
+                  <AddressRow
+                    key={a.id}
+                    address={a}
+                    formatDateTime={formatDateTime}
+                    onToggle={handleToggle}
+                    togglePending={togglePending}
+                  />
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         )
       ) : (
         filteredStale.length === 0 ? (
@@ -436,47 +438,49 @@ export function DeviceAddressesTab({ deviceId, isDisabled = false }: DeviceAddre
             {addressSearch ? "No addresses match." : "No stale addresses."}
           </Text>
         ) : (
-          <Table highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>IP</Table.Th>
-                <Table.Th>Last seen · via</Table.Th>
-                <Table.Th>Inactive since</Table.Th>
-                <Table.Th>Lifetime</Table.Th>
-                <Table.Th w={90} />
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {filteredStale.map((a) => (
-                <Table.Tr key={a.id}>
-                  <Table.Td ff="monospace" fz="sm">{a.ip}</Table.Td>
-                  <Table.Td>
-                    <Text size="xs" c="dimmed">
-                      {formatDateTime(a.updated_at)} · {SOURCE_LABELS[a.source] ?? a.source}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="xs" c="dimmed">{formatDateTime(a.updated_at)}</Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="xs" c="dimmed">
-                      {formatDuration(a.created_at, a.updated_at)}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Button
-                      size="xs"
-                      variant="subtle"
-                      onClick={() => handleReEnable(a)}
-                      loading={addMutation.isPending}
-                    >
-                      Re-enable
-                    </Button>
-                  </Table.Td>
+          <Table.ScrollContainer minWidth={480}>
+            <Table highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>IP</Table.Th>
+                  <Table.Th>Last seen · via</Table.Th>
+                  <Table.Th>Inactive since</Table.Th>
+                  <Table.Th>Lifetime</Table.Th>
+                  <Table.Th w={90} />
                 </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+              </Table.Thead>
+              <Table.Tbody>
+                {filteredStale.map((a) => (
+                  <Table.Tr key={a.id}>
+                    <Table.Td ff="monospace" fz="sm">{a.ip}</Table.Td>
+                    <Table.Td>
+                      <Text size="xs" c="dimmed">
+                        {formatDateTime(a.updated_at)} · {SOURCE_LABELS[a.source] ?? a.source}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="xs" c="dimmed">{formatDateTime(a.updated_at)}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="xs" c="dimmed">
+                        {formatDuration(a.created_at, a.updated_at)}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        onClick={() => handleReEnable(a)}
+                        loading={addMutation.isPending}
+                      >
+                        Re-enable
+                      </Button>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         )
       )}
         </>

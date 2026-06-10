@@ -15,7 +15,7 @@ import {
   ThemeIcon,
   Title,
 } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
+import { useLocalStorage, useMediaQuery } from "@mantine/hooks";
 import { IconChevronLeft } from "@tabler/icons-react";
 import classes from "./UserDevicesPage.module.css";
 import { ErrorState } from "@/components/ErrorState";
@@ -80,6 +80,7 @@ export function UserDevicesPage({ createMode = false }: UserDevicesPageProps) {
     defaultValue: 280,
     getInitialValueInEffect: false,
   });
+  const isDesktop = useMediaQuery("(min-width: 62em)", true, { getInitialValueInEffect: false });
 
   function handleResizeMouseDown(e: React.MouseEvent) {
     e.preventDefault();
@@ -148,20 +149,23 @@ export function UserDevicesPage({ createMode = false }: UserDevicesPageProps) {
     <Group
       align="stretch"
       gap={0}
-      wrap="nowrap"
+      wrap={isDesktop ? "nowrap" : "wrap"}
       style={{ maxWidth: 1280, width: "100%" }}
     >
-      {/* Left sidebar */}
+      {/* Left sidebar — full-width row above the content below the AppShell's md breakpoint;
+          the drag-to-resize handle only makes sense with a mouse, so it's desktop-only too. */}
       <Box
-        pr="lg"
+        pr={isDesktop ? "lg" : 0}
+        pb={isDesktop ? 0 : "lg"}
         style={{
-          width: sidebarWidth,
+          width: isDesktop ? sidebarWidth : "100%",
           flexShrink: 0,
           position: "relative",
-          borderRight: "1px solid var(--mantine-color-default-border)",
+          borderRight: isDesktop ? "1px solid var(--mantine-color-default-border)" : "none",
+          borderBottom: isDesktop ? "none" : "1px solid var(--mantine-color-default-border)",
         }}
       >
-        <Box className={classes.resizeHandle} onMouseDown={handleResizeMouseDown} />
+        {isDesktop && <Box className={classes.resizeHandle} onMouseDown={handleResizeMouseDown} />}
         <Stack gap="lg">
           <Anchor
             component={Link}
@@ -213,7 +217,12 @@ export function UserDevicesPage({ createMode = false }: UserDevicesPageProps) {
       </Box>
 
       {/* Right main content */}
-      <Stack pl="xl" gap="lg" style={{ flex: 1, minWidth: 0 }}>
+      <Stack
+        pl={isDesktop ? "xl" : 0}
+        pt={isDesktop ? 0 : "lg"}
+        gap="lg"
+        style={{ flex: 1, minWidth: isDesktop ? 0 : "100%" }}
+      >
         {createMode && group ? (
           <DeviceCreatePane
             ownerId={ownerId}
