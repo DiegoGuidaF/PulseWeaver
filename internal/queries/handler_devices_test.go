@@ -58,15 +58,19 @@ func TestHandler_GetDeviceAddresses_ReturnsDeviceAddresses(t *testing.T) {
 
 	var addresses []httpapi.Address
 	is.NoErr(json.NewDecoder(rec.Body).Decode(&addresses))
-	is.Equal(len(addresses), 1) // FixtureAddressAlice
+	is.Equal(len(addresses), 2) // FixtureAddressAlice
 
-	got := addresses[0]
-	is.Equal(got.Ip, testutils.FixtureAddressAlice.IP)
-	is.True(got.IsEnabled)
-	is.Equal(got.DeviceId, deviceID.Int64())
-	is.True(got.Id != 0)
-	is.True(!time.Time(got.CreatedAt).IsZero())
-	is.True(got.ExpiresAt == nil) // no lease seeded
+	for _, address := range addresses {
+		if address.Id == seed.Address(testutils.FixtureAddressAlice.Device, testutils.FixtureAddressAlice.IP).Int64() {
+			is.Equal(address.Ip, testutils.FixtureAddressAlice.IP)
+			is.True(address.IsEnabled)
+			is.Equal(address.DeviceId, deviceID.Int64())
+			is.True(address.Id != 0)
+			is.True(!time.Time(address.CreatedAt).IsZero())
+			is.True(address.ExpiresAt == nil) // no lease seeded
+		}
+	}
+
 }
 
 func TestHandler_GetDeviceAddresses_ExpiresAtPopulatedWithLease(t *testing.T) {

@@ -152,9 +152,10 @@ var (
 	FixtureLeaseRuleAliceLaptop     = DeviceLeaseRuleFixture{Device: FixtureDeviceWithOwnerAccess.Name, TTLSeconds: 3600}
 	FixtureMaxActiveRuleAliceLaptop = DeviceMaxActiveRuleFixture{Device: FixtureDeviceWithOwnerAccess.Name, MaxAddresses: 2}
 
-	FixtureAddressAlice  = AddressFixture{Device: FixtureDeviceWithOwnerAccess.Name, IP: "10.1.0.1"}
-	FixtureAddressBob    = AddressFixture{Device: FixtureDeviceWithoutOwnerAccess.Name, IP: "10.2.0.1"}
-	FixtureAddressShared = AddressFixture{Device: FixtureDeviceBypassAccess.Name, IP: "10.1.0.1"} // charlie shares alice's IP
+	FixtureAddressAlice         = AddressFixture{Device: FixtureDeviceWithOwnerAccess.Name, IP: "10.1.0.1"}
+	FixtureAddressAliceDisabled = AddressFixture{Device: FixtureDeviceWithOwnerAccess.Name, IP: "10.4.0.3", Disabled: true}
+	FixtureAddressBob           = AddressFixture{Device: FixtureDeviceWithoutOwnerAccess.Name, IP: "10.2.0.1"}
+	FixtureAddressShared        = AddressFixture{Device: FixtureDeviceBypassAccess.Name, IP: "10.1.0.1"} // charlie shares alice's IP
 
 	// diana owns two devices seeded purely to exercise the pairing summary statuses.
 	FixtureUserPairing          = UserFixture{Name: "diana"}
@@ -1073,6 +1074,7 @@ func SeedFullWorld(t *testing.T) *Seeder {
 		WithDeviceLeaseRule(FixtureLeaseRuleAliceLaptop).
 		WithDeviceMaxActiveRule(FixtureMaxActiveRuleAliceLaptop).
 		WithAddress(FixtureAddressAlice).
+		WithAddress(FixtureAddressAliceDisabled).
 		WithAddress(FixtureAddressBob).
 		WithAddress(FixtureAddressShared).
 		WithAddress(FixtureAddressAdmin).
