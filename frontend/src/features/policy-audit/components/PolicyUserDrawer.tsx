@@ -27,6 +27,7 @@ import {
 } from "@tabler/icons-react";
 import type { PolicyUserEntry, PolicyUserIp } from "@/lib/api";
 import { PolicyUserStatus } from "@/lib/api";
+import { AllHostsBypassPill } from "@/features/subjects/components/AllHostsBypassPill";
 
 dayjs.extend(relativeTime);
 
@@ -100,9 +101,7 @@ function DrawerIdentity({ user }: { user: PolicyUserEntry }) {
           {user.display_name}
         </Text>
         {status === PolicyUserStatus.BYPASS ? (
-          <Badge variant="light" color="orange" leftSection={<IconShieldOff size={12} />}>
-            Bypass
-          </Badge>
+          <AllHostsBypassPill />
         ) : (
           <>
             <Tooltip

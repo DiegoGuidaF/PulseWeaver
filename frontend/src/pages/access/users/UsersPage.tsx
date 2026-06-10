@@ -24,6 +24,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { GroupFilterBar } from "@/features/subjects/components/GroupFilterBar";
 import { GroupBadgeList } from "@/features/host-access/components/GroupBadgeList";
 import { formatEffectiveAccess } from "@/features/subjects/constants";
+import { AllHostsBypassPill } from "@/features/subjects/components/AllHostsBypassPill";
 import { CreateUserModal } from "@/features/auth/components/CreateUserModal";
 import { RoleChangeModal } from "@/features/auth/components/RoleChangeModal";
 import { DeleteUserModal } from "@/features/auth/components/DeleteUserModal";
@@ -176,10 +177,10 @@ export function UsersPage() {
                 if (u.role === UserRole.SUPERADMIN) {
                   return <Text size="sm" c="dimmed">—</Text>;
                 }
-                const text = formatEffectiveAccess(u);
                 if (u.bypass_host_check) {
-                  return <Badge size="sm" color="orange" variant="light">{text}</Badge>;
+                  return <AllHostsBypassPill />;
                 }
+                const text = formatEffectiveAccess(u);
                 return (
                   <Text size="sm" c={u.host_count === 0 ? "dimmed" : undefined}>
                     {text}

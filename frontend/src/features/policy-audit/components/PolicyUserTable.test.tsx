@@ -82,10 +82,10 @@ describe("PolicyUserTable", () => {
         expect(screen.getByText("Has access")).toBeInTheDocument();
     });
 
-    it("renders Bypass badge for bypass users", () => {
+    it("renders All hosts pill for bypass users", () => {
         renderTable([BYPASS]);
 
-        expect(screen.getByText("Bypass")).toBeInTheDocument();
+        expect(screen.getByText("All hosts")).toBeInTheDocument();
     });
 
     it("renders Offline + No host access badges for users with no live IPs and no grants", () => {

@@ -24,6 +24,7 @@ import {
 } from "@tabler/icons-react";
 import type { PolicyUserEntry, PolicyUserMapAudit } from "@/lib/api";
 import { PolicyUserStatus } from "@/lib/api";
+import { AllHostsBypassPill } from "@/features/subjects/components/AllHostsBypassPill";
 
 const MAX_VISIBLE_IPS = 3;
 
@@ -48,11 +49,7 @@ function matchesSearch(user: PolicyUserEntry, q: string): boolean {
  */
 function StatusBadges({ status }: { status: PolicyUserStatus }) {
   if (status === PolicyUserStatus.BYPASS) {
-    return (
-      <Badge variant="light" color="orange" size="sm" leftSection={<IconShieldOff size={12} />}>
-        Bypass
-      </Badge>
-    );
+    return <AllHostsBypassPill />;
   }
 
   const hasLiveIps =

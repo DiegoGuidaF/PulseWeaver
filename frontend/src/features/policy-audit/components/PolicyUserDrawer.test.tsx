@@ -101,7 +101,7 @@ describe("PolicyUserDrawer", () => {
         expect(screen.getByText("Has access")).toBeInTheDocument();
     });
 
-    it("shows Bypass badge for a bypass user", async () => {
+    it("shows All hosts pill for a bypass user", async () => {
         renderDrawer(BYPASS_USER);
 
         await waitFor(
@@ -109,7 +109,7 @@ describe("PolicyUserDrawer", () => {
             { timeout: TEST_TIMEOUTS.SHORT },
         );
 
-        expect(screen.getByText("Bypass")).toBeInTheDocument();
+        expect(screen.getByText("All hosts")).toBeInTheDocument();
     });
 
     it("shows Offline + No host access badges for a user with no live IPs and no grants", async () => {

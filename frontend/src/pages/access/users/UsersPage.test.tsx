@@ -84,7 +84,7 @@ describe('UsersPage', () => {
             );
         });
 
-        it('renders "bypass ✱" badge when bypass_host_check: true', async () => {
+        it('renders "All hosts" pill when bypass_host_check: true', async () => {
             const user = createMockUser({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
             const summary = createMockUserListItem({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER, bypass_host_check: true, host_count: 0 });
 
@@ -98,7 +98,7 @@ describe('UsersPage', () => {
 
             await waitFor(
                 () => {
-                    expect(screen.getByText('bypass ✱')).toBeInTheDocument();
+                    expect(screen.getByText('All hosts')).toBeInTheDocument();
                 },
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
