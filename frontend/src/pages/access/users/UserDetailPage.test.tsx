@@ -67,6 +67,7 @@ describe('UserDetailPage', () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
+            await user.click(screen.getByRole('tab', { name: /devices/i }));
             await user.click(screen.getByText('Charlie Laptop'));
 
             await waitFor(
@@ -75,7 +76,7 @@ describe('UserDetailPage', () => {
             );
         });
 
-        it('"User devices →" link points to the owner device workspace', async () => {
+        it('"Manage all devices →" link points to the owner device workspace', async () => {
             const user = userEvent.setup();
             renderUserDetailPage(5);
 
@@ -86,8 +87,25 @@ describe('UserDetailPage', () => {
             );
             await user.click(screen.getByRole('tab', { name: /devices/i }));
 
-            const allDevicesLink = screen.getByRole('link', { name: /user devices/i });
+            const allDevicesLink = screen.getByRole('link', { name: /manage all devices/i });
             expect(allDevicesLink).toHaveAttribute('href', buildRoute.userDevices(5));
+        });
+
+        it('opens the Devices tab when ?tab=devices is in the URL', async () => {
+            renderWithProviders(
+                <AuthProvider><UserDetailPage /></AuthProvider>,
+                { initialEntries: ['/access/users/5?tab=devices'], path: '/access/users/:id' },
+            );
+
+            await waitFor(
+                () => expect(screen.getByText('Charlie Laptop')).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.getByRole('tab', { name: /devices/i })).toHaveAttribute(
+                'aria-selected',
+                'true',
+            );
         });
     });
 

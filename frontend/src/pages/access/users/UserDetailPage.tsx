@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { ROUTES, buildRoute } from "@/lib/routes";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ROUTES } from "@/lib/routes";
 import {
   Anchor,
   Badge,
@@ -10,13 +10,11 @@ import {
   Group,
   Loader,
   Stack,
-  Table,
   Tabs,
   Text,
   Title,
 } from "@mantine/core";
-import { IconChevronLeft, IconDevices } from "@tabler/icons-react";
-import { EmptyState } from "@/components/EmptyState";
+import { IconChevronLeft } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { UserRole } from "@/lib/api";
 import { ErrorState } from "@/components/ErrorState";
@@ -24,6 +22,7 @@ import { useUserAccessDetail } from "@/features/subjects/hooks/useUserAccessDeta
 import { useSetUserAccess } from "@/features/subjects/hooks/useSetUserAccess";
 import { SubjectGroupsPanel } from "@/features/subjects/components/SubjectGroupsPanel";
 import { EffectiveHostsPanel } from "@/features/subjects/components/EffectiveHostsPanel";
+import { UserDevicesTab } from "@/features/subjects/components/UserDevicesTab";
 import {
   subjectAccessReducer,
   initialSubjectAccessDraft,
@@ -47,9 +46,23 @@ function roleBadgeColor(role: UserRole): string {
   return "gray";
 }
 
+const UserDetailTab = {
+  ACCESS: "access",
+  DEVICES: "devices",
+} as const;
+
+type UserDetailTabValue = (typeof UserDetailTab)[keyof typeof UserDetailTab];
+const VALID_USER_DETAIL_TABS = new Set<string>(Object.values(UserDetailTab));
+function resolveTab(raw: string | null): UserDetailTabValue {
+  return raw !== null && VALID_USER_DETAIL_TABS.has(raw)
+    ? (raw as UserDetailTabValue)
+    : UserDetailTab.ACCESS;
+}
+
 export function UserDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const userId = Number(id);
 
   const { data, isPending, isError, error, refetch } = useUserAccessDetail(userId);
@@ -174,18 +187,16 @@ export function UserDetailPage() {
                 </Badge>
               </Group>
               <Text size="sm" c="dimmed">
-                {data.username} · {data.devices.length}{" "}
-                {data.devices.length === 1 ? "device" : "devices"}
+                {data.username}
               </Text>
             </Stack>
 
             {!isSuperadmin && (
               <Group gap="sm">
-                <Badge
-                  size="sm"
-                  variant="outline"
+                <Button
+                  size="xs"
+                  variant="light"
                   color="indigo"
-                  style={{ cursor: "pointer" }}
                   onClick={() =>
                     setPendingRole({
                       userId: data.id,
@@ -195,28 +206,36 @@ export function UserDetailPage() {
                   }
                 >
                   {data.role === UserRole.ADMIN ? "Demote to user" : "Promote to admin"}
-                </Badge>
-                <Badge
-                  size="sm"
-                  variant="outline"
+                </Button>
+                <Button
+                  size="xs"
+                  variant="light"
                   color="red"
-                  style={{ cursor: "pointer" }}
-                  onClick={() =>
-                    setDeleteTarget({ id: data.id, username: data.username })
-                  }
+                  onClick={() => setDeleteTarget({ id: data.id, username: data.username })}
                 >
                   Delete
-                </Badge>
+                </Button>
               </Group>
             )}
           </Group>
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="access">
+        <Tabs
+          value={resolveTab(searchParams.get("tab"))}
+          onChange={(value) =>
+            setSearchParams(
+              (prev) => {
+                prev.set("tab", resolveTab(value));
+                return prev;
+              },
+              { replace: true },
+            )
+          }
+        >
           <Tabs.List>
-            <Tabs.Tab value="access">Access</Tabs.Tab>
-            <Tabs.Tab value="devices">
+            <Tabs.Tab value={UserDetailTab.ACCESS}>Access</Tabs.Tab>
+            <Tabs.Tab value={UserDetailTab.DEVICES}>
               Devices{" "}
               <Text span size="xs" c="dimmed">
                 {data.devices.length}
@@ -224,7 +243,7 @@ export function UserDetailPage() {
             </Tabs.Tab>
           </Tabs.List>
 
-          <Tabs.Panel value="access" pt="md">
+          <Tabs.Panel value={UserDetailTab.ACCESS} pt="md">
             <Grid>
               <Grid.Col span={{ base: 12, md: 5 }}>
                 <SubjectGroupsPanel
@@ -244,64 +263,8 @@ export function UserDetailPage() {
             </Grid>
           </Tabs.Panel>
 
-          <Tabs.Panel value="devices" pt="md">
-            {data.devices.length === 0 ? (
-              <EmptyState
-                icon={IconDevices}
-                title="No devices yet."
-                description="Set one up on the device page — create it now and provision a credential (API key or pairing code) whenever the user's ready."
-                action={
-                  <Button
-                    component={Link}
-                    to={buildRoute.userDevicesNew(data.id)}
-                    variant="light"
-                  >
-                    Set up a device
-                  </Button>
-                }
-              />
-            ) : (
-              <Stack gap="sm">
-                <Table fz="sm" withRowBorders highlightOnHover>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Device name</Table.Th>
-                      <Table.Th>Live IPs</Table.Th>
-                      <Table.Th>API key</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {data.devices.map((device) => (
-                      <Table.Tr
-                        key={device.id}
-                        style={{ cursor: "pointer" }}
-                        onClick={() => navigate(`${buildRoute.userDevices(data.id)}?device=${device.id}`)}
-                      >
-                        <Table.Td fw={500}>{device.name}</Table.Td>
-                        <Table.Td c="dimmed">{device.live_address_count}</Table.Td>
-                        <Table.Td>
-                          {device.api_key_prefix ? (
-                            <Badge size="xs" variant="light" color="orange" ff="monospace">
-                              ● {device.api_key_prefix}…
-                            </Badge>
-                          ) : (
-                            <Text size="sm" c="dimmed">—</Text>
-                          )}
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-                <Anchor
-                  component={Link}
-                  to={buildRoute.userDevices(data.id)}
-                  size="xs"
-                  c="dimmed"
-                >
-                  User devices →
-                </Anchor>
-              </Stack>
-            )}
+          <Tabs.Panel value={UserDetailTab.DEVICES} pt="md">
+            <UserDevicesTab userId={data.id} devices={data.devices} />
           </Tabs.Panel>
         </Tabs>
 
