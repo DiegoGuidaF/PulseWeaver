@@ -3,13 +3,6 @@ import type { SubjectGroupDetail } from "@/lib/api";
 export interface SubjectAccessDraft {
   bypassHostCheck: boolean;
   assignedGroupIds: Set<number>;
-  /**
-   * True once the admin has explicitly acknowledged the blast radius of an
-   * off→on bypass transition in the current editing session. Reset whenever
-   * bypass goes back to off, so re-enabling it later requires a fresh
-   * acknowledgement. Never part of the dirty/diff comparison — it is editing
-   *-session UI state, not a value that round-trips to the server.
-   */
   bypassAcknowledged: boolean;
 }
 
@@ -27,11 +20,6 @@ export function subjectAccessReducer(
     case "reset":
       return initDraftFromGroups(action.groups, action.bypassHostCheck);
     case "setBypass":
-      // Any flip of the toggle clears a prior acknowledgement: turning bypass
-      // off then back on must re-arm the gate (it's a fresh off→on transition),
-      // and turning it off makes the flag moot until the next on-transition.
-      // `requiresBypassAcknowledgement` only consults this flag for off→on, so
-      // clearing it unconditionally here keeps the reducer simple and correct.
       return { ...state, bypassHostCheck: action.value, bypassAcknowledged: false };
     case "acknowledgeBypass":
       return { ...state, bypassAcknowledged: action.value };

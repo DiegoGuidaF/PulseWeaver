@@ -1999,19 +1999,13 @@ export const GroupWriteSchema = {
 
 export const GroupListResponseSchema = {
   type: "object",
-  required: ["groups", "bypass_subject_count"],
+  required: ["groups"],
   properties: {
     groups: {
       type: "array",
       items: {
         $ref: "#/components/schemas/GroupDetailWithUsers",
       },
-    },
-    bypass_subject_count: {
-      type: "integer",
-      description:
-        "Count of users and network policies that bypass the host check entirely\n(bypass_host_check). These subjects reach every group's hosts regardless\nof group membership — the figure is global, not specific to any one group.\n",
-      example: 2,
     },
   },
 } as const;

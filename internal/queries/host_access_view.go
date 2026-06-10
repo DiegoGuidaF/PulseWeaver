@@ -70,7 +70,7 @@ func (r *Repository) GetAllHostsWithGroups(ctx context.Context) (httpapi.HostLis
 }
 
 func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupListResponse, error) {
-	// Q1: groups with their member hosts
+	// Retrieve groups and their hosts
 	type groupRow struct {
 		ID          ids.HostGroupID `db:"id"`
 		Name        string          `db:"name"`
@@ -82,6 +82,7 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 		HostID      *ids.HostID     `db:"host_id"`
 		HostFQDN    *string         `db:"host_fqdn"`
 	}
+
 	const groupQuery = `
 		SELECT hg.id, hg.name, hg.color, hg.description, hg.icon, hg.created_at, hg.updated_at,
 		       hgm.host_id, h.fqdn AS host_fqdn
@@ -95,7 +96,7 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 		return httpapi.GroupListResponse{}, fmt.Errorf("get host groups with members: %w", err)
 	}
 
-	// Q2: users granted access to each group
+	// Retrieve users of each group
 	type userRow struct {
 		GroupID     ids.HostGroupID `db:"host_group_id"`
 		UserID      ids.UserID      `db:"user_id"`
@@ -125,7 +126,7 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 		},
 	)
 
-	// Q3: network policies assigned to each group
+	// Retrieve network_policies of each group
 	type groupPolicyRow struct {
 		GroupID    ids.HostGroupID     `db:"host_group_id"`
 		PolicyID   ids.NetworkPolicyID `db:"policy_id"`
@@ -154,29 +155,9 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 		},
 	)
 
-	// Q4: subjects that bypass the host check entirely — they reach every group's hosts
-	// regardless of membership, so this is reported once for the whole list, not per group.
-	var bypassUserCount int
-	if err := r.db.GetContext(ctx, &bypassUserCount, `
-		SELECT COUNT(*)
-		FROM users u
-		JOIN user_host_settings uhs ON uhs.user_id = u.id
-		WHERE u.deleted_at IS NULL AND uhs.bypass_host_check = 1
-	`); err != nil {
-		return httpapi.GroupListResponse{}, fmt.Errorf("count bypass users: %w", err)
-	}
-
-	var bypassPolicyCount int
-	if err := r.db.GetContext(ctx, &bypassPolicyCount, `
-		SELECT COUNT(*) FROM network_policies WHERE bypass_host_check = 1
-	`); err != nil {
-		return httpapi.GroupListResponse{}, fmt.Errorf("count bypass network policies: %w", err)
-	}
-
 	groups := collate.Collapse(groupRows,
 		func(rw groupRow) ids.HostGroupID { return rw.ID },
 		func(rw groupRow) httpapi.GroupDetailWithUsers {
-			users := collate.OrEmpty(usersByGroup[rw.ID])
 			return httpapi.GroupDetailWithUsers{
 				Id:              rw.ID.Int64(),
 				Name:            rw.Name,
@@ -186,7 +167,7 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 				CreatedAt:       httpapi.UTCTime(rw.CreatedAt),
 				UpdatedAt:       httpapi.UTCTime(rw.UpdatedAt),
 				Hosts:           []httpapi.HostSummary{},
-				Users:           &users,
+				Users:           new(collate.OrEmpty(usersByGroup[rw.ID])),
 				NetworkPolicies: collate.OrEmpty(policiesByGroup[rw.ID]),
 			}
 		},
@@ -202,8 +183,7 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 		func(g *httpapi.GroupDetailWithUsers, h httpapi.HostSummary) { g.Hosts = append(g.Hosts, h) },
 	)
 	return httpapi.GroupListResponse{
-		Groups:             groups,
-		BypassSubjectCount: bypassUserCount + bypassPolicyCount,
+		Groups: groups,
 	}, nil
 }
 

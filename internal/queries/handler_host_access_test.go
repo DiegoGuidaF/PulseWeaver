@@ -140,9 +140,6 @@ func TestHandler_ListHostGroups_HappyPath(t *testing.T) {
 	var resp httpapi.GroupListResponse
 	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
 	is.Equal(len(resp.Groups), 4) // FixtureGroupBackend, FixtureGroupFrontend, FixtureGroupEmpty, FixtureGroupAdversarial
-	// bypass subjects reach every group's hosts regardless of membership, so this is
-	// reported once for the whole list: charlie + frank (bypass users) + ops-network (bypass policy).
-	is.Equal(resp.BypassSubjectCount, 3)
 
 	// backend: 2 hosts, 2 users (alice+charlie), 1 network policy (corp-vpn)
 	backend := findGroupWithUsers(resp.Groups, testutils.FixtureGroupBackend.Name)
@@ -187,6 +184,41 @@ func TestHandler_ListHostGroups_Empty(t *testing.T) {
 	var resp httpapi.GroupListResponse
 	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
 	is.Equal(len(resp.Groups), 0)
+}
+
+// TestHandler_ListHostGroups_DeletedUserExcluded confirms a soft-deleted user
+// granted to a group no longer appears in that group's user list.
+func TestHandler_ListHostGroups_DeletedUserExcluded(t *testing.T) {
+	is := is.New(t)
+	srv := testutils.SetupIntegrationServer(t)
+	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+
+	groupName := "mixed"
+	seed := testutils.NewSeeder(t).
+		WithGroup(testutils.GroupFixture{Name: groupName}).
+		WithUser(testutils.UserFixture{Name: "active-user"}).
+		WithUser(testutils.UserFixture{Name: "deleted-user"}).
+		SetUserAccess("active-user", false, groupName).
+		SetUserAccess("deleted-user", false, groupName).
+		Build(srv)
+
+	admin := testutils.AdminPrincipal(t, srv)
+	is.NoErr(srv.AuthService.DeleteUser(t.Context(), admin, seed.User("deleted-user")))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/host-groups", nil)
+	req.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	srv.HTTPServer.ServeHTTP(w, req)
+
+	is.Equal(w.Code, http.StatusOK)
+	var resp httpapi.GroupListResponse
+	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
+
+	mixed := findGroupWithUsers(resp.Groups, groupName)
+	is.True(mixed != nil)
+	is.True(mixed.Users != nil)
+	is.Equal(len(*mixed.Users), 1)
+	is.Equal((*mixed.Users)[0].Username, "active-user")
 }
 
 func TestHandler_ListHostGroups_Unauthenticated(t *testing.T) {

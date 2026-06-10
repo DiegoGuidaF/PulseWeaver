@@ -614,7 +614,6 @@ export const zGroupWrite = z.object({
 
 export const zGroupListResponse = z.object({
   groups: z.array(zGroupDetailWithUsers),
-  bypass_subject_count: z.int(),
 });
 
 /**

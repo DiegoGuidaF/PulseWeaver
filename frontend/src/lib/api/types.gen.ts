@@ -948,13 +948,6 @@ export type GroupWrite = {
 
 export type GroupListResponse = {
   groups: Array<GroupDetailWithUsers>;
-  /**
-   * Count of users and network policies that bypass the host check entirely
-   * (bypass_host_check). These subjects reach every group's hosts regardless
-   * of group membership — the figure is global, not specific to any one group.
-   *
-   */
-  bypass_subject_count: number;
 };
 
 /**

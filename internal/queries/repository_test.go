@@ -81,6 +81,37 @@ func createAddress(t *testing.T, repo *device.Repository, deviceID ids.DeviceID,
 	return addr
 }
 
+func insertTestHostGroup(t *testing.T, db *database.DB, name string) ids.HostGroupID {
+	t.Helper()
+	var id ids.HostGroupID
+	if err := db.QueryRowxContext(t.Context(),
+		`INSERT INTO host_groups (name, color, icon) VALUES (?, '', '') RETURNING id`, name,
+	).Scan(&id); err != nil {
+		t.Fatalf("insertTestHostGroup(%q): %v", name, err)
+	}
+	return id
+}
+
+func insertTestHost(t *testing.T, db *database.DB, fqdn string) ids.HostID {
+	t.Helper()
+	var id ids.HostID
+	if err := db.QueryRowxContext(t.Context(),
+		`INSERT INTO hosts (fqdn) VALUES (?) RETURNING id`, fqdn,
+	).Scan(&id); err != nil {
+		t.Fatalf("insertTestHost(%q): %v", fqdn, err)
+	}
+	return id
+}
+
+func addHostToGroup(t *testing.T, db *database.DB, groupID ids.HostGroupID, hostID ids.HostID) {
+	t.Helper()
+	if _, err := db.ExecContext(t.Context(),
+		`INSERT INTO host_group_members (host_group_id, host_id) VALUES (?, ?)`, groupID, hostID,
+	); err != nil {
+		t.Fatalf("addHostToGroup: %v", err)
+	}
+}
+
 func TestRepository_DeviceExists_ExistingDevice(t *testing.T) {
 	is := is.New(t)
 	repos := setupRepos(t)

@@ -17,10 +17,7 @@ const draftGroup: DraftGroup = {
   hostIds: [10],
 };
 
-function renderPanel(
-  bypassSubjectCount: number,
-  overrides?: Parameters<typeof createMockGroupDetailWithUsers>[0],
-) {
+function renderPanel(overrides?: Parameters<typeof createMockGroupDetailWithUsers>[0]) {
   const serverGroup = createMockGroupDetailWithUsers({
     id: 1,
     name: "Media",
@@ -34,7 +31,6 @@ function renderPanel(
         <GroupDetailPanel
           group={draftGroup}
           serverGroup={serverGroup}
-          bypassSubjectCount={bypassSubjectCount}
           diff={emptyDiff}
           hosts={[{ id: 10, fqdn: "media.lan" }]}
           onEdit={vi.fn()}
@@ -47,39 +43,20 @@ function renderPanel(
   );
 }
 
-describe("GroupDetailPanel — Access · read-only / bypass subjects", () => {
-  it("does not show a bypass badge when the global bypass count is zero", () => {
-    renderPanel(0, {
-      users: [{ id: 1, username: "alice", display_name: "Alice" }],
-    });
-
-    expect(screen.queryByText(/bypass host checking/)).not.toBeInTheDocument();
-  });
-
-  it("shows the global bypass count alongside group-scoped grants", () => {
-    renderPanel(3, {
+describe("GroupDetailPanel — Access · read-only", () => {
+  it("shows group-scoped grants", () => {
+    renderPanel({
       users: [{ id: 1, username: "alice", display_name: "Alice" }],
       network_policies: [{ id: 5, name: "corp-vpn", cidr: "10.0.0.0/8" }],
     });
 
-    expect(screen.getByText("+3 bypass host checking entirely")).toBeInTheDocument();
-    // Group-scoped grants remain visible alongside the bypass note
+    expect(screen.getByText("Access · read-only")).toBeInTheDocument();
     expect(screen.getByText("Users · 1")).toBeInTheDocument();
     expect(screen.getByText("Network policies · 1")).toBeInTheDocument();
   });
 
-  it("renders the panel for bypass subjects even with no group-scoped grants", () => {
-    renderPanel(2, {
-      users: [],
-      network_policies: [],
-    });
-
-    expect(screen.getByText("+2 bypass host checking entirely")).toBeInTheDocument();
-    expect(screen.getByText("Access · read-only")).toBeInTheDocument();
-  });
-
-  it("hides the panel entirely when there are no grants and no bypass subjects", () => {
-    renderPanel(0, {
+  it("hides the panel entirely when there are no grants", () => {
+    renderPanel({
       users: [],
       network_policies: [],
     });

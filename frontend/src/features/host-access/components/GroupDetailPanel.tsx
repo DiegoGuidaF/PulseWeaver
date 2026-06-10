@@ -18,7 +18,6 @@ import {
   IconArrowBackUp,
   IconArrowRight,
   IconPencil,
-  IconShieldOff,
   IconTrash,
 } from "@tabler/icons-react";
 import type { GroupDetailWithUsers, Id } from "@/lib/api";
@@ -35,7 +34,6 @@ interface HostRef {
 interface Props {
   group: DraftGroup | null;
   serverGroup: GroupDetailWithUsers | null;
-  bypassSubjectCount: number;
   diff: GroupsDiff;
   hosts: HostRef[];
   isTombstoned?: boolean;
@@ -48,7 +46,6 @@ interface Props {
 export function GroupDetailPanel({
   group,
   serverGroup,
-  bypassSubjectCount,
   diff,
   hosts,
   isTombstoned,
@@ -170,25 +167,17 @@ export function GroupDetailPanel({
           />
         )}
 
-        {serverGroup && !isAdded && (
-          <AccessPanel serverGroup={serverGroup} bypassSubjectCount={bypassSubjectCount} />
-        )}
+        {serverGroup && !isAdded && <AccessPanel serverGroup={serverGroup} />}
       </Stack>
     </Paper>
   );
 }
 
-function AccessPanel({
-  serverGroup,
-  bypassSubjectCount,
-}: {
-  serverGroup: GroupDetailWithUsers;
-  bypassSubjectCount: number;
-}) {
+function AccessPanel({ serverGroup }: { serverGroup: GroupDetailWithUsers }) {
   const users = serverGroup.users ?? [];
   const policies = serverGroup.network_policies;
 
-  if (users.length === 0 && policies.length === 0 && bypassSubjectCount === 0) return null;
+  if (users.length === 0 && policies.length === 0) return null;
 
   return (
     <>
@@ -197,24 +186,6 @@ function AccessPanel({
         <Text size="sm" fw={600} c="dimmed">
           Access · read-only
         </Text>
-        {bypassSubjectCount > 0 && (
-          <Tooltip
-            label="These subjects have host checking turned off entirely — they reach this group's hosts (and every other group's) regardless of membership or grants"
-            withArrow
-            multiline
-            maw={280}
-          >
-            <Badge
-              variant="light"
-              color="yellow"
-              size="sm"
-              leftSection={<IconShieldOff size={12} />}
-              style={{ alignSelf: "flex-start" }}
-            >
-              +{bypassSubjectCount} bypass host checking entirely
-            </Badge>
-          </Tooltip>
-        )}
         <SimpleGrid cols={2} spacing="md">
           <Stack gap="xs">
             <Text size="xs" fw={700}>

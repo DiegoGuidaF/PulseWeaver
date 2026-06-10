@@ -55,3 +55,4 @@ Critical rules:
 - No Tailwind classes; no `cn()` — use Mantine's `style` prop or CSS modules
 - Handlers set `operation` in the logger; services only read via `logging.FromCtx`
 - Comments explain what a future reader needs to understand the code — its intent, a non-obvious constraint, a "why". Do not write comments tied to the moment of authoring: no story/ticket IDs, no "newly added", no "changed from X" / "this used to". Prefer timeless rationale over change-narration; the git history records when and why something changed
+- Default to no comment. Only add one when the code truly needs it — a hidden constraint, subtle invariant, or surprising behavior that isn't obvious from reading it. Never add a comment that just describes what the code does or how it differs from what it replaced (e.g. "previously this also did X" / "now handles Y instead of Z") — that belongs in the commit message, not the source

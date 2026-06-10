@@ -56,10 +56,7 @@ export function NetworkPolicyDetailPage() {
     const dirty = savedDraft != null && isSubjectAccessDirty(draft, savedDraft);
 
     // Bypass grants the whole CIDR access to every host (including future
-    // ones), so the off→on transition gets a danger-toned save bar that names
-    // the blast radius and must be explicitly acknowledged before saving.
-    // Re-edits of an already-bypassed policy don't re-trigger this — the admin
-    // already accepted that risk when they first turned it on.
+    // ones), warn about it and ensure user confirms
     const bypassJustEnabled = savedDraft != null && isBypassJustEnabled(savedDraft, draft);
     const bypassAckRequired =
         savedDraft != null && requiresBypassAcknowledgement(savedDraft, draft);
