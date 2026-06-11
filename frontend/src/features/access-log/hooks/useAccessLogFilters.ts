@@ -136,13 +136,8 @@ export function useAccessLogFilters(): AccessLogFilters {
 
     function setOutcome(value: string | null) {
         setSearchParams((prev) => {
-            if (value === "allow") {
-                prev.set("outcome", "allow");
-                // Allow has no deny reason — clear any reason filter
-                prev.delete("deny_reason");
-                prev.delete("deny_reason_op");
-            } else if (value === "deny") {
-                prev.set("outcome", "deny");
+            if (value === "allow" || value === "deny") {
+                prev.set("outcome", value);
             } else {
                 prev.delete("outcome");
             }

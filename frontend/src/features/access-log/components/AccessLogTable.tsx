@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { ActionIcon, Anchor, Button, Checkbox, Group, Menu, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { DataTable, type DataTableSortStatus, useDataTableColumns } from "mantine-datatable";
-import { IconColumns3, IconFilterOff, IconRefresh, IconRestore } from "@tabler/icons-react";
+import { IconColumns3, IconDatabaseOff, IconFilterOff, IconRefresh, IconRestore } from "@tabler/icons-react";
 import type { AccessLogRow } from "@/lib/api";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
 import { CursorPagination } from "@/components/CursorPagination";
@@ -285,16 +285,6 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                             <IconRefresh size={16} />
                         </ActionIcon>
                     </Tooltip>
-                    {filters.hasActiveFilters && (
-                        <Button
-                            variant="subtle"
-                            size="compact-xs"
-                            leftSection={<IconFilterOff size={14} />}
-                            onClick={filters.clearAll}
-                        >
-                            Clear filters
-                        </Button>
-                    )}
                     <Menu shadow="md" closeOnItemClick={false} position="bottom-end">
                         <Menu.Target>
                             <Button
@@ -334,14 +324,38 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                     </Menu>
                 </Group>
 
-                <ActiveFilterChips chips={filterChips} />
+                <ActiveFilterChips chips={filterChips} onClearAll={filters.clearAll} />
 
                 <div ref={tableRef} aria-busy={isFetching}>
                     <DataTable
                         records={rows}
                         highlightOnHover
                         minHeight={150}
-                        noRecordsText="No matching log entries."
+                        // The empty-state container disables pointer events, so the
+                        // clear-filters CTA re-enables them; rendering it only when the
+                        // table is actually empty keeps the invisible overlay inert.
+                        emptyState={
+                            rows.length === 0 ? (
+                                <Stack align="center" gap={4} style={{ pointerEvents: "all" }}>
+                                    <div className="mantine-datatable-empty-state-icon">
+                                        <IconDatabaseOff />
+                                    </div>
+                                    <Text size="sm" c="dimmed">
+                                        No matching log entries.
+                                    </Text>
+                                    {filters.hasActiveFilters && (
+                                        <Button
+                                            variant="subtle"
+                                            size="compact-xs"
+                                            leftSection={<IconFilterOff size={14} />}
+                                            onClick={filters.clearAll}
+                                        >
+                                            Clear filters
+                                        </Button>
+                                    )}
+                                </Stack>
+                            ) : undefined
+                        }
                         columns={effectiveColumns}
                         storeColumnsKey={COLUMNS_STORE_KEY}
                         fetching={isFetching}

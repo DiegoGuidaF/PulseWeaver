@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
 import { buildRoute } from "@/lib/routes";
 import { useNavigate } from "react-router-dom";
-import { ActionIcon, Button, Card, Group, Paper, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
+import { ActionIcon, Card, Group, Paper, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
 import { LineChart } from "@mantine/charts";
 import { DataTable } from "mantine-datatable";
-import { IconFilterOff, IconRefresh } from "@tabler/icons-react";
+import { IconRefresh } from "@tabler/icons-react";
 import type { TooltipContentProps } from "recharts";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
 import { CursorPagination } from "@/components/CursorPagination";
@@ -227,19 +227,9 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                         <IconRefresh size={16} />
                     </ActionIcon>
                 </Tooltip>
-                {filters.hasActiveFilters && (
-                    <Button
-                        variant="subtle"
-                        size="compact-xs"
-                        leftSection={<IconFilterOff size={14} />}
-                        onClick={filters.clearAll}
-                    >
-                        Clear filters
-                    </Button>
-                )}
             </Group>
 
-            <ActiveFilterChips chips={filterChips} />
+            <ActiveFilterChips chips={filterChips} onClearAll={filters.clearAll} />
 
             <div ref={tableRef} aria-busy={isFetching}>
                 <DataTable

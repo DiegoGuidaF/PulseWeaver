@@ -10,16 +10,19 @@ interface TimeRangePresetSelectProps {
 }
 
 export function TimeRangePresetSelect({ value, onChange }: TimeRangePresetSelectProps) {
+    // Without an explicit "Custom" entry a native select silently displays the
+    // first option when the value matches none, misreporting the active window.
+    const isPreset = value !== null && OPTIONS.some((o) => o.value === value);
     return (
         <Group gap="xs">
             <Tooltip label="Time range" withArrow>
                 <IconClock size={16} style={{ color: "var(--mantine-color-dimmed)", flexShrink: 0 }} />
             </Tooltip>
             <NativeSelect
-                value={value ?? ""}
+                value={isPreset ? value : ""}
                 onChange={(e) => onChange(e.target.value || null)}
                 aria-label="Time range"
-                data={OPTIONS}
+                data={isPreset ? OPTIONS : [{ label: "Custom", value: "", disabled: true }, ...OPTIONS]}
             />
         </Group>
     );

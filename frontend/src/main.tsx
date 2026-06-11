@@ -17,7 +17,10 @@ import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 import '@mantine/charts/styles.css';
 import "@mantine/notifications/styles.css";
-import "mantine-datatable/styles.layer.css";
+// Unlayered build, imported after @mantine/core/styles.css so the datatable's
+// `background: inherit` chain (pinned-column opacity) wins over core Table styles.
+// The .layer.css variant must only be used when core styles are layered too.
+import "mantine-datatable/styles.css";
 
 // Helper to check if error is 401 and handle redirect
 function handle401Error(error: unknown, isAuthMeQuery = false) {
