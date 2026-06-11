@@ -178,6 +178,7 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
         {
             accessor: "time_gap_seconds",
             title: "Δ prev",
+            textAlign: "right",
             render: (row) => renderGapCell({ gapSeconds: row.time_gap_seconds, ttlSeconds: row.ttl_seconds }),
         },
         {
@@ -235,6 +236,7 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
         {
             accessor: "is_enabled",
             title: "Status",
+            textAlign: "center",
             filter: ({ close }) => (
                 <SegmentedControl
                     data={[
@@ -264,6 +266,7 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
         {
             accessor: "source",
             title: "Source",
+            textAlign: "center",
             filter: ({ close }) => (
                 <Select
                     placeholder="All sources"

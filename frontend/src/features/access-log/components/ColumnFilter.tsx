@@ -1,6 +1,5 @@
-import { useState } from "react";
-import { MultiSelect, Select, Stack, TagsInput, Text, TextInput } from "@mantine/core";
-import { useDebouncedCallback } from "@mantine/hooks";
+import { useEffect, useRef, useState } from "react";
+import { Button, Group, MultiSelect, Select, Stack, TagsInput, Text, TextInput } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
 import {
     type ColumnFilterState,
@@ -15,46 +14,70 @@ interface ColumnFilterProps {
     /** Options for the multi-select widget; absent → free-form tag input. */
     options?: { value: string; label: string }[];
     placeholder?: string;
-    onChange: (next: ColumnFilterState) => void;
+    /** Commit the edited filter. Fired once, when the popover closes or Apply is pressed. */
+    onCommit: (next: ColumnFilterState) => void;
     width?: number;
+}
+
+function sameValues(a: string[], b: string[]): boolean {
+    return a.length === b.length && a.every((v, i) => v === b[i]);
 }
 
 /**
  * Operator-aware filter for one column: an operator selector plus a value widget
  * that adapts to the operator — multi-select/tags for `in`/`not_in`, a single
  * text field for `contains`/`not_contains`, and no input for `is_null`/`not_null`.
+ *
+ * Edits are staged locally and committed once, when the filter popover closes
+ * (this node unmounts) — so fiddling with the operator or adding several values
+ * results in a single backend query rather than one per keystroke or selection.
  */
 export function ColumnFilter({
     config,
     state,
     options,
     placeholder,
-    onChange,
+    onCommit,
     width = 240,
 }: ColumnFilterProps) {
-    const { op, values } = state;
+    const [draft, setDraft] = useState<ColumnFilterState>(() => state);
+    const { op, values } = draft;
     const isNullOp = op === "is_null" || op === "not_null";
     const isContains = op === "contains" || op === "not_contains";
 
-    // Local mirror for the contains text field so typing stays responsive; the
-    // URL write is debounced.
-    const [text, setText] = useState(values[0] ?? "");
-    const writeText = useDebouncedCallback((value: string) => {
-        onChange({ op, values: value ? [value] : [] });
-    }, 300);
+    // The popover writes nothing while open; it commits on close, when this node
+    // unmounts. The committed snapshot (captured once) lets us skip a no-op write,
+    // and the refs — synced in an effect, never during render — give the unmount
+    // cleanup the latest draft and callback without re-arming on every change.
+    const [committed] = useState(state);
+    const draftRef = useRef(draft);
+    const commitRef = useRef(onCommit);
+    useEffect(() => {
+        draftRef.current = draft;
+        commitRef.current = onCommit;
+    });
+    useEffect(
+        () => () => {
+            const d = draftRef.current;
+            if (d.op !== committed.op || !sameValues(d.values, committed.values)) {
+                commitRef.current(d);
+            }
+        },
+        [committed],
+    );
 
     function changeOperator(next: FilterOp) {
         if (next === "is_null" || next === "not_null") {
-            onChange({ op: next, values: [] });
+            setDraft({ op: next, values: [] });
         } else if (next === "contains" || next === "not_contains") {
-            onChange({ op: next, values: text ? [text] : [] });
+            setDraft((prev) => ({ op: next, values: prev.values.slice(0, 1) }));
         } else {
-            onChange({ op: next, values });
+            setDraft((prev) => ({ op: next, values: prev.values }));
         }
     }
 
     return (
-        <Stack gap="xs" p="xs" w={width + 24}>
+        <Stack gap="xs">
             {config.operators.length > 1 && (
                 <Select
                     size="xs"
@@ -76,10 +99,10 @@ export function ColumnFilter({
                 <TextInput
                     placeholder={placeholder ?? "Containing…"}
                     leftSection={<IconSearch size={16} />}
-                    value={text}
+                    value={values[0] ?? ""}
                     onChange={(e) => {
-                        setText(e.currentTarget.value);
-                        writeText(e.currentTarget.value);
+                        const v = e.currentTarget.value;
+                        setDraft({ op, values: v ? [v] : [] });
                     }}
                     w={width}
                 />
@@ -88,7 +111,7 @@ export function ColumnFilter({
                     placeholder={placeholder ?? "Select values"}
                     data={options}
                     value={values}
-                    onChange={(v) => onChange({ op, values: v })}
+                    onChange={(v) => setDraft({ op, values: v })}
                     searchable
                     clearable
                     comboboxProps={{ withinPortal: false }}
@@ -98,12 +121,23 @@ export function ColumnFilter({
                 <TagsInput
                     placeholder={placeholder ?? "Type and press Enter"}
                     value={values}
-                    onChange={(v) => onChange({ op, values: v })}
+                    onChange={(v) => setDraft({ op, values: v })}
                     clearable
                     comboboxProps={{ withinPortal: false }}
                     w={width}
                 />
             )}
         </Stack>
+    );
+}
+
+/** Footer button that closes a filter popover, committing the staged edit. */
+export function FilterApplyButton({ onApply }: { onApply: () => void }) {
+    return (
+        <Group justify="flex-end">
+            <Button size="xs" variant="light" onClick={onApply}>
+                Apply
+            </Button>
+        </Group>
     );
 }

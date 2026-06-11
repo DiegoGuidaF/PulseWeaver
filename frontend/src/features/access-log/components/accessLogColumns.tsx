@@ -21,7 +21,7 @@ import {
     HTTP_METHODS,
     isFilterActive,
 } from "../filterConfig";
-import { ColumnFilter } from "./ColumnFilter";
+import { ColumnFilter, FilterApplyButton } from "./ColumnFilter";
 import { DENY_REASON_LABELS } from "../constants";
 import { countryFlagEmoji } from "@/lib/countryFlag";
 import dayjs from "dayjs";
@@ -101,13 +101,16 @@ function overflowBadge(count: number, contributorCount: number) {
 export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<AccessLogRow>[] {
     const columnFilterSlot =
         (key: FilterColumnKey, options?: { value: string; label: string }[]) =>
-        () => (
-            <ColumnFilter
-                config={FILTER_COLUMNS[key]}
-                state={deps.getColumnFilter(key)}
-                options={options}
-                onChange={(next) => deps.setColumnFilter(key, next)}
-            />
+        ({ close }: { close: () => void }) => (
+            <Stack gap="xs" p="xs">
+                <ColumnFilter
+                    config={FILTER_COLUMNS[key]}
+                    state={deps.getColumnFilter(key)}
+                    options={options}
+                    onCommit={(next) => deps.setColumnFilter(key, next)}
+                />
+                <FilterApplyButton onApply={close} />
+            </Stack>
         );
 
     return [
@@ -194,6 +197,7 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
             accessor: "country_code",
             title: "Country",
             sortable: true,
+            textAlign: "center",
             filter: columnFilterSlot("country_code"),
             filtering: isFilterActive(deps.getColumnFilter("country_code")),
             render: (row) =>
@@ -236,6 +240,7 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
             accessor: "http_method",
             title: "Method",
             sortable: true,
+            textAlign: "center",
             filter: columnFilterSlot(
                 "http_method",
                 HTTP_METHODS.map((m) => ({ value: m, label: m })),
@@ -271,7 +276,7 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
         {
             accessor: "authorized_by",
             title: "Authorized by",
-            filter: () => (
+            filter: ({ close }) => (
                 <Stack gap="sm" p="xs">
                     <Stack gap={4}>
                         <Text size="xs" c="dimmed" fw={500}>By device</Text>
@@ -279,7 +284,7 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
                             config={FILTER_COLUMNS.device_id}
                             state={deps.getColumnFilter("device_id")}
                             options={deps.deviceOptions}
-                            onChange={(next) => deps.setColumnFilter("device_id", next)}
+                            onCommit={(next) => deps.setColumnFilter("device_id", next)}
                         />
                     </Stack>
                     <Stack gap={4}>
@@ -288,9 +293,10 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
                             config={FILTER_COLUMNS.network_policy_id}
                             state={deps.getColumnFilter("network_policy_id")}
                             options={deps.networkPolicyOptions}
-                            onChange={(next) => deps.setColumnFilter("network_policy_id", next)}
+                            onCommit={(next) => deps.setColumnFilter("network_policy_id", next)}
                         />
                     </Stack>
+                    <FilterApplyButton onApply={close} />
                 </Stack>
             ),
             filtering:
@@ -341,6 +347,7 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
             accessor: "outcome",
             title: "Outcome",
             sortable: true,
+            textAlign: "center",
             filter: ({ close }) => (
                 <SegmentedControl
                     data={[
@@ -380,6 +387,7 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
             accessor: "duration_us",
             title: "Duration",
             sortable: true,
+            textAlign: "right",
             render: (row) => (
                 <Text size="sm" ff="monospace">
                     {row.duration_us != null ? `${(row.duration_us / 1000).toFixed(2)} ms` : "—"}
@@ -391,15 +399,16 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
             title: <VisuallyHidden>Actions</VisuallyHidden>,
             width: 48,
             render: (row) => (
-                <ActionIcon
-                    variant="subtle"
-                    color="gray"
-                    size="md"
-                    onClick={() => deps.onRowClick(row)}
-                    aria-label="View details"
-                >
-                    <IconChevronRight size={18} />
-                </ActionIcon>
+                <Tooltip label="View details" position="left" withArrow>
+                    <ActionIcon
+                        variant="subtle"
+                        size="md"
+                        onClick={() => deps.onRowClick(row)}
+                        aria-label="View details"
+                    >
+                        <IconChevronRight size={18} />
+                    </ActionIcon>
+                </Tooltip>
             ),
         },
     ];

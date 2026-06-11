@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
 import { buildRoute } from "@/lib/routes";
 import { useNavigate } from "react-router-dom";
-import { Button, Card, Group, Paper, Skeleton, Stack, Text } from "@mantine/core";
+import { ActionIcon, Button, Card, Group, Paper, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
 import { LineChart } from "@mantine/charts";
 import { DataTable } from "mantine-datatable";
-import { IconFilterOff } from "@tabler/icons-react";
+import { IconFilterOff, IconRefresh } from "@tabler/icons-react";
 import type { TooltipContentProps } from "recharts";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
 import { CursorPagination } from "@/components/CursorPagination";
@@ -214,7 +214,19 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                 )}
             </Card>
 
-            <Group justify="flex-end">
+            <Group justify="flex-end" gap="xs">
+                <Tooltip label="Refresh" withArrow>
+                    <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="md"
+                        onClick={() => refetch()}
+                        loading={isFetching}
+                        aria-label="Refresh"
+                    >
+                        <IconRefresh size={16} />
+                    </ActionIcon>
+                </Tooltip>
                 {filters.hasActiveFilters && (
                     <Button
                         variant="subtle"
@@ -239,6 +251,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                     columns={columns}
                     fetching={isFetching}
                     loaderBackgroundBlur={1}
+                    scrollAreaProps={{ type: "auto" }}
                     rowStyle={(r) => (r.is_refresh ? { opacity: 0.55 } : undefined)}
                 />
             </div>

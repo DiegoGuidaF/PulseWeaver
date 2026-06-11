@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { buildRoute } from "@/lib/routes";
 import { useNavigate } from "react-router-dom";
-import { Anchor, Button, Checkbox, Group, Menu, Skeleton, Stack, Text } from "@mantine/core";
+import { ActionIcon, Anchor, Button, Checkbox, Group, Menu, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
 import { DataTable, type DataTableSortStatus } from "mantine-datatable";
-import { IconColumns3, IconFilterOff } from "@tabler/icons-react";
+import { IconColumns3, IconFilterOff, IconRefresh } from "@tabler/icons-react";
 import type { AccessLogRow } from "@/lib/api";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
 import { CursorPagination } from "@/components/CursorPagination";
@@ -254,6 +254,18 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                 />
 
                 <Group justify="flex-end" gap="xs">
+                    <Tooltip label="Refresh" withArrow>
+                        <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            size="md"
+                            onClick={() => refetch()}
+                            loading={isFetching}
+                            aria-label="Refresh"
+                        >
+                            <IconRefresh size={16} />
+                        </ActionIcon>
+                    </Tooltip>
                     {filters.hasActiveFilters && (
                         <Button
                             variant="subtle"
@@ -303,6 +315,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                         columns={columns}
                         fetching={isFetching}
                         loaderBackgroundBlur={1}
+                        scrollAreaProps={{ type: "auto" }}
                         sortStatus={sortStatus}
                         onSortStatusChange={(status) => {
                             const next = nextSortState(
