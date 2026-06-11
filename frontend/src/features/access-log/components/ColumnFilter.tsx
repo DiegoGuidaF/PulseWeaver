@@ -17,6 +17,11 @@ interface ColumnFilterProps {
     /** Commit the edited filter. Fired once, when the popover closes or Apply is pressed. */
     onCommit: (next: ColumnFilterState) => void;
     width?: number;
+    /**
+     * Focus the value widget when the popover opens. Disable when several
+     * ColumnFilters share one popover and no single input is the obvious target.
+     */
+    autoFocus?: boolean;
 }
 
 function sameValues(a: string[], b: string[]): boolean {
@@ -39,6 +44,7 @@ export function ColumnFilter({
     placeholder,
     onCommit,
     width = 240,
+    autoFocus = true,
 }: ColumnFilterProps) {
     const [draft, setDraft] = useState<ColumnFilterState>(() => state);
     const { op, values } = draft;
@@ -97,6 +103,7 @@ export function ColumnFilter({
                 </Text>
             ) : isContains ? (
                 <TextInput
+                    data-autofocus={autoFocus || undefined}
                     placeholder={placeholder ?? "Containing…"}
                     leftSection={<IconSearch size={16} />}
                     value={values[0] ?? ""}
@@ -108,6 +115,7 @@ export function ColumnFilter({
                 />
             ) : options ? (
                 <MultiSelect
+                    data-autofocus={autoFocus || undefined}
                     placeholder={placeholder ?? "Select values"}
                     data={options}
                     value={values}
@@ -119,6 +127,7 @@ export function ColumnFilter({
                 />
             ) : (
                 <TagsInput
+                    data-autofocus={autoFocus || undefined}
                     placeholder={placeholder ?? "Type and press Enter"}
                     value={values}
                     onChange={(v) => setDraft({ op, values: v })}

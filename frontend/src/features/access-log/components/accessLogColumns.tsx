@@ -121,6 +121,7 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
             filter: () => (
                 <Stack gap="xs" p="xs">
                     <DateTimePicker
+                        data-autofocus
                         label="From"
                         placeholder="24 hours ago"
                         value={deps.fromStr ?? null}
@@ -285,6 +286,7 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
                             state={deps.getColumnFilter("device_id")}
                             options={deps.deviceOptions}
                             onCommit={(next) => deps.setColumnFilter("device_id", next)}
+                            autoFocus={false}
                         />
                     </Stack>
                     <Stack gap={4}>
@@ -294,6 +296,7 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
                             state={deps.getColumnFilter("network_policy_id")}
                             options={deps.networkPolicyOptions}
                             onCommit={(next) => deps.setColumnFilter("network_policy_id", next)}
+                            autoFocus={false}
                         />
                     </Stack>
                     <FilterApplyButton onApply={close} />

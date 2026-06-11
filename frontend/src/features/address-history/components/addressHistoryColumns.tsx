@@ -115,6 +115,7 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
             filter: () => (
                 <Stack gap="xs" p="xs">
                     <DateTimePicker
+                        data-autofocus
                         label="From"
                         placeholder="24 hours ago"
                         value={deps.fromStr ?? null}
@@ -186,6 +187,7 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
             title: "Device",
             filter: ({ close }) => (
                 <Select
+                    data-autofocus
                     placeholder="All devices"
                     data={deps.deviceOptions}
                     value={deps.deviceIdStr}
@@ -208,6 +210,7 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
             title: "IP",
             filter: ({ close }) => (
                 <TextInput
+                    data-autofocus
                     placeholder="Filter by IP"
                     leftSection={<IconSearch size={16} />}
                     value={deps.ipLocal}
@@ -269,6 +272,7 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
             textAlign: "center",
             filter: ({ close }) => (
                 <Select
+                    data-autofocus
                     placeholder="All sources"
                     data={sourceOptions}
                     value={deps.sourceStr}
