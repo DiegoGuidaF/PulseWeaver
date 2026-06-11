@@ -68,8 +68,10 @@ export function renderWithProviders(
         { initialEntries }
     );
 
+    // env="test" disables Mantine transitions and portals so popovers/drawers
+    // mount synchronously — interactions stay deterministic on slow CI runners.
     const result = render(
-        <MantineProvider>
+        <MantineProvider env="test">
             <Notifications />
             <DateTimePrefsProvider>
                 <DatesProvider settings={{ locale: 'en' }}>

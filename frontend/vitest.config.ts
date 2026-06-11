@@ -9,9 +9,19 @@ export default defineConfig({
     environment: "happy-dom",
     setupFiles: ["./src/test/setup.ts"],
     css: true,
-    testTimeout: 15000,
+    // CI runners are far slower than dev machines; give tests extra headroom there.
+    testTimeout: process.env.CI ? 30000 : 15000,
     pool: "forks",
     maxWorkers: '80%',
+    // Console output from passing tests is pure noise in CI logs.
+    silent: "passed-only",
+    onConsoleLog(log) {
+      // Mantine's focus-trap warning attaches the DOM node, which serializes to
+      // thousands of lines under happy-dom; recharts warns about zero-size
+      // containers on every chart render. Both bury real failures in the log.
+      if (log.includes("[@mantine/hooks/use-focus-trap]")) return false;
+      if (log.includes("The width(") && log.includes("of chart should be greater than 0")) return false;
+    },
   },
   resolve: {
     alias: {
