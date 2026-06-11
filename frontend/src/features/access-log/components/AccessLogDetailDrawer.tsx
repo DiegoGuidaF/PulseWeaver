@@ -66,13 +66,29 @@ export function AccessLogDetailDrawer({
                     </Stack>
 
                     <Stack gap="xs">
-                        <Title order={3} size="h5">Device</Title>
+                        <Title order={3} size="h5">Contributors</Title>
                         <Divider />
-                        {row.device_name ? (
-                            <LabelValue label="Device" value={row.device_name} />
-                        ) : (
+                        {row.contributors.length === 0 ? (
                             <Text size="sm" c="dimmed">
                                 No device matched
+                            </Text>
+                        ) : (
+                            row.contributors.map((c, i) => (
+                                <Group key={i} gap="xs" align="flex-start">
+                                    <Text size="sm" ff="monospace">
+                                        {c.device_name ?? (c.device_id != null ? `Device #${c.device_id}` : "—")}
+                                    </Text>
+                                    {(c.user_name ?? c.user_id != null) && (
+                                        <Text size="sm" c="dimmed">
+                                            · {c.user_name ?? `User #${c.user_id}`}
+                                        </Text>
+                                    )}
+                                </Group>
+                            ))
+                        )}
+                        {row.contributor_count > 1 && (
+                            <Text size="xs" c="dimmed">
+                                This client IP resolved to {row.contributor_count} contributors.
                             </Text>
                         )}
                     </Stack>

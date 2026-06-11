@@ -147,6 +147,10 @@ describe("AccessLogPage", () => {
     it("outcome column filter opens and shows options", async () => {
         const user = userEvent.setup();
 
+        server.use(
+            accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })),
+        );
+
         renderWithProviders(<AccessLogPage />, {
             initialEntries: [BASE_ENTRY],
         });
@@ -154,15 +158,22 @@ describe("AccessLogPage", () => {
         // Wait for the table to render (column headers should be present)
         await waitFor(
             () => {
-                expect(screen.getByRole("columnheader", { name: /outcome/i })).toBeInTheDocument();
+                expect(screen.getByText("No matching log entries.")).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT },
         );
 
-        // Open the column filter popover
-        const outcomeHeader = screen.getByRole("columnheader", { name: /outcome/i });
-        const filterButton = within(outcomeHeader).getByRole("button");
-        await user.click(filterButton);
+        // The Outcome header is sortable, so the <th> itself is the sort control
+        // (role="button"); the filter trigger is the nested aria-haspopup button.
+        const outcomeHeader = Array.from(
+            document.querySelectorAll<HTMLTableCellElement>("th"),
+        ).find((h) => h.textContent?.includes("Outcome"));
+        expect(outcomeHeader).toBeTruthy();
+        const filterButton = within(outcomeHeader!)
+            .getAllByRole("button")
+            .find((b) => b.getAttribute("aria-haspopup"));
+        expect(filterButton).toBeTruthy();
+        await user.click(filterButton!);
 
         // The SegmentedControl with "Deny" should now be visible
         await waitFor(

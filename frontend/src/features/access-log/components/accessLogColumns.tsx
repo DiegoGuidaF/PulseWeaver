@@ -4,17 +4,24 @@ import {
     Badge,
     Group,
     SegmentedControl,
-    Select,
     Stack,
     Text,
-    TextInput,
+    Tooltip,
     VisuallyHidden,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { IconChevronRight, IconHome, IconHexagon, IconSearch } from "@tabler/icons-react";
+import { IconChevronRight, IconHome, IconHexagon } from "@tabler/icons-react";
 import type { DataTableColumn } from "mantine-datatable";
-import type { AccessLogRow } from "@/lib/api";
+import type { AccessLogContributor, AccessLogRow } from "@/lib/api";
 import type { AccessLogFilters } from "../hooks/useAccessLogFilters";
+import {
+    type ColumnFilterState,
+    type FilterColumnKey,
+    FILTER_COLUMNS,
+    HTTP_METHODS,
+    isFilterActive,
+} from "../filterConfig";
+import { ColumnFilter } from "./ColumnFilter";
 import { DENY_REASON_LABELS } from "../constants";
 import { countryFlagEmoji } from "@/lib/countryFlag";
 import dayjs from "dayjs";
@@ -30,42 +37,84 @@ export interface AccessLogColumnDeps {
     formatDateTime: (value: string) => string;
     pickerValueFormat: string;
 
-    // Filter values
-    presetStr: string | null;
+    // Time window
     fromStr: string | null;
     toStr: string | null;
-    ipLocal: string;
-    ipDebounced: string;
-    deviceIdStr: string | null;
-    networkPolicyIdStr: string | null;
+
+    // Outcome
     outcomeStr: string | null;
-    denyReason: string | null;
-    countryCodeLocal: string;
-    countryCodeDebounced: string;
+    setOutcome: (value: string | null) => void;
+
+    // Generic column filters
+    getColumnFilter: (key: FilterColumnKey) => ColumnFilterState;
+    setColumnFilter: (key: FilterColumnKey, state: ColumnFilterState | null) => void;
+    setSearchParams: AccessLogFilters["setSearchParams"];
 
     // Options
     deviceOptions: { value: string; label: string }[];
     denyReasonOptions: { value: string; label: string }[];
     networkPolicyOptions: { value: string; label: string }[];
-
-    // Setters
-    setParam: (key: string, value: string | null) => void;
-    setNetworkPolicyId: (val: string | null) => void;
-    setIpLocal: (value: string) => void;
-    setCountryCodeLocal: (value: string) => void;
-    setSearchParams: AccessLogFilters["setSearchParams"];
+    userOptions: { value: string; label: string }[];
 
     // Actions
     onRowClick: (row: AccessLogRow) => void;
-    onDeviceClick: (deviceId: number) => void;
+    onDeviceClick: (deviceId: number, ownerUserId: number | undefined) => void;
+    onUserClick: (userId: number) => void;
     onNetworkPolicyClick: (id: number) => void;
 }
 
+/** Distinct contributing users (by user_id), in first-seen order. */
+function distinctUsers(contributors: AccessLogContributor[]): AccessLogContributor[] {
+    const seen = new Set<number>();
+    const out: AccessLogContributor[] = [];
+    for (const c of contributors) {
+        if (c.user_id == null || seen.has(c.user_id)) continue;
+        seen.add(c.user_id);
+        out.push(c);
+    }
+    return out;
+}
+
+/** Distinct contributing devices (by device_id), in first-seen order. */
+function distinctDevices(contributors: AccessLogContributor[]): AccessLogContributor[] {
+    const seen = new Set<number>();
+    const out: AccessLogContributor[] = [];
+    for (const c of contributors) {
+        if (c.device_id == null || seen.has(c.device_id)) continue;
+        seen.add(c.device_id);
+        out.push(c);
+    }
+    return out;
+}
+
+function overflowBadge(count: number, contributorCount: number) {
+    if (count <= 1) return null;
+    return (
+        <Tooltip label={`Client IP resolved to ${contributorCount} contributors`}>
+            <Badge size="xs" variant="light" color="gray">
+                +{count - 1}
+            </Badge>
+        </Tooltip>
+    );
+}
+
 export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<AccessLogRow>[] {
+    const columnFilterSlot =
+        (key: FilterColumnKey, options?: { value: string; label: string }[]) =>
+        () => (
+            <ColumnFilter
+                config={FILTER_COLUMNS[key]}
+                state={deps.getColumnFilter(key)}
+                options={options}
+                onChange={(next) => deps.setColumnFilter(key, next)}
+            />
+        );
+
     return [
         {
             accessor: "created_at",
             title: "Time",
+            sortable: true,
             filter: () => (
                 <Stack gap="xs" p="xs">
                     <DateTimePicker
@@ -132,18 +181,9 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
         {
             accessor: "client_ip",
             title: "IP",
-            filter: ({ close }) => (
-                <TextInput
-                    placeholder="Filter by IP"
-                    leftSection={<IconSearch size={16} />}
-                    value={deps.ipLocal}
-                    onChange={(e) => deps.setIpLocal(e.currentTarget.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") close(); }}
-                    m="xs"
-                    w={200}
-                />
-            ),
-            filtering: !!deps.ipDebounced,
+            sortable: true,
+            filter: columnFilterSlot("client_ip"),
+            filtering: isFilterActive(deps.getColumnFilter("client_ip")),
             render: (row) => (
                 <Text size="sm" ff="monospace">
                     {row.client_ip}
@@ -153,18 +193,9 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
         {
             accessor: "country_code",
             title: "Country",
-            filter: ({ close }) => (
-                <TextInput
-                    placeholder="e.g. DE"
-                    leftSection={<IconSearch size={16} />}
-                    value={deps.countryCodeLocal}
-                    onChange={(e) => deps.setCountryCodeLocal(e.currentTarget.value.toUpperCase())}
-                    onKeyDown={(e) => { if (e.key === "Enter") close(); }}
-                    m="xs"
-                    w={160}
-                />
-            ),
-            filtering: !!deps.countryCodeDebounced,
+            sortable: true,
+            filter: columnFilterSlot("country_code"),
+            filtering: isFilterActive(deps.getColumnFilter("country_code")),
             render: (row) =>
                 row.country_code ? (
                     <Text size="sm">
@@ -177,49 +208,104 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
         {
             accessor: "target_host",
             title: "Host",
+            sortable: true,
+            width: 180,
+            ellipsis: true,
+            filter: columnFilterSlot("target_host"),
+            filtering: isFilterActive(deps.getColumnFilter("target_host")),
             render: (row) => (
-                <Text size="sm">{row.target_host ?? "—"}</Text>
+                <Text size="sm" title={row.target_host ?? undefined}>
+                    {row.target_host ?? "—"}
+                </Text>
             ),
         },
         {
-            accessor: "device_name",
+            accessor: "target_uri",
+            title: "URI",
+            width: 280,
+            ellipsis: true,
+            filter: columnFilterSlot("target_uri"),
+            filtering: isFilterActive(deps.getColumnFilter("target_uri")),
+            render: (row) => (
+                <Text size="sm" ff="monospace" title={row.target_uri ?? undefined}>
+                    {row.target_uri ?? "—"}
+                </Text>
+            ),
+        },
+        {
+            accessor: "http_method",
+            title: "Method",
+            sortable: true,
+            filter: columnFilterSlot(
+                "http_method",
+                HTTP_METHODS.map((m) => ({ value: m, label: m })),
+            ),
+            filtering: isFilterActive(deps.getColumnFilter("http_method")),
+            render: (row) => <Text size="sm" ff="monospace">{row.http_method ?? "—"}</Text>,
+        },
+        {
+            accessor: "user_id",
+            title: "User",
+            filter: columnFilterSlot("user_id", deps.userOptions),
+            filtering: isFilterActive(deps.getColumnFilter("user_id")),
+            render: (row) => {
+                const users = distinctUsers(row.contributors);
+                if (users.length === 0) return <Text size="sm" c="dimmed">—</Text>;
+                const first = users[0];
+                return (
+                    <Group gap={6} wrap="nowrap">
+                        <Anchor
+                            size="sm"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (first.user_id != null) deps.onUserClick(first.user_id);
+                            }}
+                        >
+                            {first.user_name ?? `User #${first.user_id}`}
+                        </Anchor>
+                        {overflowBadge(users.length, row.contributor_count)}
+                    </Group>
+                );
+            },
+        },
+        {
+            accessor: "authorized_by",
             title: "Authorized by",
-            filter: ({ close }) => (
-                <Stack gap="xs" p="xs">
-                    <Text size="xs" c="dimmed" fw={500}>By device</Text>
-                    <Select
-                        placeholder="All devices"
-                        data={deps.deviceOptions}
-                        value={deps.deviceIdStr}
-                        onChange={(val) => {
-                            deps.setParam("network_policy_id", null);
-                            deps.setParam("device_id", val);
-                            close();
-                        }}
-                        clearable
-                        comboboxProps={{ withinPortal: false }}
-                        w={220}
-                    />
-                    <Text size="xs" c="dimmed" fw={500}>By network policy</Text>
-                    <Select
-                        placeholder="All policies"
-                        data={deps.networkPolicyOptions}
-                        value={deps.networkPolicyIdStr}
-                        onChange={(val) => { deps.setNetworkPolicyId(val); close(); }}
-                        clearable
-                        comboboxProps={{ withinPortal: false }}
-                        w={220}
-                    />
+            filter: () => (
+                <Stack gap="sm" p="xs">
+                    <Stack gap={4}>
+                        <Text size="xs" c="dimmed" fw={500}>By device</Text>
+                        <ColumnFilter
+                            config={FILTER_COLUMNS.device_id}
+                            state={deps.getColumnFilter("device_id")}
+                            options={deps.deviceOptions}
+                            onChange={(next) => deps.setColumnFilter("device_id", next)}
+                        />
+                    </Stack>
+                    <Stack gap={4}>
+                        <Text size="xs" c="dimmed" fw={500}>By network policy</Text>
+                        <ColumnFilter
+                            config={FILTER_COLUMNS.network_policy_id}
+                            state={deps.getColumnFilter("network_policy_id")}
+                            options={deps.networkPolicyOptions}
+                            onChange={(next) => deps.setColumnFilter("network_policy_id", next)}
+                        />
+                    </Stack>
                 </Stack>
             ),
-            filtering: !!(deps.deviceIdStr || deps.networkPolicyIdStr),
+            filtering:
+                isFilterActive(deps.getColumnFilter("device_id")) ||
+                isFilterActive(deps.getColumnFilter("network_policy_id")),
             render: (row) => {
                 if (row.network_policy_id != null) {
                     return (
                         <Anchor
                             size="sm"
                             c="teal.5"
-                            onClick={(e) => { e.stopPropagation(); deps.onNetworkPolicyClick(row.network_policy_id!); }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                deps.onNetworkPolicyClick(row.network_policy_id!);
+                            }}
                         >
                             <Group gap={4} wrap="nowrap">
                                 <IconHexagon size={14} />
@@ -228,22 +314,33 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
                         </Anchor>
                     );
                 }
-                if (row.device_name && row.device_id != null) {
-                    return (
-                        <Anchor
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); deps.onDeviceClick(row.device_id!); }}
-                        >
-                            {row.device_name}
-                        </Anchor>
-                    );
-                }
-                return <Text size="sm" c="dimmed">—</Text>;
+                const devices = distinctDevices(row.contributors);
+                if (devices.length === 0) return <Text size="sm" c="dimmed">—</Text>;
+                const first = devices[0];
+                return (
+                    <Group gap={6} wrap="nowrap">
+                        {first.user_id != null ? (
+                            <Anchor
+                                size="sm"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    deps.onDeviceClick(first.device_id!, first.user_id);
+                                }}
+                            >
+                                {first.device_name ?? `Device #${first.device_id}`}
+                            </Anchor>
+                        ) : (
+                            <Text size="sm">{first.device_name ?? `Device #${first.device_id}`}</Text>
+                        )}
+                        {overflowBadge(devices.length, row.contributor_count)}
+                    </Group>
+                );
             },
         },
         {
             accessor: "outcome",
             title: "Outcome",
+            sortable: true,
             filter: ({ close }) => (
                 <SegmentedControl
                     data={[
@@ -253,20 +350,7 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
                     ]}
                     value={deps.outcomeStr ?? "all"}
                     onChange={(val) => {
-                        if (val === "all") {
-                            deps.setSearchParams((prev) => {
-                                prev.delete("outcome");
-                                return prev;
-                            });
-                        } else if (val === "allow") {
-                            deps.setSearchParams((prev) => {
-                                prev.set("outcome", val);
-                                prev.delete("deny_reason");
-                                return prev;
-                            });
-                        } else {
-                            deps.setParam("outcome", val);
-                        }
+                        deps.setOutcome(val === "all" ? null : val);
                         close();
                     }}
                     m="xs"
@@ -282,33 +366,20 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
         {
             accessor: "deny_reason",
             title: "Reason",
-            filter: ({ close }) => (
-                <Select
-                    placeholder="Any reason"
-                    data={deps.denyReasonOptions}
-                    value={deps.denyReason}
-                    onChange={(val) => { deps.setParam("deny_reason", val); close(); }}
-                    clearable
-                    comboboxProps={{ withinPortal: false }}
-                    m="xs"
-                    w={200}
-                />
-            ),
-            filtering: !!deps.denyReason,
+            sortable: true,
+            filter: columnFilterSlot("deny_reason", deps.denyReasonOptions),
+            filtering: isFilterActive(deps.getColumnFilter("deny_reason")),
             render: (row) =>
                 row.deny_reason ? (
-                    <Text size="sm">
-                        {DENY_REASON_LABELS[row.deny_reason] ?? row.deny_reason}
-                    </Text>
+                    <Text size="sm">{DENY_REASON_LABELS[row.deny_reason] ?? row.deny_reason}</Text>
                 ) : (
-                    <Text size="sm" c="dimmed">
-                        —
-                    </Text>
+                    <Text size="sm" c="dimmed">—</Text>
                 ),
         },
         {
             accessor: "duration_us",
             title: "Duration",
+            sortable: true,
             render: (row) => (
                 <Text size="sm" ff="monospace">
                     {row.duration_us != null ? `${(row.duration_us / 1000).toFixed(2)} ms` : "—"}

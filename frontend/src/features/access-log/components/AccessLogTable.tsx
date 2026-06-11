@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { buildRoute } from "@/lib/routes";
 import { useNavigate } from "react-router-dom";
-import { Anchor, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
-import { DataTable } from "mantine-datatable";
-import { IconFilterOff } from "@tabler/icons-react";
+import { Anchor, Button, Checkbox, Group, Menu, Skeleton, Stack, Text } from "@mantine/core";
+import { DataTable, type DataTableSortStatus } from "mantine-datatable";
+import { IconColumns3, IconFilterOff } from "@tabler/icons-react";
 import type { AccessLogRow } from "@/lib/api";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
 import { CursorPagination } from "@/components/CursorPagination";
@@ -15,9 +15,19 @@ import type { AccessLogFilters } from "../hooks/useAccessLogFilters";
 import { AccessLogDetailDrawer } from "./AccessLogDetailDrawer";
 import { getAccessLogColumns } from "./accessLogColumns";
 import { DENY_REASON_LABELS } from "../constants";
+import {
+    type FilterColumnKey,
+    type SortColumn,
+    COLUMN_CHIP_LABELS,
+    FILTER_COLUMN_KEYS,
+    describeColumnFilter,
+    isFilterActive,
+    nextSortState,
+} from "../filterConfig";
 import { ErrorState } from "@/components/ErrorState";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
 import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
+import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { useAccessLogDenyReasons } from "../hooks/useAccessLogDenyReasons";
 import { useNetworkPolicies } from "@/features/network-policies/hooks/useNetworkPolicies";
 import { useFilterButtonLabels } from "@/hooks/useFilterButtonLabels";
@@ -29,6 +39,40 @@ interface AccessLogTableProps {
 
 const PAGE_SIZE = 25;
 
+/**
+ * Every data column the chooser can show, in display order. Time, IP and Host
+ * are mandatory — always shown and not toggleable. `defaultVisible` sets the
+ * initial state for the rest before the user customises the chooser. The
+ * trailing actions column is always rendered and is not listed here.
+ */
+const COLUMN_META: { accessor: string; label: string; mandatory?: boolean; defaultVisible?: boolean }[] = [
+    { accessor: "created_at", label: "Time", mandatory: true },
+    { accessor: "client_ip", label: "IP", mandatory: true },
+    { accessor: "country_code", label: "Country", defaultVisible: true },
+    { accessor: "target_host", label: "Host", mandatory: true },
+    { accessor: "target_uri", label: "URI" },
+    { accessor: "http_method", label: "Method" },
+    { accessor: "user_id", label: "User", defaultVisible: true },
+    { accessor: "authorized_by", label: "Authorized by", defaultVisible: true },
+    { accessor: "outcome", label: "Outcome", defaultVisible: true },
+    { accessor: "deny_reason", label: "Reason", defaultVisible: true },
+    { accessor: "duration_us", label: "Duration", defaultVisible: true },
+];
+
+const MANDATORY_COLUMNS = new Set(COLUMN_META.filter((c) => c.mandatory).map((c) => c.accessor));
+const DEFAULT_VISIBLE_COLUMNS = COLUMN_META.filter((c) => !c.mandatory && c.defaultVisible).map((c) => c.accessor);
+const COLUMNS_LS_KEY = "pulseweaver:access-log:columns:v2";
+
+function loadVisibleColumns(): Set<string> {
+    const saved = localStorage.getItem(COLUMNS_LS_KEY);
+    if (!saved) return new Set(DEFAULT_VISIBLE_COLUMNS);
+    try {
+        return new Set(JSON.parse(saved) as string[]);
+    } catch {
+        return new Set(DEFAULT_VISIBLE_COLUMNS);
+    }
+}
+
 export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps) {
     const navigate = useNavigate();
     const formatDateTime = useDateFormatter();
@@ -36,7 +80,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
 
     const [cursor, setCursor] = useState<string | null>(null);
 
-    // Reset cursor when filters change
+    // Reset cursor when filters or sort change (the cursor encodes the sort).
     const [filterKey, setFilterKey] = useState(filters.filterKey);
     if (filterKey !== filters.filterKey) {
         setFilterKey(filters.filterKey);
@@ -46,25 +90,31 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
     const [selectedRow, setSelectedRow] = useState<AccessLogRow | null>(null);
     const [drawerOpened, setDrawerOpened] = useState(false);
 
+    const [visibleColumns, setVisibleColumns] = useState<Set<string>>(loadVisibleColumns);
+
     const tableRef = useFilterButtonLabels({
         created_at: "Filter by time",
         client_ip: "Filter by IP address",
         country_code: "Filter by country",
-        device_name: "Filter by authorized device or policy",
+        target_host: "Filter by host",
+        target_uri: "Filter by URI",
+        http_method: "Filter by HTTP method",
+        user_id: "Filter by user",
+        authorized_by: "Filter by authorized device or policy",
         outcome: "Filter by outcome",
         deny_reason: "Filter by deny reason",
     });
 
     const { data: ownerGroups } = useDeviceList();
+    const { data: users } = useListUsers();
     const { data: denyReasons } = useAccessLogDenyReasons();
     const { data: networkPolicies } = useNetworkPolicies();
 
-    const { data, isPending, error, refetch } = useAccessLog(
-        { ...filters.queryParams, before_id: cursor ? Number(cursor) : undefined, limit: PAGE_SIZE },
+    const { data, isPending, isFetching, error, refetch } = useAccessLog(
+        { ...filters.queryParams, cursor: cursor ?? undefined, limit: PAGE_SIZE },
         refreshInterval === 0 ? false : refreshInterval,
     );
 
-    // Chart data — uses the dashboard traffic endpoint with the same time range
     const timeRangeMs = filters.presetStr ? presetToMs(filters.presetStr) : 0;
     const { data: trafficData, isLoading: trafficLoading } = useDashboardTraffic(
         filters.queryParams?.from,
@@ -74,6 +124,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
     const rows = data?.rows ?? [];
 
     const deviceOptions = (ownerGroups ?? []).flatMap((g) => g.devices).map((d) => ({ value: String(d.id), label: d.name }));
+    const userOptions = (users ?? []).map((u) => ({ value: String(u.id), label: u.display_name || u.username }));
     const denyReasonOptions = (denyReasons ?? []).map((r) => ({
         value: r,
         label: DENY_REASON_LABELS[r] ?? r,
@@ -83,40 +134,51 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         label: `${p.name} (${p.cidr})`,
     }));
 
-    const columns = getAccessLogColumns({
+    const allColumns = getAccessLogColumns({
         formatDateTime,
         pickerValueFormat,
-        presetStr: filters.presetStr,
         fromStr: filters.fromStr,
         toStr: filters.toStr,
-        ipLocal: filters.ipLocal,
-        ipDebounced: filters.ipDebounced,
-        deviceIdStr: filters.deviceIdStr,
-        networkPolicyIdStr: filters.networkPolicyIdStr,
         outcomeStr: filters.outcomeStr,
-        denyReason: filters.denyReason,
-        countryCodeLocal: filters.countryCodeLocal,
-        countryCodeDebounced: filters.countryCodeDebounced,
+        setOutcome: filters.setOutcome,
+        getColumnFilter: filters.getColumnFilter,
+        setColumnFilter: filters.setColumnFilter,
+        setSearchParams: filters.setSearchParams,
         deviceOptions,
         denyReasonOptions,
         networkPolicyOptions,
-        setParam: filters.setParam,
-        setNetworkPolicyId: filters.setNetworkPolicyId,
-        setIpLocal: filters.setIpLocal,
-        setCountryCodeLocal: filters.setCountryCodeLocal,
-        setSearchParams: filters.setSearchParams,
+        userOptions,
         onRowClick: (row) => {
             setSelectedRow(row);
             setDrawerOpened(true);
         },
-        onDeviceClick: (deviceId) => {
-          const ownerId = (ownerGroups ?? []).find((g) =>
-            g.devices.some((d) => d.id === deviceId)
-          )?.owner.id;
-          if (ownerId !== undefined) navigate(`${buildRoute.userDevices(ownerId)}?device=${deviceId}`);
+        onUserClick: (userId) => navigate(buildRoute.userDevices(userId)),
+        onDeviceClick: (deviceId, ownerUserId) => {
+            if (ownerUserId !== undefined) navigate(`${buildRoute.userDevices(ownerUserId)}?device=${deviceId}`);
         },
         onNetworkPolicyClick: (id) => navigate(buildRoute.accessNetworkPolicyDetail(id)),
     });
+
+    const columns = allColumns.filter((c) => {
+        const accessor = String(c.accessor);
+        if (accessor === "actions" || MANDATORY_COLUMNS.has(accessor)) return true;
+        return visibleColumns.has(accessor);
+    });
+
+    function toggleColumn(accessor: string) {
+        setVisibleColumns((prev) => {
+            const next = new Set(prev);
+            if (next.has(accessor)) next.delete(accessor);
+            else next.add(accessor);
+            localStorage.setItem(COLUMNS_LS_KEY, JSON.stringify([...next]));
+            return next;
+        });
+    }
+
+    const sortStatus: DataTableSortStatus<AccessLogRow> = {
+        columnAccessor: filters.sort,
+        direction: filters.order,
+    };
 
     const filterChips = useMemo(() => {
         const chips: FilterChip[] = [];
@@ -137,64 +199,33 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
             });
         }
 
-        if (filters.ipDebounced) {
-            chips.push({
-                label: "IP",
-                value: filters.ipDebounced,
-                onRemove: () => filters.setIpLocal(""),
-            });
-        }
-
-        if (filters.deviceIdStr) {
-            const device = deviceOptions.find((d) => d.value === filters.deviceIdStr);
-            chips.push({
-                label: "Authorized by",
-                value: device?.label ?? filters.deviceIdStr,
-                onRemove: () => filters.setParam("device_id", null),
-            });
-        }
-
-        if (filters.networkPolicyIdStr) {
-            const policy = networkPolicyOptions.find((p) => p.value === filters.networkPolicyIdStr);
-            chips.push({
-                label: "Authorized by",
-                value: policy?.label ?? filters.networkPolicyIdStr,
-                onRemove: () => filters.setNetworkPolicyId(null),
-            });
-        }
-
         if (filters.outcomeStr) {
             chips.push({
                 label: "Outcome",
                 value: filters.outcomeStr === "allow" ? "Allow" : "Deny",
-                onRemove: () => {
-                    filters.setSearchParams((prev) => {
-                        prev.delete("outcome");
-                        prev.delete("deny_reason");
-                        return prev;
-                    });
-                },
+                onRemove: () => filters.setOutcome(null),
             });
         }
 
-        if (filters.denyReason) {
-            chips.push({
-                label: "Reason",
-                value: DENY_REASON_LABELS[filters.denyReason] ?? filters.denyReason,
-                onRemove: () => filters.setParam("deny_reason", null),
-            });
-        }
+        const resolvers: Partial<Record<FilterColumnKey, (v: string) => string>> = {
+            device_id: (v) => deviceOptions.find((o) => o.value === v)?.label ?? v,
+            user_id: (v) => userOptions.find((o) => o.value === v)?.label ?? v,
+            network_policy_id: (v) => networkPolicyOptions.find((o) => o.value === v)?.label ?? v,
+            deny_reason: (v) => denyReasonOptions.find((o) => o.value === v)?.label ?? v,
+        };
 
-        if (filters.countryCodeDebounced) {
+        for (const key of FILTER_COLUMN_KEYS) {
+            const state = filters.getColumnFilter(key);
+            if (!isFilterActive(state)) continue;
             chips.push({
-                label: "Country",
-                value: filters.countryCodeDebounced,
-                onRemove: () => filters.setCountryCodeLocal(""),
+                label: COLUMN_CHIP_LABELS[key],
+                value: describeColumnFilter(key, state, resolvers[key]),
+                onRemove: () => filters.setColumnFilter(key, null),
             });
         }
 
         return chips;
-    }, [filters, formatDateTime, deviceOptions, networkPolicyOptions]);
+    }, [filters, formatDateTime, deviceOptions, userOptions, networkPolicyOptions, denyReasonOptions]);
 
     if ((isPending || !data) && !error && rows.length === 0) {
         return (
@@ -215,7 +246,6 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
     return (
         <>
             <Stack gap="sm">
-                {/* Traffic chart */}
                 <TrafficLineChart
                     data={trafficData?.buckets}
                     isLoading={trafficLoading}
@@ -223,7 +253,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                     h={200}
                 />
 
-                <Group justify="flex-end">
+                <Group justify="flex-end" gap="xs">
                     {filters.hasActiveFilters && (
                         <Button
                             variant="subtle"
@@ -234,23 +264,59 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                             Clear filters
                         </Button>
                     )}
+                    <Menu shadow="md" closeOnItemClick={false} position="bottom-end">
+                        <Menu.Target>
+                            <Button
+                                variant="subtle"
+                                size="compact-xs"
+                                leftSection={<IconColumns3 size={14} />}
+                            >
+                                Columns
+                            </Button>
+                        </Menu.Target>
+                        <Menu.Dropdown>
+                            <Menu.Label>Columns</Menu.Label>
+                            <Stack gap="xs" px="sm" py={4}>
+                                {COLUMN_META.map((c) => (
+                                    <Checkbox
+                                        key={c.accessor}
+                                        size="xs"
+                                        label={c.label}
+                                        checked={c.mandatory || visibleColumns.has(c.accessor)}
+                                        disabled={c.mandatory}
+                                        onChange={() => toggleColumn(c.accessor)}
+                                    />
+                                ))}
+                            </Stack>
+                        </Menu.Dropdown>
+                    </Menu>
                 </Group>
 
                 <ActiveFilterChips chips={filterChips} />
 
-                <div ref={tableRef} aria-busy={isPending}>
+                <div ref={tableRef} aria-busy={isFetching}>
                     <DataTable
                         records={rows}
                         highlightOnHover
                         minHeight={150}
                         noRecordsText="No matching log entries."
                         columns={columns}
+                        fetching={isFetching}
+                        loaderBackgroundBlur={1}
+                        sortStatus={sortStatus}
+                        onSortStatusChange={(status) => {
+                            const next = nextSortState(
+                                { sort: filters.sort, order: filters.order },
+                                status.columnAccessor as SortColumn,
+                            );
+                            filters.setSort(next.sort, next.order);
+                        }}
                     />
                 </div>
 
                 <CursorPagination
                     total={total}
-                    nextCursor={data?.next_cursor != null ? String(data.next_cursor) : null}
+                    nextCursor={data?.next_cursor ?? null}
                     pageSize={PAGE_SIZE}
                     onCursorChange={setCursor}
                     resetKey={filters.filterKey}

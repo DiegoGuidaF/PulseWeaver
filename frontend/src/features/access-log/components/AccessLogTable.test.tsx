@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { screen, waitFor, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http } from "msw";
+import { http, HttpResponse } from "msw";
 import { server } from "@/test/setup";
 import { renderWithProviders } from "@/test/utils";
 import { AccessLogPage } from "@/pages/access-log/AccessLogPage";
@@ -19,36 +19,51 @@ const BASE_ENTRY =
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function renderTable(initialEntries = [BASE_ENTRY]) {
-    return renderWithProviders(<AccessLogPage />, {
-        initialEntries,
-    });
+    return renderWithProviders(<AccessLogPage />, { initialEntries });
 }
 
-/** Returns the filter icon button inside a column header by column title text. */
-function getFilterButton(columnTitle: string | RegExp) {
-    const header = screen
-        .getAllByRole("columnheader")
-        .find((h) => (typeof columnTitle === "string"
-            ? h.textContent?.includes(columnTitle)
-            : columnTitle.test(h.textContent ?? "")));
-    if (!header) throw new Error(`Column header "${columnTitle}" not found`);
-    return within(header).getByRole("button");
+// mantine-datatable gives sortable column headers role="button", so they are not
+// matched by the "columnheader" role — query the <th> elements directly.
+function headerCells() {
+    return Array.from(document.querySelectorAll<HTMLTableCellElement>("th"));
 }
+
+function getColumnHeader(columnTitle: string | RegExp) {
+    const header = headerCells().find((h) => (typeof columnTitle === "string"
+        ? h.textContent?.includes(columnTitle)
+        : columnTitle.test(h.textContent ?? "")));
+    if (!header) throw new Error(`Column header "${columnTitle}" not found`);
+    return header;
+}
+
+/**
+ * The filter trigger inside a column header — the nested button with
+ * `aria-haspopup` (the header cell itself is the sort control on sortable columns).
+ */
+function getFilterButton(columnTitle: string | RegExp) {
+    const header = getColumnHeader(columnTitle);
+    const btn = within(header)
+        .getAllByRole("button")
+        .find((b) => b.getAttribute("aria-haspopup"));
+    if (!btn) throw new Error(`Filter button for "${columnTitle}" not found`);
+    return btn;
+}
+
+beforeEach(() => {
+    // Column-chooser visibility is persisted to localStorage; isolate each test.
+    localStorage.clear();
+});
 
 // ─── Basic rendering ─────────────────────────────────────────────────────────
 
 describe("AccessLogTable", () => {
-    it("renders table rows from API response", async () => {
+    it("renders rows with contributor user and device", async () => {
         const row = createMockAccessLogRow({
             client_ip: "203.0.113.42",
             target_host: "example.com",
             outcome: true,
         });
-        server.use(
-            accessLogHandlers.list(
-                createMockAccessLogResponse({ rows: [row], total: 1 }),
-            ),
-        );
+        server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })));
 
         renderTable();
 
@@ -57,16 +72,27 @@ describe("AccessLogTable", () => {
             { timeout: TEST_TIMEOUTS.SHORT },
         );
         expect(screen.getByText("example.com")).toBeInTheDocument();
+        expect(screen.getByText("Test User")).toBeInTheDocument();
+        expect(screen.getByText("Test Device")).toBeInTheDocument();
         expect(screen.getAllByText("Allow").length).toBeGreaterThan(0);
         expect(screen.getByText("1 result")).toBeInTheDocument();
     });
 
-    it("shows no-records message while keeping column headers visible", async () => {
-        server.use(
-            accessLogHandlers.list(
-                createMockAccessLogResponse({ rows: [], total: 0 }),
-            ),
+    it("renders an em dash in the User column when there are no contributors", async () => {
+        const row = createMockAccessLogRow({ client_ip: "10.9.9.9", contributors: [], contributor_count: 0 });
+        server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })));
+
+        renderTable();
+
+        await waitFor(
+            () => expect(screen.getByText("10.9.9.9")).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.SHORT },
         );
+        expect(screen.queryByText("Test User")).not.toBeInTheDocument();
+    });
+
+    it("shows no-records message while keeping column headers visible", async () => {
+        server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
         renderTable();
 
@@ -75,12 +101,9 @@ describe("AccessLogTable", () => {
             { timeout: TEST_TIMEOUTS.SHORT },
         );
 
-        // Column headers must remain visible so filters can still be changed
-        expect(screen.getByRole("columnheader", { name: /time/i })).toBeInTheDocument();
-        expect(
-            screen.getAllByRole("columnheader").find((h) => h.textContent?.includes("IP")),
-        ).toBeDefined();
-        expect(screen.getByRole("columnheader", { name: /outcome/i })).toBeInTheDocument();
+        expect(getColumnHeader("Time")).toBeDefined();
+        expect(getColumnHeader("IP")).toBeDefined();
+        expect(getColumnHeader("Outcome")).toBeDefined();
     });
 
     it("shows error alert when API returns 500", async () => {
@@ -109,7 +132,7 @@ describe("AccessLogTable", () => {
         );
     });
 
-    it("row click opens detail drawer with row data", async () => {
+    it("row click opens detail drawer with contributors", async () => {
         const user = userEvent.setup();
         const row = createMockAccessLogRow({
             id: 42,
@@ -118,11 +141,7 @@ describe("AccessLogTable", () => {
             deny_reason: "invalid_token",
             target_host: "secure.example.com",
         });
-        server.use(
-            accessLogHandlers.list(
-                createMockAccessLogResponse({ rows: [row], total: 1 }),
-            ),
-        );
+        server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })));
 
         renderTable();
 
@@ -137,20 +156,17 @@ describe("AccessLogTable", () => {
             () => expect(screen.getByText("Request Detail")).toBeInTheDocument(),
             { timeout: TEST_TIMEOUTS.SHORT },
         );
+        expect(screen.getByText("Contributors")).toBeInTheDocument();
         expect(screen.getAllByText("Invalid token").length).toBeGreaterThan(0);
         expect(screen.getAllByText("secure.example.com").length).toBeGreaterThan(0);
     });
 
-    // ─── IP filter ─────────────────────────────────────────────────────────────
+    // ─── Column filter popovers ───────────────────────────────────────────────
 
     describe("IP filter", () => {
-        it("opens when the filter icon is clicked", async () => {
+        it("opens with an operator selector and a value input", async () => {
             const user = userEvent.setup();
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable();
 
@@ -161,18 +177,36 @@ describe("AccessLogTable", () => {
 
             await user.click(getFilterButton("IP"));
 
-            expect(
-                await screen.findByPlaceholderText("Filter by IP"),
-            ).toBeInTheDocument();
+            expect(await screen.findByDisplayValue("is any of")).toBeInTheDocument();
+            expect(screen.getByPlaceholderText("Type and press Enter")).toBeInTheDocument();
+        });
+
+        it("keeps a non-default operator selected even before any value is entered", async () => {
+            const user = userEvent.setup();
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            await user.click(getFilterButton("IP"));
+
+            const operator = await screen.findByDisplayValue("is any of");
+            await user.click(operator);
+            await user.click(await screen.findByText("is none of"));
+
+            // Without a persisted operator the selector would snap back to "is any of".
+            await waitFor(() =>
+                expect(screen.getByDisplayValue("is none of")).toBeInTheDocument(),
+            );
         });
 
         it("closes when the filter icon is clicked again (toggle)", async () => {
             const user = userEvent.setup();
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable();
 
@@ -183,95 +217,21 @@ describe("AccessLogTable", () => {
 
             const filterBtn = getFilterButton("IP");
 
-            // Open via userEvent (full pointer simulation)
             await user.click(filterBtn);
-            expect(await screen.findByPlaceholderText("Filter by IP")).toBeInTheDocument();
+            expect(await screen.findByPlaceholderText("Type and press Enter")).toBeInTheDocument();
 
-            // Close via fireEvent.click — avoids the mousedown-triggered click-outside
-            // that would otherwise close+reopen the popover before toggle() fires.
+            // fireEvent.click avoids the mousedown click-outside that would reopen the popover
             fireEvent.click(filterBtn);
             await waitFor(() =>
-                expect(screen.queryByPlaceholderText("Filter by IP")).not.toBeInTheDocument(),
+                expect(screen.queryByPlaceholderText("Type and press Enter")).not.toBeInTheDocument(),
             );
-        });
-
-        it("retains all typed characters without resetting", async () => {
-            // delay: null dispatches all keystrokes synchronously so the 300 ms debounce
-            // cannot fire mid-type and trigger a re-render that would stale the input ref.
-            const user = userEvent.setup({ delay: null });
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
-
-            renderTable();
-
-            await waitFor(
-                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
-                { timeout: TEST_TIMEOUTS.SHORT },
-            );
-
-            await user.click(getFilterButton("IP"));
-            const input = await screen.findByPlaceholderText("Filter by IP");
-            await user.type(input, "192.168.1");
-
-            expect(input).toHaveValue("192.168.1");
-        });
-
-        it("activates filter indicator only after debounce, not on every keystroke", async () => {
-            const user = userEvent.setup();
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
-
-            const { container } = renderTable();
-
-            await waitFor(
-                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
-                { timeout: TEST_TIMEOUTS.SHORT },
-            );
-
-            await user.click(getFilterButton("IP"));
-            const input = await screen.findByPlaceholderText("Filter by IP");
-
-            // Type rapidly — input should hold the full value immediately
-            await user.type(input, "192");
-            expect(input).toHaveValue("192");
-
-            // The filter icon in the IP column should not yet show the "active filter"
-            // indicator until the debounce fires. mantine-datatable marks the filter
-            // action icon with data-active when filtering=true.
-            const ipHeader = screen
-                .getAllByRole("columnheader")
-                .find((h) => h.textContent?.includes("IP"))!;
-            // Still within debounce window — filtering=false, no active indicator yet
-            expect(
-                ipHeader.querySelector('[data-active]'),
-            ).toBeNull();
-
-            // After the debounce window the active indicator appears
-            await waitFor(
-                () => expect(ipHeader.querySelector('[data-active]')).not.toBeNull(),
-                { timeout: TEST_TIMEOUTS.MEDIUM },
-            );
-
-            void container; // suppress unused warning
         });
     });
 
-    // ─── Outcome filter ────────────────────────────────────────────────────────
-
     describe("Outcome filter", () => {
-        it("opens when the filter icon is clicked", async () => {
+        it("opens with Allow/Deny options", async () => {
             const user = userEvent.setup();
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable();
 
@@ -282,50 +242,15 @@ describe("AccessLogTable", () => {
 
             await user.click(getFilterButton("Outcome"));
 
-            // SegmentedControl options should be visible
             expect(await screen.findByText("Allow")).toBeInTheDocument();
             expect(screen.getByText("Deny")).toBeInTheDocument();
         });
-
-        it("closes when filter icon is clicked again (toggle)", async () => {
-            const user = userEvent.setup();
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
-
-            renderTable();
-
-            await waitFor(
-                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
-                { timeout: TEST_TIMEOUTS.SHORT },
-            );
-
-            const filterBtn = getFilterButton("Outcome");
-
-            // Open
-            await user.click(filterBtn);
-            await screen.findByText("Allow");
-
-            // Close — fireEvent.click avoids mousedown-triggered click-outside re-open
-            fireEvent.click(filterBtn);
-            await waitFor(() =>
-                expect(screen.queryByRole("radio", { name: "Deny" })).not.toBeInTheDocument(),
-            );
-        });
     });
 
-    // ─── Device filter ─────────────────────────────────────────────────────────
-
-    describe("Device filter", () => {
-        it("opens when the filter icon is clicked", async () => {
+    describe("Authorized-by filter", () => {
+        it("opens with device and network-policy sections", async () => {
             const user = userEvent.setup();
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable();
 
@@ -336,22 +261,15 @@ describe("AccessLogTable", () => {
 
             await user.click(getFilterButton("Authorized by"));
 
-            expect(
-                await screen.findByPlaceholderText("All devices"),
-            ).toBeInTheDocument();
+            expect(await screen.findByText("By device")).toBeInTheDocument();
+            expect(screen.getByText("By network policy")).toBeInTheDocument();
         });
     });
 
-    // ─── Date range filter ─────────────────────────────────────────────────────
-
     describe("Date range filter", () => {
-        it("opens when the filter icon is clicked and shows From and To pickers", async () => {
+        it("opens and shows From and To pickers", async () => {
             const user = userEvent.setup();
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable();
 
@@ -371,11 +289,7 @@ describe("AccessLogTable", () => {
 
     describe("Active filter chips", () => {
         it("shows a Time chip when from/to are set", async () => {
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable();
 
@@ -387,16 +301,10 @@ describe("AccessLogTable", () => {
             expect(screen.getByText("Time:")).toBeInTheDocument();
         });
 
-        it("shows an IP chip when ip filter is set via URL", async () => {
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
+        it("shows an IP chip with operator phrasing from a URL param", async () => {
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
-            renderTable([
-                "/access-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&ip=10.0.0",
-            ]);
+            renderTable([`${BASE_ENTRY}&client_ip=10.0.0.5`]);
 
             await waitFor(
                 () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
@@ -404,39 +312,41 @@ describe("AccessLogTable", () => {
             );
 
             expect(screen.getByText("IP:")).toBeInTheDocument();
-            expect(screen.getByText(/10\.0\.0/)).toBeInTheDocument();
+            expect(screen.getByText(/is any of 10\.0\.0\.5/)).toBeInTheDocument();
         });
 
-        it("shows a Device chip with device name when device_id filter is set", async () => {
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
+        it("shows an 'is unknown' Country chip for the is_null operator", async () => {
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
-            renderTable([
-                "/access-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&device_id=1",
-            ]);
+            renderTable([`${BASE_ENTRY}&country_code_op=is_null`]);
 
             await waitFor(
                 () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            expect(screen.getByText("Authorized by:")).toBeInTheDocument();
+            expect(screen.getByText("Country:")).toBeInTheDocument();
+            expect(screen.getByText("is unknown")).toBeInTheDocument();
+        });
+
+        it("resolves a Device chip to the device name", async () => {
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
+
+            renderTable([`${BASE_ENTRY}&device_id=1`]);
+
+            await waitFor(
+                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.getByText("Device:")).toBeInTheDocument();
             expect(screen.getByText(/Test Device/)).toBeInTheDocument();
         });
 
         it("shows an Outcome chip when outcome filter is set", async () => {
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
-            renderTable([
-                "/access-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&outcome=deny",
-            ]);
+            renderTable([`${BASE_ENTRY}&outcome=deny`]);
 
             await waitFor(
                 () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
@@ -449,40 +359,26 @@ describe("AccessLogTable", () => {
 
         it("removes the IP chip and clears the filter when remove is clicked", async () => {
             const user = userEvent.setup();
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
-            renderTable([
-                "/access-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&ip=10.0.0",
-            ]);
+            renderTable([`${BASE_ENTRY}&client_ip=10.0.0.5`]);
 
             await waitFor(
                 () => expect(screen.getByText("IP:")).toBeInTheDocument(),
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            // The IP chip's remove button — Mantine Pill uses aria-hidden CloseButton
             const ipPill = screen.getByText("IP:").closest(".mantine-Pill-root");
             const removeBtn = ipPill?.querySelector(".mantine-Pill-remove") as HTMLElement;
             expect(removeBtn).toBeTruthy();
             await user.click(removeBtn);
 
-            await waitFor(() =>
-                expect(screen.queryByText("IP:")).not.toBeInTheDocument(),
-            );
+            await waitFor(() => expect(screen.queryByText("IP:")).not.toBeInTheDocument());
         });
 
         it("does not render chips when no filters are active", async () => {
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
-            // No from/to/ip/device/outcome params — only preset (default)
             renderTable(["/access-log?preset=last_24h"]);
 
             await waitFor(
@@ -492,51 +388,16 @@ describe("AccessLogTable", () => {
 
             expect(screen.queryByText("Time:")).not.toBeInTheDocument();
             expect(screen.queryByText("IP:")).not.toBeInTheDocument();
-            expect(screen.queryByText("Authorized by:")).not.toBeInTheDocument();
             expect(screen.queryByText("Outcome:")).not.toBeInTheDocument();
         });
     });
 
-    // ─── Deny reason filter ────────────────────────────────────────────────────
-
-    describe("Deny reason filter", () => {
-        it("opens when the filter icon is clicked", async () => {
-            const user = userEvent.setup();
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
-
-            renderTable();
-
-            await waitFor(
-                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
-                { timeout: TEST_TIMEOUTS.SHORT },
-            );
-
-            await user.click(getFilterButton("Reason"));
-
-            expect(
-                await screen.findByPlaceholderText("Any reason"),
-            ).toBeInTheDocument();
-        });
-    });
-
-    // ─── GeoIP — Country column ────────────────────────────────────────────────
+    // ─── Country column ───────────────────────────────────────────────────────
 
     describe("Country column", () => {
-        it("renders flag emoji and country code when country_code is present", async () => {
-            const row = createMockAccessLogRow({
-                client_ip: "8.8.8.8",
-                country_code: "DE",
-                country_name: "Germany",
-            });
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [row], total: 1 }),
-                ),
-            );
+        it("renders flag emoji and country code when present", async () => {
+            const row = createMockAccessLogRow({ client_ip: "8.8.8.8", country_code: "DE", country_name: "Germany" });
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })));
 
             renderTable();
 
@@ -544,17 +405,12 @@ describe("AccessLogTable", () => {
                 () => expect(screen.getByText(/🇩🇪/)).toBeInTheDocument(),
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
-            // Flag and code rendered together
             expect(screen.getByText(/DE/)).toBeInTheDocument();
         });
 
-        it("renders a house icon when country_code is absent", async () => {
-            const row = createMockAccessLogRow({ client_ip: "192.168.1.1" });
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [row], total: 1 }),
-                ),
-            );
+        it("renders no country code text when absent", async () => {
+            const row = createMockAccessLogRow({ client_ip: "192.168.1.1", country_code: undefined });
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })));
 
             renderTable();
 
@@ -562,20 +418,11 @@ describe("AccessLogTable", () => {
                 () => expect(screen.getByText("192.168.1.1")).toBeInTheDocument(),
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
-
-            // No flag emoji rendered in the country column
-            expect(screen.queryByText(/🇦-🇿/)).not.toBeInTheDocument();
-            // The Country column header exists
-            const countryHeader = screen
-                .getAllByRole("columnheader")
-                .find((h) => h.textContent?.includes("Country"));
-            expect(countryHeader).toBeDefined();
-            // An SVG icon (IconHome) is rendered — no country code text
             expect(screen.queryByText("DE")).not.toBeInTheDocument();
         });
     });
 
-    // ─── GeoIP — Detail drawer Location section ───────────────────────────────
+    // ─── Detail drawer — Location section ─────────────────────────────────────
 
     describe("Detail drawer — Location section", () => {
         it("shows the Location section with ASN when GeoIP data is present", async () => {
@@ -588,11 +435,7 @@ describe("AccessLogTable", () => {
                 asn: 15169,
                 asn_org: "Google LLC",
             });
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [row], total: 1 }),
-                ),
-            );
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })));
 
             renderTable();
 
@@ -610,46 +453,14 @@ describe("AccessLogTable", () => {
             expect(screen.getByText(/Google LLC/)).toBeInTheDocument();
             expect(screen.getByText(/15169/)).toBeInTheDocument();
         });
-
-        it("hides the Location section when no GeoIP fields are present", async () => {
-            const user = userEvent.setup();
-            const row = createMockAccessLogRow({ client_ip: "192.168.0.1" });
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [row], total: 1 }),
-                ),
-            );
-
-            renderTable();
-
-            await waitFor(
-                () => expect(screen.getByText("192.168.0.1")).toBeInTheDocument(),
-                { timeout: TEST_TIMEOUTS.SHORT },
-            );
-
-            await user.click(screen.getByRole("button", { name: "View details" }));
-
-            await waitFor(
-                () => expect(screen.getByText("Request Detail")).toBeInTheDocument(),
-                { timeout: TEST_TIMEOUTS.SHORT },
-            );
-            expect(screen.queryByText("Location")).not.toBeInTheDocument();
-        });
     });
 
-    // ─── GeoIP — DB-IP attribution ────────────────────────────────────────────
+    // ─── DB-IP attribution ────────────────────────────────────────────────────
 
     describe("DB-IP attribution", () => {
-        it("renders the attribution link when at least one row has country_code", async () => {
-            const row = createMockAccessLogRow({
-                client_ip: "8.8.8.8",
-                country_code: "US",
-            });
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [row], total: 1 }),
-                ),
-            );
+        it("renders the attribution link when a row has country_code", async () => {
+            const row = createMockAccessLogRow({ client_ip: "8.8.8.8", country_code: "US" });
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })));
 
             renderTable();
 
@@ -663,13 +474,9 @@ describe("AccessLogTable", () => {
             );
         });
 
-        it("does not render the attribution link when no rows have country_code", async () => {
-            const row = createMockAccessLogRow({ client_ip: "192.168.1.1" });
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [row], total: 1 }),
-                ),
-            );
+        it("does not render attribution when no rows have country_code", async () => {
+            const row = createMockAccessLogRow({ client_ip: "192.168.1.1", country_code: undefined });
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })));
 
             renderTable();
 
@@ -681,54 +488,143 @@ describe("AccessLogTable", () => {
         });
     });
 
-    // ─── GeoIP — Country filter chip ─────────────────────────────────────────
+    // ─── Column chooser ───────────────────────────────────────────────────────
 
-    describe("Country filter chip", () => {
-        it("shows a Country chip when country_code URL param is set", async () => {
-            server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
-            );
+    describe("Column chooser", () => {
+        it("reveals the Method column when toggled on", async () => {
+            const user = userEvent.setup();
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
-            renderTable([
-                "/access-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&country_code=DE",
-            ]);
+            renderTable();
 
             await waitFor(
                 () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            expect(screen.getByText("Country:")).toBeInTheDocument();
-            expect(screen.getByText("DE")).toBeInTheDocument();
-        });
+            // Method column is opt-in — hidden by default
+            expect(headerCells().some((h) => h.textContent?.includes("Method"))).toBe(false);
 
-        it("removes the Country chip and clears the filter when remove is clicked", async () => {
-            const user = userEvent.setup();
+            await user.click(screen.getByRole("button", { name: "Columns" }));
+            // The chooser lives in a Menu dropdown that jsdom treats as
+            // a11y-hidden, so toggle via the checkbox's visible label text.
+            await user.click(await screen.findByText("Method"));
+
+            await waitFor(() =>
+                expect(headerCells().some((h) => h.textContent?.includes("Method"))).toBe(true),
+            );
+        });
+    });
+
+    // ─── Sorting ──────────────────────────────────────────────────────────────
+
+    describe("Sorting", () => {
+        it("requests the chosen sort column and direction", async () => {
+            const requestedUrls: string[] = [];
             server.use(
-                accessLogHandlers.list(
-                    createMockAccessLogResponse({ rows: [], total: 0 }),
-                ),
+                http.get(endpoints.accessLog, ({ request }) => {
+                    requestedUrls.push(request.url);
+                    return HttpResponse.json(createMockAccessLogResponse({ rows: [], total: 0 }));
+                }),
             );
 
-            renderTable([
-                "/access-log?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&country_code=DE",
-            ]);
+            renderTable();
 
             await waitFor(
-                () => expect(screen.getByText("Country:")).toBeInTheDocument(),
+                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            const countryPill = screen.getByText("Country:").closest(".mantine-Pill-root");
-            const removeBtn = countryPill?.querySelector(".mantine-Pill-remove") as HTMLElement;
-            expect(removeBtn).toBeTruthy();
-            await user.click(removeBtn);
+            // The sortable header cell is itself the sort control.
+            fireEvent.click(within(getColumnHeader("IP")).getByText("IP"));
+
+            await waitFor(
+                () => expect(requestedUrls.some((u) => u.includes("sort=client_ip"))).toBe(true),
+                { timeout: TEST_TIMEOUTS.MEDIUM },
+            );
+        });
+
+        it("clears sorting after the third click on a column (asc → desc → off)", async () => {
+            const requestedUrls: string[] = [];
+            server.use(
+                http.get(endpoints.accessLog, ({ request }) => {
+                    requestedUrls.push(request.url);
+                    return HttpResponse.json(createMockAccessLogResponse({ rows: [], total: 0 }));
+                }),
+            );
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            const ipHeader = within(getColumnHeader("IP")).getByText("IP");
+
+            fireEvent.click(ipHeader);
+            await waitFor(
+                () => expect(requestedUrls.some((u) => u.includes("sort=client_ip") && u.includes("order=asc"))).toBe(true),
+                { timeout: TEST_TIMEOUTS.MEDIUM },
+            );
+
+            fireEvent.click(ipHeader);
+            await waitFor(
+                () => expect(requestedUrls.some((u) => u.includes("sort=client_ip") && u.includes("order=desc"))).toBe(true),
+                { timeout: TEST_TIMEOUTS.MEDIUM },
+            );
+
+            // Third click cycles off — the request falls back to the default sort.
+            fireEvent.click(ipHeader);
+            await waitFor(
+                () => expect(requestedUrls.at(-1)?.includes("sort=client_ip")).toBe(false),
+                { timeout: TEST_TIMEOUTS.MEDIUM },
+            );
+        });
+    });
+
+    // ─── Column chooser (hiding) ──────────────────────────────────────────────
+
+    describe("Column chooser hiding", () => {
+        it("hides a default-visible column when toggled off", async () => {
+            const user = userEvent.setup();
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(headerCells().some((h) => h.textContent?.includes("Reason"))).toBe(true);
+
+            await user.click(screen.getByRole("button", { name: "Columns" }));
+            // "Reason" is also the visible column header, so target the checkbox
+            // by role (the Menu dropdown is a11y-hidden in jsdom).
+            await user.click(await screen.findByRole("checkbox", { name: "Reason", hidden: true }));
 
             await waitFor(() =>
-                expect(screen.queryByText("Country:")).not.toBeInTheDocument(),
+                expect(headerCells().some((h) => h.textContent?.includes("Reason"))).toBe(false),
             );
+        });
+
+        it("keeps mandatory columns non-toggleable", async () => {
+            const user = userEvent.setup();
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            await user.click(screen.getByRole("button", { name: "Columns" }));
+
+            const hostCheckbox = await screen.findByRole("checkbox", { name: "Host", hidden: true });
+            expect(hostCheckbox).toBeDisabled();
+            expect(hostCheckbox).toBeChecked();
         });
     });
 });

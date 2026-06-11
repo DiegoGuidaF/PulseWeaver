@@ -66,7 +66,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
 
     const { data: ownerGroups } = useDeviceList();
 
-    const { data, isPending, error, refetch } = useAddressHistory(
+    const { data, isPending, isFetching, error, refetch } = useAddressHistory(
         { ...filters.queryParams, before_id: cursor ? Number(cursor) : undefined, limit: PAGE_SIZE },
         refreshInterval === 0 ? false : refreshInterval,
     );
@@ -229,7 +229,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
 
             <ActiveFilterChips chips={filterChips} />
 
-            <div ref={tableRef} aria-busy={isPending}>
+            <div ref={tableRef} aria-busy={isFetching}>
                 <DataTable
                     records={rows}
                     idAccessor="id"
@@ -237,6 +237,8 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                     minHeight={150}
                     noRecordsText="No address events found."
                     columns={columns}
+                    fetching={isFetching}
+                    loaderBackgroundBlur={1}
                     rowStyle={(r) => (r.is_refresh ? { opacity: 0.55 } : undefined)}
                 />
             </div>

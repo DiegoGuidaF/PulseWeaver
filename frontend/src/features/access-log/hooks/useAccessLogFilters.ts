@@ -1,9 +1,19 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useDebouncedCallback } from "@mantine/hooks";
 import dayjs from "dayjs";
 import type { GetAccessLogData } from "@/lib/api";
 import { DEFAULT_PRESET_KEY, PRESET_MS } from "../constants";
+import {
+    type ColumnFilterState,
+    type FilterColumnKey,
+    type FilterOp,
+    type SortColumn,
+    FILTER_COLUMN_KEYS,
+    FILTER_COLUMNS,
+    isFilterActive,
+} from "../filterConfig";
+
+type Query = NonNullable<GetAccessLogData["query"]>;
 
 const LS_KEY = "pulseweaver:access-log:filters";
 const DEFAULT_PARAMS = new URLSearchParams({ preset: DEFAULT_PRESET_KEY });
@@ -16,33 +26,34 @@ function persistFilters(params: URLSearchParams) {
 }
 
 export interface AccessLogFilters {
-    queryParams: GetAccessLogData["query"];
+    queryParams: Query;
     filterKey: string;
 
-    // Individual values for UI widgets
+    // Time window
     presetStr: string | null;
-    deviceIdStr: string | null;
-    networkPolicyIdStr: string | null;
-    outcomeStr: string | null;
-    denyReason: string | null;
     fromStr: string | null;
     toStr: string | null;
-    ipLocal: string;
-    ipDebounced: string;
-    countryCodeLocal: string;
-    countryCodeDebounced: string;
+
+    // Outcome (allow/deny) — kept as a dedicated boolean filter, not a column op
+    outcomeStr: string | null;
+
+    // Sort
+    sort: SortColumn;
+    order: "asc" | "desc";
 
     /** True when a custom `to` is set (historical view, not live tail). */
     hasCustomTo: boolean;
-    /** True when any filter is active (preset, date, device, outcome, IP, deny reason, country). */
+    /** True when any value/outcome/time filter is active. */
     hasActiveFilters: boolean;
+
+    // Column filter accessors (operator + values)
+    getColumnFilter: (key: FilterColumnKey) => ColumnFilterState;
+    setColumnFilter: (key: FilterColumnKey, state: ColumnFilterState | null) => void;
 
     // Setters
     setPreset: (key: string | null) => void;
-    setParam: (key: string, value: string | null) => void;
-    setNetworkPolicyId: (val: string | null) => void;
-    setIpLocal: (value: string) => void;
-    setCountryCodeLocal: (value: string) => void;
+    setOutcome: (value: string | null) => void;
+    setSort: (column: SortColumn, order: "asc" | "desc") => void;
     setSearchParams: (updater: URLSearchParams | ((prev: URLSearchParams) => URLSearchParams)) => void;
     clearAll: () => void;
 }
@@ -72,52 +83,43 @@ export function useAccessLogFilters(): AccessLogFilters {
         [setSearchParamsRaw],
     );
 
-    // URL-derived filter values
     const presetStr = searchParams.get("preset");
-    const deviceIdStr = searchParams.get("device_id");
-    const networkPolicyIdStr = searchParams.get("network_policy_id");
-    const outcomeStr = searchParams.get("outcome");
-    const denyReason = searchParams.get("deny_reason") ?? null;
     const fromStr = searchParams.get("from");
     const toStr = searchParams.get("to");
+    const outcomeStr = searchParams.get("outcome");
+    const sort = (searchParams.get("sort") as SortColumn | null) ?? "created_at";
+    const order = (searchParams.get("order") as "asc" | "desc" | null) ?? "desc";
 
-    // IP filter: local state for responsive input, debounced write to URL.
-    const [ipLocal, setIpLocalRaw] = useState(() => searchParams.get("ip") ?? "");
-    const ipDebounced = searchParams.get("ip") ?? "";
+    const getColumnFilter = useCallback(
+        (key: FilterColumnKey): ColumnFilterState => ({
+            op: (searchParams.get(`${key}_op`) as FilterOp | null) ?? "in",
+            values: searchParams.getAll(key),
+        }),
+        [searchParams],
+    );
 
-    const syncIpToUrl = useDebouncedCallback((value: string) => {
-        setSearchParams((prev) => {
-            if (value === "") prev.delete("ip");
-            else prev.set("ip", value);
-            return prev;
-        });
-    }, 300);
-
-    const setIpLocal = useCallback((value: string) => {
-        setIpLocalRaw(value);
-        syncIpToUrl(value);
-    }, [syncIpToUrl]);
-
-    // Country filter: same debounced pattern as IP.
-    const [countryCodeLocalRaw, setCountryCodeLocalRaw] = useState(() => searchParams.get("country_code") ?? "");
-    const countryCodeDebounced = searchParams.get("country_code") ?? "";
-
-    const syncCountryCodeToUrl = useDebouncedCallback((value: string) => {
-        setSearchParams((prev) => {
-            if (value === "") prev.delete("country_code");
-            else prev.set("country_code", value);
-            return prev;
-        });
-    }, 300);
-
-    const setCountryCodeLocal = useCallback((value: string) => {
-        setCountryCodeLocalRaw(value);
-        // Only query on a complete 2-char ISO code or when clearing — avoids
-        // firing requests for partial input like "D" that will never match.
-        if (value === "" || value.length === 2) {
-            syncCountryCodeToUrl(value);
-        }
-    }, [syncCountryCodeToUrl]);
+    const setColumnFilter = useCallback(
+        (key: FilterColumnKey, state: ColumnFilterState | null) => {
+            setSearchParams((prev) => {
+                prev.delete(key);
+                prev.delete(`${key}_op`);
+                if (state) {
+                    const isNullOp = state.op === "is_null" || state.op === "not_null";
+                    if (isNullOp) {
+                        prev.set(`${key}_op`, state.op);
+                    } else {
+                        for (const v of state.values) prev.append(key, v);
+                        // Persist a non-default operator even before any value is
+                        // entered, so the operator selector doesn't snap back to
+                        // the default ("is any of") on the next render.
+                        if (state.op !== "in") prev.set(`${key}_op`, state.op);
+                    }
+                }
+                return prev;
+            });
+        },
+        [setSearchParams],
+    );
 
     function setPreset(key: string | null) {
         setSearchParams((prev) => {
@@ -132,79 +134,106 @@ export function useAccessLogFilters(): AccessLogFilters {
         });
     }
 
-    function setParam(key: string, value: string | null) {
+    function setOutcome(value: string | null) {
         setSearchParams((prev) => {
-            if (value === null || value === "") prev.delete(key);
-            else prev.set(key, value);
+            if (value === "allow") {
+                prev.set("outcome", "allow");
+                // Allow has no deny reason — clear any reason filter
+                prev.delete("deny_reason");
+                prev.delete("deny_reason_op");
+            } else if (value === "deny") {
+                prev.set("outcome", "deny");
+            } else {
+                prev.delete("outcome");
+            }
             return prev;
         });
     }
 
-    // Device and network policy filters are mutually exclusive — selecting one clears the other
-    function setNetworkPolicyId(val: string | null) {
+    function setSort(column: SortColumn, dir: "asc" | "desc") {
         setSearchParams((prev) => {
-            prev.delete("device_id");
-            if (val) prev.set("network_policy_id", val);
-            else prev.delete("network_policy_id");
+            if (column === "created_at" && dir === "desc") {
+                prev.delete("sort");
+                prev.delete("order");
+            } else {
+                prev.set("sort", column);
+                prev.set("order", dir);
+            }
             return prev;
         });
     }
 
-    // Compute query params: preset takes precedence over raw from/to
+    // Build query params. Preset takes precedence over raw from/to.
     const presetMs = presetStr ? PRESET_MS[presetStr] : undefined;
-    const queryParams: GetAccessLogData["query"] = {
-        device_id: deviceIdStr ? Number(deviceIdStr) : undefined,
-        network_policy_id: networkPolicyIdStr ? Number(networkPolicyIdStr) : undefined,
+    const query: Query = {
         outcome: outcomeStr === "allow" ? true : outcomeStr === "deny" ? false : undefined,
-        ip: ipDebounced || undefined,
-        deny_reason: denyReason || undefined,
-        country_code: countryCodeDebounced || undefined,
-        from: presetMs !== undefined
-            ? dayjs().subtract(presetMs, "millisecond").toISOString()
-            : (fromStr || undefined),
-        to: presetMs !== undefined ? undefined : (toStr || undefined),
+        from:
+            presetMs !== undefined
+                ? dayjs().subtract(presetMs, "millisecond").toISOString()
+                : fromStr || undefined,
+        to: presetMs !== undefined ? undefined : toStr || undefined,
+        sort,
+        order,
     };
 
+    // Indexed writes onto the union-keyed query type collapse to an intersection
+    // (`string[] & number[]`); a loose record view keeps each assignment honest.
+    const q = query as Record<string, unknown>;
+    for (const key of FILTER_COLUMN_KEYS) {
+        const { op, values } = getColumnFilter(key);
+        const isNullOp = op === "is_null" || op === "not_null";
+        if (values.length === 0 && !isNullOp) continue;
+        if (!isNullOp) q[key] = FILTER_COLUMNS[key].numeric ? values.map(Number) : values;
+        if (op !== "in") q[`${key}_op`] = op;
+    }
+
     const hasCustomTo = !!toStr && presetMs === undefined;
-    const hasActiveFilters = !!(fromStr || toStr || deviceIdStr || networkPolicyIdStr || outcomeStr || denyReason || ipDebounced || countryCodeDebounced);
+    const hasActiveFilters =
+        !!(fromStr || toStr || outcomeStr) ||
+        FILTER_COLUMN_KEYS.some((key) => isFilterActive(getColumnFilter(key)));
 
     function clearAll() {
-        setIpLocalRaw("");
-        syncIpToUrl.cancel();
-        setCountryCodeLocalRaw("");
-        syncCountryCodeToUrl.cancel();
         setSearchParams((prev) => {
             const next = new URLSearchParams();
-            // Preserve time range preset params — they are a global setting, not column filters
-            if (prev.has("preset")) next.set("preset", prev.get("preset")!);
+            // Preserve the time-range preset and sort — they are view settings, not column filters
+            for (const k of ["preset", "sort", "order"]) {
+                if (prev.has(k)) next.set(k, prev.get(k)!);
+            }
             return next;
         });
     }
 
-    // Changes whenever any filter value changes — used to reset pagination.
-    const filterKey = `${presetStr}|${deviceIdStr}|${networkPolicyIdStr}|${outcomeStr}|${denyReason}|${fromStr}|${toStr}|${ipDebounced}|${countryCodeDebounced}`;
+    // Stable signature of all active filters + sort, used to reset pagination.
+    // The cursor encodes the active sort, so sort changes must reset it too.
+    const filterKey = JSON.stringify({
+        preset: presetStr,
+        from: fromStr,
+        to: toStr,
+        outcome: outcomeStr,
+        sort,
+        order,
+        columns: FILTER_COLUMN_KEYS.map((key) => {
+            const f = getColumnFilter(key);
+            return [key, f.op, f.values];
+        }),
+    });
 
     return {
-        queryParams,
+        queryParams: query,
         filterKey,
         presetStr,
-        deviceIdStr,
-        networkPolicyIdStr,
-        outcomeStr,
-        denyReason,
         fromStr,
         toStr,
-        ipLocal,
-        ipDebounced,
-        countryCodeLocal: countryCodeLocalRaw,
-        countryCodeDebounced,
+        outcomeStr,
+        sort,
+        order,
         hasCustomTo,
         hasActiveFilters,
+        getColumnFilter,
+        setColumnFilter,
         setPreset,
-        setParam,
-        setNetworkPolicyId,
-        setIpLocal,
-        setCountryCodeLocal,
+        setOutcome,
+        setSort,
         setSearchParams,
         clearAll,
     };

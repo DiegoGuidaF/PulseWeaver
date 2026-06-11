@@ -1,24 +1,22 @@
 import { useState } from "react";
 import { Stack } from "@mantine/core";
-import { AutoRefreshSelect } from "@/components/AutoRefreshSelect";
+import { AutoRefreshSelect, DEFAULT_REFRESH_INTERVAL } from "@/components/AutoRefreshSelect";
 import { TimeRangePresetSelect } from "@/components/TimeRangePresetSelect";
 import { PageToolbar } from "@/components/PageToolbar";
 import { AccessLogTable } from "@/features/access-log/components/AccessLogTable";
 import { useAccessLogFilters } from "@/features/access-log/hooks/useAccessLogFilters";
-
-const DEFAULT_REFRESH = 5_000;
 
 export function AccessLogPage() {
     const filters = useAccessLogFilters();
 
     const [refresh, setRefresh] = useState({
         hasCustomTo: filters.hasCustomTo,
-        interval: filters.hasCustomTo ? 0 : DEFAULT_REFRESH,
+        interval: filters.hasCustomTo ? 0 : DEFAULT_REFRESH_INTERVAL,
     });
     if (refresh.hasCustomTo !== filters.hasCustomTo) {
         setRefresh({
             hasCustomTo: filters.hasCustomTo,
-            interval: filters.hasCustomTo ? 0 : DEFAULT_REFRESH,
+            interval: filters.hasCustomTo ? 0 : DEFAULT_REFRESH_INTERVAL,
         });
     }
 

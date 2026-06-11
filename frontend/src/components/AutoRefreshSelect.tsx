@@ -11,6 +11,9 @@ const REFRESH_OPTIONS = [
     { label: "5 min", value: 300_000 },
 ] as const;
 
+/** Shared default interval for every auto-refreshing page: off until opted in. */
+export const DEFAULT_REFRESH_INTERVAL = 0;
+
 interface AutoRefreshSelectProps {
     value: number;
     onChange: (ms: number) => void;
