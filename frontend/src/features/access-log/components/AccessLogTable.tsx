@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { buildRoute } from "@/lib/routes";
 import { useNavigate } from "react-router-dom";
 import { ActionIcon, Anchor, Button, Checkbox, Group, Menu, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
@@ -39,6 +39,9 @@ interface AccessLogTableProps {
 }
 
 const PAGE_SIZE = 25;
+
+/** Narrowest a user may resize a column before its header controls get clipped. */
+const MIN_COLUMN_WIDTH = 110;
 
 /**
  * Every data column the chooser can show, in display order. Time, IP and Host
@@ -181,12 +184,43 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         };
     });
 
-    const { effectiveColumns, columnsToggle, setColumnsToggle, resetColumnsOrder, resetColumnsToggle, resetColumnsWidth } =
-        useDataTableColumns<AccessLogRow>({
-            key: COLUMNS_STORE_KEY,
-            columns: managedColumns,
-            getInitialValueInEffect: false,
-        });
+    const {
+        effectiveColumns,
+        columnsToggle,
+        setColumnsToggle,
+        columnsWidth,
+        setColumnsWidth,
+        resetColumnsOrder,
+        resetColumnsToggle,
+        resetColumnsWidth,
+    } = useDataTableColumns<AccessLogRow>({
+        key: COLUMNS_STORE_KEY,
+        columns: managedColumns,
+        getInitialValueInEffect: false,
+    });
+
+    // The resize feature switches the table to `table-layout: fixed` (where CSS
+    // min-width is ignored) and its own drag floor of 50px is low enough to clip
+    // the sort/filter/hide controls out of a header. The width store is the only
+    // input the table honours, so clamp it there. The debounce lets an
+    // in-progress drag run unhindered — an undersized column snaps back to the
+    // floor on release. The fixed-width actions column is exempt.
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            const updates: { accessor: string; width: string }[] = [];
+            for (const entry of columnsWidth) {
+                for (const [accessor, width] of Object.entries(entry)) {
+                    if (accessor === "actions" || typeof width !== "string") continue;
+                    const px = parseInt(width, 10);
+                    if (!Number.isNaN(px) && px < MIN_COLUMN_WIDTH) {
+                        updates.push({ accessor, width: `${MIN_COLUMN_WIDTH}px` });
+                    }
+                }
+            }
+            if (updates.length > 0) setColumnsWidth(updates);
+        }, 200);
+        return () => clearTimeout(timer);
+    }, [columnsWidth, setColumnsWidth]);
 
     const columnVisible = new Map(columnsToggle.map((c) => [c.accessor, c.toggled]));
 
