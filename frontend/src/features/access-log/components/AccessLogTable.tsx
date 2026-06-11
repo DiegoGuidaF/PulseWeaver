@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { buildRoute } from "@/lib/routes";
 import { useNavigate } from "react-router-dom";
 import { ActionIcon, Anchor, Button, Checkbox, Group, Menu, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { DataTable, type DataTableSortStatus } from "mantine-datatable";
 import { IconColumns3, IconFilterOff, IconRefresh } from "@tabler/icons-react";
 import type { AccessLogRow } from "@/lib/api";
@@ -61,15 +62,23 @@ const COLUMN_META: { accessor: string; label: string; mandatory?: boolean; defau
 
 const MANDATORY_COLUMNS = new Set(COLUMN_META.filter((c) => c.mandatory).map((c) => c.accessor));
 const DEFAULT_VISIBLE_COLUMNS = COLUMN_META.filter((c) => !c.mandatory && c.defaultVisible).map((c) => c.accessor);
+/**
+ * Compact default for screens below `md`: only the headline Outcome alongside
+ * the mandatory Time/IP/Host, so the table fits without horizontal scrolling.
+ * Applies on first visit only — an explicit column choice (persisted below)
+ * wins at any width.
+ */
+const LEAN_DEFAULT_VISIBLE_COLUMNS = ["outcome"];
 const COLUMNS_LS_KEY = "pulseweaver:access-log:columns:v2";
 
-function loadVisibleColumns(): Set<string> {
+function loadVisibleColumns(compact: boolean): Set<string> {
+    const fallback = compact ? LEAN_DEFAULT_VISIBLE_COLUMNS : DEFAULT_VISIBLE_COLUMNS;
     const saved = localStorage.getItem(COLUMNS_LS_KEY);
-    if (!saved) return new Set(DEFAULT_VISIBLE_COLUMNS);
+    if (!saved) return new Set(fallback);
     try {
         return new Set(JSON.parse(saved) as string[]);
     } catch {
-        return new Set(DEFAULT_VISIBLE_COLUMNS);
+        return new Set(fallback);
     }
 }
 
@@ -90,7 +99,10 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
     const [selectedRow, setSelectedRow] = useState<AccessLogRow | null>(null);
     const [drawerOpened, setDrawerOpened] = useState(false);
 
-    const [visibleColumns, setVisibleColumns] = useState<Set<string>>(loadVisibleColumns);
+    // Below the nav-collapse breakpoint, start from a lean column set to avoid
+    // horizontal scrolling. Matches the AppShell's `md` threshold.
+    const isCompact = !useMediaQuery("(min-width: 62em)", true, { getInitialValueInEffect: false });
+    const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => loadVisibleColumns(isCompact));
 
     const tableRef = useFilterButtonLabels({
         created_at: "Filter by time",
@@ -316,6 +328,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                         fetching={isFetching}
                         loaderBackgroundBlur={1}
                         scrollAreaProps={{ type: "auto" }}
+                        pinFirstColumn
                         sortStatus={sortStatus}
                         onSortStatusChange={(status) => {
                             const next = nextSortState(

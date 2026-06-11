@@ -252,6 +252,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                     fetching={isFetching}
                     loaderBackgroundBlur={1}
                     scrollAreaProps={{ type: "auto" }}
+                    pinFirstColumn
                     rowStyle={(r) => (r.is_refresh ? { opacity: 0.55 } : undefined)}
                 />
             </div>
