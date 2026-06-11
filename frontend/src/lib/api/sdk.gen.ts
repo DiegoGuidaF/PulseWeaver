@@ -2,7 +2,13 @@
 
 import * as z from "zod";
 
-import type { Client, Options as Options2, TDataShape } from "./client";
+import type {
+  Client,
+  ClientMeta,
+  Options as Options2,
+  RequestResult,
+  TDataShape,
+} from "./client";
 import { client } from "./client.gen";
 import type {
   AddAddressData,
@@ -321,7 +327,7 @@ export type Options<
    * You can pass arbitrary values through the `meta` object. This can be
    * used to access values that aren't defined as part of the SDK function.
    */
-  meta?: Record<string, unknown>;
+  meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
 
 /**
@@ -331,7 +337,7 @@ export type Options<
  */
 export const listUsers = <ThrowOnError extends boolean = false>(
   options?: Options<ListUsersData, ThrowOnError>,
-) =>
+): RequestResult<ListUsersResponses, ListUsersErrors, ThrowOnError> =>
   (options?.client ?? client).get<
     ListUsersResponses,
     ListUsersErrors,
@@ -365,7 +371,7 @@ export const listUsers = <ThrowOnError extends boolean = false>(
  */
 export const createUser = <ThrowOnError extends boolean = false>(
   options: Options<CreateUserData, ThrowOnError>,
-) =>
+): RequestResult<CreateUserResponses, CreateUserErrors, ThrowOnError> =>
   (options.client ?? client).post<
     CreateUserResponses,
     CreateUserErrors,
@@ -403,7 +409,7 @@ export const createUser = <ThrowOnError extends boolean = false>(
  */
 export const deleteUser = <ThrowOnError extends boolean = false>(
   options: Options<DeleteUserData, ThrowOnError>,
-) =>
+): RequestResult<DeleteUserResponses, DeleteUserErrors, ThrowOnError> =>
   (options.client ?? client).delete<
     DeleteUserResponses,
     DeleteUserErrors,
@@ -437,7 +443,7 @@ export const deleteUser = <ThrowOnError extends boolean = false>(
  */
 export const promoteUser = <ThrowOnError extends boolean = false>(
   options: Options<PromoteUserData, ThrowOnError>,
-) =>
+): RequestResult<PromoteUserResponses, PromoteUserErrors, ThrowOnError> =>
   (options.client ?? client).post<
     PromoteUserResponses,
     PromoteUserErrors,
@@ -475,7 +481,7 @@ export const promoteUser = <ThrowOnError extends boolean = false>(
  */
 export const demoteUser = <ThrowOnError extends boolean = false>(
   options: Options<DemoteUserData, ThrowOnError>,
-) =>
+): RequestResult<DemoteUserResponses, DemoteUserErrors, ThrowOnError> =>
   (options.client ?? client).post<
     DemoteUserResponses,
     DemoteUserErrors,
@@ -509,7 +515,7 @@ export const demoteUser = <ThrowOnError extends boolean = false>(
  */
 export const login = <ThrowOnError extends boolean = false>(
   options: Options<LoginData, ThrowOnError>,
-) =>
+): RequestResult<LoginResponses, LoginErrors, ThrowOnError> =>
   (options.client ?? client).post<LoginResponses, LoginErrors, ThrowOnError>({
     requestValidator: async (data) =>
       await z
@@ -535,7 +541,7 @@ export const login = <ThrowOnError extends boolean = false>(
  */
 export const logout = <ThrowOnError extends boolean = false>(
   options?: Options<LogoutData, ThrowOnError>,
-) =>
+): RequestResult<LogoutResponses, unknown, ThrowOnError> =>
   (options?.client ?? client).post<LogoutResponses, unknown, ThrowOnError>({
     requestValidator: async (data) =>
       await z
@@ -564,7 +570,7 @@ export const logout = <ThrowOnError extends boolean = false>(
  */
 export const getCurrentUser = <ThrowOnError extends boolean = false>(
   options?: Options<GetCurrentUserData, ThrowOnError>,
-) =>
+): RequestResult<GetCurrentUserResponses, GetCurrentUserErrors, ThrowOnError> =>
   (options?.client ?? client).get<
     GetCurrentUserResponses,
     GetCurrentUserErrors,
@@ -598,7 +604,7 @@ export const getCurrentUser = <ThrowOnError extends boolean = false>(
  */
 export const updateMe = <ThrowOnError extends boolean = false>(
   options: Options<UpdateMeData, ThrowOnError>,
-) =>
+): RequestResult<UpdateMeResponses, UpdateMeErrors, ThrowOnError> =>
   (options.client ?? client).patch<
     UpdateMeResponses,
     UpdateMeErrors,
@@ -635,7 +641,7 @@ export const updateMe = <ThrowOnError extends boolean = false>(
  */
 export const changePassword = <ThrowOnError extends boolean = false>(
   options: Options<ChangePasswordData, ThrowOnError>,
-) =>
+): RequestResult<ChangePasswordResponses, ChangePasswordErrors, ThrowOnError> =>
   (options.client ?? client).post<
     ChangePasswordResponses,
     ChangePasswordErrors,
@@ -673,7 +679,7 @@ export const changePassword = <ThrowOnError extends boolean = false>(
  */
 export const getDevices = <ThrowOnError extends boolean = false>(
   options?: Options<GetDevicesData, ThrowOnError>,
-) =>
+): RequestResult<GetDevicesResponses, GetDevicesErrors, ThrowOnError> =>
   (options?.client ?? client).get<
     GetDevicesResponses,
     GetDevicesErrors,
@@ -707,7 +713,7 @@ export const getDevices = <ThrowOnError extends boolean = false>(
  */
 export const createDevice = <ThrowOnError extends boolean = false>(
   options: Options<CreateDeviceData, ThrowOnError>,
-) =>
+): RequestResult<CreateDeviceResponses, CreateDeviceErrors, ThrowOnError> =>
   (options.client ?? client).post<
     CreateDeviceResponses,
     CreateDeviceErrors,
@@ -745,7 +751,7 @@ export const createDevice = <ThrowOnError extends boolean = false>(
  */
 export const deleteDevice = <ThrowOnError extends boolean = false>(
   options: Options<DeleteDeviceData, ThrowOnError>,
-) =>
+): RequestResult<DeleteDeviceResponses, DeleteDeviceErrors, ThrowOnError> =>
   (options.client ?? client).delete<
     DeleteDeviceResponses,
     DeleteDeviceErrors,
@@ -779,7 +785,7 @@ export const deleteDevice = <ThrowOnError extends boolean = false>(
  */
 export const updateDevice = <ThrowOnError extends boolean = false>(
   options: Options<UpdateDeviceData, ThrowOnError>,
-) =>
+): RequestResult<UpdateDeviceResponses, UpdateDeviceErrors, ThrowOnError> =>
   (options.client ?? client).patch<
     UpdateDeviceResponses,
     UpdateDeviceErrors,
@@ -818,7 +824,11 @@ export const updateDevice = <ThrowOnError extends boolean = false>(
  */
 export const deleteDeviceApiKey = <ThrowOnError extends boolean = false>(
   options: Options<DeleteDeviceApiKeyData, ThrowOnError>,
-) =>
+): RequestResult<
+  DeleteDeviceApiKeyResponses,
+  DeleteDeviceApiKeyErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).delete<
     DeleteDeviceApiKeyResponses,
     DeleteDeviceApiKeyErrors,
@@ -853,7 +863,11 @@ export const deleteDeviceApiKey = <ThrowOnError extends boolean = false>(
  */
 export const regenerateDeviceApiKey = <ThrowOnError extends boolean = false>(
   options: Options<RegenerateDeviceApiKeyData, ThrowOnError>,
-) =>
+): RequestResult<
+  RegenerateDeviceApiKeyResponses,
+  RegenerateDeviceApiKeyErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).post<
     RegenerateDeviceApiKeyResponses,
     RegenerateDeviceApiKeyErrors,
@@ -888,7 +902,7 @@ export const regenerateDeviceApiKey = <ThrowOnError extends boolean = false>(
  */
 export const disableDevice = <ThrowOnError extends boolean = false>(
   options: Options<DisableDeviceData, ThrowOnError>,
-) =>
+): RequestResult<DisableDeviceResponses, DisableDeviceErrors, ThrowOnError> =>
   (options.client ?? client).post<
     DisableDeviceResponses,
     DisableDeviceErrors,
@@ -923,7 +937,7 @@ export const disableDevice = <ThrowOnError extends boolean = false>(
  */
 export const enableDevice = <ThrowOnError extends boolean = false>(
   options: Options<EnableDeviceData, ThrowOnError>,
-) =>
+): RequestResult<EnableDeviceResponses, EnableDeviceErrors, ThrowOnError> =>
   (options.client ?? client).post<
     EnableDeviceResponses,
     EnableDeviceErrors,
@@ -957,7 +971,11 @@ export const enableDevice = <ThrowOnError extends boolean = false>(
  */
 export const deviceHeartbeat = <ThrowOnError extends boolean = false>(
   options: Options<DeviceHeartbeatData, ThrowOnError>,
-) =>
+): RequestResult<
+  DeviceHeartbeatResponses,
+  DeviceHeartbeatErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).post<
     DeviceHeartbeatResponses,
     DeviceHeartbeatErrors,
@@ -991,7 +1009,11 @@ export const deviceHeartbeat = <ThrowOnError extends boolean = false>(
  */
 export const deviceHeartbeatByApiKey = <ThrowOnError extends boolean = false>(
   options?: Options<DeviceHeartbeatByApiKeyData, ThrowOnError>,
-) =>
+): RequestResult<
+  DeviceHeartbeatByApiKeyResponses,
+  DeviceHeartbeatByApiKeyErrors,
+  ThrowOnError
+> =>
   (options?.client ?? client).post<
     DeviceHeartbeatByApiKeyResponses,
     DeviceHeartbeatByApiKeyErrors,
@@ -1019,7 +1041,11 @@ export const deviceHeartbeatByApiKey = <ThrowOnError extends boolean = false>(
  */
 export const getDeviceAddresses = <ThrowOnError extends boolean = false>(
   options: Options<GetDeviceAddressesData, ThrowOnError>,
-) =>
+): RequestResult<
+  GetDeviceAddressesResponses,
+  GetDeviceAddressesErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).get<
     GetDeviceAddressesResponses,
     GetDeviceAddressesErrors,
@@ -1053,7 +1079,7 @@ export const getDeviceAddresses = <ThrowOnError extends boolean = false>(
  */
 export const addAddress = <ThrowOnError extends boolean = false>(
   options: Options<AddAddressData, ThrowOnError>,
-) =>
+): RequestResult<AddAddressResponses, AddAddressErrors, ThrowOnError> =>
   (options.client ?? client).post<
     AddAddressResponses,
     AddAddressErrors,
@@ -1092,7 +1118,11 @@ export const addAddress = <ThrowOnError extends boolean = false>(
  */
 export const getAddressHistory = <ThrowOnError extends boolean = false>(
   options?: Options<GetAddressHistoryData, ThrowOnError>,
-) =>
+): RequestResult<
+  GetAddressHistoryResponses,
+  GetAddressHistoryErrors,
+  ThrowOnError
+> =>
   (options?.client ?? client).get<
     GetAddressHistoryResponses,
     GetAddressHistoryErrors,
@@ -1126,7 +1156,7 @@ export const getAddressHistory = <ThrowOnError extends boolean = false>(
  */
 export const disableAddress = <ThrowOnError extends boolean = false>(
   options: Options<DisableAddressData, ThrowOnError>,
-) =>
+): RequestResult<DisableAddressResponses, DisableAddressErrors, ThrowOnError> =>
   (options.client ?? client).delete<
     DisableAddressResponses,
     DisableAddressErrors,
@@ -1161,7 +1191,7 @@ export const disableAddress = <ThrowOnError extends boolean = false>(
  */
 export const getAccessLog = <ThrowOnError extends boolean = false>(
   options?: Options<GetAccessLogData, ThrowOnError>,
-) =>
+): RequestResult<GetAccessLogResponses, GetAccessLogErrors, ThrowOnError> =>
   (options?.client ?? client).get<
     GetAccessLogResponses,
     GetAccessLogErrors,
@@ -1193,7 +1223,11 @@ export const getAccessLog = <ThrowOnError extends boolean = false>(
  */
 export const getAccessLogByCountry = <ThrowOnError extends boolean = false>(
   options?: Options<GetAccessLogByCountryData, ThrowOnError>,
-) =>
+): RequestResult<
+  GetAccessLogByCountryResponses,
+  GetAccessLogByCountryErrors,
+  ThrowOnError
+> =>
   (options?.client ?? client).get<
     GetAccessLogByCountryResponses,
     GetAccessLogByCountryErrors,
@@ -1228,7 +1262,11 @@ export const getAccessLogByCountry = <ThrowOnError extends boolean = false>(
  */
 export const getAccessLogDenyReasons = <ThrowOnError extends boolean = false>(
   options?: Options<GetAccessLogDenyReasonsData, ThrowOnError>,
-) =>
+): RequestResult<
+  GetAccessLogDenyReasonsResponses,
+  GetAccessLogDenyReasonsErrors,
+  ThrowOnError
+> =>
   (options?.client ?? client).get<
     GetAccessLogDenyReasonsResponses,
     GetAccessLogDenyReasonsErrors,
@@ -1264,7 +1302,11 @@ export const disableDeviceAddressLeaseRule = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<DisableDeviceAddressLeaseRuleData, ThrowOnError>,
-) =>
+): RequestResult<
+  DisableDeviceAddressLeaseRuleResponses,
+  DisableDeviceAddressLeaseRuleErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).delete<
     DisableDeviceAddressLeaseRuleResponses,
     DisableDeviceAddressLeaseRuleErrors,
@@ -1298,7 +1340,11 @@ export const disableDeviceAddressLeaseRule = <
  */
 export const getDeviceAddressLeaseRule = <ThrowOnError extends boolean = false>(
   options: Options<GetDeviceAddressLeaseRuleData, ThrowOnError>,
-) =>
+): RequestResult<
+  GetDeviceAddressLeaseRuleResponses,
+  GetDeviceAddressLeaseRuleErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).get<
     GetDeviceAddressLeaseRuleResponses,
     GetDeviceAddressLeaseRuleErrors,
@@ -1332,7 +1378,11 @@ export const getDeviceAddressLeaseRule = <ThrowOnError extends boolean = false>(
  */
 export const putDeviceAddressLeaseRule = <ThrowOnError extends boolean = false>(
   options: Options<PutDeviceAddressLeaseRuleData, ThrowOnError>,
-) =>
+): RequestResult<
+  PutDeviceAddressLeaseRuleResponses,
+  PutDeviceAddressLeaseRuleErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).put<
     PutDeviceAddressLeaseRuleResponses,
     PutDeviceAddressLeaseRuleErrors,
@@ -1372,7 +1422,11 @@ export const disableMaxActiveAddressesRule = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<DisableMaxActiveAddressesRuleData, ThrowOnError>,
-) =>
+): RequestResult<
+  DisableMaxActiveAddressesRuleResponses,
+  DisableMaxActiveAddressesRuleErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).delete<
     DisableMaxActiveAddressesRuleResponses,
     DisableMaxActiveAddressesRuleErrors,
@@ -1406,7 +1460,11 @@ export const disableMaxActiveAddressesRule = <
  */
 export const getMaxActiveAddressesRule = <ThrowOnError extends boolean = false>(
   options: Options<GetMaxActiveAddressesRuleData, ThrowOnError>,
-) =>
+): RequestResult<
+  GetMaxActiveAddressesRuleResponses,
+  GetMaxActiveAddressesRuleErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).get<
     GetMaxActiveAddressesRuleResponses,
     GetMaxActiveAddressesRuleErrors,
@@ -1440,7 +1498,11 @@ export const getMaxActiveAddressesRule = <ThrowOnError extends boolean = false>(
  */
 export const putMaxActiveAddressesRule = <ThrowOnError extends boolean = false>(
   options: Options<PutMaxActiveAddressesRuleData, ThrowOnError>,
-) =>
+): RequestResult<
+  PutMaxActiveAddressesRuleResponses,
+  PutMaxActiveAddressesRuleErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).put<
     PutMaxActiveAddressesRuleResponses,
     PutMaxActiveAddressesRuleErrors,
@@ -1479,7 +1541,11 @@ export const putMaxActiveAddressesRule = <ThrowOnError extends boolean = false>(
  */
 export const getDashboardStats = <ThrowOnError extends boolean = false>(
   options?: Options<GetDashboardStatsData, ThrowOnError>,
-) =>
+): RequestResult<
+  GetDashboardStatsResponses,
+  GetDashboardStatsErrors,
+  ThrowOnError
+> =>
   (options?.client ?? client).get<
     GetDashboardStatsResponses,
     GetDashboardStatsErrors,
@@ -1514,7 +1580,11 @@ export const getDashboardStats = <ThrowOnError extends boolean = false>(
  */
 export const getDashboardTraffic = <ThrowOnError extends boolean = false>(
   options?: Options<GetDashboardTrafficData, ThrowOnError>,
-) =>
+): RequestResult<
+  GetDashboardTrafficResponses,
+  GetDashboardTrafficErrors,
+  ThrowOnError
+> =>
   (options?.client ?? client).get<
     GetDashboardTrafficResponses,
     GetDashboardTrafficErrors,
@@ -1549,7 +1619,11 @@ export const getDashboardTraffic = <ThrowOnError extends boolean = false>(
  */
 export const getDashboardServices = <ThrowOnError extends boolean = false>(
   options?: Options<GetDashboardServicesData, ThrowOnError>,
-) =>
+): RequestResult<
+  GetDashboardServicesResponses,
+  GetDashboardServicesErrors,
+  ThrowOnError
+> =>
   (options?.client ?? client).get<
     GetDashboardServicesResponses,
     GetDashboardServicesErrors,
@@ -1584,7 +1658,11 @@ export const getDashboardServices = <ThrowOnError extends boolean = false>(
  */
 export const getDashboardTopDeniedIps = <ThrowOnError extends boolean = false>(
   options?: Options<GetDashboardTopDeniedIpsData, ThrowOnError>,
-) =>
+): RequestResult<
+  GetDashboardTopDeniedIpsResponses,
+  GetDashboardTopDeniedIpsErrors,
+  ThrowOnError
+> =>
   (options?.client ?? client).get<
     GetDashboardTopDeniedIpsResponses,
     GetDashboardTopDeniedIpsErrors,
@@ -1621,7 +1699,7 @@ export const getDashboardTopDeniedIps = <ThrowOnError extends boolean = false>(
  */
 export const claimPairing = <ThrowOnError extends boolean = false>(
   options: Options<ClaimPairingData, ThrowOnError>,
-) =>
+): RequestResult<ClaimPairingResponses, ClaimPairingErrors, ThrowOnError> =>
   (options.client ?? client).post<
     ClaimPairingResponses,
     ClaimPairingErrors,
@@ -1655,7 +1733,11 @@ export const claimPairing = <ThrowOnError extends boolean = false>(
  */
 export const listDevicePairings = <ThrowOnError extends boolean = false>(
   options: Options<ListDevicePairingsData, ThrowOnError>,
-) =>
+): RequestResult<
+  ListDevicePairingsResponses,
+  ListDevicePairingsErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).get<
     ListDevicePairingsResponses,
     ListDevicePairingsErrors,
@@ -1687,7 +1769,11 @@ export const listDevicePairings = <ThrowOnError extends boolean = false>(
  */
 export const createDevicePairing = <ThrowOnError extends boolean = false>(
   options: Options<CreateDevicePairingData, ThrowOnError>,
-) =>
+): RequestResult<
+  CreateDevicePairingResponses,
+  CreateDevicePairingErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).post<
     CreateDevicePairingResponses,
     CreateDevicePairingErrors,
@@ -1725,7 +1811,11 @@ export const createDevicePairing = <ThrowOnError extends boolean = false>(
  */
 export const deleteDevicePairing = <ThrowOnError extends boolean = false>(
   options: Options<DeleteDevicePairingData, ThrowOnError>,
-) =>
+): RequestResult<
+  DeleteDevicePairingResponses,
+  DeleteDevicePairingErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).delete<
     DeleteDevicePairingResponses,
     DeleteDevicePairingErrors,
@@ -1757,7 +1847,11 @@ export const deleteDevicePairing = <ThrowOnError extends boolean = false>(
  */
 export const getDevicePairing = <ThrowOnError extends boolean = false>(
   options: Options<GetDevicePairingData, ThrowOnError>,
-) =>
+): RequestResult<
+  GetDevicePairingResponses,
+  GetDevicePairingErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).get<
     GetDevicePairingResponses,
     GetDevicePairingErrors,
@@ -1789,7 +1883,7 @@ export const getDevicePairing = <ThrowOnError extends boolean = false>(
  */
 export const listHosts = <ThrowOnError extends boolean = false>(
   options?: Options<ListHostsData, ThrowOnError>,
-) =>
+): RequestResult<ListHostsResponses, ListHostsErrors, ThrowOnError> =>
   (options?.client ?? client).get<
     ListHostsResponses,
     ListHostsErrors,
@@ -1825,7 +1919,7 @@ export const listHosts = <ThrowOnError extends boolean = false>(
  */
 export const reconcileHosts = <ThrowOnError extends boolean = false>(
   options: Options<ReconcileHostsData, ThrowOnError>,
-) =>
+): RequestResult<ReconcileHostsResponses, ReconcileHostsErrors, ThrowOnError> =>
   (options.client ?? client).post<
     ReconcileHostsResponses,
     ReconcileHostsErrors,
@@ -1861,7 +1955,11 @@ export const reconcileHosts = <ThrowOnError extends boolean = false>(
  */
 export const listHostSuggestions = <ThrowOnError extends boolean = false>(
   options?: Options<ListHostSuggestionsData, ThrowOnError>,
-) =>
+): RequestResult<
+  ListHostSuggestionsResponses,
+  ListHostSuggestionsErrors,
+  ThrowOnError
+> =>
   (options?.client ?? client).get<
     ListHostSuggestionsResponses,
     ListHostSuggestionsErrors,
@@ -1893,7 +1991,11 @@ export const listHostSuggestions = <ThrowOnError extends boolean = false>(
  */
 export const ignoreSuggestion = <ThrowOnError extends boolean = false>(
   options: Options<IgnoreSuggestionData, ThrowOnError>,
-) =>
+): RequestResult<
+  IgnoreSuggestionResponses,
+  IgnoreSuggestionErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).post<
     IgnoreSuggestionResponses,
     IgnoreSuggestionErrors,
@@ -1929,7 +2031,11 @@ export const ignoreSuggestion = <ThrowOnError extends boolean = false>(
  */
 export const unignoreSuggestion = <ThrowOnError extends boolean = false>(
   options: Options<UnignoreSuggestionData, ThrowOnError>,
-) =>
+): RequestResult<
+  UnignoreSuggestionResponses,
+  UnignoreSuggestionErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).delete<
     UnignoreSuggestionResponses,
     UnignoreSuggestionErrors,
@@ -1961,7 +2067,7 @@ export const unignoreSuggestion = <ThrowOnError extends boolean = false>(
  */
 export const listHostGroups = <ThrowOnError extends boolean = false>(
   options?: Options<ListHostGroupsData, ThrowOnError>,
-) =>
+): RequestResult<ListHostGroupsResponses, ListHostGroupsErrors, ThrowOnError> =>
   (options?.client ?? client).get<
     ListHostGroupsResponses,
     ListHostGroupsErrors,
@@ -1997,7 +2103,11 @@ export const listHostGroups = <ThrowOnError extends boolean = false>(
  */
 export const reconcileHostGroups = <ThrowOnError extends boolean = false>(
   options: Options<ReconcileHostGroupsData, ThrowOnError>,
-) =>
+): RequestResult<
+  ReconcileHostGroupsResponses,
+  ReconcileHostGroupsErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).post<
     ReconcileHostGroupsResponses,
     ReconcileHostGroupsErrors,
@@ -2033,7 +2143,11 @@ export const reconcileHostGroups = <ThrowOnError extends boolean = false>(
  */
 export const listUsersWithAccess = <ThrowOnError extends boolean = false>(
   options?: Options<ListUsersWithAccessData, ThrowOnError>,
-) =>
+): RequestResult<
+  ListUsersWithAccessResponses,
+  ListUsersWithAccessErrors,
+  ThrowOnError
+> =>
   (options?.client ?? client).get<
     ListUsersWithAccessResponses,
     ListUsersWithAccessErrors,
@@ -2065,7 +2179,11 @@ export const listUsersWithAccess = <ThrowOnError extends boolean = false>(
  */
 export const getUserAccessDetail = <ThrowOnError extends boolean = false>(
   options: Options<GetUserAccessDetailData, ThrowOnError>,
-) =>
+): RequestResult<
+  GetUserAccessDetailResponses,
+  GetUserAccessDetailErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).get<
     GetUserAccessDetailResponses,
     GetUserAccessDetailErrors,
@@ -2099,7 +2217,7 @@ export const getUserAccessDetail = <ThrowOnError extends boolean = false>(
  */
 export const setUserAccess = <ThrowOnError extends boolean = false>(
   options: Options<SetUserAccessData, ThrowOnError>,
-) =>
+): RequestResult<SetUserAccessResponses, SetUserAccessErrors, ThrowOnError> =>
   (options.client ?? client).put<
     SetUserAccessResponses,
     SetUserAccessErrors,
@@ -2140,7 +2258,11 @@ export const setUserAccess = <ThrowOnError extends boolean = false>(
  */
 export const getPolicyUserMap = <ThrowOnError extends boolean = false>(
   options?: Options<GetPolicyUserMapData, ThrowOnError>,
-) =>
+): RequestResult<
+  GetPolicyUserMapResponses,
+  GetPolicyUserMapErrors,
+  ThrowOnError
+> =>
   (options?.client ?? client).get<
     GetPolicyUserMapResponses,
     GetPolicyUserMapErrors,
@@ -2177,7 +2299,11 @@ export const getPolicyUserMap = <ThrowOnError extends boolean = false>(
  */
 export const simulatePolicyAccess = <ThrowOnError extends boolean = false>(
   options: Options<SimulatePolicyAccessData, ThrowOnError>,
-) =>
+): RequestResult<
+  SimulatePolicyAccessResponses,
+  SimulatePolicyAccessErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).get<
     SimulatePolicyAccessResponses,
     SimulatePolicyAccessErrors,
@@ -2209,7 +2335,11 @@ export const simulatePolicyAccess = <ThrowOnError extends boolean = false>(
  */
 export const listNetworkPolicies = <ThrowOnError extends boolean = false>(
   options?: Options<ListNetworkPoliciesData, ThrowOnError>,
-) =>
+): RequestResult<
+  ListNetworkPoliciesResponses,
+  ListNetworkPoliciesErrors,
+  ThrowOnError
+> =>
   (options?.client ?? client).get<
     ListNetworkPoliciesResponses,
     ListNetworkPoliciesErrors,
@@ -2243,7 +2373,11 @@ export const listNetworkPolicies = <ThrowOnError extends boolean = false>(
  */
 export const createNetworkPolicy = <ThrowOnError extends boolean = false>(
   options: Options<CreateNetworkPolicyData, ThrowOnError>,
-) =>
+): RequestResult<
+  CreateNetworkPolicyResponses,
+  CreateNetworkPolicyErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).post<
     CreateNetworkPolicyResponses,
     CreateNetworkPolicyErrors,
@@ -2279,7 +2413,11 @@ export const createNetworkPolicy = <ThrowOnError extends boolean = false>(
  */
 export const deleteNetworkPolicy = <ThrowOnError extends boolean = false>(
   options: Options<DeleteNetworkPolicyData, ThrowOnError>,
-) =>
+): RequestResult<
+  DeleteNetworkPolicyResponses,
+  DeleteNetworkPolicyErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).delete<
     DeleteNetworkPolicyResponses,
     DeleteNetworkPolicyErrors,
@@ -2311,7 +2449,11 @@ export const deleteNetworkPolicy = <ThrowOnError extends boolean = false>(
  */
 export const getNetworkPolicy = <ThrowOnError extends boolean = false>(
   options: Options<GetNetworkPolicyData, ThrowOnError>,
-) =>
+): RequestResult<
+  GetNetworkPolicyResponses,
+  GetNetworkPolicyErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).get<
     GetNetworkPolicyResponses,
     GetNetworkPolicyErrors,
@@ -2345,7 +2487,11 @@ export const getNetworkPolicy = <ThrowOnError extends boolean = false>(
  */
 export const updateNetworkPolicy = <ThrowOnError extends boolean = false>(
   options: Options<UpdateNetworkPolicyData, ThrowOnError>,
-) =>
+): RequestResult<
+  UpdateNetworkPolicyResponses,
+  UpdateNetworkPolicyErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).put<
     UpdateNetworkPolicyResponses,
     UpdateNetworkPolicyErrors,
@@ -2383,7 +2529,11 @@ export const updateNetworkPolicy = <ThrowOnError extends boolean = false>(
  */
 export const updateNetworkPolicyAccess = <ThrowOnError extends boolean = false>(
   options: Options<UpdateNetworkPolicyAccessData, ThrowOnError>,
-) =>
+): RequestResult<
+  UpdateNetworkPolicyAccessResponses,
+  UpdateNetworkPolicyAccessErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).put<
     UpdateNetworkPolicyAccessResponses,
     UpdateNetworkPolicyAccessErrors,

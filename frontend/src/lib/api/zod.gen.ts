@@ -2,16 +2,6 @@
 
 import * as z from "zod";
 
-import {
-  AccessLogFilterOperator,
-  AddressEventSource,
-  DevicePairingStatus,
-  DeviceState,
-  PolicySimulateDenyReason,
-  PolicyUserStatus,
-  UserRole,
-} from "./types.gen";
-
 export const zErrorResponse = z.object({
   error: z.string().optional(),
 });
@@ -42,7 +32,7 @@ export const zUsername = z
 /**
  * The user's role. User role cannot login. Only superadmin can manage users.
  */
-export const zUserRole = z.enum(UserRole);
+export const zUserRole = z.enum(["superadmin", "admin", "user"]);
 
 /**
  * User's public name. Unicode allowed.
@@ -141,7 +131,13 @@ export const zDeviceApiKeyResponse = z.object({
  * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
  *
  */
-export const zDeviceState = z.enum(DeviceState);
+export const zDeviceState = z.enum([
+  "healthy",
+  "stale",
+  "disabled",
+  "pending-claim",
+  "expired-claim",
+]);
 
 export const zDeviceRuleSummary = z.object({
   type: z.enum(["auto_expiry", "max_active"]),
@@ -164,7 +160,12 @@ export const zAddressHistoryBucket = z.object({
 /**
  * What triggered an address state change
  */
-export const zAddressEventSource = z.enum(AddressEventSource);
+export const zAddressEventSource = z.enum([
+  "heartbeat",
+  "manual",
+  "expiry",
+  "limit_exceeded",
+]);
 
 export const zAddress = z.object({
   id: zId,
@@ -428,7 +429,10 @@ export const zPolicyUserIp = z.object({
 /**
  * Reason for denial.
  */
-export const zPolicySimulateDenyReason = z.enum(PolicySimulateDenyReason);
+export const zPolicySimulateDenyReason = z.enum([
+  "ip_not_registered",
+  "host_not_allowed",
+]);
 
 export const zPolicySimulateResult = z.object({
   ip: zIpAddress,
@@ -705,7 +709,13 @@ export const zUserAccessDetail = z.object({
  * Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.
  *
  */
-export const zDevicePairingStatus = z.enum(DevicePairingStatus);
+export const zDevicePairingStatus = z.enum([
+  "pending",
+  "used",
+  "expired",
+  "invalidated",
+  "replaced",
+]);
 
 export const zDevicePairingSummary = z.object({
   status: zDevicePairingStatus,
@@ -749,7 +759,14 @@ export const zDevicePairing = z.object({
  * Filter operator for a value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.
  *
  */
-export const zAccessLogFilterOperator = z.enum(AccessLogFilterOperator);
+export const zAccessLogFilterOperator = z.enum([
+  "in",
+  "not_in",
+  "contains",
+  "not_contains",
+  "is_null",
+  "not_null",
+]);
 
 /**
  * One device/user/address that the request's client IP resolved to. A single IP (shared router/home network) can resolve to several, so each entry carries a list.
@@ -810,7 +827,13 @@ export const zAccessLogResponse = z.object({
  * - no_access: no live IPs and no host grants.
  *
  */
-export const zPolicyUserStatus = z.enum(PolicyUserStatus);
+export const zPolicyUserStatus = z.enum([
+  "bypass",
+  "live_with_access",
+  "live_no_host_access",
+  "no_live_ips",
+  "no_access",
+]);
 
 export const zPolicyUserEntry = z.object({
   user_id: zId,
