@@ -292,21 +292,6 @@ func TestService_BootstrapAdmin_UsesProvidedPassword(t *testing.T) {
 	is.True(token != "")
 }
 
-func TestService_ListUsers_ReturnsAllUsers(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-
-	mockRepo := newMockRepository()
-	service := newService(mockRepo)
-
-	givenUser(mockRepo, ids.UserID(1), "alice", auth.AdminRole)
-	givenUser(mockRepo, ids.UserID(2), "bob", auth.UserRole)
-
-	users, err := service.ListUsers(ctx)
-	is.NoErr(err)
-	is.Equal(len(users), 2)
-}
-
 func TestService_UpdateOwnProfile_UpdatesDisplayName(t *testing.T) {
 	is := is.New(t)
 	ctx := context.Background()

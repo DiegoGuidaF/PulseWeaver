@@ -175,10 +175,6 @@ func (s *Service) BootstrapAdmin(ctx context.Context, conf config.ConfServer) er
 	return nil
 }
 
-func (s *Service) ListUsers(ctx context.Context) ([]User, error) {
-	return s.repo.GetAllUsers(ctx)
-}
-
 // ProfileUpdates carries the raw nullable API values for a profile update.
 // nil pointer = field was absent in the request (leave unchanged).
 // For Email, **string semantics apply: nil = absent, *nil = clear, *&s = set.

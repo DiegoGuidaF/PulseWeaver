@@ -65,11 +65,15 @@ func (h *HTTPHandler) GetUserAccessDetail(
 }
 
 func toUserViewResponse(u *UserView) httpapi.User {
+	var email *openapi_types.Email
+	if u.Email != nil {
+		email = new(openapi_types.Email(*u.Email))
+	}
 	return httpapi.User{
 		Id:                 u.ID.Int64(),
 		Username:           u.Username,
 		DisplayName:        u.DisplayName,
-		Email:              new(openapi_types.Email(u.Email)),
+		Email:              email,
 		Role:               httpapi.UserRole(u.Role),
 		MustChangePassword: new(u.MustChangePassword),
 		BypassHostCheck:    u.BypassHostCheck,

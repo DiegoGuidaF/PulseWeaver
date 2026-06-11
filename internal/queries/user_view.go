@@ -18,7 +18,7 @@ type UserView struct {
 	ID                 ids.UserID  `db:"id"`
 	Username           string      `db:"username"`
 	DisplayName        string      `db:"display_name"`
-	Email              string      `db:"email"`
+	Email              *string     `db:"email"`
 	Role               auth.Role   `db:"role"`
 	MustChangePassword bool        `db:"must_change_password"`
 	BypassHostCheck    bool        `db:"bypass_host_check"`
@@ -52,7 +52,7 @@ func (r *Repository) ListUserAccessRows(ctx context.Context) ([]httpapi.UserList
 		ID              ids.UserID `db:"id"`
 		DisplayName     string     `db:"display_name"`
 		UserName        string     `db:"username"`
-		Email           string     `db:"email"`
+		Email           *string    `db:"email"`
 		Role            auth.Role  `db:"role"`
 		BypassHostCheck bool       `db:"bypass_host_check"`
 		HostCount       int        `db:"host_count"`
@@ -156,7 +156,7 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 		ID              ids.UserID `db:"id"`
 		DisplayName     string     `db:"display_name"`
 		Username        string     `db:"username"`
-		Email           string     `db:"email"`
+		Email           *string    `db:"email"`
 		Role            auth.Role  `db:"role"`
 		BypassHostCheck bool       `db:"bypass_host_check"`
 	}
@@ -253,6 +253,10 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 			LiveAddressCount: deviceViews[i].LiveAddressCount,
 		}
 	}
+	var email *openapi_types.Email
+	if ur.Email != nil {
+		email = new(openapi_types.Email(*ur.Email))
+	}
 
 	return httpapi.UserAccessDetail{
 		Id:              ur.ID.Int64(),
@@ -260,7 +264,7 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 		DisplayName:     ur.DisplayName,
 		BypassHostCheck: ur.BypassHostCheck,
 		Role:            httpapi.UserRole(ur.Role),
-		Email:           new(openapi_types.Email(ur.Email)),
+		Email:           email,
 		Groups:          groups,
 		Devices:         devices,
 	}, nil

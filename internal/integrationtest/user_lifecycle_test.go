@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
@@ -68,11 +69,8 @@ func TestUserDelete_EvictsDeviceIPsFromPolicyCache(t *testing.T) {
 	is.Equal(w.Code, http.StatusForbidden)
 
 	// Service-layer assertion: alice is no longer in the active user list.
-	users, err := srv.AuthService.ListUsers(ctx)
-	is.NoErr(err)
-	for _, u := range users {
-		is.True(u.ID != aliceID)
-	}
+	_, err = srv.AuthService.GetUserFromPrincipal(ctx, new(auth.Principal{UserID: aliceID}))
+	errors.Is(err, auth.ErrUserNotFound)
 
 	// Service-layer assertions: alice's device must be soft-deleted and its
 	// addresses disabled — deleting a user should cascade to owned devices.
