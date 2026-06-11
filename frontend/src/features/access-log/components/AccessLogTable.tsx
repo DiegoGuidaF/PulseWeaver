@@ -3,8 +3,8 @@ import { buildRoute } from "@/lib/routes";
 import { useNavigate } from "react-router-dom";
 import { ActionIcon, Anchor, Button, Checkbox, Group, Menu, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
-import { DataTable, type DataTableSortStatus } from "mantine-datatable";
-import { IconColumns3, IconFilterOff, IconRefresh } from "@tabler/icons-react";
+import { DataTable, type DataTableSortStatus, useDataTableColumns } from "mantine-datatable";
+import { IconColumns3, IconFilterOff, IconRefresh, IconRestore } from "@tabler/icons-react";
 import type { AccessLogRow } from "@/lib/api";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
 import { CursorPagination } from "@/components/CursorPagination";
@@ -65,22 +65,16 @@ const DEFAULT_VISIBLE_COLUMNS = COLUMN_META.filter((c) => !c.mandatory && c.defa
 /**
  * Compact default for screens below `md`: only the headline Outcome alongside
  * the mandatory Time/IP/Host, so the table fits without horizontal scrolling.
- * Applies on first visit only — an explicit column choice (persisted below)
- * wins at any width.
+ * Seeds `defaultToggle` on first visit only — a stored column choice wins at any width.
  */
 const LEAN_DEFAULT_VISIBLE_COLUMNS = ["outcome"];
-const COLUMNS_LS_KEY = "pulseweaver:access-log:columns:v2";
 
-function loadVisibleColumns(compact: boolean): Set<string> {
-    const fallback = compact ? LEAN_DEFAULT_VISIBLE_COLUMNS : DEFAULT_VISIBLE_COLUMNS;
-    const saved = localStorage.getItem(COLUMNS_LS_KEY);
-    if (!saved) return new Set(fallback);
-    try {
-        return new Set(JSON.parse(saved) as string[]);
-    } catch {
-        return new Set(fallback);
-    }
-}
+/**
+ * Key for the mantine-datatable column store. The library persists column order,
+ * visibility and width under `${key}-columns-*`, keeping the chooser, drag-to-reorder
+ * and resize handles in sync through one store.
+ */
+const COLUMNS_STORE_KEY = "pulseweaver:access-log:columns:v3";
 
 export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps) {
     const navigate = useNavigate();
@@ -102,7 +96,6 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
     // Below the nav-collapse breakpoint, start from a lean column set to avoid
     // horizontal scrolling. Matches the AppShell's `md` threshold.
     const isCompact = !useMediaQuery("(min-width: 62em)", true, { getInitialValueInEffect: false });
-    const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => loadVisibleColumns(isCompact));
 
     const tableRef = useFilterButtonLabels({
         created_at: "Filter by time",
@@ -171,20 +164,34 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         onNetworkPolicyClick: (id) => navigate(buildRoute.accessNetworkPolicyDetail(id)),
     });
 
-    const columns = allColumns.filter((c) => {
-        const accessor = String(c.accessor);
-        if (accessor === "actions" || MANDATORY_COLUMNS.has(accessor)) return true;
-        return visibleColumns.has(accessor);
+    const defaultVisible = new Set(isCompact ? LEAN_DEFAULT_VISIBLE_COLUMNS : DEFAULT_VISIBLE_COLUMNS);
+    const managedColumns = allColumns.map((col) => {
+        const accessor = String(col.accessor);
+        if (accessor === "actions") return col;
+        const mandatory = MANDATORY_COLUMNS.has(accessor);
+        return {
+            ...col,
+            resizable: true,
+            // Time anchors the statically pinned first column (pinFirstColumn). Drag is
+            // a swap, so leaving Time non-draggable keeps it locked at index 0 — the pin
+            // can never land on another column.
+            draggable: accessor !== "created_at",
+            toggleable: !mandatory,
+            defaultToggle: mandatory || defaultVisible.has(accessor),
+        };
     });
 
-    function toggleColumn(accessor: string) {
-        setVisibleColumns((prev) => {
-            const next = new Set(prev);
-            if (next.has(accessor)) next.delete(accessor);
-            else next.add(accessor);
-            localStorage.setItem(COLUMNS_LS_KEY, JSON.stringify([...next]));
-            return next;
+    const { effectiveColumns, columnsToggle, setColumnsToggle, resetColumnsOrder, resetColumnsToggle, resetColumnsWidth } =
+        useDataTableColumns<AccessLogRow>({
+            key: COLUMNS_STORE_KEY,
+            columns: managedColumns,
+            getInitialValueInEffect: false,
         });
+
+    const columnVisible = new Map(columnsToggle.map((c) => [c.accessor, c.toggled]));
+
+    function setColumnVisible(accessor: string, visible: boolean) {
+        setColumnsToggle(columnsToggle.map((c) => (c.accessor === accessor ? { ...c, toggled: visible } : c)));
     }
 
     const sortStatus: DataTableSortStatus<AccessLogRow> = {
@@ -306,12 +313,23 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                                         key={c.accessor}
                                         size="xs"
                                         label={c.label}
-                                        checked={c.mandatory || visibleColumns.has(c.accessor)}
+                                        checked={c.mandatory || (columnVisible.get(c.accessor) ?? false)}
                                         disabled={c.mandatory}
-                                        onChange={() => toggleColumn(c.accessor)}
+                                        onChange={(e) => setColumnVisible(c.accessor, e.currentTarget.checked)}
                                     />
                                 ))}
                             </Stack>
+                            <Menu.Divider />
+                            <Menu.Item
+                                leftSection={<IconRestore size={14} />}
+                                onClick={() => {
+                                    resetColumnsOrder();
+                                    resetColumnsToggle();
+                                    resetColumnsWidth();
+                                }}
+                            >
+                                Reset columns
+                            </Menu.Item>
                         </Menu.Dropdown>
                     </Menu>
                 </Group>
@@ -324,7 +342,8 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                         highlightOnHover
                         minHeight={150}
                         noRecordsText="No matching log entries."
-                        columns={columns}
+                        columns={effectiveColumns}
+                        storeColumnsKey={COLUMNS_STORE_KEY}
                         fetching={isFetching}
                         loaderBackgroundBlur={1}
                         scrollAreaProps={{ type: "auto" }}

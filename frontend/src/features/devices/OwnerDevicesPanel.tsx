@@ -136,15 +136,14 @@ export function OwnerDevicesPanel({
   // Only worth a search box once the list is long enough to scan poorly.
   const showFilter = devices.length > 3;
 
+  // Option values are owner ids, not display names: names can collide across
+  // owners and duplicate Select option values are rejected by Mantine.
   const jumpData = (allGroups ?? [])
     .filter((g) => g.owner.id !== owner.id)
-    .map((g) => g.owner.display_name);
+    .map((g) => ({ value: String(g.owner.id), label: g.owner.display_name }));
 
-  function handleJump(displayName: string) {
-    const found = (allGroups ?? []).find(
-      (g) => g.owner.display_name === displayName && g.owner.id !== owner.id,
-    );
-    if (found) navigate(buildRoute.userDevices(found.owner.id));
+  function handleJump(ownerId: string) {
+    navigate(buildRoute.userDevices(Number(ownerId)));
   }
 
   const ownerFirstName = owner.display_name.split(" ")[0];
