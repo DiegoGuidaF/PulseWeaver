@@ -23,8 +23,10 @@ panel, API, and everything else never appear on a publicly routable domain.
 ## The PulseWeaver gate
 
 The `forward_auth` block below is the building block for protecting any service with PulseWeaver.
-It calls PulseWeaver's IP check before forwarding the request; only requests from registered device
-IPs pass.
+Before forwarding a request, it asks PulseWeaver whether the client may reach the requested host;
+only clients with a matching grant — a registered device whose user is allowed the host, or a
+[network policy](Network-Policies.md) covering the IP — pass. Caddy forwards the requested hostname
+automatically (`X-Forwarded-Host`), so no extra directive is needed for the host check.
 
 ```caddy
 forward_auth pulseweaver:8080 {
@@ -34,7 +36,8 @@ forward_auth pulseweaver:8080 {
 }
 ```
 
-The endpoint is **fail-closed**: a missing header, wrong secret, or unregistered IP all return `403`.
+The endpoint is **fail-closed**: a missing header, wrong secret, unregistered IP, or a host the
+user was never granted all return the same `403`.
 
 `PULSEWEAVER_POLICY_ENGINE_API_SECRET` must be the same value in both PulseWeaver's and Caddy's
 environment. It authenticates the proxy-to-PulseWeaver call so external clients cannot query the
@@ -87,7 +90,13 @@ your-service.example.com {
 }
 ```
 
-Requests from unregistered IPs receive a `403` before they reach `your-service`.
+Requests without a matching grant receive a `403` before they reach `your-service`.
+
+> [!IMPORTANT]
+> Adding the `forward_auth` block is only half the job. Access is **deny-by-default**: add
+> `your-service.example.com` as a known host and grant it to the users who should reach it — see
+> [Host Access Control](Host-Access-Control.md). Admins bypass the host check by default, so test
+> with a non-admin user (or **Auditing → Access Verification**) rather than your own browser.
 
 ---
 
@@ -117,8 +126,10 @@ fit if you already have one of these running for other services and want a consi
 
 ### Option C — Protect with PulseWeaver's own gate
 
-PulseWeaver can guard its own admin panel using the same IP gate it provides to other services. Only
-devices with a registered address can reach it.
+PulseWeaver can guard its own admin panel using the same gate it provides to other services. Only
+registered devices whose user may reach the panel's hostname get through. Admins bypass the host
+check by default, so this works for them out of the box — and regular users are denied unless you
+deliberately grant them the admin domain, which is usually exactly what you want.
 
 ```caddy
 pulseweaver.example.com {

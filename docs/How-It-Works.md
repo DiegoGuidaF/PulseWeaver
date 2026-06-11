@@ -11,18 +11,23 @@ sequenceDiagram
     participant W as PulseWeaver
     participant S as Protected Service
     C ->> P: GET https://homeassistant.example.com
-    P ->> W: GET /api/policy-engine/verify-ip<br/>X-Real-IP: <client IP><br/>Authorization: Bearer <secret>
-    alt IP is active
+    P ->> W: GET /api/policy-engine/verify-ip<br/>X-Real-IP: <client IP><br/>X-Forwarded-Host: homeassistant.example.com<br/>Authorization: Bearer <secret>
+    alt access granted
         W -->> P: 200 OK
         P ->> S: Forward request
         S -->> C: Response
-    else IP is not active
+    else denied
         W -->> P: 403 Forbidden
         P -->> C: 403 Forbidden
     end
 ```
 
-Your reverse proxy asks PulseWeaver on every incoming request: "is this IP currently active?" PulseWeaver answers 200 (allow) or 403 (block). The check runs against an in-memory cache — no database round-trip per request.
+Your reverse proxy asks PulseWeaver on every incoming request: "may the client at this IP reach this host?" PulseWeaver answers 200 (allow) or 403 (deny). A request is allowed through one of two grant mechanisms:
+
+1. The IP is an active address of a registered device, **and** the device's user is allowed to reach the requested host — see [Host Access Control](Host-Access-Control.md).
+2. The IP falls inside a [network policy](Network-Policies.md) range that allows the host.
+
+Everything else is denied — including active device IPs asking for a host their user was never granted. The check runs against an in-memory cache — no database round-trip per request.
 
 ## 2 — Heartbeat: devices keep their address current
 
@@ -38,6 +43,8 @@ sequenceDiagram
 ```
 
 Devices authenticate using a per-device API key (`X-API-Key` header). PulseWeaver reads the client IP from the request (or from an `ip` field in the request body if provided) and activates it as the device's current address. As long as a device keeps sending heartbeats, its latest address stays active.
+
+An active address is the *identity* half of the decision — it ties the IP to a device and its user. Which hosts that user may then reach is governed by their [host access grants](Host-Access-Control.md).
 
 ## Address lease lifecycle
 
