@@ -46,6 +46,18 @@ address with an arbitrary `X-Real-IP` header and have it accepted as authoritati
 IP (e.g. `172.20.0.2` for the Caddy container) avoids this entirely. If your proxy IP ever changes,
 update `TRUSTED_PROXY` explicitly — the friction is intentional.
 
+### Choosing the proxy IP in Docker Compose
+
+Pinning the proxy's IP with `ipv4_address` (as in the README's compose file) is the simplest way to
+keep `TRUSTED_PROXY` stable across container restarts. Two guidelines when picking the value:
+
+- **Pick an IP in the lower half of the subnet** (e.g. `172.20.0.2` in `172.20.0.0/24`). The
+  compose file's `ip_range: 172.20.0.128/25` entry restricts Docker's auto-assigned addresses to
+  the upper half, so no container joining the network without a fixed IP can accidentally receive
+  the proxy's address and silently become a trusted proxy.
+- **Avoid the gateway address** (typically the first address in the subnet, `172.20.0.1`) — it is
+  reachable from the Docker host itself, as described above.
+
 ### Defense-in-depth against proxy IP registration
 
 The proxy IP is protected at two independent layers:
