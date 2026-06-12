@@ -95,11 +95,17 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 // writes under SQLite's shared-cache locking model.
 func StartBackground(t *testing.T, srv *app.App) {
 	t.Helper()
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		if err := srv.RunBackground(t.Context()); err != nil {
 			t.Errorf("background services error: %v", err)
 		}
 	}()
+	// Wait for RunBackground to exit before the test completes: its goroutines
+	// log through testWriter, and t.Log panics once the test is done. Cleanups
+	// run after t.Context() is cancelled, so this only waits for shutdown.
+	t.Cleanup(func() { <-done })
 }
 
 // SetupRunningIntegrationServer creates a server, seeds via the provided Seeder,
