@@ -196,7 +196,8 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	schedulerService := scheduler.NewService(logger)
 	schedulerService.AddJob(addressLeaseService.NewExpiryJob(deviceService))
 	schedulerService.AddJob(dashboardRepo.NewRollupJob(logger))
-	schedulerService.AddJob(scheduler.NewRetentionJob(accessLogRepo, deviceRepo, conf.Rules.DataRetentionDays, logger))
+	schedulerService.AddJob(scheduler.NewRetentionJob(accessLogRepo, deviceRepo, dashboardRepo,
+		conf.Rules.DataRetentionDays, conf.Rules.AggregateRetentionDays, logger))
 
 	// Fire the rules on start to ensure we disable no longer valid addresses before letting them through
 	err = schedulerService.ExecuteScheduledRules(ctx)

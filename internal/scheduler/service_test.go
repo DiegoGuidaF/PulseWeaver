@@ -40,40 +40,87 @@ func (f *fakeAddressEventPruner) DeleteAddressEventsOlderThan(_ context.Context,
 	return f.deleted, f.err
 }
 
+type fakeAggregatePruner struct {
+	deleted int64
+	err     error
+	calls   int
+}
+
+func (f *fakeAggregatePruner) DeleteAggregatesOlderThan(_ context.Context, _ time.Time) (int64, error) {
+	f.calls++
+	return f.deleted, f.err
+}
+
 var _ scheduler.AccessLogPruner = (*fakeAccessLogPruner)(nil)
 var _ scheduler.AddressEventPruner = (*fakeAddressEventPruner)(nil)
+var _ scheduler.AggregatePruner = (*fakeAggregatePruner)(nil)
 
-func TestRetentionJob_ZeroRetentionDays_SkipsBothPruners(t *testing.T) {
+func TestRetentionJob_ZeroRetentionDays_SkipsAllPruners(t *testing.T) {
 	is := is.New(t)
 	alp := &fakeAccessLogPruner{}
 	aep := &fakeAddressEventPruner{}
-	job := scheduler.NewRetentionJob(alp, aep, 0, noopLogger())
+	agp := &fakeAggregatePruner{}
+	job := scheduler.NewRetentionJob(alp, aep, agp, 0, 0, noopLogger())
 
 	err := job.Run(context.Background())
 
 	is.NoErr(err)
 	is.Equal(alp.calls, 0)
 	is.Equal(aep.calls, 0)
+	is.Equal(agp.calls, 0)
 }
 
-func TestRetentionJob_CallsBothPrunersOnFirstRun(t *testing.T) {
+func TestRetentionJob_CallsAllPrunersOnFirstRun(t *testing.T) {
 	is := is.New(t)
 	alp := &fakeAccessLogPruner{deleted: 5}
 	aep := &fakeAddressEventPruner{deleted: 3}
-	job := scheduler.NewRetentionJob(alp, aep, 30, noopLogger())
+	agp := &fakeAggregatePruner{deleted: 7}
+	job := scheduler.NewRetentionJob(alp, aep, agp, 30, 365, noopLogger())
 
 	err := job.Run(context.Background())
 
 	is.NoErr(err)
 	is.Equal(alp.calls, 1)
 	is.Equal(aep.calls, 1)
+	is.Equal(agp.calls, 1)
+}
+
+func TestRetentionJob_ZeroAggregateRetention_SkipsAggregatePruner(t *testing.T) {
+	is := is.New(t)
+	alp := &fakeAccessLogPruner{}
+	aep := &fakeAddressEventPruner{}
+	agp := &fakeAggregatePruner{}
+	job := scheduler.NewRetentionJob(alp, aep, agp, 30, 0, noopLogger())
+
+	err := job.Run(context.Background())
+
+	is.NoErr(err)
+	is.Equal(alp.calls, 1)
+	is.Equal(aep.calls, 1)
+	is.Equal(agp.calls, 0)
+}
+
+func TestRetentionJob_ZeroDataRetention_StillPrunesAggregates(t *testing.T) {
+	is := is.New(t)
+	alp := &fakeAccessLogPruner{}
+	aep := &fakeAddressEventPruner{}
+	agp := &fakeAggregatePruner{}
+	job := scheduler.NewRetentionJob(alp, aep, agp, 0, 365, noopLogger())
+
+	err := job.Run(context.Background())
+
+	is.NoErr(err)
+	is.Equal(alp.calls, 0)
+	is.Equal(aep.calls, 0)
+	is.Equal(agp.calls, 1)
 }
 
 func TestRetentionJob_DailyGuard_DoesNotRunTwiceInSameDay(t *testing.T) {
 	is := is.New(t)
 	alp := &fakeAccessLogPruner{}
 	aep := &fakeAddressEventPruner{}
-	job := scheduler.NewRetentionJob(alp, aep, 30, noopLogger())
+	agp := &fakeAggregatePruner{}
+	job := scheduler.NewRetentionJob(alp, aep, agp, 30, 365, noopLogger())
 
 	_ = job.Run(context.Background())
 	err := job.Run(context.Background())
@@ -81,6 +128,7 @@ func TestRetentionJob_DailyGuard_DoesNotRunTwiceInSameDay(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(alp.calls, 1)
 	is.Equal(aep.calls, 1)
+	is.Equal(agp.calls, 1)
 }
 
 func TestRetentionJob_AccessLogPrunerError_Propagates(t *testing.T) {
@@ -88,12 +136,14 @@ func TestRetentionJob_AccessLogPrunerError_Propagates(t *testing.T) {
 	pruneErr := errors.New("db error")
 	alp := &fakeAccessLogPruner{err: pruneErr}
 	aep := &fakeAddressEventPruner{}
-	job := scheduler.NewRetentionJob(alp, aep, 30, noopLogger())
+	agp := &fakeAggregatePruner{}
+	job := scheduler.NewRetentionJob(alp, aep, agp, 30, 365, noopLogger())
 
 	err := job.Run(context.Background())
 
 	is.True(errors.Is(err, pruneErr))
 	is.Equal(aep.calls, 0)
+	is.Equal(agp.calls, 0)
 }
 
 func TestRetentionJob_AddressEventPrunerError_Propagates(t *testing.T) {
@@ -101,11 +151,28 @@ func TestRetentionJob_AddressEventPrunerError_Propagates(t *testing.T) {
 	pruneErr := errors.New("db error")
 	alp := &fakeAccessLogPruner{}
 	aep := &fakeAddressEventPruner{err: pruneErr}
-	job := scheduler.NewRetentionJob(alp, aep, 30, noopLogger())
+	agp := &fakeAggregatePruner{}
+	job := scheduler.NewRetentionJob(alp, aep, agp, 30, 365, noopLogger())
 
 	err := job.Run(context.Background())
 
 	is.True(errors.Is(err, pruneErr))
+	is.Equal(agp.calls, 0)
+}
+
+func TestRetentionJob_AggregatePrunerError_Propagates(t *testing.T) {
+	is := is.New(t)
+	pruneErr := errors.New("db error")
+	alp := &fakeAccessLogPruner{}
+	aep := &fakeAddressEventPruner{}
+	agp := &fakeAggregatePruner{err: pruneErr}
+	job := scheduler.NewRetentionJob(alp, aep, agp, 30, 365, noopLogger())
+
+	err := job.Run(context.Background())
+
+	is.True(errors.Is(err, pruneErr))
+	is.Equal(alp.calls, 1)
+	is.Equal(aep.calls, 1)
 }
 
 // RunSchedule

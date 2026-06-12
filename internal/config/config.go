@@ -44,6 +44,11 @@ type ConfPolicy struct {
 type ConfRules struct {
 	CheckInterval     time.Duration `env:"RULE_CHECK_INTERVAL" envDefault:"1m"`
 	DataRetentionDays int           `env:"DATA_RETENTION_DAYS" envDefault:"30"`
+	// AggregateRetentionDays bounds hourly_traffic_aggregates, which serve
+	// dashboard windows wider than 24h. Must cover at least DataRetentionDays,
+	// otherwise wide dashboard windows would show less history than the raw
+	// access log still holds.
+	AggregateRetentionDays int `env:"AGGREGATE_RETENTION_DAYS" envDefault:"365"`
 }
 
 // ConfGeoIP holds configuration for the GeoIP enrichment feature.
@@ -79,6 +84,14 @@ func Load() (*Conf, error) {
 	// Ensure rule scheduler has a valid interval
 	if c.Rules.CheckInterval <= 0 {
 		return nil, fmt.Errorf("check interval must be bigger than 0: %d", c.Rules.CheckInterval)
+	}
+
+	// Aggregates must outlive raw data (0 = unbounded); a shorter horizon would
+	// make wide dashboard windows show less history than the raw access log.
+	if c.Rules.AggregateRetentionDays != 0 &&
+		(c.Rules.DataRetentionDays == 0 || c.Rules.AggregateRetentionDays < c.Rules.DataRetentionDays) {
+		return nil, fmt.Errorf("AGGREGATE_RETENTION_DAYS (%d) must be 0 (unbounded) or >= DATA_RETENTION_DAYS (%d)",
+			c.Rules.AggregateRetentionDays, c.Rules.DataRetentionDays)
 	}
 
 	// Ensure api secret for Policy endpoint is defined and secure

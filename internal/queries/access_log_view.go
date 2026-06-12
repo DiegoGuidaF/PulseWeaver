@@ -8,6 +8,7 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries/filterx"
@@ -524,7 +525,18 @@ type AccessLogCountryStat struct {
 
 // ListAccessLogStatsByCountry returns request counts grouped by country for all rows
 // within the [from, to] time window. Only rows with GeoIP data are included.
+//
+// Dispatches on dashboard.RawWindowThreshold like every other traffic widget,
+// so the map/country tables answer from the same source as the stat cards and
+// charts for a given window.
 func (r *Repository) ListAccessLogStatsByCountry(ctx context.Context, from, to time.Time) ([]AccessLogCountryStat, error) {
+	if to.Sub(from) <= dashboard.RawWindowThreshold {
+		return r.listRawAccessLogStatsByCountry(ctx, from, to)
+	}
+	return r.listAggregateAccessLogStatsByCountry(ctx, from, to)
+}
+
+func (r *Repository) listRawAccessLogStatsByCountry(ctx context.Context, from, to time.Time) ([]AccessLogCountryStat, error) {
 	const query = `
 		SELECT
 			g.country_code,
@@ -545,12 +557,43 @@ func (r *Repository) ListAccessLogStatsByCountry(ctx context.Context, from, to t
 		return nil, fmt.Errorf("list access log stats by country: %w", err)
 	}
 
+	return countryStatsFromRows(rows), nil
+}
+
+// listAggregateAccessLogStatsByCountry answers from hourly_traffic_aggregates.
+// Buckets without country attribution (empty country_code: no GeoIP at rollup
+// time, or rolled up before country columns existed) are excluded, matching
+// the raw path's inner join on access_log_geoip.
+func (r *Repository) listAggregateAccessLogStatsByCountry(ctx context.Context, from, to time.Time) ([]AccessLogCountryStat, error) {
+	const query = `
+		SELECT
+			country_code,
+			country_name,
+			continent_code,
+			SUM(request_count) AS total,
+			SUM(CASE WHEN outcome = 1 THEN request_count ELSE 0 END) AS allowed,
+			SUM(CASE WHEN outcome = 0 THEN request_count ELSE 0 END) AS denied
+		FROM hourly_traffic_aggregates
+		WHERE country_code != ''
+		  AND bucket_at >= ? AND bucket_at < ?
+		GROUP BY country_code, country_name, continent_code
+		ORDER BY total DESC
+	`
+
+	var rows []dbCountryStatsRow
+	if err := r.db.SelectContext(ctx, &rows, query, from.UTC(), to.UTC()); err != nil {
+		return nil, fmt.Errorf("list aggregate access log stats by country: %w", err)
+	}
+
+	return countryStatsFromRows(rows), nil
+}
+
+func countryStatsFromRows(rows []dbCountryStatsRow) []AccessLogCountryStat {
 	stats := make([]AccessLogCountryStat, len(rows))
 	for i, row := range rows {
 		stats[i] = AccessLogCountryStat(row)
 	}
-
-	return stats, nil
+	return stats
 }
 
 // Page of rows.

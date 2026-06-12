@@ -3,9 +3,11 @@
 package queries_test
 
 import (
+	"log/slog"
 	"testing"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/matryer/is"
@@ -115,6 +117,77 @@ func TestRepository_ListaccessLogStatsByCountry_FromFilter(t *testing.T) {
 	stats, err := repos.queries.ListAccessLogStatsByCountry(ctx, from, now)
 	is.NoErr(err)
 	is.Equal(len(stats), 0)
+}
+
+// TestDashboardWidgets_CrossWidgetConsistency_WideWindow guards the F18
+// invariant: for the same window every dashboard widget answers from the same
+// source. For a window > dashboard.RawWindowThreshold all widgets take the
+// aggregate path, so after a rollup catch-up the summary stats, the traffic
+// series sums, and the country stats must all describe the same seeded rows.
+func TestDashboardWidgets_CrossWidgetConsistency_WideWindow(t *testing.T) {
+	is := is.New(t)
+	repos := setupRepos(t)
+	ctx := t.Context()
+
+	dashRepo := dashboard.NewRepository(repos.db)
+
+	usGeo := geoip.Result{CountryCode: "US", CountryName: "United States", ContinentCode: "NA"}
+	auGeo := geoip.Result{CountryCode: "AU", CountryName: "Australia", ContinentCode: "OC"}
+	appHost := "app.example.com"
+	otherHost := "other.example.com"
+
+	// All rows sit in complete past hours: the in-flight hour is never rolled
+	// up, so rows there would be invisible to every aggregate-path widget.
+	oldHour := time.Now().UTC().Truncate(time.Hour).Add(-30 * time.Hour)
+	recentHour := time.Now().UTC().Truncate(time.Hour).Add(-2 * time.Hour)
+	err := repos.accessLog.BatchInsert(ctx, []policy.DecisionEvent{
+		{ClientIP: "8.8.8.8", TargetHost: &appHost, Outcome: true, CreatedAt: oldHour.Add(5 * time.Minute), Headers: map[string][]string{}, GeoIP: usGeo},
+		{ClientIP: "8.8.8.8", TargetHost: &appHost, Outcome: true, CreatedAt: oldHour.Add(10 * time.Minute), Headers: map[string][]string{}, GeoIP: usGeo},
+		{ClientIP: "8.8.4.4", TargetHost: &appHost, Outcome: false, DenyReason: new(policy.DenyReasonIPNotRegistered), CreatedAt: oldHour.Add(15 * time.Minute), Headers: map[string][]string{}, GeoIP: usGeo},
+		{ClientIP: "1.1.1.1", TargetHost: &otherHost, Outcome: true, CreatedAt: recentHour.Add(5 * time.Minute), Headers: map[string][]string{}, GeoIP: auGeo},
+		{ClientIP: "1.1.1.1", TargetHost: &otherHost, Outcome: false, DenyReason: new(policy.DenyReasonHostNotAllowed), CreatedAt: recentHour.Add(10 * time.Minute), Headers: map[string][]string{}, GeoIP: auGeo},
+	})
+	is.NoErr(err)
+
+	is.NoErr(dashRepo.NewRollupJob(slog.New(slog.DiscardHandler)).Run(ctx))
+
+	to := time.Now().UTC()
+	from := to.Add(-48 * time.Hour)
+	is.True(to.Sub(from) > dashboard.RawWindowThreshold) // all widgets on the aggregate path
+
+	stats, err := dashRepo.GetSummaryStats(ctx, from, to)
+	is.NoErr(err)
+	is.Equal(stats.TotalRequests, int64(5))
+	is.Equal(stats.AllowedCount, int64(3))
+	is.Equal(stats.DeniedCount, int64(2))
+
+	series, err := dashRepo.GetTrafficSeries(ctx, from, to)
+	is.NoErr(err)
+	var seriesAllowed, seriesDenied int64
+	for _, bucket := range series {
+		seriesAllowed += bucket.AllowCount
+		seriesDenied += bucket.DenyCount
+	}
+	is.Equal(seriesAllowed, stats.AllowedCount)
+	is.Equal(seriesDenied, stats.DeniedCount)
+
+	countries, err := repos.queries.ListAccessLogStatsByCountry(ctx, from, to)
+	is.NoErr(err)
+	var countryTotal, countryAllowed, countryDenied int64
+	for _, c := range countries {
+		countryTotal += c.Total
+		countryAllowed += c.Allowed
+		countryDenied += c.Denied
+	}
+	is.Equal(countryTotal, stats.TotalRequests)
+	is.Equal(countryAllowed, stats.AllowedCount)
+	is.Equal(countryDenied, stats.DeniedCount)
+
+	is.Equal(len(countries), 2) // US first (3 > 2)
+	is.Equal(countries[0].CountryCode, "US")
+	is.Equal(countries[0].Total, int64(3))
+	is.Equal(countries[1].CountryCode, "AU")
+	is.Equal(countries[1].Total, int64(2))
 }
 
 func TestRepository_ListaccessLogStatsByCountry_ToFilter(t *testing.T) {

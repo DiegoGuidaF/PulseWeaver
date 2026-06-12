@@ -28,10 +28,11 @@ INSERT INTO devices (name, owner_id) VALUES ('seed-router', 1);
 -- Soft-deleted device — migrations must handle both live and deleted rows
 INSERT INTO devices (name, deleted_at, owner_id) VALUES ('seed-old-device', '2024-01-01 00:00:00', 1);
 
--- Both outcome values to exercise CHECK (outcome IN (0, 1))
+-- Both outcome values to exercise CHECK (outcome IN (0, 1));
+-- one row with country attribution, one relying on the '' defaults
 INSERT INTO hourly_traffic_aggregates
-    (bucket_at, client_ip, target_host, outcome, deny_reason, request_count)
-VALUES ('2024-01-01 00:00:00', '10.0.0.1', 'example.com', 1, '', 5);
+    (bucket_at, client_ip, target_host, outcome, deny_reason, request_count, country_code, country_name, continent_code)
+VALUES ('2024-01-01 00:00:00', '10.0.0.1', 'example.com', 1, '', 5, 'DE', 'Germany', 'EU');
 
 INSERT INTO hourly_traffic_aggregates
     (bucket_at, client_ip, target_host, outcome, deny_reason, request_count)

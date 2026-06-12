@@ -56,6 +56,30 @@ func seedAggregateRow(t *testing.T, db *database.DB, bucketAt time.Time, clientI
 	}
 }
 
+// seedAccessLogRowWithGeo inserts an access_log row plus its access_log_geoip child.
+func seedAccessLogRowWithGeo(t *testing.T, db *database.DB, clientIP string, targetHost string, outcome bool, createdAt time.Time, countryCode, countryName, continentCode string) {
+	t.Helper()
+	outcomeInt := 0
+	if outcome {
+		outcomeInt = 1
+	}
+	var logID int64
+	err := db.QueryRowxContext(t.Context(), `
+		INSERT INTO access_log (client_ip, target_host, outcome, deny_reason, created_at, headers_json)
+		VALUES (?, ?, ?, '', ?, '{}') RETURNING id
+	`, clientIP, targetHost, outcomeInt, createdAt.UTC()).Scan(&logID)
+	if err != nil {
+		t.Fatalf("seed access row with geo: %v", err)
+	}
+	_, err = db.ExecContext(t.Context(), `
+		INSERT INTO access_log_geoip (access_log_id, country_code, country_name, continent_code)
+		VALUES (?, ?, ?, ?)
+	`, logID, countryCode, countryName, continentCode)
+	if err != nil {
+		t.Fatalf("seed geoip row: %v", err)
+	}
+}
+
 // --- RunRollup ---
 
 func TestRunRollup_EmptyAccessLog_NoAggregates(t *testing.T) {
@@ -318,6 +342,42 @@ func TestGetServiceSplit_Empty(t *testing.T) {
 	services, err := repo.GetServiceSplit(ctx, from, to)
 	is.NoErr(err)
 	is.Equal(len(services), 0)
+}
+
+// TestRunRollup_CountryAttribution: the rollup carries country attribution from
+// access_log_geoip; rows without a geoip child get the empty (unknown) attribution.
+func TestRunRollup_CountryAttribution(t *testing.T) {
+	is := is.New(t)
+	repo, db := setupTestRepo(t)
+	ctx := context.Background()
+
+	hour := time.Date(2025, 3, 15, 14, 0, 0, 0, time.UTC)
+	seedAccessLogRowWithGeo(t, db, "8.8.8.8", "app.example.com", true, hour.Add(5*time.Minute), "US", "United States", "NA")
+	seedAccessLogRowWithGeo(t, db, "8.8.8.8", "app.example.com", true, hour.Add(10*time.Minute), "US", "United States", "NA")
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", true, "", hour.Add(15*time.Minute))
+
+	is.NoErr(repo.RunRollup(ctx, hour, hour.Add(time.Hour)))
+
+	type aggRow struct {
+		ClientIP      string `db:"client_ip"`
+		CountryCode   string `db:"country_code"`
+		CountryName   string `db:"country_name"`
+		ContinentCode string `db:"continent_code"`
+		RequestCount  int64  `db:"request_count"`
+	}
+	var rows []aggRow
+	is.NoErr(db.SelectContext(ctx, &rows, `
+		SELECT client_ip, country_code, country_name, continent_code, request_count
+		FROM hourly_traffic_aggregates ORDER BY client_ip`))
+
+	is.Equal(len(rows), 2)
+	is.Equal(rows[0].ClientIP, "10.0.0.1")
+	is.Equal(rows[0].CountryCode, "") // no geoip child → unknown
+	is.Equal(rows[1].ClientIP, "8.8.8.8")
+	is.Equal(rows[1].CountryCode, "US")
+	is.Equal(rows[1].CountryName, "United States")
+	is.Equal(rows[1].ContinentCode, "NA")
+	is.Equal(rows[1].RequestCount, int64(2))
 }
 
 // --- DenyReason grouping ---
