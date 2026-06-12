@@ -139,11 +139,13 @@ export function AddressLeaseRuleCard({ deviceId }: { deviceId: number }) {
       : Number(preset);
   const isDirty = isOn && savedTtl !== undefined && currentTtl !== savedTtl;
 
+  // Sync keyed on the saved TTL: runs when the server value (re)loads or
+  // changes after a save, but never clobbers in-progress edits — refetches
+  // returning the same TTL don't re-fire the effect
   useEffect(() => {
-    if (!addressLeaseRule || isDirty) return;
-    const ttl = addressLeaseRule.ttl_seconds ?? DEFAULT_TTL;
-    setValues({ ...fromSeconds(ttl), preset: presetFromTtl(ttl) });
-  }, [addressLeaseRule, setValues, isDirty]);
+    if (savedTtl == null) return;
+    setValues({ ...fromSeconds(savedTtl), preset: presetFromTtl(savedTtl) });
+  }, [savedTtl, setValues]);
 
   function handleToggleOn() {
     if (preset === "custom" && form.validate().hasErrors) return;
