@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, Link, RouterProvider } from 'react-router-dom';
 import { MantineProvider } from '@mantine/core';
 import { ModalsProvider } from '@mantine/modals';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { useUnsavedChangesGuard } from './useUnsavedChangesGuard';
+import { setupUser } from '@/test/utils';
 
 function DirtyPage({ dirty }: { dirty: boolean }) {
     useUnsavedChangesGuard(dirty);
@@ -31,7 +31,7 @@ function renderGuard(dirty: boolean) {
 
 describe('useUnsavedChangesGuard — in-app navigation blocking', () => {
     it('navigates immediately when there are no unsaved changes', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderGuard(false);
 
         await user.click(screen.getByRole('link', { name: /go to other/i }));
@@ -41,7 +41,7 @@ describe('useUnsavedChangesGuard — in-app navigation blocking', () => {
     });
 
     it('blocks navigation and stays on the page when "Keep editing" is chosen', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderGuard(true);
 
         await user.click(screen.getByRole('link', { name: /go to other/i }));
@@ -60,7 +60,7 @@ describe('useUnsavedChangesGuard — in-app navigation blocking', () => {
     });
 
     it('proceeds with navigation when "Discard changes" is confirmed', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderGuard(true);
 
         await user.click(screen.getByRole('link', { name: /go to other/i }));

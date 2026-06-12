@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { delay, http } from "msw";
 import { server } from "@/test/setup";
-import { renderWithProviders } from "@/test/utils";
+import { renderWithProviders, setupUser } from "@/test/utils";
 import { LoginPage } from "./LoginPage";
 import { AuthProvider } from "@/features/auth/AuthContext";
 import { TEST_TIMEOUTS } from "@/test/constants";
@@ -64,7 +63,7 @@ describe("LoginPage", () => {
   });
 
   it("shows loading state during login submission", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
 
     server.use(
       authHandlers.me.unauthenticated(),
@@ -99,7 +98,7 @@ describe("LoginPage", () => {
   });
 
   it("successfully logs in and navigates to /devices", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     let meCallCount = 0;
 
     server.use(
@@ -138,7 +137,7 @@ describe("LoginPage", () => {
   });
 
   it("shows error toast on login failure", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
 
     server.use(
       authHandlers.me.unauthenticated(),
@@ -177,7 +176,7 @@ describe("LoginPage", () => {
   });
 
   it("validates form fields (empty username/password)", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
 
     server.use(authHandlers.me.unauthenticated());
 

@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { server } from "@/test/setup";
-import { renderWithProviders } from "@/test/utils";
+import { renderWithProviders, setupUser } from "@/test/utils";
 import { policyAuditHandlers, responses, endpoints } from "@/test/mocks/handlers";
 import { createMockPolicyUserEntry, createMockPolicyUserIp } from "@/test/mocks/data";
 import { PolicyAuditPage } from "./PolicyAuditPage";
@@ -79,7 +78,7 @@ describe("PolicyAuditPage", () => {
     });
 
     it("clicking a user row opens the drawer", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderWithProviders(<PolicyAuditPage />);
 
         await waitFor(
@@ -99,7 +98,7 @@ describe("PolicyAuditPage", () => {
     });
 
     it("clicking an IP badge populates the Source IP field in SimulateBar", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(
             policyAuditHandlers.policyMap.success({
                 users: [

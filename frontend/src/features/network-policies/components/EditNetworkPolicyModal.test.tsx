@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { EditNetworkPolicyModal } from './EditNetworkPolicyModal';
-import { renderWithProviders } from '@/test/utils';
+import { renderWithProviders, setupUser } from '@/test/utils';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { createMockNetworkPolicyDetail } from '@/test/mocks/data';
 
@@ -31,7 +30,7 @@ describe('EditNetworkPolicyModal', () => {
     });
 
     it('saves edited fields via onUpdate', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const { onUpdate } = renderModal();
 
         const name = screen.getByLabelText(/name/i);
@@ -47,7 +46,7 @@ describe('EditNetworkPolicyModal', () => {
     });
 
     it('blocks save for a too-broad CIDR', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const { onUpdate } = renderModal();
 
         const cidr = screen.getByLabelText(/cidr range/i);

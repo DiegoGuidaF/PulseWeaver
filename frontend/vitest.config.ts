@@ -10,9 +10,11 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     css: true,
     // CI runners are far slower than dev machines; give tests extra headroom there.
-    testTimeout: process.env.CI ? 30000 : 15000,
+    testTimeout: process.env.CI ? 15000 : 10000,
     pool: "forks",
-    maxWorkers: '80%',
+    // On 4-vCPU CI runners, more workers just makes the heavy Mantine component
+    // suites starve each other and trip per-test timeouts.
+    maxWorkers: process.env.CI ? '50%' : '80%',
     // Console output from passing tests is pure noise in CI logs.
     silent: "passed-only",
     onConsoleLog(log) {

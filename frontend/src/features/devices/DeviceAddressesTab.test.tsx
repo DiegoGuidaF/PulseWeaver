@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { delay, http } from 'msw';
 import { DeviceAddressesTab } from '@/features/devices/DeviceAddressesTab';
 import { createMockAddress } from '@/test/mocks/data';
@@ -8,7 +7,7 @@ import { AddressEventSource } from '@/lib/api';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { addressHandlers, endpoints, responses } from '@/test/mocks/handlers';
 import { server } from '@/test/setup';
-import { renderWithProviders } from '@/test/utils';
+import { renderWithProviders, setupUser } from '@/test/utils';
 
 const STALE_DATE = '2024-01-01T00:00:00Z'; // >7 days ago relative to test run date
 
@@ -67,7 +66,7 @@ describe('DeviceAddressesTab', () => {
     });
 
     it('shows stale address in stale tab', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(
             addressHandlers.list([
                 createMockAddress({
@@ -102,7 +101,7 @@ describe('DeviceAddressesTab', () => {
     });
 
     it('heartbeat registers IP and shows notification', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(
             http.post(endpoints.deviceHeartbeat, async () => {
                 await delay(50);
@@ -123,7 +122,7 @@ describe('DeviceAddressesTab', () => {
     });
 
     it('can expand custom IP form and submit', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
 
         renderTab();
 
@@ -149,7 +148,7 @@ describe('DeviceAddressesTab', () => {
     });
 
     it('add address error shows notification', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(
             http.post(endpoints.deviceAddresses, () => responses.serverError())
         );

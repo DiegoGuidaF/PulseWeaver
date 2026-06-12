@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { renderWithProviders } from "@/test/utils";
+import { renderWithProviders, setupUser } from "@/test/utils";
 import {
     createMockPolicyUserEntry,
     createMockPolicyUserIp,
@@ -105,7 +104,7 @@ describe("PolicyUserTable", () => {
     });
 
     it("search by username filters rows", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderTable([LIVE_WITH_ACCESS, BYPASS, NO_ACCESS]);
 
         await user.type(
@@ -120,7 +119,7 @@ describe("PolicyUserTable", () => {
     });
 
     it("search by IP filters rows", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderTable([LIVE_WITH_ACCESS, BYPASS, NO_ACCESS]);
 
         await user.type(
@@ -133,7 +132,7 @@ describe("PolicyUserTable", () => {
     });
 
     it("search by device name filters rows", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const withDevice = createMockPolicyUserEntry({
             user_id: 1,
             display_name: "alice",
@@ -162,7 +161,7 @@ describe("PolicyUserTable", () => {
     });
 
     it("status filter — bypass shows only bypass users", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderTable([LIVE_WITH_ACCESS, BYPASS, NO_ACCESS]);
 
         await user.click(screen.getByRole("radio", { name: /^bypass/i }));
@@ -173,7 +172,7 @@ describe("PolicyUserTable", () => {
     });
 
     it("status filter — no access shows only users with no live IPs and no grants", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderTable([LIVE_WITH_ACCESS, BYPASS, NO_ACCESS, LIVE_NO_HOST_ACCESS]);
 
         await user.click(screen.getByRole("radio", { name: /^no access/i }));
@@ -185,7 +184,7 @@ describe("PolicyUserTable", () => {
     });
 
     it("status filter — live no access shows only revoked/empty-allowlist users with live IPs", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderTable([LIVE_WITH_ACCESS, BYPASS, NO_ACCESS, LIVE_NO_HOST_ACCESS]);
 
         await user.click(screen.getByRole("radio", { name: /live, no access/i }));
@@ -197,7 +196,7 @@ describe("PolicyUserTable", () => {
     });
 
     it("shared IPs checkbox filters to shared-only users", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const sharedUser = createMockPolicyUserEntry({
             user_id: 10,
             display_name: "dave",
@@ -212,7 +211,7 @@ describe("PolicyUserTable", () => {
     });
 
     it("shows filter empty state when no users match", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderTable([LIVE_WITH_ACCESS]);
 
         await user.type(
@@ -232,7 +231,7 @@ describe("PolicyUserTable", () => {
     });
 
     it("IP badge click calls onSelectIp but not onSelectUser (stopPropagation)", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const onSelectIp = vi.fn();
         const onSelectUser = vi.fn();
         renderTable([LIVE_WITH_ACCESS], {}, onSelectIp, onSelectUser);
@@ -245,7 +244,7 @@ describe("PolicyUserTable", () => {
     });
 
     it("row click calls onSelectUser with the correct user", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const onSelectUser = vi.fn();
         renderTable([LIVE_WITH_ACCESS], {}, vi.fn(), onSelectUser);
 

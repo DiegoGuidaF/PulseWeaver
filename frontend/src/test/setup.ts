@@ -2,8 +2,10 @@ import "@testing-library/jest-dom";
 import { afterAll, afterEach, beforeAll } from "vitest";
 import { setupServer } from "msw/node";
 
-import "@mantine/core/styles.css";
-import "@mantine/notifications/styles.css";
+// Deliberately NOT importing @mantine/*/styles.css here: happy-dom's CSS engine
+// recomputes styles against the full stylesheet on DOM mutation, which makes
+// interaction-heavy tests (opening a Mantine Menu/Drawer) take seconds instead of
+// milliseconds. No test asserts on computed styles, so the suite runs unstyled.
 import { defaultHandlers } from "./mocks/handlers";
 import { cleanup } from "@testing-library/react";
 import { notifications } from "@mantine/notifications";

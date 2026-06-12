@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { server } from "@/test/setup";
-import { renderWithProviders } from "@/test/utils";
+import { renderWithProviders, setupUser } from "@/test/utils";
 import { policyAuditHandlers } from "@/test/mocks/handlers";
 import { SimulateBar } from "./SimulateBar";
 import { TEST_TIMEOUTS } from "@/test/constants";
@@ -27,7 +26,7 @@ describe("SimulateBar", () => {
     });
 
     it("Test button is enabled when both IP and host are filled", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderBar("192.168.1.10");
 
         await user.type(screen.getByRole("textbox", { name: /host \(fqdn\)/i }), "app.home.lan");
@@ -36,7 +35,7 @@ describe("SimulateBar", () => {
     });
 
     it("onIpChange is called when the IP field is edited", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const onIpChange = vi.fn();
         renderBar("", onIpChange);
 
@@ -46,7 +45,7 @@ describe("SimulateBar", () => {
     });
 
     it("shows Allowed alert after a successful simulation", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(
             policyAuditHandlers.simulate.allowed({
                 ip: "192.168.1.10",
@@ -68,7 +67,7 @@ describe("SimulateBar", () => {
     });
 
     it("shows Denied alert with ip_not_registered reason label", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(policyAuditHandlers.simulate.denied("ip_not_registered"));
 
         renderBar("1.2.3.4");
@@ -86,7 +85,7 @@ describe("SimulateBar", () => {
     });
 
     it("shows Denied alert with host_not_allowed reason label", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(policyAuditHandlers.simulate.denied("host_not_allowed"));
 
         renderBar("1.2.3.4");
@@ -104,7 +103,7 @@ describe("SimulateBar", () => {
     });
 
     it("result alert disappears after editing an input (dirty flag clears result)", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(policyAuditHandlers.simulate.allowed());
 
         renderBar("192.168.1.10");

@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { CreateNetworkPolicyModal } from './CreateNetworkPolicyModal';
 import { server } from '@/test/setup';
-import { renderWithProviders } from '@/test/utils';
+import { renderWithProviders, setupUser } from '@/test/utils';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { networkPolicyHandlers } from '@/test/mocks/handlers';
 
@@ -18,7 +17,7 @@ function renderModal() {
 
 describe('CreateNetworkPolicyModal — CIDR validation', () => {
     it('accepts a native IPv6 CIDR', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(networkPolicyHandlers.create.success());
         const { onCreated } = renderModal();
 
@@ -34,7 +33,7 @@ describe('CreateNetworkPolicyModal — CIDR validation', () => {
     });
 
     it('rejects a malformed CIDR', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const { onCreated } = renderModal();
 
         await user.type(screen.getByLabelText(/name/i), 'Bad Net');
@@ -49,7 +48,7 @@ describe('CreateNetworkPolicyModal — CIDR validation', () => {
     });
 
     it('blocks submit for a too-broad CIDR', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const { onCreated } = renderModal();
 
         await user.type(screen.getByLabelText(/name/i), 'Allow All');
@@ -64,7 +63,7 @@ describe('CreateNetworkPolicyModal — CIDR validation', () => {
     });
 
     it('shows a quantified size note for a normal range', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderModal();
 
         await user.type(screen.getByLabelText(/cidr range/i), '192.168.1.0/24');
@@ -73,7 +72,7 @@ describe('CreateNetworkPolicyModal — CIDR validation', () => {
     });
 
     it('flags a too-broad CIDR while typing, before submit', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderModal();
 
         await user.type(screen.getByLabelText(/cidr range/i), '0.0.0.0/0');
@@ -83,7 +82,7 @@ describe('CreateNetworkPolicyModal — CIDR validation', () => {
     });
 
     it('warns but allows a large-but-permitted CIDR', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(networkPolicyHandlers.create.success());
         const { onCreated } = renderModal();
 

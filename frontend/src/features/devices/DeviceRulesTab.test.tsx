@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { delay, http } from "msw";
 import { DeviceRulesTab } from "@/features/devices/DeviceRulesTab";
 import { createMockDeviceAddressLeaseRule } from "@/test/mocks/data";
 import { TEST_TIMEOUTS } from "@/test/constants";
 import { endpoints, responses, ruleHandlers } from "@/test/mocks/handlers";
 import { server } from "@/test/setup";
-import { renderWithProviders } from "@/test/utils";
+import { renderWithProviders, setupUser } from "@/test/utils";
 
 function renderTab(liveAddressCount = 0) {
     return renderWithProviders(<DeviceRulesTab deviceId={1} liveAddressCount={liveAddressCount} />);
@@ -60,7 +59,7 @@ describe('DeviceRulesTab — Address lease rule', () => {
     });
 
     it('enables rule via toggle using the currently selected preset', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(ruleHandlers.addressLease.get.notFound());
 
         renderTab();
@@ -85,7 +84,7 @@ describe('DeviceRulesTab — Address lease rule', () => {
     });
 
     it('shows Save/Cancel only after changing TTL preset when enabled', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderTab();
 
         await waitFor(
@@ -103,7 +102,7 @@ describe('DeviceRulesTab — Address lease rule', () => {
     });
 
     it('saves changed TTL and shows toast', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderTab();
 
         await waitFor(
@@ -124,7 +123,7 @@ describe('DeviceRulesTab — Address lease rule', () => {
     });
 
     it('cancels TTL change and hides Save/Cancel', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderTab();
 
         await waitFor(
@@ -142,7 +141,7 @@ describe('DeviceRulesTab — Address lease rule', () => {
     });
 
     it('disables rule via toggle and shows toast', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderTab();
 
         await waitFor(
@@ -227,7 +226,7 @@ describe('DeviceRulesTab — Max active IPs rule', () => {
     });
 
     it('shows eviction warning when limit is stepped below live count', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(ruleHandlers.maxActiveAddresses.get.success({ max_addresses: 5 }));
 
         renderTab(3); // 3 live addresses, limit currently 5
@@ -264,7 +263,7 @@ describe('DeviceRulesTab — Max active IPs rule', () => {
     });
 
     it('enables rule via toggle using currently selected limit', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(ruleHandlers.maxActiveAddresses.get.notFound());
 
         renderTab();
@@ -289,7 +288,7 @@ describe('DeviceRulesTab — Max active IPs rule', () => {
     });
 
     it('shows Save/Cancel after stepping limit when enabled and saves', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(ruleHandlers.maxActiveAddresses.get.success({ max_addresses: 3 }));
 
         renderTab();
@@ -319,7 +318,7 @@ describe('DeviceRulesTab — Max active IPs rule', () => {
     });
 
     it('cancels limit change and hides Save/Cancel', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(ruleHandlers.maxActiveAddresses.get.success());
 
         renderTab();
@@ -338,7 +337,7 @@ describe('DeviceRulesTab — Max active IPs rule', () => {
     });
 
     it('disables rule via toggle and shows toast', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(ruleHandlers.maxActiveAddresses.get.success());
 
         renderTab();

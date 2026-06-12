@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { renderWithProviders } from "@/test/utils";
+import { renderWithProviders, setupUser } from "@/test/utils";
 import { ErrorState } from "./ErrorState";
 
 describe("ErrorState", () => {
@@ -23,7 +22,7 @@ describe("ErrorState", () => {
     });
 
     it("renders a retry action and invokes onRetry when clicked", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const onRetry = vi.fn();
         renderWithProviders(<ErrorState error={new Error("boom")} onRetry={onRetry} />);
 

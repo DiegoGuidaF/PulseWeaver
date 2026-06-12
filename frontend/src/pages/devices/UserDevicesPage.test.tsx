@@ -1,13 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { delay, http } from 'msw';
 import { UserDevicesPage } from '@/pages/devices/UserDevicesPage';
 import { createMockDeviceOwnerGroup } from '@/test/mocks/data';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { deviceHandlers, endpoints, responses } from '@/test/mocks/handlers';
 import { server } from '@/test/setup';
-import { renderWithProviders } from '@/test/utils';
+import { renderWithProviders, setupUser } from '@/test/utils';
 import { ROUTES } from '@/lib/routes';
 
 function renderPage(route = '/devices/owners/1?device=1') {
@@ -115,7 +114,7 @@ describe('UserDevicesPage', () => {
     });
 
     it('switches to Settings tab and shows device profile card', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
 
         renderPage();
 

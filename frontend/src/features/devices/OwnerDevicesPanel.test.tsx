@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
 import { ROUTES } from '@/lib/routes';
 import { OwnerDevicesPanel } from '@/features/devices/OwnerDevicesPanel';
@@ -9,7 +8,7 @@ import { DeviceState, UserRole } from '@/lib/api';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { deviceHandlers } from '@/test/mocks/handlers';
 import { server } from '@/test/setup';
-import { renderWithProviders } from '@/test/utils';
+import { renderWithProviders, setupUser } from '@/test/utils';
 import { createMockDeviceOwnerGroup } from '@/test/mocks/data';
 
 const defaultOwner: DeviceListOwner = {
@@ -170,7 +169,7 @@ describe('OwnerDevicesPanel', () => {
         });
 
         it('calls onSelectDevice with the device id when clicked', async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             const onSelectDevice = vi.fn();
             renderPanel({ onSelectDevice });
 
@@ -184,7 +183,7 @@ describe('OwnerDevicesPanel', () => {
 
     describe('add device', () => {
         it('calls onAddDevice when "add device" is clicked', async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             const onAddDevice = vi.fn();
             renderPanel({ onAddDevice });
 
@@ -210,7 +209,7 @@ describe('OwnerDevicesPanel', () => {
         });
 
         it('filters devices by name, case-insensitively', async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             renderPanel({ devices: manyDevices });
 
             await user.type(screen.getByPlaceholderText('Filter by name…'), 'phone');
@@ -222,7 +221,7 @@ describe('OwnerDevicesPanel', () => {
         });
 
         it('shows a no-match message when nothing matches', async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             renderPanel({ devices: manyDevices });
 
             await user.type(screen.getByPlaceholderText('Filter by name…'), 'zzz');

@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { server } from '@/test/setup';
-import { renderWithProviders } from '@/test/utils';
+import { renderWithProviders, setupUser } from '@/test/utils';
 import { authHandlers } from '@/test/mocks/handlers';
 import { SettingsPage } from '@/pages/settings/SettingsPage';
 import { AuthProvider } from '@/features/auth/AuthContext';
@@ -17,7 +16,7 @@ function renderSettingsPage() {
   );
 }
 
-async function switchToPreferencesTab(user: ReturnType<typeof userEvent.setup>) {
+async function switchToPreferencesTab(user: ReturnType<typeof setupUser>) {
   await waitFor(
     () => { expect(screen.getByRole('tab', { name: 'Preferences' })).toBeInTheDocument(); },
     { timeout: TEST_TIMEOUTS.SHORT },
@@ -32,7 +31,7 @@ describe('SettingsPage — Date & Time preferences', () => {
   });
 
   it('renders the Date & Time card with current preference values', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderSettingsPage();
 
     await switchToPreferencesTab(user);
@@ -55,7 +54,7 @@ describe('SettingsPage — Date & Time preferences', () => {
   });
 
   it('changing the date order control persists to localStorage', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderSettingsPage();
 
     await switchToPreferencesTab(user);
@@ -76,7 +75,7 @@ describe('SettingsPage — Date & Time preferences', () => {
   });
 
   it('changing the time format control persists to localStorage', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderSettingsPage();
 
     await switchToPreferencesTab(user);
@@ -99,7 +98,7 @@ describe('SettingsPage — Date & Time preferences', () => {
   it('preview text updates live when prefs change', async () => {
     // Force a known 12h start state so the before/after comparison is deterministic
     localStorage.setItem(DATETIME_PREFS_KEY, JSON.stringify({ dateOrder: 'MDY', timeFormat: '12h' }));
-    const user = userEvent.setup();
+    const user = setupUser();
     renderSettingsPage();
 
     await switchToPreferencesTab(user);

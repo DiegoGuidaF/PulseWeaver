@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { render, type RenderOptions } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
     createMemoryRouter,
@@ -11,6 +12,15 @@ import { ModalsProvider } from '@mantine/modals';
 import { Notifications } from '@mantine/notifications';
 import { DatesProvider } from '@mantine/dates';
 import { DateTimePrefsProvider } from '@/contexts/DateTimePrefsContext';
+
+/**
+ * userEvent session for component tests — the single place to tune session
+ * options (delay, pointer-events checks) for the whole suite. Use this instead
+ * of calling userEvent.setup() directly.
+ */
+export function setupUser() {
+    return userEvent.setup();
+}
 
 /**
  * Creates a test-friendly QueryClient with retry disabled for faster test failures.

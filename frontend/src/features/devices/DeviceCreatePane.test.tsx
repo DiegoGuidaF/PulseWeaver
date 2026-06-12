@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { DeviceCreatePane } from '@/features/devices/DeviceCreatePane';
 import { TEST_TIMEOUTS } from '@/test/constants';
-import { renderWithProviders } from '@/test/utils';
+import { renderWithProviders, setupUser } from '@/test/utils';
 
 function renderPane(onCreated = vi.fn()) {
     renderWithProviders(
@@ -29,7 +28,7 @@ describe('DeviceCreatePane', () => {
     });
 
     it('creates a credential-less device and hands off to the detail', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const { onCreated } = renderPane();
 
         await user.type(screen.getByLabelText(/Name/i), 'Office Printer');
@@ -42,7 +41,7 @@ describe('DeviceCreatePane', () => {
     });
 
     it('reveals the minted key once for an API-key device', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const { onCreated } = renderPane();
 
         await user.type(screen.getByLabelText(/Name/i), 'Phone');

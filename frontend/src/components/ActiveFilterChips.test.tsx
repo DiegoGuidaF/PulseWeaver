@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { renderWithProviders } from "@/test/utils";
+import { renderWithProviders, setupUser } from "@/test/utils";
 import { ActiveFilterChips, type FilterChip } from "./ActiveFilterChips";
 
 function renderChips(chips: FilterChip[]) {
@@ -32,7 +31,7 @@ describe("ActiveFilterChips", () => {
     });
 
     it("calls onRemove when the remove button is clicked", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const onRemove = vi.fn();
 
         const { container } = renderChips([

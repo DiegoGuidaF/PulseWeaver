@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { renderWithProviders } from "@/test/utils";
+import { renderWithProviders, setupUser } from "@/test/utils";
 import {
     createMockPolicyUserEntry,
     createMockPolicyUserIp,
@@ -197,7 +196,7 @@ describe("PolicyUserDrawer", () => {
     });
 
     it("Live IPs tab shows the user's IP card", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderDrawer(LIVE_WITH_ACCESS_USER);
 
         await waitFor(
@@ -214,7 +213,7 @@ describe("PolicyUserDrawer", () => {
     });
 
     it("Live IPs tab shows empty state when user has no IPs", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderDrawer(NO_ACCESS_USER);
 
         await waitFor(
@@ -234,7 +233,7 @@ describe("PolicyUserDrawer", () => {
     });
 
     it('"Test from this IP" calls onSelectIp and onClose', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const onSelectIp = vi.fn();
         const onClose = vi.fn();
         renderDrawer(LIVE_WITH_ACCESS_USER, 5, onClose, onSelectIp);
@@ -256,7 +255,7 @@ describe("PolicyUserDrawer", () => {
     });
 
     it("Devices tab shows device name", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderDrawer(LIVE_WITH_ACCESS_USER);
 
         await waitFor(
@@ -280,7 +279,7 @@ describe("PolicyUserDrawer", () => {
     });
 
     it("Devices tab shows empty state when user has no devices", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         renderDrawer(NO_ACCESS_USER);
 
         await waitFor(
@@ -300,7 +299,7 @@ describe("PolicyUserDrawer", () => {
     });
 
     it("Hosts tab filter buttons narrow host list", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         // trimmed_hosts is kept empty so "media.home.lan" only appears in the
         // HostsTab host list — avoiding a duplicate match from the IpCard alert
         // that Mantine always renders in the DOM even for inactive tab panels.

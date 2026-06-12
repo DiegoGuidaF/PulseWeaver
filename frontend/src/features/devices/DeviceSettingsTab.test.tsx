@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { DeviceSettingsTab } from '@/features/devices/DeviceSettingsTab';
 import { TEST_TIMEOUTS } from '@/test/constants';
-import { renderWithProviders } from '@/test/utils';
+import { renderWithProviders, setupUser } from '@/test/utils';
 import { server } from '@/test/setup';
 import { deviceHandlers } from '@/test/mocks/handlers';
 import { DeviceState } from '@/lib/api';
@@ -52,7 +51,7 @@ describe('DeviceSettingsTab', () => {
     });
 
     it('opens the confirmation dialog when Regenerate is clicked', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         // deviceHandlers.regenerateApiKey.success() is in defaultHandlers
 
         renderTabWithKey();
@@ -64,7 +63,7 @@ describe('DeviceSettingsTab', () => {
     });
 
     it('calls regenerate API and shows new key dialog on confirm', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         // deviceHandlers.regenerateApiKey.success() is in defaultHandlers
 
         renderTabWithKey();
@@ -82,7 +81,7 @@ describe('DeviceSettingsTab', () => {
     });
 
     it('opens the delete confirmation dialog when Remove key is clicked', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
 
         renderTabWithKey();
 
@@ -93,7 +92,7 @@ describe('DeviceSettingsTab', () => {
     });
 
     it('calls delete API on confirm and closes the modal', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         server.use(deviceHandlers.deleteApiKey.success());
 
         renderTabWithKey();
@@ -110,7 +109,7 @@ describe('DeviceSettingsTab', () => {
     });
 
     it('offers Disable for a credentialed device and confirms it', async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         // deviceHandlers.disable.success() is in defaultHandlers
 
         renderTabWithKey();

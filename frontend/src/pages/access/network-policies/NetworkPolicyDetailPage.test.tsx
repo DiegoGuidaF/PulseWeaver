@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { NetworkPolicyDetailPage } from '@/pages/access/network-policies/NetworkPolicyDetailPage';
 import { server } from '@/test/setup';
-import { renderWithProviders } from '@/test/utils';
+import { renderWithProviders, setupUser } from '@/test/utils';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { networkPolicyHandlers } from '@/test/mocks/handlers';
 import { createMockSubjectGroupDetail } from '@/test/mocks/data';
@@ -94,7 +93,7 @@ describe('NetworkPolicyDetailPage', () => {
 
     describe('delete flow', () => {
         it('navigates away after a successful delete', async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(
                 networkPolicyHandlers.get.success({ name: 'To Delete' }),
             );
@@ -151,7 +150,7 @@ describe('NetworkPolicyDetailPage', () => {
         });
 
         it('appears when a group assignment is toggled', async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(
                 networkPolicyHandlers.get.success({
                     groups: [
@@ -179,7 +178,7 @@ describe('NetworkPolicyDetailPage', () => {
 
     describe('bypass acknowledge gate', () => {
         it('switches the save bar to a warning and disables Save until acknowledged on off→on', async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(
                 networkPolicyHandlers.get.success({ cidr: '192.168.1.0/24', bypass_host_check: false }),
             );
@@ -214,7 +213,7 @@ describe('NetworkPolicyDetailPage', () => {
 
             // Toggling bypass off and back on is the only way to dirty the draft here
             // (groups are inert while bypass is active); turning it off doesn't warn.
-            const user = userEvent.setup();
+            const user = setupUser();
             const bypassSwitch = screen.getByRole('switch', { name: /bypass host check/i });
             await user.click(bypassSwitch);
 

@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { http } from "msw";
 import { server } from "@/test/setup";
-import { renderWithProviders } from "@/test/utils";
+import { renderWithProviders, setupUser } from "@/test/utils";
 import { AccessLogPage } from "./AccessLogPage";
 import {
     createMockAccessLogRow,
@@ -105,7 +104,7 @@ describe("AccessLogPage", () => {
     });
 
     it("row click opens detail drawer with row data", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const row = createMockAccessLogRow({
             id: 42,
             client_ip: "10.0.0.1",
@@ -145,7 +144,7 @@ describe("AccessLogPage", () => {
     });
 
     it("outcome column filter opens and shows options", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
 
         server.use(
             accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })),

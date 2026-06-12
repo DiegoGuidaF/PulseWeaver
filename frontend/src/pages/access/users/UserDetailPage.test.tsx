@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
 import { ROUTES, buildRoute } from '@/lib/routes';
 import { UserDetailPage } from '@/pages/access/users/UserDetailPage';
@@ -8,7 +7,7 @@ import { AuthProvider } from '@/features/auth/AuthContext';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { authHandlers, hostAccessHandlers } from '@/test/mocks/handlers';
 import { server } from '@/test/setup';
-import { renderWithProviders } from '@/test/utils';
+import { renderWithProviders, setupUser } from '@/test/utils';
 import { createMockUserAccessDetail, createMockDeviceListItem } from '@/test/mocks/data';
 import { UserRole } from '@/lib/api';
 
@@ -58,7 +57,7 @@ describe('UserDetailPage', () => {
         });
 
         it('clicking a device row navigates to the device detail page', async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
 
             renderWithRoutes();
 
@@ -77,7 +76,7 @@ describe('UserDetailPage', () => {
         });
 
         it('"Manage all devices →" link points to the owner device workspace', async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             renderUserDetailPage(5);
 
             // Wait for data, then activate the Devices tab so the panel leaves aria-hidden
@@ -115,7 +114,7 @@ describe('UserDetailPage', () => {
         });
 
         it('switches the save bar to a warning and disables Save until acknowledged on off→on', async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(
                 hostAccessHandlers.userHostDetails.success(
                     createMockUserAccessDetail({
@@ -142,7 +141,7 @@ describe('UserDetailPage', () => {
         });
 
         it('does not show the warning bar for an already-bypassed user', async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(
                 hostAccessHandlers.userHostDetails.success(
                     createMockUserAccessDetail({

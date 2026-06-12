@@ -1,13 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { HostsPage } from '@/pages/access/hosts/HostsPage';
 import { AuthProvider } from '@/features/auth/AuthContext';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { endpoints, hostAccessHandlers } from '@/test/mocks/handlers';
 import { server } from '@/test/setup';
-import { renderWithProviders } from '@/test/utils';
+import { renderWithProviders, setupUser } from '@/test/utils';
 import {
     createMockHost,
     createMockHostSuggestion,
@@ -99,6 +98,7 @@ describe('HostsPage', () => {
 
     describe('suggestions staging', () => {
         it('staging a suggestion removes it from the list while leaving others', async () => {
+            const user = setupUser();
             server.use(
                 hostAccessHandlers.listHostSuggestions.success(
                     createMockHostSuggestionsPage({
@@ -117,7 +117,7 @@ describe('HostsPage', () => {
             }, { timeout: TEST_TIMEOUTS.MEDIUM });
 
             const fooRow = screen.getAllByRole('row').find((row) => within(row).queryByText('foo.lan'));
-            await userEvent.click(within(fooRow!).getByRole('button', { name: /add to known/i }));
+            await user.click(within(fooRow!).getByRole('button', { name: /add to known/i }));
 
             // A staged host moves into the known-hosts draft table, so scope the removal
             // assertion to the suggestions table (it has the "Allowed hits" column).
@@ -129,6 +129,7 @@ describe('HostsPage', () => {
         });
 
         it('staging a suggestion decrements the Suggestions badge and shows the StagedChangesBar', async () => {
+            const user = setupUser();
             server.use(
                 hostAccessHandlers.listHostSuggestions.success(
                     createMockHostSuggestionsPage({
@@ -147,7 +148,7 @@ describe('HostsPage', () => {
             }, { timeout: TEST_TIMEOUTS.MEDIUM });
 
             const fooRow = screen.getAllByRole('row').find((row) => within(row).queryByText('foo.lan'));
-            await userEvent.click(within(fooRow!).getByRole('button', { name: /add to known/i }));
+            await user.click(within(fooRow!).getByRole('button', { name: /add to known/i }));
 
             await waitFor(() => {
                 const suggestionsToggle = screen.getByRole('button', { name: /observed in recent traffic/i });
@@ -175,6 +176,7 @@ describe('HostsPage', () => {
 
     describe('save flow', () => {
         it('reconcile is called and the StagedChangesBar disappears after a successful save', async () => {
+            const user = setupUser();
             const reconcileSpy = vi.fn();
             server.use(
                 http.post(endpoints.adminHostsReconcile, () => {
@@ -196,18 +198,18 @@ describe('HostsPage', () => {
                 expect(screen.getByRole('button', { name: /add host/i })).toBeInTheDocument();
             }, { timeout: TEST_TIMEOUTS.MEDIUM });
 
-            await userEvent.click(screen.getByRole('button', { name: /add host/i }));
+            await user.click(screen.getByRole('button', { name: /add host/i }));
             await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
 
             const dialog = screen.getByRole('dialog');
-            await userEvent.type(within(dialog).getByRole('textbox', { name: /fqdn/i }), 'new.lan');
-            await userEvent.click(within(dialog).getByRole('button', { name: /Add to draft/i }));
+            await user.type(within(dialog).getByRole('textbox', { name: /fqdn/i }), 'new.lan');
+            await user.click(within(dialog).getByRole('button', { name: /Add to draft/i }));
 
             await waitFor(() => {
                 expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument();
             }, { timeout: TEST_TIMEOUTS.SHORT });
 
-            await userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+            await user.click(screen.getByRole('button', { name: /save changes/i }));
 
             await waitFor(() => expect(reconcileSpy).toHaveBeenCalledOnce(), { timeout: TEST_TIMEOUTS.LONG });
             await waitFor(() => {
@@ -220,6 +222,7 @@ describe('HostsPage', () => {
 
     describe('useUnsavedChangesGuard hookup', () => {
         it('is called with false initially and with true after staging a host', async () => {
+            const user = setupUser();
             server.use(
                 hostAccessHandlers.listHostSuggestions.success(
                     createMockHostSuggestionsPage({
@@ -234,7 +237,7 @@ describe('HostsPage', () => {
             }, { timeout: TEST_TIMEOUTS.SHORT });
 
             await waitFor(() => expect(screen.getByText('guard-test.lan')).toBeInTheDocument(), { timeout: TEST_TIMEOUTS.MEDIUM });
-            await userEvent.click(screen.getByRole('button', { name: /add to known/i }));
+            await user.click(screen.getByRole('button', { name: /add to known/i }));
 
             await waitFor(() => {
                 expect(mockGuard).toHaveBeenCalledWith(true);

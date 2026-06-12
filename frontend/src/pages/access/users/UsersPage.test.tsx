@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
 import { delay, http } from 'msw';
 import { UsersPage } from '@/pages/access/users/UsersPage';
@@ -8,7 +7,7 @@ import { AuthProvider } from '@/features/auth/AuthContext';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { authHandlers, endpoints, hostAccessHandlers, responses } from '@/test/mocks/handlers';
 import { server } from '@/test/setup';
-import { renderWithProviders } from '@/test/utils';
+import { renderWithProviders, setupUser } from '@/test/utils';
 import { createMockUser, createMockUserListItem } from '@/test/mocks/data';
 import { UserRole } from '@/lib/api';
 
@@ -143,7 +142,7 @@ describe('UsersPage', () => {
 
     describe('create user modal', () => {
         it('clicking "+ New user" opens the create user modal', async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
 
             server.use(
                 authHandlers.me.success({ id: 99, username: 'admin', role: UserRole.ADMIN }),
@@ -184,7 +183,7 @@ describe('UsersPage', () => {
         }
 
         it('clicking a non-superadmin row navigates to the user detail page', async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             const summary = createMockUserListItem({ id: 5, username: 'charlie', display_name: 'Charlie', role: UserRole.USER });
 
             server.use(
@@ -208,7 +207,7 @@ describe('UsersPage', () => {
         });
 
         it('clicking a superadmin row navigates to the user detail page', async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             const summary = createMockUserListItem({ id: 5, username: 'sa_user', display_name: 'Super Admin', role: UserRole.SUPERADMIN });
 
             server.use(

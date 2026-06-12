@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { http } from "msw";
 import { server } from "@/test/setup";
-import { renderWithProviders } from "@/test/utils";
+import { renderWithProviders, setupUser } from "@/test/utils";
 import { AddressHistoryPage } from "@/pages/address-history/AddressHistoryPage";
 import {
     createMockAddressHistoryResponse,
@@ -139,7 +138,7 @@ describe("AddressHistoryTable", () => {
 
     describe("IP filter", () => {
         it("opens when the filter icon is clicked", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(addressHandlers.history.empty());
 
             renderTable();
@@ -157,7 +156,7 @@ describe("AddressHistoryTable", () => {
         });
 
         it("retains typed characters without resetting", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(addressHandlers.history.empty());
 
             renderTable();
@@ -179,7 +178,7 @@ describe("AddressHistoryTable", () => {
 
     describe("Status filter", () => {
         it("opens with All/Enabled/Disabled options", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(addressHandlers.history.empty());
 
             renderTable();
@@ -199,7 +198,7 @@ describe("AddressHistoryTable", () => {
 
     describe("Source filter", () => {
         it("opens when the filter icon is clicked", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(addressHandlers.history.empty());
 
             renderTable();
@@ -221,7 +220,7 @@ describe("AddressHistoryTable", () => {
 
     describe("Device filter", () => {
         it("opens when the filter icon is clicked", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(addressHandlers.history.empty());
 
             renderTable();
@@ -336,7 +335,7 @@ describe("AddressHistoryTable", () => {
         });
 
         it("removes the IP chip and clears the filter when remove is clicked", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(addressHandlers.history.empty());
 
             renderTable([
@@ -363,7 +362,7 @@ describe("AddressHistoryTable", () => {
 
     describe("Date range filter", () => {
         it("shows From and To pickers", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(addressHandlers.history.empty());
 
             renderTable();

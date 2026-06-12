@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { screen, waitFor, within, fireEvent } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/setup";
-import { renderWithProviders } from "@/test/utils";
+import { renderWithProviders, setupUser } from "@/test/utils";
 import { AccessLogPage } from "@/pages/access-log/AccessLogPage";
 import {
     createMockAccessLogRow,
@@ -133,7 +132,7 @@ describe("AccessLogTable", () => {
     });
 
     it("row click opens detail drawer with contributors", async () => {
-        const user = userEvent.setup();
+        const user = setupUser();
         const row = createMockAccessLogRow({
             id: 42,
             client_ip: "10.0.0.1",
@@ -165,7 +164,7 @@ describe("AccessLogTable", () => {
 
     describe("IP filter", () => {
         it("opens with an operator selector and a value input", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable();
@@ -182,7 +181,7 @@ describe("AccessLogTable", () => {
         });
 
         it("keeps a non-default operator selected even before any value is entered", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable();
@@ -205,7 +204,7 @@ describe("AccessLogTable", () => {
         });
 
         it("closes when the filter icon is clicked again (toggle)", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable();
@@ -230,7 +229,7 @@ describe("AccessLogTable", () => {
 
     describe("Outcome filter", () => {
         it("opens with Allow/Deny options", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable();
@@ -249,7 +248,7 @@ describe("AccessLogTable", () => {
 
     describe("Authorized-by filter", () => {
         it("opens with device and network-policy sections", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable();
@@ -268,7 +267,7 @@ describe("AccessLogTable", () => {
 
     describe("Date range filter", () => {
         it("opens and shows From and To pickers", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable();
@@ -358,7 +357,7 @@ describe("AccessLogTable", () => {
         });
 
         it("removes the IP chip and clears the filter when remove is clicked", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable([`${BASE_ENTRY}&client_ip=10.0.0.5`]);
@@ -426,7 +425,7 @@ describe("AccessLogTable", () => {
 
     describe("Detail drawer — Location section", () => {
         it("shows the Location section with ASN when GeoIP data is present", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             const row = createMockAccessLogRow({
                 client_ip: "8.8.8.8",
                 country_code: "US",
@@ -492,7 +491,7 @@ describe("AccessLogTable", () => {
 
     describe("Column chooser", () => {
         it("reveals the Method column when toggled on", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable();
@@ -587,7 +586,7 @@ describe("AccessLogTable", () => {
 
     describe("Column chooser hiding", () => {
         it("hides a default-visible column when toggled off", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable();
@@ -610,7 +609,7 @@ describe("AccessLogTable", () => {
         });
 
         it("keeps mandatory columns non-toggleable", async () => {
-            const user = userEvent.setup();
+            const user = setupUser();
             server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
             renderTable();
