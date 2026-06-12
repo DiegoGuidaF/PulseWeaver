@@ -1,6 +1,8 @@
 import dayjs from "dayjs";
+import { QRCodeSVG } from "qrcode.react";
 import {
   Badge,
+  Box,
   Button,
   Code,
   Divider,
@@ -62,22 +64,36 @@ export function PairingCodeDisplay({ deviceId, pairing, onRevoke }: Props) {
   return (
     <Stack gap="md">
       {/* 1. The code — primary focus */}
-      <div>
-        <Text size="sm" c="dimmed" mb={6}>
-          Share this code with the end user
-        </Text>
-        <Code
-          block
-          style={{
-            fontSize: 14,
-            fontWeight: 600,
-            padding: "10px 16px",
-            wordBreak: "break-all",
-          }}
-        >
-          {pairing.pairing_code}
-        </Code>
-      </div>
+      <Group gap="lg" align="flex-start" wrap="wrap">
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <Text size="sm" c="dimmed" mb={6}>
+            Share this code with the end user
+          </Text>
+          <Code
+            block
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              padding: "10px 16px",
+              wordBreak: "break-all",
+            }}
+          >
+            {pairing.pairing_code}
+          </Code>
+        </div>
+        <Stack gap={4} align="center">
+          {/* White quiet zone so the code scans on dark backgrounds */}
+          <Box
+            aria-label="QR code with the pairing code"
+            style={{ background: "white", padding: 8, borderRadius: 8, lineHeight: 0 }}
+          >
+            <QRCodeSVG value={pairing.pairing_code} size={104} />
+          </Box>
+          <Text size="xs" c="dimmed">
+            Scan to copy on a phone
+          </Text>
+        </Stack>
+      </Group>
 
       {/* 2. Actions + TTL */}
       <Group justify="space-between" align="center">
