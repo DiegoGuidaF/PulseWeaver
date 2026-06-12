@@ -58,6 +58,36 @@ describe('DeviceRulesTab — Address lease rule', () => {
         expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
     });
 
+    it('initializes from a saved preset TTL without showing Save', async () => {
+        server.use(ruleHandlers.addressLease.get.success({ ttl_seconds: 21600 }));
+
+        renderTab();
+
+        await waitFor(
+            () => {
+                expect(screen.getByRole('radio', { name: '6h' })).toBeChecked();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    });
+
+    it('initializes from a saved non-preset TTL as Custom without showing Save', async () => {
+        server.use(ruleHandlers.addressLease.get.success({ ttl_seconds: 1800 }));
+
+        renderTab();
+
+        await waitFor(
+            () => {
+                expect(screen.getByRole('radio', { name: /custom/i })).toBeChecked();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        expect(screen.getByLabelText('Value')).toHaveValue('30');
+        expect(screen.getByLabelText('Unit')).toHaveValue('minutes');
+        expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    });
+
     it('enables rule via toggle using the currently selected preset', async () => {
         const user = setupUser();
         server.use(ruleHandlers.addressLease.get.notFound());
