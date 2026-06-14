@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import dayjs from "dayjs";
 import type { GetAccessLogData } from "@/lib/api";
@@ -71,11 +71,25 @@ function getInitialParams(): URLSearchParams {
 export function useAccessLogFilters(): AccessLogFilters {
     const [searchParams, setSearchParamsRaw] = useSearchParams(getInitialParams());
 
+    // react-router branches each functional update off the same render-time
+    // snapshot (`nextInit(new URLSearchParams(searchParams))`), so two updates
+    // fired in one tick both start from the original params and the last write
+    // wins — silently dropping the first. The "Authorized by" popover does
+    // exactly this: closing it unmounts two ColumnFilters that each commit
+    // separately. Chaining off a ref that tracks the latest emitted params lets
+    // such updates compose. The ref re-syncs to searchParams after each commit.
+    const latestParamsRef = useRef(searchParams);
+    useEffect(() => {
+        latestParamsRef.current = searchParams;
+    });
+
     // Wrap setSearchParams to persist every change to localStorage
     const setSearchParams: AccessLogFilters["setSearchParams"] = useCallback(
         (updater) => {
-            setSearchParamsRaw((prev) => {
-                const next = typeof updater === "function" ? updater(prev) : updater;
+            setSearchParamsRaw(() => {
+                const base = new URLSearchParams(latestParamsRef.current);
+                const next = typeof updater === "function" ? updater(base) : updater;
+                latestParamsRef.current = next;
                 persistFilters(next);
                 return next;
             });

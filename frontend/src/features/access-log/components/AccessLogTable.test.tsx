@@ -263,6 +263,40 @@ describe("AccessLogTable", () => {
             expect(await screen.findByText("By device")).toBeInTheDocument();
             expect(screen.getByText("By network policy")).toBeInTheDocument();
         });
+
+        // The popover hosts two ColumnFilters that each commit on close. Both
+        // must survive: react-router branches every functional search-param
+        // update off the same render-time snapshot, so without composing them
+        // the second commit (network policy) would clobber the first (device).
+        it("applies both device and network-policy filters set in one session", async () => {
+            const user = setupUser();
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            await user.click(getFilterButton("Authorized by"));
+
+            const deviceSection = (await screen.findByText("By device")).parentElement!;
+            await user.click(within(deviceSection).getByPlaceholderText("Select values"));
+            await user.click(await screen.findByRole("option", { name: "Test Device" }));
+
+            const policySection = screen.getByText("By network policy").parentElement!;
+            await user.click(within(policySection).getByPlaceholderText("Select values"));
+            await user.click(await screen.findByRole("option", { name: /Test Policy/ }));
+
+            // Apply commits both ColumnFilters as the popover unmounts.
+            await user.click(screen.getByRole("button", { name: "Apply" }));
+
+            expect(await screen.findByText("Device:")).toBeInTheDocument();
+            expect(screen.getByText(/Test Device/)).toBeInTheDocument();
+            expect(screen.getByText("Network policy:")).toBeInTheDocument();
+            expect(screen.getByText(/Test Policy/)).toBeInTheDocument();
+        });
     });
 
     describe("Date range filter", () => {
