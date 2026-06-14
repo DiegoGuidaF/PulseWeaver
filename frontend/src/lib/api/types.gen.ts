@@ -544,6 +544,71 @@ export type DashboardTopDeniedIpsResponse = {
   ips: Array<DashboardTopDeniedIp>;
 };
 
+/**
+ * User counts bucketed by their effective policy status.
+ */
+export type DashboardPostureUsers = {
+  /**
+   * Users who bypass the host allowlist and can reach every host.
+   */
+  bypass: number;
+  /**
+   * Users with live IPs in the policy cache and at least one host grant.
+   */
+  live_with_access: number;
+  /**
+   * Users with live IPs but no host grants — every request from their assigned IPs is denied. A true lockout signal.
+   *
+   */
+  live_no_host_access: number;
+  /**
+   * Users with host grants but no live IPs in the policy cache (never ran the client).
+   */
+  no_live_ips: number;
+  /**
+   * Users with neither live IPs nor host grants.
+   */
+  no_access: number;
+};
+
+export type DashboardPostureNetworkPolicies = {
+  /**
+   * Number of enabled network policies.
+   */
+  enabled: number;
+  /**
+   * Enabled network policies that bypass the host check (reach every host).
+   */
+  bypass_host_check: number;
+};
+
+/**
+ * Current-state posture counts for the dashboard landing page. All fields except pending_suggestion_count are derived from the policy cache snapshot taken at refreshed_at; pending_suggestion_count is a live database read and is therefore not covered by refreshed_at.
+ *
+ */
+export type DashboardPosture = {
+  /**
+   * Timestamp of the policy cache snapshot these counts reduce. Applies to every field except pending_suggestion_count.
+   *
+   */
+  refreshed_at: string;
+  users: DashboardPostureUsers;
+  network_policies: DashboardPostureNetworkPolicies;
+  /**
+   * IPs shared by two or more users (intersection-trimming precondition).
+   */
+  shared_ip_count: number;
+  /**
+   * Distinct known hosts across all user allowlists.
+   */
+  known_host_count: number;
+  /**
+   * Unknown hosts receiving real traffic that are neither registered nor ignored. A live database read, fresher than refreshed_at.
+   *
+   */
+  pending_suggestion_count: number;
+};
+
 export type CreatePairingRequest = {
   heartbeat_server_url: string;
   interval_seconds: number;
@@ -2798,6 +2863,41 @@ export type GetDashboardTopDeniedIpsResponses = {
 
 export type GetDashboardTopDeniedIpsResponse =
   GetDashboardTopDeniedIpsResponses[keyof GetDashboardTopDeniedIpsResponses];
+
+export type GetDashboardPostureData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/dashboard/posture";
+};
+
+export type GetDashboardPostureErrors = {
+  /**
+   * Not authenticated
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden - admin credentials required
+   */
+  403: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type GetDashboardPostureError =
+  GetDashboardPostureErrors[keyof GetDashboardPostureErrors];
+
+export type GetDashboardPostureResponses = {
+  /**
+   * Posture summary
+   */
+  200: DashboardPosture;
+};
+
+export type GetDashboardPostureResponse =
+  GetDashboardPostureResponses[keyof GetDashboardPostureResponses];
 
 export type ClaimPairingData = {
   body: ClaimPairingRequest;

@@ -148,6 +148,43 @@ services:
             schema:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
 
+posture:
+  get:
+    operationId: getDashboardPosture
+    tags:
+      - dashboard
+    summary: Dashboard posture summary
+    description: >
+      Returns current-state posture counts for the dashboard landing page:
+      users bucketed by policy status, enabled/bypassing network policies,
+      shared IPs, known hosts, and pending host suggestions. Reduces the policy
+      cache snapshot to counts; pending suggestions are read live.
+    responses:
+      "200":
+        description: Posture summary
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/dashboard.yaml#/DashboardPosture'
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
 topDeniedIps:
   get:
     operationId: getDashboardTopDeniedIps

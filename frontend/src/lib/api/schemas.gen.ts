@@ -1132,6 +1132,103 @@ export const DashboardTopDeniedIpsResponseSchema = {
   },
 } as const;
 
+export const DashboardPostureUsersSchema = {
+  type: "object",
+  description: "User counts bucketed by their effective policy status.",
+  required: [
+    "bypass",
+    "live_with_access",
+    "live_no_host_access",
+    "no_live_ips",
+    "no_access",
+  ],
+  properties: {
+    bypass: {
+      type: "integer",
+      description:
+        "Users who bypass the host allowlist and can reach every host.",
+    },
+    live_with_access: {
+      type: "integer",
+      description:
+        "Users with live IPs in the policy cache and at least one host grant.",
+    },
+    live_no_host_access: {
+      type: "integer",
+      description:
+        "Users with live IPs but no host grants — every request from their assigned IPs is denied. A true lockout signal.\n",
+    },
+    no_live_ips: {
+      type: "integer",
+      description:
+        "Users with host grants but no live IPs in the policy cache (never ran the client).",
+    },
+    no_access: {
+      type: "integer",
+      description: "Users with neither live IPs nor host grants.",
+    },
+  },
+} as const;
+
+export const DashboardPostureNetworkPoliciesSchema = {
+  type: "object",
+  required: ["enabled", "bypass_host_check"],
+  properties: {
+    enabled: {
+      type: "integer",
+      description: "Number of enabled network policies.",
+    },
+    bypass_host_check: {
+      type: "integer",
+      description:
+        "Enabled network policies that bypass the host check (reach every host).",
+    },
+  },
+} as const;
+
+export const DashboardPostureSchema = {
+  type: "object",
+  description:
+    "Current-state posture counts for the dashboard landing page. All fields except pending_suggestion_count are derived from the policy cache snapshot taken at refreshed_at; pending_suggestion_count is a live database read and is therefore not covered by refreshed_at.\n",
+  required: [
+    "refreshed_at",
+    "users",
+    "network_policies",
+    "shared_ip_count",
+    "known_host_count",
+    "pending_suggestion_count",
+  ],
+  properties: {
+    refreshed_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      description:
+        "Timestamp of the policy cache snapshot these counts reduce. Applies to every field except pending_suggestion_count.\n",
+    },
+    users: {
+      $ref: "#/components/schemas/DashboardPostureUsers",
+    },
+    network_policies: {
+      $ref: "#/components/schemas/DashboardPostureNetworkPolicies",
+    },
+    shared_ip_count: {
+      type: "integer",
+      description:
+        "IPs shared by two or more users (intersection-trimming precondition).",
+    },
+    known_host_count: {
+      type: "integer",
+      description: "Distinct known hosts across all user allowlists.",
+    },
+    pending_suggestion_count: {
+      type: "integer",
+      description:
+        "Unknown hosts receiving real traffic that are neither registered nor ignored. A live database read, fresher than refreshed_at.\n",
+    },
+  },
+} as const;
+
 export const CreatePairingRequestSchema = {
   type: "object",
   required: ["heartbeat_server_url", "interval_seconds", "expires_in_hours"],

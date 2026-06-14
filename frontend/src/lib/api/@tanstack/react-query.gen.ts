@@ -35,6 +35,7 @@ import {
   getAccessLogDenyReasons,
   getAddressHistory,
   getCurrentUser,
+  getDashboardPosture,
   getDashboardServices,
   getDashboardStats,
   getDashboardTopDeniedIps,
@@ -148,6 +149,9 @@ import type {
   GetCurrentUserData,
   GetCurrentUserError,
   GetCurrentUserResponse,
+  GetDashboardPostureData,
+  GetDashboardPostureError,
+  GetDashboardPostureResponse,
   GetDashboardServicesData,
   GetDashboardServicesError,
   GetDashboardServicesResponse,
@@ -1455,6 +1459,37 @@ export const getDashboardTopDeniedIpsOptions = (
       return data;
     },
     queryKey: getDashboardTopDeniedIpsQueryKey(options),
+  });
+
+export const getDashboardPostureQueryKey = (
+  options?: Options<GetDashboardPostureData>,
+) => createQueryKey("getDashboardPosture", options);
+
+/**
+ * Dashboard posture summary
+ *
+ * Returns current-state posture counts for the dashboard landing page: users bucketed by policy status, enabled/bypassing network policies, shared IPs, known hosts, and pending host suggestions. Reduces the policy cache snapshot to counts; pending suggestions are read live.
+ *
+ */
+export const getDashboardPostureOptions = (
+  options?: Options<GetDashboardPostureData>,
+) =>
+  queryOptions<
+    GetDashboardPostureResponse,
+    GetDashboardPostureError,
+    GetDashboardPostureResponse,
+    ReturnType<typeof getDashboardPostureQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getDashboardPosture({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getDashboardPostureQueryKey(options),
   });
 
 /**

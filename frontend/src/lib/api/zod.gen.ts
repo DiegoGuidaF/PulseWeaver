@@ -360,6 +360,35 @@ export const zDashboardTopDeniedIpsResponse = z.object({
   ips: z.array(zDashboardTopDeniedIp),
 });
 
+/**
+ * User counts bucketed by their effective policy status.
+ */
+export const zDashboardPostureUsers = z.object({
+  bypass: z.int(),
+  live_with_access: z.int(),
+  live_no_host_access: z.int(),
+  no_live_ips: z.int(),
+  no_access: z.int(),
+});
+
+export const zDashboardPostureNetworkPolicies = z.object({
+  enabled: z.int(),
+  bypass_host_check: z.int(),
+});
+
+/**
+ * Current-state posture counts for the dashboard landing page. All fields except pending_suggestion_count are derived from the policy cache snapshot taken at refreshed_at; pending_suggestion_count is a live database read and is therefore not covered by refreshed_at.
+ *
+ */
+export const zDashboardPosture = z.object({
+  refreshed_at: z.iso.datetime({ offset: true, local: true }),
+  users: zDashboardPostureUsers,
+  network_policies: zDashboardPostureNetworkPolicies,
+  shared_ip_count: z.int(),
+  known_host_count: z.int(),
+  pending_suggestion_count: z.int(),
+});
+
 export const zCreatePairingRequest = z.object({
   heartbeat_server_url: z.url(),
   interval_seconds: z.int().gte(60),
@@ -1279,6 +1308,11 @@ export const zGetDashboardTopDeniedIpsQuery = z.object({
  * Top denied IPs
  */
 export const zGetDashboardTopDeniedIpsResponse = zDashboardTopDeniedIpsResponse;
+
+/**
+ * Posture summary
+ */
+export const zGetDashboardPostureResponse = zDashboardPosture;
 
 export const zClaimPairingBody = zClaimPairingRequest;
 

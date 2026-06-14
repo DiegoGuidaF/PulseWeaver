@@ -199,6 +199,9 @@ type ClientInterface interface {
 	// GetCurrentUser request
 	GetCurrentUser(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetDashboardPosture request
+	GetDashboardPosture(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetDashboardServices request
 	GetDashboardServices(ctx context.Context, params *GetDashboardServicesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -778,6 +781,18 @@ func (c *Client) Logout(ctx context.Context, reqEditors ...RequestEditorFn) (*ht
 
 func (c *Client) GetCurrentUser(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCurrentUserRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDashboardPosture(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDashboardPostureRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -2954,6 +2969,33 @@ func NewGetCurrentUserRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGetDashboardPostureRequest generates requests for GetDashboardPosture
+func NewGetDashboardPostureRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/dashboard/posture")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetDashboardServicesRequest generates requests for GetDashboardServices
 func NewGetDashboardServicesRequest(server string, params *GetDashboardServicesParams) (*http.Request, error) {
 	var err error
@@ -4385,6 +4427,9 @@ type ClientWithResponsesInterface interface {
 	// GetCurrentUserWithResponse request
 	GetCurrentUserWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCurrentUserTestClientResponse, error)
 
+	// GetDashboardPostureWithResponse request
+	GetDashboardPostureWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDashboardPostureTestClientResponse, error)
+
 	// GetDashboardServicesWithResponse request
 	GetDashboardServicesWithResponse(ctx context.Context, params *GetDashboardServicesParams, reqEditors ...RequestEditorFn) (*GetDashboardServicesTestClientResponse, error)
 
@@ -5235,6 +5280,31 @@ func (r GetCurrentUserTestClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetCurrentUserTestClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetDashboardPostureTestClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DashboardPosture
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDashboardPostureTestClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDashboardPostureTestClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6323,6 +6393,15 @@ func (c *ClientWithResponses) GetCurrentUserWithResponse(ctx context.Context, re
 		return nil, err
 	}
 	return ParseGetCurrentUserTestClientResponse(rsp)
+}
+
+// GetDashboardPostureWithResponse request returning *GetDashboardPostureTestClientResponse
+func (c *ClientWithResponses) GetDashboardPostureWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDashboardPostureTestClientResponse, error) {
+	rsp, err := c.GetDashboardPosture(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDashboardPostureTestClientResponse(rsp)
 }
 
 // GetDashboardServicesWithResponse request returning *GetDashboardServicesTestClientResponse
@@ -8040,6 +8119,53 @@ func ParseGetCurrentUserTestClientResponse(rsp *http.Response) (*GetCurrentUserT
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDashboardPostureTestClientResponse parses an HTTP response from a GetDashboardPostureWithResponse call
+func ParseGetDashboardPostureTestClientResponse(rsp *http.Response) (*GetDashboardPostureTestClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDashboardPostureTestClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DashboardPosture
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse

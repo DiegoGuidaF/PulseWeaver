@@ -86,6 +86,9 @@ import type {
   GetCurrentUserData,
   GetCurrentUserErrors,
   GetCurrentUserResponses,
+  GetDashboardPostureData,
+  GetDashboardPostureErrors,
+  GetDashboardPostureResponses,
   GetDashboardServicesData,
   GetDashboardServicesErrors,
   GetDashboardServicesResponses,
@@ -241,6 +244,7 @@ import {
   zGetAddressHistoryQuery,
   zGetAddressHistoryResponse,
   zGetCurrentUserResponse,
+  zGetDashboardPostureResponse,
   zGetDashboardServicesQuery,
   zGetDashboardServicesResponse,
   zGetDashboardStatsQuery,
@@ -1686,6 +1690,45 @@ export const getDashboardTopDeniedIps = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/dashboard/top-denied-ips",
+    ...options,
+  });
+
+/**
+ * Dashboard posture summary
+ *
+ * Returns current-state posture counts for the dashboard landing page: users bucketed by policy status, enabled/bypassing network policies, shared IPs, known hosts, and pending host suggestions. Reduces the policy cache snapshot to counts; pending suggestions are read live.
+ *
+ */
+export const getDashboardPosture = <ThrowOnError extends boolean = false>(
+  options?: Options<GetDashboardPostureData, ThrowOnError>,
+): RequestResult<
+  GetDashboardPostureResponses,
+  GetDashboardPostureErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetDashboardPostureResponses,
+    GetDashboardPostureErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: z.never().optional(),
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zGetDashboardPostureResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/dashboard/posture",
     ...options,
   });
 

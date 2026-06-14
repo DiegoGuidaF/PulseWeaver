@@ -100,6 +100,8 @@ paths:
     $ref: './paths/dashboard.yaml#/services'
   /dashboard/top-denied-ips:
     $ref: './paths/dashboard.yaml#/topDeniedIps'
+  /dashboard/posture:
+    $ref: './paths/dashboard.yaml#/posture'
 
   # --------------------
   # Device Pairing Endpoints
@@ -281,6 +283,12 @@ components:
       $ref: './components/schemas/dashboard.yaml#/DashboardTopDeniedIp'
     DashboardTopDeniedIpsResponse:
       $ref: './components/schemas/dashboard.yaml#/DashboardTopDeniedIpsResponse'
+    DashboardPostureUsers:
+      $ref: './components/schemas/dashboard.yaml#/DashboardPostureUsers'
+    DashboardPostureNetworkPolicies:
+      $ref: './components/schemas/dashboard.yaml#/DashboardPostureNetworkPolicies'
+    DashboardPosture:
+      $ref: './components/schemas/dashboard.yaml#/DashboardPosture'
 
     # --------------------
     # Device Pairing
