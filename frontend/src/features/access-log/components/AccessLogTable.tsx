@@ -175,10 +175,9 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         return {
             ...col,
             resizable: true,
-            // Time anchors the statically pinned first column (pinFirstColumn). Drag is
-            // a swap, so leaving Time non-draggable keeps it locked at index 0 — the pin
-            // can never land on another column.
-            draggable: accessor !== "created_at",
+            // No per-header drag handle: it crowds the title and filter controls,
+            // and column order is fixed here anyway.
+            draggable: false,
             toggleable: !mandatory,
             defaultToggle: mandatory || defaultVisible.has(accessor),
         };
