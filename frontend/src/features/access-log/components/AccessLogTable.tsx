@@ -175,10 +175,11 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         return {
             ...col,
             resizable: true,
-            // No per-header drag handle: it crowds the title and filter controls,
-            // and column order is fixed here anyway.
+            // No per-header drag handle or hide icon: they crowd the title and
+            // filter controls. Column order is fixed, and visibility is driven
+            // entirely from the Columns chooser below.
             draggable: false,
-            toggleable: !mandatory,
+            toggleable: false,
             defaultToggle: mandatory || defaultVisible.has(accessor),
         };
     });
