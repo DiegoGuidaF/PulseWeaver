@@ -358,6 +358,10 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                             >
                                 Reset columns
                             </Menu.Item>
+                            <Menu.Divider />
+                            <Text size="xs" c="dimmed" px="sm" py={4}>
+                                Tip: drag a column header to reorder.
+                            </Text>
                         </Menu.Dropdown>
                     </Menu>
                 </Group>

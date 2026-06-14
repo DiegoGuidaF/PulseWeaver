@@ -2,3 +2,12 @@
 .table :global(.mantine-datatable-header-cell-draggable-action-icon) {
     display: none;
 }
+
+/* Without the handle icon, the grab cursor is the affordance that the header
+   can be dragged to reorder. */
+.table :global(.mantine-datatable-header-cell-draggable) {
+    cursor: grab;
+}
+.table :global(.mantine-datatable-header-cell-draggable):active {
+    cursor: grabbing;
+}
