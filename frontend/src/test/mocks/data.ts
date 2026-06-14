@@ -1,4 +1,4 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceOwnerGroup, GroupDetailWithUsers, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceOwnerGroup, GroupDetailWithUsers, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import { AddressEventSource, DeviceState, PolicyUserStatus, UserRole } from "@/lib/api";
 
 /**
@@ -233,6 +233,38 @@ export function createMockDashboardTopDeniedIp(
   return {
     ip: '203.0.113.42',
     count: 25,
+    ...overrides,
+  };
+}
+
+export function createMockDashboardPosture(
+  overrides?: Partial<DashboardPosture>,
+): DashboardPosture {
+  return {
+    refreshed_at: '2024-01-01T12:00:00Z',
+    users: {
+      bypass: 1,
+      live_with_access: 1,
+      live_no_host_access: 0,
+      no_live_ips: 7,
+      no_access: 0,
+    },
+    network_policies: { enabled: 2, bypass_host_check: 1 },
+    shared_ip_count: 0,
+    known_host_count: 14,
+    pending_suggestion_count: 0,
+    ...overrides,
+  };
+}
+
+export function createMockDashboardAttributionCount(
+  overrides?: Partial<DashboardAttributionCount>,
+): DashboardAttributionCount {
+  return {
+    entity_id: 1,
+    entity_name: 'Entity',
+    allow_count: 100,
+    deny_count: 10,
     ...overrides,
   };
 }

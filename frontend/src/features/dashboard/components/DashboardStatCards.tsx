@@ -4,7 +4,6 @@ import {
     IconCheck,
     IconX,
     IconUsers,
-    IconClock,
 } from "@tabler/icons-react";
 import { ErrorState } from "@/components/ErrorState";
 import type { DashboardStats } from "@/lib/api";
@@ -19,10 +18,6 @@ interface DashboardStatCardsProps {
 function pct(count: number, total: number): string {
     if (total === 0) return "0%";
     return `${((count / total) * 100).toFixed(1)}%`;
-}
-
-function formatDuration(us: number): string {
-    return `${(us / 1000).toFixed(2)} ms`;
 }
 
 export function DashboardStatCards({ data, isLoading, error, onRetry }: DashboardStatCardsProps) {
@@ -59,17 +54,10 @@ export function DashboardStatCards({ data, isLoading, error, onRetry }: Dashboar
             icon: IconUsers,
             color: "indigo",
         },
-        {
-            label: "Avg Response Time",
-            value: data ? formatDuration(data.avg_duration_us) : "—",
-            subtitle: null,
-            icon: IconClock,
-            color: "violet",
-        },
     ];
 
     return (
-        <SimpleGrid cols={{ base: 2, sm: 3, lg: 5 }}>
+        <SimpleGrid cols={{ base: 2, sm: 4 }}>
             {cards.map((card) => (
                 <Paper key={card.label} withBorder p="md" radius="md">
                     <Group justify="space-between" mb="xs">

@@ -8,14 +8,15 @@ function renderPage() {
 }
 
 describe('TrafficDashboardPage', () => {
-    it('renders the traffic overview subtitle', () => {
+    it('renders the posture-and-traffic subtitle', () => {
         renderPage();
-        expect(screen.getByText(/traffic overview/i)).toBeInTheDocument();
+        expect(screen.getByText(/security posture and traffic/i)).toBeInTheDocument();
     });
 
     it('renders the time range selector', () => {
         renderPage();
-        // The TimeRangePresetSelect renders a combobox/select for the preset
+        // TimeRangePresetSelect now lives on the traffic section inside DashboardView,
+        // scoping the preset to traffic only.
         expect(screen.getByRole('combobox')).toBeInTheDocument();
     });
 });

@@ -1,6 +1,7 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceOwnerGroup, DevicePairing, GroupDetailWithUsers, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
-import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceOwnerGroup, createMockDevicePairing, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
+import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceOwnerGroup, DevicePairing, GroupDetailWithUsers, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { AttributionKind } from '@/features/dashboard/hooks/useAttributionSplit';
+import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardAttributionCount, createMockDashboardPosture, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceOwnerGroup, createMockDevicePairing, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
 
 const BASE = '/api/v1';
 
@@ -36,6 +37,8 @@ export const endpoints = {
     dashboardTraffic: `${BASE}/dashboard/traffic`,
     dashboardServices: `${BASE}/dashboard/services`,
     dashboardTopDeniedIps: `${BASE}/dashboard/top-denied-ips`,
+    dashboardPosture: `${BASE}/dashboard/posture`,
+    dashboardAttributionSplit: `${BASE}/dashboard/attribution-split`,
     adminHosts: `${BASE}/admin/access/hosts`,
     adminHostsReconcile: `${BASE}/admin/access/hosts/reconcile`,
     adminHostGroups: `${BASE}/admin/access/host-groups`,
@@ -334,6 +337,30 @@ export const dashboardHandlers = {
                     createMockDashboardTopDeniedIp({ ip: '198.51.100.7', count: 12 }),
                 ],
             })),
+
+    posture: (override?: Partial<DashboardPosture>) =>
+        http.get(endpoints.dashboardPosture, () =>
+            HttpResponse.json(createMockDashboardPosture(override))),
+
+    attributionSplit: (byKind?: Partial<Record<AttributionKind, DashboardAttributionCount[]>>) =>
+        http.get(endpoints.dashboardAttributionSplit, ({ request }) => {
+            const kind = (new URL(request.url).searchParams.get('kind') ?? 'policy') as AttributionKind;
+            const defaults: Record<AttributionKind, DashboardAttributionCount[]> = {
+                policy: [
+                    createMockDashboardAttributionCount({ entity_id: 1, entity_name: 'Docker', allow_count: 305, deny_count: 61 }),
+                    createMockDashboardAttributionCount({ entity_id: 2, entity_name: 'Home', allow_count: 142, deny_count: 11 }),
+                ],
+                user: [
+                    createMockDashboardAttributionCount({ entity_id: 1, entity_name: 'Diego Guida', allow_count: 701, deny_count: 47 }),
+                    createMockDashboardAttributionCount({ entity_id: 2, entity_name: 'Sofia Valenti', allow_count: 41, deny_count: 6 }),
+                ],
+                device: [
+                    createMockDashboardAttributionCount({ entity_id: 1, entity_name: 'Workstation', allow_count: 722, deny_count: 9 }),
+                    createMockDashboardAttributionCount({ entity_id: null, entity_name: 'Old Laptop', allow_count: 33, deny_count: 4 }),
+                ],
+            };
+            return HttpResponse.json({ entities: byKind?.[kind] ?? defaults[kind] });
+        }),
 };
 
 // ─── Host-access handlers ──────────────────────────────────────────────────────
@@ -512,6 +539,8 @@ export const defaultHandlers = [
     dashboardHandlers.traffic(),
     dashboardHandlers.services(),
     dashboardHandlers.topDeniedIps(),
+    dashboardHandlers.posture(),
+    dashboardHandlers.attributionSplit(),
     // Host access
     hostAccessHandlers.listUsersHostAccess.success(),
     hostAccessHandlers.userHostDetails.success(),
