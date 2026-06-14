@@ -35,6 +35,7 @@ import {
   getAccessLogDenyReasons,
   getAddressHistory,
   getCurrentUser,
+  getDashboardAttributionSplit,
   getDashboardPosture,
   getDashboardServices,
   getDashboardStats,
@@ -149,6 +150,9 @@ import type {
   GetCurrentUserData,
   GetCurrentUserError,
   GetCurrentUserResponse,
+  GetDashboardAttributionSplitData,
+  GetDashboardAttributionSplitError,
+  GetDashboardAttributionSplitResponse,
   GetDashboardPostureData,
   GetDashboardPostureError,
   GetDashboardPostureResponse,
@@ -1459,6 +1463,37 @@ export const getDashboardTopDeniedIpsOptions = (
       return data;
     },
     queryKey: getDashboardTopDeniedIpsQueryKey(options),
+  });
+
+export const getDashboardAttributionSplitQueryKey = (
+  options: Options<GetDashboardAttributionSplitData>,
+) => createQueryKey("getDashboardAttributionSplit", options);
+
+/**
+ * Dashboard per-entity traffic attribution split
+ *
+ * Returns per-entity allow/deny counts over the given time window for the traffic-section attribution tables. The entity is selected by kind: network policy, user, or device. Attribution comes from decision contributors, so only requests matched to an entity of that kind appear. Traffic whose entity was later deleted is still reported under its retained entity_name with a null entity_id. Per-entity totals deliberately do not reconcile to global traffic: a single request can be attributed to several entities (shared IPs, multiple devices), so a split may sum above total traffic.
+ *
+ */
+export const getDashboardAttributionSplitOptions = (
+  options: Options<GetDashboardAttributionSplitData>,
+) =>
+  queryOptions<
+    GetDashboardAttributionSplitResponse,
+    GetDashboardAttributionSplitError,
+    GetDashboardAttributionSplitResponse,
+    ReturnType<typeof getDashboardAttributionSplitQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getDashboardAttributionSplit({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getDashboardAttributionSplitQueryKey(options),
   });
 
 export const getDashboardPostureQueryKey = (

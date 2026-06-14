@@ -544,6 +544,21 @@ export type DashboardTopDeniedIpsResponse = {
   ips: Array<DashboardTopDeniedIp>;
 };
 
+export type DashboardAttributionCount = {
+  /**
+   * Entity ID (network policy, user, or device, per the requested kind), or null when the entity has since been deleted (its traffic is still reported under the retained entity_name).
+   *
+   */
+  entity_id?: Id | null;
+  entity_name: string;
+  allow_count: number;
+  deny_count: number;
+};
+
+export type DashboardAttributionSplitResponse = {
+  entities: Array<DashboardAttributionCount>;
+};
+
 /**
  * User counts bucketed by their effective policy status.
  */
@@ -2863,6 +2878,54 @@ export type GetDashboardTopDeniedIpsResponses = {
 
 export type GetDashboardTopDeniedIpsResponse =
   GetDashboardTopDeniedIpsResponses[keyof GetDashboardTopDeniedIpsResponses];
+
+export type GetDashboardAttributionSplitData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Which entity to group attribution by.
+     */
+    kind: "policy" | "user" | "device";
+    /**
+     * RFC3339 start of time window (default 24h ago)
+     */
+    from?: string;
+    /**
+     * RFC3339 end of time window (default now)
+     */
+    to?: string;
+  };
+  url: "/dashboard/attribution-split";
+};
+
+export type GetDashboardAttributionSplitErrors = {
+  /**
+   * Not authenticated
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden - admin credentials required
+   */
+  403: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type GetDashboardAttributionSplitError =
+  GetDashboardAttributionSplitErrors[keyof GetDashboardAttributionSplitErrors];
+
+export type GetDashboardAttributionSplitResponses = {
+  /**
+   * Per-entity traffic attribution split
+   */
+  200: DashboardAttributionSplitResponse;
+};
+
+export type GetDashboardAttributionSplitResponse =
+  GetDashboardAttributionSplitResponses[keyof GetDashboardAttributionSplitResponses];
 
 export type GetDashboardPostureData = {
   body?: never;

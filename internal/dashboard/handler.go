@@ -14,6 +14,7 @@ type readRepo interface {
 	GetTrafficSeries(ctx context.Context, from, to time.Time) ([]TrafficBucket, error)
 	GetTopDeniedIPs(ctx context.Context, from, to time.Time, limit int) ([]IPCount, error)
 	GetServiceSplit(ctx context.Context, from, to time.Time) ([]ServiceCount, error)
+	GetAttributionSplit(ctx context.Context, kind AttributionKind, from, to time.Time) ([]AttributionCount, error)
 }
 
 type HTTPHandler struct {
@@ -136,6 +137,36 @@ func (h *HTTPHandler) GetDashboardTopDeniedIps(
 
 	return httpapi.GetDashboardTopDeniedIps200JSONResponse{
 		Ips: httpIPs,
+	}, nil
+}
+
+func (h *HTTPHandler) GetDashboardAttributionSplit(
+	ctx context.Context,
+	request httpapi.GetDashboardAttributionSplitRequestObject,
+) (httpapi.GetDashboardAttributionSplitResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetDashboardAttributionSplit")
+
+	from, to := parseTimeRange(request.Params.From, request.Params.To)
+	kind := AttributionKind(request.Params.Kind)
+
+	entities, err := h.repo.GetAttributionSplit(ctx, kind, from, to)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "failed to get attribution split", slog.Any(AttrKeyError, err))
+		return httpapi.GetDashboardAttributionSplit500JSONResponse(errorMsgResponse("Failed to get attribution data")), nil
+	}
+
+	httpEntities := make([]httpapi.DashboardAttributionCount, len(entities))
+	for i := range entities {
+		httpEntities[i] = httpapi.DashboardAttributionCount{
+			EntityId:   entities[i].EntityID,
+			EntityName: entities[i].EntityName,
+			AllowCount: entities[i].AllowCount,
+			DenyCount:  entities[i].DenyCount,
+		}
+	}
+
+	return httpapi.GetDashboardAttributionSplit200JSONResponse{
+		Entities: httpEntities,
 	}, nil
 }
 

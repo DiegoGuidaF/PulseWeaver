@@ -160,3 +160,22 @@ INSERT INTO access_log_network_policy_contributors (access_log_id, policy_id, po
     FROM access_log al, network_policies np
     WHERE al.outcome = 0 AND np.name = 'Seed Home'
     LIMIT 1;
+
+-- ── hourly_attribution_aggregates (000032+) ───────────────────────────────────
+-- Rows for every entity_kind, covering both outcomes and both the live
+-- (entity_id set) and deleted (entity_id NULL, name retained) paths — exercising
+-- the CHECK, the entity_name key, and the post-deletion survival path.
+INSERT INTO hourly_attribution_aggregates (bucket_at, entity_kind, entity_id, entity_name, outcome, request_count)
+    SELECT '2024-01-01 00:00:00', 'policy', np.id, np.name, 1, 7
+    FROM network_policies np WHERE np.name = 'Seed Home';
+
+INSERT INTO hourly_attribution_aggregates (bucket_at, entity_kind, entity_id, entity_name, outcome, request_count)
+    SELECT '2024-01-01 00:00:00', 'user', u.id, u.display_name, 0, 4
+    FROM users u WHERE u.username = 'seed-user';
+
+INSERT INTO hourly_attribution_aggregates (bucket_at, entity_kind, entity_id, entity_name, outcome, request_count)
+    SELECT '2024-01-01 00:00:00', 'device', d.id, d.name, 1, 5
+    FROM devices d WHERE d.name = 'seed-router';
+
+INSERT INTO hourly_attribution_aggregates (bucket_at, entity_kind, entity_id, entity_name, outcome, request_count)
+    VALUES ('2024-01-01 00:00:00', 'policy', NULL, 'Seed Deleted Policy', 0, 3);

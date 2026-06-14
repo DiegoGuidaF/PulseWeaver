@@ -185,6 +185,70 @@ posture:
             schema:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
 
+attributionSplit:
+  get:
+    operationId: getDashboardAttributionSplit
+    tags:
+      - dashboard
+    summary: Dashboard per-entity traffic attribution split
+    description: >
+      Returns per-entity allow/deny counts over the given time window for the
+      traffic-section attribution tables. The entity is selected by kind:
+      network policy, user, or device. Attribution comes from decision
+      contributors, so only requests matched to an entity of that kind appear.
+      Traffic whose entity was later deleted is still reported under its retained
+      entity_name with a null entity_id. Per-entity totals deliberately do not
+      reconcile to global traffic: a single request can be attributed to several
+      entities (shared IPs, multiple devices), so a split may sum above total
+      traffic.
+    parameters:
+      - name: kind
+        in: query
+        required: true
+        schema:
+          type: string
+          enum: [policy, user, device]
+        description: Which entity to group attribution by.
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 start of time window (default 24h ago)
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 end of time window (default now)
+    responses:
+      "200":
+        description: Per-entity traffic attribution split
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/dashboard.yaml#/DashboardAttributionSplitResponse'
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
 topDeniedIps:
   get:
     operationId: getDashboardTopDeniedIps

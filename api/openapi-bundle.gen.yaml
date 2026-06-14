@@ -1730,6 +1730,64 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /dashboard/attribution-split:
+    get:
+      operationId: getDashboardAttributionSplit
+      tags:
+        - dashboard
+      summary: Dashboard per-entity traffic attribution split
+      description: |
+        Returns per-entity allow/deny counts over the given time window for the traffic-section attribution tables. The entity is selected by kind: network policy, user, or device. Attribution comes from decision contributors, so only requests matched to an entity of that kind appear. Traffic whose entity was later deleted is still reported under its retained entity_name with a null entity_id. Per-entity totals deliberately do not reconcile to global traffic: a single request can be attributed to several entities (shared IPs, multiple devices), so a split may sum above total traffic.
+      parameters:
+        - name: kind
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - policy
+              - user
+              - device
+          description: Which entity to group attribution by.
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 start of time window (default 24h ago)
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 end of time window (default now)
+      responses:
+        '200':
+          description: Per-entity traffic attribution split
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardAttributionSplitResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - admin credentials required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /dashboard/posture:
     get:
       operationId: getDashboardPosture
@@ -3549,6 +3607,36 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DashboardTopDeniedIp'
+    DashboardAttributionCount:
+      type: object
+      required:
+        - entity_name
+        - allow_count
+        - deny_count
+      properties:
+        entity_id:
+          allOf:
+            - $ref: '#/components/schemas/ID'
+          nullable: true
+          description: |
+            Entity ID (network policy, user, or device, per the requested kind), or null when the entity has since been deleted (its traffic is still reported under the retained entity_name).
+        entity_name:
+          type: string
+        allow_count:
+          type: integer
+          format: int64
+        deny_count:
+          type: integer
+          format: int64
+    DashboardAttributionSplitResponse:
+      type: object
+      required:
+        - entities
+      properties:
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardAttributionCount'
     DashboardPostureUsers:
       type: object
       description: User counts bucketed by their effective policy status.

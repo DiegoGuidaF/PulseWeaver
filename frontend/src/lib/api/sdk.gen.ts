@@ -86,6 +86,9 @@ import type {
   GetCurrentUserData,
   GetCurrentUserErrors,
   GetCurrentUserResponses,
+  GetDashboardAttributionSplitData,
+  GetDashboardAttributionSplitErrors,
+  GetDashboardAttributionSplitResponses,
   GetDashboardPostureData,
   GetDashboardPostureErrors,
   GetDashboardPostureResponses,
@@ -244,6 +247,8 @@ import {
   zGetAddressHistoryQuery,
   zGetAddressHistoryResponse,
   zGetCurrentUserResponse,
+  zGetDashboardAttributionSplitQuery,
+  zGetDashboardAttributionSplitResponse,
   zGetDashboardPostureResponse,
   zGetDashboardServicesQuery,
   zGetDashboardServicesResponse,
@@ -1690,6 +1695,47 @@ export const getDashboardTopDeniedIps = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/dashboard/top-denied-ips",
+    ...options,
+  });
+
+/**
+ * Dashboard per-entity traffic attribution split
+ *
+ * Returns per-entity allow/deny counts over the given time window for the traffic-section attribution tables. The entity is selected by kind: network policy, user, or device. Attribution comes from decision contributors, so only requests matched to an entity of that kind appear. Traffic whose entity was later deleted is still reported under its retained entity_name with a null entity_id. Per-entity totals deliberately do not reconcile to global traffic: a single request can be attributed to several entities (shared IPs, multiple devices), so a split may sum above total traffic.
+ *
+ */
+export const getDashboardAttributionSplit = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetDashboardAttributionSplitData, ThrowOnError>,
+): RequestResult<
+  GetDashboardAttributionSplitResponses,
+  GetDashboardAttributionSplitErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetDashboardAttributionSplitResponses,
+    GetDashboardAttributionSplitErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: z.never().optional(),
+          query: zGetDashboardAttributionSplitQuery,
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zGetDashboardAttributionSplitResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/dashboard/attribution-split",
     ...options,
   });
 

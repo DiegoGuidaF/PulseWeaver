@@ -16,6 +16,7 @@ type AddressEventPruner interface {
 
 type AggregatePruner interface {
 	DeleteAggregatesOlderThan(ctx context.Context, before time.Time) (int64, error)
+	DeleteAttributionAggregatesOlderThan(ctx context.Context, before time.Time) (int64, error)
 }
 
 // RetentionJob deletes rows older than the configured retention windows.
@@ -95,6 +96,16 @@ func (j *RetentionJob) Run(ctx context.Context) error {
 		}
 		j.logger.InfoContext(ctx, "traffic aggregate retention complete",
 			slog.Int64(AttrKeyCount, deletedAggregates),
+			slog.Int("retention_days", j.aggregateRetentionDays),
+		)
+
+		deletedAttributionAggregates, err := j.aggregatePruner.DeleteAttributionAggregatesOlderThan(ctx, aggregateCutoff)
+		if err != nil {
+			j.logger.ErrorContext(ctx, "attribution aggregate retention failed", slog.Any(AttrKeyError, err))
+			return err
+		}
+		j.logger.InfoContext(ctx, "attribution aggregate retention complete",
+			slog.Int64(AttrKeyCount, deletedAttributionAggregates),
 			slog.Int("retention_days", j.aggregateRetentionDays),
 		)
 	}

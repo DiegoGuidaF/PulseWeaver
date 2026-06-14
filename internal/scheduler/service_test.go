@@ -41,13 +41,19 @@ func (f *fakeAddressEventPruner) DeleteAddressEventsOlderThan(_ context.Context,
 }
 
 type fakeAggregatePruner struct {
-	deleted int64
-	err     error
-	calls   int
+	deleted          int64
+	err              error
+	calls            int
+	attributionCalls int
 }
 
 func (f *fakeAggregatePruner) DeleteAggregatesOlderThan(_ context.Context, _ time.Time) (int64, error) {
 	f.calls++
+	return f.deleted, f.err
+}
+
+func (f *fakeAggregatePruner) DeleteAttributionAggregatesOlderThan(_ context.Context, _ time.Time) (int64, error) {
+	f.attributionCalls++
 	return f.deleted, f.err
 }
 
@@ -83,6 +89,7 @@ func TestRetentionJob_CallsAllPrunersOnFirstRun(t *testing.T) {
 	is.Equal(alp.calls, 1)
 	is.Equal(aep.calls, 1)
 	is.Equal(agp.calls, 1)
+	is.Equal(agp.attributionCalls, 1) // attribution aggregates pruned alongside traffic aggregates
 }
 
 func TestRetentionJob_ZeroAggregateRetention_SkipsAggregatePruner(t *testing.T) {
@@ -98,6 +105,7 @@ func TestRetentionJob_ZeroAggregateRetention_SkipsAggregatePruner(t *testing.T) 
 	is.Equal(alp.calls, 1)
 	is.Equal(aep.calls, 1)
 	is.Equal(agp.calls, 0)
+	is.Equal(agp.attributionCalls, 0)
 }
 
 func TestRetentionJob_ZeroDataRetention_StillPrunesAggregates(t *testing.T) {

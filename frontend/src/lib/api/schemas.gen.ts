@@ -1132,6 +1132,47 @@ export const DashboardTopDeniedIpsResponseSchema = {
   },
 } as const;
 
+export const DashboardAttributionCountSchema = {
+  type: "object",
+  required: ["entity_name", "allow_count", "deny_count"],
+  properties: {
+    entity_id: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/ID",
+        },
+      ],
+      nullable: true,
+      description:
+        "Entity ID (network policy, user, or device, per the requested kind), or null when the entity has since been deleted (its traffic is still reported under the retained entity_name).\n",
+    },
+    entity_name: {
+      type: "string",
+    },
+    allow_count: {
+      type: "integer",
+      format: "int64",
+    },
+    deny_count: {
+      type: "integer",
+      format: "int64",
+    },
+  },
+} as const;
+
+export const DashboardAttributionSplitResponseSchema = {
+  type: "object",
+  required: ["entities"],
+  properties: {
+    entities: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/DashboardAttributionCount",
+      },
+    },
+  },
+} as const;
+
 export const DashboardPostureUsersSchema = {
   type: "object",
   description: "User counts bucketed by their effective policy status.",

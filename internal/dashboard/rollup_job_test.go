@@ -27,6 +27,37 @@ func countBuckets(t *testing.T, db *database.DB) int {
 	return n
 }
 
+func countAttributionRows(t *testing.T, db *database.DB, kind dashboard.AttributionKind) int {
+	t.Helper()
+	var n int
+	if err := db.GetContext(t.Context(), &n,
+		`SELECT COUNT(*) FROM hourly_attribution_aggregates WHERE entity_kind = ?`, string(kind)); err != nil {
+		t.Fatalf("count attribution rows: %v", err)
+	}
+	return n
+}
+
+// TestRollupJob_CatchUp_PopulatesAttributionAggregates: the per-entity
+// attribution aggregates ride the same catch-up pass, so attributed rows seeded
+// across missed hours are all rolled up by one job run.
+func TestRollupJob_CatchUp_PopulatesAttributionAggregates(t *testing.T) {
+	is := is.New(t)
+	repo, db := setupTestRepo(t)
+	ctx := context.Background()
+
+	currentHour := time.Now().UTC().Truncate(time.Hour)
+	policyA := int64(1)
+	seedNetworkPolicy(t, db, policyA, "policy-a", "10.0.0.0/8")
+	for hoursAgo := 1; hoursAgo <= 3; hoursAgo++ {
+		hour := currentHour.Add(-time.Duration(hoursAgo) * time.Hour)
+		seedPolicyAccessLogRow(t, db, "10.0.0.1", &policyA, "policy-a", true, hour.Add(5*time.Minute))
+	}
+
+	is.NoErr(newTestJob(repo).Run(ctx))
+
+	is.Equal(countAttributionRows(t, db, dashboard.AttributionKindPolicy), 3) // one allow row per missed hour
+}
+
 // TestRollupJob_CatchUp_CoversAllMissedHours guards the core catch-up fix:
 // hours that passed while no rollup ran (downtime, restarts, seeded data)
 // must all be covered by a single job run, not just the previous hour.

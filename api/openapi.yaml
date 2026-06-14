@@ -100,6 +100,8 @@ paths:
     $ref: './paths/dashboard.yaml#/services'
   /dashboard/top-denied-ips:
     $ref: './paths/dashboard.yaml#/topDeniedIps'
+  /dashboard/attribution-split:
+    $ref: './paths/dashboard.yaml#/attributionSplit'
   /dashboard/posture:
     $ref: './paths/dashboard.yaml#/posture'
 
@@ -283,6 +285,10 @@ components:
       $ref: './components/schemas/dashboard.yaml#/DashboardTopDeniedIp'
     DashboardTopDeniedIpsResponse:
       $ref: './components/schemas/dashboard.yaml#/DashboardTopDeniedIpsResponse'
+    DashboardAttributionCount:
+      $ref: './components/schemas/dashboard.yaml#/DashboardAttributionCount'
+    DashboardAttributionSplitResponse:
+      $ref: './components/schemas/dashboard.yaml#/DashboardAttributionSplitResponse'
     DashboardPostureUsers:
       $ref: './components/schemas/dashboard.yaml#/DashboardPostureUsers'
     DashboardPostureNetworkPolicies:

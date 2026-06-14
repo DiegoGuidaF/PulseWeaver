@@ -360,6 +360,31 @@ export const zDashboardTopDeniedIpsResponse = z.object({
   ips: z.array(zDashboardTopDeniedIp),
 });
 
+export const zDashboardAttributionCount = z.object({
+  entity_id: zId.nullish(),
+  entity_name: z.string(),
+  allow_count: z.coerce
+    .bigint()
+    .min(BigInt("-9223372036854775808"), {
+      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
+    })
+    .max(BigInt("9223372036854775807"), {
+      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
+    }),
+  deny_count: z.coerce
+    .bigint()
+    .min(BigInt("-9223372036854775808"), {
+      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
+    })
+    .max(BigInt("9223372036854775807"), {
+      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
+    }),
+});
+
+export const zDashboardAttributionSplitResponse = z.object({
+  entities: z.array(zDashboardAttributionCount),
+});
+
 /**
  * User counts bucketed by their effective policy status.
  */
@@ -1308,6 +1333,18 @@ export const zGetDashboardTopDeniedIpsQuery = z.object({
  * Top denied IPs
  */
 export const zGetDashboardTopDeniedIpsResponse = zDashboardTopDeniedIpsResponse;
+
+export const zGetDashboardAttributionSplitQuery = z.object({
+  kind: z.enum(["policy", "user", "device"]),
+  from: z.iso.datetime({ offset: true, local: true }).optional(),
+  to: z.iso.datetime({ offset: true, local: true }).optional(),
+});
+
+/**
+ * Per-entity traffic attribution split
+ */
+export const zGetDashboardAttributionSplitResponse =
+  zDashboardAttributionSplitResponse;
 
 /**
  * Posture summary

@@ -90,6 +90,11 @@ func (j *RollupJob) Run(ctx context.Context) error {
 		if err := j.repo.RunRollup(ctx, chunkFrom, chunkTo); err != nil {
 			return err
 		}
+		// Per-entity attribution aggregates ride the same catch-up cursor: one
+		// lastRollupAt, no second scheduler.
+		if err := j.repo.RunAttributionRollup(ctx, chunkFrom, chunkTo); err != nil {
+			return err
+		}
 		// Advance per chunk so a failed catch-up resumes where it stopped.
 		j.lastRollupAt = chunkTo
 		chunkFrom = chunkTo
