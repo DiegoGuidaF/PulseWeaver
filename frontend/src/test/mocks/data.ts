@@ -199,6 +199,11 @@ export function createMockDashboardStats(
     total_requests: 150,
     allow_count: 120,
     deny_count: 30,
+    deny_by_reason: {
+      ip_not_registered: 22,
+      host_not_allowed: 6,
+      other: 2,
+    },
     unique_ips: 8,
     avg_duration_us: 1250,
     ...overrides,

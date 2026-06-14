@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { DashboardView } from './DashboardView';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { renderWithProviders, setupUser } from '@/test/utils';
@@ -14,11 +14,17 @@ describe('DashboardView', () => {
             () => {
                 expect(screen.getByText('150')).toBeInTheDocument();
                 expect(screen.getByText('120')).toBeInTheDocument();
-                expect(screen.getByText('30')).toBeInTheDocument();
                 expect(screen.getByText('8')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT },
         );
+
+        // Denied is split by reason: unknown IPs (22) and blocked users (6).
+        // Scope to each card since these counts can recur elsewhere on the page.
+        const cardValue = (label: string) =>
+            within(screen.getByText(label).closest('.mantine-Paper-root') as HTMLElement);
+        expect(cardValue('Unknown IPs').getByText('22')).toBeInTheDocument();
+        expect(cardValue('Blocked Users').getByText('6')).toBeInTheDocument();
     });
 
     it('renders stat card labels', async () => {
@@ -27,9 +33,10 @@ describe('DashboardView', () => {
         await waitFor(
             () => {
                 expect(screen.getByText('Total Requests')).toBeInTheDocument();
-                // "Allowed" and "Denied" also appear in attribution / country tables.
+                // "Allowed" also appears in attribution / country tables.
                 expect(screen.getAllByText('Allowed').length).toBeGreaterThan(0);
-                expect(screen.getAllByText('Denied').length).toBeGreaterThan(0);
+                expect(screen.getByText('Unknown IPs')).toBeInTheDocument();
+                expect(screen.getByText('Blocked Users')).toBeInTheDocument();
                 expect(screen.getByText('Unique IPs')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT },

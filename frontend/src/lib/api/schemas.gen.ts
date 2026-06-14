@@ -1012,6 +1012,7 @@ export const DashboardStatsSchema = {
     "total_requests",
     "allow_count",
     "deny_count",
+    "deny_by_reason",
     "unique_ips",
     "avg_duration_us",
   ],
@@ -1027,6 +1028,9 @@ export const DashboardStatsSchema = {
     deny_count: {
       type: "integer",
       format: "int64",
+    },
+    deny_by_reason: {
+      $ref: "#/components/schemas/DashboardDenyByReason",
     },
     unique_ips: {
       type: "integer",
@@ -2564,6 +2568,33 @@ export const AccessLogContributorSchema = {
     },
     address_id: {
       $ref: "#/components/schemas/ID",
+    },
+  },
+} as const;
+
+export const DashboardDenyByReasonSchema = {
+  type: "object",
+  description:
+    "Denied requests split by reason. The three buckets partition deny_count: ip_not_registered + host_not_allowed + other always equals deny_count.\n",
+  required: ["ip_not_registered", "host_not_allowed", "other"],
+  properties: {
+    ip_not_registered: {
+      type: "integer",
+      format: "int64",
+      description:
+        "Denials from IPs with no registered device — unknown IPs (internet noise).",
+    },
+    host_not_allowed: {
+      type: "integer",
+      format: "int64",
+      description:
+        "Denials of a known IP reaching a host it is not granted — a configured user blocked.",
+    },
+    other: {
+      type: "integer",
+      format: "int64",
+      description:
+        "Denials with any other or unrecorded reason, so the split reconciles to deny_count.",
     },
   },
 } as const;

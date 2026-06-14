@@ -544,6 +544,77 @@ func TestRunRollup_DenyReasonGrouping(t *testing.T) {
 	is.Equal(ips[0].Count, int64(3)) // all deny reasons summed for same IP
 }
 
+// seedAggregateDenyRow inserts a denied aggregate row carrying an explicit
+// deny_reason, used to exercise the long-range (> 24h) deny-by-reason split.
+func seedAggregateDenyRow(t *testing.T, db *database.DB, bucketAt time.Time, clientIP, denyReason string, count int64) {
+	t.Helper()
+	bucketStr := bucketAt.UTC().Truncate(time.Hour).Format("2006-01-02 15:04:05+00:00")
+	_, err := db.ExecContext(t.Context(), `
+		INSERT INTO hourly_traffic_aggregates
+			(bucket_at, client_ip, target_host, outcome, deny_reason, request_count, sum_duration_us, max_duration_us)
+		VALUES (?, ?, 'app.example.com', 0, ?, ?, 0, 0)
+	`, bucketStr, clientIP, denyReason, count)
+	if err != nil {
+		t.Fatalf("seed aggregate deny row: %v", err)
+	}
+}
+
+// TestGetSummaryStats_DenyByReason_RawPath verifies the deny-reason split on the
+// raw (≤24h) path, including that an unmapped reason and a NULL reason both fall
+// into the "other" bucket so the split reconciles to denied_count.
+func TestGetSummaryStats_DenyByReason_RawPath(t *testing.T) {
+	is := is.New(t)
+	repo, db := setupTestRepo(t)
+	ctx := context.Background()
+
+	hour := time.Date(2025, 3, 15, 14, 0, 0, 0, time.UTC)
+	from := hour
+	to := hour.Add(time.Hour)
+
+	seedAccessLogRow(t, db, "9.9.9.1", "app.example.com", false, "ip_not_registered", hour.Add(1*time.Minute))
+	seedAccessLogRow(t, db, "9.9.9.2", "app.example.com", false, "ip_not_registered", hour.Add(2*time.Minute))
+	seedAccessLogRow(t, db, "10.5.0.1", "app.example.com", false, "host_not_allowed", hour.Add(3*time.Minute))
+	seedAccessLogRow(t, db, "10.6.0.1", "app.example.com", false, "no_device_match", hour.Add(4*time.Minute))
+	seedAccessLogRow(t, db, "10.6.0.2", "app.example.com", false, "", hour.Add(5*time.Minute)) // NULL/empty reason → other
+	seedAccessLogRow(t, db, "10.0.0.1", "app.example.com", true, "", hour.Add(6*time.Minute))  // allow, ignored by split
+
+	stats, err := repo.GetSummaryStats(ctx, from, to)
+	is.NoErr(err)
+	is.Equal(stats.DeniedCount, int64(5))
+	is.Equal(stats.DenyIPNotRegistered, int64(2))
+	is.Equal(stats.DenyHostNotAllowed, int64(1))
+	is.Equal(stats.DenyOther, int64(2))
+	is.Equal(stats.DenyIPNotRegistered+stats.DenyHostNotAllowed+stats.DenyOther, stats.DeniedCount)
+}
+
+// TestGetSummaryStats_DenyByReason_AggregatePath verifies the deny-reason split
+// on the aggregate (>24h) path reads deny_reason from hourly_traffic_aggregates.
+func TestGetSummaryStats_DenyByReason_AggregatePath(t *testing.T) {
+	is := is.New(t)
+	repo, db := setupTestRepo(t)
+	ctx := context.Background()
+
+	base := time.Date(2025, 2, 1, 12, 0, 0, 0, time.UTC)
+
+	seedAggregateDenyRow(t, db, base, "9.9.9.1", "ip_not_registered", 4)
+	seedAggregateDenyRow(t, db, base, "10.5.0.1", "host_not_allowed", 3)
+	seedAggregateDenyRow(t, db, base, "10.6.0.1", "no_device_match", 2)
+	seedAggregateDenyRow(t, db, base, "10.6.0.2", "", 1) // empty reason → other
+	seedAggregateRow(t, db, base, "10.0.0.1", "app.example.com", true, 5)
+
+	from := base
+	to := base.Add(48 * time.Hour) // 48h window → aggregate path
+
+	stats, err := repo.GetSummaryStats(ctx, from, to)
+	is.NoErr(err)
+	is.Equal(stats.AllowedCount, int64(5))
+	is.Equal(stats.DeniedCount, int64(10))
+	is.Equal(stats.DenyIPNotRegistered, int64(4))
+	is.Equal(stats.DenyHostNotAllowed, int64(3))
+	is.Equal(stats.DenyOther, int64(3))
+	is.Equal(stats.DenyIPNotRegistered+stats.DenyHostNotAllowed+stats.DenyOther, stats.DeniedCount)
+}
+
 // --- Dispatch: raw vs aggregate path ---
 
 // TestGetSummaryStats_ShortRange_UsesRaw verifies that a short window reads directly

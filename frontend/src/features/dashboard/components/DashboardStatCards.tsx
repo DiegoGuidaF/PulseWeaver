@@ -2,7 +2,8 @@ import { SimpleGrid, Paper, Text, Group, Skeleton } from "@mantine/core";
 import {
     IconArrowsExchange,
     IconCheck,
-    IconX,
+    IconWorldQuestion,
+    IconUserOff,
     IconUsers,
 } from "@tabler/icons-react";
 import { ErrorState } from "@/components/ErrorState";
@@ -41,10 +42,19 @@ export function DashboardStatCards({ data, isLoading, error, onRetry }: Dashboar
             color: "teal",
         },
         {
-            label: "Denied",
-            value: (data?.deny_count ?? 0).toLocaleString(),
-            subtitle: data ? pct(data.deny_count, data.total_requests) : null,
-            icon: IconX,
+            // ip_not_registered — denials from IPs with no registered device; internet noise.
+            label: "Unknown IPs",
+            value: (data?.deny_by_reason.ip_not_registered ?? 0).toLocaleString(),
+            subtitle: data ? pct(data.deny_by_reason.ip_not_registered, data.total_requests) : null,
+            icon: IconWorldQuestion,
+            color: "gray",
+        },
+        {
+            // host_not_allowed — a known IP denied a host it is not granted; a configured user blocked.
+            label: "Blocked Users",
+            value: (data?.deny_by_reason.host_not_allowed ?? 0).toLocaleString(),
+            subtitle: data ? pct(data.deny_by_reason.host_not_allowed, data.total_requests) : null,
+            icon: IconUserOff,
             color: "red",
         },
         {
@@ -57,7 +67,7 @@ export function DashboardStatCards({ data, isLoading, error, onRetry }: Dashboar
     ];
 
     return (
-        <SimpleGrid cols={{ base: 2, sm: 4 }}>
+        <SimpleGrid cols={{ base: 2, sm: 3, lg: 5 }}>
             {cards.map((card) => (
                 <Paper key={card.label} withBorder p="md" radius="md">
                     <Group justify="space-between" mb="xs">

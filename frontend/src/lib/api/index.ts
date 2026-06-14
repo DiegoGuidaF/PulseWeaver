@@ -126,6 +126,7 @@ export {
   type CreateUserResponses,
   type DashboardAttributionCount,
   type DashboardAttributionSplitResponse,
+  type DashboardDenyByReason,
   type DashboardPosture,
   type DashboardPostureNetworkPolicies,
   type DashboardPostureUsers,

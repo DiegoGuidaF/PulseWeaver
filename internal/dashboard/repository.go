@@ -164,6 +164,9 @@ func (r *Repository) getRawSummaryStats(ctx context.Context, from, to time.Time)
 		COALESCE(COUNT(*), 0)                                                            AS total_requests,
 		COALESCE(SUM(CASE WHEN outcome = 1 THEN 1 ELSE 0 END), 0)                        AS allowed_count,
 		COALESCE(SUM(CASE WHEN outcome = 0 THEN 1 ELSE 0 END), 0)                        AS denied_count,
+		COALESCE(SUM(CASE WHEN outcome = 0 AND deny_reason = 'ip_not_registered' THEN 1 ELSE 0 END), 0) AS deny_ip_not_registered,
+		COALESCE(SUM(CASE WHEN outcome = 0 AND deny_reason = 'host_not_allowed'  THEN 1 ELSE 0 END), 0) AS deny_host_not_allowed,
+		COALESCE(SUM(CASE WHEN outcome = 0 AND (deny_reason IS NULL OR deny_reason NOT IN ('ip_not_registered', 'host_not_allowed')) THEN 1 ELSE 0 END), 0) AS deny_other,
 		COUNT(DISTINCT client_ip)                                                         AS unique_ips,
 		CASE WHEN COUNT(*) > 0
 			THEN SUM(COALESCE(duration_us, 0)) / COUNT(*)
@@ -254,6 +257,9 @@ func (r *Repository) getAggregateSummaryStats(ctx context.Context, from, to time
 		COALESCE(SUM(request_count), 0)                                                     AS total_requests,
 		COALESCE(SUM(CASE WHEN outcome = 1 THEN request_count ELSE 0 END), 0)               AS allowed_count,
 		COALESCE(SUM(CASE WHEN outcome = 0 THEN request_count ELSE 0 END), 0)               AS denied_count,
+		COALESCE(SUM(CASE WHEN outcome = 0 AND deny_reason = 'ip_not_registered' THEN request_count ELSE 0 END), 0) AS deny_ip_not_registered,
+		COALESCE(SUM(CASE WHEN outcome = 0 AND deny_reason = 'host_not_allowed'  THEN request_count ELSE 0 END), 0) AS deny_host_not_allowed,
+		COALESCE(SUM(CASE WHEN outcome = 0 AND deny_reason NOT IN ('ip_not_registered', 'host_not_allowed') THEN request_count ELSE 0 END), 0) AS deny_other,
 		COUNT(DISTINCT client_ip)                                                            AS unique_ips,
 		CASE WHEN SUM(request_count) > 0
 			THEN SUM(sum_duration_us) / SUM(request_count)

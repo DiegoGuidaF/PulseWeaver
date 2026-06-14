@@ -4,13 +4,18 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 )
 
-// SummaryStats holds aggregate counts for the stat cards.
+// SummaryStats holds aggregate counts for the stat cards. The three deny-reason
+// fields partition DeniedCount: DenyIPNotRegistered + DenyHostNotAllowed +
+// DenyOther always equals DeniedCount.
 type SummaryStats struct {
-	TotalRequests int64 `db:"total_requests"`
-	AllowedCount  int64 `db:"allowed_count"`
-	DeniedCount   int64 `db:"denied_count"`
-	UniqueIPs     int64 `db:"unique_ips"`
-	AvgDurationUs int64 `db:"avg_duration_us"`
+	TotalRequests       int64 `db:"total_requests"`
+	AllowedCount        int64 `db:"allowed_count"`
+	DeniedCount         int64 `db:"denied_count"`
+	DenyIPNotRegistered int64 `db:"deny_ip_not_registered"`
+	DenyHostNotAllowed  int64 `db:"deny_host_not_allowed"`
+	DenyOther           int64 `db:"deny_other"`
+	UniqueIPs           int64 `db:"unique_ips"`
+	AvgDurationUs       int64 `db:"avg_duration_us"`
 }
 
 // TrafficBucket holds allow/deny counts for a single time bucket.

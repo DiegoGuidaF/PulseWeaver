@@ -508,6 +508,7 @@ export type DashboardStats = {
   total_requests: number;
   allow_count: number;
   deny_count: number;
+  deny_by_reason: DashboardDenyByReason;
   unique_ips: number;
   /**
    * Average request processing duration in microseconds over the time window
@@ -1241,6 +1242,25 @@ export type AccessLogContributor = {
   user_id?: Id;
   user_name?: string;
   address_id?: Id;
+};
+
+/**
+ * Denied requests split by reason. The three buckets partition deny_count: ip_not_registered + host_not_allowed + other always equals deny_count.
+ *
+ */
+export type DashboardDenyByReason = {
+  /**
+   * Denials from IPs with no registered device — unknown IPs (internet noise).
+   */
+  ip_not_registered: number;
+  /**
+   * Denials of a known IP reaching a host it is not granted — a configured user blocked.
+   */
+  host_not_allowed: number;
+  /**
+   * Denials with any other or unrecorded reason, so the split reconciles to deny_count.
+   */
+  other: number;
 };
 
 /**

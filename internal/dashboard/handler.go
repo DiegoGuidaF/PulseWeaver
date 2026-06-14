@@ -47,6 +47,11 @@ func (h *HTTPHandler) GetDashboardStats(
 		TotalRequests: stats.TotalRequests,
 		AllowCount:    stats.AllowedCount,
 		DenyCount:     stats.DeniedCount,
+		DenyByReason: httpapi.DashboardDenyByReason{
+			IpNotRegistered: stats.DenyIPNotRegistered,
+			HostNotAllowed:  stats.DenyHostNotAllowed,
+			Other:           stats.DenyOther,
+		},
 		UniqueIps:     stats.UniqueIPs,
 		AvgDurationUs: stats.AvgDurationUs,
 	}, nil
