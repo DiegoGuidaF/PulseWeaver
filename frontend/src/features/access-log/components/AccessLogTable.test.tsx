@@ -642,7 +642,7 @@ describe("AccessLogTable", () => {
             );
         });
 
-        it("keeps mandatory columns non-toggleable", async () => {
+        it("keeps Time mandatory but lets other columns be toggled", async () => {
             const user = setupUser();
             server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
@@ -655,8 +655,12 @@ describe("AccessLogTable", () => {
 
             await user.click(screen.getByRole("button", { name: "Columns" }));
 
+            const timeCheckbox = await screen.findByRole("checkbox", { name: "Time", hidden: true });
+            expect(timeCheckbox).toBeDisabled();
+            expect(timeCheckbox).toBeChecked();
+
             const hostCheckbox = await screen.findByRole("checkbox", { name: "Host", hidden: true });
-            expect(hostCheckbox).toBeDisabled();
+            expect(hostCheckbox).toBeEnabled();
             expect(hostCheckbox).toBeChecked();
         });
     });

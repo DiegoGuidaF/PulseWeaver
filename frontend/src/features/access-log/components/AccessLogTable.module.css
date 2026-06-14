@@ -1,0 +1,4 @@
+/* Hide the drag-handle icon; the header title stays draggable for reordering. */
+.table :global(.mantine-datatable-header-cell-draggable-action-icon) {
+    display: none;
+}

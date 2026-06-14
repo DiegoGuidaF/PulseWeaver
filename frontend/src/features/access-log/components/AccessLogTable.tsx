@@ -32,6 +32,7 @@ import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { useAccessLogDenyReasons } from "../hooks/useAccessLogDenyReasons";
 import { useNetworkPolicies } from "@/features/network-policies/hooks/useNetworkPolicies";
 import { useFilterButtonLabels } from "@/hooks/useFilterButtonLabels";
+import classes from "./AccessLogTable.module.css";
 
 interface AccessLogTableProps {
     filters: AccessLogFilters;
@@ -44,16 +45,17 @@ const PAGE_SIZE = 25;
 const MIN_COLUMN_WIDTH = 110;
 
 /**
- * Every data column the chooser can show, in display order. Time, IP and Host
- * are mandatory — always shown and not toggleable. `defaultVisible` sets the
- * initial state for the rest before the user customises the chooser. The
- * trailing actions column is always rendered and is not listed here.
+ * Every data column the chooser can show, in display order. Time is mandatory —
+ * always shown and not toggleable, since it anchors the pinned first column and
+ * the default sort. `defaultVisible` sets the initial state for the rest before
+ * the user customises the chooser. The trailing actions column is always
+ * rendered and is not listed here.
  */
 const COLUMN_META: { accessor: string; label: string; mandatory?: boolean; defaultVisible?: boolean }[] = [
     { accessor: "created_at", label: "Time", mandatory: true },
-    { accessor: "client_ip", label: "IP", mandatory: true },
+    { accessor: "client_ip", label: "IP", defaultVisible: true },
     { accessor: "country_code", label: "Country", defaultVisible: true },
-    { accessor: "target_host", label: "Host", mandatory: true },
+    { accessor: "target_host", label: "Host", defaultVisible: true },
     { accessor: "target_uri", label: "URI" },
     { accessor: "http_method", label: "Method" },
     { accessor: "user_id", label: "User", defaultVisible: true },
@@ -66,11 +68,12 @@ const COLUMN_META: { accessor: string; label: string; mandatory?: boolean; defau
 const MANDATORY_COLUMNS = new Set(COLUMN_META.filter((c) => c.mandatory).map((c) => c.accessor));
 const DEFAULT_VISIBLE_COLUMNS = COLUMN_META.filter((c) => !c.mandatory && c.defaultVisible).map((c) => c.accessor);
 /**
- * Compact default for screens below `md`: only the headline Outcome alongside
- * the mandatory Time/IP/Host, so the table fits without horizontal scrolling.
- * Seeds `defaultToggle` on first visit only — a stored column choice wins at any width.
+ * Compact default for screens below `md`: the identifying IP/Host and the
+ * headline Outcome alongside the mandatory Time, so the table fits without
+ * horizontal scrolling. Seeds `defaultToggle` on first visit only — a stored
+ * column choice wins at any width.
  */
-const LEAN_DEFAULT_VISIBLE_COLUMNS = ["outcome"];
+const LEAN_DEFAULT_VISIBLE_COLUMNS = ["client_ip", "target_host", "outcome"];
 
 /**
  * Key for the mantine-datatable column store. The library persists column order,
@@ -175,10 +178,11 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         return {
             ...col,
             resizable: true,
-            // No per-header drag handle or hide icon: they crowd the title and
-            // filter controls. Column order is fixed, and visibility is driven
-            // entirely from the Columns chooser below.
-            draggable: false,
+            // Time is left non-draggable so the statically pinned first column
+            // stays locked at index 0. The drag-handle and hide icons are removed
+            // (CSS / toggleable) to declutter; reorder still works by dragging the
+            // header itself, and visibility is driven from the Columns chooser.
+            draggable: accessor !== "created_at",
             toggleable: false,
             defaultToggle: mandatory || defaultVisible.has(accessor),
         };
@@ -360,7 +364,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
 
                 <ActiveFilterChips chips={filterChips} onClearAll={filters.clearAll} />
 
-                <div ref={tableRef} aria-busy={isFetching}>
+                <div ref={tableRef} aria-busy={isFetching} className={classes.table}>
                     <DataTable
                         records={rows}
                         highlightOnHover
