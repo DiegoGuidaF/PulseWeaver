@@ -47,6 +47,19 @@ func (r *Repository) UpsertAddressLease(ctx context.Context, addressLease *Addre
 	return created, nil
 }
 
+// DeleteAddressLease removes the lease row for an address. Disabling an address
+// drops its lease entirely rather than nulling the expiry, so a lease row exists
+// only while the address is enabled. This keeps the device-wide expiry re-arm in
+// SetDeviceAddressLeasesExpiry from resurrecting leases on already-disabled
+// addresses when the lease rule is saved.
+func (r *Repository) DeleteAddressLease(ctx context.Context, addressID ids.AddressID) error {
+	const query = `DELETE FROM address_leases WHERE address_id = ?`
+	if _, err := r.db.ExecContext(ctx, query, addressID); err != nil {
+		return fmt.Errorf("delete address lease: %w", err)
+	}
+	return nil
+}
+
 func (r *Repository) GetExpiredAddressIDs(ctx context.Context) ([]ids.AddressID, error) {
 	var addressIDs []ids.AddressID
 	now := time.Now().UTC()

@@ -16,6 +16,7 @@ type TTLConfigRetriever interface {
 }
 type repository interface {
 	UpsertAddressLease(ctx context.Context, addressLease *AddressLease) (*AddressLease, error)
+	DeleteAddressLease(ctx context.Context, addressID ids.AddressID) error
 	GetExpiredAddressIDs(ctx context.Context) ([]ids.AddressID, error)
 	SetDeviceAddressLeasesExpiry(ctx context.Context, deviceID ids.DeviceID, expiresAt *time.Time, updatedAt time.Time) error
 }
@@ -55,9 +56,9 @@ func (s *Service) AddAddressLease(ctx context.Context, deviceID ids.DeviceID, ad
 	return addressLease, nil
 }
 
-func (s *Service) ClearAddressLease(ctx context.Context, deviceID ids.DeviceID, addressID ids.AddressID) (*AddressLease, error) {
+func (s *Service) ClearAddressLease(ctx context.Context, deviceID ids.DeviceID, addressID ids.AddressID) error {
 	ctx = logging.WithOperation(ctx, "ClearAddressLease")
-	return s.repository.UpsertAddressLease(ctx, new(NewAddressLease(addressID, deviceID, nil)))
+	return s.repository.DeleteAddressLease(ctx, addressID)
 }
 
 func (s *Service) GetExpiredAddressIDs(ctx context.Context) ([]ids.AddressID, error) {
@@ -106,7 +107,7 @@ func (s *Service) RunListener(ctx context.Context) error {
 					)
 				}
 			} else {
-				if _, err := s.ClearAddressLease(ctx, event.DeviceID, event.AddressID); err != nil {
+				if err := s.ClearAddressLease(ctx, event.DeviceID, event.AddressID); err != nil {
 					s.logger.ErrorContext(ctx, "failed to clear address lease",
 						slog.Any(AttrKeyError, err),
 						slog.Int64(AttrKeyAddressID, event.AddressID.Int64()),

@@ -85,12 +85,12 @@ func TestService_ClearAddressLease_Success(t *testing.T) {
 
 	service := NewService(mockRepo, &mockTTLConfigRetriever{}, slog.Default())
 
-	lease, err := service.ClearAddressLease(ctx, deviceID, addressID)
+	err := service.ClearAddressLease(ctx, deviceID, addressID)
 	is.NoErr(err)
-	is.True(lease != nil)
-	is.True(lease.ExpiresAt == nil)
-	is.Equal(mockRepo.upsertCalls, 1)
-	is.Equal(mockRepo.lastUpsertLease.DeviceID, deviceID)
+	is.Equal(mockRepo.deleteCalls, 1)
+	is.Equal(mockRepo.lastDeleteAddressID, addressID)
+	_, ok := mockRepo.leases[addressID]
+	is.True(!ok) // disabling an address removes its lease row entirely
 }
 
 func TestService_GetExpiredAddressIDs(t *testing.T) {
@@ -151,7 +151,7 @@ func TestService_OnAddressEvent_DisabledEventProcessedByRunListener(t *testing.T
 	defer cancel()
 
 	mockRepo := newMockRepository()
-	mockRepo.upsertCalledCh = make(chan struct{}, 1)
+	mockRepo.deleteCalledCh = make(chan struct{}, 1)
 
 	service := NewService(mockRepo, &mockTTLConfigRetriever{}, slog.Default())
 
@@ -171,17 +171,17 @@ func TestService_OnAddressEvent_DisabledEventProcessedByRunListener(t *testing.T
 	service.OnAddressEvent(ctx, event)
 
 	select {
-	case <-mockRepo.upsertCalledCh:
+	case <-mockRepo.deleteCalledCh:
 	case <-time.After(1 * time.Second):
-		t.Fatal("timed out waiting for UpsertAddressLease to be called")
+		t.Fatal("timed out waiting for DeleteAddressLease to be called")
 	}
 
 	cancel()
 	err := <-done
 	is.NoErr(err)
-	is.Equal(mockRepo.lastUpsertLease.AddressID, event.AddressID)
-	is.Equal(mockRepo.lastUpsertLease.DeviceID, event.DeviceID)
-	is.True(mockRepo.lastUpsertLease.ExpiresAt == nil)
+	is.Equal(mockRepo.lastDeleteAddressID, event.AddressID)
+	_, ok := mockRepo.leases[event.AddressID]
+	is.True(!ok)
 }
 
 func TestService_OnAddressEvent_ContextCancellationUnblocksWhenChannelFull(t *testing.T) {
@@ -361,18 +361,22 @@ func (m *mockTTLConfigRetriever) GetDeviceAddressLeaseTTLSeconds(_ context.Conte
 type mockRepository struct {
 	leases            map[ids.AddressID]*AddressLease
 	upsertErr         error
+	deleteErr         error
 	getExpiredErr     error
 	expiredAddressIDs []ids.AddressID
 	setExpiryErr      error
 
 	upsertCalls                int
+	deleteCalls                int
 	setDeviceLeasesExpiryCalls int
 
-	lastUpsertLease  *AddressLease
-	lastSetDeviceID  ids.DeviceID
-	lastSetExpiresAt *time.Time
+	lastUpsertLease     *AddressLease
+	lastDeleteAddressID ids.AddressID
+	lastSetDeviceID     ids.DeviceID
+	lastSetExpiresAt    *time.Time
 
 	upsertCalledCh    chan struct{}
+	deleteCalledCh    chan struct{}
 	setExpiryCalledCh chan struct{}
 }
 
@@ -405,6 +409,25 @@ func (m *mockRepository) UpsertAddressLease(_ context.Context, lease *AddressLea
 	m.leases[lease.AddressID] = lease
 
 	return lease, nil
+}
+
+func (m *mockRepository) DeleteAddressLease(_ context.Context, addressID ids.AddressID) error {
+	m.deleteCalls++
+	m.lastDeleteAddressID = addressID
+
+	if m.deleteCalledCh != nil {
+		select {
+		case m.deleteCalledCh <- struct{}{}:
+		default:
+		}
+	}
+
+	if m.deleteErr != nil {
+		return m.deleteErr
+	}
+
+	delete(m.leases, addressID)
+	return nil
 }
 
 func (m *mockRepository) GetExpiredAddressIDs(_ context.Context) ([]ids.AddressID, error) {
