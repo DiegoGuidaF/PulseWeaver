@@ -1,4 +1,5 @@
 import { ActionIcon, Badge, Code, Divider, Drawer, Group, Stack, Text, Title, Tooltip } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { useMemo } from "react";
 import type { AccessLogRow } from "@/lib/api";
 import { DENY_REASON_LABELS } from "../constants";
@@ -20,6 +21,10 @@ export function AccessLogDetailDrawer({
 }: AccessLogDetailDrawerProps) {
     const formatDateTime = useDateFormatter();
     const { copy } = useClipboard();
+    // A fixed-width "lg" drawer is wider than a phone viewport and leaves its
+    // header clipped above the visible area; fill the screen below the tablet
+    // breakpoint so the title and close button stay reachable.
+    const isMobile = useMediaQuery("(max-width: 48em)", false, { getInitialValueInEffect: false });
     const headersJson = useMemo(
         () => (row?.headers ? JSON.stringify(row.headers, null, 2) : null),
         [row],
@@ -30,7 +35,7 @@ export function AccessLogDetailDrawer({
             opened={opened}
             onClose={onClose}
             position="right"
-            size="lg"
+            size={isMobile ? "100%" : "lg"}
             title={<Title order={2} size="h4">Request Detail</Title>}
         >
             {row && (

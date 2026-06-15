@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { buildRoute } from "@/lib/routes";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ActionIcon, Anchor, Button, Checkbox, Group, Menu, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { DataTable, type DataTableSortStatus, useDataTableColumns } from "mantine-datatable";
@@ -96,8 +96,14 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         setCursor(null);
     }
 
+    // The detail drawer's open state lives in the URL (`?request=<id>`) so the
+    // browser Back button closes it — the expected gesture, especially on mobile.
+    // `selectedRow` caches the clicked row so its content stays rendered through
+    // the close animation after the param is cleared, and is the fallback when a
+    // back/forward navigation lands on a request that's no longer on the page.
+    const [searchParams, setSearchParams] = useSearchParams();
+    const requestParam = searchParams.get("request");
     const [selectedRow, setSelectedRow] = useState<AccessLogRow | null>(null);
-    const [drawerOpened, setDrawerOpened] = useState(false);
 
     // Below the nav-collapse breakpoint, start from a lean column set to avoid
     // horizontal scrolling. Matches the AppShell's `md` threshold.
@@ -134,6 +140,36 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
 
     const rows = data?.rows ?? [];
 
+    const drawerRow =
+        (requestParam != null
+            ? rows.find((r) => String(r.id) === requestParam)
+            : undefined) ?? selectedRow;
+
+    const openRequest = useCallback(
+        (row: AccessLogRow) => {
+            setSelectedRow(row);
+            setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.set("request", String(row.id));
+                return next;
+            });
+        },
+        [setSearchParams],
+    );
+
+    const closeRequest = useCallback(() => {
+        // Replace rather than push so the cleared state doesn't add a history
+        // entry that Back would step into and re-open the drawer.
+        setSearchParams(
+            (prev) => {
+                const next = new URLSearchParams(prev);
+                next.delete("request");
+                return next;
+            },
+            { replace: true },
+        );
+    }, [setSearchParams]);
+
     const deviceOptions = (ownerGroups ?? []).flatMap((g) => g.devices).map((d) => ({ value: String(d.id), label: d.name }));
     const userOptions = (users ?? []).map((u) => ({ value: String(u.id), label: u.display_name || u.username }));
     const denyReasonOptions = (denyReasons ?? []).map((r) => ({
@@ -159,10 +195,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         denyReasonOptions,
         networkPolicyOptions,
         userOptions,
-        onRowClick: (row) => {
-            setSelectedRow(row);
-            setDrawerOpened(true);
-        },
+        onRowClick: openRequest,
         onUserClick: (userId) => navigate(buildRoute.userDevices(userId)),
         onDeviceClick: (deviceId, ownerUserId) => {
             if (ownerUserId !== undefined) navigate(`${buildRoute.userDevices(ownerUserId)}?device=${deviceId}`);
@@ -433,9 +466,9 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
             </Stack>
 
             <AccessLogDetailDrawer
-                row={selectedRow}
-                opened={drawerOpened}
-                onClose={() => setDrawerOpened(false)}
+                row={drawerRow}
+                opened={requestParam != null}
+                onClose={closeRequest}
             />
         </>
     );
