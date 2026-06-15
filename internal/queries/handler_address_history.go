@@ -63,12 +63,12 @@ func (h *HTTPHandler) GetAddressHistory(
 	}
 	history.QueryLimit = query.Limit
 
-	return httpapi.GetAddressHistory200JSONResponse(toAddressHistoryResponse(history)), nil
+	return httpapi.GetAddressHistory200JSONResponse(toAddressHistoryResponse(history, h.geo)), nil
 }
 
-func toAddressHistoryResponse(h AddressHistory) httpapi.AddressHistoryResponse {
-	buckets := make([]httpapi.AddressHistoryBucket, len(h.Buckets))
-	for i, b := range h.Buckets {
+func toAddressHistoryResponse(history AddressHistory, geo GeoResolver) httpapi.AddressHistoryResponse {
+	buckets := make([]httpapi.AddressHistoryBucket, len(history.Buckets))
+	for i, b := range history.Buckets {
 		buckets[i] = httpapi.AddressHistoryBucket{
 			Timestamp:   httpapi.UTCTime(b.Timestamp.Time),
 			ActiveCount: b.ActiveCount,
@@ -77,8 +77,8 @@ func toAddressHistoryResponse(h AddressHistory) httpapi.AddressHistoryResponse {
 		}
 	}
 
-	events := make([]httpapi.AddressHistoryEvent, len(h.Events))
-	for i, e := range h.Events {
+	events := make([]httpapi.AddressHistoryEvent, len(history.Events))
+	for i, e := range history.Events {
 		events[i] = httpapi.AddressHistoryEvent{
 			Id:             e.ID,
 			Timestamp:      httpapi.UTCTime(e.CreatedAt),
@@ -92,19 +92,22 @@ func toAddressHistoryResponse(h AddressHistory) httpapi.AddressHistoryResponse {
 			IsRefresh:      e.IsRefresh,
 			TtlSeconds:     e.TTLSeconds,
 		}
+		if geo != nil {
+			events[i].Geo = geoInfoFromResult(geo.Resolve(e.IP))
+		}
 	}
 
 	// Use len == limit as "has more" signal — reliable across all pages,
 	// unlike comparing against TotalEvents which ignores the cursor offset.
 	var nextCursor *int64
-	if len(h.Events) == h.QueryLimit {
-		nextCursor = &h.Events[len(h.Events)-1].ID
+	if len(history.Events) == history.QueryLimit {
+		nextCursor = &history.Events[len(history.Events)-1].ID
 	}
 
 	return httpapi.AddressHistoryResponse{
 		Buckets:     buckets,
 		Events:      events,
-		TotalEvents: h.TotalEvents,
+		TotalEvents: history.TotalEvents,
 		NextCursor:  nextCursor,
 	}
 }

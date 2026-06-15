@@ -800,6 +800,16 @@ export const AddressHistoryEventSchema = {
       description:
         "The device's configured address-lease TTL in seconds, if an auto-expiry rule is enabled for the device. Null otherwise.\n",
     },
+    geo: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/GeoInfo",
+        },
+      ],
+      nullable: true,
+      description:
+        "GeoIP metadata resolved on read for this event's IP. Null when the IP is unresolvable or GeoIP enrichment is disabled.\n",
+    },
   },
 } as const;
 

@@ -410,6 +410,11 @@ export type AddressHistoryEvent = {
    *
    */
   ttl_seconds?: number | null;
+  /**
+   * GeoIP metadata resolved on read for this event's IP. Null when the IP is unresolvable or GeoIP enrichment is disabled.
+   *
+   */
+  geo?: GeoInfo | null;
 };
 
 export type AccessLogResponse = {
