@@ -13,6 +13,7 @@ import {
 import { DateTimePicker } from "@mantine/dates";
 import { IconArrowsRightLeft, IconSearch } from "@tabler/icons-react";
 import type { DataTableColumn } from "mantine-datatable";
+import { GeoCell } from "@/components/GeoCell";
 import type { AddressHistoryEvent } from "@/lib/api";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
 import { SOURCE_LABELS, formatGapDuration } from "../constants";
@@ -235,6 +236,11 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
                     )}
                 </Group>
             ),
+        },
+        {
+            accessor: "geo",
+            title: "Location",
+            render: (row) => <GeoCell geo={row.geo} size="sm" />,
         },
         {
             accessor: "is_enabled",
