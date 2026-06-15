@@ -304,6 +304,17 @@ func buildUserIPs(
 	return result
 }
 
+// enrichGeo resolves each IP's GeoInfo in place. Pure post-processing over the
+// assembled view; a nil resolver leaves every entry's geo unset.
+func enrichGeo(ips []httpapi.PolicyUserIP, geo GeoResolver) {
+	if geo == nil {
+		return
+	}
+	for i := range ips {
+		ips[i].Geo = geoInfoFromResult(geo.Resolve(ips[i].Ip))
+	}
+}
+
 // deriveUserStatus classifies a user along two orthogonal axes — reachability
 // (live IPs in the cache) and authorization (host grants) — into the status the
 // audit view renders. Bypass short-circuits: the host allowlist does not apply.
@@ -383,6 +394,7 @@ func (r *Repository) BuildPolicyUserMap(
 	ctx context.Context,
 	reader PolicyMapReader,
 	npProvider AuditNetworkPoliciesProvider,
+	geo GeoResolver,
 ) (httpapi.PolicyUserMapAudit, error) {
 	snap := reader.GetPolicyMap()
 	addressIDs := collectAddressIDs(snap)
@@ -407,6 +419,10 @@ func (r *Repository) BuildPolicyUserMap(
 	}
 
 	audit := assemblePolicyUserMap(snap, addrEnrichment, allUsers, allowedHostsByUser)
+
+	for i := range audit.Users {
+		enrichGeo(audit.Users[i].Ips, geo)
+	}
 
 	// Attach network policy data.
 	npAPIEntries := make([]httpapi.PolicyNetworkPolicyEntry, 0, len(npEntries))

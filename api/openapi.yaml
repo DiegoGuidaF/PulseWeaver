@@ -179,6 +179,8 @@ components:
       $ref: './components/schemas/common.yaml#/ID'
     IPAddress:
       $ref: './components/schemas/common.yaml#/IPAddress'
+    GeoInfo:
+      $ref: './components/schemas/common.yaml#/GeoInfo'
 
     # --------------------
     # Users

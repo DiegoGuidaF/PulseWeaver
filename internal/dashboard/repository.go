@@ -6,8 +6,16 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 )
+
+// GeoResolver resolves an IP to geographic and ASN data. Declared on the
+// consumer side (Go convention); *geoip.Lookup satisfies it. A nil resolver is
+// valid — enrichment is skipped.
+type GeoResolver interface {
+	Resolve(ip string) geoip.Result
+}
 
 // RawWindowThreshold is the maximum window size for which queries run directly
 // against access_log. Windows wider than this use hourly_traffic_aggregates
@@ -20,12 +28,14 @@ const RawWindowThreshold = 24 * time.Hour
 
 // Repository provides both read and write access to traffic aggregates.
 type Repository struct {
-	db *database.DB
+	db  *database.DB
+	geo GeoResolver
 }
 
-func NewRepository(db *database.DB) *Repository {
+func NewRepository(db *database.DB, geo GeoResolver) *Repository {
 	return &Repository{
-		db: db,
+		db:  db,
+		geo: geo,
 	}
 }
 
@@ -141,10 +151,26 @@ func granularityForWindow(d time.Duration) timebucket.Granularity {
 // GetTopDeniedIPs returns the top denied IPs by total denied request count.
 // Uses access_log directly for windows ≤ 24h; hourly_traffic_aggregates for longer windows.
 func (r *Repository) GetTopDeniedIPs(ctx context.Context, from, to time.Time, limit int) ([]IPCount, error) {
+	var (
+		ips []IPCount
+		err error
+	)
 	if to.Sub(from) <= RawWindowThreshold {
-		return r.getRawTopDeniedIPs(ctx, from, to, limit)
+		ips, err = r.getRawTopDeniedIPs(ctx, from, to, limit)
+	} else {
+		ips, err = r.getAggregateTopDeniedIPs(ctx, from, to, limit)
 	}
-	return r.getAggregateTopDeniedIPs(ctx, from, to, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	// Resolve geo on read over the bounded result set (≤ limit rows).
+	if r.geo != nil {
+		for i := range ips {
+			ips[i].Geo = r.geo.Resolve(ips[i].IP)
+		}
+	}
+	return ips, nil
 }
 
 // GetServiceSplit returns per-host allow/deny counts.

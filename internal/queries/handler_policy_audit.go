@@ -134,7 +134,7 @@ func (h *HTTPHandler) GetPolicyUserMap(
 ) (httpapi.GetPolicyUserMapResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetPolicyUserMap")
 
-	audit, err := h.repo.BuildPolicyUserMap(ctx, h.policyReader, h.npProvider)
+	audit, err := h.repo.BuildPolicyUserMap(ctx, h.policyReader, h.npProvider, h.geo)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "failed to build policy user map", slog.Any(logging.AttrKeyError, err))
 		return httpapi.GetPolicyUserMap500JSONResponse(errorMsgResponse("Failed to load policy user map")), nil

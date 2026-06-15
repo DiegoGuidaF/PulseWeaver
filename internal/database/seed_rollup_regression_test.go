@@ -66,7 +66,7 @@ func TestSeededAccessLogSurvivesRollupOnRestart(t *testing.T) {
 
 	// Re-run the rollup the way init does on restart: a fresh, uninitialised job
 	// whose window is the previous complete hour.
-	job := dashboard.NewRepository(db).NewRollupJob(logger)
+	job := dashboard.NewRepository(db, nil).NewRollupJob(logger)
 	is.NoErr(job.Run(ctx)) // before the fix: bucket_at NOT NULL constraint violation
 
 	// The seeded rows must have produced a non-NULL bucket.

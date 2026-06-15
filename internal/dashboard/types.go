@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 )
 
 // SummaryStats holds aggregate counts for the stat cards. The three deny-reason
@@ -25,10 +26,13 @@ type TrafficBucket struct {
 	DenyCount  int64           `db:"deny_count"`
 }
 
-// IPCount pairs an IP address with its request count.
+// IPCount pairs an IP address with its request count. Geo is resolved on read
+// (not from the database) and is empty when the IP is unresolvable or GeoIP is
+// disabled.
 type IPCount struct {
 	IP    string `db:"ip"`
 	Count int64  `db:"count"`
+	Geo   geoip.Result
 }
 
 // ServiceCount holds per-host allow/deny counts.

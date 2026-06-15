@@ -115,6 +115,13 @@ DashboardTopDeniedIp:
     count:
       type: integer
       format: int64
+    geo:
+      allOf:
+        - $ref: './common.yaml#/GeoInfo'
+      nullable: true
+      description: >
+        GeoIP metadata resolved on read for this IP. Null when the IP is
+        unresolvable or GeoIP enrichment is disabled.
 
 DashboardTopDeniedIpsResponse:
   type: object

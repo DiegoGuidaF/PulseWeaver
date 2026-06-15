@@ -47,6 +47,13 @@ Address:
       description: >
         UTC timestamp when this address will auto-expire, if an auto-expiry rule
         is enabled for the device. Null if no expiry is scheduled.
+    geo:
+      allOf:
+        - $ref: './common.yaml#/GeoInfo'
+      nullable: true
+      description: >
+        GeoIP metadata resolved on read for this address's IP. Null when the IP
+        is unresolvable or GeoIP enrichment is disabled.
 
 AddressHistoryResponse:
   type: object

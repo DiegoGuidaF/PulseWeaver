@@ -156,7 +156,7 @@ func TestBuildPolicyUserMap_NoAccessUser(t *testing.T) {
 		LastRefreshDurationMs: 0,
 	}}
 
-	result, err := repo.BuildPolicyUserMap(t.Context(), reader, nil)
+	result, err := repo.BuildPolicyUserMap(t.Context(), reader, nil, nil)
 	is.NoErr(err)
 
 	// At least the seeded admin user must appear.

@@ -215,6 +215,13 @@ PolicyUserIP:
       description: >
         The user's own addresses sitting at this IP. Multiple entries when
         the same user has several devices behind the same NAT.
+    geo:
+      allOf:
+        - $ref: './common.yaml#/GeoInfo'
+      nullable: true
+      description: >
+        GeoIP metadata resolved on read for this IP. Null when the IP is
+        unresolvable or GeoIP enrichment is disabled.
 
 PolicyUserAddress:
   type: object

@@ -129,7 +129,7 @@ func TestDashboardWidgets_CrossWidgetConsistency_WideWindow(t *testing.T) {
 	repos := setupRepos(t)
 	ctx := t.Context()
 
-	dashRepo := dashboard.NewRepository(repos.db)
+	dashRepo := dashboard.NewRepository(repos.db, nil)
 
 	usGeo := geoip.Result{CountryCode: "US", CountryName: "United States", ContinentCode: "NA"}
 	auGeo := geoip.Result{CountryCode: "AU", CountryName: "Australia", ContinentCode: "OC"}

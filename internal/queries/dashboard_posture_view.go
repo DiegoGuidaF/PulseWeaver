@@ -58,7 +58,8 @@ func (r *Repository) BuildDashboardPosture(
 	reader PolicyMapReader,
 	npProvider AuditNetworkPoliciesProvider,
 ) (httpapi.DashboardPosture, error) {
-	audit, err := r.BuildPolicyUserMap(ctx, reader, npProvider)
+	// Posture is count-only; geo enrichment is not needed here.
+	audit, err := r.BuildPolicyUserMap(ctx, reader, npProvider, nil)
 	if err != nil {
 		return httpapi.DashboardPosture{}, fmt.Errorf("build policy user map: %w", err)
 	}

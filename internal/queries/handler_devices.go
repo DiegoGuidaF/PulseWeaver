@@ -32,7 +32,7 @@ func (h *HTTPHandler) GetDeviceAddresses(
 
 	response := make([]httpapi.Address, len(addresses))
 	for i := range addresses {
-		response[i] = toAddressViewResponse(&addresses[i])
+		response[i] = toAddressViewResponse(&addresses[i], h.geo)
 	}
 	return httpapi.GetDeviceAddresses200JSONResponse(response), nil
 }
@@ -52,7 +52,7 @@ func (h *HTTPHandler) GetDevices(
 	return httpapi.GetDevices200JSONResponse(groups), nil
 }
 
-func toAddressViewResponse(a *AddressView) httpapi.Address {
+func toAddressViewResponse(a *AddressView, geo GeoResolver) httpapi.Address {
 	address := httpapi.Address{
 		Id:        a.ID.Int64(),
 		DeviceId:  a.DeviceID.Int64(),
@@ -64,6 +64,9 @@ func toAddressViewResponse(a *AddressView) httpapi.Address {
 	}
 	if a.ExpiresAt != nil {
 		address.ExpiresAt = new(httpapi.UTCTime(*a.ExpiresAt))
+	}
+	if geo != nil {
+		address.Geo = geoInfoFromResult(geo.Resolve(a.IP))
 	}
 	return address
 }

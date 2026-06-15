@@ -9,6 +9,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/matryer/is"
 )
@@ -17,7 +18,7 @@ func setupTestRepo(t *testing.T) (*dashboard.Repository, *database.DB) {
 	t.Helper()
 	db, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
-	repo := dashboard.NewRepository(db.DB())
+	repo := dashboard.NewRepository(db.DB(), nil)
 	return repo, db.DB()
 }
 
@@ -434,6 +435,43 @@ func TestGetTopDeniedIPs_Empty(t *testing.T) {
 	ips, err := repo.GetTopDeniedIPs(ctx, from, to, 10)
 	is.NoErr(err)
 	is.Equal(len(ips), 0)
+}
+
+// fakeGeoResolver returns canned results keyed by IP; unknown IPs resolve empty.
+type fakeGeoResolver map[string]geoip.Result
+
+func (f fakeGeoResolver) Resolve(ip string) geoip.Result {
+	return f[ip]
+}
+
+func TestGetTopDeniedIPs_EnrichesGeo(t *testing.T) {
+	is := is.New(t)
+	db, cleanup := testdb.Setup(t)
+	t.Cleanup(cleanup)
+	geo := fakeGeoResolver{
+		"203.0.113.5": {CountryCode: "AU", CountryName: "Australia", ContinentCode: "OC", ASN: 13335, ASNOrg: "Cloudflare, Inc."},
+		// 10.0.0.1 absent → resolves empty → geo stays empty.
+	}
+	repo := dashboard.NewRepository(db.DB(), geo)
+	ctx := context.Background()
+
+	hour := time.Date(2025, 3, 15, 14, 0, 0, 0, time.UTC)
+	from, to := hour, hour.Add(time.Hour)
+
+	seedAccessLogRow(t, db.DB(), "203.0.113.5", "app.example.com", false, "ip_not_registered", hour.Add(1*time.Minute))
+	seedAccessLogRow(t, db.DB(), "10.0.0.1", "app.example.com", false, "ip_not_registered", hour.Add(2*time.Minute))
+
+	ips, err := repo.GetTopDeniedIPs(ctx, from, to, 10)
+	is.NoErr(err)
+	is.Equal(len(ips), 2)
+
+	byIP := make(map[string]geoip.Result, len(ips))
+	for _, ip := range ips {
+		byIP[ip.IP] = ip.Geo
+	}
+	is.Equal(byIP["203.0.113.5"].CountryCode, "AU")
+	is.Equal(byIP["203.0.113.5"].ASNOrg, "Cloudflare, Inc.")
+	is.True(byIP["10.0.0.1"].IsEmpty()) // private IP unresolved
 }
 
 // --- GetServiceSplit ---
