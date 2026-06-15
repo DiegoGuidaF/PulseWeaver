@@ -16,6 +16,33 @@ export type Id = number;
 export type IpAddress = string | string;
 
 /**
+ * GeoIP-derived metadata for an IP, resolved on read. Every field is optional: individual fields are absent when the database has no value for that IP, and the whole object is absent (null) when the IP is unresolvable (private range, unknown) or GeoIP enrichment is disabled.
+ *
+ */
+export type GeoInfo = {
+  /**
+   * ISO 3166-1 alpha-2 country code, e.g. "DE".
+   */
+  country_code?: string;
+  /**
+   * Country name in English, e.g. "Germany".
+   */
+  country_name?: string;
+  /**
+   * Continent code, e.g. "EU".
+   */
+  continent_code?: string;
+  /**
+   * Autonomous System Number, e.g. 13335.
+   */
+  asn?: number;
+  /**
+   * Autonomous System organization, e.g. "Cloudflare, Inc.".
+   */
+  asn_org?: string;
+};
+
+/**
  * Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
  */
 export type Username = string;
@@ -300,6 +327,11 @@ export type Address = {
    *
    */
   readonly expires_at?: string | null;
+  /**
+   * GeoIP metadata resolved on read for this address's IP. Null when the IP is unresolvable or GeoIP enrichment is disabled.
+   *
+   */
+  geo?: GeoInfo | null;
 };
 
 export type AddressHistoryResponse = {
@@ -539,6 +571,11 @@ export type DashboardServicesResponse = {
 export type DashboardTopDeniedIp = {
   ip: IpAddress;
   count: number;
+  /**
+   * GeoIP metadata resolved on read for this IP. Null when the IP is unresolvable or GeoIP enrichment is disabled.
+   *
+   */
+  geo?: GeoInfo | null;
 };
 
 export type DashboardTopDeniedIpsResponse = {
@@ -875,6 +912,11 @@ export type PolicyUserIp = {
    *
    */
   addresses: Array<PolicyUserAddress>;
+  /**
+   * GeoIP metadata resolved on read for this IP. Null when the IP is unresolvable or GeoIP enrichment is disabled.
+   *
+   */
+  geo?: GeoInfo | null;
 };
 
 export type PolicyUserAddress = {
@@ -1361,6 +1403,11 @@ export type AddressWritable = {
    * Last time it was enabled or disabled
    */
   updated_at: string;
+  /**
+   * GeoIP metadata resolved on read for this address's IP. Null when the IP is unresolvable or GeoIP enrichment is disabled.
+   *
+   */
+  geo?: GeoInfo | null;
 };
 
 export type ListUsersData = {

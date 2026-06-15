@@ -3,6 +3,7 @@ import { IconShieldOff } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
+import { GeoCell } from "@/components/GeoCell";
 import { ROUTES } from "@/lib/routes";
 import type { DashboardTopDeniedIp } from "@/lib/api";
 
@@ -32,6 +33,7 @@ export function TopDeniedIPsTable({ data, isLoading, error, onRetry }: TopDenied
                     <Table.Thead>
                         <Table.Tr>
                             <Table.Th>IP Address</Table.Th>
+                            <Table.Th>Location</Table.Th>
                             <Table.Th style={{ textAlign: "right" }}>Denied Count</Table.Th>
                         </Table.Tr>
                     </Table.Thead>
@@ -43,6 +45,9 @@ export function TopDeniedIPsTable({ data, isLoading, error, onRetry }: TopDenied
                                 onClick={() => navigate(`${ROUTES.accessLog}?client_ip=${encodeURIComponent(row.ip)}`)}
                             >
                                 <Table.Td ff="monospace">{row.ip}</Table.Td>
+                                <Table.Td>
+                                    <GeoCell geo={row.geo} size="sm" />
+                                </Table.Td>
                                 <Table.Td style={{ textAlign: "right" }}>{row.count.toLocaleString()}</Table.Td>
                             </Table.Tr>
                         ))}

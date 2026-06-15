@@ -31,6 +31,40 @@ export const IPAddressSchema = {
   example: "192.168.1.132",
 } as const;
 
+export const GeoInfoSchema = {
+  type: "object",
+  description:
+    "GeoIP-derived metadata for an IP, resolved on read. Every field is optional: individual fields are absent when the database has no value for that IP, and the whole object is absent (null) when the IP is unresolvable (private range, unknown) or GeoIP enrichment is disabled.\n",
+  properties: {
+    country_code: {
+      type: "string",
+      description: 'ISO 3166-1 alpha-2 country code, e.g. "DE".',
+      example: "DE",
+    },
+    country_name: {
+      type: "string",
+      description: 'Country name in English, e.g. "Germany".',
+      example: "Germany",
+    },
+    continent_code: {
+      type: "string",
+      description: 'Continent code, e.g. "EU".',
+      example: "EU",
+    },
+    asn: {
+      type: "integer",
+      format: "int64",
+      description: "Autonomous System Number, e.g. 13335.",
+      example: 13335,
+    },
+    asn_org: {
+      type: "string",
+      description: 'Autonomous System organization, e.g. "Cloudflare, Inc.".',
+      example: "Cloudflare, Inc.",
+    },
+  },
+} as const;
+
 export const UsernameSchema = {
   type: "string",
   description:
@@ -626,6 +660,16 @@ export const AddressSchema = {
       description:
         "UTC timestamp when this address will auto-expire, if an auto-expiry rule is enabled for the device. Null if no expiry is scheduled.\n",
     },
+    geo: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/GeoInfo",
+        },
+      ],
+      nullable: true,
+      description:
+        "GeoIP metadata resolved on read for this address's IP. Null when the IP is unresolvable or GeoIP enrichment is disabled.\n",
+    },
   },
 } as const;
 
@@ -1119,6 +1163,16 @@ export const DashboardTopDeniedIpSchema = {
     count: {
       type: "integer",
       format: "int64",
+    },
+    geo: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/GeoInfo",
+        },
+      ],
+      nullable: true,
+      description:
+        "GeoIP metadata resolved on read for this IP. Null when the IP is unresolvable or GeoIP enrichment is disabled.\n",
     },
   },
 } as const;
@@ -1800,6 +1854,16 @@ export const PolicyUserIPSchema = {
       },
       description:
         "The user's own addresses sitting at this IP. Multiple entries when the same user has several devices behind the same NAT.\n",
+    },
+    geo: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/GeoInfo",
+        },
+      ],
+      nullable: true,
+      description:
+        "GeoIP metadata resolved on read for this IP. Null when the IP is unresolvable or GeoIP enrichment is disabled.\n",
     },
   },
 } as const;
@@ -2763,6 +2827,16 @@ export const AddressWritableSchema = {
       format: "date-time",
       "x-go-type": "UTCTime",
       description: "Last time it was enabled or disabled",
+    },
+    geo: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/GeoInfo",
+        },
+      ],
+      nullable: true,
+      description:
+        "GeoIP metadata resolved on read for this address's IP. Null when the IP is unresolvable or GeoIP enrichment is disabled.\n",
     },
   },
 } as const;

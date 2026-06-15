@@ -27,6 +27,7 @@ import {
 } from "@tabler/icons-react";
 import type { PolicyUserEntry, PolicyUserIp } from "@/lib/api";
 import { PolicyUserStatus } from "@/lib/api";
+import { GeoCell } from "@/components/GeoCell";
 import { AllHostsBypassPill } from "@/features/subjects/components/AllHostsBypassPill";
 
 dayjs.extend(relativeTime);
@@ -333,6 +334,7 @@ function IpCard({
               <Text fw={700} ff="monospace">
                 {ip.ip}
               </Text>
+              <GeoCell geo={ip.geo} size="xs" />
               <Text size="xs" c="var(--pw-amber-text)">
                 heartbeat {heartbeatAgo(ip)}
               </Text>

@@ -218,6 +218,7 @@ export {
   type EnableDeviceResponse,
   type EnableDeviceResponses,
   type ErrorResponse,
+  type GeoInfo,
   type GetAccessLogByCountryData,
   type GetAccessLogByCountryError,
   type GetAccessLogByCountryErrors,

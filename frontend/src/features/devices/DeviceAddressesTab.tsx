@@ -24,6 +24,7 @@ import { IconAlertTriangle, IconSearch, IconX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { toErrorMessage } from "@/lib/api-client";
 import { ErrorState } from "@/components/ErrorState";
+import { GeoCell } from "@/components/GeoCell";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { AddressEventSource, type Address } from "@/lib/api";
 import { useDeviceAddresses } from "@/features/devices/hooks/useDeviceAddresses";
@@ -136,6 +137,9 @@ function AddressRow({
       onAnimationEnd={() => setHighlight(false)}
     >
       <Table.Td ff="monospace" fz="sm">{address.ip}</Table.Td>
+      <Table.Td>
+        <GeoCell geo={address.geo} size="xs" />
+      </Table.Td>
       <Table.Td>
         <Group gap={6} wrap="nowrap">
           <StateDot enabled={address.is_enabled} />
@@ -411,6 +415,7 @@ export function DeviceAddressesTab({ deviceId, isDisabled = false }: DeviceAddre
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>IP</Table.Th>
+                  <Table.Th>Location</Table.Th>
                   <Table.Th>State</Table.Th>
                   <Table.Th>Updated · via</Table.Th>
                   <Table.Th>Lifetime</Table.Th>
@@ -443,6 +448,7 @@ export function DeviceAddressesTab({ deviceId, isDisabled = false }: DeviceAddre
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>IP</Table.Th>
+                  <Table.Th>Location</Table.Th>
                   <Table.Th>Last seen · via</Table.Th>
                   <Table.Th>Inactive since</Table.Th>
                   <Table.Th>Lifetime</Table.Th>
@@ -453,6 +459,9 @@ export function DeviceAddressesTab({ deviceId, isDisabled = false }: DeviceAddre
                 {filteredStale.map((a) => (
                   <Table.Tr key={a.id}>
                     <Table.Td ff="monospace" fz="sm">{a.ip}</Table.Td>
+                    <Table.Td>
+                      <GeoCell geo={a.geo} size="xs" />
+                    </Table.Td>
                     <Table.Td>
                       <Text size="xs" c="dimmed">
                         {formatDateTime(a.updated_at)} · {SOURCE_LABELS[a.source] ?? a.source}

@@ -21,6 +21,26 @@ export const zId = z.coerce
 export const zIpAddress = z.union([z.ipv4(), z.ipv6()]);
 
 /**
+ * GeoIP-derived metadata for an IP, resolved on read. Every field is optional: individual fields are absent when the database has no value for that IP, and the whole object is absent (null) when the IP is unresolvable (private range, unknown) or GeoIP enrichment is disabled.
+ *
+ */
+export const zGeoInfo = z.object({
+  country_code: z.string().optional(),
+  country_name: z.string().optional(),
+  continent_code: z.string().optional(),
+  asn: z.coerce
+    .bigint()
+    .min(BigInt("-9223372036854775808"), {
+      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
+    })
+    .max(BigInt("9223372036854775807"), {
+      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
+    })
+    .optional(),
+  asn_org: z.string().optional(),
+});
+
+/**
  * Unique username. Lowercase alphanumeric, underscores, and hyphens only. Uppercase letters are not accepted.
  */
 export const zUsername = z
@@ -179,6 +199,7 @@ export const zAddress = z.object({
     .datetime({ offset: true, local: true })
     .readonly()
     .nullish(),
+  geo: zGeoInfo.nullish(),
 });
 
 export const zAddressHistoryEvent = z.object({
@@ -311,6 +332,7 @@ export const zDashboardTopDeniedIp = z.object({
     .max(BigInt("9223372036854775807"), {
       error: "Invalid value: Expected int64 to be <= 9223372036854775807",
     }),
+  geo: zGeoInfo.nullish(),
 });
 
 export const zDashboardTopDeniedIpsResponse = z.object({
@@ -435,6 +457,7 @@ export const zPolicyUserIp = z.object({
   effective_hosts: z.array(z.string()),
   trimmed_hosts: z.array(z.string()),
   addresses: z.array(zPolicyUserAddress),
+  geo: zGeoInfo.nullish(),
 });
 
 /**
@@ -986,6 +1009,7 @@ export const zAddressWritable = z.object({
   source: zAddressEventSource,
   created_at: z.iso.datetime({ offset: true, local: true }),
   updated_at: z.iso.datetime({ offset: true, local: true }),
+  geo: zGeoInfo.nullish(),
 });
 
 /**
