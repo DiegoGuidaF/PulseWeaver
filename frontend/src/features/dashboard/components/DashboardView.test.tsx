@@ -88,6 +88,16 @@ describe('DashboardView', () => {
         );
     });
 
+    it('links top denied IP rows to the access log filtered by that IP', async () => {
+        renderWithProviders(<DashboardView />);
+
+        await waitFor(
+            () => expect(screen.getByText('203.0.113.42')).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+        expect(screen.getByText('203.0.113.42').closest('tr')).toHaveStyle({ cursor: 'pointer' });
+    });
+
     it('renders the posture strip with cards', async () => {
         renderWithProviders(<DashboardView />);
 

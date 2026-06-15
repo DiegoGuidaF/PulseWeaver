@@ -1,7 +1,9 @@
 import { Paper, Text, Table, Skeleton } from "@mantine/core";
 import { IconShieldOff } from "@tabler/icons-react";
+import { useNavigate } from "react-router-dom";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
+import { ROUTES } from "@/lib/routes";
 import type { DashboardTopDeniedIp } from "@/lib/api";
 
 interface TopDeniedIPsTableProps {
@@ -12,6 +14,7 @@ interface TopDeniedIPsTableProps {
 }
 
 export function TopDeniedIPsTable({ data, isLoading, error, onRetry }: TopDeniedIPsTableProps) {
+    const navigate = useNavigate();
     return (
         <Paper withBorder p="md" radius="md">
             <Text fw={500} mb="md">Top Denied IPs</Text>
@@ -34,7 +37,11 @@ export function TopDeniedIPsTable({ data, isLoading, error, onRetry }: TopDenied
                     </Table.Thead>
                     <Table.Tbody>
                         {data.map((row) => (
-                            <Table.Tr key={row.ip}>
+                            <Table.Tr
+                                key={row.ip}
+                                style={{ cursor: "pointer" }}
+                                onClick={() => navigate(`${ROUTES.accessLog}?client_ip=${encodeURIComponent(row.ip)}`)}
+                            >
                                 <Table.Td ff="monospace">{row.ip}</Table.Td>
                                 <Table.Td style={{ textAlign: "right" }}>{row.count.toLocaleString()}</Table.Td>
                             </Table.Tr>
