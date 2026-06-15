@@ -52,6 +52,8 @@ export function DashboardView() {
                     onRetry={() => stats.refetch()}
                 />
 
+                <AttributionSection from={from} to={to} />
+
                 <SimpleGrid cols={{ base: 1, md: 2 }}>
                     <TrafficLineChart
                         data={traffic.data?.buckets}
@@ -76,8 +78,6 @@ export function DashboardView() {
                     error={topDenied.error}
                     onRetry={() => topDenied.refetch()}
                 />
-
-                <AttributionSection from={from} to={to} />
             </Stack>
         </Stack>
     );

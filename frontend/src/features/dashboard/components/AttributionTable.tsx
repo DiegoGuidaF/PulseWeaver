@@ -1,19 +1,24 @@
 import { useMemo, useState } from "react";
 import { Paper, Text, Table, Group, Skeleton, ScrollArea, Anchor } from "@mantine/core";
 import { IconChartBar } from "@tabler/icons-react";
+import { useNavigate } from "react-router-dom";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import type { DashboardAttributionCount } from "@/lib/api";
 
 interface AttributionTableProps {
     title: string;
-    /** Column header for the entity name (e.g. "Network policy", "User", "Device"). */
+    /** Column header for the entity name (e.g. "Policy", "User", "Device"). */
     entityHeader: string;
+    /** Plural of entityHeader, used in the row-count label. */
+    entityHeaderPlural: string;
     data: DashboardAttributionCount[] | undefined;
     isLoading: boolean;
     error?: unknown;
     onRetry?: () => void;
     emptyText: string;
+    /** Destination for a row, or undefined when the entity has no detail page (e.g. deleted, or kind not linkable). */
+    rowHref?: (row: DashboardAttributionCount) => string | undefined;
 }
 
 /** Rows shown before the operator expands the long tail. Sized so three tables sit side by side. */
@@ -26,13 +31,16 @@ function total(row: DashboardAttributionCount): number {
 export function AttributionTable({
     title,
     entityHeader,
+    entityHeaderPlural,
     data,
     isLoading,
     error,
     onRetry,
     emptyText,
+    rowHref,
 }: AttributionTableProps) {
     const [expanded, setExpanded] = useState(false);
+    const navigate = useNavigate();
 
     const sorted = useMemo(
         () => (data ? [...data].sort((a, b) => total(b) - total(a)) : []),
@@ -48,7 +56,8 @@ export function AttributionTable({
                 <Text fw={500}>{title}</Text>
                 {sorted.length > 0 && (
                     <Text size="xs" c="dimmed">
-                        {sorted.length.toLocaleString()}
+                        {sorted.length.toLocaleString()}{" "}
+                        {sorted.length === 1 ? entityHeader.toLowerCase() : entityHeaderPlural.toLowerCase()}
                     </Text>
                 )}
             </Group>
@@ -72,8 +81,14 @@ export function AttributionTable({
                                 </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>
-                                {visible.map((row) => (
-                                    <Table.Tr key={row.entity_id ?? `deleted:${row.entity_name}`}>
+                                {visible.map((row) => {
+                                    const href = rowHref?.(row);
+                                    return (
+                                    <Table.Tr
+                                        key={row.entity_id ?? `deleted:${row.entity_name}`}
+                                        style={href ? { cursor: "pointer" } : undefined}
+                                        onClick={href ? () => navigate(href) : undefined}
+                                    >
                                         <Table.Td>
                                             <Text size="sm" truncate="end" maw={180} title={row.entity_name}>
                                                 {row.entity_name}
@@ -99,7 +114,8 @@ export function AttributionTable({
                                             {total(row).toLocaleString()}
                                         </Table.Td>
                                     </Table.Tr>
-                                ))}
+                                    );
+                                })}
                             </Table.Tbody>
                         </Table>
                     </ScrollArea.Autosize>

@@ -1,5 +1,5 @@
-import { Stack, SimpleGrid, Group, Text, Tooltip, ThemeIcon } from "@mantine/core";
-import { IconInfoCircle } from "@tabler/icons-react";
+import { Stack, SimpleGrid, Text } from "@mantine/core";
+import { buildRoute } from "@/lib/routes";
 import { useAttributionSplit } from "../hooks/useAttributionSplit";
 import { AttributionTable } from "./AttributionTable";
 
@@ -8,9 +8,6 @@ interface AttributionSectionProps {
     to?: string;
 }
 
-const CAVEAT =
-    "A single request can match several entities (shared IPs, multiple devices), and each match is counted. These are per-entity shares, not a partition of total traffic — the columns can sum above the totals above.";
-
 export function AttributionSection({ from, to }: AttributionSectionProps) {
     const policy = useAttributionSplit("policy", from, to);
     const user = useAttributionSplit("user", from, to);
@@ -18,14 +15,7 @@ export function AttributionSection({ from, to }: AttributionSectionProps) {
 
     return (
         <Stack gap="xs">
-            <Group gap={6} align="center">
-                <Text fw={500}>Traffic by entity</Text>
-                <Tooltip label={CAVEAT} multiline w={280} withArrow position="right">
-                    <ThemeIcon variant="transparent" color="gray" size="sm" aria-label="How per-entity traffic is counted">
-                        <IconInfoCircle size={16} stroke={1.5} />
-                    </ThemeIcon>
-                </Tooltip>
-            </Group>
+            <Text fw={500}>Traffic by entity</Text>
             <Text size="xs" c="dimmed">
                 Per-entity shares — a shared request is counted under each matching entity, so these do not sum to total
                 traffic.
@@ -35,24 +25,33 @@ export function AttributionSection({ from, to }: AttributionSectionProps) {
                 <AttributionTable
                     title="By network policy"
                     entityHeader="Policy"
+                    entityHeaderPlural="Policies"
                     data={policy.data?.entities}
                     isLoading={policy.isLoading}
                     error={policy.error}
                     onRetry={() => policy.refetch()}
                     emptyText="No policy-matched traffic in this period"
+                    rowHref={(row) =>
+                        row.entity_id != null ? buildRoute.accessNetworkPolicyDetail(row.entity_id) : undefined
+                    }
                 />
                 <AttributionTable
                     title="By user"
                     entityHeader="User"
+                    entityHeaderPlural="Users"
                     data={user.data?.entities}
                     isLoading={user.isLoading}
                     error={user.error}
                     onRetry={() => user.refetch()}
                     emptyText="No user-attributed traffic in this period"
+                    rowHref={(row) => (row.entity_id != null ? buildRoute.accessUserDetail(row.entity_id) : undefined)}
                 />
+                {/* Devices have no detail route reachable from this payload (it carries the device id, not its
+                    owner), so device rows are not linkable until the attribution endpoint returns owner_id. */}
                 <AttributionTable
                     title="By device"
                     entityHeader="Device"
+                    entityHeaderPlural="Devices"
                     data={device.data?.entities}
                     isLoading={device.isLoading}
                     error={device.error}

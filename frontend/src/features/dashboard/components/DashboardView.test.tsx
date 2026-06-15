@@ -161,6 +161,25 @@ describe('DashboardView', () => {
         expect(screen.getByText('Device 9')).toBeInTheDocument();
     });
 
+    it('makes policy and user attribution rows clickable but not device rows', async () => {
+        renderWithProviders(<DashboardView />);
+
+        await waitFor(
+            () => {
+                expect(screen.getByText('Docker')).toBeInTheDocument();
+                expect(screen.getByText('Workstation')).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+
+        const rowFor = (name: string) => screen.getByText(name).closest('tr') as HTMLElement;
+        // Policy and user rows deep-link to their detail pages.
+        expect(rowFor('Docker')).toHaveStyle({ cursor: 'pointer' });
+        expect(rowFor('Diego Guida')).toHaveStyle({ cursor: 'pointer' });
+        // Devices have no reachable detail route from this payload, so their rows are inert.
+        expect(rowFor('Workstation')).not.toHaveStyle({ cursor: 'pointer' });
+    });
+
     it('shows the no-reconciliation caveat for attribution tables', async () => {
         renderWithProviders(<DashboardView />);
 
