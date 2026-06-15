@@ -70,7 +70,7 @@ export function AttributionTable({
                 <EmptyState icon={IconChartBar} title={emptyText} />
             ) : (
                 <>
-                    <ScrollArea.Autosize mah={expanded ? 360 : undefined} type="auto">
+                    <ScrollArea.Autosize mah={expanded ? 360 : undefined} type="auto" scrollbars="y" offsetScrollbars>
                         <Table highlightOnHover aria-label={title} stickyHeader={expanded}>
                             <Table.Thead>
                                 <Table.Tr>
@@ -90,7 +90,7 @@ export function AttributionTable({
                                         onClick={href ? () => navigate(href) : undefined}
                                     >
                                         <Table.Td>
-                                            <Text size="sm" truncate="end" maw={180} title={row.entity_name}>
+                                            <Text size="sm" truncate="end" maw={130} title={row.entity_name}>
                                                 {row.entity_name}
                                                 {row.entity_id == null && (
                                                     <Text span size="xs" c="dimmed">

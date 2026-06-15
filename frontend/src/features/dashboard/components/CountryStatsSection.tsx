@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { Stack, Grid } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "@/lib/routes";
@@ -9,20 +9,17 @@ import { AccessMap } from "./AccessMap";
 import { TopCountriesTable } from "./TopCountriesTable";
 import { ErrorState } from "@/components/ErrorState";
 
-type Metric = "denied" | "total";
-
 interface CountryStatsSectionProps {
     from?: string;
     to?: string;
 }
 
 export function CountryStatsSection({ from, to }: CountryStatsSectionProps) {
-    const [metric, setMetric] = useState<Metric>("denied");
     const navigate = useNavigate();
 
     const { data, isLoading, error, refetch } = useCountryStats(from, to);
     const lookup = useCountryLookup(data);
-    const colorFn = useMapColorScale(data, metric);
+    const colorFn = useMapColorScale(data);
 
     const handleCountryClick = useCallback(
         (code: string) => navigate(`${ROUTES.accessLog}?country_code=${code}`),
@@ -43,8 +40,6 @@ export function CountryStatsSection({ from, to }: CountryStatsSectionProps) {
                     <AccessMap
                         data={data}
                         isLoading={isLoading}
-                        metric={metric}
-                        onMetricChange={setMetric}
                         colorFn={colorFn}
                         lookup={lookup}
                         onCountryClick={handleCountryClick}
@@ -54,7 +49,6 @@ export function CountryStatsSection({ from, to }: CountryStatsSectionProps) {
                     <TopCountriesTable
                         data={data}
                         isLoading={isLoading}
-                        metric={metric}
                         onCountryClick={handleCountryClick}
                     />
                 </Grid.Col>

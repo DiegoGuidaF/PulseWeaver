@@ -1,38 +1,88 @@
 import { useMemo } from "react";
-import { Paper, Text, Table, Skeleton } from "@mantine/core";
+import { Paper, Text, Table, Skeleton, Box, Group, Stack, Tooltip } from "@mantine/core";
 import { IconGlobe } from "@tabler/icons-react";
 import { countryFlagEmoji } from "@/lib/countryFlag";
 import { EmptyState } from "@/components/EmptyState";
 import type { AccessLogCountryStats } from "@/lib/api/types.gen";
 
-type Metric = "denied" | "total";
-
 interface TopCountriesTableProps {
     data: AccessLogCountryStats[] | undefined;
     isLoading: boolean;
-    metric: Metric;
     onCountryClick: (code: string) => void;
+}
+
+/** A legend dot + count line, reused for the allowed and denied rows of the bar tooltip. */
+function TooltipRow({ color, count, label }: { color: string; count: number; label: string }) {
+    return (
+        <Group gap={6} wrap="nowrap">
+            <Box w={8} h={8} style={{ borderRadius: "50%", backgroundColor: color }} />
+            <Text size="xs">
+                {count.toLocaleString()} {label}
+            </Text>
+        </Group>
+    );
+}
+
+/** Two-segment bar showing the allowed (green) vs denied (red) breakdown of a country's traffic. */
+function BreakdownBar({ allowed, denied }: { allowed: number; denied: number }) {
+    const sum = allowed + denied;
+    const allowedPct = sum > 0 ? (allowed / sum) * 100 : 0;
+    return (
+        <Tooltip
+            withArrow
+            label={
+                <Stack gap={4}>
+                    <TooltipRow color="var(--mantine-color-green-5)" count={allowed} label="allowed" />
+                    <TooltipRow color="var(--mantine-color-red-5)" count={denied} label="denied" />
+                </Stack>
+            }
+        >
+            <Box
+                aria-label={`${allowed.toLocaleString()} allowed, ${denied.toLocaleString()} denied`}
+                style={{
+                    display: "flex",
+                    width: "100%",
+                    minWidth: 56,
+                    height: 8,
+                    borderRadius: 4,
+                    overflow: "hidden",
+                    backgroundColor: "var(--mantine-color-red-6)",
+                }}
+            >
+                <Box
+                    style={{
+                        width: `${allowedPct}%`,
+                        backgroundColor: "var(--mantine-color-green-6)",
+                    }}
+                />
+            </Box>
+        </Tooltip>
+    );
 }
 
 export function TopCountriesTable({
     data,
     isLoading,
-    metric,
     onCountryClick,
 }: TopCountriesTableProps) {
     const sorted = useMemo(
-        () =>
-            [...(data ?? [])]
-                .sort((a, b) => b[metric] - a[metric])
-                .slice(0, 10),
-        [data, metric],
+        () => [...(data ?? [])].sort((a, b) => b.total - a.total).slice(0, 10),
+        [data],
     );
 
     return (
         <Paper withBorder p="md" radius="md" h="100%">
-            <Text fw={500} mb="md">
-                Top Countries
-            </Text>
+            <Group justify="space-between" mb="md" wrap="nowrap">
+                <Text fw={500}>Top Countries</Text>
+                <Group gap="sm" wrap="nowrap">
+                    <Text size="xs" c="green.6">
+                        ● Allowed
+                    </Text>
+                    <Text size="xs" c="red.6">
+                        ● Denied
+                    </Text>
+                </Group>
+            </Group>
             {isLoading ? (
                 <Skeleton h={200} />
             ) : sorted.length === 0 ? (
@@ -46,12 +96,7 @@ export function TopCountriesTable({
                         <Table.Tr>
                             <Table.Th>#</Table.Th>
                             <Table.Th>Country</Table.Th>
-                            <Table.Th style={{ textAlign: "right" }}>
-                                Allowed
-                            </Table.Th>
-                            <Table.Th style={{ textAlign: "right" }}>
-                                Denied
-                            </Table.Th>
+                            <Table.Th>Breakdown</Table.Th>
                             <Table.Th style={{ textAlign: "right" }}>
                                 Total
                             </Table.Th>
@@ -65,15 +110,15 @@ export function TopCountriesTable({
                                 onClick={() => onCountryClick(row.country_code)}
                             >
                                 <Table.Td c="dimmed">{i + 1}</Table.Td>
-                                <Table.Td>
+                                <Table.Td style={{ whiteSpace: "nowrap" }}>
                                     {countryFlagEmoji(row.country_code)}{" "}
                                     {row.country_name ?? row.country_code}
                                 </Table.Td>
-                                <Table.Td style={{ textAlign: "right" }}>
-                                    {row.allowed.toLocaleString()}
-                                </Table.Td>
-                                <Table.Td style={{ textAlign: "right" }}>
-                                    {row.denied.toLocaleString()}
+                                <Table.Td style={{ width: "30%" }}>
+                                    <BreakdownBar
+                                        allowed={row.allowed}
+                                        denied={row.denied}
+                                    />
                                 </Table.Td>
                                 <Table.Td style={{ textAlign: "right" }}>
                                     {row.total.toLocaleString()}

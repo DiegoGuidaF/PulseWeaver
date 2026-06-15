@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { Paper, Text, Skeleton, Box, Group, SegmentedControl } from "@mantine/core";
+import { Paper, Text, Skeleton, Box, Group } from "@mantine/core";
 import { useElementSize } from "@mantine/hooks";
 import { IconMap } from "@tabler/icons-react";
 import { geoNaturalEarth1, geoPath } from "d3-geo";
@@ -41,13 +41,9 @@ const CLIP_BOUNDS: Feature = {
 
 const MAP_HEIGHT = 420;
 
-type Metric = "denied" | "total";
-
 interface AccessMapProps {
     data: AccessLogCountryStats[] | undefined;
     isLoading: boolean;
-    metric: Metric;
-    onMetricChange: (metric: Metric) => void;
     colorFn: (
         countryCode: string,
         lookup: Map<string, AccessLogCountryStats>,
@@ -65,8 +61,6 @@ interface TooltipState {
 export function AccessMap({
     data,
     isLoading,
-    metric,
-    onMetricChange,
     colorFn,
     lookup,
     onCountryClick,
@@ -116,15 +110,9 @@ export function AccessMap({
         <Paper withBorder p="md" radius="md">
             <Group justify="space-between" mb="md">
                 <Text fw={500}>Access Map</Text>
-                <SegmentedControl
-                    size="xs"
-                    value={metric}
-                    onChange={(v) => onMetricChange(v as Metric)}
-                    data={[
-                        { value: "denied", label: "Denied" },
-                        { value: "total", label: "Total" },
-                    ]}
-                />
+                <Text size="xs" c="dimmed">
+                    Shaded by deny rate
+                </Text>
             </Group>
             {isLoading ? (
                 <Skeleton h={MAP_HEIGHT} />

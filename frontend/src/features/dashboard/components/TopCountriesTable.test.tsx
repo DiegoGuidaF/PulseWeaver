@@ -12,7 +12,6 @@ function renderTable(
             <TopCountriesTable
                 data={props?.data ?? []}
                 isLoading={props?.isLoading ?? false}
-                metric={props?.metric ?? 'denied'}
                 onCountryClick={props?.onCountryClick ?? vi.fn()}
             />
         </MantineProvider>,
@@ -39,32 +38,29 @@ describe('TopCountriesTable', () => {
         expect(screen.getByText('Top Countries')).toBeInTheDocument();
     });
 
-    it('sorts rows by denied count descending', () => {
+    it('sorts rows by total count descending', () => {
         const data = [
             createMockAccessLogCountryStats({ country_code: 'DE', country_name: 'Germany', denied: 5, allowed: 45, total: 50 }),
-            createMockAccessLogCountryStats({ country_code: 'CN', country_name: 'China', denied: 70, allowed: 5, total: 75 }),
             createMockAccessLogCountryStats({ country_code: 'US', country_name: 'United States', denied: 20, allowed: 80, total: 100 }),
+            createMockAccessLogCountryStats({ country_code: 'CN', country_name: 'China', denied: 70, allowed: 5, total: 75 }),
         ];
-        renderTable({ data, metric: 'denied' });
+        renderTable({ data });
 
         const rows = screen.getAllByRole('row').slice(1); // skip header
-        expect(rows[0]).toHaveTextContent('China');
-        expect(rows[1]).toHaveTextContent('United States');
-        expect(rows[2]).toHaveTextContent('Germany');
-    });
-
-    it('sorts rows by total count descending when metric is total', () => {
-        const data = [
-            createMockAccessLogCountryStats({ country_code: 'DE', country_name: 'Germany', total: 50 }),
-            createMockAccessLogCountryStats({ country_code: 'US', country_name: 'United States', total: 100 }),
-            createMockAccessLogCountryStats({ country_code: 'CN', country_name: 'China', total: 75 }),
-        ];
-        renderTable({ data, metric: 'total' });
-
-        const rows = screen.getAllByRole('row').slice(1);
         expect(rows[0]).toHaveTextContent('United States');
         expect(rows[1]).toHaveTextContent('China');
         expect(rows[2]).toHaveTextContent('Germany');
+    });
+
+    it('exposes the allowed/denied breakdown via an accessible label', () => {
+        const data = [
+            createMockAccessLogCountryStats({ country_code: 'US', country_name: 'United States', allowed: 80, denied: 20, total: 100 }),
+        ];
+        renderTable({ data });
+
+        expect(
+            screen.getByLabelText('80 allowed, 20 denied'),
+        ).toBeInTheDocument();
     });
 
     it('caps display at top 10 entries', () => {
@@ -97,8 +93,8 @@ describe('TopCountriesTable', () => {
 
     it('displays rank numbers starting from 1', () => {
         const data = [
-            createMockAccessLogCountryStats({ country_code: 'US', denied: 20 }),
-            createMockAccessLogCountryStats({ country_code: 'DE', denied: 5 }),
+            createMockAccessLogCountryStats({ country_code: 'US', total: 20 }),
+            createMockAccessLogCountryStats({ country_code: 'DE', total: 5 }),
         ];
         renderTable({ data });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { CountryStatsSection } from './CountryStatsSection';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { renderWithProviders } from '@/test/utils';
@@ -23,18 +23,6 @@ describe('CountryStatsSection', () => {
         );
     });
 
-    it('renders metric toggle with Denied and Total options', async () => {
-        renderWithProviders(<CountryStatsSection />);
-
-        await waitFor(
-            () => {
-                expect(screen.getByText('Denied')).toBeInTheDocument();
-                expect(screen.getByText('Total')).toBeInTheDocument();
-            },
-            { timeout: TEST_TIMEOUTS.SHORT },
-        );
-    });
-
     it('renders country data from API in the top countries table', async () => {
         renderWithProviders(<CountryStatsSection />);
 
@@ -49,29 +37,8 @@ describe('CountryStatsSection', () => {
         );
     });
 
-    it('default metric sorts table by denied count', async () => {
+    it('sorts the table by total count descending', async () => {
         renderWithProviders(<CountryStatsSection />);
-
-        await waitFor(
-            () => {
-                const rows = screen.getAllByRole('row').slice(1);
-                // China has 70 denied, US has 20, DE has 5
-                expect(rows[0]).toHaveTextContent('China');
-            },
-            { timeout: TEST_TIMEOUTS.SHORT },
-        );
-    });
-
-    it('switching to Total metric re-sorts the table', async () => {
-        renderWithProviders(<CountryStatsSection />);
-
-        // Wait for data to load
-        await waitFor(
-            () => screen.getByText(/China/),
-            { timeout: TEST_TIMEOUTS.SHORT },
-        );
-
-        fireEvent.click(screen.getAllByText('Total')[0]);
 
         await waitFor(
             () => {
