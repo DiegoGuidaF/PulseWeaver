@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rollup"
 	"github.com/matryer/is"
 )
 
@@ -121,7 +121,7 @@ func TestRepository_ListaccessLogStatsByCountry_FromFilter(t *testing.T) {
 
 // TestDashboardWidgets_CrossWidgetConsistency_WideWindow guards the F18
 // invariant: for the same window every dashboard widget answers from the same
-// source. For a window > dashboard.RawWindowThreshold all widgets take the
+// source. For a window > rollup.RawWindowThreshold all widgets take the
 // aggregate path, so after a rollup catch-up the summary stats, the traffic
 // series sums, and the country stats must all describe the same seeded rows.
 func TestDashboardWidgets_CrossWidgetConsistency_WideWindow(t *testing.T) {
@@ -129,7 +129,7 @@ func TestDashboardWidgets_CrossWidgetConsistency_WideWindow(t *testing.T) {
 	repos := setupRepos(t)
 	ctx := t.Context()
 
-	dashRepo := dashboard.NewRepository(repos.db, nil)
+	rollupRepo := rollup.NewRepository(repos.db, nil)
 
 	usGeo := geoip.Result{CountryCode: "US", CountryName: "United States", ContinentCode: "NA"}
 	auGeo := geoip.Result{CountryCode: "AU", CountryName: "Australia", ContinentCode: "OC"}
@@ -149,19 +149,19 @@ func TestDashboardWidgets_CrossWidgetConsistency_WideWindow(t *testing.T) {
 	})
 	is.NoErr(err)
 
-	is.NoErr(dashRepo.NewRollupJob(slog.New(slog.DiscardHandler)).Run(ctx))
+	is.NoErr(rollupRepo.NewRollupJob(slog.New(slog.DiscardHandler)).Run(ctx))
 
 	to := time.Now().UTC()
 	from := to.Add(-48 * time.Hour)
-	is.True(to.Sub(from) > dashboard.RawWindowThreshold) // all widgets on the aggregate path
+	is.True(to.Sub(from) > rollup.RawWindowThreshold) // all widgets on the aggregate path
 
-	stats, err := dashRepo.GetSummaryStats(ctx, from, to)
+	stats, err := rollupRepo.GetSummaryStats(ctx, from, to)
 	is.NoErr(err)
 	is.Equal(stats.TotalRequests, int64(5))
 	is.Equal(stats.AllowedCount, int64(3))
 	is.Equal(stats.DeniedCount, int64(2))
 
-	series, err := dashRepo.GetTrafficSeries(ctx, from, to)
+	series, err := rollupRepo.GetTrafficSeries(ctx, from, to)
 	is.NoErr(err)
 	var seriesAllowed, seriesDenied int64
 	for _, bucket := range series {

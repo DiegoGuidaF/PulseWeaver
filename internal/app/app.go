@@ -10,7 +10,6 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/devicepairing"
@@ -23,6 +22,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rollup"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/scheduler"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/useraccess"
@@ -186,15 +186,15 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Register network policy change observer — policy cache refreshes on any policy mutation.
 	networkPoliciesService.AddObserver(policyService)
 
-	// Dashboard — traffic aggregation
-	dashboardRepo := dashboard.NewRepository(db.DB(), geoipLookup)
-	dashboardHandler := dashboard.NewHTTPHandler(dashboardRepo, logger)
+	// Rollup — traffic aggregation behind the dashboard read API
+	rollupRepo := rollup.NewRepository(db.DB(), geoipLookup)
+	rollupHandler := rollup.NewHTTPHandler(rollupRepo, logger)
 
 	// Runs scheduled jobs - Address leasing, traffic aggregates for the dashboard, data retention...
 	schedulerService := scheduler.NewService(logger)
 	schedulerService.AddJob(addressLeaseService.NewExpiryJob(deviceService))
-	schedulerService.AddJob(dashboardRepo.NewRollupJob(logger))
-	schedulerService.AddJob(scheduler.NewRetentionJob(accessLogRepo, deviceRepo, dashboardRepo,
+	schedulerService.AddJob(rollupRepo.NewRollupJob(logger))
+	schedulerService.AddJob(scheduler.NewRetentionJob(accessLogRepo, deviceRepo, rollupRepo,
 		conf.Rules.DataRetentionDays, conf.Rules.AggregateRetentionDays, logger))
 
 	// Fire the rules on start to ensure we disable no longer valid addresses before letting them through
@@ -221,7 +221,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		queriesHandler,
 		policyHandler,
 		accessLogHandler,
-		dashboardHandler,
+		rollupHandler,
 		pairingHandler,
 		hostsHandler,
 		userAccessHandler,

@@ -8,10 +8,10 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries/filterx"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rollup"
 )
 
 const (
@@ -526,11 +526,11 @@ type AccessLogCountryStat struct {
 // ListAccessLogStatsByCountry returns request counts grouped by country for all rows
 // within the [from, to] time window. Only rows with GeoIP data are included.
 //
-// Dispatches on dashboard.RawWindowThreshold like every other traffic widget,
+// Dispatches on rollup.RawWindowThreshold like every other traffic widget,
 // so the map/country tables answer from the same source as the stat cards and
 // charts for a given window.
 func (r *Repository) ListAccessLogStatsByCountry(ctx context.Context, from, to time.Time) ([]AccessLogCountryStat, error) {
-	if to.Sub(from) <= dashboard.RawWindowThreshold {
+	if to.Sub(from) <= rollup.RawWindowThreshold {
 		return r.listRawAccessLogStatsByCountry(ctx, from, to)
 	}
 	return r.listAggregateAccessLogStatsByCountry(ctx, from, to)

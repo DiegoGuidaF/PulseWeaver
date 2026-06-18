@@ -1,4 +1,4 @@
-package dashboard
+package rollup
 
 import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"

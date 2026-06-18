@@ -1,6 +1,6 @@
 //go:build test
 
-package dashboard_test
+package rollup_test
 
 import (
 	"context"
@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rollup"
 	"github.com/matryer/is"
 )
 
-func newTestJob(repo *dashboard.Repository) *dashboard.RollupJob {
+func newTestJob(repo *rollup.Repository) *rollup.RollupJob {
 	return repo.NewRollupJob(slog.New(slog.DiscardHandler))
 }
 
@@ -27,7 +27,7 @@ func countBuckets(t *testing.T, db *database.DB) int {
 	return n
 }
 
-func countAttributionRows(t *testing.T, db *database.DB, kind dashboard.AttributionKind) int {
+func countAttributionRows(t *testing.T, db *database.DB, kind rollup.AttributionKind) int {
 	t.Helper()
 	var n int
 	if err := db.GetContext(t.Context(), &n,
@@ -55,7 +55,7 @@ func TestRollupJob_CatchUp_PopulatesAttributionAggregates(t *testing.T) {
 
 	is.NoErr(newTestJob(repo).Run(ctx))
 
-	is.Equal(countAttributionRows(t, db, dashboard.AttributionKindPolicy), 3) // one allow row per missed hour
+	is.Equal(countAttributionRows(t, db, rollup.AttributionKindPolicy), 3) // one allow row per missed hour
 }
 
 // TestRollupJob_CatchUp_CoversAllMissedHours guards the core catch-up fix:

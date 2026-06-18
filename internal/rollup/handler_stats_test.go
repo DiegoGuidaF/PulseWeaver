@@ -1,6 +1,6 @@
 //go:build test
 
-package dashboard_test
+package rollup_test
 
 import (
 	"encoding/json"

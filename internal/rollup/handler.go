@@ -1,4 +1,4 @@
-package dashboard
+package rollup
 
 import (
 	"context"
@@ -26,7 +26,7 @@ type HTTPHandler struct {
 func NewHTTPHandler(repo readRepo, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{
 		repo:   repo,
-		logger: logger.With(slog.String(logging.AttrKeyComponent, "dashboard")),
+		logger: logger.With(slog.String(logging.AttrKeyComponent, "rollup")),
 	}
 }
 

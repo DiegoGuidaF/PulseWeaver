@@ -28,7 +28,7 @@ This document is the **map** of the backend codebase — what exists and where. 
 
 **`health`** — Simple `GET /health` handler returning `{"status":"ok","timestamp":"..."}`.
 
-**`dashboard`** — Aggregates metrics from the repository regarding per-device requests along with geolocation.
+**`rollup`** — Owns the two hourly aggregate tables (`hourly_traffic_aggregates`, `hourly_attribution_aggregates`): builds them via the `RollupJob` catch-up scheduler, prunes them (retention primitives called by `scheduler`), and serves the dashboard read API (stats, traffic, services, top-denied IPs, attribution split) dispatching raw-vs-aggregate on `RawWindowThreshold`. Files split by family × role: `traffic_rollup.go`/`traffic_reads.go`, `attribution_rollup.go`/`attribution_reads.go`, plus `job.go` and `handler.go`. The dashboard widget country split lives in `queries` (its raw path is a cross-domain geo join) and imports `rollup.RawWindowThreshold`.
 
 **`geoip`** — Enriches policy verification with IP-based location. Uses MMDB database from https://download.db-ip.com/free. Runs a background `RunUpdater` goroutine to refresh the database file.
 
@@ -36,7 +36,7 @@ This document is the **map** of the backend codebase — what exists and where. 
 
 **`registration`** — Allows device provisioning. Creates a registration code which can be claimed via API and returns a device API key. Intended for auto-registration from the companion heartbeat client app (separate repository).
 
-**`timebucket`** — Defines shared timebucket granularity settings and parsing. Used by packages managing granularity in HTTP queries (devices, dashboard…).
+**`timebucket`** — Defines shared timebucket granularity settings and parsing. Used by packages managing granularity in HTTP queries (devices, rollup…).
 
 ### Infrastructure Packages
 

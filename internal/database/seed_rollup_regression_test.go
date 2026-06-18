@@ -12,7 +12,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/app"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rollup"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
@@ -66,7 +66,7 @@ func TestSeededAccessLogSurvivesRollupOnRestart(t *testing.T) {
 
 	// Re-run the rollup the way init does on restart: a fresh, uninitialised job
 	// whose window is the previous complete hour.
-	job := dashboard.NewRepository(db, nil).NewRollupJob(logger)
+	job := rollup.NewRepository(db, nil).NewRollupJob(logger)
 	is.NoErr(job.Run(ctx)) // before the fix: bucket_at NOT NULL constraint violation
 
 	// The seeded rows must have produced a non-NULL bucket.

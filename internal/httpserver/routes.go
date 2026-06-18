@@ -6,7 +6,6 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/dashboard"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/devicepairing"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/health"
@@ -15,6 +14,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rollup"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ui"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/useraccess"
@@ -29,7 +29,7 @@ type CompositeHandler struct {
 	*RuleHandler
 	*QueriesHandler
 	*AccessLogHandler
-	*DashboardHandler
+	*RollupHandler
 	*DevicePairingHandler
 	*HostsHandler
 	*UserAccessHandler
@@ -43,7 +43,7 @@ type DeviceHandler = device.HTTPHandler
 type AuthHandler = auth.HTTPHandler
 type PolicyHandler = policy.HTTPHandler
 type AccessLogHandler = accesslog.HTTPHandler
-type DashboardHandler = dashboard.HTTPHandler
+type RollupHandler = rollup.HTTPHandler
 type DevicePairingHandler = devicepairing.HTTPHandler
 type HostsHandler = hosts.HTTPHandler
 type UserAccessHandler = useraccess.HTTPHandler
@@ -57,7 +57,7 @@ func addRoutes(
 	queriesHandler *QueriesHandler,
 	policyHandler *PolicyHandler,
 	accessLogHandler *AccessLogHandler,
-	dashboardHandler *DashboardHandler,
+	rollupHandler *RollupHandler,
 	pairingHandler *DevicePairingHandler,
 	hostsHandler *HostsHandler,
 	userAccessHandler *UserAccessHandler,
@@ -70,7 +70,7 @@ func addRoutes(
 		RuleHandler:            ruleHandler,
 		QueriesHandler:         queriesHandler,
 		AccessLogHandler:       accessLogHandler,
-		DashboardHandler:       dashboardHandler,
+		RollupHandler:          rollupHandler,
 		DevicePairingHandler:   pairingHandler,
 		HostsHandler:           hostsHandler,
 		UserAccessHandler:      userAccessHandler,
