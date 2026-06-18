@@ -91,6 +91,10 @@ func addRoutes(
 
 		validatorOptions := &nethttpmiddleware.Options{
 			ErrorHandler: createValidationErrorHandler(logger),
+			// The spec's only server URL is the path-only "/api/v1" prefix, which
+			// carries no host for the validator to match against, so its Host-header
+			// validation never rejects a request. Silence the blanket warning.
+			SilenceServersWarning: true,
 			Options: openapi3filter.Options{
 				AuthenticationFunc: AuthenticationFunc(authHandler.UserAuthenticator(), deviceHandler.APIKeyAuthenticator()),
 			},
