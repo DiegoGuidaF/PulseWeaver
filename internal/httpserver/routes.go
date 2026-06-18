@@ -101,7 +101,6 @@ func addRoutes(
 		r.Use(HeartbeatRateLimitMiddleware(30, time.Minute, logger))
 		r.Use(DevicePairingRateLimitMiddleware(10, time.Minute, logger))
 
-		// OpenApi request input validators
 		r.Use(nethttpmiddleware.OapiRequestValidatorWithOptions(swagger, validatorOptions))
 		// Inject auth token into context if present
 		r.Use(auth.PrincipalUserContextMiddleware(authHandler.UserAuthenticator()))
@@ -110,7 +109,6 @@ func addRoutes(
 		// Enforce admin invariant: any user session principal must be an admin
 		r.Use(auth.RequireAdmin)
 
-		// Create custom error handlers with logging
 		errorOptions := httpapi.StrictHTTPServerOptions{
 			RequestErrorHandlerFunc:  createRequestErrorHandler(logger),
 			ResponseErrorHandlerFunc: createResponseErrorHandler(logger),

@@ -280,7 +280,6 @@ func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, _ httpapi.Dev
 	ctx = logging.WithOperation(ctx, "DeviceHeartbeatByAPIKey")
 	logger := h.logger
 
-	// Extract deviceID from context
 	principal, ok := PrincipalFromContext(ctx)
 	if !ok {
 		logger.ErrorContext(ctx, "invalid API key")

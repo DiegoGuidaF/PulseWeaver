@@ -339,7 +339,6 @@ func (s *Service) DeleteUser(ctx context.Context, principal *Principal, targetID
 	}
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
-		// Ensure user to delete exists and is valid
 		_, err := s.repo.GetUserByID(ctx, targetID)
 		if err != nil {
 			return err

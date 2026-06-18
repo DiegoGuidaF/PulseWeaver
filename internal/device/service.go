@@ -61,15 +61,11 @@ func NewService(repo repository, transactor transactor, logger *slog.Logger, tru
 }
 
 func (s *Service) Authenticate(ctx context.Context, rawKey string) (*Principal, error) {
-	// Validate key format (must start with prefix)
 	if len(rawKey) < len(APIKeyPrefix) || rawKey[:len(APIKeyPrefix)] != APIKeyPrefix {
 		return nil, ErrInvalidAPIKey
 	}
 
-	// Hash the key
 	keyHash := HashAPIKey(rawKey)
-
-	// Look up device by key hash
 	device, err := s.repo.GetDeviceByAPIKeyHash(ctx, keyHash)
 	if err != nil {
 		return nil, err
@@ -172,7 +168,6 @@ func (s *Service) DeleteDevice(ctx context.Context, deviceID ids.DeviceID) error
 			addressesToDisable = append(addressesToDisable, address.ID)
 		}
 
-		// Disable currently active addresses
 		disabledAddresses, err = s.repo.DisableAddresses(ctx, addressesToDisable, EventSourceManual)
 		if err != nil {
 			return err

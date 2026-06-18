@@ -70,16 +70,11 @@ type IPEntry struct {
 // unmapped to its plain IPv4 form so stored addresses never depend on representation.
 // TODO: Make private once the address_test go through the NewCreateAddressParams
 func ParseAndValidateIP(ipInput string) (netip.Addr, error) {
-	// Try to parse as IP without port
 	if parsedIP, err := netip.ParseAddr(ipInput); err == nil {
 		return parsedIP.Unmap(), nil
 	}
-
-	// If that fails, try to parse as IP with port
 	if ap, err := netip.ParseAddrPort(ipInput); err == nil {
 		return ap.Addr().Unmap(), nil
 	}
-
-	// If both fail, return error
 	return netip.Addr{}, ErrInvalidIPFormat
 }

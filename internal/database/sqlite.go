@@ -49,7 +49,6 @@ func NewSQLite(dbConf config.ConfDB) (*SQLite, error) {
 		// (sql.TxOptions{ReadOnly:true}) stay deferred and keep their concurrency.
 		params.Add("_txlock", "immediate")
 
-		// SQLite Pragmas
 		params.Add("_pragma", "foreign_keys(1)")
 		params.Add("_pragma", "journal_mode(WAL)")
 		params.Add("_pragma", "synchronous(NORMAL)")
@@ -94,7 +93,6 @@ func (s *SQLite) Close() error {
 }
 
 func (s *SQLite) Migrate() error {
-	// Create sqlite driver instance
 	driver, err := sqlite.WithInstance(s.pool.DB, &sqlite.Config{NoTxWrap: true})
 	if err != nil {
 		return fmt.Errorf("create driver: %w", err)
@@ -109,6 +107,7 @@ func (s *SQLite) Migrate() error {
 	if err != nil {
 		return fmt.Errorf("create migrator: %w", err)
 	}
+
 	// Run migrations
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("run migrations: %w", err)

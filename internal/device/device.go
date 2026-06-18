@@ -34,7 +34,6 @@ type Device struct {
 //   - description: nil = keep current; non-nil ptr to nil = clear; non-nil ptr to value = set
 //   - icon:        same semantics as description
 func (d *Device) Update(name *string, description **string, icon **string, ownerID *ids.UserID) error {
-	// Validate all fields before mutating any of them.
 	if name != nil {
 		if len(*name) < 1 || len(*name) > 50 {
 			return ErrInvalidDeviceName
@@ -47,7 +46,6 @@ func (d *Device) Update(name *string, description **string, icon **string, owner
 		return ErrIconTooLong
 	}
 
-	// All validations passed — apply mutations.
 	if name != nil {
 		d.Name = *name
 	}
@@ -74,22 +72,14 @@ type CreateDeviceParams struct {
 // GenerateAPIKey generates a new API key and returns the raw key (to send to user),
 // the key hash (to store in DB), and the key prefix (for display).
 func GenerateAPIKey() (rawKey string, keyHash string, keyPrefix string, error error) {
-	// Generate 32 random bytes (same as auth tokens)
 	b := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {
 		return "", "", "", fmt.Errorf("generate random bytes: %w", err)
 	}
 
-	// Encode as URL-safe base64, no padding
 	rawKey = base64.RawURLEncoding.EncodeToString(b)
-
-	// Add prefix for easy identification
 	prefixedKey := APIKeyPrefix + rawKey
-
-	// Hash for storage (SHA-256, same pattern as auth tokens)
 	keyHash = HashAPIKey(prefixedKey)
-
-	// Extract prefix for display (first 8 chars after prefix)
 	keyPrefix = prefixedKey[:len(APIKeyPrefix)+8]
 
 	return prefixedKey, keyHash, keyPrefix, nil

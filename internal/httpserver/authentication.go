@@ -18,7 +18,6 @@ func AuthenticationFunc(auth UserAuthenticator, apiKeyAuthenticator APIKeyAuthen
 	return func(ctx context.Context, input *openapi3filter.AuthenticationInput) error {
 		switch input.SecuritySchemeName {
 		case httpapi.CookieAuthScope:
-			// Extract from Cookie
 			if input.RequestValidationInput == nil || input.RequestValidationInput.Request == nil {
 				return errors.New("no request context")
 			}
@@ -33,7 +32,6 @@ func AuthenticationFunc(auth UserAuthenticator, apiKeyAuthenticator APIKeyAuthen
 			}
 
 		case httpapi.APIKeyAuthScope:
-			// Extract from X-API-Key header
 			if input.RequestValidationInput == nil || input.RequestValidationInput.Request == nil {
 				return errors.New("no request context")
 			}
@@ -42,7 +40,6 @@ func AuthenticationFunc(auth UserAuthenticator, apiKeyAuthenticator APIKeyAuthen
 				return errors.New("missing API key")
 			}
 
-			// Validate the API key
 			if apiKeyAuthenticator == nil {
 				return errors.New("API key validator not configured")
 			}

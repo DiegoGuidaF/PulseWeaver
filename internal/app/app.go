@@ -68,7 +68,6 @@ func New(ctx context.Context) (*App, error) {
 
 // NewWithConfigAndLogger initializes the application with the provided configuration and logger.
 func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog.Logger) (_ *App, err error) {
-	// Set logger for dependencies
 	slog.SetDefault(logger)
 
 	if !conf.Server.TrustedProxy.IsValid() {
@@ -78,7 +77,6 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 			"Ignore this warning only if clients connect directly with no proxy in front.")
 	}
 
-	// Log startup configuration
 	logger.Info("initializing app",
 		slog.Int("port", conf.Server.Port),
 		slog.String("db_dir", conf.DB.DataDir),

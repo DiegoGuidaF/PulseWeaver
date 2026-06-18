@@ -22,7 +22,6 @@ func StartAndWait(ctx context.Context, handler http.Handler, cfg ServerConfig, l
 		MaxHeaderBytes:    cfg.MaxHeaderBytes,
 	}
 
-	// Start Server in Goroutine
 	serverErrors := make(chan error, 1)
 	go func() {
 		logger.Info("server listening", slog.String("addr", srv.Addr))
