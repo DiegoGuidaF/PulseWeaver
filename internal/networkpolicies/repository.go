@@ -174,8 +174,10 @@ func (r *Repository) GetEnabledCacheEntries(ctx context.Context) ([]CacheEntry, 
 	}
 
 	// Returns one row per (policy, fqdn); fqdn is NULL when no host groups assigned.
+	// DISTINCT collapses a host that belongs to several groups all assigned to the
+	// same policy, so AllowedHostFQDNs is a true set with no duplicate FQDNs.
 	const query = `
-		SELECT np.id AS policy_id, np.name AS policy_name, np.cidr, np.bypass_host_check,
+		SELECT DISTINCT np.id AS policy_id, np.name AS policy_name, np.cidr, np.bypass_host_check,
 		       h.fqdn
 		FROM network_policies np
 		LEFT JOIN network_policy_allowed_host_groups npahg ON npahg.policy_id = np.id

@@ -424,9 +424,14 @@ func (r *Repository) BuildPolicyUserMap(
 		enrichGeo(audit.Users[i].Ips, geo)
 	}
 
-	// Attach network policy data.
+	// Attach network policy data. The denominator is the true number of hosts in
+	// the system, not audit.TotalHostCount (which is the union of users' allowed
+	// hosts and may be smaller than a policy's own reachable host set).
 	npAPIEntries := make([]httpapi.PolicyNetworkPolicyEntry, 0, len(npEntries))
-	totalHostCount := audit.TotalHostCount
+	totalHostCount, err := r.totalHostsCount(ctx)
+	if err != nil {
+		return httpapi.PolicyUserMapAudit{}, fmt.Errorf("policy audit total hosts: %w", err)
+	}
 	for _, e := range npEntries {
 		effective := len(e.AllowedHostFQDNs)
 		if e.BypassHostCheck {

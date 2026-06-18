@@ -316,6 +316,29 @@ func TestRepository_GetEnabledCacheEntries_AggregatesFQDNsByGroup(t *testing.T) 
 	is.Equal(len(entries[0].AllowedHostFQDNs), 2)
 }
 
+func TestRepository_GetEnabledCacheEntries_DeduplicatesFQDNsAcrossGroups(t *testing.T) {
+	is := is.New(t)
+	fix := setupRepoTest(t)
+	ctx := context.Background()
+
+	p := insertPolicy(t, fix.repo, "shared-host", "10.14.0.0/16")
+	g1 := insertHostGroup(t, fix.haRepo, "group-x")
+	g2 := insertHostGroup(t, fix.haRepo, "group-y")
+
+	// One host belongs to both groups, and both groups are assigned to the policy.
+	hostID, err := fix.haRepo.CreateHost(ctx, hosts.HostDraft{FQDN: "shared.example.com"})
+	is.NoErr(err)
+	is.NoErr(fix.haRepo.SetHostGroupMembership(ctx, hostID, []ids.HostGroupID{g1, g2}))
+
+	is.NoErr(fix.repo.SetHostAccess(ctx, p.ID, false, []ids.HostGroupID{g1, g2}))
+
+	entries, err := fix.repo.GetEnabledCacheEntries(ctx)
+
+	is.NoErr(err)
+	is.Equal(len(entries), 1)
+	is.Equal(len(entries[0].AllowedHostFQDNs), 1) // deduped, not counted once per group
+}
+
 func TestRepository_GetEnabledCacheEntries_NilFQDNs_WhenNoHostsAssigned(t *testing.T) {
 	is := is.New(t)
 	fix := setupRepoTest(t)
