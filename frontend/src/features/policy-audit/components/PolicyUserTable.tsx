@@ -29,7 +29,15 @@ import { AllHostsBypassPill } from "@/features/subjects/components/AllHostsBypas
 
 const MAX_VISIBLE_IPS = 3;
 
-type StatusFilter = "all" | PolicyUserStatus;
+// NO_LIVE_IPS and NO_ACCESS render identically (a dimmed "Offline" row), so they
+// collapse into a single filter rather than two the user can't tell apart.
+const OFFLINE_FILTER = "offline";
+
+type StatusFilter = "all" | typeof OFFLINE_FILTER | PolicyUserStatus;
+
+function isOfflineStatus(status: PolicyUserStatus): boolean {
+  return status === PolicyUserStatus.NO_LIVE_IPS || status === PolicyUserStatus.NO_ACCESS;
+}
 
 function matchesSearch(user: PolicyUserEntry, q: string): boolean {
   if (!q) return true;
@@ -45,54 +53,32 @@ function matchesSearch(user: PolicyUserEntry, q: string): boolean {
 }
 
 /**
- * Two-badge layout: one for reachability (live IPs), one for host authorization.
- * Bypass users get a single combined badge since the host check doesn't apply.
+ * Reachability badge for the Status column. Host authorization is shown separately
+ * in the Effective hosts column. Bypass users get the combined bypass pill since the
+ * host check doesn't apply.
  */
-function StatusBadges({ status }: { status: PolicyUserStatus }) {
+function StatusBadge({ status }: { status: PolicyUserStatus }) {
   if (status === PolicyUserStatus.BYPASS) {
     return <AllHostsBypassPill />;
   }
 
   const hasLiveIps =
     status === PolicyUserStatus.LIVE_WITH_ACCESS || status === PolicyUserStatus.LIVE_NO_HOST_ACCESS;
-  const hasHostAccess =
-    status === PolicyUserStatus.LIVE_WITH_ACCESS || status === PolicyUserStatus.NO_LIVE_IPS;
 
   return (
-    <Group gap={4} wrap="nowrap">
-      <Tooltip
-        label={hasLiveIps ? "Device is online — at least one live IP in the cache" : "No live IPs in the cache"}
-        withArrow
+    <Tooltip
+      label={hasLiveIps ? "Device is online — at least one live IP in the cache" : "No live IPs in the cache — no current access"}
+      withArrow
+    >
+      <Badge
+        variant="light"
+        color={hasLiveIps ? "orange" : "gray"}
+        size="sm"
+        leftSection={hasLiveIps ? <IconWifi size={11} /> : <IconWifiOff size={11} />}
       >
-        <Badge
-          variant="light"
-          color={hasLiveIps ? "orange" : "gray"}
-          size="sm"
-          leftSection={hasLiveIps
-            ? <IconWifi size={11} />
-            : <IconWifiOff size={11} />
-          }
-        >
-          {hasLiveIps ? "Live" : "Offline"}
-        </Badge>
-      </Tooltip>
-      <Tooltip
-        label={hasHostAccess ? "Has host grants — at least one host in the allowlist" : "No host grants — all requests will be denied"}
-        withArrow
-      >
-        <Badge
-          variant="light"
-          color={hasHostAccess ? "green" : "red"}
-          size="sm"
-          leftSection={hasHostAccess
-            ? <IconShield size={11} />
-            : <IconShieldOff size={11} />
-          }
-        >
-          {hasHostAccess ? "Has access" : "No host access"}
-        </Badge>
-      </Tooltip>
-    </Group>
+        {hasLiveIps ? "Live" : "Offline"}
+      </Badge>
+    </Tooltip>
   );
 }
 
@@ -148,15 +134,22 @@ function EffectiveHostsCell({
     );
   }
 
-  if (status === PolicyUserStatus.NO_ACCESS || status === PolicyUserStatus.NO_LIVE_IPS) {
-    const label =
-      status === PolicyUserStatus.NO_LIVE_IPS ? "No live IPs" : "No live IPs, no grants";
+  if (status === PolicyUserStatus.LIVE_NO_HOST_ACCESS) {
     return (
-      <Tooltip label={label} withArrow>
-        <Text size="sm" c="dimmed" style={{ cursor: "default" }}>
-          —
-        </Text>
+      <Tooltip label="No host grants — all requests will be denied" withArrow>
+        <Badge variant="light" color="red" size="sm" leftSection={<IconShieldOff size={11} />}>
+          No host access
+        </Badge>
       </Tooltip>
+    );
+  }
+
+  // Offline users (no live IPs) have no current access; the row is dimmed and the cell empty.
+  if (isOfflineStatus(status)) {
+    return (
+      <Text size="sm" c="dimmed">
+        —
+      </Text>
     );
   }
 
@@ -169,7 +162,7 @@ function EffectiveHostsCell({
       <Progress.Root size="xs" style={{ flex: 1, minWidth: 40 }}>
         <Progress.Section
           value={pct}
-          color={status === PolicyUserStatus.LIVE_NO_HOST_ACCESS ? "red" : "indigo"}
+          color="indigo"
           aria-label={`${user.allowed_host_count} of ${totalHosts} hosts accessible`}
         />
       </Progress.Root>
@@ -189,9 +182,13 @@ function UserRow({
   onSelect: () => void;
 }) {
   const status = user.status;
+  const isOffline = isOfflineStatus(status);
 
   return (
-    <Table.Tr style={{ cursor: "pointer" }} onClick={onSelect}>
+    <Table.Tr
+      style={{ cursor: "pointer", opacity: isOffline ? 0.55 : undefined }}
+      onClick={onSelect}
+    >
       <Table.Td>
         <Group gap="sm" wrap="nowrap">
           <Avatar size="md" color="indigo" variant="filled" radius="xl">
@@ -212,7 +209,7 @@ function UserRow({
 
       <Table.Td>
         <Group gap="xs" wrap="nowrap">
-          <StatusBadges status={status} />
+          <StatusBadge status={status} />
           {user.on_shared_ip && (
             <Badge variant="light" color="yellow" size="sm" leftSection={<IconUsers size={12} />}>
               Shared IP
@@ -236,8 +233,8 @@ function UserRow({
       </Table.Td>
 
       <Table.Td>
-        <Text size="sm" c={user.device_count > 0 ? undefined : "dimmed"}>
-          {user.device_count > 0 ? user.device_count : "—"}
+        <Text size="sm" c={!isOffline && user.device_count > 0 ? undefined : "dimmed"}>
+          {!isOffline && user.device_count > 0 ? user.device_count : "—"}
         </Text>
       </Table.Td>
 
@@ -272,15 +269,20 @@ export function PolicyUserTable({
       live_with_access: by(PolicyUserStatus.LIVE_WITH_ACCESS),
       live_no_host_access: by(PolicyUserStatus.LIVE_NO_HOST_ACCESS),
       bypass: by(PolicyUserStatus.BYPASS),
-      no_live_ips: by(PolicyUserStatus.NO_LIVE_IPS),
-      no_access: by(PolicyUserStatus.NO_ACCESS),
+      offline: data.users.filter((u) => isOfflineStatus(u.status)).length,
     };
   }, [data.users]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return data.users.filter((user) => {
-      if (statusFilter !== "all" && user.status !== statusFilter) return false;
+      if (statusFilter !== "all") {
+        const matchesStatus =
+          statusFilter === OFFLINE_FILTER
+            ? isOfflineStatus(user.status)
+            : user.status === statusFilter;
+        if (!matchesStatus) return false;
+      }
       if (sharedOnly && !user.on_shared_ip) return false;
       return matchesSearch(user, q);
     });
@@ -291,8 +293,7 @@ export function PolicyUserTable({
     { label: `Live + access (${counts.live_with_access})`, value: PolicyUserStatus.LIVE_WITH_ACCESS },
     { label: `Live, no access (${counts.live_no_host_access})`, value: PolicyUserStatus.LIVE_NO_HOST_ACCESS },
     { label: `Bypass (${counts.bypass})`, value: PolicyUserStatus.BYPASS },
-    { label: `No live IPs (${counts.no_live_ips})`, value: PolicyUserStatus.NO_LIVE_IPS },
-    { label: `No access (${counts.no_access})`, value: PolicyUserStatus.NO_ACCESS },
+    { label: `Offline (${counts.offline})`, value: OFFLINE_FILTER },
   ];
 
   return (

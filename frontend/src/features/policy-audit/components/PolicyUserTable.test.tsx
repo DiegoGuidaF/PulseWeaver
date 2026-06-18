@@ -73,12 +73,25 @@ const LIVE_NO_HOST_ACCESS = createMockPolicyUserEntry({
     ips: [createMockPolicyUserIp({ ip: "10.0.0.5" })],
 });
 
+// no live IPs but still has grants → "no_live_ips" (offline, would have access if online)
+const NO_LIVE_IPS = createMockPolicyUserEntry({
+    user_id: 5,
+    display_name: "erin",
+    bypass_allowlist: false,
+    allowed_host_count: 2,
+    ips: [],
+    ip_count: 0,
+    device_count: 0,
+});
+
 describe("PolicyUserTable", () => {
-    it("renders Live + Has access badges for a user with live IPs and host grants", () => {
+    it("renders Live badge and host count for a user with live IPs and host grants", () => {
         renderTable([LIVE_WITH_ACCESS]);
 
         expect(screen.getByText("Live")).toBeInTheDocument();
-        expect(screen.getByText("Has access")).toBeInTheDocument();
+        // Host authorization lives in the Effective hosts column, not a status badge.
+        expect(screen.queryByText("Has access")).not.toBeInTheDocument();
+        expect(screen.getByText("2 / 5")).toBeInTheDocument();
     });
 
     it("renders All hosts pill for bypass users", () => {
@@ -87,11 +100,12 @@ describe("PolicyUserTable", () => {
         expect(screen.getByText("All hosts")).toBeInTheDocument();
     });
 
-    it("renders Offline + No host access badges for users with no live IPs and no grants", () => {
+    it("renders only an Offline badge for users with no live IPs and no grants", () => {
         renderTable([NO_ACCESS]);
 
         expect(screen.getByText("Offline")).toBeInTheDocument();
-        expect(screen.getByText("No host access")).toBeInTheDocument();
+        // Offline users have no current access; the host columns are emptied, not labelled.
+        expect(screen.queryByText("No host access")).not.toBeInTheDocument();
     });
 
     it("renders Live + No host access badges for a revoked user who still has a live IP", () => {
@@ -171,16 +185,17 @@ describe("PolicyUserTable", () => {
         expect(screen.queryByText("carol")).not.toBeInTheDocument();
     });
 
-    it("status filter — no access shows only users with no live IPs and no grants", async () => {
+    it("status filter — offline shows all users with no live IPs, regardless of grants", async () => {
         const user = setupUser();
-        renderTable([LIVE_WITH_ACCESS, BYPASS, NO_ACCESS, LIVE_NO_HOST_ACCESS]);
+        renderTable([LIVE_WITH_ACCESS, BYPASS, NO_ACCESS, LIVE_NO_HOST_ACCESS, NO_LIVE_IPS]);
 
-        await user.click(screen.getByRole("radio", { name: /^no access/i }));
+        await user.click(screen.getByRole("radio", { name: /^offline/i }));
 
         expect(screen.queryByText("alice")).not.toBeInTheDocument();
         expect(screen.queryByText("bob")).not.toBeInTheDocument();
-        expect(screen.getByText("carol")).toBeInTheDocument();
-        expect(screen.queryByText("dan")).not.toBeInTheDocument();
+        expect(screen.getByText("carol")).toBeInTheDocument(); // no_access
+        expect(screen.queryByText("dan")).not.toBeInTheDocument(); // live, no access
+        expect(screen.getByText("erin")).toBeInTheDocument(); // no_live_ips
     });
 
     it("status filter — live no access shows only revoked/empty-allowlist users with live IPs", async () => {

@@ -88,7 +88,7 @@ describe("PolicyUserDrawer", () => {
         expect(screen.queryByText("User · Policy")).not.toBeInTheDocument();
     });
 
-    it("shows Live + Has access badges for a user with live IPs and host grants", async () => {
+    it("shows a Live badge for a user with live IPs and host grants", async () => {
         renderDrawer(LIVE_WITH_ACCESS_USER);
 
         await waitFor(
@@ -97,7 +97,8 @@ describe("PolicyUserDrawer", () => {
         );
 
         expect(screen.getByText("Live")).toBeInTheDocument();
-        expect(screen.getByText("Has access")).toBeInTheDocument();
+        // Host authorization is conveyed by the stats and Hosts tab, not a status badge.
+        expect(screen.queryByText("Has access")).not.toBeInTheDocument();
     });
 
     it("shows All hosts pill for a bypass user", async () => {
@@ -111,7 +112,7 @@ describe("PolicyUserDrawer", () => {
         expect(screen.getByText("All hosts")).toBeInTheDocument();
     });
 
-    it("shows Offline + No host access badges for a user with no live IPs and no grants", async () => {
+    it("shows an Offline badge for a user with no live IPs and no grants", async () => {
         renderDrawer(NO_ACCESS_USER);
 
         await waitFor(
@@ -120,10 +121,10 @@ describe("PolicyUserDrawer", () => {
         );
 
         expect(screen.getByText("Offline")).toBeInTheDocument();
-        expect(screen.getByText("No host access")).toBeInTheDocument();
+        expect(screen.queryByText("No host access")).not.toBeInTheDocument();
     });
 
-    it("shows Live + No host access for a revoked user who still has a live device", async () => {
+    it("shows a Live badge but no access badge for a revoked user who still has a live device", async () => {
         // After revoking all group grants, the device is still active (live IP in cache)
         // but the user cannot reach any host. Must not read as "access granted".
         renderDrawer(LIVE_NO_HOST_ACCESS_USER);
@@ -134,7 +135,7 @@ describe("PolicyUserDrawer", () => {
         );
 
         expect(screen.getByText("Live")).toBeInTheDocument();
-        expect(screen.getByText("No host access")).toBeInTheDocument();
+        expect(screen.queryByText("Has access")).not.toBeInTheDocument();
     });
 
     it("shows Admin badge for admin users", async () => {

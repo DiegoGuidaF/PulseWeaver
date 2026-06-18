@@ -17,16 +17,18 @@ import {
   Tooltip,
 } from "@mantine/core";
 import {
+  IconArrowRight,
   IconPlayerPlay,
   IconSearch,
   IconShield,
-  IconShieldOff,
   IconUsers,
   IconWifi,
   IconWifiOff,
 } from "@tabler/icons-react";
+import { Link } from "react-router-dom";
 import type { PolicyUserEntry, PolicyUserIp } from "@/lib/api";
 import { PolicyUserStatus } from "@/lib/api";
+import { buildRoute } from "@/lib/routes";
 import { GeoCell } from "@/components/GeoCell";
 import { AllHostsBypassPill } from "@/features/subjects/components/AllHostsBypassPill";
 
@@ -89,8 +91,6 @@ function DrawerIdentity({ user }: { user: PolicyUserEntry }) {
   const status = user.status;
   const hasLiveIps =
     status === PolicyUserStatus.LIVE_WITH_ACCESS || status === PolicyUserStatus.LIVE_NO_HOST_ACCESS;
-  const hasHostAccess =
-    status === PolicyUserStatus.LIVE_WITH_ACCESS || status === PolicyUserStatus.NO_LIVE_IPS;
 
   return (
     <Group gap="sm" wrap="nowrap" mb="xs">
@@ -104,32 +104,18 @@ function DrawerIdentity({ user }: { user: PolicyUserEntry }) {
         {status === PolicyUserStatus.BYPASS ? (
           <AllHostsBypassPill />
         ) : (
-          <>
-            <Tooltip
-              label={hasLiveIps ? "At least one live IP in the cache" : "No live IPs in the cache"}
-              withArrow
+          <Tooltip
+            label={hasLiveIps ? "At least one live IP in the cache" : "No live IPs in the cache"}
+            withArrow
+          >
+            <Badge
+              variant="light"
+              color={hasLiveIps ? "orange" : "gray"}
+              leftSection={hasLiveIps ? <IconWifi size={12} /> : <IconWifiOff size={12} />}
             >
-              <Badge
-                variant="light"
-                color={hasLiveIps ? "orange" : "gray"}
-                leftSection={hasLiveIps ? <IconWifi size={12} /> : <IconWifiOff size={12} />}
-              >
-                {hasLiveIps ? "Live" : "Offline"}
-              </Badge>
-            </Tooltip>
-            <Tooltip
-              label={hasHostAccess ? "Has host grants in the allowlist" : "No host grants — all requests will be denied"}
-              withArrow
-            >
-              <Badge
-                variant="light"
-                color={hasHostAccess ? "green" : "red"}
-                leftSection={hasHostAccess ? <IconShield size={12} /> : <IconShieldOff size={12} />}
-              >
-                {hasHostAccess ? "Has access" : "No host access"}
-              </Badge>
-            </Tooltip>
-          </>
+              {hasLiveIps ? "Live" : "Offline"}
+            </Badge>
+          </Tooltip>
         )}
         {user.on_shared_ip && (
           <Badge variant="light" color="yellow" leftSection={<IconUsers size={12} />}>
@@ -481,7 +467,20 @@ function DrawerContent({
 
   return (
     <Stack gap="sm">
-      <DrawerIdentity user={user} />
+      <Group justify="space-between" align="flex-start" wrap="nowrap">
+        <DrawerIdentity user={user} />
+        <Button
+          component={Link}
+          to={buildRoute.accessUserDetail(user.user_id)}
+          variant="subtle"
+          size="xs"
+          rightSection={<IconArrowRight size={13} />}
+          c="dimmed"
+          style={{ flexShrink: 0 }}
+        >
+          User settings
+        </Button>
+      </Group>
       <StatsRow user={user} totalHosts={totalHosts} />
 
       {user.on_shared_ip && (
