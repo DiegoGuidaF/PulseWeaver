@@ -87,7 +87,7 @@ export function SuggestionsTab({ data, onRefresh, onStageHosts }: Props) {
           <Text fz={48}>🔍</Text>
           <Title order={3}>Nothing to review</Title>
           <Text c="dimmed" size="sm">
-            No unknown hosts in recent traffic.
+            No unknown hosts in the last 7 days.
           </Text>
           <Button variant="subtle" leftSection={<IconRefresh size={14} />} onClick={onRefresh}>
             Refresh
@@ -100,13 +100,17 @@ export function SuggestionsTab({ data, onRefresh, onStageHosts }: Props) {
   return (
     <Stack gap="md">
       <Card withBorder padding="md">
+        <Text fw={600} mb={4}>
+          Recently suggested hosts
+        </Text>
+        <Text size="sm" c="dimmed" mb="md">
+          Unknown hosts seen in traffic over the last 7 days.
+        </Text>
         {sortedSuggestions.length === 0 ? (
           <Text size="sm" c="dimmed">
-            No unknown hosts in recent traffic.
+            No unknown hosts in the last 7 days.
           </Text>
-        ) : (<>
-
-
+        ) : (
           <Table.ScrollContainer minWidth={600}>
             <Table>
               <Table.Thead>
@@ -177,7 +181,7 @@ export function SuggestionsTab({ data, onRefresh, onStageHosts }: Props) {
               </Table.Tbody>
             </Table>
           </Table.ScrollContainer>
-        </>)}
+        )}
       </Card>
 
       {data.ignored.length > 0 && (

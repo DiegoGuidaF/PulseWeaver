@@ -182,6 +182,8 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 	}, nil
 }
 
+const hostSuggestionsWindow = 7 * 24 * time.Hour
+
 func (r *Repository) GetHostSuggestionsPage(ctx context.Context) (httpapi.HostSuggestionsPage, error) {
 	type suggestionRow struct {
 		FQDN        string          `db:"fqdn"`
@@ -197,13 +199,15 @@ func (r *Repository) GetHostSuggestionsPage(ctx context.Context) (httpapi.HostSu
 			SUM(CASE WHEN al.outcome = 0 THEN 1 ELSE 0 END) AS denied_hits
 		FROM access_log al
 		WHERE al.target_host IS NOT NULL
+		  AND al.created_at >= ?
 		  AND LOWER(al.target_host) NOT IN (SELECT fqdn FROM hosts)
 		  AND LOWER(al.target_host) NOT IN (SELECT fqdn FROM ignored_host_suggestions)
 		GROUP BY LOWER(al.target_host)
 		ORDER BY denied_hits DESC, allowed_hits DESC
 	`
+	since := time.Now().UTC().Add(-hostSuggestionsWindow)
 	var rawSuggestions []suggestionRow
-	if err := r.db.SelectContext(ctx, &rawSuggestions, suggestionsQuery); err != nil {
+	if err := r.db.SelectContext(ctx, &rawSuggestions, suggestionsQuery, since); err != nil {
 		return httpapi.HostSuggestionsPage{}, fmt.Errorf("get host suggestions: %w", err)
 	}
 
