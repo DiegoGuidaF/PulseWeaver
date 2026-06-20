@@ -45,7 +45,8 @@ type HostFixture struct {
 }
 
 // UserFixture describes the seeder inputs for a user.
-// Name is used as username, display name, and email prefix (<name>@test.local).
+// Name is the username; it also supplies the display name and email prefix
+// (<name>@test.local) unless DisplayName / Email override them.
 //
 // Role selects the account's privilege level. The zero value seeds a plain
 // user-role account (no password, exists only to own devices). AdminRole seeds
@@ -57,6 +58,10 @@ type HostFixture struct {
 type UserFixture struct {
 	Name string
 	Role auth.Role
+	// DisplayName overrides the rendered name when set; defaults to Name.
+	DisplayName string
+	// Email overrides the address when set; defaults to <Name>@test.local.
+	Email string
 }
 
 // DeviceLeaseRuleFixture describes an address-lease rule to enable on a device.
@@ -78,6 +83,10 @@ type DeviceMaxActiveRuleFixture struct {
 type DeviceFixture struct {
 	Name      string
 	OwnerUser string
+	// Icon is the device's display icon (emoji or legacy Tabler name); optional.
+	Icon string
+	// GenerateAPIKey mints an API key so the device renders with a key prefix; optional.
+	GenerateAPIKey bool
 }
 
 // AddressFixture describes the seeder inputs for a device address.
@@ -86,8 +95,9 @@ type DeviceFixture struct {
 type AddressFixture struct {
 	Device    string
 	IP        string
-	ExpiresAt *time.Time // if set, a lease is created with this expiry
-	Disabled  bool       // if true, the address is disabled after registration
+	ExpiresAt *time.Time         // if set, a lease is created with this expiry
+	Disabled  bool               // if true, the address is disabled after registration
+	Source    device.EventSource // registration source; defaults to EventSourceManual
 }
 
 // PairingFixture describes a device pairing to seed.
@@ -385,6 +395,7 @@ type Seeder struct {
 	accessLogEntries []AccessLogEntryFixture
 	accessLogVolume  int
 	observedHosts    []observedHostSpec
+	trafficProfile   *TrafficProfile
 	initPolicy       bool
 }
 
@@ -652,7 +663,15 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 		adminPrincipal := AdminPrincipal(s.t, srv)
 		result.users[auth.BootstrapAdminUsername] = adminPrincipal.UserID
 		for _, f := range s.users {
-			u, err := srv.AuthService.CreateUser(ctx, f.Name, f.Name, new(f.Name+"@test.local"), adminPrincipal)
+			displayName := f.DisplayName
+			if displayName == "" {
+				displayName = f.Name
+			}
+			email := f.Email
+			if email == "" {
+				email = f.Name + "@test.local"
+			}
+			u, err := srv.AuthService.CreateUser(ctx, f.Name, displayName, new(email), adminPrincipal)
 			if err != nil {
 				s.t.Fatalf("Seeder: create user %q: %v", f.Name, err)
 			}
@@ -793,7 +812,11 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 		if !ok {
 			s.t.Fatalf("Seeder: device %q references unknown user %q", f.Name, f.OwnerUser)
 		}
-		dev, err := srv.DeviceService.CreateDevice(ctx, &auth.Principal{UserID: ownerID}, f.Name, nil)
+		input := device.CreateDeviceInput{Name: f.Name, GenerateAPIKey: f.GenerateAPIKey}
+		if f.Icon != "" {
+			input.Icon = new(f.Icon)
+		}
+		dev, _, err := srv.DeviceService.CreateDeviceWithOptions(ctx, &auth.Principal{UserID: ownerID}, input)
 		if err != nil {
 			s.t.Fatalf("Seeder: create device %q: %v", f.Name, err)
 		}
@@ -827,7 +850,11 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 		if !ok {
 			s.t.Fatalf("Seeder: address %q references unknown device %q", f.IP, f.Device)
 		}
-		addr, _, err := srv.DeviceService.RegisterAddressActivity(ctx, deviceID, f.IP, device.EventSourceManual)
+		source := f.Source
+		if source == "" {
+			source = device.EventSourceManual
+		}
+		addr, _, err := srv.DeviceService.RegisterAddressActivity(ctx, deviceID, f.IP, source)
 		if err != nil {
 			s.t.Fatalf("Seeder: register address %q for device %q: %v", f.IP, f.Device, err)
 		}
@@ -916,60 +943,17 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 		}
 	}
 
-	// 10. Access log entries (explicit fixtures + opt-in synthetic volume)
-	if len(s.accessLogEntries) > 0 || s.accessLogVolume > 0 || len(s.observedHosts) > 0 {
+	// 10. Access log entries (explicit fixtures + opt-in synthetic volume + generated traffic)
+	if len(s.accessLogEntries) > 0 || s.accessLogVolume > 0 || len(s.observedHosts) > 0 || s.trafficProfile != nil {
 		events := make([]policy.DecisionEvent, 0, len(s.accessLogEntries)+s.accessLogVolume)
 		for _, f := range s.accessLogEntries {
-			e := policy.DecisionEvent{
-				ClientIP:   f.ClientIP,
-				Outcome:    f.Outcome,
-				DenyReason: f.DenyReason,
-				CreatedAt:  time.Now().UTC(),
-				Headers:    map[string][]string{},
-				TargetHost: f.TargetHost,
-				TargetURI:  f.TargetURI,
-				HTTPMethod: f.HTTPMethod,
-				DurationUs: f.DurationUs,
-			}
-			if f.GeoIP != nil {
-				e.GeoIP = *f.GeoIP
-			}
-			switch {
-			case f.PolicyName != "":
-				policyID, ok := result.policies[f.PolicyName]
-				if !ok {
-					s.t.Fatalf("Seeder: access log entry references unknown policy %q", f.PolicyName)
-				}
-				e.MatchSource = policy.MatchSourceNetworkPolicy
-				e.NetworkPolicyID = new(policyID)
-				e.NetworkPolicyName = new(f.PolicyName)
-			case len(f.Devices) > 0:
-				contributors := make([]policy.IPContributor, 0, len(f.Devices))
-				for _, devName := range f.Devices {
-					deviceID, ok := result.devices[devName]
-					if !ok {
-						s.t.Fatalf("Seeder: access log entry references unknown device %q", devName)
-					}
-					addrID, ok := result.addresses[addressKey(devName, f.ClientIP)]
-					if !ok {
-						s.t.Fatalf("Seeder: access log entry for device %q: no address %q seeded — add WithAddress first", devName, f.ClientIP)
-					}
-					ownerName, ok := deviceOwnerByName[devName]
-					if !ok {
-						s.t.Fatalf("Seeder: access log entry: could not resolve owner for device %q", devName)
-					}
-					userID, ok := result.users[ownerName]
-					if !ok {
-						s.t.Fatalf("Seeder: access log entry: owner %q of device %q was not seeded", ownerName, devName)
-					}
-					contributors = append(contributors, policy.IPContributor{
-						DeviceID: deviceID, AddressID: addrID, UserID: userID,
-					})
-				}
-				e.IPContributors = contributors
-				e.MatchSource = policy.MatchSourceDevice
-			}
-			events = append(events, e)
+			events = append(events, s.buildDecisionEvent(f, time.Now().UTC(), result, deviceOwnerByName))
+		}
+		// Generated traffic: a weighted, time-distributed set of events whose
+		// timestamps spread across the profile window ending now, so dashboard
+		// time-series widgets show a curve rather than a single spike.
+		if s.trafficProfile != nil {
+			events = append(events, s.generateTraffic(*s.trafficProfile, result, deviceOwnerByName)...)
 		}
 		// Synthetic volume: cheap denied, no-contributor rows over distinct IPs.
 		for i := 0; i < s.accessLogVolume; i++ {

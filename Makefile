@@ -1,4 +1,4 @@
-.PHONY: dev run test test-front seed-db clean fix lint lint-front typecheck-front lint-all check migrate-up migrate-down migrate-create api \
+.PHONY: dev run test test-front seed-db seed-db-showcase clean fix lint lint-front typecheck-front lint-all check migrate-up migrate-down migrate-create api \
         install-hooks version release-patch release-minor release-major _release check-migrations
 
 # Disable Go workspace mode so -modfile (used by tools/go.mod) works correctly
@@ -43,6 +43,13 @@ test: api-back
 # Override row volume with SEED_ACCESS_LOG_VOLUME (default 250).
 seed-db: api-back
 	SEED_OUT_DIR=$(CURDIR)/db-test-seeds \
+		go test -tags='test dbseed' -run TestGenerateSeedDB -count=1 ./internal/database/
+
+# Like seed-db, but materialises the presentable demo world (SeedShowcaseWorld):
+# recognizable services, named people, and 24h of diurnally-spread traffic that
+# lights up the dashboard. Use for screenshots, walkthroughs and demos.
+seed-db-showcase: api-back
+	SEED_OUT_DIR=$(CURDIR)/db-test-seeds SEED_WORLD=showcase \
 		go test -tags='test dbseed' -run TestGenerateSeedDB -count=1 ./internal/database/
 
 # Run frontend tests using the Node version from frontend/.nvmrc

@@ -75,17 +75,29 @@ func TestGenerateSeedDB(t *testing.T) {
 	}
 
 	// No background services started — generation is a synchronous seed + flush.
-	// SeedFullWorld plus extras the base world lacks: observed host suggestions
-	// and an IPv6 grant + address. Chained here rather than added to SeedFullWorld
-	// so the cross-domain query tests' entity-count assertions stay stable.
-	testutils.SeedFullWorld(t).
-		WithAccessLogVolume(accessLogVolume(t)).
-		WithObservedHost("photos.internal", 3).        // real service to promote
-		WithObservedHost("crawler-bot.junk", 2).       // crawler noise to ignore
-		WithObservedHost("wp-login.php.scan.test", 1). // attack scan noise
-		WithPolicy(testutils.FixturePolicyIPv6).
-		WithAddress(testutils.FixtureAddressIPv6).
-		Build(application)
+	// SEED_WORLD selects the dataset: the default "full" world is the test-shaped
+	// SeedFullWorld (stable entity counts for cross-domain query assertions);
+	// "showcase" is the presentable demo world for screenshots and walkthroughs.
+	switch os.Getenv("SEED_WORLD") {
+	case "showcase":
+		// Self-contained demo world; its traffic profile replaces the synthetic
+		// access-log volume, so WithAccessLogVolume is intentionally not chained.
+		testutils.SeedShowcaseWorld(t).Build(application)
+	case "", "full":
+		// SeedFullWorld plus extras the base world lacks: observed host suggestions
+		// and an IPv6 grant + address. Chained here rather than added to SeedFullWorld
+		// so the cross-domain query tests' entity-count assertions stay stable.
+		testutils.SeedFullWorld(t).
+			WithAccessLogVolume(accessLogVolume(t)).
+			WithObservedHost("photos.internal", 3).        // real service to promote
+			WithObservedHost("crawler-bot.junk", 2).       // crawler noise to ignore
+			WithObservedHost("wp-login.php.scan.test", 1). // attack scan noise
+			WithPolicy(testutils.FixturePolicyIPv6).
+			WithAddress(testutils.FixtureAddressIPv6).
+			Build(application)
+	default:
+		t.Fatalf("SEED_WORLD=%q is not recognised (use \"full\" or \"showcase\")", os.Getenv("SEED_WORLD"))
+	}
 
 	if err := application.Close(); err != nil {
 		t.Fatalf("close app (flush DB): %v", err)
