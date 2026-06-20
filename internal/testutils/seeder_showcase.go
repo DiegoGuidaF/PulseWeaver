@@ -38,23 +38,23 @@ func SeedShowcaseWorld(t *testing.T) *Seeder {
 	s := NewSeeder(t)
 
 	// Groups → services.
-	s.WithGroup(GroupFixture{Name: "Media", Color: "#7950F2", Icon: "IconDeviceTv"}).
-		WithGroup(GroupFixture{Name: "Productivity", Color: "#4C6EF5", Icon: "IconCode"}).
-		WithGroup(GroupFixture{Name: "Infrastructure", Color: "#E8590C", Icon: "IconServer2"}).
-		WithGroup(GroupFixture{Name: "Smart Home", Color: "#0CA678", Icon: "IconHome"})
+	s.WithGroup(GroupMedia).
+		WithGroup(GroupProductivity).
+		WithGroup(GroupInfrastructure).
+		WithGroup(GroupSmartHome)
 
 	for fqdn, group := range showcaseHostGroup {
 		s.WithHost(HostFixture{FQDN: fqdn, Groups: []string{group}})
 	}
 
 	// Users. Sarah is a login-ready admin; the rest are plain accounts.
-	s.WithUser(UserFixture{Name: "sarah_chen", Role: auth.AdminRole, DisplayName: "Sarah Chen", Email: "sarah.chen@example.com"}).
-		WithUser(UserFixture{Name: "james_wilson", DisplayName: "James Wilson", Email: "james.wilson@example.com"}).
-		WithUser(UserFixture{Name: "maria_garcia", DisplayName: "Maria Garcia", Email: "maria.garcia@example.com"}).
-		WithUser(UserFixture{Name: "liam_murphy", DisplayName: "Liam Murphy", Email: "liam.murphy@example.com"}).
-		WithUser(UserFixture{Name: "priya_patel", DisplayName: "Priya Patel", Email: "priya.patel@example.com"}).
-		WithUser(UserFixture{Name: "noah_kim", DisplayName: "Noah Kim", Email: "noah.kim@example.com"}).
-		WithUser(UserFixture{Name: "tom_becker", DisplayName: "Tom Becker", Email: "tom.becker@example.com"})
+	s.WithUser(PersonSarah).
+		WithUser(PersonJames).
+		WithUser(PersonMaria).
+		WithUser(PersonLiam).
+		WithUser(PersonPriya).
+		WithUser(PersonNoah).
+		WithUser(PersonTom)
 
 	// Host-group grants. The bootstrap admin bypasses; Noah and Tom get nothing.
 	s.SetUserAccess(auth.BootstrapAdminUsername, true).
@@ -104,26 +104,26 @@ func SeedShowcaseWorld(t *testing.T) *Seeder {
 // ── showcase data ─────────────────────────────────────────────────────────────
 
 var (
-	showcaseMedia        = []string{"jellyfin.example.com", "plex.example.com", "immich.example.com"}
-	showcaseProductivity = []string{"nextcloud.example.com", "git.example.com", "vault.example.com", "paperless.example.com"}
-	showcaseInfra        = []string{"proxmox.example.com", "grafana.example.com", "pihole.example.com"}
-	showcaseSmartHome    = []string{"home-assistant.example.com", "frigate.example.com"}
+	showcaseMedia        = ServiceMediaHosts
+	showcaseProductivity = ServiceProductivityHosts
+	showcaseInfra        = ServiceInfraHosts
+	showcaseSmartHome    = ServiceSmartHomeHosts
 )
 
 // showcaseHostGroup maps every known host to its single owning group.
 var showcaseHostGroup = func() map[string]string {
 	m := map[string]string{}
 	for _, h := range showcaseMedia {
-		m[h] = "Media"
+		m[h] = GroupMedia.Name
 	}
 	for _, h := range showcaseProductivity {
-		m[h] = "Productivity"
+		m[h] = GroupProductivity.Name
 	}
 	for _, h := range showcaseInfra {
-		m[h] = "Infrastructure"
+		m[h] = GroupInfrastructure.Name
 	}
 	for _, h := range showcaseSmartHome {
-		m[h] = "Smart Home"
+		m[h] = GroupSmartHome.Name
 	}
 	return m
 }()
@@ -151,34 +151,34 @@ var showcaseDevices = []struct{ name, owner, icon string }{
 // showcaseGeo holds the country/ASN each public IP resolves to in the bundled
 // DB-IP databases, so the stored country map and the live top-denied lookups agree.
 var showcaseGeo = map[string]geoip.Result{
-	"73.92.140.7":    {CountryCode: "US", CountryName: "United States", ContinentCode: "NA", ASN: 7922, ASNOrg: "Comcast Cable Communications, LLC"},
-	"98.207.55.33":   {CountryCode: "US", CountryName: "United States", ContinentCode: "NA", ASN: 7922, ASNOrg: "Comcast Cable Communications, LLC"},
-	"24.6.50.10":     {CountryCode: "US", CountryName: "United States", ContinentCode: "NA", ASN: 7922, ASNOrg: "Comcast Cable Communications, LLC"},
-	"86.180.44.21":   {CountryCode: "GB", CountryName: "United Kingdom", ContinentCode: "EU", ASN: 2856, ASNOrg: "British Telecommunications PLC"},
-	"86.14.220.9":    {CountryCode: "GB", CountryName: "United Kingdom", ContinentCode: "EU", ASN: 5089, ASNOrg: "Virgin Media Limited"},
-	"88.6.120.40":    {CountryCode: "ES", CountryName: "Spain", ContinentCode: "EU", ASN: 3352, ASNOrg: "TELEFONICA DE ESPANA S.A.U."},
-	"83.36.77.18":    {CountryCode: "ES", CountryName: "Spain", ContinentCode: "EU", ASN: 3352, ASNOrg: "TELEFONICA DE ESPANA S.A.U."},
-	"86.43.220.11":   {CountryCode: "IE", CountryName: "Ireland", ContinentCode: "EU", ASN: 5466, ASNOrg: "Eircom Limited"},
-	"91.62.40.10":    {CountryCode: "DE", CountryName: "Germany", ContinentCode: "EU", ASN: 3320, ASNOrg: "Deutsche Telekom AG"},
-	"218.92.0.118":   {CountryCode: "CN", CountryName: "China", ContinentCode: "AS", ASN: 4134, ASNOrg: "Chinanet"},
-	"116.31.116.40":  {CountryCode: "CN", CountryName: "China", ContinentCode: "AS", ASN: 4134, ASNOrg: "Chinanet"},
-	"61.177.172.10":  {CountryCode: "CN", CountryName: "China", ContinentCode: "AS", ASN: 4134, ASNOrg: "Chinanet"},
-	"221.181.10.5":   {CountryCode: "CN", CountryName: "China", ContinentCode: "AS", ASN: 9808, ASNOrg: "China Mobile"},
-	"45.155.205.50":  {CountryCode: "RU", CountryName: "Russia", ContinentCode: "EU", ASN: 208677, ASNOrg: "Cloud Technologies LLC"},
-	"5.188.206.10":   {CountryCode: "US", CountryName: "United States", ContinentCode: "NA", ASN: 200391, ASNOrg: "KREZ 999 EOOD"},
-	"80.82.77.139":   {CountryCode: "NL", CountryName: "The Netherlands", ContinentCode: "EU", ASN: 202425, ASNOrg: "IP Volume inc"},
-	"89.248.165.50":  {CountryCode: "NL", CountryName: "The Netherlands", ContinentCode: "EU", ASN: 202425, ASNOrg: "IP Volume inc"},
-	"193.32.162.40":  {CountryCode: "NL", CountryName: "The Netherlands", ContinentCode: "EU", ASN: 47890, ASNOrg: "UNMANAGED LTD"},
-	"185.220.101.40": {CountryCode: "DE", CountryName: "Germany", ContinentCode: "EU", ASN: 60729, ASNOrg: "Stiftung Erneuerbare Freiheit"},
-	"123.30.100.20":  {CountryCode: "VN", CountryName: "Vietnam", ContinentCode: "AS", ASN: 45899, ASNOrg: "VNPT Corp"},
-	"14.177.10.5":    {CountryCode: "VN", CountryName: "Vietnam", ContinentCode: "AS", ASN: 45899, ASNOrg: "VNPT Corp"},
-	"103.102.40.5":   {CountryCode: "PK", CountryName: "Pakistan", ContinentCode: "AS", ASN: 58895, ASNOrg: "E Bone Network (Pvt.) Limited"},
-	"200.160.2.3":    {CountryCode: "BR", CountryName: "Brazil", ContinentCode: "SA", ASN: 22548, ASNOrg: "NIC.BR"},
-	"177.71.207.10":  {CountryCode: "BR", CountryName: "Brazil", ContinentCode: "SA", ASN: 16509, ASNOrg: "Amazon.com, Inc."},
-	"41.79.10.5":     {CountryCode: "KE", CountryName: "Kenya", ContinentCode: "AF", ASN: 37305, ASNOrg: "Frontier Optical Networks Ltd"},
-	"196.30.100.7":   {CountryCode: "ZA", CountryName: "South Africa", ContinentCode: "AF", ASN: 16637, ASNOrg: "MTN SA"},
-	"79.140.10.20":   {CountryCode: "UA", CountryName: "Ukraine", ContinentCode: "EU", ASN: 6876, ASNOrg: "TENET LLC"},
-	"194.165.16.10":  {CountryCode: "LT", CountryName: "Lithuania", ContinentCode: "EU", ASN: 48721, ASNOrg: "Flyservers S.A."},
+	"73.92.140.7":    GeoResult("US", 7922, "Comcast Cable Communications, LLC"),
+	"98.207.55.33":   GeoResult("US", 7922, "Comcast Cable Communications, LLC"),
+	"24.6.50.10":     GeoResult("US", 7922, "Comcast Cable Communications, LLC"),
+	"86.180.44.21":   GeoResult("GB", 2856, "British Telecommunications PLC"),
+	"86.14.220.9":    GeoResult("GB", 5089, "Virgin Media Limited"),
+	"88.6.120.40":    GeoResult("ES", 3352, "TELEFONICA DE ESPANA S.A.U."),
+	"83.36.77.18":    GeoResult("ES", 3352, "TELEFONICA DE ESPANA S.A.U."),
+	"86.43.220.11":   GeoResult("IE", 5466, "Eircom Limited"),
+	"91.62.40.10":    GeoResult("DE", 3320, "Deutsche Telekom AG"),
+	"218.92.0.118":   GeoResult("CN", 4134, "Chinanet"),
+	"116.31.116.40":  GeoResult("CN", 4134, "Chinanet"),
+	"61.177.172.10":  GeoResult("CN", 4134, "Chinanet"),
+	"221.181.10.5":   GeoResult("CN", 9808, "China Mobile"),
+	"45.155.205.50":  GeoResult("RU", 208677, "Cloud Technologies LLC"),
+	"5.188.206.10":   GeoResult("US", 200391, "KREZ 999 EOOD"),
+	"80.82.77.139":   GeoResult("NL", 202425, "IP Volume inc"),
+	"89.248.165.50":  GeoResult("NL", 202425, "IP Volume inc"),
+	"193.32.162.40":  GeoResult("NL", 47890, "UNMANAGED LTD"),
+	"185.220.101.40": GeoResult("DE", 60729, "Stiftung Erneuerbare Freiheit"),
+	"123.30.100.20":  GeoResult("VN", 45899, "VNPT Corp"),
+	"14.177.10.5":    GeoResult("VN", 45899, "VNPT Corp"),
+	"103.102.40.5":   GeoResult("PK", 58895, "E Bone Network (Pvt.) Limited"),
+	"200.160.2.3":    GeoResult("BR", 22548, "NIC.BR"),
+	"177.71.207.10":  GeoResult("BR", 16509, "Amazon.com, Inc."),
+	"41.79.10.5":     GeoResult("KE", 37305, "Frontier Optical Networks Ltd"),
+	"196.30.100.7":   GeoResult("ZA", 16637, "MTN SA"),
+	"79.140.10.20":   GeoResult("UA", 6876, "TENET LLC"),
+	"194.165.16.10":  GeoResult("LT", 48721, "Flyservers S.A."),
 }
 
 func showcaseGeoFor(ip string) *geoip.Result {

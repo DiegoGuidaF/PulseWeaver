@@ -89,15 +89,15 @@ func TestHandler_GetDashboardAttributionSplit(t *testing.T) {
 	is.Equal(bypass.AllowCount, int64(1)) // FixtureAccessLogBypassAllow
 	is.Equal(bypass.DenyCount, int64(0))
 
-	// ── user ── (display_name == fixture Name)
+	// ── user ── (entities are keyed by display name)
 	users := attributionSplit(t, testServer.HTTPServer, adminCookie, "user")
-	// alice: AliceAllow + SharedIPAllow, two distinct requests.
-	is.Equal(users[testutils.FixtureUserWithAccess.Name].AllowCount, int64(2))
-	is.Equal(users[testutils.FixtureUserWithAccess.Name].DenyCount, int64(0))
-	// charlie: only the shared-IP request.
-	is.Equal(users[testutils.FixtureUserBypassAccess.Name].AllowCount, int64(1))
-	// bob: a single host-denied request.
-	is.Equal(users[testutils.FixtureUserNoAccess.Name].DenyCount, int64(1))
+	// with-access user: AliceAllow + SharedIPAllow, two distinct requests.
+	is.Equal(users[testutils.FixtureUserWithAccess.DisplayName].AllowCount, int64(2))
+	is.Equal(users[testutils.FixtureUserWithAccess.DisplayName].DenyCount, int64(0))
+	// bypass user: only the shared-IP request.
+	is.Equal(users[testutils.FixtureUserBypassAccess.DisplayName].AllowCount, int64(1))
+	// no-access user: a single host-denied request.
+	is.Equal(users[testutils.FixtureUserNoAccess.DisplayName].DenyCount, int64(1))
 
 	// ── device ──
 	devices := attributionSplit(t, testServer.HTTPServer, adminCookie, "device")

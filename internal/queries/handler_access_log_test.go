@@ -23,11 +23,12 @@ import (
 // honest fixture. Operator→SQL translation and cursor mechanics are unit-tested in
 // internal/queries/filterx; per-column validation is unit-tested in access_log_query_test.go.
 //
-// The seeded access-log world (10 entries; see testutils.SeedFullWorld):
-//   1 AliceAllow         10.1.0.1     allow  contrib[alice-laptop]               host api1  country NULL
-//   2 BobHostDeny        10.2.0.1     deny   contrib[bob-phone]                  host api2  country NULL
+// The seeded access-log world (10 entries; see testutils.SeedFullWorld). Hosts
+// are referenced by their Fixture identifier (api1=Backend1 … web2=Frontend2):
+//   1 AliceAllow         10.1.0.1     allow  contrib[james-laptop]               host api1  country NULL
+//   2 BobHostDeny        10.2.0.1     deny   contrib[noah-phone]                 host api2  country NULL
 //   3 UnknownDeny        9.9.9.9      deny   no contrib                          host web1  country NULL
-//   4 SharedIPAllow      10.1.0.1     allow  contrib[alice-laptop,charlie-desktop] host web2 country NULL  (ambiguous)
+//   4 SharedIPAllow      10.1.0.1     allow  contrib[james-laptop,maria-desktop] host web2 country NULL  (ambiguous)
 //   5 NetworkPolicyAllow 10.3.0.1     allow  policy corp-vpn                     host api1  country NULL
 //   6 BypassAllow        192.168.1.50 allow  policy ops-network                  host web1  country NULL
 //   7 GeoGermanyAPI      198.51.100.10 deny  no contrib  GET  30us  /api/users   host api1  country DE
@@ -163,7 +164,7 @@ func TestHandler_GetAccessLog_Contributors(t *testing.T) {
 	is.Equal(row.ContributorCount, 2)
 	is.Equal(len(row.Contributors), 2)
 	is.True(row.Contributors[0].DeviceId != nil)
-	is.Equal(*row.Contributors[0].DeviceId, int64(aliceLaptop)) // "alice-laptop" sorts before
+	is.Equal(*row.Contributors[0].DeviceId, int64(aliceLaptop)) // "james-laptop" sorts before "maria-desktop"
 	is.Equal(*row.Contributors[1].DeviceId, int64(charlieDesktop))
 
 	// A 0-contributor entry (denied unknown IP) returns an empty slice, never nil.

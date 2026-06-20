@@ -148,36 +148,36 @@ var (
 	FixturePolicyNoGroups        = PolicyFixture{Name: "isolated", CIDR: "172.16.0.0/12"}
 	FixturePolicyBypassHostCheck = PolicyFixture{Name: "ops-network", CIDR: "192.168.0.0/16"}
 
-	FixtureGroupBackend  = GroupFixture{Name: "backend"}
-	FixtureGroupFrontend = GroupFixture{Name: "frontend"}
-	FixtureGroupEmpty    = GroupFixture{Name: "empty-group"}
+	FixtureGroupBackend  = GroupMedia
+	FixtureGroupFrontend = GroupProductivity
+	FixtureGroupEmpty    = GroupInfrastructure // empty in the test world (no hosts assigned)
 
 	FixtureHostBackend1  = HostFixture{FQDN: "api1.internal", Groups: []string{FixtureGroupBackend.Name}}
 	FixtureHostBackend2  = HostFixture{FQDN: "api2.internal", Groups: []string{FixtureGroupBackend.Name}}
 	FixtureHostFrontend1 = HostFixture{FQDN: "web1.internal", Groups: []string{FixtureGroupFrontend.Name}}
 	FixtureHostFrontend2 = HostFixture{FQDN: "web2.internal", Groups: []string{FixtureGroupFrontend.Name}}
 
-	FixtureUserWithAccess   = UserFixture{Name: "alice"}   // backend + frontend, no bypass
-	FixtureUserNoAccess     = UserFixture{Name: "bob"}     // no group access
-	FixtureUserBypassAccess = UserFixture{Name: "charlie"} // backend with bypass=true
+	FixtureUserWithAccess   = PersonJames // backend + frontend, no bypass
+	FixtureUserNoAccess     = PersonNoah  // no group access
+	FixtureUserBypassAccess = PersonMaria // backend with bypass=true
 
-	FixtureDeviceWithOwnerAccess    = DeviceFixture{Name: "alice-laptop", OwnerUser: FixtureUserWithAccess.Name}
-	FixtureDeviceWithoutOwnerAccess = DeviceFixture{Name: "bob-phone", OwnerUser: FixtureUserNoAccess.Name}
-	FixtureDeviceBypassAccess       = DeviceFixture{Name: "charlie-desktop", OwnerUser: FixtureUserBypassAccess.Name}
+	FixtureDeviceWithOwnerAccess    = DeviceFixture{Name: "james-laptop", OwnerUser: FixtureUserWithAccess.Name}
+	FixtureDeviceWithoutOwnerAccess = DeviceFixture{Name: "noah-phone", OwnerUser: FixtureUserNoAccess.Name}
+	FixtureDeviceBypassAccess       = DeviceFixture{Name: "maria-desktop", OwnerUser: FixtureUserBypassAccess.Name}
 
-	// Rules seeded on alice-laptop by SeedFullWorld.
+	// Rules seeded on the with-access device (james-laptop) by SeedFullWorld.
 	FixtureLeaseRuleAliceLaptop     = DeviceLeaseRuleFixture{Device: FixtureDeviceWithOwnerAccess.Name, TTLSeconds: 3600}
 	FixtureMaxActiveRuleAliceLaptop = DeviceMaxActiveRuleFixture{Device: FixtureDeviceWithOwnerAccess.Name, MaxAddresses: 2}
 
 	FixtureAddressAlice         = AddressFixture{Device: FixtureDeviceWithOwnerAccess.Name, IP: "10.1.0.1"}
 	FixtureAddressAliceDisabled = AddressFixture{Device: FixtureDeviceWithOwnerAccess.Name, IP: "10.4.0.3", Disabled: true}
 	FixtureAddressBob           = AddressFixture{Device: FixtureDeviceWithoutOwnerAccess.Name, IP: "10.2.0.1"}
-	FixtureAddressShared        = AddressFixture{Device: FixtureDeviceBypassAccess.Name, IP: "10.1.0.1"} // charlie shares alice's IP
+	FixtureAddressShared        = AddressFixture{Device: FixtureDeviceBypassAccess.Name, IP: "10.1.0.1"} // Maria's device shares James's IP
 
-	// diana owns two devices seeded purely to exercise the pairing summary statuses.
-	FixtureUserPairing          = UserFixture{Name: "diana"}
-	FixtureDevicePairingUsed    = DeviceFixture{Name: "diana-used-device", OwnerUser: FixtureUserPairing.Name}
-	FixtureDevicePairingExpired = DeviceFixture{Name: "diana-expired-device", OwnerUser: FixtureUserPairing.Name}
+	// Liam owns two devices seeded purely to exercise the pairing summary statuses.
+	FixtureUserPairing          = PersonLiam
+	FixtureDevicePairingUsed    = DeviceFixture{Name: "liam-used-device", OwnerUser: FixtureUserPairing.Name}
+	FixtureDevicePairingExpired = DeviceFixture{Name: "liam-expired-device", OwnerUser: FixtureUserPairing.Name}
 
 	// Pairing fixtures covering all four non-nil last_pairing statuses.
 	FixturePairingBobPending         = PairingFixture{Device: FixtureDeviceWithoutOwnerAccess.Name, Status: "pending"}
@@ -204,9 +204,9 @@ var (
 	// These exercise the country/continent, http_method, target_uri, and
 	// duration-sort filters; the six entries above have no GeoIP (country NULL),
 	// so together they cover the is_null / NULL-inclusion paths too.
-	FixtureGeoGermany = geoip.Result{CountryCode: "DE", CountryName: "Germany", ContinentCode: "EU", ASN: 3320, ASNOrg: "Deutsche Telekom"}
-	FixtureGeoUSA     = geoip.Result{CountryCode: "US", CountryName: "United States", ContinentCode: "NA", ASN: 15169, ASNOrg: "Google LLC"}
-	FixtureGeoSpain   = geoip.Result{CountryCode: "ES", CountryName: "Spain", ContinentCode: "EU", ASN: 12479, ASNOrg: "Orange Espagne"}
+	FixtureGeoGermany = GeoResult("DE", 3320, "Deutsche Telekom")
+	FixtureGeoUSA     = GeoResult("US", 15169, "Google LLC")
+	FixtureGeoSpain   = GeoResult("ES", 12479, "Orange Espagne")
 
 	FixtureAccessLogGeoGermanyAPI   = AccessLogEntryFixture{ClientIP: "198.51.100.10", Outcome: false, DenyReason: new(policy.DenyReasonIPNotRegistered), TargetHost: new(FixtureHostBackend1.FQDN), TargetURI: new("/api/users"), HTTPMethod: new("GET"), DurationUs: 30, GeoIP: &FixtureGeoGermany}
 	FixtureAccessLogGeoGermanyLogin = AccessLogEntryFixture{ClientIP: "198.51.100.11", Outcome: false, DenyReason: new(policy.DenyReasonIPNotRegistered), TargetHost: new(FixtureHostBackend2.FQDN), TargetURI: new("/api/login"), HTTPMethod: new("POST"), DurationUs: 220, GeoIP: &FixtureGeoGermany}
@@ -227,37 +227,37 @@ const SeededAdminPassword = TestAdminPassword
 // They serve both the cross-domain query tests and the PW-66 security audit.
 
 var (
-	// Role coverage: a login-ready admin (erin) and the bootstrap superadmin,
+	// Role coverage: a login-ready admin (Sarah) and the bootstrap superadmin,
 	// each owning a device with one address. The plain user role is already
-	// covered by FixtureUserWithAccess (alice).
-	FixtureUserAdmin         = UserFixture{Name: "erin", Role: auth.AdminRole}
-	FixtureDeviceAdmin       = DeviceFixture{Name: "erin-laptop", OwnerUser: FixtureUserAdmin.Name}
+	// covered by FixtureUserWithAccess (James).
+	FixtureUserAdmin         = PersonSarah
+	FixtureDeviceAdmin       = DeviceFixture{Name: "sarah-laptop", OwnerUser: FixtureUserAdmin.Name}
 	FixtureAddressAdmin      = AddressFixture{Device: FixtureDeviceAdmin.Name, IP: "10.4.0.1"}
 	FixtureDeviceSuperAdmin  = DeviceFixture{Name: "admin-laptop", OwnerUser: auth.BootstrapAdminUsername}
 	FixtureAddressSuperAdmin = AddressFixture{Device: FixtureDeviceSuperAdmin.Name, IP: "10.5.0.1"}
 
-	// Edge / NULL entities are owned by a dedicated user (grace) so they do not
-	// perturb the per-owner assertions of the alice/bob/charlie/diana fixtures.
-	// grace has no group access.
-	FixtureUserEdge = UserFixture{Name: "grace"}
+	// Edge / NULL entities are owned by a dedicated user (Tom) so they do not
+	// perturb the per-owner assertions of the James/Noah/Maria/Liam fixtures.
+	// Tom has no group access.
+	FixtureUserEdge = PersonTom
 	// Orphan device: created with no address (no WithAddress call).
-	FixtureDeviceOrphan = DeviceFixture{Name: "grace-orphan", OwnerUser: FixtureUserEdge.Name}
+	FixtureDeviceOrphan = DeviceFixture{Name: "tom-orphan", OwnerUser: FixtureUserEdge.Name}
 	// Device with multiple addresses.
-	FixtureDeviceMultiAddr = DeviceFixture{Name: "grace-multi", OwnerUser: FixtureUserEdge.Name}
+	FixtureDeviceMultiAddr = DeviceFixture{Name: "tom-multi", OwnerUser: FixtureUserEdge.Name}
 	FixtureAddressMultiA   = AddressFixture{Device: FixtureDeviceMultiAddr.Name, IP: "10.6.0.1"}
 	FixtureAddressMultiB   = AddressFixture{Device: FixtureDeviceMultiAddr.Name, IP: "10.6.0.2"}
 	// Disabled address.
-	FixtureDeviceDisabledAddr = DeviceFixture{Name: "grace-disabled", OwnerUser: FixtureUserEdge.Name}
+	FixtureDeviceDisabledAddr = DeviceFixture{Name: "tom-disabled", OwnerUser: FixtureUserEdge.Name}
 	FixtureAddressDisabled    = AddressFixture{Device: FixtureDeviceDisabledAddr.Name, IP: "10.7.0.1", Disabled: true}
 
-	// Third contributor on the shared IP 10.1.0.1: alice-laptop + charlie-desktop
-	// + frank-laptop. frank is a bypass user (host check bypassed, no group
+	// Third contributor on the shared IP 10.1.0.1: james-laptop + maria-desktop
+	// + priya-laptop. Priya is a bypass user (host check bypassed, no group
 	// membership), so it contributes "all hosts" to the contributor intersection —
-	// the shared-IP allow path is unchanged and frank does not perturb the
+	// the shared-IP allow path is unchanged and Priya does not perturb the
 	// per-group user-count assertions, while the IP now exercises the
 	// 3+-contributor query/cache paths.
-	FixtureUserSharedExtra    = UserFixture{Name: "frank"}
-	FixtureDeviceSharedThird  = DeviceFixture{Name: "frank-laptop", OwnerUser: FixtureUserSharedExtra.Name}
+	FixtureUserSharedExtra    = PersonPriya
+	FixtureDeviceSharedThird  = DeviceFixture{Name: "priya-laptop", OwnerUser: FixtureUserSharedExtra.Name}
 	FixtureAddressSharedThird = AddressFixture{Device: FixtureDeviceSharedThird.Name, IP: "10.1.0.1"}
 
 	// Adversarial-string names — escaping/encoding paths and the stored-XSS
@@ -280,7 +280,7 @@ var (
 	// IPv6 site allocation in the "normal" band (/48 is narrower than the /47 warn
 	// line), so it is accepted without the broad-CIDR flag.
 	FixturePolicyIPv6 = PolicyFixture{Name: "home-ipv6", CIDR: "2001:db8::/48", Desc: "IPv6 home LAN"}
-	// An IPv6 address making grace-multi dual-stack, for IPv6 rendering.
+	// An IPv6 address making the multi-address device (tom-multi) dual-stack, for IPv6 rendering.
 	FixtureAddressIPv6 = AddressFixture{Device: FixtureDeviceMultiAddr.Name, IP: "2001:db8::1"}
 )
 
@@ -1038,38 +1038,46 @@ func (s *Seeder) WithEdgeEntities() *Seeder {
 //
 // What is created:
 //
-//	Groups:      FixtureGroupEmpty, FixtureGroupBackend, FixtureGroupFrontend,
+//	Identities come from the shared roster (see seeder_identity.go): the
+//	role-named Fixture* variables back onto real people — FixtureUserWithAccess is
+//	James, FixtureUserNoAccess is Noah, FixtureUserBypassAccess is Maria,
+//	FixtureUserPairing is Liam, FixtureUserAdmin is Sarah, FixtureUserEdge is Tom,
+//	FixtureUserSharedExtra is Priya — and the two real service groups (Media,
+//	Productivity). Addresses, CIDRs and the access log stay test-private here.
+//
+//	Groups:      FixtureGroupEmpty (Infrastructure, empty), FixtureGroupBackend (Media),
+//	             FixtureGroupFrontend (Productivity),
 //	             FixtureGroupAdversarial (<script> name — escaping/XSS-render precondition)
-//	Hosts:       FixtureHostBackend1+2 (backend); FixtureHostFrontend1+2 (frontend)
-//	Users:       FixtureUserWithAccess (alice, backend+frontend), FixtureUserNoAccess (bob),
-//	             FixtureUserBypassAccess (charlie, backend bypass), FixtureUserPairing (diana),
-//	             FixtureUserAdmin (erin, admin role, login-ready via SeededAdminPassword),
-//	             FixtureUserEdge (grace, owns the NULL/edge devices, no access),
-//	             FixtureUserSharedExtra (frank, bypass user, third contributor on 10.1.0.1);
+//	Hosts:       FixtureHostBackend1+2 (Media); FixtureHostFrontend1+2 (Productivity)
+//	Users:       FixtureUserWithAccess (James, Media+Productivity), FixtureUserNoAccess (Noah),
+//	             FixtureUserBypassAccess (Maria, Media bypass), FixtureUserPairing (Liam),
+//	             FixtureUserAdmin (Sarah, admin role, login-ready via SeededAdminPassword),
+//	             FixtureUserEdge (Tom, owns the NULL/edge devices, no access),
+//	             FixtureUserSharedExtra (Priya, bypass user, third contributor on 10.1.0.1);
 //	             the bootstrap admin (auth.BootstrapAdminUsername) is the superadmin and is
 //	             registered in SeedResult so it can own devices
-//	Policies:    FixturePolicyWithGroups (backend+frontend), FixturePolicyNoGroups (no groups),
+//	Policies:    FixturePolicyWithGroups (Media+Productivity), FixturePolicyNoGroups (no groups),
 //	             FixturePolicyBypassHostCheck (ops-network, bypass_host_check=true, 192.168.0.0/16),
 //	             FixturePolicyAdversarial (quote/unicode name + <img onerror> desc, 10.99.0.0/16)
-//	Devices:     FixtureDeviceWithOwnerAccess (alice-laptop), FixtureDeviceWithoutOwnerAccess (bob-phone),
-//	             FixtureDeviceBypassAccess (charlie-desktop),
-//	             FixtureDevicePairingUsed (diana-used-device), FixtureDevicePairingExpired (diana-expired-device),
-//	             FixtureDeviceAdmin (erin-laptop), FixtureDeviceSuperAdmin (admin-laptop, owned by bootstrap admin),
-//	             FixtureDeviceOrphan (grace-orphan, no address), FixtureDeviceMultiAddr (grace-multi, two addresses),
-//	             FixtureDeviceSharedThird (frank-laptop, third contributor on 10.1.0.1),
-//	             FixtureDeviceDisabledAddr (grace-disabled, one disabled address)
-//	Rules:       FixtureLeaseRuleAliceLaptop (1h TTL), FixtureMaxActiveRuleAliceLaptop (max 2) — alice-laptop only
+//	Devices:     FixtureDeviceWithOwnerAccess (james-laptop), FixtureDeviceWithoutOwnerAccess (noah-phone),
+//	             FixtureDeviceBypassAccess (maria-desktop),
+//	             FixtureDevicePairingUsed (liam-used-device), FixtureDevicePairingExpired (liam-expired-device),
+//	             FixtureDeviceAdmin (sarah-laptop), FixtureDeviceSuperAdmin (admin-laptop, owned by bootstrap admin),
+//	             FixtureDeviceOrphan (tom-orphan, no address), FixtureDeviceMultiAddr (tom-multi, two addresses),
+//	             FixtureDeviceSharedThird (priya-laptop, third contributor on 10.1.0.1),
+//	             FixtureDeviceDisabledAddr (tom-disabled, one disabled address)
+//	Rules:       FixtureLeaseRuleAliceLaptop (1h TTL), FixtureMaxActiveRuleAliceLaptop (max 2) — james-laptop only
 //	Addresses:   FixtureAddressAlice (10.1.0.1), FixtureAddressBob (10.2.0.1),
-//	             FixtureAddressShared (charlie-desktop at 10.1.0.1 — shared with alice),
-//	             FixtureAddressAdmin (erin 10.4.0.1), FixtureAddressSuperAdmin (admin 10.5.0.1),
-//	             FixtureAddressMultiA/B (grace-multi 10.6.0.1/2), FixtureAddressSharedThird (frank-laptop 10.1.0.1),
-//	             FixtureAddressDisabled (grace-disabled 10.7.0.1, disabled)
-//	Pairings:    FixturePairingBobPending (bob-phone, pending),
-//	             FixturePairingCharlieInvalidated (charlie-desktop, invalidated),
-//	             FixturePairingDianaUsed (diana-used-device, used),
-//	             FixturePairingDianaExpired (diana-expired-device, expired)
-//	             alice-laptop has no pairing (nil last_pairing)
-//	Policy cache: initialized; SharedIpCount=1 (10.1.0.1 owned by alice, charlie and frank)
+//	             FixtureAddressShared (maria-desktop at 10.1.0.1 — shared with james-laptop),
+//	             FixtureAddressAdmin (Sarah 10.4.0.1), FixtureAddressSuperAdmin (admin 10.5.0.1),
+//	             FixtureAddressMultiA/B (tom-multi 10.6.0.1/2), FixtureAddressSharedThird (priya-laptop 10.1.0.1),
+//	             FixtureAddressDisabled (tom-disabled 10.7.0.1, disabled)
+//	Pairings:    FixturePairingBobPending (noah-phone, pending),
+//	             FixturePairingCharlieInvalidated (maria-desktop, invalidated),
+//	             FixturePairingDianaUsed (liam-used-device, used),
+//	             FixturePairingDianaExpired (liam-expired-device, expired)
+//	             james-laptop has no pairing (nil last_pairing)
+//	Policy cache: initialized; SharedIpCount=1 (10.1.0.1 owned by James, Maria and Priya)
 //	Access log:  FixtureAccessLogAliceAllow (allow, single contributor)
 //	             FixtureAccessLogBobHostDeny (deny host_not_allowed, single contributor)
 //	             FixtureAccessLogUnknownDeny (deny ip_not_registered, no contributor)

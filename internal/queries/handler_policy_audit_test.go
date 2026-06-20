@@ -88,7 +88,7 @@ func TestHandler_GetPolicyUserMap(t *testing.T) {
 	is.Equal(response.TotalHostCount, 4) // FixtureHostBackend1+2 + FixtureHostFrontend1+2
 
 	// ─── alice: backend+frontend access, active device ────────────────────────
-	alice := findUser(response.Users, testutils.FixtureUserWithAccess.Name)
+	alice := findUser(response.Users, testutils.FixtureUserWithAccess.DisplayName)
 	is.True(alice != nil)
 	is.Equal(alice.BypassAllowlist, false)
 	is.Equal(alice.IsAdmin, false)
@@ -102,7 +102,7 @@ func TestHandler_GetPolicyUserMap(t *testing.T) {
 	is.Equal(alice.Ips[0].Addresses[0].DeviceName, testutils.FixtureDeviceWithOwnerAccess.Name)
 
 	// ─── bob: no group access, active device ──────────────────────────────────
-	bob := findUser(response.Users, testutils.FixtureUserNoAccess.Name)
+	bob := findUser(response.Users, testutils.FixtureUserNoAccess.DisplayName)
 	is.True(bob != nil)
 	is.Equal(bob.BypassAllowlist, false)
 	is.Equal(bob.IsAdmin, false)
@@ -114,7 +114,7 @@ func TestHandler_GetPolicyUserMap(t *testing.T) {
 	is.Equal(bob.Ips[0].Ip, "10.2.0.1")
 
 	// ─── charlie: backend access with bypass, shares alice's IP ─────────────
-	charlie := findUser(response.Users, testutils.FixtureUserBypassAccess.Name)
+	charlie := findUser(response.Users, testutils.FixtureUserBypassAccess.DisplayName)
 	is.True(charlie != nil)
 	is.Equal(charlie.BypassAllowlist, true)
 	is.Equal(charlie.IsAdmin, false)
