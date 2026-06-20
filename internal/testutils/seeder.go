@@ -992,6 +992,38 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 	return result
 }
 
+// ── composable add-on presets ─────────────────────────────────────────────────
+
+// WithAdversarialEntities chains the adversarial-string group and policy — a
+// <script> group name plus a SQL-injection policy name with an <img onerror>
+// description. They are the escaping/encoding and stored-XSS render precondition
+// for the security audit. Self-contained, so any world (including the showcase)
+// can layer them on when a test or audit needs an injection target; kept out of
+// the showcase preset itself so the hostile strings never reach a screenshot.
+func (s *Seeder) WithAdversarialEntities() *Seeder {
+	s.t.Helper()
+	return s.
+		WithGroup(FixtureGroupAdversarial).
+		WithPolicy(FixturePolicyAdversarial)
+}
+
+// WithEdgeEntities chains the NULL/edge device shapes owned by FixtureUserEdge
+// (grace, no group access): an orphan device with no address, a device with two
+// addresses, and a device with a single disabled address. Self-contained, so any
+// base world can layer it on to exercise the orphan / multi-address /
+// disabled-address query and rendering paths.
+func (s *Seeder) WithEdgeEntities() *Seeder {
+	s.t.Helper()
+	return s.
+		WithUser(FixtureUserEdge).
+		WithDevice(FixtureDeviceOrphan).
+		WithDevice(FixtureDeviceMultiAddr).
+		WithDevice(FixtureDeviceDisabledAddr).
+		WithAddress(FixtureAddressMultiA).
+		WithAddress(FixtureAddressMultiB).
+		WithAddress(FixtureAddressDisabled)
+}
+
 // ── full-world preset ─────────────────────────────────────────────────────────
 
 // SeedFullWorld returns a Seeder pre-loaded with a comprehensive, realistic
@@ -1053,7 +1085,6 @@ func SeedFullWorld(t *testing.T) *Seeder {
 		WithGroup(FixtureGroupEmpty).
 		WithGroup(FixtureGroupBackend).
 		WithGroup(FixtureGroupFrontend).
-		WithGroup(FixtureGroupAdversarial).
 		WithHost(FixtureHostBackend1).
 		WithHost(FixtureHostBackend2).
 		WithHost(FixtureHostFrontend1).
@@ -1066,12 +1097,10 @@ func SeedFullWorld(t *testing.T) *Seeder {
 		WithPolicy(FixturePolicyWithGroups).
 		WithPolicy(FixturePolicyNoGroups).
 		WithPolicy(FixturePolicyBypassHostCheck).
-		WithPolicy(FixturePolicyAdversarial).
 		AssignGroupsToPolicy(FixturePolicyWithGroups.Name, FixtureGroupBackend.Name, FixtureGroupFrontend.Name).
 		WithPolicyBypassHostCheck(FixturePolicyBypassHostCheck.Name).
 		WithUser(FixtureUserPairing).
 		WithUser(FixtureUserAdmin).
-		WithUser(FixtureUserEdge).
 		WithUser(FixtureUserSharedExtra).
 		SetUserAccess(FixtureUserSharedExtra.Name, true).
 		WithDevice(FixtureDeviceWithOwnerAccess).
@@ -1081,10 +1110,7 @@ func SeedFullWorld(t *testing.T) *Seeder {
 		WithDevice(FixtureDevicePairingExpired).
 		WithDevice(FixtureDeviceAdmin).
 		WithDevice(FixtureDeviceSuperAdmin).
-		WithDevice(FixtureDeviceOrphan).
-		WithDevice(FixtureDeviceMultiAddr).
 		WithDevice(FixtureDeviceSharedThird).
-		WithDevice(FixtureDeviceDisabledAddr).
 		WithDeviceLeaseRule(FixtureLeaseRuleAliceLaptop).
 		WithDeviceMaxActiveRule(FixtureMaxActiveRuleAliceLaptop).
 		WithAddress(FixtureAddressAlice).
@@ -1093,10 +1119,9 @@ func SeedFullWorld(t *testing.T) *Seeder {
 		WithAddress(FixtureAddressShared).
 		WithAddress(FixtureAddressAdmin).
 		WithAddress(FixtureAddressSuperAdmin).
-		WithAddress(FixtureAddressMultiA).
-		WithAddress(FixtureAddressMultiB).
 		WithAddress(FixtureAddressSharedThird).
-		WithAddress(FixtureAddressDisabled).
+		WithEdgeEntities().
+		WithAdversarialEntities().
 		WithPairing(FixturePairingBobPending).
 		WithPairing(FixturePairingCharlieInvalidated).
 		WithPairing(FixturePairingDianaUsed).
