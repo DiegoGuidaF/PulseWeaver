@@ -3,6 +3,7 @@ package queries
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
@@ -81,11 +82,13 @@ func (r *Repository) countPendingHostSuggestions(ctx context.Context) (int, erro
 		SELECT DISTINCT LOWER(al.target_host) AS fqdn
 		FROM access_log al
 		WHERE al.target_host IS NOT NULL
+		  AND al.created_at >= ?
 		  AND LOWER(al.target_host) NOT IN (SELECT fqdn FROM hosts)
 		  AND LOWER(al.target_host) NOT IN (SELECT fqdn FROM ignored_host_suggestions)
 	`
+	since := time.Now().UTC().Add(-hostSuggestionsWindow)
 	var fqdns []string
-	if err := r.db.SelectContext(ctx, &fqdns, query); err != nil {
+	if err := r.db.SelectContext(ctx, &fqdns, query, since); err != nil {
 		return 0, fmt.Errorf("select pending host suggestions: %w", err)
 	}
 
