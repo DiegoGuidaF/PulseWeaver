@@ -1,4 +1,4 @@
-.PHONY: dev run test test-front seed-db seed-db-showcase clean fix lint lint-front typecheck-front lint-all check migrate-up migrate-down migrate-create api \
+.PHONY: dev run test test-front seed-db seed-db-sample seed-dev clean fix lint lint-front typecheck-front lint-all check migrate-up migrate-down migrate-create api \
         install-hooks version release-patch release-minor release-major _release check-migrations
 
 # Disable Go workspace mode so -modfile (used by tools/go.mod) works correctly
@@ -45,12 +45,24 @@ seed-db: api-back
 	SEED_OUT_DIR=$(CURDIR)/db-test-seeds \
 		go test -tags='test dbseed' -run TestGenerateSeedDB -count=1 ./internal/database/
 
-# Like seed-db, but materialises the presentable demo world (SeedShowcaseWorld):
+# Like seed-db, but materialises the presentable sample world (SeedSampleWorld):
 # recognizable services, named people, and 24h of diurnally-spread traffic that
-# lights up the dashboard. Use for screenshots, walkthroughs and demos.
-seed-db-showcase: api-back
-	SEED_OUT_DIR=$(CURDIR)/db-test-seeds SEED_WORLD=showcase \
+# lights up the dashboard. Use for local dev, screenshots, walkthroughs and demos.
+seed-db-sample: api-back
+	SEED_OUT_DIR=$(CURDIR)/db-test-seeds SEED_WORLD=sample \
 		go test -tags='test dbseed' -run TestGenerateSeedDB -count=1 ./internal/database/
+
+# Seed the local dev DB ($(DB_PATH)) with the sample world, then `make dev-back`.
+# Builds a fresh sample seed and plants the newest one as data.db (clearing any
+# WAL/SHM sidecars). Stop dev-back first so the swap is safe.
+seed-dev: seed-db-sample
+	@SEED=$$(ls -t $(CURDIR)/db-test-seeds/seed-*.db 2>/dev/null | head -1); \
+	if [ -z "$$SEED" ]; then echo "❌ No seed produced in db-test-seeds/"; exit 1; fi; \
+	echo "📦 Planting $$SEED → $(DB_PATH)..."; \
+	mkdir -p $$(dirname $(DB_PATH)); \
+	rm -f "$(DB_PATH)" "$(DB_PATH)-wal" "$(DB_PATH)-shm"; \
+	cp "$$SEED" "$(DB_PATH)"; \
+	echo "✅ Dev DB seeded. Login: admin / AdminPass123! — run 'make dev-back'."
 
 # Run frontend tests using the Node version from frontend/.nvmrc
 test-front:

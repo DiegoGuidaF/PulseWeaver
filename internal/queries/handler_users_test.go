@@ -34,10 +34,10 @@ func TestHandler_ListUsersWithAccess_HappyPath(t *testing.T) {
 	alice := findUserRow(rows, seed.User(testutils.FixtureUserWithAccess.Name).Int64())
 	is.True(alice != nil)
 	is.Equal(alice.BypassHostCheck, false)
-	is.Equal(alice.HostCount, 4)        // FixtureGroupBackend(2) + FixtureGroupFrontend(2)
+	is.Equal(alice.HostCount, 4)        // GroupMedia(2) + GroupProductivity(2)
 	is.Equal(alice.DeviceCount, 1)      // FixtureDeviceWithOwnerAccess
 	is.Equal(alice.LiveAddressCount, 1) // FixtureAddressAlice. Disabled address is not counted
-	is.Equal(len(alice.Groups), 2)      // FixtureGroupBackend + FixtureGroupFrontend
+	is.Equal(len(alice.Groups), 2)      // GroupMedia + GroupProductivity
 
 	bob := findUserRow(rows, seed.User(testutils.FixtureUserNoAccess.Name).Int64())
 	is.True(bob != nil)
@@ -52,7 +52,7 @@ func TestHandler_ListUsersWithAccess_HappyPath(t *testing.T) {
 	is.Equal(charlie.BypassHostCheck, true)
 	is.Equal(charlie.HostCount, 4) // bypass = all 4 hosts
 	is.Equal(charlie.DeviceCount, 1)
-	is.Equal(len(charlie.Groups), 1) // FixtureGroupBackend only
+	is.Equal(len(charlie.Groups), 1) // GroupMedia only
 }
 
 func TestHandler_ListUsersWithAccess_Unauthenticated(t *testing.T) {
@@ -89,17 +89,17 @@ func TestHandler_GetUserAccessDetail_HappyPath(t *testing.T) {
 	// all 4 groups are returned; only backend and frontend are granted
 	is.Equal(len(resp.Groups), 4)
 
-	backend := findGroup(resp.Groups, testutils.FixtureGroupBackend.Name)
+	backend := findGroup(resp.Groups, testutils.GroupMedia.Name)
 	is.True(backend != nil)
 	is.Equal(backend.Granted, true)
 	is.Equal(len(backend.Hosts), 2) // FixtureHostBackend1+2
 
-	frontend := findGroup(resp.Groups, testutils.FixtureGroupFrontend.Name)
+	frontend := findGroup(resp.Groups, testutils.GroupProductivity.Name)
 	is.True(frontend != nil)
 	is.Equal(frontend.Granted, true)
 	is.Equal(len(frontend.Hosts), 2) // FixtureHostFrontend1+2
 
-	emptyGroup := findGroup(resp.Groups, testutils.FixtureGroupEmpty.Name)
+	emptyGroup := findGroup(resp.Groups, testutils.GroupInfrastructure.Name)
 	is.True(emptyGroup != nil)
 	is.Equal(emptyGroup.Granted, false)
 	is.Equal(len(emptyGroup.Hosts), 0)

@@ -9,7 +9,7 @@
 // latest-schema, self-contained SQLite artifact to db-test-seeds/seed-<ts>.db.
 // Consumers load it by copying the file (no migrations — it is already at the
 // latest schema). The bootstrap admin password is testutils.TestAdminPassword
-// and the seeded admin (erin) uses testutils.SeededAdminPassword.
+// and the seeded admin (Sarah) uses testutils.SeededAdminPassword.
 package database_test
 
 import (
@@ -77,12 +77,12 @@ func TestGenerateSeedDB(t *testing.T) {
 	// No background services started — generation is a synchronous seed + flush.
 	// SEED_WORLD selects the dataset: the default "full" world is the test-shaped
 	// SeedFullWorld (stable entity counts for cross-domain query assertions);
-	// "showcase" is the presentable demo world for screenshots and walkthroughs.
+	// "sample" is the presentable world for local dev, screenshots, and walkthroughs.
 	switch os.Getenv("SEED_WORLD") {
-	case "showcase":
-		// Self-contained demo world; its traffic profile replaces the synthetic
+	case "sample":
+		// Self-contained sample world; its traffic profile replaces the synthetic
 		// access-log volume, so WithAccessLogVolume is intentionally not chained.
-		testutils.SeedShowcaseWorld(t).Build(application)
+		testutils.SeedSampleWorld(t).Build(application)
 	case "", "full":
 		// SeedFullWorld plus extras the base world lacks: observed host suggestions
 		// and an IPv6 grant + address. Chained here rather than added to SeedFullWorld
@@ -96,7 +96,7 @@ func TestGenerateSeedDB(t *testing.T) {
 			WithAddress(testutils.FixtureAddressIPv6).
 			Build(application)
 	default:
-		t.Fatalf("SEED_WORLD=%q is not recognised (use \"full\" or \"showcase\")", os.Getenv("SEED_WORLD"))
+		t.Fatalf("SEED_WORLD=%q is not recognised (use \"full\" or \"sample\")", os.Getenv("SEED_WORLD"))
 	}
 
 	if err := application.Close(); err != nil {

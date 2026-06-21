@@ -62,7 +62,7 @@ func TestHandler_ListNetworkPolicies_ReturnsPolicySummary(t *testing.T) {
 	is.Equal(corpVPN.Cidr, testutils.FixturePolicyWithGroups.CIDR)
 	is.True(corpVPN.Enabled)
 	is.Equal(corpVPN.BypassHostCheck, false)
-	is.Equal(len(corpVPN.Groups), 2) // FixtureGroupBackend + FixtureGroupFrontend
+	is.Equal(len(corpVPN.Groups), 2) // GroupMedia + GroupProductivity
 	is.Equal(corpVPN.HostCount, 4)   // FixtureHostBackend1+2 + FixtureHostFrontend1+2
 	is.True(!time.Time(corpVPN.CreatedAt).IsZero())
 
@@ -124,17 +124,17 @@ func TestHandler_GetNetworkPolicy_ReturnsDetail(t *testing.T) {
 	is.Equal(resp.BypassHostCheck, false)
 	is.True(!time.Time(resp.CreatedAt).IsZero())
 	is.True(!time.Time(resp.UpdatedAt).IsZero())
-	// All 4 groups returned (FixtureGroupEmpty + FixtureGroupBackend + FixtureGroupFrontend + FixtureGroupAdversarial); 2 are granted
+	// All 4 groups returned (GroupInfrastructure + GroupMedia + GroupProductivity + FixtureGroupAdversarial); 2 are granted
 	is.Equal(len(resp.Groups), 4)
-	backend := findGroup(resp.Groups, testutils.FixtureGroupBackend.Name)
+	backend := findGroup(resp.Groups, testutils.GroupMedia.Name)
 	is.True(backend != nil)
 	is.True(backend.Granted)
 	is.Equal(len(backend.Hosts), 2) // FixtureHostBackend1 + FixtureHostBackend2
-	frontend := findGroup(resp.Groups, testutils.FixtureGroupFrontend.Name)
+	frontend := findGroup(resp.Groups, testutils.GroupProductivity.Name)
 	is.True(frontend != nil)
 	is.True(frontend.Granted)
 	is.Equal(len(frontend.Hosts), 2) // FixtureHostFrontend1 + FixtureHostFrontend2
-	emptyGroup := findGroup(resp.Groups, testutils.FixtureGroupEmpty.Name)
+	emptyGroup := findGroup(resp.Groups, testutils.GroupInfrastructure.Name)
 	is.True(emptyGroup != nil)
 	is.Equal(emptyGroup.Granted, false)
 	is.Equal(len(emptyGroup.Hosts), 0)

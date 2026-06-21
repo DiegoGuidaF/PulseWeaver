@@ -11,7 +11,7 @@ import (
 // groups, and country metadata that both seeded worlds compose from. Only the
 // identity is shared — the per-world structure (which groups a user can reach,
 // how many devices they own, their addresses, the access-log/traffic) is layered
-// by SeedFullWorld and SeedShowcaseWorld separately, because those depend on
+// by SeedFullWorld and SeedSampleWorld separately, because those depend on
 // addressing that the two worlds deliberately keep apart (private policy-test IPs
 // vs public geolocated demo IPs).
 
@@ -58,7 +58,7 @@ var (
 // ── GeoIP / country catalog ───────────────────────────────────────────────────
 //
 // One source of truth for country metadata (name + continent by ISO code), so the
-// test fixtures and the showcase IP→geo map agree on every country and never
+// test fixtures and the sample IP→geo map agree on every country and never
 // repeat the name/continent literals. ASN + org stay per call because a single
 // country is served by many networks.
 

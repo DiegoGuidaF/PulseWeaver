@@ -12,11 +12,13 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 )
 
-// SeedShowcaseWorld returns a Seeder pre-loaded with a presentable, demo-quality
+// SeedSampleWorld returns a Seeder pre-loaded with a presentable, realistic
 // dataset: a small remote team self-hosting recognizable services (Jellyfin,
 // Nextcloud, Gitea, Vaultwarden, Grafana, Proxmox, Home Assistant, …). It is the
-// counterpart to SeedFullWorld — same builder, presentable fixtures — intended
-// for screenshots, walkthroughs, and demos rather than entity-count assertions.
+// counterpart to SeedFullWorld — same builder, presentable fixtures — and is the
+// world to run the app against: local development (see `make seed-dev`),
+// screenshots, walkthroughs, and demos. It is not shaped for entity-count
+// assertions; SeedFullWorld is.
 //
 // The login stays admin / TestAdminPassword (the bootstrap admin renders as
 // "Administrator", a bypass user). The generated traffic spans the last 24h with
@@ -28,7 +30,7 @@ import (
 // Posture distribution: 1 bypass (admin), 4 live-with-access (Sarah, James,
 // Maria, Liam), 1 live-no-host-access (Noah — live device, no grants), 1
 // no-live-ips (Priya — stale device), 1 no-access (Tom — invited, no device).
-func SeedShowcaseWorld(t *testing.T) *Seeder {
+func SeedSampleWorld(t *testing.T) *Seeder {
 	t.Helper()
 
 	const day = 24 * time.Hour
@@ -43,7 +45,7 @@ func SeedShowcaseWorld(t *testing.T) *Seeder {
 		WithGroup(GroupInfrastructure).
 		WithGroup(GroupSmartHome)
 
-	for fqdn, group := range showcaseHostGroup {
+	for fqdn, group := range sampleHostGroup {
 		s.WithHost(HostFixture{FQDN: fqdn, Groups: []string{group}})
 	}
 
@@ -75,7 +77,7 @@ func SeedShowcaseWorld(t *testing.T) *Seeder {
 		AssignGroupsToPolicy("Tailscale Mesh", "Productivity")
 
 	// Devices (one or two per active user; Tom has none).
-	for _, d := range showcaseDevices {
+	for _, d := range sampleDevices {
 		s.WithDevice(DeviceFixture{Name: d.name, OwnerUser: d.owner, Icon: d.icon, GenerateAPIKey: true})
 		s.WithPairing(PairingFixture{Device: d.name, Status: "used"})
 	}
@@ -97,45 +99,45 @@ func SeedShowcaseWorld(t *testing.T) *Seeder {
 		WithAddress(AddressFixture{Device: "Admin Workstation", IP: "24.6.50.10", Source: device.EventSourceHeartbeat})
 
 	s.WithPolicyInitialize()
-	s.WithGeneratedTraffic(showcaseTraffic())
+	s.WithGeneratedTraffic(sampleTraffic())
 	return s
 }
 
-// ── showcase data ─────────────────────────────────────────────────────────────
+// ── sample data ─────────────────────────────────────────────────────────────
 
 var (
-	showcaseMedia        = ServiceMediaHosts
-	showcaseProductivity = ServiceProductivityHosts
-	showcaseInfra        = ServiceInfraHosts
-	showcaseSmartHome    = ServiceSmartHomeHosts
+	sampleMedia        = ServiceMediaHosts
+	sampleProductivity = ServiceProductivityHosts
+	sampleInfra        = ServiceInfraHosts
+	sampleSmartHome    = ServiceSmartHomeHosts
 )
 
-// showcaseHostGroup maps every known host to its single owning group.
-var showcaseHostGroup = func() map[string]string {
+// sampleHostGroup maps every known host to its single owning group.
+var sampleHostGroup = func() map[string]string {
 	m := map[string]string{}
-	for _, h := range showcaseMedia {
+	for _, h := range sampleMedia {
 		m[h] = GroupMedia.Name
 	}
-	for _, h := range showcaseProductivity {
+	for _, h := range sampleProductivity {
 		m[h] = GroupProductivity.Name
 	}
-	for _, h := range showcaseInfra {
+	for _, h := range sampleInfra {
 		m[h] = GroupInfrastructure.Name
 	}
-	for _, h := range showcaseSmartHome {
+	for _, h := range sampleSmartHome {
 		m[h] = GroupSmartHome.Name
 	}
 	return m
 }()
 
-func showcaseAllHosts() []string {
-	out := append([]string{}, showcaseMedia...)
-	out = append(out, showcaseProductivity...)
-	out = append(out, showcaseInfra...)
-	return append(out, showcaseSmartHome...)
+func sampleAllHosts() []string {
+	out := append([]string{}, sampleMedia...)
+	out = append(out, sampleProductivity...)
+	out = append(out, sampleInfra...)
+	return append(out, sampleSmartHome...)
 }
 
-var showcaseDevices = []struct{ name, owner, icon string }{
+var sampleDevices = []struct{ name, owner, icon string }{
 	{"Sarah's MacBook Pro", "sarah_chen", "💻"},
 	{"Sarah's iPhone", "sarah_chen", "📱"},
 	{"James's Desktop", "james_wilson", "🖥️"},
@@ -148,9 +150,12 @@ var showcaseDevices = []struct{ name, owner, icon string }{
 	{"Admin Workstation", auth.BootstrapAdminUsername, "🖥️"},
 }
 
-// showcaseGeo holds the country/ASN each public IP resolves to in the bundled
-// DB-IP databases, so the stored country map and the live top-denied lookups agree.
-var showcaseGeo = map[string]geoip.Result{
+// sampleGeo is the hand-maintained country/ASN for each public IP, kept close to
+// what the DB-IP databases would resolve. It is written straight into the seeded
+// access-log rows; there is no automated check that it matches live resolution
+// (the DB-IP files are not present in the test environment), so treat minor drift
+// from a real lookup as cosmetic.
+var sampleGeo = map[string]geoip.Result{
 	"73.92.140.7":    GeoResult("US", 7922, "Comcast Cable Communications, LLC"),
 	"98.207.55.33":   GeoResult("US", 7922, "Comcast Cable Communications, LLC"),
 	"24.6.50.10":     GeoResult("US", 7922, "Comcast Cable Communications, LLC"),
@@ -181,28 +186,28 @@ var showcaseGeo = map[string]geoip.Result{
 	"194.165.16.10":  GeoResult("LT", 48721, "Flyservers S.A."),
 }
 
-func showcaseGeoFor(ip string) *geoip.Result {
-	if g, ok := showcaseGeo[ip]; ok {
+func sampleGeoFor(ip string) *geoip.Result {
+	if g, ok := sampleGeo[ip]; ok {
 		return &g
 	}
 	return nil
 }
 
-// showcaseTraffic builds the weighted, time-spread traffic profile: legitimate
+// sampleTraffic builds the weighted, time-spread traffic profile: legitimate
 // team + network-policy traffic, configured users denied at hosts they lack, and
 // a wall of denied internet-scanner noise — plus a few unknown hosts that surface
 // as suggestions.
-func showcaseTraffic() TrafficProfile {
+func sampleTraffic() TrafficProfile {
 	methods := []string{"GET", "GET", "GET", "POST"}
 	uris := []string{"/", "/api/health", "/web/index.html", "/dashboard", "/library", "/api/v1/status"}
 	hostDeny := new(policy.DenyReasonHostNotAllowed)
 	ipDeny := new(policy.DenyReasonIPNotRegistered)
 
-	allHosts := showcaseAllHosts()
-	mediaProd := append(append([]string{}, showcaseMedia...), showcaseProductivity...)
-	prodInfra := append(append([]string{}, showcaseProductivity...), showcaseInfra...)
-	infraSmart := append(append([]string{}, showcaseInfra...), showcaseSmartHome...)
-	mediaInfra := append(append([]string{}, showcaseMedia...), showcaseInfra...)
+	allHosts := sampleAllHosts()
+	mediaProd := append(append([]string{}, sampleMedia...), sampleProductivity...)
+	prodInfra := append(append([]string{}, sampleProductivity...), sampleInfra...)
+	infraSmart := append(append([]string{}, sampleInfra...), sampleSmartHome...)
+	mediaInfra := append(append([]string{}, sampleMedia...), sampleInfra...)
 
 	var streams []TrafficStream
 
@@ -217,13 +222,13 @@ func showcaseTraffic() TrafficProfile {
 		{"Admin Workstation", "24.6.50.10", allHosts, nil, 210, 0},
 		{"James's Desktop", "86.180.44.21", mediaProd, infraSmart, 180, 22},
 		{"James's Pixel", "86.14.220.9", mediaProd, infraSmart, 170, 18},
-		{"Maria's Laptop", "88.6.120.40", append(append([]string{}, showcaseMedia...), showcaseSmartHome...), prodInfra, 150, 20},
-		{"Maria's iPhone", "83.36.77.18", append(append([]string{}, showcaseMedia...), showcaseSmartHome...), prodInfra, 130, 15},
-		{"Liam's ThinkPad", "86.43.220.11", showcaseProductivity, mediaInfra, 150, 25},
+		{"Maria's Laptop", "88.6.120.40", append(append([]string{}, sampleMedia...), sampleSmartHome...), prodInfra, 150, 20},
+		{"Maria's iPhone", "83.36.77.18", append(append([]string{}, sampleMedia...), sampleSmartHome...), prodInfra, 130, 15},
+		{"Liam's ThinkPad", "86.43.220.11", sampleProductivity, mediaInfra, 150, 25},
 		{"Noah's Laptop", "91.62.40.10", nil, allHosts, 0, 150}, // no grants → all denied
 	}
 	for _, d := range devTraffic {
-		geo := showcaseGeoFor(d.ip)
+		geo := sampleGeoFor(d.ip)
 		if d.allowN > 0 {
 			streams = append(streams, TrafficStream{
 				Count: d.allowN, ClientIPs: []string{d.ip}, Outcome: true,
@@ -250,7 +255,7 @@ func showcaseTraffic() TrafficProfile {
 		{"Home LAN", []string{"192.168.1.10", "192.168.1.20", "192.168.1.42", "192.168.1.50"}, allHosts, 260},
 		{"WireGuard VPN", []string{"10.8.0.2", "10.8.0.5", "10.8.0.9"}, prodInfra, 180},
 		{"Office Network", []string{"198.51.100.20", "198.51.100.21", "198.51.100.22"}, mediaProd, 150},
-		{"Tailscale Mesh", []string{"100.64.1.5", "100.64.1.8"}, showcaseProductivity, 90},
+		{"Tailscale Mesh", []string{"100.64.1.5", "100.64.1.8"}, sampleProductivity, 90},
 	}
 	for _, p := range policyTraffic {
 		streams = append(streams, TrafficStream{
@@ -278,7 +283,7 @@ func showcaseTraffic() TrafficProfile {
 	for _, sc := range scanners {
 		streams = append(streams, TrafficStream{
 			Count: sc.n, ClientIPs: []string{sc.ip}, Outcome: false, DenyReason: ipDeny,
-			Hosts: attackTargets, Geo: showcaseGeoFor(sc.ip), Methods: scanMethods, URIs: scanURIs,
+			Hosts: attackTargets, Geo: sampleGeoFor(sc.ip), Methods: scanMethods, URIs: scanURIs,
 		})
 	}
 

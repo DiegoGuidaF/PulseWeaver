@@ -148,18 +148,18 @@ var (
 	FixturePolicyNoGroups        = PolicyFixture{Name: "isolated", CIDR: "172.16.0.0/12"}
 	FixturePolicyBypassHostCheck = PolicyFixture{Name: "ops-network", CIDR: "192.168.0.0/16"}
 
-	FixtureGroupBackend  = GroupMedia
-	FixtureGroupFrontend = GroupProductivity
-	FixtureGroupEmpty    = GroupInfrastructure // empty in the test world (no hosts assigned)
+	// The full world seeds GroupMedia + GroupProductivity (two hosts each) and
+	// GroupInfrastructure (no hosts — the empty-group path); all three come from
+	// the shared roster in seeder_identity.go.
 
-	FixtureHostBackend1  = HostFixture{FQDN: "api1.internal", Groups: []string{FixtureGroupBackend.Name}}
-	FixtureHostBackend2  = HostFixture{FQDN: "api2.internal", Groups: []string{FixtureGroupBackend.Name}}
-	FixtureHostFrontend1 = HostFixture{FQDN: "web1.internal", Groups: []string{FixtureGroupFrontend.Name}}
-	FixtureHostFrontend2 = HostFixture{FQDN: "web2.internal", Groups: []string{FixtureGroupFrontend.Name}}
+	FixtureHostBackend1  = HostFixture{FQDN: "api1.internal", Groups: []string{GroupMedia.Name}}
+	FixtureHostBackend2  = HostFixture{FQDN: "api2.internal", Groups: []string{GroupMedia.Name}}
+	FixtureHostFrontend1 = HostFixture{FQDN: "web1.internal", Groups: []string{GroupProductivity.Name}}
+	FixtureHostFrontend2 = HostFixture{FQDN: "web2.internal", Groups: []string{GroupProductivity.Name}}
 
-	FixtureUserWithAccess   = PersonJames // backend + frontend, no bypass
+	FixtureUserWithAccess   = PersonJames // Media + Productivity, no bypass
 	FixtureUserNoAccess     = PersonNoah  // no group access
-	FixtureUserBypassAccess = PersonMaria // backend with bypass=true
+	FixtureUserBypassAccess = PersonMaria // Media with bypass=true
 
 	FixtureDeviceWithOwnerAccess    = DeviceFixture{Name: "james-laptop", OwnerUser: FixtureUserWithAccess.Name}
 	FixtureDeviceWithoutOwnerAccess = DeviceFixture{Name: "noah-phone", OwnerUser: FixtureUserNoAccess.Name}
@@ -997,9 +997,9 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 // WithAdversarialEntities chains the adversarial-string group and policy — a
 // <script> group name plus a SQL-injection policy name with an <img onerror>
 // description. They are the escaping/encoding and stored-XSS render precondition
-// for the security audit. Self-contained, so any world (including the showcase)
+// for the security audit. Self-contained, so any world (including the sample one)
 // can layer them on when a test or audit needs an injection target; kept out of
-// the showcase preset itself so the hostile strings never reach a screenshot.
+// the sample preset itself so the hostile strings never reach a screenshot.
 func (s *Seeder) WithAdversarialEntities() *Seeder {
 	s.t.Helper()
 	return s.
@@ -1045,8 +1045,7 @@ func (s *Seeder) WithEdgeEntities() *Seeder {
 //	FixtureUserSharedExtra is Priya — and the two real service groups (Media,
 //	Productivity). Addresses, CIDRs and the access log stay test-private here.
 //
-//	Groups:      FixtureGroupEmpty (Infrastructure, empty), FixtureGroupBackend (Media),
-//	             FixtureGroupFrontend (Productivity),
+//	Groups:      GroupInfrastructure (empty — no hosts), GroupMedia, GroupProductivity,
 //	             FixtureGroupAdversarial (<script> name — escaping/XSS-render precondition)
 //	Hosts:       FixtureHostBackend1+2 (Media); FixtureHostFrontend1+2 (Productivity)
 //	Users:       FixtureUserWithAccess (James, Media+Productivity), FixtureUserNoAccess (Noah),
@@ -1090,9 +1089,9 @@ func (s *Seeder) WithEdgeEntities() *Seeder {
 func SeedFullWorld(t *testing.T) *Seeder {
 	t.Helper()
 	return NewSeeder(t).
-		WithGroup(FixtureGroupEmpty).
-		WithGroup(FixtureGroupBackend).
-		WithGroup(FixtureGroupFrontend).
+		WithGroup(GroupInfrastructure).
+		WithGroup(GroupMedia).
+		WithGroup(GroupProductivity).
 		WithHost(FixtureHostBackend1).
 		WithHost(FixtureHostBackend2).
 		WithHost(FixtureHostFrontend1).
@@ -1100,12 +1099,12 @@ func SeedFullWorld(t *testing.T) *Seeder {
 		WithUser(FixtureUserWithAccess).
 		WithUser(FixtureUserNoAccess).
 		WithUser(FixtureUserBypassAccess).
-		SetUserAccess(FixtureUserWithAccess.Name, false, FixtureGroupBackend.Name, FixtureGroupFrontend.Name).
-		SetUserAccess(FixtureUserBypassAccess.Name, true, FixtureGroupBackend.Name).
+		SetUserAccess(FixtureUserWithAccess.Name, false, GroupMedia.Name, GroupProductivity.Name).
+		SetUserAccess(FixtureUserBypassAccess.Name, true, GroupMedia.Name).
 		WithPolicy(FixturePolicyWithGroups).
 		WithPolicy(FixturePolicyNoGroups).
 		WithPolicy(FixturePolicyBypassHostCheck).
-		AssignGroupsToPolicy(FixturePolicyWithGroups.Name, FixtureGroupBackend.Name, FixtureGroupFrontend.Name).
+		AssignGroupsToPolicy(FixturePolicyWithGroups.Name, GroupMedia.Name, GroupProductivity.Name).
 		WithPolicyBypassHostCheck(FixturePolicyBypassHostCheck.Name).
 		WithUser(FixtureUserPairing).
 		WithUser(FixtureUserAdmin).

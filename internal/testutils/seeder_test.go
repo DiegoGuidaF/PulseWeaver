@@ -16,9 +16,9 @@ func TestSeedFullWorld_AllEntitiesCreated(t *testing.T) {
 	seed := testutils.SeedFullWorld(t).Build(srv)
 
 	// Groups
-	is.True(seed.Group(testutils.FixtureGroupEmpty.Name) != 0)
-	is.True(seed.Group(testutils.FixtureGroupBackend.Name) != 0)
-	is.True(seed.Group(testutils.FixtureGroupFrontend.Name) != 0)
+	is.True(seed.Group(testutils.GroupInfrastructure.Name) != 0)
+	is.True(seed.Group(testutils.GroupMedia.Name) != 0)
+	is.True(seed.Group(testutils.GroupProductivity.Name) != 0)
 
 	// Hosts
 	is.True(seed.Host(testutils.FixtureHostBackend1.FQDN) != 0)
@@ -59,7 +59,7 @@ func TestSeedFullWorld_AllEntitiesCreated(t *testing.T) {
 	is.Equal(policyContribCount, 2)
 
 	// IDs are distinct (no silent collision)
-	is.True(seed.Group(testutils.FixtureGroupBackend.Name) != seed.Group(testutils.FixtureGroupFrontend.Name))
+	is.True(seed.Group(testutils.GroupMedia.Name) != seed.Group(testutils.GroupProductivity.Name))
 	is.True(seed.User(testutils.FixtureUserWithAccess.Name) != seed.User(testutils.FixtureUserNoAccess.Name))
 	is.True(seed.Device(testutils.FixtureDeviceWithOwnerAccess.Name) != seed.Device(testutils.FixtureDeviceWithoutOwnerAccess.Name))
 }

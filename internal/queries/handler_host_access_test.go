@@ -73,22 +73,22 @@ func TestHandler_ListHosts_HappyPath(t *testing.T) {
 	api1 := findHost(resp.Hosts, testutils.FixtureHostBackend1.FQDN)
 	is.True(api1 != nil)
 	is.Equal(len(api1.Groups), 1)
-	is.Equal(api1.Groups[0].Name, testutils.FixtureGroupBackend.Name)
+	is.Equal(api1.Groups[0].Name, testutils.GroupMedia.Name)
 
 	api2 := findHost(resp.Hosts, testutils.FixtureHostBackend2.FQDN)
 	is.True(api2 != nil)
 	is.Equal(len(api2.Groups), 1)
-	is.Equal(api2.Groups[0].Name, testutils.FixtureGroupBackend.Name)
+	is.Equal(api2.Groups[0].Name, testutils.GroupMedia.Name)
 
 	web1 := findHost(resp.Hosts, testutils.FixtureHostFrontend1.FQDN)
 	is.True(web1 != nil)
 	is.Equal(len(web1.Groups), 1)
-	is.Equal(web1.Groups[0].Name, testutils.FixtureGroupFrontend.Name)
+	is.Equal(web1.Groups[0].Name, testutils.GroupProductivity.Name)
 
 	web2 := findHost(resp.Hosts, testutils.FixtureHostFrontend2.FQDN)
 	is.True(web2 != nil)
 	is.Equal(len(web2.Groups), 1)
-	is.Equal(web2.Groups[0].Name, testutils.FixtureGroupFrontend.Name)
+	is.Equal(web2.Groups[0].Name, testutils.GroupProductivity.Name)
 }
 
 func TestHandler_ListHosts_Empty(t *testing.T) {
@@ -138,10 +138,10 @@ func TestHandler_ListHostGroups_HappyPath(t *testing.T) {
 	is.Equal(w.Code, http.StatusOK)
 	var resp httpapi.GroupListResponse
 	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
-	is.Equal(len(resp.Groups), 4) // FixtureGroupBackend, FixtureGroupFrontend, FixtureGroupEmpty, FixtureGroupAdversarial
+	is.Equal(len(resp.Groups), 4) // GroupMedia, GroupProductivity, GroupInfrastructure, FixtureGroupAdversarial
 
 	// backend: 2 hosts, 2 users (alice+charlie), 1 network policy (corp-vpn)
-	backend := findGroupWithUsers(resp.Groups, testutils.FixtureGroupBackend.Name)
+	backend := findGroupWithUsers(resp.Groups, testutils.GroupMedia.Name)
 	is.True(backend != nil)
 	is.Equal(len(backend.Hosts), 2) // FixtureHostBackend1+2
 	is.True(backend.Users != nil)
@@ -152,7 +152,7 @@ func TestHandler_ListHostGroups_HappyPath(t *testing.T) {
 	is.Equal(backendPolicy.Cidr, testutils.FixturePolicyWithGroups.CIDR)
 
 	// frontend: 2 hosts, 1 user (alice only), 1 network policy (corp-vpn)
-	frontend := findGroupWithUsers(resp.Groups, testutils.FixtureGroupFrontend.Name)
+	frontend := findGroupWithUsers(resp.Groups, testutils.GroupProductivity.Name)
 	is.True(frontend != nil)
 	is.Equal(len(frontend.Hosts), 2) // FixtureHostFrontend1+2
 	is.True(frontend.Users != nil)
@@ -161,7 +161,7 @@ func TestHandler_ListHostGroups_HappyPath(t *testing.T) {
 	is.True(findNetworkPolicyRef(frontend.NetworkPolicies, testutils.FixturePolicyWithGroups.Name) != nil)
 
 	// empty-group: no hosts, no users, no network policies
-	emptyGroup := findGroupWithUsers(resp.Groups, testutils.FixtureGroupEmpty.Name)
+	emptyGroup := findGroupWithUsers(resp.Groups, testutils.GroupInfrastructure.Name)
 	is.True(emptyGroup != nil)
 	is.Equal(len(emptyGroup.Hosts), 0)
 	is.True(emptyGroup.Users != nil)
