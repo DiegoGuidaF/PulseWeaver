@@ -3,12 +3,14 @@
 package policy_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"strings"
 	"sync"
 	"testing"
 
@@ -205,9 +207,49 @@ func TestHandler_EnrichmentHeaders_PassedToVerifyAccess(t *testing.T) {
 	is.Equal(len(e.Headers["Authorization"]), 0)
 }
 
+// A malformed Authorization header (no "Bearer " prefix) hits the reject branch
+// that once logged the whole header map — including the credential it carries and
+// any Cookie. The log must never echo those values.
+func TestHandler_MalformedAuth_DoesNotLogCredentials(t *testing.T) {
+	is := is.New(t)
+
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	h := newTestHandlerWithLogger([]string{"1.2.3.4"}, logger)
+
+	r := httptest.NewRequest(http.MethodGet, "/api/policy-engine/verify-ip", nil)
+	r.Header.Set("Authorization", "malformed-secret-value") // no "Bearer " prefix
+	r.Header.Set("Cookie", "session=topsecret")
+	r = r.WithContext(httpapi.WithClientIP(r.Context(), "1.2.3.4"))
+
+	w := httptest.NewRecorder()
+	h.HandleForwardAuthIP(w, r)
+	is.Equal(w.Code, http.StatusForbidden)
+
+	logged := buf.String()
+	is.True(!strings.Contains(logged, "malformed-secret-value")) // credential must not leak
+	is.True(!strings.Contains(logged, "topsecret"))              // cookie must not leak
+}
+
 // newTestHandler creates an HTTPHandler pre-populated with the given IPs in its cache.
 func newTestHandler(enabledIPs []string) *policy.HTTPHandler {
 	return newTestHandlerWithProxy(enabledIPs, "mysecret", "")
+}
+
+// newTestHandlerWithLogger builds a handler whose own logger is the supplied one,
+// so tests can assert on what the handler writes to its log sink.
+func newTestHandlerWithLogger(enabledIPs []string, logger *slog.Logger) *policy.HTTPHandler {
+	entries := make([]device.IPEntry, len(enabledIPs))
+	for i, ip := range enabledIPs {
+		entries[i] = device.IPEntry{IP: ip, DeviceID: ids.DeviceID(int64(i + 1)), AddressID: ids.AddressID(int64(i + 1))}
+	}
+	provider := &testMockProvider{entries: entries}
+	svc, err := policy.NewService(provider, &testBypassAllHostProvider{}, &geoip.Lookup{}, nil, "mysecret", slog.New(slog.DiscardHandler), netip.Addr{})
+	if err != nil {
+		panic(err)
+	}
+	_ = svc.Initialize(context.Background())
+	return policy.NewHTTPHandler(svc, logger)
 }
 
 func newTestHandlerWithProxy(enabledIPs []string, secret, trustedProxy string) *policy.HTTPHandler {

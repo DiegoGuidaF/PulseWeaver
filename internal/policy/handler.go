@@ -42,7 +42,10 @@ func (h *HTTPHandler) HandleForwardAuthIP(w http.ResponseWriter, r *http.Request
 	authHeader := r.Header.Get("Authorization")
 	token, ok := strings.CutPrefix(authHeader, "Bearer ")
 	if !ok || token == "" {
-		h.logger.ErrorContext(ctx, "invalid authorization header", slog.Any("header", r.Header))
+		// Never log the header values here: a malformed Authorization header still
+		// carries a secret, and r.Header also holds Cookie. The message alone is
+		// enough signal for a rejected bearer.
+		h.logger.ErrorContext(ctx, "invalid authorization header")
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
