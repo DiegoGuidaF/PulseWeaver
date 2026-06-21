@@ -29,30 +29,30 @@ func TestHandler_ListUsersWithAccess_HappyPath(t *testing.T) {
 	is.Equal(w.Code, http.StatusOK)
 	var rows []httpapi.UserListItem
 	is.NoErr(json.NewDecoder(w.Body).Decode(&rows))
-	is.Equal(len(rows), 8) // admin (superadmin) + alice + bob + charlie + diana + erin + grace + frank
+	is.Equal(len(rows), 8) // admin (superadmin) + james + noah + maria + liam + sarah + tom + priya
 
-	alice := findUserRow(rows, seed.User(testutils.FixtureUserWithAccess.Name).Int64())
-	is.True(alice != nil)
-	is.Equal(alice.BypassHostCheck, false)
-	is.Equal(alice.HostCount, 4)        // GroupMedia(2) + GroupProductivity(2)
-	is.Equal(alice.DeviceCount, 1)      // FixtureDeviceWithOwnerAccess
-	is.Equal(alice.LiveAddressCount, 1) // FixtureAddressAlice. Disabled address is not counted
-	is.Equal(len(alice.Groups), 2)      // GroupMedia + GroupProductivity
+	james := findUserRow(rows, seed.User(testutils.FixtureUserWithAccess.Name).Int64())
+	is.True(james != nil)
+	is.Equal(james.BypassHostCheck, false)
+	is.Equal(james.HostCount, 4)        // GroupMedia(2) + GroupProductivity(2)
+	is.Equal(james.DeviceCount, 1)      // FixtureDeviceWithOwnerAccess
+	is.Equal(james.LiveAddressCount, 1) // FixtureAddressAlice. Disabled address is not counted
+	is.Equal(len(james.Groups), 2)      // GroupMedia + GroupProductivity
 
-	bob := findUserRow(rows, seed.User(testutils.FixtureUserNoAccess.Name).Int64())
-	is.True(bob != nil)
-	is.Equal(bob.BypassHostCheck, false)
-	is.Equal(bob.HostCount, 0)
-	is.Equal(bob.DeviceCount, 1)      // FixtureDeviceWithoutOwnerAccess
-	is.Equal(bob.LiveAddressCount, 1) // FixtureAddressBob
-	is.Equal(len(bob.Groups), 0)
+	noah := findUserRow(rows, seed.User(testutils.FixtureUserNoAccess.Name).Int64())
+	is.True(noah != nil)
+	is.Equal(noah.BypassHostCheck, false)
+	is.Equal(noah.HostCount, 0)
+	is.Equal(noah.DeviceCount, 1)      // FixtureDeviceWithoutOwnerAccess
+	is.Equal(noah.LiveAddressCount, 1) // FixtureAddressBob
+	is.Equal(len(noah.Groups), 0)
 
-	charlie := findUserRow(rows, seed.User(testutils.FixtureUserBypassAccess.Name).Int64())
-	is.True(charlie != nil)
-	is.Equal(charlie.BypassHostCheck, true)
-	is.Equal(charlie.HostCount, 4) // bypass = all 4 hosts
-	is.Equal(charlie.DeviceCount, 1)
-	is.Equal(len(charlie.Groups), 1) // GroupMedia only
+	maria := findUserRow(rows, seed.User(testutils.FixtureUserBypassAccess.Name).Int64())
+	is.True(maria != nil)
+	is.Equal(maria.BypassHostCheck, true)
+	is.Equal(maria.HostCount, 4) // bypass = all 4 hosts
+	is.Equal(maria.DeviceCount, 1)
+	is.Equal(len(maria.Groups), 1) // GroupMedia only
 }
 
 func TestHandler_ListUsersWithAccess_Unauthenticated(t *testing.T) {
@@ -72,9 +72,9 @@ func TestHandler_GetUserAccessDetail_HappyPath(t *testing.T) {
 	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
 
 	seed := testutils.SeedFullWorld(t).Build(srv)
-	aliceID := seed.User(testutils.FixtureUserWithAccess.Name)
+	jamesID := seed.User(testutils.FixtureUserWithAccess.Name)
 
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/admin/access/users/%d", aliceID), nil)
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/admin/access/users/%d", jamesID), nil)
 	req.AddCookie(cookie)
 	w := httptest.NewRecorder()
 	srv.HTTPServer.ServeHTTP(w, req)
@@ -82,7 +82,7 @@ func TestHandler_GetUserAccessDetail_HappyPath(t *testing.T) {
 	is.Equal(w.Code, http.StatusOK)
 	var resp httpapi.UserAccessDetail
 	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
-	is.Equal(resp.Id, aliceID.Int64())
+	is.Equal(resp.Id, jamesID.Int64())
 	is.Equal(resp.Username, testutils.FixtureUserWithAccess.Name)
 	is.Equal(resp.BypassHostCheck, false)
 
@@ -104,7 +104,7 @@ func TestHandler_GetUserAccessDetail_HappyPath(t *testing.T) {
 	is.Equal(emptyGroup.Granted, false)
 	is.Equal(len(emptyGroup.Hosts), 0)
 
-	// alice owns 1 device
+	// james owns 1 device
 	is.Equal(len(resp.Devices), 1)
 	is.Equal(resp.Devices[0].Name, testutils.FixtureDeviceWithOwnerAccess.Name)
 }

@@ -60,7 +60,7 @@ func TestHandler_GetPolicyUserMap(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	// Seed groups, hosts, users (alice/bob/charlie), policies, devices,
+	// Seed groups, hosts, users (james/noah/maria), policies, devices,
 	// addresses, policy cache, and access log entries.
 	testutils.SeedFullWorld(t).Build(testServer)
 
@@ -74,56 +74,56 @@ func TestHandler_GetPolicyUserMap(t *testing.T) {
 	is.NoErr(json.NewDecoder(rec.Body).Decode(&response))
 
 	// ─── top-level aggregates ─────────────────────────────────────────────────
-	// Distinct enabled IPs: 10.1.0.1 (alice+charlie+frank shared), 10.2.0.1 (bob),
-	// 10.4.0.1 (erin), 10.5.0.1 (superadmin), 10.6.0.1 + 10.6.0.2 (grace-multi).
-	// grace-disabled's 10.7.0.1 is disabled and excluded.
+	// Distinct enabled IPs: 10.1.0.1 (james+maria+priya shared), 10.2.0.1 (noah),
+	// 10.4.0.1 (sarah), 10.5.0.1 (superadmin), 10.6.0.1 + 10.6.0.2 (tom-multi).
+	// tom-disabled's 10.7.0.1 is disabled and excluded.
 	is.Equal(response.TotalIpCount, 6)
-	// Devices with at least one enabled address: alice-laptop, bob-phone,
-	// charlie-desktop, erin-laptop, admin-laptop, grace-multi, frank-laptop.
+	// Devices with at least one enabled address: james-laptop, noah-phone,
+	// maria-desktop, sarah-laptop, admin-laptop, tom-multi, priya-laptop.
 	is.Equal(response.TotalDeviceCount, 7)
-	is.Equal(response.SharedIpCount, 1) // only 10.1.0.1 is shared (alice + charlie + frank)
-	// alice contributes api1+api2+web1+web2 via backend+frontend groups; charlie
+	is.Equal(response.SharedIpCount, 1) // only 10.1.0.1 is shared (james + maria + priya)
+	// james contributes api1+api2+web1+web2 via backend+frontend groups; maria
 	// contributes api1+api2 via backend (bypass, but counted before override);
 	// union is the same 4 hosts.
 	is.Equal(response.TotalHostCount, 4) // FixtureHostBackend1+2 + FixtureHostFrontend1+2
 
-	// ─── alice: backend+frontend access, active device ────────────────────────
-	alice := findUser(response.Users, testutils.FixtureUserWithAccess.DisplayName)
-	is.True(alice != nil)
-	is.Equal(alice.BypassAllowlist, false)
-	is.Equal(alice.IsAdmin, false)
-	is.Equal(alice.IpCount, 1)
-	is.Equal(alice.DeviceCount, 1)
-	is.Equal(alice.AllowedHostCount, 4) // FixtureHostBackend1+2 + FixtureHostFrontend1+2
-	is.True(alice.LastSeenAt != nil)
-	is.Equal(len(alice.Ips), 1)
-	is.Equal(alice.Ips[0].Ip, "10.1.0.1")
-	is.Equal(len(alice.Ips[0].Addresses), 1)
-	is.Equal(alice.Ips[0].Addresses[0].DeviceName, testutils.FixtureDeviceWithOwnerAccess.Name)
+	// ─── james: backend+frontend access, active device ────────────────────────
+	james := findUser(response.Users, testutils.FixtureUserWithAccess.DisplayName)
+	is.True(james != nil)
+	is.Equal(james.BypassAllowlist, false)
+	is.Equal(james.IsAdmin, false)
+	is.Equal(james.IpCount, 1)
+	is.Equal(james.DeviceCount, 1)
+	is.Equal(james.AllowedHostCount, 4) // FixtureHostBackend1+2 + FixtureHostFrontend1+2
+	is.True(james.LastSeenAt != nil)
+	is.Equal(len(james.Ips), 1)
+	is.Equal(james.Ips[0].Ip, "10.1.0.1")
+	is.Equal(len(james.Ips[0].Addresses), 1)
+	is.Equal(james.Ips[0].Addresses[0].DeviceName, testutils.FixtureDeviceWithOwnerAccess.Name)
 
-	// ─── bob: no group access, active device ──────────────────────────────────
-	bob := findUser(response.Users, testutils.FixtureUserNoAccess.DisplayName)
-	is.True(bob != nil)
-	is.Equal(bob.BypassAllowlist, false)
-	is.Equal(bob.IsAdmin, false)
-	is.Equal(bob.IpCount, 1)
-	is.Equal(bob.DeviceCount, 1)
-	is.Equal(bob.AllowedHostCount, 0) // no group memberships
-	is.True(bob.LastSeenAt != nil)
-	is.Equal(len(bob.Ips), 1)
-	is.Equal(bob.Ips[0].Ip, "10.2.0.1")
+	// ─── noah: no group access, active device ──────────────────────────────────
+	noah := findUser(response.Users, testutils.FixtureUserNoAccess.DisplayName)
+	is.True(noah != nil)
+	is.Equal(noah.BypassAllowlist, false)
+	is.Equal(noah.IsAdmin, false)
+	is.Equal(noah.IpCount, 1)
+	is.Equal(noah.DeviceCount, 1)
+	is.Equal(noah.AllowedHostCount, 0) // no group memberships
+	is.True(noah.LastSeenAt != nil)
+	is.Equal(len(noah.Ips), 1)
+	is.Equal(noah.Ips[0].Ip, "10.2.0.1")
 
-	// ─── charlie: backend access with bypass, shares alice's IP ─────────────
-	charlie := findUser(response.Users, testutils.FixtureUserBypassAccess.DisplayName)
-	is.True(charlie != nil)
-	is.Equal(charlie.BypassAllowlist, true)
-	is.Equal(charlie.IsAdmin, false)
-	is.Equal(charlie.IpCount, 1)          // 10.1.0.1 shared with alice
-	is.Equal(charlie.DeviceCount, 1)      // charlie-desktop
-	is.Equal(charlie.AllowedHostCount, 0) // bypass overrides host count to 0
-	is.True(charlie.LastSeenAt != nil)
-	is.Equal(len(charlie.Ips), 1)
-	is.Equal(charlie.Ips[0].Ip, testutils.FixtureAddressShared.IP)
+	// ─── maria: backend access with bypass, shares james's IP ─────────────
+	maria := findUser(response.Users, testutils.FixtureUserBypassAccess.DisplayName)
+	is.True(maria != nil)
+	is.Equal(maria.BypassAllowlist, true)
+	is.Equal(maria.IsAdmin, false)
+	is.Equal(maria.IpCount, 1)          // 10.1.0.1 shared with james
+	is.Equal(maria.DeviceCount, 1)      // maria-desktop
+	is.Equal(maria.AllowedHostCount, 0) // bypass overrides host count to 0
+	is.True(maria.LastSeenAt != nil)
+	is.Equal(len(maria.Ips), 1)
+	is.Equal(maria.Ips[0].Ip, testutils.FixtureAddressShared.IP)
 }
 
 // ── BuildPolicyUserMap integration tests ─────────────────────────────────────

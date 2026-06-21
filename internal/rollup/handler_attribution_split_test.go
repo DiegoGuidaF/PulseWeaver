@@ -101,7 +101,7 @@ func TestHandler_GetDashboardAttributionSplit(t *testing.T) {
 
 	// ── device ──
 	devices := attributionSplit(t, testServer.HTTPServer, adminCookie, "device")
-	// alice-laptop appears in both AliceAllow and the shared-IP request.
+	// james-laptop appears in both AliceAllow and the shared-IP request.
 	is.Equal(devices[testutils.FixtureDeviceWithOwnerAccess.Name].AllowCount, int64(2))
 	is.Equal(devices[testutils.FixtureDeviceBypassAccess.Name].AllowCount, int64(1))
 	is.Equal(devices[testutils.FixtureDeviceWithoutOwnerAccess.Name].DenyCount, int64(1))

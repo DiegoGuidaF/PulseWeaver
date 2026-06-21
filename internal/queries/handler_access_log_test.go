@@ -139,16 +139,16 @@ func TestHandler_GetAccessLog_Contributors(t *testing.T) {
 	seed := testutils.SeedFullWorld(t).Build(srv)
 	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
 
-	aliceLaptop := seed.Device(testutils.FixtureDeviceWithOwnerAccess.Name)
-	charlieDesktop := seed.Device(testutils.FixtureDeviceBypassAccess.Name)
+	jamesLaptop := seed.Device(testutils.FixtureDeviceWithOwnerAccess.Name)
+	mariaDesktop := seed.Device(testutils.FixtureDeviceBypassAccess.Name)
 
-	// device filter (relational EXISTS): alice-laptop contributes to AliceAllow + SharedIPAllow.
-	_, byDevice := getAccessLog(t, srv.HTTPServer, cookie, fmt.Sprintf("?device_id=%d", aliceLaptop))
+	// device filter (relational EXISTS): james-laptop contributes to AliceAllow + SharedIPAllow.
+	_, byDevice := getAccessLog(t, srv.HTTPServer, cookie, fmt.Sprintf("?device_id=%d", jamesLaptop))
 	is.Equal(byDevice.Total, 2)
 
-	// user filter: alice owns alice-laptop; same two entries.
-	aliceUser := seed.User(testutils.FixtureUserWithAccess.Name)
-	_, byUser := getAccessLog(t, srv.HTTPServer, cookie, fmt.Sprintf("?user_id=%d", aliceUser))
+	// user filter: james owns james-laptop; same two entries.
+	jamesUser := seed.User(testutils.FixtureUserWithAccess.Name)
+	_, byUser := getAccessLog(t, srv.HTTPServer, cookie, fmt.Sprintf("?user_id=%d", jamesUser))
 	is.Equal(byUser.Total, 2)
 
 	// network_policy not_null: the two policy-matched allows.
@@ -164,8 +164,8 @@ func TestHandler_GetAccessLog_Contributors(t *testing.T) {
 	is.Equal(row.ContributorCount, 2)
 	is.Equal(len(row.Contributors), 2)
 	is.True(row.Contributors[0].DeviceId != nil)
-	is.Equal(*row.Contributors[0].DeviceId, int64(aliceLaptop)) // "james-laptop" sorts before "maria-desktop"
-	is.Equal(*row.Contributors[1].DeviceId, int64(charlieDesktop))
+	is.Equal(*row.Contributors[0].DeviceId, int64(jamesLaptop)) // "james-laptop" sorts before "maria-desktop"
+	is.Equal(*row.Contributors[1].DeviceId, int64(mariaDesktop))
 
 	// A 0-contributor entry (denied unknown IP) returns an empty slice, never nil.
 	_, unknown := getAccessLog(t, srv.HTTPServer, cookie, "?client_ip="+url.QueryEscape(testutils.FixtureAccessLogUnknownDeny.ClientIP))

@@ -140,7 +140,7 @@ func TestHandler_ListHostGroups_HappyPath(t *testing.T) {
 	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
 	is.Equal(len(resp.Groups), 4) // GroupMedia, GroupProductivity, GroupInfrastructure, FixtureGroupAdversarial
 
-	// backend: 2 hosts, 2 users (alice+charlie), 1 network policy (corp-vpn)
+	// backend: 2 hosts, 2 users (james+maria), 1 network policy (corp-vpn)
 	backend := findGroupWithUsers(resp.Groups, testutils.GroupMedia.Name)
 	is.True(backend != nil)
 	is.Equal(len(backend.Hosts), 2) // FixtureHostBackend1+2
@@ -151,7 +151,7 @@ func TestHandler_ListHostGroups_HappyPath(t *testing.T) {
 	is.True(backendPolicy != nil)
 	is.Equal(backendPolicy.Cidr, testutils.FixturePolicyWithGroups.CIDR)
 
-	// frontend: 2 hosts, 1 user (alice only), 1 network policy (corp-vpn)
+	// frontend: 2 hosts, 1 user (james only), 1 network policy (corp-vpn)
 	frontend := findGroupWithUsers(resp.Groups, testutils.GroupProductivity.Name)
 	is.True(frontend != nil)
 	is.Equal(len(frontend.Hosts), 2) // FixtureHostFrontend1+2

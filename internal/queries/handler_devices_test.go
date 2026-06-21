@@ -46,7 +46,7 @@ func TestHandler_GetDeviceAddresses_ReturnsDeviceAddresses(t *testing.T) {
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 
 	seed := testutils.SeedFullWorld(t).Build(testServer)
-	deviceID := seed.Device(testutils.FixtureDeviceWithOwnerAccess.Name) // alice-laptop
+	deviceID := seed.Device(testutils.FixtureDeviceWithOwnerAccess.Name) // james-laptop
 
 	url := fmt.Sprintf("/api/v1/devices/%d/addresses", deviceID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
@@ -205,62 +205,62 @@ func TestHandler_GetDevices_GroupsDevicesByOwner(t *testing.T) {
 
 	var groups []httpapi.DeviceOwnerGroup
 	is.NoErr(json.NewDecoder(rec.Body).Decode(&groups))
-	is.Equal(len(groups), 8) // alice + bob + charlie + diana + erin + grace + frank + bootstrap admin (superadmin)
+	is.Equal(len(groups), 8) // james + noah + maria + liam + sarah + tom + priya + bootstrap admin (superadmin)
 
-	// ── alice ───────────────────────────────────────────────────────────────────
-	alice := findOwnerGroup(groups, testutils.FixtureUserWithAccess.Name)
-	is.True(alice != nil)
-	is.Equal(alice.Owner.BypassHostCheck, false)
-	is.Equal(len(alice.Owner.HostGroups), 2) // backend + frontend
-	is.Equal(alice.Owner.DeviceCount, 1)
-	is.Equal(alice.Owner.LiveAddressCount, 1) // FixtureAddressAlice
+	// ── james ───────────────────────────────────────────────────────────────────
+	james := findOwnerGroup(groups, testutils.FixtureUserWithAccess.Name)
+	is.True(james != nil)
+	is.Equal(james.Owner.BypassHostCheck, false)
+	is.Equal(len(james.Owner.HostGroups), 2) // backend + frontend
+	is.Equal(james.Owner.DeviceCount, 1)
+	is.Equal(james.Owner.LiveAddressCount, 1) // FixtureAddressAlice
 
-	aliceLaptop := findDeviceEntry(alice.Devices, testutils.FixtureDeviceWithOwnerAccess.Name)
-	is.True(aliceLaptop != nil)
-	is.Equal(aliceLaptop.LiveAddressCount, 1)
-	is.Equal(string(aliceLaptop.State), string(httpapi.Healthy))
-	is.True(aliceLaptop.Pairing == nil)
+	jamesLaptop := findDeviceEntry(james.Devices, testutils.FixtureDeviceWithOwnerAccess.Name)
+	is.True(jamesLaptop != nil)
+	is.Equal(jamesLaptop.LiveAddressCount, 1)
+	is.Equal(string(jamesLaptop.State), string(httpapi.Healthy))
+	is.True(jamesLaptop.Pairing == nil)
 
-	// alice-laptop has lease (1h) and max-active (2) rules from SeedFullWorld
-	is.Equal(len(aliceLaptop.Rules), 2) // FixtureLeaseRuleAliceLaptop + FixtureMaxActiveRuleAliceLaptop
-	leaseRule := findRule(aliceLaptop.Rules, httpapi.AutoExpiry)
+	// james-laptop has lease (1h) and max-active (2) rules from SeedFullWorld
+	is.Equal(len(jamesLaptop.Rules), 2) // FixtureLeaseRuleAliceLaptop + FixtureMaxActiveRuleAliceLaptop
+	leaseRule := findRule(jamesLaptop.Rules, httpapi.AutoExpiry)
 	is.True(leaseRule != nil)
 	is.True(leaseRule.Enabled)
 	is.True(leaseRule.TtlSeconds != nil)
 	is.Equal(*leaseRule.TtlSeconds, testutils.FixtureLeaseRuleAliceLaptop.TTLSeconds) // 3600s
-	maxRule := findRule(aliceLaptop.Rules, httpapi.MaxActive)
+	maxRule := findRule(jamesLaptop.Rules, httpapi.MaxActive)
 	is.True(maxRule != nil)
 	is.True(maxRule.Enabled)
 	is.True(maxRule.Limit != nil)
 	is.Equal(*maxRule.Limit, testutils.FixtureMaxActiveRuleAliceLaptop.MaxAddresses) // 2
 
-	// ── bob ─────────────────────────────────────────────────────────────────────
-	bob := findOwnerGroup(groups, testutils.FixtureUserNoAccess.Name)
-	is.True(bob != nil)
-	is.Equal(bob.Owner.BypassHostCheck, false)
-	is.Equal(len(bob.Owner.HostGroups), 0) // no groups assigned
-	is.Equal(bob.Owner.DeviceCount, 1)
-	is.Equal(bob.Owner.LiveAddressCount, 1) // FixtureAddressBob
+	// ── noah ─────────────────────────────────────────────────────────────────────
+	noah := findOwnerGroup(groups, testutils.FixtureUserNoAccess.Name)
+	is.True(noah != nil)
+	is.Equal(noah.Owner.BypassHostCheck, false)
+	is.Equal(len(noah.Owner.HostGroups), 0) // no groups assigned
+	is.Equal(noah.Owner.DeviceCount, 1)
+	is.Equal(noah.Owner.LiveAddressCount, 1) // FixtureAddressBob
 
-	bobPhone := findDeviceEntry(bob.Devices, testutils.FixtureDeviceWithoutOwnerAccess.Name)
-	is.True(bobPhone != nil)
-	is.Equal(bobPhone.LiveAddressCount, 1)
-	is.Equal(string(bobPhone.State), string(httpapi.Healthy))
-	is.Equal(len(bobPhone.Rules), 0) // no rules seeded
+	noahPhone := findDeviceEntry(noah.Devices, testutils.FixtureDeviceWithoutOwnerAccess.Name)
+	is.True(noahPhone != nil)
+	is.Equal(noahPhone.LiveAddressCount, 1)
+	is.Equal(string(noahPhone.State), string(httpapi.Healthy))
+	is.Equal(len(noahPhone.Rules), 0) // no rules seeded
 
-	// ── charlie ──────────────────────────────────────────────────────────────────
-	charlie := findOwnerGroup(groups, testutils.FixtureUserBypassAccess.Name)
-	is.True(charlie != nil)
-	is.Equal(charlie.Owner.BypassHostCheck, true)
+	// ── maria ──────────────────────────────────────────────────────────────────
+	maria := findOwnerGroup(groups, testutils.FixtureUserBypassAccess.Name)
+	is.True(maria != nil)
+	is.Equal(maria.Owner.BypassHostCheck, true)
 	// host groups are still returned even for bypass users; frontend decides rendering
-	is.Equal(len(charlie.Owner.HostGroups), 1) // backend
-	is.Equal(charlie.Owner.DeviceCount, 1)
-	is.Equal(charlie.Owner.LiveAddressCount, 1) // FixtureAddressShared
+	is.Equal(len(maria.Owner.HostGroups), 1) // backend
+	is.Equal(maria.Owner.DeviceCount, 1)
+	is.Equal(maria.Owner.LiveAddressCount, 1) // FixtureAddressShared
 
-	charlieDesktop := findDeviceEntry(charlie.Devices, testutils.FixtureDeviceBypassAccess.Name)
-	is.True(charlieDesktop != nil)
-	is.Equal(charlieDesktop.LiveAddressCount, 1)
-	is.Equal(string(charlieDesktop.State), string(httpapi.Healthy))
+	mariaDesktop := findDeviceEntry(maria.Devices, testutils.FixtureDeviceBypassAccess.Name)
+	is.True(mariaDesktop != nil)
+	is.Equal(mariaDesktop.LiveAddressCount, 1)
+	is.Equal(string(mariaDesktop.State), string(httpapi.Healthy))
 }
 
 // TestHandler_GetDevices_StaleState verifies that a device with no live addresses
@@ -315,32 +315,32 @@ func TestHandler_GetDevices_PairingSummary(t *testing.T) {
 	var groups []httpapi.DeviceOwnerGroup
 	is.NoErr(json.NewDecoder(rec.Body).Decode(&groups))
 
-	alice := findOwnerGroup(groups, testutils.FixtureUserWithAccess.Name)
-	aliceLaptop := findDeviceEntry(alice.Devices, testutils.FixtureDeviceWithOwnerAccess.Name)
-	is.True(aliceLaptop.Pairing == nil) // no pairing seeded for alice-laptop
+	james := findOwnerGroup(groups, testutils.FixtureUserWithAccess.Name)
+	jamesLaptop := findDeviceEntry(james.Devices, testutils.FixtureDeviceWithOwnerAccess.Name)
+	is.True(jamesLaptop.Pairing == nil) // no pairing seeded for james-laptop
 
-	bob := findOwnerGroup(groups, testutils.FixtureUserNoAccess.Name)
-	bobPhone := findDeviceEntry(bob.Devices, testutils.FixtureDeviceWithoutOwnerAccess.Name)
-	is.True(bobPhone.Pairing != nil)
-	is.Equal(string(bobPhone.Pairing.Status), "pending")
-	is.True(time.Time(bobPhone.Pairing.ExpiresAt).After(time.Now()))
+	noah := findOwnerGroup(groups, testutils.FixtureUserNoAccess.Name)
+	noahPhone := findDeviceEntry(noah.Devices, testutils.FixtureDeviceWithoutOwnerAccess.Name)
+	is.True(noahPhone.Pairing != nil)
+	is.Equal(string(noahPhone.Pairing.Status), "pending")
+	is.True(time.Time(noahPhone.Pairing.ExpiresAt).After(time.Now()))
 
-	charlie := findOwnerGroup(groups, testutils.FixtureUserBypassAccess.Name)
-	charlieDesktop := findDeviceEntry(charlie.Devices, testutils.FixtureDeviceBypassAccess.Name)
-	is.True(charlieDesktop.Pairing != nil)
-	is.Equal(string(charlieDesktop.Pairing.Status), "invalidated")
+	maria := findOwnerGroup(groups, testutils.FixtureUserBypassAccess.Name)
+	mariaDesktop := findDeviceEntry(maria.Devices, testutils.FixtureDeviceBypassAccess.Name)
+	is.True(mariaDesktop.Pairing != nil)
+	is.Equal(string(mariaDesktop.Pairing.Status), "invalidated")
 
-	diana := findOwnerGroup(groups, testutils.FixtureUserPairing.Name)
-	is.True(diana != nil)
+	liam := findOwnerGroup(groups, testutils.FixtureUserPairing.Name)
+	is.True(liam != nil)
 
-	dianaUsed := findDeviceEntry(diana.Devices, testutils.FixtureDevicePairingUsed.Name)
-	is.True(dianaUsed.Pairing != nil)
-	is.Equal(string(dianaUsed.Pairing.Status), "used")
+	liamUsed := findDeviceEntry(liam.Devices, testutils.FixtureDevicePairingUsed.Name)
+	is.True(liamUsed.Pairing != nil)
+	is.Equal(string(liamUsed.Pairing.Status), "used")
 
-	dianaExpired := findDeviceEntry(diana.Devices, testutils.FixtureDevicePairingExpired.Name)
-	is.True(dianaExpired.Pairing != nil)
-	is.Equal(string(dianaExpired.Pairing.Status), "expired")
-	is.True(time.Time(dianaExpired.Pairing.ExpiresAt).Before(time.Now()))
+	liamExpired := findDeviceEntry(liam.Devices, testutils.FixtureDevicePairingExpired.Name)
+	is.True(liamExpired.Pairing != nil)
+	is.Equal(string(liamExpired.Pairing.Status), "expired")
+	is.True(time.Time(liamExpired.Pairing.ExpiresAt).Before(time.Now()))
 }
 
 // findOwnerGroup returns the DeviceOwnerGroup whose owner username matches, or nil.
