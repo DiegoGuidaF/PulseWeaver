@@ -44,6 +44,31 @@ func TestHandlerIntegration_ForwardAuth_XRealIPMiddleware(t *testing.T) {
 	is.Equal(w.Code, http.StatusOK)
 }
 
+// TestHandlerIntegration_ForwardAuth_AbsentRealIP_DeniesProxyIP walks the full
+// trusted-proxy-guard chain over real HTTP: a request from the trusted proxy
+// with no X-Real-IP falls back to the proxy's own IP, which must never be
+// authorized — even though a device address (10.0.0.1) is enabled.
+func TestHandlerIntegration_ForwardAuth_AbsentRealIP_DeniesProxyIP(t *testing.T) {
+	is := is.New(t)
+	srv := testutils.SetupIntegrationServer(t)
+	testutils.NewSeeder(t).
+		WithUser(testutils.UserFixture{Name: "alice"}).
+		SetUserAccess("alice", true).
+		WithDevice(testutils.DeviceFixture{Name: "alice-laptop", OwnerUser: "alice"}).
+		WithAddress(testutils.AddressFixture{Device: "alice-laptop", IP: "10.0.0.1"}).
+		WithPolicyInitialize().
+		Build(srv)
+
+	r := httptest.NewRequest(http.MethodGet, "/api/policy-engine/verify-ip", nil)
+	r.RemoteAddr = "127.0.0.1:1" // trusted proxy peer
+	r.Header.Set("Authorization", "Bearer test-policy-secret")
+	// Deliberately no X-Real-IP: the client IP falls back to the proxy's own IP.
+
+	w := httptest.NewRecorder()
+	srv.HTTPServer.ServeHTTP(w, r)
+	is.Equal(w.Code, http.StatusForbidden)
+}
+
 // TestHandlerIntegration_ForwardAuth_FullWorldDecisionTour exercises every
 // decision path present in the full seeded world via real HTTP calls.
 func TestHandlerIntegration_ForwardAuth_FullWorldDecisionTour(t *testing.T) {

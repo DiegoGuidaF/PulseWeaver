@@ -484,7 +484,8 @@ func TestVerifyAccess_AttachesGeoIP(t *testing.T) {
 	is.Equal(events[0].GeoIP.ASN, uint(15169))
 }
 
-func TestVerifyAccess_NilResolver(t *testing.T) {
+// An unloaded resolver (no databases opened) returns empty geo without error.
+func TestVerifyAccess_EmptyResolver_GeoEmpty(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{
 		{IP: "8.8.8.8", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
@@ -496,7 +497,28 @@ func TestVerifyAccess_NilResolver(t *testing.T) {
 	obs := &fakeObserver{}
 	svc.AddDecisionObserver(obs)
 
-	// Must not panic; GeoIP must be zero value.
+	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: mustAddr("8.8.8.8")})
+	is.NoErr(err)
+
+	events := obs.received()
+	is.Equal(len(events), 1)
+	is.True(events[0].GeoIP.IsEmpty())
+}
+
+// A nil GeoIPResolver interface is a valid configuration (enrichment disabled):
+// VerifyAccess must not panic and must emit an event with empty geo.
+func TestVerifyAccess_NilResolver_NoPanic(t *testing.T) {
+	is := is.New(t)
+	provider := &mockProvider{entries: []device.IPEntry{
+		{IP: "8.8.8.8", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
+	}}
+	svc, err := NewService(provider, &bypassAllHostProvider{}, nil, nil, "mysecret", noopLogger(), netip.Addr{})
+	is.NoErr(err)
+	is.NoErr(svc.Initialize(context.Background()))
+
+	obs := &fakeObserver{}
+	svc.AddDecisionObserver(obs)
+
 	err = svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "mysecret", ClientIP: mustAddr("8.8.8.8")})
 	is.NoErr(err)
 

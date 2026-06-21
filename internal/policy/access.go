@@ -89,7 +89,12 @@ func (s *Service) VerifyAccess(ctx context.Context, req *VerifyRequest) error {
 		return ErrInvalidBearerToken
 	}
 
-	geo := s.geoResolver.Resolve(req.ClientIP.String())
+	// A nil resolver is a valid configuration (enrichment disabled), so guard the
+	// call rather than assuming a non-nil interface — see GeoIPResolver's contract.
+	var geo geoip.Result
+	if s.geoResolver != nil {
+		geo = s.geoResolver.Resolve(req.ClientIP.String())
+	}
 
 	host := ""
 	if req.TargetHost != nil {

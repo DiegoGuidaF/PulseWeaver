@@ -6,14 +6,68 @@ import (
 	"context"
 	"errors"
 	"net/netip"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 	"github.com/matryer/is"
 )
+
+// TestService_ConcurrentDecideDuringRebuild exercises the copy-on-write read
+// path under contention: many concurrent Decide calls (both an exact-IP hit and
+// a CIDR-fallback miss) while the cache is repeatedly rebuilt from scratch.
+// Its value is under the race detector:
+//
+//	go test -race -tags=test ./internal/policy/...
+//
+// A regression that mutates a published snapshot in place, or reads it without
+// the brief RLock, would trip -race here.
+func TestService_ConcurrentDecideDuringRebuild(t *testing.T) {
+	provider := &mockProvider{entries: []device.IPEntry{
+		{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
+	}}
+	netProv := &mockNetworkPoliciesProvider{entries: []networkpolicies.CacheEntry{
+		{PolicyID: ids.NetworkPolicyID(1), PolicyName: "p", CIDR: "10.0.0.0/8", BypassHostCheck: true},
+	}}
+	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, netProv, "secret", noopLogger(), netip.Addr{})
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	if err := svc.Initialize(context.Background()); err != nil {
+		t.Fatalf("Initialize: %v", err)
+	}
+
+	ctx := context.Background()
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+
+	for range 8 {
+		wg.Go(func() {
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+					svc.Decide(ctx, mustAddr("1.2.3.4"), "example.com")  // device hit
+					svc.Decide(ctx, mustAddr("10.1.2.3"), "example.com") // CIDR fallback
+				}
+			}
+		})
+	}
+
+	wg.Go(func() {
+		for range 500 {
+			_ = svc.refreshCache(ctx)
+		}
+		close(stop)
+	})
+
+	wg.Wait()
+}
 
 func TestService_OnAddressEvent_RefreshesCache(t *testing.T) {
 	is := is.New(t)
