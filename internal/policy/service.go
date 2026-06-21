@@ -40,6 +40,13 @@ type HostAccessProvider interface {
 	GetAllUserHostAccess(ctx context.Context) ([]UserHostAccess, error)
 }
 
+// defaultReconcileInterval is how often RunListener rebuilds the cache
+// unconditionally, independent of change events. It is a staleness backstop, not
+// a tuning knob: the event path already propagates real changes in ~ms, so this
+// only bounds the worst case when an event is dropped or a rebuild failed. Kept
+// internal deliberately — the only sensible values cluster tightly around this.
+const defaultReconcileInterval = 60 * time.Second
+
 // Service maintains an in-memory cache of enabled IPs for fast forward-auth lookups.
 type Service struct {
 	ipProvider              EnabledIPsProvider
@@ -48,6 +55,7 @@ type Service struct {
 	networkPoliciesProvider NetworkPoliciesProvider
 	apiSecretHash           [32]byte
 	trustedProxy            netip.Addr
+	reconcileInterval       time.Duration // periodic full-rebuild backstop; defaults to defaultReconcileInterval
 	mu                      sync.RWMutex
 	ipSet                   map[netip.Addr]ipSetEntry
 	networkPolicies         []networkPolicyCacheEntry
@@ -78,6 +86,7 @@ func NewService(
 		networkPoliciesProvider: networkPoliciesProvider,
 		apiSecretHash:           sha256.Sum256([]byte(secret)),
 		trustedProxy:            trustedProxy,
+		reconcileInterval:       defaultReconcileInterval,
 		ipSet:                   make(map[netip.Addr]ipSetEntry),
 		refreshSignal:           make(chan struct{}, 1),
 		logger:                  componentLogger,

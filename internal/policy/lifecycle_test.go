@@ -48,6 +48,41 @@ func TestService_OnAddressEvent_RefreshesCache(t *testing.T) {
 	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: mustAddr("10.0.0.2")}))
 }
 
+// TestService_PeriodicReconcile_RebuildsWithoutEvent proves the staleness
+// backstop: with no change event fired, the periodic ticker alone must pick up
+// provider changes — the scenario a dropped or failed event would otherwise
+// leave stale (and, for a revoked grant, stale-allow).
+func TestService_PeriodicReconcile_RebuildsWithoutEvent(t *testing.T) {
+	is := is.New(t)
+	provider := &mockProvider{entries: []device.IPEntry{
+		{IP: "192.168.1.1", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
+	}}
+	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "secret", noopLogger(), netip.Addr{})
+	is.NoErr(err)
+	is.NoErr(svc.Initialize(context.Background()))
+	svc.reconcileInterval = 20 * time.Millisecond
+
+	// Change the provider's data but deliberately fire NO change event, so only
+	// the periodic reconcile can pick it up.
+	provider.entries = []device.IPEntry{
+		{IP: "10.0.0.2", DeviceID: ids.DeviceID(3), AddressID: ids.AddressID(3)},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = svc.RunListener(ctx)
+	}()
+
+	time.Sleep(100 * time.Millisecond) // allow several reconcile ticks
+	cancel()
+	<-done
+
+	is.True(errors.Is(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: mustAddr("192.168.1.1")}), ErrIPNotEnabled))
+	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: mustAddr("10.0.0.2")}))
+}
+
 func TestService_OnHostAccessChanged_RefreshesCache(t *testing.T) {
 	is := is.New(t)
 	provider := &mockProvider{entries: []device.IPEntry{

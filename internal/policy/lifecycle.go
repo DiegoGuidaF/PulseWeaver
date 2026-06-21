@@ -3,6 +3,7 @@ package policy
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
@@ -35,19 +36,36 @@ func (s *Service) OnNetworkPolicyChanged(_ context.Context) {
 	s.triggerRefresh()
 }
 
-// RunListener processes change signals and rebuilds the full cache on each one.
-// Runs until ctx is cancelled.
+// RunListener rebuilds the full cache on each change signal, and also on a
+// periodic timer as a staleness backstop. Runs until ctx is cancelled.
+//
+// The periodic reconcile guards against the two ways the event path can leave
+// the cache stale: a change signal that was never delivered, and a rebuild that
+// failed (refreshCache swaps only on success, so a failed refresh keeps the old,
+// more-permissive snapshot). For an authz cache a stale snapshot is a stale
+// allow, so an unconditional rebuild bounds that exposure regardless of events.
 //
 // TODO: partial refreshes — an address change only needs to rebuild ipSet;
 // a network policy change only needs to rebuild networkPolicies. Separating
 // them would require two signals again and is not worth it without data on
 // relative change frequency or refresh cost at scale.
 func (s *Service) RunListener(ctx context.Context) error {
+	interval := s.reconcileInterval
+	if interval <= 0 {
+		interval = defaultReconcileInterval
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-s.refreshSignal:
 			if err := s.refreshCache(ctx); err != nil {
 				s.logger.ErrorContext(ctx, "policy cache refresh failed", slog.Any(logging.AttrKeyError, err))
+			}
+		case <-ticker.C:
+			if err := s.refreshCache(ctx); err != nil {
+				s.logger.ErrorContext(ctx, "policy cache periodic reconcile failed", slog.Any(logging.AttrKeyError, err))
 			}
 		case <-ctx.Done():
 			return nil
