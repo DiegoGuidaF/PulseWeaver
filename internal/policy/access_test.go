@@ -416,7 +416,10 @@ func TestVerifyAccess_EmitsInvalidTokenEvent(t *testing.T) {
 	provider := &mockProvider{entries: []device.IPEntry{
 		{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
 	}}
-	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "mysecret", noopLogger(), netip.Addr{})
+	// A resolver that would return non-empty geo: the invalid-token path must not
+	// consult it, so the emitted event's geo stays empty.
+	resolver := stubResolver{result: geoip.Result{CountryCode: "DE", ContinentCode: "EU"}}
+	svc, err := NewService(provider, &bypassAllHostProvider{}, resolver, nil, "mysecret", noopLogger(), netip.Addr{})
 	is.NoErr(err)
 	is.NoErr(svc.Initialize(context.Background()))
 
@@ -432,6 +435,7 @@ func TestVerifyAccess_EmitsInvalidTokenEvent(t *testing.T) {
 	is.True(!e.Outcome)
 	is.Equal(*e.DenyReason, DenyReasonInvalidToken)
 	is.Equal(len(e.IPContributors), 0)
+	is.True(e.GeoIP.IsEmpty()) // geo is skipped for unauthenticated requests
 }
 
 func TestVerifyAccess_EmitsIPNotRegisteredEvent(t *testing.T) {

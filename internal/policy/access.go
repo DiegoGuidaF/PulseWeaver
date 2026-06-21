@@ -8,6 +8,8 @@ import (
 	"net/netip"
 	"strings"
 	"time"
+
+	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 )
 
 // Decide evaluates whether ip can access host against the live cache.
@@ -78,14 +80,16 @@ func (s *Service) VerifyAccess(ctx context.Context, req *VerifyRequest) error {
 	s.logger.DebugContext(ctx, "Verify access for ip")
 	start := time.Now()
 
-	geo := s.geoResolver.Resolve(req.ClientIP.String())
-
 	tokenHash := sha256.Sum256([]byte(req.Token))
 	if subtle.ConstantTimeCompare(tokenHash[:], s.apiSecretHash[:]) != 1 {
 		s.logger.WarnContext(ctx, "policy: invalid bearer token")
-		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, new(DenyReasonInvalidToken), nil, req, geo, time.Since(start).Microseconds()))
+		// No geo enrichment for an unauthenticated request: the token check gates
+		// the lookup so a bad-token flood can't drive a geo resolution per request.
+		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, new(DenyReasonInvalidToken), nil, req, geoip.Result{}, time.Since(start).Microseconds()))
 		return ErrInvalidBearerToken
 	}
+
+	geo := s.geoResolver.Resolve(req.ClientIP.String())
 
 	host := ""
 	if req.TargetHost != nil {
