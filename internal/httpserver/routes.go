@@ -79,11 +79,10 @@ func addRoutes(
 	}
 
 	r.Get("/health", health.Handler)
-	// verify-ip is the forward-auth endpoint registered outside /api/v1, so it
-	// bypasses the rate limiters applied there. Apply a dedicated per-IP limiter
-	// (600 req/min ≈ 10 req/s) directly to guard against bearer-token enumeration.
-	r.With(VerifyIPRateLimitMiddleware(600, time.Minute, logger)).
-		Get(httpapi.VerifyIPEndpoint, policyHandler.HandleForwardAuthIP)
+	// verify-ip is the forward-auth endpoint registered outside /api/v1. The
+	// proxy authenticates to it with a static bearer token; the token check is
+	// constant-time, so it is not rate limited here.
+	r.Get(httpapi.VerifyIPEndpoint, policyHandler.HandleForwardAuthIP)
 
 	r.Route("/api/v1", func(r chi.Router) {
 
