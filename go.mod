@@ -14,12 +14,12 @@ require (
 	github.com/lmittmann/tint v1.1.3
 	github.com/matryer/is v1.4.1
 	github.com/oapi-codegen/nethttp-middleware v1.1.2
-	github.com/oapi-codegen/runtime v1.4.1
+	github.com/oapi-codegen/runtime v1.4.2
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/samber/slog-chi v1.19.1
 	golang.org/x/crypto v0.53.0
 	golang.org/x/sync v0.21.0
-	modernc.org/sqlite v1.52.0
+	modernc.org/sqlite v1.53.0
 )
 
 require (
@@ -49,7 +49,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.41.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
-	modernc.org/libc v1.72.3 // indirect
+	modernc.org/libc v1.73.4 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
