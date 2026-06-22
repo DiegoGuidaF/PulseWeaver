@@ -39,11 +39,17 @@ COPY --from=frontend-builder /app/api/openapi-bundle.gen.yaml ./api/openapi-bund
 # Copy frontend dist from Stage 1 to internal/ui/dist
 COPY --from=frontend-builder /app/frontend/dist ./internal/ui/dist
 
+# Build tags: prod by default, so the released image (release.yml / a plain
+# `docker build`) is byte-for-byte the production binary with no debug surface.
+# Pass GO_TAGS="prod pprof" to compile in the loopback pprof debug listener
+# (127.0.0.1:6060) for a profiling build — see prod-deployment's pprof profile.
+ARG GO_TAGS=prod
+
 # Build binary with CGO disabled and optimization flags
 # Note: GOOS/GOARCH are auto-detected by Go from Docker's build platform
 RUN CGO_ENABLED=0 go build \
     -ldflags="-s -w" \
-    -tags=prod \
+    -tags="$GO_TAGS" \
     -o /app/pulseweaver \
     ./cmd/api
 
