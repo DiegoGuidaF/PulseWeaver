@@ -1,5 +1,5 @@
 .PHONY: dev run test test-front seed-db seed-db-sample seed-dev clean fix lint lint-front typecheck-front lint-all check migrate-up migrate-down migrate-create api \
-        install-hooks version release-patch release-minor release-major _release check-migrations
+        install-hooks version release-patch release-minor release-major _release check-migrations build-debuggable
 
 # Disable Go workspace mode so -modfile (used by tools/go.mod) works correctly
 # when this module is used as a submodule inside a go.work workspace.
@@ -25,6 +25,14 @@ dev-front:
 # Full production build
 build: clean build-frontend build-backend
 	@echo "✅ Build complete! Run ./bin/pulseweaver"
+
+# Production build with the loopback pprof debug server compiled in (127.0.0.1:6060).
+# For local profiling against the prod-like stack ONLY — never release this binary;
+# the released image (release.yml → Dockerfile, -tags=prod) never passes the pprof tag.
+build-debuggable: clean build-frontend
+	@echo "🔨 Building Go binary with pprof debug server enabled..."
+	go build -tags='prod pprof' -o bin/pulseweaver ./cmd/api
+	@echo "✅ Debuggable build complete (pprof on 127.0.0.1:6060)! Run ./bin/pulseweaver"
 
 run: build
 	./bin/pulseweaver

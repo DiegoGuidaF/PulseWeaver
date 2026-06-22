@@ -295,6 +295,11 @@ func (a *App) Run(ctx context.Context) error {
 		return ignoreContextCanceled(httpserver.StartAndWait(gCtx, a.HTTPServer, serverConfig, a.Logger))
 	})
 
+	// Loopback pprof server — a no-op unless the binary was built with -tags=pprof.
+	g.Go(func() error {
+		return ignoreContextCanceled(httpserver.StartPprofServer(gCtx, a.Logger))
+	})
+
 	return ignoreContextCanceled(g.Wait())
 }
 
