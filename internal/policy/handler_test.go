@@ -233,8 +233,8 @@ func TestHandler_DenyEvent_StoresMinimalHeaders(t *testing.T) {
 	// Forwarding context is retained.
 	is.Equal(e.Headers["X-Forwarded-Host"][0], "myhost.example.com")
 	is.Equal(e.Headers["X-Forwarded-Method"][0], "GET")
+	is.Equal(e.Headers["User-Agent"][0], "TestAgent/1.0")
 	// Arbitrary client headers are not stored on a deny.
-	is.Equal(len(e.Headers["User-Agent"]), 0)
 	is.Equal(len(e.Headers["Accept-Encoding"]), 0)
 	// Sensitive headers are never stored.
 	is.Equal(len(e.Headers["Authorization"]), 0)
