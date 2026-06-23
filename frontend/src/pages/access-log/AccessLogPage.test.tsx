@@ -143,7 +143,7 @@ describe("AccessLogPage", () => {
         expect(screen.getAllByText("secure.example.com").length).toBeGreaterThan(0);
     });
 
-    it("outcome column filter opens and shows options", async () => {
+    it("decision column filter opens and shows options", async () => {
         const user = setupUser();
 
         server.use(
@@ -164,11 +164,11 @@ describe("AccessLogPage", () => {
 
         // The Outcome header is sortable, so the <th> itself is the sort control
         // (role="button"); the filter trigger is the nested aria-haspopup button.
-        const outcomeHeader = Array.from(
+        const decisionHeader = Array.from(
             document.querySelectorAll<HTMLTableCellElement>("th"),
-        ).find((h) => h.textContent?.includes("Outcome"));
-        expect(outcomeHeader).toBeTruthy();
-        const filterButton = within(outcomeHeader!)
+        ).find((h) => h.textContent?.includes("Decision"));
+        expect(decisionHeader).toBeTruthy();
+        const filterButton = within(decisionHeader!)
             .getAllByRole("button")
             .find((b) => b.getAttribute("aria-haspopup"));
         expect(filterButton).toBeTruthy();
