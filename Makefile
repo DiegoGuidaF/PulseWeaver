@@ -27,8 +27,7 @@ build: clean build-frontend build-backend
 	@echo "✅ Build complete! Run ./bin/pulseweaver"
 
 # Production build with the loopback pprof debug server compiled in (127.0.0.1:6060).
-# For local profiling against the prod-like stack ONLY — never release this binary;
-# the released image (release.yml → Dockerfile, -tags=prod) never passes the pprof tag.
+# For local profiling against the prod-like stack ONLY — never release this binary
 build-debuggable: clean build-frontend
 	@echo "🔨 Building Go binary with pprof debug server enabled..."
 	go build -tags='prod pprof' -o bin/pulseweaver ./cmd/api

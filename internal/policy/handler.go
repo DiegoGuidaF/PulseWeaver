@@ -42,20 +42,11 @@ func (h *HTTPHandler) HandleForwardAuthIP(w http.ResponseWriter, r *http.Request
 	authHeader := r.Header.Get("Authorization")
 	token, ok := strings.CutPrefix(authHeader, "Bearer ")
 	if !ok || token == "" {
-		// Never log the header values here: a malformed Authorization header still
-		// carries a secret, and r.Header also holds Cookie. The message alone is
-		// enough signal for a rejected bearer.
-		//
-		// Debug, not Error: a rejected request is expected client noise on an
-		// exposed endpoint and must not let traffic flood the error log.
 		h.logger.DebugContext(ctx, "invalid authorization header")
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 
-	// Missing/unparseable client IP is an engine or middleware fault, not client
-	// noise — the IP middleware should always populate a parseable address — so
-	// these warn rather than spam Error or pass silently.
 	clientIP, ok := httpapi.ClientIPFromContext(ctx)
 	if !ok {
 		h.logger.WarnContext(ctx, "failed to get client IP from context")
@@ -63,8 +54,6 @@ func (h *HTTPHandler) HandleForwardAuthIP(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// The middleware stores a canonical (unmapped) address; parse it once here so
-	// the engine works on netip.Addr. A value that fails to parse fails closed.
 	addr, err := netip.ParseAddr(clientIP)
 	if err != nil {
 		h.logger.WarnContext(ctx, "invalid client IP in context", slog.String(logging.AttrKeyClientIP, clientIP))

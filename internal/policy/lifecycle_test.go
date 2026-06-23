@@ -20,12 +20,6 @@ import (
 // TestService_ConcurrentDecideDuringRebuild exercises the copy-on-write read
 // path under contention: many concurrent Decide calls (both an exact-IP hit and
 // a CIDR-fallback miss) while the cache is repeatedly rebuilt from scratch.
-// Its value is under the race detector:
-//
-//	go test -race -tags=test ./internal/policy/...
-//
-// A regression that mutates a published snapshot in place, or reads it without
-// the brief RLock, would trip -race here.
 func TestService_ConcurrentDecideDuringRebuild(t *testing.T) {
 	provider := &mockProvider{entries: []device.IPEntry{
 		{IP: "1.2.3.4", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
