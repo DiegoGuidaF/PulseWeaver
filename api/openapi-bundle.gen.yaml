@@ -1188,11 +1188,10 @@ paths:
               - client_ip
               - target_host
               - http_method
-              - country_code
               - deny_reason
               - duration_us
               - outcome
-          description: Sort column (default created_at). Join-derived columns are not sortable.
+          description: Sort column (default created_at). Join-derived columns (e.g. country) are not sortable.
         - name: order
           in: query
           required: false

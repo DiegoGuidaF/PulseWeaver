@@ -187,8 +187,8 @@ accessLog:
         schema:
           type: string
           default: created_at
-          enum: [created_at, client_ip, target_host, http_method, country_code, deny_reason, duration_us, outcome]
-        description: Sort column (default created_at). Join-derived columns are not sortable.
+          enum: [created_at, client_ip, target_host, http_method, deny_reason, duration_us, outcome]
+        description: Sort column (default created_at). Join-derived columns (e.g. country) are not sortable.
       - name: order
         in: query
         required: false

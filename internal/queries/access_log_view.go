@@ -77,14 +77,13 @@ var accessLogRegistry = filterx.NewRegistry(
 		},
 	},
 	map[string]filterx.SortSpec{
-		"created_at":   {Expr: "ral.created_at", Kind: filterx.KindTime},
-		"client_ip":    {Expr: "ral.client_ip", Kind: filterx.KindString},
-		"target_host":  {Expr: "ral.target_host", Kind: filterx.KindString, Nullable: true},
-		"http_method":  {Expr: "ral.http_method", Kind: filterx.KindString, Nullable: true},
-		"country_code": {Expr: "g.country_code", Kind: filterx.KindString, Nullable: true},
-		"deny_reason":  {Expr: "ral.deny_reason", Kind: filterx.KindString, Nullable: true},
-		"duration_us":  {Expr: "ral.duration_us", Kind: filterx.KindInt},
-		"outcome":      {Expr: "ral.outcome", Kind: filterx.KindInt},
+		"created_at":  {Expr: "ral.created_at", Kind: filterx.KindTime},
+		"client_ip":   {Expr: "ral.client_ip", Kind: filterx.KindString},
+		"target_host": {Expr: "ral.target_host", Kind: filterx.KindString, Nullable: true},
+		"http_method": {Expr: "ral.http_method", Kind: filterx.KindString, Nullable: true},
+		"deny_reason": {Expr: "ral.deny_reason", Kind: filterx.KindString, Nullable: true},
+		"duration_us": {Expr: "ral.duration_us", Kind: filterx.KindInt},
+		"outcome":     {Expr: "ral.outcome", Kind: filterx.KindInt},
 	},
 	"ral.id",
 )
@@ -298,6 +297,20 @@ func accessLogConditions(q AccessLogQuery) (sq.And, error) {
 	return cond, nil
 }
 
+// accessLogFilterJoins reports which 1:1 child tables the query's filters reference,
+// so the count query can join them only when a WHERE term depends on their columns.
+func accessLogFilterJoins(q AccessLogQuery) (geoip, policy bool) {
+	for _, f := range q.Filters {
+		switch f.Column {
+		case "country_code", "continent_code":
+			geoip = true
+		case "network_policy":
+			policy = true
+		}
+	}
+	return geoip, policy
+}
+
 func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]AccessLogView, int, error) {
 	if q.Sort == "" {
 		q.Sort = defaultSort
@@ -311,16 +324,21 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 		return nil, 0, err
 	}
 
-	// Total count. The geoip and network-policy joins are 1:1 (PK on access_log_id),
-	// so they cannot inflate the count; device/user filters use EXISTS subqueries.
+	// Total count. The geoip and network-policy joins are PK-keyed 1:1 children, so
+	// they can never change COUNT — include them only when a filter constrains them.
+	// Without that filter they would scan ~one PK lookup per matched row for nothing
+	// (an order-of-magnitude cost on a full-table window). Device/user filters use
+	// EXISTS subqueries and need no join.
+	geoipFilter, policyFilter := accessLogFilterJoins(q)
+	countBuilder := sq.Select("COUNT(*)").From("access_log ral")
+	if geoipFilter {
+		countBuilder = countBuilder.LeftJoin("access_log_geoip g ON g.access_log_id = ral.id")
+	}
+	if policyFilter {
+		countBuilder = countBuilder.LeftJoin("access_log_network_policy_contributors anpc ON anpc.access_log_id = ral.id")
+	}
 	var total int
-	countSQL, countArgs, err := sq.
-		Select("COUNT(*)").
-		From("access_log ral").
-		LeftJoin("access_log_geoip g ON g.access_log_id = ral.id").
-		LeftJoin("access_log_network_policy_contributors anpc ON anpc.access_log_id = ral.id").
-		Where(cond).
-		ToSql()
+	countSQL, countArgs, err := countBuilder.Where(cond).ToSql()
 	if err != nil {
 		return nil, 0, fmt.Errorf("build access log count query: %w", err)
 	}
@@ -490,8 +508,6 @@ func accessLogSortValue(row AccessLogView, sortKey string) any {
 		return strPtrValue(row.TargetHost)
 	case "http_method":
 		return strPtrValue(row.HTTPMethod)
-	case "country_code":
-		return strPtrValue(row.CountryCode)
 	case "deny_reason":
 		return strPtrValue(row.DenyReason)
 	case "duration_us":

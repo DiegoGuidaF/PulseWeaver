@@ -112,7 +112,6 @@ export const SORTABLE_COLUMNS = [
     "client_ip",
     "target_host",
     "http_method",
-    "country_code",
     "deny_reason",
     "duration_us",
     "outcome",

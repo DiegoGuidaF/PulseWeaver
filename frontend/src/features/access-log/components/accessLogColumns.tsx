@@ -205,7 +205,6 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
         {
             accessor: "country_code",
             title: "Country",
-            sortable: true,
             filter: columnFilterSlot("country_code"),
             filtering: isFilterActive(deps.getColumnFilter("country_code")),
             render: (row) =>

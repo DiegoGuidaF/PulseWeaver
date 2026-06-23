@@ -2417,14 +2417,13 @@ export type GetAccessLogData = {
      */
     to?: string;
     /**
-     * Sort column (default created_at). Join-derived columns are not sortable.
+     * Sort column (default created_at). Join-derived columns (e.g. country) are not sortable.
      */
     sort?:
       | "created_at"
       | "client_ip"
       | "target_host"
       | "http_method"
-      | "country_code"
       | "deny_reason"
       | "duration_us"
       | "outcome";

@@ -1260,7 +1260,6 @@ export const zGetAccessLogQuery = z.object({
       "client_ip",
       "target_host",
       "http_method",
-      "country_code",
       "deny_reason",
       "duration_us",
       "outcome",
