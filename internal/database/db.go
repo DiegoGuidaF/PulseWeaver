@@ -97,6 +97,17 @@ func (d *DB) Rebind(query string) string {
 	return d.pool.Rebind(query)
 }
 
+// PreparexContext prepares a statement against the ctx's transaction if one is
+// present, else the pool. Reuse the returned *sqlx.Stmt to amortize statement
+// compilation across many executions of the same query — e.g. a per-row insert
+// inside a batch. The caller must Close it before the surrounding tx commits.
+func (d *DB) PreparexContext(ctx context.Context, query string) (*sqlx.Stmt, error) {
+	type preparer interface {
+		PreparexContext(ctx context.Context, query string) (*sqlx.Stmt, error)
+	}
+	return d.exec(ctx).(preparer).PreparexContext(ctx, query)
+}
+
 func (d *DB) NamedExecContext(ctx context.Context, query string, arg any) (sql.Result, error) {
 	q, args, err := sqlx.Named(query, arg)
 	if err != nil {

@@ -207,6 +207,39 @@ func TestHandler_EnrichmentHeaders_PassedToVerifyAccess(t *testing.T) {
 	is.Equal(len(e.Headers["Authorization"]), 0)
 }
 
+func TestHandler_DenyEvent_StoresMinimalHeaders(t *testing.T) {
+	is := is.New(t)
+	obs := &testFakeObserver{}
+	// 9.9.9.9 is not registered, so the decision is a deny.
+	h := newTestHandlerWithObserver([]string{"1.2.3.4"}, obs)
+
+	r := httptest.NewRequest(http.MethodGet, "/api/policy-engine/verify-ip", nil)
+	r.Header.Set("Authorization", "Bearer mysecret")
+	r.Header.Set("User-Agent", "TestAgent/1.0")
+	r.Header.Set("Accept-Encoding", "gzip")
+	r.Header.Set("X-Forwarded-Host", "myhost.example.com")
+	r.Header.Set("X-Forwarded-Uri", "/protected")
+	r.Header.Set("X-Forwarded-Method", "GET")
+	r = r.WithContext(httpapi.WithClientIP(r.Context(), "9.9.9.9"))
+
+	w := httptest.NewRecorder()
+	h.HandleForwardAuthIP(w, r)
+	is.Equal(w.Code, http.StatusForbidden)
+
+	events := obs.received()
+	is.Equal(len(events), 1)
+	e := events[0]
+	is.True(!e.Outcome)
+	// Forwarding context is retained.
+	is.Equal(e.Headers["X-Forwarded-Host"][0], "myhost.example.com")
+	is.Equal(e.Headers["X-Forwarded-Method"][0], "GET")
+	// Arbitrary client headers are not stored on a deny.
+	is.Equal(len(e.Headers["User-Agent"]), 0)
+	is.Equal(len(e.Headers["Accept-Encoding"]), 0)
+	// Sensitive headers are never stored.
+	is.Equal(len(e.Headers["Authorization"]), 0)
+}
+
 // A malformed Authorization header (no "Bearer " prefix) hits the reject branch
 // that once logged the whole header map — including the credential it carries and
 // any Cookie. The log must never echo those values.

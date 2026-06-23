@@ -13,7 +13,8 @@ import (
 // Setup creates a new in-memory SQLite database for testing.
 // Returns the database instance and a cleanup function.
 // This package only imports database/config to avoid import cycles.
-func Setup(t *testing.T) (*database.SQLite, func()) {
+// Accepts testing.TB so benchmarks can share the same setup.
+func Setup(t testing.TB) (*database.SQLite, func()) {
 	t.Helper()
 
 	conf := config.ConfDB{

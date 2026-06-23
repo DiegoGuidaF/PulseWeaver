@@ -51,9 +51,14 @@ type DecisionEvent struct {
 }
 
 func NewDecisionEvent(outcome bool, denyReason *DenyReason, result *DecisionResult, req *VerifyRequest, geo geoip.Result, durationUs int64) DecisionEvent {
-	headers := req.Headers
-	if req.Headers == nil {
-		headers = make(map[string][]string)
+	// Allows keep the full header set for audit; denies keep only the forwarding
+	// subset. Materializing here — once the outcome is known — keeps the full
+	// header clone off the deny hot path.
+	var headers map[string][]string
+	if outcome {
+		headers = fullEnrichmentHeaders(req.rawHeader)
+	} else {
+		headers = minimalEnrichmentHeaders(req.rawHeader)
 	}
 	e := DecisionEvent{
 		ClientIP:   req.ClientIP.String(),

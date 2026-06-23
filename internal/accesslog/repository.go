@@ -22,12 +22,30 @@ func NewRepository(db *database.DB) *Repository {
 	}
 }
 
+const insertAccessLogSQL = `
+	INSERT INTO access_log (
+		client_ip, outcome, deny_reason, contributor_count,
+		created_at, xff_chain, target_host, target_uri, http_method, headers_json,
+		duration_us
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+`
+
 func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEvent) error {
 	if len(events) == 0 {
 		return nil
 	}
 
 	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		// The access_log insert runs once per row; preparing it once per batch
+		// reuses the compiled statement across all rows instead of recompiling it
+		// each iteration. Sparse child inserts stay per-row — they are absent on
+		// the common (deny) path, so they are not worth keeping a prepared stmt for.
+		insertStmt, err := r.db.PreparexContext(ctx, insertAccessLogSQL)
+		if err != nil {
+			return fmt.Errorf("prepare access event insert: %w", err)
+		}
+		defer func() { _ = insertStmt.Close() }()
+
 		for _, e := range events {
 			headers := e.Headers
 			if headers == nil {
@@ -41,14 +59,8 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 			contributorCount := len(e.IPContributors)
 
 			var accessID int64
-			if err := r.db.GetContext(ctx, &accessID,
-				`
-				INSERT INTO access_log (
-					client_ip, outcome, deny_reason, contributor_count,
-					created_at, xff_chain, target_host, target_uri, http_method, headers_json,
-					duration_us
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
-			`, e.ClientIP, e.Outcome, e.DenyReason, contributorCount,
+			if err := insertStmt.GetContext(ctx, &accessID,
+				e.ClientIP, e.Outcome, e.DenyReason, contributorCount,
 				e.CreatedAt, e.XFFChain, e.TargetHost, e.TargetURI, e.HTTPMethod,
 				string(headersJSON), e.DurationUs,
 			); err != nil {

@@ -5,6 +5,7 @@ package policy
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/netip"
 	"testing"
 
@@ -226,6 +227,49 @@ func BenchmarkBuildIPSet(b *testing.B) {
 			}
 		})
 	}
+}
+
+// benchRequestHeader builds a representative forward-auth request header set:
+// the X-Forwarded-* forwarding context plus the everyday client headers a proxied
+// request carries. Mirrors the width seen in the profiled prod-like DB (~10 keys).
+func benchRequestHeader() http.Header {
+	h := http.Header{}
+	h.Set("Authorization", "Bearer some-long-opaque-token-value-1234567890")
+	h.Set("Cookie", "session=abc; theme=dark")
+	h.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
+	h.Set("Accept-Encoding", "gzip, deflate, br")
+	h.Set("Content-Type", "text/html")
+	h.Set("Via", "1.1 Caddy")
+	h.Set("X-Forwarded-For", "203.0.113.7")
+	h.Set("X-Forwarded-Host", "whoami-gated.localhost")
+	h.Set("X-Forwarded-Method", "GET")
+	h.Set("X-Forwarded-Proto", "https")
+	h.Set("X-Forwarded-Uri", "/")
+	h.Set("X-Real-Ip", "203.0.113.7")
+	return h
+}
+
+// BenchmarkEnrichmentHeaders contrasts the full-clone (allow) path against the
+// minimal forwarding-subset (deny) path — the per-request allocation lever that
+// PW-95 flagged as policy.enrichmentHeaders churn.
+func BenchmarkEnrichmentHeaders(b *testing.B) {
+	h := benchRequestHeader()
+
+	b.Run("full", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for range b.N {
+			_ = fullEnrichmentHeaders(h)
+		}
+	})
+
+	b.Run("minimal", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for range b.N {
+			_ = minimalEnrichmentHeaders(h)
+		}
+	})
 }
 
 func BenchmarkBuildNetworkPolicyCache(b *testing.B) {
