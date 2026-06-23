@@ -134,6 +134,13 @@ export function AccessLogDetailDrawer({
                                 </Tooltip>
                             </Group>
                             <Divider />
+                            {!row.outcome && (
+                                <Text size="xs" c="dimmed">
+                                    Denied requests retain only a subset of headers
+                                    (X-Forwarded-Host, -Uri, -Method, -Proto, -For, X-Real-Ip
+                                    and User-Agent), so rejected traffic cannot flood the log.
+                                </Text>
+                            )}
                             <Code block>{headersJson}</Code>
                         </Stack>
                     )}

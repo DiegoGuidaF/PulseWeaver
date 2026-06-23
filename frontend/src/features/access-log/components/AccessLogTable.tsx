@@ -41,6 +41,13 @@ interface AccessLogTableProps {
 
 const PAGE_SIZE = 25;
 
+/**
+ * Fixed table viewport so the body scrolls internally with a sticky header. This
+ * keeps the horizontal scrollbar pinned to the bottom of the visible table
+ * instead of stranding it below a full page of rows.
+ */
+const TABLE_HEIGHT = 560;
+
 /** Narrowest a user may resize a column before its header controls get clipped. */
 const MIN_COLUMN_WIDTH = 110;
 
@@ -59,10 +66,9 @@ const COLUMN_META: { accessor: string; label: string; mandatory?: boolean; defau
     { accessor: "target_uri", label: "URI" },
     { accessor: "http_method", label: "Method" },
     { accessor: "user_id", label: "User", defaultVisible: true },
-    { accessor: "authorized_by", label: "Authorized by", defaultVisible: true },
-    { accessor: "outcome", label: "Outcome", defaultVisible: true },
-    { accessor: "deny_reason", label: "Reason", defaultVisible: true },
-    { accessor: "duration_us", label: "Duration", defaultVisible: true },
+    { accessor: "authorized_by", label: "Authorized by" },
+    { accessor: "outcome", label: "Decision", defaultVisible: true },
+    { accessor: "duration_us", label: "Duration" },
 ];
 
 const MANDATORY_COLUMNS = new Set(COLUMN_META.filter((c) => c.mandatory).map((c) => c.accessor));
@@ -80,7 +86,7 @@ const LEAN_DEFAULT_VISIBLE_COLUMNS = ["client_ip", "target_host", "outcome"];
  * visibility and width under `${key}-columns-*`, keeping the chooser, drag-to-reorder
  * and resize handles in sync through one store.
  */
-const COLUMNS_STORE_KEY = "pulseweaver:access-log:columns:v3";
+const COLUMNS_STORE_KEY = "pulseweaver:access-log:columns:v4";
 
 export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps) {
     const navigate = useNavigate();
@@ -118,8 +124,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         http_method: "Filter by HTTP method",
         user_id: "Filter by user",
         authorized_by: "Filter by authorized device or policy",
-        outcome: "Filter by outcome",
-        deny_reason: "Filter by deny reason",
+        outcome: "Filter by decision",
     });
 
     const { data: ownerGroups } = useDeviceList();
@@ -405,7 +410,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                     <DataTable
                         records={rows}
                         highlightOnHover
-                        minHeight={150}
+                        height={TABLE_HEIGHT}
                         // The empty-state container disables pointer events, so the
                         // clear-filters CTA re-enables them; rendering it only when the
                         // table is actually empty keeps the invisible overlay inert.

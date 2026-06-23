@@ -48,6 +48,13 @@ function getFilterButton(columnTitle: string | RegExp) {
     return btn;
 }
 
+/** Turn on a column that is hidden by default via the Columns chooser. */
+async function showColumn(user: ReturnType<typeof setupUser>, label: string) {
+    await user.click(screen.getByRole("button", { name: "Columns" }));
+    await user.click(await screen.findByRole("checkbox", { name: label, hidden: true }));
+    await user.keyboard("{Escape}");
+}
+
 beforeEach(() => {
     // Column-chooser visibility is persisted to localStorage; isolate each test.
     localStorage.clear();
@@ -57,6 +64,7 @@ beforeEach(() => {
 
 describe("AccessLogTable", () => {
     it("renders rows with contributor user and device", async () => {
+        const user = setupUser();
         const row = createMockAccessLogRow({
             client_ip: "203.0.113.42",
             target_host: "example.com",
@@ -72,6 +80,8 @@ describe("AccessLogTable", () => {
         );
         expect(screen.getByText("example.com")).toBeInTheDocument();
         expect(screen.getByText("Test User")).toBeInTheDocument();
+        // "Authorized by" is hidden by default; enable it to assert the device.
+        await showColumn(user, "Authorized by");
         expect(screen.getByText("Test Device")).toBeInTheDocument();
         expect(screen.getAllByText("Allow").length).toBeGreaterThan(0);
         expect(screen.getByText("1 result")).toBeInTheDocument();
@@ -102,7 +112,7 @@ describe("AccessLogTable", () => {
 
         expect(getColumnHeader("Time")).toBeDefined();
         expect(getColumnHeader("IP")).toBeDefined();
-        expect(getColumnHeader("Outcome")).toBeDefined();
+        expect(getColumnHeader("Decision")).toBeDefined();
     });
 
     it("shows error alert when API returns 500", async () => {
@@ -227,8 +237,8 @@ describe("AccessLogTable", () => {
         });
     });
 
-    describe("Outcome filter", () => {
-        it("opens with Allow/Deny options", async () => {
+    describe("Decision filter", () => {
+        it("opens with Allow/Deny options and a deny-reason section", async () => {
             const user = setupUser();
             server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })));
 
@@ -239,10 +249,11 @@ describe("AccessLogTable", () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            await user.click(getFilterButton("Outcome"));
+            await user.click(getFilterButton("Decision"));
 
             expect(await screen.findByText("Allow")).toBeInTheDocument();
             expect(screen.getByText("Deny")).toBeInTheDocument();
+            expect(screen.getByText("Deny reason")).toBeInTheDocument();
         });
     });
 
@@ -258,6 +269,7 @@ describe("AccessLogTable", () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
+            await showColumn(user, "Authorized by");
             await user.click(getFilterButton("Authorized by"));
 
             expect(await screen.findByText("By device")).toBeInTheDocument();
@@ -279,6 +291,7 @@ describe("AccessLogTable", () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
+            await showColumn(user, "Authorized by");
             await user.click(getFilterButton("Authorized by"));
 
             const deviceSection = (await screen.findByText("By device")).parentElement!;
@@ -630,15 +643,15 @@ describe("AccessLogTable", () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            expect(headerCells().some((h) => h.textContent?.includes("Reason"))).toBe(true);
+            expect(headerCells().some((h) => h.textContent?.includes("Country"))).toBe(true);
 
             await user.click(screen.getByRole("button", { name: "Columns" }));
-            // "Reason" is also the visible column header, so target the checkbox
+            // "Country" is also the visible column header, so target the checkbox
             // by role (the Menu dropdown is a11y-hidden in jsdom).
-            await user.click(await screen.findByRole("checkbox", { name: "Reason", hidden: true }));
+            await user.click(await screen.findByRole("checkbox", { name: "Country", hidden: true }));
 
             await waitFor(() =>
-                expect(headerCells().some((h) => h.textContent?.includes("Reason"))).toBe(false),
+                expect(headerCells().some((h) => h.textContent?.includes("Country"))).toBe(false),
             );
         });
 

@@ -91,7 +91,7 @@ function overflowBadge(count: number, contributorCount: number) {
     if (count <= 1) return null;
     return (
         <Tooltip label={`Client IP resolved to ${contributorCount} contributors`}>
-            <Badge size="xs" variant="light" color="gray">
+            <Badge size="xs" variant="light" color="gray" style={{ flexShrink: 0 }}>
                 +{count - 1}
             </Badge>
         </Tooltip>
@@ -219,7 +219,7 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
             filter: columnFilterSlot("target_host"),
             filtering: isFilterActive(deps.getColumnFilter("target_host")),
             render: (row) => (
-                <Text size="sm" title={row.target_host ?? undefined}>
+                <Text size="sm" truncate title={row.target_host ?? undefined}>
                     {row.target_host ?? "—"}
                 </Text>
             ),
@@ -232,7 +232,7 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
             filter: columnFilterSlot("target_uri"),
             filtering: isFilterActive(deps.getColumnFilter("target_uri")),
             render: (row) => (
-                <Text size="sm" ff="monospace" title={row.target_uri ?? undefined}>
+                <Text size="sm" ff="monospace" truncate title={row.target_uri ?? undefined}>
                     {row.target_uri ?? "—"}
                 </Text>
             ),
@@ -259,9 +259,10 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
                 if (users.length === 0) return <Text size="sm" c="dimmed">—</Text>;
                 const first = users[0];
                 return (
-                    <Group gap={6} wrap="nowrap">
+                    <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
                         <Anchor
                             size="sm"
+                            truncate
                             onClick={(e) => {
                                 e.stopPropagation();
                                 if (first.user_id != null) deps.onUserClick(first.user_id);
@@ -316,9 +317,9 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
                                 deps.onNetworkPolicyClick(row.network_policy_id!);
                             }}
                         >
-                            <Group gap={4} wrap="nowrap">
-                                <IconHexagon size={14} />
-                                <Text size="sm" inherit>{row.network_policy_name ?? "Unknown policy"}</Text>
+                            <Group gap={4} wrap="nowrap" style={{ minWidth: 0 }}>
+                                <IconHexagon size={14} style={{ flexShrink: 0 }} />
+                                <Text size="sm" inherit truncate>{row.network_policy_name ?? "Unknown policy"}</Text>
                             </Group>
                         </Anchor>
                     );
@@ -327,10 +328,11 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
                 if (devices.length === 0) return <Text size="sm" c="dimmed">—</Text>;
                 const first = devices[0];
                 return (
-                    <Group gap={6} wrap="nowrap">
+                    <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
                         {first.user_id != null ? (
                             <Anchor
                                 size="sm"
+                                truncate
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     deps.onDeviceClick(first.device_id!, first.user_id);
@@ -339,7 +341,7 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
                                 {first.device_name ?? `Device #${first.device_id}`}
                             </Anchor>
                         ) : (
-                            <Text size="sm">{first.device_name ?? `Device #${first.device_id}`}</Text>
+                            <Text size="sm" truncate>{first.device_name ?? `Device #${first.device_id}`}</Text>
                         )}
                         {overflowBadge(devices.length, row.contributor_count)}
                     </Group>
@@ -348,43 +350,49 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
         },
         {
             accessor: "outcome",
-            title: "Outcome",
+            title: "Decision",
             sortable: true,
-            textAlign: "center",
             filter: ({ close }) => (
-                <SegmentedControl
-                    data={[
-                        { label: "All", value: "all" },
-                        { label: "Allow", value: "allow" },
-                        { label: "Deny", value: "deny" },
-                    ]}
-                    value={deps.outcomeStr ?? "all"}
-                    onChange={(val) => {
-                        deps.setOutcome(val === "all" ? null : val);
-                        close();
-                    }}
-                    m="xs"
-                />
+                <Stack gap="sm" p="xs">
+                    <Stack gap={4}>
+                        <Text size="xs" c="dimmed" fw={500}>Outcome</Text>
+                        <SegmentedControl
+                            fullWidth
+                            data={[
+                                { label: "All", value: "all" },
+                                { label: "Allow", value: "allow" },
+                                { label: "Deny", value: "deny" },
+                            ]}
+                            value={deps.outcomeStr ?? "all"}
+                            onChange={(val) => deps.setOutcome(val === "all" ? null : val)}
+                        />
+                    </Stack>
+                    <Stack gap={4}>
+                        <Text size="xs" c="dimmed" fw={500}>Deny reason</Text>
+                        <ColumnFilter
+                            config={FILTER_COLUMNS.deny_reason}
+                            state={deps.getColumnFilter("deny_reason")}
+                            options={deps.denyReasonOptions}
+                            onCommit={(next) => deps.setColumnFilter("deny_reason", next)}
+                            autoFocus={false}
+                        />
+                    </Stack>
+                    <FilterApplyButton onApply={close} />
+                </Stack>
             ),
-            filtering: !!deps.outcomeStr,
+            filtering: !!deps.outcomeStr || isFilterActive(deps.getColumnFilter("deny_reason")),
             render: (row) => (
-                <Badge color={row.outcome ? "green" : "red"} size="sm">
-                    {row.outcome ? "Allow" : "Deny"}
-                </Badge>
+                <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                    <Badge color={row.outcome ? "green" : "red"} size="sm" style={{ flexShrink: 0 }}>
+                        {row.outcome ? "Allow" : "Deny"}
+                    </Badge>
+                    {!row.outcome && row.deny_reason && (
+                        <Text size="sm" c="dimmed" truncate title={DENY_REASON_LABELS[row.deny_reason] ?? row.deny_reason}>
+                            {DENY_REASON_LABELS[row.deny_reason] ?? row.deny_reason}
+                        </Text>
+                    )}
+                </Group>
             ),
-        },
-        {
-            accessor: "deny_reason",
-            title: "Reason",
-            sortable: true,
-            filter: columnFilterSlot("deny_reason", deps.denyReasonOptions),
-            filtering: isFilterActive(deps.getColumnFilter("deny_reason")),
-            render: (row) =>
-                row.deny_reason ? (
-                    <Text size="sm">{DENY_REASON_LABELS[row.deny_reason] ?? row.deny_reason}</Text>
-                ) : (
-                    <Text size="sm" c="dimmed">—</Text>
-                ),
         },
         {
             accessor: "duration_us",
