@@ -468,6 +468,28 @@ describe("AccessLogTable", () => {
         });
     });
 
+    // ─── Inline filter affordance ─────────────────────────────────────────────
+
+    describe("Inline filter affordance", () => {
+        it("applies a column filter from a cell's hover filter control", async () => {
+            const user = setupUser();
+            const row = createMockAccessLogRow({ client_ip: "8.8.4.4", country_code: "DE", country_name: "Germany" });
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })));
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("8.8.4.4")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            // The control is opacity-hidden until row hover, but stays in the DOM.
+            await user.click(screen.getByRole("button", { name: "Filter by this country" }));
+
+            expect(await screen.findByText("Country:")).toBeInTheDocument();
+        });
+    });
+
     // ─── Detail drawer — Location section ─────────────────────────────────────
 
     describe("Detail drawer — Location section", () => {

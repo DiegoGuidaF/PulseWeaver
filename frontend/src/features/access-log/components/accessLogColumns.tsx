@@ -12,6 +12,7 @@ import {
 import { DateTimePicker } from "@mantine/dates";
 import { IconChevronRight, IconHome, IconHexagon } from "@tabler/icons-react";
 import type { DataTableColumn } from "mantine-datatable";
+import { FilterableCell } from "./FilterableCell";
 import type { AccessLogContributor, AccessLogRow } from "@/lib/api";
 import type { AccessLogFilters } from "../hooks/useAccessLogFilters";
 import {
@@ -189,23 +190,36 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
             filter: columnFilterSlot("client_ip"),
             filtering: isFilterActive(deps.getColumnFilter("client_ip")),
             render: (row) => (
-                <Text size="sm" ff="monospace">
-                    {row.client_ip}
-                </Text>
+                <FilterableCell
+                    filterLabel="Filter by this IP"
+                    onFilter={() =>
+                        deps.setColumnFilter("client_ip", { op: "in", values: [row.client_ip] })
+                    }
+                >
+                    <Text size="sm" ff="monospace" truncate>
+                        {row.client_ip}
+                    </Text>
+                </FilterableCell>
             ),
         },
         {
             accessor: "country_code",
             title: "Country",
             sortable: true,
-            textAlign: "center",
             filter: columnFilterSlot("country_code"),
             filtering: isFilterActive(deps.getColumnFilter("country_code")),
             render: (row) =>
                 row.country_code ? (
-                    <Text size="sm">
-                        {countryFlagEmoji(row.country_code)} {row.country_code}
-                    </Text>
+                    <FilterableCell
+                        filterLabel="Filter by this country"
+                        onFilter={() =>
+                            deps.setColumnFilter("country_code", { op: "in", values: [row.country_code!] })
+                        }
+                    >
+                        <Text size="sm">
+                            {countryFlagEmoji(row.country_code)} {row.country_code}
+                        </Text>
+                    </FilterableCell>
                 ) : (
                     <IconHome size={14} color="var(--mantine-color-dimmed)" />
                 ),
@@ -218,11 +232,21 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
             ellipsis: true,
             filter: columnFilterSlot("target_host"),
             filtering: isFilterActive(deps.getColumnFilter("target_host")),
-            render: (row) => (
-                <Text size="sm" truncate title={row.target_host ?? undefined}>
-                    {row.target_host ?? "—"}
-                </Text>
-            ),
+            render: (row) =>
+                row.target_host ? (
+                    <FilterableCell
+                        filterLabel="Filter by this host"
+                        onFilter={() =>
+                            deps.setColumnFilter("target_host", { op: "in", values: [row.target_host!] })
+                        }
+                    >
+                        <Text size="sm" truncate title={row.target_host}>
+                            {row.target_host}
+                        </Text>
+                    </FilterableCell>
+                ) : (
+                    <Text size="sm" c="dimmed">—</Text>
+                ),
         },
         {
             accessor: "target_uri",
@@ -259,19 +283,32 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
                 if (users.length === 0) return <Text size="sm" c="dimmed">—</Text>;
                 const first = users[0];
                 return (
-                    <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
-                        <Anchor
-                            size="sm"
-                            truncate
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (first.user_id != null) deps.onUserClick(first.user_id);
-                            }}
-                        >
-                            {first.user_name ?? `User #${first.user_id}`}
-                        </Anchor>
-                        {overflowBadge(users.length, row.contributor_count)}
-                    </Group>
+                    <FilterableCell
+                        filterLabel="Filter by this user"
+                        onFilter={
+                            first.user_id != null
+                                ? () =>
+                                      deps.setColumnFilter("user_id", {
+                                          op: "in",
+                                          values: [String(first.user_id)],
+                                      })
+                                : undefined
+                        }
+                    >
+                        <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+                            <Anchor
+                                size="sm"
+                                truncate
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (first.user_id != null) deps.onUserClick(first.user_id);
+                                }}
+                            >
+                                {first.user_name ?? `User #${first.user_id}`}
+                            </Anchor>
+                            {overflowBadge(users.length, row.contributor_count)}
+                        </Group>
+                    </FilterableCell>
                 );
             },
         },
@@ -309,42 +346,65 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
             render: (row) => {
                 if (row.network_policy_id != null) {
                     return (
-                        <Anchor
-                            size="sm"
-                            c="teal.5"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                deps.onNetworkPolicyClick(row.network_policy_id!);
-                            }}
+                        <FilterableCell
+                            filterLabel="Filter by this network policy"
+                            onFilter={() =>
+                                deps.setColumnFilter("network_policy_id", {
+                                    op: "in",
+                                    values: [String(row.network_policy_id)],
+                                })
+                            }
                         >
-                            <Group gap={4} wrap="nowrap" style={{ minWidth: 0 }}>
-                                <IconHexagon size={14} style={{ flexShrink: 0 }} />
-                                <Text size="sm" inherit truncate>{row.network_policy_name ?? "Unknown policy"}</Text>
-                            </Group>
-                        </Anchor>
+                            <Anchor
+                                size="sm"
+                                c="teal.5"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    deps.onNetworkPolicyClick(row.network_policy_id!);
+                                }}
+                            >
+                                <Group gap={4} wrap="nowrap" style={{ minWidth: 0 }}>
+                                    <IconHexagon size={14} style={{ flexShrink: 0 }} />
+                                    <Text size="sm" inherit truncate>{row.network_policy_name ?? "Unknown policy"}</Text>
+                                </Group>
+                            </Anchor>
+                        </FilterableCell>
                     );
                 }
                 const devices = distinctDevices(row.contributors);
                 if (devices.length === 0) return <Text size="sm" c="dimmed">—</Text>;
                 const first = devices[0];
                 return (
-                    <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
-                        {first.user_id != null ? (
-                            <Anchor
-                                size="sm"
-                                truncate
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    deps.onDeviceClick(first.device_id!, first.user_id);
-                                }}
-                            >
-                                {first.device_name ?? `Device #${first.device_id}`}
-                            </Anchor>
-                        ) : (
-                            <Text size="sm" truncate>{first.device_name ?? `Device #${first.device_id}`}</Text>
-                        )}
-                        {overflowBadge(devices.length, row.contributor_count)}
-                    </Group>
+                    <FilterableCell
+                        filterLabel="Filter by this device"
+                        onFilter={
+                            first.device_id != null
+                                ? () =>
+                                      deps.setColumnFilter("device_id", {
+                                          op: "in",
+                                          values: [String(first.device_id)],
+                                      })
+                                : undefined
+                        }
+                    >
+                        <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+                            {first.user_id != null ? (
+                                <Anchor
+                                    size="sm"
+                                    truncate
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        deps.onDeviceClick(first.device_id!, first.user_id);
+                                    }}
+                                >
+                                    {first.device_name ?? `Device #${first.device_id}`}
+                                </Anchor>
+                            ) : (
+                                <Text size="sm" truncate>{first.device_name ?? `Device #${first.device_id}`}</Text>
+                            )}
+                            {overflowBadge(devices.length, row.contributor_count)}
+                        </Group>
+                    </FilterableCell>
                 );
             },
         },
@@ -382,16 +442,21 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
             ),
             filtering: !!deps.outcomeStr || isFilterActive(deps.getColumnFilter("deny_reason")),
             render: (row) => (
-                <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-                    <Badge color={row.outcome ? "green" : "red"} size="sm" style={{ flexShrink: 0 }}>
-                        {row.outcome ? "Allow" : "Deny"}
-                    </Badge>
-                    {!row.outcome && row.deny_reason && (
-                        <Text size="sm" c="dimmed" truncate title={DENY_REASON_LABELS[row.deny_reason] ?? row.deny_reason}>
-                            {DENY_REASON_LABELS[row.deny_reason] ?? row.deny_reason}
-                        </Text>
-                    )}
-                </Group>
+                <FilterableCell
+                    filterLabel={`Filter by ${row.outcome ? "allowed" : "denied"} requests`}
+                    onFilter={() => deps.setOutcome(row.outcome ? "allow" : "deny")}
+                >
+                    <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                        <Badge color={row.outcome ? "green" : "red"} size="sm" style={{ flexShrink: 0 }}>
+                            {row.outcome ? "Allow" : "Deny"}
+                        </Badge>
+                        {!row.outcome && row.deny_reason && (
+                            <Text size="sm" c="dimmed" truncate title={DENY_REASON_LABELS[row.deny_reason] ?? row.deny_reason}>
+                                {DENY_REASON_LABELS[row.deny_reason] ?? row.deny_reason}
+                            </Text>
+                        )}
+                    </Group>
+                </FilterableCell>
             ),
         },
         {
