@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Alert,
   Badge,
   Button,
+  Collapse,
   Divider,
   Group,
   Loader,
@@ -10,11 +11,19 @@ import {
   Stack,
   Text,
   Title,
+  UnstyledButton,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconClock, IconRefresh } from "@tabler/icons-react";
+import {
+  IconAlertCircle,
+  IconChevronRight,
+  IconClock,
+  IconPlus,
+  IconRefresh,
+} from "@tabler/icons-react";
 import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
 import type { DevicePairing, DeviceState as DeviceStateType } from "@/lib/api";
 import { DeviceState } from "@/lib/api";
 import { toErrorMessage } from "@/lib/api-client";
@@ -24,6 +33,10 @@ import { useListDevicePairings } from "./hooks/useListDevicePairings";
 import { useCreateDevicePairing } from "./hooks/useCreateDevicePairing";
 import { PairingCreationForm } from "./PairingCreationForm";
 import { PairingCodeDisplay } from "./PairingCodeDisplay";
+import { PairingConfigSummary } from "./PairingConfigSummary";
+import { PairingStatusHero } from "./PairingStatusHero";
+
+dayjs.extend(relativeTime);
 
 const STATUS_BADGE: Record<DevicePairing["status"], { label: string; color: string }> = {
   pending: { label: "pending", color: "indigo" },
@@ -39,27 +52,36 @@ interface Props {
 }
 
 export function DevicePairingTab({ deviceId, deviceState }: Props) {
-  const [regenOpen, { open: openRegen, close: closeRegen }] = useDisclosure(false);
-
-  const isPending = deviceState === DeviceState.PENDING_CLAIM;
   const isExpired = deviceState === DeviceState.EXPIRED_CLAIM;
 
   const pendingQuery = useListDevicePairings(deviceId, "pending");
   const historyQuery = useListDevicePairings(deviceId, "all");
   const regenMutation = useCreateDevicePairing(deviceId);
 
-  const pendingPairing = pendingQuery.data?.[0];
-  const historyItems = (historyQuery.data ?? []).filter((p) => p.status !== "pending").slice(0, 5);
-
   const formatDateTime = useDateFormatter();
 
-  // After creation, switch immediately to the display (pending query will refresh via invalidation)
+  // After creation, switch immediately to the code display (the pending query
+  // refreshes via invalidation behind it).
   const [justCreated, setJustCreated] = useState<DevicePairing | null>(null);
+  const [createOpen, { open: openCreate, close: closeCreate }] = useDisclosure(false);
+  const [showHistory, { toggle: toggleHistory }] = useDisclosure(false);
 
-  const displayPairing = justCreated ?? pendingPairing;
+  const pendingPairing = pendingQuery.data?.[0];
+  const outstandingCode = justCreated ?? pendingPairing;
+
+  // A claimed code means the device is (or was) linked to a companion app. The
+  // most recent one carries the config locked in at claim time.
+  const claimedPairing = useMemo(
+    () => (historyQuery.data ?? []).find((p) => p.status === "used"),
+    [historyQuery.data],
+  );
+  const isLinked = Boolean(claimedPairing);
+
+  const historyItems = (historyQuery.data ?? []).filter((p) => p.status !== "pending").slice(0, 5);
 
   function handleCreateSuccess(pairing: DevicePairing) {
     setJustCreated(pairing);
+    closeCreate();
   }
 
   function handleRevoke() {
@@ -67,22 +89,22 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
   }
 
   function handleRegen() {
-    if (!displayPairing) return;
+    if (!outstandingCode) return;
     regenMutation.mutate(
       {
         path: { id: deviceId },
         body: {
-          heartbeat_server_url: displayPairing.heartbeat_server_url,
-          interval_seconds: displayPairing.interval_seconds,
-          app_biometric_enabled: displayPairing.app_biometric_enabled,
-          app_settings_locked: displayPairing.app_settings_locked,
+          heartbeat_server_url: outstandingCode.heartbeat_server_url,
+          interval_seconds: outstandingCode.interval_seconds,
+          app_biometric_enabled: outstandingCode.app_biometric_enabled,
+          app_settings_locked: outstandingCode.app_settings_locked,
           expires_in_hours: 24,
         },
       },
       {
         onSuccess: (data) => {
           setJustCreated(data);
-          closeRegen();
+          notifications.show({ color: "green", message: "New pairing code generated" });
         },
         onError: (err) =>
           notifications.show({
@@ -94,50 +116,89 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
     );
   }
 
-  if (isPending && pendingQuery.isLoading && !justCreated) {
+  if ((pendingQuery.isLoading || historyQuery.isLoading) && !justCreated) {
     return <Loader size="sm" />;
   }
 
-  if (isPending && pendingQuery.isError && !justCreated) {
+  if ((pendingQuery.isError || historyQuery.isError) && !justCreated) {
+    const failed = pendingQuery.isError ? pendingQuery : historyQuery;
     return (
       <ErrorState
-        error={pendingQuery.error}
-        title="Failed to load pairing code"
-        onRetry={() => pendingQuery.refetch()}
+        error={failed.error}
+        title="Failed to load pairing status"
+        onRetry={() => failed.refetch()}
       />
     );
   }
 
   return (
     <Stack gap="lg">
-      {/* Active code display (pending state) */}
-      {displayPairing ? (
+      {outstandingCode ? (
+        /* A code is outstanding — for a fresh device this is first pairing, for a
+           linked one it's a replacement waiting to be claimed. */
         <Stack gap="md">
           <Group justify="space-between" align="center">
-            <Title order={2} size="h5">Active pairing code</Title>
+            <Title order={2} size="h5">
+              {isLinked ? "New pairing code" : "Active pairing code"}
+            </Title>
             <Button
               variant="light"
               size="xs"
               color="orange"
               leftSection={<IconRefresh size={13} />}
-              onClick={openRegen}
+              onClick={handleRegen}
+              loading={regenMutation.isPending}
             >
               Regenerate
             </Button>
           </Group>
           <PairingCodeDisplay
             deviceId={deviceId}
-            pairing={displayPairing}
+            pairing={outstandingCode}
             onRevoke={handleRevoke}
+            isRepair={isLinked}
           />
         </Stack>
-      ) : (
+      ) : isLinked && claimedPairing ? (
+        /* Linked: lead with status, demote the act of issuing another code. */
         <Stack gap="md">
-          {isExpired && (
-            <Alert color="orange" icon={<IconAlertCircle size={16} />}>
-              The previous pairing code expired before it was claimed. Generate a new one below.
-            </Alert>
-          )}
+          <PairingStatusHero deviceState={deviceState} claimedAt={claimedPairing.updated_at} />
+          <Divider />
+          <Stack gap={6}>
+            <Text size="sm" fw={500}>
+              Config locked in at claim
+            </Text>
+            <PairingConfigSummary pairing={claimedPairing} />
+          </Stack>
+          <Group>
+            <Button
+              variant="default"
+              size="sm"
+              leftSection={<IconRefresh size={14} />}
+              onClick={openCreate}
+            >
+              Generate another code
+            </Button>
+          </Group>
+          <Text size="xs" c="dimmed">
+            The current link stays active until a new code is claimed.
+          </Text>
+        </Stack>
+      ) : isExpired ? (
+        /* Expired without ever being claimed — one clear way forward. */
+        <Stack gap="md">
+          <Alert color="orange" icon={<IconAlertCircle size={16} />} title="Pairing code expired">
+            The previous code expired before it was claimed. Generate a new one to pair this device.
+          </Alert>
+          <Group>
+            <Button leftSection={<IconPlus size={14} />} onClick={openCreate}>
+              Generate new code
+            </Button>
+          </Group>
+        </Stack>
+      ) : (
+        /* Never linked — the create form is the main thing to do here. */
+        <Stack gap="md">
           <div>
             <Title order={2} size="h5" mb={4}>
               Generate a pairing code
@@ -151,66 +212,78 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
         </Stack>
       )}
 
-      {/* History */}
+      {/* History — collapsed by default; secondary to current status */}
       {historyItems.length > 0 && (
         <>
           <Divider />
           <Stack gap="xs">
-            <Title order={2} size="h6" c="dimmed">
-              Recent codes
-            </Title>
-            {historyItems.map((item) => {
-              const badge = STATUS_BADGE[item.status];
-              return (
-                <Group key={item.id} gap="sm" wrap="nowrap">
-                  <Text size="xs" ff="monospace" c="dimmed" truncate style={{ flex: 1, minWidth: 0 }}>
-                    {item.pairing_code}
-                  </Text>
-                  <Badge size="xs" color={badge.color} variant="light" style={{ flexShrink: 0 }}>
-                    {badge.label}
-                  </Badge>
-                  <Group gap={4} style={{ flexShrink: 0 }}>
-                    <IconClock size={11} style={{ color: "var(--mantine-color-dimmed)" }} />
-                    <Text size="xs" c="dimmed">
-                      {item.status === "used"
-                        ? `claimed ${dayjs(item.updated_at).fromNow()}`
-                        : item.status === "expired" || item.status === "invalidated" || item.status === "replaced"
-                          ? formatDateTime(item.updated_at)
-                          : formatDateTime(item.created_at)}
-                    </Text>
-                  </Group>
-                </Group>
-              );
-            })}
+            <UnstyledButton onClick={toggleHistory}>
+              <Group gap={6} align="center">
+                <IconChevronRight
+                  size={14}
+                  style={{
+                    color: "var(--mantine-color-dimmed)",
+                    transform: showHistory ? "rotate(90deg)" : "none",
+                    transition: "transform 150ms ease",
+                  }}
+                />
+                <Text size="sm" fw={600} c="dimmed">
+                  Recent codes · {historyItems.length}
+                </Text>
+              </Group>
+            </UnstyledButton>
+            <Collapse expanded={showHistory}>
+              <Stack gap="xs">
+                {historyItems.map((item) => {
+                  const badge = STATUS_BADGE[item.status];
+                  return (
+                    <Group key={item.id} gap="sm" wrap="nowrap">
+                      <Text
+                        size="xs"
+                        ff="monospace"
+                        c="dimmed"
+                        truncate
+                        style={{ flex: 1, minWidth: 0 }}
+                      >
+                        {item.pairing_code}
+                      </Text>
+                      <Badge size="xs" color={badge.color} variant="light" style={{ flexShrink: 0 }}>
+                        {badge.label}
+                      </Badge>
+                      <Group gap={4} style={{ flexShrink: 0 }}>
+                        <IconClock size={11} style={{ color: "var(--mantine-color-dimmed)" }} />
+                        <Text size="xs" c="dimmed">
+                          {item.status === "used"
+                            ? `claimed ${dayjs(item.updated_at).fromNow()}`
+                            : item.status === "expired" ||
+                                item.status === "invalidated" ||
+                                item.status === "replaced"
+                              ? formatDateTime(item.updated_at)
+                              : formatDateTime(item.created_at)}
+                        </Text>
+                      </Group>
+                    </Group>
+                  );
+                })}
+              </Stack>
+            </Collapse>
           </Stack>
         </>
       )}
 
-      {/* Regenerate confirm modal */}
+      {/* Generate-code modal — used by the linked and expired states */}
       <Modal
-        opened={regenOpen}
-        onClose={closeRegen}
-        title="Regenerate pairing code?"
-        size="sm"
+        opened={createOpen}
+        onClose={closeCreate}
+        title="Generate a pairing code"
+        size="lg"
+        closeOnClickOutside={false}
       >
-        <Stack gap="md">
-          <Text size="sm">
-            Generating a new code will invalidate the current one. If nobody has
-            claimed it yet, the device's API key is unchanged.
-          </Text>
-          <Group justify="flex-end" gap="sm">
-            <Button variant="outline" onClick={closeRegen}>
-              Cancel
-            </Button>
-            <Button
-              color="orange"
-              loading={regenMutation.isPending}
-              onClick={handleRegen}
-            >
-              Generate new code
-            </Button>
-          </Group>
-        </Stack>
+        <PairingCreationForm
+          deviceId={deviceId}
+          onSuccess={handleCreateSuccess}
+          onCancel={closeCreate}
+        />
       </Modal>
     </Stack>
   );

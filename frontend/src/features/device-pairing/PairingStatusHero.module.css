@@ -1,0 +1,38 @@
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* Healthy link: amber heartbeat — the liveness color of the brand. */
+.alive {
+  background: var(--mantine-color-orange-4);
+}
+
+.alive::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 var(--mantine-color-orange-4);
+  animation: pulse 2s ease-out infinite;
+}
+
+@keyframes pulse {
+  to {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+
+/* Linked but no recent heartbeat — quiet, no animation. */
+.quiet {
+  background: var(--mantine-color-gray-6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alive::after {
+    animation: none;
+  }
+}

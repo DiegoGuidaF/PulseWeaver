@@ -1,7 +1,7 @@
 import dayjs from "dayjs";
 import { QRCodeSVG } from "qrcode.react";
 import {
-  Badge,
+  Alert,
   Box,
   Button,
   Code,
@@ -10,14 +10,14 @@ import {
   List,
   Stack,
   Text,
-  Tooltip,
 } from "@mantine/core";
-import { IconAlertTriangle, IconCopy, IconTrash } from "@tabler/icons-react";
+import { IconAlertTriangle, IconCopy, IconInfoCircle, IconTrash } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import type { DevicePairing } from "@/lib/api";
 import { toErrorMessage } from "@/lib/api-client";
 import { useClipboard } from "@/hooks/useClipboard";
 import { useDeleteDevicePairing } from "./hooks/useDeleteDevicePairing";
+import { PairingConfigSummary } from "./PairingConfigSummary";
 
 function formatTtl(expiresAt: string): string {
   const diffMin = dayjs(expiresAt).diff(dayjs(), "minute");
@@ -28,18 +28,15 @@ function formatTtl(expiresAt: string): string {
   return m > 0 ? `${h}h ${m}m remaining` : `${h}h remaining`;
 }
 
-function formatInterval(seconds: number): string {
-  if (seconds < 3600) return `${seconds / 60} min`;
-  return `${seconds / 3600}h`;
-}
-
 interface Props {
   deviceId: number;
   pairing: DevicePairing;
   onRevoke: () => void;
+  /** When this code replaces an already-claimed link, reassure that the old key keeps working until claim. */
+  isRepair?: boolean;
 }
 
-export function PairingCodeDisplay({ deviceId, pairing, onRevoke }: Props) {
+export function PairingCodeDisplay({ deviceId, pairing, onRevoke, isRepair = false }: Props) {
   const { copy } = useClipboard();
   const deleteMutation = useDeleteDevicePairing(deviceId);
 
@@ -63,6 +60,13 @@ export function PairingCodeDisplay({ deviceId, pairing, onRevoke }: Props) {
 
   return (
     <Stack gap="md">
+      {isRepair && (
+        <Alert color="indigo" icon={<IconInfoCircle size={16} />}>
+          The current link stays active until this new code is claimed — the device keeps working
+          on its existing key in the meantime.
+        </Alert>
+      )}
+
       {/* 1. The code — primary focus */}
       <Group gap="lg" align="flex-start" wrap="wrap">
         <div style={{ flex: 1, minWidth: 220 }}>
@@ -125,58 +129,7 @@ export function PairingCodeDisplay({ deviceId, pairing, onRevoke }: Props) {
       <Divider />
 
       {/* 3. Config summary — compact horizontal row */}
-      <Group gap="lg" wrap="wrap">
-        <Group gap={6} align="center">
-          <Text size="xs" c="dimmed">
-            Server
-          </Text>
-          <Code style={{ fontSize: "var(--mantine-font-size-xs)" }}>
-            {pairing.heartbeat_server_url}
-          </Code>
-        </Group>
-        <Group gap={6} align="center">
-          <Text size="xs" c="dimmed">
-            Interval
-          </Text>
-          <Text size="xs">{formatInterval(pairing.interval_seconds)}</Text>
-        </Group>
-        <Group gap={6} align="center">
-          <Text size="xs" c="dimmed">
-            Biometric
-          </Text>
-          <Badge
-            size="xs"
-            color={pairing.app_biometric_enabled ? "teal" : "gray"}
-            variant="light"
-          >
-            {pairing.app_biometric_enabled ? "on" : "off"}
-          </Badge>
-        </Group>
-        <Group gap={6} align="center">
-          <Text size="xs" c="dimmed">
-            Settings
-          </Text>
-          <Tooltip
-            label={
-              pairing.app_settings_locked
-                ? "The user cannot change any settings in the companion app."
-                : "The user can freely adjust settings in the companion app."
-            }
-            withArrow
-            bg="dark.7"
-            c="gray.1"
-          >
-            <Badge
-              size="xs"
-              color={pairing.app_settings_locked ? "orange" : "gray"}
-              variant="light"
-              style={{ cursor: "help" }}
-            >
-              {pairing.app_settings_locked ? "locked" : "user-editable"}
-            </Badge>
-          </Tooltip>
-        </Group>
-      </Group>
+      <PairingConfigSummary pairing={pairing} />
 
       <Divider />
 
