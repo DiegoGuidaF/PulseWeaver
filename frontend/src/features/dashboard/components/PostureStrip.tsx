@@ -12,7 +12,6 @@ import type { ComponentType } from "react";
 import { ROUTES } from "@/lib/routes";
 import { ErrorState } from "@/components/ErrorState";
 import { InfoTooltip } from "@/components/InfoTooltip";
-import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import type { DashboardPosture } from "@/lib/api";
 
 interface PostureStripProps {
@@ -75,8 +74,6 @@ function PostureCard({ spec, isLoading }: { spec: PostureCardSpec; isLoading: bo
 }
 
 export function PostureStrip({ data, isLoading, error, onRetry }: PostureStripProps) {
-    const formatDateTime = useDateFormatter();
-
     if (error) {
         return <ErrorState error={error} title="Failed to load posture" onRetry={onRetry} />;
     }
@@ -124,15 +121,9 @@ export function PostureStrip({ data, isLoading, error, onRetry }: PostureStripPr
             <Group justify="space-between" align="baseline" wrap="wrap">
                 <Text fw={600}>Security posture</Text>
                 {data && (
-                    <Group gap={4} align="center" wrap="nowrap">
-                        <Text size="xs" c="dimmed">
-                            Current state · cache as of {formatDateTime(data.refreshed_at)}
-                        </Text>
-                        <InfoTooltip
-                            label="The posture cache only recomputes when a device address or access setting changes. An older timestamp just means nothing has changed since — these figures are still current."
-                            aria-label="What the cache timestamp means"
-                        />
-                    </Group>
+                    <Text size="xs" c="dimmed">
+                        Current state
+                    </Text>
                 )}
             </Group>
 
@@ -142,8 +133,6 @@ export function PostureStrip({ data, isLoading, error, onRetry }: PostureStripPr
                 ))}
             </SimpleGrid>
 
-            {/* Pending suggestions is a live read, fresher than the cache snapshot above —
-                kept on its own row so the "as of" label does not appear to cover it. */}
             {pendingSuggestions > 0 && (
                 <Paper
                     component={Link}

@@ -246,7 +246,6 @@ export function createMockDashboardPosture(
   overrides?: Partial<DashboardPosture>,
 ): DashboardPosture {
   return {
-    refreshed_at: '2024-01-01T12:00:00Z',
     users: {
       bypass: 1,
       live_with_access: 1,
