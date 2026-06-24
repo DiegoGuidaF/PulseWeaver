@@ -45,7 +45,7 @@ export function CountryStatsSection({ from, to }: CountryStatsSectionProps) {
                         onCountryClick={handleCountryClick}
                     />
                 </Grid.Col>
-                <Grid.Col span={{ base: 12, md: 4 }}>
+                <Grid.Col span={{ base: 12, md: 4 }} miw={0}>
                     <TopCountriesTable
                         data={data}
                         isLoading={isLoading}

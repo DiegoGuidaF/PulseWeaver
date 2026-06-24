@@ -91,13 +91,18 @@ export function TopCountriesTable({
                     title="No geographic data in this period"
                 />
             ) : (
-                <Table striped highlightOnHover aria-label="Top countries by access requests">
+                <Table
+                    striped
+                    highlightOnHover
+                    aria-label="Top countries by access requests"
+                    style={{ tableLayout: "fixed", width: "100%" }}
+                >
                     <Table.Thead>
                         <Table.Tr>
-                            <Table.Th>#</Table.Th>
+                            <Table.Th w={36}>#</Table.Th>
                             <Table.Th>Country</Table.Th>
-                            <Table.Th>Breakdown</Table.Th>
-                            <Table.Th style={{ textAlign: "right" }}>
+                            <Table.Th w={110}>Breakdown</Table.Th>
+                            <Table.Th w={72} style={{ textAlign: "right" }}>
                                 Total
                             </Table.Th>
                         </Table.Tr>
@@ -110,9 +115,19 @@ export function TopCountriesTable({
                                 onClick={() => onCountryClick(row.country_code)}
                             >
                                 <Table.Td c="dimmed">{i + 1}</Table.Td>
-                                <Table.Td style={{ whiteSpace: "nowrap" }}>
-                                    {countryFlagEmoji(row.country_code)}{" "}
-                                    {row.country_name ?? row.country_code}
+                                <Table.Td>
+                                    <Group gap={6} wrap="nowrap">
+                                        <span>{countryFlagEmoji(row.country_code)}</span>
+                                        <Tooltip
+                                            label={row.country_name ?? row.country_code}
+                                            withArrow
+                                            openDelay={300}
+                                        >
+                                            <Text size="sm" truncate="end" style={{ flex: 1, minWidth: 0 }}>
+                                                {row.country_name ?? row.country_code}
+                                            </Text>
+                                        </Tooltip>
+                                    </Group>
                                 </Table.Td>
                                 <Table.Td style={{ width: "30%" }}>
                                     <BreakdownBar

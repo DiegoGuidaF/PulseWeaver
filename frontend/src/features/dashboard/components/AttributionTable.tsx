@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Paper, Text, Table, Group, Skeleton, ScrollArea, Anchor } from "@mantine/core";
+import { Paper, Text, Table, Group, Skeleton, ScrollArea, Anchor, Tooltip } from "@mantine/core";
 import { IconChartBar } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import { EmptyState } from "@/components/EmptyState";
@@ -51,7 +51,7 @@ export function AttributionTable({
     const visible = expanded ? sorted : sorted.slice(0, COLLAPSED_ROWS);
 
     return (
-        <Paper withBorder p="md" radius="md">
+        <Paper withBorder p="md" radius="md" miw={0}>
             <Group justify="space-between" mb="md" wrap="nowrap">
                 <Text fw={500}>{title}</Text>
                 {sorted.length > 0 && (
@@ -77,7 +77,6 @@ export function AttributionTable({
                                     <Table.Th>{entityHeader}</Table.Th>
                                     <Table.Th style={{ textAlign: "right" }}>Allowed</Table.Th>
                                     <Table.Th style={{ textAlign: "right" }}>Denied</Table.Th>
-                                    <Table.Th style={{ textAlign: "right" }}>Total</Table.Th>
                                 </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>
@@ -90,15 +89,17 @@ export function AttributionTable({
                                         onClick={href ? () => navigate(href) : undefined}
                                     >
                                         <Table.Td>
-                                            <Text size="sm" truncate="end" maw={130} title={row.entity_name}>
-                                                {row.entity_name}
-                                                {row.entity_id == null && (
-                                                    <Text span size="xs" c="dimmed">
-                                                        {" "}
-                                                        (deleted)
-                                                    </Text>
-                                                )}
-                                            </Text>
+                                            <Tooltip label={row.entity_name} withArrow openDelay={300}>
+                                                <Text size="sm" truncate="end" maw={110}>
+                                                    {row.entity_name}
+                                                    {row.entity_id == null && (
+                                                        <Text span size="xs" c="dimmed">
+                                                            {" "}
+                                                            (deleted)
+                                                        </Text>
+                                                    )}
+                                                </Text>
+                                            </Tooltip>
                                         </Table.Td>
                                         <Table.Td style={{ textAlign: "right" }}>
                                             <Text size="sm" c={row.allow_count > 0 ? "teal" : "dimmed"}>
@@ -109,9 +110,6 @@ export function AttributionTable({
                                             <Text size="sm" c={row.deny_count > 0 ? "red" : "dimmed"}>
                                                 {row.deny_count.toLocaleString()}
                                             </Text>
-                                        </Table.Td>
-                                        <Table.Td style={{ textAlign: "right" }} fw={500}>
-                                            {total(row).toLocaleString()}
                                         </Table.Td>
                                     </Table.Tr>
                                     );
