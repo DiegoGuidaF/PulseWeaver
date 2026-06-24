@@ -58,6 +58,25 @@ SQLite file — no database server, no separate frontend to deploy.
 
 ---
 
+## Performance
+
+PulseWeaver sits on **every request** your reverse proxy forwards, so its overhead is the first
+thing that matters. Each decision is a constant-time lookup served from an **in-memory cache** —
+no database work per request — so the cost is negligible:
+
+| Metric | Figure |
+|--------|--------|
+| Latency added per request | **sub-millisecond** decision in the app; ~1.6 ms end-to-end through a reverse proxy (~5 ms p99) |
+| CPU under load | ~1.5% of one core at ~50 req/s — roughly 100× a typical self-hosted load |
+| Memory | ~24 MB resident |
+| Stress-tested to | ~15,000 req/s sustained, zero connection failures |
+
+Order-of-magnitude figures on commodity hardware. See **[Testing & Validation](docs/Testing-and-Validation.md)**
+for the method, the proxy-vs-direct breakdown, and how to reproduce it — alongside the security
+audit (pentest, accessibility, image scanning).
+
+---
+
 ## Screenshots
 
 | Dashboard                                  | Host access control                                            |
@@ -382,10 +401,12 @@ Targets use a `back-*` / `front-*` prefix; run `make help` for the full list.
 
 ### Further reading
 
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — high-level system map: layers, the API contract, request flow,
+  single-binary build. Start here to understand how the pieces fit together.
 - [`CODEBASE-Backend.md`](CODEBASE-Backend.md) — backend package structure, domain boundaries, service lifecycle,
   observer pattern.
 - [`CODEBASE-Frontend.md`](CODEBASE-Frontend.md) — frontend directory structure, routing, hook conventions, UX surfaces.
-- [`CLAUDE.md`](CLAUDE.md) — full reference for AI-assisted development, conventions, and testing patterns.
+- [`AGENTS.md`](AGENTS.md) — instructions for AI coding agents: conventions, commands, and hard rules.
 - [`api/openapi.yaml`](api/openapi.yaml) — API schema; single source of truth for all endpoints and types.
 
 ### A note on AI usage

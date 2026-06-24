@@ -46,7 +46,7 @@ feat: update heartbeat endpoint and client config together
 
 ## Code style
 
-- **Backend (Go):** follow the conventions in [`docs/ai-go-style.md`](docs/ai-go-style.md). In short: explicit, boring Go; no magic; early returns; domain constructors enforce invariants.
+- **Backend (Go):** explicit, boring Go — no magic, early returns, small focused functions. Keep the layering intact (handler → service → repository → DB); domain constructors enforce invariants, and OpenAPI types stay at the transport edge. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the layers fit together.
 - **Frontend (TypeScript/React):** ESLint and TypeScript strict mode. Run `make front-lint`.
 - All code must pass `make check` (lint + type-check + tests) before submitting a PR.
 

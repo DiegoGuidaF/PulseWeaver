@@ -1,73 +1,68 @@
 # Backend Codebase Reference
 
-> Last updated: 2026-05-01
+> Last updated: 2026-06-25
 
-This document is the **map** of the backend codebase — what exists and where. For implementation conventions, scaffolds, and testing patterns, see [`docs/patterns/_index.md`](docs/patterns/_index.md).
+This document is the **map** of the backend codebase — what exists and where. For the system-level
+overview (layering, the API seam, request flow, single-binary build), see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). For implementation conventions, scaffolds, and
+testing patterns, see the workspace pattern library (`docs/patterns/backend/`).
+
+Three tables of packages follow (domain, shared, infrastructure), then the central files and the app
+wiring. "Key files" orients you inside a package; the **Critical Files** table further down lists the
+most important files across the whole backend with their purpose.
 
 ---
 
-## Package Responsibilities
+## Domain Packages (`internal/`)
 
-### Domain Packages (app/internal folder)
+| Package | Owns | Key files |
+|---------|------|-----------|
+| `device` | Core domain: devices, their addresses (IPs), and device API keys. Emits address lifecycle events; observes user lifecycle to cascade device deletion. Provides device-API-key auth middleware. | `service.go`, `addresses.go`, `device_repository.go`, `address_repository.go`, `events.go`, `middleware.go` |
+| `auth` | User authentication (session cookies), users, and sessions. Emits user lifecycle events; `BootstrapAdmin` ensures one admin on startup. | `service.go`, `session.go`, `cookie.go`, `middleware.go`, `principal.go` |
+| `devicepairing` | Device provisioning via short-lived pairing codes; the heartbeat client claims a code to receive a fresh device API key. Supersedes the former `registration` package. | `service.go`, `pairing.go`, `code.go`, `repository.go` |
+| `policy` | Forward-auth hot path: answers "can this IP reach this host?" from an in-memory cache (exact IP → CIDR network policy → deny). Observes address/user/host/network-policy changes; emits decisions to `accesslog`. | `service.go`, `cache.go`, `access.go`, `lifecycle.go`, `handler.go`, `decision.go`, `request.go`, `audit.go`, `observer.go` |
+| `hosts` | Known hosts (FQDNs) and host groups; bulk reconciliation of membership. Notifies policy on change. | `service.go`, `host.go`, `host_group.go`, `reconcile_hosts.go`, `reconcile_groups.go` |
+| `useraccess` | Per-user host access: the bypass-host-check flag and host-group grants. Observes user lifecycle, notifies policy on grant changes. (Carved out of the former `hostaccess`.) | `service.go`, `user_access.go`, `repository.go`, `events.go` |
+| `networkpolicies` | CIDR-based network policies (named ranges + own bypass flag + grants); the second match tier in `policy`. Exposes `CacheEntry` to the policy cache; notifies policy on change. | `service.go`, `network_policy.go`, `repository.go`, `events.go` |
+| `lease` | Address lease TTL: disables addresses whose lease expired. Reads per-device config from `rule`; runs a `RunListener` and exposes `NewExpiryJob`. | `service.go`, `address_lease.go`, `expiry_job.go`, `repository.go` |
+| `maxaddr` | Enforces the max active addresses per device. Observes address + rule changes; runs a `RunListener`. | `service.go` |
+| `rule` | Per-device rules (lease TTL, max active address count). Emits rule change events. | `service.go`, `rule.go`, `repository.go`, `events.go` |
+| `accesslog` | Async batch logging of policy decisions: `Sink` implements `policy.DecisionObserver`; serves audit reads (e.g. deny-reason list). | `sink.go`, `handler.go`, `repository.go` |
+| `queries` | Cross-domain read side (lite CQRS) for the frontend's list/filter views; one view + handler file per surface. Folds join rows via `collate`. | `repository.go`, `*_view.go`, `handler_*.go`, `filterx/` |
+| `rollup` | Hourly traffic + attribution aggregate tables; catch-up `RollupJob`; serves the dashboard read API (raw vs aggregate on `RawWindowThreshold`). | `job.go`, `traffic_rollup.go`, `traffic_reads.go`, `attribution_rollup.go`, `attribution_reads.go`, `handler.go`, `types.go` |
+| `geoip` | IP → location/ASN enrichment from an MMDB (db-ip.com); background `RunUpdater` refresh. | `lookup.go`, `updater.go`, `result.go` |
+| `health` | `GET /health` → `{"status":"ok","timestamp":…}`. | `health.go` |
+| `timebucket` | Shared time-bucket granularity settings + parsing (rollup, dashboard, …). | `granularity.go` |
 
-**`device`** — Core domain. Manages devices and their IP addresses.
+`policy` and `rollup` are the read-heavy hot paths; everything else flows handler → service →
+repository. Cross-domain reads go through `queries`, never across domain repositories.
 
-**`auth`** — User authentication (session cookies) and user management. Emits user lifecycle events via `AddUserObserver`.
+## Shared / Utility Packages (`internal/`)
 
-**`policy`** — Forward-auth sidecar. Answers "is this IP enabled for this host?" without a DB round-trip. Observes device address changes and host access changes; emits `DecisionEvent` to observers (consumed by `accesslog`). Package is split: `cache.go` (IP + host-access cache rebuild, deny-wins intersection), `verify.go` (`Decide`, `VerifyAccess`), `lifecycle.go` (`RunListener`), `observer.go` (implements both `device.AddressObserver` and `hostaccess.Observer`).
+| Package | Owns | Key files |
+|---------|------|-----------|
+| `ids` | Typed `int64` ID newtypes (`DeviceID`, `UserID`, `HostID`, `HostGroupID`, `NetworkPolicyID`, …) shared across domains for type-safe boundaries. | `types.go` |
+| `collate` | Generic `Collapse`: folds flat parent×child SQL rows (LEFT JOINs) into nested DTOs in first-seen order. Replaces the hand-written "seen map" idiom in `queries`. | `collate.go` |
+| `slicex` | Generic slice helpers absent from the stdlib `slices` (`Dedup`, sorted `Intersect`). | `slicex.go` |
 
-**`hostaccess`** — Host-based access control. Manages known hosts (FQDNs) and host groups that gate which IPs may reach which hosts. Provides `Observer` interface consumed by policy; notifies policy on any grant change. Handles bulk reconciliation of host/group membership (`reconcile_hosts.go`, `reconcile_groups.go`).
+## Infrastructure Packages (`internal/`)
 
-**`lease`** — Address lease TTL. Automatically disables addresses when their lease expires. Retrieves device configuration via `rule` package. Runs a `RunListener` goroutine.
+| Package | Owns | Key files |
+|---------|------|-----------|
+| `app` | Dependency injection, startup, and observer wiring (see **App Wiring** below). | `app.go` |
+| `config` | Env var parsing (`caarlos0/env/v11`); optional `.env` (godotenv). | `config.go` |
+| `database` | Single SQLite connection (sqlx, WAL, `MaxOpenConns=1`); migrations embedded via `embed.FS`. | `sqlite.go`, `db.go`, `transactor.go`, `migrations/` |
+| `httpserver` | Chi router + global middleware chain; `/api/v1` sub-router; graceful shutdown; OpenAPI security-scheme validation; build-tag-gated pprof. | `server.go`, `routes.go`, `lifecycle.go`, `authentication.go`, `middleware.go`, `contention.go` |
+| `httpapi` | `oapi-codegen` output: DTOs + strict handler interface. The contract is owned by `ARCHITECTURE.md` (schema-first, `make api`); this is only the backend's generated side. **Do not modify.** | `server.gen.go` |
+| `scheduler` | Generic periodic `Job` runner (ticks at `RULE_CHECK_INTERVAL`, `AddJob`); retention job prunes logs/events/aggregates. | `service.go`, `retention_runner.go` |
+| `logging` | slog helpers: logger-in-context (`FromCtx`/`Enrich`), canonical attribute keys, request-ID-stamping handler. | `ctx.go`, `attribute_keys.go`, `handler.go` |
+| `testdb` | In-memory SQLite for integration tests. | `setup.go` |
+| `testutils` | Test scaffolding: `SetupIntegrationServer`, admin principal helpers, `NoopTransactor`, typed API client, world seeders. | `server.go`, `seeder*.go`, `apiclient.go`, `auth.go`, `db_transactor.go` |
+| `integrationtest` | Cross-domain lifecycle tests (`test`-tagged) exercising the wired app end-to-end. | `*_test.go` |
+| `ui` | `embed.FS` SPA serving (prod build tag) / dev stub pointing at Vite. | `ui_prod.go`, `ui_dev.go` |
 
-**`rule`** — Device-level rules. Stores configurations for retrieval when needed (e.g. per-device address lease TTL, max address count). Emits rule change events via `AddRuleObserver`.
-
-**`accesslog`** — Request access logging for auditing. `Sink` implements `policy.DecisionObserver` and batch-inserts decision events asynchronously on a buffered channel. `Run` goroutine drains the channel.
-
-**`queries`** — Read-only query endpoints. Aggregates data across domains for list/filter views. Works as a lite CQRS. Views: `device_view.go`, `address_view.go`, `access_log_view.go`, `host_access_view.go`, `user_view.go`, `policy_audit.go`.
-
-**`health`** — Simple `GET /health` handler returning `{"status":"ok","timestamp":"..."}`.
-
-**`rollup`** — Owns the two hourly aggregate tables (`hourly_traffic_aggregates`, `hourly_attribution_aggregates`): builds them via the `RollupJob` catch-up scheduler, prunes them (retention primitives called by `scheduler`), and serves the dashboard read API (stats, traffic, services, top-denied IPs, attribution split) dispatching raw-vs-aggregate on `RawWindowThreshold`. Files split by family × role: `traffic_rollup.go`/`traffic_reads.go`, `attribution_rollup.go`/`attribution_reads.go`, plus `job.go` and `handler.go`. The dashboard widget country split lives in `queries` (its raw path is a cross-domain geo join) and imports `rollup.RawWindowThreshold`.
-
-**`geoip`** — Enriches policy verification with IP-based location. Uses MMDB database from https://download.db-ip.com/free. Runs a background `RunUpdater` goroutine to refresh the database file.
-
-**`maxaddr`** — Rule to limit the maximum number of active addresses per device. Retrieves device configuration via `rule` package. Observes both device address changes and rule changes; runs a `RunListener` goroutine.
-
-**`registration`** — Allows device provisioning. Creates a registration code which can be claimed via API and returns a device API key. Intended for auto-registration from the companion heartbeat client app (separate repository).
-
-**`timebucket`** — Defines shared timebucket granularity settings and parsing. Used by packages managing granularity in HTTP queries (devices, rollup…).
-
-### Infrastructure Packages
-
-**`app`** — Wires everything together in `NewWithConfigAndLogger`.
-- Construction order: DB → auth → device → registration → geoip → hostaccess → policy → rule → accesslog → queries → lease → maxaddr → scheduler → HTTP server
-- Observer registrations:
-  - `deviceService.AddAddressObserver`: lease, policy, maxaddr
-  - `authService.AddUserObserver`: hostaccess
-  - `hostAccessService.AddUserHostAccessObserver`: policy
-  - `ruleService.AddRuleObserver`: lease, maxaddr
-  - `policyService.AddDecisionObserver`: accessLogSink
-- Goroutines started in `Run`: `policy.RunListener`, `lease.RunListener`, `maxaddr.RunListener`, `scheduler.RunSchedule`, `accessLogSink.Run`, `geoipLookup.RunUpdater`, `httpserver.StartAndWait`
-
-**`config`** — Env var parsing via `caarlos0/env/v11`. Optional `.env` file (godotenv).
-
-**`database`** — Single SQLite connection (sqlx). WAL mode, `MaxOpenConns=1`. Migrations embedded via `embed.FS`.
-
-**`httpserver`** — Chi router assembly. `server.go` constructs the router and global middleware chain; `lifecycle.go` provides `StartAndWait` (graceful shutdown); `config.go` holds `ServerConfig`.
-- `/api/v1` sub-router: `LoginRateLimitMiddleware` → OpenAPI validator → auth middlewares → strict handler
-
-**`httpapi`** — Generated by `oapi-codegen` from `api/openapi.yaml`. **Do not modify.**
-
-**`scheduler`** — Periodic task runner. Ticks at `RULE_CHECK_INTERVAL`. Two runners: `lease_runner.go` (auto-expiry via lease package) and `rollup_runner.go` (aggregates raw access log rows into hourly dashboard buckets).
-
-**`logging`** — slog helpers. `ctx.go`: `FromCtx`, `Enrich`, `WithRequestID`. `attribute_keys.go`: canonical slog attribute key constants used package-wide (`operation`, `component`, `request_id`, …). `handler.go`: context-aware slog handler that stamps request IDs on every log record.
-
-**`testdb`** — In-memory SQLite for integration tests.
-
-**`testutils`** — `server.go`: `SetupIntegrationServer(t)` — full app against in-memory DB with `t.Cleanup`. `auth.go`: admin principal helpers for tests. `db_transactor.go`: `NoopTransactor` for unit tests that bypass real transactions.
-
-**`ui`** — `embed.FS` SPA serving (prod build tag) / dev stub (points to Vite).
+The `/api/v1` middleware chain (in `httpserver`): rate limit → OpenAPI request validation →
+principal-from-cookie → principal-from-API-key → generated strict handler.
 
 ---
 
@@ -79,27 +74,58 @@ This document is the **map** of the backend codebase — what exists and where. 
 | `internal/app/app.go` | Dependency injection, startup, observer wiring |
 | `internal/config/config.go` | All env vars; validation in `Load()` |
 | `internal/httpserver/server.go` | Chi router construction; global middleware chain |
+| `internal/httpserver/routes.go` | `CompositeHandler`, route registration, `/api/v1` sub-router middleware |
 | `internal/httpserver/lifecycle.go` | `StartAndWait` — graceful HTTP server shutdown |
-| `internal/httpserver/routes.go` | Route registration; sub-router middleware |
 | `internal/httpserver/authentication.go` | OpenAPI security scheme validation |
 | `internal/httpapi/server.gen.go` | Generated DTOs and strict handler interface |
-| `internal/device/service.go` | `Service` struct, interfaces, constructor; device CRUD + API key methods |
-| `internal/device/addresses.go` | Address lifecycle methods: `RegisterAddressActivity`, `DisableAddress(es)`, `GetAddressHistory`; observer fan-out |
-| `internal/device/repository.go` | `Repository` struct + `NewRepository` constructor |
-| `internal/device/device_repository.go` | DB queries for `devices` and `device_api_keys` tables |
-| `internal/device/address_repository.go` | DB queries for `addresses` and `address_events` tables; history SQL helpers |
+| `internal/ids/types.go` | Typed ID newtypes shared across domains |
+| `internal/device/service.go` | `Service`, interfaces, constructor; device CRUD + API key methods |
+| `internal/device/addresses.go` | Address lifecycle: `RegisterAddressActivity`, `DisableAddress(es)`, `GetAddressHistory`; observer fan-out |
+| `internal/device/device_repository.go` | DB queries for `devices` and `device_api_keys` |
+| `internal/device/address_repository.go` | DB queries for `addresses` and `address_events`; history SQL |
 | `internal/device/events.go` | `AddressEvent`, `EventType` — domain events emitted to observers |
-| `internal/policy/service.go` | `Service` struct, constructor, provider interfaces |
-| `internal/policy/cache.go` | In-memory IP + host-access cache rebuild; deny-wins intersection |
-| `internal/policy/verify.go` | `Decide`, `VerifyAccess` — access decision entry points |
-| `internal/policy/lifecycle.go` | `RunListener`; change-signal channel handling |
-| `internal/policy/handler.go` | `HandleForwardAuthIP` (Bearer + X-Real-IP) |
-| `internal/hostaccess/service.go` | Known host/group management; notifies policy on access rule changes |
-| `internal/hostaccess/reconcile_hosts.go` | Upsert reconciliation for bulk host provisioning |
-| `internal/accesslog/sink.go` | `Sink` — implements `policy.DecisionObserver`; batch-inserts access log events |
-| `internal/lease/service.go` | Lease creation/deletion; `RunListener` |
-| `internal/scheduler/service.go` | Periodic task runner; wires lease auto-expiry and dashboard rollup runners |
+| `internal/devicepairing/service.go` | Pairing create/claim; mints a device API key on claim |
+| `internal/policy/service.go` | `Service`, constructor, provider interfaces; cache state |
+| `internal/policy/cache.go` | In-memory IP + network-policy cache rebuild; deny-wins intersection |
+| `internal/policy/access.go` | `Decide`, `VerifyAccess` — access decision entry points |
+| `internal/policy/lifecycle.go` | `RunListener` + observer callbacks; change-signal handling |
+| `internal/policy/handler.go` | `HandleForwardAuthIP` (Bearer + client IP), `SimulatePolicyAccess` |
+| `internal/hosts/service.go` | Known host/group management; notifies policy on change |
+| `internal/useraccess/service.go` | Per-user bypass + group grants; observes users, notifies policy |
+| `internal/networkpolicies/service.go` | CIDR network-policy CRUD; `CacheEntry` source for policy |
+| `internal/accesslog/sink.go` | `Sink` — implements `policy.DecisionObserver`; batch-inserts decision events |
+| `internal/queries/repository.go` | Cross-domain read repository backing the list/filter views |
+| `internal/queries/filterx/filterx.go` | Column-allowlist registry for filter/sort/keyset pagination (ADR-007) |
+| `internal/rollup/job.go` | `RollupJob` catch-up scheduler for hourly aggregates |
+| `internal/lease/expiry_job.go` | `ExpiryJob` — disables addresses with an expired lease |
+| `internal/scheduler/service.go` | Generic `Job` runner; `AddJob`, `RunSchedule` |
+| `internal/scheduler/retention_runner.go` | `NewRetentionJob` — prunes access logs, address events, aggregates |
 | `internal/logging/ctx.go` | `FromCtx`, `Enrich` — logger-in-context |
 | `internal/logging/attribute_keys.go` | Canonical slog attribute key constants used package-wide |
 | `internal/testutils/server.go` | `SetupIntegrationServer` for handler tests |
-| `api/openapi.yaml` | API schema source of truth |
+| `api/openapi.yaml` | API schema source of truth (contract owned by `docs/ARCHITECTURE.md`) |
+
+---
+
+## App Wiring (internal/app/app.go)
+
+**Construction order:** DB → auth → device → devicepairing → geoip → hosts → useraccess →
+networkpolicies → policy → rule → accesslog → queries → lease → maxaddr → rollup → scheduler → HTTP
+server. After construction: `ExecuteScheduledRules` (disable stale addresses before serving),
+`BootstrapAdmin`, then `policyService.Initialize` (warm the IP cache).
+
+**Observer registrations:**
+- `deviceService.AddAddressObserver`: lease, policy, maxaddr
+- `authService.AddUserObserver`: useraccess, device
+- `hostsService.AddObserver`: policy
+- `userAccessService.AddObserver`: policy
+- `networkPoliciesService.AddObserver`: policy
+- `ruleService.AddRuleObserver`: lease, maxaddr
+- `policyService.AddDecisionObserver`: accessLogSink
+
+**Scheduler jobs (`AddJob`):** `lease.NewExpiryJob(deviceService)`, `rollupRepo.NewRollupJob`,
+`scheduler.NewRetentionJob(accessLogRepo, deviceRepo, rollupRepo, …)`.
+
+**Goroutines started in `RunBackground`:** `policy.RunListener`, `lease.RunListener`,
+`maxaddr.RunListener`, `scheduler.RunSchedule`, `accessLogSink.Run`, `geoip.RunUpdater`. `Run` adds
+`httpserver.StartAndWait` and the build-tag-gated `StartPprofServer` on top.

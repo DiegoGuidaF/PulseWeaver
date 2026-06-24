@@ -1,199 +1,165 @@
 # PulseWeaver Architecture
 
-## Overview
+A high-level map of how PulseWeaver is built — enough to orient a new contributor (human or AI)
+before diving into code. It describes the **shape** of the system and the boundaries between its
+parts; it deliberately does not duplicate details that live in the code.
 
-PulseWeaver is a self-hosted device IP address management service. It maintains an updated list of device IPs and acts as a Forward Auth sidecar for reverse proxies: on every incoming request the proxy asks `GET /api/policy-engine/verify-ip` and PulseWeaver responds `200` or `403`. The production build compiles to a **single binary** — the React SPA is baked into the Go binary at compile time via `embed.FS`, so no separate static file server is needed.
+Once you know which side you're working on, the detailed "what exists and where" maps are:
 
----
-
-## Data Flow: React Component → Go Handler
-
-### Mutation (Create Device)
-
-```
-frontend/src/features/devices/CreateDeviceForm.tsx
-  → react-hook-form + zod validation (zCreateDeviceRequest from zod.gen.ts)
-  → useCreateDevice() hook
-      (frontend/src/features/devices/hooks/useCreateDevice.ts)
-  → useMutation({ ...createDeviceMutation() })
-  → Generated mutation options
-      (frontend/src/lib/api/@tanstack/react-query.gen.ts)
-  → SDK function createDevice()
-      (frontend/src/lib/api/sdk.gen.ts)
-  → HTTP client fetch()
-      (frontend/src/lib/api/client/client.gen.ts)
-      credentials: "include", baseUrl: /api/v1
-  → POST /api/v1/devices
-
-  ──────────────────── network boundary ────────────────────
-
-  → Chi router
-      (internal/httpserver/routes.go)
-  → Global middleware chain:
-      RequestID → RequestLogger → slog-chi → Recoverer
-      → ClientIP (from RemoteAddr or X-Forwarded-For)
-      → Security headers (CSP, HSTS, X-Frame-Options, …)
-      → MaxBodySizeMiddleware (256 KB)
-      (internal/httpserver/server.go)
-  → /api/v1 sub-router middleware:
-      LoginRateLimitMiddleware
-      → OapiRequestValidatorWithOptions (schema validation against openapi.yaml)
-      → PrincipalUserContextMiddleware (session cookie → ctx)
-      → PrincipalDeviceContextMiddleware (API key → ctx)
-      (internal/httpserver/routes.go)
-  → Generated StrictHandler dispatch
-      (internal/httpapi/server.gen.go)
-  → HTTPHandler.CreateDevice()
-      (internal/device/handler.go)
-  → Service.CreateDevice()
-      (internal/device/service.go)
-  → Repository.CreateDevice()
-      (internal/device/repository.go)
-  → SQLite via sqlx (MaxOpenConns=1, WAL mode)
-      (internal/database/sqlite.go)
-
-  ← domain.Device returned up the stack
-  ← Handler maps to httpapi.CreateDevice201JSONResponse
-  ← JSON response
-
-  → onSuccess: queryClient.invalidateQueries(getDevicesQueryKey())
-  → DeviceList auto-refetches, UI updates
-```
-
-### Query (List Devices)
-
-```
-frontend/src/features/devices/hooks/useDevices.ts
-  → useQuery({ ...getDevicesOptions() })
-      (frontend/src/lib/api/@tanstack/react-query.gen.ts)
-  → SDK function getDevices()
-  → GET /api/v1/devices
-
-  ──────────────────── network boundary ────────────────────
-
-  → same middleware chain as above
-  → HTTPHandler.GetDevices()
-  → Service.GetDevices()
-  → Repository.GetDevices()
-  → SQLite SELECT
-  ← []domain.Device → JSON array response
-  → TanStack Query caches under getDevicesQueryKey()
-  → Component re-renders with device list
-```
+- [`CODEBASE-Backend.md`](../CODEBASE-Backend.md) — backend packages, domain boundaries, critical files.
+- [`CODEBASE-Frontend.md`](../CODEBASE-Frontend.md) — frontend routes, features, UX surfaces.
 
 ---
 
-## embed.FS: Static Asset Serving
+## What it is
 
-### Build-time embedding
+PulseWeaver is a self-hosted device IP address management service. It maintains an up-to-date list
+of device IPs and acts as a **Forward Auth sidecar** for reverse proxies: on every incoming request
+the proxy asks `GET /api/policy-engine/verify-ip` and PulseWeaver answers `200` (allow) or `403`
+(deny). The hot path answers from an in-memory cache, with no database round-trip.
+
+The production build compiles to a **single binary**: the React SPA is baked into the Go binary at
+compile time via `embed.FS`, so there is no separate static file server to deploy.
+
+---
+
+## The big picture
+
+Three parts, bound by one contract:
+
+```
+┌─────────────────┐     OpenAPI contract      ┌──────────────────┐
+│  React SPA       │  api/openapi.yaml          │  Go backend       │
+│  (frontend/)     │  ── make api ──▶           │  (internal/)      │
+│                  │   generated SDK + types    │                   │
+│  pages           │                            │  handler          │
+│   → features     │  ◀── HTTP /api/v1 ──▶      │   → service        │
+│    → hooks       │                            │    → repository    │
+│     → generated  │                            │     → SQLite       │
+│        SDK       │                            │                   │
+└─────────────────┘                            └──────────────────┘
+        embedded into the binary at build time ──────────┘
+```
+
+The **API contract is the seam** between frontend and backend, and it is the part worth
+understanding first because everything else hangs off it (see *The API contract* below).
+
+---
+
+## Backend: layered + domain-oriented
+
+The backend follows a strict layering, and dependencies only ever flow downward:
+
+```
+handler  → transport only: extract primitives from generated DTOs, map results back to DTOs
+service  → business logic: orchestrates domain + repositories, owns invariants
+repository → persistence: owns all SQL and maps DB errors to domain errors
+SQLite
+```
+
+Two rules keep the layers honest:
+
+- **Generated OpenAPI types stay at the transport edge.** Handlers unwrap them into primitives/domain
+  types; nothing below the handler ever imports the generated package.
+- **Invariants live in domain constructors** (e.g. `auth.NewUser`), not scattered through services.
+
+Code is organised by **bounded context**, not by layer — each domain package
+(`device`, `auth`, `policy`, `hosts`, `lease`, …) owns its handler, service, repository, and
+domain types together. Cross-domain reads go through the `queries` package (a lite CQRS read side)
+rather than reaching across domain repositories. Domains communicate changes through an in-process
+**observer** mechanism (e.g. a device address change notifies the policy cache).
+
+For the package-by-package breakdown, wiring/construction order, and the observer registrations, see
+[`CODEBASE-Backend.md`](../CODEBASE-Backend.md).
+
+---
+
+## Frontend: pages → features → hooks → generated SDK
+
+The SPA mirrors the same downward flow:
+
+```
+page component   → route-level composition (lib/routes.ts, App.tsx)
+ → feature        → src/features/<area>/ owns its components + hooks
+  → query/mutation hook  → wraps generated TanStack Query options
+   → generated SDK        → typed fetch client (src/lib/api/, generated)
+```
+
+Hooks own cache invalidation; user-facing notifications live in component callbacks, not in hooks.
+For the route table, feature map, and UX surfaces, see [`CODEBASE-Frontend.md`](../CODEBASE-Frontend.md).
+
+---
+
+## The API contract
+
+`api/openapi.yaml` is the **single source of truth** for every endpoint and type. Running `make api`
+regenerates both sides from it:
+
+- **Backend** — `oapi-codegen` produces DTOs and a strict handler interface in `internal/httpapi/`.
+- **Frontend** — a typed SDK, TanStack Query options, and zod schemas under `frontend/src/lib/api/`.
+
+Generated files are never edited by hand, and the generators are never invoked directly — always go
+through `make api`. Changing an endpoint means editing the schema, regenerating, then implementing
+against the new types on both sides.
+
+### A request, end to end
+
+Tracing `POST /api/v1/devices` (create device) shows how the pieces connect:
+
+```
+CreateDeviceForm  → react-hook-form + zod (generated schema)
+  → useCreateDevice() → useMutation(createDeviceMutation())
+  → generated SDK createDevice() → fetch (credentials: include, baseUrl /api/v1)
+
+  ──────────────── network boundary ────────────────
+
+  → Chi router + global middleware
+      (RequestID → logging → Recoverer → ClientIP → security headers → body-size limit)
+  → /api/v1 middleware
+      (rate limit → OpenAPI request validation → principal-from-cookie → principal-from-API-key)
+  → generated StrictHandler dispatch
+  → device.HTTPHandler.CreateDevice()   (extract primitives)
+  → device.Service.CreateDevice()       (domain constructor + invariants)
+  → device.Repository.CreateDevice()    (SQL, error mapping)
+  → SQLite (sqlx, WAL, MaxOpenConns=1)
+
+  ← domain.Device flows back up; handler maps it to the 201 DTO; JSON response
+
+  → onSuccess: queryClient.invalidateQueries(devices) → list refetches → UI updates
+```
+
+A read (`GET /api/v1/devices`) is the same path without the domain-constructor step, ending in
+TanStack Query caching the result under its query key.
+
+---
+
+## Single-binary build & static serving
+
+`make build` embeds the frontend into the Go binary:
 
 ```
 make build
-  1. npm run build → frontend/dist/   (Vite bundles React SPA)
+  1. npm run build → frontend/dist/        (Vite bundles the SPA)
   2. cp -r frontend/dist internal/ui/dist/
-  3. go build -tags=prod → binary
-       //go:build prod
-       //go:embed dist
-       var distFS embed.FS          (internal/ui/ui_prod.go)
+  3. go build -tags=prod → binary          (//go:embed dist in internal/ui/ui_prod.go)
 ```
 
-The `//go:embed dist` directive bakes the entire `dist/` tree into the binary. `fs.Sub(distFS, "dist")` creates a sub-FS rooted at `dist/` so paths like `/assets/main.js` resolve without the `dist/` prefix.
+The Chi catch-all `r.Handle("/*", ui.Handler())` is registered after all `/api/v1` routes and serves
+the embedded SPA:
 
-### Request handling (`ui.Handler()`)
+- Requests under `/api` that miss a route return `404` (no SPA fallthrough for the API).
+- Existing files are served directly; `/assets/*` (content-hashed by Vite) get a long immutable
+  `Cache-Control`.
+- Anything else falls back to `index.html` with `no-cache`, so client-side routing works.
 
-The Chi catch-all `r.Handle("/*", ui.Handler())` is registered after all `/api/v1` routes in `internal/httpserver/routes.go:66`. The handler logic:
-
-1. **`/api` prefix** → `404` immediately (prevents API fallthrough even if a route is missing).
-2. **File exists in embed.FS** → serve directly.
-   - Paths under `/assets/` get `Cache-Control: public, max-age=31536000, immutable` (Vite content-hashes these filenames, so they are safe to cache forever).
-   - Directory paths are skipped (no directory listings).
-3. **File not found** → serve `index.html` with `Cache-Control: no-cache` (supports SPA client-side routing).
-
-### Dev mode
-
-`internal/ui/ui_dev.go` (build tag `!prod`) returns a plain `404` with a message pointing to the Vite dev server (`npm run dev` in `frontend/`). The backend and frontend run as separate processes on different ports in development.
+In development the prod embed is replaced by a stub (`!prod` build tag) that returns `404` pointing
+at the Vite dev server — backend and frontend run as separate processes on different ports.
 
 ---
 
-## Top 3 Architectural Improvements
+## Where to go next
 
-### 1. Add Pagination to List Endpoints
-
-**Problem:** `GET /api/v1/devices` and `GET /api/v1/devices/{id}/addresses` return every record in a single query. `api/openapi.yaml`, the handlers, and the repositories have no `limit`/`offset` or cursor parameters.
-
-**Impact:** Unbounded memory use and query time as the dataset grows. The frontend loads everything into a table at once with no virtual scrolling.
-
-**Recommendation:**
-- Add `limit` + `cursor` (or `page`/`offset`) query parameters to `api/openapi.yaml` and regenerate types with `make api`.
-- Update repository queries to apply `LIMIT`/`OFFSET` and return a total count or next-cursor.
-- Update frontend list components to use TanStack Query's `useInfiniteQuery` with infinite scroll, or paginated controls.
-
----
-
-### 2. Leverage WAL-mode SQLite Read Concurrency
-
-**Problem:** `internal/database/sqlite.go` sets `MaxOpenConns=1`, serialising **all** database operations — reads and writes — to a single connection, despite `PRAGMA journal_mode=WAL` being enabled. WAL mode supports concurrent readers; one writer never blocks readers.
-
-**Impact:** Every HTTP request that touches the DB blocks all others. Under any meaningful concurrency (multiple browser tabs, API key clients, lease renewals) all requests queue behind one connection.
-
-**Recommendation:** Split into two connection pools:
-- **Write pool:** `MaxOpenConns=1`, used exclusively for mutations passed through `RunInTx`.
-- **Read pool:** `MaxOpenConns=4` (or higher), opened with a `?mode=ro` DSN suffix, used for all query-only operations.
-
-Repositories would accept the appropriate pool based on operation type, keeping the interface surface minimal.
-
----
-
-### 3. Optimistic UI Updates for Mutations
-
-**Problem:** Every mutation hook (`useCreateDevice`, `useDeleteDevice`, `useAddDeviceAddress`, etc.) calls `queryClient.invalidateQueries()` in `onSuccess`, triggering a full server round-trip before the UI reflects the change.
-
-**Impact:** Users see a loading state or stale data between the action and confirmation, even on fast local networks, reducing perceived responsiveness.
-
-**Recommendation:** Use TanStack Query's `useMutation` lifecycle for optimistic updates:
-
-```ts
-useMutation({
-  ...createDeviceMutation(),
-  onMutate: async (newDevice) => {
-    await queryClient.cancelQueries({ queryKey: getDevicesQueryKey() });
-    const previous = queryClient.getQueryData(getDevicesQueryKey());
-    queryClient.setQueryData(getDevicesQueryKey(), (old) => [...old, optimisticDevice(newDevice)]);
-    return { previous };
-  },
-  onError: (_err, _vars, ctx) => {
-    queryClient.setQueryData(getDevicesQueryKey(), ctx?.previous);
-  },
-  onSettled: () => {
-    queryClient.invalidateQueries({ queryKey: getDevicesQueryKey() });
-  },
-});
-```
-
-`onMutate` applies the change instantly; `onError` rolls it back; `onSettled` syncs with the server regardless of outcome.
-
----
-
-## Critical Files Reference
-
-| File | Purpose |
-|------|---------|
-| `api/openapi.yaml` | Schema source of truth for all types and routes |
-| `cmd/api/main.go` | Entry point |
-| `internal/database/sqlite.go` | Connection config, pragmas, migrations |
-| `internal/httpserver/server.go` | Middleware chain assembly |
-| `internal/httpserver/routes.go` | Route registration, sub-router middleware |
-| `internal/httpserver/middleware.go` | Individual middleware implementations |
-| `internal/httpapi/server.gen.go` | Generated routing and DTOs (oapi-codegen) |
-| `internal/device/handler.go` | Device HTTP handlers |
-| `internal/device/service.go` | Device business logic + observer notifications |
-| `internal/device/repository.go` | Device DB access, `RunInTx` |
-| `internal/ui/ui_prod.go` | `embed.FS` declaration + SPA handler (prod) |
-| `internal/ui/ui_dev.go` | Dev stub returning 404 |
-| `internal/logging/ctx.go` | Logger-in-context pattern (`FromCtx`, `Enrich`) |
-| `frontend/src/features/devices/CreateDeviceForm.tsx` | Form → mutation wiring |
-| `frontend/src/features/devices/hooks/useCreateDevice.ts` | Mutation hook |
-| `frontend/src/lib/api/@tanstack/react-query.gen.ts` | Generated query/mutation options |
-| `frontend/src/lib/api/sdk.gen.ts` | Generated SDK functions |
-| `frontend/src/lib/api/client/client.gen.ts` | HTTP client (fetch wrapper) |
-| `frontend/src/lib/api-client/config.ts` | Client setup (baseUrl, credentials) |
+- Backend work → [`CODEBASE-Backend.md`](../CODEBASE-Backend.md)
+- Frontend work → [`CODEBASE-Frontend.md`](../CODEBASE-Frontend.md)
+- Contributing & conventions → [`CONTRIBUTING.md`](../CONTRIBUTING.md)
+- API schema → [`api/openapi.yaml`](../api/openapi.yaml)
