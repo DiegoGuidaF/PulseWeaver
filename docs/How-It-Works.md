@@ -7,7 +7,7 @@ PulseWeaver has two independent flows that work together.
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant P as Reverse Proxy (Caddy)
+    participant P as Reverse Proxy
     participant W as PulseWeaver
     participant S as Protected Service
     C ->> P: GET https://homeassistant.example.com
@@ -28,6 +28,13 @@ Your reverse proxy asks PulseWeaver on every incoming request: "may the client a
 2. **As a fallback** — only when the IP is *not* a registered device address — the IP falls inside a [network policy](Network-Policies.md) range that allows the host.
 
 Device addresses are checked first; network policies cover everything else. Everything not matched by either is denied — including active device IPs asking for a host their user was never granted. The check runs against an in-memory cache — no database round-trip per request.
+
+Before those checks, PulseWeaver denies the proxy's own IP when it equals `TRUSTED_PROXY`. That IP is an infrastructure
+address, not a client identity, so it can never act as a registered device or satisfy a network policy.
+
+Cache updates are asynchronous: grant, address, and network-policy changes normally propagate within milliseconds. A
+separate periodic reconcile rebuilds the cache as a safety backstop if a change notification is missed or a refresh
+fails.
 
 ## 2 — Heartbeat: devices keep their address current
 

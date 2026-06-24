@@ -41,6 +41,12 @@ until it's assigned to a user**. A host can live in several groups; a group can 
 When you add a new service later: add it as a host, put it in the right group, and everyone with that group can
 reach it. Nobody else can.
 
+## Admin capabilities
+
+The bootstrap `admin` account is the only superadmin. It can create users, promote or demote admins, and delete users.
+Promoted admins can manage access, hosts, groups, devices, and policies, but they cannot create users or change other
+users' admin status.
+
 ## How a request is decided
 
 When your reverse proxy asks PulseWeaver about a request, the client IP identifies the device, the device identifies
@@ -58,7 +64,8 @@ flat), PulseWeaver can't tell which person is making the request — so it only 
 are allowed to reach. One restricted user on a shared IP restricts the whole IP. See
 [Shared-IP Model](Shared-IP-Model.md).
 
-Changes to hosts, groups, or user grants take effect within milliseconds — the decision cache updates in place, no restart, no reload.
+Changes to hosts, groups, or user grants normally take effect within milliseconds — the decision cache updates in place,
+no restart, no reload.
 
 ## What a denied request looks like
 

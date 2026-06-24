@@ -5,8 +5,10 @@ getting blocked?" — at a glance on the dashboard, or per request in the access
 
 ## Access Logs
 
-**Auditing → Access Logs** shows one entry per decision: timestamp, client IP, requested host, outcome, and — when
-relevant — which device matched, which network policy matched, and where the IP is located.
+**Auditing → Access Logs** shows one entry per forward-auth decision: timestamp, client IP, requested host, outcome, and
+— when relevant — which device matched, which network policy matched, and where the IP is located. Public device
+requests such as heartbeat and pairing are not forward-auth decisions, so they do not appear here; use container or
+reverse-proxy logs for that traffic.
 
 ![Access Logs](../screenshots/04-access-log.png)
 
@@ -31,14 +33,15 @@ remover of entries is the [retention policy](#data-retention).
 
 ### What never reaches the log
 
-Two requests are rejected *before* a decision is made, so they produce no log entry:
+Some forward-auth requests are rejected *before* a decision is made, so they produce no access-log entry:
 
 - **QUIC 0-RTT early data** (`Early-Data: 1`) → `425 Too Early`. The client IP isn't reliable before the TLS handshake
   completes (RFC 8470), so the request is bounced to retry on an established connection.
 - **A missing or empty `Authorization` header** → `403`. There's nothing to evaluate.
 
 Note that a *wrong* secret (`invalid_token`) **is** logged — it reaches the engine and is recorded as a denial.
-PulseWeaver does **not** rate-limit (it never returns `429`); throttling abusive clients is the reverse proxy's job.
+The `verify-ip` forward-auth path is intentionally not rate-limited because the reverse proxy calls it for every
+protected request. Add reverse-proxy throttling only if you need stricter limits than the built-in endpoint limits.
 
 ## Dashboard
 
@@ -59,7 +62,8 @@ hour fills in as it completes.
 Client IPs are resolved to **country, continent, and network operator (ASN)** so the access log and dashboard can show
 and filter by geography. It works out of the box:
 
-- Uses the free [DB-IP](https://db-ip.com) databases, downloaded automatically and refreshed monthly.
+- Uses the free [DB-IP](https://db-ip.com) databases. PulseWeaver checks daily for stale files and downloads the current
+  monthly DB-IP files when needed.
 - Wholly self-contained — lookups happen locally; no per-request calls to any external service.
 - Fail-open: if the data isn't available yet (or the IP is private), entries simply have no geo fields. GeoIP never
   blocks or fails a request.

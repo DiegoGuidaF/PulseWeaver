@@ -58,6 +58,28 @@ keep `TRUSTED_PROXY` stable across container restarts. Two guidelines when picki
 - **Avoid the gateway address** (typically the first address in the subnet, `172.20.0.1`) — it is
   reachable from the Docker host itself, as described above.
 
+### Using an existing Docker network
+
+If Caddy already runs on a Docker network you manage elsewhere, do not copy the README's network
+definition as-is. Attach PulseWeaver to that existing network and mark it as external:
+
+```yaml
+services:
+  pulseweaver:
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+    name: your-existing-caddy-network
+```
+
+`external: true` only tells Compose not to create the network. The security requirement is unchanged:
+Caddy must have a stable IP on that same network, and `TRUSTED_PROXY` must be set to that exact IP.
+If your existing Caddy service currently gets a dynamic address, update its network settings with an
+`ipv4_address` and recreate the container so Docker applies the change.
+
 ### Defense-in-depth against proxy IP registration
 
 The proxy IP is protected at two independent layers:

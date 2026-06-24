@@ -1,22 +1,25 @@
 # Testing & Validation
 
-Beyond the unit and integration suites in this repository, PulseWeaver is validated
+Beyond the unit and integration suites in this repository, PulseWeaver is checked
 **externally against a production-like deployment** — the same release container fronted
 by a reverse proxy over HTTPS, exercised end to end so that container networking,
 middleware wiring, rate limiters, cookie flags, and browser security policies are all in
-play. The goal is a posture that is verified rather than asserted, which matters for a
-component that sits on the authentication path.
+play. The goal is a security posture that is tested rather than merely asserted, which
+matters for a component that sits on the access-control path.
 
-These checks are runnable and repeatable, not one-off audits.
+These checks are runnable and repeatable, not one-off audits. PulseWeaver is still beta:
+the project is open source and auditable, but cautious operators should review the model,
+configuration, and code before relying on it for their own threat profile.
 
 ## Performance at a glance
 
 The critical path is `GET /api/policy-engine/verify-ip` — the forward-auth gate the
 reverse proxy calls for every protected request. It is served from an in-memory cache, so
-per-request authorization is negligible overhead, and the whole service runs in a small
-memory footprint. The figures below are measured under a **sustained ~50 requests/second**
-— far heavier than a typical self-hosted deployment, where the gate sees well under one
-request/second on average — with a realistic ~1% deny mix.
+per-request authorization has been small in the measured Caddy setup, and the whole
+service runs in a small memory footprint. The figures below are measured under a
+**sustained ~50 requests/second** — far heavier than a typical self-hosted deployment,
+where the gate sees well under one request/second on average — with a realistic ~1% deny
+mix.
 
 | Metric | Value | Notes |
 |--------|-------|-------|
@@ -45,13 +48,12 @@ measured, not just inferred.
 
 ---
 
-## Security
+## Security assessment
 
-Security is validated as a structured pentest against the live stack, organised by
-**actor** — what an unauthenticated client, an admin session, and a device API key can
-each attempt — plus a container/infrastructure pass. The primary target is the
-`verify-ip` forward-auth gate, since a bypass there means an unauthorized client reaches
-a protected service.
+Security assessment is run against the live stack and organised by **actor** — what an
+unauthenticated client, an admin session, and a device API key can each attempt — plus a
+container/infrastructure pass. The primary target is the `verify-ip` forward-auth gate,
+since a bypass there means an unauthorized client reaches a protected service.
 
 Practices applied:
 
@@ -68,8 +70,8 @@ Practices applied:
 - **Whole surface** — an automated active scan (OWASP ZAP) across the API.
 
 Tooling includes Playwright (browser-driven CSRF/XSS), Trivy (image and configuration
-scanning), a load/latency driver, and OWASP ZAP. The audit is treated as a feedback
-loop: findings are remediated and re-verified, and any accepted residual risk is
+scanning), a load/latency driver, and OWASP ZAP. The assessment is treated as a feedback
+loop: findings are remediated and re-checked, and any accepted residual risk should be
 documented rather than hidden.
 
 ---

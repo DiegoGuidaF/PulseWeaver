@@ -37,8 +37,13 @@ forward_auth pulseweaver:8080 {
 }
 ```
 
+In these Caddy examples, `pulseweaver:8080` means "the Docker Compose service named `pulseweaver` on port 8080".
+If you rename the service or run PulseWeaver outside Compose, update that upstream everywhere it appears.
+
 The endpoint is **fail-closed**: a missing header, wrong secret, unregistered IP, or a host the
 user was never granted all return the same `403`.
+If PulseWeaver is unreachable, Caddy returns an upstream error and protected services become
+temporarily unreachable; they do not become open.
 
 `PULSEWEAVER_POLICY_ENGINE_API_SECRET` must be the same value in both PulseWeaver's and Caddy's
 environment. It authenticates the proxy-to-PulseWeaver call so external clients cannot query the
@@ -217,9 +222,14 @@ can find the right option in your proxy's documentation.
 | Caddy directive | What it does | What to look for |
 |---|---|---|
 | `reverse_proxy` + `header_up X-Real-IP {http.request.remote.host}` | Forwards the real client IP to PulseWeaver | "set request header", `proxy_set_header X-Real-IP` |
+| Caddy's `forward_auth` automatic `X-Forwarded-Host` | Tells PulseWeaver which host the client requested | Set `X-Forwarded-Host` explicitly, e.g. `proxy_set_header X-Forwarded-Host $host` |
 | `forward_auth` → `uri /api/policy-engine/verify-ip` | Sub-request auth check before forwarding | `auth_request` (nginx), `forwardAuth` (Traefik) |
 | `header_up Authorization "Bearer …"` | Authenticates the proxy→PulseWeaver call | Pass a static bearer token to the auth endpoint |
 | `respond 404` | Default-deny — block all unmatched paths | `return 404` / default location block |
+
+> [!WARNING]
+> Do not skip `X-Forwarded-Host` when translating the Caddy config. Without it, PulseWeaver cannot match the requested
+> host against user grants, so protected services will deny even when the device IP is registered.
 
 Official configurations for nginx, Traefik, and other proxies will be added once they have been
 tested and validated. If you have a working setup,

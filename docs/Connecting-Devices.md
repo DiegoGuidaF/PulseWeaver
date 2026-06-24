@@ -25,7 +25,8 @@ key to authenticate. The easy path is **device pairing**:
 2. PulseWeaver generates a single-use **pairing code** (shown as a QR or a
    copyable string).
 3. The user pastes/scans the code into the
-   [Heartbeat Client](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client).
+   [Heartbeat Client](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client)
+   ([downloads](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/releases)).
    The client claims the code, receives the device's configuration **and a freshly
    generated API key**, and starts heartbeating — no manual URL/key entry.
 
@@ -63,11 +64,21 @@ configuration — including the required `X-Real-IP` directive — is in the
 
 | Client | Best for |
 |---|---|
-| [**Heartbeat Client app**](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client) | Android and desktop (Linux/macOS/Windows). Background scheduling, network-awareness, system tray, QR pairing. The default choice for phones and laptops. |
+| [**Heartbeat Client app**](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client) ([downloads](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/releases)) | Android and desktop (Linux/macOS/Windows). Background scheduling, network-awareness, system tray, QR pairing. The default choice for Android phones and laptops. |
 | **systemd timer** (below) | Headless Linux servers. Zero dependencies beyond `curl`. |
 | **launchd agent** (below) | Headless macOS servers. |
 | **Tasker / any HTTP scheduler** | Android DIY, or any tool that can POST on a timer / network-change event. The heartbeat is just `curl -X POST -H "X-API-Key: …" <url>`; see the [heartbeat client repo](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client) for recipes. |
 | **Manual** | Devices with a stable IP — add the address by hand in the UI, no heartbeat needed (below). |
+
+> [!NOTE]
+> There is no dedicated iOS client yet. The heartbeat is a standard HTTP POST, so an iOS setup needs a Shortcuts
+> automation or another tool that can POST on a schedule/network change, using the same URL and `X-API-Key` header.
+
+### Android reliability notes
+
+When the Heartbeat Client prompts you to disable battery optimization, do it. Android Doze/App Standby can otherwise
+delay background heartbeats for hours, long enough for the device's address lease to expire and access to become
+intermittent.
 
 ### Linux — systemd timer
 
@@ -176,6 +187,9 @@ so a device that moves networks doesn't leave stale IPs allowed:
   refreshes it.
 - **Max active addresses** — a cap; enabling a new address disables the oldest
   over the cap.
+
+Disabling the max-active-addresses rule later does not re-enable addresses it already evicted; those addresses stay
+disabled until they are manually enabled or refreshed by a new heartbeat from that network.
 
 **A good default for phones and laptops: a ~1 hour lease with max 2 active
 addresses.** This handles roaming cleanly — when you change networks the new IP

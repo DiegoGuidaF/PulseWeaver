@@ -1,6 +1,15 @@
 # Data Persistence
 
-SQLite database is stored at `$DB_DIR/data.db` (defaults to `/data/data.db` in the Docker image).
+The SQLite database is stored at `$DB_DIR/data.db` (defaults to `/data/data.db` in the Docker image).
+
+The database file is plaintext at rest, except for fields PulseWeaver hashes before storing them, such as passwords and
+device API keys. It also contains security-sensitive operational data such as host grants, device addresses, and access
+logs. Protect the volume with host filesystem permissions, encrypted disks/backups where appropriate, and the same care
+you apply to other self-hosted service data.
+
+The official container runs as a non-root user in a distroless runtime and does not include a shell, package manager, or
+SQLite CLI. That reduces the tools available to an attacker inside the container, but it is not database encryption and
+does not replace host/volume protection: the application process still needs write access to `/data`.
 
 ## Docker deployment (recommended)
 
