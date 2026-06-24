@@ -19,7 +19,7 @@ type DesiredHost struct {
 }
 
 func (h *DesiredHost) prepare() error {
-	h.FQDN = NormaliseFQDN(h.FQDN)
+	h.FQDN = NormaliseHost(h.FQDN)
 	if err := ValidateFQDN(h.FQDN); err != nil {
 		return err
 	}

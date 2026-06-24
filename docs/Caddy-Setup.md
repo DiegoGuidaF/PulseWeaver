@@ -27,7 +27,9 @@ The `forward_auth` block below is the building block for protecting any service 
 Before forwarding a request, it asks PulseWeaver whether the client may reach the requested host;
 only clients with a matching grant — a registered device whose user is allowed the host, or a
 [network policy](Network-Policies.md) covering the IP — pass. Caddy forwards the requested hostname
-automatically (`X-Forwarded-Host`), so no extra directive is needed for the host check.
+automatically (`X-Forwarded-Host`), so no extra directive is needed for the host check. PulseWeaver
+matches on the hostname alone and ignores any port in that header, so the gate works unchanged whether
+Caddy is fronted on `:443` or a non-default port like `:8443`.
 
 ```caddy
 forward_auth pulseweaver:8080 {

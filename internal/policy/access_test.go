@@ -258,6 +258,50 @@ func TestDecide_HostCaseFolding(t *testing.T) {
 	is.True(result.Allowed)
 }
 
+func TestDecide_HostPortStripped_DevicePath(t *testing.T) {
+	entries := []device.IPEntry{{IP: "1.2.3.4", DeviceID: 1, AddressID: 1, UserID: 10}}
+	hostAccess := []UserHostAccess{{UserID: 10, BypassAllowlist: false, AllowedHosts: []string{"allowed.example.com"}}}
+	svc := newRestrictedService(entries, hostAccess)
+
+	cases := []struct {
+		name    string
+		host    string
+		allowed bool
+	}{
+		{"non_default_port", "allowed.example.com:8443", true},
+		{"https_default_port", "allowed.example.com:443", true},
+		{"http_default_port", "allowed.example.com:80", true},
+		{"uppercase_with_port", "ALLOWED.EXAMPLE.COM:8443", true},
+		{"trailing_dot_with_port", "allowed.example.com.:8443", true},
+		{"wrong_host_with_port", "denied.example.com:8443", false},
+		// A non-numeric authority is not a port: it must not be truncated to the
+		// granted host and silently allowed.
+		{"non_numeric_port", "allowed.example.com:notaport", false},
+		{"ipv6_literal_with_port", "[2001:db8::1]:8443", false},
+		{"bare_ipv6", "::1", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			is := is.New(t)
+			result := svc.Decide(context.Background(), mustAddr("1.2.3.4"), tc.host)
+			is.Equal(result.Allowed, tc.allowed)
+			if !tc.allowed {
+				is.Equal(*result.DenyReason, DenyReasonHostNotAllowed)
+			}
+		})
+	}
+}
+
+func TestDecide_HostPortStripped_NetworkPolicy(t *testing.T) {
+	is := is.New(t)
+	svc := newServiceWithNetworkPolicies(nil, nil, []networkpolicies.CacheEntry{
+		{PolicyID: ids.NetworkPolicyID(1), PolicyName: "corp", CIDR: "10.0.0.0/8", AllowedHostFQDNs: []string{"allowed.com"}},
+	})
+	result := svc.Decide(context.Background(), mustAddr("10.0.0.5"), "allowed.com:8443")
+	is.True(result.Allowed)
+	is.Equal(result.MatchSource, MatchSourceNetworkPolicy)
+}
+
 func TestDecide_UnconfiguredUser(t *testing.T) {
 	// UserID 99 has a device at 1.2.3.4 but no UserHostAccess entry.
 	// Zero-value UserHostAccess{BypassAllowlist: false} → deny all hosts.
@@ -382,6 +426,27 @@ func TestVerifyAccess_HostDenied_EmitsEvent(t *testing.T) {
 	is.True(!events[0].Outcome)
 	is.Equal(*events[0].DenyReason, DenyReasonHostNotAllowed)
 	is.Equal(len(events[0].IPContributors), 1)
+}
+
+func TestVerifyAccess_PortSuffixHost_AllowsAndPreservesRawHost(t *testing.T) {
+	is := is.New(t)
+	svc := newHostRestrictedSvc(t, ids.UserID(1), "1.2.3.4", []string{"example.com"})
+
+	obs := &fakeObserver{}
+	svc.AddDecisionObserver(obs)
+
+	host := "example.com:8443"
+	err := svc.VerifyAccess(context.Background(), &VerifyRequest{
+		Token:      "mysecret",
+		ClientIP:   mustAddr("1.2.3.4"),
+		TargetHost: &host,
+	})
+	is.NoErr(err) // port stripped for matching → grant for example.com applies
+
+	events := obs.received()
+	is.Equal(len(events), 1)
+	is.True(events[0].Outcome)
+	is.Equal(*events[0].TargetHost, "example.com:8443") // raw host preserved for the audit log
 }
 
 func TestVerifyAccess_EmitsAllowEvent(t *testing.T) {

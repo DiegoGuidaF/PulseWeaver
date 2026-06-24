@@ -207,20 +207,37 @@ func (r *Repository) countPendingHostSuggestions(ctx context.Context) (int, erro
 		FROM access_log al
 		WHERE al.target_host IS NOT NULL
 		  AND al.created_at >= ?
-		  AND LOWER(al.target_host) NOT IN (SELECT fqdn FROM hosts)
-		  AND LOWER(al.target_host) NOT IN (SELECT fqdn FROM ignored_host_suggestions)
 	`
 	since := time.Now().UTC().Add(-hostSuggestionsWindow)
-	var fqdns []string
-	if err := r.db.SelectContext(ctx, &fqdns, query, since); err != nil {
+	var rawHosts []string
+	if err := r.db.SelectContext(ctx, &rawHosts, query, since); err != nil {
 		return 0, fmt.Errorf("select pending host suggestions: %w", err)
 	}
 
-	count := 0
-	for _, fqdn := range fqdns {
-		if hosts.ValidateFQDN(fqdn) == nil {
-			count++
-		}
+	rawIgnored, err := r.ignoredHostSuggestions(ctx)
+	if err != nil {
+		return 0, err
 	}
-	return count, nil
+	ignoredSet := make(map[string]bool, len(rawIgnored))
+	for _, s := range rawIgnored {
+		ignoredSet[hosts.NormaliseHost(s.FQDN)] = true
+	}
+	knownHosts, err := r.knownHostSet(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	// Count distinct normalised hosts, mirroring GetHostSuggestionsPage so the
+	// dashboard badge matches the suggestions list: port-suffixed observations
+	// collapse onto their bare FQDN, and known/ignored hosts are excluded after
+	// normalisation rather than against the raw target_host.
+	pending := make(map[string]struct{}, len(rawHosts))
+	for _, raw := range rawHosts {
+		fqdn := hosts.NormaliseHost(raw)
+		if hosts.ValidateFQDN(fqdn) != nil || knownHosts[fqdn] || ignoredSet[fqdn] {
+			continue
+		}
+		pending[fqdn] = struct{}{}
+	}
+	return len(pending), nil
 }

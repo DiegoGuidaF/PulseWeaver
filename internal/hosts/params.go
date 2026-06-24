@@ -2,6 +2,7 @@ package hosts
 
 import (
 	"fmt"
+	"net"
 	"strings"
 )
 
@@ -62,4 +63,26 @@ func validateLabel(label string) error {
 // NormaliseFQDN trims whitespace, lowercases, and strips a trailing dot.
 func NormaliseFQDN(raw string) string {
 	return strings.TrimSuffix(strings.ToLower(strings.TrimSpace(raw)), ".")
+}
+
+// NormaliseHost normalises a requested host (e.g. an X-Forwarded-Host value) for
+// comparison against stored grants. Host grants are bare FQDNs by construction
+func NormaliseHost(raw string) string {
+	host, port, err := net.SplitHostPort(strings.TrimSpace(raw))
+	if err != nil || !isNumericPort(port) {
+		return NormaliseFQDN(raw)
+	}
+	return NormaliseFQDN(host)
+}
+
+func isNumericPort(port string) bool {
+	if port == "" {
+		return false
+	}
+	for _, c := range port {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }

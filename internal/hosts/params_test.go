@@ -62,3 +62,32 @@ func TestNormaliseFQDN(t *testing.T) {
 	is.Equal(NormaliseFQDN("host.example.com."), "host.example.com")
 	is.Equal(NormaliseFQDN("ALREADY.lower.com"), "already.lower.com")
 }
+
+func TestNormaliseHost(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"bare", "example.com", "example.com"},
+		{"non_default_port", "example.com:8443", "example.com"},
+		{"https_default_port", "example.com:443", "example.com"},
+		{"http_default_port", "example.com:80", "example.com"},
+		{"uppercase_with_port", "EXAMPLE.COM:8443", "example.com"},
+		{"trailing_dot_with_port", "example.com.:8443", "example.com"},
+		{"whitespace_with_port", "  example.com:8443  ", "example.com"},
+		// Non-numeric/malformed authorities are left intact (and so fail to match any
+		// bare-FQDN grant) rather than being silently truncated to a real host.
+		{"non_numeric_port", "example.com:notaport", "example.com:notaport"},
+		{"empty_port", "example.com:", "example.com:"},
+		{"ipv6_literal_with_port", "[2001:db8::1]:8443", "2001:db8::1"},
+		{"bare_ipv6", "::1", "::1"},
+		{"too_many_colons", "a:b:c", "a:b:c"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			is := is.New(t)
+			is.Equal(NormaliseHost(tc.in), tc.want)
+		})
+	}
+}

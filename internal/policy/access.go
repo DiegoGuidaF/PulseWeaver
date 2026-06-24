@@ -6,10 +6,10 @@ import (
 	"crypto/subtle"
 	"log/slog"
 	"net/netip"
-	"strings"
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
 )
 
 // Decide evaluates whether ip can access host against the live cache.
@@ -35,7 +35,7 @@ func (s *Service) Decide(ctx context.Context, ip netip.Addr, host string) Decisi
 		if entry.BypassAllowlist {
 			return DecisionResult{Allowed: true, MatchSource: MatchSourceDevice, Contributors: contributors}
 		}
-		h := strings.ToLower(host)
+		h := hosts.NormaliseHost(host)
 		if _, ok := entry.AllowedHosts[h]; !ok {
 			return DecisionResult{DenyReason: new(DenyReasonHostNotAllowed), MatchSource: MatchSourceDevice, Contributors: contributors}
 		}
@@ -56,7 +56,7 @@ func (s *Service) Decide(ctx context.Context, ip netip.Addr, host string) Decisi
 	policies := s.networkPolicies
 	s.mu.RUnlock()
 
-	h := strings.ToLower(host)
+	h := hosts.NormaliseHost(host)
 	for _, np := range policies {
 		if np.Prefix.Contains(ip) {
 			_, hostAllowed := np.AllowedHosts[h]
@@ -109,7 +109,7 @@ func (s *Service) VerifyAccess(ctx context.Context, req *VerifyRequest) error {
 			s.notifyDecisionObservers(ctx, NewDecisionEvent(false, result.DenyReason, nil, req, geo, time.Since(start).Microseconds()))
 			return ErrIPNotEnabled
 		}
-		s.logger.DebugContext(ctx, "host not in allowlist", slog.String("host", strings.ToLower(host)))
+		s.logger.DebugContext(ctx, "host not in allowlist", slog.String("host", hosts.NormaliseHost(host)))
 		s.notifyDecisionObservers(ctx, NewDecisionEvent(false, result.DenyReason, &result, req, geo, time.Since(start).Microseconds()))
 		return ErrHostNotAllowed
 	}

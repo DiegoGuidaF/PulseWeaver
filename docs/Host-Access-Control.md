@@ -19,7 +19,9 @@ user can reach nothing until you assign them something.
 | **Suggested host** | A hostname PulseWeaver has seen in real traffic that you haven't added yet — offered as a shortcut when building your list. |
 
 Hostnames are matched literally — no wildcards. `jellyfin.example.org` and `media.example.org` are two separate hosts
-even if they point at the same service.
+even if they point at the same service. The match is **port-insensitive**: any port in the forwarded host is ignored,
+so a grant for `jellyfin.example.org` matches a request whether the proxy is fronted on `:443`, `:8443`, or any other
+port. Add hosts as bare FQDNs — `jellyfin.example.org`, not `jellyfin.example.org:8443`.
 
 Because grants flow only through groups, **a host reaches no one until it belongs to a group, and a group reaches no one
 until it's assigned to a user**. A host can live in several groups; a group can go to several users.

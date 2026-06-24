@@ -109,10 +109,12 @@ func TestReconcileHostsInput_NormalisesAndDeduplicatesFQDN(t *testing.T) {
 		Hosts: []DesiredHost{
 			{FQDN: "  UPPER.Example.COM  "},
 			{FQDN: "other.example.com"},
+			{FQDN: "ported.example.com:8443"}, // a pasted host:port resolves to the bare FQDN
 		},
 	}
 	is.NoErr(in.prepare())
 	is.Equal(in.Hosts[0].FQDN, "upper.example.com")
+	is.Equal(in.Hosts[2].FQDN, "ported.example.com")
 }
 
 // ── Service.ReconcileHosts ────────────────────────────────────────────────────

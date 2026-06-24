@@ -60,7 +60,7 @@ func (s *Service) ListHostGroups(ctx context.Context) ([]HostGroup, error) {
 }
 
 func (s *Service) AddIgnoredSuggestion(ctx context.Context, fqdn string) (IgnoredHostSuggestion, error) {
-	normalised := NormaliseFQDN(fqdn)
+	normalised := NormaliseHost(fqdn)
 	if err := ValidateFQDN(normalised); err != nil {
 		return IgnoredHostSuggestion{}, err
 	}

@@ -273,6 +273,44 @@ func TestHandler_ListHostSuggestions_HappyPath(t *testing.T) {
 	is.Equal(resp.Ignored[0].Fqdn, ignoredHost)
 }
 
+// TestHandler_ListHostSuggestions_PortNormalised proves that a host observed with
+// a port suffix (the shape produced when a proxy is fronted on a non-default port)
+// surfaces as a suggestion for its bare FQDN, aggregates with bare-host hits, and
+// is excluded once the bare host is granted.
+func TestHandler_ListHostSuggestions_PortNormalised(t *testing.T) {
+	is := is.New(t)
+	srv := testutils.SetupIntegrationServer(t)
+	cookie := testutils.LoginCookie(t, srv.HTTPServer, "admin", testutils.TestAdminPassword)
+
+	knownHost := "known-app.internal"
+	knownHostPort := "known-app.internal:8443"
+	suggestedHost := "new-app.internal"
+	suggestedHostPort := "new-app.internal:8443"
+
+	testutils.NewSeeder(t).
+		WithHost(testutils.HostFixture{FQDN: knownHost}).
+		// granted host seen with a port suffix must still be excluded from suggestions
+		WithAccessLogEntry(testutils.AccessLogEntryFixture{ClientIP: "9.9.9.9", Outcome: true, TargetHost: &knownHostPort}).
+		// same unknown host seen bare and with a port → one suggestion, hits summed
+		WithAccessLogEntry(testutils.AccessLogEntryFixture{ClientIP: "9.9.9.9", Outcome: false, TargetHost: &suggestedHost}).
+		WithAccessLogEntry(testutils.AccessLogEntryFixture{ClientIP: "9.9.9.9", Outcome: false, TargetHost: &suggestedHostPort}).
+		Build(srv)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/access/host-suggestions", nil)
+	req.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	srv.HTTPServer.ServeHTTP(w, req)
+
+	is.Equal(w.Code, http.StatusOK)
+	var resp httpapi.HostSuggestionsPage
+	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
+
+	is.Equal(len(resp.Suggestions), 1)
+	is.Equal(resp.Suggestions[0].Fqdn, suggestedHost) // bare FQDN, port stripped
+	is.Equal(resp.Suggestions[0].DeniedHits, 2)       // bare + port-suffixed hits merged
+	is.Equal(resp.Suggestions[0].AllowedHits, 0)
+}
+
 func TestHandler_ListHostSuggestions_Empty(t *testing.T) {
 	is := is.New(t)
 	srv := testutils.SetupIntegrationServer(t)
