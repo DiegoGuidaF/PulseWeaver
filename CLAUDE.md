@@ -36,6 +36,22 @@ After adding a migration: review `internal/database/migration_test_seed.sql` and
 - `make migrate-up` / `make migrate-down` / `make migrate-create`
 - `make build` — production build → `bin/pulseweaver`
 
+## Commits
+
+Conventional Commits, enforced by `scripts/commit-msg` (install once with `make install-hooks`):
+
+```
+type(scope)[PW-N]: description
+```
+
+- **type** (required): build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test
+- **scope** (optional): broad area like `backend`, `ui`; omit for cross-cutting changes
+- **[PW-N]** (optional): story ID, after scope and before the colon
+- `!` before the colon marks a breaking change
+
+Keep the subject to one concise line. Types map to CHANGELOG sections via `cliff.toml`
+(`make release-{patch,minor,major}`), so every type used must have a parser there.
+
 ## Architecture & Conventions
 
 **Codebase map:** Before exploring or implementing any backend feature, read `CODEBASE-Backend.md`. It tells you which package owns what, where the critical files are, and what the construction order is — read it before opening files or running searches so you go straight to the right place. For frontend work read `CODEBASE-Frontend.md` first for the same reason.
