@@ -198,4 +198,22 @@ describe('DashboardView', () => {
             { timeout: TEST_TIMEOUTS.SHORT },
         );
     });
+
+    it('renders empty traffic dashboard branches', async () => {
+        server.use(
+            dashboardHandlers.traffic([]),
+            dashboardHandlers.services([]),
+            dashboardHandlers.topDeniedIps([]),
+        );
+        renderWithProviders(<DashboardView />);
+
+        await waitFor(
+            () => {
+                expect(screen.getByText('No traffic recorded yet')).toBeInTheDocument();
+                expect(screen.getByText('No service data for this period')).toBeInTheDocument();
+                expect(screen.getByText('No denied requests in this period')).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+    });
 });

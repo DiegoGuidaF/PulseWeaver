@@ -22,6 +22,7 @@ export const endpoints = {
     regenerateApiKey: `${BASE}/devices/:deviceId/api-key/regenerate`,
     deleteApiKey: `${BASE}/devices/:deviceId/api-key`,
     disableDevice: `${BASE}/devices/:deviceId/disable`,
+    enableDevice: `${BASE}/devices/:deviceId/enable`,
     authMe: `${BASE}/auth/me`,
     authLogin: `${BASE}/auth/login`,
     adminUsers: `${BASE}/admin/users`,
@@ -106,6 +107,11 @@ export const authHandlers = {
             http.get(endpoints.adminUsers, () =>
                 HttpResponse.json(users ?? [createMockUser()])),
     },
+    createUser: {
+        success: (override?: Partial<User>) =>
+            http.post(endpoints.adminUsers, () =>
+                responses.created({ ...createMockUser(), ...override })),
+    },
     updateMe: {
         success: (override?: Partial<User>) =>
             http.patch(endpoints.updateMe, () =>
@@ -164,6 +170,15 @@ export const deviceHandlers = {
             http.delete(endpoints.deviceById, () => responses.notFound()),
     },
 
+    update: {
+        success: (override?: Partial<Device>) =>
+            http.patch(endpoints.deviceById, ({ params }) =>
+                HttpResponse.json(createMockDevice({ id: Number(params.deviceId), ...override }))),
+        conflict: () =>
+            http.patch(endpoints.deviceById, () =>
+                responses.custom({ error: 'Device name already in use' }, 409)),
+    },
+
     regenerateApiKey: {
         success: (override?: { api_key?: string }) =>
             http.post(endpoints.regenerateApiKey, ({ params }) =>
@@ -193,6 +208,21 @@ export const deviceHandlers = {
                 )),
         notFound: () =>
             http.post(endpoints.disableDevice, () => responses.notFound()),
+    },
+
+    enable: {
+        success: (override?: Partial<Device>) =>
+            http.post(endpoints.enableDevice, ({ params }) =>
+                HttpResponse.json(
+                    createMockDevice({
+                        id: Number(params.deviceId),
+                        api_key_prefix: 'test_',
+                        disabled_at: null,
+                        ...override,
+                    }),
+                )),
+        notFound: () =>
+            http.post(endpoints.enableDevice, () => responses.notFound()),
     },
 
 };
@@ -500,6 +530,7 @@ export const defaultHandlers = [
     authHandlers.me.success(),
     authHandlers.login.success(),
     authHandlers.listUsers.success(),
+    authHandlers.createUser.success(),
     authHandlers.updateMe.success(),
     authHandlers.changePassword.success(),
     authHandlers.promoteUser.success(),
@@ -510,8 +541,10 @@ export const defaultHandlers = [
     deviceHandlers.getById(),
     deviceHandlers.create.success(),
     deviceHandlers.delete.success(),
+    deviceHandlers.update.success(),
     deviceHandlers.regenerateApiKey.success(),
     deviceHandlers.disable.success(),
+    deviceHandlers.enable.success(),
     // Addresses
     addressHandlers.list(),
     addressHandlers.create.success(),
