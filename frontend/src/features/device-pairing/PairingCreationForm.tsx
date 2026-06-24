@@ -125,11 +125,13 @@ export function PairingCreationForm({ deviceId, onSuccess, onCancel }: Props) {
             </div>
 
             <Switch
+              w="fit-content"
               label="Biometric unlock"
               description="FaceID / fingerprint required to open the app"
               {...form.getInputProps("app_biometric_enabled", { type: "checkbox" })}
             />
             <Switch
+              w="fit-content"
               label="Lock app settings"
               description="User sees a read-only settings screen in the companion"
               {...form.getInputProps("app_settings_locked", { type: "checkbox" })}
