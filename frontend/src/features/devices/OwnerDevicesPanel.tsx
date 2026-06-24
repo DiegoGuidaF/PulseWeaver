@@ -221,7 +221,7 @@ export function OwnerDevicesPanel({
           ))
         ) : (
           <Text size="xs" c="dimmed" px="sm" py={6}>
-            No devices match “{query}”.
+            {trimmed ? `No devices match “${query}”.` : "No devices yet."}
           </Text>
         )}
       </Stack>

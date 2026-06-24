@@ -228,6 +228,13 @@ describe('OwnerDevicesPanel', () => {
 
             expect(screen.getByText(/No devices match/i)).toBeInTheDocument();
         });
+
+        it('shows a plain empty message when the owner has no devices', () => {
+            renderPanel({ devices: [] });
+
+            expect(screen.getByText('No devices yet.')).toBeInTheDocument();
+            expect(screen.queryByText(/No devices match/i)).not.toBeInTheDocument();
+        });
     });
 
     // ─── JUMP section ────────────────────────────────────────────────────────────
