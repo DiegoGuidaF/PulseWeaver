@@ -99,12 +99,14 @@ func Load() (*Conf, error) {
 		return nil, fmt.Errorf("policy api secret is too short (got %d chars, minimum 16); generate one with: openssl rand -base64 16", len(c.Policy.APISecret))
 	}
 
-	if err := validateWritableDir(c.DB.DataDir); err != nil {
+	if err := ensureWritableDir(c.DB.DataDir); err != nil {
 		return nil, fmt.Errorf("DB dir is not valid: %w", err)
 	}
 
-	if err := validateWritableDir(c.GeoIP.DataDir); err != nil {
-		return nil, fmt.Errorf("GeoIPDB dir is not valid: %w", err)
+	if c.GeoIP.Enabled {
+		if err := ensureWritableDir(c.GeoIP.DataDir); err != nil {
+			return nil, fmt.Errorf("GeoIPDB dir is not valid: %w", err)
+		}
 	}
 
 	return c, nil
@@ -125,14 +127,16 @@ func parseIPAddressFunc(rawIP string) (any, error) {
 	return addr.Unmap(), nil
 }
 
-func validateWritableDir(dir string) error {
+func ensureWritableDir(dir string) error {
 	// Check if it is a directory (or can become one)
 	info, err := os.Stat(dir)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("stat directory %q: %w", dir, err)
 		}
-		// Directory doesn't exist yet, but we can create it later
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return fmt.Errorf("create directory %q: %w", dir, err)
+		}
 	} else if !info.IsDir() {
 		return fmt.Errorf("path %q exists but is not a directory", dir)
 	}

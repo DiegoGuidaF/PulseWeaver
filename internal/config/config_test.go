@@ -74,12 +74,17 @@ func TestLoad_Validation(t *testing.T) {
 			t.Fatal("expected error for negative check interval, got nil")
 		}
 	})
-	t.Run("non existent DB_DIR failsfails", func(t *testing.T) {
-		t.Setenv("DB_DIR", "a non existant db dir")
+	t.Run("non existent DB_DIR is created", func(t *testing.T) {
+		dbDir := filepath.Join(t.TempDir(), "missing-db")
+		t.Setenv("DB_DIR", dbDir)
 
-		_, err := Load()
-		if err == nil {
-			t.Fatal("expected error for non existent DB_DIR, got nil")
+		if _, err := Load(); err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if info, err := os.Stat(dbDir); err != nil {
+			t.Fatalf("stat created DB_DIR: %v", err)
+		} else if !info.IsDir() {
+			t.Fatalf("created DB_DIR is not a directory")
 		}
 	})
 
@@ -97,16 +102,30 @@ func TestLoad_Validation(t *testing.T) {
 		}
 	})
 
-	t.Run("non existent GEOIP_DATA_DIR fails", func(t *testing.T) {
-		t.Setenv("GEOIP_DATA_DIR", "a non existant dir")
+	t.Run("non existent GEOIP_DATA_DIR is created when enabled", func(t *testing.T) {
+		geoDir := filepath.Join(t.TempDir(), "missing-geoip")
+		t.Setenv("GEOIP_DATA_DIR", geoDir)
 
-		_, err := Load()
-		if err == nil {
-			t.Fatal("expected error for non existent GEOIP_DATA_DIR, got nil")
+		if _, err := Load(); err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if info, err := os.Stat(geoDir); err != nil {
+			t.Fatalf("stat created GEOIP_DATA_DIR: %v", err)
+		} else if !info.IsDir() {
+			t.Fatalf("created GEOIP_DATA_DIR is not a directory")
 		}
 	})
 
-	t.Run("unwritable DB_DIR fails", func(t *testing.T) {
+	t.Run("GEOIP_DATA_DIR is ignored when disabled", func(t *testing.T) {
+		t.Setenv("GEOIP_ENABLED", "false")
+		t.Setenv("GEOIP_DATA_DIR", filepath.Join(t.TempDir(), "missing-geoip"))
+
+		if _, err := Load(); err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+	})
+
+	t.Run("unwritable GEOIP_DATA_DIR fails", func(t *testing.T) {
 		// Create a read-only directory
 		readonlyDir := filepath.Join(t.TempDir(), "readonly")
 		if err := os.Mkdir(readonlyDir, 0555); err != nil { // Read-only

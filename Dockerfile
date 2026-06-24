@@ -59,6 +59,8 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod,sharing=locked \
     -o /app/pulseweaver \
     ./cmd/api
 
+RUN mkdir -p /runtime-data/geoip
+
 # Stage 3: Final Runtime
 FROM gcr.io/distroless/static-debian12:nonroot
 
@@ -66,8 +68,9 @@ WORKDIR /app
 
 # Copy binary from builder stage
 COPY --from=backend-builder /app/pulseweaver /app/pulseweaver
+COPY --from=backend-builder --chown=65532:65532 /runtime-data /data
 
-# Mount a writable volume at /data — see README for ownership requirements (UID/GID 65532:65532).
+# Mount a writable volume at /data — see README for bind mount ownership requirements (UID/GID 65532:65532).
 ENV DB_DIR=/data
 ENV GEOIP_DATA_DIR=/data/geoip
 

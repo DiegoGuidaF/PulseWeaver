@@ -13,15 +13,18 @@ does not replace host/volume protection: the application process still needs wri
 
 ## Docker deployment (recommended)
 
-The image sets `DB_DIR=/data` by default. Mount a writable volume:
+The image sets `DB_DIR=/data` by default and ships `/data` owned by the container's non-root UID/GID (`65532:65532`).
+Mount a writable volume:
 
-- **Named volume (easiest):** `docker run -v pulseweaver-data:/data ...`
+- **Named volume (easiest):** `docker run -v pulseweaver-data:/data ...`. Docker initializes a new named volume from
+  the image's `/data` directory, so ownership is already correct.
 - **Bind mount:** `docker run -v ./data:/data ...`
 
-Docker runs as non-root UID/GID `65532:65532` (`gcr.io/distroless/static-debian12:nonroot`), so ensure `/data` is
-writable:
+For a bind mount, Docker uses the host directory exactly as-is; the container cannot `chown` it because the application
+runs without root privileges. Ensure the host directory is writable by UID/GID `65532:65532`:
 
 ```bash
+mkdir -p ./data
 sudo chown -R 65532:65532 ./data
 ```
 

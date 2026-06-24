@@ -137,6 +137,7 @@ ADMIN_PW="$(openssl rand -base64 18)"
 echo "PulseWeaver trial admin password: ${ADMIN_PW}"
 
 docker run --rm --name pulseweaver-trial \
+  -d \
   -p 127.0.0.1:8080:8080 \
   -e ADMIN_PASSWORD="${ADMIN_PW}" \
   -e POLICY_ENGINE_API_SECRET='trial-policy-secret-change-me' \
@@ -144,13 +145,17 @@ docker run --rm --name pulseweaver-trial \
   ghcr.io/diegoguidaf/pulseweaver:latest
 ```
 
+The container runs in the background; `docker stop pulseweaver-trial` ends the trial when you're done.
+
 Then open <http://127.0.0.1:8080> and log in as `admin` with the generated password above:
 
 1. Add a host such as `jellyfin.local.test` under **Access → Hosts**.
-2. Add a host group such as `trial`, put that host in it, and assign the group to the `admin` user.
-3. Create a device owned by `admin`, then generate its API key from the device settings. Copy it when shown — API keys
-   are displayed once, and PulseWeaver stores only their hash.
-4. Register your local trial IP:
+2. Add a host group such as `trial` under **Access → Host Groups** and put that host in it.
+3. Grant yourself access under **Access → Users → admin** by assigning the `trial` group to the `admin` user.
+4. Click **Save changes** whenever PulseWeaver shows the save bar; changes are staged until you save them.
+5. Create a device owned by `admin` under **Devices**. In the **New device** dialog, set **Credential** to **API key**.
+   Copy it when shown — API keys are displayed once, and PulseWeaver stores only their hash.
+6. Register your local trial IP:
 
    ```bash
    curl -i -X POST http://127.0.0.1:8080/api/v1/heartbeat \
@@ -158,9 +163,10 @@ Then open <http://127.0.0.1:8080> and log in as `admin` with the generated passw
    ```
 
    Both `curl` commands run from your machine, so the same source IP registered by the heartbeat is checked by
-   `verify-ip`. You can see the registered address under **Devices → your device → Addresses**.
+   `verify-ip`. In Docker this may look like a bridge address such as `172.17.0.1`; that is the source IP PulseWeaver
+   sees from inside the container. You can see it under **Devices → your device → the Addresses tab**.
 
-5. Verify the gate directly, without DNS or a real protected service:
+7. Verify the gate directly, without DNS or a real protected service:
 
    ```bash
    curl -i http://127.0.0.1:8080/api/policy-engine/verify-ip \
@@ -277,7 +283,7 @@ services:
       POLICY_ENGINE_API_SECRET: ${PULSEWEAVER_POLICY_ENGINE_API_SECRET} # PulseWeaver's key; .env uses the longer name so Caddy can read it too.
       TZ: ${TZ}
     volumes:
-      - ./pulseweaver/data:/data   # Bind mount; ensure writable by non-root (chown 65532:65532) or use a named volume
+      - ./pulseweaver/data:/data   # Bind mount; ensure writable by non-root (chown 65532:65532). Named volumes work too.
     networks:
       - proxy
 
@@ -403,6 +409,7 @@ then set up access — admins think in *people and services*, so the UI does too
 3. **Grant users** under **Access → Users** — assign each user the groups they should reach. Deny-by-default means a
    user reaches nothing until you do this. Users are admin-managed identities; end users do not log in to PulseWeaver.
 4. **Create devices** under **Devices** — one per Android phone/laptop/server that needs access, each owned by a user.
+5. **Save staged changes** whenever the bottom save bar appears.
 
 > [!NOTE]
 > Deny-by-default applies to your own account too. Assign your admin user a host group, or deliberately enable
