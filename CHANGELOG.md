@@ -2,6 +2,59 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-06-23
+
+### Documentation
+
+- Add per-feature documentation and restructure README with latest changes
+- Improve setup documentation and fix Caddy devices endpoint missing X-Real-IP header ([`93c32ef`](https://github.com/DiegoGuidaF/PulseWeaver/commit/93c32effae92e0604e218305607418e297054a41))
+
+### Features
+
+- Improve user flows in all pages based on use-case based analysis
+- Implement network policies management for CIDR addresses
+- Add more information to the dashboard and improve performance of queries.
+- Dashboard info tooltips, clickable attribution rows, reorder ([`22cc7c4`](https://github.com/DiegoGuidaF/PulseWeaver/commit/22cc7c4ce74e56640e474fd22da484b51d4623bf))
+- Make device list user centered and improve device creation flow
+- Add cleanup job for access log and address event log data. Defaults to 1month configurable via ENV_VARIABLE ([`d267edf`](https://github.com/DiegoGuidaF/PulseWeaver/commit/d267edf4e4ac1c2ec64891bc2874473e53f2aa7e))
+- Improve device recommendations by warning the user when a device with an API_KEY present has no rules
+- IPv6-native engine on canonical netip.Addr; fix 4-in-6 asymmetry ([`adb6dc3`](https://github.com/DiegoGuidaF/PulseWeaver/commit/adb6dc31be35f08fd005f2c7bddb80009d3fcb8a))
+- Improve access verification page (previously named policy cache audit)
+- Allow disabling a device so that no addresses can be added and current ones are disabled. Meant as a temporary measure
+- Change provisioning to a device pairing concept. Allowing easy pairing and re-pairing of existing devices.
+- Device pairing - Show QR code to easily copy the pairing code ([`236ed50`](https://github.com/DiegoGuidaF/PulseWeaver/commit/236ed5045c0067f61e007199216691bb1dea5286))
+- Add more filtering capabilities to existing tables as well as pages listing devices, addresses.. and such
+- Improve onboarding. On missing entities (missing hosts, groups, devices...) guide user on how to create them. ([`13ea68e`](https://github.com/DiegoGuidaF/PulseWeaver/commit/13ea68e68001552dc3596f55d05f1e5196249fa9))
+- Add geoip enrichment on all IP fields shown in the frontend
+- Host assignation can only happen via groups to simplify the model and avoid confusion. Individual host assigment
+  together with group based can easily result in complex UI and difficulty knowing which hosts are actually allowed
+  on each user if user list grows
+- Improve group badges color and contrast to facilitate visual discrimination and accessibility.
+- Add new branding ([`af5baed`](https://github.com/DiegoGuidaF/PulseWeaver/commit/af5baed9a17b8390ff09ca2559d13894454b032e))
+- Improve feedback when trying to add trusted_proxy as a device address ([`051ab8b`](https://github.com/DiegoGuidaF/PulseWeaver/commit/051ab8b230cb3166583c76f25b9bd08c54ea522b))
+- Do not allow sending IP on heartbeat endpoints. There's no current valid usecase and it can be a security issue if misused ([`05f52af`](https://github.com/DiegoGuidaF/PulseWeaver/commit/05f52afd82098f9c427086d1e4a66c9791537595))
+- Remove device type concept from devices, if needed will be added later with more context and how that should look like
+- Address log - Add information regarding time gap and ttl to each row in order to facilitate spotting users with short TTL or device misconfiguration ([`dee6b76`](https://github.com/DiegoGuidaF/PulseWeaver/commit/dee6b766b8a69f192b4e9593e10de09ada2b1686))
+- Allow users with null email. Email is just metadata for now ([`7419768`](https://github.com/DiegoGuidaF/PulseWeaver/commit/7419768965eff69937e7a3fa97ff52221bb27e95))
+
+### Under the Hood
+
+- Add sample database seeding to facilitate local development, testing and showcasing (such as taking screenshots for the README)
+- Allow compiling a pprof exposing binary under a build tag on a loopback listener to facilitate analyzing CPU and HEAP usage on critical flows ([`aa925fa`](https://github.com/DiegoGuidaF/PulseWeaver/commit/aa925fa7d52d4232ac65e37bc67829243ab8f66a))
+- Improve performance of access log query ([`4c0bb2c`](https://github.com/DiegoGuidaF/PulseWeaver/commit/4c0bb2cbc624ac0e9fdac8472086f5d5070b725c))
+- Reorganize the frontend pages into folders matching routing to facilitate navigating them ([`29997f3`](https://github.com/DiegoGuidaF/PulseWeaver/commit/29997f3935f97980c605ab4938ae07813ca6dbbc))
+- *(ci)* Run backend and frontend test concurrently to speedup ci/cd ([`c7c220d`](https://github.com/DiegoGuidaF/PulseWeaver/commit/c7c220d14bbdfe0a6f97c6af7f55389a61a3e0a2))
+- Add cross-domain integration tests to fully validate critical flows
+- Add GO benchmarks to critical flows and improve them based on that (access log query, policy evaluation...)
+- *(backend)* Generate openapi test client to help with handler tests by using it instead of implementing the http client code ([`1d3eddf`](https://github.com/DiegoGuidaF/PulseWeaver/commit/1d3eddfe962a6a7e6d13ae3c82cc2a66a524f73b))
+- *(backend)* Do not do time.sleep for cross-domain integration testing when waiting for policy refresh. Do a poll-based approach ([`99496cc`](https://github.com/DiegoGuidaF/PulseWeaver/commit/99496ccd772fb5e5f41d04ebcff5e106a3b37d95))
+- *(backend)* Delete devices and addresses when deleting a user ([`c1f91a5`](https://github.com/DiegoGuidaF/PulseWeaver/commit/c1f91a50cf78847adbcf19d07ea0c9fb951b84d7))
+- *(backend)* Add Squirrel Go library to facilitate building dynamic queries ([`b4a5a36`](https://github.com/DiegoGuidaF/PulseWeaver/commit/b4a5a3646f6f13d9943b9458f59ba2da6744dfd6)) ([`a7c6290`](https://github.com/DiegoGuidaF/PulseWeaver/commit/a7c6290e640b093f8e9dbe10bb227c41180a684d)) ([`bb79213`](https://github.com/DiegoGuidaF/PulseWeaver/commit/bb79213aaf2727ca827075ed1839aabcd42e44fb))
+- *(backend)* Improve logging output by reducing noise (such as moving some from error to debug where applicable) and ensuring UI actions resulting in changes have proper logging
+- *(backend)* Remove device_type from database since it no longer makes sense as a stored type (it will be calculated depending on conditions such as rules) ([`b55eb6d`](https://github.com/DiegoGuidaF/PulseWeaver/commit/b55eb6d441cdbcebcfbf59db5f131490aa2e447b))
+- Greatly improve frontend test speed by removing CSS imports from Mantine and improving general setup ([`68b685d`](https://github.com/DiegoGuidaF/PulseWeaver/commit/68b685dabae1d24c80c11182e6bf46773b2e66f3)) ([`332133e`](https://github.com/DiegoGuidaF/PulseWeaver/commit/332133e105e6618ee4524afd91742ff7bfe50fed))
+- *(backend)* Bound host suggestions scan to last 7 days to reduce old noise and improve performance ([`27513c7`](https://github.com/DiegoGuidaF/PulseWeaver/commit/27513c7ddd1269d8707205073ad09a4e02c0f3b2))
+
 ## [0.3.0] - 2026-05-06
 
 ### Bug Fixes
