@@ -6,34 +6,35 @@ PulseWeaver is a self-hosted device IP management service. It maintains an updat
 
 ## Database Migrations
 
-The app is deployed. **Always create a new numbered migration file** for every schema change — never modify existing migration files. Use `make migrate-create` to generate the next pair, then write the `up` and `down` SQL.
+The app is deployed. **Always create a new numbered migration file** for every schema change — never modify existing migration files. Add the next-numbered `NNNNNN_<name>.up.sql` / `NNNNNN_<name>.down.sql` pair under `internal/database/migrations/`, then write the `up` and `down` SQL. Migrations are applied automatically at app startup.
 
 After adding a migration: review `internal/database/migration_test_seed.sql` and check whether the seed still covers all tables and constraints affected by the migration. Update the seed if the migration touches a table, adds constraints (NOT NULL, CHECK, UNIQUE, FK), or introduces a new table.
 
 ## Commands
 
+Targets follow a `back-*` / `front-*` prefix convention (run `make help` for the full list). Backend and frontend commands tab-complete under their prefix; cross-cutting commands (`api`, `build`, `check`) are unprefixed.
+
 ### Backend
-- `make dev-back` — hot-reload backend (uses Air)
-- `make test` — run all Go tests (**always use this**, not bare `go test ./...`; uses `-tags=test`)
-- `go test -tags=test -v ./internal/<pkg>/...` — run tests for a single package (finish with `make test`)
-- `make lint-back` — format + golangci-lint + check-migrations(ensures they start/end transaction)
-- `make fix` — format + golangci-lint with auto-fix
-- `make api` — regenerate backend + frontend types from `api/openapi.yaml`. **Run this every time `api/openapi.yaml` changes. Never run the underlying generators directly — always use this target.**
+- `make back-dev` — hot-reload backend (uses Air)
+- `make back-test` — run all Go tests (**always use this**, not bare `go test ./...`; uses `-tags=test`)
+- `go test -tags=test -v ./internal/<pkg>/...` — run tests for a single package (finish with `make back-test`)
+- `make back-lint` — format + golangci-lint + migration-syntax check (ensures migrations start/end a transaction)
+- `make back-fix` — format + golangci-lint with auto-fix
+- `make back-bench` — run all Go benchmarks (`-tags=test`, no tests)
 
 ### Frontend
-- `make dev-front` — Vite dev server
-- `make test-front` — run frontend tests (vitest)
-- `make lint-front` — run ESLint on frontend
-- `make typecheck-front` — run TypeScript type-check (`tsc --noEmit -p tsconfig.app.json`; **never** use bare `tsc --noEmit`)
+- `make front-dev` — Vite dev server
+- `make front-test` — run frontend tests (vitest)
+- `make front-lint` — ESLint + TypeScript type-check (`tsc --noEmit -p tsconfig.app.json`; **never** use bare `tsc --noEmit`)
 - `cd frontend && npm run generate:api` — regenerate frontend API types/SDK
 
-### Combined / Database / Build
-- `make lint-all` — all linters + frontend type-check
-- `make check` — full pre-push: lint-all + all tests. **Run before declaring any work complete:**
+### Cross-cutting / Database / Build
+- `make api` — regenerate backend + frontend types from `api/openapi.yaml`. **Run this every time `api/openapi.yaml` changes. Never run the underlying generators directly — always use this target.**
+- `make check` — full pre-push: back-lint + front-lint + all tests. **Run before declaring any work complete:**
   ```bash
   make check 2>&1 | grep -E "^(FAIL|---FAIL|Error|error:|lint)" | head -40
   ```
-- `make migrate-up` / `make migrate-down` / `make migrate-create`
+- `make back-seed` — seed the local dev DB with the sample world (`make back-seed-db` / `make back-seed-db-sample` build standalone seed-DB artifacts)
 - `make build` — production build → `bin/pulseweaver`
 
 ## Commits

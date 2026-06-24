@@ -12,8 +12,8 @@ Thanks for your interest in contributing! This document covers how to get set up
 3. Install dependencies and start developing:
    ```sh
    cp .env.example .env   # fill in values
-   make dev-back          # Go backend with hot reload
-   make dev-front         # React frontend with Vite
+   make back-dev          # Go backend with hot reload
+   make front-dev         # React frontend with Vite
    ```
 
 See the [README](README.md) for full setup instructions.
@@ -47,7 +47,7 @@ feat: update heartbeat endpoint and client config together
 ## Code style
 
 - **Backend (Go):** follow the conventions in [`docs/ai-go-style.md`](docs/ai-go-style.md). In short: explicit, boring Go; no magic; early returns; domain constructors enforce invariants.
-- **Frontend (TypeScript/React):** ESLint and TypeScript strict mode. Run `make lint-front typecheck-front`.
+- **Frontend (TypeScript/React):** ESLint and TypeScript strict mode. Run `make front-lint`.
 - All code must pass `make check` (lint + type-check + tests) before submitting a PR.
 
 ## Submitting a pull request
@@ -63,8 +63,8 @@ feat: update heartbeat endpoint and client config together
 ## Running tests
 
 ```sh
-make test         # backend tests
-make test-front   # frontend tests
+make back-test    # backend tests
+make front-test   # frontend tests
 make check        # lint + typecheck + all tests
 ```
 

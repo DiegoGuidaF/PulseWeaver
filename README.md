@@ -10,10 +10,10 @@
 
 **PulseWeaver** is a self-hosted forward-auth gate for reverse proxies — per-user, IP-based access control over which devices reach which services.
 
-It keeps an up-to-date registry of your devices' current IP addresses via heartbeats, and answers one question for your
-reverse proxy on every incoming request: **may this client reach this host?** Each user gets an explicit allowlist of
-services; everything else is denied. No config file reloads, no static IP lists, and no identity provider bolted onto
-apps that can't handle one.
+It keeps an up-to-date registry of your devices' current IP addresses via heartbeats or manually added IPs, and answers
+one question for your reverse proxy on every incoming request: **may this client reach this host?** Each user gets an
+explicit allowlist of services; everything else is denied. No config file reloads, no static IP lists, and no identity
+provider bolted onto apps that can't handle one.
 
 It exists for the services that break behind SSO proxies — Home Assistant, Jellyfin, Nextcloud, IoT dashboards.
 Instead of changing how an application authenticates, PulseWeaver simply keeps everyone except known devices of
@@ -35,7 +35,7 @@ SQLite file — no database server, no separate frontend to deploy.
 - **Heartbeat-tracked device IPs** — phones and laptops keep their changing addresses registered automatically;
   address leases expire devices that go quiet.
 - **Per-user host access control** — deny-by-default allowlists over an admin-curated set of known hosts, organised
-  into groups: "Mom can watch Jellyfin" is one checkbox. ([docs](docs/Host-Access-Control.md))
+  into groups: "Tom can watch Jellyfin" is one checkbox. ([docs](docs/Host-Access-Control.md))
 - **Network policies** — CIDR-range grants for networks you trust as a whole, like your LAN or a VPN subnet.
   ([docs](docs/Network-Policies.md))
 - **Access logs & analytics** — every allow/deny decision recorded and filterable; dashboard with traffic over time,
@@ -341,22 +341,24 @@ starting: `sudo mkdir -p /data && sudo chown $(whoami) /data`.
 
 ```bash
 # Backend (hot reload via Air)
-make dev-back
+make back-dev
 
 # Frontend (Vite dev server, in a separate terminal)
-make dev-front
+make front-dev
 ```
 
 ### Useful make targets
 
-| Command               | Description                                                 |
-|-----------------------|-------------------------------------------------------------|
-| `make build`          | Full production build → `bin/pulseweaver`                   |
-| `make test`           | Run all Go tests                                            |
-| `make lint-back`      | Format + lint                                               |
-| `make api`            | Regenerate backend + frontend types from `api/openapi.yaml` |
-| `make migrate-up`     | Apply pending database migrations                           |
-| `make migrate-create` | Create a new migration pair                                 |
+Targets use a `back-*` / `front-*` prefix; run `make help` for the full list.
+
+| Command          | Description                                                 |
+|------------------|-------------------------------------------------------------|
+| `make build`     | Full production build → `bin/pulseweaver`                   |
+| `make back-test` | Run all Go tests                                            |
+| `make back-lint` | Format + lint                                               |
+| `make front-lint`| ESLint + TypeScript type-check                              |
+| `make check`     | Full validation: lint + type-check + tests (back + front)   |
+| `make api`       | Regenerate backend + frontend types from `api/openapi.yaml` |
 
 ### Further reading
 
