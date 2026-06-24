@@ -1,0 +1,99 @@
+name: Benchmark
+
+# Advisory benchmark regression check. Opt-in, not part of the normal CI gate:
+# benchmarks are slow and GitHub-hosted runners are noisy, so this never blocks a
+# merge on perf alone — it runs base vs. head back-to-back on the SAME runner and
+# posts a benchstat table to the job summary for a human to read.
+#
+# Trigger it by adding the `benchmark` label to a PR (re-runs on each push while
+# the label is present), or via "Run workflow" on a branch.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+# Only the step summary is written, so no write scopes are needed.
+permissions:
+  contents: read
+
+jobs:
+  benchstat:
+    name: Benchmark regression (advisory)
+    # Manual dispatch always runs; a PR runs only while it carries the `benchmark` label.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'benchmark')
+    runs-on: ubuntu-latest
+
+    env:
+      # Hot-path packages with Benchmark* (in-memory: policy CPU path, queries +
+      # accesslog over in-memory SQLite — no DB service required).
+      PKGS: ./internal/policy/ ./internal/queries/ ./internal/accesslog/
+      BENCH: .
+      # Repeats benchstat needs to judge noise. Matches testbench/profiling COUNT.
+      COUNT: 6
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # need the base commit too, to benchmark it
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache-dependency-path: |
+            go.sum
+            tools/go.sum
+          cache: true
+
+      - name: Install benchstat
+        # golang.org/x/perf is a Go-team module; go install verifies it against the
+        # checksum database (sum.golang.org), so no third-party action is trusted here.
+        run: go install golang.org/x/perf/cmd/benchstat@latest
+
+      - name: Resolve base commit
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            git fetch --no-tags --depth=1 origin main || true
+            base="$(git merge-base HEAD origin/main || git rev-parse HEAD~1)"
+          fi
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+          echo "Base commit: $base"
+
+      - name: Benchmark PR head
+        run: |
+          GOWORK=off go test -tags=test -run='^$' -bench="$BENCH" -benchmem \
+            -count="$COUNT" $PKGS | tee new.txt
+
+      - name: Benchmark base
+        run: |
+          head_sha="$(git rev-parse HEAD)"
+          git checkout --quiet --detach "${{ steps.base.outputs.sha }}"
+          GOWORK=off go test -tags=test -run='^$' -bench="$BENCH" -benchmem \
+            -count="$COUNT" $PKGS | tee old.txt
+          git checkout --quiet --detach "$head_sha"
+
+      - name: Compare with benchstat
+        run: |
+          {
+            echo "## Benchmark comparison (benchstat)"
+            echo ""
+            echo "Base \`${{ steps.base.outputs.sha }}\` vs head \`$(git rev-parse HEAD)\` · \`-count=$COUNT\`."
+            echo ""
+            echo "_Advisory only._ Hosted runners are noisy neighbours — read large, consistent"
+            echo "deltas (with a low benchstat p-value) as signal and small ones as measurement noise."
+            echo ""
+            echo '```'
+            benchstat old.txt new.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
