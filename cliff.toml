@@ -41,11 +41,13 @@ commit_parsers = [
     { message = "^docs", group = "Documentation" },
     { message = "^ai", group = "Documentation" },
     # Tech-centric sections
+    { message = "^perf", group = "Under the Hood" },
     { message = "^refactor", group = "Under the Hood" },
     { message = "^chore", group = "Under the Hood" },
     { message = "^test", group = "Under the Hood" },
     { message = "^build", group = "Under the Hood" },
     { message = "^ci", group = "Under the Hood" },
+    { message = "^style", group = "Under the Hood" },
     { message = "^revert", group = "Under the Hood" },
     # Catch-all
     { message = ".*", group = "Unmatched commits - REVIEW" }
