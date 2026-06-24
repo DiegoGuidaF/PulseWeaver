@@ -56,8 +56,8 @@ Drifts easily — verify against `features/auth/` before trusting.
 | Current user | `hooks/useCurrentUser` → `AuthProvider` (`AuthContext.tsx`) → `useAuth()` | `useAuth` exposes `{ user, isLoading, isAuthenticated }`, consumed by `ProtectedRoute` and `AppShell`. Context object lives in `auth-context.ts`. |
 | Route guard | `ProtectedRoute.tsx` | Loading → spinner; unauthenticated → `Navigate` to `/login?returnTo=<path>`; authenticated but `must_change_password` → forced to `/settings`. |
 | Login | `components/LoginForm` (in `LoginPage`) + `hooks/useLogin` | POST `/auth/login` → `invalidateQueries(getCurrentUserQueryKey)` (awaited) → navigate to `?returnTo=` param or `/dashboard`. |
-| Logout | `hooks/useLogout` (triggered from `AppShell`) | POST `/auth/logout` → `queryClient.clear()` → `setQueryData(getCurrentUserQueryKey, null)` → `Navigate` to `/login` (replace). |
-| Global 401 | `main.tsx` `QueryCache.onError` | Non-auth queries 401 → redirect to `/login?returnTo=<path>`; the `getCurrentUser` query is exempt (401 means "not logged in", handled gracefully). See `error-handling.md`. |
+| Logout | `hooks/useLogout` (triggered from `AppShell`) | POST `/auth/logout` → `setQueryData(getCurrentUserQueryKey, null)` (flips auth → `ProtectedRoute` redirects) → `removeQueries` for every other key. Does **not** `queryClient.clear()` first — that detaches the `useCurrentUser` observer and the redirect never fires. |
+| Global 401 | `main.tsx` `QueryCache.onError` + `defaultOptions.queries.retry` | Non-auth query 401 → `setQueryData(getCurrentUser, null)` so `ProtectedRoute` redirects to `/login?returnTo=<path>` via the router (no full-page reload); 401s are not retried. The `getCurrentUser` query is exempt (401 means "not logged in"). See `error-handling.md`. |
 
 ## UX Surfaces
 

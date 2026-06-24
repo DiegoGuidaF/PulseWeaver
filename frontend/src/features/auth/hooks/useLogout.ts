@@ -1,21 +1,24 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 import { logoutMutation, getCurrentUserQueryKey } from "@/lib/api/@tanstack/react-query.gen";
-import { ROUTES } from "@/lib/routes";
 
 export function useLogout() {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
   return useMutation({
     ...logoutMutation(),
     onSuccess: () => {
-      // Clear all caches, then immediately set user to null so LoginPage
-      // sees isAuthenticated:false (not a loading state) before the navigate
-      // lands — preventing it from redirecting straight back to /devices.
-      queryClient.clear();
-      queryClient.setQueryData(getCurrentUserQueryKey(), null);
-      navigate(ROUTES.login, { replace: true });
+      const meKey = getCurrentUserQueryKey();
+      // Mark the session logged out: ProtectedRoute sees isAuthenticated:false
+      // and redirects to /login. This must run before dropping the rest of the
+      // cache — queryClient.clear() detaches the useCurrentUser observer, so a
+      // null written afterwards never reaches it and no redirect fires.
+      queryClient.setQueryData(meKey, null);
+      // Drop every other cached query so a subsequent login can't briefly read
+      // the previous user's data.
+      queryClient.removeQueries({
+        predicate: (query) =>
+          JSON.stringify(query.queryKey) !== JSON.stringify(meKey),
+      });
     },
   });
 }

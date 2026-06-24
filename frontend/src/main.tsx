@@ -22,32 +22,33 @@ import "@mantine/notifications/styles.css";
 // The .layer.css variant must only be used when core styles are layered too.
 import "mantine-datatable/styles.css";
 
-// Helper to check if error is 401 and handle redirect
-function handle401Error(error: unknown, isAuthMeQuery = false) {
-  // Check if this is a 401 error
-  // ApiError instances have a status property, or check the error object directly
-  const { status } = toApiError(error);
-  if (status === 401 && !isAuthMeQuery) {
-    // Don't redirect if already on login page or if this is the auth/me query
-    if (window.location.pathname !== "/login") {
-      const returnTo = window.location.pathname + window.location.search;
-      window.location.href = `/login?returnTo=${encodeURIComponent(returnTo)}`;
-    }
-  }
+const currentUserKey = getCurrentUserQueryKey();
+
+function isCurrentUserQuery(queryKey: unknown): boolean {
+  return (
+    Array.isArray(queryKey) &&
+    JSON.stringify(queryKey) === JSON.stringify(currentUserKey)
+  );
 }
 
 const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // A 401 means the session is gone; retrying only floods the network and
+      // delays the redirect. Fail fast so the auth state flips immediately.
+      retry: (failureCount, error) =>
+        toApiError(error).status !== 401 && failureCount < 3,
+    },
+  },
   queryCache: new QueryCache({
     onError: (error, query) => {
-      // Don't redirect for /auth/me queries - 401 is expected when not logged in
-      // Let useCurrentUser handle 401 gracefully (returns null)
-      // ProtectedRoute will handle redirect based on isAuthenticated
-      const currentUserKey = getCurrentUserQueryKey();
-      const isAuthMeQuery =
-        Array.isArray(query.queryKey) &&
-        JSON.stringify(query.queryKey) === JSON.stringify(currentUserKey);
-      // Only handle 401 for non-auth queries
-      handle401Error(error, isAuthMeQuery);
+      if (toApiError(error).status !== 401) return;
+      // The current-user query owns the "logged out" signal: useCurrentUser maps
+      // its 401 to null and ProtectedRoute redirects. Any other query hitting 401
+      // means the session expired mid-use — flip the cached auth state to null so
+      // that same ProtectedRoute redirect fires through the router (no full reload).
+      if (isCurrentUserQuery(query.queryKey)) return;
+      queryClient.setQueryData(currentUserKey, null);
     },
   }),
 });
