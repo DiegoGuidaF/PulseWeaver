@@ -16,6 +16,17 @@ export const zId = z.coerce
   });
 
 /**
+ * Why the policy engine denied an access request. The complete set of values that can appear in an access log entry's deny_reason or be used as the deny_reason filter.
+ *
+ */
+export const zPolicyDenyReason = z.enum([
+  "no_device_match",
+  "ip_not_registered",
+  "invalid_token",
+  "host_not_allowed",
+]);
+
+/**
  * IPv4 or IPv6 address
  */
 export const zIpAddress = z.union([z.ipv4(), z.ipv6()]);
@@ -460,19 +471,11 @@ export const zPolicyUserIp = z.object({
   geo: zGeoInfo.nullish(),
 });
 
-/**
- * Reason for denial.
- */
-export const zPolicySimulateDenyReason = z.enum([
-  "ip_not_registered",
-  "host_not_allowed",
-]);
-
 export const zPolicySimulateResult = z.object({
   ip: zIpAddress,
   host: z.string(),
   allowed: z.boolean(),
-  deny_reason: zPolicySimulateDenyReason.nullish(),
+  deny_reason: zPolicyDenyReason.nullish(),
   match_source: z.enum(["device", "network_policy"]).optional(),
   network_policy_id: zId.nullish(),
   network_policy_name: z.string().nullish(),
@@ -818,7 +821,7 @@ export const zAccessLogRow = z.object({
   id: zId,
   client_ip: zIpAddress,
   outcome: z.boolean(),
-  deny_reason: z.string().nullish(),
+  deny_reason: zPolicyDenyReason.nullish(),
   contributors: z.array(zAccessLogContributor),
   contributor_count: z.int(),
   created_at: z.iso.datetime({ offset: true, local: true }),
@@ -1237,7 +1240,7 @@ export const zGetAccessLogQuery = z.object({
   target_uri_op: zAccessLogFilterOperator.optional(),
   http_method: z.array(z.string()).max(200).optional(),
   http_method_op: zAccessLogFilterOperator.optional(),
-  deny_reason: z.array(z.string()).max(200).optional(),
+  deny_reason: z.array(zPolicyDenyReason).max(200).optional(),
   deny_reason_op: zAccessLogFilterOperator.optional(),
   country_code: z.array(z.string()).max(200).optional(),
   country_code_op: zAccessLogFilterOperator.optional(),
@@ -1284,11 +1287,6 @@ export const zGetAccessLogByCountryQuery = z.object({
  * Request counts by country
  */
 export const zGetAccessLogByCountryResponse = z.array(zAccessLogCountryStats);
-
-/**
- * List of deny reason values
- */
-export const zGetAccessLogDenyReasonsResponse = z.array(z.string());
 
 export const zDisableDeviceAddressLeaseRulePath = z.object({
   device_id: zId,

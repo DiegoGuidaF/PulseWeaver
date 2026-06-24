@@ -2,7 +2,7 @@ import { ActionIcon, Badge, Code, Divider, Drawer, Group, Stack, Text, Title, To
 import { useMediaQuery } from "@mantine/hooks";
 import { useMemo } from "react";
 import type { AccessLogRow } from "@/lib/api";
-import { DENY_REASON_LABELS } from "../constants";
+import { POLICY_DENY_REASON_LABELS } from "@/lib/policyDenyReasons";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { countryFlagEmoji } from "@/lib/countryFlag";
 import { useClipboard } from "@/hooks/useClipboard";
@@ -46,7 +46,7 @@ export function AccessLogDetailDrawer({
                         </Badge>
                         {!row.outcome && row.deny_reason && (
                             <Badge color="gray" variant="light" size="lg">
-                                {DENY_REASON_LABELS[row.deny_reason] ?? row.deny_reason}
+                                {POLICY_DENY_REASON_LABELS[row.deny_reason]}
                             </Badge>
                         )}
                     </Group>

@@ -239,13 +239,6 @@ PolicyUserAddress:
       x-go-type: UTCTime
       description: Last heartbeat or manual update time for this address.
 
-PolicySimulateDenyReason:
-  type: string
-  enum:
-    - ip_not_registered
-    - host_not_allowed
-  description: Reason for denial.
-
 PolicyNetworkPolicyEntry:
   type: object
   required: [policy_id, policy_name, cidr, enabled, bypass_host_check,
@@ -287,7 +280,7 @@ PolicySimulateResult:
       type: boolean
     deny_reason:
       allOf:
-        - $ref: '#/PolicySimulateDenyReason'
+        - $ref: './common.yaml#/PolicyDenyReason'
       nullable: true
       description: Reason for denial; null when allowed is true.
     match_source:

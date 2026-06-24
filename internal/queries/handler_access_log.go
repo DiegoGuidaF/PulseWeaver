@@ -103,12 +103,17 @@ func toAccessLogRow(r AccessLogView) httpapi.AccessLogRow {
 		contributors[i] = toAccessLogContributor(c)
 	}
 
+	var denyReason *httpapi.PolicyDenyReason
+	if r.DenyReason != nil {
+		denyReason = new(httpapi.PolicyDenyReason(*r.DenyReason))
+	}
+
 	return httpapi.AccessLogRow{
 		Id:                r.ID,
 		CreatedAt:         httpapi.UTCTime(r.CreatedAt),
 		Outcome:           r.Outcome,
 		ClientIp:          r.ClientIP,
-		DenyReason:        r.DenyReason,
+		DenyReason:        denyReason,
 		Contributors:      contributors,
 		ContributorCount:  r.ContributorCount,
 		XffChain:          r.XFFChain,

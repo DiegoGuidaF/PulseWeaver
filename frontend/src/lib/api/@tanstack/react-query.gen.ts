@@ -32,7 +32,6 @@ import {
   enableDevice,
   getAccessLog,
   getAccessLogByCountry,
-  getAccessLogDenyReasons,
   getAddressHistory,
   getCurrentUser,
   getDashboardAttributionSplit,
@@ -139,9 +138,6 @@ import type {
   GetAccessLogByCountryError,
   GetAccessLogByCountryResponse,
   GetAccessLogData,
-  GetAccessLogDenyReasonsData,
-  GetAccessLogDenyReasonsError,
-  GetAccessLogDenyReasonsResponse,
   GetAccessLogError,
   GetAccessLogResponse,
   GetAddressHistoryData,
@@ -1132,37 +1128,6 @@ export const getAccessLogByCountryOptions = (
       return data;
     },
     queryKey: getAccessLogByCountryQueryKey(options),
-  });
-
-export const getAccessLogDenyReasonsQueryKey = (
-  options?: Options<GetAccessLogDenyReasonsData>,
-) => createQueryKey("getAccessLogDenyReasons", options);
-
-/**
- * List valid deny reason values
- *
- * Returns all valid deny_reason values that can appear in access log entries or be used as the deny_reason filter on GET /access-log.
- *
- */
-export const getAccessLogDenyReasonsOptions = (
-  options?: Options<GetAccessLogDenyReasonsData>,
-) =>
-  queryOptions<
-    GetAccessLogDenyReasonsResponse,
-    GetAccessLogDenyReasonsError,
-    GetAccessLogDenyReasonsResponse,
-    ReturnType<typeof getAccessLogDenyReasonsQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getAccessLogDenyReasons({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getAccessLogDenyReasonsQueryKey(options),
   });
 
 /**

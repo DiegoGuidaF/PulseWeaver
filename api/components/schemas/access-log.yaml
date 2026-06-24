@@ -78,7 +78,8 @@ AccessLogRow:
     outcome:
       type: boolean
     deny_reason:
-      type: string
+      allOf:
+        - $ref: './common.yaml#/PolicyDenyReason'
       nullable: true
     contributors:
       type: array

@@ -11,6 +11,24 @@ export type ErrorResponse = {
 export type Id = number;
 
 /**
+ * Why the policy engine denied an access request. The complete set of values that can appear in an access log entry's deny_reason or be used as the deny_reason filter.
+ *
+ */
+export const PolicyDenyReason = {
+  NO_DEVICE_MATCH: "no_device_match",
+  IP_NOT_REGISTERED: "ip_not_registered",
+  INVALID_TOKEN: "invalid_token",
+  HOST_NOT_ALLOWED: "host_not_allowed",
+} as const;
+
+/**
+ * Why the policy engine denied an access request. The complete set of values that can appear in an access log entry's deny_reason or be used as the deny_reason filter.
+ *
+ */
+export type PolicyDenyReason =
+  (typeof PolicyDenyReason)[keyof typeof PolicyDenyReason];
+
+/**
  * IPv4 or IPv6 address
  */
 export type IpAddress = string | string;
@@ -443,7 +461,7 @@ export type AccessLogRow = {
   id: Id;
   client_ip: IpAddress;
   outcome: boolean;
-  deny_reason?: string | null;
+  deny_reason?: PolicyDenyReason | null;
   /**
    * All devices/users/addresses this request's client IP resolved to. Empty when no device matched (e.g. a denied request from an unknown IP).
    *
@@ -929,20 +947,6 @@ export type PolicyUserAddress = {
   updated_at: string;
 };
 
-/**
- * Reason for denial.
- */
-export const PolicySimulateDenyReason = {
-  IP_NOT_REGISTERED: "ip_not_registered",
-  HOST_NOT_ALLOWED: "host_not_allowed",
-} as const;
-
-/**
- * Reason for denial.
- */
-export type PolicySimulateDenyReason =
-  (typeof PolicySimulateDenyReason)[keyof typeof PolicySimulateDenyReason];
-
 export type PolicySimulateResult = {
   ip: IpAddress;
   host: string;
@@ -950,7 +954,7 @@ export type PolicySimulateResult = {
   /**
    * Reason for denial; null when allowed is true.
    */
-  deny_reason?: PolicySimulateDenyReason | null;
+  deny_reason?: PolicyDenyReason | null;
   /**
    * Which mechanism authorized the request. Null when allowed is false.
    *
@@ -2366,9 +2370,9 @@ export type GetAccessLogData = {
     http_method?: Array<string>;
     http_method_op?: AccessLogFilterOperator;
     /**
-     * Deny reason filter values (in, not_in, is_null, not_null). See GET /access-log/deny-reasons.
+     * Deny reason filter values (in, not_in, is_null, not_null).
      */
-    deny_reason?: Array<string>;
+    deny_reason?: Array<PolicyDenyReason>;
     deny_reason_op?: AccessLogFilterOperator;
     /**
      * ISO 3166-1 alpha-2 country codes (in, not_in, is_null, not_null). is_null = no GeoIP row.
@@ -2513,41 +2517,6 @@ export type GetAccessLogByCountryResponses = {
 
 export type GetAccessLogByCountryResponse =
   GetAccessLogByCountryResponses[keyof GetAccessLogByCountryResponses];
-
-export type GetAccessLogDenyReasonsData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: "/access-log/deny-reasons";
-};
-
-export type GetAccessLogDenyReasonsErrors = {
-  /**
-   * Not authenticated
-   */
-  401: ErrorResponse;
-  /**
-   * Forbidden - admin credentials required
-   */
-  403: ErrorResponse;
-  /**
-   * Internal Server Error
-   */
-  500: ErrorResponse;
-};
-
-export type GetAccessLogDenyReasonsError =
-  GetAccessLogDenyReasonsErrors[keyof GetAccessLogDenyReasonsErrors];
-
-export type GetAccessLogDenyReasonsResponses = {
-  /**
-   * List of deny reason values
-   */
-  200: Array<string>;
-};
-
-export type GetAccessLogDenyReasonsResponse =
-  GetAccessLogDenyReasonsResponses[keyof GetAccessLogDenyReasonsResponses];
 
 export type DisableDeviceAddressLeaseRuleData = {
   body?: never;

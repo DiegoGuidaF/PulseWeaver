@@ -15,7 +15,7 @@ import { useDashboardTraffic } from "@/features/dashboard/hooks/useDashboardTraf
 import type { AccessLogFilters } from "../hooks/useAccessLogFilters";
 import { AccessLogDetailDrawer } from "./AccessLogDetailDrawer";
 import { getAccessLogColumns } from "./accessLogColumns";
-import { DENY_REASON_LABELS } from "../constants";
+import { POLICY_DENY_REASON_OPTIONS } from "@/lib/policyDenyReasons";
 import {
     type FilterColumnKey,
     type SortColumn,
@@ -29,7 +29,6 @@ import { ErrorState } from "@/components/ErrorState";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
 import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
 import { useListUsers } from "@/features/auth/hooks/useListUsers";
-import { useAccessLogDenyReasons } from "../hooks/useAccessLogDenyReasons";
 import { useNetworkPolicies } from "@/features/network-policies/hooks/useNetworkPolicies";
 import { useFilterButtonLabels } from "@/hooks/useFilterButtonLabels";
 import classes from "./AccessLogTable.module.css";
@@ -129,7 +128,6 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
 
     const { data: ownerGroups } = useDeviceList();
     const { data: users } = useListUsers();
-    const { data: denyReasons } = useAccessLogDenyReasons();
     const { data: networkPolicies } = useNetworkPolicies();
 
     const { data, isPending, isFetching, error, refetch } = useAccessLog(
@@ -177,10 +175,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
 
     const deviceOptions = (ownerGroups ?? []).flatMap((g) => g.devices).map((d) => ({ value: String(d.id), label: d.name }));
     const userOptions = (users ?? []).map((u) => ({ value: String(u.id), label: u.display_name || u.username }));
-    const denyReasonOptions = (denyReasons ?? []).map((r) => ({
-        value: r,
-        label: DENY_REASON_LABELS[r] ?? r,
-    }));
+    const denyReasonOptions = POLICY_DENY_REASON_OPTIONS;
     const networkPolicyOptions = (networkPolicies ?? []).map((p) => ({
         value: String(p.id),
         label: `${p.name} (${p.cidr})`,

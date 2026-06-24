@@ -75,9 +75,6 @@ import type {
   GetAccessLogByCountryErrors,
   GetAccessLogByCountryResponses,
   GetAccessLogData,
-  GetAccessLogDenyReasonsData,
-  GetAccessLogDenyReasonsErrors,
-  GetAccessLogDenyReasonsResponses,
   GetAccessLogErrors,
   GetAccessLogResponses,
   GetAddressHistoryData,
@@ -241,7 +238,6 @@ import {
   zEnableDeviceResponse,
   zGetAccessLogByCountryQuery,
   zGetAccessLogByCountryResponse,
-  zGetAccessLogDenyReasonsResponse,
   zGetAccessLogQuery,
   zGetAccessLogResponse,
   zGetAddressHistoryQuery,
@@ -1260,45 +1256,6 @@ export const getAccessLogByCountry = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/access-log/stats/by-country",
-    ...options,
-  });
-
-/**
- * List valid deny reason values
- *
- * Returns all valid deny_reason values that can appear in access log entries or be used as the deny_reason filter on GET /access-log.
- *
- */
-export const getAccessLogDenyReasons = <ThrowOnError extends boolean = false>(
-  options?: Options<GetAccessLogDenyReasonsData, ThrowOnError>,
-): RequestResult<
-  GetAccessLogDenyReasonsResponses,
-  GetAccessLogDenyReasonsErrors,
-  ThrowOnError
-> =>
-  (options?.client ?? client).get<
-    GetAccessLogDenyReasonsResponses,
-    GetAccessLogDenyReasonsErrors,
-    ThrowOnError
-  >({
-    requestValidator: async (data) =>
-      await z
-        .object({
-          body: z.never().optional(),
-          path: z.never().optional(),
-          query: z.never().optional(),
-        })
-        .parseAsync(data),
-    responseValidator: async (data) =>
-      await zGetAccessLogDenyReasonsResponse.parseAsync(data),
-    security: [
-      {
-        in: "cookie",
-        name: "__Host-wdc_session",
-        type: "apiKey",
-      },
-    ],
-    url: "/access-log/deny-reasons",
     ...options,
   });
 

@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/devicepairing"
@@ -28,7 +27,6 @@ type CompositeHandler struct {
 	*AuthHandler
 	*RuleHandler
 	*QueriesHandler
-	*AccessLogHandler
 	*RollupHandler
 	*DevicePairingHandler
 	*HostsHandler
@@ -42,7 +40,6 @@ type QueriesHandler = queries.HTTPHandler
 type DeviceHandler = device.HTTPHandler
 type AuthHandler = auth.HTTPHandler
 type PolicyHandler = policy.HTTPHandler
-type AccessLogHandler = accesslog.HTTPHandler
 type RollupHandler = rollup.HTTPHandler
 type DevicePairingHandler = devicepairing.HTTPHandler
 type HostsHandler = hosts.HTTPHandler
@@ -56,7 +53,6 @@ func addRoutes(
 	ruleHandler *RuleHandler,
 	queriesHandler *QueriesHandler,
 	policyHandler *PolicyHandler,
-	accessLogHandler *AccessLogHandler,
 	rollupHandler *RollupHandler,
 	pairingHandler *DevicePairingHandler,
 	hostsHandler *HostsHandler,
@@ -69,7 +65,6 @@ func addRoutes(
 		AuthHandler:            authHandler,
 		RuleHandler:            ruleHandler,
 		QueriesHandler:         queriesHandler,
-		AccessLogHandler:       accessLogHandler,
 		RollupHandler:          rollupHandler,
 		DevicePairingHandler:   pairingHandler,
 		HostsHandler:           hostsHandler,

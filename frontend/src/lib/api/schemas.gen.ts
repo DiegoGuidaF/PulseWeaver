@@ -15,6 +15,18 @@ export const IDSchema = {
   format: "int64",
 } as const;
 
+export const PolicyDenyReasonSchema = {
+  type: "string",
+  description:
+    "Why the policy engine denied an access request. The complete set of values that can appear in an access log entry's deny_reason or be used as the deny_reason filter.\n",
+  enum: [
+    "no_device_match",
+    "ip_not_registered",
+    "invalid_token",
+    "host_not_allowed",
+  ],
+} as const;
+
 export const IPAddressSchema = {
   type: "string",
   description: "IPv4 or IPv6 address",
@@ -884,7 +896,11 @@ export const AccessLogRowSchema = {
       type: "boolean",
     },
     deny_reason: {
-      type: "string",
+      allOf: [
+        {
+          $ref: "#/components/schemas/PolicyDenyReason",
+        },
+      ],
       nullable: true,
     },
     contributors: {
@@ -1892,12 +1908,6 @@ export const PolicyUserAddressSchema = {
   },
 } as const;
 
-export const PolicySimulateDenyReasonSchema = {
-  type: "string",
-  enum: ["ip_not_registered", "host_not_allowed"],
-  description: "Reason for denial.",
-} as const;
-
 export const PolicySimulateResultSchema = {
   type: "object",
   required: ["ip", "host", "allowed"],
@@ -1914,7 +1924,7 @@ export const PolicySimulateResultSchema = {
     deny_reason: {
       allOf: [
         {
-          $ref: "#/components/schemas/PolicySimulateDenyReason",
+          $ref: "#/components/schemas/PolicyDenyReason",
         },
       ],
       nullable: true,

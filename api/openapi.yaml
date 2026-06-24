@@ -78,8 +78,6 @@ paths:
     $ref: './paths/access-log.yaml#/accessLog'
   /access-log/stats/by-country:
     $ref: './paths/access-log.yaml#/accessLogByCountry'
-  /access-log/deny-reasons:
-    $ref: './paths/access-log.yaml#/accessLogDenyReasons'
 
   # --------------------
   # Rules Endpoints
@@ -177,6 +175,8 @@ components:
       $ref: './components/schemas/common.yaml#/ErrorResponse'
     ID:
       $ref: './components/schemas/common.yaml#/ID'
+    PolicyDenyReason:
+      $ref: './components/schemas/common.yaml#/PolicyDenyReason'
     IPAddress:
       $ref: './components/schemas/common.yaml#/IPAddress'
     GeoInfo:
@@ -337,8 +337,6 @@ components:
       $ref: './components/schemas/policy-audit.yaml#/PolicyUserIP'
     PolicyUserAddress:
       $ref: './components/schemas/policy-audit.yaml#/PolicyUserAddress'
-    PolicySimulateDenyReason:
-      $ref: './components/schemas/policy-audit.yaml#/PolicySimulateDenyReason'
     PolicySimulateResult:
       $ref: './components/schemas/policy-audit.yaml#/PolicySimulateResult'
     PolicyNetworkPolicyEntry:

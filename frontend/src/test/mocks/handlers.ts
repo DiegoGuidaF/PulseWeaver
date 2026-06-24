@@ -31,7 +31,6 @@ export const endpoints = {
     updateMe: `${BASE}/users/me`,
     changePassword: `${BASE}/users/me/password`,
     accessLog: `${BASE}/access-log`,
-    accessLogDenyReasons: `${BASE}/access-log/deny-reasons`,
     accessLogByCountry: `${BASE}/access-log/stats/by-country`,
     dashboardStats: `${BASE}/dashboard/stats`,
     dashboardTraffic: `${BASE}/dashboard/traffic`,
@@ -289,10 +288,6 @@ export const accessLogHandlers = {
         http.get(endpoints.accessLog, () =>
             HttpResponse.json(override ?? createMockAccessLogResponse())),
 
-    denyReasons: (reasons?: string[]) =>
-        http.get(endpoints.accessLogDenyReasons, () =>
-            HttpResponse.json(reasons ?? ['invalid_token', 'ip_not_registered', 'no_device_match'])),
-
     byCountry: (stats?: AccessLogCountryStats[]) =>
         http.get(endpoints.accessLogByCountry, () =>
             HttpResponse.json(
@@ -532,7 +527,6 @@ export const defaultHandlers = [
     ruleHandlers.maxActiveAddresses.delete.success(),
     // Access log
     accessLogHandlers.list(),
-    accessLogHandlers.denyReasons(),
     accessLogHandlers.byCountry(),
     // Dashboard
     dashboardHandlers.stats(),

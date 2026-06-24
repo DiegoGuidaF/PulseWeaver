@@ -88,11 +88,7 @@ func (h *HTTPHandler) SimulatePolicyAccess(
 	}
 
 	result := h.service.Decide(ctx, addr, host)
-
-	var denyReason *httpapi.PolicySimulateDenyReason
-	if result.DenyReason != nil {
-		denyReason = new(httpapi.PolicySimulateDenyReason(*result.DenyReason))
-	}
+	denyReason := toAPIDenyReason(result.DenyReason)
 
 	var matchSource *httpapi.PolicySimulateResultMatchSource
 	if result.Allowed {
@@ -113,4 +109,11 @@ func (h *HTTPHandler) SimulatePolicyAccess(
 		NetworkPolicyId:   networkPolicyIDInt,
 		NetworkPolicyName: result.NetworkPolicyName,
 	}), nil
+}
+
+func toAPIDenyReason(reason *DenyReason) *httpapi.PolicyDenyReason {
+	if reason == nil {
+		return nil
+	}
+	return new(httpapi.PolicyDenyReason(*reason))
 }

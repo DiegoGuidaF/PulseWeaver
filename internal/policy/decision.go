@@ -1,6 +1,9 @@
 package policy
 
-import "github.com/DiegoGuidaF/PulseWeaver/internal/ids"
+import (
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
+)
 
 // DecisionResult is returned by Decide. It carries enough information for
 // VerifyAccess to notify observers and for the simulate handler to build its response.
@@ -13,14 +16,14 @@ type DecisionResult struct {
 	NetworkPolicyName *string
 }
 
-// DenyReason is a string enum identifying why an access request was denied.
+// DenyReason identifies why an access request was denied.
 type DenyReason string
 
 const (
-	DenyReasonNoDeviceMatch   DenyReason = "no_device_match"
-	DenyReasonIPNotRegistered DenyReason = "ip_not_registered"
-	DenyReasonInvalidToken    DenyReason = "invalid_token"
-	DenyReasonHostNotAllowed  DenyReason = "host_not_allowed"
+	DenyReasonNoDeviceMatch   DenyReason = DenyReason(httpapi.NoDeviceMatch)
+	DenyReasonIPNotRegistered DenyReason = DenyReason(httpapi.IpNotRegistered)
+	DenyReasonInvalidToken    DenyReason = DenyReason(httpapi.InvalidToken)
+	DenyReasonHostNotAllowed  DenyReason = DenyReason(httpapi.HostNotAllowed)
 )
 
 // MatchSource identifies which mechanism authorized a verify request.

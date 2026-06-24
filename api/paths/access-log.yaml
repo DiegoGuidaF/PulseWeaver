@@ -75,8 +75,8 @@ accessLog:
           type: array
           maxItems: 200
           items:
-            type: string
-        description: Deny reason filter values (in, not_in, is_null, not_null). See GET /access-log/deny-reasons.
+            $ref: '../components/schemas/common.yaml#/PolicyDenyReason'
+        description: Deny reason filter values (in, not_in, is_null, not_null).
       - name: deny_reason_op
         in: query
         required: false
@@ -283,43 +283,6 @@ accessLogByCountry:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
       "403":
         description: Forbidden
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "500":
-        description: Internal Server Error
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-
-accessLogDenyReasons:
-  get:
-    operationId: getAccessLogDenyReasons
-    tags:
-      - access-log
-    summary: List valid deny reason values
-    description: >
-      Returns all valid deny_reason values that can appear in access log entries
-      or be used as the deny_reason filter on GET /access-log.
-    responses:
-      "200":
-        description: List of deny reason values
-        content:
-          application/json:
-            schema:
-              type: array
-              items:
-                type: string
-      "401":
-        description: Not authenticated
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "403":
-        description: Forbidden - admin credentials required
         content:
           application/json:
             schema:

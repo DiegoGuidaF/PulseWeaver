@@ -23,7 +23,7 @@ import {
     isFilterActive,
 } from "../filterConfig";
 import { ColumnFilter, FilterApplyButton } from "./ColumnFilter";
-import { DENY_REASON_LABELS } from "../constants";
+import { POLICY_DENY_REASON_LABELS } from "@/lib/policyDenyReasons";
 import { countryFlagEmoji } from "@/lib/countryFlag";
 import dayjs from "dayjs";
 
@@ -450,8 +450,8 @@ export function getAccessLogColumns(deps: AccessLogColumnDeps): DataTableColumn<
                             {row.outcome ? "Allow" : "Deny"}
                         </Badge>
                         {!row.outcome && row.deny_reason && (
-                            <Text size="sm" c="dimmed" truncate title={DENY_REASON_LABELS[row.deny_reason] ?? row.deny_reason}>
-                                {DENY_REASON_LABELS[row.deny_reason] ?? row.deny_reason}
+                            <Text size="sm" c="dimmed" truncate title={POLICY_DENY_REASON_LABELS[row.deny_reason]}>
+                                {POLICY_DENY_REASON_LABELS[row.deny_reason]}
                             </Text>
                         )}
                     </Group>

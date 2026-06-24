@@ -79,9 +79,7 @@ describe("SimulateBar", () => {
             { timeout: TEST_TIMEOUTS.SHORT },
         );
 
-        expect(
-            screen.getByText("IP is not registered in the policy cache"),
-        ).toBeInTheDocument();
+        expect(screen.getByText("IP not in any device or network policy")).toBeInTheDocument();
     });
 
     it("shows Denied alert with host_not_allowed reason label", async () => {
@@ -97,9 +95,7 @@ describe("SimulateBar", () => {
             { timeout: TEST_TIMEOUTS.SHORT },
         );
 
-        expect(
-            screen.getByText("Host is not in the effective allowlist for this IP"),
-        ).toBeInTheDocument();
+        expect(screen.getByText("Host not allowed")).toBeInTheDocument();
     });
 
     it("result alert disappears after editing an input (dirty flag clears result)", async () => {

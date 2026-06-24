@@ -9,6 +9,18 @@ ID:
   type: integer
   format: int64
 
+PolicyDenyReason:
+  type: string
+  description: >
+    Why the policy engine denied an access request. The complete set of values
+    that can appear in an access log entry's deny_reason or be used as the
+    deny_reason filter.
+  enum:
+    - no_device_match
+    - ip_not_registered
+    - invalid_token
+    - host_not_allowed
+
 IPAddress:
   type: string
   description: "IPv4 or IPv6 address"

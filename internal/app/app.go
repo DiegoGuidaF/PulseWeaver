@@ -149,7 +149,6 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Access log
 	accessLogRepo := accesslog.NewRepository(db.DB())
 	accessLogSink := accesslog.NewSink(accessLogRepo, logger)
-	accessLogHandler := accesslog.NewHTTPHandler(accessLogRepo, logger)
 
 	// Queries - Manage complex crossdomain queries tailored for the frontend
 	queriesRepo := queries.NewRepository(db.DB())
@@ -220,7 +219,6 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		ruleHandler,
 		queriesHandler,
 		policyHandler,
-		accessLogHandler,
 		rollupHandler,
 		pairingHandler,
 		hostsHandler,

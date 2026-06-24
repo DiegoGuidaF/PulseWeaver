@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Alert, Anchor, Button, Group, Text, TextInput } from "@mantine/core";
 import { IconCircleCheck, IconCircleX, IconPlayerPlay } from "@tabler/icons-react";
 import { usePolicySimulate } from "../hooks/usePolicySimulate";
-import { DENY_REASON_LABELS } from "../constants";
+import { POLICY_DENY_REASON_LABELS } from "@/lib/policyDenyReasons";
 
 interface SimulateBarProps {
   ip: string;
@@ -87,7 +87,7 @@ export function SimulateBar({ ip, onIpChange }: SimulateBarProps) {
           )}
           {!result.allowed && result.deny_reason && (
             <Text size="sm" mt={4}>
-              {DENY_REASON_LABELS[result.deny_reason] ?? result.deny_reason}
+              {POLICY_DENY_REASON_LABELS[result.deny_reason]}
             </Text>
           )}
         </Alert>

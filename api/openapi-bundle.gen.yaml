@@ -1074,8 +1074,8 @@ paths:
             type: array
             maxItems: 200
             items:
-              type: string
-          description: Deny reason filter values (in, not_in, is_null, not_null). See GET /access-log/deny-reasons.
+              $ref: '#/components/schemas/PolicyDenyReason'
+          description: Deny reason filter values (in, not_in, is_null, not_null).
         - name: deny_reason_op
           in: query
           required: false
@@ -1286,41 +1286,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /access-log/deny-reasons:
-    get:
-      operationId: getAccessLogDenyReasons
-      tags:
-        - access-log
-      summary: List valid deny reason values
-      description: |
-        Returns all valid deny_reason values that can appear in access log entries or be used as the deny_reason filter on GET /access-log.
-      responses:
-        '200':
-          description: List of deny reason values
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: string
-        '401':
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden - admin credentials required
           content:
             application/json:
               schema:
@@ -2755,6 +2720,15 @@ components:
     ID:
       type: integer
       format: int64
+    PolicyDenyReason:
+      type: string
+      description: |
+        Why the policy engine denied an access request. The complete set of values that can appear in an access log entry's deny_reason or be used as the deny_reason filter.
+      enum:
+        - no_device_match
+        - ip_not_registered
+        - invalid_token
+        - host_not_allowed
     IPAddress:
       type: string
       description: IPv4 or IPv6 address
@@ -3422,7 +3396,8 @@ components:
         outcome:
           type: boolean
         deny_reason:
-          type: string
+          allOf:
+            - $ref: '#/components/schemas/PolicyDenyReason'
           nullable: true
         contributors:
           type: array
@@ -4178,12 +4153,6 @@ components:
           format: date-time
           x-go-type: UTCTime
           description: Last heartbeat or manual update time for this address.
-    PolicySimulateDenyReason:
-      type: string
-      enum:
-        - ip_not_registered
-        - host_not_allowed
-      description: Reason for denial.
     PolicySimulateResult:
       type: object
       required:
@@ -4199,7 +4168,7 @@ components:
           type: boolean
         deny_reason:
           allOf:
-            - $ref: '#/components/schemas/PolicySimulateDenyReason'
+            - $ref: '#/components/schemas/PolicyDenyReason'
           nullable: true
           description: Reason for denial; null when allowed is true.
         match_source:

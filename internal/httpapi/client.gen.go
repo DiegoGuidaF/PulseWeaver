@@ -92,9 +92,6 @@ type ClientInterface interface {
 	// GetAccessLog request
 	GetAccessLog(ctx context.Context, params *GetAccessLogParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetAccessLogDenyReasons request
-	GetAccessLogDenyReasons(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetAccessLogByCountry request
 	GetAccessLogByCountry(ctx context.Context, params *GetAccessLogByCountryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -316,18 +313,6 @@ type ClientInterface interface {
 
 func (c *Client) GetAccessLog(ctx context.Context, params *GetAccessLogParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAccessLogRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetAccessLogDenyReasons(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetAccessLogDenyReasonsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -1757,33 +1742,6 @@ func NewGetAccessLogRequest(server string, params *GetAccessLogParams) (*http.Re
 		}
 
 		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetAccessLogDenyReasonsRequest generates requests for GetAccessLogDenyReasons
-func NewGetAccessLogDenyReasonsRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/access-log/deny-reasons")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -4412,9 +4370,6 @@ type ClientWithResponsesInterface interface {
 	// GetAccessLogWithResponse request
 	GetAccessLogWithResponse(ctx context.Context, params *GetAccessLogParams, reqEditors ...RequestEditorFn) (*GetAccessLogTestClientResponse, error)
 
-	// GetAccessLogDenyReasonsWithResponse request
-	GetAccessLogDenyReasonsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAccessLogDenyReasonsTestClientResponse, error)
-
 	// GetAccessLogByCountryWithResponse request
 	GetAccessLogByCountryWithResponse(ctx context.Context, params *GetAccessLogByCountryParams, reqEditors ...RequestEditorFn) (*GetAccessLogByCountryTestClientResponse, error)
 
@@ -4654,31 +4609,6 @@ func (r GetAccessLogTestClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetAccessLogTestClientResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetAccessLogDenyReasonsTestClientResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *[]string
-	JSON401      *ErrorResponse
-	JSON403      *ErrorResponse
-	JSON500      *ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r GetAccessLogDenyReasonsTestClientResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetAccessLogDenyReasonsTestClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6174,15 +6104,6 @@ func (c *ClientWithResponses) GetAccessLogWithResponse(ctx context.Context, para
 	return ParseGetAccessLogTestClientResponse(rsp)
 }
 
-// GetAccessLogDenyReasonsWithResponse request returning *GetAccessLogDenyReasonsTestClientResponse
-func (c *ClientWithResponses) GetAccessLogDenyReasonsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAccessLogDenyReasonsTestClientResponse, error) {
-	rsp, err := c.GetAccessLogDenyReasons(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetAccessLogDenyReasonsTestClientResponse(rsp)
-}
-
 // GetAccessLogByCountryWithResponse request returning *GetAccessLogByCountryTestClientResponse
 func (c *ClientWithResponses) GetAccessLogByCountryWithResponse(ctx context.Context, params *GetAccessLogByCountryParams, reqEditors ...RequestEditorFn) (*GetAccessLogByCountryTestClientResponse, error) {
 	rsp, err := c.GetAccessLogByCountry(ctx, params, reqEditors...)
@@ -6902,53 +6823,6 @@ func ParseGetAccessLogTestClientResponse(rsp *http.Response) (*GetAccessLogTestC
 			return nil, err
 		}
 		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetAccessLogDenyReasonsTestClientResponse parses an HTTP response from a GetAccessLogDenyReasonsWithResponse call
-func ParseGetAccessLogDenyReasonsTestClientResponse(rsp *http.Response) (*GetAccessLogDenyReasonsTestClientResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetAccessLogDenyReasonsTestClientResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []string
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorResponse
