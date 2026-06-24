@@ -16,7 +16,7 @@ func (h *HTTPHandler) GetDashboardPosture(
 ) (httpapi.GetDashboardPostureResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "GetDashboardPosture")
 
-	posture, err := h.repo.BuildDashboardPosture(ctx, h.policyReader, h.npProvider)
+	posture, err := h.repo.BuildDashboardPosture(ctx, h.ipProvider)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "failed to build dashboard posture", slog.Any(logging.AttrKeyError, err))
 		return httpapi.GetDashboardPosture500JSONResponse(errorMsgResponse("Failed to load dashboard posture")), nil

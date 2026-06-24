@@ -382,11 +382,10 @@ export const zDashboardPostureNetworkPolicies = z.object({
 });
 
 /**
- * Current-state posture counts for the dashboard landing page. All fields except pending_suggestion_count are derived from the policy cache snapshot taken at refreshed_at; pending_suggestion_count is a live database read and is therefore not covered by refreshed_at.
+ * Current-state posture counts for the dashboard landing page. Every field is a live database read of the same tables the policy cache is built from, so the counts reflect the current source-of-truth state.
  *
  */
 export const zDashboardPosture = z.object({
-  refreshed_at: z.iso.datetime({ offset: true, local: true }),
   users: zDashboardPostureUsers,
   network_policies: zDashboardPostureNetworkPolicies,
   shared_ip_count: z.int(),

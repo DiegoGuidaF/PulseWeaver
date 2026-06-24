@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
@@ -86,6 +85,4 @@ func TestHandler_GetDashboardPosture(t *testing.T) {
 	is.Equal(resp.SharedIpCount, 0)          // distinct IPs, none shared
 	is.Equal(resp.KnownHostCount, 1)         // grant.example.com (via live-with + no-live)
 	is.Equal(resp.PendingSuggestionCount, 1) // unknown.example.com
-
-	is.True(!time.Time(resp.RefreshedAt).IsZero())
 }

@@ -1260,7 +1260,7 @@ export const DashboardPostureUsersSchema = {
     live_with_access: {
       type: "integer",
       description:
-        "Users with live IPs in the policy cache and at least one host grant.",
+        "Users with at least one enabled (live) IP and at least one host grant.",
     },
     live_no_host_access: {
       type: "integer",
@@ -1270,7 +1270,7 @@ export const DashboardPostureUsersSchema = {
     no_live_ips: {
       type: "integer",
       description:
-        "Users with host grants but no live IPs in the policy cache (never ran the client).",
+        "Users with host grants but no live IPs (never ran the client).",
     },
     no_access: {
       type: "integer",
@@ -1298,9 +1298,8 @@ export const DashboardPostureNetworkPoliciesSchema = {
 export const DashboardPostureSchema = {
   type: "object",
   description:
-    "Current-state posture counts for the dashboard landing page. All fields except pending_suggestion_count are derived from the policy cache snapshot taken at refreshed_at; pending_suggestion_count is a live database read and is therefore not covered by refreshed_at.\n",
+    "Current-state posture counts for the dashboard landing page. Every field is a live database read of the same tables the policy cache is built from, so the counts reflect the current source-of-truth state.\n",
   required: [
-    "refreshed_at",
     "users",
     "network_policies",
     "shared_ip_count",
@@ -1308,13 +1307,6 @@ export const DashboardPostureSchema = {
     "pending_suggestion_count",
   ],
   properties: {
-    refreshed_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-      description:
-        "Timestamp of the policy cache snapshot these counts reduce. Applies to every field except pending_suggestion_count.\n",
-    },
     users: {
       $ref: "#/components/schemas/DashboardPostureUsers",
     },
@@ -1333,7 +1325,7 @@ export const DashboardPostureSchema = {
     pending_suggestion_count: {
       type: "integer",
       description:
-        "Unknown hosts receiving real traffic that are neither registered nor ignored. A live database read, fresher than refreshed_at.\n",
+        "Unknown hosts receiving real traffic that are neither registered nor ignored.\n",
     },
   },
 } as const;

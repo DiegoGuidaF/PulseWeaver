@@ -611,7 +611,7 @@ export type DashboardPostureUsers = {
    */
   bypass: number;
   /**
-   * Users with live IPs in the policy cache and at least one host grant.
+   * Users with at least one enabled (live) IP and at least one host grant.
    */
   live_with_access: number;
   /**
@@ -620,7 +620,7 @@ export type DashboardPostureUsers = {
    */
   live_no_host_access: number;
   /**
-   * Users with host grants but no live IPs in the policy cache (never ran the client).
+   * Users with host grants but no live IPs (never ran the client).
    */
   no_live_ips: number;
   /**
@@ -641,15 +641,10 @@ export type DashboardPostureNetworkPolicies = {
 };
 
 /**
- * Current-state posture counts for the dashboard landing page. All fields except pending_suggestion_count are derived from the policy cache snapshot taken at refreshed_at; pending_suggestion_count is a live database read and is therefore not covered by refreshed_at.
+ * Current-state posture counts for the dashboard landing page. Every field is a live database read of the same tables the policy cache is built from, so the counts reflect the current source-of-truth state.
  *
  */
 export type DashboardPosture = {
-  /**
-   * Timestamp of the policy cache snapshot these counts reduce. Applies to every field except pending_suggestion_count.
-   *
-   */
-  refreshed_at: string;
   users: DashboardPostureUsers;
   network_policies: DashboardPostureNetworkPolicies;
   /**
@@ -661,7 +656,7 @@ export type DashboardPosture = {
    */
   known_host_count: number;
   /**
-   * Unknown hosts receiving real traffic that are neither registered nor ignored. A live database read, fresher than refreshed_at.
+   * Unknown hosts receiving real traffic that are neither registered nor ignored.
    *
    */
   pending_suggestion_count: number;
