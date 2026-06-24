@@ -136,23 +136,23 @@ type AccessLogQuery struct {
 	Limit     int
 }
 
-func stringsToAny(ss *[]string) []any {
-	if ss == nil {
+func stringFilterValues[T ~string](values *[]T) []any {
+	if values == nil {
 		return nil
 	}
-	out := make([]any, len(*ss))
-	for i, v := range *ss {
-		out[i] = v
+	out := make([]any, len(*values))
+	for i, v := range *values {
+		out[i] = string(v)
 	}
 	return out
 }
 
-func idsToAny(idList *[]httpapi.ID) []any {
-	if idList == nil {
+func int64FilterValues[T ~int64](values *[]T) []any {
+	if values == nil {
 		return nil
 	}
-	out := make([]any, len(*idList))
-	for i, v := range *idList {
+	out := make([]any, len(*values))
+	for i, v := range *values {
 		out[i] = int64(v)
 	}
 	return out
@@ -215,16 +215,16 @@ func NewAccessLogQuery(params httpapi.GetAccessLogParams) (AccessLogQuery, error
 		values []any
 		op     *httpapi.AccessLogFilterOperator
 	}{
-		{"client_ip", stringsToAny(params.ClientIp), params.ClientIpOp},
-		{"target_host", stringsToAny(params.TargetHost), params.TargetHostOp},
-		{"target_uri", stringsToAny(params.TargetUri), params.TargetUriOp},
-		{"http_method", stringsToAny(params.HttpMethod), params.HttpMethodOp},
-		{"deny_reason", stringsToAny(params.DenyReason), params.DenyReasonOp},
-		{"country_code", stringsToAny(params.CountryCode), params.CountryCodeOp},
-		{"continent_code", stringsToAny(params.ContinentCode), params.ContinentCodeOp},
-		{"device", idsToAny(params.DeviceId), params.DeviceIdOp},
-		{"user", idsToAny(params.UserId), params.UserIdOp},
-		{"network_policy", idsToAny(params.NetworkPolicyId), params.NetworkPolicyIdOp},
+		{"client_ip", stringFilterValues(params.ClientIp), params.ClientIpOp},
+		{"target_host", stringFilterValues(params.TargetHost), params.TargetHostOp},
+		{"target_uri", stringFilterValues(params.TargetUri), params.TargetUriOp},
+		{"http_method", stringFilterValues(params.HttpMethod), params.HttpMethodOp},
+		{"deny_reason", stringFilterValues(params.DenyReason), params.DenyReasonOp},
+		{"country_code", stringFilterValues(params.CountryCode), params.CountryCodeOp},
+		{"continent_code", stringFilterValues(params.ContinentCode), params.ContinentCodeOp},
+		{"device", int64FilterValues(params.DeviceId), params.DeviceIdOp},
+		{"user", int64FilterValues(params.UserId), params.UserIdOp},
+		{"network_policy", int64FilterValues(params.NetworkPolicyId), params.NetworkPolicyIdOp},
 	}
 	for _, vf := range valueFilters {
 		filter, ok, err := parseFilter(vf.column, vf.values, vf.op)
