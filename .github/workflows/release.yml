@@ -28,6 +28,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -52,10 +55,11 @@ jobs:
         with:
           context: .
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=pulseweaver-image
+          cache-to: type=gha,scope=pulseweaver-image,mode=max
 
       - name: Extract release notes
         run: awk '/^## \[/{if(found)exit; found=1} found' CHANGELOG.md > RELEASE_NOTES.md
@@ -76,4 +80,3 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
-

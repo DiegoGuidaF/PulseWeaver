@@ -1,11 +1,13 @@
+# syntax=docker/dockerfile:1
+
 # Stage 1: Frontend Build
-FROM node:25.8-alpine AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:25.8-alpine AS frontend-builder
 
 WORKDIR /app
 
 # Install root-level deps (redocly for API bundling)
 COPY package*.json ./
-RUN --mount=type=cache,target=/root/.npm \
+RUN --mount=type=cache,id=npm-root,target=/root/.npm,sharing=locked \
     npm ci
 
 # Copy split API spec files (bundled during npm run build via pregenerate:api)
@@ -13,7 +15,7 @@ COPY api/ ./api/
 
 # Install frontend deps
 COPY frontend/package*.json ./frontend/
-RUN --mount=type=cache,target=/root/.npm \
+RUN --mount=type=cache,id=npm-frontend,target=/root/.npm,sharing=locked \
     npm ci --prefix frontend
 
 # Build: prebuild → generate:api → pregenerate:api → bundle:api → openapi-ts → tsc + vite
@@ -21,13 +23,16 @@ COPY frontend/ ./frontend/
 RUN npm run build --prefix frontend
 
 # Stage 2: Go Build
-FROM golang:1.26-alpine AS backend-builder
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS backend-builder
 
 WORKDIR /build
 
+ARG TARGETOS
+ARG TARGETARCH
+
 # Copy go mod files and download dependencies
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
+RUN --mount=type=cache,id=gomod,target=/go/pkg/mod,sharing=locked \
     go mod download
 
 # Copy Go source code
@@ -46,8 +51,9 @@ COPY --from=frontend-builder /app/frontend/dist ./internal/ui/dist
 ARG GO_TAGS=prod
 
 # Build binary with CGO disabled and optimization flags
-# Note: GOOS/GOARCH are auto-detected by Go from Docker's build platform
-RUN CGO_ENABLED=0 go build \
+RUN --mount=type=cache,id=gomod,target=/go/pkg/mod,sharing=locked \
+    --mount=type=cache,id=gobuild-${TARGETOS}-${TARGETARCH},target=/root/.cache/go-build,sharing=locked \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
     -ldflags="-s -w" \
     -tags="$GO_TAGS" \
     -o /app/pulseweaver \
