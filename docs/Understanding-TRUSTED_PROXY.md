@@ -1,6 +1,6 @@
 # Understanding TRUSTED_PROXY
 
-## For general users
+## Why it matters
 
 When a reverse proxy like Caddy sits in front of PulseWeaver, your device never connects to
 PulseWeaver directly. The proxy receives your device's request, then forwards it on your behalf.

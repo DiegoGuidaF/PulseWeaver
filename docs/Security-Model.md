@@ -9,7 +9,8 @@ user has been [granted](Host-Access-Control.md). It is not:
 - A user authentication system (no passwords, no sessions, no tokens for end users — who a request belongs to is
   inferred from its IP, never verified).
 - A replacement for Authelia, authentik, Keycloak, or any identity provider.
-- A guarantee of security on its own.
+- A complete security solution by itself — it's designed to be **one layer** in defence-in-depth, dramatically
+  shrinking what's reachable so your other layers face far less traffic.
 
 ## When it works well
 
@@ -23,11 +24,13 @@ user has been [granted](Host-Access-Control.md). It is not:
 
 - If you need to *verify* who a user is. PulseWeaver has per-user access grants, but the user behind a request is
   inferred from the client IP — on a shared IP it cannot tell people apart, so it only allows hosts that **every**
-  user on that IP may reach (see [Shared-IP Model](Shared-IP-Model.md)). For real identity, use app-level auth in
-  addition.
-- If clients are on ISP-level CGNAT (see [Shared-IP Model](Shared-IP-Model.md)).
-- If an active network is compromised (VPN leak, shared Wi-Fi with a bad actor, etc.).
-- As a substitute for TLS. Always use HTTPS.
+  user on that IP may reach (see [Shared-IP Model](Shared-IP-Model.md)). For real identity, keep app-level auth on the
+  services themselves.
+- On ISP-level CGNAT, the IP you activate is shared with unrelated subscribers, so they inherit reachability to your
+  granted hosts. PulseWeaver still keeps the wider internet out — but it can't tell co-tenants apart, so a service
+  exposed this way should keep its own authentication (see [Shared-IP Model](Shared-IP-Model.md)).
+- If an active network is compromised (VPN leak, shared Wi-Fi with a bad actor, etc.), the attacker on that network
+  gains whatever reachability the active IP has.
 
 ## Pros and cons summary
 
@@ -45,7 +48,7 @@ user has been [granted](Host-Access-Control.md). It is not:
 **Cons / caveats**
 
 - IP-based trust only — per-user grants exist, but identity is inferred from the IP, never verified.
-- CGNAT can expose your services to unrelated co-tenants if you are not careful.
-- If an active network is compromised while the IP is active, the attacker gains access.
-- Does not replace TLS or app-level authentication.
+- On CGNAT, an activated IP is shared with unrelated co-tenants who inherit reachability to your granted hosts.
+- If an active network is compromised while the IP is active, the attacker on it gains access.
+- Does not authenticate users — keep app-level auth on services where identity actually matters.
 - PulseWeaver should be **one layer** in a broader defence-in-depth strategy, not the only one.

@@ -6,9 +6,10 @@ explanation of why `TRUSTED_PROXY` and `X-Real-IP` are required, see
 
 ---
 
-## Architecture overview
+## Recommended domain split
 
-Two domains, two responsibilities:
+This is the most important security decision in the setup, so it comes first.
+Split PulseWeaver across two domains, two responsibilities:
 
 | Domain | Purpose | Internet-facing? |
 |---|---|---|
@@ -52,7 +53,7 @@ both call them from outside your network.
 
 ```caddy
 pw-device.example.com {
-    @device-endpoints path /api/v1/heartbeat /api/v1/device-pairing
+    @device-endpoints path /api/v1/heartbeat /api/v1/device-pair
     handle @device-endpoints {
         reverse_proxy pulseweaver:8080 {
             header_up X-Real-IP {http.request.remote.host}
@@ -92,11 +93,46 @@ your-service.example.com {
 
 Requests without a matching grant receive a `403` before they reach `your-service`.
 
+### Protecting many services without repeating yourself
+
+A homelab usually fronts a dozen services, and copy-pasting the `forward_auth`
+block into each site is how subtle mistakes creep in — a mistyped `uri`, a
+forgotten `header_up`, a stale secret. Define the gate **once** as a Caddy
+[snippet](https://caddyserver.com/docs/caddyfile/concepts#snippets) and `import`
+it everywhere:
+
+```caddy
+# Define once, near the top of your Caddyfile.
+(pulseweaver) {
+    forward_auth pulseweaver:8080 {
+        uri /api/policy-engine/verify-ip
+        header_up X-Real-IP {http.request.remote.host}
+        header_up Authorization "Bearer {$PULSEWEAVER_POLICY_ENGINE_API_SECRET}"
+    }
+}
+
+# Then every protected site is two lines.
+jellyfin.example.com {
+    import pulseweaver
+    reverse_proxy jellyfin:8096
+}
+
+nextcloud.example.com {
+    import pulseweaver
+    reverse_proxy nextcloud:80
+}
+```
+
+Now the gate has a single definition: fix or audit it in one place, and every
+site stays consistent. This is the recommended way to protect more than one or
+two services.
+
 > [!IMPORTANT]
 > Adding the `forward_auth` block is only half the job. Access is **deny-by-default**: add
-> `your-service.example.com` as a known host and grant it to the users who should reach it — see
-> [Host Access Control](Host-Access-Control.md). Admins bypass the host check by default, so test
-> with a non-admin user (or **Auditing → Access Verification**) rather than your own browser.
+> `your-service.example.com` as a host and grant it to the users who should reach it — see
+> [Host Access Control](Host-Access-Control.md). Until you do, *everyone* is denied — including you,
+> unless your own user has a grant for it or **bypass host check** enabled. The safe way to confirm a
+> setup is **Auditing → Access Verification** ("would IP X reach host Y?"), not your own browser.
 
 ---
 
@@ -127,9 +163,14 @@ fit if you already have one of these running for other services and want a consi
 ### Option C — Protect with PulseWeaver's own gate
 
 PulseWeaver can guard its own admin panel using the same gate it provides to other services. Only
-registered devices whose user may reach the panel's hostname get through. Admins bypass the host
-check by default, so this works for them out of the box — and regular users are denied unless you
-deliberately grant them the admin domain, which is usually exactly what you want.
+registered devices whose user is allowed the panel's hostname get through; everyone else is denied —
+which is usually exactly what you want for an admin UI.
+
+Because the panel is gated like any other host, **you must grant your operator account access to it**:
+either add `pulseweaver.example.com` as a host and put it in a group assigned to that user, or enable
+**bypass host check** on that user so they reach every host. Bypass is **off by default** and is not
+implied by the admin role, so the panel is not reachable for an admin until you grant it one of these
+two ways.
 
 ```caddy
 pulseweaver.example.com {
@@ -145,9 +186,11 @@ pulseweaver.example.com {
 }
 ```
 
-Note that the `reverse_proxy` block also needs `header_up X-Real-IP`. The **Register my IP** button
-in the admin UI sends a heartbeat through Caddy; without this directive PulseWeaver sees Caddy's IP
-and the heartbeat fails — see [Troubleshooting](#troubleshooting).
+Note the `header_up X-Real-IP` on the **`reverse_proxy`** block — not just the `forward_auth` block.
+The admin UI's **Register my IP** button works by sending a heartbeat through this same proxy path, so
+it needs the real client IP just as the gate does. Leave it off and PulseWeaver sees Caddy's IP
+instead, the registration is refused, and the button appears broken — see
+[Troubleshooting](#troubleshooting).
 
 **The chicken-and-egg problem.** This option works, but it has a bootstrapping constraint worth
 understanding: to access the admin UI you need a registered IP, and to register an IP through the

@@ -10,6 +10,8 @@ address. Registered devices are always governed by their user's allowlist (see
 
 ## Creating a policy
 
+![Network Policies](../screenshots/10-network-policies.png)
+
 Under **Access → Network Policies**, a policy is:
 
 | Field               | Meaning                                                                                  |
@@ -49,7 +51,7 @@ proxy.
 
 ## Good to know
 
-- Changes take effect automatically within a few seconds — no restart needed.
+- Changes take effect within milliseconds — the decision cache updates in place, no restart needed.
 - Denied requests look exactly like every other denial: a uniform HTTP 403 that reveals nothing about why.
 - Test a policy with **Auditing → Access Verification** ("would IP X reach host Y?") before relying on it.
 - A policy grants access to **everything** in its range — anyone joining that network is covered. For untrusted or

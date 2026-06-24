@@ -8,16 +8,25 @@
 [![Go 1.26](https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white)](go.mod)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
-**PulseWeaver** is a self-hosted forward-auth gate for reverse proxies — per-user, IP-based access control over which devices reach which services.
+**PulseWeaver** is a self-hosted forward-auth gate for reverse proxies — per-user, IP-based access control over which
+devices reach which services.
 
-It keeps an up-to-date registry of your devices' current IP addresses via heartbeats or manually added IPs, and answers
-one question for your reverse proxy on every incoming request: **may this client reach this host?** Each user gets an
-explicit allowlist of services; everything else is denied. No config file reloads, no static IP lists, and no identity
-provider bolted onto apps that can't handle one.
+It keeps an up-to-date registry of your devices' current IP addresses and answers one question for your reverse proxy
+on every incoming request: **may this client reach this host?** Each user gets an explicit allowlist of services;
+everything else is denied. No config-file reloads, no static IP lists, and no identity provider bolted onto apps that
+can't handle one.
 
-It exists for the services that break behind SSO proxies — Home Assistant, Jellyfin, Nextcloud, IoT dashboards.
-Instead of changing how an application authenticates, PulseWeaver simply keeps everyone except known devices of
-permitted users from reaching it at all. The whole thing is **one binary** with the web UI embedded and a single
+A device registers its IP with a **heartbeat** — literally an authenticated `POST` whose *source IP* becomes the
+allowlisted address. Phones and laptops on changing networks can keep that updated easily with provided tools ; a stable
+server can just have its IP entered by hand. Shipped clients automate the heartbeat
+(see [Heartbeat Client](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client), but nothing about it is special —
+`curl` on a timer works just as well, as suggested in the heartbeat-client docs linked above.
+
+This solution exists because I grew tired of the pain of trying to setup SSO and OAuth on a homelab where each service has
+its own peculiarities and quirks (home assistant, jellyfin, nextcloud...). PulseWeaver is a **drop-in gate** with no
+changes to the services themselves. Instead of changing how an application authenticates, PulseWeaver simply puts an IP
+gateway in front of an application, and since this is always present no matter the request type, it is immediately compatible
+with any type of service/request — HTTP, WebSocket, gRPC, etc. The whole thing is **one binary** with the web UI embedded and a single
 SQLite file — no database server, no separate frontend to deploy.
 
 > [!NOTE]
@@ -32,30 +41,31 @@ SQLite file — no database server, no separate frontend to deploy.
 
 - **Forward-auth gate** — your reverse proxy asks PulseWeaver on every request; answered from an in-memory cache, no
   per-request database work.
-- **Heartbeat-tracked device IPs** — phones and laptops keep their changing addresses registered automatically;
-  address leases expire devices that go quiet.
-- **Per-user host access control** — deny-by-default allowlists over an admin-curated set of known hosts, organised
-  into groups: "Tom can watch Jellyfin" is one checkbox. ([docs](docs/Host-Access-Control.md))
-- **Network policies** — CIDR-range grants for networks you trust as a whole, like your LAN or a VPN subnet.
-  ([docs](docs/Network-Policies.md))
+- **Heartbeat-tracked device IPs** — phones and laptops can keep their changing addresses registered automatically with a
+  periodic POST; old addresses expire on their own when a device goes quiet or moves networks.
+- **Per-user host access control** — deny-by-default grants over an admin-curated set of hosts, bundled into groups:
+  "Tom can watch Jellyfin" is one checkbox. ([docs](docs/Host-Access-Control.md))
+- **Per-device address rules** — an address lease (TTL) and a max-active-addresses cap keep each device's set of
+  allowed IPs tight as it roams, with no manual cleanup. ([docs](docs/Connecting-Devices.md#recommended-settings-for-roaming-devices))
+- **Network policies** — CIDR-range grants for networks you trust as a whole, like your LAN or a VPN subnet. ([docs](docs/Network-Policies.md))
 - **Access logs & analytics** — every allow/deny decision recorded and filterable; dashboard with traffic over time,
   per-service splits, top denied IPs, and GeoIP enrichment. ([docs](docs/Observability.md))
-- **Suggested hosts** — PulseWeaver proposes hostnames it sees in real traffic, so building the known-hosts list takes
+- **Suggested hosts** — PulseWeaver proposes hostnames it sees in real traffic, so building the hosts list takes
   minutes, not an audit.
-- **QR device provisioning** — one registration code (or QR scan) configures a device end-to-end.
-- **Simulate tool** — ask "would IP X reach host Y?" and see exactly why, without sending real traffic.
+- **Device pairing** — one code (or QR scan) configures a device automatic heartbeat end-to-end, no manual URL/key entry.
+- **Access verification** — ask "would IP X reach host Y?" and see exactly why, without sending real traffic.
 - **Single binary** — embedded web UI, SQLite storage; one container, one volume, done.
 
 ---
 
 ## Screenshots
 
-| Dashboard                                  | Host access control                                              |
-|--------------------------------------------|-------------------------------------------------------------------|
-| ![Dashboard](screenshots/03-dashboard.png) | ![Host access control](screenshots/09-host-access-control.png)   |
+| Dashboard                                  | Host access control                                            |
+|--------------------------------------------|----------------------------------------------------------------|
+| ![Dashboard](screenshots/03-dashboard.png) | ![Host access control](screenshots/09-host-access-control.png) |
 
 | Devices                                | Device addresses                                                |
-|----------------------------------------|------------------------------------------------------------------|
+|----------------------------------------|-----------------------------------------------------------------|
 | ![Devices](screenshots/02-devices.png) | ![Device addresses](screenshots/07-device-detail-addresses.png) |
 
 ---
@@ -64,13 +74,15 @@ SQLite file — no database server, no separate frontend to deploy.
 
 Two flows work together. Your **reverse proxy** calls `GET /api/policy-engine/verify-ip` on every request, asking
 *"may the client at this IP reach this host?"* — PulseWeaver answers 200 (allow) or 403 (deny) from an in-memory
-cache. A request is allowed through one of two grants: the IP is an active address of a registered device whose user
-is allowed that host, or the IP falls inside a [network policy](docs/Network-Policies.md) range that allows it.
-Everything else — including known devices asking for hosts their user was never granted — is denied.
+cache. A request is allowed two ways: the IP is an active address of a registered device whose user is allowed that
+host, or — **as a fallback, only when the IP belongs to no registered device** — the IP falls inside a
+[network policy](docs/Network-Policies.md) range that allows it. Everything else, including known devices asking for
+hosts their user was never granted, is denied.
 
-Your **devices** send periodic heartbeats (`POST /api/v1/heartbeat` with an `X-API-Key` header) to keep their current
-IP registered. As long as heartbeats keep coming, the address stays active; with an address lease configured, it
-expires automatically when the TTL runs out.
+Your **devices** keep their current IP registered by sending periodic heartbeats (`POST /api/v1/heartbeat` with an
+`X-API-Key` header). Each heartbeat adds or refreshes an address;
+per-device [address rules](docs/Connecting-Devices.md#recommended-settings-for-roaming-devices)
+expire the stale ones so the allowed set stays tight as a device moves between networks.
 
 📖 [Detailed flow diagrams →](docs/How-It-Works.md)
 
@@ -78,36 +90,47 @@ expires automatically when the TTL runs out.
 
 ## Key concepts
 
-| Concept            | Description                                                                                                                |
-|--------------------|------------------------------------------------------------------------------------------------------------------------------|
-| **User**           | A person. Devices belong to users, and access is granted to users — "admin" is a role on a user, not a separate account type. |
-| **Device**         | A logical endpoint (phone, laptop, server…) with a unique API key, owned by a user.                                       |
-| **Address**        | An IP address (v4 or v6) linked to a device. Can be enabled or disabled.                                                  |
-| **Heartbeat**      | A device call to `/api/v1/heartbeat` that enables the caller's current IP as the device's active address.                 |
-| **Address lease**  | A TTL* rule per device. When the TTL expires, the address is automatically disabled by PulseWeaver's background scheduler. |
-| **Known host**     | An admin-curated hostname that can be granted to users, e.g. `jellyfin.example.org`.                                      |
-| **Host group**     | A named bundle of known hosts ("media", "storage") — the unit in which access is granted.                                 |
-| **Network policy** | A CIDR-range grant for clients that are not registered devices — e.g. "the whole home LAN may reach these hosts."         |
-| **Forward Auth**   | The `GET /api/policy-engine/verify-ip` endpoint. Your reverse proxy calls this on every request.                          |
+| Concept            | Description                                                                                                                                                               |
+|--------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **User**           | A person. Devices belong to users, and access is granted to users — "admin" is a role on a user, not a separate account type.                                             |
+| **Device**         | A logical endpoint (phone, laptop, server…) with a unique API key, owned by a user.                                                                                       |
+| **Address**        | An IP address (v4 or v6) linked to a device. A device holds a *list* of addresses, each enabled or disabled.                                                              |
+| **Heartbeat**      | A device call to `/api/v1/heartbeat` that registers the caller's current IP as an active address of the device.                                                           |
+| **Address lease**  | A per-device TTL\*. When no heartbeat refreshes an address before the TTL expires, PulseWeaver's background scheduler disables it.                                        |
+| **Host**           | An admin-curated hostname that can be granted to users, e.g. `jellyfin.example.org`.                                                                                      |
+| **Host group**     | A named bundle of hosts ("media", "storage"). **Groups are the only way hosts are granted** — you assign groups to users and to network policies, never individual hosts. |
+| **Network policy** | A CIDR-range grant, used as a fallback for clients that are not registered devices — e.g. "the whole home LAN may reach these hosts."                                     |
+| **Forward auth**   | The `GET /api/policy-engine/verify-ip` endpoint. Your reverse proxy calls this on every request.                                                                          |
 
-> **TTL**: Time-To-Live
+> \***TTL**: Time-To-Live
 
 ---
 
 ## Quick start
 
-### Docker Compose (recommended)
+Getting to a working setup is **three steps**:
 
-The easiest way to run PulseWeaver alongside Caddy. Three values must stay in sync:
+1. **Deploy** PulseWeaver behind Caddy.
+2. **Configure the server** — log in, add your hosts, bundle them into groups, grant users, create devices.
+3. **Connect each device** so its IP stays registered.
+
+When all three are done, every service behind your proxy is reachable only by the right people's devices. The rest of
+this section walks each step; deeper material is linked out so this stays a quickstart.
+
+### Step 1 — Deploy behind Caddy
+
+The easiest way to run PulseWeaver is alongside Caddy with Docker Compose. Three values must agree so PulseWeaver can
+tell which incoming connection is your proxy (and therefore read the *real* client IP from it, instead of seeing
+Caddy's own address on every request):
 
 - **`ipv4_address`** pins Caddy to a fixed IP on the shared Docker network.
 - **`CADDY_IP`** in `.env` holds that same address.
 - **`TRUSTED_PROXY`** in PulseWeaver's environment is set to `${CADDY_IP}`.
 
-Together they tell PulseWeaver which connection peer is the trusted proxy, so it reads the real
-client IP from forwarded requests rather than treating Caddy's own IP as the source. See
-[Understanding TRUSTED_PROXY](docs/Understanding-TRUSTED_PROXY.md) for the full explanation.
-`POLICY_ENGINE_API_SECRET` is defined once in `.env` and injected into both containers.
+Why this matters in one line: a device behind a proxy never connects to PulseWeaver directly, so PulseWeaver has to be
+told which peer is the proxy in order to trust the forwarded client IP. The full reasoning is in
+[Understanding TRUSTED_PROXY](docs/Understanding-TRUSTED_PROXY.md). `POLICY_ENGINE_API_SECRET` is defined once in
+`.env` and injected into both containers.
 
 ```yaml
 # docker-compose.yml
@@ -131,12 +154,12 @@ services:
       - ./caddy/config:/config
     networks:
       proxy:
-        ipv4_address: ${CADDY_IP} # Set specific IP so we can wire it to PulseWeaver TRUSTED_PROXY
+        ipv4_address: ${CADDY_IP} # Fixed IP so we can wire it to PulseWeaver's TRUSTED_PROXY
     depends_on:
       - pulseweaver
 
   pulseweaver:
-    image: ghcr.io/diegoguidaf/pulseweaver:dev
+    image: ghcr.io/diegoguidaf/pulseweaver:latest
     container_name: pulseweaver
     restart: unless-stopped
     expose: # No need to use "ports" if you access this via Caddy
@@ -157,17 +180,19 @@ networks:
     driver: bridge
     ipam:
       config:
+        # ⚠️ Example subnet only — NOT a recommendation. Pick a range that does not
+        # collide with anything on your network, then update CADDY_IP to match.
         - subnet: 172.20.0.0/24
           gateway: 172.20.0.1
-          ip_range: 172.20.0.128/25  # Restrict auto-assigned IPs to upper half (.128–.254)
+          ip_range: 172.20.0.128/25  # Restrict auto-assigned IPs to upper half so nothing claims Caddy's address
 ```
 
 A minimal `.env` alongside it:
 
 ```dotenv
-PULSEWEAVER_POLICY_ENGINE_API_SECRET=a-very-long-random-secret-at-least-32-chars
+PULSEWEAVER_POLICY_ENGINE_API_SECRET=a-very-long-random-secret-at-least-16-chars
 PULSEWEAVER_ADMIN_PASSWORD=a-strong-admin-password
-CADDY_IP=172.20.0.2   # Fixed IP for Caddy — keep it in the lower half of the subnet
+CADDY_IP=172.20.0.2   # Must be inside the subnet above, in its lower half — keep it off the upper, auto-assigned range
 TZ=Europe/Madrid
 ```
 
@@ -179,45 +204,12 @@ TZ=Europe/Madrid
 > ```
 
 > [!NOTE]
-> `TRUSTED_PROXY` takes a single IP, not a CIDR range, and the compose file above reserves the lower half of the
-> subnet so nothing can accidentally claim Caddy's address. Why both of these matter:
-> [Understanding TRUSTED_PROXY](docs/Understanding-TRUSTED_PROXY.md#choosing-the-proxy-ip-in-docker-compose).
+> The `172.20.0.0/24` subnet above is **an example, not advice** — copy-pasting it blindly is a common source of
+> "works on the tutorial, breaks on my network" issues. `TRUSTED_PROXY` takes a single IP, not a CIDR range, and the
+> compose file reserves the upper half of the subnet so nothing can accidentally claim Caddy's address. The full
+> reasoning: [Understanding TRUSTED_PROXY](docs/Understanding-TRUSTED_PROXY.md#choosing-the-proxy-ip-in-docker-compose).
 
-### First-run admin account
-
-On first startup, PulseWeaver creates an `admin` user using the `ADMIN_PASSWORD` environment variable. Use a strong,
-unique password and store it securely (e.g. in your `.env` file with restricted permissions).
-
-### Configuration reference
-
-| Variable                   | Required           | Default                    | Description                                                                                                                                             |
-|----------------------------|--------------------|----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ADMIN_PASSWORD`           | Yes                | —                          | Password for the `admin` UI account (bootstrapped on first run).                                                                                        |
-| `POLICY_ENGINE_API_SECRET` | Yes (min 32 chars) | —                          | Shared secret between Caddy and PulseWeaver. Minimum 32 characters.                                                                                     |
-| `SERVER_PORT`              | No                 | `8080`                     | Port PulseWeaver listens on.                                                                                                                            |
-| `TRUSTED_PROXY`            | No                 | —                          | Single IP address of your reverse proxy. Required when running behind a proxy — see [Understanding TRUSTED_PROXY](docs/Understanding-TRUSTED_PROXY.md). |
-| `RULE_CHECK_INTERVAL`      | No                 | `1m`                       | How often the scheduler checks for expired address leases. Set this to the lowest address lease TTL you'll use.                                         |
-| `DATA_RETENTION_DAYS`      | No                 | `30`                       | Days to keep access-log and address-history entries; `0` disables pruning. See [Observability](docs/Observability.md).                                 |
-| `GEOIP_ENABLED`            | No                 | `true`                     | Resolve client IPs to country/ASN for logs and dashboard. See [Observability](docs/Observability.md).                                                  |
-| `DB_DIR`                   | No                 | `./data` (Docker: `/data`) | Directory for the SQLite database. See [Data Persistence](docs/Data-Persistence.md).                                                                    |
-| `TZ`                       | No                 | `UTC`                      | Application timezone for explicit wall-clock operations. Persisted timestamps are UTC; API timestamps are serialized as UTC RFC3339.                    |
-| `LOG_LEVEL`                | No                 | `info`                     | Log level: `debug`, `info`, `warn`, `error`.                                                                                                            |
-| `LOG_FORMAT`               | No                 | `text`                     | Log format: `text` (human-readable) or `json`.                                                                                                          |
-| `LOG_COLOR`                | No                 | `true`                     | Use coloured output for `text` format.                                                                                                                  |
-
----
-
-## Proxy integration
-
-PulseWeaver works with any reverse proxy that supports forward auth — the integration requirements
-are the same regardless of which proxy you use. Currently only Caddy has a tested and validated
-configuration. If you have a working setup with nginx, Traefik, or another proxy,
-[open an issue or PR](https://github.com/diegoguidaf/pulseweaver/issues) and community-validated
-configurations will be added to the documentation.
-
-### Caddy
-
-Add the `forward_auth` block to any site you want to protect:
+Then add the gate to any site you want to protect. The `forward_auth` block asks PulseWeaver before forwarding:
 
 ```caddy
 your-service.example.com {
@@ -230,98 +222,126 @@ your-service.example.com {
 }
 ```
 
-PulseWeaver's verify-ip endpoint is **fail-closed**: missing header, wrong secret, unregistered IP, or a host the
-user was never granted → the same `403`. Remember that access is deny-by-default — after adding the block, add
-`your-service.example.com` as a known host and grant it to the users who should reach it
-([Host Access Control](docs/Host-Access-Control.md)).
+The endpoint is **fail-closed**: a missing header, wrong secret, unregistered IP, or a host the user was never granted
+all return the same `403`. Protecting more than a service or two? Define the gate once as a reusable Caddy snippet
+instead of pasting it everywhere — see the full guide.
 
-📖 [Full Caddy setup guide →](docs/Caddy-Setup.md) — device endpoints, admin UI configuration,
-troubleshooting, and other proxy support.
+📖 [Full Caddy setup guide →](docs/Caddy-Setup.md) — the recommended two-domain split (keep the admin UI off the public
+internet), reusable snippets, device endpoints, and other proxy support.
+
+### Step 2 — Configure the server
+
+On first startup PulseWeaver bootstraps an `admin` user from the `ADMIN_PASSWORD` variable. Log in at your admin URL,
+then set up access — admins think in *people and services*, so the UI does too:
+
+1. **Add your hosts** under **Access → Hosts** — the hostnames you proxy (`jellyfin.example.org`, …). Once traffic
+   flows, PulseWeaver suggests hosts it has actually seen, so you can promote them in a click.
+2. **Bundle them into groups** under **Access → Host Groups** — *media*, *storage*, *home automation*. Groups are the
+   unit access is granted in.
+3. **Grant users** under **Access → Users** — assign each user the groups they should reach. Deny-by-default means a
+   user reaches nothing until you do this.
+4. **Create devices** under **Devices** — one per phone/laptop/server that needs access, each owned by a user.
+
+📖 [Host Access Control →](docs/Host-Access-Control.md)
+
+### Step 3 — Connect each device
+
+A device gets access by keeping its current IP registered. The simplest path is **pairing**: create a pairing for the
+device, and the user scans/pastes the code into the heartbeat client, which configures itself and starts heartbeating.
+Devices with a stable IP can instead have their address entered by hand — no heartbeat needed.
+
+The heartbeat and pairing endpoints must be reachable from devices **without** the forward-auth gate (a device on a new
+network has to be able to register that network's IP). The [Caddy setup guide](docs/Caddy-Setup.md) shows the
+recommended two-domain configuration that exposes only those two endpoints publicly.
+
+📖 [Connecting devices →](docs/Connecting-Devices.md) — pairing, the heartbeat client, lightweight `curl`/systemd/launchd
+setups, and the recommended lease settings for roaming.
+
+### Configuration reference
+
+| Variable                   | Required           | Default                    | Description                                                                                                                                                                                                                                                                                        |
+|----------------------------|--------------------|----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ADMIN_PASSWORD`           | Yes                | —                          | Password for the bootstrap `admin` account, applied **once** when that account is first created. Change it from the UI afterward; it is ignored on later startups.                                                                                                                                 |
+| `POLICY_ENGINE_API_SECRET` | Yes (min 16 chars) | —                          | Shared secret that authenticates your proxy's calls to `verify-ip`, so only your proxy — not the public internet — can ask PulseWeaver for decisions. Minimum 16 characters; use a long random value.                                                                                              |
+| `SERVER_PORT`              | No                 | `8080`                     | Port PulseWeaver listens on.                                                                                                                                                                                                                                                                       |
+| `TRUSTED_PROXY`            | No (recommended)   | —                          | Single IP of your reverse proxy. Technically optional, but **set it in almost every deployment**: PulseWeaver is designed to run behind a trusted proxy, and without it the proxy's own IP can be mistaken for the client. See [Understanding TRUSTED_PROXY](docs/Understanding-TRUSTED_PROXY.md). |
+| `RULE_CHECK_INTERVAL`      | No                 | `1m`                       | How often the background scheduler runs (lease expiry, rollups, retention). Set it at or below the lowest address-lease TTL you'll use.                                                                                                                                                            |
+| `DATA_RETENTION_DAYS`      | No                 | `30`                       | Days to keep **per-request detail** — the access log and device address history. `0` disables pruning. Aggregated traffic is kept longer (see below), so old detail ages out without losing dashboard history. See [Observability](docs/Observability.md).                                         |
+| `AGGREGATE_RETENTION_DAYS` | No                 | `365`                      | Days to keep the **hourly traffic aggregates** behind long dashboard windows. `0` = keep forever. Must be `0` or ≥ `DATA_RETENTION_DAYS`. See [Observability](docs/Observability.md).                                                                                                              |
+| `GEOIP_ENABLED`            | No                 | `true`                     | Resolve client IPs to country/ASN for logs and dashboard. See [Observability](docs/Observability.md).                                                                                                                                                                                              |
+| `DB_DIR`                   | No                 | `./data` (Docker: `/data`) | Directory for the SQLite database. See [Data Persistence](docs/Data-Persistence.md).                                                                                                                                                                                                               |
+| `TZ`                       | No                 | `UTC`                      | Application timezone for explicit wall-clock operations. Persisted timestamps are UTC; API timestamps are serialized as UTC RFC3339.                                                                                                                                                               |
+| `LOG_LEVEL`                | No                 | `info`                     | Log level: `debug`, `info`, `warn`, `error`.                                                                                                                                                                                                                                                       |
+| `LOG_FORMAT`               | No                 | `text`                     | Log format: `text` (human-readable) or `json`.                                                                                                                                                                                                                                                     |
+| `LOG_COLOR`                | No                 | `true`                     | Use coloured output for `text` format.                                                                                                                                                                                                                                                             |
 
 ---
 
-## Keeping devices connected
+## Device pairing
 
-Devices send periodic heartbeats to keep their current IP active. There are several ways to set this up:
+Pairing onboards a device onto a heartbeat client with no manual URL/key entry — an admin generates a code, the user
+scans or pastes it, and the client configures itself.
 
-| Method                                                                              | Best for                               | Details                                                                               |
-|-------------------------------------------------------------------------------------|----------------------------------------|---------------------------------------------------------------------------------------|
-| **[Heartbeat Client](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client)** | Android, desktop (Linux/macOS/Windows) | Dedicated app with background scheduling, network-awareness, and system tray support. |
-| **[systemd timer / launchd agent](docs/Lightweight-Heartbeat-Clients.md)**          | Headless Linux & macOS servers         | Zero-dependency `curl` + OS scheduler. No app needed.                                 |
-| **[Tasker](docs/Heartbeat-Endpoint-Setup.md#android-tasker)**                       | Android (DIY)                          | HTTP request on a timer or network change event.                                      |
-| **Manual**                                                                          | Static IP devices                      | Add addresses directly in the PulseWeaver UI — no heartbeat needed.                   |
+1. Create the device under **Devices**, then create a **pairing** for it — choosing the heartbeat server URL, interval,
+   biometric settings, and an expiry window.
+2. PulseWeaver generates a single-use **pairing code** (an opaque string that encodes the server URL and a random
+   token). Share it as a QR (rendered client-side in the browser) or copyable text.
+3. The user pastes the code into the
+   [Heartbeat Client](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client). The app decodes the server URL,
+   calls the claim endpoint, and receives the device's full configuration — **including a freshly generated API key**.
+4. The code is invalidated and the app starts heartbeating — no manual setup.
 
-The heartbeat (`POST /api/v1/heartbeat`) and device pairing (`POST /api/v1/device-pairing`) endpoints
-must be exposed **without** the forward-auth gate — see [Caddy setup guide](docs/Caddy-Setup.md) or
-[Heartbeat Endpoint Setup](docs/Heartbeat-Endpoint-Setup.md) for configuration details.
-
----
-
-## Device provisioning
-
-If using the heartbeat-client, instead of manually entering a server URL and API key, an admin can generate a
-**registration code** that fully configures the heartbeat client in a single paste (or QR scan on mobile).
-
-### How it works
-
-1. The admin opens **Devices → Provisioning** in the PulseWeaver UI and creates an invite — choosing a device name,
-   owner, heartbeat interval, biometric settings, and an expiry window.
-2. PulseWeaver generates a single-use registration code (an opaque base64 string that encodes the server URL and a
-   random token). The admin shares the code as a QR (generated client-side in the browser) or copyable text.
-3. The user pastes the code in the
-   [Heartbeat Client](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client). The app decodes the server URL from
-   the code, calls the server's claim endpoint, and receives the full device configuration + API key.
-4. The device is created, the code is invalidated, and the app starts sending heartbeats — no manual setup required.
-
-The code is retrievable by the admin until it is claimed or expires. After claim, both the code and the plaintext API
-key are deleted from the database; an audit trail (timestamp, device link, key prefix) is retained.
-
-> For details on how the heartbeat client handles provisioning, see the
-> [Heartbeat Client documentation](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/blob/main/docs/app.md#device-provisioning).
-
-### Public endpoints
-
-Device provisioning adds a second endpoint that must be reachable from devices without the forward-auth gate:
-
-| Endpoint                        | Purpose                    | Auth                    |
-|---------------------------------|----------------------------|-------------------------|
-| `POST /api/v1/heartbeat`        | Ongoing heartbeats         | `X-API-Key` header      |
-| `POST /api/v1/device-pairing`   | One-time device pairing    | Pairing code in body    |
-
-📖 [Caddy setup guide →](docs/Caddy-Setup.md) — covers the recommended two-domain configuration that
-exposes only these endpoints publicly while keeping the admin UI off the internet.
+Pairing configures an **existing** device; it does not create one. The API key is generated at claim time and returned
+exactly once — PulseWeaver only ever stores its hash. This separation means you can pre-configure a device before
+pairing, and re-pair a device later (rotating its key) without recreating it. The code is retrievable by the admin
+until claimed or expired.
 
 > [!TIP]
-> Set the **Heartbeat server URL** in the device invite to `https://pw-device.example.com`. The
-> heartbeat client uses that URL for both the initial pairing and all subsequent heartbeats.
+> The heartbeat and pairing endpoints must be reachable by devices without the gate. Rather than exposing the whole
+> admin UI, the recommended setup publishes **only those two endpoints** under a separate device domain (e.g.
+> `pw-device.example.com`) and keeps the panel private. See the [Caddy setup guide](docs/Caddy-Setup.md) and
+> [Connecting devices](docs/Connecting-Devices.md).
+
+---
+
+## Proxy integration
+
+PulseWeaver works with any reverse proxy that supports forward auth — the integration requirements are the same
+regardless of which proxy you use. Currently only **Caddy** has a tested and validated configuration. If you have a
+working setup with nginx, Traefik, or another proxy,
+[open an issue or PR](https://github.com/diegoguidaf/pulseweaver/issues) and community-validated configurations will be
+added to the documentation.
+
+📖 [Full Caddy setup guide →](docs/Caddy-Setup.md) · [Connecting devices →](docs/Connecting-Devices.md)
 
 ---
 
 ## Security model
 
 PulseWeaver is an **IP gate with per-user host authorization** — it blocks unknown IPs before they reach any service,
-and decides per user which hosts the known ones may reach. It is **not** a user authentication system or a replacement
-for identity providers: who is behind a request is inferred from its IP, never verified. When several users share one
-IP, only hosts that **all** of them may reach are allowed — the strictest grant wins.
+and decides per user which hosts the known ones may reach. Who is behind a request is inferred from its IP, never
+verified, so it complements rather than replaces app-level auth. When several users share one IP, only hosts that
+**all** of them may reach are allowed — the strictest grant wins.
 
-| ✅ Works well                                    | ⚠️ Not enough on its own                       |
-|-------------------------------------------------|------------------------------------------------|
-| Services that break behind SSO proxies          | Verifying who a user is (identity is IP-inferred) |
-| Homelab with a small set of trusted networks    | Clients on ISP-level CGNAT                     |
-| Reducing blast radius of unpatched CVEs         | Compromised active networks                    |
-| Zero-config travel access via heartbeat + lease | Replacing TLS or app-level auth                |
+| ✅ Works well                                    | ⚠️ Not enough on its own                            |
+|-------------------------------------------------|-----------------------------------------------------|
+| Services that break behind SSO proxies          | Verifying *who* a user is (identity is IP-inferred) |
+| Homelab with a small set of trusted networks    | Telling co-tenants apart on ISP-level CGNAT         |
+| Reducing blast radius of unpatched CVEs         | A compromised active network                        |
+| Zero-config travel access via heartbeat + lease | Replacing app-level authentication                  |
 
 PulseWeaver should be **one layer** in a defence-in-depth strategy, not the only one.
 
-📖 **Deep dives:
-** [Security Model](docs/Security-Model.md) · [Shared-IP Model](docs/Shared-IP-Model.md) · [Understanding TRUSTED_PROXY](docs/Understanding-TRUSTED_PROXY.md)
+📖 **Deep dives:** [Security Model](docs/Security-Model.md) · [Shared-IP Model](docs/Shared-IP-Model.md) ·
+[Understanding TRUSTED_PROXY](docs/Understanding-TRUSTED_PROXY.md)
 
 ---
 
 ## Project status & support
 
 PulseWeaver is in **beta**. The core gate, host access control, and observability surfaces are stable and in daily
-use, but expect occasional rough edges and breaking changes before a 1.0 release.
+use, but expect occasional rough edges and breaking changes before a 1.0 release. The project is developed with a
+security- and performance-conscious eye — see [Testing & Validation](docs/Testing-and-Validation.md).
 
 - 🐛 **Bug reports** → [GitHub Issues](https://github.com/diegoguidaf/pulseweaver/issues)
 - 💬 **Questions & ideas** → [GitHub Discussions](https://github.com/diegoguidaf/pulseweaver/discussions)
@@ -336,8 +356,8 @@ embedded at compile time — no separate web server needed in production.
 
 ### Quick start for local development
 
-For local runs (no Docker), the app writes to `/data/data.db`. Create that directory and make it writable before
-starting: `sudo mkdir -p /data && sudo chown $(whoami) /data`.
+For local runs (no Docker), the app stores its database under `./data` relative to where you run it, and creates the
+directory on first start — no root, no `/data` setup needed. Override with `DB_DIR` if you want it elsewhere.
 
 ```bash
 # Backend (hot reload via Air)
@@ -351,14 +371,14 @@ make front-dev
 
 Targets use a `back-*` / `front-*` prefix; run `make help` for the full list.
 
-| Command          | Description                                                 |
-|------------------|-------------------------------------------------------------|
-| `make build`     | Full production build → `bin/pulseweaver`                   |
-| `make back-test` | Run all Go tests                                            |
-| `make back-lint` | Format + lint                                               |
-| `make front-lint`| ESLint + TypeScript type-check                              |
-| `make check`     | Full validation: lint + type-check + tests (back + front)   |
-| `make api`       | Regenerate backend + frontend types from `api/openapi.yaml` |
+| Command           | Description                                                 |
+|-------------------|-------------------------------------------------------------|
+| `make build`      | Full production build → `bin/pulseweaver`                   |
+| `make back-test`  | Run all Go tests                                            |
+| `make back-lint`  | Format + lint                                               |
+| `make front-lint` | ESLint + TypeScript type-check                              |
+| `make check`      | Full validation: lint + type-check + tests (back + front)   |
+| `make api`        | Regenerate backend + frontend types from `api/openapi.yaml` |
 
 ### Further reading
 

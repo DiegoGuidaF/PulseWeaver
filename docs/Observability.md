@@ -8,6 +8,8 @@ getting blocked?" — at a glance on the dashboard, or per request in the access
 **Auditing → Access Logs** shows one entry per decision: timestamp, client IP, requested host, outcome, and — when
 relevant — which device matched, which network policy matched, and where the IP is located.
 
+![Access Logs](../screenshots/04-access-log.png)
+
 Filter by any combination of client IP, outcome, deny reason, device, network policy, host, country, or continent.
 Typical questions it answers:
 
@@ -16,10 +18,31 @@ Typical questions it answers:
 - *What is this device actually reaching?* Filter by device.
 - *Is anything from outside the country hitting my proxy?* Filter by country or continent.
 
-Logging is designed to never slow down request handling: under extreme load PulseWeaver drops log entries rather than
-delaying decisions, so treat the log as an operational audit trail, not a billing-grade record.
+### Performance and completeness
+
+Logging is engineered to stay off the auth hot path. Each decision is handed to a buffered channel and written by a
+background sink in batches, so recording a request never delays the allow/deny answer. This write path is profiled and
+benchmarked (it's the busiest write in the system — every denied scan hits it).
+
+Entries are **never sampled**: every decision that reaches the engine is recorded. The single exception is genuine
+buffer saturation — if decisions arrive faster than the sink can drain for a sustained burst, the overflow is dropped
+(and logged as such) rather than stalling request handling. In normal operation nothing is dropped; the only routine
+remover of entries is the [retention policy](#data-retention).
+
+### What never reaches the log
+
+Two requests are rejected *before* a decision is made, so they produce no log entry:
+
+- **QUIC 0-RTT early data** (`Early-Data: 1`) → `425 Too Early`. The client IP isn't reliable before the TLS handshake
+  completes (RFC 8470), so the request is bounced to retry on an established connection.
+- **A missing or empty `Authorization` header** → `403`. There's nothing to evaluate.
+
+Note that a *wrong* secret (`invalid_token`) **is** logged — it reaches the engine and is recorded as a denial.
+PulseWeaver does **not** rate-limit (it never returns `429`); throttling abusive clients is the reverse proxy's job.
 
 ## Dashboard
+
+![Dashboard](../screenshots/03-dashboard.png)
 
 The **Dashboard** aggregates the same decisions into charts for a time window you pick (default: last 24 hours):
 
@@ -48,15 +71,20 @@ and filter by geography. It works out of the box:
 
 ## Data retention
 
-Old observability data is pruned automatically once per day:
+Old observability data is pruned by a daily-guarded background job. Crucially, retention prunes **detail, not history**:
+the per-request rows age out, but the hourly aggregates behind the dashboard are kept far longer, so wide-window charts
+still show traffic volumes long after the raw rows are gone.
 
-| Setting               | Default | Effect                                                             |
-|-----------------------|---------|----------------------------------------------------------------------|
-| `DATA_RETENTION_DAYS` | `30`    | Entries older than this are deleted. `0` disables pruning entirely. |
+| Setting                    | Default | Effect                                                                                                   |
+|----------------------------|---------|----------------------------------------------------------------------------------------------------------|
+| `DATA_RETENTION_DAYS`      | `30`    | Age cutoff for **raw detail** — individual `access_log` rows and device address-history entries. `0` disables raw pruning. |
+| `AGGREGATE_RETENTION_DAYS` | `365`   | Age cutoff for the **hourly aggregates** that feed long dashboard windows. `0` = keep forever. Must be `0` or ≥ `DATA_RETENTION_DAYS`. |
 
-The same setting also prunes the device address history shown under **Auditing → IP Address Logs** — one knob covers
-both. The hourly summaries behind the dashboard are kept, so long-window charts can still show traffic volumes older
-than the cutoff — only the per-request detail is gone.
+`DATA_RETENTION_DAYS` covers both the access log and the device address history shown under **Auditing → IP Address
+Logs** — one knob for both detail streams. So with the defaults, you keep 30 days of per-request rows you can filter and
+inspect, and up to a year of aggregated traffic volume on the dashboard.
+
+![IP Address Logs](../screenshots/05-address-log.png)
 
 ## Related
 
