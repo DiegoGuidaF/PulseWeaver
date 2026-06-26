@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-06-26
+
+### Bug Fixes
+
+- *(ui)* keep dashboard entity tables within their cards ([`5dd3a6e`](https://github.com/DiegoGuidaF/PulseWeaver/commit/5dd3a6ee78a667708f3cb4b73be384f72df06b46))
+- *(ui)* Show plain empty message when owner has no devices ([`0718d30`](https://github.com/DiegoGuidaF/PulseWeaver/commit/0718d305859365508271b7ff6030690d303b8e11))
+- *(ui)* Confine pairing toggle click area to its content ([`91c89c6`](https://github.com/DiegoGuidaF/PulseWeaver/commit/91c89c66615919b606ec18bfb07ad93f95ca0abe))
+- *(ui)* Redirect to login on logout and session-expiry 401 ([`0805815`](https://github.com/DiegoGuidaF/PulseWeaver/commit/080581576e0597a64ef9def01fe83a8f64038bfe))
+- Make docker data volume startup reliable ([`0b418ea`](https://github.com/DiegoGuidaF/PulseWeaver/commit/0b418ea59c62345ffd023f09094e5c9228cf7ed7))
+
+### Documentation
+
+- Document commit convention in CLAUDE.md ([`85038ea`](https://github.com/DiegoGuidaF/PulseWeaver/commit/85038ea127b49e82e54e5e6a85de9649f93f49f2))
+- Improve documentation for AI agents and properly refresh/replace stale docs ([`4ae09f8`](https://github.com/DiegoGuidaF/PulseWeaver/commit/4ae09f865593280f4fcf658eebd83e853e4c4698))
+- Improve readme, update screenshots and improve readability by properly organizing it ([`a861e3a`](https://github.com/DiegoGuidaF/PulseWeaver/commit/a861e3a175d50c35984733d6eb70d01fafbe60a9)) ([`d84536a`](https://github.com/DiegoGuidaF/PulseWeaver/commit/d84536acb5497afc2964d4874cc2ebe98f4e97ef))
+
+### Features
+
+- *(ui)* lead device pairing tab with link status ([`4d240fb`](https://github.com/DiegoGuidaF/PulseWeaver/commit/4d240fb56b2e1027ff0ca0fcd8f5812fb8c6bb3a))
+- *(docker)* Publish multi-arch images (aarch was missing) ([`1b1fbce`](https://github.com/DiegoGuidaF/PulseWeaver/commit/1b1fbce03c1e98d2fcaee2865dbbcb55a5dc1601))
+
+### Under the Hood
+
+- DenyReason list to openapi as single source of truth and source it from both backend and frontend ([`e41d513`](https://github.com/DiegoGuidaF/PulseWeaver/commit/e41d513865dce9afb07807aaeba2ef2701ed6433))
+- Improve dashboard security posture query performance by sourcing from db instead of cache ([`7571b26`](https://github.com/DiegoGuidaF/PulseWeaver/commit/7571b269ddbbb25e34b52f7a2b39118ada889ced))
+- Restructure Makefile with back-/front- command prefixes to make it easier to use ([`48929e5`](https://github.com/DiegoGuidaF/PulseWeaver/commit/48929e5dc307d3aa4ca21ba717355750b8306b62))
+- *(ui)* Improve frontend main flows test coverage ([`92bb838`](https://github.com/DiegoGuidaF/PulseWeaver/commit/92bb8389680a5274501423496b39f3a3244f842d))
+- *(ci)* Add Go benchmark flow to test how this could look as part of a github runner action ([`bf46821`](https://github.com/DiegoGuidaF/PulseWeaver/commit/bf46821895a23010050744ed6257f7beb54d4ef3))
+
 ## [0.4.0] - 2026-06-23
 
 ### Documentation
