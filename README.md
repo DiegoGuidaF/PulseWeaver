@@ -150,7 +150,7 @@ The container runs in the background; `docker stop pulseweaver-trial` ends the t
 Then open <http://127.0.0.1:8080> and log in as `admin` with the generated password above:
 
 1. Add a host such as `jellyfin.local.test` under **Access → Hosts**.
-2. Add a host group such as `trial` under **Access → Host Groups** and put that host in it.
+2. Create a host group such as `trial` under **Access → Host Groups**, then add the host to it from the group's available-hosts list.
 3. Grant yourself access under **Access → Users → admin** by assigning the `trial` group to the `admin` user.
 4. Click **Save changes** whenever PulseWeaver shows the save bar; changes are staged until you save them.
 5. Create a device owned by `admin` under **Devices**. In the **New device** dialog, set **Credential** to **API key**.
