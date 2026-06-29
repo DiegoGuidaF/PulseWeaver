@@ -33,7 +33,7 @@ key to authenticate. The easy path is **device pairing**:
 The API key is created at claim time and returned exactly once; PulseWeaver only
 ever stores its hash. See [device pairing](../README.md#device-pairing) in the
 README for the full flow, and the
-[heartbeat client docs](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/blob/main/docs/app.md#device-provisioning)
+[heartbeat client docs](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/blob/main/docs/app.md#device-pairing)
 for the client side.
 
 You can also skip pairing and configure a client manually with the server URL and
