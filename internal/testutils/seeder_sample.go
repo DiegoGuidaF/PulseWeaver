@@ -82,15 +82,18 @@ func SeedSampleWorld(t *testing.T) *Seeder {
 		s.WithPairing(PairingFixture{Device: d.name, Status: "used"})
 	}
 	s.WithDeviceLeaseRule(DeviceLeaseRuleFixture{Device: "Sarah's MacBook Pro", TTLSeconds: 27 * 24 * 3600}).
-		WithDeviceLeaseRule(DeviceLeaseRuleFixture{Device: "James's Desktop", TTLSeconds: 30 * 24 * 3600})
+		WithDeviceLeaseRule(DeviceLeaseRuleFixture{Device: "James's Desktop", TTLSeconds: 30 * 24 * 3600}).
+		WithDeviceLeaseRule(DeviceLeaseRuleFixture{Device: "James's Pixel", TTLSeconds: 3600})
 
 	// Addresses: each live device reports its residential IP via heartbeat; Sarah
-	// keeps one stale prior IP; Priya's device is offline (disabled).
+	// keeps one stale prior IP; Priya's device is offline (disabled). James's Pixel
+	// carries a full backdated heartbeat history so the address-history Δ-prev column
+	// shows realistic cadence-vs-lease colouring (see samplePixelHistory).
 	s.WithAddress(AddressFixture{Device: "Sarah's MacBook Pro", IP: "73.92.140.7", Source: device.EventSourceHeartbeat, ExpiresAt: &leaseSarah}).
 		WithAddress(AddressFixture{Device: "Sarah's MacBook Pro", IP: "68.34.201.18", Source: device.EventSourceHeartbeat, Disabled: true}).
 		WithAddress(AddressFixture{Device: "Sarah's iPhone", IP: "98.207.55.33", Source: device.EventSourceHeartbeat}).
 		WithAddress(AddressFixture{Device: "James's Desktop", IP: "86.180.44.21", Source: device.EventSourceHeartbeat, ExpiresAt: &leaseJames}).
-		WithAddress(AddressFixture{Device: "James's Pixel", IP: "86.14.220.9", Source: device.EventSourceHeartbeat}).
+		WithAddress(AddressFixture{Device: "James's Pixel", IP: "86.14.220.9", Source: device.EventSourceHeartbeat, History: samplePixelHistory}).
 		WithAddress(AddressFixture{Device: "Maria's Laptop", IP: "88.6.120.40", Source: device.EventSourceHeartbeat}).
 		WithAddress(AddressFixture{Device: "Maria's iPhone", IP: "83.36.77.18", Source: device.EventSourceHeartbeat}).
 		WithAddress(AddressFixture{Device: "Liam's ThinkPad", IP: "86.43.220.11", Source: device.EventSourceHeartbeat}).
@@ -148,6 +151,27 @@ var sampleDevices = []struct{ name, owner, icon string }{
 	{"Priya's iPhone", "priya_patel", "📱"},
 	{"Noah's Laptop", "noah_kim", "💻"},
 	{"Admin Workstation", auth.BootstrapAdminUsername, "🖥️"},
+}
+
+// samplePixelHistory backdates James's Pixel heartbeats (oldest → newest) against
+// its 1h address lease so the address-history Δ-prev column tells a full story:
+// a healthy ~31m cadence, then Android Doze stretching the gaps into the amber
+// (>0.7×TTL) and red (>0.9×TTL) bands, a lease expiry once a heartbeat misses the
+// hour, and recovery after battery optimization is disabled. This is the dataset
+// behind the Connecting-Devices "Δ prev" screenshot/walkthrough.
+var samplePixelHistory = []AddressEventFixture{
+	{Ago: 435 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat},
+	{Ago: 404 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat},
+	{Ago: 373 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat},
+	{Ago: 341 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat},
+	{Ago: 296 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat}, // 45m gap → amber (0.75×TTL)
+	{Ago: 244 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat}, // 52m gap → amber (0.87×TTL)
+	{Ago: 186 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat}, // 58m gap → red   (0.97×TTL)
+	{Ago: 125 * time.Minute, Enabled: false, Source: device.EventSourceExpiry},   // 61m gap → lease expired (>TTL)
+	{Ago: 99 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat},  // re-registered after expiry
+	{Ago: 68 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat},
+	{Ago: 31 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat},
+	{Ago: 0, Enabled: true, Source: device.EventSourceHeartbeat},
 }
 
 // sampleGeo is the hand-maintained country/ASN for each public IP, kept close to

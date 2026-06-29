@@ -98,6 +98,21 @@ type AddressFixture struct {
 	ExpiresAt *time.Time         // if set, a lease is created with this expiry
 	Disabled  bool               // if true, the address is disabled after registration
 	Source    device.EventSource // registration source; defaults to EventSourceManual
+	// History, when non-empty, replaces the single now-stamped event that
+	// registration would otherwise leave with an explicit backdated sequence, so
+	// address-history views show a realistic heartbeat cadence against the lease
+	// TTL. Entries are applied in order; the address's live enabled state ends up
+	// matching the last entry. Disabled is ignored when History is set.
+	History []AddressEventFixture
+}
+
+// AddressEventFixture is one backdated entry in an address's event history.
+// Ago is how long before Build time the event occurred; list entries oldest
+// (largest Ago) → newest (Ago 0). Source defaults to EventSourceManual.
+type AddressEventFixture struct {
+	Ago     time.Duration
+	Enabled bool
+	Source  device.EventSource
 }
 
 // PairingFixture describes a device pairing to seed.
@@ -540,6 +555,44 @@ func (s *Seeder) WithAddress(f AddressFixture) *Seeder {
 	return s
 }
 
+// replaceAddressHistory swaps the single now-stamped event left by registration for
+// the fixture's explicit backdated sequence, then aligns the address's live enabled
+// state with the newest entry. No service records events at past timestamps, so this
+// is the one place the seeder writes the audit table directly, mirroring the static
+// INSERT in device.insertAddressEvent.
+func (s *Seeder) replaceAddressHistory(srv *app.App, addrID ids.AddressID, f AddressFixture) {
+	s.t.Helper()
+	ctx := s.t.Context()
+	db := srv.Database.DB()
+
+	if _, err := db.ExecContext(ctx, `DELETE FROM address_events WHERE address_id = ?`, addrID); err != nil {
+		s.t.Fatalf("Seeder: clear events for address %q: %v", f.IP, err)
+	}
+
+	now := time.Now().UTC()
+	var newest AddressEventFixture
+	for i, ev := range f.History {
+		source := ev.Source
+		if source == "" {
+			source = device.EventSourceManual
+		}
+		if _, err := db.ExecContext(ctx,
+			`INSERT INTO address_events (address_id, is_enabled, source, created_at) VALUES (?, ?, ?, ?)`,
+			addrID, ev.Enabled, source, now.Add(-ev.Ago),
+		); err != nil {
+			s.t.Fatalf("Seeder: insert event %d for address %q: %v", i, f.IP, err)
+		}
+		newest = ev
+	}
+
+	if _, err := db.ExecContext(ctx,
+		`UPDATE addresses SET is_enabled = ?, updated_at = ? WHERE id = ?`,
+		newest.Enabled, now.Add(-newest.Ago), addrID,
+	); err != nil {
+		s.t.Fatalf("Seeder: align address state for %q: %v", f.IP, err)
+	}
+}
+
 // WithPairing declares a device pairing to seed after devices are created.
 // Device must match the Name of a preceding WithDevice call.
 // Status must be one of: pending, used, invalidated, expired.
@@ -860,7 +913,9 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 		}
 		result.addresses[addressKey(f.Device, f.IP)] = addr.ID
 
-		if f.Disabled {
+		if len(f.History) > 0 {
+			s.replaceAddressHistory(srv, addr.ID, f)
+		} else if f.Disabled {
 			if _, err := srv.DeviceService.DisableAddress(ctx, deviceID, addr.ID); err != nil {
 				s.t.Fatalf("Seeder: disable address %q for device %q: %v", f.IP, f.Device, err)
 			}

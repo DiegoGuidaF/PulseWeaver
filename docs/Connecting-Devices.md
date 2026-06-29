@@ -193,8 +193,14 @@ is colour-coded against its address lease (TTL): it turns **yellow** as the gap 
 and **red** once it meets or exceeds it — an early warning to raise the heartbeat frequency or the
 lease before access actually drops.
 
-> 📸 _Screenshot needed: the Address history view showing several entries for one device, with the
-> `Δ prev` column visible and at least one yellow/red (near- or over-TTL) gap._
+![Address history for one device, with the Δ prev column colour-coded against the device's lease TTL](../screenshots/13-address-history-delta-prev.png)
+
+In the example above the device has a **1-hour lease**. Its heartbeats start healthy (~31 min
+gaps, grey), then stretch as Android Doze delays them — **45m and 52m turn amber** as the gap
+approaches the lease, **58m turns red**, and once a heartbeat fails to arrive within the hour the
+lease **expires** (the red `1h 1m` row) and access drops until the next heartbeat re-registers the
+address. The fix is to shorten the heartbeat interval, raise the lease, or free the app from the
+phone's battery optimization.
 
 If no new entries appear, the heartbeat isn't reaching the server — check that the client is running,
 that the URL bypasses the forward-auth gate, and that the API key is valid.
