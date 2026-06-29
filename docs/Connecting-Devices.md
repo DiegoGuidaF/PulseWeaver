@@ -24,8 +24,8 @@ key to authenticate. The easy path is **device pairing**:
    **pairing** for it — set the heartbeat server URL, interval, and an expiry.
 2. PulseWeaver generates a single-use **pairing code** (shown as a QR or a
    copyable string).
-3. The user pastes/scans the code into the
-   [Heartbeat Client](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client)
+3. The user pastes/scans the code into
+   [PulseWeaver Companion](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client)
    ([downloads](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/releases)).
    The client claims the code, receives the device's configuration **and a freshly
    generated API key**, and starts heartbeating — no manual URL/key entry.
@@ -33,7 +33,7 @@ key to authenticate. The easy path is **device pairing**:
 The API key is created at claim time and returned exactly once; PulseWeaver only
 ever stores its hash. See [device pairing](../README.md#device-pairing) in the
 README for the full flow, and the
-[heartbeat client docs](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/blob/main/docs/app.md#device-pairing)
+[PulseWeaver Companion docs](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/blob/main/docs/app.md#device-pairing)
 for the client side.
 
 You can also skip pairing and configure a client manually with the server URL and
@@ -64,7 +64,8 @@ configuration — including the required `X-Real-IP` directive — is in the
 
 | Client | Best for |
 |---|---|
-| [**Heartbeat Client app**](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client) ([downloads](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/releases)) | Android and desktop (Linux/macOS/Windows). Background scheduling, network-awareness, system tray, QR pairing. The default choice for Android phones and laptops. |
+| [**PulseWeaver Companion app**](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client) ([downloads](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/releases)) | Android and desktop (Linux/macOS/Windows). Background scheduling, network-awareness, system tray, QR pairing. The default choice for Android phones and laptops. |
+| [**Docker container**](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/blob/main/docs/docker.md) | A server or NAS already running Docker. A tiny container that runs the `curl` heartbeat on a timer — set the URL, key, and interval and it looks after itself. |
 | **systemd timer** (below) | Headless Linux servers. Zero dependencies beyond `curl`. |
 | **launchd agent** (below) | Headless macOS servers. |
 | **Tasker / any HTTP scheduler** | Android DIY, or any tool that can POST on a timer / network-change event. The heartbeat is just `curl -X POST -H "X-API-Key: …" <url>` — see the systemd timer and launchd agent recipes below. |
@@ -76,7 +77,7 @@ configuration — including the required `X-Real-IP` directive — is in the
 
 ### Android reliability notes
 
-When the Heartbeat Client prompts you to disable battery optimization, do it. Android Doze/App Standby can otherwise
+When PulseWeaver Companion prompts you to disable battery optimization, do it. Android Doze/App Standby can otherwise
 delay background heartbeats for hours, long enough for the device's address lease to expire and access to become
 intermittent.
 
@@ -174,6 +175,29 @@ needs no heartbeat at all:
 
 For these devices, consider **removing the API key entirely** once the address is
 set (see below).
+
+---
+
+## Verifying a device is connected
+
+Whatever client you use, a clean startup on the client side is **not** proof — the only
+authoritative check is that the *server* is registering the heartbeats. PulseWeaver records every
+address event in the **address history**, reachable two ways:
+
+- **Address history** in the navigation panel — the full log across all devices, with filters.
+- A device's own page — the same events scoped to that one device.
+
+For a healthy client you should see a new entry roughly every heartbeat interval, carrying the
+device's current IP. The **`Δ prev`** column shows the gap since that device's previous heartbeat and
+is colour-coded against its address lease (TTL): it turns **yellow** as the gap approaches the lease
+and **red** once it meets or exceeds it — an early warning to raise the heartbeat frequency or the
+lease before access actually drops.
+
+> 📸 _Screenshot needed: the Address history view showing several entries for one device, with the
+> `Δ prev` column visible and at least one yellow/red (near- or over-TTL) gap._
+
+If no new entries appear, the heartbeat isn't reaching the server — check that the client is running,
+that the URL bypasses the forward-auth gate, and that the API key is valid.
 
 ---
 

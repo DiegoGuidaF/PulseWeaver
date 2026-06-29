@@ -58,8 +58,8 @@ your reverse proxy, so it can protect HTTP-family traffic your proxy can run thr
 protocol-specific behaviour for your proxy before relying on it.
 
 A device registers its IP with a **heartbeat** — an authenticated `POST` whose *source IP* becomes active for that
-device. Android phones and laptops on changing networks can use the
-[Heartbeat Client](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client), a stable server can be entered by hand,
+device. Android phones and laptops on changing networks can use
+[PulseWeaver Companion](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client), a stable server can be entered by hand,
 and `curl` on a timer works too. This makes temporary access a small-community operation — create or pair a device,
 grant a host group, revoke it later — without teaching every self-hosted app a new identity model. The whole deployment
 is **one binary** with the web UI embedded and a single SQLite file — no database server, no separate frontend to deploy.
@@ -511,8 +511,8 @@ scans or pastes it, and the client configures itself.
    — choosing the heartbeat server URL, interval, biometric settings, and an expiry window.
 2. PulseWeaver generates a single-use **pairing code** (an opaque string that encodes the server URL and a random
    token). Share it as a QR (rendered client-side in the browser) or copyable text.
-3. The user pastes the code into the
-   [Heartbeat Client](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client) ([downloads](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/releases)).
+3. The user pastes the code into
+   [PulseWeaver Companion](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client) ([downloads](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/releases)).
    The app decodes the server URL, calls the claim endpoint, and receives the device's full configuration —
    **including a freshly generated API key**.
 4. The code is invalidated and the app starts heartbeating — no manual setup.
@@ -533,7 +533,7 @@ until claimed or expired.
 > it at the reverse proxy; keep the admin API private.
 
 Client-specific installation, background scheduling, and runtime caveats live in the
-[Heartbeat Client documentation](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/blob/main/docs/app.md);
+[PulseWeaver Companion documentation](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/blob/main/docs/app.md);
 this repository documents the server-side endpoints and access model.
 
 ---

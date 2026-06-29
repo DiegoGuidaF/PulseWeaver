@@ -16,7 +16,7 @@ You can expect an acknowledgement within a few days and a resolution or update w
 
 ## Scope
 
-This policy covers the PulseWeaver server (`app/`). For the heartbeat client, please report via the [PulseWeaver-Heartbeat repository](https://github.com/DiegoGuidaF/PulseWeaver-Heartbeat).
+This policy covers the PulseWeaver server (`app/`). For the heartbeat clients (PulseWeaver Companion, Docker, curl), please report via the [heartbeat client repository](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client).
 
 ## Security Model
 
