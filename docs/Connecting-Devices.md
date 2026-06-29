@@ -21,7 +21,17 @@ A device has to exist in PulseWeaver before it can heartbeat, and it needs an AP
 key to authenticate. The easy path is **device pairing**:
 
 1. In the UI, create the device (**Devices → New device**), then create a
-   **pairing** for it — set the heartbeat server URL, interval, and an expiry.
+   **pairing** for it — set the heartbeat server URL and an expiry, plus the
+   **companion app initial config**: the heartbeat interval, biometric unlock,
+   and whether to lock app settings. This config is pushed to the app once at
+   claim time and can't be changed afterwards without re-pairing. Locking app
+   settings is optional and admin-controlled — leave it off to let the user
+   edit settings, or turn it on to give a non-technical user a read-only
+   settings screen so they can't change what they shouldn't.
+
+   > Today, changing a paired device's app settings means re-pairing it. A
+   > planned feature will let the server push updated settings (mainly the
+   > heartbeat interval) to already-paired devices.
 2. PulseWeaver generates a single-use **pairing code** (shown as a QR or a
    copyable string).
 3. The user pastes/scans the code into
