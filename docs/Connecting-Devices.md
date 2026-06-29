@@ -67,7 +67,7 @@ configuration — including the required `X-Real-IP` directive — is in the
 | [**Heartbeat Client app**](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client) ([downloads](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client/releases)) | Android and desktop (Linux/macOS/Windows). Background scheduling, network-awareness, system tray, QR pairing. The default choice for Android phones and laptops. |
 | **systemd timer** (below) | Headless Linux servers. Zero dependencies beyond `curl`. |
 | **launchd agent** (below) | Headless macOS servers. |
-| **Tasker / any HTTP scheduler** | Android DIY, or any tool that can POST on a timer / network-change event. The heartbeat is just `curl -X POST -H "X-API-Key: …" <url>`; see the [heartbeat client repo](https://github.com/DiegoGuidaF/pulseweaver-heartbeat-client) for recipes. |
+| **Tasker / any HTTP scheduler** | Android DIY, or any tool that can POST on a timer / network-change event. The heartbeat is just `curl -X POST -H "X-API-Key: …" <url>` — see the systemd timer and launchd agent recipes below. |
 | **Manual** | Devices with a stable IP — add the address by hand in the UI, no heartbeat needed (below). |
 
 > [!NOTE]
