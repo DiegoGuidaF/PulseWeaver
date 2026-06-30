@@ -5,13 +5,12 @@ name: Benchmark
 # merge on perf alone — it runs base vs. head back-to-back on the SAME runner and
 # posts a benchstat table to the job summary for a human to read.
 #
-# Trigger it by adding the `benchmark` label to a PR (re-runs on each push while
-# the label is present), or via "Run workflow" on a branch.
+# Manual only ("Run workflow" on a branch) — a pull_request trigger here creates a
+# run (shown as "Skipped" once the job condition fails) for every PR event,
+# including each Dependabot push, which is pure noise since this never gates merges.
 
 on:
   workflow_dispatch:
-  pull_request:
-    types: [labeled, synchronize, reopened]
 
 concurrency:
   group: benchmark-${{ github.ref }}
@@ -24,10 +23,6 @@ permissions:
 jobs:
   benchstat:
     name: Benchmark regression (advisory)
-    # Manual dispatch always runs; a PR runs only while it carries the `benchmark` label.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.labels.*.name, 'benchmark')
     runs-on: ubuntu-latest
 
     env:
@@ -61,12 +56,8 @@ jobs:
       - name: Resolve base commit
         id: base
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            base="${{ github.event.pull_request.base.sha }}"
-          else
-            git fetch --no-tags --depth=1 origin main || true
-            base="$(git merge-base HEAD origin/main || git rev-parse HEAD~1)"
-          fi
+          git fetch --no-tags --depth=1 origin main || true
+          base="$(git merge-base HEAD origin/main || git rev-parse HEAD~1)"
           echo "sha=$base" >> "$GITHUB_OUTPUT"
           echo "Base commit: $base"
 
