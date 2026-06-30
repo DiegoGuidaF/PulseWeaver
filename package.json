@@ -3,6 +3,6 @@
     "bundle:api": "redocly bundle api/openapi.yaml -o api/openapi-bundle.gen.yaml"
   },
   "devDependencies": {
-    "@redocly/cli": "^2.26.0"
+    "@redocly/cli": "^2.36.0"
   }
 }
