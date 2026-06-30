@@ -28,6 +28,20 @@ updates:
       go-tools-minor-patch:
         update-types: ["minor", "patch"]
 
+  # Root npm — build-time tooling only (e.g. @redocly/cli for the OpenAPI bundle)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "Europe/Rome"
+    open-pull-requests-limit: 3
+    assignees: ["DiegoGuidaF"]
+    labels: ["dependencies", "backend"]
+    groups:
+      root-tools-minor-patch:
+        update-types: ["minor", "patch"]
+
   # Frontend npm
   - package-ecosystem: "npm"
     directory: "/frontend"
