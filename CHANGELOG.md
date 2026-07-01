@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-07-01
+
+### Bug Fixes
+
+- *(frontend)* Fix important typo on device-pair endpoint (not 'pairing') on device pairing tab information ([`201705a`](https://github.com/DiegoGuidaF/PulseWeaver/commit/201705ae4a33f7e937dbd2213b3d5d625771d055))
+
+### Under the Hood
+
+- *(backend)* DB sample seed add more events to ip address log with time gap between them so that it has realistic data to do testing/screenshots on ([`b6f45f3`](https://github.com/DiegoGuidaF/PulseWeaver/commit/b6f45f335221c5c7ee62b09ff4c5bba0b9ae1e0d))
+- *(backend)* Reclassify redocly/cli as dev dependency ([`9a2550a`](https://github.com/DiegoGuidaF/PulseWeaver/commit/9a2550afc22230a78cca640dc385a00db2bc9f01))
+- *(ci)* Make benchmark pipeline only runnable manually since that's the intended behaviour for now and it also reduces pipeline noise from any PR skipping it ([`b2946e1`](https://github.com/DiegoGuidaF/PulseWeaver/commit/b2946e1e697be248bf73b5e01dc093f1b7401387))
+- Remove unused and outdated docker-compose file ([`5cfd894`](https://github.com/DiegoGuidaF/PulseWeaver/commit/5cfd8945b59c26a9acbe370d273c4502e649f96a))
+
 ## [0.5.0] - 2026-06-26
 
 ### Bug Fixes
