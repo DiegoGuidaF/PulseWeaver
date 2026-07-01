@@ -96,7 +96,7 @@ export function PairingCreationForm({ deviceId, onSuccess, onCancel }: Props) {
                 The companion app will call:
               </Text>
               <Code block style={{ fontSize: "var(--mantine-font-size-xs)" }}>
-                {form.values.heartbeat_server_url}/api/v1/device-pairing{"\n"}
+                {form.values.heartbeat_server_url}/api/v1/device-pair{"\n"}
                 {form.values.heartbeat_server_url}/api/v1/heartbeat
               </Code>
             </Stack>
