@@ -28,8 +28,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to={`/login?returnTo=${encodeURIComponent(returnTo)}`} replace />;
   }
 
-  if (isAuthenticated && user?.must_change_password && location.pathname !== ROUTES.settings) {
-    return <Navigate to={ROUTES.settings} replace />;
+  if (isAuthenticated && user?.must_change_password && location.pathname !== ROUTES.account) {
+    return <Navigate to={ROUTES.account} replace />;
   }
 
   return <>{children}</>;

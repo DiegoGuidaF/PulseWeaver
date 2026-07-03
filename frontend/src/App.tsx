@@ -12,7 +12,7 @@ import { UserDevicesPage } from "./pages/devices/UserDevicesPage";
 import { TrafficDashboardPage } from "./pages/dashboard/TrafficDashboardPage";
 import { LoginPage } from "./pages/login/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
-import { SettingsPage } from "./pages/settings/SettingsPage";
+import { AccountPage } from "./pages/account/AccountPage";
 import { AccessLogPage } from "./pages/access-log/AccessLogPage";
 import { AddressHistoryPage } from "./pages/address-history/AddressHistoryPage";
 import { HostsPage } from "./pages/access/hosts/HostsPage";
@@ -59,7 +59,7 @@ const router = createBrowserRouter([
       { path: ROUTES.devices, element: protectedPage(<DevicesPage />) },
       { path: ROUTES.userDevices, element: protectedPage(<UserDevicesPage />) },
       { path: ROUTES.userDevicesNew, element: protectedPage(<UserDevicesPage createMode />) },
-      { path: ROUTES.settings, element: protectedPage(<SettingsPage />) },
+      { path: ROUTES.account, element: protectedPage(<AccountPage />) },
       { path: ROUTES.accessLog, element: protectedPage(<AccessLogPage />) },
       { path: ROUTES.addressHistory, element: protectedPage(<AddressHistoryPage />) },
       { path: ROUTES.accessHosts, element: protectedPage(<HostsPage />) },

@@ -11,8 +11,6 @@ import {
     Tooltip,
     ScrollArea,
     Box,
-    useMantineColorScheme,
-    useComputedColorScheme,
 } from "@mantine/core";
 import { useDisclosure, useLocalStorage, useMediaQuery } from "@mantine/hooks";
 import { BrandName } from "@/components/BrandName";
@@ -22,23 +20,15 @@ import {
     IconChevronRight,
     IconDatabaseSearch,
     IconFolder,
-    IconHelp,
     IconHistory,
     IconList,
-    IconLogout,
-    IconMoon,
     IconNetwork,
     IconServer,
-    IconSettings,
     IconShield,
-    IconSun,
     IconUsers,
 } from "@tabler/icons-react";
-import { notifications } from "@mantine/notifications";
-import { useLogout } from "@/features/auth/hooks/useLogout";
 import { ROUTES } from "@/lib/routes";
-import { useAuth } from "@/features/auth/hooks/useAuth";
-import { toErrorMessage } from "@/lib/api-client";
+import { UserMenu } from "./UserMenu";
 import classes from "./AppShell.module.css";
 
 type NavItem = {
@@ -80,10 +70,6 @@ const navGroups: NavGroup[] = [
             { label: "Access Verification", href: ROUTES.policyAudit, icon: IconDatabaseSearch },
         ],
     },
-    {
-        label: null,
-        items: [{ label: "Settings", href: ROUTES.settings, icon: IconSettings }],
-    },
 ];
 
 const collapsedItemStyles = {
@@ -91,26 +77,6 @@ const collapsedItemStyles = {
     body: { display: "none" as const },
     section: { margin: 0 },
 };
-
-function ColorSchemeToggle() {
-    const { setColorScheme } = useMantineColorScheme();
-    const computed = useComputedColorScheme("light");
-
-    return (
-        <ActionIcon
-            variant="subtle"
-            size="md"
-            aria-label="Toggle color scheme"
-            onClick={() => setColorScheme(computed === "dark" ? "light" : "dark")}
-        >
-            {computed === "dark" ? (
-                <IconSun size={18} stroke={1.5} />
-            ) : (
-                <IconMoon size={18} stroke={1.5} />
-            )}
-        </ActionIcon>
-    );
-}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
     const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure();
@@ -155,8 +121,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
 
     const location = useLocation();
-    const logoutMutation = useLogout();
-    const { user } = useAuth();
 
     return (
         <MantineAppShell
@@ -180,22 +144,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         />
                         <BrandName />
                     </Group>
-                    <Group gap="xs">
-                        <ColorSchemeToggle />
-                        <Tooltip label="Help & docs" position="bottom">
-                            <ActionIcon
-                                component="a"
-                                href="https://github.com/DiegoGuidaF/pulseweaver"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                variant="subtle"
-                                size="md"
-                                aria-label="Help and docs"
-                            >
-                                <IconHelp size={18} stroke={1.5} />
-                            </ActionIcon>
-                        </Tooltip>
-                    </Group>
+                    <UserMenu />
                 </Group>
             </MantineAppShell.Header>
 
@@ -252,11 +201,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </Stack>
                 </MantineAppShell.Section>
 
-                {/* Footer: collapse toggle, user info, logout */}
-                <MantineAppShell.Section>
+                {/* Footer: desktop sidebar collapse toggle (account + logout live in the top-bar user menu) */}
+                <MantineAppShell.Section visibleFrom="md">
                     <Box px="xs" pb="xs">
-                        {/* Collapse toggle — desktop only */}
-                        <Group justify={isCollapsed ? "center" : "flex-end"} mb="xs" visibleFrom="md">
+                        <Group justify={isCollapsed ? "center" : "flex-end"}>
                             <Tooltip
                                 label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                                 position="right"
@@ -275,47 +223,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 </ActionIcon>
                             </Tooltip>
                         </Group>
-
-                        <Divider mb="sm" />
-
-                        {!isCollapsed && user && (
-                            <Text size="sm" c="dimmed" mb="xs" px="sm">
-                                {user.display_name || user.username}
-                            </Text>
-                        )}
-
-                        <Divider my="xs" />
-
-                        {isCollapsed ? (
-                            <Tooltip
-                                label={logoutMutation.isPending ? "Logging out…" : "Logout"}
-                                position="right"
-                                withArrow
-                            >
-                                <NavLink
-                                    leftSection={<IconLogout size={18} stroke={1.5} />}
-                                    onClick={() => logoutMutation.mutate({}, {
-                                        onError: (err) =>
-                                            notifications.show({ color: "red", title: "Logout failed", message: toErrorMessage(err) }),
-                                    })}
-                                    disabled={logoutMutation.isPending}
-                                    color="red"
-                                    styles={collapsedItemStyles}
-                                    aria-label={logoutMutation.isPending ? "Logging out…" : "Logout"}
-                                />
-                            </Tooltip>
-                        ) : (
-                            <NavLink
-                                label={logoutMutation.isPending ? "Logging out…" : "Logout"}
-                                leftSection={<IconLogout size={18} stroke={1.5} />}
-                                onClick={() => logoutMutation.mutate({}, {
-                                    onError: (err) =>
-                                        notifications.show({ color: "red", title: "Logout failed", message: toErrorMessage(err) }),
-                                })}
-                                disabled={logoutMutation.isPending}
-                                color="red"
-                            />
-                        )}
                     </Box>
                 </MantineAppShell.Section>
             </MantineAppShell.Navbar>

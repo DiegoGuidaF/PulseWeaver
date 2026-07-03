@@ -20,7 +20,7 @@ export function LoginPage() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to={user?.must_change_password ? ROUTES.settings : ROUTES.dashboard} replace />;
+    return <Navigate to={user?.must_change_password ? ROUTES.account : ROUTES.dashboard} replace />;
   }
 
   return (

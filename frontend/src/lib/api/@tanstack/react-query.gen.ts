@@ -1062,8 +1062,8 @@ export const getAccessLogInfiniteQueryKey = (
  */
 export const getAccessLogInfiniteOptions = (
   options?: Options<GetAccessLogData>,
-) =>
-  infiniteQueryOptions<
+) => {
+  const opts = infiniteQueryOptions<
     GetAccessLogResponse,
     GetAccessLogError,
     InfiniteData<GetAccessLogResponse>,
@@ -1101,6 +1101,8 @@ export const getAccessLogInfiniteOptions = (
       queryKey: getAccessLogInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 export const getAccessLogByCountryQueryKey = (
   options?: Options<GetAccessLogByCountryData>,

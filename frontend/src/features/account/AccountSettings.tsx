@@ -31,11 +31,11 @@ const passwordSchema = zChangePasswordRequest
     path: ["confirm_password"],
   });
 
-interface AccountTabProps {
+interface AccountSettingsProps {
   onDirtyChange?: (dirty: boolean) => void;
 }
 
-export function AccountTab({ onDirtyChange }: AccountTabProps) {
+export function AccountSettings({ onDirtyChange }: AccountSettingsProps) {
   const { user } = useAuth();
   const updateMe = useUpdateMe();
   const changePassword = useChangePassword();

@@ -4,7 +4,7 @@ export const ROUTES = {
   devices: "/devices",
   userDevices: "/devices/owners/:ownerId",
   userDevicesNew: "/devices/owners/:ownerId/new",
-  settings: "/settings",
+  account: "/account",
   accessLog: "/access-log",
   addressHistory: "/address-history",
   accessHosts: "/access/hosts",
