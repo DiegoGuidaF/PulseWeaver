@@ -97,6 +97,25 @@ DO UPDATE SET
 	return nil
 }
 
+// UpsertDeviceProfile records one profile sighting: it inserts a first-seen
+// (device, dimension, fingerprint) row or, when the key already exists, advances
+// last_seen_at and bumps seen_count. first_seen_at is never moved, so the
+// learning gate keeps measuring from the genuine first sighting. last_seen_at
+// takes the later of the two so an out-of-order sighting never rewinds it.
+func (r *Repository) UpsertDeviceProfile(ctx context.Context, o ProfileObservation) error {
+	const query = `
+INSERT INTO device_profiles (device_id, dimension, fingerprint, first_seen_at, last_seen_at, seen_count)
+VALUES (?, ?, ?, ?, ?, 1)
+ON CONFLICT (device_id, dimension, fingerprint) DO UPDATE SET
+    last_seen_at = MAX(device_profiles.last_seen_at, excluded.last_seen_at),
+    seen_count   = device_profiles.seen_count + 1`
+	if _, err := r.db.ExecContext(ctx, query,
+		o.DeviceID, o.Dimension, o.Fingerprint, o.SeenAt, o.SeenAt); err != nil {
+		return fmt.Errorf("upsert device profile: %w", err)
+	}
+	return nil
+}
+
 // WithinTx exposes the repository's transaction scope so the job can atomically
 // upsert findings and advance the watermark together.
 func (r *Repository) WithinTx(ctx context.Context, fn func(ctx context.Context) error) error {

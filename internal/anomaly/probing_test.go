@@ -21,7 +21,7 @@ func seedProbeDenies(t *testing.T, db *database.DB, hosts int) {
 	seedAddress(t, db, 1, 1, "203.0.113.5", true, time.Now().Add(-48*time.Hour))
 	for i := range hosts {
 		id := seedDeny(t, db, "203.0.113.5", fmt.Sprintf("h%d.example.com", i), "host_not_allowed", time.Now().Add(-1*time.Hour))
-		seedContributor(t, db, id, 1, 1, 1)
+		seedContributor(t, db, id, 1, 1)
 	}
 }
 
@@ -49,7 +49,7 @@ func TestHostProbingDetector_ManyDeniesOneHost_NoFinding(t *testing.T) {
 	seedAddress(t, db, 1, 1, "203.0.113.5", true, time.Now().Add(-48*time.Hour))
 	for range 5 {
 		id := seedDeny(t, db, "203.0.113.5", "one.example.com", "host_not_allowed", time.Now().Add(-1*time.Hour))
-		seedContributor(t, db, id, 1, 1, 1)
+		seedContributor(t, db, id, 1, 1)
 	}
 
 	findings, err := hostProbingDetector{reader: repo}.Detect(context.Background(), scopeAll("medium"))

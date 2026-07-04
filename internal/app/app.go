@@ -202,11 +202,13 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	if conf.Anomaly.Enabled {
 		anomalyRepo := anomaly.NewRepository(db.DB())
 		schedulerService.AddJob(anomaly.NewScanJob(anomalyRepo, anomaly.AllDetectors(anomalyRepo, geoipLookup), anomaly.ScanOptions{
-			Interval:      conf.Anomaly.ScanInterval,
-			Sensitivity:   conf.Anomaly.Sensitivity,
-			DetectRules:   conf.Anomaly.DetectRules,
-			DetectVolume:  conf.Anomaly.DetectVolume,
-			DetectNovelty: conf.Anomaly.DetectNovelty,
+			Interval:            conf.Anomaly.ScanInterval,
+			Sensitivity:         conf.Anomaly.Sensitivity,
+			LearningDays:        conf.Anomaly.LearningDays,
+			DetectRules:         conf.Anomaly.DetectRules,
+			DetectVolume:        conf.Anomaly.DetectVolume,
+			DetectNovelty:       conf.Anomaly.DetectNovelty,
+			TravelSameContinent: conf.Anomaly.TravelSameContinent,
 		}, logger))
 	}
 

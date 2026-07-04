@@ -3,6 +3,7 @@
 package anomaly
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -25,6 +26,9 @@ func scopeAll(sensitivity string) Scope {
 
 // seedUserID is the single owner every seeded device in this suite belongs to.
 const seedUserID = 1
+
+// seedIP is the default client IP for allowed-traffic seed helpers.
+const seedIP = "203.0.113.5"
 
 func seedUser(t *testing.T, db *database.DB) {
 	t.Helper()
@@ -127,12 +131,64 @@ func seedAttrAgg(t *testing.T, db *database.DB, bucketAt time.Time, kind string,
 	}
 }
 
-func seedContributor(t *testing.T, db *database.DB, accessLogID, deviceID, addressID, userID int64) {
+func seedContributor(t *testing.T, db *database.DB, accessLogID, deviceID, addressID int64) {
 	t.Helper()
 	_, err := db.ExecContext(t.Context(),
 		`INSERT INTO access_log_contributors (access_log_id, device_id, address_id, user_id) VALUES (?, ?, ?, ?)`,
-		accessLogID, deviceID, addressID, userID)
+		accessLogID, deviceID, addressID, seedUserID)
 	if err != nil {
 		t.Fatalf("seed contributor: %v", err)
+	}
+}
+
+// seedAllowUA inserts an allowed access_log row from seedIP carrying a User-Agent
+// header and returns its id.
+func seedAllowUA(t *testing.T, db *database.DB, userAgent string, at time.Time) int64 {
+	t.Helper()
+	headers := fmt.Sprintf(`{"User-Agent":[%q]}`, userAgent)
+	var id int64
+	err := db.QueryRowxContext(t.Context(),
+		`INSERT INTO access_log (client_ip, target_host, outcome, deny_reason, created_at, headers_json)
+		 VALUES (?, 'app.example.com', 1, '', ?, ?) RETURNING id`,
+		seedIP, at.UTC(), headers).Scan(&id)
+	if err != nil {
+		t.Fatalf("seed allow with UA: %v", err)
+	}
+	return id
+}
+
+// seedGeoip attaches a resolved country to an access_log row.
+func seedGeoip(t *testing.T, db *database.DB, accessLogID int64, countryCode string) {
+	t.Helper()
+	_, err := db.ExecContext(t.Context(),
+		`INSERT INTO access_log_geoip (access_log_id, country_code, country_name, continent_code)
+		 VALUES (?, ?, ?, '')`,
+		accessLogID, countryCode, countryCode)
+	if err != nil {
+		t.Fatalf("seed geoip: %v", err)
+	}
+}
+
+// seedEnableEvent inserts an is_enabled=1 address event (address create/re-enable
+// or a heartbeat refresh, which the app records identically).
+func seedEnableEvent(t *testing.T, db *database.DB, addressID int64, at time.Time) {
+	t.Helper()
+	_, err := db.ExecContext(t.Context(),
+		`INSERT INTO address_events (address_id, is_enabled, source, created_at) VALUES (?, 1, 'heartbeat', ?)`,
+		addressID, at.UTC())
+	if err != nil {
+		t.Fatalf("seed enable event: %v", err)
+	}
+}
+
+// seedProfile inserts a device_profiles baseline row.
+func seedProfile(t *testing.T, db *database.DB, deviceID int64, dimension, fingerprint string, firstSeen time.Time) {
+	t.Helper()
+	_, err := db.ExecContext(t.Context(),
+		`INSERT INTO device_profiles (device_id, dimension, fingerprint, first_seen_at, last_seen_at, seen_count)
+		 VALUES (?, ?, ?, ?, ?, 1)`,
+		deviceID, dimension, fingerprint, firstSeen.UTC(), firstSeen.UTC())
+	if err != nil {
+		t.Fatalf("seed profile: %v", err)
 	}
 }

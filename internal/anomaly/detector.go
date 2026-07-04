@@ -17,6 +17,28 @@ type Detector interface {
 	Detect(ctx context.Context, sc Scope) ([]Finding, error)
 }
 
+// ProfileObservation is a single (device, dimension, fingerprint) sighting the
+// novelty family learns. It is not a write instruction the detector executes:
+// the detector only reports it, and the job upserts every observation into
+// device_profiles inside the scan transaction so a device's profile advances
+// atomically with the watermark — a novel value's finding is never committed
+// without the profile row that makes the next pass treat it as familiar.
+type ProfileObservation struct {
+	DeviceID    int64
+	Dimension   string
+	Fingerprint string
+	SeenAt      time.Time
+}
+
+// ProfileLearner is the optional second output of a detector: the profile
+// sightings its last Detect observed. A detector maintaining per-device profiles
+// implements it, and the job drains the observations after Detect to persist them
+// in the scan transaction. Detectors still perform no writes — they report both
+// findings and observations, and the job owns all persistence.
+type ProfileLearner interface {
+	ProfileObservations() []ProfileObservation
+}
+
 // AllDetectors returns every detector wired to the repository, in scan order.
 // Registration lives here so adding a kind is a one-line change (the
 // encapsulation contract): the job, dedup, and API stay untouched. A nil geo
@@ -30,6 +52,8 @@ func AllDetectors(r *Repository, geo GeoResolver) []Detector {
 		denySpikeDetector{reader: r},
 		entityDriftDetector{reader: r},
 		geoDeniedDetector{reader: r, geo: geo},
+		&noveltyDetector{reader: r, geo: geo},
+		travelDetector{reader: r, geo: geo},
 	}
 }
 
@@ -52,4 +76,12 @@ type Scope struct {
 	// Sensitivity is the preset name (low|medium|high) the volume family resolves
 	// into multiplier/floor pairs.
 	Sensitivity string
+	// LearningWindow is how long a device's profile must exist before the novelty
+	// family emits any finding for it (ANOMALY_LEARNING_DAYS as a duration). A
+	// device whose oldest profile row is younger than this is still learning.
+	LearningWindow time.Duration
+	// TravelSameContinent lets impossible_travel flag same-continent country hops.
+	// Off by default — border commuting and carrier routing make them the noisiest
+	// signal in the family.
+	TravelSameContinent bool
 }

@@ -22,6 +22,7 @@ type ScanRepository interface {
 	LoadScanState(ctx context.Context) (ScanState, error)
 	MaxAccessLogID(ctx context.Context) (int64, error)
 	UpsertFinding(ctx context.Context, f Finding) error
+	UpsertDeviceProfile(ctx context.Context, o ProfileObservation) error
 	SaveScanState(ctx context.Context, s ScanState) error
 	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
 }
@@ -29,11 +30,13 @@ type ScanRepository interface {
 // ScanOptions carries the scan's tunables (resolved from ConfAnomaly by app.go)
 // so the job depends on primitives, not the config struct.
 type ScanOptions struct {
-	Interval      time.Duration
-	Sensitivity   string
-	DetectRules   bool
-	DetectVolume  bool
-	DetectNovelty bool
+	Interval            time.Duration
+	Sensitivity         string
+	LearningDays        int
+	DetectRules         bool
+	DetectVolume        bool
+	DetectNovelty       bool
+	TravelSameContinent bool
 }
 
 func (o ScanOptions) familyEnabled(f Family) bool {
@@ -91,15 +94,18 @@ func (j *ScanJob) Run(ctx context.Context) error {
 	completeHour := now.Truncate(time.Hour)
 
 	scope := Scope{
-		FromAccessLogID: state.LastAccessLogID,
-		ToAccessLogID:   maxID,
-		FromBucket:      state.LastBucketAt,
-		ToBucket:        completeHour,
-		Now:             now,
-		Sensitivity:     j.opts.Sensitivity,
+		FromAccessLogID:     state.LastAccessLogID,
+		ToAccessLogID:       maxID,
+		FromBucket:          state.LastBucketAt,
+		ToBucket:            completeHour,
+		Now:                 now,
+		Sensitivity:         j.opts.Sensitivity,
+		LearningWindow:      time.Duration(j.opts.LearningDays) * 24 * time.Hour,
+		TravelSameContinent: j.opts.TravelSameContinent,
 	}
 
 	var findings []Finding
+	var observations []ProfileObservation
 	detectorFailed := false
 	for _, d := range j.detectors {
 		if !j.opts.familyEnabled(d.Family()) {
@@ -115,6 +121,12 @@ func (j *ScanJob) Run(ctx context.Context) error {
 			continue
 		}
 		findings = append(findings, found...)
+		// A profile-learning detector reports the sightings its pass observed
+		// alongside its findings; only a clean pass contributes them, so a failed
+		// detector's partial state never lands.
+		if pl, ok := d.(ProfileLearner); ok {
+			observations = append(observations, pl.ProfileObservations()...)
+		}
 	}
 
 	// Upsert and watermark advance share one transaction: a crash mid-pass never
@@ -124,6 +136,11 @@ func (j *ScanJob) Run(ctx context.Context) error {
 	err = j.repo.WithinTx(ctx, func(ctx context.Context) error {
 		for _, f := range findings {
 			if err := j.repo.UpsertFinding(ctx, f); err != nil {
+				return err
+			}
+		}
+		for _, o := range observations {
+			if err := j.repo.UpsertDeviceProfile(ctx, o); err != nil {
 				return err
 			}
 		}
