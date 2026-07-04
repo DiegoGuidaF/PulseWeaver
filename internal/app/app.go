@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/anomaly"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
@@ -195,6 +196,20 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	schedulerService.AddJob(rollupRepo.NewRollupJob(logger))
 	schedulerService.AddJob(scheduler.NewRetentionJob(accessLogRepo, deviceRepo, rollupRepo,
 		conf.Rules.DataRetentionDays, conf.Rules.AggregateRetentionDays, logger))
+
+	// Anomaly detection — background scan producing findings for review. No
+	// detectors are registered yet (they land in later tasks); the job persists
+	// only its watermark until then. Unregistered entirely when disabled.
+	if conf.Anomaly.Enabled {
+		anomalyRepo := anomaly.NewRepository(db.DB())
+		schedulerService.AddJob(anomaly.NewScanJob(anomalyRepo, nil, anomaly.ScanOptions{
+			Interval:      conf.Anomaly.ScanInterval,
+			Sensitivity:   conf.Anomaly.Sensitivity,
+			DetectRules:   conf.Anomaly.DetectRules,
+			DetectVolume:  conf.Anomaly.DetectVolume,
+			DetectNovelty: conf.Anomaly.DetectNovelty,
+		}, logger))
+	}
 
 	// Fire the rules on start to ensure we disable no longer valid addresses before letting them through
 	err = schedulerService.ExecuteScheduledRules(ctx)
