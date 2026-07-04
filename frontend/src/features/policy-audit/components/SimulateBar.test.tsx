@@ -98,6 +98,50 @@ describe("SimulateBar", () => {
         expect(screen.getByText("Host not allowed")).toBeInTheDocument();
     });
 
+    it("shows a denied result when the response carries explicit nulls for all optional fields", async () => {
+        const user = setupUser();
+        // Real backend deny payload: match_source, network_policy_id and
+        // network_policy_name are present as explicit JSON nulls, which the
+        // SDK's Zod response validator must accept.
+        server.use(
+            policyAuditHandlers.simulate.denied("host_not_allowed", {
+                ip: "62.151.105.183",
+                host: "immich.wally.mywire.org",
+                match_source: null,
+                network_policy_id: null,
+                network_policy_name: null,
+            }),
+        );
+
+        renderBar("62.151.105.183");
+        await user.type(
+            screen.getByRole("textbox", { name: /host \(fqdn\)/i }),
+            "immich.wally.mywire.org",
+        );
+        await user.click(screen.getByRole("button", { name: /test/i }));
+
+        await waitFor(
+            () => expect(screen.getByText("Denied")).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+
+        expect(screen.getByText("Host not allowed")).toBeInTheDocument();
+    });
+
+    it("shows an error alert when the simulation request fails", async () => {
+        const user = setupUser();
+        server.use(policyAuditHandlers.simulate.serverError());
+
+        renderBar("192.168.1.10");
+        await user.type(screen.getByRole("textbox", { name: /host \(fqdn\)/i }), "app.home.lan");
+        await user.click(screen.getByRole("button", { name: /test/i }));
+
+        await waitFor(
+            () => expect(screen.getByText("Simulation failed")).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+    });
+
     it("result alert disappears after editing an input (dirty flag clears result)", async () => {
         const user = setupUser();
         server.use(policyAuditHandlers.simulate.allowed());

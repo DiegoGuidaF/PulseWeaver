@@ -90,9 +90,9 @@ func (h *HTTPHandler) SimulatePolicyAccess(
 	result := h.service.Decide(ctx, addr, host)
 	denyReason := toAPIDenyReason(result.DenyReason)
 
-	var matchSource *httpapi.PolicySimulateResultMatchSource
+	var matchSource *httpapi.PolicyMatchSource
 	if result.Allowed {
-		matchSource = new(httpapi.PolicySimulateResultMatchSource(result.MatchSource))
+		matchSource = new(httpapi.PolicyMatchSource(result.MatchSource))
 	}
 
 	var networkPolicyIDInt *int64

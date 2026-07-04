@@ -947,6 +947,20 @@ export type PolicyUserAddress = {
   updated_at: string;
 };
 
+/**
+ * Which mechanism authorized a request.
+ */
+export const PolicyMatchSource = {
+  DEVICE: "device",
+  NETWORK_POLICY: "network_policy",
+} as const;
+
+/**
+ * Which mechanism authorized a request.
+ */
+export type PolicyMatchSource =
+  (typeof PolicyMatchSource)[keyof typeof PolicyMatchSource];
+
 export type PolicySimulateResult = {
   ip: IpAddress;
   host: string;
@@ -959,7 +973,7 @@ export type PolicySimulateResult = {
    * Which mechanism authorized the request. Null when allowed is false.
    *
    */
-  match_source?: "device" | "network_policy";
+  match_source?: PolicyMatchSource | null;
   /**
    * ID of the matching policy when match_source is 'network_policy'.
    */

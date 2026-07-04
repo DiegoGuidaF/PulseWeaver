@@ -471,12 +471,17 @@ export const zPolicyUserIp = z.object({
   geo: zGeoInfo.nullish(),
 });
 
+/**
+ * Which mechanism authorized a request.
+ */
+export const zPolicyMatchSource = z.enum(["device", "network_policy"]);
+
 export const zPolicySimulateResult = z.object({
   ip: zIpAddress,
   host: z.string(),
   allowed: z.boolean(),
   deny_reason: zPolicyDenyReason.nullish(),
-  match_source: z.enum(["device", "network_policy"]).optional(),
+  match_source: zPolicyMatchSource.nullish(),
   network_policy_id: zId.nullish(),
   network_policy_name: z.string().nullish(),
 });

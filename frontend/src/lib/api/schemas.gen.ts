@@ -1908,6 +1908,12 @@ export const PolicyUserAddressSchema = {
   },
 } as const;
 
+export const PolicyMatchSourceSchema = {
+  type: "string",
+  enum: ["device", "network_policy"],
+  description: "Which mechanism authorized a request.",
+} as const;
+
 export const PolicySimulateResultSchema = {
   type: "object",
   required: ["ip", "host", "allowed"],
@@ -1931,8 +1937,11 @@ export const PolicySimulateResultSchema = {
       description: "Reason for denial; null when allowed is true.",
     },
     match_source: {
-      type: "string",
-      enum: ["device", "network_policy"],
+      allOf: [
+        {
+          $ref: "#/components/schemas/PolicyMatchSource",
+        },
+      ],
       nullable: true,
       description:
         "Which mechanism authorized the request. Null when allowed is false.\n",

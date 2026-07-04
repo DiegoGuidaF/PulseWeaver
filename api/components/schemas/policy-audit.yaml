@@ -265,6 +265,11 @@ PolicyNetworkPolicyEntry:
     total_host_count:
       type: integer
 
+PolicyMatchSource:
+  type: string
+  enum: [device, network_policy]
+  description: Which mechanism authorized a request.
+
 PolicySimulateResult:
   type: object
   required:
@@ -284,8 +289,8 @@ PolicySimulateResult:
       nullable: true
       description: Reason for denial; null when allowed is true.
     match_source:
-      type: string
-      enum: [device, network_policy]
+      allOf:
+        - $ref: '#/PolicyMatchSource'
       nullable: true
       description: >
         Which mechanism authorized the request. Null when allowed is false.

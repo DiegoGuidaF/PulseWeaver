@@ -11,6 +11,7 @@ export function usePolicySimulate(ip: string, host: string) {
     result: query.data,
     isFetching: query.isFetching,
     isError: query.isError,
+    error: query.error,
     refetch: query.refetch,
   };
 }

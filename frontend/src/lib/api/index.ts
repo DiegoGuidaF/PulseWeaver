@@ -381,6 +381,7 @@ export {
   type Password,
   PolicyDenyReason,
   type PolicyIpDevice,
+  PolicyMatchSource,
   type PolicyNetworkPolicyEntry,
   type PolicySimulateResult,
   type PolicyUserAddress,

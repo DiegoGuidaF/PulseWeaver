@@ -30,6 +30,6 @@ const (
 type MatchSource string
 
 const (
-	MatchSourceDevice        MatchSource = "device"
-	MatchSourceNetworkPolicy MatchSource = "network_policy"
+	MatchSourceDevice        MatchSource = MatchSource(httpapi.PolicyMatchSourceDevice)
+	MatchSourceNetworkPolicy MatchSource = MatchSource(httpapi.PolicyMatchSourceNetworkPolicy)
 )

@@ -457,12 +457,16 @@ export const policyAuditHandlers = {
         allowed: (override?: Partial<PolicySimulateResult>) =>
             http.get(endpoints.policySimulate, () =>
                 HttpResponse.json(createMockPolicySimulateResult({ allowed: true, ...override }))),
-        denied: (denyReason = 'ip_not_registered') =>
+        denied: (denyReason = 'ip_not_registered', override?: Partial<PolicySimulateResult>) =>
             http.get(endpoints.policySimulate, () =>
                 HttpResponse.json(createMockPolicySimulateResult({
                     allowed: false,
                     deny_reason: denyReason as PolicySimulateResult['deny_reason'],
+                    match_source: null,
+                    ...override,
                 }))),
+        serverError: () =>
+            http.get(endpoints.policySimulate, () => responses.serverError()),
     },
 };
 

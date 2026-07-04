@@ -527,11 +527,17 @@ export function createMockPolicyUserMapAudit(
 export function createMockPolicySimulateResult(
   overrides?: Partial<PolicySimulateResult>,
 ): PolicySimulateResult {
+  // The backend serializes every optional field as an explicit null (the DTO
+  // pointer fields carry no omitempty), so mocks must send them too — the
+  // SDK's Zod response validator sees exactly this shape in production.
   return {
     ip: '192.168.1.10',
     host: 'app.home.lan',
     allowed: true,
     deny_reason: null,
+    match_source: 'device',
+    network_policy_id: null,
+    network_policy_name: null,
     ...overrides,
   };
 }

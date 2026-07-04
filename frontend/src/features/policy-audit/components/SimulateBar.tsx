@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Alert, Anchor, Button, Group, Text, TextInput } from "@mantine/core";
-import { IconCircleCheck, IconCircleX, IconPlayerPlay } from "@tabler/icons-react";
+import { IconAlertTriangle, IconCircleCheck, IconCircleX, IconPlayerPlay } from "@tabler/icons-react";
 import { usePolicySimulate } from "../hooks/usePolicySimulate";
 import { POLICY_DENY_REASON_LABELS } from "@/lib/policyDenyReasons";
+import { toErrorMessage } from "@/lib/api-client/errors";
 
 interface SimulateBarProps {
   ip: string;
@@ -13,7 +14,7 @@ interface SimulateBarProps {
 export function SimulateBar({ ip, onIpChange }: SimulateBarProps) {
   const [host, setHost] = useState("");
   const [dirty, setDirty] = useState(false);
-  const { result, isFetching, refetch } = usePolicySimulate(ip, host);
+  const { result, isFetching, isError, error, refetch } = usePolicySimulate(ip, host);
 
   function handleIpChange(value: string) {
     onIpChange(value);
@@ -33,7 +34,10 @@ export function SimulateBar({ ip, onIpChange }: SimulateBarProps) {
   }
 
   const canSubmit = ip.trim().length > 0 && host.trim().length > 0;
-  const showResult = !dirty && result != null;
+  // React Query keeps the previous data on error, so check isError first to
+  // avoid presenting a stale decision as the outcome of the failed request.
+  const showError = !dirty && isError;
+  const showResult = !dirty && !isError && result != null;
 
   return (
     <div>
@@ -63,6 +67,17 @@ export function SimulateBar({ ip, onIpChange }: SimulateBarProps) {
           Test
         </Button>
       </Group>
+
+      {showError && (
+        <Alert
+          mt="sm"
+          color="red"
+          icon={<IconAlertTriangle size={18} />}
+          title="Simulation failed"
+        >
+          <Text size="sm">{toErrorMessage(error)}</Text>
+        </Alert>
+      )}
 
       {showResult && (
         <Alert

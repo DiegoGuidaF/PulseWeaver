@@ -337,6 +337,8 @@ components:
       $ref: './components/schemas/policy-audit.yaml#/PolicyUserIP'
     PolicyUserAddress:
       $ref: './components/schemas/policy-audit.yaml#/PolicyUserAddress'
+    PolicyMatchSource:
+      $ref: './components/schemas/policy-audit.yaml#/PolicyMatchSource'
     PolicySimulateResult:
       $ref: './components/schemas/policy-audit.yaml#/PolicySimulateResult'
     PolicyNetworkPolicyEntry:
