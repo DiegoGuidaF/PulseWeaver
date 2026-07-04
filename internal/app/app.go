@@ -197,12 +197,11 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	schedulerService.AddJob(scheduler.NewRetentionJob(accessLogRepo, deviceRepo, rollupRepo,
 		conf.Rules.DataRetentionDays, conf.Rules.AggregateRetentionDays, logger))
 
-	// Anomaly detection — background scan producing findings for review. No
-	// detectors are registered yet (they land in later tasks); the job persists
-	// only its watermark until then. Unregistered entirely when disabled.
+	// Anomaly detection — background scan producing findings for review.
+	// Unregistered entirely when disabled.
 	if conf.Anomaly.Enabled {
 		anomalyRepo := anomaly.NewRepository(db.DB())
-		schedulerService.AddJob(anomaly.NewScanJob(anomalyRepo, nil, anomaly.ScanOptions{
+		schedulerService.AddJob(anomaly.NewScanJob(anomalyRepo, anomaly.AllDetectors(anomalyRepo), anomaly.ScanOptions{
 			Interval:      conf.Anomaly.ScanInterval,
 			Sensitivity:   conf.Anomaly.Sensitivity,
 			DetectRules:   conf.Anomaly.DetectRules,

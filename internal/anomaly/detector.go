@@ -17,6 +17,18 @@ type Detector interface {
 	Detect(ctx context.Context, sc Scope) ([]Finding, error)
 }
 
+// AllDetectors returns every detector wired to the repository, in scan order.
+// Registration lives here so adding a kind is a one-line change (the
+// encapsulation contract): the job, dedup, and API stay untouched.
+func AllDetectors(r *Repository) []Detector {
+	return []Detector{
+		expiredAccessDetector{reader: r},
+		invalidTokenDetector{reader: r},
+		hostProbingDetector{reader: r},
+		addressChurnDetector{reader: r},
+	}
+}
+
 // Scope is the immutable slice of the world a single scan pass observes. The job
 // builds it once per run and hands the same value to every detector so they all
 // agree on the window and the current time.
