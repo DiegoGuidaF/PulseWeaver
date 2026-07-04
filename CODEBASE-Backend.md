@@ -31,7 +31,7 @@ most important files across the whole backend with their purpose.
 | `queries` | Cross-domain read side (lite CQRS) for the frontend's list/filter views; one view + handler file per surface. Folds join rows via `collate`. | `repository.go`, `*_view.go`, `handler_*.go`, `filterx/` |
 | `rollup` | Hourly traffic + attribution aggregate tables; catch-up `RollupJob`; serves the dashboard read API (raw vs aggregate on `RawWindowThreshold`). | `job.go`, `traffic_rollup.go`, `traffic_reads.go`, `attribution_rollup.go`, `attribution_reads.go`, `handler.go`, `types.go` |
 | `geoip` | IP → location/ASN enrichment from an MMDB (db-ip.com); background `RunUpdater` refresh. | `lookup.go`, `updater.go`, `result.go` |
-| `anomaly` | Periodic detection scan over the access log + traffic aggregates. Detectors are pure readers behind a `Detector` interface; the `ScanJob` owns the incremental watermark and the deduplicated finding upsert. Findings persist to `anomalies` for review (no verify-path impact). | `anomaly.go`, `detector.go`, `job.go`, `repository.go`, `reads.go`, `rules.go`, `probing.go`, `baseline.go` |
+| `anomaly` | Periodic detection scan over the access log + traffic aggregates. Detectors are pure readers behind a `Detector` interface; the `ScanJob` owns the incremental watermark and the deduplicated finding upsert. Findings persist to `anomalies` for review (no verify-path impact). | `anomaly.go`, `detector.go`, `job.go`, `repository.go`, `reads.go`, `rules.go`, `probing.go`, `volume.go`, `volume_reads.go`, `baseline.go` |
 | `health` | `GET /health` → `{"status":"ok","timestamp":…}`. | `health.go` |
 | `timebucket` | Shared time-bucket granularity settings + parsing (rollup, dashboard, …). | `granularity.go` |
 

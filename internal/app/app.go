@@ -201,7 +201,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Unregistered entirely when disabled.
 	if conf.Anomaly.Enabled {
 		anomalyRepo := anomaly.NewRepository(db.DB())
-		schedulerService.AddJob(anomaly.NewScanJob(anomalyRepo, anomaly.AllDetectors(anomalyRepo), anomaly.ScanOptions{
+		schedulerService.AddJob(anomaly.NewScanJob(anomalyRepo, anomaly.AllDetectors(anomalyRepo, geoipLookup), anomaly.ScanOptions{
 			Interval:      conf.Anomaly.ScanInterval,
 			Sensitivity:   conf.Anomaly.Sensitivity,
 			DetectRules:   conf.Anomaly.DetectRules,

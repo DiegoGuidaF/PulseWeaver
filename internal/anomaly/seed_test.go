@@ -97,6 +97,36 @@ func seedAllow(t *testing.T, db *database.DB, clientIP, targetHost string, at ti
 	return id
 }
 
+// seedTrafficAgg inserts one hourly_traffic_aggregates row.
+func seedTrafficAgg(t *testing.T, db *database.DB, bucketAt time.Time, targetHost string, outcome bool, count int64, countryCode string) {
+	t.Helper()
+	outcomeInt := 0
+	if outcome {
+		outcomeInt = 1
+	}
+	_, err := db.ExecContext(t.Context(),
+		`INSERT INTO hourly_traffic_aggregates
+		   (bucket_at, client_ip, target_host, outcome, deny_reason, request_count, country_code, country_name, continent_code)
+		 VALUES (?, '203.0.113.9', ?, ?, '', ?, ?, '', '')`,
+		bucketAt.UTC().Truncate(time.Hour), targetHost, outcomeInt, count, countryCode)
+	if err != nil {
+		t.Fatalf("seed traffic aggregate: %v", err)
+	}
+}
+
+// seedAttrAgg inserts one denied hourly_attribution_aggregates row (nil entityID
+// models a hard-deleted entity).
+func seedAttrAgg(t *testing.T, db *database.DB, bucketAt time.Time, kind string, entityID *int64, name string, count int64) {
+	t.Helper()
+	_, err := db.ExecContext(t.Context(),
+		`INSERT INTO hourly_attribution_aggregates (bucket_at, entity_kind, entity_id, entity_name, outcome, request_count)
+		 VALUES (?, ?, ?, ?, 0, ?)`,
+		bucketAt.UTC().Truncate(time.Hour), kind, entityID, name, count)
+	if err != nil {
+		t.Fatalf("seed attribution aggregate: %v", err)
+	}
+}
+
 func seedContributor(t *testing.T, db *database.DB, accessLogID, deviceID, addressID, userID int64) {
 	t.Helper()
 	_, err := db.ExecContext(t.Context(),

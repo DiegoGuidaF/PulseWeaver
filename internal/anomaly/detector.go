@@ -19,13 +19,17 @@ type Detector interface {
 
 // AllDetectors returns every detector wired to the repository, in scan order.
 // Registration lives here so adding a kind is a one-line change (the
-// encapsulation contract): the job, dedup, and API stay untouched.
-func AllDetectors(r *Repository) []Detector {
+// encapsulation contract): the job, dedup, and API stay untouched. A nil geo
+// resolver silences only the geo detector.
+func AllDetectors(r *Repository, geo GeoResolver) []Detector {
 	return []Detector{
 		expiredAccessDetector{reader: r},
 		invalidTokenDetector{reader: r},
 		hostProbingDetector{reader: r},
 		addressChurnDetector{reader: r},
+		denySpikeDetector{reader: r},
+		entityDriftDetector{reader: r},
+		geoDeniedDetector{reader: r, geo: geo},
 	}
 }
 
