@@ -49,6 +49,7 @@ type App struct {
 	HostsService           *hosts.Service
 	UserAccessService      *useraccess.Service
 	NetworkPoliciesService *networkpolicies.Service
+	AnomalyScanJob         *anomaly.ScanJob
 }
 
 // New initializes the application with configuration loaded from environment variables.
@@ -202,18 +203,20 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	schedulerService.AddJob(scheduler.NewRetentionJob(accessLogRepo, deviceRepo, rollupRepo, anomalyRepo,
 		conf.Rules.DataRetentionDays, conf.Rules.AggregateRetentionDays, logger))
 
-	// Anomaly detection — background scan producing findings for review.
-	// Unregistered entirely when disabled.
+	// Anomaly detection — background scan producing findings for review. The job
+	// is always constructed and exposed on App so a test can trigger one
+	// deterministic pass; it is only scheduled to run periodically when enabled.
+	anomalyScanJob := anomaly.NewScanJob(anomalyRepo, anomaly.AllDetectors(anomalyRepo, geoipLookup), anomaly.ScanOptions{
+		Interval:            conf.Anomaly.ScanInterval,
+		Sensitivity:         conf.Anomaly.Sensitivity,
+		LearningDays:        conf.Anomaly.LearningDays,
+		DetectRules:         conf.Anomaly.DetectRules,
+		DetectVolume:        conf.Anomaly.DetectVolume,
+		DetectNovelty:       conf.Anomaly.DetectNovelty,
+		TravelSameContinent: conf.Anomaly.TravelSameContinent,
+	}, logger)
 	if conf.Anomaly.Enabled {
-		schedulerService.AddJob(anomaly.NewScanJob(anomalyRepo, anomaly.AllDetectors(anomalyRepo, geoipLookup), anomaly.ScanOptions{
-			Interval:            conf.Anomaly.ScanInterval,
-			Sensitivity:         conf.Anomaly.Sensitivity,
-			LearningDays:        conf.Anomaly.LearningDays,
-			DetectRules:         conf.Anomaly.DetectRules,
-			DetectVolume:        conf.Anomaly.DetectVolume,
-			DetectNovelty:       conf.Anomaly.DetectNovelty,
-			TravelSameContinent: conf.Anomaly.TravelSameContinent,
-		}, logger))
+		schedulerService.AddJob(anomalyScanJob)
 	}
 
 	// Fire the rules on start to ensure we disable no longer valid addresses before letting them through
@@ -267,6 +270,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		HostsService:           hostsService,
 		UserAccessService:      userAccessService,
 		NetworkPoliciesService: networkPoliciesService,
+		AnomalyScanJob:         anomalyScanJob,
 	}, nil
 }
 

@@ -1,6 +1,6 @@
 # Backend Codebase Reference
 
-> Last updated: 2026-07-04 (novelty & geo-velocity detectors)
+> Last updated: 2026-07-05 (anomaly scan job exposed on App; sample-seed anomaly showcase)
 
 This document is the **map** of the backend codebase — what exists and where. For the system-level
 overview (layering, the API seam, request flow, single-binary build), see
@@ -125,8 +125,10 @@ server. After construction: `ExecuteScheduledRules` (disable stale addresses bef
 - `policyService.AddDecisionObserver`: accessLogSink
 
 **Scheduler jobs (`AddJob`):** `lease.NewExpiryJob(deviceService)`, `rollupRepo.NewRollupJob`,
-`scheduler.NewRetentionJob(accessLogRepo, deviceRepo, rollupRepo, …)`, and `anomaly.NewScanJob(…)`
-when `Anomaly.Enabled`.
+`scheduler.NewRetentionJob(accessLogRepo, deviceRepo, rollupRepo, anomalyRepo, …)`, and
+`anomaly.NewScanJob(…)` when `Anomaly.Enabled`. The scan job is always constructed and exposed as
+`App.AnomalyScanJob` (so a test can trigger one deterministic pass); only its scheduling is gated
+on `Anomaly.Enabled`.
 
 **Goroutines started in `RunBackground`:** `policy.RunListener`, `lease.RunListener`,
 `maxaddr.RunListener`, `scheduler.RunSchedule`, `accessLogSink.Run`, `geoip.RunUpdater`. `Run` adds

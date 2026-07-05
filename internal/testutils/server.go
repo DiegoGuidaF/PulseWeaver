@@ -41,6 +41,15 @@ const (
 // services, and handlers configured.
 func SetupIntegrationServer(t *testing.T) *app.App {
 	t.Helper()
+	return SetupIntegrationServerWithConfig(t, nil)
+}
+
+// SetupIntegrationServerWithConfig is SetupIntegrationServer with a hook to adjust
+// the config before the app is built — e.g. enabling anomaly detection so the
+// scan job is constructed with working options rather than the zero-valued
+// (inert) defaults of a hand-built test config.
+func SetupIntegrationServerWithConfig(t *testing.T, mutate func(*config.Conf)) *app.App {
+	t.Helper()
 
 	conf := &config.Conf{
 		Server: config.ConfServer{
@@ -63,6 +72,9 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 		Policy: config.ConfPolicy{
 			APISecret: "test-policy-secret",
 		},
+	}
+	if mutate != nil {
+		mutate(conf)
 	}
 
 	logger := slog.New(slog.NewTextHandler(testWriter{t}, &slog.HandlerOptions{
