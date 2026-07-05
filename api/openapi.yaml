@@ -80,6 +80,14 @@ paths:
     $ref: './paths/access-log.yaml#/accessLogByCountry'
 
   # --------------------
+  # Anomaly Endpoints
+  # --------------------
+  /anomalies:
+    $ref: './paths/anomalies.yaml#/anomalies'
+  /anomalies/{id}/acknowledge:
+    $ref: './paths/anomalies.yaml#/anomalyAcknowledge'
+
+  # --------------------
   # Rules Endpoints
   # --------------------
   /devices/{device_id}/rules/address-lease:
@@ -257,6 +265,20 @@ components:
       $ref: './components/schemas/access-log.yaml#/AccessLogCountryStats'
     AccessLogRow:
       $ref: './components/schemas/access-log.yaml#/AccessLogRow'
+
+    # --------------------
+    # Anomalies
+    # --------------------
+    AnomalyKind:
+      $ref: './components/schemas/anomaly.yaml#/AnomalyKind'
+    AnomalySeverity:
+      $ref: './components/schemas/anomaly.yaml#/AnomalySeverity'
+    AnomalyStatus:
+      $ref: './components/schemas/anomaly.yaml#/AnomalyStatus'
+    Anomaly:
+      $ref: './components/schemas/anomaly.yaml#/Anomaly'
+    AnomalyListResponse:
+      $ref: './components/schemas/anomaly.yaml#/AnomalyListResponse'
 
     # --------------------
     # Rules

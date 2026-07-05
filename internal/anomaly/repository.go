@@ -116,6 +116,40 @@ ON CONFLICT (device_id, dimension, fingerprint) DO UPDATE SET
 	return nil
 }
 
+// Acknowledge marks an anomaly acknowledged, removing it from the open-row
+// uniqueness so a later recurrence opens a fresh row. It is idempotent:
+// acknowledging an already-acknowledged row updates it in place and still
+// succeeds. An unknown id matches no row and returns ErrNotFound.
+func (r *Repository) Acknowledge(ctx context.Context, id int64) error {
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE anomalies SET status = 'acknowledged' WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("acknowledge anomaly: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("acknowledge anomaly rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// DeleteAnomaliesOlderThan prunes anomalies last seen before the cutoff,
+// regardless of status. The horizon is AggregateRetentionDays, not raw
+// retention: anomalies summarize aggregate-era data, so pruning them at the raw
+// window would silently shorten visible anomaly history. device_profiles are
+// intentionally not pruned here — deleting a learned baseline would re-flag an
+// old value as novel; device deletion already cascades them away.
+func (r *Repository) DeleteAnomaliesOlderThan(ctx context.Context, before time.Time) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM anomalies WHERE last_seen_at < ?`, before.UTC())
+	if err != nil {
+		return 0, fmt.Errorf("delete anomalies older than: %w", err)
+	}
+	return res.RowsAffected()
+}
+
 // WithinTx exposes the repository's transaction scope so the job can atomically
 // upsert findings and advance the watermark together.
 func (r *Repository) WithinTx(ctx context.Context, fn func(ctx context.Context) error) error {

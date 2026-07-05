@@ -1,0 +1,104 @@
+anomalies:
+  get:
+    operationId: listAnomalies
+    tags:
+      - anomalies
+    summary: List detected anomalies
+    description: >
+      Returns anomalies produced by the background detection scan, newest first.
+      The set is bounded by retention, so a plain limit is used rather than a
+      cursor. Admin-only.
+    parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/anomaly.yaml#/AnomalyStatus'
+        description: Filter to a single lifecycle status (open or acknowledged).
+      - name: kind
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '../components/schemas/anomaly.yaml#/AnomalyKind'
+        description: Restrict to one or more anomaly kinds (repeatable).
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 100
+          maximum: 500
+        description: Page size (default 100, max 500).
+    responses:
+      "200":
+        description: Detected anomalies
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/anomaly.yaml#/AnomalyListResponse'
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+anomalyAcknowledge:
+  post:
+    operationId: acknowledgeAnomaly
+    tags:
+      - anomalies
+    summary: Acknowledge an anomaly
+    description: >
+      Marks an open anomaly acknowledged so a later recurrence opens a fresh row.
+      Idempotent: acknowledging an already-acknowledged anomaly is a no-op
+      success. Admin-only.
+    parameters:
+      - name: id
+        in: path
+        description: Anomaly id
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "204":
+        description: Anomaly acknowledged
+      "404":
+        description: Anomaly not found
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "401":
+        description: Not authenticated
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'

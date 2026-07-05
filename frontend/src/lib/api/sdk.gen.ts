@@ -11,6 +11,9 @@ import type {
 } from "./client";
 import { client } from "./client.gen";
 import type {
+  AcknowledgeAnomalyData,
+  AcknowledgeAnomalyErrors,
+  AcknowledgeAnomalyResponses,
   AddAddressData,
   AddAddressErrors,
   AddAddressResponses,
@@ -128,6 +131,9 @@ import type {
   IgnoreSuggestionData,
   IgnoreSuggestionErrors,
   IgnoreSuggestionResponses,
+  ListAnomaliesData,
+  ListAnomaliesErrors,
+  ListAnomaliesResponses,
   ListDevicePairingsData,
   ListDevicePairingsErrors,
   ListDevicePairingsResponses,
@@ -195,6 +201,8 @@ import type {
   UpdateNetworkPolicyResponses,
 } from "./types.gen";
 import {
+  zAcknowledgeAnomalyPath,
+  zAcknowledgeAnomalyResponse,
   zAddAddressBody,
   zAddAddressPath,
   zAddAddressResponse,
@@ -270,6 +278,8 @@ import {
   zGetUserAccessDetailResponse,
   zIgnoreSuggestionBody,
   zIgnoreSuggestionResponse,
+  zListAnomaliesQuery,
+  zListAnomaliesResponse,
   zListDevicePairingsPath,
   zListDevicePairingsQuery,
   zListDevicePairingsResponse,
@@ -1256,6 +1266,80 @@ export const getAccessLogByCountry = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/access-log/stats/by-country",
+    ...options,
+  });
+
+/**
+ * List detected anomalies
+ *
+ * Returns anomalies produced by the background detection scan, newest first. The set is bounded by retention, so a plain limit is used rather than a cursor. Admin-only.
+ *
+ */
+export const listAnomalies = <ThrowOnError extends boolean = false>(
+  options?: Options<ListAnomaliesData, ThrowOnError>,
+): RequestResult<ListAnomaliesResponses, ListAnomaliesErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    ListAnomaliesResponses,
+    ListAnomaliesErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: z.never().optional(),
+          query: zListAnomaliesQuery.optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zListAnomaliesResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/anomalies",
+    ...options,
+  });
+
+/**
+ * Acknowledge an anomaly
+ *
+ * Marks an open anomaly acknowledged so a later recurrence opens a fresh row. Idempotent: acknowledging an already-acknowledged anomaly is a no-op success. Admin-only.
+ *
+ */
+export const acknowledgeAnomaly = <ThrowOnError extends boolean = false>(
+  options: Options<AcknowledgeAnomalyData, ThrowOnError>,
+): RequestResult<
+  AcknowledgeAnomalyResponses,
+  AcknowledgeAnomalyErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    AcknowledgeAnomalyResponses,
+    AcknowledgeAnomalyErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: zAcknowledgeAnomalyPath,
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zAcknowledgeAnomalyResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/anomalies/{id}/acknowledge",
     ...options,
   });
 

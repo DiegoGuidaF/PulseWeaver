@@ -7,37 +7,40 @@ package anomaly
 import (
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
 // Kind identifies a detector's output, grouped by the family that produces it.
+// The value set is derived from the generated OpenAPI enum so a rename in the
+// contract fails here at compile time.
 type Kind string
 
 const (
 	// Rules family — deterministic, no statistics.
-	KindExpiredAccess Kind = "expired_access"
-	KindInvalidToken  Kind = "invalid_token"
+	KindExpiredAccess Kind = Kind(httpapi.AnomalyKindExpiredAccess)
+	KindInvalidToken  Kind = Kind(httpapi.AnomalyKindInvalidToken)
 
 	// Volume family — statistical baselines and windowed thresholds.
-	KindDenySpike    Kind = "deny_spike"
-	KindEntityDrift  Kind = "entity_drift"
-	KindGeoDenied    Kind = "geo_denied"
-	KindHostProbing  Kind = "host_probing"
-	KindAddressChurn Kind = "address_churn"
+	KindDenySpike    Kind = Kind(httpapi.AnomalyKindDenySpike)
+	KindEntityDrift  Kind = Kind(httpapi.AnomalyKindEntityDrift)
+	KindGeoDenied    Kind = Kind(httpapi.AnomalyKindGeoDenied)
+	KindHostProbing  Kind = Kind(httpapi.AnomalyKindHostProbing)
+	KindAddressChurn Kind = Kind(httpapi.AnomalyKindAddressChurn)
 
 	// Novelty family — per-device profiles and geo-velocity.
-	KindNewUserAgent     Kind = "new_user_agent"
-	KindNewCountry       Kind = "new_country"
-	KindImpossibleTravel Kind = "impossible_travel"
+	KindNewUserAgent     Kind = Kind(httpapi.AnomalyKindNewUserAgent)
+	KindNewCountry       Kind = Kind(httpapi.AnomalyKindNewCountry)
+	KindImpossibleTravel Kind = Kind(httpapi.AnomalyKindImpossibleTravel)
 )
 
 // Severity ranks how much an operator should care about a finding.
 type Severity string
 
 const (
-	SeverityInfo     Severity = "info"
-	SeverityWarning  Severity = "warning"
-	SeverityCritical Severity = "critical"
+	SeverityInfo     Severity = Severity(httpapi.Info)
+	SeverityWarning  Severity = Severity(httpapi.Warning)
+	SeverityCritical Severity = Severity(httpapi.Critical)
 )
 
 // Status is the lifecycle of a persisted anomaly. Dedup keeps at most one open
@@ -45,8 +48,8 @@ const (
 type Status string
 
 const (
-	StatusOpen         Status = "open"
-	StatusAcknowledged Status = "acknowledged"
+	StatusOpen         Status = Status(httpapi.Open)
+	StatusAcknowledged Status = Status(httpapi.Acknowledged)
 )
 
 // Family groups detectors so a single config toggle enables or disables all

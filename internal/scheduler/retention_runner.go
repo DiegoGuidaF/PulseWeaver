@@ -19,15 +19,21 @@ type AggregatePruner interface {
 	DeleteAttributionAggregatesOlderThan(ctx context.Context, before time.Time) (int64, error)
 }
 
+type AnomalyPruner interface {
+	DeleteAnomaliesOlderThan(ctx context.Context, before time.Time) (int64, error)
+}
+
 // RetentionJob deletes rows older than the configured retention windows.
 // Raw data (access_log, address_events) is pruned at retentionDays; the
-// hourly traffic aggregates serving wide dashboard windows are pruned at the
-// independent, longer aggregateRetentionDays horizon. A days value of 0
-// disables the corresponding deletion entirely.
+// hourly traffic aggregates serving wide dashboard windows — and anomalies,
+// which summarize that aggregate-era data — are pruned at the independent,
+// longer aggregateRetentionDays horizon. A days value of 0 disables the
+// corresponding deletion entirely.
 type RetentionJob struct {
 	accessLogPruner        AccessLogPruner
 	addressEventPruner     AddressEventPruner
 	aggregatePruner        AggregatePruner
+	anomalyPruner          AnomalyPruner
 	retentionDays          int
 	aggregateRetentionDays int
 	lastRanAt              time.Time
@@ -38,6 +44,7 @@ func NewRetentionJob(
 	accessLogPruner AccessLogPruner,
 	addressEventPruner AddressEventPruner,
 	aggregatePruner AggregatePruner,
+	anomalyPruner AnomalyPruner,
 	retentionDays int,
 	aggregateRetentionDays int,
 	logger *slog.Logger,
@@ -46,6 +53,7 @@ func NewRetentionJob(
 		accessLogPruner:        accessLogPruner,
 		addressEventPruner:     addressEventPruner,
 		aggregatePruner:        aggregatePruner,
+		anomalyPruner:          anomalyPruner,
 		retentionDays:          retentionDays,
 		aggregateRetentionDays: aggregateRetentionDays,
 		logger:                 logger.With(slog.String(AttrKeyComponent, "retention_job")),
@@ -106,6 +114,16 @@ func (j *RetentionJob) Run(ctx context.Context) error {
 		}
 		j.logger.InfoContext(ctx, "attribution aggregate retention complete",
 			slog.Int64(AttrKeyCount, deletedAttributionAggregates),
+			slog.Int("retention_days", j.aggregateRetentionDays),
+		)
+
+		deletedAnomalies, err := j.anomalyPruner.DeleteAnomaliesOlderThan(ctx, aggregateCutoff)
+		if err != nil {
+			j.logger.ErrorContext(ctx, "anomaly retention failed", slog.Any(AttrKeyError, err))
+			return err
+		}
+		j.logger.InfoContext(ctx, "anomaly retention complete",
+			slog.Int64(AttrKeyCount, deletedAnomalies),
 			slog.Int("retention_days", j.aggregateRetentionDays),
 		)
 	}

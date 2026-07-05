@@ -156,6 +156,11 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	//TODO: Change networkPoliciesRepo to service
 	queriesHandler := queries.NewHTTPHandler(queriesRepo, policyService, networkPoliciesRepo, deviceService, geoipLookup, logger)
 
+	// Anomaly detection — the acknowledge endpoint is served regardless of whether
+	// the background scan runs, so historical findings stay reviewable.
+	anomalyRepo := anomaly.NewRepository(db.DB())
+	anomalyHandler := anomaly.NewHTTPHandler(anomalyRepo, logger)
+
 	// Address Lease manager
 	addressLeaseRepo := lease.NewRepository(db.DB())
 	addressLeaseService := lease.NewService(addressLeaseRepo, ruleService, logger)
@@ -194,13 +199,12 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	schedulerService := scheduler.NewService(logger)
 	schedulerService.AddJob(addressLeaseService.NewExpiryJob(deviceService))
 	schedulerService.AddJob(rollupRepo.NewRollupJob(logger))
-	schedulerService.AddJob(scheduler.NewRetentionJob(accessLogRepo, deviceRepo, rollupRepo,
+	schedulerService.AddJob(scheduler.NewRetentionJob(accessLogRepo, deviceRepo, rollupRepo, anomalyRepo,
 		conf.Rules.DataRetentionDays, conf.Rules.AggregateRetentionDays, logger))
 
 	// Anomaly detection — background scan producing findings for review.
 	// Unregistered entirely when disabled.
 	if conf.Anomaly.Enabled {
-		anomalyRepo := anomaly.NewRepository(db.DB())
 		schedulerService.AddJob(anomaly.NewScanJob(anomalyRepo, anomaly.AllDetectors(anomalyRepo, geoipLookup), anomaly.ScanOptions{
 			Interval:            conf.Anomaly.ScanInterval,
 			Sensitivity:         conf.Anomaly.Sensitivity,
@@ -240,6 +244,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		hostsHandler,
 		userAccessHandler,
 		networkPoliciesHandler,
+		anomalyHandler,
 		logger,
 		conf.Server.TrustedProxy,
 	)

@@ -515,6 +515,114 @@ export type AccessLogRow = {
   network_policy_name?: string | null;
 };
 
+/**
+ * The detector output that produced an anomaly, grouped by family: rules (expired_access, invalid_token), volume (deny_spike, entity_drift, geo_denied, host_probing, address_churn), and novelty (new_user_agent, new_country, impossible_travel).
+ *
+ */
+export const AnomalyKind = {
+  EXPIRED_ACCESS: "expired_access",
+  INVALID_TOKEN: "invalid_token",
+  DENY_SPIKE: "deny_spike",
+  ENTITY_DRIFT: "entity_drift",
+  GEO_DENIED: "geo_denied",
+  HOST_PROBING: "host_probing",
+  ADDRESS_CHURN: "address_churn",
+  NEW_USER_AGENT: "new_user_agent",
+  NEW_COUNTRY: "new_country",
+  IMPOSSIBLE_TRAVEL: "impossible_travel",
+} as const;
+
+/**
+ * The detector output that produced an anomaly, grouped by family: rules (expired_access, invalid_token), volume (deny_spike, entity_drift, geo_denied, host_probing, address_churn), and novelty (new_user_agent, new_country, impossible_travel).
+ *
+ */
+export type AnomalyKind = (typeof AnomalyKind)[keyof typeof AnomalyKind];
+
+/**
+ * How much an operator should care about a finding.
+ */
+export const AnomalySeverity = {
+  INFO: "info",
+  WARNING: "warning",
+  CRITICAL: "critical",
+} as const;
+
+/**
+ * How much an operator should care about a finding.
+ */
+export type AnomalySeverity =
+  (typeof AnomalySeverity)[keyof typeof AnomalySeverity];
+
+/**
+ * Lifecycle of a persisted anomaly. Dedup keeps at most one open row per fingerprint; acknowledging a row lets a later recurrence open a new one.
+ *
+ */
+export const AnomalyStatus = {
+  OPEN: "open",
+  ACKNOWLEDGED: "acknowledged",
+} as const;
+
+/**
+ * Lifecycle of a persisted anomaly. Dedup keeps at most one open row per fingerprint; acknowledging a row lets a later recurrence open a new one.
+ *
+ */
+export type AnomalyStatus = (typeof AnomalyStatus)[keyof typeof AnomalyStatus];
+
+export type Anomaly = {
+  id: Id;
+  kind: AnomalyKind;
+  severity: AnomalySeverity;
+  status: AnomalyStatus;
+  /**
+   * When the condition was first observed.
+   */
+  first_seen_at: string;
+  /**
+   * When the condition was most recently re-observed.
+   */
+  last_seen_at: string;
+  /**
+   * Attributed device, when the finding is device-scoped. Null once the device is deleted (the name is retained).
+   *
+   */
+  device_id?: Id | null;
+  /**
+   * Device name at detection time; retained after device deletion.
+   */
+  device_name?: string;
+  /**
+   * Attributed user; null once the user is deleted.
+   */
+  user_id?: Id | null;
+  /**
+   * User name at detection time; retained after user deletion.
+   */
+  user_name?: string;
+  /**
+   * Source IP the finding relates to, when applicable.
+   */
+  client_ip?: string | null;
+  /**
+   * Target host the finding relates to, when applicable.
+   */
+  target_host?: string | null;
+  /**
+   * ISO 3166-1 alpha-2 country the finding relates to, when applicable.
+   */
+  country_code?: string | null;
+  /**
+   * Kind-specific supporting detail (counts, thresholds, involved values). A free-form object shaped by the detector that produced the finding.
+   *
+   */
+  evidence: {
+    [key: string]: unknown;
+  };
+};
+
+export type AnomalyListResponse = {
+  anomalies: Array<Anomaly>;
+};
+
 export type DeviceAddressLeaseRule = {
   id?: Id;
   device_id: Id;
@@ -2531,6 +2639,97 @@ export type GetAccessLogByCountryResponses = {
 
 export type GetAccessLogByCountryResponse =
   GetAccessLogByCountryResponses[keyof GetAccessLogByCountryResponses];
+
+export type ListAnomaliesData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Filter to a single lifecycle status (open or acknowledged).
+     */
+    status?: AnomalyStatus;
+    /**
+     * Restrict to one or more anomaly kinds (repeatable).
+     */
+    kind?: Array<AnomalyKind>;
+    /**
+     * Page size (default 100, max 500).
+     */
+    limit?: number;
+  };
+  url: "/anomalies";
+};
+
+export type ListAnomaliesErrors = {
+  /**
+   * Not authenticated
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden - admin credentials required
+   */
+  403: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type ListAnomaliesError = ListAnomaliesErrors[keyof ListAnomaliesErrors];
+
+export type ListAnomaliesResponses = {
+  /**
+   * Detected anomalies
+   */
+  200: AnomalyListResponse;
+};
+
+export type ListAnomaliesResponse =
+  ListAnomaliesResponses[keyof ListAnomaliesResponses];
+
+export type AcknowledgeAnomalyData = {
+  body?: never;
+  path: {
+    /**
+     * Anomaly id
+     */
+    id: Id;
+  };
+  query?: never;
+  url: "/anomalies/{id}/acknowledge";
+};
+
+export type AcknowledgeAnomalyErrors = {
+  /**
+   * Not authenticated
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden - admin credentials required
+   */
+  403: ErrorResponse;
+  /**
+   * Anomaly not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type AcknowledgeAnomalyError =
+  AcknowledgeAnomalyErrors[keyof AcknowledgeAnomalyErrors];
+
+export type AcknowledgeAnomalyResponses = {
+  /**
+   * Anomaly acknowledged
+   */
+  204: void;
+};
+
+export type AcknowledgeAnomalyResponse =
+  AcknowledgeAnomalyResponses[keyof AcknowledgeAnomalyResponses];
 
 export type DisableDeviceAddressLeaseRuleData = {
   body?: never;

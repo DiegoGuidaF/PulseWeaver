@@ -20,10 +20,10 @@ type DecisionResult struct {
 type DenyReason string
 
 const (
-	DenyReasonNoDeviceMatch   DenyReason = DenyReason(httpapi.NoDeviceMatch)
-	DenyReasonIPNotRegistered DenyReason = DenyReason(httpapi.IpNotRegistered)
-	DenyReasonInvalidToken    DenyReason = DenyReason(httpapi.InvalidToken)
-	DenyReasonHostNotAllowed  DenyReason = DenyReason(httpapi.HostNotAllowed)
+	DenyReasonNoDeviceMatch   DenyReason = DenyReason(httpapi.PolicyDenyReasonNoDeviceMatch)
+	DenyReasonIPNotRegistered DenyReason = DenyReason(httpapi.PolicyDenyReasonIpNotRegistered)
+	DenyReasonInvalidToken    DenyReason = DenyReason(httpapi.PolicyDenyReasonInvalidToken)
+	DenyReasonHostNotAllowed  DenyReason = DenyReason(httpapi.PolicyDenyReasonHostNotAllowed)
 )
 
 // MatchSource identifies which mechanism authorized a verify request.

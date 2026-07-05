@@ -260,6 +260,55 @@ export const zAccessLogCountryStats = z.object({
   denied: z.int(),
 });
 
+/**
+ * The detector output that produced an anomaly, grouped by family: rules (expired_access, invalid_token), volume (deny_spike, entity_drift, geo_denied, host_probing, address_churn), and novelty (new_user_agent, new_country, impossible_travel).
+ *
+ */
+export const zAnomalyKind = z.enum([
+  "expired_access",
+  "invalid_token",
+  "deny_spike",
+  "entity_drift",
+  "geo_denied",
+  "host_probing",
+  "address_churn",
+  "new_user_agent",
+  "new_country",
+  "impossible_travel",
+]);
+
+/**
+ * How much an operator should care about a finding.
+ */
+export const zAnomalySeverity = z.enum(["info", "warning", "critical"]);
+
+/**
+ * Lifecycle of a persisted anomaly. Dedup keeps at most one open row per fingerprint; acknowledging a row lets a later recurrence open a new one.
+ *
+ */
+export const zAnomalyStatus = z.enum(["open", "acknowledged"]);
+
+export const zAnomaly = z.object({
+  id: zId,
+  kind: zAnomalyKind,
+  severity: zAnomalySeverity,
+  status: zAnomalyStatus,
+  first_seen_at: z.iso.datetime({ offset: true, local: true }),
+  last_seen_at: z.iso.datetime({ offset: true, local: true }),
+  device_id: zId.nullish(),
+  device_name: z.string().optional(),
+  user_id: zId.nullish(),
+  user_name: z.string().optional(),
+  client_ip: z.string().nullish(),
+  target_host: z.string().nullish(),
+  country_code: z.string().nullish(),
+  evidence: z.record(z.string(), z.unknown()),
+});
+
+export const zAnomalyListResponse = z.object({
+  anomalies: z.array(zAnomaly),
+});
+
 export const zDeviceAddressLeaseRule = z.object({
   id: zId.optional(),
   device_id: zId,
@@ -1292,6 +1341,26 @@ export const zGetAccessLogByCountryQuery = z.object({
  * Request counts by country
  */
 export const zGetAccessLogByCountryResponse = z.array(zAccessLogCountryStats);
+
+export const zListAnomaliesQuery = z.object({
+  status: zAnomalyStatus.optional(),
+  kind: z.array(zAnomalyKind).max(20).optional(),
+  limit: z.int().lte(500).optional().default(100),
+});
+
+/**
+ * Detected anomalies
+ */
+export const zListAnomaliesResponse = zAnomalyListResponse;
+
+export const zAcknowledgeAnomalyPath = z.object({
+  id: zId,
+});
+
+/**
+ * Anomaly acknowledged
+ */
+export const zAcknowledgeAnomalyResponse = z.void();
 
 export const zDisableDeviceAddressLeaseRulePath = z.object({
   device_id: zId,
