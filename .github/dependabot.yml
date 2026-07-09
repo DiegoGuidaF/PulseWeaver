@@ -70,6 +70,20 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
 
+  # Docker base images (Dockerfile: node, golang, distroless) — group minor/patch
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "Europe/Rome"
+    open-pull-requests-limit: 3
+    assignees: ["DiegoGuidaF"]
+    labels: ["dependencies", "ci"]
+    groups:
+      docker-minor-patch:
+        update-types: ["minor", "patch"]
+
   # GitHub Actions — group minor/patch; major bumps (v4→v5) get individual PRs
   - package-ecosystem: "github-actions"
     directory: "/"
