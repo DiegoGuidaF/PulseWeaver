@@ -23,7 +23,7 @@ COPY frontend/ ./frontend/
 RUN npm run build --prefix frontend
 
 # Stage 2: Go Build
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS backend-builder
+FROM --platform=$BUILDPLATFORM golang:1.26.5-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS backend-builder
 
 WORKDIR /build
 
@@ -62,7 +62,7 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod,sharing=locked \
 RUN mkdir -p /runtime-data/geoip
 
 # Stage 3: Final Runtime
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:b7bb25d9f7c31d2bdd1982feb4dafcaf137703c7075dbe2febb41c24212b946f
 
 WORKDIR /app
 
