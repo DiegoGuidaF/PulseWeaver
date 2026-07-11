@@ -6,6 +6,7 @@ import { useDashboardServices } from "../hooks/useDashboardServices";
 import { useTopDeniedIPs } from "../hooks/useTopDeniedIPs";
 import { useDashboardTimeRange } from "../hooks/useDashboardTimeRange";
 import { PostureStrip } from "./PostureStrip";
+import { AnomalySection } from "@/features/anomalies/components/AnomalySection";
 import { DashboardStatCards } from "./DashboardStatCards";
 import { TrafficLineChart } from "@/components/TrafficLineChart";
 import { ServiceBarChart } from "./ServiceBarChart";
@@ -33,6 +34,8 @@ export function DashboardView() {
                 error={posture.error}
                 onRetry={() => posture.refetch()}
             />
+
+            <AnomalySection />
 
             <Stack gap="lg">
                 {/* Preset lives on the traffic section, not the page toolbar, so it is

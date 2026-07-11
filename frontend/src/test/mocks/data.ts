@@ -1,5 +1,5 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceOwnerGroup, GroupDetailWithUsers, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
-import { AddressEventSource, DeviceState, PolicyUserStatus, UserRole } from "@/lib/api";
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, Anomaly, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceOwnerGroup, GroupDetailWithUsers, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import { AddressEventSource, AnomalyKind, AnomalySeverity, AnomalyStatus, DeviceState, PolicyUserStatus, UserRole } from "@/lib/api";
 
 /**
  * Creates a mock Device object with realistic defaults.
@@ -629,6 +629,32 @@ export function createMockDeviceOwnerGroup(
         created_at: '2024-01-01T00:00:00Z',
       },
     ],
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a mock Anomaly with realistic defaults.
+ * @param overrides - Partial Anomaly to override defaults
+ * @returns An Anomaly object
+ */
+export function createMockAnomaly(overrides?: Partial<Anomaly>): Anomaly {
+  return {
+    id: 1,
+    kind: AnomalyKind.DENY_SPIKE,
+    severity: AnomalySeverity.WARNING,
+    status: AnomalyStatus.OPEN,
+    first_seen_at: '2026-01-01T09:00:00Z',
+    last_seen_at: '2026-01-01T10:00:00Z',
+    device_id: 1,
+    device_name: 'Test Device',
+    user_id: 1,
+    user_name: 'Test User',
+    client_ip: '203.0.113.42',
+    target_host: 'example.com',
+    country_code: 'US',
+    evidence: { series: 'host:example.com', outcome: 'deny', observed: 48, baseline: 3, threshold: 20 },
+    summary: '48 denials in an hour on host:example.com vs a typical 3 (threshold 20).',
     ...overrides,
   };
 }

@@ -1,5 +1,5 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceOwnerGroup, DevicePairing, GroupDetailWithUsers, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { Address, AddressHistoryResponse, AccessLogCountryStats, Anomaly, CreateDeviceResponse, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceOwnerGroup, DevicePairing, GroupDetailWithUsers, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import type { AttributionKind } from '@/features/dashboard/hooks/useAttributionSplit';
 import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardAttributionCount, createMockDashboardPosture, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceOwnerGroup, createMockDevicePairing, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
 
@@ -53,6 +53,8 @@ export const endpoints = {
     networkPolicyGrants: `${BASE}/admin/access/network-policies/:id/grants`,
     devicePairings: `${BASE}/devices/:id/pairings`,
     devicePairingById: `${BASE}/devices/:id/pairings/:pairingId`,
+    anomalies: `${BASE}/anomalies`,
+    anomalyAcknowledge: `${BASE}/anomalies/:id/acknowledge`,
 } as const;
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
@@ -527,6 +529,19 @@ export const devicePairingHandlers = {
     },
 };
 
+// ─── Anomaly handlers ──────────────────────────────────────────────────────────
+export const anomalyHandlers = {
+    list: (anomalies?: Anomaly[]) =>
+        http.get(endpoints.anomalies, () =>
+            HttpResponse.json({ anomalies: anomalies ?? [] })),
+    acknowledge: {
+        success: () =>
+            http.post(endpoints.anomalyAcknowledge, () => responses.noContent()),
+        notFound: () =>
+            http.post(endpoints.anomalyAcknowledge, () => responses.notFound()),
+    },
+};
+
 // ─── Default happy-path handlers (registered globally in setup.ts) ────────────
 // Every test starts in a fully-loaded state. Only call server.use() for deviations.
 export const defaultHandlers = [
@@ -594,4 +609,7 @@ export const defaultHandlers = [
     // Policy audit
     policyAuditHandlers.policyMap.success(),
     policyAuditHandlers.simulate.allowed(),
+    // Anomalies — empty by default so existing dashboard/nav tests are unaffected.
+    anomalyHandlers.list(),
+    anomalyHandlers.acknowledge.success(),
 ];

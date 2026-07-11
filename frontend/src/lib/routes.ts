@@ -14,6 +14,7 @@ export const ROUTES = {
   policyAudit: "/policy-audit",
   accessNetworkPolicies: "/access/network-policies",
   accessNetworkPolicyDetail: "/access/network-policies/:id",
+  anomalies: "/anomalies",
 } as const;
 
 export const buildRoute = {
