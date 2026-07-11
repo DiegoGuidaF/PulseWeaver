@@ -1026,6 +1026,7 @@ export const AnomalySchema = {
     "first_seen_at",
     "last_seen_at",
     "evidence",
+    "summary",
   ],
   properties: {
     id: {
@@ -1101,6 +1102,11 @@ export const AnomalySchema = {
       additionalProperties: true,
       description:
         "Kind-specific supporting detail (counts, thresholds, involved values). A free-form object shaped by the detector that produced the finding.\n",
+    },
+    summary: {
+      type: "string",
+      description:
+        "One-line, presentation-ready description of the finding, rendered by the backend from the evidence. Kind-specific wording; safe to display as-is.\n",
     },
   },
 } as const;

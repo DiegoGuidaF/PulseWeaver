@@ -1311,6 +1311,12 @@ paths:
           schema:
             $ref: '#/components/schemas/AnomalyStatus'
           description: Filter to a single lifecycle status (open or acknowledged).
+        - name: severity
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AnomalySeverity'
+          description: Filter to a single severity (info, warning, or critical).
         - name: kind
           in: query
           required: false
@@ -3594,6 +3600,7 @@ components:
         - first_seen_at
         - last_seen_at
         - evidence
+        - summary
       properties:
         id:
           $ref: '#/components/schemas/ID'
@@ -3647,6 +3654,10 @@ components:
           additionalProperties: true
           description: |
             Kind-specific supporting detail (counts, thresholds, involved values). A free-form object shaped by the detector that produced the finding.
+        summary:
+          type: string
+          description: |
+            One-line, presentation-ready description of the finding, rendered by the backend from the evidence. Kind-specific wording; safe to display as-is.
     AnomalyListResponse:
       type: object
       required:

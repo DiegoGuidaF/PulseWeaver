@@ -8,15 +8,17 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/anomaly"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 )
 
 // AnomalyListQuery is the resolved, validated filter for the anomaly list. The
 // handler builds it from request params; a nil/empty field means "no filter".
 type AnomalyListQuery struct {
-	Status *string
-	Kinds  []string
-	Limit  int
+	Status   *string
+	Severity *string
+	Kinds    []string
+	Limit    int
 }
 
 // ListAnomalies returns detected anomalies newest first (by last-seen), filtered
@@ -26,6 +28,9 @@ func (r *Repository) ListAnomalies(ctx context.Context, q AnomalyListQuery) ([]h
 	cond := sq.And{}
 	if q.Status != nil {
 		cond = append(cond, sq.Eq{"status": *q.Status})
+	}
+	if q.Severity != nil {
+		cond = append(cond, sq.Eq{"severity": *q.Severity})
 	}
 	if len(q.Kinds) > 0 {
 		cond = append(cond, sq.Eq{"kind": q.Kinds})
@@ -89,6 +94,7 @@ func (r *Repository) ListAnomalies(ctx context.Context, q AnomalyListQuery) ([]h
 			TargetHost:  row.TargetHost,
 			CountryCode: row.CountryCode,
 			Evidence:    evidence,
+			Summary:     anomaly.Summarize(anomaly.Kind(row.Kind), evidence),
 		}
 	}
 	return out, nil

@@ -15,6 +15,12 @@ anomalies:
         schema:
           $ref: '../components/schemas/anomaly.yaml#/AnomalyStatus'
         description: Filter to a single lifecycle status (open or acknowledged).
+      - name: severity
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/anomaly.yaml#/AnomalySeverity'
+        description: Filter to a single severity (info, warning, or critical).
       - name: kind
         in: query
         required: false

@@ -303,6 +303,7 @@ export const zAnomaly = z.object({
   target_host: z.string().nullish(),
   country_code: z.string().nullish(),
   evidence: z.record(z.string(), z.unknown()),
+  summary: z.string(),
 });
 
 export const zAnomalyListResponse = z.object({
@@ -1344,6 +1345,7 @@ export const zGetAccessLogByCountryResponse = z.array(zAccessLogCountryStats);
 
 export const zListAnomaliesQuery = z.object({
   status: zAnomalyStatus.optional(),
+  severity: zAnomalySeverity.optional(),
   kind: z.array(zAnomalyKind).max(20).optional(),
   limit: z.int().lte(500).optional().default(100),
 });

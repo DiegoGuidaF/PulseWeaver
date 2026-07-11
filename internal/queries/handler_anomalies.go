@@ -26,6 +26,10 @@ func (h *HTTPHandler) ListAnomalies(
 		status := string(*request.Params.Status)
 		q.Status = &status
 	}
+	if request.Params.Severity != nil {
+		severity := string(*request.Params.Severity)
+		q.Severity = &severity
+	}
 	if request.Params.Kind != nil {
 		kinds := make([]string, len(*request.Params.Kind))
 		for i, k := range *request.Params.Kind {

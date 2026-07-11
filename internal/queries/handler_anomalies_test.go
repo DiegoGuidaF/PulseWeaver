@@ -19,14 +19,14 @@ import (
 // id, so the list/acknowledge API can be exercised without driving a scan. Name
 // resolution is covered end-to-end by TestAnomalies_ScanToAPI, so seeded rows
 // leave the denormalized name columns empty.
-func insertAnomaly(t *testing.T, db *database.DB, kind, status string, lastSeen time.Time) int64 {
+func insertAnomaly(t *testing.T, db *database.DB, kind, status, severity string, lastSeen time.Time) int64 {
 	t.Helper()
 	var id int64
 	err := db.QueryRowxContext(context.Background(),
 		`INSERT INTO anomalies
 		   (kind, severity, status, fingerprint, first_seen_at, last_seen_at, evidence_json)
-		 VALUES (?, 'warning', ?, ?, ?, ?, '{}') RETURNING id`,
-		kind, status, kind+":"+lastSeen.Format(time.RFC3339Nano), lastSeen.UTC(), lastSeen.UTC(),
+		 VALUES (?, ?, ?, ?, ?, ?, '{}') RETURNING id`,
+		kind, severity, status, kind+":"+lastSeen.Format(time.RFC3339Nano), lastSeen.UTC(), lastSeen.UTC(),
 	).Scan(&id)
 	if err != nil {
 		t.Fatalf("insert anomaly: %v", err)
@@ -49,9 +49,9 @@ func TestListAnomalies_NewestFirstAndFilters(t *testing.T) {
 	db := srv.Database.DB()
 	now := time.Now()
 
-	oldOpen := insertAnomaly(t, db, "expired_access", "open", now.Add(-3*time.Hour))
-	newestOpen := insertAnomaly(t, db, "deny_spike", "open", now.Add(-1*time.Hour))
-	ackMid := insertAnomaly(t, db, "invalid_token", "acknowledged", now.Add(-2*time.Hour))
+	oldOpen := insertAnomaly(t, db, "expired_access", "open", "warning", now.Add(-3*time.Hour))
+	newestOpen := insertAnomaly(t, db, "deny_spike", "open", "warning", now.Add(-1*time.Hour))
+	ackMid := insertAnomaly(t, db, "invalid_token", "acknowledged", "warning", now.Add(-2*time.Hour))
 
 	client := testutils.NewAdminAPIClient(t, srv)
 
@@ -85,6 +85,42 @@ func TestListAnomalies_NewestFirstAndFilters(t *testing.T) {
 	is.Equal(limited.JSON200.Anomalies[0].Id, newestOpen)
 }
 
+func TestListAnomalies_SeverityFilterAndSummary(t *testing.T) {
+	is := is.New(t)
+	srv := testutils.SetupIntegrationServer(t)
+	db := srv.Database.DB()
+	now := time.Now()
+
+	warn := insertAnomaly(t, db, "expired_access", "open", "warning", now.Add(-1*time.Hour))
+	critOpen := insertAnomaly(t, db, "invalid_token", "open", "critical", now.Add(-2*time.Hour))
+	critAck := insertAnomaly(t, db, "invalid_token", "acknowledged", "critical", now.Add(-3*time.Hour))
+
+	client := testutils.NewAdminAPIClient(t, srv)
+
+	all, err := client.ListAnomaliesWithResponse(context.Background(), &httpapi.ListAnomaliesParams{})
+	is.NoErr(err)
+	is.Equal(all.StatusCode(), http.StatusOK)
+	for _, a := range all.JSON200.Anomalies {
+		is.True(a.Summary != "") // every anomaly gets a rendered, kind-specific summary
+	}
+
+	criticalSeverity := httpapi.Critical
+	bySeverity, err := client.ListAnomaliesWithResponse(context.Background(), &httpapi.ListAnomaliesParams{Severity: &criticalSeverity})
+	is.NoErr(err)
+	is.Equal(len(bySeverity.JSON200.Anomalies), 2)
+	_, hasWarn := anomalyByID(bySeverity.JSON200.Anomalies, warn)
+	is.True(!hasWarn)
+
+	openStatus := httpapi.Open
+	combined, err := client.ListAnomaliesWithResponse(context.Background(), &httpapi.ListAnomaliesParams{Severity: &criticalSeverity, Status: &openStatus})
+	is.NoErr(err)
+	is.Equal(len(combined.JSON200.Anomalies), 1)
+	_, hasCritOpen := anomalyByID(combined.JSON200.Anomalies, critOpen)
+	is.True(hasCritOpen)
+	_, hasCritAck := anomalyByID(combined.JSON200.Anomalies, critAck)
+	is.True(!hasCritAck)
+}
+
 func TestListAnomalies_Unauthenticated_401(t *testing.T) {
 	is := is.New(t)
 	srv := testutils.SetupIntegrationServer(t)
@@ -99,7 +135,7 @@ func TestAcknowledgeAnomaly_FlipsThenIdempotent(t *testing.T) {
 	is := is.New(t)
 	srv := testutils.SetupIntegrationServer(t)
 	db := srv.Database.DB()
-	id := insertAnomaly(t, db, "deny_spike", "open", time.Now())
+	id := insertAnomaly(t, db, "deny_spike", "open", "warning", time.Now())
 
 	client := testutils.NewAdminAPIClient(t, srv)
 
@@ -133,7 +169,7 @@ func TestAcknowledgeAnomaly_Unauthenticated_401(t *testing.T) {
 	is := is.New(t)
 	srv := testutils.SetupIntegrationServer(t)
 	db := srv.Database.DB()
-	id := insertAnomaly(t, db, "deny_spike", "open", time.Now())
+	id := insertAnomaly(t, db, "deny_spike", "open", "warning", time.Now())
 
 	client := testutils.NewAPIClient(t, srv)
 	resp, err := client.AcknowledgeAnomalyWithResponse(context.Background(), id)

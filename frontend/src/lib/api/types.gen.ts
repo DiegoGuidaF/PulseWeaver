@@ -617,6 +617,11 @@ export type Anomaly = {
   evidence: {
     [key: string]: unknown;
   };
+  /**
+   * One-line, presentation-ready description of the finding, rendered by the backend from the evidence. Kind-specific wording; safe to display as-is.
+   *
+   */
+  summary: string;
 };
 
 export type AnomalyListResponse = {
@@ -2648,6 +2653,10 @@ export type ListAnomaliesData = {
      * Filter to a single lifecycle status (open or acknowledged).
      */
     status?: AnomalyStatus;
+    /**
+     * Filter to a single severity (info, warning, or critical).
+     */
+    severity?: AnomalySeverity;
     /**
      * Restrict to one or more anomaly kinds (repeatable).
      */
