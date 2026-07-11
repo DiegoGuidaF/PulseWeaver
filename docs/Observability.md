@@ -57,6 +57,43 @@ The **Dashboard** aggregates the same decisions into charts for a time window yo
 Windows up to 24 hours are computed live from the raw log. Longer windows use hourly summaries, so the most recent
 hour fills in as it completes.
 
+## Anomaly detection
+
+Raw logs and charts only help when you're looking at them. A background scan (every 5 minutes by default) interprets
+the access log and traffic aggregates for you and flags activity that deviates from your instance's own baselines:
+
+| Kind                | What it flags                                                                                       |
+|---------------------|------------------------------------------------------------------------------------------------------|
+| `expired_access`    | A device kept sending requests after its address lease expired — the user is silently locked out.     |
+| `invalid_token`     | Requests with a wrong `verify-ip` secret — a broken proxy config, or something that isn't your proxy. |
+| `deny_spike`        | Denials (or overall traffic) far above the usual hourly volume — scans, probes, misbehaving clients.  |
+| `entity_drift`      | One user, device, or policy doing several times its own normal volume.                                |
+| `geo_denied`        | Denied traffic from countries where none of your users are.                                           |
+| `host_probing`      | A known device denied across many *different* hosts — patient probing that never spikes.               |
+| `address_churn`     | One device registering an unusual number of new addresses — possible key sharing.                     |
+| `new_user_agent`    | An allowed request from a device with a browser/client fingerprint never seen before.                 |
+| `new_country`       | A device active from a country it has never been in.                                                  |
+| `impossible_travel` | A device present in two countries at once, or hopping between them faster than travel allows.         |
+
+Findings appear in the **Unusual activity** section on the dashboard and under **Auditing → Anomalies**, each with a
+plain-language summary, severity, and the evidence behind it (observed count vs baseline, the new fingerprint, …).
+Re-detection of the same ongoing condition updates the existing entry instead of piling up duplicates, so the list
+stays as short as what's actually abnormal; **acknowledging** an entry clears it (a later recurrence opens a fresh one).
+
+Detection is observation only — it never blocks or delays a request. Volume kinds compare against your own traffic
+history and stay silent until enough history exists; novelty kinds learn a per-device profile first (a week by
+default), so a fresh install doesn't flag everything as new. The geography kinds need [GeoIP](#geoip) and skip
+silently when it's disabled. Anomalies are pruned on the `AGGREGATE_RETENTION_DAYS` horizon.
+
+| Setting                                                       | Default  | Effect                                                                                          |
+|---------------------------------------------------------------|----------|--------------------------------------------------------------------------------------------------|
+| `ANOMALY_DETECTION_ENABLED`                                   | `true`   | Master switch.                                                                                     |
+| `ANOMALY_SCAN_INTERVAL`                                       | `5m`     | How often the scan runs.                                                                           |
+| `ANOMALY_SENSITIVITY`                                         | `medium` | Threshold preset for the volume kinds: `low`, `medium`, `high` (`high` flags more, sooner).        |
+| `ANOMALY_LEARNING_DAYS`                                       | `7`      | Days a device's profile must age before novelty kinds may flag it.                                 |
+| `ANOMALY_DETECT_RULES` / `_VOLUME` / `_NOVELTY`               | `true`   | Per-family toggles (rows 1–2 / 3–7 / 8–10 of the table above).                                     |
+| `ANOMALY_TRAVEL_SAME_CONTINENT`                               | `false`  | Also flag same-continent country hops — the noisiest travel signal, off by default.                |
+
 ## GeoIP
 
 Client IPs are resolved to **country, continent, and network operator (ASN)** so the access log and dashboard can show
