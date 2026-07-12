@@ -1,6 +1,6 @@
 # Backend Codebase Reference
 
-> Last updated: 2026-07-11 (anomaly list rows carry a rendered `summary`; `severity` list filter)
+> Last updated: 2026-07-12 (anomaly scan job receives a nil `GeoResolver` when GeoIP is disabled, instead of a live zero-value `*geoip.Lookup`)
 
 This document is the **map** of the backend codebase — what exists and where. For the system-level
 overview (layering, the API seam, request flow, single-binary build), see

@@ -1347,7 +1347,7 @@ export const zListAnomaliesQuery = z.object({
   status: zAnomalyStatus.optional(),
   severity: zAnomalySeverity.optional(),
   kind: z.array(zAnomalyKind).max(20).optional(),
-  limit: z.int().lte(500).optional().default(100),
+  limit: z.int().gte(1).lte(500).optional().default(100),
 });
 
 /**

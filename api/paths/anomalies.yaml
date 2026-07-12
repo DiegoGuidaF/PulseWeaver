@@ -36,6 +36,7 @@ anomalies:
         schema:
           type: integer
           default: 100
+          minimum: 1
           maximum: 500
         description: Page size (default 100, max 500).
     responses:

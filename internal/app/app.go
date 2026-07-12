@@ -206,7 +206,17 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Anomaly detection — background scan producing findings for review. The job
 	// is always constructed and exposed on App so a test can trigger one
 	// deterministic pass; it is only scheduled to run periodically when enabled.
-	anomalyScanJob := anomaly.NewScanJob(anomalyRepo, anomaly.AllDetectors(anomalyRepo, geoipLookup), anomaly.ScanOptions{
+	//
+	// geoip.New never returns nil, so passing geoipLookup directly would make
+	// the detectors' "GeoIP unconfigured" guards dead code (a nil *geoip.Lookup
+	// assigned into the GeoResolver interface is a non-nil interface value).
+	// Assign only when GeoIP is enabled; a download failure with Enabled=true
+	// keeps a live resolver since RunUpdater can populate it later.
+	var anomalyGeo anomaly.GeoResolver
+	if conf.GeoIP.Enabled {
+		anomalyGeo = geoipLookup
+	}
+	anomalyScanJob := anomaly.NewScanJob(anomalyRepo, anomaly.AllDetectors(anomalyRepo, anomalyGeo), anomaly.ScanOptions{
 		Interval:            conf.Anomaly.ScanInterval,
 		Sensitivity:         conf.Anomaly.Sensitivity,
 		LearningDays:        conf.Anomaly.LearningDays,
