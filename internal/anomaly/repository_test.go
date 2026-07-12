@@ -84,6 +84,47 @@ func TestRepository_DeleteAnomaliesOlderThan(t *testing.T) {
 	is.Equal(countRows(t, db, "device_profiles", "device_id = ?", 1), 1)
 }
 
+// TestRepository_DeleteDeviceProfilesLastSeenBefore prunes stale profile rows
+// while leaving recently-seen ones untouched.
+func TestRepository_DeleteDeviceProfilesLastSeenBefore(t *testing.T) {
+	is := is.New(t)
+	repo, db := newRepo(t)
+	now := time.Now()
+
+	seedUser(t, db)
+	seedDevice(t, db, 1, "laptop")
+	seedProfile(t, db, 1, dimUserAgent, "fp-stale", now.Add(-90*24*time.Hour))
+	seedProfile(t, db, 1, dimUserAgent, "fp-fresh", now.Add(-1*24*time.Hour))
+
+	cutoff := now.Add(-30 * 24 * time.Hour)
+	deleted, err := repo.DeleteDeviceProfilesLastSeenBefore(context.Background(), cutoff)
+	is.NoErr(err)
+	is.Equal(deleted, int64(1))
+
+	is.Equal(countRows(t, db, "device_profiles", "fingerprint = ?", "fp-stale"), 0)
+	is.Equal(countRows(t, db, "device_profiles", "fingerprint = ?", "fp-fresh"), 1)
+}
+
+// TestRepository_DeleteDeviceProfilesLastSeenBefore_AnomaliesUntouched confirms
+// the profile prune and the anomaly prune are independent deletes.
+func TestRepository_DeleteDeviceProfilesLastSeenBefore_AnomaliesUntouched(t *testing.T) {
+	is := is.New(t)
+	repo, db := newRepo(t)
+	now := time.Now()
+
+	stale := seedAnomaly(t, db, "deny_spike", "open", now.Add(-40*24*time.Hour))
+	seedUser(t, db)
+	seedDevice(t, db, 1, "laptop")
+	seedProfile(t, db, 1, dimUserAgent, "fp-1", now.Add(-90*24*time.Hour))
+
+	cutoff := now.Add(-30 * 24 * time.Hour)
+	deleted, err := repo.DeleteDeviceProfilesLastSeenBefore(context.Background(), cutoff)
+	is.NoErr(err)
+	is.Equal(deleted, int64(1))
+
+	is.Equal(countRows(t, db, "anomalies", "id = ?", stale), 1)
+}
+
 func countRows(t *testing.T, db *database.DB, table, where string, arg any) int {
 	t.Helper()
 	var n int

@@ -21,6 +21,7 @@ type AggregatePruner interface {
 
 type AnomalyPruner interface {
 	DeleteAnomaliesOlderThan(ctx context.Context, before time.Time) (int64, error)
+	DeleteDeviceProfilesLastSeenBefore(ctx context.Context, before time.Time) (int64, error)
 }
 
 // RetentionJob deletes rows older than the configured retention windows.
@@ -124,6 +125,19 @@ func (j *RetentionJob) Run(ctx context.Context) error {
 		}
 		j.logger.InfoContext(ctx, "anomaly retention complete",
 			slog.Int64(AttrKeyCount, deletedAnomalies),
+			slog.Int("retention_days", j.aggregateRetentionDays),
+		)
+
+		// A device whose every remaining profile row is pruned here loses its
+		// oldest first_seen_at and reverts to "learning" until it repopulates —
+		// expected for a device dormant beyond the aggregate horizon.
+		deletedProfiles, err := j.anomalyPruner.DeleteDeviceProfilesLastSeenBefore(ctx, aggregateCutoff)
+		if err != nil {
+			j.logger.ErrorContext(ctx, "device profile retention failed", slog.Any(AttrKeyError, err))
+			return err
+		}
+		j.logger.InfoContext(ctx, "device profile retention complete",
+			slog.Int64(AttrKeyCount, deletedProfiles),
 			slog.Int("retention_days", j.aggregateRetentionDays),
 		)
 	}

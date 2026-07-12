@@ -146,12 +146,28 @@ func (r *Repository) Acknowledge(ctx context.Context, id int64) error {
 // regardless of status. The horizon is AggregateRetentionDays, not raw
 // retention: anomalies summarize aggregate-era data, so pruning them at the raw
 // window would silently shorten visible anomaly history. device_profiles are
-// intentionally not pruned here — deleting a learned baseline would re-flag an
-// old value as novel; device deletion already cascades them away.
+// pruned at the same horizon by DeleteDeviceProfilesLastSeenBefore, a separate
+// call — a fingerprint that goes unseen for the whole aggregate window re-flags
+// as novel on return, which is accepted as correct signal for a dormant device.
 func (r *Repository) DeleteAnomaliesOlderThan(ctx context.Context, before time.Time) (int64, error) {
 	res, err := r.db.ExecContext(ctx, `DELETE FROM anomalies WHERE last_seen_at < ?`, before.UTC())
 	if err != nil {
 		return 0, fmt.Errorf("delete anomalies older than: %w", err)
+	}
+	return res.RowsAffected()
+}
+
+// DeleteDeviceProfilesLastSeenBefore prunes device_profiles rows last seen
+// before the cutoff, at the same aggregate-retention horizon as
+// DeleteAnomaliesOlderThan. When this removes every remaining row for a
+// device, the novelty learning gate (profileState.warm) has no first_seen_at
+// left to measure from, so the device is treated as unlearned again and stays
+// silent for ANOMALY_LEARNING_DAYS while it repopulates — expected for a
+// device dormant beyond the aggregate horizon.
+func (r *Repository) DeleteDeviceProfilesLastSeenBefore(ctx context.Context, before time.Time) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM device_profiles WHERE last_seen_at < ?`, before.UTC())
+	if err != nil {
+		return 0, fmt.Errorf("delete device profiles last seen before: %w", err)
 	}
 	return res.RowsAffected()
 }

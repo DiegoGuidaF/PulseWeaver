@@ -58,14 +58,22 @@ func (f *fakeAggregatePruner) DeleteAttributionAggregatesOlderThan(_ context.Con
 }
 
 type fakeAnomalyPruner struct {
-	deleted int64
-	err     error
-	calls   int
+	deleted        int64
+	err            error
+	calls          int
+	deletedProfile int64
+	profileErr     error
+	profileCalls   int
 }
 
 func (f *fakeAnomalyPruner) DeleteAnomaliesOlderThan(_ context.Context, _ time.Time) (int64, error) {
 	f.calls++
 	return f.deleted, f.err
+}
+
+func (f *fakeAnomalyPruner) DeleteDeviceProfilesLastSeenBefore(_ context.Context, _ time.Time) (int64, error) {
+	f.profileCalls++
+	return f.deletedProfile, f.profileErr
 }
 
 var _ scheduler.AccessLogPruner = (*fakeAccessLogPruner)(nil)
@@ -105,6 +113,7 @@ func TestRetentionJob_CallsAllPrunersOnFirstRun(t *testing.T) {
 	is.Equal(agp.calls, 1)
 	is.Equal(agp.attributionCalls, 1) // attribution aggregates pruned alongside traffic aggregates
 	is.Equal(anp.calls, 1)            // anomalies pruned at the aggregate horizon
+	is.Equal(anp.profileCalls, 1)     // device profiles pruned alongside anomalies
 }
 
 func TestRetentionJob_ZeroAggregateRetention_SkipsAggregatePruner(t *testing.T) {
@@ -122,7 +131,8 @@ func TestRetentionJob_ZeroAggregateRetention_SkipsAggregatePruner(t *testing.T) 
 	is.Equal(aep.calls, 1)
 	is.Equal(agp.calls, 0)
 	is.Equal(agp.attributionCalls, 0)
-	is.Equal(anp.calls, 0) // aggregate horizon disabled → anomalies untouched
+	is.Equal(anp.calls, 0)        // aggregate horizon disabled → anomalies untouched
+	is.Equal(anp.profileCalls, 0) // aggregate horizon disabled → device profiles untouched
 }
 
 func TestRetentionJob_ZeroDataRetention_StillPrunesAggregates(t *testing.T) {
