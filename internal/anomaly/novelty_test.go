@@ -4,9 +4,14 @@ package anomaly
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"log/slog"
 	"testing"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/matryer/is"
@@ -301,4 +306,137 @@ func TestNoveltyDetector_ObservationsPersist(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(len(profiles), 1)
 	is.Equal(profiles[0].Dimension, dimUserAgent)
+}
+
+// noveltyJob builds a real ScanJob wired to every detector (AllDetectors, nil
+// geo) with only the novelty family enabled, so the rules/volume/travel
+// detectors are either skipped or no-ops and only new_user_agent findings can
+// appear. LearningDays matches learningWindow (7 days) so warmProfileFirstSeen
+// clears the gate.
+func noveltyJob(repo *Repository) *ScanJob {
+	opts := ScanOptions{Interval: 0, Sensitivity: "medium", LearningDays: 7, DetectNovelty: true}
+	return NewScanJob(repo, AllDetectors(repo, nil), opts, slog.New(slog.DiscardHandler))
+}
+
+// countAnomaliesWhere counts anomalies rows matching an arbitrary WHERE clause,
+// for assertions scoped to one kind so other detectors in AllDetectors can't
+// pollute the count.
+func countAnomaliesWhere(t *testing.T, db *database.DB, where string, args ...any) int {
+	t.Helper()
+	var n int
+	if err := db.GetContext(t.Context(), &n, `SELECT COUNT(*) FROM anomalies WHERE `+where, args...); err != nil {
+		t.Fatalf("count anomalies: %v", err)
+	}
+	return n
+}
+
+// deviceProfileSeenCount reads back a device_profiles row's seen_count; exists is
+// false when no row matches the key.
+func deviceProfileSeenCount(t *testing.T, db *database.DB, deviceID int64, dimension, fingerprint string) (seenCount int, exists bool) {
+	t.Helper()
+	err := db.QueryRowxContext(t.Context(),
+		`SELECT seen_count FROM device_profiles WHERE device_id = ? AND dimension = ? AND fingerprint = ?`,
+		deviceID, dimension, fingerprint).Scan(&seenCount)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, false
+	}
+	if err != nil {
+		t.Fatalf("read device profile: %v", err)
+	}
+	return seenCount, true
+}
+
+// TestScanJob_NoveltyDrain_FindingAndProfileLandInOneScan drives the
+// ProfileLearner drain through the real job: a novel UA's finding and the
+// device_profiles row that makes it familiar next pass must land in the same
+// scan transaction, not just when the detector's Detect is called by hand.
+func TestScanJob_NoveltyDrain_FindingAndProfileLandInOneScan(t *testing.T) {
+	is := is.New(t)
+	repo, db := newRepo(t)
+	now := time.Now()
+	seedUser(t, db)
+	seedDevice(t, db, 1, "laptop")
+	// A profile on a different UA makes the device warm (past the learning window).
+	seedProfile(t, db, 1, dimUserAgent, uaFingerprint(normalizeUA("OldBrowser/1.0")), warmProfileFirstSeen(now))
+	seedAddress(t, db, 1, 1, seedIP, true, now.Add(-time.Hour))
+	const ua = "Mozilla/5.0 Firefox/130.0"
+	id := seedAllowUA(t, db, ua, now.Add(-time.Minute))
+	seedContributor(t, db, id, 1, 1)
+
+	job := noveltyJob(repo)
+	is.NoErr(job.Run(context.Background()))
+
+	is.Equal(countAnomaliesWhere(t, db, "kind = ? AND status = 'open'", string(KindNewUserAgent)), 1)
+
+	fp := uaFingerprint(normalizeUA(ua))
+	seenCount, exists := deviceProfileSeenCount(t, db, 1, dimUserAgent, fp)
+	is.True(exists)
+	is.Equal(seenCount, 1)
+
+	state, err := repo.LoadScanState(context.Background())
+	is.NoErr(err)
+	is.Equal(state.LastAccessLogID, id) // raw watermark advanced
+}
+
+// TestScanJob_NoveltyDrain_SecondScanIsSilent: once the profile lands, a second
+// sighting of the same UA neither inserts a new anomaly row nor advances the
+// open row's last_seen_at — the value is now familiar, so UpsertFinding is
+// never called for it — but the recurring sighting still bumps the profile's
+// seen_count.
+func TestScanJob_NoveltyDrain_SecondScanIsSilent(t *testing.T) {
+	is := is.New(t)
+	repo, db := newRepo(t)
+	now := time.Now()
+	seedUser(t, db)
+	seedDevice(t, db, 1, "laptop")
+	seedProfile(t, db, 1, dimUserAgent, uaFingerprint(normalizeUA("OldBrowser/1.0")), warmProfileFirstSeen(now))
+	seedAddress(t, db, 1, 1, seedIP, true, now.Add(-time.Hour))
+	const ua = "Mozilla/5.0 Firefox/130.0"
+	id1 := seedAllowUA(t, db, ua, now.Add(-time.Minute))
+	seedContributor(t, db, id1, 1, 1)
+
+	job := noveltyJob(repo)
+	is.NoErr(job.Run(context.Background()))
+
+	fp := uaFingerprint(normalizeUA(ua))
+	anomalyFP := fmt.Sprintf("new_user_agent:%d:%s", int64(1), fp)
+	_, firstLastSeen := findingEvidence(t, db, anomalyFP)
+
+	id2 := seedAllowUA(t, db, ua, now)
+	seedContributor(t, db, id2, 1, 1)
+
+	is.NoErr(job.Run(context.Background()))
+
+	is.Equal(countAnomaliesWhere(t, db, "kind = ?", string(KindNewUserAgent)), 1) // no second row
+	_, secondLastSeen := findingEvidence(t, db, anomalyFP)
+	is.Equal(secondLastSeen.Unix(), firstLastSeen.Unix()) // open row not re-emitted
+
+	seenCount, exists := deviceProfileSeenCount(t, db, 1, dimUserAgent, fp)
+	is.True(exists)
+	is.Equal(seenCount, 2) // recurring sighting still recorded
+}
+
+// TestScanJob_NoveltyDrain_LearningDeviceStaysSilentButLearns: a device with no
+// prior profile row is still learning, so the finding is gated off, but the
+// job still persists the profile observation — pinning that observations
+// persist even when the finding they'd otherwise accompany is suppressed.
+func TestScanJob_NoveltyDrain_LearningDeviceStaysSilentButLearns(t *testing.T) {
+	is := is.New(t)
+	repo, db := newRepo(t)
+	now := time.Now()
+	seedUser(t, db)
+	seedDevice(t, db, 1, "laptop")
+	seedAddress(t, db, 1, 1, seedIP, true, now.Add(-time.Hour))
+	const ua = "Mozilla/5.0 Firefox/130.0"
+	id := seedAllowUA(t, db, ua, now.Add(-time.Minute))
+	seedContributor(t, db, id, 1, 1)
+
+	job := noveltyJob(repo)
+	is.NoErr(job.Run(context.Background()))
+
+	is.Equal(countAnomaliesWhere(t, db, "kind = ?", string(KindNewUserAgent)), 0)
+
+	fp := uaFingerprint(normalizeUA(ua))
+	_, exists := deviceProfileSeenCount(t, db, 1, dimUserAgent, fp)
+	is.True(exists)
 }
