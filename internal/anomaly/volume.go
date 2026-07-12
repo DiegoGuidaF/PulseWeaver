@@ -215,15 +215,11 @@ func (d entityDriftDetector) Detect(ctx context.Context, sc Scope) ([]Finding, e
 			if !ok {
 				continue
 			}
-			outcomeLabel := "deny"
-			if key.allow {
-				outcomeLabel = "allow"
-			}
 			f := Finding{
 				Kind:     KindEntityDrift,
 				Severity: severity,
 				Fingerprint: fmt.Sprintf("entity_drift:%s:%s:%s:%s",
-					key.kind, key.name, outcomeLabel, bucket.BucketAt.UTC().Format(time.DateOnly)),
+					key.kind, key.name, outcome, bucket.BucketAt.UTC().Format(time.DateOnly)),
 				Evidence: map[string]any{
 					"entity_kind": key.kind,
 					"entity_name": key.name,

@@ -209,3 +209,40 @@ func bucketCursorSet(t *testing.T, db *database.DB) bool {
 	}
 	return n == 1
 }
+
+func lastBucketAt(t *testing.T, db *database.DB) time.Time {
+	t.Helper()
+	var bucket time.Time
+	if err := db.GetContext(t.Context(), &bucket,
+		`SELECT last_bucket_at FROM anomaly_scan_state WHERE id = 1`); err != nil {
+		t.Fatalf("read last bucket at: %v", err)
+	}
+	return bucket
+}
+
+// TestScanJob_BucketCursor_ClampsToRollupProgress: rollup runs before the
+// anomaly scan in the same scheduler tick but on its own clock. If the hour
+// boundary falls between the two, rollup may not have built the aggregate for
+// the hour wall-clock now considers complete. Advancing the bucket cursor past
+// that gap would mark the still-empty bucket "observed"; once rollup catches up
+// and populates it, splitSeries would classify it as history instead, and any
+// spike inside it is never evaluated. The cursor must clamp to rollup's actual
+// progress (MAX(bucket_at)+1h), not outrun it.
+func TestScanJob_BucketCursor_ClampsToRollupProgress(t *testing.T) {
+	is := is.New(t)
+	repo, db := newRepo(t)
+	to := time.Now().Truncate(time.Hour)
+	for i := 2; i <= 27; i++ { // 26 quiet history buckets ending at to-2h; to-1h intentionally not seeded (rollup lag)
+		seedTrafficAgg(t, db, to.Add(-time.Duration(i)*time.Hour), "", false, 2, "")
+	}
+
+	opts := ScanOptions{Interval: 0, Sensitivity: "medium", DetectRules: true, DetectVolume: true, DetectNovelty: true}
+	job := NewScanJob(repo, AllDetectors(repo, nil), opts, slog.New(slog.DiscardHandler))
+
+	is.NoErr(job.Run(context.Background()))
+	is.Equal(lastBucketAt(t, db).Unix(), to.Add(-time.Hour).Unix()) // clamped to MAX(bucket_at)+1h, not wall-clock `to`
+
+	seedTrafficAgg(t, db, to.Add(-time.Hour), "", false, 100, "") // rollup caught up: spike bucket now populated
+	is.NoErr(job.Run(context.Background()))
+	is.Equal(countAllAnomalies(t, db), 1)
+}

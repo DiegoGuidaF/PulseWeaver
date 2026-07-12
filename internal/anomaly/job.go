@@ -21,6 +21,7 @@ type ScanState struct {
 type ScanRepository interface {
 	LoadScanState(ctx context.Context) (ScanState, error)
 	MaxAccessLogID(ctx context.Context) (int64, error)
+	LastAggregateBucketAt(ctx context.Context) (*time.Time, error)
 	UpsertFinding(ctx context.Context, f Finding) error
 	UpsertDeviceProfile(ctx context.Context, o ProfileObservation) error
 	SaveScanState(ctx context.Context, s ScanState) error
@@ -92,6 +93,29 @@ func (j *ScanJob) Run(ctx context.Context) error {
 		return err
 	}
 	completeHour := now.Truncate(time.Hour)
+
+	// The volume detectors read hourly_traffic_aggregates / hourly_attribution_
+	// aggregates, built by the rollup job earlier in the same scheduler tick on
+	// its own clock. If the hour boundary falls between rollup's Run and this
+	// one, rollup may not yet have built the aggregate for the hour wall-clock
+	// now considers complete: advancing the cursor past that gap would mark the
+	// still-empty bucket observed, and once rollup catches up and populates it,
+	// the next pass would classify it as history instead — silently losing any
+	// spike inside it. Clamp to rollup's actual progress instead; a nil lastAgg
+	// (no aggregates ever) keeps the wall-clock completeHour, since holding the
+	// cursor at zero forever would re-classify all history on the first advance.
+	// During zero-traffic hours MAX(bucket_at) lags harmlessly — there is
+	// nothing to evaluate there, and the cursor catches up, one pass late, as
+	// soon as traffic resumes, which the day-bucketed fingerprints absorb.
+	lastAgg, err := j.repo.LastAggregateBucketAt(ctx)
+	if err != nil {
+		return err
+	}
+	if lastAgg != nil {
+		if rollupComplete := lastAgg.Add(time.Hour); rollupComplete.Before(completeHour) {
+			completeHour = rollupComplete
+		}
+	}
 
 	scope := Scope{
 		FromAccessLogID:     state.LastAccessLogID,

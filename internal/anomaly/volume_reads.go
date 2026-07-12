@@ -45,6 +45,21 @@ type CountryBucketCount struct {
 	SampleIP      string          `db:"sample_ip"`
 }
 
+// LastAggregateBucketAt returns the most recent bucket_at stored in
+// hourly_traffic_aggregates, or nil when the table has no rows.
+func (r *Repository) LastAggregateBucketAt(ctx context.Context) (*time.Time, error) {
+	var t database.DBTime
+	const query = `SELECT MAX(bucket_at) FROM hourly_traffic_aggregates`
+	if err := r.db.GetContext(ctx, &t, query); err != nil {
+		return nil, fmt.Errorf("last aggregate bucket at: %w", err)
+	}
+	if t.IsZero() {
+		return nil, nil
+	}
+	last := t.UTC()
+	return &last, nil
+}
+
 // GlobalDenyBuckets returns the global denied-per-hour series over [from, to).
 func (r *Repository) GlobalDenyBuckets(ctx context.Context, from, to time.Time) ([]BucketCount, error) {
 	const query = `
