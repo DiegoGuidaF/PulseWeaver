@@ -85,8 +85,14 @@ INSERT INTO anomalies
 VALUES (?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (fingerprint) WHERE status = 'open'
 DO UPDATE SET
-    last_seen_at  = excluded.last_seen_at,
-    evidence_json = excluded.evidence_json`
+    last_seen_at  = MAX(anomalies.last_seen_at, excluded.last_seen_at),
+    evidence_json = CASE
+        WHEN json_extract(anomalies.evidence_json, '$.observed') IS NOT NULL
+         AND json_extract(excluded.evidence_json, '$.observed') IS NOT NULL
+         AND json_extract(anomalies.evidence_json, '$.observed') > json_extract(excluded.evidence_json, '$.observed')
+        THEN anomalies.evidence_json
+        ELSE excluded.evidence_json
+    END`
 	_, err := r.db.ExecContext(ctx, query,
 		string(f.Kind), string(f.Severity), f.Fingerprint, f.ObservedAt, f.ObservedAt,
 		nullableID(f.DeviceID), f.DeviceName, nullableID(f.UserID), f.UserName,

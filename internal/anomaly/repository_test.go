@@ -93,3 +93,86 @@ func countRows(t *testing.T, db *database.DB, table, where string, arg any) int 
 	}
 	return n
 }
+
+// findingEvidence reads back one anomaly row's evidence and last_seen_at.
+func findingEvidence(t *testing.T, db *database.DB, fingerprint string) (evidence string, lastSeen time.Time) {
+	t.Helper()
+	err := db.QueryRowxContext(t.Context(),
+		`SELECT evidence_json, last_seen_at FROM anomalies WHERE fingerprint = ?`, fingerprint).
+		Scan(&evidence, &lastSeen)
+	if err != nil {
+		t.Fatalf("read finding evidence: %v", err)
+	}
+	return evidence, lastSeen
+}
+
+// TestRepository_UpsertFinding_KeepsLargerObserved verifies the worst-hour
+// guard: a same-day spike smaller than the one already recorded must not
+// overwrite it, but a larger one must.
+func TestRepository_UpsertFinding_KeepsLargerObserved(t *testing.T) {
+	is := is.New(t)
+	repo, db := newRepo(t)
+	at := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+
+	is.NoErr(repo.UpsertFinding(context.Background(), Finding{
+		Kind: KindDenySpike, Severity: SeverityWarning, Fingerprint: "fp-spike",
+		Evidence: map[string]any{"observed": 500}, ObservedAt: at,
+	}))
+
+	is.NoErr(repo.UpsertFinding(context.Background(), Finding{
+		Kind: KindDenySpike, Severity: SeverityWarning, Fingerprint: "fp-spike",
+		Evidence: map[string]any{"observed": 30}, ObservedAt: at.Add(time.Hour),
+	}))
+	evidence, _ := findingEvidence(t, db, "fp-spike")
+	is.Equal(evidence, `{"observed":500}`) // smaller spike does not overwrite the worst hour
+
+	is.NoErr(repo.UpsertFinding(context.Background(), Finding{
+		Kind: KindDenySpike, Severity: SeverityWarning, Fingerprint: "fp-spike",
+		Evidence: map[string]any{"observed": 700}, ObservedAt: at.Add(2 * time.Hour),
+	}))
+	evidence, _ = findingEvidence(t, db, "fp-spike")
+	is.Equal(evidence, `{"observed":700}`) // a genuinely larger spike replaces it
+}
+
+// TestRepository_UpsertFinding_NoObservedKey_LatestWins verifies that kinds
+// without a numeric $.observed (rules, novelty, travel, probing) keep
+// latest-wins semantics — their evidence legitimately advances over time.
+func TestRepository_UpsertFinding_NoObservedKey_LatestWins(t *testing.T) {
+	is := is.New(t)
+	repo, db := newRepo(t)
+	at := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+
+	is.NoErr(repo.UpsertFinding(context.Background(), Finding{
+		Kind: KindGeoDenied, Severity: SeverityWarning, Fingerprint: "fp-geo",
+		Evidence: map[string]any{"deny_count": 3}, ObservedAt: at,
+	}))
+	is.NoErr(repo.UpsertFinding(context.Background(), Finding{
+		Kind: KindGeoDenied, Severity: SeverityWarning, Fingerprint: "fp-geo",
+		Evidence: map[string]any{"deny_count": 9}, ObservedAt: at.Add(time.Hour),
+	}))
+
+	evidence, _ := findingEvidence(t, db, "fp-geo")
+	is.Equal(evidence, `{"deny_count":9}`)
+}
+
+// TestRepository_UpsertFinding_LastSeenAt_DoesNotRewind mirrors the rewind
+// guard in UpsertDeviceProfile: a rescan after a held watermark can revisit
+// an older ObservedAt, and last_seen_at must never move backwards.
+func TestRepository_UpsertFinding_LastSeenAt_DoesNotRewind(t *testing.T) {
+	is := is.New(t)
+	repo, db := newRepo(t)
+	later := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	earlier := later.Add(-2 * time.Hour)
+
+	is.NoErr(repo.UpsertFinding(context.Background(), Finding{
+		Kind: KindInvalidToken, Severity: SeverityCritical, Fingerprint: "fp-rewind",
+		Evidence: map[string]any{"n": 1}, ObservedAt: later,
+	}))
+	is.NoErr(repo.UpsertFinding(context.Background(), Finding{
+		Kind: KindInvalidToken, Severity: SeverityCritical, Fingerprint: "fp-rewind",
+		Evidence: map[string]any{"n": 2}, ObservedAt: earlier,
+	}))
+
+	_, lastSeen := findingEvidence(t, db, "fp-rewind")
+	is.Equal(lastSeen.Unix(), later.Unix())
+}

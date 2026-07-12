@@ -201,6 +201,50 @@ func TestScanJob_FamilyToggle_SkipsDisabledDetectors(t *testing.T) {
 	is.Equal(novelty.calls, 0)
 }
 
+// failingScanRepo wraps the real repository and injects an error from the
+// Nth UpsertFinding call, so tests can drive a mid-scan failure through the
+// same WithinTx path the job uses in production.
+type failingScanRepo struct {
+	*anomaly.Repository
+	failOnUpsert int // 1-indexed; 0 disables injection
+	upsertCalls  int
+	err          error
+}
+
+func (r *failingScanRepo) UpsertFinding(ctx context.Context, f anomaly.Finding) error {
+	r.upsertCalls++
+	if r.failOnUpsert != 0 && r.upsertCalls == r.failOnUpsert {
+		return r.err
+	}
+	return r.Repository.UpsertFinding(ctx, f)
+}
+
+var _ anomaly.ScanRepository = (*failingScanRepo)(nil)
+
+// TestScanJob_UpsertFails_RollsBackFindingsAndHoldsWatermark: an error from a
+// later UpsertFinding call inside the scan transaction must roll back the
+// earlier upserts in the same pass and leave the watermark unmoved — proving
+// SaveScanState really shares the tx rather than running after it.
+func TestScanJob_UpsertFails_RollsBackFindingsAndHoldsWatermark(t *testing.T) {
+	is := is.New(t)
+	repo, db := setupTestRepo(t)
+	failing := &failingScanRepo{Repository: repo, failOnUpsert: 2, err: errors.New("boom")}
+	for range 2 {
+		seedAccessLogRow(t, db, time.Now())
+	}
+	det := &fakeDetector{family: anomaly.FamilyRules, findings: []anomaly.Finding{
+		finding("fp-a", nil, time.Now()),
+		finding("fp-b", nil, time.Now()),
+	}}
+	job := anomaly.NewScanJob(failing, []anomaly.Detector{det}, allFamilies(), noopLogger())
+
+	err := job.Run(context.Background())
+
+	is.True(errors.Is(err, failing.err))
+	is.Equal(countAnomalies(t, db, ""), 0)    // both upserts rolled back, including the first
+	is.Equal(scanWatermark(t, db), int64(-1)) // watermark never advanced
+}
+
 // TestScanJob_SelfGate_SkipsWithinInterval: the job runs the first tick, then
 // skips subsequent ticks that fall inside the scan interval.
 func TestScanJob_SelfGate_SkipsWithinInterval(t *testing.T) {
