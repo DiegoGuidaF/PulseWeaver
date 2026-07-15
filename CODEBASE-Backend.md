@@ -1,6 +1,6 @@
 # Backend Codebase Reference
 
-> Last updated: 2026-06-25
+> Last updated: 2026-07-12 (anomaly scan job receives a nil `GeoResolver` when GeoIP is disabled, instead of a live zero-value `*geoip.Lookup`)
 
 This document is the **map** of the backend codebase — what exists and where. For the system-level
 overview (layering, the API seam, request flow, single-binary build), see
@@ -31,6 +31,7 @@ most important files across the whole backend with their purpose.
 | `queries` | Cross-domain read side (lite CQRS) for the frontend's list/filter views; one view + handler file per surface. Folds join rows via `collate`. | `repository.go`, `*_view.go`, `handler_*.go`, `filterx/` |
 | `rollup` | Hourly traffic + attribution aggregate tables; catch-up `RollupJob`; serves the dashboard read API (raw vs aggregate on `RawWindowThreshold`). | `job.go`, `traffic_rollup.go`, `traffic_reads.go`, `attribution_rollup.go`, `attribution_reads.go`, `handler.go`, `types.go` |
 | `geoip` | IP → location/ASN enrichment from an MMDB (db-ip.com); background `RunUpdater` refresh. | `lookup.go`, `updater.go`, `result.go` |
+| `anomaly` | Periodic detection scan over the access log + traffic aggregates. Detectors are pure readers behind a `Detector` interface; the `ScanJob` owns the incremental watermark and the deduplicated finding upsert. The novelty family additionally reports `ProfileObservation`s via the optional `ProfileLearner` interface, which the job persists to `device_profiles` inside the same scan transaction. Findings persist to `anomalies` for review (no verify-path impact). Owns the single-domain acknowledge endpoint (`handler.go`) and the retention prune (`DeleteAnomaliesOlderThan`); the cross-domain list read model lives in `queries` (`anomaly_view.go`), which also renders each row's `summary` via `Summarize` (`summary.go`) — a pure per-kind evidence-to-prose function, since the evidence shapes are this package's contract. | `anomaly.go`, `detector.go`, `job.go`, `repository.go`, `reads.go`, `rules.go`, `probing.go`, `volume.go`, `volume_reads.go`, `baseline.go`, `novelty.go`, `novelty_reads.go`, `travel.go`, `summary.go`, `handler.go`, `errors.go` |
 | `health` | `GET /health` → `{"status":"ok","timestamp":…}`. | `health.go` |
 | `timebucket` | Shared time-bucket granularity settings + parsing (rollup, dashboard, …). | `granularity.go` |
 
@@ -124,7 +125,10 @@ server. After construction: `ExecuteScheduledRules` (disable stale addresses bef
 - `policyService.AddDecisionObserver`: accessLogSink
 
 **Scheduler jobs (`AddJob`):** `lease.NewExpiryJob(deviceService)`, `rollupRepo.NewRollupJob`,
-`scheduler.NewRetentionJob(accessLogRepo, deviceRepo, rollupRepo, …)`.
+`scheduler.NewRetentionJob(accessLogRepo, deviceRepo, rollupRepo, anomalyRepo, …)`, and
+`anomaly.NewScanJob(…)` when `Anomaly.Enabled`. The scan job is always constructed and exposed as
+`App.AnomalyScanJob` (so a test can trigger one deterministic pass); only its scheduling is gated
+on `Anomaly.Enabled`.
 
 **Goroutines started in `RunBackground`:** `policy.RunListener`, `lease.RunListener`,
 `maxaddr.RunListener`, `scheduler.RunSchedule`, `accessLogSink.Run`, `geoip.RunUpdater`. `Run` adds

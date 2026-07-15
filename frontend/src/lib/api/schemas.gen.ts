@@ -985,6 +985,145 @@ export const AccessLogRowSchema = {
   },
 } as const;
 
+export const AnomalyKindSchema = {
+  type: "string",
+  description:
+    "The detector output that produced an anomaly, grouped by family: rules (expired_access, invalid_token), volume (deny_spike, entity_drift, geo_denied, host_probing, address_churn), and novelty (new_user_agent, new_country, impossible_travel).\n",
+  enum: [
+    "expired_access",
+    "invalid_token",
+    "deny_spike",
+    "entity_drift",
+    "geo_denied",
+    "host_probing",
+    "address_churn",
+    "new_user_agent",
+    "new_country",
+    "impossible_travel",
+  ],
+} as const;
+
+export const AnomalySeveritySchema = {
+  type: "string",
+  description: "How much an operator should care about a finding.",
+  enum: ["info", "warning", "critical"],
+} as const;
+
+export const AnomalyStatusSchema = {
+  type: "string",
+  description:
+    "Lifecycle of a persisted anomaly. Dedup keeps at most one open row per fingerprint; acknowledging a row lets a later recurrence open a new one.\n",
+  enum: ["open", "acknowledged"],
+} as const;
+
+export const AnomalySchema = {
+  type: "object",
+  required: [
+    "id",
+    "kind",
+    "severity",
+    "status",
+    "first_seen_at",
+    "last_seen_at",
+    "evidence",
+    "summary",
+  ],
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    kind: {
+      $ref: "#/components/schemas/AnomalyKind",
+    },
+    severity: {
+      $ref: "#/components/schemas/AnomalySeverity",
+    },
+    status: {
+      $ref: "#/components/schemas/AnomalyStatus",
+    },
+    first_seen_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      description: "When the condition was first observed.",
+    },
+    last_seen_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      description: "When the condition was most recently re-observed.",
+    },
+    device_id: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/ID",
+        },
+      ],
+      nullable: true,
+      description:
+        "Attributed device, when the finding is device-scoped. Null once the device is deleted (the name is retained).\n",
+    },
+    device_name: {
+      type: "string",
+      description:
+        "Device name at detection time; retained after device deletion.",
+    },
+    user_id: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/ID",
+        },
+      ],
+      nullable: true,
+      description: "Attributed user; null once the user is deleted.",
+    },
+    user_name: {
+      type: "string",
+      description: "User name at detection time; retained after user deletion.",
+    },
+    client_ip: {
+      type: "string",
+      nullable: true,
+      description: "Source IP the finding relates to, when applicable.",
+    },
+    target_host: {
+      type: "string",
+      nullable: true,
+      description: "Target host the finding relates to, when applicable.",
+    },
+    country_code: {
+      type: "string",
+      nullable: true,
+      description:
+        "ISO 3166-1 alpha-2 country the finding relates to, when applicable.",
+    },
+    evidence: {
+      type: "object",
+      additionalProperties: true,
+      description:
+        "Kind-specific supporting detail (counts, thresholds, involved values). A free-form object shaped by the detector that produced the finding.\n",
+    },
+    summary: {
+      type: "string",
+      description:
+        "One-line, presentation-ready description of the finding, rendered by the backend from the evidence. Kind-specific wording; safe to display as-is.\n",
+    },
+  },
+} as const;
+
+export const AnomalyListResponseSchema = {
+  type: "object",
+  required: ["anomalies"],
+  properties: {
+    anomalies: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/Anomaly",
+      },
+    },
+  },
+} as const;
+
 export const DeviceAddressLeaseRuleSchema = {
   type: "object",
   required: ["device_id", "enabled"],

@@ -1296,6 +1296,112 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /anomalies:
+    get:
+      operationId: listAnomalies
+      tags:
+        - anomalies
+      summary: List detected anomalies
+      description: |
+        Returns anomalies produced by the background detection scan, newest first. The set is bounded by retention, so a plain limit is used rather than a cursor. Admin-only.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AnomalyStatus'
+          description: Filter to a single lifecycle status (open or acknowledged).
+        - name: severity
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AnomalySeverity'
+          description: Filter to a single severity (info, warning, or critical).
+        - name: kind
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 20
+            items:
+              $ref: '#/components/schemas/AnomalyKind'
+          description: Restrict to one or more anomaly kinds (repeatable).
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 500
+          description: Page size (default 100, max 500).
+      responses:
+        '200':
+          description: Detected anomalies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnomalyListResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - admin credentials required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /anomalies/{id}/acknowledge:
+    post:
+      operationId: acknowledgeAnomaly
+      tags:
+        - anomalies
+      summary: Acknowledge an anomaly
+      description: |
+        Marks an open anomaly acknowledged so a later recurrence opens a fresh row. Idempotent: acknowledging an already-acknowledged anomaly is a no-op success. Admin-only.
+      parameters:
+        - name: id
+          in: path
+          description: Anomaly id
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        '204':
+          description: Anomaly acknowledged
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - admin credentials required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Anomaly not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /devices/{device_id}/rules/address-lease:
     get:
       operationId: getDeviceAddressLeaseRule
@@ -3456,6 +3562,112 @@ components:
           type: string
           nullable: true
           description: Display name of the matching network policy at log time.
+    AnomalyKind:
+      type: string
+      description: |
+        The detector output that produced an anomaly, grouped by family: rules (expired_access, invalid_token), volume (deny_spike, entity_drift, geo_denied, host_probing, address_churn), and novelty (new_user_agent, new_country, impossible_travel).
+      enum:
+        - expired_access
+        - invalid_token
+        - deny_spike
+        - entity_drift
+        - geo_denied
+        - host_probing
+        - address_churn
+        - new_user_agent
+        - new_country
+        - impossible_travel
+    AnomalySeverity:
+      type: string
+      description: How much an operator should care about a finding.
+      enum:
+        - info
+        - warning
+        - critical
+    AnomalyStatus:
+      type: string
+      description: |
+        Lifecycle of a persisted anomaly. Dedup keeps at most one open row per fingerprint; acknowledging a row lets a later recurrence open a new one.
+      enum:
+        - open
+        - acknowledged
+    Anomaly:
+      type: object
+      required:
+        - id
+        - kind
+        - severity
+        - status
+        - first_seen_at
+        - last_seen_at
+        - evidence
+        - summary
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        kind:
+          $ref: '#/components/schemas/AnomalyKind'
+        severity:
+          $ref: '#/components/schemas/AnomalySeverity'
+        status:
+          $ref: '#/components/schemas/AnomalyStatus'
+        first_seen_at:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+          description: When the condition was first observed.
+        last_seen_at:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+          description: When the condition was most recently re-observed.
+        device_id:
+          allOf:
+            - $ref: '#/components/schemas/ID'
+          nullable: true
+          description: |
+            Attributed device, when the finding is device-scoped. Null once the device is deleted (the name is retained).
+        device_name:
+          type: string
+          description: Device name at detection time; retained after device deletion.
+        user_id:
+          allOf:
+            - $ref: '#/components/schemas/ID'
+          nullable: true
+          description: Attributed user; null once the user is deleted.
+        user_name:
+          type: string
+          description: User name at detection time; retained after user deletion.
+        client_ip:
+          type: string
+          nullable: true
+          description: Source IP the finding relates to, when applicable.
+        target_host:
+          type: string
+          nullable: true
+          description: Target host the finding relates to, when applicable.
+        country_code:
+          type: string
+          nullable: true
+          description: ISO 3166-1 alpha-2 country the finding relates to, when applicable.
+        evidence:
+          type: object
+          additionalProperties: true
+          description: |
+            Kind-specific supporting detail (counts, thresholds, involved values). A free-form object shaped by the detector that produced the finding.
+        summary:
+          type: string
+          description: |
+            One-line, presentation-ready description of the finding, rendered by the backend from the evidence. Kind-specific wording; safe to display as-is.
+    AnomalyListResponse:
+      type: object
+      required:
+        - anomalies
+      properties:
+        anomalies:
+          type: array
+          items:
+            $ref: '#/components/schemas/Anomaly'
     DeviceAddressLeaseRule:
       type: object
       required:

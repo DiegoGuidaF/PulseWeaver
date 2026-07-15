@@ -179,3 +179,31 @@ INSERT INTO hourly_attribution_aggregates (bucket_at, entity_kind, entity_id, en
 
 INSERT INTO hourly_attribution_aggregates (bucket_at, entity_kind, entity_id, entity_name, outcome, request_count)
     VALUES ('2024-01-01 00:00:00', 'policy', NULL, 'Seed Deleted Policy', 0, 3);
+
+-- ── anomalies / device_profiles / anomaly_scan_state (000033+) ────────────────
+-- Open finding with full attribution and context columns populated.
+INSERT INTO anomalies
+    (kind, severity, status, fingerprint, first_seen_at, last_seen_at,
+     device_id, device_name, user_id, user_name, client_ip, target_host, country_code, evidence_json)
+    SELECT 'expired_access', 'warning', 'open', 'expired_access|1|203.0.113.5',
+           '2024-01-01 00:00:00', '2024-01-01 00:05:00',
+           d.id, d.name, u.id, u.display_name, '203.0.113.5', 'seed.example.com', 'US', '{"observed":8}'
+    FROM devices d, users u WHERE d.name = 'seed-router' AND u.username = 'seed-user';
+
+-- Acknowledged finding: exercises the other status CHECK branch and leaves the
+-- nullable attribution/context columns NULL.
+INSERT INTO anomalies (kind, severity, status, fingerprint, first_seen_at, last_seen_at)
+    VALUES ('invalid_token', 'critical', 'acknowledged', 'invalid_token|198.51.100.7|2024-01-01',
+            '2024-01-01 00:00:00', '2024-01-01 01:00:00');
+
+-- Both device_profiles dimensions represented for the CHECK.
+INSERT INTO device_profiles (device_id, dimension, fingerprint, first_seen_at, last_seen_at, seen_count)
+    SELECT d.id, 'user_agent', 'Firefox/x', '2024-01-01 00:00:00', '2024-01-02 00:00:00', 3
+    FROM devices d WHERE d.name = 'seed-router';
+INSERT INTO device_profiles (device_id, dimension, fingerprint, first_seen_at, last_seen_at, seen_count)
+    SELECT d.id, 'country', 'US', '2024-01-01 00:00:00', '2024-01-02 00:00:00', 5
+    FROM devices d WHERE d.name = 'seed-router';
+
+-- Single-row scan cursor (id pinned to 1 by the CHECK); NULL bucket watermark.
+INSERT INTO anomaly_scan_state (id, last_access_log_id, last_bucket_at)
+    VALUES (1, 0, NULL);

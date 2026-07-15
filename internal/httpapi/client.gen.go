@@ -185,6 +185,12 @@ type ClientInterface interface {
 
 	PromoteUser(ctx context.Context, userId ID, body PromoteUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListAnomalies request
+	ListAnomalies(ctx context.Context, params *ListAnomaliesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AcknowledgeAnomaly request
+	AcknowledgeAnomaly(ctx context.Context, id ID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// LoginWithBody request with any body
 	LoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -721,6 +727,30 @@ func (c *Client) PromoteUserWithBody(ctx context.Context, userId ID, contentType
 
 func (c *Client) PromoteUser(ctx context.Context, userId ID, body PromoteUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPromoteUserRequest(c.Server, userId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListAnomalies(ctx context.Context, params *ListAnomaliesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAnomaliesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AcknowledgeAnomaly(ctx context.Context, id ID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcknowledgeAnomalyRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2848,6 +2878,137 @@ func NewPromoteUserRequestWithBody(server string, userId ID, contentType string,
 	return req, nil
 }
 
+// NewListAnomaliesRequest generates requests for ListAnomalies
+func NewListAnomaliesRequest(server string, params *ListAnomaliesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/anomalies")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "status", runtime.ParamLocationQuery, *params.Status); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Severity != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "severity", runtime.ParamLocationQuery, *params.Severity); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Kind != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "kind", runtime.ParamLocationQuery, *params.Kind); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAcknowledgeAnomalyRequest generates requests for AcknowledgeAnomaly
+func NewAcknowledgeAnomalyRequest(server string, id ID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/anomalies/%s/acknowledge", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewLoginRequest calls the generic Login builder with application/json body
 func NewLoginRequest(server string, body LoginJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -4463,6 +4624,12 @@ type ClientWithResponsesInterface interface {
 
 	PromoteUserWithResponse(ctx context.Context, userId ID, body PromoteUserJSONRequestBody, reqEditors ...RequestEditorFn) (*PromoteUserTestClientResponse, error)
 
+	// ListAnomaliesWithResponse request
+	ListAnomaliesWithResponse(ctx context.Context, params *ListAnomaliesParams, reqEditors ...RequestEditorFn) (*ListAnomaliesTestClientResponse, error)
+
+	// AcknowledgeAnomalyWithResponse request
+	AcknowledgeAnomalyWithResponse(ctx context.Context, id ID, reqEditors ...RequestEditorFn) (*AcknowledgeAnomalyTestClientResponse, error)
+
 	// LoginWithBodyWithResponse request with any body
 	LoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginTestClientResponse, error)
 
@@ -5236,6 +5403,56 @@ func (r PromoteUserTestClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PromoteUserTestClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListAnomaliesTestClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AnomalyListResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAnomaliesTestClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAnomaliesTestClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AcknowledgeAnomalyTestClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r AcknowledgeAnomalyTestClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AcknowledgeAnomalyTestClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6399,6 +6616,24 @@ func (c *ClientWithResponses) PromoteUserWithResponse(ctx context.Context, userI
 		return nil, err
 	}
 	return ParsePromoteUserTestClientResponse(rsp)
+}
+
+// ListAnomaliesWithResponse request returning *ListAnomaliesTestClientResponse
+func (c *ClientWithResponses) ListAnomaliesWithResponse(ctx context.Context, params *ListAnomaliesParams, reqEditors ...RequestEditorFn) (*ListAnomaliesTestClientResponse, error) {
+	rsp, err := c.ListAnomalies(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAnomaliesTestClientResponse(rsp)
+}
+
+// AcknowledgeAnomalyWithResponse request returning *AcknowledgeAnomalyTestClientResponse
+func (c *ClientWithResponses) AcknowledgeAnomalyWithResponse(ctx context.Context, id ID, reqEditors ...RequestEditorFn) (*AcknowledgeAnomalyTestClientResponse, error) {
+	rsp, err := c.AcknowledgeAnomaly(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAcknowledgeAnomalyTestClientResponse(rsp)
 }
 
 // LoginWithBodyWithResponse request with arbitrary body returning *LoginTestClientResponse
@@ -8006,6 +8241,100 @@ func ParsePromoteUserTestClientResponse(rsp *http.Response) (*PromoteUserTestCli
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAnomaliesTestClientResponse parses an HTTP response from a ListAnomaliesWithResponse call
+func ParseListAnomaliesTestClientResponse(rsp *http.Response) (*ListAnomaliesTestClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAnomaliesTestClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AnomalyListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAcknowledgeAnomalyTestClientResponse parses an HTTP response from a AcknowledgeAnomalyWithResponse call
+func ParseAcknowledgeAnomalyTestClientResponse(rsp *http.Response) (*AcknowledgeAnomalyTestClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AcknowledgeAnomalyTestClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

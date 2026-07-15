@@ -41,6 +41,15 @@ const (
 // services, and handlers configured.
 func SetupIntegrationServer(t *testing.T) *app.App {
 	t.Helper()
+	return SetupIntegrationServerWithConfig(t, nil)
+}
+
+// SetupIntegrationServerWithConfig is SetupIntegrationServer with a hook to adjust
+// the config before the app is built — e.g. enabling anomaly detection so the
+// scan job is constructed with working options rather than the zero-valued
+// (inert) defaults of a hand-built test config.
+func SetupIntegrationServerWithConfig(t *testing.T, mutate func(*config.Conf)) *app.App {
+	t.Helper()
 
 	conf := &config.Conf{
 		Server: config.ConfServer{
@@ -55,7 +64,7 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 			// foreign_keys: enforce FK constraints, matching production behaviour.
 			// busy_timeout: retry on SQLITE_BUSY instead of immediately failing under
 			// light contention (e.g. background goroutines during seeding).
-			Dsn: fmt.Sprintf("file:%s?mode=memory&cache=shared&_loc=auto&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", t.Name()),
+			Dsn: fmt.Sprintf("file:%s?mode=memory&cache=shared&_loc=auto&_time_format=sqlite&_texttotime=1&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", t.Name()),
 		},
 		Rules: config.ConfRules{
 			CheckInterval: time.Minute,
@@ -63,6 +72,9 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 		Policy: config.ConfPolicy{
 			APISecret: "test-policy-secret",
 		},
+	}
+	if mutate != nil {
+		mutate(conf)
 	}
 
 	logger := slog.New(slog.NewTextHandler(testWriter{t}, &slog.HandlerOptions{

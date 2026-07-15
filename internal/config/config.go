@@ -19,6 +19,7 @@ type Conf struct {
 	Rules     ConfRules
 	Policy    ConfPolicy
 	GeoIP     ConfGeoIP
+	Anomaly   ConfAnomaly
 	LogLevel  string         `env:"LOG_LEVEL" envDefault:"info"`
 	LogFormat logging.Format `env:"LOG_FORMAT" envDefault:"text"` // "json" or "text" (tint)
 	LogColor  bool           `env:"LOG_COLOR" envDefault:"true"`  // Enable colored output (only for text format)
@@ -55,6 +56,21 @@ type ConfRules struct {
 type ConfGeoIP struct {
 	Enabled bool   `env:"GEOIP_ENABLED"   envDefault:"true"`
 	DataDir string `env:"GEOIP_DATA_DIR"  envDefault:"./data/geoip"`
+}
+
+// ConfAnomaly holds configuration for the background anomaly detection scan.
+// Sensitivity is a preset (not raw thresholds) so the operator cannot land in a
+// state they can't debug; the preset numbers live in code. The scan self-gates
+// on ScanInterval — the scheduler still ticks at RULE_CHECK_INTERVAL.
+type ConfAnomaly struct {
+	Enabled             bool          `env:"ANOMALY_DETECTION_ENABLED" envDefault:"true"`
+	ScanInterval        time.Duration `env:"ANOMALY_SCAN_INTERVAL" envDefault:"5m"`
+	Sensitivity         string        `env:"ANOMALY_SENSITIVITY" envDefault:"medium"` // low|medium|high
+	LearningDays        int           `env:"ANOMALY_LEARNING_DAYS" envDefault:"7"`
+	DetectRules         bool          `env:"ANOMALY_DETECT_RULES" envDefault:"true"`
+	DetectVolume        bool          `env:"ANOMALY_DETECT_VOLUME" envDefault:"true"`
+	DetectNovelty       bool          `env:"ANOMALY_DETECT_NOVELTY" envDefault:"true"`
+	TravelSameContinent bool          `env:"ANOMALY_TRAVEL_SAME_CONTINENT" envDefault:"false"`
 }
 
 func Load() (*Conf, error) {
@@ -97,6 +113,20 @@ func Load() (*Conf, error) {
 	// Ensure api secret for Policy endpoint is defined and secure
 	if len(c.Policy.APISecret) < 16 {
 		return nil, fmt.Errorf("policy api secret is too short (got %d chars, minimum 16); generate one with: openssl rand -base64 16", len(c.Policy.APISecret))
+	}
+
+	if c.Anomaly.Enabled {
+		switch c.Anomaly.Sensitivity {
+		case "low", "medium", "high":
+		default:
+			return nil, fmt.Errorf("invalid ANOMALY_SENSITIVITY %q: must be low, medium, or high", c.Anomaly.Sensitivity)
+		}
+		if c.Anomaly.ScanInterval <= 0 {
+			return nil, fmt.Errorf("ANOMALY_SCAN_INTERVAL must be greater than 0")
+		}
+		if c.Anomaly.LearningDays < 0 {
+			return nil, fmt.Errorf("ANOMALY_LEARNING_DAYS must be >= 0")
+		}
 	}
 
 	if err := ensureWritableDir(c.DB.DataDir); err != nil {

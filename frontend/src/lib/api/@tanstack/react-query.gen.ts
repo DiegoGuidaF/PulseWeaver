@@ -10,6 +10,7 @@ import {
 
 import { client } from "../client.gen";
 import {
+  acknowledgeAnomaly,
   addAddress,
   changePassword,
   claimPairing,
@@ -49,6 +50,7 @@ import {
   getPolicyUserMap,
   getUserAccessDetail,
   ignoreSuggestion,
+  listAnomalies,
   listDevicePairings,
   listHostGroups,
   listHosts,
@@ -74,6 +76,9 @@ import {
   updateNetworkPolicyAccess,
 } from "../sdk.gen";
 import type {
+  AcknowledgeAnomalyData,
+  AcknowledgeAnomalyError,
+  AcknowledgeAnomalyResponse,
   AddAddressData,
   AddAddressError,
   AddAddressResponse,
@@ -191,6 +196,9 @@ import type {
   IgnoreSuggestionData,
   IgnoreSuggestionError,
   IgnoreSuggestionResponse,
+  ListAnomaliesData,
+  ListAnomaliesError,
+  ListAnomaliesResponse,
   ListDevicePairingsData,
   ListDevicePairingsError,
   ListDevicePairingsResponse,
@@ -1131,6 +1139,64 @@ export const getAccessLogByCountryOptions = (
     },
     queryKey: getAccessLogByCountryQueryKey(options),
   });
+
+export const listAnomaliesQueryKey = (options?: Options<ListAnomaliesData>) =>
+  createQueryKey("listAnomalies", options);
+
+/**
+ * List detected anomalies
+ *
+ * Returns anomalies produced by the background detection scan, newest first. The set is bounded by retention, so a plain limit is used rather than a cursor. Admin-only.
+ *
+ */
+export const listAnomaliesOptions = (options?: Options<ListAnomaliesData>) =>
+  queryOptions<
+    ListAnomaliesResponse,
+    ListAnomaliesError,
+    ListAnomaliesResponse,
+    ReturnType<typeof listAnomaliesQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await listAnomalies({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: listAnomaliesQueryKey(options),
+  });
+
+/**
+ * Acknowledge an anomaly
+ *
+ * Marks an open anomaly acknowledged so a later recurrence opens a fresh row. Idempotent: acknowledging an already-acknowledged anomaly is a no-op success. Admin-only.
+ *
+ */
+export const acknowledgeAnomalyMutation = (
+  options?: Partial<Options<AcknowledgeAnomalyData>>,
+): UseMutationOptions<
+  AcknowledgeAnomalyResponse,
+  AcknowledgeAnomalyError,
+  Options<AcknowledgeAnomalyData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    AcknowledgeAnomalyResponse,
+    AcknowledgeAnomalyError,
+    Options<AcknowledgeAnomalyData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await acknowledgeAnomaly({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 /**
  * Disable device lease rule for a device

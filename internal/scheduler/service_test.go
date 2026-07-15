@@ -57,16 +57,37 @@ func (f *fakeAggregatePruner) DeleteAttributionAggregatesOlderThan(_ context.Con
 	return f.deleted, f.err
 }
 
+type fakeAnomalyPruner struct {
+	deleted        int64
+	err            error
+	calls          int
+	deletedProfile int64
+	profileErr     error
+	profileCalls   int
+}
+
+func (f *fakeAnomalyPruner) DeleteAnomaliesOlderThan(_ context.Context, _ time.Time) (int64, error) {
+	f.calls++
+	return f.deleted, f.err
+}
+
+func (f *fakeAnomalyPruner) DeleteDeviceProfilesLastSeenBefore(_ context.Context, _ time.Time) (int64, error) {
+	f.profileCalls++
+	return f.deletedProfile, f.profileErr
+}
+
 var _ scheduler.AccessLogPruner = (*fakeAccessLogPruner)(nil)
 var _ scheduler.AddressEventPruner = (*fakeAddressEventPruner)(nil)
 var _ scheduler.AggregatePruner = (*fakeAggregatePruner)(nil)
+var _ scheduler.AnomalyPruner = (*fakeAnomalyPruner)(nil)
 
 func TestRetentionJob_ZeroRetentionDays_SkipsAllPruners(t *testing.T) {
 	is := is.New(t)
 	alp := &fakeAccessLogPruner{}
 	aep := &fakeAddressEventPruner{}
 	agp := &fakeAggregatePruner{}
-	job := scheduler.NewRetentionJob(alp, aep, agp, 0, 0, noopLogger())
+	anp := &fakeAnomalyPruner{}
+	job := scheduler.NewRetentionJob(alp, aep, agp, anp, 0, 0, noopLogger())
 
 	err := job.Run(context.Background())
 
@@ -81,7 +102,8 @@ func TestRetentionJob_CallsAllPrunersOnFirstRun(t *testing.T) {
 	alp := &fakeAccessLogPruner{deleted: 5}
 	aep := &fakeAddressEventPruner{deleted: 3}
 	agp := &fakeAggregatePruner{deleted: 7}
-	job := scheduler.NewRetentionJob(alp, aep, agp, 30, 365, noopLogger())
+	anp := &fakeAnomalyPruner{}
+	job := scheduler.NewRetentionJob(alp, aep, agp, anp, 30, 365, noopLogger())
 
 	err := job.Run(context.Background())
 
@@ -90,6 +112,8 @@ func TestRetentionJob_CallsAllPrunersOnFirstRun(t *testing.T) {
 	is.Equal(aep.calls, 1)
 	is.Equal(agp.calls, 1)
 	is.Equal(agp.attributionCalls, 1) // attribution aggregates pruned alongside traffic aggregates
+	is.Equal(anp.calls, 1)            // anomalies pruned at the aggregate horizon
+	is.Equal(anp.profileCalls, 1)     // device profiles pruned alongside anomalies
 }
 
 func TestRetentionJob_ZeroAggregateRetention_SkipsAggregatePruner(t *testing.T) {
@@ -97,7 +121,8 @@ func TestRetentionJob_ZeroAggregateRetention_SkipsAggregatePruner(t *testing.T) 
 	alp := &fakeAccessLogPruner{}
 	aep := &fakeAddressEventPruner{}
 	agp := &fakeAggregatePruner{}
-	job := scheduler.NewRetentionJob(alp, aep, agp, 30, 0, noopLogger())
+	anp := &fakeAnomalyPruner{}
+	job := scheduler.NewRetentionJob(alp, aep, agp, anp, 30, 0, noopLogger())
 
 	err := job.Run(context.Background())
 
@@ -106,6 +131,8 @@ func TestRetentionJob_ZeroAggregateRetention_SkipsAggregatePruner(t *testing.T) 
 	is.Equal(aep.calls, 1)
 	is.Equal(agp.calls, 0)
 	is.Equal(agp.attributionCalls, 0)
+	is.Equal(anp.calls, 0)        // aggregate horizon disabled → anomalies untouched
+	is.Equal(anp.profileCalls, 0) // aggregate horizon disabled → device profiles untouched
 }
 
 func TestRetentionJob_ZeroDataRetention_StillPrunesAggregates(t *testing.T) {
@@ -113,7 +140,8 @@ func TestRetentionJob_ZeroDataRetention_StillPrunesAggregates(t *testing.T) {
 	alp := &fakeAccessLogPruner{}
 	aep := &fakeAddressEventPruner{}
 	agp := &fakeAggregatePruner{}
-	job := scheduler.NewRetentionJob(alp, aep, agp, 0, 365, noopLogger())
+	anp := &fakeAnomalyPruner{}
+	job := scheduler.NewRetentionJob(alp, aep, agp, anp, 0, 365, noopLogger())
 
 	err := job.Run(context.Background())
 
@@ -128,7 +156,8 @@ func TestRetentionJob_DailyGuard_DoesNotRunTwiceInSameDay(t *testing.T) {
 	alp := &fakeAccessLogPruner{}
 	aep := &fakeAddressEventPruner{}
 	agp := &fakeAggregatePruner{}
-	job := scheduler.NewRetentionJob(alp, aep, agp, 30, 365, noopLogger())
+	anp := &fakeAnomalyPruner{}
+	job := scheduler.NewRetentionJob(alp, aep, agp, anp, 30, 365, noopLogger())
 
 	_ = job.Run(context.Background())
 	err := job.Run(context.Background())
@@ -145,7 +174,8 @@ func TestRetentionJob_AccessLogPrunerError_Propagates(t *testing.T) {
 	alp := &fakeAccessLogPruner{err: pruneErr}
 	aep := &fakeAddressEventPruner{}
 	agp := &fakeAggregatePruner{}
-	job := scheduler.NewRetentionJob(alp, aep, agp, 30, 365, noopLogger())
+	anp := &fakeAnomalyPruner{}
+	job := scheduler.NewRetentionJob(alp, aep, agp, anp, 30, 365, noopLogger())
 
 	err := job.Run(context.Background())
 
@@ -160,7 +190,8 @@ func TestRetentionJob_AddressEventPrunerError_Propagates(t *testing.T) {
 	alp := &fakeAccessLogPruner{}
 	aep := &fakeAddressEventPruner{err: pruneErr}
 	agp := &fakeAggregatePruner{}
-	job := scheduler.NewRetentionJob(alp, aep, agp, 30, 365, noopLogger())
+	anp := &fakeAnomalyPruner{}
+	job := scheduler.NewRetentionJob(alp, aep, agp, anp, 30, 365, noopLogger())
 
 	err := job.Run(context.Background())
 
@@ -174,7 +205,8 @@ func TestRetentionJob_AggregatePrunerError_Propagates(t *testing.T) {
 	alp := &fakeAccessLogPruner{}
 	aep := &fakeAddressEventPruner{}
 	agp := &fakeAggregatePruner{err: pruneErr}
-	job := scheduler.NewRetentionJob(alp, aep, agp, 30, 365, noopLogger())
+	anp := &fakeAnomalyPruner{}
+	job := scheduler.NewRetentionJob(alp, aep, agp, anp, 30, 365, noopLogger())
 
 	err := job.Run(context.Background())
 

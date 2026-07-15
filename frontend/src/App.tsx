@@ -22,6 +22,7 @@ import { UserDetailPage } from "./pages/access/users/UserDetailPage";
 import { PolicyAuditPage } from "./pages/policy-audit/PolicyAuditPage";
 import { NetworkPoliciesPage } from "./pages/access/network-policies/NetworkPoliciesPage";
 import { NetworkPolicyDetailPage } from "./pages/access/network-policies/NetworkPolicyDetailPage";
+import { AnomaliesPage } from "./pages/anomalies/AnomaliesPage";
 import { theme, cssVariablesResolver } from "./lib/theme";
 import { ROUTES } from "./lib/routes";
 import { DateTimePrefsProvider } from "./contexts/DateTimePrefsContext";
@@ -69,6 +70,7 @@ const router = createBrowserRouter([
       { path: ROUTES.policyAudit, element: protectedPage(<PolicyAuditPage />) },
       { path: ROUTES.accessNetworkPolicies, element: protectedPage(<NetworkPoliciesPage />) },
       { path: ROUTES.accessNetworkPolicyDetail, element: protectedPage(<NetworkPolicyDetailPage />) },
+      { path: ROUTES.anomalies, element: protectedPage(<AnomaliesPage />) },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

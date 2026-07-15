@@ -1,6 +1,6 @@
 # Frontend Codebase Reference
 
-> Last updated: 2026-06-25
+> Last updated: 2026-07-11
 
 This document is the **map** of the frontend codebase — what exists and where. For the system-level
 overview (pages → features → hooks → generated SDK, the API contract), see
@@ -38,14 +38,19 @@ Routes are defined in `lib/routes.ts` (`ROUTES` map + `buildRoute` path helpers)
 | `/access-log` | `AccessLogPage` | |
 | `/address-history` | `AddressHistoryPage` | |
 | `/policy-audit` | `PolicyAuditPage` | nav label is "Access Verification" |
+| `/anomalies` | `AnomaliesPage` | |
 | `/settings` | `SettingsPage` | |
 | `*` | `NotFoundPage` | |
 
 **Nav (`components/layout/AppShell.tsx`, `navGroups`):** Dashboard · **Devices** (Devices) ·
 **Access** (Hosts, Host Groups, Users, Network Policies) · **Auditing** (Access Logs, IP Address
-Logs, Access Verification) · Settings. The shell is a collapsible/resizable sidebar (width +
-collapsed state persisted in `localStorage`), with a color-scheme toggle and help link in the header
-and user info + logout in the footer.
+Logs, Access Verification, Anomalies) · Settings. The shell is a collapsible/resizable sidebar
+(width + collapsed state persisted in `localStorage`), with a color-scheme toggle and help link in
+the header and user info + logout in the footer. Nav items can carry a live-data badge (currently
+only Anomalies): a `Partial<Record<href, number>>` computed in the component body from a query
+hook, looked up per item at render time so the static `navGroups` declaration stays data-free;
+renders as a `Badge` in the expanded item and an `Indicator` dot (plus the count appended to the
+tooltip label) when the sidebar is collapsed.
 
 ## Auth flow
 
@@ -63,7 +68,7 @@ Drifts easily — verify against `features/auth/` before trusting.
 
 | Route | Page | Surface |
 |-------|------|---------|
-| `/dashboard` | `TrafficDashboardPage` | Security posture + traffic analytics. `features/dashboard/DashboardView` composes `PostureStrip` ("now" posture), a time-range preset, `DashboardStatCards`, `AttributionSection`, `TrafficLineChart` + `ServiceBarChart`, `CountryStatsSection` (incl. `AccessMap`), `TopDeniedIPsTable`. |
+| `/dashboard` | `TrafficDashboardPage` | Security posture + traffic analytics. `features/dashboard/DashboardView` composes `PostureStrip` ("now" posture), `features/anomalies`' `AnomalySection` ("Unusual activity", also "now" state — sits outside the time-range-scoped Traffic stack), a time-range preset, `DashboardStatCards`, `AttributionSection`, `TrafficLineChart` + `ServiceBarChart`, `CountryStatsSection` (incl. `AccessMap`), `TopDeniedIPsTable`. |
 | `/devices` | `DevicesPage` | Admin list of all devices grouped by owner — renders `OwnerGroupList`. |
 | `/devices/owners/:ownerId` | `UserDevicesPage` | Owner-scoped device workspace: a resizable device sidebar (`OwnerDevicesPanel`) + a per-device tabbed panel (tab tracked in `?tab=`, device in `?device=`). Banners surface pending-pairing, disabled, and "API key but no limit rule" states. Device-create lives at the `/new` sub-route (in-pane `DeviceCreatePane`; `DeviceCreateEmptyState` when the owner has none). |
 | `/access/hosts` | `HostsPage` | Tabbed (`HostsTab`, `SuggestionsTab`) with a staged-changes bar (`StagedChangesBar`) for bulk reconcile; drafts in `features/host-access/drafts/`. |
@@ -75,6 +80,7 @@ Drifts easily — verify against `features/auth/` before trusting.
 | `/access-log` | `AccessLogPage` | `PageToolbar` (time range + auto-refresh) over `AccessLogTable`; a row opens `AccessLogDetailDrawer` (request/device/location/headers). Answers "which IPs requested verification and the outcome". |
 | `/address-history` | `AddressHistoryPage` | `AddressHistoryView` — address-over-time plot + filterable list of address lease events. |
 | `/policy-audit` | `PolicyAuditPage` (nav "Access Verification") | Policy decision-cache snapshot + simulation: cache stats header, a "Test request" `SimulateBar`, and tabs **Device entries** (`PolicyUserTable` + `PolicyUserDrawer`) / **Network policies** (`NetworkPolicyCacheTab`). |
+| `/anomalies` | `AnomaliesPage` | Detected-anomaly list: status/severity/kind filters (`AnomaliesFilterBar`), narrative rows (`AnomalyRow`) that expand to raw `evidence` (`EvidenceList`), inline acknowledge. Shares its default-filter query with the dashboard section and the nav badge — see `features/anomalies`. |
 | `/settings` | `SettingsPage` | Tabbed: **Account** (`AccountTab` — profile + change password, with unsaved-changes guard) and **Preferences** (`PreferencesTab` — date-time locale). User administration lives under Access › Users, not here. |
 
 ### Device workspace tabs (`UserDevicesPage`, `?tab=`)
@@ -102,6 +108,7 @@ Each feature owns its own `components/` + `hooks/` (and where relevant `constant
 | `network-policies` | CIDR network-policy CRUD. | `NetworkPoliciesTable`, `{Create,Edit,Delete}NetworkPolicyModal`, `NetworkPolicyHeader`; `hooks/use{Create,Update,Delete}NetworkPolicy.ts`, `useNetworkPolic{y,ies}.ts` |
 | `subjects` | Shared access-subject panels reused by user detail (effective hosts, subject groups, group filter, devices). | `EffectiveHostsPanel`, `SubjectGroupsPanel`, `GroupFilterBar`, `UserDevicesTab`, `AllHostsBypassPill`; `drafts/subjectAccessDraft.ts`; `hooks/use{UserAccessDetail,SetUserAccess,ListUsersWithAccess}.ts` |
 | `policy-audit` | Policy decision-cache snapshot + request simulation. | `components/{SimulateBar,PolicyUserTable,PolicyUserDrawer,NetworkPolicyCacheTab}.tsx`; `hooks/use{PolicyMap,PolicySimulate}.ts` |
+| `anomalies` | Detected-anomaly presentation (dashboard section, full page, nav badge) — all three share one open-anomalies query. | `components/{AnomalySection,AnomaliesFilterBar,AnomalyRow,AnomalyAttributionChips,EvidenceList,SeverityIndicator}.tsx`; `hooks/use{Anomalies,OpenAnomalies,AcknowledgeAnomaly}.ts`; `constants.ts` (kind→label/icon/family, severity→color, shared open-query params) |
 | `access-log` | Access-decision log list, filtering, and detail drawer. | `components/{AccessLogTable,AccessLogDetailDrawer,ColumnFilter,FilterableCell}.tsx`, `accessLogColumns.tsx`, `filterConfig.ts`; `hooks/useAccessLog*.ts` |
 | `address-history` | Address-lease event list + chart. | `components/{AddressHistoryView,AddressHistoryTable}.tsx`, `addressHistoryColumns.tsx`; `hooks/useAddressHistory*.ts` |
 | `settings` | Account + preferences tab bodies. | `AccountTab.tsx`, `PreferencesTab.tsx` |

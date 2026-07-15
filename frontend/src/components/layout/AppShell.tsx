@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import {
     AppShell as MantineAppShell,
+    Badge,
     NavLink,
     Text,
     Stack,
@@ -8,6 +9,7 @@ import {
     ActionIcon,
     Burger,
     Group,
+    Indicator,
     Tooltip,
     ScrollArea,
     Box,
@@ -15,6 +17,7 @@ import {
 import { useDisclosure, useLocalStorage, useMediaQuery } from "@mantine/hooks";
 import { BrandName } from "@/components/BrandName";
 import {
+    IconAlertTriangle,
     IconChartBar,
     IconChevronLeft,
     IconChevronRight,
@@ -28,6 +31,7 @@ import {
     IconUsers,
 } from "@tabler/icons-react";
 import { ROUTES } from "@/lib/routes";
+import { useOpenAnomalies } from "@/features/anomalies/hooks/useOpenAnomalies";
 import { UserMenu } from "./UserMenu";
 import classes from "./AppShell.module.css";
 
@@ -68,6 +72,7 @@ const navGroups: NavGroup[] = [
             { label: "Access Logs", href: ROUTES.accessLog, icon: IconList },
             { label: "IP Address Logs", href: ROUTES.addressHistory, icon: IconHistory },
             { label: "Access Verification", href: ROUTES.policyAudit, icon: IconDatabaseSearch },
+            { label: "Anomalies", href: ROUTES.anomalies, icon: IconAlertTriangle },
         ],
     },
 ];
@@ -122,6 +127,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     const location = useLocation();
 
+    // Keyed by href rather than baked into `navGroups`, since it's the only
+    // nav item backed by live query data today; other items can opt in the
+    // same way without changing the static group/item declarations above.
+    const openAnomalies = useOpenAnomalies();
+    const navBadgeCounts: Partial<Record<string, number>> = {
+        [ROUTES.anomalies]: openAnomalies.data?.anomalies.length,
+    };
+
     return (
         <MantineAppShell
             header={{ height: 60 }}
@@ -168,17 +181,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 )}
                                 {group.items.map(item => {
                                     const isActive = location.pathname.startsWith(item.href);
+                                    const badgeCount = navBadgeCounts[item.href];
                                     if (isCollapsed) {
+                                        const label = badgeCount ? `${item.label} (${badgeCount})` : item.label;
                                         return (
-                                            <Tooltip key={item.href} label={item.label} position="right" withArrow>
+                                            <Tooltip key={item.href} label={label} position="right" withArrow>
                                                 <NavLink
                                                     component={Link}
                                                     to={item.href}
-                                                    leftSection={<item.icon size={18} stroke={1.5} />}
+                                                    leftSection={
+                                                        <Indicator disabled={!badgeCount} color="red" size={8} offset={2}>
+                                                            <item.icon size={18} stroke={1.5} />
+                                                        </Indicator>
+                                                    }
                                                     active={isActive}
                                                     onClick={closeMobile}
                                                     styles={collapsedItemStyles}
-                                                    aria-label={item.label}
+                                                    aria-label={label}
                                                 />
                                             </Tooltip>
                                         );
@@ -190,6 +209,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                             to={item.href}
                                             label={item.label}
                                             leftSection={<item.icon size={18} stroke={1.5} />}
+                                            rightSection={
+                                                badgeCount ? (
+                                                    <Badge size="sm" color="red" circle>
+                                                        {badgeCount > 99 ? "99+" : badgeCount}
+                                                    </Badge>
+                                                ) : undefined
+                                            }
                                             active={isActive}
                                             onClick={closeMobile}
                                             className={classes.navItem}

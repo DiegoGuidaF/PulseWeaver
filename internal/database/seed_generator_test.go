@@ -82,7 +82,10 @@ func TestGenerateSeedDB(t *testing.T) {
 	case "sample":
 		// Self-contained sample world; its traffic profile replaces the synthetic
 		// access-log volume, so WithAccessLogVolume is intentionally not chained.
-		testutils.SeedSampleWorld(t).Build(application)
+		// The scan job that produces anomalies does not run at seed time, so the
+		// findings are materialized explicitly from the sample traffic.
+		result := testutils.SeedSampleWorld(t).Build(application)
+		testutils.MaterializeSampleAnomalies(t, application, result)
 	case "", "full":
 		// SeedFullWorld plus extras the base world lacks: observed host suggestions
 		// and an IPv6 grant + address. Chained here rather than added to SeedFullWorld

@@ -78,8 +78,10 @@ is **one binary** with the web UI embedded and a single SQLite file — no datab
   allowed IPs tight as it roams, with no manual cleanup. ([docs](docs/Connecting-Devices.md#recommended-settings-for-roaming-devices))
 - **Network policies** — CIDR-range grants for networks you trust as a whole, like your LAN or a VPN subnet; overly
   broad ranges are rejected so a typo cannot allow the wider internet. ([docs](docs/Network-Policies.md))
-- **Access logs & anomaly surface** — every decision the engine evaluates is recorded and filterable; dashboard with
-  traffic over time, per-service splits, shared-IP flags, top denied IPs, and GeoIP enrichment. ([docs](docs/Observability.md))
+- **Access logs & anomaly detection** — every decision the engine evaluates is recorded and filterable; dashboard with
+  traffic over time, per-service splits, shared-IP flags, top denied IPs, and GeoIP enrichment. A background scan
+  flags what you'd otherwise miss — denial spikes, silently locked-out users, probing, new device fingerprints,
+  impossible travel. ([docs](docs/Observability.md#anomaly-detection))
 - **Suggested hosts** — PulseWeaver proposes hostnames it sees in real traffic, so building the hosts list takes
   minutes, not an audit.
 - **Device pairing** — one code (or QR scan) configures a device automatic heartbeat end-to-end, no manual URL/key entry.
@@ -447,6 +449,7 @@ setups, and the recommended lease settings for roaming.
 | `DATA_RETENTION_DAYS`      | No                 | `30`                       | Days to keep **per-request detail** — the access log and device address history. `0` disables pruning. Aggregated traffic is kept longer (see below), so old detail ages out without losing dashboard history. See [Observability](docs/Observability.md).                                         |
 | `AGGREGATE_RETENTION_DAYS` | No                 | `365`                      | Days to keep the **hourly traffic aggregates** behind long dashboard windows. `0` = keep forever. Must be `0` or ≥ `DATA_RETENTION_DAYS`. See [Observability](docs/Observability.md).                                                                                                              |
 | `GEOIP_ENABLED`            | No                 | `true`                     | Resolve client IPs to country/ASN for logs and dashboard. Uses free DB-IP databases, checks daily for stale files, downloads the current monthly DB-IP files when needed, and does no per-request external lookup. See [Observability](docs/Observability.md#geoip).                                |
+| `ANOMALY_DETECTION_ENABLED`| No                 | `true`                     | Background scan that flags unusual activity (denial spikes, silent lockouts, probing, new device fingerprints, impossible travel) on the dashboard and the Anomalies page. Detection is observation only — it never blocks a request. Tuning knobs (`ANOMALY_*`) in [Observability](docs/Observability.md#anomaly-detection). |
 | `DB_DIR`                   | No                 | `./data` (Docker: `/data`) | Directory for the SQLite database. The file is plaintext at rest except for fields PulseWeaver hashes before storing them; protect the volume with host permissions/backups/full-disk encryption as appropriate. See [Data Persistence](docs/Data-Persistence.md).                                  |
 | `TZ`                       | No                 | `UTC`                      | Application timezone for explicit wall-clock operations. Persisted timestamps are UTC; API timestamps are serialized as UTC RFC3339.                                                                                                                                                               |
 | `LOG_LEVEL`                | No                 | `info`                     | Log level: `debug`, `info`, `warn`, `error`.                                                                                                                                                                                                                                                       |

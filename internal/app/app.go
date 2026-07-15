@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/anomaly"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
@@ -48,6 +49,7 @@ type App struct {
 	HostsService           *hosts.Service
 	UserAccessService      *useraccess.Service
 	NetworkPoliciesService *networkpolicies.Service
+	AnomalyScanJob         *anomaly.ScanJob
 }
 
 // New initializes the application with configuration loaded from environment variables.
@@ -155,6 +157,11 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	//TODO: Change networkPoliciesRepo to service
 	queriesHandler := queries.NewHTTPHandler(queriesRepo, policyService, networkPoliciesRepo, deviceService, geoipLookup, logger)
 
+	// Anomaly detection — the acknowledge endpoint is served regardless of whether
+	// the background scan runs, so historical findings stay reviewable.
+	anomalyRepo := anomaly.NewRepository(db.DB())
+	anomalyHandler := anomaly.NewHTTPHandler(anomalyRepo, logger)
+
 	// Address Lease manager
 	addressLeaseRepo := lease.NewRepository(db.DB())
 	addressLeaseService := lease.NewService(addressLeaseRepo, ruleService, logger)
@@ -193,8 +200,34 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	schedulerService := scheduler.NewService(logger)
 	schedulerService.AddJob(addressLeaseService.NewExpiryJob(deviceService))
 	schedulerService.AddJob(rollupRepo.NewRollupJob(logger))
-	schedulerService.AddJob(scheduler.NewRetentionJob(accessLogRepo, deviceRepo, rollupRepo,
+	schedulerService.AddJob(scheduler.NewRetentionJob(accessLogRepo, deviceRepo, rollupRepo, anomalyRepo,
 		conf.Rules.DataRetentionDays, conf.Rules.AggregateRetentionDays, logger))
+
+	// Anomaly detection — background scan producing findings for review. The job
+	// is always constructed and exposed on App so a test can trigger one
+	// deterministic pass; it is only scheduled to run periodically when enabled.
+	//
+	// geoip.New never returns nil, so passing geoipLookup directly would make
+	// the detectors' "GeoIP unconfigured" guards dead code (a nil *geoip.Lookup
+	// assigned into the GeoResolver interface is a non-nil interface value).
+	// Assign only when GeoIP is enabled; a download failure with Enabled=true
+	// keeps a live resolver since RunUpdater can populate it later.
+	var anomalyGeo anomaly.GeoResolver
+	if conf.GeoIP.Enabled {
+		anomalyGeo = geoipLookup
+	}
+	anomalyScanJob := anomaly.NewScanJob(anomalyRepo, anomaly.AllDetectors(anomalyRepo, anomalyGeo), anomaly.ScanOptions{
+		Interval:            conf.Anomaly.ScanInterval,
+		Sensitivity:         conf.Anomaly.Sensitivity,
+		LearningDays:        conf.Anomaly.LearningDays,
+		DetectRules:         conf.Anomaly.DetectRules,
+		DetectVolume:        conf.Anomaly.DetectVolume,
+		DetectNovelty:       conf.Anomaly.DetectNovelty,
+		TravelSameContinent: conf.Anomaly.TravelSameContinent,
+	}, logger)
+	if conf.Anomaly.Enabled {
+		schedulerService.AddJob(anomalyScanJob)
+	}
 
 	// Fire the rules on start to ensure we disable no longer valid addresses before letting them through
 	err = schedulerService.ExecuteScheduledRules(ctx)
@@ -224,6 +257,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		hostsHandler,
 		userAccessHandler,
 		networkPoliciesHandler,
+		anomalyHandler,
 		logger,
 		conf.Server.TrustedProxy,
 	)
@@ -246,6 +280,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		HostsService:           hostsService,
 		UserAccessService:      userAccessService,
 		NetworkPoliciesService: networkPoliciesService,
+		AnomalyScanJob:         anomalyScanJob,
 	}, nil
 }
 

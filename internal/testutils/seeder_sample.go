@@ -199,15 +199,18 @@ var sampleGeo = map[string]geoip.Result{
 	"89.248.165.50":  GeoResult("NL", 202425, "IP Volume inc"),
 	"193.32.162.40":  GeoResult("NL", 47890, "UNMANAGED LTD"),
 	"185.220.101.40": GeoResult("DE", 60729, "Stiftung Erneuerbare Freiheit"),
-	"123.30.100.20":  GeoResult("VN", 45899, "VNPT Corp"),
-	"14.177.10.5":    GeoResult("VN", 45899, "VNPT Corp"),
-	"103.102.40.5":   GeoResult("PK", 58895, "E Bone Network (Pvt.) Limited"),
-	"200.160.2.3":    GeoResult("BR", 22548, "NIC.BR"),
-	"177.71.207.10":  GeoResult("BR", 16509, "Amazon.com, Inc."),
-	"41.79.10.5":     GeoResult("KE", 37305, "Frontier Optical Networks Ltd"),
-	"196.30.100.7":   GeoResult("ZA", 16637, "MTN SA"),
-	"79.140.10.20":   GeoResult("UA", 6876, "TENET LLC"),
-	"194.165.16.10":  GeoResult("LT", 48721, "Flyservers S.A."),
+	// A second, foreign presence for Liam's ThinkPad — drives the impossible_travel
+	// and new_country showcase anomalies (see MaterializeSampleAnomalies).
+	"91.64.12.9":    GeoResult("DE", 3320, "Deutsche Telekom AG"),
+	"123.30.100.20": GeoResult("VN", 45899, "VNPT Corp"),
+	"14.177.10.5":   GeoResult("VN", 45899, "VNPT Corp"),
+	"103.102.40.5":  GeoResult("PK", 58895, "E Bone Network (Pvt.) Limited"),
+	"200.160.2.3":   GeoResult("BR", 22548, "NIC.BR"),
+	"177.71.207.10": GeoResult("BR", 16509, "Amazon.com, Inc."),
+	"41.79.10.5":    GeoResult("KE", 37305, "Frontier Optical Networks Ltd"),
+	"196.30.100.7":  GeoResult("ZA", 16637, "MTN SA"),
+	"79.140.10.20":  GeoResult("UA", 6876, "TENET LLC"),
+	"194.165.16.10": GeoResult("LT", 48721, "Flyservers S.A."),
 }
 
 func sampleGeoFor(ip string) *geoip.Result {
