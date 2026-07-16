@@ -11,7 +11,7 @@ import { CursorPagination } from "@/components/CursorPagination";
 import { useAddressHistory } from "../hooks/useAddressHistory";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
 import { getAddressHistoryColumns } from "./addressHistoryColumns";
-import { SOURCE_LABELS } from "../constants";
+import { SOURCE_LABELS, isAddressEventSource } from "../constants";
 import { ErrorState } from "@/components/ErrorState";
 import { formatChartLabel, presetToMs } from "@/lib/formatChartLabel";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
@@ -146,7 +146,9 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         if (filters.sourceStr) {
             chips.push({
                 label: "Source",
-                value: SOURCE_LABELS[filters.sourceStr] ?? filters.sourceStr,
+                value: isAddressEventSource(filters.sourceStr)
+                    ? SOURCE_LABELS[filters.sourceStr]
+                    : filters.sourceStr,
                 onRemove: () => filters.setParam("source", null),
             });
         }

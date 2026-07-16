@@ -1,6 +1,6 @@
 # Frontend Codebase Reference
 
-> Last updated: 2026-06-25
+> Last updated: 2026-07-16
 
 This document is the **map** of the frontend codebase — what exists and where. For the system-level
 overview (pages → features → hooks → generated SDK, the API contract), see
@@ -97,7 +97,7 @@ Each feature owns its own `components/` + `hooks/` (and where relevant `constant
 | `auth` | Authentication, the auth context/route guard, and user administration (CRUD + role + password). | `AuthContext.tsx`, `auth-context.ts`, `ProtectedRoute.tsx`, `components/LoginForm.tsx`, `components/{CreateUser,DeleteUser,RoleChange}Modal.tsx`, `hooks/use{Login,Logout,CurrentUser,CreateUser,DeleteUser,Promote,Demote,UpdateMe,ChangePassword}.ts` |
 | `dashboard` | Security-posture + traffic analytics surface. | `components/DashboardView.tsx`, `PostureStrip`, `DashboardStatCards`, `AttributionSection`/`AttributionTable`, `ServiceBarChart`/`ServiceDonutChart`, `CountryStatsSection`, `AccessMap`, `TopCountriesTable`, `TopDeniedIPsTable`; `hooks/useDashboard*.ts` |
 | `devices` | Device list + the per-device workspace (addresses, rules, history, settings, create). | `OwnerGroupList`, `OwnerDevicesPanel`, `OwnerCard`, `DeviceRow`, `Device{Addresses,Rules,History,Settings}Tab`, `DeviceCreatePane`, `DeviceProfileCard`, `{AddressLease,MaxActiveIps}RuleCard`, `deviceTypeConfig.ts`; `hooks/useDevice*.ts`, `useOwnerGroup.ts` |
-| `device-pairing` | Pairing-code lifecycle so the heartbeat client can claim a device API key. | `DevicePairingTab.tsx`, `PairingCreationForm`, `PairingCodeDisplay`, `PairingStatusHero`, `PairingConfigSummary`, `DevicePairingBanner`; `hooks/use{Create,Delete,List}DevicePairing.ts` |
+| `device-pairing` | Pairing-code lifecycle so the heartbeat client can claim a device API key. | `DevicePairingTab.tsx`, `PairingCreationForm`, `PairingCodeDisplay`, `PairingStatusHero`, `PairingConfigSummary`, `DevicePairingBanner`, `constants.ts` (status badge + expiry-hours labels/options); `hooks/use{Create,Delete,List}DevicePairing.ts` |
 | `host-access` | Known hosts, host groups, and suggestions; staged-changes bulk reconcile. | `HostsTab`, `SuggestionsTab`, `HostGroupsTab`, `GroupMasterList`, `GroupDetailPanel`, `GroupMembershipTables`, `GroupMetadataModal`, `StagedChangesBar`, `AddHostModal`; `drafts/`, `hooks/use{Hosts,HostGroups,HostSuggestions}.ts`, reconcile/ignore hooks |
 | `network-policies` | CIDR network-policy CRUD. | `NetworkPoliciesTable`, `{Create,Edit,Delete}NetworkPolicyModal`, `NetworkPolicyHeader`; `hooks/use{Create,Update,Delete}NetworkPolicy.ts`, `useNetworkPolic{y,ies}.ts` |
 | `subjects` | Shared access-subject panels reused by user detail (effective hosts, subject groups, group filter, devices). | `EffectiveHostsPanel`, `SubjectGroupsPanel`, `GroupFilterBar`, `UserDevicesTab`, `AllHostsBypassPill`; `drafts/subjectAccessDraft.ts`; `hooks/use{UserAccessDetail,SetUserAccess,ListUsersWithAccess}.ts` |

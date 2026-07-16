@@ -1,9 +1,21 @@
-export const SOURCE_LABELS: Record<string, string> = {
-    heartbeat: "Heartbeat",
-    manual: "Manual",
-    expiry: "Expiry",
-    limit_exceeded: "Limit Exceeded",
+import { AddressEventSource } from "@/lib/api";
+
+export const SOURCE_LABELS: Record<AddressEventSource, string> = {
+    [AddressEventSource.HEARTBEAT]: "Heartbeat",
+    [AddressEventSource.MANUAL]: "Manual",
+    [AddressEventSource.EXPIRY]: "Expiry",
+    [AddressEventSource.LIMIT_EXCEEDED]: "Limit Exceeded",
 };
+
+export const SOURCE_OPTIONS = Object.values(AddressEventSource).map((source) => ({
+    value: source,
+    label: SOURCE_LABELS[source],
+}));
+
+/** Narrows a raw URL search-param string to a known address-event source. */
+export function isAddressEventSource(value: string): value is AddressEventSource {
+    return value in SOURCE_LABELS;
+}
 
 /** Formats a duration in seconds as a compact human string, e.g. "45s", "12m", "1h 30m", "2d 4h". */
 export function formatGapDuration(seconds: number): string {

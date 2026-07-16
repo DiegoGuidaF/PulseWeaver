@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useDebouncedCallback } from "@mantine/hooks";
 import dayjs from "dayjs";
-import type { GetAddressHistoryData } from "@/lib/api";
+import type { AddressEventSource, GetAddressHistoryData } from "@/lib/api";
 import { DEFAULT_PRESET_KEY, PRESET_MS } from "@/lib/timePresets";
 
 const LS_KEY = "pulseweaver:address-history:filters";
@@ -127,7 +127,7 @@ export function useFilterCore(
         device_id: lockedDeviceId != null
             ? [lockedDeviceId]
             : deviceIdStr ? [Number(deviceIdStr)] : undefined,
-        source: (sourceStr || undefined) as "heartbeat" | "manual" | "expiry" | undefined,
+        source: (sourceStr || undefined) as AddressEventSource | undefined,
         is_enabled: enabledStr === "true" ? true : enabledStr === "false" ? false : undefined,
         ip: ipDebounced || undefined,
         from: presetMs !== undefined

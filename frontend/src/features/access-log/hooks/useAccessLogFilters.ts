@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import dayjs from "dayjs";
-import type { GetAccessLogData } from "@/lib/api";
+import { SortOrder, type GetAccessLogData } from "@/lib/api";
 import { DEFAULT_PRESET_KEY, PRESET_MS } from "../constants";
 import {
     type ColumnFilterState,
     type FilterColumnKey,
     type FilterOp,
     type SortColumn,
+    type SortDirection,
     FILTER_COLUMN_KEYS,
     FILTER_COLUMNS,
     isFilterActive,
@@ -39,7 +40,7 @@ export interface AccessLogFilters {
 
     // Sort
     sort: SortColumn;
-    order: "asc" | "desc";
+    order: SortDirection;
 
     /** True when a custom `to` is set (historical view, not live tail). */
     hasCustomTo: boolean;
@@ -53,7 +54,7 @@ export interface AccessLogFilters {
     // Setters
     setPreset: (key: string | null) => void;
     setOutcome: (value: string | null) => void;
-    setSort: (column: SortColumn, order: "asc" | "desc") => void;
+    setSort: (column: SortColumn, order: SortDirection) => void;
     setSearchParams: (updater: URLSearchParams | ((prev: URLSearchParams) => URLSearchParams)) => void;
     clearAll: () => void;
 }
@@ -102,7 +103,7 @@ export function useAccessLogFilters(): AccessLogFilters {
     const toStr = searchParams.get("to");
     const outcomeStr = searchParams.get("outcome");
     const sort = (searchParams.get("sort") as SortColumn | null) ?? "created_at";
-    const order = (searchParams.get("order") as "asc" | "desc" | null) ?? "desc";
+    const order = (searchParams.get("order") as SortDirection | null) ?? SortOrder.DESC;
 
     const getColumnFilter = useCallback(
         (key: FilterColumnKey): ColumnFilterState => ({
@@ -159,9 +160,9 @@ export function useAccessLogFilters(): AccessLogFilters {
         });
     }
 
-    function setSort(column: SortColumn, dir: "asc" | "desc") {
+    function setSort(column: SortColumn, dir: SortDirection) {
         setSearchParams((prev) => {
-            if (column === "created_at" && dir === "desc") {
+            if (column === "created_at" && dir === SortOrder.DESC) {
                 prev.delete("sort");
                 prev.delete("order");
             } else {

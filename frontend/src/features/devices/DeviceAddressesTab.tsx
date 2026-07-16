@@ -26,7 +26,8 @@ import { toErrorMessage } from "@/lib/api-client";
 import { ErrorState } from "@/components/ErrorState";
 import { GeoCell } from "@/components/GeoCell";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
-import { AddressEventSource, type Address } from "@/lib/api";
+import type { Address } from "@/lib/api";
+import { ADDRESS_SOURCE_LABELS } from "@/features/devices/constants";
 import { useDeviceAddresses } from "@/features/devices/hooks/useDeviceAddresses";
 import { useAddDeviceAddress } from "@/features/devices/hooks/useAddDeviceAddress";
 import { useDisableDeviceAddress } from "@/features/devices/hooks/useDisableDeviceAddress";
@@ -44,13 +45,6 @@ function isStale(address: Address): boolean {
 function isActive(address: Address): boolean {
   return !isStale(address);
 }
-
-const SOURCE_LABELS: Record<string, string> = {
-  [AddressEventSource.HEARTBEAT]: "heartbeat",
-  [AddressEventSource.MANUAL]: "manual",
-  [AddressEventSource.EXPIRY]: "expired",
-  [AddressEventSource.LIMIT_EXCEEDED]: "evicted",
-};
 
 function formatDuration(fromIso: string, toIso: string): string {
   const mins = dayjs(toIso).diff(dayjs(fromIso), "minute");
@@ -148,7 +142,7 @@ function AddressRow({
       </Table.Td>
       <Table.Td>
         <Text size="xs" c="dimmed">
-          {formatDateTime(address.updated_at)} · {SOURCE_LABELS[address.source] ?? address.source}
+          {formatDateTime(address.updated_at)} · {ADDRESS_SOURCE_LABELS[address.source]}
         </Text>
       </Table.Td>
       <Table.Td>
@@ -464,7 +458,7 @@ export function DeviceAddressesTab({ deviceId, isDisabled = false }: DeviceAddre
                     </Table.Td>
                     <Table.Td>
                       <Text size="xs" c="dimmed">
-                        {formatDateTime(a.updated_at)} · {SOURCE_LABELS[a.source] ?? a.source}
+                        {formatDateTime(a.updated_at)} · {ADDRESS_SOURCE_LABELS[a.source]}
                       </Text>
                     </Table.Td>
                     <Table.Td>

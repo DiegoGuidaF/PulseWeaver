@@ -14,9 +14,9 @@ import { DateTimePicker } from "@mantine/dates";
 import { IconArrowsRightLeft, IconSearch } from "@tabler/icons-react";
 import type { DataTableColumn } from "mantine-datatable";
 import { GeoCell } from "@/components/GeoCell";
-import type { AddressHistoryEvent } from "@/lib/api";
+import { AddressEventSource, type AddressHistoryEvent } from "@/lib/api";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
-import { SOURCE_LABELS, formatGapDuration } from "../constants";
+import { SOURCE_LABELS, SOURCE_OPTIONS, formatGapDuration } from "../constants";
 import dayjs from "dayjs";
 
 const refDateStyle = {
@@ -69,18 +69,20 @@ function renderGapCell({ gapSeconds, ttlSeconds }: { gapSeconds: number | null |
     );
 }
 
-function sourceBadgeColor(source: string): string {
+function sourceBadgeColor(source: AddressEventSource): string {
     switch (source) {
-        case "heartbeat":
+        case AddressEventSource.HEARTBEAT:
             return "orange";
-        case "manual":
+        case AddressEventSource.MANUAL:
             return "grape";
-        case "expiry":
+        case AddressEventSource.EXPIRY:
             return "orange";
-        case "limit_exceeded":
+        case AddressEventSource.LIMIT_EXCEEDED:
             return "red";
-        default:
-            return "gray";
+        default: {
+            const _exhaustive: never = source;
+            return _exhaustive;
+        }
     }
 }
 
@@ -107,7 +109,7 @@ export interface AddressHistoryColumnDeps {
 }
 
 export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTableColumn<AddressHistoryEvent>[] {
-    const sourceOptions = Object.entries(SOURCE_LABELS).map(([value, label]) => ({ value, label }));
+    const sourceOptions = SOURCE_OPTIONS;
 
     const allColumns: DataTableColumn<AddressHistoryEvent>[] = [
         {

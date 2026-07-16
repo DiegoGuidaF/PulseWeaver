@@ -15,9 +15,10 @@ import { IconInfoCircle } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { zCreatePairingRequest } from "@/lib/api/zod.gen";
 import type { z } from "zod";
-import type { DevicePairing } from "@/lib/api";
+import type { DevicePairing, PairingExpiryHours } from "@/lib/api";
 import { toErrorMessage } from "@/lib/api-client";
 import { useCreateDevicePairing } from "./hooks/useCreateDevicePairing";
+import { PAIRING_EXPIRY_OPTIONS } from "./constants";
 
 const LS_SERVER_URL_KEY = "pw.pair.serverUrl";
 
@@ -144,15 +145,10 @@ export function PairingCreationForm({ deviceId, onSuccess, onCancel }: Props) {
             Code expires
           </Text>
           <SegmentedControl
-            data={[
-              { value: "1", label: "1 hour" },
-              { value: "24", label: "24 hours" },
-              { value: "48", label: "48 hours" },
-              { value: "168", label: "7 days" },
-            ]}
+            data={PAIRING_EXPIRY_OPTIONS}
             value={String(form.values.expires_in_hours)}
             onChange={(val) =>
-              form.setFieldValue("expires_in_hours", Number(val) as 1 | 24 | 48 | 168)
+              form.setFieldValue("expires_in_hours", Number(val) as PairingExpiryHours)
             }
           />
           <Text size="xs" c="dimmed" mt={4}>

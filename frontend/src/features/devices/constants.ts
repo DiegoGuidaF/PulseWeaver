@@ -1,5 +1,5 @@
 import type { BadgeProps } from "@mantine/core";
-import { DeviceState } from "@/lib/api";
+import { AddressEventSource, DeviceState } from "@/lib/api";
 
 interface DeviceStateBadge {
   color: string;
@@ -24,3 +24,11 @@ export const DEVICE_STATE_BADGE: Partial<Record<DeviceState, DeviceStateBadge>> 
 export function isInactiveState(state: DeviceState): boolean {
   return state === DeviceState.STALE || state === DeviceState.DISABLED;
 }
+
+/** Compact source label for the address/history inline "updated_at · source" rows. */
+export const ADDRESS_SOURCE_LABELS: Record<AddressEventSource, string> = {
+  [AddressEventSource.HEARTBEAT]: "heartbeat",
+  [AddressEventSource.MANUAL]: "manual",
+  [AddressEventSource.EXPIRY]: "expired",
+  [AddressEventSource.LIMIT_EXCEEDED]: "evicted",
+};

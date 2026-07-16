@@ -1,4 +1,4 @@
-import type { AccessLogFilterOperator } from "@/lib/api";
+import { AccessLogSortColumn, SortOrder, type AccessLogFilterOperator } from "@/lib/api";
 
 export type FilterOp = AccessLogFilterOperator;
 
@@ -107,23 +107,13 @@ export function isFilterActive(state: ColumnFilterState): boolean {
  */
 export const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 
-export const SORTABLE_COLUMNS = [
-    "created_at",
-    "client_ip",
-    "target_host",
-    "http_method",
-    "deny_reason",
-    "duration_us",
-    "outcome",
-] as const;
+export type SortColumn = AccessLogSortColumn;
 
-export type SortColumn = (typeof SORTABLE_COLUMNS)[number];
-
-export type SortDirection = "asc" | "desc";
+export type SortDirection = SortOrder;
 
 /** Resting sort, equivalent to no `sort`/`order` params: newest first. */
-export const DEFAULT_SORT: SortColumn = "created_at";
-export const DEFAULT_ORDER: SortDirection = "desc";
+export const DEFAULT_SORT: SortColumn = AccessLogSortColumn.CREATED_AT;
+export const DEFAULT_ORDER: SortDirection = SortOrder.DESC;
 
 export interface SortState {
     sort: SortColumn;
@@ -138,12 +128,12 @@ export interface SortState {
  */
 export function nextSortState(current: SortState, clicked: SortColumn): SortState {
     if (clicked !== current.sort) {
-        return { sort: clicked, order: clicked === DEFAULT_SORT ? "desc" : "asc" };
+        return { sort: clicked, order: clicked === DEFAULT_SORT ? SortOrder.DESC : SortOrder.ASC };
     }
     if (clicked === DEFAULT_SORT) {
-        return { sort: DEFAULT_SORT, order: current.order === "desc" ? "asc" : "desc" };
+        return { sort: DEFAULT_SORT, order: current.order === SortOrder.DESC ? SortOrder.ASC : SortOrder.DESC };
     }
-    if (current.order === "asc") return { sort: clicked, order: "desc" };
+    if (current.order === SortOrder.ASC) return { sort: clicked, order: SortOrder.DESC };
     return { sort: DEFAULT_SORT, order: DEFAULT_ORDER };
 }
 

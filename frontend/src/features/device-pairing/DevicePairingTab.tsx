@@ -25,7 +25,7 @@ import {
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import type { DevicePairing, DeviceState as DeviceStateType } from "@/lib/api";
-import { DeviceState } from "@/lib/api";
+import { DeviceState, PairingListFilter } from "@/lib/api";
 import { toErrorMessage } from "@/lib/api-client";
 import { ErrorState } from "@/components/ErrorState";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
@@ -35,16 +35,9 @@ import { PairingCreationForm } from "./PairingCreationForm";
 import { PairingCodeDisplay } from "./PairingCodeDisplay";
 import { PairingConfigSummary } from "./PairingConfigSummary";
 import { PairingStatusHero } from "./PairingStatusHero";
+import { PAIRING_STATUS_BADGE } from "./constants";
 
 dayjs.extend(relativeTime);
-
-const STATUS_BADGE: Record<DevicePairing["status"], { label: string; color: string }> = {
-  pending: { label: "pending", color: "indigo" },
-  used: { label: "claimed", color: "green" },
-  expired: { label: "expired", color: "red" },
-  invalidated: { label: "revoked", color: "gray" },
-  replaced: { label: "replaced", color: "gray" },
-};
 
 interface Props {
   deviceId: number;
@@ -54,8 +47,8 @@ interface Props {
 export function DevicePairingTab({ deviceId, deviceState }: Props) {
   const isExpired = deviceState === DeviceState.EXPIRED_CLAIM;
 
-  const pendingQuery = useListDevicePairings(deviceId, "pending");
-  const historyQuery = useListDevicePairings(deviceId, "all");
+  const pendingQuery = useListDevicePairings(deviceId, PairingListFilter.PENDING);
+  const historyQuery = useListDevicePairings(deviceId, PairingListFilter.ALL);
   const regenMutation = useCreateDevicePairing(deviceId);
 
   const formatDateTime = useDateFormatter();
@@ -235,7 +228,7 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
             <Collapse expanded={showHistory}>
               <Stack gap="xs">
                 {historyItems.map((item) => {
-                  const badge = STATUS_BADGE[item.status];
+                  const badge = PAIRING_STATUS_BADGE[item.status];
                   return (
                     <Group key={item.id} gap="sm" wrap="nowrap">
                       <Text
