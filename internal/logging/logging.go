@@ -89,7 +89,7 @@ func New(opts Options) *slog.Logger {
 	}
 
 	w := os.Stdout
-	inner := tint.NewHandler(w, &tint.Options{
+	inner := tint.NewTextHandler(w, &tint.Options{
 		Level:       level,
 		NoColor:     !opts.Color,
 		ReplaceAttr: tintReplaceAttr,
