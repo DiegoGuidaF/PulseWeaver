@@ -110,7 +110,7 @@ func TestService_RegisterAddressActivity_DeviceNotFound(t *testing.T) {
 	is.True(err != nil)
 	is.Equal(err, device.ErrDeviceNotFound)
 	is.True(addr == nil)
-	is.Equal(eventType, device.EventType(""))
+	is.Equal(eventType, device.AddressEventType(""))
 }
 
 func TestService_RegisterAddressActivity_DisabledDeviceRejected(t *testing.T) {
@@ -127,7 +127,7 @@ func TestService_RegisterAddressActivity_DisabledDeviceRejected(t *testing.T) {
 	addr, eventType, err := service.RegisterAddressActivity(ctx, dev.ID, "192.168.1.100", device.EventSourceManual)
 	is.True(errors.Is(err, device.ErrDeviceDisabled))
 	is.True(addr == nil)
-	is.Equal(eventType, device.EventType(""))
+	is.Equal(eventType, device.AddressEventType(""))
 	// No address should have been created for the disabled device.
 	is.Equal(len(mockRepo.addresses), 0)
 }
@@ -145,7 +145,7 @@ func TestService_RegisterAddressActivity_RejectsTrustedProxyIP(t *testing.T) {
 	addr, eventType, err := service.RegisterAddressActivity(ctx, dev.ID, "10.1.2.3", device.EventSourceHeartbeat)
 	is.True(errors.Is(err, device.ErrTrustedProxyIPRejected))
 	is.True(addr == nil)
-	is.Equal(eventType, device.EventType(""))
+	is.Equal(eventType, device.AddressEventType(""))
 }
 
 func TestService_RegisterAddressActivity_NotifiesObserverOnNewAddress(t *testing.T) {

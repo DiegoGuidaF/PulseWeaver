@@ -26,6 +26,12 @@ func (s *Service) OnAddressEvent(_ context.Context, e device.AddressEvent) {
 	s.triggerRefresh()
 }
 
+// OnDeviceEvent implements device.DeviceObserver. Ownership changes alter which
+// hosts a device's addresses may reach, so the authz cache must rebuild.
+func (s *Service) OnDeviceEvent(_ context.Context, _ device.DeviceEvent) {
+	s.triggerRefresh()
+}
+
 // OnHostAccessChanged implements hosts.Observer and useraccess.Observer.
 func (s *Service) OnHostAccessChanged(_ context.Context) {
 	s.triggerRefresh()

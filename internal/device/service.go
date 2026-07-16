@@ -38,16 +38,34 @@ type AddressObserver interface {
 	OnAddressEvent(ctx context.Context, event AddressEvent)
 }
 
+type DeviceObserver interface {
+	OnDeviceEvent(ctx context.Context, event DeviceEvent)
+}
+
 type transactor interface {
 	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
 type Service struct {
-	repo         repository
-	tx           transactor
-	observers    []AddressObserver
-	logger       *slog.Logger
-	trustedProxy netip.Addr
+	repo            repository
+	tx              transactor
+	observers       []AddressObserver
+	deviceObservers []DeviceObserver
+	logger          *slog.Logger
+	trustedProxy    netip.Addr
+}
+
+func (s *Service) AddDeviceObserver(o DeviceObserver) {
+	if o == nil {
+		return
+	}
+	s.deviceObservers = append(s.deviceObservers, o)
+}
+
+func (s *Service) notifyDeviceObservers(ctx context.Context, event DeviceEvent) {
+	for _, o := range s.deviceObservers {
+		o.OnDeviceEvent(ctx, event)
+	}
 }
 
 func NewService(repo repository, transactor transactor, logger *slog.Logger, trustedProxy netip.Addr) *Service {
@@ -295,7 +313,7 @@ func (s *Service) UpdateDevice(ctx context.Context, deviceID ids.DeviceID, input
 	}
 
 	if ownershipChanged {
-		s.notifyObservers(ctx, NewDeviceEvent(deviceID, EventTypeDeviceOwnershipChanged))
+		s.notifyDeviceObservers(ctx, NewDeviceEvent(deviceID, DeviceEventTypeOwnershipChanged))
 	}
 
 	return updated, nil

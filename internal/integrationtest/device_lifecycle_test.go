@@ -93,7 +93,7 @@ func TestDeviceDelete_EvictsIPFromPolicyCache(t *testing.T) {
 //  1. alice-laptop (owned by alice, backend access) has IP 10.0.0.1, which is
 //     allowed for api.internal (backend) and denied for web.internal (frontend).
 //  2. Reassigning ownership to bob (frontend access only) via the HTTP API fires
-//     an EventTypeDeviceOwnershipChanged event that triggers an async cache refresh.
+//     a DeviceEventTypeOwnershipChanged event that triggers an async cache refresh.
 //  3. After the refresh the IP is denied for api.internal and allowed for web.internal.
 func TestDeviceOwnershipChange_RefreshesHostAccessInPolicyCache(t *testing.T) {
 	is := is.New(t)
@@ -138,8 +138,8 @@ func TestDeviceOwnershipChange_RefreshesHostAccessInPolicyCache(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(updateResp.StatusCode(), http.StatusOK)
 
-	// The policy cache refresh is async (EventTypeDeviceOwnershipChanged →
-	// policy.OnAddressEvent → triggerRefresh → RunListener → refreshCache).
+	// The policy cache refresh is async (DeviceEventTypeOwnershipChanged →
+	// policy.OnDeviceEvent → triggerRefresh → RunListener → refreshCache).
 	testutils.WaitForPolicyRefresh(ctx, t, srv, before)
 
 	// Policy cache assertion: access is now determined by bob's grants.

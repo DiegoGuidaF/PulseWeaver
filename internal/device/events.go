@@ -7,24 +7,29 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 )
 
-type EventType string
+type AddressEventType string
 
 const (
-	EventTypeAddressCreated         EventType = "address_created"
-	EventTypeAddressEnabled         EventType = "address_enabled"
-	EventTypeAddressRefreshed       EventType = "address_refreshed"
-	EventTypeAddressDisabled        EventType = "address_disabled"
-	EventTypeDeviceOwnershipChanged EventType = "device_ownership_changed"
+	EventTypeAddressCreated   AddressEventType = "address_created"
+	EventTypeAddressEnabled   AddressEventType = "address_enabled"
+	EventTypeAddressRefreshed AddressEventType = "address_refreshed"
+	EventTypeAddressDisabled  AddressEventType = "address_disabled"
+)
+
+type DeviceEventType string
+
+const (
+	DeviceEventTypeOwnershipChanged DeviceEventType = "device_ownership_changed"
 )
 
 type AddressEvent struct {
-	Type       EventType
+	Type       AddressEventType
 	AddressID  ids.AddressID
 	DeviceID   ids.DeviceID
 	OccurredAt time.Time
 }
 
-func NewAddressEvent(address *Address, eventType EventType) AddressEvent {
+func NewAddressEvent(address *Address, eventType AddressEventType) AddressEvent {
 	return AddressEvent{
 		Type:       eventType,
 		AddressID:  address.ID,
@@ -33,12 +38,27 @@ func NewAddressEvent(address *Address, eventType EventType) AddressEvent {
 	}
 }
 
-func NewDeviceEvent(deviceID ids.DeviceID, eventType EventType) AddressEvent {
-	return AddressEvent{
+// DeviceEvent signals a device-level change.
+type DeviceEvent struct {
+	Type       DeviceEventType
+	DeviceID   ids.DeviceID
+	OccurredAt time.Time
+}
+
+func NewDeviceEvent(deviceID ids.DeviceID, eventType DeviceEventType) DeviceEvent {
+	return DeviceEvent{
 		Type:       eventType,
 		DeviceID:   deviceID,
 		OccurredAt: time.Now().UTC(),
 	}
+}
+
+func (e DeviceEvent) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.String("type", string(e.Type)),
+		slog.Int64("device_id", e.DeviceID.Int64()),
+		slog.Time("occurred_at", e.OccurredAt),
+	)
 }
 
 func (e AddressEvent) LogValue() slog.Value {
@@ -56,7 +76,7 @@ func (e AddressEvent) IsAddressEnabled() bool {
 	switch e.Type {
 	case EventTypeAddressCreated, EventTypeAddressEnabled, EventTypeAddressRefreshed:
 		return true
-	case EventTypeAddressDisabled, EventTypeDeviceOwnershipChanged:
+	case EventTypeAddressDisabled:
 		return false
 	default:
 		return false

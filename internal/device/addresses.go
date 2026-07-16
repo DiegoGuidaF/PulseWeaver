@@ -21,14 +21,14 @@ func (s *Service) notifyObservers(ctx context.Context, event AddressEvent) {
 	}
 }
 
-func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID ids.DeviceID, inputIP string, source EventSource) (*Address, EventType, error) {
+func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID ids.DeviceID, inputIP string, source EventSource) (*Address, AddressEventType, error) {
 	createAddressParams, err := NewCreateAddressParams(deviceID, inputIP, s.trustedProxy)
 	if err != nil {
 		return nil, "", err
 	}
 
 	var address *Address
-	var eventType EventType
+	var eventType AddressEventType
 
 	err = s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		// A disabled device may only have its addresses disabled — no address can be

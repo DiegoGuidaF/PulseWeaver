@@ -83,7 +83,7 @@ principal-from-cookie → principal-from-API-key → generated strict handler.
 | `internal/device/addresses.go` | Address lifecycle: `RegisterAddressActivity`, `DisableAddress(es)`, `GetAddressHistory`; observer fan-out |
 | `internal/device/device_repository.go` | DB queries for `devices` and `device_api_keys` |
 | `internal/device/address_repository.go` | DB queries for `addresses` and `address_events`; history SQL |
-| `internal/device/events.go` | `AddressEvent`, `EventType` — domain events emitted to observers |
+| `internal/device/events.go` | `AddressEvent`/`EventType` + `DeviceEvent`/`DeviceEventType` — domain events emitted to observers |
 | `internal/devicepairing/service.go` | Pairing create/claim; mints a device API key on claim |
 | `internal/policy/service.go` | `Service`, constructor, provider interfaces; cache state |
 | `internal/policy/cache.go` | In-memory IP + network-policy cache rebuild; deny-wins intersection |
@@ -117,6 +117,7 @@ server. After construction: `ExecuteScheduledRules` (disable stale addresses bef
 
 **Observer registrations:**
 - `deviceService.AddAddressObserver`: lease, policy, maxaddr
+- `deviceService.AddDeviceObserver`: policy (ownership changes → cache refresh)
 - `authService.AddUserObserver`: useraccess, device
 - `hostsService.AddObserver`: policy
 - `userAccessService.AddObserver`: policy

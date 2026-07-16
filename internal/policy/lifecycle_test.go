@@ -96,6 +96,39 @@ func TestService_OnAddressEvent_RefreshesCache(t *testing.T) {
 	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: mustAddr("10.0.0.2")}))
 }
 
+func TestService_OnDeviceEvent_RefreshesCache(t *testing.T) {
+	is := is.New(t)
+	provider := &mockProvider{entries: []device.IPEntry{
+		{IP: "192.168.1.1", DeviceID: ids.DeviceID(1), AddressID: ids.AddressID(1)},
+	}}
+	svc, err := NewService(provider, &bypassAllHostProvider{}, &geoip.Lookup{}, nil, "secret", noopLogger(), netip.Addr{})
+	is.NoErr(err)
+
+	is.NoErr(svc.Initialize(context.Background()))
+	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: mustAddr("192.168.1.1")}))
+
+	// Update provider to return different IPs
+	provider.entries = []device.IPEntry{
+		{IP: "10.0.0.2", DeviceID: ids.DeviceID(3), AddressID: ids.AddressID(3)},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = svc.RunListener(ctx)
+	}()
+
+	// Send event and wait for refresh
+	svc.OnDeviceEvent(context.Background(), device.DeviceEvent{Type: device.DeviceEventTypeOwnershipChanged})
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	<-done
+
+	is.True(errors.Is(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: mustAddr("192.168.1.1")}), ErrIPNotEnabled))
+	is.NoErr(svc.VerifyAccess(context.Background(), &VerifyRequest{Token: "secret", ClientIP: mustAddr("10.0.0.2")}))
+}
+
 // TestService_PeriodicReconcile_RebuildsWithoutEvent proves the staleness
 // backstop: with no change event fired, the periodic ticker alone must pick up
 // provider changes — the scenario a dropped or failed event would otherwise
