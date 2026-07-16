@@ -14,7 +14,6 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
-	"github.com/matryer/is"
 )
 
 // testRepos groups all repositories used by the queries package tests.
@@ -113,37 +112,4 @@ func addHostToGroup(t *testing.T, db *database.DB, groupID ids.HostGroupID, host
 	); err != nil {
 		t.Fatalf("addHostToGroup: %v", err)
 	}
-}
-
-func TestRepository_DeviceExists_ExistingDevice(t *testing.T) {
-	is := is.New(t)
-	repos := setupRepos(t)
-
-	dev := createDevice(t, repos, "existing-device")
-
-	exists, err := repos.queries.DeviceExists(t.Context(), dev.ID)
-	is.NoErr(err)
-	is.True(exists)
-}
-
-func TestRepository_DeviceExists_NonExistentDevice(t *testing.T) {
-	is := is.New(t)
-	repos := setupRepos(t)
-
-	exists, err := repos.queries.DeviceExists(t.Context(), ids.DeviceID(99999))
-	is.NoErr(err)
-	is.True(!exists)
-}
-
-func TestRepository_DeviceExists_SoftDeletedDevice(t *testing.T) {
-	is := is.New(t)
-	repos := setupRepos(t)
-
-	dev := createDevice(t, repos, "to-delete")
-	err := repos.devices.DeleteDevice(t.Context(), dev.ID)
-	is.NoErr(err)
-
-	exists, err := repos.queries.DeviceExists(t.Context(), dev.ID)
-	is.NoErr(err)
-	is.True(!exists)
 }

@@ -4,12 +4,15 @@ package queries
 
 import (
 	"testing"
+	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/matryer/is"
 )
+
+var baseTime = time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
 // fakeGeoResolver returns canned results keyed by IP; unknown IPs resolve empty.
 type fakeGeoResolver map[string]geoip.Result
@@ -112,31 +115,4 @@ func TestToAddressViewResponse_NilResolverOmitsGeo(t *testing.T) {
 	view := &AddressView{IP: "1.1.1.1", Source: "manual", CreatedAt: baseTime, UpdatedAt: baseTime}
 	addr := toAddressViewResponse(view, nil)
 	is.Equal(addr.Geo, (*httpapi.GeoInfo)(nil))
-}
-
-func TestEnrichGeo_SetsPerIP(t *testing.T) {
-	is := is.New(t)
-
-	geo := fakeGeoResolver{
-		"1.1.1.1": {CountryCode: "AU", CountryName: "Australia"},
-		// 10.0.0.1 absent → resolves empty → geo omitted.
-	}
-	ips := []httpapi.PolicyUserIP{
-		{Ip: "1.1.1.1"},
-		{Ip: "10.0.0.1"},
-	}
-
-	enrichGeo(ips, geo)
-
-	is.True(ips[0].Geo != nil)
-	is.Equal(*ips[0].Geo.CountryCode, "AU")
-	is.Equal(ips[1].Geo, (*httpapi.GeoInfo)(nil))
-}
-
-func TestEnrichGeo_NilResolverLeavesGeoUnset(t *testing.T) {
-	is := is.New(t)
-
-	ips := []httpapi.PolicyUserIP{{Ip: "1.1.1.1"}}
-	enrichGeo(ips, nil)
-	is.Equal(ips[0].Geo, (*httpapi.GeoInfo)(nil))
 }

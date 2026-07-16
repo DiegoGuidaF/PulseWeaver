@@ -10,6 +10,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 )
 
 // EnabledIPProvider yields the enabled IP entries the policy cache is built from.
@@ -104,9 +105,9 @@ func summarizeLiveIPs(entries []device.IPEntry) (map[ids.UserID]struct{}, int) {
 	return liveUsers, shared
 }
 
-// foldUserStatuses classifies each user via the shared deriveUserStatus and tallies
-// the posture histogram. It reuses the exact classification the policy audit applies,
-// so the two views cannot disagree on what a status means.
+// foldUserStatuses classifies each user via the shared policy.DeriveUserStatus and
+// tallies the posture histogram. It reuses the exact classification the policy audit
+// applies, so the two views cannot disagree on what a status means.
 func foldUserStatuses(users []postureUserRow, liveIPUsers map[ids.UserID]struct{}) httpapi.DashboardPostureUsers {
 	var out httpapi.DashboardPostureUsers
 	for _, u := range users {
@@ -117,7 +118,7 @@ func foldUserStatuses(users []postureUserRow, liveIPUsers map[ids.UserID]struct{
 		if u.HasGrants {
 			allowedHostCount = 1
 		}
-		switch deriveUserStatus(u.Bypass, ipCount, allowedHostCount) {
+		switch policy.DeriveUserStatus(u.Bypass, ipCount, allowedHostCount) {
 		case httpapi.Bypass:
 			out.Bypass++
 		case httpapi.LiveWithAccess:

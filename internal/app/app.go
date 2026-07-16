@@ -139,7 +139,9 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	if err != nil {
 		return nil, fmt.Errorf("policy service init: %w", err)
 	}
-	policyHandler := policy.NewHTTPHandler(policyService, logger)
+	policyRepo := policy.NewRepository(db.DB())
+	//TODO: Change networkPoliciesRepo to service
+	policyHandler := policy.NewHTTPHandler(policyService, policyRepo, networkPoliciesRepo, geoipLookup, logger)
 
 	// Rule evaluation
 	ruleRepo := rule.NewRepository(db.DB())
@@ -152,8 +154,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Queries - Manage complex crossdomain queries tailored for the frontend
 	queriesRepo := queries.NewRepository(db.DB())
-	//TODO: Change networkPoliciesRepo to service
-	queriesHandler := queries.NewHTTPHandler(queriesRepo, policyService, networkPoliciesRepo, deviceService, geoipLookup, logger)
+	queriesHandler := queries.NewHTTPHandler(queriesRepo, deviceService, geoipLookup, logger)
 
 	// Address Lease manager
 	addressLeaseRepo := lease.NewRepository(db.DB())

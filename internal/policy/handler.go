@@ -11,14 +11,28 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
-// HTTPHandler is the HTTP handler for forward-auth IP verification.
+// HTTPHandler is the HTTP handler for forward-auth IP verification and the
+// admin-facing policy audit views.
 type HTTPHandler struct {
-	service *Service
-	logger  *slog.Logger
+	service    *Service
+	repo       *Repository
+	npProvider NetworkPoliciesProvider
+	geo        GeoIPResolver
+	logger     *slog.Logger
 }
 
-func NewHTTPHandler(service *Service, logger *slog.Logger) *HTTPHandler {
-	return &HTTPHandler{service: service, logger: logger.With(slog.String(logging.AttrKeyComponent, "policy"))}
+func NewHTTPHandler(service *Service, repo *Repository, npProvider NetworkPoliciesProvider, geo GeoIPResolver, logger *slog.Logger) *HTTPHandler {
+	return &HTTPHandler{
+		service:    service,
+		repo:       repo,
+		npProvider: npProvider,
+		geo:        geo,
+		logger:     logger.With(slog.String(logging.AttrKeyComponent, "policy")),
+	}
+}
+
+func errorMsgResponse(msg string) httpapi.ErrorResponse {
+	return httpapi.ErrorResponse{Error: &msg}
 }
 
 // HandleForwardAuthIP serves GET /api/policy-engine/verify-ip.
@@ -109,6 +123,21 @@ func (h *HTTPHandler) SimulatePolicyAccess(
 		NetworkPolicyId:   networkPolicyIDInt,
 		NetworkPolicyName: result.NetworkPolicyName,
 	}), nil
+}
+
+// GetPolicyUserMap returns the user-pivoted policy cache audit view.
+func (h *HTTPHandler) GetPolicyUserMap(
+	ctx context.Context,
+	_ httpapi.GetPolicyUserMapRequestObject,
+) (httpapi.GetPolicyUserMapResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetPolicyUserMap")
+
+	audit, err := h.repo.BuildPolicyUserMap(ctx, h.service, h.npProvider, h.geo)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "failed to build policy user map", slog.Any(logging.AttrKeyError, err))
+		return httpapi.GetPolicyUserMap500JSONResponse(errorMsgResponse("Failed to load policy user map")), nil
+	}
+	return httpapi.GetPolicyUserMap200JSONResponse(audit), nil
 }
 
 func toAPIDenyReason(reason *DenyReason) *httpapi.PolicyDenyReason {

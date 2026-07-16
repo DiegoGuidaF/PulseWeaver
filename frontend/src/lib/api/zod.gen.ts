@@ -466,7 +466,6 @@ export const zPolicyNetworkPolicyEntry = z.object({
   enabled: z.boolean(),
   bypass_host_check: z.boolean(),
   effective_host_count: z.int(),
-  total_host_count: z.int(),
 });
 
 /**
@@ -995,7 +994,6 @@ export const zPolicyUserEntry = z.object({
   bypass_allowlist: z.boolean(),
   status: zPolicyUserStatus,
   on_shared_ip: z.boolean(),
-  intersection_applied: z.boolean(),
   device_count: z.int(),
   ip_count: z.int(),
   allowed_host_count: z.int(),

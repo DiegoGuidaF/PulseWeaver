@@ -282,7 +282,7 @@ func newTestHandlerWithLogger(enabledIPs []string, logger *slog.Logger) *policy.
 		panic(err)
 	}
 	_ = svc.Initialize(context.Background())
-	return policy.NewHTTPHandler(svc, logger)
+	return policy.NewHTTPHandler(svc, nil, nil, nil, logger)
 }
 
 func newTestHandlerWithProxy(enabledIPs []string, secret, trustedProxy string) *policy.HTTPHandler {
@@ -300,7 +300,7 @@ func newTestHandlerWithProxy(enabledIPs []string, secret, trustedProxy string) *
 		panic(err)
 	}
 	_ = svc.Initialize(context.Background())
-	return policy.NewHTTPHandler(svc, slog.New(slog.DiscardHandler))
+	return policy.NewHTTPHandler(svc, nil, nil, nil, slog.New(slog.DiscardHandler))
 }
 
 func newTestHandlerWithObserver(enabledIPs []string, obs policy.DecisionObserver) *policy.HTTPHandler {
@@ -317,5 +317,5 @@ func newTestHandlerWithObserver(enabledIPs []string, obs policy.DecisionObserver
 		svc.AddDecisionObserver(obs)
 	}
 	_ = svc.Initialize(context.Background())
-	return policy.NewHTTPHandler(svc, slog.New(slog.DiscardHandler))
+	return policy.NewHTTPHandler(svc, nil, nil, nil, slog.New(slog.DiscardHandler))
 }

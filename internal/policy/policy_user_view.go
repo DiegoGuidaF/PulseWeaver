@@ -1,4 +1,4 @@
-package queries
+package policy
 
 import (
 	"cmp"
@@ -7,12 +7,19 @@ import (
 	"slices"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/slicex"
+	"github.com/jmoiron/sqlx"
 )
+
+// PolicyMapReader is the consumer-side interface the policy-map view reads
+// the cache snapshot through. *Service satisfies it via GetPolicyMap.
+type PolicyMapReader interface {
+	GetPolicyMap() PolicyMapSnapshot
+}
 
 // policyAuditUserRow is a single non-deleted user row returned by getAllUsersForPolicyAudit.
 type policyAuditUserRow struct {
@@ -21,6 +28,15 @@ type policyAuditUserRow struct {
 	Username        string     `db:"username"`
 	IsAdmin         bool       `db:"is_admin"`
 	BypassAllowlist bool       `db:"bypass_allowlist"`
+}
+
+// policyEnrichmentRow holds the address metadata fetched by getPolicyAddressEnrichment.
+// DeviceID and UserID are sourced from the policy snapshot's ContributorAccess and are
+// not re-fetched here.
+type policyEnrichmentRow struct {
+	AddressID        ids.AddressID `db:"address_id"`
+	AddressUpdatedAt time.Time     `db:"address_updated_at"`
+	DeviceName       string        `db:"device_name"`
 }
 
 // userIPIndex maps userID → ip → ipBucket.
@@ -49,7 +65,7 @@ type ipBucket struct {
 //
 // Addresses absent from addressEnrichment (deleted / unknown) are skipped.
 func buildIPIndex(
-	snap policy.PolicyMapSnapshot,
+	snap PolicyMapSnapshot,
 	addressEnrichment map[ids.AddressID]policyEnrichmentRow,
 ) (byUser userIPIndex, usersAtIP ipUsersIndex) {
 	byUser = make(userIPIndex)
@@ -102,7 +118,7 @@ func buildIPIndex(
 // It projects the cache snapshot + enrichment + user list into the user-pivoted
 // PolicyUserMapAudit DTO.
 func assemblePolicyUserMap(
-	snap policy.PolicyMapSnapshot,
+	snap PolicyMapSnapshot,
 	addressEnrichment map[ids.AddressID]policyEnrichmentRow,
 	allUsers []policyAuditUserRow, // all non-deleted users, ORDER BY display_name, id
 	allowedHostsByUser map[ids.UserID][]string, // fallback host list for users absent from the cache
@@ -153,19 +169,18 @@ func assemblePolicyUserMap(
 
 		if !present {
 			users = append(users, httpapi.PolicyUserEntry{
-				UserId:              userID.Int64(),
-				DisplayName:         ur.UserName,
-				IsAdmin:             ur.IsAdmin,
-				BypassAllowlist:     ur.BypassAllowlist,
-				Status:              deriveUserStatus(ur.BypassAllowlist, 0, allowedHostCount),
-				OnSharedIp:          false,
-				IntersectionApplied: false,
-				DeviceCount:         0,
-				IpCount:             0,
-				AllowedHostCount:    allowedHostCount,
-				LastSeenAt:          nil,
-				UserAllowedHosts:    userHosts,
-				Ips:                 []httpapi.PolicyUserIP{},
+				UserId:           userID.Int64(),
+				DisplayName:      ur.UserName,
+				IsAdmin:          ur.IsAdmin,
+				BypassAllowlist:  ur.BypassAllowlist,
+				Status:           DeriveUserStatus(ur.BypassAllowlist, 0, allowedHostCount),
+				OnSharedIp:       false,
+				DeviceCount:      0,
+				IpCount:          0,
+				AllowedHostCount: allowedHostCount,
+				LastSeenAt:       nil,
+				UserAllowedHosts: userHosts,
+				Ips:              []httpapi.PolicyUserIP{},
 			})
 			continue
 		}
@@ -173,19 +188,18 @@ func assemblePolicyUserMap(
 		ips := buildUserIPs(userID, ipMap, usersAtIP, byUser, userInfoByID)
 
 		users = append(users, httpapi.PolicyUserEntry{
-			UserId:              userID.Int64(),
-			DisplayName:         ur.UserName,
-			IsAdmin:             ur.IsAdmin,
-			BypassAllowlist:     ur.BypassAllowlist,
-			Status:              deriveUserStatus(ur.BypassAllowlist, len(ips), allowedHostCount),
-			OnSharedIp:          anySharedIP(ips),
-			IntersectionApplied: anyIntersection(ips),
-			DeviceCount:         countDistinctDevices(ipMap),
-			IpCount:             len(ips),
-			AllowedHostCount:    allowedHostCount,
-			LastSeenAt:          maxLastSeenAt(ipMap),
-			UserAllowedHosts:    userHosts,
-			Ips:                 ips,
+			UserId:           userID.Int64(),
+			DisplayName:      ur.UserName,
+			IsAdmin:          ur.IsAdmin,
+			BypassAllowlist:  ur.BypassAllowlist,
+			Status:           DeriveUserStatus(ur.BypassAllowlist, len(ips), allowedHostCount),
+			OnSharedIp:       anySharedIP(ips),
+			DeviceCount:      countDistinctDevices(ipMap),
+			IpCount:          len(ips),
+			AllowedHostCount: allowedHostCount,
+			LastSeenAt:       maxLastSeenAt(ipMap),
+			UserAllowedHosts: userHosts,
+			Ips:              ips,
 		})
 	}
 
@@ -306,7 +320,7 @@ func buildUserIPs(
 
 // enrichGeo resolves each IP's GeoInfo in place. Pure post-processing over the
 // assembled view; a nil resolver leaves every entry's geo unset.
-func enrichGeo(ips []httpapi.PolicyUserIP, geo GeoResolver) {
+func enrichGeo(ips []httpapi.PolicyUserIP, geo GeoIPResolver) {
 	if geo == nil {
 		return
 	}
@@ -315,10 +329,36 @@ func enrichGeo(ips []httpapi.PolicyUserIP, geo GeoResolver) {
 	}
 }
 
-// deriveUserStatus classifies a user along two orthogonal axes — reachability
+// geoInfoFromResult maps a geoip.Result to the API GeoInfo DTO, returning nil
+// when the lookup found nothing so the field is omitted from the response.
+func geoInfoFromResult(r geoip.Result) *httpapi.GeoInfo {
+	if r.IsEmpty() {
+		return nil
+	}
+	info := &httpapi.GeoInfo{}
+	if r.CountryCode != "" {
+		info.CountryCode = &r.CountryCode
+	}
+	if r.CountryName != "" {
+		info.CountryName = &r.CountryName
+	}
+	if r.ContinentCode != "" {
+		info.ContinentCode = &r.ContinentCode
+	}
+	if r.ASN != 0 {
+		asn := int64(r.ASN)
+		info.Asn = &asn
+	}
+	if r.ASNOrg != "" {
+		info.AsnOrg = &r.ASNOrg
+	}
+	return info
+}
+
+// DeriveUserStatus classifies a user along two orthogonal axes — reachability
 // (live IPs in the cache) and authorization (host grants) — into the status the
 // audit view renders. Bypass short-circuits: the host allowlist does not apply.
-func deriveUserStatus(bypass bool, ipCount, allowedHostCount int) httpapi.PolicyUserStatus {
+func DeriveUserStatus(bypass bool, ipCount, allowedHostCount int) httpapi.PolicyUserStatus {
 	if bypass {
 		return httpapi.Bypass
 	}
@@ -357,16 +397,6 @@ func anySharedIP(ips []httpapi.PolicyUserIP) bool {
 	return false
 }
 
-// anyIntersection returns true if any IP entry has non-empty trimmed_hosts.
-func anyIntersection(ips []httpapi.PolicyUserIP) bool {
-	for _, ip := range ips {
-		if len(ip.TrimmedHosts) > 0 {
-			return true
-		}
-	}
-	return false
-}
-
 // maxLastSeenAt returns the most recent address.UpdatedAt across all buckets,
 // or nil if there are no addresses.
 func maxLastSeenAt(ipMap map[string]*ipBucket) *httpapi.UTCTime {
@@ -386,6 +416,97 @@ func maxLastSeenAt(ipMap map[string]*ipBucket) *httpapi.UTCTime {
 	return &v
 }
 
+// getPolicyAddressEnrichment fetches display metadata for the given address IDs.
+func (r *Repository) getPolicyAddressEnrichment(ctx context.Context, addressIDs []ids.AddressID) (map[ids.AddressID]policyEnrichmentRow, error) {
+	if len(addressIDs) == 0 {
+		return map[ids.AddressID]policyEnrichmentRow{}, nil
+	}
+
+	query, args, err := sqlx.In(`
+		SELECT
+			a.id         AS address_id,
+			a.updated_at AS address_updated_at,
+			d.name       AS device_name
+		FROM addresses a
+		JOIN devices d ON d.id = a.device_id
+		WHERE a.id IN (?)`, addressIDs)
+	if err != nil {
+		return nil, fmt.Errorf("build policy audit enrichment query: %w", err)
+	}
+	query = r.db.Rebind(query)
+
+	var rows []policyEnrichmentRow
+	if err := r.db.SelectContext(ctx, &rows, query, args...); err != nil {
+		return nil, fmt.Errorf("get policy address enrichment: %w", err)
+	}
+
+	result := make(map[ids.AddressID]policyEnrichmentRow, len(rows))
+	for _, row := range rows {
+		result[row.AddressID] = row
+	}
+	return result, nil
+}
+
+// getAllUsersForPolicyAudit returns every non-deleted user with their bypass flag,
+// plus a map of pre-intersection allowed FQDNs keyed by user ID.
+// Two queries assembled in Go per queries-read-models.md pattern.
+func (r *Repository) getAllUsersForPolicyAudit(ctx context.Context) ([]policyAuditUserRow, map[ids.UserID][]string, error) {
+	const usersQuery = `
+		SELECT u.id           AS user_id,
+		       u.username     AS username,
+		       u.display_name AS user_name,
+		       u.role IN ('admin', 'superadmin') AS is_admin,
+		       COALESCE(uhs.bypass_host_check, 0) AS bypass_allowlist
+		FROM users u
+		LEFT JOIN user_host_settings uhs ON uhs.user_id = u.id
+		WHERE u.deleted_at IS NULL
+		ORDER BY u.display_name, u.id
+	`
+	var userRows []policyAuditUserRow
+	if err := r.db.SelectContext(ctx, &userRows, usersQuery); err != nil {
+		return nil, nil, fmt.Errorf("list users for policy audit: %w", err)
+	}
+
+	const hostsQuery = `
+		SELECT uahg.user_id, h.fqdn
+		FROM user_allowed_host_groups uahg
+		JOIN host_group_members hgm ON hgm.host_group_id = uahg.host_group_id
+		JOIN hosts h ON h.id = hgm.host_id
+		ORDER BY 1, 2
+	`
+
+	type hostRow struct {
+		UserID ids.UserID `db:"user_id"`
+		FQDN   string     `db:"fqdn"`
+	}
+	var hostRows []hostRow
+	if err := r.db.SelectContext(ctx, &hostRows, hostsQuery); err != nil {
+		return nil, nil, fmt.Errorf("list user allowed hosts for policy audit: %w", err)
+	}
+
+	allowedHostsByUser := make(map[ids.UserID][]string, len(userRows))
+	for _, h := range hostRows {
+		allowedHostsByUser[h.UserID] = append(allowedHostsByUser[h.UserID], h.FQDN)
+	}
+
+	return userRows, allowedHostsByUser, nil
+}
+
+// collectAddressIDs gathers all unique address IDs referenced in a snapshot.
+func collectAddressIDs(snap PolicyMapSnapshot) []ids.AddressID {
+	seen := make(map[ids.AddressID]struct{})
+	var addressIDs []ids.AddressID
+	for _, e := range snap.Entries {
+		for _, c := range e.Contributors {
+			if _, ok := seen[c.AddressID]; !ok {
+				seen[c.AddressID] = struct{}{}
+				addressIDs = append(addressIDs, c.AddressID)
+			}
+		}
+	}
+	return addressIDs
+}
+
 // BuildPolicyUserMap is the single business-logic entry point for the user-pivoted
 // policy audit view. The handler is a thin wrapper around it. This is the
 // integration-test target for orchestration; pure assembly is tested separately
@@ -393,8 +514,8 @@ func maxLastSeenAt(ipMap map[string]*ipBucket) *httpapi.UTCTime {
 func (r *Repository) BuildPolicyUserMap(
 	ctx context.Context,
 	reader PolicyMapReader,
-	npProvider AuditNetworkPoliciesProvider,
-	geo GeoResolver,
+	npProvider NetworkPoliciesProvider,
+	geo GeoIPResolver,
 ) (httpapi.PolicyUserMapAudit, error) {
 	snap := reader.GetPolicyMap()
 	addressIDs := collectAddressIDs(snap)
@@ -428,8 +549,8 @@ func (r *Repository) BuildPolicyUserMap(
 	// the system, not audit.TotalHostCount (which is the union of users' allowed
 	// hosts and may be smaller than a policy's own reachable host set).
 	npAPIEntries := make([]httpapi.PolicyNetworkPolicyEntry, 0, len(npEntries))
-	totalHostCount, err := r.totalHostsCount(ctx)
-	if err != nil {
+	var totalHostCount int
+	if err := r.db.GetContext(ctx, &totalHostCount, `SELECT COUNT(*) FROM hosts`); err != nil {
 		return httpapi.PolicyUserMapAudit{}, fmt.Errorf("policy audit total hosts: %w", err)
 	}
 	for _, e := range npEntries {
@@ -444,7 +565,6 @@ func (r *Repository) BuildPolicyUserMap(
 			Enabled:            true,
 			BypassHostCheck:    e.BypassHostCheck,
 			EffectiveHostCount: effective,
-			TotalHostCount:     totalHostCount,
 		})
 	}
 	audit.NetworkPolicies = npAPIEntries

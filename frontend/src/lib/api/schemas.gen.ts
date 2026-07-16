@@ -1671,7 +1671,6 @@ export const PolicyUserEntrySchema = {
     "bypass_allowlist",
     "status",
     "on_shared_ip",
-    "intersection_applied",
     "device_count",
     "ip_count",
     "allowed_host_count",
@@ -1707,11 +1706,6 @@ export const PolicyUserEntrySchema = {
       type: "boolean",
       description:
         "True when at least one of this user's IPs is shared with another user.\n",
-    },
-    intersection_applied: {
-      type: "boolean",
-      description:
-        "True when at least one of this user's IPs had its effective host set reduced by deny-wins intersection with another user at that IP.\n",
     },
     device_count: {
       type: "integer",
@@ -1945,7 +1939,6 @@ export const PolicyNetworkPolicyEntrySchema = {
     "enabled",
     "bypass_host_check",
     "effective_host_count",
-    "total_host_count",
   ],
   properties: {
     policy_id: {
@@ -1968,10 +1961,7 @@ export const PolicyNetworkPolicyEntrySchema = {
     effective_host_count: {
       type: "integer",
       description:
-        "Hosts reachable through this policy. Equals total_host_count when bypass_host_check is true.\n",
-    },
-    total_host_count: {
-      type: "integer",
+        "Hosts reachable through this policy. Equals the system-wide host count when bypass_host_check is true.\n",
     },
   },
 } as const;

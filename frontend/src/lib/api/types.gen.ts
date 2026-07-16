@@ -841,11 +841,6 @@ export type PolicyUserEntry = {
    */
   on_shared_ip: boolean;
   /**
-   * True when at least one of this user's IPs had its effective host set reduced by deny-wins intersection with another user at that IP.
-   *
-   */
-  intersection_applied: boolean;
-  /**
    * Distinct devices owned by this user that contribute to the cache. Zero for no-access users.
    *
    */
@@ -990,11 +985,10 @@ export type PolicyNetworkPolicyEntry = {
   enabled: boolean;
   bypass_host_check: boolean;
   /**
-   * Hosts reachable through this policy. Equals total_host_count when bypass_host_check is true.
+   * Hosts reachable through this policy. Equals the system-wide host count when bypass_host_check is true.
    *
    */
   effective_host_count: number;
-  total_host_count: number;
 };
 
 /**

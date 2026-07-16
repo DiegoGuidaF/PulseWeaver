@@ -16,22 +16,18 @@ type GeoResolver interface {
 }
 
 type HTTPHandler struct {
-	repo         *Repository
-	policyReader PolicyMapReader
-	npProvider   AuditNetworkPoliciesProvider
-	ipProvider   EnabledIPProvider
-	geo          GeoResolver
-	logger       *slog.Logger
+	repo       *Repository
+	ipProvider EnabledIPProvider
+	geo        GeoResolver
+	logger     *slog.Logger
 }
 
-func NewHTTPHandler(repo *Repository, policyReader PolicyMapReader, npProvider AuditNetworkPoliciesProvider, ipProvider EnabledIPProvider, geo GeoResolver, logger *slog.Logger) *HTTPHandler {
+func NewHTTPHandler(repo *Repository, ipProvider EnabledIPProvider, geo GeoResolver, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{
-		repo:         repo,
-		policyReader: policyReader,
-		npProvider:   npProvider,
-		ipProvider:   ipProvider,
-		geo:          geo,
-		logger:       logger.With(slog.String(logging.AttrKeyComponent, "queries")),
+		repo:       repo,
+		ipProvider: ipProvider,
+		geo:        geo,
+		logger:     logger.With(slog.String(logging.AttrKeyComponent, "queries")),
 	}
 }
 

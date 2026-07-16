@@ -1,47 +1,37 @@
 //go:build test
 
-package queries_test
+package policy_test
 
 import (
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
 
 func TestHandler_GetPolicyUserMap_Unauthenticated(t *testing.T) {
 	is := is.New(t)
-	testServer := testutils.SetupIntegrationServer(t)
+	srv := testutils.SetupIntegrationServer(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-map", nil)
-	rec := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(rec, req)
-
-	is.True(rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden)
+	resp, err := testutils.NewAPIClient(t, srv).GetPolicyUserMapWithResponse(t.Context())
+	is.NoErr(err)
+	is.True(resp.StatusCode() == http.StatusUnauthorized || resp.StatusCode() == http.StatusForbidden)
 }
 
 func TestHandler_GetPolicyUserMap_EmptyCache(t *testing.T) {
 	is := is.New(t)
-	testServer := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+	srv := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, srv)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-map", nil)
-	req.AddCookie(adminCookie)
-	rec := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusOK)
-
-	var response httpapi.PolicyUserMapAudit
-	err := json.NewDecoder(rec.Body).Decode(&response)
+	resp, err := client.GetPolicyUserMapWithResponse(t.Context())
 	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+
+	response := *resp.JSON200
 	// Empty cache: admin user should appear as a no-access user.
 	is.True(len(response.Users) >= 1)
 	is.True(response.RefreshDurationMs >= 0)
@@ -57,21 +47,17 @@ func TestHandler_GetPolicyUserMap_EmptyCache(t *testing.T) {
 // at separate IPs, and no shared IP.
 func TestHandler_GetPolicyUserMap(t *testing.T) {
 	is := is.New(t)
-	testServer := testutils.SetupIntegrationServer(t)
-	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+	srv := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, srv)
 
 	// Seed groups, hosts, users (james/noah/maria), policies, devices,
 	// addresses, policy cache, and access log entries.
-	testutils.SeedFullWorld(t).Build(testServer)
+	testutils.SeedFullWorld(t).Build(srv)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/policy-map", nil)
-	req.AddCookie(adminCookie)
-	rec := httptest.NewRecorder()
-	testServer.HTTPServer.ServeHTTP(rec, req)
-
-	is.Equal(rec.Code, http.StatusOK)
-	var response httpapi.PolicyUserMapAudit
-	is.NoErr(json.NewDecoder(rec.Body).Decode(&response))
+	resp, err := client.GetPolicyUserMapWithResponse(t.Context())
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	response := *resp.JSON200
 
 	// ─── top-level aggregates ─────────────────────────────────────────────────
 	// Distinct enabled IPs: 10.1.0.1 (james+maria+priya shared), 10.2.0.1 (noah),
@@ -132,7 +118,7 @@ func TestHandler_GetPolicyUserMap(t *testing.T) {
 // directly — bypassing HTTP — to verify the DB query paths and assembly logic
 // that the thin HTTP handler delegates to.
 
-// stubPolicyMapReader is a minimal queries.PolicyMapReader implementation for
+// stubPolicyMapReader is a minimal policy.PolicyMapReader implementation for
 // tests that need to control the snapshot without running the full policy service.
 type stubPolicyMapReader struct {
 	snap policy.PolicyMapSnapshot
@@ -148,7 +134,7 @@ func TestBuildPolicyUserMap_NoAccessUser(t *testing.T) {
 	is := is.New(t)
 
 	srv := testutils.SetupIntegrationServer(t)
-	repo := queries.NewRepository(srv.Database.DB())
+	repo := policy.NewRepository(srv.Database.DB())
 
 	// The admin user exists from the seed. The snapshot is empty.
 	reader := &stubPolicyMapReader{snap: policy.PolicyMapSnapshot{

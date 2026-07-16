@@ -20,7 +20,7 @@ most important files across the whole backend with their purpose.
 | `device` | Core domain: devices, their addresses (IPs), and device API keys. Emits address lifecycle events; observes user lifecycle to cascade device deletion. Provides device-API-key auth middleware. | `service.go`, `addresses.go`, `device_repository.go`, `address_repository.go`, `events.go`, `middleware.go` |
 | `auth` | User authentication (session cookies), users, and sessions. Emits user lifecycle events; `BootstrapAdmin` ensures one admin on startup. | `service.go`, `session.go`, `cookie.go`, `middleware.go`, `principal.go` |
 | `devicepairing` | Device provisioning via short-lived pairing codes; the heartbeat client claims a code to receive a fresh device API key. Supersedes the former `registration` package. | `service.go`, `pairing.go`, `code.go`, `repository.go` |
-| `policy` | Forward-auth hot path: answers "can this IP reach this host?" from an in-memory cache (exact IP → CIDR network policy → deny). Observes address/user/host/network-policy changes; emits decisions to `accesslog`. | `service.go`, `cache.go`, `access.go`, `lifecycle.go`, `handler.go`, `decision.go`, `request.go`, `audit.go`, `observer.go` |
+| `policy` | Forward-auth hot path: answers "can this IP reach this host?" from an in-memory cache (exact IP → CIDR network policy → deny). Observes address/user/host/network-policy changes; emits decisions to `accesslog`. Also serves the user-pivoted policy-map audit view (`GET /admin/policy-map`, DB-backed, per ADR-009) and the cache-backed simulate endpoint. | `service.go`, `cache.go`, `access.go`, `lifecycle.go`, `handler.go`, `decision.go`, `request.go`, `audit.go`, `observer.go`, `repository.go`, `policy_user_view.go` |
 | `hosts` | Known hosts (FQDNs) and host groups; bulk reconciliation of membership. Notifies policy on change. | `service.go`, `host.go`, `host_group.go`, `reconcile_hosts.go`, `reconcile_groups.go` |
 | `useraccess` | Per-user host access: the bypass-host-check flag and host-group grants. Observes user lifecycle, notifies policy on grant changes. (Carved out of the former `hostaccess`.) | `service.go`, `user_access.go`, `repository.go`, `events.go` |
 | `networkpolicies` | CIDR-based network policies (named ranges + own bypass flag + grants); the second match tier in `policy`. Exposes `CacheEntry` to the policy cache; notifies policy on change. | `service.go`, `network_policy.go`, `repository.go`, `events.go` |
@@ -28,14 +28,15 @@ most important files across the whole backend with their purpose.
 | `maxaddr` | Enforces the max active addresses per device. Observes address + rule changes; runs a `RunListener`. | `service.go` |
 | `rule` | Per-device rules (lease TTL, max active address count). Emits rule change events. Read-only view joins the device domain's `addresses` table for a live count (`max_active_addresses_view.go`, per ADR-009). | `service.go`, `rule.go`, `repository.go`, `events.go`, `max_active_addresses_view.go` |
 | `accesslog` | Async batch logging of policy decisions: `Sink` implements `policy.DecisionObserver`; serves audit reads (e.g. deny-reason list). | `sink.go`, `handler.go`, `repository.go` |
-| `queries` | Cross-domain read side (lite CQRS) for the frontend's list/filter views; one view + handler file per surface. Folds join rows via `collate`. | `repository.go`, `*_view.go`, `handler_*.go`, `filterx/` |
+| `queries` | Legacy cross-domain read side (lite CQRS), shrinking under ADR-009 as its views migrate to their owning domains; one view + handler file per surface. Folds join rows via `collate`. | `repository.go`, `*_view.go`, `handler_*.go`, `filterx/` |
 | `rollup` | Hourly traffic + attribution aggregate tables; catch-up `RollupJob`; serves the dashboard read API (raw vs aggregate on `RawWindowThreshold`). | `job.go`, `traffic_rollup.go`, `traffic_reads.go`, `attribution_rollup.go`, `attribution_reads.go`, `handler.go`, `types.go` |
 | `geoip` | IP → location/ASN enrichment from an MMDB (db-ip.com); background `RunUpdater` refresh. | `lookup.go`, `updater.go`, `result.go` |
 | `health` | `GET /health` → `{"status":"ok","timestamp":…}`. | `health.go` |
 | `timebucket` | Shared time-bucket granularity settings + parsing (rollup, dashboard, …). | `granularity.go` |
 
 `policy` and `rollup` are the read-heavy hot paths; everything else flows handler → service →
-repository. Cross-domain reads go through `queries`, never across domain repositories.
+repository. Cross-domain reads live in the consuming domain's own `*_view.go` files (ADR-009);
+`queries` is the shrinking legacy home for views not yet migrated.
 
 ## Shared / Utility Packages (`internal/`)
 
@@ -89,7 +90,7 @@ principal-from-cookie → principal-from-API-key → generated strict handler.
 | `internal/policy/cache.go` | In-memory IP + network-policy cache rebuild; deny-wins intersection |
 | `internal/policy/access.go` | `Decide`, `VerifyAccess` — access decision entry points |
 | `internal/policy/lifecycle.go` | `RunListener` + observer callbacks; change-signal handling |
-| `internal/policy/handler.go` | `HandleForwardAuthIP` (Bearer + client IP), `SimulatePolicyAccess` |
+| `internal/policy/handler.go` | `HandleForwardAuthIP` (Bearer + client IP), `SimulatePolicyAccess`, `GetPolicyUserMap` |
 | `internal/hosts/service.go` | Known host/group management; notifies policy on change |
 | `internal/useraccess/service.go` | Per-user bypass + group grants; observes users, notifies policy |
 | `internal/networkpolicies/service.go` | CIDR network-policy CRUD; `CacheEntry` source for policy |

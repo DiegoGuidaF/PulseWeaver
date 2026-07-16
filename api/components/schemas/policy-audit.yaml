@@ -66,7 +66,6 @@ PolicyUserEntry:
     - bypass_allowlist
     - status
     - on_shared_ip
-    - intersection_applied
     - device_count
     - ip_count
     - allowed_host_count
@@ -95,11 +94,6 @@ PolicyUserEntry:
       description: >
         True when at least one of this user's IPs is shared with another
         user.
-    intersection_applied:
-      type: boolean
-      description: >
-        True when at least one of this user's IPs had its effective host set
-        reduced by deny-wins intersection with another user at that IP.
     device_count:
       type: integer
       description: >
@@ -242,7 +236,7 @@ PolicyUserAddress:
 PolicyNetworkPolicyEntry:
   type: object
   required: [policy_id, policy_name, cidr, enabled, bypass_host_check,
-             effective_host_count, total_host_count]
+             effective_host_count]
   properties:
     policy_id:
       $ref: './common.yaml#/ID'
@@ -260,10 +254,8 @@ PolicyNetworkPolicyEntry:
     effective_host_count:
       type: integer
       description: >
-        Hosts reachable through this policy. Equals total_host_count when
-        bypass_host_check is true.
-    total_host_count:
-      type: integer
+        Hosts reachable through this policy. Equals the system-wide host
+        count when bypass_host_check is true.
 
 PolicyMatchSource:
   type: string

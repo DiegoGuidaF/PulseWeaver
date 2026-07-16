@@ -1,14 +1,14 @@
 //go:build test
 
-package queries
+package policy
 
 import (
 	"testing"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/matryer/is"
 )
 
@@ -43,16 +43,16 @@ func makeEnrichment(addressID ids.AddressID, deviceName string, updatedAt time.T
 func TestAssemblePolicyUserMap_SingleUser(t *testing.T) {
 	is := is.New(t)
 
-	snap := policy.PolicyMapSnapshot{
+	snap := PolicyMapSnapshot{
 		LastRefreshedAt:       baseTime,
 		LastRefreshDurationMs: 42,
-		Entries: []policy.PolicyMapEntry{
+		Entries: []PolicyMapEntry{
 			{
 				IP:                  "1.2.3.4",
 				BypassAllowlist:     false,
 				AllowedHosts:        []string{"a.com", "b.com"},
 				IntersectionApplied: false,
-				Contributors: []policy.ContributorAccess{
+				Contributors: []ContributorAccess{
 					{
 						DeviceID:         devAlice1,
 						AddressID:        addrAlice1,
@@ -96,7 +96,6 @@ func TestAssemblePolicyUserMap_SingleUser(t *testing.T) {
 	is.Equal(u.AllowedHostCount, 2)
 	is.Equal(u.Status, httpapi.LiveWithAccess)
 	is.Equal(u.OnSharedIp, false)
-	is.Equal(u.IntersectionApplied, false)
 	is.True(u.LastSeenAt != nil)
 
 	is.Equal(len(u.Ips), 1)
@@ -114,12 +113,12 @@ func TestAssemblePolicyUserMap_SingleUser(t *testing.T) {
 func TestAssemblePolicyUserMap_TwoDevicesSameNAT(t *testing.T) {
 	is := is.New(t)
 
-	snap := policy.PolicyMapSnapshot{
-		Entries: []policy.PolicyMapEntry{
+	snap := PolicyMapSnapshot{
+		Entries: []PolicyMapEntry{
 			{
 				IP:           "10.0.0.1",
 				AllowedHosts: []string{"a.com"},
-				Contributors: []policy.ContributorAccess{
+				Contributors: []ContributorAccess{
 					{DeviceID: devAlice1, AddressID: addrAlice1, UserID: userAlice, UserAllowedHosts: []string{"a.com"}},
 					{DeviceID: devAlice2, AddressID: addrAlice2, UserID: userAlice, UserAllowedHosts: []string{"a.com"}},
 				},
@@ -162,14 +161,14 @@ func TestAssemblePolicyUserMap_TwoUsersSharedIP_IntersectionTrims(t *testing.T) 
 	is := is.New(t)
 
 	// Entry AllowedHosts is the deny-wins intersection = just "a.com".
-	snap := policy.PolicyMapSnapshot{
-		Entries: []policy.PolicyMapEntry{
+	snap := PolicyMapSnapshot{
+		Entries: []PolicyMapEntry{
 			{
 				IP:                  "10.0.0.2",
 				BypassAllowlist:     false,
 				AllowedHosts:        []string{"a.com"}, // intersection result
 				IntersectionApplied: true,
-				Contributors: []policy.ContributorAccess{
+				Contributors: []ContributorAccess{
 					{DeviceID: devAlice1, AddressID: addrAlice1, UserID: userAlice, UserAllowedHosts: []string{"a.com", "b.com"}},
 					{DeviceID: devBob1, AddressID: addrBob1, UserID: userBob, UserAllowedHosts: []string{"a.com"}},
 				},
@@ -200,7 +199,6 @@ func TestAssemblePolicyUserMap_TwoUsersSharedIP_IntersectionTrims(t *testing.T) 
 	// Alice: effective = {a.com}, trimmed = {b.com}
 	alice := result.Users[0]
 	is.Equal(alice.DisplayName, "Alice")
-	is.Equal(alice.IntersectionApplied, true)
 	is.Equal(alice.OnSharedIp, true)
 	is.Equal(len(alice.Ips), 1)
 	aliceIP := alice.Ips[0]
@@ -214,7 +212,6 @@ func TestAssemblePolicyUserMap_TwoUsersSharedIP_IntersectionTrims(t *testing.T) 
 	// Bob: effective = {a.com}, trimmed = {} (his set wasn't trimmed)
 	bob := result.Users[1]
 	is.Equal(bob.DisplayName, "Bob")
-	is.Equal(bob.IntersectionApplied, false)
 	is.Equal(bob.OnSharedIp, true)
 	is.Equal(len(bob.Ips), 1)
 	bobIP := bob.Ips[0]
@@ -232,13 +229,13 @@ func TestAssemblePolicyUserMap_TwoUsersSharedIP_IntersectionTrims(t *testing.T) 
 func TestAssemblePolicyUserMap_BypassUserOnSharedIP(t *testing.T) {
 	is := is.New(t)
 
-	snap := policy.PolicyMapSnapshot{
-		Entries: []policy.PolicyMapEntry{
+	snap := PolicyMapSnapshot{
+		Entries: []PolicyMapEntry{
 			{
 				IP:              "10.0.0.3",
 				BypassAllowlist: false, // NOT full-IP bypass
 				AllowedHosts:    []string{"a.com"},
-				Contributors: []policy.ContributorAccess{
+				Contributors: []ContributorAccess{
 					{DeviceID: devAlice1, AddressID: addrAlice1, UserID: userAlice, UserBypass: true, UserAllowedHosts: []string{}},
 					{DeviceID: devBob1, AddressID: addrBob1, UserID: userBob, UserBypass: false, UserAllowedHosts: []string{"a.com"}},
 				},
@@ -288,7 +285,7 @@ func TestAssemblePolicyUserMap_NoAccessUser(t *testing.T) {
 	is := is.New(t)
 
 	// Empty snapshot — no IP entries.
-	snap := policy.PolicyMapSnapshot{
+	snap := PolicyMapSnapshot{
 		LastRefreshedAt: baseTime,
 	}
 
@@ -335,7 +332,7 @@ func TestDeriveUserStatus(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			is := is.New(t)
-			is.Equal(deriveUserStatus(tc.bypass, tc.ipCount, tc.allowedHostCount), tc.want)
+			is.Equal(DeriveUserStatus(tc.bypass, tc.ipCount, tc.allowedHostCount), tc.want)
 		})
 	}
 }
@@ -348,12 +345,12 @@ func TestAssemblePolicyUserMap_SortOrder(t *testing.T) {
 	addrZ := ids.AddressID(300)
 	addrA := ids.AddressID(301)
 
-	snap := policy.PolicyMapSnapshot{
-		Entries: []policy.PolicyMapEntry{
-			{IP: "2.2.2.2", AllowedHosts: []string{}, Contributors: []policy.ContributorAccess{
+	snap := PolicyMapSnapshot{
+		Entries: []PolicyMapEntry{
+			{IP: "2.2.2.2", AllowedHosts: []string{}, Contributors: []ContributorAccess{
 				{DeviceID: devAlice1, AddressID: addrZ, UserID: userAlice, UserAllowedHosts: []string{}},
 			}},
-			{IP: "1.1.1.1", AllowedHosts: []string{}, Contributors: []policy.ContributorAccess{
+			{IP: "1.1.1.1", AllowedHosts: []string{}, Contributors: []ContributorAccess{
 				{DeviceID: devAlice2, AddressID: addrA, UserID: userAlice, UserAllowedHosts: []string{}},
 			}},
 		},
@@ -389,13 +386,13 @@ func TestAssemblePolicyUserMap_SortOrder(t *testing.T) {
 func TestAssemblePolicyUserMap_FullIPBypass(t *testing.T) {
 	is := is.New(t)
 
-	snap := policy.PolicyMapSnapshot{
-		Entries: []policy.PolicyMapEntry{
+	snap := PolicyMapSnapshot{
+		Entries: []PolicyMapEntry{
 			{
 				IP:              "192.168.1.1",
 				BypassAllowlist: true,
 				AllowedHosts:    []string{},
-				Contributors: []policy.ContributorAccess{
+				Contributors: []ContributorAccess{
 					{DeviceID: devAlice1, AddressID: addrAlice1, UserID: userAlice, UserBypass: false, UserAllowedHosts: []string{"a.com"}},
 				},
 			},
@@ -425,12 +422,12 @@ func TestAssemblePolicyUserMap_DeviceDeduplicationAcrossIPs(t *testing.T) {
 
 	addrAlice3 := ids.AddressID(102) // second address for devAlice1, different IP
 
-	snap := policy.PolicyMapSnapshot{
-		Entries: []policy.PolicyMapEntry{
-			{IP: "1.1.1.1", AllowedHosts: []string{}, Contributors: []policy.ContributorAccess{
+	snap := PolicyMapSnapshot{
+		Entries: []PolicyMapEntry{
+			{IP: "1.1.1.1", AllowedHosts: []string{}, Contributors: []ContributorAccess{
 				{DeviceID: devAlice1, AddressID: addrAlice1, UserID: userAlice},
 			}},
-			{IP: "2.2.2.2", AllowedHosts: []string{}, Contributors: []policy.ContributorAccess{
+			{IP: "2.2.2.2", AllowedHosts: []string{}, Contributors: []ContributorAccess{
 				{DeviceID: devAlice1, AddressID: addrAlice3, UserID: userAlice},
 			}},
 		},
@@ -457,7 +454,7 @@ func TestAssemblePolicyUserMap_NoAccessBypassUser(t *testing.T) {
 	is := is.New(t)
 
 	result := assemblePolicyUserMap(
-		policy.PolicyMapSnapshot{},
+		PolicyMapSnapshot{},
 		map[ids.AddressID]policyEnrichmentRow{},
 		[]policyAuditUserRow{{UserID: userCharlie, UserName: "Charlie", BypassAllowlist: true}},
 		map[ids.UserID][]string{userCharlie: {"x.com", "y.com"}},
@@ -479,12 +476,12 @@ func TestAssemblePolicyUserMap_Aggregates(t *testing.T) {
 	// Alice: admin, hosts {a.com, b.com}
 	// Bob: non-admin, hosts {a.com}
 	// IPs: "10.0.0.1" (Alice+Bob shared), "10.0.0.2" (Alice only)
-	snap := policy.PolicyMapSnapshot{
-		Entries: []policy.PolicyMapEntry{
+	snap := PolicyMapSnapshot{
+		Entries: []PolicyMapEntry{
 			{
 				IP:           "10.0.0.1",
 				AllowedHosts: []string{"a.com"},
-				Contributors: []policy.ContributorAccess{
+				Contributors: []ContributorAccess{
 					{DeviceID: devAlice1, AddressID: addrAlice1, UserID: userAlice, UserAllowedHosts: []string{"a.com", "b.com"}},
 					{DeviceID: devBob1, AddressID: addrBob1, UserID: userBob, UserAllowedHosts: []string{"a.com"}},
 				},
@@ -492,7 +489,7 @@ func TestAssemblePolicyUserMap_Aggregates(t *testing.T) {
 			{
 				IP:           "10.0.0.2",
 				AllowedHosts: []string{"a.com", "b.com"},
-				Contributors: []policy.ContributorAccess{
+				Contributors: []ContributorAccess{
 					{DeviceID: devAlice2, AddressID: addrAlice2, UserID: userAlice, UserAllowedHosts: []string{"a.com", "b.com"}},
 				},
 			},
@@ -540,9 +537,9 @@ func TestAssemblePolicyUserMap_Aggregates(t *testing.T) {
 func TestBuildIPIndex_SkipsAbsentEnrichment(t *testing.T) {
 	is := is.New(t)
 
-	snap := policy.PolicyMapSnapshot{
-		Entries: []policy.PolicyMapEntry{
-			{IP: "1.2.3.4", Contributors: []policy.ContributorAccess{
+	snap := PolicyMapSnapshot{
+		Entries: []PolicyMapEntry{
+			{IP: "1.2.3.4", Contributors: []ContributorAccess{
 				{DeviceID: devAlice1, AddressID: addrAlice1, UserID: userAlice},
 			}},
 		},
@@ -559,9 +556,9 @@ func TestBuildIPIndex_SkipsAbsentEnrichment(t *testing.T) {
 func TestBuildIPIndex_UsersAtIPTracking(t *testing.T) {
 	is := is.New(t)
 
-	snap := policy.PolicyMapSnapshot{
-		Entries: []policy.PolicyMapEntry{
-			{IP: "10.0.0.1", Contributors: []policy.ContributorAccess{
+	snap := PolicyMapSnapshot{
+		Entries: []PolicyMapEntry{
+			{IP: "10.0.0.1", Contributors: []ContributorAccess{
 				{DeviceID: devAlice1, AddressID: addrAlice1, UserID: userAlice},
 				{DeviceID: devBob1, AddressID: addrBob1, UserID: userBob},
 			}},
@@ -590,12 +587,12 @@ func TestBuildIPIndex_UsersAtIPTracking(t *testing.T) {
 func TestBuildIPIndex_MultipleAddressesSameUserIP(t *testing.T) {
 	is := is.New(t)
 
-	snap := policy.PolicyMapSnapshot{
-		Entries: []policy.PolicyMapEntry{
+	snap := PolicyMapSnapshot{
+		Entries: []PolicyMapEntry{
 			{
 				IP:           "10.0.0.1",
 				AllowedHosts: []string{"a.com"},
-				Contributors: []policy.ContributorAccess{
+				Contributors: []ContributorAccess{
 					{DeviceID: devAlice1, AddressID: addrAlice1, UserID: userAlice, UserBypass: false, UserAllowedHosts: []string{"a.com"}},
 					{DeviceID: devAlice2, AddressID: addrAlice2, UserID: userAlice, UserBypass: false, UserAllowedHosts: []string{"a.com"}},
 				},
@@ -615,4 +612,65 @@ func TestBuildIPIndex_MultipleAddressesSameUserIP(t *testing.T) {
 	is.Equal(len(bucket.addresses), 2)
 	is.Equal(bucket.userBypass, false)
 	is.Equal(bucket.userAllowedHosts, []string{"a.com"})
+}
+
+// ── geo enrichment ────────────────────────────────────────────────────────────
+
+// fakeGeoResolver returns canned results keyed by IP; unknown IPs resolve empty.
+type fakeGeoResolver map[string]geoip.Result
+
+func (f fakeGeoResolver) Resolve(ip string) geoip.Result {
+	return f[ip]
+}
+
+func TestGeoInfoFromResult_EmptyReturnsNil(t *testing.T) {
+	is := is.New(t)
+	is.Equal(geoInfoFromResult(geoip.Result{}), (*httpapi.GeoInfo)(nil))
+}
+
+func TestGeoInfoFromResult_PopulatesSetFieldsOnly(t *testing.T) {
+	is := is.New(t)
+
+	// Country resolved but ASN absent: asn fields stay nil.
+	info := geoInfoFromResult(geoip.Result{CountryCode: "DE", CountryName: "Germany", ContinentCode: "EU"})
+	is.True(info != nil)
+	is.Equal(*info.CountryCode, "DE")
+	is.Equal(*info.CountryName, "Germany")
+	is.Equal(*info.ContinentCode, "EU")
+	is.Equal(info.Asn, (*int64)(nil))
+	is.Equal(info.AsnOrg, (*string)(nil))
+
+	// ASN-only result still yields a non-nil GeoInfo with just the ASN fields.
+	asnOnly := geoInfoFromResult(geoip.Result{ASN: 13335, ASNOrg: "Cloudflare, Inc."})
+	is.True(asnOnly != nil)
+	is.Equal(asnOnly.CountryCode, (*string)(nil))
+	is.Equal(*asnOnly.Asn, int64(13335))
+	is.Equal(*asnOnly.AsnOrg, "Cloudflare, Inc.")
+}
+
+func TestEnrichGeo_SetsPerIP(t *testing.T) {
+	is := is.New(t)
+
+	geo := fakeGeoResolver{
+		"1.1.1.1": {CountryCode: "AU", CountryName: "Australia"},
+		// 10.0.0.1 absent → resolves empty → geo omitted.
+	}
+	ips := []httpapi.PolicyUserIP{
+		{Ip: "1.1.1.1"},
+		{Ip: "10.0.0.1"},
+	}
+
+	enrichGeo(ips, geo)
+
+	is.True(ips[0].Geo != nil)
+	is.Equal(*ips[0].Geo.CountryCode, "AU")
+	is.Equal(ips[1].Geo, (*httpapi.GeoInfo)(nil))
+}
+
+func TestEnrichGeo_NilResolverLeavesGeoUnset(t *testing.T) {
+	is := is.New(t)
+
+	ips := []httpapi.PolicyUserIP{{Ip: "1.1.1.1"}}
+	enrichGeo(ips, nil)
+	is.Equal(ips[0].Geo, (*httpapi.GeoInfo)(nil))
 }
