@@ -7,8 +7,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rollup"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
@@ -326,6 +330,62 @@ func TestHandler_ListHostSuggestions_Empty(t *testing.T) {
 	is.NoErr(json.NewDecoder(w.Body).Decode(&resp))
 	is.Equal(len(resp.Suggestions), 0)
 	is.Equal(len(resp.Ignored), 0)
+}
+
+// TestHandler_ListHostSuggestions_AggregateBackedWindow proves the real
+// endpoint's fixed 7-day window — always wider than rollup.RawWindowThreshold
+// — answers correctly end-to-end: a host observed several days ago is rolled
+// up and has its raw rows pruned (so it can only come from
+// hourly_traffic_aggregates), while a host observed moments ago is merged in
+// from the still-in-flight hour of access_log.
+func TestHandler_ListHostSuggestions_AggregateBackedWindow(t *testing.T) {
+	is := is.New(t)
+	srv := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, srv)
+	ctx := t.Context()
+
+	accessLogRepo := accesslog.NewRepository(srv.Database.DB())
+	rollupRepo := rollup.NewRepository(srv.Database.DB(), nil)
+
+	oldHost := "old-suggestion.internal"
+	freshHost := "fresh-suggestion.internal"
+	currentHourStart := time.Now().UTC().Truncate(time.Hour)
+	oldHour := currentHourStart.Add(-3 * 24 * time.Hour)
+
+	is.NoErr(accessLogRepo.BatchInsert(ctx, []policy.DecisionEvent{
+		{ClientIP: "5.5.5.5", Outcome: false, DenyReason: new(policy.DenyReasonIPNotRegistered), TargetHost: &oldHost, CreatedAt: oldHour.Add(5 * time.Minute), Headers: map[string][]string{}},
+		{ClientIP: "5.5.5.5", Outcome: false, DenyReason: new(policy.DenyReasonIPNotRegistered), TargetHost: &oldHost, CreatedAt: oldHour.Add(10 * time.Minute), Headers: map[string][]string{}},
+	}))
+	is.NoErr(rollupRepo.RunRollup(ctx, oldHour.Add(-time.Hour), currentHourStart))
+	// Prune the raw rows rollup just covered — the old host can now only
+	// surface via hourly_traffic_aggregates.
+	_, err := accessLogRepo.DeleteOlderThan(ctx, currentHourStart)
+	is.NoErr(err)
+
+	is.NoErr(accessLogRepo.BatchInsert(ctx, []policy.DecisionEvent{
+		{ClientIP: "4.4.4.4", Outcome: false, DenyReason: new(policy.DenyReasonIPNotRegistered), TargetHost: &freshHost, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
+	}))
+
+	resp, err := client.ListHostSuggestionsWithResponse(ctx)
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+
+	old := findSuggestion(resp.JSON200.Suggestions, oldHost)
+	is.True(old != nil) // answered from hourly_traffic_aggregates; raw rows were pruned
+	is.Equal(old.DeniedHits, 2)
+
+	fresh := findSuggestion(resp.JSON200.Suggestions, freshHost)
+	is.True(fresh != nil) // merged in from the not-yet-rolled current hour
+	is.Equal(fresh.DeniedHits, 1)
+}
+
+func findSuggestion(suggestions []httpapi.HostSuggestion, fqdn string) *httpapi.HostSuggestion {
+	for i := range suggestions {
+		if suggestions[i].Fqdn == fqdn {
+			return &suggestions[i]
+		}
+	}
+	return nil
 }
 
 func TestHandler_ListHostSuggestions_Unauthenticated(t *testing.T) {

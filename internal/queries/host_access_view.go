@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/collate"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
@@ -184,8 +183,6 @@ func (r *Repository) GetHostGroupsDetails(ctx context.Context) (httpapi.GroupLis
 	}, nil
 }
 
-const hostSuggestionsWindow = 7 * 24 * time.Hour
-
 func (r *Repository) GetHostSuggestionsPage(ctx context.Context) (httpapi.HostSuggestionsPage, error) {
 	rawIgnored, err := r.ignoredHostSuggestions(ctx)
 	if err != nil {
@@ -207,57 +204,10 @@ func (r *Repository) GetHostSuggestionsPage(ctx context.Context) (httpapi.HostSu
 		ignoredSet[hosts.NormaliseHost(s.FQDN)] = true
 	}
 
-	type suggestionRow struct {
-		FQDN        string          `db:"fqdn"`
-		FirstSeen   database.DBTime `db:"first_seen"`
-		AllowedHits int             `db:"allowed_hits"`
-		DeniedHits  int             `db:"denied_hits"`
-	}
-	const suggestionsQuery = `
-		SELECT
-			LOWER(al.target_host) AS fqdn,
-			MIN(al.created_at)    AS first_seen,
-			SUM(CASE WHEN al.outcome = 1 THEN 1 ELSE 0 END) AS allowed_hits,
-			SUM(CASE WHEN al.outcome = 0 THEN 1 ELSE 0 END) AS denied_hits
-		FROM access_log al
-		WHERE al.target_host IS NOT NULL
-		  AND al.created_at >= ?
-		GROUP BY LOWER(al.target_host)
-	`
 	since := time.Now().UTC().Add(-hostSuggestionsWindow)
-	var rawSuggestions []suggestionRow
-	if err := r.db.SelectContext(ctx, &rawSuggestions, suggestionsQuery, since); err != nil {
+	merged, err := r.pendingHostSuggestions(ctx, since, knownHosts, ignoredSet)
+	if err != nil {
 		return httpapi.HostSuggestionsPage{}, fmt.Errorf("get host suggestions: %w", err)
-	}
-
-	// The policy engine matches a requested host after stripping its port
-	// (hosts.NormaliseHost), so suggestions aggregate on the same normalised key: a
-	// service observed as app.example.com:8443 surfaces as a suggestion for
-	// app.example.com, merged with any bare-host hits, and disappears once
-	// app.example.com is granted or ignored. Already-known and ignored hosts are
-	// excluded here rather than in SQL because the exclusion must compare the
-	// normalised form, not the raw (possibly port-suffixed) target_host.
-	type aggregate struct {
-		firstSeen   time.Time
-		allowedHits int
-		deniedHits  int
-	}
-	merged := make(map[string]*aggregate, len(rawSuggestions))
-	for _, s := range rawSuggestions {
-		fqdn := hosts.NormaliseHost(s.FQDN)
-		if hosts.ValidateFQDN(fqdn) != nil || knownHosts[fqdn] || ignoredSet[fqdn] {
-			continue
-		}
-		a := merged[fqdn]
-		if a == nil {
-			a = &aggregate{firstSeen: s.FirstSeen.Time}
-			merged[fqdn] = a
-		}
-		if s.FirstSeen.Before(a.firstSeen) {
-			a.firstSeen = s.FirstSeen.Time
-		}
-		a.allowedHits += s.AllowedHits
-		a.deniedHits += s.DeniedHits
 	}
 
 	suggestions := make([]httpapi.HostSuggestion, 0, len(merged))

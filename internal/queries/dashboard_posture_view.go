@@ -198,22 +198,10 @@ func (r *Repository) enabledNetworkPolicyCounts(ctx context.Context) (enabled, b
 }
 
 // countPendingHostSuggestions counts unknown hosts receiving real traffic that are
-// neither registered nor ignored. It mirrors GetHostSuggestionsPage's pending set —
-// same filters, same FQDN validation — so the dashboard count matches the list the
-// suggestions page renders.
+// neither registered nor ignored. It delegates to pendingHostSuggestions — the same
+// windowing, normalisation, and known/ignored exclusion GetHostSuggestionsPage uses —
+// so the dashboard count can never drift from the list the suggestions page renders.
 func (r *Repository) countPendingHostSuggestions(ctx context.Context) (int, error) {
-	const query = `
-		SELECT DISTINCT LOWER(al.target_host) AS fqdn
-		FROM access_log al
-		WHERE al.target_host IS NOT NULL
-		  AND al.created_at >= ?
-	`
-	since := time.Now().UTC().Add(-hostSuggestionsWindow)
-	var rawHosts []string
-	if err := r.db.SelectContext(ctx, &rawHosts, query, since); err != nil {
-		return 0, fmt.Errorf("select pending host suggestions: %w", err)
-	}
-
 	rawIgnored, err := r.ignoredHostSuggestions(ctx)
 	if err != nil {
 		return 0, err
@@ -227,17 +215,10 @@ func (r *Repository) countPendingHostSuggestions(ctx context.Context) (int, erro
 		return 0, err
 	}
 
-	// Count distinct normalised hosts, mirroring GetHostSuggestionsPage so the
-	// dashboard badge matches the suggestions list: port-suffixed observations
-	// collapse onto their bare FQDN, and known/ignored hosts are excluded after
-	// normalisation rather than against the raw target_host.
-	pending := make(map[string]struct{}, len(rawHosts))
-	for _, raw := range rawHosts {
-		fqdn := hosts.NormaliseHost(raw)
-		if hosts.ValidateFQDN(fqdn) != nil || knownHosts[fqdn] || ignoredSet[fqdn] {
-			continue
-		}
-		pending[fqdn] = struct{}{}
+	since := time.Now().UTC().Add(-hostSuggestionsWindow)
+	merged, err := r.pendingHostSuggestions(ctx, since, knownHosts, ignoredSet)
+	if err != nil {
+		return 0, fmt.Errorf("count pending host suggestions: %w", err)
 	}
-	return len(pending), nil
+	return len(merged), nil
 }

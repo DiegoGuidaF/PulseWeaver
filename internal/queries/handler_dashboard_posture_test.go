@@ -7,8 +7,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rollup"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
@@ -85,4 +89,45 @@ func TestHandler_GetDashboardPosture(t *testing.T) {
 	is.Equal(resp.SharedIpCount, 0)          // distinct IPs, none shared
 	is.Equal(resp.KnownHostCount, 1)         // grant.example.com (via live-with + no-live)
 	is.Equal(resp.PendingSuggestionCount, 1) // unknown.example.com
+}
+
+// TestHandler_GetDashboardPosture_AggregateBackedWindow mirrors
+// TestHandler_ListHostSuggestions_AggregateBackedWindow for the posture count:
+// pendingHostSuggestions is the single implementation behind both, so a host
+// only visible via hourly_traffic_aggregates (raw rows pruned after rollup)
+// and a host merged in from the not-yet-rolled current hour must both count.
+func TestHandler_GetDashboardPosture_AggregateBackedWindow(t *testing.T) {
+	is := is.New(t)
+	testServer := testutils.SetupIntegrationServer(t)
+	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
+	ctx := t.Context()
+
+	accessLogRepo := accesslog.NewRepository(testServer.Database.DB())
+	rollupRepo := rollup.NewRepository(testServer.Database.DB(), nil)
+
+	oldHost := "old-posture.internal"
+	freshHost := "fresh-posture.internal"
+	currentHourStart := time.Now().UTC().Truncate(time.Hour)
+	oldHour := currentHourStart.Add(-3 * 24 * time.Hour)
+
+	is.NoErr(accessLogRepo.BatchInsert(ctx, []policy.DecisionEvent{
+		{ClientIP: "3.3.3.3", Outcome: false, DenyReason: new(policy.DenyReasonIPNotRegistered), TargetHost: &oldHost, CreatedAt: oldHour.Add(5 * time.Minute), Headers: map[string][]string{}},
+	}))
+	is.NoErr(rollupRepo.RunRollup(ctx, oldHour.Add(-time.Hour), currentHourStart))
+	_, err := accessLogRepo.DeleteOlderThan(ctx, currentHourStart)
+	is.NoErr(err)
+
+	is.NoErr(accessLogRepo.BatchInsert(ctx, []policy.DecisionEvent{
+		{ClientIP: "2.2.2.2", Outcome: false, DenyReason: new(policy.DenyReasonIPNotRegistered), TargetHost: &freshHost, CreatedAt: time.Now().UTC(), Headers: map[string][]string{}},
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/dashboard/posture", nil)
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	testServer.HTTPServer.ServeHTTP(rec, req)
+
+	is.Equal(rec.Code, http.StatusOK)
+	var resp httpapi.DashboardPosture
+	is.NoErr(json.NewDecoder(rec.Body).Decode(&resp))
+	is.Equal(resp.PendingSuggestionCount, 2) // old-posture.internal (aggregate) + fresh-posture.internal (raw tail)
 }

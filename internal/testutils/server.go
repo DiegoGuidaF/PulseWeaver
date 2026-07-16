@@ -55,7 +55,12 @@ func SetupIntegrationServer(t *testing.T) *app.App {
 			// foreign_keys: enforce FK constraints, matching production behaviour.
 			// busy_timeout: retry on SQLITE_BUSY instead of immediately failing under
 			// light contention (e.g. background goroutines during seeding).
-			Dsn: fmt.Sprintf("file:%s?mode=memory&cache=shared&_loc=auto&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", t.Name()),
+			// _time_format/_texttotime: match NewSQLite's own default DSN so a
+			// time.Time query argument is formatted the way SQLite's date
+			// functions (strftime, used by the rollup) expect. Without it, a bound
+			// time.Time renders as Go's default string form, which strftime cannot
+			// parse — rollup and other bucket_at comparisons silently match nothing.
+			Dsn: fmt.Sprintf("file:%s?mode=memory&cache=shared&_loc=auto&_time_format=sqlite&_texttotime=1&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", t.Name()),
 		},
 		Rules: config.ConfRules{
 			CheckInterval: time.Minute,

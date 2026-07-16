@@ -1,6 +1,6 @@
 # Backend Codebase Reference
 
-> Last updated: 2026-06-25
+> Last updated: 2026-07-16
 
 This document is the **map** of the backend codebase — what exists and where. For the system-level
 overview (layering, the API seam, request flow, single-binary build), see
@@ -95,6 +95,7 @@ principal-from-cookie → principal-from-API-key → generated strict handler.
 | `internal/networkpolicies/service.go` | CIDR network-policy CRUD; `CacheEntry` source for policy |
 | `internal/accesslog/sink.go` | `Sink` — implements `policy.DecisionObserver`; batch-inserts decision events |
 | `internal/queries/repository.go` | Cross-domain read repository backing the list/filter views |
+| `internal/queries/host_suggestions.go` | `pendingHostSuggestions` — shared raw/aggregate-dispatching implementation behind both the suggestions page and the dashboard's pending-suggestion count |
 | `internal/queries/filterx/filterx.go` | Column-allowlist registry for filter/sort/keyset pagination (ADR-007) |
 | `internal/rollup/job.go` | `RollupJob` catch-up scheduler for hourly aggregates |
 | `internal/lease/expiry_job.go` | `ExpiryJob` — disables addresses with an expired lease |
