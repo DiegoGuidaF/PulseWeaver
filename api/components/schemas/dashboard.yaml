@@ -1,3 +1,11 @@
+AttributionEntityKind:
+  type: string
+  description: Which entity kind to group a traffic attribution split by.
+  enum:
+    - policy
+    - user
+    - device
+
 DashboardDenyByReason:
   type: object
   description: >

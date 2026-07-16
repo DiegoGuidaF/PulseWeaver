@@ -44,6 +44,8 @@ func (g Granularity) StrftimeISO() string {
 		return "%Y-%m-%dT00:00:00Z"
 	case GranularityMinute:
 		return "%Y-%m-%dT%H:%M:00Z"
+	case GranularityHour, Granularity5Min:
+		return "%Y-%m-%dT%H:00:00Z"
 	default:
 		return "%Y-%m-%dT%H:00:00Z"
 	}
@@ -65,7 +67,9 @@ func (g Granularity) BucketExpr(col string) string {
 			"strftime('%%Y-%%m-%%dT%%H:', %s) || printf('%%02d', (CAST(strftime('%%M', %s) AS INTEGER)/5)*5) || ':00Z'",
 			col, col,
 		)
-	default: // GranularityHour
+	case GranularityHour:
+		return fmt.Sprintf("strftime('%%Y-%%m-%%dT%%H:00:00Z', %s)", col)
+	default:
 		return fmt.Sprintf("strftime('%%Y-%%m-%%dT%%H:00:00Z', %s)", col)
 	}
 }

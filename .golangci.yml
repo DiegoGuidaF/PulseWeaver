@@ -10,6 +10,7 @@ linters:
   enable:
     - errcheck
     - errorlint
+    - exhaustive
     - govet
     - staticcheck
     - sloglint
@@ -24,6 +25,11 @@ linters:
     - exhaustruct
 
   settings:
+    exhaustive:
+      # A default case does not excuse missing an explicit case for every
+      # declared enum value — the switch must name each one, so a new value
+      # fails lint until a case is added (see docs/patterns/backend/openapi-enums.md).
+      default-signifies-exhaustive: false
     sloglint:
       # Enforce attributes-only (no key-value pairs in message)
       attr-only: true
@@ -60,6 +66,7 @@ issues:
         - revive
         - errcheck
         - staticcheck
+        - exhaustive
 
 formatters:
   enable:

@@ -130,3 +130,18 @@ server. After construction: `ExecuteScheduledRules` (disable stale addresses bef
 **Goroutines started in `RunBackground`:** `policy.RunListener`, `lease.RunListener`,
 `maxaddr.RunListener`, `scheduler.RunSchedule`, `accessLogSink.Run`, `geoip.RunUpdater`. `Run` adds
 `httpserver.StartAndWait` and the build-tag-gated `StartPprofServer` on top.
+
+---
+
+## Test Infrastructure
+
+| Piece | Purpose |
+|-------|---------|
+| `internal/testdb.Setup` | In-memory SQLite (`database.SQLite`) for a single test; runs migrations, returns a teardown func |
+| `internal/testutils/server.go` — `SetupIntegrationServer` | Builds a full `*app.App` (same DI graph as `app.New`) against `testdb`, the only sanctioned setup entry point for handler/integration tests |
+| `internal/testutils/seeder*.go` — `NewSeeder(t)` | Declares only the entities a test needs, resolves dependency order, applies defaults; `SeedFullWorld` seeds a rich cross-domain dataset and is reserved for `internal/queries` |
+| DSN `_time_format=sqlite&_texttotime=1` | Makes `modernc.org/sqlite` scan `DATETIME` columns straight into `time.Time` and format bound `time.Time` args the way SQLite's date functions (`strftime`, used by rollups) expect; see `internal/database/dbtime.go` — `DBTime` exists only for aggregate functions (`MAX`/`MIN`) that return `TEXT` even over `DATETIME` columns despite this flag |
+
+DI wiring for tests mirrors production: `SetupIntegrationServer` calls the same constructors as
+`app.New`/`app.NewWithConfigAndLogger`, so a test server has the identical observer graph and
+scheduler jobs described above — no service is ever constructed by hand in a test.

@@ -100,6 +100,13 @@ AddressHistoryBucket:
       type: integer
       description: Total address events in this time bucket
 
+AddressHistoryGranularity:
+  type: string
+  description: Time bucket granularity for the address history endpoint.
+  enum:
+    - hour
+    - day
+
 AddressEventSource:
   type: string
   description: What triggered an address state change

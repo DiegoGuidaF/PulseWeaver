@@ -170,13 +170,6 @@ export const zDeviceState = z.enum([
   "expired-claim",
 ]);
 
-export const zDeviceRuleSummary = z.object({
-  type: z.enum(["auto_expiry", "max_active"]),
-  enabled: z.boolean(),
-  ttl_seconds: z.int().nullish(),
-  limit: z.int().nullish(),
-});
-
 export const zAddAddressRequest = z.object({
   ip: zIpAddress,
 });
@@ -402,19 +395,6 @@ export const zDashboardPosture = z.object({
   shared_ip_count: z.int(),
   known_host_count: z.int(),
   pending_suggestion_count: z.int(),
-});
-
-export const zCreatePairingRequest = z.object({
-  heartbeat_server_url: z.url(),
-  interval_seconds: z.int().gte(60),
-  app_biometric_enabled: z.boolean().optional().default(false),
-  app_settings_locked: z.boolean().optional().default(false),
-  expires_in_hours: z.union([
-    z.literal(1),
-    z.literal(24),
-    z.literal(48),
-    z.literal(168),
-  ]),
 });
 
 export const zClaimPairingRequest = z.object({
@@ -748,6 +728,18 @@ export const zUserAccessDetail = z.object({
 });
 
 /**
+ * Kind of per-device rule summarized in DeviceRuleSummary.
+ */
+export const zRuleType = z.enum(["auto_expiry", "max_active"]);
+
+export const zDeviceRuleSummary = z.object({
+  type: zRuleType,
+  enabled: z.boolean(),
+  ttl_seconds: z.int().nullish(),
+  limit: z.int().nullish(),
+});
+
+/**
  * Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.
  *
  */
@@ -798,6 +790,11 @@ export const zDevicePairing = z.object({
 });
 
 /**
+ * Time bucket granularity for the address history endpoint.
+ */
+export const zAddressHistoryGranularity = z.enum(["hour", "day"]);
+
+/**
  * Filter operator for a value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.
  *
  */
@@ -809,6 +806,25 @@ export const zAccessLogFilterOperator = z.enum([
   "is_null",
   "not_null",
 ]);
+
+/**
+ * Sortable columns for the access log list. Join-derived columns (e.g. country) are not sortable.
+ *
+ */
+export const zAccessLogSortColumn = z.enum([
+  "created_at",
+  "client_ip",
+  "target_host",
+  "http_method",
+  "deny_reason",
+  "duration_us",
+  "outcome",
+]);
+
+/**
+ * Ascending or descending sort direction.
+ */
+export const zSortOrder = z.enum(["asc", "desc"]);
 
 /**
  * One device/user/address that the request's client IP resolved to. A single IP (shared router/home network) can resolve to several, so each entry carries a list.
@@ -932,6 +948,34 @@ export const zDashboardStats = z.object({
     .max(BigInt("9223372036854775807"), {
       error: "Invalid value: Expected int64 to be <= 9223372036854775807",
     }),
+});
+
+/**
+ * Which entity kind to group a traffic attribution split by.
+ */
+export const zAttributionEntityKind = z.enum(["policy", "user", "device"]);
+
+/**
+ * Which pairings to include in a device's pairing list — pending only, or every status.
+ */
+export const zPairingListFilter = z.enum(["pending", "all"]);
+
+/**
+ * Allowed pairing expiry windows, in hours.
+ */
+export const zPairingExpiryHours = z.union([
+  z.literal(1),
+  z.literal(24),
+  z.literal(48),
+  z.literal(168),
+]);
+
+export const zCreatePairingRequest = z.object({
+  heartbeat_server_url: z.url(),
+  interval_seconds: z.int().gte(60),
+  app_biometric_enabled: z.boolean().optional().default(false),
+  app_settings_locked: z.boolean().optional().default(false),
+  expires_in_hours: zPairingExpiryHours,
 });
 
 /**
@@ -1204,7 +1248,7 @@ export const zGetAddressHistoryQuery = z.object({
   device_id: z.array(zId).optional(),
   from: z.iso.datetime({ offset: true, local: true }).optional(),
   to: z.iso.datetime({ offset: true, local: true }).optional(),
-  granularity: z.enum(["hour", "day"]).optional().default("hour"),
+  granularity: zAddressHistoryGranularity.optional(),
   source: zAddressEventSource.optional(),
   is_enabled: z.boolean().optional(),
   ip: z.string().optional(),
@@ -1261,19 +1305,8 @@ export const zGetAccessLogQuery = z.object({
   ambiguous: z.boolean().optional(),
   from: z.iso.datetime({ offset: true, local: true }).optional(),
   to: z.iso.datetime({ offset: true, local: true }).optional(),
-  sort: z
-    .enum([
-      "created_at",
-      "client_ip",
-      "target_host",
-      "http_method",
-      "deny_reason",
-      "duration_us",
-      "outcome",
-    ])
-    .optional()
-    .default("created_at"),
-  order: z.enum(["asc", "desc"]).optional().default("desc"),
+  sort: zAccessLogSortColumn.optional(),
+  order: zSortOrder.optional(),
   limit: z.int().lte(200).optional().default(50),
   cursor: z.string().optional(),
 });
@@ -1393,7 +1426,7 @@ export const zGetDashboardTopDeniedIpsQuery = z.object({
 export const zGetDashboardTopDeniedIpsResponse = zDashboardTopDeniedIpsResponse;
 
 export const zGetDashboardAttributionSplitQuery = z.object({
-  kind: z.enum(["policy", "user", "device"]),
+  kind: zAttributionEntityKind,
   from: z.iso.datetime({ offset: true, local: true }).optional(),
   to: z.iso.datetime({ offset: true, local: true }).optional(),
 });
@@ -1421,7 +1454,7 @@ export const zListDevicePairingsPath = z.object({
 });
 
 export const zListDevicePairingsQuery = z.object({
-  status: z.enum(["pending", "all"]).optional().default("pending"),
+  status: zPairingListFilter.optional(),
 });
 
 /**

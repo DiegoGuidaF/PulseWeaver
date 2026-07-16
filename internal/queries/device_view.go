@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/devicepairing"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
@@ -268,7 +269,7 @@ func assembleDeviceGroups(
 		if pr, ok := pairingsByDevice[row.DeviceID]; ok {
 			status := devicepairing.EvalStatus(pr.Status, pr.ExpiresAt)
 			entry.Pairing = &httpapi.DevicePairingSummary{
-				Status:    httpapi.DevicePairingStatus(status),
+				Status:    devicepairing.PairingStatusToAPI(status),
 				ExpiresAt: httpapi.UTCTime(pr.ExpiresAt),
 				UpdatedAt: httpapi.UTCTime(pr.UpdatedAt),
 			}
@@ -296,7 +297,7 @@ func assembleDeviceGroups(
 				Id:               u.ID.Int64(),
 				Username:         u.Username,
 				DisplayName:      u.DisplayName,
-				Role:             httpapi.UserRole(u.Role),
+				Role:             auth.RoleToAPI(auth.Role(u.Role)),
 				BypassHostCheck:  u.BypassHostCheck,
 				HostGroups:       hgs,
 				DeviceCount:      len(devices),

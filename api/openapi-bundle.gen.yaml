@@ -885,10 +885,8 @@ paths:
           in: query
           required: false
           schema:
-            type: string
-            enum:
-              - hour
-              - day
+            allOf:
+              - $ref: '#/components/schemas/AddressHistoryGranularity'
             default: hour
           description: Time bucket granularity (default hour)
         - name: source
@@ -1181,26 +1179,17 @@ paths:
           in: query
           required: false
           schema:
-            type: string
+            allOf:
+              - $ref: '#/components/schemas/AccessLogSortColumn'
             default: created_at
-            enum:
-              - created_at
-              - client_ip
-              - target_host
-              - http_method
-              - deny_reason
-              - duration_us
-              - outcome
           description: Sort column (default created_at). Join-derived columns (e.g. country) are not sortable.
         - name: order
           in: query
           required: false
           schema:
-            type: string
+            allOf:
+              - $ref: '#/components/schemas/SortOrder'
             default: desc
-            enum:
-              - asc
-              - desc
           description: Sort direction (default desc).
         - name: limit
           in: query
@@ -1707,11 +1696,7 @@ paths:
           in: query
           required: true
           schema:
-            type: string
-            enum:
-              - policy
-              - user
-              - device
+            $ref: '#/components/schemas/AttributionEntityKind'
           description: Which entity to group attribution by.
         - name: from
           in: query
@@ -1841,10 +1826,8 @@ paths:
           in: query
           required: false
           schema:
-            type: string
-            enum:
-              - pending
-              - all
+            allOf:
+              - $ref: '#/components/schemas/PairingListFilter'
             default: pending
       responses:
         '200':
@@ -3053,10 +3036,7 @@ components:
         - enabled
       properties:
         type:
-          type: string
-          enum:
-            - auto_expiry
-            - max_active
+          $ref: '#/components/schemas/RuleType'
         enabled:
           type: boolean
         ttl_seconds:
@@ -3743,12 +3723,8 @@ components:
           type: boolean
           default: false
         expires_in_hours:
-          type: integer
-          enum:
-            - 1
-            - 24
-            - 48
-            - 168
+          allOf:
+            - $ref: '#/components/schemas/PairingExpiryHours'
           example: 24
     DevicePairing:
       type: object
@@ -4683,6 +4659,12 @@ components:
             $ref: '#/components/schemas/SubjectGroupDetail'
         bypass_host_check:
           type: boolean
+    RuleType:
+      type: string
+      description: Kind of per-device rule summarized in DeviceRuleSummary.
+      enum:
+        - auto_expiry
+        - max_active
     DevicePairingStatus:
       type: string
       enum:
@@ -4693,6 +4675,12 @@ components:
         - replaced
       description: |
         Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.
+    AddressHistoryGranularity:
+      type: string
+      description: Time bucket granularity for the address history endpoint.
+      enum:
+        - hour
+        - day
     AccessLogFilterOperator:
       type: string
       description: |
@@ -4704,6 +4692,24 @@ components:
         - not_contains
         - is_null
         - not_null
+    AccessLogSortColumn:
+      type: string
+      description: |
+        Sortable columns for the access log list. Join-derived columns (e.g. country) are not sortable.
+      enum:
+        - created_at
+        - client_ip
+        - target_host
+        - http_method
+        - deny_reason
+        - duration_us
+        - outcome
+    SortOrder:
+      type: string
+      description: Ascending or descending sort direction.
+      enum:
+        - asc
+        - desc
     AccessLogContributor:
       type: object
       description: |
@@ -4740,6 +4746,27 @@ components:
           type: integer
           format: int64
           description: Denials with any other or unrecorded reason, so the split reconciles to deny_count.
+    AttributionEntityKind:
+      type: string
+      description: Which entity kind to group a traffic attribution split by.
+      enum:
+        - policy
+        - user
+        - device
+    PairingListFilter:
+      type: string
+      description: Which pairings to include in a device's pairing list — pending only, or every status.
+      enum:
+        - pending
+        - all
+    PairingExpiryHours:
+      type: integer
+      description: Allowed pairing expiry windows, in hours.
+      enum:
+        - 1
+        - 24
+        - 48
+        - 168
     PolicyUserStatus:
       type: string
       enum:

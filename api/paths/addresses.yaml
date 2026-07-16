@@ -134,10 +134,8 @@ addressHistory:
         in: query
         required: false
         schema:
-          type: string
-          enum:
-            - hour
-            - day
+          allOf:
+            - $ref: '../components/schemas/addresses.yaml#/AddressHistoryGranularity'
           default: hour
         description: Time bucket granularity (default hour)
       - name: source

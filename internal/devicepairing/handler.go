@@ -81,7 +81,7 @@ func (h *HTTPHandler) ListDevicePairings(ctx context.Context, request httpapi.Li
 	logger := h.logger
 
 	filter := PairingFilter{DeviceID: ids.DeviceID(request.Id)}
-	if request.Params.Status != nil && *request.Params.Status == httpapi.ListDevicePairingsParamsStatusAll {
+	if request.Params.Status != nil && *request.Params.Status == httpapi.PairingListFilterAll {
 		filter.IncludeAll = true
 	}
 
@@ -143,7 +143,7 @@ func toAPIPairing(p *DevicePairing) httpapi.DevicePairing {
 		ExpiresAt:           httpapi.UTCTime(p.ExpiresAt),
 		CreatedAt:           httpapi.UTCTime(p.CreatedAt),
 		UpdatedAt:           httpapi.UTCTime(p.UpdatedAt),
-		Status:              httpapi.DevicePairingStatus(p.Status),
+		Status:              PairingStatusToAPI(p.Status),
 	}
 }
 

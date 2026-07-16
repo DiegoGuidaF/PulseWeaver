@@ -364,7 +364,7 @@ func findDeviceEntry(devices []httpapi.DeviceListEntry, name string) *httpapi.De
 }
 
 // findRule returns the DeviceRuleSummary with the given type, or nil.
-func findRule(rules []httpapi.DeviceRuleSummary, ruleType httpapi.DeviceRuleSummaryType) *httpapi.DeviceRuleSummary {
+func findRule(rules []httpapi.DeviceRuleSummary, ruleType httpapi.RuleType) *httpapi.DeviceRuleSummary {
 	for i := range rules {
 		if rules[i].Type == ruleType {
 			return &rules[i]

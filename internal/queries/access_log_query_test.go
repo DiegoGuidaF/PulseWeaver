@@ -124,8 +124,8 @@ func TestNewAccessLogQuery_RejectsBadCursor(t *testing.T) {
 
 func TestNewAccessLogQuery_SortAndOrder(t *testing.T) {
 	is := is.New(t)
-	sort := httpapi.GetAccessLogParamsSort("duration_us")
-	order := httpapi.GetAccessLogParamsOrder("asc")
+	sort := httpapi.AccessLogSortColumn("duration_us")
+	order := httpapi.SortOrder("asc")
 	q, err := queries.NewAccessLogQuery(httpapi.GetAccessLogParams{Sort: &sort, Order: &order})
 	is.NoErr(err)
 	is.Equal(q.Sort, "duration_us")

@@ -33,6 +33,20 @@ AccessLogFilterOperator:
     - is_null
     - not_null
 
+AccessLogSortColumn:
+  type: string
+  description: >
+    Sortable columns for the access log list. Join-derived columns (e.g.
+    country) are not sortable.
+  enum:
+    - created_at
+    - client_ip
+    - target_host
+    - http_method
+    - deny_reason
+    - duration_us
+    - outcome
+
 AccessLogContributor:
   type: object
   description: >

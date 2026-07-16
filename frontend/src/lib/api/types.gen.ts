@@ -251,7 +251,7 @@ export const DeviceState = {
 export type DeviceState = (typeof DeviceState)[keyof typeof DeviceState];
 
 export type DeviceRuleSummary = {
-  type: "auto_expiry" | "max_active";
+  type: RuleType;
   enabled: boolean;
   /**
    * TTL in seconds. Present for auto_expiry rules.
@@ -685,7 +685,7 @@ export type CreatePairingRequest = {
   interval_seconds: number;
   app_biometric_enabled?: boolean;
   app_settings_locked?: boolean;
-  expires_in_hours: 1 | 24 | 48 | 168;
+  expires_in_hours: PairingExpiryHours;
 };
 
 export type DevicePairing = {
@@ -1254,6 +1254,19 @@ export type UserAccessDetail = {
 };
 
 /**
+ * Kind of per-device rule summarized in DeviceRuleSummary.
+ */
+export const RuleType = {
+  AUTO_EXPIRY: "auto_expiry",
+  MAX_ACTIVE: "max_active",
+} as const;
+
+/**
+ * Kind of per-device rule summarized in DeviceRuleSummary.
+ */
+export type RuleType = (typeof RuleType)[keyof typeof RuleType];
+
+/**
  * Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.
  *
  */
@@ -1271,6 +1284,17 @@ export const DevicePairingStatus = {
  */
 export type DevicePairingStatus =
   (typeof DevicePairingStatus)[keyof typeof DevicePairingStatus];
+
+/**
+ * Time bucket granularity for the address history endpoint.
+ */
+export const AddressHistoryGranularity = { HOUR: "hour", DAY: "day" } as const;
+
+/**
+ * Time bucket granularity for the address history endpoint.
+ */
+export type AddressHistoryGranularity =
+  (typeof AddressHistoryGranularity)[keyof typeof AddressHistoryGranularity];
 
 /**
  * Filter operator for a value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.
@@ -1291,6 +1315,37 @@ export const AccessLogFilterOperator = {
  */
 export type AccessLogFilterOperator =
   (typeof AccessLogFilterOperator)[keyof typeof AccessLogFilterOperator];
+
+/**
+ * Sortable columns for the access log list. Join-derived columns (e.g. country) are not sortable.
+ *
+ */
+export const AccessLogSortColumn = {
+  CREATED_AT: "created_at",
+  CLIENT_IP: "client_ip",
+  TARGET_HOST: "target_host",
+  HTTP_METHOD: "http_method",
+  DENY_REASON: "deny_reason",
+  DURATION_US: "duration_us",
+  OUTCOME: "outcome",
+} as const;
+
+/**
+ * Sortable columns for the access log list. Join-derived columns (e.g. country) are not sortable.
+ *
+ */
+export type AccessLogSortColumn =
+  (typeof AccessLogSortColumn)[keyof typeof AccessLogSortColumn];
+
+/**
+ * Ascending or descending sort direction.
+ */
+export const SortOrder = { ASC: "asc", DESC: "desc" } as const;
+
+/**
+ * Ascending or descending sort direction.
+ */
+export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder];
 
 /**
  * One device/user/address that the request's client IP resolved to. A single IP (shared router/home network) can resolve to several, so each entry carries a list.
@@ -1322,6 +1377,48 @@ export type DashboardDenyByReason = {
    */
   other: number;
 };
+
+/**
+ * Which entity kind to group a traffic attribution split by.
+ */
+export const AttributionEntityKind = {
+  POLICY: "policy",
+  USER: "user",
+  DEVICE: "device",
+} as const;
+
+/**
+ * Which entity kind to group a traffic attribution split by.
+ */
+export type AttributionEntityKind =
+  (typeof AttributionEntityKind)[keyof typeof AttributionEntityKind];
+
+/**
+ * Which pairings to include in a device's pairing list — pending only, or every status.
+ */
+export const PairingListFilter = { PENDING: "pending", ALL: "all" } as const;
+
+/**
+ * Which pairings to include in a device's pairing list — pending only, or every status.
+ */
+export type PairingListFilter =
+  (typeof PairingListFilter)[keyof typeof PairingListFilter];
+
+/**
+ * Allowed pairing expiry windows, in hours.
+ */
+export const PairingExpiryHours = {
+  1: 1,
+  24: 24,
+  48: 48,
+  168: 168,
+} as const;
+
+/**
+ * Allowed pairing expiry windows, in hours.
+ */
+export type PairingExpiryHours =
+  (typeof PairingExpiryHours)[keyof typeof PairingExpiryHours];
 
 /**
  * Effective access classification along two orthogonal axes: reachability (does the user have live IPs in the cache?) and authorization (does the user have host grants?).
@@ -2257,7 +2354,7 @@ export type GetAddressHistoryData = {
     /**
      * Time bucket granularity (default hour)
      */
-    granularity?: "hour" | "day";
+    granularity?: AddressHistoryGranularity;
     /**
      * Filter events by source
      */
@@ -2432,18 +2529,11 @@ export type GetAccessLogData = {
     /**
      * Sort column (default created_at). Join-derived columns (e.g. country) are not sortable.
      */
-    sort?:
-      | "created_at"
-      | "client_ip"
-      | "target_host"
-      | "http_method"
-      | "deny_reason"
-      | "duration_us"
-      | "outcome";
+    sort?: AccessLogSortColumn;
     /**
      * Sort direction (default desc).
      */
-    order?: "asc" | "desc";
+    order?: SortOrder;
     /**
      * Page size (default 50, max 200)
      */
@@ -2935,7 +3025,7 @@ export type GetDashboardAttributionSplitData = {
     /**
      * Which entity to group attribution by.
      */
-    kind: "policy" | "user" | "device";
+    kind: AttributionEntityKind;
     /**
      * RFC3339 start of time window (default 24h ago)
      */
@@ -3047,7 +3137,7 @@ export type ListDevicePairingsData = {
     id: Id;
   };
   query?: {
-    status?: "pending" | "all";
+    status?: PairingListFilter;
   };
   url: "/devices/{id}/pairings";
 };

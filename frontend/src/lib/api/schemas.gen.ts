@@ -442,8 +442,7 @@ export const DeviceRuleSummarySchema = {
   required: ["type", "enabled"],
   properties: {
     type: {
-      type: "string",
-      enum: ["auto_expiry", "max_active"],
+      $ref: "#/components/schemas/RuleType",
     },
     enabled: {
       type: "boolean",
@@ -1369,8 +1368,11 @@ export const CreatePairingRequestSchema = {
       default: false,
     },
     expires_in_hours: {
-      type: "integer",
-      enum: [1, 24, 48, 168],
+      allOf: [
+        {
+          $ref: "#/components/schemas/PairingExpiryHours",
+        },
+      ],
       example: 24,
     },
   },
@@ -2620,6 +2622,12 @@ export const UserAccessDetailSchema = {
   },
 } as const;
 
+export const RuleTypeSchema = {
+  type: "string",
+  description: "Kind of per-device rule summarized in DeviceRuleSummary.",
+  enum: ["auto_expiry", "max_active"],
+} as const;
+
 export const DevicePairingStatusSchema = {
   type: "string",
   enum: ["pending", "used", "expired", "invalidated", "replaced"],
@@ -2627,11 +2635,38 @@ export const DevicePairingStatusSchema = {
     "Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.\n",
 } as const;
 
+export const AddressHistoryGranularitySchema = {
+  type: "string",
+  description: "Time bucket granularity for the address history endpoint.",
+  enum: ["hour", "day"],
+} as const;
+
 export const AccessLogFilterOperatorSchema = {
   type: "string",
   description:
     "Filter operator for a value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.\n",
   enum: ["in", "not_in", "contains", "not_contains", "is_null", "not_null"],
+} as const;
+
+export const AccessLogSortColumnSchema = {
+  type: "string",
+  description:
+    "Sortable columns for the access log list. Join-derived columns (e.g. country) are not sortable.\n",
+  enum: [
+    "created_at",
+    "client_ip",
+    "target_host",
+    "http_method",
+    "deny_reason",
+    "duration_us",
+    "outcome",
+  ],
+} as const;
+
+export const SortOrderSchema = {
+  type: "string",
+  description: "Ascending or descending sort direction.",
+  enum: ["asc", "desc"],
 } as const;
 
 export const AccessLogContributorSchema = {
@@ -2682,6 +2717,25 @@ export const DashboardDenyByReasonSchema = {
         "Denials with any other or unrecorded reason, so the split reconciles to deny_count.",
     },
   },
+} as const;
+
+export const AttributionEntityKindSchema = {
+  type: "string",
+  description: "Which entity kind to group a traffic attribution split by.",
+  enum: ["policy", "user", "device"],
+} as const;
+
+export const PairingListFilterSchema = {
+  type: "string",
+  description:
+    "Which pairings to include in a device's pairing list — pending only, or every status.",
+  enum: ["pending", "all"],
+} as const;
+
+export const PairingExpiryHoursSchema = {
+  type: "integer",
+  description: "Allowed pairing expiry windows, in hours.",
+  enum: [1, 24, 48, 168],
 } as const;
 
 export const PolicyUserStatusSchema = {

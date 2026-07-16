@@ -206,8 +206,7 @@ attributionSplit:
         in: query
         required: true
         schema:
-          type: string
-          enum: [policy, user, device]
+          $ref: '../components/schemas/dashboard.yaml#/AttributionEntityKind'
         description: Which entity to group attribution by.
       - name: from
         in: query

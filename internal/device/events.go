@@ -56,7 +56,7 @@ func (e AddressEvent) IsAddressEnabled() bool {
 	switch e.Type {
 	case EventTypeAddressCreated, EventTypeAddressEnabled, EventTypeAddressRefreshed:
 		return true
-	case EventTypeAddressDisabled:
+	case EventTypeAddressDisabled, EventTypeDeviceOwnershipChanged:
 		return false
 	default:
 		return false

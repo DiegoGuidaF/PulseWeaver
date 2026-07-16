@@ -21,6 +21,13 @@ PolicyDenyReason:
     - invalid_token
     - host_not_allowed
 
+SortOrder:
+  type: string
+  description: Ascending or descending sort direction.
+  enum:
+    - asc
+    - desc
+
 IPAddress:
   type: string
   description: "IPv4 or IPv6 address"

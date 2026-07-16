@@ -154,7 +154,7 @@ func (h *HTTPHandler) GetDashboardAttributionSplit(
 	ctx = logging.WithOperation(ctx, "GetDashboardAttributionSplit")
 
 	from, to := parseTimeRange(request.Params.From, request.Params.To)
-	kind := AttributionKind(request.Params.Kind)
+	kind := attributionKindFromAPI(request.Params.Kind)
 
 	entities, err := h.repo.GetAttributionSplit(ctx, kind, from, to)
 	if err != nil {

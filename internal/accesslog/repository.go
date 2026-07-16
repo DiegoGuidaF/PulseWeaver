@@ -79,7 +79,9 @@ func (r *Repository) BatchInsert(ctx context.Context, events []policy.DecisionEv
 						return fmt.Errorf("insert network policy contributor: %w", err)
 					}
 				}
-			default:
+			// MatchSource is also its zero value ("") for denied requests, which fall
+			// into this case alongside MatchSourceDevice: both record IP contributors.
+			case policy.MatchSourceDevice, "":
 				for _, c := range e.IPContributors {
 					if _, err := r.db.ExecContext(ctx,
 						`

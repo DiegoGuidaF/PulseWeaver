@@ -55,8 +55,8 @@ devicePairings:
         in: query
         required: false
         schema:
-          type: string
-          enum: [pending, all]
+          allOf:
+            - $ref: '../components/schemas/device-pairing.yaml#/PairingListFilter'
           default: pending
     responses:
       "200":

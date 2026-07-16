@@ -185,17 +185,17 @@ accessLog:
         in: query
         required: false
         schema:
-          type: string
+          allOf:
+            - $ref: '../components/schemas/access-log.yaml#/AccessLogSortColumn'
           default: created_at
-          enum: [created_at, client_ip, target_host, http_method, deny_reason, duration_us, outcome]
         description: Sort column (default created_at). Join-derived columns (e.g. country) are not sortable.
       - name: order
         in: query
         required: false
         schema:
-          type: string
+          allOf:
+            - $ref: '../components/schemas/common.yaml#/SortOrder'
           default: desc
-          enum: [asc, desc]
         description: Sort direction (default desc).
       - name: limit
         in: query

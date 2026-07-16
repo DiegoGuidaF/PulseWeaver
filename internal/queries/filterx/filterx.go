@@ -215,6 +215,8 @@ func relationalCondition(rel *Relational, f Filter) (sq.Sqlizer, error) {
 		return sq.Expr("NOT EXISTS (" + rel.Correlated + ")"), nil
 	case OpNotNull:
 		return sq.Expr("EXISTS (" + rel.Correlated + ")"), nil
+	case OpContains, OpNotContains:
+		return nil, fmt.Errorf("%w: unsupported operator %q for relational column", ErrInvalidFilter, f.Op)
 	}
 	return nil, fmt.Errorf("%w: unsupported operator %q for relational column", ErrInvalidFilter, f.Op)
 }

@@ -301,7 +301,7 @@ func toUserResponse(d *User) httpapi.User {
 		Id:                 d.ID.Int64(),
 		Username:           d.Username,
 		DisplayName:        d.DisplayName,
-		Role:               httpapi.UserRole(d.Role),
+		Role:               RoleToAPI(d.Role),
 		MustChangePassword: new(d.MustChangePassword),
 		CreatedAt:          httpapi.UTCTime(d.CreatedAt),
 	}

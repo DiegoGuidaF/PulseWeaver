@@ -74,7 +74,7 @@ func toUserViewResponse(u *UserView) httpapi.User {
 		Username:           u.Username,
 		DisplayName:        u.DisplayName,
 		Email:              email,
-		Role:               httpapi.UserRole(u.Role),
+		Role:               auth.RoleToAPI(u.Role),
 		MustChangePassword: new(u.MustChangePassword),
 		BypassHostCheck:    u.BypassHostCheck,
 		CreatedAt:          httpapi.UTCTime(u.CreatedAt),

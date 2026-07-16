@@ -9,6 +9,16 @@ DevicePairingStatus:
     invalidated: explicitly cancelled by an administrator.
     replaced: superseded when a new pairing was issued for the same device.
 
+PairingExpiryHours:
+  type: integer
+  description: Allowed pairing expiry windows, in hours.
+  enum: [1, 24, 48, 168]
+
+PairingListFilter:
+  type: string
+  description: Which pairings to include in a device's pairing list — pending only, or every status.
+  enum: [pending, all]
+
 CreatePairingRequest:
   type: object
   required:
@@ -31,8 +41,8 @@ CreatePairingRequest:
       type: boolean
       default: false
     expires_in_hours:
-      type: integer
-      enum: [1, 24, 48, 168]
+      allOf:
+        - $ref: '#/PairingExpiryHours'
       example: 24
 
 DevicePairing:

@@ -47,6 +47,12 @@ func (s SortSpec) decodeValue(raw json.RawMessage) (any, error) {
 			return nil, fmt.Errorf("%w: bad cursor time value", ErrInvalidFilter)
 		}
 		return t, nil
+	case KindString:
+		var str string
+		if err := json.Unmarshal(raw, &str); err != nil {
+			return nil, fmt.Errorf("%w: bad cursor string value", ErrInvalidFilter)
+		}
+		return str, nil
 	default:
 		var str string
 		if err := json.Unmarshal(raw, &str); err != nil {

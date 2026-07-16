@@ -159,13 +159,17 @@ DeviceState:
     disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept.
     pending-claim / expired-claim: awaiting or failed device pairing (future feature).
 
+RuleType:
+  type: string
+  description: Kind of per-device rule summarized in DeviceRuleSummary.
+  enum: [auto_expiry, max_active]
+
 DeviceRuleSummary:
   type: object
   required: [type, enabled]
   properties:
     type:
-      type: string
-      enum: [auto_expiry, max_active]
+      $ref: '#/RuleType'
     enabled:
       type: boolean
     ttl_seconds:
