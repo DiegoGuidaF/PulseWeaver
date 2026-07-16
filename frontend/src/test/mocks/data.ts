@@ -64,12 +64,8 @@ export function createMockDeviceAddressLeaseRule(
   overrides?: Partial<DeviceAddressLeaseRule>,
 ): DeviceAddressLeaseRule {
   return {
-    id: 1,
-    device_id: 1,
     enabled: true,
     ttl_seconds: 3600,
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z',
     ...overrides,
   };
 }
@@ -83,12 +79,9 @@ export function createMockMaxActiveAddressesRule(
   overrides?: Partial<MaxActiveAddressesRule>,
 ): MaxActiveAddressesRule {
   return {
-    id: 1,
-    device_id: 1,
     enabled: true,
     max_addresses: 3,
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z',
+    active_address_count: 0,
     ...overrides,
   };
 }
@@ -591,7 +584,6 @@ export function createMockDevicePairing(
 ): DevicePairing {
   return {
     id: 1,
-    device_id: 1,
     pairing_code: 'PW-K7F2-N9XR',
     heartbeat_server_url: 'https://pulseweaver.example.com',
     interval_seconds: 1800,

@@ -8,8 +8,8 @@ import { endpoints, responses, ruleHandlers } from "@/test/mocks/handlers";
 import { server } from "@/test/setup";
 import { renderWithProviders, setupUser } from "@/test/utils";
 
-function renderTab(liveAddressCount = 0) {
-    return renderWithProviders(<DeviceRulesTab deviceId={1} liveAddressCount={liveAddressCount} />);
+function renderTab() {
+    return renderWithProviders(<DeviceRulesTab deviceId={1} />);
 }
 
 describe('DeviceRulesTab — Address lease rule', () => {
@@ -27,7 +27,7 @@ describe('DeviceRulesTab — Address lease rule', () => {
     });
 
     it('shows disabled state with controls visible', async () => {
-        server.use(ruleHandlers.addressLease.get.notFound());
+        server.use(ruleHandlers.addressLease.get.disabled());
 
         renderTab();
 
@@ -90,7 +90,7 @@ describe('DeviceRulesTab — Address lease rule', () => {
 
     it('enables rule via toggle using the currently selected preset', async () => {
         const user = setupUser();
-        server.use(ruleHandlers.addressLease.get.notFound());
+        server.use(ruleHandlers.addressLease.get.disabled());
 
         renderTab();
 
@@ -208,7 +208,7 @@ describe('DeviceRulesTab — Address lease rule', () => {
 
 describe('DeviceRulesTab — Max active IPs rule', () => {
     it('shows disabled state with controls visible', async () => {
-        server.use(ruleHandlers.maxActiveAddresses.get.notFound());
+        server.use(ruleHandlers.maxActiveAddresses.get.disabled());
         renderTab();
 
         await waitFor(
@@ -226,9 +226,9 @@ describe('DeviceRulesTab — Max active IPs rule', () => {
     });
 
     it('shows enabled state with limit controls', async () => {
-        server.use(ruleHandlers.maxActiveAddresses.get.success({ max_addresses: 5 }));
+        server.use(ruleHandlers.maxActiveAddresses.get.success({ max_addresses: 5, active_address_count: 2 }));
 
-        renderTab(2);
+        renderTab();
 
         await waitFor(
             () => {
@@ -242,9 +242,9 @@ describe('DeviceRulesTab — Max active IPs rule', () => {
     });
 
     it('shows at-limit warning when live count meets limit', async () => {
-        server.use(ruleHandlers.maxActiveAddresses.get.success({ max_addresses: 2 }));
+        server.use(ruleHandlers.maxActiveAddresses.get.success({ max_addresses: 2, active_address_count: 2 }));
 
-        renderTab(2);
+        renderTab();
 
         await waitFor(
             () => {
@@ -257,9 +257,9 @@ describe('DeviceRulesTab — Max active IPs rule', () => {
 
     it('shows eviction warning when limit is stepped below live count', async () => {
         const user = setupUser();
-        server.use(ruleHandlers.maxActiveAddresses.get.success({ max_addresses: 5 }));
+        server.use(ruleHandlers.maxActiveAddresses.get.success({ max_addresses: 5, active_address_count: 3 }));
 
-        renderTab(3); // 3 live addresses, limit currently 5
+        renderTab(); // 3 live addresses, limit currently 5
 
         await waitFor(
             () => {
@@ -277,9 +277,9 @@ describe('DeviceRulesTab — Max active IPs rule', () => {
     });
 
     it('shows eviction warning in disabled state when limit would evict on enable', async () => {
-        server.use(ruleHandlers.maxActiveAddresses.get.notFound());
+        server.use(ruleHandlers.maxActiveAddresses.get.disabled({ active_address_count: 3 }));
 
-        renderTab(3); // 3 live addresses, default limit 2
+        renderTab(); // 3 live addresses, default limit 2
 
         await waitFor(
             () => {
@@ -294,7 +294,7 @@ describe('DeviceRulesTab — Max active IPs rule', () => {
 
     it('enables rule via toggle using currently selected limit', async () => {
         const user = setupUser();
-        server.use(ruleHandlers.maxActiveAddresses.get.notFound());
+        server.use(ruleHandlers.maxActiveAddresses.get.disabled());
 
         renderTab();
 

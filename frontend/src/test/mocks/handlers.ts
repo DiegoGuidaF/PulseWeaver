@@ -265,23 +265,25 @@ export const addressHandlers = {
 };
 
 // ─── Rule handlers ────────────────────────────────────────────────────────────
+// GET returns 200 with a synthetic `enabled:false` rule when none is configured;
+// 404 is reserved for an unknown device (see `deviceNotFound` variants).
 export const ruleHandlers = {
     addressLease: {
         get: {
             success: (override?: Partial<DeviceAddressLeaseRule>) =>
                 http.get(endpoints.deviceAddressLeaseRule, () =>
                     HttpResponse.json({ ...createMockDeviceAddressLeaseRule(), ...override })),
-            notFound: () =>
+            disabled: () =>
+                http.get(endpoints.deviceAddressLeaseRule, () =>
+                    HttpResponse.json(createMockDeviceAddressLeaseRule({ enabled: false, ttl_seconds: undefined }))),
+            deviceNotFound: () =>
                 http.get(endpoints.deviceAddressLeaseRule, () =>
                     responses.notFound({ error: 'Not Found' })),
         },
         put: {
             success: (override?: Partial<DeviceAddressLeaseRule>) =>
-                http.put(endpoints.deviceAddressLeaseRule, ({ params }) =>
-                    HttpResponse.json({
-                        ...createMockDeviceAddressLeaseRule({ device_id: Number(params.deviceId) }),
-                        ...override,
-                    })),
+                http.put(endpoints.deviceAddressLeaseRule, () =>
+                    HttpResponse.json({ ...createMockDeviceAddressLeaseRule(), ...override })),
         },
         delete: {
             success: () =>
@@ -293,17 +295,20 @@ export const ruleHandlers = {
             success: (override?: Partial<MaxActiveAddressesRule>) =>
                 http.get(endpoints.maxActiveAddressesRule, () =>
                     HttpResponse.json({ ...createMockMaxActiveAddressesRule(), ...override })),
-            notFound: () =>
+            disabled: (override?: Partial<MaxActiveAddressesRule>) =>
+                http.get(endpoints.maxActiveAddressesRule, () =>
+                    HttpResponse.json({
+                        ...createMockMaxActiveAddressesRule({ enabled: false, max_addresses: undefined }),
+                        ...override,
+                    })),
+            deviceNotFound: () =>
                 http.get(endpoints.maxActiveAddressesRule, () =>
                     responses.notFound({ error: 'Not Found' })),
         },
         put: {
             success: (override?: Partial<MaxActiveAddressesRule>) =>
-                http.put(endpoints.maxActiveAddressesRule, ({ params }) =>
-                    HttpResponse.json({
-                        ...createMockMaxActiveAddressesRule({ device_id: Number(params.deviceId) }),
-                        ...override,
-                    })),
+                http.put(endpoints.maxActiveAddressesRule, () =>
+                    HttpResponse.json({ ...createMockMaxActiveAddressesRule(), ...override })),
         },
         delete: {
             success: () =>

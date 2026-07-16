@@ -357,7 +357,7 @@ export function UserDevicesPage({ createMode = false }: UserDevicesPageProps) {
               />
             </Tabs.Panel>
             <Tabs.Panel value={DeviceTab.RULES} pt="md">
-              <DeviceRulesTab deviceId={selectedDevice.id} liveAddressCount={selectedDevice.live_address_count} />
+              <DeviceRulesTab deviceId={selectedDevice.id} />
             </Tabs.Panel>
             <Tabs.Panel value={DeviceTab.PAIRING} pt="md">
               <DevicePairingTab deviceId={selectedDevice.id} deviceState={selectedDevice.state} />

@@ -37,10 +37,9 @@ const maxAddressesFormSchema = z.object({
 
 interface MaxActiveIpsRuleCardProps {
   deviceId: number;
-  liveAddressCount: number;
 }
 
-export function MaxActiveIpsRuleCard({ deviceId, liveAddressCount }: MaxActiveIpsRuleCardProps) {
+export function MaxActiveIpsRuleCard({ deviceId }: MaxActiveIpsRuleCardProps) {
   const {
     data: maxAddressesRule,
     isLoading,
@@ -59,6 +58,7 @@ export function MaxActiveIpsRuleCard({ deviceId, liveAddressCount }: MaxActiveIp
 
   const isOn = Boolean(maxAddressesRule?.enabled);
   const savedLimit = maxAddressesRule?.max_addresses ?? null;
+  const liveAddressCount = maxAddressesRule?.active_address_count ?? 0;
   const currentLimit = Number(form.values.max_addresses);
   const isDirty = isOn && savedLimit !== null && currentLimit !== savedLimit;
   const atLimit = isOn && savedLimit !== null && liveAddressCount >= savedLimit;

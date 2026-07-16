@@ -248,11 +248,7 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
                         <Text size="xs" c="dimmed">
                           {item.status === "used"
                             ? `claimed ${dayjs(item.updated_at).fromNow()}`
-                            : item.status === "expired" ||
-                                item.status === "invalidated" ||
-                                item.status === "replaced"
-                              ? formatDateTime(item.updated_at)
-                              : formatDateTime(item.created_at)}
+                            : formatDateTime(item.updated_at)}
                         </Text>
                       </Group>
                     </Group>
