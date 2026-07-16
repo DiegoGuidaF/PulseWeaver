@@ -986,14 +986,8 @@ export const AccessLogRowSchema = {
 
 export const DeviceAddressLeaseRuleSchema = {
   type: "object",
-  required: ["device_id", "enabled"],
+  required: ["enabled"],
   properties: {
-    id: {
-      $ref: "#/components/schemas/ID",
-    },
-    device_id: {
-      $ref: "#/components/schemas/ID",
-    },
     enabled: {
       type: "boolean",
       description: "Whether the lease rule is active",
@@ -1003,16 +997,6 @@ export const DeviceAddressLeaseRuleSchema = {
       minimum: 1,
       description:
         "Seconds after which an enabled device address lease expires; absent when disabled and never configured",
-    },
-    created_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-    },
-    updated_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
     },
   },
 } as const;
@@ -1032,14 +1016,8 @@ export const PutDeviceAddressLeaseRuleRequestSchema = {
 
 export const MaxActiveAddressesRuleSchema = {
   type: "object",
-  required: ["device_id", "enabled"],
+  required: ["enabled", "active_address_count"],
   properties: {
-    id: {
-      $ref: "#/components/schemas/ID",
-    },
-    device_id: {
-      $ref: "#/components/schemas/ID",
-    },
     enabled: {
       type: "boolean",
       description: "Whether the max active addresses rule is active",
@@ -1050,15 +1028,11 @@ export const MaxActiveAddressesRuleSchema = {
       description:
         "Maximum number of simultaneously enabled IP addresses; absent when disabled and never configured",
     },
-    created_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-    },
-    updated_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
+    active_address_count: {
+      type: "integer",
+      readOnly: true,
+      description:
+        "Number of currently enabled addresses for the device, regardless of whether the rule is configured.",
     },
   },
 } as const;
@@ -1382,7 +1356,6 @@ export const DevicePairingSchema = {
   type: "object",
   required: [
     "id",
-    "device_id",
     "pairing_code",
     "heartbeat_server_url",
     "interval_seconds",
@@ -1396,10 +1369,6 @@ export const DevicePairingSchema = {
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
-    },
-    device_id: {
-      $ref: "#/components/schemas/ID",
-      description: "ID of the device this pairing belongs to.",
     },
     pairing_code: {
       type: "string",
@@ -2912,6 +2881,23 @@ export const AddressWritableSchema = {
       nullable: true,
       description:
         "GeoIP metadata resolved on read for this address's IP. Null when the IP is unresolvable or GeoIP enrichment is disabled.\n",
+    },
+  },
+} as const;
+
+export const MaxActiveAddressesRuleWritableSchema = {
+  type: "object",
+  required: ["enabled"],
+  properties: {
+    enabled: {
+      type: "boolean",
+      description: "Whether the max active addresses rule is active",
+    },
+    max_addresses: {
+      type: "integer",
+      minimum: 1,
+      description:
+        "Maximum number of simultaneously enabled IP addresses; absent when disabled and never configured",
     },
   },
 } as const;

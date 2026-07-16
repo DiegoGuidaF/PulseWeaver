@@ -21,12 +21,14 @@ func newTestService(repo repository) *Service {
 
 // fakeRepository returns only pre-set values; no internal logic.
 type fakeRepository struct {
-	getRuleResult *Rule
-	getRuleErr    error
-	enableResult  *Rule
-	enableErr     error
-	disableResult *Rule
-	disableErr    error
+	getRuleResult   *Rule
+	getRuleErr      error
+	enableResult    *Rule
+	enableErr       error
+	disableResult   *Rule
+	disableErr      error
+	addressCount    int
+	addressCountErr error
 }
 
 var _ repository = (*fakeRepository)(nil)
@@ -65,6 +67,13 @@ func (f *fakeRepository) DisableRule(ctx context.Context, deviceID ids.DeviceID,
 		return nil, f.disableErr
 	}
 	return f.disableResult, nil
+}
+
+func (f *fakeRepository) CountEnabledAddresses(ctx context.Context, deviceID ids.DeviceID) (int, error) {
+	if f.addressCountErr != nil {
+		return 0, f.addressCountErr
+	}
+	return f.addressCount, nil
 }
 
 // GetDeviceAddressLeaseTTLSeconds
@@ -385,6 +394,32 @@ func TestService_GetMaxActiveAddressesRule_NotFound_ReturnsDisabledDefault(t *te
 	is.Equal(out.ID, ids.RuleID(0))
 }
 
+func TestService_GetMaxActiveAddressesRule_IncludesActiveAddressCount(t *testing.T) {
+	is := is.New(t)
+	repo := &fakeRepository{
+		getRuleResult: &Rule{
+			ID: 1, DeviceID: 1, RuleType: RuleTypeMaxActiveAddresses,
+			Enabled: true, Config: json.RawMessage(`{"max_addresses":3}`),
+		},
+		addressCount: 2,
+	}
+	svc := newTestService(repo)
+	out, err := svc.GetMaxActiveAddressesRule(context.Background(), ids.DeviceID(1))
+	is.NoErr(err)
+	is.Equal(out.ActiveAddressCount, 2)
+}
+
+func TestService_GetMaxActiveAddressesRule_CountRepoError_Propagated(t *testing.T) {
+	is := is.New(t)
+	repoErr := errors.New("db error")
+	repo := &fakeRepository{getRuleErr: ErrRuleNotFound, addressCountErr: repoErr}
+	svc := newTestService(repo)
+	out, err := svc.GetMaxActiveAddressesRule(context.Background(), ids.DeviceID(1))
+	is.True(err != nil)
+	is.Equal(err, repoErr)
+	is.True(out == nil)
+}
+
 // EnableMaxActiveAddressesRule
 
 func TestService_EnableMaxActiveAddressesRule_Valid(t *testing.T) {
@@ -395,6 +430,7 @@ func TestService_EnableMaxActiveAddressesRule_Valid(t *testing.T) {
 			Enabled: true, Config: json.RawMessage(`{"max_addresses":5}`),
 			CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
 		},
+		addressCount: 1,
 	}
 	svc := newTestService(repo)
 	out, err := svc.EnableMaxActiveAddressesRule(context.Background(), ids.DeviceID(1), 5)
@@ -402,6 +438,7 @@ func TestService_EnableMaxActiveAddressesRule_Valid(t *testing.T) {
 	is.True(out != nil)
 	is.Equal(out.Config.MaxAddresses, 5)
 	is.True(out.Enabled)
+	is.Equal(out.ActiveAddressCount, 1)
 }
 
 func TestService_EnableMaxActiveAddressesRule_InvalidMax(t *testing.T) {

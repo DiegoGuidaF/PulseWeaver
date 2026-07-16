@@ -107,9 +107,6 @@ import type {
   GetDeviceAddressLeaseRuleData,
   GetDeviceAddressLeaseRuleErrors,
   GetDeviceAddressLeaseRuleResponses,
-  GetDevicePairingData,
-  GetDevicePairingErrors,
-  GetDevicePairingResponses,
   GetDevicesData,
   GetDevicesErrors,
   GetDevicesResponses,
@@ -258,8 +255,6 @@ import {
   zGetDeviceAddressesResponse,
   zGetDeviceAddressLeaseRulePath,
   zGetDeviceAddressLeaseRuleResponse,
-  zGetDevicePairingPath,
-  zGetDevicePairingResponse,
   zGetDevicesResponse,
   zGetMaxActiveAddressesRulePath,
   zGetMaxActiveAddressesRuleResponse,
@@ -1262,7 +1257,8 @@ export const getAccessLogByCountry = <ThrowOnError extends boolean = false>(
 /**
  * Disable device lease rule for a device
  *
- * Disables the device lease rule for the device (sets enabled to false).
+ * Idempotent: sets enabled to false if a rule exists. Always returns 204, whether or not a rule was previously configured for the device.
+ *
  */
 export const disableDeviceAddressLeaseRule = <
   ThrowOnError extends boolean = false,
@@ -1382,7 +1378,8 @@ export const putDeviceAddressLeaseRule = <ThrowOnError extends boolean = false>(
 /**
  * Disable max active addresses rule for a device
  *
- * Disables the max active addresses rule for the device (sets enabled to false).
+ * Idempotent: sets enabled to false if a rule exists. Always returns 204, whether or not a rule was previously configured for the device.
+ *
  */
 export const disableMaxActiveAddressesRule = <
   ThrowOnError extends boolean = false,
@@ -1774,7 +1771,9 @@ export const claimPairing = <ThrowOnError extends boolean = false>(
  *
  * Returns pairing records for the given device. By default returns only pending
  * (unclaimed, non-expired) pairings. Pass `?status=all` to include used and expired.
- * Never returns the pairing_code after it has been claimed.
+ * pairing_code is always present regardless of status — this is an admin-only surface,
+ * and the device API key already rotates on claim, so redacting the code afterward buys
+ * nothing.
  *
  */
 export const listDevicePairings = <ThrowOnError extends boolean = false>(
@@ -1877,42 +1876,6 @@ export const deleteDevicePairing = <ThrowOnError extends boolean = false>(
         .parseAsync(data),
     responseValidator: async (data) =>
       await zDeleteDevicePairingResponse.parseAsync(data),
-    security: [
-      {
-        in: "cookie",
-        name: "__Host-wdc_session",
-        type: "apiKey",
-      },
-    ],
-    url: "/devices/{id}/pairings/{pairingId}",
-    ...options,
-  });
-
-/**
- * Get a single device pairing (Admin only)
- */
-export const getDevicePairing = <ThrowOnError extends boolean = false>(
-  options: Options<GetDevicePairingData, ThrowOnError>,
-): RequestResult<
-  GetDevicePairingResponses,
-  GetDevicePairingErrors,
-  ThrowOnError
-> =>
-  (options.client ?? client).get<
-    GetDevicePairingResponses,
-    GetDevicePairingErrors,
-    ThrowOnError
-  >({
-    requestValidator: async (data) =>
-      await z
-        .object({
-          body: z.never().optional(),
-          path: zGetDevicePairingPath,
-          query: z.never().optional(),
-        })
-        .parseAsync(data),
-    responseValidator: async (data) =>
-      await zGetDevicePairingResponse.parseAsync(data),
     security: [
       {
         in: "cookie",

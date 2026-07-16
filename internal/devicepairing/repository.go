@@ -48,19 +48,6 @@ func (r *Repository) CreatePairing(ctx context.Context, req CreatePairingRequest
 	return new(fromRow(*row)), nil
 }
 
-// GetPairing returns a device pairing by ID.
-func (r *Repository) GetPairing(ctx context.Context, id ids.DevicePairingID) (*DevicePairing, error) {
-	row := new(pairingRow)
-	err := r.db.GetContext(ctx, row, `SELECT * FROM device_pairings WHERE id = ?`, id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrPairingNotFound
-	}
-	if err != nil {
-		return nil, fmt.Errorf("get pairing: %w", err)
-	}
-	return new(fromRow(*row)), nil
-}
-
 // GetPairingByCode returns a device pairing by its pairing code.
 func (r *Repository) GetPairingByCode(ctx context.Context, code string) (*DevicePairing, error) {
 	row := new(pairingRow)

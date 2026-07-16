@@ -1,13 +1,8 @@
 DeviceAddressLeaseRule:
   type: object
   required:
-    - device_id
     - enabled
   properties:
-    id:
-      $ref: './common.yaml#/ID'
-    device_id:
-      $ref: './common.yaml#/ID'
     enabled:
       type: boolean
       description: Whether the lease rule is active
@@ -15,14 +10,6 @@ DeviceAddressLeaseRule:
       type: integer
       minimum: 1
       description: Seconds after which an enabled device address lease expires; absent when disabled and never configured
-    created_at:
-      type: string
-      format: date-time
-      x-go-type: UTCTime
-    updated_at:
-      type: string
-      format: date-time
-      x-go-type: UTCTime
 
 PutDeviceAddressLeaseRuleRequest:
   type: object
@@ -37,13 +24,9 @@ PutDeviceAddressLeaseRuleRequest:
 MaxActiveAddressesRule:
   type: object
   required:
-    - device_id
     - enabled
+    - active_address_count
   properties:
-    id:
-      $ref: './common.yaml#/ID'
-    device_id:
-      $ref: './common.yaml#/ID'
     enabled:
       type: boolean
       description: Whether the max active addresses rule is active
@@ -51,14 +34,10 @@ MaxActiveAddressesRule:
       type: integer
       minimum: 1
       description: Maximum number of simultaneously enabled IP addresses; absent when disabled and never configured
-    created_at:
-      type: string
-      format: date-time
-      x-go-type: UTCTime
-    updated_at:
-      type: string
-      format: date-time
-      x-go-type: UTCTime
+    active_address_count:
+      type: integer
+      readOnly: true
+      description: Number of currently enabled addresses for the device, regardless of whether the rule is configured.
 
 PutMaxActiveAddressesRuleRequest:
   type: object

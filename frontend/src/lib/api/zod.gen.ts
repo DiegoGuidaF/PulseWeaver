@@ -254,12 +254,8 @@ export const zAccessLogCountryStats = z.object({
 });
 
 export const zDeviceAddressLeaseRule = z.object({
-  id: zId.optional(),
-  device_id: zId,
   enabled: z.boolean(),
   ttl_seconds: z.int().gte(1).optional(),
-  created_at: z.iso.datetime({ offset: true, local: true }).optional(),
-  updated_at: z.iso.datetime({ offset: true, local: true }).optional(),
 });
 
 export const zPutDeviceAddressLeaseRuleRequest = z.object({
@@ -267,12 +263,9 @@ export const zPutDeviceAddressLeaseRuleRequest = z.object({
 });
 
 export const zMaxActiveAddressesRule = z.object({
-  id: zId.optional(),
-  device_id: zId,
   enabled: z.boolean(),
   max_addresses: z.int().gte(1).optional(),
-  created_at: z.iso.datetime({ offset: true, local: true }).optional(),
-  updated_at: z.iso.datetime({ offset: true, local: true }).optional(),
+  active_address_count: z.int().readonly(),
 });
 
 export const zPutMaxActiveAddressesRuleRequest = z.object({
@@ -777,7 +770,6 @@ export const zDeviceOwnerGroup = z.object({
 
 export const zDevicePairing = z.object({
   id: zId,
-  device_id: zId,
   pairing_code: z.string(),
   heartbeat_server_url: z.string(),
   interval_seconds: z.int(),
@@ -1064,6 +1056,11 @@ export const zAddressWritable = z.object({
   geo: zGeoInfo.nullish(),
 });
 
+export const zMaxActiveAddressesRuleWritable = z.object({
+  enabled: z.boolean(),
+  max_addresses: z.int().gte(1).optional(),
+});
+
 /**
  * Users list
  */
@@ -1331,7 +1328,7 @@ export const zDisableDeviceAddressLeaseRulePath = z.object({
 });
 
 /**
- * Rule disabled
+ * Rule disabled (or already absent)
  */
 export const zDisableDeviceAddressLeaseRuleResponse = z.void();
 
@@ -1360,7 +1357,7 @@ export const zDisableMaxActiveAddressesRulePath = z.object({
 });
 
 /**
- * Rule disabled
+ * Rule disabled (or already absent)
  */
 export const zDisableMaxActiveAddressesRuleResponse = z.void();
 
@@ -1482,16 +1479,6 @@ export const zDeleteDevicePairingPath = z.object({
  * Pairing invalidated
  */
 export const zDeleteDevicePairingResponse = z.void();
-
-export const zGetDevicePairingPath = z.object({
-  id: zId,
-  pairingId: zId,
-});
-
-/**
- * Device pairing
- */
-export const zGetDevicePairingResponse = zDevicePairing;
 
 /**
  * Host list.

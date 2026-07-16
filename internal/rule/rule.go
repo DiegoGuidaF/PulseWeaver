@@ -100,6 +100,11 @@ type MaxActiveAddressesRule struct {
 	Config    MaxActiveAddressesConfig
 	CreatedAt time.Time
 	UpdatedAt time.Time
+
+	// ActiveAddressCount is the number of currently enabled addresses for the device,
+	// regardless of whether this rule is configured. Populated by the service from the
+	// address domain's live count — see max_active_addresses_view.go.
+	ActiveAddressCount int
 }
 
 // MaxActiveAddressesConfig holds configuration for the max active addresses rule.

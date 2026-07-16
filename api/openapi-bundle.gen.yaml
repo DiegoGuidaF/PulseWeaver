@@ -1361,7 +1361,8 @@ paths:
       tags:
         - rules
       summary: Disable device lease rule for a device
-      description: Disables the device lease rule for the device (sets enabled to false).
+      description: |
+        Idempotent: sets enabled to false if a rule exists. Always returns 204, whether or not a rule was previously configured for the device.
       parameters:
         - name: device_id
           in: path
@@ -1371,13 +1372,7 @@ paths:
             $ref: '#/components/schemas/ID'
       responses:
         '204':
-          description: Rule disabled
-        '404':
-          description: Device or rule not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          description: Rule disabled (or already absent)
         '500':
           description: Internal Server Error
           content:
@@ -1460,7 +1455,8 @@ paths:
       tags:
         - rules
       summary: Disable max active addresses rule for a device
-      description: Disables the max active addresses rule for the device (sets enabled to false).
+      description: |
+        Idempotent: sets enabled to false if a rule exists. Always returns 204, whether or not a rule was previously configured for the device.
       parameters:
         - name: device_id
           in: path
@@ -1470,13 +1466,7 @@ paths:
             $ref: '#/components/schemas/ID'
       responses:
         '204':
-          description: Rule disabled
-        '404':
-          description: Device or rule not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          description: Rule disabled (or already absent)
         '500':
           description: Internal Server Error
           content:
@@ -1815,7 +1805,9 @@ paths:
       description: |
         Returns pairing records for the given device. By default returns only pending
         (unclaimed, non-expired) pairings. Pass `?status=all` to include used and expired.
-        Never returns the pairing_code after it has been claimed.
+        pairing_code is always present regardless of status — this is an admin-only surface,
+        and the device API key already rotates on claim, so redacting the code afterward buys
+        nothing.
       parameters:
         - name: id
           in: path
@@ -1889,45 +1881,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /devices/{id}/pairings/{pairingId}:
-    get:
-      operationId: getDevicePairing
-      tags:
-        - device-pairing
-      summary: Get a single device pairing (Admin only)
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/ID'
-        - name: pairingId
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/ID'
-      responses:
-        '200':
-          description: Device pairing
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DevicePairing'
-        '401':
-          description: Not authenticated
-        '403':
-          description: Admin credentials required
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteDevicePairing
       tags:
@@ -3439,13 +3392,8 @@ components:
     DeviceAddressLeaseRule:
       type: object
       required:
-        - device_id
         - enabled
       properties:
-        id:
-          $ref: '#/components/schemas/ID'
-        device_id:
-          $ref: '#/components/schemas/ID'
         enabled:
           type: boolean
           description: Whether the lease rule is active
@@ -3453,14 +3401,6 @@ components:
           type: integer
           minimum: 1
           description: Seconds after which an enabled device address lease expires; absent when disabled and never configured
-        created_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
-        updated_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
     PutDeviceAddressLeaseRuleRequest:
       type: object
       required:
@@ -3473,13 +3413,9 @@ components:
     MaxActiveAddressesRule:
       type: object
       required:
-        - device_id
         - enabled
+        - active_address_count
       properties:
-        id:
-          $ref: '#/components/schemas/ID'
-        device_id:
-          $ref: '#/components/schemas/ID'
         enabled:
           type: boolean
           description: Whether the max active addresses rule is active
@@ -3487,14 +3423,10 @@ components:
           type: integer
           minimum: 1
           description: Maximum number of simultaneously enabled IP addresses; absent when disabled and never configured
-        created_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
-        updated_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
+        active_address_count:
+          type: integer
+          readOnly: true
+          description: Number of currently enabled addresses for the device, regardless of whether the rule is configured.
     PutMaxActiveAddressesRuleRequest:
       type: object
       required:
@@ -3730,7 +3662,6 @@ components:
       type: object
       required:
         - id
-        - device_id
         - pairing_code
         - heartbeat_server_url
         - interval_seconds
@@ -3743,9 +3674,6 @@ components:
       properties:
         id:
           $ref: '#/components/schemas/ID'
-        device_id:
-          $ref: '#/components/schemas/ID'
-          description: ID of the device this pairing belongs to.
         pairing_code:
           type: string
           description: The pairing code delivered to the app. Always present; status is the single-use guard.

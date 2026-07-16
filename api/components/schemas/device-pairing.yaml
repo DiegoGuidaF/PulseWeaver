@@ -49,7 +49,6 @@ DevicePairing:
   type: object
   required:
     - id
-    - device_id
     - pairing_code
     - heartbeat_server_url
     - interval_seconds
@@ -62,9 +61,6 @@ DevicePairing:
   properties:
     id:
       $ref: 'common.yaml#/ID'
-    device_id:
-      $ref: 'common.yaml#/ID'
-      description: ID of the device this pairing belongs to.
     pairing_code:
       type: string
       description: The pairing code delivered to the app. Always present; status is the single-use guard.

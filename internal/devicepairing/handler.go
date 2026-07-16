@@ -98,22 +98,6 @@ func (h *HTTPHandler) ListDevicePairings(ctx context.Context, request httpapi.Li
 	return resp, nil
 }
 
-func (h *HTTPHandler) GetDevicePairing(ctx context.Context, request httpapi.GetDevicePairingRequestObject) (httpapi.GetDevicePairingResponseObject, error) {
-	ctx = logging.WithOperation(ctx, "GetDevicePairing")
-	logger := h.logger
-
-	pairing, err := h.service.GetPairing(ctx, ids.DevicePairingID(request.PairingId))
-	if err != nil {
-		if errors.Is(err, ErrPairingNotFound) {
-			return httpapi.GetDevicePairing404JSONResponse(errorMsgResponse("Device pairing not found")), nil
-		}
-		logger.ErrorContext(ctx, "failed to get device pairing", slog.Any(logging.AttrKeyError, err))
-		return httpapi.GetDevicePairing500JSONResponse(errorMsgResponse("Failed to get device pairing")), nil
-	}
-
-	return httpapi.GetDevicePairing200JSONResponse(toAPIPairing(pairing)), nil
-}
-
 func (h *HTTPHandler) DeleteDevicePairing(ctx context.Context, request httpapi.DeleteDevicePairingRequestObject) (httpapi.DeleteDevicePairingResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "DeleteDevicePairing")
 	logger := h.logger
@@ -134,7 +118,6 @@ func (h *HTTPHandler) DeleteDevicePairing(ctx context.Context, request httpapi.D
 func toAPIPairing(p *DevicePairing) httpapi.DevicePairing {
 	return httpapi.DevicePairing{
 		Id:                  p.ID.Int64(),
-		DeviceId:            p.DeviceID.Int64(),
 		PairingCode:         p.PairingCode,
 		HeartbeatServerUrl:  p.HeartbeatServerURL,
 		IntervalSeconds:     p.HeartbeatIntervalSeconds,

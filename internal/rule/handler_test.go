@@ -47,9 +47,6 @@ func TestHandler_GetDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 	resp, err := client.GetDeviceAddressLeaseRuleWithResponse(ctx, dev.ID.Int64())
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusOK)
-	is.True(resp.JSON200.Id != nil)
-	is.Equal(*resp.JSON200.Id, int64(r.ID))
-	is.Equal(resp.JSON200.DeviceId, int64(dev.ID))
 	is.Equal(resp.JSON200.Enabled, r.Enabled)
 	is.True(resp.JSON200.TtlSeconds != nil)
 	is.Equal(*resp.JSON200.TtlSeconds, r.Config.TTLSeconds)
@@ -67,8 +64,6 @@ func TestHandler_GetDeviceAddressLeaseRule_NotConfigured_ReturnsDisabled(t *test
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusOK)
 	is.True(!resp.JSON200.Enabled)
-	is.Equal(resp.JSON200.DeviceId, int64(dev.ID))
-	is.True(resp.JSON200.Id == nil)
 	is.True(resp.JSON200.TtlSeconds == nil)
 }
 
@@ -85,7 +80,6 @@ func TestHandler_PutDeviceAddressLeaseRule_HappyPath(t *testing.T) {
 	})
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusOK)
-	is.Equal(resp.JSON200.DeviceId, int64(dev.ID))
 	is.True(resp.JSON200.TtlSeconds != nil)
 	is.Equal(*resp.JSON200.TtlSeconds, 600)
 	is.True(resp.JSON200.Enabled)
@@ -152,6 +146,17 @@ func TestHandler_DisableDeviceAddressLeaseRule_IdempotentWhenMissing(t *testing.
 	is.Equal(resp.StatusCode(), http.StatusNoContent)
 }
 
+func TestHandler_DisableDeviceAddressLeaseRule_IdempotentForUnknownDevice(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	testServer := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, testServer)
+
+	resp, err := client.DisableDeviceAddressLeaseRuleWithResponse(ctx, ids.DeviceID(999999).Int64())
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNoContent)
+}
+
 func createMaxActiveAddressesRule(t *testing.T, testServer *app.App, deviceID ids.DeviceID, maxAddresses int) *rule.MaxActiveAddressesRule {
 	t.Helper()
 
@@ -174,12 +179,32 @@ func TestHandler_GetMaxActiveAddressesRule_HappyPath(t *testing.T) {
 	resp, err := client.GetMaxActiveAddressesRuleWithResponse(ctx, dev.ID.Int64())
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusOK)
-	is.True(resp.JSON200.Id != nil)
-	is.Equal(*resp.JSON200.Id, int64(r.ID))
-	is.Equal(resp.JSON200.DeviceId, int64(dev.ID))
 	is.Equal(resp.JSON200.Enabled, r.Enabled)
 	is.True(resp.JSON200.MaxAddresses != nil)
 	is.Equal(*resp.JSON200.MaxAddresses, r.Config.MaxAddresses)
+	is.True(resp.JSON200.ActiveAddressCount != nil)
+	is.Equal(*resp.JSON200.ActiveAddressCount, 0)
+}
+
+func TestHandler_GetMaxActiveAddressesRule_ActiveAddressCountReflectsLiveAddresses(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	testServer := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, testServer)
+
+	dev := createTestDevice(t, testServer, "max-active-get-count")
+	createMaxActiveAddressesRule(t, testServer, dev.ID, 5)
+
+	_, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.0.0.1", device.EventSourceManual)
+	is.NoErr(err)
+	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.0.0.2", device.EventSourceManual)
+	is.NoErr(err)
+
+	resp, err := client.GetMaxActiveAddressesRuleWithResponse(ctx, dev.ID.Int64())
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	is.True(resp.JSON200.ActiveAddressCount != nil)
+	is.Equal(*resp.JSON200.ActiveAddressCount, 2)
 }
 
 func TestHandler_GetMaxActiveAddressesRule_NotConfigured_ReturnsDisabled(t *testing.T) {
@@ -194,9 +219,9 @@ func TestHandler_GetMaxActiveAddressesRule_NotConfigured_ReturnsDisabled(t *test
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusOK)
 	is.True(!resp.JSON200.Enabled)
-	is.Equal(resp.JSON200.DeviceId, int64(dev.ID))
-	is.True(resp.JSON200.Id == nil)
 	is.True(resp.JSON200.MaxAddresses == nil)
+	is.True(resp.JSON200.ActiveAddressCount != nil)
+	is.Equal(*resp.JSON200.ActiveAddressCount, 0)
 }
 
 func TestHandler_PutMaxActiveAddressesRule_HappyPath(t *testing.T) {
@@ -212,10 +237,11 @@ func TestHandler_PutMaxActiveAddressesRule_HappyPath(t *testing.T) {
 	})
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusOK)
-	is.Equal(resp.JSON200.DeviceId, int64(dev.ID))
 	is.True(resp.JSON200.MaxAddresses != nil)
 	is.Equal(*resp.JSON200.MaxAddresses, 5)
 	is.True(resp.JSON200.Enabled)
+	is.True(resp.JSON200.ActiveAddressCount != nil)
+	is.Equal(*resp.JSON200.ActiveAddressCount, 0)
 }
 
 func TestHandler_PutMaxActiveAddressesRule_InvalidBody(t *testing.T) {
@@ -274,6 +300,17 @@ func TestHandler_DisableMaxActiveAddressesRule_IdempotentWhenMissing(t *testing.
 	dev := createTestDevice(t, testServer, "max-active-disable-missing")
 
 	resp, err := client.DisableMaxActiveAddressesRuleWithResponse(ctx, dev.ID.Int64())
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusNoContent)
+}
+
+func TestHandler_DisableMaxActiveAddressesRule_IdempotentForUnknownDevice(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	testServer := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, testServer)
+
+	resp, err := client.DisableMaxActiveAddressesRuleWithResponse(ctx, ids.DeviceID(999999).Int64())
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusNoContent)
 }

@@ -294,9 +294,6 @@ type ClientInterface interface {
 	// DeleteDevicePairing request
 	DeleteDevicePairing(ctx context.Context, id ID, pairingId ID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetDevicePairing request
-	GetDevicePairing(ctx context.Context, id ID, pairingId ID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// DeviceHeartbeatByAPIKey request
 	DeviceHeartbeatByAPIKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1189,18 +1186,6 @@ func (c *Client) CreateDevicePairing(ctx context.Context, id ID, body CreateDevi
 
 func (c *Client) DeleteDevicePairing(ctx context.Context, id ID, pairingId ID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteDevicePairingRequest(c.Server, id, pairingId)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetDevicePairing(ctx context.Context, id ID, pairingId ID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetDevicePairingRequest(c.Server, id, pairingId)
 	if err != nil {
 		return nil, err
 	}
@@ -4176,47 +4161,6 @@ func NewDeleteDevicePairingRequest(server string, id ID, pairingId ID) (*http.Re
 	return req, nil
 }
 
-// NewGetDevicePairingRequest generates requests for GetDevicePairing
-func NewGetDevicePairingRequest(server string, id ID, pairingId ID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "pairingId", runtime.ParamLocationPath, pairingId)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/devices/%s/pairings/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewDeviceHeartbeatByAPIKeyRequest generates requests for DeviceHeartbeatByAPIKey
 func NewDeviceHeartbeatByAPIKeyRequest(server string) (*http.Request, error) {
 	var err error
@@ -4571,9 +4515,6 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteDevicePairingWithResponse request
 	DeleteDevicePairingWithResponse(ctx context.Context, id ID, pairingId ID, reqEditors ...RequestEditorFn) (*DeleteDevicePairingTestClientResponse, error)
-
-	// GetDevicePairingWithResponse request
-	GetDevicePairingWithResponse(ctx context.Context, id ID, pairingId ID, reqEditors ...RequestEditorFn) (*GetDevicePairingTestClientResponse, error)
 
 	// DeviceHeartbeatByAPIKeyWithResponse request
 	DeviceHeartbeatByAPIKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*DeviceHeartbeatByAPIKeyTestClientResponse, error)
@@ -5785,7 +5726,6 @@ func (r DeviceHeartbeatTestClientResponse) StatusCode() int {
 type DisableDeviceAddressLeaseRuleTestClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5856,7 +5796,6 @@ func (r PutDeviceAddressLeaseRuleTestClientResponse) StatusCode() int {
 type DisableMaxActiveAddressesRuleTestClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5988,30 +5927,6 @@ func (r DeleteDevicePairingTestClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r DeleteDevicePairingTestClientResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetDevicePairingTestClientResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *DevicePairing
-	JSON404      *ErrorResponse
-	JSON500      *ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r GetDevicePairingTestClientResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetDevicePairingTestClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6742,15 +6657,6 @@ func (c *ClientWithResponses) DeleteDevicePairingWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseDeleteDevicePairingTestClientResponse(rsp)
-}
-
-// GetDevicePairingWithResponse request returning *GetDevicePairingTestClientResponse
-func (c *ClientWithResponses) GetDevicePairingWithResponse(ctx context.Context, id ID, pairingId ID, reqEditors ...RequestEditorFn) (*GetDevicePairingTestClientResponse, error) {
-	rsp, err := c.GetDevicePairing(ctx, id, pairingId, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetDevicePairingTestClientResponse(rsp)
 }
 
 // DeviceHeartbeatByAPIKeyWithResponse request returning *DeviceHeartbeatByAPIKeyTestClientResponse
@@ -9014,13 +8920,6 @@ func ParseDisableDeviceAddressLeaseRuleTestClientResponse(rsp *http.Response) (*
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -9127,13 +9026,6 @@ func ParseDisableMaxActiveAddressesRuleTestClientResponse(rsp *http.Response) (*
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -9313,46 +9205,6 @@ func ParseDeleteDevicePairingTestClientResponse(rsp *http.Response) (*DeleteDevi
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetDevicePairingTestClientResponse parses an HTTP response from a GetDevicePairingWithResponse call
-func ParseGetDevicePairingTestClientResponse(rsp *http.Response) (*GetDevicePairingTestClientResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetDevicePairingTestClientResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DevicePairing
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

@@ -42,7 +42,6 @@ import {
   getDashboardTraffic,
   getDeviceAddresses,
   getDeviceAddressLeaseRule,
-  getDevicePairing,
   getDevices,
   getMaxActiveAddressesRule,
   getNetworkPolicy,
@@ -170,9 +169,6 @@ import type {
   GetDeviceAddressLeaseRuleData,
   GetDeviceAddressLeaseRuleError,
   GetDeviceAddressLeaseRuleResponse,
-  GetDevicePairingData,
-  GetDevicePairingError,
-  GetDevicePairingResponse,
   GetDevicesData,
   GetDevicesError,
   GetDevicesResponse,
@@ -1135,7 +1131,8 @@ export const getAccessLogByCountryOptions = (
 /**
  * Disable device lease rule for a device
  *
- * Disables the device lease rule for the device (sets enabled to false).
+ * Idempotent: sets enabled to false if a rule exists. Always returns 204, whether or not a rule was previously configured for the device.
+ *
  */
 export const disableDeviceAddressLeaseRuleMutation = (
   options?: Partial<Options<DisableDeviceAddressLeaseRuleData>>,
@@ -1223,7 +1220,8 @@ export const putDeviceAddressLeaseRuleMutation = (
 /**
  * Disable max active addresses rule for a device
  *
- * Disables the max active addresses rule for the device (sets enabled to false).
+ * Idempotent: sets enabled to false if a rule exists. Always returns 204, whether or not a rule was previously configured for the device.
+ *
  */
 export const disableMaxActiveAddressesRuleMutation = (
   options?: Partial<Options<DisableMaxActiveAddressesRuleData>>,
@@ -1535,7 +1533,9 @@ export const listDevicePairingsQueryKey = (
  *
  * Returns pairing records for the given device. By default returns only pending
  * (unclaimed, non-expired) pairings. Pass `?status=all` to include used and expired.
- * Never returns the pairing_code after it has been claimed.
+ * pairing_code is always present regardless of status — this is an admin-only surface,
+ * and the device API key already rotates on claim, so redacting the code afterward buys
+ * nothing.
  *
  */
 export const listDevicePairingsOptions = (
@@ -1614,34 +1614,6 @@ export const deleteDevicePairingMutation = (
   };
   return mutationOptions;
 };
-
-export const getDevicePairingQueryKey = (
-  options: Options<GetDevicePairingData>,
-) => createQueryKey("getDevicePairing", options);
-
-/**
- * Get a single device pairing (Admin only)
- */
-export const getDevicePairingOptions = (
-  options: Options<GetDevicePairingData>,
-) =>
-  queryOptions<
-    GetDevicePairingResponse,
-    GetDevicePairingError,
-    GetDevicePairingResponse,
-    ReturnType<typeof getDevicePairingQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getDevicePairing({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getDevicePairingQueryKey(options),
-  });
 
 export const listHostsQueryKey = (options?: Options<ListHostsData>) =>
   createQueryKey("listHosts", options);

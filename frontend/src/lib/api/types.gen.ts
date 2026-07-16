@@ -516,8 +516,6 @@ export type AccessLogRow = {
 };
 
 export type DeviceAddressLeaseRule = {
-  id?: Id;
-  device_id: Id;
   /**
    * Whether the lease rule is active
    */
@@ -526,8 +524,6 @@ export type DeviceAddressLeaseRule = {
    * Seconds after which an enabled device address lease expires; absent when disabled and never configured
    */
   ttl_seconds?: number;
-  created_at?: string;
-  updated_at?: string;
 };
 
 export type PutDeviceAddressLeaseRuleRequest = {
@@ -538,8 +534,6 @@ export type PutDeviceAddressLeaseRuleRequest = {
 };
 
 export type MaxActiveAddressesRule = {
-  id?: Id;
-  device_id: Id;
   /**
    * Whether the max active addresses rule is active
    */
@@ -548,8 +542,10 @@ export type MaxActiveAddressesRule = {
    * Maximum number of simultaneously enabled IP addresses; absent when disabled and never configured
    */
   max_addresses?: number;
-  created_at?: string;
-  updated_at?: string;
+  /**
+   * Number of currently enabled addresses for the device, regardless of whether the rule is configured.
+   */
+  readonly active_address_count: number;
 };
 
 export type PutMaxActiveAddressesRuleRequest = {
@@ -690,7 +686,6 @@ export type CreatePairingRequest = {
 
 export type DevicePairing = {
   id: Id;
-  device_id: Id;
   /**
    * The pairing code delivered to the app. Always present; status is the single-use guard.
    */
@@ -1523,6 +1518,17 @@ export type AddressWritable = {
    *
    */
   geo?: GeoInfo | null;
+};
+
+export type MaxActiveAddressesRuleWritable = {
+  /**
+   * Whether the max active addresses rule is active
+   */
+  enabled: boolean;
+  /**
+   * Maximum number of simultaneously enabled IP addresses; absent when disabled and never configured
+   */
+  max_addresses?: number;
 };
 
 export type ListUsersData = {
@@ -2636,10 +2642,6 @@ export type DisableDeviceAddressLeaseRuleData = {
 
 export type DisableDeviceAddressLeaseRuleErrors = {
   /**
-   * Device or rule not found
-   */
-  404: ErrorResponse;
-  /**
    * Internal Server Error
    */
   500: ErrorResponse;
@@ -2650,7 +2652,7 @@ export type DisableDeviceAddressLeaseRuleError =
 
 export type DisableDeviceAddressLeaseRuleResponses = {
   /**
-   * Rule disabled
+   * Rule disabled (or already absent)
    */
   204: void;
 };
@@ -2744,10 +2746,6 @@ export type DisableMaxActiveAddressesRuleData = {
 
 export type DisableMaxActiveAddressesRuleErrors = {
   /**
-   * Device or rule not found
-   */
-  404: ErrorResponse;
-  /**
    * Internal Server Error
    */
   500: ErrorResponse;
@@ -2758,7 +2756,7 @@ export type DisableMaxActiveAddressesRuleError =
 
 export type DisableMaxActiveAddressesRuleResponses = {
   /**
-   * Rule disabled
+   * Rule disabled (or already absent)
    */
   204: void;
 };
@@ -3252,48 +3250,6 @@ export type DeleteDevicePairingResponses = {
 
 export type DeleteDevicePairingResponse =
   DeleteDevicePairingResponses[keyof DeleteDevicePairingResponses];
-
-export type GetDevicePairingData = {
-  body?: never;
-  path: {
-    id: Id;
-    pairingId: Id;
-  };
-  query?: never;
-  url: "/devices/{id}/pairings/{pairingId}";
-};
-
-export type GetDevicePairingErrors = {
-  /**
-   * Not authenticated
-   */
-  401: unknown;
-  /**
-   * Admin credentials required
-   */
-  403: unknown;
-  /**
-   * Not found
-   */
-  404: ErrorResponse;
-  /**
-   * Internal Server Error
-   */
-  500: ErrorResponse;
-};
-
-export type GetDevicePairingError =
-  GetDevicePairingErrors[keyof GetDevicePairingErrors];
-
-export type GetDevicePairingResponses = {
-  /**
-   * Device pairing
-   */
-  200: DevicePairing;
-};
-
-export type GetDevicePairingResponse =
-  GetDevicePairingResponses[keyof GetDevicePairingResponses];
 
 export type ListHostsData = {
   body?: never;

@@ -101,14 +101,10 @@ func (h *HTTPHandler) DisableDeviceAddressLeaseRule(ctx context.Context, request
 
 func (r *DeviceAddressLeaseRule) toResponse() httpapi.DeviceAddressLeaseRule {
 	resp := httpapi.DeviceAddressLeaseRule{
-		DeviceId: httpapi.ID(r.DeviceID),
-		Enabled:  r.Enabled,
+		Enabled: r.Enabled,
 	}
 	if r.ID != 0 {
-		resp.Id = new(httpapi.ID(r.ID))
 		resp.TtlSeconds = new(r.Config.TTLSeconds)
-		resp.CreatedAt = new(httpapi.UTCTime(r.CreatedAt))
-		resp.UpdatedAt = new(httpapi.UTCTime(r.UpdatedAt))
 	}
 	return resp
 }
@@ -188,18 +184,11 @@ func (h *HTTPHandler) DisableMaxActiveAddressesRule(ctx context.Context, request
 
 func (r *MaxActiveAddressesRule) toResponse() httpapi.MaxActiveAddressesRule {
 	resp := httpapi.MaxActiveAddressesRule{
-		DeviceId: httpapi.ID(r.DeviceID),
-		Enabled:  r.Enabled,
+		Enabled:            r.Enabled,
+		ActiveAddressCount: new(r.ActiveAddressCount),
 	}
 	if r.ID != 0 {
-		id := httpapi.ID(r.ID)
-		maxAddr := r.Config.MaxAddresses
-		createdAt := httpapi.UTCTime(r.CreatedAt)
-		updatedAt := httpapi.UTCTime(r.UpdatedAt)
-		resp.Id = &id
-		resp.MaxAddresses = &maxAddr
-		resp.CreatedAt = &createdAt
-		resp.UpdatedAt = &updatedAt
+		resp.MaxAddresses = new(r.Config.MaxAddresses)
 	}
 	return resp
 }

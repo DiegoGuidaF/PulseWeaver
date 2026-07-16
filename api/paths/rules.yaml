@@ -74,7 +74,9 @@ addressLeaseRule:
     tags:
       - rules
     summary: Disable device lease rule for a device
-    description: Disables the device lease rule for the device (sets enabled to false).
+    description: >
+      Idempotent: sets enabled to false if a rule exists. Always returns 204,
+      whether or not a rule was previously configured for the device.
     parameters:
       - name: device_id
         in: path
@@ -84,13 +86,7 @@ addressLeaseRule:
           $ref: '../components/schemas/common.yaml#/ID'
     responses:
       "204":
-        description: Rule disabled
-      "404":
-        description: Device or rule not found
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+        description: Rule disabled (or already absent)
       "500":
         description: Internal Server Error
         content:
@@ -174,7 +170,9 @@ maxActiveAddressesRule:
     tags:
       - rules
     summary: Disable max active addresses rule for a device
-    description: Disables the max active addresses rule for the device (sets enabled to false).
+    description: >
+      Idempotent: sets enabled to false if a rule exists. Always returns 204,
+      whether or not a rule was previously configured for the device.
     parameters:
       - name: device_id
         in: path
@@ -184,13 +182,7 @@ maxActiveAddressesRule:
           $ref: '../components/schemas/common.yaml#/ID'
     responses:
       "204":
-        description: Rule disabled
-      "404":
-        description: Device or rule not found
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+        description: Rule disabled (or already absent)
       "500":
         description: Internal Server Error
         content:

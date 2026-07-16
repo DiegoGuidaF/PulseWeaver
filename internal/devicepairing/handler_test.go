@@ -50,7 +50,6 @@ func TestHandler_CreateDevicePairing_AdminCreatesPairing(t *testing.T) {
 	})
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusCreated)
-	is.Equal(resp.JSON201.DeviceId, devID.Int64())
 	is.True(resp.JSON201.PairingCode != "")
 	is.Equal(resp.JSON201.Status, httpapi.DevicePairingStatusPending)
 }
@@ -94,21 +93,17 @@ func TestHandler_ListDevicePairings_DefaultPendingOnly(t *testing.T) {
 	is.Equal(len(*resp.JSON200), 1)
 }
 
-func TestHandler_GetDevicePairing_ReturnsWithCode(t *testing.T) {
-	is := is.New(t)
-	ctx := t.Context()
-	ts := testutils.SetupIntegrationServer(t)
-	client := testutils.NewAdminAPIClient(t, ts)
-	devID := createSeedDevice(t, ts)
-
-	pairing, err := ts.DevicePairingService.CreatePairing(context.Background(), defaultCreatePairingRequest(devID))
-	is.NoErr(err)
-
-	resp, err := client.GetDevicePairingWithResponse(ctx, devID.Int64(), pairing.ID.Int64())
-	is.NoErr(err)
-	is.Equal(resp.StatusCode(), http.StatusOK)
-	is.Equal(resp.JSON200.Id, pairing.ID.Int64())
-	is.True(resp.JSON200.PairingCode == pairing.PairingCode)
+// findPairing looks up a pairing by ID from a list, asserting it's present. Used to inspect
+// post-mutation state now that the single-pairing GET endpoint no longer exists.
+func findPairing(t *testing.T, pairings []httpapi.DevicePairing, id int64) httpapi.DevicePairing {
+	t.Helper()
+	for _, p := range pairings {
+		if p.Id == id {
+			return p
+		}
+	}
+	t.Fatalf("pairing %d not found in list", id)
+	return httpapi.DevicePairing{}
 }
 
 func TestHandler_DeleteDevicePairing_InvalidatesPendingPairing(t *testing.T) {
@@ -125,9 +120,10 @@ func TestHandler_DeleteDevicePairing_InvalidatesPendingPairing(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusNoContent)
 
-	fetched, err := ts.DevicePairingService.GetPairing(context.Background(), pairing.ID)
+	listResp, err := client.ListDevicePairingsWithResponse(ctx, devID.Int64(), &httpapi.ListDevicePairingsParams{Status: new(httpapi.PairingListFilterAll)})
 	is.NoErr(err)
-	is.Equal(fetched.Status, devicepairing.StatusInvalidated)
+	fetched := findPairing(t, *listResp.JSON200, pairing.ID.Int64())
+	is.Equal(fetched.Status, httpapi.DevicePairingStatusInvalidated)
 }
 
 func TestHandler_ClaimPairing_SuccessfulClaim(t *testing.T) {
@@ -148,9 +144,10 @@ func TestHandler_ClaimPairing_SuccessfulClaim(t *testing.T) {
 	is.Equal(resp.JSON200.IntervalSeconds, 900)
 	is.True(resp.JSON200.ApiKey != "")
 
-	fetched, err := ts.DevicePairingService.GetPairing(context.Background(), pairing.ID)
+	listResp, err := testutils.NewAdminAPIClient(t, ts).ListDevicePairingsWithResponse(ctx, devID.Int64(), &httpapi.ListDevicePairingsParams{Status: new(httpapi.PairingListFilterAll)})
 	is.NoErr(err)
-	is.Equal(fetched.Status, devicepairing.StatusUsed)
+	fetched := findPairing(t, *listResp.JSON200, pairing.ID.Int64())
+	is.Equal(fetched.Status, httpapi.DevicePairingStatusUsed)
 }
 
 func TestHandler_ClaimPairing_UnknownCodeReturns404(t *testing.T) {

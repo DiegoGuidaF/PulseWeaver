@@ -44,7 +44,9 @@ devicePairings:
     description: |
       Returns pairing records for the given device. By default returns only pending
       (unclaimed, non-expired) pairings. Pass `?status=all` to include used and expired.
-      Never returns the pairing_code after it has been claimed.
+      pairing_code is always present regardless of status — this is an admin-only surface,
+      and the device API key already rotates on claim, so redacting the code afterward buys
+      nothing.
     parameters:
       - name: id
         in: path
@@ -119,45 +121,6 @@ devicePairings:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
 
 devicePairingById:
-  get:
-    operationId: getDevicePairing
-    tags:
-      - device-pairing
-    summary: Get a single device pairing (Admin only)
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/ID'
-      - name: pairingId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/ID'
-    responses:
-      "200":
-        description: Device pairing
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/device-pairing.yaml#/DevicePairing'
-      "401":
-        description: Not authenticated
-      "403":
-        description: Admin credentials required
-      "404":
-        description: Not found
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
-      "500":
-        description: Internal Server Error
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
   delete:
     operationId: deleteDevicePairing
     tags:

@@ -14,7 +14,6 @@ import (
 // repository is the interface the Service requires from its data layer.
 type repository interface {
 	CreatePairing(ctx context.Context, p CreatePairingRequest) (*DevicePairing, error)
-	GetPairing(ctx context.Context, id ids.DevicePairingID) (*DevicePairing, error)
 	ListPairings(ctx context.Context, filter PairingFilter) ([]DevicePairing, error)
 	ReplacePendingPairings(ctx context.Context, deviceID ids.DeviceID) error
 	InvalidatePairing(ctx context.Context, deviceID ids.DeviceID, id ids.DevicePairingID) error
@@ -74,11 +73,6 @@ func (s *Service) CreatePairing(ctx context.Context, req CreatePairingRequest) (
 		slog.Time("expires_at", pairing.ExpiresAt),
 	)
 	return pairing, nil
-}
-
-// GetPairing returns a single pairing by ID.
-func (s *Service) GetPairing(ctx context.Context, id ids.DevicePairingID) (*DevicePairing, error) {
-	return s.repo.GetPairing(ctx, id)
 }
 
 // ListPairings returns pairings according to the given filter.

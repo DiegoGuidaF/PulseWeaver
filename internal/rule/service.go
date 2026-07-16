@@ -15,6 +15,7 @@ type repository interface {
 	EnableDeviceAddressLeaseRuleConfig(ctx context.Context, deviceID ids.DeviceID, config DeviceAddressLeaseConfig) (*Rule, error)
 	EnableMaxActiveAddressesRuleConfig(ctx context.Context, deviceID ids.DeviceID, config MaxActiveAddressesConfig) (*Rule, error)
 	DisableRule(ctx context.Context, deviceID ids.DeviceID, ruleType RuleType) (*Rule, error)
+	CountEnabledAddresses(ctx context.Context, deviceID ids.DeviceID) (int, error)
 }
 
 type Service struct {
@@ -150,17 +151,30 @@ func (s *Service) DisableDeviceAddressLeaseRule(ctx context.Context, deviceID id
 	return rule.ToDeviceAddressLeaseRule()
 }
 
-// GetMaxActiveAddressesRule returns the max active addresses rule for the device.
-// If no row exists, returns a disabled default (enabled=false, no config).
+// GetMaxActiveAddressesRule returns the max active addresses rule for the device, along with
+// the device's current live address count. If no row exists, returns a disabled default
+// (enabled=false, no config).
 func (s *Service) GetMaxActiveAddressesRule(ctx context.Context, deviceID ids.DeviceID) (*MaxActiveAddressesRule, error) {
 	rule, err := s.repo.GetRuleByDeviceAndType(ctx, deviceID, RuleTypeMaxActiveAddresses)
+	var result *MaxActiveAddressesRule
 	if err != nil {
-		if errors.Is(err, ErrRuleNotFound) {
-			return &MaxActiveAddressesRule{DeviceID: deviceID, Enabled: false}, nil
+		if !errors.Is(err, ErrRuleNotFound) {
+			return nil, err
 		}
+		result = &MaxActiveAddressesRule{DeviceID: deviceID, Enabled: false}
+	} else {
+		result, err = rule.ToMaxActiveAddressesRule()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	count, err := s.repo.CountEnabledAddresses(ctx, deviceID)
+	if err != nil {
 		return nil, err
 	}
-	return rule.ToMaxActiveAddressesRule()
+	result.ActiveAddressCount = count
+	return result, nil
 }
 
 // GetMaxActiveAddresses returns the maximum number of active addresses for the device, or nil if no active rule.
@@ -217,7 +231,17 @@ func (s *Service) EnableMaxActiveAddressesRule(ctx context.Context, deviceID ids
 		OccurredAt: time.Now().UTC(),
 	})
 
-	return newRule.ToMaxActiveAddressesRule()
+	result, err := newRule.ToMaxActiveAddressesRule()
+	if err != nil {
+		return nil, err
+	}
+
+	count, err := s.repo.CountEnabledAddresses(ctx, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	result.ActiveAddressCount = count
+	return result, nil
 }
 
 // DisableMaxActiveAddressesRule sets enabled to false for the max active addresses rule for the device.

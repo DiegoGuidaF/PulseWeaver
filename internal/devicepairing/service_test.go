@@ -39,14 +39,6 @@ func (m *mockRepo) CreatePairing(_ context.Context, p devicepairing.CreatePairin
 	return dp, nil
 }
 
-func (m *mockRepo) GetPairing(_ context.Context, id ids.DevicePairingID) (*devicepairing.DevicePairing, error) {
-	p, ok := m.pairings[id]
-	if !ok {
-		return nil, devicepairing.ErrPairingNotFound
-	}
-	return p, nil
-}
-
 func (m *mockRepo) GetPairingByCode(_ context.Context, _ string) (*devicepairing.DevicePairing, error) {
 	p, ok := m.pairings[1]
 	if !ok {
@@ -122,8 +114,8 @@ func TestService_CreatePairing_StoresPairing(t *testing.T) {
 	is.True(pairing.PairingCode != "")
 	is.Equal(pairing.Status, devicepairing.StatusPending)
 
-	stored, err := repo.GetPairing(context.Background(), pairing.ID)
-	is.NoErr(err)
+	stored, ok := repo.pairings[pairing.ID]
+	is.True(ok)
 	is.Equal(stored.DeviceID, ids.DeviceID(1))
 }
 
@@ -142,8 +134,8 @@ func TestService_CreatePairing_ReplacesPreviousPending(t *testing.T) {
 	})
 	is.NoErr(err)
 
-	replaced, err := repo.GetPairing(context.Background(), first.ID)
-	is.NoErr(err)
+	replaced, ok := repo.pairings[first.ID]
+	is.True(ok)
 	is.Equal(replaced.Status, devicepairing.StatusReplaced)
 }
 
@@ -164,14 +156,6 @@ func TestService_CreatePairing_ExpirySetCorrectly(t *testing.T) {
 	is.NoErr(err)
 	is.True(pairing.ExpiresAt.After(before))
 	is.True(pairing.ExpiresAt.Before(after))
-}
-
-func TestService_GetPairing_ReturnsNotFound(t *testing.T) {
-	is := is.New(t)
-	svc := newTestService(newMockRepo())
-
-	_, err := svc.GetPairing(context.Background(), ids.DevicePairingID(0))
-	is.True(errors.Is(err, devicepairing.ErrPairingNotFound))
 }
 
 func TestService_ListPairings_PendingOnly(t *testing.T) {
@@ -257,8 +241,8 @@ func TestService_InvalidatePairing_SoftDeletesPendingPairing(t *testing.T) {
 	err := svc.InvalidatePairing(context.Background(), ids.DeviceID(1), 0)
 	is.NoErr(err)
 
-	pairing, err := repo.GetPairing(context.Background(), 0)
-	is.NoErr(err)
+	pairing, ok := repo.pairings[0]
+	is.True(ok)
 	is.Equal(pairing.Status, devicepairing.StatusInvalidated)
 }
 
