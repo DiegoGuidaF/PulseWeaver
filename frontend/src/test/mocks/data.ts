@@ -464,7 +464,6 @@ export function createMockPolicyUserEntry(
     is_admin: false,
     bypass_allowlist: false,
     on_shared_ip: false,
-    intersection_applied: false,
     device_count: 1,
     ip_count: 1,
     allowed_host_count: 2,

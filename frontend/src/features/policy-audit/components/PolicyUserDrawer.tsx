@@ -31,6 +31,7 @@ import { PolicyUserStatus } from "@/lib/api";
 import { buildRoute } from "@/lib/routes";
 import { GeoCell } from "@/components/GeoCell";
 import { AllHostsBypassPill } from "@/features/subjects/components/AllHostsBypassPill";
+import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 
 dayjs.extend(relativeTime);
 
@@ -58,7 +59,6 @@ function reachingIpCount(host: string, reachSets: ReturnType<typeof buildIpReach
 interface DeviceInfo {
   device_id: number;
   device_name: string;
-  last_seen_at: string;
   live_address_count: number;
 }
 
@@ -71,14 +71,10 @@ function computeDevices(user: PolicyUserEntry): DeviceInfo[] {
         map.set(addr.device_id, {
           device_id: addr.device_id,
           device_name: addr.device_name,
-          last_seen_at: addr.updated_at,
           live_address_count: 1,
         });
       } else {
         existing.live_address_count++;
-        if (dayjs(addr.updated_at).isAfter(dayjs(existing.last_seen_at))) {
-          existing.last_seen_at = addr.updated_at;
-        }
       }
     }
   }
@@ -88,47 +84,53 @@ function computeDevices(user: PolicyUserEntry): DeviceInfo[] {
 // ─── identity header ────────────────────────────────────────────────────────
 
 function DrawerIdentity({ user }: { user: PolicyUserEntry }) {
+  const formatDateTime = useDateFormatter();
   const status = user.status;
   const hasLiveIps =
     status === PolicyUserStatus.LIVE_WITH_ACCESS || status === PolicyUserStatus.LIVE_NO_HOST_ACCESS;
 
   return (
-    <Group gap="sm" wrap="nowrap" mb="xs">
-      <Avatar size="lg" color="indigo" variant="filled" radius="xl">
-        {user.display_name[0]?.toUpperCase() ?? "?"}
-      </Avatar>
-      <Group gap="xs" align="center" wrap="wrap">
-        <Text size="xl" fw={700}>
-          {user.display_name}
-        </Text>
-        {status === PolicyUserStatus.BYPASS ? (
-          <AllHostsBypassPill />
-        ) : (
-          <Tooltip
-            label={hasLiveIps ? "At least one live IP in the cache" : "No live IPs in the cache"}
-            withArrow
-          >
-            <Badge
-              variant="light"
-              color={hasLiveIps ? "orange" : "gray"}
-              leftSection={hasLiveIps ? <IconWifi size={12} /> : <IconWifiOff size={12} />}
+    <Stack gap={2} mb="xs">
+      <Group gap="sm" wrap="nowrap">
+        <Avatar size="lg" color="indigo" variant="filled" radius="xl">
+          {user.display_name[0]?.toUpperCase() ?? "?"}
+        </Avatar>
+        <Group gap="xs" align="center" wrap="wrap">
+          <Text size="xl" fw={700}>
+            {user.display_name}
+          </Text>
+          {status === PolicyUserStatus.BYPASS ? (
+            <AllHostsBypassPill />
+          ) : (
+            <Tooltip
+              label={hasLiveIps ? "At least one live IP in the cache" : "No live IPs in the cache"}
+              withArrow
             >
-              {hasLiveIps ? "Live" : "Offline"}
+              <Badge
+                variant="light"
+                color={hasLiveIps ? "orange" : "gray"}
+                leftSection={hasLiveIps ? <IconWifi size={12} /> : <IconWifiOff size={12} />}
+              >
+                {hasLiveIps ? "Live" : "Offline"}
+              </Badge>
+            </Tooltip>
+          )}
+          {user.on_shared_ip && (
+            <Badge variant="light" color="yellow" leftSection={<IconUsers size={12} />}>
+              Shared IP
             </Badge>
-          </Tooltip>
-        )}
-        {user.on_shared_ip && (
-          <Badge variant="light" color="yellow" leftSection={<IconUsers size={12} />}>
-            Shared IP
-          </Badge>
-        )}
-        {user.is_admin && (
-          <Badge variant="light" color="indigo" size="xs">
-            Admin
-          </Badge>
-        )}
+          )}
+          {user.is_admin && (
+            <Badge variant="light" color="indigo" size="xs">
+              Admin
+            </Badge>
+          )}
+        </Group>
       </Group>
-    </Group>
+      <Text size="xs" c="dimmed" ml={50}>
+        {user.last_seen_at ? `Last seen ${formatDateTime(user.last_seen_at)}` : "No live IPs recorded"}
+      </Text>
+    </Stack>
   );
 }
 
@@ -428,13 +430,8 @@ function DevicesTab({ user }: { user: PolicyUserEntry }) {
     <Stack gap="sm" mt="sm">
       {devices.map((d) => (
         <Card key={d.device_id} withBorder p="sm">
-          <Group justify="space-between" align="flex-start" wrap="nowrap">
-            <Stack gap={2}>
-              <Text fw={600}>{d.device_name}</Text>
-              <Text size="xs" c="dimmed">
-                last seen {dayjs(d.last_seen_at).fromNow()}
-              </Text>
-            </Stack>
+          <Group justify="space-between" align="center" wrap="nowrap">
+            <Text fw={600}>{d.device_name}</Text>
             <Text size="sm" c="dimmed" style={{ whiteSpace: "nowrap" }}>
               {d.live_address_count} live IP{d.live_address_count !== 1 ? "s" : ""}
             </Text>

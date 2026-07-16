@@ -124,6 +124,38 @@ describe("PolicyUserDrawer", () => {
         expect(screen.queryByText("No host access")).not.toBeInTheDocument();
     });
 
+    it("shows the server-computed last-seen time for a live user", async () => {
+        const user = createMockPolicyUserEntry({
+            ...LIVE_WITH_ACCESS_USER,
+            display_name: "gina",
+            last_seen_at: "2026-01-01T10:00:00Z",
+        });
+        renderDrawer(user);
+
+        await waitFor(
+            () => expect(screen.getByText("gina")).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+
+        expect(screen.getByText(/^Last seen/)).toBeInTheDocument();
+    });
+
+    it("shows a graceful fallback when last_seen_at is null", async () => {
+        const user = createMockPolicyUserEntry({
+            ...NO_ACCESS_USER,
+            display_name: "hank",
+            last_seen_at: null,
+        });
+        renderDrawer(user);
+
+        await waitFor(
+            () => expect(screen.getByText("hank")).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+
+        expect(screen.getByText("No live IPs recorded")).toBeInTheDocument();
+    });
+
     it("shows a Live badge but no access badge for a revoked user who still has a live device", async () => {
         // After revoking all group grants, the device is still active (live IP in cache)
         // but the user cannot reach any host. Must not read as "access granted".
