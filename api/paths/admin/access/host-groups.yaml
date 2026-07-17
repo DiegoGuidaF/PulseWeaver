@@ -25,6 +25,45 @@ hostGroups:
             schema:
               $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
 
+hostGroupById:
+  get:
+    operationId: getHostGroup
+    tags: [host-access]
+    summary: Get full detail for a host group
+    parameters:
+      - name: group_id
+        in: path
+        required: true
+        schema:
+          $ref: '../../../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: Group detail.
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/host-groups.yaml#/GroupDetailWithUsers'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden
+      "404":
+        description: Host group not found
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/common.yaml#/ErrorResponse'
+
 hostGroupsReconcile:
   post:
     operationId: reconcileHostGroups

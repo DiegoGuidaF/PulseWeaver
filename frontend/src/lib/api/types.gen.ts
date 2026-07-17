@@ -758,7 +758,6 @@ export type NetworkPolicyDetail = {
    */
   groups: Array<SubjectGroupDetail>;
   bypass_host_check: boolean;
-  created_at: string;
   updated_at: string;
 };
 
@@ -1036,9 +1035,20 @@ export type NetworkPolicyRef = {
 };
 
 /**
- * Full group representation returned by GET.
+ * Group summary row for the host-groups list page.
  */
-export type GroupDetail = {
+export type GroupListItem = {
+  id: Id;
+  name: string;
+  color: string;
+  icon: string;
+  host_count: number;
+};
+
+/**
+ * Full group representation including members, returned by the group detail endpoint.
+ */
+export type GroupDetailWithUsers = {
   id: Id;
   name: string;
   /**
@@ -1055,18 +1065,10 @@ export type GroupDetail = {
    * Network policies with access to this group (read-only, managed via subjects).
    */
   network_policies: Array<NetworkPolicyRef>;
-  created_at: string;
-  /**
-   * Last time the device profile was modified.
-   */
-  updated_at: string;
-};
-
-export type GroupDetailWithUsers = GroupDetail & {
   /**
    * Users with access to this group (read-only, managed via subjects).
    */
-  users?: Array<UserSummary>;
+  users: Array<UserSummary>;
 };
 
 /**
@@ -1083,17 +1085,11 @@ export type SubjectGroupDetail = {
    * CSS hex color for the group badge.
    */
   color: string;
-  description?: string | null;
   hosts: Array<HostSummary>;
   /**
    * Whether this group is assigned to the subject.
    */
   granted: boolean;
-  created_at: string;
-  /**
-   * Last time the device profile was modified.
-   */
-  updated_at: string;
 };
 
 /**
@@ -1111,7 +1107,7 @@ export type GroupWrite = {
 };
 
 export type GroupListResponse = {
-  groups: Array<GroupDetailWithUsers>;
+  groups: Array<GroupListItem>;
 };
 
 /**
@@ -1142,7 +1138,6 @@ export type Host = {
    * Group memberships. Empty array means unassigned.
    */
   groups: Array<GroupSummary>;
-  created_at: string;
 };
 
 /**
@@ -3482,6 +3477,46 @@ export type ListHostGroupsResponses = {
 
 export type ListHostGroupsResponse =
   ListHostGroupsResponses[keyof ListHostGroupsResponses];
+
+export type GetHostGroupData = {
+  body?: never;
+  path: {
+    group_id: Id;
+  };
+  query?: never;
+  url: "/admin/access/host-groups/{group_id}";
+};
+
+export type GetHostGroupErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: unknown;
+  /**
+   * Host group not found
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type GetHostGroupError = GetHostGroupErrors[keyof GetHostGroupErrors];
+
+export type GetHostGroupResponses = {
+  /**
+   * Group detail.
+   */
+  200: GroupDetailWithUsers;
+};
+
+export type GetHostGroupResponse =
+  GetHostGroupResponses[keyof GetHostGroupResponses];
 
 export type ReconcileHostGroupsData = {
   body: ReconcileGroupsRequest;

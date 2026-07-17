@@ -538,9 +538,20 @@ export const zNetworkPolicyRef = z.object({
 });
 
 /**
- * Full group representation returned by GET.
+ * Group summary row for the host-groups list page.
  */
-export const zGroupDetail = z.object({
+export const zGroupListItem = z.object({
+  id: zId,
+  name: z.string(),
+  color: z.string(),
+  icon: z.string(),
+  host_count: z.int().gte(0),
+});
+
+/**
+ * Full group representation including members, returned by the group detail endpoint.
+ */
+export const zGroupDetailWithUsers = z.object({
   id: zId,
   name: z.string(),
   icon: z.string(),
@@ -548,15 +559,8 @@ export const zGroupDetail = z.object({
   description: z.string().nullish(),
   hosts: z.array(zHostSummary),
   network_policies: z.array(zNetworkPolicyRef),
-  created_at: z.iso.datetime({ offset: true, local: true }),
-  updated_at: z.iso.datetime({ offset: true, local: true }),
+  users: z.array(zUserSummary),
 });
-
-export const zGroupDetailWithUsers = zGroupDetail.and(
-  z.object({
-    users: z.array(zUserSummary).optional(),
-  }),
-);
 
 /**
  * Group representation with assignment status, used in user and policy detail responses.
@@ -566,11 +570,8 @@ export const zSubjectGroupDetail = z.object({
   name: z.string(),
   icon: z.string(),
   color: z.string(),
-  description: z.string().nullish(),
   hosts: z.array(zHostSummary),
   granted: z.boolean(),
-  created_at: z.iso.datetime({ offset: true, local: true }),
-  updated_at: z.iso.datetime({ offset: true, local: true }),
 });
 
 /**
@@ -584,7 +585,6 @@ export const zNetworkPolicyDetail = z.object({
   enabled: z.boolean(),
   groups: z.array(zSubjectGroupDetail),
   bypass_host_check: z.boolean(),
-  created_at: z.iso.datetime({ offset: true, local: true }),
   updated_at: z.iso.datetime({ offset: true, local: true }),
 });
 
@@ -603,7 +603,7 @@ export const zGroupWrite = z.object({
 });
 
 export const zGroupListResponse = z.object({
-  groups: z.array(zGroupDetailWithUsers),
+  groups: z.array(zGroupListItem),
 });
 
 /**
@@ -628,7 +628,6 @@ export const zHost = z.object({
   id: zId,
   fqdn: z.string(),
   groups: z.array(zGroupSummary),
-  created_at: z.iso.datetime({ offset: true, local: true }),
 });
 
 /**
@@ -1515,6 +1514,15 @@ export const zUnignoreSuggestionResponse = z.void();
  * Group list.
  */
 export const zListHostGroupsResponse = zGroupListResponse;
+
+export const zGetHostGroupPath = z.object({
+  group_id: zId,
+});
+
+/**
+ * Group detail.
+ */
+export const zGetHostGroupResponse = zGroupDetailWithUsers;
 
 export const zReconcileHostGroupsBody = zReconcileGroupsRequest;
 

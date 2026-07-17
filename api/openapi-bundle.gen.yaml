@@ -2134,6 +2134,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /admin/access/host-groups/{group_id}:
+    get:
+      operationId: getHostGroup
+      tags:
+        - host-access
+      summary: Get full detail for a host group
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        '200':
+          description: Group detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupDetailWithUsers'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: Host group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /admin/access/host-groups/reconcile:
     post:
       operationId: reconcileHostGroups
@@ -3774,7 +3813,6 @@ components:
         - enabled
         - groups
         - bypass_host_check
-        - created_at
         - updated_at
       description: Full network policy detail including group assignments.
       properties:
@@ -3798,10 +3836,6 @@ components:
             $ref: '#/components/schemas/SubjectGroupDetail'
         bypass_host_check:
           type: boolean
-        created_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
         updated_at:
           type: string
           format: date-time
@@ -4191,7 +4225,31 @@ components:
         cidr:
           type: string
           example: 192.168.1.0/24
-    GroupDetail:
+    GroupListItem:
+      type: object
+      required:
+        - id
+        - name
+        - color
+        - icon
+        - host_count
+      description: Group summary row for the host-groups list page.
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        name:
+          type: string
+          example: Data
+        color:
+          type: string
+          example: '#4C6EF5'
+        icon:
+          type: string
+          example: database
+        host_count:
+          type: integer
+          minimum: 0
+    GroupDetailWithUsers:
       type: object
       required:
         - id
@@ -4200,9 +4258,8 @@ components:
         - color
         - hosts
         - network_policies
-        - created_at
-        - updated_at
-      description: Full group representation returned by GET.
+        - users
+      description: Full group representation including members, returned by the group detail endpoint.
       properties:
         id:
           $ref: '#/components/schemas/ID'
@@ -4229,25 +4286,11 @@ components:
           description: Network policies with access to this group (read-only, managed via subjects).
           items:
             $ref: '#/components/schemas/NetworkPolicyRef'
-        created_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
-        updated_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
-          description: Last time the device profile was modified.
-    GroupDetailWithUsers:
-      allOf:
-        - $ref: '#/components/schemas/GroupDetail'
-        - type: object
-          properties:
-            users:
-              type: array
-              description: Users with access to this group (read-only, managed via subjects).
-              items:
-                $ref: '#/components/schemas/UserSummary'
+        users:
+          type: array
+          description: Users with access to this group (read-only, managed via subjects).
+          items:
+            $ref: '#/components/schemas/UserSummary'
     SubjectGroupDetail:
       type: object
       required:
@@ -4257,8 +4300,6 @@ components:
         - color
         - hosts
         - granted
-        - created_at
-        - updated_at
       description: Group representation with assignment status, used in user and policy detail responses.
       properties:
         id:
@@ -4274,9 +4315,6 @@ components:
           type: string
           description: CSS hex color for the group badge.
           example: '#4C6EF5'
-        description:
-          type: string
-          nullable: true
         hosts:
           type: array
           items:
@@ -4284,15 +4322,6 @@ components:
         granted:
           type: boolean
           description: Whether this group is assigned to the subject.
-        created_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
-        updated_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
-          description: Last time the device profile was modified.
     GroupWrite:
       type: object
       required:
@@ -4332,7 +4361,7 @@ components:
         groups:
           type: array
           items:
-            $ref: '#/components/schemas/GroupDetailWithUsers'
+            $ref: '#/components/schemas/GroupListItem'
     ReconcileGroupsRequest:
       type: object
       required:
@@ -4363,7 +4392,6 @@ components:
         - id
         - fqdn
         - groups
-        - created_at
       description: Host record with group memberships.
       properties:
         id:
@@ -4376,10 +4404,6 @@ components:
           description: Group memberships. Empty array means unassigned.
           items:
             $ref: '#/components/schemas/GroupSummary'
-        created_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
     HostInput:
       type: object
       required:

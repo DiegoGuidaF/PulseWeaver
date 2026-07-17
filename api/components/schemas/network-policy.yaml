@@ -30,7 +30,7 @@ NetworkPolicyListItem:
 
 NetworkPolicyDetail:
   type: object
-  required: [id, name, cidr, enabled, groups, bypass_host_check, created_at, updated_at]
+  required: [id, name, cidr, enabled, groups, bypass_host_check, updated_at]
   description: Full network policy detail including group assignments.
   properties:
     id:
@@ -53,10 +53,6 @@ NetworkPolicyDetail:
         $ref: './host-groups.yaml#/SubjectGroupDetail'
     bypass_host_check:
       type: boolean
-    created_at:
-      type: string
-      format: date-time
-      x-go-type: UTCTime
     updated_at:
       type: string
       format: date-time

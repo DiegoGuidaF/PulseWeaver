@@ -1,4 +1,4 @@
-package queries
+package networkpolicies
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	sq "github.com/Masterminds/squirrel"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
 )
 
 // NetworkPolicySummaryView is the read model for the policy list page.
@@ -59,7 +58,6 @@ type NetworkPolicyDetailView struct {
 	Description        *string
 	Enabled            bool
 	BypassHostCheck    bool
-	CreatedAt          time.Time
 	UpdatedAt          time.Time
 	EffectiveHostCount int
 	TotalHostCount     int
@@ -195,16 +193,15 @@ func (r *Repository) GetNetworkPolicyDetail(ctx context.Context, id ids.NetworkP
 		Description     *string             `db:"description"`
 		Enabled         bool                `db:"enabled"`
 		BypassHostCheck bool                `db:"bypass_host_check"`
-		CreatedAt       time.Time           `db:"created_at"`
 		UpdatedAt       time.Time           `db:"updated_at"`
 	}
 
 	var p policyRow
 	if err := r.db.GetContext(ctx, &p, `
-		SELECT id, name, cidr, description, enabled, bypass_host_check, created_at, updated_at
+		SELECT id, name, cidr, description, enabled, bypass_host_check, updated_at
 		FROM network_policies WHERE id = ?`, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, networkpolicies.ErrNotFound
+			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("get network policy: %w", err)
 	}
@@ -234,7 +231,6 @@ func (r *Repository) GetNetworkPolicyDetail(ctx context.Context, id ids.NetworkP
 		Description:        p.Description,
 		Enabled:            p.Enabled,
 		BypassHostCheck:    p.BypassHostCheck,
-		CreatedAt:          p.CreatedAt,
 		UpdatedAt:          p.UpdatedAt,
 		EffectiveHostCount: effectiveHostCount,
 		TotalHostCount:     totalHostCount,

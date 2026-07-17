@@ -12,14 +12,62 @@ import (
 
 type HTTPHandler struct {
 	service *Service
+	repo    *Repository
 	logger  *slog.Logger
 }
 
-func NewHTTPHandler(service *Service, logger *slog.Logger) *HTTPHandler {
+func NewHTTPHandler(service *Service, repo *Repository, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{
 		service: service,
+		repo:    repo,
 		logger:  logger.With(slog.String(logging.AttrKeyComponent, "hosts")),
 	}
+}
+
+func (h *HTTPHandler) ListHosts(
+	ctx context.Context,
+	_ httpapi.ListHostsRequestObject,
+) (httpapi.ListHostsResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "ListHosts")
+
+	response, err := h.repo.GetAllHostsWithGroups(ctx)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "list hosts failed", slog.Any(logging.AttrKeyError, err))
+		return httpapi.ListHosts500JSONResponse(errResp("Failed to list hosts")), nil
+	}
+	return httpapi.ListHosts200JSONResponse(response), nil
+}
+
+func (h *HTTPHandler) ListHostGroups(
+	ctx context.Context,
+	_ httpapi.ListHostGroupsRequestObject,
+) (httpapi.ListHostGroupsResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "ListHostGroups")
+
+	response, err := h.repo.GetHostGroupsList(ctx)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "list host groups failed", slog.Any(logging.AttrKeyError, err))
+		return httpapi.ListHostGroups500JSONResponse(errResp("Failed to list host groups")), nil
+	}
+	return httpapi.ListHostGroups200JSONResponse(response), nil
+}
+
+func (h *HTTPHandler) GetHostGroup(
+	ctx context.Context,
+	request httpapi.GetHostGroupRequestObject,
+) (httpapi.GetHostGroupResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetHostGroup")
+
+	id := ids.HostGroupID(request.GroupId)
+	detail, err := h.repo.GetHostGroupDetail(ctx, id)
+	if err != nil {
+		if errors.Is(err, ErrHostGroupNotFound) {
+			return httpapi.GetHostGroup404JSONResponse(errResp("Host group not found")), nil
+		}
+		h.logger.ErrorContext(ctx, "get host group failed", slog.Any(logging.AttrKeyError, err))
+		return httpapi.GetHostGroup500JSONResponse(errResp("Failed to get host group")), nil
+	}
+	return httpapi.GetHostGroup200JSONResponse(*detail), nil
 }
 
 func (h *HTTPHandler) ReconcileHosts(

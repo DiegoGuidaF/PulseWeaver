@@ -43,6 +43,7 @@ import {
   getDeviceAddresses,
   getDeviceAddressLeaseRule,
   getDevices,
+  getHostGroup,
   getMaxActiveAddressesRule,
   getNetworkPolicy,
   getPolicyUserMap,
@@ -172,6 +173,9 @@ import type {
   GetDevicesData,
   GetDevicesError,
   GetDevicesResponse,
+  GetHostGroupData,
+  GetHostGroupError,
+  GetHostGroupResponse,
   GetMaxActiveAddressesRuleData,
   GetMaxActiveAddressesRuleError,
   GetMaxActiveAddressesRuleResponse,
@@ -1776,6 +1780,31 @@ export const listHostGroupsOptions = (options?: Options<ListHostGroupsData>) =>
       return data;
     },
     queryKey: listHostGroupsQueryKey(options),
+  });
+
+export const getHostGroupQueryKey = (options: Options<GetHostGroupData>) =>
+  createQueryKey("getHostGroup", options);
+
+/**
+ * Get full detail for a host group
+ */
+export const getHostGroupOptions = (options: Options<GetHostGroupData>) =>
+  queryOptions<
+    GetHostGroupResponse,
+    GetHostGroupError,
+    GetHostGroupResponse,
+    ReturnType<typeof getHostGroupQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getHostGroup({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getHostGroupQueryKey(options),
   });
 
 /**

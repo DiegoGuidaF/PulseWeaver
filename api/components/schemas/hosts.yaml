@@ -1,6 +1,6 @@
 Host:
   type: object
-  required: [id, fqdn, groups, created_at]
+  required: [id, fqdn, groups]
   description: Host record with group memberships.
   properties:
     id:
@@ -13,10 +13,6 @@ Host:
       description: Group memberships. Empty array means unassigned.
       items:
         $ref: './host-groups.yaml#/GroupSummary'
-    created_at:
-      type: string
-      format: date-time
-      x-go-type: UTCTime
 
 HostInput:
   type: object

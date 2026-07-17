@@ -128,6 +128,8 @@ paths:
     $ref: './paths/admin/access/hosts.yaml#/ignoredSuggestionByFqdn'
   /admin/access/host-groups:
     $ref: './paths/admin/access/host-groups.yaml#/hostGroups'
+  /admin/access/host-groups/{group_id}:
+    $ref: './paths/admin/access/host-groups.yaml#/hostGroupById'
   /admin/access/host-groups/reconcile:
     $ref: './paths/admin/access/host-groups.yaml#/hostGroupsReconcile'
   /admin/access/users:
@@ -357,8 +359,8 @@ components:
       $ref: './components/schemas/host-groups.yaml#/UserSummary'
     NetworkPolicyRef:
       $ref: './components/schemas/host-groups.yaml#/NetworkPolicyRef'
-    GroupDetail:
-      $ref: './components/schemas/host-groups.yaml#/GroupDetail'
+    GroupListItem:
+      $ref: './components/schemas/host-groups.yaml#/GroupListItem'
     GroupDetailWithUsers:
       $ref: './components/schemas/host-groups.yaml#/GroupDetailWithUsers'
     SubjectGroupDetail:

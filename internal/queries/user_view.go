@@ -177,16 +177,13 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 
 	// Q2: all groups with grant flag and their member hosts
 	type groupRow struct {
-		GroupID          ids.HostGroupID `db:"group_id"`
-		GroupName        string          `db:"group_name"`
-		GroupIcon        string          `db:"group_icon"`
-		GroupColor       string          `db:"group_color"`
-		GroupDescription *string         `db:"group_description"`
-		GroupCreatedAt   time.Time       `db:"group_created_at"`
-		GroupUpdatedAt   time.Time       `db:"group_updated_at"`
-		Granted          bool            `db:"granted"`
-		HostID           *ids.HostID     `db:"host_id"`
-		HostFQDN         *string         `db:"host_fqdn"`
+		GroupID    ids.HostGroupID `db:"group_id"`
+		GroupName  string          `db:"group_name"`
+		GroupIcon  string          `db:"group_icon"`
+		GroupColor string          `db:"group_color"`
+		Granted    bool            `db:"granted"`
+		HostID     *ids.HostID     `db:"host_id"`
+		HostFQDN   *string         `db:"host_fqdn"`
 	}
 	const groupQuery = `
 		SELECT
@@ -194,9 +191,6 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 			hg.name AS group_name,
 			hg.icon AS group_icon,
 			hg.color AS group_color,
-			hg.description AS group_description,
-			hg.created_at AS group_created_at,
-			hg.updated_at AS group_updated_at,
 			CASE WHEN uahg.user_id IS NOT NULL THEN 1 ELSE 0 END AS granted,
 			h.id   AS host_id,
 			h.fqdn AS host_fqdn
@@ -215,15 +209,12 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 		func(gr groupRow) ids.HostGroupID { return gr.GroupID },
 		func(gr groupRow) httpapi.SubjectGroupDetail {
 			return httpapi.SubjectGroupDetail{
-				Id:          gr.GroupID.Int64(),
-				Name:        gr.GroupName,
-				Icon:        gr.GroupIcon,
-				Color:       gr.GroupColor,
-				Description: gr.GroupDescription,
-				CreatedAt:   httpapi.UTCTime(gr.GroupCreatedAt),
-				UpdatedAt:   httpapi.UTCTime(gr.GroupUpdatedAt),
-				Granted:     gr.Granted,
-				Hosts:       []httpapi.HostSummary{},
+				Id:      gr.GroupID.Int64(),
+				Name:    gr.GroupName,
+				Icon:    gr.GroupIcon,
+				Color:   gr.GroupColor,
+				Granted: gr.Granted,
+				Hosts:   []httpapi.HostSummary{},
 			}
 		},
 		func(gr groupRow) (httpapi.HostSummary, bool) {

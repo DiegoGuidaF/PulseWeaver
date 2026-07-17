@@ -14,6 +14,24 @@ import (
 	"github.com/matryer/is"
 )
 
+func findGroup(groups []httpapi.SubjectGroupDetail, name string) *httpapi.SubjectGroupDetail {
+	for i := range groups {
+		if groups[i].Name == name {
+			return &groups[i]
+		}
+	}
+	return nil
+}
+
+func findUserRow(rows []httpapi.UserListItem, id int64) *httpapi.UserListItem {
+	for i := range rows {
+		if rows[i].Id == id {
+			return &rows[i]
+		}
+	}
+	return nil
+}
+
 func TestHandler_ListUsersWithAccess_HappyPath(t *testing.T) {
 	is := is.New(t)
 	srv := testutils.SetupIntegrationServer(t)

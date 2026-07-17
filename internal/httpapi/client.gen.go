@@ -106,6 +106,9 @@ type ClientInterface interface {
 
 	ReconcileHostGroups(ctx context.Context, body ReconcileHostGroupsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetHostGroup request
+	GetHostGroup(ctx context.Context, groupId ID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListHostSuggestions request
 	ListHostSuggestions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -370,6 +373,18 @@ func (c *Client) ReconcileHostGroupsWithBody(ctx context.Context, contentType st
 
 func (c *Client) ReconcileHostGroups(ctx context.Context, body ReconcileHostGroupsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewReconcileHostGroupsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetHostGroup(ctx context.Context, groupId ID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetHostGroupRequest(c.Server, groupId)
 	if err != nil {
 		return nil, err
 	}
@@ -2058,6 +2073,40 @@ func NewReconcileHostGroupsRequestWithBody(server string, contentType string, bo
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetHostGroupRequest generates requests for GetHostGroup
+func NewGetHostGroupRequest(server string, groupId ID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "group_id", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/access/host-groups/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -4328,6 +4377,9 @@ type ClientWithResponsesInterface interface {
 
 	ReconcileHostGroupsWithResponse(ctx context.Context, body ReconcileHostGroupsJSONRequestBody, reqEditors ...RequestEditorFn) (*ReconcileHostGroupsTestClientResponse, error)
 
+	// GetHostGroupWithResponse request
+	GetHostGroupWithResponse(ctx context.Context, groupId ID, reqEditors ...RequestEditorFn) (*GetHostGroupTestClientResponse, error)
+
 	// ListHostSuggestionsWithResponse request
 	ListHostSuggestionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListHostSuggestionsTestClientResponse, error)
 
@@ -4651,6 +4703,31 @@ func (r ReconcileHostGroupsTestClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ReconcileHostGroupsTestClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetHostGroupTestClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *GroupDetailWithUsers
+	JSON401      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetHostGroupTestClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetHostGroupTestClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6063,6 +6140,15 @@ func (c *ClientWithResponses) ReconcileHostGroupsWithResponse(ctx context.Contex
 	return ParseReconcileHostGroupsTestClientResponse(rsp)
 }
 
+// GetHostGroupWithResponse request returning *GetHostGroupTestClientResponse
+func (c *ClientWithResponses) GetHostGroupWithResponse(ctx context.Context, groupId ID, reqEditors ...RequestEditorFn) (*GetHostGroupTestClientResponse, error) {
+	rsp, err := c.GetHostGroup(ctx, groupId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetHostGroupTestClientResponse(rsp)
+}
+
 // ListHostSuggestionsWithResponse request returning *ListHostSuggestionsTestClientResponse
 func (c *ClientWithResponses) ListHostSuggestionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListHostSuggestionsTestClientResponse, error) {
 	rsp, err := c.ListHostSuggestions(ctx, reqEditors...)
@@ -6938,6 +7024,53 @@ func ParseReconcileHostGroupsTestClientResponse(rsp *http.Response) (*ReconcileH
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetHostGroupTestClientResponse parses an HTTP response from a GetHostGroupWithResponse call
+func ParseGetHostGroupTestClientResponse(rsp *http.Response) (*GetHostGroupTestClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetHostGroupTestClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GroupDetailWithUsers
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse

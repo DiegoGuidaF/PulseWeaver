@@ -3,10 +3,13 @@ package queries
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/hosts"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rollup"
 )
 
@@ -15,6 +18,86 @@ import (
 // (countPendingHostSuggestions) look for hosts that have received traffic but
 // are neither known nor ignored.
 const hostSuggestionsWindow = 7 * 24 * time.Hour
+
+// GetHostSuggestionsPage returns FQDNs seen in the access log that are not yet
+// known hosts, plus the operator's ignored-host list.
+func (r *Repository) GetHostSuggestionsPage(ctx context.Context) (httpapi.HostSuggestionsPage, error) {
+	rawIgnored, err := r.ignoredHostSuggestions(ctx)
+	if err != nil {
+		return httpapi.HostSuggestionsPage{}, err
+	}
+	knownHosts, err := r.knownHostSet(ctx)
+	if err != nil {
+		return httpapi.HostSuggestionsPage{}, err
+	}
+
+	ignored := make([]httpapi.IgnoredHostSuggestion, len(rawIgnored))
+	ignoredSet := make(map[string]bool, len(rawIgnored))
+	for i, s := range rawIgnored {
+		ignored[i] = httpapi.IgnoredHostSuggestion{
+			Id:        s.ID,
+			Fqdn:      s.FQDN,
+			CreatedAt: httpapi.UTCTime(s.CreatedAt),
+		}
+		ignoredSet[hosts.NormaliseHost(s.FQDN)] = true
+	}
+
+	since := time.Now().UTC().Add(-hostSuggestionsWindow)
+	merged, err := r.pendingHostSuggestions(ctx, since, knownHosts, ignoredSet)
+	if err != nil {
+		return httpapi.HostSuggestionsPage{}, fmt.Errorf("get host suggestions: %w", err)
+	}
+
+	suggestions := make([]httpapi.HostSuggestion, 0, len(merged))
+	for fqdn, a := range merged {
+		suggestions = append(suggestions, httpapi.HostSuggestion{
+			Fqdn:        fqdn,
+			FirstSeen:   httpapi.UTCTime(a.firstSeen),
+			AllowedHits: a.allowedHits,
+			DeniedHits:  a.deniedHits,
+		})
+	}
+	slices.SortFunc(suggestions, func(a, b httpapi.HostSuggestion) int {
+		if d := b.DeniedHits - a.DeniedHits; d != 0 {
+			return d
+		}
+		if d := b.AllowedHits - a.AllowedHits; d != 0 {
+			return d
+		}
+		return strings.Compare(a.Fqdn, b.Fqdn)
+	})
+
+	return httpapi.HostSuggestionsPage{Suggestions: suggestions, Ignored: ignored}, nil
+}
+
+// ignoredHostSuggestions returns the operator's ignored-host list, ordered by FQDN.
+func (r *Repository) ignoredHostSuggestions(ctx context.Context) ([]hosts.IgnoredHostSuggestion, error) {
+	const query = `
+		SELECT id, fqdn, created_at
+		FROM ignored_host_suggestions
+		ORDER BY fqdn
+	`
+	var rows []hosts.IgnoredHostSuggestion
+	if err := r.db.SelectContext(ctx, &rows, query); err != nil {
+		return nil, fmt.Errorf("get ignored suggestions: %w", err)
+	}
+	return rows, nil
+}
+
+// knownHostSet returns the registered host FQDNs keyed by their normalised form,
+// for excluding already-granted hosts from suggestions.
+func (r *Repository) knownHostSet(ctx context.Context) (map[string]bool, error) {
+	const query = `SELECT fqdn FROM hosts`
+	var fqdns []string
+	if err := r.db.SelectContext(ctx, &fqdns, query); err != nil {
+		return nil, fmt.Errorf("get known hosts: %w", err)
+	}
+	set := make(map[string]bool, len(fqdns))
+	for _, f := range fqdns {
+		set[hosts.NormaliseHost(f)] = true
+	}
+	return set, nil
+}
 
 // hostSuggestionRow is one FQDN's hit counts over a queried range, sourced
 // from either access_log or hourly_traffic_aggregates.

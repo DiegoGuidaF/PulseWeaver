@@ -1509,7 +1509,6 @@ export const NetworkPolicyDetailSchema = {
     "enabled",
     "groups",
     "bypass_host_check",
-    "created_at",
     "updated_at",
   ],
   description: "Full network policy detail including group assignments.",
@@ -1541,11 +1540,6 @@ export const NetworkPolicyDetailSchema = {
     },
     bypass_host_check: {
       type: "boolean",
-    },
-    created_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
     },
     updated_at: {
       type: "string",
@@ -2056,7 +2050,34 @@ export const NetworkPolicyRefSchema = {
   },
 } as const;
 
-export const GroupDetailSchema = {
+export const GroupListItemSchema = {
+  type: "object",
+  required: ["id", "name", "color", "icon", "host_count"],
+  description: "Group summary row for the host-groups list page.",
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    name: {
+      type: "string",
+      example: "Data",
+    },
+    color: {
+      type: "string",
+      example: "#4C6EF5",
+    },
+    icon: {
+      type: "string",
+      example: "database",
+    },
+    host_count: {
+      type: "integer",
+      minimum: 0,
+    },
+  },
+} as const;
+
+export const GroupDetailWithUsersSchema = {
   type: "object",
   required: [
     "id",
@@ -2065,10 +2086,10 @@ export const GroupDetailSchema = {
     "color",
     "hosts",
     "network_policies",
-    "created_at",
-    "updated_at",
+    "users",
   ],
-  description: "Full group representation returned by GET.",
+  description:
+    "Full group representation including members, returned by the group detail endpoint.",
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
@@ -2105,53 +2126,20 @@ export const GroupDetailSchema = {
         $ref: "#/components/schemas/NetworkPolicyRef",
       },
     },
-    created_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-    },
-    updated_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-      description: "Last time the device profile was modified.",
+    users: {
+      type: "array",
+      description:
+        "Users with access to this group (read-only, managed via subjects).",
+      items: {
+        $ref: "#/components/schemas/UserSummary",
+      },
     },
   },
 } as const;
 
-export const GroupDetailWithUsersSchema = {
-  allOf: [
-    {
-      $ref: "#/components/schemas/GroupDetail",
-    },
-    {
-      type: "object",
-      properties: {
-        users: {
-          type: "array",
-          description:
-            "Users with access to this group (read-only, managed via subjects).",
-          items: {
-            $ref: "#/components/schemas/UserSummary",
-          },
-        },
-      },
-    },
-  ],
-} as const;
-
 export const SubjectGroupDetailSchema = {
   type: "object",
-  required: [
-    "id",
-    "name",
-    "icon",
-    "color",
-    "hosts",
-    "granted",
-    "created_at",
-    "updated_at",
-  ],
+  required: ["id", "name", "icon", "color", "hosts", "granted"],
   description:
     "Group representation with assignment status, used in user and policy detail responses.",
   properties: {
@@ -2172,10 +2160,6 @@ export const SubjectGroupDetailSchema = {
       description: "CSS hex color for the group badge.",
       example: "#4C6EF5",
     },
-    description: {
-      type: "string",
-      nullable: true,
-    },
     hosts: {
       type: "array",
       items: {
@@ -2185,17 +2169,6 @@ export const SubjectGroupDetailSchema = {
     granted: {
       type: "boolean",
       description: "Whether this group is assigned to the subject.",
-    },
-    created_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-    },
-    updated_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-      description: "Last time the device profile was modified.",
     },
   },
 } as const;
@@ -2246,7 +2219,7 @@ export const GroupListResponseSchema = {
     groups: {
       type: "array",
       items: {
-        $ref: "#/components/schemas/GroupDetailWithUsers",
+        $ref: "#/components/schemas/GroupListItem",
       },
     },
   },
@@ -2289,7 +2262,7 @@ export const ModifyAccessRequestSchema = {
 
 export const HostSchema = {
   type: "object",
-  required: ["id", "fqdn", "groups", "created_at"],
+  required: ["id", "fqdn", "groups"],
   description: "Host record with group memberships.",
   properties: {
     id: {
@@ -2305,11 +2278,6 @@ export const HostSchema = {
       items: {
         $ref: "#/components/schemas/GroupSummary",
       },
-    },
-    created_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
     },
   },
 } as const;

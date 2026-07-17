@@ -122,7 +122,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Hosts and host groups
 	hostsRepo := hosts.NewRepository(db.DB())
 	hostsService := hosts.NewService(hostsRepo, db.Transactor(), logger)
-	hostsHandler := hosts.NewHTTPHandler(hostsService, logger)
+	hostsHandler := hosts.NewHTTPHandler(hostsService, hostsRepo, logger)
 
 	// User host-access grants
 	userAccessRepo := useraccess.NewRepository(db.DB())
@@ -132,7 +132,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Network Policies
 	networkPoliciesRepo := networkpolicies.NewRepository(db.DB())
 	networkPoliciesService := networkpolicies.NewService(networkPoliciesRepo, db.Transactor(), logger)
-	networkPoliciesHandler := networkpolicies.NewHTTPHandler(networkPoliciesService, logger)
+	networkPoliciesHandler := networkpolicies.NewHTTPHandler(networkPoliciesService, networkPoliciesRepo, logger)
 
 	// Policy forward-auth sidecar
 	policyService, err := policy.NewService(deviceService, userAccessService, geoipLookup, networkPoliciesRepo, conf.Policy.APISecret, logger, conf.Server.TrustedProxy)

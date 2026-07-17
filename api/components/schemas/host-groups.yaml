@@ -63,49 +63,9 @@ NetworkPolicyRef:
       type: string
       example: 192.168.1.0/24
 
-GroupDetail:
-  type: object
-  required: [ id, name, icon, color, hosts, network_policies, created_at, updated_at ]
-  description: Full group representation returned by GET.
-  properties:
-    id:
-      $ref: './common.yaml#/ID'
-    name:
-      type: string
-      example: Data
-    icon:
-      type: string
-      description: Icon key (e.g. "database", "film").
-      example: database
-    color:
-      type: string
-      description: CSS hex color for the group badge.
-      example: "#4C6EF5"
-    description:
-      type: string
-      nullable: true
-    hosts:
-      type: array
-      items:
-        $ref: '#/HostSummary'
-    network_policies:
-      type: array
-      description: Network policies with access to this group (read-only, managed via subjects).
-      items:
-        $ref: '#/NetworkPolicyRef'
-    created_at:
-      type: string
-      format: date-time
-      x-go-type: UTCTime
-    updated_at:
-      type: string
-      format: date-time
-      x-go-type: UTCTime
-      description: Last time the device profile was modified.
-
 SubjectGroupDetail:
   type: object
-  required: [ id, name, icon, color, hosts, granted, created_at, updated_at ]
+  required: [ id, name, icon, color, hosts, granted ]
   description: Group representation with assignment status, used in user and policy detail responses.
   properties:
     id:
@@ -121,9 +81,6 @@ SubjectGroupDetail:
       type: string
       description: CSS hex color for the group badge.
       example: "#4C6EF5"
-    description:
-      type: string
-      nullable: true
     hosts:
       type: array
       items:
@@ -131,15 +88,6 @@ SubjectGroupDetail:
     granted:
       type: boolean
       description: Whether this group is assigned to the subject.
-    created_at:
-      type: string
-      format: date-time
-      x-go-type: UTCTime
-    updated_at:
-      type: string
-      format: date-time
-      x-go-type: UTCTime
-      description: Last time the device profile was modified.
 
 GroupWrite:
   type: object
@@ -169,6 +117,26 @@ GroupWrite:
       items:
         $ref: './common.yaml#/ID'
 
+GroupListItem:
+  type: object
+  required: [ id, name, color, icon, host_count ]
+  description: Group summary row for the host-groups list page.
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    name:
+      type: string
+      example: Data
+    color:
+      type: string
+      example: "#4C6EF5"
+    icon:
+      type: string
+      example: database
+    host_count:
+      type: integer
+      minimum: 0
+
 GroupListResponse:
   type: object
   required: [ groups ]
@@ -176,18 +144,43 @@ GroupListResponse:
     groups:
       type: array
       items:
-        $ref: '#/GroupDetailWithUsers'
+        $ref: '#/GroupListItem'
 
 GroupDetailWithUsers:
-  allOf:
-    - $ref: '#/GroupDetail'
-    - type: object
-      properties:
-        users:
-          type: array
-          description: Users with access to this group (read-only, managed via subjects).
-          items:
-            $ref: '#/UserSummary'
+  type: object
+  required: [ id, name, icon, color, hosts, network_policies, users ]
+  description: Full group representation including members, returned by the group detail endpoint.
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    name:
+      type: string
+      example: Data
+    icon:
+      type: string
+      description: Icon key (e.g. "database", "film").
+      example: database
+    color:
+      type: string
+      description: CSS hex color for the group badge.
+      example: "#4C6EF5"
+    description:
+      type: string
+      nullable: true
+    hosts:
+      type: array
+      items:
+        $ref: '#/HostSummary'
+    network_policies:
+      type: array
+      description: Network policies with access to this group (read-only, managed via subjects).
+      items:
+        $ref: '#/NetworkPolicyRef'
+    users:
+      type: array
+      description: Users with access to this group (read-only, managed via subjects).
+      items:
+        $ref: '#/UserSummary'
 
 
 ReconcileGroupsRequest:

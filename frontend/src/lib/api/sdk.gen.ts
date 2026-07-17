@@ -110,6 +110,9 @@ import type {
   GetDevicesData,
   GetDevicesErrors,
   GetDevicesResponses,
+  GetHostGroupData,
+  GetHostGroupErrors,
+  GetHostGroupResponses,
   GetMaxActiveAddressesRuleData,
   GetMaxActiveAddressesRuleErrors,
   GetMaxActiveAddressesRuleResponses,
@@ -256,6 +259,8 @@ import {
   zGetDeviceAddressLeaseRulePath,
   zGetDeviceAddressLeaseRuleResponse,
   zGetDevicesResponse,
+  zGetHostGroupPath,
+  zGetHostGroupResponse,
   zGetMaxActiveAddressesRulePath,
   zGetMaxActiveAddressesRuleResponse,
   zGetNetworkPolicyPath,
@@ -2100,6 +2105,38 @@ export const listHostGroups = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/admin/access/host-groups",
+    ...options,
+  });
+
+/**
+ * Get full detail for a host group
+ */
+export const getHostGroup = <ThrowOnError extends boolean = false>(
+  options: Options<GetHostGroupData, ThrowOnError>,
+): RequestResult<GetHostGroupResponses, GetHostGroupErrors, ThrowOnError> =>
+  (options.client ?? client).get<
+    GetHostGroupResponses,
+    GetHostGroupErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: zGetHostGroupPath,
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zGetHostGroupResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/admin/access/host-groups/{group_id}",
     ...options,
   });
 
