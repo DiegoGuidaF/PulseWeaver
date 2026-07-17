@@ -14,13 +14,9 @@ function makeHost(
   return {
     id,
     fqdn,
-    created_at: "2026-01-01T00:00:00Z",
-    groups: (opts.groupIds ?? []).map((gid) => ({
-      id: gid,
-      name: `g${gid}`,
-      color: "#000000",
-      icon: "server",
-    })),
+    groups: (opts.groupIds ?? []).map((groupId) => (
+      { id: groupId, name: `g${groupId}`, color: "#000000", icon: "server" }
+    )),
   };
 }
 
@@ -37,7 +33,7 @@ describe("buildReconcileHostsBody", () => {
     const state = hostsDraftReducer(fromServerHosts([]), {
       type: "add",
       id: "new-abc",
-      host: { fqdn: "fresh.lan", groupIds: [] },
+      host: { fqdn: "fresh.lan", groups: [] },
     });
 
     const body = buildReconcileHostsBody(state);
@@ -56,12 +52,12 @@ describe("buildReconcileHostsBody", () => {
     expect(state.tombstoned.has(2)).toBe(true);
   });
 
-  it("preserves groupIds order verbatim", () => {
-    const state = fromServerHosts([makeHost(1, "a.lan", { groupIds: [3, 1, 2] })]);
+  it("sends an empty group_ids array for an unassigned host", () => {
+    const state = fromServerHosts([makeHost(1, "a.lan")]);
 
     const body = buildReconcileHostsBody(state);
 
-    expect(body[0]).toEqual({ id: 1, fqdn: "a.lan", group_ids: [3, 1, 2] });
+    expect(body[0]).toEqual({ id: 1, fqdn: "a.lan", group_ids: [] });
   });
 
   it("emits one entry per draft entry, regardless of mix of persisted and new", () => {
@@ -69,7 +65,7 @@ describe("buildReconcileHostsBody", () => {
     state = hostsDraftReducer(state, {
       type: "add",
       id: "new-xyz",
-      host: { fqdn: "new.lan", groupIds: [10, 20] },
+      host: { fqdn: "new.lan", groups: [{ id: 20, name: "g20", color: "#000000", icon: "server" }] },
     });
 
     const body = buildReconcileHostsBody(state);
@@ -83,7 +79,40 @@ describe("buildReconcileHostsBody", () => {
     expect(body.find((h) => h.fqdn === "new.lan")).toEqual({
       id: null,
       fqdn: "new.lan",
+      group_ids: [20],
+    });
+  });
+
+  it("sends every membership for a host in multiple groups", () => {
+    const state = fromServerHosts([makeHost(1, "multi.lan", { groupIds: [10, 20] })]);
+
+    const body = buildReconcileHostsBody(state);
+
+    expect(body).toEqual([{ id: 1, fqdn: "multi.lan", group_ids: [10, 20] }]);
+  });
+
+  it("preserves an untouched host's multiple groups when another host in the same draft is edited", () => {
+    let state = fromServerHosts([
+      makeHost(1, "multi.lan", { groupIds: [10, 20] }),
+      makeHost(2, "other.lan", { groupIds: [10] }),
+    ]);
+    state = hostsDraftReducer(state, {
+      type: "update",
+      id: 2,
+      patch: { groups: [{ id: 30, name: "g30", color: "#000000", icon: "server" }] },
+    });
+
+    const body = buildReconcileHostsBody(state);
+
+    expect(body.find((h) => h.fqdn === "multi.lan")).toEqual({
+      id: 1,
+      fqdn: "multi.lan",
       group_ids: [10, 20],
+    });
+    expect(body.find((h) => h.fqdn === "other.lan")).toEqual({
+      id: 2,
+      fqdn: "other.lan",
+      group_ids: [30],
     });
   });
 });
@@ -111,5 +140,21 @@ describe("hostsOriginalMatchesServer", () => {
     expect(hostsOriginalMatchesServer(original, [makeHost(1, "a.lan"), makeHost(3, "c.lan")])).toBe(
       false,
     );
+  });
+
+  it("returns false when a host's group memberships changed with the same id set", () => {
+    const original = fromServerHosts([makeHost(1, "a.lan", { groupIds: [10, 20] })]).original;
+
+    expect(
+      hostsOriginalMatchesServer(original, [makeHost(1, "a.lan", { groupIds: [10] })]),
+    ).toBe(false);
+  });
+
+  it("returns true when group memberships match regardless of order", () => {
+    const original = fromServerHosts([makeHost(1, "a.lan", { groupIds: [10, 20] })]).original;
+
+    expect(
+      hostsOriginalMatchesServer(original, [makeHost(1, "a.lan", { groupIds: [20, 10] })]),
+    ).toBe(true);
   });
 });

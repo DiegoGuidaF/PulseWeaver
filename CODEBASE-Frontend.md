@@ -1,6 +1,6 @@
 # Frontend Codebase Reference
 
-> Last updated: 2026-07-16
+> Last updated: 2026-07-17
 
 This document is the **map** of the frontend codebase — what exists and where. For the system-level
 overview (pages → features → hooks → generated SDK, the API contract), see
@@ -98,7 +98,7 @@ Each feature owns its own `components/` + `hooks/` (and where relevant `constant
 | `dashboard` | Security-posture + traffic analytics surface. | `components/DashboardView.tsx`, `PostureStrip`, `DashboardStatCards`, `AttributionSection`/`AttributionTable`, `ServiceBarChart`/`ServiceDonutChart`, `CountryStatsSection`, `AccessMap`, `TopCountriesTable`, `TopDeniedIPsTable`; `hooks/useDashboard*.ts` |
 | `devices` | Device list + the per-device workspace (addresses, rules, history, settings, create). | `OwnerGroupList`, `OwnerDevicesPanel`, `OwnerCard`, `DeviceRow`, `Device{Addresses,Rules,History,Settings}Tab`, `DeviceCreatePane`, `DeviceProfileCard`, `{AddressLease,MaxActiveIps}RuleCard`, `deviceTypeConfig.ts`; `hooks/useDevice*.ts`, `useOwnerGroup.ts` |
 | `device-pairing` | Pairing-code lifecycle so the heartbeat client can claim a device API key. | `DevicePairingTab.tsx`, `PairingCreationForm`, `PairingCodeDisplay`, `PairingStatusHero`, `PairingConfigSummary`, `DevicePairingBanner`, `constants.ts` (status badge + expiry-hours labels/options); `hooks/use{Create,Delete,List}DevicePairing.ts`, `utils/formatTtl.ts` |
-| `host-access` | Known hosts, host groups, and suggestions; staged-changes bulk reconcile. | `HostsTab`, `SuggestionsTab`, `HostGroupsTab`, `GroupMasterList`, `GroupDetailPanel`, `GroupMembershipTables`, `GroupMetadataModal`, `StagedChangesBar`, `AddHostModal`; `drafts/`, `hooks/use{Hosts,HostGroups,HostSuggestions}.ts`, reconcile/ignore hooks |
+| `host-access` | Known hosts, host groups, and suggestions; staged-changes bulk reconcile. | `HostsTab`, `SuggestionsTab`, `HostGroupsTab`, `GroupMasterList`, `GroupDetailPanel`, `GroupMembershipTables`, `GroupMetadataModal`, `StagedChangesBar`, `AddHostModal`; `drafts/`, `hooks/use{Hosts,HostGroups,HostGroupDetail,HostSuggestions}.ts`, reconcile/ignore hooks. `useHostGroups` reads the light list (`GroupListItem`, no embedded hosts/users/policies); `useHostGroupDetail(id)` fetches the full per-group detail on demand — the Host Groups page fetches it only for the currently selected group, hydrating it into the group-edit draft on first visit. |
 | `network-policies` | CIDR network-policy CRUD. | `NetworkPoliciesTable`, `{Create,Edit,Delete}NetworkPolicyModal`, `NetworkPolicyHeader`; `hooks/use{Create,Update,Delete}NetworkPolicy.ts`, `useNetworkPolic{y,ies}.ts` |
 | `subjects` | Shared access-subject panels reused by user detail (effective hosts, subject groups, group filter, devices). | `EffectiveHostsPanel`, `SubjectGroupsPanel`, `GroupFilterBar`, `UserDevicesTab`, `AllHostsBypassPill`; `drafts/subjectAccessDraft.ts`; `hooks/use{UserAccessDetail,SetUserAccess,ListUsersWithAccess}.ts` |
 | `policy-audit` | Policy decision-cache snapshot + request simulation. | `components/{SimulateBar,PolicyUserTable,PolicyUserDrawer,NetworkPolicyCacheTab}.tsx`; `hooks/use{PolicyMap,PolicySimulate}.ts` |

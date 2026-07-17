@@ -15,13 +15,9 @@ function makeHost(
   return {
     id,
     fqdn,
-    created_at: "2026-01-01T00:00:00Z",
-    groups: (opts.groupIds ?? []).map((gid) => ({
-      id: gid,
-      name: `g${gid}`,
-      color: "#000000",
-      icon: "server",
-    })),
+    groups: (opts.groupIds ?? []).map((groupId) => (
+      { id: groupId, name: `g${groupId}`, color: "#000000", icon: "server" }
+    )),
   };
 }
 
@@ -42,7 +38,7 @@ describe("knownHostsDraft reducer", () => {
     const next = hostsDraftReducer(initial, {
       type: "add",
       id: "new-1",
-      host: { fqdn: "new.lan", groupIds: [] },
+      host: { fqdn: "new.lan", groups: [] },
     });
     expect(next.draft.size).toBe(1);
     expect(diffHosts(next).added).toHaveLength(1);
@@ -54,7 +50,7 @@ describe("knownHostsDraft reducer", () => {
     state = hostsDraftReducer(state, {
       type: "add",
       id: "new-1",
-      host: { fqdn: "new.lan", groupIds: [] },
+      host: { fqdn: "new.lan", groups: [] },
     });
     state = hostsDraftReducer(state, { type: "remove", id: "new-1" });
 
@@ -82,36 +78,49 @@ describe("knownHostsDraft reducer", () => {
     expect(isDirtyHosts(state)).toBe(false);
   });
 
-  it("tracks group-membership changes (order-insensitive)", () => {
-    let state = fromServerHosts([
-      makeHost(1, "a.lan", { groupIds: [10, 20] }),
-    ]);
+  it("tracks group-membership changes", () => {
+    let state = fromServerHosts([makeHost(1, "a.lan", { groupIds: [10] })]);
     state = hostsDraftReducer(state, {
       type: "update",
       id: 1,
-      patch: { groupIds: [20, 10] },
+      patch: { groups: [{ id: 10, name: "g10", color: "#000000", icon: "server" }] },
     });
     expect(diffHosts(state).groupsChanged).toHaveLength(0);
 
     state = hostsDraftReducer(state, {
       type: "update",
       id: 1,
-      patch: { groupIds: [10, 30] },
+      patch: { groups: [{ id: 30, name: "g30", color: "#000000", icon: "server" }] },
     });
     expect(diffHosts(state).groupsChanged).toHaveLength(1);
   });
 
-  it("discard reverts every change", () => {
-    let state = fromServerHosts([makeHost(1, "a.lan", { groupIds: [10] })]);
+  it("does not flag a re-ordered but identical group set as changed", () => {
+    let state = fromServerHosts([makeHost(1, "a.lan", { groupIds: [10, 20] })]);
     state = hostsDraftReducer(state, {
       type: "update",
       id: 1,
-      patch: { groupIds: [20] },
+      patch: {
+        groups: [
+          { id: 20, name: "g20", color: "#000000", icon: "server" },
+          { id: 10, name: "g10", color: "#000000", icon: "server" },
+        ],
+      },
+    });
+    expect(diffHosts(state).groupsChanged).toHaveLength(0);
+  });
+
+  it("discard reverts every change, including a host with multiple groups", () => {
+    let state = fromServerHosts([makeHost(1, "a.lan", { groupIds: [10, 20] })]);
+    state = hostsDraftReducer(state, {
+      type: "update",
+      id: 1,
+      patch: { groups: [{ id: 20, name: "g20", color: "#000000", icon: "server" }] },
     });
     state = hostsDraftReducer(state, {
       type: "add",
       id: "new-1",
-      host: { fqdn: "new.lan", groupIds: [] },
+      host: { fqdn: "new.lan", groups: [] },
     });
     state = hostsDraftReducer(state, { type: "remove", id: 1 });
     expect(isDirtyHosts(state)).toBe(true);
@@ -119,6 +128,6 @@ describe("knownHostsDraft reducer", () => {
     state = hostsDraftReducer(state, { type: "discard" });
     expect(isDirtyHosts(state)).toBe(false);
     expect(state.draft.size).toBe(1);
-    expect(state.draft.get(1)?.groupIds).toEqual([10]);
+    expect(state.draft.get(1)?.groups.map((g) => g.id)).toEqual([10, 20]);
   });
 });

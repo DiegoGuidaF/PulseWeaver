@@ -16,6 +16,9 @@ export function useSetUserAccess() {
         queryKey: getUserAccessDetailQueryKey({ path: { user_id: variables.path!.user_id } }),
       });
       queryClient.invalidateQueries({ queryKey: listUsersWithAccessQueryKey() });
+      // Partial-key invalidation: a user's group grant changes that group's users[]
+      // panel; we don't know which groups were touched, so bust every cached detail.
+      queryClient.invalidateQueries({ queryKey: [{ _id: "getHostGroup" }] });
     },
   });
 }

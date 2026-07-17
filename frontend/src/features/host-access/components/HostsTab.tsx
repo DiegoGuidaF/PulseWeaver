@@ -14,7 +14,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconArrowDown, IconArrowUp, IconArrowsSort, IconPlus, IconSearch } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { GroupDetailWithUsers } from "@/lib/api";
+import type { GroupListItem } from "@/lib/api";
 import { listHostsOptions } from "@/lib/api/@tanstack/react-query.gen";
 import { GroupFilterBar, UNGROUPED_GROUP_ID } from "@/features/subjects/components/GroupFilterBar";
 import { useReconcileHosts } from "@/features/host-access/hooks/useReconcileHosts";
@@ -39,7 +39,7 @@ import { toErrorMessage } from "@/lib/api-client";
 interface Props {
   state: HostsDraftState;
   dispatch: React.Dispatch<HostsDraftAction>;
-  serverGroups: GroupDetailWithUsers[];
+  serverGroups: GroupListItem[];
 }
 
 const PAGE_SIZE = 25;
@@ -72,8 +72,8 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
     return drafts.filter((d) => {
       if (term && !d.fqdn.toLowerCase().includes(term)) return false;
       if (groupFilter.size === 0) return true;
-      if (groupFilter.has(UNGROUPED_GROUP_ID) && d.groupIds.length === 0) return true;
-      return d.groupIds.some((id) => groupFilter.has(id));
+      if (groupFilter.has(UNGROUPED_GROUP_ID) && d.groups.length === 0) return true;
+      return d.groups.some((g) => groupFilter.has(g.id));
     });
   }, [drafts, search, groupFilter]);
 
@@ -81,8 +81,8 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
     const arr = [...filtered];
     if (!sort) {
       return arr.sort((a, b) => {
-        const ga = firstGroupName(a, serverGroups);
-        const gb = firstGroupName(b, serverGroups);
+        const ga = firstGroupName(a);
+        const gb = firstGroupName(b);
         if (ga !== gb) return ga < gb ? -1 : 1;
         return a.fqdn.localeCompare(b.fqdn);
       });
@@ -94,14 +94,14 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
       });
     } else {
       arr.sort((a, b) => {
-        const ga = firstGroupName(a, serverGroups);
-        const gb = firstGroupName(b, serverGroups);
+        const ga = firstGroupName(a);
+        const gb = firstGroupName(b);
         const cmp = ga < gb ? -1 : ga > gb ? 1 : a.fqdn.localeCompare(b.fqdn);
         return sort.dir === "asc" ? cmp : -cmp;
       });
     }
     return arr;
-  }, [filtered, sort, serverGroups]);
+  }, [filtered, sort]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -136,7 +136,10 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
 
   function handleAdd(values: { fqdn: string; groupIds: number[] }) {
     const id: `new-${string}` = `new-${crypto.randomUUID()}`;
-    dispatch({ type: "add", id, host: { fqdn: values.fqdn, groupIds: values.groupIds } });
+    const groups = values.groupIds
+      .map((groupId) => serverGroups.find((g) => g.id === groupId))
+      .filter((g): g is GroupListItem => g !== undefined);
+    dispatch({ type: "add", id, host: { fqdn: values.fqdn, groups } });
   }
 
   async function handleSave() {
@@ -260,7 +263,6 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
                       key={String(d.id)}
                       draft={d}
                       diff={diff}
-                      serverGroups={serverGroups}
                       groupFilter={groupFilter}
                       onGroupClick={handleGroupClick}
                       onDelete={() => dispatch({ type: "remove", id: d.id })}
@@ -303,11 +305,8 @@ export function HostsTab({ state, dispatch, serverGroups }: Props) {
   );
 }
 
-function firstGroupName(d: DraftHost, serverGroups: GroupDetailWithUsers[]): string {
-  if (d.groupIds.length === 0) return "￿"; // sorts unassigned to end by default
-  return d.groupIds
-    .map((id) => serverGroups.find((g) => g.id === id)?.name ?? "")
-    .sort()[0] ?? "￿";
+function firstGroupName(d: DraftHost): string {
+  return d.groups[0]?.name ?? "￿"; // sorts unassigned to end by default
 }
 
 interface SortableHeaderProps {

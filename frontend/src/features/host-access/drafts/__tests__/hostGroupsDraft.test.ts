@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { GroupDetailWithUsers } from "@/lib/api";
+import type { GroupDetailWithUsers, GroupListItem } from "@/lib/api";
 import {
   diffGroups,
   fromServerGroups,
   groupsDraftReducer,
   isDirtyGroups,
+  type GroupsDraftState,
 } from "../hostGroupsDraft";
 
 function makeGroup(
@@ -18,18 +19,30 @@ function makeGroup(
     description: opts.description ?? null,
     icon: opts.icon ?? "server",
     color: opts.color ?? "#000000",
-    created_at: "2026-01-01T00:00:00Z",
-    updated_at: "2026-01-01T00:00:00Z",
     hosts: (opts.hostIds ?? []).map((hid) => ({ id: hid, fqdn: `h${hid}.lan` })),
     network_policies: [],
     users: [],
   };
 }
 
-function seed(groups: GroupDetailWithUsers[] = []) {
-  const server = fromServerGroups(groups);
-  const firstId = server.draft.keys().next().value ?? null;
-  return { ...server, selectedId: firstId };
+function toListItem(g: GroupDetailWithUsers): GroupListItem {
+  return { id: g.id, name: g.name, color: g.color, icon: g.icon, host_count: g.hosts.length };
+}
+
+/**
+ * Seeds a draft state with every group already "visited" (its full detail hydrated) —
+ * mirrors the fully-loaded shape the old single-endpoint list used to provide, so tests
+ * here can exercise diffing/toggling logic independent of the lazy-load mechanism itself
+ * (that mechanism gets its own tests in HostGroupsPage.test.tsx).
+ */
+function seed(groups: GroupDetailWithUsers[] = []): GroupsDraftState {
+  const base = fromServerGroups(groups.map(toListItem));
+  const firstId = base.draft.keys().next().value ?? null;
+  let state: GroupsDraftState = { ...base, selectedId: firstId };
+  for (const g of groups) {
+    state = groupsDraftReducer(state, { type: "hydrateDetail", detail: g });
+  }
+  return state;
 }
 
 describe("hostGroupsDraft reducer", () => {
@@ -147,5 +160,29 @@ describe("hostGroupsDraft reducer", () => {
     state = groupsDraftReducer(state, { type: "discard" });
     expect(isDirtyGroups(state)).toBe(false);
     expect(state.draft.get(1)?.name).toBe("a");
+  });
+
+  it("hydrateDetail on a fresh (unvisited) group backfills description and hosts", () => {
+    const state = groupsDraftReducer(
+      { ...fromServerGroups([toListItem(makeGroup(1, "a"))]), selectedId: 1 },
+      { type: "hydrateDetail", detail: makeGroup(1, "a", { hostIds: [5], description: "hi" }) },
+    );
+    expect(state.visited.has(1)).toBe(true);
+    expect(state.draft.get(1)?.hostIds).toEqual([5]);
+    expect(state.draft.get(1)?.description).toBe("hi");
+  });
+
+  it("hydrateDetail does not clobber local edits on a re-visit", () => {
+    let state = seed([makeGroup(1, "a", { hostIds: [1] })]);
+    state = groupsDraftReducer(state, { type: "toggleHost", id: 1, hostId: 2 });
+    expect(state.draft.get(1)?.hostIds).toEqual([1, 2]);
+
+    // A later refetch of the same group's detail (e.g. re-selecting it) must not
+    // overwrite the still-unsaved local edit.
+    state = groupsDraftReducer(state, {
+      type: "hydrateDetail",
+      detail: makeGroup(1, "a", { hostIds: [1] }),
+    });
+    expect(state.draft.get(1)?.hostIds).toEqual([1, 2]);
   });
 });

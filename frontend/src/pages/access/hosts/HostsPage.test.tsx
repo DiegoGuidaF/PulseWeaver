@@ -73,6 +73,28 @@ describe('HostsPage', () => {
                 expect(screen.getByText('db.lan')).toBeInTheDocument();
             }, { timeout: TEST_TIMEOUTS.MEDIUM });
         });
+
+        it('renders a badge for every group a host belongs to', async () => {
+            server.use(
+                hostAccessHandlers.listKnownHosts.success([
+                    createMockHost({
+                        id: 1,
+                        fqdn: 'multi.lan',
+                        groups: [
+                            { id: 10, name: 'media', color: '#6366f1', icon: 'server' },
+                            { id: 20, name: 'backend', color: '#f59f00', icon: 'database' },
+                        ],
+                    }),
+                ]),
+            );
+            renderHostsPage();
+
+            await waitFor(() => {
+                expect(screen.getByText('multi.lan')).toBeInTheDocument();
+                expect(screen.getByText('media')).toBeInTheDocument();
+                expect(screen.getByText('backend')).toBeInTheDocument();
+            }, { timeout: TEST_TIMEOUTS.MEDIUM });
+        });
     });
 
     // ─── B3: Server → draft sync / initial clean state ───────────────────────────
@@ -215,6 +237,57 @@ describe('HostsPage', () => {
             await waitFor(() => {
                 expect(screen.queryByRole('button', { name: /save changes/i })).not.toBeInTheDocument();
             }, { timeout: TEST_TIMEOUTS.MEDIUM });
+        });
+
+        it('does not drop an untouched host\'s other groups when a new host is staged and saved', async () => {
+            const user = setupUser();
+            let capturedBody: { hosts: Array<{ fqdn: string; group_ids: number[] }> } | undefined;
+            server.use(
+                hostAccessHandlers.listKnownHosts.success([
+                    createMockHost({
+                        id: 1,
+                        fqdn: 'multi.lan',
+                        groups: [
+                            { id: 10, name: 'media', color: '#6366f1', icon: 'server' },
+                            { id: 20, name: 'backend', color: '#f59f00', icon: 'database' },
+                        ],
+                    }),
+                ]),
+                http.post(endpoints.adminHostsReconcile, async ({ request }) => {
+                    capturedBody = await request.json() as typeof capturedBody;
+                    return new HttpResponse(null, { status: 204 });
+                }),
+            );
+
+            const { QueryClient } = await import('@tanstack/react-query');
+            const queryClient = new QueryClient({
+                defaultOptions: {
+                    queries: { retry: false, structuralSharing: false },
+                    mutations: { retry: false },
+                },
+            });
+            renderWithProviders(<AuthProvider><HostsPage /></AuthProvider>, { queryClient });
+
+            await waitFor(() => {
+                expect(screen.getByText('multi.lan')).toBeInTheDocument();
+            }, { timeout: TEST_TIMEOUTS.MEDIUM });
+
+            await user.click(screen.getByRole('button', { name: /new host/i }));
+            await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+            const dialog = screen.getByRole('dialog');
+            await user.type(within(dialog).getByRole('textbox', { name: /fqdn/i }), 'new.lan');
+            await user.click(within(dialog).getByRole('button', { name: /Add to draft/i }));
+
+            await waitFor(() => {
+                expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument();
+            }, { timeout: TEST_TIMEOUTS.SHORT });
+
+            await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+            await waitFor(() => expect(capturedBody).toBeDefined(), { timeout: TEST_TIMEOUTS.LONG });
+            const multi = capturedBody!.hosts.find((h) => h.fqdn === 'multi.lan');
+            expect(multi?.group_ids.sort()).toEqual([10, 20]);
         });
     });
 

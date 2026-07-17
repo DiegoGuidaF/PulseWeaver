@@ -1,4 +1,4 @@
-import type { GroupDetailWithUsers, Id } from "@/lib/api";
+import type { GroupDetailWithUsers, GroupListItem, Id } from "@/lib/api";
 
 export type DraftGroupId = Id | `new-${string}`;
 
@@ -12,25 +12,33 @@ export interface DraftGroup {
 }
 
 export interface GroupsDraftState {
-  original: Map<Id, GroupDetailWithUsers>;
+  /** Light metadata for every group (id/name/color/icon/host_count), from the list endpoint. */
+  listOriginal: Map<Id, GroupListItem>;
+  /** Full detail (description, hosts, users, network_policies), populated lazily per group as it's visited. */
+  detailOriginal: Map<Id, GroupDetailWithUsers>;
+  /** Group ids whose detailOriginal is loaded and safe to diff/save against. */
+  visited: Set<Id>;
   draft: Map<DraftGroupId, DraftGroup>;
   tombstoned: Set<Id>;
   selectedId: DraftGroupId | null;
 }
 
 export type GroupsDraftAction =
-  | { type: "reset"; groups: GroupDetailWithUsers[] }
+  | { type: "reset"; groups: GroupListItem[] }
   | { type: "add"; id: `new-${string}`; group: Omit<DraftGroup, "id"> }
   | { type: "update"; id: DraftGroupId; patch: Partial<Omit<DraftGroup, "id">> }
   | { type: "remove"; id: DraftGroupId }
   | { type: "restore"; id: Id }
   | { type: "select"; id: DraftGroupId | null }
   | { type: "toggleHost"; id: DraftGroupId; hostId: Id }
+  | { type: "hydrateDetail"; detail: GroupDetailWithUsers }
   | { type: "discard" };
 
 export function initialGroupsDraft(): GroupsDraftState {
   return {
-    original: new Map(),
+    listOriginal: new Map(),
+    detailOriginal: new Map(),
+    visited: new Set(),
     draft: new Map(),
     tombstoned: new Set(),
     selectedId: null,
@@ -38,22 +46,48 @@ export function initialGroupsDraft(): GroupsDraftState {
 }
 
 export function fromServerGroups(
-  groups: GroupDetailWithUsers[],
+  groups: GroupListItem[],
 ): Omit<GroupsDraftState, "selectedId"> {
-  const original = new Map<Id, GroupDetailWithUsers>();
+  const listOriginal = new Map<Id, GroupListItem>();
   const draft = new Map<DraftGroupId, DraftGroup>();
   for (const g of groups) {
-    original.set(g.id, g);
+    listOriginal.set(g.id, g);
     draft.set(g.id, {
       id: g.id,
       name: g.name,
-      description: g.description ?? null,
+      // Not present on the light list — filled in once the group's detail is fetched.
+      description: null,
       icon: g.icon,
       color: g.color,
-      hostIds: g.hosts.map((h) => h.id),
+      hostIds: [],
     });
   }
-  return { original, draft, tombstoned: new Set() };
+  return { listOriginal, detailOriginal: new Map(), visited: new Set(), draft, tombstoned: new Set() };
+}
+
+/** Builds a DraftGroup for a tombstoned or discarded id from whatever source data is available — full detail if the group was visited, otherwise the light-list placeholder. */
+function draftFromSource(state: GroupsDraftState, id: Id): DraftGroup | null {
+  const detail = state.detailOriginal.get(id);
+  if (detail) {
+    return {
+      id,
+      name: detail.name,
+      description: detail.description ?? null,
+      icon: detail.icon,
+      color: detail.color,
+      hostIds: detail.hosts.map((h) => h.id),
+    };
+  }
+  const listItem = state.listOriginal.get(id);
+  if (!listItem) return null;
+  return {
+    id,
+    name: listItem.name,
+    description: null,
+    icon: listItem.icon,
+    color: listItem.color,
+    hostIds: [],
+  };
 }
 
 export function groupsDraftReducer(
@@ -99,18 +133,9 @@ export function groupsDraftReducer(
       if (!state.tombstoned.has(action.id)) return state;
       const tombstoned = new Set(state.tombstoned);
       tombstoned.delete(action.id);
-      const original = state.original.get(action.id);
+      const restored = draftFromSource(state, action.id);
       const draft = new Map(state.draft);
-      if (original) {
-        draft.set(action.id, {
-          id: action.id,
-          name: original.name,
-          description: original.description ?? null,
-          icon: original.icon,
-          color: original.color,
-          hostIds: original.hosts.map((h) => h.id),
-        });
-      }
+      if (restored) draft.set(action.id, restored);
       return { ...state, draft, tombstoned };
     }
 
@@ -129,9 +154,34 @@ export function groupsDraftReducer(
       return { ...state, draft };
     }
 
+    case "hydrateDetail": {
+      const { detail } = action;
+      const detailOriginal = new Map(state.detailOriginal);
+      detailOriginal.set(detail.id, detail);
+      const alreadyVisited = state.visited.has(detail.id);
+      const visited = new Set(state.visited);
+      visited.add(detail.id);
+      if (alreadyVisited) {
+        // Local edits (metadata or membership) are already staged — a refetch must not clobber them.
+        return { ...state, detailOriginal, visited };
+      }
+      const draft = new Map(state.draft);
+      const existing = draft.get(detail.id);
+      draft.set(detail.id, {
+        ...(existing ?? { id: detail.id, name: detail.name, icon: detail.icon, color: detail.color }),
+        description: detail.description ?? null,
+        hostIds: detail.hosts.map((h) => h.id),
+      });
+      return { ...state, detailOriginal, visited, draft };
+    }
+
     case "discard": {
-      const next = fromServerGroups(Array.from(state.original.values()));
-      return { ...next, selectedId: state.selectedId };
+      const draft = new Map<DraftGroupId, DraftGroup>();
+      for (const id of state.listOriginal.keys()) {
+        const restored = draftFromSource(state, id);
+        if (restored) draft.set(id, restored);
+      }
+      return { ...state, draft, tombstoned: new Set(), selectedId: state.selectedId };
     }
   }
 }
@@ -148,7 +198,7 @@ export interface GroupDiffEntry {
 
 export interface GroupsDiff {
   added: DraftGroup[];
-  removed: GroupDetailWithUsers[];
+  removed: DraftGroupId[];
   changed: GroupDiffEntry[];
   byId: Map<DraftGroupId, GroupDiffEntry | "added" | "removed">;
 }
@@ -164,7 +214,9 @@ export function diffGroups(state: GroupsDraftState): GroupsDiff {
       byId.set(entry.id, "added");
       continue;
     }
-    const original = state.original.get(entry.id);
+    // Never-visited groups can't be diffed (no ground truth for description/hosts yet);
+    // they're also never editable in the UI before their detail loads, so this is safe.
+    const original = state.detailOriginal.get(entry.id);
     if (!original) continue;
     const diffEntry = computeGroupDiff(entry, original);
     if (isGroupEntryDirty(diffEntry)) {
@@ -173,11 +225,10 @@ export function diffGroups(state: GroupsDraftState): GroupsDiff {
     }
   }
 
-  const removed: GroupDetailWithUsers[] = [];
+  const removed: DraftGroupId[] = [];
   for (const id of state.tombstoned) {
-    const original = state.original.get(id);
-    if (original) {
-      removed.push(original);
+    if (state.listOriginal.has(id)) {
+      removed.push(id);
       byId.set(id, "removed");
     }
   }
@@ -212,17 +263,9 @@ function computeGroupDiff(
   };
 }
 
+/** Builds an editable DraftGroup snapshot from whatever ground truth is available for `id` — used to seed the metadata-edit modal and the tombstoned-row list. */
 export function toDraftFromOriginal(state: GroupsDraftState, id: Id): DraftGroup | null {
-  const original = state.original.get(id);
-  if (!original) return null;
-  return {
-    id,
-    name: original.name,
-    description: original.description ?? null,
-    icon: original.icon,
-    color: original.color,
-    hostIds: original.hosts.map((h) => h.id),
-  };
+  return draftFromSource(state, id);
 }
 
 export function summarizeGroups(diff: GroupsDiff): string {

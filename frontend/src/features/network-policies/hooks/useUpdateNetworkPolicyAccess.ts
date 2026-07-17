@@ -16,6 +16,9 @@ export function useUpdateNetworkPolicyAccess() {
         queryKey: getNetworkPolicyQueryKey({ path: { policy_id: variables.path!.policy_id } }),
       });
       queryClient.invalidateQueries({ queryKey: listNetworkPoliciesQueryKey() });
+      // Partial-key invalidation: granting a policy to a group changes that group's
+      // network_policies[] panel; we don't know which groups were touched.
+      queryClient.invalidateQueries({ queryKey: [{ _id: "getHostGroup" }] });
     },
   });
 }

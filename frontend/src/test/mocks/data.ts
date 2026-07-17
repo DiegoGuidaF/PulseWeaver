@@ -1,4 +1,4 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceOwnerGroup, GroupDetailWithUsers, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceOwnerGroup, GroupDetailWithUsers, GroupListItem, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import { AddressEventSource, DeviceState, PolicyUserStatus, UserRole } from "@/lib/api";
 
 /**
@@ -317,8 +317,6 @@ export function createMockSubjectGroupDetail(
     icon: 'server',
     granted: false,
     hosts: [],
-    created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
   };
 }
@@ -344,8 +342,20 @@ export function createMockHost(
   return {
     id: 1,
     fqdn: 'host.lan',
-    created_at: '2026-01-01T00:00:00Z',
     groups: [],
+    ...overrides,
+  };
+}
+
+export function createMockGroupListItem(
+  overrides?: Partial<GroupListItem>,
+): GroupListItem {
+  return {
+    id: 1,
+    name: 'Test Group',
+    color: '#000000',
+    icon: 'server',
+    host_count: 0,
     ...overrides,
   };
 }
@@ -359,10 +369,9 @@ export function createMockGroupDetailWithUsers(
     description: null,
     icon: 'server',
     color: '#000000',
-    created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z',
     hosts: [],
     network_policies: [],
+    users: [],
     ...overrides,
   };
 }
@@ -572,7 +581,6 @@ export function createMockNetworkPolicyDetail(
     enabled: true,
     groups: [],
     bypass_host_check: false,
-    created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
   };

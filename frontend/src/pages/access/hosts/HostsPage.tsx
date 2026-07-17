@@ -143,7 +143,7 @@ export function HostsPage() {
                 onStageHosts={(fqdns) => {
                   fqdns.forEach((fqdn) => {
                     const id: `new-${string}` = `new-${crypto.randomUUID()}`;
-                    hostsDispatch({ type: "add", id, host: { fqdn, groupIds: [], source: "suggestion" } });
+                    hostsDispatch({ type: "add", id, host: { fqdn, groups: [], source: "suggestion" } });
                   });
                 }}
               />

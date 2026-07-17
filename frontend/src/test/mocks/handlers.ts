@@ -1,7 +1,7 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceOwnerGroup, DevicePairing, GroupDetailWithUsers, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceOwnerGroup, DevicePairing, GroupDetailWithUsers, GroupListItem, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import type { AttributionKind } from '@/features/dashboard/hooks/useAttributionSplit';
-import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardAttributionCount, createMockDashboardPosture, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceOwnerGroup, createMockDevicePairing, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
+import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardAttributionCount, createMockDashboardPosture, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceOwnerGroup, createMockDevicePairing, createMockGroupDetailWithUsers, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
 
 const BASE = '/api/v1';
 
@@ -42,6 +42,7 @@ export const endpoints = {
     adminHosts: `${BASE}/admin/access/hosts`,
     adminHostsReconcile: `${BASE}/admin/access/hosts/reconcile`,
     adminHostGroups: `${BASE}/admin/access/host-groups`,
+    adminHostGroupById: `${BASE}/admin/access/host-groups/:groupId`,
     adminHostGroupsReconcile: `${BASE}/admin/access/host-groups/reconcile`,
     adminHostSuggestions: `${BASE}/admin/access/host-suggestions`,
     adminHostSuggestionsIgnore: `${BASE}/admin/access/host-suggestions/ignore`,
@@ -418,10 +419,22 @@ export const hostAccessHandlers = {
             http.get(endpoints.adminHosts, () => responses.serverError()),
     },
     listHostGroups: {
-        success: (groups: GroupDetailWithUsers[] = []) =>
+        success: (groups: GroupListItem[] = []) =>
             http.get(endpoints.adminHostGroups, () => HttpResponse.json({ groups })),
         serverError: () =>
             http.get(endpoints.adminHostGroups, () => responses.serverError()),
+    },
+    getHostGroup: {
+        // Accepts the full set of detail fixtures in play; looks up by the :groupId path
+        // param so multi-group tests (different data per group) resolve correctly.
+        success: (groups?: GroupDetailWithUsers[]) =>
+            http.get(endpoints.adminHostGroupById, ({ params }) => {
+                const id = Number(params.groupId);
+                const list = groups ?? [createMockGroupDetailWithUsers()];
+                return HttpResponse.json(list.find((g) => g.id === id) ?? list[0]);
+            }),
+        notFound: () =>
+            http.get(endpoints.adminHostGroupById, () => responses.notFound()),
     },
     listHostSuggestions: {
         success: (page?: HostSuggestionsPage) =>
@@ -583,6 +596,7 @@ export const defaultHandlers = [
     hostAccessHandlers.setUserHostGrants.success(),
     hostAccessHandlers.listKnownHosts.success(),
     hostAccessHandlers.listHostGroups.success(),
+    hostAccessHandlers.getHostGroup.success(),
     hostAccessHandlers.listHostSuggestions.success(),
     hostAccessHandlers.reconcileKnownHosts.success(),
     hostAccessHandlers.reconcileHostGroups.success(),

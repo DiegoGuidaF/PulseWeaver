@@ -11,7 +11,7 @@ import { notifications } from "@mantine/notifications";
 import { IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { GroupDetailWithUsers, Host, Id } from "@/lib/api";
-import { listHostGroupsOptions } from "@/lib/api/@tanstack/react-query.gen";
+import { getHostGroupOptions, listHostGroupsOptions } from "@/lib/api/@tanstack/react-query.gen";
 import { useReconcileHostGroups } from "@/features/host-access/hooks/useReconcileHostGroups";
 import { GroupMasterList } from "@/features/host-access/components/GroupMasterList";
 import { GroupDetailPanel } from "@/features/host-access/components/GroupDetailPanel";
@@ -23,12 +23,14 @@ import {
   summarizeGroups,
   toDraftFromOriginal,
   type DraftGroup,
+  type DraftGroupId,
   type GroupsDraftAction,
   type GroupsDraftState,
 } from "@/features/host-access/drafts/hostGroupsDraft";
 import {
   buildReconcileGroupsBody,
   groupsOriginalMatchesServer,
+  unvisitedExistingGroupIds,
 } from "@/features/host-access/drafts/saveHostGroupsDraft";
 import { toErrorMessage } from "@/lib/api-client";
 
@@ -36,9 +38,10 @@ interface Props {
   state: GroupsDraftState;
   dispatch: React.Dispatch<GroupsDraftAction>;
   serverHosts: Host[];
+  selectedDetailLoading?: boolean;
 }
 
-export function HostGroupsTab({ state, dispatch, serverHosts }: Props) {
+export function HostGroupsTab({ state, dispatch, serverHosts, selectedDetailLoading }: Props) {
   const queryClient = useQueryClient();
   const reconcileHostGroups = useReconcileHostGroups();
 
@@ -56,6 +59,20 @@ export function HostGroupsTab({ state, dispatch, serverHosts }: Props) {
     [state],
   );
 
+  // Master-list badge count: unvisited groups only know host_count from the light list
+  // (their draft.hostIds is a placeholder); visited/edited groups reflect the live draft.
+  const hostCounts = useMemo(() => {
+    const counts = new Map<DraftGroupId, number>();
+    for (const g of groups) {
+      if (typeof g.id === "number" && !state.visited.has(g.id)) {
+        counts.set(g.id, state.listOriginal.get(g.id)?.host_count ?? g.hostIds.length);
+      } else {
+        counts.set(g.id, g.hostIds.length);
+      }
+    }
+    return counts;
+  }, [groups, state.visited, state.listOriginal]);
+
   const selected = state.selectedId !== null ? state.draft.get(state.selectedId) ?? null : null;
   const tombstonedSelected =
     state.selectedId !== null && typeof state.selectedId === "number"
@@ -68,7 +85,7 @@ export function HostGroupsTab({ state, dispatch, serverHosts }: Props) {
   // Resolve the server-side group for the access section (read-only users/policies)
   const selectedServerGroup: GroupDetailWithUsers | null =
     state.selectedId !== null && typeof state.selectedId === "number"
-      ? (state.original.get(state.selectedId) ?? null)
+      ? (state.detailOriginal.get(state.selectedId) ?? null)
       : null;
 
   const diff = diffGroups(state);
@@ -110,7 +127,7 @@ export function HostGroupsTab({ state, dispatch, serverHosts }: Props) {
     setSaving(true);
     try {
       const current = await queryClient.fetchQuery({ ...listHostGroupsOptions(), staleTime: 0 });
-      if (!groupsOriginalMatchesServer(state.original, current.groups)) {
+      if (!groupsOriginalMatchesServer(state.listOriginal, current.groups)) {
         notifications.show({
           color: "orange",
           title: "Server data changed",
@@ -120,8 +137,25 @@ export function HostGroupsTab({ state, dispatch, serverHosts }: Props) {
         return;
       }
 
+      // Reconcile is a full-state replace — any existing group not yet visited this
+      // session needs its real host membership fetched first, or it would be sent
+      // with an empty placeholder and wipe its members server-side.
+      const unvisited = unvisitedExistingGroupIds(state);
+      const freshDetails = new Map<Id, GroupDetailWithUsers>();
+      if (unvisited.length > 0) {
+        const details = await Promise.all(
+          unvisited.map((id) =>
+            queryClient.fetchQuery({
+              ...getHostGroupOptions({ path: { group_id: id } }),
+              staleTime: 0,
+            }),
+          ),
+        );
+        details.forEach((d) => freshDetails.set(d.id, d));
+      }
+
       await reconcileHostGroups.mutateAsync({
-        body: { groups: buildReconcileGroupsBody(state) },
+        body: { groups: buildReconcileGroupsBody(state, freshDetails) },
       });
       notifications.show({ color: "green", message: "Groups saved" });
     } catch (err) {
@@ -191,6 +225,7 @@ export function HostGroupsTab({ state, dispatch, serverHosts }: Props) {
             tombstoned={tombstonedDrafts}
             selectedId={state.selectedId}
             diff={diff}
+            hostCounts={hostCounts}
             onSelect={(id) => dispatch({ type: "select", id })}
             onCreate={() => setCreateOpen(true)}
           />
@@ -200,6 +235,8 @@ export function HostGroupsTab({ state, dispatch, serverHosts }: Props) {
             group={selected ?? tombstonedAsDraft}
             serverGroup={selectedServerGroup}
             isTombstoned={tombstonedSelected}
+            detailLoading={selectedDetailLoading}
+            hostCount={state.selectedId !== null ? hostCounts.get(state.selectedId) : undefined}
             diff={diff}
             hosts={hostRefs}
             onEdit={() => setEditOpen(true)}

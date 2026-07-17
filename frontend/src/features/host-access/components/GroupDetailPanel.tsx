@@ -4,8 +4,10 @@ import {
   Anchor,
   Badge,
   Button,
+  Center,
   Divider,
   Group,
+  Loader,
   Paper,
   SimpleGrid,
   Stack,
@@ -37,6 +39,10 @@ interface Props {
   diff: GroupsDiff;
   hosts: HostRef[];
   isTombstoned?: boolean;
+  /** True while the selected group's detail (hosts/users/network_policies) is still loading for the first time. */
+  detailLoading?: boolean;
+  /** Host count to show in the header — falls back to `group.hostIds.length` when absent. */
+  hostCount?: number;
   onEdit: () => void;
   onDelete: () => void;
   onRestore: () => void;
@@ -49,6 +55,8 @@ export function GroupDetailPanel({
   diff,
   hosts,
   isTombstoned,
+  detailLoading,
+  hostCount,
   onEdit,
   onDelete,
   onRestore,
@@ -73,6 +81,7 @@ export function GroupDetailPanel({
   );
   const dirtyEntry = diff.byId.get(group.id);
   const isAdded = dirtyEntry === "added";
+  const resolvedHostCount = hostCount ?? group.hostIds.length;
 
   return (
     <Paper withBorder radius="md" p="md" h="100%">
@@ -99,8 +108,8 @@ export function GroupDetailPanel({
                 )}
               </Group>
               <Text size="sm" c="dimmed">
-                {group.hostIds.length}{" "}
-                {group.hostIds.length === 1 ? "host" : "hosts"}
+                {resolvedHostCount}{" "}
+                {resolvedHostCount === 1 ? "host" : "hosts"}
                 {group.description ? ` · ${group.description}` : ""}
               </Text>
             </Stack>
@@ -115,7 +124,13 @@ export function GroupDetailPanel({
             ) : (
               <>
                 <Tooltip label="Edit metadata" withArrow>
-                  <ActionIcon variant="subtle" size="md" onClick={onEdit} aria-label="Edit">
+                  <ActionIcon
+                    variant="subtle"
+                    size="md"
+                    onClick={onEdit}
+                    aria-label="Edit"
+                    disabled={detailLoading}
+                  >
                     <IconPencil size={16} stroke={1.5} />
                   </ActionIcon>
                 </Tooltip>
@@ -144,6 +159,10 @@ export function GroupDetailPanel({
               Restore
             </Button>
           </Stack>
+        ) : detailLoading ? (
+          <Center py="xl">
+            <Loader size="sm" />
+          </Center>
         ) : hosts.length === 0 ? (
           <Stack gap="xs" py="sm">
             <Text size="sm" c="dimmed">
@@ -167,7 +186,7 @@ export function GroupDetailPanel({
           />
         )}
 
-        {serverGroup && !isAdded && <AccessPanel serverGroup={serverGroup} />}
+        {serverGroup && !isAdded && !detailLoading && <AccessPanel serverGroup={serverGroup} />}
       </Stack>
     </Paper>
   );

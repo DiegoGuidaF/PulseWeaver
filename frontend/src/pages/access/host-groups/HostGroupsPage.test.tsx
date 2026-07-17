@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import { HostGroupsPage } from '@/pages/access/host-groups/HostGroupsPage';
 import { server } from '@/test/setup';
-import { renderWithProviders } from '@/test/utils';
+import { renderWithProviders, setupUser } from '@/test/utils';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { hostAccessHandlers } from '@/test/mocks/handlers';
-import { createMockGroupDetailWithUsers } from '@/test/mocks/data';
+import { createMockGroupDetailWithUsers, createMockGroupListItem } from '@/test/mocks/data';
 
 const { mockGuard } = vi.hoisted(() => ({ mockGuard: vi.fn() }));
 vi.mock('@/hooks/useUnsavedChangesGuard', () => ({
@@ -28,6 +28,10 @@ describe('HostGroupsPage', () => {
         it('renders group names after data loads', async () => {
             server.use(
                 hostAccessHandlers.listHostGroups.success([
+                    createMockGroupListItem({ id: 1, name: 'Engineering' }),
+                    createMockGroupListItem({ id: 2, name: 'Marketing' }),
+                ]),
+                hostAccessHandlers.getHostGroup.success([
                     createMockGroupDetailWithUsers({ id: 1, name: 'Engineering' }),
                     createMockGroupDetailWithUsers({ id: 2, name: 'Marketing' }),
                 ]),
@@ -38,6 +42,47 @@ describe('HostGroupsPage', () => {
             await waitFor(() => {
                 expect(screen.getAllByText('Engineering').length).toBeGreaterThanOrEqual(1);
                 expect(screen.getByText('Marketing')).toBeInTheDocument();
+            }, { timeout: TEST_TIMEOUTS.MEDIUM });
+        });
+    });
+
+    // ─── Group-detail fetch on selection ───────────────────────────────────────────
+
+    describe('selected-group detail fetch', () => {
+        it('fetches and shows the newly selected group own detail, not the previous one', async () => {
+            const user = setupUser();
+            server.use(
+                hostAccessHandlers.listHostGroups.success([
+                    createMockGroupListItem({ id: 1, name: 'Engineering' }),
+                    createMockGroupListItem({ id: 2, name: 'Marketing' }),
+                ]),
+                hostAccessHandlers.getHostGroup.success([
+                    createMockGroupDetailWithUsers({
+                        id: 1,
+                        name: 'Engineering',
+                        users: [{ id: 1, username: 'alice', display_name: 'Alice' }],
+                    }),
+                    createMockGroupDetailWithUsers({
+                        id: 2,
+                        name: 'Marketing',
+                        users: [{ id: 2, username: 'bob', display_name: 'Bob' }],
+                    }),
+                ]),
+            );
+            renderHostGroupsPage();
+
+            // Engineering (group 1) auto-selected first — its users panel shows Alice.
+            await waitFor(() => {
+                expect(screen.getByText('Alice')).toBeInTheDocument();
+            }, { timeout: TEST_TIMEOUTS.MEDIUM });
+
+            await user.click(screen.getByText('Marketing'));
+
+            // Selecting Marketing fetches ITS OWN detail (Bob), replacing Alice's panel —
+            // proves the detail no longer rides the list payload and refetches per selection.
+            await waitFor(() => {
+                expect(screen.getByText('Bob')).toBeInTheDocument();
+                expect(screen.queryByText('Alice')).not.toBeInTheDocument();
             }, { timeout: TEST_TIMEOUTS.MEDIUM });
         });
     });
@@ -60,6 +105,9 @@ describe('HostGroupsPage', () => {
         it('is not visible after a clean load', async () => {
             server.use(
                 hostAccessHandlers.listHostGroups.success([
+                    createMockGroupListItem({ id: 1, name: 'Dev Group' }),
+                ]),
+                hostAccessHandlers.getHostGroup.success([
                     createMockGroupDetailWithUsers({ id: 1, name: 'Dev Group' }),
                 ]),
             );

@@ -1,11 +1,11 @@
-import type { Host, Id } from "@/lib/api";
+import type { GroupSummary, Host, Id } from "@/lib/api";
 
 export type DraftHostId = Id | `new-${string}`;
 
 export interface DraftHost {
   id: DraftHostId;
   fqdn: string;
-  groupIds: Id[];
+  groups: GroupSummary[];
   source?: "suggestion";
 }
 
@@ -35,7 +35,7 @@ export function fromServerHosts(hosts: Host[]): HostsDraftState {
     draft.set(h.id, {
       id: h.id,
       fqdn: h.fqdn,
-      groupIds: h.groups.map((g) => g.id),
+      groups: h.groups,
     });
   }
   return { original, draft, tombstoned: new Set() };
@@ -84,7 +84,7 @@ export function hostsDraftReducer(
         draft.set(action.id, {
           id: action.id,
           fqdn: originalHost.fqdn,
-          groupIds: originalHost.groups.map((g) => g.id),
+          groups: originalHost.groups,
         });
       }
       return { ...state, draft, tombstoned };
@@ -112,7 +112,7 @@ export function diffHosts(state: HostsDraftState): HostsDiff {
     }
     const original = state.original.get(entry.id);
     if (!original) continue;
-    if (!sameIds(original.groups.map((g) => g.id), entry.groupIds)) {
+    if (!sameGroupIds(original.groups, entry.groups)) {
       groupsChanged.push(entry);
     }
   }
@@ -139,10 +139,10 @@ export function summarizeHosts(diff: HostsDiff): string {
   return parts.length === 0 ? "No staged changes" : parts.join(" · ");
 }
 
-function sameIds(a: Id[], b: Id[]): boolean {
+export function sameGroupIds(a: GroupSummary[], b: GroupSummary[]): boolean {
   if (a.length !== b.length) return false;
-  const sortedA = [...a].sort((x, y) => x - y);
-  const sortedB = [...b].sort((x, y) => x - y);
+  const sortedA = a.map((g) => g.id).sort((x, y) => x - y);
+  const sortedB = b.map((g) => g.id).sort((x, y) => x - y);
   for (let i = 0; i < sortedA.length; i++) {
     if (sortedA[i] !== sortedB[i]) return false;
   }

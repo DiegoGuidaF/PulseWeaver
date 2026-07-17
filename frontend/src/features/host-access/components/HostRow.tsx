@@ -1,28 +1,21 @@
 import { ActionIcon, Badge, Group, Table, Text, Tooltip } from "@mantine/core";
 import { IconTrash } from "@tabler/icons-react";
-import type { GroupDetailWithUsers } from "@/lib/api";
 import type { DraftHost, HostsDiff } from "@/features/host-access/drafts/knownHostsDraft";
 import { GroupBadgeList } from "@/features/host-access/components/GroupBadgeList";
 
 interface Props {
   draft: DraftHost;
   diff: HostsDiff;
-  serverGroups: GroupDetailWithUsers[];
   groupFilter: Set<number>;
   onGroupClick: (groupId: number) => void;
   onDelete: () => void;
 }
 
-export function HostRow({ draft, diff, serverGroups, groupFilter, onGroupClick, onDelete }: Props) {
+export function HostRow({ draft, diff, groupFilter, onGroupClick, onDelete }: Props) {
   const isNew = typeof draft.id !== "number";
   const isGroupsChanged = diff.groupsChanged.some((d) => d.id === draft.id);
   const dirty = isNew || isGroupsChanged;
-  const unassigned = draft.groupIds.length === 0;
-
-  const groupRefs = draft.groupIds
-    .map((id) => serverGroups.find((g) => g.id === id))
-    .filter((g): g is GroupDetailWithUsers => g !== undefined)
-    .map((g) => ({ id: g.id, name: g.name, color: g.color, icon: g.icon }));
+  const unassigned = draft.groups.length === 0;
 
   return (
     <Table.Tr>
@@ -58,7 +51,7 @@ export function HostRow({ draft, diff, serverGroups, groupFilter, onGroupClick, 
             Unassigned
           </Text>
         ) : (
-          <GroupBadgeList groups={groupRefs} selected={groupFilter} onGroupClick={onGroupClick} />
+          <GroupBadgeList groups={draft.groups} selected={groupFilter} onGroupClick={onGroupClick} />
         )}
       </Table.Td>
       <Table.Td>

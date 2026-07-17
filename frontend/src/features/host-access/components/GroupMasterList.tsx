@@ -25,11 +25,21 @@ interface Props {
   tombstoned: DraftGroup[];
   selectedId: DraftGroupId | null;
   diff: GroupsDiff;
+  /** Host counts to display per group — falls back to `group.hostIds.length` when absent. */
+  hostCounts?: Map<DraftGroupId, number>;
   onSelect: (id: DraftGroupId) => void;
   onCreate: () => void;
 }
 
-export function GroupMasterList({ groups, tombstoned, selectedId, diff, onSelect, onCreate }: Props) {
+export function GroupMasterList({
+  groups,
+  tombstoned,
+  selectedId,
+  diff,
+  hostCounts,
+  onSelect,
+  onCreate,
+}: Props) {
   const [search, setSearch] = useState("");
   const term = search.toLowerCase().trim();
 
@@ -79,6 +89,7 @@ export function GroupMasterList({ groups, tombstoned, selectedId, diff, onSelect
                     selected={selectedId === g.id}
                     isDirty={diff.byId.has(g.id)}
                     isNew={diff.byId.get(g.id) === "added"}
+                    hostCount={hostCounts?.get(g.id) ?? g.hostIds.length}
                     onClick={() => onSelect(g.id)}
                   />
                 ))}
@@ -89,6 +100,7 @@ export function GroupMasterList({ groups, tombstoned, selectedId, diff, onSelect
                     selected={selectedId === g.id}
                     isDirty={false}
                     isNew={false}
+                    hostCount={g.hostIds.length}
                     isTombstoned
                     onClick={() => onSelect(g.id)}
                   />
@@ -107,11 +119,12 @@ interface RowProps {
   selected: boolean;
   isDirty: boolean;
   isNew: boolean;
+  hostCount: number;
   isTombstoned?: boolean;
   onClick: () => void;
 }
 
-function GroupRow({ group, selected, isDirty, isNew, isTombstoned, onClick }: RowProps) {
+function GroupRow({ group, selected, isDirty, isNew, hostCount, isTombstoned, onClick }: RowProps) {
   const color = group.color;
   const renderIcon = resolveGroupIcon(group.icon);
   return (
@@ -162,7 +175,7 @@ function GroupRow({ group, selected, isDirty, isNew, isTombstoned, onClick }: Ro
           </Badge>
         ) : (
           <Badge size="xs" variant="light" color="gray">
-            {group.hostIds.length}
+            {hostCount}
           </Badge>
         )}
       </Group>

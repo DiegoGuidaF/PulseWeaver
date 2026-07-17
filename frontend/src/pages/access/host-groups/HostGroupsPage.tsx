@@ -1,6 +1,7 @@
 import { useEffect, useReducer } from "react";
 import { Center, Loader, Stack, Text, Title } from "@mantine/core";
 import { useHostGroups } from "@/features/host-access/hooks/useHostGroups";
+import { useHostGroupDetail } from "@/features/host-access/hooks/useHostGroupDetail";
 import { useHosts } from "@/features/host-access/hooks/useHosts";
 import { HostGroupsTab } from "@/features/host-access/components/HostGroupsTab";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
@@ -26,11 +27,25 @@ export function HostGroupsPage() {
     }
   }, [hostGroupsQuery.data]);
 
+  const selectedGroupId =
+    typeof groupsState.selectedId === "number" ? groupsState.selectedId : null;
+  const selectedDetailQuery = useHostGroupDetail(selectedGroupId);
+
+  useEffect(() => {
+    if (selectedDetailQuery.data) {
+      groupsDispatch({ type: "hydrateDetail", detail: selectedDetailQuery.data });
+    }
+  }, [selectedDetailQuery.data]);
+
   const dirty = isDirtyGroups(groupsState);
   useUnsavedChangesGuard(dirty);
 
   const serverHosts = hostsQuery.data?.hosts ?? [];
   const loading = hostGroupsQuery.isFetching;
+  const selectedDetailLoading =
+    selectedGroupId !== null &&
+    !groupsState.visited.has(selectedGroupId) &&
+    selectedDetailQuery.isLoading;
 
   return (
     <Stack maw={1100} gap="md" pb={dirty ? 80 : undefined}>
@@ -50,6 +65,7 @@ export function HostGroupsPage() {
           state={groupsState}
           dispatch={groupsDispatch}
           serverHosts={serverHosts}
+          selectedDetailLoading={selectedDetailLoading}
         />
       )}
     </Stack>
