@@ -93,7 +93,7 @@ func toAddressHistoryResponse(history AddressHistory, geo GeoResolver) httpapi.A
 			TtlSeconds:     e.TTLSeconds,
 		}
 		if geo != nil {
-			events[i].Geo = geoInfoFromResult(geo.Resolve(e.IP))
+			events[i].Geo = httpapi.GeoInfoFromResult(geo.Resolve(e.IP))
 		}
 	}
 

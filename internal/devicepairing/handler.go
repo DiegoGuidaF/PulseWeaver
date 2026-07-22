@@ -13,14 +13,12 @@ import (
 // HTTPHandler implements the device pairing subset of httpapi.StrictServerInterface.
 type HTTPHandler struct {
 	service *Service
-	repo    *Repository
 	logger  *slog.Logger
 }
 
-func NewHTTPHandler(svc *Service, repo *Repository, logger *slog.Logger) *HTTPHandler {
+func NewHTTPHandler(svc *Service, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{
 		service: svc,
-		repo:    repo,
 		logger:  logger.With(slog.String(AttrKeyComponent, "devicepairing")),
 	}
 }

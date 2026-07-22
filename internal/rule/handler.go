@@ -15,15 +15,13 @@ import (
 // HTTPHandler handles HTTP requests for rule endpoints.
 type HTTPHandler struct {
 	ruleService *Service
-	repo        *Repository
 	logger      *slog.Logger
 }
 
 // NewHTTPHandler returns a new rule HTTP handler.
-func NewHTTPHandler(ruleService *Service, repo *Repository, logger *slog.Logger) *HTTPHandler {
+func NewHTTPHandler(ruleService *Service, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{
 		ruleService: ruleService,
-		repo:        repo,
 		logger:      logger.With(slog.String(logging.AttrKeyComponent, "rule")),
 	}
 }

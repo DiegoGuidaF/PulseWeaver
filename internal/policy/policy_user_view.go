@@ -7,7 +7,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/networkpolicies"
@@ -325,34 +324,8 @@ func enrichGeo(ips []httpapi.PolicyUserIP, geo GeoIPResolver) {
 		return
 	}
 	for i := range ips {
-		ips[i].Geo = geoInfoFromResult(geo.Resolve(ips[i].Ip))
+		ips[i].Geo = httpapi.GeoInfoFromResult(geo.Resolve(ips[i].Ip))
 	}
-}
-
-// geoInfoFromResult maps a geoip.Result to the API GeoInfo DTO, returning nil
-// when the lookup found nothing so the field is omitted from the response.
-func geoInfoFromResult(r geoip.Result) *httpapi.GeoInfo {
-	if r.IsEmpty() {
-		return nil
-	}
-	info := &httpapi.GeoInfo{}
-	if r.CountryCode != "" {
-		info.CountryCode = &r.CountryCode
-	}
-	if r.CountryName != "" {
-		info.CountryName = &r.CountryName
-	}
-	if r.ContinentCode != "" {
-		info.ContinentCode = &r.ContinentCode
-	}
-	if r.ASN != 0 {
-		asn := int64(r.ASN)
-		info.Asn = &asn
-	}
-	if r.ASNOrg != "" {
-		info.AsnOrg = &r.ASNOrg
-	}
-	return info
 }
 
 // DeriveUserStatus classifies a user along two orthogonal axes — reachability

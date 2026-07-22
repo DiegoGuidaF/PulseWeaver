@@ -36,29 +36,3 @@ func NewHTTPHandler(repo *Repository, ipProvider EnabledIPProvider, geo GeoResol
 func errorMsgResponse(msg string) httpapi.ErrorResponse {
 	return httpapi.ErrorResponse{Error: &msg}
 }
-
-// geoInfoFromResult maps a geoip.Result to the API GeoInfo DTO, returning nil
-// when the lookup found nothing so the field is omitted from the response.
-func geoInfoFromResult(r geoip.Result) *httpapi.GeoInfo {
-	if r.IsEmpty() {
-		return nil
-	}
-	info := &httpapi.GeoInfo{}
-	if r.CountryCode != "" {
-		info.CountryCode = &r.CountryCode
-	}
-	if r.CountryName != "" {
-		info.CountryName = &r.CountryName
-	}
-	if r.ContinentCode != "" {
-		info.ContinentCode = &r.ContinentCode
-	}
-	if r.ASN != 0 {
-		asn := int64(r.ASN)
-		info.Asn = &asn
-	}
-	if r.ASNOrg != "" {
-		info.AsnOrg = &r.ASNOrg
-	}
-	return info
-}

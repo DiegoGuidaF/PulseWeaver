@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
@@ -51,33 +50,7 @@ func toAddressViewResponse(a *AddressView, geo GeoResolver) httpapi.Address {
 		address.ExpiresAt = new(httpapi.UTCTime(*a.ExpiresAt))
 	}
 	if geo != nil {
-		address.Geo = geoInfoFromResult(geo.Resolve(a.IP))
+		address.Geo = httpapi.GeoInfoFromResult(geo.Resolve(a.IP))
 	}
 	return address
-}
-
-// geoInfoFromResult maps a geoip.Result to the API GeoInfo DTO, returning nil
-// when the lookup found nothing so the field is omitted from the response.
-func geoInfoFromResult(r geoip.Result) *httpapi.GeoInfo {
-	if r.IsEmpty() {
-		return nil
-	}
-	info := &httpapi.GeoInfo{}
-	if r.CountryCode != "" {
-		info.CountryCode = &r.CountryCode
-	}
-	if r.CountryName != "" {
-		info.CountryName = &r.CountryName
-	}
-	if r.ContinentCode != "" {
-		info.ContinentCode = &r.ContinentCode
-	}
-	if r.ASN != 0 {
-		asn := int64(r.ASN)
-		info.Asn = &asn
-	}
-	if r.ASNOrg != "" {
-		info.AsnOrg = &r.ASNOrg
-	}
-	return info
 }

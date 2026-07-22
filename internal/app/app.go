@@ -117,7 +117,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Device pairing
 	pairingRepo := devicepairing.NewRepository(db.DB())
 	pairingService := devicepairing.NewService(pairingRepo, db.Transactor(), deviceService, logger)
-	pairingHandler := devicepairing.NewHTTPHandler(pairingService, pairingRepo, logger)
+	pairingHandler := devicepairing.NewHTTPHandler(pairingService, logger)
 
 	// Hosts and host groups
 	hostsRepo := hosts.NewRepository(db.DB())
@@ -146,7 +146,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Rule evaluation
 	ruleRepo := rule.NewRepository(db.DB())
 	ruleService := rule.NewService(ruleRepo, logger)
-	ruleHandler := rule.NewHTTPHandler(ruleService, ruleRepo, logger)
+	ruleHandler := rule.NewHTTPHandler(ruleService, logger)
 
 	// Access log
 	accessLogRepo := accesslog.NewRepository(db.DB())

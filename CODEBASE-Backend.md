@@ -1,6 +1,6 @@
 # Backend Codebase Reference
 
-> Last updated: 2026-07-23
+> Last updated: 2026-08-05
 
 This document is the **map** of the backend codebase — what exists and where. For the system-level
 overview (layering, the API seam, request flow, single-binary build), see
@@ -54,7 +54,7 @@ repository. Cross-domain reads live in the consuming domain's own `*_view.go` fi
 | `config` | Env var parsing (`caarlos0/env/v11`); optional `.env` (godotenv). | `config.go` |
 | `database` | Single SQLite connection (sqlx, WAL, `MaxOpenConns=1`); migrations embedded via `embed.FS`. | `sqlite.go`, `db.go`, `transactor.go`, `migrations/` |
 | `httpserver` | Chi router + global middleware chain; `/api/v1` sub-router; graceful shutdown; OpenAPI security-scheme validation; build-tag-gated pprof. | `server.go`, `routes.go`, `lifecycle.go`, `authentication.go`, `middleware.go`, `contention.go` |
-| `httpapi` | `oapi-codegen` output: DTOs + strict handler interface. The contract is owned by `ARCHITECTURE.md` (schema-first, `make api`); this is only the backend's generated side. **Do not modify.** | `server.gen.go` |
+| `httpapi` | `oapi-codegen` output: DTOs + strict handler interface. The contract is owned by `ARCHITECTURE.md` (schema-first, `make api`); this is only the backend's generated side. **Never modify the `*.gen.go` files.** The package also holds hand-written companions to those DTOs — `utctime.go`, `nullable.go`, `const.go`, `context.go`, and `geo.go` (`GeoInfoFromResult`, the one `geoip.Result → GeoInfo` mapper, shared by device/queries/policy/rollup — it lives here because `geoip` is infrastructure and must not import the HTTP layer). | `server.gen.go`, `geo.go` |
 | `scheduler` | Generic periodic `Job` runner (ticks at `RULE_CHECK_INTERVAL`, `AddJob`); retention job prunes logs/events/aggregates. | `service.go`, `retention_runner.go` |
 | `logging` | slog helpers: logger-in-context (`FromCtx`/`Enrich`), canonical attribute keys, request-ID-stamping handler. | `ctx.go`, `attribute_keys.go`, `handler.go` |
 | `testdb` | In-memory SQLite for integration tests. | `setup.go` |
