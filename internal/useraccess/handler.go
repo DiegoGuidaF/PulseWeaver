@@ -13,14 +13,30 @@ import (
 
 type HTTPHandler struct {
 	service *Service
+	repo    *Repository
 	logger  *slog.Logger
 }
 
-func NewHTTPHandler(service *Service, logger *slog.Logger) *HTTPHandler {
+func NewHTTPHandler(service *Service, repo *Repository, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{
 		service: service,
+		repo:    repo,
 		logger:  logger.With(slog.String(logging.AttrKeyComponent, "useraccess")),
 	}
+}
+
+func (h *HTTPHandler) ListOwnerRefs(
+	ctx context.Context,
+	_ httpapi.ListOwnerRefsRequestObject,
+) (httpapi.ListOwnerRefsResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "ListOwnerRefs")
+
+	refs, err := h.repo.GetOwnerRefs(ctx)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "failed to list owner refs", slog.Any(logging.AttrKeyError, err))
+		return httpapi.ListOwnerRefs500JSONResponse(errResp("Failed to list owner refs")), nil
+	}
+	return httpapi.ListOwnerRefs200JSONResponse(refs), nil
 }
 
 func (h *HTTPHandler) SetUserAccess(

@@ -1,0 +1,22 @@
+ownerRefs:
+  get:
+    operationId: listOwnerRefs
+    tags:
+      - owners
+    summary: List owner references
+    description: Returns every non-deleted user as a minimal {id, display_name} reference, sorted for display. Backs owner pickers and the owner-jump select.
+    responses:
+      "200":
+        description: OK
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/schemas/devices.yaml#/OwnerRef'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'

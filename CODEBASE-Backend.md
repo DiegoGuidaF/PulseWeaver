@@ -1,6 +1,6 @@
 # Backend Codebase Reference
 
-> Last updated: 2026-07-16
+> Last updated: 2026-07-23
 
 This document is the **map** of the backend codebase — what exists and where. For the system-level
 overview (layering, the API seam, request flow, single-binary build), see
@@ -17,18 +17,18 @@ most important files across the whole backend with their purpose.
 
 | Package | Owns | Key files |
 |---------|------|-----------|
-| `device` | Core domain: devices, their addresses (IPs), and device API keys. Emits address lifecycle events; observes user lifecycle to cascade device deletion. Provides device-API-key auth middleware. | `service.go`, `addresses.go`, `device_repository.go`, `address_repository.go`, `events.go`, `middleware.go` |
+| `device` | Core domain: devices, their addresses (IPs), and device API keys. Emits address lifecycle events; observes user lifecycle to cascade device deletion. Provides device-API-key auth middleware. Serves `/devices/refs` and `/devices/{device_id}/addresses`, and exposes the batched `FleetRows` reader behind the fleet composer (`internal/queries/fleet_view.go`) — the only fleet query that knows about owner scoping. | `service.go`, `addresses.go`, `device_repository.go`, `address_repository.go`, `events.go`, `middleware.go`, `fleet_view.go`, `device_refs_view.go`, `address_view.go` |
 | `auth` | User authentication (session cookies), users, and sessions. Emits user lifecycle events; `BootstrapAdmin` ensures one admin on startup. | `service.go`, `session.go`, `cookie.go`, `middleware.go`, `principal.go` |
-| `devicepairing` | Device provisioning via short-lived pairing codes; the heartbeat client claims a code to receive a fresh device API key. Supersedes the former `registration` package. | `service.go`, `pairing.go`, `code.go`, `repository.go` |
+| `devicepairing` | Device provisioning via short-lived pairing codes; the heartbeat client claims a code to receive a fresh device API key. Supersedes the former `registration` package. Exposes the batched, device-id-keyed `PairingsForDevices` reader for the fleet composer; it knows nothing about owners. | `service.go`, `pairing.go`, `code.go`, `repository.go`, `device_pairings_view.go` |
 | `policy` | Forward-auth hot path: answers "can this IP reach this host?" from an in-memory cache (exact IP → CIDR network policy → deny). Observes address/user/host/network-policy changes; emits decisions to `accesslog`. Also serves the user-pivoted policy-map audit view (`GET /admin/policy-map`, DB-backed, per ADR-009) and the cache-backed simulate endpoint. | `service.go`, `cache.go`, `access.go`, `lifecycle.go`, `handler.go`, `decision.go`, `request.go`, `audit.go`, `observer.go`, `repository.go`, `policy_user_view.go` |
 | `hosts` | Known hosts (FQDNs) and host groups; bulk reconciliation of membership. Notifies policy on change. Also serves the host list, host-groups list, and host-group detail views (`GET /admin/access/hosts`, `/host-groups`, `/host-groups/{group_id}`, DB-backed, per ADR-009). | `service.go`, `host.go`, `host_group.go`, `reconcile_hosts.go`, `reconcile_groups.go`, `host_view.go`, `host_group_view.go` |
-| `useraccess` | Per-user host access: the bypass-host-check flag and host-group grants. Observes user lifecycle, notifies policy on grant changes. (Carved out of the former `hostaccess`.) | `service.go`, `user_access.go`, `repository.go`, `events.go` |
+| `useraccess` | Per-user host access: the bypass-host-check flag and host-group grants. Observes user lifecycle, notifies policy on grant changes. (Carved out of the former `hostaccess`.) Also serves `GET /owners/refs` and exposes `SubjectRows` — the subject identity/role/bypass/group read behind the fleet composer. | `service.go`, `user_access.go`, `repository.go`, `events.go`, `subject_view.go`, `owner_refs_view.go` |
 | `networkpolicies` | CIDR-based network policies (named ranges + own bypass flag + grants); the second match tier in `policy`. Exposes `CacheEntry` to the policy cache; notifies policy on change. Also serves the network-policy list and detail views (`GET /admin/access/network-policies[/{policy_id}]`, DB-backed, per ADR-009). | `service.go`, `network_policy.go`, `repository.go`, `events.go`, `network_policy_view.go` |
 | `lease` | Address lease TTL: disables addresses whose lease expired. Reads per-device config from `rule`; runs a `RunListener` and exposes `NewExpiryJob`. | `service.go`, `address_lease.go`, `expiry_job.go`, `repository.go` |
 | `maxaddr` | Enforces the max active addresses per device. Observes address + rule changes; runs a `RunListener`. | `service.go` |
-| `rule` | Per-device rules (lease TTL, max active address count). Emits rule change events. Read-only view joins the device domain's `addresses` table for a live count (`max_active_addresses_view.go`, per ADR-009). | `service.go`, `rule.go`, `repository.go`, `events.go`, `max_active_addresses_view.go` |
+| `rule` | Per-device rules (lease TTL, max active address count). Emits rule change events. A read-only view joins the device domain's `addresses`/`devices` tables for a live active-address count (`max_active_addresses_view.go`), per ADR-009. Exposes the batched, device-id-keyed `RulesForDevices` reader for the fleet composer; it knows nothing about owners. | `service.go`, `rule.go`, `repository.go`, `events.go`, `max_active_addresses_view.go`, `device_rules_view.go` |
 | `accesslog` | Async batch logging of policy decisions: `Sink` implements `policy.DecisionObserver`; serves audit reads (e.g. deny-reason list). | `sink.go`, `handler.go`, `repository.go` |
-| `queries` | Legacy cross-domain read side (lite CQRS), shrinking under ADR-009 as its views migrate to their owning domains; one view + handler file per surface. Folds join rows via `collate`. Still owns the host-suggestions view (shared with the dashboard's pending-suggestion count) alongside users, devices, access log, address history, and dashboard posture. | `repository.go`, `*_view.go`, `handler_*.go`, `filterx/` |
+| `queries` | Reads belonging to no single domain: the SQL-free fleet composer (`fleet_view.go`, `GET /device-fleet`) and the analytical read models over event-scale tables. Shrinking under ADR-009 as single-domain views migrate to their owning domains; one view + handler file per surface. Folds join rows via `collate`. Still owns the host-suggestions view (shared with the dashboard's pending-suggestion count) alongside users, access log, address history, and dashboard posture. | `repository.go`, `fleet_view.go`, `*_view.go`, `handler_*.go`, `filterx/` |
 | `rollup` | Hourly traffic + attribution aggregate tables; catch-up `RollupJob`; serves the dashboard read API (raw vs aggregate on `RawWindowThreshold`). | `job.go`, `traffic_rollup.go`, `traffic_reads.go`, `attribution_rollup.go`, `attribution_reads.go`, `handler.go`, `types.go` |
 | `geoip` | IP → location/ASN enrichment from an MMDB (db-ip.com); background `RunUpdater` refresh. | `lookup.go`, `updater.go`, `result.go` |
 | `health` | `GET /health` → `{"status":"ok","timestamp":…}`. | `health.go` |
@@ -85,6 +85,13 @@ principal-from-cookie → principal-from-API-key → generated strict handler.
 | `internal/device/device_repository.go` | DB queries for `devices` and `device_api_keys` |
 | `internal/device/address_repository.go` | DB queries for `addresses` and `address_events`; history SQL |
 | `internal/device/events.go` | `AddressEvent`/`EventType` + `DeviceEvent`/`DeviceEventType` — domain events emitted to observers |
+| `internal/queries/fleet_view.go` | `FleetComposer` — the SQL-free composer behind `GET /device-fleet`; consumer-side reader interfaces, stitches owners→devices→rules/pairing, sums owner aggregates |
+| `internal/useraccess/subject_view.go` | `SubjectRows` — subject identity, role/bypass_host_check (rendered, not interpreted) and host-group membership, optionally narrowed to one user |
+| `internal/useraccess/owner_refs_view.go` | `GetOwnerRefs` — flat `{id, display_name}` owner references for pickers |
+| `internal/device/fleet_view.go` | `FleetRows` — devices in list shape tagged with their owner, optionally narrowed to one owner; the only owner-scoped query in the fleet composition |
+| `internal/device/device_refs_view.go` | `GetDeviceRefs` — flat `{id, name, owner_id}` device references for pickers |
+| `internal/rule/device_rules_view.go` | `RulesForDevices` — configured rules keyed by device id; unparseable configs are skipped, not fatal |
+| `internal/devicepairing/device_pairings_view.go` | `PairingsForDevices` — latest pairing per device, keyed by device id |
 | `internal/devicepairing/service.go` | Pairing create/claim; mints a device API key on claim |
 | `internal/policy/service.go` | `Service`, constructor, provider interfaces; cache state |
 | `internal/policy/cache.go` | In-memory IP + network-policy cache rebuild; deny-wins intersection |

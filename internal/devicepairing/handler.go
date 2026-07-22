@@ -13,13 +13,15 @@ import (
 // HTTPHandler implements the device pairing subset of httpapi.StrictServerInterface.
 type HTTPHandler struct {
 	service *Service
+	repo    *Repository
 	logger  *slog.Logger
 }
 
-func NewHTTPHandler(svc *Service, logger *slog.Logger) *HTTPHandler {
+func NewHTTPHandler(svc *Service, repo *Repository, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{
 		service: svc,
-		logger:  logger.With(slog.String(logging.AttrKeyComponent, "devicepairing")),
+		repo:    repo,
+		logger:  logger.With(slog.String(AttrKeyComponent, "devicepairing")),
 	}
 }
 
@@ -33,7 +35,7 @@ func (h *HTTPHandler) ClaimPairing(ctx context.Context, request httpapi.ClaimPai
 			// Deliberately vague — do not leak whether the code was unknown, used, or expired.
 			return httpapi.ClaimPairing404JSONResponse(errorMsgResponse("Pairing code not found")), nil
 		}
-		logger.ErrorContext(ctx, "failed to claim pairing", slog.Any(logging.AttrKeyError, err))
+		logger.ErrorContext(ctx, "failed to claim pairing", slog.Any(AttrKeyError, err))
 		return httpapi.ClaimPairing500JSONResponse(errorMsgResponse("Failed to process pairing")), nil
 	}
 
@@ -69,7 +71,7 @@ func (h *HTTPHandler) CreateDevicePairing(ctx context.Context, request httpapi.C
 		ExpiresInHours:      int(body.ExpiresInHours),
 	})
 	if err != nil {
-		logger.ErrorContext(ctx, "failed to create device pairing", slog.Any(logging.AttrKeyError, err))
+		logger.ErrorContext(ctx, "failed to create device pairing", slog.Any(AttrKeyError, err))
 		return httpapi.CreateDevicePairing500JSONResponse(errorMsgResponse("Failed to create device pairing")), nil
 	}
 
@@ -87,7 +89,7 @@ func (h *HTTPHandler) ListDevicePairings(ctx context.Context, request httpapi.Li
 
 	pairings, err := h.service.ListPairings(ctx, filter)
 	if err != nil {
-		logger.ErrorContext(ctx, "failed to list device pairings", slog.Any(logging.AttrKeyError, err))
+		logger.ErrorContext(ctx, "failed to list device pairings", slog.Any(AttrKeyError, err))
 		return httpapi.ListDevicePairings500JSONResponse(errorMsgResponse("Failed to list device pairings")), nil
 	}
 
@@ -107,7 +109,7 @@ func (h *HTTPHandler) DeleteDevicePairing(ctx context.Context, request httpapi.D
 		if errors.Is(err, ErrPairingNotFound) {
 			return httpapi.DeleteDevicePairing404JSONResponse(errorMsgResponse("Device pairing not found")), nil
 		}
-		logger.ErrorContext(ctx, "failed to delete device pairing", slog.Any(logging.AttrKeyError, err))
+		logger.ErrorContext(ctx, "failed to delete device pairing", slog.Any(AttrKeyError, err))
 		return httpapi.DeleteDevicePairing500JSONResponse(errorMsgResponse("Failed to delete device pairing")), nil
 	}
 

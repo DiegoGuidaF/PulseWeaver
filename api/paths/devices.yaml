@@ -1,25 +1,4 @@
 devices:
-  get:
-    operationId: getDevices
-    tags:
-      - devices
-    summary: List all devices grouped by owner
-    description: Returns all devices grouped by their owning user. Each group includes owner metadata (host groups, bypass flag, aggregate counts) and the devices' live-address counts, rule summaries, and derived state.
-    responses:
-      "200":
-        description: OK
-        content:
-          application/json:
-            schema:
-              type: array
-              items:
-                $ref: '../components/schemas/devices.yaml#/DeviceOwnerGroup'
-      "500":
-        description: Internal Server Error
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/common.yaml#/ErrorResponse'
   post:
     operationId: createDevice
     tags:
@@ -52,6 +31,64 @@ devices:
           application/json:
             schema:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+deviceRefs:
+  get:
+    operationId: listDeviceRefs
+    tags:
+      - devices
+    summary: List device references
+    description: Returns every non-deleted device as a flat {id, name, owner_id} reference, for device pickers and the device→owner reverse lookup.
+    responses:
+      "200":
+        description: OK
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/schemas/devices.yaml#/DeviceRef'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+deviceFleet:
+  get:
+    operationId: getDeviceFleet
+    tags:
+      - owners
+    summary: List owners with their device fleets
+    description: >
+      Returns every owner with their devices, each device carrying its rules and
+      latest pairing. Serves both the fleet list page (no parameter) and a single
+      owner's detail page (owner_id), which returns the same group content narrowed
+      to one owner. An owner_id that resolves to no user yields an empty array, not
+      a 404 — an owner with no devices is a group with an empty devices list.
+    parameters:
+      - name: owner_id
+        in: query
+        description: Restrict the response to a single owner.
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+    responses:
+      "200":
+        description: OK
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/schemas/devices.yaml#/OwnerFleetGroup'
       "500":
         description: Internal Server Error
         content:

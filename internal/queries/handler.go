@@ -19,14 +19,16 @@ type HTTPHandler struct {
 	repo       *Repository
 	ipProvider EnabledIPProvider
 	geo        GeoResolver
+	fleet      *FleetComposer
 	logger     *slog.Logger
 }
 
-func NewHTTPHandler(repo *Repository, ipProvider EnabledIPProvider, geo GeoResolver, logger *slog.Logger) *HTTPHandler {
+func NewHTTPHandler(repo *Repository, ipProvider EnabledIPProvider, geo GeoResolver, fleet *FleetComposer, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{
 		repo:       repo,
 		ipProvider: ipProvider,
 		geo:        geo,
+		fleet:      fleet,
 		logger:     logger.With(slog.String(logging.AttrKeyComponent, "queries")),
 	}
 }

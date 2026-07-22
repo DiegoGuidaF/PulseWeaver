@@ -46,6 +46,10 @@ paths:
   # --------------------
   /devices:
     $ref: './paths/devices.yaml#/devices'
+  /devices/refs:
+    $ref: './paths/devices.yaml#/deviceRefs'
+  /device-fleet:
+    $ref: './paths/devices.yaml#/deviceFleet'
   /devices/{device_id}:
     $ref: './paths/devices.yaml#/deviceById'
   /devices/{device_id}/api-key:
@@ -60,6 +64,12 @@ paths:
     $ref: './paths/devices.yaml#/heartbeatById'
   /heartbeat:
     $ref: './paths/devices.yaml#/heartbeat'
+
+  # --------------------
+  # Owner Endpoints
+  # --------------------
+  /owners/refs:
+    $ref: './paths/owners.yaml#/ownerRefs'
 
   # --------------------
   # Address Endpoints
@@ -225,14 +235,16 @@ components:
       $ref: './components/schemas/devices.yaml#/DeviceState'
     DeviceRuleSummary:
       $ref: './components/schemas/devices.yaml#/DeviceRuleSummary'
-    DevicePairingSummary:
-      $ref: './components/schemas/devices.yaml#/DevicePairingSummary'
-    DeviceListEntry:
-      $ref: './components/schemas/devices.yaml#/DeviceListEntry'
-    DeviceListOwner:
-      $ref: './components/schemas/devices.yaml#/DeviceListOwner'
-    DeviceOwnerGroup:
-      $ref: './components/schemas/devices.yaml#/DeviceOwnerGroup'
+    FleetDevice:
+      $ref: './components/schemas/devices.yaml#/FleetDevice'
+    OwnerFleetGroup:
+      $ref: './components/schemas/devices.yaml#/OwnerFleetGroup'
+    OwnerSummary:
+      $ref: './components/schemas/devices.yaml#/OwnerSummary'
+    OwnerRef:
+      $ref: './components/schemas/devices.yaml#/OwnerRef'
+    DeviceRef:
+      $ref: './components/schemas/devices.yaml#/DeviceRef'
 
     # --------------------
     # Addresses
@@ -311,6 +323,8 @@ components:
       $ref: './components/schemas/device-pairing.yaml#/ClaimPairingRequest'
     ClaimPairingResponse:
       $ref: './components/schemas/device-pairing.yaml#/ClaimPairingResponse'
+    DevicePairingSummary:
+      $ref: './components/schemas/device-pairing.yaml#/DevicePairingSummary'
 
     # --------------------
     # Network Policies

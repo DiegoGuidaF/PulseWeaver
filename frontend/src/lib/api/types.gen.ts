@@ -233,19 +233,17 @@ export type DeviceApiKeyResponse = {
 };
 
 /**
- * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+ * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept.
  *
  */
 export const DeviceState = {
   HEALTHY: "healthy",
   STALE: "stale",
   DISABLED: "disabled",
-  PENDING_CLAIM: "pending-claim",
-  EXPIRED_CLAIM: "expired-claim",
 } as const;
 
 /**
- * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+ * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept.
  *
  */
 export type DeviceState = (typeof DeviceState)[keyof typeof DeviceState];
@@ -263,25 +261,20 @@ export type DeviceRuleSummary = {
   limit?: number | null;
 };
 
-export type DevicePairingSummary = {
-  status: DevicePairingStatus;
-  /**
-   * When the pairing code expires (or expired).
-   */
-  expires_at: string;
-  /**
-   * When the status last changed.
-   */
-  updated_at: string;
-};
-
-export type DeviceListEntry = {
+/**
+ * One device of an owner's fleet, with its rules and latest pairing nested. Presentation-ready — the client joins nothing.
+ */
+export type FleetDevice = {
   id: Id;
   name: string;
   /**
    * Tabler icon name override.
    */
   icon?: string | null;
+  /**
+   * Free-form note about the device.
+   */
+  description?: string | null;
   /**
    * First characters of the API key (display only).
    */
@@ -296,30 +289,64 @@ export type DeviceListEntry = {
   last_seen_at?: string | null;
   state: DeviceState;
   live_address_count: number;
+  /**
+   * Configured rules for this device; empty when none are configured.
+   */
   rules: Array<DeviceRuleSummary>;
+  /**
+   * Latest pairing for this device, or null when it has never been paired.
+   */
   pairing?: DevicePairingSummary | null;
 };
 
-export type DeviceListOwner = {
-  id: Id;
-  username: string;
-  display_name: string;
-  role: UserRole;
-  bypass_host_check: boolean;
-  /**
-   * Host groups the owner belongs to. Always returned; frontend hides them when bypass_host_check is true.
-   */
-  host_groups: Array<GroupSummary>;
-  device_count: number;
-  /**
-   * Aggregate count of live addresses across all owner's devices.
-   */
-  live_address_count: number;
+/**
+ * One owner with their whole device fleet. An owner with no devices is a group with an empty devices list; an owner id that resolves to nothing yields no group at all.
+ */
+export type OwnerFleetGroup = {
+  owner: OwnerSummary;
+  devices: Array<FleetDevice>;
 };
 
-export type DeviceOwnerGroup = {
-  owner: DeviceListOwner;
-  devices: Array<DeviceListEntry>;
+/**
+ * A device owner (user) with server-computed device/address aggregates, heading their fleet group.
+ */
+export type OwnerSummary = {
+  id: Id;
+  display_name: string;
+  /**
+   * The owner's role (display only — renders the admin badge).
+   */
+  role: UserRole;
+  /**
+   * Whether this owner bypasses the per-host allowlist entirely (display only — renders the "All hosts" badge).
+   */
+  bypass_host_check: boolean;
+  device_count: number;
+  /**
+   * Aggregate count of live addresses across all of this owner's devices.
+   */
+  live_address_count: number;
+  /**
+   * Host groups the owner belongs to.
+   */
+  host_groups: Array<GroupSummary>;
+};
+
+/**
+ * Minimal owner reference for pickers and the owner-jump select.
+ */
+export type OwnerRef = {
+  id: Id;
+  display_name: string;
+};
+
+/**
+ * Minimal device reference for pickers and the device→owner reverse lookup.
+ */
+export type DeviceRef = {
+  id: Id;
+  name: string;
+  owner_id: Id;
 };
 
 export type AddAddressRequest = {
@@ -719,6 +746,17 @@ export type ClaimPairingResponse = {
    * Plaintext device API key — one time only.
    */
   api_key: string;
+};
+
+/**
+ * Latest pairing for one device, nested on the device it belongs to.
+ */
+export type DevicePairingSummary = {
+  status: DevicePairingStatus;
+  /**
+   * When the pairing code expires (or expired).
+   */
+  expires_at: string;
 };
 
 /**
@@ -1864,31 +1902,6 @@ export type ChangePasswordResponses = {
 export type ChangePasswordResponse =
   ChangePasswordResponses[keyof ChangePasswordResponses];
 
-export type GetDevicesData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: "/devices";
-};
-
-export type GetDevicesErrors = {
-  /**
-   * Internal Server Error
-   */
-  500: ErrorResponse;
-};
-
-export type GetDevicesError = GetDevicesErrors[keyof GetDevicesErrors];
-
-export type GetDevicesResponses = {
-  /**
-   * OK
-   */
-  200: Array<DeviceOwnerGroup>;
-};
-
-export type GetDevicesResponse = GetDevicesResponses[keyof GetDevicesResponses];
-
 export type CreateDeviceData = {
   /**
    * Device creation request
@@ -1925,6 +1938,65 @@ export type CreateDeviceResponses = {
 
 export type CreateDeviceResponse =
   CreateDeviceResponses[keyof CreateDeviceResponses];
+
+export type ListDeviceRefsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/devices/refs";
+};
+
+export type ListDeviceRefsErrors = {
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type ListDeviceRefsError =
+  ListDeviceRefsErrors[keyof ListDeviceRefsErrors];
+
+export type ListDeviceRefsResponses = {
+  /**
+   * OK
+   */
+  200: Array<DeviceRef>;
+};
+
+export type ListDeviceRefsResponse =
+  ListDeviceRefsResponses[keyof ListDeviceRefsResponses];
+
+export type GetDeviceFleetData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Restrict the response to a single owner.
+     */
+    owner_id?: Id;
+  };
+  url: "/device-fleet";
+};
+
+export type GetDeviceFleetErrors = {
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type GetDeviceFleetError =
+  GetDeviceFleetErrors[keyof GetDeviceFleetErrors];
+
+export type GetDeviceFleetResponses = {
+  /**
+   * OK
+   */
+  200: Array<OwnerFleetGroup>;
+};
+
+export type GetDeviceFleetResponse =
+  GetDeviceFleetResponses[keyof GetDeviceFleetResponses];
 
 export type DeleteDeviceData = {
   body?: never;
@@ -2240,6 +2312,32 @@ export type DeviceHeartbeatByApiKeyResponses = {
 
 export type DeviceHeartbeatByApiKeyResponse =
   DeviceHeartbeatByApiKeyResponses[keyof DeviceHeartbeatByApiKeyResponses];
+
+export type ListOwnerRefsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/owners/refs";
+};
+
+export type ListOwnerRefsErrors = {
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type ListOwnerRefsError = ListOwnerRefsErrors[keyof ListOwnerRefsErrors];
+
+export type ListOwnerRefsResponses = {
+  /**
+   * OK
+   */
+  200: Array<OwnerRef>;
+};
+
+export type ListOwnerRefsResponse =
+  ListOwnerRefsResponses[keyof ListOwnerRefsResponses];
 
 export type GetDeviceAddressesData = {
   body?: never;

@@ -103,21 +103,21 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	authService := auth.NewService(authRepo, db.Transactor(), logger)
 	authHandler := auth.NewHandler(authService, logger)
 
-	// Device & addresses management
-	deviceRepo := device.NewRepository(db.DB())
-	deviceService := device.NewService(deviceRepo, db.Transactor(), logger, conf.Server.TrustedProxy)
-	deviceHandler := device.NewHTTPHandler(deviceService, logger)
-
-	// Device pairing
-	pairingRepo := devicepairing.NewRepository(db.DB())
-	pairingService := devicepairing.NewService(pairingRepo, db.Transactor(), deviceService, logger)
-	pairingHandler := devicepairing.NewHTTPHandler(pairingService, logger)
-
 	// GeoIP enrichment
 	geoipLookup, err := geoip.New(ctx, conf.GeoIP, logger)
 	if err != nil {
 		return nil, fmt.Errorf("geoip init: %w", err)
 	}
+
+	// Device & addresses management
+	deviceRepo := device.NewRepository(db.DB())
+	deviceService := device.NewService(deviceRepo, db.Transactor(), logger, conf.Server.TrustedProxy)
+	deviceHandler := device.NewHTTPHandler(deviceService, deviceRepo, geoipLookup, logger)
+
+	// Device pairing
+	pairingRepo := devicepairing.NewRepository(db.DB())
+	pairingService := devicepairing.NewService(pairingRepo, db.Transactor(), deviceService, logger)
+	pairingHandler := devicepairing.NewHTTPHandler(pairingService, pairingRepo, logger)
 
 	// Hosts and host groups
 	hostsRepo := hosts.NewRepository(db.DB())
@@ -127,7 +127,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// User host-access grants
 	userAccessRepo := useraccess.NewRepository(db.DB())
 	userAccessService := useraccess.NewService(userAccessRepo, db.Transactor(), logger)
-	userAccessHandler := useraccess.NewHTTPHandler(userAccessService, logger)
+	userAccessHandler := useraccess.NewHTTPHandler(userAccessService, userAccessRepo, logger)
 
 	// Network Policies
 	networkPoliciesRepo := networkpolicies.NewRepository(db.DB())
@@ -146,7 +146,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	// Rule evaluation
 	ruleRepo := rule.NewRepository(db.DB())
 	ruleService := rule.NewService(ruleRepo, logger)
-	ruleHandler := rule.NewHTTPHandler(ruleService, logger)
+	ruleHandler := rule.NewHTTPHandler(ruleService, ruleRepo, logger)
 
 	// Access log
 	accessLogRepo := accesslog.NewRepository(db.DB())
@@ -154,7 +154,8 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Queries - Manage complex crossdomain queries tailored for the frontend
 	queriesRepo := queries.NewRepository(db.DB())
-	queriesHandler := queries.NewHTTPHandler(queriesRepo, deviceService, geoipLookup, logger)
+	fleetComposer := queries.NewFleetComposer(userAccessRepo, deviceRepo, ruleRepo, pairingRepo)
+	queriesHandler := queries.NewHTTPHandler(queriesRepo, deviceService, geoipLookup, fleetComposer, logger)
 
 	// Address Lease manager
 	addressLeaseRepo := lease.NewRepository(db.DB())

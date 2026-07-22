@@ -1,6 +1,6 @@
 //go:build test
 
-package queries
+package device
 
 import (
 	"testing"
@@ -45,32 +45,43 @@ func TestGeoInfoFromResult_PopulatesSetFieldsOnly(t *testing.T) {
 	is.Equal(*asnOnly.AsnOrg, "Cloudflare, Inc.")
 }
 
-func TestToAddressHistoryResponse_EnrichesEventGeo(t *testing.T) {
+func TestToAddressViewResponse_EnrichesGeo(t *testing.T) {
 	is := is.New(t)
 
 	geo := fakeGeoResolver{
 		"1.1.1.1": {CountryCode: "AU", CountryName: "Australia", ContinentCode: "OC", ASN: 13335, ASNOrg: "Cloudflare, Inc."},
 	}
-	history := AddressHistory{
-		Events: []AddressEventView{
-			{ID: 1, IP: "1.1.1.1", Source: "heartbeat", CreatedAt: baseTime},
-			{ID: 2, IP: "10.0.0.1", Source: "manual", CreatedAt: baseTime},
-		},
+	view := &AddressView{
+		ID:        1,
+		DeviceID:  2,
+		IP:        "1.1.1.1",
+		IsEnabled: true,
+		Source:    "heartbeat",
+		CreatedAt: baseTime,
+		UpdatedAt: baseTime,
 	}
 
-	resp := toAddressHistoryResponse(history, geo)
-	is.True(resp.Events[0].Geo != nil)
-	is.Equal(*resp.Events[0].Geo.CountryCode, "AU")
-	// Private/unresolvable IP leaves geo omitted.
-	is.Equal(resp.Events[1].Geo, (*httpapi.GeoInfo)(nil))
+	addr := toAddressViewResponse(view, geo)
+	is.True(addr.Geo != nil)
+	is.Equal(*addr.Geo.CountryCode, "AU")
+	is.Equal(*addr.Geo.AsnOrg, "Cloudflare, Inc.")
 }
 
-func TestToAddressHistoryResponse_NilResolverOmitsGeo(t *testing.T) {
+func TestToAddressViewResponse_PrivateIPOmitsGeo(t *testing.T) {
 	is := is.New(t)
 
-	history := AddressHistory{
-		Events: []AddressEventView{{ID: 1, IP: "1.1.1.1", Source: "manual", CreatedAt: baseTime}},
-	}
-	resp := toAddressHistoryResponse(history, nil)
-	is.Equal(resp.Events[0].Geo, (*httpapi.GeoInfo)(nil))
+	// Resolver returns empty for an unknown/private IP — geo is omitted.
+	geo := fakeGeoResolver{}
+	view := &AddressView{IP: "10.0.0.1", Source: "manual", CreatedAt: baseTime, UpdatedAt: baseTime}
+
+	addr := toAddressViewResponse(view, geo)
+	is.Equal(addr.Geo, (*httpapi.GeoInfo)(nil))
+}
+
+func TestToAddressViewResponse_NilResolverOmitsGeo(t *testing.T) {
+	is := is.New(t)
+
+	view := &AddressView{IP: "1.1.1.1", Source: "manual", CreatedAt: baseTime, UpdatedAt: baseTime}
+	addr := toAddressViewResponse(view, nil)
+	is.Equal(addr.Geo, (*httpapi.GeoInfo)(nil))
 }

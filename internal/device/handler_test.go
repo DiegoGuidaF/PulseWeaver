@@ -218,8 +218,9 @@ func TestHandler_DeleteDevice_204(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(deleteResp.StatusCode(), http.StatusNoContent)
 
-	// Device no longer in list; admin owner remains with zero devices.
-	listResp, err := client.GetDevicesWithResponse(ctx)
+	// Device no longer in the admin owner's device list.
+	adminID := testutils.AdminPrincipal(t, testServer).UserID
+	listResp, err := client.GetDeviceFleetWithResponse(ctx, &httpapi.GetDeviceFleetParams{OwnerId: new(adminID.Int64())})
 	is.NoErr(err)
 	is.Equal(listResp.StatusCode(), http.StatusOK)
 	groups := *listResp.JSON200
@@ -285,11 +286,12 @@ func TestHandler_DisableDevice_200(t *testing.T) {
 	is.True(body.DisabledAt != nil)   // flag stamped
 	is.True(body.ApiKeyPrefix != nil) // API key is kept — disable is a freeze, not a de-credentialing
 
-	// Device shows as disabled in the list.
-	listResp, err := client.GetDevicesWithResponse(ctx)
+	// Device shows as disabled in the owner's device list.
+	adminID := testutils.AdminPrincipal(t, testServer).UserID
+	listResp, err := client.GetDeviceFleetWithResponse(ctx, &httpapi.GetDeviceFleetParams{OwnerId: new(adminID.Int64())})
 	is.NoErr(err)
-	groups := *listResp.JSON200
-	is.Equal(groups[0].Devices[0].State, httpapi.Disabled)
+	devices := (*listResp.JSON200)[0].Devices
+	is.Equal(devices[0].State, httpapi.Disabled)
 }
 
 func TestHandler_DisableDevice_404(t *testing.T) {

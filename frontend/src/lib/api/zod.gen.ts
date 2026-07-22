@@ -159,16 +159,27 @@ export const zDeviceApiKeyResponse = z.object({
 });
 
 /**
- * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+ * Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept.
  *
  */
-export const zDeviceState = z.enum([
-  "healthy",
-  "stale",
-  "disabled",
-  "pending-claim",
-  "expired-claim",
-]);
+export const zDeviceState = z.enum(["healthy", "stale", "disabled"]);
+
+/**
+ * Minimal owner reference for pickers and the owner-jump select.
+ */
+export const zOwnerRef = z.object({
+  id: zId,
+  display_name: z.string(),
+});
+
+/**
+ * Minimal device reference for pickers and the device→owner reverse lookup.
+ */
+export const zDeviceRef = z.object({
+  id: zId,
+  name: z.string(),
+  owner_id: zId,
+});
 
 export const zAddAddressRequest = z.object({
   ip: zIpAddress,
@@ -486,15 +497,17 @@ export const zGroupSummary = z.object({
   icon: z.string(),
 });
 
-export const zDeviceListOwner = z.object({
+/**
+ * A device owner (user) with server-computed device/address aggregates, heading their fleet group.
+ */
+export const zOwnerSummary = z.object({
   id: zId,
-  username: z.string(),
   display_name: z.string(),
   role: zUserRole,
   bypass_host_check: z.boolean(),
-  host_groups: z.array(zGroupSummary),
   device_count: z.int().gte(0),
   live_address_count: z.int().gte(0),
+  host_groups: z.array(zGroupSummary),
 });
 
 /**
@@ -742,30 +755,6 @@ export const zDevicePairingStatus = z.enum([
   "replaced",
 ]);
 
-export const zDevicePairingSummary = z.object({
-  status: zDevicePairingStatus,
-  expires_at: z.iso.datetime({ offset: true, local: true }),
-  updated_at: z.iso.datetime({ offset: true, local: true }),
-});
-
-export const zDeviceListEntry = z.object({
-  id: zId,
-  name: z.string(),
-  icon: z.string().nullish(),
-  api_key_prefix: z.string().nullish(),
-  created_at: z.iso.datetime({ offset: true, local: true }),
-  last_seen_at: z.iso.datetime({ offset: true, local: true }).nullish(),
-  state: zDeviceState,
-  live_address_count: z.int().gte(0),
-  rules: z.array(zDeviceRuleSummary),
-  pairing: zDevicePairingSummary.nullish(),
-});
-
-export const zDeviceOwnerGroup = z.object({
-  owner: zDeviceListOwner,
-  devices: z.array(zDeviceListEntry),
-});
-
 export const zDevicePairing = z.object({
   id: zId,
   pairing_code: z.string(),
@@ -777,6 +766,39 @@ export const zDevicePairing = z.object({
   created_at: z.iso.datetime({ offset: true, local: true }),
   updated_at: z.iso.datetime({ offset: true, local: true }),
   status: zDevicePairingStatus,
+});
+
+/**
+ * Latest pairing for one device, nested on the device it belongs to.
+ */
+export const zDevicePairingSummary = z.object({
+  status: zDevicePairingStatus,
+  expires_at: z.iso.datetime({ offset: true, local: true }),
+});
+
+/**
+ * One device of an owner's fleet, with its rules and latest pairing nested. Presentation-ready — the client joins nothing.
+ */
+export const zFleetDevice = z.object({
+  id: zId,
+  name: z.string(),
+  icon: z.string().nullish(),
+  description: z.string().max(200).nullish(),
+  api_key_prefix: z.string().nullish(),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  last_seen_at: z.iso.datetime({ offset: true, local: true }).nullish(),
+  state: zDeviceState,
+  live_address_count: z.int().gte(0),
+  rules: z.array(zDeviceRuleSummary),
+  pairing: zDevicePairingSummary.nullish(),
+});
+
+/**
+ * One owner with their whole device fleet. An owner with no devices is a group with an empty devices list; an owner id that resolves to nothing yields no group at all.
+ */
+export const zOwnerFleetGroup = z.object({
+  owner: zOwnerSummary,
+  devices: z.array(zFleetDevice),
 });
 
 /**
@@ -1131,11 +1153,6 @@ export const zChangePasswordBody = zChangePasswordRequest;
 export const zChangePasswordResponse = z.void();
 
 /**
- * OK
- */
-export const zGetDevicesResponse = z.array(zDeviceOwnerGroup);
-
-/**
  * Device creation request
  */
 export const zCreateDeviceBody = zCreateDeviceRequest;
@@ -1144,6 +1161,20 @@ export const zCreateDeviceBody = zCreateDeviceRequest;
  * Created
  */
 export const zCreateDeviceResponse = zCreateDeviceResult;
+
+/**
+ * OK
+ */
+export const zListDeviceRefsResponse = z.array(zDeviceRef);
+
+export const zGetDeviceFleetQuery = z.object({
+  owner_id: zId.optional(),
+});
+
+/**
+ * OK
+ */
+export const zGetDeviceFleetResponse = z.array(zOwnerFleetGroup);
 
 export const zDeleteDevicePath = z.object({
   device_id: zId,
@@ -1214,6 +1245,11 @@ export const zDeviceHeartbeatResponse = zAddress;
  * Address enabled
  */
 export const zDeviceHeartbeatByApiKeyResponse = zAddress;
+
+/**
+ * OK
+ */
+export const zListOwnerRefsResponse = z.array(zOwnerRef);
 
 export const zGetDeviceAddressesPath = z.object({
   device_id: zId,

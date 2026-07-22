@@ -8,6 +8,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rule"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
@@ -189,4 +190,45 @@ func TestRepository_EnableMaxActiveAddressesRuleConfig_NonExistentDevice(t *test
 	is.True(err != nil)
 	is.Equal(err, device.ErrDeviceNotFound)
 	is.True(r == nil)
+}
+
+// TestRepository_RulesForDevices_SkipsUnparseableConfig covers the documented
+// degradation: a row whose stored config no longer parses is dropped from the
+// batch, and the device still renders with its remaining valid rules rather
+// than the whole request failing. Only raw SQL can produce such a row — the
+// service validates every config it writes. The truncated config is inserted as
+// a []byte because json.RawMessage cannot scan a TEXT value.
+func TestRepository_RulesForDevices_SkipsUnparseableConfig(t *testing.T) {
+	is := is.New(t)
+	repo, db := setupRuleTestDB(t)
+	ctx := context.Background()
+
+	dev := insertDevice(t, db, ctx, "broken-config-device")
+	cfg, err := rule.NewMaxActiveAddressesConfig(4)
+	is.NoErr(err)
+	_, err = repo.EnableMaxActiveAddressesRuleConfig(ctx, dev.ID, cfg)
+	is.NoErr(err)
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO device_rules (device_id, rule_type, enabled, config) VALUES (?, ?, 1, ?)`,
+		dev.ID, rule.RuleTypeDeviceAddressLease, []byte(`{"ttl_seconds":`))
+	is.NoErr(err)
+
+	byDevice, err := repo.RulesForDevices(ctx, []ids.DeviceID{dev.ID})
+
+	is.NoErr(err)
+	is.Equal(len(byDevice), 1)
+	is.Equal(len(byDevice[dev.ID]), 1)
+	is.Equal(byDevice[dev.ID][0].Type, httpapi.MaxActive)
+}
+
+// TestRepository_RulesForDevices_NoDevices_SkipsQuery guards the empty-slice
+// path: an owner with no devices must not reach SQL with an empty IN list.
+func TestRepository_RulesForDevices_NoDevices_SkipsQuery(t *testing.T) {
+	is := is.New(t)
+	repo, _ := setupRuleTestDB(t)
+
+	byDevice, err := repo.RulesForDevices(context.Background(), nil)
+
+	is.NoErr(err)
+	is.Equal(len(byDevice), 0)
 }

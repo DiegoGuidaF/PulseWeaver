@@ -7,19 +7,31 @@ import (
 	"log/slog"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
+// GeoResolver resolves an IP to geographic and ASN data. Declared on the
+// consumer side (Go convention); *geoip.Lookup satisfies it. A nil resolver is
+// valid — enrichment is skipped.
+type GeoResolver interface {
+	Resolve(ip string) geoip.Result
+}
+
 type HTTPHandler struct {
 	service *Service
+	repo    *Repository
+	geo     GeoResolver
 	logger  *slog.Logger
 }
 
-func NewHTTPHandler(service *Service, logger *slog.Logger) *HTTPHandler {
+func NewHTTPHandler(service *Service, repo *Repository, geo GeoResolver, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{
 		service: service,
+		repo:    repo,
+		geo:     geo,
 		logger:  logger.With(slog.String(logging.AttrKeyComponent, "device")),
 	}
 }

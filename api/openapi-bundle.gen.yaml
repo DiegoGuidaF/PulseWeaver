@@ -379,27 +379,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /devices:
-    get:
-      operationId: getDevices
-      tags:
-        - devices
-      summary: List all devices grouped by owner
-      description: Returns all devices grouped by their owning user. Each group includes owner metadata (host groups, bypass flag, aggregate counts) and the devices' live-address counts, rule summaries, and derived state.
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DeviceOwnerGroup'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: createDevice
       tags:
@@ -432,6 +411,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /devices/refs:
+    get:
+      operationId: listDeviceRefs
+      tags:
+        - devices
+      summary: List device references
+      description: Returns every non-deleted device as a flat {id, name, owner_id} reference, for device pickers and the device→owner reverse lookup.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceRef'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /device-fleet:
+    get:
+      operationId: getDeviceFleet
+      tags:
+        - owners
+      summary: List owners with their device fleets
+      description: |
+        Returns every owner with their devices, each device carrying its rules and latest pairing. Serves both the fleet list page (no parameter) and a single owner's detail page (owner_id), which returns the same group content narrowed to one owner. An owner_id that resolves to no user yields an empty array, not a 404 — an owner with no devices is a group with an empty devices list.
+      parameters:
+        - name: owner_id
+          in: query
+          description: Restrict the response to a single owner.
+          required: false
+          schema:
+            $ref: '#/components/schemas/ID'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OwnerFleetGroup'
         '500':
           description: Internal Server Error
           content:
@@ -746,6 +777,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /owners/refs:
+    get:
+      operationId: listOwnerRefs
+      tags:
+        - owners
+      summary: List owner references
+      description: Returns every non-deleted user as a minimal {id, display_name} reference, sorted for display. Backs owner pickers and the owner-jump select.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OwnerRef'
         '500':
           description: Internal Server Error
           content:
@@ -3017,10 +3070,8 @@ components:
         - healthy
         - stale
         - disabled
-        - pending-claim
-        - expired-claim
       description: |
-        Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept. pending-claim / expired-claim: awaiting or failed device pairing (future feature).
+        Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept.
     DeviceRuleSummary:
       type: object
       required:
@@ -3039,26 +3090,7 @@ components:
           type: integer
           nullable: true
           description: Maximum allowed live-address count. Present for max_active rules.
-    DevicePairingSummary:
-      type: object
-      required:
-        - status
-        - expires_at
-        - updated_at
-      properties:
-        status:
-          $ref: '#/components/schemas/DevicePairingStatus'
-        expires_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
-          description: When the pairing code expires (or expired).
-        updated_at:
-          type: string
-          format: date-time
-          x-go-type: UTCTime
-          description: When the status last changed.
-    DeviceListEntry:
+    FleetDevice:
       type: object
       required:
         - id
@@ -3067,6 +3099,7 @@ components:
         - state
         - live_address_count
         - rules
+      description: One device of an owner's fleet, with its rules and latest pairing nested. Presentation-ready — the client joins nothing.
       properties:
         id:
           $ref: '#/components/schemas/ID'
@@ -3076,6 +3109,11 @@ components:
           type: string
           nullable: true
           description: Tabler icon name override.
+        description:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: Free-form note about the device.
         api_key_prefix:
           type: string
           nullable: true
@@ -3098,58 +3136,87 @@ components:
           minimum: 0
         rules:
           type: array
+          description: Configured rules for this device; empty when none are configured.
           items:
             $ref: '#/components/schemas/DeviceRuleSummary'
         pairing:
-          nullable: true
           allOf:
             - $ref: '#/components/schemas/DevicePairingSummary'
-    DeviceListOwner:
+          nullable: true
+          description: Latest pairing for this device, or null when it has never been paired.
+    OwnerFleetGroup:
+      type: object
+      required:
+        - owner
+        - devices
+      description: One owner with their whole device fleet. An owner with no devices is a group with an empty devices list; an owner id that resolves to nothing yields no group at all.
+      properties:
+        owner:
+          $ref: '#/components/schemas/OwnerSummary'
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/FleetDevice'
+    OwnerSummary:
       type: object
       required:
         - id
-        - username
         - display_name
         - role
         - bypass_host_check
-        - host_groups
         - device_count
         - live_address_count
+        - host_groups
+      description: A device owner (user) with server-computed device/address aggregates, heading their fleet group.
       properties:
         id:
           $ref: '#/components/schemas/ID'
-        username:
-          type: string
         display_name:
           type: string
         role:
-          $ref: '#/components/schemas/UserRole'
+          allOf:
+            - $ref: '#/components/schemas/UserRole'
+          description: The owner's role (display only — renders the admin badge).
         bypass_host_check:
           type: boolean
-        host_groups:
-          type: array
-          items:
-            $ref: '#/components/schemas/GroupSummary'
-          description: Host groups the owner belongs to. Always returned; frontend hides them when bypass_host_check is true.
+          description: Whether this owner bypasses the per-host allowlist entirely (display only — renders the "All hosts" badge).
         device_count:
           type: integer
           minimum: 0
         live_address_count:
           type: integer
           minimum: 0
-          description: Aggregate count of live addresses across all owner's devices.
-    DeviceOwnerGroup:
-      type: object
-      required:
-        - owner
-        - devices
-      properties:
-        owner:
-          $ref: '#/components/schemas/DeviceListOwner'
-        devices:
+          description: Aggregate count of live addresses across all of this owner's devices.
+        host_groups:
           type: array
           items:
-            $ref: '#/components/schemas/DeviceListEntry'
+            $ref: '#/components/schemas/GroupSummary'
+          description: Host groups the owner belongs to.
+    OwnerRef:
+      type: object
+      required:
+        - id
+        - display_name
+      description: Minimal owner reference for pickers and the owner-jump select.
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        display_name:
+          type: string
+    DeviceRef:
+      type: object
+      required:
+        - id
+        - name
+        - owner_id
+      description: Minimal device reference for pickers and the device→owner reverse lookup.
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        name:
+          type: string
+        owner_id:
+          $ref: '#/components/schemas/ID'
     AddAddressRequest:
       required:
         - ip
@@ -3767,6 +3834,20 @@ components:
         api_key:
           type: string
           description: Plaintext device API key — one time only.
+    DevicePairingSummary:
+      type: object
+      required:
+        - status
+        - expires_at
+      description: Latest pairing for one device, nested on the device it belongs to.
+      properties:
+        status:
+          $ref: '#/components/schemas/DevicePairingStatus'
+        expires_at:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+          description: When the pairing code expires (or expired).
     NetworkPolicyListItem:
       type: object
       required:

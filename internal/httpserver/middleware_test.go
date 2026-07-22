@@ -408,7 +408,7 @@ func TestLoginRateLimit_OtherEndpointsUnaffected(t *testing.T) {
 	// Make many requests to a non-login endpoint from the same IP
 	// These should not be rate limited
 	for i := 0; i < 10; i++ {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/devices/refs", nil)
 		req.RemoteAddr = "192.0.2.10:12345"
 		req.AddCookie(sessionCookie)
 		res := httptest.NewRecorder()

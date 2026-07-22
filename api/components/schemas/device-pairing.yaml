@@ -97,6 +97,19 @@ ClaimPairingRequest:
       type: string
       description: The full pairing code as received (not decoded).
 
+DevicePairingSummary:
+  type: object
+  required: [status, expires_at]
+  description: Latest pairing for one device, nested on the device it belongs to.
+  properties:
+    status:
+      $ref: '#/DevicePairingStatus'
+    expires_at:
+      type: string
+      format: date-time
+      x-go-type: UTCTime
+      description: When the pairing code expires (or expired).
+
 ClaimPairingResponse:
   type: object
   required:

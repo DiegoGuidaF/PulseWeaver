@@ -217,18 +217,21 @@ type ClientInterface interface {
 	// GetDashboardTraffic request
 	GetDashboardTraffic(ctx context.Context, params *GetDashboardTrafficParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetDeviceFleet request
+	GetDeviceFleet(ctx context.Context, params *GetDeviceFleetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ClaimPairingWithBody request with any body
 	ClaimPairingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	ClaimPairing(ctx context.Context, body ClaimPairingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetDevices request
-	GetDevices(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// CreateDeviceWithBody request with any body
 	CreateDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateDevice(ctx context.Context, body CreateDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDeviceRefs request
+	ListDeviceRefs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteDevice request
 	DeleteDevice(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -299,6 +302,9 @@ type ClientInterface interface {
 
 	// DeviceHeartbeatByAPIKey request
 	DeviceHeartbeatByAPIKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListOwnerRefs request
+	ListOwnerRefs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateMeWithBody request with any body
 	UpdateMeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -863,6 +869,18 @@ func (c *Client) GetDashboardTraffic(ctx context.Context, params *GetDashboardTr
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetDeviceFleet(ctx context.Context, params *GetDeviceFleetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeviceFleetRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ClaimPairingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewClaimPairingRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -887,18 +905,6 @@ func (c *Client) ClaimPairing(ctx context.Context, body ClaimPairingJSONRequestB
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetDevices(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetDevicesRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) CreateDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateDeviceRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -913,6 +919,18 @@ func (c *Client) CreateDeviceWithBody(ctx context.Context, contentType string, b
 
 func (c *Client) CreateDevice(ctx context.Context, body CreateDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateDeviceRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDeviceRefs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDeviceRefsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -1213,6 +1231,18 @@ func (c *Client) DeleteDevicePairing(ctx context.Context, id ID, pairingId ID, r
 
 func (c *Client) DeviceHeartbeatByAPIKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeviceHeartbeatByAPIKeyRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListOwnerRefs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOwnerRefsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -3356,6 +3386,55 @@ func NewGetDashboardTrafficRequest(server string, params *GetDashboardTrafficPar
 	return req, nil
 }
 
+// NewGetDeviceFleetRequest generates requests for GetDeviceFleet
+func NewGetDeviceFleetRequest(server string, params *GetDeviceFleetParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/device-fleet")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.OwnerId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "owner_id", runtime.ParamLocationQuery, *params.OwnerId); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewClaimPairingRequest calls the generic ClaimPairing builder with application/json body
 func NewClaimPairingRequest(server string, body ClaimPairingJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -3396,33 +3475,6 @@ func NewClaimPairingRequestWithBody(server string, contentType string, body io.R
 	return req, nil
 }
 
-// NewGetDevicesRequest generates requests for GetDevices
-func NewGetDevicesRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/devices")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewCreateDeviceRequest calls the generic CreateDevice builder with application/json body
 func NewCreateDeviceRequest(server string, body CreateDeviceJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -3459,6 +3511,33 @@ func NewCreateDeviceRequestWithBody(server string, contentType string, body io.R
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListDeviceRefsRequest generates requests for ListDeviceRefs
+func NewListDeviceRefsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/devices/refs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -4237,6 +4316,33 @@ func NewDeviceHeartbeatByAPIKeyRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListOwnerRefsRequest generates requests for ListOwnerRefs
+func NewListOwnerRefsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/owners/refs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewUpdateMeRequest calls the generic UpdateMe builder with application/json body
 func NewUpdateMeRequest(server string, body UpdateMeJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -4488,18 +4594,21 @@ type ClientWithResponsesInterface interface {
 	// GetDashboardTrafficWithResponse request
 	GetDashboardTrafficWithResponse(ctx context.Context, params *GetDashboardTrafficParams, reqEditors ...RequestEditorFn) (*GetDashboardTrafficTestClientResponse, error)
 
+	// GetDeviceFleetWithResponse request
+	GetDeviceFleetWithResponse(ctx context.Context, params *GetDeviceFleetParams, reqEditors ...RequestEditorFn) (*GetDeviceFleetTestClientResponse, error)
+
 	// ClaimPairingWithBodyWithResponse request with any body
 	ClaimPairingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimPairingTestClientResponse, error)
 
 	ClaimPairingWithResponse(ctx context.Context, body ClaimPairingJSONRequestBody, reqEditors ...RequestEditorFn) (*ClaimPairingTestClientResponse, error)
 
-	// GetDevicesWithResponse request
-	GetDevicesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDevicesTestClientResponse, error)
-
 	// CreateDeviceWithBodyWithResponse request with any body
 	CreateDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDeviceTestClientResponse, error)
 
 	CreateDeviceWithResponse(ctx context.Context, body CreateDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDeviceTestClientResponse, error)
+
+	// ListDeviceRefsWithResponse request
+	ListDeviceRefsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceRefsTestClientResponse, error)
 
 	// DeleteDeviceWithResponse request
 	DeleteDeviceWithResponse(ctx context.Context, deviceId ID, reqEditors ...RequestEditorFn) (*DeleteDeviceTestClientResponse, error)
@@ -4570,6 +4679,9 @@ type ClientWithResponsesInterface interface {
 
 	// DeviceHeartbeatByAPIKeyWithResponse request
 	DeviceHeartbeatByAPIKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*DeviceHeartbeatByAPIKeyTestClientResponse, error)
+
+	// ListOwnerRefsWithResponse request
+	ListOwnerRefsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOwnerRefsTestClientResponse, error)
 
 	// UpdateMeWithBodyWithResponse request with any body
 	UpdateMeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMeTestClientResponse, error)
@@ -5479,6 +5591,29 @@ func (r GetDashboardTrafficTestClientResponse) StatusCode() int {
 	return 0
 }
 
+type GetDeviceFleetTestClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]OwnerFleetGroup
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeviceFleetTestClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeviceFleetTestClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ClaimPairingTestClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -5497,29 +5632,6 @@ func (r ClaimPairingTestClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ClaimPairingTestClientResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetDevicesTestClientResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *[]DeviceOwnerGroup
-	JSON500      *ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r GetDevicesTestClientResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetDevicesTestClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -5545,6 +5657,29 @@ func (r CreateDeviceTestClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateDeviceTestClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListDeviceRefsTestClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]DeviceRef
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDeviceRefsTestClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDeviceRefsTestClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6037,6 +6172,29 @@ func (r DeviceHeartbeatByAPIKeyTestClientResponse) StatusCode() int {
 	return 0
 }
 
+type ListOwnerRefsTestClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]OwnerRef
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListOwnerRefsTestClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListOwnerRefsTestClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type UpdateMeTestClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6491,6 +6649,15 @@ func (c *ClientWithResponses) GetDashboardTrafficWithResponse(ctx context.Contex
 	return ParseGetDashboardTrafficTestClientResponse(rsp)
 }
 
+// GetDeviceFleetWithResponse request returning *GetDeviceFleetTestClientResponse
+func (c *ClientWithResponses) GetDeviceFleetWithResponse(ctx context.Context, params *GetDeviceFleetParams, reqEditors ...RequestEditorFn) (*GetDeviceFleetTestClientResponse, error) {
+	rsp, err := c.GetDeviceFleet(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeviceFleetTestClientResponse(rsp)
+}
+
 // ClaimPairingWithBodyWithResponse request with arbitrary body returning *ClaimPairingTestClientResponse
 func (c *ClientWithResponses) ClaimPairingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimPairingTestClientResponse, error) {
 	rsp, err := c.ClaimPairingWithBody(ctx, contentType, body, reqEditors...)
@@ -6508,15 +6675,6 @@ func (c *ClientWithResponses) ClaimPairingWithResponse(ctx context.Context, body
 	return ParseClaimPairingTestClientResponse(rsp)
 }
 
-// GetDevicesWithResponse request returning *GetDevicesTestClientResponse
-func (c *ClientWithResponses) GetDevicesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDevicesTestClientResponse, error) {
-	rsp, err := c.GetDevices(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetDevicesTestClientResponse(rsp)
-}
-
 // CreateDeviceWithBodyWithResponse request with arbitrary body returning *CreateDeviceTestClientResponse
 func (c *ClientWithResponses) CreateDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDeviceTestClientResponse, error) {
 	rsp, err := c.CreateDeviceWithBody(ctx, contentType, body, reqEditors...)
@@ -6532,6 +6690,15 @@ func (c *ClientWithResponses) CreateDeviceWithResponse(ctx context.Context, body
 		return nil, err
 	}
 	return ParseCreateDeviceTestClientResponse(rsp)
+}
+
+// ListDeviceRefsWithResponse request returning *ListDeviceRefsTestClientResponse
+func (c *ClientWithResponses) ListDeviceRefsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceRefsTestClientResponse, error) {
+	rsp, err := c.ListDeviceRefs(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDeviceRefsTestClientResponse(rsp)
 }
 
 // DeleteDeviceWithResponse request returning *DeleteDeviceTestClientResponse
@@ -6752,6 +6919,15 @@ func (c *ClientWithResponses) DeviceHeartbeatByAPIKeyWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseDeviceHeartbeatByAPIKeyTestClientResponse(rsp)
+}
+
+// ListOwnerRefsWithResponse request returning *ListOwnerRefsTestClientResponse
+func (c *ClientWithResponses) ListOwnerRefsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOwnerRefsTestClientResponse, error) {
+	rsp, err := c.ListOwnerRefs(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListOwnerRefsTestClientResponse(rsp)
 }
 
 // UpdateMeWithBodyWithResponse request with arbitrary body returning *UpdateMeTestClientResponse
@@ -8456,6 +8632,39 @@ func ParseGetDashboardTrafficTestClientResponse(rsp *http.Response) (*GetDashboa
 	return response, nil
 }
 
+// ParseGetDeviceFleetTestClientResponse parses an HTTP response from a GetDeviceFleetWithResponse call
+func ParseGetDeviceFleetTestClientResponse(rsp *http.Response) (*GetDeviceFleetTestClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeviceFleetTestClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []OwnerFleetGroup
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseClaimPairingTestClientResponse parses an HTTP response from a ClaimPairingWithResponse call
 func ParseClaimPairingTestClientResponse(rsp *http.Response) (*ClaimPairingTestClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -8483,39 +8692,6 @@ func ParseClaimPairingTestClientResponse(rsp *http.Response) (*ClaimPairingTestC
 			return nil, err
 		}
 		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetDevicesTestClientResponse parses an HTTP response from a GetDevicesWithResponse call
-func ParseGetDevicesTestClientResponse(rsp *http.Response) (*GetDevicesTestClientResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetDevicesTestClientResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []DeviceOwnerGroup
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -8563,6 +8739,39 @@ func ParseCreateDeviceTestClientResponse(rsp *http.Response) (*CreateDeviceTestC
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDeviceRefsTestClientResponse parses an HTTP response from a ListDeviceRefsWithResponse call
+func ParseListDeviceRefsTestClientResponse(rsp *http.Response) (*ListDeviceRefsTestClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDeviceRefsTestClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []DeviceRef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -9405,6 +9614,39 @@ func ParseDeviceHeartbeatByAPIKeyTestClientResponse(rsp *http.Response) (*Device
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListOwnerRefsTestClientResponse parses an HTTP response from a ListOwnerRefsWithResponse call
+func ParseListOwnerRefsTestClientResponse(rsp *http.Response) (*ListOwnerRefsTestClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListOwnerRefsTestClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []OwnerRef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse

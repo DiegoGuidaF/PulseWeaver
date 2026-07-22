@@ -42,7 +42,7 @@ import {
   getDashboardTraffic,
   getDeviceAddresses,
   getDeviceAddressLeaseRule,
-  getDevices,
+  getDeviceFleet,
   getHostGroup,
   getMaxActiveAddressesRule,
   getNetworkPolicy,
@@ -50,10 +50,12 @@ import {
   getUserAccessDetail,
   ignoreSuggestion,
   listDevicePairings,
+  listDeviceRefs,
   listHostGroups,
   listHosts,
   listHostSuggestions,
   listNetworkPolicies,
+  listOwnerRefs,
   listUsers,
   listUsersWithAccess,
   login,
@@ -170,9 +172,9 @@ import type {
   GetDeviceAddressLeaseRuleData,
   GetDeviceAddressLeaseRuleError,
   GetDeviceAddressLeaseRuleResponse,
-  GetDevicesData,
-  GetDevicesError,
-  GetDevicesResponse,
+  GetDeviceFleetData,
+  GetDeviceFleetError,
+  GetDeviceFleetResponse,
   GetHostGroupData,
   GetHostGroupError,
   GetHostGroupResponse,
@@ -194,6 +196,9 @@ import type {
   ListDevicePairingsData,
   ListDevicePairingsError,
   ListDevicePairingsResponse,
+  ListDeviceRefsData,
+  ListDeviceRefsError,
+  ListDeviceRefsResponse,
   ListHostGroupsData,
   ListHostGroupsError,
   ListHostGroupsResponse,
@@ -206,6 +211,9 @@ import type {
   ListNetworkPoliciesData,
   ListNetworkPoliciesError,
   ListNetworkPoliciesResponse,
+  ListOwnerRefsData,
+  ListOwnerRefsError,
+  ListOwnerRefsResponse,
   ListUsersData,
   ListUsersError,
   ListUsersResponse,
@@ -576,33 +584,6 @@ export const changePasswordMutation = (
   return mutationOptions;
 };
 
-export const getDevicesQueryKey = (options?: Options<GetDevicesData>) =>
-  createQueryKey("getDevices", options);
-
-/**
- * List all devices grouped by owner
- *
- * Returns all devices grouped by their owning user. Each group includes owner metadata (host groups, bypass flag, aggregate counts) and the devices' live-address counts, rule summaries, and derived state.
- */
-export const getDevicesOptions = (options?: Options<GetDevicesData>) =>
-  queryOptions<
-    GetDevicesResponse,
-    GetDevicesError,
-    GetDevicesResponse,
-    ReturnType<typeof getDevicesQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getDevices({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getDevicesQueryKey(options),
-  });
-
 /**
  * Create a device
  *
@@ -631,6 +612,61 @@ export const createDeviceMutation = (
   };
   return mutationOptions;
 };
+
+export const listDeviceRefsQueryKey = (options?: Options<ListDeviceRefsData>) =>
+  createQueryKey("listDeviceRefs", options);
+
+/**
+ * List device references
+ *
+ * Returns every non-deleted device as a flat {id, name, owner_id} reference, for device pickers and the device→owner reverse lookup.
+ */
+export const listDeviceRefsOptions = (options?: Options<ListDeviceRefsData>) =>
+  queryOptions<
+    ListDeviceRefsResponse,
+    ListDeviceRefsError,
+    ListDeviceRefsResponse,
+    ReturnType<typeof listDeviceRefsQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await listDeviceRefs({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: listDeviceRefsQueryKey(options),
+  });
+
+export const getDeviceFleetQueryKey = (options?: Options<GetDeviceFleetData>) =>
+  createQueryKey("getDeviceFleet", options);
+
+/**
+ * List owners with their device fleets
+ *
+ * Returns every owner with their devices, each device carrying its rules and latest pairing. Serves both the fleet list page (no parameter) and a single owner's detail page (owner_id), which returns the same group content narrowed to one owner. An owner_id that resolves to no user yields an empty array, not a 404 — an owner with no devices is a group with an empty devices list.
+ *
+ */
+export const getDeviceFleetOptions = (options?: Options<GetDeviceFleetData>) =>
+  queryOptions<
+    GetDeviceFleetResponse,
+    GetDeviceFleetError,
+    GetDeviceFleetResponse,
+    ReturnType<typeof getDeviceFleetQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getDeviceFleet({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getDeviceFleetQueryKey(options),
+  });
 
 /**
  * Delete a device
@@ -867,6 +903,33 @@ export const deviceHeartbeatByApiKeyMutation = (
   };
   return mutationOptions;
 };
+
+export const listOwnerRefsQueryKey = (options?: Options<ListOwnerRefsData>) =>
+  createQueryKey("listOwnerRefs", options);
+
+/**
+ * List owner references
+ *
+ * Returns every non-deleted user as a minimal {id, display_name} reference, sorted for display. Backs owner pickers and the owner-jump select.
+ */
+export const listOwnerRefsOptions = (options?: Options<ListOwnerRefsData>) =>
+  queryOptions<
+    ListOwnerRefsResponse,
+    ListOwnerRefsError,
+    ListOwnerRefsResponse,
+    ReturnType<typeof listOwnerRefsQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await listOwnerRefs({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: listOwnerRefsQueryKey(options),
+  });
 
 export const getDeviceAddressesQueryKey = (
   options: Options<GetDeviceAddressesData>,

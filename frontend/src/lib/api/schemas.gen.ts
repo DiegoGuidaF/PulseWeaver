@@ -432,9 +432,9 @@ export const DeviceAPIKeyResponseSchema = {
 
 export const DeviceStateSchema = {
   type: "string",
-  enum: ["healthy", "stale", "disabled", "pending-claim", "expired-claim"],
+  enum: ["healthy", "stale", "disabled"],
   description:
-    "Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept. pending-claim / expired-claim: awaiting or failed device pairing (future feature).\n",
+    "Derived lifecycle state of a device. healthy: has at least one live address. stale: no live addresses. disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept.\n",
 } as const;
 
 export const DeviceRuleSummarySchema = {
@@ -461,29 +461,7 @@ export const DeviceRuleSummarySchema = {
   },
 } as const;
 
-export const DevicePairingSummarySchema = {
-  type: "object",
-  required: ["status", "expires_at", "updated_at"],
-  properties: {
-    status: {
-      $ref: "#/components/schemas/DevicePairingStatus",
-    },
-    expires_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-      description: "When the pairing code expires (or expired).",
-    },
-    updated_at: {
-      type: "string",
-      format: "date-time",
-      "x-go-type": "UTCTime",
-      description: "When the status last changed.",
-    },
-  },
-} as const;
-
-export const DeviceListEntrySchema = {
+export const FleetDeviceSchema = {
   type: "object",
   required: [
     "id",
@@ -493,6 +471,8 @@ export const DeviceListEntrySchema = {
     "live_address_count",
     "rules",
   ],
+  description:
+    "One device of an owner's fleet, with its rules and latest pairing nested. Presentation-ready — the client joins nothing.",
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
@@ -504,6 +484,12 @@ export const DeviceListEntrySchema = {
       type: "string",
       nullable: true,
       description: "Tabler icon name override.",
+    },
+    description: {
+      type: "string",
+      nullable: true,
+      maxLength: 200,
+      description: "Free-form note about the device.",
     },
     api_key_prefix: {
       type: "string",
@@ -532,56 +518,75 @@ export const DeviceListEntrySchema = {
     },
     rules: {
       type: "array",
+      description:
+        "Configured rules for this device; empty when none are configured.",
       items: {
         $ref: "#/components/schemas/DeviceRuleSummary",
       },
     },
     pairing: {
-      nullable: true,
       allOf: [
         {
           $ref: "#/components/schemas/DevicePairingSummary",
         },
       ],
+      nullable: true,
+      description:
+        "Latest pairing for this device, or null when it has never been paired.",
     },
   },
 } as const;
 
-export const DeviceListOwnerSchema = {
+export const OwnerFleetGroupSchema = {
+  type: "object",
+  required: ["owner", "devices"],
+  description:
+    "One owner with their whole device fleet. An owner with no devices is a group with an empty devices list; an owner id that resolves to nothing yields no group at all.",
+  properties: {
+    owner: {
+      $ref: "#/components/schemas/OwnerSummary",
+    },
+    devices: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/FleetDevice",
+      },
+    },
+  },
+} as const;
+
+export const OwnerSummarySchema = {
   type: "object",
   required: [
     "id",
-    "username",
     "display_name",
     "role",
     "bypass_host_check",
-    "host_groups",
     "device_count",
     "live_address_count",
+    "host_groups",
   ],
+  description:
+    "A device owner (user) with server-computed device/address aggregates, heading their fleet group.",
   properties: {
     id: {
       $ref: "#/components/schemas/ID",
-    },
-    username: {
-      type: "string",
     },
     display_name: {
       type: "string",
     },
     role: {
-      $ref: "#/components/schemas/UserRole",
+      allOf: [
+        {
+          $ref: "#/components/schemas/UserRole",
+        },
+      ],
+      description: "The owner's role (display only — renders the admin badge).",
     },
     bypass_host_check: {
       type: "boolean",
-    },
-    host_groups: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/GroupSummary",
-      },
       description:
-        "Host groups the owner belongs to. Always returned; frontend hides them when bypass_host_check is true.",
+        'Whether this owner bypasses the per-host allowlist entirely (display only — renders the "All hosts" badge).',
     },
     device_count: {
       type: "integer",
@@ -591,23 +596,46 @@ export const DeviceListOwnerSchema = {
       type: "integer",
       minimum: 0,
       description:
-        "Aggregate count of live addresses across all owner's devices.",
+        "Aggregate count of live addresses across all of this owner's devices.",
+    },
+    host_groups: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/GroupSummary",
+      },
+      description: "Host groups the owner belongs to.",
     },
   },
 } as const;
 
-export const DeviceOwnerGroupSchema = {
+export const OwnerRefSchema = {
   type: "object",
-  required: ["owner", "devices"],
+  required: ["id", "display_name"],
+  description: "Minimal owner reference for pickers and the owner-jump select.",
   properties: {
-    owner: {
-      $ref: "#/components/schemas/DeviceListOwner",
+    id: {
+      $ref: "#/components/schemas/ID",
     },
-    devices: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/DeviceListEntry",
-      },
+    display_name: {
+      type: "string",
+    },
+  },
+} as const;
+
+export const DeviceRefSchema = {
+  type: "object",
+  required: ["id", "name", "owner_id"],
+  description:
+    "Minimal device reference for pickers and the device→owner reverse lookup.",
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    name: {
+      type: "string",
+    },
+    owner_id: {
+      $ref: "#/components/schemas/ID",
     },
   },
 } as const;
@@ -1446,6 +1474,24 @@ export const ClaimPairingResponseSchema = {
     api_key: {
       type: "string",
       description: "Plaintext device API key — one time only.",
+    },
+  },
+} as const;
+
+export const DevicePairingSummarySchema = {
+  type: "object",
+  required: ["status", "expires_at"],
+  description:
+    "Latest pairing for one device, nested on the device it belongs to.",
+  properties: {
+    status: {
+      $ref: "#/components/schemas/DevicePairingStatus",
+    },
+    expires_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      description: "When the pairing code expires (or expired).",
     },
   },
 } as const;

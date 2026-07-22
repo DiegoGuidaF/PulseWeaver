@@ -1,6 +1,6 @@
 //go:build test
 
-package queries_test
+package device_test
 
 import (
 	"testing"
@@ -14,23 +14,23 @@ import (
 
 func TestRepository_GetDeviceAddresses_EmptyForNoAddresses(t *testing.T) {
 	is := is.New(t)
-	repos := setupRepos(t)
+	repos := setupTestDB(t)
 
-	dev := createDevice(t, repos, "no-addresses")
+	dev := createTestDevice(t, repos, t.Context(), "no-addresses")
 
-	addresses, err := repos.queries.GetDeviceAddresses(t.Context(), dev.ID)
+	addresses, err := repos.repo.GetDeviceAddresses(t.Context(), dev.ID)
 	is.NoErr(err)
 	is.Equal(len(addresses), 0)
 }
 
 func TestRepository_GetDeviceAddresses_CorrectFields(t *testing.T) {
 	is := is.New(t)
-	repos := setupRepos(t)
+	repos := setupTestDB(t)
 
-	dev := createDevice(t, repos, "field-check-device")
-	addr := createAddress(t, repos.devices, dev.ID, "10.0.0.1")
+	dev := createTestDevice(t, repos, t.Context(), "field-check-device")
+	addr := createTestAddress(t, repos.repo, t.Context(), dev.ID, "10.0.0.1")
 
-	addresses, err := repos.queries.GetDeviceAddresses(t.Context(), dev.ID)
+	addresses, err := repos.repo.GetDeviceAddresses(t.Context(), dev.ID)
 	is.NoErr(err)
 	is.Equal(len(addresses), 1)
 
@@ -46,21 +46,22 @@ func TestRepository_GetDeviceAddresses_CorrectFields(t *testing.T) {
 
 func TestRepository_GetDeviceAddresses_ExpiresAtPopulatedWithActiveLease(t *testing.T) {
 	is := is.New(t)
-	repos := setupRepos(t)
+	repos := setupTestDB(t)
 
-	dev := createDevice(t, repos, "lease-device")
-	addr := createAddress(t, repos.devices, dev.ID, "10.1.2.3")
+	dev := createTestDevice(t, repos, t.Context(), "lease-device")
+	addr := createTestAddress(t, repos.repo, t.Context(), dev.ID, "10.1.2.3")
 
 	futureExpiry := time.Now().UTC().Add(24 * time.Hour).Truncate(time.Second)
+	leaseRepo := lease.NewRepository(repos.db)
 	addressLease := &lease.AddressLease{
 		AddressID: addr.ID,
 		DeviceID:  dev.ID,
 		ExpiresAt: &futureExpiry,
 	}
-	_, err := repos.leases.UpsertAddressLease(t.Context(), addressLease)
+	_, err := leaseRepo.UpsertAddressLease(t.Context(), addressLease)
 	is.NoErr(err)
 
-	addresses, err := repos.queries.GetDeviceAddresses(t.Context(), dev.ID)
+	addresses, err := repos.repo.GetDeviceAddresses(t.Context(), dev.ID)
 	is.NoErr(err)
 	is.Equal(len(addresses), 1)
 	is.True(addresses[0].ExpiresAt != nil)
@@ -70,12 +71,12 @@ func TestRepository_GetDeviceAddresses_ExpiresAtPopulatedWithActiveLease(t *test
 
 func TestRepository_GetDeviceAddresses_ExpiresAtNilWhenNoLease(t *testing.T) {
 	is := is.New(t)
-	repos := setupRepos(t)
+	repos := setupTestDB(t)
 
-	dev := createDevice(t, repos, "no-lease-device")
-	createAddress(t, repos.devices, dev.ID, "192.168.100.1")
+	dev := createTestDevice(t, repos, t.Context(), "no-lease-device")
+	createTestAddress(t, repos.repo, t.Context(), dev.ID, "192.168.100.1")
 
-	addresses, err := repos.queries.GetDeviceAddresses(t.Context(), dev.ID)
+	addresses, err := repos.repo.GetDeviceAddresses(t.Context(), dev.ID)
 	is.NoErr(err)
 	is.Equal(len(addresses), 1)
 	is.True(addresses[0].ExpiresAt == nil)
@@ -83,15 +84,14 @@ func TestRepository_GetDeviceAddresses_ExpiresAtNilWhenNoLease(t *testing.T) {
 
 func TestRepository_GetDeviceAddresses_OrderedByCreatedAtDesc(t *testing.T) {
 	is := is.New(t)
-	repos := setupRepos(t)
+	repos := setupTestDB(t)
 
-	dev := createDevice(t, repos, "ordering-device")
+	dev := createTestDevice(t, repos, t.Context(), "ordering-device")
 
 	// Insert the addresses row directly with explicit created_at values so the
 	// ORDER BY created_at DESC behaviour is testable even when all three inserts
 	// happen within the same wall-clock second (SQLite CURRENT_TIMESTAMP has
-	// second precision). We then add the required address_current_state row so
-	// that the JOIN inside GetDeviceAddresses succeeds.
+	// second precision).
 	oldest := time.Now().UTC().Add(-2 * time.Second).Truncate(time.Second)
 	middle := time.Now().UTC().Add(-1 * time.Second).Truncate(time.Second)
 	newest := time.Now().UTC().Truncate(time.Second)
@@ -113,7 +113,7 @@ func TestRepository_GetDeviceAddresses_OrderedByCreatedAtDesc(t *testing.T) {
 	idMiddle := insertAddr("172.16.0.2", middle)
 	idNewest := insertAddr("172.16.0.3", newest)
 
-	addresses, err := repos.queries.GetDeviceAddresses(t.Context(), dev.ID)
+	addresses, err := repos.repo.GetDeviceAddresses(t.Context(), dev.ID)
 	is.NoErr(err)
 	is.Equal(len(addresses), 3)
 

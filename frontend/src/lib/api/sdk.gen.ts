@@ -107,9 +107,9 @@ import type {
   GetDeviceAddressLeaseRuleData,
   GetDeviceAddressLeaseRuleErrors,
   GetDeviceAddressLeaseRuleResponses,
-  GetDevicesData,
-  GetDevicesErrors,
-  GetDevicesResponses,
+  GetDeviceFleetData,
+  GetDeviceFleetErrors,
+  GetDeviceFleetResponses,
   GetHostGroupData,
   GetHostGroupErrors,
   GetHostGroupResponses,
@@ -131,6 +131,9 @@ import type {
   ListDevicePairingsData,
   ListDevicePairingsErrors,
   ListDevicePairingsResponses,
+  ListDeviceRefsData,
+  ListDeviceRefsErrors,
+  ListDeviceRefsResponses,
   ListHostGroupsData,
   ListHostGroupsErrors,
   ListHostGroupsResponses,
@@ -143,6 +146,9 @@ import type {
   ListNetworkPoliciesData,
   ListNetworkPoliciesErrors,
   ListNetworkPoliciesResponses,
+  ListOwnerRefsData,
+  ListOwnerRefsErrors,
+  ListOwnerRefsResponses,
   ListUsersData,
   ListUsersErrors,
   ListUsersResponses,
@@ -258,7 +264,8 @@ import {
   zGetDeviceAddressesResponse,
   zGetDeviceAddressLeaseRulePath,
   zGetDeviceAddressLeaseRuleResponse,
-  zGetDevicesResponse,
+  zGetDeviceFleetQuery,
+  zGetDeviceFleetResponse,
   zGetHostGroupPath,
   zGetHostGroupResponse,
   zGetMaxActiveAddressesRulePath,
@@ -273,10 +280,12 @@ import {
   zListDevicePairingsPath,
   zListDevicePairingsQuery,
   zListDevicePairingsResponse,
+  zListDeviceRefsResponse,
   zListHostGroupsResponse,
   zListHostsResponse,
   zListHostSuggestionsResponse,
   zListNetworkPoliciesResponse,
+  zListOwnerRefsResponse,
   zListUsersResponse,
   zListUsersWithAccessResponse,
   zLoginBody,
@@ -678,40 +687,6 @@ export const changePassword = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * List all devices grouped by owner
- *
- * Returns all devices grouped by their owning user. Each group includes owner metadata (host groups, bypass flag, aggregate counts) and the devices' live-address counts, rule summaries, and derived state.
- */
-export const getDevices = <ThrowOnError extends boolean = false>(
-  options?: Options<GetDevicesData, ThrowOnError>,
-): RequestResult<GetDevicesResponses, GetDevicesErrors, ThrowOnError> =>
-  (options?.client ?? client).get<
-    GetDevicesResponses,
-    GetDevicesErrors,
-    ThrowOnError
-  >({
-    requestValidator: async (data) =>
-      await z
-        .object({
-          body: z.never().optional(),
-          path: z.never().optional(),
-          query: z.never().optional(),
-        })
-        .parseAsync(data),
-    responseValidator: async (data) =>
-      await zGetDevicesResponse.parseAsync(data),
-    security: [
-      {
-        in: "cookie",
-        name: "__Host-wdc_session",
-        type: "apiKey",
-      },
-    ],
-    url: "/devices",
-    ...options,
-  });
-
-/**
  * Create a device
  *
  * Create a new device for the authenticated user.
@@ -747,6 +722,75 @@ export const createDevice = <ThrowOnError extends boolean = false>(
       "Content-Type": "application/json",
       ...options.headers,
     },
+  });
+
+/**
+ * List device references
+ *
+ * Returns every non-deleted device as a flat {id, name, owner_id} reference, for device pickers and the device→owner reverse lookup.
+ */
+export const listDeviceRefs = <ThrowOnError extends boolean = false>(
+  options?: Options<ListDeviceRefsData, ThrowOnError>,
+): RequestResult<ListDeviceRefsResponses, ListDeviceRefsErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    ListDeviceRefsResponses,
+    ListDeviceRefsErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: z.never().optional(),
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zListDeviceRefsResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/devices/refs",
+    ...options,
+  });
+
+/**
+ * List owners with their device fleets
+ *
+ * Returns every owner with their devices, each device carrying its rules and latest pairing. Serves both the fleet list page (no parameter) and a single owner's detail page (owner_id), which returns the same group content narrowed to one owner. An owner_id that resolves to no user yields an empty array, not a 404 — an owner with no devices is a group with an empty devices list.
+ *
+ */
+export const getDeviceFleet = <ThrowOnError extends boolean = false>(
+  options?: Options<GetDeviceFleetData, ThrowOnError>,
+): RequestResult<GetDeviceFleetResponses, GetDeviceFleetErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    GetDeviceFleetResponses,
+    GetDeviceFleetErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: z.never().optional(),
+          query: zGetDeviceFleetQuery.optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zGetDeviceFleetResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/device-fleet",
+    ...options,
   });
 
 /**
@@ -1036,6 +1080,40 @@ export const deviceHeartbeatByApiKey = <ThrowOnError extends boolean = false>(
       await zDeviceHeartbeatByApiKeyResponse.parseAsync(data),
     security: [{ name: "X-API-Key", type: "apiKey" }],
     url: "/heartbeat",
+    ...options,
+  });
+
+/**
+ * List owner references
+ *
+ * Returns every non-deleted user as a minimal {id, display_name} reference, sorted for display. Backs owner pickers and the owner-jump select.
+ */
+export const listOwnerRefs = <ThrowOnError extends boolean = false>(
+  options?: Options<ListOwnerRefsData, ThrowOnError>,
+): RequestResult<ListOwnerRefsResponses, ListOwnerRefsErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    ListOwnerRefsResponses,
+    ListOwnerRefsErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: z.never().optional(),
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zListOwnerRefsResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/owners/refs",
     ...options,
   });
 

@@ -151,13 +151,12 @@ Device:
 
 DeviceState:
   type: string
-  enum: [healthy, stale, disabled, pending-claim, expired-claim]
+  enum: [healthy, stale, disabled]
   description: >
     Derived lifecycle state of a device.
     healthy: has at least one live address.
     stale: no live addresses.
     disabled: all addresses disabled and address enable/refresh blocked until re-enabled; API key kept.
-    pending-claim / expired-claim: awaiting or failed device pairing (future feature).
 
 RuleType:
   type: string
@@ -181,26 +180,10 @@ DeviceRuleSummary:
       nullable: true
       description: Maximum allowed live-address count. Present for max_active rules.
 
-DevicePairingSummary:
-  type: object
-  required: [status, expires_at, updated_at]
-  properties:
-    status:
-      $ref: './device-pairing.yaml#/DevicePairingStatus'
-    expires_at:
-      type: string
-      format: date-time
-      x-go-type: UTCTime
-      description: When the pairing code expires (or expired).
-    updated_at:
-      type: string
-      format: date-time
-      x-go-type: UTCTime
-      description: When the status last changed.
-
-DeviceListEntry:
+FleetDevice:
   type: object
   required: [id, name, created_at, state, live_address_count, rules]
+  description: One device of an owner's fleet, with its rules and latest pairing nested. Presentation-ready — the client joins nothing.
   properties:
     id:
       $ref: './common.yaml#/ID'
@@ -210,6 +193,11 @@ DeviceListEntry:
       type: string
       nullable: true
       description: Tabler icon name override.
+    description:
+      type: string
+      nullable: true
+      maxLength: 200
+      description: Free-form note about the device.
     api_key_prefix:
       type: string
       nullable: true
@@ -232,47 +220,74 @@ DeviceListEntry:
       minimum: 0
     rules:
       type: array
+      description: Configured rules for this device; empty when none are configured.
       items:
         $ref: '#/DeviceRuleSummary'
     pairing:
-      nullable: true
       allOf:
-        - $ref: '#/DevicePairingSummary'
+        - $ref: './device-pairing.yaml#/DevicePairingSummary'
+      nullable: true
+      description: Latest pairing for this device, or null when it has never been paired.
 
-DeviceListOwner:
+OwnerFleetGroup:
   type: object
-  required: [id, username, display_name, role, bypass_host_check, host_groups, device_count, live_address_count]
+  required: [owner, devices]
+  description: One owner with their whole device fleet. An owner with no devices is a group with an empty devices list; an owner id that resolves to nothing yields no group at all.
+  properties:
+    owner:
+      $ref: '#/OwnerSummary'
+    devices:
+      type: array
+      items:
+        $ref: '#/FleetDevice'
+
+OwnerSummary:
+  type: object
+  required: [id, display_name, role, bypass_host_check, device_count, live_address_count, host_groups]
+  description: A device owner (user) with server-computed device/address aggregates, heading their fleet group.
   properties:
     id:
       $ref: './common.yaml#/ID'
-    username:
-      type: string
     display_name:
       type: string
     role:
-      $ref: './users.yaml#/UserRole'
+      allOf:
+        - $ref: './users.yaml#/UserRole'
+      description: The owner's role (display only — renders the admin badge).
     bypass_host_check:
       type: boolean
-    host_groups:
-      type: array
-      items:
-        $ref: './host-groups.yaml#/GroupSummary'
-      description: Host groups the owner belongs to. Always returned; frontend hides them when bypass_host_check is true.
+      description: Whether this owner bypasses the per-host allowlist entirely (display only — renders the "All hosts" badge).
     device_count:
       type: integer
       minimum: 0
     live_address_count:
       type: integer
       minimum: 0
-      description: Aggregate count of live addresses across all owner's devices.
-
-DeviceOwnerGroup:
-  type: object
-  required: [owner, devices]
-  properties:
-    owner:
-      $ref: '#/DeviceListOwner'
-    devices:
+      description: Aggregate count of live addresses across all of this owner's devices.
+    host_groups:
       type: array
       items:
-        $ref: '#/DeviceListEntry'
+        $ref: './host-groups.yaml#/GroupSummary'
+      description: Host groups the owner belongs to.
+
+OwnerRef:
+  type: object
+  required: [id, display_name]
+  description: Minimal owner reference for pickers and the owner-jump select.
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    display_name:
+      type: string
+
+DeviceRef:
+  type: object
+  required: [id, name, owner_id]
+  description: Minimal device reference for pickers and the device→owner reverse lookup.
+  properties:
+    id:
+      $ref: './common.yaml#/ID'
+    name:
+      type: string
+    owner_id:
+      $ref: './common.yaml#/ID'

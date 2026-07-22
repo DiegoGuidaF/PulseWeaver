@@ -229,19 +229,42 @@ func (r *Repository) GetUserAccessDetail(ctx context.Context, userID ids.UserID)
 		func(g *httpapi.SubjectGroupDetail, h httpapi.HostSummary) { g.Hosts = append(g.Hosts, h) },
 	)
 
-	// Q3: devices owned by the user
-	deviceViews, err := r.GetDevicesByUser(ctx, userID)
-	if err != nil {
+	// Q3: devices owned by the user, for display on this page only (device
+	// ownership itself lives in the device domain; this is a foreign-table
+	// read for a users-page view, per ADR-009).
+	type deviceRow struct {
+		ID               ids.DeviceID `db:"id"`
+		Name             string       `db:"name"`
+		Icon             *string      `db:"icon"`
+		KeyPrefix        *string      `db:"key_prefix"`
+		LiveAddressCount int          `db:"live_address_count"`
+	}
+	const deviceQuery = `
+		SELECT
+			d.id,
+			d.name,
+			d.icon,
+			dk.key_prefix,
+			COUNT(CASE WHEN a.is_enabled = 1 THEN a.id END) AS live_address_count
+		FROM devices d
+		LEFT JOIN device_api_keys dk ON dk.device_id = d.id
+		LEFT JOIN addresses a        ON a.device_id = d.id
+		WHERE d.deleted_at IS NULL AND d.owner_id = ?
+		GROUP BY d.id, d.name, d.icon, dk.key_prefix
+		ORDER BY d.name ASC
+	`
+	var deviceRows []deviceRow
+	if err := r.db.SelectContext(ctx, &deviceRows, deviceQuery, userID); err != nil {
 		return httpapi.UserAccessDetail{}, fmt.Errorf("get user access detail devices: %w", err)
 	}
-	devices := make([]httpapi.DeviceListItem, len(deviceViews))
-	for i := range deviceViews {
+	devices := make([]httpapi.DeviceListItem, len(deviceRows))
+	for i := range deviceRows {
 		devices[i] = httpapi.DeviceListItem{
-			Id:               deviceViews[i].ID.Int64(),
-			Name:             deviceViews[i].Name,
-			ApiKeyPrefix:     deviceViews[i].KeyPrefix,
-			Icon:             deviceViews[i].Icon,
-			LiveAddressCount: deviceViews[i].LiveAddressCount,
+			Id:               deviceRows[i].ID.Int64(),
+			Name:             deviceRows[i].Name,
+			ApiKeyPrefix:     deviceRows[i].KeyPrefix,
+			Icon:             deviceRows[i].Icon,
+			LiveAddressCount: deviceRows[i].LiveAddressCount,
 		}
 	}
 	var email *openapi_types.Email

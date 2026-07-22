@@ -64,7 +64,7 @@ Keep the subject to one concise line. Types map to CHANGELOG sections via `cliff
 
 Critical rules:
 - `api/openapi.yaml` is the single source of truth — always run `make api` to regenerate types; never edit generated files in `internal/httpapi/` or `frontend/src/lib/api/`, and never invoke the underlying generators (oapi-codegen, etc.) directly
-- Handlers extract primitives from OpenAPI DTOs; never pass generated types deeper
+- Handlers extract primitives from OpenAPI DTOs; never pass generated types deeper. **Exception — read models:** `*_view.go` readers and the `internal/queries` composers that call them exist to answer the frontend API, so they build `httpapi.*` rows directly rather than a domain type that only gets copied field-for-field. The exception is read-only and does not apply to the write path. Where such a reader emits an enum it must call the domain's `…ToAPI` switch helper (`devicepairing.PairingStatusToAPI`, `auth.RoleToAPI`) — never `httpapi.Enum(v)`, which compiles for any string and drops the `exhaustive` coverage ADR-009 §4 relies on
 - Mutation hooks own cache invalidation only — `notifications.show()` calls belong in component callbacks
 - No Tailwind classes; no `cn()` — use Mantine's `style` prop or CSS modules
 - Handlers set `operation` in the logger; services only read via `logging.FromCtx`

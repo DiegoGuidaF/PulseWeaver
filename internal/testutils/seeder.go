@@ -87,6 +87,12 @@ type DeviceFixture struct {
 	Icon string
 	// GenerateAPIKey mints an API key so the device renders with a key prefix; optional.
 	GenerateAPIKey bool
+	// Disabled freezes the device (stamps disabled_at and disables its addresses)
+	// once every address, rule and pairing for it has been seeded.
+	Disabled bool
+	// Deleted soft-deletes the device once everything referencing it has been
+	// seeded, so views can be checked for their deleted_at filters.
+	Deleted bool
 }
 
 // AddressFixture describes the seeder inputs for a device address.
@@ -987,6 +993,25 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 				}
 			default:
 				s.t.Fatalf("Seeder.WithPairing: unknown status %q for device %q", f.Status, f.Device)
+			}
+		}
+	}
+
+	// 8c. Device lifecycle — applied last so a disabled or deleted device still
+	// carries the addresses, rules and pairings the fixtures declared for it.
+	for _, f := range s.devices {
+		if !f.Disabled && !f.Deleted {
+			continue
+		}
+		deviceID := result.devices[f.Name]
+		if f.Disabled {
+			if _, err := srv.DeviceService.DisableDevice(ctx, deviceID); err != nil {
+				s.t.Fatalf("Seeder: disable device %q: %v", f.Name, err)
+			}
+		}
+		if f.Deleted {
+			if err := srv.DeviceService.DeleteDevice(ctx, deviceID); err != nil {
+				s.t.Fatalf("Seeder: delete device %q: %v", f.Name, err)
 			}
 		}
 	}
