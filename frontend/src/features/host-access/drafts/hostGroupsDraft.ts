@@ -156,6 +156,13 @@ export function groupsDraftReducer(
 
     case "hydrateDetail": {
       const { detail } = action;
+      // Re-hydrating the same detail object must return the identical state, not a
+      // structurally-equal copy: HostGroupsPage re-runs this whenever `visited`
+      // changes identity, so allocating fresh collections here would re-trigger it
+      // forever.
+      if (state.visited.has(detail.id) && state.detailOriginal.get(detail.id) === detail) {
+        return state;
+      }
       const detailOriginal = new Map(state.detailOriginal);
       detailOriginal.set(detail.id, detail);
       const alreadyVisited = state.visited.has(detail.id);

@@ -31,11 +31,14 @@ export function HostGroupsPage() {
     typeof groupsState.selectedId === "number" ? groupsState.selectedId : null;
   const selectedDetailQuery = useHostGroupDetail(selectedGroupId);
 
+  // `visited` is a dependency because a "reset" clears it while TanStack's
+  // structural sharing keeps an unchanged detail's reference stable — without it
+  // the selected group would stay unhydrated, rendering an empty membership table.
   useEffect(() => {
     if (selectedDetailQuery.data) {
       groupsDispatch({ type: "hydrateDetail", detail: selectedDetailQuery.data });
     }
-  }, [selectedDetailQuery.data]);
+  }, [selectedDetailQuery.data, groupsState.visited]);
 
   const dirty = isDirtyGroups(groupsState);
   useUnsavedChangesGuard(dirty);

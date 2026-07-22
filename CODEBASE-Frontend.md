@@ -1,6 +1,6 @@
 # Frontend Codebase Reference
 
-> Last updated: 2026-07-22
+> Last updated: 2026-08-05
 
 This document is the **map** of the frontend codebase — what exists and where. For the system-level
 overview (pages → features → hooks → generated SDK, the API contract), see
@@ -64,7 +64,7 @@ Drifts easily — verify against `features/auth/` before trusting.
 | Route | Page | Surface |
 |-------|------|---------|
 | `/dashboard` | `TrafficDashboardPage` | Security posture + traffic analytics. `features/dashboard/DashboardView` composes `PostureStrip` ("now" posture), a time-range preset, `DashboardStatCards`, `AttributionSection`, `TrafficLineChart` + `ServiceBarChart`, `CountryStatsSection` (incl. `AccessMap`), `TopDeniedIPsTable`. |
-| `/devices` | `DevicesPage` | Admin list of owners (aggregates only — device rows live on the owner's own page) — renders `OwnerGroupList`. |
+| `/devices` | `DevicesPage` | Admin list of owners with their devices inline (each `OwnerCard` renders a `DeviceRow` per device, filterable by name and stale state) — renders `OwnerGroupList`. |
 | `/devices/owners/:ownerId` | `UserDevicesPage` | Owner-scoped device workspace: a resizable device sidebar (`OwnerDevicesPanel`) + a per-device tabbed panel (tab tracked in `?tab=`, device in `?device=`). Banners surface disabled and "API key but no limit rule" states; an outstanding pairing is surfaced by the `RuleChips` pairing badge (live pairing data) and the Pairing tab, not a banner. Device-create lives at the `/new` sub-route (in-pane `DeviceCreatePane`; `DeviceCreateEmptyState` when the owner has none). |
 | `/access/hosts` | `HostsPage` | Tabbed (`HostsTab`, `SuggestionsTab`) with a staged-changes bar (`StagedChangesBar`) for bulk reconcile; drafts in `features/host-access/drafts/`. |
 | `/access/host-groups` | `HostGroupsPage` | Host-group master/detail + membership editing via `HostGroupsTab` (wraps `GroupMasterList`, `GroupDetailPanel`, `GroupMembershipTables`, `GroupMetadataModal`); staged-changes bar. |

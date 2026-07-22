@@ -7,6 +7,7 @@ import {
   listUsersWithAccessQueryKey,
   listNetworkPoliciesQueryKey,
 } from "@/lib/api/@tanstack/react-query.gen";
+import { invalidateOwnerIdentity } from "@/features/devices/fleetCache";
 
 export function useReconcileHostGroups() {
   const queryClient = useQueryClient();
@@ -29,6 +30,9 @@ export function useReconcileHostGroups() {
         // member; the response carries no affected-user list to narrow this further.
         queryClient.invalidateQueries({ queryKey: [{ _id: "getUserAccessDetail" }] }),
       ]);
+      // A renamed, recolored or deleted group is still rendered as an owner badge
+      // from the fleet's own cached copy of host_groups[].
+      invalidateOwnerIdentity(queryClient);
     },
   });
 }

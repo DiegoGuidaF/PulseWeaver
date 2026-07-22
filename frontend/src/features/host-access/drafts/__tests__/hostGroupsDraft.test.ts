@@ -185,4 +185,34 @@ describe("hostGroupsDraft reducer", () => {
     });
     expect(state.draft.get(1)?.hostIds).toEqual([1, 2]);
   });
+
+  it("hydrateDetail returns the identical state when re-fed the same detail object", () => {
+    const detail = makeGroup(1, "a", { hostIds: [5] });
+    const hydrated = groupsDraftReducer(
+      { ...fromServerGroups([toListItem(detail)]), selectedId: 1 },
+      { type: "hydrateDetail", detail },
+    );
+
+    // HostGroupsPage re-runs this whenever `visited` changes identity; returning a
+    // structurally-equal copy would feed that effect forever.
+    expect(groupsDraftReducer(hydrated, { type: "hydrateDetail", detail })).toBe(hydrated);
+  });
+
+  it("re-hydrates a group whose detail survived a reset", () => {
+    const detail = makeGroup(1, "a", { hostIds: [5], description: "hi" });
+    let state = groupsDraftReducer(
+      { ...fromServerGroups([toListItem(detail)]), selectedId: 1 },
+      { type: "hydrateDetail", detail },
+    );
+
+    // A save reconciles the list, and `reset` drops visited/detailOriginal — but the
+    // cached detail is unchanged, so the page re-dispatches the same object.
+    state = groupsDraftReducer(state, { type: "reset", groups: [toListItem(detail)] });
+    expect(state.visited.has(1)).toBe(false);
+    expect(state.draft.get(1)?.hostIds).toEqual([]);
+
+    state = groupsDraftReducer(state, { type: "hydrateDetail", detail });
+    expect(state.visited.has(1)).toBe(true);
+    expect(state.draft.get(1)?.hostIds).toEqual([5]);
+  });
 });

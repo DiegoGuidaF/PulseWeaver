@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { createMockGroupDetailWithUsers } from '@/test/mocks/data';
 import { getHostGroupQueryKey, listNetworkPoliciesQueryKey } from '@/lib/api/@tanstack/react-query.gen';
+import { fleetListKey, fleetOwnerKey } from '@/features/devices/fleetCache';
 import { useReconcileHostGroups } from './useReconcileHostGroups';
 
 function createWrapper() {
@@ -41,5 +42,24 @@ describe('useReconcileHostGroups', () => {
         expect(queryClient.getQueryState(detailKey)?.isInvalidated).toBe(true);
         // Network policies' host_count / member lists go stale too (task 3b).
         expect(queryClient.getQueryState(listNetworkPoliciesQueryKey())?.isInvalidated).toBe(true);
+    });
+
+    it('invalidates the fleet, whose owner rows carry their own copy of host_groups[]', async () => {
+        const { queryClient, Wrapper } = createWrapper();
+        queryClient.setQueryData(fleetListKey(), []);
+        queryClient.setQueryData(fleetOwnerKey(1), []);
+
+        const { result } = renderHook(() => useReconcileHostGroups(), { wrapper: Wrapper });
+
+        act(() => {
+            result.current.mutate({ body: { groups: [] } });
+        });
+
+        await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+        // A renamed or deleted group would otherwise stay on the owner badges for
+        // the whole of FLEET_STALE_TIME.
+        expect(queryClient.getQueryState(fleetListKey())?.isInvalidated).toBe(true);
+        expect(queryClient.getQueryState(fleetOwnerKey(1))?.isInvalidated).toBe(true);
     });
 });

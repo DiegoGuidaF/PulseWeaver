@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ROUTES, buildRoute } from "@/lib/routes";
-import { Anchor, Box, Button, Group, Skeleton, Stack, Tabs, Text } from "@mantine/core";
+import { Anchor, Box, Button, Group, Indicator, Skeleton, Stack, Tabs, Text } from "@mantine/core";
 import { useLocalStorage, useMediaQuery } from "@mantine/hooks";
 import { IconChevronLeft, IconUserQuestion } from "@tabler/icons-react";
 import classes from "./UserDevicesPage.module.css";
@@ -18,7 +18,7 @@ import {
   DeviceCreateEmptyState,
 } from "@/features/devices/DeviceCreatePane";
 import { DevicePairingTab } from "@/features/device-pairing/DevicePairingTab";
-import { DeviceState } from "@/lib/api";
+import { DevicePairingStatus, DeviceState } from "@/lib/api";
 import { DeviceWorkspaceBanners } from "@/features/devices/DeviceWorkspaceBanners";
 import { DeviceWorkspaceHeader } from "@/features/devices/DeviceWorkspaceHeader";
 
@@ -260,7 +260,23 @@ export function UserDevicesPage({ createMode = false }: UserDevicesPageProps) {
             <Tabs.List>
               <Tabs.Tab value={DeviceTab.ADDRESSES}>Addresses</Tabs.Tab>
               <Tabs.Tab value={DeviceTab.RULES}>Rules</Tabs.Tab>
-              <Tabs.Tab value={DeviceTab.PAIRING}>Pairing</Tabs.Tab>
+              <Tabs.Tab value={DeviceTab.PAIRING}>
+                <Indicator
+                  disabled={
+                    selectedDevice.pairing?.status !== DevicePairingStatus.PENDING &&
+                    selectedDevice.pairing?.status !== DevicePairingStatus.EXPIRED
+                  }
+                  color={
+                    selectedDevice.pairing?.status === DevicePairingStatus.EXPIRED
+                      ? "red"
+                      : "indigo"
+                  }
+                  size={6}
+                  offset={-2}
+                >
+                  Pairing
+                </Indicator>
+              </Tabs.Tab>
               <Tabs.Tab value={DeviceTab.HISTORY}>History</Tabs.Tab>
               <Tabs.Tab value={DeviceTab.SETTINGS}>Settings</Tabs.Tab>
             </Tabs.List>
