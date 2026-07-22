@@ -9,7 +9,7 @@ import { server } from "@/test/setup";
 import { renderWithProviders, setupUser } from "@/test/utils";
 
 function renderTab() {
-    return renderWithProviders(<DeviceRulesTab deviceId={1} />);
+    return renderWithProviders(<DeviceRulesTab deviceId={1} ownerId={1} />);
 }
 
 describe('DeviceRulesTab — Address lease rule', () => {

@@ -27,7 +27,7 @@ import {
 } from "../filterConfig";
 import { ErrorState } from "@/components/ErrorState";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
-import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
+import { useDeviceRefs } from "@/features/devices/hooks/useDeviceRefs";
 import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { useNetworkPolicies } from "@/features/network-policies/hooks/useNetworkPolicies";
 import { useFilterButtonLabels } from "@/hooks/useFilterButtonLabels";
@@ -126,7 +126,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         outcome: "Filter by decision",
     });
 
-    const { data: ownerGroups } = useDeviceList();
+    const { data: deviceRefs } = useDeviceRefs();
     const { data: users } = useListUsers();
     const { data: networkPolicies } = useNetworkPolicies();
 
@@ -173,7 +173,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         );
     }, [setSearchParams]);
 
-    const deviceOptions = (ownerGroups ?? []).flatMap((g) => g.devices).map((d) => ({ value: String(d.id), label: d.name }));
+    const deviceOptions = (deviceRefs ?? []).map((d) => ({ value: String(d.id), label: d.name }));
     const userOptions = (users ?? []).map((u) => ({ value: String(u.id), label: u.display_name || u.username }));
     const denyReasonOptions = POLICY_DENY_REASON_OPTIONS;
     const networkPolicyOptions = (networkPolicies ?? []).map((p) => ({

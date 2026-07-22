@@ -23,8 +23,7 @@ import { useDeleteDevice } from "@/features/devices/hooks/useDeleteDevice";
 import { useDisableDevice } from "@/features/devices/hooks/useDisableDevice";
 import { useEnableDevice } from "@/features/devices/hooks/useEnableDevice";
 import { useUpdateDevice } from "@/features/devices/hooks/useUpdateDevice";
-import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
-import { useListUsers } from "@/features/auth/hooks/useListUsers";
+import { useOwnerRefs } from "@/features/devices/hooks/useOwnerRefs";
 import { DeviceProfileCard } from "@/features/devices/DeviceProfileCard";
 import { DeviceState } from "@/lib/api";
 
@@ -41,6 +40,7 @@ export interface DeviceData {
 
 interface DeviceSettingsTabProps {
   deviceId: number;
+  ownerId: number;
   device?: DeviceData;
   onDeviceDeleted?: () => void;
 }
@@ -51,21 +51,19 @@ function formatCreatedAt(iso: string): string {
 
 export function DeviceSettingsTab({
   deviceId,
+  ownerId,
   device,
   onDeviceDeleted,
 }: DeviceSettingsTabProps) {
-  const regenerateApiKey = useRegenerateApiKey();
-  const deleteApiKey = useDeleteApiKey();
-  const deleteDevice = useDeleteDevice();
-  const disableDevice = useDisableDevice();
-  const enableDevice = useEnableDevice();
-  const updateDevice = useUpdateDevice();
+  const regenerateApiKey = useRegenerateApiKey(ownerId);
+  const deleteApiKey = useDeleteApiKey(ownerId);
+  const deleteDevice = useDeleteDevice(ownerId);
+  const disableDevice = useDisableDevice(ownerId);
+  const enableDevice = useEnableDevice(ownerId);
+  const updateDevice = useUpdateDevice(ownerId);
   const { copy } = useClipboard();
 
-  const { data: currentUser } = useCurrentUser();
-  const { data: users, isLoading: usersLoading } = useListUsers({
-    enabled: currentUser != null,
-  });
+  const { data: owners, isLoading: ownersLoading } = useOwnerRefs();
 
   const hasApiKey = Boolean(device?.api_key_prefix);
   const isDisabled = device?.state === DeviceState.DISABLED;
@@ -193,11 +191,11 @@ export function DeviceSettingsTab({
   }
 
   const transferSelectData =
-    users
-      ?.filter((u) => u.id !== device?.owner_id)
-      .map((u) => ({ value: String(u.id), label: u.display_name })) ?? [];
+    owners
+      ?.filter((o) => o.id !== device?.owner_id)
+      .map((o) => ({ value: String(o.id), label: o.display_name })) ?? [];
 
-  const newOwnerName = users?.find((u) => String(u.id) === draftNewOwnerId)?.display_name;
+  const newOwnerName = owners?.find((o) => String(o.id) === draftNewOwnerId)?.display_name;
 
   return (
     <Stack gap="xl">
@@ -207,6 +205,7 @@ export function DeviceSettingsTab({
         {device ? (
           <DeviceProfileCard
             deviceId={deviceId}
+            ownerId={ownerId}
             device={device}
           />
         ) : (
@@ -524,7 +523,7 @@ export function DeviceSettingsTab({
           </Group>
           <Group gap="xs" align="center">
             <Text size="sm" c="dimmed" style={{ width: 36 }}>To</Text>
-            {usersLoading ? (
+            {ownersLoading ? (
               <Skeleton height={36} style={{ flex: 1 }} />
             ) : (
               <Select

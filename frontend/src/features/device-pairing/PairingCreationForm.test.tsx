@@ -15,7 +15,7 @@ describe("PairingCreationForm", () => {
   it("defaults to the saved server URL when one exists", () => {
     window.localStorage.setItem(SERVER_URL_KEY, "https://devices.example.com");
 
-    renderWithProviders(<PairingCreationForm deviceId={1} onSuccess={vi.fn()} />);
+    renderWithProviders(<PairingCreationForm deviceId={1} ownerId={1} onSuccess={vi.fn()} />);
 
     expect(screen.getByRole("textbox", { name: /device server url/i })).toHaveValue(
       "https://devices.example.com",
@@ -23,7 +23,7 @@ describe("PairingCreationForm", () => {
   });
 
   it("defaults to window.location.origin without a saved server URL", () => {
-    renderWithProviders(<PairingCreationForm deviceId={1} onSuccess={vi.fn()} />);
+    renderWithProviders(<PairingCreationForm deviceId={1} ownerId={1} onSuccess={vi.fn()} />);
 
     expect(screen.getByRole("textbox", { name: /device server url/i })).toHaveValue(
       window.location.origin,
@@ -41,7 +41,7 @@ describe("PairingCreationForm", () => {
       }),
     );
 
-    renderWithProviders(<PairingCreationForm deviceId={1} onSuccess={onSuccess} />);
+    renderWithProviders(<PairingCreationForm deviceId={1} ownerId={1} onSuccess={onSuccess} />);
 
     await user.clear(screen.getByRole("textbox", { name: /device server url/i }));
     await user.type(
@@ -78,7 +78,7 @@ describe("PairingCreationForm", () => {
       ),
     );
 
-    renderWithProviders(<PairingCreationForm deviceId={1} onSuccess={vi.fn()} />);
+    renderWithProviders(<PairingCreationForm deviceId={1} ownerId={1} onSuccess={vi.fn()} />);
 
     await user.click(screen.getByRole("button", { name: "Generate code →" }));
 
@@ -91,7 +91,7 @@ describe("PairingCreationForm", () => {
     const onSuccess = vi.fn();
     server.use(devicePairingHandlers.create.success({ id: 7 }));
 
-    renderWithProviders(<PairingCreationForm deviceId={1} onSuccess={onSuccess} />);
+    renderWithProviders(<PairingCreationForm deviceId={1} ownerId={1} onSuccess={onSuccess} />);
 
     await user.click(screen.getByRole("button", { name: "Generate code →" }));
 

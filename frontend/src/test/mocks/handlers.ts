@@ -1,7 +1,7 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceOwnerGroup, DevicePairing, GroupDetailWithUsers, GroupListItem, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import type { AttributionKind } from '@/features/dashboard/hooks/useAttributionSplit';
-import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardAttributionCount, createMockDashboardPosture, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceOwnerGroup, createMockDevicePairing, createMockGroupDetailWithUsers, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
+import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardAttributionCount, createMockDashboardPosture, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceRef, createMockDevicePairing, createMockGroupDetailWithUsers, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockOwnerFleetGroup, createMockOwnerRef, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
 
 const BASE = '/api/v1';
 
@@ -13,6 +13,9 @@ export const endpoints = {
     setUserHostGrants: `${BASE}/admin/access/users/:userId/grants`,
     devices: `${BASE}/devices`,
     deviceById: `${BASE}/devices/:deviceId`,
+    deviceRefs: `${BASE}/devices/refs`,
+    deviceFleet: `${BASE}/device-fleet`,
+    ownerRefs: `${BASE}/owners/refs`,
     deviceAddresses: `${BASE}/devices/:deviceId/addresses`,
     deviceAddressById: `${BASE}/devices/:deviceId/addresses/:addressId`,
     deviceHeartbeat: `${BASE}/devices/:deviceId/heartbeat`,
@@ -138,16 +141,34 @@ export const authHandlers = {
     },
 };
 
+// ─── Fleet handlers ───────────────────────────────────────────────────────────
+// One path serves both screens: the list page requests it bare, the owner workspace
+// with ?owner_id=. A handler registered here answers both unless it reads the param.
+export const fleetHandlers = {
+    list: (groups?: OwnerFleetGroup[]) =>
+        http.get(endpoints.deviceFleet, () =>
+            HttpResponse.json(groups ?? [createMockOwnerFleetGroup()])),
+};
+
+// ─── Owner ref handlers ───────────────────────────────────────────────────────
+export const ownerRefHandlers = {
+    list: (refs?: OwnerRef[]) =>
+        http.get(endpoints.ownerRefs, () =>
+            HttpResponse.json(refs ?? [createMockOwnerRef()])),
+};
+
+// ─── Device ref handlers ──────────────────────────────────────────────────────
+export const deviceRefHandlers = {
+    list: (refs?: DeviceRef[]) =>
+        http.get(endpoints.deviceRefs, () =>
+            HttpResponse.json(refs ?? [createMockDeviceRef()])),
+};
+
 // ─── Device handlers ──────────────────────────────────────────────────────────
+// No operation issues a bare GET /devices/{device_id} (the owner-devices view replaced
+// it); a handler for that path/method was intentionally not kept — it would collide with
+// GET /devices/refs under MSW's first-match path routing (":deviceId" also matches "refs").
 export const deviceHandlers = {
-    list: (groups?: DeviceOwnerGroup[]) =>
-        http.get(endpoints.devices, () =>
-            HttpResponse.json(groups ?? [createMockDeviceOwnerGroup()])),
-
-    getById: (override?: Partial<Device>) =>
-        http.get(endpoints.deviceById, ({ params }) =>
-            HttpResponse.json(createMockDevice({ id: Number(params.deviceId), ...override }))),
-
     create: {
         success: (override?: Partial<CreateDeviceResponse>) =>
             http.post(endpoints.devices, () =>
@@ -559,14 +580,16 @@ export const defaultHandlers = [
     authHandlers.demoteUser.success(),
     authHandlers.deleteUser.success(),
     // Devices
-    deviceHandlers.list(),
-    deviceHandlers.getById(),
     deviceHandlers.create.success(),
     deviceHandlers.delete.success(),
     deviceHandlers.update.success(),
     deviceHandlers.regenerateApiKey.success(),
     deviceHandlers.disable.success(),
     deviceHandlers.enable.success(),
+    // Owners
+    fleetHandlers.list(),
+    ownerRefHandlers.list(),
+    deviceRefHandlers.list(),
     // Addresses
     addressHandlers.list(),
     addressHandlers.create.success(),

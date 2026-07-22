@@ -1,9 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   createDeviceMutation,
-  getDevicesQueryKey,
+  listDeviceRefsQueryKey,
 } from "@/lib/api/@tanstack/react-query.gen";
 import type { CreateDeviceResponse } from "@/lib/api";
+import { invalidateOwnerFleet } from "../fleetCache";
 
 export function useCreateDevice(options?: {
   onSuccess?: (data: CreateDeviceResponse) => void;
@@ -13,11 +14,11 @@ export function useCreateDevice(options?: {
   return useMutation({
     ...createDeviceMutation(),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: getDevicesQueryKey() });
-      // Partial key match: invalidates all getDevicesByUser queries regardless of user_id.
-      // TanStack Query v5 partialDeepEqual matches any stored key whose first element
-      // contains _id: 'getDevicesByUser', so no cast or predicate needed.
-      queryClient.invalidateQueries({ queryKey: [{ _id: "getDevicesByUser" }] });
+      // The owner's fleet group carries both the new device row and the aggregates
+      // (device_count, live_address_count) that move with it.
+      invalidateOwnerFleet(queryClient, data.device.owner_id);
+      // Refs gain the new device.
+      queryClient.invalidateQueries({ queryKey: listDeviceRefsQueryKey() });
       options?.onSuccess?.(data);
     },
   });

@@ -12,7 +12,7 @@ import { renderWithProviders, setupUser } from '@/test/utils';
 const STALE_DATE = '2024-01-01T00:00:00Z'; // >7 days ago relative to test run date
 
 function renderTab() {
-    return renderWithProviders(<DeviceAddressesTab deviceId={1} />);
+    return renderWithProviders(<DeviceAddressesTab deviceId={1} ownerId={1} />);
 }
 
 describe('DeviceAddressesTab', () => {

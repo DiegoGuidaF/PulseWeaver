@@ -22,7 +22,7 @@ function mockPairings({ pending, all }: { pending: DevicePairing[]; all: DeviceP
 }
 
 function renderTab(state: DeviceStateType = DeviceState.HEALTHY) {
-    return renderWithProviders(<DevicePairingTab deviceId={1} deviceState={state} />);
+    return renderWithProviders(<DevicePairingTab deviceId={1} ownerId={1} deviceState={state} />);
 }
 
 describe('DevicePairingTab link states', () => {
@@ -70,13 +70,5 @@ describe('DevicePairingTab link states', () => {
 
         expect(await screen.findByText('New pairing code')).toBeInTheDocument();
         expect(screen.getByText(/current link stays active/i)).toBeInTheDocument();
-    });
-
-    it('shows a focused expired card when an unclaimed code expired', async () => {
-        mockPairings({ pending: [], all: [] });
-        renderTab(DeviceState.EXPIRED_CLAIM);
-
-        expect(await screen.findByText('Pairing code expired')).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /generate new code/i })).toBeInTheDocument();
     });
 });

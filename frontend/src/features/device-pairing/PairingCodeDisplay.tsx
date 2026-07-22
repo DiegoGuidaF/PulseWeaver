@@ -21,15 +21,16 @@ import { formatTtl } from "./utils/formatTtl";
 
 interface Props {
   deviceId: number;
+  ownerId: number;
   pairing: DevicePairing;
   onRevoke: () => void;
   /** When this code replaces an already-claimed link, reassure that the old key keeps working until claim. */
   isRepair?: boolean;
 }
 
-export function PairingCodeDisplay({ deviceId, pairing, onRevoke, isRepair = false }: Props) {
+export function PairingCodeDisplay({ deviceId, ownerId, pairing, onRevoke, isRepair = false }: Props) {
   const { copy } = useClipboard();
-  const deleteMutation = useDeleteDevicePairing(deviceId);
+  const deleteMutation = useDeleteDevicePairing(deviceId, ownerId);
 
   function handleRevoke() {
     deleteMutation.mutate(

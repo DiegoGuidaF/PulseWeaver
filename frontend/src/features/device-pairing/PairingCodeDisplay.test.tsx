@@ -25,6 +25,7 @@ describe("PairingCodeDisplay", () => {
     renderWithProviders(
       <PairingCodeDisplay
         deviceId={1}
+        ownerId={1}
         pairing={createMockDevicePairing({ pairing_code: "PW-ABCD-1234" })}
         onRevoke={vi.fn()}
       />,
@@ -47,6 +48,7 @@ describe("PairingCodeDisplay", () => {
     renderWithProviders(
       <PairingCodeDisplay
         deviceId={1}
+        ownerId={1}
         pairing={createMockDevicePairing()}
         onRevoke={vi.fn()}
         isRepair
@@ -63,6 +65,7 @@ describe("PairingCodeDisplay", () => {
     const expired = renderWithProviders(
       <PairingCodeDisplay
         deviceId={1}
+        ownerId={1}
         pairing={createMockDevicePairing({ expires_at: "2026-06-01T11:59:00Z" })}
         onRevoke={vi.fn()}
       />,
@@ -74,6 +77,7 @@ describe("PairingCodeDisplay", () => {
     const minutes = renderWithProviders(
       <PairingCodeDisplay
         deviceId={1}
+        ownerId={1}
         pairing={createMockDevicePairing({ expires_at: "2026-06-01T12:45:00Z" })}
         onRevoke={vi.fn()}
       />,
@@ -84,6 +88,7 @@ describe("PairingCodeDisplay", () => {
     renderWithProviders(
       <PairingCodeDisplay
         deviceId={1}
+        ownerId={1}
         pairing={createMockDevicePairing({ expires_at: "2026-06-01T14:15:00Z" })}
         onRevoke={vi.fn()}
       />,

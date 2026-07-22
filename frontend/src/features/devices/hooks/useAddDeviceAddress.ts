@@ -2,10 +2,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   addAddressMutation,
   getDeviceAddressesQueryKey,
-  getDevicesQueryKey,
 } from "@/lib/api/@tanstack/react-query.gen";
+import { invalidateOwnerFleet } from "../fleetCache";
 
-export function useAddDeviceAddress(options?: { onSuccess?: () => void }) {
+export function useAddDeviceAddress(ownerId: number, options?: { onSuccess?: () => void }) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -16,9 +16,9 @@ export function useAddDeviceAddress(options?: { onSuccess?: () => void }) {
           path: { device_id: variables.path.device_id },
         }),
       });
-      // Device lists carry enabled-address counts and derived device state
-      queryClient.invalidateQueries({ queryKey: getDevicesQueryKey() });
-      queryClient.invalidateQueries({ queryKey: [{ _id: "getDevicesByUser" }] });
+      // The owner's fleet group carries per-device live counts and derived state
+      // alongside the fleet-wide live_address_count.
+      invalidateOwnerFleet(queryClient, ownerId);
       options?.onSuccess?.();
     },
   });

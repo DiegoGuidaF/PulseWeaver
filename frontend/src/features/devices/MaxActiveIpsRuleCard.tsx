@@ -37,17 +37,18 @@ const maxAddressesFormSchema = z.object({
 
 interface MaxActiveIpsRuleCardProps {
   deviceId: number;
+  ownerId: number;
 }
 
-export function MaxActiveIpsRuleCard({ deviceId }: MaxActiveIpsRuleCardProps) {
+export function MaxActiveIpsRuleCard({ deviceId, ownerId }: MaxActiveIpsRuleCardProps) {
   const {
     data: maxAddressesRule,
     isLoading,
     isError,
     error,
   } = useMaxActiveAddressesRule(deviceId);
-  const putRuleMutation = usePutMaxActiveAddressesRule(deviceId);
-  const disableRuleMutation = useDisableMaxActiveAddressesRule(deviceId);
+  const putRuleMutation = usePutMaxActiveAddressesRule(deviceId, ownerId);
+  const disableRuleMutation = useDisableMaxActiveAddressesRule(deviceId, ownerId);
 
   const form = useForm<MaxAddressesFormValues>({
     validateInputOnBlur: true,

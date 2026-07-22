@@ -6,6 +6,7 @@ import {
   listUsersQueryKey,
   listUsersWithAccessQueryKey,
 } from "@/lib/api/@tanstack/react-query.gen";
+import { invalidateOwnerIdentity } from "@/features/devices/fleetCache";
 import type { Options, DemoteUserData } from "@/lib/api";
 
 export function useDemoteUser() {
@@ -19,6 +20,8 @@ export function useDemoteUser() {
       queryClient.invalidateQueries({
         queryKey: getUserAccessDetailQueryKey({ path: { user_id: variables.path!.user_id } }),
       });
+      // The owner card and jump panel badge admins from the fleet payload.
+      invalidateOwnerIdentity(queryClient);
     },
   });
 }

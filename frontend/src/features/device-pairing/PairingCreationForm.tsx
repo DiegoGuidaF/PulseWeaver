@@ -26,12 +26,13 @@ type FormValues = z.infer<typeof zCreatePairingRequest>;
 
 interface Props {
   deviceId: number;
+  ownerId: number;
   onSuccess: (pairing: DevicePairing) => void;
   onCancel?: () => void;
 }
 
-export function PairingCreationForm({ deviceId, onSuccess, onCancel }: Props) {
-  const mutation = useCreateDevicePairing(deviceId);
+export function PairingCreationForm({ deviceId, ownerId, onSuccess, onCancel }: Props) {
+  const mutation = useCreateDevicePairing(deviceId, ownerId);
 
   const form = useForm<FormValues>({
     validateInputOnBlur: true,

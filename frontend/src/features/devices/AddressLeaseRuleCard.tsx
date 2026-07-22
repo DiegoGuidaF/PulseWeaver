@@ -111,15 +111,15 @@ const leaseRuleFormSchema = z.object({
 // AddressLeaseRuleCard
 // ---------------------------------------------------------------------------
 
-export function AddressLeaseRuleCard({ deviceId }: { deviceId: number }) {
+export function AddressLeaseRuleCard({ deviceId, ownerId }: { deviceId: number; ownerId: number }) {
   const {
     data: addressLeaseRule,
     isLoading,
     isError,
     error,
   } = useDeviceAddressLeaseRule(deviceId);
-  const putRuleMutation = usePutDeviceAddressLeaseRule(deviceId);
-  const disableRuleMutation = useDisableDeviceAddressLeaseRule(deviceId);
+  const putRuleMutation = usePutDeviceAddressLeaseRule(deviceId, ownerId);
+  const disableRuleMutation = useDisableDeviceAddressLeaseRule(deviceId, ownerId);
 
   const form = useForm<LeaseRuleFormValues>({
     validateInputOnBlur: true,

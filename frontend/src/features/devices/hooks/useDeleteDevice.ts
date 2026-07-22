@@ -1,18 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   deleteDeviceMutation,
-  getDevicesQueryKey,
+  listDeviceRefsQueryKey,
 } from "@/lib/api/@tanstack/react-query.gen";
+import { invalidateOwnerFleet } from "../fleetCache";
 
-export function useDeleteDevice(options?: { onSuccess?: () => void }) {
+export function useDeleteDevice(ownerId: number, options?: { onSuccess?: () => void }) {
   const queryClient = useQueryClient();
 
   return useMutation({
     ...deleteDeviceMutation(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getDevicesQueryKey() });
-      // Partial key match: invalidates all getDevicesByUser queries regardless of user_id.
-      queryClient.invalidateQueries({ queryKey: [{ _id: "getDevicesByUser" }] });
+      // The device drops out of the owner's group and out of its aggregates.
+      invalidateOwnerFleet(queryClient, ownerId);
+      queryClient.invalidateQueries({ queryKey: listDeviceRefsQueryKey() });
       options?.onSuccess?.();
     },
   });

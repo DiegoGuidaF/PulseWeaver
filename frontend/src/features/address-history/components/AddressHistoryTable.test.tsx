@@ -283,7 +283,8 @@ describe("AddressHistoryTable", () => {
             );
 
             expect(screen.getByText("Device:")).toBeInTheDocument();
-            expect(screen.getByText(/Test Device/)).toBeInTheDocument();
+            // The device refs picker resolves independently of the address-history query.
+            expect(await screen.findByText(/Test Device/)).toBeInTheDocument();
         });
 
         it("shows a Status chip when is_enabled filter is set", async () => {

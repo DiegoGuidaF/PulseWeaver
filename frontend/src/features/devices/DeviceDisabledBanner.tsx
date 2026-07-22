@@ -6,10 +6,11 @@ import { useEnableDevice } from "@/features/devices/hooks/useEnableDevice";
 
 interface Props {
   deviceId: number;
+  ownerId: number;
 }
 
-export function DeviceDisabledBanner({ deviceId }: Props) {
-  const enableDevice = useEnableDevice();
+export function DeviceDisabledBanner({ deviceId, ownerId }: Props) {
+  const enableDevice = useEnableDevice(ownerId);
 
   return (
     <Alert

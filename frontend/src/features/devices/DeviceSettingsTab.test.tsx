@@ -16,15 +16,15 @@ const mockDeviceDisabled = {
 };
 
 function renderTab() {
-    return renderWithProviders(<DeviceSettingsTab deviceId={1} />);
+    return renderWithProviders(<DeviceSettingsTab deviceId={1} ownerId={1} />);
 }
 
 function renderTabWithKey() {
-    return renderWithProviders(<DeviceSettingsTab deviceId={1} device={mockDeviceWithKey} />);
+    return renderWithProviders(<DeviceSettingsTab deviceId={1} ownerId={1} device={mockDeviceWithKey} />);
 }
 
 function renderTabNoKey() {
-    return renderWithProviders(<DeviceSettingsTab deviceId={1} device={mockDeviceNoKey} />);
+    return renderWithProviders(<DeviceSettingsTab deviceId={1} ownerId={1} device={mockDeviceNoKey} />);
 }
 
 describe('DeviceSettingsTab', () => {
@@ -128,7 +128,7 @@ describe('DeviceSettingsTab', () => {
     });
 
     it('offers Re-enable instead of Disable for a disabled device', () => {
-        renderWithProviders(<DeviceSettingsTab deviceId={1} device={mockDeviceDisabled} />);
+        renderWithProviders(<DeviceSettingsTab deviceId={1} ownerId={1} device={mockDeviceDisabled} />);
 
         expect(screen.getByRole('button', { name: 'Re-enable' })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Disable…' })).not.toBeInTheDocument();

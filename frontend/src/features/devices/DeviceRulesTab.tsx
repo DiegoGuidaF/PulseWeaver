@@ -4,13 +4,14 @@ import { MaxActiveIpsRuleCard } from "@/features/devices/MaxActiveIpsRuleCard";
 
 interface DeviceRulesTabProps {
   deviceId: number;
+  ownerId: number;
 }
 
-export function DeviceRulesTab({ deviceId }: DeviceRulesTabProps) {
+export function DeviceRulesTab({ deviceId, ownerId }: DeviceRulesTabProps) {
   return (
     <Stack gap="sm">
-      <AddressLeaseRuleCard deviceId={deviceId} />
-      <MaxActiveIpsRuleCard deviceId={deviceId} />
+      <AddressLeaseRuleCard deviceId={deviceId} ownerId={ownerId} />
+      <MaxActiveIpsRuleCard deviceId={deviceId} ownerId={ownerId} />
     </Stack>
   );
 }

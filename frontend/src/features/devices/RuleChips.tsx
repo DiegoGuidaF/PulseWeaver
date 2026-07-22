@@ -1,7 +1,8 @@
 import dayjs from "dayjs";
 import { Badge, Tooltip } from "@mantine/core";
 import { IconClock, IconPlugConnected, IconPlugConnectedX, IconStack2 } from "@tabler/icons-react";
-import type { DeviceListEntry, DeviceRuleSummary } from "@/lib/api";
+import type { DevicePairingSummary, DeviceRuleSummary } from "@/lib/api";
+import { DevicePairingStatus, RuleType } from "@/lib/api";
 
 function formatTtl(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -17,15 +18,15 @@ function formatPairingExpiry(expiresAt: string): string {
 }
 
 interface Props {
-  entry: DeviceListEntry;
+  rules: DeviceRuleSummary[];
+  pairing?: DevicePairingSummary | null;
+  liveAddressCount: number;
   size?: "xs" | "sm";
 }
 
-export function RuleChips({ entry, size = "xs" }: Props) {
-  const pairingStatus = entry.pairing?.status;
-
-  if (pairingStatus === "pending") {
-    const label = formatPairingExpiry(entry.pairing!.expires_at);
+export function RuleChips({ rules, pairing, liveAddressCount, size = "xs" }: Props) {
+  if (pairing?.status === DevicePairingStatus.PENDING) {
+    const label = formatPairingExpiry(pairing.expires_at);
     const tooltipLabel = `Pairing pending · ${label}`;
     return (
       <Tooltip label={tooltipLabel} withArrow>
@@ -42,8 +43,8 @@ export function RuleChips({ entry, size = "xs" }: Props) {
     );
   }
 
-  if (pairingStatus === "expired") {
-    const expiredDaysAgo = dayjs().diff(dayjs(entry.pairing!.expires_at), "day");
+  if (pairing?.status === DevicePairingStatus.EXPIRED) {
+    const expiredDaysAgo = dayjs().diff(dayjs(pairing.expires_at), "day");
     if (expiredDaysAgo < 7) {
       const tooltipLabel = "Pairing code expired — regenerate required";
       return (
@@ -64,17 +65,13 @@ export function RuleChips({ entry, size = "xs" }: Props) {
 
   return (
     <>
-      {entry.rules
-        .filter((r: DeviceRuleSummary) => r.enabled)
-        .map((r: DeviceRuleSummary) => {
-          if (r.type === "auto_expiry" && r.ttl_seconds != null) {
+      {rules
+        .filter((r) => r.enabled)
+        .map((r) => {
+          if (r.type === RuleType.AUTO_EXPIRY && r.ttl_seconds != null) {
             const tooltipLabel = `Auto-expiry · TTL ${formatTtl(r.ttl_seconds)}`;
             return (
-              <Tooltip
-                key="auto_expiry"
-                label={tooltipLabel}
-                withArrow
-              >
+              <Tooltip key="auto_expiry" label={tooltipLabel} withArrow>
                 <Badge
                   size={size}
                   color="teal"
@@ -87,12 +84,11 @@ export function RuleChips({ entry, size = "xs" }: Props) {
               </Tooltip>
             );
           }
-          if (r.type === "max_active" && r.limit != null) {
-            const current = entry.live_address_count;
-            const atLimit = current >= r.limit;
+          if (r.type === RuleType.MAX_ACTIVE && r.limit != null) {
+            const atLimit = liveAddressCount >= r.limit;
             const tooltipLabel = atLimit
-              ? `Max active IPs · at limit (${current}/${r.limit}) · next IP will evict oldest`
-              : `Max active IPs · ${current} of ${r.limit}`;
+              ? `Max active IPs · at limit (${liveAddressCount}/${r.limit}) · next IP will evict oldest`
+              : `Max active IPs · ${liveAddressCount} of ${r.limit}`;
             return (
               <Tooltip key="max_active" label={tooltipLabel} withArrow>
                 <Badge
@@ -102,7 +98,7 @@ export function RuleChips({ entry, size = "xs" }: Props) {
                   aria-label={tooltipLabel}
                   leftSection={<IconStack2 size={10} stroke={1.5} aria-hidden="true" />}
                 >
-                  {current}/{r.limit}
+                  {liveAddressCount}/{r.limit}
                 </Badge>
               </Tooltip>
             );

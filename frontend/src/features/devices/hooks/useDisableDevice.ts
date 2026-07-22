@@ -1,17 +1,15 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  disableDeviceMutation,
-  getDevicesQueryKey,
-} from "@/lib/api/@tanstack/react-query.gen";
+import { disableDeviceMutation } from "@/lib/api/@tanstack/react-query.gen";
+import { invalidateOwnerFleet } from "../fleetCache";
 
-export function useDisableDevice() {
+export function useDisableDevice(ownerId: number) {
   const queryClient = useQueryClient();
 
   return useMutation({
     ...disableDeviceMutation(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getDevicesQueryKey() });
-      queryClient.invalidateQueries({ queryKey: [{ _id: "getDevicesByUser" }] });
+      // Disabling drops all of the device's live addresses; the owner's aggregate follows.
+      invalidateOwnerFleet(queryClient, ownerId);
     },
   });
 }

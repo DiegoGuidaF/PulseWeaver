@@ -4,7 +4,7 @@ import { Box, Group, ThemeIcon, Tooltip, UnstyledButton, Text } from "@mantine/c
 import { IconChevronRight } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import type { DeviceListEntry } from "@/lib/api";
+import type { FleetDevice } from "@/lib/api";
 import { resolveDeviceIcon } from "@/features/devices/deviceTypeConfig";
 import { DeviceState } from "@/lib/api";
 import { RuleChips } from "@/features/devices/RuleChips";
@@ -47,12 +47,6 @@ function getRowContainerStyle(state: DeviceState): React.CSSProperties {
       borderRadius: 6,
     };
   }
-  if (state === DeviceState.PENDING_CLAIM) {
-    return {
-      border: "1px dashed var(--mantine-color-indigo-5)",
-      borderRadius: 6,
-    };
-  }
   return {
     border: "1px solid var(--mantine-color-default-border)",
     borderRadius: 6,
@@ -60,7 +54,7 @@ function getRowContainerStyle(state: DeviceState): React.CSSProperties {
 }
 
 interface Props {
-  entry: DeviceListEntry;
+  entry: FleetDevice;
   ownerId: number;
 }
 
@@ -101,7 +95,11 @@ export function DeviceRow({ entry, ownerId }: Props) {
           </Box>
 
           <Group gap={4} wrap="nowrap">
-            <RuleChips entry={entry} />
+            <RuleChips
+              rules={entry.rules}
+              pairing={entry.pairing}
+              liveAddressCount={entry.live_address_count}
+            />
           </Group>
 
           <LivePips count={entry.live_address_count} />

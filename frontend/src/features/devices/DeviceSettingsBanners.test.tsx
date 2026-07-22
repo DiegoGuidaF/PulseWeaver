@@ -50,7 +50,7 @@ describe("DeviceDisabledBanner", () => {
   it("renders the frozen-device warning and re-enable action", async () => {
     const user = setupUser();
 
-    renderWithProviders(<DeviceDisabledBanner deviceId={1} />);
+    renderWithProviders(<DeviceDisabledBanner deviceId={1} ownerId={1} />);
 
     expect(screen.getByText("Device frozen")).toBeInTheDocument();
     expect(screen.getByText("Address updates are blocked until re-enabled.")).toBeInTheDocument();

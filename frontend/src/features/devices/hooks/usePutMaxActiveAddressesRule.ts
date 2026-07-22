@@ -1,12 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getDeviceAddressesQueryKey,
-  getDevicesQueryKey,
   getMaxActiveAddressesRuleQueryKey,
   putMaxActiveAddressesRuleMutation,
 } from "@/lib/api/@tanstack/react-query.gen";
+import { invalidateOwnerFleet } from "../fleetCache";
 
-export function usePutMaxActiveAddressesRule(deviceId: number) {
+export function usePutMaxActiveAddressesRule(deviceId: number, ownerId: number) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -18,7 +18,10 @@ export function usePutMaxActiveAddressesRule(deviceId: number) {
       queryClient.invalidateQueries({
         queryKey: getDeviceAddressesQueryKey({ path: { device_id: deviceId } }),
       });
-      queryClient.invalidateQueries({ queryKey: getDevicesQueryKey() });
+      // The owner's fleet group carries the rule chips, and rule changes evict or
+      // expire addresses, so the live-address counts and derived device states in
+      // that same group move with them.
+      invalidateOwnerFleet(queryClient, ownerId);
     },
   });
 }

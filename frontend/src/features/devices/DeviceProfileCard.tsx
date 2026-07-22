@@ -45,14 +45,16 @@ function deviceToFormValues(d: DeviceForProfile): ProfileFormValues {
 
 export interface DeviceProfileCardProps {
   deviceId: number;
+  ownerId: number;
   device: DeviceForProfile;
 }
 
 export function DeviceProfileCard({
   deviceId,
+  ownerId,
   device,
 }: DeviceProfileCardProps) {
-  const updateDevice = useUpdateDevice();
+  const updateDevice = useUpdateDevice(ownerId);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
 
   const form = useForm<ProfileFormValues>({

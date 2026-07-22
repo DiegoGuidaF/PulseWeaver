@@ -167,16 +167,17 @@ function AddressRow({
 
 interface DeviceAddressesTabProps {
   deviceId: number;
+  ownerId: number;
   isDisabled?: boolean;
 }
 
-export function DeviceAddressesTab({ deviceId, isDisabled = false }: DeviceAddressesTabProps) {
+export function DeviceAddressesTab({ deviceId, ownerId, isDisabled = false }: DeviceAddressesTabProps) {
   const formatDateTime = useDateFormatter();
   const { data: addresses, isLoading, isError, error, refetch } = useDeviceAddresses(deviceId, true, 10_000);
 
-  const addMutation = useAddDeviceAddress();
-  const disableMutation = useDisableDeviceAddress();
-  const heartbeatMutation = useDeviceHeartbeat();
+  const addMutation = useAddDeviceAddress(ownerId);
+  const disableMutation = useDisableDeviceAddress(ownerId);
+  const heartbeatMutation = useDeviceHeartbeat(ownerId);
 
   const [view, setView] = useState<"active" | "stale">("active");
   const [customOpen, setCustomOpen] = useState(false);

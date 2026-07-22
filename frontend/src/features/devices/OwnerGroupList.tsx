@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Chip, CloseButton, Group, Skeleton, Stack, Text, TextInput } from "@mantine/core";
 import { IconDevices, IconSearch } from "@tabler/icons-react";
-import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
+import { useOwnerGroups } from "@/features/devices/hooks/useOwnerGroups";
 import { OwnerCard } from "@/features/devices/OwnerCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
@@ -22,13 +22,13 @@ function LoadingSkeleton() {
 }
 
 export function OwnerGroupList() {
-  const { data: groups, isLoading, error, refetch } = useDeviceList();
+  const { data, isPending, error, refetch } = useOwnerGroups();
+  const groups = useMemo(() => data ?? [], [data]);
   const [nameQuery, setNameQuery] = useState("");
   const [filterStale, setFilterStale] = useState(false);
   const [filterBypass, setFilterBypass] = useState(false);
 
   const filteredGroups = useMemo(() => {
-    if (!groups) return [];
     const trimmed = nameQuery.trim().toLowerCase();
     const hasDeviceFilter = Boolean(trimmed) || filterStale;
 
@@ -47,13 +47,13 @@ export function OwnerGroupList() {
       .filter((g) => !hasDeviceFilter || g.devices.length > 0);
   }, [groups, nameQuery, filterStale, filterBypass]);
 
-  if (isLoading) return <LoadingSkeleton />;
+  if (isPending) return <LoadingSkeleton />;
 
   if (error) {
     return <ErrorState error={error} title="Could not load devices" onRetry={() => refetch()} />;
   }
 
-  if (!groups || groups.length === 0) {
+  if (groups.length === 0) {
     return (
       <EmptyState
         icon={IconDevices}
@@ -87,11 +87,7 @@ export function OwnerGroupList() {
       ) : (
         <Stack gap="md">
           {filteredGroups.map((group) => (
-            <OwnerCard
-              key={group.owner.id}
-              owner={group.owner}
-              devices={group.devices}
-            />
+            <OwnerCard key={group.owner.id} owner={group.owner} devices={group.devices} />
           ))}
         </Stack>
       )}

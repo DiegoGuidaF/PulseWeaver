@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   deleteDevicePairingMutation,
-  getDevicesQueryKey,
   listDevicePairingsQueryKey,
 } from "@/lib/api/@tanstack/react-query.gen";
+import { invalidateOwnerFleet } from "@/features/devices/fleetCache";
 
-export function useDeleteDevicePairing(deviceId: number) {
+export function useDeleteDevicePairing(deviceId: number, ownerId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     ...deleteDevicePairingMutation(),
@@ -13,7 +13,8 @@ export function useDeleteDevicePairing(deviceId: number) {
       queryClient.invalidateQueries({
         queryKey: listDevicePairingsQueryKey({ path: { id: deviceId } }),
       });
-      queryClient.invalidateQueries({ queryKey: getDevicesQueryKey() });
+      // The pairing chip is nested on the device row in the owner's fleet group.
+      invalidateOwnerFleet(queryClient, ownerId);
     },
   });
 }

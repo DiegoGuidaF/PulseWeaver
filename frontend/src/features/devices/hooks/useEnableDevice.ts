@@ -1,17 +1,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  enableDeviceMutation,
-  getDevicesQueryKey,
-} from "@/lib/api/@tanstack/react-query.gen";
+import { enableDeviceMutation } from "@/lib/api/@tanstack/react-query.gen";
+import { invalidateOwnerFleet } from "../fleetCache";
 
-export function useEnableDevice() {
+export function useEnableDevice(ownerId: number) {
   const queryClient = useQueryClient();
 
   return useMutation({
     ...enableDeviceMutation(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getDevicesQueryKey() });
-      queryClient.invalidateQueries({ queryKey: [{ _id: "getDevicesByUser" }] });
+      invalidateOwnerFleet(queryClient, ownerId);
     },
   });
 }

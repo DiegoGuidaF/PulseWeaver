@@ -3,17 +3,16 @@ import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { ROUTES } from '@/lib/routes';
 import { OwnerDevicesPanel } from '@/features/devices/OwnerDevicesPanel';
-import type { DeviceListEntry, DeviceListOwner } from '@/lib/api';
+import type { FleetDevice, OwnerSummary } from '@/lib/api';
 import { DeviceState, UserRole } from '@/lib/api';
 import { TEST_TIMEOUTS } from '@/test/constants';
-import { deviceHandlers } from '@/test/mocks/handlers';
+import { ownerRefHandlers } from '@/test/mocks/handlers';
 import { server } from '@/test/setup';
 import { renderWithProviders, setupUser } from '@/test/utils';
-import { createMockDeviceOwnerGroup } from '@/test/mocks/data';
+import { createMockOwnerRef } from '@/test/mocks/data';
 
-const defaultOwner: DeviceListOwner = {
+const defaultOwner: OwnerSummary = {
     id: 1,
-    username: 'testuser',
     display_name: 'Test User',
     role: UserRole.USER,
     bypass_host_check: false,
@@ -22,18 +21,19 @@ const defaultOwner: DeviceListOwner = {
     live_address_count: 0,
 };
 
-const defaultDevice: DeviceListEntry = {
+const defaultDevice: FleetDevice = {
     id: 1,
     name: 'Test Device',
     state: DeviceState.HEALTHY,
     live_address_count: 0,
-    rules: [],
     created_at: '2024-01-01T00:00:00Z',
+    rules: [],
+    pairing: null,
 };
 
 interface PanelProps {
-    owner?: DeviceListOwner;
-    devices?: DeviceListEntry[];
+    owner?: OwnerSummary;
+    devices?: FleetDevice[];
     selectedDeviceId?: number;
     onSelectDevice?: (id: number) => void;
     onAddDevice?: () => void;
@@ -72,33 +72,12 @@ function renderPanel(props: PanelProps = {}) {
     return { ...result, onSelectDevice };
 }
 
-const secondOwnerGroup = createMockDeviceOwnerGroup({
-    owner: {
-        id: 2,
-        username: 'other',
-        display_name: 'Other User',
-        role: UserRole.USER,
-        bypass_host_check: false,
-        host_groups: [],
-        device_count: 1,
-        live_address_count: 0,
-    },
-    devices: [
-        {
-            id: 2,
-            name: 'Other Device',
-            state: DeviceState.HEALTHY,
-            live_address_count: 0,
-            rules: [],
-            created_at: '2024-01-01T00:00:00Z',
-        },
-    ],
-});
+const secondOwner = createMockOwnerRef({ id: 2, display_name: 'Other User' });
 
 describe('OwnerDevicesPanel', () => {
     beforeEach(() => {
-        // Single group by default — no JUMP section
-        server.use(deviceHandlers.list([createMockDeviceOwnerGroup()]));
+        // Single owner by default — no JUMP section
+        server.use(ownerRefHandlers.list([createMockOwnerRef()]));
     });
 
     // ─── Owner card ──────────────────────────────────────────────────────────────
@@ -196,7 +175,7 @@ describe('OwnerDevicesPanel', () => {
     // ─── Name filter ───────────────────────────────────────────────────────────────
 
     describe('name filter', () => {
-        const manyDevices: DeviceListEntry[] = [
+        const manyDevices: FleetDevice[] = [
             { ...defaultDevice, id: 1, name: 'Living room TV' },
             { ...defaultDevice, id: 2, name: 'Bob Phone' },
             { ...defaultDevice, id: 3, name: 'Work Laptop' },
@@ -250,7 +229,7 @@ describe('OwnerDevicesPanel', () => {
         });
 
         it('shows jump section when other owners exist in the list', async () => {
-            server.use(deviceHandlers.list([createMockDeviceOwnerGroup(), secondOwnerGroup]));
+            server.use(ownerRefHandlers.list([createMockOwnerRef(), secondOwner]));
 
             renderPanel();
 
@@ -261,7 +240,7 @@ describe('OwnerDevicesPanel', () => {
         });
 
         it('navigates to the selected owner workspace via jump autocomplete', async () => {
-            server.use(deviceHandlers.list([createMockDeviceOwnerGroup(), secondOwnerGroup]));
+            server.use(ownerRefHandlers.list([createMockOwnerRef(), secondOwner]));
 
             renderPanel();
 

@@ -15,6 +15,7 @@ describe("DeviceProfileCard", () => {
     renderWithProviders(
       <DeviceProfileCard
         deviceId={1}
+        ownerId={1}
         device={{ name: "Router", description: "Closet AP", icon: "📡" }}
       />,
     );
@@ -47,6 +48,7 @@ describe("DeviceProfileCard", () => {
     renderWithProviders(
       <DeviceProfileCard
         deviceId={1}
+        ownerId={1}
         device={{ name: "Router", description: "Closet AP", icon: "📡" }}
       />,
     );
@@ -76,6 +78,7 @@ describe("DeviceProfileCard", () => {
     renderWithProviders(
       <DeviceProfileCard
         deviceId={1}
+        ownerId={1}
         device={{ name: "Router", description: "Closet AP", icon: "📡" }}
       />,
     );
@@ -96,7 +99,7 @@ describe("DeviceProfileCard", () => {
     const user = setupUser();
     server.use(deviceHandlers.update.conflict());
 
-    renderWithProviders(<DeviceProfileCard deviceId={1} device={{ name: "Router" }} />);
+    renderWithProviders(<DeviceProfileCard deviceId={1} ownerId={1} device={{ name: "Router" }} />);
 
     await user.clear(screen.getByRole("textbox", { name: /name/i }));
     await user.type(screen.getByRole("textbox", { name: /name/i }), "Duplicate router");

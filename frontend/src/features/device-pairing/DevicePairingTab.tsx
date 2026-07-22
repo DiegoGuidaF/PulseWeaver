@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  Alert,
   Badge,
   Button,
   Collapse,
@@ -15,17 +14,11 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import {
-  IconAlertCircle,
-  IconChevronRight,
-  IconClock,
-  IconPlus,
-  IconRefresh,
-} from "@tabler/icons-react";
+import { IconChevronRight, IconClock, IconRefresh } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import type { DevicePairing, DeviceState as DeviceStateType } from "@/lib/api";
-import { DeviceState, PairingListFilter } from "@/lib/api";
+import { DevicePairingStatus, PairingListFilter } from "@/lib/api";
 import { toErrorMessage } from "@/lib/api-client";
 import { ErrorState } from "@/components/ErrorState";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
@@ -41,15 +34,14 @@ dayjs.extend(relativeTime);
 
 interface Props {
   deviceId: number;
+  ownerId: number;
   deviceState: DeviceStateType;
 }
 
-export function DevicePairingTab({ deviceId, deviceState }: Props) {
-  const isExpired = deviceState === DeviceState.EXPIRED_CLAIM;
-
+export function DevicePairingTab({ deviceId, ownerId, deviceState }: Props) {
   const pendingQuery = useListDevicePairings(deviceId, PairingListFilter.PENDING);
   const historyQuery = useListDevicePairings(deviceId, PairingListFilter.ALL);
-  const regenMutation = useCreateDevicePairing(deviceId);
+  const regenMutation = useCreateDevicePairing(deviceId, ownerId);
 
   const formatDateTime = useDateFormatter();
 
@@ -65,12 +57,12 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
   // A claimed code means the device is (or was) linked to a companion app. The
   // most recent one carries the config locked in at claim time.
   const claimedPairing = useMemo(
-    () => (historyQuery.data ?? []).find((p) => p.status === "used"),
+    () => (historyQuery.data ?? []).find((p) => p.status === DevicePairingStatus.USED),
     [historyQuery.data],
   );
   const isLinked = Boolean(claimedPairing);
 
-  const historyItems = (historyQuery.data ?? []).filter((p) => p.status !== "pending").slice(0, 5);
+  const historyItems = (historyQuery.data ?? []).filter((p) => p.status !== DevicePairingStatus.PENDING).slice(0, 5);
 
   function handleCreateSuccess(pairing: DevicePairing) {
     setJustCreated(pairing);
@@ -147,6 +139,7 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
           </Group>
           <PairingCodeDisplay
             deviceId={deviceId}
+            ownerId={ownerId}
             pairing={outstandingCode}
             onRevoke={handleRevoke}
             isRepair={isLinked}
@@ -177,18 +170,6 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
             The current link stays active until a new code is claimed.
           </Text>
         </Stack>
-      ) : isExpired ? (
-        /* Expired without ever being claimed — one clear way forward. */
-        <Stack gap="md">
-          <Alert color="orange" icon={<IconAlertCircle size={16} />} title="Pairing code expired">
-            The previous code expired before it was claimed. Generate a new one to pair this device.
-          </Alert>
-          <Group>
-            <Button leftSection={<IconPlus size={14} />} onClick={openCreate}>
-              Generate new code
-            </Button>
-          </Group>
-        </Stack>
       ) : (
         /* Never linked — the create form is the main thing to do here. */
         <Stack gap="md">
@@ -201,7 +182,7 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
               app sends heartbeats and PulseWeaver tracks the device's IP automatically.
             </Text>
           </div>
-          <PairingCreationForm deviceId={deviceId} onSuccess={handleCreateSuccess} />
+          <PairingCreationForm deviceId={deviceId} ownerId={ownerId} onSuccess={handleCreateSuccess} />
         </Stack>
       )}
 
@@ -246,7 +227,7 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
                       <Group gap={4} style={{ flexShrink: 0 }}>
                         <IconClock size={11} style={{ color: "var(--mantine-color-dimmed)" }} />
                         <Text size="xs" c="dimmed">
-                          {item.status === "used"
+                          {item.status === DevicePairingStatus.USED
                             ? `claimed ${dayjs(item.updated_at).fromNow()}`
                             : formatDateTime(item.updated_at)}
                         </Text>
@@ -270,6 +251,7 @@ export function DevicePairingTab({ deviceId, deviceState }: Props) {
       >
         <PairingCreationForm
           deviceId={deviceId}
+          ownerId={ownerId}
           onSuccess={handleCreateSuccess}
           onCancel={closeCreate}
         />

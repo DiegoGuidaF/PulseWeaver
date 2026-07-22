@@ -1,4 +1,4 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceOwnerGroup, GroupDetailWithUsers, GroupListItem, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, OwnerSummary, FleetDevice, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import { AddressEventSource, DeviceState, PolicyUserStatus, UserRole } from "@/lib/api";
 
 /**
@@ -604,30 +604,53 @@ export function createMockDevicePairing(
   };
 }
 
-export function createMockDeviceOwnerGroup(
-  overrides?: Partial<DeviceOwnerGroup>,
-): DeviceOwnerGroup {
+export function createMockOwnerSummary(overrides?: Partial<OwnerSummary>): OwnerSummary {
   return {
-    owner: {
-      id: 1,
-      username: 'testuser',
-      display_name: 'Test User',
-      role: UserRole.USER,
-      bypass_host_check: false,
-      host_groups: [],
-      device_count: 1,
-      live_address_count: 0,
-    },
-    devices: [
-      {
-        id: 1,
-        name: 'Test Device',
-        state: DeviceState.HEALTHY,
-        live_address_count: 0,
-        rules: [],
-        created_at: '2024-01-01T00:00:00Z',
-      },
-    ],
+    id: 1,
+    display_name: 'Test User',
+    role: UserRole.USER,
+    bypass_host_check: false,
+    device_count: 1,
+    live_address_count: 0,
+    host_groups: [],
+    ...overrides,
+  };
+}
+
+export function createMockFleetDevice(overrides?: Partial<FleetDevice>): FleetDevice {
+  return {
+    id: 1,
+    name: 'Test Device',
+    state: DeviceState.HEALTHY,
+    live_address_count: 0,
+    created_at: '2024-01-01T00:00:00Z',
+    rules: [],
+    pairing: null,
+    ...overrides,
+  };
+}
+
+export function createMockOwnerFleetGroup(overrides?: Partial<OwnerFleetGroup>): OwnerFleetGroup {
+  return {
+    owner: createMockOwnerSummary(),
+    devices: [createMockFleetDevice()],
+    ...overrides,
+  };
+}
+
+export function createMockOwnerRef(overrides?: Partial<OwnerRef>): OwnerRef {
+  return {
+    id: 1,
+    display_name: 'Test User',
+    ...overrides,
+  };
+}
+
+export function createMockDeviceRef(overrides?: Partial<DeviceRef>): DeviceRef {
+  return {
+    id: 1,
+    name: 'Test Device',
+    owner_id: 1,
     ...overrides,
   };
 }

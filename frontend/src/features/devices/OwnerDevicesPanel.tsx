@@ -1,12 +1,9 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { buildRoute } from "@/lib/routes";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
 import {
   Avatar,
   Badge,
-  Box,
   Button,
   CloseButton,
   Divider,
@@ -15,103 +12,19 @@ import {
   Stack,
   Text,
   TextInput,
-  ThemeIcon,
   Tooltip,
-  UnstyledButton,
 } from "@mantine/core";
 import { IconPlus, IconSearch } from "@tabler/icons-react";
-import type { DeviceListEntry, DeviceListOwner } from "@/lib/api";
-import { DeviceState } from "@/lib/api";
-import { resolveDeviceIcon } from "@/features/devices/deviceTypeConfig";
+import type { FleetDevice, OwnerSummary } from "@/lib/api";
+import { UserRole } from "@/lib/api";
+import { DevicePanelItem } from "@/features/devices/DevicePanelItem";
+import { getInitials } from "@/features/devices/ownerDisplay";
 import { GroupBadgeList } from "@/features/host-access/components/GroupBadgeList";
-import { useDeviceList } from "@/features/devices/hooks/useDeviceList";
-import { isInactiveState } from "@/features/devices/constants";
-
-dayjs.extend(relativeTime);
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
-
-function deviceStatusText(entry: DeviceListEntry): string {
-  const ago = entry.last_seen_at ? ` · ${dayjs(entry.last_seen_at).fromNow()}` : "";
-
-  if (entry.state === DeviceState.DISABLED) return `disabled${ago}`;
-  if (entry.live_address_count > 0) return `${entry.live_address_count} live${ago}`;
-  if (entry.state === DeviceState.PENDING_CLAIM) return "pairing pending";
-  if (entry.state === DeviceState.EXPIRED_CLAIM) return "code expired";
-  if (entry.state === DeviceState.STALE) return `stale${ago}`;
-  return entry.last_seen_at ? `seen ${dayjs(entry.last_seen_at).fromNow()}` : "never seen";
-}
-
-function DevicePanelItem({
-  entry,
-  isSelected,
-  onSelect,
-}: {
-  entry: DeviceListEntry;
-  isSelected: boolean;
-  onSelect: () => void;
-}) {
-  const renderIcon = resolveDeviceIcon(entry.icon);
-  const isMuted = isInactiveState(entry.state);
-  const isLive = entry.live_address_count > 0;
-
-  return (
-    <UnstyledButton
-      onClick={onSelect}
-      style={{
-        display: "block",
-        width: "100%",
-        borderRadius: 6,
-        borderLeft: `3px solid ${isSelected ? "var(--mantine-color-orange-5)" : "transparent"}`,
-        background: isSelected ? "var(--mantine-color-default-hover)" : undefined,
-      }}
-    >
-      <Group px="sm" py={6} gap="sm" align="center" wrap="nowrap">
-        <ThemeIcon variant="transparent" size="sm" c={isMuted ? "dimmed" : undefined}>
-          {renderIcon({ size: 16 })}
-        </ThemeIcon>
-        <Box style={{ flex: 1, minWidth: 0 }}>
-          <Text
-            size="sm"
-            c={isMuted ? "dimmed" : undefined}
-            fw={isSelected ? 500 : undefined}
-            truncate
-          >
-            {entry.name}
-          </Text>
-          <Text size="xs" c="dimmed" truncate>
-            {deviceStatusText(entry)}
-          </Text>
-        </Box>
-        {isLive ? (
-          <Box w={8} h={8} bg="orange.4" style={{ borderRadius: "50%", flexShrink: 0 }} />
-        ) : (
-          <Box
-            w={8}
-            h={8}
-            style={{
-              borderRadius: "50%",
-              border: "1.5px solid var(--mantine-color-default-border)",
-              flexShrink: 0,
-            }}
-          />
-        )}
-      </Group>
-    </UnstyledButton>
-  );
-}
+import { useOwnerRefs } from "@/features/devices/hooks/useOwnerRefs";
 
 export interface OwnerDevicesPanelProps {
-  owner: DeviceListOwner;
-  devices: DeviceListEntry[];
+  owner: OwnerSummary;
+  devices: FleetDevice[];
   selectedDeviceId: number | undefined;
   onSelectDevice: (id: number) => void;
   onAddDevice?: () => void;
@@ -125,7 +38,7 @@ export function OwnerDevicesPanel({
   onAddDevice,
 }: OwnerDevicesPanelProps) {
   const navigate = useNavigate();
-  const { data: allGroups } = useDeviceList();
+  const { data: allOwners } = useOwnerRefs();
 
   const [query, setQuery] = useState("");
   const trimmed = query.trim().toLowerCase();
@@ -138,9 +51,9 @@ export function OwnerDevicesPanel({
 
   // Option values are owner ids, not display names: names can collide across
   // owners and duplicate Select option values are rejected by Mantine.
-  const jumpData = (allGroups ?? [])
-    .filter((g) => g.owner.id !== owner.id)
-    .map((g) => ({ value: String(g.owner.id), label: g.owner.display_name }));
+  const jumpData = (allOwners ?? [])
+    .filter((o) => o.id !== owner.id)
+    .map((o) => ({ value: String(o.id), label: o.display_name }));
 
   function handleJump(ownerId: string) {
     navigate(buildRoute.userDevices(Number(ownerId)));
@@ -156,21 +69,17 @@ export function OwnerDevicesPanel({
           {getInitials(owner.display_name)}
         </Avatar>
         <Stack gap={6}>
-          <Stack gap={2}>
+          <Group gap="xs" align="center">
             <Text fw={600} size="sm">{owner.display_name}</Text>
-            {owner.role === "admin" && (
-              <Box>
-                <Badge size="xs" color="indigo" variant="light">admin</Badge>
-              </Box>
+            {owner.role === UserRole.ADMIN && (
+              <Badge size="xs" color="indigo" variant="light">admin</Badge>
             )}
-          </Stack>
+          </Group>
           <Stack gap={4}>
             {owner.bypass_host_check ? (
-              <Box>
-                <Tooltip label="Host check bypassed — this user's devices can access any configured host" withArrow>
-                  <Badge size="xs" color="orange" variant="filled">All hosts</Badge>
-                </Tooltip>
-              </Box>
+              <Tooltip label="Host check bypassed — this user's devices can access any configured host" withArrow>
+                <Badge size="xs" color="orange" variant="filled" w="fit-content">All hosts</Badge>
+              </Tooltip>
             ) : owner.host_groups.length > 0 ? (
               <GroupBadgeList groups={owner.host_groups} size="xs" />
             ) : null}

@@ -5,6 +5,7 @@ import {
   listUsersQueryKey,
   listUsersWithAccessQueryKey,
 } from "@/lib/api/@tanstack/react-query.gen";
+import { invalidateOwnerIdentity } from "@/features/devices/fleetCache";
 
 export function useDeleteUser() {
   const queryClient = useQueryClient();
@@ -15,6 +16,8 @@ export function useDeleteUser() {
       queryClient.invalidateQueries({ queryKey: listUsersQueryKey() });
       queryClient.invalidateQueries({ queryKey: listUsersWithAccessQueryKey() });
       queryClient.invalidateQueries({ queryKey: getCurrentUserQueryKey() });
+      // The owner and their devices drop out of the fleet.
+      invalidateOwnerIdentity(queryClient);
     },
   });
 }

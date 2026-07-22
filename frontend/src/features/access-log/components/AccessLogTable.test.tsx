@@ -386,7 +386,8 @@ describe("AccessLogTable", () => {
             );
 
             expect(screen.getByText("Device:")).toBeInTheDocument();
-            expect(screen.getByText(/Test Device/)).toBeInTheDocument();
+            // The device refs picker resolves independently of the access-log query.
+            expect(await screen.findByText(/Test Device/)).toBeInTheDocument();
         });
 
         it("shows an Outcome chip when outcome filter is set", async () => {
