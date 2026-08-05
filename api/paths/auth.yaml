@@ -21,6 +21,7 @@ login:
               $ref: '../components/schemas/users.yaml#/User'
         headers:
           Set-Cookie:
+            required: true
             schema:
               type: string
       "401":
@@ -48,6 +49,7 @@ logout:
         description: Logged out successfully
         headers:
           Set-Cookie:
+            required: true
             schema:
               type: string
 

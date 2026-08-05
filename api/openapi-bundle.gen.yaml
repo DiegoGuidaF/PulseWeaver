@@ -246,6 +246,7 @@ paths:
                 $ref: '#/components/schemas/User'
           headers:
             Set-Cookie:
+              required: true
               schema:
                 type: string
         '401':
@@ -272,6 +273,7 @@ paths:
           description: Logged out successfully
           headers:
             Set-Cookie:
+              required: true
               schema:
                 type: string
   /auth/me:
