@@ -81,7 +81,7 @@ func addRoutes(
 
 	r.Route("/api/v1", func(r chi.Router) {
 
-		swagger, _ := httpapi.GetSwagger()
+		swagger, _ := httpapi.GetSpec()
 
 		validatorOptions := &nethttpmiddleware.Options{
 			ErrorHandler: createValidationErrorHandler(logger),
