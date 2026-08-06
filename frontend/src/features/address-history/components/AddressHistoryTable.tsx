@@ -1,11 +1,14 @@
 import { useState, useMemo } from "react";
 import { buildRoute } from "@/lib/routes";
 import { useNavigate } from "react-router-dom";
-import { ActionIcon, Card, Group, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
+import { ActionIcon, Button, Card, Group, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { LineChart } from "@mantine/charts";
 import { DataTable } from "mantine-datatable";
-import { IconRefresh } from "@tabler/icons-react";
+import { IconDatabaseOff, IconFilterOff, IconRefresh } from "@tabler/icons-react";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
+import { ColumnsMenu } from "@/components/ColumnsMenu";
+import { useManagedColumns, type ManagedColumnMeta } from "@/hooks/useManagedColumns";
 import { CursorPagination } from "@/components/CursorPagination";
 import { useAddressHistory } from "../hooks/useAddressHistory";
 import { useAddressHistoryHistogram } from "../hooks/useAddressHistoryHistogram";
@@ -18,17 +21,50 @@ import {
     describeColumnFilter,
     isFilterActive,
 } from "../filterConfig";
-import { SOURCE_LABELS, EVENT_KIND_LABELS, TTL_RISK_LABELS, isAddressEventSource, isStateChangesOnly } from "../constants";
-import { AddressEventKind, type TtlRisk } from "@/lib/api";
+import {
+    EVENT_KIND_LABELS,
+    LEASE_HEALTH_COLUMN_LABEL,
+    SOURCE_LABELS,
+    TTL_RISK_LABELS,
+    isAddressEventSource,
+} from "../constants";
+import { AddressEventKind, type AddressHistoryEvent, type TtlRisk } from "@/lib/api";
 import { ErrorState } from "@/components/ErrorState";
 import { formatChartLabel, presetToMs } from "@/lib/formatChartLabel";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
 import { useDeviceRefs } from "@/features/devices/hooks/useDeviceRefs";
 import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { useFilterButtonLabels } from "@/hooks/useFilterButtonLabels";
+import classes from "@/components/managedColumns.module.css";
 import dayjs from "dayjs";
 
 const PAGE_SIZE = 25;
+
+/**
+ * Every data column the chooser can show, in display order. Time is mandatory —
+ * always shown and not toggleable, since it anchors the pinned first column and
+ * the fixed `id DESC` order. `defaultVisible` seeds the rest on first visit.
+ */
+const COLUMN_META: ManagedColumnMeta[] = [
+    { accessor: "timestamp", label: "Time", mandatory: true },
+    { accessor: "device_name", label: "Device", defaultVisible: true },
+    { accessor: "ip", label: "IP", defaultVisible: true },
+    { accessor: "geo", label: "Location", defaultVisible: true },
+    { accessor: "is_enabled", label: "Status", defaultVisible: true },
+    { accessor: "source", label: "Source", defaultVisible: true },
+    { accessor: "event_kind", label: "Event", defaultVisible: true },
+    { accessor: "renewal_gap_seconds", label: "Renewal gap", defaultVisible: true },
+    { accessor: "ttl_risk", label: LEASE_HEALTH_COLUMN_LABEL, defaultVisible: true },
+];
+
+/**
+ * Compact default below `md`: what identifies the event (IP, Event) plus the
+ * headline health reading, so the table fits without horizontal scrolling.
+ */
+const LEAN_DEFAULT_VISIBLE_COLUMNS = ["ip", "event_kind", "ttl_risk"];
+
+/** Column store key; bump the suffix when the persisted column shape changes. */
+const COLUMNS_STORE_KEY = "pulseweaver:address-history:columns:v1";
 
 interface AddressHistoryTableProps {
     filters: AddressHistoryFilters;
@@ -53,8 +89,12 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         ip: "Filter by IP address",
         source: "Filter by source",
         event_kind: "Filter by event kind",
-        ttl_risk: "Filter by TTL risk",
+        ttl_risk: "Filter by lease health",
     });
+
+    // Below the nav-collapse breakpoint, start from a lean column set to avoid
+    // horizontal scrolling. Matches the AppShell's `md` threshold.
+    const isCompact = !useMediaQuery("(min-width: 62em)", true, { getInitialValueInEffect: false });
 
     const { data: deviceRefs } = useDeviceRefs();
     const { data: users } = useListUsers();
@@ -80,7 +120,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
     const deviceOptions = (deviceRefs ?? []).map((d) => ({ value: String(d.id), label: d.name }));
     const userOptions = (users ?? []).map((u) => ({ value: String(u.id), label: u.display_name || u.username }));
 
-    const columns = getAddressHistoryColumns({
+    const allColumns = getAddressHistoryColumns({
         formatDateTime,
         pickerValueFormat,
         fromStr: filters.fromStr,
@@ -96,6 +136,22 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
             if (ownerId !== undefined) navigate(`${buildRoute.userDevices(ownerId)}?device=${deviceId}`);
         },
     });
+
+    // A locked filter drops the column that displays it, so the chooser must not
+    // offer it either — otherwise it lists a column that can never appear.
+    const columnMeta = useMemo(() => {
+        const rendered = new Set(allColumns.map((c) => String(c.accessor)));
+        return COLUMN_META.filter((m) => rendered.has(m.accessor));
+    }, [allColumns]);
+
+    const { effectiveColumns, columnVisible, setColumnVisible, resetColumns } =
+        useManagedColumns<AddressHistoryEvent>({
+            storeKey: COLUMNS_STORE_KEY,
+            columns: allColumns,
+            meta: columnMeta,
+            compactVisible: LEAN_DEFAULT_VISIBLE_COLUMNS,
+            compact: isCompact,
+        });
 
     const filterChips = useMemo(() => {
         const chips: FilterChip[] = [];
@@ -128,7 +184,6 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
             if (filters.lockedFilter?.key === key) continue;
             const state = filters.getColumnFilter(key);
             if (!isFilterActive(state)) continue;
-            if (key === "event_kind" && isStateChangesOnly(state)) continue;
             chips.push({
                 label: COLUMN_CHIP_LABELS[key],
                 value: describeColumnFilter(key, state, resolvers[key]),
@@ -213,18 +268,49 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                         <IconRefresh size={16} />
                     </ActionIcon>
                 </Tooltip>
+                <ColumnsMenu
+                    meta={columnMeta}
+                    columnVisible={columnVisible}
+                    setColumnVisible={setColumnVisible}
+                    onReset={resetColumns}
+                />
             </Group>
 
             <ActiveFilterChips chips={filterChips} onClearAll={filters.clearAll} />
 
-            <div ref={tableRef} aria-busy={isFetching}>
+            <div ref={tableRef} aria-busy={isFetching} className={classes.table}>
                 <DataTable
                     records={rows}
                     idAccessor="id"
                     highlightOnHover
                     minHeight={150}
-                    noRecordsText="No address events found."
-                    columns={columns}
+                    // The empty-state container disables pointer events, so the
+                    // clear-filters CTA re-enables them; rendering it only when the
+                    // table is actually empty keeps the invisible overlay inert.
+                    emptyState={
+                        rows.length === 0 ? (
+                            <Stack align="center" gap={4} style={{ pointerEvents: "all" }}>
+                                <div className="mantine-datatable-empty-state-icon">
+                                    <IconDatabaseOff />
+                                </div>
+                                <Text size="sm" c="dimmed">
+                                    No address events found.
+                                </Text>
+                                {filters.hasActiveFilters && (
+                                    <Button
+                                        variant="subtle"
+                                        size="compact-xs"
+                                        leftSection={<IconFilterOff size={14} />}
+                                        onClick={filters.clearAll}
+                                    >
+                                        Clear filters
+                                    </Button>
+                                )}
+                            </Stack>
+                        ) : undefined
+                    }
+                    columns={effectiveColumns}
+                    storeColumnsKey={COLUMNS_STORE_KEY}
                     fetching={isFetching}
                     loaderBackgroundBlur={1}
                     scrollAreaProps={{ type: "auto" }}

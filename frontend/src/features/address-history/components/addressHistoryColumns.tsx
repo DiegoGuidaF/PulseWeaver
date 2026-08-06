@@ -1,11 +1,10 @@
-import { Anchor, Badge, Group, Stack, Text, ThemeIcon, Tooltip } from "@mantine/core";
+import { Anchor, Badge, Stack, Text, Tooltip } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { IconArrowsRightLeft } from "@tabler/icons-react";
 import type { DataTableColumn } from "mantine-datatable";
 import { FilterableCell } from "@/components/FilterableCell";
 import { ColumnFilter, FilterApplyButton } from "@/components/ColumnFilter";
 import { GeoCell } from "@/components/GeoCell";
-import { AddressEventSource, AddressHistoryFilterOperator, type AddressEventKind, type AddressHistoryEvent, type TtlRisk } from "@/lib/api";
+import { AddressEventSource, AddressHistoryFilterOperator, TtlRisk, type AddressEventKind, type AddressHistoryEvent } from "@/lib/api";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
 import {
     type ColumnFilterState,
@@ -17,11 +16,13 @@ import {
     EVENT_KIND_COLORS,
     EVENT_KIND_LABELS,
     EVENT_KIND_OPTIONS,
+    LEASE_HEALTH_COLUMN_LABEL,
     SOURCE_LABELS,
     SOURCE_OPTIONS,
     TTL_RISK_BADGE,
     TTL_RISK_LABELS,
     TTL_RISK_OPTIONS,
+    TTL_RISK_UNKNOWN_HINT,
     formatGapDuration,
 } from "../constants";
 import dayjs from "dayjs";
@@ -78,6 +79,19 @@ function renderEventKindBadge(kind: AddressEventKind) {
 }
 
 function renderTtlRiskBadge(risk: TtlRisk) {
+    // `unknown` is the absence of a health reading, not a fifth severity — a
+    // grey "Not applicable" badge reads as a state the admin might need to act
+    // on, so it degrades to the same dimmed dash the renewal gap uses.
+    if (risk === TtlRisk.UNKNOWN) {
+        return (
+            <Tooltip label={TTL_RISK_UNKNOWN_HINT} withArrow>
+                <Text size="sm" ff="monospace" c="dimmed">
+                    —
+                </Text>
+            </Tooltip>
+        );
+    }
+
     const { color, variant } = TTL_RISK_BADGE[risk];
     return (
         <Badge size="sm" color={color} variant={variant}>
@@ -194,12 +208,6 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
             ),
         },
         {
-            accessor: "renewal_gap_seconds",
-            title: "Renewal gap",
-            textAlign: "right",
-            render: renderGapCell,
-        },
-        {
             accessor: "device_name",
             title: "Device",
             filter: ({ close }) => (
@@ -264,18 +272,9 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
                         deps.setColumnFilter("ip", { op: AddressHistoryFilterOperator.IN, values: [row.ip] })
                     }
                 >
-                    <Group gap={6} wrap="nowrap">
-                        <Text size="sm" ff="monospace">
-                            {row.ip}
-                        </Text>
-                        {row.ip_changed && (
-                            <Tooltip label="IP changed from this device's previous event" withArrow>
-                                <ThemeIcon size="xs" variant="transparent" color="indigo">
-                                    <IconArrowsRightLeft size={12} />
-                                </ThemeIcon>
-                            </Tooltip>
-                        )}
-                    </Group>
+                    <Text size="sm" ff="monospace">
+                        {row.ip}
+                    </Text>
                 </FilterableCell>
             ),
         },
@@ -334,14 +333,20 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
             ),
         },
         {
+            accessor: "renewal_gap_seconds",
+            title: "Renewal gap",
+            textAlign: "right",
+            render: renderGapCell,
+        },
+        {
             accessor: "ttl_risk",
-            title: "TTL risk",
+            title: LEASE_HEALTH_COLUMN_LABEL,
             textAlign: "center",
             filter: columnFilterSlot("ttl_risk", TTL_RISK_OPTIONS),
             filtering: isFilterActive(deps.getColumnFilter("ttl_risk")),
             render: (row) => (
                 <FilterableCell
-                    filterLabel="Filter by this TTL risk"
+                    filterLabel="Filter by this lease health"
                     onFilter={() =>
                         deps.setColumnFilter("ttl_risk", {
                             op: AddressHistoryFilterOperator.IN,

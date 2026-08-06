@@ -1,5 +1,4 @@
 import { AddressEventKind, AddressEventSource, TtlRisk } from "@/lib/api";
-import type { ColumnFilterState } from "@/lib/columnFilter";
 
 export const SOURCE_LABELS: Record<AddressEventSource, string> = {
     [AddressEventSource.HEARTBEAT]: "Heartbeat",
@@ -38,31 +37,25 @@ export const EVENT_KIND_COLORS: Record<AddressEventKind, string> = {
 };
 
 /**
- * Event kinds that represent a real address state change. The default "state
- * changes" view filters to these, excluding routine heartbeat refreshes.
+ * The `ttl_risk` enum answers "should an admin worry this device is about to
+ * lose access?", so it is surfaced as "Lease health" — the lease is what grants
+ * access, and "health" ranks without needing the reader to know what a TTL is.
+ * `unknown` is not a risk level but an absence of one, so it reads as
+ * "Not applicable" in pickers and as a dimmed dash in the table.
  */
-export const CHANGE_EVENT_KINDS: AddressEventKind[] = [
-    AddressEventKind.CREATED,
-    AddressEventKind.ENABLED,
-    AddressEventKind.DISABLED,
-];
-
-/** True when a column filter matches exactly the default "state changes" event-kind set. */
-export function isStateChangesOnly(state: ColumnFilterState): boolean {
-    return (
-        state.op === "in" &&
-        state.values.length === CHANGE_EVENT_KINDS.length &&
-        CHANGE_EVENT_KINDS.every((k) => state.values.includes(k))
-    );
-}
+export const LEASE_HEALTH_COLUMN_LABEL = "Lease health";
 
 export const TTL_RISK_LABELS: Record<TtlRisk, string> = {
-    [TtlRisk.UNKNOWN]: "Unknown",
+    [TtlRisk.UNKNOWN]: "Not applicable",
     [TtlRisk.OK]: "OK",
     [TtlRisk.APPROACHING]: "Approaching",
     [TtlRisk.CRITICAL]: "Critical",
     [TtlRisk.BREACHED]: "Breached",
 };
+
+/** Why a row carries no lease health, shown on the dash that replaces the badge. */
+export const TTL_RISK_UNKNOWN_HINT =
+    "No lease health to report — this event does not renew a lease, or the device has no lease rule.";
 
 export const TTL_RISK_OPTIONS = Object.values(TtlRisk).map((risk) => ({
     value: risk,

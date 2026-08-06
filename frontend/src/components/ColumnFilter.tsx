@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Group, MultiSelect, Select, Stack, TagsInput, Text, TextInput } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
-import { CONTAINS_OPS, NULL_OPS, operatorLabel, type ColumnFilterState, type FilterColumnConfig } from "@/lib/columnFilter";
+import { CONTAINS_OPS, NULL_OPS, operatorLabel, type AnyFilterOp, type ColumnFilterState, type FilterColumnConfig } from "@/lib/columnFilter";
 
-interface ColumnFilterProps<Op extends string> {
+interface ColumnFilterProps<Op extends AnyFilterOp> {
     config: FilterColumnConfig<Op>;
     state: ColumnFilterState<Op>;
     /** Options for the multi-select widget; absent → free-form tag input. */
@@ -32,7 +32,7 @@ function sameValues(a: string[], b: string[]): boolean {
  * (this node unmounts) — so fiddling with the operator or adding several values
  * results in a single backend query rather than one per keystroke or selection.
  */
-export function ColumnFilter<Op extends string>({
+export function ColumnFilter<Op extends AnyFilterOp>({
     config,
     state,
     options,

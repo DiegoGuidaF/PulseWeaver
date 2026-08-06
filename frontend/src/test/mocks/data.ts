@@ -136,7 +136,6 @@ export function createMockAddressHistoryEvent(
     source: 'heartbeat',
     device_id: 1,
     device_name: 'Test Device',
-    ip_changed: false,
     renewal_gap_seconds: 300,
     event_kind: AddressEventKind.REFRESH,
     ttl_risk: TtlRisk.OK,

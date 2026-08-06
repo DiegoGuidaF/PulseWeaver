@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { buildRoute } from "@/lib/routes";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ActionIcon, Anchor, Button, Checkbox, Group, Menu, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
+import { ActionIcon, Anchor, Button, Group, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
-import { DataTable, type DataTableSortStatus, useDataTableColumns } from "mantine-datatable";
-import { IconColumns3, IconDatabaseOff, IconFilterOff, IconRefresh, IconRestore } from "@tabler/icons-react";
+import { DataTable, type DataTableSortStatus } from "mantine-datatable";
+import { IconDatabaseOff, IconFilterOff, IconRefresh } from "@tabler/icons-react";
 import type { AccessLogRow } from "@/lib/api";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
+import { ColumnsMenu } from "@/components/ColumnsMenu";
+import { useManagedColumns, type ManagedColumnMeta } from "@/hooks/useManagedColumns";
 import { CursorPagination } from "@/components/CursorPagination";
 import { TrafficLineChart } from "@/components/TrafficLineChart";
 import { presetToMs } from "@/lib/formatChartLabel";
@@ -31,7 +33,7 @@ import { useDeviceRefs } from "@/features/devices/hooks/useDeviceRefs";
 import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { useNetworkPolicies } from "@/features/network-policies/hooks/useNetworkPolicies";
 import { useFilterButtonLabels } from "@/hooks/useFilterButtonLabels";
-import classes from "./AccessLogTable.module.css";
+import classes from "@/components/managedColumns.module.css";
 
 interface AccessLogTableProps {
     filters: AccessLogFilters;
@@ -57,7 +59,7 @@ const MIN_COLUMN_WIDTH = 110;
  * the user customises the chooser. The trailing actions column is always
  * rendered and is not listed here.
  */
-const COLUMN_META: { accessor: string; label: string; mandatory?: boolean; defaultVisible?: boolean }[] = [
+const COLUMN_META: ManagedColumnMeta[] = [
     { accessor: "created_at", label: "Time", mandatory: true },
     { accessor: "client_ip", label: "IP", defaultVisible: true },
     { accessor: "country_code", label: "Country", defaultVisible: true },
@@ -70,8 +72,6 @@ const COLUMN_META: { accessor: string; label: string; mandatory?: boolean; defau
     { accessor: "duration_us", label: "Duration" },
 ];
 
-const MANDATORY_COLUMNS = new Set(COLUMN_META.filter((c) => c.mandatory).map((c) => c.accessor));
-const DEFAULT_VISIBLE_COLUMNS = COLUMN_META.filter((c) => !c.mandatory && c.defaultVisible).map((c) => c.accessor);
 /**
  * Compact default for screens below `md`: the identifying IP/Host and the
  * headline Outcome alongside the mandatory Time, so the table fits without
@@ -203,67 +203,15 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         onNetworkPolicyClick: (id) => navigate(buildRoute.accessNetworkPolicyDetail(id)),
     });
 
-    const defaultVisible = new Set(isCompact ? LEAN_DEFAULT_VISIBLE_COLUMNS : DEFAULT_VISIBLE_COLUMNS);
-    const managedColumns = allColumns.map((col) => {
-        const accessor = String(col.accessor);
-        if (accessor === "actions") return col;
-        const mandatory = MANDATORY_COLUMNS.has(accessor);
-        return {
-            ...col,
-            resizable: true,
-            // Time is left non-draggable so the statically pinned first column
-            // stays locked at index 0. The drag-handle and hide icons are removed
-            // (CSS / toggleable) to declutter; reorder still works by dragging the
-            // header itself, and visibility is driven from the Columns chooser.
-            draggable: accessor !== "created_at",
-            toggleable: false,
-            defaultToggle: mandatory || defaultVisible.has(accessor),
-        };
-    });
-
-    const {
-        effectiveColumns,
-        columnsToggle,
-        setColumnsToggle,
-        columnsWidth,
-        setColumnsWidth,
-        resetColumnsOrder,
-        resetColumnsToggle,
-        resetColumnsWidth,
-    } = useDataTableColumns<AccessLogRow>({
-        key: COLUMNS_STORE_KEY,
-        columns: managedColumns,
-        getInitialValueInEffect: false,
-    });
-
-    // The resize feature switches the table to `table-layout: fixed` (where CSS
-    // min-width is ignored) and its own drag floor of 50px is low enough to clip
-    // the sort/filter/hide controls out of a header. The width store is the only
-    // input the table honours, so clamp it there. The debounce lets an
-    // in-progress drag run unhindered — an undersized column snaps back to the
-    // floor on release. The fixed-width actions column is exempt.
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            const updates: { accessor: string; width: string }[] = [];
-            for (const entry of columnsWidth) {
-                for (const [accessor, width] of Object.entries(entry)) {
-                    if (accessor === "actions" || typeof width !== "string") continue;
-                    const px = parseInt(width, 10);
-                    if (!Number.isNaN(px) && px < MIN_COLUMN_WIDTH) {
-                        updates.push({ accessor, width: `${MIN_COLUMN_WIDTH}px` });
-                    }
-                }
-            }
-            if (updates.length > 0) setColumnsWidth(updates);
-        }, 200);
-        return () => clearTimeout(timer);
-    }, [columnsWidth, setColumnsWidth]);
-
-    const columnVisible = new Map(columnsToggle.map((c) => [c.accessor, c.toggled]));
-
-    function setColumnVisible(accessor: string, visible: boolean) {
-        setColumnsToggle(columnsToggle.map((c) => (c.accessor === accessor ? { ...c, toggled: visible } : c)));
-    }
+    const { effectiveColumns, columnVisible, setColumnVisible, resetColumns } =
+        useManagedColumns<AccessLogRow>({
+            storeKey: COLUMNS_STORE_KEY,
+            columns: allColumns,
+            meta: COLUMN_META,
+            compactVisible: LEAN_DEFAULT_VISIBLE_COLUMNS,
+            compact: isCompact,
+            minColumnWidth: MIN_COLUMN_WIDTH,
+        });
 
     const sortStatus: DataTableSortStatus<AccessLogRow> = {
         columnAccessor: filters.sort,
@@ -356,47 +304,12 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                             <IconRefresh size={16} />
                         </ActionIcon>
                     </Tooltip>
-                    <Menu shadow="md" closeOnItemClick={false} position="bottom-end">
-                        <Menu.Target>
-                            <Button
-                                variant="subtle"
-                                size="compact-xs"
-                                leftSection={<IconColumns3 size={14} />}
-                            >
-                                Columns
-                            </Button>
-                        </Menu.Target>
-                        <Menu.Dropdown>
-                            <Menu.Label>Columns</Menu.Label>
-                            <Stack gap="xs" px="sm" py={4}>
-                                {COLUMN_META.map((c) => (
-                                    <Checkbox
-                                        key={c.accessor}
-                                        size="xs"
-                                        label={c.label}
-                                        checked={c.mandatory || (columnVisible.get(c.accessor) ?? false)}
-                                        disabled={c.mandatory}
-                                        onChange={(e) => setColumnVisible(c.accessor, e.currentTarget.checked)}
-                                    />
-                                ))}
-                            </Stack>
-                            <Menu.Divider />
-                            <Menu.Item
-                                leftSection={<IconRestore size={14} />}
-                                onClick={() => {
-                                    resetColumnsOrder();
-                                    resetColumnsToggle();
-                                    resetColumnsWidth();
-                                }}
-                            >
-                                Reset columns
-                            </Menu.Item>
-                            <Menu.Divider />
-                            <Text size="xs" c="dimmed" px="sm" py={4}>
-                                Tip: drag a column header to reorder.
-                            </Text>
-                        </Menu.Dropdown>
-                    </Menu>
+                    <ColumnsMenu
+                        meta={COLUMN_META}
+                        columnVisible={columnVisible}
+                        setColumnVisible={setColumnVisible}
+                        onReset={resetColumns}
+                    />
                 </Group>
 
                 <ActiveFilterChips chips={filterChips} onClearAll={filters.clearAll} />

@@ -1,4 +1,5 @@
 import { AddressHistoryFilterOperator } from "@/lib/api";
+import { LEASE_HEALTH_COLUMN_LABEL } from "./constants";
 import {
     isFilterActive,
     operatorLabel,
@@ -56,7 +57,7 @@ export const COLUMN_CHIP_LABELS: Record<FilterColumnKey, string> = {
     ip: "IP",
     source: "Source",
     event_kind: "Event",
-    ttl_risk: "TTL risk",
+    ttl_risk: LEASE_HEALTH_COLUMN_LABEL,
 };
 
 /**

@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import dayjs from "dayjs";
 import { AddressHistoryFilterOperator, type GetAddressHistoryHistogramData } from "@/lib/api";
 import { DEFAULT_PRESET_KEY, PRESET_MS } from "@/lib/timePresets";
-import { CHANGE_EVENT_KINDS, isStateChangesOnly } from "../constants";
 import {
     type ColumnFilterState,
     type FilterColumnKey,
@@ -16,7 +15,8 @@ import {
 /** Filters + time window shared by both the events list and the histogram — the refetch boundary between them is the cursor, which lives outside this type. */
 type Query = NonNullable<GetAddressHistoryHistogramData["query"]>;
 
-const LS_KEY = "pulseweaver:address-history:filters";
+/** Filter store key; bump the suffix when the default params change, so a stale entry can't restore a default the UI no longer offers. */
+const LS_KEY = "pulseweaver:address-history:filters:v2";
 
 /** A pre-applied, non-removable filter. The device tab locks `device_id`; a future user-scoped view locks `user_id` the same way. */
 export interface LockedFilter {
@@ -46,11 +46,9 @@ export interface AddressHistoryFilters {
     clearAll: () => void;
 }
 
-/** Default params: the default time preset, and the "state changes" event-kind set (excludes routine refreshes). */
+/** Default params: the default time preset and nothing else — every column filter starts empty. */
 export function buildDefaultParams(): URLSearchParams {
-    const params = new URLSearchParams({ preset: DEFAULT_PRESET_KEY });
-    for (const kind of CHANGE_EVENT_KINDS) params.append("event_kind", kind);
-    return params;
+    return new URLSearchParams({ preset: DEFAULT_PRESET_KEY });
 }
 
 function persistFilters(params: URLSearchParams) {
@@ -150,10 +148,7 @@ export function useFilterCore(
         !!(fromStr || toStr) ||
         FILTER_COLUMN_KEYS.some((key) => {
             if (locked && key === locked.key) return false;
-            const state = getColumnFilter(key);
-            if (!isFilterActive(state)) return false;
-            if (key === "event_kind" && isStateChangesOnly(state)) return false;
-            return true;
+            return isFilterActive(getColumnFilter(key));
         });
 
     function clearAll() {
@@ -161,7 +156,6 @@ export function useFilterCore(
             const next = new URLSearchParams();
             // Preserve the time-range preset — it is a view setting, not a column filter.
             if (prev.has("preset")) next.set("preset", prev.get("preset")!);
-            for (const kind of CHANGE_EVENT_KINDS) next.append("event_kind", kind);
             return next;
         });
     }

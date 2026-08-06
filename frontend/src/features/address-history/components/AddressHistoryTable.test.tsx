@@ -5,11 +5,13 @@ import { server } from "@/test/setup";
 import { renderWithProviders, setupUser } from "@/test/utils";
 import { AddressHistoryPage } from "@/pages/address-history/AddressHistoryPage";
 import {
+    createMockAddressHistoryEvent,
     createMockAddressHistoryHistogramResponse,
     createMockAddressHistoryResponse,
 } from "@/test/mocks/data";
 import { addressHandlers, endpoints, responses } from "@/test/mocks/handlers";
 import { TEST_TIMEOUTS } from "@/test/constants";
+import { TtlRisk } from "@/lib/api";
 
 const BASE_ENTRY =
     "/address-history?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z";
@@ -40,6 +42,36 @@ describe("AddressHistoryTable", () => {
         );
         expect(screen.getByText("10.0.0.2")).toBeInTheDocument();
         expect(screen.getByText("3 results")).toBeInTheDocument();
+    });
+
+    it("queries both endpoints unfiltered on first load", async () => {
+        const eventsQueries: string[] = [];
+        const histogramQueries: string[] = [];
+        server.use(
+            http.get(endpoints.addressHistory, ({ request }) => {
+                eventsQueries.push(new URL(request.url).search);
+                return HttpResponse.json(createMockAddressHistoryResponse());
+            }),
+            http.get(endpoints.addressHistoryHistogram, ({ request }) => {
+                histogramQueries.push(new URL(request.url).search);
+                return HttpResponse.json(createMockAddressHistoryHistogramResponse());
+            }),
+        );
+
+        renderTable(["/address-history"]);
+
+        await waitFor(
+            () => {
+                expect(eventsQueries.length).toBeGreaterThan(0);
+                expect(histogramQueries.length).toBeGreaterThan(0);
+            },
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+
+        // The default view narrows nothing — routine refreshes included. A seeded
+        // event_kind default would hide rows the filter bar reports as unfiltered.
+        expect(eventsQueries[0]).not.toContain("event_kind");
+        expect(histogramQueries[0]).not.toContain("event_kind");
     });
 
     it("shows no-records message when empty", async () => {
@@ -105,7 +137,7 @@ describe("AddressHistoryTable", () => {
         );
     });
 
-    it("shows TTL risk badges rendered from the server enum", async () => {
+    it("shows lease health badges rendered from the server enum", async () => {
         renderTable();
 
         await waitFor(
@@ -113,6 +145,30 @@ describe("AddressHistoryTable", () => {
             { timeout: TEST_TIMEOUTS.SHORT },
         );
         expect(screen.getByText("Breached")).toBeInTheDocument();
+        expect(
+            screen.getAllByRole("columnheader").find((h) => h.textContent?.includes("Lease health")),
+        ).toBeDefined();
+    });
+
+    it("renders unknown lease health as a dash, not a badge", async () => {
+        server.use(
+            addressHandlers.history.success(
+                createMockAddressHistoryResponse({
+                    events: [createMockAddressHistoryEvent({ id: 1, ttl_risk: TtlRisk.UNKNOWN })],
+                    total: 1,
+                }),
+            ),
+        );
+
+        renderTable();
+
+        await waitFor(
+            () => expect(screen.getAllByText("—").length).toBeGreaterThan(0),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+        // `unknown` is an absence of a reading, so no badge text for it appears.
+        expect(screen.queryByText("Not applicable")).not.toBeInTheDocument();
+        expect(screen.queryByText("Unknown")).not.toBeInTheDocument();
     });
 
     it("shows device name column", async () => {
@@ -158,6 +214,48 @@ describe("AddressHistoryTable", () => {
             () => expect(screen.getByText("3 results")).toBeInTheDocument(),
             { timeout: TEST_TIMEOUTS.SHORT },
         );
+    });
+
+    // ─── Column management ──────────────────────────────────────────────────
+
+    describe("Column chooser", () => {
+        it("hides a column when unticked in the chooser", async () => {
+            const user = setupUser();
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getAllByText("10.0.0.1").length).toBeGreaterThan(0),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+            expect(
+                screen.getAllByRole("columnheader").find((h) => h.textContent?.includes("Source")),
+            ).toBeDefined();
+
+            await user.click(screen.getByRole("button", { name: "Columns" }));
+            await user.click(await screen.findByRole("checkbox", { name: "Source" }));
+
+            await waitFor(() =>
+                expect(
+                    screen.getAllByRole("columnheader").find((h) => h.textContent?.includes("Source")),
+                ).toBeUndefined(),
+            );
+        });
+
+        it("keeps the mandatory Time column non-removable", async () => {
+            const user = setupUser();
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getAllByText("10.0.0.1").length).toBeGreaterThan(0),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            await user.click(screen.getByRole("button", { name: "Columns" }));
+
+            const timeCheckbox = await screen.findByRole("checkbox", { name: "Time" });
+            expect(timeCheckbox).toBeChecked();
+            expect(timeCheckbox).toBeDisabled();
+        });
     });
 
     // ─── Distinct query keys (events vs histogram) ──────────────────────────
@@ -319,7 +417,7 @@ describe("AddressHistoryTable", () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            await user.click(getFilterButton("TTL risk"));
+            await user.click(getFilterButton("Lease health"));
 
             expect(
                 await screen.findByPlaceholderText("Select values"),
@@ -392,7 +490,7 @@ describe("AddressHistoryTable", () => {
             expect(screen.getByText(/Heartbeat/)).toBeInTheDocument();
         });
 
-        it("shows a TTL risk chip when ttl_risk filter is set", async () => {
+        it("shows a lease health chip when ttl_risk filter is set", async () => {
             server.use(addressHandlers.history.empty());
 
             renderTable([
@@ -404,40 +502,24 @@ describe("AddressHistoryTable", () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            expect(screen.getByText("TTL risk:")).toBeInTheDocument();
+            expect(screen.getByText("Lease health:")).toBeInTheDocument();
             expect(screen.getByText(/Breached/)).toBeInTheDocument();
         });
 
-        it("does not show an Event chip for the default state-changes filter", async () => {
+        it("shows an Event chip for a state-change selection like any other", async () => {
             server.use(addressHandlers.history.empty());
 
-            renderTable(["/address-history?preset=last_24h"]);
+            renderTable([
+                "/address-history?preset=last_24h&event_kind=created&event_kind=enabled&event_kind=disabled",
+            ]);
 
             await waitFor(
                 () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            expect(screen.queryByText("Event:")).not.toBeInTheDocument();
-        });
-
-        it("does not show an Event chip when the toggle is switched to All events", async () => {
-            const user = setupUser();
-            server.use(addressHandlers.history.empty());
-
-            renderTable(["/address-history?preset=last_24h"]);
-
-            await waitFor(
-                () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
-                { timeout: TEST_TIMEOUTS.SHORT },
-            );
-
-            // "All events" clears the event_kind filter entirely — there's
-            // nothing narrowing the rows, so it stays chip-free just like the
-            // default "state changes" position.
-            await user.click(screen.getByText("All events"));
-
-            await waitFor(() => expect(screen.queryByText("Event:")).not.toBeInTheDocument());
+            expect(screen.getByText("Event:")).toBeInTheDocument();
+            expect(screen.getByText(/Created/)).toBeInTheDocument();
         });
 
         it("shows an Event chip once the user picks a custom event-kind subset", async () => {
@@ -471,7 +553,7 @@ describe("AddressHistoryTable", () => {
             expect(screen.queryByText("Device:")).not.toBeInTheDocument();
             expect(screen.queryByText("Source:")).not.toBeInTheDocument();
             expect(screen.queryByText("Event:")).not.toBeInTheDocument();
-            expect(screen.queryByText("TTL risk:")).not.toBeInTheDocument();
+            expect(screen.queryByText("Lease health:")).not.toBeInTheDocument();
         });
 
         it("removes the IP chip and clears the filter when remove is clicked", async () => {
