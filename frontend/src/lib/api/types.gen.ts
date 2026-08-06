@@ -490,11 +490,6 @@ export type AddressHistoryEvent = {
    */
   renewal_gap_seconds?: number | null;
   /**
-   * Whether the IP differs from the previous address event for this device. False for the first event in the queried range.
-   *
-   */
-  ip_changed: boolean;
-  /**
    * How this event relates to the previous event for the same address.
    */
   event_kind: AddressEventKind;

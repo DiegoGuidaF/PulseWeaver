@@ -134,7 +134,6 @@ func addressHistoryEnriched() sq.SelectBuilder {
 		"d.owner_id",
 		"json_extract(dr.config, '$.ttl_seconds') AS ttl_seconds",
 		"CAST((julianday(aev.created_at) - julianday(rg.prev_renewal_at)) * 86400 AS INTEGER) AS renewal_gap_seconds",
-		"LAG(a.ip) OVER (PARTITION BY a.device_id ORDER BY aev.created_at, aev.id) AS prev_ip",
 		eventKindCase+" AS event_kind",
 	).
 		From("address_events aev").
@@ -148,7 +147,7 @@ func addressHistoryEnriched() sq.SelectBuilder {
 	return sq.Select(
 		"r.id", "r.address_id", "r.created_at", "r.ip", "r.is_enabled", "r.source",
 		"r.device_id", "r.device_name", "r.owner_id", "r.ttl_seconds", "r.renewal_gap_seconds",
-		"r.prev_ip", "r.event_kind",
+		"r.event_kind",
 	).
 		Column(ttlRiskCase+" AS ttl_risk", ttlRiskBreachedRatio, ttlRiskCriticalRatio, ttlRiskApproachingRatio).
 		FromSelect(raw, "r")
@@ -318,7 +317,6 @@ type AddressHistoryEventRow struct {
 	DeviceID          ids.DeviceID     `db:"device_id"`
 	DeviceName        string           `db:"device_name"`
 	RenewalGapSeconds *int64           `db:"renewal_gap_seconds"`
-	IPChanged         bool             `db:"ip_changed"`
 	EventKind         AddressEventKind `db:"event_kind"`
 	TTLRisk           TTLRisk          `db:"ttl_risk"`
 	TTLSeconds        *int64           `db:"ttl_seconds"`
@@ -353,8 +351,7 @@ func (r *Repository) GetAddressHistoryEvents(ctx context.Context, q AddressHisto
 			"e.id", "e.created_at", "e.ip", "e.is_enabled", "e.source",
 			"e.device_id", "e.device_name", "e.ttl_seconds", "e.renewal_gap_seconds",
 			"e.event_kind", "e.ttl_risk",
-		).
-		Column(`CASE WHEN e.prev_ip IS NOT NULL AND e.prev_ip != e.ip THEN 1 ELSE 0 END AS ip_changed`)
+		)
 	if q.BeforeID != nil {
 		page = page.Where(sq.Lt{"e.id": *q.BeforeID})
 	}

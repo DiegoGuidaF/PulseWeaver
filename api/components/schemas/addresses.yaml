@@ -156,7 +156,6 @@ AddressHistoryEvent:
     - source
     - device_id
     - device_name
-    - ip_changed
     - event_kind
     - ttl_risk
   properties:
@@ -187,11 +186,6 @@ AddressHistoryEvent:
         a server-generated expiry/limit_exceeded termination), across all of
         its addresses. Null for a non-renewal row, or the first renewal ever
         for the device.
-    ip_changed:
-      type: boolean
-      description: >
-        Whether the IP differs from the previous address event for this device.
-        False for the first event in the queried range.
     event_kind:
       allOf:
         - $ref: '#/AddressEventKind'

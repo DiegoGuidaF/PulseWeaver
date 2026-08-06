@@ -270,7 +270,6 @@ export const zAddressHistoryEvent = z.object({
       error: "Invalid value: Expected int64 to be <= 9223372036854775807",
     })
     .nullish(),
-  ip_changed: z.boolean(),
   event_kind: zAddressEventKind,
   ttl_risk: zTtlRisk,
   ttl_seconds: z.coerce

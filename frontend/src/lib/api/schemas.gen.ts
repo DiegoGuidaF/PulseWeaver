@@ -804,7 +804,6 @@ export const AddressHistoryEventSchema = {
     "source",
     "device_id",
     "device_name",
-    "ip_changed",
     "event_kind",
     "ttl_risk",
   ],
@@ -840,11 +839,6 @@ export const AddressHistoryEventSchema = {
       nullable: true,
       description:
         "Seconds since this device's previous renewal event (any event except a server-generated expiry/limit_exceeded termination), across all of its addresses. Null for a non-renewal row, or the first renewal ever for the device.\n",
-    },
-    ip_changed: {
-      type: "boolean",
-      description:
-        "Whether the IP differs from the previous address event for this device. False for the first event in the queried range.\n",
     },
     event_kind: {
       allOf: [

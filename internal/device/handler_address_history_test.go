@@ -45,7 +45,6 @@ func TestHandler_GetAddressHistory_EventEnrichment(t *testing.T) {
 	is.Equal(first.EventKind, httpapi.AddressEventKindCreated)
 	is.Equal(first.TtlRisk, httpapi.Unknown) // no lease rule configured
 	is.True(first.RenewalGapSeconds == nil)  // first renewal ever for the device
-	is.True(!first.IpChanged)
 	is.True(first.TtlSeconds == nil)
 }
 
@@ -91,6 +90,120 @@ func TestHandler_GetAddressHistory_FiltersMatchHistogram(t *testing.T) {
 		sum += b.EventCount
 	}
 	is.Equal(sum, eventsResp.JSON200.Total)
+}
+
+// addressHistoryFilterCase is one filter set applied to both address-history
+// endpoints. The fields mirror the generated params structs, which are distinct
+// types per endpoint even though they carry the same filter columns.
+type addressHistoryFilterCase struct {
+	name      string
+	source    []httpapi.AddressEventSource
+	eventKind []httpapi.AddressEventKind
+	ttlRisk   []httpapi.TTLRisk
+	ip        []string
+}
+
+// TestHandler_GetAddressHistory_DerivedFiltersMatchHistogram extends the
+// device_id parity check above to the *derived* columns. device_id exists on the
+// base tables, so a histogram grouping over the raw joins would still satisfy
+// that test; event_kind and ttl_risk exist only on the enriched derived table,
+// so they are what actually prove both endpoints filter the same read model.
+func TestHandler_GetAddressHistory_DerivedFiltersMatchHistogram(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	testServer := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, testServer)
+
+	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "derived-filters", nil)
+	is.NoErr(err)
+
+	const ttlSeconds = 100
+	_, err = testServer.RuleService.EnableDeviceAddressLeaseRule(ctx, dev.ID, ttlSeconds)
+	is.NoErr(err)
+
+	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.5.0.1", device.EventSourceHeartbeat)
+	is.NoErr(err)
+
+	// Backdate the creation and append a timeline covering every derived value:
+	// created (no prior renewal → unknown), a refresh well inside the TTL → ok,
+	// a routine expiry → not a renewal, so unknown, and a late heartbeat whose
+	// gap since the previous *renewal* is 5.5× the TTL → breached.
+	db := testServer.Database.DB()
+	t0 := time.Now().UTC().Add(-time.Hour)
+	_, err = db.ExecContext(ctx, `UPDATE address_events SET created_at = ? WHERE address_id = ?`, t0, addr.ID)
+	is.NoErr(err)
+	for _, e := range []struct {
+		enabled int
+		source  string
+		at      time.Time
+	}{
+		{1, "heartbeat", t0.Add(50 * time.Second)},
+		{0, "expiry", t0.Add(200 * time.Second)},
+		{1, "heartbeat", t0.Add(600 * time.Second)},
+	} {
+		_, err = db.ExecContext(ctx,
+			`INSERT INTO address_events (address_id, is_enabled, source, created_at) VALUES (?, ?, ?, ?)`,
+			addr.ID, e.enabled, e.source, e.at,
+		)
+		is.NoErr(err)
+	}
+
+	from := t0.Add(-time.Minute)
+	to := time.Now().UTC().Add(time.Minute)
+	deviceIDFilter := []httpapi.ID{dev.ID.Int64()}
+
+	cases := []addressHistoryFilterCase{
+		{name: "event_kind refresh only", eventKind: []httpapi.AddressEventKind{httpapi.AddressEventKindRefresh}},
+		{name: "event_kind state changes", eventKind: []httpapi.AddressEventKind{
+			httpapi.AddressEventKindCreated, httpapi.AddressEventKindEnabled, httpapi.AddressEventKindDisabled,
+		}},
+		{name: "ttl_risk breached", ttlRisk: []httpapi.TTLRisk{httpapi.Breached}},
+		{name: "ttl_risk unknown", ttlRisk: []httpapi.TTLRisk{httpapi.Unknown}},
+		{name: "ttl_risk ok", ttlRisk: []httpapi.TTLRisk{httpapi.Ok}},
+		{name: "source expiry", source: []httpapi.AddressEventSource{httpapi.Expiry}},
+		{name: "ip", ip: []string{"10.5.0.1"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			is := is.New(t)
+
+			eventsResp, err := client.GetAddressHistoryWithResponse(ctx, &httpapi.GetAddressHistoryParams{
+				DeviceId: &deviceIDFilter, From: &from, To: &to,
+				Source: sliceParam(tc.source), EventKind: sliceParam(tc.eventKind),
+				TtlRisk: sliceParam(tc.ttlRisk), Ip: sliceParam(tc.ip),
+			})
+			is.NoErr(err)
+			is.Equal(eventsResp.StatusCode(), http.StatusOK)
+
+			histResp, err := client.GetAddressHistoryHistogramWithResponse(ctx, &httpapi.GetAddressHistoryHistogramParams{
+				DeviceId: &deviceIDFilter, From: &from, To: &to,
+				Source: sliceParam(tc.source), EventKind: sliceParam(tc.eventKind),
+				TtlRisk: sliceParam(tc.ttlRisk), Ip: sliceParam(tc.ip),
+			})
+			is.NoErr(err)
+			is.Equal(histResp.StatusCode(), http.StatusOK)
+
+			sum := 0
+			for _, b := range histResp.JSON200.Buckets {
+				sum += b.EventCount
+			}
+			is.Equal(sum, eventsResp.JSON200.Total)
+			// Guard against passing vacuously: every case above must match rows,
+			// otherwise 0 == 0 would "prove" parity for a filter that never ran.
+			is.True(eventsResp.JSON200.Total > 0)
+			is.Equal(len(eventsResp.JSON200.Events), eventsResp.JSON200.Total)
+		})
+	}
+}
+
+// sliceParam adapts a filter case's value slice to the pointer-to-slice the
+// generated params structs use, mapping "no values" to "param not supplied".
+func sliceParam[T any](values []T) *[]T {
+	if len(values) == 0 {
+		return nil
+	}
+	return &values
 }
 
 // TestHandler_GetAddressHistoryHistogram_IgnoresEventsCursor confirms the

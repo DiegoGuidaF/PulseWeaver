@@ -84,7 +84,6 @@ func toAddressHistoryResponse(result AddressHistoryEvents, limit int, geo GeoRes
 			DeviceId:          e.DeviceID.Int64(),
 			DeviceName:        e.DeviceName,
 			RenewalGapSeconds: e.RenewalGapSeconds,
-			IpChanged:         e.IPChanged,
 			EventKind:         AddressEventKindToAPI(e.EventKind),
 			TtlRisk:           TTLRiskToAPI(e.TTLRisk),
 			TtlSeconds:        e.TTLSeconds,
