@@ -1,6 +1,6 @@
 # Backend Codebase Reference
 
-> Last updated: 2026-08-05
+> Last updated: 2026-08-06
 
 This document is the **map** of the backend codebase — what exists and where. For the system-level
 overview (layering, the API seam, request flow, single-binary build), see
@@ -17,7 +17,7 @@ most important files across the whole backend with their purpose.
 
 | Package | Owns | Key files |
 |---------|------|-----------|
-| `device` | Core domain: devices, their addresses (IPs), and device API keys. Emits address lifecycle events; observes user lifecycle to cascade device deletion. Provides device-API-key auth middleware. Serves `/devices/refs` and `/devices/{device_id}/addresses`, and exposes the batched `FleetRows` reader behind the fleet composer (`internal/queries/fleet_view.go`) — the only fleet query that knows about owner scoping. | `service.go`, `addresses.go`, `device_repository.go`, `address_repository.go`, `events.go`, `middleware.go`, `fleet_view.go`, `device_refs_view.go`, `address_view.go` |
+| `device` | Core domain: devices, their addresses (IPs), and device API keys. Emits address lifecycle events; observes user lifecycle to cascade device deletion. Provides device-API-key auth middleware. Serves `/devices/refs`, `/devices/{device_id}/addresses`, and the address-history events (`GET /address-history`) + histogram (`GET /address-history/histogram`) endpoints — an enriched, filterx-backed read model over `address_events` (`event_kind`, `ttl_risk`, `renewal_gap_seconds` derived server-side) — and exposes the batched `FleetRows` reader behind the fleet composer (`internal/queries/fleet_view.go`) — the only fleet query that knows about owner scoping. | `service.go`, `addresses.go`, `device_repository.go`, `address_repository.go`, `events.go`, `middleware.go`, `fleet_view.go`, `device_refs_view.go`, `address_view.go`, `address_history_view.go`, `address_history_enum_map.go`, `handler_address_history.go` |
 | `auth` | User authentication (session cookies), users, and sessions. Emits user lifecycle events; `BootstrapAdmin` ensures one admin on startup. | `service.go`, `session.go`, `cookie.go`, `middleware.go`, `principal.go` |
 | `devicepairing` | Device provisioning via short-lived pairing codes; the heartbeat client claims a code to receive a fresh device API key. Supersedes the former `registration` package. Exposes the batched, device-id-keyed `PairingsForDevices` reader for the fleet composer; it knows nothing about owners. | `service.go`, `pairing.go`, `code.go`, `repository.go`, `device_pairings_view.go` |
 | `policy` | Forward-auth hot path: answers "can this IP reach this host?" from an in-memory cache (exact IP → CIDR network policy → deny). Observes address/user/host/network-policy changes; emits decisions to `accesslog`. Also serves the user-pivoted policy-map audit view (`GET /admin/policy-map`, DB-backed, per ADR-009) and the cache-backed simulate endpoint. | `service.go`, `cache.go`, `access.go`, `lifecycle.go`, `handler.go`, `decision.go`, `request.go`, `audit.go`, `observer.go`, `repository.go`, `policy_user_view.go` |
@@ -28,11 +28,11 @@ most important files across the whole backend with their purpose.
 | `maxaddr` | Enforces the max active addresses per device. Observes address + rule changes; runs a `RunListener`. | `service.go` |
 | `rule` | Per-device rules (lease TTL, max active address count). Emits rule change events. A read-only view joins the device domain's `addresses`/`devices` tables for a live active-address count (`max_active_addresses_view.go`), per ADR-009. Exposes the batched, device-id-keyed `RulesForDevices` reader for the fleet composer; it knows nothing about owners. | `service.go`, `rule.go`, `repository.go`, `events.go`, `max_active_addresses_view.go`, `device_rules_view.go` |
 | `accesslog` | Async batch logging of policy decisions: `Sink` implements `policy.DecisionObserver`; serves audit reads (e.g. deny-reason list). | `sink.go`, `handler.go`, `repository.go` |
-| `queries` | Reads belonging to no single domain: the SQL-free fleet composer (`fleet_view.go`, `GET /device-fleet`) and the analytical read models over event-scale tables. Shrinking under ADR-009 as single-domain views migrate to their owning domains; one view + handler file per surface. Folds join rows via `collate`. Still owns the host-suggestions view (shared with the dashboard's pending-suggestion count) alongside users, access log, address history, and dashboard posture. | `repository.go`, `fleet_view.go`, `*_view.go`, `handler_*.go`, `filterx/` |
+| `queries` | Reads belonging to no single domain: the SQL-free fleet composer (`fleet_view.go`, `GET /device-fleet`) and the analytical read models over event-scale tables. Shrinking under ADR-009 as single-domain views migrate to their owning domains (address history moved to `device`); one view + handler file per surface. Folds join rows via `collate`. Still owns the host-suggestions view (shared with the dashboard's pending-suggestion count) alongside users, access log, and dashboard posture. Also owns `filterx` (column-allowlist filter/sort/keyset-cursor registry, ADR-007) — domain-package views (e.g. `device`) import it too; it stays here until bundle 10 relocates it to `internal/filterx`. | `repository.go`, `fleet_view.go`, `*_view.go`, `handler_*.go`, `filterx/` |
 | `rollup` | Hourly traffic + attribution aggregate tables; catch-up `RollupJob`; serves the dashboard read API (raw vs aggregate on `RawWindowThreshold`). | `job.go`, `traffic_rollup.go`, `traffic_reads.go`, `attribution_rollup.go`, `attribution_reads.go`, `handler.go`, `types.go` |
 | `geoip` | IP → location/ASN enrichment from an MMDB (db-ip.com); background `RunUpdater` refresh. | `lookup.go`, `updater.go`, `result.go` |
 | `health` | `GET /health` → `{"status":"ok","timestamp":…}`. | `health.go` |
-| `timebucket` | Shared time-bucket granularity settings + parsing (rollup, dashboard, …). | `granularity.go` |
+| `timebucket` | Shared time-bucket granularity settings + parsing (rollup, dashboard, address history, …), including `GranularityForWindow(d)` — maps a query window to a bucket size, shared by any histogram endpoint that auto-selects granularity from the window rather than accepting it as a param. | `granularity.go` |
 
 `policy` and `rollup` are the read-heavy hot paths; everything else flows handler → service →
 repository. Cross-domain reads live in the consuming domain's own `*_view.go` files (ADR-009);
@@ -90,6 +90,7 @@ principal-from-cookie → principal-from-API-key → generated strict handler.
 | `internal/useraccess/owner_refs_view.go` | `GetOwnerRefs` — flat `{id, display_name}` owner references for pickers |
 | `internal/device/fleet_view.go` | `FleetRows` — devices in list shape tagged with their owner, optionally narrowed to one owner; the only owner-scoped query in the fleet composition |
 | `internal/device/device_refs_view.go` | `GetDeviceRefs` — flat `{id, name, owner_id}` device references for pickers |
+| `internal/device/address_history_view.go` | `addressHistoryBase` — the shared FROM + WHERE builder (not just a WHERE) over `addressHistoryEnriched`'s derived table, where `event_kind`/`ttl_risk`/`renewal_gap_seconds` are computed unbounded by time so classification stays stable as the caller pans the window; both `GetAddressHistoryEvents` and `GetAddressHistoryHistogram` build on it |
 | `internal/rule/device_rules_view.go` | `RulesForDevices` — configured rules keyed by device id; unparseable configs are skipped, not fatal |
 | `internal/devicepairing/device_pairings_view.go` | `PairingsForDevices` — latest pairing per device, keyed by device id |
 | `internal/devicepairing/service.go` | Pairing create/claim; mints a device API key on claim |

@@ -714,21 +714,15 @@ export const AddressSchema = {
 
 export const AddressHistoryResponseSchema = {
   type: "object",
-  required: ["buckets", "events", "total_events"],
+  required: ["events", "total", "next_cursor"],
   properties: {
-    buckets: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/AddressHistoryBucket",
-      },
-    },
     events: {
       type: "array",
       items: {
         $ref: "#/components/schemas/AddressHistoryEvent",
       },
     },
-    total_events: {
+    total: {
       type: "integer",
       description:
         "Total number of events matching the filters (for pagination)",
@@ -744,28 +738,31 @@ export const AddressHistoryResponseSchema = {
   },
 } as const;
 
+export const AddressHistoryHistogramResponseSchema = {
+  type: "object",
+  required: ["buckets"],
+  properties: {
+    buckets: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/AddressHistoryBucket",
+      },
+    },
+  },
+} as const;
+
 export const AddressHistoryBucketSchema = {
   type: "object",
-  required: ["timestamp", "active_count", "gap_count", "event_count"],
+  required: ["timestamp", "event_count"],
   properties: {
     timestamp: {
       type: "string",
       format: "date-time",
       "x-go-type": "UTCTime",
     },
-    active_count: {
-      type: "integer",
-      description:
-        "Count of addresses whose last event in this bucket was enabled (active at end of period)",
-    },
-    gap_count: {
-      type: "integer",
-      description:
-        "Count of addresses that had at least one expiry event in this bucket",
-    },
     event_count: {
       type: "integer",
-      description: "Total address events in this time bucket",
+      description: "Count of events matching the filters in this time bucket.",
     },
   },
 } as const;
@@ -774,6 +771,27 @@ export const AddressEventSourceSchema = {
   type: "string",
   description: "What triggered an address state change",
   enum: ["heartbeat", "manual", "expiry", "limit_exceeded"],
+} as const;
+
+export const AddressEventKindSchema = {
+  type: "string",
+  description:
+    'How an address event relates to the immediately preceding event for the same address, independent of any time window. `created` and `enabled`/ `disabled` are the events that matter for the "state changes" view; `refresh` is a repeated heartbeat with no state change.\n',
+  enum: ["created", "enabled", "disabled", "refresh"],
+} as const;
+
+export const TTLRiskSchema = {
+  type: "string",
+  description:
+    "How this event's renewal_gap_seconds compares to the device's configured lease TTL. `unknown` when there is no lease rule or no prior renewal to compare against (including every non-renewal event, e.g. expiry/ limit_exceeded rows).\n",
+  enum: ["unknown", "ok", "approaching", "critical", "breached"],
+} as const;
+
+export const AddressHistoryFilterOperatorSchema = {
+  type: "string",
+  description:
+    "Filter operator for an address-history value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.\n",
+  enum: ["in", "not_in", "contains", "not_contains"],
 } as const;
 
 export const AddressHistoryEventSchema = {
@@ -787,7 +805,8 @@ export const AddressHistoryEventSchema = {
     "device_id",
     "device_name",
     "ip_changed",
-    "is_refresh",
+    "event_kind",
+    "ttl_risk",
   ],
   properties: {
     id: {
@@ -815,22 +834,35 @@ export const AddressHistoryEventSchema = {
       type: "string",
       description: "Name of the device",
     },
-    time_gap_seconds: {
+    renewal_gap_seconds: {
       type: "integer",
       format: "int64",
       nullable: true,
       description:
-        "Seconds since the previous address event for this device, across all of its addresses. Null when there is no prior event in the queried range.\n",
+        "Seconds since this device's previous renewal event (any event except a server-generated expiry/limit_exceeded termination), across all of its addresses. Null for a non-renewal row, or the first renewal ever for the device.\n",
     },
     ip_changed: {
       type: "boolean",
       description:
         "Whether the IP differs from the previous address event for this device. False for the first event in the queried range.\n",
     },
-    is_refresh: {
-      type: "boolean",
+    event_kind: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/AddressEventKind",
+        },
+      ],
       description:
-        "Whether this event repeats the previous one for this device with no change in IP or enabled state (a pure heartbeat refresh).\n",
+        "How this event relates to the previous event for the same address.",
+    },
+    ttl_risk: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/TTLRisk",
+        },
+      ],
+      description:
+        "How renewal_gap_seconds compares to the device's configured lease TTL.",
     },
     ttl_seconds: {
       type: "integer",
@@ -2606,12 +2638,6 @@ export const DevicePairingStatusSchema = {
   enum: ["pending", "used", "expired", "invalidated", "replaced"],
   description:
     "Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.\n",
-} as const;
-
-export const AddressHistoryGranularitySchema = {
-  type: "string",
-  description: "Time bucket granularity for the address history endpoint.",
-  enum: ["hour", "day"],
 } as const;
 
 export const AccessLogFilterOperatorSchema = {

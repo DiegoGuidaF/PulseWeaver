@@ -3,7 +3,6 @@
 package queries_test
 
 import (
-	"net/netip"
 	"testing"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
@@ -55,30 +54,4 @@ func setupRepos(t *testing.T) testRepos {
 		db:          sqlxDB,
 		testOwnerID: ownerID,
 	}
-}
-
-// createDevice is a test helper that inserts a device using the device repository.
-func createDevice(t *testing.T, repos testRepos, name string) *device.Device {
-	t.Helper()
-
-	dev, err := repos.devices.CreateDevice(t.Context(), device.CreateDeviceParams{Name: name, OwnerID: repos.testOwnerID})
-	if err != nil {
-		t.Fatalf("CreateDevice(%q): %v", name, err)
-	}
-	return dev
-}
-
-// createAddress is a test helper that inserts an address for a device using the device repository.
-func createAddress(t *testing.T, repo *device.Repository, deviceID ids.DeviceID, ip string) *device.Address {
-	t.Helper()
-
-	params, err := device.NewCreateAddressParams(deviceID, ip, netip.Addr{})
-	if err != nil {
-		t.Fatalf("NewCreateAddressParams(%q): %v", ip, err)
-	}
-	addr, err := repo.CreateAddress(t.Context(), params, device.EventSourceManual)
-	if err != nil {
-		t.Fatalf("CreateAddress(%q): %v", ip, err)
-	}
-	return addr
 }

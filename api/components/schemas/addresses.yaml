@@ -58,19 +58,15 @@ Address:
 AddressHistoryResponse:
   type: object
   required:
-    - buckets
     - events
-    - total_events
+    - total
+    - next_cursor
   properties:
-    buckets:
-      type: array
-      items:
-        $ref: '#/AddressHistoryBucket'
     events:
       type: array
       items:
         $ref: '#/AddressHistoryEvent'
-    total_events:
+    total:
       type: integer
       description: Total number of events matching the filters (for pagination)
     next_cursor:
@@ -78,34 +74,29 @@ AddressHistoryResponse:
         - $ref: './common.yaml#/ID'
       nullable: true
 
+AddressHistoryHistogramResponse:
+  type: object
+  required:
+    - buckets
+  properties:
+    buckets:
+      type: array
+      items:
+        $ref: '#/AddressHistoryBucket'
+
 AddressHistoryBucket:
   type: object
   required:
     - timestamp
-    - active_count
-    - gap_count
     - event_count
   properties:
     timestamp:
       type: string
       format: date-time
       x-go-type: UTCTime
-    active_count:
-      type: integer
-      description: Count of addresses whose last event in this bucket was enabled (active at end of period)
-    gap_count:
-      type: integer
-      description: Count of addresses that had at least one expiry event in this bucket
     event_count:
       type: integer
-      description: Total address events in this time bucket
-
-AddressHistoryGranularity:
-  type: string
-  description: Time bucket granularity for the address history endpoint.
-  enum:
-    - hour
-    - day
+      description: Count of events matching the filters in this time bucket.
 
 AddressEventSource:
   type: string
@@ -115,6 +106,45 @@ AddressEventSource:
     - manual
     - expiry
     - limit_exceeded
+
+AddressEventKind:
+  type: string
+  description: >
+    How an address event relates to the immediately preceding event for the
+    same address, independent of any time window. `created` and `enabled`/
+    `disabled` are the events that matter for the "state changes" view;
+    `refresh` is a repeated heartbeat with no state change.
+  enum:
+    - created
+    - enabled
+    - disabled
+    - refresh
+
+TTLRisk:
+  type: string
+  description: >
+    How this event's renewal_gap_seconds compares to the device's configured
+    lease TTL. `unknown` when there is no lease rule or no prior renewal to
+    compare against (including every non-renewal event, e.g. expiry/
+    limit_exceeded rows).
+  enum:
+    - unknown
+    - ok
+    - approaching
+    - critical
+    - breached
+
+AddressHistoryFilterOperator:
+  type: string
+  description: >
+    Filter operator for an address-history value column. Supplied as the
+    sibling `{field}_op` query param; defaults to `in` when omitted. Allowed
+    operators vary per column.
+  enum:
+    - in
+    - not_in
+    - contains
+    - not_contains
 
 AddressHistoryEvent:
   type: object
@@ -127,7 +157,8 @@ AddressHistoryEvent:
     - device_id
     - device_name
     - ip_changed
-    - is_refresh
+    - event_kind
+    - ttl_risk
   properties:
     id:
       $ref: './common.yaml#/ID'
@@ -147,23 +178,28 @@ AddressHistoryEvent:
     device_name:
       type: string
       description: Name of the device
-    time_gap_seconds:
+    renewal_gap_seconds:
       type: integer
       format: int64
       nullable: true
       description: >
-        Seconds since the previous address event for this device, across all of
-        its addresses. Null when there is no prior event in the queried range.
+        Seconds since this device's previous renewal event (any event except
+        a server-generated expiry/limit_exceeded termination), across all of
+        its addresses. Null for a non-renewal row, or the first renewal ever
+        for the device.
     ip_changed:
       type: boolean
       description: >
         Whether the IP differs from the previous address event for this device.
         False for the first event in the queried range.
-    is_refresh:
-      type: boolean
-      description: >
-        Whether this event repeats the previous one for this device with no
-        change in IP or enabled state (a pure heartbeat refresh).
+    event_kind:
+      allOf:
+        - $ref: '#/AddressEventKind'
+      description: How this event relates to the previous event for the same address.
+    ttl_risk:
+      allOf:
+        - $ref: '#/TTLRisk'
+      description: How renewal_gap_seconds compares to the device's configured lease TTL.
     ttl_seconds:
       type: integer
       format: int64

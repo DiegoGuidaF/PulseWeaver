@@ -5,11 +5,11 @@ package integrationtest_test
 import (
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/queries/filterx"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
@@ -105,15 +105,19 @@ func TestMaxActiveAddressesRule_EvictsOldestAddressFromPolicyCache(t *testing.T)
 
 	// Address-history assertion: the evicted address was disabled with
 	// EventSourceLimitExceeded, confirming the maxaddr enforcer was responsible.
-	queriesRepo := queries.NewRepository(srv.Database.DB())
-	historyQuery := queries.AddressHistoryQuery{
-		DeviceIDs: []ids.DeviceID{deviceID},
-		Source:    new(string(device.EventSourceLimitExceeded)),
+	deviceRepo := device.NewRepository(srv.Database.DB())
+	historyQuery := device.AddressHistoryQuery{
+		From:  time.Now().UTC().Add(-2 * time.Hour),
+		To:    time.Now().UTC().Add(time.Hour),
+		Limit: 50,
+		Filters: []filterx.Filter{
+			{Column: "device_id", Op: filterx.OpIn, Values: []any{deviceID.Int64()}},
+			{Column: "source", Op: filterx.OpIn, Values: []any{string(device.EventSourceLimitExceeded)}},
+		},
 	}
-	is.NoErr(historyQuery.Validate())
-	history, err := queriesRepo.GetAddressHistory(ctx, historyQuery)
+	result, err := deviceRepo.GetAddressHistoryEvents(ctx, historyQuery)
 	is.NoErr(err)
-	is.Equal(len(history.Events), 1)
-	is.Equal(history.Events[0].IP, evictedIP)
-	is.Equal(history.Events[0].Source, device.EventSourceLimitExceeded)
+	is.Equal(len(result.Events), 1)
+	is.Equal(result.Events[0].IP, evictedIP)
+	is.Equal(result.Events[0].Source, device.EventSourceLimitExceeded)
 }

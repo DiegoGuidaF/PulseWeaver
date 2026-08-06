@@ -12,7 +12,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/lease"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/queries/filterx"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )
@@ -169,15 +169,19 @@ func TestLeaseRuleSave_DoesNotReExpireMaxRuleDisabledAddresses(t *testing.T) {
 	expiryJob := leaseSvc.NewExpiryJob(srv.DeviceService)
 	is.NoErr(expiryJob.Run(ctx))
 
-	queriesRepo := queries.NewRepository(db)
-	historyQuery := queries.AddressHistoryQuery{
-		DeviceIDs: []ids.DeviceID{deviceID},
-		Source:    new(string(device.EventSourceExpiry)),
+	deviceRepo := device.NewRepository(db)
+	historyQuery := device.AddressHistoryQuery{
+		From:  time.Now().UTC().Add(-2 * time.Hour),
+		To:    time.Now().UTC().Add(time.Hour),
+		Limit: 50,
+		Filters: []filterx.Filter{
+			{Column: "device_id", Op: filterx.OpIn, Values: []any{deviceID.Int64()}},
+			{Column: "source", Op: filterx.OpIn, Values: []any{string(device.EventSourceExpiry)}},
+		},
 	}
-	is.NoErr(historyQuery.Validate())
-	history, err := queriesRepo.GetAddressHistory(ctx, historyQuery)
+	result, err := deviceRepo.GetAddressHistoryEvents(ctx, historyQuery)
 	is.NoErr(err)
-	is.Equal(len(history.Events), maxAddresses) // exactly two expiry events, one per still-enabled address
+	is.Equal(len(result.Events), maxAddresses) // exactly two expiry events, one per still-enabled address
 
 	enabledAfter, err := srv.DeviceService.GetEnabledAddressesForDevice(ctx, deviceID)
 	is.NoErr(err)

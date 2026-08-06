@@ -98,6 +98,9 @@ type ClientInterface interface {
 	// GetAddressHistory request
 	GetAddressHistory(ctx context.Context, params *GetAddressHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetAddressHistoryHistogram request
+	GetAddressHistoryHistogram(ctx context.Context, params *GetAddressHistoryHistogramParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListHostGroups request
 	ListHostGroups(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -343,6 +346,18 @@ func (c *Client) GetAccessLogByCountry(ctx context.Context, params *GetAccessLog
 
 func (c *Client) GetAddressHistory(ctx context.Context, params *GetAddressHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAddressHistoryRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetAddressHistoryHistogram(ctx context.Context, params *GetAddressHistoryHistogramParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAddressHistoryHistogramRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1785,6 +1800,138 @@ func NewGetAddressHistoryRequest(server string, params *GetAddressHistoryParams)
 
 		}
 
+		if params.DeviceIdOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "device_id_op", *params.DeviceIdOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.UserId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "user_id", *params.UserId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.UserIdOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "user_id_op", *params.UserIdOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Ip != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ip", *params.Ip, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.IpOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ip_op", *params.IpOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Source != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", *params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.SourceOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source_op", *params.SourceOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.EventKind != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "event_kind", *params.EventKind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.EventKindOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "event_kind_op", *params.EventKindOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TtlRisk != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ttl_risk", *params.TtlRisk, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TtlRiskOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ttl_risk_op", *params.TtlRiskOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.From != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "from", *params.From, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
@@ -1800,54 +1947,6 @@ func NewGetAddressHistoryRequest(server string, params *GetAddressHistoryParams)
 		if params.To != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to", *params.To, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Granularity != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "granularity", *params.Granularity, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Source != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", *params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.IsEnabled != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "is_enabled", *params.IsEnabled, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Ip != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ip", *params.Ip, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -1881,9 +1980,207 @@ func NewGetAddressHistoryRequest(server string, params *GetAddressHistoryParams)
 
 		}
 
-		if params.IncludeAll != nil {
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "include_all", *params.IncludeAll, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAddressHistoryHistogramRequest generates requests for GetAddressHistoryHistogram
+func NewGetAddressHistoryHistogramRequest(server string, params *GetAddressHistoryHistogramParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/address-history/histogram")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.DeviceId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "device_id", *params.DeviceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.DeviceIdOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "device_id_op", *params.DeviceIdOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.UserId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "user_id", *params.UserId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.UserIdOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "user_id_op", *params.UserIdOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Ip != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ip", *params.Ip, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.IpOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ip_op", *params.IpOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Source != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", *params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.SourceOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source_op", *params.SourceOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.EventKind != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "event_kind", *params.EventKind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.EventKindOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "event_kind_op", *params.EventKindOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TtlRisk != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ttl_risk", *params.TtlRisk, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TtlRiskOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ttl_risk_op", *params.TtlRiskOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.From != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "from", *params.From, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.To != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to", *params.To, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -4350,6 +4647,9 @@ type ClientWithResponsesInterface interface {
 	// GetAddressHistoryWithResponse request
 	GetAddressHistoryWithResponse(ctx context.Context, params *GetAddressHistoryParams, reqEditors ...RequestEditorFn) (*GetAddressHistoryTestClientResponse, error)
 
+	// GetAddressHistoryHistogramWithResponse request
+	GetAddressHistoryHistogramWithResponse(ctx context.Context, params *GetAddressHistoryHistogramParams, reqEditors ...RequestEditorFn) (*GetAddressHistoryHistogramTestClientResponse, error)
+
 	// ListHostGroupsWithResponse request
 	ListHostGroupsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListHostGroupsTestClientResponse, error)
 
@@ -4663,6 +4963,39 @@ func (r GetAddressHistoryTestClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetAddressHistoryTestClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAddressHistoryHistogramTestClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AddressHistoryHistogramResponse
+	JSON400      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAddressHistoryHistogramTestClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAddressHistoryHistogramTestClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAddressHistoryHistogramTestClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -6651,6 +6984,15 @@ func (c *ClientWithResponses) GetAddressHistoryWithResponse(ctx context.Context,
 	return ParseGetAddressHistoryTestClientResponse(rsp)
 }
 
+// GetAddressHistoryHistogramWithResponse request returning *GetAddressHistoryHistogramTestClientResponse
+func (c *ClientWithResponses) GetAddressHistoryHistogramWithResponse(ctx context.Context, params *GetAddressHistoryHistogramParams, reqEditors ...RequestEditorFn) (*GetAddressHistoryHistogramTestClientResponse, error) {
+	rsp, err := c.GetAddressHistoryHistogram(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAddressHistoryHistogramTestClientResponse(rsp)
+}
+
 // ListHostGroupsWithResponse request returning *ListHostGroupsTestClientResponse
 func (c *ClientWithResponses) ListHostGroupsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListHostGroupsTestClientResponse, error) {
 	rsp, err := c.ListHostGroups(ctx, reqEditors...)
@@ -7460,6 +7802,53 @@ func ParseGetAddressHistoryTestClientResponse(rsp *http.Response) (*GetAddressHi
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AddressHistoryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAddressHistoryHistogramTestClientResponse parses an HTTP response from a GetAddressHistoryHistogramWithResponse call
+func ParseGetAddressHistoryHistogramTestClientResponse(rsp *http.Response) (*GetAddressHistoryHistogramTestClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAddressHistoryHistogramTestClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AddressHistoryHistogramResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

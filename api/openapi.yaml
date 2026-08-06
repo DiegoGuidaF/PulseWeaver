@@ -78,6 +78,8 @@ paths:
     $ref: './paths/addresses.yaml#/deviceAddresses'
   /address-history:
     $ref: './paths/addresses.yaml#/addressHistory'
+  /address-history/histogram:
+    $ref: './paths/addresses.yaml#/addressHistoryHistogram'
   /devices/{device_id}/addresses/{address_id}:
     $ref: './paths/addresses.yaml#/addressById'
 
@@ -255,10 +257,18 @@ components:
       $ref: './components/schemas/addresses.yaml#/Address'
     AddressHistoryResponse:
       $ref: './components/schemas/addresses.yaml#/AddressHistoryResponse'
+    AddressHistoryHistogramResponse:
+      $ref: './components/schemas/addresses.yaml#/AddressHistoryHistogramResponse'
     AddressHistoryBucket:
       $ref: './components/schemas/addresses.yaml#/AddressHistoryBucket'
     AddressEventSource:
       $ref: './components/schemas/addresses.yaml#/AddressEventSource'
+    AddressEventKind:
+      $ref: './components/schemas/addresses.yaml#/AddressEventKind'
+    TTLRisk:
+      $ref: './components/schemas/addresses.yaml#/TTLRisk'
+    AddressHistoryFilterOperator:
+      $ref: './components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
     AddressHistoryEvent:
       $ref: './components/schemas/addresses.yaml#/AddressHistoryEvent'
 

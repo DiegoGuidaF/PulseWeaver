@@ -45,7 +45,7 @@ func TestHandler_GetDeviceFleet_NestsRulesAndPairingPerDevice(t *testing.T) {
 	is.Equal(len(router.Rules), 2)
 	is.True(router.Pairing != nil)
 	is.Equal(router.Pairing.Status, httpapi.DevicePairingStatusPending)
-	is.Equal(router.State, httpapi.Healthy)
+	is.Equal(router.State, httpapi.DeviceStateHealthy)
 	is.True(router.ApiKeyPrefix != nil)
 	is.True(router.LastSeenAt != nil)
 
@@ -55,7 +55,7 @@ func TestHandler_GetDeviceFleet_NestsRulesAndPairingPerDevice(t *testing.T) {
 	is.True(tablet != nil)
 	is.Equal(len(tablet.Rules), 0)
 	is.True(tablet.Pairing == nil)
-	is.Equal(tablet.State, httpapi.Stale)
+	is.Equal(tablet.State, httpapi.DeviceStateStale)
 }
 
 // TestHandler_GetDeviceFleet_OwnerWithNoDevices_IsAGroupWithEmptyDevices is the

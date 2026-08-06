@@ -187,9 +187,11 @@ export const zAddAddressRequest = z.object({
 
 export const zAddressHistoryBucket = z.object({
   timestamp: z.iso.datetime({ offset: true, local: true }),
-  active_count: z.int(),
-  gap_count: z.int(),
   event_count: z.int(),
+});
+
+export const zAddressHistoryHistogramResponse = z.object({
+  buckets: z.array(zAddressHistoryBucket),
 });
 
 /**
@@ -217,6 +219,40 @@ export const zAddress = z.object({
   geo: zGeoInfo.nullish(),
 });
 
+/**
+ * How an address event relates to the immediately preceding event for the same address, independent of any time window. `created` and `enabled`/ `disabled` are the events that matter for the "state changes" view; `refresh` is a repeated heartbeat with no state change.
+ *
+ */
+export const zAddressEventKind = z.enum([
+  "created",
+  "enabled",
+  "disabled",
+  "refresh",
+]);
+
+/**
+ * How this event's renewal_gap_seconds compares to the device's configured lease TTL. `unknown` when there is no lease rule or no prior renewal to compare against (including every non-renewal event, e.g. expiry/ limit_exceeded rows).
+ *
+ */
+export const zTtlRisk = z.enum([
+  "unknown",
+  "ok",
+  "approaching",
+  "critical",
+  "breached",
+]);
+
+/**
+ * Filter operator for an address-history value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.
+ *
+ */
+export const zAddressHistoryFilterOperator = z.enum([
+  "in",
+  "not_in",
+  "contains",
+  "not_contains",
+]);
+
 export const zAddressHistoryEvent = z.object({
   id: zId,
   timestamp: z.iso.datetime({ offset: true, local: true }),
@@ -225,7 +261,7 @@ export const zAddressHistoryEvent = z.object({
   source: zAddressEventSource,
   device_id: zId,
   device_name: z.string(),
-  time_gap_seconds: z.coerce
+  renewal_gap_seconds: z.coerce
     .bigint()
     .min(BigInt("-9223372036854775808"), {
       error: "Invalid value: Expected int64 to be >= -9223372036854775808",
@@ -235,7 +271,8 @@ export const zAddressHistoryEvent = z.object({
     })
     .nullish(),
   ip_changed: z.boolean(),
-  is_refresh: z.boolean(),
+  event_kind: zAddressEventKind,
+  ttl_risk: zTtlRisk,
   ttl_seconds: z.coerce
     .bigint()
     .min(BigInt("-9223372036854775808"), {
@@ -249,10 +286,9 @@ export const zAddressHistoryEvent = z.object({
 });
 
 export const zAddressHistoryResponse = z.object({
-  buckets: z.array(zAddressHistoryBucket),
   events: z.array(zAddressHistoryEvent),
-  total_events: z.int(),
-  next_cursor: zId.nullish(),
+  total: z.int(),
+  next_cursor: zId.nullable(),
 });
 
 export const zAccessLogCountryStats = z.object({
@@ -802,11 +838,6 @@ export const zOwnerFleetGroup = z.object({
 });
 
 /**
- * Time bucket granularity for the address history endpoint.
- */
-export const zAddressHistoryGranularity = z.enum(["hour", "day"]);
-
-/**
  * Filter operator for a value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.
  *
  */
@@ -1275,13 +1306,20 @@ export const zAddAddressPath = z.object({
 export const zAddAddressResponse = zAddress;
 
 export const zGetAddressHistoryQuery = z.object({
-  device_id: z.array(zId).optional(),
+  device_id: z.array(zId).max(200).optional(),
+  device_id_op: zAddressHistoryFilterOperator.optional(),
+  user_id: z.array(zId).max(200).optional(),
+  user_id_op: zAddressHistoryFilterOperator.optional(),
+  ip: z.array(z.string()).max(200).optional(),
+  ip_op: zAddressHistoryFilterOperator.optional(),
+  source: z.array(zAddressEventSource).max(200).optional(),
+  source_op: zAddressHistoryFilterOperator.optional(),
+  event_kind: z.array(zAddressEventKind).max(200).optional(),
+  event_kind_op: zAddressHistoryFilterOperator.optional(),
+  ttl_risk: z.array(zTtlRisk).max(200).optional(),
+  ttl_risk_op: zAddressHistoryFilterOperator.optional(),
   from: z.iso.datetime({ offset: true, local: true }).optional(),
   to: z.iso.datetime({ offset: true, local: true }).optional(),
-  granularity: zAddressHistoryGranularity.optional(),
-  source: zAddressEventSource.optional(),
-  is_enabled: z.boolean().optional(),
-  ip: z.string().optional(),
   limit: z.int().lte(200).optional().default(50),
   before_id: z.coerce
     .bigint()
@@ -1292,13 +1330,35 @@ export const zGetAddressHistoryQuery = z.object({
       error: "Invalid value: Expected int64 to be <= 9223372036854775807",
     })
     .optional(),
-  include_all: z.boolean().optional().default(false),
 });
 
 /**
- * Address history with time-series buckets and paginated events
+ * Paginated address events
  */
 export const zGetAddressHistoryResponse = zAddressHistoryResponse;
+
+export const zGetAddressHistoryHistogramQuery = z.object({
+  device_id: z.array(zId).max(200).optional(),
+  device_id_op: zAddressHistoryFilterOperator.optional(),
+  user_id: z.array(zId).max(200).optional(),
+  user_id_op: zAddressHistoryFilterOperator.optional(),
+  ip: z.array(z.string()).max(200).optional(),
+  ip_op: zAddressHistoryFilterOperator.optional(),
+  source: z.array(zAddressEventSource).max(200).optional(),
+  source_op: zAddressHistoryFilterOperator.optional(),
+  event_kind: z.array(zAddressEventKind).max(200).optional(),
+  event_kind_op: zAddressHistoryFilterOperator.optional(),
+  ttl_risk: z.array(zTtlRisk).max(200).optional(),
+  ttl_risk_op: zAddressHistoryFilterOperator.optional(),
+  from: z.iso.datetime({ offset: true, local: true }).optional(),
+  to: z.iso.datetime({ offset: true, local: true }).optional(),
+});
+
+/**
+ * Time-bucketed event counts
+ */
+export const zGetAddressHistoryHistogramResponse =
+  zAddressHistoryHistogramResponse;
 
 export const zDisableAddressPath = z.object({
   device_id: zId,

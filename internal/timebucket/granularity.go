@@ -3,6 +3,7 @@ package timebucket
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 // Granularity controls the time bucket size for aggregation queries.
@@ -48,6 +49,21 @@ func (g Granularity) StrftimeISO() string {
 		return "%Y-%m-%dT%H:00:00Z"
 	default:
 		return "%Y-%m-%dT%H:00:00Z"
+	}
+}
+
+// GranularityForWindow maps a query window to the appropriate bucket size:
+// ≤5m → minute, ≤1h → 5min, ≤7d → hour, >7d → day.
+func GranularityForWindow(d time.Duration) Granularity {
+	switch {
+	case d <= 5*time.Minute:
+		return GranularityMinute
+	case d <= time.Hour:
+		return Granularity5Min
+	case d <= 7*24*time.Hour:
+		return GranularityHour
+	default:
+		return GranularityDay
 	}
 }
 

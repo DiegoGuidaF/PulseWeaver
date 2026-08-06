@@ -102,20 +102,101 @@ addressHistory:
     operationId: getAddressHistory
     tags:
       - addresses
-    summary: Get address activity history
+    summary: Get paginated address activity events
     description: >
-      Returns time-bucketed active IP counts and paginated address events.
-      When device_id is omitted, returns history for all devices.
-      When device_id is provided, filters to those devices only.
+      Returns a keyset-paginated page of address events, newest first. Every
+      filter also narrows GET /address-history/histogram identically, since
+      both endpoints share one filtered, enriched read model.
     parameters:
+      # --- Value filters: repeated params + sibling {field}_op operator. ---
+      # Values are repeated (?source=heartbeat&source=manual), not comma-joined,
+      # so values containing commas are safe and codegen yields typed arrays.
+      # {field}_op defaults to `in`; allowed operators vary per column.
       - name: device_id
         in: query
         required: false
-        description: Filter by device ID(s). Empty means all devices.
         schema:
           type: array
+          maxItems: 200
           items:
             $ref: '../components/schemas/common.yaml#/ID'
+        description: Device ID filter values (in, not_in). Empty means all devices.
+      - name: device_id_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '../components/schemas/common.yaml#/ID'
+        description: Owning user ID filter values (in, not_in).
+      - name: user_id_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
+      - name: ip
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            type: string
+        description: IP address filter values (in, not_in, contains, not_contains).
+      - name: ip_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
+      - name: source
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '../components/schemas/addresses.yaml#/AddressEventSource'
+        description: Event source filter values (in, not_in).
+      - name: source_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
+      - name: event_kind
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '../components/schemas/addresses.yaml#/AddressEventKind'
+        description: Event kind filter values (in, not_in).
+      - name: event_kind_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
+      - name: ttl_risk
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '../components/schemas/addresses.yaml#/TTLRisk'
+        description: TTL risk filter values (in, not_in).
+      - name: ttl_risk_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
+      # --- Time window ---
       - name: from
         in: query
         required: false
@@ -130,32 +211,7 @@ addressHistory:
           type: string
           format: date-time
         description: RFC3339 end of time window (default now)
-      - name: granularity
-        in: query
-        required: false
-        schema:
-          allOf:
-            - $ref: '../components/schemas/addresses.yaml#/AddressHistoryGranularity'
-          default: hour
-        description: Time bucket granularity (default hour)
-      - name: source
-        in: query
-        required: false
-        schema:
-          $ref: '../components/schemas/addresses.yaml#/AddressEventSource'
-        description: Filter events by source
-      - name: is_enabled
-        in: query
-        required: false
-        schema:
-          type: boolean
-        description: Filter events by enabled/disabled state
-      - name: ip
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Filter events by IP address (substring match)
+      # --- Pagination ---
       - name: limit
         in: query
         required: false
@@ -171,25 +227,154 @@ addressHistory:
           type: integer
           format: int64
         description: Cursor for pagination — return events with id < before_id
-      - name: include_all
-        in: query
-        required: false
-        schema:
-          type: boolean
-          default: false
-        description: >
-          When false (default), returns only state-change events
-          (created, enabled, disabled). When true, includes all events
-          including repeated heartbeat refreshes.
     responses:
       "200":
-        description: Address history with time-series buckets and paginated events
+        description: Paginated address events
         content:
           application/json:
             schema:
               $ref: '../components/schemas/addresses.yaml#/AddressHistoryResponse'
       "400":
-        description: Invalid query parameters (e.g. bad granularity)
+        description: Invalid filter, operator, or query parameters
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+addressHistoryHistogram:
+  get:
+    operationId: getAddressHistoryHistogram
+    tags:
+      - addresses
+    summary: Get time-bucketed address event counts
+    description: >
+      Returns a plain event count per time bucket, matching the same filters
+      and window as GET /address-history. Granularity is chosen server-side
+      from the window size. Not affected by the events endpoint's cursor.
+    parameters:
+      # --- Value filters: repeated params + sibling {field}_op operator. ---
+      # Same columns and semantics as GET /address-history so the two endpoints
+      # can never drift.
+      - name: device_id
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '../components/schemas/common.yaml#/ID'
+        description: Device ID filter values (in, not_in). Empty means all devices.
+      - name: device_id_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '../components/schemas/common.yaml#/ID'
+        description: Owning user ID filter values (in, not_in).
+      - name: user_id_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
+      - name: ip
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            type: string
+        description: IP address filter values (in, not_in, contains, not_contains).
+      - name: ip_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
+      - name: source
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '../components/schemas/addresses.yaml#/AddressEventSource'
+        description: Event source filter values (in, not_in).
+      - name: source_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
+      - name: event_kind
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '../components/schemas/addresses.yaml#/AddressEventKind'
+        description: Event kind filter values (in, not_in).
+      - name: event_kind_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
+      - name: ttl_risk
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '../components/schemas/addresses.yaml#/TTLRisk'
+        description: TTL risk filter values (in, not_in).
+      - name: ttl_risk_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
+      # --- Time window ---
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 start of time window (default 24h ago)
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 end of time window (default now)
+    responses:
+      "200":
+        description: Time-bucketed event counts
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/addresses.yaml#/AddressHistoryHistogramResponse'
+      "400":
+        description: Invalid filter, operator, or query parameters
         content:
           application/json:
             schema:

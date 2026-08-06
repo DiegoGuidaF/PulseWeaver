@@ -93,10 +93,10 @@ func (r *Repository) FleetRows(ctx context.Context, ownerID *ids.UserID) ([]Flee
 // deviceListState derives the lifecycle state shown in device list rows.
 func deviceListState(liveAddressCount int, disabled bool) httpapi.DeviceState {
 	if disabled {
-		return httpapi.Disabled
+		return httpapi.DeviceStateDisabled
 	}
 	if liveAddressCount > 0 {
-		return httpapi.Healthy
+		return httpapi.DeviceStateHealthy
 	}
-	return httpapi.Stale
+	return httpapi.DeviceStateStale
 }

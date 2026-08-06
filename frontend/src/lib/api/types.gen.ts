@@ -380,27 +380,22 @@ export type Address = {
 };
 
 export type AddressHistoryResponse = {
-  buckets: Array<AddressHistoryBucket>;
   events: Array<AddressHistoryEvent>;
   /**
    * Total number of events matching the filters (for pagination)
    */
-  total_events: number;
-  next_cursor?: Id | null;
+  total: number;
+  next_cursor: Id | null;
+};
+
+export type AddressHistoryHistogramResponse = {
+  buckets: Array<AddressHistoryBucket>;
 };
 
 export type AddressHistoryBucket = {
   timestamp: string;
   /**
-   * Count of addresses whose last event in this bucket was enabled (active at end of period)
-   */
-  active_count: number;
-  /**
-   * Count of addresses that had at least one expiry event in this bucket
-   */
-  gap_count: number;
-  /**
-   * Total address events in this time bucket
+   * Count of events matching the filters in this time bucket.
    */
   event_count: number;
 };
@@ -421,6 +416,60 @@ export const AddressEventSource = {
 export type AddressEventSource =
   (typeof AddressEventSource)[keyof typeof AddressEventSource];
 
+/**
+ * How an address event relates to the immediately preceding event for the same address, independent of any time window. `created` and `enabled`/ `disabled` are the events that matter for the "state changes" view; `refresh` is a repeated heartbeat with no state change.
+ *
+ */
+export const AddressEventKind = {
+  CREATED: "created",
+  ENABLED: "enabled",
+  DISABLED: "disabled",
+  REFRESH: "refresh",
+} as const;
+
+/**
+ * How an address event relates to the immediately preceding event for the same address, independent of any time window. `created` and `enabled`/ `disabled` are the events that matter for the "state changes" view; `refresh` is a repeated heartbeat with no state change.
+ *
+ */
+export type AddressEventKind =
+  (typeof AddressEventKind)[keyof typeof AddressEventKind];
+
+/**
+ * How this event's renewal_gap_seconds compares to the device's configured lease TTL. `unknown` when there is no lease rule or no prior renewal to compare against (including every non-renewal event, e.g. expiry/ limit_exceeded rows).
+ *
+ */
+export const TtlRisk = {
+  UNKNOWN: "unknown",
+  OK: "ok",
+  APPROACHING: "approaching",
+  CRITICAL: "critical",
+  BREACHED: "breached",
+} as const;
+
+/**
+ * How this event's renewal_gap_seconds compares to the device's configured lease TTL. `unknown` when there is no lease rule or no prior renewal to compare against (including every non-renewal event, e.g. expiry/ limit_exceeded rows).
+ *
+ */
+export type TtlRisk = (typeof TtlRisk)[keyof typeof TtlRisk];
+
+/**
+ * Filter operator for an address-history value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.
+ *
+ */
+export const AddressHistoryFilterOperator = {
+  IN: "in",
+  NOT_IN: "not_in",
+  CONTAINS: "contains",
+  NOT_CONTAINS: "not_contains",
+} as const;
+
+/**
+ * Filter operator for an address-history value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.
+ *
+ */
+export type AddressHistoryFilterOperator =
+  (typeof AddressHistoryFilterOperator)[keyof typeof AddressHistoryFilterOperator];
+
 export type AddressHistoryEvent = {
   id: Id;
   timestamp: string;
@@ -436,20 +485,23 @@ export type AddressHistoryEvent = {
    */
   device_name: string;
   /**
-   * Seconds since the previous address event for this device, across all of its addresses. Null when there is no prior event in the queried range.
+   * Seconds since this device's previous renewal event (any event except a server-generated expiry/limit_exceeded termination), across all of its addresses. Null for a non-renewal row, or the first renewal ever for the device.
    *
    */
-  time_gap_seconds?: number | null;
+  renewal_gap_seconds?: number | null;
   /**
    * Whether the IP differs from the previous address event for this device. False for the first event in the queried range.
    *
    */
   ip_changed: boolean;
   /**
-   * Whether this event repeats the previous one for this device with no change in IP or enabled state (a pure heartbeat refresh).
-   *
+   * How this event relates to the previous event for the same address.
    */
-  is_refresh: boolean;
+  event_kind: AddressEventKind;
+  /**
+   * How renewal_gap_seconds compares to the device's configured lease TTL.
+   */
+  ttl_risk: TtlRisk;
   /**
    * The device's configured address-lease TTL in seconds, if an auto-expiry rule is enabled for the device. Null otherwise.
    *
@@ -1306,17 +1358,6 @@ export const DevicePairingStatus = {
  */
 export type DevicePairingStatus =
   (typeof DevicePairingStatus)[keyof typeof DevicePairingStatus];
-
-/**
- * Time bucket granularity for the address history endpoint.
- */
-export const AddressHistoryGranularity = { HOUR: "hour", DAY: "day" } as const;
-
-/**
- * Time bucket granularity for the address history endpoint.
- */
-export type AddressHistoryGranularity =
-  (typeof AddressHistoryGranularity)[keyof typeof AddressHistoryGranularity];
 
 /**
  * Filter operator for a value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.
@@ -2433,9 +2474,35 @@ export type GetAddressHistoryData = {
   path?: never;
   query?: {
     /**
-     * Filter by device ID(s). Empty means all devices.
+     * Device ID filter values (in, not_in). Empty means all devices.
      */
     device_id?: Array<Id>;
+    device_id_op?: AddressHistoryFilterOperator;
+    /**
+     * Owning user ID filter values (in, not_in).
+     */
+    user_id?: Array<Id>;
+    user_id_op?: AddressHistoryFilterOperator;
+    /**
+     * IP address filter values (in, not_in, contains, not_contains).
+     */
+    ip?: Array<string>;
+    ip_op?: AddressHistoryFilterOperator;
+    /**
+     * Event source filter values (in, not_in).
+     */
+    source?: Array<AddressEventSource>;
+    source_op?: AddressHistoryFilterOperator;
+    /**
+     * Event kind filter values (in, not_in).
+     */
+    event_kind?: Array<AddressEventKind>;
+    event_kind_op?: AddressHistoryFilterOperator;
+    /**
+     * TTL risk filter values (in, not_in).
+     */
+    ttl_risk?: Array<TtlRisk>;
+    ttl_risk_op?: AddressHistoryFilterOperator;
     /**
      * RFC3339 start of time window (default 24h ago)
      */
@@ -2445,22 +2512,6 @@ export type GetAddressHistoryData = {
      */
     to?: string;
     /**
-     * Time bucket granularity (default hour)
-     */
-    granularity?: AddressHistoryGranularity;
-    /**
-     * Filter events by source
-     */
-    source?: AddressEventSource;
-    /**
-     * Filter events by enabled/disabled state
-     */
-    is_enabled?: boolean;
-    /**
-     * Filter events by IP address (substring match)
-     */
-    ip?: string;
-    /**
      * Maximum number of events to return (default 50, max 200)
      */
     limit?: number;
@@ -2468,18 +2519,13 @@ export type GetAddressHistoryData = {
      * Cursor for pagination — return events with id < before_id
      */
     before_id?: number;
-    /**
-     * When false (default), returns only state-change events (created, enabled, disabled). When true, includes all events including repeated heartbeat refreshes.
-     *
-     */
-    include_all?: boolean;
   };
   url: "/address-history";
 };
 
 export type GetAddressHistoryErrors = {
   /**
-   * Invalid query parameters (e.g. bad granularity)
+   * Invalid filter, operator, or query parameters
    */
   400: ErrorResponse;
   /**
@@ -2497,13 +2543,87 @@ export type GetAddressHistoryError =
 
 export type GetAddressHistoryResponses = {
   /**
-   * Address history with time-series buckets and paginated events
+   * Paginated address events
    */
   200: AddressHistoryResponse;
 };
 
 export type GetAddressHistoryResponse =
   GetAddressHistoryResponses[keyof GetAddressHistoryResponses];
+
+export type GetAddressHistoryHistogramData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Device ID filter values (in, not_in). Empty means all devices.
+     */
+    device_id?: Array<Id>;
+    device_id_op?: AddressHistoryFilterOperator;
+    /**
+     * Owning user ID filter values (in, not_in).
+     */
+    user_id?: Array<Id>;
+    user_id_op?: AddressHistoryFilterOperator;
+    /**
+     * IP address filter values (in, not_in, contains, not_contains).
+     */
+    ip?: Array<string>;
+    ip_op?: AddressHistoryFilterOperator;
+    /**
+     * Event source filter values (in, not_in).
+     */
+    source?: Array<AddressEventSource>;
+    source_op?: AddressHistoryFilterOperator;
+    /**
+     * Event kind filter values (in, not_in).
+     */
+    event_kind?: Array<AddressEventKind>;
+    event_kind_op?: AddressHistoryFilterOperator;
+    /**
+     * TTL risk filter values (in, not_in).
+     */
+    ttl_risk?: Array<TtlRisk>;
+    ttl_risk_op?: AddressHistoryFilterOperator;
+    /**
+     * RFC3339 start of time window (default 24h ago)
+     */
+    from?: string;
+    /**
+     * RFC3339 end of time window (default now)
+     */
+    to?: string;
+  };
+  url: "/address-history/histogram";
+};
+
+export type GetAddressHistoryHistogramErrors = {
+  /**
+   * Invalid filter, operator, or query parameters
+   */
+  400: ErrorResponse;
+  /**
+   * Forbidden - admin credentials required
+   */
+  403: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type GetAddressHistoryHistogramError =
+  GetAddressHistoryHistogramErrors[keyof GetAddressHistoryHistogramErrors];
+
+export type GetAddressHistoryHistogramResponses = {
+  /**
+   * Time-bucketed event counts
+   */
+  200: AddressHistoryHistogramResponse;
+};
+
+export type GetAddressHistoryHistogramResponse =
+  GetAddressHistoryHistogramResponses[keyof GetAddressHistoryHistogramResponses];
 
 export type DisableAddressData = {
   body?: never;

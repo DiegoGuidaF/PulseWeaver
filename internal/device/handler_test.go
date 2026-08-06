@@ -291,7 +291,7 @@ func TestHandler_DisableDevice_200(t *testing.T) {
 	listResp, err := client.GetDeviceFleetWithResponse(ctx, &httpapi.GetDeviceFleetParams{OwnerId: new(adminID.Int64())})
 	is.NoErr(err)
 	devices := (*listResp.JSON200)[0].Devices
-	is.Equal(devices[0].State, httpapi.Disabled)
+	is.Equal(devices[0].State, httpapi.DeviceStateDisabled)
 }
 
 func TestHandler_DisableDevice_404(t *testing.T) {

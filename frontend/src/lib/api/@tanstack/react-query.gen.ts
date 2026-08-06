@@ -33,6 +33,7 @@ import {
   getAccessLog,
   getAccessLogByCountry,
   getAddressHistory,
+  getAddressHistoryHistogram,
   getCurrentUser,
   getDashboardAttributionSplit,
   getDashboardPosture,
@@ -144,6 +145,9 @@ import type {
   GetAccessLogResponse,
   GetAddressHistoryData,
   GetAddressHistoryError,
+  GetAddressHistoryHistogramData,
+  GetAddressHistoryHistogramError,
+  GetAddressHistoryHistogramResponse,
   GetAddressHistoryResponse,
   GetCurrentUserData,
   GetCurrentUserError,
@@ -995,9 +999,9 @@ export const getAddressHistoryQueryKey = (
 ) => createQueryKey("getAddressHistory", options);
 
 /**
- * Get address activity history
+ * Get paginated address activity events
  *
- * Returns time-bucketed active IP counts and paginated address events. When device_id is omitted, returns history for all devices. When device_id is provided, filters to those devices only.
+ * Returns a keyset-paginated page of address events, newest first. Every filter also narrows GET /address-history/histogram identically, since both endpoints share one filtered, enriched read model.
  *
  */
 export const getAddressHistoryOptions = (
@@ -1019,6 +1023,37 @@ export const getAddressHistoryOptions = (
       return data;
     },
     queryKey: getAddressHistoryQueryKey(options),
+  });
+
+export const getAddressHistoryHistogramQueryKey = (
+  options?: Options<GetAddressHistoryHistogramData>,
+) => createQueryKey("getAddressHistoryHistogram", options);
+
+/**
+ * Get time-bucketed address event counts
+ *
+ * Returns a plain event count per time bucket, matching the same filters and window as GET /address-history. Granularity is chosen server-side from the window size. Not affected by the events endpoint's cursor.
+ *
+ */
+export const getAddressHistoryHistogramOptions = (
+  options?: Options<GetAddressHistoryHistogramData>,
+) =>
+  queryOptions<
+    GetAddressHistoryHistogramResponse,
+    GetAddressHistoryHistogramError,
+    GetAddressHistoryHistogramResponse,
+    ReturnType<typeof getAddressHistoryHistogramQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getAddressHistoryHistogram({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getAddressHistoryHistogramQueryKey(options),
   });
 
 /**

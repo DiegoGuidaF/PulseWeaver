@@ -79,6 +79,9 @@ import type {
   GetAccessLogResponses,
   GetAddressHistoryData,
   GetAddressHistoryErrors,
+  GetAddressHistoryHistogramData,
+  GetAddressHistoryHistogramErrors,
+  GetAddressHistoryHistogramResponses,
   GetAddressHistoryResponses,
   GetCurrentUserData,
   GetCurrentUserErrors,
@@ -246,6 +249,8 @@ import {
   zGetAccessLogByCountryResponse,
   zGetAccessLogQuery,
   zGetAccessLogResponse,
+  zGetAddressHistoryHistogramQuery,
+  zGetAddressHistoryHistogramResponse,
   zGetAddressHistoryQuery,
   zGetAddressHistoryResponse,
   zGetCurrentUserResponse,
@@ -1194,9 +1199,9 @@ export const addAddress = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Get address activity history
+ * Get paginated address activity events
  *
- * Returns time-bucketed active IP counts and paginated address events. When device_id is omitted, returns history for all devices. When device_id is provided, filters to those devices only.
+ * Returns a keyset-paginated page of address events, newest first. Every filter also narrows GET /address-history/histogram identically, since both endpoints share one filtered, enriched read model.
  *
  */
 export const getAddressHistory = <ThrowOnError extends boolean = false>(
@@ -1229,6 +1234,47 @@ export const getAddressHistory = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/address-history",
+    ...options,
+  });
+
+/**
+ * Get time-bucketed address event counts
+ *
+ * Returns a plain event count per time bucket, matching the same filters and window as GET /address-history. Granularity is chosen server-side from the window size. Not affected by the events endpoint's cursor.
+ *
+ */
+export const getAddressHistoryHistogram = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetAddressHistoryHistogramData, ThrowOnError>,
+): RequestResult<
+  GetAddressHistoryHistogramResponses,
+  GetAddressHistoryHistogramErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetAddressHistoryHistogramResponses,
+    GetAddressHistoryHistogramErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: z.never().optional(),
+          query: zGetAddressHistoryHistogramQuery.optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zGetAddressHistoryHistogramResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/address-history/histogram",
     ...options,
   });
 

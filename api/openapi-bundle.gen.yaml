@@ -910,18 +910,94 @@ paths:
       operationId: getAddressHistory
       tags:
         - addresses
-      summary: Get address activity history
+      summary: Get paginated address activity events
       description: |
-        Returns time-bucketed active IP counts and paginated address events. When device_id is omitted, returns history for all devices. When device_id is provided, filters to those devices only.
+        Returns a keyset-paginated page of address events, newest first. Every filter also narrows GET /address-history/histogram identically, since both endpoints share one filtered, enriched read model.
       parameters:
         - name: device_id
           in: query
           required: false
-          description: Filter by device ID(s). Empty means all devices.
           schema:
             type: array
+            maxItems: 200
             items:
               $ref: '#/components/schemas/ID'
+          description: Device ID filter values (in, not_in). Empty means all devices.
+        - name: device_id_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AddressHistoryFilterOperator'
+        - name: user_id
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              $ref: '#/components/schemas/ID'
+          description: Owning user ID filter values (in, not_in).
+        - name: user_id_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AddressHistoryFilterOperator'
+        - name: ip
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              type: string
+          description: IP address filter values (in, not_in, contains, not_contains).
+        - name: ip_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AddressHistoryFilterOperator'
+        - name: source
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              $ref: '#/components/schemas/AddressEventSource'
+          description: Event source filter values (in, not_in).
+        - name: source_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AddressHistoryFilterOperator'
+        - name: event_kind
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              $ref: '#/components/schemas/AddressEventKind'
+          description: Event kind filter values (in, not_in).
+        - name: event_kind_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AddressHistoryFilterOperator'
+        - name: ttl_risk
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              $ref: '#/components/schemas/TTLRisk'
+          description: TTL risk filter values (in, not_in).
+        - name: ttl_risk_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AddressHistoryFilterOperator'
         - name: from
           in: query
           required: false
@@ -936,32 +1012,6 @@ paths:
             type: string
             format: date-time
           description: RFC3339 end of time window (default now)
-        - name: granularity
-          in: query
-          required: false
-          schema:
-            allOf:
-              - $ref: '#/components/schemas/AddressHistoryGranularity'
-            default: hour
-          description: Time bucket granularity (default hour)
-        - name: source
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/AddressEventSource'
-          description: Filter events by source
-        - name: is_enabled
-          in: query
-          required: false
-          schema:
-            type: boolean
-          description: Filter events by enabled/disabled state
-        - name: ip
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Filter events by IP address (substring match)
         - name: limit
           in: query
           required: false
@@ -977,23 +1027,147 @@ paths:
             type: integer
             format: int64
           description: Cursor for pagination — return events with id < before_id
-        - name: include_all
-          in: query
-          required: false
-          schema:
-            type: boolean
-            default: false
-          description: |
-            When false (default), returns only state-change events (created, enabled, disabled). When true, includes all events including repeated heartbeat refreshes.
       responses:
         '200':
-          description: Address history with time-series buckets and paginated events
+          description: Paginated address events
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AddressHistoryResponse'
         '400':
-          description: Invalid query parameters (e.g. bad granularity)
+          description: Invalid filter, operator, or query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - admin credentials required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /address-history/histogram:
+    get:
+      operationId: getAddressHistoryHistogram
+      tags:
+        - addresses
+      summary: Get time-bucketed address event counts
+      description: |
+        Returns a plain event count per time bucket, matching the same filters and window as GET /address-history. Granularity is chosen server-side from the window size. Not affected by the events endpoint's cursor.
+      parameters:
+        - name: device_id
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              $ref: '#/components/schemas/ID'
+          description: Device ID filter values (in, not_in). Empty means all devices.
+        - name: device_id_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AddressHistoryFilterOperator'
+        - name: user_id
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              $ref: '#/components/schemas/ID'
+          description: Owning user ID filter values (in, not_in).
+        - name: user_id_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AddressHistoryFilterOperator'
+        - name: ip
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              type: string
+          description: IP address filter values (in, not_in, contains, not_contains).
+        - name: ip_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AddressHistoryFilterOperator'
+        - name: source
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              $ref: '#/components/schemas/AddressEventSource'
+          description: Event source filter values (in, not_in).
+        - name: source_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AddressHistoryFilterOperator'
+        - name: event_kind
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              $ref: '#/components/schemas/AddressEventKind'
+          description: Event kind filter values (in, not_in).
+        - name: event_kind_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AddressHistoryFilterOperator'
+        - name: ttl_risk
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              $ref: '#/components/schemas/TTLRisk'
+          description: TTL risk filter values (in, not_in).
+        - name: ttl_risk_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AddressHistoryFilterOperator'
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 start of time window (default 24h ago)
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 end of time window (default now)
+      responses:
+        '200':
+          description: Time-bucketed event counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressHistoryHistogramResponse'
+        '400':
+          description: Invalid filter, operator, or query parameters
           content:
             application/json:
               schema:
@@ -3275,46 +3449,43 @@ components:
     AddressHistoryResponse:
       type: object
       required:
-        - buckets
         - events
-        - total_events
+        - total
+        - next_cursor
       properties:
-        buckets:
-          type: array
-          items:
-            $ref: '#/components/schemas/AddressHistoryBucket'
         events:
           type: array
           items:
             $ref: '#/components/schemas/AddressHistoryEvent'
-        total_events:
+        total:
           type: integer
           description: Total number of events matching the filters (for pagination)
         next_cursor:
           allOf:
             - $ref: '#/components/schemas/ID'
           nullable: true
+    AddressHistoryHistogramResponse:
+      type: object
+      required:
+        - buckets
+      properties:
+        buckets:
+          type: array
+          items:
+            $ref: '#/components/schemas/AddressHistoryBucket'
     AddressHistoryBucket:
       type: object
       required:
         - timestamp
-        - active_count
-        - gap_count
         - event_count
       properties:
         timestamp:
           type: string
           format: date-time
           x-go-type: UTCTime
-        active_count:
-          type: integer
-          description: Count of addresses whose last event in this bucket was enabled (active at end of period)
-        gap_count:
-          type: integer
-          description: Count of addresses that had at least one expiry event in this bucket
         event_count:
           type: integer
-          description: Total address events in this time bucket
+          description: Count of events matching the filters in this time bucket.
     AddressEventSource:
       type: string
       description: What triggered an address state change
@@ -3323,6 +3494,34 @@ components:
         - manual
         - expiry
         - limit_exceeded
+    AddressEventKind:
+      type: string
+      description: |
+        How an address event relates to the immediately preceding event for the same address, independent of any time window. `created` and `enabled`/ `disabled` are the events that matter for the "state changes" view; `refresh` is a repeated heartbeat with no state change.
+      enum:
+        - created
+        - enabled
+        - disabled
+        - refresh
+    TTLRisk:
+      type: string
+      description: |
+        How this event's renewal_gap_seconds compares to the device's configured lease TTL. `unknown` when there is no lease rule or no prior renewal to compare against (including every non-renewal event, e.g. expiry/ limit_exceeded rows).
+      enum:
+        - unknown
+        - ok
+        - approaching
+        - critical
+        - breached
+    AddressHistoryFilterOperator:
+      type: string
+      description: |
+        Filter operator for an address-history value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.
+      enum:
+        - in
+        - not_in
+        - contains
+        - not_contains
     AddressHistoryEvent:
       type: object
       required:
@@ -3334,7 +3533,8 @@ components:
         - device_id
         - device_name
         - ip_changed
-        - is_refresh
+        - event_kind
+        - ttl_risk
       properties:
         id:
           $ref: '#/components/schemas/ID'
@@ -3354,20 +3554,24 @@ components:
         device_name:
           type: string
           description: Name of the device
-        time_gap_seconds:
+        renewal_gap_seconds:
           type: integer
           format: int64
           nullable: true
           description: |
-            Seconds since the previous address event for this device, across all of its addresses. Null when there is no prior event in the queried range.
+            Seconds since this device's previous renewal event (any event except a server-generated expiry/limit_exceeded termination), across all of its addresses. Null for a non-renewal row, or the first renewal ever for the device.
         ip_changed:
           type: boolean
           description: |
             Whether the IP differs from the previous address event for this device. False for the first event in the queried range.
-        is_refresh:
-          type: boolean
-          description: |
-            Whether this event repeats the previous one for this device with no change in IP or enabled state (a pure heartbeat refresh).
+        event_kind:
+          allOf:
+            - $ref: '#/components/schemas/AddressEventKind'
+          description: How this event relates to the previous event for the same address.
+        ttl_risk:
+          allOf:
+            - $ref: '#/components/schemas/TTLRisk'
+          description: How renewal_gap_seconds compares to the device's configured lease TTL.
         ttl_seconds:
           type: integer
           format: int64
@@ -4702,12 +4906,6 @@ components:
         - replaced
       description: |
         Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.
-    AddressHistoryGranularity:
-      type: string
-      description: Time bucket granularity for the address history endpoint.
-      enum:
-        - hour
-        - day
     AccessLogFilterOperator:
       type: string
       description: |

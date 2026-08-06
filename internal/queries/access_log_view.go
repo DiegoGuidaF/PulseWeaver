@@ -136,47 +136,6 @@ type AccessLogQuery struct {
 	Limit     int
 }
 
-func stringFilterValues[T ~string](values *[]T) []any {
-	if values == nil {
-		return nil
-	}
-	out := make([]any, len(*values))
-	for i, v := range *values {
-		out[i] = string(v)
-	}
-	return out
-}
-
-func int64FilterValues[T ~int64](values *[]T) []any {
-	if values == nil {
-		return nil
-	}
-	out := make([]any, len(*values))
-	for i, v := range *values {
-		out[i] = int64(v)
-	}
-	return out
-}
-
-// parseFilter resolves a value column's operator and decides whether it
-// contributes a filter. A present operator with no values (and no null check) is
-// treated as no filter; null operators apply with no values.
-func parseFilter(column string, values []any, opPtr *httpapi.AccessLogFilterOperator) (filterx.Filter, bool, error) {
-	op := filterx.OpIn
-	if opPtr != nil {
-		parsed, err := filterx.ParseOperator(string(*opPtr))
-		if err != nil {
-			return filterx.Filter{}, false, err
-		}
-		op = parsed
-	}
-	nullCheck := op == filterx.OpIsNull || op == filterx.OpNotNull
-	if len(values) == 0 && !nullCheck {
-		return filterx.Filter{}, false, nil
-	}
-	return filterx.Filter{Column: column, Op: op, Values: values}, true, nil
-}
-
 // NewAccessLogQuery validates and normalizes the request params. It returns an
 // error wrapping filterx.ErrInvalidFilter for an unknown operator/column/sort,
 // an over-cap value list, or a malformed cursor — the handler maps these to 400.
@@ -215,19 +174,19 @@ func NewAccessLogQuery(params httpapi.GetAccessLogParams) (AccessLogQuery, error
 		values []any
 		op     *httpapi.AccessLogFilterOperator
 	}{
-		{"client_ip", stringFilterValues(params.ClientIp), params.ClientIpOp},
-		{"target_host", stringFilterValues(params.TargetHost), params.TargetHostOp},
-		{"target_uri", stringFilterValues(params.TargetUri), params.TargetUriOp},
-		{"http_method", stringFilterValues(params.HttpMethod), params.HttpMethodOp},
-		{"deny_reason", stringFilterValues(params.DenyReason), params.DenyReasonOp},
-		{"country_code", stringFilterValues(params.CountryCode), params.CountryCodeOp},
-		{"continent_code", stringFilterValues(params.ContinentCode), params.ContinentCodeOp},
-		{"device", int64FilterValues(params.DeviceId), params.DeviceIdOp},
-		{"user", int64FilterValues(params.UserId), params.UserIdOp},
-		{"network_policy", int64FilterValues(params.NetworkPolicyId), params.NetworkPolicyIdOp},
+		{"client_ip", filterx.StringValues(params.ClientIp), params.ClientIpOp},
+		{"target_host", filterx.StringValues(params.TargetHost), params.TargetHostOp},
+		{"target_uri", filterx.StringValues(params.TargetUri), params.TargetUriOp},
+		{"http_method", filterx.StringValues(params.HttpMethod), params.HttpMethodOp},
+		{"deny_reason", filterx.StringValues(params.DenyReason), params.DenyReasonOp},
+		{"country_code", filterx.StringValues(params.CountryCode), params.CountryCodeOp},
+		{"continent_code", filterx.StringValues(params.ContinentCode), params.ContinentCodeOp},
+		{"device", filterx.Int64Values(params.DeviceId), params.DeviceIdOp},
+		{"user", filterx.Int64Values(params.UserId), params.UserIdOp},
+		{"network_policy", filterx.Int64Values(params.NetworkPolicyId), params.NetworkPolicyIdOp},
 	}
 	for _, vf := range valueFilters {
-		filter, ok, err := parseFilter(vf.column, vf.values, vf.op)
+		filter, ok, err := filterx.ParseFilter(vf.column, vf.values, vf.op)
 		if err != nil {
 			return AccessLogQuery{}, err
 		}
