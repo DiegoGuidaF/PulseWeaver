@@ -50,11 +50,21 @@ COPY --from=frontend-builder /app/frontend/dist ./internal/ui/dist
 # (127.0.0.1:6060) for a profiling build — see prod-deployment's pprof profile.
 ARG GO_TAGS=prod
 
+# Build identity, surfaced by the admin UI via GET /api/v1/version. It must be
+# passed in: .dockerignore excludes .git/, so the toolchain's own VCS stamping
+# has nothing to read here and an un-passed build honestly reports "dev".
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_TIME=""
+
 # Build binary with CGO disabled and optimization flags
 RUN --mount=type=cache,id=gomod,target=/go/pkg/mod,sharing=locked \
     --mount=type=cache,id=gobuild-${TARGETOS}-${TARGETARCH},target=/root/.cache/go-build,sharing=locked \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
-    -ldflags="-s -w" \
+    -ldflags="-s -w \
+      -X 'github.com/DiegoGuidaF/PulseWeaver/internal/buildmeta.Version=${VERSION}' \
+      -X 'github.com/DiegoGuidaF/PulseWeaver/internal/buildmeta.Commit=${COMMIT}' \
+      -X 'github.com/DiegoGuidaF/PulseWeaver/internal/buildmeta.BuildTime=${BUILD_TIME}'" \
     -tags="$GO_TAGS" \
     -o /app/pulseweaver \
     ./cmd/api

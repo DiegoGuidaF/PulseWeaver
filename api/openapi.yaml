@@ -169,6 +169,12 @@ paths:
   /admin/access/network-policies/{policy_id}/grants:
     $ref: './paths/admin/access/network-policies.yaml#/networkPolicyGrants'
 
+  # --------------------
+  # Version
+  # --------------------
+  /version:
+    $ref: './paths/version.yaml#/version'
+
 components:
   securitySchemes:
     cookieAuth:
@@ -427,3 +433,9 @@ components:
       $ref: './components/schemas/users.yaml#/UserListItem'
     UserAccessDetail:
       $ref: './components/schemas/users.yaml#/UserAccessDetail'
+
+    # --------------------
+    # Version
+    # --------------------
+    VersionInfo:
+      $ref: './components/schemas/version.yaml#/VersionInfo'

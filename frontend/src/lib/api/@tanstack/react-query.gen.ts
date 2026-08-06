@@ -49,6 +49,7 @@ import {
   getNetworkPolicy,
   getPolicyUserMap,
   getUserAccessDetail,
+  getVersion,
   ignoreSuggestion,
   listDevicePairings,
   listDeviceRefs,
@@ -194,6 +195,9 @@ import type {
   GetUserAccessDetailData,
   GetUserAccessDetailError,
   GetUserAccessDetailResponse,
+  GetVersionData,
+  GetVersionError,
+  GetVersionResponse,
   IgnoreSuggestionData,
   IgnoreSuggestionError,
   IgnoreSuggestionResponse,
@@ -2256,3 +2260,31 @@ export const updateNetworkPolicyAccessMutation = (
   };
   return mutationOptions;
 };
+
+export const getVersionQueryKey = (options?: Options<GetVersionData>) =>
+  createQueryKey("getVersion", options);
+
+/**
+ * Get backend build identity
+ *
+ * Returns the version and commit of the running binary. Authenticated on purpose — the public /health endpoint deliberately carries no version, so an unauthenticated probe cannot fingerprint the deployed release.
+ *
+ */
+export const getVersionOptions = (options?: Options<GetVersionData>) =>
+  queryOptions<
+    GetVersionResponse,
+    GetVersionError,
+    GetVersionResponse,
+    ReturnType<typeof getVersionQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getVersion({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getVersionQueryKey(options),
+  });

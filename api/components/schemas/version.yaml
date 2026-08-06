@@ -1,0 +1,19 @@
+VersionInfo:
+  type: object
+  description: >
+    Build identity of the running backend binary. Injected at link time, so an
+    un-stamped developer build reports version "dev" rather than a release tag.
+  required: [version, commit]
+  properties:
+    version:
+      type: string
+      description: Release tag the binary was built from, or "dev" when un-stamped.
+      example: "0.5.1"
+    commit:
+      type: string
+      description: Full git SHA the binary was built from, or "unknown".
+      example: "201705ae4a33f7e937dbd2213b3d5d625771d055"
+    build_time:
+      type: string
+      format: date-time
+      description: When the binary was built. Absent on un-stamped builds.

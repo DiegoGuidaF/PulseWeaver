@@ -1,6 +1,6 @@
 # Frontend Codebase Reference
 
-> Last updated: 2026-08-06
+> Last updated: 2026-08-07
 
 This document is the **map** of the frontend codebase — what exists and where. For the system-level
 overview (pages → features → hooks → generated SDK, the API contract), see
@@ -105,6 +105,7 @@ Each feature owns its own `components/` + `hooks/` (and where relevant `constant
 | `access-log` | Access-decision log list, filtering, and detail drawer. | `components/{AccessLogTable,AccessLogDetailDrawer}.tsx`, `accessLogColumns.tsx`, `filterConfig.ts` (column config only — the `ColumnFilter`/`FilterableCell` widgets themselves are shared, see below); `hooks/useAccessLog*.ts` |
 | `address-history` | Address-lease event list + chart, split into an events endpoint (filters+cursor) and a histogram endpoint (filters+window) per ADR-009 §6.4. | `components/{AddressHistoryView,AddressHistoryTable}.tsx`, `addressHistoryColumns.tsx`, `filterConfig.ts` (filterx column config: `device_id`/`user_id`/`ip`/`source`/`event_kind`/`ttl_risk`, each `in`/`not_in`(/`contains`/`not_contains` for `ip`) via the sibling `{field}_op` param); `hooks/use{AddressHistory,AddressHistoryHistogram,AddressHistoryFilters,LocalAddressHistoryFilters}.ts`. `useAddressHistoryFilters` (URL-backed, dedicated page) and `useLocalAddressHistoryFilters` (local-state-backed, device tab) share one `useFilterCore`; a `LockedFilter` (`{key, values}`) pre-applies a non-removable filter and hides its column — the device tab locks `device_id`. `ttl_risk`/`event_kind` render from server enums (`TTL_RISK_BADGE`/`EVENT_KIND_COLORS` in `constants.ts`) — no client-side threshold math. `ttl_risk` is surfaced to the user as **"Lease health"** (`LEASE_HEALTH_COLUMN_LABEL`); the wire name stays `ttl_risk`. Its `unknown` value is an absence of a reading, not a severity, so it renders as a dimmed dash with a hint rather than a badge. Columns are user-managed via the shared `useManagedColumns`/`ColumnsMenu`, same as the access log. |
 | `settings` | Account + preferences tab bodies. | `AccountTab.tsx`, `PreferencesTab.tsx` |
+| `system` | Instance-level facts about the running backend. Currently just build identity (`GET /api/v1/version`), cached indefinitely — the binary cannot change under a live session. | `hooks/useVersion.ts` |
 
 ## Shared components (`src/components/`)
 
@@ -113,6 +114,7 @@ Cross-cutting building blocks reused across surfaces:
 | Component | Role |
 |-----------|------|
 | `layout/AppShell` | App frame: collapsible/resizable nav, header, footer (user + logout) |
+| `layout/VersionFooter` | Running version + short commit in the sidebar footer, full detail on hover. Renders nothing until the query resolves — app chrome does not show a load or error state for it. Hidden while the nav is collapsed. |
 | `EmptyState` | centered icon + title + optional description, with an optional `action` slot (e.g. first-run CTA) for zero-result views |
 | `ErrorState` | inline `isError` branch for failed loads (Alert + `toErrorMessage`, optional `message`/`title`/`onRetry`); use where `ErrorBoundary` (crashes) and notifications (mutations) don't apply |
 | `ErrorBoundary` | `AppErrorBoundary` — catches render crashes |

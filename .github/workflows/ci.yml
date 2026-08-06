@@ -59,5 +59,12 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # These images are not releases, so they stay on version "dev" — but
+          # they must still say which commit they are. The registry tag knows;
+          # the running process cannot read its own tag or OCI labels.
+          build-args: |
+            VERSION=dev
+            COMMIT=${{ github.sha }}
+            BUILD_TIME=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
           cache-from: type=gha,scope=pulseweaver-image
           cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,scope=pulseweaver-image,mode=max' || '' }}

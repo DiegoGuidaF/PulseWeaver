@@ -1323,6 +1323,25 @@ export type UserAccessDetail = {
 };
 
 /**
+ * Build identity of the running backend binary. Injected at link time, so an un-stamped developer build reports version "dev" rather than a release tag.
+ *
+ */
+export type VersionInfo = {
+  /**
+   * Release tag the binary was built from, or "dev" when un-stamped.
+   */
+  version: string;
+  /**
+   * Full git SHA the binary was built from, or "unknown".
+   */
+  commit: string;
+  /**
+   * When the binary was built. Absent on un-stamped builds.
+   */
+  build_time?: string;
+};
+
+/**
  * Kind of per-device rule summarized in DeviceRuleSummary.
  */
 export const RuleType = {
@@ -4238,3 +4257,28 @@ export type UpdateNetworkPolicyAccessResponses = {
 
 export type UpdateNetworkPolicyAccessResponse =
   UpdateNetworkPolicyAccessResponses[keyof UpdateNetworkPolicyAccessResponses];
+
+export type GetVersionData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/version";
+};
+
+export type GetVersionErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+};
+
+export type GetVersionError = GetVersionErrors[keyof GetVersionErrors];
+
+export type GetVersionResponses = {
+  /**
+   * Build identity of the running binary
+   */
+  200: VersionInfo;
+};
+
+export type GetVersionResponse = GetVersionResponses[keyof GetVersionResponses];

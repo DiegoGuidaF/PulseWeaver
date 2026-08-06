@@ -19,6 +19,18 @@ NEXT_MINOR = $(shell echo $(VERSION) | awk -F. '{printf "%d.%d.0", $$1, $$2+1}')
 NEXT_MAJOR = $(shell echo $(VERSION) | awk -F. '{printf "%d.0.0", $$1+1}')
 SKIP_RELEASE_CHECK ?= 0
 
+# Build identity stamped into the binary via -ldflags -X. The Go toolchain's own
+# VCS stamping is unusable for the release image (.dockerignore excludes .git/),
+# so every build path must inject these explicitly or the UI reports "dev".
+# --dirty/--always keep a local build honest: it never claims to be a clean tag.
+VERSION_PKG  := github.com/DiegoGuidaF/PulseWeaver/internal/buildmeta
+BUILD_VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+BUILD_COMMIT  ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+BUILD_TIME    ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+VERSION_LDFLAGS := -X '$(VERSION_PKG).Version=$(BUILD_VERSION)' \
+                   -X '$(VERSION_PKG).Commit=$(BUILD_COMMIT)' \
+                   -X '$(VERSION_PKG).BuildTime=$(BUILD_TIME)'
+
 DB_PATH ?= ./data/data.db
 
 help: ## Show this help
@@ -116,7 +128,7 @@ build: clean _build-frontend _build-backend ## Production build → bin/pulsewea
 # For local profiling against the prod-like stack ONLY — never release this binary.
 build-debuggable: clean _build-frontend ## Production build with pprof debug server (local profiling only)
 	@echo "🔨 Building Go binary with pprof debug server enabled..."
-	go build -tags='prod pprof' -o bin/pulseweaver ./cmd/api
+	go build -tags='prod pprof' -ldflags="$(VERSION_LDFLAGS)" -o bin/pulseweaver ./cmd/api
 	@echo "✅ Debuggable build complete (pprof on 127.0.0.1:6060)! Run ./bin/pulseweaver"
 
 clean: ## Remove build artifacts (bin/, dist/)
@@ -168,7 +180,7 @@ _build-frontend: _api-front
 
 _build-backend: _api-back
 	@echo "🔨 Building Go binary..."
-	go build -tags=prod -o bin/pulseweaver ./cmd/api
+	go build -tags=prod -ldflags="$(VERSION_LDFLAGS)" -o bin/pulseweaver ./cmd/api
 
 _check-migrations:
 	@bash scripts/check-migrations.sh

@@ -1,0 +1,23 @@
+version:
+  get:
+    operationId: getVersion
+    tags:
+      - version
+    summary: Get backend build identity
+    description: >
+      Returns the version and commit of the running binary. Authenticated on
+      purpose — the public /health endpoint deliberately carries no version, so
+      an unauthenticated probe cannot fingerprint the deployed release.
+    responses:
+      "200":
+        description: Build identity of the running binary
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/version.yaml#/VersionInfo'
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'

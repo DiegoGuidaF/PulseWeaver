@@ -9,6 +9,7 @@ import (
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/buildmeta"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/config"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
@@ -194,6 +195,9 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	rollupRepo := rollup.NewRepository(db.DB(), geoipLookup)
 	rollupHandler := rollup.NewHTTPHandler(rollupRepo, logger)
 
+	// Build identity of this binary — link-time values, no dependencies
+	versionHandler := buildmeta.NewHTTPHandler(logger)
+
 	// Runs scheduled jobs - Address leasing, traffic aggregates for the dashboard, data retention...
 	schedulerService := scheduler.NewService(logger)
 	schedulerService.AddJob(addressLeaseService.NewExpiryJob(deviceService))
@@ -229,6 +233,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		hostsHandler,
 		userAccessHandler,
 		networkPoliciesHandler,
+		versionHandler,
 		logger,
 		conf.Server.TrustedProxy,
 	)

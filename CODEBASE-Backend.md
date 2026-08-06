@@ -1,6 +1,6 @@
 # Backend Codebase Reference
 
-> Last updated: 2026-08-06
+> Last updated: 2026-08-07
 
 This document is the **map** of the backend codebase — what exists and where. For the system-level
 overview (layering, the API seam, request flow, single-binary build), see
@@ -45,6 +45,7 @@ repository. Cross-domain reads live in the consuming domain's own `*_view.go` fi
 | `ids` | Typed `int64` ID newtypes (`DeviceID`, `UserID`, `HostID`, `HostGroupID`, `NetworkPolicyID`, …) shared across domains for type-safe boundaries. | `types.go` |
 | `collate` | Generic `Collapse`: folds flat parent×child SQL rows (LEFT JOINs) into nested DTOs in first-seen order. Replaces the hand-written "seen map" idiom in `queries`. | `collate.go` |
 | `slicex` | Generic slice helpers absent from the stdlib `slices` (`Dedup`, sorted `Intersect`). | `slicex.go` |
+| `buildmeta` | Build identity (version/commit/build time) injected at link time via `-ldflags -X`, served by the authenticated `GET /api/v1/version`. Named to dodge the stdlib collisions `version` and `buildinfo`. | `buildmeta.go`, `handler.go` |
 
 ## Infrastructure Packages (`internal/`)
 
@@ -120,8 +121,8 @@ principal-from-cookie → principal-from-API-key → generated strict handler.
 ## App Wiring (internal/app/app.go)
 
 **Construction order:** DB → auth → device → devicepairing → geoip → hosts → useraccess →
-networkpolicies → policy → rule → accesslog → queries → lease → maxaddr → rollup → scheduler → HTTP
-server. After construction: `ExecuteScheduledRules` (disable stale addresses before serving),
+networkpolicies → policy → rule → accesslog → queries → lease → maxaddr → rollup → buildmeta →
+scheduler → HTTP server. After construction: `ExecuteScheduledRules` (disable stale addresses before serving),
 `BootstrapAdmin`, then `policyService.Initialize` (warm the IP cache).
 
 **Observer registrations:**

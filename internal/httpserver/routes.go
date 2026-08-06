@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/buildmeta"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/devicepairing"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/health"
@@ -33,6 +34,7 @@ type CompositeHandler struct {
 	*UserAccessHandler
 	*PolicyHandler
 	*NetworkPoliciesHandler
+	*VersionHandler
 }
 
 type RuleHandler = rule.HTTPHandler
@@ -45,6 +47,7 @@ type DevicePairingHandler = devicepairing.HTTPHandler
 type HostsHandler = hosts.HTTPHandler
 type UserAccessHandler = useraccess.HTTPHandler
 type NetworkPoliciesHandler = networkpolicies.HTTPHandler
+type VersionHandler = buildmeta.HTTPHandler
 
 func addRoutes(
 	r *chi.Mux,
@@ -58,6 +61,7 @@ func addRoutes(
 	hostsHandler *HostsHandler,
 	userAccessHandler *UserAccessHandler,
 	networkPoliciesHandler *NetworkPoliciesHandler,
+	versionHandler *VersionHandler,
 	logger *slog.Logger,
 ) {
 	routeHandler := &CompositeHandler{
@@ -71,6 +75,7 @@ func addRoutes(
 		UserAccessHandler:      userAccessHandler,
 		PolicyHandler:          policyHandler,
 		NetworkPoliciesHandler: networkPoliciesHandler,
+		VersionHandler:         versionHandler,
 	}
 
 	r.Get("/health", health.Handler)

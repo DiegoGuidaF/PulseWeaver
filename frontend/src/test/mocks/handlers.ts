@@ -1,13 +1,14 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryHistogramResponse, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { VersionInfo, Address, AddressHistoryHistogramResponse, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import type { AttributionKind } from '@/features/dashboard/hooks/useAttributionSplit';
-import { createMockAddress, createMockAddressHistoryHistogramResponse, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardAttributionCount, createMockDashboardPosture, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceRef, createMockDevicePairing, createMockGroupDetailWithUsers, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockOwnerFleetGroup, createMockOwnerRef, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
+import { createMockAddress, createMockAddressHistoryHistogramResponse, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardAttributionCount, createMockDashboardPosture, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceRef, createMockDevicePairing, createMockGroupDetailWithUsers, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockOwnerFleetGroup, createMockOwnerRef, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult, createMockVersionInfo } from './data';
 
 const BASE = '/api/v1';
 
 // ─── Endpoint path constants ──────────────────────────────────────────────────
 // All endpoint strings live here. Never hardcode them in test files.
 export const endpoints = {
+    version: `${BASE}/version`,
     usersHostAccess: `${BASE}/admin/access/users`,
     userHostDetails: `${BASE}/admin/access/users/:userId`,
     setUserHostGrants: `${BASE}/admin/access/users/:userId/grants`,
@@ -493,6 +494,17 @@ export const hostAccessHandlers = {
     },
 };
 
+// ─── Version handlers ─────────────────────────────────────────────────────────
+export const versionHandlers = {
+    get: {
+        success: (override?: Partial<VersionInfo>) =>
+            http.get(endpoints.version, () =>
+                HttpResponse.json(createMockVersionInfo(override))),
+        serverError: () =>
+            http.get(endpoints.version, () => responses.serverError()),
+    },
+};
+
 // ─── Policy-audit handlers ────────────────────────────────────────────────────
 export const policyAuditHandlers = {
     policyMap: {
@@ -647,4 +659,6 @@ export const defaultHandlers = [
     // Policy audit
     policyAuditHandlers.policyMap.success(),
     policyAuditHandlers.simulate.allowed(),
+    // Version
+    versionHandlers.get.success(),
 ];

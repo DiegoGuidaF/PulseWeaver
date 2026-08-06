@@ -128,6 +128,9 @@ import type {
   GetUserAccessDetailData,
   GetUserAccessDetailErrors,
   GetUserAccessDetailResponses,
+  GetVersionData,
+  GetVersionErrors,
+  GetVersionResponses,
   IgnoreSuggestionData,
   IgnoreSuggestionErrors,
   IgnoreSuggestionResponses,
@@ -280,6 +283,7 @@ import {
   zGetPolicyUserMapResponse,
   zGetUserAccessDetailPath,
   zGetUserAccessDetailResponse,
+  zGetVersionResponse,
   zIgnoreSuggestionBody,
   zIgnoreSuggestionResponse,
   zListDevicePairingsPath,
@@ -2732,4 +2736,39 @@ export const updateNetworkPolicyAccess = <ThrowOnError extends boolean = false>(
       "Content-Type": "application/json",
       ...options.headers,
     },
+  });
+
+/**
+ * Get backend build identity
+ *
+ * Returns the version and commit of the running binary. Authenticated on purpose — the public /health endpoint deliberately carries no version, so an unauthenticated probe cannot fingerprint the deployed release.
+ *
+ */
+export const getVersion = <ThrowOnError extends boolean = false>(
+  options?: Options<GetVersionData, ThrowOnError>,
+): RequestResult<GetVersionResponses, GetVersionErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    GetVersionResponses,
+    GetVersionErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: z.never().optional(),
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zGetVersionResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/version",
+    ...options,
   });

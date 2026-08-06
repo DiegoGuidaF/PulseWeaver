@@ -29,6 +29,7 @@ import {
 } from "@tabler/icons-react";
 import { ROUTES } from "@/lib/routes";
 import { UserMenu } from "./UserMenu";
+import { VersionFooter } from "./VersionFooter";
 import classes from "./AppShell.module.css";
 
 type NavItem = {
@@ -201,10 +202,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </Stack>
                 </MantineAppShell.Section>
 
-                {/* Footer: desktop sidebar collapse toggle (account + logout live in the top-bar user menu) */}
+                {/* Footer: running version + desktop sidebar collapse toggle
+                    (account + logout live in the top-bar user menu) */}
                 <MantineAppShell.Section visibleFrom="md">
                     <Box px="xs" pb="xs">
-                        <Group justify={isCollapsed ? "center" : "flex-end"}>
+                        <Group
+                            justify={isCollapsed ? "center" : "space-between"}
+                            gap="xs"
+                            wrap="nowrap"
+                        >
+                            {!isCollapsed && <VersionFooter />}
                             <Tooltip
                                 label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                                 position="right"

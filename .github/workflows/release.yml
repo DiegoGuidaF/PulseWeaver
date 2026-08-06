@@ -58,6 +58,13 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Stamped into the binary so the admin UI can report the running build.
+          # The OCI labels above describe the image to registry tooling; these
+          # reach the running process, which cannot read its own labels.
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            COMMIT=${{ github.sha }}
+            BUILD_TIME=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
           cache-from: type=gha,scope=pulseweaver-image
           cache-to: type=gha,scope=pulseweaver-image,mode=max
 

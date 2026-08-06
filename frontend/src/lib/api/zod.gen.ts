@@ -767,6 +767,16 @@ export const zUserAccessDetail = z.object({
 });
 
 /**
+ * Build identity of the running backend binary. Injected at link time, so an un-stamped developer build reports version "dev" rather than a release tag.
+ *
+ */
+export const zVersionInfo = z.object({
+  version: z.string(),
+  commit: z.string(),
+  build_time: z.iso.datetime({ offset: true, local: true }).optional(),
+});
+
+/**
  * Kind of per-device rule summarized in DeviceRuleSummary.
  */
 export const zRuleType = z.enum(["auto_expiry", "max_active"]);
@@ -1717,3 +1727,8 @@ export const zUpdateNetworkPolicyAccessPath = z.object({
  * Updated policy detail.
  */
 export const zUpdateNetworkPolicyAccessResponse = z.void();
+
+/**
+ * Build identity of the running binary
+ */
+export const zGetVersionResponse = zVersionInfo;
