@@ -1,21 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Group, MultiSelect, Select, Stack, TagsInput, Text, TextInput } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
-import {
-    type ColumnFilterState,
-    type FilterColumnConfig,
-    type FilterOp,
-    operatorLabel,
-} from "../filterConfig";
+import { CONTAINS_OPS, NULL_OPS, operatorLabel, type ColumnFilterState, type FilterColumnConfig } from "@/lib/columnFilter";
 
-interface ColumnFilterProps {
-    config: FilterColumnConfig;
-    state: ColumnFilterState;
+interface ColumnFilterProps<Op extends string> {
+    config: FilterColumnConfig<Op>;
+    state: ColumnFilterState<Op>;
     /** Options for the multi-select widget; absent → free-form tag input. */
     options?: { value: string; label: string }[];
     placeholder?: string;
     /** Commit the edited filter. Fired once, when the popover closes or Apply is pressed. */
-    onCommit: (next: ColumnFilterState) => void;
+    onCommit: (next: ColumnFilterState<Op>) => void;
     width?: number;
     /**
      * Focus the value widget when the popover opens. Disable when several
@@ -37,7 +32,7 @@ function sameValues(a: string[], b: string[]): boolean {
  * (this node unmounts) — so fiddling with the operator or adding several values
  * results in a single backend query rather than one per keystroke or selection.
  */
-export function ColumnFilter({
+export function ColumnFilter<Op extends string>({
     config,
     state,
     options,
@@ -45,11 +40,11 @@ export function ColumnFilter({
     onCommit,
     width = 240,
     autoFocus = true,
-}: ColumnFilterProps) {
-    const [draft, setDraft] = useState<ColumnFilterState>(() => state);
+}: ColumnFilterProps<Op>) {
+    const [draft, setDraft] = useState<ColumnFilterState<Op>>(() => state);
     const { op, values } = draft;
-    const isNullOp = op === "is_null" || op === "not_null";
-    const isContains = op === "contains" || op === "not_contains";
+    const isNullOp = NULL_OPS.has(op);
+    const isContains = CONTAINS_OPS.has(op);
 
     // The popover writes nothing while open; it commits on close, when this node
     // unmounts. The committed snapshot (captured once) lets us skip a no-op write,
@@ -72,10 +67,10 @@ export function ColumnFilter({
         [committed],
     );
 
-    function changeOperator(next: FilterOp) {
-        if (next === "is_null" || next === "not_null") {
+    function changeOperator(next: Op) {
+        if (NULL_OPS.has(next)) {
             setDraft({ op: next, values: [] });
-        } else if (next === "contains" || next === "not_contains") {
+        } else if (CONTAINS_OPS.has(next)) {
             setDraft((prev) => ({ op: next, values: prev.values.slice(0, 1) }));
         } else {
             setDraft((prev) => ({ op: next, values: prev.values }));
@@ -90,7 +85,7 @@ export function ColumnFilter({
                     aria-label="Filter operator"
                     data={config.operators.map((o) => ({ value: o, label: operatorLabel(config, o) }))}
                     value={op}
-                    onChange={(v) => v && changeOperator(v as FilterOp)}
+                    onChange={(v) => v && changeOperator(v as Op)}
                     comboboxProps={{ withinPortal: false }}
                     allowDeselect={false}
                     w={width}

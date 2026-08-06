@@ -1,0 +1,12 @@
+/* The per-cell "filter by this value" control is revealed on row hover (or when
+   focused for keyboard users), so it stays out of the way until wanted. Any
+   table row hover triggers it — the control only exists inside cells that opt
+   in via FilterableCell, so no host-table wrapper class is required. */
+.filterAction {
+    opacity: 0;
+    transition: opacity 100ms ease;
+}
+:global(tr):hover .filterAction,
+.filterAction:focus-visible {
+    opacity: 1;
+}

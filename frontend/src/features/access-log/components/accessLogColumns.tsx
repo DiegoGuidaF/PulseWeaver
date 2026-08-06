@@ -12,7 +12,7 @@ import {
 import { DateTimePicker } from "@mantine/dates";
 import { IconChevronRight, IconHome, IconHexagon } from "@tabler/icons-react";
 import type { DataTableColumn } from "mantine-datatable";
-import { FilterableCell } from "./FilterableCell";
+import { FilterableCell } from "@/components/FilterableCell";
 import type { AccessLogContributor, AccessLogRow } from "@/lib/api";
 import type { AccessLogFilters } from "../hooks/useAccessLogFilters";
 import {
@@ -22,7 +22,7 @@ import {
     HTTP_METHODS,
     isFilterActive,
 } from "../filterConfig";
-import { ColumnFilter, FilterApplyButton } from "./ColumnFilter";
+import { ColumnFilter, FilterApplyButton } from "@/components/ColumnFilter";
 import { POLICY_DENY_REASON_LABELS } from "@/lib/policyDenyReasons";
 import { countryFlagEmoji } from "@/lib/countryFlag";
 import dayjs from "dayjs";

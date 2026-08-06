@@ -1,43 +1,34 @@
 import { useState, useMemo } from "react";
 import { buildRoute } from "@/lib/routes";
 import { useNavigate } from "react-router-dom";
-import { ActionIcon, Card, Group, Paper, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
+import { ActionIcon, Card, Group, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
 import { LineChart } from "@mantine/charts";
 import { DataTable } from "mantine-datatable";
 import { IconRefresh } from "@tabler/icons-react";
-import type { TooltipContentProps } from "recharts";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
 import { CursorPagination } from "@/components/CursorPagination";
 import { useAddressHistory } from "../hooks/useAddressHistory";
+import { useAddressHistoryHistogram } from "../hooks/useAddressHistoryHistogram";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
 import { getAddressHistoryColumns } from "./addressHistoryColumns";
-import { SOURCE_LABELS, isAddressEventSource } from "../constants";
+import {
+    COLUMN_CHIP_LABELS,
+    FILTER_COLUMN_KEYS,
+    type FilterColumnKey,
+    describeColumnFilter,
+    isFilterActive,
+} from "../filterConfig";
+import { SOURCE_LABELS, EVENT_KIND_LABELS, TTL_RISK_LABELS, isAddressEventSource, isStateChangesOnly } from "../constants";
+import { AddressEventKind, type TtlRisk } from "@/lib/api";
 import { ErrorState } from "@/components/ErrorState";
 import { formatChartLabel, presetToMs } from "@/lib/formatChartLabel";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
 import { useDeviceRefs } from "@/features/devices/hooks/useDeviceRefs";
+import { useListUsers } from "@/features/auth/hooks/useListUsers";
 import { useFilterButtonLabels } from "@/hooks/useFilterButtonLabels";
 import dayjs from "dayjs";
 
 const PAGE_SIZE = 25;
-
-function GapTooltip({ active, payload, label }: TooltipContentProps<number, string>) {
-    if (!active || !payload?.length) return null;
-    const item = payload[0];
-    if (!item) return null;
-    const gapCount = (item.payload as { gap_count?: number }).gap_count ?? 0;
-    return (
-        <Paper withBorder shadow="sm" p={6} radius="sm">
-            <Text size="xs" c="dimmed" mb={2}>{label}</Text>
-            <Text size="sm">{item.value} distinct IP{item.value !== 1 ? "s" : ""}</Text>
-            {gapCount > 0 && (
-                <Text size="xs" c="var(--pw-amber-text)" mt={2}>
-                    {gapCount} address{gapCount !== 1 ? "es" : ""} expired this period
-                </Text>
-            )}
-        </Paper>
-    );
-}
 
 interface AddressHistoryTableProps {
     filters: AddressHistoryFilters;
@@ -58,42 +49,51 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
 
     const tableRef = useFilterButtonLabels({
         timestamp: "Filter by time",
-        device_name: "Filter by device",
+        device_name: "Filter by device or owning user",
         ip: "Filter by IP address",
-        is_enabled: "Filter by status",
         source: "Filter by source",
+        event_kind: "Filter by event kind",
+        ttl_risk: "Filter by TTL risk",
     });
 
     const { data: deviceRefs } = useDeviceRefs();
+    const { data: users } = useListUsers();
 
+    const refetchIntervalOrFalse = refreshInterval === 0 ? false : refreshInterval;
+
+    // Distinct query keys by construction: the events key includes the cursor
+    // (before_id/limit), the histogram key never does — so a page turn only
+    // ever invalidates the events query.
     const { data, isPending, isFetching, error, refetch } = useAddressHistory(
         { ...filters.queryParams, before_id: cursor ? Number(cursor) : undefined, limit: PAGE_SIZE },
-        refreshInterval === 0 ? false : refreshInterval,
+        refetchIntervalOrFalse,
     );
+
+    const {
+        data: histogramData,
+        isFetching: isHistogramFetching,
+        refetch: refetchHistogram,
+    } = useAddressHistoryHistogram(filters.queryParams, refetchIntervalOrFalse);
 
     const rows = data?.events ?? [];
 
     const deviceOptions = (deviceRefs ?? []).map((d) => ({ value: String(d.id), label: d.name }));
+    const userOptions = (users ?? []).map((u) => ({ value: String(u.id), label: u.display_name || u.username }));
 
     const columns = getAddressHistoryColumns({
         formatDateTime,
         pickerValueFormat,
-        presetStr: filters.presetStr,
         fromStr: filters.fromStr,
         toStr: filters.toStr,
-        ipLocal: filters.ipLocal,
-        ipDebounced: filters.ipDebounced,
-        deviceIdStr: filters.deviceIdStr,
-        sourceStr: filters.sourceStr,
-        enabledStr: filters.enabledStr,
-        lockedDeviceId: filters.lockedDeviceId,
-        deviceOptions,
-        setParam: filters.setParam,
-        setIpLocal: filters.setIpLocal,
         setSearchParams: filters.setSearchParams,
+        getColumnFilter: filters.getColumnFilter,
+        setColumnFilter: filters.setColumnFilter,
+        lockedFilterKey: filters.lockedFilter?.key,
+        deviceOptions,
+        userOptions,
         onDeviceClick: (deviceId) => {
-          const ownerId = (deviceRefs ?? []).find((d) => d.id === deviceId)?.owner_id;
-          if (ownerId !== undefined) navigate(`${buildRoute.userDevices(ownerId)}?device=${deviceId}`);
+            const ownerId = (deviceRefs ?? []).find((d) => d.id === deviceId)?.owner_id;
+            if (ownerId !== undefined) navigate(`${buildRoute.userDevices(ownerId)}?device=${deviceId}`);
         },
     });
 
@@ -116,43 +116,28 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
             });
         }
 
-        if (filters.deviceIdStr && filters.lockedDeviceId == null) {
-            const device = deviceOptions.find((d) => d.value === filters.deviceIdStr);
-            chips.push({
-                label: "Device",
-                value: device?.label ?? filters.deviceIdStr,
-                onRemove: () => filters.setParam("device_id", null),
-            });
-        }
+        const resolvers: Partial<Record<FilterColumnKey, (v: string) => string>> = {
+            device_id: (v) => deviceOptions.find((o) => o.value === v)?.label ?? v,
+            user_id: (v) => userOptions.find((o) => o.value === v)?.label ?? v,
+            source: (v) => (isAddressEventSource(v) ? SOURCE_LABELS[v] : v),
+            event_kind: (v) => EVENT_KIND_LABELS[v as AddressEventKind] ?? v,
+            ttl_risk: (v) => TTL_RISK_LABELS[v as TtlRisk] ?? v,
+        };
 
-        if (filters.ipDebounced) {
+        for (const key of FILTER_COLUMN_KEYS) {
+            if (filters.lockedFilter?.key === key) continue;
+            const state = filters.getColumnFilter(key);
+            if (!isFilterActive(state)) continue;
+            if (key === "event_kind" && isStateChangesOnly(state)) continue;
             chips.push({
-                label: "IP",
-                value: filters.ipDebounced,
-                onRemove: () => filters.setIpLocal(""),
-            });
-        }
-
-        if (filters.enabledStr) {
-            chips.push({
-                label: "Status",
-                value: filters.enabledStr === "true" ? "Enabled" : "Disabled",
-                onRemove: () => filters.setParam("is_enabled", null),
-            });
-        }
-
-        if (filters.sourceStr) {
-            chips.push({
-                label: "Source",
-                value: isAddressEventSource(filters.sourceStr)
-                    ? SOURCE_LABELS[filters.sourceStr]
-                    : filters.sourceStr,
-                onRemove: () => filters.setParam("source", null),
+                label: COLUMN_CHIP_LABELS[key],
+                value: describeColumnFilter(key, state, resolvers[key]),
+                onRemove: () => filters.setColumnFilter(key, null),
             });
         }
 
         return chips;
-    }, [filters, formatDateTime, deviceOptions]);
+    }, [filters, formatDateTime, deviceOptions, userOptions]);
 
     // Chart data from buckets — use shared formatter
     const timeRangeMs = useMemo(() => {
@@ -164,13 +149,12 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
     }, [filters.presetStr, filters.fromStr, filters.toStr]);
 
     const chartData = useMemo(() => {
-        if (!data?.buckets) return [];
-        return data.buckets.map((b) => ({
+        if (!histogramData?.buckets) return [];
+        return histogramData.buckets.map((b) => ({
             timestamp: formatChartLabel(b.timestamp, timeRangeMs),
-            active_count: b.active_count,
-            gap_count: b.gap_count,
+            event_count: b.event_count,
         }));
-    }, [data, timeRangeMs]);
+    }, [histogramData, timeRangeMs]);
 
     if ((isPending || !data) && !error && rows.length === 0) {
         return (
@@ -189,23 +173,22 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         return <ErrorState error={error} onRetry={() => refetch()} />;
     }
 
-    const total = data?.total_events ?? 0;
+    const total = data?.total ?? 0;
 
     return (
         <Stack gap="sm">
             <Card withBorder padding="md">
-                <Text fw={500} mb="sm">Active IPs over time</Text>
+                <Text fw={500} mb="sm">Events over time</Text>
                 {chartData.length > 0 ? (
                     <LineChart
                         h={200}
                         data={chartData}
                         dataKey="timestamp"
-                        series={[{ name: "active_count", color: "orange.4", label:"Distinct IPs count" }]}
-                        yAxisLabel="Distinct IPs"
+                        series={[{ name: "event_count", color: "orange.4", label: "Events" }]}
+                        yAxisLabel="Events"
                         curveType="monotone"
                         tooltipAnimationDuration={150}
                         yAxisProps={{ allowDecimals: false }}
-                        tooltipProps={{ content: GapTooltip }}
                     />
                 ) : (
                     <Text size="sm" c="dimmed" ta="center" py="xl">
@@ -220,8 +203,11 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                         variant="subtle"
                         color="gray"
                         size="md"
-                        onClick={() => refetch()}
-                        loading={isFetching}
+                        onClick={() => {
+                            refetch();
+                            refetchHistogram();
+                        }}
+                        loading={isFetching || isHistogramFetching}
                         aria-label="Refresh"
                     >
                         <IconRefresh size={16} />
@@ -243,7 +229,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                     loaderBackgroundBlur={1}
                     scrollAreaProps={{ type: "auto" }}
                     pinFirstColumn
-                    rowStyle={(r) => (r.is_refresh ? { opacity: 0.55 } : undefined)}
+                    rowStyle={(r) => (r.event_kind === AddressEventKind.REFRESH ? { opacity: 0.55 } : undefined)}
                 />
             </div>
 

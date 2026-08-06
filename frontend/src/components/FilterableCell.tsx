@@ -1,7 +1,7 @@
 import { ActionIcon, Box, Group, Tooltip } from "@mantine/core";
 import { IconFilter } from "@tabler/icons-react";
 import type { ReactNode } from "react";
-import classes from "./AccessLogTable.module.css";
+import classes from "./FilterableCell.module.css";
 
 /**
  * Wraps a cell value and, when `onFilter` is given, appends a hover-revealed

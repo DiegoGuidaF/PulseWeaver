@@ -1,22 +1,29 @@
-import {
-    Anchor,
-    Badge,
-    Group,
-    SegmentedControl,
-    Select,
-    Stack,
-    Text,
-    TextInput,
-    ThemeIcon,
-    Tooltip,
-} from "@mantine/core";
+import { Anchor, Badge, Group, Stack, Text, ThemeIcon, Tooltip } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { IconArrowsRightLeft, IconSearch } from "@tabler/icons-react";
+import { IconArrowsRightLeft } from "@tabler/icons-react";
 import type { DataTableColumn } from "mantine-datatable";
+import { FilterableCell } from "@/components/FilterableCell";
+import { ColumnFilter, FilterApplyButton } from "@/components/ColumnFilter";
 import { GeoCell } from "@/components/GeoCell";
-import { AddressEventSource, type AddressHistoryEvent } from "@/lib/api";
+import { AddressEventSource, AddressHistoryFilterOperator, type AddressEventKind, type AddressHistoryEvent, type TtlRisk } from "@/lib/api";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
-import { SOURCE_LABELS, SOURCE_OPTIONS, formatGapDuration } from "../constants";
+import {
+    type ColumnFilterState,
+    type FilterColumnKey,
+    FILTER_COLUMNS,
+    isFilterActive,
+} from "../filterConfig";
+import {
+    EVENT_KIND_COLORS,
+    EVENT_KIND_LABELS,
+    EVENT_KIND_OPTIONS,
+    SOURCE_LABELS,
+    SOURCE_OPTIONS,
+    TTL_RISK_BADGE,
+    TTL_RISK_LABELS,
+    TTL_RISK_OPTIONS,
+    formatGapDuration,
+} from "../constants";
 import dayjs from "dayjs";
 
 const refDateStyle = {
@@ -25,45 +32,21 @@ const refDateStyle = {
     borderRadius: "var(--mantine-radius-sm)",
 } as const;
 
-function renderGapCell({ gapSeconds, ttlSeconds }: { gapSeconds: number | null | undefined; ttlSeconds: number | null | undefined }) {
-    if (gapSeconds == null) {
+function renderGapCell(row: AddressHistoryEvent) {
+    if (row.renewal_gap_seconds == null) {
         return <Text size="sm" ff="monospace" c="dimmed">—</Text>;
     }
 
-    const ratio = ttlSeconds ? gapSeconds / ttlSeconds : null;
-    let color: string | undefined;
-    let status: string | null = null;
-  if (ratio != null && ratio >= 1) {
-    color = "red";
-    status = "Above the TTL — Device lost access, consider raising the auto-expiry TTL or heartbeat frequency";
-  }else if (ratio != null && ratio > 0.9) {
-        color = "red";
-        status = "Too close to the TTL — consider raising the auto-expiry TTL or heartbeat frequency";
-    } else if (ratio != null && ratio > 0.7) {
-        color = "yellow";
-        status = "Approaching the TTL — keep an eye on heartbeat regularity";
-    }
-
     const label = (
-        <Text size="sm" ff="monospace" c={color ?? "dimmed"}>
-            {formatGapDuration(gapSeconds)}
+        <Text size="sm" ff="monospace">
+            {formatGapDuration(row.renewal_gap_seconds)}
         </Text>
     );
 
-    if (ttlSeconds == null) return label;
+    if (row.ttl_seconds == null) return label;
 
     return (
-        <Tooltip
-            label={
-                <Stack gap={2}>
-                    <Text size="xs">Device TTL: {formatGapDuration(ttlSeconds)}</Text>
-                    {status && <Text size="xs" c={color}>{status}</Text>}
-                </Stack>
-            }
-            withArrow
-            multiline
-            w={230}
-        >
+        <Tooltip label={`Device TTL: ${formatGapDuration(row.ttl_seconds)}`} withArrow>
             {label}
         </Tooltip>
     );
@@ -86,30 +69,61 @@ function sourceBadgeColor(source: AddressEventSource): string {
     }
 }
 
+function renderEventKindBadge(kind: AddressEventKind) {
+    return (
+        <Badge size="sm" color={EVENT_KIND_COLORS[kind]} variant="dot">
+            {EVENT_KIND_LABELS[kind]}
+        </Badge>
+    );
+}
+
+function renderTtlRiskBadge(risk: TtlRisk) {
+    const { color, variant } = TTL_RISK_BADGE[risk];
+    return (
+        <Badge size="sm" color={color} variant={variant}>
+            {TTL_RISK_LABELS[risk]}
+        </Badge>
+    );
+}
+
+/** Column(s) to hide when a given filter is locked — locking implies every row already shares that value, so displaying it is redundant. */
+const HIDDEN_COLUMNS_WHEN_LOCKED: Partial<Record<FilterColumnKey, string[]>> = {
+    device_id: ["device_name"],
+};
+
 export interface AddressHistoryColumnDeps {
     formatDateTime: (value: string) => string;
     pickerValueFormat: string;
 
-    presetStr: string | null;
     fromStr: string | null;
     toStr: string | null;
-    ipLocal: string;
-    ipDebounced: string;
-    deviceIdStr: string | null;
-    sourceStr: string | null;
-    enabledStr: string | null;
-    lockedDeviceId?: number;
+    setSearchParams: AddressHistoryFilters["setSearchParams"];
+
+    getColumnFilter: (key: FilterColumnKey) => ColumnFilterState;
+    setColumnFilter: (key: FilterColumnKey, state: ColumnFilterState | null) => void;
+    lockedFilterKey?: FilterColumnKey;
 
     deviceOptions: { value: string; label: string }[];
+    userOptions: { value: string; label: string }[];
 
-    setParam: (key: string, value: string | null) => void;
-    setIpLocal: (value: string) => void;
-    setSearchParams: AddressHistoryFilters["setSearchParams"];
     onDeviceClick: (deviceId: number) => void;
 }
 
 export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTableColumn<AddressHistoryEvent>[] {
-    const sourceOptions = SOURCE_OPTIONS;
+    const columnFilterSlot =
+        (key: FilterColumnKey, options?: { value: string; label: string }[], placeholder?: string) =>
+        ({ close }: { close: () => void }) => (
+            <Stack gap="xs" p="xs">
+                <ColumnFilter
+                    config={FILTER_COLUMNS[key]}
+                    state={deps.getColumnFilter(key)}
+                    options={options}
+                    placeholder={placeholder}
+                    onCommit={(next) => deps.setColumnFilter(key, next)}
+                />
+                <FilterApplyButton onApply={close} />
+            </Stack>
+        );
 
     const allColumns: DataTableColumn<AddressHistoryEvent>[] = [
         {
@@ -180,63 +194,89 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
             ),
         },
         {
-            accessor: "time_gap_seconds",
-            title: "Δ prev",
+            accessor: "renewal_gap_seconds",
+            title: "Renewal gap",
             textAlign: "right",
-            render: (row) => renderGapCell({ gapSeconds: row.time_gap_seconds, ttlSeconds: row.ttl_seconds }),
+            render: renderGapCell,
         },
         {
             accessor: "device_name",
             title: "Device",
             filter: ({ close }) => (
-                <Select
-                    data-autofocus
-                    placeholder="All devices"
-                    data={deps.deviceOptions}
-                    value={deps.deviceIdStr}
-                    onChange={(val) => { deps.setParam("device_id", val); close(); }}
-                    clearable
-                    comboboxProps={{ withinPortal: false }}
-                    m="xs"
-                    w={200}
-                />
+                <Stack gap="sm" p="xs">
+                    {deps.lockedFilterKey !== "device_id" && (
+                        <Stack gap={4}>
+                            <Text size="xs" c="dimmed" fw={500}>By device</Text>
+                            <ColumnFilter
+                                config={FILTER_COLUMNS.device_id}
+                                state={deps.getColumnFilter("device_id")}
+                                options={deps.deviceOptions}
+                                onCommit={(next) => deps.setColumnFilter("device_id", next)}
+                            />
+                        </Stack>
+                    )}
+                    {deps.lockedFilterKey !== "user_id" && (
+                        <Stack gap={4}>
+                            <Text size="xs" c="dimmed" fw={500}>By owning user</Text>
+                            <ColumnFilter
+                                config={FILTER_COLUMNS.user_id}
+                                state={deps.getColumnFilter("user_id")}
+                                options={deps.userOptions}
+                                onCommit={(next) => deps.setColumnFilter("user_id", next)}
+                                autoFocus={false}
+                            />
+                        </Stack>
+                    )}
+                    <FilterApplyButton onApply={close} />
+                </Stack>
             ),
-            filtering: !!deps.deviceIdStr,
+            filtering:
+                isFilterActive(deps.getColumnFilter("device_id")) ||
+                isFilterActive(deps.getColumnFilter("user_id")),
             render: (row) => (
-                <Anchor size="sm" onClick={() => deps.onDeviceClick(row.device_id)}>
-                    {row.device_name}
-                </Anchor>
+                <FilterableCell
+                    filterLabel="Filter by this device"
+                    onFilter={
+                        deps.lockedFilterKey === "device_id"
+                            ? undefined
+                            : () =>
+                                  deps.setColumnFilter("device_id", {
+                                      op: AddressHistoryFilterOperator.IN,
+                                      values: [String(row.device_id)],
+                                  })
+                    }
+                >
+                    <Anchor size="sm" onClick={() => deps.onDeviceClick(row.device_id)}>
+                        {row.device_name}
+                    </Anchor>
+                </FilterableCell>
             ),
         },
         {
             accessor: "ip",
             title: "IP",
-            filter: ({ close }) => (
-                <TextInput
-                    data-autofocus
-                    placeholder="Filter by IP"
-                    leftSection={<IconSearch size={16} />}
-                    value={deps.ipLocal}
-                    onChange={(e) => deps.setIpLocal(e.currentTarget.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") close(); }}
-                    m="xs"
-                    w={200}
-                />
-            ),
-            filtering: !!deps.ipDebounced,
+            filter: columnFilterSlot("ip", undefined, "Filter by IP"),
+            filtering: isFilterActive(deps.getColumnFilter("ip")),
             render: (row) => (
-                <Group gap={6} wrap="nowrap">
-                    <Text size="sm" ff="monospace">
-                        {row.ip}
-                    </Text>
-                    {row.ip_changed && (
-                        <Tooltip label="IP changed from this device's previous event" withArrow>
-                            <ThemeIcon size="xs" variant="transparent" color="indigo">
-                                <IconArrowsRightLeft size={12} />
-                            </ThemeIcon>
-                        </Tooltip>
-                    )}
-                </Group>
+                <FilterableCell
+                    filterLabel="Filter by this IP"
+                    onFilter={() =>
+                        deps.setColumnFilter("ip", { op: AddressHistoryFilterOperator.IN, values: [row.ip] })
+                    }
+                >
+                    <Group gap={6} wrap="nowrap">
+                        <Text size="sm" ff="monospace">
+                            {row.ip}
+                        </Text>
+                        {row.ip_changed && (
+                            <Tooltip label="IP changed from this device's previous event" withArrow>
+                                <ThemeIcon size="xs" variant="transparent" color="indigo">
+                                    <IconArrowsRightLeft size={12} />
+                                </ThemeIcon>
+                            </Tooltip>
+                        )}
+                    </Group>
+                </FilterableCell>
             ),
         },
         {
@@ -248,28 +288,8 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
             accessor: "is_enabled",
             title: "Status",
             textAlign: "center",
-            filter: ({ close }) => (
-                <SegmentedControl
-                    data={[
-                        { label: "All", value: "all" },
-                        { label: "Enabled", value: "true" },
-                        { label: "Disabled", value: "false" },
-                    ]}
-                    value={deps.enabledStr ?? "all"}
-                    onChange={(val) => {
-                        deps.setParam("is_enabled", val === "all" ? null : val);
-                        close();
-                    }}
-                    m="xs"
-                />
-            ),
-            filtering: !!deps.enabledStr,
             render: (row) => (
-                <Badge
-                    color={row.is_enabled ? "green" : "red"}
-                    size="sm"
-                    variant="light"
-                >
+                <Badge color={row.is_enabled ? "green" : "red"} size="sm" variant="light">
                     {row.is_enabled ? "Enabled" : "Disabled"}
                 </Badge>
             ),
@@ -278,34 +298,63 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
             accessor: "source",
             title: "Source",
             textAlign: "center",
-            filter: ({ close }) => (
-                <Select
-                    data-autofocus
-                    placeholder="All sources"
-                    data={sourceOptions}
-                    value={deps.sourceStr}
-                    onChange={(val) => { deps.setParam("source", val); close(); }}
-                    clearable
-                    comboboxProps={{ withinPortal: false }}
-                    m="xs"
-                    w={200}
-                />
-            ),
-            filtering: !!deps.sourceStr,
+            filter: columnFilterSlot("source", SOURCE_OPTIONS),
+            filtering: isFilterActive(deps.getColumnFilter("source")),
             render: (row) => (
-                <Badge
-                    size="sm"
-                    color={sourceBadgeColor(row.source)}
-                    variant="dot"
+                <FilterableCell
+                    filterLabel="Filter by this source"
+                    onFilter={() =>
+                        deps.setColumnFilter("source", { op: AddressHistoryFilterOperator.IN, values: [row.source] })
+                    }
                 >
-                    {SOURCE_LABELS[row.source] ?? row.source}
-                </Badge>
+                    <Badge size="sm" color={sourceBadgeColor(row.source)} variant="dot">
+                        {SOURCE_LABELS[row.source] ?? row.source}
+                    </Badge>
+                </FilterableCell>
+            ),
+        },
+        {
+            accessor: "event_kind",
+            title: "Event",
+            textAlign: "center",
+            filter: columnFilterSlot("event_kind", EVENT_KIND_OPTIONS),
+            filtering: isFilterActive(deps.getColumnFilter("event_kind")),
+            render: (row) => (
+                <FilterableCell
+                    filterLabel="Filter by this event kind"
+                    onFilter={() =>
+                        deps.setColumnFilter("event_kind", {
+                            op: AddressHistoryFilterOperator.IN,
+                            values: [row.event_kind],
+                        })
+                    }
+                >
+                    {renderEventKindBadge(row.event_kind)}
+                </FilterableCell>
+            ),
+        },
+        {
+            accessor: "ttl_risk",
+            title: "TTL risk",
+            textAlign: "center",
+            filter: columnFilterSlot("ttl_risk", TTL_RISK_OPTIONS),
+            filtering: isFilterActive(deps.getColumnFilter("ttl_risk")),
+            render: (row) => (
+                <FilterableCell
+                    filterLabel="Filter by this TTL risk"
+                    onFilter={() =>
+                        deps.setColumnFilter("ttl_risk", {
+                            op: AddressHistoryFilterOperator.IN,
+                            values: [row.ttl_risk],
+                        })
+                    }
+                >
+                    {renderTtlRiskBadge(row.ttl_risk)}
+                </FilterableCell>
             ),
         },
     ];
 
-    if (deps.lockedDeviceId != null) {
-        return allColumns.filter((c) => c.accessor !== "device_name");
-    }
-    return allColumns;
+    const hidden = deps.lockedFilterKey ? (HIDDEN_COLUMNS_WHEN_LOCKED[deps.lockedFilterKey] ?? []) : [];
+    return allColumns.filter((c) => !hidden.includes(String(c.accessor)));
 }

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
-import { http } from "msw";
+import { http, HttpResponse } from "msw";
 import { server } from "@/test/setup";
 import { renderWithProviders, setupUser } from "@/test/utils";
 import { AddressHistoryPage } from "@/pages/address-history/AddressHistoryPage";
 import {
+    createMockAddressHistoryHistogramResponse,
     createMockAddressHistoryResponse,
 } from "@/test/mocks/data";
 import { addressHandlers, endpoints, responses } from "@/test/mocks/handlers";
@@ -71,11 +72,14 @@ describe("AddressHistoryTable", () => {
     it("shows status badges", async () => {
         renderTable();
 
+        // "Enabled"/"Disabled" render in both the Status column and the Event
+        // column (an `enabled`/`disabled` event_kind always pairs with a
+        // matching is_enabled), so both are expected to appear more than once.
         await waitFor(
             () => expect(screen.getAllByText("Enabled").length).toBeGreaterThan(0),
             { timeout: TEST_TIMEOUTS.SHORT },
         );
-        expect(screen.getByText("Disabled")).toBeInTheDocument();
+        expect(screen.getAllByText("Disabled").length).toBeGreaterThan(0);
     });
 
     it("shows source badges", async () => {
@@ -87,6 +91,28 @@ describe("AddressHistoryTable", () => {
         );
         expect(screen.getByText("Manual")).toBeInTheDocument();
         expect(screen.getByText("Expiry")).toBeInTheDocument();
+    });
+
+    it("shows event kind badges", async () => {
+        renderTable();
+
+        // "Created" is unambiguous — unlike Enabled/Disabled it never doubles as
+        // a Status badge value, so its presence alone confirms the Event column
+        // renders `event_kind` via the server enum.
+        await waitFor(
+            () => expect(screen.getByText("Created")).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+    });
+
+    it("shows TTL risk badges rendered from the server enum", async () => {
+        renderTable();
+
+        await waitFor(
+            () => expect(screen.getAllByText("OK").length).toBeGreaterThan(0),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+        expect(screen.getByText("Breached")).toBeInTheDocument();
     });
 
     it("shows device name column", async () => {
@@ -102,7 +128,7 @@ describe("AddressHistoryTable", () => {
         server.use(
             addressHandlers.history.success(
                 createMockAddressHistoryResponse({
-                    total_events: 100,
+                    total: 100,
                     next_cursor: 5,
                 }),
             ),
@@ -120,7 +146,7 @@ describe("AddressHistoryTable", () => {
         server.use(
             addressHandlers.history.success(
                 createMockAddressHistoryResponse({
-                    total_events: 3,
+                    total: 3,
                     next_cursor: null,
                 }),
             ),
@@ -132,6 +158,46 @@ describe("AddressHistoryTable", () => {
             () => expect(screen.getByText("3 results")).toBeInTheDocument(),
             { timeout: TEST_TIMEOUTS.SHORT },
         );
+    });
+
+    // ─── Distinct query keys (events vs histogram) ──────────────────────────
+
+    it("does not refetch the histogram when the events cursor changes", async () => {
+        let historyCalls = 0;
+        let histogramCalls = 0;
+        server.use(
+            http.get(endpoints.addressHistory, () => {
+                historyCalls++;
+                return HttpResponse.json(
+                    createMockAddressHistoryResponse({ total: 100, next_cursor: 5 }),
+                );
+            }),
+            http.get(endpoints.addressHistoryHistogram, () => {
+                histogramCalls++;
+                return HttpResponse.json(createMockAddressHistoryHistogramResponse());
+            }),
+        );
+
+        const user = setupUser();
+        renderTable();
+
+        await waitFor(
+            () => expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled(),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+        const historyCallsAfterLoad = historyCalls;
+        const histogramCallsAfterLoad = histogramCalls;
+        expect(histogramCallsAfterLoad).toBeGreaterThan(0);
+
+        await user.click(screen.getByRole("button", { name: "Next page" }));
+
+        await waitFor(
+            () => expect(historyCalls).toBeGreaterThan(historyCallsAfterLoad),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+        // The cursor lives outside the histogram's query key, so the page turn
+        // above must not have triggered a second histogram fetch.
+        expect(histogramCalls).toBe(histogramCallsAfterLoad);
     });
 
     // ─── IP filter ───────────────────────────────────────────────────────────
@@ -174,10 +240,10 @@ describe("AddressHistoryTable", () => {
         });
     });
 
-    // ─── Status filter ───────────────────────────────────────────────────────
+    // ─── Device filter ───────────────────────────────────────────────────────
 
-    describe("Status filter", () => {
-        it("opens with All/Enabled/Disabled options", async () => {
+    describe("Device filter", () => {
+        it("opens with device and owning-user sub-filters", async () => {
             const user = setupUser();
             server.use(addressHandlers.history.empty());
 
@@ -188,16 +254,17 @@ describe("AddressHistoryTable", () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            await user.click(getFilterButton("Status"));
+            await user.click(getFilterButton("Device"));
 
-            expect(await screen.findByText("All")).toBeInTheDocument();
+            expect(await screen.findByText("By device")).toBeInTheDocument();
+            expect(screen.getByText("By owning user")).toBeInTheDocument();
         });
     });
 
     // ─── Source filter ───────────────────────────────────────────────────────
 
     describe("Source filter", () => {
-        it("opens when the filter icon is clicked", async () => {
+        it("opens with a multi-select of sources", async () => {
             const user = setupUser();
             server.use(addressHandlers.history.empty());
 
@@ -211,15 +278,15 @@ describe("AddressHistoryTable", () => {
             await user.click(getFilterButton("Source"));
 
             expect(
-                await screen.findByPlaceholderText("All sources"),
+                await screen.findByPlaceholderText("Select values"),
             ).toBeInTheDocument();
         });
     });
 
-    // ─── Device filter ───────────────────────────────────────────────────────
+    // ─── Event kind filter ───────────────────────────────────────────────────
 
-    describe("Device filter", () => {
-        it("opens when the filter icon is clicked", async () => {
+    describe("Event kind filter", () => {
+        it("opens with a multi-select of event kinds", async () => {
             const user = setupUser();
             server.use(addressHandlers.history.empty());
 
@@ -230,10 +297,32 @@ describe("AddressHistoryTable", () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            await user.click(getFilterButton("Device"));
+            await user.click(getFilterButton("Event"));
 
             expect(
-                await screen.findByPlaceholderText("All devices"),
+                await screen.findByPlaceholderText("Select values"),
+            ).toBeInTheDocument();
+        });
+    });
+
+    // ─── TTL risk filter ─────────────────────────────────────────────────────
+
+    describe("TTL risk filter", () => {
+        it("opens with a multi-select of risk levels", async () => {
+            const user = setupUser();
+            server.use(addressHandlers.history.empty());
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            await user.click(getFilterButton("TTL risk"));
+
+            expect(
+                await screen.findByPlaceholderText("Select values"),
             ).toBeInTheDocument();
         });
     });
@@ -287,21 +376,6 @@ describe("AddressHistoryTable", () => {
             expect(await screen.findByText(/Test Device/)).toBeInTheDocument();
         });
 
-        it("shows a Status chip when is_enabled filter is set", async () => {
-            server.use(addressHandlers.history.empty());
-
-            renderTable([
-                "/address-history?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&is_enabled=true",
-            ]);
-
-            await waitFor(
-                () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
-                { timeout: TEST_TIMEOUTS.SHORT },
-            );
-
-            expect(screen.getByText("Status:")).toBeInTheDocument();
-        });
-
         it("shows a Source chip when source filter is set", async () => {
             server.use(addressHandlers.history.empty());
 
@@ -318,6 +392,70 @@ describe("AddressHistoryTable", () => {
             expect(screen.getByText(/Heartbeat/)).toBeInTheDocument();
         });
 
+        it("shows a TTL risk chip when ttl_risk filter is set", async () => {
+            server.use(addressHandlers.history.empty());
+
+            renderTable([
+                "/address-history?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&ttl_risk=breached",
+            ]);
+
+            await waitFor(
+                () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.getByText("TTL risk:")).toBeInTheDocument();
+            expect(screen.getByText(/Breached/)).toBeInTheDocument();
+        });
+
+        it("does not show an Event chip for the default state-changes filter", async () => {
+            server.use(addressHandlers.history.empty());
+
+            renderTable(["/address-history?preset=last_24h"]);
+
+            await waitFor(
+                () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.queryByText("Event:")).not.toBeInTheDocument();
+        });
+
+        it("does not show an Event chip when the toggle is switched to All events", async () => {
+            const user = setupUser();
+            server.use(addressHandlers.history.empty());
+
+            renderTable(["/address-history?preset=last_24h"]);
+
+            await waitFor(
+                () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            // "All events" clears the event_kind filter entirely — there's
+            // nothing narrowing the rows, so it stays chip-free just like the
+            // default "state changes" position.
+            await user.click(screen.getByText("All events"));
+
+            await waitFor(() => expect(screen.queryByText("Event:")).not.toBeInTheDocument());
+        });
+
+        it("shows an Event chip once the user picks a custom event-kind subset", async () => {
+            server.use(addressHandlers.history.empty());
+
+            renderTable([
+                "/address-history?preset=last_24h&event_kind=refresh",
+            ]);
+
+            await waitFor(
+                () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.getByText("Event:")).toBeInTheDocument();
+            expect(screen.getByText(/Refresh/)).toBeInTheDocument();
+        });
+
         it("does not render chips when only preset is active", async () => {
             server.use(addressHandlers.history.empty());
 
@@ -331,8 +469,9 @@ describe("AddressHistoryTable", () => {
             expect(screen.queryByText("Time:")).not.toBeInTheDocument();
             expect(screen.queryByText("IP:")).not.toBeInTheDocument();
             expect(screen.queryByText("Device:")).not.toBeInTheDocument();
-            expect(screen.queryByText("Status:")).not.toBeInTheDocument();
             expect(screen.queryByText("Source:")).not.toBeInTheDocument();
+            expect(screen.queryByText("Event:")).not.toBeInTheDocument();
+            expect(screen.queryByText("TTL risk:")).not.toBeInTheDocument();
         });
 
         it("removes the IP chip and clears the filter when remove is clicked", async () => {

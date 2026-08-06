@@ -1,39 +1,56 @@
-import { useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useDebouncedCallback } from "@mantine/hooks";
 import dayjs from "dayjs";
-import type { AddressEventSource, GetAddressHistoryData } from "@/lib/api";
+import { AddressHistoryFilterOperator, type GetAddressHistoryHistogramData } from "@/lib/api";
 import { DEFAULT_PRESET_KEY, PRESET_MS } from "@/lib/timePresets";
+import { CHANGE_EVENT_KINDS, isStateChangesOnly } from "../constants";
+import {
+    type ColumnFilterState,
+    type FilterColumnKey,
+    type FilterOp,
+    FILTER_COLUMN_KEYS,
+    FILTER_COLUMNS,
+    isFilterActive,
+} from "../filterConfig";
+
+/** Filters + time window shared by both the events list and the histogram — the refetch boundary between them is the cursor, which lives outside this type. */
+type Query = NonNullable<GetAddressHistoryHistogramData["query"]>;
 
 const LS_KEY = "pulseweaver:address-history:filters";
-const DEFAULT_PARAMS = new URLSearchParams({ preset: DEFAULT_PRESET_KEY });
+
+/** A pre-applied, non-removable filter. The device tab locks `device_id`; a future user-scoped view locks `user_id` the same way. */
+export interface LockedFilter {
+    key: FilterColumnKey;
+    values: string[];
+}
 
 export type SearchParamsSetter = (updater: URLSearchParams | ((prev: URLSearchParams) => URLSearchParams)) => void;
 
 export interface AddressHistoryFilters {
-    queryParams: GetAddressHistoryData["query"];
+    queryParams: Query;
     filterKey: string;
 
     presetStr: string | null;
-    deviceIdStr: string | null;
-    sourceStr: string | null;
-    enabledStr: string | null;
     fromStr: string | null;
     toStr: string | null;
-    ipLocal: string;
-    ipDebounced: string;
-    includeAll: boolean;
 
     hasCustomTo: boolean;
     hasActiveFilters: boolean;
-    lockedDeviceId?: number;
+    lockedFilter?: LockedFilter;
+
+    getColumnFilter: (key: FilterColumnKey) => ColumnFilterState;
+    setColumnFilter: (key: FilterColumnKey, state: ColumnFilterState | null) => void;
 
     setPreset: (key: string | null) => void;
-    setParam: (key: string, value: string | null) => void;
-    setIpLocal: (value: string) => void;
-    setIncludeAll: (value: boolean) => void;
     setSearchParams: SearchParamsSetter;
     clearAll: () => void;
+}
+
+/** Default params: the default time preset, and the "state changes" event-kind set (excludes routine refreshes). */
+export function buildDefaultParams(): URLSearchParams {
+    const params = new URLSearchParams({ preset: DEFAULT_PRESET_KEY });
+    for (const kind of CHANGE_EVENT_KINDS) params.append("event_kind", kind);
+    return params;
 }
 
 function persistFilters(params: URLSearchParams) {
@@ -42,52 +59,59 @@ function persistFilters(params: URLSearchParams) {
     else localStorage.removeItem(LS_KEY);
 }
 
-function getDefaultParams(): URLSearchParams {
-    const saved = localStorage.getItem(LS_KEY);
-    if (saved) return new URLSearchParams(saved);
-    return new URLSearchParams(DEFAULT_PARAMS);
+interface FilterCoreOptions {
+    locked?: LockedFilter;
 }
 
 // ─── Shared core ────────────────────────────────────────────────────────────
 
-interface FilterCoreOptions {
-    lockedDeviceId?: number;
-}
-
 /**
  * Core filter logic shared between URL-backed and local-state-backed hooks.
- * Both hooks provide a URLSearchParams + setter pair; this hook handles
- * IP debounce, derived state, and query param computation.
+ * Both hooks provide a URLSearchParams + setter pair; this hook maps filterx's
+ * repeated-param + `{field}_op` model onto typed column filter state.
  */
 export function useFilterCore(
     searchParams: URLSearchParams,
     setSearchParams: SearchParamsSetter,
     options?: FilterCoreOptions,
 ): AddressHistoryFilters {
-    const lockedDeviceId = options?.lockedDeviceId;
+    const locked = options?.locked;
 
     const presetStr = searchParams.get("preset");
-    const deviceIdStr = lockedDeviceId != null ? String(lockedDeviceId) : searchParams.get("device_id");
-    const sourceStr = searchParams.get("source");
-    const enabledStr = searchParams.get("is_enabled");
     const fromStr = searchParams.get("from");
     const toStr = searchParams.get("to");
 
-    const [ipLocal, setIpLocalRaw] = useState(() => searchParams.get("ip") ?? "");
-    const ipDebounced = searchParams.get("ip") ?? "";
+    const getColumnFilter = useCallback(
+        (key: FilterColumnKey): ColumnFilterState => {
+            if (locked && key === locked.key) {
+                return { op: AddressHistoryFilterOperator.IN, values: locked.values };
+            }
+            return {
+                op: (searchParams.get(`${key}_op`) as FilterOp | null) ?? AddressHistoryFilterOperator.IN,
+                values: searchParams.getAll(key),
+            };
+        },
+        [searchParams, locked],
+    );
 
-    const syncIpToParams = useDebouncedCallback((value: string) => {
-        setSearchParams((prev) => {
-            if (value === "") prev.delete("ip");
-            else prev.set("ip", value);
-            return prev;
-        });
-    }, 300);
-
-    const setIpLocal = useCallback((value: string) => {
-        setIpLocalRaw(value);
-        syncIpToParams(value);
-    }, [syncIpToParams]);
+    const setColumnFilter = useCallback(
+        (key: FilterColumnKey, state: ColumnFilterState | null) => {
+            if (locked && key === locked.key) return;
+            setSearchParams((prev) => {
+                prev.delete(key);
+                prev.delete(`${key}_op`);
+                if (state) {
+                    for (const v of state.values) prev.append(key, v);
+                    // Persist a non-default operator even before any value is
+                    // entered, so the operator selector doesn't snap back to
+                    // the default ("is any of") on the next render.
+                    if (state.op !== AddressHistoryFilterOperator.IN) prev.set(`${key}_op`, state.op);
+                }
+                return prev;
+            });
+        },
+        [setSearchParams, locked],
+    );
 
     function setPreset(key: string | null) {
         setSearchParams((prev) => {
@@ -102,76 +126,69 @@ export function useFilterCore(
         });
     }
 
-    function setParam(key: string, value: string | null) {
-        if (key === "device_id" && lockedDeviceId != null) return;
-        setSearchParams((prev) => {
-            if (value === null || value === "") prev.delete(key);
-            else prev.set(key, value);
-            return prev;
-        });
-    }
-
-    const includeAllStr = searchParams.get("include_all");
-    const includeAll = includeAllStr === "true";
-
-    function setIncludeAll(value: boolean) {
-        setSearchParams((prev) => {
-            if (value) prev.set("include_all", "true");
-            else prev.delete("include_all");
-            return prev;
-        });
-    }
-
+    // Build query params. Preset takes precedence over raw from/to.
     const presetMs = presetStr ? PRESET_MS[presetStr] : undefined;
-    const queryParams: GetAddressHistoryData["query"] = {
-        device_id: lockedDeviceId != null
-            ? [lockedDeviceId]
-            : deviceIdStr ? [Number(deviceIdStr)] : undefined,
-        source: (sourceStr || undefined) as AddressEventSource | undefined,
-        is_enabled: enabledStr === "true" ? true : enabledStr === "false" ? false : undefined,
-        ip: ipDebounced || undefined,
+    const query: Query = {
         from: presetMs !== undefined
             ? dayjs().subtract(presetMs, "millisecond").toISOString()
             : (fromStr || undefined),
         to: presetMs !== undefined ? undefined : (toStr || undefined),
-        include_all: includeAll || undefined,
     };
 
+    // Indexed writes onto the union-keyed query type collapse to an intersection
+    // (`string[] & number[]`); a loose record view keeps each assignment honest.
+    const q = query as Record<string, unknown>;
+    for (const key of FILTER_COLUMN_KEYS) {
+        const { op, values } = getColumnFilter(key);
+        if (values.length === 0) continue;
+        q[key] = FILTER_COLUMNS[key].numeric ? values.map(Number) : values;
+        if (op !== AddressHistoryFilterOperator.IN) q[`${key}_op`] = op;
+    }
+
     const hasCustomTo = !!toStr && presetMs === undefined;
-    const hasActiveFilters = !!(fromStr || toStr || deviceIdStr || sourceStr || enabledStr || ipDebounced);
+    const hasActiveFilters =
+        !!(fromStr || toStr) ||
+        FILTER_COLUMN_KEYS.some((key) => {
+            if (locked && key === locked.key) return false;
+            const state = getColumnFilter(key);
+            if (!isFilterActive(state)) return false;
+            if (key === "event_kind" && isStateChangesOnly(state)) return false;
+            return true;
+        });
 
     function clearAll() {
-        setIpLocalRaw("");
-        syncIpToParams.cancel();
         setSearchParams((prev) => {
             const next = new URLSearchParams();
-            // Preserve time range params — they are a global setting, not column filters
+            // Preserve the time-range preset — it is a view setting, not a column filter.
             if (prev.has("preset")) next.set("preset", prev.get("preset")!);
+            for (const kind of CHANGE_EVENT_KINDS) next.append("event_kind", kind);
             return next;
         });
     }
 
-    const filterKey = `${presetStr}|${deviceIdStr}|${sourceStr}|${enabledStr}|${fromStr}|${toStr}|${ipDebounced}|${includeAll}`;
+    // Stable signature of all active filters, used to reset pagination.
+    const filterKey = JSON.stringify({
+        preset: presetStr,
+        from: fromStr,
+        to: toStr,
+        columns: FILTER_COLUMN_KEYS.map((key) => {
+            const f = getColumnFilter(key);
+            return [key, f.op, f.values];
+        }),
+    });
 
     return {
-        queryParams,
+        queryParams: query,
         filterKey,
         presetStr,
-        deviceIdStr,
-        sourceStr,
-        enabledStr,
         fromStr,
         toStr,
-        ipLocal,
-        ipDebounced,
-        includeAll,
         hasCustomTo,
         hasActiveFilters,
-        lockedDeviceId,
+        lockedFilter: locked,
+        getColumnFilter,
+        setColumnFilter,
         setPreset,
-        setParam,
-        setIpLocal,
-        setIncludeAll,
         setSearchParams,
         clearAll,
     };
@@ -179,10 +196,16 @@ export function useFilterCore(
 
 // ─── URL-backed hook (for dedicated page) ───────────────────────────────────
 
+function getDefaultParams(): URLSearchParams {
+    const saved = localStorage.getItem(LS_KEY);
+    if (saved) return new URLSearchParams(saved);
+    return buildDefaultParams();
+}
+
 /**
  * Computes the default URLSearchParams for the initial useSearchParams call.
- * Returns defaults from localStorage (or the global default preset) only when
- * the URL has no time context. When the URL already has `preset` or `from`,
+ * Returns defaults from localStorage (or the global defaults) only when the
+ * URL has no time context. When the URL already has `preset` or `from`,
  * returns undefined so useSearchParams uses the URL as-is.
  */
 function computeInitialDefault(): URLSearchParams | undefined {
@@ -196,10 +219,25 @@ export function useAddressHistoryFilters(): AddressHistoryFilters {
     const [defaultInit] = useState(computeInitialDefault);
     const [searchParams, setSearchParamsRaw] = useSearchParams(defaultInit);
 
+    // react-router branches each functional update off the same render-time
+    // snapshot (`nextInit(new URLSearchParams(searchParams))`), so two updates
+    // fired in one tick both start from the original params and the last write
+    // wins — silently dropping the first. Closing the Device column's filter
+    // popover does exactly this: it unmounts two ColumnFilters (device_id,
+    // user_id) that each commit separately. Chaining off a ref that tracks the
+    // latest emitted params lets such updates compose. The ref re-syncs to
+    // searchParams after each commit.
+    const latestParamsRef = useRef(searchParams);
+    useEffect(() => {
+        latestParamsRef.current = searchParams;
+    });
+
     const setSearchParams: SearchParamsSetter = useCallback(
         (updater) => {
-            setSearchParamsRaw((prev) => {
-                const next = typeof updater === "function" ? updater(prev) : updater;
+            setSearchParamsRaw(() => {
+                const base = new URLSearchParams(latestParamsRef.current);
+                const next = typeof updater === "function" ? updater(base) : updater;
+                latestParamsRef.current = next;
                 persistFilters(next);
                 return next;
             });

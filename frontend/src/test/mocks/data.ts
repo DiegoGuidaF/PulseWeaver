@@ -1,5 +1,5 @@
-import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryResponse, AccessLogCountryStats, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, OwnerSummary, FleetDevice, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
-import { AddressEventSource, DeviceState, PolicyUserStatus, UserRole } from "@/lib/api";
+import type { Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryHistogramResponse, AddressHistoryResponse, AccessLogCountryStats, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, OwnerSummary, FleetDevice, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import { AddressEventKind, AddressEventSource, DeviceState, PolicyUserStatus, TtlRisk, UserRole } from "@/lib/api";
 
 /**
  * Creates a mock Device object with realistic defaults.
@@ -117,8 +117,6 @@ export function createMockAddressHistoryBucket(
 ): AddressHistoryBucket {
   return {
     timestamp: '2024-01-01T12:00:00Z',
-    active_count: 2,
-    gap_count: 0,
     event_count: 3,
     ...overrides,
   };
@@ -139,30 +137,43 @@ export function createMockAddressHistoryEvent(
     device_id: 1,
     device_name: 'Test Device',
     ip_changed: false,
-    is_refresh: false,
+    renewal_gap_seconds: 300,
+    event_kind: AddressEventKind.REFRESH,
+    ttl_risk: TtlRisk.OK,
     ...overrides,
   };
 }
 
 /**
- * Creates a mock AddressHistoryResponse with realistic defaults.
+ * Creates a mock AddressHistoryResponse (events page) with realistic defaults.
  */
 export function createMockAddressHistoryResponse(
   overrides?: Partial<AddressHistoryResponse>,
 ): AddressHistoryResponse {
   return {
-    buckets: [
-      createMockAddressHistoryBucket({ timestamp: '2024-01-01T10:00:00Z', active_count: 1, event_count: 1 }),
-      createMockAddressHistoryBucket({ timestamp: '2024-01-01T11:00:00Z', active_count: 2, event_count: 2 }),
-      createMockAddressHistoryBucket({ timestamp: '2024-01-01T12:00:00Z', active_count: 3, event_count: 1 }),
-    ],
     events: [
-      createMockAddressHistoryEvent({ id: 3, timestamp: '2024-01-01T10:30:00Z', ip: '10.0.0.1', is_enabled: true, source: 'heartbeat' }),
-      createMockAddressHistoryEvent({ id: 2, timestamp: '2024-01-01T11:00:00Z', ip: '10.0.0.2', is_enabled: true, source: 'manual' }),
-      createMockAddressHistoryEvent({ id: 1, timestamp: '2024-01-01T11:45:00Z', ip: '10.0.0.1', is_enabled: false, source: 'expiry' }),
+      createMockAddressHistoryEvent({ id: 3, timestamp: '2024-01-01T10:30:00Z', ip: '10.0.0.1', is_enabled: true, source: 'heartbeat', event_kind: AddressEventKind.CREATED }),
+      createMockAddressHistoryEvent({ id: 2, timestamp: '2024-01-01T11:00:00Z', ip: '10.0.0.2', is_enabled: true, source: 'manual', event_kind: AddressEventKind.ENABLED }),
+      createMockAddressHistoryEvent({ id: 1, timestamp: '2024-01-01T11:45:00Z', ip: '10.0.0.1', is_enabled: false, source: 'expiry', event_kind: AddressEventKind.DISABLED, ttl_risk: TtlRisk.BREACHED }),
     ],
-    total_events: 3,
+    total: 3,
     next_cursor: null,
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a mock AddressHistoryHistogramResponse with realistic defaults.
+ */
+export function createMockAddressHistoryHistogramResponse(
+  overrides?: Partial<AddressHistoryHistogramResponse>,
+): AddressHistoryHistogramResponse {
+  return {
+    buckets: [
+      createMockAddressHistoryBucket({ timestamp: '2024-01-01T10:00:00Z', event_count: 1 }),
+      createMockAddressHistoryBucket({ timestamp: '2024-01-01T11:00:00Z', event_count: 2 }),
+      createMockAddressHistoryBucket({ timestamp: '2024-01-01T12:00:00Z', event_count: 1 }),
+    ],
     ...overrides,
   };
 }

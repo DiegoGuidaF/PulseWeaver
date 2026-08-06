@@ -1,6 +1,6 @@
 # Frontend Codebase Reference
 
-> Last updated: 2026-08-05
+> Last updated: 2026-08-06
 
 This document is the **map** of the frontend codebase — what exists and where. For the system-level
 overview (pages → features → hooks → generated SDK, the API contract), see
@@ -102,8 +102,8 @@ Each feature owns its own `components/` + `hooks/` (and where relevant `constant
 | `network-policies` | CIDR network-policy CRUD. | `NetworkPoliciesTable`, `{Create,Edit,Delete}NetworkPolicyModal`, `NetworkPolicyHeader`; `hooks/use{Create,Update,Delete}NetworkPolicy.ts`, `useNetworkPolic{y,ies}.ts` |
 | `subjects` | Shared access-subject panels reused by user detail (effective hosts, subject groups, group filter, devices). | `EffectiveHostsPanel`, `SubjectGroupsPanel`, `GroupFilterBar`, `UserDevicesTab`, `AllHostsBypassPill`; `drafts/subjectAccessDraft.ts`; `hooks/use{UserAccessDetail,SetUserAccess,ListUsersWithAccess}.ts` |
 | `policy-audit` | Policy decision-cache snapshot + request simulation. | `components/{SimulateBar,PolicyUserTable,PolicyUserDrawer,NetworkPolicyCacheTab}.tsx`; `hooks/use{PolicyMap,PolicySimulate}.ts` |
-| `access-log` | Access-decision log list, filtering, and detail drawer. | `components/{AccessLogTable,AccessLogDetailDrawer,ColumnFilter,FilterableCell}.tsx`, `accessLogColumns.tsx`, `filterConfig.ts`; `hooks/useAccessLog*.ts` |
-| `address-history` | Address-lease event list + chart. | `components/{AddressHistoryView,AddressHistoryTable}.tsx`, `addressHistoryColumns.tsx`; `hooks/useAddressHistory*.ts` |
+| `access-log` | Access-decision log list, filtering, and detail drawer. | `components/{AccessLogTable,AccessLogDetailDrawer}.tsx`, `accessLogColumns.tsx`, `filterConfig.ts` (column config only — the `ColumnFilter`/`FilterableCell` widgets themselves are shared, see below); `hooks/useAccessLog*.ts` |
+| `address-history` | Address-lease event list + chart, split into an events endpoint (filters+cursor) and a histogram endpoint (filters+window) per ADR-009 §6.4. | `components/{AddressHistoryView,AddressHistoryTable}.tsx`, `addressHistoryColumns.tsx`, `filterConfig.ts` (filterx column config: `device_id`/`user_id`/`ip`/`source`/`event_kind`/`ttl_risk`, each `in`/`not_in`(/`contains`/`not_contains` for `ip`) via the sibling `{field}_op` param); `hooks/use{AddressHistory,AddressHistoryHistogram,AddressHistoryFilters,LocalAddressHistoryFilters}.ts`. `useAddressHistoryFilters` (URL-backed, dedicated page) and `useLocalAddressHistoryFilters` (local-state-backed, device tab) share one `useFilterCore`; a `LockedFilter` (`{key, values}`) pre-applies a non-removable filter and hides its column — the device tab locks `device_id`. `ttl_risk`/`event_kind` render from server enums (`TTL_RISK_BADGE`/`EVENT_KIND_COLORS` in `constants.ts`) — no client-side threshold math. |
 | `settings` | Account + preferences tab bodies. | `AccountTab.tsx`, `PreferencesTab.tsx` |
 
 ## Shared components (`src/components/`)
@@ -124,6 +124,8 @@ Cross-cutting building blocks reused across surfaces:
 | `GeoCell` | country/ASN cell rendering (flag + label) |
 | `InfoTooltip` | small "?" info tooltip |
 | `BrandName` | product wordmark |
+| `ColumnFilter` / `FilterApplyButton` | operator-aware filter widget (`in`/`not_in`/`contains`/`not_contains`/`is_null`/`not_null`) for the filterx column-filter model; generic over an enum-backed operator type. Types/helpers (`ColumnFilterState<Op>`, `FilterColumnConfig<Op>`, `operatorLabel`, `isFilterActive`) live in `lib/columnFilter.ts` — kept out of this component file so it exports components only (react-refresh). Used by `access-log` and `address-history`, each with its own domain-specific `filterConfig.ts`. |
+| `FilterableCell` | wraps a cell value with a hover-revealed "filter by this value" quick action, distinct from the value's own click target. Used by `access-log` and `address-history`. |
 
 See `loading-empty-error-states.md` for the loading → error → empty → data convention.
 

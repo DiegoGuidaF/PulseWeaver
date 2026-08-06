@@ -1,7 +1,7 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { Address, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { Address, AddressHistoryHistogramResponse, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import type { AttributionKind } from '@/features/dashboard/hooks/useAttributionSplit';
-import { createMockAddress, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardAttributionCount, createMockDashboardPosture, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceRef, createMockDevicePairing, createMockGroupDetailWithUsers, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockOwnerFleetGroup, createMockOwnerRef, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
+import { createMockAddress, createMockAddressHistoryHistogramResponse, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardAttributionCount, createMockDashboardPosture, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceRef, createMockDevicePairing, createMockGroupDetailWithUsers, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockOwnerFleetGroup, createMockOwnerRef, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult } from './data';
 
 const BASE = '/api/v1';
 
@@ -20,6 +20,7 @@ export const endpoints = {
     deviceAddressById: `${BASE}/devices/:deviceId/addresses/:addressId`,
     deviceHeartbeat: `${BASE}/devices/:deviceId/heartbeat`,
     addressHistory: `${BASE}/address-history`,
+    addressHistoryHistogram: `${BASE}/address-history/histogram`,
     deviceAddressLeaseRule: `${BASE}/devices/:deviceId/rules/address-lease`,
     maxActiveAddressesRule: `${BASE}/devices/:deviceId/rules/max-active-addresses`,
     regenerateApiKey: `${BASE}/devices/:deviceId/api-key/regenerate`,
@@ -282,7 +283,16 @@ export const addressHandlers = {
                 HttpResponse.json(override ?? createMockAddressHistoryResponse())),
         empty: () =>
             http.get(endpoints.addressHistory, () =>
-                HttpResponse.json({ buckets: [], events: [], total_events: 0, next_cursor: null })),
+                HttpResponse.json({ events: [], total: 0, next_cursor: null })),
+    },
+
+    historyHistogram: {
+        success: (override?: AddressHistoryHistogramResponse) =>
+            http.get(endpoints.addressHistoryHistogram, () =>
+                HttpResponse.json(override ?? createMockAddressHistoryHistogramResponse())),
+        empty: () =>
+            http.get(endpoints.addressHistoryHistogram, () =>
+                HttpResponse.json({ buckets: [] })),
     },
 };
 
@@ -596,6 +606,7 @@ export const defaultHandlers = [
     addressHandlers.heartbeat.success(),
     addressHandlers.disable.success(),
     addressHandlers.history.success(),
+    addressHandlers.historyHistogram.success(),
     // Rules
     ruleHandlers.addressLease.get.success(),
     ruleHandlers.addressLease.put.success(),

@@ -22,7 +22,7 @@ describe('DeviceHistoryTab', () => {
         renderTab();
 
         // Should not show data content while loading
-        expect(screen.queryByText('Active IPs over time')).not.toBeInTheDocument();
+        expect(screen.queryByText('Events over time')).not.toBeInTheDocument();
     });
 
     it('renders event table with mock data', async () => {
@@ -37,10 +37,12 @@ describe('DeviceHistoryTab', () => {
 
         expect(screen.getByText('10.0.0.2')).toBeInTheDocument();
 
-        // Check status badges
+        // Check status badges. "Enabled"/"Disabled" render in both the Status
+        // column and the Event column (an enabled/disabled event_kind always
+        // pairs with a matching is_enabled), so counts reflect both.
         const enabledBadges = screen.getAllByText('Enabled');
-        expect(enabledBadges.length).toBe(2);
-        expect(screen.getByText('Disabled')).toBeInTheDocument();
+        expect(enabledBadges.length).toBe(3);
+        expect(screen.getAllByText('Disabled').length).toBeGreaterThan(0);
 
         // Check source badges (displayed via SOURCE_LABELS)
         expect(screen.getByText('Heartbeat')).toBeInTheDocument();
@@ -49,7 +51,7 @@ describe('DeviceHistoryTab', () => {
     });
 
     it('shows empty state when no events', async () => {
-        server.use(addressHandlers.history.empty());
+        server.use(addressHandlers.history.empty(), addressHandlers.historyHistogram.empty());
 
         renderTab();
 
@@ -67,7 +69,7 @@ describe('DeviceHistoryTab', () => {
 
         await waitFor(
             () => {
-                expect(screen.getByText('Active IPs over time')).toBeInTheDocument();
+                expect(screen.getByText('Events over time')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );
@@ -94,7 +96,7 @@ describe('DeviceHistoryTab', () => {
 
         await waitFor(
             () => {
-                expect(screen.getByText('Active IPs over time')).toBeInTheDocument();
+                expect(screen.getByText('Events over time')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );

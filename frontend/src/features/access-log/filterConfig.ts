@@ -1,12 +1,13 @@
 import { AccessLogSortColumn, SortOrder, type AccessLogFilterOperator } from "@/lib/api";
+import {
+    isFilterActive,
+    operatorLabel,
+    type ColumnFilterState as BaseColumnFilterState,
+    type FilterColumnConfig,
+} from "@/lib/columnFilter";
 
 export type FilterOp = AccessLogFilterOperator;
-
-/** A column's filter as held in the URL: an operator plus 0..N values. */
-export interface ColumnFilterState {
-    op: FilterOp;
-    values: string[];
-}
+export type ColumnFilterState = BaseColumnFilterState<FilterOp>;
 
 export type FilterColumnKey =
     | "client_ip"
@@ -19,20 +20,7 @@ export type FilterColumnKey =
     | "user_id"
     | "network_policy_id";
 
-/** Value widget used for the multi-value operators (`in` / `not_in`). */
-export type ValueWidget = "tags" | "multiselect";
-
-export interface FilterColumnConfig {
-    operators: FilterOp[];
-    widget: ValueWidget;
-    /** Whether the column's values are numeric IDs (device/user/policy). */
-    numeric?: boolean;
-    /** Column-tuned wording for the value-less operators. */
-    emptyLabel?: string;
-    notEmptyLabel?: string;
-}
-
-export const FILTER_COLUMNS: Record<FilterColumnKey, FilterColumnConfig> = {
+export const FILTER_COLUMNS: Record<FilterColumnKey, FilterColumnConfig<FilterOp>> = {
     client_ip: {
         operators: ["in", "not_in", "contains", "not_contains"],
         widget: "tags",
@@ -79,26 +67,7 @@ export const FILTER_COLUMNS: Record<FilterColumnKey, FilterColumnConfig> = {
 
 export const FILTER_COLUMN_KEYS = Object.keys(FILTER_COLUMNS) as FilterColumnKey[];
 
-export const OP_LABELS: Record<FilterOp, string> = {
-    in: "is any of",
-    not_in: "is none of",
-    contains: "contains",
-    not_contains: "does not contain",
-    is_null: "is empty",
-    not_null: "is not empty",
-};
-
-/** Human label for an operator, honouring a column's empty/not-empty overrides. */
-export function operatorLabel(config: FilterColumnConfig, op: FilterOp): string {
-    if (op === "is_null" && config.emptyLabel) return config.emptyLabel;
-    if (op === "not_null" && config.notEmptyLabel) return config.notEmptyLabel;
-    return OP_LABELS[op];
-}
-
-/** A column filter is active when it has values, or uses a value-less operator. */
-export function isFilterActive(state: ColumnFilterState): boolean {
-    return state.values.length > 0 || state.op === "is_null" || state.op === "not_null";
-}
+export { isFilterActive, operatorLabel };
 
 /**
  * Static HTTP-method options. The backend has no distinct-values endpoint yet.

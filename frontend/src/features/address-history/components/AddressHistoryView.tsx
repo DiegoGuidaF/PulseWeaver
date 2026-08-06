@@ -5,6 +5,8 @@ import { TimeRangePresetSelect } from "@/components/TimeRangePresetSelect";
 import { PageToolbar } from "@/components/PageToolbar";
 import { AddressHistoryTable } from "./AddressHistoryTable";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
+import { AddressHistoryFilterOperator } from "@/lib/api";
+import { CHANGE_EVENT_KINDS, isStateChangesOnly } from "../constants";
 
 interface AddressHistoryViewProps {
     filters: AddressHistoryFilters;
@@ -14,6 +16,9 @@ interface AddressHistoryViewProps {
 export function AddressHistoryView({ filters, subtitle }: AddressHistoryViewProps) {
     const [userInterval, setUserInterval] = useState(DEFAULT_REFRESH_INTERVAL);
     const effectiveInterval = filters.hasCustomTo ? 0 : userInterval;
+
+    const eventKindFilter = filters.getColumnFilter("event_kind");
+    const stateChangesOnly = isStateChangesOnly(eventKindFilter);
 
     return (
         <Stack gap="md">
@@ -26,8 +31,15 @@ export function AddressHistoryView({ filters, subtitle }: AddressHistoryViewProp
                             { label: "State changes", value: "changes" },
                             { label: "All events", value: "all" },
                         ]}
-                        value={filters.includeAll ? "all" : "changes"}
-                        onChange={(val) => filters.setIncludeAll(val === "all")}
+                        value={stateChangesOnly ? "changes" : "all"}
+                        onChange={(val) =>
+                            filters.setColumnFilter(
+                                "event_kind",
+                                val === "all"
+                                    ? null
+                                    : { op: AddressHistoryFilterOperator.IN, values: CHANGE_EVENT_KINDS },
+                            )
+                        }
                     />
                 }
                 right={

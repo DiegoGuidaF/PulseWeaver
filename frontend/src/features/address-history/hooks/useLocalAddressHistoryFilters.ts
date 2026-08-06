@@ -1,12 +1,9 @@
-import { useState, useCallback } from "react";
-import type { AddressHistoryFilters, SearchParamsSetter } from "./useAddressHistoryFilters";
-import { useFilterCore } from "./useAddressHistoryFilters";
-import { DEFAULT_PRESET_KEY } from "@/lib/timePresets";
-
-const DEFAULT_PARAMS = new URLSearchParams({ preset: DEFAULT_PRESET_KEY });
+import { useCallback, useState } from "react";
+import type { AddressHistoryFilters, LockedFilter, SearchParamsSetter } from "./useAddressHistoryFilters";
+import { buildDefaultParams, useFilterCore } from "./useAddressHistoryFilters";
 
 interface UseLocalAddressHistoryFiltersOptions {
-    lockedDeviceId: number;
+    locked: LockedFilter;
 }
 
 /**
@@ -16,7 +13,7 @@ interface UseLocalAddressHistoryFiltersOptions {
 export function useLocalAddressHistoryFilters(
     options: UseLocalAddressHistoryFiltersOptions,
 ): AddressHistoryFilters {
-    const [params, setParamsRaw] = useState(() => new URLSearchParams(DEFAULT_PARAMS));
+    const [params, setParamsRaw] = useState(buildDefaultParams);
 
     const setSearchParams: SearchParamsSetter = useCallback((updater) => {
         setParamsRaw((prev) => {
@@ -25,5 +22,5 @@ export function useLocalAddressHistoryFilters(
         });
     }, []);
 
-    return useFilterCore(params, setSearchParams, { lockedDeviceId: options.lockedDeviceId });
+    return useFilterCore(params, setSearchParams, { locked: options.locked });
 }

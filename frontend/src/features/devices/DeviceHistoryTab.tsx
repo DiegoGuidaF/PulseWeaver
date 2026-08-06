@@ -6,6 +6,6 @@ interface DeviceHistoryTabProps {
 }
 
 export function DeviceHistoryTab({ deviceId }: DeviceHistoryTabProps) {
-    const filters = useLocalAddressHistoryFilters({ lockedDeviceId: deviceId });
+    const filters = useLocalAddressHistoryFilters({ locked: { key: "device_id", values: [String(deviceId)] } });
     return <AddressHistoryView filters={filters} />;
 }
