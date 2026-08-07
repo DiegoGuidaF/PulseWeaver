@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-08-07
+
+### Bug Fixes
+
+- Policy simulate denials rejected by response validation (nullable match_source) ([`4fceba1`](https://github.com/DiegoGuidaF/PulseWeaver/commit/4fceba1430ea0c54914bc2adc220c67dd3d22c63))
+
+### Features
+
+- Remove account settings from nav panel and move it to a simpler top-right "User menu" along with browser-related settings (time format, dark mode) ([`2c14720`](https://github.com/DiegoGuidaF/PulseWeaver/commit/2c1472048762f5174cbe87b1a936656413843f25))
+- Add filters to address-history page as well as improvements on existing ones. Improve query performance 
+- Show the running app's build version and information ([`de885d5`](https://github.com/DiegoGuidaF/PulseWeaver/commit/de885d5b31e67271d4e40d661d22079995cc7939))
+
+### Under the Hood
+
+- Update performance and simplify many queries (dashboard, device fleet, per-user devices)
+- Add docker dependabot updates and explicit test.yml permissions ([`8a532bd`](https://github.com/DiegoGuidaF/PulseWeaver/commit/8a532bd56e4f43297a5b478137d1f502517815af))
+- Bump frontend Node to 26.5 and source CI version from .nvmrc ([`1db62ac`](https://github.com/DiegoGuidaF/PulseWeaver/commit/1db62ac63dec819accf4d469ec5b9136b06b5cf6))
+- Pin frontend-builder node image to full patch + digest ([`2ddd623`](https://github.com/DiegoGuidaF/PulseWeaver/commit/2ddd6232e8aaf6f07785efb52394d862f6131487))
+- Pin backend-builder and runtime base images to digest ([`7582f90`](https://github.com/DiegoGuidaF/PulseWeaver/commit/7582f90c64b08dab7cfe862272090046bcfc739d))
+- Source Go version from go.mod in workflows ([`d53ea53`](https://github.com/DiegoGuidaF/PulseWeaver/commit/d53ea53fde4bb74f3c167eb89e4f03d45451d95d))
+- Derive backend and frontend enums from OpenAPI via exhaustive mappings so we have a single source-of-truth ([`237aeb4`](https://github.com/DiegoGuidaF/PulseWeaver/commit/237aeb481832dda5372f8ed8b697f8f7b4f691c0))
+
 ## [0.5.1] - 2026-07-01
 
 ### Bug Fixes
