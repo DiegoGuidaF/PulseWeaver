@@ -54,7 +54,6 @@ updates:
     labels: ["dependencies", "frontend"]
     ignore:
       # TypeScript and ESLint major bumps require manual migration work.
-      # Close the open PRs (#22, #28) and handle these as planned stories.
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
       - dependency-name: "eslint"
