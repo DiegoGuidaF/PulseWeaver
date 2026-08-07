@@ -195,14 +195,15 @@ func hashPassword(password string) ([]byte, error) {
 
 // TODO: Make private, make user_tests go through the NewUser public path instead
 func ValidatePassword(password string) error {
-	minPasswordLength := 8
-	maxPasswordLength := 72
-	if len(password) < minPasswordLength {
-		return fmt.Errorf("%w: too short (min %d chars)", ErrInvalidPassword, minPasswordLength)
+	minLength := 8
+	// bcrypt silently truncates input beyond 72 bytes, so anything longer is rejected outright.
+	maxLength := 72
+	if len(password) < minLength {
+		return fmt.Errorf("%w: too short (min %d chars)", ErrInvalidPassword, minLength)
 	}
 
-	if len(password) > maxPasswordLength {
-		return fmt.Errorf("%w: too long (max %d chars)", ErrInvalidPassword, maxPasswordLength)
+	if len(password) > maxLength {
+		return fmt.Errorf("%w: too long (max %d chars)", ErrInvalidPassword, maxLength)
 	}
 
 	return nil
