@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { ROUTES } from "@/lib/routes";
 import {
     ActionIcon,

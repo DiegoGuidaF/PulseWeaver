@@ -1,5 +1,5 @@
 import { Button, Checkbox, Divider, Stack, Switch, Text, ThemeIcon } from "@mantine/core";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { IconAlertTriangle, IconArrowRight } from "@tabler/icons-react";
 import type { SubjectGroupDetail } from "@/lib/api";
 import { resolveGroupIcon } from "@/features/host-access/hostIconConfig";

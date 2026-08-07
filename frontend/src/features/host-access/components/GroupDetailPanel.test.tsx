@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { GroupDetailPanel } from "./GroupDetailPanel";
 import { createMockGroupDetailWithUsers } from "@/test/mocks/data";
 import type { DraftGroup, GroupsDiff } from "@/features/host-access/drafts/hostGroupsDraft";

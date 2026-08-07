@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { createMemoryRouter, Link, RouterProvider } from 'react-router-dom';
+import { createMemoryRouter, Link } from 'react-router';
+import { RouterProvider } from 'react-router/dom';
 import { MantineProvider } from '@mantine/core';
 import { ModalsProvider } from '@mantine/modals';
 import { TEST_TIMEOUTS } from '@/test/constants';

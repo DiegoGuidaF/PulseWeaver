@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { buildRoute } from "@/lib/routes";
 import { Badge, Button, Text, ThemeIcon, Tooltip } from "@mantine/core";
 import { IconNetwork } from "@tabler/icons-react";

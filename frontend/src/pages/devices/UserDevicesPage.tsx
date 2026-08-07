@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from "react";
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router";
 import { ROUTES, buildRoute } from "@/lib/routes";
 import { Anchor, Box, Button, Group, Indicator, Skeleton, Stack, Tabs, Text } from "@mantine/core";
 import { useLocalStorage, useMediaQuery } from "@mantine/hooks";

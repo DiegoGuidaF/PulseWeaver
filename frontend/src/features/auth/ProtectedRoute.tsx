@@ -1,4 +1,4 @@
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router";
 import { ROUTES } from "@/lib/routes";
 import { Center, Loader, Stack, Text } from "@mantine/core";
 import { useAuth } from "./hooks/useAuth";

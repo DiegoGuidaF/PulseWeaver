@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Badge, Card, Group, Progress, Table, Text } from "@mantine/core";
 import { buildRoute } from "@/lib/routes";
 import type { PolicyNetworkPolicyEntry } from "@/lib/api";

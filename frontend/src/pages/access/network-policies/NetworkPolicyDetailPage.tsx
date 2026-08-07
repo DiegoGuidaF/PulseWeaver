@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import { ROUTES } from "@/lib/routes";
 import { Center, Divider, Grid, Loader, Stack } from "@mantine/core";
 import { notifications } from "@mantine/notifications";

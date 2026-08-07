@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useBlocker } from "react-router-dom";
+import { useBlocker } from "react-router";
 import { Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 

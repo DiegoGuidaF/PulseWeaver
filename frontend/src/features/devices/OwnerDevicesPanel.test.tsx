@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router';
 import { ROUTES } from '@/lib/routes';
 import { OwnerDevicesPanel } from '@/features/devices/OwnerDevicesPanel';
 import type { FleetDevice, OwnerSummary } from '@/lib/api';

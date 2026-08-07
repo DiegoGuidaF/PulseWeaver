@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { Stack, Grid } from "@mantine/core";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { ROUTES } from "@/lib/routes";
 import { useCountryStats } from "../hooks/useCountryStats";
 import { useCountryLookup } from "../hooks/useCountryLookup";

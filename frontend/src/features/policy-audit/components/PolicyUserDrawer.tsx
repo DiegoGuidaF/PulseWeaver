@@ -25,7 +25,7 @@ import {
   IconWifi,
   IconWifiOff,
 } from "@tabler/icons-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import type { PolicyUserEntry, PolicyUserIp } from "@/lib/api";
 import { PolicyUserStatus } from "@/lib/api";
 import { buildRoute } from "@/lib/routes";

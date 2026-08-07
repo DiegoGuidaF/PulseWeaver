@@ -21,6 +21,10 @@ Routes are defined in `lib/routes.ts` (`ROUTES` map + `buildRoute` path helpers)
 (a layout route, so pages can call `useBlocker`/`useUnsavedChangesGuard`). Every route except
 `/login` is wrapped in `ProtectedRoute` + `AppShell` via the `protectedPage()` helper.
 
+Routing comes from `react-router` v8; there is no `react-router-dom` package. Hooks, components,
+and `createBrowserRouter`/`createMemoryRouter` import from `react-router`, but `RouterProvider`
+imports from `react-router/dom` — it is the only split-out symbol the app uses.
+
 | Route | Page component | Notes |
 |-------|----------------|-------|
 | `/login` | `LoginPage` | unauthenticated |

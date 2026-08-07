@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import dayjs from "dayjs";
 import { AddressHistoryFilterOperator, type GetAddressHistoryHistogramData } from "@/lib/api";
 import { DEFAULT_PRESET_KEY, PRESET_MS } from "@/lib/timePresets";

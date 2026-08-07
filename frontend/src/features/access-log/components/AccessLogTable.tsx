@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { buildRoute } from "@/lib/routes";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router";
 import { ActionIcon, Anchor, Button, Group, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { DataTable, type DataTableSortStatus } from "mantine-datatable";

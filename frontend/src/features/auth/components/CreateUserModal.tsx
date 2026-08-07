@@ -1,7 +1,7 @@
 import { useForm } from "@mantine/form";
 import { Alert, Button, Group, Modal, Stack, Text, TextInput } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useCreateUser } from "@/features/auth/hooks/useCreateUser";
 import { toApiError, toErrorMessage } from "@/lib/api-client";
 import { buildRoute } from "@/lib/routes";

@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { Avatar, Badge, Button, Card, Divider, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { IconArrowRight, IconPlus } from "@tabler/icons-react";
 import { buildRoute } from "@/lib/routes";

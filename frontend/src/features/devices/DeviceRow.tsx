@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { buildRoute } from "@/lib/routes";
 import { Box, Group, ThemeIcon, Tooltip, UnstyledButton, Text } from "@mantine/core";
 import { IconChevronRight } from "@tabler/icons-react";

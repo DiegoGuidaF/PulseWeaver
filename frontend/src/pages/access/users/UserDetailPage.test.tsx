@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router';
 import { ROUTES, buildRoute } from '@/lib/routes';
 import { UserDetailPage } from '@/pages/access/users/UserDetailPage';
 import { AuthProvider } from '@/features/auth/AuthContext';

@@ -7,7 +7,7 @@ import {
     IconBellRinging,
     type IconProps,
 } from "@tabler/icons-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import type { ComponentType } from "react";
 import { ROUTES } from "@/lib/routes";
 import { ErrorState } from "@/components/ErrorState";

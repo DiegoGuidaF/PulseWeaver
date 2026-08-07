@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Paper, Text, Table, Group, Skeleton, ScrollArea, Anchor, Tooltip } from "@mantine/core";
 import { IconChartBar } from "@tabler/icons-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import type { DashboardAttributionCount } from "@/lib/api";

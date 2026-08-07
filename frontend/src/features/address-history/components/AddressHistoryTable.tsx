@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { buildRoute } from "@/lib/routes";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { ActionIcon, Button, Card, Group, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { LineChart } from "@mantine/charts";

@@ -1,6 +1,6 @@
 import { Paper, Text, Table, Skeleton } from "@mantine/core";
 import { IconShieldOff } from "@tabler/icons-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { GeoCell } from "@/components/GeoCell";

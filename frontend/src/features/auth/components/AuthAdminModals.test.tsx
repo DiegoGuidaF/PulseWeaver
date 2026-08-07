@@ -3,7 +3,7 @@ import { notifications } from "@mantine/notifications";
 import { screen, waitFor } from "@testing-library/react";
 import { http } from "msw";
 import { useState } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router";
 import { CreateUserModal } from "./CreateUserModal";
 import { DeleteUserModal } from "./DeleteUserModal";
 import { RoleChangeModal, type PendingRole } from "./RoleChangeModal";
