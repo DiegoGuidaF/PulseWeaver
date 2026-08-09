@@ -3,10 +3,11 @@ import { screen, waitFor } from '@testing-library/react';
 import { delay, http } from 'msw';
 import { UserDevicesPage } from '@/pages/devices/UserDevicesPage';
 import {
+    createMockDevicePairing,
     createMockFleetDevice,
     createMockOwnerFleetGroup,
 } from '@/test/mocks/data';
-import { RuleType } from '@/lib/api';
+import { DevicePairingStatus, RuleType } from '@/lib/api';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { endpoints, fleetHandlers, responses } from '@/test/mocks/handlers';
 import { server } from '@/test/setup';
@@ -18,6 +19,13 @@ function renderPage(route = '/devices/owners/1?device=1') {
         initialEntries: [route],
         path: ROUTES.userDevices,
     });
+}
+
+/** The attention dot Mantine's Indicator renders inside the Pairing tab, if any. */
+function pairingDot() {
+    return screen
+        .getByRole('tab', { name: /pairing/i })
+        .querySelector('.mantine-Indicator-indicator');
 }
 
 describe('UserDevicesPage', () => {
@@ -158,6 +166,60 @@ describe('UserDevicesPage', () => {
             { timeout: TEST_TIMEOUTS.SHORT }
         );
         expect(screen.getByRole('tab', { name: /addresses/i })).toBeInTheDocument();
+    });
+
+    it('clears the pairing dot once the tab reads a code claimed elsewhere', async () => {
+        let claimed = false;
+        server.use(
+            http.get(endpoints.deviceFleet, () =>
+                responses.ok([
+                    createMockOwnerFleetGroup({
+                        devices: [
+                            createMockFleetDevice({
+                                pairing: {
+                                    status: claimed
+                                        ? DevicePairingStatus.USED
+                                        : DevicePairingStatus.PENDING,
+                                    expires_at: '2026-06-02T00:00:00Z',
+                                },
+                            }),
+                        ],
+                    }),
+                ])
+            ),
+            http.get(endpoints.devicePairings, ({ request }) => {
+                const pendingOnly =
+                    new URL(request.url).searchParams.get('status') === 'pending';
+                if (claimed) {
+                    return responses.ok(
+                        pendingOnly
+                            ? []
+                            : [createMockDevicePairing({ status: DevicePairingStatus.USED })]
+                    );
+                }
+                return responses.ok([createMockDevicePairing()]);
+            })
+        );
+
+        const user = setupUser();
+        renderPage('/devices/owners/1?device=1&tab=pairing');
+
+        await screen.findByRole('button', { name: /revoke/i }, { timeout: TEST_TIMEOUTS.SHORT });
+        expect(pairingDot()).not.toBeNull();
+
+        // The end user claims the code on their phone — nothing in this app mutated,
+        // so only the tab's own read can notice.
+        claimed = true;
+        await user.click(screen.getByRole('tab', { name: /addresses/i }));
+        await user.click(screen.getByRole('tab', { name: /pairing/i }));
+
+        await waitFor(
+            () => {
+                expect(screen.getByText(/generate another code/i)).toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        expect(pairingDot()).toBeNull();
     });
 
     it('switches to Settings tab and shows device profile card', async () => {

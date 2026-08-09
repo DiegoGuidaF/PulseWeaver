@@ -3,7 +3,7 @@ import {
   getDeviceFleetQueryKey,
   listOwnerRefsQueryKey,
 } from "@/lib/api/@tanstack/react-query.gen";
-import type { OwnerFleetGroup } from "@/lib/api";
+import type { DevicePairingSummary, OwnerFleetGroup } from "@/lib/api";
 
 /**
  * The fleet endpoint answers two screens from one shape: the unfiltered key backs
@@ -61,6 +61,45 @@ export function invalidateOwnerIdentity(queryClient: QueryClient) {
  * than they were, and resetting the clock on every workspace visit would stop the
  * list ever refetching them.
  */
+function samePairing(a: DevicePairingSummary | null, b: DevicePairingSummary | null) {
+  if (a === null || b === null) return a === b;
+  return a.status === b.status && a.expires_at === b.expires_at;
+}
+
+/**
+ * Patch one device's pairing summary into the cached owner fleet.
+ *
+ * The fleet copy backs the pairing tab's dot, but only this app's own mutations
+ * invalidate it — a code claimed on the end user's phone, or one that simply ran
+ * out, moves the status with nothing here to notice. The pairing tab reads the
+ * device's pairings directly and is therefore always the fresher of the two, so
+ * it writes what it read back into the fleet instead of costing a second
+ * round-trip. Writing only on a real change keeps this out of the render loop.
+ */
+export function patchDevicePairingSummary(
+  queryClient: QueryClient,
+  ownerId: number,
+  deviceId: number,
+  pairing: DevicePairingSummary | null,
+) {
+  queryClient.setQueryData<OwnerFleetGroup[]>(fleetOwnerKey(ownerId), (old) => {
+    if (!old) return old;
+    let changed = false;
+    const next = old.map((group) => {
+      let groupChanged = false;
+      const devices = group.devices.map((device) => {
+        if (device.id !== deviceId || samePairing(device.pairing ?? null, pairing)) return device;
+        groupChanged = true;
+        return { ...device, pairing };
+      });
+      if (!groupChanged) return group;
+      changed = true;
+      return { ...group, devices };
+    });
+    return changed ? next : old;
+  });
+}
+
 export function spliceOwnerGroup(queryClient: QueryClient, group: OwnerFleetGroup) {
   const key = fleetListKey();
   const updatedAt = queryClient.getQueryState<OwnerFleetGroup[]>(key)?.dataUpdatedAt;

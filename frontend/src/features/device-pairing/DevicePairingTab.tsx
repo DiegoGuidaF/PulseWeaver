@@ -23,6 +23,7 @@ import { toErrorMessage } from "@/lib/api-client";
 import { ErrorState } from "@/components/ErrorState";
 import { useDateFormatter } from "@/contexts/useDateTimePrefs";
 import { useListDevicePairings } from "./hooks/useListDevicePairings";
+import { useDevicePairingHistory } from "./hooks/useDevicePairingHistory";
 import { useCreateDevicePairing } from "./hooks/useCreateDevicePairing";
 import { PairingCreationForm } from "./PairingCreationForm";
 import { PairingCodeDisplay } from "./PairingCodeDisplay";
@@ -40,7 +41,7 @@ interface Props {
 
 export function DevicePairingTab({ deviceId, ownerId, deviceState }: Props) {
   const pendingQuery = useListDevicePairings(deviceId, PairingListFilter.PENDING);
-  const historyQuery = useListDevicePairings(deviceId, PairingListFilter.ALL);
+  const historyQuery = useDevicePairingHistory(deviceId, ownerId);
   const regenMutation = useCreateDevicePairing(deviceId, ownerId);
 
   const formatDateTime = useDateFormatter();
