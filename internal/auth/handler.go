@@ -116,6 +116,10 @@ func (h *HTTPHandler) CreateUser(ctx context.Context, request httpapi.CreateUser
 			logger.WarnContext(ctx, "invalid input")
 			return httpapi.CreateUser400JSONResponse(errorMsgResponse("Invalid input")), nil
 		}
+		if errors.Is(err, ErrSuperAdminCredentialsRequired) {
+			logger.WarnContext(ctx, "superadmin credentials required")
+			return httpapi.CreateUser403Response{}, nil
+		}
 		logger.ErrorContext(ctx, "failed to create user", slog.Any(AttrKeyError, err))
 		return httpapi.CreateUser500JSONResponse(errorMsgResponse("Failed to create user")), nil
 	}
@@ -205,8 +209,8 @@ func (h *HTTPHandler) PromoteUser(ctx context.Context, request httpapi.PromoteUs
 		case errors.Is(err, ErrSelfRoleChangeForbidden) || errors.Is(err, ErrPromoteAlreadyAdmin):
 			logger.WarnContext(ctx, "forbidden already an admin or self-promotion")
 			return httpapi.PromoteUser403JSONResponse(errorMsgResponse("Cannot promote an admin or yourself")), nil
-		case errors.Is(err, ErrAdminCredentialsRequired):
-			logger.WarnContext(ctx, "admin credentials required")
+		case errors.Is(err, ErrSuperAdminCredentialsRequired):
+			logger.WarnContext(ctx, "superadmin credentials required")
 			return httpapi.PromoteUser403JSONResponse(errorMsgResponse("admin credentials required")), nil
 		case errors.Is(err, ErrInvalidPassword):
 			logger.WarnContext(ctx, "invalid password for promotion")
@@ -239,8 +243,8 @@ func (h *HTTPHandler) DemoteUser(ctx context.Context, request httpapi.DemoteUser
 		case errors.Is(err, ErrSelfRoleChangeForbidden):
 			logger.WarnContext(ctx, "forbidden demotion")
 			return httpapi.DemoteUser403JSONResponse(errorMsgResponse("Forbidden role change")), nil
-		case errors.Is(err, ErrAdminCredentialsRequired):
-			logger.WarnContext(ctx, "admin credentials required")
+		case errors.Is(err, ErrSuperAdminCredentialsRequired):
+			logger.WarnContext(ctx, "superadmin credentials required")
 			return httpapi.DemoteUser403JSONResponse(errorMsgResponse("admin credentials required")), nil
 		case errors.Is(err, ErrUserNotFound):
 			logger.WarnContext(ctx, "target user not found")
@@ -267,7 +271,7 @@ func (h *HTTPHandler) DeleteUser(ctx context.Context, request httpapi.DeleteUser
 	err := h.service.DeleteUser(ctx, principal, ids.UserID(request.UserId))
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrAdminCredentialsRequired), errors.Is(err, ErrSelfDeleteForbidden):
+		case errors.Is(err, ErrSuperAdminCredentialsRequired), errors.Is(err, ErrSelfDeleteForbidden):
 			logger.WarnContext(ctx, "forbidden user delete")
 			return httpapi.DeleteUser403JSONResponse(errorMsgResponse("Forbidden user delete")), nil
 		case errors.Is(err, ErrUserNotFound):

@@ -10,6 +10,7 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/app"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
@@ -265,6 +266,100 @@ func TestHandler_CreateUser_WithoutEmail_Succeeds(t *testing.T) {
 	is.NoErr(err)
 
 	is.Equal(resp.StatusCode(), http.StatusCreated)
+}
+
+// The user-management endpoints below sit behind admin-only middleware but are gated
+// on superadmin in the service, so an admin-role caller reaches the service and is
+// rejected there. These cover that gap between the two privilege levels.
+
+func TestHandler_CreateUser_AdminRoleForbidden(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	srv := testutils.SetupIntegrationServer(t)
+	testutils.NewSeeder(t).
+		WithUser(testutils.UserFixture{Name: adminRoleUsername, Role: auth.AdminRole}).
+		Build(srv)
+
+	client := adminRoleAPIClient(t, srv)
+
+	e := openapi_types.Email("blocked@example.com")
+	resp, err := client.CreateUserWithResponse(ctx, httpapi.CreateUserJSONRequestBody{
+		Username:    "blocked_user",
+		DisplayName: "Blocked User",
+		Email:       &e,
+	})
+	is.NoErr(err)
+
+	is.Equal(resp.StatusCode(), http.StatusForbidden)
+}
+
+func TestHandler_PromoteUser_AdminRoleForbidden(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	srv := testutils.SetupIntegrationServer(t)
+	seed := testutils.NewSeeder(t).
+		WithUser(testutils.UserFixture{Name: adminRoleUsername, Role: auth.AdminRole}).
+		WithUser(testutils.UserFixture{Name: "promote_target"}).
+		Build(srv)
+
+	client := adminRoleAPIClient(t, srv)
+
+	resp, err := client.PromoteUserWithResponse(ctx, seed.User("promote_target").Int64(),
+		httpapi.PromoteUserJSONRequestBody{Password: "NewAdminPass123!"})
+	is.NoErr(err)
+
+	is.Equal(resp.StatusCode(), http.StatusForbidden)
+}
+
+func TestHandler_DemoteUser_AdminRoleForbidden(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	srv := testutils.SetupIntegrationServer(t)
+	seed := testutils.NewSeeder(t).
+		WithUser(testutils.UserFixture{Name: adminRoleUsername, Role: auth.AdminRole}).
+		WithUser(testutils.UserFixture{Name: "demote_peer", Role: auth.AdminRole}).
+		Build(srv)
+
+	client := adminRoleAPIClient(t, srv)
+
+	resp, err := client.DemoteUserWithResponse(ctx, seed.User("demote_peer").Int64())
+	is.NoErr(err)
+
+	is.Equal(resp.StatusCode(), http.StatusForbidden)
+}
+
+func TestHandler_DeleteUser_AdminRoleForbidden(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	srv := testutils.SetupIntegrationServer(t)
+	seed := testutils.NewSeeder(t).
+		WithUser(testutils.UserFixture{Name: adminRoleUsername, Role: auth.AdminRole}).
+		WithUser(testutils.UserFixture{Name: "delete_victim"}).
+		Build(srv)
+
+	client := adminRoleAPIClient(t, srv)
+
+	resp, err := client.DeleteUserWithResponse(ctx, seed.User("delete_victim").Int64())
+	is.NoErr(err)
+
+	is.Equal(resp.StatusCode(), http.StatusForbidden)
+}
+
+// adminRoleUsername is the seeded admin-role account adminRoleAPIClient logs in as.
+const adminRoleUsername = "ops_admin"
+
+// adminRoleAPIClient returns a client authenticated as a seeded admin-role user rather
+// than the bootstrap superadmin, so superadmin-only gates are reachable from a caller
+// that clears the admin-only middleware.
+func adminRoleAPIClient(t *testing.T, srv *app.App) *httpapi.ClientWithResponses {
+	t.Helper()
+	cookie := testutils.LoginCookie(t, srv.HTTPServer, adminRoleUsername, testutils.SeededAdminPassword)
+	return testutils.NewAPIClient(t, srv, httpapi.WithRequestEditorFn(
+		func(_ context.Context, req *http.Request) error {
+			req.AddCookie(cookie)
+			return nil
+		},
+	))
 }
 
 // createUserAndGetID creates a user-role account via the admin API and returns the user's numeric ID.
