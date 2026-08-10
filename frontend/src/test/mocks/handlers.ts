@@ -293,7 +293,7 @@ export const addressHandlers = {
                 HttpResponse.json(override ?? createMockAddressHistoryHistogramResponse())),
         empty: () =>
             http.get(endpoints.addressHistoryHistogram, () =>
-                HttpResponse.json({ buckets: [] })),
+                HttpResponse.json({ buckets: [], at_risk_devices: [] })),
     },
 };
 

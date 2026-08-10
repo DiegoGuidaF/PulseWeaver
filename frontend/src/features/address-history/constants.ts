@@ -71,6 +71,21 @@ export const TTL_RISK_BADGE: Record<TtlRisk, { color: string; variant: "light" |
     [TtlRisk.BREACHED]: { color: "red", variant: "filled" },
 };
 
+/**
+ * Chart-series colors for the three bands the address-history risk histogram
+ * emits (`ok`/`unknown` never appear in a bucket). Explicit shades, since
+ * `@mantine/charts` series colors need a `palette.shade` token rather than
+ * the bare palette name `TTL_RISK_BADGE` uses for badges.
+ */
+export const RISK_BAND_CHART_COLORS: Record<
+    typeof TtlRisk.APPROACHING | typeof TtlRisk.CRITICAL | typeof TtlRisk.BREACHED,
+    string
+> = {
+    [TtlRisk.APPROACHING]: "yellow.5",
+    [TtlRisk.CRITICAL]: "red.5",
+    [TtlRisk.BREACHED]: "red.8",
+};
+
 /** Formats a duration in seconds as a compact human string, e.g. "45s", "12m", "1h 30m", "2d 4h". */
 export function formatGapDuration(seconds: number): string {
     if (seconds < 60) return `${seconds}s`;

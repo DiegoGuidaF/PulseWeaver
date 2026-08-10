@@ -1,4 +1,4 @@
-import type { VersionInfo, Address, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryHistogramResponse, AddressHistoryResponse, AccessLogCountryStats, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, OwnerSummary, FleetDevice, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { VersionInfo, Address, AddressHistoryAtRiskDevice, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryHistogramResponse, AddressHistoryResponse, AccessLogCountryStats, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, OwnerSummary, FleetDevice, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import { AddressEventKind, AddressEventSource, DeviceState, PolicyUserStatus, TtlRisk, UserRole } from "@/lib/api";
 
 /**
@@ -121,6 +121,21 @@ export function createMockAddressHistoryBucket(
     approaching_device_count: 0,
     critical_device_count: 0,
     breached_device_count: 0,
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a mock AddressHistoryAtRiskDevice with realistic defaults.
+ */
+export function createMockAddressHistoryAtRiskDevice(
+  overrides?: Partial<AddressHistoryAtRiskDevice>,
+): AddressHistoryAtRiskDevice {
+  return {
+    device_id: 1,
+    device_name: 'Test Device',
+    worst_risk: TtlRisk.CRITICAL,
+    event_count: 5,
     ...overrides,
   };
 }

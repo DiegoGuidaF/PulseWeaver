@@ -5,6 +5,8 @@ import { server } from "@/test/setup";
 import { renderWithProviders, setupUser } from "@/test/utils";
 import { AddressHistoryPage } from "@/pages/address-history/AddressHistoryPage";
 import {
+    createMockAddressHistoryAtRiskDevice,
+    createMockAddressHistoryBucket,
     createMockAddressHistoryEvent,
     createMockAddressHistoryHistogramResponse,
     createMockAddressHistoryResponse,
@@ -576,6 +578,61 @@ describe("AddressHistoryTable", () => {
 
             await waitFor(() =>
                 expect(screen.queryByText("IP:")).not.toBeInTheDocument(),
+            );
+        });
+    });
+
+    // ─── At-risk strip and risk chart ───────────────────────────────────────
+
+    describe("At-risk strip", () => {
+        it("renders the reassuring empty state when no bucket carries an at-risk device", async () => {
+            server.use(addressHandlers.historyHistogram.success(createMockAddressHistoryHistogramResponse({ buckets: [] })));
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("No devices at risk in this period")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+        });
+
+        it("renders ranked entries and applies the device_id filter on click", async () => {
+            const eventsQueries: string[] = [];
+            server.use(
+                http.get(endpoints.addressHistory, ({ request }) => {
+                    eventsQueries.push(new URL(request.url).search);
+                    return HttpResponse.json(createMockAddressHistoryResponse());
+                }),
+                addressHandlers.historyHistogram.success(
+                    createMockAddressHistoryHistogramResponse({
+                        buckets: [createMockAddressHistoryBucket({ critical_device_count: 1 })],
+                        at_risk_devices: [
+                            createMockAddressHistoryAtRiskDevice({
+                                device_id: 7,
+                                device_name: "nas-01",
+                                worst_risk: TtlRisk.BREACHED,
+                                event_count: 14,
+                            }),
+                        ],
+                    }),
+                ),
+            );
+
+            const user = setupUser();
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("nas-01")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+            // The count is every event in the window, not a breach tally.
+            expect(screen.getByText("14 events")).toBeInTheDocument();
+
+            await user.click(screen.getByRole("button", { name: "Filter by nas-01" }));
+
+            await waitFor(
+                () => expect(eventsQueries.at(-1)).toContain("device_id=7"),
+                { timeout: TEST_TIMEOUTS.SHORT },
             );
         });
     });

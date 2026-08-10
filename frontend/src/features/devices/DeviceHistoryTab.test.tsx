@@ -4,6 +4,7 @@ import { HttpResponse, delay, http } from 'msw';
 import { DeviceHistoryTab } from '@/features/devices/DeviceHistoryTab';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import {
+    createMockAddressHistoryAtRiskDevice,
     createMockAddressHistoryHistogramResponse,
     createMockAddressHistoryResponse,
 } from '@/test/mocks/data';
@@ -26,7 +27,7 @@ describe('DeviceHistoryTab', () => {
         renderTab();
 
         // Should not show data content while loading
-        expect(screen.queryByText('Events over time')).not.toBeInTheDocument();
+        expect(screen.queryByText('Devices at risk over time')).not.toBeInTheDocument();
     });
 
     it('renders event table with mock data', async () => {
@@ -65,7 +66,7 @@ describe('DeviceHistoryTab', () => {
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );
-        expect(screen.getByText('No activity in this period')).toBeInTheDocument();
+        expect(screen.getByText('No devices at risk in this period')).toBeInTheDocument();
     });
 
     it('renders chart section title', async () => {
@@ -73,7 +74,7 @@ describe('DeviceHistoryTab', () => {
 
         await waitFor(
             () => {
-                expect(screen.getByText('Events over time')).toBeInTheDocument();
+                expect(screen.getByText('Devices at risk over time')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );
@@ -147,12 +148,38 @@ describe('DeviceHistoryTab', () => {
         expect(screen.queryByRole('checkbox', { name: 'Device' })).not.toBeInTheDocument();
     });
 
+    // ─── At-risk strip hidden when device-scoped ────────────────────────────
+
+    it('does not render the at-risk strip, even when the histogram carries ranked devices', async () => {
+        server.use(
+            addressHandlers.historyHistogram.success(
+                createMockAddressHistoryHistogramResponse({
+                    at_risk_devices: [createMockAddressHistoryAtRiskDevice({ device_name: 'nas-01' })],
+                }),
+            ),
+        );
+
+        renderTab();
+
+        await waitFor(
+            () => {
+                expect(screen.getAllByText('10.0.0.1')).toHaveLength(2);
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+
+        // The ranking degenerates to the one device already being viewed, so
+        // the strip is dropped entirely rather than shown with a single row.
+        expect(screen.queryByText('nas-01')).not.toBeInTheDocument();
+        expect(screen.queryByText('At-risk devices')).not.toBeInTheDocument();
+    });
+
     it('shows time range and auto-refresh controls', async () => {
         renderTab();
 
         await waitFor(
             () => {
-                expect(screen.getByText('Events over time')).toBeInTheDocument();
+                expect(screen.getByText('Devices at risk over time')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );

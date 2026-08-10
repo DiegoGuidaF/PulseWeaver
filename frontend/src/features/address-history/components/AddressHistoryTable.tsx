@@ -1,9 +1,8 @@
 import { useState, useMemo } from "react";
 import { buildRoute } from "@/lib/routes";
 import { useNavigate } from "react-router";
-import { ActionIcon, Button, Card, Group, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
+import { ActionIcon, Button, Group, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
-import { LineChart } from "@mantine/charts";
 import { DataTable } from "mantine-datatable";
 import { IconDatabaseOff, IconFilterOff, IconRefresh } from "@tabler/icons-react";
 import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
@@ -14,6 +13,8 @@ import { useAddressHistory } from "../hooks/useAddressHistory";
 import { useAddressHistoryHistogram } from "../hooks/useAddressHistoryHistogram";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
 import { getAddressHistoryColumns } from "./addressHistoryColumns";
+import { AddressHistoryRiskChart } from "./AddressHistoryRiskChart";
+import { AddressHistoryAtRiskStrip } from "./AddressHistoryAtRiskStrip";
 import {
     COLUMN_CHIP_LABELS,
     FILTER_COLUMN_KEYS,
@@ -28,9 +29,9 @@ import {
     TTL_RISK_LABELS,
     isAddressEventSource,
 } from "../constants";
-import { AddressEventKind, type AddressHistoryEvent, type TtlRisk } from "@/lib/api";
+import { AddressEventKind, AddressHistoryFilterOperator, type AddressHistoryEvent, type TtlRisk } from "@/lib/api";
 import { ErrorState } from "@/components/ErrorState";
-import { formatChartLabel, presetToMs } from "@/lib/formatChartLabel";
+import { presetToMs } from "@/lib/formatChartLabel";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
 import { useDeviceRefs } from "@/features/devices/hooks/useDeviceRefs";
 import { useListUsers } from "@/features/auth/hooks/useListUsers";
@@ -111,9 +112,15 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
 
     const {
         data: histogramData,
+        isPending: isHistogramPending,
         isFetching: isHistogramFetching,
+        error: histogramError,
         refetch: refetchHistogram,
     } = useAddressHistoryHistogram(filters.queryParams, refetchIntervalOrFalse);
+
+    // A locked device_id filter means this view already shows one device's
+    // history — the top-N ranking would degenerate to that same device.
+    const isDeviceScoped = filters.lockedFilter?.key === "device_id";
 
     const rows = data?.events ?? [];
 
@@ -203,13 +210,9 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         return presetToMs("last_24h");
     }, [filters.presetStr, filters.fromStr, filters.toStr]);
 
-    const chartData = useMemo(() => {
-        if (!histogramData?.buckets) return [];
-        return histogramData.buckets.map((b) => ({
-            timestamp: formatChartLabel(b.timestamp, timeRangeMs),
-            event_count: b.event_count,
-        }));
-    }, [histogramData, timeRangeMs]);
+    function handleSelectAtRiskDevice(deviceId: number) {
+        filters.setColumnFilter("device_id", { op: AddressHistoryFilterOperator.IN, values: [String(deviceId)] });
+    }
 
     if ((isPending || !data) && !error && rows.length === 0) {
         return (
@@ -232,25 +235,20 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
 
     return (
         <Stack gap="sm">
-            <Card withBorder padding="md">
-                <Text fw={500} mb="sm">Events over time</Text>
-                {chartData.length > 0 ? (
-                    <LineChart
-                        h={200}
-                        data={chartData}
-                        dataKey="timestamp"
-                        series={[{ name: "event_count", color: "orange.4", label: "Events" }]}
-                        yAxisLabel="Events"
-                        curveType="monotone"
-                        tooltipAnimationDuration={150}
-                        yAxisProps={{ allowDecimals: false }}
-                    />
-                ) : (
-                    <Text size="sm" c="dimmed" ta="center" py="xl">
-                        No activity in this period
-                    </Text>
-                )}
-            </Card>
+            {!isDeviceScoped && (
+                <AddressHistoryAtRiskStrip
+                    devices={histogramData?.at_risk_devices ?? []}
+                    onSelectDevice={handleSelectAtRiskDevice}
+                />
+            )}
+
+            <AddressHistoryRiskChart
+                buckets={histogramData?.buckets}
+                timeRangeMs={timeRangeMs}
+                isPending={isHistogramPending}
+                error={histogramError}
+                onRetry={() => refetchHistogram()}
+            />
 
             <Group justify="flex-end" gap="xs">
                 <Tooltip label="Refresh" withArrow>
