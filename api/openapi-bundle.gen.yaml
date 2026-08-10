@@ -1057,9 +1057,9 @@ paths:
       operationId: getAddressHistoryHistogram
       tags:
         - addresses
-      summary: Get time-bucketed address event counts
+      summary: Get time-bucketed TTL-risk device counts and at-risk ranking
       description: |
-        Returns a plain event count per time bucket, matching the same filters and window as GET /address-history. Granularity is chosen server-side from the window size. Not affected by the events endpoint's cursor.
+        Returns, per time bucket, the total matching event count plus the distinct devices at each TTL-risk level (approaching/critical/breached only — a device is counted once, under its worst level for that bucket), and a top-5 at-risk device ranking for the whole filtered window. Same filters and window as GET /address-history; the risk measure is devices rather than events (ADR-009 §6.4 exception). Granularity is chosen server-side from the window size. Not affected by the events endpoint's cursor.
       parameters:
         - name: device_id
           in: query
@@ -3489,16 +3489,27 @@ components:
       type: object
       required:
         - buckets
+        - at_risk_devices
       properties:
         buckets:
           type: array
           items:
             $ref: '#/components/schemas/AddressHistoryBucket'
+        at_risk_devices:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/AddressHistoryAtRiskDevice'
+          description: |
+            Top devices at risk of losing access in the filtered window, ordered by worst risk then event count. Same filters and window as buckets — the ranking changes exactly when the filters change and never on page-turn.
     AddressHistoryBucket:
       type: object
       required:
         - timestamp
         - event_count
+        - approaching_device_count
+        - critical_device_count
+        - breached_device_count
       properties:
         timestamp:
           type: string
@@ -3507,6 +3518,16 @@ components:
         event_count:
           type: integer
           description: Count of events matching the filters in this time bucket.
+        approaching_device_count:
+          type: integer
+          description: |
+            Distinct devices whose worst ttl_risk in this bucket is `approaching`. A device with events at more than one risk level in the same bucket is counted once, under its worst level only.
+        critical_device_count:
+          type: integer
+          description: Distinct devices whose worst ttl_risk in this bucket is `critical`.
+        breached_device_count:
+          type: integer
+          description: Distinct devices whose worst ttl_risk in this bucket is `breached`.
     AddressEventSource:
       type: string
       description: What triggered an address state change
@@ -4942,6 +4963,28 @@ components:
         - replaced
       description: |
         Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.
+    AddressHistoryAtRiskDevice:
+      type: object
+      required:
+        - device_id
+        - device_name
+        - worst_risk
+        - event_count
+      properties:
+        device_id:
+          $ref: '#/components/schemas/ID'
+        device_name:
+          type: string
+          description: Name of the device
+        worst_risk:
+          allOf:
+            - $ref: '#/components/schemas/TTLRisk'
+          description: |
+            The device's worst ttl_risk among events matching the filters in the window. Always approaching, critical, or breached — a device whose worst risk is ok or unknown never appears in this ranking.
+        event_count:
+          type: integer
+          description: |
+            This device's event count across the whole filtered window, not just the events at its worst risk level.
     AccessLogFilterOperator:
       type: string
       description: |

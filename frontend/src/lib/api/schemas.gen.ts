@@ -740,7 +740,7 @@ export const AddressHistoryResponseSchema = {
 
 export const AddressHistoryHistogramResponseSchema = {
   type: "object",
-  required: ["buckets"],
+  required: ["buckets", "at_risk_devices"],
   properties: {
     buckets: {
       type: "array",
@@ -748,12 +748,27 @@ export const AddressHistoryHistogramResponseSchema = {
         $ref: "#/components/schemas/AddressHistoryBucket",
       },
     },
+    at_risk_devices: {
+      type: "array",
+      maxItems: 5,
+      items: {
+        $ref: "#/components/schemas/AddressHistoryAtRiskDevice",
+      },
+      description:
+        "Top devices at risk of losing access in the filtered window, ordered by worst risk then event count. Same filters and window as buckets — the ranking changes exactly when the filters change and never on page-turn.\n",
+    },
   },
 } as const;
 
 export const AddressHistoryBucketSchema = {
   type: "object",
-  required: ["timestamp", "event_count"],
+  required: [
+    "timestamp",
+    "event_count",
+    "approaching_device_count",
+    "critical_device_count",
+    "breached_device_count",
+  ],
   properties: {
     timestamp: {
       type: "string",
@@ -763,6 +778,21 @@ export const AddressHistoryBucketSchema = {
     event_count: {
       type: "integer",
       description: "Count of events matching the filters in this time bucket.",
+    },
+    approaching_device_count: {
+      type: "integer",
+      description:
+        "Distinct devices whose worst ttl_risk in this bucket is `approaching`. A device with events at more than one risk level in the same bucket is counted once, under its worst level only.\n",
+    },
+    critical_device_count: {
+      type: "integer",
+      description:
+        "Distinct devices whose worst ttl_risk in this bucket is `critical`.",
+    },
+    breached_device_count: {
+      type: "integer",
+      description:
+        "Distinct devices whose worst ttl_risk in this bucket is `breached`.",
     },
   },
 } as const;
@@ -2657,6 +2687,34 @@ export const DevicePairingStatusSchema = {
   enum: ["pending", "used", "expired", "invalidated", "replaced"],
   description:
     "Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.\n",
+} as const;
+
+export const AddressHistoryAtRiskDeviceSchema = {
+  type: "object",
+  required: ["device_id", "device_name", "worst_risk", "event_count"],
+  properties: {
+    device_id: {
+      $ref: "#/components/schemas/ID",
+    },
+    device_name: {
+      type: "string",
+      description: "Name of the device",
+    },
+    worst_risk: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/TTLRisk",
+        },
+      ],
+      description:
+        "The device's worst ttl_risk among events matching the filters in the window. Always approaching, critical, or breached — a device whose worst risk is ok or unknown never appears in this ranking.\n",
+    },
+    event_count: {
+      type: "integer",
+      description:
+        "This device's event count across the whole filtered window, not just the events at its worst risk level.\n",
+    },
+  },
 } as const;
 
 export const AccessLogFilterOperatorSchema = {

@@ -118,6 +118,9 @@ export function createMockAddressHistoryBucket(
   return {
     timestamp: '2024-01-01T12:00:00Z',
     event_count: 3,
+    approaching_device_count: 0,
+    critical_device_count: 0,
+    breached_device_count: 0,
     ...overrides,
   };
 }
@@ -173,6 +176,7 @@ export function createMockAddressHistoryHistogramResponse(
       createMockAddressHistoryBucket({ timestamp: '2024-01-01T11:00:00Z', event_count: 2 }),
       createMockAddressHistoryBucket({ timestamp: '2024-01-01T12:00:00Z', event_count: 1 }),
     ],
+    at_risk_devices: [],
     ...overrides,
   };
 }

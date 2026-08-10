@@ -483,3 +483,239 @@ func TestHandler_GetAddressHistory_InvalidFilterOperator(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusBadRequest)
 }
+
+// TestHandler_GetAddressHistoryHistogram_WorstRiskPerBucket is the direct
+// regression guard for task 08b item 1: a device with both an approaching and
+// a critical event in the same bucket must be counted once, under critical
+// only — never in both bands.
+func TestHandler_GetAddressHistoryHistogram_WorstRiskPerBucket(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	testServer := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, testServer)
+
+	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "worst-risk-device", nil)
+	is.NoErr(err)
+
+	const ttlSeconds = 100
+	_, err = testServer.RuleService.EnableDeviceAddressLeaseRule(ctx, dev.ID, ttlSeconds)
+	is.NoErr(err)
+
+	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.6.0.1", device.EventSourceHeartbeat)
+	is.NoErr(err)
+
+	// t0 sits on a 5-minute boundary so every offset below stays inside one
+	// 5-minute bucket regardless of wall-clock alignment.
+	db := testServer.Database.DB()
+	t0 := time.Now().UTC().Truncate(5 * time.Minute).Add(-2 * time.Hour)
+	_, err = db.ExecContext(ctx, `UPDATE address_events SET created_at = ? WHERE address_id = ?`, t0, addr.ID)
+	is.NoErr(err)
+	for _, e := range []struct {
+		at time.Time
+	}{
+		{t0.Add(90 * time.Second)},  // gap 90s / ttl 100s = 0.9 → approaching
+		{t0.Add(185 * time.Second)}, // gap 95s / ttl 100s = 0.95 → critical
+	} {
+		_, err = db.ExecContext(ctx,
+			`INSERT INTO address_events (address_id, is_enabled, source, created_at) VALUES (?, 1, 'heartbeat', ?)`,
+			addr.ID, e.at,
+		)
+		is.NoErr(err)
+	}
+
+	from := t0.Add(-time.Minute)
+	to := t0.Add(10 * time.Minute)
+	deviceIDFilter := []httpapi.ID{dev.ID.Int64()}
+	resp, err := client.GetAddressHistoryHistogramWithResponse(ctx, &httpapi.GetAddressHistoryHistogramParams{
+		DeviceId: &deviceIDFilter, From: &from, To: &to,
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	buckets := resp.JSON200.Buckets
+
+	is.Equal(len(buckets), 1) // create + approaching + critical all land in the same 5-minute bucket
+	is.Equal(buckets[0].EventCount, 3)
+	is.Equal(buckets[0].CriticalDeviceCount, 1)    // worst risk wins
+	is.Equal(buckets[0].ApproachingDeviceCount, 0) // not double-counted in the lower band
+	is.Equal(buckets[0].BreachedDeviceCount, 0)
+
+	is.Equal(len(resp.JSON200.AtRiskDevices), 1)
+	is.Equal(resp.JSON200.AtRiskDevices[0].DeviceId, dev.ID.Int64())
+	is.Equal(resp.JSON200.AtRiskDevices[0].WorstRisk, httpapi.Critical)
+}
+
+// TestHandler_GetAddressHistoryHistogram_ExcludesOkAndUnknown is the direct
+// regression guard for task 08b item 2: ok and unknown never contribute to
+// the risk device counts or the at-risk ranking, however many events exist.
+func TestHandler_GetAddressHistoryHistogram_ExcludesOkAndUnknown(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	testServer := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, testServer)
+
+	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "healthy-device", nil)
+	is.NoErr(err)
+
+	const ttlSeconds = 1000
+	_, err = testServer.RuleService.EnableDeviceAddressLeaseRule(ctx, dev.ID, ttlSeconds)
+	is.NoErr(err)
+
+	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.6.0.2", device.EventSourceHeartbeat)
+	is.NoErr(err)
+
+	db := testServer.Database.DB()
+	t0 := time.Now().UTC().Add(-time.Hour)
+	_, err = db.ExecContext(ctx, `UPDATE address_events SET created_at = ? WHERE address_id = ?`, t0, addr.ID)
+	is.NoErr(err)
+	// gap 10s / ttl 1000s = 0.01 → ok, well clear of any risk threshold.
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO address_events (address_id, is_enabled, source, created_at) VALUES (?, 1, 'heartbeat', ?)`,
+		addr.ID, t0.Add(10*time.Second),
+	)
+	is.NoErr(err)
+
+	from := t0.Add(-time.Minute)
+	to := time.Now().UTC().Add(time.Minute)
+	deviceIDFilter := []httpapi.ID{dev.ID.Int64()}
+	resp, err := client.GetAddressHistoryHistogramWithResponse(ctx, &httpapi.GetAddressHistoryHistogramParams{
+		DeviceId: &deviceIDFilter, From: &from, To: &to,
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+
+	is.True(len(resp.JSON200.Buckets) > 0) // event_count buckets still present …
+	riskTotal := 0
+	eventTotal := 0
+	for _, b := range resp.JSON200.Buckets {
+		eventTotal += b.EventCount
+		riskTotal += b.ApproachingDeviceCount + b.CriticalDeviceCount + b.BreachedDeviceCount
+	}
+	is.Equal(eventTotal, 2) // create + ok refresh
+	is.Equal(riskTotal, 0)  // … but contribute nothing to the risk bands
+	is.Equal(len(resp.JSON200.AtRiskDevices), 0)
+}
+
+// TestHandler_GetAddressHistoryHistogram_RankingRespectsFilters is the direct
+// regression guard for task 08b item 5: the at-risk ranking narrows exactly
+// like the events list and the buckets, since all three read the same
+// filtered, enriched row set.
+func TestHandler_GetAddressHistoryHistogram_RankingRespectsFilters(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	testServer := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, testServer)
+
+	devCritical, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "critical-device", nil)
+	is.NoErr(err)
+	devBreached, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "breached-device", nil)
+	is.NoErr(err)
+
+	const ttlSeconds = 100
+	_, err = testServer.RuleService.EnableDeviceAddressLeaseRule(ctx, devCritical.ID, ttlSeconds)
+	is.NoErr(err)
+	_, err = testServer.RuleService.EnableDeviceAddressLeaseRule(ctx, devBreached.ID, ttlSeconds)
+	is.NoErr(err)
+
+	addrCritical, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, devCritical.ID, "10.6.0.3", device.EventSourceHeartbeat)
+	is.NoErr(err)
+	addrBreached, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, devBreached.ID, "10.6.0.4", device.EventSourceHeartbeat)
+	is.NoErr(err)
+
+	db := testServer.Database.DB()
+	t0 := time.Now().UTC().Add(-time.Hour)
+	_, err = db.ExecContext(ctx, `UPDATE address_events SET created_at = ? WHERE address_id = ?`, t0, addrCritical.ID)
+	is.NoErr(err)
+	_, err = db.ExecContext(ctx, `UPDATE address_events SET created_at = ? WHERE address_id = ?`, t0, addrBreached.ID)
+	is.NoErr(err)
+	// gap 95s / ttl 100s = 0.95 → critical.
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO address_events (address_id, is_enabled, source, created_at) VALUES (?, 1, 'heartbeat', ?)`,
+		addrCritical.ID, t0.Add(95*time.Second),
+	)
+	is.NoErr(err)
+	// gap 150s / ttl 100s = 1.5 → breached.
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO address_events (address_id, is_enabled, source, created_at) VALUES (?, 1, 'heartbeat', ?)`,
+		addrBreached.ID, t0.Add(150*time.Second),
+	)
+	is.NoErr(err)
+
+	from := t0.Add(-time.Minute)
+	to := time.Now().UTC().Add(time.Minute)
+
+	unfiltered, err := client.GetAddressHistoryHistogramWithResponse(ctx, &httpapi.GetAddressHistoryHistogramParams{
+		From: &from, To: &to,
+	})
+	is.NoErr(err)
+	is.Equal(unfiltered.StatusCode(), http.StatusOK)
+	is.Equal(len(unfiltered.JSON200.AtRiskDevices), 2)
+	is.Equal(unfiltered.JSON200.AtRiskDevices[0].DeviceId, devBreached.ID.Int64()) // breached ranks above critical
+	is.Equal(unfiltered.JSON200.AtRiskDevices[0].WorstRisk, httpapi.Breached)
+	is.Equal(unfiltered.JSON200.AtRiskDevices[1].DeviceId, devCritical.ID.Int64())
+	is.Equal(unfiltered.JSON200.AtRiskDevices[1].WorstRisk, httpapi.Critical)
+
+	deviceIDFilter := []httpapi.ID{devCritical.ID.Int64()}
+	filtered, err := client.GetAddressHistoryHistogramWithResponse(ctx, &httpapi.GetAddressHistoryHistogramParams{
+		DeviceId: &deviceIDFilter, From: &from, To: &to,
+	})
+	is.NoErr(err)
+	is.Equal(filtered.StatusCode(), http.StatusOK)
+	is.Equal(len(filtered.JSON200.AtRiskDevices), 1)
+	is.Equal(filtered.JSON200.AtRiskDevices[0].DeviceId, devCritical.ID.Int64())
+}
+
+// TestHandler_GetAddressHistoryHistogram_RankingStableUnderCursor is the
+// direct regression guard for task 08b item 5's last case: the at-risk
+// ranking's event_count reflects a device's total matching events across the
+// whole window, not one page of them — the histogram endpoint carries no
+// cursor parameter at all, so it cannot be scoped by the events endpoint's
+// pagination position.
+func TestHandler_GetAddressHistoryHistogram_RankingStableUnderCursor(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	testServer := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, testServer)
+
+	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "many-events-device", nil)
+	is.NoErr(err)
+
+	const ttlSeconds = 10
+	_, err = testServer.RuleService.EnableDeviceAddressLeaseRule(ctx, dev.ID, ttlSeconds)
+	is.NoErr(err)
+
+	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.6.0.5", device.EventSourceHeartbeat)
+	is.NoErr(err)
+
+	db := testServer.Database.DB()
+	t0 := time.Now().UTC().Add(-20 * time.Minute)
+	_, err = db.ExecContext(ctx, `UPDATE address_events SET created_at = ? WHERE address_id = ?`, t0, addr.ID)
+	is.NoErr(err)
+	// Each renewal's gap (100s) against a 10s TTL is a 10x ratio — every one breached.
+	for i := 1; i <= 5; i++ {
+		_, err = db.ExecContext(ctx,
+			`INSERT INTO address_events (address_id, is_enabled, source, created_at) VALUES (?, 1, 'heartbeat', ?)`,
+			addr.ID, t0.Add(time.Duration(i*100)*time.Second),
+		)
+		is.NoErr(err)
+	}
+
+	deviceIDFilter := []httpapi.ID{dev.ID.Int64()}
+	limit := 2
+	page1, err := client.GetAddressHistoryWithResponse(ctx, &httpapi.GetAddressHistoryParams{
+		DeviceId: &deviceIDFilter, Limit: &limit,
+	})
+	is.NoErr(err)
+	is.Equal(page1.StatusCode(), http.StatusOK)
+	is.True(page1.JSON200.NextCursor != nil) // events endpoint is mid-page
+
+	resp, err := client.GetAddressHistoryHistogramWithResponse(ctx, &httpapi.GetAddressHistoryHistogramParams{
+		DeviceId: &deviceIDFilter,
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+
+	is.Equal(len(resp.JSON200.AtRiskDevices), 1)
+	is.Equal(resp.JSON200.AtRiskDevices[0].DeviceId, dev.ID.Int64())
+	is.Equal(resp.JSON200.AtRiskDevices[0].WorstRisk, httpapi.Breached)
+	is.Equal(resp.JSON200.AtRiskDevices[0].EventCount, 6) // create + 5 heartbeats, unaffected by the events page size
+}

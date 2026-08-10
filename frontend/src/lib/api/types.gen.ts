@@ -390,6 +390,11 @@ export type AddressHistoryResponse = {
 
 export type AddressHistoryHistogramResponse = {
   buckets: Array<AddressHistoryBucket>;
+  /**
+   * Top devices at risk of losing access in the filtered window, ordered by worst risk then event count. Same filters and window as buckets — the ranking changes exactly when the filters change and never on page-turn.
+   *
+   */
+  at_risk_devices: Array<AddressHistoryAtRiskDevice>;
 };
 
 export type AddressHistoryBucket = {
@@ -398,6 +403,19 @@ export type AddressHistoryBucket = {
    * Count of events matching the filters in this time bucket.
    */
   event_count: number;
+  /**
+   * Distinct devices whose worst ttl_risk in this bucket is `approaching`. A device with events at more than one risk level in the same bucket is counted once, under its worst level only.
+   *
+   */
+  approaching_device_count: number;
+  /**
+   * Distinct devices whose worst ttl_risk in this bucket is `critical`.
+   */
+  critical_device_count: number;
+  /**
+   * Distinct devices whose worst ttl_risk in this bucket is `breached`.
+   */
+  breached_device_count: number;
 };
 
 /**
@@ -1372,6 +1390,24 @@ export const DevicePairingStatus = {
  */
 export type DevicePairingStatus =
   (typeof DevicePairingStatus)[keyof typeof DevicePairingStatus];
+
+export type AddressHistoryAtRiskDevice = {
+  device_id: Id;
+  /**
+   * Name of the device
+   */
+  device_name: string;
+  /**
+   * The device's worst ttl_risk among events matching the filters in the window. Always approaching, critical, or breached — a device whose worst risk is ok or unknown never appears in this ranking.
+   *
+   */
+  worst_risk: TtlRisk;
+  /**
+   * This device's event count across the whole filtered window, not just the events at its worst risk level.
+   *
+   */
+  event_count: number;
+};
 
 /**
  * Filter operator for a value column. Supplied as the sibling `{field}_op` query param; defaults to `in` when omitted. Allowed operators vary per column.

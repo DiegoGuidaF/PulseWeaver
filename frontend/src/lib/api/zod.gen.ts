@@ -188,10 +188,9 @@ export const zAddAddressRequest = z.object({
 export const zAddressHistoryBucket = z.object({
   timestamp: z.iso.datetime({ offset: true, local: true }),
   event_count: z.int(),
-});
-
-export const zAddressHistoryHistogramResponse = z.object({
-  buckets: z.array(zAddressHistoryBucket),
+  approaching_device_count: z.int(),
+  critical_device_count: z.int(),
+  breached_device_count: z.int(),
 });
 
 /**
@@ -844,6 +843,18 @@ export const zFleetDevice = z.object({
 export const zOwnerFleetGroup = z.object({
   owner: zOwnerSummary,
   devices: z.array(zFleetDevice),
+});
+
+export const zAddressHistoryAtRiskDevice = z.object({
+  device_id: zId,
+  device_name: z.string(),
+  worst_risk: zTtlRisk,
+  event_count: z.int(),
+});
+
+export const zAddressHistoryHistogramResponse = z.object({
+  buckets: z.array(zAddressHistoryBucket),
+  at_risk_devices: z.array(zAddressHistoryAtRiskDevice).max(5),
 });
 
 /**

@@ -84,6 +84,7 @@ export {
   type Address,
   AddressEventKind,
   AddressEventSource,
+  type AddressHistoryAtRiskDevice,
   type AddressHistoryBucket,
   type AddressHistoryEvent,
   AddressHistoryFilterOperator,

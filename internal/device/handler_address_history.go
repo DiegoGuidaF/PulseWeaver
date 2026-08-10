@@ -53,20 +53,10 @@ func (h *HTTPHandler) GetAddressHistoryHistogram(
 		return httpapi.GetAddressHistoryHistogram500JSONResponse(errorMsgResponse("Failed to get address history histogram")), nil
 	}
 
-	buckets, err := h.repo.GetAddressHistoryHistogram(ctx, query)
+	response, err := h.repo.GetAddressHistoryHistogram(ctx, query)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to get address history histogram", slog.Any(AttrKeyError, err))
 		return httpapi.GetAddressHistoryHistogram500JSONResponse(errorMsgResponse("Failed to get address history histogram")), nil
-	}
-
-	response := httpapi.AddressHistoryHistogramResponse{
-		Buckets: make([]httpapi.AddressHistoryBucket, len(buckets)),
-	}
-	for i, b := range buckets {
-		response.Buckets[i] = httpapi.AddressHistoryBucket{
-			Timestamp:  httpapi.UTCTime(b.Timestamp.Time),
-			EventCount: b.EventCount,
-		}
 	}
 
 	return httpapi.GetAddressHistoryHistogram200JSONResponse(response), nil
