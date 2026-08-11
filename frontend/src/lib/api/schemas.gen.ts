@@ -748,7 +748,7 @@ export const AddressHistoryHistogramResponseSchema = {
         $ref: "#/components/schemas/AddressHistoryBucket",
       },
       description:
-        "Time buckets carrying at least one at-risk device, oldest first.\n",
+        "Every bucket across the window, oldest first, with no gaps: a bucket in which nothing renewed at all still appears, with all four counts zero. Bucket width follows the window size.\n",
     },
     at_risk_devices: {
       type: "array",
@@ -757,7 +757,7 @@ export const AddressHistoryHistogramResponseSchema = {
         $ref: "#/components/schemas/AddressHistoryAtRiskDevice",
       },
       description:
-        "Top devices at risk of losing access in the filtered window, ordered by worst risk then event count. Same filters and window as buckets — the ranking changes exactly when the filters change and never on page-turn.\n",
+        "The devices most worth re-tuning their lease TTL for, in the filtered window: ordered by worst risk, then by how often their renewals arrive after the TTL, then by total renewals. Same filters and window as buckets — the ranking changes exactly when the filters change and never on page-turn.\n",
     },
   },
 } as const;
@@ -766,6 +766,7 @@ export const AddressHistoryBucketSchema = {
   type: "object",
   required: [
     "timestamp",
+    "ok_device_count",
     "approaching_device_count",
     "critical_device_count",
     "breached_device_count",
@@ -776,10 +777,15 @@ export const AddressHistoryBucketSchema = {
       format: "date-time",
       "x-go-type": "UTCTime",
     },
+    ok_device_count: {
+      type: "integer",
+      description:
+        "Distinct devices whose worst ttl_risk in this bucket is `ok`. A device with events at more than one risk level in the same bucket is counted once, under its worst level only — the four counts on a bucket never double-count a device.\n",
+    },
     approaching_device_count: {
       type: "integer",
       description:
-        "Distinct devices whose worst ttl_risk in this bucket is `approaching`. A device with events at more than one risk level in the same bucket is counted once, under its worst level only.\n",
+        "Distinct devices whose worst ttl_risk in this bucket is `approaching`.",
     },
     critical_device_count: {
       type: "integer",
@@ -2688,7 +2694,15 @@ export const DevicePairingStatusSchema = {
 
 export const AddressHistoryAtRiskDeviceSchema = {
   type: "object",
-  required: ["device_id", "device_name", "worst_risk", "event_count"],
+  required: [
+    "device_id",
+    "device_name",
+    "worst_risk",
+    "renewal_count",
+    "late_renewal_count",
+    "ttl_seconds",
+    "p95_gap_seconds",
+  ],
   properties: {
     device_id: {
       $ref: "#/components/schemas/ID",
@@ -2706,10 +2720,26 @@ export const AddressHistoryAtRiskDeviceSchema = {
       description:
         "The device's worst ttl_risk among events matching the filters in the window. Always approaching, critical, or breached — a device whose worst risk is ok or unknown never appears in this ranking.\n",
     },
-    event_count: {
+    renewal_count: {
       type: "integer",
       description:
-        "This device's event count across the whole filtered window, not just the events at its worst risk level.\n",
+        "This device's renewals in the filtered window: events with a measurable gap since the device's previous renewal. Excludes events with nothing to measure against, such as the device's first-ever renewal or a lease expiry.\n",
+    },
+    late_renewal_count: {
+      type: "integer",
+      description:
+        "Of renewal_count, how many arrived after the device's lease TTL had already elapsed.",
+    },
+    ttl_seconds: {
+      type: "integer",
+      format: "int64",
+      description: "The device's configured address-lease TTL, in seconds.",
+    },
+    p95_gap_seconds: {
+      type: "integer",
+      format: "int64",
+      description:
+        "The 95th-percentile gap, in seconds, between this device's renewals in the window — 95% of its renewals arrived within this many seconds of the one before. With few renewals this equals the largest gap observed, which is the right number to size a TTL against.\n",
     },
   },
 } as const;

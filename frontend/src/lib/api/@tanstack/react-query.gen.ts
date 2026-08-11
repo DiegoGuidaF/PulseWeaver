@@ -1034,9 +1034,9 @@ export const getAddressHistoryHistogramQueryKey = (
 ) => createQueryKey("getAddressHistoryHistogram", options);
 
 /**
- * Get devices at risk of losing access over time
+ * Get device renewal timing against lease TTLs over time
  *
- * How many devices are at risk of losing access across the window, for the risk chart. Each time bucket counts the distinct devices at each TTL-risk level — approaching, critical, breached — counting a device once, at its worst level for that bucket. Bucket width follows the window size, and buckets with nothing at risk are left out: an empty list means no device was at risk, not that data is missing. Also returns the five most at-risk devices in the window. Takes the same filters as GET /address-history.
+ * How the fleet's address renewals compare to their lease TTLs across the window, for the renewal-timing chart. Each time bucket counts the distinct devices at each TTL-risk level — ok, approaching, critical, breached — counting a device once, at its worst level for that bucket. Bucket width follows the window size, and every bucket in the window is present, even one in which nothing renewed at all. Also returns the five devices most worth re-tuning their lease TTL in the window. Takes the same filters as GET /address-history.
  *
  */
 export const getAddressHistoryHistogramOptions = (

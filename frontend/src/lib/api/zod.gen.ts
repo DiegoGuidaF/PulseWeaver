@@ -187,6 +187,7 @@ export const zAddAddressRequest = z.object({
 
 export const zAddressHistoryBucket = z.object({
   timestamp: z.iso.datetime({ offset: true, local: true }),
+  ok_device_count: z.int(),
   approaching_device_count: z.int(),
   critical_device_count: z.int(),
   breached_device_count: z.int(),
@@ -848,7 +849,24 @@ export const zAddressHistoryAtRiskDevice = z.object({
   device_id: zId,
   device_name: z.string(),
   worst_risk: zTtlRisk,
-  event_count: z.int(),
+  renewal_count: z.int(),
+  late_renewal_count: z.int(),
+  ttl_seconds: z.coerce
+    .bigint()
+    .min(BigInt("-9223372036854775808"), {
+      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
+    })
+    .max(BigInt("9223372036854775807"), {
+      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
+    }),
+  p95_gap_seconds: z.coerce
+    .bigint()
+    .min(BigInt("-9223372036854775808"), {
+      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
+    })
+    .max(BigInt("9223372036854775807"), {
+      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
+    }),
 });
 
 export const zAddressHistoryHistogramResponse = z.object({
@@ -1374,7 +1392,7 @@ export const zGetAddressHistoryHistogramQuery = z.object({
 });
 
 /**
- * Time-bucketed event counts
+ * Time-bucketed device counts by TTL-risk band, plus the tuning ranking
  */
 export const zGetAddressHistoryHistogramResponse =
   zAddressHistoryHistogramResponse;

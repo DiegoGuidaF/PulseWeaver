@@ -125,10 +125,15 @@ END`
 // from what ttlRiskCase actually classifies.
 var ttlRiskOrder = []TTLRisk{TTLRiskUnknown, TTLRiskOK, TTLRiskApproaching, TTLRiskCritical, TTLRiskBreached}
 
-// ttlRiskApproachingRank is the lowest rank that counts as "at risk" — the
-// histogram's per-bucket device counts and the at-risk device ranking both
-// exclude anything below it (ok, unknown).
+// ttlRiskApproachingRank is the lowest rank the at-risk device ranking
+// selects on — a device whose worst risk in the window is ok or unknown
+// never appears in the ranking.
 var ttlRiskApproachingRank = slices.Index(ttlRiskOrder, TTLRiskApproaching)
+
+// ttlRiskOKRank is the lowest rank the histogram buckets count — unknown
+// stays excluded, since a row with no gap to measure is not a renewal and
+// belongs in neither the numerator nor the denominator.
+var ttlRiskOKRank = slices.Index(ttlRiskOrder, TTLRiskOK)
 
 // ttlRiskRankExpr renders a CASE mapping col — an expression producing one of
 // the TTLRisk string values — to its severity rank per ttlRiskOrder.
@@ -420,11 +425,13 @@ type addressHistoryRiskBucketRow struct {
 // aggregation levels: MAX(risk_rank) per (bucket, device_id) first, then
 // COUNT(*) grouped by (bucket, risk_rank) over that — a single-level
 // COUNT(DISTINCT device_id) per (bucket, risk_rank) would still double-count
-// a device that crossed bands within the bucket. ok/unknown ranks are
-// excluded before the outer GROUP BY: an empty chart correctly reads "fleet
-// healthy" rather than being dwarfed by routine traffic. This is also the
-// histogram's whole bucket list, so a window of purely routine traffic yields
-// no buckets at all rather than buckets with three zeroes.
+// a device that crossed bands within the bucket. Only unknown is excluded
+// before the outer GROUP BY: a row with no gap to measure is not a renewal,
+// so it belongs in neither band, but ok stays in — a bucket where every
+// device renewed comfortably is exactly the denominator the chart needs.
+// This result only carries buckets something happened in; the caller fills
+// in the buckets it omits (nothing renewed at all) with all-zero counts to
+// keep the response contiguous across the window.
 func (r *Repository) riskDeviceBuckets(ctx context.Context, q AddressHistoryQuery, bucketExpr string) ([]addressHistoryRiskBucketRow, error) {
 	base, err := addressHistoryBase(q)
 	if err != nil {
@@ -439,7 +446,7 @@ func (r *Repository) riskDeviceBuckets(ctx context.Context, q AddressHistoryQuer
 
 	bucketsSQL, bucketArgs, err := sq.Select("x.bucket AS bucket", "x.risk_rank AS risk_rank", "COUNT(*) AS device_count").
 		FromSelect(perDeviceBucket, "x").
-		Where(sq.GtOrEq{"x.risk_rank": ttlRiskApproachingRank}).
+		Where(sq.GtOrEq{"x.risk_rank": ttlRiskOKRank}).
 		GroupBy("x.bucket", "x.risk_rank").
 		OrderBy("x.bucket ASC").
 		ToSql()
@@ -455,20 +462,28 @@ func (r *Repository) riskDeviceBuckets(ctx context.Context, q AddressHistoryQuer
 }
 
 // addressHistoryAtRiskDeviceRow ranks one device by its worst ttl_risk and
-// carries its total matching event count for the whole filtered window.
+// carries the counts a reader needs to decide whether its lease TTL needs
+// retuning, all over the whole filtered window. P95GapSeconds is filled in
+// by a second query (atRiskDeviceP95Gaps), so it has no db tag.
 type addressHistoryAtRiskDeviceRow struct {
-	DeviceID   ids.DeviceID `db:"device_id"`
-	DeviceName string       `db:"device_name"`
-	RiskRank   int          `db:"risk_rank"`
-	EventCount int          `db:"event_count"`
+	DeviceID         ids.DeviceID `db:"device_id"`
+	DeviceName       string       `db:"device_name"`
+	RiskRank         int          `db:"risk_rank"`
+	RenewalCount     int          `db:"renewal_count"`
+	LateRenewalCount int          `db:"late_renewal_count"`
+	TTLSeconds       int64        `db:"ttl_seconds"`
+	P95GapSeconds    int64        `db:"-"`
 }
 
 // atRiskDevices ranks devices by their worst ttl_risk within the filtered
-// window, then by their total matching event count — the same filters and
-// window as the histogram buckets, since the ranking is meant to change
-// exactly when the filters change. event_count is the device's count across
-// the whole window, not just its worst bucket, so it answers "how often",
-// independent of where in the window the worst event landed.
+// window, then by how often their renewals arrive late, then by total
+// renewals — the same filters and window as the histogram buckets, since the
+// ranking is meant to change exactly when the filters change.
+// renewal_count/late_renewal_count are the device's counts across the whole
+// window, not just its worst bucket. ttl_seconds is MAX(e.ttl_seconds): the
+// value is constant across a device's rows, and a ranked device always has
+// one, since ttlRiskCase only produces approaching/critical/breached — the
+// ranks Having selects on — when ttl_seconds is non-null.
 func (r *Repository) atRiskDevices(ctx context.Context, q AddressHistoryQuery) ([]addressHistoryAtRiskDeviceRow, error) {
 	base, err := addressHistoryBase(q)
 	if err != nil {
@@ -480,10 +495,12 @@ func (r *Repository) atRiskDevices(ctx context.Context, q AddressHistoryQuery) (
 		Column("e.device_id AS device_id").
 		Column("e.device_name AS device_name").
 		Column("MAX("+rankExpr+") AS risk_rank").
-		Column("COUNT(*) AS event_count").
+		Column("SUM(CASE WHEN e.ttl_risk <> 'unknown' THEN 1 ELSE 0 END) AS renewal_count").
+		Column("SUM(CASE WHEN e.ttl_risk = 'breached' THEN 1 ELSE 0 END) AS late_renewal_count").
+		Column("MAX(e.ttl_seconds) AS ttl_seconds").
 		GroupBy("e.device_id", "e.device_name").
 		Having("MAX("+rankExpr+") >= ?", ttlRiskApproachingRank).
-		OrderBy("risk_rank DESC", "event_count DESC", "e.device_id ASC").
+		OrderBy("risk_rank DESC", "late_renewal_count DESC", "renewal_count DESC", "e.device_id ASC").
 		Limit(addressHistoryAtRiskLimit).
 		ToSql()
 	if err != nil {
@@ -494,14 +511,129 @@ func (r *Repository) atRiskDevices(ctx context.Context, q AddressHistoryQuery) (
 	if err := r.db.SelectContext(ctx, &devices, devicesSQL, deviceArgs...); err != nil {
 		return nil, fmt.Errorf("get address history at-risk devices: %w", err)
 	}
+	if len(devices) == 0 {
+		return devices, nil
+	}
+
+	deviceIDs := make([]ids.DeviceID, len(devices))
+	for i, d := range devices {
+		deviceIDs[i] = d.DeviceID
+	}
+	p95, err := r.atRiskDeviceP95Gaps(ctx, q, deviceIDs)
+	if err != nil {
+		return nil, err
+	}
+	for i := range devices {
+		gap, ok := p95[devices[i].DeviceID]
+		if !ok {
+			// Every ranked device has at least one non-unknown row, so the gap
+			// query must return one for each. A missing entry means that no
+			// longer holds, and the zero value is a legal gap a caller would
+			// read as "renews instantly" — fail loudly instead.
+			return nil, fmt.Errorf("get address history p95 gaps: no renewal gap for ranked device %d", devices[i].DeviceID.Int64())
+		}
+		devices[i].P95GapSeconds = gap
+	}
 	return devices, nil
 }
 
+// addressHistoryAtRiskP95Row is one device's nearest-rank p95 renewal gap.
+type addressHistoryAtRiskP95Row struct {
+	DeviceID      ids.DeviceID `db:"device_id"`
+	P95GapSeconds int64        `db:"p95_gap_seconds"`
+}
+
+// atRiskDeviceP95Gaps computes, for each given device, the smallest gap g
+// such that at least 95% of that device's renewals in the filtered window
+// are <= g (nearest-rank), scoped to the same filters/window as the ranking.
+// `rn * 100 >= n * 95` selects that row without CEIL or integer-division
+// rounding. With few renewals this collapses to the maximum gap, which is
+// the right number to size a TTL against. Restricting to the already-ranked
+// device_ids is an optimization, not a behavior change: p95 is computed
+// independently per device, so narrowing the row set first cannot change any
+// device's result.
+func (r *Repository) atRiskDeviceP95Gaps(ctx context.Context, q AddressHistoryQuery, deviceIDs []ids.DeviceID) (map[ids.DeviceID]int64, error) {
+	base, err := addressHistoryBase(q)
+	if err != nil {
+		return nil, err
+	}
+
+	renewals := base.
+		Column("e.device_id AS device_id").
+		Column("e.renewal_gap_seconds AS renewal_gap_seconds").
+		Where(sq.NotEq{"e.ttl_risk": string(TTLRiskUnknown)}).
+		Where(sq.Eq{"e.device_id": deviceIDs})
+
+	ranked := sq.Select(
+		"g.device_id AS device_id",
+		"g.renewal_gap_seconds AS renewal_gap_seconds",
+		"ROW_NUMBER() OVER (PARTITION BY g.device_id ORDER BY g.renewal_gap_seconds) AS rn",
+		"COUNT(*) OVER (PARTITION BY g.device_id) AS n",
+	).FromSelect(renewals, "g")
+
+	p95SQL, p95Args, err := sq.Select("k.device_id AS device_id", "MIN(k.renewal_gap_seconds) AS p95_gap_seconds").
+		FromSelect(ranked, "k").
+		Where("k.rn * 100 >= k.n * 95").
+		GroupBy("k.device_id").
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build address history p95 gap query: %w", err)
+	}
+
+	var rows []addressHistoryAtRiskP95Row
+	if err := r.db.SelectContext(ctx, &rows, p95SQL, p95Args...); err != nil {
+		return nil, fmt.Errorf("get address history p95 gaps: %w", err)
+	}
+
+	gaps := make(map[ids.DeviceID]int64, len(rows))
+	for _, row := range rows {
+		gaps[row.DeviceID] = row.P95GapSeconds
+	}
+	return gaps, nil
+}
+
+// foldRiskBuckets turns the (bucket, risk rank) rows riskDeviceBuckets
+// returns into one response bucket per entry in sequence, each carrying all
+// four bands. The sequence, not the rows, drives the result: a bucket the
+// query never saw (nothing renewed in it) still appears, all-zero, so the
+// response stays contiguous across the window and a caller never has to
+// reconstruct a gap it cannot see. Rows outside sequence — which the shared
+// from/to WHERE should already exclude — are dropped rather than extending
+// the window.
+func foldRiskBuckets(sequence []time.Time, rows []addressHistoryRiskBucketRow) []httpapi.AddressHistoryBucket {
+	byBucket := make(map[int64]map[TTLRisk]int, len(rows))
+	for _, rb := range rows {
+		key := rb.Timestamp.UTC().Unix()
+		bands, seen := byBucket[key]
+		if !seen {
+			bands = make(map[TTLRisk]int, 4)
+			byBucket[key] = bands
+		}
+		bands[ttlRiskOrder[rb.RiskRank]] = rb.DeviceCount
+	}
+
+	buckets := make([]httpapi.AddressHistoryBucket, len(sequence))
+	for i, ts := range sequence {
+		// A bucket with no row folds to a nil map, which reads as zero.
+		bands := byBucket[ts.Unix()]
+		buckets[i] = httpapi.AddressHistoryBucket{
+			Timestamp:              httpapi.UTCTime(ts),
+			OkDeviceCount:          bands[TTLRiskOK],
+			ApproachingDeviceCount: bands[TTLRiskApproaching],
+			CriticalDeviceCount:    bands[TTLRiskCritical],
+			BreachedDeviceCount:    bands[TTLRiskBreached],
+		}
+	}
+	return buckets
+}
+
 // GetAddressHistoryHistogram answers the histogram endpoint: per-bucket
-// at-risk device counts plus the top at-risk device ranking for the whole
-// window. Granularity is chosen server-side from the window size.
+// device counts across all four TTL-risk bands, contiguous across the whole
+// window, plus the top devices worth re-tuning their lease TTL. Granularity
+// is chosen server-side from the window size.
 func (r *Repository) GetAddressHistoryHistogram(ctx context.Context, q AddressHistoryQuery) (httpapi.AddressHistoryHistogramResponse, error) {
-	bucketExpr := timebucket.GranularityForWindow(q.To.Sub(q.From)).BucketExpr("e.created_at")
+	granularity := timebucket.GranularityForWindow(q.To.Sub(q.From))
+	bucketExpr := granularity.BucketExpr("e.created_at")
 
 	riskBuckets, err := r.riskDeviceBuckets(ctx, q, bucketExpr)
 	if err != nil {
@@ -512,40 +644,18 @@ func (r *Repository) GetAddressHistoryHistogram(ctx context.Context, q AddressHi
 		return httpapi.AddressHistoryHistogramResponse{}, err
 	}
 
-	// One row per (bucket, risk level) folds into one bucket carrying all
-	// three bands. The rows arrive ordered by bucket, so first sighting order
-	// is chronological order.
-	byBucket := make(map[int64]map[TTLRisk]int, len(riskBuckets))
-	order := make([]database.DBTime, 0, len(riskBuckets))
-	for _, rb := range riskBuckets {
-		key := rb.Timestamp.UTC().Unix()
-		bands, seen := byBucket[key]
-		if !seen {
-			bands = make(map[TTLRisk]int, 3)
-			byBucket[key] = bands
-			order = append(order, rb.Timestamp)
-		}
-		bands[ttlRiskOrder[rb.RiskRank]] = rb.DeviceCount
-	}
-
-	buckets := make([]httpapi.AddressHistoryBucket, len(order))
-	for i, ts := range order {
-		bands := byBucket[ts.UTC().Unix()]
-		buckets[i] = httpapi.AddressHistoryBucket{
-			Timestamp:              httpapi.UTCTime(ts.Time),
-			ApproachingDeviceCount: bands[TTLRiskApproaching],
-			CriticalDeviceCount:    bands[TTLRiskCritical],
-			BreachedDeviceCount:    bands[TTLRiskBreached],
-		}
-	}
+	buckets := foldRiskBuckets(granularity.Sequence(q.From, q.To), riskBuckets)
 
 	devices := make([]httpapi.AddressHistoryAtRiskDevice, len(atRisk))
 	for i, d := range atRisk {
 		devices[i] = httpapi.AddressHistoryAtRiskDevice{
-			DeviceId:   d.DeviceID.Int64(),
-			DeviceName: d.DeviceName,
-			WorstRisk:  TTLRiskToAPI(ttlRiskOrder[d.RiskRank]),
-			EventCount: d.EventCount,
+			DeviceId:         d.DeviceID.Int64(),
+			DeviceName:       d.DeviceName,
+			WorstRisk:        TTLRiskToAPI(ttlRiskOrder[d.RiskRank]),
+			RenewalCount:     d.RenewalCount,
+			LateRenewalCount: d.LateRenewalCount,
+			TtlSeconds:       d.TTLSeconds,
+			P95GapSeconds:    d.P95GapSeconds,
 		}
 	}
 

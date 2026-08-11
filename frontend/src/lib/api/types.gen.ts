@@ -390,12 +390,12 @@ export type AddressHistoryResponse = {
 
 export type AddressHistoryHistogramResponse = {
   /**
-   * Time buckets carrying at least one at-risk device, oldest first.
+   * Every bucket across the window, oldest first, with no gaps: a bucket in which nothing renewed at all still appears, with all four counts zero. Bucket width follows the window size.
    *
    */
   buckets: Array<AddressHistoryBucket>;
   /**
-   * Top devices at risk of losing access in the filtered window, ordered by worst risk then event count. Same filters and window as buckets — the ranking changes exactly when the filters change and never on page-turn.
+   * The devices most worth re-tuning their lease TTL for, in the filtered window: ordered by worst risk, then by how often their renewals arrive after the TTL, then by total renewals. Same filters and window as buckets — the ranking changes exactly when the filters change and never on page-turn.
    *
    */
   at_risk_devices: Array<AddressHistoryAtRiskDevice>;
@@ -404,8 +404,12 @@ export type AddressHistoryHistogramResponse = {
 export type AddressHistoryBucket = {
   timestamp: string;
   /**
-   * Distinct devices whose worst ttl_risk in this bucket is `approaching`. A device with events at more than one risk level in the same bucket is counted once, under its worst level only.
+   * Distinct devices whose worst ttl_risk in this bucket is `ok`. A device with events at more than one risk level in the same bucket is counted once, under its worst level only — the four counts on a bucket never double-count a device.
    *
+   */
+  ok_device_count: number;
+  /**
+   * Distinct devices whose worst ttl_risk in this bucket is `approaching`.
    */
   approaching_device_count: number;
   /**
@@ -1403,10 +1407,23 @@ export type AddressHistoryAtRiskDevice = {
    */
   worst_risk: TtlRisk;
   /**
-   * This device's event count across the whole filtered window, not just the events at its worst risk level.
+   * This device's renewals in the filtered window: events with a measurable gap since the device's previous renewal. Excludes events with nothing to measure against, such as the device's first-ever renewal or a lease expiry.
    *
    */
-  event_count: number;
+  renewal_count: number;
+  /**
+   * Of renewal_count, how many arrived after the device's lease TTL had already elapsed.
+   */
+  late_renewal_count: number;
+  /**
+   * The device's configured address-lease TTL, in seconds.
+   */
+  ttl_seconds: number;
+  /**
+   * The 95th-percentile gap, in seconds, between this device's renewals in the window — 95% of its renewals arrived within this many seconds of the one before. With few renewals this equals the largest gap observed, which is the right number to size a TTL against.
+   *
+   */
+  p95_gap_seconds: number;
 };
 
 /**
@@ -2667,7 +2684,7 @@ export type GetAddressHistoryHistogramError =
 
 export type GetAddressHistoryHistogramResponses = {
   /**
-   * Time-bucketed event counts
+   * Time-bucketed device counts by TTL-risk band, plus the tuning ranking
    */
   200: AddressHistoryHistogramResponse;
 };

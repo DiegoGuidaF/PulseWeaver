@@ -67,6 +67,58 @@ func GranularityForWindow(d time.Duration) Granularity {
 	}
 }
 
+// TruncateToBucket returns the start of t's Granularity bucket, in UTC. It
+// mirrors the truncation BucketExpr performs in SQL, so a caller filling in
+// missing buckets on the Go side lands on the same bucket boundaries the
+// query does.
+func (g Granularity) TruncateToBucket(t time.Time) time.Time {
+	t = t.UTC()
+	switch g {
+	case GranularityDay:
+		return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+	case GranularityMinute:
+		return t.Truncate(time.Minute)
+	case Granularity5Min:
+		return t.Truncate(5 * time.Minute)
+	case GranularityHour:
+		return t.Truncate(time.Hour)
+	default:
+		return t.Truncate(time.Hour)
+	}
+}
+
+// Next returns the start of the bucket immediately following t's bucket. t
+// must already be bucket-aligned (the result of TruncateToBucket).
+func (g Granularity) Next(t time.Time) time.Time {
+	switch g {
+	case GranularityDay:
+		return t.AddDate(0, 0, 1)
+	case GranularityMinute:
+		return t.Add(time.Minute)
+	case Granularity5Min:
+		return t.Add(5 * time.Minute)
+	case GranularityHour:
+		return t.Add(time.Hour)
+	default:
+		return t.Add(time.Hour)
+	}
+}
+
+// Sequence returns every bucket start from the bucket containing from
+// through the bucket containing to, inclusive, oldest first, in UTC. Pair it
+// with GranularityForWindow, whose ladder bounds the result (at most 168
+// hourly buckets at the 7-day cutoff, daily beyond) so materializing the
+// full range is safe.
+func (g Granularity) Sequence(from, to time.Time) []time.Time {
+	start := g.TruncateToBucket(from)
+	end := g.TruncateToBucket(to)
+	seq := []time.Time{}
+	for b := start; !b.After(end); b = g.Next(b) {
+		seq = append(seq, b)
+	}
+	return seq
+}
+
 // BucketExpr returns a full SQL expression that truncates col to the granularity bucket.
 // The returned string is safe to embed directly in a query via fmt.Sprintf — col must be
 // a trusted column reference, never user input.
