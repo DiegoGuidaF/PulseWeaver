@@ -1242,9 +1242,9 @@ export const getAddressHistory = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Get time-bucketed TTL-risk device counts and at-risk ranking
+ * Get devices at risk of losing access over time
  *
- * Returns, per time bucket, the distinct devices at each TTL-risk level (approaching/critical/breached only — a device is counted once, under its worst level for that bucket), and a top-5 at-risk device ranking for the whole filtered window. Same filters and window as GET /address-history; the measure is devices rather than events (ADR-009 §6.4 exception), so only buckets carrying an at-risk device appear. Granularity is chosen server-side from the window size. Not affected by the events endpoint's cursor.
+ * How many devices are at risk of losing access across the window, for the risk chart. Each time bucket counts the distinct devices at each TTL-risk level — approaching, critical, breached — counting a device once, at its worst level for that bucket. Bucket width follows the window size, and buckets with nothing at risk are left out: an empty list means no device was at risk, not that data is missing. Also returns the five most at-risk devices in the window. Takes the same filters as GET /address-history.
  *
  */
 export const getAddressHistoryHistogram = <

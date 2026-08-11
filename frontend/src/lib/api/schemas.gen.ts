@@ -748,7 +748,7 @@ export const AddressHistoryHistogramResponseSchema = {
         $ref: "#/components/schemas/AddressHistoryBucket",
       },
       description:
-        "Time buckets carrying at least one at-risk device. A bucket whose matching events are all `ok` or `unknown` is absent rather than present with zero counts, and a window with no device at risk returns an empty list.\n",
+        "Time buckets carrying at least one at-risk device, oldest first.\n",
     },
     at_risk_devices: {
       type: "array",

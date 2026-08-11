@@ -390,7 +390,7 @@ export type AddressHistoryResponse = {
 
 export type AddressHistoryHistogramResponse = {
   /**
-   * Time buckets carrying at least one at-risk device. A bucket whose matching events are all `ok` or `unknown` is absent rather than present with zero counts, and a window with no device at risk returns an empty list.
+   * Time buckets carrying at least one at-risk device, oldest first.
    *
    */
   buckets: Array<AddressHistoryBucket>;
