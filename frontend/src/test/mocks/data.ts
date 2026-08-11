@@ -110,15 +110,16 @@ export function createMockAccessLogRow(
 }
 
 /**
- * Creates a mock AddressHistoryBucket with realistic defaults.
+ * Creates a mock AddressHistoryBucket with realistic defaults. The server only
+ * emits a bucket that carries at least one at-risk device, so the default is
+ * not all-zero.
  */
 export function createMockAddressHistoryBucket(
   overrides?: Partial<AddressHistoryBucket>,
 ): AddressHistoryBucket {
   return {
     timestamp: '2024-01-01T12:00:00Z',
-    event_count: 3,
-    approaching_device_count: 0,
+    approaching_device_count: 1,
     critical_device_count: 0,
     breached_device_count: 0,
     ...overrides,
@@ -187,9 +188,9 @@ export function createMockAddressHistoryHistogramResponse(
 ): AddressHistoryHistogramResponse {
   return {
     buckets: [
-      createMockAddressHistoryBucket({ timestamp: '2024-01-01T10:00:00Z', event_count: 1 }),
-      createMockAddressHistoryBucket({ timestamp: '2024-01-01T11:00:00Z', event_count: 2 }),
-      createMockAddressHistoryBucket({ timestamp: '2024-01-01T12:00:00Z', event_count: 1 }),
+      createMockAddressHistoryBucket({ timestamp: '2024-01-01T10:00:00Z', approaching_device_count: 1 }),
+      createMockAddressHistoryBucket({ timestamp: '2024-01-01T11:00:00Z', approaching_device_count: 2, critical_device_count: 1 }),
+      createMockAddressHistoryBucket({ timestamp: '2024-01-01T12:00:00Z', approaching_device_count: 0, breached_device_count: 1 }),
     ],
     at_risk_devices: [],
     ...overrides,

@@ -403,47 +403,10 @@ func (r *Repository) GetAddressHistoryEvents(ctx context.Context, q AddressHisto
 	return AddressHistoryEvents{Events: events, Total: total}, nil
 }
 
-// addressHistoryEventCountBucketRow holds the total matching event count for
-// one time bucket — task 08's original histogram measure, preserved
-// unchanged alongside the risk-oriented counts 08b adds on top of the same
-// bucket set. Timestamp uses DBTime because SQLite's strftime returns TEXT
-// even for DATETIME columns, and DBTime handles the multi-format scanning.
-type addressHistoryEventCountBucketRow struct {
-	Timestamp  database.DBTime `db:"bucket"`
-	EventCount int             `db:"event_count"`
-}
-
-// eventCountBuckets returns the plain event count per time bucket, over the
-// same filtered rows GetAddressHistoryEvents counts — never affected by that
-// endpoint's cursor, since the histogram carries no cursor parameter. Buckets
-// with zero matching events are simply absent (no gap-filling); this is also
-// the superset bucket list the risk device counts merge onto, since every row
-// contributing to a risk count also contributes to this count.
-func (r *Repository) eventCountBuckets(ctx context.Context, q AddressHistoryQuery, bucketExpr string) ([]addressHistoryEventCountBucketRow, error) {
-	base, err := addressHistoryBase(q)
-	if err != nil {
-		return nil, err
-	}
-
-	bucketsSQL, bucketArgs, err := base.
-		Column(bucketExpr + " AS bucket").
-		Column("COUNT(*) AS event_count").
-		GroupBy("bucket").
-		OrderBy("bucket ASC").
-		ToSql()
-	if err != nil {
-		return nil, fmt.Errorf("build address history event-count buckets query: %w", err)
-	}
-
-	var buckets []addressHistoryEventCountBucketRow
-	if err := r.db.SelectContext(ctx, &buckets, bucketsSQL, bucketArgs...); err != nil {
-		return nil, fmt.Errorf("get address history event-count buckets: %w", err)
-	}
-	return buckets, nil
-}
-
 // addressHistoryRiskBucketRow holds the distinct-device count at one risk
-// rank within one time bucket.
+// rank within one time bucket. Timestamp uses DBTime because SQLite's
+// strftime returns TEXT even for DATETIME columns, and DBTime handles the
+// multi-format scanning.
 type addressHistoryRiskBucketRow struct {
 	Timestamp   database.DBTime `db:"bucket"`
 	RiskRank    int             `db:"risk_rank"`
@@ -459,7 +422,9 @@ type addressHistoryRiskBucketRow struct {
 // COUNT(DISTINCT device_id) per (bucket, risk_rank) would still double-count
 // a device that crossed bands within the bucket. ok/unknown ranks are
 // excluded before the outer GROUP BY: an empty chart correctly reads "fleet
-// healthy" rather than being dwarfed by routine traffic.
+// healthy" rather than being dwarfed by routine traffic. This is also the
+// histogram's whole bucket list, so a window of purely routine traffic yields
+// no buckets at all rather than buckets with three zeroes.
 func (r *Repository) riskDeviceBuckets(ctx context.Context, q AddressHistoryQuery, bucketExpr string) ([]addressHistoryRiskBucketRow, error) {
 	base, err := addressHistoryBase(q)
 	if err != nil {
@@ -476,6 +441,7 @@ func (r *Repository) riskDeviceBuckets(ctx context.Context, q AddressHistoryQuer
 		FromSelect(perDeviceBucket, "x").
 		Where(sq.GtOrEq{"x.risk_rank": ttlRiskApproachingRank}).
 		GroupBy("x.bucket", "x.risk_rank").
+		OrderBy("x.bucket ASC").
 		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build address history risk buckets query: %w", err)
@@ -531,19 +497,12 @@ func (r *Repository) atRiskDevices(ctx context.Context, q AddressHistoryQuery) (
 	return devices, nil
 }
 
-// GetAddressHistoryHistogram answers the histogram endpoint: per-bucket event
-// counts (task 08's original measure, unchanged) merged with per-bucket
-// at-risk device counts, plus the top at-risk device ranking for the whole
-// window (task 08b). Granularity is chosen server-side from the window size
-// and shared across both bucket queries so they can never disagree about
-// bucket boundaries.
+// GetAddressHistoryHistogram answers the histogram endpoint: per-bucket
+// at-risk device counts plus the top at-risk device ranking for the whole
+// window. Granularity is chosen server-side from the window size.
 func (r *Repository) GetAddressHistoryHistogram(ctx context.Context, q AddressHistoryQuery) (httpapi.AddressHistoryHistogramResponse, error) {
 	bucketExpr := timebucket.GranularityForWindow(q.To.Sub(q.From)).BucketExpr("e.created_at")
 
-	eventBuckets, err := r.eventCountBuckets(ctx, q, bucketExpr)
-	if err != nil {
-		return httpapi.AddressHistoryHistogramResponse{}, err
-	}
 	riskBuckets, err := r.riskDeviceBuckets(ctx, q, bucketExpr)
 	if err != nil {
 		return httpapi.AddressHistoryHistogramResponse{}, err
@@ -553,24 +512,30 @@ func (r *Repository) GetAddressHistoryHistogram(ctx context.Context, q AddressHi
 		return httpapi.AddressHistoryHistogramResponse{}, err
 	}
 
-	riskByBucket := make(map[int64]map[TTLRisk]int, len(riskBuckets))
+	// One row per (bucket, risk level) folds into one bucket carrying all
+	// three bands. The rows arrive ordered by bucket, so first sighting order
+	// is chronological order.
+	byBucket := make(map[int64]map[TTLRisk]int, len(riskBuckets))
+	order := make([]database.DBTime, 0, len(riskBuckets))
 	for _, rb := range riskBuckets {
 		key := rb.Timestamp.UTC().Unix()
-		if riskByBucket[key] == nil {
-			riskByBucket[key] = make(map[TTLRisk]int, 3)
+		bands, seen := byBucket[key]
+		if !seen {
+			bands = make(map[TTLRisk]int, 3)
+			byBucket[key] = bands
+			order = append(order, rb.Timestamp)
 		}
-		riskByBucket[key][ttlRiskOrder[rb.RiskRank]] = rb.DeviceCount
+		bands[ttlRiskOrder[rb.RiskRank]] = rb.DeviceCount
 	}
 
-	buckets := make([]httpapi.AddressHistoryBucket, len(eventBuckets))
-	for i, b := range eventBuckets {
-		risks := riskByBucket[b.Timestamp.UTC().Unix()]
+	buckets := make([]httpapi.AddressHistoryBucket, len(order))
+	for i, ts := range order {
+		bands := byBucket[ts.UTC().Unix()]
 		buckets[i] = httpapi.AddressHistoryBucket{
-			Timestamp:              httpapi.UTCTime(b.Timestamp.Time),
-			EventCount:             b.EventCount,
-			ApproachingDeviceCount: risks[TTLRiskApproaching],
-			CriticalDeviceCount:    risks[TTLRiskCritical],
-			BreachedDeviceCount:    risks[TTLRiskBreached],
+			Timestamp:              httpapi.UTCTime(ts.Time),
+			ApproachingDeviceCount: bands[TTLRiskApproaching],
+			CriticalDeviceCount:    bands[TTLRiskCritical],
+			BreachedDeviceCount:    bands[TTLRiskBreached],
 		}
 	}
 

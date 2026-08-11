@@ -747,6 +747,8 @@ export const AddressHistoryHistogramResponseSchema = {
       items: {
         $ref: "#/components/schemas/AddressHistoryBucket",
       },
+      description:
+        "Time buckets carrying at least one at-risk device. A bucket whose matching events are all `ok` or `unknown` is absent rather than present with zero counts, and a window with no device at risk returns an empty list.\n",
     },
     at_risk_devices: {
       type: "array",
@@ -764,7 +766,6 @@ export const AddressHistoryBucketSchema = {
   type: "object",
   required: [
     "timestamp",
-    "event_count",
     "approaching_device_count",
     "critical_device_count",
     "breached_device_count",
@@ -774,10 +775,6 @@ export const AddressHistoryBucketSchema = {
       type: "string",
       format: "date-time",
       "x-go-type": "UTCTime",
-    },
-    event_count: {
-      type: "integer",
-      description: "Count of events matching the filters in this time bucket.",
     },
     approaching_device_count: {
       type: "integer",

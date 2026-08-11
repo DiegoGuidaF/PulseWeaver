@@ -52,23 +52,45 @@ func TestHandler_GetAddressHistory_EventEnrichment(t *testing.T) {
 // guard for the chart/table inconsistency the row-model change fixes: every
 // filter must narrow both endpoints identically since they share one
 // filtered, enriched read model.
+//
+// The ranking's event_count is the parity mechanism: it counts *every* row
+// matching the filters for a ranked device, not only that device's at-risk
+// rows, so summing it over a filtered set whose devices are all at risk must
+// reproduce the events endpoint's total exactly.
 func TestHandler_GetAddressHistory_FiltersMatchHistogram(t *testing.T) {
 	is := is.New(t)
 	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
 	client := testutils.NewAdminAPIClient(t, testServer)
 
+	const ttlSeconds = 100
 	devA, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "filter-a", nil)
 	is.NoErr(err)
 	devB, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "filter-b", nil)
 	is.NoErr(err)
+	_, err = testServer.RuleService.EnableDeviceAddressLeaseRule(ctx, devA.ID, ttlSeconds)
+	is.NoErr(err)
+	_, err = testServer.RuleService.EnableDeviceAddressLeaseRule(ctx, devB.ID, ttlSeconds)
+	is.NoErr(err)
 
-	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, devA.ID, "10.1.0.1", device.EventSourceHeartbeat)
+	addrA, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, devA.ID, "10.1.0.1", device.EventSourceHeartbeat)
 	is.NoErr(err)
-	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, devA.ID, "10.1.0.2", device.EventSourceManual)
+	addrB, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, devB.ID, "10.2.0.1", device.EventSourceHeartbeat)
 	is.NoErr(err)
-	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, devB.ID, "10.2.0.1", device.EventSourceHeartbeat)
-	is.NoErr(err)
+
+	// Both devices renew far past their TTL, so both are at risk and the
+	// device_id filter is what decides which of them the histogram describes.
+	db := testServer.Database.DB()
+	t0 := time.Now().UTC().Add(-time.Hour)
+	for _, addrID := range []ids.AddressID{addrA.ID, addrB.ID} {
+		_, err = db.ExecContext(ctx, `UPDATE address_events SET created_at = ? WHERE address_id = ?`, t0, addrID)
+		is.NoErr(err)
+		_, err = db.ExecContext(ctx,
+			`INSERT INTO address_events (address_id, is_enabled, source, created_at) VALUES (?, 1, 'heartbeat', ?)`,
+			addrID, t0.Add(3*ttlSeconds*time.Second),
+		)
+		is.NoErr(err)
+	}
 
 	deviceIDFilter := []httpapi.ID{devA.ID.Int64()}
 
@@ -77,7 +99,7 @@ func TestHandler_GetAddressHistory_FiltersMatchHistogram(t *testing.T) {
 	})
 	is.NoErr(err)
 	is.Equal(eventsResp.StatusCode(), http.StatusOK)
-	is.Equal(eventsResp.JSON200.Total, 2) // devA's two creations only, devB excluded
+	is.Equal(eventsResp.JSON200.Total, 2) // devA's creation and late renewal only, devB excluded
 
 	histResp, err := client.GetAddressHistoryHistogramWithResponse(ctx, &httpapi.GetAddressHistoryHistogramParams{
 		DeviceId: &deviceIDFilter,
@@ -85,22 +107,37 @@ func TestHandler_GetAddressHistory_FiltersMatchHistogram(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(histResp.StatusCode(), http.StatusOK)
 
+	is.Equal(len(histResp.JSON200.AtRiskDevices), 1) // devB is at risk too, and still excluded
+	is.Equal(histResp.JSON200.AtRiskDevices[0].DeviceId, devA.ID.Int64())
+
 	sum := 0
-	for _, b := range histResp.JSON200.Buckets {
-		sum += b.EventCount
+	for _, d := range histResp.JSON200.AtRiskDevices {
+		sum += d.EventCount
 	}
 	is.Equal(sum, eventsResp.JSON200.Total)
+
+	breached := 0
+	for _, b := range histResp.JSON200.Buckets {
+		breached += b.BreachedDeviceCount
+	}
+	is.Equal(breached, 1) // one device, one breaching bucket
 }
 
 // addressHistoryFilterCase is one filter set applied to both address-history
 // endpoints. The fields mirror the generated params structs, which are distinct
 // types per endpoint even though they carry the same filter columns.
+// expectAtRisk records whether the filtered rows leave the device at risk. A
+// filter that keeps only ok/unknown rows legitimately empties the histogram —
+// the measure is at-risk devices — so those cases assert emptiness instead of
+// count parity, which is a real check only because the unfiltered histogram
+// ranks the same device.
 type addressHistoryFilterCase struct {
-	name      string
-	source    []httpapi.AddressEventSource
-	eventKind []httpapi.AddressEventKind
-	ttlRisk   []httpapi.TTLRisk
-	ip        []string
+	name         string
+	source       []httpapi.AddressEventSource
+	eventKind    []httpapi.AddressEventKind
+	ttlRisk      []httpapi.TTLRisk
+	ip           []string
+	expectAtRisk bool
 }
 
 // TestHandler_GetAddressHistory_DerivedFiltersMatchHistogram extends the
@@ -152,16 +189,27 @@ func TestHandler_GetAddressHistory_DerivedFiltersMatchHistogram(t *testing.T) {
 	to := time.Now().UTC().Add(time.Minute)
 	deviceIDFilter := []httpapi.ID{dev.ID.Int64()}
 
+	// Baseline: unfiltered, this device is ranked and charted. Every empty
+	// expectation below is therefore attributable to the filter reaching the
+	// histogram's read model, not to a fixture that was never at risk.
+	baseline, err := client.GetAddressHistoryHistogramWithResponse(ctx, &httpapi.GetAddressHistoryHistogramParams{
+		DeviceId: &deviceIDFilter, From: &from, To: &to,
+	})
+	is.NoErr(err)
+	is.Equal(baseline.StatusCode(), http.StatusOK)
+	is.Equal(len(baseline.JSON200.AtRiskDevices), 1)
+	is.True(len(baseline.JSON200.Buckets) > 0)
+
 	cases := []addressHistoryFilterCase{
 		{name: "event_kind refresh only", eventKind: []httpapi.AddressEventKind{httpapi.AddressEventKindRefresh}},
 		{name: "event_kind state changes", eventKind: []httpapi.AddressEventKind{
 			httpapi.AddressEventKindCreated, httpapi.AddressEventKindEnabled, httpapi.AddressEventKindDisabled,
-		}},
-		{name: "ttl_risk breached", ttlRisk: []httpapi.TTLRisk{httpapi.Breached}},
+		}, expectAtRisk: true},
+		{name: "ttl_risk breached", ttlRisk: []httpapi.TTLRisk{httpapi.Breached}, expectAtRisk: true},
 		{name: "ttl_risk unknown", ttlRisk: []httpapi.TTLRisk{httpapi.Unknown}},
 		{name: "ttl_risk ok", ttlRisk: []httpapi.TTLRisk{httpapi.Ok}},
 		{name: "source expiry", source: []httpapi.AddressEventSource{httpapi.Expiry}},
-		{name: "ip", ip: []string{"10.5.0.1"}},
+		{name: "ip", ip: []string{"10.5.0.1"}, expectAtRisk: true},
 	}
 
 	for _, tc := range cases {
@@ -184,15 +232,21 @@ func TestHandler_GetAddressHistory_DerivedFiltersMatchHistogram(t *testing.T) {
 			is.NoErr(err)
 			is.Equal(histResp.StatusCode(), http.StatusOK)
 
-			sum := 0
-			for _, b := range histResp.JSON200.Buckets {
-				sum += b.EventCount
-			}
-			is.Equal(sum, eventsResp.JSON200.Total)
 			// Guard against passing vacuously: every case above must match rows,
-			// otherwise 0 == 0 would "prove" parity for a filter that never ran.
+			// otherwise an empty histogram would "prove" agreement for a filter
+			// that never ran.
 			is.True(eventsResp.JSON200.Total > 0)
 			is.Equal(len(eventsResp.JSON200.Events), eventsResp.JSON200.Total)
+
+			if !tc.expectAtRisk {
+				is.Equal(len(histResp.JSON200.AtRiskDevices), 0)
+				is.Equal(len(histResp.JSON200.Buckets), 0)
+				return
+			}
+
+			is.Equal(len(histResp.JSON200.AtRiskDevices), 1)
+			is.Equal(histResp.JSON200.AtRiskDevices[0].EventCount, eventsResp.JSON200.Total)
+			is.True(len(histResp.JSON200.Buckets) > 0)
 		})
 	}
 }
@@ -204,48 +258,6 @@ func sliceParam[T any](values []T) *[]T {
 		return nil
 	}
 	return &values
-}
-
-// TestHandler_GetAddressHistoryHistogram_IgnoresEventsCursor confirms the
-// histogram is never scoped by the events endpoint's pagination: it has no
-// cursor parameter at all, and its total must reflect every matching event,
-// not just the page the caller happens to be viewing.
-func TestHandler_GetAddressHistoryHistogram_IgnoresEventsCursor(t *testing.T) {
-	is := is.New(t)
-	ctx := t.Context()
-	testServer := testutils.SetupIntegrationServer(t)
-	client := testutils.NewAdminAPIClient(t, testServer)
-
-	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "cursor-device", nil)
-	is.NoErr(err)
-
-	for i := range 5 {
-		_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, fmt.Sprintf("10.0.0.%d", i+1), device.EventSourceHeartbeat)
-		is.NoErr(err)
-	}
-
-	deviceIDFilter := []httpapi.ID{dev.ID.Int64()}
-	limit := 2
-	page1, err := client.GetAddressHistoryWithResponse(ctx, &httpapi.GetAddressHistoryParams{
-		DeviceId: &deviceIDFilter,
-		Limit:    &limit,
-	})
-	is.NoErr(err)
-	is.Equal(page1.StatusCode(), http.StatusOK)
-	is.Equal(len(page1.JSON200.Events), 2)
-	is.True(page1.JSON200.NextCursor != nil) // more pages exist
-
-	histResp, err := client.GetAddressHistoryHistogramWithResponse(ctx, &httpapi.GetAddressHistoryHistogramParams{
-		DeviceId: &deviceIDFilter,
-	})
-	is.NoErr(err)
-	is.Equal(histResp.StatusCode(), http.StatusOK)
-
-	sum := 0
-	for _, b := range histResp.JSON200.Buckets {
-		sum += b.EventCount
-	}
-	is.Equal(sum, 5) // all 5 events, unaffected by the events endpoint being mid-page
 }
 
 // TestHandler_GetAddressHistory_RoutineExpiryNotBreached is the direct
@@ -533,8 +545,7 @@ func TestHandler_GetAddressHistoryHistogram_WorstRiskPerBucket(t *testing.T) {
 	is.Equal(resp.StatusCode(), http.StatusOK)
 	buckets := resp.JSON200.Buckets
 
-	is.Equal(len(buckets), 1) // create + approaching + critical all land in the same 5-minute bucket
-	is.Equal(buckets[0].EventCount, 3)
+	is.Equal(len(buckets), 1)                      // create + approaching + critical all land in the same 5-minute bucket
 	is.Equal(buckets[0].CriticalDeviceCount, 1)    // worst risk wins
 	is.Equal(buckets[0].ApproachingDeviceCount, 0) // not double-counted in the lower band
 	is.Equal(buckets[0].BreachedDeviceCount, 0)
@@ -583,15 +594,14 @@ func TestHandler_GetAddressHistoryHistogram_ExcludesOkAndUnknown(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusOK)
 
-	is.True(len(resp.JSON200.Buckets) > 0) // event_count buckets still present …
-	riskTotal := 0
-	eventTotal := 0
-	for _, b := range resp.JSON200.Buckets {
-		eventTotal += b.EventCount
-		riskTotal += b.ApproachingDeviceCount + b.CriticalDeviceCount + b.BreachedDeviceCount
-	}
-	is.Equal(eventTotal, 2) // create + ok refresh
-	is.Equal(riskTotal, 0)  // … but contribute nothing to the risk bands
+	eventsResp, err := client.GetAddressHistoryWithResponse(ctx, &httpapi.GetAddressHistoryParams{
+		DeviceId: &deviceIDFilter, From: &from, To: &to,
+	})
+	is.NoErr(err)
+	is.Equal(eventsResp.StatusCode(), http.StatusOK)
+	is.Equal(eventsResp.JSON200.Total, 2) // create + ok refresh: the rows exist …
+
+	is.Equal(len(resp.JSON200.Buckets), 0) // … and contribute no bucket at all
 	is.Equal(len(resp.JSON200.AtRiskDevices), 0)
 }
 
@@ -718,4 +728,11 @@ func TestHandler_GetAddressHistoryHistogram_RankingStableUnderCursor(t *testing.
 	is.Equal(resp.JSON200.AtRiskDevices[0].DeviceId, dev.ID.Int64())
 	is.Equal(resp.JSON200.AtRiskDevices[0].WorstRisk, httpapi.Breached)
 	is.Equal(resp.JSON200.AtRiskDevices[0].EventCount, 6) // create + 5 heartbeats, unaffected by the events page size
+
+	// The buckets are charted for the same reason: the device shows as
+	// breached across the window, not only on the page being viewed.
+	is.True(len(resp.JSON200.Buckets) > 0)
+	for _, b := range resp.JSON200.Buckets {
+		is.Equal(b.BreachedDeviceCount, 1)
+	}
 }

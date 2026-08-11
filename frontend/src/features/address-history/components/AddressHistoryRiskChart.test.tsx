@@ -29,9 +29,27 @@ describe("AddressHistoryRiskChart", () => {
         expect(screen.getByText("Failed to load risk history")).toBeInTheDocument();
     });
 
-    it("shows the reassuring empty state when no buckets carry at-risk devices", () => {
+    it("shows the reassuring empty state when there are no buckets", () => {
         renderWithProviders(
             <AddressHistoryRiskChart buckets={[]} timeRangeMs={3_600_000} isPending={false} />,
+        );
+
+        expect(screen.getByText("No devices at risk in this period")).toBeInTheDocument();
+    });
+
+    it("shows the reassuring empty state for buckets whose bands are all zero", () => {
+        renderWithProviders(
+            <AddressHistoryRiskChart
+                buckets={[
+                    createMockAddressHistoryBucket({
+                        approaching_device_count: 0,
+                        critical_device_count: 0,
+                        breached_device_count: 0,
+                    }),
+                ]}
+                timeRangeMs={3_600_000}
+                isPending={false}
+            />,
         );
 
         expect(screen.getByText("No devices at risk in this period")).toBeInTheDocument();

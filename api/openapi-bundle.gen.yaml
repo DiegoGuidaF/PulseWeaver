@@ -1059,7 +1059,7 @@ paths:
         - addresses
       summary: Get time-bucketed TTL-risk device counts and at-risk ranking
       description: |
-        Returns, per time bucket, the total matching event count plus the distinct devices at each TTL-risk level (approaching/critical/breached only — a device is counted once, under its worst level for that bucket), and a top-5 at-risk device ranking for the whole filtered window. Same filters and window as GET /address-history; the risk measure is devices rather than events (ADR-009 §6.4 exception). Granularity is chosen server-side from the window size. Not affected by the events endpoint's cursor.
+        Returns, per time bucket, the distinct devices at each TTL-risk level (approaching/critical/breached only — a device is counted once, under its worst level for that bucket), and a top-5 at-risk device ranking for the whole filtered window. Same filters and window as GET /address-history; the measure is devices rather than events (ADR-009 §6.4 exception), so only buckets carrying an at-risk device appear. Granularity is chosen server-side from the window size. Not affected by the events endpoint's cursor.
       parameters:
         - name: device_id
           in: query
@@ -3495,6 +3495,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AddressHistoryBucket'
+          description: |
+            Time buckets carrying at least one at-risk device. A bucket whose matching events are all `ok` or `unknown` is absent rather than present with zero counts, and a window with no device at risk returns an empty list.
         at_risk_devices:
           type: array
           maxItems: 5
@@ -3506,7 +3508,6 @@ components:
       type: object
       required:
         - timestamp
-        - event_count
         - approaching_device_count
         - critical_device_count
         - breached_device_count
@@ -3515,9 +3516,6 @@ components:
           type: string
           format: date-time
           x-go-type: UTCTime
-        event_count:
-          type: integer
-          description: Count of events matching the filters in this time bucket.
         approaching_device_count:
           type: integer
           description: |

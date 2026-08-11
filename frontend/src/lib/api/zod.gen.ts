@@ -187,7 +187,6 @@ export const zAddAddressRequest = z.object({
 
 export const zAddressHistoryBucket = z.object({
   timestamp: z.iso.datetime({ offset: true, local: true }),
-  event_count: z.int(),
   approaching_device_count: z.int(),
   critical_device_count: z.int(),
   breached_device_count: z.int(),

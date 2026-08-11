@@ -30,11 +30,10 @@ export function AddressHistoryRiskChart({ buckets, timeRangeMs, isPending, error
         [TTL_RISK_LABELS[TtlRisk.BREACHED]]: b.breached_device_count,
     }));
 
-    // The bucket list is the set of buckets carrying any matching event, not
-    // any at-risk device — a window of purely routine traffic still returns
-    // buckets, with all three band counts at zero. Emptiness therefore has to
-    // be measured on the bands themselves, or a healthy fleet renders an
-    // all-zero stacked chart instead of the reassurance it has earned.
+    // Emptiness is read off the bands actually being charted rather than off
+    // buckets.length, so a bucket set that carries nothing to plot still
+    // renders the reassurance a healthy fleet has earned instead of an
+    // all-zero stacked chart.
     const hasAnyAtRiskDevice = (buckets ?? []).some(
         (b) => b.approaching_device_count + b.critical_device_count + b.breached_device_count > 0,
     );

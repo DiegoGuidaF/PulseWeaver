@@ -1244,7 +1244,7 @@ export const getAddressHistory = <ThrowOnError extends boolean = false>(
 /**
  * Get time-bucketed TTL-risk device counts and at-risk ranking
  *
- * Returns, per time bucket, the total matching event count plus the distinct devices at each TTL-risk level (approaching/critical/breached only — a device is counted once, under its worst level for that bucket), and a top-5 at-risk device ranking for the whole filtered window. Same filters and window as GET /address-history; the risk measure is devices rather than events (ADR-009 §6.4 exception). Granularity is chosen server-side from the window size. Not affected by the events endpoint's cursor.
+ * Returns, per time bucket, the distinct devices at each TTL-risk level (approaching/critical/breached only — a device is counted once, under its worst level for that bucket), and a top-5 at-risk device ranking for the whole filtered window. Same filters and window as GET /address-history; the measure is devices rather than events (ADR-009 §6.4 exception), so only buckets carrying an at-risk device appear. Granularity is chosen server-side from the window size. Not affected by the events endpoint's cursor.
  *
  */
 export const getAddressHistoryHistogram = <

@@ -389,6 +389,10 @@ export type AddressHistoryResponse = {
 };
 
 export type AddressHistoryHistogramResponse = {
+  /**
+   * Time buckets carrying at least one at-risk device. A bucket whose matching events are all `ok` or `unknown` is absent rather than present with zero counts, and a window with no device at risk returns an empty list.
+   *
+   */
   buckets: Array<AddressHistoryBucket>;
   /**
    * Top devices at risk of losing access in the filtered window, ordered by worst risk then event count. Same filters and window as buckets — the ranking changes exactly when the filters change and never on page-turn.
@@ -399,10 +403,6 @@ export type AddressHistoryHistogramResponse = {
 
 export type AddressHistoryBucket = {
   timestamp: string;
-  /**
-   * Count of events matching the filters in this time bucket.
-   */
-  event_count: number;
   /**
    * Distinct devices whose worst ttl_risk in this bucket is `approaching`. A device with events at more than one risk level in the same bucket is counted once, under its worst level only.
    *

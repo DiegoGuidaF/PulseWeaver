@@ -146,7 +146,8 @@ describe("AddressHistoryTable", () => {
             () => expect(screen.getAllByText("OK").length).toBeGreaterThan(0),
             { timeout: TEST_TIMEOUTS.SHORT },
         );
-        expect(screen.getByText("Breached")).toBeInTheDocument();
+        // Scoped to the table: the risk chart's legend names the same bands.
+        expect(within(screen.getByRole("table")).getByText("Breached")).toBeInTheDocument();
         expect(
             screen.getAllByRole("columnheader").find((h) => h.textContent?.includes("Lease health")),
         ).toBeDefined();
@@ -493,7 +494,12 @@ describe("AddressHistoryTable", () => {
         });
 
         it("shows a lease health chip when ttl_risk filter is set", async () => {
-            server.use(addressHandlers.history.empty());
+            // No matching events means no at-risk buckets either, so the chart
+            // is in its empty state and its legend cannot shadow the chip.
+            server.use(
+                addressHandlers.history.empty(),
+                addressHandlers.historyHistogram.success(createMockAddressHistoryHistogramResponse({ buckets: [] })),
+            );
 
             renderTable([
                 "/address-history?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&ttl_risk=breached",
