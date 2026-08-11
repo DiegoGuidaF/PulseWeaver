@@ -16,7 +16,7 @@ import {
     EVENT_KIND_COLORS,
     EVENT_KIND_LABELS,
     EVENT_KIND_OPTIONS,
-    LEASE_HEALTH_COLUMN_LABEL,
+    TTL_HEADROOM_COLUMN_LABEL,
     SOURCE_LABELS,
     SOURCE_OPTIONS,
     TTL_RISK_BADGE,
@@ -340,13 +340,13 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
         },
         {
             accessor: "ttl_risk",
-            title: LEASE_HEALTH_COLUMN_LABEL,
+            title: TTL_HEADROOM_COLUMN_LABEL,
             textAlign: "center",
             filter: columnFilterSlot("ttl_risk", TTL_RISK_OPTIONS),
             filtering: isFilterActive(deps.getColumnFilter("ttl_risk")),
             render: (row) => (
                 <FilterableCell
-                    filterLabel="Filter by this lease health"
+                    filterLabel="Filter by this TTL headroom"
                     onFilter={() =>
                         deps.setColumnFilter("ttl_risk", {
                             op: AddressHistoryFilterOperator.IN,

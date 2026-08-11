@@ -66,7 +66,7 @@ describe('DeviceHistoryTab', () => {
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );
-        expect(screen.getByText('No devices at risk in this period')).toBeInTheDocument();
+        expect(screen.getByText('No lease renewals in this window')).toBeInTheDocument();
     });
 
     it('renders chart section title', async () => {
@@ -74,7 +74,7 @@ describe('DeviceHistoryTab', () => {
 
         await waitFor(
             () => {
-                expect(screen.getByText('Devices at risk over time')).toBeInTheDocument();
+                expect(screen.getByText('Renewal timing vs. TTL')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );
@@ -148,9 +148,9 @@ describe('DeviceHistoryTab', () => {
         expect(screen.queryByRole('checkbox', { name: 'Device' })).not.toBeInTheDocument();
     });
 
-    // ─── At-risk strip hidden when device-scoped ────────────────────────────
+    // ─── Tuning strip when device-scoped ────────────────────────────────────
 
-    it('does not render the at-risk strip, even when the histogram carries ranked devices', async () => {
+    it('reads out the TTL tuning summary for the device it is scoped to', async () => {
         server.use(
             addressHandlers.historyHistogram.success(
                 createMockAddressHistoryHistogramResponse({
@@ -163,15 +163,15 @@ describe('DeviceHistoryTab', () => {
 
         await waitFor(
             () => {
-                expect(screen.getAllByText('10.0.0.1')).toHaveLength(2);
+                expect(screen.getByText('TTL tuning')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );
 
-        // The ranking degenerates to the one device already being viewed, so
-        // the strip is dropped entirely rather than shown with a single row.
-        expect(screen.queryByText('nas-01')).not.toBeInTheDocument();
-        expect(screen.queryByText('At-risk devices')).not.toBeInTheDocument();
+        // A ranking would degenerate here, but the TTL readout is most useful on
+        // the device already being viewed — only its filter link is redundant.
+        expect(screen.getByText('nas-01')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Filter by nas-01' })).not.toBeInTheDocument();
     });
 
     it('shows time range and auto-refresh controls', async () => {
@@ -179,7 +179,7 @@ describe('DeviceHistoryTab', () => {
 
         await waitFor(
             () => {
-                expect(screen.getByText('Devices at risk over time')).toBeInTheDocument();
+                expect(screen.getByText('Renewal timing vs. TTL')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );

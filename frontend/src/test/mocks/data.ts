@@ -110,15 +110,16 @@ export function createMockAccessLogRow(
 }
 
 /**
- * Creates a mock AddressHistoryBucket with realistic defaults. The server only
- * emits a bucket that carries at least one at-risk device, so the default is
- * not all-zero.
+ * Creates a mock AddressHistoryBucket with realistic defaults. The server emits
+ * every bucket in the window, so an all-zero bucket is a legitimate shape —
+ * the default carries renewals in the comfortable band plus one tight device.
  */
 export function createMockAddressHistoryBucket(
   overrides?: Partial<AddressHistoryBucket>,
 ): AddressHistoryBucket {
   return {
     timestamp: '2024-01-01T12:00:00Z',
+    ok_device_count: 3,
     approaching_device_count: 1,
     critical_device_count: 0,
     breached_device_count: 0,
@@ -136,7 +137,10 @@ export function createMockAddressHistoryAtRiskDevice(
     device_id: 1,
     device_name: 'Test Device',
     worst_risk: TtlRisk.CRITICAL,
-    event_count: 5,
+    renewal_count: 20,
+    late_renewal_count: 1,
+    ttl_seconds: 3600,
+    p95_gap_seconds: 3300,
     ...overrides,
   };
 }

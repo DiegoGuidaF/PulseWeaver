@@ -24,6 +24,7 @@ import { useDeviceAddressLeaseRule } from "@/features/devices/hooks/useDeviceAdd
 import { usePutDeviceAddressLeaseRule } from "@/features/devices/hooks/usePutDeviceAddressLeaseRule";
 import { useDisableDeviceAddressLeaseRule } from "@/features/devices/hooks/useDisableDeviceAddressLeaseRule";
 import { zPutDeviceAddressLeaseRuleRequest } from "@/lib/api/zod.gen";
+import { TTL_PRESET_SECONDS, formatTtlLabel } from "@/lib/ttlPresets";
 
 // ---------------------------------------------------------------------------
 // TTL helpers
@@ -37,16 +38,11 @@ const SECONDS_PER_DAY = 86400;
 type TtlUnit = (typeof TTL_UNITS)[number];
 
 const TTL_PRESETS = [
-  { label: "30s", value: "30" },
-  { label: "5m", value: "300" },
-  { label: "15m", value: "900" },
-  { label: "1h", value: "3600" },
-  { label: "6h", value: "21600" },
-  { label: "24h", value: "86400" },
+  ...TTL_PRESET_SECONDS.map((seconds) => ({ label: formatTtlLabel(seconds), value: String(seconds) })),
   { label: "Custom…", value: "custom" },
-] as const;
+];
 
-const PRESET_VALUES = new Set<string>(TTL_PRESETS.filter((p) => p.value !== "custom").map((p) => p.value));
+const PRESET_VALUES = new Set<string>(TTL_PRESET_SECONDS.map(String));
 
 const DEFAULT_TTL = 3600;
 
@@ -78,13 +74,6 @@ function fromSeconds(ttlSeconds: number): { value: string; unit: TtlUnit } {
     return { value: String(ttlSeconds / SECONDS_PER_MINUTE), unit: "minutes" };
   }
   return { value: String(ttlSeconds), unit: "seconds" };
-}
-
-function formatTtlBadge(ttlSeconds: number): string {
-  if (ttlSeconds < 60) return `${ttlSeconds}s`;
-  if (ttlSeconds < 3600) return `${Math.round(ttlSeconds / 60)}m`;
-  if (ttlSeconds < SECONDS_PER_DAY) return `${Math.round(ttlSeconds / 3600)}h`;
-  return `${Math.round(ttlSeconds / SECONDS_PER_DAY)}d`;
 }
 
 function presetFromTtl(ttlSeconds: number): string {
@@ -260,9 +249,9 @@ export function AddressLeaseRuleCard({ deviceId, ownerId }: { deviceId: number; 
                 style={{ width: "fit-content" }}
               />
               {isOn && addressLeaseRule?.ttl_seconds != null && (
-                <Tooltip label={`Auto-expiry · TTL ${formatTtlBadge(addressLeaseRule.ttl_seconds)}`} withArrow>
+                <Tooltip label={`Auto-expiry · TTL ${formatTtlLabel(addressLeaseRule.ttl_seconds)}`} withArrow>
                   <Badge color="teal" variant="light" leftSection={<IconClock size={10} stroke={1.5} />} style={{ flexShrink: 0 }}>
-                    {formatTtlBadge(addressLeaseRule.ttl_seconds)}
+                    {formatTtlLabel(addressLeaseRule.ttl_seconds)}
                   </Badge>
                 </Tooltip>
               )}

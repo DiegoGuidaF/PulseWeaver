@@ -14,7 +14,7 @@ import { useAddressHistoryHistogram } from "../hooks/useAddressHistoryHistogram"
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
 import { getAddressHistoryColumns } from "./addressHistoryColumns";
 import { AddressHistoryRiskChart } from "./AddressHistoryRiskChart";
-import { AddressHistoryAtRiskStrip } from "./AddressHistoryAtRiskStrip";
+import { AddressHistoryTuningStrip } from "./AddressHistoryTuningStrip";
 import {
     COLUMN_CHIP_LABELS,
     FILTER_COLUMN_KEYS,
@@ -24,8 +24,8 @@ import {
 } from "../filterConfig";
 import {
     EVENT_KIND_LABELS,
-    LEASE_HEALTH_COLUMN_LABEL,
     SOURCE_LABELS,
+    TTL_HEADROOM_COLUMN_LABEL,
     TTL_RISK_LABELS,
     isAddressEventSource,
 } from "../constants";
@@ -55,7 +55,7 @@ const COLUMN_META: ManagedColumnMeta[] = [
     { accessor: "source", label: "Source", defaultVisible: true },
     { accessor: "event_kind", label: "Event", defaultVisible: true },
     { accessor: "renewal_gap_seconds", label: "Renewal gap", defaultVisible: true },
-    { accessor: "ttl_risk", label: LEASE_HEALTH_COLUMN_LABEL, defaultVisible: true },
+    { accessor: "ttl_risk", label: TTL_HEADROOM_COLUMN_LABEL, defaultVisible: true },
 ];
 
 /**
@@ -90,7 +90,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         ip: "Filter by IP address",
         source: "Filter by source",
         event_kind: "Filter by event kind",
-        ttl_risk: "Filter by lease health",
+        ttl_risk: "Filter by TTL headroom",
     });
 
     // Below the nav-collapse breakpoint, start from a lean column set to avoid
@@ -119,7 +119,8 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
     } = useAddressHistoryHistogram(filters.queryParams, refetchIntervalOrFalse);
 
     // A locked device_id filter means this view already shows one device's
-    // history — the top-N ranking would degenerate to that same device.
+    // history, so the strip drops its filter affordance — but it still renders:
+    // the TTL readout is most useful on the device already being looked at.
     const isDeviceScoped = filters.lockedFilter?.key === "device_id";
 
     const rows = data?.events ?? [];
@@ -138,11 +139,14 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         lockedFilterKey: filters.lockedFilter?.key,
         deviceOptions,
         userOptions,
-        onDeviceClick: (deviceId) => {
-            const ownerId = (deviceRefs ?? []).find((d) => d.id === deviceId)?.owner_id;
-            if (ownerId !== undefined) navigate(`${buildRoute.userDevices(ownerId)}?device=${deviceId}`);
-        },
+        onDeviceClick: goToDevice,
     });
+
+    /** Opens the device workspace, which is where the auto-expiry TTL is set. */
+    function goToDevice(deviceId: number) {
+        const ownerId = (deviceRefs ?? []).find((d) => d.id === deviceId)?.owner_id;
+        if (ownerId !== undefined) navigate(`${buildRoute.userDevices(ownerId)}?device=${deviceId}`);
+    }
 
     // A locked filter drops the column that displays it, so the chooser must not
     // offer it either — otherwise it lists a column that can never appear.
@@ -235,12 +239,12 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
 
     return (
         <Stack gap="sm">
-            {!isDeviceScoped && (
-                <AddressHistoryAtRiskStrip
-                    devices={histogramData?.at_risk_devices ?? []}
-                    onSelectDevice={handleSelectAtRiskDevice}
-                />
-            )}
+            <AddressHistoryTuningStrip
+                devices={histogramData?.at_risk_devices ?? []}
+                onSelectDevice={handleSelectAtRiskDevice}
+                onTuneDevice={goToDevice}
+                deviceScoped={isDeviceScoped}
+            />
 
             <AddressHistoryRiskChart
                 buckets={histogramData?.buckets}

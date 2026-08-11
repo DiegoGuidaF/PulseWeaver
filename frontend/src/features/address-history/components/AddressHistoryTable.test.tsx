@@ -139,21 +139,21 @@ describe("AddressHistoryTable", () => {
         );
     });
 
-    it("shows lease health badges rendered from the server enum", async () => {
+    it("shows TTL headroom badges rendered from the server enum", async () => {
         renderTable();
 
         await waitFor(
-            () => expect(screen.getAllByText("OK").length).toBeGreaterThan(0),
+            () => expect(screen.getAllByText("Comfortable").length).toBeGreaterThan(0),
             { timeout: TEST_TIMEOUTS.SHORT },
         );
         // Scoped to the table: the risk chart's legend names the same bands.
-        expect(within(screen.getByRole("table")).getByText("Breached")).toBeInTheDocument();
+        expect(within(screen.getByRole("table")).getByText("Past TTL")).toBeInTheDocument();
         expect(
-            screen.getAllByRole("columnheader").find((h) => h.textContent?.includes("Lease health")),
+            screen.getAllByRole("columnheader").find((h) => h.textContent?.includes("TTL headroom")),
         ).toBeDefined();
     });
 
-    it("renders unknown lease health as a dash, not a badge", async () => {
+    it("renders unknown TTL headroom as a dash, not a badge", async () => {
         server.use(
             addressHandlers.history.success(
                 createMockAddressHistoryResponse({
@@ -420,7 +420,7 @@ describe("AddressHistoryTable", () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            await user.click(getFilterButton("Lease health"));
+            await user.click(getFilterButton("TTL headroom"));
 
             expect(
                 await screen.findByPlaceholderText("Select values"),
@@ -493,7 +493,7 @@ describe("AddressHistoryTable", () => {
             expect(screen.getByText(/Heartbeat/)).toBeInTheDocument();
         });
 
-        it("shows a lease health chip when ttl_risk filter is set", async () => {
+        it("shows a TTL headroom chip when ttl_risk filter is set", async () => {
             // No matching events means no at-risk buckets either, so the chart
             // is in its empty state and its legend cannot shadow the chip.
             server.use(
@@ -510,8 +510,8 @@ describe("AddressHistoryTable", () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            expect(screen.getByText("Lease health:")).toBeInTheDocument();
-            expect(screen.getByText(/Breached/)).toBeInTheDocument();
+            expect(screen.getByText("TTL headroom:")).toBeInTheDocument();
+            expect(screen.getByText(/Past TTL/)).toBeInTheDocument();
         });
 
         it("shows an Event chip for a state-change selection like any other", async () => {
@@ -561,7 +561,7 @@ describe("AddressHistoryTable", () => {
             expect(screen.queryByText("Device:")).not.toBeInTheDocument();
             expect(screen.queryByText("Source:")).not.toBeInTheDocument();
             expect(screen.queryByText("Event:")).not.toBeInTheDocument();
-            expect(screen.queryByText("Lease health:")).not.toBeInTheDocument();
+            expect(screen.queryByText("TTL headroom:")).not.toBeInTheDocument();
         });
 
         it("removes the IP chip and clears the filter when remove is clicked", async () => {
@@ -588,16 +588,16 @@ describe("AddressHistoryTable", () => {
         });
     });
 
-    // ─── At-risk strip and risk chart ───────────────────────────────────────
+    // ─── Tuning strip and renewal-timing chart ──────────────────────────────
 
-    describe("At-risk strip", () => {
-        it("renders the reassuring empty state when no bucket carries an at-risk device", async () => {
+    describe("Tuning strip", () => {
+        it("reports an empty window as nothing having renewed, not as a clean bill of health", async () => {
             server.use(addressHandlers.historyHistogram.success(createMockAddressHistoryHistogramResponse({ buckets: [] })));
 
             renderTable();
 
             await waitFor(
-                () => expect(screen.getByText("No devices at risk in this period")).toBeInTheDocument(),
+                () => expect(screen.getByText("No lease renewals in this window")).toBeInTheDocument(),
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
         });
@@ -617,7 +617,10 @@ describe("AddressHistoryTable", () => {
                                 device_id: 7,
                                 device_name: "nas-01",
                                 worst_risk: TtlRisk.BREACHED,
-                                event_count: 14,
+                                renewal_count: 189,
+                                late_renewal_count: 6,
+                                ttl_seconds: 3600,
+                                p95_gap_seconds: 4320,
                             }),
                         ],
                     }),
@@ -631,8 +634,9 @@ describe("AddressHistoryTable", () => {
                 () => expect(screen.getByText("nas-01")).toBeInTheDocument(),
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
-            // The count is every event in the window, not a breach tally.
-            expect(screen.getByText("14 events")).toBeInTheDocument();
+            // Both numbers are labelled on their face — the renewal total can
+            // never be misread as a tally of late renewals.
+            expect(screen.getByText(/189 renewals · 6 past TTL \(3%\)/)).toBeInTheDocument();
 
             await user.click(screen.getByRole("button", { name: "Filter by nas-01" }));
 
