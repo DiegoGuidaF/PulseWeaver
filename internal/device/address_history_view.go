@@ -547,9 +547,9 @@ func NewAddressHistoryTuningQuery(params httpapi.GetAddressHistoryTuningParams) 
 	return q
 }
 
-// tuningCandidateRow is one device's renewal-timing aggregates for the
-// tuning window: whether it qualifies is decided by the caller, since a
-// device-scoped read (DeviceID set) returns the row unconditionally.
+// tuningCandidateRow is one device's renewal-timing aggregates for the tuning
+// window. Total is the window count of every row that qualified, repeated
+// identically on each row, so it survives the LIMIT that trims the rest.
 type tuningCandidateRow struct {
 	DeviceID         ids.DeviceID `db:"device_id"`
 	DeviceName       string       `db:"device_name"`
@@ -557,6 +557,7 @@ type tuningCandidateRow struct {
 	RenewalCount     int          `db:"renewal_count"`
 	LateRenewalCount int          `db:"late_renewal_count"`
 	P95GapSeconds    int64        `db:"p95_gap_seconds"`
+	Total            int          `db:"total"`
 }
 
 // addressHistoryTuningPerDevice returns the base builder over one row per
@@ -632,69 +633,41 @@ func toTuningCandidates(rows []tuningCandidateRow) []httpapi.AddressHistoryTunin
 // window; with device_id, that one device's readout regardless of whether it
 // meets the ranking threshold.
 func (r *Repository) GetAddressHistoryTuning(ctx context.Context, q AddressHistoryTuningQuery) (httpapi.AddressHistoryTuningResponse, error) {
-	perDevice := addressHistoryTuningPerDevice(q)
+	// COUNT(*) OVER () counts the rows surviving the WHERE before the LIMIT
+	// trims them, so the fleet-wide total and the page it returns come from one
+	// read and cannot disagree about who qualified.
+	candidates := sq.Select(
+		"x.device_id", "x.device_name", "x.ttl_seconds", "x.renewal_count",
+		"x.late_renewal_count", "x.p95_gap_seconds", "COUNT(*) OVER () AS total",
+	).FromSelect(addressHistoryTuningPerDevice(q), "x")
 
-	if q.DeviceID != nil {
-		return r.addressHistoryTuningForDevice(ctx, perDevice)
+	// Scoped to one device there is nothing to rank, and a device the caller is
+	// already looking at needs no threshold to justify showing it — so the
+	// qualifying test, the ordering, and the limit all apply to the fleet-wide
+	// read only. p95 > ttl is exactly a >5% late rate (approached from above as
+	// the sample grows), so there is deliberately no second late-ratio test
+	// beside it that could drift.
+	if q.DeviceID == nil {
+		candidates = candidates.
+			Where(sq.Expr("x.p95_gap_seconds > x.ttl_seconds")).
+			Where(sq.GtOrEq{"x.renewal_count": tuningMinRenewals}).
+			OrderBy("(x.p95_gap_seconds * 1.0 / x.ttl_seconds) DESC", "x.late_renewal_count DESC", "x.device_id ASC").
+			Limit(addressHistoryTuningLimit)
 	}
-	return r.addressHistoryTuningRanking(ctx, perDevice)
-}
 
-// addressHistoryTuningForDevice returns the one device's tuning readout
-// unconditionally — no threshold, no limit — since a device the caller is
-// already looking at needs no ranking to justify showing it.
-func (r *Repository) addressHistoryTuningForDevice(ctx context.Context, perDevice sq.SelectBuilder) (httpapi.AddressHistoryTuningResponse, error) {
-	deviceSQL, deviceArgs, err := sq.Select(
-		"x.device_id", "x.device_name", "x.ttl_seconds", "x.renewal_count", "x.late_renewal_count", "x.p95_gap_seconds",
-	).FromSelect(perDevice, "x").ToSql()
+	tuningSQL, tuningArgs, err := candidates.ToSql()
 	if err != nil {
-		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("build address history tuning device query: %w", err)
+		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("build address history tuning query: %w", err)
 	}
 
 	var rows []tuningCandidateRow
-	if err := r.db.SelectContext(ctx, &rows, deviceSQL, deviceArgs...); err != nil {
-		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("get address history tuning device: %w", err)
+	if err := r.db.SelectContext(ctx, &rows, tuningSQL, tuningArgs...); err != nil {
+		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("get address history tuning: %w", err)
 	}
 
-	return httpapi.AddressHistoryTuningResponse{
-		Devices:     toTuningCandidates(rows),
-		Total:       len(rows),
-		MinRenewals: tuningMinRenewals,
-	}, nil
-}
-
-// addressHistoryTuningRanking selects the devices whose p95 renewal gap
-// exceeds their TTL with enough renewals to trust the measurement — see
-// §2 of the task this implements: p95 > ttl is exactly a >5% late rate
-// (modulo rank rounding at small n), so no separate late-ratio threshold is
-// introduced beside it. total and the page share this qualifying set so they
-// can never disagree about who qualifies.
-func (r *Repository) addressHistoryTuningRanking(ctx context.Context, perDevice sq.SelectBuilder) (httpapi.AddressHistoryTuningResponse, error) {
-	qualifying := sq.Select(
-		"x.device_id", "x.device_name", "x.ttl_seconds", "x.renewal_count", "x.late_renewal_count", "x.p95_gap_seconds",
-	).FromSelect(perDevice, "x").
-		Where(sq.Expr("x.p95_gap_seconds > x.ttl_seconds")).
-		Where(sq.GtOrEq{"x.renewal_count": tuningMinRenewals})
-
-	totalSQL, totalArgs, err := sq.Select("COUNT(*)").FromSelect(qualifying, "q").ToSql()
-	if err != nil {
-		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("build address history tuning total query: %w", err)
-	}
-	var total int
-	if err := r.db.GetContext(ctx, &total, totalSQL, totalArgs...); err != nil {
-		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("count address history tuning candidates: %w", err)
-	}
-
-	pageSQL, pageArgs, err := qualifying.
-		OrderBy("(x.p95_gap_seconds * 1.0 / x.ttl_seconds) DESC", "x.late_renewal_count DESC", "x.device_id ASC").
-		Limit(addressHistoryTuningLimit).
-		ToSql()
-	if err != nil {
-		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("build address history tuning ranking query: %w", err)
-	}
-	var rows []tuningCandidateRow
-	if err := r.db.SelectContext(ctx, &rows, pageSQL, pageArgs...); err != nil {
-		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("get address history tuning ranking: %w", err)
+	total := 0
+	if len(rows) > 0 {
+		total = rows[0].Total
 	}
 
 	return httpapi.AddressHistoryTuningResponse{
