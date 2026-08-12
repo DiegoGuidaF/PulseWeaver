@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import dayjs from "dayjs";
 import { AddressHistoryFilterOperator, type GetAddressHistoryHistogramData } from "@/lib/api";
@@ -28,6 +28,8 @@ export type SearchParamsSetter = (updater: URLSearchParams | ((prev: URLSearchPa
 
 export interface AddressHistoryFilters {
     queryParams: Query;
+    /** The time window alone, without the column filters — for surfaces scoped to the window only. */
+    windowParams: Pick<Query, "from" | "to">;
     filterKey: string;
 
     presetStr: string | null;
@@ -171,8 +173,23 @@ export function useFilterCore(
         }),
     });
 
+    // The window on its own, for the surfaces scoped to it rather than to the
+    // column filters. Memoised on what the user actually changes: a preset
+    // resolves against `dayjs()`, so recomputing it per render would hand
+    // React Query a key that never repeats. The window therefore holds still
+    // while the page is open, which is what a readout over it wants — it
+    // reports on a fixed span rather than one whose edge moves under it.
+    const windowParams = useMemo(() => {
+        const ms = presetStr ? PRESET_MS[presetStr] : undefined;
+        return {
+            from: ms !== undefined ? dayjs().subtract(ms, "millisecond").toISOString() : fromStr || undefined,
+            to: ms !== undefined ? undefined : toStr || undefined,
+        };
+    }, [presetStr, fromStr, toStr]);
+
     return {
         queryParams: query,
+        windowParams,
         filterKey,
         presetStr,
         fromStr,

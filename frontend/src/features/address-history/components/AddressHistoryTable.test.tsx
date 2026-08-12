@@ -5,8 +5,6 @@ import { server } from "@/test/setup";
 import { renderWithProviders, setupUser } from "@/test/utils";
 import { AddressHistoryPage } from "@/pages/address-history/AddressHistoryPage";
 import {
-    createMockAddressHistoryAtRiskDevice,
-    createMockAddressHistoryBucket,
     createMockAddressHistoryEvent,
     createMockAddressHistoryHistogramResponse,
     createMockAddressHistoryResponse,
@@ -602,49 +600,6 @@ describe("AddressHistoryTable", () => {
             );
         });
 
-        it("renders ranked entries and applies the device_id filter on click", async () => {
-            const eventsQueries: string[] = [];
-            server.use(
-                http.get(endpoints.addressHistory, ({ request }) => {
-                    eventsQueries.push(new URL(request.url).search);
-                    return HttpResponse.json(createMockAddressHistoryResponse());
-                }),
-                addressHandlers.historyHistogram.success(
-                    createMockAddressHistoryHistogramResponse({
-                        buckets: [createMockAddressHistoryBucket({ critical_device_count: 1 })],
-                        at_risk_devices: [
-                            createMockAddressHistoryAtRiskDevice({
-                                device_id: 7,
-                                device_name: "nas-01",
-                                worst_risk: TtlRisk.BREACHED,
-                                renewal_count: 189,
-                                late_renewal_count: 6,
-                                ttl_seconds: 3600,
-                                p95_gap_seconds: 4320,
-                            }),
-                        ],
-                    }),
-                ),
-            );
-
-            const user = setupUser();
-            renderTable();
-
-            await waitFor(
-                () => expect(screen.getByText("nas-01")).toBeInTheDocument(),
-                { timeout: TEST_TIMEOUTS.SHORT },
-            );
-            // Both numbers are labelled on their face — the renewal total can
-            // never be misread as a tally of late renewals.
-            expect(screen.getByText(/189 renewals · 6 past TTL \(3%\)/)).toBeInTheDocument();
-
-            await user.click(screen.getByRole("button", { name: "Filter by nas-01" }));
-
-            await waitFor(
-                () => expect(eventsQueries.at(-1)).toContain("device_id=7"),
-                { timeout: TEST_TIMEOUTS.SHORT },
-            );
-        });
     });
 
     // ─── Date range filter ───────────────────────────────────────────────────

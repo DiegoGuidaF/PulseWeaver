@@ -4,6 +4,7 @@ import { AutoRefreshSelect, DEFAULT_REFRESH_INTERVAL } from "@/components/AutoRe
 import { TimeRangePresetSelect } from "@/components/TimeRangePresetSelect";
 import { PageToolbar } from "@/components/PageToolbar";
 import { AddressHistoryTable } from "./AddressHistoryTable";
+import { AddressHistoryTuningSection } from "./AddressHistoryTuningSection";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
 
 interface AddressHistoryViewProps {
@@ -26,6 +27,10 @@ export function AddressHistoryView({ filters, subtitle }: AddressHistoryViewProp
                     </>
                 }
             />
+            {/* Scoped to the toolbar's window only. It sits outside the events
+                block below — chart, chips and table share the column filters,
+                this does not. */}
+            <AddressHistoryTuningSection filters={filters} refreshInterval={effectiveInterval} />
             <AddressHistoryTable filters={filters} refreshInterval={effectiveInterval} />
         </Stack>
     );

@@ -1,7 +1,8 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { VersionInfo, Address, AddressHistoryHistogramResponse, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { VersionInfo, Address, AddressHistoryHistogramResponse, AddressHistoryTuningResponse, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import type { AttributionKind } from '@/features/dashboard/hooks/useAttributionSplit';
-import { createMockAddress, createMockAddressHistoryHistogramResponse, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardAttributionCount, createMockDashboardPosture, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceRef, createMockDevicePairing, createMockGroupDetailWithUsers, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockOwnerFleetGroup, createMockOwnerRef, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult, createMockVersionInfo } from './data';
+import { createMockAddress, createMockAddressHistoryHistogramResponse,
+    createMockAddressHistoryTuningResponse, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardAttributionCount, createMockDashboardPosture, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceRef, createMockDevicePairing, createMockGroupDetailWithUsers, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockOwnerFleetGroup, createMockOwnerRef, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult, createMockVersionInfo } from './data';
 
 const BASE = '/api/v1';
 
@@ -22,6 +23,7 @@ export const endpoints = {
     deviceHeartbeat: `${BASE}/devices/:deviceId/heartbeat`,
     addressHistory: `${BASE}/address-history`,
     addressHistoryHistogram: `${BASE}/address-history/histogram`,
+    addressHistoryTuning: `${BASE}/address-history/tuning`,
     deviceAddressLeaseRule: `${BASE}/devices/:deviceId/rules/address-lease`,
     maxActiveAddressesRule: `${BASE}/devices/:deviceId/rules/max-active-addresses`,
     regenerateApiKey: `${BASE}/devices/:deviceId/api-key/regenerate`,
@@ -293,7 +295,16 @@ export const addressHandlers = {
                 HttpResponse.json(override ?? createMockAddressHistoryHistogramResponse())),
         empty: () =>
             http.get(endpoints.addressHistoryHistogram, () =>
-                HttpResponse.json({ buckets: [], at_risk_devices: [] })),
+                HttpResponse.json({ buckets: [] })),
+    },
+
+    tuning: {
+        success: (override?: AddressHistoryTuningResponse) =>
+            http.get(endpoints.addressHistoryTuning, () =>
+                HttpResponse.json(override ?? createMockAddressHistoryTuningResponse())),
+        empty: () =>
+            http.get(endpoints.addressHistoryTuning, () =>
+                HttpResponse.json({ devices: [], total: 0, min_renewals: 10 })),
     },
 };
 
@@ -619,6 +630,9 @@ export const defaultHandlers = [
     addressHandlers.disable.success(),
     addressHandlers.history.success(),
     addressHandlers.historyHistogram.success(),
+    // Nothing needing tuning is the healthy default; tests that exercise the
+    // readout opt into `tuning.success(...)`.
+    addressHandlers.tuning.empty(),
     // Rules
     ruleHandlers.addressLease.get.success(),
     ruleHandlers.addressLease.put.success(),

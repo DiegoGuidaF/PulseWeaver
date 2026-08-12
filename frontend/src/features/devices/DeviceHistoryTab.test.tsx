@@ -4,7 +4,8 @@ import { HttpResponse, delay, http } from 'msw';
 import { DeviceHistoryTab } from '@/features/devices/DeviceHistoryTab';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import {
-    createMockAddressHistoryAtRiskDevice,
+    createMockAddressHistoryTuningCandidate,
+    createMockAddressHistoryTuningResponse,
     createMockAddressHistoryHistogramResponse,
     createMockAddressHistoryResponse,
 } from '@/test/mocks/data';
@@ -152,25 +153,27 @@ describe('DeviceHistoryTab', () => {
 
     it('reads out the TTL tuning summary for the device it is scoped to', async () => {
         server.use(
-            addressHandlers.historyHistogram.success(
-                createMockAddressHistoryHistogramResponse({
-                    at_risk_devices: [createMockAddressHistoryAtRiskDevice({ device_name: 'nas-01' })],
+            addressHandlers.tuning.success(
+                createMockAddressHistoryTuningResponse({
+                    devices: [createMockAddressHistoryTuningCandidate({ device_name: 'nas-01' })],
                 }),
             ),
         );
 
         renderTab();
 
+        // The heading renders before the query resolves, so the row is what
+        // says the readout actually arrived.
         await waitFor(
             () => {
-                expect(screen.getByText('TTL tuning')).toBeInTheDocument();
+                expect(screen.getByText('nas-01')).toBeInTheDocument();
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );
 
         // A ranking would degenerate here, but the TTL readout is most useful on
         // the device already being viewed — only its filter link is redundant.
-        expect(screen.getByText('nas-01')).toBeInTheDocument();
+        expect(screen.getByText('TTL tuning')).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Filter by nas-01' })).not.toBeInTheDocument();
     });
 

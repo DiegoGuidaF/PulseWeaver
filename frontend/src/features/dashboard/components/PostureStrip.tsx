@@ -5,6 +5,7 @@ import {
     IconRouteOff,
     IconArrowsShuffle,
     IconBellRinging,
+    IconClockCog,
     type IconProps,
 } from "@tabler/icons-react";
 import { Link } from "react-router";
@@ -19,6 +20,10 @@ interface PostureStripProps {
     isLoading: boolean;
     error?: unknown;
     onRetry?: () => void;
+    /** Devices whose lease TTL is shorter than their check-in cadence. */
+    tuningCount: number;
+    /** The window that count was measured over; the link out carries it too. */
+    tuningPreset: string;
 }
 
 interface PostureCardSpec {
@@ -73,7 +78,14 @@ function PostureCard({ spec, isLoading }: { spec: PostureCardSpec; isLoading: bo
     );
 }
 
-export function PostureStrip({ data, isLoading, error, onRetry }: PostureStripProps) {
+export function PostureStrip({
+    data,
+    isLoading,
+    error,
+    onRetry,
+    tuningCount,
+    tuningPreset,
+}: PostureStripProps) {
     if (error) {
         return <ErrorState error={error} title="Failed to load posture" onRetry={onRetry} />;
     }
@@ -132,6 +144,33 @@ export function PostureStrip({ data, isLoading, error, onRetry }: PostureStripPr
                     <PostureCard key={spec.label} spec={spec} isLoading={isLoading} />
                 ))}
             </SimpleGrid>
+
+            {tuningCount > 0 && (
+                <Paper
+                    component={Link}
+                    to={`${ROUTES.addressHistory}?preset=${tuningPreset}`}
+                    withBorder
+                    p="sm"
+                    radius="md"
+                    style={{ textDecoration: "none", color: "inherit" }}
+                >
+                    <Group gap="sm" wrap="nowrap">
+                        {/* Deliberately not alerted: a lease shorter than a
+                            device's cadence is a tuning opportunity, not an
+                            outage. */}
+                        <ThemeIcon variant="light" color="indigo" size="md" radius="md">
+                            <IconClockCog size={16} stroke={1.5} />
+                        </ThemeIcon>
+                        <Text size="sm">
+                            <Text span fw={700}>
+                                {tuningCount.toLocaleString()}
+                            </Text>{" "}
+                            {tuningCount === 1 ? "device has" : "devices have"} a lease shorter than
+                            their check-in cadence in the last week
+                        </Text>
+                    </Group>
+                </Paper>
+            )}
 
             {pendingSuggestions > 0 && (
                 <Paper

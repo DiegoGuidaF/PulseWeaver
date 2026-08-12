@@ -14,7 +14,6 @@ import { useAddressHistoryHistogram } from "../hooks/useAddressHistoryHistogram"
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
 import { getAddressHistoryColumns } from "./addressHistoryColumns";
 import { AddressHistoryRiskChart } from "./AddressHistoryRiskChart";
-import { AddressHistoryTuningStrip } from "./AddressHistoryTuningStrip";
 import {
     COLUMN_CHIP_LABELS,
     FILTER_COLUMN_KEYS,
@@ -29,7 +28,7 @@ import {
     TTL_RISK_LABELS,
     isAddressEventSource,
 } from "../constants";
-import { AddressEventKind, AddressHistoryFilterOperator, type AddressHistoryEvent, type TtlRisk } from "@/lib/api";
+import { AddressEventKind, type AddressHistoryEvent, type TtlRisk } from "@/lib/api";
 import { ErrorState } from "@/components/ErrorState";
 import { presetToMs } from "@/lib/formatChartLabel";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
@@ -118,11 +117,6 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         refetch: refetchHistogram,
     } = useAddressHistoryHistogram(filters.queryParams, refetchIntervalOrFalse);
 
-    // A locked device_id filter means this view already shows one device's
-    // history, so the strip drops its filter affordance — but it still renders:
-    // the TTL readout is most useful on the device already being looked at.
-    const isDeviceScoped = filters.lockedFilter?.key === "device_id";
-
     const rows = data?.events ?? [];
 
     const deviceOptions = (deviceRefs ?? []).map((d) => ({ value: String(d.id), label: d.name }));
@@ -142,11 +136,12 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         onDeviceClick: goToDevice,
     });
 
-    /** Opens the device workspace, which is where the auto-expiry TTL is set. */
+    /** Opens the device workspace on its default tab. */
     function goToDevice(deviceId: number) {
         const ownerId = (deviceRefs ?? []).find((d) => d.id === deviceId)?.owner_id;
         if (ownerId !== undefined) navigate(`${buildRoute.userDevices(ownerId)}?device=${deviceId}`);
     }
+
 
     // A locked filter drops the column that displays it, so the chooser must not
     // offer it either — otherwise it lists a column that can never appear.
@@ -214,10 +209,6 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         return presetToMs("last_24h");
     }, [filters.presetStr, filters.fromStr, filters.toStr]);
 
-    function handleSelectAtRiskDevice(deviceId: number) {
-        filters.setColumnFilter("device_id", { op: AddressHistoryFilterOperator.IN, values: [String(deviceId)] });
-    }
-
     if ((isPending || !data) && !error && rows.length === 0) {
         return (
             <Stack gap="md">
@@ -239,13 +230,6 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
 
     return (
         <Stack gap="sm">
-            <AddressHistoryTuningStrip
-                devices={histogramData?.at_risk_devices ?? []}
-                onSelectDevice={handleSelectAtRiskDevice}
-                onTuneDevice={goToDevice}
-                deviceScoped={isDeviceScoped}
-            />
-
             <AddressHistoryRiskChart
                 buckets={histogramData?.buckets}
                 timeRangeMs={timeRangeMs}

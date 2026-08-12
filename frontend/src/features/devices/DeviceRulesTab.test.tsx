@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { delay, http } from "msw";
 import { DeviceRulesTab } from "@/features/devices/DeviceRulesTab";
@@ -203,6 +203,91 @@ describe('DeviceRulesTab — Address lease rule', () => {
             },
             { timeout: TEST_TIMEOUTS.SHORT }
         );
+    });
+});
+
+describe('DeviceRulesTab — suggested TTL from address history', () => {
+    function renderWithSuggestion(suggestion: string) {
+        return renderWithProviders(<DeviceRulesTab deviceId={1} ownerId={1} />, {
+            initialEntries: [`/?suggest_ttl=${suggestion}`],
+        });
+    }
+
+    it('stages a suggested preset and leaves applying it to the user', async () => {
+        const saved = vi.fn();
+        server.use(
+            http.put(endpoints.deviceAddressLeaseRule, () => {
+                saved();
+                return responses.ok(createMockDeviceAddressLeaseRule());
+            })
+        );
+
+        renderWithSuggestion('21600');
+
+        await waitFor(
+            () => {
+                expect(screen.getByRole('radio', { name: '6h' })).toBeChecked();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+        expect(screen.getByText(/Suggested from address history/)).toBeInTheDocument();
+        expect(saved).not.toHaveBeenCalled();
+    });
+
+    it('opens the custom input for a suggestion off the preset ladder', async () => {
+        renderWithSuggestion('10800');
+
+        await waitFor(
+            () => {
+                expect(screen.getByRole('radio', { name: /custom/i })).toBeChecked();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        expect(screen.getByLabelText('Value')).toHaveValue('3');
+        expect(screen.getByLabelText('Unit')).toHaveValue('hours');
+    });
+
+    it('ignores a suggestion the lease-rule contract would reject', async () => {
+        renderWithSuggestion('not-a-ttl');
+
+        await waitFor(
+            () => {
+                expect(screen.getByRole('radio', { name: '1h' })).toBeChecked();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    });
+
+    it('stages onto a disabled rule, which has no saved TTL to seed from', async () => {
+        server.use(ruleHandlers.addressLease.get.disabled());
+
+        renderWithSuggestion('21600');
+
+        await waitFor(
+            () => {
+                expect(screen.getByRole('radio', { name: '6h' })).toBeChecked();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        expect(screen.getByText(/Turn on auto-expiry to apply it/)).toBeInTheDocument();
+    });
+
+    it('drops the attribution once the staged value is cancelled', async () => {
+        const user = setupUser();
+        renderWithSuggestion('21600');
+
+        await waitFor(
+            () => {
+                expect(screen.getByRole('radio', { name: '6h' })).toBeChecked();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+        expect(screen.getByRole('radio', { name: '1h' })).toBeChecked();
+        expect(screen.queryByText(/Suggested from address history/)).not.toBeInTheDocument();
     });
 });
 

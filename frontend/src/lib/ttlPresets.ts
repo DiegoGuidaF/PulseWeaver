@@ -1,3 +1,5 @@
+import { zPutDeviceAddressLeaseRuleRequest } from "@/lib/api/zod.gen";
+
 /**
  * The address-lease TTL ladder, shared by the control that sets a device's TTL
  * and by the surfaces that suggest a new one. A suggestion must land on a value
@@ -25,4 +27,23 @@ export function formatTtlLabel(ttlSeconds: number): string {
  */
 export function suggestTtlSeconds(gapSeconds: number): number | null {
     return TTL_PRESET_SECONDS.find((preset) => preset >= gapSeconds) ?? null;
+}
+
+/**
+ * Search param carrying a suggested TTL from a screen that measured one to the
+ * control that applies it. The value travels in seconds and may sit off the
+ * preset ladder — the control snaps it or falls back to its custom input.
+ */
+export const SUGGESTED_TTL_PARAM = "suggest_ttl";
+
+/**
+ * Reads a suggested TTL out of a URL param, rejecting anything the lease-rule
+ * endpoint would not accept. The bound comes from the generated request schema
+ * rather than a local constant, so a contract change cannot leave a value that
+ * stages cleanly and then fails on save.
+ */
+export function parseSuggestedTtlSeconds(raw: string | null): number | null {
+    if (raw === null) return null;
+    const parsed = zPutDeviceAddressLeaseRuleRequest.shape.ttl_seconds.safeParse(Number(raw));
+    return parsed.success ? parsed.data : null;
 }

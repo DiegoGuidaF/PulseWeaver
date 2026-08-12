@@ -1,4 +1,4 @@
-import type { VersionInfo, Address, AddressHistoryAtRiskDevice, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryHistogramResponse, AddressHistoryResponse, AccessLogCountryStats, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, OwnerSummary, FleetDevice, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { VersionInfo, Address, AddressHistoryTuningCandidate, AddressHistoryTuningResponse, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryHistogramResponse, AddressHistoryResponse, AccessLogCountryStats, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, OwnerSummary, FleetDevice, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import { AddressEventKind, AddressEventSource, DeviceState, PolicyUserStatus, TtlRisk, UserRole } from "@/lib/api";
 
 /**
@@ -128,19 +128,35 @@ export function createMockAddressHistoryBucket(
 }
 
 /**
- * Creates a mock AddressHistoryAtRiskDevice with realistic defaults.
+ * Creates a mock AddressHistoryTuningCandidate with realistic defaults.
+ * Defaults clear the endpoint's own selection rule (p95 above the TTL, enough
+ * renewals to count), so a candidate built here is one the API could return.
  */
-export function createMockAddressHistoryAtRiskDevice(
-  overrides?: Partial<AddressHistoryAtRiskDevice>,
-): AddressHistoryAtRiskDevice {
+export function createMockAddressHistoryTuningCandidate(
+  overrides?: Partial<AddressHistoryTuningCandidate>,
+): AddressHistoryTuningCandidate {
   return {
     device_id: 1,
     device_name: 'Test Device',
-    worst_risk: TtlRisk.CRITICAL,
     renewal_count: 20,
-    late_renewal_count: 1,
+    late_renewal_count: 2,
     ttl_seconds: 3600,
-    p95_gap_seconds: 3300,
+    p95_gap_seconds: 4320,
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a mock AddressHistoryTuningResponse with realistic defaults.
+ */
+export function createMockAddressHistoryTuningResponse(
+  overrides?: Partial<AddressHistoryTuningResponse>,
+): AddressHistoryTuningResponse {
+  const devices = overrides?.devices ?? [createMockAddressHistoryTuningCandidate()];
+  return {
+    devices,
+    total: devices.length,
+    min_renewals: 10,
     ...overrides,
   };
 }
@@ -196,7 +212,6 @@ export function createMockAddressHistoryHistogramResponse(
       createMockAddressHistoryBucket({ timestamp: '2024-01-01T11:00:00Z', approaching_device_count: 2, critical_device_count: 1 }),
       createMockAddressHistoryBucket({ timestamp: '2024-01-01T12:00:00Z', approaching_device_count: 0, breached_device_count: 1 }),
     ],
-    at_risk_devices: [],
     ...overrides,
   };
 }

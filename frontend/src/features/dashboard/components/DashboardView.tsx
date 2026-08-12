@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import dayjs from "dayjs";
 import { SimpleGrid, Stack, Group, Text } from "@mantine/core";
 import { useDashboardPosture } from "../hooks/useDashboardPosture";
 import { useDashboardStats } from "../hooks/useDashboardStats";
@@ -13,13 +15,28 @@ import { TopDeniedIPsTable } from "./TopDeniedIPsTable";
 import { CountryStatsSection } from "./CountryStatsSection";
 import { AttributionSection } from "./AttributionSection";
 import { TimeRangePresetSelect } from "@/components/TimeRangePresetSelect";
-import { DEFAULT_PRESET_KEY, PRESET_MS } from "@/lib/timePresets";
+import { DEFAULT_PRESET_KEY, PRESET_MS, type PresetKey } from "@/lib/timePresets";
+import { useAddressHistoryTuning } from "@/features/address-history/hooks/useAddressHistoryTuning";
+
+/**
+ * Lookback for the TTL-tuning signal. Posture is otherwise a "right now"
+ * reading, so this one is windowed — the same key drives both the count and the
+ * link out, which is what lets the destination reproduce the number.
+ */
+const TUNING_PRESET: PresetKey = "last_1w";
 
 export function DashboardView() {
     const { from, to, presetKey, setPresetKey } = useDashboardTimeRange();
     const timeRangeMs = PRESET_MS[presetKey] ?? PRESET_MS[DEFAULT_PRESET_KEY];
 
     const posture = useDashboardPosture();
+    // Resolved once per mount: a window recomputed each render would give React
+    // Query a key that never repeats.
+    const tuningWindow = useMemo(
+        () => ({ from: dayjs().subtract(PRESET_MS[TUNING_PRESET], "millisecond").toISOString() }),
+        [],
+    );
+    const tuning = useAddressHistoryTuning(tuningWindow);
     const stats = useDashboardStats(from, to);
     const traffic = useDashboardTraffic(from, to);
     const services = useDashboardServices(from, to);
@@ -32,6 +49,8 @@ export function DashboardView() {
                 isLoading={posture.isLoading}
                 error={posture.error}
                 onRetry={() => posture.refetch()}
+                tuningCount={tuning.data?.total ?? 0}
+                tuningPreset={TUNING_PRESET}
             />
 
             <Stack gap="lg">

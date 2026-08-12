@@ -4,9 +4,43 @@ import { DashboardView } from './DashboardView';
 import { TEST_TIMEOUTS } from '@/test/constants';
 import { renderWithProviders, setupUser } from '@/test/utils';
 import { server } from '@/test/setup';
-import { dashboardHandlers } from '@/test/mocks/handlers';
+import { addressHandlers, dashboardHandlers } from '@/test/mocks/handlers';
+import {
+    createMockAddressHistoryTuningCandidate,
+    createMockAddressHistoryTuningResponse,
+} from '@/test/mocks/data';
 
 describe('DashboardView', () => {
+    it('surfaces devices whose lease is shorter than their check-in cadence', async () => {
+        server.use(
+            addressHandlers.tuning.success(
+                createMockAddressHistoryTuningResponse({
+                    devices: [createMockAddressHistoryTuningCandidate()],
+                    total: 3,
+                }),
+            ),
+        );
+
+        renderWithProviders(<DashboardView />);
+
+        const row = await screen.findByText(/lease shorter than their check-in cadence/, undefined, {
+            timeout: TEST_TIMEOUTS.SHORT,
+        });
+        expect(within(row.closest('a') as HTMLElement).getByText('3')).toBeInTheDocument();
+        // The link reproduces the window the count was measured over.
+        expect(row.closest('a')).toHaveAttribute('href', '/address-history?preset=last_1w');
+    });
+
+    it('stays quiet when no device needs tuning', async () => {
+        renderWithProviders(<DashboardView />);
+
+        await waitFor(
+            () => expect(screen.getByText('Security posture')).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+        expect(screen.queryByText(/lease shorter than their check-in cadence/)).not.toBeInTheDocument();
+    });
+
     it('renders stat cards with data from the API', async () => {
         renderWithProviders(<DashboardView />);
 

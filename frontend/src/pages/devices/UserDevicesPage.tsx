@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router";
-import { ROUTES, buildRoute } from "@/lib/routes";
+import { ROUTES, buildRoute, DeviceTab, type DeviceTabValue } from "@/lib/routes";
 import { Anchor, Box, Button, Group, Indicator, Skeleton, Stack, Tabs, Text } from "@mantine/core";
 import { useLocalStorage, useMediaQuery } from "@mantine/hooks";
 import { IconChevronLeft, IconUserQuestion } from "@tabler/icons-react";
@@ -22,15 +22,6 @@ import { DevicePairingStatus, DeviceState } from "@/lib/api";
 import { DeviceWorkspaceBanners } from "@/features/devices/DeviceWorkspaceBanners";
 import { DeviceWorkspaceHeader } from "@/features/devices/DeviceWorkspaceHeader";
 
-const DeviceTab = {
-  ADDRESSES: "addresses",
-  RULES: "rules",
-  PAIRING: "pairing",
-  HISTORY: "history",
-  SETTINGS: "settings",
-} as const;
-
-type DeviceTabValue = (typeof DeviceTab)[keyof typeof DeviceTab];
 const VALID_DEVICE_TABS = new Set<string>(Object.values(DeviceTab));
 function resolveTab(raw: string | null): DeviceTabValue {
   return raw !== null && VALID_DEVICE_TABS.has(raw) ? (raw as DeviceTabValue) : DeviceTab.ADDRESSES;
