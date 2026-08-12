@@ -22,14 +22,6 @@ const (
 	defaultHistoryRange = 24 * time.Hour
 )
 
-// addressHistoryTuningLimit bounds the tuning candidate ranking.
-const addressHistoryTuningLimit = 5
-
-// tuningMinRenewals is the sample floor a device's renewal count must clear
-// to qualify for the tuning ranking — below it, a p95 gap is just the
-// maximum observed and not a reliable signal that the TTL is wrong.
-const tuningMinRenewals = 10
-
 // ttlRisk ratio thresholds — see TTLRisk.
 const (
 	ttlRiskBreachedRatio    = 1.0
@@ -123,10 +115,9 @@ const ttlRiskCase = `CASE
 END`
 
 // ttlRiskOrder ranks the TTLRisk levels ttlRiskCase can emit, least to most
-// severe. It is the single source the histogram's worst-risk-per-device
-// aggregation and the at-risk device ranking build their SQL rank from — the
-// rank must never be re-derived independently of this list, or it can drift
-// from what ttlRiskCase actually classifies.
+// severe. The histogram's worst-risk-per-device rank is derived from this list
+// and must never be re-declared independently of it, or it can drift from what
+// ttlRiskCase actually classifies.
 var ttlRiskOrder = []TTLRisk{TTLRiskUnknown, TTLRiskOK, TTLRiskApproaching, TTLRiskCritical, TTLRiskBreached}
 
 // ttlRiskOKRank is the lowest rank the histogram buckets count — unknown
@@ -418,19 +409,13 @@ type addressHistoryRiskBucketRow struct {
 }
 
 // riskDeviceBuckets counts, per bucket and risk level, the distinct devices
-// whose worst ttl_risk within that bucket is that level — so a device with
-// both an approaching and a critical event in the same bucket is counted
-// once, under critical, rather than in both bands. This needs two
-// aggregation levels: MAX(risk_rank) per (bucket, device_id) first, then
-// COUNT(*) grouped by (bucket, risk_rank) over that — a single-level
-// COUNT(DISTINCT device_id) per (bucket, risk_rank) would still double-count
-// a device that crossed bands within the bucket. Only unknown is excluded
-// before the outer GROUP BY: a row with no gap to measure is not a renewal,
-// so it belongs in neither band, but ok stays in — a bucket where every
-// device renewed comfortably is exactly the denominator the chart needs.
-// This result only carries buckets something happened in; the caller fills
-// in the buckets it omits (nothing renewed at all) with all-zero counts to
-// keep the response contiguous across the window.
+// whose worst ttl_risk in that bucket is that level, so a device that went
+// approaching then critical inside one bucket is counted once, under critical.
+// That needs two aggregation levels — MAX(risk_rank) per (bucket, device_id),
+// then COUNT(*) over that — because a single-level COUNT(DISTINCT device_id)
+// per (bucket, risk_rank) would still count such a device in both bands.
+// Unknown is excluded as not a renewal; ok stays, since a bucket where every
+// device renewed comfortably is the denominator the chart needs.
 func (r *Repository) riskDeviceBuckets(ctx context.Context, q AddressHistoryQuery, bucketExpr string) ([]addressHistoryRiskBucketRow, error) {
 	base, err := addressHistoryBase(q)
 	if err != nil {
@@ -460,14 +445,11 @@ func (r *Repository) riskDeviceBuckets(ctx context.Context, q AddressHistoryQuer
 	return buckets, nil
 }
 
-// foldRiskBuckets turns the (bucket, risk rank) rows riskDeviceBuckets
-// returns into one response bucket per entry in sequence, each carrying all
-// four bands. The sequence, not the rows, drives the result: a bucket the
-// query never saw (nothing renewed in it) still appears, all-zero, so the
-// response stays contiguous across the window and a caller never has to
-// reconstruct a gap it cannot see. Rows outside sequence — which the shared
-// from/to WHERE should already exclude — are dropped rather than extending
-// the window.
+// foldRiskBuckets turns riskDeviceBuckets' (bucket, risk rank) rows into one
+// response bucket per entry in sequence, each carrying all four bands. The
+// sequence drives the result, not the rows: a bucket nothing renewed in still
+// appears, all-zero, so a caller never has to reconstruct a gap it cannot see.
+// Rows outside sequence are dropped rather than extending the window.
 func foldRiskBuckets(sequence []time.Time, rows []addressHistoryRiskBucketRow) []httpapi.AddressHistoryBucket {
 	byBucket := make(map[int64]map[TTLRisk]int, len(rows))
 	for _, rb := range rows {
@@ -511,168 +493,5 @@ func (r *Repository) GetAddressHistoryHistogram(ctx context.Context, q AddressHi
 
 	return httpapi.AddressHistoryHistogramResponse{
 		Buckets: buckets,
-	}, nil
-}
-
-// AddressHistoryTuningQuery is the validated window behind
-// GET /address-history/tuning. Unlike AddressHistoryQuery it carries no
-// filterx filters — the endpoint is window-scoped only, by design, so there
-// is nothing here for a filter to narrow. DeviceID, when set, scopes the
-// response to that one device and bypasses the ranking threshold entirely.
-type AddressHistoryTuningQuery struct {
-	From     time.Time
-	To       time.Time
-	DeviceID *ids.DeviceID
-}
-
-// NewAddressHistoryTuningQuery validates and normalizes
-// GET /address-history/tuning params. There is nothing here that can fail —
-// from/to fall back to the same default window as the other address-history
-// endpoints, and device_id needs no validation beyond its own type.
-func NewAddressHistoryTuningQuery(params httpapi.GetAddressHistoryTuningParams) AddressHistoryTuningQuery {
-	now := time.Now().UTC()
-	q := AddressHistoryTuningQuery{
-		From: now.Add(-defaultHistoryRange),
-		To:   now,
-	}
-	if params.From != nil {
-		q.From = *params.From
-	}
-	if params.To != nil {
-		q.To = *params.To
-	}
-	if params.DeviceId != nil {
-		q.DeviceID = new(ids.DeviceID(*params.DeviceId))
-	}
-	return q
-}
-
-// tuningCandidateRow is one device's renewal-timing aggregates for the tuning
-// window. Total is the window count of every row that qualified, repeated
-// identically on each row, so it survives the LIMIT that trims the rest.
-type tuningCandidateRow struct {
-	DeviceID         ids.DeviceID `db:"device_id"`
-	DeviceName       string       `db:"device_name"`
-	TTLSeconds       int64        `db:"ttl_seconds"`
-	RenewalCount     int          `db:"renewal_count"`
-	LateRenewalCount int          `db:"late_renewal_count"`
-	P95GapSeconds    int64        `db:"p95_gap_seconds"`
-	Total            int          `db:"total"`
-}
-
-// addressHistoryTuningPerDevice returns the base builder over one row per
-// device with a renewal in the window: its renewal/late-renewal counts, its
-// configured TTL, and its nearest-rank p95 renewal gap. `rn * 100 >= n * 95`
-// selects the smallest gap at or above the 95th percentile without CEIL or
-// integer-division rounding; with few renewals this collapses to the
-// maximum, which is the right number to size a TTL against. p95 has to be
-// computed before the threshold can be applied — it is an input to
-// selection, not a decoration on the output — so this builder computes
-// every aggregate the caller might filter or order on in one pass; callers
-// attach the qualifying WHERE, ORDER BY, and LIMIT on top. A device only
-// appears here if it has at least one renewal (ttl_risk not unknown) in the
-// window, which also guarantees ttl_seconds is non-null for every row
-// (ttlRiskCase never classifies a row as non-unknown without one).
-func addressHistoryTuningPerDevice(q AddressHistoryTuningQuery) sq.SelectBuilder {
-	cond := sq.And{
-		sq.GtOrEq{"e.created_at": q.From},
-		sq.LtOrEq{"e.created_at": q.To},
-		sq.NotEq{"e.ttl_risk": string(TTLRiskUnknown)},
-	}
-	if q.DeviceID != nil {
-		cond = append(cond, sq.Eq{"e.device_id": *q.DeviceID})
-	}
-
-	renewals := sq.Select(
-		"e.device_id AS device_id",
-		"e.device_name AS device_name",
-		"e.ttl_seconds AS ttl_seconds",
-		"e.renewal_gap_seconds AS renewal_gap_seconds",
-		"CASE WHEN e.ttl_risk = 'breached' THEN 1 ELSE 0 END AS is_late",
-	).FromSelect(addressHistoryEnriched(), "e").Where(cond)
-
-	ranked := sq.Select(
-		"g.device_id AS device_id",
-		"g.device_name AS device_name",
-		"g.ttl_seconds AS ttl_seconds",
-		"g.renewal_gap_seconds AS renewal_gap_seconds",
-		"g.is_late AS is_late",
-		"ROW_NUMBER() OVER (PARTITION BY g.device_id ORDER BY g.renewal_gap_seconds) AS rn",
-		"COUNT(*) OVER (PARTITION BY g.device_id) AS n",
-	).FromSelect(renewals, "g")
-
-	return sq.Select(
-		"k.device_id AS device_id",
-		"MAX(k.device_name) AS device_name",
-		"MAX(k.ttl_seconds) AS ttl_seconds",
-		"COUNT(*) AS renewal_count",
-		"SUM(k.is_late) AS late_renewal_count",
-		"MIN(CASE WHEN k.rn * 100 >= k.n * 95 THEN k.renewal_gap_seconds END) AS p95_gap_seconds",
-	).FromSelect(ranked, "k").GroupBy("k.device_id")
-}
-
-// toTuningCandidates maps ranked/device-scoped rows to the API shape. Always
-// non-nil, so an empty result serializes as [] rather than null.
-func toTuningCandidates(rows []tuningCandidateRow) []httpapi.AddressHistoryTuningCandidate {
-	candidates := make([]httpapi.AddressHistoryTuningCandidate, len(rows))
-	for i, d := range rows {
-		candidates[i] = httpapi.AddressHistoryTuningCandidate{
-			DeviceId:         d.DeviceID.Int64(),
-			DeviceName:       d.DeviceName,
-			RenewalCount:     d.RenewalCount,
-			LateRenewalCount: d.LateRenewalCount,
-			TtlSeconds:       d.TTLSeconds,
-			P95GapSeconds:    d.P95GapSeconds,
-		}
-	}
-	return candidates
-}
-
-// GetAddressHistoryTuning answers the tuning endpoint: with no device_id, a
-// top-5 ranking of every device whose TTL is genuinely too short in the
-// window; with device_id, that one device's readout regardless of whether it
-// meets the ranking threshold.
-func (r *Repository) GetAddressHistoryTuning(ctx context.Context, q AddressHistoryTuningQuery) (httpapi.AddressHistoryTuningResponse, error) {
-	// COUNT(*) OVER () counts the rows surviving the WHERE before the LIMIT
-	// trims them, so the fleet-wide total and the page it returns come from one
-	// read and cannot disagree about who qualified.
-	candidates := sq.Select(
-		"x.device_id", "x.device_name", "x.ttl_seconds", "x.renewal_count",
-		"x.late_renewal_count", "x.p95_gap_seconds", "COUNT(*) OVER () AS total",
-	).FromSelect(addressHistoryTuningPerDevice(q), "x")
-
-	// Scoped to one device there is nothing to rank, and a device the caller is
-	// already looking at needs no threshold to justify showing it — so the
-	// qualifying test, the ordering, and the limit all apply to the fleet-wide
-	// read only. p95 > ttl is exactly a >5% late rate (approached from above as
-	// the sample grows), so there is deliberately no second late-ratio test
-	// beside it that could drift.
-	if q.DeviceID == nil {
-		candidates = candidates.
-			Where(sq.Expr("x.p95_gap_seconds > x.ttl_seconds")).
-			Where(sq.GtOrEq{"x.renewal_count": tuningMinRenewals}).
-			OrderBy("(x.p95_gap_seconds * 1.0 / x.ttl_seconds) DESC", "x.late_renewal_count DESC", "x.device_id ASC").
-			Limit(addressHistoryTuningLimit)
-	}
-
-	tuningSQL, tuningArgs, err := candidates.ToSql()
-	if err != nil {
-		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("build address history tuning query: %w", err)
-	}
-
-	var rows []tuningCandidateRow
-	if err := r.db.SelectContext(ctx, &rows, tuningSQL, tuningArgs...); err != nil {
-		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("get address history tuning: %w", err)
-	}
-
-	total := 0
-	if len(rows) > 0 {
-		total = rows[0].Total
-	}
-
-	return httpapi.AddressHistoryTuningResponse{
-		Devices:     toTuningCandidates(rows),
-		Total:       total,
-		MinRenewals: tuningMinRenewals,
 	}, nil
 }
