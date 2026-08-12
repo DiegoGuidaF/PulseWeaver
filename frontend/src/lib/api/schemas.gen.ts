@@ -740,7 +740,7 @@ export const AddressHistoryResponseSchema = {
 
 export const AddressHistoryHistogramResponseSchema = {
   type: "object",
-  required: ["buckets", "at_risk_devices"],
+  required: ["buckets"],
   properties: {
     buckets: {
       type: "array",
@@ -749,15 +749,6 @@ export const AddressHistoryHistogramResponseSchema = {
       },
       description:
         "Every bucket across the window, oldest first, with no gaps: a bucket in which nothing renewed at all still appears, with all four counts zero. Bucket width follows the window size.\n",
-    },
-    at_risk_devices: {
-      type: "array",
-      maxItems: 5,
-      items: {
-        $ref: "#/components/schemas/AddressHistoryAtRiskDevice",
-      },
-      description:
-        "The devices most worth re-tuning their lease TTL for, in the filtered window: ordered by worst risk, then by how often their renewals arrive after the TTL, then by total renewals. Same filters and window as buckets — the ranking changes exactly when the filters change and never on page-turn.\n",
     },
   },
 } as const;
@@ -2692,12 +2683,11 @@ export const DevicePairingStatusSchema = {
     "Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.\n",
 } as const;
 
-export const AddressHistoryAtRiskDeviceSchema = {
+export const AddressHistoryTuningCandidateSchema = {
   type: "object",
   required: [
     "device_id",
     "device_name",
-    "worst_risk",
     "renewal_count",
     "late_renewal_count",
     "ttl_seconds",
@@ -2711,19 +2701,10 @@ export const AddressHistoryAtRiskDeviceSchema = {
       type: "string",
       description: "Name of the device",
     },
-    worst_risk: {
-      allOf: [
-        {
-          $ref: "#/components/schemas/TTLRisk",
-        },
-      ],
-      description:
-        "The device's worst ttl_risk among events matching the filters in the window. Always approaching, critical, or breached — a device whose worst risk is ok or unknown never appears in this ranking.\n",
-    },
     renewal_count: {
       type: "integer",
       description:
-        "This device's renewals in the filtered window: events with a measurable gap since the device's previous renewal. Excludes events with nothing to measure against, such as the device's first-ever renewal or a lease expiry.\n",
+        "This device's renewals in the window: events with a measurable gap since the device's previous renewal. Excludes events with nothing to measure against, such as the device's first-ever renewal or a lease expiry.\n",
     },
     late_renewal_count: {
       type: "integer",
@@ -2740,6 +2721,32 @@ export const AddressHistoryAtRiskDeviceSchema = {
       format: "int64",
       description:
         "The 95th-percentile gap, in seconds, between this device's renewals in the window — 95% of its renewals arrived within this many seconds of the one before. With few renewals this equals the largest gap observed, which is the right number to size a TTL against.\n",
+    },
+  },
+} as const;
+
+export const AddressHistoryTuningResponseSchema = {
+  type: "object",
+  required: ["devices", "total", "min_renewals"],
+  properties: {
+    devices: {
+      type: "array",
+      maxItems: 5,
+      items: {
+        $ref: "#/components/schemas/AddressHistoryTuningCandidate",
+      },
+      description:
+        "Up to five devices most worth re-tuning their lease TTL in the window, worst first: ordered by how far the 95th-percentile renewal gap exceeds the TTL, then by how many renewals arrived late, then by device id.\n",
+    },
+    total: {
+      type: "integer",
+      description:
+        "How many devices qualify for re-tuning in the window, fleet-wide — not just how many devices is carrying. Use this for a count; devices is only the top five for display.\n",
+    },
+    min_renewals: {
+      type: "integer",
+      description:
+        "The minimum number of renewals a device needed in the window to qualify for devices/total, echoed back so a caller does not have to hardcode the same number.\n",
     },
   },
 } as const;

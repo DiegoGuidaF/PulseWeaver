@@ -1059,7 +1059,7 @@ paths:
         - addresses
       summary: Get device renewal timing against lease TTLs over time
       description: |
-        How the fleet's address renewals compare to their lease TTLs across the window, for the renewal-timing chart. Each time bucket counts the distinct devices at each TTL-risk level — ok, approaching, critical, breached — counting a device once, at its worst level for that bucket. Bucket width follows the window size, and every bucket in the window is present, even one in which nothing renewed at all. Also returns the five devices most worth re-tuning their lease TTL in the window. Takes the same filters as GET /address-history.
+        How the fleet's address renewals compare to their lease TTLs across the window, for the renewal-timing chart. Each time bucket counts the distinct devices at each TTL-risk level — ok, approaching, critical, breached — counting a device once, at its worst level for that bucket. Bucket width follows the window size, and every bucket in the window is present, even one in which nothing renewed at all. Takes the same filters as GET /address-history.
       parameters:
         - name: device_id
           in: query
@@ -1161,7 +1161,7 @@ paths:
           description: RFC3339 end of time window (default now)
       responses:
         '200':
-          description: Time-bucketed device counts by TTL-risk band, plus the tuning ranking
+          description: Time-bucketed device counts by TTL-risk band
           content:
             application/json:
               schema:
@@ -1172,6 +1172,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - admin credentials required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /address-history/tuning:
+    get:
+      operationId: getAddressHistoryTuning
+      tags:
+        - addresses
+      summary: Get devices worth re-tuning their lease TTL
+      description: |
+        Which devices need a bigger lease TTL, fleet-wide across the window — for a dashboard signal or an own-section readout on the address-history page. Ignores every address-history column filter: unlike GET /address-history/histogram, this view is window-scoped only and does not re-rank when a caller narrows a chart or table elsewhere.
+        A device qualifies when it has at least min_renewals renewals in the window and more than 5% of them arrived after its lease TTL had already elapsed — equivalently, its 95th-percentile renewal gap exceeds its TTL. devices holds the five worst qualifying devices, worst first; total counts every device that qualifies in the window, not just the returned page. min_renewals echoes the sample floor actually applied, so a caller does not have to hardcode it.
+        Set device_id to scope the response to one specific device instead: its readout is returned regardless of whether it meets the threshold above, so total is 0 or 1 and devices holds at most that one device. A device with no lease rule configured, or no measurable renewals in the window, returns an empty devices list rather than an error.
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 start of time window (default 24h ago)
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 end of time window (default now)
+        - name: device_id
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ID'
+          description: Scope the response to one device, bypassing the ranking threshold.
+      responses:
+        '200':
+          description: Devices worth re-tuning their lease TTL, fleet-wide or for one device
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressHistoryTuningResponse'
         '403':
           description: Forbidden - admin credentials required
           content:
@@ -3489,7 +3539,6 @@ components:
       type: object
       required:
         - buckets
-        - at_risk_devices
       properties:
         buckets:
           type: array
@@ -3497,13 +3546,6 @@ components:
             $ref: '#/components/schemas/AddressHistoryBucket'
           description: |
             Every bucket across the window, oldest first, with no gaps: a bucket in which nothing renewed at all still appears, with all four counts zero. Bucket width follows the window size.
-        at_risk_devices:
-          type: array
-          maxItems: 5
-          items:
-            $ref: '#/components/schemas/AddressHistoryAtRiskDevice'
-          description: |
-            The devices most worth re-tuning their lease TTL for, in the filtered window: ordered by worst risk, then by how often their renewals arrive after the TTL, then by total renewals. Same filters and window as buckets — the ranking changes exactly when the filters change and never on page-turn.
     AddressHistoryBucket:
       type: object
       required:
@@ -4965,12 +5007,11 @@ components:
         - replaced
       description: |
         Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.
-    AddressHistoryAtRiskDevice:
+    AddressHistoryTuningCandidate:
       type: object
       required:
         - device_id
         - device_name
-        - worst_risk
         - renewal_count
         - late_renewal_count
         - ttl_seconds
@@ -4981,15 +5022,10 @@ components:
         device_name:
           type: string
           description: Name of the device
-        worst_risk:
-          allOf:
-            - $ref: '#/components/schemas/TTLRisk'
-          description: |
-            The device's worst ttl_risk among events matching the filters in the window. Always approaching, critical, or breached — a device whose worst risk is ok or unknown never appears in this ranking.
         renewal_count:
           type: integer
           description: |
-            This device's renewals in the filtered window: events with a measurable gap since the device's previous renewal. Excludes events with nothing to measure against, such as the device's first-ever renewal or a lease expiry.
+            This device's renewals in the window: events with a measurable gap since the device's previous renewal. Excludes events with nothing to measure against, such as the device's first-ever renewal or a lease expiry.
         late_renewal_count:
           type: integer
           description: Of renewal_count, how many arrived after the device's lease TTL had already elapsed.
@@ -5002,6 +5038,28 @@ components:
           format: int64
           description: |
             The 95th-percentile gap, in seconds, between this device's renewals in the window — 95% of its renewals arrived within this many seconds of the one before. With few renewals this equals the largest gap observed, which is the right number to size a TTL against.
+    AddressHistoryTuningResponse:
+      type: object
+      required:
+        - devices
+        - total
+        - min_renewals
+      properties:
+        devices:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/AddressHistoryTuningCandidate'
+          description: |
+            Up to five devices most worth re-tuning their lease TTL in the window, worst first: ordered by how far the 95th-percentile renewal gap exceeds the TTL, then by how many renewals arrived late, then by device id.
+        total:
+          type: integer
+          description: |
+            How many devices qualify for re-tuning in the window, fleet-wide — not just how many devices is carrying. Use this for a count; devices is only the top five for display.
+        min_renewals:
+          type: integer
+          description: |
+            The minimum number of renewals a device needed in the window to qualify for devices/total, echoed back so a caller does not have to hardcode the same number.
     AccessLogFilterOperator:
       type: string
       description: |

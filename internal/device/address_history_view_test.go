@@ -145,16 +145,16 @@ func TestTTLRiskOrder_CoversEveryClassifiedRisk(t *testing.T) {
 	is.Equal(len(emitted), len(ttlRiskOrder)) // …and ttlRiskOrder carries nothing the CASE cannot emit
 }
 
-// TestTTLRiskRanks_SeverityOrder pins the two thresholds the endpoint's
-// selection rules are written against: unknown sorts below ok, which the
-// buckets include, which sorts below approaching, where the ranking starts.
+// TestTTLRiskRanks_SeverityOrder pins the threshold the histogram buckets are
+// written against: unknown sorts below ok, which the buckets include, below
+// approaching, critical, and breached in increasing severity.
 func TestTTLRiskRanks_SeverityOrder(t *testing.T) {
 	is := is.New(t)
 
-	is.Equal(ttlRiskOrder[0], TTLRiskUnknown) // rank 0 — excluded from both buckets and ranking
-	is.True(ttlRiskOKRank < ttlRiskApproachingRank)
-	is.True(slices.Index(ttlRiskOrder, TTLRiskCritical) > ttlRiskApproachingRank)
-	is.True(slices.Index(ttlRiskOrder, TTLRiskBreached) > slices.Index(ttlRiskOrder, TTLRiskCritical))
+	is.Equal(ttlRiskOrder[0], TTLRiskUnknown) // rank 0 — excluded from the buckets
+	is.True(ttlRiskOKRank < slices.Index(ttlRiskOrder, TTLRiskApproaching))
+	is.True(slices.Index(ttlRiskOrder, TTLRiskApproaching) < slices.Index(ttlRiskOrder, TTLRiskCritical))
+	is.True(slices.Index(ttlRiskOrder, TTLRiskCritical) < slices.Index(ttlRiskOrder, TTLRiskBreached))
 }
 
 // TestTTLRiskRankExpr_MapsEveryLevel checks the generated CASE names every

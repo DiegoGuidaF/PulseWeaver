@@ -22,9 +22,13 @@ const (
 	defaultHistoryRange = 24 * time.Hour
 )
 
-// addressHistoryAtRiskLimit bounds the at-risk device ranking on the
-// histogram response.
-const addressHistoryAtRiskLimit = 5
+// addressHistoryTuningLimit bounds the tuning candidate ranking.
+const addressHistoryTuningLimit = 5
+
+// tuningMinRenewals is the sample floor a device's renewal count must clear
+// to qualify for the tuning ranking — below it, a p95 gap is just the
+// maximum observed and not a reliable signal that the TTL is wrong.
+const tuningMinRenewals = 10
 
 // ttlRisk ratio thresholds — see TTLRisk.
 const (
@@ -124,11 +128,6 @@ END`
 // rank must never be re-derived independently of this list, or it can drift
 // from what ttlRiskCase actually classifies.
 var ttlRiskOrder = []TTLRisk{TTLRiskUnknown, TTLRiskOK, TTLRiskApproaching, TTLRiskCritical, TTLRiskBreached}
-
-// ttlRiskApproachingRank is the lowest rank the at-risk device ranking
-// selects on — a device whose worst risk in the window is ok or unknown
-// never appears in the ranking.
-var ttlRiskApproachingRank = slices.Index(ttlRiskOrder, TTLRiskApproaching)
 
 // ttlRiskOKRank is the lowest rank the histogram buckets count — unknown
 // stays excluded, since a row with no gap to measure is not a renewal and
@@ -461,137 +460,6 @@ func (r *Repository) riskDeviceBuckets(ctx context.Context, q AddressHistoryQuer
 	return buckets, nil
 }
 
-// addressHistoryAtRiskDeviceRow ranks one device by its worst ttl_risk and
-// carries the counts a reader needs to decide whether its lease TTL needs
-// retuning, all over the whole filtered window. P95GapSeconds is filled in
-// by a second query (atRiskDeviceP95Gaps), so it has no db tag.
-type addressHistoryAtRiskDeviceRow struct {
-	DeviceID         ids.DeviceID `db:"device_id"`
-	DeviceName       string       `db:"device_name"`
-	RiskRank         int          `db:"risk_rank"`
-	RenewalCount     int          `db:"renewal_count"`
-	LateRenewalCount int          `db:"late_renewal_count"`
-	TTLSeconds       int64        `db:"ttl_seconds"`
-	P95GapSeconds    int64        `db:"-"`
-}
-
-// atRiskDevices ranks devices by their worst ttl_risk within the filtered
-// window, then by how often their renewals arrive late, then by total
-// renewals — the same filters and window as the histogram buckets, since the
-// ranking is meant to change exactly when the filters change.
-// renewal_count/late_renewal_count are the device's counts across the whole
-// window, not just its worst bucket. ttl_seconds is MAX(e.ttl_seconds): the
-// value is constant across a device's rows, and a ranked device always has
-// one, since ttlRiskCase only produces approaching/critical/breached — the
-// ranks Having selects on — when ttl_seconds is non-null.
-func (r *Repository) atRiskDevices(ctx context.Context, q AddressHistoryQuery) ([]addressHistoryAtRiskDeviceRow, error) {
-	base, err := addressHistoryBase(q)
-	if err != nil {
-		return nil, err
-	}
-
-	rankExpr := ttlRiskRankExpr("e.ttl_risk")
-	devicesSQL, deviceArgs, err := base.
-		Column("e.device_id AS device_id").
-		Column("e.device_name AS device_name").
-		Column("MAX("+rankExpr+") AS risk_rank").
-		Column("SUM(CASE WHEN e.ttl_risk <> 'unknown' THEN 1 ELSE 0 END) AS renewal_count").
-		Column("SUM(CASE WHEN e.ttl_risk = 'breached' THEN 1 ELSE 0 END) AS late_renewal_count").
-		Column("MAX(e.ttl_seconds) AS ttl_seconds").
-		GroupBy("e.device_id", "e.device_name").
-		Having("MAX("+rankExpr+") >= ?", ttlRiskApproachingRank).
-		OrderBy("risk_rank DESC", "late_renewal_count DESC", "renewal_count DESC", "e.device_id ASC").
-		Limit(addressHistoryAtRiskLimit).
-		ToSql()
-	if err != nil {
-		return nil, fmt.Errorf("build address history at-risk devices query: %w", err)
-	}
-
-	var devices []addressHistoryAtRiskDeviceRow
-	if err := r.db.SelectContext(ctx, &devices, devicesSQL, deviceArgs...); err != nil {
-		return nil, fmt.Errorf("get address history at-risk devices: %w", err)
-	}
-	if len(devices) == 0 {
-		return devices, nil
-	}
-
-	deviceIDs := make([]ids.DeviceID, len(devices))
-	for i, d := range devices {
-		deviceIDs[i] = d.DeviceID
-	}
-	p95, err := r.atRiskDeviceP95Gaps(ctx, q, deviceIDs)
-	if err != nil {
-		return nil, err
-	}
-	for i := range devices {
-		gap, ok := p95[devices[i].DeviceID]
-		if !ok {
-			// Every ranked device has at least one non-unknown row, so the gap
-			// query must return one for each. A missing entry means that no
-			// longer holds, and the zero value is a legal gap a caller would
-			// read as "renews instantly" — fail loudly instead.
-			return nil, fmt.Errorf("get address history p95 gaps: no renewal gap for ranked device %d", devices[i].DeviceID.Int64())
-		}
-		devices[i].P95GapSeconds = gap
-	}
-	return devices, nil
-}
-
-// addressHistoryAtRiskP95Row is one device's nearest-rank p95 renewal gap.
-type addressHistoryAtRiskP95Row struct {
-	DeviceID      ids.DeviceID `db:"device_id"`
-	P95GapSeconds int64        `db:"p95_gap_seconds"`
-}
-
-// atRiskDeviceP95Gaps computes, for each given device, the smallest gap g
-// such that at least 95% of that device's renewals in the filtered window
-// are <= g (nearest-rank), scoped to the same filters/window as the ranking.
-// `rn * 100 >= n * 95` selects that row without CEIL or integer-division
-// rounding. With few renewals this collapses to the maximum gap, which is
-// the right number to size a TTL against. Restricting to the already-ranked
-// device_ids is an optimization, not a behavior change: p95 is computed
-// independently per device, so narrowing the row set first cannot change any
-// device's result.
-func (r *Repository) atRiskDeviceP95Gaps(ctx context.Context, q AddressHistoryQuery, deviceIDs []ids.DeviceID) (map[ids.DeviceID]int64, error) {
-	base, err := addressHistoryBase(q)
-	if err != nil {
-		return nil, err
-	}
-
-	renewals := base.
-		Column("e.device_id AS device_id").
-		Column("e.renewal_gap_seconds AS renewal_gap_seconds").
-		Where(sq.NotEq{"e.ttl_risk": string(TTLRiskUnknown)}).
-		Where(sq.Eq{"e.device_id": deviceIDs})
-
-	ranked := sq.Select(
-		"g.device_id AS device_id",
-		"g.renewal_gap_seconds AS renewal_gap_seconds",
-		"ROW_NUMBER() OVER (PARTITION BY g.device_id ORDER BY g.renewal_gap_seconds) AS rn",
-		"COUNT(*) OVER (PARTITION BY g.device_id) AS n",
-	).FromSelect(renewals, "g")
-
-	p95SQL, p95Args, err := sq.Select("k.device_id AS device_id", "MIN(k.renewal_gap_seconds) AS p95_gap_seconds").
-		FromSelect(ranked, "k").
-		Where("k.rn * 100 >= k.n * 95").
-		GroupBy("k.device_id").
-		ToSql()
-	if err != nil {
-		return nil, fmt.Errorf("build address history p95 gap query: %w", err)
-	}
-
-	var rows []addressHistoryAtRiskP95Row
-	if err := r.db.SelectContext(ctx, &rows, p95SQL, p95Args...); err != nil {
-		return nil, fmt.Errorf("get address history p95 gaps: %w", err)
-	}
-
-	gaps := make(map[ids.DeviceID]int64, len(rows))
-	for _, row := range rows {
-		gaps[row.DeviceID] = row.P95GapSeconds
-	}
-	return gaps, nil
-}
-
 // foldRiskBuckets turns the (bucket, risk rank) rows riskDeviceBuckets
 // returns into one response bucket per entry in sequence, each carrying all
 // four bands. The sequence, not the rows, drives the result: a bucket the
@@ -629,8 +497,7 @@ func foldRiskBuckets(sequence []time.Time, rows []addressHistoryRiskBucketRow) [
 
 // GetAddressHistoryHistogram answers the histogram endpoint: per-bucket
 // device counts across all four TTL-risk bands, contiguous across the whole
-// window, plus the top devices worth re-tuning their lease TTL. Granularity
-// is chosen server-side from the window size.
+// window. Granularity is chosen server-side from the window size.
 func (r *Repository) GetAddressHistoryHistogram(ctx context.Context, q AddressHistoryQuery) (httpapi.AddressHistoryHistogramResponse, error) {
 	granularity := timebucket.GranularityForWindow(q.To.Sub(q.From))
 	bucketExpr := granularity.BucketExpr("e.created_at")
@@ -639,28 +506,200 @@ func (r *Repository) GetAddressHistoryHistogram(ctx context.Context, q AddressHi
 	if err != nil {
 		return httpapi.AddressHistoryHistogramResponse{}, err
 	}
-	atRisk, err := r.atRiskDevices(ctx, q)
-	if err != nil {
-		return httpapi.AddressHistoryHistogramResponse{}, err
-	}
 
 	buckets := foldRiskBuckets(granularity.Sequence(q.From, q.To), riskBuckets)
 
-	devices := make([]httpapi.AddressHistoryAtRiskDevice, len(atRisk))
-	for i, d := range atRisk {
-		devices[i] = httpapi.AddressHistoryAtRiskDevice{
+	return httpapi.AddressHistoryHistogramResponse{
+		Buckets: buckets,
+	}, nil
+}
+
+// AddressHistoryTuningQuery is the validated window behind
+// GET /address-history/tuning. Unlike AddressHistoryQuery it carries no
+// filterx filters — the endpoint is window-scoped only, by design, so there
+// is nothing here for a filter to narrow. DeviceID, when set, scopes the
+// response to that one device and bypasses the ranking threshold entirely.
+type AddressHistoryTuningQuery struct {
+	From     time.Time
+	To       time.Time
+	DeviceID *ids.DeviceID
+}
+
+// NewAddressHistoryTuningQuery validates and normalizes
+// GET /address-history/tuning params. There is nothing here that can fail —
+// from/to fall back to the same default window as the other address-history
+// endpoints, and device_id needs no validation beyond its own type.
+func NewAddressHistoryTuningQuery(params httpapi.GetAddressHistoryTuningParams) AddressHistoryTuningQuery {
+	now := time.Now().UTC()
+	q := AddressHistoryTuningQuery{
+		From: now.Add(-defaultHistoryRange),
+		To:   now,
+	}
+	if params.From != nil {
+		q.From = *params.From
+	}
+	if params.To != nil {
+		q.To = *params.To
+	}
+	if params.DeviceId != nil {
+		q.DeviceID = new(ids.DeviceID(*params.DeviceId))
+	}
+	return q
+}
+
+// tuningCandidateRow is one device's renewal-timing aggregates for the
+// tuning window: whether it qualifies is decided by the caller, since a
+// device-scoped read (DeviceID set) returns the row unconditionally.
+type tuningCandidateRow struct {
+	DeviceID         ids.DeviceID `db:"device_id"`
+	DeviceName       string       `db:"device_name"`
+	TTLSeconds       int64        `db:"ttl_seconds"`
+	RenewalCount     int          `db:"renewal_count"`
+	LateRenewalCount int          `db:"late_renewal_count"`
+	P95GapSeconds    int64        `db:"p95_gap_seconds"`
+}
+
+// addressHistoryTuningPerDevice returns the base builder over one row per
+// device with a renewal in the window: its renewal/late-renewal counts, its
+// configured TTL, and its nearest-rank p95 renewal gap. `rn * 100 >= n * 95`
+// selects the smallest gap at or above the 95th percentile without CEIL or
+// integer-division rounding; with few renewals this collapses to the
+// maximum, which is the right number to size a TTL against. p95 has to be
+// computed before the threshold can be applied — it is an input to
+// selection, not a decoration on the output — so this builder computes
+// every aggregate the caller might filter or order on in one pass; callers
+// attach the qualifying WHERE, ORDER BY, and LIMIT on top. A device only
+// appears here if it has at least one renewal (ttl_risk not unknown) in the
+// window, which also guarantees ttl_seconds is non-null for every row
+// (ttlRiskCase never classifies a row as non-unknown without one).
+func addressHistoryTuningPerDevice(q AddressHistoryTuningQuery) sq.SelectBuilder {
+	cond := sq.And{
+		sq.GtOrEq{"e.created_at": q.From},
+		sq.LtOrEq{"e.created_at": q.To},
+		sq.NotEq{"e.ttl_risk": string(TTLRiskUnknown)},
+	}
+	if q.DeviceID != nil {
+		cond = append(cond, sq.Eq{"e.device_id": *q.DeviceID})
+	}
+
+	renewals := sq.Select(
+		"e.device_id AS device_id",
+		"e.device_name AS device_name",
+		"e.ttl_seconds AS ttl_seconds",
+		"e.renewal_gap_seconds AS renewal_gap_seconds",
+		"CASE WHEN e.ttl_risk = 'breached' THEN 1 ELSE 0 END AS is_late",
+	).FromSelect(addressHistoryEnriched(), "e").Where(cond)
+
+	ranked := sq.Select(
+		"g.device_id AS device_id",
+		"g.device_name AS device_name",
+		"g.ttl_seconds AS ttl_seconds",
+		"g.renewal_gap_seconds AS renewal_gap_seconds",
+		"g.is_late AS is_late",
+		"ROW_NUMBER() OVER (PARTITION BY g.device_id ORDER BY g.renewal_gap_seconds) AS rn",
+		"COUNT(*) OVER (PARTITION BY g.device_id) AS n",
+	).FromSelect(renewals, "g")
+
+	return sq.Select(
+		"k.device_id AS device_id",
+		"MAX(k.device_name) AS device_name",
+		"MAX(k.ttl_seconds) AS ttl_seconds",
+		"COUNT(*) AS renewal_count",
+		"SUM(k.is_late) AS late_renewal_count",
+		"MIN(CASE WHEN k.rn * 100 >= k.n * 95 THEN k.renewal_gap_seconds END) AS p95_gap_seconds",
+	).FromSelect(ranked, "k").GroupBy("k.device_id")
+}
+
+// toTuningCandidates maps ranked/device-scoped rows to the API shape. Always
+// non-nil, so an empty result serializes as [] rather than null.
+func toTuningCandidates(rows []tuningCandidateRow) []httpapi.AddressHistoryTuningCandidate {
+	candidates := make([]httpapi.AddressHistoryTuningCandidate, len(rows))
+	for i, d := range rows {
+		candidates[i] = httpapi.AddressHistoryTuningCandidate{
 			DeviceId:         d.DeviceID.Int64(),
 			DeviceName:       d.DeviceName,
-			WorstRisk:        TTLRiskToAPI(ttlRiskOrder[d.RiskRank]),
 			RenewalCount:     d.RenewalCount,
 			LateRenewalCount: d.LateRenewalCount,
 			TtlSeconds:       d.TTLSeconds,
 			P95GapSeconds:    d.P95GapSeconds,
 		}
 	}
+	return candidates
+}
 
-	return httpapi.AddressHistoryHistogramResponse{
-		Buckets:       buckets,
-		AtRiskDevices: devices,
+// GetAddressHistoryTuning answers the tuning endpoint: with no device_id, a
+// top-5 ranking of every device whose TTL is genuinely too short in the
+// window; with device_id, that one device's readout regardless of whether it
+// meets the ranking threshold.
+func (r *Repository) GetAddressHistoryTuning(ctx context.Context, q AddressHistoryTuningQuery) (httpapi.AddressHistoryTuningResponse, error) {
+	perDevice := addressHistoryTuningPerDevice(q)
+
+	if q.DeviceID != nil {
+		return r.addressHistoryTuningForDevice(ctx, perDevice)
+	}
+	return r.addressHistoryTuningRanking(ctx, perDevice)
+}
+
+// addressHistoryTuningForDevice returns the one device's tuning readout
+// unconditionally — no threshold, no limit — since a device the caller is
+// already looking at needs no ranking to justify showing it.
+func (r *Repository) addressHistoryTuningForDevice(ctx context.Context, perDevice sq.SelectBuilder) (httpapi.AddressHistoryTuningResponse, error) {
+	deviceSQL, deviceArgs, err := sq.Select(
+		"x.device_id", "x.device_name", "x.ttl_seconds", "x.renewal_count", "x.late_renewal_count", "x.p95_gap_seconds",
+	).FromSelect(perDevice, "x").ToSql()
+	if err != nil {
+		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("build address history tuning device query: %w", err)
+	}
+
+	var rows []tuningCandidateRow
+	if err := r.db.SelectContext(ctx, &rows, deviceSQL, deviceArgs...); err != nil {
+		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("get address history tuning device: %w", err)
+	}
+
+	return httpapi.AddressHistoryTuningResponse{
+		Devices:     toTuningCandidates(rows),
+		Total:       len(rows),
+		MinRenewals: tuningMinRenewals,
+	}, nil
+}
+
+// addressHistoryTuningRanking selects the devices whose p95 renewal gap
+// exceeds their TTL with enough renewals to trust the measurement — see
+// §2 of the task this implements: p95 > ttl is exactly a >5% late rate
+// (modulo rank rounding at small n), so no separate late-ratio threshold is
+// introduced beside it. total and the page share this qualifying set so they
+// can never disagree about who qualifies.
+func (r *Repository) addressHistoryTuningRanking(ctx context.Context, perDevice sq.SelectBuilder) (httpapi.AddressHistoryTuningResponse, error) {
+	qualifying := sq.Select(
+		"x.device_id", "x.device_name", "x.ttl_seconds", "x.renewal_count", "x.late_renewal_count", "x.p95_gap_seconds",
+	).FromSelect(perDevice, "x").
+		Where(sq.Expr("x.p95_gap_seconds > x.ttl_seconds")).
+		Where(sq.GtOrEq{"x.renewal_count": tuningMinRenewals})
+
+	totalSQL, totalArgs, err := sq.Select("COUNT(*)").FromSelect(qualifying, "q").ToSql()
+	if err != nil {
+		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("build address history tuning total query: %w", err)
+	}
+	var total int
+	if err := r.db.GetContext(ctx, &total, totalSQL, totalArgs...); err != nil {
+		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("count address history tuning candidates: %w", err)
+	}
+
+	pageSQL, pageArgs, err := qualifying.
+		OrderBy("(x.p95_gap_seconds * 1.0 / x.ttl_seconds) DESC", "x.late_renewal_count DESC", "x.device_id ASC").
+		Limit(addressHistoryTuningLimit).
+		ToSql()
+	if err != nil {
+		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("build address history tuning ranking query: %w", err)
+	}
+	var rows []tuningCandidateRow
+	if err := r.db.SelectContext(ctx, &rows, pageSQL, pageArgs...); err != nil {
+		return httpapi.AddressHistoryTuningResponse{}, fmt.Errorf("get address history tuning ranking: %w", err)
+	}
+
+	return httpapi.AddressHistoryTuningResponse{
+		Devices:     toTuningCandidates(rows),
+		Total:       total,
+		MinRenewals: tuningMinRenewals,
 	}, nil
 }

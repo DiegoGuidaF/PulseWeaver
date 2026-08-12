@@ -80,6 +80,8 @@ paths:
     $ref: './paths/addresses.yaml#/addressHistory'
   /address-history/histogram:
     $ref: './paths/addresses.yaml#/addressHistoryHistogram'
+  /address-history/tuning:
+    $ref: './paths/addresses.yaml#/addressHistoryTuning'
   /devices/{device_id}/addresses/{address_id}:
     $ref: './paths/addresses.yaml#/addressById'
 

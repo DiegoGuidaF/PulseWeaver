@@ -394,11 +394,6 @@ export type AddressHistoryHistogramResponse = {
    *
    */
   buckets: Array<AddressHistoryBucket>;
-  /**
-   * The devices most worth re-tuning their lease TTL for, in the filtered window: ordered by worst risk, then by how often their renewals arrive after the TTL, then by total renewals. Same filters and window as buckets — the ranking changes exactly when the filters change and never on page-turn.
-   *
-   */
-  at_risk_devices: Array<AddressHistoryAtRiskDevice>;
 };
 
 export type AddressHistoryBucket = {
@@ -1395,19 +1390,14 @@ export const DevicePairingStatus = {
 export type DevicePairingStatus =
   (typeof DevicePairingStatus)[keyof typeof DevicePairingStatus];
 
-export type AddressHistoryAtRiskDevice = {
+export type AddressHistoryTuningCandidate = {
   device_id: Id;
   /**
    * Name of the device
    */
   device_name: string;
   /**
-   * The device's worst ttl_risk among events matching the filters in the window. Always approaching, critical, or breached — a device whose worst risk is ok or unknown never appears in this ranking.
-   *
-   */
-  worst_risk: TtlRisk;
-  /**
-   * This device's renewals in the filtered window: events with a measurable gap since the device's previous renewal. Excludes events with nothing to measure against, such as the device's first-ever renewal or a lease expiry.
+   * This device's renewals in the window: events with a measurable gap since the device's previous renewal. Excludes events with nothing to measure against, such as the device's first-ever renewal or a lease expiry.
    *
    */
   renewal_count: number;
@@ -1424,6 +1414,24 @@ export type AddressHistoryAtRiskDevice = {
    *
    */
   p95_gap_seconds: number;
+};
+
+export type AddressHistoryTuningResponse = {
+  /**
+   * Up to five devices most worth re-tuning their lease TTL in the window, worst first: ordered by how far the 95th-percentile renewal gap exceeds the TTL, then by how many renewals arrived late, then by device id.
+   *
+   */
+  devices: Array<AddressHistoryTuningCandidate>;
+  /**
+   * How many devices qualify for re-tuning in the window, fleet-wide — not just how many devices is carrying. Use this for a count; devices is only the top five for display.
+   *
+   */
+  total: number;
+  /**
+   * The minimum number of renewals a device needed in the window to qualify for devices/total, echoed back so a caller does not have to hardcode the same number.
+   *
+   */
+  min_renewals: number;
 };
 
 /**
@@ -2684,13 +2692,57 @@ export type GetAddressHistoryHistogramError =
 
 export type GetAddressHistoryHistogramResponses = {
   /**
-   * Time-bucketed device counts by TTL-risk band, plus the tuning ranking
+   * Time-bucketed device counts by TTL-risk band
    */
   200: AddressHistoryHistogramResponse;
 };
 
 export type GetAddressHistoryHistogramResponse =
   GetAddressHistoryHistogramResponses[keyof GetAddressHistoryHistogramResponses];
+
+export type GetAddressHistoryTuningData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * RFC3339 start of time window (default 24h ago)
+     */
+    from?: string;
+    /**
+     * RFC3339 end of time window (default now)
+     */
+    to?: string;
+    /**
+     * Scope the response to one device, bypassing the ranking threshold.
+     */
+    device_id?: Id;
+  };
+  url: "/address-history/tuning";
+};
+
+export type GetAddressHistoryTuningErrors = {
+  /**
+   * Forbidden - admin credentials required
+   */
+  403: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type GetAddressHistoryTuningError =
+  GetAddressHistoryTuningErrors[keyof GetAddressHistoryTuningErrors];
+
+export type GetAddressHistoryTuningResponses = {
+  /**
+   * Devices worth re-tuning their lease TTL, fleet-wide or for one device
+   */
+  200: AddressHistoryTuningResponse;
+};
+
+export type GetAddressHistoryTuningResponse =
+  GetAddressHistoryTuningResponses[keyof GetAddressHistoryTuningResponses];
 
 export type DisableAddressData = {
   body?: never;

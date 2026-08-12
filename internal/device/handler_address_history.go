@@ -62,6 +62,24 @@ func (h *HTTPHandler) GetAddressHistoryHistogram(
 	return httpapi.GetAddressHistoryHistogram200JSONResponse(response), nil
 }
 
+func (h *HTTPHandler) GetAddressHistoryTuning(
+	ctx context.Context,
+	request httpapi.GetAddressHistoryTuningRequestObject,
+) (httpapi.GetAddressHistoryTuningResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetAddressHistoryTuning")
+	logger := h.logger
+
+	query := NewAddressHistoryTuningQuery(request.Params)
+
+	response, err := h.repo.GetAddressHistoryTuning(ctx, query)
+	if err != nil {
+		logger.ErrorContext(ctx, "failed to get address history tuning", slog.Any(AttrKeyError, err))
+		return httpapi.GetAddressHistoryTuning500JSONResponse(errorMsgResponse("Failed to get address history tuning")), nil
+	}
+
+	return httpapi.GetAddressHistoryTuning200JSONResponse(response), nil
+}
+
 func toAddressHistoryResponse(result AddressHistoryEvents, limit int, geo GeoResolver) httpapi.AddressHistoryResponse {
 	events := make([]httpapi.AddressHistoryEvent, len(result.Events))
 	for i, e := range result.Events {

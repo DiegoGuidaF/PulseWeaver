@@ -78,7 +78,6 @@ AddressHistoryHistogramResponse:
   type: object
   required:
     - buckets
-    - at_risk_devices
   properties:
     buckets:
       type: array
@@ -88,17 +87,6 @@ AddressHistoryHistogramResponse:
         Every bucket across the window, oldest first, with no gaps: a bucket
         in which nothing renewed at all still appears, with all four counts
         zero. Bucket width follows the window size.
-    at_risk_devices:
-      type: array
-      maxItems: 5
-      items:
-        $ref: '#/AddressHistoryAtRiskDevice'
-      description: >
-        The devices most worth re-tuning their lease TTL for, in the filtered
-        window: ordered by worst risk, then by how often their renewals
-        arrive after the TTL, then by total renewals. Same filters and window
-        as buckets — the ranking changes exactly when the filters change and
-        never on page-turn.
 
 AddressHistoryBucket:
   type: object
@@ -130,12 +118,41 @@ AddressHistoryBucket:
       type: integer
       description: Distinct devices whose worst ttl_risk in this bucket is `breached`.
 
-AddressHistoryAtRiskDevice:
+AddressHistoryTuningResponse:
+  type: object
+  required:
+    - devices
+    - total
+    - min_renewals
+  properties:
+    devices:
+      type: array
+      maxItems: 5
+      items:
+        $ref: '#/AddressHistoryTuningCandidate'
+      description: >
+        Up to five devices most worth re-tuning their lease TTL in the
+        window, worst first: ordered by how far the 95th-percentile renewal
+        gap exceeds the TTL, then by how many renewals arrived late, then by
+        device id.
+    total:
+      type: integer
+      description: >
+        How many devices qualify for re-tuning in the window, fleet-wide —
+        not just how many devices is carrying. Use this for a count; devices
+        is only the top five for display.
+    min_renewals:
+      type: integer
+      description: >
+        The minimum number of renewals a device needed in the window to
+        qualify for devices/total, echoed back so a caller does not have to
+        hardcode the same number.
+
+AddressHistoryTuningCandidate:
   type: object
   required:
     - device_id
     - device_name
-    - worst_risk
     - renewal_count
     - late_renewal_count
     - ttl_seconds
@@ -146,20 +163,13 @@ AddressHistoryAtRiskDevice:
     device_name:
       type: string
       description: Name of the device
-    worst_risk:
-      allOf:
-        - $ref: '#/TTLRisk'
-      description: >
-        The device's worst ttl_risk among events matching the filters in the
-        window. Always approaching, critical, or breached — a device whose
-        worst risk is ok or unknown never appears in this ranking.
     renewal_count:
       type: integer
       description: >
-        This device's renewals in the filtered window: events with a
-        measurable gap since the device's previous renewal. Excludes events
-        with nothing to measure against, such as the device's first-ever
-        renewal or a lease expiry.
+        This device's renewals in the window: events with a measurable gap
+        since the device's previous renewal. Excludes events with nothing to
+        measure against, such as the device's first-ever renewal or a lease
+        expiry.
     late_renewal_count:
       type: integer
       description: Of renewal_count, how many arrived after the device's lease TTL had already elapsed.

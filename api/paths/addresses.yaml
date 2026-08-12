@@ -265,9 +265,8 @@ addressHistoryHistogram:
       distinct devices at each TTL-risk level — ok, approaching, critical,
       breached — counting a device once, at its worst level for that bucket.
       Bucket width follows the window size, and every bucket in the window is
-      present, even one in which nothing renewed at all. Also returns the
-      five devices most worth re-tuning their lease TTL in the window. Takes
-      the same filters as GET /address-history.
+      present, even one in which nothing renewed at all. Takes the same
+      filters as GET /address-history.
     parameters:
       # --- Value filters: repeated params + sibling {field}_op operator. ---
       # Same columns and semantics as GET /address-history so the two endpoints
@@ -373,7 +372,7 @@ addressHistoryHistogram:
         description: RFC3339 end of time window (default now)
     responses:
       "200":
-        description: Time-bucketed device counts by TTL-risk band, plus the tuning ranking
+        description: Time-bucketed device counts by TTL-risk band
         content:
           application/json:
             schema:
@@ -384,6 +383,73 @@ addressHistoryHistogram:
           application/json:
             schema:
               $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "403":
+        description: Forbidden - admin credentials required
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+      "500":
+        description: Internal Server Error
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
+
+addressHistoryTuning:
+  get:
+    operationId: getAddressHistoryTuning
+    tags:
+      - addresses
+    summary: Get devices worth re-tuning their lease TTL
+    description: >
+      Which devices need a bigger lease TTL, fleet-wide across the window —
+      for a dashboard signal or an own-section readout on the address-history
+      page. Ignores every address-history column filter: unlike GET
+      /address-history/histogram, this view is window-scoped only and does
+      not re-rank when a caller narrows a chart or table elsewhere.
+
+      A device qualifies when it has at least min_renewals renewals in the
+      window and more than 5% of them arrived after its lease TTL had
+      already elapsed — equivalently, its 95th-percentile renewal gap
+      exceeds its TTL. devices holds the five worst qualifying devices,
+      worst first; total counts every device that qualifies in the window,
+      not just the returned page. min_renewals echoes the sample floor
+      actually applied, so a caller does not have to hardcode it.
+
+      Set device_id to scope the response to one specific device instead:
+      its readout is returned regardless of whether it meets the threshold
+      above, so total is 0 or 1 and devices holds at most that one device. A
+      device with no lease rule configured, or no measurable renewals in the
+      window, returns an empty devices list rather than an error.
+    parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 start of time window (default 24h ago)
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: RFC3339 end of time window (default now)
+      - name: device_id
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/ID'
+        description: Scope the response to one device, bypassing the ranking threshold.
+    responses:
+      "200":
+        description: Devices worth re-tuning their lease TTL, fleet-wide or for one device
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/addresses.yaml#/AddressHistoryTuningResponse'
       "403":
         description: Forbidden - admin credentials required
         content:

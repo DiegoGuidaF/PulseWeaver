@@ -83,6 +83,9 @@ import type {
   GetAddressHistoryHistogramErrors,
   GetAddressHistoryHistogramResponses,
   GetAddressHistoryResponses,
+  GetAddressHistoryTuningData,
+  GetAddressHistoryTuningErrors,
+  GetAddressHistoryTuningResponses,
   GetCurrentUserData,
   GetCurrentUserErrors,
   GetCurrentUserResponses,
@@ -256,6 +259,8 @@ import {
   zGetAddressHistoryHistogramResponse,
   zGetAddressHistoryQuery,
   zGetAddressHistoryResponse,
+  zGetAddressHistoryTuningQuery,
+  zGetAddressHistoryTuningResponse,
   zGetCurrentUserResponse,
   zGetDashboardAttributionSplitQuery,
   zGetDashboardAttributionSplitResponse,
@@ -1244,7 +1249,7 @@ export const getAddressHistory = <ThrowOnError extends boolean = false>(
 /**
  * Get device renewal timing against lease TTLs over time
  *
- * How the fleet's address renewals compare to their lease TTLs across the window, for the renewal-timing chart. Each time bucket counts the distinct devices at each TTL-risk level — ok, approaching, critical, breached — counting a device once, at its worst level for that bucket. Bucket width follows the window size, and every bucket in the window is present, even one in which nothing renewed at all. Also returns the five devices most worth re-tuning their lease TTL in the window. Takes the same filters as GET /address-history.
+ * How the fleet's address renewals compare to their lease TTLs across the window, for the renewal-timing chart. Each time bucket counts the distinct devices at each TTL-risk level — ok, approaching, critical, breached — counting a device once, at its worst level for that bucket. Bucket width follows the window size, and every bucket in the window is present, even one in which nothing renewed at all. Takes the same filters as GET /address-history.
  *
  */
 export const getAddressHistoryHistogram = <
@@ -1279,6 +1284,47 @@ export const getAddressHistoryHistogram = <
       },
     ],
     url: "/address-history/histogram",
+    ...options,
+  });
+
+/**
+ * Get devices worth re-tuning their lease TTL
+ *
+ * Which devices need a bigger lease TTL, fleet-wide across the window — for a dashboard signal or an own-section readout on the address-history page. Ignores every address-history column filter: unlike GET /address-history/histogram, this view is window-scoped only and does not re-rank when a caller narrows a chart or table elsewhere.
+ * A device qualifies when it has at least min_renewals renewals in the window and more than 5% of them arrived after its lease TTL had already elapsed — equivalently, its 95th-percentile renewal gap exceeds its TTL. devices holds the five worst qualifying devices, worst first; total counts every device that qualifies in the window, not just the returned page. min_renewals echoes the sample floor actually applied, so a caller does not have to hardcode it.
+ * Set device_id to scope the response to one specific device instead: its readout is returned regardless of whether it meets the threshold above, so total is 0 or 1 and devices holds at most that one device. A device with no lease rule configured, or no measurable renewals in the window, returns an empty devices list rather than an error.
+ *
+ */
+export const getAddressHistoryTuning = <ThrowOnError extends boolean = false>(
+  options?: Options<GetAddressHistoryTuningData, ThrowOnError>,
+): RequestResult<
+  GetAddressHistoryTuningResponses,
+  GetAddressHistoryTuningErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetAddressHistoryTuningResponses,
+    GetAddressHistoryTuningErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: z.never().optional(),
+          query: zGetAddressHistoryTuningQuery.optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zGetAddressHistoryTuningResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/address-history/tuning",
     ...options,
   });
 

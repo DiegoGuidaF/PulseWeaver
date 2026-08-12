@@ -29,6 +29,22 @@ func histogramFor(t *testing.T, client *httpapi.ClientWithResponses, deviceID id
 	return resp.JSON200
 }
 
+// tuningFor fetches the address-history tuning readout scoped to one device
+// over the default window — device_id bypasses the ranking threshold, so the
+// device's readout is returned whether or not it would qualify fleet-wide.
+func tuningFor(t *testing.T, client *httpapi.ClientWithResponses, deviceID ids.DeviceID) *httpapi.AddressHistoryTuningResponse {
+	t.Helper()
+	is := is.New(t)
+
+	id := deviceID.Int64()
+	resp, err := client.GetAddressHistoryTuningWithResponse(t.Context(), &httpapi.GetAddressHistoryTuningParams{
+		DeviceId: &id,
+	})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	return resp.JSON200
+}
+
 // eventsFor fetches the address-history events scoped to one device over the
 // default window.
 func eventsFor(t *testing.T, client *httpapi.ClientWithResponses, deviceID ids.DeviceID) []httpapi.AddressHistoryEvent {
@@ -105,11 +121,17 @@ func TestLeaseRuleChange_RetunesAddressHistoryRisk(t *testing.T) {
 	deviceID := seed.Device(deviceName)
 	client := testutils.NewAdminAPIClient(t, srv)
 
-	// 1 — a generous TTL: the same cadence reads as healthy.
+	// 1 — a generous TTL: the same cadence reads as healthy. The device-scoped
+	// tuning readout renders regardless — it is a comfortable reading here,
+	// not a recommendation, since seededRenewals is well under the fleet
+	// ranking's sample floor and device_id bypasses that floor entirely.
 	events := eventsFor(t, client, deviceID)
 	is.Equal(countRisk(events, httpapi.Ok), seededRenewals)
+	tuning := tuningFor(t, client, deviceID)
+	is.Equal(tuning.Total, 1)
+	is.Equal(len(tuning.Devices), 1)
+	is.True(tuning.Devices[0].P95GapSeconds <= tuning.Devices[0].TtlSeconds) // healthy — no misfit to report
 	histogram := histogramFor(t, client, deviceID)
-	is.Equal(len(histogram.AtRiskDevices), 0) // healthy devices never enter the readout
 	okDevices := 0
 	for _, b := range histogram.Buckets {
 		okDevices += b.OkDeviceCount
@@ -127,11 +149,11 @@ func TestLeaseRuleChange_RetunesAddressHistoryRisk(t *testing.T) {
 	is.Equal(countRisk(events, httpapi.Breached), seededRenewals) // the identical rows, rescored
 	is.Equal(countRisk(events, httpapi.Ok), 0)
 
-	histogram = histogramFor(t, client, deviceID)
-	is.Equal(len(histogram.AtRiskDevices), 1)
-	ranked := histogram.AtRiskDevices[0]
+	tuning = tuningFor(t, client, deviceID)
+	is.Equal(tuning.Total, 1)
+	is.Equal(len(tuning.Devices), 1)
+	ranked := tuning.Devices[0]
 	is.Equal(ranked.DeviceId, deviceID.Int64())
-	is.Equal(ranked.WorstRisk, httpapi.Breached)
 	is.Equal(ranked.TtlSeconds, int64(tightTTLSeconds)) // the TTL the rules API just stored
 	is.Equal(ranked.RenewalCount, seededRenewals)
 	is.Equal(ranked.LateRenewalCount, seededRenewals)
@@ -159,8 +181,10 @@ func TestLeaseRuleChange_RetunesAddressHistoryRisk(t *testing.T) {
 		is.True(e.TtlSeconds == nil) // a disabled rule is not a configured TTL
 	}
 
+	tuning = tuningFor(t, client, deviceID)
+	is.Equal(tuning.Total, 0)
+	is.Equal(len(tuning.Devices), 0) // no lease rule — empty, not an error
 	histogram = histogramFor(t, client, deviceID)
-	is.Equal(len(histogram.AtRiskDevices), 0)
 	is.True(len(histogram.Buckets) > 0) // still contiguous across the window
 	for _, b := range histogram.Buckets {
 		is.Equal(b.OkDeviceCount, 0) // an unmeasurable device is not a healthy one
@@ -246,16 +270,17 @@ func TestAddressExpiry_CountsAsLateRenewalNotBreachedEvent(t *testing.T) {
 	// interval and under-report the outage.
 	is.True(*lateRenewal.RenewalGapSeconds >= int64(2*ttlSeconds))
 
-	histogram := histogramFor(t, client, deviceID)
-	is.Equal(len(histogram.AtRiskDevices), 1)
-	ranked := histogram.AtRiskDevices[0]
+	tuning := tuningFor(t, client, deviceID)
+	is.Equal(tuning.Total, 1)
+	is.Equal(len(tuning.Devices), 1)
+	ranked := tuning.Devices[0]
 	is.Equal(ranked.DeviceId, deviceID.Int64())
-	is.Equal(ranked.WorstRisk, httpapi.Breached)
 	is.Equal(ranked.RenewalCount, 1)     // only the late heartbeat had a gap to measure
 	is.Equal(ranked.LateRenewalCount, 1) // …and it was late
 	is.Equal(ranked.TtlSeconds, int64(ttlSeconds))
 	is.Equal(ranked.P95GapSeconds, *lateRenewal.RenewalGapSeconds)
 
+	histogram := histogramFor(t, client, deviceID)
 	breachedBuckets := 0
 	for _, b := range histogram.Buckets {
 		is.Equal(b.OkDeviceCount, 0)

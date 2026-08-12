@@ -193,6 +193,10 @@ export const zAddressHistoryBucket = z.object({
   breached_device_count: z.int(),
 });
 
+export const zAddressHistoryHistogramResponse = z.object({
+  buckets: z.array(zAddressHistoryBucket),
+});
+
 /**
  * What triggered an address state change
  */
@@ -845,10 +849,9 @@ export const zOwnerFleetGroup = z.object({
   devices: z.array(zFleetDevice),
 });
 
-export const zAddressHistoryAtRiskDevice = z.object({
+export const zAddressHistoryTuningCandidate = z.object({
   device_id: zId,
   device_name: z.string(),
-  worst_risk: zTtlRisk,
   renewal_count: z.int(),
   late_renewal_count: z.int(),
   ttl_seconds: z.coerce
@@ -869,9 +872,10 @@ export const zAddressHistoryAtRiskDevice = z.object({
     }),
 });
 
-export const zAddressHistoryHistogramResponse = z.object({
-  buckets: z.array(zAddressHistoryBucket),
-  at_risk_devices: z.array(zAddressHistoryAtRiskDevice).max(5),
+export const zAddressHistoryTuningResponse = z.object({
+  devices: z.array(zAddressHistoryTuningCandidate).max(5),
+  total: z.int(),
+  min_renewals: z.int(),
 });
 
 /**
@@ -1392,10 +1396,21 @@ export const zGetAddressHistoryHistogramQuery = z.object({
 });
 
 /**
- * Time-bucketed device counts by TTL-risk band, plus the tuning ranking
+ * Time-bucketed device counts by TTL-risk band
  */
 export const zGetAddressHistoryHistogramResponse =
   zAddressHistoryHistogramResponse;
+
+export const zGetAddressHistoryTuningQuery = z.object({
+  from: z.iso.datetime({ offset: true, local: true }).optional(),
+  to: z.iso.datetime({ offset: true, local: true }).optional(),
+  device_id: zId.optional(),
+});
+
+/**
+ * Devices worth re-tuning their lease TTL, fleet-wide or for one device
+ */
+export const zGetAddressHistoryTuningResponse = zAddressHistoryTuningResponse;
 
 export const zDisableAddressPath = z.object({
   device_id: zId,
