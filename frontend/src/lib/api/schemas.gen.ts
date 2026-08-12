@@ -2736,17 +2736,17 @@ export const AddressHistoryTuningResponseSchema = {
         $ref: "#/components/schemas/AddressHistoryTuningCandidate",
       },
       description:
-        "Up to five devices most worth re-tuning their lease TTL in the window, worst first: ordered by how far the 95th-percentile renewal gap exceeds the TTL, then by how many renewals arrived late, then by device id.\n",
+        "Up to five devices most worth re-tuning their lease TTL in the window, worst first: ordered by how far the 95th-percentile renewal gap exceeds the TTL, then by how many renewals arrived late, then by device id. Under device_id it holds at most that one device.\n",
     },
     total: {
       type: "integer",
       description:
-        "How many devices qualify for re-tuning in the window, fleet-wide — not just how many devices is carrying. Use this for a count; devices is only the top five for display.\n",
+        "How many devices qualify for re-tuning in the window, fleet-wide — not just how many the devices list is carrying, which is only the top five for display. Under device_id it is 0 or 1 instead: 1 when that device has measurable renewals in the window, whether or not it would qualify.\n",
     },
     min_renewals: {
       type: "integer",
       description:
-        "The minimum number of renewals a device needed in the window to qualify for devices/total, echoed back so a caller does not have to hardcode the same number.\n",
+        "The minimum number of renewals a device needed in the window to qualify, echoed back so a caller does not have to hardcode the same number. Not applied under device_id, which returns that device's readout whatever its renewal count.\n",
     },
   },
 } as const;

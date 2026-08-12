@@ -348,6 +348,31 @@ func TestHandler_GetAddressHistoryTuning_IgnoresColumnFilters(t *testing.T) {
 	is.Equal(filtered.JSON200.Devices[0].DeviceId, deviceID.Int64())
 }
 
+// TestHandler_GetAddressHistoryTuning_MalformedWindowIsBadRequest pins the 400
+// the contract declares. The window params are parsed before the handler runs,
+// so a value that is not an RFC3339 timestamp is rejected outright rather than
+// falling back to the default window and answering with numbers over a period
+// the caller did not ask for.
+func TestHandler_GetAddressHistoryTuning_MalformedWindowIsBadRequest(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	testServer := testutils.SetupIntegrationServer(t)
+
+	client := testutils.NewAdminAPIClient(t, testServer,
+		httpapi.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
+			q := req.URL.Query()
+			q.Set("from", "yesterday")
+			req.URL.RawQuery = q.Encode()
+			return nil
+		}),
+	)
+
+	resp, err := client.GetAddressHistoryTuningWithResponse(ctx, &httpapi.GetAddressHistoryTuningParams{})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusBadRequest)
+	is.True(resp.JSON400 != nil) // the declared error shape, not an untyped body
+}
+
 // TestHandler_GetAddressHistoryHistogram_NoLongerCarriesAtRiskDevices is the
 // direct regression guard for §1: the ranking moved wholesale to its own
 // endpoint, no deprecation window, so the histogram response must not carry

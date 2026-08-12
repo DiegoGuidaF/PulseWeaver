@@ -5147,6 +5147,7 @@ type GetAddressHistoryTuningTestClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *AddressHistoryTuningResponse
+	JSON400      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -8122,6 +8123,13 @@ func ParseGetAddressHistoryTuningTestClientResponse(rsp *http.Response) (*GetAdd
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest ErrorResponse

@@ -410,12 +410,15 @@ addressHistoryTuning:
       not re-rank when a caller narrows a chart or table elsewhere.
 
       A device qualifies when it has at least min_renewals renewals in the
-      window and more than 5% of them arrived after its lease TTL had
-      already elapsed — equivalently, its 95th-percentile renewal gap
-      exceeds its TTL. devices holds the five worst qualifying devices,
-      worst first; total counts every device that qualifies in the window,
-      not just the returned page. min_renewals echoes the sample floor
-      actually applied, so a caller does not have to hardcode it.
+      window and its 95th-percentile renewal gap exceeds its lease TTL —
+      its TTL misses the tail of how the device actually checks in. Read as
+      a late rate that is "more than 5% of its renewals arrived after the
+      TTL had elapsed", exactly so over a large sample and stricter over a
+      small one: at the min_renewals floor it takes one late renewal in
+      ten. devices holds the five worst qualifying devices, worst first;
+      total counts every device that qualifies in the window, not just the
+      returned page. min_renewals echoes the sample floor actually applied,
+      so a caller does not have to hardcode it.
 
       Set device_id to scope the response to one specific device instead:
       its readout is returned regardless of whether it meets the threshold
@@ -450,6 +453,12 @@ addressHistoryTuning:
           application/json:
             schema:
               $ref: '../components/schemas/addresses.yaml#/AddressHistoryTuningResponse'
+      "400":
+        description: Invalid query parameters
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/common.yaml#/ErrorResponse'
       "403":
         description: Forbidden - admin credentials required
         content:
