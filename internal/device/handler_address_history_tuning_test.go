@@ -244,6 +244,120 @@ func TestHandler_GetAddressHistoryTuning_RankingCappedAndOrdered(t *testing.T) {
 	}
 }
 
+// TestHandler_GetAddressHistoryTuning_SmallSampleP95IsTheMaximum pins the
+// nearest-rank definition where it degenerates: at these sample sizes the 95th
+// percentile is simply the largest gap observed. A device-scoped readout on a
+// device that has barely renewed shows that number, and a reader sizes a new
+// TTL against it, so it has to be the worst gap rather than a typical one. The
+// last case puts the worst gap in the middle of the sequence, where a
+// percentile ranked by arrival order instead of by gap length would miss it.
+func TestHandler_GetAddressHistoryTuning_SmallSampleP95IsTheMaximum(t *testing.T) {
+	testServer := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, testServer)
+
+	t0 := time.Now().UTC().Add(-2 * time.Hour)
+	from := t0.Add(-time.Minute)
+	to := time.Now().UTC().Add(time.Minute)
+
+	for i, tc := range []struct {
+		name string
+		gaps []time.Duration
+	}{
+		{"n=1", []time.Duration{30 * time.Second}},
+		{"n=4 worst last", []time.Duration{10 * time.Second, 20 * time.Second, 30 * time.Second, 40 * time.Second}},
+		{"n=4 worst in the middle", []time.Duration{10 * time.Second, 40 * time.Second, 20 * time.Second, 30 * time.Second}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			is := is.New(t)
+			deviceID := seedRenewalGaps(t, testServer,
+				fmt.Sprintf("p95-small-n-device-%d", i), fmt.Sprintf("10.9.6.%d", i+1),
+				t0, tc.gaps...,
+			)
+
+			observed := make([]int64, 0, len(tc.gaps))
+			for _, e := range deviceHistory(t, client, deviceID, from, to) {
+				if e.RenewalGapSeconds != nil {
+					observed = append(observed, *e.RenewalGapSeconds)
+				}
+			}
+			is.Equal(len(observed), len(tc.gaps))
+
+			id := deviceID.Int64()
+			resp, err := client.GetAddressHistoryTuningWithResponse(t.Context(), &httpapi.GetAddressHistoryTuningParams{
+				From: &from, To: &to, DeviceId: &id,
+			})
+			is.NoErr(err)
+			is.Equal(resp.StatusCode(), http.StatusOK)
+			is.Equal(len(resp.JSON200.Devices), 1)
+			is.Equal(resp.JSON200.Devices[0].RenewalCount, len(tc.gaps))
+			is.Equal(resp.JSON200.Devices[0].P95GapSeconds, slices.Max(observed))
+			is.Equal(resp.JSON200.Devices[0].P95GapSeconds, nearestRankP95(observed)) // …which is what the textbook definition gives too
+		})
+	}
+}
+
+// TestHandler_GetAddressHistoryTuning_TiesBreakOnLateCountThenID pins the two
+// ordering keys below the ratio. All three devices miss their TTL by the same
+// factor, so the order can only come from how many renewals were actually late,
+// and between the two that tie on that as well, from device id — which is what
+// keeps the list from reshuffling between polls of an unchanged window.
+func TestHandler_GetAddressHistoryTuning_TiesBreakOnLateCountThenID(t *testing.T) {
+	is := is.New(t)
+	ctx := t.Context()
+	testServer := testutils.SetupIntegrationServer(t)
+	client := testutils.NewAdminAPIClient(t, testServer)
+
+	// Every device's worst gap is its first, spanning the same two instants for
+	// all of them, so all three land on the identical p95 — the gaps that follow
+	// are deliberately shorter and cannot overtake it. Seeding equal durations
+	// at different points in the timeline would not tie: a gap is stored as a
+	// truncated integer of a julianday difference, so nominally equal durations
+	// can land a second apart, and a ratio decided by that second would order
+	// the list instead of the key under test.
+	const (
+		worstGap    = 150 * time.Second // 1.5x seedRenewalTTL — breached, and the p95 for every device
+		lateGap     = 120 * time.Second // still past the TTL, still below worstGap
+		punctualGap = 99 * time.Second  // under the TTL — not a late renewal
+	)
+
+	allLate := make([]time.Duration, tuningFloor)
+	oneLate := make([]time.Duration, tuningFloor)
+	for i := range tuningFloor {
+		allLate[i] = lateGap
+		oneLate[i] = punctualGap
+	}
+	allLate[0], oneLate[0] = worstGap, worstGap
+
+	// The all-late device is seeded last so it holds the highest id: ordering on
+	// id alone would put it at the bottom, and only the late count can lift it
+	// to the top.
+	t0 := time.Now().UTC().Add(-6 * time.Hour)
+	lowerID := seedRenewalGaps(t, testServer, "tie-one-late-a", "10.9.7.2", t0, oneLate...)
+	higherID := seedRenewalGaps(t, testServer, "tie-one-late-b", "10.9.7.3", t0, oneLate...)
+	worst := seedRenewalGaps(t, testServer, "tie-all-late", "10.9.7.1", t0, allLate...)
+	is.True(lowerID < higherID && higherID < worst)
+
+	from := t0.Add(-time.Minute)
+	to := time.Now().UTC().Add(time.Minute)
+	resp, err := client.GetAddressHistoryTuningWithResponse(ctx, &httpapi.GetAddressHistoryTuningParams{From: &from, To: &to})
+	is.NoErr(err)
+	is.Equal(resp.StatusCode(), http.StatusOK)
+	is.Equal(resp.JSON200.Total, 3)
+
+	ranked := resp.JSON200.Devices
+	is.Equal(len(ranked), 3)
+	for _, d := range ranked {
+		is.Equal(d.P95GapSeconds, ranked[0].P95GapSeconds) // the tie is real…
+		is.Equal(d.TtlSeconds, ranked[0].TtlSeconds)       // …so the ratio cannot be doing the ordering
+	}
+	is.Equal(ranked[0].DeviceId, worst.Int64())
+	is.Equal(ranked[0].LateRenewalCount, tuningFloor)
+	is.Equal(ranked[1].DeviceId, lowerID.Int64())
+	is.Equal(ranked[2].DeviceId, higherID.Int64())
+	is.Equal(ranked[1].LateRenewalCount, 1)
+	is.Equal(ranked[2].LateRenewalCount, 1)
+}
+
 // TestHandler_GetAddressHistoryTuning_DeviceIDBypassesThreshold is the direct
 // regression guard for §4: device_id returns that device's readout even when
 // it fails both selection thresholds — too few renewals and a p95 nowhere
