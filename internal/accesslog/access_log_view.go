@@ -1,17 +1,19 @@
-package queries
+package accesslog
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/filterx"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/queries/filterx"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/rollup"
 )
 
 const (
@@ -23,9 +25,14 @@ const (
 	contributorCorrelated = "SELECT 1 FROM access_log_contributors c WHERE c.access_log_id = ral.id"
 )
 
-// accessLogRegistry is the column allowlist for the access log list query. SQL
-// expressions are fixed here (ADR-007): callers supply only values. The next
-// filter-rich views (network policies, devices) adopt this same component.
+// ErrEntryNotFound reports that no access_log row carries the requested id.
+// Entries are pruned by retention (DeleteOlderThan), so a link to an old
+// request resolving to this is an ordinary outcome, not a failure.
+var ErrEntryNotFound = errors.New("access log entry not found")
+
+// accessLogRegistry is the column allowlist for the access log queries. SQL
+// expressions are fixed here (ADR-007): callers supply only values. The list,
+// its count, and the histogram all filter through this one registry.
 var accessLogRegistry = filterx.NewRegistry(
 	map[string]filterx.ColumnSpec{
 		"client_ip": {
@@ -57,11 +64,6 @@ var accessLogRegistry = filterx.NewRegistry(
 			Nullable: true,
 			Ops:      []filterx.Operator{filterx.OpIn, filterx.OpNotIn, filterx.OpIsNull, filterx.OpNotNull},
 		},
-		"continent_code": {
-			Expr:     "g.continent_code",
-			Nullable: true,
-			Ops:      []filterx.Operator{filterx.OpIn, filterx.OpNotIn, filterx.OpIsNull, filterx.OpNotNull},
-		},
 		"network_policy": {
 			Expr:     "anpc.policy_id",
 			Nullable: true,
@@ -88,6 +90,36 @@ var accessLogRegistry = filterx.NewRegistry(
 	"ral.id",
 )
 
+// accessLogRowColumns are the columns the table scans. Detail-only columns —
+// the headers blob, the forwarded-for chain, the full geolocation — are read by
+// GetAccessLogEntry alone, so paging the list never pays for them.
+var accessLogRowColumns = []string{
+	"ral.id",
+	"ral.created_at",
+	"ral.outcome",
+	"ral.deny_reason",
+	"ral.client_ip",
+	"ral.target_host",
+	"ral.target_uri",
+	"ral.http_method",
+	"ral.duration_us",
+	"ral.contributor_count",
+	"g.country_code",
+	"anpc.policy_id   AS network_policy_id",
+	"anpc.policy_name AS network_policy_name",
+}
+
+// accessLogDetailColumns extend the row columns rather than restating them, so
+// the two shapes cannot report different values for a field they share.
+var accessLogDetailColumns = append(slices.Clone(accessLogRowColumns),
+	"ral.xff_chain",
+	"ral.headers_json",
+	"g.country_name",
+	"g.continent_code",
+	"g.asn",
+	"g.asn_org",
+)
+
 // AccessLogContributor is one device/user/address a request's client IP resolved
 // to. Fields are always populated (contributor rows are fully constrained) but
 // carried as pointers to mirror the API shape.
@@ -99,6 +131,7 @@ type AccessLogContributor struct {
 	AddressID  *ids.AddressID
 }
 
+// AccessLogView is one row of the access-log table.
 type AccessLogView struct {
 	ID                int64
 	ClientIP          string
@@ -108,65 +141,82 @@ type AccessLogView struct {
 	ContributorCount  int
 	CreatedAt         time.Time
 	DurationUs        int64
-	XFFChain          *string
 	TargetHost        *string
 	TargetURI         *string
 	HTTPMethod        *string
-	Headers           map[string][]string
 	CountryCode       *string
-	CountryName       *string
-	ContinentCode     *string
-	ASN               *int64
-	ASNOrg            *string
 	NetworkPolicyID   *int64
 	NetworkPolicyName *string
 }
 
-// AccessLogQuery is the validated, normalized form of the list request. Sort and
-// Order always hold effective values; Cursor is nil on the first page.
-type AccessLogQuery struct {
-	From      time.Time
-	To        time.Time
-	Outcome   *bool
-	Ambiguous *bool
-	Filters   []filterx.Filter
-	Sort      string
-	Order     string
-	Cursor    *filterx.Cursor
-	Limit     int
+// AccessLogDetailView is the whole record of one request: the table row plus
+// the fields only the detail view shows.
+type AccessLogDetailView struct {
+	AccessLogView
+	XFFChain      *string
+	Headers       map[string][]string
+	CountryName   *string
+	ContinentCode *string
+	ASN           *int64
+	ASNOrg        *string
 }
 
-// NewAccessLogQuery validates and normalizes the request params. It returns an
-// error wrapping filterx.ErrInvalidFilter for an unknown operator/column/sort,
-// an over-cap value list, or a malformed cursor — the handler maps these to 400.
-func NewAccessLogQuery(params httpapi.GetAccessLogParams) (AccessLogQuery, error) {
+// AccessLogQuery is the validated, normalized form of the list request. Sort and
+// Order always hold effective values; Cursor is nil on the first page. The
+// histogram shares Filters, Outcome and the window, and leaves the rest zero.
+type AccessLogQuery struct {
+	From    time.Time
+	To      time.Time
+	Outcome *bool
+	Filters []filterx.Filter
+	Sort    string
+	Order   string
+	Cursor  *filterx.Cursor
+	Limit   int
+}
+
+// accessLogFilterParams collects the fields the list and histogram OpenAPI
+// params structs share, so the filter parsing underneath is written once.
+type accessLogFilterParams struct {
+	From              *time.Time
+	To                *time.Time
+	Outcome           *bool
+	ClientIP          *[]string
+	ClientIPOp        *httpapi.AccessLogFilterOperator
+	TargetHost        *[]string
+	TargetHostOp      *httpapi.AccessLogFilterOperator
+	TargetURI         *[]string
+	TargetURIOp       *httpapi.AccessLogFilterOperator
+	HTTPMethod        *[]string
+	HTTPMethodOp      *httpapi.AccessLogFilterOperator
+	DenyReason        *[]httpapi.PolicyDenyReason
+	DenyReasonOp      *httpapi.AccessLogFilterOperator
+	CountryCode       *[]string
+	CountryCodeOp     *httpapi.AccessLogFilterOperator
+	DeviceID          *[]httpapi.ID
+	DeviceIDOp        *httpapi.AccessLogFilterOperator
+	UserID            *[]httpapi.ID
+	UserIDOp          *httpapi.AccessLogFilterOperator
+	NetworkPolicyID   *[]httpapi.ID
+	NetworkPolicyIDOp *httpapi.AccessLogFilterOperator
+}
+
+// newAccessLogQuery validates and normalizes the filter/window portion shared by
+// the list and histogram endpoints. It returns an error wrapping
+// filterx.ErrInvalidFilter for an unknown operator/column or an over-cap value
+// list — the handler maps these to 400.
+func newAccessLogQuery(p accessLogFilterParams) (AccessLogQuery, error) {
 	now := time.Now().UTC()
-	from := now.Add(-24 * time.Hour)
-	to := now
-	if params.From != nil {
-		from = *params.From
-	}
-	if params.To != nil {
-		to = *params.To
-	}
-
-	limit := 50
-	if params.Limit != nil {
-		limit = *params.Limit
-	}
-	if limit <= 0 {
-		limit = 50
-	}
-	if limit > 200 {
-		limit = 200
-	}
-
 	q := AccessLogQuery{
-		From:      from,
-		To:        to,
-		Limit:     limit,
-		Outcome:   params.Outcome,
-		Ambiguous: params.Ambiguous,
+		From:    now.Add(-24 * time.Hour),
+		To:      now,
+		Outcome: p.Outcome,
+	}
+	if p.From != nil {
+		q.From = *p.From
+	}
+	if p.To != nil {
+		q.To = *p.To
 	}
 
 	valueFilters := []struct {
@@ -174,16 +224,15 @@ func NewAccessLogQuery(params httpapi.GetAccessLogParams) (AccessLogQuery, error
 		values []any
 		op     *httpapi.AccessLogFilterOperator
 	}{
-		{"client_ip", filterx.StringValues(params.ClientIp), params.ClientIpOp},
-		{"target_host", filterx.StringValues(params.TargetHost), params.TargetHostOp},
-		{"target_uri", filterx.StringValues(params.TargetUri), params.TargetUriOp},
-		{"http_method", filterx.StringValues(params.HttpMethod), params.HttpMethodOp},
-		{"deny_reason", filterx.StringValues(params.DenyReason), params.DenyReasonOp},
-		{"country_code", filterx.StringValues(params.CountryCode), params.CountryCodeOp},
-		{"continent_code", filterx.StringValues(params.ContinentCode), params.ContinentCodeOp},
-		{"device", filterx.Int64Values(params.DeviceId), params.DeviceIdOp},
-		{"user", filterx.Int64Values(params.UserId), params.UserIdOp},
-		{"network_policy", filterx.Int64Values(params.NetworkPolicyId), params.NetworkPolicyIdOp},
+		{"client_ip", filterx.StringValues(p.ClientIP), p.ClientIPOp},
+		{"target_host", filterx.StringValues(p.TargetHost), p.TargetHostOp},
+		{"target_uri", filterx.StringValues(p.TargetURI), p.TargetURIOp},
+		{"http_method", filterx.StringValues(p.HTTPMethod), p.HTTPMethodOp},
+		{"deny_reason", filterx.StringValues(p.DenyReason), p.DenyReasonOp},
+		{"country_code", filterx.StringValues(p.CountryCode), p.CountryCodeOp},
+		{"device", filterx.Int64Values(p.DeviceID), p.DeviceIDOp},
+		{"user", filterx.Int64Values(p.UserID), p.UserIDOp},
+		{"network_policy", filterx.Int64Values(p.NetworkPolicyID), p.NetworkPolicyIDOp},
 	}
 	for _, vf := range valueFilters {
 		filter, ok, err := filterx.ParseFilter(vf.column, vf.values, vf.op)
@@ -198,6 +247,40 @@ func NewAccessLogQuery(params httpapi.GetAccessLogParams) (AccessLogQuery, error
 		}
 		q.Filters = append(q.Filters, filter)
 	}
+
+	return q, nil
+}
+
+// NewAccessLogQuery validates and normalizes GET /access-log params, resolving
+// the page's sort, order, cursor and limit on top of the shared filter set.
+func NewAccessLogQuery(params httpapi.GetAccessLogParams) (AccessLogQuery, error) {
+	q, err := newAccessLogQuery(accessLogFilterParams{
+		From: params.From, To: params.To, Outcome: params.Outcome,
+		ClientIP: params.ClientIp, ClientIPOp: params.ClientIpOp,
+		TargetHost: params.TargetHost, TargetHostOp: params.TargetHostOp,
+		TargetURI: params.TargetUri, TargetURIOp: params.TargetUriOp,
+		HTTPMethod: params.HttpMethod, HTTPMethodOp: params.HttpMethodOp,
+		DenyReason: params.DenyReason, DenyReasonOp: params.DenyReasonOp,
+		CountryCode: params.CountryCode, CountryCodeOp: params.CountryCodeOp,
+		DeviceID: params.DeviceId, DeviceIDOp: params.DeviceIdOp,
+		UserID: params.UserId, UserIDOp: params.UserIdOp,
+		NetworkPolicyID: params.NetworkPolicyId, NetworkPolicyIDOp: params.NetworkPolicyIdOp,
+	})
+	if err != nil {
+		return AccessLogQuery{}, err
+	}
+
+	limit := 50
+	if params.Limit != nil {
+		limit = *params.Limit
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	q.Limit = limit
 
 	// A cursor is authoritative for sort/order — it embeds the sort it was issued
 	// under. Otherwise resolve from params, falling back to the defaults.
@@ -228,9 +311,27 @@ func NewAccessLogQuery(params httpapi.GetAccessLogParams) (AccessLogQuery, error
 	return q, nil
 }
 
-// accessLogConditions assembles the shared WHERE set fed to both the count and
-// page query so the two can never drift. Cursor and limit attach to the page
-// builder only.
+// NewAccessLogHistogramQuery validates and normalizes GET /access-log/histogram
+// params. A histogram has no page and no ordering, so sort, order, limit and
+// cursor are absent by design.
+func NewAccessLogHistogramQuery(params httpapi.GetAccessLogHistogramParams) (AccessLogQuery, error) {
+	return newAccessLogQuery(accessLogFilterParams{
+		From: params.From, To: params.To, Outcome: params.Outcome,
+		ClientIP: params.ClientIp, ClientIPOp: params.ClientIpOp,
+		TargetHost: params.TargetHost, TargetHostOp: params.TargetHostOp,
+		TargetURI: params.TargetUri, TargetURIOp: params.TargetUriOp,
+		HTTPMethod: params.HttpMethod, HTTPMethodOp: params.HttpMethodOp,
+		DenyReason: params.DenyReason, DenyReasonOp: params.DenyReasonOp,
+		CountryCode: params.CountryCode, CountryCodeOp: params.CountryCodeOp,
+		DeviceID: params.DeviceId, DeviceIDOp: params.DeviceIdOp,
+		UserID: params.UserId, UserIDOp: params.UserIdOp,
+		NetworkPolicyID: params.NetworkPolicyId, NetworkPolicyIDOp: params.NetworkPolicyIdOp,
+	})
+}
+
+// accessLogConditions assembles the shared WHERE set fed to the count, page and
+// histogram queries so none of them can drift. Cursor and limit attach to the
+// page builder only.
 func accessLogConditions(q AccessLogQuery) (sq.And, error) {
 	cond := sq.And{}
 	if !q.From.IsZero() {
@@ -241,10 +342,6 @@ func accessLogConditions(q AccessLogQuery) (sq.And, error) {
 	}
 	if q.Outcome != nil {
 		cond = append(cond, sq.Eq{"ral.outcome": *q.Outcome})
-	}
-	if q.Ambiguous != nil && *q.Ambiguous {
-		// Reads the denormalized count directly — no join.
-		cond = append(cond, sq.Expr("ral.contributor_count > 1"))
 	}
 	for _, f := range q.Filters {
 		c, err := accessLogRegistry.Condition(f)
@@ -257,11 +354,11 @@ func accessLogConditions(q AccessLogQuery) (sq.And, error) {
 }
 
 // accessLogFilterJoins reports which 1:1 child tables the query's filters reference,
-// so the count query can join them only when a WHERE term depends on their columns.
+// so an aggregate query can join them only when a WHERE term depends on their columns.
 func accessLogFilterJoins(q AccessLogQuery) (geoip, policy bool) {
 	for _, f := range q.Filters {
 		switch f.Column {
-		case "country_code", "continent_code":
+		case "country_code":
 			geoip = true
 		case "network_policy":
 			policy = true
@@ -288,16 +385,9 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 	// Without that filter they would scan ~one PK lookup per matched row for nothing
 	// (an order-of-magnitude cost on a full-table window). Device/user filters use
 	// EXISTS subqueries and need no join.
-	geoipFilter, policyFilter := accessLogFilterJoins(q)
-	countBuilder := sq.Select("COUNT(*)").From("access_log ral")
-	if geoipFilter {
-		countBuilder = countBuilder.LeftJoin("access_log_geoip g ON g.access_log_id = ral.id")
-	}
-	if policyFilter {
-		countBuilder = countBuilder.LeftJoin("access_log_network_policy_contributors anpc ON anpc.access_log_id = ral.id")
-	}
+	countBuilder := accessLogFilteredFrom(sq.Select("COUNT(*)"), q).Where(cond)
 	var total int
-	countSQL, countArgs, err := countBuilder.Where(cond).ToSql()
+	countSQL, countArgs, err := countBuilder.ToSql()
 	if err != nil {
 		return nil, 0, fmt.Errorf("build access log count query: %w", err)
 	}
@@ -313,27 +403,7 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 	// One row per entry: contributors are fetched separately and assembled in Go,
 	// never via a fan-out join (which would break LIMIT, the keyset cursor, and COUNT).
 	page := sq.
-		Select(
-			"ral.id",
-			"ral.created_at",
-			"ral.outcome",
-			"ral.deny_reason",
-			"ral.client_ip",
-			"ral.xff_chain",
-			"ral.target_host",
-			"ral.target_uri",
-			"ral.http_method",
-			"ral.headers_json",
-			"ral.duration_us",
-			"ral.contributor_count",
-			"g.country_code",
-			"g.country_name",
-			"g.continent_code",
-			"g.asn",
-			"g.asn_org",
-			"anpc.policy_id   AS network_policy_id",
-			"anpc.policy_name AS network_policy_name",
-		).
+		Select(accessLogRowColumns...).
 		From("access_log ral").
 		LeftJoin("access_log_geoip g ON g.access_log_id = ral.id").
 		LeftJoin("access_log_network_policy_contributors anpc ON anpc.access_log_id = ral.id").
@@ -361,34 +431,7 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 	rows := make([]AccessLogView, len(dbRows))
 	pageIDs := make([]int64, len(dbRows))
 	for i, rRow := range dbRows {
-		var headers map[string][]string
-		if err := json.Unmarshal([]byte(rRow.HeadersRaw), &headers); err != nil {
-			// Malformed JSON should not break the endpoint; fall back to empty map.
-			headers = map[string][]string{}
-		}
-
-		rows[i] = AccessLogView{
-			ID:                rRow.ID,
-			ClientIP:          rRow.ClientIP,
-			Outcome:           rRow.Outcome,
-			DenyReason:        rRow.DenyReason,
-			ContributorCount:  rRow.ContributorCount,
-			CreatedAt:         rRow.CreatedAt,
-			DurationUs:        rRow.DurationUs,
-			XFFChain:          rRow.XFFChain,
-			TargetHost:        rRow.TargetHost,
-			TargetURI:         rRow.TargetURI,
-			HTTPMethod:        rRow.HTTPMethod,
-			Headers:           headers,
-			CountryCode:       rRow.CountryCode,
-			CountryName:       rRow.CountryName,
-			ContinentCode:     rRow.ContinentCode,
-			ASN:               rRow.ASN,
-			ASNOrg:            rRow.ASNOrg,
-			NetworkPolicyID:   rRow.NetworkPolicyID,
-			NetworkPolicyName: rRow.NetworkPolicyName,
-			Contributors:      []AccessLogContributor{},
-		}
+		rows[i] = rRow.toView()
 		pageIDs[i] = rRow.ID
 	}
 
@@ -403,6 +446,68 @@ func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]Acc
 	}
 
 	return rows, total, nil
+}
+
+// GetAccessLogEntry returns the full record of one request. It reports
+// ErrEntryNotFound when the id is unknown, which retention pruning makes an
+// ordinary answer for an old link rather than a failure.
+func (r *Repository) GetAccessLogEntry(ctx context.Context, id int64) (AccessLogDetailView, error) {
+	query, args, err := sq.
+		Select(accessLogDetailColumns...).
+		From("access_log ral").
+		LeftJoin("access_log_geoip g ON g.access_log_id = ral.id").
+		LeftJoin("access_log_network_policy_contributors anpc ON anpc.access_log_id = ral.id").
+		Where(sq.Eq{"ral.id": id}).
+		ToSql()
+	if err != nil {
+		return AccessLogDetailView{}, fmt.Errorf("build access log entry query: %w", err)
+	}
+
+	var row dbAccessLogDetailRow
+	if err := r.db.GetContext(ctx, &row, query, args...); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return AccessLogDetailView{}, ErrEntryNotFound
+		}
+		return AccessLogDetailView{}, fmt.Errorf("get access log entry: %w", err)
+	}
+
+	detail := AccessLogDetailView{
+		AccessLogView: row.toView(),
+		XFFChain:      row.XFFChain,
+		CountryName:   row.CountryName,
+		ContinentCode: row.ContinentCode,
+		ASN:           row.ASN,
+		ASNOrg:        row.ASNOrg,
+	}
+	if err := json.Unmarshal([]byte(row.HeadersRaw), &detail.Headers); err != nil {
+		// Malformed JSON should not break the endpoint; fall back to empty map.
+		detail.Headers = map[string][]string{}
+	}
+
+	contributorsByLog, err := r.fetchAccessLogContributors(ctx, []int64{row.ID})
+	if err != nil {
+		return AccessLogDetailView{}, err
+	}
+	if c := contributorsByLog[row.ID]; c != nil {
+		detail.Contributors = c
+	}
+
+	return detail, nil
+}
+
+// accessLogFilteredFrom attaches the FROM and only the 1:1 child joins the
+// query's filters actually reference. Aggregates (COUNT, the histogram) share
+// it; the row-returning queries always join both, since they project from them.
+func accessLogFilteredFrom(b sq.SelectBuilder, q AccessLogQuery) sq.SelectBuilder {
+	geoipFilter, policyFilter := accessLogFilterJoins(q)
+	b = b.From("access_log ral")
+	if geoipFilter {
+		b = b.LeftJoin("access_log_geoip g ON g.access_log_id = ral.id")
+	}
+	if policyFilter {
+		b = b.LeftJoin("access_log_network_policy_contributors anpc ON anpc.access_log_id = ral.id")
+	}
+	return b
 }
 
 // fetchAccessLogContributors loads every contributor for the given page of
@@ -488,89 +593,6 @@ func strPtrValue(s *string) any {
 	return *s
 }
 
-// AccessLogCountryStat holds aggregated request counts for a single country.
-type AccessLogCountryStat struct {
-	CountryCode   string
-	CountryName   string
-	ContinentCode string
-	Total         int64
-	Allowed       int64
-	Denied        int64
-}
-
-// ListAccessLogStatsByCountry returns request counts grouped by country for all rows
-// within the [from, to] time window. Only rows with GeoIP data are included.
-//
-// Dispatches on rollup.RawWindowThreshold like every other traffic widget,
-// so the map/country tables answer from the same source as the stat cards and
-// charts for a given window.
-func (r *Repository) ListAccessLogStatsByCountry(ctx context.Context, from, to time.Time) ([]AccessLogCountryStat, error) {
-	if to.Sub(from) <= rollup.RawWindowThreshold {
-		return r.listRawAccessLogStatsByCountry(ctx, from, to)
-	}
-	return r.listAggregateAccessLogStatsByCountry(ctx, from, to)
-}
-
-func (r *Repository) listRawAccessLogStatsByCountry(ctx context.Context, from, to time.Time) ([]AccessLogCountryStat, error) {
-	const query = `
-		SELECT
-			g.country_code,
-			COALESCE(g.country_name, '')  AS country_name,
-			COALESCE(g.continent_code, '') AS continent_code,
-			COUNT(*) AS total,
-			SUM(CASE WHEN ral.outcome = 1 THEN 1 ELSE 0 END) AS allowed,
-			SUM(CASE WHEN ral.outcome = 0 THEN 1 ELSE 0 END) AS denied
-		FROM access_log_geoip g
-		JOIN access_log ral ON ral.id = g.access_log_id
-		WHERE ral.created_at >= ? AND ral.created_at <= ?
-		GROUP BY g.country_code, g.country_name, g.continent_code
-		ORDER BY total DESC
-	`
-
-	var rows []dbCountryStatsRow
-	if err := r.db.SelectContext(ctx, &rows, query, from, to); err != nil {
-		return nil, fmt.Errorf("list access log stats by country: %w", err)
-	}
-
-	return countryStatsFromRows(rows), nil
-}
-
-// listAggregateAccessLogStatsByCountry answers from hourly_traffic_aggregates.
-// Buckets without country attribution (empty country_code: no GeoIP at rollup
-// time, or rolled up before country columns existed) are excluded, matching
-// the raw path's inner join on access_log_geoip.
-func (r *Repository) listAggregateAccessLogStatsByCountry(ctx context.Context, from, to time.Time) ([]AccessLogCountryStat, error) {
-	const query = `
-		SELECT
-			country_code,
-			country_name,
-			continent_code,
-			SUM(request_count) AS total,
-			SUM(CASE WHEN outcome = 1 THEN request_count ELSE 0 END) AS allowed,
-			SUM(CASE WHEN outcome = 0 THEN request_count ELSE 0 END) AS denied
-		FROM hourly_traffic_aggregates
-		WHERE country_code != ''
-		  AND bucket_at >= ? AND bucket_at < ?
-		GROUP BY country_code, country_name, continent_code
-		ORDER BY total DESC
-	`
-
-	var rows []dbCountryStatsRow
-	if err := r.db.SelectContext(ctx, &rows, query, from.UTC(), to.UTC()); err != nil {
-		return nil, fmt.Errorf("list aggregate access log stats by country: %w", err)
-	}
-
-	return countryStatsFromRows(rows), nil
-}
-
-func countryStatsFromRows(rows []dbCountryStatsRow) []AccessLogCountryStat {
-	stats := make([]AccessLogCountryStat, len(rows))
-	for i, row := range rows {
-		stats[i] = AccessLogCountryStat(row)
-	}
-	return stats
-}
-
 // Page of rows.
 type dbAccessLogRow struct {
 	ID                int64     `db:"id"`
@@ -580,18 +602,41 @@ type dbAccessLogRow struct {
 	ContributorCount  int       `db:"contributor_count"`
 	CreatedAt         time.Time `db:"created_at"`
 	DurationUs        int64     `db:"duration_us"`
-	XFFChain          *string   `db:"xff_chain"`
 	TargetHost        *string   `db:"target_host"`
 	TargetURI         *string   `db:"target_uri"`
 	HTTPMethod        *string   `db:"http_method"`
-	HeadersRaw        string    `db:"headers_json"`
 	CountryCode       *string   `db:"country_code"`
-	CountryName       *string   `db:"country_name"`
-	ContinentCode     *string   `db:"continent_code"`
-	ASN               *int64    `db:"asn"`
-	ASNOrg            *string   `db:"asn_org"`
 	NetworkPolicyID   *int64    `db:"network_policy_id"`
 	NetworkPolicyName *string   `db:"network_policy_name"`
+}
+
+func (r dbAccessLogRow) toView() AccessLogView {
+	return AccessLogView{
+		ID:                r.ID,
+		ClientIP:          r.ClientIP,
+		Outcome:           r.Outcome,
+		DenyReason:        r.DenyReason,
+		ContributorCount:  r.ContributorCount,
+		CreatedAt:         r.CreatedAt,
+		DurationUs:        r.DurationUs,
+		TargetHost:        r.TargetHost,
+		TargetURI:         r.TargetURI,
+		HTTPMethod:        r.HTTPMethod,
+		CountryCode:       r.CountryCode,
+		NetworkPolicyID:   r.NetworkPolicyID,
+		NetworkPolicyName: r.NetworkPolicyName,
+		Contributors:      []AccessLogContributor{},
+	}
+}
+
+type dbAccessLogDetailRow struct {
+	dbAccessLogRow
+	XFFChain      *string `db:"xff_chain"`
+	HeadersRaw    string  `db:"headers_json"`
+	CountryName   *string `db:"country_name"`
+	ContinentCode *string `db:"continent_code"`
+	ASN           *int64  `db:"asn"`
+	ASNOrg        *string `db:"asn_org"`
 }
 
 type dbContributorRow struct {
@@ -601,13 +646,4 @@ type dbContributorRow struct {
 	UserID      ids.UserID    `db:"user_id"`
 	UserName    string        `db:"user_name"`
 	AddressID   ids.AddressID `db:"address_id"`
-}
-
-type dbCountryStatsRow struct {
-	CountryCode   string `db:"country_code"`
-	CountryName   string `db:"country_name"`
-	ContinentCode string `db:"continent_code"`
-	Total         int64  `db:"total"`
-	Allowed       int64  `db:"allowed"`
-	Denied        int64  `db:"denied"`
 }

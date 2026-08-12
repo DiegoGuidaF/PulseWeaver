@@ -90,8 +90,12 @@ paths:
   # --------------------
   /access-log:
     $ref: './paths/access-log.yaml#/accessLog'
+  /access-log/histogram:
+    $ref: './paths/access-log.yaml#/accessLogHistogram'
   /access-log/stats/by-country:
     $ref: './paths/access-log.yaml#/accessLogByCountry'
+  /access-log/{id}:
+    $ref: './paths/access-log.yaml#/accessLogDetail'
 
   # --------------------
   # Rules Endpoints
@@ -289,6 +293,12 @@ components:
       $ref: './components/schemas/access-log.yaml#/AccessLogCountryStats'
     AccessLogRow:
       $ref: './components/schemas/access-log.yaml#/AccessLogRow'
+    AccessLogDetail:
+      $ref: './components/schemas/access-log.yaml#/AccessLogDetail'
+    AccessLogHistogramBucket:
+      $ref: './components/schemas/access-log.yaml#/AccessLogHistogramBucket'
+    AccessLogHistogramResponse:
+      $ref: './components/schemas/access-log.yaml#/AccessLogHistogramResponse'
 
     # --------------------
     # Rules

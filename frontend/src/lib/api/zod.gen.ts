@@ -296,10 +296,37 @@ export const zAddressHistoryResponse = z.object({
 export const zAccessLogCountryStats = z.object({
   country_code: z.string(),
   country_name: z.string().optional(),
-  continent_code: z.string().optional(),
   total: z.int(),
   allowed: z.int(),
   denied: z.int(),
+});
+
+/**
+ * Allowed and denied request counts for one time bucket. Field names and types match the dashboard traffic bucket, so the same chart renders either.
+ *
+ */
+export const zAccessLogHistogramBucket = z.object({
+  timestamp: z.iso.datetime({ offset: true, local: true }),
+  allow_count: z.coerce
+    .bigint()
+    .min(BigInt("-9223372036854775808"), {
+      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
+    })
+    .max(BigInt("9223372036854775807"), {
+      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
+    }),
+  deny_count: z.coerce
+    .bigint()
+    .min(BigInt("-9223372036854775808"), {
+      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
+    })
+    .max(BigInt("9223372036854775807"), {
+      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
+    }),
+});
+
+export const zAccessLogHistogramResponse = z.object({
+  buckets: z.array(zAccessLogHistogramBucket),
 });
 
 export const zDeviceAddressLeaseRule = z.object({
@@ -922,7 +949,46 @@ export const zAccessLogContributor = z.object({
   address_id: zId.optional(),
 });
 
+/**
+ * One request as shown in the access-log table. Carries the columns the table scans; fetch GET /access-log/{id} for the full record of a single request.
+ *
+ */
 export const zAccessLogRow = z.object({
+  id: zId,
+  client_ip: zIpAddress,
+  outcome: z.boolean(),
+  deny_reason: zPolicyDenyReason.nullish(),
+  contributors: z.array(zAccessLogContributor),
+  contributor_count: z.int(),
+  created_at: z.iso.datetime({ offset: true, local: true }),
+  target_host: z.string().optional(),
+  target_uri: z.string().optional(),
+  http_method: z.string().optional(),
+  country_code: z.string().optional(),
+  duration_us: z.coerce
+    .bigint()
+    .min(BigInt("-9223372036854775808"), {
+      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
+    })
+    .max(BigInt("9223372036854775807"), {
+      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
+    })
+    .optional(),
+  network_policy_id: zId.nullish(),
+  network_policy_name: z.string().nullish(),
+});
+
+export const zAccessLogResponse = z.object({
+  total: z.int(),
+  next_cursor: z.string().nullable(),
+  rows: z.array(zAccessLogRow),
+});
+
+/**
+ * Everything recorded about one request: the table columns plus the request headers, the forwarded-for chain, and the full geolocation of the client IP. Absent properties were never captured for that request — no header collection, no proxy chain, or no GeoIP match for the address.
+ *
+ */
+export const zAccessLogDetail = z.object({
   id: zId,
   client_ip: zIpAddress,
   outcome: z.boolean(),
@@ -951,12 +1017,6 @@ export const zAccessLogRow = z.object({
   headers: z.record(z.string(), z.array(z.string())),
   network_policy_id: zId.nullish(),
   network_policy_name: z.string().nullish(),
-});
-
-export const zAccessLogResponse = z.object({
-  total: z.int(),
-  next_cursor: z.string().nullable(),
-  rows: z.array(zAccessLogRow),
 });
 
 /**
@@ -1435,8 +1495,6 @@ export const zGetAccessLogQuery = z.object({
   deny_reason_op: zAccessLogFilterOperator.optional(),
   country_code: z.array(z.string()).max(200).optional(),
   country_code_op: zAccessLogFilterOperator.optional(),
-  continent_code: z.array(z.string()).max(200).optional(),
-  continent_code_op: zAccessLogFilterOperator.optional(),
   device_id: z.array(zId).max(200).optional(),
   device_id_op: zAccessLogFilterOperator.optional(),
   user_id: z.array(zId).max(200).optional(),
@@ -1444,7 +1502,6 @@ export const zGetAccessLogQuery = z.object({
   network_policy_id: z.array(zId).max(200).optional(),
   network_policy_id_op: zAccessLogFilterOperator.optional(),
   outcome: z.boolean().optional(),
-  ambiguous: z.boolean().optional(),
   from: z.iso.datetime({ offset: true, local: true }).optional(),
   to: z.iso.datetime({ offset: true, local: true }).optional(),
   sort: zAccessLogSortColumn.optional(),
@@ -1458,6 +1515,35 @@ export const zGetAccessLogQuery = z.object({
  */
 export const zGetAccessLogResponse = zAccessLogResponse;
 
+export const zGetAccessLogHistogramQuery = z.object({
+  client_ip: z.array(z.string()).max(200).optional(),
+  client_ip_op: zAccessLogFilterOperator.optional(),
+  target_host: z.array(z.string()).max(200).optional(),
+  target_host_op: zAccessLogFilterOperator.optional(),
+  target_uri: z.array(z.string()).max(200).optional(),
+  target_uri_op: zAccessLogFilterOperator.optional(),
+  http_method: z.array(z.string()).max(200).optional(),
+  http_method_op: zAccessLogFilterOperator.optional(),
+  deny_reason: z.array(zPolicyDenyReason).max(200).optional(),
+  deny_reason_op: zAccessLogFilterOperator.optional(),
+  country_code: z.array(z.string()).max(200).optional(),
+  country_code_op: zAccessLogFilterOperator.optional(),
+  device_id: z.array(zId).max(200).optional(),
+  device_id_op: zAccessLogFilterOperator.optional(),
+  user_id: z.array(zId).max(200).optional(),
+  user_id_op: zAccessLogFilterOperator.optional(),
+  network_policy_id: z.array(zId).max(200).optional(),
+  network_policy_id_op: zAccessLogFilterOperator.optional(),
+  outcome: z.boolean().optional(),
+  from: z.iso.datetime({ offset: true, local: true }).optional(),
+  to: z.iso.datetime({ offset: true, local: true }).optional(),
+});
+
+/**
+ * Time-bucketed allow/deny counts
+ */
+export const zGetAccessLogHistogramResponse = zAccessLogHistogramResponse;
+
 export const zGetAccessLogByCountryQuery = z.object({
   from: z.iso.datetime({ offset: true, local: true }).optional(),
   to: z.iso.datetime({ offset: true, local: true }).optional(),
@@ -1467,6 +1553,15 @@ export const zGetAccessLogByCountryQuery = z.object({
  * Request counts by country
  */
 export const zGetAccessLogByCountryResponse = z.array(zAccessLogCountryStats);
+
+export const zGetAccessLogEntryPath = z.object({
+  id: zId,
+});
+
+/**
+ * The access log entry
+ */
+export const zGetAccessLogEntryResponse = zAccessLogDetail;
 
 export const zDisableDeviceAddressLeaseRulePath = z.object({
   device_id: zId,

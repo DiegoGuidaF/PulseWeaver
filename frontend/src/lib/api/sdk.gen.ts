@@ -75,7 +75,13 @@ import type {
   GetAccessLogByCountryErrors,
   GetAccessLogByCountryResponses,
   GetAccessLogData,
+  GetAccessLogEntryData,
+  GetAccessLogEntryErrors,
+  GetAccessLogEntryResponses,
   GetAccessLogErrors,
+  GetAccessLogHistogramData,
+  GetAccessLogHistogramErrors,
+  GetAccessLogHistogramResponses,
   GetAccessLogResponses,
   GetAddressHistoryData,
   GetAddressHistoryErrors,
@@ -253,6 +259,10 @@ import {
   zEnableDeviceResponse,
   zGetAccessLogByCountryQuery,
   zGetAccessLogByCountryResponse,
+  zGetAccessLogEntryPath,
+  zGetAccessLogEntryResponse,
+  zGetAccessLogHistogramQuery,
+  zGetAccessLogHistogramResponse,
   zGetAccessLogQuery,
   zGetAccessLogResponse,
   zGetAddressHistoryHistogramQuery,
@@ -1398,6 +1408,45 @@ export const getAccessLog = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Get allowed and denied request counts over time
+ *
+ * How allowed and denied traffic moved across the window, for the access-log chart. Takes the same filters and window as GET /access-log, so the chart describes exactly the requests the list describes: summing every bucket's two counts gives that list's `total`. Bucket width follows the window size, and every bucket in the window is returned even when nothing matched in it.
+ *
+ */
+export const getAccessLogHistogram = <ThrowOnError extends boolean = false>(
+  options?: Options<GetAccessLogHistogramData, ThrowOnError>,
+): RequestResult<
+  GetAccessLogHistogramResponses,
+  GetAccessLogHistogramErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetAccessLogHistogramResponses,
+    GetAccessLogHistogramErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: z.never().optional(),
+          query: zGetAccessLogHistogramQuery.optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zGetAccessLogHistogramResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/access-log/histogram",
+    ...options,
+  });
+
+/**
  * Request counts grouped by country
  */
 export const getAccessLogByCountry = <ThrowOnError extends boolean = false>(
@@ -1430,6 +1479,45 @@ export const getAccessLogByCountry = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/access-log/stats/by-country",
+    ...options,
+  });
+
+/**
+ * Get one access log entry
+ *
+ * Returns everything recorded about a single request, including the headers, forwarded-for chain and geolocation the list endpoint omits. Entries are pruned once they fall outside the configured retention period, so a link to an older request answers 404 — that is expected, not an error. Admin-only.
+ *
+ */
+export const getAccessLogEntry = <ThrowOnError extends boolean = false>(
+  options: Options<GetAccessLogEntryData, ThrowOnError>,
+): RequestResult<
+  GetAccessLogEntryResponses,
+  GetAccessLogEntryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetAccessLogEntryResponses,
+    GetAccessLogEntryErrors,
+    ThrowOnError
+  >({
+    requestValidator: async (data) =>
+      await z
+        .object({
+          body: z.never().optional(),
+          path: zGetAccessLogEntryPath,
+          query: z.never().optional(),
+        })
+        .parseAsync(data),
+    responseValidator: async (data) =>
+      await zGetAccessLogEntryResponse.parseAsync(data),
+    security: [
+      {
+        in: "cookie",
+        name: "__Host-wdc_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/access-log/{id}",
     ...options,
   });
 

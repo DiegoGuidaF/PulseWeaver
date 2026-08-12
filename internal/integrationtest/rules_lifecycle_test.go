@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/filterx"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/queries/filterx"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testutils"
 	"github.com/matryer/is"
 )

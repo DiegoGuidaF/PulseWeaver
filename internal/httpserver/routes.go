@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/auth"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/buildmeta"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/device"
@@ -35,9 +36,11 @@ type CompositeHandler struct {
 	*PolicyHandler
 	*NetworkPoliciesHandler
 	*VersionHandler
+	*AccessLogHandler
 }
 
 type RuleHandler = rule.HTTPHandler
+type AccessLogHandler = accesslog.HTTPHandler
 type QueriesHandler = queries.HTTPHandler
 type DeviceHandler = device.HTTPHandler
 type AuthHandler = auth.HTTPHandler
@@ -62,6 +65,7 @@ func addRoutes(
 	userAccessHandler *UserAccessHandler,
 	networkPoliciesHandler *NetworkPoliciesHandler,
 	versionHandler *VersionHandler,
+	accessLogHandler *AccessLogHandler,
 	logger *slog.Logger,
 ) {
 	routeHandler := &CompositeHandler{
@@ -76,6 +80,7 @@ func addRoutes(
 		PolicyHandler:          policyHandler,
 		NetworkPoliciesHandler: networkPoliciesHandler,
 		VersionHandler:         versionHandler,
+		AccessLogHandler:       accessLogHandler,
 	}
 
 	r.Get("/health", health.Handler)

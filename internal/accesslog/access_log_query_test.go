@@ -1,22 +1,22 @@
 //go:build test
 
-package queries_test
+package accesslog_test
 
 import (
 	"errors"
 	"testing"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/filterx"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/queries/filterx"
 	"github.com/matryer/is"
 )
 
 func TestNewAccessLogQuery_Defaults(t *testing.T) {
 	is := is.New(t)
 	before := time.Now().UTC()
-	q, err := queries.NewAccessLogQuery(httpapi.GetAccessLogParams{})
+	q, err := accesslog.NewAccessLogQuery(httpapi.GetAccessLogParams{})
 	is.NoErr(err)
 	after := time.Now().UTC()
 
@@ -38,7 +38,7 @@ func TestNewAccessLogQuery_Defaults(t *testing.T) {
 func TestNewAccessLogQuery_LimitZeroDefaultsFifty(t *testing.T) {
 	is := is.New(t)
 	zero := 0
-	q, err := queries.NewAccessLogQuery(httpapi.GetAccessLogParams{Limit: &zero})
+	q, err := accesslog.NewAccessLogQuery(httpapi.GetAccessLogParams{Limit: &zero})
 	is.NoErr(err)
 	is.Equal(q.Limit, 50)
 }
@@ -46,7 +46,7 @@ func TestNewAccessLogQuery_LimitZeroDefaultsFifty(t *testing.T) {
 func TestNewAccessLogQuery_LimitNegativeDefaultsFifty(t *testing.T) {
 	is := is.New(t)
 	neg := -1
-	q, err := queries.NewAccessLogQuery(httpapi.GetAccessLogParams{Limit: &neg})
+	q, err := accesslog.NewAccessLogQuery(httpapi.GetAccessLogParams{Limit: &neg})
 	is.NoErr(err)
 	is.Equal(q.Limit, 50)
 }
@@ -54,7 +54,7 @@ func TestNewAccessLogQuery_LimitNegativeDefaultsFifty(t *testing.T) {
 func TestNewAccessLogQuery_LimitCappedAt200(t *testing.T) {
 	is := is.New(t)
 	big := 9999
-	q, err := queries.NewAccessLogQuery(httpapi.GetAccessLogParams{Limit: &big})
+	q, err := accesslog.NewAccessLogQuery(httpapi.GetAccessLogParams{Limit: &big})
 	is.NoErr(err)
 	is.Equal(q.Limit, 200)
 }
@@ -63,7 +63,7 @@ func TestNewAccessLogQuery_ExplicitFromTo(t *testing.T) {
 	is := is.New(t)
 	from := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)
-	q, err := queries.NewAccessLogQuery(httpapi.GetAccessLogParams{From: &from, To: &to})
+	q, err := accesslog.NewAccessLogQuery(httpapi.GetAccessLogParams{From: &from, To: &to})
 	is.NoErr(err)
 	is.Equal(q.From, from)
 	is.Equal(q.To, to)
@@ -72,7 +72,7 @@ func TestNewAccessLogQuery_ExplicitFromTo(t *testing.T) {
 func TestNewAccessLogQuery_ValueFiltersBuilt(t *testing.T) {
 	is := is.New(t)
 	codes := []string{"DE", "US"}
-	q, err := queries.NewAccessLogQuery(httpapi.GetAccessLogParams{
+	q, err := accesslog.NewAccessLogQuery(httpapi.GetAccessLogParams{
 		CountryCode: &codes,
 	})
 	is.NoErr(err)
@@ -85,7 +85,7 @@ func TestNewAccessLogQuery_ValueFiltersBuilt(t *testing.T) {
 func TestNewAccessLogQuery_NullOperatorNeedsNoValues(t *testing.T) {
 	is := is.New(t)
 	op := httpapi.AccessLogFilterOperator(filterx.OpIsNull)
-	q, err := queries.NewAccessLogQuery(httpapi.GetAccessLogParams{
+	q, err := accesslog.NewAccessLogQuery(httpapi.GetAccessLogParams{
 		CountryCodeOp: &op,
 	})
 	is.NoErr(err)
@@ -96,7 +96,7 @@ func TestNewAccessLogQuery_NullOperatorNeedsNoValues(t *testing.T) {
 func TestNewAccessLogQuery_OperatorWithoutValuesIgnored(t *testing.T) {
 	is := is.New(t)
 	op := httpapi.AccessLogFilterOperator(filterx.OpContains)
-	q, err := queries.NewAccessLogQuery(httpapi.GetAccessLogParams{
+	q, err := accesslog.NewAccessLogQuery(httpapi.GetAccessLogParams{
 		TargetHostOp: &op,
 	})
 	is.NoErr(err)
@@ -108,7 +108,7 @@ func TestNewAccessLogQuery_RejectsDisallowedOperator(t *testing.T) {
 	// client_ip does not allow is_null.
 	op := httpapi.AccessLogFilterOperator(filterx.OpIsNull)
 	ips := []string{"1.2.3.4"}
-	_, err := queries.NewAccessLogQuery(httpapi.GetAccessLogParams{
+	_, err := accesslog.NewAccessLogQuery(httpapi.GetAccessLogParams{
 		ClientIp:   &ips,
 		ClientIpOp: &op,
 	})
@@ -118,7 +118,7 @@ func TestNewAccessLogQuery_RejectsDisallowedOperator(t *testing.T) {
 func TestNewAccessLogQuery_RejectsBadCursor(t *testing.T) {
 	is := is.New(t)
 	bad := "not-a-real-cursor"
-	_, err := queries.NewAccessLogQuery(httpapi.GetAccessLogParams{Cursor: &bad})
+	_, err := accesslog.NewAccessLogQuery(httpapi.GetAccessLogParams{Cursor: &bad})
 	is.True(errors.Is(err, filterx.ErrInvalidFilter))
 }
 
@@ -126,7 +126,7 @@ func TestNewAccessLogQuery_SortAndOrder(t *testing.T) {
 	is := is.New(t)
 	sort := httpapi.AccessLogSortColumn("duration_us")
 	order := httpapi.SortOrder("asc")
-	q, err := queries.NewAccessLogQuery(httpapi.GetAccessLogParams{Sort: &sort, Order: &order})
+	q, err := accesslog.NewAccessLogQuery(httpapi.GetAccessLogParams{Sort: &sort, Order: &order})
 	is.NoErr(err)
 	is.Equal(q.Sort, "duration_us")
 	is.Equal(q.Order, "asc")

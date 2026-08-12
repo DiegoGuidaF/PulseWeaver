@@ -92,8 +92,14 @@ type ClientInterface interface {
 	// GetAccessLog request
 	GetAccessLog(ctx context.Context, params *GetAccessLogParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetAccessLogHistogram request
+	GetAccessLogHistogram(ctx context.Context, params *GetAccessLogHistogramParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetAccessLogByCountry request
 	GetAccessLogByCountry(ctx context.Context, params *GetAccessLogByCountryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAccessLogEntry request
+	GetAccessLogEntry(ctx context.Context, id ID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetAddressHistory request
 	GetAddressHistory(ctx context.Context, params *GetAddressHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -338,8 +344,32 @@ func (c *Client) GetAccessLog(ctx context.Context, params *GetAccessLogParams, r
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetAccessLogHistogram(ctx context.Context, params *GetAccessLogHistogramParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAccessLogHistogramRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetAccessLogByCountry(ctx context.Context, params *GetAccessLogByCountryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAccessLogByCountryRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetAccessLogEntry(ctx context.Context, id ID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAccessLogEntryRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -1518,30 +1548,6 @@ func NewGetAccessLogRequest(server string, params *GetAccessLogParams) (*http.Re
 
 		}
 
-		if params.ContinentCode != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "continent_code", *params.ContinentCode, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.ContinentCodeOp != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "continent_code_op", *params.ContinentCodeOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
 		if params.DeviceId != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "device_id", *params.DeviceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
@@ -1617,18 +1623,6 @@ func NewGetAccessLogRequest(server string, params *GetAccessLogParams) (*http.Re
 		if params.Outcome != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "outcome", *params.Outcome, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Ambiguous != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ambiguous", *params.Ambiguous, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -1724,6 +1718,300 @@ func NewGetAccessLogRequest(server string, params *GetAccessLogParams) (*http.Re
 	return req, nil
 }
 
+// NewGetAccessLogHistogramRequest generates requests for GetAccessLogHistogram
+func NewGetAccessLogHistogramRequest(server string, params *GetAccessLogHistogramParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/access-log/histogram")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ClientIp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "client_ip", *params.ClientIp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.ClientIpOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "client_ip_op", *params.ClientIpOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TargetHost != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "target_host", *params.TargetHost, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TargetHostOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "target_host_op", *params.TargetHostOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TargetUri != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "target_uri", *params.TargetUri, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TargetUriOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "target_uri_op", *params.TargetUriOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.HttpMethod != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "http_method", *params.HttpMethod, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.HttpMethodOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "http_method_op", *params.HttpMethodOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.DenyReason != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "deny_reason", *params.DenyReason, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.DenyReasonOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "deny_reason_op", *params.DenyReasonOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.CountryCode != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "country_code", *params.CountryCode, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.CountryCodeOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "country_code_op", *params.CountryCodeOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.DeviceId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "device_id", *params.DeviceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.DeviceIdOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "device_id_op", *params.DeviceIdOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.UserId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "user_id", *params.UserId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.UserIdOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "user_id_op", *params.UserIdOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.NetworkPolicyId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "network_policy_id", *params.NetworkPolicyId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.NetworkPolicyIdOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "network_policy_id_op", *params.NetworkPolicyIdOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Outcome != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "outcome", *params.Outcome, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.From != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "from", *params.From, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.To != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to", *params.To, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetAccessLogByCountryRequest generates requests for GetAccessLogByCountry
 func NewGetAccessLogByCountryRequest(server string, params *GetAccessLogByCountryParams) (*http.Request, error) {
 	var err error
@@ -1780,6 +2068,40 @@ func NewGetAccessLogByCountryRequest(server string, params *GetAccessLogByCountr
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
 		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAccessLogEntryRequest generates requests for GetAccessLogEntry
+func NewGetAccessLogEntryRequest(server string, id ID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/access-log/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -4776,8 +5098,14 @@ type ClientWithResponsesInterface interface {
 	// GetAccessLogWithResponse request
 	GetAccessLogWithResponse(ctx context.Context, params *GetAccessLogParams, reqEditors ...RequestEditorFn) (*GetAccessLogTestClientResponse, error)
 
+	// GetAccessLogHistogramWithResponse request
+	GetAccessLogHistogramWithResponse(ctx context.Context, params *GetAccessLogHistogramParams, reqEditors ...RequestEditorFn) (*GetAccessLogHistogramTestClientResponse, error)
+
 	// GetAccessLogByCountryWithResponse request
 	GetAccessLogByCountryWithResponse(ctx context.Context, params *GetAccessLogByCountryParams, reqEditors ...RequestEditorFn) (*GetAccessLogByCountryTestClientResponse, error)
+
+	// GetAccessLogEntryWithResponse request
+	GetAccessLogEntryWithResponse(ctx context.Context, id ID, reqEditors ...RequestEditorFn) (*GetAccessLogEntryTestClientResponse, error)
 
 	// GetAddressHistoryWithResponse request
 	GetAddressHistoryWithResponse(ctx context.Context, params *GetAddressHistoryParams, reqEditors ...RequestEditorFn) (*GetAddressHistoryTestClientResponse, error)
@@ -5044,6 +5372,40 @@ func (r GetAccessLogTestClientResponse) ContentType() string {
 	return ""
 }
 
+type GetAccessLogHistogramTestClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AccessLogHistogramResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAccessLogHistogramTestClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAccessLogHistogramTestClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAccessLogHistogramTestClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetAccessLogByCountryTestClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -5071,6 +5433,40 @@ func (r GetAccessLogByCountryTestClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetAccessLogByCountryTestClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAccessLogEntryTestClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AccessLogDetail
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAccessLogEntryTestClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAccessLogEntryTestClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAccessLogEntryTestClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -7171,6 +7567,15 @@ func (c *ClientWithResponses) GetAccessLogWithResponse(ctx context.Context, para
 	return ParseGetAccessLogTestClientResponse(rsp)
 }
 
+// GetAccessLogHistogramWithResponse request returning *GetAccessLogHistogramTestClientResponse
+func (c *ClientWithResponses) GetAccessLogHistogramWithResponse(ctx context.Context, params *GetAccessLogHistogramParams, reqEditors ...RequestEditorFn) (*GetAccessLogHistogramTestClientResponse, error) {
+	rsp, err := c.GetAccessLogHistogram(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAccessLogHistogramTestClientResponse(rsp)
+}
+
 // GetAccessLogByCountryWithResponse request returning *GetAccessLogByCountryTestClientResponse
 func (c *ClientWithResponses) GetAccessLogByCountryWithResponse(ctx context.Context, params *GetAccessLogByCountryParams, reqEditors ...RequestEditorFn) (*GetAccessLogByCountryTestClientResponse, error) {
 	rsp, err := c.GetAccessLogByCountry(ctx, params, reqEditors...)
@@ -7178,6 +7583,15 @@ func (c *ClientWithResponses) GetAccessLogByCountryWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseGetAccessLogByCountryTestClientResponse(rsp)
+}
+
+// GetAccessLogEntryWithResponse request returning *GetAccessLogEntryTestClientResponse
+func (c *ClientWithResponses) GetAccessLogEntryWithResponse(ctx context.Context, id ID, reqEditors ...RequestEditorFn) (*GetAccessLogEntryTestClientResponse, error) {
+	rsp, err := c.GetAccessLogEntry(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAccessLogEntryTestClientResponse(rsp)
 }
 
 // GetAddressHistoryWithResponse request returning *GetAddressHistoryTestClientResponse
@@ -7962,6 +8376,60 @@ func ParseGetAccessLogTestClientResponse(rsp *http.Response) (*GetAccessLogTestC
 	return response, nil
 }
 
+// ParseGetAccessLogHistogramTestClientResponse parses an HTTP response from a GetAccessLogHistogramWithResponse call
+func ParseGetAccessLogHistogramTestClientResponse(rsp *http.Response) (*GetAccessLogHistogramTestClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAccessLogHistogramTestClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccessLogHistogramResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetAccessLogByCountryTestClientResponse parses an HTTP response from a GetAccessLogByCountryWithResponse call
 func ParseGetAccessLogByCountryTestClientResponse(rsp *http.Response) (*GetAccessLogByCountryTestClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -7996,6 +8464,60 @@ func ParseGetAccessLogByCountryTestClientResponse(rsp *http.Response) (*GetAcces
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAccessLogEntryTestClientResponse parses an HTTP response from a GetAccessLogEntryWithResponse call
+func ParseGetAccessLogEntryTestClientResponse(rsp *http.Response) (*GetAccessLogEntryTestClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAccessLogEntryTestClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccessLogDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse

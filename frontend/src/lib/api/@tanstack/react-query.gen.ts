@@ -32,6 +32,8 @@ import {
   enableDevice,
   getAccessLog,
   getAccessLogByCountry,
+  getAccessLogEntry,
+  getAccessLogHistogram,
   getAddressHistory,
   getAddressHistoryHistogram,
   getAddressHistoryTuning,
@@ -143,7 +145,13 @@ import type {
   GetAccessLogByCountryError,
   GetAccessLogByCountryResponse,
   GetAccessLogData,
+  GetAccessLogEntryData,
+  GetAccessLogEntryError,
+  GetAccessLogEntryResponse,
   GetAccessLogError,
+  GetAccessLogHistogramData,
+  GetAccessLogHistogramError,
+  GetAccessLogHistogramResponse,
   GetAccessLogResponse,
   GetAddressHistoryData,
   GetAddressHistoryError,
@@ -1243,6 +1251,37 @@ export const getAccessLogInfiniteOptions = (
   return opts as Omit<typeof opts, "initialData">;
 };
 
+export const getAccessLogHistogramQueryKey = (
+  options?: Options<GetAccessLogHistogramData>,
+) => createQueryKey("getAccessLogHistogram", options);
+
+/**
+ * Get allowed and denied request counts over time
+ *
+ * How allowed and denied traffic moved across the window, for the access-log chart. Takes the same filters and window as GET /access-log, so the chart describes exactly the requests the list describes: summing every bucket's two counts gives that list's `total`. Bucket width follows the window size, and every bucket in the window is returned even when nothing matched in it.
+ *
+ */
+export const getAccessLogHistogramOptions = (
+  options?: Options<GetAccessLogHistogramData>,
+) =>
+  queryOptions<
+    GetAccessLogHistogramResponse,
+    GetAccessLogHistogramError,
+    GetAccessLogHistogramResponse,
+    ReturnType<typeof getAccessLogHistogramQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getAccessLogHistogram({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getAccessLogHistogramQueryKey(options),
+  });
+
 export const getAccessLogByCountryQueryKey = (
   options?: Options<GetAccessLogByCountryData>,
 ) => createQueryKey("getAccessLogByCountry", options);
@@ -1269,6 +1308,37 @@ export const getAccessLogByCountryOptions = (
       return data;
     },
     queryKey: getAccessLogByCountryQueryKey(options),
+  });
+
+export const getAccessLogEntryQueryKey = (
+  options: Options<GetAccessLogEntryData>,
+) => createQueryKey("getAccessLogEntry", options);
+
+/**
+ * Get one access log entry
+ *
+ * Returns everything recorded about a single request, including the headers, forwarded-for chain and geolocation the list endpoint omits. Entries are pruned once they fall outside the configured retention period, so a link to an older request answers 404 — that is expected, not an error. Admin-only.
+ *
+ */
+export const getAccessLogEntryOptions = (
+  options: Options<GetAccessLogEntryData>,
+) =>
+  queryOptions<
+    GetAccessLogEntryResponse,
+    GetAccessLogEntryError,
+    GetAccessLogEntryResponse,
+    ReturnType<typeof getAccessLogEntryQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getAccessLogEntry({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getAccessLogEntryQueryKey(options),
   });
 
 /**

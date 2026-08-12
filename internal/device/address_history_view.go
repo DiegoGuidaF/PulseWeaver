@@ -10,9 +10,9 @@ import (
 	sq "github.com/Masterminds/squirrel"
 
 	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/filterx"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/queries/filterx"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/timebucket"
 )
 

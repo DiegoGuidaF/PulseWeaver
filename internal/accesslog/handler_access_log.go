@@ -1,4 +1,4 @@
-package queries
+package accesslog
 
 import (
 	"context"
@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/filterx"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/queries/filterx"
 )
 
 func (h *HTTPHandler) GetAccessLog(
@@ -55,6 +55,48 @@ func (h *HTTPHandler) GetAccessLog(
 	}), nil
 }
 
+func (h *HTTPHandler) GetAccessLogEntry(
+	ctx context.Context,
+	request httpapi.GetAccessLogEntryRequestObject,
+) (httpapi.GetAccessLogEntryResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetAccessLogEntry")
+
+	entry, err := h.repo.GetAccessLogEntry(ctx, request.Id)
+	if err != nil {
+		if errors.Is(err, ErrEntryNotFound) {
+			return httpapi.GetAccessLogEntry404JSONResponse(errorMsgResponse("Access log entry not found")), nil
+		}
+		h.logger.ErrorContext(ctx, "failed to get access log entry", slog.Any(logging.AttrKeyError, err))
+		return httpapi.GetAccessLogEntry500JSONResponse(errorMsgResponse("Failed to get access log entry")), nil
+	}
+
+	return httpapi.GetAccessLogEntry200JSONResponse(toAccessLogDetail(entry)), nil
+}
+
+func (h *HTTPHandler) GetAccessLogHistogram(
+	ctx context.Context,
+	request httpapi.GetAccessLogHistogramRequestObject,
+) (httpapi.GetAccessLogHistogramResponseObject, error) {
+	ctx = logging.WithOperation(ctx, "GetAccessLogHistogram")
+
+	query, err := NewAccessLogHistogramQuery(request.Params)
+	if err != nil {
+		if errors.Is(err, filterx.ErrInvalidFilter) {
+			return httpapi.GetAccessLogHistogram400JSONResponse(errorMsgResponse(err.Error())), nil
+		}
+		h.logger.ErrorContext(ctx, "failed to build access log histogram query", slog.Any(logging.AttrKeyError, err))
+		return httpapi.GetAccessLogHistogram500JSONResponse(errorMsgResponse("Failed to get access log histogram")), nil
+	}
+
+	response, err := h.repo.GetAccessLogHistogram(ctx, query)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "failed to get access log histogram", slog.Any(logging.AttrKeyError, err))
+		return httpapi.GetAccessLogHistogram500JSONResponse(errorMsgResponse("Failed to get access log histogram")), nil
+	}
+
+	return httpapi.GetAccessLogHistogram200JSONResponse(response), nil
+}
+
 func (h *HTTPHandler) GetAccessLogByCountry(
 	ctx context.Context,
 	request httpapi.GetAccessLogByCountryRequestObject,
@@ -80,12 +122,11 @@ func (h *HTTPHandler) GetAccessLogByCountry(
 	result := make([]httpapi.AccessLogCountryStats, len(stats))
 	for i, s := range stats {
 		result[i] = httpapi.AccessLogCountryStats{
-			CountryCode:   s.CountryCode,
-			CountryName:   &s.CountryName,
-			ContinentCode: &s.ContinentCode,
-			Total:         int(s.Total),
-			Allowed:       int(s.Allowed),
-			Denied:        int(s.Denied),
+			CountryCode: s.CountryCode,
+			CountryName: &s.CountryName,
+			Total:       int(s.Total),
+			Allowed:     int(s.Allowed),
+			Denied:      int(s.Denied),
 		}
 	}
 
@@ -93,11 +134,6 @@ func (h *HTTPHandler) GetAccessLogByCountry(
 }
 
 func toAccessLogRow(r AccessLogView) httpapi.AccessLogRow {
-	var asn *int
-	if r.ASN != nil {
-		asn = new(int(*r.ASN))
-	}
-
 	contributors := make([]httpapi.AccessLogContributor, len(r.Contributors))
 	for i, c := range r.Contributors {
 		contributors[i] = toAccessLogContributor(c)
@@ -116,19 +152,45 @@ func toAccessLogRow(r AccessLogView) httpapi.AccessLogRow {
 		DenyReason:        denyReason,
 		Contributors:      contributors,
 		ContributorCount:  r.ContributorCount,
-		XffChain:          r.XFFChain,
 		TargetHost:        r.TargetHost,
 		TargetUri:         r.TargetURI,
 		HttpMethod:        r.HTTPMethod,
-		Headers:           r.Headers,
 		CountryCode:       r.CountryCode,
-		CountryName:       r.CountryName,
-		ContinentCode:     r.ContinentCode,
-		Asn:               asn,
-		AsnOrg:            r.ASNOrg,
 		DurationUs:        &r.DurationUs,
 		NetworkPolicyId:   r.NetworkPolicyID,
 		NetworkPolicyName: r.NetworkPolicyName,
+	}
+}
+
+func toAccessLogDetail(d AccessLogDetailView) httpapi.AccessLogDetail {
+	row := toAccessLogRow(d.AccessLogView)
+
+	var asn *int
+	if d.ASN != nil {
+		asn = new(int(*d.ASN))
+	}
+
+	return httpapi.AccessLogDetail{
+		Id:                row.Id,
+		CreatedAt:         row.CreatedAt,
+		Outcome:           row.Outcome,
+		ClientIp:          row.ClientIp,
+		DenyReason:        row.DenyReason,
+		Contributors:      row.Contributors,
+		ContributorCount:  row.ContributorCount,
+		TargetHost:        row.TargetHost,
+		TargetUri:         row.TargetUri,
+		HttpMethod:        row.HttpMethod,
+		CountryCode:       row.CountryCode,
+		DurationUs:        row.DurationUs,
+		NetworkPolicyId:   row.NetworkPolicyId,
+		NetworkPolicyName: row.NetworkPolicyName,
+		XffChain:          d.XFFChain,
+		Headers:           d.Headers,
+		CountryName:       d.CountryName,
+		ContinentCode:     d.ContinentCode,
+		Asn:               asn,
+		AsnOrg:            d.ASNOrg,
 	}
 }
 

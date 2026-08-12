@@ -9,7 +9,7 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/matryer/is"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/queries/filterx"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/filterx"
 )
 
 func testRegistry() *filterx.Registry {

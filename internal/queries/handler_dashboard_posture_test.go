@@ -102,7 +102,7 @@ func TestHandler_GetDashboardPosture_AggregateBackedWindow(t *testing.T) {
 	adminCookie := testutils.LoginCookie(t, testServer.HTTPServer, "admin", testutils.TestAdminPassword)
 	ctx := t.Context()
 
-	accessLogRepo := accesslog.NewRepository(testServer.Database.DB())
+	accessLogRepo := accesslog.NewRepository(testServer.Database.DB(), nil)
 	rollupRepo := rollup.NewRepository(testServer.Database.DB(), nil)
 
 	oldHost := "old-posture.internal"

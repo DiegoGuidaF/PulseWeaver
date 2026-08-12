@@ -55,7 +55,7 @@ func BenchmarkPendingHostSuggestions(b *testing.B) {
 			db, cleanup := testdb.Setup(b)
 			b.Cleanup(cleanup)
 			repo := NewRepository(db.DB())
-			accessLogRepo := accesslog.NewRepository(db.DB())
+			accessLogRepo := accesslog.NewRepository(db.DB(), nil)
 
 			base := time.Now().UTC().Add(-2 * time.Hour)
 			events := make([]policy.DecisionEvent, n)
@@ -80,7 +80,7 @@ func BenchmarkPendingHostSuggestions(b *testing.B) {
 			db, cleanup := testdb.Setup(b)
 			b.Cleanup(cleanup)
 			repo := NewRepository(db.DB())
-			accessLogRepo := accesslog.NewRepository(db.DB())
+			accessLogRepo := accesslog.NewRepository(db.DB(), nil)
 			rollupRepo := rollup.NewRepository(db.DB(), nil)
 
 			currentHourStart := time.Now().UTC().Truncate(time.Hour)

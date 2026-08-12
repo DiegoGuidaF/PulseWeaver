@@ -542,12 +542,15 @@ export type AccessLogResponse = {
 export type AccessLogCountryStats = {
   country_code: string;
   country_name?: string;
-  continent_code?: string;
   total: number;
   allowed: number;
   denied: number;
 };
 
+/**
+ * One request as shown in the access-log table. Carries the columns the table scans; fetch GET /access-log/{id} for the full record of a single request.
+ *
+ */
 export type AccessLogRow = {
   id: Id;
   client_ip: IpAddress;
@@ -564,6 +567,51 @@ export type AccessLogRow = {
    */
   contributor_count: number;
   created_at: string;
+  target_host?: string;
+  target_uri?: string;
+  http_method?: string;
+  /**
+   * ISO 3166-1 alpha-2, e.g. "DE"
+   */
+  country_code?: string;
+  /**
+   * Request processing duration in microseconds
+   */
+  duration_us?: number;
+  /**
+   * ID of the network policy that authorized this request, when the match was via CIDR containment rather than a device address. Null for device-matched or denied requests.
+   *
+   */
+  network_policy_id?: Id | null;
+  /**
+   * Display name of the matching network policy at log time.
+   */
+  network_policy_name?: string | null;
+};
+
+/**
+ * Everything recorded about one request: the table columns plus the request headers, the forwarded-for chain, and the full geolocation of the client IP. Absent properties were never captured for that request — no header collection, no proxy chain, or no GeoIP match for the address.
+ *
+ */
+export type AccessLogDetail = {
+  id: Id;
+  client_ip: IpAddress;
+  outcome: boolean;
+  deny_reason?: PolicyDenyReason | null;
+  /**
+   * All devices/users/addresses this request's client IP resolved to. Empty when no device matched (e.g. a denied request from an unknown IP).
+   *
+   */
+  contributors: Array<AccessLogContributor>;
+  /**
+   * Denormalized count of contributor rows (device×address×user tuples). The coarse "is this ambiguous?" signal; > 1 means the IP resolved to several.
+   *
+   */
+  contributor_count: number;
+  created_at: string;
+  /**
+   * Raw X-Forwarded-For header as received, client-most first.
+   */
   xff_chain?: string;
   target_host?: string;
   target_uri?: string;
@@ -592,6 +640,10 @@ export type AccessLogRow = {
    * Request processing duration in microseconds
    */
   duration_us?: number;
+  /**
+   * Request headers as received, each name mapped to all of its values. Empty when none were captured.
+   *
+   */
   headers: {
     [key: string]: Array<string>;
   };
@@ -604,6 +656,27 @@ export type AccessLogRow = {
    * Display name of the matching network policy at log time.
    */
   network_policy_name?: string | null;
+};
+
+/**
+ * Allowed and denied request counts for one time bucket. Field names and types match the dashboard traffic bucket, so the same chart renders either.
+ *
+ */
+export type AccessLogHistogramBucket = {
+  /**
+   * Start of the bucket, UTC.
+   */
+  timestamp: string;
+  allow_count: number;
+  deny_count: number;
+};
+
+export type AccessLogHistogramResponse = {
+  /**
+   * Every bucket in the window, oldest first — a bucket no request fell into is present with both counts at zero, so a gap in the data is never a gap in the series. An empty list means the window itself is empty.
+   *
+   */
+  buckets: Array<AccessLogHistogramBucket>;
 };
 
 export type DeviceAddressLeaseRule = {
@@ -2827,11 +2900,6 @@ export type GetAccessLogData = {
     country_code?: Array<string>;
     country_code_op?: AccessLogFilterOperator;
     /**
-     * Continent codes e.g. "EU" (in, not_in, is_null, not_null).
-     */
-    continent_code?: Array<string>;
-    continent_code_op?: AccessLogFilterOperator;
-    /**
      * Device IDs that contributed to the request (in, not_in, is_null, not_null).
      */
     device_id?: Array<Id>;
@@ -2850,10 +2918,6 @@ export type GetAccessLogData = {
      * Filter by allow (true) / deny (false).
      */
     outcome?: boolean;
-    /**
-     * When true, return only entries whose IP resolved to more than one contributor.
-     */
-    ambiguous?: boolean;
     /**
      * RFC3339 start of time window (default 24h ago)
      */
@@ -2914,6 +2978,104 @@ export type GetAccessLogResponses = {
 export type GetAccessLogResponse =
   GetAccessLogResponses[keyof GetAccessLogResponses];
 
+export type GetAccessLogHistogramData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Client IP filter values (operators in, not_in, contains, not_contains).
+     */
+    client_ip?: Array<string>;
+    client_ip_op?: AccessLogFilterOperator;
+    /**
+     * Target host filter values (in, not_in, contains, not_contains, is_null, not_null).
+     */
+    target_host?: Array<string>;
+    target_host_op?: AccessLogFilterOperator;
+    /**
+     * Target URI filter values (in, not_in, contains, not_contains, is_null, not_null).
+     */
+    target_uri?: Array<string>;
+    target_uri_op?: AccessLogFilterOperator;
+    /**
+     * HTTP method filter values (in, not_in).
+     */
+    http_method?: Array<string>;
+    http_method_op?: AccessLogFilterOperator;
+    /**
+     * Deny reason filter values (in, not_in, is_null, not_null).
+     */
+    deny_reason?: Array<PolicyDenyReason>;
+    deny_reason_op?: AccessLogFilterOperator;
+    /**
+     * ISO 3166-1 alpha-2 country codes (in, not_in, is_null, not_null). is_null = no GeoIP row.
+     */
+    country_code?: Array<string>;
+    country_code_op?: AccessLogFilterOperator;
+    /**
+     * Device IDs that contributed to the request (in, not_in, is_null, not_null).
+     */
+    device_id?: Array<Id>;
+    device_id_op?: AccessLogFilterOperator;
+    /**
+     * Owning user IDs of contributing devices (in, not_in).
+     */
+    user_id?: Array<Id>;
+    user_id_op?: AccessLogFilterOperator;
+    /**
+     * Authorizing network policy IDs (in, not_in, is_null, not_null).
+     */
+    network_policy_id?: Array<Id>;
+    network_policy_id_op?: AccessLogFilterOperator;
+    /**
+     * Filter by allow (true) / deny (false). With this set the chart shows a single band, the other being zero everywhere by construction.
+     *
+     */
+    outcome?: boolean;
+    /**
+     * RFC3339 start of time window (default 24h ago)
+     */
+    from?: string;
+    /**
+     * RFC3339 end of time window (default now)
+     */
+    to?: string;
+  };
+  url: "/access-log/histogram";
+};
+
+export type GetAccessLogHistogramErrors = {
+  /**
+   * Invalid filter or operator
+   */
+  400: ErrorResponse;
+  /**
+   * Not authenticated
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden - admin credentials required
+   */
+  403: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type GetAccessLogHistogramError =
+  GetAccessLogHistogramErrors[keyof GetAccessLogHistogramErrors];
+
+export type GetAccessLogHistogramResponses = {
+  /**
+   * Time-bucketed allow/deny counts
+   */
+  200: AccessLogHistogramResponse;
+};
+
+export type GetAccessLogHistogramResponse =
+  GetAccessLogHistogramResponses[keyof GetAccessLogHistogramResponses];
+
 export type GetAccessLogByCountryData = {
   body?: never;
   path?: never;
@@ -2957,6 +3119,50 @@ export type GetAccessLogByCountryResponses = {
 
 export type GetAccessLogByCountryResponse =
   GetAccessLogByCountryResponses[keyof GetAccessLogByCountryResponses];
+
+export type GetAccessLogEntryData = {
+  body?: never;
+  path: {
+    /**
+     * ID of the access log entry, from a list row's `id`.
+     */
+    id: Id;
+  };
+  query?: never;
+  url: "/access-log/{id}";
+};
+
+export type GetAccessLogEntryErrors = {
+  /**
+   * Not authenticated
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden - admin credentials required
+   */
+  403: ErrorResponse;
+  /**
+   * No entry with that ID — unknown, or aged out of retention
+   */
+  404: ErrorResponse;
+  /**
+   * Internal Server Error
+   */
+  500: ErrorResponse;
+};
+
+export type GetAccessLogEntryError =
+  GetAccessLogEntryErrors[keyof GetAccessLogEntryErrors];
+
+export type GetAccessLogEntryResponses = {
+  /**
+   * The access log entry
+   */
+  200: AccessLogDetail;
+};
+
+export type GetAccessLogEntryResponse =
+  GetAccessLogEntryResponses[keyof GetAccessLogEntryResponses];
 
 export type DisableDeviceAddressLeaseRuleData = {
   body?: never;

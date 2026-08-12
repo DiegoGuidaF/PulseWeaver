@@ -1,15 +1,18 @@
 //go:build test
 
-package queries_test
+package accesslog_test
 
 import (
 	"log/slog"
 	"testing"
 	"time"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/database"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/rollup"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 	"github.com/matryer/is"
 )
 
@@ -18,9 +21,31 @@ import (
 // assembly are too data-complex to test honestly against hand-built rows. The country
 // rollup below is a simpler single-purpose aggregation, kept as a focused repository test.
 
+// countryStatsRepos wires the read repository against the rollup repository it
+// dispatches to for windows past the raw threshold.
+type countryStatsRepos struct {
+	accessLog *accesslog.Repository
+	rollup    *rollup.Repository
+	db        *database.DB
+}
+
+func setupCountryStatsRepos(t *testing.T) countryStatsRepos {
+	t.Helper()
+	dbWrapper, cleanup := testdb.Setup(t)
+	t.Cleanup(cleanup)
+	sqlxDB := dbWrapper.DB()
+
+	rollupRepo := rollup.NewRepository(sqlxDB, nil)
+	return countryStatsRepos{
+		accessLog: accesslog.NewRepository(sqlxDB, rollupRepo),
+		rollup:    rollupRepo,
+		db:        sqlxDB,
+	}
+}
+
 func TestRepository_ListAccessLogStatsByCountry(t *testing.T) {
 	is := is.New(t)
-	repos := setupRepos(t)
+	repos := setupCountryStatsRepos(t)
 	ctx := t.Context()
 
 	// Insert access events with GeoIP data via the access repository.
@@ -59,7 +84,7 @@ func TestRepository_ListAccessLogStatsByCountry(t *testing.T) {
 
 	now := time.Now().UTC()
 	from := now.Add(-1 * time.Hour)
-	stats, err := repos.queries.ListAccessLogStatsByCountry(ctx, from, now)
+	stats, err := repos.accessLog.ListAccessLogStatsByCountry(ctx, from, now)
 	is.NoErr(err)
 
 	// Should have 2 countries (US and AU); private IP excluded.
@@ -68,7 +93,6 @@ func TestRepository_ListAccessLogStatsByCountry(t *testing.T) {
 	// US should be first (2 total > 1 total).
 	is.Equal(stats[0].CountryCode, "US")
 	is.Equal(stats[0].CountryName, "United States")
-	is.Equal(stats[0].ContinentCode, "NA")
 	is.Equal(stats[0].Total, int64(2))
 	is.Equal(stats[0].Allowed, int64(1))
 	is.Equal(stats[0].Denied, int64(1))
@@ -76,7 +100,6 @@ func TestRepository_ListAccessLogStatsByCountry(t *testing.T) {
 	// AU second.
 	is.Equal(stats[1].CountryCode, "AU")
 	is.Equal(stats[1].CountryName, "Australia")
-	is.Equal(stats[1].ContinentCode, "OC")
 	is.Equal(stats[1].Total, int64(1))
 	is.Equal(stats[1].Allowed, int64(1))
 	is.Equal(stats[1].Denied, int64(0))
@@ -84,18 +107,18 @@ func TestRepository_ListAccessLogStatsByCountry(t *testing.T) {
 
 func TestRepository_ListaccessLogStatsByCountry_Empty(t *testing.T) {
 	is := is.New(t)
-	repos := setupRepos(t)
+	repos := setupCountryStatsRepos(t)
 
 	now := time.Now().UTC()
 	from := now.Add(-1 * time.Hour)
-	stats, err := repos.queries.ListAccessLogStatsByCountry(t.Context(), from, now)
+	stats, err := repos.accessLog.ListAccessLogStatsByCountry(t.Context(), from, now)
 	is.NoErr(err)
 	is.Equal(len(stats), 0)
 }
 
 func TestRepository_ListaccessLogStatsByCountry_FromFilter(t *testing.T) {
 	is := is.New(t)
-	repos := setupRepos(t)
+	repos := setupCountryStatsRepos(t)
 	ctx := t.Context()
 
 	// Insert an old event (created 2 hours ago).
@@ -114,7 +137,7 @@ func TestRepository_ListaccessLogStatsByCountry_FromFilter(t *testing.T) {
 	// Query with from = 1 hour ago — should exclude the old event.
 	now := time.Now().UTC()
 	from := now.Add(-1 * time.Hour)
-	stats, err := repos.queries.ListAccessLogStatsByCountry(ctx, from, now)
+	stats, err := repos.accessLog.ListAccessLogStatsByCountry(ctx, from, now)
 	is.NoErr(err)
 	is.Equal(len(stats), 0)
 }
@@ -126,10 +149,10 @@ func TestRepository_ListaccessLogStatsByCountry_FromFilter(t *testing.T) {
 // series sums, and the country stats must all describe the same seeded rows.
 func TestDashboardWidgets_CrossWidgetConsistency_WideWindow(t *testing.T) {
 	is := is.New(t)
-	repos := setupRepos(t)
+	repos := setupCountryStatsRepos(t)
 	ctx := t.Context()
 
-	rollupRepo := rollup.NewRepository(repos.db, nil)
+	rollupRepo := repos.rollup
 
 	usGeo := geoip.Result{CountryCode: "US", CountryName: "United States", ContinentCode: "NA"}
 	auGeo := geoip.Result{CountryCode: "AU", CountryName: "Australia", ContinentCode: "OC"}
@@ -171,7 +194,7 @@ func TestDashboardWidgets_CrossWidgetConsistency_WideWindow(t *testing.T) {
 	is.Equal(seriesAllowed, stats.AllowedCount)
 	is.Equal(seriesDenied, stats.DeniedCount)
 
-	countries, err := repos.queries.ListAccessLogStatsByCountry(ctx, from, to)
+	countries, err := repos.accessLog.ListAccessLogStatsByCountry(ctx, from, to)
 	is.NoErr(err)
 	var countryTotal, countryAllowed, countryDenied int64
 	for _, c := range countries {
@@ -188,11 +211,24 @@ func TestDashboardWidgets_CrossWidgetConsistency_WideWindow(t *testing.T) {
 	is.Equal(countries[0].Total, int64(3))
 	is.Equal(countries[1].CountryCode, "AU")
 	is.Equal(countries[1].Total, int64(2))
+
+	// The access-log histogram is the same widget over the same window: with no
+	// filter it delegates to the traffic series rather than rescanning the raw
+	// table, so it has to land on the same totals.
+	histogram, err := repos.accessLog.GetAccessLogHistogram(ctx, accesslog.AccessLogQuery{From: from, To: to})
+	is.NoErr(err)
+	var histAllowed, histDenied int64
+	for _, bucket := range histogram.Buckets {
+		histAllowed += bucket.AllowCount
+		histDenied += bucket.DenyCount
+	}
+	is.Equal(histAllowed, stats.AllowedCount)
+	is.Equal(histDenied, stats.DeniedCount)
 }
 
 func TestRepository_ListaccessLogStatsByCountry_ToFilter(t *testing.T) {
 	is := is.New(t)
-	repos := setupRepos(t)
+	repos := setupCountryStatsRepos(t)
 	ctx := t.Context()
 
 	now := time.Now().UTC()
@@ -212,12 +248,12 @@ func TestRepository_ListaccessLogStatsByCountry_ToFilter(t *testing.T) {
 	// Query with to = 1 hour ago — should exclude the event created at now.
 	from := now.Add(-2 * time.Hour)
 	to := now.Add(-1 * time.Hour)
-	stats, err := repos.queries.ListAccessLogStatsByCountry(ctx, from, to)
+	stats, err := repos.accessLog.ListAccessLogStatsByCountry(ctx, from, to)
 	is.NoErr(err)
 	is.Equal(len(stats), 0)
 
 	// Query with to = now — should include the event.
-	stats, err = repos.queries.ListAccessLogStatsByCountry(ctx, from, now)
+	stats, err = repos.accessLog.ListAccessLogStatsByCountry(ctx, from, now)
 	is.NoErr(err)
 	is.Equal(len(stats), 1)
 	is.Equal(stats[0].CountryCode, "DE")

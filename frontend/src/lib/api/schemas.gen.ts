@@ -936,9 +936,6 @@ export const AccessLogCountryStatsSchema = {
     country_name: {
       type: "string",
     },
-    continent_code: {
-      type: "string",
-    },
     total: {
       type: "integer",
     },
@@ -953,6 +950,92 @@ export const AccessLogCountryStatsSchema = {
 
 export const AccessLogRowSchema = {
   type: "object",
+  description:
+    "One request as shown in the access-log table. Carries the columns the table scans; fetch GET /access-log/{id} for the full record of a single request.\n",
+  required: [
+    "id",
+    "created_at",
+    "outcome",
+    "client_ip",
+    "contributors",
+    "contributor_count",
+  ],
+  properties: {
+    id: {
+      $ref: "#/components/schemas/ID",
+    },
+    client_ip: {
+      $ref: "#/components/schemas/IPAddress",
+    },
+    outcome: {
+      type: "boolean",
+    },
+    deny_reason: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/PolicyDenyReason",
+        },
+      ],
+      nullable: true,
+    },
+    contributors: {
+      type: "array",
+      description:
+        "All devices/users/addresses this request's client IP resolved to. Empty when no device matched (e.g. a denied request from an unknown IP).\n",
+      items: {
+        $ref: "#/components/schemas/AccessLogContributor",
+      },
+    },
+    contributor_count: {
+      type: "integer",
+      description:
+        'Denormalized count of contributor rows (device×address×user tuples). The coarse "is this ambiguous?" signal; > 1 means the IP resolved to several.\n',
+    },
+    created_at: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+    },
+    target_host: {
+      type: "string",
+    },
+    target_uri: {
+      type: "string",
+    },
+    http_method: {
+      type: "string",
+    },
+    country_code: {
+      type: "string",
+      description: 'ISO 3166-1 alpha-2, e.g. "DE"',
+    },
+    duration_us: {
+      type: "integer",
+      format: "int64",
+      description: "Request processing duration in microseconds",
+    },
+    network_policy_id: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/ID",
+        },
+      ],
+      nullable: true,
+      description:
+        "ID of the network policy that authorized this request, when the match was via CIDR containment rather than a device address. Null for device-matched or denied requests.\n",
+    },
+    network_policy_name: {
+      type: "string",
+      nullable: true,
+      description: "Display name of the matching network policy at log time.",
+    },
+  },
+} as const;
+
+export const AccessLogDetailSchema = {
+  type: "object",
+  description:
+    "Everything recorded about one request: the table columns plus the request headers, the forwarded-for chain, and the full geolocation of the client IP. Absent properties were never captured for that request — no header collection, no proxy chain, or no GeoIP match for the address.\n",
   required: [
     "id",
     "created_at",
@@ -1000,6 +1083,7 @@ export const AccessLogRowSchema = {
     },
     xff_chain: {
       type: "string",
+      description: "Raw X-Forwarded-For header as received, client-most first.",
     },
     target_host: {
       type: "string",
@@ -1037,6 +1121,8 @@ export const AccessLogRowSchema = {
     },
     headers: {
       type: "object",
+      description:
+        "Request headers as received, each name mapped to all of its values. Empty when none were captured.\n",
       additionalProperties: {
         type: "array",
         items: {
@@ -1058,6 +1144,44 @@ export const AccessLogRowSchema = {
       type: "string",
       nullable: true,
       description: "Display name of the matching network policy at log time.",
+    },
+  },
+} as const;
+
+export const AccessLogHistogramBucketSchema = {
+  type: "object",
+  description:
+    "Allowed and denied request counts for one time bucket. Field names and types match the dashboard traffic bucket, so the same chart renders either.\n",
+  required: ["timestamp", "allow_count", "deny_count"],
+  properties: {
+    timestamp: {
+      type: "string",
+      format: "date-time",
+      "x-go-type": "UTCTime",
+      description: "Start of the bucket, UTC.",
+    },
+    allow_count: {
+      type: "integer",
+      format: "int64",
+    },
+    deny_count: {
+      type: "integer",
+      format: "int64",
+    },
+  },
+} as const;
+
+export const AccessLogHistogramResponseSchema = {
+  type: "object",
+  required: ["buckets"],
+  properties: {
+    buckets: {
+      type: "array",
+      description:
+        "Every bucket in the window, oldest first — a bucket no request fell into is present with both counts at zero, so a gap in the data is never a gap in the series. An empty list means the window itself is empty.\n",
+      items: {
+        $ref: "#/components/schemas/AccessLogHistogramBucket",
+      },
     },
   },
 } as const;

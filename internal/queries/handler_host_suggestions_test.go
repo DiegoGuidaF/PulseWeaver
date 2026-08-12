@@ -124,7 +124,7 @@ func TestHandler_ListHostSuggestions_AggregateBackedWindow(t *testing.T) {
 	client := testutils.NewAdminAPIClient(t, srv)
 	ctx := t.Context()
 
-	accessLogRepo := accesslog.NewRepository(srv.Database.DB())
+	accessLogRepo := accesslog.NewRepository(srv.Database.DB(), nil)
 	rollupRepo := rollup.NewRepository(srv.Database.DB(), nil)
 
 	oldHost := "old-suggestion.internal"

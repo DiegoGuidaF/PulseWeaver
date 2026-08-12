@@ -1063,7 +1063,7 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 				obsIP++
 			}
 		}
-		accessLogRepo := accesslog.NewRepository(srv.Database.DB())
+		accessLogRepo := accesslog.NewRepository(srv.Database.DB(), nil)
 		if err := accessLogRepo.BatchInsert(ctx, events); err != nil {
 			s.t.Fatalf("Seeder: insert access log entries: %v", err)
 		}

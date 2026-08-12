@@ -1378,20 +1378,6 @@ paths:
           required: false
           schema:
             $ref: '#/components/schemas/AccessLogFilterOperator'
-        - name: continent_code
-          in: query
-          required: false
-          schema:
-            type: array
-            maxItems: 200
-            items:
-              type: string
-          description: Continent codes e.g. "EU" (in, not_in, is_null, not_null).
-        - name: continent_code_op
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/AccessLogFilterOperator'
         - name: device_id
           in: query
           required: false
@@ -1440,12 +1426,6 @@ paths:
           schema:
             type: boolean
           description: Filter by allow (true) / deny (false).
-        - name: ambiguous
-          in: query
-          required: false
-          schema:
-            type: boolean
-          description: When true, return only entries whose IP resolved to more than one contributor.
         - name: from
           in: query
           required: false
@@ -1522,6 +1502,193 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /access-log/histogram:
+    get:
+      operationId: getAccessLogHistogram
+      tags:
+        - access-log
+      summary: Get allowed and denied request counts over time
+      description: |
+        How allowed and denied traffic moved across the window, for the access-log chart. Takes the same filters and window as GET /access-log, so the chart describes exactly the requests the list describes: summing every bucket's two counts gives that list's `total`. Bucket width follows the window size, and every bucket in the window is returned even when nothing matched in it.
+      parameters:
+        - name: client_ip
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              type: string
+          description: Client IP filter values (operators in, not_in, contains, not_contains).
+        - name: client_ip_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AccessLogFilterOperator'
+        - name: target_host
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              type: string
+          description: Target host filter values (in, not_in, contains, not_contains, is_null, not_null).
+        - name: target_host_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AccessLogFilterOperator'
+        - name: target_uri
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              type: string
+          description: Target URI filter values (in, not_in, contains, not_contains, is_null, not_null).
+        - name: target_uri_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AccessLogFilterOperator'
+        - name: http_method
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              type: string
+          description: HTTP method filter values (in, not_in).
+        - name: http_method_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AccessLogFilterOperator'
+        - name: deny_reason
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              $ref: '#/components/schemas/PolicyDenyReason'
+          description: Deny reason filter values (in, not_in, is_null, not_null).
+        - name: deny_reason_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AccessLogFilterOperator'
+        - name: country_code
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              type: string
+          description: ISO 3166-1 alpha-2 country codes (in, not_in, is_null, not_null). is_null = no GeoIP row.
+        - name: country_code_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AccessLogFilterOperator'
+        - name: device_id
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              $ref: '#/components/schemas/ID'
+          description: Device IDs that contributed to the request (in, not_in, is_null, not_null).
+        - name: device_id_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AccessLogFilterOperator'
+        - name: user_id
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              $ref: '#/components/schemas/ID'
+          description: Owning user IDs of contributing devices (in, not_in).
+        - name: user_id_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AccessLogFilterOperator'
+        - name: network_policy_id
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 200
+            items:
+              $ref: '#/components/schemas/ID'
+          description: Authorizing network policy IDs (in, not_in, is_null, not_null).
+        - name: network_policy_id_op
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AccessLogFilterOperator'
+        - name: outcome
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: |
+            Filter by allow (true) / deny (false). With this set the chart shows a single band, the other being zero everywhere by construction.
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 start of time window (default 24h ago)
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 end of time window (default now)
+      responses:
+        '200':
+          description: Time-bucketed allow/deny counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessLogHistogramResponse'
+        '400':
+          description: Invalid filter or operator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - admin credentials required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /access-log/stats/by-country:
     get:
       operationId: getAccessLogByCountry
@@ -1560,6 +1727,52 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /access-log/{id}:
+    get:
+      operationId: getAccessLogEntry
+      tags:
+        - access-log
+      summary: Get one access log entry
+      description: |
+        Returns everything recorded about a single request, including the headers, forwarded-for chain and geolocation the list endpoint omits. Entries are pruned once they fall outside the configured retention period, so a link to an older request answers 404 — that is expected, not an error. Admin-only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ID'
+          description: ID of the access log entry, from a list row's `id`.
+      responses:
+        '200':
+          description: The access log entry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessLogDetail'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - admin credentials required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No entry with that ID — unknown, or aged out of retention
           content:
             application/json:
               schema:
@@ -3702,8 +3915,6 @@ components:
           type: string
         country_name:
           type: string
-        continent_code:
-          type: string
         total:
           type: integer
         allowed:
@@ -3712,6 +3923,67 @@ components:
           type: integer
     AccessLogRow:
       type: object
+      description: |
+        One request as shown in the access-log table. Carries the columns the table scans; fetch GET /access-log/{id} for the full record of a single request.
+      required:
+        - id
+        - created_at
+        - outcome
+        - client_ip
+        - contributors
+        - contributor_count
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        client_ip:
+          $ref: '#/components/schemas/IPAddress'
+        outcome:
+          type: boolean
+        deny_reason:
+          allOf:
+            - $ref: '#/components/schemas/PolicyDenyReason'
+          nullable: true
+        contributors:
+          type: array
+          description: |
+            All devices/users/addresses this request's client IP resolved to. Empty when no device matched (e.g. a denied request from an unknown IP).
+          items:
+            $ref: '#/components/schemas/AccessLogContributor'
+        contributor_count:
+          type: integer
+          description: |
+            Denormalized count of contributor rows (device×address×user tuples). The coarse "is this ambiguous?" signal; > 1 means the IP resolved to several.
+        created_at:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+        target_host:
+          type: string
+        target_uri:
+          type: string
+        http_method:
+          type: string
+        country_code:
+          type: string
+          description: ISO 3166-1 alpha-2, e.g. "DE"
+        duration_us:
+          type: integer
+          format: int64
+          description: Request processing duration in microseconds
+        network_policy_id:
+          allOf:
+            - $ref: '#/components/schemas/ID'
+          nullable: true
+          description: |
+            ID of the network policy that authorized this request, when the match was via CIDR containment rather than a device address. Null for device-matched or denied requests.
+        network_policy_name:
+          type: string
+          nullable: true
+          description: Display name of the matching network policy at log time.
+    AccessLogDetail:
+      type: object
+      description: |
+        Everything recorded about one request: the table columns plus the request headers, the forwarded-for chain, and the full geolocation of the client IP. Absent properties were never captured for that request — no header collection, no proxy chain, or no GeoIP match for the address.
       required:
         - id
         - created_at
@@ -3747,6 +4019,7 @@ components:
           x-go-type: UTCTime
         xff_chain:
           type: string
+          description: Raw X-Forwarded-For header as received, client-most first.
         target_host:
           type: string
         target_uri:
@@ -3774,6 +4047,8 @@ components:
           description: Request processing duration in microseconds
         headers:
           type: object
+          description: |
+            Request headers as received, each name mapped to all of its values. Empty when none were captured.
           additionalProperties:
             type: array
             items:
@@ -3788,6 +4063,37 @@ components:
           type: string
           nullable: true
           description: Display name of the matching network policy at log time.
+    AccessLogHistogramBucket:
+      type: object
+      description: |
+        Allowed and denied request counts for one time bucket. Field names and types match the dashboard traffic bucket, so the same chart renders either.
+      required:
+        - timestamp
+        - allow_count
+        - deny_count
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          x-go-type: UTCTime
+          description: Start of the bucket, UTC.
+        allow_count:
+          type: integer
+          format: int64
+        deny_count:
+          type: integer
+          format: int64
+    AccessLogHistogramResponse:
+      type: object
+      required:
+        - buckets
+      properties:
+        buckets:
+          type: array
+          description: |
+            Every bucket in the window, oldest first — a bucket no request fell into is present with both counts at zero, so a gap in the data is never a gap in the series. An empty list means the window itself is empty.
+          items:
+            $ref: '#/components/schemas/AccessLogHistogramBucket'
     DeviceAddressLeaseRule:
       type: object
       required:

@@ -1,6 +1,6 @@
 //go:build test
 
-package queries_test
+package accesslog_test
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/queries"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/rollup"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 )
 
@@ -26,7 +26,7 @@ import (
 // internal/policy/bench_test.go); they are written through the production BatchInsert
 // path so the on-disk shape matches what verify-ip actually persists.
 //
-//	go test -tags=test -run=^$ -bench=ListAccessLog -benchmem ./internal/queries/
+//	go test -tags=test -run=^$ -bench=ListAccessLog -benchmem ./internal/accesslog/
 //
 // Do not commit raw ns/op numbers — record before/after deltas in the commit message.
 
@@ -78,12 +78,12 @@ func benchSeedAccessLog(tb testing.TB, repo *accesslog.Repository, n int) {
 	flush()
 }
 
-func benchQueriesRepos(tb testing.TB) (*queries.Repository, *accesslog.Repository) {
+func benchAccessLogRepo(tb testing.TB) *accesslog.Repository {
 	tb.Helper()
 	db, cleanup := testdb.Setup(tb)
 	tb.Cleanup(cleanup)
 	sqlxDB := db.DB()
-	return queries.NewRepository(sqlxDB), accesslog.NewRepository(sqlxDB)
+	return accesslog.NewRepository(sqlxDB, rollup.NewRepository(sqlxDB, nil))
 }
 
 func BenchmarkListAccessLog(b *testing.B) {
@@ -94,9 +94,9 @@ func BenchmarkListAccessLog(b *testing.B) {
 	for _, n := range []int{1_000, 10_000} {
 		for _, sort := range sorts {
 			b.Run(fmt.Sprintf("%s/n=%d", sort, n), func(b *testing.B) {
-				qRepo, alRepo := benchQueriesRepos(b)
-				benchSeedAccessLog(b, alRepo, n)
-				q := queries.AccessLogQuery{
+				repo := benchAccessLogRepo(b)
+				benchSeedAccessLog(b, repo, n)
+				q := accesslog.AccessLogQuery{
 					From:  time.Now().UTC().Add(-90 * 24 * time.Hour),
 					To:    time.Now().UTC().Add(24 * time.Hour),
 					Sort:  sort,
@@ -106,7 +106,7 @@ func BenchmarkListAccessLog(b *testing.B) {
 				b.ReportAllocs()
 				b.ResetTimer()
 				for range b.N {
-					if _, _, err := qRepo.ListAccessLog(ctx, q); err != nil {
+					if _, _, err := repo.ListAccessLog(ctx, q); err != nil {
 						b.Fatalf("ListAccessLog: %v", err)
 					}
 				}

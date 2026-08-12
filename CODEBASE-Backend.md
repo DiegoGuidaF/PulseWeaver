@@ -1,6 +1,6 @@
 # Backend Codebase Reference
 
-> Last updated: 2026-08-07
+> Last updated: 2026-08-12
 
 This document is the **map** of the backend codebase — what exists and where. For the system-level
 overview (layering, the API seam, request flow, single-binary build), see
@@ -27,8 +27,8 @@ most important files across the whole backend with their purpose.
 | `lease` | Address lease TTL: disables addresses whose lease expired. Reads per-device config from `rule`; runs a `RunListener` and exposes `NewExpiryJob`. | `service.go`, `address_lease.go`, `expiry_job.go`, `repository.go` |
 | `maxaddr` | Enforces the max active addresses per device. Observes address + rule changes; runs a `RunListener`. | `service.go` |
 | `rule` | Per-device rules (lease TTL, max active address count). Emits rule change events. A read-only view joins the device domain's `addresses`/`devices` tables for a live active-address count (`max_active_addresses_view.go`), per ADR-009. Exposes the batched, device-id-keyed `RulesForDevices` reader for the fleet composer; it knows nothing about owners. | `service.go`, `rule.go`, `repository.go`, `events.go`, `max_active_addresses_view.go`, `device_rules_view.go` |
-| `accesslog` | Async batch logging of policy decisions: `Sink` implements `policy.DecisionObserver`; serves audit reads (e.g. deny-reason list). | `sink.go`, `handler.go`, `repository.go` |
-| `queries` | Reads belonging to no single domain: the SQL-free fleet composer (`fleet_view.go`, `GET /device-fleet`) and the analytical read models over event-scale tables. Shrinking under ADR-009 as single-domain views migrate to their owning domains (address history moved to `device`); one view + handler file per surface. Folds join rows via `collate`. Still owns the host-suggestions view (shared with the dashboard's pending-suggestion count) alongside users, access log, and dashboard posture. Also owns `filterx` (column-allowlist filter/sort/keyset-cursor registry, ADR-007) — domain-package views (e.g. `device`) import it too; it stays here until bundle 10 relocates it to `internal/filterx`. | `repository.go`, `fleet_view.go`, `*_view.go`, `handler_*.go`, `filterx/` |
+| `accesslog` | Async batch logging of policy decisions (`Sink` implements `policy.DecisionObserver`) **and** every read over `access_log`: the filterx-backed list (`GET /access-log`), one entry's full detail (`GET /access-log/{id}`, 404 once retention prunes it), the filtered allow/deny histogram (`GET /access-log/histogram`) and the country rollup. List, count and histogram share one WHERE builder (`accessLogConditions`), so the chart always reconciles with the table. | `sink.go`, `repository.go`, `access_log_view.go`, `access_log_histogram_view.go`, `country_stats_view.go`, `handler.go`, `handler_access_log.go` |
+| `queries` | Reads belonging to no single domain: the SQL-free fleet composer (`fleet_view.go`, `GET /device-fleet`) and the analytical read models over event-scale tables. Shrinking under ADR-009 as single-domain views migrate to their owning domains (address history moved to `device`, the access log to `accesslog`); one view + handler file per surface. Folds join rows via `collate`. Still owns the host-suggestions view (shared with the dashboard's pending-suggestion count) alongside users and dashboard posture. | `repository.go`, `fleet_view.go`, `*_view.go`, `handler_*.go` |
 | `rollup` | Hourly traffic + attribution aggregate tables; catch-up `RollupJob`; serves the dashboard read API (raw vs aggregate on `RawWindowThreshold`). | `job.go`, `traffic_rollup.go`, `traffic_reads.go`, `attribution_rollup.go`, `attribution_reads.go`, `handler.go`, `types.go` |
 | `geoip` | IP → location/ASN enrichment from an MMDB (db-ip.com); background `RunUpdater` refresh. | `lookup.go`, `updater.go`, `result.go` |
 | `health` | `GET /health` → `{"status":"ok","timestamp":…}`. | `health.go` |
@@ -43,6 +43,7 @@ repository. Cross-domain reads live in the consuming domain's own `*_view.go` fi
 | Package | Owns | Key files |
 |---------|------|-----------|
 | `ids` | Typed `int64` ID newtypes (`DeviceID`, `UserID`, `HostID`, `HostGroupID`, `NetworkPolicyID`, …) shared across domains for type-safe boundaries. | `types.go` |
+| `filterx` | Column-allowlist registry for filter/sort/keyset pagination (ADR-007): per-column operators, the NULL-safe `not_in` rule, the relational `EXISTS` template, and the opaque server-issued cursor. Imported by any domain's read models (`accesslog`, `device`). | `filterx.go`, `cursor.go`, `values.go` |
 | `collate` | Generic `Collapse`: folds flat parent×child SQL rows (LEFT JOINs) into nested DTOs in first-seen order. Replaces the hand-written "seen map" idiom in `queries`. | `collate.go` |
 | `slicex` | Generic slice helpers absent from the stdlib `slices` (`Dedup`, sorted `Intersect`). | `slicex.go` |
 | `buildmeta` | Build identity (version/commit/build time) injected at link time via `-ldflags -X`, served by the authenticated `GET /api/v1/version`. Named to dodge the stdlib collisions `version` and `buildinfo`. | `buildmeta.go`, `handler.go` |
@@ -104,9 +105,11 @@ principal-from-cookie → principal-from-API-key → generated strict handler.
 | `internal/useraccess/service.go` | Per-user bypass + group grants; observes users, notifies policy |
 | `internal/networkpolicies/service.go` | CIDR network-policy CRUD; `CacheEntry` source for policy |
 | `internal/accesslog/sink.go` | `Sink` — implements `policy.DecisionObserver`; batch-inserts decision events |
+| `internal/accesslog/access_log_view.go` | `accessLogConditions` — the one WHERE builder behind the list, its `COUNT` and the histogram; plus the registry, the slim list row and the by-id detail read. Cursor and limit attach to the page builder only |
+| `internal/accesslog/access_log_histogram_view.go` | The filtered allow/deny series. Raw-scans `access_log` under any filter; an unfiltered window past `rollup.RawWindowThreshold` delegates to `rollup.Repository.GetTrafficSeries` instead. Both paths fold onto `timebucket.Sequence`, so every bucket in the window is present |
 | `internal/queries/repository.go` | Cross-domain read repository backing the list/filter views |
 | `internal/queries/host_suggestions.go` | `pendingHostSuggestions` — shared raw/aggregate-dispatching implementation behind both the suggestions page and the dashboard's pending-suggestion count |
-| `internal/queries/filterx/filterx.go` | Column-allowlist registry for filter/sort/keyset pagination (ADR-007) |
+| `internal/filterx/filterx.go` | Column-allowlist registry for filter/sort/keyset pagination (ADR-007) |
 | `internal/rollup/job.go` | `RollupJob` catch-up scheduler for hourly aggregates |
 | `internal/lease/expiry_job.go` | `ExpiryJob` — disables addresses with an expired lease |
 | `internal/scheduler/service.go` | Generic `Job` runner; `AddJob`, `RunSchedule` |
@@ -121,8 +124,9 @@ principal-from-cookie → principal-from-API-key → generated strict handler.
 ## App Wiring (internal/app/app.go)
 
 **Construction order:** DB → auth → device → devicepairing → geoip → hosts → useraccess →
-networkpolicies → policy → rule → accesslog → queries → lease → maxaddr → rollup → buildmeta →
-scheduler → HTTP server. After construction: `ExecuteScheduledRules` (disable stale addresses before serving),
+networkpolicies → policy → rule → rollup → accesslog → queries → lease → maxaddr → buildmeta →
+scheduler → HTTP server. Rollup precedes accesslog because the access-log histogram delegates
+its wide unfiltered windows to `rollup.Repository`. After construction: `ExecuteScheduledRules` (disable stale addresses before serving),
 `BootstrapAdmin`, then `policyService.Initialize` (warm the IP cache).
 
 **Observer registrations:**
@@ -150,7 +154,7 @@ scheduler → HTTP server. After construction: `ExecuteScheduledRules` (disable 
 |-------|---------|
 | `internal/testdb.Setup` | In-memory SQLite (`database.SQLite`) for a single test; runs migrations, returns a teardown func |
 | `internal/testutils/server.go` — `SetupIntegrationServer` | Builds a full `*app.App` (same DI graph as `app.New`) against `testdb`, the only sanctioned setup entry point for handler/integration tests |
-| `internal/testutils/seeder*.go` — `NewSeeder(t)` | Declares only the entities a test needs, resolves dependency order, applies defaults; `SeedFullWorld` seeds a rich cross-domain dataset and is reserved for `internal/queries` |
+| `internal/testutils/seeder*.go` — `NewSeeder(t)` | Declares only the entities a test needs, resolves dependency order, applies defaults; `SeedFullWorld` seeds a rich cross-domain dataset and is reserved for the data-complex read models — `internal/queries` and `internal/accesslog` |
 | DSN `_time_format=sqlite&_texttotime=1` | Makes `modernc.org/sqlite` scan `DATETIME` columns straight into `time.Time` and format bound `time.Time` args the way SQLite's date functions (`strftime`, used by rollups) expect; see `internal/database/dbtime.go` — `DBTime` exists only for aggregate functions (`MAX`/`MIN`) that return `TEXT` even over `DATETIME` columns despite this flag |
 
 DI wiring for tests mirrors production: `SetupIntegrationServer` calls the same constructors as

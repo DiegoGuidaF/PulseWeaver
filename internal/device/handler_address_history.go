@@ -5,9 +5,9 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/DiegoGuidaF/PulseWeaver/internal/filterx"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/queries/filterx"
 )
 
 func (h *HTTPHandler) GetAddressHistory(

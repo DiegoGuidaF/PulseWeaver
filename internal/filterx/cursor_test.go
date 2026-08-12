@@ -9,7 +9,7 @@ import (
 
 	"github.com/matryer/is"
 
-	"github.com/DiegoGuidaF/PulseWeaver/internal/queries/filterx"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/filterx"
 )
 
 func sortRegistry() *filterx.Registry {

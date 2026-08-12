@@ -10,15 +10,22 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
 )
 
-// Repository owns the access log write path and simple single-table reads.
-// Cross-domain reads (e.g. joining devices for device_name) live in internal/queries.
+// Repository owns the access log write path plus the read models over it — the
+// list, one entry's detail, the histogram and the country rollup, each isolated
+// in a *_view.go file (ADR-009).
+//
+// traffic serves only the histogram's wide unfiltered window; a nil reader
+// makes that case raw-scan like every other, which is what a write-path test
+// wants and never what production does.
 type Repository struct {
-	db *database.DB
+	db      *database.DB
+	traffic TrafficSeriesReader
 }
 
-func NewRepository(db *database.DB) *Repository {
+func NewRepository(db *database.DB, traffic TrafficSeriesReader) *Repository {
 	return &Repository{
-		db: db,
+		db:      db,
+		traffic: traffic,
 	}
 }
 

@@ -149,9 +149,16 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	ruleService := rule.NewService(ruleRepo, logger)
 	ruleHandler := rule.NewHTTPHandler(ruleService, logger)
 
+	// Rollup — traffic aggregation behind the dashboard read API. Constructed
+	// ahead of the access log, whose histogram answers wide unfiltered windows
+	// from these aggregates instead of scanning the raw table.
+	rollupRepo := rollup.NewRepository(db.DB(), geoipLookup)
+	rollupHandler := rollup.NewHTTPHandler(rollupRepo, logger)
+
 	// Access log
-	accessLogRepo := accesslog.NewRepository(db.DB())
+	accessLogRepo := accesslog.NewRepository(db.DB(), rollupRepo)
 	accessLogSink := accesslog.NewSink(accessLogRepo, logger)
+	accessLogHandler := accesslog.NewHTTPHandler(accessLogRepo, logger)
 
 	// Queries - Manage complex crossdomain queries tailored for the frontend
 	queriesRepo := queries.NewRepository(db.DB())
@@ -190,10 +197,6 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 
 	// Register network policy change observer — policy cache refreshes on any policy mutation.
 	networkPoliciesService.AddObserver(policyService)
-
-	// Rollup — traffic aggregation behind the dashboard read API
-	rollupRepo := rollup.NewRepository(db.DB(), geoipLookup)
-	rollupHandler := rollup.NewHTTPHandler(rollupRepo, logger)
 
 	// Build identity of this binary — link-time values, no dependencies
 	versionHandler := buildmeta.NewHTTPHandler(logger)
@@ -234,6 +237,7 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 		userAccessHandler,
 		networkPoliciesHandler,
 		versionHandler,
+		accessLogHandler,
 		logger,
 		conf.Server.TrustedProxy,
 	)
