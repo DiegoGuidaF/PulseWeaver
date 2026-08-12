@@ -95,5 +95,7 @@ export function renderWithProviders(
     return {
         ...result,
         queryClient,
+        // Exposed so tests can assert on the URL a component navigated to or rewrote.
+        router,
     };
 }

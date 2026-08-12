@@ -45,7 +45,7 @@ describe("AddressHistoryTuningStrip", () => {
     it("says how many devices the shown few were drawn from", () => {
         renderStrip({ total: 9 });
 
-        expect(screen.getByText(/Showing the 1 widest misses of 9 devices/)).toBeInTheDocument();
+        expect(screen.getByText(/Showing the worst 1 of 9 devices/)).toBeInTheDocument();
     });
 
     it("reads out the numbers needed to resize the TTL", () => {

@@ -85,7 +85,7 @@ export function AddressHistoryTuningStrip({
             {!isPending && !error && !deviceScoped && (
                 <Text size="xs" c="dimmed" mt="sm">
                     {total > devices.length
-                        ? `Showing the ${devices.length} widest misses of ${total} devices. `
+                        ? `Showing the worst ${devices.length} of ${total} devices. `
                         : ""}
                     Listing devices with at least {minRenewals} renewals whose TTL misses more than 5% of
                     them.

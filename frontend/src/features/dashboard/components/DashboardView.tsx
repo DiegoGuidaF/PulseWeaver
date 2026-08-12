@@ -7,7 +7,7 @@ import { useDashboardTraffic } from "../hooks/useDashboardTraffic";
 import { useDashboardServices } from "../hooks/useDashboardServices";
 import { useTopDeniedIPs } from "../hooks/useTopDeniedIPs";
 import { useDashboardTimeRange } from "../hooks/useDashboardTimeRange";
-import { PostureStrip } from "./PostureStrip";
+import { PostureStrip, TUNING_WINDOW_PRESET } from "./PostureStrip";
 import { DashboardStatCards } from "./DashboardStatCards";
 import { TrafficLineChart } from "@/components/TrafficLineChart";
 import { ServiceBarChart } from "./ServiceBarChart";
@@ -15,15 +15,8 @@ import { TopDeniedIPsTable } from "./TopDeniedIPsTable";
 import { CountryStatsSection } from "./CountryStatsSection";
 import { AttributionSection } from "./AttributionSection";
 import { TimeRangePresetSelect } from "@/components/TimeRangePresetSelect";
-import { DEFAULT_PRESET_KEY, PRESET_MS, type PresetKey } from "@/lib/timePresets";
+import { DEFAULT_PRESET_KEY, PRESET_MS } from "@/lib/timePresets";
 import { useAddressHistoryTuning } from "@/features/address-history/hooks/useAddressHistoryTuning";
-
-/**
- * Lookback for the TTL-tuning signal. Posture is otherwise a "right now"
- * reading, so this one is windowed — the same key drives both the count and the
- * link out, which is what lets the destination reproduce the number.
- */
-const TUNING_PRESET: PresetKey = "last_1w";
 
 export function DashboardView() {
     const { from, to, presetKey, setPresetKey } = useDashboardTimeRange();
@@ -33,7 +26,7 @@ export function DashboardView() {
     // Resolved once per mount: a window recomputed each render would give React
     // Query a key that never repeats.
     const tuningWindow = useMemo(
-        () => ({ from: dayjs().subtract(PRESET_MS[TUNING_PRESET], "millisecond").toISOString() }),
+        () => ({ from: dayjs().subtract(PRESET_MS[TUNING_WINDOW_PRESET], "millisecond").toISOString() }),
         [],
     );
     const tuning = useAddressHistoryTuning(tuningWindow);
@@ -50,7 +43,6 @@ export function DashboardView() {
                 error={posture.error}
                 onRetry={() => posture.refetch()}
                 tuningCount={tuning.data?.total ?? 0}
-                tuningPreset={TUNING_PRESET}
             />
 
             <Stack gap="lg">

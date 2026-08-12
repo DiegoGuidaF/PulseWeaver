@@ -9,11 +9,20 @@ import {
     type IconProps,
 } from "@tabler/icons-react";
 import { Link } from "react-router";
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { ROUTES } from "@/lib/routes";
 import { ErrorState } from "@/components/ErrorState";
 import { InfoTooltip } from "@/components/InfoTooltip";
+import type { PresetKey } from "@/lib/timePresets";
 import type { DashboardPosture } from "@/lib/api";
+
+/**
+ * Lookback behind the TTL-tuning row — the one windowed reading in an otherwise
+ * "right now" strip. `DashboardView` sizes its query by this so the destination
+ * reproduces the count; the row's own copy spells the span out in words, so
+ * changing this means rewording it too.
+ */
+export const TUNING_WINDOW_PRESET: PresetKey = "last_1w";
 
 interface PostureStripProps {
     data: DashboardPosture | undefined;
@@ -22,8 +31,6 @@ interface PostureStripProps {
     onRetry?: () => void;
     /** Devices whose lease TTL is shorter than their check-in cadence. */
     tuningCount: number;
-    /** The window that count was measured over; the link out carries it too. */
-    tuningPreset: string;
 }
 
 interface PostureCardSpec {
@@ -78,14 +85,39 @@ function PostureCard({ spec, isLoading }: { spec: PostureCardSpec; isLoading: bo
     );
 }
 
-export function PostureStrip({
-    data,
-    isLoading,
-    error,
-    onRetry,
-    tuningCount,
-    tuningPreset,
-}: PostureStripProps) {
+/**
+ * Full-width counterpart to `PostureCard`: a single count and clause that reads
+ * as a nudge rather than an alarm, which is why it takes no severity colour.
+ */
+function PostureLinkRow({
+    icon: Icon,
+    to,
+    children,
+}: {
+    icon: ComponentType<IconProps>;
+    to: string;
+    children: ReactNode;
+}) {
+    return (
+        <Paper
+            component={Link}
+            to={to}
+            withBorder
+            p="sm"
+            radius="md"
+            style={{ textDecoration: "none", color: "inherit" }}
+        >
+            <Group gap="sm" wrap="nowrap">
+                <ThemeIcon variant="light" color="indigo" size="md" radius="md">
+                    <Icon size={16} stroke={1.5} />
+                </ThemeIcon>
+                <Text size="sm">{children}</Text>
+            </Group>
+        </Paper>
+    );
+}
+
+export function PostureStrip({ data, isLoading, error, onRetry, tuningCount }: PostureStripProps) {
     if (error) {
         return <ErrorState error={error} title="Failed to load posture" onRetry={onRetry} />;
     }
@@ -146,53 +178,25 @@ export function PostureStrip({
             </SimpleGrid>
 
             {tuningCount > 0 && (
-                <Paper
-                    component={Link}
-                    to={`${ROUTES.addressHistory}?preset=${tuningPreset}`}
-                    withBorder
-                    p="sm"
-                    radius="md"
-                    style={{ textDecoration: "none", color: "inherit" }}
+                <PostureLinkRow
+                    icon={IconClockCog}
+                    to={`${ROUTES.addressHistory}?preset=${TUNING_WINDOW_PRESET}`}
                 >
-                    <Group gap="sm" wrap="nowrap">
-                        {/* Deliberately not alerted: a lease shorter than a
-                            device's cadence is a tuning opportunity, not an
-                            outage. */}
-                        <ThemeIcon variant="light" color="indigo" size="md" radius="md">
-                            <IconClockCog size={16} stroke={1.5} />
-                        </ThemeIcon>
-                        <Text size="sm">
-                            <Text span fw={700}>
-                                {tuningCount.toLocaleString()}
-                            </Text>{" "}
-                            {tuningCount === 1 ? "device has" : "devices have"} a lease shorter than
-                            their check-in cadence in the last week
-                        </Text>
-                    </Group>
-                </Paper>
+                    <Text span fw={700}>
+                        {tuningCount.toLocaleString()}
+                    </Text>{" "}
+                    {tuningCount === 1 ? "device has" : "devices have"} a lease shorter than their
+                    check-in cadence in the last week
+                </PostureLinkRow>
             )}
 
             {pendingSuggestions > 0 && (
-                <Paper
-                    component={Link}
-                    to={ROUTES.accessHosts}
-                    withBorder
-                    p="sm"
-                    radius="md"
-                    style={{ textDecoration: "none", color: "inherit" }}
-                >
-                    <Group gap="sm" wrap="nowrap">
-                        <ThemeIcon variant="light" color="indigo" size="md" radius="md">
-                            <IconBellRinging size={16} stroke={1.5} />
-                        </ThemeIcon>
-                        <Text size="sm">
-                            <Text span fw={700}>
-                                {pendingSuggestions.toLocaleString()}
-                            </Text>{" "}
-                            pending host {pendingSuggestions === 1 ? "suggestion" : "suggestions"} to review
-                        </Text>
-                    </Group>
-                </Paper>
+                <PostureLinkRow icon={IconBellRinging} to={ROUTES.accessHosts}>
+                    <Text span fw={700}>
+                        {pendingSuggestions.toLocaleString()}
+                    </Text>{" "}
+                    pending host {pendingSuggestions === 1 ? "suggestion" : "suggestions"} to review
+                </PostureLinkRow>
             )}
         </Stack>
     );

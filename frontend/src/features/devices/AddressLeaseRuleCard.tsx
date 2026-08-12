@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useEffect } from "react";
 import { useForm, schemaResolver } from "@mantine/form";
 import { z } from "zod";
 import {
@@ -24,13 +23,9 @@ import { toErrorMessage } from "@/lib/api-client";
 import { useDeviceAddressLeaseRule } from "@/features/devices/hooks/useDeviceAddressLeaseRule";
 import { usePutDeviceAddressLeaseRule } from "@/features/devices/hooks/usePutDeviceAddressLeaseRule";
 import { useDisableDeviceAddressLeaseRule } from "@/features/devices/hooks/useDisableDeviceAddressLeaseRule";
+import { useSuggestedTtl } from "@/features/devices/hooks/useSuggestedTtl";
 import { zPutDeviceAddressLeaseRuleRequest } from "@/lib/api/zod.gen";
-import {
-  SUGGESTED_TTL_PARAM,
-  TTL_PRESET_SECONDS,
-  formatTtlLabel,
-  parseSuggestedTtlSeconds,
-} from "@/lib/ttlPresets";
+import { TTL_PRESET_SECONDS, formatTtlLabel } from "@/lib/ttlPresets";
 
 // ---------------------------------------------------------------------------
 // TTL helpers
@@ -116,13 +111,7 @@ export function AddressLeaseRuleCard({ deviceId, ownerId }: { deviceId: number; 
   const putRuleMutation = usePutDeviceAddressLeaseRule(deviceId, ownerId);
   const disableRuleMutation = useDisableDeviceAddressLeaseRule(deviceId, ownerId);
 
-  const [searchParams, setSearchParams] = useSearchParams();
-  // Latched at mount, because the param is stripped from the URL as soon as it
-  // is read: a suggestion is an opening offer, so reloading the page must not
-  // re-stage a value the user has already cancelled.
-  const [suggestedTtl] = useState(() =>
-    parseSuggestedTtlSeconds(searchParams.get(SUGGESTED_TTL_PARAM)),
-  );
+  const suggestedTtl = useSuggestedTtl();
 
   const form = useForm<LeaseRuleFormValues>({
     validateInputOnBlur: true,
@@ -132,6 +121,7 @@ export function AddressLeaseRuleCard({ deviceId, ownerId }: { deviceId: number; 
   const { setValues } = form;
 
   const isOn = Boolean(addressLeaseRule?.enabled);
+  const isLoaded = addressLeaseRule !== undefined;
   const preset = form.values.preset;
 
   // Dirty only matters when enabled: controls shown to change the active value
@@ -142,37 +132,27 @@ export function AddressLeaseRuleCard({ deviceId, ownerId }: { deviceId: number; 
       : Number(preset);
   const isDirty = isOn && savedTtl !== undefined && currentTtl !== savedTtl;
 
-  // Only while the staged value is still the suggested one — editing it,
-  // cancelling, or saving all make the attribution stale. `!isOn` keeps the
-  // hint on a disabled rule, where there is no dirty state to carry it but the
-  // pre-filled value still needs explaining.
+  // Editing, cancelling or saving all make the attribution stale. `!isOn`
+  // carries it on a disabled rule, which has no dirty state to hang it on.
   const showSuggestionHint =
     suggestedTtl !== null && currentTtl === suggestedTtl && (isDirty || !isOn);
 
   // Sync keyed on the saved TTL: runs when the server value (re)loads or
   // changes after a save, but never clobbers in-progress edits — refetches
-  // returning the same TTL don't re-fire the effect. A suggestion seeds the
-  // controls in place of the saved value, which leaves the card dirty so its
-  // Save button appears: arriving with a suggestion never writes anything.
+  // returning the same TTL don't re-fire the effect
   useEffect(() => {
-    // A rule that is off carries no saved TTL, so the suggestion is the only
-    // seed there is — keying the guard on the seed rather than on savedTtl is
-    // what lets a suggestion reach a disabled rule.
-    const seed = suggestedTtl ?? savedTtl;
-    if (seed == null) return;
-    setValues({ ...fromSeconds(seed), preset: presetFromTtl(seed) });
-  }, [savedTtl, suggestedTtl, setValues]);
+    if (savedTtl == null) return;
+    setValues({ ...fromSeconds(savedTtl), preset: presetFromTtl(savedTtl) });
+  }, [savedTtl, setValues]);
 
+  // Overrides that sync once the rule is loaded, leaving the card dirty so its
+  // own Save button appears: arriving with a suggestion never writes anything.
+  // Keyed on the load rather than on the TTL so it stages onto a disabled rule
+  // too, and so a later save owns the form outright.
   useEffect(() => {
-    if (suggestedTtl === null) return;
-    setSearchParams(
-      (prev) => {
-        prev.delete(SUGGESTED_TTL_PARAM);
-        return prev;
-      },
-      { replace: true },
-    );
-  }, [suggestedTtl, setSearchParams]);
+    if (suggestedTtl === null || !isLoaded) return;
+    setValues({ ...fromSeconds(suggestedTtl), preset: presetFromTtl(suggestedTtl) });
+  }, [suggestedTtl, isLoaded, setValues]);
 
   function handleToggleOn() {
     if (preset === "custom" && form.validate().hasErrors) return;

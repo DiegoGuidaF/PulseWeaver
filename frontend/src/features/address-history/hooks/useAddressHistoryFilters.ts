@@ -63,6 +63,19 @@ interface FilterCoreOptions {
     locked?: LockedFilter;
 }
 
+/** The time window alone. A preset wins over raw from/to and leaves `to` open-ended. */
+function resolveWindow(
+    presetStr: string | null,
+    fromStr: string | null,
+    toStr: string | null,
+): Pick<Query, "from" | "to"> {
+    const ms = presetStr ? PRESET_MS[presetStr] : undefined;
+    return {
+        from: ms !== undefined ? dayjs().subtract(ms, "millisecond").toISOString() : fromStr || undefined,
+        to: ms !== undefined ? undefined : toStr || undefined,
+    };
+}
+
 // ─── Shared core ────────────────────────────────────────────────────────────
 
 /**
@@ -128,12 +141,7 @@ export function useFilterCore(
 
     // Build query params. Preset takes precedence over raw from/to.
     const presetMs = presetStr ? PRESET_MS[presetStr] : undefined;
-    const query: Query = {
-        from: presetMs !== undefined
-            ? dayjs().subtract(presetMs, "millisecond").toISOString()
-            : (fromStr || undefined),
-        to: presetMs !== undefined ? undefined : (toStr || undefined),
-    };
+    const query: Query = resolveWindow(presetStr, fromStr, toStr);
 
     // Indexed writes onto the union-keyed query type collapse to an intersection
     // (`string[] & number[]`); a loose record view keeps each assignment honest.
@@ -173,19 +181,13 @@ export function useFilterCore(
         }),
     });
 
-    // The window on its own, for the surfaces scoped to it rather than to the
-    // column filters. Memoised on what the user actually changes: a preset
-    // resolves against `dayjs()`, so recomputing it per render would hand
-    // React Query a key that never repeats. The window therefore holds still
-    // while the page is open, which is what a readout over it wants — it
-    // reports on a fixed span rather than one whose edge moves under it.
-    const windowParams = useMemo(() => {
-        const ms = presetStr ? PRESET_MS[presetStr] : undefined;
-        return {
-            from: ms !== undefined ? dayjs().subtract(ms, "millisecond").toISOString() : fromStr || undefined,
-            to: ms !== undefined ? undefined : toStr || undefined,
-        };
-    }, [presetStr, fromStr, toStr]);
+    // Same window, memoised: `queryParams` re-resolves a preset against `dayjs()`
+    // on every render so the events list and chart roll forward, while a readout
+    // over the window wants a span that holds still while the page is open.
+    const windowParams = useMemo(
+        () => resolveWindow(presetStr, fromStr, toStr),
+        [presetStr, fromStr, toStr],
+    );
 
     return {
         queryParams: query,

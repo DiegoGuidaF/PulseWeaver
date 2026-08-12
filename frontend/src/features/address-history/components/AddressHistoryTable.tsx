@@ -142,7 +142,6 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         if (ownerId !== undefined) navigate(`${buildRoute.userDevices(ownerId)}?device=${deviceId}`);
     }
 
-
     // A locked filter drops the column that displays it, so the chooser must not
     // offer it either — otherwise it lists a column that can never appear.
     const columnMeta = useMemo(() => {

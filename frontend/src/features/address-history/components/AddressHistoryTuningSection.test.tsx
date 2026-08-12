@@ -97,6 +97,8 @@ describe("AddressHistoryTuningSection", () => {
             timeout: TEST_TIMEOUTS.SHORT,
         });
         expect(tuningQueries.every((q) => !q.includes("device_id"))).toBe(true);
+        // The window did not move, so the readout did not refetch at all.
+        expect(tuningQueries).toHaveLength(1);
     });
 
     it("reports an empty ranking as a reading", async () => {

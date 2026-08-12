@@ -289,6 +289,56 @@ describe('DeviceRulesTab — suggested TTL from address history', () => {
         expect(screen.getByRole('radio', { name: '1h' })).toBeChecked();
         expect(screen.queryByText(/Suggested from address history/)).not.toBeInTheDocument();
     });
+
+    it('clears the param so a reload cannot re-stage a dismissed suggestion', async () => {
+        const { router } = renderWithSuggestion('21600');
+
+        await waitFor(
+            () => {
+                expect(screen.getByRole('radio', { name: '6h' })).toBeChecked();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        expect(router.state.location.search).toBe('');
+    });
+
+    it('leaves the form alone once a different TTL has been saved', async () => {
+        let ttl = 3600;
+        server.use(
+            http.get(endpoints.deviceAddressLeaseRule, () =>
+                responses.ok(createMockDeviceAddressLeaseRule({ enabled: true, ttl_seconds: ttl }))
+            ),
+            http.put(endpoints.deviceAddressLeaseRule, async ({ request }) => {
+                ttl = ((await request.json()) as { ttl_seconds: number }).ttl_seconds;
+                return responses.ok(createMockDeviceAddressLeaseRule({ enabled: true, ttl_seconds: ttl }));
+            })
+        );
+
+        const user = setupUser();
+        renderWithSuggestion('21600');
+
+        await waitFor(
+            () => {
+                expect(screen.getByRole('radio', { name: '6h' })).toBeChecked();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+
+        // Overriding the suggestion and saving that is the ordinary path — the
+        // suggestion must not reassert itself when the saved value comes back.
+        await user.click(screen.getByRole('radio', { name: '1d' }));
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => expect(ttl).toBe(86400), { timeout: TEST_TIMEOUTS.SHORT });
+        await waitFor(
+            () => {
+                expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+            },
+            { timeout: TEST_TIMEOUTS.SHORT }
+        );
+        expect(screen.getByRole('radio', { name: '1d' })).toBeChecked();
+        expect(screen.queryByText(/Suggested from address history/)).not.toBeInTheDocument();
+    });
 });
 
 describe('DeviceRulesTab — Max active IPs rule', () => {
