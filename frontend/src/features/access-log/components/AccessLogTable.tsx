@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import dayjs from "dayjs";
 import { buildRoute } from "@/lib/routes";
 import { useNavigate, useSearchParams } from "react-router";
 import { ActionIcon, Anchor, Button, Group, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
@@ -13,7 +14,7 @@ import { CursorPagination } from "@/components/CursorPagination";
 import { TrafficLineChart } from "@/components/TrafficLineChart";
 import { presetToMs } from "@/lib/formatChartLabel";
 import { useAccessLog } from "../hooks/useAccessLog";
-import { useDashboardTraffic } from "@/features/dashboard/hooks/useDashboardTraffic";
+import { useAccessLogHistogram } from "../hooks/useAccessLogHistogram";
 import type { AccessLogFilters } from "../hooks/useAccessLogFilters";
 import { AccessLogDetailDrawer } from "./AccessLogDetailDrawer";
 import { getAccessLogColumns } from "./accessLogColumns";
@@ -103,12 +104,11 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
 
     // The detail drawer's open state lives in the URL (`?request=<id>`) so the
     // browser Back button closes it — the expected gesture, especially on mobile.
-    // `selectedRow` caches the clicked row so its content stays rendered through
-    // the close animation after the param is cleared, and is the fallback when a
-    // back/forward navigation lands on a request that's no longer on the page.
+    // The drawer fetches the request by id, so a deep link resolves even when the
+    // row sits on a page the table has not loaded.
     const [searchParams, setSearchParams] = useSearchParams();
     const requestParam = searchParams.get("request");
-    const [selectedRow, setSelectedRow] = useState<AccessLogRow | null>(null);
+    const requestId = requestParam != null ? Number(requestParam) : null;
 
     // Below the nav-collapse breakpoint, start from a lean column set to avoid
     // horizontal scrolling. Matches the AppShell's `md` threshold.
@@ -130,27 +130,42 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
     const { data: users } = useListUsers();
     const { data: networkPolicies } = useNetworkPolicies();
 
+    const refetchIntervalOrFalse = refreshInterval === 0 ? false : refreshInterval;
+
+    // Distinct query keys by construction: the list key carries sort and cursor,
+    // the histogram key carries neither — so a page turn or a sort change never
+    // re-scans the chart, and both read the same filters over the same window.
     const { data, isPending, isFetching, error, refetch } = useAccessLog(
-        { ...filters.queryParams, cursor: cursor ?? undefined, limit: PAGE_SIZE },
-        refreshInterval === 0 ? false : refreshInterval,
+        {
+            ...filters.queryParams,
+            sort: filters.sort,
+            order: filters.order,
+            cursor: cursor ?? undefined,
+            limit: PAGE_SIZE,
+        },
+        refetchIntervalOrFalse,
     );
 
-    const timeRangeMs = filters.presetStr ? presetToMs(filters.presetStr) : 0;
-    const { data: trafficData, isLoading: trafficLoading } = useDashboardTraffic(
-        filters.queryParams?.from,
-        filters.queryParams?.to,
-    );
+    const {
+        data: histogramData,
+        isPending: isHistogramPending,
+        isFetching: isHistogramFetching,
+        error: histogramError,
+        refetch: refetchHistogram,
+    } = useAccessLogHistogram(filters.queryParams, refetchIntervalOrFalse);
+
+    const timeRangeMs = useMemo(() => {
+        if (filters.presetStr) return presetToMs(filters.presetStr);
+        if (filters.fromStr && filters.toStr) {
+            return dayjs(filters.toStr).diff(dayjs(filters.fromStr));
+        }
+        return presetToMs("last_24h");
+    }, [filters.presetStr, filters.fromStr, filters.toStr]);
 
     const rows = data?.rows ?? [];
 
-    const drawerRow =
-        (requestParam != null
-            ? rows.find((r) => String(r.id) === requestParam)
-            : undefined) ?? selectedRow;
-
     const openRequest = useCallback(
         (row: AccessLogRow) => {
-            setSelectedRow(row);
             setSearchParams((prev) => {
                 const next = new URLSearchParams(prev);
                 next.set("request", String(row.id));
@@ -267,10 +282,13 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
 
     if ((isPending || !data) && !error && rows.length === 0) {
         return (
-            <Stack gap="xs">
-                {Array.from({ length: 5 }).map((_, i) => (
-                    <Skeleton key={i} height={40} radius="sm" />
-                ))}
+            <Stack gap="md">
+                <Skeleton height={200} radius="sm" />
+                <Stack gap="xs">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <Skeleton key={i} height={40} radius="sm" />
+                    ))}
+                </Stack>
             </Stack>
         );
     }
@@ -285,10 +303,12 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         <>
             <Stack gap="sm">
                 <TrafficLineChart
-                    data={trafficData?.buckets}
-                    isLoading={trafficLoading}
-                    timeRangeMs={timeRangeMs || 24 * 60 * 60 * 1000}
+                    data={histogramData?.buckets}
+                    isLoading={isHistogramPending}
+                    timeRangeMs={timeRangeMs}
                     h={200}
+                    error={histogramError}
+                    onRetry={() => refetchHistogram()}
                 />
 
                 <Group justify="flex-end" gap="xs">
@@ -297,8 +317,11 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                             variant="subtle"
                             color="gray"
                             size="md"
-                            onClick={() => refetch()}
-                            loading={isFetching}
+                            onClick={() => {
+                                refetch();
+                                refetchHistogram();
+                            }}
+                            loading={isFetching || isHistogramFetching}
                             aria-label="Refresh"
                         >
                             <IconRefresh size={16} />
@@ -379,7 +402,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
             </Stack>
 
             <AccessLogDetailDrawer
-                row={drawerRow}
+                requestId={requestId}
                 opened={requestParam != null}
                 onClose={closeRequest}
             />

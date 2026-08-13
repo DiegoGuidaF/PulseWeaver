@@ -1,4 +1,4 @@
-import type { VersionInfo, Address, AddressHistoryTuningCandidate, AddressHistoryTuningResponse, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryHistogramResponse, AddressHistoryResponse, AccessLogCountryStats, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, OwnerSummary, FleetDevice, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { VersionInfo, Address, AddressHistoryTuningCandidate, AddressHistoryTuningResponse, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryHistogramResponse, AddressHistoryResponse, AccessLogCountryStats, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, AccessLogDetail, AccessLogHistogramResponse, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, OwnerSummary, FleetDevice, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import { AddressEventKind, AddressEventSource, DeviceState, PolicyUserStatus, TtlRisk, UserRole } from "@/lib/api";
 
 /**
@@ -104,7 +104,42 @@ export function createMockAccessLogRow(
     target_host: 'example.com',
     target_uri: '/api/data',
     http_method: 'GET',
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a mock AccessLogDetail — a list row plus the drawer-only fields.
+ * Defaults keep the shared fields identical to `createMockAccessLogRow`, the way
+ * the endpoints themselves agree on them.
+ * @param overrides - Partial AccessLogDetail to override defaults
+ * @returns A AccessLogDetail object
+ */
+export function createMockAccessLogDetail(
+  overrides?: Partial<AccessLogDetail>,
+): AccessLogDetail {
+  return {
+    ...createMockAccessLogRow(),
     headers: {},
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a mock AccessLogHistogramResponse. The server zero-fills every bucket
+ * in the window, so an all-zero bucket is a legitimate shape.
+ * @param overrides - Partial AccessLogHistogramResponse to override defaults
+ * @returns A AccessLogHistogramResponse object
+ */
+export function createMockAccessLogHistogramResponse(
+  overrides?: Partial<AccessLogHistogramResponse>,
+): AccessLogHistogramResponse {
+  return {
+    buckets: [
+      { timestamp: '2024-01-01T10:00:00Z', allow_count: 30, deny_count: 5 },
+      { timestamp: '2024-01-01T11:00:00Z', allow_count: 0, deny_count: 0 },
+      { timestamp: '2024-01-01T12:00:00Z', allow_count: 40, deny_count: 10 },
+    ],
     ...overrides,
   };
 }
@@ -321,7 +356,6 @@ export function createMockAccessLogCountryStats(
   return {
     country_code: 'US',
     country_name: 'United States',
-    continent_code: 'NA',
     total: 100,
     allowed: 80,
     denied: 20,

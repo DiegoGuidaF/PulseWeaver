@@ -7,6 +7,7 @@ import { AccessLogPage } from "@/pages/access-log/AccessLogPage";
 import {
     createMockAccessLogRow,
     createMockAccessLogResponse,
+    createMockAccessLogDetail,
 } from "@/test/mocks/data";
 import { endpoints, accessLogHandlers, responses } from "@/test/mocks/handlers";
 import { TEST_TIMEOUTS } from "@/test/constants";
@@ -150,7 +151,10 @@ describe("AccessLogTable", () => {
             deny_reason: "invalid_token",
             target_host: "secure.example.com",
         });
-        server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })));
+        server.use(
+            accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })),
+            accessLogHandlers.entry.success(createMockAccessLogDetail({ ...row })),
+        );
 
         renderTable();
 
@@ -443,7 +447,7 @@ describe("AccessLogTable", () => {
 
     describe("Country column", () => {
         it("renders flag emoji and country code when present", async () => {
-            const row = createMockAccessLogRow({ client_ip: "8.8.8.8", country_code: "DE", country_name: "Germany" });
+            const row = createMockAccessLogRow({ client_ip: "8.8.8.8", country_code: "DE" });
             server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })));
 
             renderTable();
@@ -474,7 +478,7 @@ describe("AccessLogTable", () => {
     describe("Inline filter affordance", () => {
         it("applies a column filter from a cell's hover filter control", async () => {
             const user = setupUser();
-            const row = createMockAccessLogRow({ client_ip: "8.8.4.4", country_code: "DE", country_name: "Germany" });
+            const row = createMockAccessLogRow({ client_ip: "8.8.4.4", country_code: "DE" });
             server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })));
 
             renderTable();
@@ -491,20 +495,26 @@ describe("AccessLogTable", () => {
         });
     });
 
-    // ─── Detail drawer — Location section ─────────────────────────────────────
+    // ─── Detail drawer ────────────────────────────────────────────────────────
 
-    describe("Detail drawer — Location section", () => {
-        it("shows the Location section with ASN when GeoIP data is present", async () => {
+    describe("Detail drawer", () => {
+        it("shows the Location section with ASN from the detail endpoint", async () => {
             const user = setupUser();
-            const row = createMockAccessLogRow({
-                client_ip: "8.8.8.8",
-                country_code: "US",
-                country_name: "United States",
-                continent_code: "NA",
-                asn: 15169,
-                asn_org: "Google LLC",
-            });
-            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })));
+            const row = createMockAccessLogRow({ id: 7, client_ip: "8.8.8.8", country_code: "US" });
+            server.use(
+                accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })),
+                // The geo detail lives only on the by-id endpoint; the list row
+                // carries the country code alone.
+                accessLogHandlers.entry.success(
+                    createMockAccessLogDetail({
+                        ...row,
+                        country_name: "United States",
+                        continent_code: "NA",
+                        asn: 15169,
+                        asn_org: "Google LLC",
+                    }),
+                ),
+            );
 
             renderTable();
 
@@ -521,6 +531,123 @@ describe("AccessLogTable", () => {
             );
             expect(screen.getByText(/Google LLC/)).toBeInTheDocument();
             expect(screen.getByText(/15169/)).toBeInTheDocument();
+        });
+
+        it("renders headers fetched with the detail, which the list row never carries", async () => {
+            const user = setupUser();
+            const row = createMockAccessLogRow({ id: 7, client_ip: "8.8.8.8" });
+            server.use(
+                accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })),
+                accessLogHandlers.entry.success(
+                    createMockAccessLogDetail({ ...row, headers: { "User-Agent": ["pulseweaver-test"] } }),
+                ),
+            );
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("8.8.8.8")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            await user.click(screen.getByRole("button", { name: "View details" }));
+
+            expect(await screen.findByText(/pulseweaver-test/)).toBeInTheDocument();
+        });
+
+        // The drawer fetches by id rather than reading the current page, so a link
+        // to a request that is not on the loaded page still renders full detail.
+        it("resolves a ?request= deep link to a row outside the current page", async () => {
+            server.use(
+                accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })),
+                accessLogHandlers.entry.success(
+                    createMockAccessLogDetail({ id: 999, client_ip: "198.51.100.7" }),
+                ),
+            );
+
+            renderTable([`${BASE_ENTRY}&request=999`]);
+
+            expect(await screen.findByText("Request Detail")).toBeInTheDocument();
+            expect(await screen.findByText("198.51.100.7")).toBeInTheDocument();
+        });
+
+        it("shows an unavailable state when the entry has been pruned", async () => {
+            server.use(
+                accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })),
+                accessLogHandlers.entry.notFound(),
+            );
+
+            renderTable([`${BASE_ENTRY}&request=999`]);
+
+            expect(
+                await screen.findByText("This request is no longer available"),
+            ).toBeInTheDocument();
+        });
+    });
+
+    // ─── Chart / table agreement ──────────────────────────────────────────────
+
+    describe("Histogram", () => {
+        // The chart's sums only reconcile with the table's total if both scans see
+        // the same predicate over the same window.
+        it("sends the table's filters and window to the histogram", async () => {
+            const listUrls: string[] = [];
+            const histogramUrls: string[] = [];
+            server.use(
+                http.get(endpoints.accessLog, ({ request }) => {
+                    listUrls.push(request.url);
+                    return HttpResponse.json(createMockAccessLogResponse({ rows: [], total: 0 }));
+                }),
+                http.get(endpoints.accessLogHistogram, ({ request }) => {
+                    histogramUrls.push(request.url);
+                    return HttpResponse.json({ buckets: [] });
+                }),
+            );
+
+            renderTable([`${BASE_ENTRY}&client_ip=10.0.0.5&outcome=deny`]);
+
+            await waitFor(
+                () => expect(histogramUrls.length).toBeGreaterThan(0),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            const histogram = new URL(histogramUrls.at(-1)!).searchParams;
+            const listWindows = listUrls.map((u) => new URL(u).searchParams.get("from"));
+
+            expect(histogram.getAll("client_ip")).toEqual(["10.0.0.5"]);
+            expect(histogram.get("outcome")).toBe("false");
+            // A preset window is resolved against the clock, so compare against
+            // every window the list asked for rather than only its latest.
+            expect(listWindows).toContain(histogram.get("from"));
+        });
+
+        // Sort belongs to the paged list; the histogram has no ordering, so a
+        // sort change must not re-scan it.
+        it("never sends sort, order or cursor to the histogram", async () => {
+            const requestedUrls: string[] = [];
+            server.use(
+                accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })),
+                http.get(endpoints.accessLogHistogram, ({ request }) => {
+                    requestedUrls.push(request.url);
+                    return HttpResponse.json({ buckets: [] });
+                }),
+            );
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            fireEvent.click(within(getColumnHeader("IP")).getByText("IP"));
+
+            await waitFor(
+                () => expect(screen.getByText("No matching log entries.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(requestedUrls.every((u) => !u.includes("sort=") && !u.includes("cursor="))).toBe(true);
         });
     });
 

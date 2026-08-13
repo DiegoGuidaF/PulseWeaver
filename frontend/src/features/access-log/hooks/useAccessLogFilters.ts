@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router";
 import dayjs from "dayjs";
-import { SortOrder, type GetAccessLogData } from "@/lib/api";
+import { SortOrder, type GetAccessLogHistogramData } from "@/lib/api";
 import { DEFAULT_PRESET_KEY, PRESET_MS } from "../constants";
 import {
     type ColumnFilterState,
@@ -14,7 +14,8 @@ import {
     isFilterActive,
 } from "../filterConfig";
 
-type Query = NonNullable<GetAccessLogData["query"]>;
+/** Filters and time window, shared verbatim by the table and the chart. Sort, cursor and limit belong to the paged list alone and stay out of this type — a sort change must not re-scan the histogram. */
+type Query = NonNullable<GetAccessLogHistogramData["query"]>;
 
 const LS_KEY = "pulseweaver:access-log:filters";
 const DEFAULT_PARAMS = new URLSearchParams({ preset: DEFAULT_PRESET_KEY });
@@ -182,8 +183,6 @@ export function useAccessLogFilters(): AccessLogFilters {
                 ? dayjs().subtract(presetMs, "millisecond").toISOString()
                 : fromStr || undefined,
         to: presetMs !== undefined ? undefined : toStr || undefined,
-        sort,
-        order,
     };
 
     // Indexed writes onto the union-keyed query type collapse to an intersection

@@ -1,8 +1,8 @@
 import { http, HttpResponse, type JsonBodyType } from 'msw';
-import type { VersionInfo, Address, AddressHistoryHistogramResponse, AddressHistoryTuningResponse, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
+import type { VersionInfo, Address, AddressHistoryHistogramResponse, AddressHistoryTuningResponse, AddressHistoryResponse, AccessLogCountryStats, CreateDeviceResponse, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogDetail, AccessLogHistogramResponse, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, User, UserListItem, UserAccessDetail, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
 import type { AttributionKind } from '@/features/dashboard/hooks/useAttributionSplit';
 import { createMockAddress, createMockAddressHistoryHistogramResponse,
-    createMockAddressHistoryTuningResponse, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardAttributionCount, createMockDashboardPosture, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceRef, createMockDevicePairing, createMockGroupDetailWithUsers, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockOwnerFleetGroup, createMockOwnerRef, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult, createMockVersionInfo } from './data';
+    createMockAddressHistoryTuningResponse, createMockAddressHistoryResponse, createMockAccessLogCountryStats, createMockDashboardAttributionCount, createMockDashboardPosture, createMockDashboardServiceCount, createMockDashboardStats, createMockDashboardTopDeniedIp, createMockDashboardTrafficBucket, createMockDevice, createMockDeviceAddressLeaseRule, createMockDeviceRef, createMockDevicePairing, createMockGroupDetailWithUsers, createMockHostSuggestionsPage, createMockIgnoredHostSuggestion, createMockMaxActiveAddressesRule, createMockAccessLogResponse, createMockAccessLogDetail, createMockAccessLogHistogramResponse, createMockNetworkPolicyListItem, createMockNetworkPolicyDetail, createMockOwnerFleetGroup, createMockOwnerRef, createMockUser, createMockUserListItem, createMockUserAccessDetail, createMockPolicyUserMapAudit, createMockPolicySimulateResult, createMockVersionInfo } from './data';
 
 const BASE = '/api/v1';
 
@@ -39,7 +39,9 @@ export const endpoints = {
     updateMe: `${BASE}/users/me`,
     changePassword: `${BASE}/users/me/password`,
     accessLog: `${BASE}/access-log`,
+    accessLogHistogram: `${BASE}/access-log/histogram`,
     accessLogByCountry: `${BASE}/access-log/stats/by-country`,
+    accessLogEntry: `${BASE}/access-log/:id`,
     dashboardStats: `${BASE}/dashboard/stats`,
     dashboardTraffic: `${BASE}/dashboard/traffic`,
     dashboardServices: `${BASE}/dashboard/services`,
@@ -367,6 +369,22 @@ export const accessLogHandlers = {
         http.get(endpoints.accessLog, () =>
             HttpResponse.json(override ?? createMockAccessLogResponse())),
 
+    histogram: (override?: AccessLogHistogramResponse) =>
+        http.get(endpoints.accessLogHistogram, () =>
+            HttpResponse.json(override ?? createMockAccessLogHistogramResponse())),
+
+    // `/access-log/:id` also matches the sibling collection routes, so this
+    // handler must be registered after them.
+    entry: {
+        success: (override?: AccessLogDetail) =>
+            http.get(endpoints.accessLogEntry, ({ params }) =>
+                HttpResponse.json(
+                    override ?? createMockAccessLogDetail({ id: Number(params.id) }),
+                )),
+        notFound: () =>
+            http.get(endpoints.accessLogEntry, () => responses.notFound()),
+    },
+
     byCountry: (stats?: AccessLogCountryStats[]) =>
         http.get(endpoints.accessLogByCountry, () =>
             HttpResponse.json(
@@ -642,7 +660,9 @@ export const defaultHandlers = [
     ruleHandlers.maxActiveAddresses.delete.success(),
     // Access log
     accessLogHandlers.list(),
+    accessLogHandlers.histogram(),
     accessLogHandlers.byCountry(),
+    accessLogHandlers.entry.success(),
     // Dashboard
     dashboardHandlers.stats(),
     dashboardHandlers.traffic(),
