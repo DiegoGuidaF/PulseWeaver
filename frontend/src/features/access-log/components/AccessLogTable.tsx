@@ -125,7 +125,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
     // Distinct query keys by construction: the list key carries sort and cursor,
     // the histogram key carries neither — so a page turn or a sort change never
     // re-scans the chart, and both read the same filters over the same window.
-    const { data, isPending, isFetching, error, refetch } = useAccessLog(
+    const { data, isPending, isPlaceholderData, error, refetch } = useAccessLog(
         {
             ...filters.queryParams,
             sort: filters.sort,
@@ -139,10 +139,23 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
     const {
         data: histogramData,
         isPending: isHistogramPending,
-        isFetching: isHistogramFetching,
+        isPlaceholderData: isHistogramPlaceholderData,
         error: histogramError,
         refetch: refetchHistogram,
     } = useAccessLogHistogram(filters.queryParams, pollInterval);
+
+    // Only a fetch the user asked for dims a panel; a poll on the interval
+    // repaints in place. `isPlaceholderData` is that signal for a new
+    // filter/sort/page — it holds exactly while the previous key's data is
+    // still on screen — and the refresh button reports itself.
+    const [isManualRefresh, setIsManualRefresh] = useState(false);
+    const isListRefreshing = isManualRefresh || isPlaceholderData;
+    const isHistogramRefreshing = isManualRefresh || isHistogramPlaceholderData;
+
+    function handleRefresh() {
+        setIsManualRefresh(true);
+        void Promise.all([refetch(), refetchHistogram()]).finally(() => setIsManualRefresh(false));
+    }
 
     // Drives the x-axis label granularity. `presetToMs` falls back to a day for
     // an unset or unknown preset, which is also the right span for a half-open
@@ -242,6 +255,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                 <TrafficLineChart
                     data={histogramData?.buckets}
                     isLoading={isHistogramPending}
+                    isRefreshing={isHistogramRefreshing}
                     timeRangeMs={timeRangeMs}
                     h={200}
                     error={histogramError}
@@ -254,11 +268,8 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                             variant="subtle"
                             color="gray"
                             size="md"
-                            onClick={() => {
-                                refetch();
-                                refetchHistogram();
-                            }}
-                            loading={isFetching || isHistogramFetching}
+                            onClick={handleRefresh}
+                            loading={isManualRefresh}
                             aria-label="Refresh"
                         >
                             <IconRefresh size={16} />
@@ -274,7 +285,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
 
                 <ActiveFilterChips chips={filterChips} onClearAll={filters.clearAll} />
 
-                <div ref={tableRef} aria-busy={isFetching} className={classes.table}>
+                <div ref={tableRef} aria-busy={isListRefreshing} className={classes.table}>
                     <DataTable
                         records={rows}
                         highlightOnHover
@@ -306,7 +317,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
                         }
                         columns={effectiveColumns}
                         storeColumnsKey={COLUMNS_STORE_KEY}
-                        fetching={isFetching}
+                        fetching={isListRefreshing}
                         loaderBackgroundBlur={1}
                         scrollAreaProps={{ type: "auto" }}
                         pinFirstColumn

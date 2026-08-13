@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { screen, waitFor, within, fireEvent } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { server } from "@/test/setup";
 import { renderWithProviders, setupUser } from "@/test/utils";
 import { AccessLogPage } from "@/pages/access-log/AccessLogPage";
@@ -47,6 +47,16 @@ function getFilterButton(columnTitle: string | RegExp) {
         .find((b) => b.getAttribute("aria-haspopup"));
     if (!btn) throw new Error(`Filter button for "${columnTitle}" not found`);
     return btn;
+}
+
+/** mantine-datatable keeps its loader mounted and flags it while `fetching`. */
+function tableIsDimmed() {
+    return document.querySelector(".mantine-datatable-loader-fetching") !== null;
+}
+
+/** The chart's LoadingOverlay mounts only while it is visible. */
+function chartIsDimmed() {
+    return document.querySelector(".mantine-LoadingOverlay-root") !== null;
 }
 
 /** Turn on a column that is hidden by default via the Columns chooser. */
@@ -723,6 +733,101 @@ describe("AccessLogTable", () => {
             expect(await screen.findByText("Failed to load traffic")).toBeInTheDocument();
             expect(screen.getByText("10.0.0.1")).toBeInTheDocument();
             expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+        });
+    });
+
+    // ─── Refresh affordances ──────────────────────────────────────────────────
+
+    describe("Refresh affordances", () => {
+        // Long enough that an assertion lands inside the in-flight window.
+        const SLOW_MS = 400;
+
+        /**
+         * Answers the first request per endpoint at once and stalls every later
+         * one, so a refetch has an observable in-flight window. Uses a preset
+         * window, whose resolved `from` is pinned to the params — an inline
+         * clock read would mint a new query key on every render and dim both
+         * panels for reasons unrelated to what the test is driving.
+         */
+        function renderWithSlowRefetches() {
+            let listCount = 0;
+            let histogramCount = 0;
+            const row = createMockAccessLogRow({ client_ip: "10.0.0.1" });
+            server.use(
+                http.get(endpoints.accessLog, async () => {
+                    if (listCount++ > 0) await delay(SLOW_MS);
+                    return HttpResponse.json(createMockAccessLogResponse({ rows: [row], total: 1 }));
+                }),
+                http.get(endpoints.accessLogHistogram, async () => {
+                    if (histogramCount++ > 0) await delay(SLOW_MS);
+                    return HttpResponse.json({ buckets: [] });
+                }),
+            );
+            renderTable(["/access-log?preset=last_24h"]);
+            return {
+                settled: () =>
+                    waitFor(() => expect(screen.getByText("10.0.0.1")).toBeInTheDocument(), {
+                        timeout: TEST_TIMEOUTS.SHORT,
+                    }),
+                listRequests: () => listCount,
+            };
+        }
+
+        it("dims both panels while a refresh the user clicked is in flight", async () => {
+            const user = setupUser();
+            const scenario = renderWithSlowRefetches();
+            await scenario.settled();
+            expect(tableIsDimmed()).toBe(false);
+
+            await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+            await waitFor(() => expect(chartIsDimmed()).toBe(true));
+            expect(tableIsDimmed()).toBe(true);
+
+            await waitFor(() => expect(chartIsDimmed()).toBe(false), {
+                timeout: TEST_TIMEOUTS.MEDIUM,
+            });
+            expect(tableIsDimmed()).toBe(false);
+        });
+
+        it("dims both panels while a new time window is in flight", async () => {
+            const user = setupUser();
+            const scenario = renderWithSlowRefetches();
+            await scenario.settled();
+
+            await user.selectOptions(screen.getByLabelText("Time range"), "last_1w");
+
+            await waitFor(() => expect(chartIsDimmed()).toBe(true));
+            expect(tableIsDimmed()).toBe(true);
+        });
+
+        // A poll nobody asked for must repaint in place: dimming the page every
+        // interval is the flash the loading-state convention exists to prevent.
+        it("dims neither panel during an auto-refresh poll", async () => {
+            const user = setupUser();
+            const scenario = renderWithSlowRefetches();
+            await scenario.settled();
+
+            await user.selectOptions(screen.getByLabelText("Auto-refresh interval"), "1000");
+
+            // The stalled poll is still open, so this asserts mid-flight.
+            await waitFor(() => expect(scenario.listRequests()).toBeGreaterThan(1), {
+                timeout: TEST_TIMEOUTS.MEDIUM,
+            });
+            expect(tableIsDimmed()).toBe(false);
+            expect(chartIsDimmed()).toBe(false);
+        });
+
+        // Sort belongs to the paged list alone, so the chart has nothing in
+        // flight and must not dim alongside the table.
+        it("dims only the table when the sort changes", async () => {
+            const scenario = renderWithSlowRefetches();
+            await scenario.settled();
+
+            fireEvent.click(within(getColumnHeader("IP")).getByText("IP"));
+
+            await waitFor(() => expect(tableIsDimmed()).toBe(true));
+            expect(chartIsDimmed()).toBe(false);
         });
     });
 

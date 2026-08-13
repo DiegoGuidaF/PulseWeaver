@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Group, Paper, Skeleton, Text, UnstyledButton } from "@mantine/core";
+import { Box, Group, LoadingOverlay, Paper, Skeleton, Text, UnstyledButton } from "@mantine/core";
 import { LineChart } from "@mantine/charts";
 import { IconChartLine } from "@tabler/icons-react";
 import { formatChartLabel } from "@/lib/formatChartLabel";
@@ -21,13 +21,19 @@ function seriesColor(color: string) {
 interface TrafficLineChartProps {
     data: DashboardTrafficBucket[] | undefined;
     isLoading: boolean;
+    /**
+     * A refetch the user asked for, with the previous window still on screen —
+     * dims the plot in place rather than replacing it. Background polls leave
+     * this false so the chart never flashes on its own.
+     */
+    isRefreshing?: boolean;
     timeRangeMs: number;
     h?: number;
     error?: unknown;
     onRetry?: () => void;
 }
 
-export function TrafficLineChart({ data, isLoading, timeRangeMs, h = 300, error, onRetry }: TrafficLineChartProps) {
+export function TrafficLineChart({ data, isLoading, isRefreshing = false, timeRangeMs, h = 300, error, onRetry }: TrafficLineChartProps) {
     const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
 
     const chartData = (data ?? []).map((b) => ({
@@ -79,30 +85,34 @@ export function TrafficLineChart({ data, isLoading, timeRangeMs, h = 300, error,
                     ))}
                 </Group>
             </Group>
-            {isLoading ? (
-                <Skeleton h={h} />
-            ) : error ? (
-                <ErrorState error={error} title="Failed to load traffic" onRetry={onRetry} />
-            ) : chartData.length === 0 ? (
-                <EmptyState
-                    icon={IconChartLine}
-                    title="No traffic recorded yet"
-                    description="Ensure PulseWeaver is configured as a forward-auth sidecar for your reverse proxy."
-                />
-            ) : (
-                <LineChart
-                    role="img"
-                    aria-label="Traffic over time: line chart showing allowed and denied request counts"
-                    h={h}
-                    data={chartData}
-                    dataKey="timestamp"
-                    series={visibleSeries}
-                    yAxisLabel="Requests"
-                    yAxisProps={{ allowDecimals: false }}
-                    curveType="monotone"
-                    tooltipAnimationDuration={150}
-                />
-            )}
+            {/* Only the plot sits under the overlay — the series toggles above it stay live. */}
+            <Box pos="relative" aria-busy={isRefreshing}>
+                <LoadingOverlay visible={isRefreshing} zIndex={2} overlayProps={{ radius: "sm", blur: 1 }} />
+                {isLoading ? (
+                    <Skeleton h={h} />
+                ) : error ? (
+                    <ErrorState error={error} title="Failed to load traffic" onRetry={onRetry} />
+                ) : chartData.length === 0 ? (
+                    <EmptyState
+                        icon={IconChartLine}
+                        title="No traffic recorded yet"
+                        description="Ensure PulseWeaver is configured as a forward-auth sidecar for your reverse proxy."
+                    />
+                ) : (
+                    <LineChart
+                        role="img"
+                        aria-label="Traffic over time: line chart showing allowed and denied request counts"
+                        h={h}
+                        data={chartData}
+                        dataKey="timestamp"
+                        series={visibleSeries}
+                        yAxisLabel="Requests"
+                        yAxisProps={{ allowDecimals: false }}
+                        curveType="monotone"
+                        tooltipAnimationDuration={150}
+                    />
+                )}
+            </Box>
         </Paper>
     );
 }
