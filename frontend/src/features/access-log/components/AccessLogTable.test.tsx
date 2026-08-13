@@ -583,6 +583,38 @@ describe("AccessLogTable", () => {
                 await screen.findByText("This request is no longer available"),
             ).toBeInTheDocument();
         });
+
+        // Only a 404 means "gone". Any other failure is worth retrying, so it
+        // must reach ErrorState rather than the terminal unavailable copy.
+        it("shows a retryable error when the detail fetch fails outright", async () => {
+            server.use(
+                accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })),
+                http.get(endpoints.accessLogEntry, () => responses.serverError()),
+            );
+
+            renderTable([`${BASE_ENTRY}&request=999`]);
+
+            expect(await screen.findByText("Failed to load")).toBeInTheDocument();
+            expect(
+                screen.queryByText("This request is no longer available"),
+            ).not.toBeInTheDocument();
+        });
+
+        // `Number("abc")` is NaN, which never equals itself — left unguarded it
+        // re-triggers the drawer's render-phase state sync until React bails out
+        // and the whole page falls into the router error boundary.
+        it("ignores a ?request= param that is not a request id", async () => {
+            const row = createMockAccessLogRow({ id: 1, client_ip: "10.0.0.1" });
+            server.use(accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })));
+
+            renderTable([`${BASE_ENTRY}&request=abc`]);
+
+            await waitFor(
+                () => expect(screen.getByText("10.0.0.1")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+            expect(screen.queryByText("Request Detail")).not.toBeInTheDocument();
+        });
     });
 
     // ─── Chart / table agreement ──────────────────────────────────────────────
@@ -648,6 +680,49 @@ describe("AccessLogTable", () => {
             );
 
             expect(requestedUrls.every((u) => !u.includes("sort=") && !u.includes("cursor="))).toBe(true);
+        });
+
+        // Keeping sort out of the histogram's params is not enough on its own: a
+        // preset window re-resolved against the clock would move `from` on the
+        // re-render the sort triggers, minting a new key and re-scanning anyway.
+        it("does not re-scan the histogram when the sort changes", async () => {
+            const histogramRequests: string[] = [];
+            server.use(
+                accessLogHandlers.list(createMockAccessLogResponse({ rows: [], total: 0 })),
+                http.get(endpoints.accessLogHistogram, ({ request }) => {
+                    histogramRequests.push(request.url);
+                    return HttpResponse.json({ buckets: [] });
+                }),
+            );
+
+            renderTable(["/access-log?preset=last_24h"]);
+
+            await waitFor(
+                () => expect(histogramRequests).toHaveLength(1),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            fireEvent.click(within(getColumnHeader("IP")).getByText("IP"));
+
+            await waitFor(
+                () => expect(within(getColumnHeader("IP")).getByLabelText(/^Sorted/)).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.MEDIUM },
+            );
+            expect(histogramRequests).toHaveLength(1);
+        });
+
+        it("surfaces a histogram failure without hiding the table", async () => {
+            const row = createMockAccessLogRow({ client_ip: "10.0.0.1" });
+            server.use(
+                accessLogHandlers.list(createMockAccessLogResponse({ rows: [row], total: 1 })),
+                http.get(endpoints.accessLogHistogram, () => responses.serverError()),
+            );
+
+            renderTable();
+
+            expect(await screen.findByText("Failed to load traffic")).toBeInTheDocument();
+            expect(screen.getByText("10.0.0.1")).toBeInTheDocument();
+            expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
         });
     });
 
@@ -770,12 +845,18 @@ describe("AccessLogTable", () => {
                 { timeout: TEST_TIMEOUTS.MEDIUM },
             );
 
-            // Third click cycles off — the request falls back to the default sort.
+            // Third click cycles off, back to the default newest-first sort. That
+            // query was already fetched on mount, so it is served from cache and
+            // issues no request — assert the rendered sort state, not the network.
             fireEvent.click(ipHeader);
             await waitFor(
-                () => expect(requestedUrls.at(-1)?.includes("sort=client_ip")).toBe(false),
+                () =>
+                    expect(
+                        within(getColumnHeader("IP")).getByLabelText("Not sorted"),
+                    ).toBeInTheDocument(),
                 { timeout: TEST_TIMEOUTS.MEDIUM },
             );
+            expect(within(getColumnHeader("Time")).getByLabelText("Sorted descending")).toBeInTheDocument();
         });
     });
 

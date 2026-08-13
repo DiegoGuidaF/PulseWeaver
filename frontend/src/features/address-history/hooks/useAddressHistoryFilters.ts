@@ -141,7 +141,19 @@ export function useFilterCore(
 
     // Build query params. Preset takes precedence over raw from/to.
     const presetMs = presetStr ? PRESET_MS[presetStr] : undefined;
-    const query: Query = resolveWindow(presetStr, fromStr, toStr);
+
+    // A preset resolves against the clock, so resolving it inline would hand out
+    // a new `from` — and with it a new query key — every time the page re-renders
+    // for an unrelated reason, re-scanning every read over the window. Pin it to
+    // the params that define the window.
+    const windowParams = useMemo(
+        () => resolveWindow(presetStr, fromStr, toStr),
+        [presetStr, fromStr, toStr],
+    );
+
+    // Copied, not aliased: the column filters below are written onto `query` in
+    // place, and `windowParams` must stay the window alone.
+    const query: Query = { ...windowParams };
 
     // Indexed writes onto the union-keyed query type collapse to an intersection
     // (`string[] & number[]`); a loose record view keeps each assignment honest.
@@ -180,14 +192,6 @@ export function useFilterCore(
             return [key, f.op, f.values];
         }),
     });
-
-    // Same window, memoised: `queryParams` re-resolves a preset against `dayjs()`
-    // on every render so the events list and chart roll forward, while a readout
-    // over the window wants a span that holds still while the page is open.
-    const windowParams = useMemo(
-        () => resolveWindow(presetStr, fromStr, toStr),
-        [presetStr, fromStr, toStr],
-    );
 
     return {
         queryParams: query,

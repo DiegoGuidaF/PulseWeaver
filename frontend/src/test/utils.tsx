@@ -21,12 +21,17 @@ export function setupUser() {
 
 /**
  * Creates a test-friendly QueryClient with retry disabled for faster test failures.
+ *
+ * A hook that sets its own `retry` predicate overrides `retry: false` and climbs
+ * the ladder anyway, so the delay is zeroed too — otherwise the backoff alone
+ * (1s, 2s, 4s) outruns the assertion timeout on those hooks' error branches.
  */
 function createTestQueryClient() {
     return new QueryClient({
         defaultOptions: {
             queries: {
                 retry: false,
+                retryDelay: 0,
             },
             mutations: {
                 retry: false,

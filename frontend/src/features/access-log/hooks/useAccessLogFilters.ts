@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router";
 import dayjs from "dayjs";
 import { SortOrder, type GetAccessLogHistogramData } from "@/lib/api";
@@ -14,7 +14,11 @@ import {
     isFilterActive,
 } from "../filterConfig";
 
-/** Filters and time window, shared verbatim by the table and the chart. Sort, cursor and limit belong to the paged list alone and stay out of this type — a sort change must not re-scan the histogram. */
+/**
+ * Filters and time window, shared verbatim by the table and the chart. Sort,
+ * cursor and limit belong to the paged list alone and stay out of this type, so
+ * that ordering or paging the table never re-scans the histogram.
+ */
 type Query = NonNullable<GetAccessLogHistogramData["query"]>;
 
 const LS_KEY = "pulseweaver:access-log:filters";
@@ -176,13 +180,25 @@ export function useAccessLogFilters(): AccessLogFilters {
 
     // Build query params. Preset takes precedence over raw from/to.
     const presetMs = presetStr ? PRESET_MS[presetStr] : undefined;
+
+    // A preset resolves against the clock, so resolving it inline would hand out
+    // a new `from` — and with it a new query key — every time the page re-renders
+    // for an unrelated reason, re-scanning list and histogram alike. Pin it to the
+    // params that define the window.
+    const timeWindow = useMemo(
+        () => ({
+            from:
+                presetMs !== undefined
+                    ? dayjs().subtract(presetMs, "millisecond").toISOString()
+                    : fromStr || undefined,
+            to: presetMs !== undefined ? undefined : toStr || undefined,
+        }),
+        [presetMs, fromStr, toStr],
+    );
+
     const query: Query = {
         outcome: outcomeStr === "allow" ? true : outcomeStr === "deny" ? false : undefined,
-        from:
-            presetMs !== undefined
-                ? dayjs().subtract(presetMs, "millisecond").toISOString()
-                : fromStr || undefined,
-        to: presetMs !== undefined ? undefined : toStr || undefined,
+        ...timeWindow,
     };
 
     // Indexed writes onto the union-keyed query type collapse to an intersection

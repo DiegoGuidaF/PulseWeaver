@@ -1,13 +1,13 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import dayjs from "dayjs";
 import { buildRoute } from "@/lib/routes";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { ActionIcon, Anchor, Button, Group, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { DataTable, type DataTableSortStatus } from "mantine-datatable";
 import { IconDatabaseOff, IconFilterOff, IconRefresh } from "@tabler/icons-react";
 import type { AccessLogRow } from "@/lib/api";
-import { ActiveFilterChips, type FilterChip } from "@/components/ActiveFilterChips";
+import { ActiveFilterChips } from "@/components/ActiveFilterChips";
 import { ColumnsMenu } from "@/components/ColumnsMenu";
 import { useManagedColumns, type ManagedColumnMeta } from "@/hooks/useManagedColumns";
 import { CursorPagination } from "@/components/CursorPagination";
@@ -15,19 +15,13 @@ import { TrafficLineChart } from "@/components/TrafficLineChart";
 import { presetToMs } from "@/lib/formatChartLabel";
 import { useAccessLog } from "../hooks/useAccessLog";
 import { useAccessLogHistogram } from "../hooks/useAccessLogHistogram";
+import { useRequestParam } from "../hooks/useRequestParam";
 import type { AccessLogFilters } from "../hooks/useAccessLogFilters";
 import { AccessLogDetailDrawer } from "./AccessLogDetailDrawer";
 import { getAccessLogColumns } from "./accessLogColumns";
 import { POLICY_DENY_REASON_OPTIONS } from "@/lib/policyDenyReasons";
-import {
-    type FilterColumnKey,
-    type SortColumn,
-    COLUMN_CHIP_LABELS,
-    FILTER_COLUMN_KEYS,
-    describeColumnFilter,
-    isFilterActive,
-    nextSortState,
-} from "../filterConfig";
+import { buildAccessLogChips } from "../accessLogChips";
+import { type SortColumn, nextSortState } from "../filterConfig";
 import { ErrorState } from "@/components/ErrorState";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
 import { useDeviceRefs } from "@/features/devices/hooks/useDeviceRefs";
@@ -102,13 +96,9 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         setCursor(null);
     }
 
-    // The detail drawer's open state lives in the URL (`?request=<id>`) so the
-    // browser Back button closes it — the expected gesture, especially on mobile.
     // The drawer fetches the request by id, so a deep link resolves even when the
     // row sits on a page the table has not loaded.
-    const [searchParams, setSearchParams] = useSearchParams();
-    const requestParam = searchParams.get("request");
-    const requestId = requestParam != null ? Number(requestParam) : null;
+    const { requestId, openRequest, closeRequest } = useRequestParam();
 
     // Below the nav-collapse breakpoint, start from a lean column set to avoid
     // horizontal scrolling. Matches the AppShell's `md` threshold.
@@ -130,7 +120,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
     const { data: users } = useListUsers();
     const { data: networkPolicies } = useNetworkPolicies();
 
-    const refetchIntervalOrFalse = refreshInterval === 0 ? false : refreshInterval;
+    const pollInterval = refreshInterval === 0 ? false : refreshInterval;
 
     // Distinct query keys by construction: the list key carries sort and cursor,
     // the histogram key carries neither — so a page turn or a sort change never
@@ -143,7 +133,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
             cursor: cursor ?? undefined,
             limit: PAGE_SIZE,
         },
-        refetchIntervalOrFalse,
+        pollInterval,
     );
 
     const {
@@ -152,41 +142,20 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         isFetching: isHistogramFetching,
         error: histogramError,
         refetch: refetchHistogram,
-    } = useAccessLogHistogram(filters.queryParams, refetchIntervalOrFalse);
+    } = useAccessLogHistogram(filters.queryParams, pollInterval);
 
-    const timeRangeMs = useMemo(() => {
-        if (filters.presetStr) return presetToMs(filters.presetStr);
-        if (filters.fromStr && filters.toStr) {
-            return dayjs(filters.toStr).diff(dayjs(filters.fromStr));
-        }
-        return presetToMs("last_24h");
-    }, [filters.presetStr, filters.fromStr, filters.toStr]);
-
-    const rows = data?.rows ?? [];
-
-    const openRequest = useCallback(
-        (row: AccessLogRow) => {
-            setSearchParams((prev) => {
-                const next = new URLSearchParams(prev);
-                next.set("request", String(row.id));
-                return next;
-            });
-        },
-        [setSearchParams],
+    // Drives the x-axis label granularity. `presetToMs` falls back to a day for
+    // an unset or unknown preset, which is also the right span for a half-open
+    // custom window.
+    const timeRangeMs = useMemo(
+        () =>
+            !filters.presetStr && filters.fromStr && filters.toStr
+                ? dayjs(filters.toStr).diff(filters.fromStr)
+                : presetToMs(filters.presetStr ?? ""),
+        [filters.presetStr, filters.fromStr, filters.toStr],
     );
 
-    const closeRequest = useCallback(() => {
-        // Replace rather than push so the cleared state doesn't add a history
-        // entry that Back would step into and re-open the drawer.
-        setSearchParams(
-            (prev) => {
-                const next = new URLSearchParams(prev);
-                next.delete("request");
-                return next;
-            },
-            { replace: true },
-        );
-    }, [setSearchParams]);
+    const rows = data?.rows ?? [];
 
     const deviceOptions = (deviceRefs ?? []).map((d) => ({ value: String(d.id), label: d.name }));
     const userOptions = (users ?? []).map((u) => ({ value: String(u.id), label: u.display_name || u.username }));
@@ -210,7 +179,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         denyReasonOptions,
         networkPolicyOptions,
         userOptions,
-        onRowClick: openRequest,
+        onRowClick: (row: AccessLogRow) => openRequest(row.id),
         onUserClick: (userId) => navigate(buildRoute.userDevices(userId)),
         onDeviceClick: (deviceId, ownerUserId) => {
             if (ownerUserId !== undefined) navigate(`${buildRoute.userDevices(ownerUserId)}?device=${deviceId}`);
@@ -233,52 +202,20 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
         direction: filters.order,
     };
 
-    const filterChips = useMemo(() => {
-        const chips: FilterChip[] = [];
-
-        if (filters.fromStr || filters.toStr) {
-            const from = filters.fromStr ? formatDateTime(filters.fromStr) : "—";
-            const to = filters.toStr ? formatDateTime(filters.toStr) : "now";
-            chips.push({
-                label: "Time",
-                value: `${from} → ${to}`,
-                onRemove: () => {
-                    filters.setSearchParams((prev) => {
-                        prev.delete("from");
-                        prev.delete("to");
-                        return prev;
-                    });
+    const filterChips = useMemo(
+        () =>
+            buildAccessLogChips({
+                filters,
+                formatDateTime,
+                valueLabels: {
+                    device_id: (v) => deviceOptions.find((o) => o.value === v)?.label ?? v,
+                    user_id: (v) => userOptions.find((o) => o.value === v)?.label ?? v,
+                    network_policy_id: (v) => networkPolicyOptions.find((o) => o.value === v)?.label ?? v,
+                    deny_reason: (v) => denyReasonOptions.find((o) => o.value === v)?.label ?? v,
                 },
-            });
-        }
-
-        if (filters.outcomeStr) {
-            chips.push({
-                label: "Outcome",
-                value: filters.outcomeStr === "allow" ? "Allow" : "Deny",
-                onRemove: () => filters.setOutcome(null),
-            });
-        }
-
-        const resolvers: Partial<Record<FilterColumnKey, (v: string) => string>> = {
-            device_id: (v) => deviceOptions.find((o) => o.value === v)?.label ?? v,
-            user_id: (v) => userOptions.find((o) => o.value === v)?.label ?? v,
-            network_policy_id: (v) => networkPolicyOptions.find((o) => o.value === v)?.label ?? v,
-            deny_reason: (v) => denyReasonOptions.find((o) => o.value === v)?.label ?? v,
-        };
-
-        for (const key of FILTER_COLUMN_KEYS) {
-            const state = filters.getColumnFilter(key);
-            if (!isFilterActive(state)) continue;
-            chips.push({
-                label: COLUMN_CHIP_LABELS[key],
-                value: describeColumnFilter(key, state, resolvers[key]),
-                onRemove: () => filters.setColumnFilter(key, null),
-            });
-        }
-
-        return chips;
-    }, [filters, formatDateTime, deviceOptions, userOptions, networkPolicyOptions, denyReasonOptions]);
+            }),
+        [filters, formatDateTime, deviceOptions, userOptions, networkPolicyOptions, denyReasonOptions],
+    );
 
     if ((isPending || !data) && !error && rows.length === 0) {
         return (
@@ -403,7 +340,7 @@ export function AccessLogTable({ filters, refreshInterval }: AccessLogTableProps
 
             <AccessLogDetailDrawer
                 requestId={requestId}
-                opened={requestParam != null}
+                opened={requestId != null}
                 onClose={closeRequest}
             />
         </>
