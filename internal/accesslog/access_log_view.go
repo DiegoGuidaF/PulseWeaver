@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 	"time"
 
@@ -14,11 +15,20 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/filterx"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/httpapi"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/ids"
+	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
 const (
 	defaultSort  = "created_at"
 	defaultOrder = "desc"
+
+	// defaultWindow is how far back a request with no explicit from/to looks.
+	defaultWindow = 24 * time.Hour
+
+	// defaultPageSize applies when the caller names no limit; maxPageSize caps
+	// what it can ask for, since every row carries its contributors.
+	defaultPageSize = 50
+	maxPageSize     = 200
 
 	// contributorCorrelated is the EXISTS body shared by the device and user
 	// relational filters: any contributor row for the parent access_log entry.
@@ -208,7 +218,7 @@ type accessLogFilterParams struct {
 func newAccessLogQuery(p accessLogFilterParams) (AccessLogQuery, error) {
 	now := time.Now().UTC()
 	q := AccessLogQuery{
-		From:    now.Add(-24 * time.Hour),
+		From:    now.Add(-defaultWindow),
 		To:      now,
 		Outcome: p.Outcome,
 	}
@@ -270,15 +280,15 @@ func NewAccessLogQuery(params httpapi.GetAccessLogParams) (AccessLogQuery, error
 		return AccessLogQuery{}, err
 	}
 
-	limit := 50
+	limit := defaultPageSize
 	if params.Limit != nil {
 		limit = *params.Limit
 	}
 	if limit <= 0 {
-		limit = 50
+		limit = defaultPageSize
 	}
-	if limit > 200 {
-		limit = 200
+	if limit > maxPageSize {
+		limit = maxPageSize
 	}
 	q.Limit = limit
 
@@ -368,13 +378,6 @@ func accessLogFilterJoins(q AccessLogQuery) (geoip, policy bool) {
 }
 
 func (r *Repository) ListAccessLog(ctx context.Context, q AccessLogQuery) ([]AccessLogView, int, error) {
-	if q.Sort == "" {
-		q.Sort = defaultSort
-	}
-	if q.Order == "" {
-		q.Order = defaultOrder
-	}
-
 	cond, err := accessLogConditions(q)
 	if err != nil {
 		return nil, 0, err
@@ -480,7 +483,11 @@ func (r *Repository) GetAccessLogEntry(ctx context.Context, id int64) (AccessLog
 		ASNOrg:        row.ASNOrg,
 	}
 	if err := json.Unmarshal([]byte(row.HeadersRaw), &detail.Headers); err != nil {
-		// Malformed JSON should not break the endpoint; fall back to empty map.
+		// The row is already persisted, so failing the read would only deny the
+		// caller the rest of a record it can still use. Report the bad blob and
+		// serve the entry without headers.
+		slog.Default().WarnContext(ctx, "access log entry has malformed headers_json",
+			slog.Int64("access_log_id", row.ID), slog.Any(logging.AttrKeyError, err))
 		detail.Headers = map[string][]string{}
 	}
 
@@ -544,17 +551,12 @@ func (r *Repository) fetchAccessLogContributors(ctx context.Context, logIDs []in
 	}
 
 	for _, cr := range dbRows {
-		deviceID := cr.DeviceID
-		deviceName := cr.DeviceName
-		userID := cr.UserID
-		userName := cr.UserName
-		addressID := cr.AddressID
 		result[cr.AccessLogID] = append(result[cr.AccessLogID], AccessLogContributor{
-			DeviceID:   &deviceID,
-			DeviceName: &deviceName,
-			UserID:     &userID,
-			UserName:   &userName,
-			AddressID:  &addressID,
+			DeviceID:   &cr.DeviceID,
+			DeviceName: &cr.DeviceName,
+			UserID:     &cr.UserID,
+			UserName:   &cr.UserName,
+			AddressID:  &cr.AddressID,
 		})
 	}
 

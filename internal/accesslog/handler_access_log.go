@@ -104,7 +104,7 @@ func (h *HTTPHandler) GetAccessLogByCountry(
 	ctx = logging.WithOperation(ctx, "GetAccessLogByCountry")
 
 	now := time.Now().UTC()
-	from := now.Add(-24 * time.Hour)
+	from := now.Add(-defaultWindow)
 	to := now
 	if request.Params.From != nil {
 		from = request.Params.From.UTC()

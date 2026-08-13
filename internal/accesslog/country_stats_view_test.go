@@ -37,7 +37,7 @@ func setupCountryStatsRepos(t *testing.T) countryStatsRepos {
 
 	rollupRepo := rollup.NewRepository(sqlxDB, nil)
 	return countryStatsRepos{
-		accessLog: accesslog.NewRepository(sqlxDB, rollupRepo),
+		accessLog: accesslog.NewRepository(sqlxDB),
 		rollup:    rollupRepo,
 		db:        sqlxDB,
 	}
@@ -212,9 +212,9 @@ func TestDashboardWidgets_CrossWidgetConsistency_WideWindow(t *testing.T) {
 	is.Equal(countries[1].CountryCode, "AU")
 	is.Equal(countries[1].Total, int64(2))
 
-	// The access-log histogram is the same widget over the same window: with no
-	// filter it delegates to the traffic series rather than rescanning the raw
-	// table, so it has to land on the same totals.
+	// The access-log histogram always aggregates the raw table. Every row here
+	// sits in a complete past hour, so the rolled-up widgets can see all of them
+	// too and the totals have to agree.
 	histogram, err := repos.accessLog.GetAccessLogHistogram(ctx, accesslog.AccessLogQuery{From: from, To: to})
 	is.NoErr(err)
 	var histAllowed, histDenied int64

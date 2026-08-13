@@ -11,7 +11,6 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/accesslog"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/geoip"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/policy"
-	"github.com/DiegoGuidaF/PulseWeaver/internal/rollup"
 	"github.com/DiegoGuidaF/PulseWeaver/internal/testdb"
 )
 
@@ -82,8 +81,7 @@ func benchAccessLogRepo(tb testing.TB) *accesslog.Repository {
 	tb.Helper()
 	db, cleanup := testdb.Setup(tb)
 	tb.Cleanup(cleanup)
-	sqlxDB := db.DB()
-	return accesslog.NewRepository(sqlxDB, rollup.NewRepository(sqlxDB, nil))
+	return accesslog.NewRepository(db.DB())
 }
 
 func BenchmarkListAccessLog(b *testing.B) {

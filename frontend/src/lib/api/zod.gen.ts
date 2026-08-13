@@ -988,36 +988,16 @@ export const zAccessLogResponse = z.object({
  * Everything recorded about one request: the table columns plus the request headers, the forwarded-for chain, and the full geolocation of the client IP. Absent properties were never captured for that request — no header collection, no proxy chain, or no GeoIP match for the address.
  *
  */
-export const zAccessLogDetail = z.object({
-  id: zId,
-  client_ip: zIpAddress,
-  outcome: z.boolean(),
-  deny_reason: zPolicyDenyReason.nullish(),
-  contributors: z.array(zAccessLogContributor),
-  contributor_count: z.int(),
-  created_at: z.iso.datetime({ offset: true, local: true }),
-  xff_chain: z.string().optional(),
-  target_host: z.string().optional(),
-  target_uri: z.string().optional(),
-  http_method: z.string().optional(),
-  country_code: z.string().optional(),
-  country_name: z.string().optional(),
-  continent_code: z.string().optional(),
-  asn: z.int().optional(),
-  asn_org: z.string().optional(),
-  duration_us: z.coerce
-    .bigint()
-    .min(BigInt("-9223372036854775808"), {
-      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
-    })
-    .max(BigInt("9223372036854775807"), {
-      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
-    })
-    .optional(),
-  headers: z.record(z.string(), z.array(z.string())),
-  network_policy_id: zId.nullish(),
-  network_policy_name: z.string().nullish(),
-});
+export const zAccessLogDetail = zAccessLogRow.and(
+  z.object({
+    xff_chain: z.string().optional(),
+    headers: z.record(z.string(), z.array(z.string())),
+    country_name: z.string().optional(),
+    continent_code: z.string().optional(),
+    asn: z.int().optional(),
+    asn_org: z.string().optional(),
+  }),
+);
 
 /**
  * Denied requests split by reason. The three buckets partition deny_count: ip_not_registered + host_not_allowed + other always equals deny_count.

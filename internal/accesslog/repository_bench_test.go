@@ -77,7 +77,7 @@ func benchRepo(tb testing.TB) (*accesslog.Repository, *database.DB) {
 	tb.Helper()
 	db, cleanup := testdb.Setup(tb)
 	tb.Cleanup(cleanup)
-	return accesslog.NewRepository(db.DB(), nil), db.DB()
+	return accesslog.NewRepository(db.DB()), db.DB()
 }
 
 // benchOwnedAddress inserts a user/device/address triple so allow events can

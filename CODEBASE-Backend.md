@@ -106,7 +106,7 @@ principal-from-cookie → principal-from-API-key → generated strict handler.
 | `internal/networkpolicies/service.go` | CIDR network-policy CRUD; `CacheEntry` source for policy |
 | `internal/accesslog/sink.go` | `Sink` — implements `policy.DecisionObserver`; batch-inserts decision events |
 | `internal/accesslog/access_log_view.go` | `accessLogConditions` — the one WHERE builder behind the list, its `COUNT` and the histogram; plus the registry, the slim list row and the by-id detail read. Cursor and limit attach to the page builder only |
-| `internal/accesslog/access_log_histogram_view.go` | The filtered allow/deny series. Raw-scans `access_log` under any filter; an unfiltered window past `rollup.RawWindowThreshold` delegates to `rollup.Repository.GetTrafficSeries` instead. Both paths fold onto `timebucket.Sequence`, so every bucket in the window is present |
+| `internal/accesslog/access_log_histogram_view.go` | The filtered allow/deny series. Always aggregates `access_log` itself, at every window width — the hourly rollups carry no attribution and omit the in-flight hour, so they cannot reconcile with the table. Folds onto `timebucket.Sequence`, so every bucket in the window is present |
 | `internal/queries/repository.go` | Cross-domain read repository backing the list/filter views |
 | `internal/queries/host_suggestions.go` | `pendingHostSuggestions` — shared raw/aggregate-dispatching implementation behind both the suggestions page and the dashboard's pending-suggestion count |
 | `internal/filterx/filterx.go` | Column-allowlist registry for filter/sort/keyset pagination (ADR-007) |
@@ -125,8 +125,7 @@ principal-from-cookie → principal-from-API-key → generated strict handler.
 
 **Construction order:** DB → auth → device → devicepairing → geoip → hosts → useraccess →
 networkpolicies → policy → rule → rollup → accesslog → queries → lease → maxaddr → buildmeta →
-scheduler → HTTP server. Rollup precedes accesslog because the access-log histogram delegates
-its wide unfiltered windows to `rollup.Repository`. After construction: `ExecuteScheduledRules` (disable stale addresses before serving),
+scheduler → HTTP server. After construction: `ExecuteScheduledRules` (disable stale addresses before serving),
 `BootstrapAdmin`, then `policyService.Initialize` (warm the IP cache).
 
 **Observer registrations:**

@@ -3,6 +3,7 @@
 package accesslog_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -334,6 +335,55 @@ func TestHandler_GetAccessLogEntry(t *testing.T) {
 	is.True(detail.Asn != nil)
 }
 
+// TestHandler_GetAccessLogEntry_IsRowSuperset guards the AccessLogDetail schema's
+// allOf over AccessLogRow: the contract promises detail carries every row field,
+// but the two are mapped by separate hand-written functions. A field added to the
+// row and forgotten in toAccessLogDetail would serialize as absent or zero, which
+// the explicit field-by-field assertions above cannot notice — they only cover the
+// fields someone remembered to list. Comparing the encoded objects needs no upkeep.
+func TestHandler_GetAccessLogEntry_IsRowSuperset(t *testing.T) {
+	is := is.New(t)
+	srv, cookie := adminAccessLog(t)
+
+	getJSON := func(path string) map[string]json.RawMessage {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.AddCookie(cookie)
+		rec := httptest.NewRecorder()
+		srv.HTTPServer.ServeHTTP(rec, req)
+		is.Equal(rec.Code, http.StatusOK)
+
+		var decoded map[string]json.RawMessage
+		if err := json.NewDecoder(rec.Body).Decode(&decoded); err != nil {
+			t.Fatalf("decode %s: %v", path, err)
+		}
+		return decoded
+	}
+
+	// A geolocated entry with a contributor, so both the geo fields and the
+	// nested array are non-empty rather than trivially equal.
+	page := getJSON("/api/v1/access-log?country_code=DE&sort=duration_us&order=desc&limit=1")
+	var rows []map[string]json.RawMessage
+	is.NoErr(json.Unmarshal(page["rows"], &rows))
+	is.Equal(len(rows), 1)
+	row := rows[0]
+
+	var id int64
+	is.NoErr(json.Unmarshal(row["id"], &id))
+	detail := getJSON(fmt.Sprintf("/api/v1/access-log/%d", id))
+
+	for field, rowValue := range row {
+		detailValue, ok := detail[field]
+		if !ok {
+			t.Errorf("detail is missing row field %q", field)
+			continue
+		}
+		if !bytes.Equal(rowValue, detailValue) {
+			t.Errorf("field %q: row has %s, detail has %s", field, rowValue, detailValue)
+		}
+	}
+}
+
 // TestHandler_GetAccessLogEntry_NotFound covers both ways an id stops resolving:
 // it never existed, or retention pruned the row out from under a deep link.
 func TestHandler_GetAccessLogEntry_NotFound(t *testing.T) {
@@ -351,7 +401,7 @@ func TestHandler_GetAccessLogEntry_NotFound(t *testing.T) {
 	prunedID := page.Rows[0].Id
 
 	// Retention prunes by age; nothing survives a cutoff in the future.
-	repo := accesslog.NewRepository(srv.Database.DB(), nil)
+	repo := accesslog.NewRepository(srv.Database.DB())
 	_, err = repo.DeleteOlderThan(ctx, time.Now().UTC().Add(time.Hour))
 	is.NoErr(err)
 
@@ -384,6 +434,10 @@ func TestHandler_GetAccessLogHistogram_MatchesListTotal(t *testing.T) {
 		"?network_policy_id_op=not_null", // the network-policy join
 		fmt.Sprintf("?device_id=%d", seed.Device(testutils.FixtureDeviceWithOwnerAccess.Name)), // relational EXISTS
 		fmt.Sprintf("?user_id=%d", seed.User(testutils.FixtureUserWithAccess.Name)),
+		// Past the rollup threshold, where the histogram once answered from the
+		// hourly aggregates and silently dropped the in-flight hour.
+		"?from=" + url.QueryEscape(time.Now().UTC().Add(-30*24*time.Hour).Format(time.RFC3339)),
+		"?outcome=true&from=" + url.QueryEscape(time.Now().UTC().Add(-30*24*time.Hour).Format(time.RFC3339)),
 	} {
 		_, list := getAccessLog(t, srv.HTTPServer, cookie, query)
 		rec, hist := getAccessLogHistogram(t, srv.HTTPServer, cookie, query)

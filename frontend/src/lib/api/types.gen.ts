@@ -593,33 +593,18 @@ export type AccessLogRow = {
  * Everything recorded about one request: the table columns plus the request headers, the forwarded-for chain, and the full geolocation of the client IP. Absent properties were never captured for that request — no header collection, no proxy chain, or no GeoIP match for the address.
  *
  */
-export type AccessLogDetail = {
-  id: Id;
-  client_ip: IpAddress;
-  outcome: boolean;
-  deny_reason?: PolicyDenyReason | null;
-  /**
-   * All devices/users/addresses this request's client IP resolved to. Empty when no device matched (e.g. a denied request from an unknown IP).
-   *
-   */
-  contributors: Array<AccessLogContributor>;
-  /**
-   * Denormalized count of contributor rows (device×address×user tuples). The coarse "is this ambiguous?" signal; > 1 means the IP resolved to several.
-   *
-   */
-  contributor_count: number;
-  created_at: string;
+export type AccessLogDetail = AccessLogRow & {
   /**
    * Raw X-Forwarded-For header as received, client-most first.
    */
   xff_chain?: string;
-  target_host?: string;
-  target_uri?: string;
-  http_method?: string;
   /**
-   * ISO 3166-1 alpha-2, e.g. "DE"
+   * Request headers as received, each name mapped to all of its values. Empty when none were captured.
+   *
    */
-  country_code?: string;
+  headers: {
+    [key: string]: Array<string>;
+  };
   /**
    * e.g. "Germany"
    */
@@ -636,26 +621,6 @@ export type AccessLogDetail = {
    * e.g. "Cloudflare, Inc."
    */
   asn_org?: string;
-  /**
-   * Request processing duration in microseconds
-   */
-  duration_us?: number;
-  /**
-   * Request headers as received, each name mapped to all of its values. Empty when none were captured.
-   *
-   */
-  headers: {
-    [key: string]: Array<string>;
-  };
-  /**
-   * ID of the network policy that authorized this request, when the match was via CIDR containment rather than a device address. Null for device-matched or denied requests.
-   *
-   */
-  network_policy_id?: Id | null;
-  /**
-   * Display name of the matching network policy at log time.
-   */
-  network_policy_name?: string | null;
 };
 
 /**

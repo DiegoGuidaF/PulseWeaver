@@ -53,7 +53,7 @@ func setupTestRepo(t *testing.T) *accesslog.Repository {
 	t.Helper()
 	db, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
-	return accesslog.NewRepository(db.DB(), nil)
+	return accesslog.NewRepository(db.DB())
 }
 
 func TestRepository_BatchInsert_EmptyBatch(t *testing.T) {
@@ -196,7 +196,7 @@ func TestRepository_BatchInsert_WithGeoIPData(t *testing.T) {
 
 	dbWrapper, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
-	repo := accesslog.NewRepository(dbWrapper.DB(), nil)
+	repo := accesslog.NewRepository(dbWrapper.DB())
 	ctx := context.Background()
 
 	// Insert event with full GeoIP data.
@@ -239,7 +239,7 @@ func TestRepository_BatchInsert_GeoIPCascadeDelete(t *testing.T) {
 
 	dbWrapper, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
-	repo := accesslog.NewRepository(dbWrapper.DB(), nil)
+	repo := accesslog.NewRepository(dbWrapper.DB())
 	ctx := context.Background()
 
 	events := []policy.DecisionEvent{
@@ -276,7 +276,7 @@ func TestRepository_BatchInsert_WithEmptyGeoIP(t *testing.T) {
 
 	dbWrapper, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
-	repo := accesslog.NewRepository(dbWrapper.DB(), nil)
+	repo := accesslog.NewRepository(dbWrapper.DB())
 	ctx := context.Background()
 
 	// Private IP — GeoIP.IsEmpty() == true, no geoip row should be written.
@@ -336,7 +336,7 @@ func TestRepository_BatchInsert_ContributorCount_Zero(t *testing.T) {
 	is := is.New(t)
 	dbWrapper, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
-	repo := accesslog.NewRepository(dbWrapper.DB(), nil)
+	repo := accesslog.NewRepository(dbWrapper.DB())
 	ctx := context.Background()
 
 	events := []policy.DecisionEvent{
@@ -363,7 +363,7 @@ func TestRepository_BatchInsert_ContributorCount_Single(t *testing.T) {
 	is := is.New(t)
 	dbWrapper, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
-	repo := accesslog.NewRepository(dbWrapper.DB(), nil)
+	repo := accesslog.NewRepository(dbWrapper.DB())
 	ctx := context.Background()
 
 	ownerID := insertTestOwner(t, dbWrapper.DB())
@@ -394,7 +394,7 @@ func TestRepository_BatchInsert_ContributorCount_Multiple(t *testing.T) {
 	is := is.New(t)
 	dbWrapper, cleanup := testdb.Setup(t)
 	t.Cleanup(cleanup)
-	repo := accesslog.NewRepository(dbWrapper.DB(), nil)
+	repo := accesslog.NewRepository(dbWrapper.DB())
 	ctx := context.Background()
 
 	ownerID := insertTestOwner(t, dbWrapper.DB())

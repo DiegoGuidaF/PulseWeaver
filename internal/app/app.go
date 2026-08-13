@@ -149,14 +149,12 @@ func NewWithConfigAndLogger(ctx context.Context, conf *config.Conf, logger *slog
 	ruleService := rule.NewService(ruleRepo, logger)
 	ruleHandler := rule.NewHTTPHandler(ruleService, logger)
 
-	// Rollup — traffic aggregation behind the dashboard read API. Constructed
-	// ahead of the access log, whose histogram answers wide unfiltered windows
-	// from these aggregates instead of scanning the raw table.
+	// Rollup — traffic aggregation behind the dashboard read API.
 	rollupRepo := rollup.NewRepository(db.DB(), geoipLookup)
 	rollupHandler := rollup.NewHTTPHandler(rollupRepo, logger)
 
 	// Access log
-	accessLogRepo := accesslog.NewRepository(db.DB(), rollupRepo)
+	accessLogRepo := accesslog.NewRepository(db.DB())
 	accessLogSink := accesslog.NewSink(accessLogRepo, logger)
 	accessLogHandler := accesslog.NewHTTPHandler(accessLogRepo, logger)
 

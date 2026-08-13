@@ -31,7 +31,7 @@ func setupSuggestionsRepos(t *testing.T) suggestionsTestRepos {
 
 	return suggestionsTestRepos{
 		queries:   NewRepository(db.DB()),
-		accessLog: accesslog.NewRepository(db.DB(), nil),
+		accessLog: accesslog.NewRepository(db.DB()),
 		rollup:    rollup.NewRepository(db.DB(), nil),
 	}
 }
