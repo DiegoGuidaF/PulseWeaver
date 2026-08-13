@@ -20,6 +20,9 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
+      // Fail on a busy port instead of silently moving to 5174, where a stale
+      // server keeps answering the URL everyone still has open.
+      strictPort: true,
       proxy: {
         // Proxy API requests to Go backend during development
         '/api': {
