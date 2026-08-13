@@ -343,13 +343,34 @@ func NewAccessLogHistogramQuery(params httpapi.GetAccessLogHistogramParams) (Acc
 // histogram queries so none of them can drift. Cursor and limit attach to the
 // page builder only.
 func accessLogConditions(q AccessLogQuery) (sq.And, error) {
+	cond, err := accessLogFilterConditions(q)
+	if err != nil {
+		return nil, err
+	}
+	return append(accessLogWindowConditions(q.From, q.To), cond...), nil
+}
+
+// accessLogWindowConditions bounds created_at to [from, to]. It is separate from
+// the filter half because the histogram replaces it with a per-bucket range:
+// SQLite seeks an index on one lower and one upper bound per column and applies
+// any further bound as a row filter, so a bucket range added *alongside* the
+// window's makes the planner seek the whole window and filter down to the
+// bucket — rescanning every row in the window once per bucket.
+func accessLogWindowConditions(from, to time.Time) sq.And {
 	cond := sq.And{}
-	if !q.From.IsZero() {
-		cond = append(cond, sq.GtOrEq{"ral.created_at": q.From})
+	if !from.IsZero() {
+		cond = append(cond, sq.GtOrEq{"ral.created_at": from})
 	}
-	if !q.To.IsZero() {
-		cond = append(cond, sq.LtOrEq{"ral.created_at": q.To})
+	if !to.IsZero() {
+		cond = append(cond, sq.LtOrEq{"ral.created_at": to})
 	}
+	return cond
+}
+
+// accessLogFilterConditions is the time-independent half of the shared set:
+// outcome plus every registry filter, with no created_at bound at all.
+func accessLogFilterConditions(q AccessLogQuery) (sq.And, error) {
+	cond := sq.And{}
 	if q.Outcome != nil {
 		cond = append(cond, sq.Eq{"ral.outcome": *q.Outcome})
 	}
