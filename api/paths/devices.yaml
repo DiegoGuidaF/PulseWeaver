@@ -330,7 +330,12 @@ heartbeatById:
     tags:
       - devices
     summary: Device heartbeat
-    description: Device reports its current IP address. Extracts the client IP from the request and ensures it is enabled. Requires API Token or Session.
+    description: >
+      Registers an admin's own browser IP against the device — the "register my
+      current IP" action. Extracts the client IP from the request and ensures it
+      is enabled. Session-authenticated only: it inherits the global cookie
+      security, so the resulting address event is always recorded as `web_ui` /
+      `user`. Devices report their IP through `/heartbeat` with their API key.
     parameters:
       - name: device_id
         in: path
@@ -385,6 +390,18 @@ heartbeat:
       - apiKeyAuth: [ ]
     summary: Performs a heartbeat with the given api key header
     description: Same as /devices/{device_id}/heartbeat but authentication is provided via api-key for the device to update
+    parameters:
+      - name: trigger_type
+        in: query
+        required: false
+        schema:
+          type: string
+        description: >
+          What set this heartbeat off, recorded on the resulting address event:
+          `user`, `schedule` or `network_change`. Deliberately untyped, because
+          this annotation must never cost a device its access — an omitted,
+          unrecognised, or server-only (`system`) value is recorded as
+          `schedule` instead of failing the request.
     responses:
       "200":
         description: Address enabled

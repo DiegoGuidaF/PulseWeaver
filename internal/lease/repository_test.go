@@ -49,7 +49,7 @@ func insertAddress(t *testing.T, db *database.DB, deviceID ids.DeviceID, ip stri
 	if err != nil {
 		t.Fatalf("NewCreateAddressParams: %v", err)
 	}
-	addr, err := device.NewRepository(db).CreateAddress(context.Background(), params, device.EventSourceManual)
+	addr, err := device.NewRepository(db).CreateAddress(context.Background(), params, device.EventSourceWebUI, device.EventTriggerUser)
 	if err != nil {
 		t.Fatalf("CreateAddress: %v", err)
 	}

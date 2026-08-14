@@ -16,14 +16,16 @@ import (
 type fakeDisabler struct {
 	calledWith []ids.AddressID
 	source     device.EventSource
+	trigger    device.EventTrigger
 	err        error
 	calls      int
 }
 
-func (f *fakeDisabler) DisableAddresses(_ context.Context, ids []ids.AddressID, source device.EventSource) error {
+func (f *fakeDisabler) DisableAddresses(_ context.Context, ids []ids.AddressID, source device.EventSource, trigger device.EventTrigger) error {
 	f.calls++
 	f.calledWith = ids
 	f.source = source
+	f.trigger = trigger
 	return f.err
 }
 
@@ -60,6 +62,7 @@ func TestExpiryJob_ExpiredAddressesFound_DisablesAll(t *testing.T) {
 	is.Equal(disabler.calledWith[0], ids.AddressID(1))
 	is.Equal(disabler.calledWith[1], ids.AddressID(2))
 	is.Equal(disabler.source, device.EventSourceExpiry)
+	is.Equal(disabler.trigger, device.EventTriggerSystem)
 }
 
 func TestExpiryJob_FinderError_Propagates(t *testing.T) {

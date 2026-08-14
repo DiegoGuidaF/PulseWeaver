@@ -101,9 +101,10 @@ type DeviceFixture struct {
 type AddressFixture struct {
 	Device    string
 	IP        string
-	ExpiresAt *time.Time         // if set, a lease is created with this expiry
-	Disabled  bool               // if true, the address is disabled after registration
-	Source    device.EventSource // registration source; defaults to EventSourceManual
+	ExpiresAt *time.Time          // if set, a lease is created with this expiry
+	Disabled  bool                // if true, the address is disabled after registration
+	Source    device.EventSource  // registration source; defaults to EventSourceWebUI
+	Trigger   device.EventTrigger // what set the registration off; defaults per Source
 	// History, when non-empty, replaces the single now-stamped event that
 	// registration would otherwise leave with an explicit backdated sequence, so
 	// address-history views show a realistic heartbeat cadence against the lease
@@ -114,11 +115,13 @@ type AddressFixture struct {
 
 // AddressEventFixture is one backdated entry in an address's event history.
 // Ago is how long before Build time the event occurred; list entries oldest
-// (largest Ago) → newest (Ago 0). Source defaults to EventSourceManual.
+// (largest Ago) → newest (Ago 0). Source defaults to EventSourceWebUI and
+// Trigger to whichever value that source usually carries.
 type AddressEventFixture struct {
 	Ago     time.Duration
 	Enabled bool
 	Source  device.EventSource
+	Trigger device.EventTrigger
 }
 
 // PairingFixture describes a device pairing to seed.
@@ -561,6 +564,33 @@ func (s *Seeder) WithAddress(f AddressFixture) *Seeder {
 	return s
 }
 
+// addressProvenance fills in the two provenance axes of an address fixture.
+// An unset source seeds a web-UI write, and an unset trigger takes whatever
+// that source normally carries, so a fixture that cares about only one axis
+// still lands a pair the read models can make sense of. A fixture that wants
+// the interesting combination — a user-pressed heartbeat — sets both.
+func (s *Seeder) addressProvenance(source device.EventSource, trigger device.EventTrigger) (device.EventSource, device.EventTrigger) {
+	s.t.Helper()
+	if source == "" {
+		source = device.EventSourceWebUI
+	}
+	if trigger != "" {
+		return source, trigger
+	}
+
+	switch source {
+	case device.EventSourceHeartbeat:
+		trigger = device.EventTriggerSchedule
+	case device.EventSourceExpiry, device.EventSourceLimitExceeded:
+		trigger = device.EventTriggerSystem
+	case device.EventSourceWebUI:
+		trigger = device.EventTriggerUser
+	default:
+		s.t.Fatalf("Seeder: address fixture has unknown source %q", source)
+	}
+	return source, trigger
+}
+
 // replaceAddressHistory swaps the single now-stamped event left by registration for
 // the fixture's explicit backdated sequence, then aligns the address's live enabled
 // state with the newest entry. No service records events at past timestamps, so this
@@ -578,13 +608,10 @@ func (s *Seeder) replaceAddressHistory(srv *app.App, addrID ids.AddressID, f Add
 	now := time.Now().UTC()
 	var newest AddressEventFixture
 	for i, ev := range f.History {
-		source := ev.Source
-		if source == "" {
-			source = device.EventSourceManual
-		}
+		source, trigger := s.addressProvenance(ev.Source, ev.Trigger)
 		if _, err := db.ExecContext(ctx,
-			`INSERT INTO address_events (address_id, is_enabled, source, created_at) VALUES (?, ?, ?, ?)`,
-			addrID, ev.Enabled, source, now.Add(-ev.Ago),
+			`INSERT INTO address_events (address_id, is_enabled, source, trigger_type, created_at) VALUES (?, ?, ?, ?, ?)`,
+			addrID, ev.Enabled, source, trigger, now.Add(-ev.Ago),
 		); err != nil {
 			s.t.Fatalf("Seeder: insert event %d for address %q: %v", i, f.IP, err)
 		}
@@ -909,11 +936,8 @@ func (s *Seeder) Build(srv *app.App) *SeedResult {
 		if !ok {
 			s.t.Fatalf("Seeder: address %q references unknown device %q", f.IP, f.Device)
 		}
-		source := f.Source
-		if source == "" {
-			source = device.EventSourceManual
-		}
-		addr, _, err := srv.DeviceService.RegisterAddressActivity(ctx, deviceID, f.IP, source)
+		source, trigger := s.addressProvenance(f.Source, f.Trigger)
+		addr, _, err := srv.DeviceService.RegisterAddressActivity(ctx, deviceID, f.IP, source, trigger)
 		if err != nil {
 			s.t.Fatalf("Seeder: register address %q for device %q: %v", f.IP, f.Device, err)
 		}

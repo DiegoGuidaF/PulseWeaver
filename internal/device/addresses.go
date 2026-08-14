@@ -21,7 +21,7 @@ func (s *Service) notifyObservers(ctx context.Context, event AddressEvent) {
 	}
 }
 
-func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID ids.DeviceID, inputIP string, source EventSource) (*Address, AddressEventType, error) {
+func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID ids.DeviceID, inputIP string, source EventSource, trigger EventTrigger) (*Address, AddressEventType, error) {
 	createAddressParams, err := NewCreateAddressParams(deviceID, inputIP, s.trustedProxy)
 	if err != nil {
 		return nil, "", err
@@ -46,7 +46,7 @@ func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID ids.Devi
 		if err != nil {
 			if errors.Is(err, ErrAddressNotFound) {
 				eventType = EventTypeAddressCreated
-				address, err = s.repo.CreateAddress(ctx, createAddressParams, source)
+				address, err = s.repo.CreateAddress(ctx, createAddressParams, source, trigger)
 				if err != nil {
 					return err
 				}
@@ -58,10 +58,10 @@ func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID ids.Devi
 		switch {
 		case !existingAddress.IsEnabled:
 			eventType = EventTypeAddressEnabled
-			address, err = s.repo.EnableAddress(ctx, existingAddress.ID, source)
+			address, err = s.repo.EnableAddress(ctx, existingAddress.ID, source, trigger)
 		case existingAddress.IsEnabled:
 			eventType = EventTypeAddressRefreshed
-			address, err = s.repo.RefreshAddress(ctx, existingAddress.ID, source)
+			address, err = s.repo.RefreshAddress(ctx, existingAddress.ID, source, trigger)
 		}
 		if err != nil {
 			return err
@@ -78,6 +78,7 @@ func (s *Service) RegisterAddressActivity(ctx context.Context, deviceID ids.Devi
 		slog.String(AttrKeyAddressIP, address.IP),
 		slog.Int64(AttrKeyAddressID, address.ID.Int64()),
 		slog.String("event_type", string(eventType)),
+		slog.String(AttrKeyTriggerType, string(trigger)),
 	)
 
 	return address, eventType, nil
@@ -118,8 +119,8 @@ func (s *Service) DisableAddress(ctx context.Context, deviceID ids.DeviceID, add
 	return disabledAddress, nil
 }
 
-func (s *Service) DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source EventSource) error {
-	disabledAddresses, err := s.repo.DisableAddresses(ctx, addressIDs, source)
+func (s *Service) DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source EventSource, trigger EventTrigger) error {
+	disabledAddresses, err := s.repo.DisableAddresses(ctx, addressIDs, source, trigger)
 	if err != nil {
 		return err
 	}

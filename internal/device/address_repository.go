@@ -47,7 +47,7 @@ func (r *Repository) GetAddress(ctx context.Context, addressID ids.AddressID) (*
 	return state, nil
 }
 
-func (r *Repository) CreateAddress(ctx context.Context, params CreateAddressParams, source EventSource) (*Address, error) {
+func (r *Repository) CreateAddress(ctx context.Context, params CreateAddressParams, source EventSource, trigger EventTrigger) (*Address, error) {
 	var address *Address
 
 	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
@@ -63,7 +63,7 @@ func (r *Repository) CreateAddress(ctx context.Context, params CreateAddressPara
 			return err
 		}
 
-		if err := r.insertAddressEvent(ctx, addressID, true, source, now); err != nil {
+		if err := r.insertAddressEvent(ctx, addressID, true, source, trigger, now); err != nil {
 			return err
 		}
 
@@ -123,11 +123,14 @@ func (r *Repository) CheckAddressOwnership(ctx context.Context, deviceID ids.Dev
 	return nil
 }
 
+// DisableAddress turns off a single address. Only the web UI's address toggle
+// reaches it, so its provenance is fixed here; the bulk DisableAddresses is
+// what the expiry and address-limit jobs use.
 func (r *Repository) DisableAddress(ctx context.Context, addressID ids.AddressID) (*Address, error) {
-	return r.recordAddressEvent(ctx, addressID, false, EventSourceManual)
+	return r.recordAddressEvent(ctx, addressID, false, EventSourceWebUI, EventTriggerUser)
 }
 
-func (r *Repository) DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source EventSource) ([]Address, error) {
+func (r *Repository) DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source EventSource, trigger EventTrigger) ([]Address, error) {
 	if len(addressIDs) == 0 {
 		return []Address{}, nil
 	}
@@ -136,7 +139,7 @@ func (r *Repository) DisableAddresses(ctx context.Context, addressIDs []ids.Addr
 
 	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
 		for i, addressID := range addressIDs {
-			disabledAddress, err := r.recordAddressEvent(ctx, addressID, false, source)
+			disabledAddress, err := r.recordAddressEvent(ctx, addressID, false, source, trigger)
 			if err != nil {
 				return fmt.Errorf("failed to disable address %d: %w", addressID, err)
 			}
@@ -152,13 +155,13 @@ func (r *Repository) DisableAddresses(ctx context.Context, addressIDs []ids.Addr
 	return disabledAddresses, nil
 }
 
-func (r *Repository) EnableAddress(ctx context.Context, addressID ids.AddressID, source EventSource) (*Address, error) {
-	return r.recordAddressEvent(ctx, addressID, true, source)
+func (r *Repository) EnableAddress(ctx context.Context, addressID ids.AddressID, source EventSource, trigger EventTrigger) (*Address, error) {
+	return r.recordAddressEvent(ctx, addressID, true, source, trigger)
 }
 
 // RefreshAddress records activity for an already-enabled address
-func (r *Repository) RefreshAddress(ctx context.Context, addressID ids.AddressID, source EventSource) (*Address, error) {
-	return r.EnableAddress(ctx, addressID, source)
+func (r *Repository) RefreshAddress(ctx context.Context, addressID ids.AddressID, source EventSource, trigger EventTrigger) (*Address, error) {
+	return r.EnableAddress(ctx, addressID, source, trigger)
 }
 
 func (r *Repository) GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error) {
@@ -206,24 +209,24 @@ func (r *Repository) GetEnabledAddressesForDevice(ctx context.Context, deviceID 
 }
 
 // insertAddressEvent records an event in the address_events audit table without modifying the address itself.
-func (r *Repository) insertAddressEvent(ctx context.Context, addressID ids.AddressID, isEnabled bool, source EventSource, at time.Time) error {
+func (r *Repository) insertAddressEvent(ctx context.Context, addressID ids.AddressID, isEnabled bool, source EventSource, trigger EventTrigger, at time.Time) error {
 	query := `
-		INSERT INTO address_events (address_id, is_enabled, source, created_at)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO address_events (address_id, is_enabled, source, trigger_type, created_at)
+		VALUES (?, ?, ?, ?, ?)
 	`
 
-	if _, err := r.db.ExecContext(ctx, query, addressID, isEnabled, source, at); err != nil {
+	if _, err := r.db.ExecContext(ctx, query, addressID, isEnabled, source, trigger, at); err != nil {
 		return fmt.Errorf("failed to record event: %w", err)
 	}
 	return nil
 }
 
-func (r *Repository) recordAddressEvent(ctx context.Context, addressID ids.AddressID, isEnabled bool, source EventSource) (*Address, error) {
+func (r *Repository) recordAddressEvent(ctx context.Context, addressID ids.AddressID, isEnabled bool, source EventSource, trigger EventTrigger) (*Address, error) {
 	var finalAddress *Address
 	err := r.db.WithinTx(ctx, func(ctx context.Context) error {
 		now := time.Now().UTC()
 
-		if err := r.insertAddressEvent(ctx, addressID, isEnabled, source, now); err != nil {
+		if err := r.insertAddressEvent(ctx, addressID, isEnabled, source, trigger, now); err != nil {
 			return err
 		}
 

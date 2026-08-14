@@ -38,7 +38,7 @@ func TestRepository_CreateAddress_SetsInitialState(t *testing.T) {
 	addr := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.1")
 
 	is.True(addr.IsEnabled)
-	is.Equal(string(addr.Source), string(device.EventSourceManual))
+	is.Equal(string(addr.Source), string(device.EventSourceWebUI))
 
 	// created_at and updated_at must match — the address was created once, not created then updated
 	is.Equal(addr.CreatedAt, addr.UpdatedAt)
@@ -115,7 +115,7 @@ func TestRepository_EnableAddress(t *testing.T) {
 	_, err := repos.repo.DisableAddress(ctx, addr.ID)
 	is.NoErr(err)
 
-	enabled, err := repos.repo.EnableAddress(ctx, addr.ID, device.EventSourceManual)
+	enabled, err := repos.repo.EnableAddress(ctx, addr.ID, device.EventSourceWebUI, device.EventTriggerUser)
 	is.NoErr(err)
 	is.Equal(enabled.ID, addr.ID)
 	is.True(enabled.IsEnabled)
@@ -284,7 +284,7 @@ func TestRepository_GetEnabledAddressesForDevice_OrderedByUpdatedAtDesc(t *testi
 	addr1 := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.1")
 	addr2 := createTestAddress(t, repos.repo, ctx, dev.ID, "10.0.0.2")
 
-	_, err := repos.repo.RefreshAddress(ctx, addr1.ID, device.EventSourceManual)
+	_, err := repos.repo.RefreshAddress(ctx, addr1.ID, device.EventSourceWebUI, device.EventTriggerUser)
 	is.NoErr(err)
 
 	enabled, err := repos.repo.GetEnabledAddressesForDevice(ctx, dev.ID)
@@ -320,7 +320,7 @@ func TestRepository_DeleteAddressEventsOlderThan_RemovesOldRows(t *testing.T) {
 	old := time.Now().UTC().Add(-48 * time.Hour)
 	for i := 0; i < 2; i++ {
 		if _, err := repos.db.ExecContext(ctx,
-			`INSERT INTO address_events (address_id, is_enabled, source, created_at) VALUES (?, 1, 'manual', ?)`,
+			`INSERT INTO address_events (address_id, is_enabled, source, trigger_type, created_at) VALUES (?, 1, 'web_ui', 'user', ?)`,
 			addr.ID, old,
 		); err != nil {
 			t.Fatalf("insert old event: %v", err)

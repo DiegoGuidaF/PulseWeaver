@@ -56,7 +56,7 @@ func TestHandler_SimulatePolicyAccess_HostNotAllowed(t *testing.T) {
 
 	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "sim-device", nil)
 	is.NoErr(err)
-	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "5.6.7.9", device.EventSourceManual)
+	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "5.6.7.9", device.EventSourceWebUI, device.EventTriggerUser)
 	is.NoErr(err)
 	is.NoErr(testServer.PolicyService.Initialize(ctx))
 
@@ -84,7 +84,7 @@ func TestHandler_SimulatePolicyAccess_AllowedBypass(t *testing.T) {
 
 	dev, err := testServer.DeviceService.CreateDevice(ctx, principal, "sim-bypass-device", nil)
 	is.NoErr(err)
-	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "5.6.7.10", device.EventSourceManual)
+	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "5.6.7.10", device.EventSourceWebUI, device.EventTriggerUser)
 	is.NoErr(err)
 	is.NoErr(testServer.PolicyService.Initialize(ctx))
 

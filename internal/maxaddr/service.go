@@ -22,7 +22,7 @@ type EnabledAddressFetcher interface {
 
 // AddressDisabler is implemented by *device.Service.
 type AddressDisabler interface {
-	DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source device.EventSource) error
+	DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source device.EventSource, trigger device.EventTrigger) error
 }
 
 // Service listens for address events and enforces the max active addresses rule asynchronously.
@@ -138,7 +138,7 @@ func (s *Service) enforce(ctx context.Context, deviceID ids.DeviceID, justRegist
 	}
 	s.logger.DebugContext(ctx, "exceeded max active addresses for device, dropping addresses", slog.Any("addresses", toDisable))
 
-	if err := s.disabler.DisableAddresses(ctx, toDisable, device.EventSourceLimitExceeded); err != nil {
+	if err := s.disabler.DisableAddresses(ctx, toDisable, device.EventSourceLimitExceeded, device.EventTriggerSystem); err != nil {
 		s.logger.WarnContext(ctx, "failed to evict addresses for max active rule",
 			slog.Any("error", err),
 			slog.Int("to_evict", len(toDisable)),

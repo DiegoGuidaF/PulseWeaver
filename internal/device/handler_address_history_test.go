@@ -25,7 +25,7 @@ func TestHandler_GetAddressHistory_EventEnrichment(t *testing.T) {
 	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "history-device", nil)
 	is.NoErr(err)
 
-	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.0.0.1", device.EventSourceHeartbeat)
+	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.0.0.1", device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 
 	deviceIDFilter := []httpapi.ID{dev.ID.Int64()}
@@ -68,9 +68,9 @@ func TestHandler_GetAddressHistory_FiltersMatchHistogram(t *testing.T) {
 	_, err = testServer.RuleService.EnableDeviceAddressLeaseRule(ctx, devB.ID, ttlSeconds)
 	is.NoErr(err)
 
-	addrA, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, devA.ID, "10.1.0.1", device.EventSourceHeartbeat)
+	addrA, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, devA.ID, "10.1.0.1", device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
-	addrB, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, devB.ID, "10.2.0.1", device.EventSourceHeartbeat)
+	addrB, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, devB.ID, "10.2.0.1", device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 
 	// Both devices renew far past their TTL, so both are at risk and the
@@ -138,7 +138,7 @@ func TestHandler_GetAddressHistory_DerivedFiltersMatchHistogram(t *testing.T) {
 	_, err = testServer.RuleService.EnableDeviceAddressLeaseRule(ctx, dev.ID, ttlSeconds)
 	is.NoErr(err)
 
-	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.5.0.1", device.EventSourceHeartbeat)
+	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.5.0.1", device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 
 	// Backdate the creation and append a timeline covering every derived value:
@@ -283,10 +283,10 @@ func TestHandler_GetAddressHistory_RoutineExpiryNotBreached(t *testing.T) {
 	_, err = testServer.RuleService.EnableDeviceAddressLeaseRule(ctx, dev.ID, ttlSeconds)
 	is.NoErr(err)
 
-	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.0.0.1", device.EventSourceHeartbeat)
+	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.0.0.1", device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 
-	err = testServer.DeviceService.DisableAddresses(ctx, []ids.AddressID{addr.ID}, device.EventSourceExpiry)
+	err = testServer.DeviceService.DisableAddresses(ctx, []ids.AddressID{addr.ID}, device.EventSourceExpiry, device.EventTriggerSystem)
 	is.NoErr(err)
 
 	deviceIDFilter := []httpapi.ID{dev.ID.Int64()}
@@ -325,7 +325,7 @@ func TestHandler_GetAddressHistory_BreachedAgreesWithExpiryEvent(t *testing.T) {
 	_, err = testServer.RuleService.EnableDeviceAddressLeaseRule(ctx, dev.ID, ttlSeconds)
 	is.NoErr(err)
 
-	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.0.0.1", device.EventSourceHeartbeat)
+	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.0.0.1", device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 
 	db := testServer.Database.DB()
@@ -387,7 +387,7 @@ func TestHandler_GetAddressHistory_EventKindStableAcrossWindow(t *testing.T) {
 
 	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "stable-device", nil)
 	is.NoErr(err)
-	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.0.0.1", device.EventSourceHeartbeat)
+	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.0.0.1", device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 	_, err = testServer.DeviceService.DisableAddress(ctx, dev.ID, addr.ID)
 	is.NoErr(err)
@@ -450,7 +450,7 @@ func TestHandler_GetAddressHistory_Pagination(t *testing.T) {
 	is.NoErr(err)
 
 	for i := range 5 {
-		_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, fmt.Sprintf("10.0.0.%d", i+1), device.EventSourceHeartbeat)
+		_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, fmt.Sprintf("10.0.0.%d", i+1), device.EventSourceHeartbeat, device.EventTriggerSchedule)
 		is.NoErr(err)
 	}
 
@@ -519,7 +519,7 @@ func TestHandler_GetAddressHistoryHistogram_WorstRiskPerBucket(t *testing.T) {
 	_, err = testServer.RuleService.EnableDeviceAddressLeaseRule(ctx, dev.ID, ttlSeconds)
 	is.NoErr(err)
 
-	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.6.0.1", device.EventSourceHeartbeat)
+	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.6.0.1", device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 
 	// t0 sits on a 5-minute boundary so every offset below stays inside one
@@ -589,7 +589,7 @@ func TestHandler_GetAddressHistoryHistogram_ContiguousBucketsAcrossGap(t *testin
 	_, err = testServer.RuleService.EnableDeviceAddressLeaseRule(ctx, dev.ID, ttlSeconds)
 	is.NoErr(err)
 
-	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.7.0.1", device.EventSourceHeartbeat)
+	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.7.0.1", device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 
 	t0 := time.Now().UTC().Truncate(time.Hour).Add(-6 * time.Hour)
@@ -650,7 +650,7 @@ func TestHandler_GetAddressHistoryHistogram_UnknownOnlyBucketIsAllZero(t *testin
 
 	// No lease rule configured: every event classifies unknown regardless of
 	// the gap between them.
-	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.7.2.1", device.EventSourceHeartbeat)
+	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.7.2.1", device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 
 	db := testServer.Database.DB()
@@ -708,7 +708,7 @@ func TestHandler_GetAddressHistoryHistogram_OkCountsInBuckets(t *testing.T) {
 	_, err = testServer.RuleService.EnableDeviceAddressLeaseRule(ctx, dev.ID, ttlSeconds)
 	is.NoErr(err)
 
-	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.6.0.2", device.EventSourceHeartbeat)
+	addr, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.6.0.2", device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 
 	db := testServer.Database.DB()

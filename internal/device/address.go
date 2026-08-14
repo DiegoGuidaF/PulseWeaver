@@ -20,15 +20,48 @@ type Address struct {
 }
 
 // EventSource is an alias for the API-generated type, making openapi.yaml
-// the single source of truth for valid values.
+// the single source of truth for valid values. It records which subsystem
+// wrote an address event; EventTrigger records what set it off.
 type EventSource = httpapi.AddressEventSource
 
 const (
 	EventSourceHeartbeat     = httpapi.Heartbeat
-	EventSourceManual        = httpapi.Manual
+	EventSourceWebUI         = httpapi.WebUi
 	EventSourceExpiry        = httpapi.Expiry
 	EventSourceLimitExceeded = httpapi.LimitExceeded
 )
+
+// EventTrigger is an alias for the API-generated type, making openapi.yaml
+// the single source of truth for valid values. It is orthogonal to
+// EventSource: the same subsystem writes events for different reasons, and
+// the pairing is always a caller decision — a heartbeat can be scheduled or
+// user-pressed, so neither axis may be derived from the other.
+type EventTrigger = httpapi.AddressEventTrigger
+
+const (
+	EventTriggerUser          = httpapi.AddressEventTriggerUser
+	EventTriggerSchedule      = httpapi.AddressEventTriggerSchedule
+	EventTriggerNetworkChange = httpapi.AddressEventTriggerNetworkChange
+	EventTriggerSystem        = httpapi.AddressEventTriggerSystem
+)
+
+// ParseEventTrigger maps a caller-supplied trigger onto a value safe to store.
+// It takes a raw string rather than the enum because the heartbeat endpoints
+// deliberately declare the parameter untyped: a value the request validator
+// would reject costs the device its authorization, and a heartbeat must never
+// fail over its own annotation. So an unrecognised value degrades here, as
+// does EventTriggerSystem, which is server-set and not claimable over the
+// wire. The bool reports whether v was recognised, so the caller can warn
+// without deciding the fallback itself. An absent parameter is the caller's
+// own case to handle: it is an ordinary older-client heartbeat, not something
+// to warn about.
+func ParseEventTrigger(v string) (EventTrigger, bool) {
+	trigger := EventTrigger(v)
+	if !trigger.Valid() || trigger == EventTriggerSystem {
+		return EventTriggerSchedule, false
+	}
+	return trigger, true
+}
 
 // CreateAddressParams holds only what is necessary to create an address.
 type CreateAddressParams struct {

@@ -313,7 +313,7 @@ type ClientInterface interface {
 	DeleteDevicePairing(ctx context.Context, id ID, pairingId ID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeviceHeartbeatByAPIKey request
-	DeviceHeartbeatByAPIKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeviceHeartbeatByAPIKey(ctx context.Context, params *DeviceHeartbeatByAPIKeyParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListOwnerRefs request
 	ListOwnerRefs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1292,8 +1292,8 @@ func (c *Client) DeleteDevicePairing(ctx context.Context, id ID, pairingId ID, r
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeviceHeartbeatByAPIKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeviceHeartbeatByAPIKeyRequest(c.Server)
+func (c *Client) DeviceHeartbeatByAPIKey(ctx context.Context, params *DeviceHeartbeatByAPIKeyParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeviceHeartbeatByAPIKeyRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2236,6 +2236,30 @@ func NewGetAddressHistoryRequest(server string, params *GetAddressHistoryParams)
 
 		}
 
+		if params.TriggerType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "trigger_type", *params.TriggerType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TriggerTypeOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "trigger_type_op", *params.TriggerTypeOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.EventKind != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "event_kind", *params.EventKind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
@@ -2461,6 +2485,30 @@ func NewGetAddressHistoryHistogramRequest(server string, params *GetAddressHisto
 		if params.SourceOp != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source_op", *params.SourceOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TriggerType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "trigger_type", *params.TriggerType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TriggerTypeOp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "trigger_type_op", *params.TriggerTypeOp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -4892,7 +4940,7 @@ func NewDeleteDevicePairingRequest(server string, id ID, pairingId ID) (*http.Re
 }
 
 // NewDeviceHeartbeatByAPIKeyRequest generates requests for DeviceHeartbeatByAPIKey
-func NewDeviceHeartbeatByAPIKeyRequest(server string) (*http.Request, error) {
+func NewDeviceHeartbeatByAPIKeyRequest(server string, params *DeviceHeartbeatByAPIKeyParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -4908,6 +4956,33 @@ func NewDeviceHeartbeatByAPIKeyRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.TriggerType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "trigger_type", *params.TriggerType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
@@ -5319,7 +5394,7 @@ type ClientWithResponsesInterface interface {
 	DeleteDevicePairingWithResponse(ctx context.Context, id ID, pairingId ID, reqEditors ...RequestEditorFn) (*DeleteDevicePairingTestClientResponse, error)
 
 	// DeviceHeartbeatByAPIKeyWithResponse request
-	DeviceHeartbeatByAPIKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*DeviceHeartbeatByAPIKeyTestClientResponse, error)
+	DeviceHeartbeatByAPIKeyWithResponse(ctx context.Context, params *DeviceHeartbeatByAPIKeyParams, reqEditors ...RequestEditorFn) (*DeviceHeartbeatByAPIKeyTestClientResponse, error)
 
 	// ListOwnerRefsWithResponse request
 	ListOwnerRefsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOwnerRefsTestClientResponse, error)
@@ -8262,8 +8337,8 @@ func (c *ClientWithResponses) DeleteDevicePairingWithResponse(ctx context.Contex
 }
 
 // DeviceHeartbeatByAPIKeyWithResponse request returning *DeviceHeartbeatByAPIKeyTestClientResponse
-func (c *ClientWithResponses) DeviceHeartbeatByAPIKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*DeviceHeartbeatByAPIKeyTestClientResponse, error) {
-	rsp, err := c.DeviceHeartbeatByAPIKey(ctx, reqEditors...)
+func (c *ClientWithResponses) DeviceHeartbeatByAPIKeyWithResponse(ctx context.Context, params *DeviceHeartbeatByAPIKeyParams, reqEditors ...RequestEditorFn) (*DeviceHeartbeatByAPIKeyTestClientResponse, error) {
+	rsp, err := c.DeviceHeartbeatByAPIKey(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

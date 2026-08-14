@@ -24,7 +24,7 @@ func TestService_RegisterAddressActivity_NewAddress(t *testing.T) {
 
 	service := newService(mockRepo)
 
-	addr, eventType, err := service.RegisterAddressActivity(ctx, dev.ID, "192.168.1.100", device.EventSourceManual)
+	addr, eventType, err := service.RegisterAddressActivity(ctx, dev.ID, "192.168.1.100", device.EventSourceWebUI, device.EventTriggerUser)
 	is.NoErr(err)
 	is.Equal(eventType, device.EventTypeAddressCreated)
 	is.True(addr != nil)
@@ -52,7 +52,7 @@ func TestService_RegisterAddressActivity_ExistingAddress(t *testing.T) {
 
 	service := newService(mockRepo)
 
-	addr, eventType, err := service.RegisterAddressActivity(ctx, dev.ID, "192.168.1.100", device.EventSourceManual)
+	addr, eventType, err := service.RegisterAddressActivity(ctx, dev.ID, "192.168.1.100", device.EventSourceWebUI, device.EventTriggerUser)
 	is.NoErr(err)
 	is.Equal(eventType, device.EventTypeAddressEnabled) // Address already existed, we just enabled it
 	is.True(addr != nil)
@@ -82,7 +82,7 @@ func TestService_RegisterAddressActivity_ExistingEnabledAddress(t *testing.T) {
 	observer := &testAddressObserver{}
 	service.AddAddressObserver(observer)
 
-	addr, eventType, err := service.RegisterAddressActivity(ctx, dev.ID, "192.168.1.100", device.EventSourceHeartbeat)
+	addr, eventType, err := service.RegisterAddressActivity(ctx, dev.ID, "192.168.1.100", device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 	is.Equal(eventType, device.EventTypeAddressRefreshed)
 	is.True(addr != nil)
@@ -106,7 +106,7 @@ func TestService_RegisterAddressActivity_DeviceNotFound(t *testing.T) {
 
 	service := newService(mockRepo)
 
-	addr, eventType, err := service.RegisterAddressActivity(ctx, ids.DeviceID(999), "192.168.1.100", device.EventSourceManual)
+	addr, eventType, err := service.RegisterAddressActivity(ctx, ids.DeviceID(999), "192.168.1.100", device.EventSourceWebUI, device.EventTriggerUser)
 	is.True(err != nil)
 	is.Equal(err, device.ErrDeviceNotFound)
 	is.True(addr == nil)
@@ -124,7 +124,7 @@ func TestService_RegisterAddressActivity_DisabledDeviceRejected(t *testing.T) {
 
 	service := newService(mockRepo)
 
-	addr, eventType, err := service.RegisterAddressActivity(ctx, dev.ID, "192.168.1.100", device.EventSourceManual)
+	addr, eventType, err := service.RegisterAddressActivity(ctx, dev.ID, "192.168.1.100", device.EventSourceWebUI, device.EventTriggerUser)
 	is.True(errors.Is(err, device.ErrDeviceDisabled))
 	is.True(addr == nil)
 	is.Equal(eventType, device.AddressEventType(""))
@@ -142,7 +142,7 @@ func TestService_RegisterAddressActivity_RejectsTrustedProxyIP(t *testing.T) {
 
 	service := newServiceWithTrustedProxy(mockRepo, netip.MustParseAddr("10.1.2.3"))
 
-	addr, eventType, err := service.RegisterAddressActivity(ctx, dev.ID, "10.1.2.3", device.EventSourceHeartbeat)
+	addr, eventType, err := service.RegisterAddressActivity(ctx, dev.ID, "10.1.2.3", device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.True(errors.Is(err, device.ErrTrustedProxyIPRejected))
 	is.True(addr == nil)
 	is.Equal(eventType, device.AddressEventType(""))
@@ -160,7 +160,7 @@ func TestService_RegisterAddressActivity_NotifiesObserverOnNewAddress(t *testing
 	observer := &testAddressObserver{}
 	service.AddAddressObserver(observer)
 
-	addr, eventType, err := service.RegisterAddressActivity(ctx, dev.ID, "192.168.1.100", device.EventSourceManual)
+	addr, eventType, err := service.RegisterAddressActivity(ctx, dev.ID, "192.168.1.100", device.EventSourceWebUI, device.EventTriggerUser)
 	is.NoErr(err)
 	is.Equal(eventType, device.EventTypeAddressCreated)
 	is.True(addr != nil)
@@ -313,7 +313,7 @@ func TestService_DisableAddresses_NotifiesObserverPerAddress(t *testing.T) {
 	observer := &testAddressObserver{}
 	service.AddAddressObserver(observer)
 
-	err := service.DisableAddresses(ctx, []ids.AddressID{address1.ID, address2.ID}, device.EventSourceManual)
+	err := service.DisableAddresses(ctx, []ids.AddressID{address1.ID, address2.ID}, device.EventSourceWebUI, device.EventTriggerUser)
 	is.NoErr(err)
 
 	is.Equal(len(observer.events), 2)

@@ -163,7 +163,7 @@ func seedDevice(t *testing.T, db *database.DB, id, ownerID int64, name string) {
 func seedAddress(t *testing.T, db *database.DB, id, deviceID int64, ip string) {
 	t.Helper()
 	_, err := db.ExecContext(t.Context(), `
-		INSERT INTO addresses (id, device_id, ip, source, is_enabled) VALUES (?, ?, ?, 'manual', 1)
+		INSERT INTO addresses (id, device_id, ip, source, is_enabled) VALUES (?, ?, ?, 'web_ui', 1)
 	`, id, deviceID, ip)
 	if err != nil {
 		t.Fatalf("seed address: %v", err)

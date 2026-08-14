@@ -203,7 +203,7 @@ func (h *HTTPHandler) AddAddress(ctx context.Context, request httpapi.AddAddress
 		slog.String(AttrKeyAddressIP, ipAddress),
 	)
 
-	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, ipAddress, EventSourceManual)
+	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, ipAddress, EventSourceWebUI, EventTriggerUser)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
@@ -251,7 +251,7 @@ func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request httpapi.Devic
 	}
 	logger = logger.With(slog.String(AttrKeyClientIP, clientIP))
 
-	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, clientIP, EventSourceHeartbeat)
+	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, clientIP, EventSourceWebUI, EventTriggerUser)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):
@@ -288,7 +288,7 @@ func (h *HTTPHandler) DeviceHeartbeat(ctx context.Context, request httpapi.Devic
 	return httpapi.DeviceHeartbeat200JSONResponse(toAddressResponse(address)), nil
 }
 
-func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, _ httpapi.DeviceHeartbeatByAPIKeyRequestObject) (httpapi.DeviceHeartbeatByAPIKeyResponseObject, error) {
+func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, request httpapi.DeviceHeartbeatByAPIKeyRequestObject) (httpapi.DeviceHeartbeatByAPIKeyResponseObject, error) {
 	ctx = logging.WithOperation(ctx, "DeviceHeartbeatByAPIKey")
 	logger := h.logger
 
@@ -307,7 +307,19 @@ func (h *HTTPHandler) DeviceHeartbeatByAPIKey(ctx context.Context, _ httpapi.Dev
 	}
 	logger = logger.With(slog.String(AttrKeyClientIP, clientIP))
 
-	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, clientIP, EventSourceHeartbeat)
+	// An unusable annotation is degraded rather than rejected: the heartbeat is
+	// what keeps the device authorized, so it must survive a malformed one.
+	// An absent one just means a client older than the trigger axis.
+	trigger := EventTriggerSchedule
+	if raw := request.Params.TriggerType; raw != nil {
+		var recognised bool
+		if trigger, recognised = ParseEventTrigger(*raw); !recognised {
+			logger.WarnContext(ctx, "unusable heartbeat trigger_type, recording as scheduled",
+				slog.String(AttrKeyTriggerType, *raw))
+		}
+	}
+
+	address, eventType, err := h.service.RegisterAddressActivity(ctx, deviceID, clientIP, EventSourceHeartbeat, trigger)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidIPFormat):

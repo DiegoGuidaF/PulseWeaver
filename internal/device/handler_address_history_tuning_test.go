@@ -46,7 +46,7 @@ func seedRenewalGaps(t *testing.T, srv *app.App, name, ip string, start time.Tim
 	is.NoErr(err)
 	_, err = srv.RuleService.EnableDeviceAddressLeaseRule(ctx, dev.ID, seedRenewalTTL)
 	is.NoErr(err)
-	addr, _, err := srv.DeviceService.RegisterAddressActivity(ctx, dev.ID, ip, device.EventSourceHeartbeat)
+	addr, _, err := srv.DeviceService.RegisterAddressActivity(ctx, dev.ID, ip, device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 
 	db := srv.Database.DB()
@@ -182,7 +182,7 @@ func TestHandler_GetAddressHistoryTuning_SampleFloor(t *testing.T) {
 
 	// Cross the floor: one more renewal for the same device, still comfortably
 	// breached since it lands hours after the backdated timeline.
-	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, deviceID, ip, device.EventSourceHeartbeat)
+	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, deviceID, ip, device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 
 	above, err := client.GetAddressHistoryTuningWithResponse(ctx, &httpapi.GetAddressHistoryTuningParams{From: &from, To: &to})
@@ -405,7 +405,7 @@ func TestHandler_GetAddressHistoryTuning_DeviceIDNoLeaseRule(t *testing.T) {
 
 	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "no-lease-rule-device", nil)
 	is.NoErr(err)
-	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.9.4.1", device.EventSourceHeartbeat)
+	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.9.4.1", device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 
 	id := dev.ID.Int64()

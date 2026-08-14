@@ -42,7 +42,7 @@ VALUES ('2024-01-01 00:00:00', '10.0.0.2', 'example.com', 0, 'no_device', 2);
 
 -- Enabled address
 INSERT INTO addresses (device_id, ip, source, is_enabled)
-    SELECT id, '192.168.1.1', 'manual', 1 FROM devices WHERE name = 'seed-router';
+    SELECT id, '192.168.1.1', 'web_ui', 1 FROM devices WHERE name = 'seed-router';
 
 -- Disabled address — exercises CHECK (is_enabled IN (0, 1)) with value 0
 INSERT INTO addresses (device_id, ip, source, is_enabled)
@@ -51,7 +51,7 @@ INSERT INTO addresses (device_id, ip, source, is_enabled)
 -- Native IPv6 address — exercises IPv6 storage/lookup (PW-67). Stored canonical
 -- (unmapped), so migration 000025's 4-in-6 normalization must leave it untouched.
 INSERT INTO addresses (device_id, ip, source, is_enabled)
-    SELECT id, '2001:db8::1', 'manual', 1 FROM devices WHERE name = 'seed-router';
+    SELECT id, '2001:db8::1', 'web_ui', 1 FROM devices WHERE name = 'seed-router';
 
 INSERT INTO device_api_keys (device_id, key_prefix, key_hash)
     SELECT id, 'pw_test', 'hash-seed' FROM devices WHERE name = 'seed-router';
@@ -61,12 +61,13 @@ INSERT INTO device_rules (device_id, rule_type, config)
 
 -- ── Depend on addresses ───────────────────────────────────────────────────────
 
--- Both is_enabled values to exercise CHECK (is_enabled IN (0, 1))
-INSERT INTO address_events (address_id, is_enabled, source)
-    SELECT id, 1, 'manual' FROM addresses WHERE ip = '192.168.1.1';
+-- Both is_enabled values to exercise CHECK (is_enabled IN (0, 1)), and both
+-- provenance axes set explicitly so neither rides its column default.
+INSERT INTO address_events (address_id, is_enabled, source, trigger_type)
+    SELECT id, 1, 'web_ui', 'user' FROM addresses WHERE ip = '192.168.1.1';
 
-INSERT INTO address_events (address_id, is_enabled, source)
-    SELECT id, 0, 'manual' FROM addresses WHERE ip = '192.168.1.2';
+INSERT INTO address_events (address_id, is_enabled, source, trigger_type)
+    SELECT id, 0, 'heartbeat', 'schedule' FROM addresses WHERE ip = '192.168.1.2';
 
 INSERT INTO address_leases (device_id, address_id)
     SELECT d.id, a.id FROM devices d

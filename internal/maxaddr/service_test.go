@@ -38,11 +38,13 @@ func (m *mockEnabledAddressFetcher) GetEnabledAddressesForDevice(_ context.Conte
 
 type mockAddressDisabler struct {
 	disabledIDs []ids.AddressID
+	trigger     device.EventTrigger
 	err         error
 }
 
-func (m *mockAddressDisabler) DisableAddresses(_ context.Context, addressIDs []ids.AddressID, _ device.EventSource) error {
+func (m *mockAddressDisabler) DisableAddresses(_ context.Context, addressIDs []ids.AddressID, _ device.EventSource, trigger device.EventTrigger) error {
 	m.disabledIDs = append(m.disabledIDs, addressIDs...)
+	m.trigger = trigger
 	return m.err
 }
 
@@ -128,6 +130,7 @@ func TestService_Enforce_OverLimit_EvictsOldest(t *testing.T) {
 
 	is.Equal(len(disabler.disabledIDs), 1)
 	is.Equal(disabler.disabledIDs[0], ids.AddressID(1)) // oldest evicted
+	is.Equal(disabler.trigger, device.EventTriggerSystem)
 }
 
 func TestService_Enforce_NewAddressNotEvicted(t *testing.T) {

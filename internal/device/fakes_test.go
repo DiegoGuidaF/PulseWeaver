@@ -116,7 +116,7 @@ func (m *mockRepository) GetDeviceByAPIKeyHash(ctx context.Context, keyHash stri
 	return dev, nil
 }
 
-func (m *mockRepository) CreateAddress(ctx context.Context, params device.CreateAddressParams, source device.EventSource) (*device.Address, error) {
+func (m *mockRepository) CreateAddress(ctx context.Context, params device.CreateAddressParams, source device.EventSource, trigger device.EventTrigger) (*device.Address, error) {
 	if m.createAddressErr != nil {
 		return nil, m.createAddressErr
 	}
@@ -126,7 +126,7 @@ func (m *mockRepository) CreateAddress(ctx context.Context, params device.Create
 		DeviceID:  params.DeviceID,
 		IP:        params.IP.String(),
 		IsEnabled: true,
-		Source:    device.EventSourceManual,
+		Source:    device.EventSourceWebUI,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -163,7 +163,7 @@ func (m *mockRepository) DisableAddress(ctx context.Context, addressID ids.Addre
 	return addr, nil
 }
 
-func (m *mockRepository) DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source device.EventSource) ([]device.Address, error) {
+func (m *mockRepository) DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source device.EventSource, _ device.EventTrigger) ([]device.Address, error) {
 	result := make([]device.Address, 0, len(addressIDs))
 	for _, addressID := range addressIDs {
 		addr, err := m.DisableAddress(ctx, addressID)
@@ -176,7 +176,7 @@ func (m *mockRepository) DisableAddresses(ctx context.Context, addressIDs []ids.
 	return result, nil
 }
 
-func (m *mockRepository) EnableAddress(ctx context.Context, addressID ids.AddressID, source device.EventSource) (*device.Address, error) {
+func (m *mockRepository) EnableAddress(ctx context.Context, addressID ids.AddressID, source device.EventSource, _ device.EventTrigger) (*device.Address, error) {
 	if m.enableAddressErr != nil {
 		return nil, m.enableAddressErr
 	}
@@ -189,8 +189,8 @@ func (m *mockRepository) EnableAddress(ctx context.Context, addressID ids.Addres
 	return addr, nil
 }
 
-func (m *mockRepository) RefreshAddress(ctx context.Context, addressID ids.AddressID, source device.EventSource) (*device.Address, error) {
-	return m.EnableAddress(ctx, addressID, source)
+func (m *mockRepository) RefreshAddress(ctx context.Context, addressID ids.AddressID, source device.EventSource, trigger device.EventTrigger) (*device.Address, error) {
+	return m.EnableAddress(ctx, addressID, source, trigger)
 }
 
 func (m *mockRepository) CheckAddressOwnership(ctx context.Context, deviceID ids.DeviceID, addressID ids.AddressID) error {

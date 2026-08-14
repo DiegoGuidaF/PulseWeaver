@@ -47,7 +47,7 @@ func TestToAddressViewResponse_PrivateIPOmitsGeo(t *testing.T) {
 
 	// Resolver returns empty for an unknown/private IP — geo is omitted.
 	geo := fakeGeoResolver{}
-	view := &AddressView{IP: "10.0.0.1", Source: "manual", CreatedAt: baseTime, UpdatedAt: baseTime}
+	view := &AddressView{IP: "10.0.0.1", Source: "web_ui", CreatedAt: baseTime, UpdatedAt: baseTime}
 
 	addr := toAddressViewResponse(view, geo)
 	is.Equal(addr.Geo, (*httpapi.GeoInfo)(nil))
@@ -56,7 +56,7 @@ func TestToAddressViewResponse_PrivateIPOmitsGeo(t *testing.T) {
 func TestToAddressViewResponse_NilResolverOmitsGeo(t *testing.T) {
 	is := is.New(t)
 
-	view := &AddressView{IP: "1.1.1.1", Source: "manual", CreatedAt: baseTime, UpdatedAt: baseTime}
+	view := &AddressView{IP: "1.1.1.1", Source: "web_ui", CreatedAt: baseTime, UpdatedAt: baseTime}
 	addr := toAddressViewResponse(view, nil)
 	is.Equal(addr.Geo, (*httpapi.GeoInfo)(nil))
 }
@@ -70,7 +70,7 @@ func TestToAddressHistoryResponse_EnrichesEventGeo(t *testing.T) {
 	result := AddressHistoryEvents{
 		Events: []AddressHistoryEventRow{
 			{ID: 1, IP: "1.1.1.1", Source: "heartbeat", CreatedAt: baseTime},
-			{ID: 2, IP: "10.0.0.1", Source: "manual", CreatedAt: baseTime},
+			{ID: 2, IP: "10.0.0.1", Source: "web_ui", CreatedAt: baseTime},
 		},
 	}
 
@@ -85,7 +85,7 @@ func TestToAddressHistoryResponse_NilResolverOmitsGeo(t *testing.T) {
 	is := is.New(t)
 
 	result := AddressHistoryEvents{
-		Events: []AddressHistoryEventRow{{ID: 1, IP: "1.1.1.1", Source: "manual", CreatedAt: baseTime}},
+		Events: []AddressHistoryEventRow{{ID: 1, IP: "1.1.1.1", Source: "web_ui", CreatedAt: baseTime}},
 	}
 	resp := toAddressHistoryResponse(result, 50, nil)
 	is.Equal(resp.Events[0].Geo, (*httpapi.GeoInfo)(nil))

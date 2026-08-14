@@ -39,7 +39,7 @@ func TestRepository_GetDeviceAddresses_CorrectFields(t *testing.T) {
 	is.Equal(got.DeviceID, dev.ID)
 	is.Equal(got.IP, "10.0.0.1")
 	is.True(got.IsEnabled)
-	is.Equal(got.Source, string(device.EventSourceManual))
+	is.Equal(got.Source, string(device.EventSourceWebUI))
 	is.True(!got.CreatedAt.IsZero())
 	is.True(!got.UpdatedAt.IsZero())
 }
@@ -100,7 +100,7 @@ func TestRepository_GetDeviceAddresses_OrderedByCreatedAtDesc(t *testing.T) {
 		t.Helper()
 		var id ids.AddressID
 		err := repos.db.GetContext(t.Context(), &id,
-			`INSERT INTO addresses (device_id, ip, created_at, is_enabled, source, updated_at) VALUES (?, ?, ?, 1, 'manual', ?) RETURNING id`,
+			`INSERT INTO addresses (device_id, ip, created_at, is_enabled, source, updated_at) VALUES (?, ?, ?, 1, 'web_ui', ?) RETURNING id`,
 			dev.ID, ip, createdAt, createdAt,
 		)
 		if err != nil {

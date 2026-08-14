@@ -14,4 +14,5 @@ const (
 	AttrKeyDeviceName       = "device_name"
 	AttrKeyOwnerID          = "owner_id"
 	AttrKeyAddressEventType = "address_event_type"
+	AttrKeyTriggerType      = "trigger_type"
 )

@@ -195,9 +195,9 @@ func TestHandler_GetMaxActiveAddressesRule_ActiveAddressCountReflectsLiveAddress
 	dev := createTestDevice(t, testServer, "max-active-get-count")
 	createMaxActiveAddressesRule(t, testServer, dev.ID, 5)
 
-	_, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.0.0.1", device.EventSourceManual)
+	_, _, err := testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.0.0.1", device.EventSourceWebUI, device.EventTriggerUser)
 	is.NoErr(err)
-	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.0.0.2", device.EventSourceManual)
+	_, _, err = testServer.DeviceService.RegisterAddressActivity(ctx, dev.ID, "10.0.0.2", device.EventSourceWebUI, device.EventTriggerUser)
 	is.NoErr(err)
 
 	resp, err := client.GetMaxActiveAddressesRuleWithResponse(ctx, dev.ID.Int64())

@@ -32,7 +32,7 @@ func TestHandler_AddressLifecycle(t *testing.T) {
 	is.Equal(created.DeviceId, dev.ID.Int64())
 	is.Equal(created.Ip, "192.168.1.100")
 	is.True(created.IsEnabled)
-	is.Equal(string(created.Source), "manual")
+	is.Equal(string(created.Source), "web_ui")
 	is.True(!time.Time(created.CreatedAt).IsZero())
 	is.True(!time.Time(created.UpdatedAt).IsZero())
 	is.True(created.ExpiresAt == nil)
@@ -46,18 +46,18 @@ func TestHandler_AddressLifecycle(t *testing.T) {
 	is.Equal(addresses[0].Id, created.Id)
 	is.Equal(addresses[0].Ip, "192.168.1.100")
 	is.True(addresses[0].IsEnabled)
-	is.Equal(string(addresses[0].Source), "manual")
+	is.Equal(string(addresses[0].Source), "web_ui")
 
-	// Disable — 200, same id, is_enabled=false, source=manual
+	// Disable — 200, same id, is_enabled=false, source=web_ui
 	disableResp, err := client.DisableAddressWithResponse(ctx, dev.ID.Int64(), created.Id)
 	is.NoErr(err)
 	is.Equal(disableResp.StatusCode(), http.StatusOK)
 	disabled := *disableResp.JSON200
 	is.Equal(disabled.Id, created.Id)
 	is.True(!disabled.IsEnabled)
-	is.Equal(string(disabled.Source), "manual")
+	is.Equal(string(disabled.Source), "web_ui")
 
-	// Re-enable same IP — 200 (update, not create), same id, is_enabled=true, source=manual
+	// Re-enable same IP — 200 (update, not create), same id, is_enabled=true, source=web_ui
 	addResp2, err := client.AddAddressWithResponse(ctx, dev.ID.Int64(), httpapi.AddAddressJSONRequestBody{
 		Ip: "192.168.1.100",
 	})
@@ -66,7 +66,7 @@ func TestHandler_AddressLifecycle(t *testing.T) {
 	reenabled := *addResp2.JSON200
 	is.Equal(reenabled.Id, created.Id)
 	is.True(reenabled.IsEnabled)
-	is.Equal(string(reenabled.Source), "manual")
+	is.Equal(string(reenabled.Source), "web_ui")
 }
 
 func TestHandler_DeviceHeartbeat(t *testing.T) {
@@ -77,7 +77,8 @@ func TestHandler_DeviceHeartbeat(t *testing.T) {
 	dev, err := testServer.DeviceService.CreateDevice(ctx, testutils.AdminPrincipal(t, testServer), "checkin-device", nil)
 	is.NoErr(err)
 
-	// First heartbeat — creates address, 201, source=heartbeat
+	// First heartbeat — creates address, 201. A session-authenticated call is a
+	// browser press, so it records web_ui, not heartbeat.
 	firstClient := testutils.NewAdminAPIClient(t, testServer, testutils.WithRealIP("192.168.1.50"))
 	firstResp, err := firstClient.DeviceHeartbeatWithResponse(ctx, dev.ID.Int64())
 	is.NoErr(err)
@@ -87,11 +88,11 @@ func TestHandler_DeviceHeartbeat(t *testing.T) {
 	is.Equal(created.DeviceId, dev.ID.Int64())
 	is.Equal(created.Ip, "192.168.1.50")
 	is.True(created.IsEnabled)
-	is.Equal(string(created.Source), "heartbeat")
+	is.Equal(string(created.Source), "web_ui")
 	is.True(!time.Time(created.CreatedAt).IsZero())
 	is.True(!time.Time(created.UpdatedAt).IsZero())
 
-	// Second heartbeat — refreshes same address, 200, source=heartbeat
+	// Second heartbeat — refreshes same address, 200, same source
 	secondClient := testutils.NewAdminAPIClient(t, testServer, testutils.WithRealIP("192.168.1.50"))
 	secondResp, err := secondClient.DeviceHeartbeatWithResponse(ctx, dev.ID.Int64())
 	is.NoErr(err)
@@ -99,7 +100,7 @@ func TestHandler_DeviceHeartbeat(t *testing.T) {
 	refreshed := *secondResp.JSON200
 	is.Equal(refreshed.Id, created.Id)
 	is.True(refreshed.IsEnabled)
-	is.Equal(string(refreshed.Source), "heartbeat")
+	is.Equal(string(refreshed.Source), "web_ui")
 }
 
 func TestHandler_CreateDevice(t *testing.T) {
@@ -156,7 +157,7 @@ func TestHandler_DeviceHeartbeatByApiKey_NoBody(t *testing.T) {
 
 	// POST /heartbeat with X-API-Key, no body — IP comes from X-Real-IP (RemoteAddr is the trusted proxy)
 	apiClient := testutils.NewAPIClient(t, testServer, testutils.WithAPIKey(apiKey), testutils.WithRealIP("192.168.1.99"))
-	resp, err := apiClient.DeviceHeartbeatByAPIKeyWithResponse(ctx)
+	resp, err := apiClient.DeviceHeartbeatByAPIKeyWithResponse(ctx, nil)
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusCreated)
 	addr := *resp.JSON201
@@ -175,7 +176,7 @@ func TestHandler_DeviceHeartbeatByApiKey_401_NoKey(t *testing.T) {
 	testServer := testutils.SetupIntegrationServer(t)
 
 	// No X-API-Key header — auth is checked before IP validation
-	resp, err := testutils.NewAPIClient(t, testServer).DeviceHeartbeatByAPIKeyWithResponse(ctx)
+	resp, err := testutils.NewAPIClient(t, testServer).DeviceHeartbeatByAPIKeyWithResponse(ctx, nil)
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusUnauthorized)
 }
@@ -185,7 +186,7 @@ func TestHandler_DeviceHeartbeatByApiKey_401_InvalidKey(t *testing.T) {
 	ctx := t.Context()
 	testServer := testutils.SetupIntegrationServer(t)
 
-	resp, err := testutils.NewAPIClient(t, testServer, testutils.WithAPIKey("wdk_invalid_key_that_does_not_exist_in_db")).DeviceHeartbeatByAPIKeyWithResponse(ctx)
+	resp, err := testutils.NewAPIClient(t, testServer, testutils.WithAPIKey("wdk_invalid_key_that_does_not_exist_in_db")).DeviceHeartbeatByAPIKeyWithResponse(ctx, nil)
 	is.NoErr(err)
 	is.Equal(resp.StatusCode(), http.StatusUnauthorized)
 }

@@ -41,7 +41,7 @@ func insertTestDevice(t *testing.T, db *database.DB, ownerID ids.UserID) (ids.De
 	}
 	var addrID ids.AddressID
 	err = db.QueryRowxContext(t.Context(),
-		`INSERT INTO addresses (device_id, ip, source, is_enabled) VALUES (?, '1.2.3.4', 'manual', 1) RETURNING id`, devID,
+		`INSERT INTO addresses (device_id, ip, source, is_enabled) VALUES (?, '1.2.3.4', 'web_ui', 1) RETURNING id`, devID,
 	).Scan(&addrID)
 	if err != nil {
 		t.Fatalf("insert test address: %v", err)
@@ -405,7 +405,7 @@ func TestRepository_BatchInsert_ContributorCount_Multiple(t *testing.T) {
 		t.Fatalf("insert d2: %v", err)
 	}
 	var addrID2 ids.AddressID
-	if err := dbWrapper.DB().QueryRowxContext(t.Context(), `INSERT INTO addresses (device_id, ip, source, is_enabled) VALUES (?, '5.6.7.8', 'manual', 1) RETURNING id`, devID2).Scan(&addrID2); err != nil {
+	if err := dbWrapper.DB().QueryRowxContext(t.Context(), `INSERT INTO addresses (device_id, ip, source, is_enabled) VALUES (?, '5.6.7.8', 'web_ui', 1) RETURNING id`, devID2).Scan(&addrID2); err != nil {
 		t.Fatalf("insert addr2: %v", err)
 	}
 

@@ -168,6 +168,20 @@ addressHistory:
         required: false
         schema:
           $ref: '../components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
+      - name: trigger_type
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '../components/schemas/addresses.yaml#/AddressEventTrigger'
+        description: Event trigger filter values (in, not_in).
+      - name: trigger_type_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
       - name: event_kind
         in: query
         required: false
@@ -323,6 +337,20 @@ addressHistoryHistogram:
             $ref: '../components/schemas/addresses.yaml#/AddressEventSource'
         description: Event source filter values (in, not_in).
       - name: source_op
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/addresses.yaml#/AddressHistoryFilterOperator'
+      - name: trigger_type
+        in: query
+        required: false
+        schema:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '../components/schemas/addresses.yaml#/AddressEventTrigger'
+        description: Event trigger filter values (in, not_in).
+      - name: trigger_type_op
         in: query
         required: false
         schema:

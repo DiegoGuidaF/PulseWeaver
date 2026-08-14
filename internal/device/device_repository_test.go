@@ -60,7 +60,7 @@ func createTestAddress(t *testing.T, repo *device.Repository, ctx context.Contex
 	if err != nil {
 		t.Fatalf("create address params %q: %v", ip, err)
 	}
-	created, err := repo.CreateAddress(ctx, params, device.EventSourceManual)
+	created, err := repo.CreateAddress(ctx, params, device.EventSourceWebUI, device.EventTriggerUser)
 	if err != nil {
 		t.Fatalf("persist address %q: %v", ip, err)
 	}

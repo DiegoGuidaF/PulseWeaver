@@ -9,9 +9,10 @@ import (
 	"github.com/DiegoGuidaF/PulseWeaver/internal/logging"
 )
 
-// AddressDisabler disables a set of addresses from a given event source.
+// AddressDisabler disables a set of addresses, attributing the write to an
+// event source and the cause to a trigger.
 type AddressDisabler interface {
-	DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source device.EventSource) error
+	DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source device.EventSource, trigger device.EventTrigger) error
 }
 
 // ExpiryJob disables addresses whose time-based lease has expired.
@@ -44,5 +45,5 @@ func (j *ExpiryJob) Run(ctx context.Context) error {
 	}
 	j.logger.InfoContext(ctx, "expired addresses detected", slog.Int(logging.AttrKeyCount, len(ids)))
 
-	return j.disabler.DisableAddresses(ctx, ids, device.EventSourceExpiry)
+	return j.disabler.DisableAddresses(ctx, ids, device.EventSourceExpiry, device.EventTriggerSystem)
 }

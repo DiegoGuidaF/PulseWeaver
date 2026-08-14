@@ -22,12 +22,12 @@ type repository interface {
 	UpdateDevice(ctx context.Context, device *Device) (*Device, error)
 	UpsertAPIKey(ctx context.Context, deviceID ids.DeviceID, keyHash string, keyPrefix string) error
 	DeleteAPIKey(ctx context.Context, deviceID ids.DeviceID) error
-	CreateAddress(ctx context.Context, params CreateAddressParams, source EventSource) (*Address, error)
+	CreateAddress(ctx context.Context, params CreateAddressParams, source EventSource, trigger EventTrigger) (*Address, error)
 	GetAddressForDeviceByIP(ctx context.Context, deviceID ids.DeviceID, ip netip.Addr) (*Address, error)
 	DisableAddress(ctx context.Context, addressID ids.AddressID) (*Address, error)
-	DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source EventSource) ([]Address, error)
-	EnableAddress(ctx context.Context, addressID ids.AddressID, source EventSource) (*Address, error)
-	RefreshAddress(ctx context.Context, addressID ids.AddressID, source EventSource) (*Address, error)
+	DisableAddresses(ctx context.Context, addressIDs []ids.AddressID, source EventSource, trigger EventTrigger) ([]Address, error)
+	EnableAddress(ctx context.Context, addressID ids.AddressID, source EventSource, trigger EventTrigger) (*Address, error)
+	RefreshAddress(ctx context.Context, addressID ids.AddressID, source EventSource, trigger EventTrigger) (*Address, error)
 	CheckAddressOwnership(ctx context.Context, deviceID ids.DeviceID, addressID ids.AddressID) error
 	GetDeviceByAPIKeyHash(ctx context.Context, keyHash string) (*Device, error)
 	GetEnabledIPEntries(ctx context.Context) ([]IPEntry, error)
@@ -186,7 +186,7 @@ func (s *Service) DeleteDevice(ctx context.Context, deviceID ids.DeviceID) error
 			addressesToDisable = append(addressesToDisable, address.ID)
 		}
 
-		disabledAddresses, err = s.repo.DisableAddresses(ctx, addressesToDisable, EventSourceManual)
+		disabledAddresses, err = s.repo.DisableAddresses(ctx, addressesToDisable, EventSourceWebUI, EventTriggerUser)
 		if err != nil {
 			return err
 		}
@@ -237,7 +237,7 @@ func (s *Service) DisableDevice(ctx context.Context, deviceID ids.DeviceID) (*De
 		for _, address := range addresses {
 			addressesToDisable = append(addressesToDisable, address.ID)
 		}
-		disabledAddresses, err = s.repo.DisableAddresses(ctx, addressesToDisable, EventSourceManual)
+		disabledAddresses, err = s.repo.DisableAddresses(ctx, addressesToDisable, EventSourceWebUI, EventTriggerUser)
 		if err != nil {
 			return err
 		}

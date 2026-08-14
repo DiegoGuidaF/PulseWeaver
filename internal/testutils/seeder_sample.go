@@ -159,17 +159,22 @@ var sampleDevices = []struct{ name, owner, icon string }{
 // (>0.7×TTL) and red (>0.9×TTL) bands, a lease expiry once a heartbeat misses the
 // hour, and recovery after battery optimization is disabled. This is the dataset
 // behind the Connecting-Devices "Δ prev" screenshot/walkthrough.
+//
+// The triggers carry the other half of that story: the beats that recover the
+// lease are ones the user had to press by hand, which is the signal that the
+// background scheduler is being throttled.
 var samplePixelHistory = []AddressEventFixture{
 	{Ago: 435 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat},
 	{Ago: 404 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat},
 	{Ago: 373 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat},
-	{Ago: 341 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat},
+	{Ago: 341 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat, Trigger: device.EventTriggerNetworkChange},
 	{Ago: 296 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat}, // 45m gap → amber (0.75×TTL)
 	{Ago: 244 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat}, // 52m gap → amber (0.87×TTL)
 	{Ago: 186 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat}, // 58m gap → red   (0.97×TTL)
 	{Ago: 125 * time.Minute, Enabled: false, Source: device.EventSourceExpiry},   // 61m gap → lease expired (>TTL)
-	{Ago: 99 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat},  // re-registered after expiry
-	{Ago: 68 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat},
+	// User-pressed: the scheduler was throttled, so the owner opened the app.
+	{Ago: 99 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat, Trigger: device.EventTriggerUser},
+	{Ago: 68 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat, Trigger: device.EventTriggerUser},
 	{Ago: 31 * time.Minute, Enabled: true, Source: device.EventSourceHeartbeat},
 	{Ago: 0, Enabled: true, Source: device.EventSourceHeartbeat},
 }

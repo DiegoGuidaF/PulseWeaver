@@ -99,7 +99,7 @@ func benchOwnedAddress(tb testing.TB, db *database.DB) (ids.DeviceID, ids.Addres
 	}
 	var addrID ids.AddressID
 	if err := db.QueryRowxContext(ctx,
-		`INSERT INTO addresses (device_id, ip, source, is_enabled) VALUES (?, '203.0.113.7', 'manual', 1) RETURNING id`, devID,
+		`INSERT INTO addresses (device_id, ip, source, is_enabled) VALUES (?, '203.0.113.7', 'web_ui', 1) RETURNING id`, devID,
 	).Scan(&addrID); err != nil {
 		tb.Fatalf("insert address: %v", err)
 	}

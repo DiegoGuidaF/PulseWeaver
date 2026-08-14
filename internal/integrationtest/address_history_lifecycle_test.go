@@ -231,19 +231,19 @@ func TestAddressExpiry_CountsAsLateRenewalNotBreachedEvent(t *testing.T) {
 	client := testutils.NewAdminAPIClient(t, srv)
 
 	// The device checks in for the first time — nothing to measure yet.
-	addr, _, err := srv.DeviceService.RegisterAddressActivity(ctx, deviceID, deviceIP, device.EventSourceHeartbeat)
+	addr, _, err := srv.DeviceService.RegisterAddressActivity(ctx, deviceID, deviceIP, device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 
 	// The lease lapses. This is the call the lease expiry job makes when it
 	// finds an expired address; driving it directly keeps the test off the
 	// scheduler's interval without faking the event.
 	time.Sleep(1100 * time.Millisecond)
-	err = srv.DeviceService.DisableAddresses(ctx, []ids.AddressID{addr.ID}, device.EventSourceExpiry)
+	err = srv.DeviceService.DisableAddresses(ctx, []ids.AddressID{addr.ID}, device.EventSourceExpiry, device.EventTriggerSystem)
 	is.NoErr(err)
 
 	// …and the device comes back, late.
 	time.Sleep(1100 * time.Millisecond)
-	_, _, err = srv.DeviceService.RegisterAddressActivity(ctx, deviceID, deviceIP, device.EventSourceHeartbeat)
+	_, _, err = srv.DeviceService.RegisterAddressActivity(ctx, deviceID, deviceIP, device.EventSourceHeartbeat, device.EventTriggerSchedule)
 	is.NoErr(err)
 
 	events := eventsFor(t, client, deviceID)

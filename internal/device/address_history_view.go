@@ -54,6 +54,10 @@ var addressHistoryRegistry = filterx.NewRegistry(
 			Expr: "e.source",
 			Ops:  []filterx.Operator{filterx.OpIn, filterx.OpNotIn},
 		},
+		"trigger_type": {
+			Expr: "e.trigger_type",
+			Ops:  []filterx.Operator{filterx.OpIn, filterx.OpNotIn},
+		},
 		"event_kind": {
 			Expr: "e.event_kind",
 			Ops:  []filterx.Operator{filterx.OpIn, filterx.OpNotIn},
@@ -154,6 +158,7 @@ func addressHistoryEnriched() sq.SelectBuilder {
 		"a.ip",
 		"aev.is_enabled",
 		"aev.source",
+		"aev.trigger_type",
 		"a.device_id",
 		"d.name AS device_name",
 		"d.owner_id",
@@ -171,8 +176,8 @@ func addressHistoryEnriched() sq.SelectBuilder {
 
 	return sq.Select(
 		"r.id", "r.address_id", "r.created_at", "r.ip", "r.is_enabled", "r.source",
-		"r.device_id", "r.device_name", "r.owner_id", "r.ttl_seconds", "r.renewal_gap_seconds",
-		"r.event_kind",
+		"r.trigger_type", "r.device_id", "r.device_name", "r.owner_id", "r.ttl_seconds",
+		"r.renewal_gap_seconds", "r.event_kind",
 	).
 		Column(ttlRiskCase+" AS ttl_risk", ttlRiskBreachedRatio, ttlRiskCriticalRatio, ttlRiskApproachingRatio).
 		FromSelect(raw, "r")
@@ -193,20 +198,22 @@ type AddressHistoryQuery struct {
 // OpenAPI params structs share, so the filter-parsing logic underneath is
 // written once for both.
 type addressHistoryFilterParams struct {
-	From        *time.Time
-	To          *time.Time
-	DeviceID    *[]httpapi.ID
-	DeviceIDOp  *httpapi.AddressHistoryFilterOperator
-	UserID      *[]httpapi.ID
-	UserIDOp    *httpapi.AddressHistoryFilterOperator
-	IP          *[]string
-	IPOp        *httpapi.AddressHistoryFilterOperator
-	Source      *[]httpapi.AddressEventSource
-	SourceOp    *httpapi.AddressHistoryFilterOperator
-	EventKind   *[]httpapi.AddressEventKind
-	EventKindOp *httpapi.AddressHistoryFilterOperator
-	TTLRisk     *[]httpapi.TTLRisk
-	TTLRiskOp   *httpapi.AddressHistoryFilterOperator
+	From          *time.Time
+	To            *time.Time
+	DeviceID      *[]httpapi.ID
+	DeviceIDOp    *httpapi.AddressHistoryFilterOperator
+	UserID        *[]httpapi.ID
+	UserIDOp      *httpapi.AddressHistoryFilterOperator
+	IP            *[]string
+	IPOp          *httpapi.AddressHistoryFilterOperator
+	Source        *[]httpapi.AddressEventSource
+	SourceOp      *httpapi.AddressHistoryFilterOperator
+	TriggerType   *[]httpapi.AddressEventTrigger
+	TriggerTypeOp *httpapi.AddressHistoryFilterOperator
+	EventKind     *[]httpapi.AddressEventKind
+	EventKindOp   *httpapi.AddressHistoryFilterOperator
+	TTLRisk       *[]httpapi.TTLRisk
+	TTLRiskOp     *httpapi.AddressHistoryFilterOperator
 }
 
 // newAddressHistoryQuery validates and normalizes the filter/window portion
@@ -235,6 +242,7 @@ func newAddressHistoryQuery(p addressHistoryFilterParams) (AddressHistoryQuery, 
 		{"user_id", filterx.Int64Values(p.UserID), p.UserIDOp},
 		{"ip", filterx.StringValues(p.IP), p.IPOp},
 		{"source", filterx.StringValues(p.Source), p.SourceOp},
+		{"trigger_type", filterx.StringValues(p.TriggerType), p.TriggerTypeOp},
 		{"event_kind", filterx.StringValues(p.EventKind), p.EventKindOp},
 		{"ttl_risk", filterx.StringValues(p.TTLRisk), p.TTLRiskOp},
 	}
@@ -263,6 +271,7 @@ func NewAddressHistoryQuery(params httpapi.GetAddressHistoryParams) (AddressHist
 		UserID: params.UserId, UserIDOp: params.UserIdOp,
 		IP: params.Ip, IPOp: params.IpOp,
 		Source: params.Source, SourceOp: params.SourceOp,
+		TriggerType: params.TriggerType, TriggerTypeOp: params.TriggerTypeOp,
 		EventKind: params.EventKind, EventKindOp: params.EventKindOp,
 		TTLRisk: params.TtlRisk, TTLRiskOp: params.TtlRiskOp,
 	})
@@ -295,6 +304,7 @@ func NewAddressHistoryHistogramQuery(params httpapi.GetAddressHistoryHistogramPa
 		UserID: params.UserId, UserIDOp: params.UserIdOp,
 		IP: params.Ip, IPOp: params.IpOp,
 		Source: params.Source, SourceOp: params.SourceOp,
+		TriggerType: params.TriggerType, TriggerTypeOp: params.TriggerTypeOp,
 		EventKind: params.EventKind, EventKindOp: params.EventKindOp,
 		TTLRisk: params.TtlRisk, TTLRiskOp: params.TtlRiskOp,
 	})
@@ -339,6 +349,7 @@ type AddressHistoryEventRow struct {
 	IP                string           `db:"ip"`
 	IsEnabled         bool             `db:"is_enabled"`
 	Source            EventSource      `db:"source"`
+	TriggerType       EventTrigger     `db:"trigger_type"`
 	DeviceID          ids.DeviceID     `db:"device_id"`
 	DeviceName        string           `db:"device_name"`
 	RenewalGapSeconds *int64           `db:"renewal_gap_seconds"`
@@ -373,7 +384,7 @@ func (r *Repository) GetAddressHistoryEvents(ctx context.Context, q AddressHisto
 
 	page := base.
 		Columns(
-			"e.id", "e.created_at", "e.ip", "e.is_enabled", "e.source",
+			"e.id", "e.created_at", "e.ip", "e.is_enabled", "e.source", "e.trigger_type",
 			"e.device_id", "e.device_name", "e.ttl_seconds", "e.renewal_gap_seconds",
 			"e.event_kind", "e.ttl_risk",
 		)
