@@ -168,8 +168,12 @@ describe("AddressHistoryTable", () => {
         expect(screen.getByText("Web UI")).toBeInTheDocument();
         expect(screen.getByText("Expiry")).toBeInTheDocument();
         // Which subsystem wrote an event is read once you have stopped on the
-        // row, so it never takes colour — not even for the server jobs.
+        // row, so it never takes colour — not even for the server jobs. Within
+        // that, `heartbeat` is 93% of the column and recedes one step further,
+        // which leaves the three that mean something at full strength.
         expect(screen.getByText("Expiry").closest(".mantine-Badge-root")).toBeNull();
+        expect(screen.getByText("Heartbeat").style.color).toBe("var(--mantine-color-dimmed)");
+        expect(screen.getByText("Web UI").style.color).toBe("");
     });
 
     it("badges a user trigger and nothing else", async () => {
@@ -260,8 +264,12 @@ describe("AddressHistoryTable", () => {
         for (const row of table.getAllByRole("row")) {
             expect(row.style.opacity).toBe("");
         }
-        // The refresh label itself is what recedes, and it takes no badge.
-        expect(table.getAllByText("Refresh")[0].closest(".mantine-Badge-root")).toBeNull();
+        // The refresh label itself is what recedes, and it takes no badge — but
+        // the cell still has to hold its natural width, or the column measures
+        // to this text and clips the badges the transitions carry.
+        const refresh = table.getAllByText("Refresh")[0];
+        expect(refresh.closest(".mantine-Badge-root")).toBeNull();
+        expect(refresh.parentElement).toHaveStyle({ minWidth: "max-content" });
     });
 
     it("keeps Trigger beside Source for a user with a stored column order", async () => {

@@ -129,11 +129,14 @@ export const TTL_RISK_OPTIONS = Object.values(TtlRisk).map((risk) => ({
  * user access, and a renewal arriving after its lease expired is a tuning
  * signal, not an outage.
  *
- * The two filled steps carry black text and a pinned shade. Mantine's `filled`
- * pairs white with whichever shade the scheme picks, which measures 3.04 and
- * 4.30 in light and 3.58 in dark — under the 4.5:1 floor these 10px bold labels
- * need. Black on the same amber measures 8.17 and 4.88, and pinning the shade
- * stops the ramp shifting a step between schemes.
+ * The two filled steps pin their shade and set black text. `autoContrast` picks
+ * badge text by luminance against a 0.3 threshold: `orange.9` sits at 0.19 and
+ * would take white at 4.30:1, under the 4.5:1 floor these 10px bold labels need,
+ * where black measures 4.88. `orange.6` (0.36) resolves to black on its own and
+ * carries the override only to keep the two steps symmetric. Pinning the shade
+ * also stops the ramp moving between schemes — an unshaded `orange` resolves
+ * through `primaryShade` to a different step in each, both of them white and
+ * both under the floor (3.04 light, 3.58 dark).
  */
 export const TTL_RISK_BADGE: Partial<
     Record<TtlRisk, { color: string; variant: "light" | "filled"; textColor?: string }>

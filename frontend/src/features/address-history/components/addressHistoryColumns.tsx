@@ -71,7 +71,7 @@ function quietText(label: string) {
 }
 
 function renderSourceCell(source: AddressEventSource) {
-    const label = SOURCE_LABELS[source] ?? source;
+    const label = SOURCE_LABELS[source];
     // Which subsystem wrote an event only distinguishes anything on the rows the
     // Event badge has already stopped you at — measured, a disable is never a
     // heartbeat and a refresh is always one. So this is read, never scanned.
