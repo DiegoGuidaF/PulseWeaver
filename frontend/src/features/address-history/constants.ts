@@ -35,18 +35,14 @@ export function isAddressEventTrigger(value: string): value is AddressEventTrigg
 }
 
 /**
- * Badge colour + emphasis per trigger. `user` is what an admin scans this column
- * for — a deliberate human action — so it takes indigo filled, the style guide's
- * loudest deliberate-action treatment. `network_change` is device-driven
- * liveness and reads one step quieter in amber, while the two background
- * triggers recede to grey: nothing about a routine beat or a server job is worth
- * pulling the eye across the table.
+ * Keyed only by the trigger that earns a badge; every other trigger renders as
+ * plain text. `user` means a human had to press the button to get the device
+ * back online — the signal this axis exists for — and indigo is the style
+ * guide's deliberate-action colour. The background triggers are ~93% of the
+ * column, and colour spent on a column's usual value says nothing.
  */
-export const TRIGGER_BADGE: Record<AddressEventTrigger, { color: string; variant: "filled" | "light" | "dot" }> = {
+export const TRIGGER_BADGE: Partial<Record<AddressEventTrigger, { color: string; variant: "filled" }>> = {
     [AddressEventTrigger.USER]: { color: "indigo", variant: "filled" },
-    [AddressEventTrigger.NETWORK_CHANGE]: { color: "orange", variant: "light" },
-    [AddressEventTrigger.SCHEDULE]: { color: "gray", variant: "dot" },
-    [AddressEventTrigger.SYSTEM]: { color: "gray", variant: "dot" },
 };
 
 export const EVENT_KIND_LABELS: Record<AddressEventKind, string> = {
@@ -61,11 +57,36 @@ export const EVENT_KIND_OPTIONS = Object.values(AddressEventKind).map((kind) => 
     label: EVENT_KIND_LABELS[kind],
 }));
 
-export const EVENT_KIND_COLORS: Record<AddressEventKind, string> = {
-    [AddressEventKind.CREATED]: "indigo",
+/**
+ * Keyed only by the kinds that earn a badge. `created` and `enabled` share green
+ * because they are one fact — the address is allowed through now — and the label
+ * carries which of the two; `disabled` is red as the only state on this screen
+ * that costs someone access. `refresh` is 86% of all events, so it renders as
+ * plain text: it is the background the other three have to stand out against.
+ */
+export const EVENT_KIND_BADGE_COLORS: Partial<Record<AddressEventKind, string>> = {
+    [AddressEventKind.CREATED]: "green",
     [AddressEventKind.ENABLED]: "green",
     [AddressEventKind.DISABLED]: "red",
-    [AddressEventKind.REFRESH]: "gray",
+};
+
+/**
+ * The address state each kind implies, so the cell can state the state only when
+ * it does not follow. It usually does: measured over 7,071 real events, the
+ * implication holds on 7,069.
+ *
+ * Both loopholes are real. `created` means "no earlier event for this address
+ * survives", not "the address was created" — the retention job prunes
+ * `address_events`, so the oldest surviving event can be a cap eviction on an
+ * address that is disabled. And `refresh` only means "state unchanged", so
+ * disabling an already-disabled address writes a second disabled event that
+ * classifies as a refresh.
+ */
+export const EVENT_KIND_IMPLIES_ENABLED: Record<AddressEventKind, boolean> = {
+    [AddressEventKind.CREATED]: true,
+    [AddressEventKind.ENABLED]: true,
+    [AddressEventKind.DISABLED]: false,
+    [AddressEventKind.REFRESH]: true,
 };
 
 /**
@@ -97,17 +118,29 @@ export const TTL_RISK_OPTIONS = Object.values(TtlRisk).map((risk) => ({
 }));
 
 /**
- * Badge color + emphasis per headroom level: indigo for the comfortable norm,
- * then an amber ramp deepening as headroom runs out. Red is deliberately absent
- * — it is reserved for states that actually cost a user access, and a renewal
- * arriving after its lease expired is a tuning signal, not an outage.
+ * Keyed only by the levels that earn a badge: an amber ramp deepening as
+ * headroom runs out. `ok` is 88% of rows and renders as plain text, `unknown` as
+ * a dash — neither is a finding, and a badge on the comfortable norm is what
+ * made this column unreadable.
+ *
+ * The amber is the style guide's *liveness* amber, not its warning colour: this
+ * ramp measures heartbeat cadence against lease length, which is the axis amber
+ * is reserved for. Red is deliberately absent — it belongs to states that cost a
+ * user access, and a renewal arriving after its lease expired is a tuning
+ * signal, not an outage.
+ *
+ * The two filled steps carry black text and a pinned shade. Mantine's `filled`
+ * pairs white with whichever shade the scheme picks, which measures 3.04 and
+ * 4.30 in light and 3.58 in dark — under the 4.5:1 floor these 10px bold labels
+ * need. Black on the same amber measures 8.17 and 4.88, and pinning the shade
+ * stops the ramp shifting a step between schemes.
  */
-export const TTL_RISK_BADGE: Record<TtlRisk, { color: string; variant: "light" | "filled" }> = {
-    [TtlRisk.UNKNOWN]: { color: "gray", variant: "light" },
-    [TtlRisk.OK]: { color: "indigo", variant: "light" },
+export const TTL_RISK_BADGE: Partial<
+    Record<TtlRisk, { color: string; variant: "light" | "filled"; textColor?: string }>
+> = {
     [TtlRisk.APPROACHING]: { color: "orange", variant: "light" },
-    [TtlRisk.CRITICAL]: { color: "orange", variant: "filled" },
-    [TtlRisk.BREACHED]: { color: "orange.9", variant: "filled" },
+    [TtlRisk.CRITICAL]: { color: "orange.6", variant: "filled", textColor: "black" },
+    [TtlRisk.BREACHED]: { color: "orange.9", variant: "filled", textColor: "black" },
 };
 
 /**

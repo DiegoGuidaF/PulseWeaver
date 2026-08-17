@@ -13,14 +13,23 @@ export function FilterableCell({
     children,
     onFilter,
     filterLabel,
+    noShrink = false,
 }: {
     children: ReactNode;
     onFilter?: () => void;
     filterLabel: string;
+    /**
+     * Keeps the value at its natural width instead of letting it be squeezed.
+     * The table lays columns out from their content, so the default (a value
+     * that may shrink to nothing) lets a column size itself to whichever rows
+     * happen to be on screen. That is right for text, which truncates
+     * gracefully, and wrong for a badge, whose label just loses characters.
+     */
+    noShrink?: boolean;
 }) {
     return (
         <Group gap={4} wrap="nowrap" w="100%">
-            <Box flex={1} miw={0}>
+            <Box flex={1} miw={noShrink ? "max-content" : 0}>
                 {children}
             </Box>
             {onFilter && (

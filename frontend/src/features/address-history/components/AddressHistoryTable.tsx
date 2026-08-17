@@ -30,7 +30,7 @@ import {
     isAddressEventSource,
     isAddressEventTrigger,
 } from "../constants";
-import { AddressEventKind, AddressEventTrigger, type AddressHistoryEvent, type TtlRisk } from "@/lib/api";
+import { type AddressEventKind, type AddressHistoryEvent, type TtlRisk } from "@/lib/api";
 import { ErrorState } from "@/components/ErrorState";
 import { presetToMs } from "@/lib/formatChartLabel";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
@@ -52,7 +52,6 @@ const COLUMN_META: ManagedColumnMeta[] = [
     { accessor: "device_name", label: "Device", defaultVisible: true },
     { accessor: "ip", label: "IP", defaultVisible: true },
     { accessor: "geo", label: "Location", defaultVisible: true },
-    { accessor: "is_enabled", label: "Status", defaultVisible: true },
     { accessor: "source", label: "Source", defaultVisible: true },
     { accessor: "trigger_type", label: "Trigger", defaultVisible: true },
     { accessor: "event_kind", label: "Event", defaultVisible: true },
@@ -311,15 +310,6 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                     loaderBackgroundBlur={1}
                     scrollAreaProps={{ type: "auto" }}
                     pinFirstColumn
-                    // A refresh recedes because it changed nothing — but a
-                    // user-triggered one means someone had to press the button
-                    // to stay online, which is the signal this table is scanned
-                    // for. Dimming it would bury exactly the row that matters.
-                    rowStyle={(r) =>
-                        r.event_kind === AddressEventKind.REFRESH && r.trigger_type !== AddressEventTrigger.USER
-                            ? { opacity: 0.55 }
-                            : undefined
-                    }
                 />
             </div>
 

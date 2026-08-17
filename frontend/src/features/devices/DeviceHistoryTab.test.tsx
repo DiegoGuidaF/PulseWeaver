@@ -43,14 +43,12 @@ describe('DeviceHistoryTab', () => {
 
         expect(screen.getByText('10.0.0.2')).toBeInTheDocument();
 
-        // Check status badges. "Enabled"/"Disabled" render in both the Status
-        // column and the Event column (an enabled/disabled event_kind always
-        // pairs with a matching is_enabled), so counts reflect both.
-        const enabledBadges = screen.getAllByText('Enabled');
-        expect(enabledBadges.length).toBe(3);
-        expect(screen.getAllByText('Disabled').length).toBeGreaterThan(0);
+        // "Enabled"/"Disabled" are event kinds, and the resulting address state
+        // they imply is only stated when it disagrees — which it does not here.
+        expect(screen.getAllByText('Enabled')).toHaveLength(1);
+        expect(screen.getAllByText('Disabled')).toHaveLength(1);
 
-        // Check source badges (displayed via SOURCE_LABELS)
+        // Check sources (displayed via SOURCE_LABELS)
         expect(screen.getByText('Heartbeat')).toBeInTheDocument();
         expect(screen.getByText('Web UI')).toBeInTheDocument();
         expect(screen.getByText('Expiry')).toBeInTheDocument();

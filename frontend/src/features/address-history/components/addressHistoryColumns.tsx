@@ -4,7 +4,7 @@ import type { DataTableColumn } from "mantine-datatable";
 import { FilterableCell } from "@/components/FilterableCell";
 import { ColumnFilter, FilterApplyButton } from "@/components/ColumnFilter";
 import { GeoCell } from "@/components/GeoCell";
-import { AddressEventSource, AddressHistoryFilterOperator, TtlRisk, type AddressEventKind, type AddressEventTrigger, type AddressHistoryEvent } from "@/lib/api";
+import { AddressEventSource, AddressHistoryFilterOperator, TtlRisk, type AddressEventTrigger, type AddressHistoryEvent } from "@/lib/api";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
 import {
     type ColumnFilterState,
@@ -13,7 +13,8 @@ import {
     isFilterActive,
 } from "../filterConfig";
 import {
-    EVENT_KIND_COLORS,
+    EVENT_KIND_BADGE_COLORS,
+    EVENT_KIND_IMPLIES_ENABLED,
     EVENT_KIND_LABELS,
     EVENT_KIND_OPTIONS,
     TTL_HEADROOM_COLUMN_LABEL,
@@ -56,57 +57,91 @@ function renderGapCell(row: AddressHistoryEvent) {
     );
 }
 
-function sourceBadgeColor(source: AddressEventSource): string {
-    switch (source) {
-        case AddressEventSource.HEARTBEAT:
-            return "orange";
-        case AddressEventSource.WEB_UI:
-            return "grape";
-        case AddressEventSource.EXPIRY:
-            return "orange";
-        case AddressEventSource.LIMIT_EXCEEDED:
-            return "red";
-        default: {
-            const _exhaustive: never = source;
-            return _exhaustive;
-        }
-    }
+/**
+ * A column's usual value, stated without claiming any of the reader's attention.
+ * Colour on this screen marks the exception; every column's modal value — which
+ * is 86–93% of its rows — reads as quiet text so the exceptions can be seen.
+ */
+function quietText(label: string) {
+    return (
+        <Text span size="sm" c="dimmed">
+            {label}
+        </Text>
+    );
 }
 
-function renderTriggerBadge(trigger: AddressEventTrigger) {
-    const { color, variant } = TRIGGER_BADGE[trigger];
+function renderSourceCell(source: AddressEventSource) {
+    const label = SOURCE_LABELS[source] ?? source;
+    // Which subsystem wrote an event only distinguishes anything on the rows the
+    // Event badge has already stopped you at — measured, a disable is never a
+    // heartbeat and a refresh is always one. So this is read, never scanned.
+    return source === AddressEventSource.HEARTBEAT ? (
+        quietText(label)
+    ) : (
+        <Text span size="sm">
+            {label}
+        </Text>
+    );
+}
+
+function renderTriggerCell(trigger: AddressEventTrigger) {
+    const badge = TRIGGER_BADGE[trigger];
+    if (!badge) return quietText(TRIGGER_LABELS[trigger]);
+
     return (
-        <Badge size="sm" color={color} variant={variant}>
+        <Badge size="sm" color={badge.color} variant={badge.variant}>
             {TRIGGER_LABELS[trigger]}
         </Badge>
     );
 }
 
-function renderEventKindBadge(kind: AddressEventKind) {
-    return (
-        <Badge size="sm" color={EVENT_KIND_COLORS[kind]} variant="dot">
-            {EVENT_KIND_LABELS[kind]}
+function renderEventCell(row: AddressHistoryEvent) {
+    const color = EVENT_KIND_BADGE_COLORS[row.event_kind];
+    const label = EVENT_KIND_LABELS[row.event_kind];
+    const kind = color ? (
+        <Badge size="sm" color={color} variant="light">
+            {label}
         </Badge>
+    ) : (
+        quietText(label)
+    );
+
+    // The kind implies the resulting address state on all but ~0.03% of events,
+    // so stating it every time is a whole column of restatement. State it on the
+    // rows where the implication breaks, which are the ones a reader would
+    // otherwise misread — a `Created` row whose earlier history the retention
+    // job has already pruned can be a disabled address.
+    if (row.is_enabled === EVENT_KIND_IMPLIES_ENABLED[row.event_kind]) return kind;
+
+    return (
+        <>
+            {kind}{" "}
+            <Text span size="xs" c="dimmed">
+                · now {row.is_enabled ? "enabled" : "disabled"}
+            </Text>
+        </>
     );
 }
 
-function renderTtlRiskBadge(risk: TtlRisk) {
+function renderTtlRiskCell(risk: TtlRisk) {
     // `unknown` is the absence of a health reading, not a fifth severity — a
     // grey "Not applicable" badge reads as a state the admin might need to act
     // on, so it degrades to the same dimmed dash the renewal gap uses.
     if (risk === TtlRisk.UNKNOWN) {
         return (
             <Tooltip label={TTL_RISK_UNKNOWN_HINT} withArrow>
-                <Text size="sm" ff="monospace" c="dimmed">
+                <Text span size="sm" ff="monospace" c="dimmed">
                     —
                 </Text>
             </Tooltip>
         );
     }
 
-    const { color, variant } = TTL_RISK_BADGE[risk];
+    const badge = TTL_RISK_BADGE[risk];
+    if (!badge) return quietText(TTL_RISK_LABELS[risk]);
+
     return (
-        <Badge size="sm" color={color} variant={variant}>
+        <Badge size="sm" color={badge.color} variant={badge.variant} c={badge.textColor}>
             {TTL_RISK_LABELS[risk]}
         </Badge>
     );
@@ -296,16 +331,6 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
             render: (row) => <GeoCell geo={row.geo} size="sm" />,
         },
         {
-            accessor: "is_enabled",
-            title: "Status",
-            textAlign: "center",
-            render: (row) => (
-                <Badge color={row.is_enabled ? "green" : "red"} size="sm" variant="light">
-                    {row.is_enabled ? "Enabled" : "Disabled"}
-                </Badge>
-            ),
-        },
-        {
             accessor: "source",
             title: "Source",
             textAlign: "center",
@@ -318,9 +343,7 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
                         deps.setColumnFilter("source", { op: AddressHistoryFilterOperator.IN, values: [row.source] })
                     }
                 >
-                    <Badge size="sm" color={sourceBadgeColor(row.source)} variant="dot">
-                        {SOURCE_LABELS[row.source] ?? row.source}
-                    </Badge>
+                    {renderSourceCell(row.source)}
                 </FilterableCell>
             ),
         },
@@ -340,7 +363,7 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
                         })
                     }
                 >
-                    {renderTriggerBadge(row.trigger_type)}
+                    {renderTriggerCell(row.trigger_type)}
                 </FilterableCell>
             ),
         },
@@ -353,6 +376,10 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
             render: (row) => (
                 <FilterableCell
                     filterLabel="Filter by this event kind"
+                    // "Refresh" is 86% of this column and narrower than the
+                    // badge the three transitions carry, so left to shrink the
+                    // column sizes to the text and clips "Disabled" to "Dis…".
+                    noShrink
                     onFilter={() =>
                         deps.setColumnFilter("event_kind", {
                             op: AddressHistoryFilterOperator.IN,
@@ -360,7 +387,7 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
                         })
                     }
                 >
-                    {renderEventKindBadge(row.event_kind)}
+                    {renderEventCell(row)}
                 </FilterableCell>
             ),
         },
@@ -386,7 +413,7 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
                         })
                     }
                 >
-                    {renderTtlRiskBadge(row.ttl_risk)}
+                    {renderTtlRiskCell(row.ttl_risk)}
                 </FilterableCell>
             ),
         },

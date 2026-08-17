@@ -101,20 +101,64 @@ describe("AddressHistoryTable", () => {
         );
     });
 
-    it("shows status badges", async () => {
+    it("leaves the address state unstated when the event kind implies it", async () => {
+        server.use(
+            addressHandlers.history.success(
+                createMockAddressHistoryResponse({
+                    events: [
+                        createMockAddressHistoryEvent({
+                            id: 1,
+                            ip: "10.0.0.1",
+                            event_kind: AddressEventKind.CREATED,
+                            is_enabled: true,
+                        }),
+                    ],
+                    total: 1,
+                }),
+            ),
+        );
+
         renderTable();
 
-        // "Enabled"/"Disabled" render in both the Status column and the Event
-        // column (an `enabled`/`disabled` event_kind always pairs with a
-        // matching is_enabled), so both are expected to appear more than once.
         await waitFor(
-            () => expect(screen.getAllByText("Enabled").length).toBeGreaterThan(0),
+            () => expect(screen.getByText("Created")).toBeInTheDocument(),
             { timeout: TEST_TIMEOUTS.SHORT },
         );
-        expect(screen.getAllByText("Disabled").length).toBeGreaterThan(0);
+        expect(screen.queryByText(/now (enabled|disabled)/)).not.toBeInTheDocument();
     });
 
-    it("shows source badges", async () => {
+    it("states the address state when the event kind does not imply it", async () => {
+        // `created` means "no earlier event survives", not "the address was
+        // created": once retention has pruned an address's history its oldest
+        // surviving event can be a cap eviction, leaving it disabled. That row
+        // is the reason the Status column's data outlives the Status column.
+        server.use(
+            addressHandlers.history.success(
+                createMockAddressHistoryResponse({
+                    events: [
+                        createMockAddressHistoryEvent({
+                            id: 1,
+                            ip: "10.0.0.1",
+                            event_kind: AddressEventKind.CREATED,
+                            source: "limit_exceeded",
+                            is_enabled: false,
+                        }),
+                    ],
+                    total: 1,
+                }),
+            ),
+        );
+
+        renderTable();
+
+        await waitFor(
+            () => expect(screen.getByText("Created")).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+        expect(screen.getByText(/now disabled/)).toBeInTheDocument();
+    });
+
+    it("shows the source of each event", async () => {
         renderTable();
 
         await waitFor(
@@ -123,9 +167,12 @@ describe("AddressHistoryTable", () => {
         );
         expect(screen.getByText("Web UI")).toBeInTheDocument();
         expect(screen.getByText("Expiry")).toBeInTheDocument();
+        // Which subsystem wrote an event is read once you have stopped on the
+        // row, so it never takes colour — not even for the server jobs.
+        expect(screen.getByText("Expiry").closest(".mantine-Badge-root")).toBeNull();
     });
 
-    it("shows trigger badges", async () => {
+    it("badges a user trigger and nothing else", async () => {
         renderTable();
 
         await waitFor(
@@ -133,9 +180,9 @@ describe("AddressHistoryTable", () => {
             { timeout: TEST_TIMEOUTS.SHORT },
         );
         const table = within(screen.getByRole("table"));
-        expect(table.getByText("Scheduled")).toBeInTheDocument();
-        expect(table.getByText("User")).toBeInTheDocument();
-        expect(table.getByText("System")).toBeInTheDocument();
+        expect(table.getByText("User").closest(".mantine-Badge-root")).not.toBeNull();
+        expect(table.getByText("Scheduled").closest(".mantine-Badge-root")).toBeNull();
+        expect(table.getByText("System").closest(".mantine-Badge-root")).toBeNull();
     });
 
     it("renders Source and Trigger as independent axes", async () => {
@@ -175,10 +222,12 @@ describe("AddressHistoryTable", () => {
         expect(table.getByText("Scheduled")).toBeInTheDocument();
     });
 
-    it("dims a routine refresh but not a user-triggered one", async () => {
-        // A refresh recedes because nothing changed; a user-triggered refresh
-        // means someone pressed the button to stay online, and is the row an
-        // admin scans a screen of routine beats for.
+    it("de-emphasises a routine refresh without touching row opacity", async () => {
+        // Opacity is the one emphasis channel that cannot be made accessible: it
+        // composites foreground and background together, dragging every `light`
+        // badge in the row under 4.5:1. A routine refresh recedes because its
+        // cells carry no colour, not because the row is turned down — so no row
+        // may carry an inline opacity, at 0.55 or at any friendlier value.
         server.use(
             addressHandlers.history.success(
                 createMockAddressHistoryResponse({
@@ -208,8 +257,11 @@ describe("AddressHistoryTable", () => {
             { timeout: TEST_TIMEOUTS.SHORT },
         );
         const table = within(screen.getByRole("table"));
-        expect(table.getByText("10.0.0.1").closest("tr")).not.toHaveStyle({ opacity: "0.55" });
-        expect(table.getByText("10.0.0.2").closest("tr")).toHaveStyle({ opacity: "0.55" });
+        for (const row of table.getAllByRole("row")) {
+            expect(row.style.opacity).toBe("");
+        }
+        // The refresh label itself is what recedes, and it takes no badge.
+        expect(table.getAllByText("Refresh")[0].closest(".mantine-Badge-root")).toBeNull();
     });
 
     it("keeps Trigger beside Source for a user with a stored column order", async () => {
@@ -232,25 +284,31 @@ describe("AddressHistoryTable", () => {
         expect(titles[source + 1]).toContain("Trigger");
     });
 
-    it("shows event kind badges", async () => {
+    it("badges the transitions the address went through", async () => {
         renderTable();
 
-        // "Created" is unambiguous — unlike Enabled/Disabled it never doubles as
-        // a Status badge value, so its presence alone confirms the Event column
-        // renders `event_kind` via the server enum.
         await waitFor(
             () => expect(screen.getByText("Created")).toBeInTheDocument(),
             { timeout: TEST_TIMEOUTS.SHORT },
         );
+        const table = within(screen.getByRole("table"));
+        expect(table.getByText("Created").closest(".mantine-Badge-root")).not.toBeNull();
+        expect(table.getByText("Enabled").closest(".mantine-Badge-root")).not.toBeNull();
+        expect(table.getByText("Disabled").closest(".mantine-Badge-root")).not.toBeNull();
     });
 
-    it("shows TTL headroom badges rendered from the server enum", async () => {
+    it("badges only the TTL levels short of comfortable", async () => {
         renderTable();
 
         await waitFor(
             () => expect(screen.getAllByText("Comfortable").length).toBeGreaterThan(0),
             { timeout: TEST_TIMEOUTS.SHORT },
         );
+        // Comfortable is ~88% of real rows: a badge there is colour spent on the
+        // norm, which is what buried the levels that need reading.
+        const table = within(screen.getByRole("table"));
+        expect(table.getAllByText("Comfortable")[0].closest(".mantine-Badge-root")).toBeNull();
+        expect(table.getByText("Past TTL").closest(".mantine-Badge-root")).not.toBeNull();
         // Scoped to the table: the risk chart's legend names the same bands.
         expect(within(screen.getByRole("table")).getByText("Past TTL")).toBeInTheDocument();
         expect(
