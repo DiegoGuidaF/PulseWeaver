@@ -250,8 +250,11 @@ describe('OwnerDevicesPanel', () => {
                 { timeout: TEST_TIMEOUTS.SHORT },
             );
 
-            // fireEvent.change is required: user.type does not trigger Mantine Autocomplete in happy-dom
-            fireEvent.change(screen.getByPlaceholderText('other owner...'), { target: { value: 'Other' } });
+            // The Select mounts its options only once the input is focused, and user.type
+            // does not drive Mantine's Combobox under happy-dom — so click, then change.
+            const jumpInput = screen.getByPlaceholderText('other owner...');
+            fireEvent.click(jumpInput);
+            fireEvent.change(jumpInput, { target: { value: 'Other' } });
 
             const option = await screen.findByRole('option', { name: 'Other User' });
             fireEvent.click(option);
