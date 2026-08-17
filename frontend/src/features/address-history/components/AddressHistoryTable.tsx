@@ -24,11 +24,13 @@ import {
 import {
     EVENT_KIND_LABELS,
     SOURCE_LABELS,
+    TRIGGER_LABELS,
     TTL_HEADROOM_COLUMN_LABEL,
     TTL_RISK_LABELS,
     isAddressEventSource,
+    isAddressEventTrigger,
 } from "../constants";
-import { AddressEventKind, type AddressHistoryEvent, type TtlRisk } from "@/lib/api";
+import { AddressEventKind, AddressEventTrigger, type AddressHistoryEvent, type TtlRisk } from "@/lib/api";
 import { ErrorState } from "@/components/ErrorState";
 import { presetToMs } from "@/lib/formatChartLabel";
 import { useDateFormatter, usePickerValueFormat } from "@/contexts/useDateTimePrefs";
@@ -52,6 +54,7 @@ const COLUMN_META: ManagedColumnMeta[] = [
     { accessor: "geo", label: "Location", defaultVisible: true },
     { accessor: "is_enabled", label: "Status", defaultVisible: true },
     { accessor: "source", label: "Source", defaultVisible: true },
+    { accessor: "trigger_type", label: "Trigger", defaultVisible: true },
     { accessor: "event_kind", label: "Event", defaultVisible: true },
     { accessor: "renewal_gap_seconds", label: "Renewal gap", defaultVisible: true },
     { accessor: "ttl_risk", label: TTL_HEADROOM_COLUMN_LABEL, defaultVisible: true },
@@ -63,8 +66,14 @@ const COLUMN_META: ManagedColumnMeta[] = [
  */
 const LEAN_DEFAULT_VISIBLE_COLUMNS = ["ip", "event_kind", "ttl_risk"];
 
-/** Column store key; bump the suffix when the persisted column shape changes. */
-const COLUMNS_STORE_KEY = "pulseweaver:address-history:columns:v1";
+/**
+ * Column store key; bump the suffix when the persisted column shape changes.
+ * Adding a column normally does not qualify — the library appends an unknown
+ * accessor to the stored order — but Trigger only makes sense read against
+ * Source, and appended it lands several columns away. Position is part of this
+ * column, so the bump buys it at the cost of everyone's stored widths.
+ */
+const COLUMNS_STORE_KEY = "pulseweaver:address-history:columns:v2";
 
 interface AddressHistoryTableProps {
     filters: AddressHistoryFilters;
@@ -88,6 +97,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
         device_name: "Filter by device or owning user",
         ip: "Filter by IP address",
         source: "Filter by source",
+        trigger_type: "Filter by trigger",
         event_kind: "Filter by event kind",
         ttl_risk: "Filter by TTL headroom",
     });
@@ -181,6 +191,7 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
             device_id: (v) => deviceOptions.find((o) => o.value === v)?.label ?? v,
             user_id: (v) => userOptions.find((o) => o.value === v)?.label ?? v,
             source: (v) => (isAddressEventSource(v) ? SOURCE_LABELS[v] : v),
+            trigger_type: (v) => (isAddressEventTrigger(v) ? TRIGGER_LABELS[v] : v),
             event_kind: (v) => EVENT_KIND_LABELS[v as AddressEventKind] ?? v,
             ttl_risk: (v) => TTL_RISK_LABELS[v as TtlRisk] ?? v,
         };
@@ -300,7 +311,15 @@ export function AddressHistoryTable({ filters, refreshInterval }: AddressHistory
                     loaderBackgroundBlur={1}
                     scrollAreaProps={{ type: "auto" }}
                     pinFirstColumn
-                    rowStyle={(r) => (r.event_kind === AddressEventKind.REFRESH ? { opacity: 0.55 } : undefined)}
+                    // A refresh recedes because it changed nothing — but a
+                    // user-triggered one means someone had to press the button
+                    // to stay online, which is the signal this table is scanned
+                    // for. Dimming it would bury exactly the row that matters.
+                    rowStyle={(r) =>
+                        r.event_kind === AddressEventKind.REFRESH && r.trigger_type !== AddressEventTrigger.USER
+                            ? { opacity: 0.55 }
+                            : undefined
+                    }
                 />
             </div>
 

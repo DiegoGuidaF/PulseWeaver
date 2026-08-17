@@ -1,8 +1,8 @@
-import { AddressEventKind, AddressEventSource, TtlRisk } from "@/lib/api";
+import { AddressEventKind, AddressEventSource, AddressEventTrigger, TtlRisk } from "@/lib/api";
 
 export const SOURCE_LABELS: Record<AddressEventSource, string> = {
     [AddressEventSource.HEARTBEAT]: "Heartbeat",
-    [AddressEventSource.MANUAL]: "Manual",
+    [AddressEventSource.WEB_UI]: "Web UI",
     [AddressEventSource.EXPIRY]: "Expiry",
     [AddressEventSource.LIMIT_EXCEEDED]: "Limit Exceeded",
 };
@@ -16,6 +16,38 @@ export const SOURCE_OPTIONS = Object.values(AddressEventSource).map((source) => 
 export function isAddressEventSource(value: string): value is AddressEventSource {
     return value in SOURCE_LABELS;
 }
+
+export const TRIGGER_LABELS: Record<AddressEventTrigger, string> = {
+    [AddressEventTrigger.USER]: "User",
+    [AddressEventTrigger.SCHEDULE]: "Scheduled",
+    [AddressEventTrigger.NETWORK_CHANGE]: "Network change",
+    [AddressEventTrigger.SYSTEM]: "System",
+};
+
+export const TRIGGER_OPTIONS = Object.values(AddressEventTrigger).map((trigger) => ({
+    value: trigger,
+    label: TRIGGER_LABELS[trigger],
+}));
+
+/** Narrows a raw URL search-param string to a known address-event trigger. */
+export function isAddressEventTrigger(value: string): value is AddressEventTrigger {
+    return value in TRIGGER_LABELS;
+}
+
+/**
+ * Badge colour + emphasis per trigger. `user` is what an admin scans this column
+ * for — a deliberate human action — so it takes indigo filled, the style guide's
+ * loudest deliberate-action treatment. `network_change` is device-driven
+ * liveness and reads one step quieter in amber, while the two background
+ * triggers recede to grey: nothing about a routine beat or a server job is worth
+ * pulling the eye across the table.
+ */
+export const TRIGGER_BADGE: Record<AddressEventTrigger, { color: string; variant: "filled" | "light" | "dot" }> = {
+    [AddressEventTrigger.USER]: { color: "indigo", variant: "filled" },
+    [AddressEventTrigger.NETWORK_CHANGE]: { color: "orange", variant: "light" },
+    [AddressEventTrigger.SCHEDULE]: { color: "gray", variant: "dot" },
+    [AddressEventTrigger.SYSTEM]: { color: "gray", variant: "dot" },
+};
 
 export const EVENT_KIND_LABELS: Record<AddressEventKind, string> = {
     [AddressEventKind.CREATED]: "Created",

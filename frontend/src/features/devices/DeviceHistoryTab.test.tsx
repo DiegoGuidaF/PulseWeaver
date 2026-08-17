@@ -52,7 +52,7 @@ describe('DeviceHistoryTab', () => {
 
         // Check source badges (displayed via SOURCE_LABELS)
         expect(screen.getByText('Heartbeat')).toBeInTheDocument();
-        expect(screen.getByText('Manual')).toBeInTheDocument();
+        expect(screen.getByText('Web UI')).toBeInTheDocument();
         expect(screen.getByText('Expiry')).toBeInTheDocument();
     });
 

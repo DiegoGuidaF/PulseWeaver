@@ -244,6 +244,7 @@ import {
   zDeleteUserResponse,
   zDemoteUserPath,
   zDemoteUserResponse,
+  zDeviceHeartbeatByApiKeyQuery,
   zDeviceHeartbeatByApiKeyResponse,
   zDeviceHeartbeatPath,
   zDeviceHeartbeatResponse,
@@ -1040,7 +1041,8 @@ export const enableDevice = <ThrowOnError extends boolean = false>(
 /**
  * Device heartbeat
  *
- * Device reports its current IP address. Extracts the client IP from the request and ensures it is enabled. Requires API Token or Session.
+ * Registers an admin's own browser IP against the device — the "register my current IP" action. Extracts the client IP from the request and ensures it is enabled. Session-authenticated only: it inherits the global cookie security, so the resulting address event is always recorded as `web_ui` / `user`. Devices report their IP through `/heartbeat` with their API key.
+ *
  */
 export const deviceHeartbeat = <ThrowOnError extends boolean = false>(
   options: Options<DeviceHeartbeatData, ThrowOnError>,
@@ -1097,7 +1099,7 @@ export const deviceHeartbeatByApiKey = <ThrowOnError extends boolean = false>(
         .object({
           body: z.never().optional(),
           path: z.never().optional(),
-          query: z.never().optional(),
+          query: zDeviceHeartbeatByApiKeyQuery.optional(),
         })
         .parseAsync(data),
     responseValidator: async (data) =>

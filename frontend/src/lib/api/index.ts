@@ -90,6 +90,7 @@ export {
   type Address,
   AddressEventKind,
   AddressEventSource,
+  AddressEventTrigger,
   type AddressHistoryBucket,
   type AddressHistoryEvent,
   AddressHistoryFilterOperator,

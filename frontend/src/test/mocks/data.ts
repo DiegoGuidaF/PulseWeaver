@@ -1,5 +1,5 @@
 import type { VersionInfo, Address, AddressHistoryTuningCandidate, AddressHistoryTuningResponse, AddressHistoryBucket, AddressHistoryEvent, AddressHistoryHistogramResponse, AddressHistoryResponse, AccessLogCountryStats, DashboardAttributionCount, DashboardPosture, DashboardServiceCount, DashboardStats, DashboardTopDeniedIp, DashboardTrafficBucket, Device, DeviceAddressLeaseRule, DeviceListItem, DevicePairing, DeviceRef, GroupDetailWithUsers, GroupListItem, Host, HostSuggestion, HostSuggestionsPage, IgnoredHostSuggestion, MaxActiveAddressesRule, AccessLogResponse, AccessLogRow, AccessLogDetail, AccessLogHistogramResponse, NetworkPolicyListItem, NetworkPolicyDetail, OwnerFleetGroup, OwnerRef, OwnerSummary, FleetDevice, User, UserListItem, UserAccessDetail, SubjectGroupDetail, GroupRef, PolicyUserAddress, PolicyUserIpSharedUser, PolicyUserIp, PolicyUserEntry, PolicyUserMapAudit, PolicySimulateResult } from '@/lib/api';
-import { AddressEventKind, AddressEventSource, DeviceState, PolicyUserStatus, TtlRisk, UserRole } from "@/lib/api";
+import { AddressEventKind, AddressEventSource, AddressEventTrigger, DeviceState, PolicyUserStatus, TtlRisk, UserRole } from "@/lib/api";
 
 /**
  * Creates a mock Device object with realistic defaults.
@@ -208,6 +208,7 @@ export function createMockAddressHistoryEvent(
     ip: '192.168.1.100',
     is_enabled: true,
     source: 'heartbeat',
+    trigger_type: AddressEventTrigger.SCHEDULE,
     device_id: 1,
     device_name: 'Test Device',
     renewal_gap_seconds: 300,
@@ -226,8 +227,8 @@ export function createMockAddressHistoryResponse(
   return {
     events: [
       createMockAddressHistoryEvent({ id: 3, timestamp: '2024-01-01T10:30:00Z', ip: '10.0.0.1', is_enabled: true, source: 'heartbeat', event_kind: AddressEventKind.CREATED }),
-      createMockAddressHistoryEvent({ id: 2, timestamp: '2024-01-01T11:00:00Z', ip: '10.0.0.2', is_enabled: true, source: 'manual', event_kind: AddressEventKind.ENABLED }),
-      createMockAddressHistoryEvent({ id: 1, timestamp: '2024-01-01T11:45:00Z', ip: '10.0.0.1', is_enabled: false, source: 'expiry', event_kind: AddressEventKind.DISABLED, ttl_risk: TtlRisk.BREACHED }),
+      createMockAddressHistoryEvent({ id: 2, timestamp: '2024-01-01T11:00:00Z', ip: '10.0.0.2', is_enabled: true, source: 'web_ui', trigger_type: AddressEventTrigger.USER, event_kind: AddressEventKind.ENABLED }),
+      createMockAddressHistoryEvent({ id: 1, timestamp: '2024-01-01T11:45:00Z', ip: '10.0.0.1', is_enabled: false, source: 'expiry', trigger_type: AddressEventTrigger.SYSTEM, event_kind: AddressEventKind.DISABLED, ttl_risk: TtlRisk.BREACHED }),
     ],
     total: 3,
     next_cursor: null,

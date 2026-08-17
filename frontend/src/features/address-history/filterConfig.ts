@@ -10,7 +10,14 @@ import {
 export type FilterOp = AddressHistoryFilterOperator;
 export type ColumnFilterState = BaseColumnFilterState<FilterOp>;
 
-export type FilterColumnKey = "device_id" | "user_id" | "ip" | "source" | "event_kind" | "ttl_risk";
+export type FilterColumnKey =
+    | "device_id"
+    | "user_id"
+    | "ip"
+    | "source"
+    | "trigger_type"
+    | "event_kind"
+    | "ttl_risk";
 
 export const FILTER_COLUMNS: Record<FilterColumnKey, FilterColumnConfig<FilterOp>> = {
     device_id: {
@@ -36,6 +43,10 @@ export const FILTER_COLUMNS: Record<FilterColumnKey, FilterColumnConfig<FilterOp
         operators: [AddressHistoryFilterOperator.IN, AddressHistoryFilterOperator.NOT_IN],
         widget: "multiselect",
     },
+    trigger_type: {
+        operators: [AddressHistoryFilterOperator.IN, AddressHistoryFilterOperator.NOT_IN],
+        widget: "multiselect",
+    },
     event_kind: {
         operators: [AddressHistoryFilterOperator.IN, AddressHistoryFilterOperator.NOT_IN],
         widget: "multiselect",
@@ -56,12 +67,13 @@ export const COLUMN_CHIP_LABELS: Record<FilterColumnKey, string> = {
     user_id: "User",
     ip: "IP",
     source: "Source",
+    trigger_type: "Trigger",
     event_kind: "Event",
     ttl_risk: TTL_HEADROOM_COLUMN_LABEL,
 };
 
 /**
- * Renders a column filter as a chip value, e.g. "is any of Heartbeat, Manual".
+ * Renders a column filter as a chip value, e.g. "is any of Heartbeat, Web UI".
  * `resolveLabel` maps stored values (often enum values or IDs) to display names.
  */
 export function describeColumnFilter(

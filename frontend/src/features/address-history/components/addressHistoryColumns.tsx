@@ -4,7 +4,7 @@ import type { DataTableColumn } from "mantine-datatable";
 import { FilterableCell } from "@/components/FilterableCell";
 import { ColumnFilter, FilterApplyButton } from "@/components/ColumnFilter";
 import { GeoCell } from "@/components/GeoCell";
-import { AddressEventSource, AddressHistoryFilterOperator, TtlRisk, type AddressEventKind, type AddressHistoryEvent } from "@/lib/api";
+import { AddressEventSource, AddressHistoryFilterOperator, TtlRisk, type AddressEventKind, type AddressEventTrigger, type AddressHistoryEvent } from "@/lib/api";
 import type { AddressHistoryFilters } from "../hooks/useAddressHistoryFilters";
 import {
     type ColumnFilterState,
@@ -19,6 +19,9 @@ import {
     TTL_HEADROOM_COLUMN_LABEL,
     SOURCE_LABELS,
     SOURCE_OPTIONS,
+    TRIGGER_BADGE,
+    TRIGGER_LABELS,
+    TRIGGER_OPTIONS,
     TTL_RISK_BADGE,
     TTL_RISK_LABELS,
     TTL_RISK_OPTIONS,
@@ -57,7 +60,7 @@ function sourceBadgeColor(source: AddressEventSource): string {
     switch (source) {
         case AddressEventSource.HEARTBEAT:
             return "orange";
-        case AddressEventSource.MANUAL:
+        case AddressEventSource.WEB_UI:
             return "grape";
         case AddressEventSource.EXPIRY:
             return "orange";
@@ -68,6 +71,15 @@ function sourceBadgeColor(source: AddressEventSource): string {
             return _exhaustive;
         }
     }
+}
+
+function renderTriggerBadge(trigger: AddressEventTrigger) {
+    const { color, variant } = TRIGGER_BADGE[trigger];
+    return (
+        <Badge size="sm" color={color} variant={variant}>
+            {TRIGGER_LABELS[trigger]}
+        </Badge>
+    );
 }
 
 function renderEventKindBadge(kind: AddressEventKind) {
@@ -309,6 +321,26 @@ export function getAddressHistoryColumns(deps: AddressHistoryColumnDeps): DataTa
                     <Badge size="sm" color={sourceBadgeColor(row.source)} variant="dot">
                         {SOURCE_LABELS[row.source] ?? row.source}
                     </Badge>
+                </FilterableCell>
+            ),
+        },
+        {
+            accessor: "trigger_type",
+            title: "Trigger",
+            textAlign: "center",
+            filter: columnFilterSlot("trigger_type", TRIGGER_OPTIONS),
+            filtering: isFilterActive(deps.getColumnFilter("trigger_type")),
+            render: (row) => (
+                <FilterableCell
+                    filterLabel="Filter by this trigger"
+                    onFilter={() =>
+                        deps.setColumnFilter("trigger_type", {
+                            op: AddressHistoryFilterOperator.IN,
+                            values: [row.trigger_type],
+                        })
+                    }
+                >
+                    {renderTriggerBadge(row.trigger_type)}
                 </FilterableCell>
             ),
         },

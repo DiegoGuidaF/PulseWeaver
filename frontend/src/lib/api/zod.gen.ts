@@ -198,11 +198,12 @@ export const zAddressHistoryHistogramResponse = z.object({
 });
 
 /**
- * What triggered an address state change
+ * Which subsystem wrote an address event. `heartbeat` is the companion app, `web_ui` any action an admin took in the browser (adding an IP, toggling an address, disabling or deleting a device, registering the browser's own IP), and `expiry`/`limit_exceeded` the server's own lease and address-limit jobs. What set the event off is a separate axis — see `trigger_type`.
+ *
  */
 export const zAddressEventSource = z.enum([
   "heartbeat",
-  "manual",
+  "web_ui",
   "expiry",
   "limit_exceeded",
 ]);
@@ -255,43 +256,6 @@ export const zAddressHistoryFilterOperator = z.enum([
   "contains",
   "not_contains",
 ]);
-
-export const zAddressHistoryEvent = z.object({
-  id: zId,
-  timestamp: z.iso.datetime({ offset: true, local: true }),
-  ip: zIpAddress,
-  is_enabled: z.boolean(),
-  source: zAddressEventSource,
-  device_id: zId,
-  device_name: z.string(),
-  renewal_gap_seconds: z.coerce
-    .bigint()
-    .min(BigInt("-9223372036854775808"), {
-      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
-    })
-    .max(BigInt("9223372036854775807"), {
-      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
-    })
-    .nullish(),
-  event_kind: zAddressEventKind,
-  ttl_risk: zTtlRisk,
-  ttl_seconds: z.coerce
-    .bigint()
-    .min(BigInt("-9223372036854775808"), {
-      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
-    })
-    .max(BigInt("9223372036854775807"), {
-      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
-    })
-    .nullish(),
-  geo: zGeoInfo.nullish(),
-});
-
-export const zAddressHistoryResponse = z.object({
-  events: z.array(zAddressHistoryEvent),
-  total: z.int(),
-  next_cursor: zId.nullable(),
-});
 
 export const zAccessLogCountryStats = z.object({
   country_code: z.string(),
@@ -876,6 +840,55 @@ export const zOwnerFleetGroup = z.object({
   devices: z.array(zFleetDevice),
 });
 
+/**
+ * What set an address event off, independent of which subsystem wrote it. `user` is a deliberate human action — an app or tray button, or any web UI action. `schedule` is the companion app's periodic beat and `network_change` its reaction to the device changing network. `system` marks the server's own jobs (lease expiry, address-limit eviction) and is never accepted from a client.
+ *
+ */
+export const zAddressEventTrigger = z.enum([
+  "user",
+  "schedule",
+  "network_change",
+  "system",
+]);
+
+export const zAddressHistoryEvent = z.object({
+  id: zId,
+  timestamp: z.iso.datetime({ offset: true, local: true }),
+  ip: zIpAddress,
+  is_enabled: z.boolean(),
+  source: zAddressEventSource,
+  trigger_type: zAddressEventTrigger,
+  device_id: zId,
+  device_name: z.string(),
+  renewal_gap_seconds: z.coerce
+    .bigint()
+    .min(BigInt("-9223372036854775808"), {
+      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
+    })
+    .max(BigInt("9223372036854775807"), {
+      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
+    })
+    .nullish(),
+  event_kind: zAddressEventKind,
+  ttl_risk: zTtlRisk,
+  ttl_seconds: z.coerce
+    .bigint()
+    .min(BigInt("-9223372036854775808"), {
+      error: "Invalid value: Expected int64 to be >= -9223372036854775808",
+    })
+    .max(BigInt("9223372036854775807"), {
+      error: "Invalid value: Expected int64 to be <= 9223372036854775807",
+    })
+    .nullish(),
+  geo: zGeoInfo.nullish(),
+});
+
+export const zAddressHistoryResponse = z.object({
+  events: z.array(zAddressHistoryEvent),
+  total: z.int(),
+  next_cursor: zId.nullable(),
+});
+
 export const zAddressHistoryTuningCandidate = z.object({
   device_id: zId,
   device_name: z.string(),
@@ -1353,6 +1366,10 @@ export const zDeviceHeartbeatPath = z.object({
  */
 export const zDeviceHeartbeatResponse = zAddress;
 
+export const zDeviceHeartbeatByApiKeyQuery = z.object({
+  trigger_type: z.string().optional(),
+});
+
 /**
  * Address enabled
  */
@@ -1395,6 +1412,8 @@ export const zGetAddressHistoryQuery = z.object({
   ip_op: zAddressHistoryFilterOperator.optional(),
   source: z.array(zAddressEventSource).max(200).optional(),
   source_op: zAddressHistoryFilterOperator.optional(),
+  trigger_type: z.array(zAddressEventTrigger).max(200).optional(),
+  trigger_type_op: zAddressHistoryFilterOperator.optional(),
   event_kind: z.array(zAddressEventKind).max(200).optional(),
   event_kind_op: zAddressHistoryFilterOperator.optional(),
   ttl_risk: z.array(zTtlRisk).max(200).optional(),
@@ -1427,6 +1446,8 @@ export const zGetAddressHistoryHistogramQuery = z.object({
   ip_op: zAddressHistoryFilterOperator.optional(),
   source: z.array(zAddressEventSource).max(200).optional(),
   source_op: zAddressHistoryFilterOperator.optional(),
+  trigger_type: z.array(zAddressEventTrigger).max(200).optional(),
+  trigger_type_op: zAddressHistoryFilterOperator.optional(),
   event_kind: z.array(zAddressEventKind).max(200).optional(),
   event_kind_op: zAddressHistoryFilterOperator.optional(),
   ttl_risk: z.array(zTtlRisk).max(200).optional(),

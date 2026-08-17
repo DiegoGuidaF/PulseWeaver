@@ -418,17 +418,19 @@ export type AddressHistoryBucket = {
 };
 
 /**
- * What triggered an address state change
+ * Which subsystem wrote an address event. `heartbeat` is the companion app, `web_ui` any action an admin took in the browser (adding an IP, toggling an address, disabling or deleting a device, registering the browser's own IP), and `expiry`/`limit_exceeded` the server's own lease and address-limit jobs. What set the event off is a separate axis — see `trigger_type`.
+ *
  */
 export const AddressEventSource = {
   HEARTBEAT: "heartbeat",
-  MANUAL: "manual",
+  WEB_UI: "web_ui",
   EXPIRY: "expiry",
   LIMIT_EXCEEDED: "limit_exceeded",
 } as const;
 
 /**
- * What triggered an address state change
+ * Which subsystem wrote an address event. `heartbeat` is the companion app, `web_ui` any action an admin took in the browser (adding an IP, toggling an address, disabling or deleting a device, registering the browser's own IP), and `expiry`/`limit_exceeded` the server's own lease and address-limit jobs. What set the event off is a separate axis — see `trigger_type`.
+ *
  */
 export type AddressEventSource =
   (typeof AddressEventSource)[keyof typeof AddressEventSource];
@@ -496,6 +498,10 @@ export type AddressHistoryEvent = {
    */
   is_enabled: boolean;
   source: AddressEventSource;
+  /**
+   * What set this event off, independent of the subsystem that wrote it.
+   */
+  trigger_type: AddressEventTrigger;
   device_id: Id;
   /**
    * Name of the device
@@ -1427,6 +1433,24 @@ export const DevicePairingStatus = {
  */
 export type DevicePairingStatus =
   (typeof DevicePairingStatus)[keyof typeof DevicePairingStatus];
+
+/**
+ * What set an address event off, independent of which subsystem wrote it. `user` is a deliberate human action — an app or tray button, or any web UI action. `schedule` is the companion app's periodic beat and `network_change` its reaction to the device changing network. `system` marks the server's own jobs (lease expiry, address-limit eviction) and is never accepted from a client.
+ *
+ */
+export const AddressEventTrigger = {
+  USER: "user",
+  SCHEDULE: "schedule",
+  NETWORK_CHANGE: "network_change",
+  SYSTEM: "system",
+} as const;
+
+/**
+ * What set an address event off, independent of which subsystem wrote it. `user` is a deliberate human action — an app or tray button, or any web UI action. `schedule` is the companion app's periodic beat and `network_change` its reaction to the device changing network. `system` marks the server's own jobs (lease expiry, address-limit eviction) and is never accepted from a client.
+ *
+ */
+export type AddressEventTrigger =
+  (typeof AddressEventTrigger)[keyof typeof AddressEventTrigger];
 
 export type AddressHistoryTuningCandidate = {
   device_id: Id;
@@ -2427,7 +2451,13 @@ export type DeviceHeartbeatResponse =
 export type DeviceHeartbeatByApiKeyData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    /**
+     * What set this heartbeat off, recorded on the resulting address event: `user`, `schedule` or `network_change`. Deliberately untyped, because this annotation must never cost a device its access — an omitted, unrecognised, or server-only (`system`) value is recorded as `schedule` instead of failing the request.
+     *
+     */
+    trigger_type?: string;
+  };
   url: "/heartbeat";
 };
 
@@ -2607,6 +2637,11 @@ export type GetAddressHistoryData = {
     source?: Array<AddressEventSource>;
     source_op?: AddressHistoryFilterOperator;
     /**
+     * Event trigger filter values (in, not_in).
+     */
+    trigger_type?: Array<AddressEventTrigger>;
+    trigger_type_op?: AddressHistoryFilterOperator;
+    /**
      * Event kind filter values (in, not_in).
      */
     event_kind?: Array<AddressEventKind>;
@@ -2688,6 +2723,11 @@ export type GetAddressHistoryHistogramData = {
      */
     source?: Array<AddressEventSource>;
     source_op?: AddressHistoryFilterOperator;
+    /**
+     * Event trigger filter values (in, not_in).
+     */
+    trigger_type?: Array<AddressEventTrigger>;
+    trigger_type_op?: AddressHistoryFilterOperator;
     /**
      * Event kind filter values (in, not_in).
      */

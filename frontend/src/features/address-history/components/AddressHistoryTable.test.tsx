@@ -11,7 +11,7 @@ import {
 } from "@/test/mocks/data";
 import { addressHandlers, endpoints, responses } from "@/test/mocks/handlers";
 import { TEST_TIMEOUTS } from "@/test/constants";
-import { TtlRisk } from "@/lib/api";
+import { AddressEventKind, AddressEventTrigger, TtlRisk } from "@/lib/api";
 
 const BASE_ENTRY =
     "/address-history?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z";
@@ -121,8 +121,115 @@ describe("AddressHistoryTable", () => {
             () => expect(screen.getByText("Heartbeat")).toBeInTheDocument(),
             { timeout: TEST_TIMEOUTS.SHORT },
         );
-        expect(screen.getByText("Manual")).toBeInTheDocument();
+        expect(screen.getByText("Web UI")).toBeInTheDocument();
         expect(screen.getByText("Expiry")).toBeInTheDocument();
+    });
+
+    it("shows trigger badges", async () => {
+        renderTable();
+
+        await waitFor(
+            () => expect(screen.getByText("Heartbeat")).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+        const table = within(screen.getByRole("table"));
+        expect(table.getByText("Scheduled")).toBeInTheDocument();
+        expect(table.getByText("User")).toBeInTheDocument();
+        expect(table.getByText("System")).toBeInTheDocument();
+    });
+
+    it("renders Source and Trigger as independent axes", async () => {
+        // The whole point of the column: one subsystem can write events set off
+        // by different things, so a shared source must not collapse the triggers.
+        server.use(
+            addressHandlers.history.success(
+                createMockAddressHistoryResponse({
+                    events: [
+                        createMockAddressHistoryEvent({
+                            id: 2,
+                            ip: "10.0.0.1",
+                            source: "heartbeat",
+                            trigger_type: AddressEventTrigger.USER,
+                        }),
+                        createMockAddressHistoryEvent({
+                            id: 1,
+                            ip: "10.0.0.2",
+                            source: "heartbeat",
+                            trigger_type: AddressEventTrigger.SCHEDULE,
+                        }),
+                    ],
+                    total: 2,
+                }),
+            ),
+        );
+
+        renderTable();
+
+        await waitFor(
+            () => expect(screen.getByText("10.0.0.2")).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+        const table = within(screen.getByRole("table"));
+        expect(table.getAllByText("Heartbeat")).toHaveLength(2);
+        expect(table.getByText("User")).toBeInTheDocument();
+        expect(table.getByText("Scheduled")).toBeInTheDocument();
+    });
+
+    it("dims a routine refresh but not a user-triggered one", async () => {
+        // A refresh recedes because nothing changed; a user-triggered refresh
+        // means someone pressed the button to stay online, and is the row an
+        // admin scans a screen of routine beats for.
+        server.use(
+            addressHandlers.history.success(
+                createMockAddressHistoryResponse({
+                    events: [
+                        createMockAddressHistoryEvent({
+                            id: 2,
+                            ip: "10.0.0.1",
+                            trigger_type: AddressEventTrigger.USER,
+                            event_kind: AddressEventKind.REFRESH,
+                        }),
+                        createMockAddressHistoryEvent({
+                            id: 1,
+                            ip: "10.0.0.2",
+                            trigger_type: AddressEventTrigger.SCHEDULE,
+                            event_kind: AddressEventKind.REFRESH,
+                        }),
+                    ],
+                    total: 2,
+                }),
+            ),
+        );
+
+        renderTable();
+
+        await waitFor(
+            () => expect(screen.getByText("10.0.0.2")).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+        const table = within(screen.getByRole("table"));
+        expect(table.getByText("10.0.0.1").closest("tr")).not.toHaveStyle({ opacity: "0.55" });
+        expect(table.getByText("10.0.0.2").closest("tr")).toHaveStyle({ opacity: "0.55" });
+    });
+
+    it("keeps Trigger beside Source for a user with a stored column order", async () => {
+        // The library appends an unknown accessor to a stored order, so a new
+        // column lands at the far right for every returning user unless the
+        // store key moves on. Trigger only reads against Source, so it does.
+        localStorage.setItem(
+            "pulseweaver:address-history:columns:v1-columns-order",
+            JSON.stringify(["timestamp", "device_name", "ip", "geo", "is_enabled", "source", "event_kind", "renewal_gap_seconds", "ttl_risk"]),
+        );
+
+        renderTable();
+
+        await waitFor(
+            () => expect(screen.getByText("10.0.0.2")).toBeInTheDocument(),
+            { timeout: TEST_TIMEOUTS.SHORT },
+        );
+        const titles = screen.getAllByRole("columnheader").map((h) => h.textContent ?? "");
+        const source = titles.findIndex((t) => t.includes("Source"));
+        expect(titles[source + 1]).toContain("Trigger");
     });
 
     it("shows event kind badges", async () => {
@@ -382,6 +489,29 @@ describe("AddressHistoryTable", () => {
         });
     });
 
+    // ─── Trigger filter ──────────────────────────────────────────────────────
+
+    describe("Trigger filter", () => {
+        it("opens with a multi-select of every trigger", async () => {
+            const user = setupUser();
+            server.use(addressHandlers.history.empty());
+
+            renderTable();
+
+            await waitFor(
+                () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            await user.click(getFilterButton("Trigger"));
+            await user.click(await screen.findByPlaceholderText("Select values"));
+
+            for (const label of ["User", "Scheduled", "Network change", "System"]) {
+                expect(await screen.findByRole("option", { name: label })).toBeInTheDocument();
+            }
+        });
+    });
+
     // ─── Event kind filter ───────────────────────────────────────────────────
 
     describe("Event kind filter", () => {
@@ -491,6 +621,22 @@ describe("AddressHistoryTable", () => {
             expect(screen.getByText(/Heartbeat/)).toBeInTheDocument();
         });
 
+        it("shows a Trigger chip when trigger_type filter is set", async () => {
+            server.use(addressHandlers.history.empty());
+
+            renderTable([
+                "/address-history?from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-02T00%3A00%3A00.000Z&trigger_type=user",
+            ]);
+
+            await waitFor(
+                () => expect(screen.getByText("No address events found.")).toBeInTheDocument(),
+                { timeout: TEST_TIMEOUTS.SHORT },
+            );
+
+            expect(screen.getByText("Trigger:")).toBeInTheDocument();
+            expect(screen.getByText(/User/)).toBeInTheDocument();
+        });
+
         it("shows a TTL headroom chip when ttl_risk filter is set", async () => {
             // No matching events means no at-risk buckets either, so the chart
             // is in its empty state and its legend cannot shadow the chip.
@@ -558,6 +704,7 @@ describe("AddressHistoryTable", () => {
             expect(screen.queryByText("IP:")).not.toBeInTheDocument();
             expect(screen.queryByText("Device:")).not.toBeInTheDocument();
             expect(screen.queryByText("Source:")).not.toBeInTheDocument();
+            expect(screen.queryByText("Trigger:")).not.toBeInTheDocument();
             expect(screen.queryByText("Event:")).not.toBeInTheDocument();
             expect(screen.queryByText("TTL headroom:")).not.toBeInTheDocument();
         });

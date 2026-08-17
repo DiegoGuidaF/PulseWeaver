@@ -27,7 +27,7 @@ export function isInactiveState(state: DeviceState): boolean {
 /** Compact source label for the address/history inline "updated_at · source" rows. */
 export const ADDRESS_SOURCE_LABELS: Record<AddressEventSource, string> = {
   [AddressEventSource.HEARTBEAT]: "heartbeat",
-  [AddressEventSource.MANUAL]: "manual",
+  [AddressEventSource.WEB_UI]: "web UI",
   [AddressEventSource.EXPIRY]: "expired",
   [AddressEventSource.LIMIT_EXCEEDED]: "evicted",
 };

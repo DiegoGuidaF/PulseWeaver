@@ -677,7 +677,7 @@ export const AddressSchema = {
     },
     source: {
       $ref: "#/components/schemas/AddressEventSource",
-      description: "What triggered the last state change.",
+      description: "Which subsystem wrote the last state change.",
     },
     created_at: {
       type: "string",
@@ -793,8 +793,9 @@ export const AddressHistoryBucketSchema = {
 
 export const AddressEventSourceSchema = {
   type: "string",
-  description: "What triggered an address state change",
-  enum: ["heartbeat", "manual", "expiry", "limit_exceeded"],
+  description:
+    "Which subsystem wrote an address event. `heartbeat` is the companion app, `web_ui` any action an admin took in the browser (adding an IP, toggling an address, disabling or deleting a device, registering the browser's own IP), and `expiry`/`limit_exceeded` the server's own lease and address-limit jobs. What set the event off is a separate axis — see `trigger_type`.\n",
+  enum: ["heartbeat", "web_ui", "expiry", "limit_exceeded"],
 } as const;
 
 export const AddressEventKindSchema = {
@@ -826,6 +827,7 @@ export const AddressHistoryEventSchema = {
     "ip",
     "is_enabled",
     "source",
+    "trigger_type",
     "device_id",
     "device_name",
     "event_kind",
@@ -849,6 +851,15 @@ export const AddressHistoryEventSchema = {
     },
     source: {
       $ref: "#/components/schemas/AddressEventSource",
+    },
+    trigger_type: {
+      allOf: [
+        {
+          $ref: "#/components/schemas/AddressEventTrigger",
+        },
+      ],
+      description:
+        "What set this event off, independent of the subsystem that wrote it.",
     },
     device_id: {
       $ref: "#/components/schemas/ID",
@@ -2742,6 +2753,13 @@ export const DevicePairingStatusSchema = {
     "Lifecycle state of a device pairing. pending: issued and not yet redeemed (expires_at in the future). expired: issued but the expiry window passed before it was claimed (derived, never stored). used: successfully redeemed by the heartbeat app. invalidated: explicitly cancelled by an administrator. replaced: superseded when a new pairing was issued for the same device.\n",
 } as const;
 
+export const AddressEventTriggerSchema = {
+  type: "string",
+  description:
+    "What set an address event off, independent of which subsystem wrote it. `user` is a deliberate human action — an app or tray button, or any web UI action. `schedule` is the companion app's periodic beat and `network_change` its reaction to the device changing network. `system` marks the server's own jobs (lease expiry, address-limit eviction) and is never accepted from a client.\n",
+  enum: ["user", "schedule", "network_change", "system"],
+} as const;
+
 export const AddressHistoryTuningCandidateSchema = {
   type: "object",
   required: [
@@ -3059,7 +3077,7 @@ export const AddressWritableSchema = {
     },
     source: {
       $ref: "#/components/schemas/AddressEventSource",
-      description: "What triggered the last state change.",
+      description: "Which subsystem wrote the last state change.",
     },
     created_at: {
       type: "string",
